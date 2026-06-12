@@ -15861,6 +15861,52 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1185
+
+Slice 1185 moves the model-mount backend-process and required-control
+command-response proof cluster out of the temporary bridge proof surface and
+into Rust owner code:
+
+- `crates/services/src/agentic/runtime/kernel/model_mount/backend_process.rs`
+- `crates/services/src/agentic/runtime/kernel/model_mount/required.rs`
+- `crates/services/src/agentic/runtime/kernel/command_dispatch.rs`
+
+The Rust owner tests now cover backend-process command-envelope response
+shaping plus backend lifecycle, server control, runtime engine, tokenizer, and
+route-control required command-envelope response shaping. Bridge conformance
+requires those owner tests, proves typed Rust `command_dispatch.rs` dispatches
+`plan_model_mount_backend_process`,
+`plan_model_mount_backend_lifecycle_required`,
+`plan_model_mount_server_control_required`,
+`plan_model_mount_runtime_engine_required`,
+`plan_model_mount_tokenizer_required`, and
+`plan_model_mount_route_control_required`, and proves the old bridge proof
+aliases, request-type imports, and bridge-named planning/required tests stay
+absent from `ioi_step_module_bridge/proof_tests.rs`. `cargo test -p ioi-node
+--bin ioi-step-module-bridge` now runs 35 bridge tests.
+
+This is a Rust-owner proof-retirement cut, not terminal model-mount migration.
+Backend-process planning and required-control refusals still cross temporary
+command transport until direct Rust daemon-core protocol APIs own backend
+supervision, server control, runtime-engine control, tokenizer/context-fit
+control, route-control admission, Agentgres truth, replay, and stable
+IDE/CLI/SDK surfaces end to end.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt` | passed |
+| `cargo fmt --check` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `cargo test -p ioi-services agentic::runtime::kernel::model_mount::backend_process::tests` | passed |
+| `cargo test -p ioi-services agentic::runtime::kernel::model_mount::required::tests` | passed |
+| `cargo test -p ioi-node --bin ioi-step-module-bridge` | passed; 35 tests |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1046
 
 Slice 1046 splits the MCP control state-update, MCP server validation, MCP

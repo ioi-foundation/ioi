@@ -7380,6 +7380,32 @@ lifecycle execution, provider inventory projection, instance lifecycle
 transition admission, Agentgres truth, replay, and stable IDE/CLI/SDK surfaces
 no longer depend on Node bridge endpoint proof scaffolding.
 
+Slice 1185 moves the model-mount backend-process and required-control
+command-response proof cluster out of the temporary bridge proof surface and
+into Rust model-mount owners at
+`crates/services/src/agentic/runtime/kernel/model_mount/backend_process.rs`
+and `crates/services/src/agentic/runtime/kernel/model_mount/required.rs`.
+Backend process planning plus backend lifecycle, server control, runtime
+engine, tokenizer, and route-control required command-envelope response
+shaping now run as Rust owner tests. Bridge conformance now requires those
+owner tests, proves typed Rust `command_dispatch.rs` still dispatches
+`plan_model_mount_backend_process`,
+`plan_model_mount_backend_lifecycle_required`,
+`plan_model_mount_server_control_required`,
+`plan_model_mount_runtime_engine_required`,
+`plan_model_mount_tokenizer_required`, and
+`plan_model_mount_route_control_required`, and proves the old bridge-named
+tests, request-type imports, and response-function aliases stay absent from
+`ioi_step_module_bridge/proof_tests.rs`. The bridge proof suite now runs 35
+tests.
+
+This remains non-terminal because backend-process planning and required-control
+refusals still cross temporary command transport. The target is direct Rust
+daemon-core model-mount protocol/API ownership where backend supervision,
+server control, runtime-engine control, tokenizer/context-fit control,
+route-control admission, Agentgres truth, replay, and stable IDE/CLI/SDK
+surfaces no longer depend on Node bridge endpoint proof scaffolding.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

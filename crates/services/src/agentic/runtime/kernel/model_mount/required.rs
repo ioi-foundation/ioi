@@ -178,3 +178,248 @@ pub fn plan_model_mount_route_control_required_response(
         "details": record.details,
     }))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::agentic::runtime::kernel::command_protocol::DAEMON_CORE_COMMAND_SCHEMA_VERSION;
+    use crate::agentic::runtime::kernel::model_mount::{
+        MODEL_MOUNT_BACKEND_LIFECYCLE_REQUIRED_REQUEST_SCHEMA_VERSION,
+        MODEL_MOUNT_ROUTE_CONTROL_REQUIRED_REQUEST_SCHEMA_VERSION,
+        MODEL_MOUNT_RUNTIME_ENGINE_REQUIRED_REQUEST_SCHEMA_VERSION,
+        MODEL_MOUNT_SERVER_CONTROL_REQUIRED_REQUEST_SCHEMA_VERSION,
+        MODEL_MOUNT_TOKENIZER_REQUIRED_REQUEST_SCHEMA_VERSION,
+    };
+
+    #[test]
+    fn rust_core_shapes_model_mount_backend_lifecycle_required_command_response() {
+        let request: ModelMountBackendLifecycleRequiredBridgeRequest =
+            serde_json::from_value(json!({
+                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+                "operation": "plan_model_mount_backend_lifecycle_required",
+                "backend": "rust_model_mount_backend_lifecycle_required",
+                "request": {
+                    "schema_version": MODEL_MOUNT_BACKEND_LIFECYCLE_REQUIRED_REQUEST_SCHEMA_VERSION,
+                    "operation": "model_mount.backend_lifecycle",
+                    "operation_kind": "model_mount.backend.start",
+                    "backend_id": "backend.llama_cpp",
+                    "source": "runtime-daemon.model_mounting.backend_lifecycle"
+                }
+            }))
+            .expect("backend lifecycle required command request");
+
+        let response = plan_model_mount_backend_lifecycle_required_response(request)
+            .expect("backend lifecycle required planned");
+
+        assert_eq!(
+            response["source"],
+            "rust_model_mount_backend_lifecycle_required_command"
+        );
+        assert_eq!(
+            response["backend"],
+            "rust_model_mount_backend_lifecycle_required"
+        );
+        assert_eq!(response["status"], "rust_core_required");
+        assert_eq!(response["status_code"], 501);
+        assert_eq!(
+            response["code"],
+            "model_mount_backend_lifecycle_rust_core_required"
+        );
+        assert_eq!(response["operation_kind"], "model_mount.backend.start");
+        assert_eq!(
+            response["rust_core_boundary"],
+            "model_mount.backend_lifecycle"
+        );
+        assert_eq!(response["details"]["backend_id"], "backend.llama_cpp");
+        assert_eq!(response["details"]["backend_kind"], Value::Null);
+        assert!(response["details"].get("backendId").is_none());
+        assert!(response["details"].get("operationKind").is_none());
+    }
+
+    #[test]
+    fn rust_core_shapes_model_mount_server_control_required_command_response() {
+        let request: ModelMountServerControlRequiredBridgeRequest = serde_json::from_value(json!({
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+            "operation": "plan_model_mount_server_control_required",
+            "backend": "rust_model_mount_server_control_required",
+            "request": {
+                "schema_version": MODEL_MOUNT_SERVER_CONTROL_REQUIRED_REQUEST_SCHEMA_VERSION,
+                "operation": "model_mount.server_control",
+                "operation_kind": "model_mount.server_control.record_operation",
+                "source": "runtime-daemon.model_mounting.server_control",
+                "details": {
+                    "base_url": "http://daemon.test",
+                    "reason": "test",
+                    "server_control_id": "server-control.default"
+                }
+            }
+        }))
+        .expect("server control required command request");
+
+        let response = plan_model_mount_server_control_required_response(request)
+            .expect("server control required planned");
+
+        assert_eq!(
+            response["source"],
+            "rust_model_mount_server_control_required_command"
+        );
+        assert_eq!(
+            response["backend"],
+            "rust_model_mount_server_control_required"
+        );
+        assert_eq!(response["status"], "rust_core_required");
+        assert_eq!(response["status_code"], 501);
+        assert_eq!(
+            response["code"],
+            "model_mount_server_control_rust_core_required"
+        );
+        assert_eq!(
+            response["operation_kind"],
+            "model_mount.server_control.record_operation"
+        );
+        assert_eq!(response["rust_core_boundary"], "model_mount.server_control");
+        assert_eq!(response["details"]["base_url"], "http://daemon.test");
+        assert_eq!(
+            response["details"]["server_control_id"],
+            "server-control.default"
+        );
+        assert!(response["details"].get("operationKind").is_none());
+        assert!(response["details"].get("serverControlId").is_none());
+    }
+
+    #[test]
+    fn rust_core_shapes_model_mount_runtime_engine_required_command_response() {
+        let request: ModelMountRuntimeEngineRequiredBridgeRequest = serde_json::from_value(json!({
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+            "operation": "plan_model_mount_runtime_engine_required",
+            "backend": "rust_model_mount_runtime_engine_required",
+            "request": {
+                "schema_version": MODEL_MOUNT_RUNTIME_ENGINE_REQUIRED_REQUEST_SCHEMA_VERSION,
+                "operation": "model_mount.runtime_engine",
+                "operation_kind": "model_mount.runtime_engine_profile.write",
+                "source": "runtime-daemon.model_mounting.runtime_engine",
+                "details": {
+                    "engine_id": "backend.llama-cpp"
+                }
+            }
+        }))
+        .expect("runtime engine required command request");
+
+        let response = plan_model_mount_runtime_engine_required_response(request)
+            .expect("runtime engine required planned");
+
+        assert_eq!(
+            response["source"],
+            "rust_model_mount_runtime_engine_required_command"
+        );
+        assert_eq!(
+            response["backend"],
+            "rust_model_mount_runtime_engine_required"
+        );
+        assert_eq!(response["status"], "rust_core_required");
+        assert_eq!(response["status_code"], 501);
+        assert_eq!(
+            response["code"],
+            "model_mount_runtime_engine_rust_core_required"
+        );
+        assert_eq!(
+            response["operation_kind"],
+            "model_mount.runtime_engine_profile.write"
+        );
+        assert_eq!(response["rust_core_boundary"], "model_mount.runtime_engine");
+        assert_eq!(response["details"]["engine_id"], "backend.llama-cpp");
+        assert!(response["details"].get("engineId").is_none());
+        assert!(response["details"].get("operationKind").is_none());
+    }
+
+    #[test]
+    fn rust_core_shapes_model_mount_tokenizer_required_command_response() {
+        let request: ModelMountTokenizerRequiredBridgeRequest = serde_json::from_value(json!({
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+            "operation": "plan_model_mount_tokenizer_required",
+            "backend": "rust_model_mount_tokenizer_required",
+            "request": {
+                "schema_version": MODEL_MOUNT_TOKENIZER_REQUIRED_REQUEST_SCHEMA_VERSION,
+                "operation": "context_fit",
+                "source": "runtime-daemon.model_mounting.tokenizer",
+                "details": {
+                    "model": "llama-test",
+                    "route_id": "route.local-first",
+                    "requested_scope": "model.context:*"
+                }
+            }
+        }))
+        .expect("tokenizer required command request");
+
+        let response = plan_model_mount_tokenizer_required_response(request)
+            .expect("tokenizer required planned");
+
+        assert_eq!(
+            response["source"],
+            "rust_model_mount_tokenizer_required_command"
+        );
+        assert_eq!(response["backend"], "rust_model_mount_tokenizer_required");
+        assert_eq!(response["status"], "rust_core_required");
+        assert_eq!(response["status_code"], 501);
+        assert_eq!(response["code"], "model_mount_tokenizer_rust_core_required");
+        assert_eq!(response["operation"], "context_fit");
+        assert_eq!(response["rust_core_boundary"], "model_mount.tokenizer");
+        assert_eq!(response["details"]["model"], "llama-test");
+        assert_eq!(response["details"]["route_id"], "route.local-first");
+        assert_eq!(response["details"]["requested_scope"], "model.context:*");
+        assert!(response["details"].get("routeId").is_none());
+        assert!(response["details"].get("requestedScope").is_none());
+    }
+
+    #[test]
+    fn rust_core_shapes_model_mount_route_control_required_command_response() {
+        let request: ModelMountRouteControlRequiredBridgeRequest = serde_json::from_value(json!({
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+            "operation": "plan_model_mount_route_control_required",
+            "backend": "rust_model_mount_route_control_required",
+            "request": {
+                "schema_version": MODEL_MOUNT_ROUTE_CONTROL_REQUIRED_REQUEST_SCHEMA_VERSION,
+                "operation": "model_mount.route_control",
+                "operation_kind": "model_mount.route.selection_update",
+                "source": "runtime-daemon.model_mounting.route_control",
+                "details": {
+                    "route_id": "route.local-first",
+                    "selected_model": "model.local",
+                    "receipt_id": "receipt-route-test",
+                    "route_selection_boundary": "model_mount.route_selection"
+                }
+            }
+        }))
+        .expect("route control required command request");
+
+        let response = plan_model_mount_route_control_required_response(request)
+            .expect("route control required planned");
+
+        assert_eq!(
+            response["source"],
+            "rust_model_mount_route_control_required_command"
+        );
+        assert_eq!(
+            response["backend"],
+            "rust_model_mount_route_control_required"
+        );
+        assert_eq!(response["status"], "rust_core_required");
+        assert_eq!(response["status_code"], 501);
+        assert_eq!(
+            response["code"],
+            "model_mount_route_control_rust_core_required"
+        );
+        assert_eq!(response["operation"], "model_mount.route_control");
+        assert_eq!(
+            response["operation_kind"],
+            "model_mount.route.selection_update"
+        );
+        assert_eq!(response["rust_core_boundary"], "model_mount.route_control");
+        assert_eq!(response["details"]["route_id"], "route.local-first");
+        assert_eq!(response["details"]["selected_model"], "model.local");
+        assert_eq!(response["details"]["receipt_id"], "receipt-route-test");
+        assert!(response["details"].get("routeId").is_none());
+        assert!(response["details"].get("selectedModel").is_none());
+        assert!(response["details"].get("receiptId").is_none());
+    }
+}

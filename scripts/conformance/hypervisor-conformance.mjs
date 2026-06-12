@@ -7083,23 +7083,55 @@ function runBridge() {
         coreCommandDispatch,
       ) &&
       /rust_core_shapes_model_mount_provider_result_command_response/.test(modelMountCore) &&
-      /plan_model_mount_backend_process_response as plan_model_mount_backend_process/.test(
+      !/plan_model_mount_backend_process_response as plan_model_mount_backend_process/.test(
         bridgeModule,
       ) &&
-      /plan_model_mount_backend_lifecycle_required_response as plan_model_mount_backend_lifecycle_required/.test(
+      !/plan_model_mount_backend_lifecycle_required_response as plan_model_mount_backend_lifecycle_required/.test(
         bridgeModule,
       ) &&
-      /plan_model_mount_server_control_required_response as plan_model_mount_server_control_required/.test(
+      !/plan_model_mount_server_control_required_response as plan_model_mount_server_control_required/.test(
         bridgeModule,
       ) &&
-      /plan_model_mount_runtime_engine_required_response as plan_model_mount_runtime_engine_required/.test(
+      !/plan_model_mount_runtime_engine_required_response as plan_model_mount_runtime_engine_required/.test(
         bridgeModule,
       ) &&
-      /plan_model_mount_tokenizer_required_response as plan_model_mount_tokenizer_required/.test(
+      !/plan_model_mount_tokenizer_required_response as plan_model_mount_tokenizer_required/.test(
         bridgeModule,
       ) &&
-      /plan_model_mount_route_control_required_response as plan_model_mount_route_control_required/.test(
+      !/plan_model_mount_route_control_required_response as plan_model_mount_route_control_required/.test(
         bridgeModule,
+      ) &&
+      /plan_model_mount_backend_process_response\(decode\(raw_request\)\?\)/.test(
+        coreCommandDispatch,
+      ) &&
+      /plan_model_mount_backend_lifecycle_required_response\(decode\(raw_request\)\?\)/.test(
+        coreCommandDispatch,
+      ) &&
+      /plan_model_mount_server_control_required_response\(decode\(raw_request\)\?\)/.test(
+        coreCommandDispatch,
+      ) &&
+      /plan_model_mount_runtime_engine_required_response\(decode\(raw_request\)\?\)/.test(
+        coreCommandDispatch,
+      ) &&
+      /plan_model_mount_tokenizer_required_response\(decode\(raw_request\)\?\)/.test(
+        coreCommandDispatch,
+      ) &&
+      /plan_model_mount_route_control_required_response\(decode\(raw_request\)\?\)/.test(
+        coreCommandDispatch,
+      ) &&
+      /rust_core_shapes_model_mount_backend_process_command_response/.test(modelMountCore) &&
+      /rust_core_shapes_model_mount_backend_lifecycle_required_command_response/.test(
+        modelMountCore,
+      ) &&
+      /rust_core_shapes_model_mount_server_control_required_command_response/.test(
+        modelMountCore,
+      ) &&
+      /rust_core_shapes_model_mount_runtime_engine_required_command_response/.test(
+        modelMountCore,
+      ) &&
+      /rust_core_shapes_model_mount_tokenizer_required_command_response/.test(modelMountCore) &&
+      /rust_core_shapes_model_mount_route_control_required_command_response/.test(
+        modelMountCore,
       ) &&
       !/pub\(super\) fn plan_model_mount_accepted_receipt_head/.test(
         modelMountCommandBridge,
@@ -7283,20 +7315,56 @@ function runBridge() {
       /rust_model_mount_tokenizer_required_command/.test(modelMountCore) &&
       /rust_model_mount_route_control_required_command/.test(modelMountCore) &&
       !modelMountCommandBridgeExists &&
-      /plan_model_mount_backend_process_response as plan_model_mount_backend_process/.test(bridgeModule) &&
-      /plan_model_mount_backend_lifecycle_required_response as plan_model_mount_backend_lifecycle_required/.test(
+      /rust_core_shapes_model_mount_backend_process_command_response/.test(modelMountCore) &&
+      /rust_core_shapes_model_mount_backend_lifecycle_required_command_response/.test(
+        modelMountCore,
+      ) &&
+      /rust_core_shapes_model_mount_server_control_required_command_response/.test(
+        modelMountCore,
+      ) &&
+      /rust_core_shapes_model_mount_runtime_engine_required_command_response/.test(
+        modelMountCore,
+      ) &&
+      /rust_core_shapes_model_mount_tokenizer_required_command_response/.test(modelMountCore) &&
+      /rust_core_shapes_model_mount_route_control_required_command_response/.test(
+        modelMountCore,
+      ) &&
+      /plan_model_mount_backend_process_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      /plan_model_mount_backend_lifecycle_required_response\(decode\(raw_request\)\?\)/.test(
+        coreCommandDispatch,
+      ) &&
+      /plan_model_mount_server_control_required_response\(decode\(raw_request\)\?\)/.test(
+        coreCommandDispatch,
+      ) &&
+      /plan_model_mount_runtime_engine_required_response\(decode\(raw_request\)\?\)/.test(
+        coreCommandDispatch,
+      ) &&
+      /plan_model_mount_tokenizer_required_response\(decode\(raw_request\)\?\)/.test(
+        coreCommandDispatch,
+      ) &&
+      /plan_model_mount_route_control_required_response\(decode\(raw_request\)\?\)/.test(
+        coreCommandDispatch,
+      ) &&
+      !/plan_model_mount_backend_process_response as plan_model_mount_backend_process/.test(bridgeModule) &&
+      !/plan_model_mount_backend_lifecycle_required_response as plan_model_mount_backend_lifecycle_required/.test(
         bridgeModule,
       ) &&
-      /plan_model_mount_server_control_required_response as plan_model_mount_server_control_required/.test(
+      !/plan_model_mount_server_control_required_response as plan_model_mount_server_control_required/.test(
         bridgeModule,
       ) &&
-      /plan_model_mount_runtime_engine_required_response as plan_model_mount_runtime_engine_required/.test(
+      !/plan_model_mount_runtime_engine_required_response as plan_model_mount_runtime_engine_required/.test(
         bridgeModule,
       ) &&
-      /plan_model_mount_tokenizer_required_response as plan_model_mount_tokenizer_required/.test(bridgeModule) &&
-      /plan_model_mount_route_control_required_response as plan_model_mount_route_control_required/.test(
+      !/plan_model_mount_tokenizer_required_response as plan_model_mount_tokenizer_required/.test(bridgeModule) &&
+      !/plan_model_mount_route_control_required_response as plan_model_mount_route_control_required/.test(
         bridgeModule,
       ) &&
+      !/bridge_plans_model_mount_backend_process_through_rust_core/.test(bridgeModule) &&
+      !/bridge_plans_model_mount_backend_lifecycle_required_through_rust_core/.test(bridgeModule) &&
+      !/bridge_plans_model_mount_server_control_required_through_rust_core/.test(bridgeModule) &&
+      !/bridge_plans_model_mount_runtime_engine_required_through_rust_core/.test(bridgeModule) &&
+      !/bridge_plans_model_mount_tokenizer_required_through_rust_core/.test(bridgeModule) &&
+      !/bridge_plans_model_mount_route_control_required_through_rust_core/.test(bridgeModule) &&
       !/struct ModelMountBackendProcessPlanBridgeRequest/.test(modelMountCommandBridge) &&
       !/struct ModelMountBackendLifecycleRequiredBridgeRequest/.test(modelMountCommandBridge) &&
       !/struct ModelMountServerControlRequiredBridgeRequest/.test(modelMountCommandBridge) &&
@@ -11748,9 +11816,11 @@ function runBridge() {
       !/fn route_control_required_is_planned_in_rust_model_mount/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
       ) &&
-      /ModelMountRouteControlRequiredBridgeRequest/.test(modelMountCommandSurface) &&
-      /plan_model_mount_route_control_required/.test(modelMountCommandSurface) &&
-      /bridge_plans_model_mount_route_control_required_through_rust_core/.test(modelMountCommandSurface) &&
+      /ModelMountRouteControlRequiredBridgeRequest/.test(modelMountCore) &&
+      /rust_core_shapes_model_mount_route_control_required_command_response/.test(modelMountCore) &&
+      /plan_model_mount_route_control_required_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      !/plan_model_mount_route_control_required_response as plan_model_mount_route_control_required/.test(modelMountCommandSurface) &&
+      !/bridge_plans_model_mount_route_control_required_through_rust_core/.test(modelMountCommandSurface) &&
       /throwModelRouteControlRustCoreRequired\(\s*this\.routeControlRequired\("model_mount\.route\.select"/.test(modelMountingState) &&
       /throwModelRouteControlRustCoreRequired\(\s*this\.routeControlRequired\("model_mount\.route\.explicit_model_endpoints"/.test(modelMountingState) &&
       /mounted route selection facades fail closed before JS endpoint policy evaluation/.test(modelRoutesTest) &&
@@ -14017,22 +14087,23 @@ function runBridge() {
   );
   assertCheck(
     result,
-    "model-mount-backend-process-plan-live-bridge",
+    "model-mount-backend-process-plan-rust-owner",
     (() => {
-      const backendProcessBridgeBlock =
-        modelMountCommandSurface.match(/fn plan_model_mount_backend_process[\s\S]*?(?=\npub\(super\) fn plan_model_mount_backend_lifecycle_required)/)?.[0] ?? "";
+      const backendProcessCoreBlock =
+        modelMountCore.match(/pub fn plan_model_mount_backend_process_response[\s\S]*?(?=\n\nfn backend_supports_supervision)/)?.[0] ?? "";
       const backendProcessRunnerBlock =
         modelMountAdmissionRunner.match(/function normalizeBackendProcessPlanBridgeResult[\s\S]*?(?=\n\nfunction normalizeInvocationReceiptBindingBridgeResult)/)?.[0] ?? "";
-      return /plan_model_mount_backend_process/.test(modelMountCommandSurface) &&
-        /ModelMountBackendProcessPlanBridgeRequest/.test(modelMountCommandSurface) &&
-        /plan_model_mount_backend_process_response as plan_model_mount_backend_process/.test(modelMountCommandSurface) &&
-        /bridge_plans_model_mount_backend_process_through_rust_core/.test(modelMountCommandSurface) &&
+      return /pub struct ModelMountBackendProcessPlanBridgeRequest/.test(modelMountCore) &&
         /pub fn plan_model_mount_backend_process_response/.test(modelMountCore) &&
+        /rust_core_shapes_model_mount_backend_process_command_response/.test(modelMountCore) &&
+        /plan_model_mount_backend_process_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+        !/plan_model_mount_backend_process_response as plan_model_mount_backend_process/.test(modelMountCommandSurface) &&
+        !/bridge_plans_model_mount_backend_process_through_rust_core/.test(modelMountCommandSurface) &&
         /"supports_supervision":\s*plan\.supports_supervision/.test(modelMountCore) &&
         /"public_args":\s*plan\.public_args/.test(modelMountCore) &&
         /"spawn_args":\s*plan\.spawn_args/.test(modelMountCore) &&
         /"spawn_status":\s*plan\.spawn_status/.test(modelMountCore) &&
-        !/"(?:supportsSupervision|publicArgs|spawnArgs|spawnStatus)":/.test(backendProcessBridgeBlock) &&
+        !/"(?:supportsSupervision|publicArgs|spawnArgs|spawnStatus)":/.test(backendProcessCoreBlock) &&
         /planBackendProcess\(request\)/.test(modelMountAdmissionRunner) &&
         /operation:\s*"plan_model_mount_backend_process"/.test(modelMountAdmissionRunner) &&
         /RUST_MODEL_MOUNT_BACKEND_PROCESS_BACKEND/.test(modelMountAdmissionRunner) &&
@@ -17568,9 +17639,12 @@ function runReceipts() {
       !/fn tokenizer_required_is_planned_in_rust_model_mount/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
       ) &&
-      /ModelMountTokenizerRequiredBridgeRequest/.test(bridgeModule) &&
-      /plan_model_mount_tokenizer_required/.test(bridgeModule) &&
-      /bridge_plans_model_mount_tokenizer_required_through_rust_core/.test(bridgeModule) &&
+      /ModelMountTokenizerRequiredBridgeRequest/.test(modelMountCore) &&
+      /rust_core_shapes_model_mount_tokenizer_required_command_response/.test(modelMountCore) &&
+      /plan_model_mount_tokenizer_required_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      /plan_model_mount_tokenizer_required/.test(coreCommandDispatch) &&
+      !/plan_model_mount_tokenizer_required_response as plan_model_mount_tokenizer_required/.test(bridgeModule) &&
+      !/bridge_plans_model_mount_tokenizer_required_through_rust_core/.test(bridgeModule) &&
       /rust_core_boundary:\s*details\.rust_core_boundary \?\? record\.rust_core_boundary \?\? "model_mount\.tokenizer"/.test(modelMountingState) &&
       /model_mount_tokenizer_js_facade_retired/.test(modelMountingState) &&
       /model_mount_context_fit_js_facade_retired/.test(modelMountingState) &&
@@ -18349,9 +18423,12 @@ function runReceipts() {
       !/fn runtime_engine_required_is_planned_in_rust_model_mount/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
       ) &&
-      /ModelMountRuntimeEngineRequiredBridgeRequest/.test(bridgeModule) &&
-      /plan_model_mount_runtime_engine_required/.test(bridgeModule) &&
-      /bridge_plans_model_mount_runtime_engine_required_through_rust_core/.test(bridgeModule) &&
+      /ModelMountRuntimeEngineRequiredBridgeRequest/.test(modelMountCore) &&
+      /rust_core_shapes_model_mount_runtime_engine_required_command_response/.test(modelMountCore) &&
+      /plan_model_mount_runtime_engine_required_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      /plan_model_mount_runtime_engine_required/.test(coreCommandDispatch) &&
+      !/plan_model_mount_runtime_engine_required_response as plan_model_mount_runtime_engine_required/.test(bridgeModule) &&
+      !/bridge_plans_model_mount_runtime_engine_required_through_rust_core/.test(bridgeModule) &&
       /throwRuntimeEngineRustCoreRequired/.test(modelMountingState) &&
       /model_mount_runtime_engine_rust_core_required/.test(modelMountingState) &&
       /rust_core_boundary:\s*details\.rust_core_boundary \?\? record\.rust_core_boundary \?\? "model_mount\.runtime_engine"/.test(modelMountingState) &&
@@ -18517,9 +18594,12 @@ function runReceipts() {
       !/fn server_control_required_is_planned_in_rust_model_mount/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
       ) &&
-      /ModelMountServerControlRequiredBridgeRequest/.test(bridgeModule) &&
-      /plan_model_mount_server_control_required/.test(bridgeModule) &&
-      /bridge_plans_model_mount_server_control_required_through_rust_core/.test(bridgeModule) &&
+      /ModelMountServerControlRequiredBridgeRequest/.test(modelMountCore) &&
+      /rust_core_shapes_model_mount_server_control_required_command_response/.test(modelMountCore) &&
+      /plan_model_mount_server_control_required_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      /plan_model_mount_server_control_required/.test(coreCommandDispatch) &&
+      !/plan_model_mount_server_control_required_response as plan_model_mount_server_control_required/.test(bridgeModule) &&
+      !/bridge_plans_model_mount_server_control_required_through_rust_core/.test(bridgeModule) &&
       /public_server_control_js_facade_retired/.test(modelMountingState) &&
       /rust_daemon_core_server_control_required/.test(modelMountingState) &&
       /agentgres_server_control_truth_required/.test(modelMountingState) &&
@@ -19471,9 +19551,12 @@ function runReceipts() {
       !/fn backend_lifecycle_required_is_planned_in_rust_model_mount/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
       ) &&
-      /ModelMountBackendLifecycleRequiredBridgeRequest/.test(bridgeModule) &&
-      /plan_model_mount_backend_lifecycle_required/.test(bridgeModule) &&
-      /bridge_plans_model_mount_backend_lifecycle_required_through_rust_core/.test(bridgeModule) &&
+      /ModelMountBackendLifecycleRequiredBridgeRequest/.test(modelMountCore) &&
+      /rust_core_shapes_model_mount_backend_lifecycle_required_command_response/.test(modelMountCore) &&
+      /plan_model_mount_backend_lifecycle_required_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      /plan_model_mount_backend_lifecycle_required/.test(coreCommandDispatch) &&
+      !/plan_model_mount_backend_lifecycle_required_response as plan_model_mount_backend_lifecycle_required/.test(bridgeModule) &&
+      !/bridge_plans_model_mount_backend_lifecycle_required_through_rust_core/.test(bridgeModule) &&
       /agentgres_backend_lifecycle_truth_required/.test(backendLifecycle) &&
       /public_backend_lifecycle_js_facade_retired/.test(backendLifecycle) &&
       /rust_daemon_core_lifecycle_required/.test(backendLifecycle) &&
