@@ -1814,6 +1814,41 @@ mod tests {
     }
 
     #[test]
+    fn rust_policy_shapes_thread_control_agent_state_update_command_response() {
+        let response = plan_thread_control_agent_state_update_response(
+            ThreadControlAgentStateUpdateBridgeRequest {
+                backend: Some("rust_policy".to_string()),
+                request: thread_control_agent_state_update_request("thinking"),
+            },
+        )
+        .expect("thread control agent state update command response");
+
+        assert_eq!(
+            response["source"],
+            "rust_thread_control_agent_state_update_command"
+        );
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "planned");
+        assert_eq!(response["operation_kind"], "thread.thinking");
+        assert_eq!(response["control"]["control_kind"], "thinking");
+        assert_eq!(response["control"]["event_id"], "evt_thread_control");
+        for field in [
+            "controlKind",
+            "eventId",
+            "createdAt",
+            "workspaceTrustWarningEventId",
+        ] {
+            assert!(response["control"].get(field).is_none());
+        }
+        assert_eq!(
+            response["agent"]["runtimeControls"]["model"]["selectedModel"],
+            "local-model"
+        );
+        assert_eq!(response["agent"]["modelId"], "local-model");
+        assert_eq!(response["agent"]["modelRouteReceiptId"], "receipt_route_1");
+    }
+
+    #[test]
     fn rust_policy_plans_thread_turn_admission_required() {
         let record = ThreadTurnAdmissionRequiredCore
             .plan(&thread_turn_admission_required_request())
@@ -1846,6 +1881,45 @@ mod tests {
             "evidenceRefs",
         ] {
             assert!(record.details.get(field).is_none());
+        }
+    }
+
+    #[test]
+    fn rust_policy_shapes_thread_turn_admission_required_command_response() {
+        let response = plan_thread_turn_admission_required_response(
+            ThreadTurnAdmissionRequiredBridgeRequest {
+                backend: Some("rust_policy".to_string()),
+                request: thread_turn_admission_required_request(),
+            },
+        )
+        .expect("thread turn admission-required command response");
+
+        assert_eq!(
+            response["source"],
+            "rust_thread_turn_admission_required_command"
+        );
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "rust_core_required");
+        assert_eq!(response["status_code"], 501);
+        assert_eq!(response["code"], "runtime_thread_turn_rust_core_required");
+        assert_eq!(response["operation"], "thread_turn_create");
+        assert_eq!(response["operation_kind"], "turn.create");
+        assert_eq!(
+            response["details"]["rust_core_boundary"],
+            "runtime.thread_turn"
+        );
+        assert_eq!(response["details"]["thread_id"], "thread_1");
+        assert_eq!(response["details"]["agent_id"], "agent_1");
+        assert_eq!(response["details"]["runtime_profile"], "fixture");
+        for field in [
+            "rustCoreBoundary",
+            "operationKind",
+            "threadId",
+            "agentId",
+            "runtimeProfile",
+            "evidenceRefs",
+        ] {
+            assert!(response["details"].get(field).is_none());
         }
     }
 
@@ -1916,6 +1990,56 @@ mod tests {
             ] {
                 assert!(record.details.get(field).is_none());
             }
+        }
+    }
+
+    #[test]
+    fn rust_policy_shapes_lifecycle_admission_required_command_response() {
+        let response =
+            plan_lifecycle_admission_required_response(LifecycleAdmissionRequiredBridgeRequest {
+                backend: Some("rust_policy".to_string()),
+                request: lifecycle_admission_required_request(
+                    "agent_status_control",
+                    "agent_status_update",
+                ),
+            })
+            .expect("lifecycle admission-required command response");
+
+        assert_eq!(
+            response["source"],
+            "rust_lifecycle_admission_required_command"
+        );
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "rust_core_required");
+        assert_eq!(response["status_code"], 501);
+        assert_eq!(
+            response["code"],
+            "runtime_agent_status_control_rust_core_required"
+        );
+        assert_eq!(response["operation"], "agent_status_control");
+        assert_eq!(response["operation_kind"], "agent_status_update");
+        assert_eq!(
+            response["details"]["rust_core_boundary"],
+            "runtime.agent_status_control"
+        );
+        assert_eq!(response["details"]["agent_id"], "agent_1");
+        assert_eq!(response["details"]["requested_status"], "archived");
+        assert_eq!(
+            response["details"]["requested_operation_kind"],
+            "agent.archive"
+        );
+        for field in [
+            "rustCoreBoundary",
+            "operationKind",
+            "agentId",
+            "requestedStatus",
+            "requestedOperationKind",
+            "requestedCwd",
+            "requestedRuntime",
+            "requestedMode",
+            "evidenceRefs",
+        ] {
+            assert!(response["details"].get(field).is_none());
         }
     }
 
@@ -2004,6 +2128,22 @@ mod tests {
     }
 
     #[test]
+    fn rust_policy_shapes_agent_create_state_update_command_response() {
+        let response =
+            plan_agent_create_state_update_response(AgentCreateStateUpdateBridgeRequest {
+                backend: Some("rust_policy".to_string()),
+                request: agent_create_state_update_request(),
+            })
+            .expect("agent create state update command response");
+
+        assert_eq!(response["source"], "rust_agent_create_state_update_command");
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "planned");
+        assert_eq!(response["operation_kind"], "agent.create");
+        assert_eq!(response["agent"]["id"], "agent_create_one");
+    }
+
+    #[test]
     fn rust_policy_plans_run_create_state_update() {
         let record = RunCreateStateUpdateCore
             .plan(&run_create_state_update_request())
@@ -2023,6 +2163,25 @@ mod tests {
     }
 
     #[test]
+    fn rust_policy_shapes_run_create_state_update_command_response() {
+        let response = plan_run_create_state_update_response(RunCreateStateUpdateBridgeRequest {
+            backend: Some("rust_policy".to_string()),
+            request: run_create_state_update_request(),
+        })
+        .expect("run create state update command response");
+
+        assert_eq!(response["source"], "rust_run_create_state_update_command");
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "planned");
+        assert_eq!(response["operation_kind"], "run.create");
+        assert_eq!(response["run"]["id"], "run_create_one");
+        assert_eq!(
+            response["run"]["trace"]["usage_telemetry"]["total_tokens"],
+            7
+        );
+    }
+
+    #[test]
     fn rust_policy_plans_agent_status_state_update() {
         let record = AgentStatusStateUpdateCore
             .plan(&agent_status_state_update_request())
@@ -2038,6 +2197,24 @@ mod tests {
         assert_eq!(record.updated_at, "2026-06-06T06:25:00.000Z");
         assert_eq!(record.agent["status"], "archived");
         assert_eq!(record.agent["updatedAt"], "2026-06-06T06:25:00.000Z");
+    }
+
+    #[test]
+    fn rust_policy_shapes_agent_status_state_update_command_response() {
+        let response =
+            plan_agent_status_state_update_response(AgentStatusStateUpdateBridgeRequest {
+                backend: Some("rust_policy".to_string()),
+                request: agent_status_state_update_request(),
+            })
+            .expect("agent status state update command response");
+
+        assert_eq!(response["source"], "rust_agent_status_state_update_command");
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "planned");
+        assert_eq!(response["operation_kind"], "agent.archive");
+        assert_eq!(response["agent"]["id"], "agent_status_one");
+        assert_eq!(response["agent"]["status"], "archived");
+        assert_eq!(response["agent"]["updatedAt"], "2026-06-06T06:25:00.000Z");
     }
 
     #[test]
@@ -2067,6 +2244,33 @@ mod tests {
     }
 
     #[test]
+    fn rust_policy_shapes_runtime_bridge_thread_start_agent_state_update_command_response() {
+        let response = plan_runtime_bridge_thread_start_agent_state_update_response(
+            RuntimeBridgeThreadStartAgentStateUpdateBridgeRequest {
+                backend: Some("rust_policy".to_string()),
+                request: runtime_bridge_thread_start_agent_state_update_request(),
+            },
+        )
+        .expect("runtime bridge thread start agent state update command response");
+
+        assert_eq!(
+            response["source"],
+            "rust_runtime_bridge_thread_start_agent_state_update_command"
+        );
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "planned");
+        assert_eq!(response["operation_kind"], "thread.runtime_bridge.start");
+        assert_eq!(response["bridge_start"]["session_id"], "session_runtime");
+        assert_eq!(response["bridge_start"]["bridge_id"], "bridge_runtime");
+        for field in ["runtimeProfile", "sessionId", "bridgeId", "updatedAt"] {
+            assert!(response["bridge_start"].get(field).is_none());
+        }
+        assert_eq!(response["agent"]["runtimeSessionId"], "session_runtime");
+        assert_eq!(response["agent"]["runtimeBridgeId"], "bridge_runtime");
+        assert_eq!(response["agent"]["fixtureProfile"], Value::Null);
+    }
+
+    #[test]
     fn rust_policy_plans_runtime_bridge_turn_run_state_update() {
         let record = RuntimeBridgeTurnRunStateUpdateCore
             .plan(&runtime_bridge_turn_run_state_update_request())
@@ -2086,6 +2290,27 @@ mod tests {
     }
 
     #[test]
+    fn rust_policy_shapes_runtime_bridge_turn_run_state_update_command_response() {
+        let response = plan_runtime_bridge_turn_run_state_update_response(
+            RuntimeBridgeTurnRunStateUpdateBridgeRequest {
+                backend: Some("rust_policy".to_string()),
+                request: runtime_bridge_turn_run_state_update_request(),
+            },
+        )
+        .expect("runtime bridge turn run state update command response");
+
+        assert_eq!(
+            response["source"],
+            "rust_runtime_bridge_turn_run_state_update_command"
+        );
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "planned");
+        assert_eq!(response["operation_kind"], "turn.runtime_bridge.submit");
+        assert_eq!(response["run"]["id"], "run_runtime_bridge");
+        assert_eq!(response["run"]["agentId"], "agent_1");
+    }
+
+    #[test]
     fn rust_policy_plans_subagent_record_state_update() {
         let record = SubagentRecordStateUpdateCore
             .plan(&subagent_record_state_update_request())
@@ -2101,6 +2326,25 @@ mod tests {
         assert_eq!(record.subagent_id, "subagent_1");
         assert_eq!(record.updated_at, "2026-06-06T07:04:00.000Z");
         assert_eq!(record.subagent["subagent_id"], "subagent_1");
+    }
+
+    #[test]
+    fn rust_policy_shapes_subagent_record_state_update_command_response() {
+        let response =
+            plan_subagent_record_state_update_response(SubagentRecordStateUpdateBridgeRequest {
+                backend: Some("rust_policy".to_string()),
+                request: subagent_record_state_update_request(),
+            })
+            .expect("subagent record state update command response");
+
+        assert_eq!(
+            response["source"],
+            "rust_subagent_record_state_update_command"
+        );
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "planned");
+        assert_eq!(response["operation_kind"], "subagent.wait");
+        assert_eq!(response["subagent"]["subagent_id"], "subagent_1");
     }
 
     #[test]

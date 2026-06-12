@@ -7280,6 +7280,27 @@ operator interrupt/steer, and run-cancel admission/state transitions,
 Agentgres truth, replay, and conformance no longer depend on Node bridge
 endpoint proof scaffolding.
 
+Slice 1180 moves the thread-lifecycle and MCP/memory command-response proof
+clusters out of the temporary bridge proof surface and relies on the Rust
+policy owners at
+`crates/services/src/agentic/runtime/kernel/policy/thread_lifecycle.rs` and
+`crates/services/src/agentic/runtime/kernel/policy/mcp_memory.rs`. Thread
+control, thread-turn admission-required, lifecycle admission-required,
+runtime-bridge thread/turn state updates, subagent state updates,
+agent/run lifecycle state updates, MCP control, MCP server validation/input,
+MCP manager status/catalog/catalog-summary/validation, memory manager
+status/validation, and thread-memory state-update command-response shaping now
+run as Rust owner tests. Bridge conformance now requires those owner tests and
+proves the old bridge-named thread/MCP/memory tests, request-type imports, and
+response-function aliases stay absent from
+`ioi_step_module_bridge/proof_tests.rs`.
+
+This remains non-terminal because thread lifecycle and MCP/memory policy
+decisions still cross temporary command transport. The target is direct Rust
+daemon-core lifecycle, MCP, and memory API ownership where admission,
+projection, Agentgres truth, replay, and conformance no longer depend on Node
+bridge endpoint proof scaffolding.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

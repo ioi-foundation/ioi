@@ -2594,6 +2594,35 @@ mod tests {
     }
 
     #[test]
+    fn rust_policy_shapes_mcp_control_agent_state_update_command_response() {
+        let response =
+            plan_mcp_control_agent_state_update_response(McpControlAgentStateUpdateBridgeRequest {
+                backend: Some("rust_policy".to_string()),
+                request: mcp_control_agent_state_update_request(),
+            })
+            .expect("mcp control agent state update command response");
+
+        assert_eq!(
+            response["source"],
+            "rust_mcp_control_agent_state_update_command"
+        );
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "planned");
+        assert_eq!(response["operation_kind"], "thread.mcp_add");
+        assert_eq!(response["control"]["control_kind"], "mcp_add");
+        assert_eq!(response["control"]["event_id"], "event_mcp_add");
+        assert!(response["control"].get("controlKind").is_none());
+        assert!(response["control"].get("eventId").is_none());
+        assert!(response["control"].get("createdAt").is_none());
+        assert_eq!(response["agent"]["id"], "agent_1");
+        assert_eq!(response["agent"]["updatedAt"], "2026-06-06T05:45:00.000Z");
+        assert_eq!(
+            response["agent"]["mcpRegistry"]["servers"][0]["id"],
+            "mcp.docs"
+        );
+    }
+
+    #[test]
     fn rust_policy_validates_mcp_servers() {
         let record = McpServerValidationCore
             .validate(&mcp_server_validation_request())
@@ -2610,6 +2639,35 @@ mod tests {
         assert_eq!(record.warning_count, 0);
         assert!(record.issues.is_empty());
         assert!(record.warnings.is_empty());
+    }
+
+    #[test]
+    fn rust_policy_shapes_mcp_server_validation_command_response() {
+        let mut request = mcp_server_validation_request();
+        request.servers = vec![json!({
+            "id": "mcp.remote",
+            "transport": "http",
+            "server_url": "file:///tmp/socket",
+            "allowed_tools": ["fetch"],
+            "containment": {
+                "allow_network_egress": false
+            }
+        })];
+
+        let response = validate_mcp_servers_response(McpServerValidationBridgeRequest {
+            backend: Some("rust_policy".to_string()),
+            request,
+        })
+        .expect("mcp server validation command response");
+
+        assert_eq!(response["source"], "rust_mcp_server_validation_command");
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "blocked");
+        assert_eq!(response["ok"], false);
+        assert_eq!(response["issue_count"], 2);
+        assert_eq!(response["issues"][0]["code"], "mcp_remote_url_invalid");
+        assert_eq!(response["issues"][1]["code"], "mcp_remote_network_blocked");
+        assert!(response["issues"][0].get("serverId").is_none());
     }
 
     #[test]
@@ -2634,6 +2692,28 @@ mod tests {
         assert_eq!(record.servers[0]["allowed_tools"][0], "search");
         assert!(record.servers[0].get("sourcePath").is_none());
         assert!(record.servers[0].get("sourceScope").is_none());
+    }
+
+    #[test]
+    fn rust_policy_shapes_mcp_server_validation_input_command_response() {
+        let response =
+            project_mcp_server_validation_input_response(McpServerValidationInputBridgeRequest {
+                backend: Some("rust_policy".to_string()),
+                request: mcp_server_validation_input_request(),
+            })
+            .expect("mcp server validation input command response");
+
+        assert_eq!(
+            response["source"],
+            "rust_mcp_server_validation_input_command"
+        );
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "projected");
+        assert_eq!(response["workspace_root"], "/workspace");
+        assert_eq!(response["server_count"], 1);
+        assert_eq!(response["servers"][0]["id"], "mcp.docs");
+        assert_eq!(response["servers"][0]["tool_count"], 1);
+        assert!(response["servers"][0].get("sourceScope").is_none());
     }
 
     #[test]
@@ -2691,6 +2771,53 @@ mod tests {
     }
 
     #[test]
+    fn rust_policy_shapes_mcp_manager_status_command_response() {
+        let validation = McpServerValidationCore
+            .validate(&mcp_server_validation_request())
+            .expect("mcp server validation");
+        let response =
+            plan_mcp_manager_status_projection_response(McpManagerStatusProjectionBridgeRequest {
+                backend: Some("rust_policy".to_string()),
+                request: McpManagerStatusProjectionRequest {
+                    schema_version: MCP_MANAGER_STATUS_PROJECTION_REQUEST_SCHEMA_VERSION
+                        .to_string(),
+                    status_schema_version: Some("ioi.runtime.mcp-manager-status.v1".to_string()),
+                    validation: serde_json::to_value(validation).expect("validation value"),
+                    servers: vec![
+                        json!({ "id": "mcp.docs", "enabled": true }),
+                        json!({ "id": "mcp.disabled", "enabled": false }),
+                    ],
+                    tools: vec![json!({ "stable_tool_id": "mcp.docs.search" })],
+                    resources: vec![json!({ "uri": "mcp.docs://root" })],
+                    prompts: vec![json!({ "name": "ask" })],
+                    enabled_tools: vec![json!({ "stable_tool_id": "mcp.docs.search" })],
+                    routes: json!({
+                        "search_tools": "/v1/mcp/tools/search"
+                    }),
+                },
+            })
+            .expect("mcp manager status command response");
+
+        assert_eq!(
+            response["source"],
+            "rust_mcp_manager_status_projection_command"
+        );
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "ready");
+        assert_eq!(response["server_count"], 2);
+        assert_eq!(response["enabled_server_count"], 1);
+        assert_eq!(response["enabled_tool_count"], 1);
+        assert_eq!(response["validation"]["server_count"], 2);
+        assert_eq!(
+            response["validation"]["tools"][0]["stable_tool_id"],
+            "mcp.docs.search"
+        );
+        assert_eq!(response["routes"]["search_tools"], "/v1/mcp/tools/search");
+        assert!(response.get("serverCount").is_none());
+        assert!(response["routes"].get("searchTools").is_none());
+    }
+
+    #[test]
     fn rust_policy_projects_memory_manager_validation() {
         let request = MemoryManagerValidationProjectionRequest {
             schema_version: MEMORY_MANAGER_VALIDATION_PROJECTION_REQUEST_SCHEMA_VERSION.to_string(),
@@ -2744,6 +2871,51 @@ mod tests {
         assert!(record.policy.get("readOnly").is_some());
         assert_eq!(record.policy["read_only"], false);
         assert_eq!(record.paths["records_path"], "/state/memory");
+    }
+
+    #[test]
+    fn rust_policy_shapes_memory_manager_validation_command_response() {
+        let response = plan_memory_manager_validation_projection_response(
+            MemoryManagerValidationProjectionBridgeRequest {
+                backend: Some("rust_policy".to_string()),
+                request: MemoryManagerValidationProjectionRequest {
+                    schema_version: MEMORY_MANAGER_VALIDATION_PROJECTION_REQUEST_SCHEMA_VERSION
+                        .to_string(),
+                    validation_schema_version: Some(
+                        MEMORY_MANAGER_VALIDATION_PROJECTION_RESULT_SCHEMA_VERSION.to_string(),
+                    ),
+                    projection: json!({
+                        "policy": {
+                            "id": "policy.thread",
+                            "scope": "thread"
+                        },
+                        "paths": {},
+                        "records": [{
+                            "id": "memory.one",
+                            "fact": "Remember the runtime boundary.",
+                            "scope": "thread"
+                        }]
+                    }),
+                },
+            },
+        )
+        .expect("memory manager validation command response");
+
+        assert_eq!(
+            response["source"],
+            "rust_memory_manager_validation_projection_command"
+        );
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "blocked");
+        assert_eq!(response["ok"], false);
+        assert_eq!(response["issue_count"], 2);
+        assert_eq!(response["issues"][0]["code"], "memory_records_path_missing");
+        assert_eq!(
+            response["issues"][1]["code"],
+            "memory_policies_path_missing"
+        );
+        assert!(response.get("issueCount").is_none());
+        assert!(response.get("recordCount").is_none());
     }
 
     #[test]
@@ -2811,6 +2983,68 @@ mod tests {
         assert!(record.evidence_refs.contains(&"policy.thread".to_string()));
         assert!(!record.evidence_refs.contains(&"policy.retired".to_string()));
         assert!(record.evidence_refs.contains(&"memory.one".to_string()));
+    }
+
+    #[test]
+    fn rust_policy_shapes_memory_manager_status_command_response() {
+        let response = plan_memory_manager_status_projection_response(
+            MemoryManagerStatusProjectionBridgeRequest {
+                backend: Some("rust_policy".to_string()),
+                request: MemoryManagerStatusProjectionRequest {
+                    schema_version: MEMORY_MANAGER_STATUS_PROJECTION_REQUEST_SCHEMA_VERSION
+                        .to_string(),
+                    status_schema_version: Some(
+                        MEMORY_MANAGER_STATUS_PROJECTION_RESULT_SCHEMA_VERSION.to_string(),
+                    ),
+                    validation_schema_version: Some(
+                        MEMORY_MANAGER_VALIDATION_PROJECTION_RESULT_SCHEMA_VERSION.to_string(),
+                    ),
+                    projection: json!({
+                        "policy": {
+                            "id": "policy.thread",
+                            "scope": "thread",
+                            "injection_enabled": true,
+                            "read_only": false,
+                            "write_requires_approval": true,
+                            "writeRequiresApproval": false
+                        },
+                        "paths": {
+                            "records_path": "/state/memory",
+                            "policies_path": "/state/policies"
+                        },
+                        "records": [{
+                            "id": "memory.one",
+                            "fact": "Remember the runtime boundary.",
+                            "scope": "thread",
+                            "memoryKey": "retired.project",
+                            "memory_key": "project"
+                        }]
+                    }),
+                },
+            },
+        )
+        .expect("memory manager status command response");
+
+        assert_eq!(
+            response["source"],
+            "rust_memory_manager_status_projection_command"
+        );
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "ready");
+        assert_eq!(response["record_count"], 1);
+        assert_eq!(response["memory_key_count"], 1);
+        assert_eq!(response["memory_keys"][0], "project");
+        assert_eq!(response["write_requires_approval"], true);
+        assert_eq!(
+            response["write_blocked_reason"],
+            "memory_write_requires_approval"
+        );
+        assert_eq!(
+            response["routes"]["status"],
+            "/v1/threads/{thread_id}/memory/status"
+        );
+        assert!(response.get("memoryKeys").is_none());
+        assert!(response.get("writeRequiresApproval").is_none());
     }
 
     #[test]
@@ -2885,6 +3119,59 @@ mod tests {
     }
 
     #[test]
+    fn rust_policy_shapes_mcp_manager_catalog_command_response() {
+        let response = plan_mcp_manager_catalog_projection_response(
+            McpManagerCatalogProjectionBridgeRequest {
+                backend: Some("rust_policy".to_string()),
+                request: McpManagerCatalogProjectionRequest {
+                    schema_version: MCP_MANAGER_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION
+                        .to_string(),
+                    status_schema_version: None,
+                    servers: vec![
+                        json!({
+                            "id": "mcp.docs",
+                            "label": "Docs",
+                            "enabled": true,
+                            "allowed_tools": [{ "name": "search" }],
+                            "resources": [{ "uri": "docs://index" }],
+                            "prompts": [{ "name": "summarize" }]
+                        }),
+                        json!({
+                            "id": "mcp.disabled",
+                            "label": "Disabled",
+                            "enabled": false,
+                            "allowed_tools": ["noop"]
+                        }),
+                    ],
+                },
+            },
+        )
+        .expect("mcp manager catalog command response");
+
+        assert_eq!(
+            response["source"],
+            "rust_mcp_manager_catalog_projection_command"
+        );
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "projected");
+        assert_eq!(response["server_count"], 2);
+        assert_eq!(response["tool_count"], 2);
+        assert_eq!(response["enabled_tool_count"], 1);
+        assert_eq!(response["tools"][0]["stable_tool_id"], "mcp.Docs.search");
+        assert_eq!(response["tools"][1]["status"], "disabled");
+        assert_eq!(
+            response["resources"][0]["stable_resource_id"],
+            "mcp.Docs.resource.docs_index"
+        );
+        assert_eq!(
+            response["prompts"][0]["stable_prompt_id"],
+            "mcp.Docs.prompt.summarize"
+        );
+        assert!(response.get("stableToolId").is_none());
+        assert!(response["tools"][0].get("stableToolId").is_none());
+    }
+
+    #[test]
     fn rust_policy_projects_mcp_manager_catalog_summary() {
         let catalog = McpManagerCatalogProjectionCore
             .project(&McpManagerCatalogProjectionRequest {
@@ -2941,6 +3228,62 @@ mod tests {
     }
 
     #[test]
+    fn rust_policy_shapes_mcp_manager_catalog_summary_command_response() {
+        let catalog = McpManagerCatalogProjectionCore
+            .project(&McpManagerCatalogProjectionRequest {
+                schema_version: MCP_MANAGER_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION.to_string(),
+                status_schema_version: None,
+                servers: vec![json!({
+                    "id": "mcp.docs",
+                    "label": "Docs",
+                    "transport": "stdio",
+                    "enabled": true,
+                    "allowed_tools": [{ "name": "search.index" }],
+                    "resources": [{ "uri": "docs://index" }],
+                    "prompts": [{ "name": "summarize" }]
+                })],
+            })
+            .expect("mcp catalog projection");
+        let response = plan_mcp_manager_catalog_summary_projection_response(
+            McpManagerCatalogSummaryProjectionBridgeRequest {
+                backend: Some("rust_policy".to_string()),
+                request: McpManagerCatalogSummaryProjectionRequest {
+                    schema_version: MCP_MANAGER_CATALOG_SUMMARY_PROJECTION_REQUEST_SCHEMA_VERSION
+                        .to_string(),
+                    status_schema_version: None,
+                    server: catalog.servers[0].clone(),
+                    tools: catalog.tools.clone(),
+                    resources: catalog.resources.clone(),
+                    prompts: catalog.prompts.clone(),
+                    live_mode: Some("declared_catalog".to_string()),
+                    status: None,
+                    error_code: None,
+                    preview_limit: Some(25),
+                    deferred: Some(false),
+                },
+            },
+        )
+        .expect("mcp manager catalog summary command response");
+
+        assert_eq!(
+            response["source"],
+            "rust_mcp_manager_catalog_summary_projection_command"
+        );
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["object"], "ioi.runtime_mcp_catalog_summary");
+        assert_eq!(response["status"], "completed");
+        assert_eq!(response["server_id"], "mcp.docs");
+        assert_eq!(response["tool_count"], 1);
+        assert_eq!(response["resource_count"], 1);
+        assert_eq!(response["prompt_count"], 1);
+        assert_eq!(response["namespaces"][0], "search");
+        assert_eq!(response["preview_tool_names"][0], "search.index");
+        assert_eq!(response["search_route"], "/v1/mcp/tools/search");
+        assert!(response.get("catalogHash").is_none());
+        assert!(response.get("toolCount").is_none());
+    }
+
+    #[test]
     fn rust_policy_projects_mcp_manager_validation_envelope() {
         let validation = McpServerValidationCore
             .validate(&mcp_server_validation_request())
@@ -2988,6 +3331,53 @@ mod tests {
         assert_eq!(record.warning_count, 0);
         assert_eq!(record.tools[0]["stable_tool_id"], "mcp.Docs.search");
         assert!(record.tools[0].get("stableToolId").is_none());
+    }
+
+    #[test]
+    fn rust_policy_shapes_mcp_manager_validation_command_response() {
+        let response = plan_mcp_manager_validation_projection_response(
+            McpManagerValidationProjectionBridgeRequest {
+                backend: Some("rust_policy".to_string()),
+                request: McpManagerValidationProjectionRequest {
+                    schema_version: MCP_MANAGER_VALIDATION_PROJECTION_REQUEST_SCHEMA_VERSION
+                        .to_string(),
+                    validation_schema_version: Some(
+                        "ioi.runtime.mcp-manager-validation.v1".to_string(),
+                    ),
+                    validation: json!({
+                        "ok": false,
+                        "status": "blocked",
+                        "issues": [{ "code": "mcp_server_transport_missing", "server_id": "mcp.docs" }],
+                        "warnings": []
+                    }),
+                    servers: vec![json!({ "id": "mcp.docs" })],
+                    tools: vec![json!({ "stable_tool_id": "mcp.docs.search" })],
+                    resources: vec![json!({ "uri": "docs://index" })],
+                    prompts: vec![json!({ "name": "summarize" })],
+                },
+            },
+        )
+        .expect("mcp manager validation command response");
+
+        assert_eq!(
+            response["source"],
+            "rust_mcp_manager_validation_projection_command"
+        );
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(
+            response["schema_version"],
+            "ioi.runtime.mcp-manager-validation.v1"
+        );
+        assert_eq!(response["object"], "ioi.runtime_mcp_manager_validation");
+        assert_eq!(response["ok"], false);
+        assert_eq!(response["status"], "blocked");
+        assert_eq!(response["server_count"], 1);
+        assert_eq!(response["tool_count"], 1);
+        assert_eq!(response["issue_count"], 1);
+        assert_eq!(response["issues"][0]["server_id"], "mcp.docs");
+        assert_eq!(response["tools"][0]["stable_tool_id"], "mcp.docs.search");
+        assert!(response.get("serverCount").is_none());
+        assert!(response["tools"][0].get("stableToolId").is_none());
     }
 
     #[test]
@@ -3090,6 +3480,32 @@ mod tests {
         assert!(record.control.get("eventId").is_none());
         assert!(record.control.get("createdAt").is_none());
         assert_eq!(record.agent["updatedAt"], "2026-06-06T06:05:00.000Z");
+    }
+
+    #[test]
+    fn rust_policy_shapes_thread_memory_agent_state_update_command_response() {
+        let response = plan_thread_memory_agent_state_update_response(
+            ThreadMemoryAgentStateUpdateBridgeRequest {
+                backend: Some("rust_policy".to_string()),
+                request: thread_memory_agent_state_update_request(),
+            },
+        )
+        .expect("thread memory agent state update command response");
+
+        assert_eq!(
+            response["source"],
+            "rust_thread_memory_agent_state_update_command"
+        );
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "planned");
+        assert_eq!(response["operation_kind"], "thread.memory_status");
+        assert_eq!(response["control"]["control_kind"], "memory_status");
+        assert_eq!(response["control"]["event_id"], "event_memory_status");
+        assert!(response["control"].get("controlKind").is_none());
+        assert!(response["control"].get("eventId").is_none());
+        assert!(response["control"].get("createdAt").is_none());
+        assert_eq!(response["agent"]["id"], "agent_1");
+        assert_eq!(response["agent"]["updatedAt"], "2026-06-06T06:05:00.000Z");
     }
 
     #[test]

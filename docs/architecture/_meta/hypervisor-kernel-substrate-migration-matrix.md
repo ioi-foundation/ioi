@@ -15660,6 +15660,51 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1180
+
+Slice 1180 moves the thread-lifecycle and MCP/memory command-response proof
+clusters out of the temporary bridge proof surface and into the Rust policy
+owners:
+
+- `crates/services/src/agentic/runtime/kernel/policy/thread_lifecycle.rs`
+- `crates/services/src/agentic/runtime/kernel/policy/mcp_memory.rs`
+
+The Rust owner tests now cover thread control, thread-turn
+admission-required, lifecycle admission-required, runtime-bridge thread/turn
+state updates, subagent state updates, agent/run lifecycle state updates, MCP
+control, MCP server validation/input, MCP manager
+status/catalog/catalog-summary/validation, memory manager status/validation,
+and thread-memory state-update command-response shaping. The bridge proof
+surface no longer imports those request types or carries the bridge-named
+thread/MCP/memory proof tests. `cargo test -p ioi-node --bin
+ioi-step-module-bridge` now runs 55 bridge tests.
+
+This is a Rust-owner proof-retirement cut, not terminal lifecycle/MCP/memory
+migration. Thread lifecycle, MCP, and memory decisions still cross temporary
+command transport until direct Rust daemon-core protocol APIs own admission,
+projection, Agentgres truth, replay, and stable IDE/CLI/SDK surfaces end to
+end.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `cargo test -p ioi-services agentic::runtime::kernel::policy::thread_lifecycle::tests` | passed |
+| `cargo test -p ioi-services agentic::runtime::kernel::policy::mcp_memory::tests` | passed |
+| `cargo test -p ioi-node --bin ioi-step-module-bridge` | passed; 55 tests |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:compositor` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+Scheduled matrix-compaction obligation: keep scheduling the next compaction
+pass only after a larger direct Rust-core API extraction or facade-retirement
+seam lands. Future resumes must continue to treat JS bridges, JS facades,
+readback projections, and Node command transport as temporary scaffolding only.
+
 ## Implementation Slice Evidence: 1046
 
 Slice 1046 splits the MCP control state-update, MCP server validation, MCP
