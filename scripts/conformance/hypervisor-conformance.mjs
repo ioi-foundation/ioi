@@ -9729,6 +9729,23 @@ function runBridge() {
       /search_route:\s*optionalString\(result\.search_route \?\? record\.search_route\)\s*\?\?\s*null/.test(
         runtimeContextPolicyRunner,
       ) &&
+      /runtime_event_kind:\s*\n\s*optionalString\(result\.runtime_event_kind \?\? record\.runtime_event_kind\)\s*\?\?\s*\n\s*null/.test(
+        runtimeContextPolicyRunner,
+      ) &&
+      /event_source:\s*optionalString\(result\.event_source \?\? record\.event_source\)\s*\?\?\s*null/.test(
+        runtimeContextPolicyRunner,
+      ) &&
+      /compact_workflow_node_id:\s*\n\s*optionalString\(result\.compact_workflow_node_id \?\? record\.compact_workflow_node_id\)\s*\?\?\s*\n\s*null/.test(
+        runtimeContextPolicyRunner,
+      ) &&
+      /context lifecycle runners do not synthesize Rust-owned public fields/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      !/context_budget\.evaluated/.test(runtimeContextPolicyRunner) &&
+      !/compaction_policy\.evaluated/.test(runtimeContextPolicyRunner) &&
+      !/"OperatorControl\.Compact"/.test(runtimeContextPolicyRunner) &&
+      !/"runtime\.context-compact"/.test(runtimeContextPolicyRunner) &&
+      !/"ioi\.runtime\.context-compaction\.v1"/.test(runtimeContextPolicyRunner) &&
       !/ioi\.runtime_mcp_manager_status"/.test(runtimeContextPolicyRunner) &&
       !/ioi\.runtime_mcp_manager_validation"/.test(runtimeContextPolicyRunner) &&
       !/ioi\.runtime_memory_manager_status"/.test(runtimeContextPolicyRunner) &&

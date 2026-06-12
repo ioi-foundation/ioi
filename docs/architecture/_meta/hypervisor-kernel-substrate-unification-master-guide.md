@@ -6804,6 +6804,23 @@ Agentgres-backed truth, replay, and stable IDE/CLI/SDK projection wiring. The
 retired JS fallback projection behavior must not be recreated as a
 compatibility shim.
 
+Slice 1150 retires JS-side public context lifecycle fallbacks from the
+context-policy runner normalizers. Rust `policy/context_lifecycle.rs` already
+authors context-budget policy, compaction-policy, context-compaction plan, and
+context-compaction state-update public record fields through the daemon-core
+command path. The JS `runtime-context-policy-runner.mjs` now passes missing
+Rust-owned `object`, `status`, mode/action, event identity, payload schema,
+compaction policy, boolean decision, and target fields through as `null`
+instead of reconstructing plausible context lifecycle records from hard-coded
+defaults or bridge transport metadata.
+
+This remains non-terminal because the shared JS daemon-core command runner and
+Node bridge transport still carry those context lifecycle requests to Rust, and
+context policy still needs direct Rust daemon-core protocol APIs, Agentgres
+expected-head/state-root persistence, policy receipts/events, replay,
+projection, and stable IDE/CLI/SDK wiring. The retired JS fallback context
+lifecycle behavior must not be recreated as a compatibility shim.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

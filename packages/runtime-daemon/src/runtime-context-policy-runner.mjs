@@ -511,8 +511,9 @@ export function normalizeContextBudgetPolicyBridgeResult(value = {}) {
     ...record,
     source: result.source ?? record.source ?? "rust_context_budget_policy_command",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
-    status: optionalString(result.status ?? record.status) ?? "ok",
-    mode: optionalString(result.mode ?? record.mode) ?? "simulate",
+    object: optionalString(result.object ?? record.object) ?? null,
+    status: optionalString(result.status ?? record.status) ?? null,
+    mode: optionalString(result.mode ?? record.mode) ?? null,
     usage_telemetry: objectRecord(result.usage_telemetry) ?? objectRecord(record.usage_telemetry) ?? {},
     usage_summary: objectRecord(result.usage_summary) ?? objectRecord(record.usage_summary) ?? {},
     policy_decision_id: optionalString(result.policy_decision_id ?? record.policy_decision_id),
@@ -521,12 +522,12 @@ export function normalizeContextBudgetPolicyBridgeResult(value = {}) {
     policy_decision_refs: stringArray(result.policy_decision_refs ?? record.policy_decision_refs),
     warnings: arrayValue(result.warnings ?? record.warnings),
     violations: arrayValue(result.violations ?? record.violations),
-    would_block: Boolean(result.would_block ?? record.would_block),
+    would_block: result.would_block ?? record.would_block ?? null,
     runtime_event_kind:
       optionalString(result.runtime_event_kind ?? record.runtime_event_kind) ??
-      "context_budget.evaluated",
+      null,
     runtime_event_status:
-      optionalString(result.runtime_event_status ?? record.runtime_event_status) ?? "completed",
+      optionalString(result.runtime_event_status ?? record.runtime_event_status) ?? null,
     runtime_event_item_id: optionalString(
       result.runtime_event_item_id ?? record.runtime_event_item_id,
     ),
@@ -544,29 +545,30 @@ export function normalizeCompactionPolicyBridgeResult(value = {}) {
     ...record,
     source: result.source ?? record.source ?? "rust_compaction_policy_command",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
-    status: optionalString(result.status ?? record.status) ?? "ok",
-    action: optionalString(result.action ?? record.action) ?? "noop",
-    selected_action: optionalString(result.selected_action ?? record.selected_action) ?? "noop",
-    budget_status: optionalString(result.budget_status ?? record.budget_status) ?? "ok",
+    object: optionalString(result.object ?? record.object) ?? null,
+    status: optionalString(result.status ?? record.status) ?? null,
+    action: optionalString(result.action ?? record.action) ?? null,
+    selected_action: optionalString(result.selected_action ?? record.selected_action) ?? null,
+    budget_status: optionalString(result.budget_status ?? record.budget_status) ?? null,
     policy_decision_id: optionalString(result.policy_decision_id ?? record.policy_decision_id),
     receipt_refs: stringArray(result.receipt_refs ?? record.receipt_refs),
     policy_decision_refs: stringArray(result.policy_decision_refs ?? record.policy_decision_refs),
     approval_id: optionalString(result.approval_id ?? record.approval_id),
-    approval_required: Boolean(result.approval_required ?? record.approval_required),
-    approval_granted: Boolean(result.approval_granted ?? record.approval_granted),
-    approval_satisfied: Boolean(result.approval_satisfied ?? record.approval_satisfied),
-    execute_compaction: Boolean(result.execute_compaction ?? record.execute_compaction),
-    compaction_requested: Boolean(result.compaction_requested ?? record.compaction_requested),
-    compaction_executed: Boolean(result.compaction_executed ?? record.compaction_executed),
+    approval_required: result.approval_required ?? record.approval_required ?? null,
+    approval_granted: result.approval_granted ?? record.approval_granted ?? null,
+    approval_satisfied: result.approval_satisfied ?? record.approval_satisfied ?? null,
+    execute_compaction: result.execute_compaction ?? record.execute_compaction ?? null,
+    compaction_requested: result.compaction_requested ?? record.compaction_requested ?? null,
+    compaction_executed: result.compaction_executed ?? record.compaction_executed ?? null,
     compaction_event_id: optionalString(result.compaction_event_id ?? record.compaction_event_id),
     compaction_seq: numberValue(result.compaction_seq ?? record.compaction_seq),
     compact_reason: optionalString(result.compact_reason ?? record.compact_reason) ?? null,
-    compact_scope: optionalString(result.compact_scope ?? record.compact_scope) ?? "thread",
+    compact_scope: optionalString(result.compact_scope ?? record.compact_scope) ?? null,
     runtime_event_kind:
       optionalString(result.runtime_event_kind ?? record.runtime_event_kind) ??
-      "compaction_policy.evaluated",
+      null,
     runtime_event_status:
-      optionalString(result.runtime_event_status ?? record.runtime_event_status) ?? "completed",
+      optionalString(result.runtime_event_status ?? record.runtime_event_status) ?? null,
     runtime_event_item_id: optionalString(
       result.runtime_event_item_id ?? record.runtime_event_item_id,
     ),
@@ -578,8 +580,8 @@ export function normalizeCompactionPolicyBridgeResult(value = {}) {
     ),
     compact_workflow_node_id:
       optionalString(result.compact_workflow_node_id ?? record.compact_workflow_node_id) ??
-      "runtime.context-compact",
-    continuation_allowed: Boolean(result.continuation_allowed ?? record.continuation_allowed),
+      null,
+    continuation_allowed: result.continuation_allowed ?? record.continuation_allowed ?? null,
     summary: optionalString(result.summary ?? record.summary) ?? null,
   };
 }
@@ -591,31 +593,32 @@ export function normalizeContextCompactionPlanBridgeResult(value = {}) {
     ...record,
     source: result.source ?? record.source ?? "rust_context_compaction_plan_command",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
-    status: optionalString(result.status ?? record.status) ?? "planned",
-    event_source: optionalString(result.event_source ?? record.event_source ?? record.source) ?? "sdk_client",
-    actor: optionalString(result.actor ?? record.actor) ?? "user",
+    object: optionalString(result.object ?? record.object) ?? null,
+    status: optionalString(result.status ?? record.status) ?? null,
+    event_source: optionalString(result.event_source ?? record.event_source) ?? null,
+    actor: optionalString(result.actor ?? record.actor) ?? null,
     item_id: optionalString(result.item_id ?? record.item_id),
     idempotency_key: optionalString(result.idempotency_key ?? record.idempotency_key),
     compact_hash: optionalString(result.compact_hash ?? record.compact_hash),
     source_event_kind:
       optionalString(result.source_event_kind ?? record.source_event_kind) ??
-      "OperatorControl.Compact",
-    event_kind: optionalString(result.event_kind ?? record.event_kind) ?? "context.compacted",
+      null,
+    event_kind: optionalString(result.event_kind ?? record.event_kind) ?? null,
     component_kind:
-      optionalString(result.component_kind ?? record.component_kind) ?? "context_compaction",
+      optionalString(result.component_kind ?? record.component_kind) ?? null,
     payload_schema_version:
       optionalString(result.payload_schema_version ?? record.payload_schema_version) ??
-      "ioi.runtime.context-compaction.v1",
+      null,
     payload: objectRecord(result.payload) ?? objectRecord(record.payload) ?? {},
     receipt_refs: stringArray(result.receipt_refs ?? record.receipt_refs),
     policy_decision_refs: stringArray(result.policy_decision_refs ?? record.policy_decision_refs),
     artifact_refs: stringArray(result.artifact_refs ?? record.artifact_refs),
     rollback_refs: stringArray(result.rollback_refs ?? record.rollback_refs),
-    redaction_profile: optionalString(result.redaction_profile ?? record.redaction_profile) ?? "internal",
+    redaction_profile: optionalString(result.redaction_profile ?? record.redaction_profile) ?? null,
     reason: optionalString(result.reason ?? record.reason) ?? null,
-    scope: optionalString(result.scope ?? record.scope) ?? "thread",
-    requested_by: optionalString(result.requested_by ?? record.requested_by) ?? "operator",
-    previous_latest_seq: numberValue(result.previous_latest_seq ?? record.previous_latest_seq) ?? 0,
+    scope: optionalString(result.scope ?? record.scope) ?? null,
+    requested_by: optionalString(result.requested_by ?? record.requested_by) ?? null,
+    previous_latest_seq: numberValue(result.previous_latest_seq ?? record.previous_latest_seq),
   };
 }
 
@@ -626,8 +629,9 @@ export function normalizeContextCompactionStateUpdateBridgeResult(value = {}) {
     ...record,
     source: result.source ?? record.source ?? "rust_context_compaction_state_update_command",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
-    status: optionalString(result.status ?? record.status) ?? "planned",
-    target_kind: optionalString(result.target_kind ?? record.target_kind) ?? "agent",
+    object: optionalString(result.object ?? record.object) ?? null,
+    status: optionalString(result.status ?? record.status) ?? null,
+    target_kind: optionalString(result.target_kind ?? record.target_kind) ?? null,
     operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
       codePrefix: "context_compaction_state_update",
       expectedOperationKind: "thread.compact",

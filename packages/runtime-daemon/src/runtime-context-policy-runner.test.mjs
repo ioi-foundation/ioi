@@ -46,6 +46,9 @@ import {
   WORKFLOW_EDIT_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
   createContextPolicyRunnerFromEnv,
   normalizeAgentCreateStateUpdateBridgeResult,
+  normalizeCompactionPolicyBridgeResult,
+  normalizeContextBudgetPolicyBridgeResult,
+  normalizeContextCompactionPlanBridgeResult,
   normalizeContextCompactionStateUpdateBridgeResult,
   normalizeMcpManagerCatalogProjectionBridgeResult,
   normalizeMcpManagerCatalogSummaryProjectionBridgeResult,
@@ -415,6 +418,65 @@ test("context compaction state update runner sends Rust state update bridge requ
   assert.equal(Object.hasOwn(result.context_compaction, "eventId"), false);
   assert.equal(Object.hasOwn(result.context_compaction, "compactedTokens"), false);
   assert.equal(result.run.trace.contextCompaction.event_id, "event_1");
+});
+
+test("context lifecycle runners do not synthesize Rust-owned public fields", () => {
+  const budget = normalizeContextBudgetPolicyBridgeResult({
+    source: "rust_context_budget_policy_command",
+    usage_telemetry: {},
+    usage_summary: {},
+  });
+  assert.equal(budget.object, null);
+  assert.equal(budget.status, null);
+  assert.equal(budget.mode, null);
+  assert.equal(budget.would_block, null);
+  assert.equal(budget.runtime_event_kind, null);
+  assert.equal(budget.runtime_event_status, null);
+
+  const policy = normalizeCompactionPolicyBridgeResult({
+    source: "rust_compaction_policy_command",
+  });
+  assert.equal(policy.object, null);
+  assert.equal(policy.status, null);
+  assert.equal(policy.action, null);
+  assert.equal(policy.selected_action, null);
+  assert.equal(policy.budget_status, null);
+  assert.equal(policy.approval_required, null);
+  assert.equal(policy.approval_granted, null);
+  assert.equal(policy.approval_satisfied, null);
+  assert.equal(policy.execute_compaction, null);
+  assert.equal(policy.compaction_requested, null);
+  assert.equal(policy.compaction_executed, null);
+  assert.equal(policy.compact_scope, null);
+  assert.equal(policy.runtime_event_kind, null);
+  assert.equal(policy.runtime_event_status, null);
+  assert.equal(policy.compact_workflow_node_id, null);
+  assert.equal(policy.continuation_allowed, null);
+
+  const plan = normalizeContextCompactionPlanBridgeResult({
+    source: "rust_context_compaction_plan_command",
+  });
+  assert.equal(plan.object, null);
+  assert.equal(plan.status, null);
+  assert.equal(plan.event_source, null);
+  assert.equal(plan.actor, null);
+  assert.equal(plan.source_event_kind, null);
+  assert.equal(plan.event_kind, null);
+  assert.equal(plan.component_kind, null);
+  assert.equal(plan.payload_schema_version, null);
+  assert.equal(plan.redaction_profile, null);
+  assert.equal(plan.scope, null);
+  assert.equal(plan.requested_by, null);
+  assert.equal(plan.previous_latest_seq, null);
+
+  const update = normalizeContextCompactionStateUpdateBridgeResult({
+    source: "rust_context_compaction_state_update_command",
+    operation_kind: "thread.compact",
+  });
+  assert.equal(update.object, null);
+  assert.equal(update.status, null);
+  assert.equal(update.target_kind, null);
+  assert.equal(update.operation_kind, "thread.compact");
 });
 
 test("coding tool budget recovery state update runner sends Rust state update bridge request", () => {

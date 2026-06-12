@@ -15729,6 +15729,37 @@ behavior.
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1150
+
+Slice 1150 retires JS-side context lifecycle fallback authorship in
+`packages/runtime-daemon/src/runtime-context-policy-runner.mjs`.
+Context-budget policy, compaction-policy, context-compaction plan, and
+context-compaction state-update normalizers now pass missing Rust-owned public
+record fields through as `null` instead of synthesizing status, mode/action,
+event identity, payload schema, compaction policy, boolean decision, or target
+fields from hard-coded JS defaults or bridge transport metadata. Rust
+`crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs`
+remains the context lifecycle policy/projection owner behind the temporary
+daemon-core command path.
+
+This is not terminal context-policy migration. The shared JS daemon-core
+command runner and Node bridge transport remain migration scaffolding until
+direct Rust daemon-core context lifecycle APIs own admission/projection,
+Agentgres expected-head/state-root persistence, receipts/events, replay, and
+stable IDE/CLI/SDK protocol surfaces end to end.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/runtime-context-policy-runner.mjs packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1148
 
 Slice 1148 removes the remaining JS-side defaulting for the external
