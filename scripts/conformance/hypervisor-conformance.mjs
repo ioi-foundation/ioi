@@ -6840,8 +6840,12 @@ function runBridge() {
         bridgeModule,
       ) &&
       !contextPolicyCommandBridgeExists &&
-      /evaluate_context_budget_policy_response as evaluate_context_budget_policy/.test(bridgeModule) &&
-      /plan_context_compaction_state_update_response as plan_context_compaction_state_update/.test(bridgeModule) &&
+      !/evaluate_context_budget_policy_response as evaluate_context_budget_policy/.test(
+        bridgeModule,
+      ) &&
+      !/plan_context_compaction_state_update_response as plan_context_compaction_state_update/.test(
+        bridgeModule,
+      ) &&
       !runtimeControlCommandBridgeExists &&
       !threadLifecycleCommandBridgeExists &&
       !mcpMemoryCommandBridgeExists &&
@@ -7936,6 +7940,7 @@ function runBridge() {
       !contextPolicyCommandBridgeExists &&
       /fn evaluate_context_budget_policy_response/.test(policyContextLifecycleCore) &&
       /ContextBudgetPolicyBridgeRequest/.test(policyContextLifecycleCore) &&
+      /rust_policy_shapes_context_budget_command_response/.test(policyContextLifecycleCore) &&
       /is_daemon_core_operation/.test(commandProtocolCore) &&
       !/is_daemon_core_operation/.test(bridgeDispatch) &&
       !/context_policy_rejects_step_module_command_schema/.test(bridgeModule) &&
@@ -7943,8 +7948,10 @@ function runBridge() {
       /context_budget_policy_invalid/.test(policyContextLifecycleCore) &&
       /policy_record_response/.test(policyContextLifecycleCore) &&
       /command_response_base/.test(policyContextLifecycleCore) &&
-      /evaluate_context_budget_policy_response as evaluate_context_budget_policy/.test(bridgeModule) &&
-      /bridge_evaluates_context_budget_policy_through_rust_core/.test(bridgeModule) &&
+      !/evaluate_context_budget_policy_response as evaluate_context_budget_policy/.test(
+        bridgeModule,
+      ) &&
+      !/bridge_evaluates_context_budget_policy_through_rust_core/.test(bridgeModule) &&
       /runtime_event_idempotency_key/.test(policyContextLifecycleCore) &&
       !/fn evaluate_context_budget_policy/.test(bridgeModule) &&
       !/struct ContextBudgetPolicyBridgeRequest/.test(bridgeModule) &&
@@ -8059,10 +8066,15 @@ function runBridge() {
       /rust_policy_blocks_coding_tool_budget_excess/.test(policyCore) &&
       /fn evaluate_coding_tool_budget_policy_response/.test(policyContextLifecycleCore) &&
       /ContextBudgetPolicyBridgeRequest/.test(policyContextLifecycleCore) &&
+      /rust_policy_shapes_coding_tool_budget_command_response/.test(
+        policyContextLifecycleCore,
+      ) &&
       /rust_coding_tool_budget_policy_command/.test(policyContextLifecycleCore) &&
       /coding_tool_budget_policy_invalid/.test(policyContextLifecycleCore) &&
-      /evaluate_coding_tool_budget_policy_response as evaluate_coding_tool_budget_policy/.test(bridgeModule) &&
-      /bridge_evaluates_coding_tool_budget_policy_through_rust_core/.test(bridgeModule) &&
+      !/evaluate_coding_tool_budget_policy_response as evaluate_coding_tool_budget_policy/.test(
+        bridgeModule,
+      ) &&
+      !/bridge_evaluates_coding_tool_budget_policy_through_rust_core/.test(bridgeModule) &&
       !/fn evaluate_coding_tool_budget_policy/.test(bridgeModule) &&
       /createContextPolicyRunnerFromEnv/.test(runtimeContextPolicyRunner) &&
       /RustContextPolicyRunner/.test(runtimeContextPolicyRunner) &&
@@ -8104,11 +8116,24 @@ function runBridge() {
       /pub struct ContextCompactionStateUpdateCore;/.test(policyContextLifecycleCore) &&
       /rust_policy_blocks_context_budget_excess/.test(policyContextLifecycleCore) &&
       /rust_policy_blocks_coding_tool_budget_excess/.test(policyContextLifecycleCore) &&
+      /rust_policy_shapes_context_budget_command_response/.test(policyContextLifecycleCore) &&
+      /rust_policy_shapes_coding_tool_budget_command_response/.test(
+        policyContextLifecycleCore,
+      ) &&
       /rust_policy_requires_compaction_approval_before_compacting/.test(
         policyContextLifecycleCore,
       ) &&
+      /rust_policy_shapes_compaction_policy_command_response/.test(
+        policyContextLifecycleCore,
+      ) &&
       /rust_policy_plans_context_compaction_event_record/.test(policyContextLifecycleCore) &&
+      /rust_policy_shapes_context_compaction_command_response/.test(
+        policyContextLifecycleCore,
+      ) &&
       /rust_policy_plans_context_compaction_run_state_update/.test(
+        policyContextLifecycleCore,
+      ) &&
+      /rust_policy_shapes_context_compaction_state_update_command_response/.test(
         policyContextLifecycleCore,
       ) &&
       /rust_policy_rejects_invalid_context_compaction_state_update_schema/.test(
@@ -8142,15 +8167,23 @@ function runBridge() {
       !/rust_policy_plans_context_compaction_event_record/.test(policyFacade) &&
       !/mod context_policy_command;/.test(bridgeModule) &&
       !contextPolicyCommandBridgeExists &&
-      /evaluate_context_budget_policy_response as evaluate_context_budget_policy/.test(bridgeModule) &&
-      /evaluate_coding_tool_budget_policy_response as evaluate_coding_tool_budget_policy/.test(bridgeModule) &&
-      /evaluate_compaction_policy_response as evaluate_compaction_policy/.test(bridgeModule) &&
-      /plan_context_compaction_response as plan_context_compaction/.test(bridgeModule) &&
-      /plan_context_compaction_state_update_response as plan_context_compaction_state_update/.test(bridgeModule) &&
-      /ContextBudgetPolicyBridgeRequest/.test(bridgeModule) &&
-      /CompactionPolicyBridgeRequest/.test(bridgeModule) &&
-      /ContextCompactionPlanBridgeRequest/.test(bridgeModule) &&
-      /ContextCompactionStateUpdateBridgeRequest/.test(bridgeModule) &&
+      !/evaluate_context_budget_policy_response as evaluate_context_budget_policy/.test(
+        bridgeModule,
+      ) &&
+      !/evaluate_coding_tool_budget_policy_response as evaluate_coding_tool_budget_policy/.test(
+        bridgeModule,
+      ) &&
+      !/evaluate_compaction_policy_response as evaluate_compaction_policy/.test(
+        bridgeModule,
+      ) &&
+      !/plan_context_compaction_response as plan_context_compaction/.test(bridgeModule) &&
+      !/plan_context_compaction_state_update_response as plan_context_compaction_state_update/.test(
+        bridgeModule,
+      ) &&
+      !/ContextBudgetPolicyBridgeRequest/.test(bridgeModule) &&
+      !/CompactionPolicyBridgeRequest/.test(bridgeModule) &&
+      !/ContextCompactionPlanBridgeRequest/.test(bridgeModule) &&
+      !/ContextCompactionStateUpdateBridgeRequest/.test(bridgeModule) &&
       !/ContextBudgetPolicyCore/.test(contextPolicyCommandBridge) &&
       !/CompactionPolicyCore/.test(contextPolicyCommandBridge) &&
       !/ContextCompactionPlanCore/.test(contextPolicyCommandBridge) &&
@@ -10906,10 +10939,15 @@ function runBridge() {
       /compact_idempotency_key/.test(policyCore) &&
       /fn evaluate_compaction_policy_response/.test(policyContextLifecycleCore) &&
       /CompactionPolicyBridgeRequest/.test(policyContextLifecycleCore) &&
+      /rust_policy_shapes_compaction_policy_command_response/.test(
+        policyContextLifecycleCore,
+      ) &&
       /rust_compaction_policy_command/.test(policyContextLifecycleCore) &&
       /compaction_policy_invalid/.test(policyContextLifecycleCore) &&
-      /evaluate_compaction_policy_response as evaluate_compaction_policy/.test(bridgeModule) &&
-      /bridge_evaluates_compaction_policy_through_rust_core/.test(bridgeModule) &&
+      !/evaluate_compaction_policy_response as evaluate_compaction_policy/.test(
+        bridgeModule,
+      ) &&
+      !/bridge_evaluates_compaction_policy_through_rust_core/.test(bridgeModule) &&
       /runtime_event_idempotency_key/.test(policyContextLifecycleCore) &&
       !/fn evaluate_compaction_policy/.test(bridgeModule) &&
       !/struct CompactionPolicyBridgeRequest/.test(bridgeModule) &&
@@ -11215,11 +11253,14 @@ function runBridge() {
       /rust_policy_plans_runless_context_compaction_against_agent_ref/.test(policyCore) &&
       /fn plan_context_compaction_response/.test(policyContextLifecycleCore) &&
       /ContextCompactionPlanBridgeRequest/.test(policyContextLifecycleCore) &&
+      /rust_policy_shapes_context_compaction_command_response/.test(
+        policyContextLifecycleCore,
+      ) &&
       /rust_context_compaction_plan_command/.test(policyContextLifecycleCore) &&
       /context_compaction_plan_invalid/.test(policyContextLifecycleCore) &&
       /"event_source"/.test(policyContextLifecycleCore) &&
-      /plan_context_compaction_response as plan_context_compaction/.test(bridgeModule) &&
-      /bridge_plans_context_compaction_through_rust_core/.test(bridgeModule) &&
+      !/plan_context_compaction_response as plan_context_compaction/.test(bridgeModule) &&
+      !/bridge_plans_context_compaction_through_rust_core/.test(bridgeModule) &&
       !/fn plan_context_compaction/.test(bridgeModule) &&
       !/struct ContextCompactionPlanBridgeRequest/.test(bridgeModule) &&
       /planContextCompaction/.test(runtimeContextPolicyRunner) &&
@@ -11267,15 +11308,24 @@ function runBridge() {
       ) &&
       /fn plan_context_compaction_state_update_response/.test(policyContextLifecycleCore) &&
       /ContextCompactionStateUpdateBridgeRequest/.test(policyContextLifecycleCore) &&
+      /rust_policy_shapes_context_compaction_state_update_command_response/.test(
+        policyContextLifecycleCore,
+      ) &&
       /rust_context_compaction_state_update_command/.test(policyContextLifecycleCore) &&
       /context_compaction_state_update_invalid/.test(policyContextLifecycleCore) &&
-      /plan_context_compaction_state_update_response as plan_context_compaction_state_update/.test(bridgeModule) &&
-      /bridge_plans_context_compaction_state_update_through_rust_core/.test(bridgeModule) &&
-      /response\["operator_control"\]\["event_id"\]/.test(bridgeModule) &&
-      /response\["operator_control"\]\.get\("eventId"\)\.is_none\(\)/.test(bridgeModule) &&
-      /response\["run"\]\["trace"\]\["contextCompaction"\]\["event_id"\]/.test(bridgeModule) &&
-      /response\["run"\]\["trace"\]\["contextCompaction"\][\s\S]*?\.get\("eventId"\)[\s\S]*?\.is_none\(\)/.test(
+      !/plan_context_compaction_state_update_response as plan_context_compaction_state_update/.test(
         bridgeModule,
+      ) &&
+      !/bridge_plans_context_compaction_state_update_through_rust_core/.test(bridgeModule) &&
+      /response\["operator_control"\]\["event_id"\]/.test(policyContextLifecycleCore) &&
+      /response\["operator_control"\]\.get\("eventId"\)\.is_none\(\)/.test(
+        policyContextLifecycleCore,
+      ) &&
+      /response\["run"\]\["trace"\]\["contextCompaction"\]\["event_id"\]/.test(
+        policyContextLifecycleCore,
+      ) &&
+      /response\["run"\]\["trace"\]\["contextCompaction"\][\s\S]*?\.get\("eventId"\)[\s\S]*?\.is_none\(\)/.test(
+        policyContextLifecycleCore,
       ) &&
       !/fn plan_context_compaction_state_update/.test(bridgeModule) &&
       !/struct ContextCompactionStateUpdateBridgeRequest/.test(bridgeModule) &&

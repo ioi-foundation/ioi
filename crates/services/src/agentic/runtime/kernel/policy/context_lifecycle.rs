@@ -1716,6 +1716,41 @@ mod tests {
     }
 
     #[test]
+    fn rust_policy_shapes_context_budget_command_response() {
+        let mut request = budget_request();
+        request.schema_version = CONTEXT_BUDGET_POLICY_REQUEST_SCHEMA_VERSION.to_string();
+        request.tool_id = None;
+        request.tool_call_id = None;
+
+        let response = evaluate_context_budget_policy_response(ContextBudgetPolicyBridgeRequest {
+            backend: Some("rust_policy".to_string()),
+            request,
+        })
+        .expect("context budget policy command response");
+
+        assert_eq!(response["source"], "rust_context_budget_policy_command");
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "blocked");
+        assert_eq!(
+            response["record"]["event_kind"],
+            "RuntimeContextBudget.Evaluate"
+        );
+        assert_eq!(response["record"]["component_kind"], "context_budget");
+        assert_eq!(response["usage_summary"]["total_tokens"], 120.0);
+        assert_eq!(response["violations"][0]["id"], "total_tokens");
+        assert_eq!(response["runtime_event_kind"], "policy.blocked");
+        assert_eq!(response["runtime_event_status"], "blocked");
+        assert!(response["runtime_event_item_id"]
+            .as_str()
+            .expect("runtime event item id")
+            .starts_with("turn_budget:item:context-budget:policy_context_budget_thread_"));
+        assert!(response["runtime_event_idempotency_key"]
+            .as_str()
+            .expect("runtime event idempotency key")
+            .starts_with("thread:thread_budget:context-budget:policy_context_budget_thread_"));
+    }
+
+    #[test]
     fn rust_policy_blocks_coding_tool_budget_excess() {
         let record = ContextBudgetPolicyCore
             .evaluate(&budget_request())
@@ -1726,6 +1761,30 @@ mod tests {
         assert_eq!(record.component_kind, "coding_tool");
         assert_eq!(record.tool_id.as_deref(), Some("file.inspect"));
         assert_eq!(record.tool_call_id.as_deref(), Some("call_budget"));
+    }
+
+    #[test]
+    fn rust_policy_shapes_coding_tool_budget_command_response() {
+        let response =
+            evaluate_coding_tool_budget_policy_response(ContextBudgetPolicyBridgeRequest {
+                backend: Some("rust_policy".to_string()),
+                request: budget_request(),
+            })
+            .expect("coding-tool budget policy command response");
+
+        assert_eq!(response["source"], "rust_coding_tool_budget_policy_command");
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "blocked");
+        assert_eq!(response["usage_summary"]["total_tokens"], 120.0);
+        assert_eq!(response["violations"][0]["id"], "total_tokens");
+        assert!(response["policy_decision_id"]
+            .as_str()
+            .expect("policy decision")
+            .starts_with("policy_context_budget_thread_"));
+        assert_eq!(
+            response["policy_decision_refs"][0],
+            response["policy_decision_id"]
+        );
     }
 
     #[test]
@@ -1805,6 +1864,38 @@ mod tests {
     }
 
     #[test]
+    fn rust_policy_shapes_compaction_policy_command_response() {
+        let response = evaluate_compaction_policy_response(CompactionPolicyBridgeRequest {
+            backend: Some("rust_policy".to_string()),
+            request: compaction_request(),
+        })
+        .expect("compaction policy command response");
+
+        assert_eq!(response["source"], "rust_compaction_policy_command");
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "waiting");
+        assert_eq!(response["action"], "approval_required");
+        assert_eq!(response["selected_action"], "compact");
+        assert_eq!(response["budget_status"], "blocked");
+        assert_eq!(response["runtime_event_kind"], "approval.required");
+        assert_eq!(response["runtime_event_status"], "waiting");
+        assert!(response["runtime_event_item_id"]
+            .as_str()
+            .expect("runtime event item id")
+            .starts_with("turn_budget:item:compaction-policy:policy_compaction_thread_budget_"));
+        assert!(response["compact_idempotency_key"]
+            .as_str()
+            .expect("compact idempotency key")
+            .starts_with(
+                "thread:thread_budget:compaction-policy:compact:policy_compaction_thread_budget_"
+            ));
+        assert!(response["approval_id"]
+            .as_str()
+            .expect("approval id")
+            .starts_with("approval_compaction_thread_budget_"));
+    }
+
+    #[test]
     fn rust_policy_compacts_when_approval_is_granted() {
         let mut request = compaction_request();
         request.approval.approval_granted = Some(true);
@@ -1868,6 +1959,44 @@ mod tests {
     }
 
     #[test]
+    fn rust_policy_shapes_context_compaction_command_response() {
+        let response = plan_context_compaction_response(ContextCompactionPlanBridgeRequest {
+            backend: Some("rust_policy".to_string()),
+            request: context_compaction_plan_request(),
+        })
+        .expect("context compaction command response");
+
+        assert_eq!(response["source"], "rust_context_compaction_plan_command");
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "planned");
+        assert_eq!(response["event_kind"], "context.compacted");
+        assert_eq!(response["component_kind"], "context_compaction");
+        assert_eq!(
+            response["payload_schema_version"],
+            CONTEXT_COMPACTION_PAYLOAD_SCHEMA_VERSION
+        );
+        assert!(response["item_id"]
+            .as_str()
+            .expect("item id")
+            .starts_with("turn_budget:item:context-compact:"));
+        assert!(response["idempotency_key"]
+            .as_str()
+            .expect("idempotency key")
+            .starts_with("thread:thread_budget:context.compact:"));
+        assert!(response["receipt_refs"][0]
+            .as_str()
+            .expect("receipt ref")
+            .starts_with("receipt_run_budget_context_compaction_"));
+        assert_eq!(
+            response["policy_decision_refs"][0],
+            "policy_run_budget_context_compaction_allow"
+        );
+        assert_eq!(response["payload"]["reason"], "trim context");
+        assert_eq!(response["payload"]["requested_by"], "operator_one");
+        assert_eq!(response["payload"]["previous_latest_seq"], 7);
+    }
+
+    #[test]
     fn rust_policy_plans_runless_context_compaction_against_agent_ref() {
         let mut request = context_compaction_plan_request();
         request.turn_id = None;
@@ -1926,6 +2055,44 @@ mod tests {
         assert_eq!(run["trace"]["operatorControls"][0]["control"], "compact");
         assert_eq!(run["operatorControls"][0]["event_id"], "event_budget");
         assert!(record.agent.is_none());
+    }
+
+    #[test]
+    fn rust_policy_shapes_context_compaction_state_update_command_response() {
+        let response = plan_context_compaction_state_update_response(
+            ContextCompactionStateUpdateBridgeRequest {
+                backend: Some("rust_policy".to_string()),
+                request: context_compaction_state_update_request(),
+            },
+        )
+        .expect("context compaction state update command response");
+
+        assert_eq!(
+            response["source"],
+            "rust_context_compaction_state_update_command"
+        );
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "planned");
+        assert_eq!(response["target_kind"], "run");
+        assert_eq!(response["operation_kind"], "thread.compact");
+        assert_eq!(response["operator_control"]["event_id"], "event_budget");
+        assert!(response["operator_control"].get("eventId").is_none());
+        assert!(response["operator_control"].get("createdAt").is_none());
+        assert_eq!(
+            response["run"]["trace"]["contextCompaction"]["event_id"],
+            "event_budget"
+        );
+        assert!(response["run"]["trace"]["contextCompaction"]
+            .get("eventId")
+            .is_none());
+        assert_eq!(
+            response["run"]["trace"]["contextCompaction"]["reason"],
+            "trim context"
+        );
+        assert_eq!(
+            response["run"]["trace"]["operatorControls"][0]["control"],
+            "compact"
+        );
     }
 
     #[test]

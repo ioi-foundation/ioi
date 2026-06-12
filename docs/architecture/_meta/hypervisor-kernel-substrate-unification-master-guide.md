@@ -7241,6 +7241,25 @@ ownership where admission-required refusal, projection-required refusal,
 Agentgres truth, replay, and conformance no longer depend on Node bridge
 endpoint proof scaffolding.
 
+Slice 1178 moves the context lifecycle command-response proof cluster out of
+the temporary bridge proof surface and relies on the Rust policy owner at
+`crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs`.
+Context-budget policy, coding-tool budget policy, compaction policy,
+context-compaction plan, and context-compaction state-update response shaping
+now run as Rust owner tests. Bridge conformance now requires those owner tests
+and proves the old bridge-named context lifecycle tests, request-type imports,
+and response-function aliases stay absent from
+`ioi_step_module_bridge/proof_tests.rs`.
+
+This remains non-terminal because context lifecycle policy decisions still cross
+temporary command transport. The target is direct Rust daemon-core context
+lifecycle policy/projection API ownership where context-budget admission,
+compaction policy, context compaction event materialization, Agentgres truth,
+replay, and conformance no longer depend on Node bridge endpoint proof
+scaffolding. Schedule the next matrix-compaction pass only after the next
+direct Rust-core API extraction or facade-retirement seam makes it clear which
+temporary transport rows can be collapsed without canonizing the bridge.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The
