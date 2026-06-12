@@ -3,12 +3,15 @@ import test from "node:test";
 
 import { createRuntimeConversationArtifactSurface } from "./runtime-conversation-artifact-surface.mjs";
 
-function harness() {
+function harness(options = {}) {
   const calls = [];
   const artifacts = new Map([
-    ["artifact-one", { artifact_id: "artifact-one", title: "One" }],
+    ["artifact-one", { id: "artifact-one", thread_id: "thread-one", title: "One", revisions: [{ revision_id: "rev-one" }] }],
+    ["artifact-two", { id: "artifact-two", thread_id: "thread-two", title: "Two", revisions: [{ revision_id: "rev-two" }] }],
   ]);
-  const surface = createRuntimeConversationArtifactSurface();
+  const surface = createRuntimeConversationArtifactSurface({
+    contextPolicyRunner: options.contextPolicyRunner,
+  });
   const store = {
     conversationArtifacts: {
       action(artifactId, input) {
@@ -78,6 +81,42 @@ function assertConversationArtifactRustCoreRequired(error, {
   return true;
 }
 
+function assertConversationArtifactProjectionMissing(error, {
+  operation,
+  operationKind,
+  projectionKind,
+  threadId = null,
+  artifactId = null,
+}) {
+  assert.equal(error.status, 501);
+  assert.equal(error.code, "runtime_conversation_artifact_read_projection_rust_projection_missing");
+  assert.equal(error.details.rust_core_boundary, "runtime.conversation_artifact_projection");
+  assert.equal(error.details.operation, operation);
+  assert.equal(error.details.operation_kind, operationKind);
+  assert.equal(error.details.projection_kind, projectionKind);
+  if (threadId) assert.equal(error.details.thread_id, threadId);
+  if (artifactId) assert.equal(error.details.artifact_id, artifactId);
+  assert.equal(
+    error.details.evidence_refs.includes("runtime_conversation_artifact_read_projection_rust_owned"),
+    true,
+  );
+  assert.equal(
+    error.details.evidence_refs.includes("conversation_artifact_read_projection_js_facade_retired"),
+    true,
+  );
+  for (const key of [
+    "rustCoreBoundary",
+    "operationKind",
+    "projectionKind",
+    "threadId",
+    "artifactId",
+    "evidenceRefs",
+  ]) {
+    assert.equal(Object.hasOwn(error.details, key), false, `retired detail alias ${key} must be absent`);
+  }
+  return true;
+}
+
 test("conversation artifact mutation facades fail closed before JS artifact mutation", () => {
   const { calls, store, surface } = harness();
 
@@ -121,23 +160,27 @@ test("conversation artifact mutation facades fail closed before JS artifact muta
   assert.deepEqual(calls, []);
 });
 
-test("conversation artifact read projection facades fail closed before JS artifact reads", () => {
+test("conversation artifact read projections fail closed before JS artifact reads without Rust", () => {
   const { calls, store, surface } = harness();
   const cases = [
     {
       operation: "conversation_artifact_list",
-      operationKind: "artifact.conversation.list",
+      operationKind: "runtime.conversation_artifact_projection.list",
+      projectionKind: "list",
+      threadId: "thread-one",
       call: () => surface.listConversationArtifacts(store, { thread_id: "thread-one" }),
     },
     {
       operation: "conversation_artifact_get",
-      operationKind: "artifact.conversation.get",
+      operationKind: "runtime.conversation_artifact_projection.get",
+      projectionKind: "get",
       artifactId: "artifact-one",
       call: () => surface.getConversationArtifact(store, "artifact-one"),
     },
     {
       operation: "conversation_artifact_revision_list",
-      operationKind: "artifact.conversation.revision.list",
+      operationKind: "runtime.conversation_artifact_projection.revisions",
+      projectionKind: "revisions",
       artifactId: "artifact-one",
       call: () => surface.listConversationArtifactRevisions(store, "artifact-one"),
     },
@@ -146,9 +189,76 @@ test("conversation artifact read projection facades fail closed before JS artifa
   for (const testCase of cases) {
     assert.throws(
       testCase.call,
-      (error) => assertConversationArtifactRustCoreRequired(error, testCase),
+      (error) => assertConversationArtifactProjectionMissing(error, testCase),
     );
   }
 
   assert.deepEqual(calls, []);
+});
+
+test("conversation artifact read projections return Rust daemon-core projections", () => {
+  const projectionCalls = [];
+  const { calls, store, surface } = harness({
+    contextPolicyRunner: {
+      projectRuntimeConversationArtifactProjection(request) {
+        projectionCalls.push(request);
+        const artifacts = request.projection.artifacts;
+        if (request.projection_kind === "list") {
+          return {
+            projection_kind: "list",
+            projection: artifacts.filter((record) => record.thread_id === request.thread_id),
+          };
+        }
+        if (request.projection_kind === "get") {
+          return {
+            projection_kind: "get",
+            projection: artifacts.find((record) => record.id === request.artifact_id) ?? null,
+          };
+        }
+        return {
+          projection_kind: "revisions",
+          projection:
+            artifacts.find((record) => record.id === request.artifact_id)?.revisions ?? [],
+        };
+      },
+    },
+  });
+
+  assert.deepEqual(surface.listConversationArtifacts(store, { thread_id: "thread-one" }), [
+    { id: "artifact-one", thread_id: "thread-one", title: "One", revisions: [{ revision_id: "rev-one" }] },
+  ]);
+  assert.deepEqual(surface.getConversationArtifact(store, "artifact-two"), {
+    id: "artifact-two",
+    thread_id: "thread-two",
+    title: "Two",
+    revisions: [{ revision_id: "rev-two" }],
+  });
+  assert.deepEqual(surface.listConversationArtifactRevisions(store, "artifact-one"), [
+    { revision_id: "rev-one" },
+  ]);
+
+  assert.deepEqual(calls, [
+    { name: "list", query: {} },
+    { name: "list", query: {} },
+    { name: "list", query: {} },
+  ]);
+  assert.equal(projectionCalls.length, 3);
+  assert.deepEqual(
+    projectionCalls.map((request) => request.operation),
+    [
+      "runtime_conversation_artifact_projection",
+      "runtime_conversation_artifact_projection",
+      "runtime_conversation_artifact_projection",
+    ],
+  );
+  assert.deepEqual(
+    projectionCalls.map((request) => request.projection_kind),
+    ["list", "get", "revisions"],
+  );
+  assert.equal(projectionCalls[0].thread_id, "thread-one");
+  assert.equal(projectionCalls[1].artifact_id, "artifact-two");
+  assert.equal(
+    projectionCalls[0].evidence_refs.includes("conversation_artifact_read_projection_js_facade_retired"),
+    true,
+  );
 });

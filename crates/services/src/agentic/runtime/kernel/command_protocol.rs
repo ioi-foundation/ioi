@@ -85,6 +85,8 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "project_repository_workflow",
     "project_runtime_tool_catalog",
     "project_runtime_lifecycle",
+    "project_runtime_memory_projection",
+    "project_runtime_conversation_artifact_projection",
     "plan_lifecycle_admission_required",
     "plan_thread_turn_admission_required",
     "plan_thread_control_agent_state_update",
@@ -191,6 +193,8 @@ pub enum CommandOperation {
     ProjectRepositoryWorkflow,
     ProjectRuntimeToolCatalog,
     ProjectRuntimeLifecycle,
+    ProjectRuntimeMemoryProjection,
+    ProjectRuntimeConversationArtifactProjection,
     PlanLifecycleAdmissionRequired,
     PlanThreadTurnAdmissionRequired,
     PlanThreadControlAgentStateUpdate,
@@ -324,6 +328,10 @@ impl CommandOperation {
             Self::ProjectRepositoryWorkflow => "project_repository_workflow",
             Self::ProjectRuntimeToolCatalog => "project_runtime_tool_catalog",
             Self::ProjectRuntimeLifecycle => "project_runtime_lifecycle",
+            Self::ProjectRuntimeMemoryProjection => "project_runtime_memory_projection",
+            Self::ProjectRuntimeConversationArtifactProjection => {
+                "project_runtime_conversation_artifact_projection"
+            }
             Self::PlanLifecycleAdmissionRequired => "plan_lifecycle_admission_required",
             Self::PlanThreadTurnAdmissionRequired => "plan_thread_turn_admission_required",
             Self::PlanThreadControlAgentStateUpdate => "plan_thread_control_agent_state_update",
@@ -592,6 +600,12 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
         "project_repository_workflow" => Some(CommandOperation::ProjectRepositoryWorkflow),
         "project_runtime_tool_catalog" => Some(CommandOperation::ProjectRuntimeToolCatalog),
         "project_runtime_lifecycle" => Some(CommandOperation::ProjectRuntimeLifecycle),
+        "project_runtime_memory_projection" => {
+            Some(CommandOperation::ProjectRuntimeMemoryProjection)
+        }
+        "project_runtime_conversation_artifact_projection" => {
+            Some(CommandOperation::ProjectRuntimeConversationArtifactProjection)
+        }
         "plan_lifecycle_admission_required" => {
             Some(CommandOperation::PlanLifecycleAdmissionRequired)
         }
@@ -723,6 +737,8 @@ mod tests {
             "plan_runtime_task_job_create_state_update",
             "project_runtime_task_job_projection",
             "project_runtime_tool_catalog",
+            "project_runtime_memory_projection",
+            "project_runtime_conversation_artifact_projection",
         ] {
             assert_eq!(
                 expected_command_schema_version(operation),

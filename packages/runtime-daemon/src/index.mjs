@@ -722,7 +722,10 @@ export class AgentgresRuntimeStateStore {
       processEnv: process.env,
       redactRuntimeNodeForDoctor,
     });
-    this.conversationArtifactSurface = createRuntimeConversationArtifactSurface({ notFound });
+    this.conversationArtifactSurface = createRuntimeConversationArtifactSurface({
+      contextPolicyRunner: this.contextPolicyRunner,
+      notFound,
+    });
     this.approvalSurface = createRuntimeApprovalSurface({
       approvalDecisionForRequest,
       approvalLeaseMetadataForRequest,

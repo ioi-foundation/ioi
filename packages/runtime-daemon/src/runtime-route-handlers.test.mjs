@@ -658,7 +658,7 @@ test("thread conversation artifact routes use mounted artifact surface", async (
     conversationArtifactSurface: {
       listConversationArtifacts(surfaceStore, query) {
         calls.push({ method: "listConversationArtifacts", surfaceStore, query });
-        rustCoreRequired({ operation: "conversation_artifact_list" });
+        return [{ id: "artifact_route", thread_id: query.thread_id }];
       },
       createConversationArtifact(surfaceStore, threadId, input) {
         calls.push({ method: "createConversationArtifact", surfaceStore, threadId, input });
@@ -669,16 +669,18 @@ test("thread conversation artifact routes use mounted artifact surface", async (
     createConversationArtifact: retiredRouteWrapper,
   };
 
-  await assert.rejects(
-    () => handleThreadRoute({
-      request: request({ url: "/v1/threads/thread_route/artifacts" }),
-      response: responseRecorder(),
-      store,
-      url: new URL("/v1/threads/thread_route/artifacts", "http://daemon.test"),
-      segments: ["v1", "threads", "thread_route", "artifacts"],
-    }),
-    { code: "runtime_conversation_artifact_control_rust_core_required" },
-  );
+  const listResponse = responseRecorder();
+  await handleThreadRoute({
+    request: request({ url: "/v1/threads/thread_route/artifacts" }),
+    response: listResponse,
+    store,
+    url: new URL("/v1/threads/thread_route/artifacts", "http://daemon.test"),
+    segments: ["v1", "threads", "thread_route", "artifacts"],
+  });
+  assert.equal(listResponse.statusCode, 200);
+  assert.deepEqual(JSON.parse(listResponse.body), [
+    { id: "artifact_route", thread_id: "thread_route" },
+  ]);
   await assert.rejects(
     () => handleThreadRoute({
       request: request({

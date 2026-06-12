@@ -954,7 +954,8 @@ function runDocs() {
       /`catalog_status_input`/.test(guide) &&
       /Slice 867 moved public catalog-status readback refusal onto the Rust\s+read-projection boundary/.test(guide) &&
       /Public `catalogStatus\(\)` now calls\s+`plan_model_mount_read_projection` kind `catalog_status` with empty request\s+state/.test(guide) &&
-      /The Rust\s+bridge direct `catalog_status` arm fails closed even when a direct caller\s+provides `catalog_status_input`/.test(guide) &&
+      /current macro cut supersedes that refusal/.test(guide) &&
+      /direct Rust `catalog_status` arm ignores caller-supplied\s+`catalog_status_input` while returning the shared empty\/default catalog\s+projection/.test(guide) &&
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(guide) &&
       /`model_catalog_variant_enrichment_js_retired`/.test(guide) &&
       /`catalogVariantForSource\(\)`/.test(guide) &&
@@ -1146,15 +1147,10 @@ function runDocs() {
       /model_mount\.catalog_provider_configuration\.list/.test(matrix) &&
       /catalogProviderConfigs/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 836 is now satisfied/.test(matrix) &&
-      /Compacted Implementation Slice Evidence: 837/.test(matrix) &&
-      /Slice 837 retired public catalog-status readback input composition from JS/.test(matrix) &&
-      /model_catalog_status_js_readback_retired/.test(matrix) &&
-      /Scheduled matrix-compaction obligation from Slice 837 is now satisfied/.test(matrix) &&
-      /Compacted Implementation Slice Evidence: 867/.test(matrix) &&
-      /Slice 867 moved public catalog-status readback refusal onto the Rust\s+read-projection boundary/.test(matrix) &&
-      /Public `catalogStatus\(\)` now calls\s+`plan_model_mount_read_projection` kind `catalog_status` with empty request\s+state/.test(matrix) &&
-      /direct `catalog_status` arm fails closed even when a direct caller\s+provides `catalog_status_input`/.test(matrix) &&
-      /Scheduled matrix-compaction obligation from Slice 867 is now satisfied/.test(matrix) &&
+      /model_mount catalog-status Rust read-projection positive API cut/.test(matrix) &&
+      /public `catalogStatus\(\)` now returns the Rust-authored `catalog_status` projection directly/.test(matrix) &&
+      /Model_mount catalog-status projection positive API/.test(matrix) &&
+      /obsolete JS edge translator plus Rust refusal module are deleted/.test(matrix) &&
       /Implementation Slice Evidence: 868/.test(matrix) &&
       /Slice 868 retired the remaining runtime-survey projection-input and LM Studio\s+runtime placeholder helpers from JS/.test(matrix) &&
       /`latestRuntimeSurveyProjectionInput\(\)`, `lmStudioRuntimeEngines\(\)`, and\s+`lmStudioRuntimeSurvey\(\)` were deleted/.test(matrix) &&
@@ -1689,7 +1685,7 @@ function runDocs() {
       /no longer preserves JS `catalogStatus\(\)` or `catalogStatusProjectionInput\(\)` helpers/.test(
         implementationMatrix,
       ) &&
-      /direct Rust `catalog_status` fails closed and broad catalog envelopes ignore `catalog_status_input`/.test(
+      /direct Rust `catalog_status` ignores `catalog_status_input` while broad catalog envelopes remain empty\/default/.test(
         implementationMatrix,
       ) &&
       /the orphaned JS `read-model\.mjs` projection helper module and test were deleted/.test(
@@ -2054,7 +2050,7 @@ function runDocs() {
       /helper-level `mcpCatalogSummaryForServer`\/`mcpCatalogExposureForStatus`\/`mcpToolNamespaces`\s+JS summary code is retired/.test(implementationMatrix) &&
       /helper-level `mcpRegistryWithServers`\/`mcpServerRecordsFromMutationInput`\/`mcpServerRecordFromAddRequest`\/`mcpResourceKey`\/`mcpPromptKey`\s+JS mutation\/registry projection code is retired/.test(implementationMatrix) &&
       /public\/agent MCP status readiness\/count\/projection now route through Rust daemon-core\s+`McpManagerStatusProjectionCore`\/`plan_mcp_manager_status_projection`/.test(implementationMatrix) &&
-      /public memory status\/validation projection now routes through Rust daemon-core\s+`MemoryManagerStatusProjectionCore` \/ `MemoryManagerValidationProjectionCore`/.test(implementationMatrix) &&
+	      /public memory list\/policy\/path\/status\/validation route projections now call Rust daemon-core\s+`project_runtime_memory_projection`/.test(implementationMatrix) &&
       /Rust projection boundary plus SDK memory output contracts now accept only canonical memory projection envelope\/policy\/path\/record fields\s+\(`schema_version`, `thread_id`, `agent_id`, `total_matches`, `injection_enabled`,\s+`read_only`, `write_requires_approval`, `subagent_inheritance`, `records_path`,\s+`policies_path`, `effective_policy_id`, `memory_key`, `fact_hash`\)/.test(implementationMatrix) &&
       /public model-capability contracts now emit canonical snake_case protocol fields\s+\(`schema_version`, `route_id`, `model_role`, `authority_scope_requirements`,/.test(
         implementationMatrix,
@@ -2944,6 +2940,11 @@ function runBridge() {
     "crates/services/src/agentic/runtime/kernel/policy/mcp_memory.rs",
   )
     ? read("crates/services/src/agentic/runtime/kernel/policy/mcp_memory.rs")
+    : "";
+  const runtimeMemoryProjectionCore = exists(
+    "crates/services/src/agentic/runtime/kernel/runtime_memory_projection.rs",
+  )
+    ? read("crates/services/src/agentic/runtime/kernel/runtime_memory_projection.rs")
     : "";
   const policyRunCancelCore = exists("crates/services/src/agentic/runtime/kernel/policy/run_cancel.rs")
     ? read("crates/services/src/agentic/runtime/kernel/policy/run_cancel.rs")
@@ -11450,12 +11451,12 @@ function runBridge() {
       ) &&
       /Object\.hasOwn\(result\.control,\s*"createdAt"\),\s*false/.test(
         runtimeContextPolicyRunnerTest,
-      ) &&
-      /runtime_thread_memory_control_rust_core_required/.test(runtimeThreadMemoryState) &&
-      /runtime_thread_memory_control_js_facade_retired/.test(runtimeThreadMemoryState) &&
-      /runtime_thread_memory_read_projection_js_facade_retired/.test(runtimeThreadMemoryState) &&
-      /runtime_thread_memory_write_js_facade_retired/.test(runtimeThreadMemoryState) &&
-      /runtime_thread_memory_policy_js_facade_retired/.test(runtimeThreadMemoryState) &&
+	      ) &&
+	      /runtime_thread_memory_control_rust_core_required/.test(runtimeThreadMemoryState) &&
+	      /runtime_thread_memory_control_js_facade_retired/.test(runtimeThreadMemoryState) &&
+	      /runtime_memory_public_projection_rust_owned/.test(runtimeThreadMemoryState) &&
+	      /runtime_thread_memory_write_js_facade_retired/.test(runtimeThreadMemoryState) &&
+	      /runtime_thread_memory_policy_js_facade_retired/.test(runtimeThreadMemoryState) &&
       /runtime_thread_memory_status_validation_js_facade_retired/.test(
         runtimeThreadMemoryState,
       ) &&
@@ -11478,13 +11479,16 @@ function runBridge() {
       !/requiredThreadMemoryOperationKind/.test(runtimeThreadMemoryState) &&
       !/stateUpdate\.operation_kind\s*\?\?\s*`thread\.\$\{controlKind\}`/.test(
         runtimeThreadMemoryState,
-      ) &&
-      /thread memory mutation and policy facades fail closed before JS store mutation/.test(
-        runtimeThreadMemoryStateTest,
-      ) &&
-      /route-facing memory read projections fail closed before JS memory store readback/.test(
-        runtimeThreadMemoryStateTest,
-      ) &&
+	      ) &&
+	      /thread memory mutation and policy facades fail closed before JS store mutation/.test(
+	        runtimeThreadMemoryStateTest,
+	      ) &&
+	      /route-facing memory read projections return Rust daemon-core projections/.test(
+	        runtimeThreadMemoryStateTest,
+	      ) &&
+	      /route-facing memory projections fail closed before JS readback when Rust projection is missing/.test(
+	        runtimeThreadMemoryStateTest,
+	      ) &&
       /thread memory status and validation facades fail closed before event append or Rust planning/.test(
         runtimeThreadMemoryStateTest,
       ) &&
@@ -13367,7 +13371,8 @@ function runBridge() {
       !/serverStatus as serverStatusInput/.test(modelMountingReadProjectionFacade) &&
       /projectionKind === "server_status"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
       /catalogStatus\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"catalog_status"\)/.test(modelMountingReadProjectionFacade) &&
-      /translateCatalogStatusError/.test(modelMountingReadProjectionFacade) &&
+      !/translateCatalogStatusError/.test(modelMountingReadProjectionFacade) &&
+      !/model_catalog_status_js_readback_retired/.test(modelMountingReadProjectionFacade) &&
       !/retiredCatalogStatusReadback/.test(modelMountingReadProjectionFacade) &&
       /projectionKind === "catalog_status"\) return \{\};/.test(modelMountingReadProjectionFacade) &&
       !/catalogStatusProjectionInput/.test(modelMountingReadProjectionFacade) &&
@@ -13486,9 +13491,15 @@ function runBridge() {
       /read projection facade delegates product-safe lists and capabilities/.test(modelMountingReadProjectionFacadeTest) &&
       /read projection facade delegates runtime-engine reads through Rust projections/.test(modelMountingReadProjectionFacadeTest) &&
       /read projection facade delegates server status through Rust projection/.test(modelMountingReadProjectionFacadeTest) &&
-      /read projection facade catalog status fails closed before JS catalog-status input/.test(
+      /read projection facade delegates catalog status through Rust projection/.test(
         modelMountingReadProjectionFacadeTest,
       ) &&
+      /assert\.equal\(status\.adapterBoundary\.port,\s*"ModelCatalogProviderPort"\)/.test(
+        modelMountingReadProjectionFacadeTest,
+      ) &&
+      /assert\.deepEqual\(status\.providers,\s*\[\]\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /assert\.equal\(status\.storage,\s*null\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /assert\.equal\(status\.lastSearch,\s*null\)/.test(modelMountingReadProjectionFacadeTest) &&
       /read projection facade delegates latest runtime survey through Rust projection/.test(modelMountingReadProjectionFacadeTest) &&
       /readProjectionRequests\.map\(\(request\) => request\.projection_kind\)/.test(modelMountingReadProjectionFacadeTest) &&
       /readProjectionRequests\[0\]\.provider_id/.test(modelMountingReadProjectionFacadeTest) &&
@@ -13687,10 +13698,12 @@ function runBridge() {
       !/\nfn object_or_null/.test(modelMountReadProjectionEvidence) &&
       !/\nfn receipts_by_kind/.test(modelMountReadProjectionEvidence) &&
       !/\nfn json_string_field/.test(modelMountReadProjectionEvidence) &&
-      /mod catalog;/.test(modelMountReadProjectionEvidence) &&
-      /"catalog_status" => catalog::status\(\)/.test(modelMountReadProjectionEvidence) &&
-      /pub\(super\) fn status/.test(modelMountReadProjectionEvidence) &&
-      /direct_catalog_status_readback_fails_closed_in_rust_boundary/.test(modelMountReadProjectionEvidence) &&
+      !exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/catalog.rs") &&
+      !/mod catalog;/.test(modelMountReadProjectionEvidence) &&
+      /"catalog_status" => Ok\(status::catalog_status\(request\)\)/.test(modelMountReadProjectionEvidence) &&
+      !/pub\(super\) fn status/.test(modelMountReadProjectionEvidence) &&
+      !/direct_catalog_status_readback_fails_closed_in_rust_boundary/.test(modelMountReadProjectionEvidence) &&
+      !/model_catalog_status_js_readback_retired/.test(modelMountingReadProjectionFacade) &&
       !/"catalog_status" => Err\(ModelMountReadProjectionError::new/.test(modelMountReadProjectionEvidence) &&
       /"latest_provider_health" => health::latest_provider_health\(request\)/.test(modelMountReadProjectionEvidence) &&
       /"latest_vault_health" => health::latest_vault_health\(request\)/.test(modelMountReadProjectionEvidence) &&
@@ -20447,16 +20460,15 @@ function runReceipts() {
   );
   assertCheck(
     result,
-    "model-mount-catalog-status-js-readback-retired",
-    /model_catalog_status_js_readback_retired/.test(modelMountingReadProjectionFacade) &&
-      /model_catalog\.status/.test(modelMountingReadProjectionFacade) &&
-      /rust_core_boundary:\s*"model_mount\.catalog_provider_status_projection"/.test(modelMountingReadProjectionFacade) &&
-      /rust_daemon_core_catalog_status_projection_required/.test(modelMountingReadProjectionFacade) &&
-      /agentgres_catalog_projection_required/.test(modelMountingReadProjectionFacade) &&
-      /catalogStatus\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"catalog_status"\)/.test(
+    "model-mount-catalog-status-positive-rust-projection",
+    /catalogStatus\(state\)\s*\{[\s\S]*?return rustReadProjection\(state,\s*"catalog_status"\)/.test(
         modelMountingReadProjectionFacade,
       ) &&
-      /translateCatalogStatusError/.test(modelMountingReadProjectionFacade) &&
+      !/model_catalog_status_js_readback_retired/.test(modelMountingReadProjectionFacade) &&
+      !/model_catalog\.status/.test(modelMountingReadProjectionFacade) &&
+      !/rust_core_boundary:\s*"model_mount\.catalog_provider_status_projection"/.test(modelMountingReadProjectionFacade) &&
+      !/rust_daemon_core_catalog_status_projection_required/.test(modelMountingReadProjectionFacade) &&
+      !/translateCatalogStatusError/.test(modelMountingReadProjectionFacade) &&
       !/retiredCatalogStatusReadback/.test(modelMountingReadProjectionFacade) &&
       !exists("packages/runtime-daemon/src/model-mounting/catalog-operations.mjs") &&
       !/catalogStatusProjectionInput/.test(catalogOperations) &&
@@ -20468,16 +20480,26 @@ function runReceipts() {
       !/catalog status projection input fails closed before JS provider and storage materialization/.test(
         catalogOperationsTest,
       ) &&
-      /catalog status readback is retired/.test(modelMountingReadProjectionFacadeTest) &&
+      /read projection facade delegates catalog status through Rust projection/.test(
+        modelMountingReadProjectionFacadeTest,
+      ) &&
+      /assert\.equal\(status\.adapterBoundary\.port,\s*"ModelCatalogProviderPort"\)/.test(
+        modelMountingReadProjectionFacadeTest,
+      ) &&
+      /assert\.deepEqual\(status\.providers,\s*\[\]\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /assert\.equal\(status\.storage,\s*null\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /assert\.equal\(status\.lastSearch,\s*null\)/.test(modelMountingReadProjectionFacadeTest) &&
       /assert\.deepEqual\(readProjectionRequests\.map\(\(request\) => request\.projection_kind\), \["catalog_status"\]\)/.test(
         modelMountingReadProjectionFacadeTest,
       ) &&
       /Object\.hasOwn\(readProjectionRequests\[0\]\.state,\s*"catalog_status_input"\),\s*false/.test(
         modelMountingReadProjectionFacadeTest,
       ) &&
-      /mod catalog;/.test(modelMountCore) &&
-      /"catalog_status" => catalog::status\(\)/.test(modelMountCore) &&
-      /direct_catalog_status_readback_fails_closed_in_rust_boundary/.test(modelMountCore) &&
+      !exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/catalog.rs") &&
+      !/mod catalog;/.test(modelMountCore) &&
+      /"catalog_status" => Ok\(status::catalog_status\(request\)\)/.test(modelMountCore) &&
+      /catalog_status_is_planned_in_rust_model_mount_projection/.test(modelMountCore) &&
+      !/direct_catalog_status_readback_fails_closed_in_rust_boundary/.test(modelMountCore) &&
       !/"catalog_status" => Err\(ModelMountReadProjectionError::new/.test(modelMountCore) &&
       !/fn model_mount_catalog_status(?:(?!\nfn ).)*request\.state\.get\("catalog_status_input"\)/s.test(
         modelMountCore,
@@ -20487,7 +20509,7 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs",
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
     ],
-    "Phase 7/11 is pending: public catalog status readback must fail closed before JS provider iteration, storage summary, last-search reads, or catalog-status input transport",
+    "Phase 7/11 is pending: public catalog status readback must be Rust-authored without JS provider iteration, storage summary, last-search reads, catalog-status input transport, or the retired refusal shim",
   );
   assertCheck(
     result,
@@ -24262,6 +24284,19 @@ function runCompositor() {
   const coreCommandDispatchForCompositor = exists("crates/services/src/agentic/runtime/kernel/command_dispatch.rs")
     ? read("crates/services/src/agentic/runtime/kernel/command_dispatch.rs")
     : "";
+  const kernelModuleForCompositor = exists("crates/services/src/agentic/runtime/kernel/mod.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/mod.rs")
+    : "";
+  const runtimeMemoryProjectionCore = exists(
+    "crates/services/src/agentic/runtime/kernel/runtime_memory_projection.rs",
+  )
+    ? read("crates/services/src/agentic/runtime/kernel/runtime_memory_projection.rs")
+    : "";
+  const runtimeConversationArtifactProjectionCore = exists(
+    "crates/services/src/agentic/runtime/kernel/runtime_conversation_artifact_projection.rs",
+  )
+    ? read("crates/services/src/agentic/runtime/kernel/runtime_conversation_artifact_projection.rs")
+    : "";
   const runtimeAgentgresRunnerForThreadEvents = exists("packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs")
     ? read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs")
     : "";
@@ -25668,34 +25703,90 @@ function runCompositor() {
     !/store\.conversationArtifacts\.action\(/.test(runtimeConversationArtifactSurface) &&
     !/store\.conversationArtifacts\.exportArtifact\(/.test(runtimeConversationArtifactSurface) &&
     !/store\.conversationArtifacts\.promoteArtifact\(/.test(runtimeConversationArtifactSurface) &&
-    !/store\.conversationArtifacts\.list\(/.test(runtimeConversationArtifactSurface) &&
-    !/store\.conversationArtifacts\.get\(/.test(runtimeConversationArtifactSurface) &&
-    !/store\.conversationArtifacts\.revisions\(/.test(runtimeConversationArtifactSurface) &&
     /conversation artifact mutation facades fail closed before JS artifact mutation/.test(
-      runtimeConversationArtifactSurfaceTest,
-    ) &&
-    /conversation artifact read projection facades fail closed before JS artifact reads/.test(
       runtimeConversationArtifactSurfaceTest,
     ) &&
     /assertConversationArtifactRustCoreRequired/.test(runtimeConversationArtifactSurfaceTest) &&
     /assert\.deepEqual\(calls,\s*\[\]\)/.test(runtimeConversationArtifactSurfaceTest);
-  const runtimeConversationArtifactReadProjectionLegacyRemoved =
-    /conversation_artifact_list_js_facade_retired/.test(runtimeConversationArtifactSurface) &&
-    /conversation_artifact_get_js_facade_retired/.test(runtimeConversationArtifactSurface) &&
-    /conversation_artifact_revision_list_js_facade_retired/.test(
+  const runtimeConversationArtifactReadProjectionRustOwned =
+    /runtime_conversation_artifact_read_projection_rust_owned/.test(
       runtimeConversationArtifactSurface,
     ) &&
-    /throwConversationArtifactRustCoreRequired/.test(runtimeConversationArtifactListBlock) &&
-    /throwConversationArtifactRustCoreRequired/.test(runtimeConversationArtifactGetBlock) &&
-    /throwConversationArtifactRustCoreRequired/.test(
+    /conversation_artifact_read_projection_js_facade_retired/.test(
+      runtimeConversationArtifactSurface,
+    ) &&
+    /conversationArtifactProjectionRunner/.test(runtimeConversationArtifactSurface) &&
+    /candidateConversationArtifacts/.test(runtimeConversationArtifactSurface) &&
+    /projectRuntimeConversationArtifactProjection\(request\)/.test(
+      runtimeConversationArtifactSurface,
+    ) &&
+    /runtime_conversation_artifact_read_projection_rust_projection_missing/.test(
+      runtimeConversationArtifactSurface,
+    ) &&
+    /runtime_conversation_artifact_read_projection_rust_projection_invalid/.test(
+      runtimeConversationArtifactSurface,
+    ) &&
+    /projectConversationArtifactRead\(store, "list"/.test(
+      runtimeConversationArtifactListBlock,
+    ) &&
+    /projectConversationArtifactRead\(store, "get"/.test(
+      runtimeConversationArtifactGetBlock,
+    ) &&
+    /projectConversationArtifactRead\(store, "revisions"/.test(
       runtimeConversationArtifactRevisionListBlock,
     ) &&
-    !/store\.conversationArtifacts\.list\(/.test(runtimeConversationArtifactListBlock) &&
-    !/store\.conversationArtifacts\.get\(/.test(runtimeConversationArtifactGetBlock) &&
-    !/store\.conversationArtifacts\.revisions\(/.test(
+    !/throwConversationArtifactRustCoreRequired/.test(runtimeConversationArtifactListBlock) &&
+    !/throwConversationArtifactRustCoreRequired/.test(runtimeConversationArtifactGetBlock) &&
+    !/throwConversationArtifactRustCoreRequired/.test(
       runtimeConversationArtifactRevisionListBlock,
     ) &&
-    /conversation artifact read projection facades fail closed before JS artifact reads/.test(
+    /projectRuntimeConversationArtifactProjection\(request/.test(runtimeContextPolicyRunner) &&
+    /project_runtime_conversation_artifact_projection/.test(runtimeContextPolicyRunner) &&
+    /RUNTIME_CONVERSATION_ARTIFACT_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
+      runtimeContextPolicyRunner,
+    ) &&
+    /normalizeRuntimeConversationArtifactProjectionBridgeResult/.test(
+      runtimeContextPolicyRunner,
+    ) &&
+    /runtime conversation artifact projection runner sends Rust daemon-core request/.test(
+      runtimeContextPolicyRunnerTest,
+    ) &&
+    /pub struct RuntimeConversationArtifactProjectionCore;/.test(
+      runtimeConversationArtifactProjectionCore,
+    ) &&
+    /pub fn project_runtime_conversation_artifact_projection_response/.test(
+      runtimeConversationArtifactProjectionCore,
+    ) &&
+    /rust_projects_conversation_artifact_list_get_and_revisions/.test(
+      runtimeConversationArtifactProjectionCore,
+    ) &&
+    /rust_shapes_conversation_artifact_projection_command_response/.test(
+      runtimeConversationArtifactProjectionCore,
+    ) &&
+    /ProjectRuntimeConversationArtifactProjection/.test(
+      commandProtocolCoreForCompositor,
+    ) &&
+    /"project_runtime_conversation_artifact_projection"/.test(
+      commandProtocolCoreForCompositor,
+    ) &&
+    /project_runtime_conversation_artifact_projection_response/.test(
+      coreCommandDispatchForCompositor,
+    ) &&
+    /pub mod runtime_conversation_artifact_projection;/.test(kernelModuleForCompositor) &&
+    /contextPolicyRunner:\s*this\.contextPolicyRunner/.test(runtimeDaemonIndex) &&
+    /public conversation artifact routes use Rust-projected read surface/.test(
+      publicRuntimeRoutesTest,
+    ) &&
+    /thread conversation artifact routes use mounted artifact surface/.test(
+      runtimeRouteHandlersTest,
+    ) &&
+    /conversation artifact read projections return Rust daemon-core projections/.test(
+      runtimeConversationArtifactSurfaceTest,
+    ) &&
+    /conversation artifact read projections fail closed before JS artifact reads without Rust/.test(
+      runtimeConversationArtifactSurfaceTest,
+    ) &&
+    !/conversation artifact read projection facades fail closed before JS artifact reads/.test(
       runtimeConversationArtifactSurfaceTest,
     );
   const conversationArtifactStoreJsWritersRetired =
@@ -25818,7 +25909,7 @@ function runCompositor() {
         publicRuntimeRoutes,
       ) &&
       /thread conversation artifact routes use mounted artifact surface/.test(runtimeRouteHandlersTest) &&
-      /public conversation artifact routes fail closed through mounted artifact surface/.test(
+      /public conversation artifact routes use Rust-projected read surface and fail closed for mutation/.test(
         publicRuntimeRoutesTest,
       ) &&
       /optionalString\(body\.thread_id\)/.test(publicRuntimeRoutesForTaskJob) &&
@@ -25848,7 +25939,7 @@ function runCompositor() {
       /Object\.hasOwn\(artifact,\s*key\),\s*false/.test(conversationArtifactsTest) &&
       /Object\.hasOwn\(revision,\s*key\),\s*false/.test(conversationArtifactsTest) &&
       /Object\.hasOwn\(ref,\s*key\),\s*false/.test(conversationArtifactsTest) &&
-      (runtimeConversationArtifactReadProjectionLegacyRemoved ||
+      (runtimeConversationArtifactReadProjectionRustOwned ||
         /surface\.listConversationArtifacts\(store, \{ thread_id: "thread-one" \}\)/.test(
           runtimeConversationArtifactSurfaceTest,
         )) &&
@@ -25897,13 +25988,20 @@ function runCompositor() {
       "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
       "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
     ],
-    "Phase 10/11 is pending: conversation artifact create/action/export/promote and list/get/revision facades must stay retired before JS artifact mutation or projection",
+    "Phase 10/11 is pending: conversation artifact create/action/export/promote facades must stay retired before JS artifact mutation",
   );
   assertCheck(
     result,
-    "conversation-artifact-read-projection-js-facades-retired",
-    runtimeConversationArtifactReadProjectionLegacyRemoved,
+    "conversation-artifact-read-projections-rust-owned",
+    runtimeConversationArtifactReadProjectionRustOwned,
     [
+      "crates/services/src/agentic/runtime/kernel/runtime_conversation_artifact_projection.rs",
+      "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
+      "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
+      "crates/services/src/agentic/runtime/kernel/mod.rs",
+      "packages/runtime-daemon/src/index.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
       "packages/runtime-daemon/src/runtime-conversation-artifact-surface.mjs",
       "packages/runtime-daemon/src/runtime-conversation-artifact-surface.test.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.mjs",
@@ -25911,26 +26009,49 @@ function runCompositor() {
       "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
       "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
     ],
-    "Phase 10/11 is pending: conversation artifact list/get/revision JS read projections must fail closed before JS artifact-store reads",
+    "Conversation artifact list/get/revision public projections must be Rust daemon-core projected through the mounted artifact surface and must fail closed before JS artifact-store readback when Rust projection is missing",
   );
-  assertCheck(
-    result,
-    "runtime-memory-route-read-projections-fail-closed",
-    /this\.threadMemorySurface = threadMemoryState/.test(runtimeDaemonIndex) &&
-      /publicListMemoryForThread/.test(runtimeThreadMemoryState) &&
-      /publicMemoryPolicyForThread/.test(runtimeThreadMemoryState) &&
+	  assertCheck(
+	    result,
+	    "runtime-memory-route-read-projections-rust-owned",
+	    /this\.threadMemorySurface = threadMemoryState/.test(runtimeDaemonIndex) &&
+	      /publicListMemoryForThread/.test(runtimeThreadMemoryState) &&
+	      /publicMemoryPolicyForThread/.test(runtimeThreadMemoryState) &&
       /publicMemoryPathForThread/.test(runtimeThreadMemoryState) &&
       /publicListMemoryForAgent/.test(runtimeThreadMemoryState) &&
       /publicMemoryPolicyForAgent/.test(runtimeThreadMemoryState) &&
       /publicMemoryPathForAgent/.test(runtimeThreadMemoryState) &&
       /publicMemoryProjectionForContext/.test(runtimeThreadMemoryState) &&
       /publicMemoryStatus/.test(runtimeThreadMemoryState) &&
-      /publicMemoryPolicyForContext/.test(runtimeThreadMemoryState) &&
-      /publicMemoryPathForContext/.test(runtimeThreadMemoryState) &&
-      /publicValidateMemory/.test(runtimeThreadMemoryState) &&
-      /store\.threadMemorySurface\.publicMemoryPolicyForAgent\(store, agentId,/.test(
-        runtimeRouteHandlers,
-      ) &&
+	      /publicMemoryPolicyForContext/.test(runtimeThreadMemoryState) &&
+	      /publicMemoryPathForContext/.test(runtimeThreadMemoryState) &&
+	      /publicValidateMemory/.test(runtimeThreadMemoryState) &&
+	      /projectRuntimeMemoryProjection/.test(runtimeThreadMemoryState) &&
+	      /runtime_public_memory_projection_rust_projection_missing/.test(runtimeThreadMemoryState) &&
+	      /runtime_public_memory_projection_rust_projection_invalid/.test(runtimeThreadMemoryState) &&
+	      /runtime_memory_public_projection_rust_owned/.test(runtimeThreadMemoryState) &&
+	      /projectRuntimeMemoryProjection\(request/.test(runtimeContextPolicyRunner) &&
+	      /project_runtime_memory_projection/.test(runtimeContextPolicyRunner) &&
+	      /RUNTIME_MEMORY_PROJECTION_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyRunner) &&
+	      /normalizeRuntimeMemoryProjectionBridgeResult/.test(runtimeContextPolicyRunner) &&
+	      /runtime memory projection runner sends Rust daemon-core request/.test(
+	        runtimeContextPolicyRunnerTest,
+	      ) &&
+	      /pub struct RuntimeMemoryProjectionCore;/.test(runtimeMemoryProjectionCore) &&
+	      /pub fn project_runtime_memory_projection_response/.test(
+	        runtimeMemoryProjectionCore,
+	      ) &&
+	      /rust_projects_runtime_memory_route_family_shapes/.test(runtimeMemoryProjectionCore) &&
+	      /rust_shapes_runtime_memory_projection_command_response/.test(
+	        runtimeMemoryProjectionCore,
+	      ) &&
+	      /ProjectRuntimeMemoryProjection/.test(commandProtocolCoreForCompositor) &&
+	      /"project_runtime_memory_projection"/.test(commandProtocolCoreForCompositor) &&
+	      /project_runtime_memory_projection_response/.test(coreCommandDispatchForCompositor) &&
+	      /pub mod runtime_memory_projection;/.test(kernelModuleForCompositor) &&
+	      /store\.threadMemorySurface\.publicMemoryPolicyForAgent\(store, agentId,/.test(
+	        runtimeRouteHandlers,
+	      ) &&
       /store\.threadMemorySurface\.publicMemoryPathForAgent\(store, agentId,/.test(
         runtimeRouteHandlers,
       ) &&
@@ -25990,32 +26111,50 @@ function runCompositor() {
       /agent and thread memory read routes use mounted thread memory surface/.test(
         runtimeRouteHandlersTest,
       ) &&
-      /agent and thread memory mutation routes use mounted thread memory surface/.test(
-        runtimeRouteHandlersTest,
-      ) &&
-      /public runtime memory projection routes fail closed through thread memory surface/.test(
-        publicRuntimeRoutesTest,
-      ) &&
-      !/store\.(?:listMemoryForThread|memoryPolicyForThread|memoryPathForThread|listMemoryForAgent|memoryPolicyForAgent|memoryPathForAgent)\(/.test(
-        runtimeRouteHandlers,
-      ) &&
+	      /agent and thread memory mutation routes use mounted thread memory surface/.test(
+	        runtimeRouteHandlersTest,
+	      ) &&
+	      /public runtime memory projection routes use Rust-projected thread memory surface/.test(
+	        publicRuntimeRoutesTest,
+	      ) &&
+	      /route-facing memory read projections return Rust daemon-core projections/.test(
+	        runtimeThreadMemoryStateTest,
+	      ) &&
+	      /route-facing memory projections fail closed before JS readback when Rust projection is missing/.test(
+	        runtimeThreadMemoryStateTest,
+	      ) &&
+	      !/store\.(?:listMemoryForThread|memoryPolicyForThread|memoryPathForThread|listMemoryForAgent|memoryPolicyForAgent|memoryPathForAgent)\(/.test(
+	        runtimeRouteHandlers,
+	      ) &&
       !/store\.(?:setMemoryPolicyForThread|updateMemoryForThread|deleteMemoryForThread|rememberForThread|setMemoryPolicyForAgent|updateMemoryForAgentId|deleteMemoryForAgentId|rememberForAgentId|recordThreadMemoryStatus|validateThreadMemory)\(/.test(
         runtimeRouteHandlers,
       ) &&
-      !/store\.(?:memoryStatus|memoryProjectionForContext|validateMemory)\(/.test(
-        publicRuntimeRoutes,
-      ),
-    [
-      "packages/runtime-daemon/src/index.mjs",
-      "packages/runtime-daemon/src/threads/thread-memory-state.mjs",
-      "packages/runtime-daemon/src/threads/thread-memory-state.test.mjs",
-      "packages/runtime-daemon/src/runtime-route-handlers.mjs",
-      "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
-      "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
-      "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
-    ],
-    "Phase 10/11 is pending: public memory read/status/policy/path/validation routes must fail closed through the mounted Rust-core-required memory surface before JS memory-store readback",
-  );
+	      !/store\.(?:memoryStatus|memoryProjectionForContext|validateMemory)\(/.test(
+	        publicRuntimeRoutes,
+	      ) &&
+	      !/runtime_thread_memory_read_projection_js_facade_retired/.test(
+	        runtimeThreadMemoryState,
+	      ) &&
+	      !/route-facing memory read projections fail closed before JS memory store readback/.test(
+	        runtimeThreadMemoryStateTest,
+	      ),
+	    [
+	      "crates/services/src/agentic/runtime/kernel/runtime_memory_projection.rs",
+	      "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
+	      "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
+	      "crates/services/src/agentic/runtime/kernel/mod.rs",
+	      "packages/runtime-daemon/src/index.mjs",
+	      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
+	      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+	      "packages/runtime-daemon/src/threads/thread-memory-state.mjs",
+	      "packages/runtime-daemon/src/threads/thread-memory-state.test.mjs",
+	      "packages/runtime-daemon/src/runtime-route-handlers.mjs",
+	      "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
+	      "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
+	      "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
+	    ],
+	    "Public memory read/status/policy/path/validation routes must use Rust daemon-core runtime memory projection through the mounted thread-memory surface and must not return through direct JS memory-store readback or the retired fail-closed read facade",
+	  );
   assertCheck(
     result,
     "agent-memory-read-query-alias-retired",
@@ -26082,13 +26221,13 @@ function runCompositor() {
   assertCheck(
     result,
     "agent-memory-mutation-request-aliases-retired",
-    /runtime_thread_memory_control_rust_core_required/.test(
-      runtimeThreadMemoryState,
-    ) &&
-      /runtime_thread_memory_control_js_facade_retired/.test(runtimeThreadMemoryState) &&
-      /runtime_thread_memory_read_projection_js_facade_retired/.test(runtimeThreadMemoryState) &&
-      /runtime_thread_memory_write_js_facade_retired/.test(runtimeThreadMemoryState) &&
-      /runtime_thread_memory_policy_js_facade_retired/.test(runtimeThreadMemoryState) &&
+	      /runtime_thread_memory_control_rust_core_required/.test(
+	        runtimeThreadMemoryState,
+	      ) &&
+	      /runtime_thread_memory_control_js_facade_retired/.test(runtimeThreadMemoryState) &&
+	      /runtime_memory_public_projection_rust_owned/.test(runtimeThreadMemoryState) &&
+	      /runtime_thread_memory_write_js_facade_retired/.test(runtimeThreadMemoryState) &&
+	      /runtime_thread_memory_policy_js_facade_retired/.test(runtimeThreadMemoryState) &&
       /thread memory mutation and policy facades fail closed before JS store mutation/.test(
         runtimeThreadMemoryStateTest,
       ) &&

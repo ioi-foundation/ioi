@@ -577,40 +577,30 @@ test("public runtime usage and authority evidence routes use mounted run read su
   ]);
 });
 
-test("public runtime memory projection routes fail closed through thread memory surface", async () => {
+test("public runtime memory projection routes use Rust-projected thread memory surface", async () => {
   const { handleRequest } = routeHarness();
   const calls = [];
-  const rustCoreRequired = (details = {}) => {
-    const error = new Error("thread memory control requires Rust core");
-    error.status = 501;
-    error.code = "runtime_thread_memory_control_rust_core_required";
-    error.details = {
-      rust_core_boundary: "runtime.thread_memory_control",
-      ...details,
-    };
-    throw error;
-  };
   const store = {
     threadMemorySurface: {
       publicMemoryStatus(surfaceStore, options) {
         calls.push({ method: "publicMemoryStatus", surfaceStore, options });
-        rustCoreRequired({ requested_control_kind: "memory_status_projection" });
+        return { object: "ioi.runtime_memory_manager_status", options };
       },
       publicMemoryProjectionForContext(surfaceStore, options) {
         calls.push({ method: "publicMemoryProjectionForContext", surfaceStore, options });
-        rustCoreRequired({ requested_control_kind: "memory_read_projection" });
+        return { object: "ioi.agent_memory_projection", options };
       },
       publicMemoryPolicyForContext(surfaceStore, options) {
         calls.push({ method: "publicMemoryPolicyForContext", surfaceStore, options });
-        rustCoreRequired({ requested_control_kind: "memory_policy_projection" });
+        return { object: "ioi.agent_memory_policy", options };
       },
       publicMemoryPathForContext(surfaceStore, options) {
         calls.push({ method: "publicMemoryPathForContext", surfaceStore, options });
-        rustCoreRequired({ requested_control_kind: "memory_path_projection" });
+        return { object: "ioi.agent_memory_path_projection", options };
       },
       publicValidateMemory(surfaceStore, input) {
         calls.push({ method: "publicValidateMemory", surfaceStore, input });
-        rustCoreRequired({ requested_control_kind: "memory_validate_projection" });
+        return { object: "ioi.runtime_memory_manager_validation", input };
       },
     },
     memoryProjectionForContext: retiredRouteWrapper,
@@ -626,8 +616,7 @@ test("public runtime memory projection routes fail closed through thread memory 
   ]) {
     const response = responseRecorder();
     await handleRequest({ request: request({ url: path }), response, store });
-    assert.equal(response.statusCode, 501);
-    assert.equal(response.error.code, "runtime_thread_memory_control_rust_core_required");
+    assert.equal(response.statusCode, 200);
   }
 
   const validateResponse = responseRecorder();
@@ -636,8 +625,8 @@ test("public runtime memory projection routes fail closed through thread memory 
     response: validateResponse,
     store,
   });
-  assert.equal(validateResponse.statusCode, 501);
-  assert.equal(validateResponse.error.code, "runtime_thread_memory_control_rust_core_required");
+  assert.equal(validateResponse.statusCode, 200);
+  assert.equal(JSON.parse(validateResponse.body).object, "ioi.runtime_memory_manager_validation");
   assert.equal(calls.every((call) => call.surfaceStore === store), true);
   assert.deepEqual(
     calls.map(({ method, options, input }) => ({ method, options, input })),
@@ -651,7 +640,7 @@ test("public runtime memory projection routes fail closed through thread memory 
   );
 });
 
-test("public conversation artifact routes fail closed through mounted artifact surface", async () => {
+test("public conversation artifact routes use Rust-projected read surface and fail closed for mutation", async () => {
   const { handleRequest } = routeHarness();
   const calls = [];
   const rustCoreRequired = (details = {}) => {
@@ -668,7 +657,7 @@ test("public conversation artifact routes fail closed through mounted artifact s
     conversationArtifactSurface: {
       listConversationArtifacts(surfaceStore, query) {
         calls.push({ method: "listConversationArtifacts", surfaceStore, query });
-        rustCoreRequired({ operation: "conversation_artifact_list" });
+        return [{ id: "artifact_route", thread_id: query.thread_id }];
       },
       createConversationArtifact(surfaceStore, threadId, input) {
         calls.push({ method: "createConversationArtifact", surfaceStore, threadId, input });
@@ -676,11 +665,11 @@ test("public conversation artifact routes fail closed through mounted artifact s
       },
       getConversationArtifact(surfaceStore, artifactId) {
         calls.push({ method: "getConversationArtifact", surfaceStore, artifactId });
-        rustCoreRequired({ operation: "conversation_artifact_get", artifact_id: artifactId });
+        return { id: artifactId, thread_id: "thread_route" };
       },
       listConversationArtifactRevisions(surfaceStore, artifactId) {
         calls.push({ method: "listConversationArtifactRevisions", surfaceStore, artifactId });
-        rustCoreRequired({ operation: "conversation_artifact_revision_list", artifact_id: artifactId });
+        return [{ revision_id: "revision_route", artifact_id: artifactId }];
       },
       performConversationArtifactAction(surfaceStore, artifactId, input) {
         calls.push({ method: "performConversationArtifactAction", surfaceStore, artifactId, input });
@@ -705,36 +694,68 @@ test("public conversation artifact routes fail closed through mounted artifact s
   };
 
   const requests = [
-    request({ url: "/v1/conversation-artifacts?thread_id=thread_route" }),
-    request({
+    {
+      req: request({ url: "/v1/conversation-artifacts?thread_id=thread_route" }),
+      status: 200,
+      body: [{ id: "artifact_route", thread_id: "thread_route" }],
+    },
+    {
+      req: request({
       method: "POST",
       url: "/v1/conversation-artifacts",
       body: { thread_id: "thread_route", title: "Draft" },
-    }),
-    request({ url: "/v1/conversation-artifacts/artifact_route" }),
-    request({ url: "/v1/conversation-artifacts/artifact_route/revisions" }),
-    request({
+      }),
+      status: 501,
+      code: "runtime_conversation_artifact_control_rust_core_required",
+    },
+    {
+      req: request({ url: "/v1/conversation-artifacts/artifact_route" }),
+      status: 200,
+      body: { id: "artifact_route", thread_id: "thread_route" },
+    },
+    {
+      req: request({ url: "/v1/conversation-artifacts/artifact_route/revisions" }),
+      status: 200,
+      body: [{ revision_id: "revision_route", artifact_id: "artifact_route" }],
+    },
+    {
+      req: request({
       method: "POST",
       url: "/v1/conversation-artifacts/artifact_route/actions",
       body: { kind: "edit" },
-    }),
-    request({
+      }),
+      status: 501,
+      code: "runtime_conversation_artifact_control_rust_core_required",
+    },
+    {
+      req: request({
       method: "POST",
       url: "/v1/conversation-artifacts/artifact_route/export",
       body: { format: "zip" },
-    }),
-    request({
+      }),
+      status: 501,
+      code: "runtime_conversation_artifact_control_rust_core_required",
+    },
+    {
+      req: request({
       method: "POST",
       url: "/v1/conversation-artifacts/artifact_route/promote",
       body: { target: "canvas" },
-    }),
+      }),
+      status: 501,
+      code: "runtime_conversation_artifact_control_rust_core_required",
+    },
   ];
 
-  for (const req of requests) {
+  for (const { req, status, body, code } of requests) {
     const response = responseRecorder();
     await handleRequest({ request: req, response, store });
-    assert.equal(response.statusCode, 501);
-    assert.equal(response.error.code, "runtime_conversation_artifact_control_rust_core_required");
+    assert.equal(response.statusCode, status);
+    if (code) {
+      assert.equal(response.error.code, code);
+    } else {
+      assert.deepEqual(JSON.parse(response.body), body);
+    }
   }
 
   assert.equal(calls.every((call) => call.surfaceStore === store), true);

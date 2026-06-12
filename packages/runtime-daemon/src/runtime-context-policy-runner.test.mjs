@@ -34,6 +34,8 @@ import {
   REPOSITORY_WORKFLOW_PROJECTION_REQUEST_SCHEMA_VERSION,
   RUNTIME_TOOL_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION,
   RUNTIME_LIFECYCLE_PROJECTION_REQUEST_SCHEMA_VERSION,
+  RUNTIME_MEMORY_PROJECTION_REQUEST_SCHEMA_VERSION,
+  RUNTIME_CONVERSATION_ARTIFACT_PROJECTION_REQUEST_SCHEMA_VERSION,
   RUNTIME_BRIDGE_THREAD_START_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   RUNTIME_BRIDGE_TURN_RUN_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   RUN_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
@@ -78,6 +80,8 @@ import {
   normalizeRuntimeTaskJobProjectionBridgeResult,
   normalizeRuntimeToolCatalogProjectionBridgeResult,
   normalizeRuntimeLifecycleProjectionBridgeResult,
+  normalizeRuntimeMemoryProjectionBridgeResult,
+  normalizeRuntimeConversationArtifactProjectionBridgeResult,
   normalizeRepositoryWorkflowProjectionBridgeResult,
   normalizeSkillHookRegistryProjectionBridgeResult,
   normalizeRunCreateStateUpdateBridgeResult,
@@ -1927,6 +1931,165 @@ test("runtime lifecycle projection runner sends Rust daemon-core request", () =>
       assert.equal(
         error.code,
         "runtime_lifecycle_projection_operation_kind_mismatch",
+      );
+      assertNoRetiredOperationKindDetailAliases(error.details);
+      return true;
+    },
+  );
+});
+
+test("runtime memory projection runner sends Rust daemon-core request", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    daemonCoreInvoker(request) {
+      captured = request;
+      return {
+        source: "rust_runtime_memory_projection_command",
+        backend: "rust_policy",
+        record: {
+          object: "ioi.runtime_memory_projection",
+          status: "projected",
+          operation: "runtime_memory_projection",
+          operation_kind: "runtime.memory_projection.records",
+          projection_kind: "records",
+          agent_id: "agent_123",
+          thread_id: "thread_123",
+          workspace_root: "/workspace/project",
+          projection: {
+            schema_version: "ioi.agent-runtime.memory.v1",
+            thread_id: "thread_123",
+            agent_id: "agent_123",
+            records: [{ id: "memory_123" }],
+            total_matches: 1,
+          },
+          record_count: 1,
+          evidence_refs: ["runtime_memory_public_projection_rust_owned"],
+          receipt_refs: ["receipt_runtime_memory_projection_records"],
+        },
+      };
+    },
+  });
+
+  const projection = {
+    schema_version: "ioi.agent-runtime.memory.v1",
+    records: [{ id: "memory_123" }],
+    total_matches: 1,
+  };
+  const result = runner.projectRuntimeMemoryProjection({
+    operation: "runtime_memory_projection",
+    operation_kind: "runtime.memory_projection.records",
+    projection_kind: "records",
+    agent_id: "agent_123",
+    thread_id: "thread_123",
+    workspace_root: "/workspace/project",
+    projection,
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "project_runtime_memory_projection");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    RUNTIME_MEMORY_PROJECTION_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.operation, "runtime_memory_projection");
+  assert.equal(captured.request.operation_kind, "runtime.memory_projection.records");
+  assert.equal(captured.request.projection_kind, "records");
+  assert.deepEqual(captured.request.projection, projection);
+  assert.equal(result.source, "rust_runtime_memory_projection_command");
+  assert.equal(result.projection_kind, "records");
+  assert.equal(result.projection.records[0].id, "memory_123");
+  assert.equal(result.record_count, 1);
+  assert.equal(Object.hasOwn(result, "projectionKind"), false);
+
+  assert.throws(
+    () =>
+      normalizeRuntimeMemoryProjectionBridgeResult({
+        record: {
+          operation_kind: "runtime.memory_projection.retired",
+          projection_kind: "records",
+        },
+      }),
+    (error) => {
+      assert.equal(
+        error.code,
+        "runtime_memory_projection_operation_kind_mismatch",
+      );
+      assertNoRetiredOperationKindDetailAliases(error.details);
+      return true;
+    },
+  );
+});
+
+test("runtime conversation artifact projection runner sends Rust daemon-core request", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    daemonCoreInvoker(request) {
+      captured = request;
+      return {
+        source: "rust_runtime_conversation_artifact_projection_command",
+        backend: "rust_policy",
+        record: {
+          object: "ioi.runtime_conversation_artifact_projection",
+          status: "projected",
+          operation: "runtime_conversation_artifact_projection",
+          operation_kind: "runtime.conversation_artifact_projection.list",
+          projection_kind: "list",
+          thread_id: "thread_123",
+          artifact_id: null,
+          projection: [{ id: "artifact_123", thread_id: "thread_123" }],
+          record_count: 1,
+          evidence_refs: ["runtime_conversation_artifact_read_projection_rust_owned"],
+          receipt_refs: ["receipt_runtime_conversation_artifact_projection_list"],
+        },
+      };
+    },
+  });
+
+  const projection = {
+    artifacts: [{ id: "artifact_123", thread_id: "thread_123" }],
+  };
+  const result = runner.projectRuntimeConversationArtifactProjection({
+    operation: "runtime_conversation_artifact_projection",
+    operation_kind: "runtime.conversation_artifact_projection.list",
+    projection_kind: "list",
+    thread_id: "thread_123",
+    projection,
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "project_runtime_conversation_artifact_projection");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    RUNTIME_CONVERSATION_ARTIFACT_PROJECTION_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.operation, "runtime_conversation_artifact_projection");
+  assert.equal(
+    captured.request.operation_kind,
+    "runtime.conversation_artifact_projection.list",
+  );
+  assert.equal(captured.request.projection_kind, "list");
+  assert.equal(captured.request.thread_id, "thread_123");
+  assert.deepEqual(captured.request.projection, projection);
+  assert.equal(result.source, "rust_runtime_conversation_artifact_projection_command");
+  assert.equal(result.projection_kind, "list");
+  assert.equal(result.projection[0].id, "artifact_123");
+  assert.equal(result.record_count, 1);
+  assert.equal(Object.hasOwn(result, "projectionKind"), false);
+
+  assert.throws(
+    () =>
+      normalizeRuntimeConversationArtifactProjectionBridgeResult({
+        record: {
+          operation_kind: "runtime.conversation_artifact_projection.retired",
+          projection_kind: "list",
+        },
+      }),
+    (error) => {
+      assert.equal(
+        error.code,
+        "runtime_conversation_artifact_projection_operation_kind_mismatch",
       );
       assertNoRetiredOperationKindDetailAliases(error.details);
       return true;

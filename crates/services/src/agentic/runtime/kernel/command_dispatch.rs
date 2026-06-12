@@ -6,8 +6,9 @@ use super::{
     agentgres_command::*, approval::*, authority::*, coding_tool_event::*,
     coding_tool_step_module::*, command_protocol::CommandOperation, governed_admission::*,
     governed_receipt::*, model_mount::*, model_mount_receipt::*, policy::*, repository_workflow::*,
-    runtime_lifecycle::*, runtime_thread_event::*, runtime_tool_catalog::*, skill_hook_registry::*,
-    workspace_restore::*,
+    runtime_conversation_artifact_projection::*, runtime_lifecycle::*,
+    runtime_memory_projection::*, runtime_thread_event::*, runtime_tool_catalog::*,
+    skill_hook_registry::*, workspace_restore::*,
 };
 
 #[derive(Debug, Clone)]
@@ -421,6 +422,13 @@ pub fn dispatch_command_operation_response(
         CommandOperation::ProjectRuntimeLifecycle => {
             project_runtime_lifecycle_response(decode(raw_request)?).map_err(Into::into)
         }
+        CommandOperation::ProjectRuntimeMemoryProjection => {
+            project_runtime_memory_projection_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::ProjectRuntimeConversationArtifactProjection => {
+            project_runtime_conversation_artifact_projection_response(decode(raw_request)?)
+                .map_err(Into::into)
+        }
         CommandOperation::PlanLifecycleAdmissionRequired => {
             plan_lifecycle_admission_required_response(decode(raw_request)?).map_err(Into::into)
         }
@@ -560,6 +568,8 @@ command_error_from!(RuntimeTaskJobProjectionCommandError);
 command_error_from!(SkillHookRegistryProjectionCommandError);
 command_error_from!(RepositoryWorkflowProjectionCommandError);
 command_error_from!(RuntimeLifecycleProjectionCommandError);
+command_error_from!(RuntimeMemoryProjectionCommandError);
+command_error_from!(RuntimeConversationArtifactProjectionCommandError);
 command_error_from!(ThreadLifecycleCommandError);
 command_error_from!(WorkspaceTrustControlCommandError);
 command_error_from!(RuntimeToolCatalogProjectionCommandError);

@@ -279,11 +279,7 @@ function rustProjectionFixture(request) {
     });
   }
   if (request.projection_kind === "latest_runtime_survey") return latestRuntimeSurveyFromRustState(state);
-  if (request.projection_kind === "catalog_status") {
-    throw Object.assign(new Error("catalog status readback is retired"), {
-      code: "model_catalog_status_js_readback_retired",
-    });
-  }
+  if (request.projection_kind === "catalog_status") return catalogStatusFromRustState(state, request.schema_version);
   if (request.projection_kind === "runtime_model_catalog") return [];
   if (request.projection_kind === "open_ai_model_list") return { object: "list", data: [] };
   const projection = {
@@ -940,19 +936,17 @@ test("read projection facade delegates server status through Rust projection", (
   assert.equal(Object.hasOwn(readProjectionRequests[0].state, "projection"), false);
 });
 
-test("read projection facade catalog status fails closed before JS catalog-status input", () => {
+test("read projection facade delegates catalog status through Rust projection", () => {
   const { facade, state, readProjectionRequests } = createState();
 
-  assert.throws(
-    () => facade.catalogStatus(state),
-    (error) => {
-      assert.equal(error.status, 501);
-      assert.equal(error.code, "model_catalog_status_js_readback_retired");
-      assert.equal(error.details.operation_kind, "model_catalog.status");
-      assert.equal(error.details.rust_core_boundary, "model_mount.catalog_provider_status_projection");
-      return true;
-    },
-  );
+  const status = facade.catalogStatus(state);
+
+  assert.equal(status.schemaVersion, "model.mount.schema");
+  assert.equal(status.adapterBoundary.port, "ModelCatalogProviderPort");
+  assert.deepEqual(status.providers, []);
+  assert.equal(status.storage, null);
+  assert.equal(status.lastSearch, null);
+  assert.deepEqual(status.results, []);
   assert.deepEqual(readProjectionRequests.map((request) => request.projection_kind), ["catalog_status"]);
   assert.deepEqual(readProjectionRequests[0].state, {});
   assert.equal(Object.hasOwn(readProjectionRequests[0].state, "catalog_status_input"), false);

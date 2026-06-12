@@ -4,7 +4,6 @@ use serde_json::{json, Value};
 mod adapter_boundary;
 mod aggregate;
 mod authority;
-mod catalog;
 mod common;
 mod health;
 mod oauth;
@@ -125,7 +124,7 @@ pub(super) fn model_mount_read_projection(
         "latest_provider_health" => health::latest_provider_health(request),
         "latest_vault_health" => health::latest_vault_health(request),
         "latest_runtime_survey" => Ok(health::latest_runtime_survey(request)),
-        "catalog_status" => catalog::status(),
+        "catalog_status" => Ok(status::catalog_status(request)),
         other => Err(ModelMountReadProjectionError::new(
             "model_mount_read_projection_kind_unsupported",
             format!("unsupported model_mount read projection kind {other}"),

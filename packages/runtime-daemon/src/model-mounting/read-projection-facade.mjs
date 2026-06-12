@@ -78,11 +78,7 @@ export function createModelMountingReadProjectionFacade({
   }
 
   function catalogStatus(state) {
-    try {
-      return rustReadProjection(state, "catalog_status");
-    } catch (error) {
-      throw translateCatalogStatusError(error);
-    }
+    return rustReadProjection(state, "catalog_status");
   }
 
   function authoritySnapshot(state, baseUrl) {
@@ -245,25 +241,6 @@ export function createModelMountingReadProjectionFacade({
             "model_mount_oauth_read_projection_js_retired",
             "rust_daemon_core_catalog_provider_oauth_projection_required",
             "rust_daemon_core_wallet_ctee_custody_required",
-          ],
-        },
-      });
-    }
-    throw error;
-  }
-
-  function translateCatalogStatusError(error) {
-    if (error?.code === "model_catalog_status_js_readback_retired") {
-      throw Object.assign(new Error("Model catalog status readback is retired in JS; use Rust daemon-core catalog status/projection."), {
-        status: 501,
-        code: "model_catalog_status_js_readback_retired",
-        details: {
-          operation_kind: "model_catalog.status",
-          rust_core_boundary: "model_mount.catalog_provider_status_projection",
-          evidence_refs: [
-            "model_catalog_status_js_readback_retired",
-            "rust_daemon_core_catalog_status_projection_required",
-            "agentgres_catalog_projection_required",
           ],
         },
       });

@@ -1,3 +1,8 @@
+const PUBLIC_MEMORY_PROJECTION_EVIDENCE_REFS = [
+  "runtime_memory_public_projection_rust_owned",
+  "agentgres_thread_memory_projection_truth_required",
+];
+
 export function createThreadMemoryState({
   doctorHash,
   eventStreamIdForThread,
@@ -52,7 +57,6 @@ export function createThreadMemoryState({
         memory_id: memoryId,
         evidence_refs: [
           "runtime_thread_memory_control_js_facade_retired",
-          "runtime_thread_memory_read_projection_js_facade_retired",
           "runtime_thread_memory_write_js_facade_retired",
           "runtime_thread_memory_policy_js_facade_retired",
           "runtime_thread_memory_status_validation_js_facade_retired",
@@ -180,63 +184,141 @@ export function createThreadMemoryState({
     throwThreadMemoryRustCoreRequired({ operation: "delete", memoryId });
   }
 
+  function publicMemoryProjectionRunner(store, request = {}) {
+    const runner = store?.contextPolicyRunner ?? contextPolicyRunner;
+    if (runner?.projectRuntimeMemoryProjection) return runner;
+    throw memoryRuntimeError({
+      status: 501,
+      code: "runtime_public_memory_projection_rust_projection_missing",
+      message:
+        "Public memory route projections require Rust daemon-core projection over Agentgres memory truth.",
+      details: {
+        rust_core_boundary: "runtime.memory_projection",
+        operation: "runtime_memory_projection",
+        operation_kind: request.operation_kind ?? null,
+        projection_kind: request.projection_kind ?? null,
+        thread_id: request.thread_id ?? null,
+        agent_id: request.agent_id ?? null,
+        workspace_root: request.workspace_root ?? null,
+        source: "runtime.thread_memory_state.public_projection",
+        evidence_refs: PUBLIC_MEMORY_PROJECTION_EVIDENCE_REFS,
+      },
+    });
+  }
+
+  function projectPublicMemory(store, projectionKind, projection = {}, context = {}) {
+    const request = {
+      operation: "runtime_memory_projection",
+      operation_kind: `runtime.memory_projection.${projectionKind}`,
+      projection_kind: projectionKind,
+      thread_id: context.threadId ?? projection?.thread_id ?? null,
+      agent_id: context.agentId ?? projection?.agent_id ?? null,
+      workspace_root: context.workspaceRoot ?? projection?.workspace ?? null,
+      source: "runtime.thread_memory_state.public_projection",
+      projection,
+      evidence_refs: PUBLIC_MEMORY_PROJECTION_EVIDENCE_REFS,
+    };
+    const runner = publicMemoryProjectionRunner(store, request);
+    const result = runner.projectRuntimeMemoryProjection(request);
+    if (result?.projection_kind !== projectionKind || !objectRecord(result?.projection)) {
+      throw memoryRuntimeError({
+        status: 502,
+        code: "runtime_public_memory_projection_rust_projection_invalid",
+        message: "Rust public memory projection returned an invalid route projection.",
+        details: {
+          rust_core_boundary: "runtime.memory_projection",
+          expected_projection_kind: projectionKind,
+          actual_projection_kind: result?.projection_kind ?? null,
+          operation: request.operation,
+          operation_kind: request.operation_kind,
+          source: "runtime.thread_memory_state.public_projection",
+        },
+      });
+    }
+    return result.projection;
+  }
+
   function publicListMemoryForThread(store, threadId, options = {}) {
-    void store;
-    void options;
-    throwThreadMemoryRustCoreRequired({
-      operation: "read_projection",
-      controlKind: "memory_read_projection",
+    publicMemoryProjectionRunner(store, {
+      operation_kind: "runtime.memory_projection.records",
+      projection_kind: "records",
+      thread_id: threadId,
+    });
+    const projection = listMemoryForThread(store, threadId, options);
+    return projectPublicMemory(store, "records", projection, {
       threadId,
+      agentId: projection.agent_id ?? null,
+      workspaceRoot: projection.workspace ?? null,
     });
   }
 
   function publicMemoryPolicyForThread(store, threadId, options = {}) {
-    void store;
-    void options;
-    throwThreadMemoryRustCoreRequired({
-      operation: "policy_projection",
-      controlKind: "memory_policy_projection",
+    publicMemoryProjectionRunner(store, {
+      operation_kind: "runtime.memory_projection.policy",
+      projection_kind: "policy",
+      thread_id: threadId,
+    });
+    const projection = listMemoryForThread(store, threadId, options);
+    return projectPublicMemory(store, "policy", projection, {
       threadId,
+      agentId: projection.agent_id ?? null,
+      workspaceRoot: projection.workspace ?? null,
     });
   }
 
   function publicMemoryPathForThread(store, threadId, options = {}) {
-    void store;
-    void options;
-    throwThreadMemoryRustCoreRequired({
-      operation: "path_projection",
-      controlKind: "memory_path_projection",
+    publicMemoryProjectionRunner(store, {
+      operation_kind: "runtime.memory_projection.path",
+      projection_kind: "path",
+      thread_id: threadId,
+    });
+    const projection = listMemoryForThread(store, threadId, options);
+    return projectPublicMemory(store, "path", projection, {
       threadId,
+      agentId: projection.agent_id ?? null,
+      workspaceRoot: projection.workspace ?? null,
     });
   }
 
   function publicListMemoryForAgent(store, agentId, options = {}) {
-    void store;
-    void options;
-    throwThreadMemoryRustCoreRequired({
-      operation: "read_projection",
-      controlKind: "memory_read_projection",
+    publicMemoryProjectionRunner(store, {
+      operation_kind: "runtime.memory_projection.records",
+      projection_kind: "records",
+      agent_id: agentId,
+    });
+    const projection = listMemoryForAgent(store, agentId, options);
+    return projectPublicMemory(store, "records", projection, {
+      threadId: projection.thread_id ?? null,
       agentId,
+      workspaceRoot: projection.workspace ?? null,
     });
   }
 
   function publicMemoryPolicyForAgent(store, agentId, options = {}) {
-    void store;
-    void options;
-    throwThreadMemoryRustCoreRequired({
-      operation: "policy_projection",
-      controlKind: "memory_policy_projection",
+    publicMemoryProjectionRunner(store, {
+      operation_kind: "runtime.memory_projection.policy",
+      projection_kind: "policy",
+      agent_id: agentId,
+    });
+    const projection = listMemoryForAgent(store, agentId, options);
+    return projectPublicMemory(store, "policy", projection, {
+      threadId: projection.thread_id ?? null,
       agentId,
+      workspaceRoot: projection.workspace ?? null,
     });
   }
 
   function publicMemoryPathForAgent(store, agentId, options = {}) {
-    void store;
-    void options;
-    throwThreadMemoryRustCoreRequired({
-      operation: "path_projection",
-      controlKind: "memory_path_projection",
+    publicMemoryProjectionRunner(store, {
+      operation_kind: "runtime.memory_projection.path",
+      projection_kind: "path",
+      agent_id: agentId,
+    });
+    const projection = listMemoryForAgent(store, agentId, options);
+    return projectPublicMemory(store, "path", projection, {
+      threadId: projection.thread_id ?? null,
       agentId,
+      workspaceRoot: projection.workspace ?? null,
     });
   }
 
@@ -245,12 +327,17 @@ export function createThreadMemoryState({
     const agentId =
       optionalString(options.agent_id) ??
       (threadId ? agentIdForThread(threadId) : undefined);
-    void store;
-    throwThreadMemoryRustCoreRequired({
-      operation: "read_projection",
-      controlKind: "memory_read_projection",
-      threadId: threadId ?? null,
-      agentId: agentId ?? null,
+    publicMemoryProjectionRunner(store, {
+      operation_kind: "runtime.memory_projection.records",
+      projection_kind: "records",
+      thread_id: threadId ?? null,
+      agent_id: agentId ?? null,
+    });
+    const projection = memoryProjectionForContext(store, options);
+    return projectPublicMemory(store, "records", projection, {
+      threadId: threadId ?? projection.thread_id ?? null,
+      agentId: agentId ?? projection.agent_id ?? null,
+      workspaceRoot: projection.workspace ?? null,
     });
   }
 
@@ -259,12 +346,17 @@ export function createThreadMemoryState({
     const agentId =
       optionalString(options.agent_id) ??
       (threadId ? agentIdForThread(threadId) : undefined);
-    void store;
-    throwThreadMemoryRustCoreRequired({
-      operation: "status_projection",
-      controlKind: "memory_status_projection",
-      threadId: threadId ?? null,
-      agentId: agentId ?? null,
+    publicMemoryProjectionRunner(store, {
+      operation_kind: "runtime.memory_projection.status",
+      projection_kind: "status",
+      thread_id: threadId ?? null,
+      agent_id: agentId ?? null,
+    });
+    const projection = memoryProjectionForContext(store, options);
+    return projectPublicMemory(store, "status", projection, {
+      threadId: threadId ?? projection.thread_id ?? null,
+      agentId: agentId ?? projection.agent_id ?? null,
+      workspaceRoot: projection.workspace ?? null,
     });
   }
 
@@ -273,12 +365,17 @@ export function createThreadMemoryState({
     const agentId =
       optionalString(options.agent_id) ??
       (threadId ? agentIdForThread(threadId) : undefined);
-    void store;
-    throwThreadMemoryRustCoreRequired({
-      operation: "policy_projection",
-      controlKind: "memory_policy_projection",
-      threadId: threadId ?? null,
-      agentId: agentId ?? null,
+    publicMemoryProjectionRunner(store, {
+      operation_kind: "runtime.memory_projection.policy",
+      projection_kind: "policy",
+      thread_id: threadId ?? null,
+      agent_id: agentId ?? null,
+    });
+    const projection = memoryProjectionForContext(store, options);
+    return projectPublicMemory(store, "policy", projection, {
+      threadId: threadId ?? projection.thread_id ?? null,
+      agentId: agentId ?? projection.agent_id ?? null,
+      workspaceRoot: projection.workspace ?? null,
     });
   }
 
@@ -287,12 +384,17 @@ export function createThreadMemoryState({
     const agentId =
       optionalString(options.agent_id) ??
       (threadId ? agentIdForThread(threadId) : undefined);
-    void store;
-    throwThreadMemoryRustCoreRequired({
-      operation: "path_projection",
-      controlKind: "memory_path_projection",
-      threadId: threadId ?? null,
-      agentId: agentId ?? null,
+    publicMemoryProjectionRunner(store, {
+      operation_kind: "runtime.memory_projection.path",
+      projection_kind: "path",
+      thread_id: threadId ?? null,
+      agent_id: agentId ?? null,
+    });
+    const projection = memoryProjectionForContext(store, options);
+    return projectPublicMemory(store, "path", projection, {
+      threadId: threadId ?? projection.thread_id ?? null,
+      agentId: agentId ?? projection.agent_id ?? null,
+      workspaceRoot: projection.workspace ?? null,
     });
   }
 
@@ -301,12 +403,19 @@ export function createThreadMemoryState({
     const agentId =
       optionalString(input.agent_id) ??
       (threadId ? agentIdForThread(threadId) : undefined);
-    void store;
-    throwThreadMemoryRustCoreRequired({
-      operation: "validate_projection",
-      controlKind: "memory_validate_projection",
-      threadId: threadId ?? null,
-      agentId: agentId ?? null,
+    publicMemoryProjectionRunner(store, {
+      operation_kind: "runtime.memory_projection.validation",
+      projection_kind: "validation",
+      thread_id: threadId ?? null,
+      agent_id: agentId ?? null,
+    });
+    const projection = objectRecord(input.projection)
+      ? input.projection
+      : memoryProjectionForContext(store, input);
+    return projectPublicMemory(store, "validation", projection, {
+      threadId: threadId ?? projection.thread_id ?? null,
+      agentId: agentId ?? projection.agent_id ?? null,
+      workspaceRoot: projection.workspace ?? null,
     });
   }
 
@@ -347,6 +456,10 @@ export function createThreadMemoryState({
       agent_id: projection.agent_id ?? null,
       workspace: projection.workspace ?? null,
     };
+  }
+
+  function objectRecord(value) {
+    return value && typeof value === "object" && !Array.isArray(value) ? value : null;
   }
 
   function recordThreadMemoryStatus(store, threadId, request = {}, schemaVersion) {

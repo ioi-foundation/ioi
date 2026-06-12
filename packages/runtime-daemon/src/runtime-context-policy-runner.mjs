@@ -41,6 +41,10 @@ export const RUNTIME_TOOL_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.tool-catalog-projection-request.v1";
 export const RUNTIME_LIFECYCLE_PROJECTION_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.lifecycle-projection-request.v1";
+export const RUNTIME_MEMORY_PROJECTION_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.memory-projection-request.v1";
+export const RUNTIME_CONVERSATION_ARTIFACT_PROJECTION_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.conversation-artifact-projection-request.v1";
 export const THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.thread-control-agent-state-update-request.v1";
 export const WORKSPACE_TRUST_CONTROL_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
@@ -317,6 +321,22 @@ export class RustContextPolicyRunner {
     return normalizeRuntimeLifecycleProjectionBridgeResult(this.evaluateRawPolicy({
       operation: "project_runtime_lifecycle",
       schemaVersion: RUNTIME_LIFECYCLE_PROJECTION_REQUEST_SCHEMA_VERSION,
+      request,
+    }));
+  }
+
+  projectRuntimeMemoryProjection(request = {}) {
+    return normalizeRuntimeMemoryProjectionBridgeResult(this.evaluateRawPolicy({
+      operation: "project_runtime_memory_projection",
+      schemaVersion: RUNTIME_MEMORY_PROJECTION_REQUEST_SCHEMA_VERSION,
+      request,
+    }));
+  }
+
+  projectRuntimeConversationArtifactProjection(request = {}) {
+    return normalizeRuntimeConversationArtifactProjectionBridgeResult(this.evaluateRawPolicy({
+      operation: "project_runtime_conversation_artifact_projection",
+      schemaVersion: RUNTIME_CONVERSATION_ARTIFACT_PROJECTION_REQUEST_SCHEMA_VERSION,
       request,
     }));
   }
@@ -1204,6 +1224,78 @@ export function normalizeRuntimeLifecycleProjectionBridgeResult(value = {}) {
     artifact_ref: optionalString(result.artifact_ref ?? record.artifact_ref) ?? null,
     workspace_root:
       optionalString(result.workspace_root ?? record.workspace_root) ?? null,
+    projection:
+      objectRecord(projection) ?? (Array.isArray(projection) ? projection : projection ?? null),
+    record_count: numberValue(result.record_count ?? record.record_count),
+    evidence_refs: stringArray(result.evidence_refs ?? record.evidence_refs),
+    receipt_refs: stringArray(result.receipt_refs ?? record.receipt_refs),
+    record,
+  };
+}
+
+export function normalizeRuntimeMemoryProjectionBridgeResult(value = {}) {
+  const result = objectRecord(value) ?? {};
+  const record = objectRecord(result.record) ?? result;
+  const projectionKind = optionalString(result.projection_kind ?? record.projection_kind);
+  const expectedOperationKind = projectionKind
+    ? `runtime.memory_projection.${projectionKind}`
+    : null;
+  const projection = result.projection ?? record.projection;
+  return {
+    ...record,
+    source:
+      result.source ??
+      record.source ??
+      "rust_runtime_memory_projection_command",
+    backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
+    object: optionalString(result.object ?? record.object) ?? null,
+    status: optionalString(result.status ?? record.status) ?? null,
+    operation_kind: expectedOperationKind
+      ? requiredContextPolicyBridgeOperationKind(result, record, {
+          codePrefix: "runtime_memory_projection",
+          expectedOperationKind,
+        })
+      : optionalString(result.operation_kind ?? record.operation_kind) ?? null,
+    projection_kind: projectionKind,
+    agent_id: optionalString(result.agent_id ?? record.agent_id) ?? null,
+    thread_id: optionalString(result.thread_id ?? record.thread_id) ?? null,
+    workspace_root:
+      optionalString(result.workspace_root ?? record.workspace_root) ?? null,
+    projection:
+      objectRecord(projection) ?? (Array.isArray(projection) ? projection : projection ?? null),
+    record_count: numberValue(result.record_count ?? record.record_count),
+    evidence_refs: stringArray(result.evidence_refs ?? record.evidence_refs),
+    receipt_refs: stringArray(result.receipt_refs ?? record.receipt_refs),
+    record,
+  };
+}
+
+export function normalizeRuntimeConversationArtifactProjectionBridgeResult(value = {}) {
+  const result = objectRecord(value) ?? {};
+  const record = objectRecord(result.record) ?? result;
+  const projectionKind = optionalString(result.projection_kind ?? record.projection_kind);
+  const expectedOperationKind = projectionKind
+    ? `runtime.conversation_artifact_projection.${projectionKind}`
+    : null;
+  const projection = result.projection ?? record.projection;
+  return {
+    ...record,
+    source:
+      result.source ??
+      record.source ??
+      "rust_runtime_conversation_artifact_projection_command",
+    backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
+    object: optionalString(result.object ?? record.object) ?? null,
+    status: optionalString(result.status ?? record.status) ?? null,
+    operation_kind: expectedOperationKind
+      ? requiredContextPolicyBridgeOperationKind(result, record, {
+          codePrefix: "runtime_conversation_artifact_projection",
+          expectedOperationKind,
+        })
+      : optionalString(result.operation_kind ?? record.operation_kind) ?? null,
+    projection_kind: projectionKind,
+    thread_id: optionalString(result.thread_id ?? record.thread_id) ?? null,
+    artifact_id: optionalString(result.artifact_id ?? record.artifact_id) ?? null,
     projection:
       objectRecord(projection) ?? (Array.isArray(projection) ? projection : projection ?? null),
     record_count: numberValue(result.record_count ?? record.record_count),

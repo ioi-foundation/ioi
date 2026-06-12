@@ -831,6 +831,25 @@ Rust-core matrix-compaction pass is complete. No matrix-compaction pass is
 pending until the next Rust-core extraction or facade-retirement seam lands; do
 not encode the command bridge or JS transport wrappers as terminal
 architecture.
+The current runtime-memory macro cut extends that boundary from status and
+validation envelopes to the route-facing public memory read family. Public
+memory list, policy, path, status, and validation now call Rust
+`project_runtime_memory_projection` through the mounted thread-memory surface;
+JS supplies only temporary projection candidates and fails closed when the Rust
+projector is absent or returns a mismatched projection kind. Memory mutation,
+durable record truth, Agentgres replay/projection storage, wallet authority,
+and cTEE-coupled private workspace custody remain non-terminal.
+The current conversation-artifact read macro cut replaces the fail-closed
+public read facade with Rust daemon-core projection. Public and thread-scoped
+conversation-artifact list, get, and revision-list routes now call
+`project_runtime_conversation_artifact_projection` through the mounted
+conversation-artifact surface; Rust owns thread filtering, artifact selection,
+revision extraction, projection-kind validation, evidence refs, and receipt
+refs, while JS only supplies temporary artifact candidates and fails closed
+before JS store readback when the projector is absent or mismatched. Artifact
+mutation/admission, durable ArtifactRef/PayloadRef truth, Agentgres
+replay/projection storage, wallet/cTEE authority where needed, receipt/state-root
+binding, and direct protocol APIs remain non-terminal.
 Slice 787 retired the memory projection input compatibility fallback at the
 Rust boundary. `AgentMemoryStore.pathProjection()` now emits canonical
 `records_path`, `policies_path`, and `effective_policy_id`, redacted memory
@@ -1512,17 +1531,16 @@ non-authoritative empty/default Rust projection until direct Rust daemon-core
 catalog status/projection APIs own the request.
 
 Slice 867 moved public catalog-status readback refusal onto the Rust
-read-projection boundary. Public `catalogStatus()` now calls
-`plan_model_mount_read_projection` kind `catalog_status` with empty request
-state, translates only the Rust `model_catalog_status_js_readback_retired`
-refusal at the JS edge, and no longer imports dead JS `catalogStatus()` or
-`catalogStatusProjectionInput()` helpers. The Rust
-bridge direct `catalog_status` arm fails closed even when a direct caller
-provides `catalog_status_input`; broad `snapshot` and `projection` nested
-`catalog` envelopes remain schema-stable empty/default objects instead of
-honoring caller-supplied catalog-status input. This is still current-lane
-bridge work, not the long-term resting architecture: direct Rust daemon-core
-Agentgres-backed catalog status/projection APIs must replace command transport
+read-projection boundary. The current macro cut supersedes that refusal:
+public `catalogStatus()` now calls `plan_model_mount_read_projection` kind
+`catalog_status` with empty request state and returns the Rust-authored
+catalog-status projection directly. The JS edge no longer translates
+`model_catalog_status_js_readback_retired`, the obsolete Rust refusal module is
+deleted, and the direct Rust `catalog_status` arm ignores caller-supplied
+`catalog_status_input` while returning the shared empty/default catalog
+projection. This is still current-lane bridge work, not the long-term resting
+architecture: direct Rust daemon-core Agentgres-backed catalog status/projection
+APIs must replace command transport
 and the remaining JS facade/error-translation edge before the catalog surface
 reaches terminal unification.
 
@@ -1851,14 +1869,14 @@ wallet/cTEE OAuth projection APIs still need to replace this refusal before
 OAuth public readback can be live.
 
 Slice 867 moved public catalog-status readback refusal onto the Rust
-read-projection boundary. Public `catalogStatus()` now calls
+read-projection boundary. The current macro cut replaces that refusal with a
+positive Rust projection: public `catalogStatus()` now calls
 `plan_model_mount_read_projection` kind `catalog_status` with empty request
-state, translates only the Rust `model_catalog_status_js_readback_retired`
-refusal at the JS edge, and no longer imports JS catalog-status helper
-scaffolding. Direct Rust catalog status/projection APIs, Agentgres-backed
-catalog truth, command-transport replacement, edge error translation retirement,
-and local catalog materialization retirement still remain before this surface
-reaches the pure Rust substrate target.
+state, returns the Rust-authored catalog status, and no longer keeps JS
+catalog-status helper scaffolding or old refusal translation. Direct Rust
+catalog status/projection APIs, Agentgres-backed catalog truth,
+command-transport replacement, and local catalog materialization retirement
+still remain before this surface reaches the pure Rust substrate target.
 
 Slice 868 retired the runtime-survey projection-input and LM Studio runtime
 placeholder helpers from JS. Latest runtime-survey readback already uses Rust
@@ -2388,15 +2406,17 @@ repository workflow storage/replay, wallet.network authority for external
 capability exits, receipt/state-root binding, command-transport retirement, and
 stable SDK/IDE/CLI protocol APIs remain required before terminal pure Rust
 substrate conformance.
-Slice 951 retired runtime conversation-artifact public JS readback. Public
-`RuntimeConversationArtifactControl.listConversationArtifacts()`,
-`getConversationArtifact()`, and `listConversationArtifactRevisions()` now fail
-closed at `artifact.conversation.list`, `artifact.conversation.get`, and
-`artifact.conversation.revision.list` with
-`runtime_conversation_artifact_control_rust_core_required`, so JS no longer
-returns `store.conversationArtifacts` data as conversation-artifact projection
-truth. Direct Rust daemon-core artifact projection over Agentgres-admitted
-ArtifactRef/PayloadRef truth remains required before terminal conformance.
+Slice 951 retired runtime conversation-artifact public JS readback, and the
+current macro cut supersedes that fail-closed read facade with Rust-owned
+positive projection. Public `RuntimeConversationArtifactControl.listConversationArtifacts()`,
+`getConversationArtifact()`, and `listConversationArtifactRevisions()` now call
+Rust daemon-core `project_runtime_conversation_artifact_projection` through the
+mounted conversation-artifact surface. JS supplies only temporary artifact
+candidates and fails closed before `ConversationArtifactStore` readback if the
+Rust projector is missing or returns a mismatched projection kind. Direct Rust
+daemon-core artifact mutation/admission, ArtifactRef/PayloadRef custody,
+Agentgres storage/replay, and receipt/state-root binding remain required before
+terminal conformance.
 Slice 952 retired runtime workspace-snapshot public JS readback. Public
 `RuntimeWorkspaceSnapshotRestoreControl.listWorkspaceSnapshots()` and
 `workspaceSnapshotContentPackage()` now fail closed at `workspace_snapshot.list`
@@ -4614,11 +4634,13 @@ skill/hook registry projections now call Rust `project_skill_hook_registry`
 through the mounted skill-hook surface, and repository workflow projections now
 call Rust `project_repository_workflow` through the mounted repository surface;
 runtime lifecycle projections now call Rust `project_runtime_lifecycle`
-through the mounted lifecycle surface, and the mounted thread-memory
-surface fails closed for
-public memory projections before JS `AgentMemoryStore` readback; conversation
-artifact routes call the mounted fail-closed artifact surface directly before
-daemon-store pass-through wrappers or JS artifact-store readback; public agent
+through the mounted lifecycle surface, and the mounted thread-memory surface
+now calls Rust `project_runtime_memory_projection` for public memory
+list/policy/path/status/validation before JS `AgentMemoryStore` readback;
+conversation-artifact list/get/revision routes call Rust
+`project_runtime_conversation_artifact_projection` through the mounted artifact
+surface before JS artifact-store readback, while artifact create/action/export/promote
+remain fail-closed before JS mutation; public agent
 create, top-level thread create, agent status/delete, and agent-scoped run
 create routes call the mounted agent/run lifecycle surface directly; public
 runtime account/node/tool catalog routes call the mounted tool surface directly;
@@ -4721,12 +4743,11 @@ module-local Rust proof that caller-supplied JS artifacts, providers,
 endpoints, instances, routes, capabilities, downloads, backends,
 provider-health rows, runtime catalog rows, and OpenAI-compatible model-list
 rows cannot become projection truth;
-model-mount direct catalog-status and OAuth session/state readback refusals now
-live in dedicated Rust `model_mount/read_projection/catalog.rs` and
-`model_mount/read_projection/oauth.rs` modules, with module-local Rust proof
-that these public direct readback surfaces fail closed at their Rust owner
-boundaries until direct catalog-provider and wallet/cTEE projection APIs own
-Agentgres-backed truth;
+model-mount public catalog-status readback now returns the Rust-authored
+`catalog_status` projection from `model_mount/read_projection/status.rs` with
+empty request state, while OAuth session/state readback refusal remains in the
+dedicated Rust `model_mount/read_projection/oauth.rs` module until direct
+wallet/cTEE projection APIs own Agentgres-backed OAuth truth;
 model-mount read-projection shared helpers now live in the dedicated Rust
 `model_mount/read_projection/common.rs` module, with module-local Rust proof
 that schema/generation defaults, array/object extraction, and receipt-kind
@@ -5993,11 +6014,12 @@ no longer exposes `executeDiagnosticsOperatorOverride()`,
 `promoteConversationArtifact()` as compatibility entrypoints.
 
 Conformance now fails if those store-level delegates return. The mounted JS
-surfaces remain migration scaffolding only: future direct positive APIs must be
-owned by Rust daemon-core diagnostics repair admission/projection and
-conversation-artifact admission/projection, with Agentgres expected-head and
-state-root binding, receipt_binder, ArtifactRef/PayloadRef admission, replay,
-and projection replacing the temporary protocol-edge surface calls.
+surfaces remain migration scaffolding only: conversation-artifact read projection
+now has a positive Rust daemon-core API, while future direct positive APIs must
+still be owned by Rust daemon-core diagnostics repair admission/projection and
+conversation-artifact mutation/admission/projection, with Agentgres expected-head
+and state-root binding, receipt_binder, ArtifactRef/PayloadRef admission,
+replay, and projection replacing the temporary protocol-edge surface calls.
 
 Slice 1101 retires the unused workflow-edit target/context JS helper facades
 instead of preserving them as fail-closed compatibility surface area. No live

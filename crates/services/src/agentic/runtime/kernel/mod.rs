@@ -34,7 +34,9 @@ pub mod profile;
 pub mod projection;
 pub mod receipt_binder;
 pub mod repository_workflow;
+pub mod runtime_conversation_artifact_projection;
 pub mod runtime_lifecycle;
+pub mod runtime_memory_projection;
 pub mod runtime_thread_event;
 pub mod runtime_tool_catalog;
 pub mod scope;
@@ -182,6 +184,14 @@ use projection::{ProjectionError, RustProjectionCore, StepModuleProjectionRecord
 use receipt_binder::{
     AcceptedReceiptAppendRecord, AcceptedReceiptAppendRequest, ReceiptBinder, ReceiptBindingError,
     StepModuleReceiptBinding,
+};
+use runtime_conversation_artifact_projection::{
+    RuntimeConversationArtifactProjectionCommandError, RuntimeConversationArtifactProjectionCore,
+    RuntimeConversationArtifactProjectionRecord, RuntimeConversationArtifactProjectionRequest,
+};
+use runtime_memory_projection::{
+    RuntimeMemoryProjectionBridgeRequest, RuntimeMemoryProjectionCommandError,
+    RuntimeMemoryProjectionCore, RuntimeMemoryProjectionRecord,
 };
 use runtime_thread_event::{
     RuntimeThreadEventAdmissionCore, RuntimeThreadEventAdmissionError,
@@ -480,6 +490,23 @@ impl RuntimeKernelService {
         request: &RuntimeTaskJobProjectionRequest,
     ) -> Result<RuntimeTaskJobProjectionRecord, RuntimeTaskJobProjectionError> {
         RuntimeTaskJobProjectionCore.project(request)
+    }
+
+    pub fn project_runtime_memory_projection(
+        &self,
+        request: &RuntimeMemoryProjectionBridgeRequest,
+    ) -> Result<RuntimeMemoryProjectionRecord, RuntimeMemoryProjectionCommandError> {
+        RuntimeMemoryProjectionCore.project(request)
+    }
+
+    pub fn project_runtime_conversation_artifact_projection(
+        &self,
+        request: &RuntimeConversationArtifactProjectionRequest,
+    ) -> Result<
+        RuntimeConversationArtifactProjectionRecord,
+        RuntimeConversationArtifactProjectionCommandError,
+    > {
+        RuntimeConversationArtifactProjectionCore.project(request)
     }
 
     pub fn plan_thread_control_agent_state_update(
