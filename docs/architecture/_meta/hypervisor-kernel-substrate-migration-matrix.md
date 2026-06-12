@@ -15979,6 +15979,44 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1203
+
+Slice 1203 retires coding-tool approval binary-spawn fallback from the daemon
+runner:
+
+- `packages/runtime-daemon/src/runtime-coding-tool-approval-runner.mjs`
+- `packages/runtime-daemon/src/runtime-coding-tool-approval-runner.test.mjs`
+- `scripts/conformance/hypervisor-conformance.mjs`
+
+The coding-tool approval runner no longer imports the shared JS daemon-core
+command invoker, no longer exposes a command-env transport constant, and no
+longer accepts constructor command selection or spawn hooks. The surface now
+requires the daemon-level `daemonCoreInvoker` direct Rust-core seam for
+approval manifest planning. It rejects `IOI_RUNTIME_DAEMON_CORE_COMMAND` as
+forbidden command selection and fails closed when no direct invoker is
+configured.
+
+This is not terminal daemon-wide Rust ownership: coding-tool approval
+satisfaction and approval-state/update surfaces still have JS facade
+scaffolding until the Rust daemon-core approval protocol/API owns admission,
+state-root binding, projection, replay, and readback end to end. It does make
+the approval authority gate a larger pure-Rust-direction cut: command transport
+can no longer plan approval manifests as a compatibility fallback, and future
+work must either provide a real direct Rust daemon-core approval invoker or
+fail closed.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/runtime-coding-tool-approval-runner.mjs packages/runtime-daemon/src/runtime-coding-tool-approval-runner.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-coding-tool-approval-runner.test.mjs` | passed; 8 tests |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:negative` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1202
 
 Slice 1202 retires runtime Agentgres binary-spawn fallback from the daemon

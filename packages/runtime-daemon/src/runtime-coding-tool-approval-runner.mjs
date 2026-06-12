@@ -1,6 +1,3 @@
-import { createDaemonCoreCommandInvoker } from "./runtime-daemon-core-command-runner.mjs";
-
-export const CODING_TOOL_APPROVAL_COMMAND_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND";
 export const CODING_TOOL_APPROVAL_COMMAND_SCHEMA_VERSION = "ioi.runtime.daemon_core.command.v1";
 export const CODING_TOOL_APPROVAL_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.coding-tool-approval-request.v1";
@@ -8,10 +5,9 @@ export const RUST_CODING_TOOL_APPROVAL_BACKEND = "rust_authority";
 
 export function createCodingToolApprovalRunnerFromEnv(env = process.env, options = {}) {
   assertNoCodingToolApprovalCommandArgs(options.args ?? env.IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS);
+  assertNoCodingToolApprovalCommandSelection(options.command ?? env.IOI_RUNTIME_DAEMON_CORE_COMMAND);
   return new RustCodingToolApprovalRunner({
-    command: options.command ?? env[CODING_TOOL_APPROVAL_COMMAND_ENV] ?? null,
     daemonCoreInvoker: options.daemonCoreInvoker,
-    spawnSyncImpl: options.spawnSyncImpl,
   });
 }
 
@@ -26,28 +22,21 @@ export function assertNoCodingToolApprovalCommandArgs(value) {
   );
 }
 
+export function assertNoCodingToolApprovalCommandSelection(value) {
+  if (typeof value === "string" && value.trim().length === 0) return;
+  if (value == null) return;
+  throw new CodingToolApprovalRunnerError(
+    "Coding-tool approval binary command selection is retired; use daemonCoreInvoker for direct Rust daemon-core authority planning.",
+    "coding_tool_approval_command_selection_retired",
+    { retired_command: value },
+  );
+}
+
 export class RustCodingToolApprovalRunner {
   constructor(options = {}) {
     assertNoCodingToolApprovalCommandArgs(options.args);
-    this.command = optionalString(options.command);
-    this.invokeBridge = createDaemonCoreCommandInvoker({
-      command: this.command,
-      daemonCoreInvoker: options.daemonCoreInvoker,
-      spawnSyncImpl: options.spawnSyncImpl,
-      ErrorClass: CodingToolApprovalRunnerError,
-      env: CODING_TOOL_APPROVAL_COMMAND_ENV,
-      unconfiguredMessage:
-        "Coding-tool approval requires IOI_RUNTIME_DAEMON_CORE_COMMAND for Rust daemon-core authority planning.",
-      unconfiguredCode: "coding_tool_approval_bridge_unconfigured",
-      spawnFailedMessage: "Failed to spawn Rust coding-tool approval bridge command.",
-      spawnFailedCode: "coding_tool_approval_bridge_spawn_failed",
-      commandFailedMessage: "Rust coding-tool approval bridge command failed.",
-      commandFailedCode: "coding_tool_approval_bridge_failed",
-      invalidJsonMessage: "Rust coding-tool approval bridge command returned invalid JSON.",
-      invalidJsonCode: "coding_tool_approval_bridge_invalid_json",
-      rejectedMessage: "Rust coding-tool approval core rejected the request.",
-      rejectedCode: "coding_tool_approval_bridge_rejected",
-    });
+    assertNoCodingToolApprovalCommandSelection(options.command);
+    this.daemonCoreInvoker = optionalFunction(options.daemonCoreInvoker);
   }
 
   planApprovalManifest(request = {}) {
@@ -60,9 +49,28 @@ export class RustCodingToolApprovalRunner {
         schema_version: CODING_TOOL_APPROVAL_REQUEST_SCHEMA_VERSION,
       },
     };
-    return normalizeCodingToolApprovalBridgeResult(this.invokeBridge(bridgeRequest));
+    return normalizeCodingToolApprovalBridgeResult(this.invokeDaemonCore(bridgeRequest));
   }
 
+  invokeDaemonCore(request) {
+    if (!this.daemonCoreInvoker) {
+      throw new CodingToolApprovalRunnerError(
+        "Coding-tool approval requires daemonCoreInvoker for direct Rust daemon-core authority planning.",
+        "coding_tool_approval_direct_invoker_unconfigured",
+        { boundary: "daemonCoreInvoker" },
+      );
+    }
+    const response = this.daemonCoreInvoker(request);
+    if (response?.ok === false) {
+      const error = objectRecord(response.error) ?? {};
+      throw new CodingToolApprovalRunnerError(
+        error.message ?? "Rust coding-tool approval core rejected the request.",
+        error.code ?? "coding_tool_approval_direct_invoker_rejected",
+        { error },
+      );
+    }
+    return response?.ok === true ? response.result : response;
+  }
 }
 
 export class CodingToolApprovalRunnerError extends Error {
@@ -94,6 +102,10 @@ export function normalizeCodingToolApprovalBridgeResult(value = {}) {
     manifest,
     input_hash: optionalString(result.input_hash ?? plan.input_hash ?? manifest?.input_hash),
   };
+}
+
+function optionalFunction(value) {
+  return typeof value === "function" ? value : null;
 }
 
 function optionalString(value) {

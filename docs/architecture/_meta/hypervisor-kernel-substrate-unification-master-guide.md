@@ -7724,6 +7724,27 @@ Resume by cutting the remaining command-transport runners, then delete the
 shared JS command invoker once every live surface has a direct Rust daemon-core
 API.
 
+Slice 1203 retires the temporary binary-spawn fallback for the daemon
+coding-tool approval runner. `runtime-coding-tool-approval-runner.mjs` no
+longer imports the shared JS daemon-core command invoker, no longer exposes or
+reads a live `CODING_TOOL_APPROVAL_COMMAND_ENV`, and no longer accepts
+constructor command selection or spawn hooks. Coding-tool approval manifest
+planning now requires the daemon-level `daemonCoreInvoker` direct Rust-core
+seam and fails closed when it is absent. `IOI_RUNTIME_DAEMON_CORE_COMMAND` is
+treated only as forbidden command selection input for this surface, not as
+fallback transport.
+
+This makes the approval-manifest authority gate direct-invoker-only at the
+daemon runner: approval_required, workflow policy, manifest identity,
+effect-class, and input-hash decisions must arrive from Rust daemon-core output
+or remain absent at the JS edge. It is still not terminal because coding-tool
+approval satisfaction/read helpers and adjacent approval-state runners remain
+temporary JS facade scaffolding until direct Rust daemon-core approval
+protocols own admission, state-root binding, projection, and replay end to end.
+Resume by cutting the remaining approval-state, context-policy, model_mount,
+and StepModule command-transport runners, then delete the shared JS command
+invoker once every live surface has a direct Rust daemon-core API.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

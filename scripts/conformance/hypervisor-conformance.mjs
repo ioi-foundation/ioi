@@ -6549,7 +6549,9 @@ function runBridge() {
       !/struct CodingToolApprovalBridgeRequest/.test(bridgeModule) &&
       /createCodingToolApprovalRunnerFromEnv/.test(runtimeCodingToolApprovalRunner) &&
       /RustCodingToolApprovalRunner/.test(runtimeCodingToolApprovalRunner) &&
-      /IOI_RUNTIME_DAEMON_CORE_COMMAND/.test(runtimeCodingToolApprovalRunner) &&
+      /assertNoCodingToolApprovalCommandSelection\(\s*options\.command\s*\?\?\s*env\.IOI_RUNTIME_DAEMON_CORE_COMMAND/.test(
+        runtimeCodingToolApprovalRunner,
+      ) &&
       /ioi\.runtime\.daemon_core\.command\.v1/.test(runtimeCodingToolApprovalRunner) &&
       !/IOI_STEP_MODULE_COMMAND/.test(runtimeCodingToolApprovalRunner) &&
       !/CODING_TOOL_APPROVAL_COMMAND_ARGS_ENV/.test(runtimeCodingToolApprovalRunner) &&
@@ -6558,12 +6560,18 @@ function runBridge() {
       !/this\.args/.test(runtimeCodingToolApprovalRunner) &&
       !/argsEnv/.test(runtimeCodingToolApprovalRunner) &&
       /assertNoCodingToolApprovalCommandArgs/.test(runtimeCodingToolApprovalRunner) &&
+      /assertNoCodingToolApprovalCommandSelection/.test(runtimeCodingToolApprovalRunner) &&
       /planApprovalManifest/.test(runtimeCodingToolApprovalRunner) &&
       /coding_tool_approval_command_args_retired/.test(runtimeCodingToolApprovalRunner) &&
-      /createDaemonCoreCommandInvoker/.test(runtimeCodingToolApprovalRunner) &&
+      /coding_tool_approval_command_selection_retired/.test(runtimeCodingToolApprovalRunner) &&
+      /coding_tool_approval_direct_invoker_unconfigured/.test(runtimeCodingToolApprovalRunner) &&
+      !/createDaemonCoreCommandInvoker/.test(runtimeCodingToolApprovalRunner) &&
+      !/spawnSyncImpl/.test(runtimeCodingToolApprovalRunner) &&
       !/from "node:child_process"/.test(runtimeCodingToolApprovalRunner) &&
-      /spawnSyncImpl\(commandPath,\s*\[\]/.test(daemonCoreCommandRunner) &&
-      /coding tool approval runner env uses daemon-core command boundary/.test(
+      /coding tool approval runner env uses daemon-level direct invoker/.test(
+        runtimeCodingToolApprovalRunnerTest,
+      ) &&
+      /coding tool approval runner rejects retired daemon-core command env/.test(
         runtimeCodingToolApprovalRunnerTest,
       ) &&
       /coding tool approval runner command args env fails closed/.test(
@@ -6572,11 +6580,16 @@ function runBridge() {
       /coding tool approval runner command args constructor option fails closed/.test(
         runtimeCodingToolApprovalRunnerTest,
       ) &&
-      /assert\.deepEqual\(capturedArgs,\s*\[\]\)/.test(runtimeCodingToolApprovalRunnerTest) &&
-      /coding tool approval runner sends Rust authority bridge request/.test(
+      /coding tool approval runner command constructor option fails closed/.test(
         runtimeCodingToolApprovalRunnerTest,
       ) &&
-      /coding tool approval runner fails closed without bridge command/.test(
+      /coding tool approval runner sends Rust authority request through direct daemon-core invoker/.test(
+        runtimeCodingToolApprovalRunnerTest,
+      ) &&
+      /coding tool approval runner unwraps direct invoker ok result/.test(
+        runtimeCodingToolApprovalRunnerTest,
+      ) &&
+      /coding tool approval runner fails closed without direct invoker/.test(
         runtimeCodingToolApprovalRunnerTest,
       ) &&
       /approvalRunner\.planApprovalManifest/.test(runtimeCodingToolApproval) &&
@@ -6596,7 +6609,7 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-coding-tool-approval.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-approval.test.mjs",
     ],
-    "Phase 9/10 is pending: coding-tool approval manifests must be planned by Rust authority core through the command bridge",
+    "Phase 9/10 is pending: coding-tool approval manifests must be planned by Rust authority core through the direct daemon-core invoker",
   );
   assertCheck(
     result,
