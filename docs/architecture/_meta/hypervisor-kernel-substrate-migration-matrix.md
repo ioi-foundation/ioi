@@ -15984,6 +15984,40 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1159
+
+Slice 1159 retires JS-side fallback synthesis in
+`packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs` for
+Rust-owned runtime run-state materialization proof arrays. The runtime
+Agentgres admission runner now preserves missing Rust-authored `records` and
+`written_records` as `null` instead of synthesizing empty arrays from JS when
+Rust omits those fields. `packages/runtime-daemon/src/threads/thread-persistence.mjs`
+also preserves omitted `written_records` as missing until the fail-closed
+commit proof check rejects the run-state commit. Rust `agentgres_command.rs`
+remains the single runtime run-state commit response-shaping and persistence
+owner behind the temporary daemon-core command path.
+
+This is not terminal Agentgres migration. The JS runtime Agentgres runner,
+thread persistence facade, shared daemon-core command runner, and Node bridge
+transport remain migration scaffolding until direct Rust daemon-core Agentgres
+APIs own expected-head checks, state-root binding, storage admission, durable
+write materialization, projection, replay, and stable IDE/CLI/SDK protocol
+surfaces end to end. The retired JS fallback behavior must not be recreated as
+compatibility normalization.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs packages/runtime-daemon/src/threads/thread-persistence.mjs packages/runtime-daemon/src/threads/thread-persistence.test.mjs` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs packages/runtime-daemon/src/threads/thread-persistence.test.mjs` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:negative` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1158
 
 Slice 1158 retires JS-side fallback synthesis in

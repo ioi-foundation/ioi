@@ -303,6 +303,8 @@ test("runtime Agentgres runner does not synthesize Rust-owned refs or evidence",
   assert.equal(storageWrite.evidence_refs, null);
 
   const runtimeRun = normalizeRuntimeRunStateCommitBridgeResult({ record: {} });
+  assert.equal(runtimeRun.records, null);
+  assert.equal(runtimeRun.written_records, null);
   assert.equal(runtimeRun.evidence_refs, null);
 
   for (const result of [

@@ -6947,6 +6947,25 @@ policy/approval, receipt/state-root binding, Agentgres ArtifactRef/PayloadRef
 admission, projection, replay, and stable IDE/CLI/SDK protocol surfaces, not
 preservation of JS normalizers as compatibility shims.
 
+Slice 1159 retires JS-side run-state materialization fallback synthesis from
+the runtime Agentgres admission runner. Rust `agentgres_command.rs` already
+owns the single `commit_runtime_run_state` response that derives the
+transition, storage write-set, persisted records, and written record proof
+behind the temporary daemon-core command path, so
+`runtime-agentgres-admission-runner.mjs` now preserves omitted Rust-authored
+`records` and `written_records` as `null` instead of inventing empty arrays at
+the JS edge. `thread-persistence.mjs` now carries that absence into its
+fail-closed proof check instead of normalizing omitted `written_records` to an
+empty list before rejecting the commit.
+
+This remains non-terminal because the JS runtime Agentgres runner, thread
+persistence facade, shared daemon-core command runner, and Node bridge
+transport still carry Agentgres commit requests to Rust. The target is direct
+Rust daemon-core Agentgres protocol/API ownership over expected-head checks,
+state-root binding, storage admission, durable write materialization,
+projection, replay, and stable IDE/CLI/SDK protocol surfaces, not preservation
+of JS normalizers as compatibility shims.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

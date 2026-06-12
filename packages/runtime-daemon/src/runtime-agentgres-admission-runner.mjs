@@ -195,8 +195,8 @@ export function normalizeRuntimeRunStateCommitBridgeResult(value = {}) {
     transition_hash: result.transition_hash ?? transition.transition_hash ?? null,
     materialization,
     storage_write_set: storageWriteSet,
-    records: Array.isArray(result.records) ? result.records : storageWriteSet.records ?? [],
-    written_records: Array.isArray(result.written_records) ? result.written_records : [],
+    records: arrayOrNull(result.records) ?? arrayOrNull(storageWriteSet.records),
+    written_records: Array.isArray(result.written_records) ? result.written_records : null,
     materialization_hash:
       result.materialization_hash ?? materialization.materialization_hash ?? null,
     write_set_hash: result.write_set_hash ?? storageWriteSet.write_set_hash ?? null,
@@ -362,4 +362,8 @@ function optionalString(value) {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   return trimmed ? trimmed : null;
+}
+
+function arrayOrNull(value) {
+  return Array.isArray(value) ? value : null;
 }

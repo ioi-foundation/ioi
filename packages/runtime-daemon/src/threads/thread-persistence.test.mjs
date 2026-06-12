@@ -741,6 +741,55 @@ test("thread persistence writes run projections without operation entries and pe
   assert.deepEqual(store.operations, []);
 });
 
+test("thread persistence fails closed when Rust omits written run-state records", () => {
+  const store = fakeStore();
+  store.commitRuntimeRunState = function commitRuntimeRunState(request) {
+    this.commitRequests.push(request);
+    return {
+      source: "rust_agentgres_runtime_run_state_commit_command",
+      record: {
+        commit_hash: "sha256:commit",
+        transition: {
+          operation_ref: "agentgres://runtime-state/runs/run_1/operations/run.create_mock",
+          state_root_after: "sha256:state-after",
+          resulting_head: "agentgres://runtime-state/runs/run_1/head/mock",
+          transition_hash: "sha256:transition",
+        },
+        persistence: {
+          materialization: {
+            materialization_hash: "sha256:materialization",
+          },
+          storage_write_set: {
+            records: [{ record_path: "runs/run_1.json" }],
+            write_set_hash: "sha256:write-set",
+          },
+          persistence_hash: "sha256:persistence",
+        },
+      },
+    };
+  };
+
+  assert.throws(
+    () =>
+      writeRunRecord(
+        store,
+        {
+          id: "run_1",
+          agentId: "agent_1",
+          receipts: [],
+          artifacts: [],
+          events: [],
+        },
+        "run.create",
+        deps(store),
+      ),
+    /Rust Agentgres run-state commit is missing written_records/,
+  );
+  assert.equal(store.commitRequests.length, 1);
+  assert.deepEqual(store.writes, []);
+  assert.deepEqual(store.rustWrites, []);
+});
+
 test("thread persistence leaves previous run-state transition lookup to Rust commit", () => {
   const store = fakeStore();
   const run = {

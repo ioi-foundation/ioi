@@ -20662,6 +20662,12 @@ function runReceipts() {
       /runtime Agentgres runner does not synthesize Rust-owned refs or evidence/.test(
         read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
       ) &&
+      /assert\.equal\(runtimeRun\.records,\s*null\)/.test(
+        read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
+      ) &&
+      /assert\.equal\(runtimeRun\.written_records,\s*null\)/.test(
+        read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
+      ) &&
       /artifact_refs:\s*Array\.isArray\(result\.artifact_refs\)\s*\?\s*result\.artifact_refs\s*:\s*record\.artifact_refs\s*\?\?\s*null/.test(
         runtimeAgentgresRunner,
       ) &&
@@ -20684,6 +20690,18 @@ function runReceipts() {
         runtimeAgentgresRunner,
       ) &&
       !/evidence_refs:\s*Array\.isArray\(result\.evidence_refs\)\s*\?\s*result\.evidence_refs\s*:\s*\[\]/.test(
+        runtimeAgentgresRunner,
+      ) &&
+      /records:\s*arrayOrNull\(result\.records\)\s*\?\?\s*arrayOrNull\(storageWriteSet\.records\)/.test(
+        runtimeAgentgresRunner,
+      ) &&
+      /written_records:\s*Array\.isArray\(result\.written_records\)\s*\?\s*result\.written_records\s*:\s*null/.test(
+        runtimeAgentgresRunner,
+      ) &&
+      !/records:\s*Array\.isArray\(result\.records\)\s*\?\s*result\.records\s*:\s*storageWriteSet\.records\s*\?\?\s*\[\]/.test(
+        runtimeAgentgresRunner,
+      ) &&
+      !/written_records:\s*Array\.isArray\(result\.written_records\)\s*\?\s*result\.written_records\s*:\s*\[\]/.test(
         runtimeAgentgresRunner,
       ) &&
       !/runtime Agentgres runner sends runtime-state record materialization bridge request/.test(
@@ -20726,6 +20744,18 @@ function runReceipts() {
       ) &&
       /store\.writes, \[\]/.test(
         read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
+      ) &&
+      /thread persistence fails closed when Rust omits written run-state records/.test(
+        read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
+      ) &&
+      /Rust Agentgres run-state commit is missing written_records/.test(
+        read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
+      ) &&
+      /const writtenRecords = Array\.isArray\(commit\?\.written_records\) \? commit\.written_records : null;/.test(
+        threadPersistence,
+      ) &&
+      !/const writtenRecords = Array\.isArray\(commit\?\.written_records\) \? commit\.written_records : \[\];/.test(
+        threadPersistence,
       ) &&
       /persists records in Rust/.test(
         read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),

@@ -156,7 +156,7 @@ function normalizeRunStateCommit(commit) {
     : record?.persistence;
   const materialization = persistence?.materialization;
   const storageWriteSet = persistence?.storage_write_set;
-  const writtenRecords = Array.isArray(commit?.written_records) ? commit.written_records : [];
+  const writtenRecords = Array.isArray(commit?.written_records) ? commit.written_records : null;
   const normalized = {
     source: normalizeTransitionRef(commit?.source) ?? "rust_agentgres_runtime_run_state_commit_command",
     operation_ref:
@@ -196,7 +196,12 @@ function normalizeRunStateCommit(commit) {
     ["write_set_hash", normalized.write_set_hash],
     ["persistence_hash", normalized.persistence_hash],
     ["commit_hash", normalized.commit_hash],
-    ["written_records", normalized.written_records.length > 0 ? normalized.written_records : null],
+    [
+      "written_records",
+      Array.isArray(normalized.written_records) && normalized.written_records.length > 0
+        ? normalized.written_records
+        : null,
+    ],
   ]
     .filter(([, value]) => !value)
     .map(([name]) => name);
