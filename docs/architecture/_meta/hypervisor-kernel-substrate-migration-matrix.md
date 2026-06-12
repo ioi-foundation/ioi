@@ -16207,6 +16207,33 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1168
+
+Slice 1168 narrows temporary bridge transport ownership by moving
+`BridgeError` out of the broad `ioi_step_module_bridge/mod.rs` module and into
+`ioi_step_module_bridge/bridge_dispatch.rs`. The raw stdin/JSON `run_bridge()`
+helper is now private to the dispatch module, while the broad bridge module
+only re-exports `run_bridge_response_from_stdin()` for the temporary binary
+entry point.
+
+This is not terminal command-transport migration. The Node bridge remains fixed
+migration scaffolding until direct Rust daemon-core StepModule/coding-tool
+protocol APIs replace it. The important invariant is that transport-only error
+mapping and raw stdin dispatch do not live in the broad bridge proof module or
+become a new owner surface.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-node --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1167
 
 Slice 1167 retires the coding-tool response facade that remained inside the

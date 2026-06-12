@@ -1,11 +1,22 @@
 use serde_json::{json, Value};
 use std::io::{self, Read};
 
-use super::BridgeError;
 use ioi_services::agentic::runtime::kernel::command_dispatch::dispatch_command_operation_response;
 use ioi_services::agentic::runtime::kernel::command_protocol::{
     validate_command_envelope_payload, CommandEnvelope,
 };
+
+#[derive(Debug)]
+struct BridgeError {
+    code: &'static str,
+    message: String,
+}
+
+impl BridgeError {
+    fn new(code: &'static str, message: String) -> Self {
+        Self { code, message }
+    }
+}
 
 pub fn run_bridge_response_from_stdin() -> Value {
     match run_bridge() {
@@ -20,7 +31,7 @@ pub fn run_bridge_response_from_stdin() -> Value {
     }
 }
 
-pub(super) fn run_bridge() -> Result<Value, BridgeError> {
+fn run_bridge() -> Result<Value, BridgeError> {
     let mut input = String::new();
     io::stdin()
         .read_to_string(&mut input)

@@ -2413,6 +2413,10 @@ function runBridge() {
       !bridgeCommandDispatchExists &&
       /pub mod command_dispatch;/.test(kernelModuleForBridgeChecks) &&
       !/struct BridgeEnvelope/.test(bridgeDispatch) &&
+      /struct BridgeError/.test(bridgeDispatch) &&
+      /fn run_bridge\(\) -> Result<Value, BridgeError>/.test(bridgeDispatch) &&
+      !/pub\(super\) fn run_bridge/.test(bridgeDispatch) &&
+      !/struct BridgeError/.test(bridgeModule) &&
       !/#\[derive\(Debug, Deserialize\)\]/.test(bridgeDispatch) &&
       !/alias = "schemaVersion"/.test(bridgeDispatch) &&
       /dispatch_command_operation_response/.test(bridgeDispatch) &&

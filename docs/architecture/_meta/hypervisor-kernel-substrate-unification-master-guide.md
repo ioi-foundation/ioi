@@ -7093,6 +7093,19 @@ tool protocol APIs, where the bridge no longer exists as a long-term endpoint
 and coding-tool response authorship, admission, receipt/state-root binding,
 Agentgres persistence, replay, and projection stay in the Rust daemon core.
 
+Slice 1168 moves the temporary bridge transport error type out of the broad
+`ioi_step_module_bridge/mod.rs` module and into
+`ioi_step_module_bridge/bridge_dispatch.rs`. `BridgeError` and the raw
+`run_bridge()` stdin/JSON transport helper are now private to the dispatch
+module; the broad bridge module only re-exports
+`run_bridge_response_from_stdin()` for the temporary binary entry point.
+
+This remains non-terminal because stdin/JSON command transport still exists as
+migration scaffolding. The target is direct Rust daemon-core protocol APIs that
+remove the Node bridge path entirely after StepModule/coding-tool dispatch,
+receipt/state-root binding, Agentgres admission, replay, and projection are
+owned end to end by the Rust daemon core.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The
