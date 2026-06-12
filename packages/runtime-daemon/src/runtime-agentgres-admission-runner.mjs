@@ -1,16 +1,14 @@
-import { createDaemonCoreCommandInvoker } from "./runtime-daemon-core-command-runner.mjs";
-
-export const RUNTIME_AGENTGRES_COMMAND_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND";
 export const RUNTIME_AGENTGRES_COMMAND_SCHEMA_VERSION = "ioi.runtime.daemon_core.command.v1";
 export const RUST_RUNTIME_AGENTGRES_BACKEND = "rust_runtime_agentgres";
 export const RUST_AGENTGRES_STORAGE_BACKEND = "rust_agentgres_storage";
 
 export function createRuntimeAgentgresAdmissionRunnerFromEnv(env = process.env, options = {}) {
   assertNoRuntimeAgentgresCommandArgs(options.args ?? env.IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS);
+  assertNoRuntimeAgentgresCommandSelection(
+    options.command ?? env.IOI_RUNTIME_DAEMON_CORE_COMMAND ?? env.IOI_RUNTIME_AGENTGRES_COMMAND,
+  );
   return new RustRuntimeAgentgresAdmissionRunner({
-    command: options.command ?? env[RUNTIME_AGENTGRES_COMMAND_ENV] ?? null,
     daemonCoreInvoker: options.daemonCoreInvoker,
-    spawnSyncImpl: options.spawnSyncImpl,
   });
 }
 
@@ -25,28 +23,21 @@ export function assertNoRuntimeAgentgresCommandArgs(value) {
   );
 }
 
+export function assertNoRuntimeAgentgresCommandSelection(value) {
+  if (typeof value === "string" && value.trim().length === 0) return;
+  if (value == null) return;
+  throw new RuntimeAgentgresAdmissionRunnerError(
+    "Runtime Agentgres binary command selection is retired; use daemonCoreInvoker for direct Rust daemon-core Agentgres admission.",
+    "runtime_agentgres_command_selection_retired",
+    { retired_command: value },
+  );
+}
+
 export class RustRuntimeAgentgresAdmissionRunner {
   constructor(options = {}) {
     assertNoRuntimeAgentgresCommandArgs(options.args);
-    this.command = optionalString(options.command);
-    this.invokeBridge = createDaemonCoreCommandInvoker({
-      command: this.command,
-      daemonCoreInvoker: options.daemonCoreInvoker,
-      spawnSyncImpl: options.spawnSyncImpl,
-      ErrorClass: RuntimeAgentgresAdmissionRunnerError,
-      env: RUNTIME_AGENTGRES_COMMAND_ENV,
-      unconfiguredMessage:
-        "Runtime Agentgres admission requires IOI_RUNTIME_DAEMON_CORE_COMMAND for Rust daemon-core admission.",
-      unconfiguredCode: "runtime_agentgres_admission_bridge_unconfigured",
-      spawnFailedMessage: "Failed to spawn Rust runtime Agentgres admission bridge command.",
-      spawnFailedCode: "runtime_agentgres_admission_bridge_spawn_failed",
-      commandFailedMessage: "Rust runtime Agentgres admission bridge command failed.",
-      commandFailedCode: "runtime_agentgres_admission_bridge_failed",
-      invalidJsonMessage: "Rust runtime Agentgres admission bridge command returned invalid JSON.",
-      invalidJsonCode: "runtime_agentgres_admission_bridge_invalid_json",
-      rejectedMessage: "Rust runtime Agentgres core rejected the transition request.",
-      rejectedCode: "runtime_agentgres_admission_bridge_rejected",
-    });
+    assertNoRuntimeAgentgresCommandSelection(options.command);
+    this.daemonCoreInvoker = optionalFunction(options.daemonCoreInvoker);
   }
 
   admitStorageBackendWrite(request) {
@@ -56,7 +47,7 @@ export class RustRuntimeAgentgresAdmissionRunner {
       backend: RUST_AGENTGRES_STORAGE_BACKEND,
       request,
     };
-    return normalizeStorageBackendWriteBridgeResult(this.invokeBridge(bridgeRequest));
+    return normalizeStorageBackendWriteBridgeResult(this.invokeDaemonCore(bridgeRequest));
   }
 
   commitRuntimeRunState(stateDir, request) {
@@ -67,7 +58,7 @@ export class RustRuntimeAgentgresAdmissionRunner {
       state_dir: stateDir,
       request,
     };
-    return normalizeRuntimeRunStateCommitBridgeResult(this.invokeBridge(bridgeRequest));
+    return normalizeRuntimeRunStateCommitBridgeResult(this.invokeDaemonCore(bridgeRequest));
   }
 
   commitRuntimeAgentState(stateDir, request) {
@@ -78,7 +69,7 @@ export class RustRuntimeAgentgresAdmissionRunner {
       state_dir: stateDir,
       request,
     };
-    return normalizeRuntimeAgentStateCommitBridgeResult(this.invokeBridge(bridgeRequest));
+    return normalizeRuntimeAgentStateCommitBridgeResult(this.invokeDaemonCore(bridgeRequest));
   }
 
   commitRuntimeMemoryState(stateDir, request) {
@@ -89,7 +80,7 @@ export class RustRuntimeAgentgresAdmissionRunner {
       state_dir: stateDir,
       request,
     };
-    return normalizeRuntimeMemoryStateCommitBridgeResult(this.invokeBridge(bridgeRequest));
+    return normalizeRuntimeMemoryStateCommitBridgeResult(this.invokeDaemonCore(bridgeRequest));
   }
 
   commitRuntimeSubagentState(stateDir, request) {
@@ -100,7 +91,7 @@ export class RustRuntimeAgentgresAdmissionRunner {
       state_dir: stateDir,
       request,
     };
-    return normalizeRuntimeSubagentStateCommitBridgeResult(this.invokeBridge(bridgeRequest));
+    return normalizeRuntimeSubagentStateCommitBridgeResult(this.invokeDaemonCore(bridgeRequest));
   }
 
   commitRuntimeArtifactState(stateDir, request) {
@@ -111,7 +102,7 @@ export class RustRuntimeAgentgresAdmissionRunner {
       state_dir: stateDir,
       request,
     };
-    return normalizeRuntimeArtifactStateCommitBridgeResult(this.invokeBridge(bridgeRequest));
+    return normalizeRuntimeArtifactStateCommitBridgeResult(this.invokeDaemonCore(bridgeRequest));
   }
 
   commitRuntimeModelMountRecordState(stateDir, request) {
@@ -122,7 +113,7 @@ export class RustRuntimeAgentgresAdmissionRunner {
       state_dir: stateDir,
       request,
     };
-    return normalizeRuntimeModelMountRecordStateCommitBridgeResult(this.invokeBridge(bridgeRequest));
+    return normalizeRuntimeModelMountRecordStateCommitBridgeResult(this.invokeDaemonCore(bridgeRequest));
   }
 
   commitRuntimeModelMountReceiptState(stateDir, request) {
@@ -133,9 +124,28 @@ export class RustRuntimeAgentgresAdmissionRunner {
       state_dir: stateDir,
       request,
     };
-    return normalizeRuntimeModelMountReceiptStateCommitBridgeResult(this.invokeBridge(bridgeRequest));
+    return normalizeRuntimeModelMountReceiptStateCommitBridgeResult(this.invokeDaemonCore(bridgeRequest));
   }
 
+  invokeDaemonCore(request) {
+    if (!this.daemonCoreInvoker) {
+      throw new RuntimeAgentgresAdmissionRunnerError(
+        "Runtime Agentgres admission requires daemonCoreInvoker for direct Rust daemon-core Agentgres admission.",
+        "runtime_agentgres_admission_direct_invoker_unconfigured",
+        { boundary: "daemonCoreInvoker" },
+      );
+    }
+    const response = this.daemonCoreInvoker(request);
+    if (response?.ok === false) {
+      const error = objectRecord(response.error) ?? {};
+      throw new RuntimeAgentgresAdmissionRunnerError(
+        error.message ?? "Rust runtime Agentgres core rejected the transition request.",
+        error.code ?? "runtime_agentgres_admission_direct_invoker_rejected",
+        { error },
+      );
+    }
+    return response?.ok === true ? response.result : response;
+  }
 }
 
 export class RuntimeAgentgresAdmissionRunnerError extends Error {
@@ -360,6 +370,16 @@ function optionalString(value) {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   return trimmed ? trimmed : null;
+}
+
+function optionalFunction(value) {
+  return typeof value === "function" ? value : null;
+}
+
+function objectRecord(value) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value
+    : null;
 }
 
 function arrayOrNull(value) {

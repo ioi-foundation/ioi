@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  RUNTIME_AGENTGRES_COMMAND_ENV,
   RUNTIME_AGENTGRES_COMMAND_SCHEMA_VERSION,
   RUST_AGENTGRES_STORAGE_BACKEND,
   RuntimeAgentgresAdmissionRunnerError,
@@ -183,63 +182,56 @@ function modelMountReceiptCommitRequest() {
   };
 }
 
-test("runtime Agentgres runner sends runtime run-state commit bridge request", () => {
-  const calls = [];
-  const runner = new RustRuntimeAgentgresAdmissionRunner({
-    command: "mock-runtime-agentgres-bridge",
-    spawnSyncImpl(command, args, options) {
-      const request = JSON.parse(options.input);
-      calls.push({ command, args, request });
-      return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
-            source: "rust_agentgres_runtime_run_state_commit_command",
-            backend: RUST_AGENTGRES_STORAGE_BACKEND,
-            record: {
-              schema_version: "ioi.runtime_run_state_commit.v1",
-              run_id: request.request.run_id,
-              transition: {
-                operation_ref: "agentgres://runtime-state/runs/run_1/operations/run.create_abcd",
-                state_root_after: "sha256:after",
-                resulting_head: "agentgres://runtime-state/runs/run_1/head/abcd",
-                transition_hash: "sha256:transition",
-              },
-              persistence: {
-                materialization: {
-                  materialization_hash: "sha256:materialization",
-                },
-                storage_write_set: {
-                  write_set_hash: "sha256:write-set",
-                  records: [{ record_path: "runs/run_1.json" }],
-                },
-                persistence_hash: "sha256:persistence",
-              },
-              commit_hash: "sha256:commit",
-            },
-            operation_ref: "agentgres://runtime-state/runs/run_1/operations/run.create_abcd",
-            state_root_after: "sha256:after",
-            resulting_head: "agentgres://runtime-state/runs/run_1/head/abcd",
-            transition_hash: "sha256:transition",
-            materialization_hash: "sha256:materialization",
-            write_set_hash: "sha256:write-set",
-            persistence_hash: "sha256:persistence",
-            commit_hash: "sha256:commit",
-            written_records: [{ record_path: "runs/run_1.json" }],
-            evidence_refs: ["rust_agentgres_runtime_run_state_commit"],
-          },
-        }),
-        stderr: "",
-      };
+function createRunner(calls, responseForRequest) {
+  return new RustRuntimeAgentgresAdmissionRunner({
+    daemonCoreInvoker(request) {
+      calls.push({ request });
+      return responseForRequest(request);
     },
   });
+}
+
+test("runtime Agentgres runner sends runtime run-state commit through direct daemon-core invoker", () => {
+  const calls = [];
+  const runner = createRunner(calls, (request) => ({
+    source: "direct_daemon_core_api",
+    backend: RUST_AGENTGRES_STORAGE_BACKEND,
+    record: {
+      schema_version: "ioi.runtime_run_state_commit.v1",
+      run_id: request.request.run_id,
+      transition: {
+        operation_ref: "agentgres://runtime-state/runs/run_1/operations/run.create_abcd",
+        state_root_after: "sha256:after",
+        resulting_head: "agentgres://runtime-state/runs/run_1/head/abcd",
+        transition_hash: "sha256:transition",
+      },
+      persistence: {
+        materialization: {
+          materialization_hash: "sha256:materialization",
+        },
+        storage_write_set: {
+          write_set_hash: "sha256:write-set",
+          records: [{ record_path: "runs/run_1.json" }],
+        },
+        persistence_hash: "sha256:persistence",
+      },
+      commit_hash: "sha256:commit",
+    },
+    operation_ref: "agentgres://runtime-state/runs/run_1/operations/run.create_abcd",
+    state_root_after: "sha256:after",
+    resulting_head: "agentgres://runtime-state/runs/run_1/head/abcd",
+    transition_hash: "sha256:transition",
+    materialization_hash: "sha256:materialization",
+    write_set_hash: "sha256:write-set",
+    persistence_hash: "sha256:persistence",
+    commit_hash: "sha256:commit",
+    written_records: [{ record_path: "runs/run_1.json" }],
+    evidence_refs: ["rust_agentgres_runtime_run_state_commit"],
+  }));
 
   const result = runner.commitRuntimeRunState("/runtime-state", commitRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].command, "mock-runtime-agentgres-bridge");
-  assert.deepEqual(calls[0].args, []);
   assert.equal(calls[0].request.schema_version, RUNTIME_AGENTGRES_COMMAND_SCHEMA_VERSION);
   assert.equal(calls[0].request.operation, "commit_runtime_run_state");
   assert.equal(calls[0].request.backend, RUST_AGENTGRES_STORAGE_BACKEND);
@@ -255,37 +247,22 @@ test("runtime Agentgres runner sends runtime run-state commit bridge request", (
   assert.deepEqual(result.evidence_refs, ["rust_agentgres_runtime_run_state_commit"]);
 });
 
-test("runtime Agentgres runner sends storage write admission bridge request", () => {
+test("runtime Agentgres runner sends storage write admission through direct daemon-core invoker", () => {
   const calls = [];
-  const runner = new RustRuntimeAgentgresAdmissionRunner({
-    command: "mock-runtime-agentgres-bridge",
-    spawnSyncImpl(command, args, options) {
-      const request = JSON.parse(options.input);
-      calls.push({ command, args, request });
-      return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
-            source: "rust_agentgres_storage_write_admission_command",
-            backend: RUST_AGENTGRES_STORAGE_BACKEND,
-            record: {
-              ...request.request,
-              admission_hash: "sha256:storage-admission",
-            },
-            admission_hash: "sha256:storage-admission",
-            evidence_refs: ["rust_agentgres_storage_write_admission"],
-          },
-        }),
-        stderr: "",
-      };
+  const runner = createRunner(calls, (request) => ({
+    source: "direct_daemon_core_api",
+    backend: RUST_AGENTGRES_STORAGE_BACKEND,
+    record: {
+      ...request.request,
+      admission_hash: "sha256:storage-admission",
     },
-  });
+    admission_hash: "sha256:storage-admission",
+    evidence_refs: ["rust_agentgres_storage_write_admission"],
+  }));
 
   const result = runner.admitStorageBackendWrite(storageWriteRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].command, "mock-runtime-agentgres-bridge");
   assert.equal(calls[0].request.schema_version, RUNTIME_AGENTGRES_COMMAND_SCHEMA_VERSION);
   assert.equal(calls[0].request.operation, "admit_storage_backend_write");
   assert.equal(calls[0].request.backend, RUST_AGENTGRES_STORAGE_BACKEND);
@@ -321,52 +298,38 @@ test("runtime Agentgres runner does not synthesize Rust-owned refs or evidence",
   }
 });
 
-test("runtime Agentgres runner sends runtime agent-state commit bridge request", () => {
+test("runtime Agentgres runner sends runtime agent-state commit through direct daemon-core invoker", () => {
   const calls = [];
-  const runner = new RustRuntimeAgentgresAdmissionRunner({
-    command: "mock-runtime-agentgres-bridge",
-    spawnSyncImpl(command, args, options) {
-      const request = JSON.parse(options.input);
-      calls.push({ command, args, request });
-      return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
-            source: "rust_agentgres_runtime_agent_state_commit_command",
-            backend: RUST_AGENTGRES_STORAGE_BACKEND,
-            record: {
-              schema_version: "ioi.runtime_agent_state_commit.v1",
-              agent_id: "agent_1",
-              operation_kind: "agent.create",
-              storage_backend_ref: "storage://runtime-agentgres/local-json",
-              record: {
-                record_path: "agents/agent_1.json",
-                object_ref: "agentgres://runtime-state/agents/agent_1/records/agents/agent_1.json",
-                content_hash: "sha256:agent-content",
-                payload_refs: ["payload://runtime/agents/agent_1/records/agents/agent_1.json"],
-                receipt_refs: ["receipt_agent"],
-                admission: {
-                  admission_hash: "sha256:agent-admission",
-                },
-              },
-              commit_hash: "sha256:agent-commit",
-            },
-            agent_id: "agent_1",
-            object_ref: "agentgres://runtime-state/agents/agent_1/records/agents/agent_1.json",
-            content_hash: "sha256:agent-content",
-            admission_hash: "sha256:agent-admission",
-            commit_hash: "sha256:agent-commit",
-            written_record: {
-              record_path: "agents/agent_1.json",
-            },
-            evidence_refs: ["rust_agentgres_runtime_agent_state_commit"],
-          },
-        }),
-        stderr: "",
-      };
+  const runner = createRunner(calls, () => ({
+    source: "direct_daemon_core_api",
+    backend: RUST_AGENTGRES_STORAGE_BACKEND,
+    record: {
+      schema_version: "ioi.runtime_agent_state_commit.v1",
+      agent_id: "agent_1",
+      operation_kind: "agent.create",
+      storage_backend_ref: "storage://runtime-agentgres/local-json",
+      record: {
+        record_path: "agents/agent_1.json",
+        object_ref: "agentgres://runtime-state/agents/agent_1/records/agents/agent_1.json",
+        content_hash: "sha256:agent-content",
+        payload_refs: ["payload://runtime/agents/agent_1/records/agents/agent_1.json"],
+        receipt_refs: ["receipt_agent"],
+        admission: {
+          admission_hash: "sha256:agent-admission",
+        },
+      },
+      commit_hash: "sha256:agent-commit",
     },
-  });
+    agent_id: "agent_1",
+    object_ref: "agentgres://runtime-state/agents/agent_1/records/agents/agent_1.json",
+    content_hash: "sha256:agent-content",
+    admission_hash: "sha256:agent-admission",
+    commit_hash: "sha256:agent-commit",
+    written_record: {
+      record_path: "agents/agent_1.json",
+    },
+    evidence_refs: ["rust_agentgres_runtime_agent_state_commit"],
+  }));
 
   const result = runner.commitRuntimeAgentState("/runtime-state", agentCommitRequest());
 
@@ -381,54 +344,40 @@ test("runtime Agentgres runner sends runtime agent-state commit bridge request",
   assert.deepEqual(result.evidence_refs, ["rust_agentgres_runtime_agent_state_commit"]);
 });
 
-test("runtime Agentgres runner sends runtime memory-state commit bridge request", () => {
+test("runtime Agentgres runner sends runtime memory-state commit through direct daemon-core invoker", () => {
   const calls = [];
-  const runner = new RustRuntimeAgentgresAdmissionRunner({
-    command: "mock-runtime-agentgres-bridge",
-    spawnSyncImpl(command, args, options) {
-      const request = JSON.parse(options.input);
-      calls.push({ command, args, request });
-      return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
-            source: "rust_agentgres_runtime_memory_state_commit_command",
-            backend: RUST_AGENTGRES_STORAGE_BACKEND,
-            record: {
-              schema_version: "ioi.runtime_memory_state_commit.v1",
-              memory_state_kind: "record",
-              state_id: "memory_1",
-              operation_kind: "memory.write",
-              storage_backend_ref: "storage://runtime-agentgres/local-json",
-              record: {
-                record_path: "memory-records/memory_1.json",
-                object_ref: "agentgres://runtime-state/memory/record/memory_1/records/memory-records/memory_1.json",
-                content_hash: "sha256:memory-content",
-                payload_refs: ["payload://runtime/memory/record/memory_1/records/memory-records/memory_1.json"],
-                receipt_refs: ["receipt_memory"],
-                admission: {
-                  admission_hash: "sha256:memory-admission",
-                },
-              },
-              commit_hash: "sha256:memory-commit",
-            },
-            memory_state_kind: "record",
-            state_id: "memory_1",
-            object_ref: "agentgres://runtime-state/memory/record/memory_1/records/memory-records/memory_1.json",
-            content_hash: "sha256:memory-content",
-            admission_hash: "sha256:memory-admission",
-            commit_hash: "sha256:memory-commit",
-            written_record: {
-              record_path: "memory-records/memory_1.json",
-            },
-            evidence_refs: ["rust_agentgres_runtime_memory_state_commit"],
-          },
-        }),
-        stderr: "",
-      };
+  const runner = createRunner(calls, () => ({
+    source: "direct_daemon_core_api",
+    backend: RUST_AGENTGRES_STORAGE_BACKEND,
+    record: {
+      schema_version: "ioi.runtime_memory_state_commit.v1",
+      memory_state_kind: "record",
+      state_id: "memory_1",
+      operation_kind: "memory.write",
+      storage_backend_ref: "storage://runtime-agentgres/local-json",
+      record: {
+        record_path: "memory-records/memory_1.json",
+        object_ref: "agentgres://runtime-state/memory/record/memory_1/records/memory-records/memory_1.json",
+        content_hash: "sha256:memory-content",
+        payload_refs: ["payload://runtime/memory/record/memory_1/records/memory-records/memory_1.json"],
+        receipt_refs: ["receipt_memory"],
+        admission: {
+          admission_hash: "sha256:memory-admission",
+        },
+      },
+      commit_hash: "sha256:memory-commit",
     },
-  });
+    memory_state_kind: "record",
+    state_id: "memory_1",
+    object_ref: "agentgres://runtime-state/memory/record/memory_1/records/memory-records/memory_1.json",
+    content_hash: "sha256:memory-content",
+    admission_hash: "sha256:memory-admission",
+    commit_hash: "sha256:memory-commit",
+    written_record: {
+      record_path: "memory-records/memory_1.json",
+    },
+    evidence_refs: ["rust_agentgres_runtime_memory_state_commit"],
+  }));
 
   const result = runner.commitRuntimeMemoryState("/runtime-state", memoryCommitRequest());
 
@@ -444,52 +393,38 @@ test("runtime Agentgres runner sends runtime memory-state commit bridge request"
   assert.deepEqual(result.evidence_refs, ["rust_agentgres_runtime_memory_state_commit"]);
 });
 
-test("runtime Agentgres runner sends runtime subagent-state commit bridge request", () => {
+test("runtime Agentgres runner sends runtime subagent-state commit through direct daemon-core invoker", () => {
   const calls = [];
-  const runner = new RustRuntimeAgentgresAdmissionRunner({
-    command: "mock-runtime-agentgres-bridge",
-    spawnSyncImpl(command, args, options) {
-      const request = JSON.parse(options.input);
-      calls.push({ command, args, request });
-      return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
-            source: "rust_agentgres_runtime_subagent_state_commit_command",
-            backend: RUST_AGENTGRES_STORAGE_BACKEND,
-            record: {
-              schema_version: "ioi.runtime_subagent_state_commit.v1",
-              subagent_id: "subagent_1",
-              operation_kind: "subagent.wait",
-              storage_backend_ref: "storage://runtime-agentgres/local-json",
-              record: {
-                record_path: "subagents/subagent_1.json",
-                object_ref: "agentgres://runtime-state/subagents/subagent_1/records/subagents/subagent_1.json",
-                content_hash: "sha256:subagent-content",
-                payload_refs: ["payload://runtime/subagents/subagent_1/records/subagents/subagent_1.json"],
-                receipt_refs: ["receipt_subagent"],
-                admission: {
-                  admission_hash: "sha256:subagent-admission",
-                },
-              },
-              commit_hash: "sha256:subagent-commit",
-            },
-            subagent_id: "subagent_1",
-            object_ref: "agentgres://runtime-state/subagents/subagent_1/records/subagents/subagent_1.json",
-            content_hash: "sha256:subagent-content",
-            admission_hash: "sha256:subagent-admission",
-            commit_hash: "sha256:subagent-commit",
-            written_record: {
-              record_path: "subagents/subagent_1.json",
-            },
-            evidence_refs: ["rust_agentgres_runtime_subagent_state_commit"],
-          },
-        }),
-        stderr: "",
-      };
+  const runner = createRunner(calls, () => ({
+    source: "direct_daemon_core_api",
+    backend: RUST_AGENTGRES_STORAGE_BACKEND,
+    record: {
+      schema_version: "ioi.runtime_subagent_state_commit.v1",
+      subagent_id: "subagent_1",
+      operation_kind: "subagent.wait",
+      storage_backend_ref: "storage://runtime-agentgres/local-json",
+      record: {
+        record_path: "subagents/subagent_1.json",
+        object_ref: "agentgres://runtime-state/subagents/subagent_1/records/subagents/subagent_1.json",
+        content_hash: "sha256:subagent-content",
+        payload_refs: ["payload://runtime/subagents/subagent_1/records/subagents/subagent_1.json"],
+        receipt_refs: ["receipt_subagent"],
+        admission: {
+          admission_hash: "sha256:subagent-admission",
+        },
+      },
+      commit_hash: "sha256:subagent-commit",
     },
-  });
+    subagent_id: "subagent_1",
+    object_ref: "agentgres://runtime-state/subagents/subagent_1/records/subagents/subagent_1.json",
+    content_hash: "sha256:subagent-content",
+    admission_hash: "sha256:subagent-admission",
+    commit_hash: "sha256:subagent-commit",
+    written_record: {
+      record_path: "subagents/subagent_1.json",
+    },
+    evidence_refs: ["rust_agentgres_runtime_subagent_state_commit"],
+  }));
 
   const result = runner.commitRuntimeSubagentState("/runtime-state", subagentCommitRequest());
 
@@ -504,52 +439,38 @@ test("runtime Agentgres runner sends runtime subagent-state commit bridge reques
   assert.deepEqual(result.evidence_refs, ["rust_agentgres_runtime_subagent_state_commit"]);
 });
 
-test("runtime Agentgres runner sends runtime artifact-state commit bridge request", () => {
+test("runtime Agentgres runner sends runtime artifact-state commit through direct daemon-core invoker", () => {
   const calls = [];
-  const runner = new RustRuntimeAgentgresAdmissionRunner({
-    command: "mock-runtime-agentgres-bridge",
-    spawnSyncImpl(command, args, options) {
-      const request = JSON.parse(options.input);
-      calls.push({ command, args, request });
-      return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
-            source: "rust_agentgres_runtime_artifact_state_commit_command",
-            backend: RUST_AGENTGRES_STORAGE_BACKEND,
-            record: {
-              schema_version: "ioi.runtime_artifact_state_commit.v1",
-              artifact_id: "artifact_1",
-              operation_kind: "artifact.coding_tool_draft",
-              storage_backend_ref: "storage://runtime-agentgres/local-json",
-              record: {
-                record_path: "artifacts/artifact_1.json",
-                object_ref: "agentgres://runtime-state/artifacts/artifact_1/records/artifacts/artifact_1.json",
-                content_hash: "sha256:artifact-content",
-                payload_refs: ["payload://runtime/artifacts/artifact_1/records/artifacts/artifact_1.json"],
-                receipt_refs: ["receipt_artifact"],
-                admission: {
-                  admission_hash: "sha256:artifact-admission",
-                },
-              },
-              commit_hash: "sha256:artifact-commit",
-            },
-            artifact_id: "artifact_1",
-            object_ref: "agentgres://runtime-state/artifacts/artifact_1/records/artifacts/artifact_1.json",
-            content_hash: "sha256:artifact-content",
-            admission_hash: "sha256:artifact-admission",
-            commit_hash: "sha256:artifact-commit",
-            written_record: {
-              record_path: "artifacts/artifact_1.json",
-            },
-            evidence_refs: ["rust_agentgres_runtime_artifact_state_commit"],
-          },
-        }),
-        stderr: "",
-      };
+  const runner = createRunner(calls, () => ({
+    source: "direct_daemon_core_api",
+    backend: RUST_AGENTGRES_STORAGE_BACKEND,
+    record: {
+      schema_version: "ioi.runtime_artifact_state_commit.v1",
+      artifact_id: "artifact_1",
+      operation_kind: "artifact.coding_tool_draft",
+      storage_backend_ref: "storage://runtime-agentgres/local-json",
+      record: {
+        record_path: "artifacts/artifact_1.json",
+        object_ref: "agentgres://runtime-state/artifacts/artifact_1/records/artifacts/artifact_1.json",
+        content_hash: "sha256:artifact-content",
+        payload_refs: ["payload://runtime/artifacts/artifact_1/records/artifacts/artifact_1.json"],
+        receipt_refs: ["receipt_artifact"],
+        admission: {
+          admission_hash: "sha256:artifact-admission",
+        },
+      },
+      commit_hash: "sha256:artifact-commit",
     },
-  });
+    artifact_id: "artifact_1",
+    object_ref: "agentgres://runtime-state/artifacts/artifact_1/records/artifacts/artifact_1.json",
+    content_hash: "sha256:artifact-content",
+    admission_hash: "sha256:artifact-admission",
+    commit_hash: "sha256:artifact-commit",
+    written_record: {
+      record_path: "artifacts/artifact_1.json",
+    },
+    evidence_refs: ["rust_agentgres_runtime_artifact_state_commit"],
+  }));
 
   const result = runner.commitRuntimeArtifactState("/runtime-state", artifactCommitRequest());
 
@@ -564,54 +485,40 @@ test("runtime Agentgres runner sends runtime artifact-state commit bridge reques
   assert.deepEqual(result.evidence_refs, ["rust_agentgres_runtime_artifact_state_commit"]);
 });
 
-test("runtime Agentgres runner sends runtime model-mount record-state commit bridge request", () => {
+test("runtime Agentgres runner sends runtime model-mount record-state commit through direct daemon-core invoker", () => {
   const calls = [];
-  const runner = new RustRuntimeAgentgresAdmissionRunner({
-    command: "mock-runtime-agentgres-bridge",
-    spawnSyncImpl(command, args, options) {
-      const request = JSON.parse(options.input);
-      calls.push({ command, args, request });
-      return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
-            source: "rust_agentgres_runtime_model_mount_record_state_commit_command",
-            backend: RUST_AGENTGRES_STORAGE_BACKEND,
-            record: {
-              schema_version: "ioi.runtime_model_mount_record_state_commit.v1",
-              record_dir: "provider-health",
-              record_id: "health.provider_openai",
-              operation_kind: "model_mount.provider_health.write",
-              storage_backend_ref: "storage://runtime-agentgres/local-json",
-              record: {
-                record_path: "provider-health/health.provider_openai.json",
-                object_ref: "agentgres://model-mounting/records/provider-health/health.provider_openai/records/provider-health/health.provider_openai.json",
-                content_hash: "sha256:model-mount-record-content",
-                payload_refs: ["payload://model-mounting/records/provider-health/health.provider_openai/records/provider-health/health.provider_openai.json"],
-                receipt_refs: ["receipt_provider_health"],
-                admission: {
-                  admission_hash: "sha256:model-mount-record-admission",
-                },
-              },
-              commit_hash: "sha256:model-mount-record-commit",
-            },
-            record_dir: "provider-health",
-            record_id: "health.provider_openai",
-            object_ref: "agentgres://model-mounting/records/provider-health/health.provider_openai/records/provider-health/health.provider_openai.json",
-            content_hash: "sha256:model-mount-record-content",
-            admission_hash: "sha256:model-mount-record-admission",
-            commit_hash: "sha256:model-mount-record-commit",
-            written_record: {
-              record_path: "provider-health/health.provider_openai.json",
-            },
-            evidence_refs: ["rust_agentgres_runtime_model_mount_record_state_commit"],
-          },
-        }),
-        stderr: "",
-      };
+  const runner = createRunner(calls, () => ({
+    source: "direct_daemon_core_api",
+    backend: RUST_AGENTGRES_STORAGE_BACKEND,
+    record: {
+      schema_version: "ioi.runtime_model_mount_record_state_commit.v1",
+      record_dir: "provider-health",
+      record_id: "health.provider_openai",
+      operation_kind: "model_mount.provider_health.write",
+      storage_backend_ref: "storage://runtime-agentgres/local-json",
+      record: {
+        record_path: "provider-health/health.provider_openai.json",
+        object_ref: "agentgres://model-mounting/records/provider-health/health.provider_openai/records/provider-health/health.provider_openai.json",
+        content_hash: "sha256:model-mount-record-content",
+        payload_refs: ["payload://model-mounting/records/provider-health/health.provider_openai/records/provider-health/health.provider_openai.json"],
+        receipt_refs: ["receipt_provider_health"],
+        admission: {
+          admission_hash: "sha256:model-mount-record-admission",
+        },
+      },
+      commit_hash: "sha256:model-mount-record-commit",
     },
-  });
+    record_dir: "provider-health",
+    record_id: "health.provider_openai",
+    object_ref: "agentgres://model-mounting/records/provider-health/health.provider_openai/records/provider-health/health.provider_openai.json",
+    content_hash: "sha256:model-mount-record-content",
+    admission_hash: "sha256:model-mount-record-admission",
+    commit_hash: "sha256:model-mount-record-commit",
+    written_record: {
+      record_path: "provider-health/health.provider_openai.json",
+    },
+    evidence_refs: ["rust_agentgres_runtime_model_mount_record_state_commit"],
+  }));
 
   const result = runner.commitRuntimeModelMountRecordState("/runtime-state", modelMountRecordCommitRequest());
 
@@ -627,56 +534,42 @@ test("runtime Agentgres runner sends runtime model-mount record-state commit bri
   assert.deepEqual(result.evidence_refs, ["rust_agentgres_runtime_model_mount_record_state_commit"]);
 });
 
-test("runtime Agentgres runner sends runtime model-mount receipt-state commit bridge request", () => {
+test("runtime Agentgres runner sends runtime model-mount receipt-state commit through direct daemon-core invoker", () => {
   const calls = [];
-  const runner = new RustRuntimeAgentgresAdmissionRunner({
-    command: "mock-runtime-agentgres-bridge",
-    spawnSyncImpl(command, args, options) {
-      const request = JSON.parse(options.input);
-      calls.push({ command, args, request });
-      return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
-            source: "rust_agentgres_runtime_model_mount_receipt_state_commit_command",
-            backend: RUST_AGENTGRES_STORAGE_BACKEND,
-            record: {
-              schema_version: "ioi.runtime_model_mount_receipt_state_commit.v1",
-              receipt_id: "receipt_model_invocation",
-              operation_kind: "model_mount.receipt.write",
-              storage_backend_ref: "storage://runtime-agentgres/local-json",
-              record: {
-                record_path: "receipts/receipt_model_invocation.json",
-                object_ref:
-                  "agentgres://model-mounting/receipts/receipt_model_invocation/records/receipts/receipt_model_invocation.json",
-                content_hash: "sha256:receipt-content",
-                payload_refs: [
-                  "payload://model-mounting/receipts/receipt_model_invocation/records/receipts/receipt_model_invocation.json",
-                ],
-                receipt_refs: ["receipt_model_invocation"],
-                admission: {
-                  admission_hash: "sha256:receipt-admission",
-                },
-              },
-              commit_hash: "sha256:receipt-commit",
-            },
-            receipt_id: "receipt_model_invocation",
-            object_ref:
-              "agentgres://model-mounting/receipts/receipt_model_invocation/records/receipts/receipt_model_invocation.json",
-            content_hash: "sha256:receipt-content",
-            admission_hash: "sha256:receipt-admission",
-            commit_hash: "sha256:receipt-commit",
-            written_record: {
-              record_path: "receipts/receipt_model_invocation.json",
-            },
-            evidence_refs: ["rust_agentgres_runtime_model_mount_receipt_state_commit"],
-          },
-        }),
-        stderr: "",
-      };
+  const runner = createRunner(calls, () => ({
+    source: "direct_daemon_core_api",
+    backend: RUST_AGENTGRES_STORAGE_BACKEND,
+    record: {
+      schema_version: "ioi.runtime_model_mount_receipt_state_commit.v1",
+      receipt_id: "receipt_model_invocation",
+      operation_kind: "model_mount.receipt.write",
+      storage_backend_ref: "storage://runtime-agentgres/local-json",
+      record: {
+        record_path: "receipts/receipt_model_invocation.json",
+        object_ref:
+          "agentgres://model-mounting/receipts/receipt_model_invocation/records/receipts/receipt_model_invocation.json",
+        content_hash: "sha256:receipt-content",
+        payload_refs: [
+          "payload://model-mounting/receipts/receipt_model_invocation/records/receipts/receipt_model_invocation.json",
+        ],
+        receipt_refs: ["receipt_model_invocation"],
+        admission: {
+          admission_hash: "sha256:receipt-admission",
+        },
+      },
+      commit_hash: "sha256:receipt-commit",
     },
-  });
+    receipt_id: "receipt_model_invocation",
+    object_ref:
+      "agentgres://model-mounting/receipts/receipt_model_invocation/records/receipts/receipt_model_invocation.json",
+    content_hash: "sha256:receipt-content",
+    admission_hash: "sha256:receipt-admission",
+    commit_hash: "sha256:receipt-commit",
+    written_record: {
+      record_path: "receipts/receipt_model_invocation.json",
+    },
+    evidence_refs: ["rust_agentgres_runtime_model_mount_receipt_state_commit"],
+  }));
 
   const result = runner.commitRuntimeModelMountReceiptState("/runtime-state", modelMountReceiptCommitRequest());
 
@@ -691,23 +584,65 @@ test("runtime Agentgres runner sends runtime model-mount receipt-state commit br
   assert.deepEqual(result.evidence_refs, ["rust_agentgres_runtime_model_mount_receipt_state_commit"]);
 });
 
-test("runtime Agentgres runner env uses daemon-core command boundary", () => {
+test("runtime Agentgres runner env uses daemon-level direct invoker", () => {
+  const calls = [];
   const runner = createRuntimeAgentgresAdmissionRunnerFromEnv({
-    [RUNTIME_AGENTGRES_COMMAND_ENV]: "ioi-runtime-daemon-core",
-    IOI_RUNTIME_AGENTGRES_COMMAND: "retired-runtime-agentgres-bridge",
     IOI_RUNTIME_AGENTGRES_COMMAND_ARGS: "--retired-agentgres",
     IOI_STEP_MODULE_COMMAND: "retired-step-module-bridge",
     IOI_STEP_MODULE_COMMAND_ARGS: "--retired-step",
+  }, {
+    daemonCoreInvoker(request) {
+      calls.push({ request });
+      return {
+        source: "direct_daemon_core_api",
+        backend: RUST_AGENTGRES_STORAGE_BACKEND,
+        record: {
+          ...request.request,
+          admission_hash: "sha256:storage-admission",
+        },
+        admission_hash: "sha256:storage-admission",
+      };
+    },
   });
 
-  assert.equal(runner.command, "ioi-runtime-daemon-core");
+  const result = runner.admitStorageBackendWrite(storageWriteRequest());
+
+  assert.equal(calls[0].request.operation, "admit_storage_backend_write");
+  assert.equal(result.admission_hash, "sha256:storage-admission");
+});
+
+test("runtime Agentgres runner rejects retired daemon-core command env", () => {
+  assert.throws(
+    () =>
+      createRuntimeAgentgresAdmissionRunnerFromEnv({
+        IOI_RUNTIME_DAEMON_CORE_COMMAND: "ioi-runtime-daemon-core",
+      }, {
+        daemonCoreInvoker() {},
+      }),
+    (error) =>
+      error instanceof RuntimeAgentgresAdmissionRunnerError &&
+      error.code === "runtime_agentgres_command_selection_retired",
+  );
+});
+
+test("runtime Agentgres runner rejects retired Agentgres command env", () => {
+  assert.throws(
+    () =>
+      createRuntimeAgentgresAdmissionRunnerFromEnv({
+        IOI_RUNTIME_AGENTGRES_COMMAND: "retired-runtime-agentgres-bridge",
+      }, {
+        daemonCoreInvoker() {},
+      }),
+    (error) =>
+      error instanceof RuntimeAgentgresAdmissionRunnerError &&
+      error.code === "runtime_agentgres_command_selection_retired",
+  );
 });
 
 test("runtime Agentgres runner command args env fails closed", () => {
   assert.throws(
     () =>
       createRuntimeAgentgresAdmissionRunnerFromEnv({
-        [RUNTIME_AGENTGRES_COMMAND_ENV]: "ioi-runtime-daemon-core",
         IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS: "--json",
       }),
     (error) =>
@@ -725,13 +660,22 @@ test("runtime Agentgres runner command args constructor option fails closed", ()
   );
 });
 
-test("runtime Agentgres runner fails closed without command", () => {
+test("runtime Agentgres runner command constructor option fails closed", () => {
+  assert.throws(
+    () => new RustRuntimeAgentgresAdmissionRunner({ command: "ioi-runtime-daemon-core" }),
+    (error) =>
+      error instanceof RuntimeAgentgresAdmissionRunnerError &&
+      error.code === "runtime_agentgres_command_selection_retired",
+  );
+});
+
+test("runtime Agentgres runner fails closed without direct invoker", () => {
   const runner = new RustRuntimeAgentgresAdmissionRunner();
 
   assert.throws(
     () => runner.commitRuntimeRunState("/runtime-state", commitRequest()),
     (error) =>
       error instanceof RuntimeAgentgresAdmissionRunnerError &&
-      error.code === "runtime_agentgres_admission_bridge_unconfigured",
+      error.code === "runtime_agentgres_admission_direct_invoker_unconfigured",
   );
 });

@@ -15979,6 +15979,45 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1202
+
+Slice 1202 retires runtime Agentgres binary-spawn fallback from the daemon
+runner:
+
+- `packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs`
+- `packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs`
+- `scripts/conformance/hypervisor-conformance.mjs`
+
+The runtime Agentgres runner no longer imports the shared JS daemon-core
+command invoker, no longer exposes a command-env transport constant, and no
+longer accepts constructor command selection or spawn hooks. The surface now
+requires the daemon-level `daemonCoreInvoker` direct Rust-core seam for
+storage-backend write admission plus runtime run, agent, memory, subagent,
+artifact, and model_mount record/receipt state commits. It rejects
+`IOI_RUNTIME_DAEMON_CORE_COMMAND` and retired
+`IOI_RUNTIME_AGENTGRES_COMMAND` values as forbidden command selection, and
+fails closed when no direct invoker is configured.
+
+This is not terminal daemon-wide Rust ownership: thread persistence still calls
+the runner from JS, and other daemon-core runners may still use temporary
+shared command transport until their direct Rust API boundaries are clear. It
+does make the Agentgres truth path a larger pure-Rust-direction cut: command
+transport can no longer admit storage writes or commit runtime truth as a
+compatibility fallback, and future work must either provide a real direct Rust
+daemon-core Agentgres invoker or fail closed.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs` | passed; 16 tests |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:negative` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1201
 
 Slice 1201 retires workspace restore binary-spawn fallback from the daemon

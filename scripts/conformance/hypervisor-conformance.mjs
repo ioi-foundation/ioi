@@ -20301,20 +20301,35 @@ function runReceipts() {
       !/this\.args/.test(runtimeAgentgresRunner) &&
       !/argsEnv/.test(runtimeAgentgresRunner) &&
       /assertNoRuntimeAgentgresCommandArgs/.test(runtimeAgentgresRunner) &&
+      /assertNoRuntimeAgentgresCommandSelection\(\s*options\.command\s*\?\?\s*env\.IOI_RUNTIME_DAEMON_CORE_COMMAND\s*\?\?\s*env\.IOI_RUNTIME_AGENTGRES_COMMAND/.test(
+        runtimeAgentgresRunner,
+      ) &&
+      /this\.daemonCoreInvoker\s*=\s*optionalFunction\(options\.daemonCoreInvoker\)/.test(
+        runtimeAgentgresRunner,
+      ) &&
+      /daemonCoreInvoker:\s*options\.daemonCoreInvoker/.test(runtimeAgentgresRunner) &&
       /runtime_agentgres_command_args_retired/.test(runtimeAgentgresRunner) &&
-      /createDaemonCoreCommandInvoker/.test(runtimeAgentgresRunner) &&
+      /runtime_agentgres_command_selection_retired/.test(runtimeAgentgresRunner) &&
+      /runtime_agentgres_admission_direct_invoker_unconfigured/.test(runtimeAgentgresRunner) &&
+      !/createDaemonCoreCommandInvoker/.test(runtimeAgentgresRunner) &&
+      !/spawnSyncImpl/.test(runtimeAgentgresRunner) &&
       !/from "node:child_process"/.test(runtimeAgentgresRunner) &&
-      /spawnSyncImpl\(commandPath,\s*\[\]/.test(daemonCoreCommandRunner) &&
       /runtime Agentgres runner command args env fails closed/.test(
         read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
       ) &&
       /runtime Agentgres runner command args constructor option fails closed/.test(
         read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
       ) &&
-      /assert\.deepEqual\(calls\[0\]\.args,\s*\[\]\)/.test(
+      /runtime Agentgres runner command constructor option fails closed/.test(
         read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
       ) &&
-      /runtime Agentgres runner sends runtime model-mount receipt-state commit bridge request/.test(
+      /runtime Agentgres runner rejects retired daemon-core command env/.test(
+        read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
+      ) &&
+      /runtime Agentgres runner rejects retired Agentgres command env/.test(
+        read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
+      ) &&
+      /runtime Agentgres runner sends runtime model-mount receipt-state commit through direct daemon-core invoker/.test(
         read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
       ) &&
       /agentgres:\/\/model-mounting\/accepted-receipts\/op_1/.test(
@@ -20504,7 +20519,7 @@ function runReceipts() {
       !/bridge_commits_runtime_memory_state_through_rust_core/.test(bridgeModule) &&
       /commitRuntimeMemoryState/.test(runtimeAgentgresRunner) &&
       /normalizeRuntimeMemoryStateCommitBridgeResult/.test(runtimeAgentgresRunner) &&
-      /runtime Agentgres runner sends runtime memory-state commit bridge request/.test(
+      /runtime Agentgres runner sends runtime memory-state commit through direct daemon-core invoker/.test(
         read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
       ) &&
       /commitRuntimeMemoryState\(request\)/.test(runtimeDaemonIndex) &&
@@ -20566,7 +20581,7 @@ function runReceipts() {
       !/bridge_commits_runtime_artifact_state_through_rust_core/.test(bridgeModule) &&
       /commitRuntimeArtifactState/.test(runtimeAgentgresRunner) &&
       /normalizeRuntimeArtifactStateCommitBridgeResult/.test(runtimeAgentgresRunner) &&
-      /runtime Agentgres runner sends runtime artifact-state commit bridge request/.test(
+      /runtime Agentgres runner sends runtime artifact-state commit through direct daemon-core invoker/.test(
         read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
       ) &&
       /commitRuntimeArtifactState\(request\)/.test(runtimeDaemonIndex) &&
@@ -21262,14 +21277,12 @@ function runReceipts() {
       /agentgres_command_commits_runtime_run_state_through_rust_core/.test(agentgresCommandCore) &&
       !/bridge_commits_runtime_run_state_through_rust_core/.test(bridgeModule) &&
       /RustRuntimeAgentgresAdmissionRunner/.test(runtimeAgentgresRunner) &&
-      /IOI_RUNTIME_DAEMON_CORE_COMMAND/.test(runtimeAgentgresRunner) &&
       /ioi\.runtime\.daemon_core\.command\.v1/.test(runtimeAgentgresRunner) &&
-      !/IOI_RUNTIME_AGENTGRES_COMMAND/.test(runtimeAgentgresRunner) &&
       !/IOI_STEP_MODULE_COMMAND/.test(runtimeAgentgresRunner) &&
       /commitRuntimeRunState/.test(runtimeAgentgresRunner) &&
       !/planRunStateTransition/.test(runtimeAgentgresRunner) &&
       !/persistRuntimeStateRecords/.test(runtimeAgentgresRunner) &&
-      /runtime_agentgres_admission_bridge_unconfigured/.test(runtimeAgentgresRunner) &&
+      /runtime_agentgres_admission_direct_invoker_unconfigured/.test(runtimeAgentgresRunner) &&
       !/RUNTIME_AGENTGRES_FALLBACK/.test(runtimeAgentgresRunner) &&
       !/IOI_ENABLE_INTERNAL_FIXTURE_MODELS/.test(runtimeAgentgresRunner) &&
       !/mockRuntimeAgentgresResponse/.test(runtimeAgentgresRunner) &&
@@ -21304,13 +21317,13 @@ function runReceipts() {
       /thread persistence leaves previous run-state transition lookup to Rust commit/.test(
         read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
       ) &&
-      /runtime Agentgres runner sends runtime run-state commit bridge request/.test(
+      /runtime Agentgres runner sends runtime run-state commit through direct daemon-core invoker/.test(
         read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
       ) &&
       /calls\[0\]\.request\.request\.agent\.id, "agent_1"/.test(
         read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
       ) &&
-      /runtime Agentgres runner env uses daemon-core command boundary/.test(
+      /runtime Agentgres runner env uses daemon-level direct invoker/.test(
         read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
       ),
     [
@@ -21413,7 +21426,7 @@ function runReceipts() {
       !/normalizeRuntimeStateRecordMaterializationBridgeResult/.test(runtimeAgentgresRunner) &&
       !/normalizeRuntimeStateStorageWriteSetBridgeResult/.test(runtimeAgentgresRunner) &&
       /RUST_AGENTGRES_STORAGE_BACKEND/.test(runtimeAgentgresRunner) &&
-      /runtime Agentgres runner sends storage write admission bridge request/.test(
+      /runtime Agentgres runner sends storage write admission through direct daemon-core invoker/.test(
         read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
       ) &&
       /runtime Agentgres runner does not synthesize Rust-owned refs or evidence/.test(
@@ -21467,7 +21480,7 @@ function runReceipts() {
       !/runtime Agentgres runner sends runtime-state storage write-set bridge request/.test(
         read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
       ) &&
-      /runtime Agentgres runner sends runtime run-state commit bridge request/.test(
+      /runtime Agentgres runner sends runtime run-state commit through direct daemon-core invoker/.test(
         read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
       ) &&
       /commitRuntimeRunState\(request\)/.test(runtimeDaemonIndex) &&
@@ -21628,7 +21641,7 @@ function runReceipts() {
       !/bridge_commits_runtime_agent_state_through_rust_core/.test(bridgeModule) &&
       /commitRuntimeAgentState/.test(runtimeAgentgresRunner) &&
       /normalizeRuntimeAgentStateCommitBridgeResult/.test(runtimeAgentgresRunner) &&
-      /runtime Agentgres runner sends runtime agent-state commit bridge request/.test(
+      /runtime Agentgres runner sends runtime agent-state commit through direct daemon-core invoker/.test(
         read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
       ) &&
       /commitRuntimeAgentState\(request\)/.test(runtimeDaemonIndex) &&
@@ -21702,7 +21715,7 @@ function runReceipts() {
       !/bridge_commits_runtime_subagent_state_through_rust_core/.test(bridgeModule) &&
       /commitRuntimeSubagentState/.test(runtimeAgentgresRunner) &&
       /normalizeRuntimeSubagentStateCommitBridgeResult/.test(runtimeAgentgresRunner) &&
-      /runtime Agentgres runner sends runtime subagent-state commit bridge request/.test(
+      /runtime Agentgres runner sends runtime subagent-state commit through direct daemon-core invoker/.test(
         read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
       ) &&
       /commitRuntimeSubagentState\(request\)/.test(runtimeDaemonIndex) &&

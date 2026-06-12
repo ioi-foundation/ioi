@@ -7701,6 +7701,29 @@ Resume by cutting the remaining command-transport runners, then delete the
 shared JS command invoker once every live surface has a direct Rust daemon-core
 API.
 
+Slice 1202 retires the temporary binary-spawn fallback for the daemon runtime
+Agentgres admission runner. `runtime-agentgres-admission-runner.mjs` no longer
+imports the shared JS daemon-core command invoker, no longer exposes or reads a
+live `RUNTIME_AGENTGRES_COMMAND_ENV`, and no longer accepts constructor command
+selection or spawn hooks. Storage-backend write admission, runtime run-state
+commits, agent-state commits, memory-state commits, subagent-state commits,
+artifact-state commits, and model_mount record/receipt state commits now
+require the daemon-level `daemonCoreInvoker` direct Rust-core seam and fail
+closed when it is absent. `IOI_RUNTIME_DAEMON_CORE_COMMAND` and retired
+`IOI_RUNTIME_AGENTGRES_COMMAND` values are treated only as forbidden command
+selection input for this surface, not as fallback transport.
+
+This makes the runtime Agentgres truth-path runner direct-invoker-only:
+storage admission, expected-head/state-root derivation, transition hashes,
+materialization/write-set/persistence/commit hashes, written records,
+ArtifactRefs, PayloadRefs, receipt refs, and evidence refs must arrive from
+Rust daemon-core output or remain absent at the JS edge. It is still not
+terminal because thread persistence remains a JS caller/facade around the Rust
+commit APIs, and other command runners still carry temporary command transport.
+Resume by cutting the remaining command-transport runners, then delete the
+shared JS command invoker once every live surface has a direct Rust daemon-core
+API.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The
