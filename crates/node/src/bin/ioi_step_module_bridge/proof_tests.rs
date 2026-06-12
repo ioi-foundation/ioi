@@ -57,7 +57,6 @@ mod tests {
         plan_context_compaction_response as plan_context_compaction,
         plan_context_compaction_state_update_response as plan_context_compaction_state_update,
         plan_diagnostics_operator_override_state_update_response as plan_diagnostics_operator_override_state_update,
-        plan_diagnostics_repair_admission_required_response as plan_diagnostics_repair_admission_required,
         plan_lifecycle_admission_required_response as plan_lifecycle_admission_required,
         plan_mcp_control_agent_state_update_response as plan_mcp_control_agent_state_update,
         plan_mcp_manager_catalog_projection_response as plan_mcp_manager_catalog_projection,
@@ -69,20 +68,15 @@ mod tests {
         plan_operator_interrupt_state_update_response as plan_operator_interrupt_state_update,
         plan_operator_steer_state_update_response as plan_operator_steer_state_update,
         plan_operator_turn_control_admission_required_response as plan_operator_turn_control_admission_required,
-        plan_repository_workflow_projection_required_response as plan_repository_workflow_projection_required,
         plan_run_cancel_admission_required_response as plan_run_cancel_admission_required,
         plan_run_cancel_state_update_response as plan_run_cancel_state_update,
         plan_run_create_state_update_response as plan_run_create_state_update,
         plan_runtime_bridge_thread_start_agent_state_update_response as plan_runtime_bridge_thread_start_agent_state_update,
         plan_runtime_bridge_turn_run_state_update_response as plan_runtime_bridge_turn_run_state_update,
-        plan_runtime_lifecycle_projection_required_response as plan_runtime_lifecycle_projection_required,
-        plan_runtime_tool_catalog_projection_required_response as plan_runtime_tool_catalog_projection_required,
-        plan_skill_hook_registry_projection_required_response as plan_skill_hook_registry_projection_required,
         plan_subagent_record_state_update_response as plan_subagent_record_state_update,
         plan_thread_control_agent_state_update_response as plan_thread_control_agent_state_update,
         plan_thread_memory_agent_state_update_response as plan_thread_memory_agent_state_update,
         plan_thread_turn_admission_required_response as plan_thread_turn_admission_required,
-        plan_workflow_edit_admission_required_response as plan_workflow_edit_admission_required,
         project_mcp_server_validation_input_response as project_mcp_server_validation_input,
         validate_mcp_servers_response as validate_mcp_servers, AgentCreateStateUpdateBridgeRequest,
         AgentStatusStateUpdateBridgeRequest,
@@ -91,22 +85,18 @@ mod tests {
         ContextBudgetPolicyBridgeRequest, ContextCompactionPlanBridgeRequest,
         ContextCompactionStateUpdateBridgeRequest,
         DiagnosticsOperatorOverrideStateUpdateBridgeRequest,
-        DiagnosticsRepairAdmissionRequiredBridgeRequest, LifecycleAdmissionRequiredBridgeRequest,
-        McpControlAgentStateUpdateBridgeRequest, McpManagerCatalogProjectionBridgeRequest,
-        McpManagerCatalogSummaryProjectionBridgeRequest, McpManagerStatusProjectionBridgeRequest,
-        McpManagerValidationProjectionBridgeRequest, McpServerValidationBridgeRequest,
-        McpServerValidationInputBridgeRequest, MemoryManagerStatusProjectionBridgeRequest,
-        MemoryManagerValidationProjectionBridgeRequest, OperatorInterruptStateUpdateBridgeRequest,
-        OperatorSteerStateUpdateBridgeRequest, OperatorTurnControlAdmissionRequiredBridgeRequest,
-        RepositoryWorkflowProjectionRequiredBridgeRequest, RunCancelAdmissionRequiredBridgeRequest,
+        LifecycleAdmissionRequiredBridgeRequest, McpControlAgentStateUpdateBridgeRequest,
+        McpManagerCatalogProjectionBridgeRequest, McpManagerCatalogSummaryProjectionBridgeRequest,
+        McpManagerStatusProjectionBridgeRequest, McpManagerValidationProjectionBridgeRequest,
+        McpServerValidationBridgeRequest, McpServerValidationInputBridgeRequest,
+        MemoryManagerStatusProjectionBridgeRequest, MemoryManagerValidationProjectionBridgeRequest,
+        OperatorInterruptStateUpdateBridgeRequest, OperatorSteerStateUpdateBridgeRequest,
+        OperatorTurnControlAdmissionRequiredBridgeRequest, RunCancelAdmissionRequiredBridgeRequest,
         RunCancelStateUpdateBridgeRequest, RunCreateStateUpdateBridgeRequest,
         RuntimeBridgeThreadStartAgentStateUpdateBridgeRequest,
-        RuntimeBridgeTurnRunStateUpdateBridgeRequest,
-        RuntimeLifecycleProjectionRequiredBridgeRequest,
-        RuntimeToolCatalogProjectionRequiredBridgeRequest,
-        SkillHookRegistryProjectionRequiredBridgeRequest, SubagentRecordStateUpdateBridgeRequest,
+        RuntimeBridgeTurnRunStateUpdateBridgeRequest, SubagentRecordStateUpdateBridgeRequest,
         ThreadControlAgentStateUpdateBridgeRequest, ThreadMemoryAgentStateUpdateBridgeRequest,
-        ThreadTurnAdmissionRequiredBridgeRequest, WorkflowEditAdmissionRequiredBridgeRequest,
+        ThreadTurnAdmissionRequiredBridgeRequest,
     };
     use ioi_services::agentic::runtime::kernel::workspace_restore::{
         apply_workspace_restore_operations_response as apply_workspace_restore_operations,
@@ -2866,63 +2856,6 @@ mod tests {
     }
 
     #[test]
-    fn bridge_plans_workflow_edit_admission_required_through_rust_core() {
-        let request: WorkflowEditAdmissionRequiredBridgeRequest = serde_json::from_value(json!({
-            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
-            "operation": "plan_workflow_edit_admission_required",
-            "backend": "rust_policy",
-            "request": {
-                "schema_version": "ioi.runtime.workflow-edit-admission-required-request.v1",
-                "operation": "workflow_edit_proposal",
-                "operation_kind": "workflow.edit_proposed",
-                "thread_id": "thread_alpha",
-                "turn_id": "turn_alpha",
-                "proposal_id": "proposal_alpha",
-                "edit_intent_id": "intent_alpha",
-                "approval_id": "approval_alpha",
-                "workflow_graph_id": "graph_alpha",
-                "workflow_node_id": "node_alpha",
-                "workflow_path": "workflows/demo.json",
-                "source": "agent_studio",
-                "evidence_refs": [
-                    "workflow_edit_proposal_js_facade_retired",
-                    "rust_daemon_core_workflow_edit_proposal_required",
-                    "agentgres_workflow_edit_proposal_truth_required"
-                ]
-            }
-        }))
-        .expect("workflow edit admission required bridge request");
-
-        let response = plan_workflow_edit_admission_required(request)
-            .expect("workflow edit admission refusal planned");
-
-        assert_eq!(
-            response["source"],
-            "rust_workflow_edit_admission_required_command"
-        );
-        assert_eq!(response["backend"], "rust_policy");
-        assert_eq!(response["status"], "rust_core_required");
-        assert_eq!(response["status_code"], 501);
-        assert_eq!(response["code"], "runtime_workflow_edit_rust_core_required");
-        assert_eq!(
-            response["details"]["rust_core_boundary"],
-            "runtime.workflow_edit"
-        );
-        assert_eq!(response["details"]["operation"], "workflow_edit_proposal");
-        assert_eq!(
-            response["details"]["operation_kind"],
-            "workflow.edit_proposed"
-        );
-        assert_eq!(response["details"]["thread_id"], "thread_alpha");
-        assert!(response["details"].get("threadId").is_none());
-        assert!(response["details"].get("proposalId").is_none());
-        assert_eq!(
-            response["details"]["evidence_refs"][0],
-            "workflow_edit_proposal_js_facade_retired"
-        );
-    }
-
-    #[test]
     fn bridge_plans_coding_tool_budget_recovery_admission_required_through_rust_core() {
         let request: CodingToolBudgetRecoveryAdmissionRequiredBridgeRequest =
             serde_json::from_value(json!({
@@ -2978,67 +2911,6 @@ mod tests {
         assert_eq!(response["details"]["approval_id"], "approval_alpha");
         assert!(response["details"].get("runId").is_none());
         assert!(response["details"].get("approvalId").is_none());
-    }
-
-    #[test]
-    fn bridge_plans_diagnostics_repair_admission_required_through_rust_core() {
-        let request: DiagnosticsRepairAdmissionRequiredBridgeRequest =
-            serde_json::from_value(json!({
-                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
-                "operation": "plan_diagnostics_repair_admission_required",
-                "backend": "rust_policy",
-                "request": {
-                    "schema_version": "ioi.runtime.diagnostics-repair-admission-required-request.v1",
-                    "operation": "diagnostics_repair_decision_execution",
-                    "operation_kind": "diagnostics.repair_decision.execute",
-                    "thread_id": "thread_alpha",
-                    "decision_id": "decision_alpha",
-                    "gate_event_id": "event_gate",
-                    "gate_id": "gate_alpha",
-                    "snapshot_id": "snapshot_alpha",
-                    "source": "agent_studio",
-                    "evidence_refs": [
-                        "diagnostics_repair_decision_execution_js_facade_retired",
-                        "rust_daemon_core_diagnostics_repair_admission_required",
-                        "agentgres_diagnostics_repair_state_truth_required"
-                    ]
-                }
-            }))
-            .expect("diagnostics repair admission required bridge request");
-
-        let response = plan_diagnostics_repair_admission_required(request)
-            .expect("diagnostics repair admission refusal planned");
-
-        assert_eq!(
-            response["source"],
-            "rust_diagnostics_repair_admission_required_command"
-        );
-        assert_eq!(response["backend"], "rust_policy");
-        assert_eq!(response["status"], "rust_core_required");
-        assert_eq!(response["status_code"], 501);
-        assert_eq!(
-            response["code"],
-            "runtime_diagnostics_repair_rust_core_required"
-        );
-        assert_eq!(
-            response["details"]["rust_core_boundary"],
-            "runtime.diagnostics_repair"
-        );
-        assert_eq!(
-            response["details"]["operation"],
-            "diagnostics_repair_decision_execution"
-        );
-        assert_eq!(
-            response["details"]["operation_kind"],
-            "diagnostics.repair_decision.execute"
-        );
-        assert_eq!(response["details"]["thread_id"], "thread_alpha");
-        assert_eq!(response["details"]["decision_id"], "decision_alpha");
-        assert_eq!(response["details"]["gate_event_id"], "event_gate");
-        assert_eq!(response["details"]["snapshot_id"], "snapshot_alpha");
-        assert!(response["details"].get("threadId").is_none());
-        assert!(response["details"].get("decisionId").is_none());
-        assert!(response["details"].get("gateEventId").is_none());
     }
 
     #[test]
@@ -3389,232 +3261,6 @@ mod tests {
         assert_eq!(response["details"]["run_status"], "running");
         assert!(response["details"].get("runId").is_none());
         assert!(response["details"].get("runStatus").is_none());
-    }
-
-    #[test]
-    fn bridge_plans_skill_hook_registry_projection_required_through_rust_core() {
-        let request: SkillHookRegistryProjectionRequiredBridgeRequest =
-            serde_json::from_value(json!({
-                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
-                "operation": "plan_skill_hook_registry_projection_required",
-                "backend": "rust_policy",
-                "request": {
-                    "schema_version": "ioi.runtime.skill-hook-registry-projection-required-request.v1",
-                    "operation": "skill_hook_registry_hooks",
-                    "operation_kind": "skill_hook.registry.hooks",
-                    "registry_kind": "hooks",
-                    "workspace_root": "/workspace/project",
-                    "source": "runtime.skill_hook_surface",
-                    "evidence_refs": [
-                        "runtime_skill_hook_registry_js_projection_retired",
-                        "rust_daemon_core_skill_hook_registry_required",
-                        "agentgres_skill_hook_registry_truth_required"
-                    ]
-                }
-            }))
-            .expect("skill hook registry projection required bridge request");
-
-        let response = plan_skill_hook_registry_projection_required(request)
-            .expect("skill hook registry projection refusal planned");
-
-        assert_eq!(
-            response["source"],
-            "rust_skill_hook_registry_projection_required_command"
-        );
-        assert_eq!(response["backend"], "rust_policy");
-        assert_eq!(response["status"], "rust_core_required");
-        assert_eq!(response["status_code"], 501);
-        assert_eq!(
-            response["code"],
-            "runtime_skill_hook_registry_rust_core_required"
-        );
-        assert_eq!(
-            response["details"]["rust_core_boundary"],
-            "runtime.skill_hook_registry"
-        );
-        assert_eq!(
-            response["details"]["operation"],
-            "skill_hook_registry_hooks"
-        );
-        assert_eq!(
-            response["details"]["operation_kind"],
-            "skill_hook.registry.hooks"
-        );
-        assert_eq!(response["details"]["registry_kind"], "hooks");
-        assert_eq!(response["details"]["workspace_root"], "/workspace/project");
-        assert!(response["details"].get("registryKind").is_none());
-        assert!(response["details"].get("workspaceRoot").is_none());
-    }
-
-    #[test]
-    fn bridge_plans_repository_workflow_projection_required_through_rust_core() {
-        let request: RepositoryWorkflowProjectionRequiredBridgeRequest =
-            serde_json::from_value(json!({
-                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
-                "operation": "plan_repository_workflow_projection_required",
-                "backend": "rust_policy",
-                "request": {
-                    "schema_version": "ioi.runtime.repository-workflow-projection-required-request.v1",
-                    "operation": "repository_workflow_review_gate",
-                    "operation_kind": "repository_workflow.projection.review_gate",
-                    "projection_kind": "review_gate",
-                    "workspace_root": "/workspace/project",
-                    "source": "runtime.repository_surface",
-                    "evidence_refs": [
-                        "runtime_repository_workflow_js_projection_retired",
-                        "rust_daemon_core_repository_workflow_projection_required",
-                        "agentgres_repository_workflow_truth_required"
-                    ]
-                }
-            }))
-            .expect("repository workflow projection required bridge request");
-
-        let response = plan_repository_workflow_projection_required(request)
-            .expect("repository workflow projection refusal planned");
-
-        assert_eq!(
-            response["source"],
-            "rust_repository_workflow_projection_required_command"
-        );
-        assert_eq!(response["backend"], "rust_policy");
-        assert_eq!(response["status"], "rust_core_required");
-        assert_eq!(response["status_code"], 501);
-        assert_eq!(
-            response["code"],
-            "runtime_repository_workflow_projection_rust_core_required"
-        );
-        assert_eq!(
-            response["details"]["rust_core_boundary"],
-            "runtime.repository_workflow_projection"
-        );
-        assert_eq!(
-            response["details"]["operation"],
-            "repository_workflow_review_gate"
-        );
-        assert_eq!(
-            response["details"]["operation_kind"],
-            "repository_workflow.projection.review_gate"
-        );
-        assert_eq!(response["details"]["projection_kind"], "review_gate");
-        assert_eq!(response["details"]["workspace_root"], "/workspace/project");
-        assert!(response["details"].get("projectionKind").is_none());
-        assert!(response["details"].get("workspaceRoot").is_none());
-    }
-
-    #[test]
-    fn bridge_plans_runtime_tool_catalog_projection_required_through_rust_core() {
-        let request: RuntimeToolCatalogProjectionRequiredBridgeRequest =
-            serde_json::from_value(json!({
-                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
-                "operation": "plan_runtime_tool_catalog_projection_required",
-                "backend": "rust_policy",
-                "request": {
-                    "schema_version": "ioi.runtime.tool-catalog-projection-required-request.v1",
-                    "operation": "runtime_tool_catalog",
-                    "operation_kind": "runtime.tool_catalog.projection.tools",
-                    "projection_kind": "tools",
-                    "pack": "coding",
-                    "workspace_root": "/workspace/project",
-                    "source": "runtime.tool_surface",
-                    "evidence_refs": [
-                        "runtime_tool_catalog_js_projection_retired",
-                        "rust_daemon_core_runtime_tool_catalog_required",
-                        "agentgres_runtime_tool_catalog_truth_required"
-                    ]
-                }
-            }))
-            .expect("runtime tool catalog projection required bridge request");
-
-        let response = plan_runtime_tool_catalog_projection_required(request)
-            .expect("runtime tool catalog projection refusal planned");
-
-        assert_eq!(
-            response["source"],
-            "rust_runtime_tool_catalog_projection_required_command"
-        );
-        assert_eq!(response["backend"], "rust_policy");
-        assert_eq!(response["status"], "rust_core_required");
-        assert_eq!(response["status_code"], 501);
-        assert_eq!(response["code"], "runtime_tool_catalog_rust_core_required");
-        assert_eq!(
-            response["details"]["rust_core_boundary"],
-            "runtime.tool_catalog"
-        );
-        assert_eq!(response["details"]["operation"], "runtime_tool_catalog");
-        assert_eq!(
-            response["details"]["operation_kind"],
-            "runtime.tool_catalog.projection.tools"
-        );
-        assert_eq!(response["details"]["projection_kind"], "tools");
-        assert_eq!(response["details"]["pack"], "coding");
-        assert_eq!(response["details"]["workspace_root"], "/workspace/project");
-        assert!(response["details"].get("projectionKind").is_none());
-        assert!(response["details"].get("workspaceRoot").is_none());
-    }
-
-    #[test]
-    fn bridge_plans_runtime_lifecycle_projection_required_through_rust_core() {
-        let request: RuntimeLifecycleProjectionRequiredBridgeRequest =
-            serde_json::from_value(json!({
-                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
-                "operation": "plan_runtime_lifecycle_projection_required",
-                "backend": "rust_policy",
-                "request": {
-                    "schema_version": "ioi.runtime.lifecycle-projection-required-request.v1",
-                    "operation": "runtime_lifecycle_projection",
-                    "operation_kind": "runtime.lifecycle_projection.agent_runs",
-                    "projection_kind": "agent_runs",
-                    "agent_id": "agent_123",
-                    "thread_id": "thread_123",
-                    "turn_id": "turn_123",
-                    "run_id": "run_123",
-                    "artifact_ref": "artifact_123",
-                    "workspace_root": "/workspace/project",
-                    "source": "runtime.lifecycle_projection_surface",
-                    "evidence_refs": [
-                        "runtime_lifecycle_js_projection_retired",
-                        "rust_daemon_core_runtime_lifecycle_projection_required",
-                        "agentgres_runtime_lifecycle_truth_required"
-                    ]
-                }
-            }))
-            .expect("runtime lifecycle projection required bridge request");
-
-        let response = plan_runtime_lifecycle_projection_required(request)
-            .expect("runtime lifecycle projection refusal planned");
-
-        assert_eq!(
-            response["source"],
-            "rust_runtime_lifecycle_projection_required_command"
-        );
-        assert_eq!(response["backend"], "rust_policy");
-        assert_eq!(response["status"], "rust_core_required");
-        assert_eq!(response["status_code"], 501);
-        assert_eq!(
-            response["code"],
-            "runtime_lifecycle_projection_rust_core_required"
-        );
-        assert_eq!(
-            response["details"]["rust_core_boundary"],
-            "runtime.lifecycle_projection"
-        );
-        assert_eq!(
-            response["details"]["operation_kind"],
-            "runtime.lifecycle_projection.agent_runs"
-        );
-        assert_eq!(response["details"]["projection_kind"], "agent_runs");
-        assert_eq!(response["details"]["agent_id"], "agent_123");
-        assert_eq!(response["details"]["thread_id"], "thread_123");
-        assert_eq!(response["details"]["turn_id"], "turn_123");
-        assert_eq!(response["details"]["run_id"], "run_123");
-        assert_eq!(response["details"]["artifact_ref"], "artifact_123");
-        assert_eq!(response["details"]["workspace_root"], "/workspace/project");
-        assert!(response["details"].get("projectionKind").is_none());
-        assert!(response["details"].get("agentId").is_none());
-        assert!(response["details"].get("threadId").is_none());
-        assert!(response["details"].get("turnId").is_none());
-        assert!(response["details"].get("artifactRef").is_none());
-        assert!(response["details"].get("workspaceRoot").is_none());
     }
 
     #[test]

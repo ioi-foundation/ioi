@@ -6508,12 +6508,18 @@ function runBridge() {
       !/authorize_external_capability_exit_response as authorize_external_capability_exit/.test(bridgeModule) &&
       !policyCommandBridgeExists &&
       !projectionCommandBridgeExists &&
-      /plan_workflow_edit_admission_required_response as plan_workflow_edit_admission_required/.test(bridgeModule) &&
-      /plan_diagnostics_repair_admission_required_response as plan_diagnostics_repair_admission_required/.test(bridgeModule) &&
-      /plan_skill_hook_registry_projection_required_response as plan_skill_hook_registry_projection_required/.test(bridgeModule) &&
-      /plan_repository_workflow_projection_required_response as plan_repository_workflow_projection_required/.test(bridgeModule) &&
-      /plan_runtime_tool_catalog_projection_required_response as plan_runtime_tool_catalog_projection_required/.test(bridgeModule) &&
-      /plan_runtime_lifecycle_projection_required_response as plan_runtime_lifecycle_projection_required/.test(bridgeModule),
+      /rust_policy_shapes_workflow_edit_admission_required_command_response/.test(policyAdmissionRequiredCore) &&
+      /rust_policy_shapes_diagnostics_repair_admission_required_command_response/.test(policyAdmissionRequiredCore) &&
+      /rust_policy_shapes_skill_hook_registry_projection_required_command_response/.test(policyProjectionRequiredCore) &&
+      /rust_policy_shapes_repository_workflow_projection_required_command_response/.test(policyProjectionRequiredCore) &&
+      /rust_policy_shapes_runtime_tool_catalog_projection_required_command_response/.test(policyProjectionRequiredCore) &&
+      /rust_policy_shapes_runtime_lifecycle_projection_required_command_response/.test(policyProjectionRequiredCore) &&
+      !/plan_workflow_edit_admission_required_response as plan_workflow_edit_admission_required/.test(bridgeModule) &&
+      !/plan_diagnostics_repair_admission_required_response as plan_diagnostics_repair_admission_required/.test(bridgeModule) &&
+      !/plan_skill_hook_registry_projection_required_response as plan_skill_hook_registry_projection_required/.test(bridgeModule) &&
+      !/plan_repository_workflow_projection_required_response as plan_repository_workflow_projection_required/.test(bridgeModule) &&
+      !/plan_runtime_tool_catalog_projection_required_response as plan_runtime_tool_catalog_projection_required/.test(bridgeModule) &&
+      !/plan_runtime_lifecycle_projection_required_response as plan_runtime_lifecycle_projection_required/.test(bridgeModule),
     [
       "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
@@ -8227,12 +8233,14 @@ function runBridge() {
       /diagnostics_repair_admission_required_invalid/.test(policyAdmissionRequiredCore) &&
       /rust_policy_plans_workflow_edit_admission_required/.test(policyAdmissionRequiredCore) &&
       /rust_policy_plans_diagnostics_repair_admission_required/.test(policyAdmissionRequiredCore) &&
+      /rust_policy_shapes_workflow_edit_admission_required_command_response/.test(policyAdmissionRequiredCore) &&
+      /rust_policy_shapes_diagnostics_repair_admission_required_command_response/.test(policyAdmissionRequiredCore) &&
       !/mod policy_command;/.test(bridgeModule) &&
       !policyCommandBridgeExists &&
-      /plan_workflow_edit_admission_required_response as plan_workflow_edit_admission_required/.test(bridgeModule) &&
-      /plan_diagnostics_repair_admission_required_response as plan_diagnostics_repair_admission_required/.test(bridgeModule) &&
-      /WorkflowEditAdmissionRequiredBridgeRequest/.test(bridgeModule) &&
-      /DiagnosticsRepairAdmissionRequiredBridgeRequest/.test(bridgeModule) &&
+      !/plan_workflow_edit_admission_required_response as plan_workflow_edit_admission_required/.test(bridgeModule) &&
+      !/plan_diagnostics_repair_admission_required_response as plan_diagnostics_repair_admission_required/.test(bridgeModule) &&
+      !/WorkflowEditAdmissionRequiredBridgeRequest/.test(bridgeModule) &&
+      !/DiagnosticsRepairAdmissionRequiredBridgeRequest/.test(bridgeModule) &&
       !/WorkflowEditAdmissionRequiredCore/.test(policyCommandBridge) &&
       !/DiagnosticsRepairAdmissionRequiredCore/.test(policyCommandBridge) &&
       !/WorkflowEditAdmissionRequiredRequest/.test(policyCommandBridge) &&
@@ -9252,7 +9260,19 @@ function runBridge() {
       !/runtime_tool_catalog_projection_required_invalid/.test(projectionCommandBridge) &&
       !/runtime_lifecycle_projection_required_invalid/.test(projectionCommandBridge) &&
       !/pub struct RuntimeLifecycleProjectionRequiredCore;/.test(policyFacade) &&
-      !/rust_policy_plans_runtime_lifecycle_projection_required/.test(policyFacade),
+      !/rust_policy_plans_runtime_lifecycle_projection_required/.test(policyFacade) &&
+      /rust_policy_shapes_skill_hook_registry_projection_required_command_response/.test(
+        policyProjectionRequiredCore,
+      ) &&
+      /rust_policy_shapes_repository_workflow_projection_required_command_response/.test(
+        policyProjectionRequiredCore,
+      ) &&
+      /rust_policy_shapes_runtime_tool_catalog_projection_required_command_response/.test(
+        policyProjectionRequiredCore,
+      ) &&
+      /rust_policy_shapes_runtime_lifecycle_projection_required_command_response/.test(
+        policyProjectionRequiredCore,
+      ),
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
       "crates/services/src/agentic/runtime/kernel/policy/projection_required.rs",
@@ -9270,10 +9290,11 @@ function runBridge() {
       /rust_skill_hook_registry_projection_required_command/.test(policyProjectionRequiredCore) &&
       !/mod projection_command;/.test(bridgeModule) &&
       !projectionCommandBridgeExists &&
-      /plan_skill_hook_registry_projection_required_response as plan_skill_hook_registry_projection_required/.test(bridgeModule) &&
-      /SkillHookRegistryProjectionRequiredBridgeRequest/.test(bridgeModule) &&
+      /rust_policy_shapes_skill_hook_registry_projection_required_command_response/.test(policyProjectionRequiredCore) &&
+      !/plan_skill_hook_registry_projection_required_response as plan_skill_hook_registry_projection_required/.test(bridgeModule) &&
+      !/SkillHookRegistryProjectionRequiredBridgeRequest/.test(bridgeModule) &&
       !/rust_skill_hook_registry_projection_required_command/.test(projectionCommandBridge) &&
-      /bridge_plans_skill_hook_registry_projection_required_through_rust_core/.test(
+      !/bridge_plans_skill_hook_registry_projection_required_through_rust_core/.test(
         bridgeModule,
       ) &&
       !/fn plan_skill_hook_registry_projection_required/.test(bridgeModule) &&
@@ -9350,9 +9371,10 @@ function runBridge() {
       /pub fn plan_repository_workflow_projection_required_response/.test(policyProjectionRequiredCore) &&
       /rust_repository_workflow_projection_required_command/.test(policyProjectionRequiredCore) &&
       !projectionCommandBridgeExists &&
-      /plan_repository_workflow_projection_required_response as plan_repository_workflow_projection_required/.test(bridgeModule) &&
-      /RepositoryWorkflowProjectionRequiredBridgeRequest/.test(bridgeModule) &&
-      /bridge_plans_repository_workflow_projection_required_through_rust_core/.test(
+      /rust_policy_shapes_repository_workflow_projection_required_command_response/.test(policyProjectionRequiredCore) &&
+      !/plan_repository_workflow_projection_required_response as plan_repository_workflow_projection_required/.test(bridgeModule) &&
+      !/RepositoryWorkflowProjectionRequiredBridgeRequest/.test(bridgeModule) &&
+      !/bridge_plans_repository_workflow_projection_required_through_rust_core/.test(
         bridgeModule,
       ) &&
       !/fn plan_repository_workflow_projection_required/.test(bridgeModule) &&
@@ -11049,8 +11071,9 @@ function runBridge() {
       /WorkflowEditAdmissionRequiredCore/.test(policyCore) &&
       /WORKFLOW_EDIT_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
       /rust_policy_plans_workflow_edit_admission_required/.test(policyCore) &&
-      /plan_workflow_edit_admission_required/.test(bridgeModule) &&
-      /bridge_plans_workflow_edit_admission_required_through_rust_core/.test(
+      /rust_policy_shapes_workflow_edit_admission_required_command_response/.test(policyCore) &&
+      !/plan_workflow_edit_admission_required/.test(bridgeModule) &&
+      !/bridge_plans_workflow_edit_admission_required_through_rust_core/.test(
         bridgeModule,
       ) &&
       /planWorkflowEditAdmissionRequired\(request = \{\}\)/.test(
@@ -20188,9 +20211,10 @@ function runReceipts() {
       /plan_runtime_tool_catalog_projection_required/.test(runtimeKernelModule) &&
       !/mod projection_command;/.test(bridgeModule) &&
       !projectionCommandBridgeExists &&
-      /plan_runtime_tool_catalog_projection_required_response as plan_runtime_tool_catalog_projection_required/.test(bridgeModule) &&
-      /RuntimeToolCatalogProjectionRequiredBridgeRequest/.test(bridgeModule) &&
-      /bridge_plans_runtime_tool_catalog_projection_required_through_rust_core/.test(
+      /rust_policy_shapes_runtime_tool_catalog_projection_required_command_response/.test(policyCoreForState) &&
+      !/plan_runtime_tool_catalog_projection_required_response as plan_runtime_tool_catalog_projection_required/.test(bridgeModule) &&
+      !/RuntimeToolCatalogProjectionRequiredBridgeRequest/.test(bridgeModule) &&
+      !/bridge_plans_runtime_tool_catalog_projection_required_through_rust_core/.test(
         bridgeModule,
       ) &&
       !/struct RuntimeToolCatalogProjectionRequiredBridgeRequest/.test(bridgeModule) &&
@@ -20286,9 +20310,10 @@ function runReceipts() {
       /rust_runtime_lifecycle_projection_required_command/.test(policyCoreForState) &&
       /turn_id/.test(policyCoreForState) &&
       /plan_runtime_lifecycle_projection_required/.test(runtimeKernelModule) &&
-      /plan_runtime_lifecycle_projection_required_response as plan_runtime_lifecycle_projection_required/.test(bridgeModule) &&
-      /RuntimeLifecycleProjectionRequiredBridgeRequest/.test(bridgeModule) &&
-      /bridge_plans_runtime_lifecycle_projection_required_through_rust_core/.test(
+      /rust_policy_shapes_runtime_lifecycle_projection_required_command_response/.test(policyCoreForState) &&
+      !/plan_runtime_lifecycle_projection_required_response as plan_runtime_lifecycle_projection_required/.test(bridgeModule) &&
+      !/RuntimeLifecycleProjectionRequiredBridgeRequest/.test(bridgeModule) &&
+      !/bridge_plans_runtime_lifecycle_projection_required_through_rust_core/.test(
         bridgeModule,
       ) &&
       !/struct RuntimeLifecycleProjectionRequiredBridgeRequest/.test(bridgeModule) &&
@@ -28961,8 +28986,9 @@ function runCompositor() {
         policyCore,
       ) &&
       /rust_policy_plans_diagnostics_repair_admission_required/.test(policyCore) &&
-      /plan_diagnostics_repair_admission_required/.test(bridgeModule) &&
-      /bridge_plans_diagnostics_repair_admission_required_through_rust_core/.test(
+      /rust_policy_shapes_diagnostics_repair_admission_required_command_response/.test(policyCore) &&
+      !/plan_diagnostics_repair_admission_required/.test(bridgeModule) &&
+      !/bridge_plans_diagnostics_repair_admission_required_through_rust_core/.test(
         bridgeModule,
       ) &&
       /planDiagnosticsRepairAdmissionRequired\(request = \{\}\)/.test(

@@ -16207,6 +16207,39 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1177
+
+Slice 1177 moves admission-required and projection-required policy
+command-response proof coverage out of the temporary bridge proof surface and
+into the Rust policy owner modules. The owner tests in
+`crates/services/src/agentic/runtime/kernel/policy/admission_required.rs` now
+prove workflow-edit and diagnostics-repair admission-required command
+responses. The owner tests in
+`crates/services/src/agentic/runtime/kernel/policy/projection_required.rs` now
+prove skill-hook registry, repository workflow, runtime tool catalog, and
+runtime lifecycle projection-required command responses. The temporary
+`ioi_step_module_bridge/proof_tests.rs` no longer imports those request types or
+carries the old bridge-named policy admission/projection tests.
+
+This is not terminal command transport retirement. The temporary command
+transport still exists, but proof ownership moved to Rust policy owner modules
+so the bridge proof surface keeps shrinking toward removal.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-services agentic::runtime::kernel::policy::admission_required::tests` | passed |
+| `cargo test -p ioi-services agentic::runtime::kernel::policy::projection_required::tests` | passed |
+| `cargo test -p ioi-node --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:compositor` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1176
 
 Slice 1176 moves governed authority/admission/receipt command-response proof

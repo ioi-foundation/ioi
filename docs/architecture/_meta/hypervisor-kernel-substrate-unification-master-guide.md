@@ -7223,6 +7223,24 @@ protocol/API ownership where wallet authority, cTEE custody, settlement
 triggering, receipt binding, Agentgres admission, projection, replay, and
 conformance no longer depend on Node bridge endpoint proof scaffolding.
 
+Slice 1177 moves the admission-required and projection-required policy
+command-response proof cluster out of the temporary bridge proof surface and
+relies on the Rust policy owners at
+`crates/services/src/agentic/runtime/kernel/policy/admission_required.rs` and
+`crates/services/src/agentic/runtime/kernel/policy/projection_required.rs`.
+Workflow-edit and diagnostics-repair admission-required refusals plus
+skill-hook registry, repository workflow, runtime tool catalog, and runtime
+lifecycle projection-required refusals now run as Rust owner tests. Bridge and
+compositor conformance now require those owner tests and prove the old
+bridge-named tests, request-type imports, and response-function aliases stay
+absent from `ioi_step_module_bridge/proof_tests.rs`.
+
+This remains non-terminal because these policy decisions still cross temporary
+command transport. The target is direct Rust daemon-core policy/projection API
+ownership where admission-required refusal, projection-required refusal,
+Agentgres truth, replay, and conformance no longer depend on Node bridge
+endpoint proof scaffolding.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The
