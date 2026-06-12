@@ -7538,13 +7538,13 @@ spawn path with direct Rust daemon-core protocol/API calls.
 
 Slice 1193 adds an explicit direct Rust daemon-core API seam to the shared JS
 daemon-core command invoker. `runtime-daemon-core-command-runner.mjs` now
-accepts `daemonCoreInvoker`, runs it before mock fallback and before the
-temporary binary spawn path, and preserves missing-command fail-closed behavior
-when neither a direct invoker nor the migration command is configured. The
-current StepModule, approval, context-policy, governed-improvement,
-worker/service package, workspace-restore, L1 settlement, external capability,
-model_mount admission, runtime Agentgres, and cTEE private workspace runners
-thread `options.daemonCoreInvoker` through their environment factories and
+accepts `daemonCoreInvoker`, runs it before the temporary binary spawn path,
+and preserves missing-command fail-closed behavior when neither a direct
+invoker nor the migration command is configured. The current StepModule,
+approval, context-policy, governed-improvement, worker/service package,
+workspace-restore, L1 settlement, external capability, model_mount admission,
+runtime Agentgres, and cTEE private workspace runners thread
+`options.daemonCoreInvoker` through their environment factories and
 constructors.
 
 This is not terminal direct Rust ownership. It is the reviewed migration seam
@@ -7552,6 +7552,20 @@ for the next larger cut: wire the seam to real Rust daemon-core protocol/API
 entry points, then delete the `IOI_RUNTIME_DAEMON_CORE_COMMAND` binary-spawn
 fallback and the JS command invoker scaffolding once conformance proves every
 hot-path surface is owned by Rust daemon-core APIs.
+
+Slice 1194 removes the shared JS-authored `mockResult` command fallback from
+`runtime-daemon-core-command-runner.mjs` and from all current daemon-core
+command runners that used that shared helper. Tests that need an in-process
+Rust-core substitute now use `daemonCoreInvoker` explicitly, while passing the
+retired `mockResult` option without a direct invoker or migration command fails
+closed instead of producing a JS-authored result.
+
+This is still not terminal because the temporary binary-spawn fallback remains
+for surfaces that have not yet been wired to direct Rust daemon-core APIs. It
+does remove one duplicate JS truth/result path from the migration scaffolding:
+there is now a single reviewed direct-invoker seam for in-process Rust API
+wiring and one explicit binary-spawn fallback to delete after that wiring is
+verified.
 
 ## Final Doctrine
 

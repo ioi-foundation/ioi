@@ -86,7 +86,6 @@ export function createContextPolicyRunnerFromEnv(env = process.env, options = {}
     command: options.command ?? env[CONTEXT_POLICY_COMMAND_ENV] ?? null,
     daemonCoreInvoker: options.daemonCoreInvoker,
     spawnSyncImpl: options.spawnSyncImpl,
-    mockResult: options.mockResult,
   });
 }
 
@@ -109,9 +108,6 @@ export class RustContextPolicyRunner {
       command: this.command,
       daemonCoreInvoker: options.daemonCoreInvoker,
       spawnSyncImpl: options.spawnSyncImpl,
-      mockResult: options.mockResult,
-      mockSource: "rust_context_budget_policy_mock",
-      defaultBackend: RUST_CONTEXT_POLICY_BACKEND,
       ErrorClass: ContextPolicyRunnerError,
       env: CONTEXT_POLICY_COMMAND_ENV,
       unconfiguredMessage:

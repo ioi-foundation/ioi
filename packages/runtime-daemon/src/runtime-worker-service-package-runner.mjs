@@ -10,7 +10,6 @@ export function createWorkerServicePackageRunnerFromEnv(env = process.env, optio
     command: options.command ?? env[WORKER_SERVICE_PACKAGE_COMMAND_ENV] ?? null,
     daemonCoreInvoker: options.daemonCoreInvoker,
     spawnSyncImpl: options.spawnSyncImpl,
-    mockResult: options.mockResult,
   });
 }
 
@@ -33,9 +32,6 @@ export class RustWorkerServicePackageRunner {
       command: this.command,
       daemonCoreInvoker: options.daemonCoreInvoker,
       spawnSyncImpl: options.spawnSyncImpl,
-      mockResult: options.mockResult,
-      mockSource: "rust_worker_service_package_mock",
-      defaultBackend: RUST_WORKER_SERVICE_PACKAGE_BACKEND,
       ErrorClass: WorkerServicePackageRunnerError,
       env: WORKER_SERVICE_PACKAGE_COMMAND_ENV,
       unconfiguredMessage:

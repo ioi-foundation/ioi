@@ -18,7 +18,6 @@ export function createWorkspaceRestoreRunnerFromEnv(env = process.env, options =
     command: options.command ?? env[WORKSPACE_RESTORE_COMMAND_ENV] ?? null,
     daemonCoreInvoker: options.daemonCoreInvoker,
     spawnSyncImpl: options.spawnSyncImpl,
-    mockResult: options.mockResult,
   });
 }
 
@@ -41,9 +40,6 @@ export class RustWorkspaceRestoreRunner {
       command: this.command,
       daemonCoreInvoker: options.daemonCoreInvoker,
       spawnSyncImpl: options.spawnSyncImpl,
-      mockResult: options.mockResult,
-      mockSource: "rust_workspace_restore_mock",
-      defaultBackend: RUST_WORKSPACE_RESTORE_BACKEND,
       ErrorClass: WorkspaceRestoreRunnerError,
       env: WORKSPACE_RESTORE_COMMAND_ENV,
       unconfiguredMessage:

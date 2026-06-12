@@ -113,36 +113,38 @@ test("StepModule runner reads unified daemon-core command env", () => {
   assert.equal(calls[0].request.operation, "run_coding_tool_step_module");
 });
 
-test("rust workload live runner produces workload invocation with mock bridge result", () => {
+test("rust workload live runner produces workload invocation with direct daemon-core result", () => {
   const runner = new RustWorkloadStepModuleRunner({
-    mockResult: {
-      source: "rust_workload_mock",
-      result: {
-        schema_version: "ioi.step_module_result.v1",
-        invocation_id: "invocation://mock",
-        status: "success",
-        execution_result_ref: "result://mock",
-        normalized_observation_ref: "observation://mock",
-        receipt_refs: ["receipt://mock"],
-        artifact_refs: [],
-        payload_refs: [],
-        agentgres_operation_refs: [],
-        state_root_after: null,
-        resulting_head: null,
-        workflow_projection: {
-          workflow_graph_id: "workflow:test",
-          workflow_node_id: "node:test",
-          component_kind: "CodingToolNode",
-          status: "live",
-          attempt_id: "attempt://mock",
-          evidence_refs: [],
-          receipt_refs: ["receipt://mock"],
+    daemonCoreInvoker() {
+      return {
+        source: "direct_daemon_core_api",
+        result: {
+          schema_version: "ioi.step_module_result.v1",
+          invocation_id: "invocation://direct",
+          status: "success",
+          execution_result_ref: "result://direct",
+          normalized_observation_ref: "observation://direct",
+          receipt_refs: ["receipt://direct"],
+          artifact_refs: [],
+          payload_refs: [],
+          agentgres_operation_refs: [],
+          state_root_after: null,
+          resulting_head: null,
+          workflow_projection: {
+            workflow_graph_id: "workflow:test",
+            workflow_node_id: "node:test",
+            component_kind: "CodingToolNode",
+            status: "live",
+            attempt_id: "attempt://direct",
+            evidence_refs: [],
+            receipt_refs: ["receipt://direct"],
+          },
+          next: {
+            model_reentry_required: false,
+            verifier_required: false,
+          },
         },
-        next: {
-          model_reentry_required: false,
-          verifier_required: false,
-        },
-      },
+      };
     },
   });
   const projection = runner.runCodingTool({

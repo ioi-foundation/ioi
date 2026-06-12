@@ -16,7 +16,6 @@ export function createCteePrivateWorkspaceRunnerFromEnv(env = process.env, optio
     command: options.command ?? env[CTEE_PRIVATE_WORKSPACE_COMMAND_ENV] ?? null,
     daemonCoreInvoker: options.daemonCoreInvoker,
     spawnSyncImpl: options.spawnSyncImpl,
-    mockResult: options.mockResult,
   });
 }
 
@@ -39,9 +38,6 @@ export class RustCteePrivateWorkspaceRunner {
       command: this.command,
       daemonCoreInvoker: options.daemonCoreInvoker,
       spawnSyncImpl: options.spawnSyncImpl,
-      mockResult: options.mockResult,
-      mockSource: "rust_ctee_private_workspace_mock",
-      defaultBackend: RUST_CTEE_PRIVATE_WORKSPACE_BACKEND,
       ErrorClass: CteePrivateWorkspaceRunnerError,
       env: CTEE_PRIVATE_WORKSPACE_COMMAND_ENV,
       unconfiguredMessage:

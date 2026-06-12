@@ -10,7 +10,6 @@ export function createL1SettlementRunnerFromEnv(env = process.env, options = {})
     command: options.command ?? env[L1_SETTLEMENT_COMMAND_ENV] ?? null,
     daemonCoreInvoker: options.daemonCoreInvoker,
     spawnSyncImpl: options.spawnSyncImpl,
-    mockResult: options.mockResult,
   });
 }
 
@@ -33,9 +32,6 @@ export class RustL1SettlementRunner {
       command: this.command,
       daemonCoreInvoker: options.daemonCoreInvoker,
       spawnSyncImpl: options.spawnSyncImpl,
-      mockResult: options.mockResult,
-      mockSource: "rust_l1_settlement_guard_mock",
-      defaultBackend: RUST_L1_SETTLEMENT_BACKEND,
       ErrorClass: L1SettlementRunnerError,
       env: L1_SETTLEMENT_COMMAND_ENV,
       unconfiguredMessage:

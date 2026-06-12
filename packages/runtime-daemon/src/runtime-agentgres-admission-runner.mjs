@@ -11,7 +11,6 @@ export function createRuntimeAgentgresAdmissionRunnerFromEnv(env = process.env, 
     command: options.command ?? env[RUNTIME_AGENTGRES_COMMAND_ENV] ?? null,
     daemonCoreInvoker: options.daemonCoreInvoker,
     spawnSyncImpl: options.spawnSyncImpl,
-    mockResult: options.mockResult,
   });
 }
 
@@ -34,9 +33,6 @@ export class RustRuntimeAgentgresAdmissionRunner {
       command: this.command,
       daemonCoreInvoker: options.daemonCoreInvoker,
       spawnSyncImpl: options.spawnSyncImpl,
-      mockResult: options.mockResult,
-      mockSource: "rust_runtime_agentgres_mock",
-      defaultBackend: RUST_RUNTIME_AGENTGRES_BACKEND,
       ErrorClass: RuntimeAgentgresAdmissionRunnerError,
       env: RUNTIME_AGENTGRES_COMMAND_ENV,
       unconfiguredMessage:

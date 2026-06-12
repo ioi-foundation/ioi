@@ -12,7 +12,6 @@ export function createCodingToolApprovalRunnerFromEnv(env = process.env, options
     command: options.command ?? env[CODING_TOOL_APPROVAL_COMMAND_ENV] ?? null,
     daemonCoreInvoker: options.daemonCoreInvoker,
     spawnSyncImpl: options.spawnSyncImpl,
-    mockResult: options.mockResult,
   });
 }
 
@@ -35,9 +34,6 @@ export class RustCodingToolApprovalRunner {
       command: this.command,
       daemonCoreInvoker: options.daemonCoreInvoker,
       spawnSyncImpl: options.spawnSyncImpl,
-      mockResult: options.mockResult,
-      mockSource: "rust_coding_tool_approval_mock",
-      defaultBackend: RUST_CODING_TOOL_APPROVAL_BACKEND,
       ErrorClass: CodingToolApprovalRunnerError,
       env: CODING_TOOL_APPROVAL_COMMAND_ENV,
       unconfiguredMessage:

@@ -25,7 +25,6 @@ export function createModelMountAdmissionRunnerFromEnv(env = process.env, option
     command: options.command ?? env[MODEL_MOUNT_ADMISSION_COMMAND_ENV] ?? null,
     daemonCoreInvoker: options.daemonCoreInvoker,
     spawnSyncImpl: options.spawnSyncImpl,
-    mockResult: options.mockResult,
   });
 }
 
@@ -48,9 +47,6 @@ export class RustModelMountAdmissionRunner {
       command: this.command,
       daemonCoreInvoker: options.daemonCoreInvoker,
       spawnSyncImpl: options.spawnSyncImpl,
-      mockResult: options.mockResult,
-      mockSource: "rust_model_mount_mock",
-      defaultBackend: RUST_MODEL_MOUNT_ADMISSION_BACKEND,
       ErrorClass: ModelMountAdmissionRunnerError,
       env: MODEL_MOUNT_ADMISSION_COMMAND_ENV,
       unconfiguredMessage:

@@ -19,9 +19,11 @@ Current sprint lane: `RuntimeDaemonCoreDirectInvokerSeam` is migration
 scaffolding, not a terminal architecture. The shared JS daemon-core command
 invoker accepts `daemonCoreInvoker` and current daemon-core command runners
 thread that option so the next Rust-core extraction can wire real daemon-core
-protocol/API calls. Once that direct Rust API path is verified, delete the JS
-command invoker scaffolding and `IOI_RUNTIME_DAEMON_CORE_COMMAND` binary-spawn
-fallback instead of preserving them as compatibility wrappers.
+protocol/API calls. The shared JS-authored `mockResult` command fallback is
+retired; test substitution must use the direct invoker seam. Once that direct
+Rust API path is verified, delete the remaining JS command invoker scaffolding
+and `IOI_RUNTIME_DAEMON_CORE_COMMAND` binary-spawn fallback instead of
+preserving them as compatibility wrappers.
 
 Status values:
 

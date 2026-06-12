@@ -49,7 +49,7 @@ test("direct daemon-core invoker bypasses temporary binary spawn", () => {
   assert.equal(result.accepted, true);
 });
 
-test("direct daemon-core invoker takes precedence over mock result", () => {
+test("retired mock result fallback does not bypass direct Rust seam", () => {
   const invoke = createTestInvoker({
     daemonCoreInvoker() {
       return { source: "direct_daemon_core_api" };
@@ -58,6 +58,17 @@ test("direct daemon-core invoker takes precedence over mock result", () => {
   });
 
   assert.equal(invoke({}).source, "direct_daemon_core_api");
+});
+
+test("retired mock result fallback fails closed without direct invoker or command", () => {
+  const invoke = createTestInvoker({
+    mockResult: { source: "legacy_mock" },
+  });
+
+  assert.throws(() => invoke({}), (error) => {
+    assert.equal(error.code, "missing_command");
+    return true;
+  });
 });
 
 test("temporary binary spawn remains explicit migration fallback", () => {

@@ -16,7 +16,6 @@ export function createRuntimeApprovalStateRunnerFromEnv(env = process.env, optio
     command: options.command ?? env[APPROVAL_STATE_COMMAND_ENV] ?? null,
     daemonCoreInvoker: options.daemonCoreInvoker,
     spawnSyncImpl: options.spawnSyncImpl,
-    mockResult: options.mockResult,
   });
 }
 
@@ -39,9 +38,6 @@ export class RustRuntimeApprovalStateRunner {
       command: this.command,
       daemonCoreInvoker: options.daemonCoreInvoker,
       spawnSyncImpl: options.spawnSyncImpl,
-      mockResult: options.mockResult,
-      mockSource: "rust_approval_state_mock",
-      defaultBackend: RUST_APPROVAL_STATE_BACKEND,
       ErrorClass: RuntimeApprovalStateRunnerError,
       env: APPROVAL_STATE_COMMAND_ENV,
       unconfiguredMessage:

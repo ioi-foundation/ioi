@@ -3761,17 +3761,23 @@ function runBridge() {
   ];
   assertCheck(
     result,
-    "daemon-core-direct-invoker-seam",
+    "daemon-core-direct-invoker-mock-fallback-retired",
     /daemonCoreInvoker/.test(daemonCoreCommandRunner) &&
       /const directInvoker = optionalFunction\(daemonCoreInvoker\);/.test(daemonCoreCommandRunner) &&
       /function optionalFunction\(value\)/.test(daemonCoreCommandRunner) &&
       /if \(directInvoker\) \{\s*return directInvoker\(request\);\s*\}/.test(daemonCoreCommandRunner) &&
-      /if \(directInvoker\)[\s\S]*if \(mockResult\)[\s\S]*spawnSyncImpl\(commandPath,\s*\[\]/.test(
+      /if \(directInvoker\)[\s\S]*if \(!commandPath\)[\s\S]*spawnSyncImpl\(commandPath,\s*\[\]/.test(
         daemonCoreCommandRunner,
       ) &&
-      daemonCoreDirectInvokerRunners.every((runner) => /daemonCoreInvoker: options\.daemonCoreInvoker/.test(runner)) &&
+      !/mockResult|mockSource|defaultBackend/.test(daemonCoreCommandRunner) &&
+      daemonCoreDirectInvokerRunners.every(
+        (runner) =>
+          /daemonCoreInvoker: options\.daemonCoreInvoker/.test(runner) &&
+          !/mockResult|mockSource/.test(runner),
+      ) &&
       /direct daemon-core invoker bypasses temporary binary spawn/.test(daemonCoreCommandRunnerTest) &&
-      /direct daemon-core invoker takes precedence over mock result/.test(daemonCoreCommandRunnerTest) &&
+      /retired mock result fallback does not bypass direct Rust seam/.test(daemonCoreCommandRunnerTest) &&
+      /retired mock result fallback fails closed without direct invoker or command/.test(daemonCoreCommandRunnerTest) &&
       /temporary binary spawn remains explicit migration fallback/.test(daemonCoreCommandRunnerTest) &&
       /missing direct invoker and command still fails closed/.test(daemonCoreCommandRunnerTest),
     [
@@ -3782,7 +3788,7 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.mjs",
       "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
     ],
-    "Rust daemon-core migration needs one explicit direct-invoker seam before retiring temporary binary spawn transport",
+    "Rust daemon-core migration must use the direct-invoker seam instead of JS-authored mock command results before retiring temporary binary spawn transport",
   );
   assertCheck(
     result,

@@ -4,9 +4,6 @@ export function createDaemonCoreCommandInvoker({
   command,
   daemonCoreInvoker,
   spawnSyncImpl = spawnSync,
-  mockResult,
-  mockSource,
-  defaultBackend,
   ErrorClass,
   env,
   unconfiguredMessage,
@@ -25,14 +22,6 @@ export function createDaemonCoreCommandInvoker({
   return function invokeDaemonCoreCommand(request) {
     if (directInvoker) {
       return directInvoker(request);
-    }
-    if (mockResult) {
-      const value = typeof mockResult === "function" ? mockResult(request) : mockResult;
-      return {
-        source: mockSource,
-        backend: request.backend ?? defaultBackend,
-        ...value,
-      };
     }
     if (!commandPath) {
       throw new ErrorClass(unconfiguredMessage, unconfiguredCode, { env });

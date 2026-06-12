@@ -19,7 +19,6 @@ export function createStepModuleRunnerFromEnv(env = process.env, options = {}) {
     grpcAddr: options.grpcAddr ?? env[WORKLOAD_GRPC_ADDR_ENV] ?? null,
     shmemId: options.shmemId ?? env[WORKLOAD_SHMEM_ID_ENV] ?? null,
     spawnSyncImpl: options.spawnSyncImpl,
-    mockResult: options.mockResult,
   });
 }
 
@@ -81,9 +80,6 @@ export class RustWorkloadStepModuleRunner extends StepModuleRunner {
       command: options.command,
       daemonCoreInvoker: options.daemonCoreInvoker,
       spawnSyncImpl: options.spawnSyncImpl,
-      mockResult: options.mockResult,
-      mockSource: "rust_workload_mock",
-      defaultBackend: this.backend,
       ErrorClass: StepModuleRunnerError,
       env: DAEMON_CORE_COMMAND_ENV,
       unconfiguredMessage:

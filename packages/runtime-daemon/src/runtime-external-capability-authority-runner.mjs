@@ -10,7 +10,6 @@ export function createExternalCapabilityAuthorityRunnerFromEnv(env = process.env
     command: options.command ?? env[EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_ENV] ?? null,
     daemonCoreInvoker: options.daemonCoreInvoker,
     spawnSyncImpl: options.spawnSyncImpl,
-    mockResult: options.mockResult,
   });
 }
 
@@ -33,9 +32,6 @@ export class RustExternalCapabilityAuthorityRunner {
       command: this.command,
       daemonCoreInvoker: options.daemonCoreInvoker,
       spawnSyncImpl: options.spawnSyncImpl,
-      mockResult: options.mockResult,
-      mockSource: "rust_external_capability_authority_mock",
-      defaultBackend: RUST_EXTERNAL_CAPABILITY_AUTHORITY_BACKEND,
       ErrorClass: ExternalCapabilityAuthorityRunnerError,
       env: EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_ENV,
       unconfiguredMessage:

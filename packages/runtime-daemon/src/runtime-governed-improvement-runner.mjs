@@ -10,7 +10,6 @@ export function createGovernedImprovementRunnerFromEnv(env = process.env, option
     command: options.command ?? env[GOVERNED_IMPROVEMENT_COMMAND_ENV] ?? null,
     daemonCoreInvoker: options.daemonCoreInvoker,
     spawnSyncImpl: options.spawnSyncImpl,
-    mockResult: options.mockResult,
   });
 }
 
@@ -33,9 +32,6 @@ export class RustGovernedImprovementRunner {
       command: this.command,
       daemonCoreInvoker: options.daemonCoreInvoker,
       spawnSyncImpl: options.spawnSyncImpl,
-      mockResult: options.mockResult,
-      mockSource: "rust_governed_improvement_mock",
-      defaultBackend: RUST_GOVERNED_IMPROVEMENT_BACKEND,
       ErrorClass: GovernedImprovementRunnerError,
       env: GOVERNED_IMPROVEMENT_COMMAND_ENV,
       unconfiguredMessage:

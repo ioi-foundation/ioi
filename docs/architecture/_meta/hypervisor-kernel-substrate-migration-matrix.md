@@ -15957,8 +15957,8 @@ temporary binary-spawn command transport:
 - `scripts/conformance/hypervisor-conformance.mjs`
 
 `runtime-daemon-core-command-runner.mjs` now accepts `daemonCoreInvoker` and
-uses it before mocks and before the temporary `IOI_RUNTIME_DAEMON_CORE_COMMAND`
-spawn fallback. Every current JS daemon-core command runner threads
+uses it before the temporary `IOI_RUNTIME_DAEMON_CORE_COMMAND` spawn fallback.
+Every current JS daemon-core command runner threads
 `options.daemonCoreInvoker` through its factory/constructor boundary so the next
 Rust-core extraction can plug in direct daemon-core protocol/API entry points
 without adding one-off bridge behavior per surface.
@@ -15974,6 +15974,52 @@ Focused evidence:
 | --- | --- |
 | `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
 | `node --test packages/runtime-daemon/src/runtime-daemon-core-command-runner.test.mjs packages/runtime-daemon/src/step-module-runner.test.mjs packages/runtime-daemon/src/runtime-coding-tool-approval-runner.test.mjs packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.test.mjs packages/runtime-daemon/src/runtime-l1-settlement-runner.test.mjs packages/runtime-daemon/src/runtime-worker-service-package-runner.test.mjs` | passed; 40 tests |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+## Implementation Slice Evidence: 1194
+
+Slice 1194 removes the shared JS-authored mock command-result fallback from the
+temporary daemon-core command runner path:
+
+- `packages/runtime-daemon/src/runtime-daemon-core-command-runner.mjs`
+- `packages/runtime-daemon/src/runtime-daemon-core-command-runner.test.mjs`
+- `packages/runtime-daemon/src/step-module-runner.mjs`
+- `packages/runtime-daemon/src/step-module-runner.test.mjs`
+- `packages/runtime-daemon/src/runtime-coding-tool-approval-runner.mjs`
+- `packages/runtime-daemon/src/runtime-approval-state-runner.mjs`
+- `packages/runtime-daemon/src/runtime-context-policy-runner.mjs`
+- `packages/runtime-daemon/src/runtime-governed-improvement-runner.mjs`
+- `packages/runtime-daemon/src/runtime-worker-service-package-runner.mjs`
+- `packages/runtime-daemon/src/runtime-workspace-restore-runner.mjs`
+- `packages/runtime-daemon/src/runtime-l1-settlement-runner.mjs`
+- `packages/runtime-daemon/src/runtime-external-capability-authority-runner.mjs`
+- `packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs`
+- `packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.mjs`
+- `packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs`
+- `scripts/conformance/hypervisor-conformance.mjs`
+
+`runtime-daemon-core-command-runner.mjs` no longer accepts or evaluates
+`mockResult`, `mockSource`, or `defaultBackend`, and the current daemon-core
+command runners no longer forward mock-result options into the shared helper.
+Tests that need in-process command substitution use the explicit
+`daemonCoreInvoker` seam. A retired `mockResult` option without a direct invoker
+or migration command now fails closed instead of producing a JS-authored
+command result.
+
+This is not terminal because the temporary `IOI_RUNTIME_DAEMON_CORE_COMMAND`
+spawn fallback remains. The next pure-Rust cut remains direct Rust daemon-core
+API wiring followed by deletion of the binary-spawn fallback and JS command
+invoker scaffolding.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/runtime-daemon-core-command-runner.mjs packages/runtime-daemon/src/runtime-daemon-core-command-runner.test.mjs packages/runtime-daemon/src/step-module-runner.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-daemon-core-command-runner.test.mjs packages/runtime-daemon/src/step-module-runner.test.mjs packages/runtime-daemon/src/runtime-coding-tool-approval-runner.test.mjs packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.test.mjs packages/runtime-daemon/src/runtime-l1-settlement-runner.test.mjs packages/runtime-daemon/src/runtime-worker-service-package-runner.test.mjs` | passed; 41 tests |
 | `npm run hypervisor-conformance:bridge` | passed |
 | `npm run hypervisor-conformance:docs` | passed |
 | `npm run hypervisor-conformance` | passed |
