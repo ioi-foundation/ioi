@@ -14243,6 +14243,33 @@ function runBridge() {
       /worker\/service package runner sends invocation admission bridge request/.test(
         workerServicePackageRunnerTest,
       ) &&
+      /worker\/service package runner does not synthesize Rust-owned refs/.test(
+        workerServicePackageRunnerTest,
+      ) &&
+      /receipt_refs:\s*stringArray\(result\.receipt_refs\)\s*\?\?\s*stringArray\(record\.receipt_refs\)\s*\?\?\s*null/.test(
+        workerServicePackageRunner,
+      ) &&
+      /artifact_refs:\s*stringArray\(result\.artifact_refs\)\s*\?\?\s*stringArray\(record\.artifact_refs\)\s*\?\?\s*null/.test(
+        workerServicePackageRunner,
+      ) &&
+      /payload_refs:\s*stringArray\(result\.payload_refs\)\s*\?\?\s*stringArray\(record\.payload_refs\)\s*\?\?\s*null/.test(
+        workerServicePackageRunner,
+      ) &&
+      /authority_grant_refs:[\s\S]*?stringArray\(result\.authority_grant_refs\)\s*\?\?\s*stringArray\(record\.authority_grant_refs\)\s*\?\?\s*null/.test(
+        workerServicePackageRunner,
+      ) &&
+      !/receipt_refs:\s*stringArray\(result\.receipt_refs\)\s*\?\?\s*stringArray\(record\.receipt_refs\)\s*\?\?\s*\[\]/.test(
+        workerServicePackageRunner,
+      ) &&
+      !/artifact_refs:\s*stringArray\(result\.artifact_refs\)\s*\?\?\s*stringArray\(record\.artifact_refs\)\s*\?\?\s*\[\]/.test(
+        workerServicePackageRunner,
+      ) &&
+      !/payload_refs:\s*stringArray\(result\.payload_refs\)\s*\?\?\s*stringArray\(record\.payload_refs\)\s*\?\?\s*\[\]/.test(
+        workerServicePackageRunner,
+      ) &&
+      !/authority_grant_refs:[\s\S]*?stringArray\(result\.authority_grant_refs\)\s*\?\?\s*stringArray\(record\.authority_grant_refs\)\s*\?\?\s*\[\]/.test(
+        workerServicePackageRunner,
+      ) &&
       /assert\.deepEqual\(calls\[0\]\.args,\s*\[\]\)/.test(workerServicePackageRunnerTest) &&
       /assert\.equal\(calls\[0\]\.bridgeRequest\.thread_id,\s*"thread:worker-runner"\)/.test(
         workerServicePackageRunnerTest,

@@ -15855,6 +15855,38 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1154
+
+Slice 1154 retires JS-side fallback synthesis in
+`packages/runtime-daemon/src/runtime-worker-service-package-runner.mjs` for
+Rust-owned worker/service package refs. The worker/service package runner now
+preserves missing Rust-authored `receipt_refs`, `artifact_refs`,
+`payload_refs`, and `authority_grant_refs` as `null` instead of synthesizing
+empty arrays from JS when Rust omits those fields. Rust `governed_receipt.rs`
+remains the receipt-bearing worker/service package invocation admission owner
+behind the temporary daemon-core command path.
+
+This is not terminal worker/service package migration. The JS package runner,
+shared daemon-core command runner, and Node bridge transport remain migration
+scaffolding until direct Rust daemon-core package APIs own StepModuleRouter
+admission, wallet authority, receipt/state-root binding, Agentgres
+persistence, projection, replay, and stable IDE/CLI/SDK protocol surfaces end
+to end. The retired JS fallback behavior must not be recreated as
+compatibility normalization.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/runtime-worker-service-package-runner.mjs packages/runtime-daemon/src/runtime-worker-service-package-runner.test.mjs` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-worker-service-package-runner.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1148
 
 Slice 1148 removes the remaining JS-side defaulting for the external

@@ -6869,6 +6869,21 @@ admission, receipt/state-root binding, Agentgres truth, projection, replay,
 and stable IDE/CLI/SDK protocol surfaces, not preservation of JS normalizers as
 compatibility shims.
 
+Slice 1154 retires JS-side ref fallback synthesis from the worker/service
+package runner. Rust `governed_receipt.rs` already owns the receipt-bearing
+worker/service package invocation admission response behind the temporary
+daemon-core command path, so
+`runtime-worker-service-package-runner.mjs` now preserves omitted Rust-authored
+`receipt_refs`, `artifact_refs`, `payload_refs`, and `authority_grant_refs` as
+`null` instead of inventing empty arrays as compatibility truth.
+
+This remains non-terminal because the JS worker/service package runner, shared
+daemon-core command runner, and Node bridge transport still carry requests to
+Rust. The target is direct Rust daemon-core worker/service package protocol/API
+ownership over StepModuleRouter admission, wallet authority, receipt/state-root
+binding, Agentgres truth, projection, replay, and stable IDE/CLI/SDK protocol
+surfaces, not preservation of JS normalizers as compatibility shims.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

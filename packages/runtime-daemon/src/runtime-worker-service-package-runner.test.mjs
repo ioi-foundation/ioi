@@ -181,6 +181,31 @@ test("worker/service package runner sends invocation admission bridge request", 
   assert.deepEqual(result.payload_refs, ["payload://worker-package/output"]);
 });
 
+test("worker/service package runner does not synthesize Rust-owned refs", () => {
+  const runner = new RustWorkerServicePackageRunner({
+    command: "mock-worker-service-package-bridge",
+    spawnSyncImpl() {
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            record: {},
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.admitInvocation(packageInvocationRequest());
+
+  assert.equal(result.receipt_refs, null);
+  assert.equal(result.artifact_refs, null);
+  assert.equal(result.payload_refs, null);
+  assert.equal(result.authority_grant_refs, null);
+});
+
 test("worker/service package runner env uses daemon-core command boundary", () => {
   const runner = createWorkerServicePackageRunnerFromEnv({
     [WORKER_SERVICE_PACKAGE_COMMAND_ENV]: "ioi-runtime-daemon-core",

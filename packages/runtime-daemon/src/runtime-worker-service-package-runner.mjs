@@ -96,11 +96,11 @@ export function normalizeWorkerServicePackageBridgeResult(value = {}) {
     accepted_receipt_append: objectRecord(result.accepted_receipt_append) ?? null,
     agentgres_admission: objectRecord(result.agentgres_admission) ?? objectRecord(record.agentgres_admission) ?? null,
     projection_record: objectRecord(result.projection_record) ?? objectRecord(record.projection) ?? null,
-    receipt_refs: stringArray(result.receipt_refs) ?? stringArray(record.receipt_refs) ?? [],
-    artifact_refs: stringArray(result.artifact_refs) ?? stringArray(record.artifact_refs) ?? [],
-    payload_refs: stringArray(result.payload_refs) ?? stringArray(record.payload_refs) ?? [],
+    receipt_refs: stringArray(result.receipt_refs) ?? stringArray(record.receipt_refs) ?? null,
+    artifact_refs: stringArray(result.artifact_refs) ?? stringArray(record.artifact_refs) ?? null,
+    payload_refs: stringArray(result.payload_refs) ?? stringArray(record.payload_refs) ?? null,
     authority_grant_refs:
-      stringArray(result.authority_grant_refs) ?? stringArray(record.authority_grant_refs) ?? [],
+      stringArray(result.authority_grant_refs) ?? stringArray(record.authority_grant_refs) ?? null,
   };
 }
 
