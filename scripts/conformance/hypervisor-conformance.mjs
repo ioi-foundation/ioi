@@ -6383,12 +6383,13 @@ function runBridge() {
       /pub fn plan_coding_tool_approval_manifest_response/.test(approvalCore) &&
       /rust_coding_tool_approval_command/.test(approvalCore) &&
       /coding_tool_approval_manifest_invalid/.test(approvalCore) &&
+      /rust_core_shapes_coding_tool_approval_command_response/.test(approvalCore) &&
       !/mod approval_command;/.test(bridgeModule) &&
       !approvalCommandBridgeExists &&
-      /plan_coding_tool_approval_manifest_response as plan_coding_tool_approval_manifest/.test(bridgeModule) &&
-      /CodingToolApprovalBridgeRequest/.test(bridgeModule) &&
+      !/plan_coding_tool_approval_manifest_response as plan_coding_tool_approval_manifest/.test(bridgeModule) &&
+      !/CodingToolApprovalBridgeRequest/.test(bridgeModule) &&
       !/approval_authority_rejects_step_module_command_schema/.test(bridgeModule) &&
-      /bridge_plans_coding_tool_approval_manifest_through_rust_core/.test(bridgeModule) &&
+      !/bridge_plans_coding_tool_approval_manifest_through_rust_core/.test(bridgeModule) &&
       !/fn plan_coding_tool_approval_manifest/.test(bridgeModule) &&
       !/struct CodingToolApprovalBridgeRequest/.test(bridgeModule) &&
       /createCodingToolApprovalRunnerFromEnv/.test(runtimeCodingToolApprovalRunner) &&
@@ -6610,10 +6611,14 @@ function runBridge() {
       ) &&
       !approvalCommandBridgeExists &&
       !workspaceRestoreCommandBridgeExists &&
-      /plan_coding_tool_approval_manifest_response as plan_coding_tool_approval_manifest/.test(bridgeModule) &&
-      /plan_approval_request_state_update_response as plan_approval_request_state_update/.test(bridgeModule) &&
-      /plan_approval_decision_state_update_response as plan_approval_decision_state_update/.test(bridgeModule) &&
-      /plan_approval_revoke_state_update_response as plan_approval_revoke_state_update/.test(bridgeModule) &&
+      /rust_core_shapes_coding_tool_approval_command_response/.test(approvalCore) &&
+      /rust_core_shapes_approval_request_state_update_command_response/.test(approvalCore) &&
+      /rust_core_shapes_approval_decision_state_update_command_response/.test(approvalCore) &&
+      /rust_core_shapes_approval_revoke_state_update_command_response/.test(approvalCore) &&
+      !/plan_coding_tool_approval_manifest_response as plan_coding_tool_approval_manifest/.test(bridgeModule) &&
+      !/plan_approval_request_state_update_response as plan_approval_request_state_update/.test(bridgeModule) &&
+      !/plan_approval_decision_state_update_response as plan_approval_decision_state_update/.test(bridgeModule) &&
+      !/plan_approval_revoke_state_update_response as plan_approval_revoke_state_update/.test(bridgeModule) &&
       /plan_workspace_restore_apply_policy_response as plan_workspace_restore_apply_policy/.test(bridgeModule) &&
       /preview_workspace_restore_operations_response/.test(coreCommandDispatch) &&
       !/pub\(super\) fn preview_workspace_restore_operations/.test(
@@ -7520,19 +7525,20 @@ function runBridge() {
       /pub fn plan_approval_request_state_update_response/.test(approvalCore) &&
       /rust_approval_request_state_update_command/.test(approvalCore) &&
       /approval_request_state_update_invalid/.test(approvalCore) &&
+      /rust_core_shapes_approval_request_state_update_command_response/.test(approvalCore) &&
+      /response\["operator_control"\]\["approval_id"\]/.test(approvalCore) &&
+      /record\.operator_control\.get\("approvalId"\)\.is_none\(\)/.test(approvalCore) &&
       !/"approvalId": approval_id|"eventId": request\.event_id|"receiptRefs": request\.receipt_refs|"policyDecisionRefs": request\.policy_decision_refs|"createdAt": request\.created_at/.test(
         approvalCore,
       ) &&
       !approvalCommandBridgeExists &&
-      /plan_approval_request_state_update_response as plan_approval_request_state_update/.test(bridgeModule) &&
-      /ApprovalRequestStateUpdateBridgeRequest/.test(bridgeModule) &&
+      !/plan_approval_request_state_update_response as plan_approval_request_state_update/.test(bridgeModule) &&
+      !/ApprovalRequestStateUpdateBridgeRequest/.test(bridgeModule) &&
       !/approval_state_rejects_step_module_command_schema/.test(bridgeModule) &&
-      /bridge_plans_approval_request_state_update_through_rust_core/.test(bridgeModule) &&
-      /bridge_plans_approval_request_agent_state_update_through_rust_core/.test(
+      !/bridge_plans_approval_request_state_update_through_rust_core/.test(bridgeModule) &&
+      !/bridge_plans_approval_request_agent_state_update_through_rust_core/.test(
         bridgeModule,
       ) &&
-      /response\["operator_control"\]\["approval_id"\]/.test(bridgeModule) &&
-      /response\["operator_control"\]\.get\("approvalId"\)\.is_none\(\)/.test(bridgeModule) &&
       !/fn plan_approval_request_state_update/.test(bridgeModule) &&
       !/struct ApprovalRequestStateUpdateBridgeRequest/.test(bridgeModule) &&
       /createRuntimeApprovalStateRunnerFromEnv/.test(runtimeApprovalStateRunner) &&
@@ -7636,15 +7642,16 @@ function runBridge() {
       /pub fn plan_approval_decision_state_update_response/.test(approvalCore) &&
       /rust_approval_decision_state_update_command/.test(approvalCore) &&
       /approval_decision_state_update_invalid/.test(approvalCore) &&
+      /rust_core_shapes_approval_decision_state_update_command_response/.test(approvalCore) &&
+      /response\["operator_control"\]\["lease_id"\]/.test(approvalCore) &&
+      /record\.operator_control\.get\("leaseId"\)\.is_none\(\)/.test(approvalCore) &&
       !/"approvalId": approval_id|"leaseId": lease_id|"leaseStatus": lease_status/.test(
         approvalCore,
       ) &&
       !approvalCommandBridgeExists &&
-      /plan_approval_decision_state_update_response as plan_approval_decision_state_update/.test(bridgeModule) &&
-      /ApprovalDecisionStateUpdateBridgeRequest/.test(bridgeModule) &&
-      /bridge_plans_approval_decision_state_update_through_rust_core/.test(bridgeModule) &&
-      /response\["operator_control"\]\["lease_id"\]/.test(bridgeModule) &&
-      /response\["operator_control"\]\.get\("leaseId"\)\.is_none\(\)/.test(bridgeModule) &&
+      !/plan_approval_decision_state_update_response as plan_approval_decision_state_update/.test(bridgeModule) &&
+      !/ApprovalDecisionStateUpdateBridgeRequest/.test(bridgeModule) &&
+      !/bridge_plans_approval_decision_state_update_through_rust_core/.test(bridgeModule) &&
       !/fn plan_approval_decision_state_update/.test(bridgeModule) &&
       !/struct ApprovalDecisionStateUpdateBridgeRequest/.test(bridgeModule) &&
       /planApprovalDecisionStateUpdate/.test(runtimeApprovalStateRunner) &&
@@ -7734,15 +7741,16 @@ function runBridge() {
       /pub fn plan_approval_revoke_state_update_response/.test(approvalCore) &&
       /rust_approval_revoke_state_update_command/.test(approvalCore) &&
       /approval_revoke_state_update_invalid/.test(approvalCore) &&
+      /rust_core_shapes_approval_revoke_state_update_command_response/.test(approvalCore) &&
+      /response\["operator_control"\]\["lease_status"\]/.test(approvalCore) &&
+      /record\.operator_control\.get\("leaseStatus"\)\.is_none\(\)/.test(approvalCore) &&
       !/"approvalId": approval_id|"leaseId": lease_id|"leaseStatus": "revoked"/.test(
         approvalCore,
       ) &&
       !approvalCommandBridgeExists &&
-      /plan_approval_revoke_state_update_response as plan_approval_revoke_state_update/.test(bridgeModule) &&
-      /ApprovalRevokeStateUpdateBridgeRequest/.test(bridgeModule) &&
-      /bridge_plans_approval_revoke_state_update_through_rust_core/.test(bridgeModule) &&
-      /response\["operator_control"\]\["lease_status"\]/.test(bridgeModule) &&
-      /response\["operator_control"\]\.get\("leaseStatus"\)\.is_none\(\)/.test(bridgeModule) &&
+      !/plan_approval_revoke_state_update_response as plan_approval_revoke_state_update/.test(bridgeModule) &&
+      !/ApprovalRevokeStateUpdateBridgeRequest/.test(bridgeModule) &&
+      !/bridge_plans_approval_revoke_state_update_through_rust_core/.test(bridgeModule) &&
       !/fn plan_approval_revoke_state_update/.test(bridgeModule) &&
       !/struct ApprovalRevokeStateUpdateBridgeRequest/.test(bridgeModule) &&
       /planApprovalRevokeStateUpdate/.test(runtimeApprovalStateRunner) &&

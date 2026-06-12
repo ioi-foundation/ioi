@@ -7190,6 +7190,21 @@ daemon-core Agentgres protocol/API ownership where admitted truth, expected
 heads/state roots, durable writes, replay, and conformance no longer depend on
 Node bridge endpoint proof scaffolding.
 
+Slice 1175 moves the approval command-response proof family out of the
+temporary bridge proof surface and relies on the Rust approval owner at
+`crates/services/src/agentic/runtime/kernel/approval.rs`. Coding-tool approval
+manifest shaping plus approval request, decision, and revoke state-update
+response shaping now run as `approval.rs` owner tests. Bridge conformance now
+requires those Rust owner tests and proves the old bridge-named approval tests,
+request-type imports, and response-function aliases stay absent from
+`ioi_step_module_bridge/proof_tests.rs`.
+
+This remains non-terminal because approval command shaping is still reachable
+through temporary command transport. The target is direct Rust daemon-core
+authority/approval protocol/API ownership where approval admission, event
+materialization, state updates, and conformance no longer depend on Node bridge
+endpoint proof scaffolding.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

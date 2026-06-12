@@ -16207,6 +16207,33 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1175
+
+Slice 1175 moves approval command-response proof coverage out of the temporary
+bridge proof surface and into the Rust approval owner. The owner tests in
+`crates/services/src/agentic/runtime/kernel/approval.rs` now prove coding-tool
+approval manifest command responses plus approval request, decision, and revoke
+state-update command responses through the Rust approval path. The temporary
+`ioi_step_module_bridge/proof_tests.rs` no longer imports approval command
+request types or carries the old bridge-named approval command tests.
+
+This is not terminal approval transport retirement. The temporary command
+transport still exists, but the proof ownership moved to the Rust approval
+module so the bridge proof surface keeps shrinking toward removal.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-services agentic::runtime::kernel::approval::tests` | passed |
+| `cargo test -p ioi-node --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1174
 
 Slice 1174 moves Agentgres command-response proof coverage out of the temporary
