@@ -8,42 +8,74 @@ import {
   createThread,
 } from "./runtime-agent-run-lifecycle.mjs";
 
-function fakeStore() {
+function fakeStore({
+  agentCreatePlan = defaultAgentCreatePlan,
+  threadCreatePlan = defaultThreadCreatePlan,
+  runCreatePlan = defaultRunCreatePlan,
+} = {}) {
   const store = {
-    agents: new Map([["agent_existing", { id: "agent_existing", runtime: "local" }]]),
+    agents: new Map([[
+      "agent_existing",
+      {
+        id: "agent_existing",
+        runtime: "local",
+        runtimeControls: {
+          mode: "agent",
+          approval_mode: "suggest",
+        },
+        options: {
+          localCwd: "/workspace/default",
+        },
+      },
+    ]]),
     runs: new Map(),
     defaultCwd: "/workspace/default",
+    homeDir: "/home/tester",
     writes: [],
     plannerCalls: [],
     lifecycleAdmissionRequiredCalls: [],
     routeCalls: [],
     memoryCalls: [],
     getAgentCalls: [],
+    providerCalls: [],
+    runBuildCalls: [],
+    runtimeControlCalls: [],
+    threadProjectionCalls: [],
+    mcpCalls: [],
+    runtimeModeCalls: [],
+    summaryCalls: [],
     runtimeThreadCalls: [],
     startedEvents: [],
     resolveModelRoute(options, context) {
       this.routeCalls.push({ surface: "agent", options, context });
-      return { selectedModel: "model.local" };
+      return {
+        selectedModel: "model.local",
+        requestedModelId: options.model?.id ?? "auto",
+        routeId: "route.local-first",
+        endpointId: "endpoint.local",
+        providerId: "provider.local",
+        receiptId: "receipt.model-route",
+        decision: {
+          route_id: "route.local-first",
+          selected_model: "model.local",
+          evidence_refs: ["runtime_agent_model_route"],
+        },
+      };
     },
     contextPolicyRunner: {
       planLifecycleAdmissionRequired(request) {
         store.lifecycleAdmissionRequiredCalls.push(request);
+        const profile = lifecycleRequiredProfile(request);
         return {
           source: "rust_lifecycle_admission_required_command",
           backend: "rust_policy",
           record: {
             status: "rust_core_required",
             status_code: 501,
-            code: request.operation === "agent_create"
-              ? "runtime_agent_create_rust_core_required"
-              : "runtime_run_create_rust_core_required",
-            message: request.operation === "agent_create"
-              ? "Agent creation requires direct Rust daemon-core state admission and persistence."
-              : "Run creation requires direct Rust daemon-core state admission and persistence.",
+            code: profile.code,
+            message: profile.message,
             details: {
-              rust_core_boundary: request.operation === "agent_create"
-                ? "runtime.agent_create"
-                : "runtime.run_create",
+              rust_core_boundary: profile.boundary,
               operation: request.operation,
               operation_kind: request.operation_kind,
               agent_id: request.agent_id ?? null,
@@ -78,10 +110,215 @@ function fakeStore() {
       this.startedEvents.push(agent.id);
     },
     threadForAgent(agent) {
-      return { thread_id: `thread_${agent.id}`, agent_id: agent.id };
+      this.threadProjectionCalls.push(agent);
+      const threadId = agent.id.replace(/^agent_/, "thread_");
+      return {
+        thread_id: threadId,
+        agent_id: agent.id,
+        event_stream_id: `${threadId}:events`,
+        rust_projected: true,
+      };
     },
   };
+  if (agentCreatePlan) {
+    store.contextPolicyRunner.planAgentCreateStateUpdate = (request) => {
+      store.plannerCalls.push(request);
+      return agentCreatePlan(request);
+    };
+  }
+  if (threadCreatePlan) {
+    store.contextPolicyRunner.planThreadCreateStateUpdate = (request) => {
+      store.plannerCalls.push(request);
+      return threadCreatePlan(request);
+    };
+  }
+  if (runCreatePlan) {
+    store.contextPolicyRunner.planRunCreateStateUpdate = (request) => {
+      store.plannerCalls.push(request);
+      return runCreatePlan(request);
+    };
+  }
   return store;
+}
+
+function defaultAgentCreatePlan(request) {
+  return {
+    source: "rust_agent_create_state_update_command",
+    backend: "rust_policy",
+    status: "planned",
+    operation_kind: "agent.create",
+    created_at: request.agent.createdAt,
+    updated_at: request.agent.updatedAt,
+    agent: {
+      ...request.agent,
+      rust_planned: true,
+    },
+  };
+}
+
+function defaultThreadCreatePlan(request) {
+  return {
+    source: "rust_thread_create_state_update_command",
+    backend: "rust_policy",
+    status: "planned",
+    operation_kind: "thread.create",
+    thread_id: request.thread.thread_id,
+    agent_id: request.thread.agent_id,
+    created_at: request.agent.createdAt,
+    updated_at: request.agent.updatedAt,
+    agent: {
+      ...request.agent,
+      rust_thread_planned: true,
+    },
+    thread: {
+      ...request.thread,
+      rust_planned: true,
+    },
+  };
+}
+
+function defaultRunCreatePlan(request) {
+  return {
+    source: "rust_run_create_state_update_command",
+    backend: "rust_policy",
+    status: "planned",
+    operation_kind: "run.create",
+    created_at: request.run.createdAt,
+    updated_at: request.run.updatedAt,
+    run: {
+      ...request.run,
+      rust_planned: true,
+    },
+  };
+}
+
+function lifecycleRequiredProfile(request) {
+  if (request.operation === "agent_create") {
+    return {
+      code: "runtime_agent_create_rust_core_required",
+      message: "Agent creation requires direct Rust daemon-core state admission and persistence.",
+      boundary: "runtime.agent_create",
+    };
+  }
+  if (request.operation === "thread_create") {
+    return {
+      code: "runtime_thread_create_rust_core_required",
+      message: "Thread creation requires direct Rust daemon-core state admission and persistence.",
+      boundary: "runtime.thread_create",
+    };
+  }
+  return {
+    code: "runtime_run_create_rust_core_required",
+    message: "Run creation requires direct Rust daemon-core state admission and persistence.",
+    boundary: "runtime.run_create",
+  };
+}
+
+function agentCreateDeps(store) {
+  return {
+    ensureProviderAvailable(runtime, options) {
+      store.providerCalls.push({ runtime, options });
+    },
+    initialThreadRuntimeControls(options, modelRoute, now) {
+      store.runtimeControlCalls.push({ options, modelRoute, now });
+      return {
+        mode: "agent",
+        approvalMode: "suggest",
+        approval_mode: "suggest",
+        model: {
+          id: modelRoute.requestedModelId,
+          route_id: modelRoute.routeId,
+          selected_model: modelRoute.selectedModel,
+          endpoint_id: modelRoute.endpointId,
+          provider_id: modelRoute.providerId,
+          receipt_id: modelRoute.receiptId,
+          updated_at: now,
+        },
+        updatedAt: now,
+      };
+    },
+    mcpRegistryForWorkspace(cwd, options) {
+      store.mcpCalls.push({ cwd, options });
+      return {
+        schema_version: "ioi.runtime.mcp-manager-status.v1",
+        workspace_root: cwd,
+        server_count: 0,
+        servers: [],
+      };
+    },
+    randomUUID() {
+      return "uuid-agent";
+    },
+    runtimeModeForOptions(options) {
+      store.runtimeModeCalls.push(options);
+      return options.hosted ? "hosted" : "local";
+    },
+    summarizeAgentOptions(cwd, options) {
+      store.summaryCalls.push({ cwd, options });
+      return {
+        localCwd: options.local?.cwd ?? null,
+        cloudConfigured: Boolean(options.cloud ?? options.hosted),
+      };
+    },
+  };
+}
+
+function threadCreateDeps(store) {
+  return {
+    ...agentCreateDeps(store),
+    eventStreamIdForThread(threadId) {
+      return `${threadId}:events`;
+    },
+    runtimeThreadSchemaVersion: "ioi.runtime.thread.v1",
+    threadIdForAgent(agentId) {
+      return agentId.replace(/^agent_/, "thread_");
+    },
+    threadStatusForAgent(status) {
+      return status === "active" ? "active" : "archived";
+    },
+  };
+}
+
+function runCreateDeps(store) {
+  return {
+    ensureProviderAvailable(runtime, options) {
+      store.providerCalls.push({ runtime, options });
+    },
+    buildRun(args) {
+      store.runBuildCalls.push(args);
+      return {
+        id: "run_uuid-run",
+        agentId: args.agent.id,
+        status: "completed",
+        mode: args.mode,
+        objective: args.prompt,
+        createdAt: "2026-06-12T12:00:00.000Z",
+        updatedAt: "2026-06-12T12:00:00.000Z",
+        events: [],
+        conversation: [],
+        receipts: [],
+        artifacts: [],
+        trace: {
+          usage_telemetry: {
+            total_tokens: 7,
+          },
+        },
+        usage: {
+          total_tokens: 7,
+        },
+        usage_telemetry: {
+          total_tokens: 7,
+        },
+        result: "ok",
+      };
+    },
+    threadModeForRunMode(mode, fallback) {
+      return mode === "learn" ? "agent" : fallback ?? "agent";
+    },
+    approvalModeForThreadMode(mode) {
+      return mode === "review" ? "human_required" : "suggest";
+    },
+  };
 }
 
 function assertNoRetiredLifecycleDetailAliases(details) {
@@ -118,8 +355,41 @@ function assertRuntimeBridgeThreadRustCoreRequired(error, {
   return true;
 }
 
-test("createAgent facade fails closed before Rust planning or JS persistence", () => {
+test("createAgent commits Rust-planned agent projection through Agentgres", () => {
   const store = fakeStore();
+  const options = {
+    local: { cwd: "/workspace/project" },
+    hosted: true,
+    model: { id: "model.local" },
+    mcp_servers: { docs: {} },
+    mcpServers: { retired: {} },
+  };
+
+  const agent = createAgent(store, options, agentCreateDeps(store));
+
+  assert.equal(agent.id, "agent_uuid-agent");
+  assert.equal(agent.status, "active");
+  assert.equal(agent.runtime, "hosted");
+  assert.equal(agent.cwd, "/workspace/project");
+  assert.equal(agent.modelId, "model.local");
+  assert.equal(agent.runtimeControls.model.route_id, "route.local-first");
+  assert.equal(agent.rust_planned, true);
+  assert.equal(store.plannerCalls.length, 1);
+  assert.equal(store.plannerCalls[0].agent.id, "agent_uuid-agent");
+  assert.equal(store.plannerCalls[0].agent.runtimeControls.model.selected_model, "model.local");
+  assert.deepEqual(store.writes, [{ kind: "agent", operationKind: "agent.create", agent }]);
+  assert.equal(store.agents.size, 1);
+  assert.equal(store.routeCalls.length, 1);
+  assert.equal(store.providerCalls.length, 1);
+  assert.equal(store.runtimeControlCalls.length, 1);
+  assert.equal(store.mcpCalls.length, 1);
+  assert.equal(store.summaryCalls.length, 1);
+  assert.deepEqual(store.lifecycleAdmissionRequiredCalls, []);
+  assert.equal(Object.hasOwn(agent.options, "mcpServers"), false);
+});
+
+test("createAgent fails closed before route planning when Rust planner is missing", () => {
+  const store = fakeStore({ agentCreatePlan: null });
 
   assert.throws(
     () => createAgent(store, {
@@ -128,7 +398,7 @@ test("createAgent facade fails closed before Rust planning or JS persistence", (
       model: { id: "model.local" },
       mcp_servers: { docs: {} },
       mcpServers: { retired: {} },
-    }),
+    }, agentCreateDeps(store)),
     (error) => {
       assert.equal(error.code, "runtime_agent_create_rust_core_required");
       assert.equal(error.status, 501);
@@ -165,10 +435,126 @@ test("createAgent facade fails closed before Rust planning or JS persistence", (
   assert.deepEqual(store.writes, []);
   assert.deepEqual(store.plannerCalls, []);
   assert.deepEqual(store.routeCalls, []);
+  assert.deepEqual(store.providerCalls, []);
+  assert.deepEqual(store.mcpCalls, []);
 });
 
-test("createRun facade fails closed before route, memory, Rust planning, or JS persistence", () => {
+test("createAgent rejects missing Rust-planned agent projection", () => {
+  const store = fakeStore({
+    agentCreatePlan: () => ({
+      status: "planned",
+      operation_kind: "agent.create",
+    }),
+  });
+
+  assert.throws(
+    () => createAgent(store, { local: { cwd: "/workspace/project" } }, agentCreateDeps(store)),
+    (error) => {
+      assert.equal(error.code, "agent_create_state_update_agent_missing");
+      assert.equal(error.status, 502);
+      assert.equal(error.details.rust_core_boundary, "runtime.agent_create");
+      assert.equal(error.details.operation_kind, "agent.create");
+      assertNoRetiredLifecycleDetailAliases(error.details);
+      return true;
+    },
+  );
+
+  assert.equal(store.plannerCalls.length, 1);
+  assert.deepEqual(store.writes, []);
+  assert.equal(store.agents.size, 1);
+});
+
+test("createAgent rejects mismatched Rust operation kind", () => {
+  const store = fakeStore({
+    agentCreatePlan: (request) => ({
+      status: "planned",
+      operation_kind: "run.create",
+      agent: request.agent,
+    }),
+  });
+
+  assert.throws(
+    () => createAgent(store, { local: { cwd: "/workspace/project" } }, agentCreateDeps(store)),
+    (error) => {
+      assert.equal(error.code, "agent_create_state_update_operation_kind_mismatch");
+      assert.equal(error.status, 502);
+      assert.equal(error.details.expected_operation_kind, "agent.create");
+      assert.equal(error.details.actual_operation_kind, "run.create");
+      assertNoRetiredLifecycleDetailAliases(error.details);
+      return true;
+    },
+  );
+
+  assert.equal(store.plannerCalls.length, 1);
+  assert.deepEqual(store.writes, []);
+  assert.equal(store.agents.size, 1);
+});
+
+test("createAgent rejects incomplete Rust-planned projection", () => {
+  const store = fakeStore({
+    agentCreatePlan: () => ({
+      status: "planned",
+      operation_kind: "agent.create",
+      agent: {
+        id: "agent_uuid-agent",
+      },
+    }),
+  });
+
+  assert.throws(
+    () => createAgent(store, { local: { cwd: "/workspace/project" } }, agentCreateDeps(store)),
+    (error) => {
+      assert.equal(error.code, "agent_create_state_update_projection_incomplete");
+      assert.equal(error.status, 502);
+      assert.equal(error.details.agent_id, "agent_uuid-agent");
+      assertNoRetiredLifecycleDetailAliases(error.details);
+      return true;
+    },
+  );
+
+  assert.equal(store.plannerCalls.length, 1);
+  assert.deepEqual(store.writes, []);
+  assert.equal(store.agents.size, 1);
+});
+
+test("createRun commits Rust-planned run projection through Agentgres", () => {
   const store = fakeStore();
+
+  const run = createRun(store, "agent_existing", {
+    mode: "learn",
+    prompt: "Learn governed task-family updates",
+    threadMode: "retired",
+    approvalMode: "retired",
+    diagnosticsFeedback: { diagnostic_status: "alias" },
+    diagnostics_feedback: { diagnostic_status: "snake" },
+  }, runCreateDeps(store));
+
+  assert.equal(run.id, "run_uuid-run");
+  assert.equal(run.agentId, "agent_existing");
+  assert.equal(run.rust_planned, true);
+  assert.equal(run.thread_mode, "agent");
+  assert.equal(run.approval_mode, "suggest");
+  assert.equal(Object.hasOwn(run, "threadMode"), false);
+  assert.equal(Object.hasOwn(run, "approvalMode"), false);
+  assert.equal(run.usage_telemetry.total_tokens, 7);
+  assert.equal(store.runs.size, 0);
+  assert.deepEqual(store.getAgentCalls, ["agent_existing"]);
+  assert.equal(store.providerCalls.length, 1);
+  assert.equal(store.routeCalls.length, 1);
+  assert.equal(store.memoryCalls.length, 1);
+  assert.equal(store.runBuildCalls.length, 1);
+  assert.equal(store.runBuildCalls[0].mode, "learn");
+  assert.equal(store.runBuildCalls[0].diagnosticsFeedback.diagnostic_status, "snake");
+  assert.equal(store.plannerCalls.length, 1);
+  assert.equal(store.plannerCalls[0].run.id, "run_uuid-run");
+  assert.equal(store.plannerCalls[0].run.thread_mode, "agent");
+  assert.equal(store.plannerCalls[0].run.approval_mode, "suggest");
+  assert.deepEqual(store.writes, [{ kind: "run", operationKind: "run.create", run }]);
+  assert.deepEqual(store.lifecycleAdmissionRequiredCalls, []);
+});
+
+test("createRun fails closed before lookup, route, memory, or persistence when Rust planner is missing", () => {
+  const store = fakeStore({ runCreatePlan: null });
 
   assert.throws(
     () => createRun(store, "agent_existing", {
@@ -177,7 +563,7 @@ test("createRun facade fails closed before route, memory, Rust planning, or JS p
       threadMode: "retired",
       approvalMode: "retired",
       diagnosticsFeedback: { diagnostic_status: "alias" },
-    }),
+    }, runCreateDeps(store)),
     (error) => {
       assert.equal(error.code, "runtime_run_create_rust_core_required");
       assert.equal(error.status, 501);
@@ -211,53 +597,298 @@ test("createRun facade fails closed before route, memory, Rust planning, or JS p
     ],
   });
   assert.equal(store.runs.size, 0);
-  assert.deepEqual(store.writes, []);
   assert.deepEqual(store.getAgentCalls, []);
   assert.deepEqual(store.routeCalls, []);
   assert.deepEqual(store.memoryCalls, []);
-});
-
-test("createRun missing-agent path is still Rust-core required and does not read JS agent state", () => {
-  const store = fakeStore();
-
-  assert.throws(
-    () => createRun(store, "agent_missing", {}),
-    (error) => {
-      assert.equal(error.code, "runtime_run_create_rust_core_required");
-      assert.equal(error.details.agent_id, "agent_missing");
-      assert.equal(error.details.requested_mode, "send");
-      assertNoRetiredLifecycleDetailAliases(error.details);
-      return true;
-    },
-  );
-
-  assert.equal(store.lifecycleAdmissionRequiredCalls.length, 1);
-  assert.equal(store.lifecycleAdmissionRequiredCalls[0].operation, "run_create");
-  assert.equal(store.lifecycleAdmissionRequiredCalls[0].agent_id, "agent_missing");
-  assert.deepEqual(store.getAgentCalls, []);
   assert.deepEqual(store.writes, []);
 });
 
-test("createThread facade fails closed before JS agent persistence for default threads", () => {
-  const store = fakeStore();
+test("createRun rejects missing Rust-planned run projection", () => {
+  const store = fakeStore({
+    runCreatePlan: () => ({
+      status: "planned",
+      operation_kind: "run.create",
+    }),
+  });
 
   assert.throws(
-    () => createThread(store, { options: { local: { cwd: "/workspace/thread" } } }),
+    () => createRun(store, "agent_existing", { mode: "learn" }, runCreateDeps(store)),
     (error) => {
-      assert.equal(error.code, "runtime_agent_create_rust_core_required");
-      assert.equal(error.details.rust_core_boundary, "runtime.agent_create");
-      assert.equal(error.details.requested_cwd, "/workspace/thread");
+      assert.equal(error.code, "run_create_state_update_run_missing");
+      assert.equal(error.status, 502);
+      assert.equal(error.details.rust_core_boundary, "runtime.run_create");
+      assert.equal(error.details.operation_kind, "run.create");
       assertNoRetiredLifecycleDetailAliases(error.details);
       return true;
     },
   );
 
-  assert.equal(store.lifecycleAdmissionRequiredCalls.length, 1);
-  assert.equal(store.lifecycleAdmissionRequiredCalls[0].operation, "agent_create");
-  assert.equal(store.lifecycleAdmissionRequiredCalls[0].requested_cwd, "/workspace/thread");
+  assert.equal(store.plannerCalls.length, 1);
+  assert.deepEqual(store.writes, []);
+  assert.equal(store.runs.size, 0);
+});
+
+test("createRun rejects mismatched Rust operation kind", () => {
+  const store = fakeStore({
+    runCreatePlan: (request) => ({
+      status: "planned",
+      operation_kind: "agent.create",
+      run: request.run,
+    }),
+  });
+
+  assert.throws(
+    () => createRun(store, "agent_existing", { mode: "learn" }, runCreateDeps(store)),
+    (error) => {
+      assert.equal(error.code, "run_create_state_update_operation_kind_mismatch");
+      assert.equal(error.status, 502);
+      assert.equal(error.details.expected_operation_kind, "run.create");
+      assert.equal(error.details.actual_operation_kind, "agent.create");
+      assertNoRetiredLifecycleDetailAliases(error.details);
+      return true;
+    },
+  );
+
+  assert.equal(store.plannerCalls.length, 1);
+  assert.deepEqual(store.writes, []);
+  assert.equal(store.runs.size, 0);
+});
+
+test("createRun rejects incomplete Rust-planned projection", () => {
+  const store = fakeStore({
+    runCreatePlan: () => ({
+      status: "planned",
+      operation_kind: "run.create",
+      run: {
+        id: "run_uuid-run",
+      },
+    }),
+  });
+
+  assert.throws(
+    () => createRun(store, "agent_existing", { mode: "learn" }, runCreateDeps(store)),
+    (error) => {
+      assert.equal(error.code, "run_create_state_update_projection_incomplete");
+      assert.equal(error.status, 502);
+      assert.equal(error.details.run_id, "run_uuid-run");
+      assertNoRetiredLifecycleDetailAliases(error.details);
+      return true;
+    },
+  );
+
+  assert.equal(store.plannerCalls.length, 1);
+  assert.deepEqual(store.writes, []);
+  assert.equal(store.runs.size, 0);
+});
+
+test("createThread commits Rust-planned thread agent and returns Rust thread projection", () => {
+  const store = fakeStore();
+
+  const thread = createThread(store, {
+    goal: "Keep the public thread lifecycle Rust-owned",
+    options: {
+      local: { cwd: "/workspace/thread" },
+      model: { id: "model.local" },
+    },
+  }, threadCreateDeps(store));
+
+  assert.equal(thread.thread_id, "thread_uuid-agent");
+  assert.equal(thread.agent_id, "agent_uuid-agent");
+  assert.equal(thread.event_stream_id, "thread_uuid-agent:events");
+  assert.equal(thread.rust_projected, true);
+  assert.equal(store.plannerCalls.length, 1);
+  assert.equal(store.plannerCalls[0].agent.id, "agent_uuid-agent");
+  assert.equal(store.plannerCalls[0].thread.thread_id, "thread_uuid-agent");
+  assert.equal(store.plannerCalls[0].thread.agent_id, "agent_uuid-agent");
+  assert.equal(store.plannerCalls[0].thread.event_stream_id, "thread_uuid-agent:events");
+  assert.equal(store.plannerCalls[0].thread.status, "active");
+  assert.equal(store.writes.length, 1);
+  assert.equal(store.writes[0].kind, "agent");
+  assert.equal(store.writes[0].operationKind, "thread.create");
+  assert.equal(store.writes[0].agent.rust_thread_planned, true);
+  assert.deepEqual(store.startedEvents, ["agent_uuid-agent"]);
+  assert.equal(store.threadProjectionCalls.length, 1);
+  assert.equal(store.threadProjectionCalls[0].id, "agent_uuid-agent");
+  assert.deepEqual(store.lifecycleAdmissionRequiredCalls, []);
   assert.deepEqual(store.runtimeThreadCalls, []);
-  assert.deepEqual(store.startedEvents, []);
+  assert.equal(store.routeCalls.length, 1);
+  assert.equal(store.providerCalls.length, 1);
+  assert.equal(store.runtimeControlCalls.length, 1);
+  assert.equal(store.mcpCalls.length, 1);
+  assert.equal(store.summaryCalls.length, 1);
+});
+
+test("createThread fails closed before route planning when Rust planner is missing", () => {
+  const store = fakeStore({ threadCreatePlan: null });
+
+  assert.throws(
+    () => createThread(store, {
+      options: {
+        local: { cwd: "/workspace/thread" },
+        hosted: true,
+      },
+    }, threadCreateDeps(store)),
+    (error) => {
+      assert.equal(error.code, "runtime_thread_create_rust_core_required");
+      assert.equal(error.status, 501);
+      assert.equal(error.details.rust_core_boundary, "runtime.thread_create");
+      assert.equal(error.details.operation, "thread_create");
+      assert.equal(error.details.operation_kind, "thread.create");
+      assert.equal(error.details.requested_cwd, "/workspace/thread");
+      assert.equal(error.details.requested_runtime, "hosted");
+      assert.deepEqual(error.details.evidence_refs, [
+        "runtime_thread_create_js_facade_retired",
+        "rust_daemon_core_thread_create_required",
+        "agentgres_thread_create_state_truth_required",
+      ]);
+      assertNoRetiredLifecycleDetailAliases(error.details);
+      return true;
+    },
+  );
+
+  assert.equal(store.lifecycleAdmissionRequiredCalls.length, 1);
+  assert.equal(store.lifecycleAdmissionRequiredCalls[0].operation, "thread_create");
+  assert.equal(store.lifecycleAdmissionRequiredCalls[0].requested_cwd, "/workspace/thread");
+  assert.deepEqual(store.plannerCalls, []);
   assert.deepEqual(store.writes, []);
+  assert.deepEqual(store.routeCalls, []);
+  assert.deepEqual(store.startedEvents, []);
+  assert.deepEqual(store.threadProjectionCalls, []);
+});
+
+test("createThread rejects missing Rust-planned agent projection", () => {
+  const store = fakeStore({
+    threadCreatePlan: (request) => ({
+      status: "planned",
+      operation_kind: "thread.create",
+      thread: request.thread,
+    }),
+  });
+
+  assert.throws(
+    () => createThread(store, { options: { local: { cwd: "/workspace/thread" } } }, threadCreateDeps(store)),
+    (error) => {
+      assert.equal(error.code, "thread_create_state_update_agent_missing");
+      assert.equal(error.status, 502);
+      assert.equal(error.details.rust_core_boundary, "runtime.thread_create");
+      assertNoRetiredLifecycleDetailAliases(error.details);
+      return true;
+    },
+  );
+
+  assert.equal(store.plannerCalls.length, 1);
+  assert.deepEqual(store.writes, []);
+  assert.deepEqual(store.startedEvents, []);
+});
+
+test("createThread rejects missing Rust-planned thread projection", () => {
+  const store = fakeStore({
+    threadCreatePlan: (request) => ({
+      status: "planned",
+      operation_kind: "thread.create",
+      agent: request.agent,
+    }),
+  });
+
+  assert.throws(
+    () => createThread(store, { options: { local: { cwd: "/workspace/thread" } } }, threadCreateDeps(store)),
+    (error) => {
+      assert.equal(error.code, "thread_create_state_update_thread_missing");
+      assert.equal(error.status, 502);
+      assert.equal(error.details.agent_id, "agent_uuid-agent");
+      assertNoRetiredLifecycleDetailAliases(error.details);
+      return true;
+    },
+  );
+
+  assert.equal(store.plannerCalls.length, 1);
+  assert.deepEqual(store.writes, []);
+  assert.deepEqual(store.startedEvents, []);
+});
+
+test("createThread rejects mismatched Rust operation kind", () => {
+  const store = fakeStore({
+    threadCreatePlan: (request) => ({
+      status: "planned",
+      operation_kind: "agent.create",
+      agent: request.agent,
+      thread: request.thread,
+    }),
+  });
+
+  assert.throws(
+    () => createThread(store, { options: { local: { cwd: "/workspace/thread" } } }, threadCreateDeps(store)),
+    (error) => {
+      assert.equal(error.code, "thread_create_state_update_operation_kind_mismatch");
+      assert.equal(error.status, 502);
+      assert.equal(error.details.expected_operation_kind, "thread.create");
+      assert.equal(error.details.actual_operation_kind, "agent.create");
+      assertNoRetiredLifecycleDetailAliases(error.details);
+      return true;
+    },
+  );
+
+  assert.equal(store.plannerCalls.length, 1);
+  assert.deepEqual(store.writes, []);
+  assert.deepEqual(store.startedEvents, []);
+});
+
+test("createThread rejects incomplete Rust-planned projection", () => {
+  const store = fakeStore({
+    threadCreatePlan: () => ({
+      status: "planned",
+      operation_kind: "thread.create",
+      agent: {
+        id: "agent_uuid-agent",
+      },
+      thread: {
+        thread_id: "thread_uuid-agent",
+      },
+    }),
+  });
+
+  assert.throws(
+    () => createThread(store, { options: { local: { cwd: "/workspace/thread" } } }, threadCreateDeps(store)),
+    (error) => {
+      assert.equal(error.code, "thread_create_state_update_projection_incomplete");
+      assert.equal(error.status, 502);
+      assert.equal(error.details.thread_id, "thread_uuid-agent");
+      assertNoRetiredLifecycleDetailAliases(error.details);
+      return true;
+    },
+  );
+
+  assert.equal(store.plannerCalls.length, 1);
+  assert.deepEqual(store.writes, []);
+  assert.deepEqual(store.startedEvents, []);
+});
+
+test("createThread rejects Rust thread projection agent mismatch", () => {
+  const store = fakeStore({
+    threadCreatePlan: (request) => ({
+      ...defaultThreadCreatePlan(request),
+      thread: {
+        ...request.thread,
+        agent_id: "agent_other",
+      },
+    }),
+  });
+
+  assert.throws(
+    () => createThread(store, { options: { local: { cwd: "/workspace/thread" } } }, threadCreateDeps(store)),
+    (error) => {
+      assert.equal(error.code, "thread_create_state_update_agent_mismatch");
+      assert.equal(error.status, 502);
+      assert.equal(error.details.agent_id, "agent_uuid-agent");
+      assert.equal(error.details.thread_agent_id, "agent_other");
+      assertNoRetiredLifecycleDetailAliases(error.details);
+      return true;
+    },
+  );
+
+  assert.equal(store.plannerCalls.length, 1);
+  assert.deepEqual(store.writes, []);
+  assert.deepEqual(store.startedEvents, []);
 });
 
 test("createThread facade fails closed for runtime-service threads before bridge boundary dispatch", () => {
@@ -280,27 +911,26 @@ test("createThread facade fails closed for runtime-service threads before bridge
 
 test("agent/run lifecycle surface routes create, run creation, and thread creation to mounted boundary", async () => {
   const store = fakeStore();
-  const surface = createRuntimeAgentRunLifecycleSurface();
+  const surface = createRuntimeAgentRunLifecycleSurface({
+    lifecycleAdmissionRunner: store.contextPolicyRunner,
+    ...runCreateDeps(store),
+    ...threadCreateDeps(store),
+  });
 
-  assert.throws(
-    () => surface.createAgent(store, { local: { cwd: "/workspace/surface" } }),
-    (error) => {
-      assert.equal(error.code, "runtime_agent_create_rust_core_required");
-      assert.equal(error.details.requested_cwd, "/workspace/surface");
-      assertNoRetiredLifecycleDetailAliases(error.details);
-      return true;
-    },
-  );
-  assert.throws(
-    () => surface.createRun(store, "agent_existing", { mode: "review" }),
-    (error) => {
-      assert.equal(error.code, "runtime_run_create_rust_core_required");
-      assert.equal(error.details.agent_id, "agent_existing");
-      assert.equal(error.details.requested_mode, "review");
-      assertNoRetiredLifecycleDetailAliases(error.details);
-      return true;
-    },
-  );
+  const agent = surface.createAgent(store, { local: { cwd: "/workspace/surface" } });
+  assert.equal(agent.id, "agent_uuid-agent");
+  assert.equal(agent.rust_planned, true);
+  const run = surface.createRun(store, "agent_existing", { mode: "review" });
+  assert.equal(run.id, "run_uuid-run");
+  assert.equal(run.rust_planned, true);
+  assert.equal(run.thread_mode, "agent");
+  assert.equal(run.approval_mode, "suggest");
+  const thread = surface.createThread(store, {
+    options: { local: { cwd: "/workspace/thread" } },
+  });
+  assert.equal(thread.thread_id, "thread_uuid-agent");
+  assert.equal(thread.agent_id, "agent_uuid-agent");
+  assert.equal(thread.rust_projected, true);
   assert.throws(
     () => surface.createThread(store, {
       options: { runtime_profile: "runtime_service" },
@@ -309,9 +939,14 @@ test("agent/run lifecycle surface routes create, run creation, and thread creati
   );
 
   assert.deepEqual(store.runtimeThreadCalls, []);
-  assert.equal(store.lifecycleAdmissionRequiredCalls.length, 2);
-  assert.deepEqual(store.writes, []);
-  assert.deepEqual(store.getAgentCalls, []);
-  assert.deepEqual(store.routeCalls, []);
-  assert.deepEqual(store.memoryCalls, []);
+  assert.deepEqual(store.lifecycleAdmissionRequiredCalls, []);
+  assert.equal(store.writes.length, 3);
+  assert.equal(store.writes[0].operationKind, "agent.create");
+  assert.equal(store.writes[1].operationKind, "run.create");
+  assert.equal(store.writes[2].operationKind, "thread.create");
+  assert.deepEqual(store.startedEvents, ["agent_uuid-agent"]);
+  assert.equal(store.threadProjectionCalls.length, 1);
+  assert.deepEqual(store.getAgentCalls, ["agent_existing"]);
+  assert.equal(store.routeCalls.length, 3);
+  assert.equal(store.memoryCalls.length, 1);
 });

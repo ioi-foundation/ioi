@@ -1,9 +1,4 @@
 import { eventStreamIdForThread } from "./runtime-identifiers.mjs";
-import {
-  DIAGNOSTICS_ROLLBACK_REPAIR_CONTEXT_SCHEMA_VERSION,
-  LSP_DIAGNOSTICS_AUTO_NODE_ID,
-} from "./runtime-contract-constants.mjs";
-import { doctorHash, normalizeArray, optionalString, uniqueStrings } from "./runtime-value-helpers.mjs";
 
 const RETIRED_PENDING_DIAGNOSTICS_FEEDBACK_REQUEST_ALIASES = [
   "diagnosticsMode",
@@ -13,9 +8,8 @@ const RETIRED_PENDING_DIAGNOSTICS_FEEDBACK_REQUEST_ALIASES = [
 export function createRuntimeDiagnosticsFeedbackSurface(deps = {}) {
   const {
     compactDiagnosticsFeedback,
-    diagnosticsRepairPolicyConfig,
+    diagnosticsFeedbackPlanner,
     normalizeDiagnosticsMode,
-    postEditDiagnosticsConfig,
   } = deps;
 
   function maybeRunPostEditDiagnostics(
@@ -30,60 +24,57 @@ export function createRuntimeDiagnosticsFeedbackSurface(deps = {}) {
       workflowGraphId = null,
     } = {},
   ) {
-    const config = postEditDiagnosticsConfig(request, input);
-    if (config.mode === "skip") return null;
-    const paths = normalizeArray(patchResult?.changedFiles)
-      .filter((entry) => entry?.diagnosticsRecommended !== false)
-      .map((entry) => optionalString(entry?.path))
-      .filter(Boolean);
-    if (!paths.length) return null;
-    const workspaceSnapshot =
-      patchResult?.workspace_snapshot ??
-      null;
-    const workspaceSnapshotId =
-      optionalString(patchResult?.workspace_snapshot_id) ??
-      optionalString(workspaceSnapshot?.snapshot_id);
-    const rollbackRefs = uniqueStrings([
-      workspaceSnapshotId,
-      ...normalizeArray(patchResult?.rollback_refs),
-    ]);
-    const repairPolicyConfig = config.repairPolicyConfig ?? diagnosticsRepairPolicyConfig(request, input);
-    return store.codingToolInvocationSurface.invokeThreadTool(store, threadId, "lsp.diagnostics", {
-      source: "runtime_auto",
+    if (
+      !diagnosticsFeedbackPlanner ||
+      typeof diagnosticsFeedbackPlanner.planPostEditDiagnosticsFeedback !== "function"
+    ) {
+      throw runtimeDiagnosticsFeedbackRustCoreRequired({
+        operation: "post_edit_diagnostics_feedback_plan",
+        operation_kind: "runtime.post_edit_diagnostics_feedback",
+        thread_id: threadId ?? null,
+        turn_id: turnId || null,
+        patch_tool_call_id: patchToolCallId ?? null,
+        workflow_graph_id: workflowGraphId ?? null,
+        evidence_refs: [
+          "post_edit_diagnostics_feedback_js_planner_retired",
+          "rust_daemon_core_post_edit_diagnostics_feedback_plan_required",
+        ],
+      });
+    }
+    const plan = diagnosticsFeedbackPlanner.planPostEditDiagnosticsFeedback({
+      thread_id: threadId,
       turn_id: turnId || null,
+      patch_tool_call_id: patchToolCallId,
       workflow_graph_id: workflowGraphId,
-      workflow_node_id: LSP_DIAGNOSTICS_AUTO_NODE_ID,
-      tool_call_id: `coding_tool_lsp_diagnostics_auto_${doctorHash(`${patchToolCallId}:${paths.join(",")}`).slice(0, 16)}`,
-      rollback_refs: rollbackRefs,
-      diagnostics_repair_context: {
-        schema_version: DIAGNOSTICS_ROLLBACK_REPAIR_CONTEXT_SCHEMA_VERSION,
-        object: "ioi.runtime_diagnostics_rollback_repair_context",
-        source_tool_name: "file.apply_patch",
-        source_tool_call_id: patchToolCallId,
-        source_workflow_graph_id: workflowGraphId,
-        source_workflow_node_id: optionalString(request.workflow_node_id) ?? null,
-        workspace_snapshot_id: workspaceSnapshotId ?? null,
-        restore_policy: repairPolicyConfig.restore_policy,
-        restore_conflict_policy: repairPolicyConfig.restore_conflict_policy,
-        diagnostics_repair_default: repairPolicyConfig.diagnostics_repair_default,
-        operator_override_requires_approval: repairPolicyConfig.operator_override_requires_approval,
-        rollback_refs: rollbackRefs,
-        restore: workspaceSnapshot?.restore ?? null,
-        changed_files: normalizeArray(patchResult?.changedFiles).map((entry) => ({
-          path: optionalString(entry?.path) ?? null,
-          before_hash: optionalString(entry?.beforeHash ?? entry?.before_hash) ?? null,
-          after_hash: optionalString(entry?.afterHash ?? entry?.after_hash) ?? null,
-          diagnostics_recommended: entry?.diagnosticsRecommended !== false,
-        })),
-      },
-      input: {
-        commandId: config.commandId,
-        paths,
-        cwd: config.cwd,
-        timeoutMs: config.timeoutMs,
-        maxOutputBytes: config.maxOutputBytes,
-      },
+      request,
+      input,
+      patch_result: patchResult ?? null,
     });
+    if (plan?.skipped || plan?.status === "skipped" || plan?.record?.status === "skipped") {
+      return null;
+    }
+    const diagnosticsRequest = plan?.request ?? plan?.record?.request ?? null;
+    if (!diagnosticsRequest || typeof diagnosticsRequest !== "object" || Array.isArray(diagnosticsRequest)) {
+      throw runtimeDiagnosticsFeedbackRustCoreRequired({
+        operation: "post_edit_diagnostics_feedback_plan",
+        operation_kind: "runtime.post_edit_diagnostics_feedback",
+        thread_id: threadId ?? null,
+        turn_id: turnId || null,
+        patch_tool_call_id: patchToolCallId ?? null,
+        workflow_graph_id: workflowGraphId ?? null,
+        evidence_refs: [
+          "post_edit_diagnostics_feedback_missing_rust_plan_request",
+          "rust_daemon_core_post_edit_diagnostics_feedback_plan_required",
+        ],
+      });
+    }
+    const toolId = plan?.tool_id ?? plan?.record?.tool_id ?? "lsp.diagnostics";
+    return store.codingToolInvocationSurface.invokeThreadTool(
+      store,
+      threadId,
+      toolId,
+      diagnosticsRequest,
+    );
   }
 
   function pendingDiagnosticsFeedbackForNextTurn(store, threadId, request = {}) {
@@ -118,6 +109,18 @@ export function createRuntimeDiagnosticsFeedbackSurface(deps = {}) {
     maybeRunPostEditDiagnostics,
     pendingDiagnosticsFeedbackForNextTurn,
   };
+}
+
+function runtimeDiagnosticsFeedbackRustCoreRequired(details = {}) {
+  const error = new Error(
+    "Post-edit diagnostics feedback requires direct Rust daemon-core planning.",
+  );
+  error.code = "runtime_diagnostics_feedback_rust_core_required";
+  error.details = {
+    rust_core_boundary: "runtime.post_edit_diagnostics_feedback",
+    ...details,
+  };
+  throw error;
 }
 
 function assertCanonicalPendingDiagnosticsFeedbackRequest(request = {}) {

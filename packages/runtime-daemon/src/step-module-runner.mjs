@@ -1,24 +1,22 @@
-import {
-  createStepModuleInvocationForCodingTool,
-} from "./step-module-abi.mjs";
-import { createDaemonCoreCommandInvoker } from "./runtime-daemon-core-command-runner.mjs";
-
 export const WORKLOAD_GRPC_ADDR_ENV = "IOI_WORKLOAD_GRPC_ADDR";
 export const WORKLOAD_SHMEM_ID_ENV = "IOI_SHMEM_ID";
-export const DAEMON_CORE_COMMAND_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND";
 
 const COMMAND_SCHEMA_VERSION = "ioi.runtime.daemon_core.command.v1";
+const CODING_TOOL_STEP_MODULE_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.coding-tool-step-module-request.v1";
 
 export function createStepModuleRunnerFromEnv(env = process.env, options = {}) {
   assertNoStepModuleBackendSelection(options.backend ?? env.IOI_STEP_MODULE_BACKEND);
-  assertNoStepModuleCommandArgs(options.args ?? env.IOI_STEP_MODULE_COMMAND_ARGS);
-  assertNoStepModuleCommandSelection(env.IOI_STEP_MODULE_COMMAND);
+  assertNoStepModuleCommandArgs(
+    options.args ?? env.IOI_STEP_MODULE_COMMAND_ARGS ?? env.IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS,
+  );
+  assertNoStepModuleCommandSelection(
+    options.command ?? env.IOI_RUNTIME_DAEMON_CORE_COMMAND ?? env.IOI_STEP_MODULE_COMMAND,
+  );
   return new RustWorkloadStepModuleRunner({
-    command: options.command ?? env[DAEMON_CORE_COMMAND_ENV] ?? null,
     daemonCoreInvoker: options.daemonCoreInvoker,
     grpcAddr: options.grpcAddr ?? env[WORKLOAD_GRPC_ADDR_ENV] ?? null,
     shmemId: options.shmemId ?? env[WORKLOAD_SHMEM_ID_ENV] ?? null,
-    spawnSyncImpl: options.spawnSyncImpl,
   });
 }
 
@@ -45,9 +43,9 @@ export function assertNoStepModuleCommandArgs(value) {
 export function assertNoStepModuleCommandSelection(value) {
   if (typeof value !== "string" || value.trim().length === 0) return;
   throw new StepModuleRunnerError(
-    "IOI_STEP_MODULE_COMMAND is retired; StepModule execution uses IOI_RUNTIME_DAEMON_CORE_COMMAND until direct Rust daemon-core APIs replace command transport.",
-    "step_module_command_env_retired",
-    { retired_env: "IOI_STEP_MODULE_COMMAND", env: DAEMON_CORE_COMMAND_ENV },
+    "StepModule binary command selection is retired; use daemonCoreInvoker for direct Rust daemon-core StepModule execution.",
+    "step_module_command_selection_retired",
+    { retired_command: value },
   );
 }
 
@@ -76,65 +74,76 @@ export class RustWorkloadStepModuleRunner extends StepModuleRunner {
     super();
     this.grpcAddr = optionalString(options.grpcAddr);
     this.shmemId = optionalString(options.shmemId);
-    this.invokeCommand = createDaemonCoreCommandInvoker({
-      command: options.command,
-      daemonCoreInvoker: options.daemonCoreInvoker,
-      spawnSyncImpl: options.spawnSyncImpl,
-      ErrorClass: StepModuleRunnerError,
-      env: DAEMON_CORE_COMMAND_ENV,
-      unconfiguredMessage:
-        "Rust workload StepModule runner requires IOI_RUNTIME_DAEMON_CORE_COMMAND for daemon-core command transport.",
-      unconfiguredCode: "rust_workload_bridge_unconfigured",
-      spawnFailedMessage: "Failed to spawn Rust workload StepModule bridge command.",
-      spawnFailedCode: "rust_workload_bridge_spawn_failed",
-      commandFailedMessage: "Rust workload StepModule bridge command failed.",
-      commandFailedCode: "rust_workload_bridge_failed",
-      invalidJsonMessage: "Rust workload StepModule bridge command returned invalid JSON.",
-      invalidJsonCode: "rust_workload_bridge_invalid_json",
-      rejectedMessage: "Rust workload StepModule bridge rejected the invocation.",
-      rejectedCode: "rust_workload_bridge_rejected",
-    });
+    assertNoStepModuleCommandSelection(options.command);
+    this.daemonCoreInvoker = optionalFunction(options.daemonCoreInvoker);
   }
 
   get blocksDaemonJsExecution() {
     return true;
   }
 
-  runCodingTool({ contract, toolId, input = {}, result = {}, context = {} } = {}) {
-    const invocation = createStepModuleInvocationForCodingTool({
-      contract,
-      toolId,
-      input,
-      ...context,
-      module_kind: "workload_job",
-      execution_backend: "workload_grpc",
-    });
+  runCodingTool({ toolId, input = {}, context = {} } = {}) {
     const request = {
       schema_version: COMMAND_SCHEMA_VERSION,
       operation: "run_coding_tool_step_module",
       backend: this.backend,
+      request_schema_version: CODING_TOOL_STEP_MODULE_REQUEST_SCHEMA_VERSION,
       workload_grpc_addr: this.grpcAddr,
       shmem_id: this.shmemId,
-      invocation,
+      tool_id: optionalString(toolId),
       workspace_root: context.workspace_root ?? null,
+      run_id: context.run_id ?? null,
+      task_id: context.task_id ?? null,
+      thread_id: context.thread_id ?? null,
+      workflow_graph_id: context.workflow_graph_id ?? null,
+      workflow_node_id: context.workflow_node_id ?? null,
+      context_chamber_ref: context.context_chamber_ref ?? null,
+      action_proposal_ref: context.action_proposal_ref ?? null,
+      gate_result_ref: context.gate_result_ref ?? null,
+      authority_grant_refs: normalizeStringArray(context.authority_grant_refs),
+      approval_ref: context.approval_ref ?? null,
+      state_root_before: context.state_root_before ?? null,
+      projection_watermark: context.projection_watermark ?? null,
+      artifact_refs: normalizeStringArray(context.artifact_refs),
+      payload_refs: normalizeStringArray(context.payload_refs),
+      data_plane_handle: context.data_plane_handle ?? null,
+      idempotency_key: context.idempotency_key ?? null,
+      deadline_ms: context.deadline_ms ?? null,
+      manifest_ref: context.manifest_ref ?? null,
       input,
     };
-    const bridgeResult = this.invokeBridge(request);
+    const daemonCoreResult = this.invokeDaemonCore(request);
     return {
       backend: this.backend,
       mode: "live",
       blocking: this.blocksDaemonJsExecution,
-      source: bridgeResult.source,
-      bridge_result: bridgeResult,
-      invocation: bridgeResult.invocation ?? invocation,
-      result: bridgeResult.result ?? null,
+      source: daemonCoreResult.source,
+      bridge_result: daemonCoreResult,
+      invocation: daemonCoreResult.invocation ?? null,
+      result: daemonCoreResult.result ?? null,
     };
   }
 
-  invokeBridge(request) {
-    return normalizeBridgeResult(this.invokeCommand(request), {
+  invokeDaemonCore(request) {
+    if (!this.daemonCoreInvoker) {
+      throw new StepModuleRunnerError(
+        "Rust workload StepModule runner requires daemonCoreInvoker for direct Rust daemon-core StepModule execution.",
+        "rust_workload_direct_invoker_unconfigured",
+        { boundary: "daemonCoreInvoker" },
+      );
+    }
+    const response = this.daemonCoreInvoker(request);
+    const responseError = objectRecord(response?.error);
+    if (response?.ok === false && responseError) {
+      throw new StepModuleRunnerError(
+        responseError.message ?? "Rust workload StepModule core rejected the invocation.",
+        responseError.code ?? "rust_workload_direct_invoker_rejected",
+        { error: responseError },
+      );
+    }
+    const result = response?.ok === true ? response.result : response;
+    return normalizeBridgeResult(result, {
       source: "rust_workload_command",
-      invocation: request.invocation,
     });
   }
 }
@@ -165,4 +174,17 @@ function optionalString(value) {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   return trimmed ? trimmed : null;
+}
+
+function optionalFunction(value) {
+  return typeof value === "function" ? value : null;
+}
+
+function objectRecord(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+}
+
+function normalizeStringArray(value) {
+  if (!Array.isArray(value)) return [];
+  return value.filter((entry) => typeof entry === "string" && entry.trim()).map((entry) => entry.trim());
 }

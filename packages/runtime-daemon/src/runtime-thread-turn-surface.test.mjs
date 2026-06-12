@@ -35,6 +35,29 @@ function createStore(overrides = {}) {
         status: updatedAgent.status,
       };
     },
+    agentRunLifecycleSurface: Object.hasOwn(overrides, "agentRunLifecycleSurface")
+      ? overrides.agentRunLifecycleSurface
+      : {
+          updateAgent(surfaceStore, agentId, status, operationKind) {
+            calls.push({
+              method: "agentRunLifecycleSurface.updateAgent",
+              surfaceStore,
+              agentId,
+              status,
+              operationKind,
+            });
+            return { ...agent, id: agentId, status, rust_planned: true };
+          },
+          createRun(surfaceStore, agentId, request) {
+            calls.push({
+              method: "agentRunLifecycleSurface.createRun",
+              surfaceStore,
+              agentId,
+              request,
+            });
+            return { id: "run_alpha", agentId, request, rust_planned: true };
+          },
+        },
     pendingDiagnosticsFeedbackForNextTurn(threadId, request) {
       calls.push({ method: "pendingDiagnosticsFeedbackForNextTurn", threadId, request });
       return overrides.diagnosticsFeedback ?? null;
@@ -45,7 +68,13 @@ function createStore(overrides = {}) {
     },
     turnForRun(run) {
       calls.push({ method: "turnForRun", runId: run.id });
-      return { turn_id: "turn_alpha", run_id: run.id, request: run.request };
+      return {
+        turn_id: "turn_alpha",
+        thread_id: "thread_alpha",
+        request_id: run.id,
+        run_id: run.id,
+        request: run.request,
+      };
     },
     createRuntimeBridgeTurn(request) {
       calls.push({ method: "createRuntimeBridgeTurn", request });
@@ -181,14 +210,37 @@ test("thread turn surface fails closed for runtime turns before bridge submit di
   assert.equal(store.calls.some((call) => call.method === "turnForRun"), false);
 });
 
-test("thread turn surface fails closed for non-runtime resume before JS mutation", async () => {
+test("thread turn surface resumes non-runtime threads through Rust lifecycle status and projection", async () => {
+  const surface = createRuntimeThreadTurnSurface({
+    diagnosticsFeedbackBlocksContinuation: () => false,
+    runtimeError,
+  });
+  const store = createStore();
+
+  const thread = await surface.resumeThread(store, "thread_alpha", { reason: "continue" });
+
+  assert.equal(thread.thread_id, "thread_alpha");
+  assert.equal(thread.agent_id, "agent_alpha");
+  assert.equal(thread.status, "active");
+  assert.deepEqual(
+    store.calls.map((call) => call.method),
+    ["agentForThread", "agentRunLifecycleSurface.updateAgent", "threadForAgent"],
+  );
+  assert.equal(store.calls[1].surfaceStore, store);
+  assert.equal(store.calls[1].agentId, "agent_alpha");
+  assert.equal(store.calls[1].status, "active");
+  assert.equal(store.calls[1].operationKind, "agent.resume");
+  assert.equal(store.calls.some((call) => call.method === "updateAgent"), false);
+});
+
+test("thread turn surface fails closed for non-runtime resume when mounted Rust lifecycle boundary is missing", async () => {
   const admissionRequiredCalls = [];
   const surface = createRuntimeThreadTurnSurface({
     contextPolicyRunner: createThreadTurnAdmissionRunner(admissionRequiredCalls),
     diagnosticsFeedbackBlocksContinuation: () => false,
     runtimeError,
   });
-  const store = createStore();
+  const store = createStore({ agentRunLifecycleSurface: null });
 
   await assert.rejects(
     () => surface.resumeThread(store, "thread_alpha", { reason: "continue" }),
@@ -215,14 +267,45 @@ test("thread turn surface fails closed for non-runtime resume before JS mutation
   assert.equal(store.calls.some((call) => call.method === "threadForAgent"), false);
 });
 
-test("thread turn surface fails closed for non-runtime turns before JS run creation", async () => {
+test("thread turn surface creates non-runtime turns through Rust-planned run and projection", async () => {
+  const surface = createRuntimeThreadTurnSurface({
+    diagnosticsFeedbackBlocksContinuation: () => false,
+    runtimeError,
+  });
+  const store = createStore();
+
+  const turn = await surface.createTurn(store, "thread_alpha", {
+    prompt: "ship it",
+    options: {},
+  });
+
+  assert.equal(turn.turn_id, "turn_alpha");
+  assert.equal(turn.thread_id, "thread_alpha");
+  assert.equal(turn.request_id, "run_alpha");
+  assert.deepEqual(
+    store.calls.map((call) => call.method),
+    [
+      "agentForThread",
+      "pendingDiagnosticsFeedbackForNextTurn",
+      "agentRunLifecycleSurface.createRun",
+      "turnForRun",
+    ],
+  );
+  assert.equal(store.calls[2].surfaceStore, store);
+  assert.equal(store.calls[2].agentId, "agent_alpha");
+  assert.equal(store.calls[2].request.prompt, "ship it");
+  assert.equal(store.calls.some((call) => call.method === "createRun"), false);
+  assert.equal(store.calls.some((call) => call.method === "createRuntimeBridgeTurn"), false);
+});
+
+test("thread turn surface fails closed for non-runtime turns when mounted Rust run boundary is missing", async () => {
   const admissionRequiredCalls = [];
   const surface = createRuntimeThreadTurnSurface({
     contextPolicyRunner: createThreadTurnAdmissionRunner(admissionRequiredCalls),
     diagnosticsFeedbackBlocksContinuation: () => false,
     runtimeError,
   });
-  const store = createStore();
+  const store = createStore({ agentRunLifecycleSurface: null });
 
   await assert.rejects(
     () => surface.createTurn(store, "thread_alpha", {
@@ -253,7 +336,7 @@ test("thread turn surface fails closed for non-runtime turns before JS run creat
   assert.equal(store.calls.some((call) => call.method === "turnForRun"), false);
 });
 
-test("thread turn surface fails closed for diagnostics-blocked turns before JS run creation", async () => {
+test("thread turn surface fails closed for diagnostics-blocked turns before Rust run creation", async () => {
   const admissionRequiredCalls = [];
   const surface = createRuntimeThreadTurnSurface({
     contextPolicyRunner: createThreadTurnAdmissionRunner(admissionRequiredCalls),

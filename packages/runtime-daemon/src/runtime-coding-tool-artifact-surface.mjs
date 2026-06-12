@@ -1,4 +1,5 @@
 import { CODING_TOOL_RESULT_SCHEMA_VERSION, retiredArtifactReadRangeAliases } from "./coding-tools.mjs";
+import { eventStreamIdForThread } from "./runtime-identifiers.mjs";
 import {
   CODING_TOOL_ARTIFACT_SCHEMA_VERSION,
   TERMINAL_EVENT_TYPES,
@@ -19,7 +20,6 @@ import {
 const {
   codingToolArtifactMetadata,
   codingToolArtifactReadResult,
-  codingToolCommandStreamChunks,
   codingToolCommandStreamRequested,
 } = createRuntimeCodingToolResultHelpers({
   CODING_TOOL_ARTIFACT_SCHEMA_VERSION,
@@ -33,6 +33,7 @@ const {
 
 export function createRuntimeCodingToolArtifactSurface(deps = {}) {
   const {
+    codingToolCommandStreamAdmissionForThread = null,
     notFound = defaultNotFound,
     policyError = defaultPolicyError,
     runtimeError = defaultRuntimeError,
@@ -135,8 +136,8 @@ export function createRuntimeCodingToolArtifactSurface(deps = {}) {
     });
   }
 
-  function appendCodingToolCommandStreamEvents(
-    _store,
+  function admitCodingToolCommandStreamEvents(
+    store,
     {
       agent,
       threadId,
@@ -153,25 +154,41 @@ export function createRuntimeCodingToolArtifactSurface(deps = {}) {
     } = {},
   ) {
     if (!codingToolCommandStreamRequested(request)) return [];
-    const chunks = codingToolCommandStreamChunks(result);
-    if (chunks.length === 0) return [];
-    throwCodingToolArtifactRustCoreRequired("coding_tool_command_stream_event_append", "artifact.command_stream", {
+    if (typeof codingToolCommandStreamAdmissionForThread !== "function") {
+      throwCodingToolArtifactRustCoreRequired("coding_tool_command_stream_event_admission", "runtime.coding_tool_command_stream", {
+        thread_id: threadId ?? null,
+        turn_id: turnId ?? null,
+        tool_name: toolId ?? null,
+        tool_call_id: toolCallId ?? null,
+        workspace_root: agent?.cwd ?? null,
+        workflow_graph_id: workflowGraphId ?? null,
+        workflow_node_id: workflowNodeId ?? null,
+        receipt_refs: uniqueStrings(receiptRefs),
+        artifact_refs: uniqueStrings(artifactRefs),
+        evidence_refs: [
+          "coding_tool_command_stream_js_event_append_retired",
+          "rust_daemon_core_command_stream_receipt_required",
+          "agentgres_command_stream_expected_head_required",
+        ],
+      });
+    }
+    const admission = codingToolCommandStreamAdmissionForThread(store, {
+      event_stream_id: eventStreamIdForThread(threadId),
       thread_id: threadId ?? null,
       turn_id: turnId ?? null,
-      tool_name: toolId ?? null,
+      tool_id: toolId ?? null,
       tool_call_id: toolCallId ?? null,
       workspace_root: agent?.cwd ?? null,
       workflow_graph_id: workflowGraphId ?? null,
       workflow_node_id: workflowNodeId ?? null,
-      stream_chunk_count: chunks.length,
+      source: request.source,
+      status,
+      request,
+      result,
       receipt_refs: uniqueStrings(receiptRefs),
       artifact_refs: uniqueStrings(artifactRefs),
-      evidence_refs: [
-        "coding_tool_command_stream_js_event_append_retired",
-        "rust_daemon_core_command_stream_receipt_required",
-        "agentgres_command_stream_expected_head_required",
-      ],
     });
+    return normalizeArray(admission?.events ?? admission);
   }
 
   function materializeVisualGuiObservationArtifacts(_store, { threadId, toolId, toolCallId, workspaceRoot, input } = {}) {
@@ -192,7 +209,7 @@ export function createRuntimeCodingToolArtifactSurface(deps = {}) {
   }
 
   return {
-    appendCodingToolCommandStreamEvents,
+    admitCodingToolCommandStreamEvents,
     materializeCodingToolArtifactDrafts,
     materializeVisualGuiObservationArtifacts,
     readCodingToolArtifact,

@@ -3,7 +3,9 @@ import test from "node:test";
 
 import {
   AGENT_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  AGENT_DELETE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   AGENT_STATUS_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  CODING_TOOL_BUDGET_BLOCK_REQUEST_SCHEMA_VERSION,
   CODING_TOOL_BUDGET_POLICY_REQUEST_SCHEMA_VERSION,
   CODING_TOOL_BUDGET_RECOVERY_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
   CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
@@ -11,7 +13,6 @@ import {
   CONTEXT_COMPACTION_PLAN_REQUEST_SCHEMA_VERSION,
   CONTEXT_COMPACTION_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   CONTEXT_BUDGET_POLICY_REQUEST_SCHEMA_VERSION,
-  CONTEXT_POLICY_COMMAND_ENV,
   CONTEXT_POLICY_COMMAND_SCHEMA_VERSION,
   ContextPolicyRunnerError,
   DIAGNOSTICS_REPAIR_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
@@ -29,24 +30,32 @@ import {
   OPERATOR_TURN_CONTROL_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
   OPERATOR_INTERRUPT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   OPERATOR_STEER_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
-  REPOSITORY_WORKFLOW_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION,
-  RUNTIME_TOOL_CATALOG_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION,
-  RUNTIME_LIFECYCLE_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION,
+  POST_EDIT_DIAGNOSTICS_FEEDBACK_PLAN_REQUEST_SCHEMA_VERSION,
+  REPOSITORY_WORKFLOW_PROJECTION_REQUEST_SCHEMA_VERSION,
+  RUNTIME_TOOL_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION,
+  RUNTIME_LIFECYCLE_PROJECTION_REQUEST_SCHEMA_VERSION,
   RUNTIME_BRIDGE_THREAD_START_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   RUNTIME_BRIDGE_TURN_RUN_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   RUN_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   RUN_CANCEL_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
   RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  RUNTIME_TASK_JOB_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  RUNTIME_TASK_JOB_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  RUNTIME_TASK_JOB_PROJECTION_REQUEST_SCHEMA_VERSION,
   RustContextPolicyRunner,
-  SKILL_HOOK_REGISTRY_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION,
+  SKILL_HOOK_REGISTRY_PROJECTION_REQUEST_SCHEMA_VERSION,
   SUBAGENT_RECORD_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  THREAD_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   THREAD_TURN_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
   THREAD_MEMORY_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  WORKSPACE_TRUST_CONTROL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   WORKFLOW_EDIT_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
   createContextPolicyRunnerFromEnv,
   normalizeAgentCreateStateUpdateBridgeResult,
+  normalizeAgentDeleteStateUpdateBridgeResult,
   normalizeAgentStatusStateUpdateBridgeResult,
+  normalizeCodingToolBudgetBlockBridgeResult,
   normalizeCodingToolBudgetRecoveryStateUpdateBridgeResult,
   normalizeCompactionPolicyBridgeResult,
   normalizeContextBudgetPolicyBridgeResult,
@@ -62,13 +71,23 @@ import {
   normalizeMemoryManagerValidationProjectionBridgeResult,
   normalizeOperatorInterruptStateUpdateBridgeResult,
   normalizeOperatorSteerStateUpdateBridgeResult,
+  normalizePostEditDiagnosticsFeedbackPlanBridgeResult,
   normalizeRunCancelStateUpdateBridgeResult,
+  normalizeRuntimeTaskJobCancelStateUpdateBridgeResult,
+  normalizeRuntimeTaskJobCreateStateUpdateBridgeResult,
+  normalizeRuntimeTaskJobProjectionBridgeResult,
+  normalizeRuntimeToolCatalogProjectionBridgeResult,
+  normalizeRuntimeLifecycleProjectionBridgeResult,
+  normalizeRepositoryWorkflowProjectionBridgeResult,
+  normalizeSkillHookRegistryProjectionBridgeResult,
   normalizeRunCreateStateUpdateBridgeResult,
   normalizeRuntimeBridgeThreadStartAgentStateUpdateBridgeResult,
   normalizeRuntimeBridgeTurnRunStateUpdateBridgeResult,
   normalizeSubagentRecordStateUpdateBridgeResult,
+  normalizeThreadCreateStateUpdateBridgeResult,
   normalizeThreadControlAgentStateUpdateBridgeResult,
   normalizeThreadMemoryAgentStateUpdateBridgeResult,
+  normalizeWorkspaceTrustControlStateUpdateBridgeResult,
 } from "./runtime-context-policy-runner.mjs";
 
 function assertNoRetiredOperationKindDetailAliases(details) {
@@ -77,21 +96,57 @@ function assertNoRetiredOperationKindDetailAliases(details) {
   }
 }
 
-test("context policy runner env uses daemon-core command boundary", () => {
+test("context policy runner env uses daemon-level direct invoker", () => {
+  const calls = [];
   const runner = createContextPolicyRunnerFromEnv({
-    [CONTEXT_POLICY_COMMAND_ENV]: "ioi-runtime-daemon-core",
     IOI_STEP_MODULE_COMMAND: "retired-step-module-bridge",
     IOI_STEP_MODULE_COMMAND_ARGS: "--retired",
+  }, {
+    daemonCoreInvoker(request) {
+      calls.push(request);
+      return {
+        source: "direct_daemon_core_api",
+        backend: "rust_policy",
+        status: "allowed",
+        mode: "monitor",
+        policy_decision_id: "policy_context_direct",
+        policy_decision_refs: ["policy_context_direct"],
+      };
+    },
   });
 
-  assert.equal(runner.command, "ioi-runtime-daemon-core");
+  const result = runner.evaluateContextBudgetPolicy({
+    usage_telemetry: { total_tokens: 1 },
+  });
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].operation, "evaluate_context_budget_policy");
+  assert.equal(result.source, "direct_daemon_core_api");
+});
+
+test("context policy runner rejects retired daemon-core command env", () => {
+  assert.throws(
+    () =>
+      createContextPolicyRunnerFromEnv(
+        {
+          IOI_RUNTIME_DAEMON_CORE_COMMAND: "ioi-runtime-daemon-core",
+        },
+        {
+          daemonCoreInvoker() {
+            return {};
+          },
+        },
+      ),
+    (error) =>
+      error instanceof ContextPolicyRunnerError &&
+      error.code === "context_policy_command_selection_retired",
+  );
 });
 
 test("context policy runner command args env fails closed", () => {
   assert.throws(
     () =>
       createContextPolicyRunnerFromEnv({
-        [CONTEXT_POLICY_COMMAND_ENV]: "ioi-runtime-daemon-core",
         IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS: "--json",
       }),
     (error) =>
@@ -109,19 +164,21 @@ test("context policy runner command args constructor option fails closed", () =>
   );
 });
 
-test("context budget policy runner sends generic Rust policy bridge request", () => {
+test("context policy runner command constructor option fails closed", () => {
+  assert.throws(
+    () => new RustContextPolicyRunner({ command: "ioi-runtime-daemon-core" }),
+    (error) =>
+      error instanceof ContextPolicyRunnerError &&
+      error.code === "context_policy_command_selection_retired",
+  );
+});
+
+test("context budget policy runner sends generic Rust policy through direct daemon-core invoker", () => {
   let captured = null;
-  let capturedArgs = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-runtime-daemon-core",
-    spawnSyncImpl(_command, args, options) {
-      captured = JSON.parse(options.input);
-      capturedArgs = args;
+    daemonCoreInvoker(request) {
+      captured = request;
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
             source: "rust_context_budget_policy_command",
             backend: "rust_policy",
             status: "blocked",
@@ -141,10 +198,7 @@ test("context budget policy runner sends generic Rust policy bridge request", ()
             runtime_event_idempotency_key:
               "thread:thread_1:context-budget:policy_context_budget_thread_test_blocked",
             summary: "Context budget blocked: total tokens exceeded.",
-          },
-        }),
-        stderr: "",
-      };
+          };
     },
   });
 
@@ -156,7 +210,6 @@ test("context budget policy runner sends generic Rust policy bridge request", ()
     turn_id: "turn_1",
   });
 
-  assert.deepEqual(capturedArgs, []);
   assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
   assert.equal(captured.operation, "evaluate_context_budget_policy");
   assert.equal(captured.backend, "rust_policy");
@@ -173,17 +226,12 @@ test("context budget policy runner sends generic Rust policy bridge request", ()
   assert.deepEqual(result.policy_decision_refs, ["policy_context_budget_thread_test_blocked"]);
 });
 
-test("coding tool budget runner sends Rust policy bridge request", () => {
+test("coding tool budget runner sends Rust policy through direct daemon-core invoker", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-runtime-daemon-core",
-    spawnSyncImpl(_command, _args, options) {
-      captured = JSON.parse(options.input);
+    daemonCoreInvoker(request) {
+      captured = request;
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
             source: "rust_coding_tool_budget_policy_command",
             backend: "rust_policy",
             status: "blocked",
@@ -198,10 +246,7 @@ test("coding tool budget runner sends Rust policy bridge request", () => {
             warnings: [],
             would_block: true,
             summary: "Context budget blocked: total tokens exceeded.",
-          },
-        }),
-        stderr: "",
-      };
+          };
     },
   });
 
@@ -222,17 +267,12 @@ test("coding tool budget runner sends Rust policy bridge request", () => {
   assert.deepEqual(result.policy_decision_refs, ["policy_context_budget_thread_test_blocked"]);
 });
 
-test("compaction policy runner sends Rust policy bridge request", () => {
+test("compaction policy runner sends Rust policy through direct daemon-core invoker", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-runtime-daemon-core",
-    spawnSyncImpl(_command, _args, options) {
-      captured = JSON.parse(options.input);
+    daemonCoreInvoker(request) {
+      captured = request;
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
             source: "rust_compaction_policy_command",
             backend: "rust_policy",
             status: "waiting",
@@ -260,10 +300,7 @@ test("compaction policy runner sends Rust policy bridge request", () => {
             compact_workflow_node_id: "runtime.context-compact",
             continuation_allowed: true,
             summary: "Compaction policy requires operator approval before compacting.",
-          },
-        }),
-        stderr: "",
-      };
+          };
     },
   });
 
@@ -290,17 +327,12 @@ test("compaction policy runner sends Rust policy bridge request", () => {
   );
 });
 
-test("context compaction runner sends Rust plan bridge request", () => {
+test("context compaction runner sends Rust plan through direct daemon-core invoker", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-runtime-daemon-core",
-    spawnSyncImpl(_command, _args, options) {
-      captured = JSON.parse(options.input);
+    daemonCoreInvoker(request) {
+      captured = request;
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
             source: "rust_context_compaction_plan_command",
             backend: "rust_policy",
             status: "planned",
@@ -325,10 +357,7 @@ test("context compaction runner sends Rust plan bridge request", () => {
             scope: "thread",
             requested_by: "operator_one",
             previous_latest_seq: 7,
-          },
-        }),
-        stderr: "",
-      };
+          };
     },
   });
 
@@ -351,17 +380,12 @@ test("context compaction runner sends Rust plan bridge request", () => {
   assert.deepEqual(result.receipt_refs, ["receipt_run_1_context_compaction_hash_one"]);
 });
 
-test("context compaction state update runner sends Rust state update bridge request", () => {
+test("context compaction state update runner sends Rust state update through direct daemon-core invoker", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-runtime-daemon-core",
-    spawnSyncImpl(_command, _args, options) {
-      captured = JSON.parse(options.input);
+    daemonCoreInvoker(request) {
+      captured = request;
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
             source: "rust_context_compaction_state_update_command",
             backend: "rust_policy",
             status: "planned",
@@ -387,10 +411,7 @@ test("context compaction state update runner sends Rust state update bridge requ
                 },
               },
             },
-          },
-        }),
-        stderr: "",
-      };
+          };
     },
   });
 
@@ -569,6 +590,13 @@ test("runtime state-update runners do not synthesize Rust-owned envelopes", () =
       },
     ],
     [
+      normalizeThreadCreateStateUpdateBridgeResult,
+      {
+        source: "rust_thread_create_state_update_command",
+        operation_kind: "thread.create",
+      },
+    ],
+    [
       normalizeAgentCreateStateUpdateBridgeResult,
       {
         source: "rust_agent_create_state_update_command",
@@ -599,17 +627,12 @@ test("runtime state-update runners do not synthesize Rust-owned envelopes", () =
   }
 });
 
-test("coding tool budget recovery state update runner sends Rust state update bridge request", () => {
+test("coding tool budget recovery state update runner sends Rust state update through direct daemon-core invoker", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-runtime-daemon-core",
-    spawnSyncImpl(_command, _args, options) {
-      captured = JSON.parse(options.input);
+    daemonCoreInvoker(request) {
+      captured = request;
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
             source: "rust_coding_tool_budget_recovery_state_update_command",
             backend: "rust_policy",
             status: "planned",
@@ -632,10 +655,7 @@ test("coding tool budget recovery state update runner sends Rust state update br
                 ],
               },
             },
-          },
-        }),
-        stderr: "",
-      };
+          };
     },
   });
 
@@ -669,17 +689,90 @@ test("coding tool budget recovery state update runner sends Rust state update br
   assert.equal(result.run.trace.operatorControls[0].event_id, "event_retry");
 });
 
+test("coding tool budget block runner sends Rust block request through direct daemon-core invoker", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    daemonCoreInvoker(request) {
+      captured = request;
+      return {
+        source: "rust_coding_tool_budget_block_command",
+        backend: "rust_policy",
+        status: "blocked",
+        operation_kind: "coding_tool.budget.block",
+        reason: "coding_tool_budget_exceeded",
+        context_budget_status: "blocked",
+        receipt_refs: ["receipt_budget"],
+        policy_decision_refs: ["policy_budget"],
+        artifact_refs: [],
+        rollback_refs: ["rollback_budget"],
+        result: {
+          schema_version: "ioi.runtime.coding-tool-result.v1",
+          status: "blocked",
+          rust_budget_block: true,
+          context_budget_status: "blocked",
+        },
+        event: {
+          event_stream_id: "thread_budget:events",
+          event_kind: "tool.blocked",
+          status: "blocked",
+          payload_summary: {
+            schema_version: "ioi.runtime.coding-tool-result.v1",
+            rust_budget_block: true,
+            context_budget_status: "blocked",
+            receipt_refs: ["receipt_budget"],
+          },
+          receipt_refs: ["receipt_budget"],
+        },
+        record: {
+          schema_version: "ioi.runtime.coding-tool-budget-block-result.v1",
+          status: "blocked",
+          operation_kind: "coding_tool.budget.block",
+        },
+      };
+    },
+  });
+
+  const result = runner.planCodingToolBudgetBlock({
+    thread_id: "thread_budget",
+    turn_id: "turn_budget",
+    tool_id: "file.inspect",
+    tool_call_id: "call_budget",
+    budget_policy: {
+      status: "blocked",
+      usage_telemetry: { prompt_tokens: 10 },
+      policy_decision_refs: ["policy_budget"],
+    },
+    receipt_refs: ["receipt_invocation"],
+    rollback_refs: ["rollback_budget"],
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "plan_coding_tool_budget_block");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    CODING_TOOL_BUDGET_BLOCK_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.tool_id, "file.inspect");
+  assert.equal(captured.request.budget_policy.status, "blocked");
+  assert.equal(result.source, "rust_coding_tool_budget_block_command");
+  assert.equal(result.operation_kind, "coding_tool.budget.block");
+  assert.equal(result.reason, "coding_tool_budget_exceeded");
+  assert.equal(result.context_budget_status, "blocked");
+  assert.deepEqual(result.receipt_refs, ["receipt_budget"]);
+  assert.deepEqual(result.policy_decision_refs, ["policy_budget"]);
+  assert.equal(result.result.rust_budget_block, true);
+  assert.equal(result.event.event_kind, "tool.blocked");
+  assert.equal(Object.hasOwn(result, "contextBudgetStatus"), false);
+  assert.equal(Object.hasOwn(result.event.payload_summary, "receiptRefs"), false);
+});
+
 test("coding-tool budget recovery admission-required runner sends Rust daemon-core request", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-runtime-daemon-core",
-    spawnSyncImpl(_command, _args, options) {
-      captured = JSON.parse(options.input);
+    daemonCoreInvoker(request) {
+      captured = request;
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
             source: "rust_coding_tool_budget_recovery_admission_required_command",
             backend: "rust_policy",
             record: {
@@ -697,10 +790,7 @@ test("coding-tool budget recovery admission-required runner sends Rust daemon-co
                 evidence_refs: ["coding_tool_budget_recovery_js_facade_retired"],
               },
             },
-          },
-        }),
-        stderr: "",
-      };
+          };
     },
   });
 
@@ -734,14 +824,9 @@ test("coding-tool budget recovery admission-required runner sends Rust daemon-co
 test("workflow-edit admission-required runner sends Rust daemon-core request", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-runtime-daemon-core",
-    spawnSyncImpl(_command, _args, options) {
-      captured = JSON.parse(options.input);
+    daemonCoreInvoker(request) {
+      captured = request;
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
             source: "rust_workflow_edit_admission_required_command",
             backend: "rust_policy",
             record: {
@@ -757,10 +842,7 @@ test("workflow-edit admission-required runner sends Rust daemon-core request", (
                 evidence_refs: ["workflow_edit_proposal_js_facade_retired"],
               },
             },
-          },
-        }),
-        stderr: "",
-      };
+          };
     },
   });
 
@@ -790,14 +872,9 @@ test("workflow-edit admission-required runner sends Rust daemon-core request", (
 test("diagnostics repair admission-required runner sends Rust daemon-core request", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-runtime-daemon-core",
-    spawnSyncImpl(_command, _args, options) {
-      captured = JSON.parse(options.input);
+    daemonCoreInvoker(request) {
+      captured = request;
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
             source: "rust_diagnostics_repair_admission_required_command",
             backend: "rust_policy",
             record: {
@@ -816,10 +893,7 @@ test("diagnostics repair admission-required runner sends Rust daemon-core reques
                 evidence_refs: ["diagnostics_repair_decision_execution_js_facade_retired"],
               },
             },
-          },
-        }),
-        stderr: "",
-      };
+          };
     },
   });
 
@@ -852,17 +926,12 @@ test("diagnostics repair admission-required runner sends Rust daemon-core reques
   assert.equal(Object.hasOwn(result.record.details, "gateEventId"), false);
 });
 
-test("diagnostics operator override state update runner sends Rust state update bridge request", () => {
+test("diagnostics operator override state update runner sends Rust state update through direct daemon-core invoker", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-runtime-daemon-core",
-    spawnSyncImpl(_command, _args, options) {
-      captured = JSON.parse(options.input);
+    daemonCoreInvoker(request) {
+      captured = request;
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
             source: "rust_diagnostics_operator_override_state_update_command",
             backend: "rust_policy",
             status: "planned",
@@ -886,10 +955,7 @@ test("diagnostics operator override state update runner sends Rust state update 
                 ],
               },
             },
-          },
-        }),
-        stderr: "",
-      };
+          };
     },
   });
 
@@ -935,17 +1001,92 @@ test("diagnostics operator override state update runner sends Rust state update 
   assert.equal(result.run.trace.operatorControls[0].event_id, "event_override");
 });
 
+test("post-edit diagnostics feedback runner sends Rust daemon-core plan request", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    daemonCoreInvoker(request) {
+      captured = request;
+      return {
+        source: "rust_post_edit_diagnostics_feedback_plan_command",
+        backend: "rust_runtime_diagnostics_feedback",
+        planned: true,
+        request: {
+          workflow_node_id: "runtime.coding-tool.lsp-diagnostics.auto",
+          input: { paths: ["src/app.js"] },
+        },
+        record: {
+          schema_version: "ioi.runtime.post-edit-diagnostics-feedback-plan.v1",
+          object: "ioi.runtime_post_edit_diagnostics_feedback_plan",
+          status: "planned",
+          operation_kind: "runtime.post_edit_diagnostics_feedback",
+          tool_id: "lsp.diagnostics",
+          paths: ["src/app.js"],
+          rollback_refs: ["snapshot_alpha"],
+        },
+      };
+    },
+  });
+
+  const result = runner.planPostEditDiagnosticsFeedback({
+    thread_id: "thread_alpha",
+    turn_id: "turn_alpha",
+    patch_tool_call_id: "patch_alpha",
+    workflow_graph_id: "graph_alpha",
+    request: { diagnostics_mode: "blocking" },
+    input: { cwd: "/workspace" },
+    patch_result: { changed_files: [{ path: "src/app.js" }] },
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "plan_post_edit_diagnostics_feedback");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    POST_EDIT_DIAGNOSTICS_FEEDBACK_PLAN_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.thread_id, "thread_alpha");
+  assert.equal(captured.request.patch_tool_call_id, "patch_alpha");
+  assert.deepEqual(captured.request.patch_result.changed_files, [{ path: "src/app.js" }]);
+  assert.equal(result.source, "rust_post_edit_diagnostics_feedback_plan_command");
+  assert.equal(result.backend, "rust_runtime_diagnostics_feedback");
+  assert.equal(result.operation_kind, "runtime.post_edit_diagnostics_feedback");
+  assert.equal(result.planned, true);
+  assert.deepEqual(result.paths, ["src/app.js"]);
+  assert.deepEqual(result.request.input.paths, ["src/app.js"]);
+});
+
+test("post-edit diagnostics feedback plan normalizer preserves Rust-owned request envelope", () => {
+  const result = normalizePostEditDiagnosticsFeedbackPlanBridgeResult({
+    source: "rust_post_edit_diagnostics_feedback_plan_command",
+    record: {
+      status: "planned",
+      operation_kind: "runtime.post_edit_diagnostics_feedback",
+      tool_id: "lsp.diagnostics",
+      request: {
+        workflow_node_id: "runtime.coding-tool.lsp-diagnostics.auto",
+        input: { paths: ["src/app.js"] },
+      },
+      diagnostics_repair_context: {
+        source_tool_name: "file.apply_patch",
+      },
+      rollback_refs: ["snapshot_alpha"],
+    },
+  });
+
+  assert.equal(result.status, "planned");
+  assert.equal(result.planned, true);
+  assert.equal(result.tool_id, "lsp.diagnostics");
+  assert.deepEqual(result.request.input.paths, ["src/app.js"]);
+  assert.equal(result.diagnostics_repair_context.source_tool_name, "file.apply_patch");
+  assert.deepEqual(result.rollback_refs, ["snapshot_alpha"]);
+});
+
 test("operator turn control admission-required runner sends Rust daemon-core request", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-runtime-daemon-core",
-    spawnSyncImpl(_command, _args, options) {
-      captured = JSON.parse(options.input);
+    daemonCoreInvoker(request) {
+      captured = request;
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
             source: "rust_operator_turn_control_admission_required_command",
             backend: "rust_policy",
             record: {
@@ -964,10 +1105,7 @@ test("operator turn control admission-required runner sends Rust daemon-core req
                 evidence_refs: ["operator_interrupt_js_facade_retired"],
               },
             },
-          },
-        }),
-        stderr: "",
-      };
+          };
     },
   });
 
@@ -996,17 +1134,12 @@ test("operator turn control admission-required runner sends Rust daemon-core req
   assert.equal(Object.hasOwn(result.record.details, "requestedAction"), false);
 });
 
-test("operator interrupt state update runner sends Rust state update bridge request", () => {
+test("operator interrupt state update runner sends Rust state update through direct daemon-core invoker", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-runtime-daemon-core",
-    spawnSyncImpl(_command, _args, options) {
-      captured = JSON.parse(options.input);
+    daemonCoreInvoker(request) {
+      captured = request;
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
             source: "rust_operator_interrupt_state_update_command",
             backend: "rust_policy",
             status: "planned",
@@ -1033,10 +1166,7 @@ test("operator interrupt state update runner sends Rust state update bridge requ
                 ],
               },
             },
-          },
-        }),
-        stderr: "",
-      };
+          };
     },
   });
 
@@ -1071,17 +1201,12 @@ test("operator interrupt state update runner sends Rust state update bridge requ
   assert.equal(result.run.trace.operatorControls[0].event_id, "event_interrupt");
 });
 
-test("operator steer state update runner sends Rust state update bridge request", () => {
+test("operator steer state update runner sends Rust state update through direct daemon-core invoker", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-runtime-daemon-core",
-    spawnSyncImpl(_command, _args, options) {
-      captured = JSON.parse(options.input);
+    daemonCoreInvoker(request) {
+      captured = request;
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
             source: "rust_operator_steer_state_update_command",
             backend: "rust_policy",
             status: "planned",
@@ -1105,10 +1230,7 @@ test("operator steer state update runner sends Rust state update bridge request"
                 ],
               },
             },
-          },
-        }),
-        stderr: "",
-      };
+          };
     },
   });
 
@@ -1141,17 +1263,12 @@ test("operator steer state update runner sends Rust state update bridge request"
   assert.equal(result.run.trace.operatorControls[0].event_id, "event_steer");
 });
 
-test("run cancel state update runner sends Rust state update bridge request", () => {
+test("run cancel state update runner sends Rust state update through direct daemon-core invoker", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-runtime-daemon-core",
-    spawnSyncImpl(_command, _args, options) {
-      captured = JSON.parse(options.input);
+    daemonCoreInvoker(request) {
+      captured = request;
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
             source: "rust_run_cancel_state_update_command",
             backend: "rust_policy",
             status: "planned",
@@ -1183,10 +1300,7 @@ test("run cancel state update runner sends Rust state update bridge request", ()
                 { type: "canceled" },
               ],
             },
-          },
-        }),
-        stderr: "",
-      };
+          };
     },
   });
 
@@ -1213,14 +1327,9 @@ test("run cancel state update runner sends Rust state update bridge request", ()
 test("run cancel admission-required runner sends Rust daemon-core request", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-runtime-daemon-core",
-    spawnSyncImpl(_command, _args, options) {
-      captured = JSON.parse(options.input);
+    daemonCoreInvoker(request) {
+      captured = request;
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
             source: "rust_run_cancel_admission_required_command",
             backend: "rust_policy",
             record: {
@@ -1237,10 +1346,7 @@ test("run cancel admission-required runner sends Rust daemon-core request", () =
                 evidence_refs: ["runtime_run_cancel_js_facade_retired"],
               },
             },
-          },
-        }),
-        stderr: "",
-      };
+          };
     },
   });
 
@@ -1268,281 +1374,533 @@ test("run cancel admission-required runner sends Rust daemon-core request", () =
   assert.equal(Object.hasOwn(result.record.details, "runStatus"), false);
 });
 
-test("skill hook registry projection-required runner sends Rust daemon-core request", () => {
+test("runtime task job cancel runner sends Rust state update through direct daemon-core invoker", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-runtime-daemon-core",
-    spawnSyncImpl(_command, _args, options) {
-      captured = JSON.parse(options.input);
+    daemonCoreInvoker(request) {
+      captured = request;
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
-            source: "rust_skill_hook_registry_projection_required_command",
+            source: "rust_runtime_task_job_cancel_state_update_command",
             backend: "rust_policy",
-            record: {
-              status_code: 501,
-              code: "runtime_skill_hook_registry_rust_core_required",
-              message:
-                "Skill and hook registry projection requires direct Rust daemon-core projection over admitted governance/catalog truth.",
-              details: {
-                rust_core_boundary: "runtime.skill_hook_registry",
-                operation: "skill_hook_registry_skills",
-                operation_kind: "skill_hook.registry.skills",
-                registry_kind: "skills",
-                workspace_root: "/workspace/project",
-                evidence_refs: [
-                  "runtime_skill_hook_registry_js_projection_retired",
-                ],
-              },
+            status: "planned",
+            operation_kind: "task.cancel",
+            cancel_kind: "task",
+            task_id: "task_run_cancel_one",
+            run_id: "run_cancel_one",
+            updated_at: "2026-06-06T04:45:00.000Z",
+            runtime_task: {
+              taskId: "task_run_cancel_one",
+              status: "canceled",
             },
-          },
-        }),
-        stderr: "",
+            runtime_job: {
+              jobId: "job_run_cancel_one",
+              status: "canceled",
+            },
+            runtime_checklist: {
+              checklistId: "checklist_run_cancel_one",
+              status: "canceled",
+            },
+            run: {
+              id: "run_cancel_one",
+              status: "canceled",
+              events: [{ type: "job_canceled" }, { type: "canceled" }],
+              receipts: [{ id: "receipt_cancel" }],
+              artifacts: [{ id: "artifact_cancel" }],
+            },
+          };
+    },
+  });
+
+  const result = runner.planRuntimeTaskJobCancelStateUpdate({
+    cancel_kind: "task",
+    task_id: "task_run_cancel_one",
+    run_id: "run_cancel_one",
+    run: { id: "run_cancel_one", status: "running", trace: {} },
+    canceled_at: "2026-06-06T04:45:00.000Z",
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "plan_runtime_task_job_cancel_state_update");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    RUNTIME_TASK_JOB_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.cancel_kind, "task");
+  assert.equal(captured.request.task_id, "task_run_cancel_one");
+  assert.equal(result.source, "rust_runtime_task_job_cancel_state_update_command");
+  assert.equal(result.operation_kind, "task.cancel");
+  assert.equal(result.cancel_kind, "task");
+  assert.equal(result.task_id, "task_run_cancel_one");
+  assert.equal(result.runtime_task.status, "canceled");
+  assert.equal(result.run.status, "canceled");
+});
+
+test("runtime task job cancel normalizer accepts job cancel operation kind", () => {
+  const result = normalizeRuntimeTaskJobCancelStateUpdateBridgeResult({
+    source: "rust_runtime_task_job_cancel_state_update_command",
+    backend: "rust_policy",
+    record: {
+      status: "planned",
+      operation_kind: "job.cancel",
+      cancel_kind: "job",
+      job_id: "job_run_cancel_one",
+      run_id: "run_cancel_one",
+      runtime_job: { status: "canceled" },
+      run: { id: "run_cancel_one", status: "canceled" },
+    },
+  });
+
+  assert.equal(result.operation_kind, "job.cancel");
+  assert.equal(result.cancel_kind, "job");
+  assert.equal(result.job_id, "job_run_cancel_one");
+  assert.equal(result.runtime_job.status, "canceled");
+});
+
+test("runtime task job create runner sends Rust state update through direct daemon-core invoker", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    daemonCoreInvoker(request) {
+      captured = request;
+      return {
+        source: "rust_runtime_task_job_create_state_update_command",
+        backend: "rust_policy",
+        status: "planned",
+        operation_kind: "task.create",
+        task_id: "task_run_create_one",
+        job_id: "job_run_create_one",
+        run_id: "run_create_one",
+        agent_id: "agent-one",
+        created_at: "2026-06-06T04:45:00.000Z",
+        updated_at: "2026-06-06T04:45:00.000Z",
+        runtime_task: {
+          taskId: "task_run_create_one",
+          runId: "run_create_one",
+          status: "completed",
+        },
+        runtime_job: {
+          jobId: "job_run_create_one",
+          status: "completed",
+        },
+        runtime_checklist: {
+          checklistId: "checklist_run_create_one",
+          status: "completed",
+        },
+        run: {
+          id: "run_create_one",
+          agentId: "agent-one",
+          status: "completed",
+        },
       };
     },
   });
 
-  const result = runner.planSkillHookRegistryProjectionRequired({
+  const result = runner.planRuntimeTaskJobCreateStateUpdate({
+    agent_id: "agent-one",
+    run: { id: "run_create_one", agentId: "agent-one", status: "completed" },
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "plan_runtime_task_job_create_state_update");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    RUNTIME_TASK_JOB_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.agent_id, "agent-one");
+  assert.equal(result.source, "rust_runtime_task_job_create_state_update_command");
+  assert.equal(result.operation_kind, "task.create");
+  assert.equal(result.task_id, "task_run_create_one");
+  assert.equal(result.runtime_task.status, "completed");
+  assert.equal(result.run.id, "run_create_one");
+});
+
+test("runtime task job create normalizer requires task create operation kind", () => {
+  const result = normalizeRuntimeTaskJobCreateStateUpdateBridgeResult({
+    source: "rust_runtime_task_job_create_state_update_command",
+    backend: "rust_policy",
+    record: {
+      status: "planned",
+      operation_kind: "task.create",
+      task_id: "task_run_create_one",
+      job_id: "job_run_create_one",
+      run_id: "run_create_one",
+      agent_id: "agent-one",
+      runtime_task: { status: "completed" },
+      runtime_job: { status: "completed" },
+      runtime_checklist: { status: "completed" },
+      run: { id: "run_create_one", status: "completed" },
+    },
+  });
+
+  assert.equal(result.operation_kind, "task.create");
+  assert.equal(result.task_id, "task_run_create_one");
+  assert.equal(result.runtime_checklist.status, "completed");
+});
+
+test("runtime task job projection runner sends Rust projection through direct daemon-core invoker", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    daemonCoreInvoker(request) {
+      captured = request;
+      return {
+        source: "rust_runtime_task_job_projection_command",
+        backend: "rust_policy",
+        status: "projected",
+        operation_kind: "task.list",
+        projection_kind: "task.list",
+        agent_id: "agent-one",
+        status_filter: "running",
+        records: [
+          {
+            taskId: "task_run-one",
+            runId: "run-one",
+            agentId: "agent-one",
+            status: "running",
+          },
+        ],
+        record_count: 1,
+      };
+    },
+  });
+
+  const result = runner.projectRuntimeTaskJobProjection({
+    projection_kind: "task.list",
+    agent_id: "agent-one",
+    status: "running",
+    runs: [{ id: "run-one", agentId: "agent-one", status: "running" }],
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "project_runtime_task_job_projection");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    RUNTIME_TASK_JOB_PROJECTION_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.projection_kind, "task.list");
+  assert.equal(captured.request.agent_id, "agent-one");
+  assert.equal(result.source, "rust_runtime_task_job_projection_command");
+  assert.equal(result.operation_kind, "task.list");
+  assert.equal(result.projection_kind, "task.list");
+  assert.equal(result.records[0].taskId, "task_run-one");
+  assert.equal(result.record_count, 1);
+});
+
+test("runtime task job projection normalizer accepts get operation kinds", () => {
+  const taskResult = normalizeRuntimeTaskJobProjectionBridgeResult({
+    source: "rust_runtime_task_job_projection_command",
+    backend: "rust_policy",
+    record: {
+      status: "projected",
+      operation_kind: "task.get",
+      projection_kind: "task.get",
+      task_id: "task_run-one",
+      runtime_task: { taskId: "task_run-one", runId: "run-one" },
+      records: [{ taskId: "task_run-one" }],
+      record_count: 1,
+    },
+  });
+  const jobResult = normalizeRuntimeTaskJobProjectionBridgeResult({
+    source: "rust_runtime_task_job_projection_command",
+    backend: "rust_policy",
+    record: {
+      status: "projected",
+      operation_kind: "job.get",
+      projection_kind: "job.get",
+      job_id: "job_run-one",
+      runtime_job: { jobId: "job_run-one", runId: "run-one" },
+      records: [{ jobId: "job_run-one" }],
+      record_count: 1,
+    },
+  });
+
+  assert.equal(taskResult.operation_kind, "task.get");
+  assert.equal(taskResult.runtime_task.taskId, "task_run-one");
+  assert.equal(jobResult.operation_kind, "job.get");
+  assert.equal(jobResult.runtime_job.jobId, "job_run-one");
+});
+
+test("skill hook registry projection runner sends Rust daemon-core request", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    daemonCoreInvoker(request) {
+      captured = request;
+      return {
+        source: "rust_skill_hook_registry_projection_command",
+        backend: "rust_policy",
+        record: {
+          object: "ioi.runtime_skill_hook_registry_projection",
+          status: "projected",
+          operation: "skill_hook_registry_skills",
+          operation_kind: "skill_hook.registry.skills",
+          registry_kind: "skills",
+          workspace_root: "/workspace/project",
+          projection: {
+            schemaVersion: "ioi.agent-runtime.skills.v1",
+            object: "ioi.agent_skill_registry_projection",
+            status: "pass",
+            skillCount: 1,
+            skills: [{ id: "skill.repo", name: "Repo Cartographer" }],
+          },
+          skills: [{ id: "skill.repo", name: "Repo Cartographer" }],
+          hooks: [],
+          sources: [],
+          record_count: 1,
+          evidence_refs: ["rust_daemon_core_skill_hook_registry_projection"],
+          receipt_refs: ["receipt_skill_hook_registry_projection_skills"],
+        },
+      };
+    },
+  });
+
+  const result = runner.projectSkillHookRegistry({
     operation: "skill_hook_registry_skills",
     operation_kind: "skill_hook.registry.skills",
     registry_kind: "skills",
     workspace_root: "/workspace/project",
-    evidence_refs: ["runtime_skill_hook_registry_js_projection_retired"],
+    home_dir: "/home/operator",
   });
 
   assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(
-    captured.operation,
-    "plan_skill_hook_registry_projection_required",
-  );
+  assert.equal(captured.operation, "project_skill_hook_registry");
   assert.equal(captured.backend, "rust_policy");
   assert.equal(
     captured.request.schema_version,
-    SKILL_HOOK_REGISTRY_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION,
+    SKILL_HOOK_REGISTRY_PROJECTION_REQUEST_SCHEMA_VERSION,
   );
   assert.equal(captured.request.operation, "skill_hook_registry_skills");
   assert.equal(captured.request.operation_kind, "skill_hook.registry.skills");
   assert.equal(captured.request.registry_kind, "skills");
-  assert.equal(
-    result.source,
-    "rust_skill_hook_registry_projection_required_command",
+  assert.equal(captured.request.home_dir, "/home/operator");
+  assert.equal(result.source, "rust_skill_hook_registry_projection_command");
+  assert.equal(result.registry_kind, "skills");
+  assert.equal(result.projection.skillCount, 1);
+  assert.equal(result.skills[0].id, "skill.repo");
+  assert.equal(Object.hasOwn(result, "registryKind"), false);
+
+  assert.throws(
+    () =>
+      normalizeSkillHookRegistryProjectionBridgeResult({
+        record: {
+          operation_kind: "skill_hook.registry.retired",
+          registry_kind: "skills",
+        },
+      }),
+    (error) => {
+      assert.equal(
+        error.code,
+        "skill_hook_registry_projection_operation_kind_mismatch",
+      );
+      assertNoRetiredOperationKindDetailAliases(error.details);
+      return true;
+    },
   );
-  assert.equal(result.record.status_code, 501);
-  assert.equal(result.record.details.workspace_root, "/workspace/project");
-  assert.equal(Object.hasOwn(result.record.details, "workspaceRoot"), false);
 });
 
-test("repository workflow projection-required runner sends Rust daemon-core request", () => {
+test("repository workflow projection runner sends Rust daemon-core request", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-runtime-daemon-core",
-    spawnSyncImpl(_command, _args, options) {
-      captured = JSON.parse(options.input);
+    daemonCoreInvoker(request) {
+      captured = request;
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
-            source: "rust_repository_workflow_projection_required_command",
-            backend: "rust_policy",
-            record: {
-              status_code: 501,
-              code: "runtime_repository_workflow_projection_rust_core_required",
-              message:
-                "Repository workflow projection requires direct Rust daemon-core projection over Agentgres-admitted repository workflow truth.",
-              details: {
-                rust_core_boundary: "runtime.repository_workflow_projection",
-                operation: "repository_workflow_issue_context",
-                operation_kind: "repository_workflow.projection.issue_context",
-                projection_kind: "issue_context",
-                workspace_root: "/workspace/project",
-                evidence_refs: [
-                  "runtime_repository_workflow_js_projection_retired",
-                ],
-              },
+        source: "rust_repository_workflow_projection_command",
+        backend: "rust_policy",
+        record: {
+          object: "ioi.runtime_repository_workflow_projection",
+          status: "projected",
+          operation: "repository_workflow_pr_attempts",
+          operation_kind: "repository_workflow.projection.pr_attempts",
+          projection_kind: "pr_attempts",
+          workspace_root: "/workspace/project",
+          projection: [
+            {
+              schemaVersion: "ioi.agent-runtime.pr-attempt.v1",
+              object: "ioi.pr_attempt",
+              attemptId: "pr_attempt_one",
             },
+          ],
+          pr_attempt: {
+            schemaVersion: "ioi.agent-runtime.pr-attempt.v1",
+            object: "ioi.pr_attempt",
+            attemptId: "pr_attempt_one",
           },
-        }),
-        stderr: "",
+          repositories: [],
+          record_count: 1,
+          evidence_refs: ["runtime_repository_workflow_rust_projection"],
+          receipt_refs: ["receipt_repository_workflow_projection_pr_attempts"],
+        },
       };
     },
   });
 
-  const result = runner.planRepositoryWorkflowProjectionRequired({
-    operation: "repository_workflow_issue_context",
-    operation_kind: "repository_workflow.projection.issue_context",
-    projection_kind: "issue_context",
+  const result = runner.projectRepositoryWorkflow({
+    operation: "repository_workflow_pr_attempts",
+    operation_kind: "repository_workflow.projection.pr_attempts",
+    projection_kind: "pr_attempts",
     workspace_root: "/workspace/project",
-    evidence_refs: ["runtime_repository_workflow_js_projection_retired"],
+    evidence_refs: ["runtime_repository_workflow_rust_projection"],
   });
 
   assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(
-    captured.operation,
-    "plan_repository_workflow_projection_required",
-  );
+  assert.equal(captured.operation, "project_repository_workflow");
   assert.equal(captured.backend, "rust_policy");
   assert.equal(
     captured.request.schema_version,
-    REPOSITORY_WORKFLOW_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION,
+    REPOSITORY_WORKFLOW_PROJECTION_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.operation, "repository_workflow_issue_context");
+  assert.equal(captured.request.operation, "repository_workflow_pr_attempts");
   assert.equal(
     captured.request.operation_kind,
-    "repository_workflow.projection.issue_context",
+    "repository_workflow.projection.pr_attempts",
   );
-  assert.equal(captured.request.projection_kind, "issue_context");
+  assert.equal(captured.request.projection_kind, "pr_attempts");
   assert.equal(
     result.source,
-    "rust_repository_workflow_projection_required_command",
+    "rust_repository_workflow_projection_command",
   );
-  assert.equal(result.record.status_code, 501);
-  assert.equal(result.record.details.workspace_root, "/workspace/project");
-  assert.equal(Object.hasOwn(result.record.details, "workspaceRoot"), false);
+  assert.equal(result.projection_kind, "pr_attempts");
+  assert.equal(result.projection[0].attemptId, "pr_attempt_one");
+  assert.equal(result.pr_attempt.attemptId, "pr_attempt_one");
+  assert.equal(Object.hasOwn(result, "projectionKind"), false);
+
+  assert.throws(
+    () =>
+      normalizeRepositoryWorkflowProjectionBridgeResult({
+        record: {
+          operation_kind: "repository_workflow.projection.retired",
+          projection_kind: "pr_attempts",
+        },
+      }),
+    (error) => {
+      assert.equal(
+        error.code,
+        "repository_workflow_projection_operation_kind_mismatch",
+      );
+      assertNoRetiredOperationKindDetailAliases(error.details);
+      return true;
+    },
+  );
 });
 
-test("runtime tool catalog projection-required runner sends Rust daemon-core request", () => {
+test("runtime tool catalog projection runner sends Rust daemon-core request", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-runtime-daemon-core",
-    spawnSyncImpl(_command, _args, options) {
-      captured = JSON.parse(options.input);
+    daemonCoreInvoker(request) {
+      captured = request;
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
-            source: "rust_runtime_tool_catalog_projection_required_command",
-            backend: "rust_policy",
-            record: {
-              status_code: 501,
-              code: "runtime_tool_catalog_rust_core_required",
-              message:
-                "Runtime account, node, and tool catalog projections require direct Rust daemon-core projection over Agentgres-admitted runtime catalog truth.",
-              details: {
-                rust_core_boundary: "runtime.tool_catalog",
-                operation: "runtime_tool_catalog",
-                operation_kind: "runtime.tool_catalog.projection.tools",
-                projection_kind: "tools",
-                pack: "coding",
-                workspace_root: "/workspace/project",
-                evidence_refs: [
-                  "runtime_tool_catalog_js_projection_retired",
-                ],
-              },
-            },
-          },
-        }),
-        stderr: "",
+        source: "rust_runtime_tool_catalog_projection_command",
+        backend: "rust_policy",
+        record: {
+          object: "ioi.runtime_tool_catalog_projection",
+          status: "projected",
+          operation: "runtime_tool_catalog",
+          operation_kind: "runtime.tool_catalog.projection.tools",
+          projection_kind: "tools",
+          pack: "coding",
+          workspace_root: "/workspace/project",
+          tools: [{ stable_tool_id: "file.apply_patch", pack: "coding" }],
+          record_count: 1,
+          evidence_refs: ["rust_daemon_core_runtime_tool_catalog_projection"],
+          receipt_refs: ["receipt_runtime_tool_catalog_projection_tools"],
+        },
       };
     },
   });
 
-  const result = runner.planRuntimeToolCatalogProjectionRequired({
+  const result = runner.projectRuntimeToolCatalog({
     operation: "runtime_tool_catalog",
     operation_kind: "runtime.tool_catalog.projection.tools",
     projection_kind: "tools",
     pack: "coding",
     workspace_root: "/workspace/project",
-    evidence_refs: ["runtime_tool_catalog_js_projection_retired"],
   });
 
   assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(
-    captured.operation,
-    "plan_runtime_tool_catalog_projection_required",
-  );
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(captured.operation, "project_runtime_tool_catalog");
   assert.equal(
     captured.request.schema_version,
-    RUNTIME_TOOL_CATALOG_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION,
+    RUNTIME_TOOL_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.operation, "runtime_tool_catalog");
-  assert.equal(
-    captured.request.operation_kind,
-    "runtime.tool_catalog.projection.tools",
+  assert.equal(result.source, "rust_runtime_tool_catalog_projection_command");
+  assert.equal(result.projection_kind, "tools");
+  assert.equal(result.tools[0].stable_tool_id, "file.apply_patch");
+  assert.equal(Object.hasOwn(result.tools[0], "stableToolId"), false);
+
+  assert.throws(
+    () =>
+      normalizeRuntimeToolCatalogProjectionBridgeResult({
+        record: {
+          operation_kind: "runtime.tool_catalog.projection.retired",
+          projection_kind: "tools",
+        },
+      }),
+    (error) => {
+      assert.equal(
+        error.code,
+        "runtime_tool_catalog_projection_operation_kind_mismatch",
+      );
+      assertNoRetiredOperationKindDetailAliases(error.details);
+      return true;
+    },
   );
-  assert.equal(captured.request.projection_kind, "tools");
-  assert.equal(captured.request.pack, "coding");
-  assert.equal(
-    result.source,
-    "rust_runtime_tool_catalog_projection_required_command",
-  );
-  assert.equal(result.record.status_code, 501);
-  assert.equal(result.record.details.workspace_root, "/workspace/project");
-  assert.equal(Object.hasOwn(result.record.details, "workspaceRoot"), false);
 });
 
-test("runtime lifecycle projection-required runner sends Rust daemon-core request", () => {
+test("runtime lifecycle projection runner sends Rust daemon-core request", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-runtime-daemon-core",
-    spawnSyncImpl(_command, _args, options) {
-      captured = JSON.parse(options.input);
+    daemonCoreInvoker(request) {
+      captured = request;
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
-            source: "rust_runtime_lifecycle_projection_required_command",
-            backend: "rust_policy",
-            record: {
-              status_code: 501,
-              code: "runtime_lifecycle_projection_rust_core_required",
-              message:
-                "Runtime agent, thread, and run lifecycle projections require direct Rust daemon-core projection over Agentgres-admitted lifecycle truth.",
-              details: {
-                rust_core_boundary: "runtime.lifecycle_projection",
-                operation: "runtime_lifecycle_projection",
-                operation_kind: "runtime.lifecycle_projection.agent_runs",
-                projection_kind: "agent_runs",
-                agent_id: "agent_123",
-                run_id: "run_123",
-                artifact_ref: "artifact_123",
-                workspace_root: "/workspace/project",
-                evidence_refs: [
-                  "runtime_lifecycle_js_projection_retired",
-                ],
-              },
-            },
-          },
-        }),
-        stderr: "",
+        source: "rust_runtime_lifecycle_projection_command",
+        backend: "rust_policy",
+        record: {
+          object: "ioi.runtime_lifecycle_projection",
+          status: "projected",
+          operation: "runtime_lifecycle_projection",
+          operation_kind: "runtime.lifecycle_projection.run_artifact",
+          projection_kind: "run_artifact",
+          agent_id: "agent_123",
+          thread_id: "thread_123",
+          turn_id: "turn_123",
+          run_id: "run_123",
+          artifact_ref: "artifact_123",
+          workspace_root: "/workspace/project",
+          projection: { id: "artifact_123", name: "trace.json" },
+          record_count: 1,
+          evidence_refs: ["runtime_lifecycle_rust_projection"],
+          receipt_refs: ["receipt_runtime_lifecycle_projection_run_artifact"],
+        },
       };
     },
   });
 
-  const result = runner.planRuntimeLifecycleProjectionRequired({
+  const result = runner.projectRuntimeLifecycle({
     operation: "runtime_lifecycle_projection",
-    operation_kind: "runtime.lifecycle_projection.agent_runs",
-    projection_kind: "agent_runs",
+    operation_kind: "runtime.lifecycle_projection.run_artifact",
+    projection_kind: "run_artifact",
     agent_id: "agent_123",
     thread_id: "thread_123",
     turn_id: "turn_123",
     run_id: "run_123",
     artifact_ref: "artifact_123",
     workspace_root: "/workspace/project",
-    evidence_refs: ["runtime_lifecycle_js_projection_retired"],
+    evidence_refs: ["runtime_lifecycle_rust_projection"],
   });
 
   assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(
-    captured.operation,
-    "plan_runtime_lifecycle_projection_required",
-  );
+  assert.equal(captured.operation, "project_runtime_lifecycle");
   assert.equal(captured.backend, "rust_policy");
   assert.equal(
     captured.request.schema_version,
-    RUNTIME_LIFECYCLE_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION,
+    RUNTIME_LIFECYCLE_PROJECTION_REQUEST_SCHEMA_VERSION,
   );
   assert.equal(captured.request.operation, "runtime_lifecycle_projection");
   assert.equal(
     captured.request.operation_kind,
-    "runtime.lifecycle_projection.agent_runs",
+    "runtime.lifecycle_projection.run_artifact",
   );
-  assert.equal(captured.request.projection_kind, "agent_runs");
+  assert.equal(captured.request.projection_kind, "run_artifact");
   assert.equal(captured.request.agent_id, "agent_123");
   assert.equal(captured.request.thread_id, "thread_123");
   assert.equal(captured.request.turn_id, "turn_123");
@@ -1550,50 +1908,60 @@ test("runtime lifecycle projection-required runner sends Rust daemon-core reques
   assert.equal(captured.request.artifact_ref, "artifact_123");
   assert.equal(
     result.source,
-    "rust_runtime_lifecycle_projection_required_command",
+    "rust_runtime_lifecycle_projection_command",
   );
-  assert.equal(result.record.status_code, 501);
-  assert.equal(result.record.details.workspace_root, "/workspace/project");
-  assert.equal(Object.hasOwn(result.record.details, "agentId"), false);
-  assert.equal(Object.hasOwn(result.record.details, "threadId"), false);
-  assert.equal(Object.hasOwn(result.record.details, "turnId"), false);
-  assert.equal(Object.hasOwn(result.record.details, "artifactRef"), false);
-  assert.equal(Object.hasOwn(result.record.details, "workspaceRoot"), false);
+  assert.equal(result.projection_kind, "run_artifact");
+  assert.equal(result.projection.id, "artifact_123");
+  assert.equal(result.record_count, 1);
+  assert.equal(Object.hasOwn(result, "projectionKind"), false);
+
+  assert.throws(
+    () =>
+      normalizeRuntimeLifecycleProjectionBridgeResult({
+        record: {
+          operation_kind: "runtime.lifecycle_projection.retired",
+          projection_kind: "run_artifact",
+        },
+      }),
+    (error) => {
+      assert.equal(
+        error.code,
+        "runtime_lifecycle_projection_operation_kind_mismatch",
+      );
+      assertNoRetiredOperationKindDetailAliases(error.details);
+      return true;
+    },
+  );
 });
 
-test("thread control agent state update runner sends Rust state update bridge request", () => {
+test("thread control agent state update runner sends Rust state update through direct daemon-core invoker", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-runtime-daemon-core",
-    spawnSyncImpl(_command, _args, options) {
-      captured = JSON.parse(options.input);
+    daemonCoreInvoker(request) {
+      captured = request;
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
             source: "rust_thread_control_agent_state_update_command",
             backend: "rust_policy",
             status: "planned",
             operation_kind: "thread.thinking",
             updated_at: "2026-06-06T05:00:00.000Z",
+            receipt_refs: ["receipt_route_1"],
             control: {
               control_kind: "thinking",
               event_id: "evt_thread_control",
+              receipt_refs: ["receipt_route_1"],
             },
             agent: {
               id: "agent_1",
               modelId: "local-model",
+              receipt_refs: ["receipt_route_1"],
               runtimeControls: {
                 model: {
                   selectedModel: "local-model",
                 },
               },
             },
-          },
-        }),
-        stderr: "",
-      };
+          };
     },
   });
 
@@ -1627,30 +1995,92 @@ test("thread control agent state update runner sends Rust state update bridge re
   }
   assert.equal(result.source, "rust_thread_control_agent_state_update_command");
   assert.equal(result.operation_kind, "thread.thinking");
+  assert.deepEqual(result.receipt_refs, ["receipt_route_1"]);
   assert.equal(result.control.control_kind, "thinking");
   assert.equal(result.control.event_id, "evt_thread_control");
+  assert.deepEqual(result.control.receipt_refs, ["receipt_route_1"]);
   for (const field of [
     "controlKind",
     "eventId",
     "createdAt",
     "workspaceTrustWarningEventId",
+    "receiptRefs",
   ]) {
     assert.equal(Object.hasOwn(result.control, field), false);
   }
   assert.equal(result.agent.modelId, "local-model");
 });
 
+test("workspace trust control state update runner sends Rust state update through direct daemon-core invoker", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    daemonCoreInvoker(request) {
+      captured = request;
+      return {
+        source: "rust_workspace_trust_control_state_update_command",
+        backend: "rust_policy",
+        status: "planned",
+        operation_kind: "workspace_trust.acknowledge",
+        thread_id: "thread_1",
+        event_stream_id: "stream_thread_1",
+        warning_id: "workspace_trust_warning_1",
+        source_event_id: "evt_workspace_warning",
+        receipt_refs: ["receipt_workspace_trust_ack_1"],
+        policy_decision_refs: ["policy_workspace_trust_ack_1"],
+        workspace_trust_acknowledgement: {
+          warning_id: "workspace_trust_warning_1",
+          status: "acknowledged",
+        },
+        event: {
+          event_id: "evt_workspace_ack",
+          thread_id: "thread_1",
+          event_kind: "workspace.trust_acknowledged",
+          receipt_refs: ["receipt_workspace_trust_ack_1"],
+        },
+      };
+    },
+  });
+
+  const result = runner.planWorkspaceTrustControlStateUpdate({
+    operation_kind: "workspace_trust.acknowledge",
+    thread_id: "thread_1",
+    event_stream_id: "stream_thread_1",
+    agent: { id: "agent_1", cwd: "/workspace" },
+    warning_id: "workspace_trust_warning_1",
+    source_event_id: "evt_workspace_warning",
+    events: [
+      {
+        event_id: "evt_workspace_warning",
+        event_kind: "workspace.trust_warning",
+        payload_summary: { warning_id: "workspace_trust_warning_1" },
+        receipt_refs: ["receipt_workspace_trust_warning_1"],
+      },
+    ],
+    created_at: "2026-06-06T05:00:01.000Z",
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "plan_workspace_trust_control_state_update");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    WORKSPACE_TRUST_CONTROL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.operation_kind, "workspace_trust.acknowledge");
+  assert.equal(captured.request.warning_id, "workspace_trust_warning_1");
+  assert.equal(result.source, "rust_workspace_trust_control_state_update_command");
+  assert.equal(result.operation_kind, "workspace_trust.acknowledge");
+  assert.equal(result.workspace_trust_acknowledgement.status, "acknowledged");
+  assert.equal(result.event.event_kind, "workspace.trust_acknowledged");
+  assert.deepEqual(result.receipt_refs, ["receipt_workspace_trust_ack_1"]);
+});
+
 test("thread turn admission-required runner sends Rust daemon-core request", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-runtime-daemon-core",
-    spawnSyncImpl(_command, _args, options) {
-      captured = JSON.parse(options.input);
+    daemonCoreInvoker(request) {
+      captured = request;
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
             source: "rust_thread_turn_admission_required_command",
             backend: "rust_policy",
             record: {
@@ -1669,10 +2099,7 @@ test("thread turn admission-required runner sends Rust daemon-core request", () 
                 evidence_refs: ["thread_turn_create_js_run_creation_retired"],
               },
             },
-          },
-        }),
-        stderr: "",
-      };
+          };
     },
   });
 
@@ -1704,14 +2131,9 @@ test("thread turn admission-required runner sends Rust daemon-core request", () 
 test("lifecycle admission-required runner sends Rust daemon-core request", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-runtime-daemon-core",
-    spawnSyncImpl(_command, _args, options) {
-      captured = JSON.parse(options.input);
+    daemonCoreInvoker(request) {
+      captured = request;
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
             source: "rust_lifecycle_admission_required_command",
             backend: "rust_policy",
             record: {
@@ -1730,10 +2152,7 @@ test("lifecycle admission-required runner sends Rust daemon-core request", () =>
                 evidence_refs: ["runtime_agent_status_control_js_facade_retired"],
               },
             },
-          },
-        }),
-        stderr: "",
-      };
+          };
     },
   });
 
@@ -1762,17 +2181,12 @@ test("lifecycle admission-required runner sends Rust daemon-core request", () =>
   assert.equal(Object.hasOwn(result.record.details, "requestedStatus"), false);
 });
 
-test("mcp control agent state update runner sends Rust state update bridge request", () => {
+test("mcp control agent state update runner sends Rust state update through direct daemon-core invoker", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-runtime-daemon-core",
-    spawnSyncImpl(_command, _args, options) {
-      captured = JSON.parse(options.input);
+    daemonCoreInvoker(request) {
+      captured = request;
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
             source: "rust_mcp_control_agent_state_update_command",
             backend: "rust_policy",
             status: "planned",
@@ -1789,10 +2203,7 @@ test("mcp control agent state update runner sends Rust state update bridge reque
                 servers: [{ id: "mcp.docs" }],
               },
             },
-          },
-        }),
-        stderr: "",
-      };
+          };
     },
   });
 
@@ -1826,14 +2237,9 @@ test("mcp control agent state update runner sends Rust state update bridge reque
 test("MCP server validation runner sends Rust daemon-core validation request", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-runtime-daemon-core",
-    spawnSyncImpl(_command, _args, options) {
-      captured = JSON.parse(options.input);
+    daemonCoreInvoker(request) {
+      captured = request;
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
             source: "rust_mcp_server_validation_command",
             backend: "rust_policy",
             status: "blocked",
@@ -1850,10 +2256,7 @@ test("MCP server validation runner sends Rust daemon-core validation request", (
               },
             ],
             warnings: [],
-          },
-        }),
-        stderr: "",
-      };
+          };
     },
   });
 
@@ -1889,14 +2292,9 @@ test("MCP server validation runner sends Rust daemon-core validation request", (
 test("MCP server validation input runner sends Rust daemon-core projection request", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-runtime-daemon-core",
-    spawnSyncImpl(_command, _args, options) {
-      captured = JSON.parse(options.input);
+    daemonCoreInvoker(request) {
+      captured = request;
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
             source: "rust_mcp_server_validation_input_command",
             backend: "rust_policy",
             status: "projected",
@@ -1910,10 +2308,7 @@ test("MCP server validation input runner sends Rust daemon-core projection reque
                 workspace_root: "/workspace",
               },
             ],
-          },
-        }),
-        stderr: "",
-      };
+          };
     },
   });
 
@@ -1947,14 +2342,9 @@ test("MCP server validation input runner sends Rust daemon-core projection reque
 test("MCP manager status projection runner sends Rust daemon-core projection request", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-runtime-daemon-core",
-    spawnSyncImpl(_command, _args, options) {
-      captured = JSON.parse(options.input);
+    daemonCoreInvoker(request) {
+      captured = request;
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
             source: "rust_mcp_manager_status_projection_command",
             backend: "rust_policy",
             schema_version: "ioi.runtime.mcp-manager-status.v1",
@@ -1974,10 +2364,7 @@ test("MCP manager status projection runner sends Rust daemon-core projection req
             routes: {
               search_tools: "/v1/mcp/tools/search",
             },
-          },
-        }),
-        stderr: "",
-      };
+          };
     },
   });
 
@@ -2014,14 +2401,9 @@ test("MCP manager status projection runner sends Rust daemon-core projection req
 test("memory manager status projection runner sends Rust daemon-core projection request", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-runtime-daemon-core",
-    spawnSyncImpl(_command, _args, options) {
-      captured = JSON.parse(options.input);
+    daemonCoreInvoker(request) {
+      captured = request;
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
             source: "rust_memory_manager_status_projection_command",
             backend: "rust_policy",
             schema_version: "ioi.runtime.memory-manager-status.v1",
@@ -2044,10 +2426,7 @@ test("memory manager status projection runner sends Rust daemon-core projection 
             validation: { ok: true },
             routes: { status: "/v1/threads/{thread_id}/memory/status" },
             evidence_refs: ["runtime_memory_manager"],
-          },
-        }),
-        stderr: "",
-      };
+          };
     },
   });
 
@@ -2076,14 +2455,9 @@ test("memory manager status projection runner sends Rust daemon-core projection 
 test("memory manager validation projection runner sends Rust daemon-core projection request", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-runtime-daemon-core",
-    spawnSyncImpl(_command, _args, options) {
-      captured = JSON.parse(options.input);
+    daemonCoreInvoker(request) {
+      captured = request;
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
             source: "rust_memory_manager_validation_projection_command",
             backend: "rust_policy",
             schema_version: "ioi.runtime.memory-manager-validation.v1",
@@ -2099,10 +2473,7 @@ test("memory manager validation projection runner sends Rust daemon-core project
             paths: {},
             filters: {},
             records: [{ id: "memory.one" }],
-          },
-        }),
-        stderr: "",
-      };
+          };
     },
   });
 
@@ -2129,14 +2500,9 @@ test("memory manager validation projection runner sends Rust daemon-core project
 test("MCP manager catalog projection runner sends Rust daemon-core projection request", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-runtime-daemon-core",
-    spawnSyncImpl(_command, _args, options) {
-      captured = JSON.parse(options.input);
+    daemonCoreInvoker(request) {
+      captured = request;
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
             source: "rust_mcp_manager_catalog_projection_command",
             backend: "rust_policy",
             schema_version: "ioi.runtime.mcp-manager-catalog-projection.v1",
@@ -2151,10 +2517,7 @@ test("MCP manager catalog projection runner sends Rust daemon-core projection re
             resources: [{ stable_resource_id: "mcp.docs.resource.docs_index" }],
             prompts: [{ stable_prompt_id: "mcp.docs.prompt.summarize" }],
             enabled_tools: [{ stable_tool_id: "mcp.docs.search" }],
-          },
-        }),
-        stderr: "",
-      };
+          };
     },
   });
 
@@ -2184,14 +2547,9 @@ test("MCP manager catalog projection runner sends Rust daemon-core projection re
 test("MCP manager catalog summary projection runner sends Rust daemon-core projection request", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-runtime-daemon-core",
-    spawnSyncImpl(_command, _args, options) {
-      captured = JSON.parse(options.input);
+    daemonCoreInvoker(request) {
+      captured = request;
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
             source: "rust_mcp_manager_catalog_summary_projection_command",
             backend: "rust_policy",
             schema_version: "ioi.runtime.mcp-catalog-summary.v1",
@@ -2212,10 +2570,7 @@ test("MCP manager catalog summary projection runner sends Rust daemon-core proje
             full_catalog_included: true,
             search_route: "/v1/mcp/tools/search",
             fetch_route: "/v1/mcp/tools/{tool_id}",
-          },
-        }),
-        stderr: "",
-      };
+          };
     },
   });
 
@@ -2243,14 +2598,9 @@ test("MCP manager catalog summary projection runner sends Rust daemon-core proje
 test("MCP manager validation projection runner sends Rust daemon-core projection request", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-runtime-daemon-core",
-    spawnSyncImpl(_command, _args, options) {
-      captured = JSON.parse(options.input);
+    daemonCoreInvoker(request) {
+      captured = request;
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
             source: "rust_mcp_manager_validation_projection_command",
             backend: "rust_policy",
             schema_version: "ioi.runtime.mcp-manager-validation.v1",
@@ -2269,10 +2619,7 @@ test("MCP manager validation projection runner sends Rust daemon-core projection
             tools: [{ stable_tool_id: "mcp.docs.search" }],
             resources: [{ uri: "docs://index" }],
             prompts: [{ name: "summarize" }],
-          },
-        }),
-        stderr: "",
-      };
+          };
     },
   });
 
@@ -2368,17 +2715,12 @@ test("MCP and memory manager projection runners do not synthesize Rust-owned pro
   assert.equal(mcpSummary.fetch_route, null);
 });
 
-test("thread memory agent state update runner sends Rust state update bridge request", () => {
+test("thread memory agent state update runner sends Rust state update through direct daemon-core invoker", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-runtime-daemon-core",
-    spawnSyncImpl(_command, _args, options) {
-      captured = JSON.parse(options.input);
+    daemonCoreInvoker(request) {
+      captured = request;
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
             source: "rust_thread_memory_agent_state_update_command",
             backend: "rust_policy",
             status: "planned",
@@ -2392,10 +2734,7 @@ test("thread memory agent state update runner sends Rust state update bridge req
               id: "agent_1",
               updatedAt: "2026-06-06T06:05:00.000Z",
             },
-          },
-        }),
-        stderr: "",
-      };
+          };
     },
   });
 
@@ -2426,17 +2765,12 @@ test("thread memory agent state update runner sends Rust state update bridge req
   assert.equal(result.agent.updatedAt, "2026-06-06T06:05:00.000Z");
 });
 
-test("runtime bridge thread start agent state update runner sends Rust state update bridge request", () => {
+test("runtime bridge thread start agent state update runner sends Rust state update through direct daemon-core invoker", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-runtime-daemon-core",
-    spawnSyncImpl(_command, _args, options) {
-      captured = JSON.parse(options.input);
+    daemonCoreInvoker(request) {
+      captured = request;
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
             source: "rust_runtime_bridge_thread_start_agent_state_update_command",
             backend: "rust_policy",
             status: "planned",
@@ -2454,10 +2788,7 @@ test("runtime bridge thread start agent state update runner sends Rust state upd
               runtimeBridgeId: "bridge_runtime",
               updatedAt: "2026-06-06T06:15:00.000Z",
             },
-          },
-        }),
-        stderr: "",
-      };
+          };
     },
   });
 
@@ -2489,17 +2820,12 @@ test("runtime bridge thread start agent state update runner sends Rust state upd
   assert.equal(result.agent.runtimeSessionId, "session_runtime");
 });
 
-test("runtime bridge turn run state update runner sends Rust state update bridge request", () => {
+test("runtime bridge turn run state update runner sends Rust state update through direct daemon-core invoker", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-runtime-daemon-core",
-    spawnSyncImpl(_command, _args, options) {
-      captured = JSON.parse(options.input);
+    daemonCoreInvoker(request) {
+      captured = request;
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
             source: "rust_runtime_bridge_turn_run_state_update_command",
             backend: "rust_policy",
             status: "planned",
@@ -2511,10 +2837,7 @@ test("runtime bridge turn run state update runner sends Rust state update bridge
               status: "completed",
               updatedAt: "2026-06-06T06:35:00.000Z",
             },
-          },
-        }),
-        stderr: "",
-      };
+          };
     },
   });
 
@@ -2546,17 +2869,12 @@ test("runtime bridge turn run state update runner sends Rust state update bridge
   assert.equal(result.run.id, "run_runtime");
 });
 
-test("subagent record state update runner sends Rust state update bridge request", () => {
+test("subagent record state update runner sends Rust state update through direct daemon-core invoker", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-runtime-daemon-core",
-    spawnSyncImpl(_command, _args, options) {
-      captured = JSON.parse(options.input);
+    daemonCoreInvoker(request) {
+      captured = request;
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
             source: "rust_subagent_record_state_update_command",
             backend: "rust_policy",
             status: "planned",
@@ -2568,10 +2886,7 @@ test("subagent record state update runner sends Rust state update bridge request
               status: "completed",
               updated_at: "2026-06-06T07:04:00.000Z",
             },
-          },
-        }),
-        stderr: "",
-      };
+          };
     },
   });
 
@@ -2600,17 +2915,12 @@ test("subagent record state update runner sends Rust state update bridge request
   assert.equal(result.subagent.subagent_id, "subagent_1");
 });
 
-test("agent create state update runner sends Rust state update bridge request", () => {
+test("agent create state update runner sends Rust state update through direct daemon-core invoker", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-runtime-daemon-core",
-    spawnSyncImpl(_command, _args, options) {
-      captured = JSON.parse(options.input);
+    daemonCoreInvoker(request) {
+      captured = request;
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
             source: "rust_agent_create_state_update_command",
             backend: "rust_policy",
             status: "planned",
@@ -2621,10 +2931,7 @@ test("agent create state update runner sends Rust state update bridge request", 
               id: "agent_create_one",
               status: "active",
             },
-          },
-        }),
-        stderr: "",
-      };
+          };
     },
   });
 
@@ -2650,17 +2957,74 @@ test("agent create state update runner sends Rust state update bridge request", 
   assert.equal(result.agent.id, "agent_create_one");
 });
 
-test("agent status state update runner sends Rust state update bridge request", () => {
+test("thread create state update runner sends Rust state update through direct daemon-core invoker", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-runtime-daemon-core",
-    spawnSyncImpl(_command, _args, options) {
-      captured = JSON.parse(options.input);
+    daemonCoreInvoker(request) {
+      captured = request;
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
+            source: "rust_thread_create_state_update_command",
+            backend: "rust_policy",
+            status: "planned",
+            operation_kind: "thread.create",
+            thread_id: "thread_create_one",
+            agent_id: "agent_create_one",
+            created_at: "2026-06-06T05:15:00.000Z",
+            updated_at: "2026-06-06T05:15:00.000Z",
+            agent: {
+              id: "agent_create_one",
+              status: "active",
+            },
+            thread: {
+              thread_id: "thread_create_one",
+              agent_id: "agent_create_one",
+              event_stream_id: "thread_create_one:events",
+            },
+          };
+    },
+  });
+
+  const result = runner.planThreadCreateStateUpdate({
+    agent: {
+      id: "agent_create_one",
+      status: "active",
+      runtime: "local",
+      cwd: "/workspace",
+      runtimeControls: { mode: "agent" },
+      createdAt: "2026-06-06T05:15:00.000Z",
+      updatedAt: "2026-06-06T05:15:00.000Z",
+    },
+    thread: {
+      thread_id: "thread_create_one",
+      agent_id: "agent_create_one",
+      event_stream_id: "thread_create_one:events",
+      status: "active",
+      created_at: "2026-06-06T05:15:00.000Z",
+      updated_at: "2026-06-06T05:15:00.000Z",
+    },
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "plan_thread_create_state_update");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    THREAD_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.agent.id, "agent_create_one");
+  assert.equal(captured.request.thread.thread_id, "thread_create_one");
+  assert.equal(result.source, "rust_thread_create_state_update_command");
+  assert.equal(result.operation_kind, "thread.create");
+  assert.equal(result.thread.thread_id, "thread_create_one");
+  assert.equal(result.agent.id, "agent_create_one");
+});
+
+test("agent status state update runner sends Rust state update through direct daemon-core invoker", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    daemonCoreInvoker(request) {
+      captured = request;
+      return {
             source: "rust_agent_status_state_update_command",
             backend: "rust_policy",
             status: "planned",
@@ -2671,10 +3035,7 @@ test("agent status state update runner sends Rust state update bridge request", 
               status: "archived",
               updatedAt: "2026-06-06T06:25:00.000Z",
             },
-          },
-        }),
-        stderr: "",
-      };
+          };
     },
   });
 
@@ -2698,17 +3059,54 @@ test("agent status state update runner sends Rust state update bridge request", 
   assert.equal(result.agent.status, "archived");
 });
 
-test("run create state update runner sends Rust state update bridge request", () => {
+test("agent delete state update runner sends Rust tombstone through direct daemon-core invoker", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-runtime-daemon-core",
-    spawnSyncImpl(_command, _args, options) {
-      captured = JSON.parse(options.input);
+    daemonCoreInvoker(request) {
+      captured = request;
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
+            source: "rust_agent_delete_state_update_command",
+            backend: "rust_policy",
+            status: "planned",
+            operation_kind: "agent.delete",
+            deleted_at: "2026-06-06T06:40:00.000Z",
+            updated_at: "2026-06-06T06:40:00.000Z",
+            agent: {
+              id: "agent_1",
+              status: "deleted",
+              deletedAt: "2026-06-06T06:40:00.000Z",
+              updatedAt: "2026-06-06T06:40:00.000Z",
+            },
+          };
+    },
+  });
+
+  const result = runner.planAgentDeleteStateUpdate({
+    agent: { id: "agent_1", status: "active" },
+    operation_kind: "agent.delete",
+    deleted_at: "2026-06-06T06:40:00.000Z",
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "plan_agent_delete_state_update");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    AGENT_DELETE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.operation_kind, "agent.delete");
+  assert.equal(result.source, "rust_agent_delete_state_update_command");
+  assert.equal(result.operation_kind, "agent.delete");
+  assert.equal(result.agent.status, "deleted");
+  assert.equal(result.agent.deletedAt, "2026-06-06T06:40:00.000Z");
+});
+
+test("run create state update runner sends Rust state update through direct daemon-core invoker", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    daemonCoreInvoker(request) {
+      captured = request;
+      return {
             source: "rust_run_create_state_update_command",
             backend: "rust_policy",
             status: "planned",
@@ -2720,10 +3118,7 @@ test("run create state update runner sends Rust state update bridge request", ()
               agentId: "agent_create_one",
               usage_telemetry: { total_tokens: 7 },
             },
-          },
-        }),
-        stderr: "",
-      };
+          };
     },
   });
 
@@ -2754,12 +3149,14 @@ test("run create state update runner sends Rust state update bridge request", ()
   assert.equal(result.run.usage_telemetry.total_tokens, 7);
 });
 
-test("context policy runner fails closed without bridge command", () => {
+test("context policy runner fails closed without direct invoker", () => {
   const runner = new RustContextPolicyRunner();
 
   assert.throws(
     () => runner.evaluateContextBudgetPolicy({ usage_telemetry: { total_tokens: 1 } }),
-    /Context policy requires IOI_RUNTIME_DAEMON_CORE_COMMAND/,
+    (error) =>
+      error instanceof ContextPolicyRunnerError &&
+      error.code === "context_policy_direct_invoker_unconfigured",
   );
 });
 
@@ -2806,6 +3203,25 @@ test("context policy state update runner fails closed without Rust-planned opera
       assert.equal(error.code, "thread_control_agent_state_update_operation_kind_mismatch");
       assert.equal(error.details.expected_prefix, "thread.");
       assert.equal(error.details.operation_kind, "agent.status");
+      assertNoRetiredOperationKindDetailAliases(error.details);
+      return true;
+    },
+  );
+  assert.throws(
+    () =>
+      normalizeWorkspaceTrustControlStateUpdateBridgeResult({
+        status: "planned",
+        operation_kind: "thread.mode",
+        event: { event_kind: "workspace.trust_warning" },
+      }),
+    (error) => {
+      assert.equal(error.code, "workspace_trust_control_state_update_operation_kind_mismatch");
+      assert.equal(error.details.expected_operation_kind, "workspace_trust.warning");
+      assert.deepEqual(error.details.expected_operation_kinds, [
+        "workspace_trust.warning",
+        "workspace_trust.acknowledge",
+      ]);
+      assert.equal(error.details.operation_kind, "thread.mode");
       assertNoRetiredOperationKindDetailAliases(error.details);
       return true;
     },

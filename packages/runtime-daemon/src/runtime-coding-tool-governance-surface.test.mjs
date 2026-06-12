@@ -3,21 +3,8 @@ import test from "node:test";
 
 import { createRuntimeCodingToolGovernanceSurface } from "./runtime-coding-tool-governance-surface.mjs";
 
-function createSurface({ expired = false, manifestsMatch = true } = {}) {
+function createSurface(overrides = {}) {
   return createRuntimeCodingToolGovernanceSurface({
-    approvalLeaseStateForDecision() {
-      return {
-        expired,
-        lease_id: "lease-one",
-        expires_at: "2026-06-04T12:00:00.000Z",
-      };
-    },
-    approvalReasonForDecisionEvent(event) {
-      return event?.payload_summary?.reason ?? "approval_not_satisfied";
-    },
-    codingToolApprovalManifestsMatch() {
-      return manifestsMatch;
-    },
     runtimeError({ status, code, message, details }) {
       const error = new Error(message);
       error.status = status;
@@ -25,26 +12,19 @@ function createSurface({ expired = false, manifestsMatch = true } = {}) {
       error.details = details;
       return error;
     },
+    ...overrides,
   });
 }
 
-function createStore({ approvalEvent = null, decisionEvent = null } = {}) {
-  const events = [approvalEvent, decisionEvent].filter(Boolean);
+function createStore() {
   return {
-    events,
+    events: [],
     approvalRequests: [],
     latestApprovalRequestEvent(threadId, approvalId) {
-      return events
-        .filter(
-          (event) =>
-            event.thread_id === threadId &&
-            event.approval_id === approvalId &&
-            event.event_kind === "approval.required",
-        )
-        .at(-1) ?? null;
+      throw new Error(`approval satisfaction JS event lookup must be retired: ${threadId}:${approvalId}`);
     },
     runtimeEventStream() {
-      return { events };
+      throw new Error("approval satisfaction JS stream lookup must be retired");
     },
     requestThreadApproval(threadId, request = {}) {
       this.approvalRequests.push({ threadId, request });
@@ -53,34 +33,6 @@ function createStore({ approvalEvent = null, decisionEvent = null } = {}) {
     appendRuntimeEvent(record) {
       throw new Error(`appendRuntimeEvent must not be called by the retired JS governance facade: ${record?.event_kind}`);
     },
-  };
-}
-
-function approvalEvent(overrides = {}) {
-  return {
-    event_id: "event-approval-request",
-    seq: 1,
-    thread_id: "thread-one",
-    approval_id: "approval-one",
-    event_kind: "approval.required",
-    payload_summary: {
-      approval_manifest: { tool_id: "file.write" },
-    },
-    ...overrides,
-  };
-}
-
-function decisionEvent(kind = "approval.approved", overrides = {}) {
-  return {
-    event_id: "event-decision",
-    seq: 2,
-    thread_id: "thread-one",
-    approval_id: "approval-one",
-    event_kind: kind,
-    payload_summary: {
-      reason: kind === "approval.approved" ? "approved" : "rejected_by_operator",
-    },
-    ...overrides,
   };
 }
 
@@ -108,173 +60,16 @@ function assertNoRetiredGovernanceDetailAliases(details) {
   }
 }
 
-test("coding-tool governance reports approval satisfaction states", () => {
-  const approvedStore = createStore({
-    approvalEvent: approvalEvent(),
-    decisionEvent: decisionEvent(),
-  });
-  const approved = createSurface().codingToolApprovalSatisfaction(approvedStore, {
-    threadId: "thread-one",
-    approval_manifest: { tool_id: "file.write" },
-    request: { approval_id: "approval-one" },
-  });
-
-  assert.deepEqual(approved, {
-    satisfied: true,
-    approval_id: "approval-one",
-    decision_event_id: "event-decision",
-    decision_seq: 2,
-    reason: "approved",
-    lease_id: "lease-one",
-    expires_at: "2026-06-04T12:00:00.000Z",
-  });
-  for (const field of ["approvalId", "decisionEventId", "decisionSeq", "leaseId", "expiresAt"]) {
-    assert.equal(Object.hasOwn(approved, field), false);
-  }
-  assert.equal(
-    createSurface().codingToolApprovalSatisfaction(approvedStore, {
-      threadId: "thread-one",
-      approval_manifest: {},
-      request: {},
-    }).reason,
-    "approval_id_missing",
-  );
-  assert.equal(
-    createSurface().codingToolApprovalSatisfaction(createStore(), {
-      threadId: "thread-one",
-      approval_manifest: {},
-      request: { approval_id: "missing" },
-    }).reason,
-    "approval_request_missing",
-  );
-  assert.equal(
-    createSurface({ manifestsMatch: false }).codingToolApprovalSatisfaction(approvedStore, {
-      threadId: "thread-one",
-      approval_manifest: { tool_id: "file.write" },
-      request: { approval_id: "approval-one" },
-    }).reason,
-    "approval_manifest_mismatch",
-  );
-  assert.equal(
-    createSurface({ manifestsMatch: false }).codingToolApprovalSatisfaction(createStore({
-      approvalEvent: approvalEvent({
-        payload_summary: {
-          approvalManifest: { tool_id: "file.write" },
-        },
-      }),
-    }), {
-      threadId: "thread-one",
-      approval_manifest: { tool_id: "file.write" },
-      request: { approval_id: "approval-one" },
-    }).reason,
-    "approval_manifest_mismatch",
-  );
-  assert.equal(
-    createSurface().codingToolApprovalSatisfaction(createStore({ approvalEvent: approvalEvent() }), {
-      threadId: "thread-one",
-      approval_manifest: { tool_id: "file.write" },
-      request: { approval_id: "approval-one" },
-    }).reason,
-    "approval_decision_missing",
-  );
-  assert.equal(
-    createSurface().codingToolApprovalSatisfaction(approvedStore, {
-      threadId: "thread-one",
-      approval_manifest: { tool_id: "file.write" },
-      request: { approvalId: "approval-one" },
-    }).reason,
-    "approval_id_missing",
-  );
+test("coding-tool approval satisfaction JS gate is retired", () => {
+  const surface = createSurface();
+  assert.equal(Object.hasOwn(surface, "codingToolApprovalSatisfaction"), false);
+  assert.equal(surface.codingToolApprovalSatisfaction, undefined);
 });
 
-test("coding-tool governance rejects non-approved or expired decisions", () => {
-  const rejected = createSurface().codingToolApprovalSatisfaction(
-    createStore({
-      approvalEvent: approvalEvent(),
-      decisionEvent: decisionEvent("approval.rejected"),
-    }),
-    {
-      threadId: "thread-one",
-      approval_manifest: { tool_id: "file.write" },
-      request: { approval_id: "approval-one" },
-    },
-  );
-  const expired = createSurface({ expired: true }).codingToolApprovalSatisfaction(
-    createStore({
-      approvalEvent: approvalEvent(),
-      decisionEvent: decisionEvent(),
-    }),
-    {
-      threadId: "thread-one",
-      approval_manifest: { tool_id: "file.write" },
-      request: { approval_id: "approval-one" },
-    },
-  );
-
-  assert.equal(rejected.satisfied, false);
-  assert.equal(rejected.reason, "rejected_by_operator");
-  assert.equal(rejected.decision_event_id, "event-decision");
-  assert.equal(Object.hasOwn(rejected, "decisionEventId"), false);
-  assert.equal(expired.satisfied, false);
-  assert.equal(expired.reason, "approval_lease_expired");
-  assert.equal(expired.lease_id, "lease-one");
-  assert.equal(expired.expires_at, "2026-06-04T12:00:00.000Z");
-  assert.equal(Object.hasOwn(expired, "leaseId"), false);
-});
-
-test("coding-tool governance approval block facade fails closed before JS approval persistence", () => {
-  const store = createStore();
-
-  assert.throws(
-    () => createSurface().blockCodingToolForApproval(store, {
-      agent: baseAgent,
-      threadId: "thread-one",
-      turnId: "turn-one",
-      toolId: "file.write",
-      toolCallId: "tool-call-one",
-      receiptId: "receipt-tool",
-      input: { path: "src/main.js", content: "hello" },
-      request: { source: "agent_studio" },
-      workflowGraphId: "graph-one",
-      workflowNodeId: "node-one",
-      requestRollbackRefs: ["rollback-one"],
-      diagnosticsRepairContext: { mode: "compact" },
-      approval_manifest: {
-        thread_mode: "agent",
-        approval_mode: "human_required",
-        policy_reason: "writes_require_approval",
-        effect_class: "workspace_write",
-        risk_domain: "workspace",
-        authority_scope_requirements: ["workspace.write"],
-      },
-      toolContract: { id: "file.write" },
-    }),
-    (error) => {
-      assert.equal(error.status, 501);
-      assert.equal(error.code, "runtime_coding_tool_governance_rust_core_required");
-      assert.equal(error.details.rust_core_boundary, "runtime.coding_tool_governance");
-      assert.equal(error.details.operation, "coding_tool_approval_block");
-      assert.equal(error.details.operation_kind, "coding_tool.approval.block");
-      assert.equal(error.details.thread_id, "thread-one");
-      assert.equal(error.details.turn_id, "turn-one");
-      assert.equal(error.details.tool_id, "file.write");
-      assert.equal(error.details.tool_call_id, "tool-call-one");
-      assert.equal(error.details.workflow_graph_id, "graph-one");
-      assert.equal(error.details.workflow_node_id, "node-one");
-      assert.equal(error.details.approval_mode, "human_required");
-      assert.equal(error.details.effect_class, "workspace_write");
-      assert.equal(error.details.risk_domain, "workspace");
-      assert.equal(error.details.source, "agent_studio");
-      assert.deepEqual(error.details.evidence_refs, [
-        "coding_tool_approval_block_js_facade_retired",
-        "rust_daemon_core_coding_tool_approval_block_required",
-        "agentgres_coding_tool_approval_block_truth_required",
-      ]);
-      assertNoRetiredGovernanceDetailAliases(error.details);
-      return true;
-    },
-  );
-  assert.deepEqual(store.approvalRequests, []);
+test("coding-tool governance approval block facade is retired", () => {
+  const surface = createSurface();
+  assert.equal(Object.hasOwn(surface, "blockCodingToolForApproval"), false);
+  assert.equal(surface.blockCodingToolForApproval, undefined);
 });
 
 test("coding-tool governance budget block facade fails closed before JS event append", () => {
@@ -331,5 +126,101 @@ test("coding-tool governance budget block facade fails closed before JS event ap
       return true;
     },
   );
+  assert.deepEqual(store.events, []);
+});
+
+test("coding-tool governance budget block delegates to Rust planner without JS event append", () => {
+  const store = createStore();
+  const calls = [];
+  const surface = createSurface({
+    codingToolBudgetBlockPlanner: {
+      planCodingToolBudgetBlock(request) {
+        calls.push(request);
+        return {
+          source: "rust_coding_tool_budget_block_command",
+          backend: "rust_policy",
+          status: "blocked",
+          operation_kind: "coding_tool.budget.block",
+          reason: "coding_tool_budget_exceeded",
+          context_budget_status: "blocked",
+          receipt_refs: ["receipt_budget"],
+          policy_decision_refs: ["policy_budget"],
+          event: {
+            event_stream_id: "thread-one:events",
+            event_kind: "tool.blocked",
+            status: "blocked",
+            receipt_refs: ["receipt_budget"],
+            payload_summary: {
+              schema_version: "ioi.runtime.coding-tool-result.v1",
+              rust_budget_block: true,
+              context_budget_status: "blocked",
+              receipt_refs: ["receipt_budget"],
+            },
+          },
+          result: {
+            schema_version: "ioi.runtime.coding-tool-result.v1",
+            status: "blocked",
+            rust_budget_block: true,
+          },
+        };
+      },
+    },
+  });
+
+  const result = surface.blockCodingToolForBudget(store, {
+    agent: baseAgent,
+    threadId: "thread-one",
+    turnId: "turn-one",
+    toolId: "file.inspect",
+    toolCallId: "tool-call-one",
+    workspaceRoot: "/workspace/project",
+    receiptId: "receipt-tool",
+    inputSummary: { path: "README.md" },
+    request: { source: "agent_studio" },
+    workflowGraphId: "graph-one",
+    workflowNodeId: "node-one",
+    requestRollbackRefs: ["rollback-one"],
+    budgetPolicy: {
+      status: "blocked",
+      usage_telemetry: { prompt_tokens: 10 },
+      receipt_refs: ["receipt_budget_policy"],
+      policy_decision_refs: ["policy_budget"],
+      receiptRefs: ["receipt_retired"],
+      policyDecisionRefs: ["policy_retired"],
+    },
+    artifactRefs: ["artifact-one"],
+    codingToolIdempotencyKey: "idempotent-budget-block",
+  });
+
+  assert.equal(result.source, "rust_coding_tool_budget_block_command");
+  assert.equal(result.operation_kind, "coding_tool.budget.block");
+  assert.equal(result.event.payload_summary.rust_budget_block, true);
+  assert.deepEqual(calls, [{
+    thread_id: "thread-one",
+    turn_id: "turn-one",
+    tool_id: "file.inspect",
+    tool_call_id: "tool-call-one",
+    workspace_root: "/workspace/project",
+    workflow_graph_id: "graph-one",
+    workflow_node_id: "node-one",
+    source: "agent_studio",
+    idempotency_key: "idempotent-budget-block",
+    receipt_id: "receipt-tool",
+    input_summary: { path: "README.md" },
+    budget_policy: {
+      status: "blocked",
+      usage_telemetry: { prompt_tokens: 10 },
+      receipt_refs: ["receipt_budget_policy"],
+      policy_decision_refs: ["policy_budget"],
+    },
+    rollback_refs: ["rollback-one"],
+    receipt_refs: ["receipt_budget_policy"],
+    policy_decision_refs: ["policy_budget"],
+    artifact_refs: ["artifact-one"],
+  }]);
+  assert.equal(Object.hasOwn(calls[0], "threadId"), false);
+  assert.equal(Object.hasOwn(calls[0].budget_policy, "receiptRefs"), false);
+  assert.equal(Object.hasOwn(calls[0].budget_policy, "policyDecisionRefs"), false);
+  assert.equal(Object.hasOwn(calls[0].budget_policy, "usageTelemetry"), false);
   assert.deepEqual(store.events, []);
 });

@@ -9501,6 +9501,17 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     projectRuntimeThreadEventsToWorkflowProjection,
     projectRuntimeTuiControlStateToWorkflowProjection,
   } = await importAgentIde();
+  const expectedCodingToolIds = [
+    "artifact.read",
+    "computer_use.request_lease",
+    "file.apply_patch",
+    "file.inspect",
+    "git.diff",
+    "lsp.diagnostics",
+    "test.run",
+    "tool.retrieve_result",
+    "workspace.status",
+  ];
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-coding-tools-workspace-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-coding-tools-state-"));
   const cli = cliBinary();
@@ -9568,12 +9579,12 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
       }),
     });
     const catalog = await fetchJsonStatus(`${daemon.endpoint}/v1/tools?pack=coding`);
-    assert.equal(catalog.status, 501);
-    assert.equal(catalog.body.error.code, "runtime_tool_catalog_rust_core_required");
-    assert.equal(catalog.body.error.details.projection_kind, "tools");
-    assert.equal(catalog.body.error.details.pack, "coding");
-    assert.equal(catalog.body.error.details.rust_core_boundary, "runtime.tool_catalog");
-    assert.equal(Object.hasOwn(catalog.body.error.details, "projectionKind"), false);
+    assert.equal(catalog.status, 200);
+    assert.deepEqual(
+      catalog.body.map((tool) => tool.stable_tool_id).sort(),
+      expectedCodingToolIds,
+    );
+    assert.equal(Object.hasOwn(catalog.body[0], "stableToolId"), false);
 
     const statusResult = await fetchJson(
       `${daemon.endpoint}/v1/threads/${thread.thread_id}/tools/workspace.status/invoke`,

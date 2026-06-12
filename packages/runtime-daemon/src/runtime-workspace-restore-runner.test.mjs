@@ -8,6 +8,10 @@ import {
   WORKSPACE_RESTORE_COMMAND_SCHEMA_VERSION,
   WORKSPACE_RESTORE_PREVIEW_OPERATIONS_REQUEST_SCHEMA_VERSION,
   WORKSPACE_SNAPSHOT_CAPTURE_REQUEST_SCHEMA_VERSION,
+  WORKSPACE_SNAPSHOT_CONTENT_PACKAGE_REQUEST_SCHEMA_VERSION,
+  WORKSPACE_SNAPSHOT_LIST_REQUEST_SCHEMA_VERSION,
+  WORKSPACE_SNAPSHOT_RESTORE_APPLY_REQUEST_SCHEMA_VERSION,
+  WORKSPACE_SNAPSHOT_RESTORE_PREVIEW_REQUEST_SCHEMA_VERSION,
   WorkspaceRestoreRunnerError,
   createWorkspaceRestoreRunnerFromEnv,
 } from "./runtime-workspace-restore-runner.mjs";
@@ -246,6 +250,50 @@ test("workspace restore runner sends snapshot capture through direct daemon-core
       return {
         source: "direct_daemon_core_api",
         backend: "rust_workspace_restore",
+        snapshot_record: {
+          schema_version: "ioi.runtime.workspace-snapshot.v1",
+          snapshot_id: "workspace_snapshot_alpha",
+          snapshot_hash: "sha256:alpha",
+          snapshot_kind: "pre_post_touched_files",
+          file_count: 1,
+          changed_file_count: 1,
+          created_file_count: 0,
+          deleted_file_count: 0,
+          restore: { status: "content_captured", preview_supported: true, apply_supported: true },
+          trigger: {
+            thread_id: "thread_alpha",
+            turn_id: "turn_alpha",
+            workspace_root: "/workspace",
+            tool_call_id: "tool_call_alpha",
+            workflow_graph_id: "graph_alpha",
+            workflow_node_id: "node_alpha",
+          },
+          files: [{ path: "src/app.js", before: {}, after: {} }],
+          content_files: [{ path: "src/app.js", before: {}, after: {} }],
+          receipt_refs: ["receipt_snapshot"],
+          artifact_refs: ["artifact_snapshot"],
+          summary: "captured",
+        },
+        snapshot_event: {
+          schema_version: "ioi.runtime.workspace-snapshot.event.v1",
+          event_id: "event_snapshot",
+          event_stream_id: "thread_alpha:events",
+          event_kind: "workspace_snapshot.captured",
+          status: "completed",
+          actor: "runtime",
+          component_kind: "workspace_snapshot",
+          thread_id: "thread_alpha",
+          turn_id: "turn_alpha",
+          workspace_root: "/workspace",
+          workflow_graph_id: "graph_alpha",
+          workflow_node_id: "node_alpha",
+          tool_call_id: "tool_call_alpha",
+          snapshot_id: "workspace_snapshot_alpha",
+          receipt_refs: ["receipt_snapshot"],
+          artifact_refs: ["artifact_snapshot"],
+          payload_schema_version: "ioi.runtime.workspace-snapshot.v1",
+          payload_summary: { snapshot_id: "workspace_snapshot_alpha" },
+        },
         captured_file_count: 1,
         omitted_file_count: 0,
         content_captured: true,
@@ -305,6 +353,12 @@ test("workspace restore runner sends snapshot capture through direct daemon-core
   });
 
   const capture = runner.captureSnapshotFiles({
+    thread_id: "thread_alpha",
+    turn_id: "turn_alpha",
+    workspace_root: "/workspace",
+    tool_call_id: "tool_call_alpha",
+    workflow_graph_id: "graph_alpha",
+    workflow_node_id: "node_alpha",
     changed_files: [
       {
         path: "src/app.js",
@@ -328,6 +382,12 @@ test("workspace restore runner sends snapshot capture through direct daemon-core
 
   assert.equal(calls[0].operation, "capture_workspace_snapshot_files");
   assert.equal(calls[0].schema_version, WORKSPACE_RESTORE_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].thread_id, "thread_alpha");
+  assert.equal(calls[0].turn_id, "turn_alpha");
+  assert.equal(calls[0].workspace_root, "/workspace");
+  assert.equal(calls[0].tool_call_id, "tool_call_alpha");
+  assert.equal(calls[0].workflow_graph_id, "graph_alpha");
+  assert.equal(calls[0].workflow_node_id, "node_alpha");
   assert.equal(
     calls[0].request.schema_version,
     WORKSPACE_SNAPSHOT_CAPTURE_REQUEST_SCHEMA_VERSION,
@@ -337,6 +397,10 @@ test("workspace restore runner sends snapshot capture through direct daemon-core
   assert.equal(capture.captured_file_count, 1);
   assert.equal(capture.files[0].before.content_hash, "sha256-old");
   assert.equal(capture.content_files[0].before.content, "old");
+  assert.equal(capture.snapshot_record.snapshot_id, "workspace_snapshot_alpha");
+  assert.deepEqual(capture.snapshot_record.receipt_refs, ["receipt_snapshot"]);
+  assert.deepEqual(capture.snapshot_record.artifact_refs, ["artifact_snapshot"]);
+  assert.equal(capture.snapshot_event.event_id, "event_snapshot");
   for (const field of ["contentFiles", "capturedFileCount", "omittedFileCount", "contentCaptured"]) {
     assert.equal(Object.hasOwn(capture, field), false);
   }
@@ -352,6 +416,174 @@ test("workspace restore runner sends snapshot capture through direct daemon-core
     "omittedReason",
   ]) {
     assert.equal(Object.hasOwn(capture.files[0].before, field), false);
+  }
+});
+
+test("workspace restore runner sends public snapshot projection and restore APIs through direct daemon-core invoker", () => {
+  const calls = [];
+  const runner = new RustWorkspaceRestoreRunner({
+    daemonCoreInvoker(bridgeRequest) {
+      calls.push(bridgeRequest);
+      if (bridgeRequest.operation === "project_workspace_snapshot_list") {
+        return {
+          source: "rust_workspace_snapshot_projection_command",
+          backend: "rust_workspace_restore",
+          projection_kind: "workspace_snapshot.list",
+          projection: {
+            schema_version: "ioi.runtime.workspace_snapshot.v1",
+            object: "ioi.runtime_workspace_snapshot_list",
+            thread_id: "thread_alpha",
+            snapshot_count: 1,
+            snapshots: [
+              {
+                snapshot_id: "workspace_snapshot_alpha",
+                snapshot_hash: "sha256:alpha",
+                receipt_refs: ["receipt_snapshot"],
+                artifact_refs: ["artifact_snapshot"],
+              },
+            ],
+          },
+          evidence_refs: ["rust_daemon_core_workspace_snapshot_projection"],
+        };
+      }
+      if (bridgeRequest.operation === "project_workspace_snapshot_content_package") {
+        return {
+          source: "rust_workspace_snapshot_projection_command",
+          backend: "rust_workspace_restore",
+          projection_kind: "workspace_snapshot.content_package",
+          projection: {
+            schema_version: "ioi.runtime.workspace_snapshot_content_package.v1",
+            object: "ioi.runtime_workspace_snapshot_content_package",
+            thread_id: "thread_alpha",
+            snapshot_id: "workspace_snapshot_alpha",
+            snapshot: { snapshot_id: "workspace_snapshot_alpha" },
+            content_files: [
+              {
+                path: "src/app.js",
+                before: { exists: true, content_hash: "sha256-old", content: "old" },
+                after: { exists: true, content_hash: "sha256-new", content: "new" },
+              },
+            ],
+            file_count: 1,
+            receipt_refs: ["receipt_snapshot"],
+            artifact_refs: ["artifact_snapshot"],
+          },
+          evidence_refs: ["rust_daemon_core_workspace_snapshot_projection"],
+        };
+      }
+      if (bridgeRequest.operation === "preview_workspace_snapshot_restore") {
+        return {
+          source: "rust_workspace_snapshot_restore_command",
+          backend: "rust_workspace_restore",
+          projection_kind: "workspace_restore.preview",
+          restore_preview: {
+            schema_version: "ioi.runtime.workspace_restore_preview.v1",
+            object: "ioi.runtime_workspace_restore_preview",
+            thread_id: "thread_alpha",
+            snapshot_id: "workspace_snapshot_alpha",
+            preview_status: "ready",
+            preview_supported: true,
+            apply_supported: true,
+            file_count: 1,
+            ready_count: 1,
+            noop_count: 0,
+            conflict_count: 0,
+            blocked_count: 0,
+            operations: [{ path: "src/app.js", status: "ready" }],
+            receipt_refs: ["receipt_preview"],
+            artifact_refs: ["artifact_preview"],
+            rollback_refs: ["workspace_snapshot_alpha"],
+          },
+          evidence_refs: ["rust_daemon_core_workspace_restore_api"],
+        };
+      }
+      if (bridgeRequest.operation === "apply_workspace_snapshot_restore") {
+        return {
+          source: "rust_workspace_snapshot_restore_command",
+          backend: "rust_workspace_restore",
+          projection_kind: "workspace_restore.apply",
+          restore_apply: {
+            schema_version: "ioi.runtime.workspace_restore_apply.v1",
+            object: "ioi.runtime_workspace_restore_apply",
+            thread_id: "thread_alpha",
+            snapshot_id: "workspace_snapshot_alpha",
+            preview_status: "ready",
+            apply_status: "applied",
+            apply_supported: true,
+            approval_required: true,
+            approval_satisfied: true,
+            file_count: 1,
+            applied_count: 1,
+            apply_noop_count: 0,
+            apply_blocked_count: 0,
+            failed_count: 0,
+            operations: [{ path: "src/app.js", apply_status: "applied" }],
+            policy_decision_refs: ["policy_apply"],
+            receipt_refs: ["receipt_apply"],
+            artifact_refs: ["artifact_apply"],
+            rollback_refs: ["workspace_snapshot_alpha"],
+          },
+          evidence_refs: ["rust_daemon_core_workspace_restore_api"],
+        };
+      }
+      return { ok: false, error: { code: "unexpected_operation", message: bridgeRequest.operation } };
+    },
+  });
+
+  const list = runner.listSnapshots({ thread_id: "thread_alpha" });
+  const contentPackage = runner.workspaceSnapshotContentPackage({
+    thread_id: "thread_alpha",
+    snapshot_id: "workspace_snapshot_alpha",
+  });
+  const preview = runner.previewSnapshotRestore({
+    thread_id: "thread_alpha",
+    snapshot_id: "workspace_snapshot_alpha",
+    workspace_root: "/workspace",
+    workflow_graph_id: "graph_alpha",
+    workflow_node_id: "restore_preview",
+    idempotency_key: "idem-preview",
+  });
+  const apply = runner.applySnapshotRestore({
+    thread_id: "thread_alpha",
+    snapshot_id: "workspace_snapshot_alpha",
+    workspace_root: "/workspace",
+    approval_granted: true,
+  });
+
+  assert.deepEqual(
+    calls.map((call) => call.operation),
+    [
+      "project_workspace_snapshot_list",
+      "project_workspace_snapshot_content_package",
+      "preview_workspace_snapshot_restore",
+      "apply_workspace_snapshot_restore",
+    ],
+  );
+  assert.equal(calls[0].request.schema_version, WORKSPACE_SNAPSHOT_LIST_REQUEST_SCHEMA_VERSION);
+  assert.equal(
+    calls[1].request.schema_version,
+    WORKSPACE_SNAPSHOT_CONTENT_PACKAGE_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(
+    calls[2].request.schema_version,
+    WORKSPACE_SNAPSHOT_RESTORE_PREVIEW_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(
+    calls[3].request.schema_version,
+    WORKSPACE_SNAPSHOT_RESTORE_APPLY_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(list.object, "ioi.runtime_workspace_snapshot_list");
+  assert.equal(list.snapshot_count, 1);
+  assert.equal(list.snapshots[0].snapshot_id, "workspace_snapshot_alpha");
+  assert.equal(contentPackage.content_files[0].before.content, "old");
+  assert.equal(preview.preview_status, "ready");
+  assert.equal(preview.operations[0].status, "ready");
+  assert.equal(apply.apply_status, "applied");
+  assert.deepEqual(apply.policy_decision_refs, ["policy_apply"]);
+  for (const field of ["snapshotCount", "threadId", "previewStatus", "applyStatus", "policyDecisionRefs"]) {
+    assert.equal(Object.hasOwn(list, field), false);
+    assert.equal(Object.hasOwn(preview, field), false);
+    assert.equal(Object.hasOwn(apply, field), false);
   }
 });
 
@@ -387,6 +619,8 @@ test("workspace restore runner does not synthesize Rust-owned snapshot capture r
   assert.equal(capture.files[0].artifact_refs, null);
   assert.equal(capture.content_files[0].receipt_refs, null);
   assert.equal(capture.content_files[0].artifact_refs, null);
+  assert.equal(capture.snapshot_record, null);
+  assert.equal(capture.snapshot_event, null);
 });
 
 test("workspace restore runner ignores retired result reader aliases", () => {

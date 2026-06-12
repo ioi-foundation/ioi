@@ -6,9 +6,10 @@ mod coding_tool_budget_recovery;
 mod context_lifecycle;
 mod mcp_memory;
 mod operator_control;
-mod projection_required;
 mod run_cancel;
+mod task_job;
 mod thread_lifecycle;
+mod workspace_trust;
 
 pub use admission_required::{
     plan_diagnostics_repair_admission_required_response,
@@ -32,8 +33,10 @@ pub use coding_tool_budget_recovery::{
 };
 pub use context_lifecycle::{
     evaluate_coding_tool_budget_policy_response, evaluate_compaction_policy_response,
-    evaluate_context_budget_policy_response, plan_context_compaction_response,
-    plan_context_compaction_state_update_response, CompactionPolicyActions,
+    evaluate_context_budget_policy_response, plan_coding_tool_budget_block_response,
+    plan_context_compaction_response, plan_context_compaction_state_update_response,
+    CodingToolBudgetBlockBridgeRequest, CodingToolBudgetBlockCore, CodingToolBudgetBlockError,
+    CodingToolBudgetBlockRecord, CodingToolBudgetBlockRequest, CompactionPolicyActions,
     CompactionPolicyApproval, CompactionPolicyBridgeRequest, CompactionPolicyCompact,
     CompactionPolicyCore, CompactionPolicyError, CompactionPolicyRecord, CompactionPolicyRequest,
     ContextBudgetCheck, ContextBudgetDecision, ContextBudgetPolicyBridgeRequest,
@@ -94,22 +97,6 @@ pub use operator_control::{
     OperatorTurnControlAdmissionRequiredError, OperatorTurnControlAdmissionRequiredRecord,
     OperatorTurnControlAdmissionRequiredRequest,
 };
-pub use projection_required::{
-    plan_repository_workflow_projection_required_response,
-    plan_runtime_lifecycle_projection_required_response,
-    plan_runtime_tool_catalog_projection_required_response,
-    plan_skill_hook_registry_projection_required_response, ProjectionRequiredCommandError,
-    RepositoryWorkflowProjectionRequiredBridgeRequest, RepositoryWorkflowProjectionRequiredCore,
-    RepositoryWorkflowProjectionRequiredError, RepositoryWorkflowProjectionRequiredRecord,
-    RepositoryWorkflowProjectionRequiredRequest, RuntimeLifecycleProjectionRequiredBridgeRequest,
-    RuntimeLifecycleProjectionRequiredCore, RuntimeLifecycleProjectionRequiredError,
-    RuntimeLifecycleProjectionRequiredRecord, RuntimeLifecycleProjectionRequiredRequest,
-    RuntimeToolCatalogProjectionRequiredBridgeRequest, RuntimeToolCatalogProjectionRequiredCore,
-    RuntimeToolCatalogProjectionRequiredError, RuntimeToolCatalogProjectionRequiredRecord,
-    RuntimeToolCatalogProjectionRequiredRequest, SkillHookRegistryProjectionRequiredBridgeRequest,
-    SkillHookRegistryProjectionRequiredCore, SkillHookRegistryProjectionRequiredError,
-    SkillHookRegistryProjectionRequiredRecord, SkillHookRegistryProjectionRequiredRequest,
-};
 pub use run_cancel::{
     plan_run_cancel_admission_required_response, plan_run_cancel_state_update_response,
     RunCancelAdmissionRequiredBridgeRequest, RunCancelAdmissionRequiredCore,
@@ -118,14 +105,30 @@ pub use run_cancel::{
     RunCancelStateUpdateCore, RunCancelStateUpdateError, RunCancelStateUpdateRecord,
     RunCancelStateUpdateRequest,
 };
+pub use task_job::{
+    plan_runtime_task_job_cancel_state_update_response,
+    plan_runtime_task_job_create_state_update_response,
+    project_runtime_task_job_projection_response, RuntimeTaskJobCancelCommandError,
+    RuntimeTaskJobCancelStateUpdateBridgeRequest, RuntimeTaskJobCancelStateUpdateCore,
+    RuntimeTaskJobCancelStateUpdateError, RuntimeTaskJobCancelStateUpdateRecord,
+    RuntimeTaskJobCancelStateUpdateRequest, RuntimeTaskJobCreateCommandError,
+    RuntimeTaskJobCreateStateUpdateBridgeRequest, RuntimeTaskJobCreateStateUpdateCore,
+    RuntimeTaskJobCreateStateUpdateError, RuntimeTaskJobCreateStateUpdateRecord,
+    RuntimeTaskJobCreateStateUpdateRequest, RuntimeTaskJobProjectionBridgeRequest,
+    RuntimeTaskJobProjectionCommandError, RuntimeTaskJobProjectionCore,
+    RuntimeTaskJobProjectionError, RuntimeTaskJobProjectionRecord, RuntimeTaskJobProjectionRequest,
+};
 pub use thread_lifecycle::{
-    plan_agent_create_state_update_response, plan_agent_status_state_update_response,
-    plan_lifecycle_admission_required_response, plan_run_create_state_update_response,
+    plan_agent_create_state_update_response, plan_agent_delete_state_update_response,
+    plan_agent_status_state_update_response, plan_lifecycle_admission_required_response,
+    plan_run_create_state_update_response,
     plan_runtime_bridge_thread_start_agent_state_update_response,
     plan_runtime_bridge_turn_run_state_update_response, plan_subagent_record_state_update_response,
-    plan_thread_control_agent_state_update_response, plan_thread_turn_admission_required_response,
-    AgentCreateStateUpdateBridgeRequest, AgentCreateStateUpdateCore, AgentCreateStateUpdateError,
-    AgentCreateStateUpdateRecord, AgentCreateStateUpdateRequest,
+    plan_thread_control_agent_state_update_response, plan_thread_create_state_update_response,
+    plan_thread_turn_admission_required_response, AgentCreateStateUpdateBridgeRequest,
+    AgentCreateStateUpdateCore, AgentCreateStateUpdateError, AgentCreateStateUpdateRecord,
+    AgentCreateStateUpdateRequest, AgentDeleteStateUpdateBridgeRequest, AgentDeleteStateUpdateCore,
+    AgentDeleteStateUpdateError, AgentDeleteStateUpdateRecord, AgentDeleteStateUpdateRequest,
     AgentStatusStateUpdateBridgeRequest, AgentStatusStateUpdateCore, AgentStatusStateUpdateError,
     AgentStatusStateUpdateRecord, AgentStatusStateUpdateRequest,
     LifecycleAdmissionRequiredBridgeRequest, LifecycleAdmissionRequiredCore,
@@ -143,9 +146,17 @@ pub use thread_lifecycle::{
     SubagentRecordStateUpdateRequest, ThreadControlAgentStateUpdateBridgeRequest,
     ThreadControlAgentStateUpdateCore, ThreadControlAgentStateUpdateError,
     ThreadControlAgentStateUpdateRecord, ThreadControlAgentStateUpdateRequest,
+    ThreadCreateStateUpdateBridgeRequest, ThreadCreateStateUpdateCore,
+    ThreadCreateStateUpdateError, ThreadCreateStateUpdateRecord, ThreadCreateStateUpdateRequest,
     ThreadLifecycleCommandError, ThreadTurnAdmissionRequiredBridgeRequest,
     ThreadTurnAdmissionRequiredCore, ThreadTurnAdmissionRequiredError,
     ThreadTurnAdmissionRequiredRecord, ThreadTurnAdmissionRequiredRequest,
+};
+pub use workspace_trust::{
+    plan_workspace_trust_control_state_update_response, WorkspaceTrustControlCommandError,
+    WorkspaceTrustControlStateUpdateBridgeRequest, WorkspaceTrustControlStateUpdateCore,
+    WorkspaceTrustControlStateUpdateError, WorkspaceTrustControlStateUpdateRecord,
+    WorkspaceTrustControlStateUpdateRequest,
 };
 
 pub const CONTEXT_BUDGET_POLICY_REQUEST_SCHEMA_VERSION: &str =
@@ -154,6 +165,10 @@ pub const CONTEXT_BUDGET_POLICY_RESULT_SCHEMA_VERSION: &str =
     "ioi.runtime.context-budget-policy.v1";
 pub const CODING_TOOL_BUDGET_POLICY_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.coding-tool-budget-policy-request.v1";
+pub const CODING_TOOL_BUDGET_BLOCK_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.coding-tool-budget-block-request.v1";
+pub const CODING_TOOL_BUDGET_BLOCK_RESULT_SCHEMA_VERSION: &str =
+    "ioi.runtime.coding-tool-budget-block-result.v1";
 pub const CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.coding-tool-budget-recovery-state-update-request.v1";
 pub const CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =
@@ -186,22 +201,22 @@ pub const RUN_CANCEL_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.run-cancel-admission-required-request.v1";
 pub const RUN_CANCEL_ADMISSION_REQUIRED_RESULT_SCHEMA_VERSION: &str =
     "ioi.runtime.run-cancel-admission-required.v1";
-pub const SKILL_HOOK_REGISTRY_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION: &str =
-    "ioi.runtime.skill-hook-registry-projection-required-request.v1";
-pub const SKILL_HOOK_REGISTRY_PROJECTION_REQUIRED_RESULT_SCHEMA_VERSION: &str =
-    "ioi.runtime.skill-hook-registry-projection-required.v1";
-pub const REPOSITORY_WORKFLOW_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION: &str =
-    "ioi.runtime.repository-workflow-projection-required-request.v1";
-pub const REPOSITORY_WORKFLOW_PROJECTION_REQUIRED_RESULT_SCHEMA_VERSION: &str =
-    "ioi.runtime.repository-workflow-projection-required.v1";
-pub const RUNTIME_TOOL_CATALOG_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION: &str =
-    "ioi.runtime.tool-catalog-projection-required-request.v1";
-pub const RUNTIME_TOOL_CATALOG_PROJECTION_REQUIRED_RESULT_SCHEMA_VERSION: &str =
-    "ioi.runtime.tool-catalog-projection-required.v1";
-pub const RUNTIME_LIFECYCLE_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION: &str =
-    "ioi.runtime.lifecycle-projection-required-request.v1";
-pub const RUNTIME_LIFECYCLE_PROJECTION_REQUIRED_RESULT_SCHEMA_VERSION: &str =
-    "ioi.runtime.lifecycle-projection-required.v1";
+pub const RUNTIME_TASK_JOB_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.task-job-cancel-state-update-request.v1";
+pub const RUNTIME_TASK_JOB_CANCEL_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =
+    "ioi.runtime.task-job-cancel-state-update.v1";
+pub const RUNTIME_TASK_JOB_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.task-job-create-state-update-request.v1";
+pub const RUNTIME_TASK_JOB_CREATE_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =
+    "ioi.runtime.task-job-create-state-update.v1";
+pub const WORKSPACE_TRUST_CONTROL_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.workspace-trust-control-state-update-request.v1";
+pub const WORKSPACE_TRUST_CONTROL_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =
+    "ioi.runtime.workspace-trust-control-state-update.v1";
+pub const RUNTIME_TASK_JOB_PROJECTION_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.task-job-projection-request.v1";
+pub const RUNTIME_TASK_JOB_PROJECTION_RESULT_SCHEMA_VERSION: &str =
+    "ioi.runtime.task-job-projection.v1";
 pub const THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.thread-control-agent-state-update-request.v1";
 pub const THREAD_CONTROL_AGENT_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =
@@ -214,6 +229,10 @@ pub const LIFECYCLE_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.lifecycle-admission-required-request.v1";
 pub const LIFECYCLE_ADMISSION_REQUIRED_RESULT_SCHEMA_VERSION: &str =
     "ioi.runtime.lifecycle-admission-required.v1";
+pub const THREAD_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.thread-create-state-update-request.v1";
+pub const THREAD_CREATE_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =
+    "ioi.runtime.thread-create-state-update.v1";
 pub const AGENT_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.agent-create-state-update-request.v1";
 pub const AGENT_CREATE_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =
@@ -226,6 +245,10 @@ pub const AGENT_STATUS_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.agent-status-state-update-request.v1";
 pub const AGENT_STATUS_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =
     "ioi.runtime.agent-status-state-update.v1";
+pub const AGENT_DELETE_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.agent-delete-state-update-request.v1";
+pub const AGENT_DELETE_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =
+    "ioi.runtime.agent-delete-state-update.v1";
 pub const MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.mcp-control-agent-state-update-request.v1";
 pub const MCP_CONTROL_AGENT_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =

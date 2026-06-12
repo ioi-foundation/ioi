@@ -3,9 +3,11 @@ use serde_json::{json, Value};
 use std::io::{self, Read};
 
 use super::{
-    agentgres_command::*, approval::*, authority::*, coding_tool_step_module::*,
-    command_protocol::CommandOperation, governed_admission::*, governed_receipt::*, model_mount::*,
-    model_mount_receipt::*, policy::*, workspace_restore::*,
+    agentgres_command::*, approval::*, authority::*, coding_tool_event::*,
+    coding_tool_step_module::*, command_protocol::CommandOperation, governed_admission::*,
+    governed_receipt::*, model_mount::*, model_mount_receipt::*, policy::*, repository_workflow::*,
+    runtime_lifecycle::*, runtime_thread_event::*, runtime_tool_catalog::*, skill_hook_registry::*,
+    workspace_restore::*,
 };
 
 #[derive(Debug, Clone)]
@@ -240,8 +242,96 @@ pub fn dispatch_command_operation_response(
         CommandOperation::CaptureWorkspaceSnapshotFiles => {
             capture_workspace_snapshot_files_response(decode(raw_request)?).map_err(Into::into)
         }
+        CommandOperation::ProjectWorkspaceSnapshotList => {
+            project_workspace_snapshot_list_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::ProjectWorkspaceSnapshotContentPackage => {
+            project_workspace_snapshot_content_package_response(decode(raw_request)?)
+                .map_err(Into::into)
+        }
+        CommandOperation::PreviewWorkspaceSnapshotRestore => {
+            preview_workspace_snapshot_restore_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::ApplyWorkspaceSnapshotRestore => {
+            apply_workspace_snapshot_restore_response(decode(raw_request)?).map_err(Into::into)
+        }
         CommandOperation::PlanCodingToolApprovalManifest => {
             plan_coding_tool_approval_manifest_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::ProjectCodingToolApprovalSatisfaction => {
+            project_coding_tool_approval_satisfaction_response(decode(raw_request)?)
+                .map_err(Into::into)
+        }
+        CommandOperation::PlanCodingToolApprovalSatisfaction => {
+            plan_coding_tool_approval_satisfaction_response(decode(raw_request)?)
+                .map_err(Into::into)
+        }
+        CommandOperation::PlanCodingToolApprovalBlock => {
+            plan_coding_tool_approval_block_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::ProjectApprovalQueue => {
+            project_approval_queue_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::AuthorizeApprovalDecision => {
+            authorize_approval_decision_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::AdmitCodingToolResultEvent => {
+            admit_coding_tool_result_event_response(decode(raw_request)?).map_err(|error| {
+                CommandDispatchError::new(
+                    "coding_tool_result_event_admission_rejected",
+                    format!("{error:?}"),
+                )
+            })
+        }
+        CommandOperation::AdmitCodingToolCommandStreamEvents => {
+            admit_coding_tool_command_stream_events_response(decode(raw_request)?).map_err(
+                |error| {
+                    CommandDispatchError::new(
+                        "coding_tool_command_stream_admission_rejected",
+                        format!("{error:?}"),
+                    )
+                },
+            )
+        }
+        CommandOperation::AdmitRuntimeThreadEvent => {
+            admit_runtime_thread_event_response(decode(raw_request)?).map_err(|error| {
+                CommandDispatchError::new(
+                    "runtime_thread_event_admission_rejected",
+                    format!("{error:?}"),
+                )
+            })
+        }
+        CommandOperation::ProjectRuntimeThreadEvents => {
+            project_runtime_thread_events_response(decode(raw_request)?).map_err(|error| {
+                CommandDispatchError::new(
+                    "runtime_thread_event_projection_rejected",
+                    format!("{error:?}"),
+                )
+            })
+        }
+        CommandOperation::ProjectRuntimeThreadEventReplay => {
+            project_runtime_thread_event_replay_response(decode(raw_request)?).map_err(|error| {
+                CommandDispatchError::new(
+                    "runtime_thread_event_replay_rejected",
+                    format!("{error:?}"),
+                )
+            })
+        }
+        CommandOperation::ProjectRuntimeThreadTurnProjection => {
+            project_runtime_thread_turn_projection_response(decode(raw_request)?).map_err(|error| {
+                CommandDispatchError::new(
+                    "runtime_thread_turn_projection_rejected",
+                    format!("{error:?}"),
+                )
+            })
+        }
+        CommandOperation::PlanPostEditDiagnosticsFeedback => {
+            plan_post_edit_diagnostics_feedback_response(decode(raw_request)?).map_err(|error| {
+                CommandDispatchError::new(
+                    "post_edit_diagnostics_feedback_plan_rejected",
+                    format!("{error:?}"),
+                )
+            })
         }
         CommandOperation::PlanApprovalRequestStateUpdate => {
             plan_approval_request_state_update_response(decode(raw_request)?).map_err(Into::into)
@@ -260,6 +350,9 @@ pub fn dispatch_command_operation_response(
         }
         CommandOperation::EvaluateCodingToolBudgetPolicy => {
             evaluate_coding_tool_budget_policy_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::PlanCodingToolBudgetBlock => {
+            plan_coding_tool_budget_block_response(decode(raw_request)?).map_err(Into::into)
         }
         CommandOperation::EvaluateCompactionPolicy => {
             evaluate_compaction_policy_response(decode(raw_request)?).map_err(Into::into)
@@ -305,21 +398,28 @@ pub fn dispatch_command_operation_response(
         CommandOperation::PlanRunCancelAdmissionRequired => {
             plan_run_cancel_admission_required_response(decode(raw_request)?).map_err(Into::into)
         }
-        CommandOperation::PlanSkillHookRegistryProjectionRequired => {
-            plan_skill_hook_registry_projection_required_response(decode(raw_request)?)
+        CommandOperation::PlanRuntimeTaskJobCancelStateUpdate => {
+            plan_runtime_task_job_cancel_state_update_response(decode(raw_request)?)
                 .map_err(Into::into)
         }
-        CommandOperation::PlanRepositoryWorkflowProjectionRequired => {
-            plan_repository_workflow_projection_required_response(decode(raw_request)?)
+        CommandOperation::PlanRuntimeTaskJobCreateStateUpdate => {
+            plan_runtime_task_job_create_state_update_response(decode(raw_request)?)
                 .map_err(Into::into)
         }
-        CommandOperation::PlanRuntimeToolCatalogProjectionRequired => {
-            plan_runtime_tool_catalog_projection_required_response(decode(raw_request)?)
-                .map_err(Into::into)
+        CommandOperation::ProjectRuntimeTaskJobProjection => {
+            project_runtime_task_job_projection_response(decode(raw_request)?).map_err(Into::into)
         }
-        CommandOperation::PlanRuntimeLifecycleProjectionRequired => {
-            plan_runtime_lifecycle_projection_required_response(decode(raw_request)?)
-                .map_err(Into::into)
+        CommandOperation::ProjectSkillHookRegistry => {
+            project_skill_hook_registry_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::ProjectRepositoryWorkflow => {
+            project_repository_workflow_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::ProjectRuntimeToolCatalog => {
+            project_runtime_tool_catalog_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::ProjectRuntimeLifecycle => {
+            project_runtime_lifecycle_response(decode(raw_request)?).map_err(Into::into)
         }
         CommandOperation::PlanLifecycleAdmissionRequired => {
             plan_lifecycle_admission_required_response(decode(raw_request)?).map_err(Into::into)
@@ -329,6 +429,10 @@ pub fn dispatch_command_operation_response(
         }
         CommandOperation::PlanThreadControlAgentStateUpdate => {
             plan_thread_control_agent_state_update_response(decode(raw_request)?)
+                .map_err(Into::into)
+        }
+        CommandOperation::PlanWorkspaceTrustControlStateUpdate => {
+            plan_workspace_trust_control_state_update_response(decode(raw_request)?)
                 .map_err(Into::into)
         }
         CommandOperation::PlanMcpControlAgentStateUpdate => {
@@ -375,11 +479,17 @@ pub fn dispatch_command_operation_response(
         CommandOperation::PlanSubagentRecordStateUpdate => {
             plan_subagent_record_state_update_response(decode(raw_request)?).map_err(Into::into)
         }
+        CommandOperation::PlanThreadCreateStateUpdate => {
+            plan_thread_create_state_update_response(decode(raw_request)?).map_err(Into::into)
+        }
         CommandOperation::PlanAgentCreateStateUpdate => {
             plan_agent_create_state_update_response(decode(raw_request)?).map_err(Into::into)
         }
         CommandOperation::PlanAgentStatusStateUpdate => {
             plan_agent_status_state_update_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::PlanAgentDeleteStateUpdate => {
+            plan_agent_delete_state_update_response(decode(raw_request)?).map_err(Into::into)
         }
         CommandOperation::PlanRunCreateStateUpdate => {
             plan_run_create_state_update_response(decode(raw_request)?).map_err(Into::into)
@@ -440,12 +550,19 @@ command_error_from!(GovernedAdmissionError);
 command_error_from!(GovernedReceiptError);
 command_error_from!(ModelMountReceiptError);
 command_error_from!(AdmissionRequiredCommandError);
-command_error_from!(ProjectionRequiredCommandError);
 command_error_from!(ContextPolicyCommandError);
 command_error_from!(CodingToolBudgetRecoveryCommandError);
 command_error_from!(OperatorControlCommandError);
 command_error_from!(RunCancelCommandError);
+command_error_from!(RuntimeTaskJobCancelCommandError);
+command_error_from!(RuntimeTaskJobCreateCommandError);
+command_error_from!(RuntimeTaskJobProjectionCommandError);
+command_error_from!(SkillHookRegistryProjectionCommandError);
+command_error_from!(RepositoryWorkflowProjectionCommandError);
+command_error_from!(RuntimeLifecycleProjectionCommandError);
 command_error_from!(ThreadLifecycleCommandError);
+command_error_from!(WorkspaceTrustControlCommandError);
+command_error_from!(RuntimeToolCatalogProjectionCommandError);
 command_error_from!(McpMemoryCommandError);
 command_error_from!(WorkspaceRestoreCommandError);
 

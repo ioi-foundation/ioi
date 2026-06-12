@@ -46,7 +46,6 @@ export function createRuntimeThreadEventSurface({
   threadIdForAgent,
   threadStatusForAgent,
   threadTurnProjection,
-  ttiEnvelopeForRunEvent,
   turnIdForRun,
 } = {}) {
   return {
@@ -93,7 +92,6 @@ export function createRuntimeThreadEventSurface({
         isRuntimeBackedAgent,
         runtimeError,
         threadIdForAgent,
-        ttiEnvelopeForRunEvent,
         turnIdForRun,
       });
     },
@@ -105,10 +103,10 @@ export function createRuntimeThreadEventSurface({
       });
     },
     runtimeEventsForStream(store, eventStreamId, cursor = {}) {
-      return runtimeEventsForStreamDep(store, eventStreamId, cursor);
+      return runtimeEventsForStreamDep(store, eventStreamId, cursor, { runtimeError });
     },
     runtimeEventsForTurn(store, turnId, cursor = {}) {
-      return runtimeEventsForTurnDep(store, turnId, cursor);
+      return runtimeEventsForTurnDep(store, turnId, cursor, { runtimeError });
     },
     runtimeCursorSeq(store, stream, cursor = {}) {
       return runtimeCursorSeqDep(store, stream, cursor, { runtimeError });

@@ -1,4 +1,4 @@
-import { optionalString } from "./runtime-value-helpers.mjs";
+import { objectRecord, optionalString } from "./runtime-value-helpers.mjs";
 
 const REPOSITORY_PROJECTIONS = {
   listRepositories: {
@@ -46,8 +46,8 @@ const REPOSITORY_PROJECTIONS = {
 export function createRuntimeRepositorySurface({
   repositoryRunner = null,
 } = {}) {
-  const fail = (store, projection) =>
-    throwRepositoryWorkflowProjectionRustCoreRequired({
+  const project = (store, projection) =>
+    projectRepositoryWorkflow({
       repositoryRunner,
       workspace_root: store?.defaultCwd,
       ...projection,
@@ -55,73 +55,93 @@ export function createRuntimeRepositorySurface({
 
   return {
     listRepositories(store) {
-      fail(store, REPOSITORY_PROJECTIONS.listRepositories);
+      return project(store, REPOSITORY_PROJECTIONS.listRepositories);
     },
     repositoryContext(store) {
-      fail(store, REPOSITORY_PROJECTIONS.repositoryContext);
+      return project(store, REPOSITORY_PROJECTIONS.repositoryContext);
     },
     branchPolicy(store) {
-      fail(store, REPOSITORY_PROJECTIONS.branchPolicy);
+      return project(store, REPOSITORY_PROJECTIONS.branchPolicy);
     },
     githubContext(store) {
-      fail(store, REPOSITORY_PROJECTIONS.githubContext);
+      return project(store, REPOSITORY_PROJECTIONS.githubContext);
     },
     prAttempts(store) {
-      fail(store, REPOSITORY_PROJECTIONS.prAttempts);
+      return project(store, REPOSITORY_PROJECTIONS.prAttempts);
     },
     issueContext(store) {
-      fail(store, REPOSITORY_PROJECTIONS.issueContext);
+      return project(store, REPOSITORY_PROJECTIONS.issueContext);
     },
     reviewGate(store) {
-      fail(store, REPOSITORY_PROJECTIONS.reviewGate);
+      return project(store, REPOSITORY_PROJECTIONS.reviewGate);
     },
     githubPrCreatePlan(store) {
-      fail(store, REPOSITORY_PROJECTIONS.githubPrCreatePlan);
+      return project(store, REPOSITORY_PROJECTIONS.githubPrCreatePlan);
     },
   };
 }
 
-function throwRepositoryWorkflowProjectionRustCoreRequired(details = {}) {
+function projectRepositoryWorkflow(details = {}) {
   const { repositoryRunner = null, ...errorDetails } = details;
   const evidence_refs = [
-    "runtime_repository_workflow_js_projection_retired",
-    "rust_daemon_core_repository_workflow_projection_required",
+    "runtime_repository_workflow_rust_projection",
     "agentgres_repository_workflow_truth_required",
   ];
 
-  if (repositoryRunner?.planRepositoryWorkflowProjectionRequired) {
-    const record = repositoryRunner.planRepositoryWorkflowProjectionRequired({
-      ...errorDetails,
-      source: "runtime.repository_surface",
-      evidence_refs,
-    });
-    const planned = record?.record ?? record;
-    throw createRepositoryWorkflowProjectionError(planned ?? record, {
+  if (!repositoryRunner?.projectRepositoryWorkflow) {
+    throw createRepositoryWorkflowProjectionError(null, {
       ...errorDetails,
       source: "runtime.repository_surface",
       evidence_refs,
     });
   }
 
-  throw createRepositoryWorkflowProjectionError(null, {
+  const result = repositoryRunner.projectRepositoryWorkflow({
     ...errorDetails,
     source: "runtime.repository_surface",
     evidence_refs,
   });
+  if (result?.projection_kind !== errorDetails.projection_kind) {
+    throw createRepositoryWorkflowProjectionMismatchError(result, errorDetails);
+  }
+  const projection = result?.projection;
+  if (["repository_list", "pr_attempts"].includes(errorDetails.projection_kind)) {
+    if (Array.isArray(projection)) return projection;
+  } else if (objectRecord(projection)) {
+    return projection;
+  }
+  throw createRepositoryWorkflowProjectionMismatchError(result, errorDetails);
 }
 
 function createRepositoryWorkflowProjectionError(record, fallbackDetails) {
   const error = new Error(
     optionalString(record?.message) ??
-      "Repository workflow projection requires direct Rust daemon-core projection over Agentgres-admitted repository workflow truth.",
+      "Repository workflow projection requires Rust daemon-core projection over Agentgres-admitted repository workflow truth.",
   );
   error.status = Number(record?.status_code ?? 501);
   error.code =
     optionalString(record?.code) ??
-    "runtime_repository_workflow_projection_rust_core_required";
+    "runtime_repository_workflow_rust_projection_missing";
   error.details = record?.details ?? {
     rust_core_boundary: "runtime.repository_workflow_projection",
     ...fallbackDetails,
+  };
+  return error;
+}
+
+function createRepositoryWorkflowProjectionMismatchError(result, fallbackDetails) {
+  const error = new Error(
+    "Rust repository workflow projection returned an invalid route projection.",
+  );
+  error.status = 502;
+  error.code = "runtime_repository_workflow_rust_projection_invalid";
+  error.details = {
+    rust_core_boundary: "runtime.repository_workflow_projection",
+    expected_projection_kind: fallbackDetails.projection_kind,
+    actual_projection_kind: result?.projection_kind ?? null,
+    operation: fallbackDetails.operation,
+    operation_kind: fallbackDetails.operation_kind,
+    source: "runtime.repository_surface",
   };
   return error;
 }

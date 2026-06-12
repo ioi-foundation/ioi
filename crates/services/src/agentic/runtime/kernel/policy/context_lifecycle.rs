@@ -3,6 +3,8 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 
 use super::{
+    CODING_TOOL_BUDGET_BLOCK_REQUEST_SCHEMA_VERSION,
+    CODING_TOOL_BUDGET_BLOCK_RESULT_SCHEMA_VERSION,
     CODING_TOOL_BUDGET_POLICY_REQUEST_SCHEMA_VERSION, COMPACTION_POLICY_REQUEST_SCHEMA_VERSION,
     COMPACTION_POLICY_RESULT_SCHEMA_VERSION, CONTEXT_BUDGET_POLICY_REQUEST_SCHEMA_VERSION,
     CONTEXT_BUDGET_POLICY_RESULT_SCHEMA_VERSION, CONTEXT_COMPACTION_PAYLOAD_SCHEMA_VERSION,
@@ -10,6 +12,9 @@ use super::{
     CONTEXT_COMPACTION_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
     CONTEXT_COMPACTION_STATE_UPDATE_RESULT_SCHEMA_VERSION,
 };
+
+const CODING_TOOL_RESULT_SCHEMA_VERSION: &str = "ioi.runtime.coding-tool-result.v1";
+const CODING_TOOL_PACK_ID: &str = "ioi.tool_pack.coding";
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ContextBudgetPolicyError {
@@ -42,6 +47,15 @@ pub enum ContextCompactionPlanError {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ContextCompactionStateUpdateError {
+    InvalidSchemaVersion {
+        expected: &'static str,
+        actual: String,
+    },
+    MissingField(&'static str),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum CodingToolBudgetBlockError {
     InvalidSchemaVersion {
         expected: &'static str,
         actual: String,
@@ -189,6 +203,67 @@ pub struct ContextBudgetPolicyRecord {
     pub runtime_event_idempotency_key: String,
     pub simulation_mode: bool,
     pub summary: String,
+    pub generated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CodingToolBudgetBlockRequest {
+    pub schema_version: String,
+    pub thread_id: String,
+    #[serde(default)]
+    pub turn_id: Option<String>,
+    pub tool_id: String,
+    pub tool_call_id: String,
+    #[serde(default)]
+    pub workspace_root: Option<String>,
+    #[serde(default)]
+    pub workflow_graph_id: Option<String>,
+    #[serde(default)]
+    pub workflow_node_id: Option<String>,
+    #[serde(default)]
+    pub source: Option<String>,
+    #[serde(default)]
+    pub idempotency_key: Option<String>,
+    #[serde(default)]
+    pub receipt_id: Option<String>,
+    #[serde(default)]
+    pub input_summary: Value,
+    #[serde(default)]
+    pub budget_policy: Value,
+    #[serde(default)]
+    pub rollback_refs: Vec<String>,
+    #[serde(default)]
+    pub receipt_refs: Vec<String>,
+    #[serde(default)]
+    pub policy_decision_refs: Vec<String>,
+    #[serde(default)]
+    pub artifact_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CodingToolBudgetBlockRecord {
+    pub schema_version: String,
+    pub object: String,
+    pub status: String,
+    pub operation_kind: String,
+    pub thread_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub turn_id: Option<String>,
+    pub tool_id: String,
+    pub tool_call_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub workflow_graph_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub workflow_node_id: Option<String>,
+    pub reason: String,
+    pub context_budget_status: String,
+    pub receipt_refs: Vec<String>,
+    pub policy_decision_refs: Vec<String>,
+    pub artifact_refs: Vec<String>,
+    pub rollback_refs: Vec<String>,
+    pub result: Value,
+    pub event: Value,
+    pub projection_source: String,
     pub generated_at: String,
 }
 
@@ -443,6 +518,13 @@ pub struct ContextCompactionStateUpdateBridgeRequest {
     pub backend: Option<String>,
     pub request: ContextCompactionStateUpdateRequest,
 }
+
+#[derive(Debug, Deserialize)]
+pub struct CodingToolBudgetBlockBridgeRequest {
+    #[serde(default)]
+    pub backend: Option<String>,
+    pub request: CodingToolBudgetBlockRequest,
+}
 #[derive(Debug, Default, Clone)]
 pub struct ContextBudgetPolicyCore;
 
@@ -622,6 +704,185 @@ impl ContextBudgetPolicyCore {
             runtime_event_idempotency_key,
             simulation_mode: mode == "simulate",
             summary,
+            generated_at: "rust_policy_core".to_string(),
+        })
+    }
+}
+
+impl CodingToolBudgetBlockCore {
+    pub fn plan(
+        &self,
+        request: &CodingToolBudgetBlockRequest,
+    ) -> Result<CodingToolBudgetBlockRecord, CodingToolBudgetBlockError> {
+        request.validate()?;
+        let thread_id = optional_trimmed(Some(request.thread_id.as_str())).unwrap();
+        let turn_id = optional_trimmed(request.turn_id.as_deref());
+        let tool_id = optional_trimmed(Some(request.tool_id.as_str())).unwrap();
+        let tool_call_id = optional_trimmed(Some(request.tool_call_id.as_str())).unwrap();
+        let workflow_graph_id = optional_trimmed(request.workflow_graph_id.as_deref());
+        let workflow_node_id = optional_trimmed(request.workflow_node_id.as_deref());
+        let workspace_root = optional_trimmed(request.workspace_root.as_deref());
+        let source = optional_trimmed(request.source.as_deref())
+            .unwrap_or_else(|| "runtime_auto".to_string());
+        let reason = "coding_tool_budget_exceeded".to_string();
+        let context_budget_status =
+            string_field(&request.budget_policy, "status").unwrap_or_else(|| "blocked".to_string());
+        let receipt_id = optional_trimmed(request.receipt_id.as_deref()).unwrap_or_else(|| {
+            format!(
+                "receipt_coding_tool_budget_block_{}_{}",
+                safe_id(&tool_id),
+                short_sha256_hex(&format!("{thread_id}:{tool_id}:{tool_call_id}"), 12)
+            )
+        });
+        let idempotency_key = optional_trimmed(request.idempotency_key.as_deref())
+            .unwrap_or_else(|| format!("thread:{thread_id}:coding-tool:{tool_call_id}"));
+        let receipt_refs = unique_strings(
+            request
+                .receipt_refs
+                .iter()
+                .cloned()
+                .chain(value_string_array(&request.budget_policy, "receipt_refs"))
+                .chain(std::iter::once(receipt_id.clone()))
+                .collect(),
+        );
+        let policy_decision_refs = unique_strings(
+            request
+                .policy_decision_refs
+                .iter()
+                .cloned()
+                .chain(value_string_array(
+                    &request.budget_policy,
+                    "policy_decision_refs",
+                ))
+                .chain(string_field(&request.budget_policy, "policy_decision_id"))
+                .collect(),
+        );
+        let artifact_refs = unique_strings(request.artifact_refs.clone());
+        let rollback_refs = unique_strings(request.rollback_refs.clone());
+        let input_summary = if request.input_summary.is_object() {
+            request.input_summary.clone()
+        } else {
+            Value::Object(serde_json::Map::new())
+        };
+        let error = json!({
+            "code": "coding_tool_budget_exceeded",
+            "message": "Coding tool execution is blocked by the Rust budget policy.",
+            "details": {
+                "thread_id": thread_id,
+                "turn_id": turn_id,
+                "tool_id": tool_id,
+                "tool_call_id": tool_call_id,
+                "workflow_graph_id": workflow_graph_id,
+                "workflow_node_id": workflow_node_id,
+                "reason": reason,
+                "context_budget_status": context_budget_status,
+                "budget_usage_telemetry": request.budget_policy.get("usage_telemetry").cloned().unwrap_or(Value::Null),
+                "policy_decision_refs": policy_decision_refs,
+            }
+        });
+        let result = json!({
+            "schema_version": CODING_TOOL_RESULT_SCHEMA_VERSION,
+            "tool_name": tool_id,
+            "status": "blocked",
+            "blocked": true,
+            "reason": reason,
+            "context_budget_status": context_budget_status,
+            "context_budget": request.budget_policy.clone(),
+            "budget_usage_telemetry": request.budget_policy.get("usage_telemetry").cloned().unwrap_or(Value::Null),
+            "error": error.clone(),
+            "receipt_refs": receipt_refs.clone(),
+            "policy_decision_refs": policy_decision_refs.clone(),
+            "artifact_refs": artifact_refs.clone(),
+            "shell_fallback_used": false,
+            "rust_budget_block": true,
+        });
+        let event_stream_id = format!("{thread_id}:events");
+        let turn_or_thread = turn_id.as_deref().unwrap_or(thread_id.as_str());
+        let item_id = format!(
+            "{turn_or_thread}:item:coding-tool:{}:{}",
+            safe_id(&tool_id),
+            short_sha256_hex(&tool_call_id, 12)
+        );
+        let payload_summary = json!({
+            "schema_version": CODING_TOOL_RESULT_SCHEMA_VERSION,
+            "event_kind": "CodingToolResult",
+            "tool_pack": CODING_TOOL_PACK_ID,
+            "tool_name": tool_id,
+            "tool_call_id": tool_call_id,
+            "thread_id": thread_id,
+            "turn_id": turn_id,
+            "workspace_root": workspace_root,
+            "workflow_graph_id": workflow_graph_id,
+            "workflow_node_id": workflow_node_id,
+            "status": "blocked",
+            "summary": "Coding tool blocked by budget policy.",
+            "shell_fallback_used": false,
+            "input_summary": input_summary,
+            "result_summary": {
+                "status": "blocked",
+                "reason": reason,
+                "context_budget_status": context_budget_status,
+            },
+            "result": result.clone(),
+            "error": error,
+            "rollback_refs": rollback_refs.clone(),
+            "context_budget_status": context_budget_status,
+            "context_budget": request.budget_policy.clone(),
+            "budget_usage_telemetry": request.budget_policy.get("usage_telemetry").cloned().unwrap_or(Value::Null),
+            "receipt_id": receipt_id,
+            "receipt_count": receipt_refs.len(),
+            "artifact_count": artifact_refs.len(),
+            "receipt_refs": receipt_refs.clone(),
+            "policy_decision_refs": policy_decision_refs.clone(),
+            "step_module_backend": Value::Null,
+            "step_module_invocation": Value::Null,
+            "step_module_result": Value::Null,
+            "step_module_error": Value::Null,
+            "rust_budget_block": true,
+        });
+        let event = json!({
+            "event_stream_id": event_stream_id,
+            "thread_id": thread_id,
+            "turn_id": turn_id,
+            "item_id": item_id,
+            "idempotency_key": idempotency_key,
+            "source": source,
+            "source_event_kind": "coding_tool.budget.blocked",
+            "event_kind": "tool.blocked",
+            "status": "blocked",
+            "actor": "runtime",
+            "workspace_root": workspace_root,
+            "workflow_graph_id": workflow_graph_id,
+            "workflow_node_id": workflow_node_id,
+            "component_kind": "coding_tool",
+            "tool_call_id": tool_call_id,
+            "artifact_refs": artifact_refs,
+            "receipt_refs": receipt_refs,
+            "rollback_refs": rollback_refs,
+            "payload_schema_version": CODING_TOOL_RESULT_SCHEMA_VERSION,
+            "payload_summary": payload_summary,
+        });
+
+        Ok(CodingToolBudgetBlockRecord {
+            schema_version: CODING_TOOL_BUDGET_BLOCK_RESULT_SCHEMA_VERSION.to_string(),
+            object: "ioi.runtime_coding_tool_budget_block".to_string(),
+            status: "blocked".to_string(),
+            operation_kind: "coding_tool.budget.block".to_string(),
+            thread_id,
+            turn_id,
+            tool_id,
+            tool_call_id,
+            workflow_graph_id,
+            workflow_node_id,
+            reason,
+            context_budget_status,
+            receipt_refs,
+            policy_decision_refs,
+            artifact_refs,
+            rollback_refs,
+            result,
+            event,
+            projection_source: "rust_daemon_core_coding_tool_budget_block".to_string(),
             generated_at: "rust_policy_core".to_string(),
         })
     }
@@ -874,6 +1135,9 @@ impl ContextCompactionPlanCore {
 #[derive(Debug, Default, Clone)]
 pub struct ContextCompactionStateUpdateCore;
 
+#[derive(Debug, Default, Clone)]
+pub struct CodingToolBudgetBlockCore;
+
 impl ContextCompactionStateUpdateCore {
     pub fn plan(
         &self,
@@ -979,6 +1243,38 @@ pub fn evaluate_coding_tool_budget_policy_response(
         "rust_coding_tool_budget_policy_command",
         "coding_tool_budget_policy_invalid",
     )
+}
+
+pub fn plan_coding_tool_budget_block_response(
+    request: CodingToolBudgetBlockBridgeRequest,
+) -> Result<Value, ContextPolicyCommandError> {
+    let record = CodingToolBudgetBlockCore
+        .plan(&request.request)
+        .map_err(|error| {
+            ContextPolicyCommandError::new("coding_tool_budget_block_invalid", format!("{error:?}"))
+        })?;
+    let record_value = serde_json::to_value(record.clone()).unwrap_or(Value::Null);
+    Ok(json!({
+        "source": "rust_coding_tool_budget_block_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
+        "record": record_value,
+        "status": record.status,
+        "operation_kind": record.operation_kind,
+        "thread_id": record.thread_id,
+        "turn_id": record.turn_id,
+        "tool_id": record.tool_id,
+        "tool_call_id": record.tool_call_id,
+        "workflow_graph_id": record.workflow_graph_id,
+        "workflow_node_id": record.workflow_node_id,
+        "reason": record.reason,
+        "context_budget_status": record.context_budget_status,
+        "receipt_refs": record.receipt_refs,
+        "policy_decision_refs": record.policy_decision_refs,
+        "artifact_refs": record.artifact_refs,
+        "rollback_refs": record.rollback_refs,
+        "result": record.result,
+        "event": record.event,
+    }))
 }
 
 fn evaluate_context_budget_policy_response_with(
@@ -1183,6 +1479,30 @@ impl ContextBudgetPolicyRequest {
         }
         if !self.usage_telemetry.is_object() {
             return Err(ContextBudgetPolicyError::MissingField("usage_telemetry"));
+        }
+        Ok(())
+    }
+}
+
+impl CodingToolBudgetBlockRequest {
+    pub fn validate(&self) -> Result<(), CodingToolBudgetBlockError> {
+        if self.schema_version != CODING_TOOL_BUDGET_BLOCK_REQUEST_SCHEMA_VERSION {
+            return Err(CodingToolBudgetBlockError::InvalidSchemaVersion {
+                expected: CODING_TOOL_BUDGET_BLOCK_REQUEST_SCHEMA_VERSION,
+                actual: self.schema_version.clone(),
+            });
+        }
+        if optional_trimmed(Some(self.thread_id.as_str())).is_none() {
+            return Err(CodingToolBudgetBlockError::MissingField("thread_id"));
+        }
+        if optional_trimmed(Some(self.tool_id.as_str())).is_none() {
+            return Err(CodingToolBudgetBlockError::MissingField("tool_id"));
+        }
+        if optional_trimmed(Some(self.tool_call_id.as_str())).is_none() {
+            return Err(CodingToolBudgetBlockError::MissingField("tool_call_id"));
+        }
+        if !self.budget_policy.is_object() {
+            return Err(CodingToolBudgetBlockError::MissingField("budget_policy"));
         }
         Ok(())
     }
@@ -1508,6 +1828,40 @@ fn append_operator_control(existing: Option<&Value>, control: &Value) -> Value {
     Value::Array(entries)
 }
 
+fn value_string_array(value: &Value, key: &str) -> Vec<String> {
+    value
+        .get(key)
+        .and_then(Value::as_array)
+        .map(|entries| {
+            entries
+                .iter()
+                .filter_map(Value::as_str)
+                .filter_map(|entry| optional_trimmed(Some(entry)))
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default()
+}
+
+fn unique_strings(values: Vec<String>) -> Vec<String> {
+    let mut output = Vec::new();
+    for value in values {
+        let Some(value) = optional_trimmed(Some(value.as_str())) else {
+            continue;
+        };
+        if !output.iter().any(|existing| existing == &value) {
+            output.push(value);
+        }
+    }
+    output
+}
+
+fn short_sha256_hex(value: &str, len: usize) -> String {
+    hex::encode(Sha256::digest(value.as_bytes()))
+        .chars()
+        .take(len)
+        .collect()
+}
+
 fn compaction_status(action: &str, execute_compaction: bool, approval_satisfied: bool) -> String {
     match action {
         "stop" => "blocked".to_string(),
@@ -1593,6 +1947,35 @@ mod tests {
             actor: None,
             event_kind: None,
             component_kind: None,
+        }
+    }
+
+    fn budget_block_request() -> CodingToolBudgetBlockRequest {
+        CodingToolBudgetBlockRequest {
+            schema_version: CODING_TOOL_BUDGET_BLOCK_REQUEST_SCHEMA_VERSION.to_string(),
+            thread_id: "thread_budget".to_string(),
+            turn_id: Some("turn_budget".to_string()),
+            tool_id: "file.inspect".to_string(),
+            tool_call_id: "call_budget".to_string(),
+            workspace_root: Some("/workspace".to_string()),
+            workflow_graph_id: Some("graph_budget".to_string()),
+            workflow_node_id: Some("node_budget".to_string()),
+            source: Some("runtime_auto".to_string()),
+            idempotency_key: Some("thread:thread_budget:coding-tool:call_budget".to_string()),
+            receipt_id: Some("receipt_coding_tool_budget_block_file_inspect".to_string()),
+            input_summary: json!({
+                "path": "README.md",
+            }),
+            budget_policy: serde_json::to_value(
+                ContextBudgetPolicyCore
+                    .evaluate(&budget_request())
+                    .expect("coding-tool budget policy"),
+            )
+            .expect("budget policy value"),
+            rollback_refs: vec!["rollback_budget".to_string()],
+            receipt_refs: vec!["receipt_invocation".to_string()],
+            policy_decision_refs: vec!["policy_invocation".to_string()],
+            artifact_refs: vec!["artifact_budget".to_string()],
         }
     }
 
@@ -1784,6 +2167,68 @@ mod tests {
         assert_eq!(
             response["policy_decision_refs"][0],
             response["policy_decision_id"]
+        );
+    }
+
+    #[test]
+    fn rust_policy_plans_coding_tool_budget_block_result_event() {
+        let record = CodingToolBudgetBlockCore
+            .plan(&budget_block_request())
+            .expect("coding-tool budget block");
+
+        assert_eq!(
+            record.schema_version,
+            CODING_TOOL_BUDGET_BLOCK_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(record.status, "blocked");
+        assert_eq!(record.operation_kind, "coding_tool.budget.block");
+        assert_eq!(record.reason, "coding_tool_budget_exceeded");
+        assert_eq!(record.context_budget_status, "blocked");
+        assert!(record
+            .receipt_refs
+            .contains(&"receipt_coding_tool_budget_block_file_inspect".to_string()));
+        assert!(record
+            .receipt_refs
+            .contains(&"receipt_invocation".to_string()));
+        assert!(record
+            .policy_decision_refs
+            .contains(&"policy_invocation".to_string()));
+        assert_eq!(
+            record.result["schema_version"],
+            CODING_TOOL_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(record.result["status"], "blocked");
+        assert_eq!(record.result["rust_budget_block"], true);
+        assert_eq!(record.result["context_budget_status"], "blocked");
+        assert_eq!(record.event["event_stream_id"], "thread_budget:events");
+        assert_eq!(record.event["event_kind"], "tool.blocked");
+        assert_eq!(record.event["status"], "blocked");
+        assert_eq!(
+            record.event["payload_summary"]["context_budget_status"],
+            "blocked"
+        );
+        assert_eq!(record.event["payload_summary"]["rust_budget_block"], true);
+    }
+
+    #[test]
+    fn rust_core_shapes_coding_tool_budget_block_command_response() {
+        let response = plan_coding_tool_budget_block_response(CodingToolBudgetBlockBridgeRequest {
+            backend: Some("rust_policy".to_string()),
+            request: budget_block_request(),
+        })
+        .expect("coding-tool budget block command response");
+
+        assert_eq!(response["source"], "rust_coding_tool_budget_block_command");
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "blocked");
+        assert_eq!(response["operation_kind"], "coding_tool.budget.block");
+        assert_eq!(response["reason"], "coding_tool_budget_exceeded");
+        assert_eq!(response["context_budget_status"], "blocked");
+        assert_eq!(response["result"]["status"], "blocked");
+        assert_eq!(response["event"]["event_kind"], "tool.blocked");
+        assert_eq!(
+            response["record"]["schema_version"],
+            CODING_TOOL_BUDGET_BLOCK_RESULT_SCHEMA_VERSION
         );
     }
 

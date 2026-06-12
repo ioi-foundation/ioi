@@ -1,9 +1,12 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
 
 use super::{
     AGENT_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
     AGENT_CREATE_STATE_UPDATE_RESULT_SCHEMA_VERSION,
+    AGENT_DELETE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+    AGENT_DELETE_STATE_UPDATE_RESULT_SCHEMA_VERSION,
     AGENT_STATUS_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
     AGENT_STATUS_STATE_UPDATE_RESULT_SCHEMA_VERSION,
     LIFECYCLE_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
@@ -17,6 +20,8 @@ use super::{
     SUBAGENT_RECORD_STATE_UPDATE_RESULT_SCHEMA_VERSION,
     THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
     THREAD_CONTROL_AGENT_STATE_UPDATE_RESULT_SCHEMA_VERSION,
+    THREAD_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+    THREAD_CREATE_STATE_UPDATE_RESULT_SCHEMA_VERSION,
     THREAD_TURN_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
     THREAD_TURN_ADMISSION_REQUIRED_RESULT_SCHEMA_VERSION,
 };
@@ -52,6 +57,20 @@ pub enum LifecycleAdmissionRequiredError {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub enum ThreadCreateStateUpdateError {
+    InvalidSchemaVersion {
+        expected: &'static str,
+        actual: String,
+    },
+    MissingField(&'static str),
+    MismatchedField {
+        field: &'static str,
+        expected: String,
+        actual: String,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum AgentCreateStateUpdateError {
     InvalidSchemaVersion {
         expected: &'static str,
@@ -71,6 +90,15 @@ pub enum RunCreateStateUpdateError {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum AgentStatusStateUpdateError {
+    InvalidSchemaVersion {
+        expected: &'static str,
+        actual: String,
+    },
+    MissingField(&'static str),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum AgentDeleteStateUpdateError {
     InvalidSchemaVersion {
         expected: &'static str,
         actual: String,
@@ -133,6 +161,10 @@ pub struct ThreadControlAgentStateUpdateRequest {
     pub workspace_trust_warning_created_at: Option<String>,
     #[serde(default)]
     pub model_route: Option<Value>,
+    #[serde(default)]
+    pub receipt_refs: Vec<String>,
+    #[serde(default)]
+    pub policy_decision_refs: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -144,6 +176,8 @@ pub struct ThreadControlAgentStateUpdateRecord {
     pub thread_id: String,
     pub agent_id: String,
     pub updated_at: String,
+    pub receipt_refs: Vec<String>,
+    pub policy_decision_refs: Vec<String>,
     pub control: Value,
     pub agent: Value,
     pub generated_at: String,
@@ -216,6 +250,28 @@ pub struct LifecycleAdmissionRequiredRecord {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ThreadCreateStateUpdateRequest {
+    pub schema_version: String,
+    pub agent: Value,
+    pub thread: Value,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ThreadCreateStateUpdateRecord {
+    pub schema_version: String,
+    pub object: String,
+    pub status: String,
+    pub operation_kind: String,
+    pub thread_id: String,
+    pub agent_id: String,
+    pub created_at: String,
+    pub updated_at: String,
+    pub agent: Value,
+    pub thread: Value,
+    pub generated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct AgentCreateStateUpdateRequest {
     pub schema_version: String,
     pub agent: Value,
@@ -270,6 +326,27 @@ pub struct AgentStatusStateUpdateRecord {
     pub status: String,
     pub operation_kind: String,
     pub agent_id: String,
+    pub updated_at: String,
+    pub agent: Value,
+    pub generated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AgentDeleteStateUpdateRequest {
+    pub schema_version: String,
+    pub agent: Value,
+    pub operation_kind: String,
+    pub deleted_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AgentDeleteStateUpdateRecord {
+    pub schema_version: String,
+    pub object: String,
+    pub status: String,
+    pub operation_kind: String,
+    pub agent_id: String,
+    pub deleted_at: String,
     pub updated_at: String,
     pub agent: Value,
     pub generated_at: String,
@@ -391,6 +468,13 @@ pub struct LifecycleAdmissionRequiredBridgeRequest {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct ThreadCreateStateUpdateBridgeRequest {
+    #[serde(default)]
+    backend: Option<String>,
+    request: ThreadCreateStateUpdateRequest,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct RuntimeBridgeThreadStartAgentStateUpdateBridgeRequest {
     #[serde(default)]
     backend: Option<String>,
@@ -423,6 +507,13 @@ pub struct AgentStatusStateUpdateBridgeRequest {
     #[serde(default)]
     backend: Option<String>,
     request: AgentStatusStateUpdateRequest,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AgentDeleteStateUpdateBridgeRequest {
+    #[serde(default)]
+    backend: Option<String>,
+    request: AgentDeleteStateUpdateRequest,
 }
 
 #[derive(Debug, Deserialize)]
@@ -514,6 +605,8 @@ pub fn plan_thread_control_agent_state_update_response(
         "status": record.status.clone(),
         "operation_kind": record.operation_kind.clone(),
         "updated_at": record.updated_at.clone(),
+        "receipt_refs": record.receipt_refs.clone(),
+        "policy_decision_refs": record.policy_decision_refs.clone(),
         "control": record.control.clone(),
         "agent": record.agent.clone(),
     }))
@@ -565,6 +658,29 @@ pub fn plan_lifecycle_admission_required_response(
     }))
 }
 
+pub fn plan_thread_create_state_update_response(
+    request: ThreadCreateStateUpdateBridgeRequest,
+) -> Result<Value, ThreadLifecycleCommandError> {
+    let record = ThreadCreateStateUpdateCore
+        .plan(&request.request)
+        .map_err(|error| {
+            ThreadLifecycleCommandError::from_debug("thread_create_state_update_invalid", error)
+        })?;
+    Ok(json!({
+        "source": "rust_thread_create_state_update_command",
+        "backend": rust_policy_backend(request.backend),
+        "record": record.clone(),
+        "status": record.status.clone(),
+        "operation_kind": record.operation_kind.clone(),
+        "thread_id": record.thread_id.clone(),
+        "agent_id": record.agent_id.clone(),
+        "created_at": record.created_at.clone(),
+        "updated_at": record.updated_at.clone(),
+        "agent": record.agent.clone(),
+        "thread": record.thread.clone(),
+    }))
+}
+
 pub fn plan_agent_create_state_update_response(
     request: AgentCreateStateUpdateBridgeRequest,
 ) -> Result<Value, ThreadLifecycleCommandError> {
@@ -599,6 +715,26 @@ pub fn plan_agent_status_state_update_response(
         "record": record.clone(),
         "status": record.status.clone(),
         "operation_kind": record.operation_kind.clone(),
+        "updated_at": record.updated_at.clone(),
+        "agent": record.agent.clone(),
+    }))
+}
+
+pub fn plan_agent_delete_state_update_response(
+    request: AgentDeleteStateUpdateBridgeRequest,
+) -> Result<Value, ThreadLifecycleCommandError> {
+    let record = AgentDeleteStateUpdateCore
+        .plan(&request.request)
+        .map_err(|error| {
+            ThreadLifecycleCommandError::from_debug("agent_delete_state_update_invalid", error)
+        })?;
+    Ok(json!({
+        "source": "rust_agent_delete_state_update_command",
+        "backend": rust_policy_backend(request.backend),
+        "record": record.clone(),
+        "status": record.status.clone(),
+        "operation_kind": record.operation_kind.clone(),
+        "deleted_at": record.deleted_at.clone(),
         "updated_at": record.updated_at.clone(),
         "agent": record.agent.clone(),
     }))
@@ -738,6 +874,8 @@ impl ThreadControlAgentStateUpdateCore {
         let updated_at = optional_trimmed(request.updated_at.as_deref())
             .or_else(|| optional_trimmed(request.workspace_trust_warning_created_at.as_deref()))
             .unwrap_or_else(|| request.created_at.clone());
+        let mut receipt_refs = unique_string_vec(request.receipt_refs.clone());
+        let policy_decision_refs = unique_string_vec(request.policy_decision_refs.clone());
 
         if control_kind != "mode" {
             let model_route = request.model_route.as_ref().and_then(object_value).ok_or(
@@ -776,20 +914,43 @@ impl ThreadControlAgentStateUpdateCore {
                 "modelRouteReceiptId",
                 optional_json_string(&model_route_value, "receipt_id"),
             );
+            if let Some(receipt_id) = optional_json_string(&model_route_value, "receipt_id") {
+                receipt_refs.push(receipt_id);
+            }
             agent.insert(
                 "modelRouteDecision".to_string(),
                 model_route.get("decision").cloned().unwrap_or(Value::Null),
             );
         }
 
+        let mut receipt_refs = unique_string_vec(receipt_refs);
+        if receipt_refs.is_empty() {
+            receipt_refs.push(generated_thread_control_receipt_ref(
+                &request.thread_id,
+                &request.event_id,
+                control_kind.as_str(),
+            ));
+        }
         agent.insert("runtimeControls".to_string(), Value::Object(controls));
         agent.insert("updatedAt".to_string(), Value::String(updated_at.clone()));
+        agent.insert(
+            "receipt_refs".to_string(),
+            string_array_value(&receipt_refs),
+        );
+        if !policy_decision_refs.is_empty() {
+            agent.insert(
+                "policy_decision_refs".to_string(),
+                string_array_value(&policy_decision_refs),
+            );
+        }
         let control = json!({
             "control_kind": control_kind,
             "event_id": request.event_id,
             "seq": request.seq,
             "created_at": request.created_at,
             "workspace_trust_warning_event_id": request.workspace_trust_warning_event_id,
+            "receipt_refs": receipt_refs.clone(),
+            "policy_decision_refs": policy_decision_refs.clone(),
         });
 
         Ok(ThreadControlAgentStateUpdateRecord {
@@ -800,8 +961,63 @@ impl ThreadControlAgentStateUpdateCore {
             thread_id: request.thread_id.clone(),
             agent_id,
             updated_at,
+            receipt_refs,
+            policy_decision_refs,
             control,
             agent: Value::Object(agent),
+            generated_at: "rust_policy_core".to_string(),
+        })
+    }
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct ThreadCreateStateUpdateCore;
+
+impl ThreadCreateStateUpdateCore {
+    pub fn plan(
+        &self,
+        request: &ThreadCreateStateUpdateRequest,
+    ) -> Result<ThreadCreateStateUpdateRecord, ThreadCreateStateUpdateError> {
+        request.validate()?;
+        let agent = object_value(&request.agent)
+            .ok_or(ThreadCreateStateUpdateError::MissingField("agent"))?;
+        let thread = object_value(&request.thread)
+            .ok_or(ThreadCreateStateUpdateError::MissingField("thread"))?;
+        let agent_value = Value::Object(agent.clone());
+        let thread_value = Value::Object(thread.clone());
+        let agent_id = optional_json_string(&agent_value, "id")
+            .ok_or(ThreadCreateStateUpdateError::MissingField("agent.id"))?;
+        let thread_agent_id = optional_json_string(&thread_value, "agent_id").ok_or(
+            ThreadCreateStateUpdateError::MissingField("thread.agent_id"),
+        )?;
+        if thread_agent_id != agent_id {
+            return Err(ThreadCreateStateUpdateError::MismatchedField {
+                field: "thread.agent_id",
+                expected: agent_id,
+                actual: thread_agent_id,
+            });
+        }
+        let thread_id = optional_json_string(&thread_value, "thread_id").ok_or(
+            ThreadCreateStateUpdateError::MissingField("thread.thread_id"),
+        )?;
+        let created_at = optional_json_string(&agent_value, "createdAt").ok_or(
+            ThreadCreateStateUpdateError::MissingField("agent.createdAt"),
+        )?;
+        let updated_at = optional_json_string(&agent_value, "updatedAt").ok_or(
+            ThreadCreateStateUpdateError::MissingField("agent.updatedAt"),
+        )?;
+
+        Ok(ThreadCreateStateUpdateRecord {
+            schema_version: THREAD_CREATE_STATE_UPDATE_RESULT_SCHEMA_VERSION.to_string(),
+            object: "ioi.runtime_thread_create_state_update".to_string(),
+            status: "planned".to_string(),
+            operation_kind: "thread.create".to_string(),
+            thread_id,
+            agent_id,
+            created_at,
+            updated_at,
+            agent: Value::Object(agent),
+            thread: Value::Object(thread),
             generated_at: "rust_policy_core".to_string(),
         })
     }
@@ -902,6 +1118,43 @@ impl AgentStatusStateUpdateCore {
             operation_kind: request.operation_kind.clone(),
             agent_id,
             updated_at: request.updated_at.clone(),
+            agent: Value::Object(agent),
+            generated_at: "rust_policy_core".to_string(),
+        })
+    }
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct AgentDeleteStateUpdateCore;
+
+impl AgentDeleteStateUpdateCore {
+    pub fn plan(
+        &self,
+        request: &AgentDeleteStateUpdateRequest,
+    ) -> Result<AgentDeleteStateUpdateRecord, AgentDeleteStateUpdateError> {
+        request.validate()?;
+        let mut agent = object_value(&request.agent)
+            .ok_or(AgentDeleteStateUpdateError::MissingField("agent"))?;
+        let agent_id = optional_json_string(&Value::Object(agent.clone()), "id")
+            .ok_or(AgentDeleteStateUpdateError::MissingField("agent.id"))?;
+        agent.insert("status".to_string(), Value::String("deleted".to_string()));
+        agent.insert(
+            "deletedAt".to_string(),
+            Value::String(request.deleted_at.clone()),
+        );
+        agent.insert(
+            "updatedAt".to_string(),
+            Value::String(request.deleted_at.clone()),
+        );
+
+        Ok(AgentDeleteStateUpdateRecord {
+            schema_version: AGENT_DELETE_STATE_UPDATE_RESULT_SCHEMA_VERSION.to_string(),
+            object: "ioi.runtime_agent_delete_state_update".to_string(),
+            status: "planned".to_string(),
+            operation_kind: request.operation_kind.clone(),
+            agent_id,
+            deleted_at: request.deleted_at.clone(),
+            updated_at: request.deleted_at.clone(),
             agent: Value::Object(agent),
             generated_at: "rust_policy_core".to_string(),
         })
@@ -1146,6 +1399,65 @@ impl LifecycleAdmissionRequiredRequest {
     }
 }
 
+impl ThreadCreateStateUpdateRequest {
+    pub fn validate(&self) -> Result<(), ThreadCreateStateUpdateError> {
+        if self.schema_version != THREAD_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION {
+            return Err(ThreadCreateStateUpdateError::InvalidSchemaVersion {
+                expected: THREAD_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+                actual: self.schema_version.clone(),
+            });
+        }
+        let agent =
+            object_value(&self.agent).ok_or(ThreadCreateStateUpdateError::MissingField("agent"))?;
+        let agent_value = Value::Object(agent);
+        for field in ["id", "status", "runtime", "cwd", "createdAt", "updatedAt"] {
+            if optional_json_string(&agent_value, field).is_none() {
+                return Err(ThreadCreateStateUpdateError::MissingField(match field {
+                    "id" => "agent.id",
+                    "status" => "agent.status",
+                    "runtime" => "agent.runtime",
+                    "cwd" => "agent.cwd",
+                    "createdAt" => "agent.createdAt",
+                    "updatedAt" => "agent.updatedAt",
+                    _ => "agent",
+                }));
+            }
+        }
+        if !agent_value
+            .get("runtimeControls")
+            .is_some_and(Value::is_object)
+        {
+            return Err(ThreadCreateStateUpdateError::MissingField(
+                "agent.runtimeControls",
+            ));
+        }
+        let thread = object_value(&self.thread)
+            .ok_or(ThreadCreateStateUpdateError::MissingField("thread"))?;
+        let thread_value = Value::Object(thread);
+        for field in [
+            "thread_id",
+            "agent_id",
+            "event_stream_id",
+            "status",
+            "created_at",
+            "updated_at",
+        ] {
+            if optional_json_string(&thread_value, field).is_none() {
+                return Err(ThreadCreateStateUpdateError::MissingField(match field {
+                    "thread_id" => "thread.thread_id",
+                    "agent_id" => "thread.agent_id",
+                    "event_stream_id" => "thread.event_stream_id",
+                    "status" => "thread.status",
+                    "created_at" => "thread.created_at",
+                    "updated_at" => "thread.updated_at",
+                    _ => "thread",
+                }));
+            }
+        }
+        Ok(())
+    }
+}
+
 impl AgentCreateStateUpdateRequest {
     pub fn validate(&self) -> Result<(), AgentCreateStateUpdateError> {
         if self.schema_version != AGENT_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION {
@@ -1251,6 +1563,30 @@ impl AgentStatusStateUpdateRequest {
         }
         if optional_trimmed(Some(self.updated_at.as_str())).is_none() {
             return Err(AgentStatusStateUpdateError::MissingField("updated_at"));
+        }
+        Ok(())
+    }
+}
+
+impl AgentDeleteStateUpdateRequest {
+    pub fn validate(&self) -> Result<(), AgentDeleteStateUpdateError> {
+        if self.schema_version != AGENT_DELETE_STATE_UPDATE_REQUEST_SCHEMA_VERSION {
+            return Err(AgentDeleteStateUpdateError::InvalidSchemaVersion {
+                expected: AGENT_DELETE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+                actual: self.schema_version.clone(),
+            });
+        }
+        let agent =
+            object_value(&self.agent).ok_or(AgentDeleteStateUpdateError::MissingField("agent"))?;
+        let agent_value = Value::Object(agent);
+        if optional_json_string(&agent_value, "id").is_none() {
+            return Err(AgentDeleteStateUpdateError::MissingField("agent.id"));
+        }
+        if optional_trimmed(Some(self.operation_kind.as_str())).is_none() {
+            return Err(AgentDeleteStateUpdateError::MissingField("operation_kind"));
+        }
+        if optional_trimmed(Some(self.deleted_at.as_str())).is_none() {
+            return Err(AgentDeleteStateUpdateError::MissingField("deleted_at"));
         }
         Ok(())
     }
@@ -1433,6 +1769,44 @@ fn insert_optional_string_field(
     );
 }
 
+fn string_array_value(values: &[String]) -> Value {
+    Value::Array(values.iter().cloned().map(Value::String).collect())
+}
+
+fn unique_string_vec(values: Vec<String>) -> Vec<String> {
+    let mut unique = Vec::new();
+    for value in values {
+        let trimmed = value.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        let normalized = trimmed.to_string();
+        if !unique.contains(&normalized) {
+            unique.push(normalized);
+        }
+    }
+    unique
+}
+
+fn generated_thread_control_receipt_ref(
+    thread_id: &str,
+    event_id: &str,
+    control_kind: &str,
+) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(thread_id.as_bytes());
+    hasher.update(b":");
+    hasher.update(event_id.as_bytes());
+    hasher.update(b":");
+    hasher.update(control_kind.as_bytes());
+    let digest = hasher.finalize();
+    let mut suffix = String::new();
+    for byte in digest.iter().take(8) {
+        suffix.push_str(&format!("{byte:02x}"));
+    }
+    format!("receipt_thread_control_{suffix}")
+}
+
 fn normalized_thread_control_kind(
     value: &str,
 ) -> Result<String, ThreadControlAgentStateUpdateError> {
@@ -1500,6 +1874,16 @@ fn lifecycle_required_profile(
                 "runtime_run_create_js_facade_retired".to_string(),
                 "rust_daemon_core_run_create_required".to_string(),
                 "agentgres_run_create_state_truth_required".to_string(),
+            ],
+        }),
+        ("thread_create", "thread.create") => Ok(LifecycleRequiredProfile {
+            code: "runtime_thread_create_rust_core_required",
+            message: "Thread creation requires direct Rust daemon-core state admission and persistence.",
+            boundary: "runtime.thread_create",
+            evidence_refs: vec![
+                "runtime_thread_create_js_facade_retired".to_string(),
+                "rust_daemon_core_thread_create_required".to_string(),
+                "agentgres_thread_create_state_truth_required".to_string(),
             ],
         }),
         ("agent_status_control", "agent_status_update") => Ok(LifecycleRequiredProfile {
@@ -1599,6 +1983,8 @@ mod tests {
                     "workflow_node_id": "runtime.model-router.custom"
                 }
             })),
+            receipt_refs: vec![],
+            policy_decision_refs: vec![],
         }
     }
 
@@ -1617,6 +2003,34 @@ mod tests {
                 },
                 "createdAt": "2026-06-06T05:15:00.000Z",
                 "updatedAt": "2026-06-06T05:15:00.000Z"
+            }),
+        }
+    }
+
+    fn thread_create_state_update_request() -> ThreadCreateStateUpdateRequest {
+        ThreadCreateStateUpdateRequest {
+            schema_version: THREAD_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION.to_string(),
+            agent: json!({
+                "id": "agent_create_one",
+                "status": "active",
+                "runtime": "local",
+                "cwd": "/workspace",
+                "modelId": "local-model",
+                "runtimeControls": {
+                    "mode": "agent",
+                    "approvalMode": "suggest"
+                },
+                "createdAt": "2026-06-06T05:15:00.000Z",
+                "updatedAt": "2026-06-06T05:15:00.000Z"
+            }),
+            thread: json!({
+                "schema_version": "ioi.runtime.thread.v1",
+                "thread_id": "thread_create_one",
+                "agent_id": "agent_create_one",
+                "event_stream_id": "thread_create_one:events",
+                "status": "active",
+                "created_at": "2026-06-06T05:15:00.000Z",
+                "updated_at": "2026-06-06T05:15:00.000Z"
             }),
         }
     }
@@ -1688,6 +2102,20 @@ mod tests {
             status: "archived".to_string(),
             operation_kind: "agent.archive".to_string(),
             updated_at: "2026-06-06T06:25:00.000Z".to_string(),
+        }
+    }
+
+    fn agent_delete_state_update_request() -> AgentDeleteStateUpdateRequest {
+        AgentDeleteStateUpdateRequest {
+            schema_version: AGENT_DELETE_STATE_UPDATE_REQUEST_SCHEMA_VERSION.to_string(),
+            agent: json!({
+                "id": "agent_delete_one",
+                "status": "active",
+                "createdAt": "2026-06-06T05:15:00.000Z",
+                "updatedAt": "2026-06-06T05:15:00.000Z"
+            }),
+            operation_kind: "agent.delete".to_string(),
+            deleted_at: "2026-06-06T06:40:00.000Z".to_string(),
         }
     }
 
@@ -1781,7 +2209,17 @@ mod tests {
             record.control["workspace_trust_warning_event_id"],
             "evt_workspace_warning"
         );
+        assert!(record.receipt_refs[0].starts_with("receipt_thread_control_"));
+        assert_eq!(
+            record.control["receipt_refs"],
+            string_array_value(&record.receipt_refs)
+        );
+        assert_eq!(
+            record.agent["receipt_refs"],
+            string_array_value(&record.receipt_refs)
+        );
         assert!(record.control.get("workspaceTrustWarningEventId").is_none());
+        assert!(record.control.get("receiptRefs").is_none());
         assert_eq!(record.agent["runtimeControls"]["mode"], "review");
         assert_eq!(record.agent["updatedAt"], "2026-06-06T05:00:01.000Z");
         assert_eq!(record.agent["modelId"], "previous-model");
@@ -1801,6 +2239,8 @@ mod tests {
             record.agent["runtimeControls"]["model"]["selectedModel"],
             "local-model"
         );
+        assert_eq!(record.receipt_refs, vec!["receipt_route_1".to_string()]);
+        assert_eq!(record.agent["receipt_refs"], json!(["receipt_route_1"]));
         assert_eq!(record.agent["modelId"], "local-model");
         assert_eq!(record.agent["requestedModelId"], "auto");
         assert_eq!(record.agent["modelRouteId"], "route.local-first");
@@ -1832,11 +2272,17 @@ mod tests {
         assert_eq!(response["operation_kind"], "thread.thinking");
         assert_eq!(response["control"]["control_kind"], "thinking");
         assert_eq!(response["control"]["event_id"], "evt_thread_control");
+        assert_eq!(response["receipt_refs"], json!(["receipt_route_1"]));
+        assert_eq!(
+            response["control"]["receipt_refs"],
+            json!(["receipt_route_1"])
+        );
         for field in [
             "controlKind",
             "eventId",
             "createdAt",
             "workspaceTrustWarningEventId",
+            "receiptRefs",
         ] {
             assert!(response["control"].get(field).is_none());
         }
@@ -1937,6 +2383,12 @@ mod tests {
                 "run.create",
                 "runtime_run_create_rust_core_required",
                 "runtime.run_create",
+            ),
+            (
+                "thread_create",
+                "thread.create",
+                "runtime_thread_create_rust_core_required",
+                "runtime.thread_create",
             ),
             (
                 "agent_status_control",
@@ -2144,6 +2596,48 @@ mod tests {
     }
 
     #[test]
+    fn rust_policy_plans_thread_create_state_update() {
+        let record = ThreadCreateStateUpdateCore
+            .plan(&thread_create_state_update_request())
+            .expect("thread create state update");
+
+        assert_eq!(
+            record.schema_version,
+            THREAD_CREATE_STATE_UPDATE_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(record.status, "planned");
+        assert_eq!(record.operation_kind, "thread.create");
+        assert_eq!(record.thread_id, "thread_create_one");
+        assert_eq!(record.agent_id, "agent_create_one");
+        assert_eq!(record.created_at, "2026-06-06T05:15:00.000Z");
+        assert_eq!(record.thread["event_stream_id"], "thread_create_one:events");
+    }
+
+    #[test]
+    fn rust_policy_shapes_thread_create_state_update_command_response() {
+        let response =
+            plan_thread_create_state_update_response(ThreadCreateStateUpdateBridgeRequest {
+                backend: Some("rust_policy".to_string()),
+                request: thread_create_state_update_request(),
+            })
+            .expect("thread create state update command response");
+
+        assert_eq!(
+            response["source"],
+            "rust_thread_create_state_update_command"
+        );
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "planned");
+        assert_eq!(response["operation_kind"], "thread.create");
+        assert_eq!(response["thread_id"], "thread_create_one");
+        assert_eq!(response["agent"]["id"], "agent_create_one");
+        assert_eq!(
+            response["thread"]["event_stream_id"],
+            "thread_create_one:events"
+        );
+    }
+
+    #[test]
     fn rust_policy_plans_run_create_state_update() {
         let record = RunCreateStateUpdateCore
             .plan(&run_create_state_update_request())
@@ -2215,6 +2709,44 @@ mod tests {
         assert_eq!(response["agent"]["id"], "agent_status_one");
         assert_eq!(response["agent"]["status"], "archived");
         assert_eq!(response["agent"]["updatedAt"], "2026-06-06T06:25:00.000Z");
+    }
+
+    #[test]
+    fn rust_policy_plans_agent_delete_state_update() {
+        let record = AgentDeleteStateUpdateCore
+            .plan(&agent_delete_state_update_request())
+            .expect("agent delete state update");
+
+        assert_eq!(
+            record.schema_version,
+            AGENT_DELETE_STATE_UPDATE_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(record.status, "planned");
+        assert_eq!(record.operation_kind, "agent.delete");
+        assert_eq!(record.agent_id, "agent_delete_one");
+        assert_eq!(record.deleted_at, "2026-06-06T06:40:00.000Z");
+        assert_eq!(record.updated_at, "2026-06-06T06:40:00.000Z");
+        assert_eq!(record.agent["status"], "deleted");
+        assert_eq!(record.agent["deletedAt"], "2026-06-06T06:40:00.000Z");
+        assert_eq!(record.agent["updatedAt"], "2026-06-06T06:40:00.000Z");
+    }
+
+    #[test]
+    fn rust_policy_shapes_agent_delete_state_update_command_response() {
+        let response =
+            plan_agent_delete_state_update_response(AgentDeleteStateUpdateBridgeRequest {
+                backend: Some("rust_policy".to_string()),
+                request: agent_delete_state_update_request(),
+            })
+            .expect("agent delete state update command response");
+
+        assert_eq!(response["source"], "rust_agent_delete_state_update_command");
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "planned");
+        assert_eq!(response["operation_kind"], "agent.delete");
+        assert_eq!(response["agent"]["id"], "agent_delete_one");
+        assert_eq!(response["agent"]["status"], "deleted");
+        assert_eq!(response["agent"]["deletedAt"], "2026-06-06T06:40:00.000Z");
     }
 
     #[test]
@@ -2439,6 +2971,43 @@ mod tests {
     }
 
     #[test]
+    fn rust_policy_rejects_invalid_thread_create_state_update_schema() {
+        let mut request = thread_create_state_update_request();
+        request.schema_version = "legacy.schema".to_string();
+
+        let error = ThreadCreateStateUpdateCore
+            .plan(&request)
+            .expect_err("schema should fail");
+
+        assert_eq!(
+            error,
+            ThreadCreateStateUpdateError::InvalidSchemaVersion {
+                expected: THREAD_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+                actual: "legacy.schema".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn rust_policy_rejects_thread_create_agent_mismatch() {
+        let mut request = thread_create_state_update_request();
+        request.thread["agent_id"] = json!("agent_other");
+
+        let error = ThreadCreateStateUpdateCore
+            .plan(&request)
+            .expect_err("agent mismatch should fail");
+
+        assert_eq!(
+            error,
+            ThreadCreateStateUpdateError::MismatchedField {
+                field: "thread.agent_id",
+                expected: "agent_create_one".to_string(),
+                actual: "agent_other".to_string(),
+            }
+        );
+    }
+
+    #[test]
     fn rust_policy_rejects_invalid_run_create_state_update_schema() {
         let mut request = run_create_state_update_request();
         request.schema_version = "legacy.schema".to_string();
@@ -2469,6 +3038,24 @@ mod tests {
             error,
             AgentStatusStateUpdateError::InvalidSchemaVersion {
                 expected: AGENT_STATUS_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+                actual: "legacy.schema".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn rust_policy_rejects_invalid_agent_delete_state_update_schema() {
+        let mut request = agent_delete_state_update_request();
+        request.schema_version = "legacy.schema".to_string();
+
+        let error = AgentDeleteStateUpdateCore
+            .plan(&request)
+            .expect_err("schema should fail");
+
+        assert_eq!(
+            error,
+            AgentDeleteStateUpdateError::InvalidSchemaVersion {
+                expected: AGENT_DELETE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
                 actual: "legacy.schema".to_string(),
             }
         );

@@ -2,6 +2,7 @@ use ioi_types::app::{ActionRequest, ActionTarget, ApprovalAuthority, ApprovalGra
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
+use std::collections::BTreeMap;
 use url::Url;
 
 pub const CODING_TOOL_APPROVAL_REQUEST_SCHEMA_VERSION: &str =
@@ -10,6 +11,28 @@ pub const CODING_TOOL_APPROVAL_RESULT_SCHEMA_VERSION: &str =
     "ioi.runtime.coding-tool-approval-result.v1";
 pub const CODING_TOOL_APPROVAL_MANIFEST_SCHEMA_VERSION: &str =
     "ioi.runtime.coding-tool-approval-manifest.v1";
+pub const CODING_TOOL_APPROVAL_SATISFACTION_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.coding-tool-approval-satisfaction-request.v1";
+pub const CODING_TOOL_APPROVAL_SATISFACTION_RESULT_SCHEMA_VERSION: &str =
+    "ioi.runtime.coding-tool-approval-satisfaction-result.v1";
+pub const CODING_TOOL_APPROVAL_SATISFACTION_PROJECTION_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.coding-tool-approval-satisfaction-projection-request.v1";
+pub const CODING_TOOL_APPROVAL_SATISFACTION_PROJECTION_RESULT_SCHEMA_VERSION: &str =
+    "ioi.runtime.coding-tool-approval-satisfaction-projection.v1";
+pub const CODING_TOOL_APPROVAL_BLOCK_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.coding-tool-approval-block-request.v1";
+pub const CODING_TOOL_APPROVAL_BLOCK_RESULT_SCHEMA_VERSION: &str =
+    "ioi.runtime.coding-tool-approval-block-result.v1";
+pub const APPROVAL_QUEUE_PROJECTION_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.approval-queue-projection-request.v1";
+pub const APPROVAL_QUEUE_PROJECTION_RESULT_SCHEMA_VERSION: &str =
+    "ioi.runtime.approval-queue-projection.v1";
+pub const APPROVAL_DECISION_AUTHORITY_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.approval-decision-authority-request.v1";
+pub const APPROVAL_DECISION_AUTHORITY_RESULT_SCHEMA_VERSION: &str =
+    "ioi.runtime.approval-decision-authority.v1";
+pub const CODING_TOOL_RESULT_SCHEMA_VERSION: &str = "ioi.runtime.coding-tool-result.v1";
+pub const CODING_TOOL_PACK_ID: &str = "ioi.tool_pack.coding";
 pub const WORKFLOW_TOOL_APPROVAL_POLICY_SCHEMA_VERSION: &str =
     "ioi.runtime.workflow-tool-approval-policy.v1";
 pub const APPROVAL_REQUEST_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
@@ -117,6 +140,54 @@ pub enum CodingToolApprovalError {
         actual: String,
     },
     MissingField(&'static str),
+    HashFailed(String),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum CodingToolApprovalSatisfactionError {
+    InvalidSchemaVersion {
+        expected: &'static str,
+        actual: String,
+    },
+    MissingField(&'static str),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum CodingToolApprovalSatisfactionProjectionError {
+    InvalidSchemaVersion {
+        expected: &'static str,
+        actual: String,
+    },
+    MissingField(&'static str),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum CodingToolApprovalBlockError {
+    InvalidSchemaVersion {
+        expected: &'static str,
+        actual: String,
+    },
+    MissingField(&'static str),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ApprovalQueueProjectionError {
+    InvalidSchemaVersion {
+        expected: &'static str,
+        actual: String,
+    },
+    MissingField(&'static str),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ApprovalDecisionAuthorityError {
+    InvalidSchemaVersion {
+        expected: &'static str,
+        actual: String,
+    },
+    MissingField(&'static str),
+    MissingWalletNetworkAuthority,
+    MissingAuthorityReceipt,
     HashFailed(String),
 }
 
@@ -284,6 +355,248 @@ pub struct CodingToolApprovalPlan {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CodingToolApprovalSatisfactionRequest {
+    pub schema_version: String,
+    pub thread_id: String,
+    #[serde(default)]
+    pub approval_id: Option<String>,
+    #[serde(default)]
+    pub approval_manifest: Value,
+    #[serde(default)]
+    pub approval_request: Value,
+    #[serde(default)]
+    pub latest_decision: Value,
+    #[serde(default)]
+    pub lease_state: Value,
+    #[serde(default)]
+    pub expected_head: Option<String>,
+    #[serde(default)]
+    pub state_root_before: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CodingToolApprovalSatisfactionRecord {
+    pub schema_version: String,
+    pub object: String,
+    pub status: String,
+    pub operation_kind: String,
+    pub thread_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub approval_id: Option<String>,
+    pub satisfied: bool,
+    pub reason: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub decision_event_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub decision_seq: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub lease_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<String>,
+    pub receipt_refs: Vec<String>,
+    pub policy_decision_refs: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expected_head: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub state_root_before: Option<String>,
+    pub projection_source: String,
+    pub generated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CodingToolApprovalSatisfactionProjectionRequest {
+    pub schema_version: String,
+    pub thread_id: String,
+    pub approval_id: String,
+    #[serde(default)]
+    pub approval_manifest: Value,
+    #[serde(default)]
+    pub run: Value,
+    #[serde(default)]
+    pub agent: Value,
+    #[serde(default)]
+    pub expected_head: Option<String>,
+    #[serde(default)]
+    pub state_root_before: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CodingToolApprovalSatisfactionProjectionRecord {
+    pub schema_version: String,
+    pub object: String,
+    pub status: String,
+    pub operation_kind: String,
+    pub thread_id: String,
+    pub approval_id: String,
+    pub approval_request: Value,
+    pub latest_decision: Value,
+    pub lease_state: Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expected_head: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub state_root_before: Option<String>,
+    pub projection_source: String,
+    pub generated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ApprovalQueueProjectionRequest {
+    pub schema_version: String,
+    pub thread_id: String,
+    #[serde(default)]
+    pub run: Value,
+    #[serde(default)]
+    pub runs: Vec<Value>,
+    #[serde(default)]
+    pub agent: Value,
+    #[serde(default)]
+    pub include_resolved: bool,
+    #[serde(default)]
+    pub expected_head: Option<String>,
+    #[serde(default)]
+    pub state_root_before: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ApprovalQueueProjectionRecord {
+    pub schema_version: String,
+    pub object: String,
+    pub status: String,
+    pub operation_kind: String,
+    pub thread_id: String,
+    pub approvals: Vec<Value>,
+    pub pending_count: usize,
+    pub resolved_count: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expected_head: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub state_root_before: Option<String>,
+    pub projection_source: String,
+    pub generated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ApprovalDecisionAuthorityRequest {
+    pub schema_version: String,
+    pub thread_id: String,
+    pub approval_id: String,
+    pub decision: String,
+    #[serde(default)]
+    pub target_kind: Option<String>,
+    #[serde(default)]
+    pub run_id: Option<String>,
+    #[serde(default)]
+    pub actor_ref: Option<String>,
+    #[serde(default)]
+    pub source: Option<String>,
+    #[serde(default)]
+    pub idempotency_key: Option<String>,
+    #[serde(default)]
+    pub authority_grant_refs: Vec<String>,
+    #[serde(default)]
+    pub authority_receipt_refs: Vec<String>,
+    #[serde(default)]
+    pub policy_decision_refs: Vec<String>,
+    #[serde(default)]
+    pub approval_manifest: Value,
+    #[serde(default)]
+    pub approval_request: Value,
+    #[serde(default)]
+    pub authority_context: Value,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ApprovalDecisionAuthorityRecord {
+    pub schema_version: String,
+    pub object: String,
+    pub status: String,
+    pub operation_kind: String,
+    pub thread_id: String,
+    pub approval_id: String,
+    pub decision: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_kind: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub run_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub actor_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
+    pub idempotency_key: String,
+    pub wallet_network_grant_refs: Vec<String>,
+    pub authority_receipt_refs: Vec<String>,
+    pub policy_decision_refs: Vec<String>,
+    pub direct_truth_write_allowed: bool,
+    pub authority_hash: String,
+    pub projection_source: String,
+    pub generated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CodingToolApprovalBlockRequest {
+    pub schema_version: String,
+    pub thread_id: String,
+    #[serde(default)]
+    pub turn_id: Option<String>,
+    pub tool_id: String,
+    pub tool_call_id: String,
+    #[serde(default)]
+    pub workspace_root: Option<String>,
+    #[serde(default)]
+    pub workflow_graph_id: Option<String>,
+    #[serde(default)]
+    pub workflow_node_id: Option<String>,
+    #[serde(default)]
+    pub source: Option<String>,
+    #[serde(default)]
+    pub idempotency_key: Option<String>,
+    #[serde(default)]
+    pub receipt_id: Option<String>,
+    #[serde(default)]
+    pub approval_manifest: Value,
+    #[serde(default)]
+    pub approval_gate: Value,
+    #[serde(default)]
+    pub input_summary: Value,
+    #[serde(default)]
+    pub rollback_refs: Vec<String>,
+    #[serde(default)]
+    pub receipt_refs: Vec<String>,
+    #[serde(default)]
+    pub policy_decision_refs: Vec<String>,
+    #[serde(default)]
+    pub artifact_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CodingToolApprovalBlockRecord {
+    pub schema_version: String,
+    pub object: String,
+    pub status: String,
+    pub operation_kind: String,
+    pub thread_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub turn_id: Option<String>,
+    pub tool_id: String,
+    pub tool_call_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub workflow_graph_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub workflow_node_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub approval_id: Option<String>,
+    pub reason: String,
+    pub receipt_refs: Vec<String>,
+    pub policy_decision_refs: Vec<String>,
+    pub artifact_refs: Vec<String>,
+    pub rollback_refs: Vec<String>,
+    pub result: Value,
+    pub event: Value,
+    pub projection_source: String,
+    pub generated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ApprovalRequestStateUpdateRequest {
     pub schema_version: String,
     #[serde(default)]
@@ -354,6 +667,14 @@ pub struct ApprovalDecisionStateUpdateRequest {
     pub receipt_refs: Vec<String>,
     #[serde(default)]
     pub policy_decision_refs: Vec<String>,
+    #[serde(default)]
+    pub authority_record: Value,
+    #[serde(default)]
+    pub authority_hash: Option<String>,
+    #[serde(default)]
+    pub authority_grant_refs: Vec<String>,
+    #[serde(default)]
+    pub authority_receipt_refs: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -400,6 +721,14 @@ pub struct ApprovalRevokeStateUpdateRequest {
     pub receipt_refs: Vec<String>,
     #[serde(default)]
     pub policy_decision_refs: Vec<String>,
+    #[serde(default)]
+    pub authority_record: Value,
+    #[serde(default)]
+    pub authority_hash: Option<String>,
+    #[serde(default)]
+    pub authority_grant_refs: Vec<String>,
+    #[serde(default)]
+    pub authority_receipt_refs: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -426,6 +755,41 @@ pub struct CodingToolApprovalBridgeRequest {
     #[serde(default)]
     pub backend: Option<String>,
     pub request: CodingToolApprovalRequest,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CodingToolApprovalSatisfactionBridgeRequest {
+    #[serde(default)]
+    pub backend: Option<String>,
+    pub request: CodingToolApprovalSatisfactionRequest,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CodingToolApprovalSatisfactionProjectionBridgeRequest {
+    #[serde(default)]
+    pub backend: Option<String>,
+    pub request: CodingToolApprovalSatisfactionProjectionRequest,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ApprovalQueueProjectionBridgeRequest {
+    #[serde(default)]
+    pub backend: Option<String>,
+    pub request: ApprovalQueueProjectionRequest,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ApprovalDecisionAuthorityBridgeRequest {
+    #[serde(default)]
+    pub backend: Option<String>,
+    pub request: ApprovalDecisionAuthorityRequest,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CodingToolApprovalBlockBridgeRequest {
+    #[serde(default)]
+    pub backend: Option<String>,
+    pub request: CodingToolApprovalBlockRequest,
 }
 
 #[derive(Debug, Deserialize)]
@@ -460,6 +824,21 @@ pub struct ApprovalDecisionStateUpdateCore;
 
 #[derive(Debug, Default, Clone)]
 pub struct ApprovalRevokeStateUpdateCore;
+
+#[derive(Debug, Default, Clone)]
+pub struct CodingToolApprovalSatisfactionCore;
+
+#[derive(Debug, Default, Clone)]
+pub struct CodingToolApprovalSatisfactionProjectionCore;
+
+#[derive(Debug, Default, Clone)]
+pub struct ApprovalQueueProjectionCore;
+
+#[derive(Debug, Default, Clone)]
+pub struct ApprovalDecisionAuthorityCore;
+
+#[derive(Debug, Default, Clone)]
+pub struct CodingToolApprovalBlockCore;
 
 impl ApprovalRequestStateUpdateCore {
     pub fn plan(
@@ -571,6 +950,26 @@ impl ApprovalDecisionStateUpdateCore {
         let decision = normalized_approval_decision(Some(request.decision.as_str())).unwrap();
         let status = optional_trimmed(Some(request.status.as_str())).unwrap();
         let reason = optional_trimmed(request.reason.as_deref());
+        let authority_record = authority_record_value(&request.authority_record);
+        let authority_hash =
+            approval_authority_hash(request.authority_hash.as_deref(), &authority_record);
+        let authority_grant_refs =
+            approval_authority_grant_refs(&request.authority_grant_refs, &authority_record);
+        let authority_receipt_refs =
+            approval_authority_receipt_refs(&request.authority_receipt_refs, &authority_record);
+        let receipt_refs = unique_trimmed_values(
+            request
+                .receipt_refs
+                .iter()
+                .cloned()
+                .chain(authority_receipt_refs.iter().cloned())
+                .collect::<Vec<_>>()
+                .as_slice(),
+        );
+        let policy_decision_refs = approval_authority_policy_decision_refs(
+            &request.policy_decision_refs,
+            &authority_record,
+        );
         let operator_control = json!({
             "control": "approval_decision",
             "approval_id": approval_id,
@@ -582,8 +981,12 @@ impl ApprovalDecisionStateUpdateCore {
             "reason": reason,
             "event_id": request.event_id,
             "seq": request.seq,
-            "receipt_refs": request.receipt_refs.clone(),
-            "policy_decision_refs": request.policy_decision_refs.clone(),
+            "receipt_refs": receipt_refs,
+            "policy_decision_refs": policy_decision_refs,
+            "authority": authority_record,
+            "authority_hash": authority_hash,
+            "authority_grant_refs": authority_grant_refs,
+            "authority_receipt_refs": authority_receipt_refs,
             "created_at": request.created_at,
         });
         let (run, agent) = if target_kind == "run" {
@@ -660,6 +1063,26 @@ impl ApprovalRevokeStateUpdateCore {
         let approval_id = optional_trimmed(Some(request.approval_id.as_str())).unwrap();
         let lease_id = optional_trimmed(request.lease_id.as_deref());
         let reason = optional_trimmed(request.reason.as_deref());
+        let authority_record = authority_record_value(&request.authority_record);
+        let authority_hash =
+            approval_authority_hash(request.authority_hash.as_deref(), &authority_record);
+        let authority_grant_refs =
+            approval_authority_grant_refs(&request.authority_grant_refs, &authority_record);
+        let authority_receipt_refs =
+            approval_authority_receipt_refs(&request.authority_receipt_refs, &authority_record);
+        let receipt_refs = unique_trimmed_values(
+            request
+                .receipt_refs
+                .iter()
+                .cloned()
+                .chain(authority_receipt_refs.iter().cloned())
+                .collect::<Vec<_>>()
+                .as_slice(),
+        );
+        let policy_decision_refs = approval_authority_policy_decision_refs(
+            &request.policy_decision_refs,
+            &authority_record,
+        );
         let operator_control = json!({
             "control": "approval_revoke",
             "approval_id": approval_id,
@@ -671,8 +1094,12 @@ impl ApprovalRevokeStateUpdateCore {
             "reason": reason,
             "event_id": request.event_id,
             "seq": request.seq,
-            "receipt_refs": request.receipt_refs.clone(),
-            "policy_decision_refs": request.policy_decision_refs.clone(),
+            "receipt_refs": receipt_refs,
+            "policy_decision_refs": policy_decision_refs,
+            "authority": authority_record,
+            "authority_hash": authority_hash,
+            "authority_grant_refs": authority_grant_refs,
+            "authority_receipt_refs": authority_receipt_refs,
             "created_at": request.created_at,
         });
         let (run, agent) = if target_kind == "run" {
@@ -862,6 +1289,577 @@ impl CodingToolApprovalCore {
     }
 }
 
+impl CodingToolApprovalSatisfactionProjectionCore {
+    pub fn project(
+        &self,
+        request: &CodingToolApprovalSatisfactionProjectionRequest,
+    ) -> Result<
+        CodingToolApprovalSatisfactionProjectionRecord,
+        CodingToolApprovalSatisfactionProjectionError,
+    > {
+        request.validate()?;
+        let thread_id = optional_trimmed(Some(request.thread_id.as_str())).unwrap();
+        let approval_id = optional_trimmed(Some(request.approval_id.as_str())).unwrap();
+        let approval_request =
+            latest_approval_projection_request(&request.run, &request.agent, approval_id.as_str())
+                .map(|record| {
+                    approval_request_projection_value(
+                        record,
+                        thread_id.as_str(),
+                        approval_id.as_str(),
+                        &request.approval_manifest,
+                    )
+                })
+                .unwrap_or(Value::Null);
+        let latest_decision =
+            latest_approval_projection_decision(&request.run, &request.agent, approval_id.as_str())
+                .map(|record| {
+                    approval_decision_projection_value(
+                        record,
+                        thread_id.as_str(),
+                        approval_id.as_str(),
+                    )
+                })
+                .unwrap_or(Value::Null);
+        let lease_state = approval_projection_lease_state(&latest_decision);
+
+        Ok(CodingToolApprovalSatisfactionProjectionRecord {
+            schema_version: CODING_TOOL_APPROVAL_SATISFACTION_PROJECTION_RESULT_SCHEMA_VERSION
+                .to_string(),
+            object: "ioi.runtime_coding_tool_approval_satisfaction_projection".to_string(),
+            status: "projected".to_string(),
+            operation_kind: "coding_tool.approval.satisfaction_projection".to_string(),
+            thread_id,
+            approval_id,
+            approval_request,
+            latest_decision,
+            lease_state,
+            expected_head: optional_trimmed(request.expected_head.as_deref()),
+            state_root_before: optional_trimmed(request.state_root_before.as_deref()),
+            projection_source: "rust_daemon_core_approval_projection".to_string(),
+            generated_at: "rust_authority_core".to_string(),
+        })
+    }
+}
+
+impl ApprovalQueueProjectionCore {
+    pub fn project(
+        &self,
+        request: &ApprovalQueueProjectionRequest,
+    ) -> Result<ApprovalQueueProjectionRecord, ApprovalQueueProjectionError> {
+        request.validate()?;
+        let thread_id = optional_trimmed(Some(request.thread_id.as_str())).unwrap();
+        let request_records = approval_queue_projection_candidates(
+            request,
+            &["approvalRequests"],
+            &["approval_request"],
+            "approval.required",
+        );
+        let decision_records = approval_queue_projection_candidates(
+            request,
+            &["approvalDecisions", "approvalRevocations"],
+            &["approval_decision", "approval_revoke"],
+            "approval.decision",
+        );
+        let mut latest_requests: BTreeMap<String, (u64, usize, Value)> = BTreeMap::new();
+        for (index, record) in request_records.into_iter().enumerate() {
+            let Some(approval_id) = value_string(&record, "approval_id") else {
+                continue;
+            };
+            if !approval_record_matches_thread(&record, &thread_id) {
+                continue;
+            }
+            let seq = approval_projection_seq(&record);
+            let replace = latest_requests
+                .get(&approval_id)
+                .map(|(latest_seq, latest_index, _)| {
+                    seq > *latest_seq || (seq == *latest_seq && index >= *latest_index)
+                })
+                .unwrap_or(true);
+            if replace {
+                latest_requests.insert(approval_id, (seq, index, record));
+            }
+        }
+
+        let mut approvals = Vec::new();
+        let mut pending_count = 0usize;
+        let mut resolved_count = 0usize;
+        for (approval_id, (_, _, approval_request)) in latest_requests {
+            let latest_decision = latest_approval_queue_decision(
+                &decision_records,
+                approval_id.as_str(),
+                approval_projection_seq(&approval_request),
+                &thread_id,
+            )
+            .unwrap_or(Value::Null);
+            let status = approval_queue_status(&latest_decision);
+            if status == "pending" {
+                pending_count += 1;
+            } else {
+                resolved_count += 1;
+            }
+            if status != "pending" && !request.include_resolved {
+                continue;
+            }
+            approvals.push(approval_queue_entry(
+                &thread_id,
+                approval_id.as_str(),
+                approval_request,
+                latest_decision,
+                status,
+            ));
+        }
+
+        Ok(ApprovalQueueProjectionRecord {
+            schema_version: APPROVAL_QUEUE_PROJECTION_RESULT_SCHEMA_VERSION.to_string(),
+            object: "ioi.runtime_approval_queue_projection".to_string(),
+            status: "projected".to_string(),
+            operation_kind: "approval.queue_projection".to_string(),
+            thread_id,
+            approvals,
+            pending_count,
+            resolved_count,
+            expected_head: optional_trimmed(request.expected_head.as_deref()),
+            state_root_before: optional_trimmed(request.state_root_before.as_deref()),
+            projection_source: "rust_daemon_core_approval_queue_projection".to_string(),
+            generated_at: "rust_authority_core".to_string(),
+        })
+    }
+}
+
+impl ApprovalDecisionAuthorityCore {
+    pub fn authorize(
+        &self,
+        request: &ApprovalDecisionAuthorityRequest,
+    ) -> Result<ApprovalDecisionAuthorityRecord, ApprovalDecisionAuthorityError> {
+        request.validate()?;
+        let thread_id = optional_trimmed(Some(request.thread_id.as_str())).unwrap();
+        let approval_id = optional_trimmed(Some(request.approval_id.as_str())).unwrap();
+        let decision =
+            normalized_approval_control_decision(Some(request.decision.as_str())).unwrap();
+        let wallet_network_grant_refs = unique_trimmed_values(
+            request
+                .authority_grant_refs
+                .iter()
+                .filter(|grant_ref| is_wallet_network_grant_ref(grant_ref))
+                .cloned()
+                .collect::<Vec<_>>()
+                .as_slice(),
+        );
+        let authority_receipt_refs = unique_trimmed(&request.authority_receipt_refs);
+        let policy_decision_refs = unique_trimmed(&request.policy_decision_refs);
+        let idempotency_key = optional_trimmed(request.idempotency_key.as_deref())
+            .unwrap_or_else(|| format!("approval:{thread_id}:{approval_id}:{decision}"));
+        let mut record = ApprovalDecisionAuthorityRecord {
+            schema_version: APPROVAL_DECISION_AUTHORITY_RESULT_SCHEMA_VERSION.to_string(),
+            object: "ioi.runtime_approval_decision_authority".to_string(),
+            status: "authorized".to_string(),
+            operation_kind: "approval.decision.authority".to_string(),
+            thread_id,
+            approval_id,
+            decision,
+            target_kind: optional_trimmed(request.target_kind.as_deref()),
+            run_id: optional_trimmed(request.run_id.as_deref()),
+            actor_ref: optional_trimmed(request.actor_ref.as_deref()),
+            source: optional_trimmed(request.source.as_deref()),
+            idempotency_key,
+            wallet_network_grant_refs,
+            authority_receipt_refs,
+            policy_decision_refs,
+            direct_truth_write_allowed: false,
+            authority_hash: String::new(),
+            projection_source: "rust_daemon_core_wallet_network_approval_authority".to_string(),
+            generated_at: "rust_authority_core".to_string(),
+        };
+        record.authority_hash = approval_decision_authority_hash(&record)?;
+        Ok(record)
+    }
+}
+
+impl CodingToolApprovalSatisfactionCore {
+    pub fn plan(
+        &self,
+        request: &CodingToolApprovalSatisfactionRequest,
+    ) -> Result<CodingToolApprovalSatisfactionRecord, CodingToolApprovalSatisfactionError> {
+        request.validate()?;
+        let thread_id = optional_trimmed(Some(request.thread_id.as_str())).unwrap();
+        let approval_id = optional_trimmed(request.approval_id.as_deref());
+        let expected_head = optional_trimmed(request.expected_head.as_deref());
+        let state_root_before = optional_trimmed(request.state_root_before.as_deref());
+
+        let Some(approval_id_value) = approval_id.clone() else {
+            return Ok(approval_satisfaction_record(
+                thread_id,
+                None,
+                false,
+                "approval_id_missing",
+                &Value::Null,
+                &request.lease_state,
+                Vec::new(),
+                Vec::new(),
+                expected_head,
+                state_root_before,
+            ));
+        };
+
+        if !request.approval_request.is_object() {
+            return Ok(approval_satisfaction_record(
+                thread_id,
+                Some(approval_id_value),
+                false,
+                "approval_request_missing",
+                &Value::Null,
+                &request.lease_state,
+                Vec::new(),
+                Vec::new(),
+                expected_head,
+                state_root_before,
+            ));
+        }
+
+        let requested_approval_id = value_string(&request.approval_request, "approval_id");
+        if requested_approval_id.as_deref() != Some(approval_id_value.as_str()) {
+            return Ok(approval_satisfaction_record(
+                thread_id,
+                Some(approval_id_value),
+                false,
+                "approval_request_mismatch",
+                &Value::Null,
+                &request.lease_state,
+                approval_receipt_refs(&request.approval_request, &Value::Null),
+                approval_policy_decision_refs(&request.approval_request, &Value::Null),
+                expected_head,
+                state_root_before,
+            ));
+        }
+
+        if let Some(request_thread_id) = value_string(&request.approval_request, "thread_id") {
+            if request_thread_id != thread_id {
+                return Ok(approval_satisfaction_record(
+                    thread_id,
+                    Some(approval_id_value),
+                    false,
+                    "approval_request_thread_mismatch",
+                    &Value::Null,
+                    &request.lease_state,
+                    approval_receipt_refs(&request.approval_request, &Value::Null),
+                    approval_policy_decision_refs(&request.approval_request, &Value::Null),
+                    expected_head,
+                    state_root_before,
+                ));
+            }
+        }
+
+        if !approval_manifests_satisfy(
+            request
+                .approval_request
+                .get("payload_summary")
+                .and_then(|payload| payload.get("approval_manifest"))
+                .unwrap_or(&Value::Null),
+            &request.approval_manifest,
+        ) {
+            return Ok(approval_satisfaction_record(
+                thread_id,
+                Some(approval_id_value),
+                false,
+                "approval_manifest_mismatch",
+                &Value::Null,
+                &request.lease_state,
+                approval_receipt_refs(&request.approval_request, &Value::Null),
+                approval_policy_decision_refs(&request.approval_request, &Value::Null),
+                expected_head,
+                state_root_before,
+            ));
+        }
+
+        if !request.latest_decision.is_object() {
+            return Ok(approval_satisfaction_record(
+                thread_id,
+                Some(approval_id_value),
+                false,
+                "approval_decision_missing",
+                &Value::Null,
+                &request.lease_state,
+                approval_receipt_refs(&request.approval_request, &Value::Null),
+                approval_policy_decision_refs(&request.approval_request, &Value::Null),
+                expected_head,
+                state_root_before,
+            ));
+        }
+
+        if value_string(&request.latest_decision, "approval_id").as_deref()
+            != Some(approval_id_value.as_str())
+        {
+            return Ok(approval_satisfaction_record(
+                thread_id,
+                Some(approval_id_value),
+                false,
+                "approval_decision_mismatch",
+                &request.latest_decision,
+                &request.lease_state,
+                approval_receipt_refs(&request.approval_request, &request.latest_decision),
+                approval_policy_decision_refs(&request.approval_request, &request.latest_decision),
+                expected_head,
+                state_root_before,
+            ));
+        }
+
+        let request_seq = value_u64(&request.approval_request, "seq");
+        let decision_seq = value_u64(&request.latest_decision, "seq");
+        if request_seq.is_some() && decision_seq.is_some() && decision_seq <= request_seq {
+            return Ok(approval_satisfaction_record(
+                thread_id,
+                Some(approval_id_value),
+                false,
+                "approval_decision_not_after_request",
+                &request.latest_decision,
+                &request.lease_state,
+                approval_receipt_refs(&request.approval_request, &request.latest_decision),
+                approval_policy_decision_refs(&request.approval_request, &request.latest_decision),
+                expected_head,
+                state_root_before,
+            ));
+        }
+
+        let decision_kind = value_string(&request.latest_decision, "event_kind")
+            .or_else(|| value_string(&request.latest_decision, "decision"))
+            .or_else(|| value_string(&request.latest_decision, "status"))
+            .unwrap_or_default();
+        let normalized_decision = decision_kind.to_ascii_lowercase();
+        if normalized_decision != "approval.approved"
+            && normalized_decision != "approve"
+            && normalized_decision != "approved"
+        {
+            let reason = approval_event_reason(&request.latest_decision).unwrap_or_else(|| {
+                if normalized_decision.contains("revok") {
+                    "approval_revoked".to_string()
+                } else {
+                    "approval_rejected".to_string()
+                }
+            });
+            return Ok(approval_satisfaction_record(
+                thread_id,
+                Some(approval_id_value),
+                false,
+                reason,
+                &request.latest_decision,
+                &request.lease_state,
+                approval_receipt_refs(&request.approval_request, &request.latest_decision),
+                approval_policy_decision_refs(&request.approval_request, &request.latest_decision),
+                expected_head,
+                state_root_before,
+            ));
+        }
+
+        if approval_lease_expired(&request.lease_state) {
+            return Ok(approval_satisfaction_record(
+                thread_id,
+                Some(approval_id_value),
+                false,
+                "approval_lease_expired",
+                &request.latest_decision,
+                &request.lease_state,
+                approval_receipt_refs(&request.approval_request, &request.latest_decision),
+                approval_policy_decision_refs(&request.approval_request, &request.latest_decision),
+                expected_head,
+                state_root_before,
+            ));
+        }
+
+        Ok(approval_satisfaction_record(
+            thread_id,
+            Some(approval_id_value),
+            true,
+            approval_event_reason(&request.latest_decision)
+                .unwrap_or_else(|| "approval_approved".to_string()),
+            &request.latest_decision,
+            &request.lease_state,
+            approval_receipt_refs(&request.approval_request, &request.latest_decision),
+            approval_policy_decision_refs(&request.approval_request, &request.latest_decision),
+            expected_head,
+            state_root_before,
+        ))
+    }
+}
+
+impl CodingToolApprovalBlockCore {
+    pub fn plan(
+        &self,
+        request: &CodingToolApprovalBlockRequest,
+    ) -> Result<CodingToolApprovalBlockRecord, CodingToolApprovalBlockError> {
+        request.validate()?;
+        let thread_id = optional_trimmed(Some(request.thread_id.as_str())).unwrap();
+        let turn_id = optional_trimmed(request.turn_id.as_deref());
+        let tool_id = optional_trimmed(Some(request.tool_id.as_str())).unwrap();
+        let tool_call_id = optional_trimmed(Some(request.tool_call_id.as_str())).unwrap();
+        let workflow_graph_id = optional_trimmed(request.workflow_graph_id.as_deref());
+        let workflow_node_id = optional_trimmed(request.workflow_node_id.as_deref());
+        let workspace_root = optional_trimmed(request.workspace_root.as_deref());
+        let source = optional_trimmed(request.source.as_deref())
+            .unwrap_or_else(|| "runtime_auto".to_string());
+        let approval_id = value_string(&request.approval_gate, "approval_id");
+        let reason = value_string(&request.approval_gate, "reason")
+            .unwrap_or_else(|| "approval_not_satisfied".to_string());
+        let receipt_id = optional_trimmed(request.receipt_id.as_deref()).unwrap_or_else(|| {
+            format!(
+                "receipt_coding_tool_approval_block_{}_{}",
+                safe_id(&tool_id),
+                short_sha256_hex(&format!("{thread_id}:{tool_id}:{tool_call_id}"), 12)
+            )
+        });
+        let idempotency_key = optional_trimmed(request.idempotency_key.as_deref())
+            .unwrap_or_else(|| format!("thread:{thread_id}:coding-tool:{tool_call_id}"));
+        let receipt_refs = unique_trimmed_values(
+            request
+                .receipt_refs
+                .iter()
+                .cloned()
+                .chain(array_strings(&request.approval_gate, "receipt_refs"))
+                .chain(std::iter::once(receipt_id.clone()))
+                .collect::<Vec<_>>()
+                .as_slice(),
+        );
+        let policy_decision_refs = unique_trimmed_values(
+            request
+                .policy_decision_refs
+                .iter()
+                .cloned()
+                .chain(array_strings(
+                    &request.approval_gate,
+                    "policy_decision_refs",
+                ))
+                .collect::<Vec<_>>()
+                .as_slice(),
+        );
+        let artifact_refs = unique_trimmed(&request.artifact_refs);
+        let rollback_refs = unique_trimmed(&request.rollback_refs);
+        let error = json!({
+            "code": "coding_tool_approval_required",
+            "message": "Coding tool execution is blocked until Rust authority records a satisfied approval.",
+            "details": {
+                "thread_id": thread_id,
+                "turn_id": turn_id,
+                "tool_id": tool_id,
+                "tool_call_id": tool_call_id,
+                "workflow_graph_id": workflow_graph_id,
+                "workflow_node_id": workflow_node_id,
+                "approval_id": approval_id,
+                "reason": reason,
+            }
+        });
+        let result = json!({
+            "schema_version": CODING_TOOL_RESULT_SCHEMA_VERSION,
+            "tool_name": tool_id,
+            "status": "blocked",
+            "blocked": true,
+            "reason": reason,
+            "approval_required": true,
+            "approval_satisfied": false,
+            "approval_id": approval_id,
+            "approval_manifest": request.approval_manifest.clone(),
+            "approval_gate": request.approval_gate.clone(),
+            "error": error.clone(),
+            "receipt_refs": receipt_refs.clone(),
+            "policy_decision_refs": policy_decision_refs.clone(),
+            "artifact_refs": artifact_refs.clone(),
+            "shell_fallback_used": false,
+            "rust_authority_block": true,
+        });
+        let event_stream_id = format!("{thread_id}:events");
+        let turn_or_thread = turn_id.as_deref().unwrap_or(thread_id.as_str());
+        let item_id = format!(
+            "{turn_or_thread}:item:coding-tool:{}:{}",
+            safe_id(&tool_id),
+            short_sha256_hex(&tool_call_id, 12)
+        );
+        let payload_summary = json!({
+            "schema_version": CODING_TOOL_RESULT_SCHEMA_VERSION,
+            "event_kind": "CodingToolResult",
+            "tool_pack": CODING_TOOL_PACK_ID,
+            "tool_name": tool_id,
+            "tool_call_id": tool_call_id,
+            "thread_id": thread_id,
+            "turn_id": turn_id,
+            "workspace_root": workspace_root,
+            "workflow_graph_id": workflow_graph_id,
+            "workflow_node_id": workflow_node_id,
+            "status": "blocked",
+            "summary": "Coding tool blocked pending approval.",
+            "shell_fallback_used": false,
+            "input_summary": request.input_summary.clone(),
+            "result_summary": {
+                "status": "blocked",
+                "reason": reason,
+                "approval_id": approval_id,
+            },
+            "result": result.clone(),
+            "error": error,
+            "rollback_refs": rollback_refs.clone(),
+            "approval_required": true,
+            "approval_satisfied": false,
+            "approval_id": approval_id,
+            "approval_manifest": request.approval_manifest.clone(),
+            "approval_gate": request.approval_gate.clone(),
+            "approval_decision_event_id": value_string(&request.approval_gate, "decision_event_id"),
+            "approval_receipt_refs": receipt_refs.clone(),
+            "approval_policy_decision_refs": policy_decision_refs.clone(),
+            "receipt_id": receipt_id,
+            "receipt_count": receipt_refs.len(),
+            "artifact_count": artifact_refs.len(),
+            "step_module_backend": Value::Null,
+            "step_module_invocation": Value::Null,
+            "step_module_result": Value::Null,
+            "step_module_error": Value::Null,
+            "rust_authority_block": true,
+        });
+        let event = json!({
+            "event_stream_id": event_stream_id,
+            "thread_id": thread_id,
+            "turn_id": turn_id,
+            "item_id": item_id,
+            "idempotency_key": idempotency_key,
+            "source": source,
+            "source_event_kind": "coding_tool.approval.blocked",
+            "event_kind": "tool.blocked",
+            "status": "blocked",
+            "actor": "runtime",
+            "workspace_root": workspace_root,
+            "workflow_graph_id": workflow_graph_id,
+            "workflow_node_id": workflow_node_id,
+            "component_kind": "coding_tool",
+            "tool_call_id": tool_call_id,
+            "artifact_refs": artifact_refs,
+            "receipt_refs": receipt_refs,
+            "rollback_refs": rollback_refs,
+            "payload_schema_version": CODING_TOOL_RESULT_SCHEMA_VERSION,
+            "payload_summary": payload_summary,
+        });
+
+        Ok(CodingToolApprovalBlockRecord {
+            schema_version: CODING_TOOL_APPROVAL_BLOCK_RESULT_SCHEMA_VERSION.to_string(),
+            object: "ioi.runtime_coding_tool_approval_block".to_string(),
+            status: "blocked".to_string(),
+            operation_kind: "coding_tool.approval.block".to_string(),
+            thread_id,
+            turn_id,
+            tool_id,
+            tool_call_id,
+            workflow_graph_id,
+            workflow_node_id,
+            approval_id,
+            reason,
+            receipt_refs,
+            policy_decision_refs,
+            artifact_refs,
+            rollback_refs,
+            result,
+            event,
+            projection_source: "rust_daemon_core_coding_tool_approval_block".to_string(),
+            generated_at: "rust_authority_core".to_string(),
+        })
+    }
+}
+
 pub fn plan_coding_tool_approval_manifest_response(
     request: CodingToolApprovalBridgeRequest,
 ) -> Result<Value, ApprovalCommandError> {
@@ -881,6 +1879,155 @@ pub fn plan_coding_tool_approval_manifest_response(
         "workflow_policy": plan.workflow_policy.clone(),
         "manifest": plan.manifest.clone(),
         "input_hash": plan.input_hash.clone(),
+    }))
+}
+
+pub fn plan_coding_tool_approval_satisfaction_response(
+    request: CodingToolApprovalSatisfactionBridgeRequest,
+) -> Result<Value, ApprovalCommandError> {
+    let record = CodingToolApprovalSatisfactionCore
+        .plan(&request.request)
+        .map_err(|error| {
+            ApprovalCommandError::new(
+                "coding_tool_approval_satisfaction_invalid",
+                format!("{error:?}"),
+            )
+        })?;
+    let record_value = serde_json::to_value(record.clone()).unwrap_or(Value::Null);
+    Ok(json!({
+        "source": "rust_coding_tool_approval_satisfaction_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_authority".to_string()),
+        "record": record_value,
+        "status": record.status,
+        "operation_kind": record.operation_kind,
+        "satisfied": record.satisfied,
+        "approval_id": record.approval_id,
+        "decision_event_id": record.decision_event_id,
+        "decision_seq": record.decision_seq,
+        "lease_id": record.lease_id,
+        "expires_at": record.expires_at,
+        "reason": record.reason,
+        "receipt_refs": record.receipt_refs,
+        "policy_decision_refs": record.policy_decision_refs,
+        "expected_head": record.expected_head,
+        "state_root_before": record.state_root_before,
+    }))
+}
+
+pub fn project_coding_tool_approval_satisfaction_response(
+    request: CodingToolApprovalSatisfactionProjectionBridgeRequest,
+) -> Result<Value, ApprovalCommandError> {
+    let record = CodingToolApprovalSatisfactionProjectionCore
+        .project(&request.request)
+        .map_err(|error| {
+            ApprovalCommandError::new(
+                "coding_tool_approval_satisfaction_projection_invalid",
+                format!("{error:?}"),
+            )
+        })?;
+    let record_value = serde_json::to_value(record.clone()).unwrap_or(Value::Null);
+    Ok(json!({
+        "source": "rust_coding_tool_approval_satisfaction_projection_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_authority".to_string()),
+        "record": record_value,
+        "status": record.status,
+        "operation_kind": record.operation_kind,
+        "thread_id": record.thread_id,
+        "approval_id": record.approval_id,
+        "approval_request": record.approval_request,
+        "latest_decision": record.latest_decision,
+        "lease_state": record.lease_state,
+        "expected_head": record.expected_head,
+        "state_root_before": record.state_root_before,
+    }))
+}
+
+pub fn project_approval_queue_response(
+    request: ApprovalQueueProjectionBridgeRequest,
+) -> Result<Value, ApprovalCommandError> {
+    let record = ApprovalQueueProjectionCore
+        .project(&request.request)
+        .map_err(|error| {
+            ApprovalCommandError::new("approval_queue_projection_invalid", format!("{error:?}"))
+        })?;
+    let record_value = serde_json::to_value(record.clone()).unwrap_or(Value::Null);
+    Ok(json!({
+        "source": "rust_approval_queue_projection_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_authority".to_string()),
+        "record": record_value,
+        "status": record.status,
+        "operation_kind": record.operation_kind,
+        "thread_id": record.thread_id,
+        "approvals": record.approvals,
+        "pending_count": record.pending_count,
+        "resolved_count": record.resolved_count,
+        "expected_head": record.expected_head,
+        "state_root_before": record.state_root_before,
+    }))
+}
+
+pub fn authorize_approval_decision_response(
+    request: ApprovalDecisionAuthorityBridgeRequest,
+) -> Result<Value, ApprovalCommandError> {
+    let record = ApprovalDecisionAuthorityCore
+        .authorize(&request.request)
+        .map_err(|error| {
+            ApprovalCommandError::new("approval_decision_authority_invalid", format!("{error:?}"))
+        })?;
+    let record_value = serde_json::to_value(record.clone()).unwrap_or(Value::Null);
+    Ok(json!({
+        "schema_version": APPROVAL_DECISION_AUTHORITY_RESULT_SCHEMA_VERSION,
+        "object": "ioi.runtime_approval_decision_authority",
+        "status": record.status,
+        "operation_kind": record.operation_kind,
+        "source": "rust_approval_decision_authority_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_authority".to_string()),
+        "record": record_value,
+        "authority": record.clone(),
+        "thread_id": record.thread_id,
+        "approval_id": record.approval_id,
+        "decision": record.decision,
+        "target_kind": record.target_kind,
+        "run_id": record.run_id,
+        "actor_ref": record.actor_ref,
+        "idempotency_key": record.idempotency_key,
+        "wallet_network_grant_refs": record.wallet_network_grant_refs,
+        "authority_receipt_refs": record.authority_receipt_refs,
+        "policy_decision_refs": record.policy_decision_refs,
+        "direct_truth_write_allowed": record.direct_truth_write_allowed,
+        "authority_hash": record.authority_hash,
+    }))
+}
+
+pub fn plan_coding_tool_approval_block_response(
+    request: CodingToolApprovalBlockBridgeRequest,
+) -> Result<Value, ApprovalCommandError> {
+    let record = CodingToolApprovalBlockCore
+        .plan(&request.request)
+        .map_err(|error| {
+            ApprovalCommandError::new("coding_tool_approval_block_invalid", format!("{error:?}"))
+        })?;
+    let record_value = serde_json::to_value(record.clone()).unwrap_or(Value::Null);
+    Ok(json!({
+        "source": "rust_coding_tool_approval_block_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_authority".to_string()),
+        "record": record_value,
+        "status": record.status,
+        "operation_kind": record.operation_kind,
+        "thread_id": record.thread_id,
+        "turn_id": record.turn_id,
+        "tool_id": record.tool_id,
+        "tool_call_id": record.tool_call_id,
+        "workflow_graph_id": record.workflow_graph_id,
+        "workflow_node_id": record.workflow_node_id,
+        "approval_id": record.approval_id,
+        "reason": record.reason,
+        "receipt_refs": record.receipt_refs,
+        "policy_decision_refs": record.policy_decision_refs,
+        "artifact_refs": record.artifact_refs,
+        "rollback_refs": record.rollback_refs,
+        "result": record.result,
+        "event": record.event,
     }))
 }
 
@@ -972,6 +2119,128 @@ impl CodingToolApprovalRequest {
     }
 }
 
+impl CodingToolApprovalSatisfactionRequest {
+    pub fn validate(&self) -> Result<(), CodingToolApprovalSatisfactionError> {
+        if self.schema_version != CODING_TOOL_APPROVAL_SATISFACTION_REQUEST_SCHEMA_VERSION {
+            return Err(CodingToolApprovalSatisfactionError::InvalidSchemaVersion {
+                expected: CODING_TOOL_APPROVAL_SATISFACTION_REQUEST_SCHEMA_VERSION,
+                actual: self.schema_version.clone(),
+            });
+        }
+        if optional_trimmed(Some(self.thread_id.as_str())).is_none() {
+            return Err(CodingToolApprovalSatisfactionError::MissingField(
+                "thread_id",
+            ));
+        }
+        if !self.approval_manifest.is_object() {
+            return Err(CodingToolApprovalSatisfactionError::MissingField(
+                "approval_manifest",
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl CodingToolApprovalSatisfactionProjectionRequest {
+    pub fn validate(&self) -> Result<(), CodingToolApprovalSatisfactionProjectionError> {
+        if self.schema_version
+            != CODING_TOOL_APPROVAL_SATISFACTION_PROJECTION_REQUEST_SCHEMA_VERSION
+        {
+            return Err(
+                CodingToolApprovalSatisfactionProjectionError::InvalidSchemaVersion {
+                    expected: CODING_TOOL_APPROVAL_SATISFACTION_PROJECTION_REQUEST_SCHEMA_VERSION,
+                    actual: self.schema_version.clone(),
+                },
+            );
+        }
+        if optional_trimmed(Some(self.thread_id.as_str())).is_none() {
+            return Err(CodingToolApprovalSatisfactionProjectionError::MissingField(
+                "thread_id",
+            ));
+        }
+        if optional_trimmed(Some(self.approval_id.as_str())).is_none() {
+            return Err(CodingToolApprovalSatisfactionProjectionError::MissingField(
+                "approval_id",
+            ));
+        }
+        if !self.approval_manifest.is_object() {
+            return Err(CodingToolApprovalSatisfactionProjectionError::MissingField(
+                "approval_manifest",
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl ApprovalQueueProjectionRequest {
+    pub fn validate(&self) -> Result<(), ApprovalQueueProjectionError> {
+        if self.schema_version != APPROVAL_QUEUE_PROJECTION_REQUEST_SCHEMA_VERSION {
+            return Err(ApprovalQueueProjectionError::InvalidSchemaVersion {
+                expected: APPROVAL_QUEUE_PROJECTION_REQUEST_SCHEMA_VERSION,
+                actual: self.schema_version.clone(),
+            });
+        }
+        if optional_trimmed(Some(self.thread_id.as_str())).is_none() {
+            return Err(ApprovalQueueProjectionError::MissingField("thread_id"));
+        }
+        Ok(())
+    }
+}
+
+impl ApprovalDecisionAuthorityRequest {
+    pub fn validate(&self) -> Result<(), ApprovalDecisionAuthorityError> {
+        if self.schema_version != APPROVAL_DECISION_AUTHORITY_REQUEST_SCHEMA_VERSION {
+            return Err(ApprovalDecisionAuthorityError::InvalidSchemaVersion {
+                expected: APPROVAL_DECISION_AUTHORITY_REQUEST_SCHEMA_VERSION,
+                actual: self.schema_version.clone(),
+            });
+        }
+        if optional_trimmed(Some(self.thread_id.as_str())).is_none() {
+            return Err(ApprovalDecisionAuthorityError::MissingField("thread_id"));
+        }
+        if optional_trimmed(Some(self.approval_id.as_str())).is_none() {
+            return Err(ApprovalDecisionAuthorityError::MissingField("approval_id"));
+        }
+        if normalized_approval_control_decision(Some(self.decision.as_str())).is_none() {
+            return Err(ApprovalDecisionAuthorityError::MissingField("decision"));
+        }
+        if self
+            .authority_grant_refs
+            .iter()
+            .all(|grant_ref| !is_wallet_network_grant_ref(grant_ref))
+        {
+            return Err(ApprovalDecisionAuthorityError::MissingWalletNetworkAuthority);
+        }
+        if unique_trimmed(&self.authority_receipt_refs).is_empty() {
+            return Err(ApprovalDecisionAuthorityError::MissingAuthorityReceipt);
+        }
+        Ok(())
+    }
+}
+
+impl CodingToolApprovalBlockRequest {
+    pub fn validate(&self) -> Result<(), CodingToolApprovalBlockError> {
+        if self.schema_version != CODING_TOOL_APPROVAL_BLOCK_REQUEST_SCHEMA_VERSION {
+            return Err(CodingToolApprovalBlockError::InvalidSchemaVersion {
+                expected: CODING_TOOL_APPROVAL_BLOCK_REQUEST_SCHEMA_VERSION,
+                actual: self.schema_version.clone(),
+            });
+        }
+        require_coding_tool_approval_block_field("thread_id", &self.thread_id)?;
+        require_coding_tool_approval_block_field("tool_id", &self.tool_id)?;
+        require_coding_tool_approval_block_field("tool_call_id", &self.tool_call_id)?;
+        if !self.approval_manifest.is_object() {
+            return Err(CodingToolApprovalBlockError::MissingField(
+                "approval_manifest",
+            ));
+        }
+        if !self.approval_gate.is_object() {
+            return Err(CodingToolApprovalBlockError::MissingField("approval_gate"));
+        }
+        Ok(())
+    }
+}
+
 impl ApprovalRequestStateUpdateRequest {
     pub fn validate(&self) -> Result<(), ApprovalRequestStateUpdateError> {
         if self.schema_version != APPROVAL_REQUEST_STATE_UPDATE_REQUEST_SCHEMA_VERSION {
@@ -1043,6 +2312,16 @@ impl ApprovalDecisionStateUpdateRequest {
         if optional_trimmed(Some(self.status.as_str())).is_none() {
             return Err(ApprovalDecisionStateUpdateError::MissingField("status"));
         }
+        if !approval_authority_state_binding_present(
+            &self.authority_record,
+            self.authority_hash.as_deref(),
+            &self.authority_grant_refs,
+            &self.authority_receipt_refs,
+        ) {
+            return Err(ApprovalDecisionStateUpdateError::MissingField(
+                "authority_record",
+            ));
+        }
         Ok(())
     }
 }
@@ -1073,6 +2352,16 @@ impl ApprovalRevokeStateUpdateRequest {
         }
         if optional_trimmed(Some(self.approval_id.as_str())).is_none() {
             return Err(ApprovalRevokeStateUpdateError::MissingField("approval_id"));
+        }
+        if !approval_authority_state_binding_present(
+            &self.authority_record,
+            self.authority_hash.as_deref(),
+            &self.authority_grant_refs,
+            &self.authority_receipt_refs,
+        ) {
+            return Err(ApprovalRevokeStateUpdateError::MissingField(
+                "authority_record",
+            ));
         }
         Ok(())
     }
@@ -1248,6 +2537,97 @@ fn normalized_approval_decision(value: Option<&str>) -> Option<String> {
     }
 }
 
+fn normalized_approval_control_decision(value: Option<&str>) -> Option<String> {
+    match optional_trimmed(value)?.to_ascii_lowercase().as_str() {
+        "approve" | "approved" => Some("approve".to_string()),
+        "reject" | "rejected" | "deny" | "denied" => Some("reject".to_string()),
+        "revoke" | "revoked" => Some("revoke".to_string()),
+        _ => None,
+    }
+}
+
+fn is_wallet_network_grant_ref(grant_ref: &str) -> bool {
+    let normalized = grant_ref.trim().to_ascii_lowercase();
+    normalized.starts_with("wallet.network://grant/")
+        || normalized.starts_with("grant://wallet.network/")
+        || normalized.starts_with("wallet-network://grant/")
+}
+
+fn approval_decision_authority_hash(
+    record: &ApprovalDecisionAuthorityRecord,
+) -> Result<String, ApprovalDecisionAuthorityError> {
+    let mut canonical = record.clone();
+    canonical.authority_hash.clear();
+    let bytes = serde_json::to_vec(&canonical)
+        .map_err(|error| ApprovalDecisionAuthorityError::HashFailed(error.to_string()))?;
+    Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
+}
+
+fn authority_record_value(value: &Value) -> Value {
+    if value.is_object() {
+        value.clone()
+    } else {
+        Value::Null
+    }
+}
+
+fn approval_authority_hash(request_hash: Option<&str>, authority_record: &Value) -> Option<String> {
+    optional_trimmed(request_hash).or_else(|| value_string(authority_record, "authority_hash"))
+}
+
+fn approval_authority_grant_refs(request_refs: &[String], authority_record: &Value) -> Vec<String> {
+    unique_trimmed_values(
+        request_refs
+            .iter()
+            .cloned()
+            .chain(array_strings(authority_record, "wallet_network_grant_refs"))
+            .chain(array_strings(authority_record, "authority_grant_refs"))
+            .collect::<Vec<_>>()
+            .as_slice(),
+    )
+}
+
+fn approval_authority_receipt_refs(
+    request_refs: &[String],
+    authority_record: &Value,
+) -> Vec<String> {
+    unique_trimmed_values(
+        request_refs
+            .iter()
+            .cloned()
+            .chain(array_strings(authority_record, "authority_receipt_refs"))
+            .collect::<Vec<_>>()
+            .as_slice(),
+    )
+}
+
+fn approval_authority_policy_decision_refs(
+    request_refs: &[String],
+    authority_record: &Value,
+) -> Vec<String> {
+    unique_trimmed_values(
+        request_refs
+            .iter()
+            .cloned()
+            .chain(array_strings(authority_record, "policy_decision_refs"))
+            .collect::<Vec<_>>()
+            .as_slice(),
+    )
+}
+
+fn approval_authority_state_binding_present(
+    authority_record: &Value,
+    authority_hash: Option<&str>,
+    authority_grant_refs: &[String],
+    authority_receipt_refs: &[String],
+) -> bool {
+    approval_authority_hash(authority_hash, authority_record).is_some()
+        && approval_authority_grant_refs(authority_grant_refs, authority_record)
+            .iter()
+            .any(|grant_ref| is_wallet_network_grant_ref(grant_ref))
+        && !approval_authority_receipt_refs(authority_receipt_refs, authority_record).is_empty()
+}
+
 fn approval_state_update_target_kind(value: Option<&str>, run: &Value) -> String {
     match optional_trimmed(value).as_deref() {
         Some("agent") => "agent".to_string(),
@@ -1278,6 +2658,541 @@ fn append_operator_control(existing: Option<&Value>, control: &Value) -> Value {
     Value::Array(entries)
 }
 
+fn latest_approval_projection_request(
+    run: &Value,
+    agent: &Value,
+    approval_id: &str,
+) -> Option<Value> {
+    latest_approval_projection_record(
+        approval_projection_candidates(run, agent, &["approvalRequests"], &["approval_request"]),
+        approval_id,
+    )
+}
+
+fn latest_approval_projection_decision(
+    run: &Value,
+    agent: &Value,
+    approval_id: &str,
+) -> Option<Value> {
+    latest_approval_projection_record(
+        approval_projection_candidates(
+            run,
+            agent,
+            &["approvalDecisions", "approvalRevocations"],
+            &["approval_decision", "approval_revoke"],
+        ),
+        approval_id,
+    )
+}
+
+fn approval_projection_candidates(
+    run: &Value,
+    agent: &Value,
+    array_names: &[&str],
+    control_names: &[&str],
+) -> Vec<Value> {
+    let mut records = Vec::new();
+    append_approval_projection_source(&mut records, run, array_names, control_names);
+    append_approval_projection_source(&mut records, agent, array_names, control_names);
+    records
+}
+
+fn append_approval_projection_source(
+    records: &mut Vec<Value>,
+    source: &Value,
+    array_names: &[&str],
+    control_names: &[&str],
+) {
+    append_approval_projection_container(records, source, array_names, control_names);
+    if let Some(trace) = source.get("trace") {
+        append_approval_projection_container(records, trace, array_names, control_names);
+    }
+}
+
+fn append_approval_projection_container(
+    records: &mut Vec<Value>,
+    container: &Value,
+    array_names: &[&str],
+    control_names: &[&str],
+) {
+    for array_name in array_names {
+        if let Some(items) = container.get(*array_name).and_then(Value::as_array) {
+            records.extend(items.iter().filter(|item| item.is_object()).cloned());
+        }
+    }
+    if let Some(items) = container.get("operatorControls").and_then(Value::as_array) {
+        records.extend(items.iter().filter_map(|item| {
+            let control = value_string(item, "control")?;
+            if control_names.iter().any(|candidate| control == *candidate) {
+                Some(item.clone())
+            } else {
+                None
+            }
+        }));
+    }
+}
+
+fn latest_approval_projection_record(records: Vec<Value>, approval_id: &str) -> Option<Value> {
+    let mut latest: Option<(u64, usize, Value)> = None;
+    for (index, record) in records.into_iter().enumerate() {
+        if value_string(&record, "approval_id").as_deref() != Some(approval_id) {
+            continue;
+        }
+        let seq = approval_projection_seq(&record);
+        let should_replace = latest
+            .as_ref()
+            .map(|(latest_seq, latest_index, _)| {
+                seq > *latest_seq || (seq == *latest_seq && index >= *latest_index)
+            })
+            .unwrap_or(true);
+        if should_replace {
+            latest = Some((seq, index, record));
+        }
+    }
+    latest.map(|(_, _, record)| record)
+}
+
+fn approval_projection_seq(record: &Value) -> u64 {
+    value_u64(record, "seq")
+        .or_else(|| {
+            record
+                .get("seq")
+                .and_then(Value::as_str)
+                .and_then(|value| value.parse::<u64>().ok())
+        })
+        .unwrap_or(0)
+}
+
+fn approval_request_projection_value(
+    value: Value,
+    thread_id: &str,
+    approval_id: &str,
+    approval_manifest: &Value,
+) -> Value {
+    let mut record = object_value(&value).unwrap_or_default();
+    insert_missing_string(&mut record, "thread_id", thread_id);
+    insert_missing_string(&mut record, "approval_id", approval_id);
+    insert_missing_string(&mut record, "event_kind", "approval.required");
+    let mut payload = record
+        .get("payload_summary")
+        .and_then(object_value)
+        .unwrap_or_default();
+    if !payload.contains_key("approval_manifest") {
+        payload.insert("approval_manifest".to_string(), approval_manifest.clone());
+    }
+    record.insert("payload_summary".to_string(), Value::Object(payload));
+    Value::Object(record)
+}
+
+fn approval_decision_projection_value(value: Value, thread_id: &str, approval_id: &str) -> Value {
+    let mut record = object_value(&value).unwrap_or_default();
+    insert_missing_string(&mut record, "thread_id", thread_id);
+    insert_missing_string(&mut record, "approval_id", approval_id);
+    if !map_has_non_empty_string(&record, "event_kind") {
+        record.insert(
+            "event_kind".to_string(),
+            Value::String(approval_decision_event_kind(&Value::Object(record.clone()))),
+        );
+    }
+    Value::Object(record)
+}
+
+fn approval_decision_event_kind(record: &Value) -> String {
+    let control = value_string(record, "control")
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    let decision = value_string(record, "decision")
+        .or_else(|| value_string(record, "status"))
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    if control.contains("revoke") || decision.contains("revoke") || decision == "revoked" {
+        "approval.revoked".to_string()
+    } else if decision == "approve" || decision == "approved" || decision == "active" {
+        "approval.approved".to_string()
+    } else if decision == "reject" || decision == "rejected" || decision == "denied" {
+        "approval.rejected".to_string()
+    } else {
+        "approval.decision".to_string()
+    }
+}
+
+fn approval_projection_lease_state(latest_decision: &Value) -> Value {
+    if !latest_decision.is_object() {
+        return Value::Null;
+    }
+    let lease_status = value_string(latest_decision, "lease_status")
+        .or_else(|| value_string(latest_decision, "status"))
+        .unwrap_or_else(|| "unknown".to_string());
+    let normalized_status = lease_status.to_ascii_lowercase();
+    let expired = matches!(
+        normalized_status.as_str(),
+        "expired" | "revoked" | "rejected" | "denied"
+    );
+    json!({
+        "approval_id": value_string(latest_decision, "approval_id"),
+        "decision_event_id": value_string(latest_decision, "event_id"),
+        "decision_seq": value_u64(latest_decision, "seq"),
+        "lease_id": value_string(latest_decision, "lease_id"),
+        "lease_status": lease_status,
+        "status": lease_status,
+        "expires_at": value_string(latest_decision, "expires_at"),
+        "expired": expired,
+    })
+}
+
+fn approval_queue_projection_candidates(
+    request: &ApprovalQueueProjectionRequest,
+    array_names: &[&str],
+    control_names: &[&str],
+    default_event_kind: &str,
+) -> Vec<Value> {
+    let mut records = Vec::new();
+    append_approval_queue_projection_source(
+        &mut records,
+        &request.agent,
+        None,
+        request.thread_id.as_str(),
+        array_names,
+        control_names,
+        default_event_kind,
+    );
+    append_approval_queue_projection_source(
+        &mut records,
+        &request.run,
+        approval_projection_source_run_id(&request.run),
+        request.thread_id.as_str(),
+        array_names,
+        control_names,
+        default_event_kind,
+    );
+    for run in &request.runs {
+        append_approval_queue_projection_source(
+            &mut records,
+            run,
+            approval_projection_source_run_id(run),
+            request.thread_id.as_str(),
+            array_names,
+            control_names,
+            default_event_kind,
+        );
+    }
+    records
+}
+
+fn append_approval_queue_projection_source(
+    records: &mut Vec<Value>,
+    source: &Value,
+    run_id: Option<String>,
+    thread_id: &str,
+    array_names: &[&str],
+    control_names: &[&str],
+    default_event_kind: &str,
+) {
+    let mut candidates = Vec::new();
+    append_approval_projection_source(&mut candidates, source, array_names, control_names);
+    for candidate in candidates {
+        records.push(approval_queue_projection_value(
+            candidate,
+            thread_id,
+            run_id.as_deref(),
+            default_event_kind,
+        ));
+    }
+}
+
+fn approval_projection_source_run_id(source: &Value) -> Option<String> {
+    value_string(source, "id").or_else(|| value_string(source, "run_id"))
+}
+
+fn approval_queue_projection_value(
+    value: Value,
+    thread_id: &str,
+    run_id: Option<&str>,
+    default_event_kind: &str,
+) -> Value {
+    let mut record = object_value(&value).unwrap_or_default();
+    insert_missing_string(&mut record, "thread_id", thread_id);
+    if let Some(run_id) = run_id {
+        insert_missing_string(&mut record, "run_id", run_id);
+    }
+    if !map_has_non_empty_string(&record, "event_kind") {
+        let event_kind = if default_event_kind == "approval.decision" {
+            approval_decision_event_kind(&Value::Object(record.clone()))
+        } else {
+            default_event_kind.to_string()
+        };
+        record.insert("event_kind".to_string(), Value::String(event_kind));
+    }
+    Value::Object(record)
+}
+
+fn approval_record_matches_thread(record: &Value, thread_id: &str) -> bool {
+    value_string(record, "thread_id")
+        .map(|candidate| candidate == thread_id)
+        .unwrap_or(true)
+}
+
+fn latest_approval_queue_decision(
+    records: &[Value],
+    approval_id: &str,
+    request_seq: u64,
+    thread_id: &str,
+) -> Option<Value> {
+    let mut latest: Option<(u64, usize, Value)> = None;
+    for (index, record) in records.iter().enumerate() {
+        if value_string(record, "approval_id").as_deref() != Some(approval_id)
+            || !approval_record_matches_thread(record, thread_id)
+        {
+            continue;
+        }
+        let seq = approval_projection_seq(record);
+        if seq != 0 && request_seq != 0 && seq <= request_seq {
+            continue;
+        }
+        let should_replace = latest
+            .as_ref()
+            .map(|(latest_seq, latest_index, _)| {
+                seq > *latest_seq || (seq == *latest_seq && index >= *latest_index)
+            })
+            .unwrap_or(true);
+        if should_replace {
+            latest = Some((seq, index, record.clone()));
+        }
+    }
+    latest.map(|(_, _, record)| record)
+}
+
+fn approval_queue_status(latest_decision: &Value) -> &'static str {
+    if !latest_decision.is_object() {
+        return "pending";
+    }
+    let event_kind = approval_decision_event_kind(latest_decision);
+    if event_kind == "approval.revoked" {
+        "revoked"
+    } else if event_kind == "approval.approved" {
+        "approved"
+    } else if event_kind == "approval.rejected" {
+        "rejected"
+    } else {
+        "resolved"
+    }
+}
+
+fn approval_queue_decision(status: &str, latest_decision: &Value) -> Value {
+    match status {
+        "approved" => Value::String("approve".to_string()),
+        "rejected" => Value::String("reject".to_string()),
+        "revoked" => Value::String("revoke".to_string()),
+        "pending" => Value::Null,
+        _ => value_string(latest_decision, "decision")
+            .or_else(|| value_string(latest_decision, "status"))
+            .map(Value::String)
+            .unwrap_or(Value::Null),
+    }
+}
+
+fn approval_queue_entry(
+    thread_id: &str,
+    approval_id: &str,
+    approval_request: Value,
+    latest_decision: Value,
+    status: &'static str,
+) -> Value {
+    let lease_state = approval_projection_lease_state(&latest_decision);
+    json!({
+        "schema_version": "ioi.runtime.approval-queue-entry.v1",
+        "thread_id": thread_id,
+        "run_id": value_string(&approval_request, "run_id"),
+        "approval_id": approval_id,
+        "status": status,
+        "decision": approval_queue_decision(status, &latest_decision),
+        "request_event_id": value_string(&approval_request, "event_id"),
+        "request_seq": value_u64(&approval_request, "seq"),
+        "decision_event_id": value_string(&latest_decision, "event_id"),
+        "decision_seq": value_u64(&latest_decision, "seq"),
+        "lease_id": value_string(&lease_state, "lease_id"),
+        "lease_status": value_string(&lease_state, "lease_status"),
+        "reason": approval_event_reason(&latest_decision)
+            .or_else(|| approval_event_reason(&approval_request)),
+        "receipt_refs": approval_receipt_refs(&approval_request, &latest_decision),
+        "policy_decision_refs": approval_policy_decision_refs(&approval_request, &latest_decision),
+        "approval_request": approval_request,
+        "latest_decision": latest_decision,
+        "lease_state": lease_state,
+    })
+}
+
+fn insert_missing_string(map: &mut serde_json::Map<String, Value>, key: &'static str, value: &str) {
+    if !map_has_non_empty_string(map, key) {
+        map.insert(key.to_string(), Value::String(value.to_string()));
+    }
+}
+
+fn map_has_non_empty_string(map: &serde_json::Map<String, Value>, key: &str) -> bool {
+    map.get(key)
+        .and_then(Value::as_str)
+        .map(|value| !value.trim().is_empty())
+        .unwrap_or(false)
+}
+
+fn approval_satisfaction_record(
+    thread_id: String,
+    approval_id: Option<String>,
+    satisfied: bool,
+    reason: impl Into<String>,
+    latest_decision: &Value,
+    lease_state: &Value,
+    receipt_refs: Vec<String>,
+    policy_decision_refs: Vec<String>,
+    expected_head: Option<String>,
+    state_root_before: Option<String>,
+) -> CodingToolApprovalSatisfactionRecord {
+    CodingToolApprovalSatisfactionRecord {
+        schema_version: CODING_TOOL_APPROVAL_SATISFACTION_RESULT_SCHEMA_VERSION.to_string(),
+        object: "ioi.runtime_coding_tool_approval_satisfaction".to_string(),
+        status: if satisfied { "satisfied" } else { "blocked" }.to_string(),
+        operation_kind: "coding_tool.approval.satisfaction".to_string(),
+        thread_id,
+        approval_id,
+        satisfied,
+        reason: reason.into(),
+        decision_event_id: value_string(latest_decision, "event_id"),
+        decision_seq: value_u64(latest_decision, "seq"),
+        lease_id: value_string(lease_state, "lease_id"),
+        expires_at: value_string(lease_state, "expires_at"),
+        receipt_refs,
+        policy_decision_refs,
+        expected_head,
+        state_root_before,
+        projection_source: "rust_daemon_core_approval_projection".to_string(),
+        generated_at: "rust_authority_core".to_string(),
+    }
+}
+
+fn approval_manifests_satisfy(requested: &Value, retry: &Value) -> bool {
+    if !requested.is_object() || !retry.is_object() {
+        return false;
+    }
+    for key in [
+        "thread_id",
+        "tool_id",
+        "tool_call_id",
+        "effect_class",
+        "input_hash",
+    ] {
+        let left = value_string(requested, key);
+        let right = value_string(retry, key);
+        if left.is_none() || right.is_none() || left != right {
+            return false;
+        }
+    }
+    let requested_node = value_string(requested, "workflow_node_id");
+    let retry_node = value_string(retry, "workflow_node_id");
+    if requested_node.is_some() && retry_node.is_some() && requested_node != retry_node {
+        return false;
+    }
+    true
+}
+
+fn approval_event_reason(event: &Value) -> Option<String> {
+    event
+        .get("payload_summary")
+        .and_then(|payload| value_string(payload, "reason"))
+        .or_else(|| value_string(event, "reason"))
+}
+
+fn approval_lease_expired(lease_state: &Value) -> bool {
+    if lease_state.get("expired").and_then(Value::as_bool) == Some(true) {
+        return true;
+    }
+    matches!(
+        value_string(lease_state, "status")
+            .unwrap_or_default()
+            .to_ascii_lowercase()
+            .as_str(),
+        "expired" | "revoked"
+    )
+}
+
+fn approval_receipt_refs(approval_request: &Value, latest_decision: &Value) -> Vec<String> {
+    unique_trimmed_values(
+        array_strings(approval_request, "receipt_refs")
+            .into_iter()
+            .chain(array_strings(latest_decision, "receipt_refs"))
+            .chain(
+                approval_request
+                    .get("payload_summary")
+                    .map(|payload| array_strings(payload, "receipt_refs"))
+                    .unwrap_or_default(),
+            )
+            .chain(
+                latest_decision
+                    .get("payload_summary")
+                    .map(|payload| array_strings(payload, "receipt_refs"))
+                    .unwrap_or_default(),
+            )
+            .collect::<Vec<_>>()
+            .as_slice(),
+    )
+}
+
+fn approval_policy_decision_refs(approval_request: &Value, latest_decision: &Value) -> Vec<String> {
+    unique_trimmed_values(
+        array_strings(approval_request, "policy_decision_refs")
+            .into_iter()
+            .chain(array_strings(latest_decision, "policy_decision_refs"))
+            .chain(
+                approval_request
+                    .get("payload_summary")
+                    .map(|payload| array_strings(payload, "policy_decision_refs"))
+                    .unwrap_or_default(),
+            )
+            .chain(
+                latest_decision
+                    .get("payload_summary")
+                    .map(|payload| array_strings(payload, "policy_decision_refs"))
+                    .unwrap_or_default(),
+            )
+            .collect::<Vec<_>>()
+            .as_slice(),
+    )
+}
+
+fn value_string(value: &Value, key: &str) -> Option<String> {
+    value
+        .get(key)
+        .and_then(Value::as_str)
+        .and_then(|text| optional_trimmed(Some(text)))
+}
+
+fn value_u64(value: &Value, key: &str) -> Option<u64> {
+    value.get(key).and_then(Value::as_u64)
+}
+
+fn array_strings(value: &Value, key: &str) -> Vec<String> {
+    value
+        .get(key)
+        .and_then(Value::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(Value::as_str)
+                .filter_map(|item| optional_trimmed(Some(item)))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn unique_trimmed_values(values: &[String]) -> Vec<String> {
+    values.iter().fold(Vec::new(), |mut unique, value| {
+        let trimmed = value.trim();
+        if !trimmed.is_empty() && !unique.iter().any(|existing| existing == trimmed) {
+            unique.push(trimmed.to_string());
+        }
+        unique
+    })
+}
+
 fn unique_trimmed(values: &[String]) -> Vec<String> {
     values.iter().fold(Vec::new(), |mut unique, value| {
         let trimmed = value.trim();
@@ -1288,12 +3203,46 @@ fn unique_trimmed(values: &[String]) -> Vec<String> {
     })
 }
 
+fn safe_id(value: &str) -> String {
+    let safe = value
+        .chars()
+        .map(|character| {
+            if character.is_ascii_alphanumeric() || matches!(character, '_' | '-' | '.') {
+                character
+            } else {
+                '_'
+            }
+        })
+        .collect::<String>();
+    if safe.is_empty() {
+        "runtime".to_string()
+    } else {
+        safe
+    }
+}
+
+fn short_sha256_hex(value: &str, chars: usize) -> String {
+    let hash = hex::encode(Sha256::digest(value.as_bytes()));
+    hash.chars().take(chars).collect()
+}
+
 fn require_coding_tool_field(
     field: &'static str,
     value: &str,
 ) -> Result<(), CodingToolApprovalError> {
     if value.trim().is_empty() {
         Err(CodingToolApprovalError::MissingField(field))
+    } else {
+        Ok(())
+    }
+}
+
+fn require_coding_tool_approval_block_field(
+    field: &'static str,
+    value: &str,
+) -> Result<(), CodingToolApprovalBlockError> {
+    if value.trim().is_empty() {
+        Err(CodingToolApprovalBlockError::MissingField(field))
     } else {
         Ok(())
     }
@@ -1407,6 +3356,23 @@ mod tests {
             reason: Some("Looks good".to_string()),
             receipt_refs: vec!["receipt_decision".to_string()],
             policy_decision_refs: vec!["policy_decision".to_string()],
+            authority_record: json!({
+                "schema_version": APPROVAL_DECISION_AUTHORITY_RESULT_SCHEMA_VERSION,
+                "object": "ioi.runtime_approval_decision_authority",
+                "status": "authorized",
+                "operation_kind": "approval.decision.authority",
+                "thread_id": "thread_alpha",
+                "approval_id": "approval_alpha",
+                "decision": "approve",
+                "wallet_network_grant_refs": ["wallet.network://grant/approval/approval_alpha"],
+                "authority_receipt_refs": ["receipt://wallet.network/approval/approval_alpha"],
+                "policy_decision_refs": ["policy_wallet_approval"],
+                "direct_truth_write_allowed": false,
+                "authority_hash": "sha256:approval-authority",
+            }),
+            authority_hash: None,
+            authority_grant_refs: vec![],
+            authority_receipt_refs: vec![],
         }
     }
 
@@ -1433,6 +3399,205 @@ mod tests {
             reason: Some("Changed my mind".to_string()),
             receipt_refs: vec!["receipt_revoke".to_string()],
             policy_decision_refs: vec!["policy_revoke".to_string()],
+            authority_record: json!({
+                "schema_version": APPROVAL_DECISION_AUTHORITY_RESULT_SCHEMA_VERSION,
+                "object": "ioi.runtime_approval_decision_authority",
+                "status": "authorized",
+                "operation_kind": "approval.decision.authority",
+                "thread_id": "thread_alpha",
+                "approval_id": "approval_alpha",
+                "decision": "revoke",
+                "wallet_network_grant_refs": ["wallet.network://grant/approval/approval_alpha"],
+                "authority_receipt_refs": ["receipt://wallet.network/approval/approval_alpha"],
+                "policy_decision_refs": ["policy_wallet_approval"],
+                "direct_truth_write_allowed": false,
+                "authority_hash": "sha256:approval-authority-revoke",
+            }),
+            authority_hash: None,
+            authority_grant_refs: vec![],
+            authority_receipt_refs: vec![],
+        }
+    }
+
+    fn approval_decision_authority_request(decision: &str) -> ApprovalDecisionAuthorityRequest {
+        ApprovalDecisionAuthorityRequest {
+            schema_version: APPROVAL_DECISION_AUTHORITY_REQUEST_SCHEMA_VERSION.to_string(),
+            thread_id: "thread_alpha".to_string(),
+            approval_id: "approval_alpha".to_string(),
+            decision: decision.to_string(),
+            target_kind: Some("run".to_string()),
+            run_id: Some("run_alpha".to_string()),
+            actor_ref: Some("operator://local/heath".to_string()),
+            source: Some("sdk_client".to_string()),
+            idempotency_key: Some("approval:thread_alpha:approval_alpha:approve".to_string()),
+            authority_grant_refs: vec![
+                "wallet.network://grant/approval/approval_alpha".to_string(),
+                "grant://local-debug-only".to_string(),
+            ],
+            authority_receipt_refs: vec![
+                "receipt://wallet.network/approval/approval_alpha".to_string()
+            ],
+            policy_decision_refs: vec!["policy_wallet_approval".to_string()],
+            approval_manifest: json!({
+                "thread_id": "thread_alpha",
+                "approval_id": "approval_alpha",
+            }),
+            approval_request: json!({
+                "event_id": "event_approval",
+                "approval_id": "approval_alpha",
+            }),
+            authority_context: json!({
+                "surface": "runtime.approval_control",
+            }),
+        }
+    }
+
+    fn approval_satisfaction_request() -> CodingToolApprovalSatisfactionRequest {
+        let plan = CodingToolApprovalCore
+            .plan_manifest(&coding_tool_request("workspace_write"))
+            .expect("approval manifest plan");
+        let manifest = serde_json::to_value(plan.manifest.expect("approval manifest"))
+            .expect("manifest value");
+        CodingToolApprovalSatisfactionRequest {
+            schema_version: CODING_TOOL_APPROVAL_SATISFACTION_REQUEST_SCHEMA_VERSION.to_string(),
+            thread_id: "thread_1".to_string(),
+            approval_id: Some("approval_alpha".to_string()),
+            approval_manifest: manifest.clone(),
+            approval_request: json!({
+                "event_id": "event_approval",
+                "seq": 3,
+                "thread_id": "thread_1",
+                "approval_id": "approval_alpha",
+                "event_kind": "approval.required",
+                "receipt_refs": ["receipt_request"],
+                "policy_decision_refs": ["policy_request"],
+                "payload_summary": {
+                    "approval_manifest": manifest,
+                    "receipt_refs": ["receipt_request_payload"],
+                    "policy_decision_refs": ["policy_request_payload"]
+                }
+            }),
+            latest_decision: json!({
+                "event_id": "event_decision",
+                "seq": 4,
+                "thread_id": "thread_1",
+                "approval_id": "approval_alpha",
+                "event_kind": "approval.approved",
+                "receipt_refs": ["receipt_decision"],
+                "policy_decision_refs": ["policy_decision"],
+                "payload_summary": {
+                    "reason": "approval_approved",
+                    "receipt_refs": ["receipt_decision_payload"],
+                    "policy_decision_refs": ["policy_decision_payload"]
+                }
+            }),
+            lease_state: json!({
+                "expired": false,
+                "lease_id": "lease_alpha",
+                "expires_at": "2026-06-06T04:45:00.000Z"
+            }),
+            expected_head: Some("agentgres://head/before".to_string()),
+            state_root_before: Some("state://root/before".to_string()),
+        }
+    }
+
+    fn approval_satisfaction_projection_request() -> CodingToolApprovalSatisfactionProjectionRequest
+    {
+        let request_record = ApprovalRequestStateUpdateCore
+            .plan(&approval_request_state_update_request())
+            .expect("approval request state");
+        let mut decision_request = approval_decision_state_update_request();
+        decision_request.run = request_record.run;
+        let decision_record = ApprovalDecisionStateUpdateCore
+            .plan(&decision_request)
+            .expect("approval decision state");
+        CodingToolApprovalSatisfactionProjectionRequest {
+            schema_version: CODING_TOOL_APPROVAL_SATISFACTION_PROJECTION_REQUEST_SCHEMA_VERSION
+                .to_string(),
+            thread_id: "thread_alpha".to_string(),
+            approval_id: "approval_alpha".to_string(),
+            approval_manifest: json!({
+                "schema_version": CODING_TOOL_APPROVAL_MANIFEST_SCHEMA_VERSION,
+                "thread_id": "thread_alpha",
+                "tool_id": "file.apply_patch",
+                "tool_call_id": "call_1",
+                "effect_class": "workspace_write",
+                "input_hash": "sha256:projection",
+            }),
+            run: decision_record.run,
+            agent: Value::Null,
+            expected_head: Some("agentgres://head/projection-before".to_string()),
+            state_root_before: Some("state://root/projection-before".to_string()),
+        }
+    }
+
+    fn approval_queue_projection_request(include_resolved: bool) -> ApprovalQueueProjectionRequest {
+        let mut first_request = approval_request_state_update_request();
+        first_request.approval_id = "approval_alpha".to_string();
+        first_request.event_id = "event_approval_alpha".to_string();
+        first_request.seq = 3;
+        let first_record = ApprovalRequestStateUpdateCore
+            .plan(&first_request)
+            .expect("first approval request state");
+        let mut decision_request = approval_decision_state_update_request();
+        decision_request.run = first_record.run;
+        decision_request.approval_id = "approval_alpha".to_string();
+        decision_request.event_id = "event_decision_alpha".to_string();
+        decision_request.seq = 4;
+        decision_request.receipt_refs = vec!["receipt_decision_alpha".to_string()];
+        let decision_record = ApprovalDecisionStateUpdateCore
+            .plan(&decision_request)
+            .expect("approval decision state");
+        let mut second_request = approval_request_state_update_request();
+        second_request.run = decision_record.run;
+        second_request.approval_id = "approval_beta".to_string();
+        second_request.event_id = "event_approval_beta".to_string();
+        second_request.seq = 5;
+        second_request.reason = "Need another permission".to_string();
+        second_request.receipt_refs = vec!["receipt_request_beta".to_string()];
+        let second_record = ApprovalRequestStateUpdateCore
+            .plan(&second_request)
+            .expect("second approval request state");
+
+        ApprovalQueueProjectionRequest {
+            schema_version: APPROVAL_QUEUE_PROJECTION_REQUEST_SCHEMA_VERSION.to_string(),
+            thread_id: "thread_alpha".to_string(),
+            run: second_record.run,
+            runs: vec![],
+            agent: Value::Null,
+            include_resolved,
+            expected_head: Some("agentgres://head/queue-before".to_string()),
+            state_root_before: Some("state://root/queue-before".to_string()),
+        }
+    }
+
+    fn approval_block_request() -> CodingToolApprovalBlockRequest {
+        let satisfaction = CodingToolApprovalSatisfactionCore
+            .plan(&approval_satisfaction_request())
+            .expect("approval satisfaction");
+        let mut blocked_gate = serde_json::to_value(satisfaction).expect("satisfaction value");
+        blocked_gate["satisfied"] = Value::Bool(false);
+        blocked_gate["status"] = Value::String("blocked".to_string());
+        blocked_gate["reason"] = Value::String("approval_required".to_string());
+        CodingToolApprovalBlockRequest {
+            schema_version: CODING_TOOL_APPROVAL_BLOCK_REQUEST_SCHEMA_VERSION.to_string(),
+            thread_id: "thread_1".to_string(),
+            turn_id: Some("turn_1".to_string()),
+            tool_id: "file.apply_patch".to_string(),
+            tool_call_id: "call_1".to_string(),
+            workspace_root: Some("/workspace/project".to_string()),
+            workflow_graph_id: Some("graph_1".to_string()),
+            workflow_node_id: Some("node_1".to_string()),
+            source: Some("runtime_auto".to_string()),
+            idempotency_key: Some("thread:thread_1:coding-tool:call_1".to_string()),
+            receipt_id: Some("receipt_coding_tool_file_apply_patch".to_string()),
+            approval_manifest: approval_satisfaction_request().approval_manifest,
+            approval_gate: blocked_gate,
+            input_summary: json!({ "path": "src/app.js" }),
+            rollback_refs: vec!["rollback_request".to_string()],
+            receipt_refs: vec!["receipt_invocation".to_string()],
+            policy_decision_refs: vec!["policy_invocation".to_string()],
+            artifact_refs: vec![],
         }
     }
 
@@ -1519,6 +3684,458 @@ mod tests {
             .as_str()
             .expect("input hash")
             .starts_with("sha256:"));
+    }
+
+    #[test]
+    fn rust_authority_plans_coding_tool_approval_satisfaction() {
+        let record = CodingToolApprovalSatisfactionCore
+            .plan(&approval_satisfaction_request())
+            .expect("approval satisfaction");
+
+        assert_eq!(
+            record.schema_version,
+            CODING_TOOL_APPROVAL_SATISFACTION_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(record.status, "satisfied");
+        assert_eq!(record.operation_kind, "coding_tool.approval.satisfaction");
+        assert_eq!(record.satisfied, true);
+        assert_eq!(record.approval_id.as_deref(), Some("approval_alpha"));
+        assert_eq!(record.decision_event_id.as_deref(), Some("event_decision"));
+        assert_eq!(record.decision_seq, Some(4));
+        assert_eq!(record.lease_id.as_deref(), Some("lease_alpha"));
+        assert_eq!(
+            record.receipt_refs,
+            vec![
+                "receipt_request",
+                "receipt_decision",
+                "receipt_request_payload",
+                "receipt_decision_payload"
+            ]
+        );
+        assert_eq!(
+            record.policy_decision_refs,
+            vec![
+                "policy_request",
+                "policy_decision",
+                "policy_request_payload",
+                "policy_decision_payload"
+            ]
+        );
+        assert_eq!(
+            record.expected_head.as_deref(),
+            Some("agentgres://head/before")
+        );
+        assert_eq!(
+            record.state_root_before.as_deref(),
+            Some("state://root/before")
+        );
+    }
+
+    #[test]
+    fn rust_authority_blocks_coding_tool_approval_satisfaction_mismatch() {
+        let mut request = approval_satisfaction_request();
+        request.approval_manifest["input_hash"] = Value::String("sha256:other".to_string());
+
+        let record = CodingToolApprovalSatisfactionCore
+            .plan(&request)
+            .expect("blocked satisfaction");
+
+        assert_eq!(record.status, "blocked");
+        assert_eq!(record.satisfied, false);
+        assert_eq!(record.reason, "approval_manifest_mismatch");
+        assert!(record.decision_event_id.is_none());
+    }
+
+    #[test]
+    fn rust_authority_blocks_expired_coding_tool_approval_lease() {
+        let mut request = approval_satisfaction_request();
+        request.lease_state["expired"] = Value::Bool(true);
+
+        let record = CodingToolApprovalSatisfactionCore
+            .plan(&request)
+            .expect("expired approval");
+
+        assert_eq!(record.status, "blocked");
+        assert_eq!(record.satisfied, false);
+        assert_eq!(record.reason, "approval_lease_expired");
+        assert_eq!(record.decision_event_id.as_deref(), Some("event_decision"));
+        assert_eq!(record.lease_id.as_deref(), Some("lease_alpha"));
+    }
+
+    #[test]
+    fn rust_core_shapes_coding_tool_approval_satisfaction_command_response() {
+        let response = plan_coding_tool_approval_satisfaction_response(
+            CodingToolApprovalSatisfactionBridgeRequest {
+                backend: Some("rust_authority".to_string()),
+                request: approval_satisfaction_request(),
+            },
+        )
+        .expect("approval satisfaction command response");
+
+        assert_eq!(
+            response["source"],
+            "rust_coding_tool_approval_satisfaction_command"
+        );
+        assert_eq!(response["backend"], "rust_authority");
+        assert_eq!(response["satisfied"], true);
+        assert_eq!(response["approval_id"], "approval_alpha");
+        assert_eq!(response["decision_event_id"], "event_decision");
+        assert_eq!(
+            response["record"]["schema_version"],
+            CODING_TOOL_APPROVAL_SATISFACTION_RESULT_SCHEMA_VERSION
+        );
+    }
+
+    #[test]
+    fn rust_authority_projects_coding_tool_approval_satisfaction_from_run_projection() {
+        let request = approval_satisfaction_projection_request();
+        let record = CodingToolApprovalSatisfactionProjectionCore
+            .project(&request)
+            .expect("approval satisfaction projection");
+
+        assert_eq!(
+            record.schema_version,
+            CODING_TOOL_APPROVAL_SATISFACTION_PROJECTION_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(record.status, "projected");
+        assert_eq!(
+            record.operation_kind,
+            "coding_tool.approval.satisfaction_projection"
+        );
+        assert_eq!(record.approval_request["approval_id"], "approval_alpha");
+        assert_eq!(record.approval_request["thread_id"], "thread_alpha");
+        assert_eq!(
+            record.approval_request["payload_summary"]["approval_manifest"]["input_hash"],
+            "sha256:projection"
+        );
+        assert_eq!(record.latest_decision["event_id"], "event_decision");
+        assert_eq!(record.latest_decision["event_kind"], "approval.approved");
+        assert_eq!(record.lease_state["lease_id"], "lease_alpha");
+        assert_eq!(record.lease_state["status"], "active");
+        assert_eq!(record.lease_state["expired"], false);
+
+        let satisfaction = CodingToolApprovalSatisfactionCore
+            .plan(&CodingToolApprovalSatisfactionRequest {
+                schema_version: CODING_TOOL_APPROVAL_SATISFACTION_REQUEST_SCHEMA_VERSION
+                    .to_string(),
+                thread_id: record.thread_id.clone(),
+                approval_id: Some(record.approval_id.clone()),
+                approval_manifest: request.approval_manifest,
+                approval_request: record.approval_request,
+                latest_decision: record.latest_decision,
+                lease_state: record.lease_state,
+                expected_head: record.expected_head,
+                state_root_before: record.state_root_before,
+            })
+            .expect("approval satisfaction");
+
+        assert_eq!(satisfaction.status, "satisfied");
+        assert_eq!(satisfaction.satisfied, true);
+        assert_eq!(
+            satisfaction.expected_head.as_deref(),
+            Some("agentgres://head/projection-before")
+        );
+    }
+
+    #[test]
+    fn rust_authority_projects_revoked_approval_as_latest_decision() {
+        let request_record = ApprovalRequestStateUpdateCore
+            .plan(&approval_request_state_update_request())
+            .expect("approval request state");
+        let mut decision_request = approval_decision_state_update_request();
+        decision_request.run = request_record.run;
+        let decision_record = ApprovalDecisionStateUpdateCore
+            .plan(&decision_request)
+            .expect("approval decision state");
+        let mut revoke_request = approval_revoke_state_update_request();
+        revoke_request.run = decision_record.run;
+        let revoke_record = ApprovalRevokeStateUpdateCore
+            .plan(&revoke_request)
+            .expect("approval revoke state");
+        let mut request = approval_satisfaction_projection_request();
+        request.run = revoke_record.run;
+
+        let record = CodingToolApprovalSatisfactionProjectionCore
+            .project(&request)
+            .expect("approval satisfaction projection");
+
+        assert_eq!(record.latest_decision["event_id"], "event_revoke");
+        assert_eq!(record.latest_decision["event_kind"], "approval.revoked");
+        assert_eq!(record.lease_state["status"], "revoked");
+        assert_eq!(record.lease_state["expired"], true);
+
+        let satisfaction = CodingToolApprovalSatisfactionCore
+            .plan(&CodingToolApprovalSatisfactionRequest {
+                schema_version: CODING_TOOL_APPROVAL_SATISFACTION_REQUEST_SCHEMA_VERSION
+                    .to_string(),
+                thread_id: record.thread_id.clone(),
+                approval_id: Some(record.approval_id.clone()),
+                approval_manifest: request.approval_manifest,
+                approval_request: record.approval_request,
+                latest_decision: record.latest_decision,
+                lease_state: record.lease_state,
+                expected_head: record.expected_head,
+                state_root_before: record.state_root_before,
+            })
+            .expect("approval satisfaction");
+
+        assert_eq!(satisfaction.status, "blocked");
+        assert_eq!(satisfaction.reason, "Changed my mind");
+    }
+
+    #[test]
+    fn rust_core_shapes_coding_tool_approval_satisfaction_projection_command_response() {
+        let response = project_coding_tool_approval_satisfaction_response(
+            CodingToolApprovalSatisfactionProjectionBridgeRequest {
+                backend: Some("rust_authority".to_string()),
+                request: approval_satisfaction_projection_request(),
+            },
+        )
+        .expect("approval satisfaction projection command response");
+
+        assert_eq!(
+            response["source"],
+            "rust_coding_tool_approval_satisfaction_projection_command"
+        );
+        assert_eq!(response["backend"], "rust_authority");
+        assert_eq!(response["status"], "projected");
+        assert_eq!(
+            response["approval_request"]["approval_id"],
+            "approval_alpha"
+        );
+        assert_eq!(response["latest_decision"]["event_id"], "event_decision");
+        assert_eq!(response["lease_state"]["lease_id"], "lease_alpha");
+        assert_eq!(
+            response["record"]["schema_version"],
+            CODING_TOOL_APPROVAL_SATISFACTION_PROJECTION_RESULT_SCHEMA_VERSION
+        );
+    }
+
+    #[test]
+    fn rust_authority_projects_public_approval_queue_pending_only() {
+        let record = ApprovalQueueProjectionCore
+            .project(&approval_queue_projection_request(false))
+            .expect("approval queue projection");
+
+        assert_eq!(
+            record.schema_version,
+            APPROVAL_QUEUE_PROJECTION_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(record.status, "projected");
+        assert_eq!(record.operation_kind, "approval.queue_projection");
+        assert_eq!(record.thread_id, "thread_alpha");
+        assert_eq!(record.pending_count, 1);
+        assert_eq!(record.resolved_count, 1);
+        assert_eq!(record.approvals.len(), 1);
+        assert_eq!(record.approvals[0]["approval_id"], "approval_beta");
+        assert_eq!(record.approvals[0]["status"], "pending");
+        assert_eq!(record.approvals[0]["decision"], Value::Null);
+        assert_eq!(
+            record.approvals[0]["request_event_id"],
+            "event_approval_beta"
+        );
+        assert_eq!(
+            record.approvals[0]["receipt_refs"][0],
+            "receipt_request_beta"
+        );
+        assert!(record.approvals[0].get("approvalId").is_none());
+        assert!(record.approvals[0].get("requestEventId").is_none());
+    }
+
+    #[test]
+    fn rust_authority_projects_public_approval_queue_with_resolved_records() {
+        let record = ApprovalQueueProjectionCore
+            .project(&approval_queue_projection_request(true))
+            .expect("approval queue projection");
+
+        assert_eq!(record.pending_count, 1);
+        assert_eq!(record.resolved_count, 1);
+        assert_eq!(record.approvals.len(), 2);
+        assert_eq!(record.approvals[0]["approval_id"], "approval_alpha");
+        assert_eq!(record.approvals[0]["status"], "approved");
+        assert_eq!(record.approvals[0]["decision"], "approve");
+        assert_eq!(
+            record.approvals[0]["decision_event_id"],
+            "event_decision_alpha"
+        );
+        assert_eq!(
+            record.approvals[0]["receipt_refs"][1],
+            "receipt_decision_alpha"
+        );
+        assert_eq!(record.approvals[1]["approval_id"], "approval_beta");
+        assert_eq!(record.approvals[1]["status"], "pending");
+        assert_eq!(
+            record.expected_head.as_deref(),
+            Some("agentgres://head/queue-before")
+        );
+    }
+
+    #[test]
+    fn rust_core_shapes_public_approval_queue_command_response() {
+        let response = project_approval_queue_response(ApprovalQueueProjectionBridgeRequest {
+            backend: Some("rust_authority".to_string()),
+            request: approval_queue_projection_request(false),
+        })
+        .expect("approval queue command response");
+
+        assert_eq!(response["source"], "rust_approval_queue_projection_command");
+        assert_eq!(response["backend"], "rust_authority");
+        assert_eq!(response["status"], "projected");
+        assert_eq!(response["operation_kind"], "approval.queue_projection");
+        assert_eq!(response["thread_id"], "thread_alpha");
+        assert_eq!(response["pending_count"], 1);
+        assert_eq!(response["resolved_count"], 1);
+        assert_eq!(response["approvals"][0]["approval_id"], "approval_beta");
+        assert_eq!(
+            response["record"]["schema_version"],
+            APPROVAL_QUEUE_PROJECTION_RESULT_SCHEMA_VERSION
+        );
+    }
+
+    #[test]
+    fn rust_authority_authorizes_approval_decision_with_wallet_network_grant() {
+        let record = ApprovalDecisionAuthorityCore
+            .authorize(&approval_decision_authority_request("approve"))
+            .expect("approval decision authority");
+
+        assert_eq!(
+            record.schema_version,
+            APPROVAL_DECISION_AUTHORITY_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(record.status, "authorized");
+        assert_eq!(record.operation_kind, "approval.decision.authority");
+        assert_eq!(record.decision, "approve");
+        assert_eq!(
+            record.wallet_network_grant_refs,
+            vec!["wallet.network://grant/approval/approval_alpha"]
+        );
+        assert_eq!(
+            record.authority_receipt_refs,
+            vec!["receipt://wallet.network/approval/approval_alpha"]
+        );
+        assert_eq!(record.direct_truth_write_allowed, false);
+        assert!(record.authority_hash.starts_with("sha256:"));
+    }
+
+    #[test]
+    fn rust_authority_rejects_approval_decision_without_wallet_network_grant() {
+        let mut request = approval_decision_authority_request("approve");
+        request.authority_grant_refs = vec!["grant://local-debug-only".to_string()];
+
+        let error = ApprovalDecisionAuthorityCore
+            .authorize(&request)
+            .expect_err("wallet.network authority is required");
+
+        assert_eq!(
+            error,
+            ApprovalDecisionAuthorityError::MissingWalletNetworkAuthority
+        );
+    }
+
+    #[test]
+    fn rust_core_shapes_approval_decision_authority_command_response() {
+        let response =
+            authorize_approval_decision_response(ApprovalDecisionAuthorityBridgeRequest {
+                backend: Some("rust_authority".to_string()),
+                request: approval_decision_authority_request("revoke"),
+            })
+            .expect("approval decision authority command response");
+
+        assert_eq!(
+            response["schema_version"],
+            APPROVAL_DECISION_AUTHORITY_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(
+            response["source"],
+            "rust_approval_decision_authority_command"
+        );
+        assert_eq!(response["backend"], "rust_authority");
+        assert_eq!(response["status"], "authorized");
+        assert_eq!(response["operation_kind"], "approval.decision.authority");
+        assert_eq!(response["decision"], "revoke");
+        assert_eq!(
+            response["wallet_network_grant_refs"][0],
+            "wallet.network://grant/approval/approval_alpha"
+        );
+        assert_eq!(
+            response["authority_receipt_refs"][0],
+            "receipt://wallet.network/approval/approval_alpha"
+        );
+        assert_eq!(response["direct_truth_write_allowed"], false);
+        assert!(response["authority_hash"]
+            .as_str()
+            .expect("authority hash")
+            .starts_with("sha256:"));
+    }
+
+    #[test]
+    fn rust_authority_plans_coding_tool_approval_block_result_event() {
+        let record = CodingToolApprovalBlockCore
+            .plan(&approval_block_request())
+            .expect("approval block");
+
+        assert_eq!(
+            record.schema_version,
+            CODING_TOOL_APPROVAL_BLOCK_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(record.status, "blocked");
+        assert_eq!(record.operation_kind, "coding_tool.approval.block");
+        assert_eq!(record.reason, "approval_required");
+        assert_eq!(record.approval_id.as_deref(), Some("approval_alpha"));
+        assert!(record
+            .receipt_refs
+            .contains(&"receipt_coding_tool_file_apply_patch".to_string()));
+        assert!(record
+            .receipt_refs
+            .contains(&"receipt_invocation".to_string()));
+        assert!(record.receipt_refs.contains(&"receipt_request".to_string()));
+        assert!(record
+            .policy_decision_refs
+            .contains(&"policy_invocation".to_string()));
+        assert_eq!(
+            record.result["schema_version"],
+            CODING_TOOL_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(record.result["status"], "blocked");
+        assert_eq!(record.result["approval_required"], true);
+        assert_eq!(record.result["approval_satisfied"], false);
+        assert_eq!(record.result["rust_authority_block"], true);
+        assert_eq!(record.event["event_stream_id"], "thread_1:events");
+        assert_eq!(record.event["event_kind"], "tool.blocked");
+        assert_eq!(record.event["status"], "blocked");
+        assert_eq!(
+            record.event["payload_summary"]["approval_id"],
+            "approval_alpha"
+        );
+        assert_eq!(
+            record.event["payload_summary"]["rust_authority_block"],
+            true
+        );
+    }
+
+    #[test]
+    fn rust_core_shapes_coding_tool_approval_block_command_response() {
+        let response =
+            plan_coding_tool_approval_block_response(CodingToolApprovalBlockBridgeRequest {
+                backend: Some("rust_authority".to_string()),
+                request: approval_block_request(),
+            })
+            .expect("approval block command response");
+
+        assert_eq!(
+            response["source"],
+            "rust_coding_tool_approval_block_command"
+        );
+        assert_eq!(response["backend"], "rust_authority");
+        assert_eq!(response["status"], "blocked");
+        assert_eq!(response["operation_kind"], "coding_tool.approval.block");
+        assert_eq!(response["approval_id"], "approval_alpha");
+        assert_eq!(response["result"]["status"], "blocked");
+        assert_eq!(response["event"]["event_kind"], "tool.blocked");
+        assert_eq!(
+            response["record"]["schema_version"],
+            CODING_TOOL_APPROVAL_BLOCK_RESULT_SCHEMA_VERSION
+        );
     }
 
     #[test]
@@ -1653,6 +4270,22 @@ mod tests {
             record.run["operatorControls"][0]["receipt_refs"][0],
             "receipt_decision"
         );
+        assert_eq!(
+            record.run["operatorControls"][0]["receipt_refs"][1],
+            "receipt://wallet.network/approval/approval_alpha"
+        );
+        assert_eq!(
+            record.operator_control["authority_hash"],
+            "sha256:approval-authority"
+        );
+        assert_eq!(
+            record.operator_control["authority_grant_refs"][0],
+            "wallet.network://grant/approval/approval_alpha"
+        );
+        assert_eq!(
+            record.operator_control["authority_receipt_refs"][0],
+            "receipt://wallet.network/approval/approval_alpha"
+        );
     }
 
     #[test]
@@ -1716,6 +4349,24 @@ mod tests {
     }
 
     #[test]
+    fn rust_authority_rejects_approval_decision_state_update_without_wallet_authority() {
+        let mut request = approval_decision_state_update_request();
+        request.authority_record = Value::Null;
+        request.authority_hash = None;
+        request.authority_grant_refs.clear();
+        request.authority_receipt_refs.clear();
+
+        let error = ApprovalDecisionStateUpdateCore
+            .plan(&request)
+            .expect_err("wallet authority is required");
+
+        assert_eq!(
+            error,
+            ApprovalDecisionStateUpdateError::MissingField("authority_record")
+        );
+    }
+
+    #[test]
     fn rust_core_shapes_approval_decision_state_update_command_response() {
         let response = plan_approval_decision_state_update_response(
             ApprovalDecisionStateUpdateBridgeRequest {
@@ -1733,6 +4384,10 @@ mod tests {
         assert_eq!(response["status"], "planned");
         assert_eq!(response["operation_kind"], "approval.approve");
         assert_eq!(response["operator_control"]["lease_id"], "lease_alpha");
+        assert_eq!(
+            response["operator_control"]["authority_hash"],
+            "sha256:approval-authority"
+        );
         assert_eq!(
             response["record"]["schema_version"],
             APPROVAL_DECISION_STATE_UPDATE_RESULT_SCHEMA_VERSION
@@ -1773,6 +4428,18 @@ mod tests {
         assert_eq!(
             record.run["operatorControls"][0]["policy_decision_refs"][0],
             "policy_revoke"
+        );
+        assert_eq!(
+            record.run["operatorControls"][0]["policy_decision_refs"][1],
+            "policy_wallet_approval"
+        );
+        assert_eq!(
+            record.operator_control["authority_hash"],
+            "sha256:approval-authority-revoke"
+        );
+        assert_eq!(
+            record.operator_control["authority_receipt_refs"][0],
+            "receipt://wallet.network/approval/approval_alpha"
         );
     }
 
@@ -1820,6 +4487,24 @@ mod tests {
     }
 
     #[test]
+    fn rust_authority_rejects_approval_revoke_state_update_without_wallet_authority() {
+        let mut request = approval_revoke_state_update_request();
+        request.authority_record = Value::Null;
+        request.authority_hash = None;
+        request.authority_grant_refs.clear();
+        request.authority_receipt_refs.clear();
+
+        let error = ApprovalRevokeStateUpdateCore
+            .plan(&request)
+            .expect_err("wallet authority is required");
+
+        assert_eq!(
+            error,
+            ApprovalRevokeStateUpdateError::MissingField("authority_record")
+        );
+    }
+
+    #[test]
     fn rust_core_shapes_approval_revoke_state_update_command_response() {
         let response =
             plan_approval_revoke_state_update_response(ApprovalRevokeStateUpdateBridgeRequest {
@@ -1836,6 +4521,10 @@ mod tests {
         assert_eq!(response["status"], "planned");
         assert_eq!(response["operation_kind"], "approval.revoke");
         assert_eq!(response["operator_control"]["lease_status"], "revoked");
+        assert_eq!(
+            response["operator_control"]["authority_hash"],
+            "sha256:approval-authority-revoke"
+        );
         assert_eq!(
             response["record"]["schema_version"],
             APPROVAL_REVOKE_STATE_UPDATE_RESULT_SCHEMA_VERSION

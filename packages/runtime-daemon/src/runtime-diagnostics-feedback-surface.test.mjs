@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { createRuntimeDiagnosticsFeedbackSurface } from "./runtime-diagnostics-feedback-surface.mjs";
 
-function createSurface() {
+function createSurface({ diagnosticsFeedbackPlanner = null } = {}) {
   return createRuntimeDiagnosticsFeedbackSurface({
     compactDiagnosticsFeedback({ threadId, mode, diagnosticEvents }) {
       return {
@@ -13,29 +13,26 @@ function createSurface() {
         eventIds: diagnosticEvents.map((event) => event.event_id),
       };
     },
-    diagnosticsRepairPolicyConfig() {
-      return {
-        restore_policy: "snapshot_restore",
-        restore_conflict_policy: "clean_preview_only",
-        diagnostics_repair_default: "repair_retry",
-        operator_override_requires_approval: true,
-      };
-    },
+    diagnosticsFeedbackPlanner,
     normalizeDiagnosticsMode(value) {
       if (value === "off" || value === "skip") return "skip";
       if (value === "fail" || value === "blocking") return "blocking";
       return "advisory";
     },
-    postEditDiagnosticsConfig(request = {}) {
-      return {
-        mode: request.mode ?? "advisory",
-        commandId: "tsc",
-        cwd: "/workspace",
-        timeoutMs: 1000,
-        maxOutputBytes: 4096,
-      };
-    },
   });
+}
+
+function createPlanner(planForRequest) {
+  const calls = [];
+  return {
+    calls,
+    planner: {
+      planPostEditDiagnosticsFeedback(request) {
+        calls.push(request);
+        return planForRequest(request);
+      },
+    },
+  };
 }
 
 function createStore(events = []) {
@@ -61,15 +58,21 @@ function createStore(events = []) {
 }
 
 test("diagnostics feedback surface skips post-edit diagnostics when disabled or pathless", () => {
-  const surface = createSurface();
+  const { planner, calls } = createPlanner(() => ({
+    source: "rust_post_edit_diagnostics_feedback_plan_command",
+    status: "skipped",
+    skipped: true,
+    record: { status: "skipped", skip_reason: "rust_owned_skip" },
+  }));
+  const surface = createSurface({ diagnosticsFeedbackPlanner: planner });
   const store = createStore();
 
   assert.equal(
     surface.maybeRunPostEditDiagnostics(store, {
       threadId: "thread_alpha",
       patchToolCallId: "patch_alpha",
-      request: { mode: "skip" },
-      patchResult: { changedFiles: [{ path: "src/app.js" }] },
+      request: { diagnostics_mode: "skip" },
+      patchResult: { changed_files: [{ path: "src/app.js" }] },
     }),
     null,
   );
@@ -77,15 +80,68 @@ test("diagnostics feedback surface skips post-edit diagnostics when disabled or 
     surface.maybeRunPostEditDiagnostics(store, {
       threadId: "thread_alpha",
       patchToolCallId: "patch_alpha",
-      patchResult: { changedFiles: [{ diagnosticsRecommended: true }] },
+      patchResult: { changed_files: [{ diagnostics_recommended: true }] },
     }),
     null,
   );
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0].thread_id, "thread_alpha");
+  assert.equal(calls[0].patch_tool_call_id, "patch_alpha");
+  assert.deepEqual(calls[0].request, { diagnostics_mode: "skip" });
+  assert.deepEqual(calls[1].patch_result, { changed_files: [{ diagnostics_recommended: true }] });
   assert.equal(store.calls.length, 0);
 });
 
-test("diagnostics feedback surface invokes lsp diagnostics with repair context", () => {
-  const surface = createSurface();
+test("diagnostics feedback surface invokes lsp diagnostics with Rust-authored repair context", () => {
+  const { planner, calls } = createPlanner((planRequest) => ({
+    source: "rust_post_edit_diagnostics_feedback_plan_command",
+    planned: true,
+    status: "planned",
+    tool_id: "lsp.diagnostics",
+    record: {
+      status: "planned",
+      operation_kind: "runtime.post_edit_diagnostics_feedback",
+    },
+    request: {
+      source: "runtime_auto",
+      turn_id: planRequest.turn_id,
+      workflow_graph_id: planRequest.workflow_graph_id,
+      workflow_node_id: "runtime.coding-tool.lsp-diagnostics.auto",
+      tool_call_id: "coding_tool_lsp_diagnostics_auto_rust",
+      rollback_refs: ["snapshot_alpha", "rollback_alpha"],
+      diagnostics_repair_context: {
+        schema_version: "ioi.runtime.diagnostics-rollback-repair-context.v1",
+        object: "ioi.runtime_diagnostics_rollback_repair_context",
+        source_tool_name: "file.apply_patch",
+        source_tool_call_id: planRequest.patch_tool_call_id,
+        source_workflow_graph_id: planRequest.workflow_graph_id,
+        source_workflow_node_id: "patch_node",
+        workspace_snapshot_id: "snapshot_alpha",
+        restore_policy: "snapshot_restore",
+        restore_conflict_policy: "clean_preview_only",
+        diagnostics_repair_default: "repair_retry",
+        operator_override_requires_approval: true,
+        rollback_refs: ["snapshot_alpha", "rollback_alpha"],
+        restore: { preview_supported: true },
+        changed_files: [
+          {
+            path: "src/app.js",
+            before_hash: "before_hash",
+            after_hash: "after_hash",
+            diagnostics_recommended: true,
+          },
+        ],
+      },
+      input: {
+        commandId: "tsc",
+        paths: ["src/app.js"],
+        cwd: "/workspace",
+        timeoutMs: 1000,
+        maxOutputBytes: 4096,
+      },
+    },
+  }));
+  const surface = createSurface({ diagnosticsFeedbackPlanner: planner });
   const store = createStore();
 
   const result = surface.maybeRunPostEditDiagnostics(store, {
@@ -97,15 +153,15 @@ test("diagnostics feedback surface invokes lsp diagnostics with repair context",
       workflow_node_id: "patch_node",
     },
     patchResult: {
-      changedFiles: [
+      changed_files: [
         {
           path: "src/app.js",
-          beforeHash: "before_hash",
-          afterHash: "after_hash",
+          before_hash: "before_hash",
+          after_hash: "after_hash",
         },
         {
           path: "README.md",
-          diagnosticsRecommended: false,
+          diagnostics_recommended: false,
         },
       ],
       workspace_snapshot_id: "snapshot_alpha",
@@ -118,6 +174,16 @@ test("diagnostics feedback surface invokes lsp diagnostics with repair context",
 
   assert.equal(result.toolId, "lsp.diagnostics");
   assert.equal(store.calls.length, 1);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].thread_id, "thread_alpha");
+  assert.equal(calls[0].turn_id, "turn_alpha");
+  assert.equal(calls[0].patch_tool_call_id, "patch_alpha");
+  assert.equal(calls[0].workflow_graph_id, "graph_alpha");
+  assert.equal(calls[0].request.workflow_node_id, "patch_node");
+  assert.deepEqual(calls[0].patch_result.changed_files.map((entry) => entry.path), [
+    "src/app.js",
+    "README.md",
+  ]);
   assert.equal(store.calls[0].surfaceStore, store);
   const request = store.calls[0].request;
   assert.equal(request.workflow_node_id, "runtime.coding-tool.lsp-diagnostics.auto");
@@ -153,7 +219,18 @@ test("diagnostics feedback surface invokes lsp diagnostics with repair context",
 });
 
 test("diagnostics feedback repair context ignores retired source workflow request alias", () => {
-  const surface = createSurface();
+  const { planner } = createPlanner(() => ({
+    planned: true,
+    tool_id: "lsp.diagnostics",
+    request: {
+      workflow_node_id: "runtime.coding-tool.lsp-diagnostics.auto",
+      diagnostics_repair_context: {
+        source_workflow_node_id: null,
+      },
+      input: { paths: ["src/app.js"] },
+    },
+  }));
+  const surface = createSurface({ diagnosticsFeedbackPlanner: planner });
   const store = createStore();
 
   surface.maybeRunPostEditDiagnostics(store, {
@@ -165,7 +242,7 @@ test("diagnostics feedback repair context ignores retired source workflow reques
       workflowNodeId: "patch_alias",
     },
     patchResult: {
-      changedFiles: [{ path: "src/app.js" }],
+      changed_files: [{ path: "src/app.js" }],
       workspace_snapshot_id: "snapshot_alpha",
     },
   });
@@ -176,7 +253,19 @@ test("diagnostics feedback repair context ignores retired source workflow reques
 });
 
 test("diagnostics feedback repair context ignores retired snapshot and rollback aliases", () => {
-  const surface = createSurface();
+  const { planner } = createPlanner(() => ({
+    planned: true,
+    tool_id: "lsp.diagnostics",
+    request: {
+      rollback_refs: ["snapshot_canonical", "rollback_canonical"],
+      diagnostics_repair_context: {
+        workspace_snapshot_id: "snapshot_canonical",
+        rollback_refs: ["snapshot_canonical", "rollback_canonical"],
+      },
+      input: { paths: ["src/app.js"] },
+    },
+  }));
+  const surface = createSurface({ diagnosticsFeedbackPlanner: planner });
   const store = createStore();
 
   surface.maybeRunPostEditDiagnostics(store, {
@@ -188,7 +277,7 @@ test("diagnostics feedback repair context ignores retired snapshot and rollback 
       workflow_node_id: "patch_node",
     },
     patchResult: {
-      changedFiles: [{ path: "src/app.js" }],
+      changed_files: [{ path: "src/app.js" }],
       workspace_snapshot_id: "snapshot_canonical",
       workspaceSnapshotId: "snapshot_retired",
       workspace_snapshot: {
@@ -212,6 +301,66 @@ test("diagnostics feedback repair context ignores retired snapshot and rollback 
   assert.equal(request.rollback_refs.includes("snapshot_retired"), false);
   assert.equal(request.rollback_refs.includes("snapshot_nested_retired"), false);
   assert.equal(request.rollback_refs.includes("rollback_retired"), false);
+});
+
+test("diagnostics feedback surface ignores retired patch result aliases", () => {
+  const { planner, calls } = createPlanner(() => ({
+    skipped: true,
+    record: { status: "skipped", skip_reason: "no_changed_files" },
+  }));
+  const surface = createSurface({ diagnosticsFeedbackPlanner: planner });
+  const store = createStore();
+
+  assert.equal(
+    surface.maybeRunPostEditDiagnostics(store, {
+      threadId: "thread_alpha",
+      patchToolCallId: "patch_alpha",
+      patchResult: {
+        changedFiles: [
+          {
+            path: "src/app.js",
+            beforeHash: "before_retired",
+            afterHash: "after_retired",
+            diagnosticsRecommended: true,
+          },
+        ],
+      },
+    }),
+    null,
+  );
+  assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0].patch_result, {
+    changedFiles: [
+      {
+        path: "src/app.js",
+        beforeHash: "before_retired",
+        afterHash: "after_retired",
+        diagnosticsRecommended: true,
+      },
+    ],
+  });
+  assert.equal(store.calls.length, 0);
+});
+
+test("diagnostics feedback surface fails closed without Rust post-edit planner", () => {
+  const surface = createSurface();
+  const store = createStore();
+
+  assert.throws(
+    () =>
+      surface.maybeRunPostEditDiagnostics(store, {
+        threadId: "thread_alpha",
+        patchToolCallId: "patch_alpha",
+        patchResult: { changed_files: [{ path: "src/app.js" }] },
+      }),
+    (error) =>
+      error.code === "runtime_diagnostics_feedback_rust_core_required" &&
+      error.details.rust_core_boundary === "runtime.post_edit_diagnostics_feedback" &&
+      error.details.evidence_refs.includes(
+        "post_edit_diagnostics_feedback_js_planner_retired",
+      ),
+  );
+  assert.equal(store.calls.length, 0);
 });
 
 test("diagnostics feedback surface returns pending diagnostics after last injection", () => {

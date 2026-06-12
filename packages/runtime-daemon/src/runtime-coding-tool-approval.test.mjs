@@ -112,6 +112,92 @@ function approvalRunnerMock({ capture = null } = {}) {
         input_hash: "sha256:rust-planned",
       };
     },
+    projectApprovalSatisfaction(request) {
+      capture?.(request);
+      return {
+        source: "rust_coding_tool_approval_satisfaction_projection_command",
+        backend: "rust_authority",
+        status: "projected",
+        operation_kind: "coding_tool.approval.satisfaction_projection",
+        thread_id: request.thread_id,
+        approval_id: request.approval_id,
+        approval_request: {
+          approval_id: request.approval_id,
+          thread_id: request.thread_id,
+          event_id: "event_approval",
+          seq: 3,
+          payload_summary: {
+            approval_manifest: request.approval_manifest,
+          },
+        },
+        latest_decision: {
+          approval_id: request.approval_id,
+          thread_id: request.thread_id,
+          event_id: "event_decision",
+          seq: 4,
+          event_kind: "approval.approved",
+        },
+        lease_state: {
+          expired: false,
+          lease_id: "lease_alpha",
+          status: "active",
+          expires_at: "2026-06-06T04:45:00.000Z",
+        },
+        expected_head: request.expected_head ?? null,
+        state_root_before: request.state_root_before ?? null,
+      };
+    },
+    planApprovalSatisfaction(request) {
+      capture?.(request);
+      return {
+        source: "rust_coding_tool_approval_satisfaction_command",
+        backend: "rust_authority",
+        status: "satisfied",
+        operation_kind: "coding_tool.approval.satisfaction",
+        satisfied: true,
+        approval_id: request.approval_id,
+        decision_event_id: request.latest_decision?.event_id ?? null,
+        decision_seq: request.latest_decision?.seq ?? null,
+        lease_id: request.lease_state?.lease_id ?? null,
+        expires_at: request.lease_state?.expires_at ?? null,
+        reason: "approval_approved",
+        receipt_refs: ["receipt_approval"],
+        policy_decision_refs: ["policy_approval"],
+      };
+    },
+    planApprovalBlock(request) {
+      capture?.(request);
+      return {
+        source: "rust_coding_tool_approval_block_command",
+        backend: "rust_authority",
+        status: "blocked",
+        operation_kind: "coding_tool.approval.block",
+        approval_id: request.approval_gate?.approval_id ?? null,
+        reason: request.approval_gate?.reason ?? "approval_not_satisfied",
+        receipt_refs: ["receipt_block"],
+        policy_decision_refs: ["policy_block"],
+        artifact_refs: [],
+        rollback_refs: request.rollback_refs ?? [],
+        result: {
+          schema_version: "ioi.runtime.coding-tool-result.v1",
+          status: "blocked",
+          approval_required: true,
+          approval_satisfied: false,
+        },
+        event: {
+          event_kind: "tool.blocked",
+          status: "blocked",
+          receipt_refs: ["receipt_block"],
+          artifact_refs: [],
+          rollback_refs: request.rollback_refs ?? [],
+          payload_summary: {
+            approval_required: true,
+            approval_satisfied: false,
+            approval_id: request.approval_gate?.approval_id ?? null,
+          },
+        },
+      };
+    },
   };
 }
 
@@ -253,6 +339,151 @@ test("coding tool approval manifest ignores retired UI override aliases", () => 
   assert.deepEqual(capturedRequests.map((request) => request.ui_override_requested), [false, false]);
 });
 
+test("coding tool approval satisfaction is planned by Rust authority runner", () => {
+  const capturedProjectionRequests = [];
+  const capturedSatisfactionRequests = [];
+  const policy = createPolicy({
+    approvalRunner: approvalRunnerMock({
+      capture: (request) => {
+        if (request.schema_version === "ioi.runtime.coding-tool-approval-satisfaction-projection-request.v1") {
+          capturedProjectionRequests.push(request);
+        }
+        if (request.schema_version === "ioi.runtime.coding-tool-approval-satisfaction-request.v1") {
+          capturedSatisfactionRequests.push(request);
+        }
+      },
+    }),
+  });
+  const store = {
+    codingToolApprovalSatisfactionProjection(input) {
+      throw new Error(`JS approval satisfaction projection must not be used: ${input.approval_id}`);
+    },
+    agentForThread(threadId) {
+      assert.equal(threadId, "thread_1");
+      return { id: "agent_1", mode: "agent" };
+    },
+    listRuns(agentId) {
+      assert.equal(agentId, "agent_1");
+      return [
+        {
+          id: "run_old",
+          agentId,
+          trace: {},
+        },
+        {
+          id: "run_1",
+          agentId,
+          trace: {
+            approvalRequests: [{ approval_id: "approval_alpha", event_id: "event_approval", seq: 3 }],
+            approvalDecisions: [{ approval_id: "approval_alpha", event_id: "event_decision", seq: 4 }],
+          },
+        },
+      ];
+    },
+    latestApprovalRequestEvent() {
+      throw new Error("JS approval request readback must not be used");
+    },
+    runtimeEventStream() {
+      throw new Error("JS approval decision stream must not be used");
+    },
+  };
+  const approvalManifest = {
+    thread_id: "thread_1",
+    tool_id: "file.apply_patch",
+    tool_call_id: "call_1",
+    effect_class: "workspace_write",
+    input_hash: "sha256:approval",
+  };
+
+  const result = policy.codingToolApprovalSatisfactionForThread({
+    store,
+    threadId: "thread_1",
+    toolId: "file.apply_patch",
+    toolCallId: "call_1",
+    approval_manifest: approvalManifest,
+    request: { approval_id: "approval_alpha" },
+    workflowGraphId: "graph_1",
+    workflowNodeId: "node_1",
+  });
+
+  assert.equal(capturedProjectionRequests.length, 1);
+  assert.equal(capturedProjectionRequests[0].approval_id, "approval_alpha");
+  assert.equal(capturedProjectionRequests[0].tool_id, "file.apply_patch");
+  assert.equal(capturedProjectionRequests[0].run.id, "run_1");
+  assert.equal(capturedProjectionRequests[0].agent.id, "agent_1");
+  assert.equal(capturedSatisfactionRequests.length, 1);
+  assert.equal(capturedSatisfactionRequests[0].schema_version, "ioi.runtime.coding-tool-approval-satisfaction-request.v1");
+  assert.equal(capturedSatisfactionRequests[0].thread_id, "thread_1");
+  assert.equal(capturedSatisfactionRequests[0].approval_id, "approval_alpha");
+  assert.equal(capturedSatisfactionRequests[0].approval_manifest, approvalManifest);
+  assert.equal(capturedSatisfactionRequests[0].latest_decision.event_id, "event_decision");
+  assert.equal(result.satisfied, true);
+  assert.deepEqual(result.receipt_refs, ["receipt_approval"]);
+});
+
+test("coding tool approval block is planned by Rust authority runner", () => {
+  let capturedRequest = null;
+  const policy = createPolicy({
+    approvalRunner: approvalRunnerMock({
+      capture: (request) => {
+        if (request.schema_version === "ioi.runtime.coding-tool-approval-block-request.v1") {
+          capturedRequest = request;
+        }
+      },
+    }),
+  });
+  const approvalManifest = {
+    thread_id: "thread_1",
+    tool_id: "file.apply_patch",
+    tool_call_id: "call_1",
+    effect_class: "workspace_write",
+    input_hash: "sha256:approval",
+  };
+  const approvalGate = {
+    satisfied: false,
+    approval_id: "approval_alpha",
+    reason: "approval_required",
+    receipt_refs: ["receipt_approval"],
+    policy_decision_refs: ["policy_approval"],
+  };
+
+  const result = policy.codingToolApprovalBlockForThread({
+    threadId: "thread_1",
+    turnId: "turn_1",
+    toolId: "file.apply_patch",
+    toolCallId: "call_1",
+    workspaceRoot: "/workspace/project",
+    workflowGraphId: "graph_1",
+    workflowNodeId: "node_1",
+    request: { source: "runtime_auto" },
+    approval_manifest: approvalManifest,
+    approval_gate: approvalGate,
+    input: { path: "src/app.js" },
+    rollbackRefs: ["rollback_request"],
+    receiptRefs: ["receipt_invocation"],
+    policyDecisionRefs: ["policy_invocation"],
+    receiptId: "receipt_tool",
+    idempotencyKey: "thread:thread_1:coding-tool:call_1",
+  });
+
+  assert.equal(capturedRequest.schema_version, "ioi.runtime.coding-tool-approval-block-request.v1");
+  assert.equal(capturedRequest.thread_id, "thread_1");
+  assert.equal(capturedRequest.turn_id, "turn_1");
+  assert.equal(capturedRequest.tool_id, "file.apply_patch");
+  assert.equal(capturedRequest.workspace_root, "/workspace/project");
+  assert.equal(capturedRequest.workflow_graph_id, "graph_1");
+  assert.equal(capturedRequest.approval_manifest, approvalManifest);
+  assert.equal(capturedRequest.approval_gate, approvalGate);
+  assert.deepEqual(capturedRequest.input_summary, { toolId: "file.apply_patch", keys: ["path"] });
+  assert.deepEqual(capturedRequest.rollback_refs, ["rollback_request"]);
+  assert.deepEqual(capturedRequest.receipt_refs, ["receipt_invocation"]);
+  assert.deepEqual(capturedRequest.policy_decision_refs, ["policy_invocation"]);
+  assert.equal(result.status, "blocked");
+  assert.equal(result.operation_kind, "coding_tool.approval.block");
+  assert.equal(result.event.event_kind, "tool.blocked");
+  assert.equal(result.result.status, "blocked");
+});
+
 test("coding tool approval manifest is omitted when no approval gate applies", () => {
   const policy = createPolicy();
 
@@ -267,37 +498,9 @@ test("coding tool approval manifest is omitted when no approval gate applies", (
   }), null);
 });
 
-test("coding tool approval retry match rejects retired camelCase manifests", () => {
+test("coding tool approval retry match JS helper is retired", () => {
   const policy = createPolicy();
-  const requested = {
-    thread_id: "thread_1",
-    tool_id: "file__write",
-    tool_call_id: "call_1",
-    effect_class: "workspace_write",
-    input_hash: "hash_1",
-    workflow_node_id: "node_1",
-  };
-  const canonicalRetry = {
-    thread_id: "thread_1",
-    tool_id: "file__write",
-    tool_call_id: "call_1",
-    effect_class: "workspace_write",
-    input_hash: "hash_1",
-    workflow_node_id: "node_1",
-  };
-  const camelRetry = {
-    threadId: "thread_1",
-    toolId: "file__write",
-    toolCallId: "call_1",
-    effectClass: "workspace_write",
-    inputHash: "hash_1",
-    workflowNodeId: "node_1",
-  };
 
-  assert.equal(policy.codingToolApprovalManifestsMatch(requested, canonicalRetry), true);
-  assert.equal(policy.codingToolApprovalManifestsMatch(requested, camelRetry), false);
-  assert.equal(Object.hasOwn(camelRetry, "threadId"), true);
-  assert.equal(policy.codingToolApprovalManifestsMatch(requested, { ...canonicalRetry, input_hash: "hash_2" }), false);
-  assert.equal(policy.codingToolApprovalManifestsMatch(requested, { ...canonicalRetry, workflow_node_id: "node_2" }), false);
-  assert.equal(policy.codingToolApprovalManifestsMatch(requested, null), false);
+  assert.equal(Object.hasOwn(policy, "codingToolApprovalManifestsMatch"), false);
+  assert.equal(policy.codingToolApprovalManifestsMatch, undefined);
 });

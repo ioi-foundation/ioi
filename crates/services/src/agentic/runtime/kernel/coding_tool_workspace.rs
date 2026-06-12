@@ -235,16 +235,16 @@ pub fn apply_workspace_patch(
     let after_bytes = after.len();
     let changed_file = json!({
         "path": target.relative_path,
-        "beforeHash": before_hash,
-        "afterHash": after_hash,
-        "beforeExists": exists,
-        "afterExists": if !dry_run { true } else { exists },
-        "beforeSizeBytes": if exists { before_bytes } else { 0 },
-        "afterSizeBytes": after_bytes,
-        "beforeMtimeMs": before_metadata.as_ref().and_then(metadata_mtime_ms),
-        "afterMtimeMs": after_metadata.as_ref().and_then(metadata_mtime_ms),
+        "before_hash": before_hash,
+        "after_hash": after_hash,
+        "before_exists": exists,
+        "after_exists": if !dry_run { true } else { exists },
+        "before_size_bytes": if exists { before_bytes } else { 0 },
+        "after_size_bytes": after_bytes,
+        "before_mtime_ms": before_metadata.as_ref().and_then(metadata_mtime_ms),
+        "after_mtime_ms": after_metadata.as_ref().and_then(metadata_mtime_ms),
         "created": !exists,
-        "diagnosticsRecommended": !dry_run,
+        "diagnostics_recommended": !dry_run,
     });
     let transition = if changed && !dry_run {
         Some(patch_transition(
@@ -259,40 +259,40 @@ pub fn apply_workspace_patch(
         .as_ref()
         .map(|transition| transition.payload_ref.clone());
     let observation = json!({
-        "schemaVersion": CODING_TOOL_RESULT_SCHEMA_VERSION,
-        "workspaceRoot": workspace_root,
+        "schema_version": CODING_TOOL_RESULT_SCHEMA_VERSION,
+        "workspace_root": workspace_root,
         "path": target.relative_path,
-        "dryRun": dry_run,
+        "dry_run": dry_run,
         "applied": !dry_run && changed,
         "changed": changed,
         "created": !exists,
-        "editCount": applied_edits.len(),
+        "edit_count": applied_edits.len(),
         "edits": applied_edits,
-        "beforeHash": before_hash,
-        "afterHash": after_hash,
+        "before_hash": before_hash,
+        "after_hash": after_hash,
         "diff": diff.text,
-        "diffBytes": diff.bytes,
-        "diffHash": diff.hash,
+        "diff_bytes": diff.bytes,
+        "diff_hash": diff.hash,
         "truncated": diff.truncated,
-        "changedFiles": if changed { vec![changed_file] } else { vec![] },
-        "workspaceSnapshotDrafts": if changed && !dry_run {
+        "changed_files": if changed { vec![changed_file] } else { vec![] },
+        "workspace_snapshot_drafts": if changed && !dry_run {
             vec![json!({
                 "path": target.relative_path,
                 "encoding": "utf8",
-                "beforeExists": exists,
-                "afterExists": true,
-                "beforeContent": if exists { Some(before.clone()) } else { None },
-                "afterContent": after,
+                "before_exists": exists,
+                "after_exists": true,
+                "before_content": if exists { Some(before.clone()) } else { None },
+                "after_content": after,
             })]
         } else {
             vec![]
         },
-        "diagnosticsRecommended": changed && !dry_run,
-        "receiptRefs": [
+        "diagnostics_recommended": changed && !dry_run,
+        "receipt_refs": [
             format!("receipt_file_apply_patch_{}_{}", safe_ref_path(&target.relative_path), after_hash.chars().take(12).collect::<String>())
         ],
-        "payloadRefs": transition_payload_ref.into_iter().collect::<Vec<_>>(),
-        "shellFallbackUsed": false,
+        "payload_refs": transition_payload_ref.into_iter().collect::<Vec<_>>(),
+        "shell_fallback_used": false,
     });
     Ok(WorkspacePatchOutcome {
         observation,
@@ -378,30 +378,30 @@ pub fn inspect_test_run(
         "failed"
     };
     Ok(json!({
-        "schemaVersion": CODING_TOOL_RESULT_SCHEMA_VERSION,
-        "workspaceRoot": workspace_root,
-        "commandId": command_id,
+        "schema_version": CODING_TOOL_RESULT_SCHEMA_VERSION,
+        "workspace_root": workspace_root,
+        "command_id": command_id,
         "command": command.display_command,
         "executable": command.executable,
         "args": args,
         "cwd": run_cwd.relative_path,
-        "exitCode": run.exit_code,
+        "exit_code": run.exit_code,
         "signal": null,
-        "testStatus": test_status,
-        "timedOut": run.timed_out,
-        "durationMs": duration_ms,
-        "timeoutMs": timeout_ms,
+        "test_status": test_status,
+        "timed_out": run.timed_out,
+        "duration_ms": duration_ms,
+        "timeout_ms": timeout_ms,
         "stdout": stdout,
         "stderr": stderr,
-        "stdoutBytes": run.stdout.len(),
-        "stderrBytes": run.stderr.len(),
-        "outputBytes": run.stdout.len() + run.stderr.len(),
-        "outputHash": output_hash,
+        "stdout_bytes": run.stdout.len(),
+        "stderr_bytes": run.stderr.len(),
+        "output_bytes": run.stdout.len() + run.stderr.len(),
+        "output_hash": output_hash,
         "truncated": truncated,
-        "spilloverRecommended": truncated,
-        "artifactDrafts": [],
-        "allowedCommandIds": TEST_COMMAND_IDS,
-        "shellFallbackUsed": false,
+        "spillover_recommended": truncated,
+        "artifact_drafts": [],
+        "allowed_command_ids": TEST_COMMAND_IDS,
+        "shell_fallback_used": false,
     }))
 }
 
@@ -498,36 +498,36 @@ pub fn inspect_lsp_diagnostics(
         .map(|path| path.relative_path.clone())
         .collect::<Vec<_>>();
     Ok(json!({
-        "schemaVersion": CODING_TOOL_RESULT_SCHEMA_VERSION,
-        "workspaceRoot": workspace_root,
-        "commandId": command_id,
-        "requestedCommandId": command_id,
-        "resolvedCommandId": run.resolved_command_id,
+        "schema_version": CODING_TOOL_RESULT_SCHEMA_VERSION,
+        "workspace_root": workspace_root,
+        "command_id": command_id,
+        "requested_command_id": command_id,
+        "resolved_command_id": run.resolved_command_id,
         "command": run.display_command,
         "cwd": run_cwd.relative_path.clone(),
         "backend": run.backend,
-        "backendStatus": run.backend_status,
-        "backendReason": run.backend_reason,
-        "fallbackUsed": run.fallback_used,
-        "fallbackFrom": run.fallback_from,
-        "projectContext": run.project_context,
-        "diagnosticStatus": run.diagnostic_status,
+        "backend_status": run.backend_status,
+        "backend_reason": run.backend_reason,
+        "fallback_used": run.fallback_used,
+        "fallback_from": run.fallback_from,
+        "project_context": run.project_context,
+        "diagnostic_status": run.diagnostic_status,
         "diagnostics": diagnostics,
-        "diagnosticCount": diagnostic_count,
+        "diagnostic_count": diagnostic_count,
         "paths": path_refs,
-        "exitCode": run.exit_code,
-        "timedOut": run.timed_out,
-        "durationMs": duration_ms,
-        "timeoutMs": timeout_ms,
+        "exit_code": run.exit_code,
+        "timed_out": run.timed_out,
+        "duration_ms": duration_ms,
+        "timeout_ms": timeout_ms,
         "stdout": stdout,
         "stderr": stderr,
-        "outputBytes": run.stdout.len() + run.stderr.len(),
-        "outputHash": output_hash,
+        "output_bytes": run.stdout.len() + run.stderr.len(),
+        "output_hash": output_hash,
         "truncated": truncated,
-        "spilloverRecommended": truncated,
-        "artifactDrafts": [],
-        "allowedCommandIds": DIAGNOSTIC_COMMAND_IDS,
-        "shellFallbackUsed": false,
+        "spillover_recommended": truncated,
+        "artifact_drafts": [],
+        "allowed_command_ids": DIAGNOSTIC_COMMAND_IDS,
+        "shell_fallback_used": false,
     }))
 }
 
@@ -555,20 +555,20 @@ pub fn inspect_workspace_status(
     let status = run_git_read_only(&root, &args).map_err(workspace_execution_error)?;
     if !status.ok {
         return Ok(json!({
-            "schemaVersion": CODING_TOOL_RESULT_SCHEMA_VERSION,
-            "workspaceRoot": workspace_root,
+            "schema_version": CODING_TOOL_RESULT_SCHEMA_VERSION,
+            "workspace_root": workspace_root,
             "git": {
                 "available": false,
                 "status": "not_git_repository",
                 "error": nonempty_command_error(&status, "git status failed"),
             },
-            "changedFiles": [],
+            "changed_files": [],
             "counts": {
                 "changed": 0,
                 "untracked": 0,
                 "ignored": 0,
             },
-            "shellFallbackUsed": false,
+            "shell_fallback_used": false,
         }));
     }
 
@@ -611,20 +611,20 @@ pub fn inspect_workspace_status(
     }
     let porcelain_hash = sha256_hex(status.stdout.as_bytes())?;
     Ok(json!({
-        "schemaVersion": CODING_TOOL_RESULT_SCHEMA_VERSION,
-        "workspaceRoot": workspace_root,
+        "schema_version": CODING_TOOL_RESULT_SCHEMA_VERSION,
+        "workspace_root": workspace_root,
         "git": {
             "available": true,
             "branch": branch,
-            "porcelainHash": porcelain_hash,
+            "porcelain_hash": porcelain_hash,
         },
-        "changedFiles": changed_files,
+        "changed_files": changed_files,
         "counts": {
             "changed": changed,
             "untracked": untracked,
             "ignored": ignored,
         },
-        "shellFallbackUsed": false,
+        "shell_fallback_used": false,
     }))
 }
 
@@ -660,16 +660,16 @@ pub fn inspect_git_diff(
     let (diff_preview, truncated) = utf8_preview(&diff_output.stdout, max_bytes);
     let diff_hash = sha256_hex(diff_output.stdout.as_bytes())?;
     Ok(json!({
-        "schemaVersion": CODING_TOOL_RESULT_SCHEMA_VERSION,
-        "workspaceRoot": workspace_root,
+        "schema_version": CODING_TOOL_RESULT_SCHEMA_VERSION,
+        "workspace_root": workspace_root,
         "paths": paths,
         "git": { "available": true },
         "diff": diff_preview,
-        "diffBytes": diff_output.stdout.len(),
-        "diffHash": diff_hash,
+        "diff_bytes": diff_output.stdout.len(),
+        "diff_hash": diff_hash,
         "truncated": truncated,
         "stat": if stat_output.ok { stat_output.stdout } else { String::new() },
-        "shellFallbackUsed": false,
+        "shell_fallback_used": false,
     }))
 }
 
@@ -718,26 +718,26 @@ pub fn inspect_workspace_path(
                 .cmp(&right.get("name").and_then(Value::as_str))
         });
         return Ok(json!({
-            "schemaVersion": CODING_TOOL_RESULT_SCHEMA_VERSION,
-            "workspaceRoot": workspace_root,
+            "schema_version": CODING_TOOL_RESULT_SCHEMA_VERSION,
+            "workspace_root": workspace_root,
             "path": target.relative_path,
             "kind": "directory",
             "exists": true,
-            "sizeBytes": metadata.len(),
+            "size_bytes": metadata.len(),
             "entries": entries,
-            "entryCount": entries.len(),
-            "shellFallbackUsed": false,
+            "entry_count": entries.len(),
+            "shell_fallback_used": false,
         }));
     }
     if !metadata.is_file() {
         return Ok(json!({
-            "schemaVersion": CODING_TOOL_RESULT_SCHEMA_VERSION,
-            "workspaceRoot": workspace_root,
+            "schema_version": CODING_TOOL_RESULT_SCHEMA_VERSION,
+            "workspace_root": workspace_root,
             "path": target.relative_path,
             "kind": "other",
             "exists": true,
-            "sizeBytes": metadata.len(),
-            "shellFallbackUsed": false,
+            "size_bytes": metadata.len(),
+            "shell_fallback_used": false,
         }));
     }
     let max_bytes = bounded_u64(
@@ -777,18 +777,18 @@ pub fn inspect_workspace_path(
         .join("\n");
     let preview_hash = format!("sha256:{}", sha256_hex(line_preview.as_bytes())?);
     Ok(json!({
-        "schemaVersion": CODING_TOOL_RESULT_SCHEMA_VERSION,
-        "workspaceRoot": workspace_root,
+        "schema_version": CODING_TOOL_RESULT_SCHEMA_VERSION,
+        "workspace_root": workspace_root,
         "path": target.relative_path,
         "kind": "file",
         "exists": true,
-        "sizeBytes": metadata.len(),
+        "size_bytes": metadata.len(),
         "preview": line_preview,
-        "previewBytes": line_preview.len(),
-        "previewHash": preview_hash,
+        "preview_bytes": line_preview.len(),
+        "preview_hash": preview_hash,
         "truncated": bytes_read < metadata.len() as usize || lines.len() > preview_lines,
-        "previewLineCount": lines.len().min(preview_lines),
-        "shellFallbackUsed": false,
+        "preview_line_count": lines.len().min(preview_lines),
+        "shell_fallback_used": false,
     }))
 }
 
@@ -916,23 +916,23 @@ fn diagnostics_project_context(
 impl DiagnosticsProjectContext {
     fn to_json(&self, tsc_available: bool) -> Value {
         json!({
-            "schemaVersion": "ioi.runtime.diagnostics-project-context.v1",
-            "projectRoot": workspace_relative_from_absolute(&self.workspace_root, &self.project_root_absolute_path),
-            "tsconfigPath": self.tsconfig_absolute_path
+            "schema_version": "ioi.runtime.diagnostics-project-context.v1",
+            "project_root": workspace_relative_from_absolute(&self.workspace_root, &self.project_root_absolute_path),
+            "tsconfig_path": self.tsconfig_absolute_path
                 .as_ref()
                 .map(|path| workspace_relative_from_absolute(&self.workspace_root, path)),
-            "tsconfigPaths": self.tsconfig_paths
+            "tsconfig_paths": self.tsconfig_paths
                 .iter()
                 .map(|path| workspace_relative_from_absolute(&self.workspace_root, path))
                 .collect::<Vec<_>>(),
-            "packageRoot": self.package_root_absolute_path
+            "package_root": self.package_root_absolute_path
                 .as_ref()
                 .map(|path| workspace_relative_from_absolute(&self.workspace_root, path)),
-            "packageManager": self.package_root_absolute_path
+            "package_manager": self.package_root_absolute_path
                 .as_ref()
                 .and_then(|path| package_manager_for_directory(path)),
-            "pathCount": self.path_count,
-            "tscAvailable": tsc_available,
+            "path_count": self.path_count,
+            "tsc_available": tsc_available,
         })
     }
 }
@@ -1619,14 +1619,14 @@ fn apply_patch_edit(
             text: format!("{text}{addition}"),
             summary: json!({
                 "type": "append",
-                "bytesAdded": addition.len(),
+                "bytes_added": addition.len(),
             }),
         }),
         PatchEdit::Prepend { text: addition } => Ok(PatchEditApplication {
             text: format!("{addition}{text}"),
             summary: json!({
                 "type": "prepend",
-                "bytesAdded": addition.len(),
+                "bytes_added": addition.len(),
             }),
         }),
         PatchEdit::Replace {
@@ -1664,8 +1664,8 @@ fn apply_patch_edit(
                     "type": "replace",
                     "occurrence": occurrence,
                     "matches": if occurrence == "all" { count } else { 1 },
-                    "oldHash": sha256_hex(old_text.as_bytes())?,
-                    "newHash": sha256_hex(new_text.as_bytes())?,
+                    "old_hash": sha256_hex(old_text.as_bytes())?,
+                    "new_hash": sha256_hex(new_text.as_bytes())?,
                 }),
             })
         }
@@ -1900,11 +1900,13 @@ mod tests {
         assert_eq!(result["kind"], "file");
         assert_eq!(result["path"], "README.md");
         assert_eq!(result["preview"], "# IOI\nsecond line");
-        assert_eq!(result["previewLineCount"], 2);
-        assert!(result["previewHash"]
+        assert_eq!(result["preview_line_count"], 2);
+        assert!(result["preview_hash"]
             .as_str()
             .expect("preview hash")
             .starts_with("sha256:"));
+        assert!(result.get("previewLineCount").is_none());
+        assert!(result.get("previewHash").is_none());
         let _ = fs::remove_dir_all(workspace);
     }
 
@@ -1942,14 +1944,16 @@ mod tests {
         assert_eq!(result["git"]["available"], true);
         assert_eq!(result["counts"]["changed"], 1);
         assert_eq!(result["counts"]["untracked"], 1);
-        assert_eq!(result["changedFiles"][0]["path"], "README.md");
+        assert_eq!(result["changed_files"][0]["path"], "README.md");
         assert!(
-            result["git"]["porcelainHash"]
+            result["git"]["porcelain_hash"]
                 .as_str()
                 .expect("porcelain hash")
                 .len()
                 >= 32
         );
+        assert!(result.get("changedFiles").is_none());
+        assert!(result["git"].get("porcelainHash").is_none());
         let _ = fs::remove_dir_all(workspace);
     }
 
@@ -1974,7 +1978,8 @@ mod tests {
         assert_eq!(result["paths"][0], "README.md");
         assert!(result["diff"].as_str().expect("diff").contains("+after"));
         assert_eq!(result["truncated"], false);
-        assert!(result["diffHash"].as_str().expect("diff hash").len() >= 32);
+        assert!(result["diff_hash"].as_str().expect("diff hash").len() >= 32);
+        assert!(result.get("diffHash").is_none());
         let _ = fs::remove_dir_all(workspace);
     }
 
@@ -1997,12 +2002,16 @@ mod tests {
         )
         .expect("test inspected");
 
-        assert_eq!(result["commandId"], "node.test");
+        assert_eq!(result["command_id"], "node.test");
         assert_eq!(result["command"], "node --test");
         assert_eq!(result["args"], json!(["--test", "passing.test.mjs"]));
-        assert_eq!(result["testStatus"], "passed");
-        assert_eq!(result["exitCode"], 0);
-        assert!(result["outputHash"].as_str().expect("hash").len() >= 32);
+        assert_eq!(result["test_status"], "passed");
+        assert_eq!(result["exit_code"], 0);
+        assert!(result["output_hash"].as_str().expect("hash").len() >= 32);
+        assert!(result.get("commandId").is_none());
+        assert!(result.get("testStatus").is_none());
+        assert!(result.get("exitCode").is_none());
+        assert!(result.get("outputHash").is_none());
         let _ = fs::remove_dir_all(workspace);
     }
 
@@ -2037,14 +2046,20 @@ mod tests {
         )
         .expect("diagnostics inspected");
 
-        assert_eq!(result["schemaVersion"], CODING_TOOL_RESULT_SCHEMA_VERSION);
+        assert_eq!(result["schema_version"], CODING_TOOL_RESULT_SCHEMA_VERSION);
         assert_eq!(result["backend"], "node.check");
-        assert_eq!(result["resolvedCommandId"], "node.check");
-        assert_eq!(result["diagnosticStatus"], "clean");
-        assert_eq!(result["diagnosticCount"], 0);
+        assert_eq!(result["resolved_command_id"], "node.check");
+        assert_eq!(result["diagnostic_status"], "clean");
+        assert_eq!(result["diagnostic_count"], 0);
         assert_eq!(result["paths"], json!(["ok.mjs"]));
-        assert_eq!(result["exitCode"], 0);
-        assert_eq!(result["shellFallbackUsed"], false);
+        assert_eq!(result["exit_code"], 0);
+        assert_eq!(result["shell_fallback_used"], false);
+        assert!(result.get("schemaVersion").is_none());
+        assert!(result.get("resolvedCommandId").is_none());
+        assert!(result.get("diagnosticStatus").is_none());
+        assert!(result.get("diagnosticCount").is_none());
+        assert!(result.get("exitCode").is_none());
+        assert!(result.get("shellFallbackUsed").is_none());
         let _ = fs::remove_dir_all(workspace);
     }
 
@@ -2064,9 +2079,9 @@ mod tests {
         .expect("diagnostics inspected");
 
         assert_eq!(result["backend"], "node.check");
-        assert_eq!(result["diagnosticStatus"], "findings");
-        assert_eq!(result["diagnosticCount"], 1);
-        assert_ne!(result["exitCode"], 0);
+        assert_eq!(result["diagnostic_status"], "findings");
+        assert_eq!(result["diagnostic_count"], 1);
+        assert_ne!(result["exit_code"], 0);
         assert_eq!(result["diagnostics"][0]["path"], "broken.mjs");
         assert_eq!(result["diagnostics"][0]["severity"], "error");
         let _ = fs::remove_dir_all(workspace);
@@ -2106,20 +2121,23 @@ mod tests {
         .expect("diagnostics inspected");
 
         assert_eq!(result["backend"], "typescript.project.check");
-        assert_eq!(result["resolvedCommandId"], "typescript.check");
+        assert_eq!(result["resolved_command_id"], "typescript.check");
         assert_eq!(
             result["command"],
             "tsc --noEmit --pretty false -p tsconfig.json"
         );
-        assert_eq!(result["backendStatus"], "available");
-        assert_eq!(result["diagnosticStatus"], "findings");
-        assert_eq!(result["diagnosticCount"], 1);
+        assert_eq!(result["backend_status"], "available");
+        assert_eq!(result["diagnostic_status"], "findings");
+        assert_eq!(result["diagnostic_count"], 1);
         assert_eq!(result["diagnostics"][0]["path"], "src/broken.ts");
         assert_eq!(result["diagnostics"][0]["code"], "TS2322");
         assert_eq!(result["diagnostics"][0]["line"], 1);
         assert_eq!(result["diagnostics"][0]["column"], 7);
-        assert_eq!(result["projectContext"]["tsconfigPath"], "tsconfig.json");
-        assert_eq!(result["projectContext"]["tscAvailable"], true);
+        assert_eq!(result["project_context"]["tsconfig_path"], "tsconfig.json");
+        assert_eq!(result["project_context"]["tsc_available"], true);
+        assert!(result.get("projectContext").is_none());
+        assert!(result["project_context"].get("tsconfigPath").is_none());
+        assert!(result["project_context"].get("tscAvailable").is_none());
         let _ = fs::remove_dir_all(workspace);
     }
 
@@ -2150,12 +2168,14 @@ mod tests {
         .expect("diagnostics inspected");
 
         assert_eq!(result["backend"], "typescript.project.check");
-        assert_eq!(result["resolvedCommandId"], "typescript.check");
-        assert_eq!(result["backendStatus"], "degraded");
-        assert_eq!(result["backendReason"], "typescript_executable_missing");
-        assert_eq!(result["diagnosticStatus"], "degraded");
-        assert_eq!(result["projectContext"]["tscAvailable"], false);
-        assert_eq!(result["fallbackUsed"], false);
+        assert_eq!(result["resolved_command_id"], "typescript.check");
+        assert_eq!(result["backend_status"], "degraded");
+        assert_eq!(result["backend_reason"], "typescript_executable_missing");
+        assert_eq!(result["diagnostic_status"], "degraded");
+        assert_eq!(result["project_context"]["tsc_available"], false);
+        assert_eq!(result["fallback_used"], false);
+        assert!(result.get("projectContext").is_none());
+        assert!(result.get("fallbackUsed").is_none());
         let _ = fs::remove_dir_all(workspace);
     }
 

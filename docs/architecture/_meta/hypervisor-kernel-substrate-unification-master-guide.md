@@ -4,6 +4,9 @@ Status: implementation master guide.
 Canonical intent: resolve the current Hypervisor daemon and Rust/WASM kernel/workload split brain without introducing a new runtime beside the daemon.
 Primary owner candidate: architecture meta until promoted into component canon.
 Last alignment pass: 2026-06-04.
+Last pruning alignment: 2026-06-12. The migration matrix is now a compact macro
+ledger; future guide updates should steer macro authority cuts instead of
+per-slice evidence accumulation.
 
 ## How To Use This Guide
 
@@ -48,6 +51,10 @@ complete only when the migration program has been carried through terminal
 conformance and the split brain no longer exists. There is no separate
 "future migration" after the master guide is carried out; anything after that is
 ordinary product/runtime evolution.
+
+Historical slice notes below are retained only where they anchor existing
+conformance evidence. They are not scheduling doctrine. New migration work
+should update the compact matrix only when a macro authority boundary changes.
 
 ## One-Page Doctrine
 
@@ -2216,10 +2223,11 @@ projection truth from `store.listRuns()`. Direct Rust daemon-core task/job
 projection over Agentgres-admitted run/task/job truth remains required before
 terminal conformance.
 Slice 959 retired the daemon-store task/job route pass-through wrappers. The
-public task/job create/list/get/cancel routes now call the fail-closed
-`RuntimeTaskJobControl` surface directly, so JS no longer preserves
-`createTask()`, `listTasks()`, `getTask()`, `cancelTask()`, `listJobs()`,
-`getJob()`, or `cancelJob()` as daemon-store compatibility wrappers. This does
+public task/job create/list/get routes now call the fail-closed
+`RuntimeTaskJobControl` surface directly, and the public task/job cancel routes
+call the same surface instead of daemon-store compatibility wrappers. JS no
+longer preserves `createTask()`, `listTasks()`, `getTask()`, `cancelTask()`,
+`listJobs()`, `getJob()`, or `cancelJob()` as daemon-store wrappers. This does
 not claim terminal task/job admission/projection: direct Rust daemon-core route
 admission, wallet lifecycle authority, StepModuleRouter dispatch, Agentgres
 expected-head/state-root binding, receipt/event materialization, replay,
@@ -2353,35 +2361,33 @@ daemon-core cancellation admission, Agentgres expected-head/state-root binding,
 receipt/event materialization, persistence, replay, projection, command-transport
 retirement, and stable SDK/IDE/CLI protocol APIs remain required before
 terminal pure Rust substrate conformance.
-Slice 970 moved public skill/hook registry projection refusal authoring into the
-Rust daemon-core policy bridge. `SkillHookRegistryProjectionRequiredCore` now
-emits the canonical fail-closed envelope and snake_case detail payload,
-`ioi_step_module_bridge` exposes
-`plan_skill_hook_registry_projection_required`, and the runtime daemon
-skill/hook surface uses the mounted context-policy runner to get the
-Rust-authored refusal. JS no longer constructs `/v1/skills`, `/v1/hooks`, or
-skill-hook catalog projection truth from filesystem discovery at the public
-surface. The doctor route degrades with the Rust-core-required details rather
-than rediscovering registry truth. This does not claim terminal skill/hook
-registry migration: direct Rust daemon-core projection over Agentgres-admitted
-governance/catalog truth, wallet authority where applicable, receipt/state-root
-binding, replay, command-transport retirement, and stable SDK/IDE/CLI protocol
-APIs remain required before terminal pure Rust substrate conformance.
-Slice 971 moved public repository workflow projection refusal authoring into the
-Rust daemon-core policy bridge. `RepositoryWorkflowProjectionRequiredCore` now
-emits the canonical fail-closed envelope and snake_case detail payload,
-`ioi_step_module_bridge` exposes
-`plan_repository_workflow_projection_required`, and the runtime daemon
-repository surface uses the mounted context-policy runner to get the
-Rust-authored refusal. JS no longer constructs public repository workflow
-projection truth for `/v1/repositories`, `/v1/repository-context`,
-`/v1/branch-policy`, `/v1/github-context`, `/v1/pr-attempts`,
-`/v1/issue-context`, `/v1/review-gate`, or `/v1/github-pr-create-plan`.
-This does not claim terminal repository workflow migration: direct Rust
-daemon-core projection over Agentgres-admitted repository workflow truth,
-wallet.network authority for external capability exits, receipt/state-root
-binding, replay, command-transport retirement, and stable SDK/IDE/CLI protocol
-APIs remain required before terminal pure Rust substrate conformance.
+The public skill/hook registry boundary now uses the positive Rust daemon-core
+`project_skill_hook_registry` API. Rust owns source discovery, skill/hook record
+construction, redacted hook command metadata, active set hashes, validation
+counts, and route-specific `/v1/skills` and `/v1/hooks` projection records while
+the mounted JS surface only forwards workspace/home request facts and validates
+the returned registry kind. The older projection-required command path for this
+route family is retired rather than preserved as compatibility scaffolding. This
+does not claim terminal skill/hook registry migration: direct Rust
+governance/catalog persistence, Agentgres-backed replay/projection storage,
+wallet authority where applicable, receipt/state-root binding,
+command-transport retirement, and stable SDK/IDE/CLI protocol APIs remain
+required before terminal pure Rust substrate conformance.
+The public repository workflow boundary now uses the positive Rust daemon-core
+`project_repository_workflow` API. Rust owns read-only Git discovery, sanitized
+GitHub remote metadata, branch-policy decisions, issue-context defaults, PR
+preview artifacts, review gate decisions, and dry-run GitHub PR create-plan
+records for `/v1/repositories`, `/v1/repository-context`, `/v1/branch-policy`,
+`/v1/github-context`, `/v1/pr-attempts`, `/v1/issue-context`,
+`/v1/review-gate`, and `/v1/github-pr-create-plan`; the mounted JS repository
+surface only forwards workspace request facts and validates the returned
+projection kind. The older `RepositoryWorkflowProjectionRequiredCore` command
+path is retired rather than preserved as compatibility scaffolding. This does
+not claim terminal repository workflow migration: durable Agentgres-backed
+repository workflow storage/replay, wallet.network authority for external
+capability exits, receipt/state-root binding, command-transport retirement, and
+stable SDK/IDE/CLI protocol APIs remain required before terminal pure Rust
+substrate conformance.
 Slice 951 retired runtime conversation-artifact public JS readback. Public
 `RuntimeConversationArtifactControl.listConversationArtifacts()`,
 `getConversationArtifact()`, and `listConversationArtifactRevisions()` now fail
@@ -2441,16 +2447,17 @@ receipt/state-root binding, Agentgres truth, replay, projection,
 command-transport retirement, and stable SDK/IDE/CLI protocol APIs remain
 required before terminal thread-tool conformance.
 Slice 957 retired the daemon-store thread-control route pass-through wrappers.
-The public mode/model/thinking and workspace-trust acknowledgement routes now
-call the fail-closed `RuntimeThreadControl` surface directly, so JS no longer
-preserves `updateThreadMode()`, `updateThreadModel()`,
-`updateThreadThinking()`, or `acknowledgeWorkspaceTrustWarning()` as duplicate
-store-level compatibility wrappers. This does not claim terminal
-thread-control or workspace-trust admission: direct Rust daemon-core route
-admission, wallet/cTEE/model-route authority, Agentgres expected-head/state-root
-binding, receipt/event materialization, replay, projection, command-transport
-retirement, and stable SDK/IDE/CLI protocol APIs remain required before
-terminal conformance.
+The public mode/model/thinking and workspace-trust acknowledgement routes call
+the mounted `RuntimeThreadControl` surface directly, so JS no longer preserves
+`updateThreadMode()`, `updateThreadModel()`, `updateThreadThinking()`, or
+`acknowledgeWorkspaceTrustWarning()` as duplicate store-level compatibility
+wrappers. Later workspace-trust work moved warning/acknowledgement event
+envelope planning to Rust `plan_workspace_trust_control_state_update` and
+admits those Rust-authored events through the Rust runtime-event Agentgres path.
+This still does not claim terminal thread-control or workspace-trust admission:
+deeper wallet/cTEE/model-route authority, durable Agentgres projection storage,
+command-transport retirement, and stable SDK/IDE/CLI protocol APIs remain
+required before terminal conformance.
 Slice 958 retired the daemon-store subagent route pass-through wrappers. The
 public subagent list/spawn/wait/input/cancel/resume/assign/result routes now
 call the fail-closed `RuntimeSubagentControl` surface directly, so JS no longer
@@ -3624,9 +3631,9 @@ full conformance.
 
 The current lane is Rust substrate migration, not doctrine expansion. The
 latest wired conformance tiers pass for the currently migrated surface, but the
-terminal condition is still open. Sprint work should therefore prioritize the
-remaining route-family extraction and facade-retirement slices that turn current
-Rust bridge/admission primitives into the sole authoritative hot-path substrate.
+terminal condition is still open. Sprint work should therefore prioritize macro
+authority cuts that turn current Rust bridge/admission primitives and
+fail-closed JS facades into positive Rust daemon-core APIs.
 
 Current sprint objective:
 
@@ -3636,6 +3643,10 @@ Current sprint objective:
 - demote surviving JS/TS code to product/API/IDE/SDK adapter behavior only;
 - delete or fail-close compatibility shims once the canonical Rust-owned path is
   verified by focused tests and the tiered conformance command;
+- avoid micro-slices that only retire one helper, one alias, or one doc marker
+  unless that change completes a larger authority-boundary cut;
+- update the migration matrix as a compact macro ledger, not as a per-slice
+  evidence archive;
 - keep `hypervisor-conformance` green while preserving the honest status:
   "passes at current tier surface" until terminal conditions below are true.
 
@@ -3732,12 +3743,32 @@ meta-improvement can safely promote reusable modules or package candidates.
 
 ### Implementation operating discipline
 
-The migration should optimize for future comprehensibility, not only immediate
-feature velocity. Split-brain architecture often reappears when files become too
-large, concepts are scattered, compatibility shims linger, or dirty worktrees
-make it unclear what changed in which slice.
+The migration should optimize for future comprehensibility and terminal
+ownership, not only immediate feature velocity or local proof wins. Split-brain
+architecture often reappears when files become too large, concepts are
+scattered, compatibility shims linger, or dirty worktrees make it unclear what
+changed in which cut.
 
-Use these rules for every implementation slice:
+Use these rules for every implementation cut:
+
+#### Macro-cut bias
+
+The default unit of work is a macro authority cut. A good cut moves one whole
+truth path closer to Rust ownership:
+
+```text
+JS fail-closed/protocol facade
+  -> Rust daemon-core positive API
+  -> Agentgres admission and expected-head/state-root binding
+  -> receipt/projection/replay contract
+  -> IDE/CLI/SDK protocol surface
+  -> delete or demote the JS facade
+```
+
+Small cuts are acceptable only when they unlock or finish that larger boundary.
+Do not optimize for maximum slice count, isolated alias retirement, or
+documentation churn. Prefer one reviewable end-to-end ownership move over many
+helper-level retirements.
 
 #### Refactor pressure
 
@@ -3771,35 +3802,35 @@ route/API adapter
 Each piece should have one owner, one reason to change, and a small set of
 conformance tests.
 
-#### Clean-slice commits
+#### Clean-cut commits
 
-Each implementation slice should end with:
+Each implementation cut should end with:
 
 ```text
 targeted tests/checks pass
 git diff --check passes for touched files
 git status is understandable
-commit created for the slice
-commit pushed after the slice is verified
+commit created for the cut
+commit pushed after the cut is verified
 ```
 
-Do not stack many unrelated changes in one dirty worktree. The migration will
-cross JS, Rust, docs, IDE, Agentgres, wallet.network, cTEE, and workflow
-projection surfaces; clean commits are part of the architecture because they
-make rollback, review, and context recovery possible.
+Do not stack unrelated changes in one dirty worktree. A macro cut may touch JS,
+Rust, docs, conformance, and protocol clients when those files are all part of
+the same authority move. Clean commits are still part of the architecture
+because they make rollback, review, and context recovery possible.
 
-Recommended slice shape:
+Recommended cut shape:
 
 ```text
-one route family
-or one ABI object
-or one projection mapper
-or one Rust runner
-or one conformance gate
+one route-family positive path
+or one Rust daemon-core API family
+or one projection/readback family
+or one runner-family replacement
+or one facade family deletion after Rust parity
 ```
 
-Avoid "mega-slices" that touch daemon routes, Rust IPC, IDE UI, docs, and tests
-all at once unless they are strictly necessary for one verified end-to-end seam.
+Avoid unrelated mega-cuts. Do not avoid multi-file macro cuts when those files
+are required to complete one verified end-to-end seam.
 
 #### Alpha compatibility policy
 
@@ -3813,8 +3844,8 @@ Use shims only as short-lived migration scaffolds:
 introduce shim
   -> shadow/gated/live parity proves new path
   -> remove old path
-  -> update source-of-truth docs
-  -> commit and push the slice
+  -> update source-of-truth docs and compact matrix row
+  -> commit and push the cut
 ```
 
 Do not keep:
@@ -3846,13 +3877,15 @@ condition. This prevents "temporary" dual ownership from becoming architecture.
 | External capability exits | daemon-native connector/capability paths | Rust core `authority` + AIIP/capability exit adapter | connector cannot bypass wallet.network scopes or receipt binding. |
 | Workflow compositor projections | IDE/daemon projection shaping | Rust core projection source consumed by IDE | IDE displays state but does not create accepted truth. |
 
-#### Implementation slice template
+#### Implementation cut template
 
-Use this template for each slice in the migration:
+Use this template for each macro cut in the migration. The `ImplementationSlice`
+key is retained for older tooling, but the unit is now an authority-boundary cut,
+not a helper-level slice.
 
 ```yaml
 ImplementationSlice:
-  objective: one clear runtime/conformance outcome
+  objective: one clear authority-boundary outcome
   owner_boundary:
     route_or_surface: ...
     authority_gate: ...
@@ -3877,10 +3910,20 @@ ImplementationSlice:
     legacy_paths_removed: true | false
     compatibility_shims_remaining:
       - shim name plus removal condition
+    js_facade_demoted_or_deleted: true | false
   closeout:
     git_diff_check: required
     commit: required
     push: required after verification
+```
+
+Matrix update rule:
+
+```text
+update route-family row
+update macro authority cut ledger
+update remaining terminal blockers only if the blocker changed
+do not add per-slice evidence sections
 ```
 
 ### Phase 0: Inventory and canon reconciliation
@@ -4556,17 +4599,23 @@ slice begins. A clean worktree is a conformance aid: it keeps review, rollback,
 and context recovery tractable as the daemon, Rust core, workflow compositor,
 Agentgres, wallet.network, and cTEE paths converge.
 
-Current lane note: after Slice 1006, public runtime account, runtime-node, tool
-catalog, agent, thread, run, agent-run lifecycle, run wait, run conversation,
+Current lane note: after the public runtime tool catalog, skill/hook registry,
+and repository workflow positive API cuts, public runtime account, runtime-node,
+tool catalog, skill/hook registry, repository workflow, agent, thread, run,
+agent-run lifecycle, run wait, run conversation,
 thread usage, thread turns, thread turn detail, thread events, run usage, run
 events, run replay, run trace/inspect, run computer-use trace/trajectory, run
 scorecard, run artifact, top-level usage, authority-evidence, public memory
 list/policy/path/status/validation, and public/thread-scoped
 conversation-artifact route-facing projections are no
-longer JS-authored public truth. The daemon edge now
-translates `RuntimeToolCatalogProjectionRequiredCore` and
-`RuntimeLifecycleProjectionRequiredCore` fail-closed records for catalog and
-lifecycle surfaces, and the mounted thread-memory surface fails closed for
+longer JS-authored public truth. Runtime account/node/tool catalog projections
+now call Rust `project_runtime_tool_catalog` through the mounted tool surface,
+skill/hook registry projections now call Rust `project_skill_hook_registry`
+through the mounted skill-hook surface, and repository workflow projections now
+call Rust `project_repository_workflow` through the mounted repository surface;
+runtime lifecycle projections now call Rust `project_runtime_lifecycle`
+through the mounted lifecycle surface, and the mounted thread-memory
+surface fails closed for
 public memory projections before JS `AgentMemoryStore` readback; conversation
 artifact routes call the mounted fail-closed artifact surface directly before
 daemon-store pass-through wrappers or JS artifact-store readback; public agent
@@ -4784,16 +4833,14 @@ but the mounted JS surface and command transport remain migration scaffolding
 until direct Rust daemon-core StepModuleRouter/workload-client APIs own dispatch
 end to end.
 
-Slice 1035 moves the policy projection-required refusal owner family for
-skill/hook registry, repository workflow, runtime tool catalog, and runtime
-lifecycle projections out of the broad Rust `policy.rs` facade into
-`crates/services/src/agentic/runtime/kernel/policy/projection_required.rs`.
-The facade now re-exports the child owner while conformance requires the child
-module to retain the request/record/error types, planner cores, validation, and
-focused proof tests. This is a directionally pure-Rust extraction cut: the
-current JS context-policy runner and Node command bridge are still migration
-transport, not canonical architecture. Resume by replacing those transport
-paths with direct Rust daemon-core projection/admission APIs over
+Slice 1035 originally moved the policy projection-required refusal owner family
+for skill/hook registry, repository workflow, runtime tool catalog, and runtime
+lifecycle projections out of the broad Rust `policy.rs` facade. That
+intermediate refusal-owner lane is now superseded for those public projection
+families by positive Rust daemon-core APIs in `skill_hook_registry.rs`,
+`repository_workflow.rs`, `runtime_tool_catalog.rs`, and
+`runtime_lifecycle.rs`. Resume by replacing the remaining temporary runner
+transport with direct Rust daemon-core projection/admission APIs over
 Agentgres-admitted truth, wallet.network/cTEE authority where applicable,
 receipt/state-root binding, replay, and stable IDE/CLI/SDK protocol APIs.
 Schedule a matrix-compaction pass after the next larger Rust-core extraction or
@@ -5022,20 +5069,18 @@ Agentgres expected heads/state roots, runtime-control receipts/events, replay,
 projection, StepModuleRouter dispatch where control work enters admitted
 module execution, and stable IDE/CLI/SDK protocol APIs.
 
-Slice 1049 moves the skill/hook registry, repository workflow, runtime tool
-catalog, and runtime lifecycle projection-required daemon-core command wrappers
-out of the monolithic Rust `crates/node/src/bin/ioi_step_module_bridge/mod.rs`
-migration transport into
-`crates/node/src/bin/ioi_step_module_bridge/projection_command.rs`. The
-projection-required policy owner remains
-`crates/services/src/agentic/runtime/kernel/policy/projection_required.rs`; the
-bridge child module is only fixed migration transport that translates
-Rust-authored projection-required refusal records at the process boundary. The
-conformance guard now proves the projection-required command wrappers stay out
-of the broad bridge module. This is not terminal projection migration. Resume
-by replacing this command transport with direct Rust daemon-core projection
-APIs for registry, repository workflow, tool catalog, lifecycle/run-read,
-doctor/readiness, replay, and stable IDE/CLI/SDK surfaces over
+Slice 1049 originally moved the skill/hook registry, repository workflow,
+runtime tool catalog, and runtime lifecycle projection-required daemon-core
+command wrappers out of the monolithic Rust
+`crates/node/src/bin/ioi_step_module_bridge/mod.rs` migration transport. That
+intermediate projection-required lane is now superseded for those public
+projection families: `project_skill_hook_registry`,
+`project_repository_workflow`, `project_runtime_tool_catalog`, and
+`project_runtime_lifecycle` are positive Rust daemon-core APIs, and the
+projection-required policy owner for those migrated public routes is retired.
+This is still not terminal projection migration. Resume by replacing the
+temporary runner transport with direct Rust daemon-core projection APIs for
+lifecycle/run-read, doctor/readiness, replay, and stable IDE/CLI/SDK surfaces over
 Agentgres-admitted truth, receipt/state-root binding, wallet authority where
 applicable, and cTEE custody where private workspace projection is involved.
 
@@ -5620,26 +5665,32 @@ Slice 1084 moves the public non-runtime thread-turn admission-required refusal
 contract into the Rust thread-lifecycle policy core. The Rust
 `ThreadTurnAdmissionRequiredCore` now owns the canonical
 `runtime_thread_turn_rust_core_required` record and the daemon-core command
-protocol exposes it as `plan_thread_turn_admission_required`. The JS
-`RuntimeThreadTurn` surface consumes this Rust-authored record for non-runtime
-resume, non-runtime turn creation, and diagnostics-blocked turn creation while
-still failing closed before JS `updateAgent()`, `createRun()`, `turnForRun()`,
-runtime-event append, run/agent persistence, or Agentgres commit.
+protocol exposes it as `plan_thread_turn_admission_required`. The current
+positive cut keeps that Rust-authored refusal only for missing mounted Rust
+boundaries and diagnostics-blocked turn creation. Normal public non-runtime
+resume now enters the mounted Rust-planned agent status-control path and
+returns the Rust thread projection, while normal public non-runtime turn
+creation enters the mounted Rust-planned run-create path and returns the Rust
+turn projection. Direct JS `updateAgent()`, `createRun()`, JS turn projection
+composition, runtime-event append, and daemon-store pass-through wrappers stay
+retired from the thread-turn surface.
 
 Conformance now fails if the thread-turn required-boundary envelope is authored
 only in JS, if the new daemon-core command operation is removed from Rust typed
 command dispatch, if the temporary Node command wrapper drifts back into the
-broad bridge module, or if the public surface stops proving it called the Rust
-admission-required planner before any JS mutation path. This remains
-non-terminal: direct Rust daemon-core thread-turn admission, runtime dispatch,
-Agentgres expected-head/state-root commit, replay, projection, and stable
-protocol APIs must still replace the temporary command transport.
+broad bridge module, if the public non-runtime path re-enters direct JS
+mutation wrappers, or if diagnostics-blocked turn creation stops failing closed
+before run creation. This remains non-terminal: diagnostics-blocked turn
+handling, runtime-service bridge turn submit/control, direct Rust daemon-core
+thread-turn protocol APIs, durable replay/projection storage, and command
+transport retirement still need Rust ownership.
 
 Slice 1085 moves the public agent/run lifecycle admission-required refusal
 family into the Rust thread-lifecycle policy core. The Rust
 `LifecycleAdmissionRequiredCore` now owns the canonical required-boundary
-records for agent creation, run creation, agent status control, and permanent
-agent deletion, and the daemon-core command protocol exposes them through
+records for agent creation, top-level thread creation, run creation, agent
+status control, and permanent agent deletion, and the daemon-core command
+protocol exposes them through
 `plan_lifecycle_admission_required`. The JS agent/run lifecycle and thread
 store surfaces consume these Rust-authored records while still failing closed
 before JS route/model/memory planning, agent lookup where forbidden, `writeRun`,
@@ -5654,6 +5705,50 @@ non-terminal: direct Rust daemon-core lifecycle admission, wallet/cTEE policy
 where applicable, Agentgres expected-head/state-root commit, replay,
 projection, and stable protocol APIs must still replace the temporary command
 transport.
+
+Public agent status-control state updates are now a positive Rust
+daemon-core path. Public archive/unarchive/resume/close/reload call Rust
+`plan_agent_status_state_update`; JS supplies the current agent and requested
+status facts, requires a Rust-returned agent projection with the requested
+operation kind, and persists only that Rust-authored projection through the
+Agentgres-backed `writeAgent` commit path.
+
+Public agent creation is now a positive Rust daemon-core path. `createAgent()`
+requires Rust `plan_agent_create_state_update` before JS can persist any
+candidate provider/model-route/MCP/runtime-control facts, rejects missing Rust
+agent projection, mismatched operation kind, or incomplete identity/timestamp
+output, and persists only the Rust-returned `agent.create` projection through
+the Agentgres-backed `writeAgent` commit path. Direct `agents` map mutation
+remains retired.
+
+Public agent-scoped run creation is now a positive Rust daemon-core path.
+`createRun()` requires Rust `plan_run_create_state_update` before JS can look
+up the agent, resolve provider/model-route/memory facts, construct the canonical
+run candidate, assemble usage envelopes, or persist anything. JS requires a
+Rust-returned `run.create` projection with complete identity/timestamp output,
+persists only that projection through the Agentgres-backed `writeRun` commit
+path, keeps direct `runs` map mutation retired, and ignores retired
+thread/approval plus diagnostics request aliases. Missing Rust planner support
+still fails closed before lookup, route, memory, or persistence.
+
+Public top-level thread creation is now a positive Rust daemon-core path.
+`createThread()` requires Rust `plan_thread_create_state_update` before JS can
+route model/provider/MCP/runtime-control candidate facts or persist anything.
+JS requires Rust-returned `agent` and `thread` projections with matching
+identity, persists only the Rust-authored `thread.create` agent projection
+through the Agentgres-backed `writeAgent` commit path, emits the thread-start
+projection through the Rust thread-event surface, and returns only the Rust
+thread/turn projection record. Missing Rust planner support still fails closed
+before route planning or persistence, while runtime-service thread start
+remains a separate fail-closed bridge boundary.
+
+Public permanent agent deletion is now a positive Rust daemon-core path.
+`deleteAgent()` calls Rust `plan_agent_delete_state_update`; JS supplies only
+the current agent fact, requires a Rust-returned `agent.delete` tombstone with
+`status: deleted` and `deletedAt`, and persists only that tombstone through the
+Agentgres-backed `writeAgent` commit path. Wallet/retention authority,
+lifecycle replay/projection, and stable lifecycle protocol APIs remain
+non-terminal.
 
 Slice 1086 retires the `RuntimeDaemonStore.createAgent()`,
 `RuntimeDaemonStore.createRun()`, and `RuntimeDaemonStore.createThread()`
@@ -5819,9 +5914,11 @@ expected-head/state-root binding, wallet.network approval grants, receipt
 materialization, replay, and projection remain the target owner.
 
 Conformance now fails if the approval decision readback facade returns on the
-approval surface or daemon store. The remaining approval-request event readback
-is explicitly limited to the current coding-tool approval-satisfaction helper
-until that helper receives a direct Rust daemon-core replacement.
+approval surface or daemon store. At this point the remaining approval-request
+event readback was explicitly limited to the current coding-tool
+approval-satisfaction helper until that helper received a direct Rust
+daemon-core replacement; Slice 1208 later retires that JS satisfaction gate
+rather than preserving it as readback scaffolding.
 
 Slice 1097 retires the coding-tool budget blocked-event JS projection facade.
 `RuntimeCodingToolBudgetRecoverySurface` no longer exports
@@ -5916,16 +6013,22 @@ target resolution, proposal admission, apply admission, wallet approval
 authority, Agentgres expected-head/state-root binding, receipt binding, replay,
 and projection APIs replace the temporary surface.
 
-Slice 1102 retires the daemon-store workspace-trust warning pass-through
-delegate. The mounted thread-control surface still exposes
-`appendWorkspaceTrustWarningEvent()` as a fail-closed migration surface, but
-the daemon store no longer provides a duplicate `store.appendWorkspaceTrustWarningEvent()`
-compatibility entrypoint, and conformance fails if that wrapper returns.
+Slice 1102 retired the daemon-store workspace-trust warning pass-through
+delegate. At that point the mounted thread-control surface kept
+`appendWorkspaceTrustWarningEvent()` as a fail-closed migration surface, but the
+daemon store no longer provided a duplicate `store.appendWorkspaceTrustWarningEvent()`
+compatibility entrypoint, and conformance failed if that wrapper returned.
 
-Workspace-trust warning and acknowledgement positive ownership remains a Rust
-daemon-core target: direct Rust APIs must own wallet/cTEE workspace authority,
-Agentgres expected-head/state-root binding, receipt/event materialization,
-replay, and projection before the mounted protocol-edge surface can be retired.
+Slice 1105 moves workspace-trust warning and acknowledgement event ownership
+into Rust daemon-core planning. `plan_workspace_trust_control_state_update`
+authors warning and acknowledgement event envelopes, receipt refs, policy refs,
+and replay-bound acknowledgement payloads; the JS thread-control surface only
+forwards canonical facts, requires the Rust planner before mode lookup/write,
+and admits Rust-authored events through `admit_runtime_thread_event`. The old JS
+repository-context warning record and acknowledgement payload construction stay
+retired. Deeper wallet/cTEE workspace authority and stable direct projection
+APIs remain terminal work beyond the temporary context-policy runner and replay
+cache transport.
 
 Slice 1103 splits the Rust StepModule bridge computer-use provider registry and
 provider-selection helper out of `ioi_step_module_bridge/computer_use.rs` into
@@ -6264,14 +6367,12 @@ receipt/event materialization, replay, projection, cTEE custody policy where
 relevant, and stable IDE/CLI/SDK surfaces end to end.
 
 Slice 1123 moves workflow-edit and diagnostics-repair admission-required
-command request/response shaping plus skill-hook registry, repository
-workflow, runtime tool catalog, and runtime lifecycle projection-required
-command request/response shaping out of the temporary Node policy/projection
-command bridge files and into Rust `policy/admission_required.rs` and
-`policy/projection_required.rs`. Rust core now owns those bridge request
-structs, Rust-core-required response envelopes, canonical command source
-markers, and bridge-facing error codes for rejected policy/projection command
-bodies.
+command request/response shaping out of the temporary Node policy command
+bridge files and into Rust `policy/admission_required.rs`. Its
+projection-required portion for public skill/hook registry, repository
+workflow, runtime tool catalog, and runtime lifecycle routes is superseded by
+positive Rust projection APIs, so those public route families no longer retain a
+projection-required command owner.
 
 This remains non-terminal because the Node bridge, command dispatch table,
 shared daemon-core command runner, JS command callers, policy/projection
@@ -6582,8 +6683,9 @@ pure Rust delegate shells. The deleted files are
 `ioi_step_module_bridge/projection_command.rs`. The remaining bridge proof
 surface imports Rust response functions and request types directly from
 `agentgres_command.rs`, `policy/context_lifecycle.rs`,
-`policy/admission_required.rs`, and `policy/projection_required.rs`; runtime
-operation dispatch remains Rust `command_dispatch.rs` ownership.
+`policy/admission_required.rs`, and the positive projection owner modules such
+as `runtime_lifecycle.rs`; runtime operation dispatch remains Rust
+`command_dispatch.rs` ownership.
 
 This remains non-terminal because the Node bridge binary, JS daemon-core
 command runner, StepModule command runner, JS command callers, and remaining
@@ -7223,17 +7325,15 @@ protocol/API ownership where wallet authority, cTEE custody, settlement
 triggering, receipt binding, Agentgres admission, projection, replay, and
 conformance no longer depend on Node bridge endpoint proof scaffolding.
 
-Slice 1177 moves the admission-required and projection-required policy
-command-response proof cluster out of the temporary bridge proof surface and
-relies on the Rust policy owners at
-`crates/services/src/agentic/runtime/kernel/policy/admission_required.rs` and
-`crates/services/src/agentic/runtime/kernel/policy/projection_required.rs`.
-Workflow-edit and diagnostics-repair admission-required refusals plus
-skill-hook registry, repository workflow, runtime tool catalog, and runtime
-lifecycle projection-required refusals now run as Rust owner tests. Bridge and
-compositor conformance now require those owner tests and prove the old
-bridge-named tests, request-type imports, and response-function aliases stay
-absent from `ioi_step_module_bridge/proof_tests.rs`.
+Slice 1177 moves the admission-required policy command-response proof cluster
+out of the temporary bridge proof surface and relies on the Rust policy owner at
+`crates/services/src/agentic/runtime/kernel/policy/admission_required.rs`.
+The projection-required half for public skill/hook registry, repository
+workflow, runtime tool catalog, and runtime lifecycle is superseded by positive
+Rust projection owner tests. Bridge and compositor conformance now require
+those owner tests and prove the old bridge-named tests, request-type imports,
+and response-function aliases stay absent from
+`ioi_step_module_bridge/proof_tests.rs`.
 
 This remains non-terminal because these policy decisions still cross temporary
 command transport. The target is direct Rust daemon-core policy/projection API
@@ -7724,47 +7824,229 @@ Resume by cutting the remaining command-transport runners, then delete the
 shared JS command invoker once every live surface has a direct Rust daemon-core
 API.
 
-Slice 1203 retires the temporary binary-spawn fallback for the daemon
-coding-tool approval runner. `runtime-coding-tool-approval-runner.mjs` no
-longer imports the shared JS daemon-core command invoker, no longer exposes or
-reads a live `CODING_TOOL_APPROVAL_COMMAND_ENV`, and no longer accepts
-constructor command selection or spawn hooks. Coding-tool approval manifest
-planning now requires the daemon-level `daemonCoreInvoker` direct Rust-core
-seam and fails closed when it is absent. `IOI_RUNTIME_DAEMON_CORE_COMMAND` is
-treated only as forbidden command selection input for this surface, not as
-fallback transport.
+Recent direct-invoker macro cut:
+coding-tool approval, approval-state, context-policy/state-update,
+model_mount admission, and StepModule runners are direct-invoker-only at the
+daemon runner layer. They no longer import the shared JS daemon-core command
+invoker, accept constructor command selection, accept constructor args, or treat
+`IOI_RUNTIME_DAEMON_CORE_COMMAND`, `IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS`, or
+surface-specific command envs as fallback transport. The shared
+`runtime-daemon-core-command-runner.mjs` helper and its test are deleted and
+must not be recreated.
 
-This makes the approval-manifest authority gate direct-invoker-only at the
-daemon runner: approval_required, workflow policy, manifest identity,
-effect-class, and input-hash decisions must arrive from Rust daemon-core output
-or remain absent at the JS edge. It is still not terminal because coding-tool
-approval satisfaction/read helpers and adjacent approval-state runners remain
-temporary JS facade scaffolding until direct Rust daemon-core approval
-protocols own admission, state-root binding, projection, and replay end to end.
-Resume by cutting the remaining approval-state, context-policy, model_mount,
-and StepModule command-transport runners, then delete the shared JS command
-invoker once every live surface has a direct Rust daemon-core API.
+This macro cut also retires the coding-tool approval-satisfaction JS gate. The
+mounted coding-tool governance surface no longer exports
+`codingToolApprovalSatisfaction()`, no longer reads approval request events,
+approval decision event streams, or lease-state helpers, and the daemon
+composition no longer injects the approval lease, approval reason, or manifest
+match helpers into that surface. Approval-required coding-tool execution now
+asks the Rust daemon-core `plan_coding_tool_approval_satisfaction` operation
+before entering the StepModule path. Only a Rust satisfied record can carry the
+approval id, decision event, receipt refs, and policy-decision refs into the
+execution context; otherwise the path calls the Rust daemon-core
+`plan_coding_tool_approval_block` operation and returns the Rust-shaped blocked
+coding-tool result/event envelope. The stale JS `latestApprovalRequestEvent()`
+readback facade and `blockCodingToolForApproval()` approval-block facade are
+retired and must not be recreated.
 
-Slice 1204 retires the temporary binary-spawn fallback for the daemon approval
-state runner. `runtime-approval-state-runner.mjs` no longer imports the shared
-JS daemon-core command invoker, no longer exposes or reads a live
-`APPROVAL_STATE_COMMAND_ENV`, and no longer accepts constructor command
-selection or spawn hooks. Approval request, approval decision, and approval
-revoke state-update planning now require the daemon-level `daemonCoreInvoker`
-direct Rust-core seam and fail closed when it is absent.
-`IOI_RUNTIME_DAEMON_CORE_COMMAND` is treated only as forbidden command
-selection input for this surface, not as fallback transport.
+This is a positive Rust approval-satisfaction and approval-block API cut, but
+not terminal approval migration. Coding-tool result-event admission is now a
+positive Rust daemon-core API: `admit_coding_tool_result_event` admits successful,
+failed, and approval-blocked coding-tool result events with Agentgres storage
+admission, receipt refs, expected heads, state roots, payload refs, and projection
+watermarks before the JS daemon registers the Rust-returned event for replay.
+The JS result-event admission hook is deleted, and approval-block persistence now
+routes through the same Rust admission boundary.
 
-This makes approval state-update planning direct-invoker-only at the daemon
-runner: approval operation kind, operator-control records, run/agent state
-updates, timestamps, lease refs, and approval trace mutations must arrive from
-Rust daemon-core output or remain absent at the JS edge. It is still not
-terminal because the public approval-control facade remains fail-closed JS
-scaffolding until direct Rust daemon-core approval APIs own wallet authority,
-Agentgres admission, state-root binding, projection, replay, and readback end
-to end. Resume by cutting the remaining context-policy, model_mount, and
-StepModule command-transport runners, then delete the shared JS command
-invoker once every live surface has a direct Rust daemon-core API.
+Command-stream persistence is now a positive Rust daemon-core API too:
+`admit_coding_tool_command_stream_events` owns canonical stream request
+evaluation, stdout/stderr chunking, command-stream event materialization,
+Agentgres storage admission, receipt refs, expected heads, state-root chaining,
+payload refs, and projection watermarks before the JS daemon registers the
+Rust-returned stream events for replay. The old JS command-stream append facade
+is deleted and must not be recreated.
+
+Coding-tool StepModule invocation construction is Rust-owned for migrated live
+tools. `run_coding_tool_step_module` now accepts canonical coding-tool request
+facts; Rust daemon-core owns the migrated tool contract table, input hashing,
+invocation id generation, authority/custody/backend fields, workload dispatch
+request construction, StepModuleRouter admission, receipt binding, Agentgres
+admission, and projection record creation. The JS runner no longer imports the
+coding-tool StepModule ABI builder or passes a JS-created `StepModuleInvocation`
+into the command. A supplied coding-tool invocation envelope fails closed with
+`js_step_module_invocation_retired`.
+
+Patch workspace snapshot capture is now a Rust-owned hot-path follow-up for
+`file.apply_patch`. Rust `workspace_restore.rs` emits canonical
+`snapshot_record` and `snapshot_event` output with snapshot ids, hashes, trigger
+context, receipt refs, artifact refs, restore metadata, and payload summary. The
+daemon workspace-snapshot surface consumes that output through the
+direct-invoker workspace restore runner, and the coding-tool invocation surface
+no longer calls `appendWorkspaceSnapshotEvent()` or completes a successful
+`file.apply_patch` result when the Rust snapshot record is missing.
+
+Coding-tool workload observation field ownership is now canonical at the Rust
+source for the migrated hot path. `coding_tool_workspace.rs` emits snake_case
+observations for workspace status, git diff, file inspect, file patch, test run,
+and LSP diagnostics, including nested patch changed-file/snapshot drafts and
+diagnostics project context. The runtime-daemon Rust-live result wrapper strips
+retired camelCase observation keys recursively instead of translating them, and
+the coding-tool result summaries/output contracts read only canonical Rust
+result fields. Post-edit diagnostics consumes `file.apply_patch.changed_files`
+only; retired `changedFiles`/`beforeHash`/`diagnosticsRecommended` patch result
+aliases no longer trigger diagnostics repair context construction.
+
+Post-edit diagnostics feedback planning is now a positive Rust daemon-core API.
+`plan_post_edit_diagnostics_feedback` owns diagnostics mode normalization,
+changed-path selection, repair-policy normalization, workspace snapshot and
+rollback refs, auto diagnostics `tool_call_id`, diagnostics rollback repair
+context authoring, and the `lsp.diagnostics` request envelope. The JS
+diagnostics-feedback surface fails closed without that Rust planner and only
+forwards the Rust-authored request to the mounted coding-tool invocation
+surface.
+
+Public workspace snapshot and restore read/control APIs are now Rust-owned at
+the daemon-core command boundary. `project_workspace_snapshot_list`,
+`project_workspace_snapshot_content_package`,
+`preview_workspace_snapshot_restore`, and `apply_workspace_snapshot_restore`
+live in Rust `workspace_restore.rs`; the daemon workspace-snapshot surface calls
+the direct-invoker workspace restore runner for list/content-package and
+restore preview/apply instead of deriving projection truth from JS runtime
+events or `codingArtifacts`. Restore artifact/event admission remains
+fail-closed until Agentgres-backed persistence and replay are moved behind the
+same Rust-owned API.
+
+Public approval request, decision, and revoke controls are now positive Rust
+authority calls instead of fail-closed JS facades. The daemon approval surface
+uses the direct-invoker approval-state runner for all three public control
+operations and commits only the Rust-authored run/agent projection through the
+Agentgres-gated state persistence hooks. JS approval request/decision readback,
+runtime-event append, command/env fallback, and camelCase request aliases stay
+retired.
+
+Public approval decision/revoke authority is now wallet.network-bound at the
+Rust daemon-core command boundary. Rust `approval.rs` exposes
+`authorize_approval_decision`; the public decision/revoke surface calls it before
+state planning, it requires wallet.network grant refs plus authority receipts,
+emits a Rust authority record/hash, and the Rust decision/revoke state planners
+fail closed without that authority binding before any Agentgres-gated JS commit
+can persist. The JS surface no longer treats caller-provided `receipt_refs` as
+approval authority truth; it forwards only the Rust authority receipts/hash into
+the state update. Approval request/grant issuance semantics, approval authority
+projection/replay, and the approval-state runner transport remain non-terminal
+migration scaffolding.
+
+Public approval queue/read projection is now Rust-owned at the daemon-core
+command boundary. Rust `approval.rs` exposes `project_approval_queue`, derives
+pending/resolved approval queue records from the run/agent approval projections,
+filters resolved records unless explicitly requested, and emits canonical
+snake_case request, decision, lease, receipt, and policy refs. The daemon
+approval surface exposes `listThreadApprovals()` only as a thin protocol client,
+and `GET /v1/threads/:thread_id/approvals` now returns the Rust projection
+instead of resurrecting JS approval event/readback helpers.
+
+Coding-tool approval satisfaction projection is now Rust-owned. The daemon
+approval runner exposes `project_coding_tool_approval_satisfaction`; Rust
+`approval.rs` derives the approval request, latest decision or revoke, lease
+state, expected head, and state root from the current run/agent projection
+before `plan_coding_tool_approval_satisfaction` evaluates the manifest. The
+optional JS store projection callback and exported JS manifest matcher are
+retired, so approval-required coding-tool execution can no longer recover a
+parallel JS truth path for request/decision/lease matching.
+
+Coding-tool budget-block governance is now a positive Rust daemon-core path
+instead of a fail-closed JS facade. Rust `policy/context_lifecycle.rs` exposes
+`plan_coding_tool_budget_block`, emits the blocked coding-tool result/event
+envelope with canonical budget status, policy refs, receipt refs, and
+snake_case fields, and the invocation hot path admits that blocked event
+through Rust `admit_coding_tool_result_event` before returning the public
+policy error. The JS governance surface only forwards canonical request facts
+to the Rust planner, strips retired budget-policy aliases, and remains
+fail-closed when the planner is absent; it no longer owns budget-block event or
+response-truth construction.
+
+Public thread runtime-control state updates are now a positive Rust
+daemon-core path. The public mode/model/thinking and generic runtime-control
+facades call Rust `plan_thread_control_agent_state_update`, pass canonical
+agent/control/event-sequence/model-route facts, require Rust-owned receipt refs,
+and persist only the Rust-authored agent projection through the
+Agentgres-backed `writeAgent` commit path. The direct JS runtime-control event
+append facade remains retired, and model route selection remains a separate
+model_mount authority dependency before the Rust thread-control plan is
+accepted.
+
+Public run cancellation is now a positive Rust daemon-core path. The run-cancel
+surface calls Rust `plan_run_cancel_state_update`, requires the returned
+`run.cancel` projection to be canceled and complete with terminal job/run
+events, runtime task/job/checklist records, receipts, and artifacts, then
+persists only that Rust-authored run through the Agentgres-backed `writeRun`
+commit path. Missing planners still fail closed through the Rust
+admission-required envelope, and JS run-map mutation plus JS runtime
+task/job/checklist, event, receipt, and artifact materialization remain retired.
+
+Public task/job cancellation is now a positive Rust daemon-core path. The
+task/job control surface calls Rust `plan_runtime_task_job_cancel_state_update`,
+derives only the canonical run id from `task_`/`job_` public ids in JS, requires
+the returned `task.cancel` or `job.cancel` projection to match the requested
+public id and include canceled task/job/checklist plus run records, terminal
+events, receipts, and artifacts, then persists only that Rust-authored run
+through the Agentgres-backed `writeRun` commit path. The old `cancelRun`
+shortcut, public-id fallback, and JS task/job/checklist/event/receipt/artifact
+materialization paths remain retired.
+
+Public task creation is now a positive Rust daemon-core path. The task/job
+control surface calls Rust `plan_runtime_task_job_create_state_update`, requires
+canonical `agent_id`, gathers only the existing agent, model-route, memory, and
+run candidate after the Rust planner boundary exists, and requires Rust-authored
+`task.create` task/job/checklist plus run projections before committing only the
+returned run through Agentgres-backed `writeRun`. Direct `createAgent`,
+`createRun`, JS task/job/checklist projection synthesis, retired request aliases,
+and projection mismatch compatibility paths remain retired.
+
+Public task/job read projection is now a positive Rust daemon-core path. The
+task/job control surface calls Rust `project_runtime_task_job_projection` for
+task/job list and get, JS only supplies raw run candidates plus canonical
+`agent_id`, `status`, `task_id`, or `job_id` request facts after the Rust
+projector boundary exists, and Rust owns record construction, filtering, and
+public-id selection before public records are returned. The task/job surface no
+longer receives the JS runtime task/job record builders, retired `agentId`
+aliases stay ignored, and missing or mismatched Rust projections fail closed
+instead of falling back to JS readback.
+
+Generic runtime thread-event append is now a positive Rust daemon-core
+Agentgres admission path. Runtime events call Rust `admit_runtime_thread_event`,
+must carry receipt refs, expected heads, state roots, storage admission, payload
+refs, and projection watermarks, and JS may only register the Rust-returned
+event in its temporary local replay cache. Synthetic `thread.started` and
+run-event projection now call Rust `project_runtime_thread_events`; Rust authors
+the projection envelopes from canonical agent/run facts, rejects retired
+projection aliases, skips known idempotency keys, admits each projected event
+through the same Agentgres admission core, and returns only Rust-admitted events
+for local replay registration. Public stream/turn replay readback now calls Rust
+`project_runtime_thread_event_replay`; Rust owns replay selection, canonical
+cursor evaluation, required Agentgres admission refs, state/head/watermark
+projection, and the returned event set while JS only supplies temporary cache
+candidates. Public thread/turn projection records now call Rust
+`project_runtime_thread_turn_projection`; Rust owns public thread/turn record
+shape, runtime identity fields, projection hashes, and event-derived seq/input/
+output fields over admitted replay events while JS only supplies canonical
+agent/run/event facts. The runner/cache transport remains non-terminal
+scaffolding until stable Rust projection/replay APIs replace it.
+
+This is still not terminal coding-tool migration. JS still constructs candidate
+context/result-event envelopes and still carries temporary runner/projection
+adapter follow-up. Diagnostics admission/projection/replay, restore
+artifact/event admission, temporary runner transport, approval request/grant
+issuance semantics, and authority projection/replay still need direct Rust
+daemon-core ownership.
+
+This is still not terminal migration. These runner, gate, coding-tool,
+thread-control, run-cancel, task/job create/control/projection, and agent-lifecycle
+cuts remove command fallback and duplicate JS truth paths, but many public JS
+facades still remain fail-closed protocol scaffolding. Resume with a macro
+authority cut that
+replaces one fail-closed facade family with a positive Rust daemon-core API and
+then deletes or demotes the JS facade in the same reviewable move.
 
 ## Final Doctrine
 

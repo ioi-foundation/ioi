@@ -99,6 +99,7 @@ import { createRuntimeContextPolicySurface } from "./runtime-context-policy-surf
 import { createContextPolicyRunnerFromEnv } from "./runtime-context-policy-runner.mjs";
 import { createRuntimeWorkflowEditSurface } from "./runtime-workflow-edit-surface.mjs";
 import { createRuntimeApprovalSurface } from "./runtime-approval-surface.mjs";
+import { createRuntimeApprovalStateRunnerFromEnv } from "./runtime-approval-state-runner.mjs";
 import { createRuntimeMcpCatalogSurface } from "./runtime-mcp-catalog-surface.mjs";
 import { createRuntimeMcpControlSurface } from "./runtime-mcp-control-surface.mjs";
 import { createRuntimeMcpServeSurface } from "./runtime-mcp-serve-surface.mjs";
@@ -387,8 +388,9 @@ const {
   uniqueStrings,
 });
 const {
+  codingToolApprovalBlockForThread,
   codingToolApprovalManifestForThread,
-  codingToolApprovalManifestsMatch,
+  codingToolApprovalSatisfactionForThread,
 } = createCodingToolApprovalPolicy({
   approvalModeForThreadMode,
   codingToolInputSummary,
@@ -551,7 +553,6 @@ const {
   runtimeJobRecord,
   runtimeJobRecordForRun,
   runtimeTaskRecord,
-  runtimeTaskRecordForRun,
 } = createRuntimeRecordProjections({
   doctorHash,
   eventStreamIdForThread,
@@ -629,6 +630,11 @@ export class AgentgresRuntimeStateStore {
       createContextPolicyRunnerFromEnv(process.env, {
         daemonCoreInvoker: this.daemonCoreInvoker,
       });
+    this.approvalStateRunner =
+      options.approvalStateRunner ??
+      createRuntimeApprovalStateRunnerFromEnv(process.env, {
+        daemonCoreInvoker: this.daemonCoreInvoker,
+      });
     this.governedImprovementRunner =
       options.governedImprovementRunner ??
       createGovernedImprovementRunnerFromEnv(process.env, {
@@ -690,8 +696,20 @@ export class AgentgresRuntimeStateStore {
     });
     this.threadMemorySurface = threadMemoryState;
     this.agentRunLifecycleSurface = createRuntimeAgentRunLifecycleSurface({
+      approvalModeForThreadMode,
+      buildRun,
+      ensureProviderAvailable,
+      eventStreamIdForThread,
+      initialThreadRuntimeControls,
       lifecycleAdmissionRunner: this.contextPolicyRunner,
+      mcpRegistryForWorkspace,
       runtimeError,
+      runtimeThreadSchemaVersion: RUNTIME_THREAD_SCHEMA_VERSION,
+      runtimeModeForOptions,
+      summarizeAgentOptions,
+      threadIdForAgent,
+      threadModeForRunMode,
+      threadStatusForAgent,
     });
     this.threadAuxiliarySurface = createRuntimeThreadAuxiliarySurface();
     this.runtimeDoctorReport = createRuntimeDoctorReport({
@@ -709,6 +727,7 @@ export class AgentgresRuntimeStateStore {
       approvalDecisionForRequest,
       approvalLeaseMetadataForRequest,
       approvalLeaseMetadataFromPayload,
+      approvalStateRunner: this.approvalStateRunner,
       notFound,
       runtimeError,
     });
@@ -735,6 +754,8 @@ export class AgentgresRuntimeStateStore {
       runtimeError,
     });
     this.codingToolArtifactSurface = createRuntimeCodingToolArtifactSurface({
+      codingToolCommandStreamAdmissionForThread: (store, request = {}) =>
+        this.admitCodingToolCommandStreamEventsForThread(store, request),
       notFound,
       policyError,
       runtimeError,
@@ -742,11 +763,15 @@ export class AgentgresRuntimeStateStore {
     });
     this.codingToolInvocationSurface = createRuntimeCodingToolInvocationSurface({
       codingToolApprovalManifestForThread,
+      codingToolApprovalBlockForThread,
+      codingToolApprovalSatisfactionForThread,
       codingToolBudgetPolicyForRequest,
       codingToolInvocationResultFromEvent,
       codingToolResultWithoutDrafts,
       diagnosticsRepairContextForRequest,
       diagnosticsRepairContextForToolPack,
+      codingToolResultEventAdmissionForThread: (store, request = {}) =>
+        this.admitCodingToolResultEventForThread(store, request),
       stepModuleRunner: createStepModuleRunnerFromEnv(process.env, {
         daemonCoreInvoker: this.daemonCoreInvoker,
       }),
@@ -759,9 +784,8 @@ export class AgentgresRuntimeStateStore {
     });
     this.diagnosticsFeedbackSurface = createRuntimeDiagnosticsFeedbackSurface({
       compactDiagnosticsFeedback,
-      diagnosticsRepairPolicyConfig,
+      diagnosticsFeedbackPlanner: this.contextPolicyRunner,
       normalizeDiagnosticsMode,
-      postEditDiagnosticsConfig,
     });
     this.diagnosticsRepairSurface = createRuntimeDiagnosticsRepairSurface({
       contextPolicyRunner: this.contextPolicyRunner,
@@ -776,9 +800,8 @@ export class AgentgresRuntimeStateStore {
       runtimeError,
     });
     this.codingToolGovernanceSurface = createRuntimeCodingToolGovernanceSurface({
-      approvalLeaseStateForDecision,
-      approvalReasonForDecisionEvent,
-      codingToolApprovalManifestsMatch,
+      codingToolBudgetBlockPlanner: this.contextPolicyRunner,
+      runtimeError,
     });
     this.contextPolicySurface = createRuntimeContextPolicySurface({
       contextPolicyRunner: this.contextPolicyRunner,
@@ -812,6 +835,7 @@ export class AgentgresRuntimeStateStore {
     });
     this.lifecycleProjectionSurface = createRuntimeLifecycleProjectionSurface({
       lifecycleRunner: this.contextPolicyRunner,
+      resolveRunArtifact,
       workspaceRoot: this.defaultCwd,
     });
     this.skillHookSurface = createRuntimeSkillHookSurface({
@@ -819,10 +843,13 @@ export class AgentgresRuntimeStateStore {
       skillHookRunner: this.contextPolicyRunner,
     });
     this.taskJobSurface = createRuntimeTaskJobSurface({
+      buildRun,
+      ensureProviderAvailable,
       notFound,
       optionalString,
-      runtimeJobRecordForRun,
-      runtimeTaskRecordForRun,
+      taskJobCreateRunner: this.contextPolicyRunner,
+      taskJobCancelRunner: this.contextPolicyRunner,
+      taskJobProjectionRunner: this.contextPolicyRunner,
     });
     this.toolSurface = createRuntimeToolSurface({
       toolCatalogRunner: this.contextPolicyRunner,
@@ -848,6 +875,7 @@ export class AgentgresRuntimeStateStore {
       runtimeTurnSchemaVersion: RUNTIME_TURN_SCHEMA_VERSION,
       runtimeUsageTelemetryForRun,
       runtimeUsageTelemetryForThread,
+      runtimeError,
       threadIdForAgent,
       threadModeForRunMode,
       threadStatusForAgent,
@@ -867,7 +895,6 @@ export class AgentgresRuntimeStateStore {
       threadIdForAgent,
       threadStatusForAgent,
       threadTurnProjection: this.threadTurnProjection,
-      ttiEnvelopeForRunEvent,
       turnIdForRun,
     });
     this.memory = new AgentMemoryStore(this.stateDir);
@@ -1127,6 +1154,187 @@ export class AgentgresRuntimeStateStore {
     return this.threadEventSurface.registerRuntimeEvent(this, record);
   }
 
+  projectRuntimeThreadEventsForThread(store, request = {}) {
+    const agent = objectRecord(request.agent);
+    const agentId = optionalString(agent?.id ?? agent?.agent_id);
+    const threadId = optionalString(request.thread_id) ?? (agentId ? threadIdForAgent(agentId) : undefined);
+    const eventStreamId = optionalString(request.event_stream_id) ?? (threadId ? eventStreamIdForThread(threadId) : undefined);
+    if (!threadId || !eventStreamId) {
+      throw runtimeError({
+        status: 502,
+        code: "runtime_thread_event_projection_invalid",
+        message: "Rust daemon-core runtime thread-event projection requires canonical thread and stream identity.",
+        details: {
+          operation: "project_runtime_thread_events",
+          projection_kind: request.projection_kind ?? null,
+          agent_id: agentId ?? null,
+        },
+      });
+    }
+    const stream = store.runtimeEventStream(eventStreamId);
+    const latestSeq = store.latestRuntimeEventSeq(eventStreamId);
+    const projection = this.runtimeAgentgresAdmissionRunner.projectRuntimeThreadEvents({
+      projection_kind: optionalString(request.projection_kind) ?? "thread",
+      thread_id: threadId,
+      event_stream_id: eventStreamId,
+      workspace_root: optionalString(request.workspace_root ?? agent?.cwd ?? agent?.workspace_root),
+      agent: runtimeThreadProjectionAgent(agent, { threadId }),
+      runs: normalizeArray(request.runs).map((run) => runtimeThreadProjectionRun(run, {
+        agent,
+        threadId,
+      })),
+      latest_seq: latestSeq,
+      expected_head: `agentgres://runtime-events/${safeId(eventStreamId)}/head/${latestSeq}`,
+      existing_idempotency_keys: [...stream.idempotency.keys()],
+    });
+    const events = normalizeArray(projection?.events).filter((event) => objectRecord(event));
+    for (const event of events) {
+      store.registerRuntimeEvent(event);
+    }
+    return {
+      ...projection,
+      events,
+    };
+  }
+
+  projectRuntimeThreadEventReplayForThread(store, request = {}) {
+    const replayKind = optionalString(request.replay_kind) ?? "stream";
+    const eventStreamId = optionalString(request.event_stream_id);
+    const turnId = optionalString(request.turn_id);
+    const candidateEvents = runtimeThreadReplayCandidateEvents(store, {
+      replayKind,
+      eventStreamId,
+    });
+    const replay = this.runtimeAgentgresAdmissionRunner.projectRuntimeThreadEventReplay({
+      replay_kind: replayKind,
+      event_stream_id: eventStreamId,
+      turn_id: turnId,
+      cursor: request.cursor ?? {},
+      events: candidateEvents,
+    });
+    if (replay?.projected !== true) {
+      throw runtimeError({
+        status: 502,
+        code: "runtime_thread_event_replay_invalid",
+        message: "Rust daemon-core runtime thread-event replay did not return a replay projection record.",
+        details: {
+          operation: "project_runtime_thread_event_replay",
+          replay_kind: replayKind,
+          event_stream_id: eventStreamId ?? null,
+          turn_id: turnId ?? null,
+          replay_hash: replay?.replay_hash ?? null,
+        },
+      });
+    }
+    const events = normalizeArray(replay.events).filter((event) => objectRecord(event));
+    return {
+      ...replay,
+      events,
+    };
+  }
+
+  projectRuntimeThreadTurnProjectionForThread(store, request = {}) {
+    void store;
+    const projection = this.runtimeAgentgresAdmissionRunner.projectRuntimeThreadTurnProjection(request);
+    const record = objectRecord(projection?.record);
+    if (projection?.projected !== true || !record) {
+      throw runtimeError({
+        status: 502,
+        code: "runtime_thread_turn_projection_invalid",
+        message: "Rust daemon-core runtime thread/turn projection did not return a projection record.",
+        details: {
+          operation: "project_runtime_thread_turn_projection",
+          projection_kind: request.projection_kind ?? null,
+          thread_id: request.thread_id ?? null,
+          turn_id: request.turn_id ?? null,
+          projection_hash: projection?.projection_hash ?? null,
+        },
+      });
+    }
+    return {
+      ...projection,
+      record,
+    };
+  }
+
+  admitRuntimeThreadEventForThread(store, request = {}) {
+    const event = objectRecord(request.event);
+    const eventStreamId = optionalString(event?.event_stream_id);
+    const latestSeq = eventStreamId ? store.latestRuntimeEventSeq(eventStreamId) : undefined;
+    const admission = this.runtimeAgentgresAdmissionRunner.admitRuntimeThreadEvent({
+      event,
+      latest_seq: latestSeq,
+      expected_head: eventStreamId
+        ? `agentgres://runtime-events/${safeId(eventStreamId)}/head/${latestSeq}`
+        : undefined,
+    });
+    const admittedEvent = objectRecord(admission?.event);
+    if (!admittedEvent) {
+      throw runtimeError({
+        status: 502,
+        code: "runtime_thread_event_admission_invalid",
+        message: "Rust daemon-core runtime thread-event admission did not return an event projection record.",
+        details: {
+          operation: "admit_runtime_thread_event",
+          event_stream_id: eventStreamId,
+          event_kind: event?.event_kind ?? null,
+          admission_hash: admission?.admission_hash ?? null,
+        },
+      });
+    }
+    store.registerRuntimeEvent(admittedEvent);
+    return admittedEvent;
+  }
+
+  admitCodingToolResultEventForThread(store, request = {}) {
+    const event = objectRecord(request.event);
+    const eventStreamId = optionalString(event?.event_stream_id);
+    const latestSeq = eventStreamId ? store.latestRuntimeEventSeq(eventStreamId) : undefined;
+    const admission = this.runtimeAgentgresAdmissionRunner.admitCodingToolResultEvent({
+      event,
+      latest_seq: latestSeq,
+      expected_head: eventStreamId
+        ? `agentgres://runtime-events/${safeId(eventStreamId)}/head/${latestSeq}`
+        : undefined,
+    });
+    const admittedEvent = objectRecord(admission?.event);
+    if (!admittedEvent) {
+      throw runtimeError({
+        status: 502,
+        code: "runtime_coding_tool_result_event_admission_invalid",
+        message: "Rust daemon-core coding-tool result-event admission did not return an event projection record.",
+        details: {
+          operation: "admit_coding_tool_result_event",
+          event_stream_id: eventStreamId,
+          tool_call_id: event?.tool_call_id ?? null,
+          admission_hash: admission?.admission_hash ?? null,
+        },
+      });
+    }
+    store.registerRuntimeEvent(admittedEvent);
+    return admittedEvent;
+  }
+
+  admitCodingToolCommandStreamEventsForThread(store, request = {}) {
+    const eventStreamId = optionalString(request.event_stream_id);
+    const latestSeq = eventStreamId ? store.latestRuntimeEventSeq(eventStreamId) : undefined;
+    const admission = this.runtimeAgentgresAdmissionRunner.admitCodingToolCommandStreamEvents({
+      ...request,
+      latest_seq: latestSeq,
+      expected_head: eventStreamId
+        ? `agentgres://runtime-events/${safeId(eventStreamId)}/head/${latestSeq}`
+        : undefined,
+    });
+    const events = normalizeArray(admission?.events).filter((event) => objectRecord(event));
+    for (const event of events) {
+      store.registerRuntimeEvent(event);
+    }
+    return {
+      ...admission,
+      events,
+    };
+  }
+
   runtimeEventStreamPath(eventStreamId) {
     return this.threadEventSurface.runtimeEventStreamPath(this, eventStreamId);
   }
@@ -1308,10 +1516,6 @@ export class AgentgresRuntimeStateStore {
     );
   }
 
-  latestApprovalRequestEvent(threadId, approvalId) {
-    return this.approvalSurface.latestApprovalRequestEvent(this, threadId, approvalId);
-  }
-
   ensureDirs() {
     return ensureStateDirs(this);
   }
@@ -1384,6 +1588,66 @@ export class AgentgresRuntimeStateStore {
   removeQuiet(filePath) {
     return removeQuietFile(filePath);
   }
+}
+
+function runtimeThreadProjectionAgent(agent, { threadId } = {}) {
+  const record = objectRecord(agent) ?? {};
+  return {
+    agent_id: optionalString(record.agent_id ?? record.id) ?? null,
+    thread_id: threadId ?? null,
+    status: optionalString(record.status) ?? null,
+    created_at: optionalString(record.created_at ?? record.createdAt) ?? null,
+    updated_at: optionalString(record.updated_at ?? record.updatedAt) ?? null,
+    workspace_root: optionalString(record.workspace_root ?? record.cwd) ?? null,
+    fixture_profile: optionalString(record.fixture_profile ?? record.fixtureProfile) ?? null,
+    model_route_receipt_id: optionalString(
+      record.model_route_receipt_id ?? record.modelRouteReceiptId,
+    ) ?? null,
+    receipt_refs: normalizeArray(record.receipt_refs),
+  };
+}
+
+function runtimeThreadProjectionRun(run, { agent, threadId } = {}) {
+  const record = objectRecord(run) ?? {};
+  const runId = optionalString(record.run_id ?? record.id);
+  return {
+    run_id: runId ?? null,
+    agent_id: optionalString(record.agent_id ?? record.agentId ?? agent?.id ?? agent?.agent_id) ?? null,
+    thread_id: threadId ?? null,
+    turn_id: optionalString(record.turn_id ?? record.runtime_turn_id ?? record.runtimeTurnId)
+      ?? (runId ? turnIdForRun(runId) : null),
+    workspace_root: optionalString(record.workspace_root ?? record.cwd ?? agent?.cwd ?? agent?.workspace_root) ?? null,
+    created_at: optionalString(record.created_at ?? record.createdAt) ?? null,
+    updated_at: optionalString(record.updated_at ?? record.updatedAt) ?? null,
+    events: normalizeArray(record.events).map(runtimeThreadProjectionRunEvent),
+  };
+}
+
+function runtimeThreadProjectionRunEvent(event) {
+  const record = objectRecord(event) ?? {};
+  const data = objectRecord(record.data) ?? {};
+  return {
+    id: optionalString(record.id ?? record.event_id) ?? null,
+    type: optionalString(record.type ?? record.event_type ?? record.event_kind) ?? null,
+    run_id: optionalString(record.run_id ?? record.runId) ?? null,
+    created_at: optionalString(record.created_at ?? record.createdAt) ?? null,
+    data,
+    receipt_refs: normalizeArray(record.receipt_refs),
+    artifact_refs: normalizeArray(record.artifact_refs),
+    policy_decision_refs: normalizeArray(record.policy_decision_refs),
+    rollback_refs: normalizeArray(record.rollback_refs),
+  };
+}
+
+function runtimeThreadReplayCandidateEvents(store, { replayKind, eventStreamId } = {}) {
+  if (replayKind === "stream" && eventStreamId) {
+    return normalizeArray(store.runtimeEventStream(eventStreamId).events).filter((event) =>
+      objectRecord(event)
+    );
+  }
+  return [...store.runtimeEventStreams.values()]
+    .flatMap((stream) => normalizeArray(stream.events))
+    .filter((event) => objectRecord(event));
 }
 
 function canonicalMemoryWorkflowNodeId(value = {}) {

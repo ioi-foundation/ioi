@@ -2,14 +2,18 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  APPROVAL_DECISION_AUTHORITY_REQUEST_SCHEMA_VERSION,
   APPROVAL_DECISION_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  APPROVAL_QUEUE_PROJECTION_REQUEST_SCHEMA_VERSION,
   APPROVAL_REQUEST_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   APPROVAL_REVOKE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   APPROVAL_STATE_COMMAND_SCHEMA_VERSION,
   RuntimeApprovalStateRunnerError,
   RustRuntimeApprovalStateRunner,
   createRuntimeApprovalStateRunnerFromEnv,
+  normalizeApprovalDecisionAuthorityBridgeResult,
   normalizeApprovalDecisionStateUpdateBridgeResult,
+  normalizeApprovalQueueProjectionBridgeResult,
   normalizeApprovalRequestStateUpdateBridgeResult,
   normalizeApprovalRevokeStateUpdateBridgeResult,
 } from "./runtime-approval-state-runner.mjs";
@@ -72,6 +76,42 @@ function approvalDecisionResult() {
   };
 }
 
+function approvalDecisionAuthorityResult() {
+  return {
+    source: "direct_daemon_core_api",
+    backend: "rust_authority",
+    schema_version: "ioi.runtime.approval-decision-authority.v1",
+    status: "authorized",
+    operation_kind: "approval.decision.authority",
+    thread_id: "thread_alpha",
+    approval_id: "approval_alpha",
+    decision: "approve",
+    target_kind: "run",
+    run_id: "run_alpha",
+    actor_ref: "operator://local/heath",
+    idempotency_key: "approval:thread_alpha:approval_alpha:approve",
+    wallet_network_grant_refs: ["wallet.network://grant/approval/approval_alpha"],
+    authority_receipt_refs: ["receipt://wallet.network/approval/approval_alpha"],
+    policy_decision_refs: ["policy_wallet_approval"],
+    direct_truth_write_allowed: false,
+    authority_hash: "sha256:approval-authority",
+    authority: {
+      schema_version: "ioi.runtime.approval-decision-authority.v1",
+      object: "ioi.runtime_approval_decision_authority",
+      status: "authorized",
+      operation_kind: "approval.decision.authority",
+      thread_id: "thread_alpha",
+      approval_id: "approval_alpha",
+      decision: "approve",
+      wallet_network_grant_refs: ["wallet.network://grant/approval/approval_alpha"],
+      authority_receipt_refs: ["receipt://wallet.network/approval/approval_alpha"],
+      policy_decision_refs: ["policy_wallet_approval"],
+      direct_truth_write_allowed: false,
+      authority_hash: "sha256:approval-authority",
+    },
+  };
+}
+
 function approvalRevokeResult() {
   return {
     source: "direct_daemon_core_api",
@@ -99,6 +139,30 @@ function approvalRevokeResult() {
         ],
       },
     },
+  };
+}
+
+function approvalQueueResult() {
+  return {
+    source: "direct_daemon_core_api",
+    backend: "rust_authority",
+    status: "projected",
+    operation_kind: "approval.queue_projection",
+    thread_id: "thread_alpha",
+    approvals: [
+      {
+        schema_version: "ioi.runtime.approval-queue-entry.v1",
+        thread_id: "thread_alpha",
+        approval_id: "approval_alpha",
+        status: "pending",
+        decision: null,
+        request_event_id: "event_approval",
+      },
+    ],
+    pending_count: 1,
+    resolved_count: 0,
+    expected_head: "agentgres://head/before",
+    state_root_before: "state://root/before",
   };
 }
 
@@ -307,6 +371,65 @@ test("approval state runner fails closed without Rust-planned operation kinds", 
   );
 });
 
+test("approval decision authority runner sends wallet.network grant verification through direct daemon-core invoker", () => {
+  let captured = null;
+  const runner = new RustRuntimeApprovalStateRunner({
+    daemonCoreInvoker(request) {
+      captured = request;
+      return approvalDecisionAuthorityResult();
+    },
+  });
+
+  const result = runner.authorizeApprovalDecision({
+    thread_id: "thread_alpha",
+    approval_id: "approval_alpha",
+    decision: "approve",
+    target_kind: "run",
+    run_id: "run_alpha",
+    actor_ref: "operator://local/heath",
+    authority_grant_refs: ["wallet.network://grant/approval/approval_alpha"],
+    authority_receipt_refs: ["receipt://wallet.network/approval/approval_alpha"],
+    policy_decision_refs: ["policy_wallet_approval"],
+  });
+
+  assert.equal(captured.schema_version, APPROVAL_STATE_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "authorize_approval_decision");
+  assert.equal(captured.backend, "rust_authority");
+  assert.equal(
+    captured.request.schema_version,
+    APPROVAL_DECISION_AUTHORITY_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.approval_id, "approval_alpha");
+  assert.deepEqual(captured.request.authority_grant_refs, [
+    "wallet.network://grant/approval/approval_alpha",
+  ]);
+  assert.equal(result.source, "direct_daemon_core_api");
+  assert.equal(result.operation_kind, "approval.decision.authority");
+  assert.equal(result.authority_hash, "sha256:approval-authority");
+  assert.deepEqual(result.authority_receipt_refs, [
+    "receipt://wallet.network/approval/approval_alpha",
+  ]);
+  assert.deepEqual(result.wallet_network_grant_refs, [
+    "wallet.network://grant/approval/approval_alpha",
+  ]);
+  assert.equal(result.direct_truth_write_allowed, false);
+});
+
+test("approval decision authority runner fails closed without Rust authority operation kind", () => {
+  assert.throws(
+    () =>
+      normalizeApprovalDecisionAuthorityBridgeResult({
+        status: "authorized",
+        authority_hash: "sha256:approval-authority",
+      }),
+    (error) => {
+      assert.equal(error.code, "approval_decision_authority_operation_kind_missing");
+      assert.equal(error.details.operationKind, "approval.decision.authority");
+      return true;
+    },
+  );
+});
+
 test("approval decision state runner sends Rust authority request through direct daemon-core invoker", () => {
   let captured = null;
   const runner = new RustRuntimeApprovalStateRunner({
@@ -332,6 +455,10 @@ test("approval decision state runner sends Rust authority request through direct
     reason: "Looks good",
     receipt_refs: ["receipt_decision"],
     policy_decision_refs: ["policy_decision"],
+    authority_record: approvalDecisionAuthorityResult().authority,
+    authority_hash: "sha256:approval-authority",
+    authority_grant_refs: ["wallet.network://grant/approval/approval_alpha"],
+    authority_receipt_refs: ["receipt://wallet.network/approval/approval_alpha"],
   });
 
   assert.equal(captured.schema_version, APPROVAL_STATE_COMMAND_SCHEMA_VERSION);
@@ -382,6 +509,10 @@ test("approval revoke state runner sends Rust authority request through direct d
     reason: "Changed my mind",
     receipt_refs: ["receipt_revoke"],
     policy_decision_refs: ["policy_revoke"],
+    authority_record: approvalDecisionAuthorityResult().authority,
+    authority_hash: "sha256:approval-authority",
+    authority_grant_refs: ["wallet.network://grant/approval/approval_alpha"],
+    authority_receipt_refs: ["receipt://wallet.network/approval/approval_alpha"],
   });
 
   assert.equal(captured.schema_version, APPROVAL_STATE_COMMAND_SCHEMA_VERSION);
@@ -408,4 +539,52 @@ test("approval revoke state runner sends Rust authority request through direct d
     assert.equal(Object.hasOwn(result.operator_control, field), false);
   }
   assert.equal(result.run.trace.approvalRevocations[0].event_id, "event_revoke");
+});
+
+test("approval queue projection runner sends Rust authority request through direct daemon-core invoker", () => {
+  let captured = null;
+  const runner = new RustRuntimeApprovalStateRunner({
+    daemonCoreInvoker(request) {
+      captured = request;
+      return approvalQueueResult();
+    },
+  });
+
+  const result = runner.projectApprovalQueue({
+    thread_id: "thread_alpha",
+    agent: { id: "agent_alpha" },
+    runs: [{ id: "run_alpha", trace: { approvalRequests: [] } }],
+    include_resolved: false,
+    expected_head: "agentgres://head/before",
+    state_root_before: "state://root/before",
+  });
+
+  assert.equal(captured.schema_version, APPROVAL_STATE_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "project_approval_queue");
+  assert.equal(captured.backend, "rust_authority");
+  assert.equal(
+    captured.request.schema_version,
+    APPROVAL_QUEUE_PROJECTION_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.thread_id, "thread_alpha");
+  assert.equal(captured.request.include_resolved, false);
+  assert.equal(result.source, "direct_daemon_core_api");
+  assert.equal(result.operation_kind, "approval.queue_projection");
+  assert.equal(result.pending_count, 1);
+  assert.equal(result.approvals[0].approval_id, "approval_alpha");
+});
+
+test("approval queue projection runner fails closed without Rust-planned operation kind", () => {
+  assert.throws(
+    () =>
+      normalizeApprovalQueueProjectionBridgeResult({
+        status: "projected",
+        approvals: [],
+      }),
+    (error) => {
+      assert.equal(error.code, "approval_queue_projection_operation_kind_missing");
+      assert.equal(error.details.operationKind, "approval.queue_projection");
+      return true;
+    },
+  );
 });

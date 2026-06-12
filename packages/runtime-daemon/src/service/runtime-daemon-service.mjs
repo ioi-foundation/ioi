@@ -18,6 +18,7 @@ export async function startRuntimeDaemonServiceWithStore({
     modelMountAdmissionRunner: options.modelMountAdmissionRunner,
     runtimeAgentgresAdmissionRunner: options.runtimeAgentgresAdmissionRunner,
     runtimeBridge: options.runtimeBridge,
+    daemonCoreInvoker: options.daemonCoreInvoker,
   });
   const server = http.createServer((request, response) => {
     handleRequest({ request, response, store }).catch((error) => {

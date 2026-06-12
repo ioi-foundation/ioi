@@ -5,6 +5,79 @@ import { createRuntimeCodingToolInvocationSurface } from "./runtime-coding-tool-
 
 function createSurface(overrides = {}) {
   return createRuntimeCodingToolInvocationSurface({
+    codingToolApprovalBlockForThread(input) {
+      input.store?.calls?.push({ name: "rustApprovalBlock", input });
+      return {
+        source: "rust_coding_tool_approval_block_command",
+        backend: "rust_authority",
+        status: "blocked",
+        operation_kind: "coding_tool.approval.block",
+        approval_id: input.approval_gate?.approval_id ?? null,
+        reason: input.approval_gate?.reason ?? "approval_not_satisfied",
+        receipt_refs: input.receiptRefs ?? [],
+        policy_decision_refs: input.policyDecisionRefs ?? [],
+        artifact_refs: [],
+        rollback_refs: input.rollbackRefs ?? [],
+        result: {
+          schema_version: "ioi.runtime.coding-tool-result.v1",
+          tool_name: input.toolId,
+          status: "blocked",
+          approval_required: true,
+          approval_satisfied: false,
+          approval_id: input.approval_gate?.approval_id ?? null,
+          approval_manifest: input.approval_manifest,
+          rust_authority_block: true,
+          error: {
+            code: "coding_tool_approval_required",
+            details: {
+              reason: input.approval_gate?.reason ?? "approval_not_satisfied",
+            },
+          },
+        },
+        event: {
+          event_stream_id: `${input.threadId}:events`,
+          thread_id: input.threadId,
+          turn_id: input.turnId,
+          item_id: `${input.turnId || input.threadId}:item:coding-tool:${input.toolId}:blocked`,
+          idempotency_key: input.idempotencyKey,
+          source: "runtime_auto",
+          source_event_kind: "coding_tool.approval.blocked",
+          event_kind: "tool.blocked",
+          status: "blocked",
+          actor: "runtime",
+          workspace_root: input.workspaceRoot,
+          workflow_graph_id: input.workflowGraphId,
+          workflow_node_id: input.workflowNodeId,
+          component_kind: "coding_tool",
+          tool_call_id: input.toolCallId,
+          receipt_refs: input.receiptRefs ?? [],
+          policy_decision_refs: input.policyDecisionRefs ?? [],
+          artifact_refs: [],
+          rollback_refs: input.rollbackRefs ?? [],
+          payload_schema_version: "ioi.runtime.coding-tool-result.v1",
+          payload_summary: {
+            schema_version: "ioi.runtime.coding-tool-result.v1",
+            event_kind: "CodingToolResult",
+            tool_name: input.toolId,
+            tool_call_id: input.toolCallId,
+            thread_id: input.threadId,
+            turn_id: input.turnId,
+            status: "blocked",
+            approval_required: true,
+            approval_satisfied: false,
+            approval_id: input.approval_gate?.approval_id ?? null,
+            approval_manifest: input.approval_manifest,
+            rust_authority_block: true,
+            receipt_refs: input.receiptRefs ?? [],
+          },
+        },
+        record: {
+          schema_version: "ioi.runtime.coding-tool-approval-block-result.v1",
+          status: "blocked",
+          operation_kind: "coding_tool.approval.block",
+        },
+      };
+    },
     codingToolApprovalManifestForThread: () => null,
     codingToolBudgetPolicyForRequest: () => ({ status: "allowed" }),
     codingToolInvocationResultFromEvent(event, context = {}) {
@@ -16,14 +89,37 @@ function createSurface(overrides = {}) {
       delete publicResult.artifact_drafts;
       return {
         ...publicResult,
-        artifactRefs: artifacts.map((artifactRecord) => artifactRecord.id),
-        receiptRefs: ["receipt_result"],
+        artifact_refs: artifacts.map((artifactRecord) => artifactRecord.id),
+        receipt_refs: ["receipt_result"],
       };
     },
     diagnosticsRepairContextForRequest: (request = {}) => request.diagnosticsRepairContext ?? null,
     diagnosticsRepairContextForToolPack: (_request, _input, toolId) => ({ source: "tool_pack", toolId }),
-    admitCodingToolResultEvent(store, event) {
-      return store.appendRuntimeEvent(event);
+    codingToolResultEventAdmissionForThread(store, input = {}) {
+      const event = input.event ?? input;
+      store.calls.push({ name: "rustResultEventAdmission", input, event });
+      const nextSeq = store.latestRuntimeEventSeq(event.event_stream_id) + 1;
+      const admitted = {
+        ...event,
+        event_id: event.event_id ?? `event_${nextSeq}`,
+        seq: nextSeq,
+        created_at: "rust_daemon_core",
+        payload_refs: [
+          ...(Array.isArray(event.payload_refs) ? event.payload_refs : []),
+          `payload://runtime-events/${event.event_stream_id.replace(/[^a-zA-Z0-9_.-]+/g, "_")}/events/event_${nextSeq}`,
+        ],
+        receipt_refs: event.receipt_refs ?? [],
+        artifact_refs: event.artifact_refs ?? [],
+        rollback_refs: event.rollback_refs ?? [],
+        expected_heads: [`agentgres://runtime-events/${event.event_stream_id.replace(/[^a-zA-Z0-9_.-]+/g, "_")}/head/${nextSeq - 1}`],
+        state_root_before: `sha256:before-${nextSeq - 1}`,
+        state_root_after: `sha256:after-${nextSeq}`,
+        resulting_head: `agentgres://runtime-events/${event.event_stream_id.replace(/[^a-zA-Z0-9_.-]+/g, "_")}/head/after-${nextSeq}`,
+        agentgres_operation_ref: `agentgres://runtime-events/${event.event_stream_id.replace(/[^a-zA-Z0-9_.-]+/g, "_")}/operations/event_${nextSeq}`,
+        agentgres_storage_admission_hash: `sha256:storage-${nextSeq}`,
+      };
+      store.registerRuntimeEvent(admitted);
+      return admitted;
     },
     stepModuleRunner: createRetiredNonLiveStepModuleRunner(),
     ...overrides,
@@ -92,6 +188,19 @@ function createStore(options = {}) {
       calls.push({ name: "runtimeEventStream", eventStreamId });
       return { idempotency, events };
     },
+    latestRuntimeEventSeq(eventStreamId) {
+      calls.push({ name: "latestRuntimeEventSeq", eventStreamId });
+      return events
+        .filter((event) => event.event_stream_id === eventStreamId)
+        .reduce((latest, event) => Math.max(latest, event.seq ?? 0), 0);
+    },
+    registerRuntimeEvent(record) {
+      calls.push({ name: "registerRuntimeEvent", record });
+      events.push(record);
+      events.sort((left, right) => left.seq - right.seq);
+      idempotency.set(record.idempotency_key, record);
+      return record;
+    },
     codingToolArtifactSurface: {
       readCodingToolArtifact(surfaceStore, threadId, artifactId, range) {
         assert.equal(surfaceStore, store);
@@ -137,10 +246,10 @@ function createStore(options = {}) {
         calls.push({ name: "materializeArtifacts", input });
         return [{ id: "artifact_stdout" }];
       },
-      appendCodingToolCommandStreamEvents(surfaceStore, input) {
+      admitCodingToolCommandStreamEvents(surfaceStore, input) {
         assert.equal(surfaceStore, store);
-        calls.push({ name: "commandStream", input });
-        return [{ event_id: "event_command_stream" }];
+        calls.push({ name: "rustCommandStreamAdmission", input });
+        return [{ event_id: "event_command_stream", event_kind: "artifact.command_stream" }];
       },
     },
     workspaceSnapshotSurface: {
@@ -156,24 +265,17 @@ function createStore(options = {}) {
             artifact_refs: ["artifact_snapshot"],
             receipt_refs: ["receipt_snapshot"],
           },
+          event: { event_id: "event_snapshot" },
         };
       },
       appendWorkspaceSnapshotEvent(surfaceStore, input) {
         assert.equal(surfaceStore, store);
         calls.push({ name: "appendSnapshotEvent", input });
-        return { event_id: "event_snapshot" };
+        throw new Error("appendWorkspaceSnapshotEvent must not be called by coding-tool invocation");
       },
     },
     appendRuntimeEvent(event) {
-      const stored = {
-        ...event,
-        event_id: `event_${events.length + 1}`,
-        seq: events.length + 1,
-        created_at: "2026-06-04T14:00:00.000Z",
-      };
-      events.push(stored);
-      idempotency.set(event.idempotency_key, stored);
-      return stored;
+      throw new Error(`appendRuntimeEvent must not be called by coding-tool invocation result admission: ${event?.event_kind}`);
     },
     diagnosticsFeedbackSurface: {
       maybeRunPostEditDiagnostics(surfaceStore, input) {
@@ -183,21 +285,40 @@ function createStore(options = {}) {
       },
     },
     codingToolGovernanceSurface: {
-      codingToolApprovalSatisfaction(surfaceStore, input) {
-        assert.equal(surfaceStore, store);
-        calls.push({ name: "approvalSatisfaction", input });
-        return { satisfied: false, reason: "approval_missing" };
-      },
-      blockCodingToolForApproval(surfaceStore, input) {
-        assert.equal(surfaceStore, store);
-        calls.push({ name: "blockApproval", input });
-        return { status: "blocked", approval_required: true, approval_manifest: input.approval_manifest };
-      },
       blockCodingToolForBudget(surfaceStore, input) {
         assert.equal(surfaceStore, store);
         calls.push({ name: "blockBudget", input });
         return {
-          event: { event_id: "event_budget" },
+          event: {
+            event_stream_id: `${input.threadId}:events`,
+            thread_id: input.threadId,
+            turn_id: input.turnId,
+            item_id: `${input.turnId}:item:coding-tool:${input.toolId}:budget-blocked`,
+            idempotency_key: input.codingToolIdempotencyKey,
+            source: "runtime_auto",
+            source_event_kind: "coding_tool.budget.blocked",
+            event_kind: "tool.blocked",
+            status: "blocked",
+            actor: "runtime",
+            workspace_root: "/tmp/workspace",
+            workflow_graph_id: input.workflowGraphId,
+            workflow_node_id: input.workflowNodeId,
+            component_kind: "coding_tool",
+            tool_call_id: input.toolCallId,
+            receipt_refs: ["receipt_budget"],
+            artifact_refs: [],
+            rollback_refs: [],
+            payload_schema_version: "ioi.runtime.coding-tool-result.v1",
+            payload_summary: {
+              schema_version: "ioi.runtime.coding-tool-result.v1",
+              tool_name: input.toolId,
+              tool_call_id: input.toolCallId,
+              status: "blocked",
+              receipt_refs: ["receipt_budget"],
+              rust_budget_block: true,
+            },
+            event_id: "event_budget",
+          },
           receipt_refs: ["receipt_budget"],
           policy_decision_refs: ["policy_budget"],
         };
@@ -233,11 +354,11 @@ test("coding tool invocation surface rejects non-live coding-tool runners before
     },
   );
   assert.ok(!store.calls.some((call) => call.name === "materializeArtifacts"));
-  assert.ok(!store.calls.some((call) => call.name === "commandStream"));
+  assert.ok(!store.calls.some((call) => call.name === "rustCommandStreamAdmission"));
   assert.ok(!store.calls.some((call) => call.name === "prepareSnapshot"));
 });
 
-test("coding tool invocation surface fails closed before default JS result event append", () => {
+test("coding tool invocation surface fails closed until Rust result-event admission is wired", () => {
   const liveRunner = {
     backend: "rust_workload_live",
     blocksDaemonJsExecution: true,
@@ -386,12 +507,12 @@ test("coding tool invocation surface ignores retired request identity aliases", 
           workload_observation: {
             tool: "workspace.status",
             result: {
-              schemaVersion: "ioi.runtime.coding-tool-result.v1",
-              workspaceRoot: "/tmp/workspace",
+              schema_version: "ioi.runtime.coding-tool-result.v1",
+              workspace_root: "/tmp/workspace",
               git: { available: true },
-              changedFiles: [],
+              changed_files: [],
               counts: { changed: 0, untracked: 0, ignored: 0 },
-              shellFallbackUsed: false,
+              shell_fallback_used: false,
             },
           },
         },
@@ -558,12 +679,16 @@ test("coding tool invocation surface runs workspace.status through rust workload
               schemaVersion: "retired.result.schema",
               toolName: "retired.workspace.status",
               workspaceRoot: "/tmp/workspace",
+              schema_version: "ioi.runtime.coding-tool-result.v1",
+              workspace_root: "/tmp/workspace",
               git: {
                 available: true,
                 branch: "main",
                 porcelainHash: "abc123",
+                porcelain_hash: "abc123",
               },
               changedFiles: [{ status: "M", path: "README.md" }],
+              changed_files: [{ status: "M", path: "README.md" }],
               counts: { changed: 1, untracked: 0, ignored: 0 },
               artifactRefs: ["artifact://retired/workspace.status"],
               executionResultRef: "result://retired/workspace.status",
@@ -598,7 +723,7 @@ test("coding tool invocation surface runs workspace.status through rust workload
   assert.equal(result.result.rust_workload, true);
   assert.equal(result.result.git.available, true);
   assert.equal(result.result.git.branch, "main");
-  assert.deepEqual(result.result.changedFiles, [{ status: "M", path: "README.md" }]);
+  assert.deepEqual(result.result.changed_files, [{ status: "M", path: "README.md" }]);
   assert.equal(result.result.counts.changed, 1);
   assert.equal(result.result.schema_version, "ioi.runtime.coding-tool-result.v1");
   assert.equal(result.result.tool_name, "workspace.status");
@@ -618,7 +743,12 @@ test("coding tool invocation surface runs workspace.status through rust workload
   assert.equal(Object.hasOwn(result.result, "receiptRefs"), false);
   assert.equal(Object.hasOwn(result.result, "artifactRefs"), false);
   assert.equal(Object.hasOwn(result.result, "shellFallbackUsed"), false);
+  assert.equal(Object.hasOwn(result.result, "changedFiles"), false);
+  assert.equal(Object.hasOwn(result.result.git, "porcelainHash"), false);
   assert.equal(result.step_module.backend, "rust_workload_live");
+  assert.equal(result.event.created_at, "rust_daemon_core");
+  assert.equal(result.event.state_root_after, "sha256:after-1");
+  assert.equal(result.event.resulting_head, "agentgres://runtime-events/thread_alpha_events/head/after-1");
   assert.equal(result.event.payload_summary.step_module_backend, "rust_workload_live");
   assert.equal(result.event.payload_summary.approval_required, false);
   assert.deepEqual(result.event.rollback_refs, ["rollback_canonical"]);
@@ -634,6 +764,8 @@ test("coding tool invocation surface runs workspace.status through rust workload
     assert.equal(Object.hasOwn(result.event.payload_summary, field), false);
   }
   assert.ok(result.receipt_refs.includes("receipt://rust-live/workspace.status"));
+  assert.ok(store.calls.some((call) => call.name === "rustResultEventAdmission"));
+  assert.ok(store.calls.some((call) => call.name === "registerRuntimeEvent"));
   assert.ok(!store.calls.some((call) => call.name === "materializeArtifacts"));
 });
 
@@ -687,18 +819,18 @@ test("coding tool invocation surface runs file.inspect through rust workload liv
           workload_observation: {
             tool: "file.inspect",
             result: {
-              schemaVersion: "ioi.runtime.coding-tool-result.v1",
-              workspaceRoot: "/tmp/workspace",
+              schema_version: "ioi.runtime.coding-tool-result.v1",
+              workspace_root: "/tmp/workspace",
               path: "README.md",
               kind: "file",
               exists: true,
-              sizeBytes: 42,
+              size_bytes: 42,
               preview: "# IOI",
-              previewBytes: 5,
-              previewHash: "sha256:test",
+              preview_bytes: 5,
+              preview_hash: "sha256:test",
               truncated: false,
-              previewLineCount: 1,
-              shellFallbackUsed: false,
+              preview_line_count: 1,
+              shell_fallback_used: false,
             },
           },
         },
@@ -723,6 +855,9 @@ test("coding tool invocation surface runs file.inspect through rust workload liv
   assert.equal(result.result.rust_workload, true);
   assert.equal(result.result.path, "README.md");
   assert.equal(result.result.kind, "file");
+  assert.equal(result.result.size_bytes, 42);
+  assert.equal(Object.hasOwn(result.result, "sizeBytes"), false);
+  assert.equal(Object.hasOwn(result.result, "previewHash"), false);
   assert.equal(result.step_module.backend, "rust_workload_live");
   assert.ok(result.receipt_refs.includes("receipt://rust-live/file.inspect"));
   assert.ok(!store.calls.some((call) => call.name === "materializeArtifacts"));
@@ -778,18 +913,20 @@ test("coding tool invocation surface runs git.diff through rust workload live pa
           workload_observation: {
             tool: "git.diff",
             result: {
-              schemaVersion: "ioi.runtime.coding-tool-result.v1",
-              workspaceRoot: "/tmp/workspace",
+              schema_version: "ioi.runtime.coding-tool-result.v1",
+              workspace_root: "/tmp/workspace",
               paths: ["README.md"],
               git: { available: true },
               diff: "diff --git a/README.md b/README.md",
               diffBytes: 128,
               diffHash: "abc123",
+              diff_bytes: 128,
+              diff_hash: "abc123",
               truncated: false,
               stat: " README.md | 1 +",
               artifactDrafts: [{ channel: "retired", content: "retired draft" }],
               artifact_drafts: [{ channel: "stdout", content: "canonical diff draft" }],
-              shellFallbackUsed: false,
+              shell_fallback_used: false,
             },
           },
         },
@@ -813,7 +950,8 @@ test("coding tool invocation surface runs git.diff through rust workload live pa
   assert.equal(runnerCalls[0].context.workflow_projection_status, "live");
   assert.equal(result.result.rust_workload, true);
   assert.deepEqual(result.result.paths, ["README.md"]);
-  assert.equal(result.result.diffHash, "abc123");
+  assert.equal(result.result.diff_hash, "abc123");
+  assert.equal(Object.hasOwn(result.result, "diffHash"), false);
   assert.equal(result.step_module.backend, "rust_workload_live");
   assert.ok(result.receipt_refs.includes("receipt://rust-live/git.diff"));
   const materializeCall = store.calls.find((call) => call.name === "materializeArtifacts");
@@ -874,41 +1012,40 @@ test("coding tool invocation surface runs lsp.diagnostics through rust workload 
           workload_observation: {
             tool: "lsp.diagnostics",
             result: {
-              schemaVersion: "ioi.runtime.coding-tool-result.v1",
-              workspaceRoot: "/tmp/workspace",
-              commandId: "node.check",
-              requestedCommandId: "node.check",
-              resolvedCommandId: "node.check",
+              schema_version: "ioi.runtime.coding-tool-result.v1",
+              workspace_root: "/tmp/workspace",
+              command_id: "node.check",
+              requested_command_id: "node.check",
+              resolved_command_id: "node.check",
               command: "node --check",
               cwd: ".",
               backend: "node.check",
-              backendStatus: "available",
-              backendReason: null,
-              fallbackUsed: false,
-              fallbackFrom: null,
-              projectContext: {
-                schemaVersion: "ioi.runtime.diagnostics-project-context.v1",
-                workspaceRoot: "/tmp/workspace",
+              backend_status: "available",
+              backend_reason: null,
+              fallback_used: false,
+              fallback_from: null,
+              project_context: {
+                schema_version: "ioi.runtime.diagnostics-project-context.v1",
                 cwd: ".",
                 paths: ["src/index.mjs"],
               },
-              diagnosticStatus: "clean",
+              diagnostic_status: "clean",
               diagnostics: [],
-              diagnosticCount: 0,
+              diagnostic_count: 0,
               paths: ["src/index.mjs"],
-              exitCode: 0,
-              timedOut: false,
-              durationMs: 12,
-              timeoutMs: 30000,
+              exit_code: 0,
+              timed_out: false,
+              duration_ms: 12,
+              timeout_ms: 30000,
               stdout: "",
               stderr: "",
-              outputBytes: 0,
-              outputHash: "abc123",
+              output_bytes: 0,
+              output_hash: "abc123",
               truncated: false,
-              spilloverRecommended: false,
-              artifactDrafts: [],
-              allowedCommandIds: ["auto", "node.check", "typescript.check"],
-              shellFallbackUsed: false,
+              spillover_recommended: false,
+              artifact_drafts: [],
+              allowed_command_ids: ["auto", "node.check", "typescript.check"],
+              shell_fallback_used: false,
             },
           },
         },
@@ -932,9 +1069,12 @@ test("coding tool invocation surface runs lsp.diagnostics through rust workload 
   assert.equal(runnerCalls[0].context.workflow_projection_status, "live");
   assert.equal(result.result.rust_workload, true);
   assert.equal(result.result.backend, "node.check");
-  assert.equal(result.result.diagnosticStatus, "clean");
-  assert.equal(result.result.diagnosticCount, 0);
+  assert.equal(result.result.diagnostic_status, "clean");
+  assert.equal(result.result.diagnostic_count, 0);
   assert.deepEqual(result.result.paths, ["src/index.mjs"]);
+  assert.equal(Object.hasOwn(result.result, "diagnosticStatus"), false);
+  assert.equal(Object.hasOwn(result.result, "diagnosticCount"), false);
+  assert.equal(Object.hasOwn(result.result, "projectContext"), false);
   assert.equal(result.step_module.backend, "rust_workload_live");
   assert.ok(result.receipt_refs.includes("receipt://rust-live/lsp.diagnostics"));
   assert.ok(!store.calls.some((call) => call.name === "materializeArtifacts"));
@@ -990,30 +1130,30 @@ test("coding tool invocation surface runs test.run through rust workload live pa
           workload_observation: {
             tool: "test.run",
             result: {
-              schemaVersion: "ioi.runtime.coding-tool-result.v1",
-              workspaceRoot: "/tmp/workspace",
-              commandId: "node.test",
+              schema_version: "ioi.runtime.coding-tool-result.v1",
+              workspace_root: "/tmp/workspace",
+              command_id: "node.test",
               command: "node --test",
               executable: "node",
               args: ["--test", "src/index.test.mjs"],
               cwd: ".",
-              exitCode: 0,
+              exit_code: 0,
               signal: null,
-              testStatus: "passed",
-              timedOut: false,
-              durationMs: 18,
-              timeoutMs: 60000,
+              test_status: "passed",
+              timed_out: false,
+              duration_ms: 18,
+              timeout_ms: 60000,
               stdout: "ok 1 - passes",
               stderr: "",
-              stdoutBytes: 13,
-              stderrBytes: 0,
-              outputBytes: 13,
-              outputHash: "abc123",
+              stdout_bytes: 13,
+              stderr_bytes: 0,
+              output_bytes: 13,
+              output_hash: "abc123",
               truncated: false,
-              spilloverRecommended: false,
-              artifactDrafts: [],
-              allowedCommandIds: ["node.test", "npm.test", "cargo.test", "cargo.check"],
-              shellFallbackUsed: false,
+              spillover_recommended: false,
+              artifact_drafts: [],
+              allowed_command_ids: ["node.test", "npm.test", "cargo.test", "cargo.check"],
+              shell_fallback_used: false,
             },
           },
         },
@@ -1036,9 +1176,12 @@ test("coding tool invocation surface runs test.run through rust workload live pa
   assert.equal(runnerCalls.length, 1);
   assert.equal(runnerCalls[0].context.workflow_projection_status, "live");
   assert.equal(result.result.rust_workload, true);
-  assert.equal(result.result.commandId, "node.test");
-  assert.equal(result.result.testStatus, "passed");
-  assert.equal(result.result.exitCode, 0);
+  assert.equal(result.result.command_id, "node.test");
+  assert.equal(result.result.test_status, "passed");
+  assert.equal(result.result.exit_code, 0);
+  assert.equal(Object.hasOwn(result.result, "commandId"), false);
+  assert.equal(Object.hasOwn(result.result, "testStatus"), false);
+  assert.equal(Object.hasOwn(result.result, "exitCode"), false);
   assert.deepEqual(result.result.args, ["--test", "src/index.test.mjs"]);
   assert.equal(result.step_module.backend, "rust_workload_live");
   assert.ok(result.receipt_refs.includes("receipt://rust-live/test.run"));
@@ -1102,20 +1245,20 @@ test("coding tool invocation surface runs file.apply_patch through rust workload
           workload_observation: {
             tool: "file.apply_patch",
             result: {
-              schemaVersion: "ioi.runtime.coding-tool-result.v1",
-              workspaceRoot: "/tmp/workspace",
+              schema_version: "ioi.runtime.coding-tool-result.v1",
+              workspace_root: "/tmp/workspace",
               path: "README.md",
-              dryRun: false,
+              dry_run: false,
               applied: true,
               changed: true,
               created: false,
-              editCount: 1,
+              edit_count: 1,
               edits: [{ type: "replace", occurrence: "only", matches: 1 }],
-              beforeHash: "beforehash",
-              afterHash: "afterhash",
+              before_hash: "beforehash",
+              after_hash: "afterhash",
               diff: "--- a/README.md\n+++ b/README.md",
-              diffBytes: 32,
-              diffHash: "diffhash",
+              diff_bytes: 32,
+              diff_hash: "diffhash",
               truncated: false,
               changed_files: [
                 {
@@ -1143,9 +1286,9 @@ test("coding tool invocation surface runs file.apply_patch through rust workload
                 },
               ],
               diagnostics_recommended: true,
-              receiptRefs: ["receipt_file_apply_patch_README.md_after"],
-              payloadRefs: ["payload://workspace/file.apply_patch/README.md/after"],
-              shellFallbackUsed: false,
+              receipt_refs: ["receipt_file_apply_patch_README.md_after"],
+              payload_refs: ["payload://workspace/file.apply_patch/README.md/after"],
+              shell_fallback_used: false,
             },
           },
         },
@@ -1169,9 +1312,21 @@ test("coding tool invocation surface runs file.apply_patch through rust workload
   assert.equal(runnerCalls[0].context.workflow_projection_status, "live");
   assert.equal(result.result.rust_workload, true);
   assert.equal(result.result.applied, true);
+  assert.equal(result.result.edit_count, 1);
+  assert.equal(result.result.diff_hash, "diffhash");
   assert.equal(result.result.workspace_snapshot_id, "snapshot_alpha");
   assert.equal(Object.hasOwn(result.result, "workspaceSnapshot"), false);
   assert.equal(Object.hasOwn(result.result, "workspaceSnapshotId"), false);
+  assert.equal(Object.hasOwn(result.result, "schemaVersion"), false);
+  assert.equal(Object.hasOwn(result.result, "workspaceRoot"), false);
+  assert.equal(Object.hasOwn(result.result, "dryRun"), false);
+  assert.equal(Object.hasOwn(result.result, "editCount"), false);
+  assert.equal(Object.hasOwn(result.result, "beforeHash"), false);
+  assert.equal(Object.hasOwn(result.result, "afterHash"), false);
+  assert.equal(Object.hasOwn(result.result, "diffHash"), false);
+  assert.equal(Object.hasOwn(result.result, "receiptRefs"), false);
+  assert.equal(Object.hasOwn(result.result, "payloadRefs"), false);
+  assert.equal(Object.hasOwn(result.result, "shellFallbackUsed"), false);
   assert.ok(result.receipt_refs.includes("receipt://rust-live/file.apply_patch"));
   assert.ok(result.receipt_refs.includes("receipt_snapshot"));
   assert.ok(result.artifact_refs.includes("artifact_snapshot"));
@@ -1190,6 +1345,7 @@ test("coding tool invocation surface runs file.apply_patch through rust workload
   }
 	  assert.equal(result.step_module.result.agentgres_operation_refs[0], "agentgres://operation/file.apply_patch/README.md/after");
 	  assert.ok(store.calls.some((call) => call.name === "prepareSnapshot"));
+	  assert.ok(!store.calls.some((call) => call.name === "appendSnapshotEvent"));
 	  assert.ok(!store.calls.some((call) => call.name === "materializeArtifacts"));
 
 	  const retiredSnapshotStore = createStore({
@@ -1212,8 +1368,12 @@ test("coding tool invocation surface runs file.apply_patch through rust workload
 	      input: { path: "README.md", oldText: "before", newText: "after" },
 	    },
 	  );
-	  assert.equal(resultWithoutJsSnapshot.status, "completed");
-	  assert.equal(resultWithoutJsSnapshot.result.applied, true);
+	  assert.equal(resultWithoutJsSnapshot.status, "failed");
+	  assert.equal(resultWithoutJsSnapshot.result.status, "failed");
+	  assert.equal(
+	    resultWithoutJsSnapshot.result.error.code,
+	    "runtime_workspace_snapshot_rust_core_required",
+	  );
 	  assert.equal(resultWithoutJsSnapshot.workspace_snapshot, null);
 	  assert.equal(resultWithoutJsSnapshot.workspace_snapshot_event, null);
 	  assert.equal(
@@ -1221,6 +1381,7 @@ test("coding tool invocation surface runs file.apply_patch through rust workload
 	    false,
 	  );
 	  assert.ok(retiredSnapshotStore.calls.some((call) => call.name === "prepareSnapshot"));
+	  assert.ok(!retiredSnapshotStore.calls.some((call) => call.name === "appendSnapshotEvent"));
 	});
 
 test("coding tool invocation surface runs artifact.read through rust workload live path", () => {
@@ -1653,9 +1814,122 @@ test("coding tool invocation surface fails closed for budget blocks", () => {
     },
   );
   assert.ok(store.calls.some((call) => call.name === "blockBudget"));
+  const admissionCall = store.calls.find((call) => call.name === "rustResultEventAdmission");
+  assert.ok(admissionCall);
+  assert.equal(admissionCall.event.event_id, "event_budget");
+  assert.equal(admissionCall.input.budget_block.event.event_id, "event_budget");
 });
 
-test("coding tool invocation surface returns approval block results before execution", () => {
+test("coding tool invocation surface executes approval-required tools only after Rust satisfaction", () => {
+  const approvalManifest = {
+    thread_id: "thread_alpha",
+    tool_id: "file.inspect",
+    tool_call_id: "tool_approval",
+    effect_class: "local_read",
+    input_hash: "sha256:approval",
+  };
+  const runnerCalls = [];
+  const liveRunner = {
+    backend: "rust_workload_live",
+    blocksDaemonJsExecution: true,
+    runCodingTool(input) {
+      runnerCalls.push(input);
+      return {
+        backend: "rust_workload_live",
+        mode: "live",
+        blocking: true,
+        source: "rust_workload_command",
+        invocation: {
+          schema_version: "ioi.step_module_invocation.v1",
+          invocation_id: "invocation://rust-live/file.inspect",
+        },
+        result: {
+          schema_version: "ioi.step_module_result.v1",
+          invocation_id: "invocation://rust-live/file.inspect",
+          status: "success",
+          execution_result_ref: "result://rust-live/file.inspect",
+          normalized_observation_ref: "observation://rust-live/file.inspect",
+          receipt_refs: ["receipt://rust-live/file.inspect"],
+          artifact_refs: [],
+          payload_refs: [],
+          agentgres_operation_refs: [],
+          state_root_after: "state://root/after",
+          resulting_head: "agentgres://head/after",
+          workflow_projection: {
+            status: "live",
+            receipt_refs: ["receipt://rust-live/file.inspect"],
+          },
+        },
+        bridge_result: {
+          router_admission: {
+            schema_version: "ioi.step_module_router_admission.v1",
+            backend: "workload_grpc",
+          },
+          workload_observation: {
+            tool: "file.inspect",
+            result: {
+              schema_version: "ioi.runtime.coding-tool-result.v1",
+              workspace_root: "/tmp/workspace",
+              path: "README.md",
+              kind: "file",
+              exists: true,
+              shell_fallback_used: false,
+            },
+          },
+        },
+      };
+    },
+  };
+  const surface = createSurface({
+    codingToolApprovalManifestForThread: () => approvalManifest,
+    codingToolApprovalSatisfactionForThread({ store, threadId, toolId, toolCallId, approval_manifest: manifest }) {
+      store.calls.push({
+        name: "rustApprovalSatisfaction",
+        threadId,
+        toolId,
+        toolCallId,
+        approval_manifest: manifest,
+      });
+      return {
+        source: "rust_coding_tool_approval_satisfaction_command",
+        satisfied: true,
+        approval_id: "approval_alpha",
+        decision_event_id: "event_decision",
+        decision_seq: 4,
+        lease_id: "lease_alpha",
+        expires_at: "2026-06-06T04:45:00.000Z",
+        reason: "approval_approved",
+        receipt_refs: ["receipt_approval"],
+        policy_decision_refs: ["policy_approval"],
+      };
+    },
+    stepModuleRunner: liveRunner,
+  });
+  const store = createStore();
+
+  const result = surface.invokeThreadTool(store, "thread_alpha", "file.inspect", {
+    tool_call_id: "tool_approval",
+    approval_id: "approval_alpha",
+    input: { path: "README.md" },
+  });
+
+  assert.equal(result.status, "completed");
+  assert.equal(runnerCalls.length, 1);
+  assert.equal(runnerCalls[0].context.approval_ref, "approval:approval_alpha");
+  assert.ok(result.receipt_refs.includes("receipt_approval"));
+  assert.equal(result.event.payload_summary.approval_required, true);
+  assert.equal(result.event.payload_summary.approval_satisfied, true);
+  assert.equal(result.event.payload_summary.approval_id, "approval_alpha");
+  assert.equal(result.event.payload_summary.approval_manifest, approvalManifest);
+  assert.equal(result.event.payload_summary.approval_decision_event_id, "event_decision");
+  assert.deepEqual(result.event.payload_summary.approval_receipt_refs, ["receipt_approval"]);
+  assert.deepEqual(result.event.payload_summary.approval_policy_decision_refs, ["policy_approval"]);
+  assert.ok(store.calls.some((call) => call.name === "rustApprovalSatisfaction"));
+  assert.ok(!store.calls.some((call) => call.name === "blockApproval"));
+  assert.ok(!store.calls.some((call) => call.name === "approvalSatisfaction"));
+});
+
+test("coding tool invocation surface returns Rust-planned approval block results before execution", () => {
   const approvalManifest = {
     thread_mode: "agent",
     approval_mode: "required",
@@ -1673,15 +1947,23 @@ test("coding tool invocation surface returns approval block results before execu
   assert.equal(result.status, "blocked");
   assert.equal(result.approval_required, true);
   assert.equal(result.approval_manifest, approvalManifest);
+  assert.equal(result.result.rust_authority_block, true);
+  assert.equal(result.event.event_kind, "tool.blocked");
+  assert.equal(result.event.created_at, "rust_daemon_core");
+  assert.equal(result.event.state_root_after, "sha256:after-1");
+  assert.equal(result.event.payload_summary.rust_authority_block, true);
   assert.equal(Object.hasOwn(result, "approvalManifest"), false);
-  const approvalCall = store.calls.find((call) => call.name === "approvalSatisfaction");
-  const blockCall = store.calls.find((call) => call.name === "blockApproval");
-  assert.ok(approvalCall);
-  assert.equal(approvalCall.input.approval_manifest, approvalManifest);
-  assert.equal(Object.hasOwn(approvalCall.input, "approvalManifest"), false);
+  assert.ok(!store.calls.some((call) => call.name === "approvalSatisfaction"));
+  const blockCall = store.calls.find((call) => call.name === "rustApprovalBlock");
   assert.ok(blockCall);
   assert.equal(blockCall.input.approval_manifest, approvalManifest);
+  assert.equal(blockCall.input.toolId, "file.inspect");
   assert.equal(Object.hasOwn(blockCall.input, "approvalManifest"), false);
+  const admissionCall = store.calls.find((call) => call.name === "rustResultEventAdmission");
+  assert.ok(admissionCall);
+  assert.equal(admissionCall.event.event_kind, "tool.blocked");
+  assert.ok(store.calls.some((call) => call.name === "registerRuntimeEvent"));
+  assert.ok(!store.calls.some((call) => call.name === "blockApproval"));
   assert.ok(!store.calls.some((call) => call.name === "materializeArtifacts"));
 });
 

@@ -48,18 +48,44 @@ export function createRuntimeThreadTurnSurface(deps = {}) {
           },
         });
       }
-      throwThreadTurnRustCoreRequired({
-        operation: "thread_resume",
-        operationKind: "thread.resume",
-        threadId,
-        agentId: agent?.id ?? null,
-        runtimeProfile: agent?.runtimeProfile ?? null,
-        evidenceRefs: [
-          "thread_resume_js_state_mutation_retired",
-          "rust_daemon_core_thread_resume_required",
-          "agentgres_thread_resume_truth_required",
-        ],
-      });
+      if (
+        typeof store.agentRunLifecycleSurface?.updateAgent !== "function" ||
+        typeof store.threadForAgent !== "function"
+      ) {
+        throwThreadTurnRustCoreRequired({
+          operation: "thread_resume",
+          operationKind: "thread.resume",
+          threadId,
+          agentId: agent?.id ?? null,
+          runtimeProfile: agent?.runtimeProfile ?? null,
+          evidenceRefs: [
+            "thread_resume_js_state_mutation_retired",
+            "rust_daemon_core_thread_resume_required",
+            "agentgres_thread_resume_truth_required",
+          ],
+        });
+      }
+      const updatedAgent = await store.agentRunLifecycleSurface.updateAgent(
+        store,
+        agent.id,
+        "active",
+        "agent.resume",
+      );
+      const threadProjection = store.threadForAgent(updatedAgent);
+      if (
+        optionalStringDep(threadProjection?.thread_id) !== threadId ||
+        optionalStringDep(threadProjection?.agent_id) !== optionalStringDep(updatedAgent?.id)
+      ) {
+        throwThreadTurnProjectionMismatch({
+          operation: "thread_resume",
+          operationKind: "thread.resume",
+          threadId,
+          agentId: optionalStringDep(updatedAgent?.id) ?? agent?.id ?? null,
+          actualThreadId: optionalStringDep(threadProjection?.thread_id) ?? null,
+          actualAgentId: optionalStringDep(threadProjection?.agent_id) ?? null,
+        });
+      }
+      return threadProjection;
     },
 
     async createTurn(store, threadId, request = {}) {
@@ -101,24 +127,54 @@ export function createRuntimeThreadTurnSurface(deps = {}) {
         });
       }
       const diagnosticsFeedback = store.pendingDiagnosticsFeedbackForNextTurn?.(threadId, controlledRequest) ?? null;
-      throwThreadTurnRustCoreRequired({
-        operation: diagnosticsFeedbackBlocksContinuation(diagnosticsFeedback)
-          ? "thread_turn_diagnostics_block"
-          : "thread_turn_create",
-        operationKind: diagnosticsFeedbackBlocksContinuation(diagnosticsFeedback)
-          ? "turn.diagnostics_block"
-          : "turn.create",
-        threadId,
-        agentId: agent?.id ?? null,
-        runtimeProfile: agent?.runtimeProfile ?? null,
-        evidenceRefs: [
-          diagnosticsFeedbackBlocksContinuation(diagnosticsFeedback)
-            ? "thread_turn_diagnostics_block_js_run_creation_retired"
-            : "thread_turn_create_js_run_creation_retired",
-          "rust_daemon_core_thread_turn_create_required",
-          "agentgres_thread_turn_create_truth_required",
-        ],
-      });
+      if (diagnosticsFeedbackBlocksContinuation(diagnosticsFeedback)) {
+        throwThreadTurnRustCoreRequired({
+          operation: "thread_turn_diagnostics_block",
+          operationKind: "turn.diagnostics_block",
+          threadId,
+          agentId: agent?.id ?? null,
+          runtimeProfile: agent?.runtimeProfile ?? null,
+          evidenceRefs: [
+            "thread_turn_diagnostics_block_js_run_creation_retired",
+            "rust_daemon_core_thread_turn_create_required",
+            "agentgres_thread_turn_create_truth_required",
+          ],
+        });
+      }
+      if (
+        typeof store.agentRunLifecycleSurface?.createRun !== "function" ||
+        typeof store.turnForRun !== "function"
+      ) {
+        throwThreadTurnRustCoreRequired({
+          operation: "thread_turn_create",
+          operationKind: "turn.create",
+          threadId,
+          agentId: agent?.id ?? null,
+          runtimeProfile: agent?.runtimeProfile ?? null,
+          evidenceRefs: [
+            "thread_turn_create_js_run_creation_retired",
+            "rust_daemon_core_thread_turn_create_required",
+            "agentgres_thread_turn_create_truth_required",
+          ],
+        });
+      }
+      const run = await store.agentRunLifecycleSurface.createRun(store, agent.id, controlledRequest);
+      const turnProjection = store.turnForRun(run);
+      if (
+        optionalStringDep(turnProjection?.thread_id) !== threadId ||
+        optionalStringDep(turnProjection?.request_id ?? turnProjection?.run_id) !== optionalStringDep(run?.id)
+      ) {
+        throwThreadTurnProjectionMismatch({
+          operation: "thread_turn_create",
+          operationKind: "turn.create",
+          threadId,
+          agentId: agent?.id ?? null,
+          runId: optionalStringDep(run?.id) ?? null,
+          actualThreadId: optionalStringDep(turnProjection?.thread_id) ?? null,
+          actualRunId: optionalStringDep(turnProjection?.request_id ?? turnProjection?.run_id) ?? null,
+        });
+      }
+      return turnProjection;
     },
 
     async interruptTurn(store, threadId, turnId, request = {}) {
@@ -143,6 +199,34 @@ export function createRuntimeThreadTurnSurface(deps = {}) {
       });
     },
   };
+
+  function throwThreadTurnProjectionMismatch({
+    operation,
+    operationKind,
+    threadId,
+    agentId,
+    runId = null,
+    actualThreadId = null,
+    actualAgentId = null,
+    actualRunId = null,
+  }) {
+    throw runtimeErrorDep({
+      status: 502,
+      code: "runtime_thread_turn_projection_mismatch",
+      message: "Rust daemon-core thread/turn projection did not match the admitted lifecycle state.",
+      details: {
+        rust_core_boundary: "runtime.thread_turn",
+        operation,
+        operation_kind: operationKind,
+        thread_id: threadId,
+        agent_id: agentId,
+        run_id: runId,
+        actual_thread_id: actualThreadId,
+        actual_agent_id: actualAgentId,
+        actual_run_id: actualRunId,
+      },
+    });
+  }
 
   function throwOperatorTurnControlRustCoreRequired({
     operation,

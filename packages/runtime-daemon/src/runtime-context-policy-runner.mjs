@@ -1,11 +1,10 @@
-import { createDaemonCoreCommandInvoker } from "./runtime-daemon-core-command-runner.mjs";
-
-export const CONTEXT_POLICY_COMMAND_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND";
 export const CONTEXT_POLICY_COMMAND_SCHEMA_VERSION = "ioi.runtime.daemon_core.command.v1";
 export const CONTEXT_BUDGET_POLICY_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.context-budget-policy-request.v1";
 export const CODING_TOOL_BUDGET_POLICY_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.coding-tool-budget-policy-request.v1";
+export const CODING_TOOL_BUDGET_BLOCK_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.coding-tool-budget-block-request.v1";
 export const CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.coding-tool-budget-recovery-state-update-request.v1";
 export const CODING_TOOL_BUDGET_RECOVERY_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION =
@@ -16,6 +15,8 @@ export const DIAGNOSTICS_REPAIR_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.diagnostics-repair-admission-required-request.v1";
 export const DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.diagnostics-operator-override-state-update-request.v1";
+export const POST_EDIT_DIAGNOSTICS_FEEDBACK_PLAN_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.post-edit-diagnostics-feedback-plan-request.v1";
 export const OPERATOR_TURN_CONTROL_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.operator-turn-control-admission-required-request.v1";
 export const OPERATOR_INTERRUPT_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
@@ -26,16 +27,24 @@ export const RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.run-cancel-state-update-request.v1";
 export const RUN_CANCEL_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.run-cancel-admission-required-request.v1";
-export const SKILL_HOOK_REGISTRY_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION =
-  "ioi.runtime.skill-hook-registry-projection-required-request.v1";
-export const REPOSITORY_WORKFLOW_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION =
-  "ioi.runtime.repository-workflow-projection-required-request.v1";
-export const RUNTIME_TOOL_CATALOG_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION =
-  "ioi.runtime.tool-catalog-projection-required-request.v1";
-export const RUNTIME_LIFECYCLE_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION =
-  "ioi.runtime.lifecycle-projection-required-request.v1";
+export const RUNTIME_TASK_JOB_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.task-job-cancel-state-update-request.v1";
+export const RUNTIME_TASK_JOB_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.task-job-create-state-update-request.v1";
+export const RUNTIME_TASK_JOB_PROJECTION_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.task-job-projection-request.v1";
+export const SKILL_HOOK_REGISTRY_PROJECTION_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.skill-hook-registry-projection-request.v1";
+export const REPOSITORY_WORKFLOW_PROJECTION_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.repository-workflow-projection-request.v1";
+export const RUNTIME_TOOL_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.tool-catalog-projection-request.v1";
+export const RUNTIME_LIFECYCLE_PROJECTION_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.lifecycle-projection-request.v1";
 export const THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.thread-control-agent-state-update-request.v1";
+export const WORKSPACE_TRUST_CONTROL_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.workspace-trust-control-state-update-request.v1";
 export const THREAD_TURN_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.thread-turn-admission-required-request.v1";
 export const LIFECYCLE_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION =
@@ -66,12 +75,16 @@ export const RUNTIME_BRIDGE_TURN_RUN_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.runtime-bridge-turn-run-state-update-request.v1";
 export const SUBAGENT_RECORD_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.subagent-record-state-update-request.v1";
+export const THREAD_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.thread-create-state-update-request.v1";
 export const AGENT_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.agent-create-state-update-request.v1";
 export const RUN_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.run-create-state-update-request.v1";
 export const AGENT_STATUS_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.agent-status-state-update-request.v1";
+export const AGENT_DELETE_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.agent-delete-state-update-request.v1";
 export const COMPACTION_POLICY_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.compaction-policy-request.v1";
 export const CONTEXT_COMPACTION_PLAN_REQUEST_SCHEMA_VERSION =
@@ -82,10 +95,9 @@ export const RUST_CONTEXT_POLICY_BACKEND = "rust_policy";
 
 export function createContextPolicyRunnerFromEnv(env = process.env, options = {}) {
   assertNoContextPolicyCommandArgs(options.args ?? env.IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS);
+  assertNoContextPolicyCommandSelection(options.command ?? env.IOI_RUNTIME_DAEMON_CORE_COMMAND);
   return new RustContextPolicyRunner({
-    command: options.command ?? env[CONTEXT_POLICY_COMMAND_ENV] ?? null,
     daemonCoreInvoker: options.daemonCoreInvoker,
-    spawnSyncImpl: options.spawnSyncImpl,
   });
 }
 
@@ -100,28 +112,21 @@ export function assertNoContextPolicyCommandArgs(value) {
   );
 }
 
+export function assertNoContextPolicyCommandSelection(value) {
+  if (typeof value === "string" && value.trim().length === 0) return;
+  if (value == null) return;
+  throw new ContextPolicyRunnerError(
+    "Context policy binary command selection is retired; use daemonCoreInvoker for direct Rust daemon-core policy evaluation.",
+    "context_policy_command_selection_retired",
+    { retired_command: value },
+  );
+}
+
 export class RustContextPolicyRunner {
   constructor(options = {}) {
     assertNoContextPolicyCommandArgs(options.args);
-    this.command = optionalString(options.command);
-    this.invokeBridge = createDaemonCoreCommandInvoker({
-      command: this.command,
-      daemonCoreInvoker: options.daemonCoreInvoker,
-      spawnSyncImpl: options.spawnSyncImpl,
-      ErrorClass: ContextPolicyRunnerError,
-      env: CONTEXT_POLICY_COMMAND_ENV,
-      unconfiguredMessage:
-        "Context policy requires IOI_RUNTIME_DAEMON_CORE_COMMAND for Rust daemon-core policy evaluation.",
-      unconfiguredCode: "context_policy_bridge_unconfigured",
-      spawnFailedMessage: "Failed to spawn Rust context policy bridge command.",
-      spawnFailedCode: "context_policy_bridge_spawn_failed",
-      commandFailedMessage: "Rust context policy bridge command failed.",
-      commandFailedCode: "context_policy_bridge_failed",
-      invalidJsonMessage: "Rust context policy bridge command returned invalid JSON.",
-      invalidJsonCode: "context_policy_bridge_invalid_json",
-      rejectedMessage: "Rust context policy rejected the request.",
-      rejectedCode: "context_policy_bridge_rejected",
-    });
+    assertNoContextPolicyCommandSelection(options.command);
+    this.daemonCoreInvoker = optionalFunction(options.daemonCoreInvoker);
   }
 
   evaluateContextBudgetPolicy(request = {}) {
@@ -138,6 +143,14 @@ export class RustContextPolicyRunner {
       schemaVersion: CODING_TOOL_BUDGET_POLICY_REQUEST_SCHEMA_VERSION,
       request,
     });
+  }
+
+  planCodingToolBudgetBlock(request = {}) {
+    return normalizeCodingToolBudgetBlockBridgeResult(this.evaluateRawPolicy({
+      operation: "plan_coding_tool_budget_block",
+      schemaVersion: CODING_TOOL_BUDGET_BLOCK_REQUEST_SCHEMA_VERSION,
+      request,
+    }));
   }
 
   evaluateCompactionPolicy(request = {}) {
@@ -204,6 +217,14 @@ export class RustContextPolicyRunner {
     }));
   }
 
+  planPostEditDiagnosticsFeedback(request = {}) {
+    return normalizePostEditDiagnosticsFeedbackPlanBridgeResult(this.evaluateRawPolicy({
+      operation: "plan_post_edit_diagnostics_feedback",
+      schemaVersion: POST_EDIT_DIAGNOSTICS_FEEDBACK_PLAN_REQUEST_SCHEMA_VERSION,
+      request,
+    }));
+  }
+
   planOperatorTurnControlAdmissionRequired(request = {}) {
     return this.evaluateRawPolicy({
       operation: "plan_operator_turn_control_admission_required",
@@ -244,42 +265,74 @@ export class RustContextPolicyRunner {
     });
   }
 
-  planSkillHookRegistryProjectionRequired(request = {}) {
-    return this.evaluateRawPolicy({
-      operation: "plan_skill_hook_registry_projection_required",
-      schemaVersion: SKILL_HOOK_REGISTRY_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION,
+  planRuntimeTaskJobCancelStateUpdate(request = {}) {
+    return normalizeRuntimeTaskJobCancelStateUpdateBridgeResult(this.evaluateRawPolicy({
+      operation: "plan_runtime_task_job_cancel_state_update",
+      schemaVersion: RUNTIME_TASK_JOB_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
-    });
+    }));
   }
 
-  planRepositoryWorkflowProjectionRequired(request = {}) {
-    return this.evaluateRawPolicy({
-      operation: "plan_repository_workflow_projection_required",
-      schemaVersion: REPOSITORY_WORKFLOW_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION,
+  planRuntimeTaskJobCreateStateUpdate(request = {}) {
+    return normalizeRuntimeTaskJobCreateStateUpdateBridgeResult(this.evaluateRawPolicy({
+      operation: "plan_runtime_task_job_create_state_update",
+      schemaVersion: RUNTIME_TASK_JOB_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
-    });
+    }));
   }
 
-  planRuntimeToolCatalogProjectionRequired(request = {}) {
-    return this.evaluateRawPolicy({
-      operation: "plan_runtime_tool_catalog_projection_required",
-      schemaVersion: RUNTIME_TOOL_CATALOG_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION,
+  projectRuntimeTaskJobProjection(request = {}) {
+    return normalizeRuntimeTaskJobProjectionBridgeResult(this.evaluateRawPolicy({
+      operation: "project_runtime_task_job_projection",
+      schemaVersion: RUNTIME_TASK_JOB_PROJECTION_REQUEST_SCHEMA_VERSION,
       request,
-    });
+    }));
   }
 
-  planRuntimeLifecycleProjectionRequired(request = {}) {
-    return this.evaluateRawPolicy({
-      operation: "plan_runtime_lifecycle_projection_required",
-      schemaVersion: RUNTIME_LIFECYCLE_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION,
+  projectSkillHookRegistry(request = {}) {
+    return normalizeSkillHookRegistryProjectionBridgeResult(this.evaluateRawPolicy({
+      operation: "project_skill_hook_registry",
+      schemaVersion: SKILL_HOOK_REGISTRY_PROJECTION_REQUEST_SCHEMA_VERSION,
       request,
-    });
+    }));
+  }
+
+  projectRepositoryWorkflow(request = {}) {
+    return normalizeRepositoryWorkflowProjectionBridgeResult(this.evaluateRawPolicy({
+      operation: "project_repository_workflow",
+      schemaVersion: REPOSITORY_WORKFLOW_PROJECTION_REQUEST_SCHEMA_VERSION,
+      request,
+    }));
+  }
+
+  projectRuntimeToolCatalog(request = {}) {
+    return normalizeRuntimeToolCatalogProjectionBridgeResult(this.evaluateRawPolicy({
+      operation: "project_runtime_tool_catalog",
+      schemaVersion: RUNTIME_TOOL_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION,
+      request,
+    }));
+  }
+
+  projectRuntimeLifecycle(request = {}) {
+    return normalizeRuntimeLifecycleProjectionBridgeResult(this.evaluateRawPolicy({
+      operation: "project_runtime_lifecycle",
+      schemaVersion: RUNTIME_LIFECYCLE_PROJECTION_REQUEST_SCHEMA_VERSION,
+      request,
+    }));
   }
 
   planThreadControlAgentStateUpdate(request = {}) {
     return normalizeThreadControlAgentStateUpdateBridgeResult(this.evaluateRawPolicy({
       operation: "plan_thread_control_agent_state_update",
       schemaVersion: THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+      request,
+    }));
+  }
+
+  planWorkspaceTrustControlStateUpdate(request = {}) {
+    return normalizeWorkspaceTrustControlStateUpdateBridgeResult(this.evaluateRawPolicy({
+      operation: "plan_workspace_trust_control_state_update",
+      schemaVersion: WORKSPACE_TRUST_CONTROL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
     }));
   }
@@ -404,6 +457,14 @@ export class RustContextPolicyRunner {
     }));
   }
 
+  planThreadCreateStateUpdate(request = {}) {
+    return normalizeThreadCreateStateUpdateBridgeResult(this.evaluateRawPolicy({
+      operation: "plan_thread_create_state_update",
+      schemaVersion: THREAD_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+      request,
+    }));
+  }
+
   planAgentCreateStateUpdate(request = {}) {
     return normalizeAgentCreateStateUpdateBridgeResult(this.evaluateRawPolicy({
       operation: "plan_agent_create_state_update",
@@ -428,6 +489,14 @@ export class RustContextPolicyRunner {
     }));
   }
 
+  planAgentDeleteStateUpdate(request = {}) {
+    return normalizeAgentDeleteStateUpdateBridgeResult(this.evaluateRawPolicy({
+      operation: "plan_agent_delete_state_update",
+      schemaVersion: AGENT_DELETE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+      request,
+    }));
+  }
+
   evaluatePolicy({ operation, schemaVersion, request }) {
     return normalizeContextBudgetPolicyBridgeResult(this.evaluateRawPolicy({
       operation,
@@ -446,9 +515,28 @@ export class RustContextPolicyRunner {
         schema_version: schemaVersion,
       },
     };
-    return this.invokeBridge(bridgeRequest);
+    return this.invokeDaemonCore(bridgeRequest);
   }
 
+  invokeDaemonCore(request) {
+    if (!this.daemonCoreInvoker) {
+      throw new ContextPolicyRunnerError(
+        "Context policy requires daemonCoreInvoker for direct Rust daemon-core policy evaluation.",
+        "context_policy_direct_invoker_unconfigured",
+        { boundary: "daemonCoreInvoker" },
+      );
+    }
+    const response = this.daemonCoreInvoker(request);
+    const responseError = objectRecord(response?.error);
+    if (response?.ok === false && responseError) {
+      throw new ContextPolicyRunnerError(
+        responseError.message ?? "Rust context policy rejected the request.",
+        responseError.code ?? "context_policy_direct_invoker_rejected",
+        { error: responseError },
+      );
+    }
+    return response?.ok === true ? response.result : response;
+  }
 }
 
 export class ContextPolicyRunnerError extends Error {
@@ -667,6 +755,49 @@ export function normalizeCodingToolBudgetRecoveryStateUpdateBridgeResult(value =
   };
 }
 
+export function normalizeCodingToolBudgetBlockBridgeResult(value = {}) {
+  const result = objectRecord(value) ?? {};
+  const record = objectRecord(result.record) ?? result;
+  return {
+    ...record,
+    source:
+      result.source ??
+      record.source ??
+      "rust_coding_tool_budget_block_command",
+    backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
+    record,
+    object: optionalString(result.object ?? record.object) ?? null,
+    status: optionalString(result.status ?? record.status) ?? "blocked",
+    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+      codePrefix: "coding_tool_budget_block",
+      expectedOperationKind: "coding_tool.budget.block",
+    }),
+    thread_id: optionalString(result.thread_id ?? record.thread_id) ?? null,
+    turn_id: optionalString(result.turn_id ?? record.turn_id) ?? null,
+    tool_id: optionalString(result.tool_id ?? record.tool_id) ?? null,
+    tool_call_id: optionalString(result.tool_call_id ?? record.tool_call_id) ?? null,
+    workflow_graph_id:
+      optionalString(result.workflow_graph_id ?? record.workflow_graph_id) ??
+      null,
+    workflow_node_id:
+      optionalString(result.workflow_node_id ?? record.workflow_node_id) ??
+      null,
+    reason:
+      optionalString(result.reason ?? record.reason) ??
+      "coding_tool_budget_exceeded",
+    context_budget_status:
+      optionalString(result.context_budget_status ?? record.context_budget_status) ??
+      null,
+    receipt_refs: stringArray(result.receipt_refs ?? record.receipt_refs),
+    policy_decision_refs:
+      stringArray(result.policy_decision_refs ?? record.policy_decision_refs),
+    artifact_refs: stringArray(result.artifact_refs ?? record.artifact_refs),
+    rollback_refs: stringArray(result.rollback_refs ?? record.rollback_refs),
+    result: objectRecord(result.result) ?? objectRecord(record.result) ?? null,
+    event: objectRecord(result.event) ?? objectRecord(record.event) ?? null,
+  };
+}
+
 export function normalizeDiagnosticsOperatorOverrideStateUpdateBridgeResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
@@ -738,6 +869,43 @@ export function normalizeOperatorSteerStateUpdateBridgeResult(value = {}) {
   };
 }
 
+export function normalizePostEditDiagnosticsFeedbackPlanBridgeResult(value = {}) {
+  const result = objectRecord(value) ?? {};
+  const record = objectRecord(result.record) ?? result;
+  return {
+    ...record,
+    source:
+      result.source ??
+      record.source ??
+      "rust_post_edit_diagnostics_feedback_plan_command",
+    backend:
+      result.backend ??
+      record.backend ??
+      "rust_runtime_diagnostics_feedback",
+    object: optionalString(result.object ?? record.object) ?? null,
+    status: optionalString(result.status ?? record.status) ?? null,
+    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+      codePrefix: "post_edit_diagnostics_feedback_plan",
+      expectedOperationKind: "runtime.post_edit_diagnostics_feedback",
+    }),
+    planned: Boolean(result.planned ?? record.status === "planned"),
+    skipped: Boolean(result.skipped ?? record.status === "skipped"),
+    tool_id: optionalString(result.tool_id ?? record.tool_id) ?? null,
+    tool_call_id: optionalString(result.tool_call_id ?? record.tool_call_id) ?? null,
+    paths: stringArray(result.paths ?? record.paths),
+    rollback_refs: stringArray(result.rollback_refs ?? record.rollback_refs),
+    workspace_snapshot_id:
+      optionalString(result.workspace_snapshot_id ?? record.workspace_snapshot_id) ??
+      null,
+    request: objectRecord(result.request) ?? objectRecord(record.request) ?? null,
+    diagnostics_repair_context:
+      objectRecord(result.diagnostics_repair_context) ??
+      objectRecord(record.diagnostics_repair_context) ??
+      null,
+    record,
+  };
+}
+
 export function normalizeRunCancelStateUpdateBridgeResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
@@ -767,6 +935,284 @@ export function normalizeRunCancelStateUpdateBridgeResult(value = {}) {
   };
 }
 
+export function normalizeRuntimeTaskJobCancelStateUpdateBridgeResult(value = {}) {
+  const result = objectRecord(value) ?? {};
+  const record = objectRecord(result.record) ?? result;
+  return {
+    ...record,
+    source:
+      result.source ??
+      record.source ??
+      "rust_runtime_task_job_cancel_state_update_command",
+    backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
+    object: optionalString(result.object ?? record.object) ?? null,
+    status: optionalString(result.status ?? record.status) ?? null,
+    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+      codePrefix: "runtime_task_job_cancel_state_update",
+      expectedOperationKinds: ["task.cancel", "job.cancel"],
+    }),
+    cancel_kind: optionalString(result.cancel_kind ?? record.cancel_kind) ?? null,
+    task_id: optionalString(result.task_id ?? record.task_id) ?? null,
+    job_id: optionalString(result.job_id ?? record.job_id) ?? null,
+    run_id: optionalString(result.run_id ?? record.run_id) ?? null,
+    updated_at: optionalString(result.updated_at ?? record.updated_at) ?? null,
+    runtime_task:
+      objectRecord(result.runtime_task) ?? objectRecord(record.runtime_task) ?? null,
+    runtime_job:
+      objectRecord(result.runtime_job) ?? objectRecord(record.runtime_job) ?? null,
+    runtime_checklist:
+      objectRecord(result.runtime_checklist) ??
+      objectRecord(record.runtime_checklist) ??
+      null,
+    run: objectRecord(result.run) ?? objectRecord(record.run) ?? null,
+  };
+}
+
+export function normalizeRuntimeTaskJobCreateStateUpdateBridgeResult(value = {}) {
+  const result = objectRecord(value) ?? {};
+  const record = objectRecord(result.record) ?? result;
+  return {
+    ...record,
+    source:
+      result.source ??
+      record.source ??
+      "rust_runtime_task_job_create_state_update_command",
+    backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
+    object: optionalString(result.object ?? record.object) ?? null,
+    status: optionalString(result.status ?? record.status) ?? null,
+    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+      codePrefix: "runtime_task_job_create_state_update",
+      expectedOperationKind: "task.create",
+    }),
+    task_id: optionalString(result.task_id ?? record.task_id) ?? null,
+    job_id: optionalString(result.job_id ?? record.job_id) ?? null,
+    run_id: optionalString(result.run_id ?? record.run_id) ?? null,
+    agent_id: optionalString(result.agent_id ?? record.agent_id) ?? null,
+    created_at: optionalString(result.created_at ?? record.created_at) ?? null,
+    updated_at: optionalString(result.updated_at ?? record.updated_at) ?? null,
+    runtime_task:
+      objectRecord(result.runtime_task) ?? objectRecord(record.runtime_task) ?? null,
+    runtime_job:
+      objectRecord(result.runtime_job) ?? objectRecord(record.runtime_job) ?? null,
+    runtime_checklist:
+      objectRecord(result.runtime_checklist) ??
+      objectRecord(record.runtime_checklist) ??
+      null,
+    run: objectRecord(result.run) ?? objectRecord(record.run) ?? null,
+  };
+}
+
+export function normalizeRuntimeTaskJobProjectionBridgeResult(value = {}) {
+  const result = objectRecord(value) ?? {};
+  const record = objectRecord(result.record) ?? result;
+  const records = arrayValue(result.records ?? record.records);
+  return {
+    ...record,
+    source:
+      result.source ??
+      record.source ??
+      "rust_runtime_task_job_projection_command",
+    backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
+    object: optionalString(result.object ?? record.object) ?? null,
+    status: optionalString(result.status ?? record.status) ?? null,
+    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+      codePrefix: "runtime_task_job_projection",
+      expectedOperationKinds: ["task.list", "task.get", "job.list", "job.get"],
+    }),
+    projection_kind:
+      optionalString(result.projection_kind ?? record.projection_kind) ?? null,
+    agent_id: optionalString(result.agent_id ?? record.agent_id) ?? null,
+    status_filter:
+      optionalString(result.status_filter ?? record.status_filter) ?? null,
+    task_id: optionalString(result.task_id ?? record.task_id) ?? null,
+    job_id: optionalString(result.job_id ?? record.job_id) ?? null,
+    records,
+    record_count:
+      numberValue(result.record_count ?? record.record_count) ?? records.length,
+    runtime_task:
+      objectRecord(result.runtime_task) ?? objectRecord(record.runtime_task) ?? null,
+    runtime_job:
+      objectRecord(result.runtime_job) ?? objectRecord(record.runtime_job) ?? null,
+  };
+}
+
+export function normalizeSkillHookRegistryProjectionBridgeResult(value = {}) {
+  const result = objectRecord(value) ?? {};
+  const record = objectRecord(result.record) ?? result;
+  const registryKind = optionalString(result.registry_kind ?? record.registry_kind);
+  const expectedOperationKind = {
+    catalog: "skill_hook.registry.catalog",
+    skills: "skill_hook.registry.skills",
+    hooks: "skill_hook.registry.hooks",
+  }[registryKind];
+  return {
+    ...record,
+    source:
+      result.source ??
+      record.source ??
+      "rust_skill_hook_registry_projection_command",
+    backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
+    object: optionalString(result.object ?? record.object) ?? null,
+    status: optionalString(result.status ?? record.status) ?? null,
+    operation_kind: expectedOperationKind
+      ? requiredContextPolicyBridgeOperationKind(result, record, {
+          codePrefix: "skill_hook_registry_projection",
+          expectedOperationKind,
+        })
+      : optionalString(result.operation_kind ?? record.operation_kind) ?? null,
+    registry_kind: registryKind,
+    workspace_root: optionalString(result.workspace_root ?? record.workspace_root) ?? null,
+    catalog: objectRecord(result.catalog) ?? objectRecord(record.catalog) ?? null,
+    projection: objectRecord(result.projection) ?? objectRecord(record.projection) ?? null,
+    skills: arrayValue(result.skills ?? record.skills),
+    hooks: arrayValue(result.hooks ?? record.hooks),
+    sources: arrayValue(result.sources ?? record.sources),
+    record_count: numberValue(result.record_count ?? record.record_count),
+    evidence_refs: stringArray(result.evidence_refs ?? record.evidence_refs),
+    receipt_refs: stringArray(result.receipt_refs ?? record.receipt_refs),
+    record,
+  };
+}
+
+export function normalizeRepositoryWorkflowProjectionBridgeResult(value = {}) {
+  const result = objectRecord(value) ?? {};
+  const record = objectRecord(result.record) ?? result;
+  const projectionKind = optionalString(result.projection_kind ?? record.projection_kind);
+  const projection = result.projection ?? record.projection;
+  const expectedOperationKind = {
+    repository_list: "repository_workflow.projection.repository_list",
+    repository_context: "repository_workflow.projection.repository_context",
+    branch_policy: "repository_workflow.projection.branch_policy",
+    github_context: "repository_workflow.projection.github_context",
+    pr_attempts: "repository_workflow.projection.pr_attempts",
+    issue_context: "repository_workflow.projection.issue_context",
+    review_gate: "repository_workflow.projection.review_gate",
+    github_pr_create_plan: "repository_workflow.projection.github_pr_create_plan",
+  }[projectionKind];
+  return {
+    ...record,
+    source:
+      result.source ??
+      record.source ??
+      "rust_repository_workflow_projection_command",
+    backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
+    object: optionalString(result.object ?? record.object) ?? null,
+    status: optionalString(result.status ?? record.status) ?? null,
+    operation_kind: expectedOperationKind
+      ? requiredContextPolicyBridgeOperationKind(result, record, {
+          codePrefix: "repository_workflow_projection",
+          expectedOperationKind,
+        })
+      : optionalString(result.operation_kind ?? record.operation_kind) ?? null,
+    projection_kind: projectionKind,
+    workspace_root:
+      optionalString(result.workspace_root ?? record.workspace_root) ?? null,
+    projection:
+      objectRecord(projection) ?? (Array.isArray(projection) ? projection : null),
+    repository_context:
+      objectRecord(result.repository_context) ??
+      objectRecord(record.repository_context) ??
+      null,
+    branch_policy:
+      objectRecord(result.branch_policy) ?? objectRecord(record.branch_policy) ?? null,
+    github_context:
+      objectRecord(result.github_context) ?? objectRecord(record.github_context) ?? null,
+    pr_attempt:
+      objectRecord(result.pr_attempt) ?? objectRecord(record.pr_attempt) ?? null,
+    issue_context:
+      objectRecord(result.issue_context) ?? objectRecord(record.issue_context) ?? null,
+    review_gate:
+      objectRecord(result.review_gate) ?? objectRecord(record.review_gate) ?? null,
+    github_pr_create_plan:
+      objectRecord(result.github_pr_create_plan) ??
+      objectRecord(record.github_pr_create_plan) ??
+      null,
+    repositories: arrayValue(result.repositories ?? record.repositories),
+    record_count: numberValue(result.record_count ?? record.record_count),
+    evidence_refs: stringArray(result.evidence_refs ?? record.evidence_refs),
+    receipt_refs: stringArray(result.receipt_refs ?? record.receipt_refs),
+    record,
+  };
+}
+
+export function normalizeRuntimeToolCatalogProjectionBridgeResult(value = {}) {
+  const result = objectRecord(value) ?? {};
+  const record = objectRecord(result.record) ?? result;
+  const runtimeNodes = arrayValue(result.runtime_nodes ?? record.runtime_nodes);
+  const tools = arrayValue(result.tools ?? record.tools);
+  return {
+    ...record,
+    source:
+      result.source ??
+      record.source ??
+      "rust_runtime_tool_catalog_projection_command",
+    backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
+    object: optionalString(result.object ?? record.object) ?? null,
+    status: optionalString(result.status ?? record.status) ?? null,
+    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+      codePrefix: "runtime_tool_catalog_projection",
+      expectedOperationKinds: [
+        "runtime.tool_catalog.projection.account",
+        "runtime.tool_catalog.projection.runtime_nodes",
+        "runtime.tool_catalog.projection.tools",
+      ],
+    }),
+    projection_kind:
+      optionalString(result.projection_kind ?? record.projection_kind) ?? null,
+    pack: optionalString(result.pack ?? record.pack) ?? null,
+    workspace_root:
+      optionalString(result.workspace_root ?? record.workspace_root) ?? null,
+    account: objectRecord(result.account) ?? objectRecord(record.account) ?? null,
+    runtime_nodes: runtimeNodes,
+    tools,
+    record_count:
+      numberValue(result.record_count ?? record.record_count) ??
+      (runtimeNodes.length || tools.length || (record.account ? 1 : 0)),
+    evidence_refs: stringArray(result.evidence_refs ?? record.evidence_refs),
+    receipt_refs: stringArray(result.receipt_refs ?? record.receipt_refs),
+  };
+}
+
+export function normalizeRuntimeLifecycleProjectionBridgeResult(value = {}) {
+  const result = objectRecord(value) ?? {};
+  const record = objectRecord(result.record) ?? result;
+  const projectionKind = optionalString(result.projection_kind ?? record.projection_kind);
+  const expectedOperationKind = projectionKind
+    ? `runtime.lifecycle_projection.${projectionKind}`
+    : null;
+  const projection = result.projection ?? record.projection;
+  return {
+    ...record,
+    source:
+      result.source ??
+      record.source ??
+      "rust_runtime_lifecycle_projection_command",
+    backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
+    object: optionalString(result.object ?? record.object) ?? null,
+    status: optionalString(result.status ?? record.status) ?? null,
+    operation_kind: expectedOperationKind
+      ? requiredContextPolicyBridgeOperationKind(result, record, {
+          codePrefix: "runtime_lifecycle_projection",
+          expectedOperationKind,
+        })
+      : optionalString(result.operation_kind ?? record.operation_kind) ?? null,
+    projection_kind: projectionKind,
+    agent_id: optionalString(result.agent_id ?? record.agent_id) ?? null,
+    thread_id: optionalString(result.thread_id ?? record.thread_id) ?? null,
+    turn_id: optionalString(result.turn_id ?? record.turn_id) ?? null,
+    run_id: optionalString(result.run_id ?? record.run_id) ?? null,
+    artifact_ref: optionalString(result.artifact_ref ?? record.artifact_ref) ?? null,
+    workspace_root:
+      optionalString(result.workspace_root ?? record.workspace_root) ?? null,
+    projection:
+      objectRecord(projection) ?? (Array.isArray(projection) ? projection : projection ?? null),
+    record_count: numberValue(result.record_count ?? record.record_count),
+    evidence_refs: stringArray(result.evidence_refs ?? record.evidence_refs),
+    receipt_refs: stringArray(result.receipt_refs ?? record.receipt_refs),
+    record,
+  };
+}
+
 export function normalizeThreadControlAgentStateUpdateBridgeResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
@@ -784,9 +1230,56 @@ export function normalizeThreadControlAgentStateUpdateBridgeResult(value = {}) {
       expectedPrefix: "thread.",
     }),
     updated_at: optionalString(result.updated_at ?? record.updated_at) ?? null,
+    receipt_refs: stringArray(result.receipt_refs ?? record.receipt_refs),
+    policy_decision_refs:
+      stringArray(result.policy_decision_refs ?? record.policy_decision_refs),
     control:
       objectRecord(result.control) ?? objectRecord(record.control) ?? null,
     agent: objectRecord(result.agent) ?? objectRecord(record.agent) ?? null,
+  };
+}
+
+export function normalizeWorkspaceTrustControlStateUpdateBridgeResult(value = {}) {
+  const result = objectRecord(value) ?? {};
+  const record = objectRecord(result.record) ?? result;
+  return {
+    ...record,
+    source:
+      result.source ??
+      record.source ??
+      "rust_workspace_trust_control_state_update_command",
+    backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
+    object: optionalString(result.object ?? record.object) ?? null,
+    status: optionalString(result.status ?? record.status) ?? null,
+    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+      codePrefix: "workspace_trust_control_state_update",
+      expectedOperationKinds: ["workspace_trust.warning", "workspace_trust.acknowledge"],
+    }),
+    thread_id: optionalString(result.thread_id ?? record.thread_id) ?? null,
+    event_stream_id:
+      optionalString(result.event_stream_id ?? record.event_stream_id) ?? null,
+    event_id: optionalString(result.event_id ?? record.event_id) ?? null,
+    warning_id: optionalString(result.warning_id ?? record.warning_id) ?? null,
+    source_event_id:
+      optionalString(result.source_event_id ?? record.source_event_id) ?? null,
+    created_at: optionalString(result.created_at ?? record.created_at) ?? null,
+    receipt_refs: stringArray(result.receipt_refs ?? record.receipt_refs),
+    policy_decision_refs:
+      stringArray(result.policy_decision_refs ?? record.policy_decision_refs),
+    wallet_authority_refs:
+      stringArray(result.wallet_authority_refs ?? record.wallet_authority_refs),
+    authority_receipt_refs:
+      stringArray(result.authority_receipt_refs ?? record.authority_receipt_refs),
+    ctee_receipt_refs: stringArray(result.ctee_receipt_refs ?? record.ctee_receipt_refs),
+    workspace_trust_warning:
+      objectRecord(result.workspace_trust_warning) ??
+      objectRecord(record.workspace_trust_warning) ??
+      null,
+    workspace_trust_acknowledgement:
+      objectRecord(result.workspace_trust_acknowledgement) ??
+      objectRecord(record.workspace_trust_acknowledgement) ??
+      null,
+    event: objectRecord(result.event) ?? objectRecord(record.event) ?? null,
   };
 }
 
@@ -1152,6 +1645,31 @@ export function normalizeAgentCreateStateUpdateBridgeResult(value = {}) {
   };
 }
 
+export function normalizeThreadCreateStateUpdateBridgeResult(value = {}) {
+  const result = objectRecord(value) ?? {};
+  const record = objectRecord(result.record) ?? result;
+  return {
+    ...record,
+    source:
+      result.source ??
+      record.source ??
+      "rust_thread_create_state_update_command",
+    backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
+    object: optionalString(result.object ?? record.object) ?? null,
+    status: optionalString(result.status ?? record.status) ?? null,
+    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+      codePrefix: "thread_create_state_update",
+      expectedOperationKind: "thread.create",
+    }),
+    thread_id: optionalString(result.thread_id ?? record.thread_id) ?? null,
+    agent_id: optionalString(result.agent_id ?? record.agent_id) ?? null,
+    created_at: optionalString(result.created_at ?? record.created_at) ?? null,
+    updated_at: optionalString(result.updated_at ?? record.updated_at) ?? null,
+    agent: objectRecord(result.agent) ?? objectRecord(record.agent) ?? null,
+    thread: objectRecord(result.thread) ?? objectRecord(record.thread) ?? null,
+  };
+}
+
 export function normalizeRunCreateStateUpdateBridgeResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
@@ -1195,10 +1713,36 @@ export function normalizeAgentStatusStateUpdateBridgeResult(value = {}) {
   };
 }
 
+export function normalizeAgentDeleteStateUpdateBridgeResult(value = {}) {
+  const result = objectRecord(value) ?? {};
+  const record = objectRecord(result.record) ?? result;
+  return {
+    ...record,
+    source:
+      result.source ??
+      record.source ??
+      "rust_agent_delete_state_update_command",
+    backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
+    object: optionalString(result.object ?? record.object) ?? null,
+    status: optionalString(result.status ?? record.status) ?? null,
+    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+      codePrefix: "agent_delete_state_update",
+      expectedOperationKind: "agent.delete",
+    }),
+    deleted_at: optionalString(result.deleted_at ?? record.deleted_at) ?? null,
+    updated_at: optionalString(result.updated_at ?? record.updated_at) ?? null,
+    agent: objectRecord(result.agent) ?? objectRecord(record.agent) ?? null,
+  };
+}
+
 function optionalString(value) {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   return trimmed || null;
+}
+
+function optionalFunction(value) {
+  return typeof value === "function" ? value : null;
 }
 
 function objectRecord(value) {

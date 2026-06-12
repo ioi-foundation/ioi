@@ -55,7 +55,7 @@ export function codingToolContracts() {
       },
       output_schema: {
         type: "object",
-        required: ["workspaceRoot", "git", "changedFiles", "shellFallbackUsed"],
+        required: ["workspace_root", "git", "changed_files", "shell_fallback_used"],
       },
       evidence_requirements: ["workspace_status_receipt", "coding_tool_receipt"],
       workflow_node_type: "CodingToolNode",
@@ -85,7 +85,7 @@ export function codingToolContracts() {
       },
       output_schema: {
         type: "object",
-        required: ["workspaceRoot", "paths", "diff", "diffHash", "shellFallbackUsed"],
+        required: ["workspace_root", "paths", "diff", "diff_hash", "shell_fallback_used"],
       },
       evidence_requirements: ["git_diff_receipt", "coding_tool_receipt"],
       workflow_node_type: "GitToolNode",
@@ -116,7 +116,7 @@ export function codingToolContracts() {
       },
       output_schema: {
         type: "object",
-        required: ["workspaceRoot", "path", "kind", "exists", "shellFallbackUsed"],
+        required: ["workspace_root", "path", "kind", "exists", "shell_fallback_used"],
       },
       evidence_requirements: ["file_inspect_receipt", "coding_tool_receipt"],
       workflow_node_type: "FilesystemToolNode",
@@ -173,14 +173,14 @@ export function codingToolContracts() {
       output_schema: {
         type: "object",
         required: [
-          "workspaceRoot",
+          "workspace_root",
           "path",
-          "dryRun",
+          "dry_run",
           "applied",
           "changed",
-          "beforeHash",
-          "afterHash",
-          "shellFallbackUsed",
+          "before_hash",
+          "after_hash",
+          "shell_fallback_used",
         ],
       },
       evidence_requirements: [
@@ -234,15 +234,15 @@ export function codingToolContracts() {
       output_schema: {
         type: "object",
         required: [
-          "workspaceRoot",
-          "commandId",
+          "workspace_root",
+          "command_id",
           "cwd",
-          "exitCode",
-          "testStatus",
+          "exit_code",
+          "test_status",
           "stdout",
           "stderr",
-          "outputHash",
-          "shellFallbackUsed",
+          "output_hash",
+          "shell_fallback_used",
         ],
       },
       evidence_requirements: ["test_run_receipt", "coding_tool_receipt"],
@@ -284,15 +284,15 @@ export function codingToolContracts() {
       output_schema: {
         type: "object",
         required: [
-          "workspaceRoot",
-          "commandId",
-          "resolvedCommandId",
+          "workspace_root",
+          "command_id",
+          "resolved_command_id",
           "backend",
-          "diagnosticStatus",
+          "diagnostic_status",
           "diagnostics",
-          "diagnosticCount",
-          "outputHash",
-          "shellFallbackUsed",
+          "diagnostic_count",
+          "output_hash",
+          "shell_fallback_used",
         ],
       },
       evidence_requirements: ["lsp_diagnostics_receipt", "coding_tool_receipt"],
@@ -597,7 +597,7 @@ export function codingToolInputSummary(toolId, input = {}) {
     return {
       path: optionalString(input.path) ?? null,
       dry_run: Boolean(input.dry_run),
-      editCount: normalizePatchEdits(input).length,
+      edit_count: normalizePatchEdits(input).length,
     };
   }
   if (toolId === "test.run") {
@@ -650,13 +650,13 @@ export function codingToolResultSummary(toolId, result = {}) {
     return {
       changed: Number(result?.counts?.changed ?? 0),
       branch: result?.git?.branch ?? null,
-      gitAvailable: Boolean(result?.git?.available),
+      git_available: Boolean(result?.git?.available),
     };
   }
   if (toolId === "git.diff") {
     return {
       paths: normalizeArray(result?.paths),
-      diffBytes: Number(result?.diffBytes ?? 0),
+      diff_bytes: Number(result?.diff_bytes ?? 0),
       truncated: Boolean(result?.truncated),
     };
   }
@@ -664,42 +664,42 @@ export function codingToolResultSummary(toolId, result = {}) {
     return {
       path: result?.path ?? null,
       kind: result?.kind ?? null,
-      sizeBytes: Number(result?.sizeBytes ?? 0),
+      size_bytes: Number(result?.size_bytes ?? 0),
       truncated: Boolean(result?.truncated),
     };
   }
   if (toolId === "file.apply_patch") {
     return {
       path: result?.path ?? null,
-      dryRun: Boolean(result?.dryRun),
+      dry_run: Boolean(result?.dry_run),
       applied: Boolean(result?.applied),
       changed: Boolean(result?.changed),
-      editCount: Number(result?.editCount ?? 0),
-      changedFileCount: normalizeArray(result?.changedFiles).length,
-      workspaceSnapshotId: result?.workspaceSnapshotId ?? result?.workspace_snapshot_id ?? null,
+      edit_count: Number(result?.edit_count ?? 0),
+      changed_file_count: normalizeArray(result?.changed_files).length,
+      workspace_snapshot_id: result?.workspace_snapshot_id ?? null,
     };
   }
   if (toolId === "test.run") {
     return {
-      commandId: result?.commandId ?? null,
-      testStatus: result?.testStatus ?? null,
-      exitCode: Number(result?.exitCode ?? 0),
-      durationMs: Number(result?.durationMs ?? 0),
+      command_id: result?.command_id ?? null,
+      test_status: result?.test_status ?? null,
+      exit_code: Number(result?.exit_code ?? 0),
+      duration_ms: Number(result?.duration_ms ?? 0),
       truncated: Boolean(result?.truncated),
-      spilloverRecommended: Boolean(result?.spilloverRecommended),
+      spillover_recommended: Boolean(result?.spillover_recommended),
     };
   }
   if (toolId === "lsp.diagnostics") {
     return {
-      commandId: result?.commandId ?? null,
-      resolvedCommandId: result?.resolvedCommandId ?? null,
+      command_id: result?.command_id ?? null,
+      resolved_command_id: result?.resolved_command_id ?? null,
       backend: result?.backend ?? null,
-      diagnosticStatus: result?.diagnosticStatus ?? null,
-      diagnosticCount: Number(result?.diagnosticCount ?? 0),
-      backendStatus: result?.backendStatus ?? null,
-      fallbackUsed: Boolean(result?.fallbackUsed),
+      diagnostic_status: result?.diagnostic_status ?? null,
+      diagnostic_count: Number(result?.diagnostic_count ?? 0),
+      backend_status: result?.backend_status ?? null,
+      fallback_used: Boolean(result?.fallback_used),
       truncated: Boolean(result?.truncated),
-      spilloverRecommended: Boolean(result?.spilloverRecommended),
+      spillover_recommended: Boolean(result?.spillover_recommended),
     };
   }
   if (toolId === "artifact.read") {
@@ -737,22 +737,22 @@ export function codingToolSummary(toolId, result = {}, status = "completed") {
     return `Workspace status inspected ${Number(result?.counts?.changed ?? 0)} changed file(s).`;
   }
   if (toolId === "git.diff") {
-    return `Git diff inspected ${Number(result?.diffBytes ?? 0)} byte(s).`;
+    return `Git diff inspected ${Number(result?.diff_bytes ?? 0)} byte(s).`;
   }
   if (toolId === "file.inspect") {
     return `Inspected ${result?.kind ?? "path"} ${result?.path ?? ""}`.trim();
   }
   if (toolId === "file.apply_patch") {
-    if (result?.dryRun) return `Patch previewed ${result?.path ?? "file"}.`;
+    if (result?.dry_run) return `Patch previewed ${result?.path ?? "file"}.`;
     return result?.changed
       ? `Patch applied to ${result?.path ?? "file"}.`
       : `Patch checked ${result?.path ?? "file"} with no content change.`;
   }
   if (toolId === "test.run") {
-    return `Test run ${result?.testStatus ?? "completed"} with exit code ${Number(result?.exitCode ?? 0)}.`;
+    return `Test run ${result?.test_status ?? "completed"} with exit code ${Number(result?.exit_code ?? 0)}.`;
   }
   if (toolId === "lsp.diagnostics") {
-    return `Diagnostics ${result?.diagnosticStatus ?? "completed"} with ${Number(result?.diagnosticCount ?? 0)} finding(s).`;
+    return `Diagnostics ${result?.diagnostic_status ?? "completed"} with ${Number(result?.diagnostic_count ?? 0)} finding(s).`;
   }
   if (toolId === "artifact.read") {
     return `Read artifact ${result?.artifact_id ?? "artifact"}.`;

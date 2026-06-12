@@ -8,7 +8,7 @@ function createProjection() {
     eventStreamIdForThread: (threadId) => `stream:${threadId}`,
     fixtureProfileForAgent: (agent) => agent.runtime_profile ?? "fixture",
     lifecycleStatusForRun: (status) => status === "completed" ? "completed" : "running",
-    normalizedAgentRuntimeControls: (agent) => agent.runtimeControls ?? { mode: "agent", approvalMode: "suggest", model: {} },
+    normalizedAgentRuntimeControls: (agent) => agent.runtimeControls ?? { mode: "agent", approval_mode: "suggest", model: {} },
     runtimeSessionIdForAgent: (agent) => `session:${agent.id}`,
     runtimeThreadSchemaVersion: "thread.schema",
     runtimeTurnIdForRun: (run) => run.runtimeTurnId ?? `turn_${run.id.replace(/^run_/, "")}`,
@@ -20,6 +20,11 @@ function createProjection() {
       runIds: runs.map((run) => run.id),
       subagentIds: subagents.map((subagent) => subagent.id),
     }),
+    runtimeError(input) {
+      const error = new Error(input.message);
+      Object.assign(error, input);
+      return error;
+    },
     threadIdForAgent: (agentId) => `thread_${agentId.replace(/^agent_/, "")}`,
     threadModeForRunMode: (mode, fallback) => mode === "dry_run" ? "custom" : fallback ?? "agent",
     threadStatusForAgent: (status) => status === "archived" ? "archived" : "active",
@@ -30,6 +35,8 @@ function createProjection() {
 function createStore({ agent, runs = [], events = [] }) {
   return {
     agents: new Map([[agent.id, agent]]),
+    runs,
+    projectionRequests: [],
     subagents: new Map([
       ["sub_one", { id: "sub_one", parent_thread_id: `thread_${agent.id.replace(/^agent_/, "")}` }],
       ["sub_retired", { id: "sub_retired", parentThreadId: `thread_${agent.id.replace(/^agent_/, "")}` }],
@@ -53,9 +60,125 @@ function createStore({ agent, runs = [], events = [] }) {
     projectThreadEvents() {
       this.projectThreadEventsCalled = true;
     },
+    projectRuntimeThreadTurnProjectionForThread(inputStore, request) {
+      this.projectionRequests.push(request);
+      return {
+        projected: true,
+        record: request.projection_kind === "thread"
+          ? threadProjectionRecordForTest(request)
+          : turnProjectionRecordForTest(request),
+      };
+    },
     runtimeEventsForTurn() {
       return events;
     },
+  };
+}
+
+function turnIdForRunId(runId) {
+  return String(runId).replace(/^run_/, "turn_");
+}
+
+function threadProjectionRecordForTest(request) {
+  const latestRun = request.runs.at(-1) ?? {};
+  const usage = request.usage_telemetry;
+  return {
+    schema_version: request.thread_schema_version,
+    thread_id: request.thread_id,
+    session_id: request.session_id,
+    agent_id: request.agent.agent_id,
+    workspace_root: request.agent.workspace_root,
+    title: latestRun.objective ?? request.agent.workspace_root,
+    mode: request.runtime_controls.mode,
+    approval_mode: request.runtime_controls.approval_mode,
+    trust_profile: "local_private",
+    model_route: request.agent.model_id,
+    status: latestRun.turn_status === "interrupted" ? "interrupted" : request.agent.status,
+    latest_turn_id: latestRun.run_id ? latestRun.turn_id ?? turnIdForRunId(latestRun.run_id) : null,
+    latest_seq: request.latest_seq,
+    event_stream_id: request.event_stream_id,
+    workflow_graph_id: null,
+    harness_binding_id: null,
+    agentgres_projection_ref: `agents/${request.agent.agent_id}.json`,
+    created_at: request.agent.created_at,
+    updated_at: latestRun.updated_at ?? request.agent.updated_at,
+    archived_at: request.agent.status === "archived" ? request.agent.updated_at : null,
+    fixture_profile: request.fixture_profile,
+    created_at_ms: request.created_at_ms,
+    updated_at_ms: request.updated_at_ms,
+    workspace: request.agent.workspace_root,
+    requested_model: request.agent.requested_model_id ?? request.agent.model_id,
+    model_route_id: request.agent.model_route_id ?? null,
+    model_route_receipt_id: request.agent.model_route_receipt_id ?? null,
+    model_route_decision: request.agent.model_route_decision ?? null,
+    selected_model: request.agent.model_id,
+    reasoning_effort: request.agent.model_route_decision?.reasoning_effort ?? null,
+    runtime_controls: request.runtime_controls,
+    memory_count: request.memory_count,
+    archived: request.agent.status === "archived",
+    evidence_refs: ["agentgres_canonical_state_projection", "rust_runtime_thread_turn_projection"],
+    runtime_profile: request.runtime_profile,
+    runtime_bridge_id: request.runtime_bridge_id,
+    runtime_bridge_source: request.runtime_bridge_source,
+    usage,
+    usage_telemetry: usage,
+  };
+}
+
+function turnProjectionRecordForTest(request) {
+  const run = request.run;
+  const isOpen = ["queued", "running", "waiting_for_approval", "waiting_for_input"].includes(request.status);
+  const inputItemIds = request.events
+    .filter((event) => event.event_kind === "turn.started")
+    .map((event) => event.item_id);
+  const outputItemIds = request.events
+    .filter((event) => event.event_kind !== "turn.started")
+    .map((event) => event.item_id);
+  const usage = request.usage_telemetry;
+  return {
+    schema_version: request.turn_schema_version,
+    turn_id: request.turn_id,
+    thread_id: request.thread_id,
+    parent_turn_id: null,
+    request_id: run.run_id,
+    status: request.status,
+    input_item_ids: inputItemIds,
+    output_item_ids: outputItemIds,
+    events: request.events,
+    seq_start: request.events.at(0)?.seq ?? null,
+    seq_end: isOpen ? null : request.events.at(-1)?.seq ?? null,
+    started_at: run.created_at,
+    completed_at: isOpen ? null : request.completed_at,
+    mode: request.mode,
+    approval_mode: request.approval_mode,
+    model_route_decision_id: run.model_route_decision_id ?? null,
+    usage,
+    usage_telemetry: usage,
+    result: run.result ?? "",
+    output: run.result ?? "",
+    text: run.result ?? "",
+    stop_reason: run.trace?.stop_condition?.reason ?? null,
+    error: run.status === "failed" ? run.result : null,
+    conversation: run.conversation ?? [],
+    rollback_snapshot_id: null,
+    quality_ledger_ref: run.trace?.quality_ledger?.ledgerId ?? run.trace?.quality_ledger?.ledger_id ?? null,
+    workflow_execution_ref: null,
+    fixture_profile: request.fixture_profile,
+    started_at_ms: request.created_at_ms,
+    completed_at_ms: isOpen ? null : request.updated_at_ms,
+    error_summary: run.status === "failed" ? run.result : null,
+    model_route_decision: run.model_route_decision ?? null,
+    model_route_receipt_id: run.model_route_receipt_id ?? null,
+    active_skill_hook_manifest_ref: run.active_skill_hook_manifest_ref ?? null,
+    active_skill_set_hash: run.active_skill_set_hash ?? null,
+    active_hook_set_hash: run.active_hook_set_hash ?? null,
+    memory_refs: run.memory_refs ?? [],
+    memory_write_receipt_ids: run.memory_write_receipt_ids ?? [],
+    evidence_refs: [
+      "agentgres_canonical_state_projection",
+      `run:${run.run_id}`,
+      run.active_skill_hook_manifest_ref,
+    ].filter(Boolean),
   };
 }
 
@@ -84,7 +207,7 @@ test("thread projection includes latest run, usage, memory, and interrupted stat
     runtime_profile: "runtime_service",
     runtime_bridge_id: "bridge_runtime",
     runtime_bridge_source: "rust_core",
-    runtimeControls: { mode: "agent", approvalMode: "suggest", model: { reasoningEffort: "low" } },
+    runtimeControls: { mode: "agent", approval_mode: "suggest", model: { reasoning_effort: "low" } },
     createdAt: "2026-06-03T00:00:00.000Z",
     updatedAt: "2026-06-03T00:00:01.000Z",
   };
@@ -246,4 +369,39 @@ test("turn projection ignores retired run usage aliases", () => {
   assert.notEqual(turn.usage_telemetry.total_tokens, 100);
   assert.notEqual(turn.usage_telemetry.total_tokens, 200);
   assertMissingKeys(turn, retiredUsageProjectionAliasKeys);
+});
+
+test("thread and turn projection fail closed without Rust projection API", () => {
+  const agent = {
+    id: "agent_one",
+    cwd: "/workspace",
+    status: "active",
+    createdAt: "2026-06-03T00:00:00.000Z",
+    updatedAt: "2026-06-03T00:00:01.000Z",
+  };
+  const store = createStore({
+    agent,
+    runs: [{ id: "run_one", agentId: "agent_one", status: "running", createdAt: "2026-06-03T00:00:00.000Z", updatedAt: "2026-06-03T00:00:01.000Z" }],
+  });
+  delete store.projectRuntimeThreadTurnProjectionForThread;
+  const projection = createProjection();
+
+  assert.throws(
+    () => projection.threadForAgent(store, agent),
+    (error) => {
+      assert.equal(error.code, "runtime_thread_turn_projection_rust_core_required");
+      assert.equal(error.details.rust_core_boundary, "runtime.thread_turn_projection");
+      assert.equal(error.details.projection_kind, "thread");
+      return true;
+    },
+  );
+  assert.throws(
+    () => projection.turnForRun(store, store.runs[0]),
+    (error) => {
+      assert.equal(error.code, "runtime_thread_turn_projection_rust_core_required");
+      assert.equal(error.details.projection_kind, "turn");
+      assert.equal(error.details.turn_id, "turn_one");
+      return true;
+    },
+  );
 });

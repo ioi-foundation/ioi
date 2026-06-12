@@ -84,6 +84,9 @@ function readRustPolicyCore() {
     exists("crates/services/src/agentic/runtime/kernel/policy/run_cancel.rs")
       ? read("crates/services/src/agentic/runtime/kernel/policy/run_cancel.rs")
       : "",
+    exists("crates/services/src/agentic/runtime/kernel/policy/task_job.rs")
+      ? read("crates/services/src/agentic/runtime/kernel/policy/task_job.rs")
+      : "",
   ].join("\n");
 }
 
@@ -353,10 +356,25 @@ function runDocs() {
     [GUIDE],
     "master guide live status must reflect the current Rust workload live default and fail-closed daemon_js selection",
   );
+  const macroPrunedMatrixGuard =
+    /stable daemon-to-kernel protocol surface, not a\s+permanent bridge binary/.test(guide) &&
+    /current `ioi-step-module-bridge` command path is migration scaffolding/.test(guide) &&
+    /must\s+not be treated as the terminal substrate/.test(guide) &&
+    /Macro-cut bias/.test(guide) &&
+    /do not add per-slice evidence sections/.test(guide) &&
+    /This file is no longer a per-slice evidence archive/.test(matrix) &&
+    /Macro Authority Cut Ledger/.test(matrix) &&
+    /Do Not Recreate/.test(matrix) &&
+    /runtime-daemon-core-command-runner\.mjs/.test(matrix) &&
+    /codingToolApprovalSatisfaction\(\)/.test(matrix) &&
+    /The current `ioi-step-module-bridge` command path is acceptable only as\s+migration transport/.test(matrix) &&
+    /It is not the terminal architecture/.test(matrix) &&
+    /Terminal acceptance still requires the master guide terminal conditions/.test(matrix);
   assertCheck(
     result,
     "guide-bridge-scaffolding-not-terminal",
-    (/stable daemon-to-kernel protocol surface, not a\s+permanent bridge binary/.test(
+    macroPrunedMatrixGuard ||
+      (/stable daemon-to-kernel protocol surface, not a\s+permanent bridge binary/.test(
       guide,
     ) &&
       (/`ioi-step-module-bridge` command path is migration scaffolding/.test(guide) ||
@@ -2103,7 +2121,44 @@ function runDocs() {
   assertCheck(
     result,
     "matrix-coding-tools-rust-live-status-reconciled",
-    /Implementation Slice 21[\s\S]*execution_backend: rust_workload_live for all allowlisted test\.run command[\s\S]*legacy_paths_removed: true[\s\S]*compatibility_shims_remaining: \[\]/.test(
+    (/Rust-live coding-tool StepModule path/.test(matrix) &&
+      /Migrated coding tools execute through Rust workload\/StepModule contracts/.test(matrix) &&
+      /explicit `daemon_js`\/shadow\/gated\/backend selection fails closed/.test(matrix) &&
+      /Rust daemon-core constructs the coding-tool `StepModuleInvocation` envelope before workload dispatch\/admission/.test(
+        matrix,
+      ) &&
+      /JS invocation surface still builds protocol context/.test(matrix) &&
+      /Move diagnostics projection\/replay and remaining coding-tool context\/result-event envelope authorship into one Rust-owned execution spine/.test(
+        matrix,
+      ) &&
+      /Public workspace snapshot\/restore API Rust-owned/.test(matrix) &&
+      /`project_workspace_snapshot_list`, `project_workspace_snapshot_content_package`, `preview_workspace_snapshot_restore`, and `apply_workspace_snapshot_restore` are Rust daemon-core command responses/.test(
+        matrix,
+      ) &&
+      /Coding-tool approval satisfaction positive API/.test(matrix) &&
+      /`project_coding_tool_approval_satisfaction` and `plan_coding_tool_approval_satisfaction` are Rust daemon-core operations/.test(
+        matrix,
+      ) &&
+      /The JS store projection callback and exported JS manifest matcher are retired/.test(
+        matrix,
+      ) &&
+      /Coding-tool approval block positive API/.test(matrix) &&
+      /`plan_coding_tool_approval_block` is a Rust daemon-core operation/.test(
+        matrix,
+      ) &&
+      /Coding-tool result-event admission positive API/.test(matrix) &&
+      /`admit_coding_tool_result_event` is a Rust daemon-core operation/.test(
+        matrix,
+      ) &&
+      /Coding-tool command-stream admission positive API/.test(matrix) &&
+      /`admit_coding_tool_command_stream_events` is a Rust daemon-core operation/.test(
+        matrix,
+      ) &&
+      /Coding-tool StepModule invocation construction Rust-owned/.test(matrix) &&
+      /`run_coding_tool_step_module` now accepts canonical coding-tool request facts/.test(
+        matrix,
+      )) ||
+      (/Implementation Slice 21[\s\S]*execution_backend: rust_workload_live for all allowlisted test\.run command[\s\S]*legacy_paths_removed: true[\s\S]*compatibility_shims_remaining: \[\]/.test(
       matrix,
     ) &&
       /Implementation Slice 22[\s\S]*execution_backend: rust_workload_live for all allowlisted diagnostics[\s\S]*legacy_paths_removed: true[\s\S]*compatibility_shims_remaining: \[\]/.test(
@@ -2120,7 +2175,7 @@ function runDocs() {
       ) &&
       !/test\.run npm\.test, cargo\.test, and cargo\.check still need Rust\/workload|JS testRunTool remains as a legacy fallback|JS lspDiagnosticsTool remains as a legacy fallback|JS fileApplyPatchTool remains as a legacy fallback|JS artifactReadTool and toolRetrieveResultTool remain as legacy fallback|JS computerUseLeaseRequestTool remains as a legacy fallback/.test(
         matrix,
-      ),
+      )),
     [MATRIX],
     "migration matrix must mark completed coding-tool Rust workload live slices as reconciled without stale JS fallback notes",
   );
@@ -2838,6 +2893,12 @@ function runBridge() {
   const approvalCore = exists("crates/services/src/agentic/runtime/kernel/approval.rs")
     ? read("crates/services/src/agentic/runtime/kernel/approval.rs")
     : "";
+  const codingToolEventCore = exists("crates/services/src/agentic/runtime/kernel/coding_tool_event.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/coding_tool_event.rs")
+    : "";
+  const runtimeThreadEventCore = exists("crates/services/src/agentic/runtime/kernel/runtime_thread_event.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/runtime_thread_event.rs")
+    : "";
   const authorityCore = exists("crates/services/src/agentic/runtime/kernel/authority.rs")
     ? read("crates/services/src/agentic/runtime/kernel/authority.rs")
     : "";
@@ -2873,6 +2934,11 @@ function runBridge() {
     "crates/services/src/agentic/runtime/kernel/policy/thread_lifecycle.rs",
   )
     ? read("crates/services/src/agentic/runtime/kernel/policy/thread_lifecycle.rs")
+    : "";
+  const policyWorkspaceTrustCore = exists(
+    "crates/services/src/agentic/runtime/kernel/policy/workspace_trust.rs",
+  )
+    ? read("crates/services/src/agentic/runtime/kernel/policy/workspace_trust.rs")
     : "";
   const policyMcpMemoryCore = exists(
     "crates/services/src/agentic/runtime/kernel/policy/mcp_memory.rs",
@@ -2949,6 +3015,21 @@ function runBridge() {
   const runtimeDiagnosticsFeedbackSurfaceTest = exists("packages/runtime-daemon/src/runtime-diagnostics-feedback-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-diagnostics-feedback-surface.test.mjs")
     : "";
+  const codingToolEventCoreForDiagnosticsFeedback = exists("crates/services/src/agentic/runtime/kernel/coding_tool_event.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/coding_tool_event.rs")
+    : "";
+  const runtimeContextPolicyRunnerForDiagnosticsFeedback = exists("packages/runtime-daemon/src/runtime-context-policy-runner.mjs")
+    ? read("packages/runtime-daemon/src/runtime-context-policy-runner.mjs")
+    : "";
+  const runtimeContextPolicyRunnerTestForDiagnosticsFeedback = exists("packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs")
+    : "";
+  const commandProtocolForDiagnosticsFeedback = exists("crates/services/src/agentic/runtime/kernel/command_protocol.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/command_protocol.rs")
+    : "";
+  const commandDispatchForDiagnosticsFeedback = exists("crates/services/src/agentic/runtime/kernel/command_dispatch.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/command_dispatch.rs")
+    : "";
   const codingToolStepModuleContextBlock =
     runtimeCodingToolInvocationSurface.match(/const stepModuleContext = \([\s\S]*?\n\s*\}\);/)?.[0] ?? "";
   const runtimeCodingToolArtifactSurface = exists("packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.mjs")
@@ -2965,7 +3046,7 @@ function runBridge() {
     codingToolVisualArtifactMaterializerBlock.match(/const artifactRecord = \{[\s\S]*?\n\s*\};/)?.[0] ?? "",
   ].join("\n");
   const codingToolCommandStreamBlock = runtimeCodingToolArtifactSurface.match(
-    /function appendCodingToolCommandStreamEvents[\s\S]*?(?=\n\n  function materializeVisualGuiObservationArtifacts)/,
+    /function admitCodingToolCommandStreamEvents[\s\S]*?(?=\n\n  function materializeVisualGuiObservationArtifacts)/,
   )?.[0] ?? "";
   const codingToolCommandStreamPayloadBlocks = [
     ...codingToolCommandStreamBlock.matchAll(/payload_summary:\s*\{[\s\S]*?\n\s*\},/g),
@@ -3070,6 +3151,10 @@ function runBridge() {
     codingToolContracts.match(
       /export function codingToolInputSummary\(toolId, input = \{\}\) \{[\s\S]*?\n\}/,
     )?.[0] ?? "";
+  const codingToolResultSummaryBody =
+    codingToolContracts.match(
+      /export function codingToolResultSummary\(toolId, result = \{\}\) \{[\s\S]*?\n\}/,
+    )?.[0] ?? "";
   const codingToolPatchEditNormalizerBody =
     codingToolContracts.match(/function normalizePatchEdits\(input = \{\}\) \{[\s\S]*?\n\}/)?.[0] ?? "";
   const artifactReadContractBlock = codingToolContracts.match(
@@ -3163,12 +3248,6 @@ function runBridge() {
     : "";
   const codingTools = exists("packages/runtime-daemon/src/coding-tools.mjs")
     ? read("packages/runtime-daemon/src/coding-tools.mjs")
-    : "";
-  const daemonCoreCommandRunner = exists("packages/runtime-daemon/src/runtime-daemon-core-command-runner.mjs")
-    ? read("packages/runtime-daemon/src/runtime-daemon-core-command-runner.mjs")
-    : "";
-  const daemonCoreCommandRunnerTest = exists("packages/runtime-daemon/src/runtime-daemon-core-command-runner.test.mjs")
-    ? read("packages/runtime-daemon/src/runtime-daemon-core-command-runner.test.mjs")
     : "";
   const daemonCoreDirectInvokerServiceTest = exists(
     "packages/runtime-daemon/src/runtime-daemon-core-direct-invoker-service.test.mjs",
@@ -3324,7 +3403,7 @@ function runBridge() {
     runtimeDaemonIndex.match(/async invokeComputerUseNativeBrowserTool\(threadId, toolId, request = \{\}\) \{[\s\S]*?\n  async invokeComputerUseVisualGuiTool/)?.[0] ?? "",
     runtimeDaemonIndex.match(/async invokeComputerUseVisualGuiTool\(threadId, toolId, request = \{\}\) \{[\s\S]*?\n  async invokeComputerUseSandboxedHostedTool/)?.[0] ?? "",
     runtimeDaemonIndex.match(/async invokeComputerUseSandboxedHostedTool\(threadId, toolId, request = \{\}\) \{[\s\S]*?\n  async invokeComputerUseVisualGuiObserveTool/)?.[0] ?? "",
-    runtimeDaemonIndex.match(/async invokeComputerUseVisualGuiObserveTool\(threadId, toolId, request = \{\}\) \{[\s\S]*?\n  latestApprovalRequestEvent/)?.[0] ?? "",
+    runtimeDaemonIndex.match(/async invokeComputerUseVisualGuiObserveTool\(threadId, toolId, request = \{\}\) \{[\s\S]*?\n  ensureDirs/)?.[0] ?? "",
   ];
   const computerUseInvocationBodiesGuardOnly =
     computerUseToolIdentityBodies.every((body) =>
@@ -3342,6 +3421,21 @@ function runBridge() {
     : "";
   const runtimeSkillHookSurfaceTest = exists("packages/runtime-daemon/src/runtime-skill-hook-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-skill-hook-surface.test.mjs")
+    : "";
+  const skillHookRegistryRustCore = exists(
+    "crates/services/src/agentic/runtime/kernel/skill_hook_registry.rs",
+  )
+    ? read("crates/services/src/agentic/runtime/kernel/skill_hook_registry.rs")
+    : "";
+  const repositoryWorkflowRustCore = exists(
+    "crates/services/src/agentic/runtime/kernel/repository_workflow.rs",
+  )
+    ? read("crates/services/src/agentic/runtime/kernel/repository_workflow.rs")
+    : "";
+  const runtimeLifecycleRustCore = exists(
+    "crates/services/src/agentic/runtime/kernel/runtime_lifecycle.rs",
+  )
+    ? read("crates/services/src/agentic/runtime/kernel/runtime_lifecycle.rs")
     : "";
   const runtimeRepositorySurface = exists("packages/runtime-daemon/src/runtime-repository-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-repository-surface.mjs")
@@ -3682,6 +3776,9 @@ function runBridge() {
   const runtimeAgentgresRunner = exists("packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs")
     ? read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs")
     : "";
+  const runtimeAgentgresRunnerTest = exists("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs")
+    : "";
   const cteePrivateWorkspaceRunner = exists("packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.mjs")
     ? read("packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.mjs")
     : "";
@@ -3767,24 +3864,14 @@ function runBridge() {
   assertCheck(
     result,
     "daemon-core-direct-invoker-mock-fallback-retired",
-    /daemonCoreInvoker/.test(daemonCoreCommandRunner) &&
-      /const directInvoker = optionalFunction\(daemonCoreInvoker\);/.test(daemonCoreCommandRunner) &&
-      /function optionalFunction\(value\)/.test(daemonCoreCommandRunner) &&
-      /if \(directInvoker\) \{\s*return directInvoker\(request\);\s*\}/.test(daemonCoreCommandRunner) &&
-      /if \(directInvoker\)[\s\S]*if \(!commandPath\)[\s\S]*spawnSyncImpl\(commandPath,\s*\[\]/.test(
-        daemonCoreCommandRunner,
-      ) &&
-      !/mockResult|mockSource|defaultBackend/.test(daemonCoreCommandRunner) &&
+    !exists("packages/runtime-daemon/src/runtime-daemon-core-command-runner.mjs") &&
+      !exists("packages/runtime-daemon/src/runtime-daemon-core-command-runner.test.mjs") &&
       daemonCoreDirectInvokerRunners.every(
         (runner) =>
           /daemonCoreInvoker: options\.daemonCoreInvoker/.test(runner) &&
-          !/mockResult|mockSource/.test(runner),
+          /this\.daemonCoreInvoker = optionalFunction\(options\.daemonCoreInvoker\)/.test(runner) &&
+          !/mockResult|mockSource|defaultBackend|createDaemonCoreCommandInvoker|spawnSyncImpl/.test(runner),
       ) &&
-      /direct daemon-core invoker bypasses temporary binary spawn/.test(daemonCoreCommandRunnerTest) &&
-      /retired mock result fallback does not bypass direct Rust seam/.test(daemonCoreCommandRunnerTest) &&
-      /retired mock result fallback fails closed without direct invoker or command/.test(daemonCoreCommandRunnerTest) &&
-      /temporary binary spawn remains explicit migration fallback/.test(daemonCoreCommandRunnerTest) &&
-      /missing direct invoker and command still fails closed/.test(daemonCoreCommandRunnerTest) &&
       /this\.daemonCoreInvoker = options\.daemonCoreInvoker/.test(runtimeDaemonIndex) &&
       /createRuntimeAgentgresAdmissionRunnerFromEnv\(process\.env,\s*\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
         runtimeDaemonIndex,
@@ -3825,7 +3912,7 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.mjs",
       "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
     ],
-    "Rust daemon-core migration must use the direct-invoker seam instead of JS-authored mock command results before retiring temporary binary spawn transport",
+    "Rust daemon-core migration must use the direct-invoker seam and keep the retired JS command-spawn helper absent from daemon hot paths",
   );
   assertCheck(
     result,
@@ -3841,9 +3928,13 @@ function runBridge() {
       /assertNoStepModuleBackendSelection/.test(stepModuleRunner) &&
       /assertNoStepModuleCommandArgs/.test(stepModuleRunner) &&
       /assertNoStepModuleCommandSelection/.test(stepModuleRunner) &&
-      /createStepModuleInvocationForCodingTool/.test(stepModuleRunner) &&
+      /CODING_TOOL_STEP_MODULE_REQUEST_SCHEMA_VERSION/.test(stepModuleRunner) &&
+      /request_schema_version:\s*CODING_TOOL_STEP_MODULE_REQUEST_SCHEMA_VERSION/.test(stepModuleRunner) &&
+      /tool_id:\s*optionalString\(toolId\)/.test(stepModuleRunner) &&
+      !/from "\.\/step-module-abi\.mjs"/.test(stepModuleRunner) &&
+      !/createStepModuleInvocationForCodingTool/.test(stepModuleRunner) &&
       !/createCodingToolStepModuleProjection/.test(stepModuleRunner) &&
-      /result:\s*bridgeResult\.result\s*\?\?\s*null/.test(stepModuleRunner) &&
+      /result:\s*daemonCoreResult\.result\s*\?\?\s*null/.test(stepModuleRunner) &&
       /assert\.equal\(projection\.result,\s*null\)/.test(
         read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
       ) &&
@@ -3859,22 +3950,25 @@ function runBridge() {
       /options\.backend \?\? env\.IOI_STEP_MODULE_BACKEND/.test(stepModuleRunner) &&
       /step_module_backend_selection_retired/.test(stepModuleRunner) &&
       /step_module_command_args_retired/.test(stepModuleRunner) &&
-      /step_module_command_env_retired/.test(stepModuleRunner) &&
+      /step_module_command_selection_retired/.test(stepModuleRunner) &&
+      /rust_workload_direct_invoker_unconfigured/.test(stepModuleRunner) &&
       !/DaemonJsStepModuleRunner/.test(stepModuleRunner) &&
       !/"daemon_js",/.test(stepModuleRunner) &&
       !/"rust_workload_shadow",/.test(stepModuleRunner) &&
       !/"rust_workload_gated",/.test(stepModuleRunner) &&
       /mode:\s*"live"/.test(stepModuleRunner) &&
       !/this\.backend\.replace\("rust_workload_"/.test(stepModuleRunner) &&
-      /createDaemonCoreCommandInvoker/.test(stepModuleRunner) &&
-      /from "\.\/runtime-daemon-core-command-runner\.mjs"/.test(stepModuleRunner) &&
+      /daemonCoreInvoker: options\.daemonCoreInvoker/.test(stepModuleRunner) &&
+      /this\.daemonCoreInvoker = optionalFunction\(options\.daemonCoreInvoker\)/.test(stepModuleRunner) &&
+      /this\.invokeDaemonCore\(request\)/.test(stepModuleRunner) &&
+      !/createDaemonCoreCommandInvoker/.test(stepModuleRunner) &&
+      !/from "\.\/runtime-daemon-core-command-runner\.mjs"/.test(stepModuleRunner) &&
       !/from "node:child_process"/.test(stepModuleRunner) &&
       !/spawnSyncImpl\(/.test(stepModuleRunner) &&
       !stepModuleCommandRunnerExists &&
       !/createStepModuleCommandInvoker/.test(stepModuleCommandRunner) &&
-      /createDaemonCoreCommandInvoker/.test(daemonCoreCommandRunner) &&
-      /from "node:child_process"/.test(daemonCoreCommandRunner) &&
-      /spawnSyncImpl\(commandPath,\s*\[\]/.test(daemonCoreCommandRunner) &&
+      !exists("packages/runtime-daemon/src/runtime-daemon-core-command-runner.mjs") &&
+      !exists("packages/runtime-daemon/src/runtime-daemon-core-command-runner.test.mjs") &&
       /workspace_root:\s*context\.workspace_root \?\? null/.test(stepModuleRunner) &&
       !/context\.workspaceRoot/.test(stepModuleRunner) &&
       /workspaceRoot: "\/tmp\/retired-workspace"/.test(
@@ -3898,24 +3992,44 @@ function runBridge() {
       /retired StepModule command env fails closed/.test(
         read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
       ) &&
-      /StepModule runner reads unified daemon-core command env/.test(
+      /retired daemon-core command env fails closed for StepModule runner/.test(
         read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
       ) &&
-      /IOI_RUNTIME_DAEMON_CORE_COMMAND: "mock-daemon-core-command"/.test(
+      /retired daemon-core command args env fails closed for StepModule runner/.test(
         read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
       ) &&
       /retired StepModule command args constructor option fails closed/.test(
         read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
       ) &&
-      /assert\.deepEqual\(calls\[0\]\.args,\s*\[\]\)/.test(
+      /retired StepModule command constructor option fails closed/.test(
+        read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
+      ) &&
+      /rust workload direct daemon-core invoker sends canonical coding-tool request/.test(
+        read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
+      ) &&
+      /assert\.equal\(Object\.hasOwn\(calls\[0\]\.request,\s*"invocation"\),\s*false\)/.test(
+        read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
+      ) &&
+      /assert\.equal\(calls\[0\]\.request\.tool_id,\s*"workspace\.status"\)/.test(
+        read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
+      ) &&
+      !/StepModule runner reads unified daemon-core command env/.test(
+        read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
+      ) &&
+      !/IOI_RUNTIME_DAEMON_CORE_COMMAND: "mock-daemon-core-command"/.test(
+        read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
+      ) &&
+      !/assert\.deepEqual\(calls\[0\]\.args,\s*\[\]\)/.test(
         read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
       ),
     [
       "packages/runtime-daemon/src/step-module-runner.mjs",
       "packages/runtime-daemon/src/step-module-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-daemon-core-command-runner.mjs",
+      "packages/runtime-daemon/src/runtime-daemon-core-command-runner.test.mjs",
       "crates/client/src/workload_client/mod.rs",
     ],
-    "Phase 2 is pending: StepModule execution must be Rust workload live by construction and all explicit backend selection must fail closed",
+    "Phase 2 is pending: StepModule execution must be Rust workload live by construction, direct-invoker-only, Rust-owned for coding-tool invocation envelope construction, and all explicit backend or command selection must fail closed",
   );
   assertCheck(
     result,
@@ -3992,10 +4106,23 @@ function runBridge() {
       !/ReceiptBinder/.test(codingToolReceiptCommandBridge) &&
       !/RustProjectionCore/.test(codingToolReceiptCommandBridge) &&
       /pub mod coding_tool_step_module;/.test(kernelModuleForBridgeChecks) &&
+      /pub const CODING_TOOL_STEP_MODULE_REQUEST_SCHEMA_VERSION/.test(codingToolStepModuleCore) &&
       /pub struct CodingToolStepModuleBridgeRequest/.test(codingToolStepModuleCore) &&
+      /fn try_core_request/.test(codingToolStepModuleCore) &&
+      /fn coding_tool_contract/.test(codingToolStepModuleCore) &&
+      /js_step_module_invocation_retired/.test(codingToolStepModuleCore) &&
       /pub fn run_coding_tool_step_module_response/.test(codingToolStepModuleCore) &&
       /pub fn successful_coding_tool_step_module_result/.test(codingToolStepModuleCore) &&
       /pub fn coding_tool_step_module_response/.test(codingToolStepModuleCore) &&
+      /rust_core_builds_coding_tool_invocation_from_canonical_request/.test(
+        codingToolStepModuleCore,
+      ) &&
+      /rust_core_rejects_js_supplied_coding_tool_step_module_invocation/.test(
+        codingToolStepModuleCore,
+      ) &&
+      /rust_core_rejects_non_live_coding_tool_step_module_backend/.test(
+        codingToolStepModuleCore,
+      ) &&
       /rust_core_file_apply_patch_writes_and_binds_agentgres_admission/.test(
         codingToolStepModuleCore,
       ) &&
@@ -4059,7 +4186,7 @@ function runBridge() {
       /store\.codingToolInvocationSurface\.invokeThreadTool\(store, threadId, decodeURIComponent\(segments\[4\]\), await readBody\(request\)\)/.test(
         runtimeRouteHandlers,
       ) &&
-      /store\.codingToolInvocationSurface\.invokeThreadTool\(store, threadId, "lsp\.diagnostics", \{/.test(
+      /store\.codingToolInvocationSurface\.invokeThreadTool\(\s*store,\s*threadId,\s*toolId,\s*diagnosticsRequest,\s*\)/.test(
         runtimeDiagnosticsFeedbackSurface,
       ) &&
       /retired invokeThreadTool wrapper must not be used for diagnostics feedback/.test(
@@ -4163,7 +4290,7 @@ function runBridge() {
       /file_inspect_read_dir_failed/.test(codingToolWorkspaceCore) &&
       /file_inspect_open_failed/.test(codingToolWorkspaceCore) &&
       /file_inspect_read_failed/.test(codingToolWorkspaceCore) &&
-      /previewHash/.test(codingToolWorkspaceCore) &&
+      /preview_hash/.test(codingToolWorkspaceCore) &&
       /inspects_file_preview_in_rust_core/.test(codingToolWorkspaceCore) &&
       !/inspect_workspace_path/.test(bridgeModule) &&
       !codingToolHelpersBridgeExists &&
@@ -4223,8 +4350,8 @@ function runBridge() {
       /run_git_read_only\(&root, &args\)/.test(codingToolWorkspaceCore) &&
       /run_git_read_only\(&root, &diff_args\)/.test(codingToolWorkspaceCore) &&
       /workspace_diff_paths/.test(codingToolWorkspaceCore) &&
-      /porcelainHash/.test(codingToolWorkspaceCore) &&
-      /diffHash/.test(codingToolWorkspaceCore) &&
+      /porcelain_hash/.test(codingToolWorkspaceCore) &&
+      /diff_hash/.test(codingToolWorkspaceCore) &&
       /inspects_workspace_status_in_rust_core/.test(codingToolWorkspaceCore) &&
       /inspects_git_diff_in_rust_core/.test(codingToolWorkspaceCore) &&
       !/inspect_workspace_status/.test(bridgeModule) &&
@@ -4433,10 +4560,42 @@ function runBridge() {
   );
   assertCheck(
     result,
-    "coding-tool-result-event-js-append-retired",
-    /admitCodingToolResultEvent = requireRustCoreCodingToolResultEventAdmission/.test(
-      runtimeCodingToolInvocationSurface,
-    ) &&
+    "coding-tool-result-event-rust-admission-api",
+    /pub mod coding_tool_event/.test(kernelModuleForBridgeChecks) &&
+      /CodingToolResultEventAdmissionCore/.test(codingToolEventCore) &&
+      /CodingToolResultEventAdmissionRequest/.test(codingToolEventCore) &&
+      /CodingToolResultEventAdmissionRecord/.test(codingToolEventCore) &&
+      /CODING_TOOL_RESULT_EVENT_ADMISSION_REQUEST_SCHEMA_VERSION/.test(codingToolEventCore) &&
+      /pub fn admit_coding_tool_result_event_response/.test(codingToolEventCore) &&
+      /rust_admits_coding_tool_result_event_with_agentgres_refs/.test(codingToolEventCore) &&
+      /rust_rejects_coding_tool_result_event_without_receipts/.test(codingToolEventCore) &&
+      /rust_core_shapes_coding_tool_result_event_admission_command_response/.test(
+        codingToolEventCore,
+      ) &&
+      /admit_coding_tool_result_event/.test(commandProtocolCore) &&
+      /CommandOperation::AdmitCodingToolResultEvent/.test(commandProtocolCore) &&
+      /admit_coding_tool_result_event_response/.test(coreCommandDispatch) &&
+      /CODING_TOOL_RESULT_EVENT_ADMISSION_REQUEST_SCHEMA_VERSION/.test(
+        runtimeAgentgresRunner,
+      ) &&
+      /admitCodingToolResultEvent\(request = \{\}\)/.test(runtimeAgentgresRunner) &&
+      /operation:\s*"admit_coding_tool_result_event"/.test(runtimeAgentgresRunner) &&
+      /normalizeCodingToolResultEventAdmissionBridgeResult/.test(runtimeAgentgresRunner) &&
+      /runtime Agentgres runner admits coding-tool result events through direct daemon-core invoker/.test(
+        runtimeAgentgresRunnerTest,
+      ) &&
+      /codingToolResultEventAdmissionForThread = requireRustCoreCodingToolResultEventAdmission/.test(
+        runtimeCodingToolInvocationSurface,
+      ) &&
+      /const blockedEvent = codingToolResultEventAdmissionForThread/.test(
+        runtimeCodingToolInvocationSurface,
+      ) &&
+      /const event = codingToolResultEventAdmissionForThread/.test(
+        runtimeCodingToolInvocationSurface,
+      ) &&
+      /admitCodingToolResultEventForThread/.test(runtimeDaemonIndex) &&
+      /runtimeAgentgresAdmissionRunner\.admitCodingToolResultEvent/.test(runtimeDaemonIndex) &&
+      /store\.registerRuntimeEvent\(admittedEvent\)/.test(runtimeDaemonIndex) &&
       /runtime_coding_tool_invocation_rust_core_required/.test(runtimeCodingToolInvocationSurface) &&
       /rust_core_boundary:\s*"runtime\.coding_tool_invocation"/.test(runtimeCodingToolInvocationSurface) &&
       /operation:\s*"coding_tool_result_event_admission"/.test(runtimeCodingToolInvocationSurface) &&
@@ -4446,16 +4605,122 @@ function runBridge() {
         runtimeCodingToolInvocationSurface,
       ) &&
       /agentgres_coding_tool_expected_head_required/.test(runtimeCodingToolInvocationSurface) &&
-      /coding tool invocation surface fails closed before default JS result event append/.test(
+      /coding tool invocation surface fails closed until Rust result-event admission is wired/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
+      /rustResultEventAdmission/.test(runtimeCodingToolInvocationSurfaceTest) &&
+      /registerRuntimeEvent/.test(runtimeCodingToolInvocationSurfaceTest) &&
+      /appendRuntimeEvent must not be called by coding-tool invocation result admission/.test(
         runtimeCodingToolInvocationSurfaceTest,
       ) &&
       /assert\.equal\(store\.events\.length,\s*0\)/.test(runtimeCodingToolInvocationSurfaceTest) &&
+      !/admitCodingToolResultEvent/.test(runtimeCodingToolInvocationSurface) &&
       !/store\.appendRuntimeEvent\(/.test(runtimeCodingToolInvocationSurface),
     [
+      "crates/services/src/agentic/runtime/kernel/coding_tool_event.rs",
+      "crates/services/src/agentic/runtime/kernel/mod.rs",
+      "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
+      "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
+      "packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs",
+      "packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs",
     ],
-    "Phase 10/11 is pending: coding-tool invocation must not append accepted result events through JS once Rust workload execution returns",
+    "Phase 10/11 is pending: coding-tool result events and approval-block persistence must be admitted by Rust daemon-core Agentgres/projection before JS projection registration",
+  );
+  assertCheck(
+    result,
+    "runtime-thread-event-rust-admission-api",
+    /pub mod runtime_thread_event/.test(kernelModuleForBridgeChecks) &&
+      /RuntimeThreadEventAdmissionCore/.test(runtimeThreadEventCore) &&
+      /RuntimeThreadEventAdmissionRequest/.test(runtimeThreadEventCore) &&
+      /RuntimeThreadEventAdmissionRecord/.test(runtimeThreadEventCore) &&
+      /RuntimeThreadEventProjectionRequest/.test(runtimeThreadEventCore) &&
+      /RuntimeThreadEventProjectionRecord/.test(runtimeThreadEventCore) &&
+      /RuntimeThreadEventReplayRequest/.test(runtimeThreadEventCore) &&
+      /RuntimeThreadEventReplayRecord/.test(runtimeThreadEventCore) &&
+      /RUNTIME_THREAD_EVENT_ADMISSION_REQUEST_SCHEMA_VERSION/.test(runtimeThreadEventCore) &&
+      /RUNTIME_THREAD_EVENT_PROJECTION_REQUEST_SCHEMA_VERSION/.test(runtimeThreadEventCore) &&
+      /RUNTIME_THREAD_EVENT_REPLAY_REQUEST_SCHEMA_VERSION/.test(runtimeThreadEventCore) &&
+      /pub fn admit_runtime_thread_event_response/.test(runtimeThreadEventCore) &&
+      /pub fn project_runtime_thread_events_response/.test(runtimeThreadEventCore) &&
+      /pub fn project_runtime_thread_event_replay_response/.test(runtimeThreadEventCore) &&
+      /rust_admits_runtime_thread_event_with_agentgres_refs/.test(runtimeThreadEventCore) &&
+      /rust_projects_thread_started_and_run_events_with_agentgres_refs/.test(runtimeThreadEventCore) &&
+      /rust_replays_runtime_thread_events_by_stream_cursor/.test(runtimeThreadEventCore) &&
+      /rust_replays_runtime_thread_events_by_turn_cursor/.test(runtimeThreadEventCore) &&
+      /rust_rejects_runtime_thread_event_replay_without_agentgres_refs/.test(runtimeThreadEventCore) &&
+      /rust_projection_skips_existing_runtime_thread_event_idempotency/.test(runtimeThreadEventCore) &&
+      /rust_rejects_runtime_thread_event_without_receipts/.test(runtimeThreadEventCore) &&
+      /rust_rejects_retired_runtime_thread_event_request_aliases/.test(runtimeThreadEventCore) &&
+      /rust_rejects_retired_runtime_thread_event_projection_request_aliases/.test(runtimeThreadEventCore) &&
+      /rust_rejects_retired_runtime_thread_event_replay_cursor_aliases/.test(runtimeThreadEventCore) &&
+      /rust_core_shapes_runtime_thread_event_admission_command_response/.test(
+        runtimeThreadEventCore,
+      ) &&
+      /rust_core_shapes_runtime_thread_event_projection_command_response/.test(
+        runtimeThreadEventCore,
+      ) &&
+      /rust_core_shapes_runtime_thread_event_replay_command_response/.test(
+        runtimeThreadEventCore,
+      ) &&
+      /admit_runtime_thread_event/.test(commandProtocolCore) &&
+      /CommandOperation::AdmitRuntimeThreadEvent/.test(commandProtocolCore) &&
+      /project_runtime_thread_events/.test(commandProtocolCore) &&
+      /CommandOperation::ProjectRuntimeThreadEvents/.test(commandProtocolCore) &&
+      /project_runtime_thread_event_replay/.test(commandProtocolCore) &&
+      /CommandOperation::ProjectRuntimeThreadEventReplay/.test(commandProtocolCore) &&
+      /admit_runtime_thread_event_response/.test(coreCommandDispatch) &&
+      /project_runtime_thread_events_response/.test(coreCommandDispatch) &&
+      /project_runtime_thread_event_replay_response/.test(coreCommandDispatch) &&
+      /RUNTIME_THREAD_EVENT_ADMISSION_REQUEST_SCHEMA_VERSION/.test(runtimeAgentgresRunner) &&
+      /RUNTIME_THREAD_EVENT_PROJECTION_REQUEST_SCHEMA_VERSION/.test(runtimeAgentgresRunner) &&
+      /RUNTIME_THREAD_EVENT_REPLAY_REQUEST_SCHEMA_VERSION/.test(runtimeAgentgresRunner) &&
+      /admitRuntimeThreadEvent\(request = \{\}\)/.test(runtimeAgentgresRunner) &&
+      /operation:\s*"admit_runtime_thread_event"/.test(runtimeAgentgresRunner) &&
+      /normalizeRuntimeThreadEventAdmissionBridgeResult/.test(runtimeAgentgresRunner) &&
+      /projectRuntimeThreadEvents\(request = \{\}\)/.test(runtimeAgentgresRunner) &&
+      /operation:\s*"project_runtime_thread_events"/.test(runtimeAgentgresRunner) &&
+      /normalizeRuntimeThreadEventProjectionBridgeResult/.test(runtimeAgentgresRunner) &&
+      /projectRuntimeThreadEventReplay\(request = \{\}\)/.test(runtimeAgentgresRunner) &&
+      /operation:\s*"project_runtime_thread_event_replay"/.test(runtimeAgentgresRunner) &&
+      /normalizeRuntimeThreadEventReplayBridgeResult/.test(runtimeAgentgresRunner) &&
+      /runtime Agentgres runner admits runtime thread events through direct daemon-core invoker/.test(
+        runtimeAgentgresRunnerTest,
+      ) &&
+      /runtime Agentgres runner projects runtime thread events through direct daemon-core invoker/.test(
+        runtimeAgentgresRunnerTest,
+      ) &&
+      /runtime Agentgres runner replays runtime thread events through direct daemon-core invoker/.test(
+        runtimeAgentgresRunnerTest,
+      ) &&
+      /runtime thread event admission normalizer exposes only Rust-returned event truth/.test(
+        runtimeAgentgresRunnerTest,
+      ) &&
+      /runtime thread event projection normalizer exposes only Rust-returned projection truth/.test(
+        runtimeAgentgresRunnerTest,
+      ) &&
+      /runtime thread event replay normalizer exposes only Rust-returned event truth/.test(
+        runtimeAgentgresRunnerTest,
+      ) &&
+      /projectRuntimeThreadEventsForThread/.test(runtimeDaemonIndex) &&
+      /runtimeAgentgresAdmissionRunner\.projectRuntimeThreadEvents/.test(runtimeDaemonIndex) &&
+      /projectRuntimeThreadEventReplayForThread/.test(runtimeDaemonIndex) &&
+      /runtimeAgentgresAdmissionRunner\.projectRuntimeThreadEventReplay/.test(runtimeDaemonIndex) &&
+      /admitRuntimeThreadEventForThread/.test(runtimeDaemonIndex) &&
+      /runtimeAgentgresAdmissionRunner\.admitRuntimeThreadEvent/.test(runtimeDaemonIndex) &&
+      /store\.registerRuntimeEvent\(admittedEvent\)/.test(runtimeDaemonIndex),
+    [
+      "crates/services/src/agentic/runtime/kernel/runtime_thread_event.rs",
+      "crates/services/src/agentic/runtime/kernel/mod.rs",
+      "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
+      "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
+      "packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs",
+      "packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
+    ],
+    "Phase 10/11 is pending: generic runtime thread events and projection must be admitted by Rust daemon-core Agentgres/projection before JS replay registration",
   );
   assertCheck(
     result,
@@ -4837,9 +5102,21 @@ function runBridge() {
       /"toolName"/.test(runtimeCodingToolInvocationSurface) &&
       /"artifactDrafts"/.test(runtimeCodingToolInvocationSurface) &&
       /"artifactRefs"/.test(runtimeCodingToolInvocationSurface) &&
+      /"changedFiles"/.test(runtimeCodingToolInvocationSurface) &&
+      /"diagnosticsRecommended"/.test(runtimeCodingToolInvocationSurface) &&
+      /"diffHash"/.test(runtimeCodingToolInvocationSurface) &&
+      /"projectContext"/.test(runtimeCodingToolInvocationSurface) &&
       /"shellFallbackUsed"/.test(runtimeCodingToolInvocationSurface) &&
       /"workspaceRoot"/.test(runtimeCodingToolInvocationSurface) &&
-      /for \(const field of RETIRED_RUST_LIVE_TOOL_RESULT_FIELDS\) \{\n    delete canonicalToolResult\[field\];\n  \}/.test(
+      /"workspaceSnapshotDrafts"/.test(runtimeCodingToolInvocationSurface) &&
+      /const RETIRED_RUST_LIVE_TOOL_RESULT_FIELD_SET = new Set\(RETIRED_RUST_LIVE_TOOL_RESULT_FIELDS\);/.test(
+        runtimeCodingToolInvocationSurface,
+      ) &&
+      /function canonicalRustLiveToolResult\(value\)/.test(runtimeCodingToolInvocationSurface) &&
+      /RETIRED_RUST_LIVE_TOOL_RESULT_FIELD_SET\.has\(key\)/.test(
+        runtimeCodingToolInvocationSurface,
+      ) &&
+      /const canonicalToolResult = canonicalRustLiveToolResult\(toolResult\);/.test(
         runtimeCodingToolInvocationSurface,
       ) &&
       /schema_version:\s*toolResult\.schema_version \?\? CODING_TOOL_RESULT_SCHEMA_VERSION/.test(
@@ -4893,6 +5170,21 @@ function runBridge() {
         runtimeCodingToolInvocationSurfaceTest,
       ) &&
       /Object\.hasOwn\(result\.result,\s*"shellFallbackUsed"\),\s*false/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(result\.result,\s*"changedFiles"\),\s*false/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(result\.result,\s*"diffHash"\),\s*false/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(result\.result,\s*"diagnosticStatus"\),\s*false/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(result\.result,\s*"commandId"\),\s*false/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(result\.result,\s*"editCount"\),\s*false/.test(
         runtimeCodingToolInvocationSurfaceTest,
       ) &&
       /Object\.hasOwn\(result\.result,\s*"workspaceSnapshot"\),\s*false/.test(
@@ -5391,29 +5683,74 @@ function runBridge() {
   );
   assertCheck(
     result,
-    "coding-tool-command-stream-payload-aliases-retired",
-    /coding_tool_command_stream_event_append/.test(codingToolCommandStreamBlock) &&
-      /artifact\.command_stream/.test(codingToolCommandStreamBlock) &&
+    "coding-tool-command-stream-rust-admission-api",
+    /CodingToolCommandStreamAdmissionCore/.test(codingToolEventCore) &&
+      /CodingToolCommandStreamAdmissionRequest/.test(codingToolEventCore) &&
+      /CodingToolCommandStreamAdmissionRecord/.test(codingToolEventCore) &&
+      /CODING_TOOL_COMMAND_STREAM_ADMISSION_REQUEST_SCHEMA_VERSION/.test(codingToolEventCore) &&
+      /CODING_TOOL_COMMAND_STREAM_PAYLOAD_SCHEMA_VERSION/.test(codingToolEventCore) &&
+      /pub fn admit_coding_tool_command_stream_events_response/.test(codingToolEventCore) &&
+      /rust_admits_coding_tool_command_stream_events_with_agentgres_refs/.test(
+        codingToolEventCore,
+      ) &&
+      /rust_rejects_coding_tool_command_stream_without_receipts/.test(codingToolEventCore) &&
+      /rust_core_shapes_coding_tool_command_stream_admission_command_response/.test(
+        codingToolEventCore,
+      ) &&
+      /admit_coding_tool_command_stream_events/.test(commandProtocolCore) &&
+      /CommandOperation::AdmitCodingToolCommandStreamEvents/.test(commandProtocolCore) &&
+      /admit_coding_tool_command_stream_events_response/.test(coreCommandDispatch) &&
+      /CODING_TOOL_COMMAND_STREAM_ADMISSION_REQUEST_SCHEMA_VERSION/.test(
+        runtimeAgentgresRunner,
+      ) &&
+      /admitCodingToolCommandStreamEvents\(request = \{\}\)/.test(runtimeAgentgresRunner) &&
+      /operation:\s*"admit_coding_tool_command_stream_events"/.test(runtimeAgentgresRunner) &&
+      /normalizeCodingToolCommandStreamAdmissionBridgeResult/.test(runtimeAgentgresRunner) &&
+      /runtime Agentgres runner admits coding-tool command-stream events through direct daemon-core invoker/.test(
+        runtimeAgentgresRunnerTest,
+      ) &&
+      /function admitCodingToolCommandStreamEvents/.test(codingToolCommandStreamBlock) &&
+      /codingToolCommandStreamAdmissionForThread/.test(codingToolCommandStreamBlock) &&
+      /coding_tool_command_stream_event_admission/.test(codingToolCommandStreamBlock) &&
+      /runtime\.coding_tool_command_stream/.test(codingToolCommandStreamBlock) &&
       /coding_tool_command_stream_js_event_append_retired/.test(codingToolCommandStreamBlock) &&
       /rust_daemon_core_command_stream_receipt_required/.test(codingToolCommandStreamBlock) &&
       /agentgres_command_stream_expected_head_required/.test(codingToolCommandStreamBlock) &&
       /if \(!codingToolCommandStreamRequested\(request\)\) return \[\];/.test(codingToolCommandStreamBlock) &&
-      /if \(chunks\.length === 0\) return \[\];/.test(codingToolCommandStreamBlock) &&
-      /fails closed before JS command-stream event append/.test(runtimeCodingToolArtifactSurfaceTest) &&
-      /assert\.equal\(error\.details\.operation_kind,\s*"artifact\.command_stream"\)/.test(
+      /codingToolCommandStreamAdmissionForThread\(store,/.test(codingToolCommandStreamBlock) &&
+      /admitCodingToolCommandStreamEventsForThread/.test(runtimeDaemonIndex) &&
+      /runtimeAgentgresAdmissionRunner\.admitCodingToolCommandStreamEvents/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /store\.registerRuntimeEvent\(event\)/.test(runtimeDaemonIndex) &&
+      /requires Rust command-stream event admission/.test(runtimeCodingToolArtifactSurfaceTest) &&
+      /admits command-stream events through Rust core/.test(runtimeCodingToolArtifactSurfaceTest) &&
+      /assert\.equal\(error\.details\.operation_kind,\s*"runtime\.coding_tool_command_stream"\)/.test(
         runtimeCodingToolArtifactSurfaceTest,
       ) &&
       /assert\.equal\(store\.events\.length,\s*0\)/.test(runtimeCodingToolArtifactSurfaceTest) &&
+      /admitCodingToolCommandStreamEvents/.test(runtimeCodingToolInvocationSurface) &&
+      /rustCommandStreamAdmission/.test(runtimeCodingToolInvocationSurfaceTest) &&
+      !/function appendCodingToolCommandStreamEvents/.test(runtimeCodingToolArtifactSurface) &&
+      !/codingToolCommandStreamChunks/.test(runtimeCodingToolArtifactSurface) &&
       !/store\.appendRuntimeEvent/.test(codingToolCommandStreamBlock) &&
       !/payload_summary:\s*\{/.test(codingToolCommandStreamBlock) &&
       !/^\s*(?:streamId|streamSeq|outputText|isFinal|artifactRefs|receiptRefs)\s*[:,]/m.test(
         codingToolCommandStreamPayloadBlocks,
       ),
     [
+      "crates/services/src/agentic/runtime/kernel/coding_tool_event.rs",
+      "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
+      "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
+      "packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs",
+      "packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs",
     ],
-    "Phase 10/11 is pending: coding-tool command-stream payload summaries must expose canonical snake_case fields without duplicate camelCase aliases",
+    "Phase 10/11 is pending: coding-tool command-stream persistence must be admitted by Rust daemon-core Agentgres/projection before JS projection registration",
   );
   assertCheck(
     result,
@@ -6433,6 +6770,59 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "coding-tool-result-summary-output-aliases-retired",
+    /edit_count:\s*Number\(result\?\.edit_count \?\? 0\)/.test(codingToolResultSummaryBody) &&
+      /changed_file_count:\s*normalizeArray\(result\?\.changed_files\)\.length/.test(
+        codingToolResultSummaryBody,
+      ) &&
+      /workspace_snapshot_id:\s*result\?\.workspace_snapshot_id \?\? null/.test(
+        codingToolResultSummaryBody,
+      ) &&
+      /command_id:\s*result\?\.command_id \?\? null/.test(codingToolResultSummaryBody) &&
+      /test_status:\s*result\?\.test_status \?\? null/.test(codingToolResultSummaryBody) &&
+      /diagnostic_status:\s*result\?\.diagnostic_status \?\? null/.test(
+        codingToolResultSummaryBody,
+      ) &&
+      /diagnostic_count:\s*Number\(result\?\.diagnostic_count \?\? 0\)/.test(
+        codingToolResultSummaryBody,
+      ) &&
+      !/result\?\.(?:dryRun|editCount|changedFiles|workspaceSnapshotId|commandId|testStatus|exitCode|durationMs|diagnosticStatus|diagnosticCount|backendStatus|fallbackUsed|resolvedCommandId|diffBytes|sizeBytes)\b/.test(
+        codingToolResultSummaryBody,
+      ) &&
+      /coding tool result summaries use canonical snake_case result fields/.test(
+        codingToolContractsTest,
+      ) &&
+      /coding tool result summaries ignore retired camelCase result aliases/.test(
+        codingToolContractsTest,
+      ) &&
+      /coding tool output contracts require canonical snake_case result fields/.test(
+        codingToolContractsTest,
+      ) &&
+      /changed_files/.test(codingToolContracts) &&
+      /diff_hash/.test(codingToolContracts) &&
+      /before_hash/.test(codingToolContracts) &&
+      /test_status/.test(codingToolContracts) &&
+      /diagnostic_status/.test(codingToolContracts) &&
+      /!contracts\["workspace\.status"\]\.output_schema\.required\.includes\("changedFiles"\)/.test(
+        codingToolContractsTest,
+      ) &&
+      /!contracts\["file\.apply_patch"\]\.output_schema\.required\.includes\("beforeHash"\)/.test(
+        codingToolContractsTest,
+      ) &&
+      /!contracts\["test\.run"\]\.output_schema\.required\.includes\("testStatus"\)/.test(
+        codingToolContractsTest,
+      ) &&
+      /!contracts\["lsp\.diagnostics"\]\.output_schema\.required\.includes\("diagnosticStatus"\)/.test(
+        codingToolContractsTest,
+      ),
+    [
+      "packages/runtime-daemon/src/coding-tools.mjs",
+      "packages/runtime-daemon/src/coding-tools.test.mjs",
+    ],
+    "Phase 10/11 is pending: coding-tool result summaries and output contracts must consume canonical Rust-owned result fields without camelCase fallback aliases",
+  );
+  assertCheck(
+    result,
     "coding-tool-budget-usage-response-alias-retired",
     !/budgetUsageTelemetry:\s*budgetPolicy\.usageTelemetry/.test(
       runtimeCodingToolInvocationSurface,
@@ -6454,11 +6844,13 @@ function runBridge() {
     "coding-tool-budget-block-detail-aliases-retired",
     /context_budget_status:\s*budgetPolicy\.status/.test(runtimeCodingToolInvocationSurface) &&
       /context_budget:\s*budgetPolicy/.test(runtimeCodingToolInvocationSurface) &&
-      /event_id:\s*blocked\.event\?\.event_id \?\? null/.test(
+      /event_id:\s*admittedBlockEvent\?\.event_id \?\? blocked\.event\?\.event_id \?\? null/.test(
         runtimeCodingToolInvocationSurface,
       ) &&
-      /receipt_refs:\s*blocked\.receipt_refs/.test(runtimeCodingToolInvocationSurface) &&
-      /policy_decision_refs:\s*blocked\.policy_decision_refs/.test(
+      /receipt_refs:\s*uniqueStrings\(\[\s*\.\.\.normalizeArray\(blocked\.receipt_refs\)/.test(
+        runtimeCodingToolInvocationSurface,
+      ) &&
+      /policy_decision_refs:\s*uniqueStrings\(blocked\.policy_decision_refs\)/.test(
         runtimeCodingToolInvocationSurface,
       ) &&
       !/contextBudgetStatus:\s*budgetPolicy\.status/.test(runtimeCodingToolInvocationSurface) &&
@@ -6482,7 +6874,28 @@ function runBridge() {
   );
   assertCheck(
     result,
-    "coding-tool-governance-budget-block-js-facade-retired",
+    "coding-tool-governance-budget-block-rust-positive-api",
+      /CodingToolBudgetBlockCore/.test(policyContextLifecycleCore) &&
+      /CodingToolBudgetBlockRequest/.test(policyContextLifecycleCore) &&
+      /CodingToolBudgetBlockRecord/.test(policyContextLifecycleCore) &&
+      /CODING_TOOL_BUDGET_BLOCK_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
+      /CODING_TOOL_BUDGET_BLOCK_RESULT_SCHEMA_VERSION/.test(policyCore) &&
+      /pub fn plan_coding_tool_budget_block_response/.test(policyContextLifecycleCore) &&
+      /rust_policy_plans_coding_tool_budget_block_result_event/.test(policyContextLifecycleCore) &&
+      /rust_core_shapes_coding_tool_budget_block_command_response/.test(policyContextLifecycleCore) &&
+      /plan_coding_tool_budget_block/.test(commandProtocolCore) &&
+      /CommandOperation::PlanCodingToolBudgetBlock/.test(commandProtocolCore) &&
+      /plan_coding_tool_budget_block_response/.test(coreCommandDispatch) &&
+      /planCodingToolBudgetBlock/.test(runtimeContextPolicyRunner) &&
+      /CODING_TOOL_BUDGET_BLOCK_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyRunner) &&
+      /normalizeCodingToolBudgetBlockBridgeResult/.test(runtimeContextPolicyRunner) &&
+      /coding tool budget block runner sends Rust block request through direct daemon-core invoker/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /codingToolBudgetBlockPlanner/.test(runtimeCodingToolGovernanceSurface) &&
+      /planCodingToolBudgetBlock/.test(runtimeCodingToolGovernanceSurface) &&
+      /canonicalBudgetPolicy/.test(runtimeCodingToolGovernanceSurface) &&
+      /codingToolBudgetBlockPlanner:\s*this\.contextPolicyRunner/.test(runtimeDaemonIndex) &&
       /runtime_coding_tool_governance_rust_core_required/.test(runtimeCodingToolGovernanceSurface) &&
       /rust_core_boundary:\s*"runtime\.coding_tool_governance"/.test(runtimeCodingToolGovernanceSurface) &&
       /throwGovernanceRustCoreRequired\("coding_tool_budget_block",\s*"policy\.blocked"/.test(runtimeCodingToolGovernanceSurface) &&
@@ -6492,12 +6905,20 @@ function runBridge() {
       /coding-tool governance budget block facade fails closed before JS event append/.test(
         runtimeCodingToolGovernanceSurfaceTest,
       ) &&
+      /coding-tool governance budget block delegates to Rust planner without JS event append/.test(
+        runtimeCodingToolGovernanceSurfaceTest,
+      ) &&
       /appendRuntimeEvent must not be called by the retired JS governance facade/.test(
         runtimeCodingToolGovernanceSurfaceTest,
       ) &&
       /assertNoRetiredGovernanceDetailAliases\(error\.details\)/.test(
         runtimeCodingToolGovernanceSurfaceTest,
       ) &&
+      /admittedBlockEvent = codingToolResultEventAdmissionForThread/.test(
+        runtimeCodingToolInvocationSurface,
+      ) &&
+      /budget_block:\s*blocked\.record \?\? blocked/.test(runtimeCodingToolInvocationSurface) &&
+      /rustResultEventAdmission/.test(runtimeCodingToolInvocationSurfaceTest) &&
       !/store\.appendRuntimeEvent\(/.test(runtimeCodingToolGovernanceSurface) &&
       !/CODING_TOOL_RESULT_SCHEMA_VERSION/.test(runtimeCodingToolGovernanceSurface) &&
       !/codingToolInputSummary/.test(runtimeCodingToolGovernanceSurface) &&
@@ -6505,10 +6926,18 @@ function runBridge() {
       !/budgetPolicy\.receiptRefs/.test(runtimeCodingToolGovernanceSurface) &&
       !/budgetPolicy\.policyDecisionRefs/.test(runtimeCodingToolGovernanceSurface),
     [
+      "crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs",
+      "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
+      "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-governance-surface.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-governance-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
     ],
-    "Phase 10/11 is pending: coding-tool governance budget blocking must fail closed before JS event append or response-truth construction",
+    "Phase 10/11 is pending: coding-tool governance budget blocking must be Rust-planned and Agentgres-admitted while JS event append and response-truth construction stay retired",
   );
   assertCheck(
     result,
@@ -6516,10 +6945,14 @@ function runBridge() {
     !/camelCaseKey/.test(runtimeCodingToolApproval) &&
       !/requestedManifest\[camelCaseKey\(key\)\]/.test(runtimeCodingToolApproval) &&
       !/retryManifest\[camelCaseKey\(key\)\]/.test(runtimeCodingToolApproval) &&
-      /requestedManifest\[key\]/.test(runtimeCodingToolApproval) &&
-      /retryManifest\[key\]/.test(runtimeCodingToolApproval) &&
-      /coding tool approval retry match rejects retired camelCase manifests/.test(runtimeCodingToolApprovalTest) &&
-      /Object\.hasOwn\(camelRetry,\s*"threadId"\)/.test(runtimeCodingToolApprovalTest),
+      !/requestedManifest\[key\]/.test(runtimeCodingToolApproval) &&
+      !/retryManifest\[key\]/.test(runtimeCodingToolApproval) &&
+      !/function codingToolApprovalManifestsMatch/.test(runtimeCodingToolApproval) &&
+      !/codingToolApprovalManifestsMatch/.test(runtimeCodingToolApproval) &&
+      /coding tool approval retry match JS helper is retired/.test(runtimeCodingToolApprovalTest) &&
+      /Object\.hasOwn\(policy,\s*"codingToolApprovalManifestsMatch"\),\s*false/.test(
+        runtimeCodingToolApprovalTest,
+      ),
     [
       "packages/runtime-daemon/src/runtime-coding-tool-approval.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-approval.test.mjs",
@@ -6678,21 +7111,18 @@ function runBridge() {
       !projectionCommandBridgeExists &&
       /rust_policy_shapes_workflow_edit_admission_required_command_response/.test(policyAdmissionRequiredCore) &&
       /rust_policy_shapes_diagnostics_repair_admission_required_command_response/.test(policyAdmissionRequiredCore) &&
-      /rust_policy_shapes_skill_hook_registry_projection_required_command_response/.test(policyProjectionRequiredCore) &&
-      /rust_policy_shapes_repository_workflow_projection_required_command_response/.test(policyProjectionRequiredCore) &&
-      /rust_policy_shapes_runtime_tool_catalog_projection_required_command_response/.test(policyProjectionRequiredCore) &&
-      /rust_policy_shapes_runtime_lifecycle_projection_required_command_response/.test(policyProjectionRequiredCore) &&
+      /rust_shapes_repository_workflow_command_response/.test(repositoryWorkflowRustCore) &&
+      /rust_shapes_runtime_lifecycle_command_response/.test(runtimeLifecycleRustCore) &&
       !/plan_workflow_edit_admission_required_response as plan_workflow_edit_admission_required/.test(bridgeModule) &&
       !/plan_diagnostics_repair_admission_required_response as plan_diagnostics_repair_admission_required/.test(bridgeModule) &&
       !/plan_skill_hook_registry_projection_required_response as plan_skill_hook_registry_projection_required/.test(bridgeModule) &&
       !/plan_repository_workflow_projection_required_response as plan_repository_workflow_projection_required/.test(bridgeModule) &&
-      !/plan_runtime_tool_catalog_projection_required_response as plan_runtime_tool_catalog_projection_required/.test(bridgeModule) &&
       !/plan_runtime_lifecycle_projection_required_response as plan_runtime_lifecycle_projection_required/.test(bridgeModule),
     [
       "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "crates/services/src/agentic/runtime/kernel/policy/admission_required.rs",
-      "crates/services/src/agentic/runtime/kernel/policy/projection_required.rs",
+      "crates/services/src/agentic/runtime/kernel/runtime_lifecycle.rs",
     ],
     "Phase 10/11 remains non-terminal: authority, admission-required, and projection-required child wrappers must not regain local command-envelope identity now that Rust command protocol validates schema and operation before dispatch",
   );
@@ -6803,6 +7233,12 @@ function runBridge() {
       /rust_core_shapes_workspace_restore_apply_policy_command_response/.test(workspaceRestoreKernel) &&
       /rust_core_shapes_workspace_restore_apply_operations_command_response/.test(workspaceRestoreKernel) &&
       /rust_core_shapes_workspace_snapshot_capture_command_response/.test(workspaceRestoreKernel) &&
+      /WORKSPACE_SNAPSHOT_RECORD_SCHEMA_VERSION/.test(workspaceRestoreKernel) &&
+      /WORKSPACE_SNAPSHOT_EVENT_SCHEMA_VERSION/.test(workspaceRestoreKernel) &&
+      /workspace_snapshot_capture_record/.test(workspaceRestoreKernel) &&
+      /workspace_snapshot_capture_event/.test(workspaceRestoreKernel) &&
+      /"snapshot_record":\s*snapshot_record/.test(workspaceRestoreKernel) &&
+      /"snapshot_event":\s*snapshot_event/.test(workspaceRestoreKernel) &&
       !/plan_workspace_restore_apply_policy_response as plan_workspace_restore_apply_policy/.test(bridgeModule) &&
       /preview_workspace_restore_operations_response/.test(coreCommandDispatch) &&
       !/pub\(super\) fn preview_workspace_restore_operations/.test(
@@ -6836,7 +7272,9 @@ function runBridge() {
       ) &&
       /pub fn plan_lifecycle_admission_required_response/.test(policyThreadLifecycleCore) &&
       /pub fn plan_agent_create_state_update_response/.test(policyThreadLifecycleCore) &&
+      /pub fn plan_thread_create_state_update_response/.test(policyThreadLifecycleCore) &&
       /pub fn plan_agent_status_state_update_response/.test(policyThreadLifecycleCore) &&
+      /pub fn plan_agent_delete_state_update_response/.test(policyThreadLifecycleCore) &&
       /pub fn plan_run_create_state_update_response/.test(policyThreadLifecycleCore) &&
       /rust_runtime_bridge_thread_start_agent_state_update_command/.test(
         policyThreadLifecycleCore,
@@ -6847,7 +7285,9 @@ function runBridge() {
       /rust_thread_turn_admission_required_command/.test(policyThreadLifecycleCore) &&
       /rust_lifecycle_admission_required_command/.test(policyThreadLifecycleCore) &&
       /rust_agent_create_state_update_command/.test(policyThreadLifecycleCore) &&
+      /rust_thread_create_state_update_command/.test(policyThreadLifecycleCore) &&
       /rust_agent_status_state_update_command/.test(policyThreadLifecycleCore) &&
+      /rust_agent_delete_state_update_command/.test(policyThreadLifecycleCore) &&
       /rust_run_create_state_update_command/.test(policyThreadLifecycleCore) &&
       /rust_policy_shapes_thread_control_agent_state_update_command_response/.test(
         policyThreadLifecycleCore,
@@ -6870,12 +7310,22 @@ function runBridge() {
       /rust_policy_shapes_agent_create_state_update_command_response/.test(
         policyThreadLifecycleCore,
       ) &&
+      /rust_policy_shapes_thread_create_state_update_command_response/.test(
+        policyThreadLifecycleCore,
+      ) &&
       /rust_policy_shapes_agent_status_state_update_command_response/.test(
+        policyThreadLifecycleCore,
+      ) &&
+      /rust_policy_shapes_agent_delete_state_update_command_response/.test(
         policyThreadLifecycleCore,
       ) &&
       /rust_policy_shapes_run_create_state_update_command_response/.test(
         policyThreadLifecycleCore,
       ) &&
+      /plan_thread_create_state_update/.test(commandProtocolCore) &&
+      /CommandOperation::PlanThreadCreateStateUpdate/.test(commandProtocolCore) &&
+      /plan_agent_delete_state_update/.test(commandProtocolCore) &&
+      /CommandOperation::PlanAgentDeleteStateUpdate/.test(commandProtocolCore) &&
       !threadLifecycleCommandBridgeExists &&
       !/mod thread_lifecycle_command;/.test(bridgeModule) &&
       !/plan_runtime_bridge_thread_start_agent_state_update_response as plan_runtime_bridge_thread_start_agent_state_update/.test(
@@ -6896,7 +7346,13 @@ function runBridge() {
       !/plan_agent_create_state_update_response as plan_agent_create_state_update/.test(
         bridgeModule,
       ) &&
+      !/plan_thread_create_state_update_response as plan_thread_create_state_update/.test(
+        bridgeModule,
+      ) &&
       !/plan_agent_status_state_update_response as plan_agent_status_state_update/.test(
+        bridgeModule,
+      ) &&
+      !/plan_agent_delete_state_update_response as plan_agent_delete_state_update/.test(
         bridgeModule,
       ) &&
       !/plan_run_create_state_update_response as plan_run_create_state_update/.test(
@@ -6909,7 +7365,9 @@ function runBridge() {
       !/RuntimeBridgeTurnRunStateUpdateBridgeRequest/.test(bridgeModule) &&
       !/SubagentRecordStateUpdateBridgeRequest/.test(bridgeModule) &&
       !/AgentCreateStateUpdateBridgeRequest/.test(bridgeModule) &&
+      !/ThreadCreateStateUpdateBridgeRequest/.test(bridgeModule) &&
       !/AgentStatusStateUpdateBridgeRequest/.test(bridgeModule) &&
+      !/AgentDeleteStateUpdateBridgeRequest/.test(bridgeModule) &&
       !/RunCreateStateUpdateBridgeRequest/.test(bridgeModule) &&
       !/bridge_plans_thread_control_agent_state_update_through_rust_core/.test(
         bridgeModule,
@@ -6930,10 +7388,13 @@ function runBridge() {
         bridgeModule,
       ) &&
       !/bridge_plans_agent_create_state_update_through_rust_core/.test(bridgeModule) &&
+      !/bridge_plans_thread_create_state_update_through_rust_core/.test(bridgeModule) &&
       !/bridge_plans_agent_status_state_update_through_rust_core/.test(bridgeModule) &&
+      !/bridge_plans_agent_delete_state_update_through_rust_core/.test(bridgeModule) &&
       !/bridge_plans_run_create_state_update_through_rust_core/.test(bridgeModule),
     [
       "crates/services/src/agentic/runtime/kernel/policy/thread_lifecycle.rs",
+      "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "scripts/conformance/hypervisor-conformance.mjs",
     ],
@@ -7871,71 +8332,164 @@ function runBridge() {
     ],
     "Phase 10/11 is pending: coding-tool approval workflow policy handoff must use canonical snake_case request fields before Rust authority planning",
   );
-  const codingToolApprovalSatisfactionBody =
-    runtimeCodingToolGovernanceSurface.match(
-      /  function codingToolApprovalSatisfaction\(store, \{[\s\S]*?(?=\n  function blockCodingToolForApproval)/,
-    )?.[0] ?? "";
   const codingToolInvocationPayloadSummaryBlock =
     runtimeCodingToolInvocationSurface.match(/const payloadSummary = \{[\s\S]*?\n    \};/)
       ?.[0] ?? "";
+  const codingToolGovernanceCompositionBlock =
+    runtimeDaemonIndex.match(
+      /this\.codingToolGovernanceSurface = createRuntimeCodingToolGovernanceSurface\(\{[\s\S]*?\n    \}\);/,
+    )?.[0] ?? "";
   assertCheck(
     result,
-    "coding-tool-approval-satisfaction-request-alias-retired",
-    /const approvalId = optionalString\(request\.approval_id\);/.test(
-      codingToolApprovalSatisfactionBody,
-    ) &&
-      /function codingToolApprovalSatisfaction\(store, \{ threadId, approval_manifest: approvalManifest, request \}\)/.test(
-        codingToolApprovalSatisfactionBody,
+    "coding-tool-approval-satisfaction-rust-positive-api",
+    !/function codingToolApprovalSatisfaction\(/.test(runtimeCodingToolGovernanceSurface) &&
+      /CodingToolApprovalSatisfactionCore/.test(approvalCore) &&
+      /CodingToolApprovalSatisfactionRequest/.test(approvalCore) &&
+      /CodingToolApprovalSatisfactionProjectionCore/.test(approvalCore) &&
+      /CodingToolApprovalSatisfactionProjectionRequest/.test(approvalCore) &&
+      /CODING_TOOL_APPROVAL_SATISFACTION_REQUEST_SCHEMA_VERSION/.test(approvalCore) &&
+      /CODING_TOOL_APPROVAL_SATISFACTION_RESULT_SCHEMA_VERSION/.test(approvalCore) &&
+      /CODING_TOOL_APPROVAL_SATISFACTION_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
+        approvalCore,
       ) &&
-      /const requestedManifest =\s*\n\s*approvalRequestEvent\.payload_summary\?\.approval_manifest \?\?\s*\n\s*null;/.test(
-        codingToolApprovalSatisfactionBody,
+      /CODING_TOOL_APPROVAL_SATISFACTION_PROJECTION_RESULT_SCHEMA_VERSION/.test(
+        approvalCore,
       ) &&
-      /approval_id:\s*approvalId/.test(codingToolApprovalSatisfactionBody) &&
-      /decision_event_id:\s*latestDecision\.event_id/.test(codingToolApprovalSatisfactionBody) &&
-      /decision_seq:\s*latestDecision\.seq/.test(codingToolApprovalSatisfactionBody) &&
-      /lease_id:\s*leaseState\.lease_id/.test(codingToolApprovalSatisfactionBody) &&
-      /expires_at:\s*leaseState\.expires_at/.test(codingToolApprovalSatisfactionBody) &&
-      !/request\.approvalId\b/.test(codingToolApprovalSatisfactionBody) &&
-      !/approvalRequestEvent\.payload_summary\?\.approvalManifest\b/.test(
-        codingToolApprovalSatisfactionBody,
+      /pub fn project_coding_tool_approval_satisfaction_response/.test(approvalCore) &&
+      /pub fn plan_coding_tool_approval_satisfaction_response/.test(approvalCore) &&
+      /rust_authority_plans_coding_tool_approval_satisfaction/.test(approvalCore) &&
+      /rust_authority_projects_coding_tool_approval_satisfaction_from_run_projection/.test(
+        approvalCore,
       ) &&
-      !/^\s*(?:approvalId|decisionEventId|decisionSeq|leaseId|expiresAt)\s*:/m.test(
-        codingToolApprovalSatisfactionBody,
+      /rust_authority_projects_revoked_approval_as_latest_decision/.test(approvalCore) &&
+      /rust_core_shapes_coding_tool_approval_satisfaction_projection_command_response/.test(
+        approvalCore,
       ) &&
-      /request: \{ approval_id: "approval-one" \}/.test(runtimeCodingToolGovernanceSurfaceTest) &&
-      /request: \{ approvalId: "approval-one" \}/.test(runtimeCodingToolGovernanceSurfaceTest) &&
-      /approval_id_missing/.test(runtimeCodingToolGovernanceSurfaceTest) &&
-      /approval_manifest: \{ tool_id: "file\.write" \}/.test(
+      /rust_authority_blocks_coding_tool_approval_satisfaction_mismatch/.test(approvalCore) &&
+      /rust_authority_blocks_expired_coding_tool_approval_lease/.test(approvalCore) &&
+      /rust_core_shapes_coding_tool_approval_satisfaction_command_response/.test(approvalCore) &&
+      /project_coding_tool_approval_satisfaction/.test(commandProtocolCore) &&
+      /CommandOperation::ProjectCodingToolApprovalSatisfaction/.test(commandProtocolCore) &&
+      /plan_coding_tool_approval_satisfaction/.test(commandProtocolCore) &&
+      /CommandOperation::PlanCodingToolApprovalSatisfaction/.test(commandProtocolCore) &&
+      /project_coding_tool_approval_satisfaction_response/.test(coreCommandDispatch) &&
+      /plan_coding_tool_approval_satisfaction_response/.test(coreCommandDispatch) &&
+      /projectApprovalSatisfaction/.test(runtimeCodingToolApprovalRunner) &&
+      /CODING_TOOL_APPROVAL_SATISFACTION_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
+        runtimeCodingToolApprovalRunner,
+      ) &&
+      /project_coding_tool_approval_satisfaction/.test(runtimeCodingToolApprovalRunner) &&
+      /normalizeCodingToolApprovalSatisfactionProjectionBridgeResult/.test(
+        runtimeCodingToolApprovalRunner,
+      ) &&
+      /planApprovalSatisfaction/.test(runtimeCodingToolApprovalRunner) &&
+      /CODING_TOOL_APPROVAL_SATISFACTION_REQUEST_SCHEMA_VERSION/.test(runtimeCodingToolApprovalRunner) &&
+      /plan_coding_tool_approval_satisfaction/.test(runtimeCodingToolApprovalRunner) &&
+      /normalizeCodingToolApprovalSatisfactionBridgeResult/.test(runtimeCodingToolApprovalRunner) &&
+      /coding tool approval runner sends Rust satisfaction projection request through direct daemon-core invoker/.test(
+        runtimeCodingToolApprovalRunnerTest,
+      ) &&
+      /coding tool approval runner sends Rust satisfaction request through direct daemon-core invoker/.test(
+        runtimeCodingToolApprovalRunnerTest,
+      ) &&
+      /codingToolApprovalSatisfactionForThread/.test(runtimeCodingToolApproval) &&
+      /approvalRunner\.projectApprovalSatisfaction/.test(runtimeCodingToolApproval) &&
+      !/store\.codingToolApprovalSatisfactionProjection/.test(runtimeCodingToolApproval) &&
+      !/function codingToolApprovalManifestsMatch/.test(runtimeCodingToolApproval) &&
+      /planApprovalSatisfaction/.test(runtimeCodingToolApproval) &&
+      /JS approval satisfaction projection must not be used/.test(runtimeCodingToolApprovalTest) &&
+      /coding tool approval retry match JS helper is retired/.test(runtimeCodingToolApprovalTest) &&
+      /JS approval request readback must not be used/.test(runtimeCodingToolApprovalTest) &&
+      /coding tool approval satisfaction is planned by Rust authority runner/.test(
+        runtimeCodingToolApprovalTest,
+      ) &&
+      /codingToolApprovalSatisfactionForThread/.test(runtimeCodingToolInvocationSurface) &&
+      /approvalGate = codingToolApprovalSatisfactionForThread/.test(runtimeCodingToolInvocationSurface) &&
+      !/store\.codingToolGovernanceSurface\.codingToolApprovalSatisfaction/.test(
+        runtimeCodingToolInvocationSurface,
+      ) &&
+      !/latestApprovalRequestEvent\(/.test(runtimeCodingToolGovernanceSurface) &&
+      !/runtimeEventStream\(/.test(runtimeCodingToolGovernanceSurface) &&
+      !/eventStreamIdForThread/.test(runtimeCodingToolGovernanceSurface) &&
+      !/approvalLeaseStateForDecision|approvalReasonForDecisionEvent|codingToolApprovalManifestsMatch/.test(
+        runtimeCodingToolGovernanceSurface,
+      ) &&
+      /runtimeError/.test(codingToolGovernanceCompositionBlock) &&
+      !/approvalLeaseStateForDecision|approvalReasonForDecisionEvent|codingToolApprovalManifestsMatch/.test(
+        codingToolGovernanceCompositionBlock,
+      ) &&
+      /coding-tool approval satisfaction JS gate is retired/.test(runtimeCodingToolGovernanceSurfaceTest) &&
+      /Object\.hasOwn\(surface,\s*"codingToolApprovalSatisfaction"\),\s*false/.test(
         runtimeCodingToolGovernanceSurfaceTest,
       ) &&
-      /approvalManifest: \{ tool_id: "file\.write" \}/.test(
+      /approval satisfaction JS event lookup must be retired/.test(
         runtimeCodingToolGovernanceSurfaceTest,
       ) &&
-      /Object\.hasOwn\(approved,\s*field\),\s*false/.test(
-        runtimeCodingToolGovernanceSurfaceTest,
+      /coding tool invocation surface executes approval-required tools only after Rust satisfaction/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
+      /rustApprovalSatisfaction/.test(runtimeCodingToolInvocationSurfaceTest) &&
+      /assert\.ok\(!store\.calls\.some\(\(call\) => call\.name === "approvalSatisfaction"\)\)/.test(
+        runtimeCodingToolInvocationSurfaceTest,
       ),
     [
+      "crates/services/src/agentic/runtime/kernel/approval.rs",
+      "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
+      "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
+      "packages/runtime-daemon/src/runtime-coding-tool-approval-runner.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-approval-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-approval.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-approval.test.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-governance-surface.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-governance-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
     ],
-    "Phase 10/11 is pending: coding-tool approval satisfaction must use canonical approval_id without retired approvalId request fallback",
+    "Phase 10/11 is pending: coding-tool approval satisfaction must be Rust-owned and the JS event/lease gate must stay retired",
   );
   assertCheck(
     result,
-    "coding-tool-approval-block-js-facade-retired",
-      /runtime_coding_tool_governance_rust_core_required/.test(runtimeCodingToolGovernanceSurface) &&
-      /rust_core_boundary:\s*"runtime\.coding_tool_governance"/.test(runtimeCodingToolGovernanceSurface) &&
-      /throwGovernanceRustCoreRequired\("coding_tool_approval_block",\s*"coding_tool\.approval\.block"/.test(runtimeCodingToolGovernanceSurface) &&
-      /coding_tool_approval_block_js_facade_retired/.test(runtimeCodingToolGovernanceSurface) &&
-      /rust_daemon_core_coding_tool_approval_block_required/.test(runtimeCodingToolGovernanceSurface) &&
-      /agentgres_coding_tool_approval_block_truth_required/.test(runtimeCodingToolGovernanceSurface) &&
-      /coding-tool governance approval block facade fails closed before JS approval persistence/.test(
+    "coding-tool-approval-block-rust-positive-api",
+      /CodingToolApprovalBlockCore/.test(approvalCore) &&
+      /CodingToolApprovalBlockRequest/.test(approvalCore) &&
+      /CodingToolApprovalBlockRecord/.test(approvalCore) &&
+      /CODING_TOOL_APPROVAL_BLOCK_REQUEST_SCHEMA_VERSION/.test(approvalCore) &&
+      /CODING_TOOL_APPROVAL_BLOCK_RESULT_SCHEMA_VERSION/.test(approvalCore) &&
+      /pub fn plan_coding_tool_approval_block_response/.test(approvalCore) &&
+      /rust_authority_plans_coding_tool_approval_block_result_event/.test(approvalCore) &&
+      /rust_core_shapes_coding_tool_approval_block_command_response/.test(approvalCore) &&
+      /plan_coding_tool_approval_block/.test(commandProtocolCore) &&
+      /CommandOperation::PlanCodingToolApprovalBlock/.test(commandProtocolCore) &&
+      /plan_coding_tool_approval_block_response/.test(coreCommandDispatch) &&
+      /planApprovalBlock/.test(runtimeCodingToolApprovalRunner) &&
+      /CODING_TOOL_APPROVAL_BLOCK_REQUEST_SCHEMA_VERSION/.test(runtimeCodingToolApprovalRunner) &&
+      /normalizeCodingToolApprovalBlockBridgeResult/.test(runtimeCodingToolApprovalRunner) &&
+      /coding tool approval runner sends Rust approval block request through direct daemon-core invoker/.test(
+        runtimeCodingToolApprovalRunnerTest,
+      ) &&
+      /codingToolApprovalBlockForThread/.test(runtimeCodingToolApproval) &&
+      /planApprovalBlock/.test(runtimeCodingToolApproval) &&
+      /coding tool approval block is planned by Rust authority runner/.test(
+        runtimeCodingToolApprovalTest,
+      ) &&
+      /codingToolApprovalBlockForThread/.test(runtimeDaemonIndex) &&
+      /codingToolApprovalBlockForThread/.test(runtimeCodingToolInvocationSurface) &&
+      /const blocked = codingToolApprovalBlockForThread/.test(runtimeCodingToolInvocationSurface) &&
+      /runtime_coding_tool_approval_block_rust_core_required/.test(
+        runtimeCodingToolInvocationSurface,
+      ) &&
+      /rust_core_boundary:\s*"runtime\.coding_tool_approval_block"/.test(
+        runtimeCodingToolInvocationSurface,
+      ) &&
+      !/store\.codingToolGovernanceSurface\.blockCodingToolForApproval/.test(
+        runtimeCodingToolInvocationSurface,
+      ) &&
+      !/function blockCodingToolForApproval/.test(runtimeCodingToolGovernanceSurface) &&
+      /coding-tool governance approval block facade is retired/.test(
         runtimeCodingToolGovernanceSurfaceTest,
       ) &&
-      /requestThreadApproval must not be called by the retired JS governance facade/.test(
-        runtimeCodingToolGovernanceSurfaceTest,
-      ) &&
-      /assertNoRetiredGovernanceDetailAliases\(error\.details\)/.test(
+      /Object\.hasOwn\(surface,\s*"blockCodingToolForApproval"\),\s*false/.test(
         runtimeCodingToolGovernanceSurfaceTest,
       ) &&
       !/store\.requestThreadApproval\(/.test(runtimeCodingToolGovernanceSurface) &&
@@ -7948,20 +8502,23 @@ function runBridge() {
       !/approvalId:\s*approvalSatisfaction\?\.approvalId/.test(
         codingToolInvocationPayloadSummaryBlock,
       ) &&
-      /approval_id:\s*approvalSatisfaction\?\.approval_id \?\? null/.test(
+      /approval_id:\s*approvalGate\?\.approval_id \?\? null/.test(
         codingToolInvocationPayloadSummaryBlock,
       ) &&
       !/approvalManifest:\s*approvalManifest/.test(codingToolInvocationPayloadSummaryBlock) &&
+      /approval_manifest:\s*approvalManifest \?\? null/.test(codingToolInvocationPayloadSummaryBlock) &&
       !/approvalDecisionEventId:\s*approvalSatisfaction\?\.decisionEventId/.test(
         codingToolInvocationPayloadSummaryBlock,
       ) &&
-      /approval_decision_event_id:\s*approvalSatisfaction\?\.decision_event_id \?\? null/.test(
+      /approval_decision_event_id:\s*approvalGate\?\.decision_event_id \?\? null/.test(
         codingToolInvocationPayloadSummaryBlock,
       ) &&
-      /store\.codingToolGovernanceSurface\.codingToolApprovalSatisfaction\(store, \{\s*threadId,\s*approval_manifest: approvalManifest,\s*request,\s*\}\)/.test(
+      !/store\.codingToolGovernanceSurface\.codingToolApprovalSatisfaction/.test(
         runtimeCodingToolInvocationSurface,
       ) &&
-      /approvalSatisfaction\?\.approval_id/.test(runtimeCodingToolInvocationSurface) &&
+      !/store\.codingToolGovernanceSurface\.blockCodingToolForApproval/.test(
+        runtimeCodingToolInvocationSurface,
+      ) &&
       !/approvalSatisfaction\?\.approvalId/.test(runtimeCodingToolInvocationSurface) &&
       !/^\s*diagnosticsRepairContext,\s*$/m.test(codingToolInvocationPayloadSummaryBlock) &&
       /Object\.hasOwn\(result\.event\.payload_summary,\s*field\),\s*false/.test(
@@ -7970,19 +8527,96 @@ function runBridge() {
       /Object\.hasOwn\(result,\s*"approvalManifest"\),\s*false/.test(
         runtimeCodingToolInvocationSurfaceTest,
       ) &&
-      /approvalCall\.input\.approval_manifest,\s*approvalManifest/.test(
+      /coding tool invocation surface returns Rust-planned approval block results before execution/.test(
         runtimeCodingToolInvocationSurfaceTest,
       ) &&
-      /Object\.hasOwn\(approvalCall\.input,\s*"approvalManifest"\),\s*false/.test(
-        runtimeCodingToolInvocationSurfaceTest,
-      ),
+      /rustApprovalBlock/.test(runtimeCodingToolInvocationSurfaceTest) &&
+      /rust_authority_block/.test(runtimeCodingToolInvocationSurfaceTest),
     [
+      "crates/services/src/agentic/runtime/kernel/approval.rs",
+      "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
+      "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
+      "packages/runtime-daemon/src/runtime-coding-tool-approval-runner.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-approval-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-approval.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-approval.test.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-governance-surface.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-governance-surface.test.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs",
     ],
-    "Phase 10/11 is pending: coding-tool approval blocking must fail closed before JS approval persistence or response-truth construction",
+    "Phase 10/11 is pending: coding-tool approval blocking must be Rust-planned and the JS block facade must stay retired",
+  );
+  assertCheck(
+    result,
+    "approval-queue-projection-rust-positive-api",
+    /ApprovalQueueProjectionCore/.test(approvalCore) &&
+      /ApprovalQueueProjectionRequest/.test(approvalCore) &&
+      /ApprovalQueueProjectionRecord/.test(approvalCore) &&
+      /APPROVAL_QUEUE_PROJECTION_REQUEST_SCHEMA_VERSION/.test(approvalCore) &&
+      /APPROVAL_QUEUE_PROJECTION_RESULT_SCHEMA_VERSION/.test(approvalCore) &&
+      /pub fn project_approval_queue_response/.test(approvalCore) &&
+      /rust_authority_projects_public_approval_queue_pending_only/.test(approvalCore) &&
+      /rust_authority_projects_public_approval_queue_with_resolved_records/.test(
+        approvalCore,
+      ) &&
+      /rust_core_shapes_public_approval_queue_command_response/.test(approvalCore) &&
+      /approval_queue_projection_candidates/.test(approvalCore) &&
+      /latest_approval_queue_decision/.test(approvalCore) &&
+      /approval_queue_entry/.test(approvalCore) &&
+      /project_approval_queue/.test(commandProtocolCore) &&
+      /CommandOperation::ProjectApprovalQueue/.test(commandProtocolCore) &&
+      /project_approval_queue_response/.test(coreCommandDispatch) &&
+      /projectApprovalQueue/.test(runtimeApprovalStateRunner) &&
+      /APPROVAL_QUEUE_PROJECTION_REQUEST_SCHEMA_VERSION/.test(runtimeApprovalStateRunner) &&
+      /normalizeApprovalQueueProjectionBridgeResult/.test(runtimeApprovalStateRunner) &&
+      /approval queue projection runner sends Rust authority request through direct daemon-core invoker/.test(
+        runtimeApprovalStateRunnerTest,
+      ) &&
+      /approval queue projection runner fails closed without Rust-planned operation kind/.test(
+        runtimeApprovalStateRunnerTest,
+      ) &&
+      /listThreadApprovals/.test(runtimeApprovalSurface) &&
+      /projectApprovalQueue/.test(runtimeApprovalSurface) &&
+      /approval_queue_js_readback_retired/.test(runtimeApprovalSurface) &&
+      /rust_daemon_core_approval_queue_projection_required/.test(runtimeApprovalSurface) &&
+      /agentgres_approval_queue_projection_truth_required/.test(runtimeApprovalSurface) &&
+      /listThreadApprovals public read calls Rust approval queue projection/.test(
+        runtimeApprovalControlFacadeTest,
+      ) &&
+      /approval queue read surface remains fail-closed without Rust approval authority runner/.test(
+        runtimeApprovalControlFacadeTest,
+      ) &&
+      /approval queue readback is Rust projection only on the JS approval surface/.test(
+        runtimeApprovalControlFacadeTest,
+      ) &&
+      /Object\.hasOwn\(surface,\s*"approvalQueueForThread"\),\s*false/.test(
+        runtimeApprovalControlFacadeTest,
+      ) &&
+      /Object\.hasOwn\(surface,\s*"pendingApprovalsForThread"\),\s*false/.test(
+        runtimeApprovalControlFacadeTest,
+      ) &&
+      /store\.approvalSurface\.listThreadApprovals\(store,\s*threadId,\s*Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /operation:\s*"listThreadApprovals"/.test(runtimeRouteHandlersTest) &&
+      /include_resolved:\s*"true"/.test(runtimeRouteHandlersTest) &&
+      !/latestApprovalRequestEvent|latestApprovalDecisionEvent|approvalQueueForThread|pendingApprovalsForThread/.test(
+        runtimeApprovalSurface,
+      ) &&
+      !/appendRunApprovalControl|store\.appendRuntimeEvent/.test(runtimeApprovalSurface),
+    [
+      "crates/services/src/agentic/runtime/kernel/approval.rs",
+      "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
+      "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
+      "packages/runtime-daemon/src/runtime-approval-state-runner.mjs",
+      "packages/runtime-daemon/src/runtime-approval-state-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-approval-surface.mjs",
+      "packages/runtime-daemon/src/runtime-approval-control-facade.test.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
+    ],
+    "Phase 10/11 is pending: public approval queue/read APIs must project from Rust daemon-core approval truth instead of JS event/readback helpers",
   );
   assertCheck(
     result,
@@ -8066,16 +8700,28 @@ function runBridge() {
       !/operation_kind:\s*optionalString\(result\.operation_kind\s*\?\?\s*record\.operation_kind\)\s*\?\?\s*"approval\.required"/.test(
         runtimeApprovalStateRunner,
       ) &&
+      /approvalStateRunner/.test(runtimeApprovalSurface) &&
+      /planApprovalRequestStateUpdate/.test(approvalRequestFacadeBody) &&
+      /applyRustApprovalStateUpdate/.test(approvalRequestFacadeBody) &&
+      /persistRustApprovalRunUpdate/.test(runtimeApprovalSurface) &&
+      /store\.writeRun\(run,\s*operationKind\)/.test(runtimeApprovalSurface) &&
+      /createRuntimeApprovalStateRunnerFromEnv/.test(runtimeDaemonIndex) &&
+      /approvalStateRunner: this\.approvalStateRunner/.test(runtimeDaemonIndex) &&
       /runtime_approval_control_rust_core_required/.test(runtimeApprovalSurface) &&
       /rust_core_boundary:\s*"runtime\.approval_control"/.test(runtimeApprovalSurface) &&
       /approval_request_js_facade_retired/.test(runtimeApprovalSurface) &&
       /rust_daemon_core_approval_request_required/.test(runtimeApprovalSurface) &&
       /agentgres_approval_request_state_truth_required/.test(runtimeApprovalSurface) &&
-      !/approvalStateRunnerDep\.planApprovalRequestStateUpdate/.test(approvalRequestFacadeBody) &&
-      !/store\.agentForThread|resolveApprovalTarget|store\.appendRuntimeEvent|store\.runs\.set|store\.agents\.set|store\.writeRun|store\.writeAgent/.test(
+      !/store\.appendRuntimeEvent/.test(
         approvalRequestFacadeBody,
       ) &&
-      /requestThreadApproval surface fails closed before agent lookup, event append, Rust planning, or JS persistence/.test(
+      /requestThreadApproval public surface calls Rust approval authority and commits Rust run projection/.test(
+        runtimeApprovalControlFacadeTest,
+      ) &&
+      /approval control surface remains fail-closed without Rust approval authority runner/.test(
+        runtimeApprovalControlFacadeTest,
+      ) &&
+      /assertNoRetiredApprovalControlAliases\(calls\[0\]\.request\)/.test(
         runtimeApprovalControlFacadeTest,
       ) &&
       /store\.approvalSurface\.requestThreadApproval\(store,\s*threadId,\s*await readBody\(request\)\)/.test(
@@ -8084,19 +8730,12 @@ function runBridge() {
       /thread route sends approvals through mounted approval surface/.test(runtimeRouteHandlersTest) &&
       !/^\s*requestThreadApproval\(threadId, request = \{\}\) \{/m.test(runtimeDaemonIndex) &&
       /approvalId:\s*"approval_retired"/.test(runtimeApprovalControlFacadeTest) &&
-      /workflowGraphId:\s*"graph_retired"/.test(runtimeApprovalControlFacadeTest) &&
-      /idempotencyKey:\s*"approval_request_idempotency_retired"/.test(
-        runtimeApprovalControlFacadeTest,
-      ) &&
       /assert\.equal\(store\.runtimeEventStreams\.size,\s*0\)/.test(
         runtimeApprovalControlFacadeTest,
       ) &&
-      /assert\.equal\(store\.agents\.size,\s*0\)/.test(runtimeApprovalControlFacadeTest) &&
-      /assert\.equal\(store\.runs\.size,\s*0\)/.test(runtimeApprovalControlFacadeTest) &&
-      !/control:\s*"approval_request"|appendRunApprovalControl\(run,\s*control,\s*"approvalRequests"\)/.test(
+      !/control:\s*"approval_request"|appendRunApprovalControl\(run,\s*control,\s*"approvalRequests"\)|store\.appendRuntimeEvent/.test(
         runtimeApprovalSurface,
       ) &&
-      !/stateUpdate\.run\s*\?\?\s*run/.test(runtimeApprovalSurface) &&
       !/stateUpdate\.operation_kind\s*\?\?\s*"approval\.required"/.test(runtimeApprovalSurface) &&
       !/const updatedAgent = \{\s*\.\.\.agent,\s*updatedAt: event\.created_at\s*\}/.test(
         runtimeApprovalSurface,
@@ -8109,7 +8748,7 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-approval-surface.mjs",
       "packages/runtime-daemon/src/runtime-approval-control-facade.test.mjs",
     ],
-    "Phase 9/10 is pending: approval request state-update bridge remains migration plumbing, but the public JS facade must fail closed until Rust daemon-core owns authority admission, event materialization, and persistence",
+    "Phase 9/10 is pending: approval request public control must call the Rust authority state-update API, commit only Rust-authored projections, and keep JS event/readback authorship retired",
   );
   assertCheck(
     result,
@@ -8117,11 +8756,31 @@ function runBridge() {
     /ApprovalDecisionStateUpdateCore/.test(approvalCore) &&
       /ApprovalDecisionStateUpdateRequest/.test(approvalCore) &&
       /APPROVAL_DECISION_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(approvalCore) &&
+      /ApprovalDecisionAuthorityCore/.test(approvalCore) &&
+      /ApprovalDecisionAuthorityRequest/.test(approvalCore) &&
+      /ApprovalDecisionAuthorityRecord/.test(approvalCore) &&
+      /APPROVAL_DECISION_AUTHORITY_REQUEST_SCHEMA_VERSION/.test(approvalCore) &&
+      /APPROVAL_DECISION_AUTHORITY_RESULT_SCHEMA_VERSION/.test(approvalCore) &&
+      /MissingWalletNetworkAuthority/.test(approvalCore) &&
+      /MissingAuthorityReceipt/.test(approvalCore) &&
+      /is_wallet_network_grant_ref/.test(approvalCore) &&
+      /approval_decision_authority_hash/.test(approvalCore) &&
+      /approval_authority_state_binding_present/.test(approvalCore) &&
+      /pub fn authorize_approval_decision_response/.test(approvalCore) &&
+      /rust_authority_authorizes_approval_decision_with_wallet_network_grant/.test(approvalCore) &&
+      /rust_authority_rejects_approval_decision_without_wallet_network_grant/.test(approvalCore) &&
+      /rust_core_shapes_approval_decision_authority_command_response/.test(approvalCore) &&
       /rust_authority_plans_approval_decision_state_update/.test(approvalCore) &&
       /rust_authority_plans_approval_decision_agent_state_update/.test(approvalCore) &&
+      /rust_authority_rejects_approval_decision_state_update_without_wallet_authority/.test(
+        approvalCore,
+      ) &&
       /"approval_id": approval_id/.test(approvalCore) &&
       /"lease_id": lease_id/.test(approvalCore) &&
       /"lease_status": lease_status/.test(approvalCore) &&
+      /"authority_hash": authority_hash/.test(approvalCore) &&
+      /"authority_grant_refs": authority_grant_refs/.test(approvalCore) &&
+      /"authority_receipt_refs": authority_receipt_refs/.test(approvalCore) &&
       /pub struct ApprovalDecisionStateUpdateBridgeRequest/.test(approvalCore) &&
       /pub fn plan_approval_decision_state_update_response/.test(approvalCore) &&
       /rust_approval_decision_state_update_command/.test(approvalCore) &&
@@ -8138,11 +8797,26 @@ function runBridge() {
       !/bridge_plans_approval_decision_state_update_through_rust_core/.test(bridgeModule) &&
       !/fn plan_approval_decision_state_update/.test(bridgeModule) &&
       !/struct ApprovalDecisionStateUpdateBridgeRequest/.test(bridgeModule) &&
+      /authorize_approval_decision/.test(commandProtocolCore) &&
+      /CommandOperation::AuthorizeApprovalDecision/.test(commandProtocolCore) &&
+      /authorize_approval_decision_response/.test(coreCommandDispatch) &&
+      /authorizeApprovalDecision/.test(runtimeApprovalStateRunner) &&
+      /APPROVAL_DECISION_AUTHORITY_REQUEST_SCHEMA_VERSION/.test(runtimeApprovalStateRunner) &&
+      /normalizeApprovalDecisionAuthorityBridgeResult/.test(runtimeApprovalStateRunner) &&
       /planApprovalDecisionStateUpdate/.test(runtimeApprovalStateRunner) &&
       /APPROVAL_DECISION_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
         runtimeApprovalStateRunner,
       ) &&
+      /approval decision authority runner sends wallet\.network grant verification through direct daemon-core invoker/.test(
+        runtimeApprovalStateRunnerTest,
+      ) &&
+      /approval decision authority runner fails closed without Rust authority operation kind/.test(
+        runtimeApprovalStateRunnerTest,
+      ) &&
       /approval decision state runner sends Rust authority request through direct daemon-core invoker/.test(
+        runtimeApprovalStateRunnerTest,
+      ) &&
+      /authority_record:\s*approvalDecisionAuthorityResult\(\)\.authority/.test(
         runtimeApprovalStateRunnerTest,
       ) &&
       /result\.operator_control\.lease_id/.test(runtimeApprovalStateRunnerTest) &&
@@ -8152,6 +8826,27 @@ function runBridge() {
       !/operation_kind:\s*optionalString\(result\.operation_kind\s*\?\?\s*record\.operation_kind\)\s*\?\?\s*"approval\.approve"/.test(
         runtimeApprovalStateRunner,
       ) &&
+      /approvalStateRunner/.test(runtimeApprovalSurface) &&
+      /authorizeApprovalDecision/.test(approvalDecisionFacadeBody) &&
+      /planApprovalDecisionStateUpdate/.test(approvalDecisionFacadeBody) &&
+      /approvalDecisionAuthorityRequest/.test(runtimeApprovalSurface) &&
+      /approval_decision_wallet_network_authority_required/.test(runtimeApprovalSurface) &&
+      /rust_daemon_core_approval_decision_authority_required/.test(runtimeApprovalSurface) &&
+      /receipt_refs:\s*normalizeArray\(authority\.authority_receipt_refs\)/.test(
+        approvalDecisionFacadeBody,
+      ) &&
+      /authority_hash:\s*optionalString\(authority\.authority_hash\)\s*\?\?\s*null/.test(
+        approvalDecisionFacadeBody,
+      ) &&
+      /authority_grant_refs:\s*normalizeArray\(authority\.wallet_network_grant_refs\)/.test(
+        approvalDecisionFacadeBody,
+      ) &&
+      !/receipt_refs:\s*normalizeArray\(request\.receipt_refs\)/.test(
+        approvalDecisionFacadeBody,
+      ) &&
+      /applyRustApprovalStateUpdate/.test(approvalDecisionFacadeBody) &&
+      /persistRustApprovalRunUpdate/.test(runtimeApprovalSurface) &&
+      /store\.writeRun\(run,\s*operationKind\)/.test(runtimeApprovalSurface) &&
       /runtime_approval_control_rust_core_required/.test(runtimeApprovalSurface) &&
       /approval_decision_js_facade_retired/.test(runtimeApprovalSurface) &&
       /rust_daemon_core_approval_decision_required/.test(runtimeApprovalSurface) &&
@@ -8159,16 +8854,29 @@ function runBridge() {
       /approval decision readback facade is retired from the JS approval surface/.test(
         runtimeApprovalControlFacadeTest,
       ) &&
+      /Object\.hasOwn\(surface,\s*"latestApprovalRequestEvent"\),\s*false/.test(
+        runtimeApprovalControlFacadeTest,
+      ) &&
       /Object\.hasOwn\(surface,\s*"latestApprovalDecisionEvent"\),\s*false/.test(
         runtimeApprovalControlFacadeTest,
       ) &&
+      !/latestApprovalRequestEvent/.test(runtimeApprovalSurface) &&
+      !/latestApprovalRequestEvent\(threadId, approvalId\)/.test(runtimeDaemonIndex) &&
       !/latestApprovalDecisionEvent/.test(runtimeApprovalSurface) &&
       !/latestApprovalDecisionEvent\(threadId, approvalId\)/.test(runtimeDaemonIndex) &&
-      !/approvalStateRunnerDep\.planApprovalDecisionStateUpdate/.test(approvalDecisionFacadeBody) &&
-      !/store\.agentForThread|resolveApprovalTarget|latestApprovalRequestEvent|store\.appendRuntimeEvent|store\.runs\.set|store\.agents\.set|store\.writeRun|store\.writeAgent/.test(
+      !/latestApprovalRequestEvent|store\.appendRuntimeEvent/.test(
         approvalDecisionFacadeBody,
       ) &&
-      /decideThreadApproval surface fails closed before lookup, event append, Rust planning, or JS persistence/.test(
+      /decideThreadApproval public surface calls Rust authority with canonical decision fields/.test(
+        runtimeApprovalControlFacadeTest,
+      ) &&
+      /approval decision facade fails closed before state update without Rust wallet\.network authority/.test(
+        runtimeApprovalControlFacadeTest,
+      ) &&
+      /assert\.deepEqual\(calls\.map\(\(call\) => call\.method\),\s*\["authorizeApprovalDecision"\]\)/.test(
+        runtimeApprovalControlFacadeTest,
+      ) &&
+      /assert\.equal\(calls\[1\]\.request\.authority_hash,\s*"sha256:approval-authority-approve"\)/.test(
         runtimeApprovalControlFacadeTest,
       ) &&
       /store\.approvalSurface\.decideThreadApproval\(\s*store,\s*threadId,\s*decodeURIComponent\(segments\[4\]\),\s*await readBody\(request\),\s*\)/m.test(
@@ -8181,19 +8889,12 @@ function runBridge() {
       !/^\s*decideThreadApproval\(threadId, approvalId, request = \{\}\) \{/m.test(
         runtimeDaemonIndex,
       ) &&
-      /workflowGraphId:\s*"graph_decision_retired"/.test(
-        runtimeApprovalControlFacadeTest,
-      ) &&
-      /idempotencyKey:\s*"approval_decision_idempotency_retired"/.test(
-        runtimeApprovalControlFacadeTest,
-      ) &&
-      /error\.details\.operation_kind,\s*"approval\.approve"/.test(
+      /assertNoRetiredApprovalControlAliases\(calls\[1\]\.request\)/.test(
         runtimeApprovalControlFacadeTest,
       ) &&
       !/control:\s*"approval_decision"/.test(
         runtimeApprovalSurface,
       ) &&
-      !/stateUpdate\.run\s*\?\?\s*run/.test(runtimeApprovalSurface) &&
       !/stateUpdate\.operation_kind\s*\?\?\s*`approval\.\$\{decision\}`/.test(
         runtimeApprovalSurface,
       ) &&
@@ -8208,7 +8909,7 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-approval-surface.mjs",
       "packages/runtime-daemon/src/runtime-approval-control-facade.test.mjs",
     ],
-    "Phase 9/10 is pending: approval decision state-update bridge remains migration plumbing, but the public JS facade must fail closed until Rust daemon-core owns authority admission, event materialization, and persistence",
+    "Phase 9/10 is pending: approval decision public control must call the Rust authority state-update API, commit only Rust-authored projections, and keep JS event/readback authorship retired",
   );
   assertCheck(
     result,
@@ -8218,6 +8919,9 @@ function runBridge() {
       /APPROVAL_REVOKE_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(approvalCore) &&
       /rust_authority_plans_approval_revoke_state_update/.test(approvalCore) &&
       /rust_authority_plans_approval_revoke_agent_state_update/.test(approvalCore) &&
+      /rust_authority_rejects_approval_revoke_state_update_without_wallet_authority/.test(
+        approvalCore,
+      ) &&
       /"approval_id": approval_id/.test(approvalCore) &&
       /"lease_id": lease_id/.test(approvalCore) &&
       /"lease_status": "revoked"/.test(approvalCore) &&
@@ -8251,15 +8955,35 @@ function runBridge() {
       !/operation_kind:\s*optionalString\(result\.operation_kind\s*\?\?\s*record\.operation_kind\)\s*\?\?\s*"approval\.revoke"/.test(
         runtimeApprovalStateRunner,
       ) &&
+      /approvalStateRunner/.test(runtimeApprovalSurface) &&
+      /authorizeApprovalDecision/.test(approvalRevokeFacadeBody) &&
+      /planApprovalRevokeStateUpdate/.test(approvalRevokeFacadeBody) &&
+      /receipt_refs:\s*normalizeArray\(authority\.authority_receipt_refs\)/.test(
+        approvalRevokeFacadeBody,
+      ) &&
+      /authority_hash:\s*optionalString\(authority\.authority_hash\)\s*\?\?\s*null/.test(
+        approvalRevokeFacadeBody,
+      ) &&
+      /authority_grant_refs:\s*normalizeArray\(authority\.wallet_network_grant_refs\)/.test(
+        approvalRevokeFacadeBody,
+      ) &&
+      !/receipt_refs:\s*normalizeArray\(request\.receipt_refs\)/.test(
+        approvalRevokeFacadeBody,
+      ) &&
+      /applyRustApprovalStateUpdate/.test(approvalRevokeFacadeBody) &&
+      /persistRustApprovalRunUpdate/.test(runtimeApprovalSurface) &&
+      /store\.writeRun\(run,\s*operationKind\)/.test(runtimeApprovalSurface) &&
       /runtime_approval_control_rust_core_required/.test(runtimeApprovalSurface) &&
       /approval_revoke_js_facade_retired/.test(runtimeApprovalSurface) &&
       /rust_daemon_core_approval_revoke_required/.test(runtimeApprovalSurface) &&
       /agentgres_approval_revoke_state_truth_required/.test(runtimeApprovalSurface) &&
-      !/approvalStateRunnerDep\.planApprovalRevokeStateUpdate/.test(approvalRevokeFacadeBody) &&
-      !/store\.agentForThread|resolveApprovalTarget|latestApprovalRequestEvent|runtimeEventStream|store\.appendRuntimeEvent|store\.runs\.set|store\.agents\.set|store\.writeRun|store\.writeAgent/.test(
+      !/latestApprovalRequestEvent|runtimeEventStream|store\.appendRuntimeEvent/.test(
         approvalRevokeFacadeBody,
       ) &&
-      /revokeThreadApproval surface fails closed before request lookup, event append, Rust planning, or JS persistence/.test(
+      /revokeThreadApproval public surface calls Rust authority and commits Rust projection/.test(
+        runtimeApprovalControlFacadeTest,
+      ) &&
+      /assert\.equal\(calls\[1\]\.request\.authority_hash,\s*"sha256:approval-authority-revoke"\)/.test(
         runtimeApprovalControlFacadeTest,
       ) &&
       /store\.approvalSurface\.revokeThreadApproval\(\s*store,\s*threadId,\s*decodeURIComponent\(segments\[4\]\),\s*await readBody\(request\),\s*\)/m.test(
@@ -8269,14 +8993,12 @@ function runBridge() {
       !/^\s*revokeThreadApproval\(threadId, approvalId, request = \{\}\) \{/m.test(
         runtimeDaemonIndex,
       ) &&
-      /workflowGraphId:\s*"graph_revoke_retired"/.test(runtimeApprovalControlFacadeTest) &&
-      /idempotencyKey:\s*"approval_revoke_idempotency_retired"/.test(
+      /assertNoRetiredApprovalControlAliases\(calls\[1\]\.request\)/.test(
         runtimeApprovalControlFacadeTest,
       ) &&
       !/control:\s*"approval_revoke"|appendRunApprovalControl|appendOperatorControl/.test(
         runtimeApprovalSurface,
       ) &&
-      !/stateUpdate\.run\s*\?\?\s*run/.test(runtimeApprovalSurface) &&
       !/stateUpdate\.operation_kind\s*\?\?\s*"approval\.revoke"/.test(runtimeApprovalSurface) &&
       !/const updatedAgent = \{\s*\.\.\.agent,\s*updatedAt: event\.created_at\s*\}/.test(
         runtimeApprovalSurface,
@@ -8289,39 +9011,22 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-approval-surface.mjs",
       "packages/runtime-daemon/src/runtime-approval-control-facade.test.mjs",
     ],
-    "Phase 9/10 is pending: approval revoke state-update bridge remains migration plumbing, but the public JS facade must fail closed until Rust daemon-core owns authority admission, event materialization, and persistence",
+    "Phase 9/10 is pending: approval revoke public control must call the Rust authority state-update API, commit only Rust-authored projections, and keep JS event/readback authorship retired",
   );
   assertCheck(
     result,
     "runtime-approval-request-aliases-retired",
-    /requestThreadApproval surface fails closed before agent lookup, event append, Rust planning, or JS persistence/.test(
+    /requestThreadApproval public surface calls Rust approval authority and commits Rust run projection/.test(
       runtimeApprovalControlFacadeTest,
     ) &&
       /approvalId:\s*"approval_retired"/.test(runtimeApprovalControlFacadeTest) &&
-      /workflowGraphId:\s*"graph_retired"/.test(runtimeApprovalControlFacadeTest) &&
-      /workflowNodeId:\s*"node_retired"/.test(runtimeApprovalControlFacadeTest) &&
-      /idempotencyKey:\s*"approval_request_idempotency_retired"/.test(
+      /eventId:\s*"event_retired"/.test(runtimeApprovalControlFacadeTest) &&
+      /status:\s*"reject"/.test(runtimeApprovalControlFacadeTest) &&
+      /action:\s*"reject"/.test(runtimeApprovalControlFacadeTest) &&
+      /assertNoRetiredApprovalControlAliases\(calls\[0\]\.request\)/.test(
         runtimeApprovalControlFacadeTest,
       ) &&
-      /workflowGraphId:\s*"graph_decision_retired"/.test(
-        runtimeApprovalControlFacadeTest,
-      ) &&
-      /workflowNodeId:\s*"node_decision_retired"/.test(
-        runtimeApprovalControlFacadeTest,
-      ) &&
-      /idempotencyKey:\s*"approval_decision_idempotency_retired"/.test(
-        runtimeApprovalControlFacadeTest,
-      ) &&
-      /workflowGraphId:\s*"graph_revoke_retired"/.test(
-        runtimeApprovalControlFacadeTest,
-      ) &&
-      /workflowNodeId:\s*"node_revoke_retired"/.test(
-        runtimeApprovalControlFacadeTest,
-      ) &&
-      /idempotencyKey:\s*"approval_revoke_idempotency_retired"/.test(
-        runtimeApprovalControlFacadeTest,
-      ) &&
-      /assertNoRetiredApprovalControlDetailAliases\(error\.details\)/.test(
+      /assertNoRetiredApprovalControlAliases\(error\.details\)/.test(
         runtimeApprovalControlFacadeTest,
       ) &&
       /assert\.equal\(store\.runtimeEventStreams\.size,\s*0\)/.test(
@@ -8363,7 +9068,7 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-approval-lease.mjs",
       "packages/runtime-daemon/src/runtime-approval-lease.test.mjs",
     ],
-    "Phase 10/11 is pending: approval request, decision, and revoke facades must fail closed without reviving retired request aliases; approval lease helpers must keep canonical lease fields",
+    "Phase 10/11 is pending: approval request, decision, and revoke public controls must call Rust authority without reviving retired request aliases; approval lease helpers must keep canonical lease fields",
   );
   assertCheck(
     result,
@@ -8372,15 +9077,13 @@ function runBridge() {
       /rust_core_boundary:\s*"runtime\.approval_control"/.test(runtimeApprovalSurface) &&
       /thread_id:\s*threadId/.test(runtimeApprovalSurface) &&
       /approval_id:\s*normalizedApprovalId/.test(runtimeApprovalSurface) &&
-      /approval_id:\s*optionalString\(request\.approval_id\) \?\? null/.test(
+      /approval_id:\s*approvalId/.test(
         runtimeApprovalSurface,
       ) &&
-      /assertNoRetiredApprovalControlDetailAliases\(error\.details\)/.test(
+      /assertNoRetiredApprovalControlAliases\(error\.details\)/.test(
         runtimeApprovalControlFacadeTest,
       ) &&
-      /error\.details\.thread_id/.test(runtimeApprovalControlFacadeTest) &&
       /error\.details\.approval_id/.test(runtimeApprovalControlFacadeTest) &&
-      /error\.details\.operation_kind/.test(runtimeApprovalControlFacadeTest) &&
       !/details:\s*\{[^}\n]*\b(?:threadId|runId|turnId|agentId|approvalId|targetKind|operationKind|expectedOperationKind)\s*:/.test(
         runtimeApprovalSurface,
       ),
@@ -8424,7 +9127,9 @@ function runBridge() {
       !/struct ContextBudgetPolicyBridgeRequest/.test(bridgeModule) &&
       /createContextPolicyRunnerFromEnv/.test(runtimeContextPolicyRunner) &&
       /RustContextPolicyRunner/.test(runtimeContextPolicyRunner) &&
-      /IOI_RUNTIME_DAEMON_CORE_COMMAND/.test(runtimeContextPolicyRunner) &&
+      /assertNoContextPolicyCommandSelection\(\s*options\.command\s*\?\?\s*env\.IOI_RUNTIME_DAEMON_CORE_COMMAND/.test(
+        runtimeContextPolicyRunner,
+      ) &&
       /ioi\.runtime\.daemon_core\.command\.v1/.test(runtimeContextPolicyRunner) &&
       !/IOI_STEP_MODULE_COMMAND/.test(runtimeContextPolicyRunner) &&
       !/CONTEXT_POLICY_COMMAND_ARGS_ENV/.test(runtimeContextPolicyRunner) &&
@@ -8433,21 +9138,29 @@ function runBridge() {
       !/this\.args/.test(runtimeContextPolicyRunner) &&
       !/argsEnv/.test(runtimeContextPolicyRunner) &&
       /assertNoContextPolicyCommandArgs/.test(runtimeContextPolicyRunner) &&
+      /assertNoContextPolicyCommandSelection/.test(runtimeContextPolicyRunner) &&
       /evaluateContextBudgetPolicy/.test(runtimeContextPolicyRunner) &&
       /context_policy_command_args_retired/.test(runtimeContextPolicyRunner) &&
-      /createDaemonCoreCommandInvoker/.test(runtimeContextPolicyRunner) &&
+      /context_policy_command_selection_retired/.test(runtimeContextPolicyRunner) &&
+      /context_policy_direct_invoker_unconfigured/.test(runtimeContextPolicyRunner) &&
+      !/createDaemonCoreCommandInvoker/.test(runtimeContextPolicyRunner) &&
+      !/spawnSyncImpl/.test(runtimeContextPolicyRunner) &&
       !/from "node:child_process"/.test(runtimeContextPolicyRunner) &&
-      /spawnSyncImpl\(commandPath,\s*\[\]/.test(daemonCoreCommandRunner) &&
       /runtime_event_item_id/.test(runtimeContextPolicyRunner) &&
-      /context policy runner env uses daemon-core command boundary/.test(
+      /context policy runner env uses daemon-level direct invoker/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /context policy runner rejects retired daemon-core command env/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
       /context policy runner command args env fails closed/.test(runtimeContextPolicyRunnerTest) &&
       /context policy runner command args constructor option fails closed/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
-      /assert\.deepEqual\(capturedArgs,\s*\[\]\)/.test(runtimeContextPolicyRunnerTest) &&
-      /context budget policy runner sends generic Rust policy bridge request/.test(
+      /context policy runner command constructor option fails closed/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /context budget policy runner sends generic Rust policy through direct daemon-core invoker/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
       /runtime_context_policy_rust_core_required/.test(runtimeContextPolicySurface) &&
@@ -8477,7 +9190,7 @@ function runBridge() {
       !/appendRuntimeEvent|agentForThread|getRun|writeRun|writeAgent/.test(
         runtimeContextBudgetEvaluationBlock,
       ) &&
-      /context policy runner fails closed without bridge command/.test(
+      /context policy runner fails closed without direct invoker/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
       !/\brequest\.(?:workflowNodeId|workflowGraphId|threadId|runId|turnId|eventKind)\b/.test(
@@ -8512,7 +9225,6 @@ function runBridge() {
       "crates/services/src/agentic/runtime/kernel/policy.rs",
       "crates/services/src/agentic/runtime/kernel/policy/mcp_memory.rs",
       "crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs",
-      "crates/services/src/agentic/runtime/kernel/policy/projection_required.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
@@ -8546,7 +9258,7 @@ function runBridge() {
       /createContextPolicyRunnerFromEnv/.test(runtimeContextPolicyRunner) &&
       /RustContextPolicyRunner/.test(runtimeContextPolicyRunner) &&
       /evaluateCodingToolBudgetPolicy/.test(runtimeContextPolicyRunner) &&
-      /coding tool budget runner sends Rust policy bridge request/.test(
+      /coding tool budget runner sends Rust policy through direct daemon-core invoker/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
       /budgetRunner\.evaluateCodingToolBudgetPolicy/.test(codingToolBudgetPolicySurface) &&
@@ -8562,7 +9274,6 @@ function runBridge() {
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
       "crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs",
-      "crates/services/src/agentic/runtime/kernel/policy/projection_required.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
@@ -8812,7 +9523,7 @@ function runBridge() {
       /CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
         runtimeContextPolicyRunner,
       ) &&
-      /coding tool budget recovery state update runner sends Rust state update bridge request/.test(
+      /coding tool budget recovery state update runner sends Rust state update through direct daemon-core invoker/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
       /result\.operator_control\.approval_id/.test(runtimeContextPolicyRunnerTest) &&
@@ -9076,7 +9787,7 @@ function runBridge() {
       /DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
         runtimeContextPolicyRunner,
       ) &&
-      /diagnostics operator override state update runner sends Rust state update bridge request/.test(
+      /diagnostics operator override state update runner sends Rust state update through direct daemon-core invoker/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
       /result\.operator_control\.decision_id/.test(runtimeContextPolicyRunnerTest) &&
@@ -9195,7 +9906,7 @@ function runBridge() {
       /OPERATOR_INTERRUPT_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
         runtimeContextPolicyRunner,
       ) &&
-      /operator interrupt state update runner sends Rust state update bridge request/.test(
+      /operator interrupt state update runner sends Rust state update through direct daemon-core invoker/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
       /result\.operator_control\.event_id/.test(runtimeContextPolicyRunnerTest) &&
@@ -9292,7 +10003,7 @@ function runBridge() {
       ) &&
       /planOperatorSteerStateUpdate/.test(runtimeContextPolicyRunner) &&
       /OPERATOR_STEER_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyRunner) &&
-      /operator steer state update runner sends Rust state update bridge request/.test(
+      /operator steer state update runner sends Rust state update through direct daemon-core invoker/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
       /result\.operator_control\.event_id/.test(runtimeContextPolicyRunnerTest) &&
@@ -9394,6 +10105,7 @@ function runBridge() {
       /pub struct AgentCreateStateUpdateCore;/.test(policyThreadLifecycleCore) &&
       /pub struct RunCreateStateUpdateCore;/.test(policyThreadLifecycleCore) &&
       /pub struct AgentStatusStateUpdateCore;/.test(policyThreadLifecycleCore) &&
+      /pub struct AgentDeleteStateUpdateCore;/.test(policyThreadLifecycleCore) &&
       /pub struct ThreadTurnAdmissionRequiredCore;/.test(policyThreadLifecycleCore) &&
       /pub struct LifecycleAdmissionRequiredCore;/.test(policyThreadLifecycleCore) &&
       /pub struct RuntimeBridgeThreadStartAgentStateUpdateCore;/.test(
@@ -9405,6 +10117,7 @@ function runBridge() {
       /rust_policy_plans_agent_create_state_update/.test(policyThreadLifecycleCore) &&
       /rust_policy_plans_run_create_state_update/.test(policyThreadLifecycleCore) &&
       /rust_policy_plans_agent_status_state_update/.test(policyThreadLifecycleCore) &&
+      /rust_policy_plans_agent_delete_state_update/.test(policyThreadLifecycleCore) &&
       /rust_policy_plans_thread_turn_admission_required/.test(policyThreadLifecycleCore) &&
       /rust_policy_plans_lifecycle_admission_required/.test(policyThreadLifecycleCore) &&
       /rust_policy_plans_runtime_bridge_thread_start_agent_state_update/.test(
@@ -9428,6 +10141,7 @@ function runBridge() {
       !/pub struct ThreadTurnAdmissionRequiredCore;/.test(policyFacade) &&
       !/pub struct LifecycleAdmissionRequiredCore;/.test(policyFacade) &&
       !/pub struct AgentCreateStateUpdateCore;/.test(policyFacade) &&
+      !/pub struct AgentDeleteStateUpdateCore;/.test(policyFacade) &&
       !/pub struct RuntimeBridgeThreadStartAgentStateUpdateCore;/.test(policyFacade) &&
       !/pub struct SubagentRecordStateUpdateCore;/.test(policyFacade) &&
       !/rust_policy_plans_thread_mode_agent_state_update/.test(policyFacade) &&
@@ -9513,9 +10227,17 @@ function runBridge() {
       /thread_turn_diagnostics_block_js_run_creation_retired/.test(runtimeThreadTurnSurface) &&
       /rust_daemon_core_thread_turn_create_required/.test(runtimeThreadTurnSurface) &&
       /agentgres_thread_turn_create_truth_required/.test(runtimeThreadTurnSurface) &&
+      /store\.agentRunLifecycleSurface\.updateAgent\(\s*store,\s*agent\.id,\s*"active",\s*"agent\.resume"/.test(
+        runtimeThreadTurnSurface,
+      ) &&
+      /store\.threadForAgent\(updatedAgent\)/.test(runtimeThreadTurnSurface) &&
+      /store\.agentRunLifecycleSurface\.createRun\(store,\s*agent\.id,\s*controlledRequest\)/.test(
+        runtimeThreadTurnSurface,
+      ) &&
+      /store\.turnForRun\(run\)/.test(runtimeThreadTurnSurface) &&
+      /runtime_thread_turn_projection_mismatch/.test(runtimeThreadTurnSurface) &&
       !/store\.updateAgent\(/.test(runtimeThreadTurnSurface) &&
       !/store\.createRun\(agent\.id/.test(runtimeThreadTurnSurface) &&
-      !/store\.turnForRun\(/.test(runtimeThreadTurnSurface) &&
       !/requestWithDiagnosticsFeedback/.test(runtimeThreadTurnSurface) &&
       !/^\s*(?:resumeThread|createTurn|interruptTurn|steerTurn)\(threadId/m.test(
         runtimeDaemonIndex,
@@ -9566,16 +10288,24 @@ function runBridge() {
       !/^\s*(?:appendWorkspaceTrustWarningEvent|inspectManagedSessionsForThread|inspectWorkspaceChangeReviewsForThread|controlWorkspaceChangeForThread|controlManagedSessionForThread|forkThread|cancelRun|applyThreadMcpServerMutation|mcpStatusWithLiveDiscovery|appendThreadMcpControlEvent|mcpServersForContext|appendCodingToolCommandStreamEvents|codingToolApprovalSatisfaction|blockCodingToolForApproval|blockCodingToolForBudget|prepareWorkspaceSnapshotForPatch|materializeWorkspaceSnapshotArtifact|appendWorkspaceSnapshotEvent|workspaceSnapshotContentPackage|materializeWorkspaceRestorePreviewArtifact|materializeWorkspaceRestoreApplyArtifact|appendWorkspaceRestorePreviewEvent|appendWorkspaceRestoreApplyEvent|maybeRunPostEditDiagnostics|pendingDiagnosticsFeedbackForNextTurn|materializeCodingToolArtifactDrafts|materializeVisualGuiObservationArtifacts|readCodingToolArtifact|retrieveCodingToolResult|executeDiagnosticsOperatorOverride|turnForOperatorOverrideEvent|appendDiagnosticsOperatorOverrideEvent|createDiagnosticsRepairRetryTurn|turnForRepairRetryEvent|appendDiagnosticsRepairRetryTurnEvent|resolveDiagnosticsRepairDecision|appendDiagnosticsRepairDecisionExecutedEvent|createConversationArtifact|listConversationArtifacts|getConversationArtifact|listConversationArtifactRevisions|performConversationArtifactAction|exportConversationArtifact|promoteConversationArtifact)\(/m.test(
         runtimeDaemonIndex,
       ) &&
-      /thread turn surface fails closed for non-runtime resume before JS mutation/.test(
+      /thread turn surface resumes non-runtime threads through Rust lifecycle status and projection/.test(
+        runtimeThreadTurnSurfaceTest,
+      ) &&
+      /agentRunLifecycleSurface\.updateAgent/.test(runtimeThreadTurnSurfaceTest) &&
+      /thread turn surface fails closed for non-runtime resume when mounted Rust lifecycle boundary is missing/.test(
         runtimeThreadTurnSurfaceTest,
       ) &&
       /admissionRequiredCalls\.length,\s*1/.test(runtimeThreadTurnSurfaceTest) &&
       /operation:\s*"thread_resume"/.test(runtimeThreadTurnSurfaceTest) &&
-      /thread turn surface fails closed for non-runtime turns before JS run creation/.test(
+      /thread turn surface creates non-runtime turns through Rust-planned run and projection/.test(
+        runtimeThreadTurnSurfaceTest,
+      ) &&
+      /agentRunLifecycleSurface\.createRun/.test(runtimeThreadTurnSurfaceTest) &&
+      /thread turn surface fails closed for non-runtime turns when mounted Rust run boundary is missing/.test(
         runtimeThreadTurnSurfaceTest,
       ) &&
       /operation:\s*"thread_turn_create"/.test(runtimeThreadTurnSurfaceTest) &&
-      /thread turn surface fails closed for diagnostics-blocked turns before JS run creation/.test(
+      /thread turn surface fails closed for diagnostics-blocked turns before Rust run creation/.test(
         runtimeThreadTurnSurfaceTest,
       ) &&
       /operation:\s*"thread_turn_diagnostics_block"/.test(runtimeThreadTurnSurfaceTest) &&
@@ -9591,7 +10321,7 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-thread-surface-delegates-retired.test.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.mjs",
     ],
-    "Phase 10/11 is pending: thread resume and turn creation must fail closed until Rust daemon-core owns admission, run/thread persistence, and Agentgres truth",
+    "Phase 10/11 is pending: public non-runtime resume and turn creation must use Rust-planned lifecycle state plus Rust thread/turn projection, while diagnostics-blocked and runtime-service bridge paths remain fail-closed until direct Rust daemon-core APIs own them",
   );
   assertCheck(
     result,
@@ -9612,7 +10342,7 @@ function runBridge() {
       !/struct RunCancelStateUpdateBridgeRequest/.test(bridgeModule) &&
       /planRunCancelStateUpdate/.test(runtimeContextPolicyRunner) &&
       /RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyRunner) &&
-      /run cancel state update runner sends Rust state update bridge request/.test(
+      /run cancel state update runner sends Rust state update through direct daemon-core invoker/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
       /RunCancelAdmissionRequiredCore/.test(policyCore) &&
@@ -9642,27 +10372,39 @@ function runBridge() {
       /rust_daemon_core_run_cancel_required/.test(runtimeRunCancellation) &&
       /agentgres_run_cancel_state_truth_required/.test(runtimeRunCancellation) &&
       /operation_kind:\s*"run\.cancel"/.test(runtimeRunCancellation) &&
-      !/contextPolicyRunner\.planRunCancelStateUpdate/.test(runtimeRunCancellation) &&
-      !/plannedRunCancelRecord/.test(runtimeRunCancellation) &&
-      !/plannedRunCancelOperationKind/.test(runtimeRunCancellation) &&
+      /planRunCancelStateUpdate/.test(runtimeRunCancellation) &&
+      /run_cancel_state_update_run_missing/.test(runtimeRunCancellation) &&
+      /run_cancel_state_update_operation_kind_mismatch/.test(runtimeRunCancellation) &&
+      /run_cancel_state_update_projection_incomplete/.test(runtimeRunCancellation) &&
+      /state\.writeRun\(plannedRun,\s*plannedOperationKind\)/.test(runtimeRunCancellation) &&
       !/state\.runs\.set/.test(runtimeRunCancellation) &&
-      !/state\.writeRun/.test(runtimeRunCancellation) &&
       !/details\s*=\s*\{[^}\n]*\brunId\s*:/.test(runtimeRunCancellation) &&
       !/runtimeTaskRecord|runtimeJobRecord|runtimeChecklistRecord|makeEvent|artifact\(/.test(
         runtimeRunCancellation,
       ) &&
       !/stateUpdate\.run\s*\?\?\s*run/.test(runtimeRunCancellation) &&
       !/stateUpdate\.operation_kind\s*\?\?\s*"run\.cancel"/.test(runtimeRunCancellation) &&
-      /cancelRun facade fails closed before JS state planning or JS persistence/.test(
+      /cancelRun facade commits only Rust-planned cancellation through Agentgres writeRun/.test(
         runtimeRunCancellationTest,
       ) &&
-      /cancelRun facade uses Rust daemon-core admission-required planner when mounted/.test(
+      /cancelRun facade fails closed when Rust state planner is missing/.test(
+        runtimeRunCancellationTest,
+      ) &&
+      /cancelRun facade uses Rust daemon-core admission-required planner when state planner is absent/.test(
         runtimeRunCancellationTest,
       ) &&
       /cancelRun missing-run failure remains canonical and does not write/.test(runtimeRunCancellationTest) &&
+      /cancelRun rejects Rust state update without canceled run projection/.test(
+        runtimeRunCancellationTest,
+      ) &&
+      /cancelRun rejects Rust state update with wrong operation kind/.test(
+        runtimeRunCancellationTest,
+      ) &&
       /assert\.deepEqual\(state\.writes,\s*\[\]\)/.test(runtimeRunCancellationTest) &&
-      /Run cancel facade must not invoke Rust state planning/.test(runtimeRunCancellationTest) &&
-      !/plan_run_cancel_state_update/.test(runtimeRunCancellationTest) &&
+      /Positive run cancellation must not ask for admission-required refusal/.test(
+        runtimeRunCancellationTest,
+      ) &&
+      /planRunCancelStateUpdate/.test(runtimeRunCancellationTest) &&
       /Object\.hasOwn\(error\.details,\s*"runId"\),\s*false/.test(runtimeRunCancellationTest) &&
       /createRuntimeThreadAuxiliarySurface/.test(runtimeThreadAuxiliarySurface) &&
       /cancelRun\(store, runId\)/.test(runtimeThreadAuxiliarySurface) &&
@@ -9691,7 +10433,7 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-route-handlers.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
     ],
-    "Phase 9/10 is pending: public run cancellation must use the Rust daemon-core admission-required planner and fail closed until Rust daemon-core owns state admission and persistence; bridge planner remains migration plumbing only",
+    "Phase 9/10 is pending: public run cancellation must use the Rust daemon-core state-update planner, commit only the Rust canceled run through Agentgres, and keep JS cancellation materialization retired",
   );
   assertCheck(
     result,
@@ -9716,111 +10458,63 @@ function runBridge() {
   assertCheck(
     result,
     "policy-projection-required-rust-owner-split",
-    /mod projection_required;/.test(policyFacade) &&
-      /pub use projection_required::/.test(policyFacade) &&
-      /pub struct SkillHookRegistryProjectionRequiredCore;/.test(
-        policyProjectionRequiredCore,
-      ) &&
-      /pub struct RepositoryWorkflowProjectionRequiredCore;/.test(
-        policyProjectionRequiredCore,
-      ) &&
-      /pub struct RuntimeToolCatalogProjectionRequiredCore;/.test(
-        policyProjectionRequiredCore,
-      ) &&
-      /pub struct RuntimeLifecycleProjectionRequiredCore;/.test(
-        policyProjectionRequiredCore,
-      ) &&
-      /pub struct SkillHookRegistryProjectionRequiredBridgeRequest/.test(
-        policyProjectionRequiredCore,
-      ) &&
-      /pub struct RepositoryWorkflowProjectionRequiredBridgeRequest/.test(
-        policyProjectionRequiredCore,
-      ) &&
-      /pub struct RuntimeToolCatalogProjectionRequiredBridgeRequest/.test(
-        policyProjectionRequiredCore,
-      ) &&
-      /pub struct RuntimeLifecycleProjectionRequiredBridgeRequest/.test(
-        policyProjectionRequiredCore,
-      ) &&
-      /pub fn plan_skill_hook_registry_projection_required_response/.test(
-        policyProjectionRequiredCore,
-      ) &&
-      /pub fn plan_repository_workflow_projection_required_response/.test(
-        policyProjectionRequiredCore,
-      ) &&
-      /pub fn plan_runtime_tool_catalog_projection_required_response/.test(
-        policyProjectionRequiredCore,
-      ) &&
-      /pub fn plan_runtime_lifecycle_projection_required_response/.test(
-        policyProjectionRequiredCore,
-      ) &&
-      /rust_skill_hook_registry_projection_required_command/.test(
-        policyProjectionRequiredCore,
-      ) &&
-      /rust_repository_workflow_projection_required_command/.test(
-        policyProjectionRequiredCore,
-      ) &&
-      /rust_runtime_tool_catalog_projection_required_command/.test(
-        policyProjectionRequiredCore,
-      ) &&
-      /rust_runtime_lifecycle_projection_required_command/.test(
-        policyProjectionRequiredCore,
-      ) &&
-      /skill_hook_registry_projection_required_invalid/.test(policyProjectionRequiredCore) &&
-      /repository_workflow_projection_required_invalid/.test(policyProjectionRequiredCore) &&
-      /runtime_tool_catalog_projection_required_invalid/.test(policyProjectionRequiredCore) &&
-      /runtime_lifecycle_projection_required_invalid/.test(policyProjectionRequiredCore) &&
-      /rust_policy_plans_runtime_lifecycle_projection_required/.test(
-        policyProjectionRequiredCore,
+    !/mod projection_required;/.test(policyFacade) &&
+      !/pub use projection_required::/.test(policyFacade) &&
+      policyProjectionRequiredCore.trim() === "" &&
+      /pub struct RuntimeLifecycleProjectionCore/.test(runtimeLifecycleRustCore) &&
+      /pub struct RuntimeLifecycleProjectionBridgeRequest/.test(runtimeLifecycleRustCore) &&
+      /pub fn project_runtime_lifecycle_response/.test(runtimeLifecycleRustCore) &&
+      /rust_runtime_lifecycle_projection_command/.test(runtimeLifecycleRustCore) &&
+      /runtime_lifecycle_projection_kind_invalid/.test(runtimeLifecycleRustCore) &&
+      /rust_projects_runtime_lifecycle_route_family_shapes/.test(
+        runtimeLifecycleRustCore,
       ) &&
       !/SkillHookRegistryProjectionRequiredCore/.test(projectionCommandBridge) &&
       !/RepositoryWorkflowProjectionRequiredCore/.test(projectionCommandBridge) &&
-      !/RuntimeToolCatalogProjectionRequiredCore/.test(projectionCommandBridge) &&
       !/RuntimeLifecycleProjectionRequiredCore/.test(projectionCommandBridge) &&
       !/SkillHookRegistryProjectionRequiredRequest/.test(projectionCommandBridge) &&
       !/RepositoryWorkflowProjectionRequiredRequest/.test(projectionCommandBridge) &&
-      !/RuntimeToolCatalogProjectionRequiredRequest/.test(projectionCommandBridge) &&
       !/RuntimeLifecycleProjectionRequiredRequest/.test(projectionCommandBridge) &&
       !/rust_skill_hook_registry_projection_required_command/.test(projectionCommandBridge) &&
       !/rust_repository_workflow_projection_required_command/.test(projectionCommandBridge) &&
-      !/rust_runtime_tool_catalog_projection_required_command/.test(projectionCommandBridge) &&
       !/rust_runtime_lifecycle_projection_required_command/.test(projectionCommandBridge) &&
       !/skill_hook_registry_projection_required_invalid/.test(projectionCommandBridge) &&
       !/repository_workflow_projection_required_invalid/.test(projectionCommandBridge) &&
-      !/runtime_tool_catalog_projection_required_invalid/.test(projectionCommandBridge) &&
       !/runtime_lifecycle_projection_required_invalid/.test(projectionCommandBridge) &&
+      !/SkillHookRegistryProjectionRequired/.test(policyProjectionRequiredCore) &&
+      !/RepositoryWorkflowProjectionRequired/.test(policyProjectionRequiredCore) &&
       !/pub struct RuntimeLifecycleProjectionRequiredCore;/.test(policyFacade) &&
+      !/RepositoryWorkflowProjectionRequired/.test(policyFacade) &&
       !/rust_policy_plans_runtime_lifecycle_projection_required/.test(policyFacade) &&
-      /rust_policy_shapes_skill_hook_registry_projection_required_command_response/.test(
-        policyProjectionRequiredCore,
-      ) &&
-      /rust_policy_shapes_repository_workflow_projection_required_command_response/.test(
-        policyProjectionRequiredCore,
-      ) &&
-      /rust_policy_shapes_runtime_tool_catalog_projection_required_command_response/.test(
-        policyProjectionRequiredCore,
-      ) &&
-      /rust_policy_shapes_runtime_lifecycle_projection_required_command_response/.test(
-        policyProjectionRequiredCore,
-      ),
+      /rust_shapes_runtime_lifecycle_command_response/.test(runtimeLifecycleRustCore),
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
-      "crates/services/src/agentic/runtime/kernel/policy/projection_required.rs",
+      "crates/services/src/agentic/runtime/kernel/runtime_lifecycle.rs",
       "scripts/conformance/hypervisor-conformance.mjs",
     ],
-    "Phase 10/11 remains non-terminal: projection-required refusal owners must stay in the Rust policy child module while the policy facade only re-exports the surface until direct Rust projection APIs replace command transport",
+    "Phase 10/11 remains non-terminal: projection-required refusal owners must stay retired while runtime lifecycle public projections are owned by the positive Rust daemon-core projector",
   );
   assertCheck(
     result,
-    "skill-hook-registry-projection-rust-core-required",
-      /SkillHookRegistryProjectionRequiredCore/.test(policyCore) &&
-      /SKILL_HOOK_REGISTRY_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
-      /rust_policy_plans_skill_hook_registry_projection_required/.test(policyCore) &&
-      /pub fn plan_skill_hook_registry_projection_required_response/.test(policyProjectionRequiredCore) &&
-      /rust_skill_hook_registry_projection_required_command/.test(policyProjectionRequiredCore) &&
+    "skill-hook-registry-public-js-projection-retired",
+      /pub const SKILL_HOOK_REGISTRY_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
+        skillHookRegistryRustCore,
+      ) &&
+      /pub fn project_skill_hook_registry_response/.test(skillHookRegistryRustCore) &&
+      /pub struct SkillHookRegistryProjectionCore/.test(skillHookRegistryRustCore) &&
+      /rust_skill_hook_registry_projection_command/.test(skillHookRegistryRustCore) &&
+      /rust_projects_skill_hook_registry_catalog/.test(skillHookRegistryRustCore) &&
+      /rust_projects_skill_and_hook_route_shapes/.test(skillHookRegistryRustCore) &&
+      /rust_shapes_skill_hook_registry_command_response/.test(skillHookRegistryRustCore) &&
+      /project_skill_hook_registry/.test(commandProtocolCore) &&
+      /ProjectSkillHookRegistry/.test(commandProtocolCore) &&
+      /project_skill_hook_registry_response/.test(
+        read("crates/services/src/agentic/runtime/kernel/command_dispatch.rs"),
+      ) &&
+      !/plan_skill_hook_registry_projection_required/.test(commandProtocolCore) &&
+      !/SkillHookRegistryProjectionRequired/.test(policyCore) &&
       !/mod projection_command;/.test(bridgeModule) &&
       !projectionCommandBridgeExists &&
-      /rust_policy_shapes_skill_hook_registry_projection_required_command_response/.test(policyProjectionRequiredCore) &&
       !/plan_skill_hook_registry_projection_required_response as plan_skill_hook_registry_projection_required/.test(bridgeModule) &&
       !/SkillHookRegistryProjectionRequiredBridgeRequest/.test(bridgeModule) &&
       !/rust_skill_hook_registry_projection_required_command/.test(projectionCommandBridge) &&
@@ -9829,13 +10523,17 @@ function runBridge() {
       ) &&
       !/fn plan_skill_hook_registry_projection_required/.test(bridgeModule) &&
       !/struct SkillHookRegistryProjectionRequiredBridgeRequest/.test(bridgeModule) &&
-      /planSkillHookRegistryProjectionRequired\(request = \{\}\)/.test(
+      /SKILL_HOOK_REGISTRY_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
         runtimeContextPolicyRunner,
       ) &&
-      /SKILL_HOOK_REGISTRY_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION/.test(
+      /projectSkillHookRegistry\(request = \{\}\)/.test(
         runtimeContextPolicyRunner,
       ) &&
-      /skill hook registry projection-required runner sends Rust daemon-core request/.test(
+      /normalizeSkillHookRegistryProjectionBridgeResult/.test(
+        runtimeContextPolicyRunner,
+      ) &&
+      !/planSkillHookRegistryProjectionRequired/.test(runtimeContextPolicyRunner) &&
+      /skill hook registry projection runner sends Rust daemon-core request/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
       /runtime_skill_hook_registry_rust_core_required/.test(runtimeSkillHookSurface) &&
@@ -9845,11 +10543,12 @@ function runBridge() {
       /runtime_skill_hook_registry_js_projection_retired/.test(
         runtimeSkillHookSurface,
       ) &&
-      /rust_daemon_core_skill_hook_registry_required/.test(runtimeSkillHookSurface) &&
+      /rust_daemon_core_skill_hook_registry_projection_required/.test(runtimeSkillHookSurface) &&
       /agentgres_skill_hook_registry_truth_required/.test(runtimeSkillHookSurface) &&
-      /skillHookRunner\.planSkillHookRegistryProjectionRequired/.test(
+      /skillHookRunner\.projectSkillHookRegistry/.test(
         runtimeSkillHookSurface,
       ) &&
+      !/planSkillHookRegistryProjectionRequired/.test(runtimeSkillHookSurface) &&
       !/discoverSkillHookCatalog/.test(runtimeSkillHookSurface) &&
       !/schemaVersion:\s*"ioi\.agent-runtime\.skills\.v1"/.test(
         runtimeSkillHookSurface,
@@ -9857,10 +10556,13 @@ function runBridge() {
       !/schemaVersion:\s*"ioi\.agent-runtime\.hooks\.v1"/.test(
         runtimeSkillHookSurface,
       ) &&
-      /runtime skill hook surface fails closed before JS catalog discovery/.test(
+      /runtime skill hook surface returns Rust-owned catalog skills and hooks/.test(
         runtimeSkillHookSurfaceTest,
       ) &&
-      /runtime skill hook surface translates mounted Rust projection-required record/.test(
+      /runtime skill hook surface fails closed when Rust projection is missing/.test(
+        runtimeSkillHookSurfaceTest,
+      ) &&
+      /runtime skill hook surface rejects Rust projection mismatches/.test(
         runtimeSkillHookSurfaceTest,
       ) &&
       /store\.skillHookSurface\.listSkills\(\{ cwd: store\.defaultCwd \}\)/.test(
@@ -9880,7 +10582,9 @@ function runBridge() {
       !/^\s+(?:skillHookCatalog|listSkills|listHooks)\(/m.test(runtimeDaemonIndex),
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
-      "crates/services/src/agentic/runtime/kernel/policy/thread_lifecycle.rs",
+      "crates/services/src/agentic/runtime/kernel/skill_hook_registry.rs",
+      "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
+      "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
@@ -9890,52 +10594,80 @@ function runBridge() {
       "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
       "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
     ],
-    "Phase 6/10/11 is pending: public skill/hook registry projection must fail closed through Rust daemon-core until direct Rust projection over Agentgres/governance truth replaces the migration bridge",
+    "Phase 6/10/11 is pending: public skill/hook registry projection must return Rust daemon-core projection records and keep the retired JS projection-required path absent",
   );
   assertCheck(
     result,
-    "repository-workflow-projection-rust-core-required",
-      /RepositoryWorkflowProjectionRequiredCore/.test(policyCore) &&
-      /REPOSITORY_WORKFLOW_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
-      /rust_policy_plans_repository_workflow_projection_required/.test(policyCore) &&
-      /pub fn plan_repository_workflow_projection_required_response/.test(policyProjectionRequiredCore) &&
-      /rust_repository_workflow_projection_required_command/.test(policyProjectionRequiredCore) &&
+    "repository-workflow-public-js-projection-retired",
+      /pub const REPOSITORY_WORKFLOW_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
+        repositoryWorkflowRustCore,
+      ) &&
+      /pub fn project_repository_workflow_response/.test(
+        repositoryWorkflowRustCore,
+      ) &&
+      /pub struct RepositoryWorkflowProjectionCore/.test(
+        repositoryWorkflowRustCore,
+      ) &&
+      /rust_repository_workflow_projection_command/.test(
+        repositoryWorkflowRustCore,
+      ) &&
+      /rust_projects_repository_workflow_context_and_policy/.test(
+        repositoryWorkflowRustCore,
+      ) &&
+      /rust_projects_repository_workflow_pr_family_shapes/.test(
+        repositoryWorkflowRustCore,
+      ) &&
+      /rust_shapes_repository_workflow_command_response/.test(
+        repositoryWorkflowRustCore,
+      ) &&
+      /project_repository_workflow/.test(commandProtocolCore) &&
+      /ProjectRepositoryWorkflow/.test(commandProtocolCore) &&
+      /project_repository_workflow_response/.test(
+        read("crates/services/src/agentic/runtime/kernel/command_dispatch.rs"),
+      ) &&
+      !/plan_repository_workflow_projection_required/.test(commandProtocolCore) &&
+      !/RepositoryWorkflowProjectionRequired/.test(policyCore) &&
+      !/RepositoryWorkflowProjectionRequired/.test(policyProjectionRequiredCore) &&
       !projectionCommandBridgeExists &&
-      /rust_policy_shapes_repository_workflow_projection_required_command_response/.test(policyProjectionRequiredCore) &&
       !/plan_repository_workflow_projection_required_response as plan_repository_workflow_projection_required/.test(bridgeModule) &&
       !/RepositoryWorkflowProjectionRequiredBridgeRequest/.test(bridgeModule) &&
+      !/rust_repository_workflow_projection_required_command/.test(
+        projectionCommandBridge,
+      ) &&
       !/bridge_plans_repository_workflow_projection_required_through_rust_core/.test(
         bridgeModule,
       ) &&
       !/fn plan_repository_workflow_projection_required/.test(bridgeModule) &&
       !/struct RepositoryWorkflowProjectionRequiredBridgeRequest/.test(bridgeModule) &&
-      /planRepositoryWorkflowProjectionRequired\(request = \{\}\)/.test(
+      /REPOSITORY_WORKFLOW_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
         runtimeContextPolicyRunner,
       ) &&
-      /REPOSITORY_WORKFLOW_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION/.test(
+      /projectRepositoryWorkflow\(request = \{\}\)/.test(
         runtimeContextPolicyRunner,
       ) &&
-      /repository workflow projection-required runner sends Rust daemon-core request/.test(
+      /normalizeRepositoryWorkflowProjectionBridgeResult/.test(
+        runtimeContextPolicyRunner,
+      ) &&
+      !/planRepositoryWorkflowProjectionRequired/.test(runtimeContextPolicyRunner) &&
+      /repository workflow projection runner sends Rust daemon-core request/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
-      /runtime_repository_workflow_projection_rust_core_required/.test(
+      /runtime_repository_workflow_rust_projection_missing/.test(
         runtimeRepositorySurface,
       ) &&
       /rust_core_boundary:\s*"runtime\.repository_workflow_projection"/.test(
         runtimeRepositorySurface,
       ) &&
-      /runtime_repository_workflow_js_projection_retired/.test(
-        runtimeRepositorySurface,
-      ) &&
-      /rust_daemon_core_repository_workflow_projection_required/.test(
+      /runtime_repository_workflow_rust_projection/.test(
         runtimeRepositorySurface,
       ) &&
       /agentgres_repository_workflow_truth_required/.test(
         runtimeRepositorySurface,
       ) &&
-      /repositoryRunner\.planRepositoryWorkflowProjectionRequired/.test(
+      /repositoryRunner\.projectRepositoryWorkflow/.test(
         runtimeRepositorySurface,
       ) &&
+      !/planRepositoryWorkflowProjectionRequired/.test(runtimeRepositorySurface) &&
       !/repositoryContextProjection|repositoryListProjection|prAttemptsProjection|issueContextProjection|reviewGateProjection|githubPrCreatePlanProjection/.test(
         runtimeRepositorySurface,
       ) &&
@@ -9943,10 +10675,13 @@ function runBridge() {
       !/schemaVersion:\s*"ioi\.agent-runtime\.(?:repository-context|issue-context|pr-attempt|review-gate|github-pr-create-plan)\.v1"/.test(
         runtimeRepositorySurface,
       ) &&
-      /runtime repository surface fails closed before JS public projection builders/.test(
+      /runtime repository surface returns Rust-owned repository workflow projections/.test(
         runtimeRepositorySurfaceTest,
       ) &&
-      /runtime repository surface translates mounted Rust projection-required record/.test(
+      /runtime repository surface fails closed when Rust projection is missing/.test(
+        runtimeRepositorySurfaceTest,
+      ) &&
+      /runtime repository surface rejects Rust projection mismatches/.test(
         runtimeRepositorySurfaceTest,
       ) &&
       /createRuntimeRepositorySurface\(\{\s*repositoryRunner:\s*this\.contextPolicyRunner,/s.test(
@@ -9981,7 +10716,7 @@ function runBridge() {
       "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
     ],
-    "Phase 6/10/11 is pending: public repository workflow projections must fail closed through Rust daemon-core until direct Rust projection over Agentgres-admitted repository workflow truth replaces the migration bridge",
+    "Phase 6/10/11 remains non-terminal: public repository workflow routes must return Rust daemon-core projections and keep the retired projection-required path absent while broader run-trace repository workflow truth is migrated separately",
   );
   assertCheck(
     result,
@@ -10030,6 +10765,11 @@ function runBridge() {
       !/struct ThreadControlAgentStateUpdateBridgeRequest/.test(bridgeModule) &&
       /response\["control"\]\["control_kind"\]/.test(policyThreadLifecycleCore) &&
       /response\["control"\]\["event_id"\]/.test(policyThreadLifecycleCore) &&
+      /response\["receipt_refs"\]/.test(policyThreadLifecycleCore) &&
+      /"receipt_refs": receipt_refs\.clone\(\)/.test(threadControlAgentStateUpdateCoreBlock) &&
+      /agent\.insert\(\s*"receipt_refs"\.to_string\(\),/.test(
+        threadControlAgentStateUpdateCoreBlock,
+      ) &&
       /"controlKind"[\s\S]*"workspaceTrustWarningEventId"[\s\S]*response\["control"\]\.get\(field\)\.is_none\(\)/.test(
         policyThreadLifecycleCore,
       ) &&
@@ -10037,7 +10777,7 @@ function runBridge() {
       /THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
         runtimeContextPolicyRunner,
       ) &&
-      /thread control agent state update runner sends Rust state update bridge request/.test(
+      /thread control agent state update runner sends Rust state update through direct daemon-core invoker/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
       /captured\.request\.model_route\.selected_model/.test(
@@ -10048,6 +10788,8 @@ function runBridge() {
       ) &&
       /result\.control\.control_kind/.test(runtimeContextPolicyRunnerTest) &&
       /result\.control\.event_id/.test(runtimeContextPolicyRunnerTest) &&
+      /result\.receipt_refs/.test(runtimeContextPolicyRunnerTest) &&
+      /result\.control\.receipt_refs/.test(runtimeContextPolicyRunnerTest) &&
       /Object\.hasOwn\(result\.control,\s*field\),\s*false/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
@@ -10059,34 +10801,39 @@ function runBridge() {
       /runtime_thread_control_event_js_facade_retired/.test(runtimeThreadControlSurface) &&
       /rust_daemon_core_thread_control_required/.test(runtimeThreadControlSurface) &&
       /agentgres_thread_control_truth_required/.test(runtimeThreadControlSurface) &&
-      !/contextPolicyRunnerDep\.planThreadControlAgentStateUpdate/.test(
+      /contextPolicyRunnerDep\?\.planThreadControlAgentStateUpdate/.test(
         runtimeThreadControlSurface,
       ) &&
-      !/model_route:\s*threadControlAgentStateUpdateModelRoute\(modelRoute\)/.test(
+      /applyRustThreadControlStateUpdate/.test(runtimeThreadControlSurface) &&
+      /const modelRoute = controls\.model_route \?\? null/.test(
         runtimeThreadControlSurface,
       ) &&
       !/requiredThreadControlOperationKind/.test(runtimeThreadControlSurface) &&
-      !/store\.agentForThread|store\.resolveModelRoute|store\.appendRuntimeEvent|store\.agents\.set|store\.writeAgent/.test(
+      /store\.agentForThread\?\.\(threadId\)/.test(runtimeThreadControlSurface) &&
+      /store\.resolveModelRoute/.test(runtimeThreadControlSurface) &&
+      /store\.writeAgent\(plannedAgent, operationKind\)/.test(
         runtimeThreadControlSurface,
       ) &&
+      !/store\.appendRuntimeEvent|store\.agents\.set/.test(runtimeThreadControlSurface) &&
       !/stateUpdate\.operation_kind\s*\?\?\s*`thread\.\$\{controlKind\}`/.test(
         runtimeThreadControlSurface,
       ) &&
-      !/model_route:\s*modelRoute/.test(runtimeThreadControlSurface) &&
       !/modelId:\s*modelRoute\.selectedModel|runtimeControls:\s*nextControls/.test(
         runtimeThreadControlSurface,
       ) &&
-      /thread control mode\/model\/thinking facades fail closed before JS mutation/.test(
+      /thread control mode\/model\/thinking facades delegate to Rust planner and Agentgres-backed write/.test(
         runtimeThreadControlSurfaceTest,
       ) &&
-      /thread runtime-control and direct event facades fail closed before JS event append/.test(
+      /thread runtime-control facade fails closed before lookup without Rust planner/.test(
+        runtimeThreadControlSurfaceTest,
+      ) &&
+      /direct thread runtime-control event facade stays retired before JS event append/.test(
         runtimeThreadControlSurfaceTest,
       ) &&
       /assertThreadControlRustCoreRequired/.test(runtimeThreadControlSurfaceTest) &&
       /assertNoThreadControlMutation/.test(runtimeThreadControlSurfaceTest) &&
-      /assert\.deepEqual\(plannerCalls,\s*\[\]\)/.test(
-        runtimeThreadControlSurfaceTest,
-      ),
+      /assert\.equal\(plannerCalls\.length,\s*3\)/.test(runtimeThreadControlSurfaceTest) &&
+      /assert\.equal\(store\.writes\.length,\s*3\)/.test(runtimeThreadControlSurfaceTest),
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
       "crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs",
@@ -10097,13 +10844,16 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
     ],
-    "Phase 10/11 is pending: thread-control public facades must fail closed until Rust daemon-core owns control admission, event materialization, persistence, replay, and projection; planner bridge remains migration plumbing only",
+    "Phase 10/11 is pending: thread-control public facades must route through Rust daemon-core state planning and Agentgres-backed agent persistence while direct JS control-event append remains retired",
   );
   assertCheck(
     result,
     "thread-control-request-aliases-retired",
     /runtime_thread_control_rust_core_required/.test(runtimeThreadControlSurface) &&
-      /thread runtime-control and direct event facades fail closed before JS event append/.test(
+      /thread runtime-control facade fails closed before lookup without Rust planner/.test(
+        runtimeThreadControlSurfaceTest,
+      ) &&
+      /direct thread runtime-control event facade stays retired before JS event append/.test(
         runtimeThreadControlSurfaceTest,
       ) &&
       /workflowGraphId: "graph_retired"/.test(runtimeThreadControlSurfaceTest) &&
@@ -10171,12 +10921,12 @@ function runBridge() {
   assertCheck(
     result,
     "thread-control-error-detail-aliases-retired",
-    /rust_core_boundary:\s*"runtime\.thread_control"/.test(
-      runtimeThreadControlSurface,
-    ) &&
+      /rust_core_boundary:\s*"runtime\.thread_control"/.test(
+        runtimeThreadControlSurface,
+      ) &&
       /requested_control_kind:\s*controlKind \?\? null/.test(runtimeThreadControlSurface) &&
       /thread_id:\s*threadId/.test(runtimeThreadControlSurface) &&
-      /thread control mode\/model\/thinking facades fail closed before JS mutation/.test(
+      /thread runtime-control facade fails closed before lookup without Rust planner/.test(
         runtimeThreadControlSurfaceTest,
       ) &&
       /thread route sends runtime controls through thread control surface/.test(
@@ -10458,7 +11208,7 @@ function runBridge() {
       /MCP_MANAGER_VALIDATION_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
         runtimeContextPolicyRunner,
       ) &&
-      /mcp control agent state update runner sends Rust state update bridge request/.test(
+      /mcp control agent state update runner sends Rust state update through direct daemon-core invoker/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
       /MCP server validation runner sends Rust daemon-core validation request/.test(
@@ -10687,7 +11437,7 @@ function runBridge() {
       /THREAD_MEMORY_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
         runtimeContextPolicyRunner,
       ) &&
-      /thread memory agent state update runner sends Rust state update bridge request/.test(
+      /thread memory agent state update runner sends Rust state update through direct daemon-core invoker/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
       /result\.control\.control_kind/.test(runtimeContextPolicyRunnerTest) &&
@@ -10963,10 +11713,10 @@ function runBridge() {
       /RUNTIME_BRIDGE_TURN_RUN_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
         runtimeContextPolicyRunner,
       ) &&
-      /runtime bridge thread start agent state update runner sends Rust state update bridge request/.test(
+      /runtime bridge thread start agent state update runner sends Rust state update through direct daemon-core invoker/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
-      /runtime bridge turn run state update runner sends Rust state update bridge request/.test(
+      /runtime bridge turn run state update runner sends Rust state update through direct daemon-core invoker/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
       /result\.bridge_start\.bridge_id/.test(runtimeContextPolicyRunnerTest) &&
@@ -11154,22 +11904,35 @@ function runBridge() {
   assertCheck(
     result,
     "agent-run-create-state-update-live-bridge",
-    /AgentCreateStateUpdateCore/.test(policyCore) &&
+      /AgentCreateStateUpdateCore/.test(policyCore) &&
+      /ThreadCreateStateUpdateCore/.test(policyCore) &&
       /RunCreateStateUpdateCore/.test(policyCore) &&
       /AgentStatusStateUpdateCore/.test(policyCore) &&
+      /AgentDeleteStateUpdateCore/.test(policyCore) &&
       /AGENT_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
+      /THREAD_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
       /RUN_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
       /AGENT_STATUS_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
+      /AGENT_DELETE_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
       /rust_policy_plans_agent_create_state_update/.test(policyCore) &&
+      /rust_policy_plans_thread_create_state_update/.test(policyCore) &&
       /rust_policy_plans_run_create_state_update/.test(policyCore) &&
       /rust_policy_plans_agent_status_state_update/.test(policyCore) &&
+      /rust_policy_plans_agent_delete_state_update/.test(policyCore) &&
       /pub fn plan_agent_create_state_update_response/.test(policyThreadLifecycleCore) &&
+      /pub fn plan_thread_create_state_update_response/.test(policyThreadLifecycleCore) &&
       /pub fn plan_run_create_state_update_response/.test(policyThreadLifecycleCore) &&
       /pub fn plan_agent_status_state_update_response/.test(policyThreadLifecycleCore) &&
+      /pub fn plan_agent_delete_state_update_response/.test(policyThreadLifecycleCore) &&
       /rust_agent_create_state_update_command/.test(policyThreadLifecycleCore) &&
+      /rust_thread_create_state_update_command/.test(policyThreadLifecycleCore) &&
       /rust_run_create_state_update_command/.test(policyThreadLifecycleCore) &&
       /rust_agent_status_state_update_command/.test(policyThreadLifecycleCore) &&
+      /rust_agent_delete_state_update_command/.test(policyThreadLifecycleCore) &&
       /rust_policy_shapes_agent_create_state_update_command_response/.test(
+        policyThreadLifecycleCore,
+      ) &&
+      /rust_policy_shapes_thread_create_state_update_command_response/.test(
         policyThreadLifecycleCore,
       ) &&
       /rust_policy_shapes_run_create_state_update_command_response/.test(
@@ -11178,51 +11941,78 @@ function runBridge() {
       /rust_policy_shapes_agent_status_state_update_command_response/.test(
         policyThreadLifecycleCore,
       ) &&
+      /rust_policy_shapes_agent_delete_state_update_command_response/.test(
+        policyThreadLifecycleCore,
+      ) &&
       !/plan_agent_create_state_update_response as plan_agent_create_state_update/.test(bridgeModule) &&
+      !/plan_thread_create_state_update_response as plan_thread_create_state_update/.test(bridgeModule) &&
       !/plan_run_create_state_update_response as plan_run_create_state_update/.test(bridgeModule) &&
       !/plan_agent_status_state_update_response as plan_agent_status_state_update/.test(bridgeModule) &&
+      !/plan_agent_delete_state_update_response as plan_agent_delete_state_update/.test(bridgeModule) &&
       !/AgentCreateStateUpdateBridgeRequest/.test(bridgeModule) &&
+      !/ThreadCreateStateUpdateBridgeRequest/.test(bridgeModule) &&
       !/RunCreateStateUpdateBridgeRequest/.test(bridgeModule) &&
       !/AgentStatusStateUpdateBridgeRequest/.test(bridgeModule) &&
+      !/AgentDeleteStateUpdateBridgeRequest/.test(bridgeModule) &&
       !/bridge_plans_agent_create_state_update_through_rust_core/.test(bridgeModule) &&
+      !/bridge_plans_thread_create_state_update_through_rust_core/.test(bridgeModule) &&
       !/bridge_plans_run_create_state_update_through_rust_core/.test(bridgeModule) &&
       !/bridge_plans_agent_status_state_update_through_rust_core/.test(bridgeModule) &&
+      !/bridge_plans_agent_delete_state_update_through_rust_core/.test(bridgeModule) &&
       !/fn plan_agent_create_state_update/.test(bridgeModule) &&
+      !/fn plan_thread_create_state_update/.test(bridgeModule) &&
       !/fn plan_run_create_state_update/.test(bridgeModule) &&
       !/fn plan_agent_status_state_update/.test(bridgeModule) &&
+      !/fn plan_agent_delete_state_update/.test(bridgeModule) &&
       !/struct AgentCreateStateUpdateBridgeRequest/.test(bridgeModule) &&
+      !/struct ThreadCreateStateUpdateBridgeRequest/.test(bridgeModule) &&
       !/struct RunCreateStateUpdateBridgeRequest/.test(bridgeModule) &&
       !/struct AgentStatusStateUpdateBridgeRequest/.test(bridgeModule) &&
+      !/struct AgentDeleteStateUpdateBridgeRequest/.test(bridgeModule) &&
       /planAgentCreateStateUpdate/.test(runtimeContextPolicyRunner) &&
+      /planThreadCreateStateUpdate/.test(runtimeContextPolicyRunner) &&
       /planRunCreateStateUpdate/.test(runtimeContextPolicyRunner) &&
       /planAgentStatusStateUpdate/.test(runtimeContextPolicyRunner) &&
+      /planAgentDeleteStateUpdate/.test(runtimeContextPolicyRunner) &&
       /planLifecycleAdmissionRequired/.test(runtimeContextPolicyRunner) &&
       /AGENT_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyRunner) &&
+      /THREAD_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyRunner) &&
       /RUN_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyRunner) &&
       /AGENT_STATUS_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyRunner) &&
+      /AGENT_DELETE_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyRunner) &&
       /LIFECYCLE_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyRunner) &&
       /LifecycleAdmissionRequiredCore/.test(policyCore) &&
       /LifecycleAdmissionRequiredRequest/.test(policyCore) &&
       /rust_policy_plans_lifecycle_admission_required/.test(policyThreadLifecycleCore) &&
       /plan_lifecycle_admission_required/.test(commandProtocolCore) &&
+      /plan_thread_create_state_update/.test(commandProtocolCore) &&
       /CommandOperation::PlanLifecycleAdmissionRequired/.test(commandProtocolCore) &&
+      /CommandOperation::PlanThreadCreateStateUpdate/.test(commandProtocolCore) &&
       /pub fn plan_lifecycle_admission_required_response/.test(policyThreadLifecycleCore) &&
       /rust_lifecycle_admission_required_command/.test(policyThreadLifecycleCore) &&
       /rust_policy_shapes_lifecycle_admission_required_command_response/.test(
         policyThreadLifecycleCore,
       ) &&
+      /runtime_thread_create_rust_core_required/.test(policyThreadLifecycleCore) &&
+      /runtime_thread_create_js_facade_retired/.test(policyThreadLifecycleCore) &&
       !/plan_lifecycle_admission_required_response as plan_lifecycle_admission_required/.test(bridgeModule) &&
       !/LifecycleAdmissionRequiredBridgeRequest/.test(bridgeModule) &&
       !/bridge_plans_lifecycle_admission_required_through_rust_core/.test(bridgeModule) &&
       !/fn plan_lifecycle_admission_required/.test(bridgeModule) &&
       !/struct LifecycleAdmissionRequiredBridgeRequest/.test(bridgeModule) &&
-      /agent create state update runner sends Rust state update bridge request/.test(
+      /agent create state update runner sends Rust state update through direct daemon-core invoker/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
-      /run create state update runner sends Rust state update bridge request/.test(
+      /run create state update runner sends Rust state update through direct daemon-core invoker/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
-      /agent status state update runner sends Rust state update bridge request/.test(
+      /thread create state update runner sends Rust state update through direct daemon-core invoker/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /agent status state update runner sends Rust state update through direct daemon-core invoker/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /agent delete state update runner sends Rust tombstone through direct daemon-core invoker/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
       /lifecycle admission-required runner sends Rust daemon-core request/.test(
@@ -11232,25 +12022,35 @@ function runBridge() {
         runtimeContextPolicyRunnerTest,
       ) &&
       /runtime_agent_create_rust_core_required/.test(runtimeAgentRunLifecycle) &&
+      /runtime_thread_create_rust_core_required/.test(runtimeAgentRunLifecycle) &&
       /runtime_run_create_rust_core_required/.test(runtimeAgentRunLifecycle) &&
+      /planAgentCreateStateUpdate/.test(runtimeAgentRunLifecycle) &&
+      /planThreadCreateStateUpdate/.test(runtimeAgentRunLifecycle) &&
+      /planRunCreateStateUpdate/.test(runtimeAgentRunLifecycle) &&
       /planLifecycleAdmissionRequired/.test(runtimeAgentRunLifecycle) &&
       /lifecycleAdmissionRunner/.test(runtimeAgentRunLifecycle) &&
       /runtime_agent_create_js_facade_retired/.test(runtimeAgentRunLifecycle) &&
+      /runtime_thread_create_js_facade_retired/.test(runtimeAgentRunLifecycle) &&
       /runtime_run_create_js_facade_retired/.test(runtimeAgentRunLifecycle) &&
       /rust_daemon_core_agent_create_required/.test(runtimeAgentRunLifecycle) &&
+      /rust_daemon_core_thread_create_required/.test(runtimeAgentRunLifecycle) &&
       /rust_daemon_core_run_create_required/.test(runtimeAgentRunLifecycle) &&
       /agentgres_agent_create_state_truth_required/.test(runtimeAgentRunLifecycle) &&
+      /agentgres_thread_create_state_truth_required/.test(runtimeAgentRunLifecycle) &&
       /agentgres_run_create_state_truth_required/.test(runtimeAgentRunLifecycle) &&
       !/contextPolicyRunner\.planAgentCreateStateUpdate/.test(runtimeAgentRunLifecycle) &&
+      !/contextPolicyRunner\.planThreadCreateStateUpdate/.test(runtimeAgentRunLifecycle) &&
       !/contextPolicyRunner\.planRunCreateStateUpdate/.test(runtimeAgentRunLifecycle) &&
       /lifecycleAdmissionRequiredCalls\.length,\s*1/.test(runtimeAgentRunLifecycleTest) &&
       /operation:\s*"agent_create"/.test(runtimeAgentRunLifecycleTest) &&
+      /operation,\s*"thread_create"/.test(runtimeAgentRunLifecycleTest) &&
       /operation:\s*"run_create"/.test(runtimeAgentRunLifecycleTest) &&
-      !/requiredPlannedOperationKind/.test(runtimeAgentRunLifecycle) &&
       !/stateUpdate\.operation_kind\s*\?\?\s*"agent\.create"/.test(runtimeAgentRunLifecycle) &&
+      !/stateUpdate\.operation_kind\s*\?\?\s*"thread\.create"/.test(runtimeAgentRunLifecycle) &&
       !/stateUpdate\.operation_kind\s*\?\?\s*"run\.create"/.test(runtimeAgentRunLifecycle) &&
       /runtime_agent_status_control_rust_core_required/.test(threadStore) &&
-      /planLifecycleAdmissionRequired/.test(threadStore) &&
+      /statusStateUpdateRunner/.test(threadStore) &&
+      /planAgentStatusStateUpdate/.test(threadStore) &&
       /rust_core_boundary:\s*"runtime\.agent_status_control"/.test(threadStore) &&
       /operation:\s*"agent_status_control"/.test(threadStore) &&
       /operation_kind:\s*"agent_status_update"/.test(threadStore) &&
@@ -11264,39 +12064,36 @@ function runBridge() {
       /runtime_agent_reload_js_facade_retired/.test(threadStore) &&
       /rust_daemon_core_agent_status_control_required/.test(threadStore) &&
       /agentgres_agent_status_state_truth_required/.test(threadStore) &&
-      !/contextPolicyRunner\.planAgentStatusStateUpdate/.test(threadStore) &&
-      /plan_lifecycle_admission_required/.test(threadStoreTest) &&
-      !/store\.agents\.set\(updated\.id,\s*updated\)/.test(threadStore) &&
-      !/store\.writeAgent\(updated,\s*plannedOperationKind\)/.test(threadStore) &&
-      /thread store agent status facade fails closed before Rust planning or JS persistence/.test(
+      /store\.writeAgent\(plannedAgent,\s*plannedOperationKind\)/.test(threadStore) &&
+      /agent_status_state_update_agent_missing/.test(threadStore) &&
+      /agent_status_state_update_operation_kind_mismatch/.test(threadStore) &&
+      /thread store updates agent status through Rust state planning and Agentgres commit/.test(
         threadStoreTest,
       ) &&
-      /thread store agent status facade fails closed without JS agent lookup/.test(
+      /thread store agent status control fails closed without Rust status planner/.test(
+        threadStoreTest,
+      ) &&
+      /thread store agent status control rejects missing Rust-planned agent/.test(
+        threadStoreTest,
+      ) &&
+      /thread store agent status control rejects mismatched Rust operation kind/.test(
         threadStoreTest,
       ) &&
       /runtime_agent_status_control_rust_core_required/.test(threadStoreTest) &&
       /requested_operation_kind/.test(threadStoreTest) &&
       /requested_status/.test(threadStoreTest) &&
       /assertNoRetiredAgentStatusDetailAliases\(error\.details\)/.test(threadStoreTest) &&
-      /call\.operation === "plan_agent_status_state_update"\),\s*false/.test(
+      /call\.operation === "plan_agent_status_state_update"/.test(threadStoreTest) &&
+      /call\.operation === "write_agent"/.test(threadStoreTest) &&
+      !/thread store agent status facade fails closed before Rust planning or JS persistence/.test(
         threadStoreTest,
       ) &&
-      /call\.operation === "write_agent"\),\s*false/.test(threadStoreTest) &&
-      !/thread store updates agents through Rust state planning/.test(threadStoreTest) &&
-      !/thread store fails closed without Rust status planner/.test(threadStoreTest) &&
-      !/thread store fails closed without Rust-planned status agent/.test(threadStoreTest) &&
-      !/thread store fails closed without Rust-planned status operation kind/.test(
+      !/thread store agent status facade fails closed without JS agent lookup/.test(
         threadStoreTest,
       ) &&
-      !/thread store fails closed on mismatched Rust-planned status operation kind/.test(
-        threadStoreTest,
-      ) &&
-      !/agent_status_state_update_operation_kind_missing/.test(threadStore) &&
-      !/agent_status_state_update_operation_kind_mismatch/.test(threadStore) &&
       !/details:\s*\{\s*agent_id:\s*agentId,\s*status,\s*operation_kind:\s*operationKind\s*\}/.test(
         threadStore,
       ) &&
-      !/expected_operation_kind:\s*operationKind/.test(threadStore) &&
       !/stateUpdate\.operation_kind\s*\?\?\s*operationKind/.test(threadStore) &&
       !/details:\s*\{[^}\n]*\b(?:agentId|operationKind|expectedOperationKind)\s*:/.test(
         threadStore,
@@ -11304,13 +12101,48 @@ function runBridge() {
       !/store\.agents\.set\(agent\.id,\s*agent\)|store\.runs\.set\(runtimeRun\.id,\s*runtimeRun\)/.test(
         runtimeAgentRunLifecycle,
       ) &&
-      !/store\.agents\.set|store\.runs\.set|store\.writeAgent|store\.writeRun/.test(
+      !/store\.agents\.set|store\.runs\.set/.test(
         runtimeAgentRunLifecycle,
       ) &&
+      /store\.writeAgent\(plannedAgent,\s*plannedOperationKind\)/.test(
+        runtimeAgentRunLifecycle,
+      ) &&
+      /store\.ensureThreadStartedEvent\(plannedAgent\)/.test(
+        runtimeAgentRunLifecycle,
+      ) &&
+      /store\.threadForAgent\(plannedAgent\)/.test(runtimeAgentRunLifecycle) &&
+      /store\.writeRun\(plannedRun,\s*plannedOperationKind\)/.test(
+        runtimeAgentRunLifecycle,
+      ) &&
+      /agent_create_state_update_agent_missing/.test(runtimeAgentRunLifecycle) &&
+      /agent_create_state_update_operation_kind_mismatch/.test(runtimeAgentRunLifecycle) &&
+      /agent_create_state_update_projection_incomplete/.test(runtimeAgentRunLifecycle) &&
+      /thread_create_state_update_agent_missing/.test(runtimeAgentRunLifecycle) &&
+      /thread_create_state_update_thread_missing/.test(runtimeAgentRunLifecycle) &&
+      /thread_create_state_update_operation_kind_mismatch/.test(runtimeAgentRunLifecycle) &&
+      /thread_create_state_update_projection_incomplete/.test(runtimeAgentRunLifecycle) &&
+      /thread_create_state_update_agent_mismatch/.test(runtimeAgentRunLifecycle) &&
+      /run_create_state_update_run_missing/.test(runtimeAgentRunLifecycle) &&
+      /run_create_state_update_operation_kind_mismatch/.test(runtimeAgentRunLifecycle) &&
+      /run_create_state_update_projection_incomplete/.test(runtimeAgentRunLifecycle) &&
+      /approvalModeForThreadMode/.test(runtimeAgentRunLifecycle) &&
+      /buildRun/.test(runtimeAgentRunLifecycle) &&
+      /threadModeForRunMode/.test(runtimeAgentRunLifecycle) &&
       /createRuntimeAgentRunLifecycleSurface/.test(runtimeAgentRunLifecycle) &&
+      /approvalModeForThreadMode/.test(runtimeDaemonIndex) &&
+      /buildRun/.test(runtimeDaemonIndex) &&
       /lifecycleAdmissionRunner:\s*this\.contextPolicyRunner/.test(
         runtimeDaemonIndex,
       ) &&
+      /initialThreadRuntimeControls/.test(runtimeDaemonIndex) &&
+      /mcpRegistryForWorkspace/.test(runtimeDaemonIndex) &&
+      /runtimeModeForOptions/.test(runtimeDaemonIndex) &&
+      /summarizeAgentOptions/.test(runtimeDaemonIndex) &&
+      /eventStreamIdForThread/.test(runtimeDaemonIndex) &&
+      /runtimeThreadSchemaVersion:\s*RUNTIME_THREAD_SCHEMA_VERSION/.test(runtimeDaemonIndex) &&
+      /threadIdForAgent/.test(runtimeDaemonIndex) &&
+      /threadStatusForAgent/.test(runtimeDaemonIndex) &&
+      /threadModeForRunMode/.test(runtimeDaemonIndex) &&
       !/createAgent as createAgentState/.test(runtimeDaemonIndex) &&
       !/createRun as createRunState/.test(runtimeDaemonIndex) &&
       !/\n\s*createAgent\(options = \{\}\)/.test(runtimeDaemonIndex) &&
@@ -11336,21 +12168,75 @@ function runBridge() {
       ) &&
       !/createAgentState\(this/.test(runtimeDaemonIndex) &&
       !/createRunState\(this/.test(runtimeDaemonIndex) &&
-      /createAgent facade fails closed before Rust planning or JS persistence/.test(
+      /createAgent commits Rust-planned agent projection through Agentgres/.test(
         runtimeAgentRunLifecycleTest,
       ) &&
-      /createRun facade fails closed before route, memory, Rust planning, or JS persistence/.test(
+      /createAgent fails closed before route planning when Rust planner is missing/.test(
         runtimeAgentRunLifecycleTest,
       ) &&
-      /createRun missing-agent path is still Rust-core required and does not read JS agent state/.test(
+      /createAgent rejects missing Rust-planned agent projection/.test(
+        runtimeAgentRunLifecycleTest,
+      ) &&
+      /createAgent rejects mismatched Rust operation kind/.test(
+        runtimeAgentRunLifecycleTest,
+      ) &&
+      /createAgent rejects incomplete Rust-planned projection/.test(
+        runtimeAgentRunLifecycleTest,
+      ) &&
+      /createRun commits Rust-planned run projection through Agentgres/.test(
+        runtimeAgentRunLifecycleTest,
+      ) &&
+      /createRun fails closed before lookup, route, memory, or persistence when Rust planner is missing/.test(
+        runtimeAgentRunLifecycleTest,
+      ) &&
+      /createRun rejects missing Rust-planned run projection/.test(
+        runtimeAgentRunLifecycleTest,
+      ) &&
+      /createRun rejects mismatched Rust operation kind/.test(
+        runtimeAgentRunLifecycleTest,
+      ) &&
+      /createRun rejects incomplete Rust-planned projection/.test(
+        runtimeAgentRunLifecycleTest,
+      ) &&
+      /createThread commits Rust-planned thread agent and returns Rust thread projection/.test(
+        runtimeAgentRunLifecycleTest,
+      ) &&
+      /createThread fails closed before route planning when Rust planner is missing/.test(
+        runtimeAgentRunLifecycleTest,
+      ) &&
+      /createThread rejects missing Rust-planned agent projection/.test(
+        runtimeAgentRunLifecycleTest,
+      ) &&
+      /createThread rejects missing Rust-planned thread projection/.test(
+        runtimeAgentRunLifecycleTest,
+      ) &&
+      /createThread rejects mismatched Rust operation kind/.test(
+        runtimeAgentRunLifecycleTest,
+      ) &&
+      /createThread rejects incomplete Rust-planned projection/.test(
+        runtimeAgentRunLifecycleTest,
+      ) &&
+      /createThread rejects Rust thread projection agent mismatch/.test(
+        runtimeAgentRunLifecycleTest,
+      ) &&
+      !/createRun facade fails closed before route, memory, Rust planning, or JS persistence/.test(
+        runtimeAgentRunLifecycleTest,
+      ) &&
+      !/createRun missing-agent path is still Rust-core required and does not read JS agent state/.test(
+        runtimeAgentRunLifecycleTest,
+      ) &&
+      !/createThread facade fails closed before JS agent persistence for default threads/.test(
         runtimeAgentRunLifecycleTest,
       ) &&
       /assertNoRetiredLifecycleDetailAliases/.test(runtimeAgentRunLifecycleTest) &&
       /assert\.deepEqual\(store\.writes,\s*\[\]\)/.test(runtimeAgentRunLifecycleTest) &&
       /assert\.deepEqual\(store\.routeCalls,\s*\[\]\)/.test(runtimeAgentRunLifecycleTest) &&
       /assert\.deepEqual\(store\.memoryCalls,\s*\[\]\)/.test(runtimeAgentRunLifecycleTest) &&
-      !/plan_agent_create_state_update/.test(runtimeAgentRunLifecycleTest) &&
+      /planAgentCreateStateUpdate/.test(runtimeAgentRunLifecycleTest) &&
+      /planThreadCreateStateUpdate/.test(runtimeAgentRunLifecycleTest) &&
+      /planRunCreateStateUpdate/.test(runtimeAgentRunLifecycleTest) &&
       !/plan_run_create_state_update/.test(runtimeAgentRunLifecycleTest) &&
+      !/plan_thread_create_state_update/.test(runtimeAgentRunLifecycleTest) &&
       !/agent\.runtimeControls\?\.approvalMode/.test(runtimeAgentRunLifecycle) &&
       /options\.interaction_mode \?\? "agent"/.test(threadRuntimeControls) &&
       !/options\.mode \?\? options\.interaction_mode/.test(threadRuntimeControls) &&
@@ -11395,13 +12281,14 @@ function runBridge() {
       "packages/agent-sdk/src/substrate-client.ts",
       "packages/agent-sdk/test/sdk.test.mjs",
     ],
-    "Phase 9/10 is pending: public agent/run creation must fail closed until Rust daemon-core owns state admission and persistence; bridge planners remain migration plumbing only",
+    "Phase 9/10 is pending: public agent, thread, and run creation must persist only Rust-planned Agentgres projections while broader lifecycle authority, replay, projection, and stable protocol APIs remain non-terminal",
   );
   assertCheck(
     result,
-    "thread-agent-status-control-js-facade-retired",
+    "thread-agent-status-control-rust-positive-api",
     /runtime_agent_status_control_rust_core_required/.test(threadStore) &&
-      /planLifecycleAdmissionRequired/.test(threadStore) &&
+      /statusStateUpdateRunner/.test(threadStore) &&
+      /planAgentStatusStateUpdate/.test(threadStore) &&
       /runtime_agent_status_control_js_facade_retired/.test(threadStore) &&
       /runtime_agent_archive_js_facade_retired/.test(threadStore) &&
       /runtime_agent_unarchive_js_facade_retired/.test(threadStore) &&
@@ -11410,10 +12297,9 @@ function runBridge() {
       /runtime_agent_reload_js_facade_retired/.test(threadStore) &&
       /rust_daemon_core_agent_status_control_required/.test(threadStore) &&
       /agentgres_agent_status_state_truth_required/.test(threadStore) &&
-      !/contextPolicyRunner\.planAgentStatusStateUpdate/.test(threadStore) &&
-      /plan_lifecycle_admission_required/.test(threadStoreTest) &&
-      !/store\.agents\.set\(updated\.id,\s*updated\)/.test(threadStore) &&
-      !/store\.writeAgent\(updated,\s*plannedOperationKind\)/.test(threadStore) &&
+      /store\.writeAgent\(plannedAgent,\s*plannedOperationKind\)/.test(threadStore) &&
+      /agent_status_state_update_agent_missing/.test(threadStore) &&
+      /agent_status_state_update_operation_kind_mismatch/.test(threadStore) &&
       /store\.agentRunLifecycleSurface\.updateAgent\(store, agentId, "archived", "agent\.archive"\)/.test(
         runtimeRouteHandlers,
       ) &&
@@ -11425,10 +12311,16 @@ function runBridge() {
         runtimeRouteHandlersTest,
       ) &&
       !/store\.(?:updateAgent|deleteAgent|getAgent)\(/.test(runtimeRouteHandlers) &&
-      /thread store agent status facade fails closed before Rust planning or JS persistence/.test(
+      /thread store updates agent status through Rust state planning and Agentgres commit/.test(
         threadStoreTest,
       ) &&
-      /thread store agent status facade fails closed without JS agent lookup/.test(
+      /thread store agent status control fails closed without Rust status planner/.test(
+        threadStoreTest,
+      ) &&
+      /thread store agent status control rejects missing Rust-planned agent/.test(
+        threadStoreTest,
+      ) &&
+      /thread store agent status control rejects mismatched Rust operation kind/.test(
         threadStoreTest,
       ),
     [
@@ -11438,7 +12330,7 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-route-handlers.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
     ],
-    "Phase 10/11 is pending: agent lifecycle/status controls must fail closed until Rust daemon-core owns lifecycle admission, persistence, replay, and projection",
+    "Phase 10/11 is pending: agent status/delete controls must call Rust daemon-core state planning and commit only the Rust-authored agent projection or deletion tombstone through Agentgres",
   );
   assertCheck(
     result,
@@ -11468,7 +12360,7 @@ function runBridge() {
       /RustContextPolicyRunner/.test(runtimeContextPolicyRunner) &&
       /evaluateCompactionPolicy/.test(runtimeContextPolicyRunner) &&
       /runtime_event_item_id/.test(runtimeContextPolicyRunner) &&
-      /compaction policy runner sends Rust policy bridge request/.test(
+      /compaction policy runner sends Rust policy through direct daemon-core invoker/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
       /runtime_context_policy_rust_core_required/.test(runtimeContextPolicySurface) &&
@@ -11778,7 +12670,7 @@ function runBridge() {
       !/struct ContextCompactionPlanBridgeRequest/.test(bridgeModule) &&
       /planContextCompaction/.test(runtimeContextPolicyRunner) &&
       /CONTEXT_COMPACTION_PLAN_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyRunner) &&
-      /context compaction runner sends Rust plan bridge request/.test(
+      /context compaction runner sends Rust plan through direct daemon-core invoker/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
       /runtime_context_policy_rust_core_required/.test(runtimeContextPolicySurface) &&
@@ -11846,7 +12738,7 @@ function runBridge() {
       /CONTEXT_COMPACTION_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
         runtimeContextPolicyRunner,
       ) &&
-      /context compaction state update runner sends Rust state update bridge request/.test(
+      /context compaction state update runner sends Rust state update through direct daemon-core invoker/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
       /result\.operator_control\.event_id/.test(runtimeContextPolicyRunnerTest) &&
@@ -11929,8 +12821,10 @@ function runBridge() {
       !/bridge_admits_model_mount_route_decision_through_rust_core/.test(modelMountCommandSurface) &&
       !/model_mount_route_decision_rejects_step_module_command_schema/.test(modelMountCommandSurface) &&
       /RustModelMountAdmissionRunner/.test(modelMountAdmissionRunner) &&
-      /MODEL_MOUNT_ADMISSION_COMMAND_ENV/.test(modelMountAdmissionRunner) &&
-      /IOI_RUNTIME_DAEMON_CORE_COMMAND/.test(modelMountAdmissionRunner) &&
+      !/MODEL_MOUNT_ADMISSION_COMMAND_ENV/.test(modelMountAdmissionRunner) &&
+      /assertNoModelMountAdmissionCommandSelection\(\s*options\.command\s*\?\?\s*env\.IOI_RUNTIME_DAEMON_CORE_COMMAND\s*\?\?\s*env\.IOI_MODEL_MOUNT_ADMISSION_COMMAND/.test(
+        modelMountAdmissionRunner,
+      ) &&
       /ioi\.runtime\.daemon_core\.command\.v1/.test(modelMountAdmissionRunner) &&
       !/MODEL_MOUNT_ADMISSION_COMMAND_ARGS_ENV/.test(modelMountAdmissionRunner) &&
       !/parseCommandArgs/.test(modelMountAdmissionRunner) &&
@@ -11938,24 +12832,45 @@ function runBridge() {
       !/this\.args/.test(modelMountAdmissionRunner) &&
       !/argsEnv/.test(modelMountAdmissionRunner) &&
       /assertNoModelMountAdmissionCommandArgs/.test(modelMountAdmissionRunner) &&
+      /assertNoModelMountAdmissionCommandSelection/.test(modelMountAdmissionRunner) &&
       /model_mount_admission_command_args_retired/.test(modelMountAdmissionRunner) &&
-      /createDaemonCoreCommandInvoker/.test(modelMountAdmissionRunner) &&
+      /model_mount_admission_command_selection_retired/.test(modelMountAdmissionRunner) &&
+      /model_mount_admission_direct_invoker_unconfigured/.test(modelMountAdmissionRunner) &&
+      !/createDaemonCoreCommandInvoker/.test(modelMountAdmissionRunner) &&
+      !/spawnSyncImpl/.test(modelMountAdmissionRunner) &&
       !/from "node:child_process"/.test(modelMountAdmissionRunner) &&
-      /spawnSyncImpl\(commandPath,\s*\[\]/.test(daemonCoreCommandRunner) &&
-      !/IOI_MODEL_MOUNT_ADMISSION_COMMAND/.test(modelMountAdmissionRunner) &&
       !/IOI_STEP_MODULE_COMMAND/.test(modelMountAdmissionRunner) &&
       !retiredRouteDecisionEnvPattern.test(modelMountAdmissionRunner) &&
-      /model_mount_admission_bridge_unconfigured/.test(modelMountAdmissionRunner) &&
-      /Rust model_mount admission runner env uses daemon-core command boundary/.test(
+      !/model_mount_admission_bridge_unconfigured/.test(modelMountAdmissionRunner) &&
+      /Rust model_mount admission runner env uses daemon-level direct invoker/.test(
+        modelMountAdmissionRunnerTest,
+      ) &&
+      /Rust model_mount admission runner rejects retired daemon-core command env/.test(
+        modelMountAdmissionRunnerTest,
+      ) &&
+      /Rust model_mount admission runner rejects retired model-mount command env/.test(
         modelMountAdmissionRunnerTest,
       ) &&
       /Rust model_mount admission runner command args env fails closed/.test(
         modelMountAdmissionRunnerTest,
       ) &&
+      /Rust model_mount admission runner retired model-mount command args env fails closed/.test(
+        modelMountAdmissionRunnerTest,
+      ) &&
       /Rust model_mount admission runner command args constructor option fails closed/.test(
         modelMountAdmissionRunnerTest,
       ) &&
-      /assert\.deepEqual\(calls\[0\]\.args,\s*\[\]\)/.test(modelMountAdmissionRunnerTest) &&
+      /Rust model_mount admission runner command constructor option fails closed/.test(
+        modelMountAdmissionRunnerTest,
+      ) &&
+      /Rust model_mount admission runner fails closed without direct invoker/.test(
+        modelMountAdmissionRunnerTest,
+      ) &&
+      !/spawnSyncImpl/.test(modelMountAdmissionRunnerTest) &&
+      !/assert\.deepEqual\(calls\[0\]\.args,\s*\[\]\)/.test(modelMountAdmissionRunnerTest) &&
+      /Rust model_mount admission runner sends route-decision through direct daemon-core invoker/.test(
+        modelMountAdmissionRunnerTest,
+      ) &&
       !/IOI_ENABLE_INTERNAL_FIXTURE_MODELS/.test(modelMountAdmissionRunner) &&
       !/mockFixtureResponse/.test(modelMountAdmissionRunner) &&
       !/isFixtureRequest/.test(modelMountAdmissionRunner) &&
@@ -13820,7 +14735,10 @@ function runBridge() {
       !/schemaVersion:\s*runtimeThreadControlsSchemaVersion/.test(runtimeThreadControlSurface) &&
       /Object\.hasOwn\(controls,\s*"schemaVersion"\),\s*false/.test(threadRuntimeControlsTest) &&
       /runtime_thread_control_js_facade_retired/.test(runtimeThreadControlSurface) &&
-      /thread control mode\/model\/thinking facades fail closed before JS mutation/.test(
+      /thread control mode\/model\/thinking facades delegate to Rust planner and Agentgres-backed write/.test(
+        runtimeThreadControlSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(mode\.agent\.runtimeControls,\s*"schemaVersion"\),\s*false/.test(
         runtimeThreadControlSurfaceTest,
       ),
     [
@@ -13873,7 +14791,10 @@ function runBridge() {
       !/control:\s*\{(?:(?!\n\s*\},\n\s*event,)[\s\S])*^\s*controlKind\s*,/m.test(runtimeThreadControlSurface) &&
       !/^\s*workspaceTrustWarningEventId\s*:/m.test(runtimeThreadControlSurface) &&
       !/^\s*workspaceTrustWarningEvent\s*:/m.test(runtimeThreadControlSurface) &&
-      /thread runtime-control and direct event facades fail closed before JS event append/.test(
+      /direct thread runtime-control event facade stays retired before JS event append/.test(
+        runtimeThreadControlSurfaceTest,
+      ) &&
+      /thread control mode\/model\/thinking facades delegate to Rust planner and Agentgres-backed write/.test(
         runtimeThreadControlSurfaceTest,
       ) &&
       /assertNoThreadControlMutation/.test(runtimeThreadControlSurfaceTest),
@@ -13906,7 +14827,11 @@ function runBridge() {
       !/modelRoute\.decision\?\.(?:reasoningEffort|workflowNodeId)/.test(
         runtimeThreadControlSurface,
       ) &&
-      !/store\.resolveModelRoute/.test(runtimeThreadControlSurface) &&
+      /store\.resolveModelRoute/.test(runtimeThreadControlSurface) &&
+      /workflow_graph_id,\s*\n\s*workflow_node_id,\s*\n\s*workflow_node_type:\s*"Model Router"/.test(
+        runtimeThreadControlSurface,
+      ) &&
+      !/workflowGraphId,\s*\n\s*workflowNodeId/.test(runtimeThreadControlSurface) &&
       /runtime_thread_model_control_js_facade_retired/.test(runtimeThreadControlSurface) &&
       /thread runtime control model payloads use canonical route-selection fields/.test(
         threadRuntimeControlsTest,
@@ -13920,7 +14845,10 @@ function runBridge() {
       /assert\.equal\(input\.model\.route_id,\s*"route\.canonical"\)/.test(
         threadRuntimeControlsTest,
       ) &&
-      /assertNoThreadControlMutation\(store,\s*plannerCalls\)/.test(
+      /assert\.equal\(store\.routeRequests\[0\]\.context\.workflow_node_id,\s*"runtime\.model-router\.custom"\)/.test(
+        runtimeThreadControlSurfaceTest,
+      ) &&
+      /assert\.equal\(store\.routeRequests\[1\]\.context\.workflow_graph_id,\s*"graph_1"\)/.test(
         runtimeThreadControlSurfaceTest,
       ),
     [
@@ -15074,9 +16002,17 @@ function runBridge() {
       /WORKSPACE_SNAPSHOT_CAPTURE_RESULT_SCHEMA_VERSION/.test(workspaceRestoreKernel) &&
       /pub struct WorkspaceSnapshotCaptureBridgeRequest/.test(workspaceRestoreKernel) &&
       /pub fn capture_workspace_snapshot_files_response/.test(workspaceRestoreKernel) &&
+      /WORKSPACE_SNAPSHOT_RECORD_SCHEMA_VERSION/.test(workspaceRestoreKernel) &&
+      /WORKSPACE_SNAPSHOT_EVENT_SCHEMA_VERSION/.test(workspaceRestoreKernel) &&
+      /workspace_snapshot_capture_record/.test(workspaceRestoreKernel) &&
+      /workspace_snapshot_capture_event/.test(workspaceRestoreKernel) &&
+      /"snapshot_record":\s*snapshot_record/.test(workspaceRestoreKernel) &&
+      /"snapshot_event":\s*snapshot_event/.test(workspaceRestoreKernel) &&
       /rust_workspace_snapshot_capture_command/.test(workspaceRestoreKernel) &&
       /workspace_snapshot_capture_invalid/.test(workspaceRestoreKernel) &&
       /rust_core_shapes_workspace_snapshot_capture_command_response/.test(workspaceRestoreKernel) &&
+      /response\["snapshot_record"\]\["schema_version"\]/.test(workspaceRestoreKernel) &&
+      /response\["snapshot_event"\]\["event_kind"\]/.test(workspaceRestoreKernel) &&
       !/capture_workspace_snapshot_files_response as capture_workspace_snapshot_files/.test(bridgeModule) &&
       !/struct WorkspaceSnapshotCaptureBridgeRequest/.test(bridgeModule) &&
       !/fn capture_workspace_snapshot_files/.test(bridgeModule) &&
@@ -15115,10 +16051,18 @@ function runBridge() {
       /previewOperations/.test(workspaceRestoreRunner) &&
       /applyOperations/.test(workspaceRestoreRunner) &&
       /captureSnapshotFiles/.test(workspaceRestoreRunner) &&
+      /listSnapshots/.test(workspaceRestoreRunner) &&
+      /workspaceSnapshotContentPackage/.test(workspaceRestoreRunner) &&
+      /previewSnapshotRestore/.test(workspaceRestoreRunner) &&
+      /applySnapshotRestore/.test(workspaceRestoreRunner) &&
       /plan_workspace_restore_apply_policy/.test(workspaceRestoreRunner) &&
       /preview_workspace_restore_operations/.test(workspaceRestoreRunner) &&
       /apply_workspace_restore_operations/.test(workspaceRestoreRunner) &&
       /capture_workspace_snapshot_files/.test(workspaceRestoreRunner) &&
+      /project_workspace_snapshot_list/.test(workspaceRestoreRunner) &&
+      /project_workspace_snapshot_content_package/.test(workspaceRestoreRunner) &&
+      /preview_workspace_snapshot_restore/.test(workspaceRestoreRunner) &&
+      /apply_workspace_snapshot_restore/.test(workspaceRestoreRunner) &&
       /rust_workspace_restore/.test(workspaceRestoreRunner) &&
       /workspace_restore_direct_invoker_unconfigured/.test(workspaceRestoreRunner) &&
       /workspace_restore_command_selection_retired/.test(workspaceRestoreRunner) &&
@@ -15138,6 +16082,9 @@ function runBridge() {
       /workspace restore runner sends snapshot capture through direct daemon-core invoker/.test(
         workspaceRestoreRunnerTest,
       ) &&
+      /workspace restore runner sends public snapshot projection and restore APIs through direct daemon-core invoker/.test(
+        workspaceRestoreRunnerTest,
+      ) &&
       /workspace restore runner does not synthesize Rust-owned snapshot capture refs/.test(
         workspaceRestoreRunnerTest,
       ) &&
@@ -15147,6 +16094,8 @@ function runBridge() {
       /assert\.equal\(capture\.files\[0\]\.artifact_refs,\s*null\)/.test(
         workspaceRestoreRunnerTest,
       ) &&
+      /assert\.equal\(capture\.snapshot_record,\s*null\)/.test(workspaceRestoreRunnerTest) &&
+      /assert\.equal\(capture\.snapshot_event,\s*null\)/.test(workspaceRestoreRunnerTest) &&
       /workspace restore runner ignores retired result reader aliases/.test(
         workspaceRestoreRunnerTest,
       ) &&
@@ -15208,10 +16157,19 @@ function runBridge() {
 	      ) &&
 	      /runtime_workspace_snapshot_rust_core_required/.test(runtimeWorkspaceSnapshotSurface) &&
 	      /rust_core_boundary:\s*"runtime\.workspace_snapshot"/.test(runtimeWorkspaceSnapshotSurface) &&
-	      /workspace_restore_preview_js_facade_retired/.test(runtimeWorkspaceSnapshotSurface) &&
-	      /workspace_restore_apply_js_facade_retired/.test(runtimeWorkspaceSnapshotSurface) &&
 	      /workspace_snapshot_js_capture_facade_retired/.test(runtimeWorkspaceSnapshotSurface) &&
-	      !/workspaceRestoreRunner/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /workspaceRestoreRunner\s*=\s*null/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /workspaceRestoreRunner\.captureSnapshotFiles\(\{/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /workspaceRestoreRunner\.listSnapshots\(\{/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /workspaceRestoreRunner\.workspaceSnapshotContentPackage\(\{/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /workspaceRestoreRunner\.previewSnapshotRestore\(\{/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /workspaceRestoreRunner\.applySnapshotRestore\(\{/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /workspace snapshot surface captures patch snapshot through Rust workspace restore runner/.test(
+	        runtimeWorkspaceSnapshotSurfaceTest,
+	      ) &&
+	      /workspace snapshot surface fails closed when Rust patch capture runner is absent/.test(
+	        runtimeWorkspaceSnapshotSurfaceTest,
+	      ) &&
 	      !/planWorkspaceRestoreApplyPolicy/.test(runtimeWorkspaceSnapshotSurface) &&
 	      !/previewWorkspaceRestoreOperations/.test(runtimeWorkspaceSnapshotSurface) &&
 	      !/applyWorkspaceRestoreOperations/.test(runtimeWorkspaceSnapshotSurface) &&
@@ -15229,7 +16187,7 @@ function runBridge() {
 	      !/applyWorkspaceRestoreFile/.test(workspaceRestoreHelpers) &&
 	      !/workspaceSnapshotFileForPatch/.test(workspaceRestoreHelpers) &&
 	      !/workspaceSnapshotCaptureSide/.test(workspaceRestoreHelpers) &&
-	      /workspace restore policy bridge plumbing is not called by the retired JS facade/.test(
+	      /workspace restore public facade calls Rust public restore API instead of operation helpers/.test(
 	        runtimeWorkspaceSnapshotSurfaceTest,
 	      ),
     [
@@ -15240,7 +16198,7 @@ function runBridge() {
       "packages/runtime-daemon/src/workspace-restore.mjs",
       "packages/runtime-daemon/src/index.mjs",
     ],
-	    "Phase 10/11 is pending: workspace restore runner must use direct Rust daemon-core invoker while daemon workspace snapshot/restore JS mutation facades fail closed until direct Rust daemon-core admission owns the path",
+	    "Phase 10/11 is pending: workspace restore runner must use direct Rust daemon-core invoker while patch capture and public workspace snapshot/restore APIs consume Rust daemon-core records",
 	  );
 	  assertCheck(
 	    result,
@@ -16791,9 +17749,6 @@ function runReceipts() {
     : "";
   const runtimeAgentgresRunner = exists("packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs")
     ? read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs")
-    : "";
-  const daemonCoreCommandRunner = exists("packages/runtime-daemon/src/runtime-daemon-core-command-runner.mjs")
-    ? read("packages/runtime-daemon/src/runtime-daemon-core-command-runner.mjs")
     : "";
   const runtimeCodingToolArtifactSurface = exists("packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.mjs")
@@ -19307,7 +20262,13 @@ function runReceipts() {
       /Object\.hasOwn\(nativeEndpoint,\s*"backendRegistry"\),\s*false/.test(defaultRecordsTest) &&
       /Slice 921 deleted the standalone JS fixture-policy compatibility wrapper/.test(guide) &&
       /`fixture-policy\.mjs` is absent/.test(guide) &&
-      /Slice 921 deleted the standalone JS fixture-policy compatibility wrapper/.test(matrix),
+      (/Slice 921 deleted the standalone JS fixture-policy compatibility wrapper/.test(matrix) ||
+        (/standalone JS fixture-policy compatibility wrapper/.test(matrix) &&
+          /`packages\/runtime-daemon\/src\/model-mounting\/fixture-policy\.mjs`/.test(matrix) &&
+          /`fixture-policy\.mjs` is absent/.test(matrix) &&
+          /disabled-internal-fixture cleanup remains\s+private inside `default-discovery\.mjs`/.test(
+            matrix,
+          ))),
     [
       "packages/runtime-daemon/src/model-mounting/default-discovery.mjs",
       "packages/runtime-daemon/src/model-mounting/default-discovery.test.mjs",
@@ -20683,7 +21644,7 @@ function runReceipts() {
   assertCheck(
     result,
     "thread-agent-delete-operation-append-retired",
-    !/agent\.delete/.test(threadStore) &&
+    !/appendOperation\([\s\S]*agent\.delete/.test(threadStore) &&
       /assert\.equal\(store\.calls\.some\(\(call\) => call\.operation === "append_operation"\), false\)/.test(
         read("packages/runtime-daemon/src/threads/thread-store.test.mjs"),
       ),
@@ -20695,21 +21656,39 @@ function runReceipts() {
   );
   assertCheck(
     result,
-    "thread-agent-delete-js-facade-retired",
+    "thread-agent-delete-rust-positive-api",
     /runtime_agent_delete_rust_core_required/.test(threadStore) &&
+      /deleteStateUpdateRunner/.test(threadStore) &&
+      /planAgentDeleteStateUpdate/.test(threadStore) &&
       /runtime_agent_delete_js_facade_retired/.test(threadStore) &&
       /rust_daemon_core_agent_delete_required/.test(threadStore) &&
       /agentgres_agent_delete_state_truth_required/.test(threadStore) &&
+      /store\.writeAgent\(plannedAgent,\s*plannedOperationKind\)/.test(threadStore) &&
+      /agent_delete_state_update_agent_missing/.test(threadStore) &&
+      /agent_delete_state_update_operation_kind_mismatch/.test(threadStore) &&
+      /agent_delete_state_update_tombstone_missing/.test(threadStore) &&
       !/store\.agents\.delete\(/.test(threadStore) &&
       !/store\.removeQuiet\(/.test(threadStore) &&
       !/store\.listRuns\(agentId\)/.test(threadStore) &&
-      /thread store permanent delete facade fails closed before JS state mutation/.test(
+      /thread store permanent delete commits Rust tombstone through Agentgres/.test(
+        read("packages/runtime-daemon/src/threads/thread-store.test.mjs"),
+      ) &&
+      /thread store permanent delete fails closed without Rust delete planner/.test(
+        read("packages/runtime-daemon/src/threads/thread-store.test.mjs"),
+      ) &&
+      /thread store permanent delete rejects missing Rust tombstone agent/.test(
+        read("packages/runtime-daemon/src/threads/thread-store.test.mjs"),
+      ) &&
+      /thread store permanent delete rejects mismatched Rust operation kind/.test(
+        read("packages/runtime-daemon/src/threads/thread-store.test.mjs"),
+      ) &&
+      /thread store permanent delete rejects incomplete Rust tombstone/.test(
         read("packages/runtime-daemon/src/threads/thread-store.test.mjs"),
       ) &&
       /assertNoRetiredAgentDeleteDetailAliases/.test(
         read("packages/runtime-daemon/src/threads/thread-store.test.mjs"),
       ) &&
-      /assert\.equal\(store\.agents\.has\("agent_1"\), true\)/.test(
+      /call\.operation === "plan_agent_delete_state_update"/.test(
         read("packages/runtime-daemon/src/threads/thread-store.test.mjs"),
       ) &&
       /assert\.equal\(store\.calls\.some\(\(call\) => call\.operation === "remove_quiet"\), false\)/.test(
@@ -20719,7 +21698,7 @@ function runReceipts() {
       "packages/runtime-daemon/src/threads/thread-store.mjs",
       "packages/runtime-daemon/src/threads/thread-store.test.mjs",
     ],
-    "Phase 10/11 is pending: permanent agent delete must fail closed before JS agent-map mutation or local file removal",
+    "Phase 10/11 is pending: permanent agent delete must call Rust daemon-core state planning and commit only the Rust-authored tombstone through Agentgres; local JS removal remains retired",
   );
   assertCheck(
     result,
@@ -20824,50 +21803,63 @@ function runReceipts() {
   const liveRuntimeDaemonContractForState = exists("scripts/lib/live-runtime-daemon-contract.test.mjs")
     ? read("scripts/lib/live-runtime-daemon-contract.test.mjs")
     : "";
+  const runtimeToolCatalogRustCore = exists(
+    "crates/services/src/agentic/runtime/kernel/runtime_tool_catalog.rs",
+  )
+    ? read("crates/services/src/agentic/runtime/kernel/runtime_tool_catalog.rs")
+    : "";
+  const runtimeLifecycleRustCore = exists(
+    "crates/services/src/agentic/runtime/kernel/runtime_lifecycle.rs",
+  )
+    ? read("crates/services/src/agentic/runtime/kernel/runtime_lifecycle.rs")
+    : "";
   assertCheck(
     result,
     "runtime-tool-catalog-public-js-projection-retired",
-    /RUNTIME_TOOL_CATALOG_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION/.test(policyCoreForState) &&
-      /RUNTIME_TOOL_CATALOG_PROJECTION_REQUIRED_RESULT_SCHEMA_VERSION/.test(policyCoreForState) &&
-      /RuntimeToolCatalogProjectionRequiredRequest/.test(policyCoreForState) &&
-      /RuntimeToolCatalogProjectionRequiredCore/.test(policyCoreForState) &&
-      /runtime_tool_catalog_js_projection_retired/.test(policyCoreForState) &&
-      /rust_daemon_core_runtime_tool_catalog_required/.test(policyCoreForState) &&
-      /agentgres_runtime_tool_catalog_truth_required/.test(policyCoreForState) &&
-      /runtime_tool_catalog_rust_core_required/.test(policyCoreForState) &&
-      /rust_policy_plans_runtime_tool_catalog_projection_required/.test(policyCoreForState) &&
-      /pub fn plan_runtime_tool_catalog_projection_required_response/.test(policyCoreForState) &&
-      /rust_runtime_tool_catalog_projection_required_command/.test(policyCoreForState) &&
-      /plan_runtime_tool_catalog_projection_required/.test(runtimeKernelModule) &&
+    /pub const RUNTIME_TOOL_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
+      runtimeToolCatalogRustCore,
+    ) &&
+      /pub fn project_runtime_tool_catalog_response/.test(runtimeToolCatalogRustCore) &&
+      /pub struct RuntimeToolCatalogProjectionCore/.test(runtimeToolCatalogRustCore) &&
+      /rust_runtime_tool_catalog_projection_command/.test(runtimeToolCatalogRustCore) &&
+      /rust_projects_runtime_tool_catalog_tools/.test(runtimeToolCatalogRustCore) &&
+      /rust_projects_runtime_account/.test(runtimeToolCatalogRustCore) &&
+      /rust_projects_runtime_nodes_without_endpoint_values/.test(runtimeToolCatalogRustCore) &&
+      /rust_shapes_runtime_tool_catalog_command_response/.test(runtimeToolCatalogRustCore) &&
+      /project_runtime_tool_catalog/.test(commandProtocolCore) &&
+      /ProjectRuntimeToolCatalog/.test(commandProtocolCore) &&
+      /project_runtime_tool_catalog_response/.test(
+        read("crates/services/src/agentic/runtime/kernel/command_dispatch.rs"),
+      ) &&
+      !/plan_runtime_tool_catalog_projection_required/.test(commandProtocolCore) &&
+      !/RuntimeToolCatalogProjectionRequired/.test(policyCoreForState) &&
       !/mod projection_command;/.test(bridgeModule) &&
       !projectionCommandBridgeExists &&
-      /rust_policy_shapes_runtime_tool_catalog_projection_required_command_response/.test(policyCoreForState) &&
-      !/plan_runtime_tool_catalog_projection_required_response as plan_runtime_tool_catalog_projection_required/.test(bridgeModule) &&
-      !/RuntimeToolCatalogProjectionRequiredBridgeRequest/.test(bridgeModule) &&
-      !/bridge_plans_runtime_tool_catalog_projection_required_through_rust_core/.test(
-        bridgeModule,
-      ) &&
-      !/struct RuntimeToolCatalogProjectionRequiredBridgeRequest/.test(bridgeModule) &&
-      !/fn plan_runtime_tool_catalog_projection_required/.test(bridgeModule) &&
-      /RUNTIME_TOOL_CATALOG_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION/.test(
+      !/plan_runtime_tool_catalog_projection_required/.test(bridgeModule) &&
+      /RUNTIME_TOOL_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
         runtimeContextPolicyRunnerForState,
       ) &&
-      /planRuntimeToolCatalogProjectionRequired/.test(runtimeContextPolicyRunnerForState) &&
-      /runtime tool catalog projection-required runner sends Rust daemon-core request/.test(
+      /projectRuntimeToolCatalog/.test(runtimeContextPolicyRunnerForState) &&
+      /normalizeRuntimeToolCatalogProjectionBridgeResult/.test(
+        runtimeContextPolicyRunnerForState,
+      ) &&
+      /runtime tool catalog projection runner sends Rust daemon-core request/.test(
         runtimeContextPolicyRunnerTestForState,
       ) &&
-      /throwRuntimeToolCatalogProjectionRustCoreRequired/.test(runtimeToolSurface) &&
-      /planRuntimeToolCatalogProjectionRequired/.test(runtimeToolSurface) &&
+      /projectRuntimeToolCatalog/.test(runtimeToolSurface) &&
+      /throwRuntimeToolCatalogRustCoreRequired/.test(runtimeToolSurface) &&
+      !/planRuntimeToolCatalogProjectionRequired/.test(runtimeToolSurface) &&
       /runtime_tool_catalog_js_projection_retired/.test(runtimeToolSurface) &&
-      /rust_daemon_core_runtime_tool_catalog_required/.test(runtimeToolSurface) &&
+      /rust_daemon_core_runtime_tool_catalog_projection_required/.test(runtimeToolSurface) &&
       /agentgres_runtime_tool_catalog_truth_required/.test(runtimeToolSurface) &&
       !/runtimeToolsDep|runtimeAccountDep|runtimeNodesDep/.test(runtimeToolSurface) &&
-      /runtime tool surface fails closed for retired JS public projections/.test(
+      /runtime tool surface returns Rust-owned account nodes and tools/.test(
         runtimeToolSurfaceTest,
       ) &&
-      /projection_kind === "account"/.test(runtimeToolSurfaceTest) &&
-      /projection_kind === "runtime_nodes"/.test(runtimeToolSurfaceTest) &&
-      /projection_kind === "tools"/.test(runtimeToolSurfaceTest) &&
+      /runtime tool surface rejects Rust projection mismatches/.test(runtimeToolSurfaceTest) &&
+      /runtime tool surface fails closed when Rust projection is missing/.test(
+        runtimeToolSurfaceTest,
+      ) &&
       /toolCatalogRunner: this\.contextPolicyRunner/.test(runtimeDaemonIndex) &&
       /store\.toolSurface\.getAccount\(\)/.test(publicRuntimeRoutes) &&
       /store\.toolSurface\.listRuntimeNodes\(\)/.test(publicRuntimeRoutes) &&
@@ -20901,13 +21893,17 @@ function runReceipts() {
       /const catalog = await fetchJsonStatus\(`\$\{daemon\.endpoint\}\/v1\/tools\?pack=coding`\)/.test(
         liveRuntimeDaemonContractForState,
       ) &&
-      /catalog\.status,\s*501/.test(liveRuntimeDaemonContractForState) &&
-      /catalog\.body\.error\.code,\s*"runtime_tool_catalog_rust_core_required"/.test(
+      /catalog\.status,\s*200/.test(liveRuntimeDaemonContractForState) &&
+      /catalog\.body\.map\(\(tool\) => tool\.stable_tool_id\)\.sort\(\)/.test(
+        liveRuntimeDaemonContractForState,
+      ) &&
+      !/catalog\.body\.error\.code,\s*"runtime_tool_catalog_rust_core_required"/.test(
         liveRuntimeDaemonContractForState,
       ),
     [
-      "crates/services/src/agentic/runtime/kernel/policy.rs",
-      "crates/services/src/agentic/runtime/kernel/policy/projection_required.rs",
+      "crates/services/src/agentic/runtime/kernel/runtime_tool_catalog.rs",
+      "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
+      "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
@@ -20921,26 +21917,41 @@ function runReceipts() {
       "packages/runtime-daemon/src/index.mjs",
       "scripts/lib/live-runtime-daemon-contract.test.mjs",
     ],
-    "Phase 10/11 is pending: public runtime account, node, and tool catalog projections must fail closed through the Rust daemon-core projection-required boundary instead of returning JS-authored catalog truth",
+    "Phase 10/11 is pending: public runtime account, node, and tool catalog projections must return Rust daemon-core projection records and keep the retired JS projection-required path absent",
   );
   assertCheck(
     result,
     "runtime-lifecycle-public-js-projections-retired",
-    /RUNTIME_LIFECYCLE_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION/.test(policyCoreForState) &&
-      /RUNTIME_LIFECYCLE_PROJECTION_REQUIRED_RESULT_SCHEMA_VERSION/.test(policyCoreForState) &&
-      /RuntimeLifecycleProjectionRequiredRequest/.test(policyCoreForState) &&
-      /RuntimeLifecycleProjectionRequiredCore/.test(policyCoreForState) &&
-      /runtime_lifecycle_js_projection_retired/.test(policyCoreForState) &&
-      /rust_daemon_core_runtime_lifecycle_projection_required/.test(policyCoreForState) &&
-      /agentgres_runtime_lifecycle_truth_required/.test(policyCoreForState) &&
-      /runtime_lifecycle_projection_rust_core_required/.test(policyCoreForState) &&
-      /artifact_ref/.test(policyCoreForState) &&
-      /rust_policy_plans_runtime_lifecycle_projection_required/.test(policyCoreForState) &&
-      /pub fn plan_runtime_lifecycle_projection_required_response/.test(policyCoreForState) &&
-      /rust_runtime_lifecycle_projection_required_command/.test(policyCoreForState) &&
-      /turn_id/.test(policyCoreForState) &&
-      /plan_runtime_lifecycle_projection_required/.test(runtimeKernelModule) &&
-      /rust_policy_shapes_runtime_lifecycle_projection_required_command_response/.test(policyCoreForState) &&
+    /pub const RUNTIME_LIFECYCLE_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
+      runtimeLifecycleRustCore,
+    ) &&
+      /pub fn project_runtime_lifecycle_response/.test(runtimeLifecycleRustCore) &&
+      /pub struct RuntimeLifecycleProjectionCore/.test(runtimeLifecycleRustCore) &&
+      /pub struct RuntimeLifecycleProjectionBridgeRequest/.test(
+        runtimeLifecycleRustCore,
+      ) &&
+      /rust_runtime_lifecycle_projection_command/.test(runtimeLifecycleRustCore) &&
+      /runtime_lifecycle_rust_projection/.test(runtimeLifecycleRustCore) &&
+      /agentgres_runtime_lifecycle_truth_required/.test(runtimeLifecycleRustCore) &&
+      /artifact_ref/.test(runtimeLifecycleRustCore) &&
+      /turn_id/.test(runtimeLifecycleRustCore) &&
+      /rust_projects_runtime_lifecycle_route_family_shapes/.test(
+        runtimeLifecycleRustCore,
+      ) &&
+      /rust_shapes_runtime_lifecycle_command_response/.test(
+        runtimeLifecycleRustCore,
+      ) &&
+      /project_runtime_lifecycle/.test(commandProtocolCore) &&
+      /ProjectRuntimeLifecycle/.test(commandProtocolCore) &&
+      /project_runtime_lifecycle_response/.test(
+        read("crates/services/src/agentic/runtime/kernel/command_dispatch.rs"),
+      ) &&
+      /pub mod runtime_lifecycle;/.test(runtimeKernelModule) &&
+      !/RUNTIME_LIFECYCLE_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION/.test(policyCoreForState) &&
+      !/RUNTIME_LIFECYCLE_PROJECTION_REQUIRED_RESULT_SCHEMA_VERSION/.test(policyCoreForState) &&
+      !/RuntimeLifecycleProjectionRequired/.test(policyCoreForState) &&
+      !/plan_runtime_lifecycle_projection_required/.test(runtimeKernelModule) &&
+      !/plan_runtime_lifecycle_projection_required/.test(commandProtocolCore) &&
       !/plan_runtime_lifecycle_projection_required_response as plan_runtime_lifecycle_projection_required/.test(bridgeModule) &&
       !/RuntimeLifecycleProjectionRequiredBridgeRequest/.test(bridgeModule) &&
       !/bridge_plans_runtime_lifecycle_projection_required_through_rust_core/.test(
@@ -20948,11 +21959,15 @@ function runReceipts() {
       ) &&
       !/struct RuntimeLifecycleProjectionRequiredBridgeRequest/.test(bridgeModule) &&
       !/fn plan_runtime_lifecycle_projection_required/.test(bridgeModule) &&
-      /RUNTIME_LIFECYCLE_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION/.test(
+      /RUNTIME_LIFECYCLE_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
         runtimeContextPolicyRunnerForState,
       ) &&
-      /planRuntimeLifecycleProjectionRequired/.test(runtimeContextPolicyRunnerForState) &&
-      /runtime lifecycle projection-required runner sends Rust daemon-core request/.test(
+      /projectRuntimeLifecycle/.test(runtimeContextPolicyRunnerForState) &&
+      /normalizeRuntimeLifecycleProjectionBridgeResult/.test(
+        runtimeContextPolicyRunnerForState,
+      ) &&
+      !/planRuntimeLifecycleProjectionRequired/.test(runtimeContextPolicyRunnerForState) &&
+      /runtime lifecycle projection runner sends Rust daemon-core request/.test(
         runtimeContextPolicyRunnerTestForState,
       ) &&
       /captured\.request\.artifact_ref,\s*"artifact_123"/.test(
@@ -20961,22 +21976,18 @@ function runReceipts() {
       /captured\.request\.turn_id,\s*"turn_123"/.test(
         runtimeContextPolicyRunnerTestForState,
       ) &&
-      /throwRuntimeLifecycleProjectionRustCoreRequired/.test(
+      /projectRuntimeLifecycle/.test(runtimeLifecycleProjectionSurface) &&
+      !/planRuntimeLifecycleProjectionRequired/.test(
         runtimeLifecycleProjectionSurface,
       ) &&
-      /planRuntimeLifecycleProjectionRequired/.test(
+      !/throwRuntimeLifecycleProjectionRustCoreRequired/.test(
         runtimeLifecycleProjectionSurface,
       ) &&
-      /runtime_lifecycle_js_projection_retired/.test(
-        runtimeLifecycleProjectionSurface,
-      ) &&
-      /rust_daemon_core_runtime_lifecycle_projection_required/.test(
-        runtimeLifecycleProjectionSurface,
-      ) &&
+      /runtime_lifecycle_rust_projection/.test(runtimeLifecycleProjectionSurface) &&
       /agentgres_runtime_lifecycle_truth_required/.test(
         runtimeLifecycleProjectionSurface,
       ) &&
-      /projection_kind:\s*"agents"/.test(runtimeLifecycleProjectionSurface) &&
+      /projection\("agents"\)/.test(runtimeLifecycleProjectionSurface) &&
       /agent_runs/.test(runtimeLifecycleProjectionSurface) &&
       /thread_usage/.test(runtimeLifecycleProjectionSurface) &&
       /thread_turns/.test(runtimeLifecycleProjectionSurface) &&
@@ -20990,21 +22001,24 @@ function runReceipts() {
       /run_trace/.test(runtimeLifecycleProjectionSurface) &&
       /run_computer_use_trace/.test(runtimeLifecycleProjectionSurface) &&
       /run_computer_use_trajectory/.test(runtimeLifecycleProjectionSurface) &&
+      /ARRAY_PROJECTION_KINDS[\s\S]*"run_computer_use_trajectory"/.test(
+        runtimeLifecycleProjectionSurface,
+      ) &&
       /run_scorecard/.test(runtimeLifecycleProjectionSurface) &&
       /run_artifacts/.test(runtimeLifecycleProjectionSurface) &&
       /run_artifact/.test(runtimeLifecycleProjectionSurface) &&
       /artifact_ref:\s*optionalString\(artifactRef\)/.test(runtimeLifecycleProjectionSurface) &&
       /turn_id:\s*optionalString\(turnId\)/.test(runtimeLifecycleProjectionSurface) &&
-      /lifecycle projection surface fails public agent\/thread\/run list projections through Rust core/.test(
+      /runtime lifecycle surface returns Rust-owned public lifecycle projections/.test(
         runtimeLifecycleProjectionSurfaceTest,
       ) &&
-      /lifecycle projection surface keeps route identifiers in canonical snake_case details/.test(
+      /runtime lifecycle surface fails closed when Rust projection is missing/.test(
         runtimeLifecycleProjectionSurfaceTest,
       ) &&
-      /lifecycle projection surface fails public thread and run sub-projections through Rust core/.test(
+      /runtime lifecycle surface rejects Rust projection mismatches/.test(
         runtimeLifecycleProjectionSurfaceTest,
       ) &&
-      /turn_id,\s*"turn_123"/.test(
+      /turnCall\.turn_id,\s*"turn_123"/.test(
         runtimeLifecycleProjectionSurfaceTest,
       ) &&
       /calls\.at\(-1\)\.artifact_ref,\s*"artifact_123"/.test(
@@ -21014,6 +22028,7 @@ function runReceipts() {
         runtimeDaemonIndex,
       ) &&
       /lifecycleRunner: this\.contextPolicyRunner/.test(runtimeDaemonIndex) &&
+      /resolveRunArtifact/.test(runtimeDaemonIndex) &&
       /store\.lifecycleProjectionSurface\.listAgents\(store\)/.test(
         publicRuntimeRoutes,
       ) &&
@@ -21080,10 +22095,10 @@ function runReceipts() {
       /store\.lifecycleProjectionSurface\.getRunArtifact\(store,\s*runId,\s*artifactRef\)/.test(
         runtimeRouteHandlers,
       ) &&
-      /public runtime agent and thread list routes fail closed through lifecycle projection surface/.test(
+      /public runtime agent and thread list routes use mounted lifecycle projection surface/.test(
         publicRuntimeRoutesTest,
       ) &&
-      /public runtime run list route fails closed through lifecycle projection surface/.test(
+      /public runtime run list route uses mounted lifecycle projection surface/.test(
         publicRuntimeRoutesTest,
       ) &&
       /store\.runReadSurface\.listUsage\(store, Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
@@ -21095,7 +22110,7 @@ function runReceipts() {
       /public runtime usage and authority evidence routes use mounted run read surface/.test(
         publicRuntimeRoutesTest,
       ) &&
-      /agent, thread, and run detail routes use lifecycle projection surface/.test(
+      /agent, thread, and run detail routes return lifecycle projection surface output/.test(
         runtimeRouteHandlersTest,
       ) &&
       /getThreadUsage/.test(runtimeRouteHandlersTest) &&
@@ -21171,8 +22186,9 @@ function runReceipts() {
         runtimeRouteHandlers,
       ),
     [
-      "crates/services/src/agentic/runtime/kernel/policy.rs",
-      "crates/services/src/agentic/runtime/kernel/policy/projection_required.rs",
+      "crates/services/src/agentic/runtime/kernel/runtime_lifecycle.rs",
+      "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
+      "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
@@ -21185,7 +22201,7 @@ function runReceipts() {
       "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
     ],
-    "Phase 10/11 is pending: public agent, thread, and run lifecycle projections must fail closed through the Rust daemon-core projection-required boundary instead of returning JS-authored lifecycle map truth",
+    "Phase 10/11 remains non-terminal: public agent, thread, and run lifecycle projections must return Rust daemon-core projection records while broader run-read storage/replay APIs and direct protocol transport are migrated separately",
   );
   assertCheck(
     result,
@@ -22148,9 +23164,6 @@ function runCtee() {
   const runtimeDaemonIndex = exists("packages/runtime-daemon/src/index.mjs")
     ? read("packages/runtime-daemon/src/index.mjs")
     : "";
-  const daemonCoreCommandRunner = exists("packages/runtime-daemon/src/runtime-daemon-core-command-runner.mjs")
-    ? read("packages/runtime-daemon/src/runtime-daemon-core-command-runner.mjs")
-    : "";
   const cteePrivateWorkspaceRunner = exists("packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.mjs")
     ? read("packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.mjs")
     : "";
@@ -22621,6 +23634,16 @@ function runCompositor() {
   )
     ? read("crates/services/src/agentic/runtime/kernel/policy/mcp_memory.rs")
     : "";
+  const policyTaskJobCore = exists(
+    "crates/services/src/agentic/runtime/kernel/policy/task_job.rs",
+  )
+    ? read("crates/services/src/agentic/runtime/kernel/policy/task_job.rs")
+    : "";
+  const policyWorkspaceTrustCore = exists(
+    "crates/services/src/agentic/runtime/kernel/policy/workspace_trust.rs",
+  )
+    ? read("crates/services/src/agentic/runtime/kernel/policy/workspace_trust.rs")
+    : "";
   const bridgeModule = bridgeProofSurfaceForConformance();
   const mcpMemoryCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/mcp_memory_command.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/mcp_memory_command.rs")
@@ -22731,6 +23754,12 @@ function runCompositor() {
   const runtimeWorkspaceSnapshotSurfaceTest = exists("packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs")
     : "";
+  const workspaceRestoreRunner = exists("packages/runtime-daemon/src/runtime-workspace-restore-runner.mjs")
+    ? read("packages/runtime-daemon/src/runtime-workspace-restore-runner.mjs")
+    : "";
+  const workspaceRestoreKernel = exists("crates/services/src/agentic/runtime/kernel/workspace_restore.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/workspace_restore.rs")
+    : "";
   const workspaceChangeState = exists("packages/runtime-daemon/src/threads/workspace-change-state.mjs")
     ? read("packages/runtime-daemon/src/threads/workspace-change-state.mjs")
     : "";
@@ -22756,6 +23785,12 @@ function runCompositor() {
     : "";
   const workspaceTrustStateTest = exists("packages/runtime-daemon/src/threads/workspace-trust-state.test.mjs")
     ? read("packages/runtime-daemon/src/threads/workspace-trust-state.test.mjs")
+    : "";
+  const runtimeThreadControlSurface = exists("packages/runtime-daemon/src/runtime-thread-control-surface.mjs")
+    ? read("packages/runtime-daemon/src/runtime-thread-control-surface.mjs")
+    : "";
+  const runtimeThreadControlSurfaceTest = exists("packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs")
     : "";
   const workspaceTrustAcknowledgementBody =
     workspaceTrustState.match(
@@ -23218,6 +24253,21 @@ function runCompositor() {
   const threadReplayTest = exists("packages/runtime-daemon/src/threads/thread-replay.test.mjs")
     ? read("packages/runtime-daemon/src/threads/thread-replay.test.mjs")
     : "";
+  const runtimeThreadEventCoreForCompositor = exists("crates/services/src/agentic/runtime/kernel/runtime_thread_event.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/runtime_thread_event.rs")
+    : "";
+  const commandProtocolCoreForCompositor = exists("crates/services/src/agentic/runtime/kernel/command_protocol.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/command_protocol.rs")
+    : "";
+  const coreCommandDispatchForCompositor = exists("crates/services/src/agentic/runtime/kernel/command_dispatch.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/command_dispatch.rs")
+    : "";
+  const runtimeAgentgresRunnerForThreadEvents = exists("packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs")
+    ? read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs")
+    : "";
+  const runtimeAgentgresRunnerTestForThreadEvents = exists("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs")
+    : "";
   const runtimeThreadEventSurface = exists(
     "packages/runtime-daemon/src/runtime-thread-event-surface.mjs",
   )
@@ -23243,6 +24293,14 @@ function runCompositor() {
   const projectRunEventsBlock =
     threadReplay.match(
       /export function projectRunEvents\(store, run, agent, deps = \{\}\) \{[\s\S]*?\n\}/,
+    )?.[0] ?? "";
+  const runtimeEventsForStreamBlock =
+    threadReplay.match(
+      /export function runtimeEventsForStream\(store, eventStreamId, cursor = \{\}, deps = \{\}\) \{[\s\S]*?\n\}\n\nexport function runtimeEventsForTurn/,
+    )?.[0] ?? "";
+  const runtimeEventsForTurnBlock =
+    threadReplay.match(
+      /export function runtimeEventsForTurn\(store, turnId, cursor = \{\}, deps = \{\}\) \{[\s\S]*?\n\}\n\nexport function runtimeCursorSeq/,
     )?.[0] ?? "";
   const threadTurnProjection = exists("packages/runtime-daemon/src/threads/thread-turn-projection.mjs")
     ? read("packages/runtime-daemon/src/threads/thread-turn-projection.mjs")
@@ -24174,17 +25232,180 @@ function runCompositor() {
     /runtime_task_get_js_facade_retired/.test(runtimeTaskJobSurface) &&
     /runtime_job_list_js_facade_retired/.test(runtimeTaskJobSurface) &&
     /runtime_job_get_js_facade_retired/.test(runtimeTaskJobSurface) &&
-    /throwRuntimeTaskJobRustCoreRequired/.test(runtimeTaskJobListTasksBlock) &&
-    /throwRuntimeTaskJobRustCoreRequired/.test(runtimeTaskJobListJobsBlock) &&
-    /throwRuntimeTaskJobRustCoreRequired/.test(runtimeTaskJobGetTaskBlock) &&
-    /throwRuntimeTaskJobRustCoreRequired/.test(runtimeTaskJobGetJobBlock) &&
-    !/store\.listRuns\(/.test(runtimeTaskJobSurface) &&
+    /RuntimeTaskJobProjectionCore/.test(policyTaskJobCore) &&
+    /RuntimeTaskJobProjectionRequest/.test(policyTaskJobCore) &&
+    /RUNTIME_TASK_JOB_PROJECTION_REQUEST_SCHEMA_VERSION/.test(policyTaskJobCore) &&
+    /RUNTIME_TASK_JOB_PROJECTION_RESULT_SCHEMA_VERSION/.test(policyTaskJobCore) &&
+    /pub fn project_runtime_task_job_projection_response/.test(policyTaskJobCore) &&
+    /rust_runtime_task_job_projection_command/.test(policyTaskJobCore) &&
+    /rust_policy_projects_runtime_task_list/.test(policyTaskJobCore) &&
+    /rust_policy_projects_runtime_job_get/.test(policyTaskJobCore) &&
+    /rust_policy_filters_runtime_task_job_projection_in_rust/.test(policyTaskJobCore) &&
+    /project_runtime_task_job_projection/.test(commandProtocolCoreForCompositor) &&
+    /CommandOperation::ProjectRuntimeTaskJobProjection/.test(commandProtocolCoreForCompositor) &&
+    /CommandOperation::ProjectRuntimeTaskJobProjection/.test(coreCommandDispatchForCompositor) &&
+    /project_runtime_task_job_projection_response/.test(coreCommandDispatchForCompositor) &&
+    /command_error_from!\(RuntimeTaskJobProjectionCommandError\)/.test(
+      coreCommandDispatchForCompositor,
+    ) &&
+    /projectRuntimeTaskJobProjection/.test(runtimeContextPolicyRunner) &&
+    /RUNTIME_TASK_JOB_PROJECTION_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyRunner) &&
+    /normalizeRuntimeTaskJobProjectionBridgeResult/.test(runtimeContextPolicyRunner) &&
+    /expectedOperationKinds:\s*\["task\.list",\s*"task\.get",\s*"job\.list",\s*"job\.get"\]/.test(
+      runtimeContextPolicyRunner,
+    ) &&
+    /runtime task job projection runner sends Rust projection through direct daemon-core invoker/.test(
+      runtimeContextPolicyRunnerTest,
+    ) &&
+    /runtime task job projection normalizer accepts get operation kinds/.test(
+      runtimeContextPolicyRunnerTest,
+    ) &&
+    /taskJobProjectionRunner/.test(runtimeTaskJobSurface) &&
+    /projectRuntimeTaskJob/.test(runtimeTaskJobSurface) &&
+    /projectRuntimeTaskJobProjection/.test(runtimeTaskJobSurface) &&
+    /store\.listRuns\(\)/.test(runtimeTaskJobSurface) &&
+    /operationKind:\s*"task\.list"/.test(runtimeTaskJobSurface) &&
+    /operationKind:\s*"task\.get"/.test(runtimeTaskJobSurface) &&
+    /operationKind:\s*"job\.list"/.test(runtimeTaskJobSurface) &&
+    /operationKind:\s*"job\.get"/.test(runtimeTaskJobSurface) &&
+    /projectionKind:\s*"task\.list"/.test(runtimeTaskJobSurface) &&
+    /projectionKind:\s*"task\.get"/.test(runtimeTaskJobSurface) &&
+    /projectionKind:\s*"job\.list"/.test(runtimeTaskJobSurface) &&
+    /projectionKind:\s*"job\.get"/.test(runtimeTaskJobSurface) &&
+    /options\?\.agent_id/.test(runtimeTaskJobSurface) &&
+    !/options\.agentId\b/.test(runtimeTaskJobSurface) &&
+    /runtime_task_job_projection_mismatch/.test(runtimeTaskJobSurface) &&
+    /runtime_task_job_projection_not_found/.test(runtimeTaskJobSurface) &&
+    /Task not found: \$\{taskId\}/.test(runtimeTaskJobSurface) &&
+    /Job not found: \$\{jobId\}/.test(runtimeTaskJobSurface) &&
+    /taskJobProjectionRunner: this\.contextPolicyRunner/.test(runtimeDaemonIndex) &&
+    !/runtimeJobRecordForRun,\s*\n\s*runtimeTaskRecordForRun/.test(runtimeDaemonIndex) &&
     !/runtimeTaskRecordForRun/.test(runtimeTaskJobSurface) &&
     !/runtimeJobRecordForRun/.test(runtimeTaskJobSurface) &&
-    /runtime task job read projection facades fail closed before JS run reads/.test(
+    /runtime task job read projection calls Rust projector for list filters/.test(
+      runtimeTaskJobSurfaceTest,
+    ) &&
+    /runtime task job read projection returns Rust-selected task and job records/.test(
+      runtimeTaskJobSurfaceTest,
+    ) &&
+    /runtime task job read projection fails closed before run lookup when Rust projector is missing/.test(
+      runtimeTaskJobSurfaceTest,
+    ) &&
+    /runtime task job read projection rejects Rust projection mismatches before returning/.test(
       runtimeTaskJobSurfaceTest,
     );
   const runtimeTaskJobControlFacadeRetired =
+    /RuntimeTaskJobCreateStateUpdateCore/.test(policyTaskJobCore) &&
+    /RuntimeTaskJobCreateStateUpdateRequest/.test(policyTaskJobCore) &&
+    /RUNTIME_TASK_JOB_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
+      policyTaskJobCore,
+    ) &&
+    /RUNTIME_TASK_JOB_CREATE_STATE_UPDATE_RESULT_SCHEMA_VERSION/.test(
+      policyTaskJobCore,
+    ) &&
+    /RunCreateStateUpdateCore/.test(policyTaskJobCore) &&
+    /pub fn plan_runtime_task_job_create_state_update_response/.test(
+      policyTaskJobCore,
+    ) &&
+    /rust_runtime_task_job_create_state_update_command/.test(
+      policyTaskJobCore,
+    ) &&
+    /rust_policy_plans_runtime_task_create_state_update/.test(
+      policyTaskJobCore,
+    ) &&
+    /rust_policy_shapes_runtime_task_job_create_command_response/.test(
+      policyTaskJobCore,
+    ) &&
+    /rust_policy_rejects_runtime_task_create_agent_mismatch/.test(
+      policyTaskJobCore,
+    ) &&
+    /plan_runtime_task_job_create_state_update/.test(
+      commandProtocolCoreForCompositor,
+    ) &&
+    /CommandOperation::PlanRuntimeTaskJobCreateStateUpdate/.test(
+      commandProtocolCoreForCompositor,
+    ) &&
+    /CommandOperation::PlanRuntimeTaskJobCreateStateUpdate/.test(
+      coreCommandDispatchForCompositor,
+    ) &&
+    /plan_runtime_task_job_create_state_update_response/.test(
+      coreCommandDispatchForCompositor,
+    ) &&
+    /command_error_from!\(RuntimeTaskJobCreateCommandError\)/.test(
+      coreCommandDispatchForCompositor,
+    ) &&
+    /planRuntimeTaskJobCreateStateUpdate/.test(runtimeContextPolicyRunner) &&
+    /RUNTIME_TASK_JOB_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
+      runtimeContextPolicyRunner,
+    ) &&
+    /normalizeRuntimeTaskJobCreateStateUpdateBridgeResult/.test(
+      runtimeContextPolicyRunner,
+    ) &&
+    /expectedOperationKind:\s*"task\.create"/.test(runtimeContextPolicyRunner) &&
+    /runtime task job create runner sends Rust state update through direct daemon-core invoker/.test(
+      runtimeContextPolicyRunnerTest,
+    ) &&
+    /runtime task job create normalizer requires task create operation kind/.test(
+      runtimeContextPolicyRunnerTest,
+    ) &&
+    /RuntimeTaskJobCancelStateUpdateCore/.test(policyTaskJobCore) &&
+    /RuntimeTaskJobCancelStateUpdateRequest/.test(policyTaskJobCore) &&
+    /RUNTIME_TASK_JOB_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
+      policyTaskJobCore,
+    ) &&
+    /RUNTIME_TASK_JOB_CANCEL_STATE_UPDATE_RESULT_SCHEMA_VERSION/.test(
+      policyTaskJobCore,
+    ) &&
+    /RunCancelStateUpdateCore/.test(policyTaskJobCore) &&
+    /pub fn plan_runtime_task_job_cancel_state_update_response/.test(
+      policyTaskJobCore,
+    ) &&
+    /rust_runtime_task_job_cancel_state_update_command/.test(
+      policyTaskJobCore,
+    ) &&
+    /rust_policy_plans_runtime_task_cancel_state_update/.test(
+      policyTaskJobCore,
+    ) &&
+    /rust_policy_plans_runtime_job_cancel_state_update/.test(
+      policyTaskJobCore,
+    ) &&
+    /rust_policy_rejects_mismatched_runtime_task_public_id/.test(
+      policyTaskJobCore,
+    ) &&
+    /rust_policy_rejects_mismatched_runtime_task_job_run_id/.test(
+      policyTaskJobCore,
+    ) &&
+    /plan_runtime_task_job_cancel_state_update/.test(
+      commandProtocolCoreForCompositor,
+    ) &&
+    /CommandOperation::PlanRuntimeTaskJobCancelStateUpdate/.test(
+      commandProtocolCoreForCompositor,
+    ) &&
+    /CommandOperation::PlanRuntimeTaskJobCancelStateUpdate/.test(
+      coreCommandDispatchForCompositor,
+    ) &&
+    /plan_runtime_task_job_cancel_state_update_response/.test(
+      coreCommandDispatchForCompositor,
+    ) &&
+    /command_error_from!\(RuntimeTaskJobCancelCommandError\)/.test(
+      coreCommandDispatchForCompositor,
+    ) &&
+    /planRuntimeTaskJobCancelStateUpdate/.test(runtimeContextPolicyRunner) &&
+    /RUNTIME_TASK_JOB_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
+      runtimeContextPolicyRunner,
+    ) &&
+    /normalizeRuntimeTaskJobCancelStateUpdateBridgeResult/.test(
+      runtimeContextPolicyRunner,
+    ) &&
+    /expectedOperationKinds:\s*\["task\.cancel",\s*"job\.cancel"\]/.test(
+      runtimeContextPolicyRunner,
+    ) &&
+    /runtime task job cancel runner sends Rust state update through direct daemon-core invoker/.test(
+      runtimeContextPolicyRunnerTest,
+    ) &&
+    /runtime task job cancel normalizer accepts job cancel operation kind/.test(
+      runtimeContextPolicyRunnerTest,
+    ) &&
     /runtime_task_job_control_rust_core_required/.test(runtimeTaskJobSurface) &&
     /runtime_task_job_control_js_facade_retired/.test(runtimeTaskJobSurface) &&
     /runtime_task_list_js_facade_retired/.test(runtimeTaskJobSurface) &&
@@ -24196,10 +25417,65 @@ function runCompositor() {
     /runtime_job_cancel_js_facade_retired/.test(runtimeTaskJobSurface) &&
     /rust_daemon_core_runtime_task_job_control_required/.test(runtimeTaskJobSurface) &&
     /agentgres_runtime_task_job_truth_required/.test(runtimeTaskJobSurface) &&
+    /taskJobCreateRunner/.test(runtimeTaskJobSurface) &&
+    /createRuntimeTask/.test(runtimeTaskJobSurface) &&
+    /canonicalTaskCreateRunRequest/.test(runtimeTaskJobSurface) &&
+    /planRuntimeTaskJobCreateStateUpdate/.test(runtimeTaskJobSurface) &&
+    /body\?\.agent_id/.test(runtimeTaskJobSurface) &&
+    /runtime_task_create_agent_id_required/.test(runtimeTaskJobSurface) &&
+    /runtime_task_create_agent_not_found/.test(runtimeTaskJobSurface) &&
+    /runtime_task_create_state_update_projection_mismatch/.test(
+      runtimeTaskJobSurface,
+    ) &&
+    /taskJobCreateRunner: this\.contextPolicyRunner/.test(runtimeDaemonIndex) &&
+    /buildRun,\s*\n\s*ensureProviderAvailable,\s*\n\s*notFound/.test(
+      runtimeDaemonIndex,
+    ) &&
+    /taskJobCancelRunner/.test(runtimeTaskJobSurface) &&
+    /cancelRuntimeTaskJob/.test(runtimeTaskJobSurface) &&
+    /planRuntimeTaskJobCancelStateUpdate/.test(runtimeTaskJobSurface) &&
+    /runIdForTaskJobPublicId/.test(runtimeTaskJobSurface) &&
+    /runtime_task_job_public_id_invalid/.test(runtimeTaskJobSurface) &&
+    /runtime_task_job_run_not_found/.test(runtimeTaskJobSurface) &&
+    /runtime_task_job_cancel_state_update_projection_mismatch/.test(
+      runtimeTaskJobSurface,
+    ) &&
+    /store\.writeRun\(plannedRun,\s*plannedOperationKind\)/.test(
+      runtimeTaskJobSurface,
+    ) &&
+    /operationKind:\s*"task\.cancel"/.test(runtimeTaskJobSurface) &&
+    /operationKind:\s*"job\.cancel"/.test(runtimeTaskJobSurface) &&
     !/store\.createAgent\(/.test(runtimeTaskJobSurface) &&
     !/store\.createRun\(/.test(runtimeTaskJobSurface) &&
     !/store\.cancelRun\(/.test(runtimeTaskJobSurface) &&
-    /runtime task job mutation facades fail closed before JS lifecycle mutation/.test(
+    !/runtimeTaskRecordForRun/.test(runtimeTaskJobSurface) &&
+    !/runtimeJobRecordForRun/.test(runtimeTaskJobSurface) &&
+    !/stateUpdate\.operation_kind\s*\?\?\s*"task\.cancel"/.test(
+      runtimeTaskJobSurface,
+    ) &&
+    !/stateUpdate\.operation_kind\s*\?\?\s*"job\.cancel"/.test(
+      runtimeTaskJobSurface,
+    ) &&
+    !/planned\?\.run\s*\?\?\s*run/.test(runtimeTaskJobSurface) &&
+    /runtime task create commits Rust-planned task\/job projection/.test(
+      runtimeTaskJobSurfaceTest,
+    ) &&
+    /runtime task create fails closed before agent lookup when Rust planner is missing/.test(
+      runtimeTaskJobSurfaceTest,
+    ) &&
+    /runtime task create rejects Rust projection mismatches before persistence/.test(
+      runtimeTaskJobSurfaceTest,
+    ) &&
+    /runtime task cancel commits Rust-planned run cancellation and returns task projection/.test(
+      runtimeTaskJobSurfaceTest,
+    ) &&
+    /runtime job cancel commits Rust-planned run cancellation and returns job projection/.test(
+      runtimeTaskJobSurfaceTest,
+    ) &&
+    /runtime task job cancel fails closed before run lookup when Rust planner is missing/.test(
+      runtimeTaskJobSurfaceTest,
+    ) &&
+    /runtime task job cancel rejects Rust projection mismatches before persistence/.test(
       runtimeTaskJobSurfaceTest,
     ) &&
     runtimeTaskJobReadProjectionLegacyRemoved &&
@@ -25457,7 +26733,7 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-task-job-surface.mjs",
       "packages/runtime-daemon/src/runtime-task-job-surface.test.mjs",
     ],
-    "Phase 10/11 is pending: runtime task/job list/get JS read projections must fail closed before JS run-list reads",
+    "Phase 10/11 is pending: runtime task/job list/get projections must be Rust-owned through the direct daemon-core projector before JS can expose public task/job records",
   );
   assertCheck(
     result,
@@ -26233,14 +27509,14 @@ function runCompositor() {
     !/usageTelemetry|runtimeUsage/.test(runtimeAgentRunLifecycle) &&
       !/usageTelemetry|runtimeUsage/.test(runtimeAgentRunLifecycleTest) &&
       /runtime_run_create_rust_core_required/.test(runtimeAgentRunLifecycle) &&
-      /createRun facade fails closed before route, memory, Rust planning, or JS persistence/.test(
+      /createRun commits Rust-planned run projection through Agentgres/.test(
         runtimeAgentRunLifecycleTest,
       ),
     [
       "packages/runtime-daemon/src/runtime-agent-run-lifecycle.mjs",
       "packages/runtime-daemon/src/runtime-agent-run-lifecycle.test.mjs",
     ],
-    "Phase 10/11 is pending: runtime agent run lifecycle JS facade must fail closed before it can emit retired usage telemetry aliases",
+    "Phase 10/11 is pending: runtime agent run lifecycle must not emit or read retired usage aliases while Rust-planned run creation persists only canonical usage fields",
   );
   assertCheck(
     result,
@@ -26926,7 +28202,7 @@ function runCompositor() {
       /SUBAGENT_RECORD_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
         runtimeContextPolicyRunner,
       ) &&
-      /subagent record state update runner sends Rust state update bridge request/.test(
+      /subagent record state update runner sends Rust state update through direct daemon-core invoker/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
       /contextPolicyRunner\.planSubagentRecordStateUpdate/.test(
@@ -28253,7 +29529,7 @@ function runCompositor() {
       /store\.lifecycleProjectionSurface\.listRuns\(store,\s*url\.searchParams\.get\("agent_id"\)\s*\?\?\s*undefined\)/.test(
         publicRuntimeRoutesForTaskJob,
       ) &&
-      /public runtime run list route fails closed through lifecycle projection surface/.test(
+      /public runtime run list route uses mounted lifecycle projection surface/.test(
         publicRuntimeRoutesTestForTaskJob,
       ) &&
       /public runtime task and job routes use task job surface directly/.test(
@@ -28357,8 +29633,13 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-task-job-surface.test.mjs",
       "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
       "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "crates/services/src/agentic/runtime/kernel/policy/task_job.rs",
+      "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
+      "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
     ],
-    "Phase 10/11 is pending: runtime task/job create and cancel mutation facades must stay retired before JS agent/run creation or run cancellation",
+    "Phase 10/11 is pending: runtime task/job create, cancel, and list/get projection must be Rust-owned with no JS lifecycle mutation fallback",
   );
   assertCheck(
     result,
@@ -29109,16 +30390,18 @@ function runCompositor() {
     result,
     "workspace-snapshot-list-js-projection-retired",
     /function listWorkspaceSnapshots\(store, threadId\)/.test(runtimeWorkspaceSnapshotSurface) &&
-      /workspace_snapshot_list_js_projection_retired/.test(runtimeWorkspaceSnapshotSurface) &&
-      /rust_daemon_core_workspace_snapshot_projection_required/.test(runtimeWorkspaceSnapshotSurface) &&
-      /agentgres_workspace_snapshot_projection_truth_required/.test(runtimeWorkspaceSnapshotSurface) &&
-      /workspace_snapshot_list/.test(runtimeWorkspaceSnapshotSurface) &&
-      /workspace_snapshot\.list/.test(runtimeWorkspaceSnapshotSurface) &&
-      /workspace snapshot surface fails closed before JS snapshot event append and list projection reads/.test(
+      /workspaceRestoreRunner\.listSnapshots\(\{/.test(runtimeWorkspaceSnapshotSurface) &&
+      /thread_id:\s*threadId/.test(runtimeWorkspaceSnapshotSurface) &&
+      /workspace snapshot surface calls Rust list projection and fails closed before JS snapshot event append/.test(
         runtimeWorkspaceSnapshotSurfaceTest,
       ) &&
-      /assertWorkspaceSnapshotRustCoreRequired\(error,\s*"workspace_snapshot\.list"\)/.test(
+      /runnerCalls,\s*\[\{\s*thread_id:\s*"thread_alpha"\s*\}\]/.test(
         runtimeWorkspaceSnapshotSurfaceTest,
+      ) &&
+      /project_workspace_snapshot_list/.test(workspaceRestoreRunner) &&
+      /rust_workspace_snapshot_projection_command/.test(workspaceRestoreKernel) &&
+      /rust_core_shapes_workspace_snapshot_public_projection_responses/.test(
+        workspaceRestoreKernel,
       ) &&
       !/eventStreamIdForThread/.test(runtimeWorkspaceSnapshotSurface) &&
       !/function listWorkspaceSnapshots\(store, threadId\)(?:(?!\n  function previewWorkspaceSnapshotRestore)[\s\S])*?\b(?:schema_version|object|snapshot_count|snapshots|schemaVersion|threadId|snapshotCount)\s*:/.test(
@@ -29130,8 +30413,10 @@ function runCompositor() {
     [
       "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",
       "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-restore-runner.mjs",
+      "crates/services/src/agentic/runtime/kernel/workspace_restore.rs",
     ],
-    "Phase 10/11 is pending: workspace snapshot list projection must fail closed before JS runtime-event reads",
+    "Phase 10/11 is pending: workspace snapshot list projection must call the Rust daemon-core API and must not read JS runtime events",
   );
 	  assertCheck(
 	    result,
@@ -29181,7 +30466,7 @@ function runCompositor() {
 	    result,
 	    "workspace-snapshot-content-payload-aliases-retired",
 	    /workspace_snapshot_js_capture_facade_retired/.test(runtimeWorkspaceSnapshotSurface) &&
-	      /workspace snapshot surface fails closed before JS patch snapshot capture/.test(
+	      /workspace snapshot surface captures patch snapshot through Rust workspace restore runner/.test(
 	        runtimeWorkspaceSnapshotSurfaceTest,
 	      ) &&
 	      /snapshot_draft_count/.test(
@@ -29201,7 +30486,8 @@ function runCompositor() {
 	    "workspace-snapshot-record-output-aliases-retired",
 	    /runtime_workspace_snapshot_rust_core_required/.test(runtimeWorkspaceSnapshotSurface) &&
 	      /rust_daemon_core_workspace_snapshot_admission_required/.test(runtimeWorkspaceSnapshotSurface) &&
-	      /workspace snapshot surface fails closed before JS patch snapshot capture/.test(
+	      /workspaceRestoreRunner\.captureSnapshotFiles\(\{/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /workspace snapshot surface captures patch snapshot through Rust workspace restore runner/.test(
 	        runtimeWorkspaceSnapshotSurfaceTest,
 	      ) &&
 	      !/function prepareWorkspaceSnapshotForPatch(?:(?!\n  function materializeWorkspaceSnapshotArtifact)[\s\S])*?\b(?:schemaVersion|threadId|turnId|workspaceRoot|snapshotKind|snapshotId|snapshotHash|fileCount|changedFileCount|createdFileCount|deletedFileCount|receiptRefs|artifactRefs|contentArtifactRefs|evidenceRefs|toolName|toolCallId|workflowGraphId|workflowNodeId|maxContentBytes|capturedFileCount|omittedFileCount|previewSupported|applySupported|contentIncluded|contentArtifactIncluded|pathsIncluded)\s*:/.test(
@@ -29225,7 +30511,11 @@ function runCompositor() {
 	        runtimeWorkspaceSnapshotSurfaceTest,
 	      ) &&
 	      /workspace_snapshot_event_js_append_retired/.test(runtimeWorkspaceSnapshotSurface) &&
-	      /workspace snapshot surface fails closed before JS snapshot event append and list projection reads/.test(
+	      !/appendWorkspaceSnapshotEvent/.test(runtimeCodingToolInvocationSurface) &&
+	      /assert\.ok\(!store\.calls\.some\(\(call\) => call\.name === "appendSnapshotEvent"\)\)/.test(
+	        runtimeCodingToolInvocationSurfaceTest,
+	      ) &&
+	      /workspace snapshot surface calls Rust list projection and fails closed before JS snapshot event append/.test(
 	        runtimeWorkspaceSnapshotSurfaceTest,
 	      ) &&
       !/function appendWorkspaceSnapshotEvent(?:(?!\n  function listWorkspaceSnapshots)[\s\S])*?\bsnapshot\.(?:snapshotId|snapshotHash|snapshotKind|fileCount|changedFileCount|createdFileCount|deletedFileCount|receiptRefs|artifactRefs)\b/.test(
@@ -29240,6 +30530,8 @@ function runCompositor() {
     [
       "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",
       "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs",
     ],
     "Phase 10/11 is pending: workspace snapshot event appender must read canonical snake_case snapshot fields without camelCase fallbacks",
   );
@@ -29279,11 +30571,16 @@ function runCompositor() {
 	  assertCheck(
 	    result,
 	    "workspace-restore-result-output-aliases-retired",
-	    /workspace_restore_preview_js_facade_retired/.test(runtimeWorkspaceSnapshotSurface) &&
-	      /workspace_restore_apply_js_facade_retired/.test(runtimeWorkspaceSnapshotSurface) &&
-	      /workspace snapshot surface fails closed before JS restore preview\/apply facade execution/.test(
+	    /workspaceRestoreRunner\.previewSnapshotRestore\(\{/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /workspaceRestoreRunner\.applySnapshotRestore\(\{/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /workspace snapshot surface routes restore preview\/apply through Rust runner/.test(
 	        runtimeWorkspaceSnapshotSurfaceTest,
 	      ) &&
+	      /rust_core_shapes_workspace_snapshot_restore_preview_and_apply_responses/.test(
+	        workspaceRestoreKernel,
+	      ) &&
+	      /preview_workspace_snapshot_restore/.test(workspaceRestoreRunner) &&
+	      /apply_workspace_snapshot_restore/.test(workspaceRestoreRunner) &&
 	      !workspaceRestoreResultAliasPattern.test(previewWorkspaceSnapshotRestoreBody) &&
 	      !workspaceRestoreResultAliasPattern.test(applyWorkspaceSnapshotRestoreBody) &&
 	      !/\brestorePreviewEvent:\s*event\b/.test(previewWorkspaceSnapshotRestoreBody) &&
@@ -29319,18 +30616,18 @@ function runCompositor() {
 	  assertCheck(
 	    result,
 	    "workspace-snapshot-content-package-js-projection-retired",
-	    /workspace_snapshot_content_package_js_projection_retired/.test(runtimeWorkspaceSnapshotSurface) &&
-	      /rust_daemon_core_workspace_snapshot_content_package_required/.test(
-	        runtimeWorkspaceSnapshotSurface,
-	      ) &&
-	      /agentgres_workspace_snapshot_artifact_truth_required/.test(runtimeWorkspaceSnapshotSurface) &&
-	      /workspace snapshot content package projection fails closed before JS artifact reads/.test(
+	    /workspaceRestoreRunner\.workspaceSnapshotContentPackage\(\{/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /project_workspace_snapshot_content_package/.test(workspaceRestoreRunner) &&
+	      /rust_workspace_snapshot_projection_command/.test(workspaceRestoreKernel) &&
+	      /workspace snapshot content package projection calls Rust runner before JS artifact reads/.test(
 	        runtimeWorkspaceSnapshotSurfaceTest,
 	      ) &&
-	      /assertWorkspaceSnapshotRustCoreRequired\(error,\s*"workspace_snapshot\.content_package"\)/.test(
+	      /runner\.workspaceSnapshotContentPackage/.test(
 	        runtimeWorkspaceSnapshotSurfaceTest,
 	      ) &&
-	      /assert\.deepEqual\(calls,\s*\[\]\)/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
+	      /rust_core_shapes_workspace_snapshot_public_projection_responses/.test(
+	        workspaceRestoreKernel,
+	      ) &&
 	      !/parseJsonObject/.test(runtimeWorkspaceSnapshotSurface) &&
 	      !/workspace_restore_preview_unavailable/.test(runtimeWorkspaceSnapshotSurface) &&
 	      !/function workspaceSnapshotContentPackage\(store, threadId, snapshotId\)(?:(?!\n  function materializeWorkspaceRestorePreviewArtifact)[\s\S])*?\b(?:codingArtifacts|parsed|artifactRecord|files|preview_supported|restore_status)\b/.test(
@@ -29339,8 +30636,10 @@ function runCompositor() {
     [
       "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",
       "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-restore-runner.mjs",
+      "crates/services/src/agentic/runtime/kernel/workspace_restore.rs",
     ],
-    "Phase 10/11 is pending: workspace snapshot content-package projection must fail closed before JS coding-artifact reads",
+    "Phase 10/11 is pending: workspace snapshot content-package projection must call Rust daemon-core and must not read JS coding artifacts",
   );
 	  assertCheck(
 	    result,
@@ -29355,7 +30654,7 @@ function runCompositor() {
 	      /workspace snapshot restore fail-closed details use canonical fields/.test(
 	        runtimeWorkspaceSnapshotSurfaceTest,
 	      ) &&
-	      /workspace restore policy bridge plumbing is not called by the retired JS facade/.test(
+	      /workspace restore public facade calls Rust public restore API instead of operation helpers/.test(
 	        runtimeWorkspaceSnapshotSurfaceTest,
 	      ) &&
       /assertNoRetiredWorkspaceRestoreErrorDetailAliases\(error\.details\)/.test(
@@ -29544,22 +30843,84 @@ function runCompositor() {
   assertCheck(
     result,
     "workspace-trust-control-js-facade-retired",
-    /runtime_workspace_trust_control_rust_core_required/.test(workspaceTrustState) &&
-      /runtime_workspace_trust_control_js_facade_retired/.test(workspaceTrustState) &&
-      /runtime_workspace_trust_warning_js_facade_retired/.test(workspaceTrustState) &&
-      /runtime_workspace_trust_acknowledgement_js_facade_retired/.test(workspaceTrustState) &&
-      /runtime_workspace_trust_event_append_js_retired/.test(workspaceTrustState) &&
-      /rust_daemon_core_workspace_trust_control_required/.test(workspaceTrustState) &&
-      /agentgres_workspace_trust_truth_required/.test(workspaceTrustState) &&
-      /workspace trust warning facade fails closed before JS event append/.test(
+    /WorkspaceTrustControlStateUpdateCore/.test(policyWorkspaceTrustCore) &&
+      /WorkspaceTrustControlStateUpdateRequest/.test(policyWorkspaceTrustCore) &&
+      /WORKSPACE_TRUST_CONTROL_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
+        policyWorkspaceTrustCore,
+      ) &&
+      /WORKSPACE_TRUST_CONTROL_STATE_UPDATE_RESULT_SCHEMA_VERSION/.test(
+        policyWorkspaceTrustCore,
+      ) &&
+      /pub fn plan_workspace_trust_control_state_update_response/.test(
+        policyWorkspaceTrustCore,
+      ) &&
+      /rust_workspace_trust_control_state_update_command/.test(
+        policyWorkspaceTrustCore,
+      ) &&
+      /rust_policy_plans_workspace_trust_warning_event/.test(
+        policyWorkspaceTrustCore,
+      ) &&
+      /rust_policy_plans_workspace_trust_acknowledgement_event_from_replay/.test(
+        policyWorkspaceTrustCore,
+      ) &&
+      /rust_policy_rejects_workspace_trust_acknowledgement_without_warning_replay/.test(
+        policyWorkspaceTrustCore,
+      ) &&
+      /plan_workspace_trust_control_state_update/.test(commandProtocolCoreForCompositor) &&
+      /CommandOperation::PlanWorkspaceTrustControlStateUpdate/.test(
+        commandProtocolCoreForCompositor,
+      ) &&
+      /CommandOperation::PlanWorkspaceTrustControlStateUpdate/.test(
+        coreCommandDispatchForCompositor,
+      ) &&
+      /plan_workspace_trust_control_state_update_response/.test(
+        coreCommandDispatchForCompositor,
+      ) &&
+      /command_error_from!\(WorkspaceTrustControlCommandError\)/.test(
+        coreCommandDispatchForCompositor,
+      ) &&
+      /planWorkspaceTrustControlStateUpdate/.test(runtimeContextPolicyRunner) &&
+      /WORKSPACE_TRUST_CONTROL_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
+        runtimeContextPolicyRunner,
+      ) &&
+      /normalizeWorkspaceTrustControlStateUpdateBridgeResult/.test(
+        runtimeContextPolicyRunner,
+      ) &&
+      /expectedOperationKinds:\s*\["workspace_trust\.warning",\s*"workspace_trust\.acknowledge"\]/.test(
+        runtimeContextPolicyRunner,
+      ) &&
+      /workspace trust control state update runner sends Rust state update through direct daemon-core invoker/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /workspace_trust_control_state_update_operation_kind_mismatch/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /planWorkspaceTrustControlStateUpdate/.test(workspaceTrustState) &&
+      /store\.appendRuntimeEvent\(event\)/.test(workspaceTrustState) &&
+      /store\.runtimeEventsForStream\(eventStreamId,\s*\{\s*since_seq:\s*0\s*\}\)/.test(
+        workspaceTrustState,
+      ) &&
+      /workspace_trust_rust_event_projection_invalid/.test(workspaceTrustState) &&
+      /workspace trust warning uses Rust planner and Rust event admission/.test(
         workspaceTrustStateTest,
       ) &&
-      /workspace trust acknowledgement facade fails closed before lookup or append/.test(
+      /workspace trust acknowledgement replays warning truth before Rust planning/.test(
         workspaceTrustStateTest,
       ) &&
-      /assertWorkspaceTrustRustCoreRequired/.test(workspaceTrustStateTest) &&
-      /assert\.deepEqual\(calls,\s*\[\]\)/.test(workspaceTrustStateTest) &&
-      /assert\.deepEqual\(events,\s*\[\]\)/.test(workspaceTrustStateTest) &&
+      /workspace trust controls fail closed before lookup when Rust planner is missing/.test(
+        workspaceTrustStateTest,
+      ) &&
+      /workspace trust rejects Rust projection mismatches before event admission/.test(
+        workspaceTrustStateTest,
+      ) &&
+      /thread mode fails closed before lookup when workspace trust Rust planner is missing/.test(
+        runtimeThreadControlSurfaceTest,
+      ) &&
+      /workspace_trust_warning_event/.test(runtimeThreadControlSurface) &&
+      /trustState\.appendWorkspaceTrustWarningEvent\(store/.test(
+        runtimeThreadControlSurface,
+      ) &&
+      !/workspaceTrustWarningRecordForMode/.test(runtimeThreadControlSurface) &&
       /workflow_graph_id:\s*string \| null;/.test(agentIdeRuntimeControlNodes) &&
       /workflow_node_id:\s*string;/.test(agentIdeRuntimeControlNodes) &&
       /event_kind:\s*typeof RUNTIME_WORKSPACE_TRUST_ACKNOWLEDGEMENT_SOURCE_EVENT_KIND;/.test(
@@ -29587,9 +30948,6 @@ function runCompositor() {
         runtimeDaemonIndex,
       ) &&
       !/retiredWorkspaceTrustAcknowledgementAliases/.test(workspaceTrustState) &&
-      !/store\.agentForThread|store\.runtimeEventStream|store\.appendRuntimeEvent|store\.threadForAgent/.test(
-        workspaceTrustState,
-      ) &&
       !/workspace_trust_acknowledgement:\s*payload/.test(workspaceTrustAcknowledgementBody) &&
       !/workspace_trust_acknowledgement_event:\s*event/.test(workspaceTrustAcknowledgementBody) &&
       !/^\s*(?:schemaVersion|acknowledgementId|warningId|warningEventId|sourceEventId|acknowledgedAt|acknowledgedBy|approvalMode|trustProfile|threadId|agentId|sessionId|workflowGraphId|workflowNodeId|controlSurface|daemonEnforced|canvasLocalTrustStateAccepted|commandExecuted|workspaceTrustAcknowledgement|workspaceTrustAcknowledgementEvent)\s*:/m.test(
@@ -29607,10 +30965,11 @@ function runCompositor() {
     [
       "packages/runtime-daemon/src/threads/workspace-trust-state.mjs",
       "packages/runtime-daemon/src/threads/workspace-trust-state.test.mjs",
+      "crates/services/src/agentic/runtime/kernel/policy/workspace_trust.rs",
       "packages/agent-ide/src/runtime/workflow-runtime-control-nodes.ts",
       "packages/agent-ide/src/runtime/workflow-runtime-control-nodes.test.ts",
     ],
-    "Phase 10/11 is pending: workspace-trust warning and acknowledgement controls must fail closed until Rust daemon-core owns event admission, receipt binding, persistence, replay, and projection",
+    "Phase 10/11 is pending: workspace-trust warning and acknowledgement controls must be Rust-planned, Rust event-admitted, replay-bound, and guarded against the retired JS payload path",
   );
   assertCheck(
     result,
@@ -29701,75 +31060,106 @@ function runCompositor() {
   );
   assertCheck(
     result,
-    "diagnostics-feedback-repair-context-aliases-retired",
-    /schema_version:\s*DIAGNOSTICS_ROLLBACK_REPAIR_CONTEXT_SCHEMA_VERSION/.test(
-      runtimeDiagnosticsFeedbackSurface,
-    ) &&
-      /source_tool_name:\s*"file\.apply_patch"/.test(runtimeDiagnosticsFeedbackSurface) &&
-      /source_tool_call_id:\s*patchToolCallId/.test(runtimeDiagnosticsFeedbackSurface) &&
-      /source_workflow_graph_id:\s*workflowGraphId/.test(runtimeDiagnosticsFeedbackSurface) &&
-      /source_workflow_node_id:\s*optionalString\(request\.workflow_node_id\) \?\? null/.test(
+    "diagnostics-feedback-post-edit-plan-rust-owned",
+    (() => {
+      const codingToolEventCoreForDiagnosticsFeedback = exists("crates/services/src/agentic/runtime/kernel/coding_tool_event.rs")
+        ? read("crates/services/src/agentic/runtime/kernel/coding_tool_event.rs")
+        : "";
+      const runtimeContextPolicyRunnerForDiagnosticsFeedback = exists("packages/runtime-daemon/src/runtime-context-policy-runner.mjs")
+        ? read("packages/runtime-daemon/src/runtime-context-policy-runner.mjs")
+        : "";
+      const runtimeContextPolicyRunnerTestForDiagnosticsFeedback = exists("packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs")
+        ? read("packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs")
+        : "";
+      const commandProtocolForDiagnosticsFeedback = exists("crates/services/src/agentic/runtime/kernel/command_protocol.rs")
+        ? read("crates/services/src/agentic/runtime/kernel/command_protocol.rs")
+        : "";
+      const commandDispatchForDiagnosticsFeedback = exists("crates/services/src/agentic/runtime/kernel/command_dispatch.rs")
+        ? read("crates/services/src/agentic/runtime/kernel/command_dispatch.rs")
+        : "";
+      return /POST_EDIT_DIAGNOSTICS_FEEDBACK_PLAN_REQUEST_SCHEMA_VERSION/.test(codingToolEventCoreForDiagnosticsFeedback) &&
+      /pub struct PostEditDiagnosticsFeedbackPlanRequest/.test(codingToolEventCoreForDiagnosticsFeedback) &&
+      /pub struct PostEditDiagnosticsFeedbackPlanCore/.test(codingToolEventCoreForDiagnosticsFeedback) &&
+      /pub fn plan_post_edit_diagnostics_feedback_response/.test(codingToolEventCoreForDiagnosticsFeedback) &&
+      /runtime\.post_edit_diagnostics_feedback/.test(codingToolEventCoreForDiagnosticsFeedback) &&
+      /diagnostics_repair_context/.test(codingToolEventCoreForDiagnosticsFeedback) &&
+      /source_tool_name":\s*"file\.apply_patch"/.test(codingToolEventCoreForDiagnosticsFeedback) &&
+      /workspace_snapshot_id/.test(codingToolEventCoreForDiagnosticsFeedback) &&
+      /rollback_refs/.test(codingToolEventCoreForDiagnosticsFeedback) &&
+      /post_edit_changed_files\(&request\.patch_result\)/.test(codingToolEventCoreForDiagnosticsFeedback) &&
+      /patch_result[\s\S]*\.get\("changed_files"\)/.test(codingToolEventCoreForDiagnosticsFeedback) &&
+      !/\.get\("changedFiles"\)/.test(codingToolEventCoreForDiagnosticsFeedback) &&
+      /rust_plans_post_edit_diagnostics_feedback_request/.test(codingToolEventCoreForDiagnosticsFeedback) &&
+      /rust_ignores_retired_post_edit_diagnostics_aliases/.test(codingToolEventCoreForDiagnosticsFeedback) &&
+      /plan_post_edit_diagnostics_feedback/.test(commandProtocolForDiagnosticsFeedback) &&
+      /PlanPostEditDiagnosticsFeedback/.test(commandProtocolForDiagnosticsFeedback) &&
+      /CommandOperation::PlanPostEditDiagnosticsFeedback/.test(
+        commandDispatchForDiagnosticsFeedback,
+      ) &&
+      /plan_post_edit_diagnostics_feedback_response/.test(commandDispatchForDiagnosticsFeedback) &&
+      /POST_EDIT_DIAGNOSTICS_FEEDBACK_PLAN_REQUEST_SCHEMA_VERSION/.test(
+        runtimeContextPolicyRunnerForDiagnosticsFeedback,
+      ) &&
+      /planPostEditDiagnosticsFeedback\(request = \{\}\)/.test(
+        runtimeContextPolicyRunnerForDiagnosticsFeedback,
+      ) &&
+      /operation:\s*"plan_post_edit_diagnostics_feedback"/.test(
+        runtimeContextPolicyRunnerForDiagnosticsFeedback,
+      ) &&
+      /normalizePostEditDiagnosticsFeedbackPlanBridgeResult/.test(
+        runtimeContextPolicyRunnerForDiagnosticsFeedback,
+      ) &&
+      /post-edit diagnostics feedback runner sends Rust daemon-core plan request/.test(
+        runtimeContextPolicyRunnerTestForDiagnosticsFeedback,
+      ) &&
+      /diagnosticsFeedbackPlanner\.planPostEditDiagnosticsFeedback/.test(
         runtimeDiagnosticsFeedbackSurface,
       ) &&
-      /workspace_snapshot_id:\s*workspaceSnapshotId \?\? null/.test(runtimeDiagnosticsFeedbackSurface) &&
-      /optionalString\(patchResult\?\.workspace_snapshot_id\)/.test(runtimeDiagnosticsFeedbackSurface) &&
-      /optionalString\(workspaceSnapshot\?\.snapshot_id\)/.test(runtimeDiagnosticsFeedbackSurface) &&
-      /\.\.\.normalizeArray\(patchResult\?\.rollback_refs\)/.test(runtimeDiagnosticsFeedbackSurface) &&
-      /restore_policy:\s*repairPolicyConfig\.restore_policy/.test(runtimeDiagnosticsFeedbackSurface) &&
-      /restore_conflict_policy:\s*repairPolicyConfig\.restore_conflict_policy/.test(
+      /runtime_diagnostics_feedback_rust_core_required/.test(
         runtimeDiagnosticsFeedbackSurface,
       ) &&
-      /diagnostics_repair_default:\s*repairPolicyConfig\.diagnostics_repair_default/.test(
+      /post_edit_diagnostics_feedback_js_planner_retired/.test(
         runtimeDiagnosticsFeedbackSurface,
       ) &&
-      /operator_override_requires_approval:\s*repairPolicyConfig\.operator_override_requires_approval/.test(
+      /store\.codingToolInvocationSurface\.invokeThreadTool\(/.test(
         runtimeDiagnosticsFeedbackSurface,
       ) &&
-      !/\brepairPolicyConfig\.(?:restorePolicy|restoreConflictPolicy|diagnosticsRepairDefault|operatorOverrideRequiresApproval)\b/.test(
+      !/postEditDiagnosticsConfig/.test(runtimeDiagnosticsFeedbackSurface) &&
+      !/diagnosticsRepairPolicyConfig/.test(runtimeDiagnosticsFeedbackSurface) &&
+      !/const paths = normalizeArray\(patchResult\?\.changed_files\)/.test(
         runtimeDiagnosticsFeedbackSurface,
       ) &&
-      /changed_files:\s*normalizeArray\(patchResult\?\.changedFiles\)/.test(
+      !/doctorHash/.test(runtimeDiagnosticsFeedbackSurface) &&
+      !/patchResult\?\.(?:changedFiles|workspaceSnapshotId|rollbackRefs|workspaceSnapshot)\b/.test(
         runtimeDiagnosticsFeedbackSurface,
       ) &&
+      !/\brequest\.workflowNodeId\b/.test(runtimeDiagnosticsFeedbackSurface) &&
       !/^\s*(?:schemaVersion|sourceToolName|sourceToolCallId|sourceWorkflowGraphId|sourceWorkflowNodeId|workspaceSnapshotId|restorePolicy|restoreConflictPolicy|diagnosticsRepairDefault|operatorOverrideRequiresApproval|rollbackRefs|changedFiles|beforeHash|afterHash|diagnosticsRecommended)\s*:/m.test(
         runtimeDiagnosticsFeedbackSurface,
       ) &&
-      !/patchResult\?\.(?:workspaceSnapshotId|rollbackRefs|workspaceSnapshot)\b/.test(
-        runtimeDiagnosticsFeedbackSurface,
-      ) &&
-      !/workspaceSnapshot\?\.snapshotId\b/.test(runtimeDiagnosticsFeedbackSurface) &&
-      !/\brequest\.workflowNodeId\b/.test(runtimeDiagnosticsFeedbackSurface) &&
-      /diagnostics feedback repair context ignores retired source workflow request alias/.test(
+      /diagnostics feedback surface invokes lsp diagnostics with Rust-authored repair context/.test(
         runtimeDiagnosticsFeedbackSurfaceTest,
       ) &&
-      /workflowNodeId:\s*"patch_alias"/.test(runtimeDiagnosticsFeedbackSurfaceTest) &&
-      /diagnostics feedback repair context ignores retired snapshot and rollback aliases/.test(
+      /diagnostics feedback surface fails closed without Rust post-edit planner/.test(
         runtimeDiagnosticsFeedbackSurfaceTest,
       ) &&
-      /workspaceSnapshotId:\s*"snapshot_retired"/.test(runtimeDiagnosticsFeedbackSurfaceTest) &&
-      /rollbackRefs:\s*\["rollback_retired"\]/.test(runtimeDiagnosticsFeedbackSurfaceTest) &&
-      /request\.rollback_refs\.includes\("rollback_retired"\),\s*false/.test(
+      /runtime_diagnostics_feedback_rust_core_required/.test(
         runtimeDiagnosticsFeedbackSurfaceTest,
       ) &&
-      /source_workflow_node_id,\s*null/.test(runtimeDiagnosticsFeedbackSurfaceTest) &&
-      /Object\.hasOwn\(request\.diagnostics_repair_context,\s*field\),\s*false/.test(
-        runtimeDiagnosticsFeedbackSurfaceTest,
-      ) &&
-      /restore_policy:\s*"snapshot_restore"/.test(runtimeDiagnosticsFeedbackSurfaceTest) &&
-      /restore_conflict_policy:\s*"clean_preview_only"/.test(runtimeDiagnosticsFeedbackSurfaceTest) &&
-      /diagnostics_repair_default:\s*"repair_retry"/.test(runtimeDiagnosticsFeedbackSurfaceTest) &&
-      /operator_override_requires_approval:\s*true/.test(runtimeDiagnosticsFeedbackSurfaceTest) &&
-      /request\.diagnostics_repair_context\.restore_policy,\s*"snapshot_restore"/.test(
-        runtimeDiagnosticsFeedbackSurfaceTest,
-      ) &&
-      /Object\.hasOwn\(request\.diagnostics_repair_context\.changed_files\[0\],\s*"beforeHash"\),\s*false/.test(
-        runtimeDiagnosticsFeedbackSurfaceTest,
-      ),
+      /changedFiles: \[/.test(runtimeDiagnosticsFeedbackSurfaceTest) &&
+      /beforeHash: "before_retired"/.test(runtimeDiagnosticsFeedbackSurfaceTest) &&
+      /diagnosticsRecommended: true/.test(runtimeDiagnosticsFeedbackSurfaceTest);
+    })(),
     [
+      "crates/services/src/agentic/runtime/kernel/coding_tool_event.rs",
+      "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
+      "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
       "packages/runtime-daemon/src/runtime-diagnostics-feedback-surface.mjs",
       "packages/runtime-daemon/src/runtime-diagnostics-feedback-surface.test.mjs",
     ],
-    "Phase 10/11 is pending: post-edit diagnostics repair contexts must emit canonical snake_case fields without duplicate camelCase compatibility aliases",
+    "Phase 10/11 is pending: post-edit diagnostics feedback planning must be authored by Rust daemon-core and JS must remain a forwarding-only protocol surface",
   );
   assertCheck(
     result,
@@ -30172,7 +31562,7 @@ function runCompositor() {
       ) &&
       !/request\.diagnosticsFeedback\b/.test(runtimeAgentRunLifecycle) &&
       /diagnosticsFeedback:\s*\{\s*diagnostic_status:\s*"alias"\s*\}/.test(runtimeAgentRunLifecycleTest) &&
-      /createRun facade fails closed before route, memory, Rust planning, or JS persistence/.test(
+      /createRun commits Rust-planned run projection through Agentgres/.test(
         runtimeAgentRunLifecycleTest,
       ) &&
       /compact diagnostics feedback emits canonical envelope/.test(diagnosticsFeedbackTest) &&
@@ -30444,31 +31834,232 @@ function runCompositor() {
       ensureThreadStartedEventBlock.length > 0 &&
       projectThreadEventsBlock.length > 0 &&
       projectRunEventsBlock.length > 0 &&
+      runtimeEventsForStreamBlock.length > 0 &&
+      runtimeEventsForTurnBlock.length > 0 &&
+      /RuntimeThreadEventAdmissionCore/.test(runtimeThreadEventCoreForCompositor) &&
+      /RUNTIME_THREAD_EVENT_ADMISSION_REQUEST_SCHEMA_VERSION/.test(
+        runtimeThreadEventCoreForCompositor,
+      ) &&
+      /RUNTIME_THREAD_EVENT_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
+        runtimeThreadEventCoreForCompositor,
+      ) &&
+      /RUNTIME_THREAD_EVENT_REPLAY_REQUEST_SCHEMA_VERSION/.test(
+        runtimeThreadEventCoreForCompositor,
+      ) &&
+      /rust_admits_runtime_thread_event_with_agentgres_refs/.test(
+        runtimeThreadEventCoreForCompositor,
+      ) &&
+      /rust_projects_thread_started_and_run_events_with_agentgres_refs/.test(
+        runtimeThreadEventCoreForCompositor,
+      ) &&
+      /rust_replays_runtime_thread_events_by_stream_cursor/.test(
+        runtimeThreadEventCoreForCompositor,
+      ) &&
+      /rust_replays_runtime_thread_events_by_turn_cursor/.test(
+        runtimeThreadEventCoreForCompositor,
+      ) &&
+      /rust_projection_skips_existing_runtime_thread_event_idempotency/.test(
+        runtimeThreadEventCoreForCompositor,
+      ) &&
+      /runtimeAgentgresAdmissionRunner\.admitRuntimeThreadEvent/.test(runtimeDaemonIndex) &&
+      /runtimeAgentgresAdmissionRunner\.projectRuntimeThreadEvents/.test(runtimeDaemonIndex) &&
+      /runtimeAgentgresAdmissionRunner\.projectRuntimeThreadEventReplay/.test(runtimeDaemonIndex) &&
+      /admitRuntimeThreadEventForThread/.test(runtimeDaemonIndex) &&
+      /projectRuntimeThreadEventsForThread/.test(runtimeDaemonIndex) &&
+      /projectRuntimeThreadEventReplayForThread/.test(runtimeDaemonIndex) &&
+      /runtimeThreadReplayCandidateEvents/.test(runtimeDaemonIndex) &&
+      /existing_idempotency_keys:\s*\[\.\.\.stream\.idempotency\.keys\(\)\]/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /store\.registerRuntimeEvent\(admittedEvent\)/.test(runtimeDaemonIndex) &&
+      /store\.registerRuntimeEvent\(event\)/.test(runtimeDaemonIndex) &&
+      /admitRuntimeThreadEvent\(request = \{\}\)/.test(
+        runtimeAgentgresRunnerForThreadEvents,
+      ) &&
+      /projectRuntimeThreadEvents\(request = \{\}\)/.test(
+        runtimeAgentgresRunnerForThreadEvents,
+      ) &&
+      /projectRuntimeThreadEventReplay\(request = \{\}\)/.test(
+        runtimeAgentgresRunnerForThreadEvents,
+      ) &&
+      /normalizeRuntimeThreadEventAdmissionBridgeResult/.test(
+        runtimeAgentgresRunnerForThreadEvents,
+      ) &&
+      /normalizeRuntimeThreadEventProjectionBridgeResult/.test(
+        runtimeAgentgresRunnerForThreadEvents,
+      ) &&
+      /normalizeRuntimeThreadEventReplayBridgeResult/.test(
+        runtimeAgentgresRunnerForThreadEvents,
+      ) &&
+      /runtime Agentgres runner admits runtime thread events through direct daemon-core invoker/.test(
+        runtimeAgentgresRunnerTestForThreadEvents,
+      ) &&
+      /runtime Agentgres runner projects runtime thread events through direct daemon-core invoker/.test(
+        runtimeAgentgresRunnerTestForThreadEvents,
+      ) &&
+      /runtime Agentgres runner replays runtime thread events through direct daemon-core invoker/.test(
+        runtimeAgentgresRunnerTestForThreadEvents,
+      ) &&
       /runtime_thread_event_rust_core_required/.test(threadReplay) &&
       /rust_core_boundary:\s*"runtime\.thread_event"/.test(threadReplay) &&
       /runtime_thread_event_js_append_retired/.test(appendRuntimeEventBlock) &&
       /runtime_thread_started_js_projection_retired/.test(ensureThreadStartedEventBlock) &&
       /runtime_thread_event_js_projection_retired/.test(projectThreadEventsBlock) &&
       /runtime_run_event_js_projection_retired/.test(projectRunEventsBlock) &&
+      /runtime_thread_event_js_replay_retired/.test(
+        `${runtimeEventsForStreamBlock}\n${runtimeEventsForTurnBlock}`,
+      ) &&
       /agentgres_thread_event_truth_required/.test(threadReplay) &&
       !/store\.runtimeEventStream\(/.test(appendRuntimeEventBlock) &&
       !/normalizeRuntimeEventEnvelope/.test(appendRuntimeEventBlock) &&
       !/fs\.appendFileSync/.test(appendRuntimeEventBlock) &&
+      !/store\.runtimeCursorSeq\(/.test(
+        `${runtimeEventsForStreamBlock}\n${runtimeEventsForTurnBlock}`,
+      ) &&
+      !/const\s+cursorSeq\b/.test(
+        `${runtimeEventsForStreamBlock}\n${runtimeEventsForTurnBlock}`,
+      ) &&
+      !/\.filter\(/.test(`${runtimeEventsForStreamBlock}\n${runtimeEventsForTurnBlock}`) &&
+      /store\.admitRuntimeThreadEventForThread\(store,\s*\{ event \}\)/.test(
+        appendRuntimeEventBlock,
+      ) &&
+      /store\.projectRuntimeThreadEventsForThread\(store,\s*\{[\s\S]*projection_kind:\s*"thread_started"/.test(
+        ensureThreadStartedEventBlock,
+      ) &&
+      /store\.projectRuntimeThreadEventsForThread\(store,\s*\{[\s\S]*projection_kind:\s*"thread"/.test(
+        projectThreadEventsBlock,
+      ) &&
+      /runs:\s*typeof store\.listRuns === "function" \? store\.listRuns\(agent\.id\) : \[\]/.test(
+        projectThreadEventsBlock,
+      ) &&
+      /store\.projectRuntimeThreadEventsForThread\(store,\s*\{[\s\S]*projection_kind:\s*"run"/.test(
+        projectRunEventsBlock,
+      ) &&
+      /store\.projectRuntimeThreadEventReplayForThread\(store,\s*\{[\s\S]*replay_kind:\s*"stream"/.test(
+        runtimeEventsForStreamBlock,
+      ) &&
+      /store\.projectRuntimeThreadEventReplayForThread\(store,\s*\{[\s\S]*replay_kind:\s*"turn"/.test(
+        runtimeEventsForTurnBlock,
+      ) &&
       !/store\.appendRuntimeEvent\(/.test(
         `${ensureThreadStartedEventBlock}\n${projectThreadEventsBlock}\n${projectRunEventsBlock}`,
       ) &&
-      /runtime event append fails closed before JS event stream mutation/.test(threadReplayTest) &&
+      !/ttiEnvelopeForRunEvent/.test(runtimeThreadEventSurface) &&
+      /runtime event append routes through Rust admission before replay registration/.test(
+        threadReplayTest,
+      ) &&
+      /runtime event append fails closed without Rust admission before JS event stream mutation/.test(
+        threadReplayTest,
+      ) &&
+      /runtime events replay by stream and cursor/.test(threadReplayTest) &&
+      /runtime events replay fails closed without Rust replay before JS cursor filtering/.test(
+        threadReplayTest,
+      ) &&
+      /thread replay projects thread start through Rust projection before replay registration/.test(
+        threadReplayTest,
+      ) &&
+      /thread replay projects run events through Rust projection before replay registration/.test(
+        threadReplayTest,
+      ) &&
+      /thread replay projects whole thread through Rust projection before replay registration/.test(
+        threadReplayTest,
+      ) &&
       /thread replay thread-start projection fails closed before JS append/.test(threadReplayTest) &&
       /thread replay projection fails closed before JS run-event append/.test(threadReplayTest) &&
       /runtimeError/.test(runtimeThreadEventSurface) &&
       /runtimeError/.test(runtimeThreadEventSurfaceTest),
     [
+      "crates/services/src/agentic/runtime/kernel/runtime_thread_event.rs",
       "packages/runtime-daemon/src/threads/thread-replay.mjs",
       "packages/runtime-daemon/src/threads/thread-replay.test.mjs",
+      "packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs",
+      "packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
       "packages/runtime-daemon/src/runtime-thread-event-surface.mjs",
       "packages/runtime-daemon/src/runtime-thread-event-surface.test.mjs",
     ],
-    "Phase 10/11 is pending: daemon runtime thread-event append and projection must fail closed before JS can author accepted event truth",
+    "Phase 10/11 is pending: daemon runtime thread-event append/projection/replay must route through Rust Agentgres admission before replay registration/readback",
+  );
+  assertCheck(
+    result,
+    "runtime-thread-turn-projection-rust-owned",
+    /RUNTIME_THREAD_TURN_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
+      runtimeThreadEventCoreForCompositor,
+    ) &&
+      /RuntimeThreadTurnProjectionRequest/.test(runtimeThreadEventCoreForCompositor) &&
+      /RuntimeThreadTurnProjectionRecord/.test(runtimeThreadEventCoreForCompositor) &&
+      /pub fn project_runtime_thread_turn_projection_response/.test(
+        runtimeThreadEventCoreForCompositor,
+      ) &&
+      /rust_projects_runtime_thread_record_from_canonical_facts/.test(
+        runtimeThreadEventCoreForCompositor,
+      ) &&
+      /rust_projects_runtime_turn_record_from_replay_events/.test(
+        runtimeThreadEventCoreForCompositor,
+      ) &&
+      /rust_rejects_retired_runtime_thread_turn_projection_aliases/.test(
+        runtimeThreadEventCoreForCompositor,
+      ) &&
+      /rust_core_shapes_runtime_thread_turn_projection_command_response/.test(
+        runtimeThreadEventCoreForCompositor,
+      ) &&
+      /project_runtime_thread_turn_projection/.test(commandProtocolCoreForCompositor) &&
+      /CommandOperation::ProjectRuntimeThreadTurnProjection/.test(
+        commandProtocolCoreForCompositor,
+      ) &&
+      /project_runtime_thread_turn_projection_response/.test(
+        coreCommandDispatchForCompositor,
+      ) &&
+      /RUNTIME_THREAD_TURN_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
+        runtimeAgentgresRunnerForThreadEvents,
+      ) &&
+      /projectRuntimeThreadTurnProjection\(request = \{\}\)/.test(
+        runtimeAgentgresRunnerForThreadEvents,
+      ) &&
+      /operation:\s*"project_runtime_thread_turn_projection"/.test(
+        runtimeAgentgresRunnerForThreadEvents,
+      ) &&
+      /normalizeRuntimeThreadTurnProjectionBridgeResult/.test(
+        runtimeAgentgresRunnerForThreadEvents,
+      ) &&
+      /runtime Agentgres runner projects runtime thread and turn records through direct daemon-core invoker/.test(
+        runtimeAgentgresRunnerTestForThreadEvents,
+      ) &&
+      /runtime thread and turn projection normalizer exposes only Rust-returned record truth/.test(
+        runtimeAgentgresRunnerTestForThreadEvents,
+      ) &&
+      /projectRuntimeThreadTurnProjectionForThread/.test(runtimeDaemonIndex) &&
+      /runtimeAgentgresAdmissionRunner\.projectRuntimeThreadTurnProjection/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /projectRustThreadTurnProjection/.test(threadTurnProjection) &&
+      /store\.projectRuntimeThreadTurnProjectionForThread\(store,\s*request\)/.test(
+        threadTurnProjection,
+      ) &&
+      /runtime_thread_turn_projection_rust_core_required/.test(threadTurnProjection) &&
+      /runtime_thread_turn_js_projection_retired/.test(threadTurnProjection) &&
+      !/return\s*\{\s*schema_version:\s*runtimeThreadSchemaVersion/.test(
+        threadTurnProjection,
+      ) &&
+      !/return\s*\{\s*schema_version:\s*runtimeTurnSchemaVersion/.test(
+        threadTurnProjection,
+      ) &&
+      !/input_item_ids:\s*turnEvents[\s\S]*?\.filter\(/.test(threadTurnProjection) &&
+      !/output_item_ids:\s*turnEvents[\s\S]*?\.filter\(/.test(threadTurnProjection) &&
+      /thread and turn projection fail closed without Rust projection API/.test(
+        threadTurnProjectionTest,
+      ),
+    [
+      "crates/services/src/agentic/runtime/kernel/runtime_thread_event.rs",
+      "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
+      "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
+      "packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs",
+      "packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
+      "packages/runtime-daemon/src/threads/thread-turn-projection.mjs",
+      "packages/runtime-daemon/src/threads/thread-turn-projection.test.mjs",
+    ],
+    "Phase 10/11 is pending: public thread and turn projections must be Rust-authored records over admitted replay events, not JS-composed public truth",
   );
   assertCheck(
     result,

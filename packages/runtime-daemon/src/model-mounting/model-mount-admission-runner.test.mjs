@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  MODEL_MOUNT_ADMISSION_COMMAND_ENV,
   MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
   ModelMountAdmissionRunnerError,
   RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_REQUIRED_BACKEND,
@@ -357,16 +356,10 @@ test("Rust model_mount runner does not synthesize Rust-owned receipt, required-b
     ["plan_model_mount_route_control_required", { record: { details: {} } }],
   ]);
   const runner = new RustModelMountAdmissionRunner({
-    command: "ioi-runtime-daemon-core",
-    spawnSyncImpl(_command, _args, options) {
-      const request = JSON.parse(options.input);
+    daemonCoreInvoker(request) {
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: sparseResultByOperation.get(request.operation) ?? {},
-        }),
-        stderr: "",
+        ok: true,
+        result: sparseResultByOperation.get(request.operation) ?? {},
       };
     },
   });
@@ -446,18 +439,14 @@ test("Rust model_mount runner does not synthesize Rust-owned receipt, required-b
   assert.equal(routeControlRequired.evidence_refs, null);
 });
 
-test("Rust model_mount admission runner sends route-decision bridge request", () => {
+test("Rust model_mount admission runner sends route-decision through direct daemon-core invoker", () => {
   const calls = [];
   const runner = new RustModelMountAdmissionRunner({
-    command: "mock-model-mount-bridge",
-    spawnSyncImpl(command, args, options) {
-      const request = JSON.parse(options.input);
-      calls.push({ command, args, request });
+    daemonCoreInvoker(request) {
+      calls.push({ request });
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
+        ok: true,
+        result: {
             source: "rust_model_mount_command",
             backend: "rust_model_mount_live",
             record: {
@@ -470,8 +459,6 @@ test("Rust model_mount admission runner sends route-decision bridge request", ()
             receipt_refs: request.request.receipt_refs,
             evidence_refs: ["rust_model_mount_core"],
           },
-        }),
-        stderr: "",
       };
     },
   });
@@ -479,8 +466,6 @@ test("Rust model_mount admission runner sends route-decision bridge request", ()
   const result = runner.admitRouteDecision(routeRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].command, "mock-model-mount-bridge");
-  assert.deepEqual(calls[0].args, []);
   assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
   assert.equal(calls[0].request.operation, "admit_model_mount_route_decision");
   assert.equal(calls[0].request.backend, "rust_model_mount_live");
@@ -489,18 +474,14 @@ test("Rust model_mount admission runner sends route-decision bridge request", ()
   assert.equal(result.record.route_decision_hash, "sha256:test");
 });
 
-test("Rust model_mount admission runner sends invocation bridge request", () => {
+test("Rust model_mount admission runner sends invocation through direct daemon-core invoker", () => {
   const calls = [];
   const runner = new RustModelMountAdmissionRunner({
-    command: "mock-model-mount-bridge",
-    spawnSyncImpl(command, args, options) {
-      const request = JSON.parse(options.input);
-      calls.push({ command, args, request });
+    daemonCoreInvoker(request) {
+      calls.push({ request });
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
+        ok: true,
+        result: {
             source: "rust_model_mount_invocation_command",
             backend: "rust_model_mount_live",
             record: {
@@ -513,8 +494,6 @@ test("Rust model_mount admission runner sends invocation bridge request", () => 
             receipt_refs: request.request.receipt_refs,
             evidence_refs: ["rust_model_mount_core"],
           },
-        }),
-        stderr: "",
       };
     },
   });
@@ -529,18 +508,14 @@ test("Rust model_mount admission runner sends invocation bridge request", () => 
   assert.equal(result.record.invocation_admission_hash, "sha256:invocation-test");
 });
 
-test("Rust model_mount admission runner sends provider execution bridge request", () => {
+test("Rust model_mount admission runner sends provider execution through direct daemon-core invoker", () => {
   const calls = [];
   const runner = new RustModelMountAdmissionRunner({
-    command: "mock-model-mount-bridge",
-    spawnSyncImpl(command, args, options) {
-      const request = JSON.parse(options.input);
-      calls.push({ command, args, request });
+    daemonCoreInvoker(request) {
+      calls.push({ request });
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
+        ok: true,
+        result: {
             source: "rust_model_mount_provider_execution_command",
             backend: "rust_model_mount_live",
             record: {
@@ -553,8 +528,6 @@ test("Rust model_mount admission runner sends provider execution bridge request"
             receipt_refs: request.request.receipt_refs,
             evidence_refs: ["rust_model_mount_core"],
           },
-        }),
-        stderr: "",
       };
     },
   });
@@ -569,18 +542,14 @@ test("Rust model_mount admission runner sends provider execution bridge request"
   assert.equal(result.record.provider_execution_hash, "sha256:provider-execution-test");
 });
 
-test("Rust model_mount admission runner sends provider invocation bridge request", () => {
+test("Rust model_mount admission runner sends provider invocation through direct daemon-core invoker", () => {
   const calls = [];
   const runner = new RustModelMountAdmissionRunner({
-    command: "mock-model-mount-bridge",
-    spawnSyncImpl(command, args, options) {
-      const request = JSON.parse(options.input);
-      calls.push({ command, args, request });
+    daemonCoreInvoker(request) {
+      calls.push({ request });
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
+        ok: true,
+        result: {
             source: "rust_model_mount_provider_invocation_command",
             backend: "rust_model_mount_fixture",
             result: {
@@ -604,8 +573,6 @@ test("Rust model_mount admission runner sends provider invocation bridge request
             invocation_hash: "sha256:invocation",
             evidence_refs: ["rust_model_mount_provider_invocation"],
           },
-        }),
-        stderr: "",
       };
     },
   });
@@ -623,18 +590,14 @@ test("Rust model_mount admission runner sends provider invocation bridge request
   assert.equal(result.invocation_hash, "sha256:invocation");
 });
 
-test("Rust model_mount admission runner sends native-local provider stream invocation bridge request", () => {
+test("Rust model_mount admission runner sends native-local provider stream invocation through direct daemon-core invoker", () => {
   const calls = [];
   const runner = new RustModelMountAdmissionRunner({
-    command: "mock-model-mount-bridge",
-    spawnSyncImpl(command, args, options) {
-      const request = JSON.parse(options.input);
-      calls.push({ command, args, request });
+    daemonCoreInvoker(request) {
+      calls.push({ request });
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
+        ok: true,
+        result: {
             source: "rust_model_mount_provider_stream_invocation_command",
             backend: "rust_model_mount_native_local_stream",
             result: {
@@ -671,8 +634,6 @@ test("Rust model_mount admission runner sends native-local provider stream invoc
             invocation_hash: "sha256:stream-invocation",
             evidence_refs: ["rust_model_mount_provider_stream_invocation"],
           },
-        }),
-        stderr: "",
       };
     },
   });
@@ -695,18 +656,14 @@ test("Rust model_mount admission runner sends native-local provider stream invoc
   assert.equal(result.invocation_hash, "sha256:stream-invocation");
 });
 
-test("Rust model_mount admission runner sends native-local provider lifecycle bridge request", () => {
+test("Rust model_mount admission runner sends native-local provider lifecycle through direct daemon-core invoker", () => {
   const calls = [];
   const runner = new RustModelMountAdmissionRunner({
-    command: "mock-model-mount-bridge",
-    spawnSyncImpl(command, args, options) {
-      const request = JSON.parse(options.input);
-      calls.push({ command, args, request });
+    daemonCoreInvoker(request) {
+      calls.push({ request });
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
+        ok: true,
+        result: {
             source: "rust_model_mount_provider_lifecycle_command",
             backend: "rust_model_mount_native_local_lifecycle",
             result: {
@@ -726,8 +683,6 @@ test("Rust model_mount admission runner sends native-local provider lifecycle br
             lifecycle_hash: "sha256:lifecycle",
             evidence_refs: ["rust_model_mount_provider_lifecycle"],
           },
-        }),
-        stderr: "",
       };
     },
   });
@@ -748,18 +703,14 @@ test("Rust model_mount admission runner sends native-local provider lifecycle br
   assert.equal(Object.hasOwn(result.result, "backendId"), false);
 });
 
-test("Rust model_mount admission runner sends local provider inventory bridge request", () => {
+test("Rust model_mount admission runner sends local provider inventory through direct daemon-core invoker", () => {
   const calls = [];
   const runner = new RustModelMountAdmissionRunner({
-    command: "mock-model-mount-bridge",
-    spawnSyncImpl(command, args, options) {
-      const request = JSON.parse(options.input);
-      calls.push({ command, args, request });
+    daemonCoreInvoker(request) {
+      calls.push({ request });
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
+        ok: true,
+        result: {
             source: "rust_model_mount_provider_inventory_command",
             backend: "rust_model_mount_native_local_inventory",
             result: {
@@ -782,8 +733,6 @@ test("Rust model_mount admission runner sends local provider inventory bridge re
             inventory_hash: "sha256:inventory",
             evidence_refs: ["rust_model_mount_provider_inventory"],
           },
-        }),
-        stderr: "",
       };
     },
   });
@@ -808,18 +757,14 @@ test("Rust model_mount admission runner sends local provider inventory bridge re
   assert.equal(Object.hasOwn(result.result, "itemCount"), false);
 });
 
-test("Rust model_mount admission runner sends model instance lifecycle bridge request", () => {
+test("Rust model_mount admission runner sends model instance lifecycle through direct daemon-core invoker", () => {
   const calls = [];
   const runner = new RustModelMountAdmissionRunner({
-    command: "mock-model-mount-bridge",
-    spawnSyncImpl(command, args, options) {
-      const request = JSON.parse(options.input);
-      calls.push({ command, args, request });
+    daemonCoreInvoker(request) {
+      calls.push({ request });
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
+        ok: true,
+        result: {
             source: "rust_model_mount_instance_lifecycle_command",
             backend: "rust_model_mount_instance_lifecycle",
             result: {
@@ -837,8 +782,6 @@ test("Rust model_mount admission runner sends model instance lifecycle bridge re
             instance_lifecycle_hash: "sha256:instance-lifecycle",
             evidence_refs: ["rust_model_mount_instance_lifecycle"],
           },
-        }),
-        stderr: "",
       };
     },
   });
@@ -858,18 +801,14 @@ test("Rust model_mount admission runner sends model instance lifecycle bridge re
   assert.equal(result.instance_lifecycle_hash, "sha256:instance-lifecycle");
 });
 
-test("Rust model_mount admission runner sends provider result admission bridge request", () => {
+test("Rust model_mount admission runner sends provider result admission through direct daemon-core invoker", () => {
   const calls = [];
   const runner = new RustModelMountAdmissionRunner({
-    command: "mock-model-mount-bridge",
-    spawnSyncImpl(command, args, options) {
-      const request = JSON.parse(options.input);
-      calls.push({ command, args, request });
+    daemonCoreInvoker(request) {
+      calls.push({ request });
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
+        ok: true,
+        result: {
             source: "rust_model_mount_provider_result_command",
             backend: "rust_model_mount_live",
             record: {
@@ -882,8 +821,6 @@ test("Rust model_mount admission runner sends provider result admission bridge r
             receipt_refs: request.request.receipt_refs,
             evidence_refs: ["rust_model_mount_provider_result_admission"],
           },
-        }),
-        stderr: "",
       };
     },
   });
@@ -905,15 +842,11 @@ test("Rust model_mount admission runner sends provider result admission bridge r
 test("Rust model_mount admission runner sends backend process plan request", () => {
   const calls = [];
   const runner = new RustModelMountAdmissionRunner({
-    command: "mock-model-mount-bridge",
-    spawnSyncImpl(command, args, options) {
-      const request = JSON.parse(options.input);
-      calls.push({ command, args, request });
+    daemonCoreInvoker(request) {
+      calls.push({ request });
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
+        ok: true,
+        result: {
             source: "rust_model_mount_backend_process_command",
             backend: "rust_model_mount_backend_process",
             result: {
@@ -938,8 +871,6 @@ test("Rust model_mount admission runner sends backend process plan request", () 
             plan_hash: "sha256:backend-process-plan",
             evidence_refs: ["rust_model_mount_backend_process_plan"],
           },
-        }),
-        stderr: "",
       };
     },
   });
@@ -964,15 +895,11 @@ test("Rust model_mount admission runner sends backend process plan request", () 
 test("Rust model_mount admission runner sends backend lifecycle required request", () => {
   const calls = [];
   const runner = new RustModelMountAdmissionRunner({
-    command: "mock-model-mount-bridge",
-    spawnSyncImpl(command, args, options) {
-      const request = JSON.parse(options.input);
-      calls.push({ command, args, request });
+    daemonCoreInvoker(request) {
+      calls.push({ request });
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
+        ok: true,
+        result: {
             source: "rust_model_mount_backend_lifecycle_required_command",
             backend: RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_REQUIRED_BACKEND,
             record: {
@@ -1018,8 +945,6 @@ test("Rust model_mount admission runner sends backend lifecycle required request
               evidence_refs: request.request.evidence_refs,
             },
           },
-        }),
-        stderr: "",
       };
     },
   });
@@ -1047,15 +972,11 @@ test("Rust model_mount admission runner sends backend lifecycle required request
 test("Rust model_mount admission runner sends server control required request", () => {
   const calls = [];
   const runner = new RustModelMountAdmissionRunner({
-    command: "mock-model-mount-bridge",
-    spawnSyncImpl(command, args, options) {
-      const request = JSON.parse(options.input);
-      calls.push({ command, args, request });
+    daemonCoreInvoker(request) {
+      calls.push({ request });
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
+        ok: true,
+        result: {
             source: "rust_model_mount_server_control_required_command",
             backend: RUST_MODEL_MOUNT_SERVER_CONTROL_REQUIRED_BACKEND,
             record: {
@@ -1097,8 +1018,6 @@ test("Rust model_mount admission runner sends server control required request", 
               evidence_refs: request.request.evidence_refs,
             },
           },
-        }),
-        stderr: "",
       };
     },
   });
@@ -1125,15 +1044,11 @@ test("Rust model_mount admission runner sends server control required request", 
 test("Rust model_mount admission runner sends runtime engine required request", () => {
   const calls = [];
   const runner = new RustModelMountAdmissionRunner({
-    command: "mock-model-mount-bridge",
-    spawnSyncImpl(command, args, options) {
-      const request = JSON.parse(options.input);
-      calls.push({ command, args, request });
+    daemonCoreInvoker(request) {
+      calls.push({ request });
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
+        ok: true,
+        result: {
             source: "rust_model_mount_runtime_engine_required_command",
             backend: RUST_MODEL_MOUNT_RUNTIME_ENGINE_REQUIRED_BACKEND,
             record: {
@@ -1175,8 +1090,6 @@ test("Rust model_mount admission runner sends runtime engine required request", 
               evidence_refs: request.request.evidence_refs,
             },
           },
-        }),
-        stderr: "",
       };
     },
   });
@@ -1202,15 +1115,11 @@ test("Rust model_mount admission runner sends runtime engine required request", 
 test("Rust model_mount admission runner sends tokenizer required request", () => {
   const calls = [];
   const runner = new RustModelMountAdmissionRunner({
-    command: "mock-model-mount-bridge",
-    spawnSyncImpl(command, args, options) {
-      const request = JSON.parse(options.input);
-      calls.push({ command, args, request });
+    daemonCoreInvoker(request) {
+      calls.push({ request });
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
+        ok: true,
+        result: {
             source: "rust_model_mount_tokenizer_required_command",
             backend: RUST_MODEL_MOUNT_TOKENIZER_REQUIRED_BACKEND,
             record: {
@@ -1249,8 +1158,6 @@ test("Rust model_mount admission runner sends tokenizer required request", () =>
               evidence_refs: request.request.evidence_refs,
             },
           },
-        }),
-        stderr: "",
       };
     },
   });
@@ -1278,15 +1185,11 @@ test("Rust model_mount admission runner sends tokenizer required request", () =>
 test("Rust model_mount admission runner sends route control required request", () => {
   const calls = [];
   const runner = new RustModelMountAdmissionRunner({
-    command: "mock-model-mount-bridge",
-    spawnSyncImpl(command, args, options) {
-      const request = JSON.parse(options.input);
-      calls.push({ command, args, request });
+    daemonCoreInvoker(request) {
+      calls.push({ request });
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
+        ok: true,
+        result: {
             source: "rust_model_mount_route_control_required_command",
             backend: RUST_MODEL_MOUNT_ROUTE_CONTROL_REQUIRED_BACKEND,
             record: {
@@ -1327,8 +1230,6 @@ test("Rust model_mount admission runner sends route control required request", (
               evidence_refs: request.request.evidence_refs,
             },
           },
-        }),
-        stderr: "",
       };
     },
   });
@@ -1357,15 +1258,11 @@ test("Rust model_mount admission runner sends route control required request", (
 test("Rust model_mount admission runner sends invocation receipt binding request", () => {
   const calls = [];
   const runner = new RustModelMountAdmissionRunner({
-    command: "mock-model-mount-bridge",
-    spawnSyncImpl(command, args, options) {
-      const request = JSON.parse(options.input);
-      calls.push({ command, args, request });
+    daemonCoreInvoker(request) {
+      calls.push({ request });
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
+        ok: true,
+        result: {
             source: "rust_model_mount_receipt_binding_command",
             backend: "rust_model_mount_live",
             receipt_binding: {
@@ -1393,8 +1290,6 @@ test("Rust model_mount admission runner sends invocation receipt binding request
             receipt_refs: ["receipt://invocation"],
             evidence_refs: ["rust_receipt_binder_core", "sha256:binding", "sha256:append"],
           },
-        }),
-        stderr: "",
       };
     },
   });
@@ -1443,12 +1338,7 @@ test("Rust model_mount admission runner sends invocation receipt binding request
 });
 
 test("Rust model_mount admission runner rejects direct expected head binding input", () => {
-  const runner = new RustModelMountAdmissionRunner({
-    command: "mock-model-mount-bridge",
-    spawnSyncImpl() {
-      throw new Error("bridge should not be invoked");
-    },
-  });
+  const runner = new RustModelMountAdmissionRunner();
 
   assert.throws(
     () =>
@@ -1464,15 +1354,11 @@ test("Rust model_mount admission runner rejects direct expected head binding inp
 test("Rust model_mount admission runner sends accepted receipt transition plan request", () => {
   const calls = [];
   const runner = new RustModelMountAdmissionRunner({
-    command: "mock-model-mount-bridge",
-    spawnSyncImpl(command, args, options) {
-      const request = JSON.parse(options.input);
-      calls.push({ command, args, request });
+    daemonCoreInvoker(request) {
+      calls.push({ request });
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
+        ok: true,
+        result: {
             source: "rust_model_mount_accepted_receipt_transition_command",
             backend: "rust_model_mount_accepted_receipt_transition",
             transition: {
@@ -1497,8 +1383,6 @@ test("Rust model_mount admission runner sends accepted receipt transition plan r
             transition_hash: "sha256:transition",
             evidence_refs: ["rust_model_mount_accepted_receipt_transition"],
           },
-        }),
-        stderr: "",
       };
     },
   });
@@ -1535,15 +1419,11 @@ test("Rust model_mount admission runner sends accepted receipt transition plan r
 test("Rust model_mount admission runner sends accepted receipt head plan request", () => {
   const calls = [];
   const runner = new RustModelMountAdmissionRunner({
-    command: "mock-model-mount-bridge",
-    spawnSyncImpl(command, args, options) {
-      const request = JSON.parse(options.input);
-      calls.push({ command, args, request });
+    daemonCoreInvoker(request) {
+      calls.push({ request });
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
+        ok: true,
+        result: {
             source: "rust_model_mount_accepted_receipt_head_command",
             backend: "rust_model_mount_accepted_receipt_head",
             head: {
@@ -1562,8 +1442,6 @@ test("Rust model_mount admission runner sends accepted receipt head plan request
             head_hash: "sha256:head",
             evidence_refs: ["rust_model_mount_accepted_receipt_head"],
           },
-        }),
-        stderr: "",
       };
     },
   });
@@ -1590,15 +1468,11 @@ test("Rust model_mount admission runner sends accepted receipt head plan request
 test("Rust model_mount admission runner sends read projection plan request", () => {
   const calls = [];
   const runner = new RustModelMountAdmissionRunner({
-    command: "mock-model-mount-bridge",
-    spawnSyncImpl(command, args, options) {
-      const request = JSON.parse(options.input);
-      calls.push({ command, args, request });
+    daemonCoreInvoker(request) {
+      calls.push({ request });
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
+        ok: true,
+        result: {
             source: "rust_model_mount_read_projection_command",
             backend: "rust_model_mount_read_projection",
             projection_kind: "projection_summary",
@@ -1614,8 +1488,6 @@ test("Rust model_mount admission runner sends read projection plan request", () 
               "model_mount_js_read_projection_authoring_retired",
             ],
           },
-        }),
-        stderr: "",
       };
     },
   });
@@ -1638,24 +1510,91 @@ test("Rust model_mount admission runner sends read projection plan request", () 
   assert.equal(result.evidence_refs.includes("model_mount_js_read_projection_authoring_retired"), true);
 });
 
-test("Rust model_mount admission runner env uses daemon-core command boundary", () => {
-  const runner = createModelMountAdmissionRunnerFromEnv({
-    [MODEL_MOUNT_ADMISSION_COMMAND_ENV]: "ioi-runtime-daemon-core",
-    IOI_MODEL_MOUNT_ADMISSION_COMMAND: "retired-model-mount-bridge",
-    IOI_MODEL_MOUNT_ADMISSION_COMMAND_ARGS: "--retired-model-mount",
-    IOI_STEP_MODULE_COMMAND: "retired-step-module-bridge",
-    IOI_STEP_MODULE_COMMAND_ARGS: "--retired-step",
-  });
+test("Rust model_mount admission runner env uses daemon-level direct invoker", () => {
+  const calls = [];
+  const runner = createModelMountAdmissionRunnerFromEnv(
+    {
+      IOI_STEP_MODULE_COMMAND: "retired-step-module-bridge",
+      IOI_STEP_MODULE_COMMAND_ARGS: "--retired-step",
+    },
+    {
+      daemonCoreInvoker(request) {
+        calls.push(request);
+        return {
+          source: "direct_daemon_core_api",
+          backend: "rust_model_mount_live",
+          record: {
+            route_decision_ref: "model_mount://route_decision/direct",
+            route_decision_hash: "sha256:direct",
+          },
+        };
+      },
+    },
+  );
 
-  assert.equal(runner.command, "ioi-runtime-daemon-core");
+  const result = runner.admitRouteDecision(routeRequest());
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].operation, "admit_model_mount_route_decision");
+  assert.equal(result.source, "direct_daemon_core_api");
+  assert.equal(result.route_decision_ref, "model_mount://route_decision/direct");
+});
+
+test("Rust model_mount admission runner rejects retired daemon-core command env", () => {
+  assert.throws(
+    () =>
+      createModelMountAdmissionRunnerFromEnv(
+        {
+          IOI_RUNTIME_DAEMON_CORE_COMMAND: "ioi-runtime-daemon-core",
+        },
+        {
+          daemonCoreInvoker() {
+            return {};
+          },
+        },
+      ),
+    (error) =>
+      error instanceof ModelMountAdmissionRunnerError &&
+      error.code === "model_mount_admission_command_selection_retired",
+  );
+});
+
+test("Rust model_mount admission runner rejects retired model-mount command env", () => {
+  assert.throws(
+    () =>
+      createModelMountAdmissionRunnerFromEnv(
+        {
+          IOI_MODEL_MOUNT_ADMISSION_COMMAND: "retired-model-mount-bridge",
+        },
+        {
+          daemonCoreInvoker() {
+            return {};
+          },
+        },
+      ),
+    (error) =>
+      error instanceof ModelMountAdmissionRunnerError &&
+      error.code === "model_mount_admission_command_selection_retired",
+  );
 });
 
 test("Rust model_mount admission runner command args env fails closed", () => {
   assert.throws(
     () =>
       createModelMountAdmissionRunnerFromEnv({
-        [MODEL_MOUNT_ADMISSION_COMMAND_ENV]: "ioi-runtime-daemon-core",
         IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS: "--json",
+      }),
+    (error) =>
+      error instanceof ModelMountAdmissionRunnerError &&
+      error.code === "model_mount_admission_command_args_retired",
+  );
+});
+
+test("Rust model_mount admission runner retired model-mount command args env fails closed", () => {
+  assert.throws(
+    () =>
+      createModelMountAdmissionRunnerFromEnv({
+        IOI_MODEL_MOUNT_ADMISSION_COMMAND_ARGS: "--retired-model-mount",
       }),
     (error) =>
       error instanceof ModelMountAdmissionRunnerError &&
@@ -1676,13 +1615,22 @@ test("Rust model_mount admission runner command args constructor option fails cl
   );
 });
 
-test("Rust model_mount admission runner fails closed without command", () => {
+test("Rust model_mount admission runner command constructor option fails closed", () => {
+  assert.throws(
+    () => new RustModelMountAdmissionRunner({ command: "ioi-runtime-daemon-core" }),
+    (error) =>
+      error instanceof ModelMountAdmissionRunnerError &&
+      error.code === "model_mount_admission_command_selection_retired",
+  );
+});
+
+test("Rust model_mount admission runner fails closed without direct invoker", () => {
   const runner = new RustModelMountAdmissionRunner();
 
   assert.throws(
     () => runner.admitRouteDecision(routeRequest()),
     (error) =>
       error instanceof ModelMountAdmissionRunnerError &&
-      error.code === "model_mount_admission_bridge_unconfigured",
+      error.code === "model_mount_admission_direct_invoker_unconfigured",
   );
 });

@@ -3,97 +3,104 @@ import test from "node:test";
 
 import { createRuntimeSkillHookSurface } from "./runtime-skill-hook-surface.mjs";
 
-test("runtime skill hook surface fails closed before JS catalog discovery", () => {
+test("runtime skill hook surface returns Rust-owned catalog skills and hooks", () => {
+  const calls = [];
   const surface = createRuntimeSkillHookSurface({
     defaultCwd: "/workspace/project",
-    discoverSkillHookCatalog() {
-      throw new Error("JS skill hook discovery must not author public registry projection");
-    },
-  });
-
-  assert.throws(
-    () => surface.listSkills(),
-    (error) => {
-      assert.equal(error.status, 501);
-      assert.equal(
-        error.code,
-        "runtime_skill_hook_registry_rust_core_required",
-      );
-      assert.equal(
-        error.details.rust_core_boundary,
-        "runtime.skill_hook_registry",
-      );
-      assert.equal(error.details.operation, "skill_hook_registry_skills");
-      assert.equal(error.details.operation_kind, "skill_hook.registry.skills");
-      assert.equal(error.details.registry_kind, "skills");
-      assert.equal(error.details.workspace_root, "/workspace/project");
-      assert.equal(Object.hasOwn(error.details, "registryKind"), false);
-      assert.equal(Object.hasOwn(error.details, "workspaceRoot"), false);
-      return true;
-    },
-  );
-});
-
-test("runtime skill hook surface translates mounted Rust projection-required record", () => {
-  let captured = null;
-  const surface = createRuntimeSkillHookSurface({
-    defaultCwd: "/workspace/project",
+    env: { HOME: "/home/operator" },
     skillHookRunner: {
-      planSkillHookRegistryProjectionRequired(request) {
-        captured = request;
-        return {
-          record: {
-            status_code: 501,
-            code: "runtime_skill_hook_registry_rust_core_required",
-            message:
-              "Skill and hook registry projection requires direct Rust daemon-core projection over admitted governance/catalog truth.",
-            details: {
-              rust_core_boundary: "runtime.skill_hook_registry",
-              operation: request.operation,
-              operation_kind: request.operation_kind,
-              registry_kind: request.registry_kind,
-              workspace_root: request.workspace_root,
-              source: request.source,
-              evidence_refs: request.evidence_refs,
+      projectSkillHookRegistry(request) {
+        calls.push(request);
+        if (request.registry_kind === "catalog") {
+          return {
+            registry_kind: "catalog",
+            operation_kind: request.operation_kind,
+            projection: {
+              schemaVersion: "ioi.agent-runtime.skill-hook-catalog.v1",
+              status: "pass",
+              skillCount: 1,
+              hookCount: 1,
+              skills: [{ id: "skill.repo", name: "Repo Cartographer" }],
+              hooks: [{ id: "hook.pre_model", name: "pre-model-redaction" }],
+              sources: [],
             },
+          };
+        }
+        if (request.registry_kind === "skills") {
+          return {
+            registry_kind: "skills",
+            operation_kind: request.operation_kind,
+            projection: {
+              schemaVersion: "ioi.agent-runtime.skills.v1",
+              status: "pass",
+              skillCount: 1,
+              skills: [{ id: "skill.repo", name: "Repo Cartographer" }],
+            },
+          };
+        }
+        return {
+          registry_kind: "hooks",
+          operation_kind: request.operation_kind,
+          projection: {
+            schemaVersion: "ioi.agent-runtime.hooks.v1",
+            status: "pass",
+            hookCount: 1,
+            hooks: [{ id: "hook.pre_model", name: "pre-model-redaction" }],
           },
         };
       },
     },
   });
 
-  assert.throws(
-    () => surface.listHooks({ cwd: "/other/workspace" }),
-    (error) => {
-      assert.equal(error.status, 501);
-      assert.equal(
-        error.code,
-        "runtime_skill_hook_registry_rust_core_required",
-      );
-      assert.equal(error.details.operation, "skill_hook_registry_hooks");
-      assert.equal(error.details.operation_kind, "skill_hook.registry.hooks");
-      assert.equal(error.details.registry_kind, "hooks");
-      assert.equal(error.details.workspace_root, "/other/workspace");
-      assert.equal(error.details.source, "runtime.skill_hook_surface");
-      assert.deepEqual(error.details.evidence_refs, [
-        "runtime_skill_hook_registry_js_projection_retired",
-        "rust_daemon_core_skill_hook_registry_required",
-        "agentgres_skill_hook_registry_truth_required",
-      ]);
-      return true;
-    },
-  );
+  const catalog = surface.skillHookCatalog();
+  const skills = surface.listSkills();
+  const hooks = surface.listHooks({ cwd: "/workspace/other" });
 
-  assert.deepEqual(captured, {
-    operation: "skill_hook_registry_hooks",
-    operation_kind: "skill_hook.registry.hooks",
-    registry_kind: "hooks",
-    workspace_root: "/other/workspace",
-    source: "runtime.skill_hook_surface",
-    evidence_refs: [
-      "runtime_skill_hook_registry_js_projection_retired",
-      "rust_daemon_core_skill_hook_registry_required",
-      "agentgres_skill_hook_registry_truth_required",
-    ],
+  assert.equal(catalog.skillCount, 1);
+  assert.equal(skills.skills[0].name, "Repo Cartographer");
+  assert.equal(hooks.hooks[0].name, "pre-model-redaction");
+  assert.deepEqual(calls.map((call) => call.registry_kind), ["catalog", "skills", "hooks"]);
+  assert.equal(calls[0].workspace_root, "/workspace/project");
+  assert.equal(calls[0].home_dir, "/home/operator");
+  assert.equal(calls[2].workspace_root, "/workspace/other");
+  assert.equal(Object.hasOwn(calls[0], "workspaceRoot"), false);
+  assert.equal(Object.hasOwn(calls[0], "registryKind"), false);
+});
+
+test("runtime skill hook surface fails closed when Rust projection is missing", () => {
+  const surface = createRuntimeSkillHookSurface({ defaultCwd: "/workspace/project" });
+
+  assert.throws(
+    () => surface.listSkills(),
+    (error) =>
+      error.status === 501 &&
+      error.code === "runtime_skill_hook_registry_rust_core_required" &&
+      error.details.registry_kind === "skills" &&
+      error.details.workspace_root === "/workspace/project" &&
+      error.details.evidence_refs.includes("runtime_skill_hook_registry_js_projection_retired") &&
+      !Object.hasOwn(error.details, "registryKind"),
+  );
+});
+
+test("runtime skill hook surface rejects Rust projection mismatches", () => {
+  const surface = createRuntimeSkillHookSurface({
+    defaultCwd: "/workspace/project",
+    skillHookRunner: {
+      projectSkillHookRegistry() {
+        return {
+          registry_kind: "hooks",
+          operation_kind: "skill_hook.registry.hooks",
+          projection: { hooks: [] },
+        };
+      },
+    },
   });
+
+  assert.throws(
+    () => surface.listSkills(),
+    (error) =>
+      error.code === "runtime_skill_hook_registry_rust_projection_invalid" &&
+      error.details.expected_registry_kind === "skills" &&
+      error.details.registry_kind === "hooks",
+  );
 });

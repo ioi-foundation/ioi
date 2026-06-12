@@ -34,6 +34,13 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "commit_runtime_artifact_state",
     "commit_runtime_model_mount_record_state",
     "commit_runtime_model_mount_receipt_state",
+    "admit_coding_tool_result_event",
+    "admit_coding_tool_command_stream_events",
+    "admit_runtime_thread_event",
+    "project_runtime_thread_events",
+    "project_runtime_thread_event_replay",
+    "project_runtime_thread_turn_projection",
+    "plan_post_edit_diagnostics_feedback",
     "authorize_external_capability_exit",
     "execute_private_workspace_ctee_action",
     "admit_l1_settlement_attempt",
@@ -42,12 +49,22 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "preview_workspace_restore_operations",
     "apply_workspace_restore_operations",
     "capture_workspace_snapshot_files",
+    "project_workspace_snapshot_list",
+    "project_workspace_snapshot_content_package",
+    "preview_workspace_snapshot_restore",
+    "apply_workspace_snapshot_restore",
     "plan_coding_tool_approval_manifest",
+    "project_coding_tool_approval_satisfaction",
+    "plan_coding_tool_approval_satisfaction",
+    "plan_coding_tool_approval_block",
+    "project_approval_queue",
+    "authorize_approval_decision",
     "plan_approval_request_state_update",
     "plan_approval_decision_state_update",
     "plan_approval_revoke_state_update",
     "evaluate_context_budget_policy",
     "evaluate_coding_tool_budget_policy",
+    "plan_coding_tool_budget_block",
     "evaluate_compaction_policy",
     "plan_context_compaction",
     "plan_context_compaction_state_update",
@@ -61,13 +78,17 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "plan_operator_steer_state_update",
     "plan_run_cancel_state_update",
     "plan_run_cancel_admission_required",
-    "plan_skill_hook_registry_projection_required",
-    "plan_repository_workflow_projection_required",
-    "plan_runtime_tool_catalog_projection_required",
-    "plan_runtime_lifecycle_projection_required",
+    "plan_runtime_task_job_cancel_state_update",
+    "plan_runtime_task_job_create_state_update",
+    "project_runtime_task_job_projection",
+    "project_skill_hook_registry",
+    "project_repository_workflow",
+    "project_runtime_tool_catalog",
+    "project_runtime_lifecycle",
     "plan_lifecycle_admission_required",
     "plan_thread_turn_admission_required",
     "plan_thread_control_agent_state_update",
+    "plan_workspace_trust_control_state_update",
     "plan_mcp_control_agent_state_update",
     "validate_mcp_servers",
     "project_mcp_server_validation_input",
@@ -81,8 +102,10 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "plan_runtime_bridge_thread_start_agent_state_update",
     "plan_runtime_bridge_turn_run_state_update",
     "plan_subagent_record_state_update",
+    "plan_thread_create_state_update",
     "plan_agent_create_state_update",
     "plan_agent_status_state_update",
+    "plan_agent_delete_state_update",
     "plan_run_create_state_update",
 ];
 
@@ -117,6 +140,13 @@ pub enum CommandOperation {
     CommitRuntimeArtifactState,
     CommitRuntimeModelMountRecordState,
     CommitRuntimeModelMountReceiptState,
+    AdmitCodingToolResultEvent,
+    AdmitCodingToolCommandStreamEvents,
+    AdmitRuntimeThreadEvent,
+    ProjectRuntimeThreadEvents,
+    ProjectRuntimeThreadEventReplay,
+    ProjectRuntimeThreadTurnProjection,
+    PlanPostEditDiagnosticsFeedback,
     AuthorizeExternalCapabilityExit,
     ExecutePrivateWorkspaceCteeAction,
     AdmitL1SettlementAttempt,
@@ -125,12 +155,22 @@ pub enum CommandOperation {
     PreviewWorkspaceRestoreOperations,
     ApplyWorkspaceRestoreOperations,
     CaptureWorkspaceSnapshotFiles,
+    ProjectWorkspaceSnapshotList,
+    ProjectWorkspaceSnapshotContentPackage,
+    PreviewWorkspaceSnapshotRestore,
+    ApplyWorkspaceSnapshotRestore,
     PlanCodingToolApprovalManifest,
+    ProjectCodingToolApprovalSatisfaction,
+    PlanCodingToolApprovalSatisfaction,
+    PlanCodingToolApprovalBlock,
+    ProjectApprovalQueue,
+    AuthorizeApprovalDecision,
     PlanApprovalRequestStateUpdate,
     PlanApprovalDecisionStateUpdate,
     PlanApprovalRevokeStateUpdate,
     EvaluateContextBudgetPolicy,
     EvaluateCodingToolBudgetPolicy,
+    PlanCodingToolBudgetBlock,
     EvaluateCompactionPolicy,
     PlanContextCompaction,
     PlanContextCompactionStateUpdate,
@@ -144,13 +184,17 @@ pub enum CommandOperation {
     PlanOperatorSteerStateUpdate,
     PlanRunCancelStateUpdate,
     PlanRunCancelAdmissionRequired,
-    PlanSkillHookRegistryProjectionRequired,
-    PlanRepositoryWorkflowProjectionRequired,
-    PlanRuntimeToolCatalogProjectionRequired,
-    PlanRuntimeLifecycleProjectionRequired,
+    PlanRuntimeTaskJobCancelStateUpdate,
+    PlanRuntimeTaskJobCreateStateUpdate,
+    ProjectRuntimeTaskJobProjection,
+    ProjectSkillHookRegistry,
+    ProjectRepositoryWorkflow,
+    ProjectRuntimeToolCatalog,
+    ProjectRuntimeLifecycle,
     PlanLifecycleAdmissionRequired,
     PlanThreadTurnAdmissionRequired,
     PlanThreadControlAgentStateUpdate,
+    PlanWorkspaceTrustControlStateUpdate,
     PlanMcpControlAgentStateUpdate,
     ValidateMcpServers,
     ProjectMcpServerValidationInput,
@@ -164,8 +208,10 @@ pub enum CommandOperation {
     PlanRuntimeBridgeThreadStartAgentStateUpdate,
     PlanRuntimeBridgeTurnRunStateUpdate,
     PlanSubagentRecordStateUpdate,
+    PlanThreadCreateStateUpdate,
     PlanAgentCreateStateUpdate,
     PlanAgentStatusStateUpdate,
+    PlanAgentDeleteStateUpdate,
     PlanRunCreateStateUpdate,
 }
 
@@ -207,6 +253,13 @@ impl CommandOperation {
             Self::CommitRuntimeArtifactState => "commit_runtime_artifact_state",
             Self::CommitRuntimeModelMountRecordState => "commit_runtime_model_mount_record_state",
             Self::CommitRuntimeModelMountReceiptState => "commit_runtime_model_mount_receipt_state",
+            Self::AdmitCodingToolResultEvent => "admit_coding_tool_result_event",
+            Self::AdmitCodingToolCommandStreamEvents => "admit_coding_tool_command_stream_events",
+            Self::AdmitRuntimeThreadEvent => "admit_runtime_thread_event",
+            Self::ProjectRuntimeThreadEvents => "project_runtime_thread_events",
+            Self::ProjectRuntimeThreadEventReplay => "project_runtime_thread_event_replay",
+            Self::ProjectRuntimeThreadTurnProjection => "project_runtime_thread_turn_projection",
+            Self::PlanPostEditDiagnosticsFeedback => "plan_post_edit_diagnostics_feedback",
             Self::AuthorizeExternalCapabilityExit => "authorize_external_capability_exit",
             Self::ExecutePrivateWorkspaceCteeAction => "execute_private_workspace_ctee_action",
             Self::AdmitL1SettlementAttempt => "admit_l1_settlement_attempt",
@@ -217,12 +270,26 @@ impl CommandOperation {
             Self::PreviewWorkspaceRestoreOperations => "preview_workspace_restore_operations",
             Self::ApplyWorkspaceRestoreOperations => "apply_workspace_restore_operations",
             Self::CaptureWorkspaceSnapshotFiles => "capture_workspace_snapshot_files",
+            Self::ProjectWorkspaceSnapshotList => "project_workspace_snapshot_list",
+            Self::ProjectWorkspaceSnapshotContentPackage => {
+                "project_workspace_snapshot_content_package"
+            }
+            Self::PreviewWorkspaceSnapshotRestore => "preview_workspace_snapshot_restore",
+            Self::ApplyWorkspaceSnapshotRestore => "apply_workspace_snapshot_restore",
             Self::PlanCodingToolApprovalManifest => "plan_coding_tool_approval_manifest",
+            Self::ProjectCodingToolApprovalSatisfaction => {
+                "project_coding_tool_approval_satisfaction"
+            }
+            Self::PlanCodingToolApprovalSatisfaction => "plan_coding_tool_approval_satisfaction",
+            Self::PlanCodingToolApprovalBlock => "plan_coding_tool_approval_block",
+            Self::ProjectApprovalQueue => "project_approval_queue",
+            Self::AuthorizeApprovalDecision => "authorize_approval_decision",
             Self::PlanApprovalRequestStateUpdate => "plan_approval_request_state_update",
             Self::PlanApprovalDecisionStateUpdate => "plan_approval_decision_state_update",
             Self::PlanApprovalRevokeStateUpdate => "plan_approval_revoke_state_update",
             Self::EvaluateContextBudgetPolicy => "evaluate_context_budget_policy",
             Self::EvaluateCodingToolBudgetPolicy => "evaluate_coding_tool_budget_policy",
+            Self::PlanCodingToolBudgetBlock => "plan_coding_tool_budget_block",
             Self::EvaluateCompactionPolicy => "evaluate_compaction_policy",
             Self::PlanContextCompaction => "plan_context_compaction",
             Self::PlanContextCompactionStateUpdate => "plan_context_compaction_state_update",
@@ -246,21 +313,23 @@ impl CommandOperation {
             Self::PlanOperatorSteerStateUpdate => "plan_operator_steer_state_update",
             Self::PlanRunCancelStateUpdate => "plan_run_cancel_state_update",
             Self::PlanRunCancelAdmissionRequired => "plan_run_cancel_admission_required",
-            Self::PlanSkillHookRegistryProjectionRequired => {
-                "plan_skill_hook_registry_projection_required"
+            Self::PlanRuntimeTaskJobCancelStateUpdate => {
+                "plan_runtime_task_job_cancel_state_update"
             }
-            Self::PlanRepositoryWorkflowProjectionRequired => {
-                "plan_repository_workflow_projection_required"
+            Self::PlanRuntimeTaskJobCreateStateUpdate => {
+                "plan_runtime_task_job_create_state_update"
             }
-            Self::PlanRuntimeToolCatalogProjectionRequired => {
-                "plan_runtime_tool_catalog_projection_required"
-            }
-            Self::PlanRuntimeLifecycleProjectionRequired => {
-                "plan_runtime_lifecycle_projection_required"
-            }
+            Self::ProjectRuntimeTaskJobProjection => "project_runtime_task_job_projection",
+            Self::ProjectSkillHookRegistry => "project_skill_hook_registry",
+            Self::ProjectRepositoryWorkflow => "project_repository_workflow",
+            Self::ProjectRuntimeToolCatalog => "project_runtime_tool_catalog",
+            Self::ProjectRuntimeLifecycle => "project_runtime_lifecycle",
             Self::PlanLifecycleAdmissionRequired => "plan_lifecycle_admission_required",
             Self::PlanThreadTurnAdmissionRequired => "plan_thread_turn_admission_required",
             Self::PlanThreadControlAgentStateUpdate => "plan_thread_control_agent_state_update",
+            Self::PlanWorkspaceTrustControlStateUpdate => {
+                "plan_workspace_trust_control_state_update"
+            }
             Self::PlanMcpControlAgentStateUpdate => "plan_mcp_control_agent_state_update",
             Self::ValidateMcpServers => "validate_mcp_servers",
             Self::ProjectMcpServerValidationInput => "project_mcp_server_validation_input",
@@ -282,8 +351,10 @@ impl CommandOperation {
                 "plan_runtime_bridge_turn_run_state_update"
             }
             Self::PlanSubagentRecordStateUpdate => "plan_subagent_record_state_update",
+            Self::PlanThreadCreateStateUpdate => "plan_thread_create_state_update",
             Self::PlanAgentCreateStateUpdate => "plan_agent_create_state_update",
             Self::PlanAgentStatusStateUpdate => "plan_agent_status_state_update",
+            Self::PlanAgentDeleteStateUpdate => "plan_agent_delete_state_update",
             Self::PlanRunCreateStateUpdate => "plan_run_create_state_update",
         }
     }
@@ -408,6 +479,21 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
         "commit_runtime_model_mount_receipt_state" => {
             Some(CommandOperation::CommitRuntimeModelMountReceiptState)
         }
+        "admit_coding_tool_result_event" => Some(CommandOperation::AdmitCodingToolResultEvent),
+        "admit_coding_tool_command_stream_events" => {
+            Some(CommandOperation::AdmitCodingToolCommandStreamEvents)
+        }
+        "admit_runtime_thread_event" => Some(CommandOperation::AdmitRuntimeThreadEvent),
+        "project_runtime_thread_events" => Some(CommandOperation::ProjectRuntimeThreadEvents),
+        "project_runtime_thread_event_replay" => {
+            Some(CommandOperation::ProjectRuntimeThreadEventReplay)
+        }
+        "project_runtime_thread_turn_projection" => {
+            Some(CommandOperation::ProjectRuntimeThreadTurnProjection)
+        }
+        "plan_post_edit_diagnostics_feedback" => {
+            Some(CommandOperation::PlanPostEditDiagnosticsFeedback)
+        }
         "authorize_external_capability_exit" => {
             Some(CommandOperation::AuthorizeExternalCapabilityExit)
         }
@@ -428,9 +514,26 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
             Some(CommandOperation::ApplyWorkspaceRestoreOperations)
         }
         "capture_workspace_snapshot_files" => Some(CommandOperation::CaptureWorkspaceSnapshotFiles),
+        "project_workspace_snapshot_list" => Some(CommandOperation::ProjectWorkspaceSnapshotList),
+        "project_workspace_snapshot_content_package" => {
+            Some(CommandOperation::ProjectWorkspaceSnapshotContentPackage)
+        }
+        "preview_workspace_snapshot_restore" => {
+            Some(CommandOperation::PreviewWorkspaceSnapshotRestore)
+        }
+        "apply_workspace_snapshot_restore" => Some(CommandOperation::ApplyWorkspaceSnapshotRestore),
         "plan_coding_tool_approval_manifest" => {
             Some(CommandOperation::PlanCodingToolApprovalManifest)
         }
+        "project_coding_tool_approval_satisfaction" => {
+            Some(CommandOperation::ProjectCodingToolApprovalSatisfaction)
+        }
+        "plan_coding_tool_approval_satisfaction" => {
+            Some(CommandOperation::PlanCodingToolApprovalSatisfaction)
+        }
+        "plan_coding_tool_approval_block" => Some(CommandOperation::PlanCodingToolApprovalBlock),
+        "project_approval_queue" => Some(CommandOperation::ProjectApprovalQueue),
+        "authorize_approval_decision" => Some(CommandOperation::AuthorizeApprovalDecision),
         "plan_approval_request_state_update" => {
             Some(CommandOperation::PlanApprovalRequestStateUpdate)
         }
@@ -444,6 +547,7 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
         "evaluate_coding_tool_budget_policy" => {
             Some(CommandOperation::EvaluateCodingToolBudgetPolicy)
         }
+        "plan_coding_tool_budget_block" => Some(CommandOperation::PlanCodingToolBudgetBlock),
         "evaluate_compaction_policy" => Some(CommandOperation::EvaluateCompactionPolicy),
         "plan_context_compaction" => Some(CommandOperation::PlanContextCompaction),
         "plan_context_compaction_state_update" => {
@@ -475,18 +579,19 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
         "plan_run_cancel_admission_required" => {
             Some(CommandOperation::PlanRunCancelAdmissionRequired)
         }
-        "plan_skill_hook_registry_projection_required" => {
-            Some(CommandOperation::PlanSkillHookRegistryProjectionRequired)
+        "plan_runtime_task_job_cancel_state_update" => {
+            Some(CommandOperation::PlanRuntimeTaskJobCancelStateUpdate)
         }
-        "plan_repository_workflow_projection_required" => {
-            Some(CommandOperation::PlanRepositoryWorkflowProjectionRequired)
+        "plan_runtime_task_job_create_state_update" => {
+            Some(CommandOperation::PlanRuntimeTaskJobCreateStateUpdate)
         }
-        "plan_runtime_tool_catalog_projection_required" => {
-            Some(CommandOperation::PlanRuntimeToolCatalogProjectionRequired)
+        "project_runtime_task_job_projection" => {
+            Some(CommandOperation::ProjectRuntimeTaskJobProjection)
         }
-        "plan_runtime_lifecycle_projection_required" => {
-            Some(CommandOperation::PlanRuntimeLifecycleProjectionRequired)
-        }
+        "project_skill_hook_registry" => Some(CommandOperation::ProjectSkillHookRegistry),
+        "project_repository_workflow" => Some(CommandOperation::ProjectRepositoryWorkflow),
+        "project_runtime_tool_catalog" => Some(CommandOperation::ProjectRuntimeToolCatalog),
+        "project_runtime_lifecycle" => Some(CommandOperation::ProjectRuntimeLifecycle),
         "plan_lifecycle_admission_required" => {
             Some(CommandOperation::PlanLifecycleAdmissionRequired)
         }
@@ -495,6 +600,9 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
         }
         "plan_thread_control_agent_state_update" => {
             Some(CommandOperation::PlanThreadControlAgentStateUpdate)
+        }
+        "plan_workspace_trust_control_state_update" => {
+            Some(CommandOperation::PlanWorkspaceTrustControlStateUpdate)
         }
         "plan_mcp_control_agent_state_update" => {
             Some(CommandOperation::PlanMcpControlAgentStateUpdate)
@@ -533,8 +641,10 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
         "plan_subagent_record_state_update" => {
             Some(CommandOperation::PlanSubagentRecordStateUpdate)
         }
+        "plan_thread_create_state_update" => Some(CommandOperation::PlanThreadCreateStateUpdate),
         "plan_agent_create_state_update" => Some(CommandOperation::PlanAgentCreateStateUpdate),
         "plan_agent_status_state_update" => Some(CommandOperation::PlanAgentStatusStateUpdate),
+        "plan_agent_delete_state_update" => Some(CommandOperation::PlanAgentDeleteStateUpdate),
         "plan_run_create_state_update" => Some(CommandOperation::PlanRunCreateStateUpdate),
         _ => None,
     }
@@ -597,10 +707,22 @@ mod tests {
             "validate_mcp_servers",
             "plan_mcp_manager_catalog_summary_projection",
             "commit_runtime_run_state",
+            "admit_coding_tool_result_event",
+            "admit_coding_tool_command_stream_events",
+            "admit_runtime_thread_event",
+            "project_runtime_thread_events",
+            "project_runtime_thread_event_replay",
+            "project_runtime_thread_turn_projection",
+            "plan_post_edit_diagnostics_feedback",
             "plan_lifecycle_admission_required",
             "plan_thread_turn_admission_required",
             "plan_thread_control_agent_state_update",
+            "plan_workspace_trust_control_state_update",
+            "plan_thread_create_state_update",
             "plan_operator_turn_control_admission_required",
+            "plan_runtime_task_job_create_state_update",
+            "project_runtime_task_job_projection",
+            "project_runtime_tool_catalog",
         ] {
             assert_eq!(
                 expected_command_schema_version(operation),

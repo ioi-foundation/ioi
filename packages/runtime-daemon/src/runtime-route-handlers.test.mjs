@@ -108,161 +108,85 @@ test("model mounting authority evidence routes use mounted run read surface", as
   assert.deepEqual(calls.map((call) => call.options), paths.map(() => ({ thread_id: "thread_route" })));
 });
 
-test("agent, thread, and run detail routes use lifecycle projection surface", async () => {
+test("agent, thread, and run detail routes return lifecycle projection surface output", async () => {
   const { handleAgentRoute, handleThreadRoute, handleRunRoute } = routeHandlers();
   const calls = [];
   const lifecycleProjectionSurface = {
     getAgent(_store, agentId) {
       calls.push({ method: "getAgent", id: agentId });
-      const error = new Error("runtime lifecycle projection requires Rust core");
-      error.status = 501;
-      error.code = "runtime_lifecycle_projection_rust_core_required";
-      error.details = { projection_kind: "agent", agent_id: agentId };
-      throw error;
+      return { projection: "agent", agentId };
     },
     getThread(_store, threadId) {
       calls.push({ method: "getThread", id: threadId });
-      const error = new Error("runtime lifecycle projection requires Rust core");
-      error.status = 501;
-      error.code = "runtime_lifecycle_projection_rust_core_required";
-      error.details = { projection_kind: "thread", thread_id: threadId };
-      throw error;
+      return { projection: "thread", threadId };
     },
     getThreadUsage(_store, threadId) {
       calls.push({ method: "getThreadUsage", id: threadId });
-      const error = new Error("runtime lifecycle projection requires Rust core");
-      error.status = 501;
-      error.code = "runtime_lifecycle_projection_rust_core_required";
-      error.details = { projection_kind: "thread_usage", thread_id: threadId };
-      throw error;
+      return { projection: "thread_usage", threadId };
     },
     listThreadTurns(_store, threadId) {
       calls.push({ method: "listThreadTurns", id: threadId });
-      const error = new Error("runtime lifecycle projection requires Rust core");
-      error.status = 501;
-      error.code = "runtime_lifecycle_projection_rust_core_required";
-      error.details = { projection_kind: "thread_turns", thread_id: threadId };
-      throw error;
+      return [{ projection: "thread_turns", threadId }];
     },
     getThreadTurn(_store, threadId, turnId) {
       calls.push({ method: "getThreadTurn", id: threadId, turnId });
-      const error = new Error("runtime lifecycle projection requires Rust core");
-      error.status = 501;
-      error.code = "runtime_lifecycle_projection_rust_core_required";
-      error.details = { projection_kind: "thread_turn", thread_id: threadId, turn_id: turnId };
-      throw error;
+      return { projection: "thread_turn", threadId, turnId };
     },
     listThreadEvents(_store, threadId) {
       calls.push({ method: "listThreadEvents", id: threadId });
-      const error = new Error("runtime lifecycle projection requires Rust core");
-      error.status = 501;
-      error.code = "runtime_lifecycle_projection_rust_core_required";
-      error.details = { projection_kind: "thread_events", thread_id: threadId };
-      throw error;
+      return [{ projection: "thread_events", threadId }];
     },
     getRun(_store, runId) {
       calls.push({ method: "getRun", id: runId });
-      const error = new Error("runtime lifecycle projection requires Rust core");
-      error.status = 501;
-      error.code = "runtime_lifecycle_projection_rust_core_required";
-      error.details = { projection_kind: "run", run_id: runId };
-      throw error;
+      return { projection: "run", runId };
     },
     waitRun(_store, runId) {
       calls.push({ method: "waitRun", id: runId });
-      const error = new Error("runtime lifecycle projection requires Rust core");
-      error.status = 501;
-      error.code = "runtime_lifecycle_projection_rust_core_required";
-      error.details = { projection_kind: "run_wait", run_id: runId };
-      throw error;
+      return { projection: "run_wait", runId };
     },
     getRunConversation(_store, runId) {
       calls.push({ method: "getRunConversation", id: runId });
-      const error = new Error("runtime lifecycle projection requires Rust core");
-      error.status = 501;
-      error.code = "runtime_lifecycle_projection_rust_core_required";
-      error.details = { projection_kind: "run_conversation", run_id: runId };
-      throw error;
+      return [{ projection: "run_conversation", runId }];
     },
     getRunUsage(_store, runId) {
       calls.push({ method: "getRunUsage", id: runId });
-      const error = new Error("runtime lifecycle projection requires Rust core");
-      error.status = 501;
-      error.code = "runtime_lifecycle_projection_rust_core_required";
-      error.details = { projection_kind: "run_usage", run_id: runId };
-      throw error;
+      return { projection: "run_usage", runId };
     },
     listRunEvents(_store, runId) {
       calls.push({ method: "listRunEvents", id: runId });
-      const error = new Error("runtime lifecycle projection requires Rust core");
-      error.status = 501;
-      error.code = "runtime_lifecycle_projection_rust_core_required";
-      error.details = { projection_kind: "run_events", run_id: runId };
-      throw error;
+      return [{ projection: "run_events", runId }];
     },
     replayRun(_store, runId) {
       calls.push({ method: "replayRun", id: runId });
-      const error = new Error("runtime lifecycle projection requires Rust core");
-      error.status = 501;
-      error.code = "runtime_lifecycle_projection_rust_core_required";
-      error.details = { projection_kind: "run_replay", run_id: runId };
-      throw error;
+      return [{ projection: "run_replay", runId }];
     },
     getRunTrace(_store, runId) {
       calls.push({ method: "getRunTrace", id: runId });
-      const error = new Error("runtime lifecycle projection requires Rust core");
-      error.status = 501;
-      error.code = "runtime_lifecycle_projection_rust_core_required";
-      error.details = { projection_kind: "run_trace", run_id: runId };
-      throw error;
+      return { projection: "run_trace", runId };
     },
     getRunComputerUseTrace(_store, runId) {
       calls.push({ method: "getRunComputerUseTrace", id: runId });
-      const error = new Error("runtime lifecycle projection requires Rust core");
-      error.status = 501;
-      error.code = "runtime_lifecycle_projection_rust_core_required";
-      error.details = { projection_kind: "run_computer_use_trace", run_id: runId };
-      throw error;
+      return { projection: "run_computer_use_trace", runId };
     },
     getRunComputerUseTrajectory(_store, runId) {
       calls.push({ method: "getRunComputerUseTrajectory", id: runId });
-      const error = new Error("runtime lifecycle projection requires Rust core");
-      error.status = 501;
-      error.code = "runtime_lifecycle_projection_rust_core_required";
-      error.details = { projection_kind: "run_computer_use_trajectory", run_id: runId };
-      throw error;
+      return [{ projection: "run_computer_use_trajectory", runId }];
     },
     getRunScorecard(_store, runId) {
       calls.push({ method: "getRunScorecard", id: runId });
-      const error = new Error("runtime lifecycle projection requires Rust core");
-      error.status = 501;
-      error.code = "runtime_lifecycle_projection_rust_core_required";
-      error.details = { projection_kind: "run_scorecard", run_id: runId };
-      throw error;
+      return { projection: "run_scorecard", runId };
     },
     listRunArtifacts(_store, runId) {
       calls.push({ method: "listRunArtifacts", id: runId });
-      const error = new Error("runtime lifecycle projection requires Rust core");
-      error.status = 501;
-      error.code = "runtime_lifecycle_projection_rust_core_required";
-      error.details = { projection_kind: "run_artifacts", run_id: runId };
-      throw error;
+      return [{ projection: "run_artifacts", runId }];
     },
     getRunArtifact(_store, runId, artifactRef) {
       calls.push({ method: "getRunArtifact", id: runId, artifactRef });
-      const error = new Error("runtime lifecycle projection requires Rust core");
-      error.status = 501;
-      error.code = "runtime_lifecycle_projection_rust_core_required";
-      error.details = { projection_kind: "run_artifact", run_id: runId, artifact_ref: artifactRef };
-      throw error;
+      return { projection: "run_artifact", runId, artifactRef };
     },
     listRuns(_store, agentId) {
       calls.push({ method: "listRuns", id: agentId });
-      const error = new Error("runtime lifecycle projection requires Rust core");
-      error.status = 501;
-      error.code = "runtime_lifecycle_projection_rust_core_required";
-      error.details = { projection_kind: "agent_runs", agent_id: agentId };
-      throw error;
+      return [{ projection: "agent_runs", agentId }];
     },
   };
   const store = {
@@ -276,36 +200,32 @@ test("agent, thread, and run detail routes use lifecycle projection surface", as
     eventsForThread: retiredRouteWrapper,
   };
 
-  await assert.rejects(
-    () => handleAgentRoute({
+  const routeRequests = [
+    {
+      handler: handleAgentRoute,
       request: request({ url: "/v1/agents/agent_route" }),
       response: responseRecorder(),
       store,
       url: new URL("/v1/agents/agent_route", "http://daemon.test"),
       segments: ["v1", "agents", "agent_route"],
-    }),
-    { code: "runtime_lifecycle_projection_rust_core_required" },
-  );
-  await assert.rejects(
-    () => handleAgentRoute({
+    },
+    {
+      handler: handleAgentRoute,
       request: request({ url: "/v1/agents/agent_route/runs" }),
       response: responseRecorder(),
       store,
       url: new URL("/v1/agents/agent_route/runs", "http://daemon.test"),
       segments: ["v1", "agents", "agent_route", "runs"],
-    }),
-    { code: "runtime_lifecycle_projection_rust_core_required" },
-  );
-  await assert.rejects(
-    () => handleThreadRoute({
+    },
+    {
+      handler: handleThreadRoute,
       request: request({ url: "/v1/threads/thread_route" }),
       response: responseRecorder(),
       store,
       url: new URL("/v1/threads/thread_route", "http://daemon.test"),
       segments: ["v1", "threads", "thread_route"],
-    }),
-    { code: "runtime_lifecycle_projection_rust_core_required" },
-  );
+    },
+  ];
   for (const path of [
     "/v1/threads/thread_route/usage",
     "/v1/threads/thread_route/turns",
@@ -313,27 +233,23 @@ test("agent, thread, and run detail routes use lifecycle projection surface", as
     "/v1/threads/thread_route/events",
     "/v1/threads/thread_route/events/stream",
   ]) {
-    await assert.rejects(
-      () => handleThreadRoute({
-        request: request({ url: path }),
-        response: responseRecorder(),
-        store,
-        url: new URL(path, "http://daemon.test"),
-        segments: path.split("/").filter(Boolean),
-      }),
-      { code: "runtime_lifecycle_projection_rust_core_required" },
-    );
+    routeRequests.push({
+      handler: handleThreadRoute,
+      request: request({ url: path }),
+      response: responseRecorder(),
+      store,
+      url: new URL(path, "http://daemon.test"),
+      segments: path.split("/").filter(Boolean),
+    });
   }
-  await assert.rejects(
-    () => handleRunRoute({
+  routeRequests.push({
+    handler: handleRunRoute,
       request: request({ url: "/v1/runs/run_route" }),
       response: responseRecorder(),
       store,
       url: new URL("/v1/runs/run_route", "http://daemon.test"),
       segments: ["v1", "runs", "run_route"],
-    }),
-    { code: "runtime_lifecycle_projection_rust_core_required" },
-  );
+  });
   for (const path of [
     "/v1/runs/run_route/usage",
     "/v1/runs/run_route/wait",
@@ -348,16 +264,19 @@ test("agent, thread, and run detail routes use lifecycle projection surface", as
     "/v1/runs/run_route/artifacts",
     "/v1/runs/run_route/artifacts/artifact_1",
   ]) {
-    await assert.rejects(
-      () => handleRunRoute({
-        request: request({ url: path }),
-        response: responseRecorder(),
-        store,
-        url: new URL(path, "http://daemon.test"),
-        segments: path.split("/").filter(Boolean),
-      }),
-      { code: "runtime_lifecycle_projection_rust_core_required" },
-    );
+    routeRequests.push({
+      handler: handleRunRoute,
+      request: request({ url: path }),
+      response: responseRecorder(),
+      store,
+      url: new URL(path, "http://daemon.test"),
+      segments: path.split("/").filter(Boolean),
+    });
+  }
+
+  for (const routeRequest of routeRequests) {
+    await routeRequest.handler(routeRequest);
+    assert.equal(routeRequest.response.statusCode, 200);
   }
 
   assert.deepEqual(calls, [
@@ -1053,6 +972,10 @@ test("thread route sends approvals through mounted approval surface", async () =
   });
   const store = {
     approvalSurface: {
+      listThreadApprovals(surfaceStore, threadId, requestQuery) {
+        calls.push({ operation: "listThreadApprovals", surfaceStore, args: [threadId, requestQuery] });
+        return surfaceResult("listThreadApprovals", [threadId, requestQuery]);
+      },
       requestThreadApproval(surfaceStore, threadId, requestBody) {
         calls.push({ operation: "requestThreadApproval", surfaceStore, args: [threadId, requestBody] });
         return surfaceResult("requestThreadApproval", [threadId, requestBody]);
@@ -1075,35 +998,48 @@ test("thread route sends approvals through mounted approval surface", async () =
       },
     },
     requestThreadApproval: retiredRouteWrapper,
+    listThreadApprovals: retiredRouteWrapper,
     decideThreadApproval: retiredRouteWrapper,
     revokeThreadApproval: retiredRouteWrapper,
   };
   const cases = [
     {
+      method: "GET",
+      path: "/v1/threads/thread_route/approvals?include_resolved=true",
+      segments: ["v1", "threads", "thread_route", "approvals"],
+      operation: "listThreadApprovals",
+      args: ["thread_route", { include_resolved: "true" }],
+    },
+    {
+      method: "POST",
       path: "/v1/threads/thread_route/approvals",
       segments: ["v1", "threads", "thread_route", "approvals"],
       operation: "requestThreadApproval",
       args: ["thread_route", body],
     },
     {
+      method: "POST",
       path: "/v1/threads/thread_route/approvals/approval_route/decision",
       segments: ["v1", "threads", "thread_route", "approvals", "approval_route", "decision"],
       operation: "decideThreadApproval",
       args: ["thread_route", "approval_route", body],
     },
     {
+      method: "POST",
       path: "/v1/threads/thread_route/approvals/approval_route/approve",
       segments: ["v1", "threads", "thread_route", "approvals", "approval_route", "approve"],
       operation: "decideThreadApproval",
       args: ["thread_route", "approval_route", { ...body, decision: "approve" }],
     },
     {
+      method: "POST",
       path: "/v1/threads/thread_route/approvals/approval_route/reject",
       segments: ["v1", "threads", "thread_route", "approvals", "approval_route", "reject"],
       operation: "decideThreadApproval",
       args: ["thread_route", "approval_route", { ...body, decision: "reject" }],
     },
     {
+      method: "POST",
       path: "/v1/threads/thread_route/approvals/approval_route/revoke",
       segments: ["v1", "threads", "thread_route", "approvals", "approval_route", "revoke"],
       operation: "revokeThreadApproval",
@@ -1115,7 +1051,7 @@ test("thread route sends approvals through mounted approval surface", async () =
     const response = responseRecorder();
     await handleThreadRoute({
       request: request({
-        method: "POST",
+        method: testCase.method,
         url: testCase.path,
         body,
       }),

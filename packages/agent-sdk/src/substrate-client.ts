@@ -1442,7 +1442,7 @@ export interface RuntimeSubstrateClient {
   cancelRun(runId: string): Promise<RuntimeRunRecord>;
   getRun(runId: string): Promise<RuntimeRunRecord>;
   getRunUsage(runId: string): Promise<RuntimeUsageTelemetry>;
-  listRuns(agentId?: string): Promise<RuntimeRunRecord[]>;
+  listRuns(agent_id?: string): Promise<RuntimeRunRecord[]>;
   listUsage(input?: RuntimeUsageListInput): Promise<RuntimeUsageListResult>;
   createTask(options?: RuntimeTaskCreateOptions): Promise<RuntimeTaskRecord>;
   listTasks(options?: RuntimeTaskListOptions): Promise<RuntimeTaskRecord[]>;
@@ -2062,8 +2062,8 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
     return this.request("getRunUsage", "GET", `/v1/runs/${encodePath(runId)}/usage`);
   }
 
-  async listRuns(agentId?: string): Promise<RuntimeRunRecord[]> {
-    const query = agentId ? `?agentId=${encodeURIComponent(agentId)}` : "";
+  async listRuns(agent_id?: string): Promise<RuntimeRunRecord[]> {
+    const query = agent_id ? `?agent_id=${encodeURIComponent(agent_id)}` : "";
     return this.request("listRuns", "GET", `/v1/runs${query}`);
   }
 

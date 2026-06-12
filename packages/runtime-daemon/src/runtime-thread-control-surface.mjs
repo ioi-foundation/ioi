@@ -2,22 +2,15 @@ import {
   RUNTIME_MODEL_ROUTE_CONTROL_SCHEMA_VERSION,
   RUNTIME_THREAD_CONTROLS_SCHEMA_VERSION,
   RUNTIME_THREAD_MODE_CONTROL_SCHEMA_VERSION,
-  WORKSPACE_TRUST_ACKNOWLEDGEMENT_SCHEMA_VERSION,
-  WORKSPACE_TRUST_WARNING_SCHEMA_VERSION,
 } from "./runtime-contract-constants.mjs";
-import {
-  eventStreamIdForThread,
-  fixtureProfileForAgent,
-  runtimeSessionIdForAgent,
-} from "./runtime-identifiers.mjs";
+import { eventStreamIdForThread } from "./runtime-identifiers.mjs";
 import { createContextPolicyRunnerFromEnv } from "./runtime-context-policy-runner.mjs";
 import { runtimeError } from "./runtime-http-utils.mjs";
 import {
-  operatorControlSource,
+  objectRecord,
   optionalString,
   safeId,
 } from "./runtime-value-helpers.mjs";
-import { workspaceTrustWarningRecordForMode } from "./repository-context.mjs";
 import {
   approvalModeForThreadMode,
   normalizeThreadApprovalMode,
@@ -32,61 +25,40 @@ export function createRuntimeThreadControlSurface({
   approvalModeForThreadMode: approvalModeForThreadModeDep = approvalModeForThreadMode,
   contextPolicyRunner: contextPolicyRunnerDep = createContextPolicyRunnerFromEnv(),
   eventStreamIdForThread: eventStreamIdForThreadDep = eventStreamIdForThread,
-  fixtureProfileForAgent: fixtureProfileForAgentDep = fixtureProfileForAgent,
   normalizeThreadApprovalMode: normalizeThreadApprovalModeDep = normalizeThreadApprovalMode,
   normalizeThreadInteractionMode: normalizeThreadInteractionModeDep = normalizeThreadInteractionMode,
   normalizedAgentRuntimeControls: normalizedAgentRuntimeControlsDep = normalizedAgentRuntimeControls,
   nowIso = () => new Date().toISOString(),
-  operatorControlSource: operatorControlSourceDep = operatorControlSource,
   optionalString: optionalStringDep = optionalString,
   runtimeError: runtimeErrorDep = runtimeError,
-  runtimeSessionIdForAgent: runtimeSessionIdForAgentDep = runtimeSessionIdForAgent,
   safeId: safeIdDep = safeId,
   threadRuntimeControlKind: threadRuntimeControlKindDep = threadRuntimeControlKind,
   threadRuntimeControlModelInput: threadRuntimeControlModelInputDep = threadRuntimeControlModelInput,
   workspaceTrustState,
-  workspaceTrustWarningRecordForMode: workspaceTrustWarningRecordForModeDep = workspaceTrustWarningRecordForMode,
-  workspaceTrustAcknowledgementSchemaVersion = WORKSPACE_TRUST_ACKNOWLEDGEMENT_SCHEMA_VERSION,
-  workspaceTrustWarningSchemaVersion = WORKSPACE_TRUST_WARNING_SCHEMA_VERSION,
   runtimeThreadControlsSchemaVersion = RUNTIME_THREAD_CONTROLS_SCHEMA_VERSION,
   runtimeThreadModeControlSchemaVersion = RUNTIME_THREAD_MODE_CONTROL_SCHEMA_VERSION,
   runtimeModelRouteControlSchemaVersion = RUNTIME_MODEL_ROUTE_CONTROL_SCHEMA_VERSION,
 } = {}) {
   const trustState = workspaceTrustState ?? createWorkspaceTrustState({
     eventStreamIdForThread: eventStreamIdForThreadDep,
-    fixtureProfileForAgent: fixtureProfileForAgentDep,
-    optionalString: optionalStringDep,
-    operatorControlSource: operatorControlSourceDep,
     runtimeError: runtimeErrorDep,
-    runtimeSessionIdForAgent: runtimeSessionIdForAgentDep,
-    safeId: safeIdDep,
-    workspaceTrustAcknowledgementSchemaVersion,
-    workspaceTrustWarningRecordForMode: workspaceTrustWarningRecordForModeDep,
-    workspaceTrustWarningSchemaVersion,
-	  });
+    contextPolicyRunner: contextPolicyRunnerDep,
+    nowIso,
+  });
 
   return {
     updateThreadMode(store, threadId, request = {}) {
-      void store;
-      void request;
-      throwThreadControlRustCoreRequired({ threadId, controlKind: "mode" });
+      return applyRustThreadControlStateUpdate(store, threadId, "mode", request);
     },
     updateThreadModel(store, threadId, request = {}) {
-      void store;
-      void request;
-      throwThreadControlRustCoreRequired({ threadId, controlKind: "model" });
+      return applyRustThreadControlStateUpdate(store, threadId, "model", request);
     },
     updateThreadThinking(store, threadId, request = {}) {
-      void store;
-      void request;
-      throwThreadControlRustCoreRequired({ threadId, controlKind: "thinking" });
+      return applyRustThreadControlStateUpdate(store, threadId, "thinking", request);
     },
     updateThreadRuntimeControls(store, threadId, request = {}) {
-      void store;
-      throwThreadControlRustCoreRequired({
-        threadId,
-        controlKind: threadRuntimeControlKindDep(request),
-      });
+      const controlKind = threadRuntimeControlKindDep(request);
+      return applyRustThreadControlStateUpdate(store, threadId, controlKind, request);
     },
     appendThreadRuntimeControlEvent(store, {
       agent,
@@ -119,6 +91,202 @@ export function createRuntimeThreadControlSurface({
     },
   };
 
+  function applyRustThreadControlStateUpdate(store, threadId, controlKind, request = {}) {
+    const planner = contextPolicyRunnerDep?.planThreadControlAgentStateUpdate;
+    if (typeof planner !== "function") {
+      throwThreadControlRustCoreRequired({ threadId, controlKind });
+    }
+    if (
+      controlKind === "mode" &&
+      !workspaceTrustState &&
+      typeof contextPolicyRunnerDep?.planWorkspaceTrustControlStateUpdate !== "function"
+    ) {
+      throwWorkspaceTrustRustCoreRequired({ threadId });
+    }
+    const agent = objectRecord(store.agentForThread?.(threadId));
+    if (!agent) {
+      throw runtimeErrorDep({
+        status: 404,
+        code: "thread_control_agent_not_found",
+        message: "Thread runtime control requires a canonical agent projection.",
+        details: { thread_id: threadId },
+      });
+    }
+
+    const now = optionalStringDep(request.updated_at) ?? nowIso();
+    const controls = nextThreadRuntimeControls(store, agent, controlKind, request, now);
+    const modelRoute = controls.model_route ?? null;
+    const { model_route: _modelRoute, ...controlsForRust } = controls;
+    const eventStreamId = eventStreamIdForThreadDep(threadId);
+    const latestSeq = typeof store.latestRuntimeEventSeq === "function"
+      ? Number(store.latestRuntimeEventSeq(eventStreamId) ?? 0)
+      : 0;
+    const eventId =
+      optionalStringDep(request.event_id) ??
+      `thread_control_${safeIdDep(threadId)}_${controlKind}_${safeIdDep(now)}`;
+    const stateUpdate = planner.call(contextPolicyRunnerDep, {
+      thread_id: threadId,
+      agent,
+      control_kind: controlKind,
+      controls: controlsForRust,
+      event_id: eventId,
+      seq: Number.isFinite(latestSeq) ? latestSeq + 1 : 1,
+      created_at: now,
+      updated_at: now,
+      model_route: modelRoute,
+      receipt_refs: threadControlReceiptRefs(controls),
+      policy_decision_refs: [],
+    });
+    const record = objectRecord(stateUpdate?.record) ?? objectRecord(stateUpdate) ?? {};
+    const plannedAgent = objectRecord(record.agent);
+    if (!plannedAgent) {
+      throw runtimeErrorDep({
+        status: 502,
+        code: "thread_control_rust_agent_update_missing",
+        message: "Rust thread-control planner did not return an agent state projection.",
+        details: {
+          operation_kind: record.operation_kind ?? `thread.${controlKind}`,
+          thread_id: threadId,
+        },
+      });
+    }
+    const operationKind = optionalStringDep(record.operation_kind) ?? `thread.${controlKind}`;
+    const commit = store.writeAgent(plannedAgent, operationKind);
+    const result = {
+      ...record,
+      commit,
+      source: stateUpdate?.source ?? record.source ?? "rust_thread_control_api",
+      backend: stateUpdate?.backend ?? record.backend ?? "rust_policy",
+    };
+    if (controlKind === "mode") {
+      const workspaceTrust = trustState.appendWorkspaceTrustWarningEvent(store, {
+        agent: plannedAgent,
+        threadId,
+        controls: controlsForRust,
+        request,
+        source: request.source,
+        requestedBy: request.actor,
+        workflowGraphId: request.workflow_graph_id,
+        modeEvent: objectRecord(record.control),
+        now,
+      });
+      if (workspaceTrust?.workspace_trust_warning) {
+        result.workspace_trust_warning = workspaceTrust.workspace_trust_warning;
+      }
+      if (workspaceTrust?.workspace_trust_warning_event) {
+        result.workspace_trust_warning_event = workspaceTrust.workspace_trust_warning_event;
+      }
+      if (workspaceTrust?.event) {
+        result.workspace_trust_event = workspaceTrust.event;
+      }
+    }
+    return result;
+  }
+
+  function nextThreadRuntimeControls(store, agent, controlKind, request, now) {
+    const current = normalizedAgentRuntimeControlsDep(agent);
+    if (controlKind === "mode") {
+      const mode = normalizeThreadInteractionModeDep(
+        request.mode ?? request.interaction_mode ?? current.mode,
+      );
+      const approvalMode = normalizeThreadApprovalModeDep(
+        request.approval_mode,
+        approvalModeForThreadModeDep(mode),
+      );
+      return {
+        ...current,
+        mode,
+        approvalMode,
+        approval_mode: approvalMode,
+        model: {
+          ...(objectRecord(current.model) ?? {}),
+        },
+        updatedAt: now,
+      };
+    }
+
+    const { model, workflowNodeId: workflow_node_id } = threadRuntimeControlModelInputDep(
+      request,
+      current,
+      agent,
+    );
+    const workflow_graph_id =
+      optionalStringDep(model.workflow_graph_id) ??
+      optionalStringDep(current.model?.workflow_graph_id) ??
+      null;
+    const modelRoute = store.resolveModelRoute(
+      { model },
+      {
+        evidence_refs: ["runtime_thread_control_model_route"],
+        workflow_graph_id,
+        workflow_node_id,
+        workflow_node_type: "Model Router",
+      },
+    );
+    const canonicalModelRoute = threadControlAgentStateUpdateModelRoute(modelRoute, model);
+    return {
+      ...current,
+      model: {
+        ...(objectRecord(current.model) ?? {}),
+        ...model,
+        selected_model: canonicalModelRoute.selected_model,
+        endpoint_id: canonicalModelRoute.endpoint_id,
+        provider_id: canonicalModelRoute.provider_id,
+        receipt_id: canonicalModelRoute.receipt_id,
+        workflow_graph_id: canonicalModelRoute.workflow_graph_id ?? workflow_graph_id,
+        workflow_node_id: canonicalModelRoute.workflow_node_id ?? workflow_node_id,
+        updated_at: now,
+      },
+      model_route: canonicalModelRoute,
+      updatedAt: now,
+    };
+  }
+
+  function threadControlAgentStateUpdateModelRoute(modelRoute = {}, model = {}) {
+    const decision = objectRecord(modelRoute.decision) ?? {};
+    return {
+      requested_model_id:
+        optionalStringDep(modelRoute.requested_model_id) ??
+        optionalStringDep(model.id) ??
+        "auto",
+      selected_model:
+        optionalStringDep(modelRoute.selected_model) ??
+        optionalStringDep(model.id) ??
+        "auto",
+      route_id:
+        optionalStringDep(modelRoute.route_id) ??
+        optionalStringDep(model.route_id) ??
+        "route.local-first",
+      endpoint_id:
+        optionalStringDep(modelRoute.endpoint_id) ??
+        null,
+      provider_id:
+        optionalStringDep(modelRoute.provider_id) ??
+        null,
+      receipt_id:
+        optionalStringDep(modelRoute.receipt_id) ??
+        null,
+      workflow_graph_id:
+        optionalStringDep(decision.workflow_graph_id) ??
+        optionalStringDep(model.workflow_graph_id) ??
+        null,
+      workflow_node_id:
+        optionalStringDep(decision.workflow_node_id) ??
+        optionalStringDep(model.workflow_node_id) ??
+        "runtime.model-router",
+      decision,
+    };
+  }
+
+  function threadControlReceiptRefs(controls = {}) {
+    const refs = [];
+    const modelReceipt = optionalStringDep(controls.model?.receipt_id);
+    const routeReceipt = optionalStringDep(controls.model_route?.receipt_id);
+    if (modelReceipt) refs.push(modelReceipt);
+    if (routeReceipt) refs.push(routeReceipt);
+    return [...new Set(refs)];
+  }
+
   function throwThreadControlRustCoreRequired({ threadId = null, controlKind = null } = {}) {
     throw runtimeErrorDep({
       status: 501,
@@ -138,6 +306,25 @@ export function createRuntimeThreadControlSurface({
           "runtime_thread_control_event_js_facade_retired",
           "rust_daemon_core_thread_control_required",
           "agentgres_thread_control_truth_required",
+        ],
+      },
+    });
+  }
+
+  function throwWorkspaceTrustRustCoreRequired({ threadId = null } = {}) {
+    throw runtimeErrorDep({
+      status: 501,
+      code: "runtime_workspace_trust_control_rust_core_required",
+      message: "Workspace trust control requires direct Rust daemon-core admission and projection.",
+      details: {
+        rust_core_boundary: "runtime.workspace_trust_control",
+        operation: "workspace_trust_control",
+        operation_kind: "workspace_trust_control",
+        thread_id: threadId,
+        evidence_refs: [
+          "runtime_workspace_trust_control_rust_planner_required",
+          "runtime_workspace_trust_event_admission_rust_required",
+          "agentgres_workspace_trust_truth_required",
         ],
       },
     });

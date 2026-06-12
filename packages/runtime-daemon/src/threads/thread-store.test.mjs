@@ -55,36 +55,39 @@ function fakeStore(options = {}) {
   return {
     agents: new Map(),
     calls,
-    contextPolicyRunner:
-      Object.hasOwn(options, "agentStatusStateUpdate")
-        ? {
-            planLifecycleAdmissionRequired(request = {}) {
-              calls.push({ operation: "plan_lifecycle_admission_required", input: request });
-              return lifecycleRequiredRecord(request);
-            },
-            planAgentStatusStateUpdate(request = {}) {
-              calls.push({ operation: "plan_agent_status_state_update", input: request });
-              return options.agentStatusStateUpdate;
-            },
-          }
-        : {
-            planLifecycleAdmissionRequired(request = {}) {
-              calls.push({ operation: "plan_lifecycle_admission_required", input: request });
-              return lifecycleRequiredRecord(request);
-            },
-            planAgentStatusStateUpdate(request = {}) {
-              calls.push({ operation: "plan_agent_status_state_update", input: request });
-              return {
-                status: "planned",
-                operation_kind: request.operation_kind,
-                agent: {
-                  ...request.agent,
-                  status: request.status,
-                  updatedAt: request.updated_at,
-                },
-              };
-            },
+    contextPolicyRunner: {
+      planLifecycleAdmissionRequired(request = {}) {
+        calls.push({ operation: "plan_lifecycle_admission_required", input: request });
+        return lifecycleRequiredRecord(request);
+      },
+      planAgentStatusStateUpdate(request = {}) {
+        calls.push({ operation: "plan_agent_status_state_update", input: request });
+        if (Object.hasOwn(options, "agentStatusStateUpdate")) return options.agentStatusStateUpdate;
+        return {
+          status: "planned",
+          operation_kind: request.operation_kind,
+          agent: {
+            ...request.agent,
+            status: request.status,
+            updatedAt: request.updated_at,
           },
+        };
+      },
+      planAgentDeleteStateUpdate(request = {}) {
+        calls.push({ operation: "plan_agent_delete_state_update", input: request });
+        if (Object.hasOwn(options, "agentDeleteStateUpdate")) return options.agentDeleteStateUpdate;
+        return {
+          status: "planned",
+          operation_kind: request.operation_kind,
+          agent: {
+            ...request.agent,
+            status: "deleted",
+            deletedAt: request.deleted_at,
+            updatedAt: request.deleted_at,
+          },
+        };
+      },
+    },
     inFlightRuntimeTurns: new Map(),
     runs: new Map(),
     stateDir: "/state",
@@ -112,6 +115,7 @@ function fakeStore(options = {}) {
     },
     writeAgent(agent, operationKind) {
       this.calls.push({ operation: "write_agent", agent, operationKind });
+      this.agents.set(agent.id, agent);
     },
   };
 }
@@ -233,21 +237,54 @@ test("thread store projects usage for run and thread", () => {
   });
 });
 
-test("thread store agent status facade fails closed before Rust planning or JS persistence", () => {
+test("thread store updates agent status through Rust state planning and Agentgres commit", () => {
   const store = fakeStore();
   store.agents.set("agent_1", { id: "agent_1", status: "active", createdAt: "2026-06-03T00:00:00.000Z" });
+
+  const agent = updateAgent(store, "agent_1", "archived", "agent.archive");
+
+  assert.equal(agent.status, "archived");
+  assert.equal(store.agents.get("agent_1").status, "archived");
+  assert.equal(store.calls.some((call) => call.operation === "plan_lifecycle_admission_required"), false);
+  assert.deepEqual(
+    store.calls.filter((call) => call.operation === "plan_agent_status_state_update"),
+    [{
+      operation: "plan_agent_status_state_update",
+      input: {
+        agent: { id: "agent_1", status: "active", createdAt: "2026-06-03T00:00:00.000Z" },
+        status: "archived",
+        operation_kind: "agent.archive",
+        updated_at: store.calls.find((call) => call.operation === "plan_agent_status_state_update").input.updated_at,
+      },
+    }],
+  );
+  assert.match(
+    store.calls.find((call) => call.operation === "plan_agent_status_state_update").input.updated_at,
+    /^\d{4}-\d{2}-\d{2}T/,
+  );
+  assert.deepEqual(
+    store.calls.filter((call) => call.operation === "write_agent"),
+    [{
+      operation: "write_agent",
+      agent,
+      operationKind: "agent.archive",
+    }],
+  );
+});
+
+test("thread store agent status control fails closed without Rust status planner", () => {
+  const store = fakeStore();
+  store.contextPolicyRunner = {};
+  store.agents.set("agent_1", { id: "agent_1", status: "active" });
 
   assert.throws(
     () => updateAgent(store, "agent_1", "archived", "agent.archive"),
     (error) => {
       assert.equal(error.status, 501);
       assert.equal(error.code, "runtime_agent_status_control_rust_core_required");
-      assert.equal(error.details.rust_core_boundary, "runtime.agent_status_control");
-      assert.equal(error.details.operation, "agent_status_control");
-      assert.equal(error.details.operation_kind, "agent_status_update");
-      assert.equal(error.details.requested_operation_kind, "agent.archive");
       assert.equal(error.details.agent_id, "agent_1");
       assert.equal(error.details.requested_status, "archived");
+      assert.equal(error.details.requested_operation_kind, "agent.archive");
       assert.deepEqual(error.details.evidence_refs, [
         "runtime_agent_status_control_js_facade_retired",
         "runtime_agent_archive_js_facade_retired",
@@ -262,64 +299,94 @@ test("thread store agent status facade fails closed before Rust planning or JS p
       return true;
     },
   );
-  assert.deepEqual(
-    store.calls.filter((call) => call.operation === "plan_lifecycle_admission_required"),
-    [{
-      operation: "plan_lifecycle_admission_required",
-      input: {
-        operation: "agent_status_control",
-        operation_kind: "agent_status_update",
-        agent_id: "agent_1",
-        requested_status: "archived",
-        requested_operation_kind: "agent.archive",
-        evidence_refs: [
-          "runtime_agent_status_control_js_facade_retired",
-          "runtime_agent_archive_js_facade_retired",
-          "runtime_agent_unarchive_js_facade_retired",
-          "runtime_agent_resume_js_facade_retired",
-          "runtime_agent_close_js_facade_retired",
-          "runtime_agent_reload_js_facade_retired",
-          "rust_daemon_core_agent_status_control_required",
-          "agentgres_agent_status_state_truth_required",
-        ],
-      },
-    }],
-  );
+  assert.equal(store.calls.some((call) => call.operation === "plan_lifecycle_admission_required"), false);
   assert.equal(store.calls.some((call) => call.operation === "plan_agent_status_state_update"), false);
   assert.equal(store.calls.some((call) => call.operation === "write_agent"), false);
-  assert.equal(store.agents.get("agent_1").status, "active");
 });
 
-test("thread store agent status facade fails closed without JS agent lookup", () => {
-  const store = fakeStore();
-  store.getAgent = () => {
-    throw new Error("unexpected JS agent lookup");
-  };
+test("thread store agent status control rejects missing Rust-planned agent", () => {
+  const store = fakeStore({ agentStatusStateUpdate: { status: "planned", operation_kind: "agent.archive" } });
+  store.agents.set("agent_1", { id: "agent_1", status: "active" });
 
   assert.throws(
     () => updateAgent(store, "agent_1", "archived", "agent.archive"),
     (error) => {
-      assert.equal(error.status, 501);
-      assert.equal(error.code, "runtime_agent_status_control_rust_core_required");
+      assert.equal(error.status, 502);
+      assert.equal(error.code, "agent_status_state_update_agent_missing");
       assert.equal(error.details.agent_id, "agent_1");
       assert.equal(error.details.requested_status, "archived");
-      assert.equal(error.details.requested_operation_kind, "agent.archive");
       assertNoRetiredAgentStatusDetailAliases(error.details);
       return true;
     },
   );
-  assert.equal(
-    store.calls.filter((call) => call.operation === "plan_lifecycle_admission_required").length,
-    1,
-  );
-  assert.equal(store.calls.some((call) => call.operation === "plan_agent_status_state_update"), false);
   assert.equal(store.calls.some((call) => call.operation === "write_agent"), false);
 });
 
-test("thread store permanent delete facade fails closed before JS state mutation", () => {
+test("thread store agent status control rejects mismatched Rust operation kind", () => {
+  const store = fakeStore({
+    agentStatusStateUpdate: {
+      status: "planned",
+      operation_kind: "agent.unarchive",
+      agent: { id: "agent_1", status: "archived" },
+    },
+  });
+  store.agents.set("agent_1", { id: "agent_1", status: "active" });
+
+  assert.throws(
+    () => updateAgent(store, "agent_1", "archived", "agent.archive"),
+    (error) => {
+      assert.equal(error.status, 502);
+      assert.equal(error.code, "agent_status_state_update_operation_kind_mismatch");
+      assert.equal(error.details.expected_operation_kind, "agent.archive");
+      assert.equal(error.details.actual_operation_kind, "agent.unarchive");
+      assertNoRetiredAgentStatusDetailAliases(error.details);
+      return true;
+    },
+  );
+  assert.equal(store.calls.some((call) => call.operation === "write_agent"), false);
+});
+
+test("thread store permanent delete commits Rust tombstone through Agentgres", () => {
   const store = fakeStore();
   store.agents.set("agent_1", { id: "agent_1", status: "active", createdAt: "2026-06-03T00:00:00.000Z" });
   store.runs.set("run_1", { id: "run_1", agentId: "agent_1" });
+
+  const agent = deleteAgent(store, "agent_1", deps(store.calls));
+
+  assert.equal(agent.status, "deleted");
+  assert.equal(store.agents.get("agent_1").status, "deleted");
+  assert.equal(store.calls.some((call) => call.operation === "plan_lifecycle_admission_required"), false);
+  assert.deepEqual(
+    store.calls.filter((call) => call.operation === "plan_agent_delete_state_update"),
+    [{
+      operation: "plan_agent_delete_state_update",
+      input: {
+        agent: { id: "agent_1", status: "active", createdAt: "2026-06-03T00:00:00.000Z" },
+        operation_kind: "agent.delete",
+        deleted_at: store.calls.find((call) => call.operation === "plan_agent_delete_state_update").input.deleted_at,
+      },
+    }],
+  );
+  assert.match(
+    store.calls.find((call) => call.operation === "plan_agent_delete_state_update").input.deleted_at,
+    /^\d{4}-\d{2}-\d{2}T/,
+  );
+  assert.deepEqual(
+    store.calls.filter((call) => call.operation === "write_agent"),
+    [{
+      operation: "write_agent",
+      agent,
+      operationKind: "agent.delete",
+    }],
+  );
+  assert.equal(store.calls.some((call) => call.operation === "remove_quiet"), false);
+  assert.equal(store.calls.some((call) => call.operation === "append_operation"), false);
+});
+
+test("thread store permanent delete fails closed without Rust delete planner", () => {
+  const store = fakeStore();
+  store.contextPolicyRunner = {};
+  store.agents.set("agent_1", { id: "agent_1", status: "active" });
 
   assert.throws(
     () => deleteAgent(store, "agent_1", deps(store.calls)),
@@ -339,25 +406,75 @@ test("thread store permanent delete facade fails closed before JS state mutation
       return true;
     },
   );
-  assert.deepEqual(
-    store.calls.filter((call) => call.operation === "plan_lifecycle_admission_required"),
-    [{
-      operation: "plan_lifecycle_admission_required",
-      input: {
-        operation: "agent_delete",
-        operation_kind: "agent_deletion",
-        agent_id: "agent_1",
-        evidence_refs: [
-          "runtime_agent_delete_js_facade_retired",
-          "rust_daemon_core_agent_delete_required",
-          "agentgres_agent_delete_state_truth_required",
-        ],
-      },
-    }],
-  );
   assert.equal(store.agents.has("agent_1"), true);
+  assert.equal(store.calls.some((call) => call.operation === "plan_lifecycle_admission_required"), false);
+  assert.equal(store.calls.some((call) => call.operation === "plan_agent_delete_state_update"), false);
+  assert.equal(store.calls.some((call) => call.operation === "write_agent"), false);
+});
+
+test("thread store permanent delete rejects missing Rust tombstone agent", () => {
+  const store = fakeStore({ agentDeleteStateUpdate: { status: "planned", operation_kind: "agent.delete" } });
+  store.agents.set("agent_1", { id: "agent_1", status: "active" });
+
+  assert.throws(
+    () => deleteAgent(store, "agent_1", deps(store.calls)),
+    (error) => {
+      assert.equal(error.status, 502);
+      assert.equal(error.code, "agent_delete_state_update_agent_missing");
+      assert.equal(error.details.agent_id, "agent_1");
+      assertNoRetiredAgentDeleteDetailAliases(error.details);
+      return true;
+    },
+  );
+  assert.equal(store.calls.some((call) => call.operation === "write_agent"), false);
+});
+
+test("thread store permanent delete rejects mismatched Rust operation kind", () => {
+  const store = fakeStore({
+    agentDeleteStateUpdate: {
+      status: "planned",
+      operation_kind: "agent.archive",
+      agent: { id: "agent_1", status: "deleted", deletedAt: "2026-06-06T06:40:00.000Z" },
+    },
+  });
+  store.agents.set("agent_1", { id: "agent_1", status: "active" });
+
+  assert.throws(
+    () => deleteAgent(store, "agent_1", deps(store.calls)),
+    (error) => {
+      assert.equal(error.status, 502);
+      assert.equal(error.code, "agent_delete_state_update_operation_kind_mismatch");
+      assert.equal(error.details.expected_operation_kind, "agent.delete");
+      assert.equal(error.details.actual_operation_kind, "agent.archive");
+      assertNoRetiredAgentDeleteDetailAliases(error.details);
+      return true;
+    },
+  );
+  assert.equal(store.calls.some((call) => call.operation === "write_agent"), false);
+});
+
+test("thread store permanent delete rejects incomplete Rust tombstone", () => {
+  const store = fakeStore({
+    agentDeleteStateUpdate: {
+      status: "planned",
+      operation_kind: "agent.delete",
+      agent: { id: "agent_1", status: "active" },
+    },
+  });
+  store.agents.set("agent_1", { id: "agent_1", status: "active" });
+
+  assert.throws(
+    () => deleteAgent(store, "agent_1", deps(store.calls)),
+    (error) => {
+      assert.equal(error.status, 502);
+      assert.equal(error.code, "agent_delete_state_update_tombstone_missing");
+      assert.equal(error.details.expected_operation_kind, "agent.delete");
+      assertNoRetiredAgentDeleteDetailAliases(error.details);
+      return true;
+    },
+  );
   assert.equal(store.calls.some((call) => call.operation === "remove_quiet"), false);
-  assert.equal(store.calls.some((call) => call.operation === "append_operation"), false);
+  assert.equal(store.calls.some((call) => call.operation === "write_agent"), false);
 });
 
 test("thread store registers and resolves in-flight runtime turns", () => {

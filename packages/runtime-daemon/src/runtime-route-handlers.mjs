@@ -946,6 +946,10 @@ export function createRuntimeRouteHandlers(deps) {
       writeJsonResponse(response, store.threadTurnSurface.steerTurn(store, threadId, decodeURIComponent(segments[4]), await readBody(request)));
       return;
     }
+    if (request.method === "GET" && action === "approvals" && !segments[4]) {
+      writeJsonResponse(response, store.approvalSurface.listThreadApprovals(store, threadId, Object.fromEntries(url.searchParams.entries())));
+      return;
+    }
     if (request.method === "POST" && action === "approvals" && !segments[4]) {
       writeJsonResponse(response, store.approvalSurface.requestThreadApproval(store, threadId, await readBody(request)));
       return;

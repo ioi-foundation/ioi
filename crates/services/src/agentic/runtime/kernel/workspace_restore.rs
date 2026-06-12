@@ -15,6 +15,23 @@ pub const WORKSPACE_SNAPSHOT_CAPTURE_REQUEST_SCHEMA_VERSION: &str =
     "ioi.workspace_snapshot_capture_request.v1";
 pub const WORKSPACE_SNAPSHOT_CAPTURE_RESULT_SCHEMA_VERSION: &str =
     "ioi.workspace_snapshot_capture_result.v1";
+pub const WORKSPACE_SNAPSHOT_RECORD_SCHEMA_VERSION: &str = "ioi.runtime.workspace-snapshot.v1";
+pub const WORKSPACE_SNAPSHOT_EVENT_SCHEMA_VERSION: &str = "ioi.runtime.workspace-snapshot.event.v1";
+pub const WORKSPACE_SNAPSHOT_LIST_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.workspace_snapshot_list_request.v1";
+pub const WORKSPACE_SNAPSHOT_CONTENT_PACKAGE_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.workspace_snapshot_content_package_request.v1";
+pub const WORKSPACE_SNAPSHOT_RESTORE_PREVIEW_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.workspace_snapshot_restore_preview_request.v1";
+pub const WORKSPACE_SNAPSHOT_RESTORE_APPLY_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.workspace_snapshot_restore_apply_request.v1";
+pub const WORKSPACE_SNAPSHOT_LIST_RESULT_SCHEMA_VERSION: &str = "ioi.runtime.workspace_snapshot.v1";
+pub const WORKSPACE_SNAPSHOT_CONTENT_PACKAGE_SCHEMA_VERSION: &str =
+    "ioi.runtime.workspace_snapshot_content_package.v1";
+pub const WORKSPACE_RESTORE_PREVIEW_RESULT_SCHEMA_VERSION: &str =
+    "ioi.runtime.workspace_restore_preview.v1";
+pub const WORKSPACE_RESTORE_APPLY_RESULT_SCHEMA_VERSION: &str =
+    "ioi.runtime.workspace_restore_apply.v1";
 pub const WORKSPACE_RESTORE_APPLY_POLICY_REQUEST_SCHEMA_VERSION: &str =
     "ioi.workspace_restore_apply_policy_request.v1";
 pub const WORKSPACE_RESTORE_APPLY_POLICY_PLAN_SCHEMA_VERSION: &str =
@@ -490,6 +507,112 @@ pub struct WorkspaceSnapshotCaptureBridgeRequest {
     #[serde(default)]
     pub backend: Option<String>,
     pub request: WorkspaceSnapshotCaptureRequest,
+    #[serde(default)]
+    pub thread_id: Option<String>,
+    #[serde(default)]
+    pub turn_id: Option<String>,
+    #[serde(default)]
+    pub workspace_root: Option<String>,
+    #[serde(default)]
+    pub tool_call_id: Option<String>,
+    #[serde(default)]
+    pub workflow_graph_id: Option<String>,
+    #[serde(default)]
+    pub workflow_node_id: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct WorkspaceSnapshotListRequest {
+    pub schema_version: String,
+    pub thread_id: String,
+    #[serde(default)]
+    pub snapshots: Vec<Value>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct WorkspaceSnapshotContentPackageRequest {
+    pub schema_version: String,
+    pub thread_id: String,
+    pub snapshot_id: String,
+    #[serde(default)]
+    pub snapshot_record: Option<Value>,
+    #[serde(default)]
+    pub content_package: Option<Value>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct WorkspaceSnapshotRestoreRequest {
+    pub schema_version: String,
+    pub thread_id: String,
+    pub snapshot_id: String,
+    pub workspace_root: String,
+    #[serde(default)]
+    pub workflow_graph_id: Option<String>,
+    #[serde(default)]
+    pub workflow_node_id: Option<String>,
+    #[serde(default)]
+    pub idempotency_key: Option<String>,
+    #[serde(default)]
+    pub source: Option<String>,
+    #[serde(default)]
+    pub approval: Option<String>,
+    #[serde(default)]
+    pub approval_decision: Option<String>,
+    #[serde(default)]
+    pub policy_decision: Option<String>,
+    #[serde(default)]
+    pub decision: Option<String>,
+    #[serde(default)]
+    pub status: Option<String>,
+    #[serde(default)]
+    pub confirm: Option<Value>,
+    #[serde(default)]
+    pub confirmed: Option<Value>,
+    #[serde(default)]
+    pub confirm_restore_apply: Option<Value>,
+    #[serde(default)]
+    pub apply_confirmed: Option<Value>,
+    #[serde(default)]
+    pub approval_granted: Option<Value>,
+    #[serde(default)]
+    pub approved: Option<Value>,
+    #[serde(default)]
+    pub restore_conflict_policy: Option<String>,
+    #[serde(default)]
+    pub conflict_policy: Option<String>,
+    #[serde(default)]
+    pub restore_policy: Option<String>,
+    #[serde(default)]
+    pub allow_conflicts: Option<Value>,
+    #[serde(default)]
+    pub override_conflicts: Option<Value>,
+    #[serde(default)]
+    pub max_diff_bytes: Option<u64>,
+    #[serde(default)]
+    pub snapshot_record: Option<Value>,
+    #[serde(default)]
+    pub content_package: Option<Value>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct WorkspaceSnapshotListBridgeRequest {
+    #[serde(default)]
+    pub backend: Option<String>,
+    pub request: WorkspaceSnapshotListRequest,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct WorkspaceSnapshotContentPackageBridgeRequest {
+    #[serde(default)]
+    pub backend: Option<String>,
+    pub request: WorkspaceSnapshotContentPackageRequest,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct WorkspaceSnapshotRestoreBridgeRequest {
+    #[serde(default)]
+    pub backend: Option<String>,
+    pub request: WorkspaceSnapshotRestoreRequest,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -660,15 +783,169 @@ pub fn capture_workspace_snapshot_files_response(
                 format!("{error:?}"),
             )
         })?;
+    let snapshot_record = workspace_snapshot_capture_record(&request, &capture);
+    let snapshot_event = workspace_snapshot_capture_event(&request, &snapshot_record);
     Ok(json!({
         "source": "rust_workspace_snapshot_capture_command",
         "backend": request.backend.unwrap_or_else(|| "rust_workspace_restore".to_string()),
         "capture": capture.clone(),
+        "snapshot_record": snapshot_record,
+        "snapshot_event": snapshot_event,
         "files": capture.files.clone(),
         "content_files": capture.content_files.clone(),
         "captured_file_count": capture.captured_file_count,
         "omitted_file_count": capture.omitted_file_count,
         "content_captured": capture.content_captured,
+    }))
+}
+
+pub fn project_workspace_snapshot_list_response(
+    request: WorkspaceSnapshotListBridgeRequest,
+) -> Result<Value, WorkspaceRestoreCommandError> {
+    validate_workspace_snapshot_list_request(&request.request)?;
+    let projection = workspace_snapshot_list_projection(&request.request);
+    Ok(json!({
+        "source": "rust_workspace_snapshot_projection_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_workspace_restore".to_string()),
+        "projection_kind": "workspace_snapshot.list",
+        "projection": projection,
+        "evidence_refs": workspace_snapshot_projection_evidence_refs(),
+    }))
+}
+
+pub fn project_workspace_snapshot_content_package_response(
+    request: WorkspaceSnapshotContentPackageBridgeRequest,
+) -> Result<Value, WorkspaceRestoreCommandError> {
+    validate_workspace_snapshot_content_package_request(&request.request)?;
+    let projection = workspace_snapshot_content_package_projection(&request.request)?;
+    Ok(json!({
+        "source": "rust_workspace_snapshot_projection_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_workspace_restore".to_string()),
+        "projection_kind": "workspace_snapshot.content_package",
+        "projection": projection,
+        "evidence_refs": workspace_snapshot_projection_evidence_refs(),
+    }))
+}
+
+pub fn preview_workspace_snapshot_restore_response(
+    request: WorkspaceSnapshotRestoreBridgeRequest,
+) -> Result<Value, WorkspaceRestoreCommandError> {
+    validate_workspace_snapshot_restore_request(
+        &request.request,
+        WORKSPACE_SNAPSHOT_RESTORE_PREVIEW_REQUEST_SCHEMA_VERSION,
+    )?;
+    let files = workspace_restore_files_from_content_package(
+        request.request.content_package.as_ref(),
+        &request.request.snapshot_id,
+    )?;
+    let operations_request = WorkspaceRestoreOperationsRequest {
+        schema_version: WORKSPACE_RESTORE_PREVIEW_OPERATIONS_REQUEST_SCHEMA_VERSION.to_string(),
+        workspace_root: request.request.workspace_root.clone(),
+        files,
+        max_diff_bytes: request.request.max_diff_bytes,
+        allow_conflicts: None,
+    };
+    let operations = WorkspaceRestoreOperationsCore
+        .preview_operations(&operations_request)
+        .map_err(|error| {
+            WorkspaceRestoreCommandError::new(
+                "workspace_snapshot_restore_invalid",
+                format!("{error:?}"),
+            )
+        })?;
+    let result = workspace_restore_preview_result(&request.request, &operations);
+    Ok(json!({
+        "source": "rust_workspace_snapshot_restore_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_workspace_restore".to_string()),
+        "projection_kind": "workspace_restore.preview",
+        "restore_preview": result,
+        "evidence_refs": workspace_snapshot_restore_evidence_refs(),
+    }))
+}
+
+pub fn apply_workspace_snapshot_restore_response(
+    request: WorkspaceSnapshotRestoreBridgeRequest,
+) -> Result<Value, WorkspaceRestoreCommandError> {
+    validate_workspace_snapshot_restore_request(
+        &request.request,
+        WORKSPACE_SNAPSHOT_RESTORE_APPLY_REQUEST_SCHEMA_VERSION,
+    )?;
+    let files = workspace_restore_files_from_content_package(
+        request.request.content_package.as_ref(),
+        &request.request.snapshot_id,
+    )?;
+    let preview_request = WorkspaceRestoreOperationsRequest {
+        schema_version: WORKSPACE_RESTORE_PREVIEW_OPERATIONS_REQUEST_SCHEMA_VERSION.to_string(),
+        workspace_root: request.request.workspace_root.clone(),
+        files: files.clone(),
+        max_diff_bytes: request.request.max_diff_bytes,
+        allow_conflicts: None,
+    };
+    let preview_operations = WorkspaceRestoreOperationsCore
+        .preview_operations(&preview_request)
+        .map_err(|error| {
+            WorkspaceRestoreCommandError::new(
+                "workspace_snapshot_restore_invalid",
+                format!("{error:?}"),
+            )
+        })?;
+    let preview_counts = workspace_restore_operation_counts(&preview_operations);
+    let preview_status = workspace_restore_preview_status(&preview_counts);
+    let apply_status = if preview_status == "blocked" || preview_status == "conflict" {
+        "blocked"
+    } else {
+        "applied"
+    };
+    let policy_request = workspace_restore_apply_policy_request_from_restore(
+        &request.request,
+        &preview_operations,
+        {
+            let mut counts = preview_counts.clone();
+            if apply_status == "blocked" {
+                counts.apply_blocked_count = counts.file_count;
+            } else if counts.file_count > 0 {
+                counts.applied_count = counts.ready_count + counts.conflict_count;
+                counts.apply_noop_count = counts.noop_count;
+            }
+            counts
+        },
+        apply_status,
+    );
+    let policy = WorkspaceRestoreApplyPolicyCore
+        .plan_apply_policy(&policy_request)
+        .map_err(|error| {
+            WorkspaceRestoreCommandError::new(
+                "workspace_snapshot_restore_invalid",
+                format!("{error:?}"),
+            )
+        })?;
+    let operations = if policy.policy_status == "allowed" {
+        let apply_request = WorkspaceRestoreOperationsRequest {
+            schema_version: WORKSPACE_RESTORE_APPLY_OPERATIONS_REQUEST_SCHEMA_VERSION.to_string(),
+            workspace_root: request.request.workspace_root.clone(),
+            files,
+            max_diff_bytes: request.request.max_diff_bytes,
+            allow_conflicts: Some(policy.allow_conflicts),
+        };
+        WorkspaceRestoreOperationsCore
+            .apply_operations(&apply_request)
+            .map_err(|error| {
+                WorkspaceRestoreCommandError::new(
+                    "workspace_snapshot_restore_invalid",
+                    format!("{error:?}"),
+                )
+            })?
+    } else {
+        workspace_restore_policy_blocked_operations(&preview_operations, &policy)
+    };
+    let result =
+        workspace_restore_apply_result(&request.request, &preview_status, &operations, &policy);
+    Ok(json!({
+        "source": "rust_workspace_snapshot_restore_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_workspace_restore".to_string()),
+        "projection_kind": "workspace_restore.apply",
+        "restore_apply": result,
+        "evidence_refs": workspace_snapshot_restore_evidence_refs(),
     }))
 }
 
@@ -1520,6 +1797,637 @@ fn apply_summary(
     }
 }
 
+fn workspace_snapshot_capture_record(
+    request: &WorkspaceSnapshotCaptureBridgeRequest,
+    capture: &WorkspaceSnapshotCaptureResult,
+) -> Value {
+    let thread_id = trim_optional_string(request.thread_id.as_deref());
+    let turn_id = trim_optional_string(request.turn_id.as_deref());
+    let workspace_root = trim_optional_string(request.workspace_root.as_deref());
+    let tool_call_id = trim_optional_string(request.tool_call_id.as_deref());
+    let workflow_graph_id = trim_optional_string(request.workflow_graph_id.as_deref());
+    let workflow_node_id = trim_optional_string(request.workflow_node_id.as_deref());
+    let changed_file_count = capture.files.iter().filter(|file| file.changed).count() as u64;
+    let created_file_count = capture.files.iter().filter(|file| file.created).count() as u64;
+    let deleted_file_count = capture.files.iter().filter(|file| file.deleted).count() as u64;
+    let snapshot_seed = json!({
+        "schema_version": WORKSPACE_SNAPSHOT_RECORD_SCHEMA_VERSION,
+        "thread_id": thread_id,
+        "turn_id": turn_id,
+        "workspace_root": workspace_root,
+        "tool_call_id": tool_call_id,
+        "workflow_graph_id": workflow_graph_id,
+        "workflow_node_id": workflow_node_id,
+        "files": capture.files,
+        "content_files": capture.content_files,
+    });
+    let seed_text = serde_json::to_string(&snapshot_seed).unwrap_or_else(|_| "{}".to_string());
+    let snapshot_hash = format!("sha256:{}", sha256_hex(&seed_text));
+    let snapshot_hash_id = snapshot_hash
+        .strip_prefix("sha256:")
+        .unwrap_or(&snapshot_hash)
+        .chars()
+        .take(24)
+        .collect::<String>();
+    let snapshot_id = format!("workspace_snapshot_{snapshot_hash_id}");
+    let safe_snapshot_id = safe_id(&snapshot_id);
+    let receipt_refs = unique_strings(vec![format!(
+        "receipt://runtime.workspace_snapshot/{safe_snapshot_id}"
+    )]);
+    let artifact_refs = unique_strings(vec![format!(
+        "artifact://runtime.workspace_snapshot/{safe_snapshot_id}"
+    )]);
+    let restore_status = if capture.content_captured {
+        "content_captured"
+    } else {
+        "content_partial"
+    };
+    json!({
+        "schema_version": WORKSPACE_SNAPSHOT_RECORD_SCHEMA_VERSION,
+        "snapshot_id": snapshot_id,
+        "snapshot_hash": snapshot_hash,
+        "snapshot_kind": "pre_post_touched_files",
+        "file_count": capture.files.len() as u64,
+        "changed_file_count": changed_file_count,
+        "created_file_count": created_file_count,
+        "deleted_file_count": deleted_file_count,
+        "restore": {
+            "status": restore_status,
+            "preview_supported": true,
+            "apply_supported": true,
+        },
+        "trigger": {
+            "thread_id": thread_id,
+            "turn_id": turn_id,
+            "workspace_root": workspace_root,
+            "tool_call_id": tool_call_id,
+            "workflow_graph_id": workflow_graph_id,
+            "workflow_node_id": workflow_node_id,
+        },
+        "files": capture.files,
+        "content_files": capture.content_files,
+        "receipt_refs": receipt_refs,
+        "artifact_refs": artifact_refs,
+        "summary": format!(
+            "Captured {} workspace snapshot file(s); {} file content payload(s) captured, {} omitted.",
+            capture.files.len(),
+            capture.captured_file_count,
+            capture.omitted_file_count
+        ),
+    })
+}
+
+fn workspace_snapshot_capture_event(
+    request: &WorkspaceSnapshotCaptureBridgeRequest,
+    snapshot_record: &Value,
+) -> Value {
+    let thread_id = trim_optional_string(request.thread_id.as_deref());
+    let turn_id = trim_optional_string(request.turn_id.as_deref());
+    let workspace_root = trim_optional_string(request.workspace_root.as_deref());
+    let tool_call_id = trim_optional_string(request.tool_call_id.as_deref());
+    let workflow_graph_id = trim_optional_string(request.workflow_graph_id.as_deref());
+    let workflow_node_id = trim_optional_string(request.workflow_node_id.as_deref());
+    let snapshot_id = snapshot_record
+        .get("snapshot_id")
+        .and_then(Value::as_str)
+        .unwrap_or("workspace_snapshot_unknown");
+    let snapshot_hash = snapshot_record
+        .get("snapshot_hash")
+        .and_then(Value::as_str)
+        .unwrap_or("sha256:unknown");
+    let event_seed = json!({
+        "schema_version": WORKSPACE_SNAPSHOT_EVENT_SCHEMA_VERSION,
+        "snapshot_id": snapshot_id,
+        "snapshot_hash": snapshot_hash,
+        "thread_id": thread_id,
+        "turn_id": turn_id,
+        "tool_call_id": tool_call_id,
+        "workflow_graph_id": workflow_graph_id,
+        "workflow_node_id": workflow_node_id,
+    });
+    let event_hash =
+        sha256_hex(&serde_json::to_string(&event_seed).unwrap_or_else(|_| snapshot_id.to_string()));
+    let event_id = format!(
+        "event_workspace_snapshot_{}",
+        event_hash.chars().take(24).collect::<String>()
+    );
+    let payload_summary = json!({
+        "schema_version": WORKSPACE_SNAPSHOT_RECORD_SCHEMA_VERSION,
+        "snapshot_id": snapshot_id,
+        "snapshot_hash": snapshot_hash,
+        "snapshot_kind": snapshot_record.get("snapshot_kind").cloned().unwrap_or(Value::Null),
+        "file_count": snapshot_record.get("file_count").cloned().unwrap_or(Value::Null),
+        "changed_file_count": snapshot_record.get("changed_file_count").cloned().unwrap_or(Value::Null),
+        "created_file_count": snapshot_record.get("created_file_count").cloned().unwrap_or(Value::Null),
+        "deleted_file_count": snapshot_record.get("deleted_file_count").cloned().unwrap_or(Value::Null),
+        "restore": snapshot_record.get("restore").cloned().unwrap_or(Value::Null),
+        "trigger": snapshot_record.get("trigger").cloned().unwrap_or(Value::Null),
+        "summary": snapshot_record.get("summary").cloned().unwrap_or(Value::Null),
+    });
+    json!({
+        "schema_version": WORKSPACE_SNAPSHOT_EVENT_SCHEMA_VERSION,
+        "event_id": event_id,
+        "event_stream_id": thread_id
+            .as_ref()
+            .map(|thread_id| format!("{thread_id}:events"))
+            .unwrap_or_else(|| format!("{snapshot_id}:events")),
+        "event_kind": "workspace_snapshot.captured",
+        "status": "completed",
+        "actor": "runtime",
+        "component_kind": "workspace_snapshot",
+        "thread_id": thread_id,
+        "turn_id": turn_id,
+        "workspace_root": workspace_root,
+        "workflow_graph_id": workflow_graph_id,
+        "workflow_node_id": workflow_node_id,
+        "tool_call_id": tool_call_id,
+        "snapshot_id": snapshot_id,
+        "artifact_refs": snapshot_record.get("artifact_refs").cloned().unwrap_or(json!([])),
+        "receipt_refs": snapshot_record.get("receipt_refs").cloned().unwrap_or(json!([])),
+        "payload_schema_version": WORKSPACE_SNAPSHOT_RECORD_SCHEMA_VERSION,
+        "payload_summary": payload_summary,
+    })
+}
+
+fn validate_workspace_snapshot_list_request(
+    request: &WorkspaceSnapshotListRequest,
+) -> Result<(), WorkspaceRestoreCommandError> {
+    if request.schema_version != WORKSPACE_SNAPSHOT_LIST_REQUEST_SCHEMA_VERSION {
+        return Err(WorkspaceRestoreCommandError::new(
+            "workspace_snapshot_list_invalid",
+            format!(
+                "workspace snapshot list schema is invalid: expected {}, received {}",
+                WORKSPACE_SNAPSHOT_LIST_REQUEST_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.thread_id.trim().is_empty() {
+        return Err(WorkspaceRestoreCommandError::new(
+            "workspace_snapshot_list_invalid",
+            "workspace snapshot list requires thread_id".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_workspace_snapshot_content_package_request(
+    request: &WorkspaceSnapshotContentPackageRequest,
+) -> Result<(), WorkspaceRestoreCommandError> {
+    if request.schema_version != WORKSPACE_SNAPSHOT_CONTENT_PACKAGE_REQUEST_SCHEMA_VERSION {
+        return Err(WorkspaceRestoreCommandError::new(
+            "workspace_snapshot_content_package_invalid",
+            format!(
+                "workspace snapshot content package schema is invalid: expected {}, received {}",
+                WORKSPACE_SNAPSHOT_CONTENT_PACKAGE_REQUEST_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.thread_id.trim().is_empty() || request.snapshot_id.trim().is_empty() {
+        return Err(WorkspaceRestoreCommandError::new(
+            "workspace_snapshot_content_package_invalid",
+            "workspace snapshot content package requires thread_id and snapshot_id".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_workspace_snapshot_restore_request(
+    request: &WorkspaceSnapshotRestoreRequest,
+    expected_schema: &'static str,
+) -> Result<(), WorkspaceRestoreCommandError> {
+    if request.schema_version != expected_schema {
+        return Err(WorkspaceRestoreCommandError::new(
+            "workspace_snapshot_restore_invalid",
+            format!(
+                "workspace snapshot restore schema is invalid: expected {}, received {}",
+                expected_schema, request.schema_version
+            ),
+        ));
+    }
+    if request.thread_id.trim().is_empty()
+        || request.snapshot_id.trim().is_empty()
+        || request.workspace_root.trim().is_empty()
+    {
+        return Err(WorkspaceRestoreCommandError::new(
+            "workspace_snapshot_restore_invalid",
+            "workspace snapshot restore requires thread_id, snapshot_id, and workspace_root"
+                .to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn workspace_snapshot_list_projection(request: &WorkspaceSnapshotListRequest) -> Value {
+    let snapshots = request
+        .snapshots
+        .iter()
+        .filter_map(normalize_workspace_snapshot_projection_record)
+        .collect::<Vec<_>>();
+    json!({
+        "schema_version": WORKSPACE_SNAPSHOT_LIST_RESULT_SCHEMA_VERSION,
+        "object": "ioi.runtime_workspace_snapshot_list",
+        "thread_id": request.thread_id.trim(),
+        "snapshot_count": snapshots.len() as u64,
+        "snapshots": snapshots,
+        "evidence_refs": workspace_snapshot_projection_evidence_refs(),
+    })
+}
+
+fn workspace_snapshot_content_package_projection(
+    request: &WorkspaceSnapshotContentPackageRequest,
+) -> Result<Value, WorkspaceRestoreCommandError> {
+    let content_package = request.content_package.as_ref().ok_or_else(|| {
+        WorkspaceRestoreCommandError::new(
+            "workspace_snapshot_content_package_required",
+            format!(
+                "workspace snapshot {} requires Rust-owned content package projection input",
+                request.snapshot_id
+            ),
+        )
+    })?;
+    let content_files = workspace_snapshot_content_files_from_package(content_package)?;
+    let snapshot_record = request
+        .snapshot_record
+        .as_ref()
+        .and_then(normalize_workspace_snapshot_projection_record)
+        .unwrap_or_else(|| {
+            json!({
+                "schema_version": WORKSPACE_SNAPSHOT_RECORD_SCHEMA_VERSION,
+                "snapshot_id": request.snapshot_id.trim(),
+                "restore": {
+                    "status": "content_captured",
+                    "preview_supported": true,
+                    "apply_supported": true,
+                },
+                "receipt_refs": [],
+                "artifact_refs": [],
+            })
+        });
+    let receipt_refs = unique_strings(
+        [
+            string_array_from_value(snapshot_record.get("receipt_refs")),
+            string_array_from_value(content_package.get("receipt_refs")),
+        ]
+        .concat(),
+    );
+    let artifact_refs = unique_strings(
+        [
+            string_array_from_value(snapshot_record.get("artifact_refs")),
+            string_array_from_value(content_package.get("artifact_refs")),
+        ]
+        .concat(),
+    );
+    let file_count = content_files.len() as u64;
+    let restore = content_package
+        .get("restore")
+        .cloned()
+        .or_else(|| snapshot_record.get("restore").cloned())
+        .unwrap_or(Value::Null);
+    Ok(json!({
+        "schema_version": WORKSPACE_SNAPSHOT_CONTENT_PACKAGE_SCHEMA_VERSION,
+        "object": "ioi.runtime_workspace_snapshot_content_package",
+        "thread_id": request.thread_id.trim(),
+        "snapshot_id": request.snapshot_id.trim(),
+        "snapshot": snapshot_record,
+        "content_files": content_files,
+        "file_count": file_count,
+        "receipt_refs": receipt_refs,
+        "artifact_refs": artifact_refs,
+        "restore": restore,
+        "evidence_refs": workspace_snapshot_projection_evidence_refs(),
+    }))
+}
+
+fn normalize_workspace_snapshot_projection_record(value: &Value) -> Option<Value> {
+    let snapshot_id = value
+        .get("snapshot_id")
+        .and_then(Value::as_str)
+        .and_then(|value| trim_optional_string(Some(value)))?;
+    Some(json!({
+        "schema_version": value
+            .get("schema_version")
+            .and_then(Value::as_str)
+            .unwrap_or(WORKSPACE_SNAPSHOT_RECORD_SCHEMA_VERSION),
+        "snapshot_id": snapshot_id,
+        "snapshot_hash": value.get("snapshot_hash").cloned().unwrap_or(Value::Null),
+        "snapshot_kind": value.get("snapshot_kind").cloned().unwrap_or(Value::Null),
+        "file_count": value.get("file_count").cloned().unwrap_or(json!(0)),
+        "changed_file_count": value.get("changed_file_count").cloned().unwrap_or(json!(0)),
+        "created_file_count": value.get("created_file_count").cloned().unwrap_or(json!(0)),
+        "deleted_file_count": value.get("deleted_file_count").cloned().unwrap_or(json!(0)),
+        "restore": value.get("restore").cloned().unwrap_or(Value::Null),
+        "trigger": value.get("trigger").cloned().unwrap_or(Value::Null),
+        "files": value.get("files").cloned().unwrap_or(json!([])),
+        "content_files": value.get("content_files").cloned().unwrap_or(json!([])),
+        "receipt_refs": string_array_from_value(value.get("receipt_refs")),
+        "artifact_refs": string_array_from_value(value.get("artifact_refs")),
+        "summary": value.get("summary").cloned().unwrap_or(Value::Null),
+    }))
+}
+
+fn workspace_restore_files_from_content_package(
+    content_package: Option<&Value>,
+    snapshot_id: &str,
+) -> Result<Vec<WorkspaceRestoreFile>, WorkspaceRestoreCommandError> {
+    let content_package = content_package.ok_or_else(|| {
+        WorkspaceRestoreCommandError::new(
+            "workspace_snapshot_content_package_required",
+            format!(
+                "workspace restore for {snapshot_id} requires Rust-owned content package projection input"
+            ),
+        )
+    })?;
+    let content_files = workspace_snapshot_content_files_from_package(content_package)?;
+    if content_files.is_empty() {
+        return Err(WorkspaceRestoreCommandError::new(
+            "workspace_snapshot_content_package_empty",
+            format!("workspace snapshot {snapshot_id} has no content files to restore"),
+        ));
+    }
+    Ok(content_files
+        .into_iter()
+        .map(|file| WorkspaceRestoreFile {
+            path: file.path,
+            before: WorkspaceRestoreFileSide {
+                exists: file.before.exists,
+                content_hash: file.before.content_hash,
+                content: file.before.content,
+            },
+            after: WorkspaceRestoreFileSide {
+                exists: file.after.exists,
+                content_hash: file.after.content_hash,
+                content: None,
+            },
+        })
+        .collect())
+}
+
+fn workspace_snapshot_content_files_from_package(
+    content_package: &Value,
+) -> Result<Vec<WorkspaceSnapshotCapturedFile>, WorkspaceRestoreCommandError> {
+    let files_value = content_package
+        .get("content_files")
+        .or_else(|| content_package.get("files"))
+        .cloned()
+        .unwrap_or_else(|| json!([]));
+    let files: Vec<WorkspaceSnapshotCapturedFile> =
+        serde_json::from_value(files_value).map_err(|error| {
+            WorkspaceRestoreCommandError::new(
+                "workspace_snapshot_content_package_invalid",
+                format!("workspace snapshot content package files are invalid: {error}"),
+            )
+        })?;
+    Ok(files)
+}
+
+fn workspace_restore_preview_result(
+    request: &WorkspaceSnapshotRestoreRequest,
+    operations: &[WorkspaceRestoreOperationRecord],
+) -> Value {
+    let counts = workspace_restore_operation_counts(operations);
+    let preview_status = workspace_restore_preview_status(&counts);
+    json!({
+        "schema_version": WORKSPACE_RESTORE_PREVIEW_RESULT_SCHEMA_VERSION,
+        "object": "ioi.runtime_workspace_restore_preview",
+        "thread_id": request.thread_id.trim(),
+        "snapshot_id": request.snapshot_id.trim(),
+        "preview_status": preview_status,
+        "preview_supported": true,
+        "apply_supported": true,
+        "file_count": counts.file_count,
+        "ready_count": counts.ready_count,
+        "noop_count": counts.noop_count,
+        "conflict_count": counts.conflict_count,
+        "blocked_count": counts.blocked_count,
+        "operations": operations,
+        "receipt_refs": workspace_restore_receipt_refs("preview", &request.snapshot_id),
+        "artifact_refs": workspace_restore_artifact_refs("preview", &request.snapshot_id),
+        "rollback_refs": vec![request.snapshot_id.trim().to_string()],
+        "summary": workspace_restore_preview_summary(&request.snapshot_id, &preview_status, &counts),
+        "evidence_refs": workspace_snapshot_restore_evidence_refs(),
+    })
+}
+
+fn workspace_restore_apply_result(
+    request: &WorkspaceSnapshotRestoreRequest,
+    preview_status: &str,
+    operations: &[WorkspaceRestoreOperationRecord],
+    policy: &WorkspaceRestoreApplyPolicyPlan,
+) -> Value {
+    let counts = workspace_restore_operation_counts(operations);
+    let apply_status = workspace_restore_apply_status(&counts);
+    json!({
+        "schema_version": WORKSPACE_RESTORE_APPLY_RESULT_SCHEMA_VERSION,
+        "object": "ioi.runtime_workspace_restore_apply",
+        "thread_id": request.thread_id.trim(),
+        "snapshot_id": request.snapshot_id.trim(),
+        "preview_status": preview_status,
+        "apply_status": apply_status,
+        "apply_supported": true,
+        "approval_required": policy.approval.required,
+        "approval_satisfied": policy.approval.satisfied,
+        "file_count": counts.file_count,
+        "applied_count": counts.applied_count,
+        "apply_noop_count": counts.apply_noop_count,
+        "apply_blocked_count": counts.apply_blocked_count,
+        "failed_count": counts.failed_count,
+        "operations": operations,
+        "policy_decision_refs": policy.policy_decision_refs.clone(),
+        "receipt_refs": workspace_restore_receipt_refs("apply", &request.snapshot_id),
+        "artifact_refs": workspace_restore_artifact_refs("apply", &request.snapshot_id),
+        "rollback_refs": vec![request.snapshot_id.trim().to_string()],
+        "summary": policy.summary.clone().unwrap_or_else(|| {
+            apply_summary(
+                &request.snapshot_id,
+                &apply_status,
+                &counts,
+                &policy.approval,
+                policy.allow_conflicts,
+            )
+        }),
+        "evidence_refs": workspace_snapshot_restore_evidence_refs(),
+    })
+}
+
+fn workspace_restore_apply_policy_request_from_restore(
+    request: &WorkspaceSnapshotRestoreRequest,
+    operations: &[WorkspaceRestoreOperationRecord],
+    counts: WorkspaceRestoreApplyCounts,
+    apply_status: &str,
+) -> WorkspaceRestoreApplyPolicyRequest {
+    WorkspaceRestoreApplyPolicyRequest {
+        schema_version: WORKSPACE_RESTORE_APPLY_POLICY_REQUEST_SCHEMA_VERSION.to_string(),
+        snapshot_id: request.snapshot_id.clone(),
+        approval: request.approval.clone(),
+        approval_decision: request.approval_decision.clone(),
+        policy_decision: request.policy_decision.clone(),
+        decision: request.decision.clone(),
+        status: request.status.clone(),
+        confirm: request.confirm.clone(),
+        confirmed: request.confirmed.clone(),
+        confirm_restore_apply: request.confirm_restore_apply.clone(),
+        apply_confirmed: request.apply_confirmed.clone(),
+        approval_granted: request.approval_granted.clone(),
+        approved: request.approved.clone(),
+        restore_conflict_policy: request.restore_conflict_policy.clone(),
+        conflict_policy: request.conflict_policy.clone(),
+        restore_policy: request.restore_policy.clone(),
+        allow_conflicts: request.allow_conflicts.clone(),
+        override_conflicts: request.override_conflicts.clone(),
+        operations: operations
+            .iter()
+            .map(|operation| WorkspaceRestoreOperationPolicyInput {
+                path: operation.path.clone(),
+                status: operation.status.clone(),
+                blocked_reason: operation.blocked_reason.clone(),
+            })
+            .collect(),
+        counts: Some(counts),
+        hard_blocked: None,
+        conflict_blocked: None,
+        apply_status: Some(apply_status.to_string()),
+    }
+}
+
+fn workspace_restore_policy_blocked_operations(
+    operations: &[WorkspaceRestoreOperationRecord],
+    policy: &WorkspaceRestoreApplyPolicyPlan,
+) -> Vec<WorkspaceRestoreOperationRecord> {
+    operations
+        .iter()
+        .map(|operation| {
+            let mut blocked = operation.clone();
+            blocked.apply_status = Some("blocked".to_string());
+            blocked.apply_reason = policy
+                .operation_policies
+                .iter()
+                .find(|entry| entry.path == operation.path)
+                .map(|entry| entry.apply_reason.clone())
+                .or_else(|| operation.blocked_reason.clone())
+                .or_else(|| Some("workspace_restore_apply_blocked_by_policy".to_string()));
+            blocked
+        })
+        .collect()
+}
+
+fn workspace_restore_operation_counts(
+    operations: &[WorkspaceRestoreOperationRecord],
+) -> WorkspaceRestoreApplyCounts {
+    let mut counts = WorkspaceRestoreApplyCounts {
+        file_count: operations.len() as u64,
+        ..Default::default()
+    };
+    for operation in operations {
+        match operation.status.as_str() {
+            "ready" => counts.ready_count += 1,
+            "noop" => counts.noop_count += 1,
+            "conflict" => counts.conflict_count += 1,
+            "blocked" => counts.blocked_count += 1,
+            _ => {}
+        }
+        match operation.apply_status.as_deref() {
+            Some("applied") | Some("applied_with_override") => counts.applied_count += 1,
+            Some("noop") => counts.apply_noop_count += 1,
+            Some("blocked") => counts.apply_blocked_count += 1,
+            Some("failed") => counts.failed_count += 1,
+            _ => {}
+        }
+    }
+    counts
+}
+
+fn workspace_restore_preview_status(counts: &WorkspaceRestoreApplyCounts) -> String {
+    if counts.blocked_count > 0 {
+        "blocked".to_string()
+    } else if counts.conflict_count > 0 {
+        "conflict".to_string()
+    } else if counts.file_count > 0 && counts.noop_count == counts.file_count {
+        "noop".to_string()
+    } else {
+        "ready".to_string()
+    }
+}
+
+fn workspace_restore_apply_status(counts: &WorkspaceRestoreApplyCounts) -> String {
+    if counts.failed_count > 0 {
+        "failed".to_string()
+    } else if counts.apply_blocked_count > 0 {
+        "blocked".to_string()
+    } else if counts.file_count > 0 && counts.apply_noop_count == counts.file_count {
+        "noop".to_string()
+    } else {
+        "applied".to_string()
+    }
+}
+
+fn workspace_restore_preview_summary(
+    snapshot_id: &str,
+    preview_status: &str,
+    counts: &WorkspaceRestoreApplyCounts,
+) -> String {
+    match preview_status {
+        "blocked" => format!(
+            "Restore preview blocked for {snapshot_id}: {} blocked file(s).",
+            counts.blocked_count
+        ),
+        "conflict" => format!(
+            "Restore preview found {} conflict(s) for {snapshot_id}.",
+            counts.conflict_count
+        ),
+        "noop" => format!(
+            "Restore preview found {} file(s) already restored for {snapshot_id}.",
+            counts.file_count
+        ),
+        _ => format!(
+            "Restore preview ready for {} file(s) from {snapshot_id}.",
+            counts.ready_count
+        ),
+    }
+}
+
+fn workspace_restore_receipt_refs(kind: &str, snapshot_id: &str) -> Vec<String> {
+    vec![format!(
+        "receipt://runtime.workspace_restore/{kind}/{}",
+        safe_id(snapshot_id)
+    )]
+}
+
+fn workspace_restore_artifact_refs(kind: &str, snapshot_id: &str) -> Vec<String> {
+    vec![format!(
+        "artifact://runtime.workspace_restore/{kind}/{}",
+        safe_id(snapshot_id)
+    )]
+}
+
+fn workspace_snapshot_projection_evidence_refs() -> Vec<&'static str> {
+    vec![
+        "rust_daemon_core_workspace_snapshot_projection",
+        "agentgres_workspace_snapshot_projection_truth",
+        "workspace_snapshot_js_projection_retired",
+    ]
+}
+
+fn workspace_snapshot_restore_evidence_refs() -> Vec<&'static str> {
+    vec![
+        "rust_daemon_core_workspace_restore_api",
+        "agentgres_workspace_restore_truth",
+        "workspace_restore_js_facade_retired",
+    ]
+}
+
+fn string_array_from_value(value: Option<&Value>) -> Vec<String> {
+    value
+        .and_then(Value::as_array)
+        .map(|values| {
+            values
+                .iter()
+                .filter_map(Value::as_str)
+                .filter_map(|value| trim_optional_string(Some(value)))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
 fn normalize_apply_status(status: &str) -> Option<String> {
     let normalized = status.trim().to_ascii_lowercase();
     if ["blocked", "failed", "noop", "applied"].contains(&normalized.as_str()) {
@@ -1666,6 +2574,12 @@ mod tests {
         let response =
             capture_workspace_snapshot_files_response(WorkspaceSnapshotCaptureBridgeRequest {
                 backend: Some("rust_workspace_restore".to_string()),
+                thread_id: Some("thread_alpha".to_string()),
+                turn_id: Some("turn_alpha".to_string()),
+                workspace_root: Some("/workspace".to_string()),
+                tool_call_id: Some("tool_call_alpha".to_string()),
+                workflow_graph_id: Some("graph_alpha".to_string()),
+                workflow_node_id: Some("node_alpha".to_string()),
                 request: WorkspaceSnapshotCaptureRequest {
                     schema_version: WORKSPACE_SNAPSHOT_CAPTURE_REQUEST_SCHEMA_VERSION.to_string(),
                     max_content_bytes: Some(WORKSPACE_SNAPSHOT_MAX_CAPTURE_BYTES),
@@ -1701,6 +2615,41 @@ mod tests {
         assert_eq!(response["files"][0]["path"], "src/app.js");
         assert_eq!(response["files"][0]["before"]["content"], Value::Null);
         assert_eq!(response["content_files"][0]["before"]["content"], "old");
+        assert_eq!(
+            response["snapshot_record"]["schema_version"],
+            WORKSPACE_SNAPSHOT_RECORD_SCHEMA_VERSION
+        );
+        assert_eq!(
+            response["snapshot_record"]["snapshot_kind"],
+            "pre_post_touched_files"
+        );
+        assert_eq!(response["snapshot_record"]["file_count"], 1);
+        assert_eq!(response["snapshot_record"]["changed_file_count"], 1);
+        assert_eq!(
+            response["snapshot_record"]["trigger"]["tool_call_id"],
+            "tool_call_alpha"
+        );
+        assert_eq!(
+            response["snapshot_record"]["restore"]["status"],
+            "content_captured"
+        );
+        assert_eq!(
+            response["snapshot_event"]["schema_version"],
+            WORKSPACE_SNAPSHOT_EVENT_SCHEMA_VERSION
+        );
+        assert_eq!(
+            response["snapshot_event"]["event_kind"],
+            "workspace_snapshot.captured"
+        );
+        assert_eq!(response["snapshot_event"]["thread_id"], "thread_alpha");
+        assert_eq!(
+            response["snapshot_event"]["snapshot_id"],
+            response["snapshot_record"]["snapshot_id"]
+        );
+        assert_eq!(
+            response["snapshot_event"]["payload_summary"]["snapshot_id"],
+            response["snapshot_record"]["snapshot_id"]
+        );
     }
 
     #[test]
@@ -1940,5 +2889,265 @@ mod tests {
             response["summary"],
             "Restore apply restored 1 file(s) from workspace_snapshot_alpha with conflict override."
         );
+    }
+
+    fn snapshot_record_and_content_package() -> (Value, Value) {
+        let old_hash = sha256_hex("old");
+        let new_hash = sha256_hex("new");
+        let response =
+            capture_workspace_snapshot_files_response(WorkspaceSnapshotCaptureBridgeRequest {
+                backend: Some("rust_workspace_restore".to_string()),
+                thread_id: Some("thread_alpha".to_string()),
+                turn_id: Some("turn_alpha".to_string()),
+                workspace_root: Some("/workspace".to_string()),
+                tool_call_id: Some("tool_call_alpha".to_string()),
+                workflow_graph_id: Some("graph_alpha".to_string()),
+                workflow_node_id: Some("node_alpha".to_string()),
+                request: WorkspaceSnapshotCaptureRequest {
+                    schema_version: WORKSPACE_SNAPSHOT_CAPTURE_REQUEST_SCHEMA_VERSION.to_string(),
+                    max_content_bytes: Some(WORKSPACE_SNAPSHOT_MAX_CAPTURE_BYTES),
+                    changed_files: vec![WorkspaceSnapshotChangedFile {
+                        path: "src/app.js".to_string(),
+                        created: false,
+                        before_hash: Some(old_hash),
+                        after_hash: Some(new_hash),
+                        before_exists: true,
+                        after_exists: Some(true),
+                        before_size_bytes: Some(3),
+                        after_size_bytes: Some(3),
+                        before_mtime_ms: None,
+                        after_mtime_ms: None,
+                    }],
+                    content_drafts: vec![WorkspaceSnapshotContentDraft {
+                        path: "src/app.js".to_string(),
+                        before_content: Some("old".to_string()),
+                        after_content: Some("new".to_string()),
+                        encoding: None,
+                    }],
+                },
+            })
+            .expect("snapshot capture response");
+        let snapshot_record = response["snapshot_record"].clone();
+        let content_package = json!({
+            "schema_version": WORKSPACE_SNAPSHOT_CONTENT_PACKAGE_SCHEMA_VERSION,
+            "snapshot_id": snapshot_record["snapshot_id"].clone(),
+            "restore": snapshot_record["restore"].clone(),
+            "content_files": response["content_files"].clone(),
+            "receipt_refs": snapshot_record["receipt_refs"].clone(),
+            "artifact_refs": snapshot_record["artifact_refs"].clone(),
+        });
+        (snapshot_record, content_package)
+    }
+
+    #[test]
+    fn rust_core_shapes_workspace_snapshot_public_projection_responses() {
+        let (snapshot_record, content_package) = snapshot_record_and_content_package();
+        let snapshot_id = snapshot_record["snapshot_id"]
+            .as_str()
+            .expect("snapshot id")
+            .to_string();
+        let list = project_workspace_snapshot_list_response(WorkspaceSnapshotListBridgeRequest {
+            backend: Some("rust_workspace_restore".to_string()),
+            request: WorkspaceSnapshotListRequest {
+                schema_version: WORKSPACE_SNAPSHOT_LIST_REQUEST_SCHEMA_VERSION.to_string(),
+                thread_id: "thread_alpha".to_string(),
+                snapshots: vec![snapshot_record.clone()],
+            },
+        })
+        .expect("snapshot list response");
+
+        assert_eq!(list["source"], "rust_workspace_snapshot_projection_command");
+        assert_eq!(
+            list["projection"]["schema_version"],
+            WORKSPACE_SNAPSHOT_LIST_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(
+            list["projection"]["object"],
+            "ioi.runtime_workspace_snapshot_list"
+        );
+        assert_eq!(list["projection"]["thread_id"], "thread_alpha");
+        assert_eq!(list["projection"]["snapshot_count"], 1);
+        assert_eq!(
+            list["projection"]["snapshots"][0]["snapshot_id"],
+            snapshot_id
+        );
+        assert!(list["evidence_refs"]
+            .as_array()
+            .expect("evidence refs")
+            .iter()
+            .any(|value| value == "rust_daemon_core_workspace_snapshot_projection"));
+
+        let package = project_workspace_snapshot_content_package_response(
+            WorkspaceSnapshotContentPackageBridgeRequest {
+                backend: Some("rust_workspace_restore".to_string()),
+                request: WorkspaceSnapshotContentPackageRequest {
+                    schema_version: WORKSPACE_SNAPSHOT_CONTENT_PACKAGE_REQUEST_SCHEMA_VERSION
+                        .to_string(),
+                    thread_id: "thread_alpha".to_string(),
+                    snapshot_id: snapshot_id.clone(),
+                    snapshot_record: Some(snapshot_record),
+                    content_package: Some(content_package),
+                },
+            },
+        )
+        .expect("snapshot content package response");
+
+        assert_eq!(
+            package["source"],
+            "rust_workspace_snapshot_projection_command"
+        );
+        assert_eq!(
+            package["projection"]["schema_version"],
+            WORKSPACE_SNAPSHOT_CONTENT_PACKAGE_SCHEMA_VERSION
+        );
+        assert_eq!(package["projection"]["snapshot_id"], snapshot_id);
+        assert_eq!(package["projection"]["file_count"], 1);
+        assert_eq!(
+            package["projection"]["content_files"][0]["before"]["content"],
+            "old"
+        );
+    }
+
+    #[test]
+    fn rust_core_shapes_workspace_snapshot_restore_preview_and_apply_responses() {
+        let workspace = temp_workspace("public-restore");
+        let file_path = workspace.join("src/app.js");
+        fs::create_dir_all(file_path.parent().expect("parent")).expect("mkdir");
+        fs::write(&file_path, "new").expect("write current");
+        let (snapshot_record, content_package) = snapshot_record_and_content_package();
+        let snapshot_id = snapshot_record["snapshot_id"]
+            .as_str()
+            .expect("snapshot id")
+            .to_string();
+
+        let preview =
+            preview_workspace_snapshot_restore_response(WorkspaceSnapshotRestoreBridgeRequest {
+                backend: Some("rust_workspace_restore".to_string()),
+                request: WorkspaceSnapshotRestoreRequest {
+                    schema_version: WORKSPACE_SNAPSHOT_RESTORE_PREVIEW_REQUEST_SCHEMA_VERSION
+                        .to_string(),
+                    thread_id: "thread_alpha".to_string(),
+                    snapshot_id: snapshot_id.clone(),
+                    workspace_root: workspace.to_string_lossy().to_string(),
+                    workflow_graph_id: Some("graph_alpha".to_string()),
+                    workflow_node_id: Some("restore_preview".to_string()),
+                    idempotency_key: Some("idem-preview".to_string()),
+                    source: Some("sdk_client".to_string()),
+                    snapshot_record: Some(snapshot_record.clone()),
+                    content_package: Some(content_package.clone()),
+                    max_diff_bytes: Some(4096),
+                    approval: None,
+                    approval_decision: None,
+                    policy_decision: None,
+                    decision: None,
+                    status: None,
+                    confirm: None,
+                    confirmed: None,
+                    confirm_restore_apply: None,
+                    apply_confirmed: None,
+                    approval_granted: None,
+                    approved: None,
+                    restore_conflict_policy: None,
+                    conflict_policy: None,
+                    restore_policy: None,
+                    allow_conflicts: None,
+                    override_conflicts: None,
+                },
+            })
+            .expect("restore preview response");
+
+        assert_eq!(preview["source"], "rust_workspace_snapshot_restore_command");
+        assert_eq!(
+            preview["restore_preview"]["schema_version"],
+            WORKSPACE_RESTORE_PREVIEW_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(preview["restore_preview"]["preview_status"], "ready");
+        assert_eq!(preview["restore_preview"]["ready_count"], 1);
+        assert_eq!(
+            preview["restore_preview"]["operations"][0]["status"],
+            "ready"
+        );
+
+        let blocked_apply =
+            apply_workspace_snapshot_restore_response(WorkspaceSnapshotRestoreBridgeRequest {
+                backend: Some("rust_workspace_restore".to_string()),
+                request: WorkspaceSnapshotRestoreRequest {
+                    schema_version: WORKSPACE_SNAPSHOT_RESTORE_APPLY_REQUEST_SCHEMA_VERSION
+                        .to_string(),
+                    thread_id: "thread_alpha".to_string(),
+                    snapshot_id: snapshot_id.clone(),
+                    workspace_root: workspace.to_string_lossy().to_string(),
+                    workflow_graph_id: Some("graph_alpha".to_string()),
+                    workflow_node_id: Some("restore_apply".to_string()),
+                    idempotency_key: Some("idem-apply".to_string()),
+                    source: Some("sdk_client".to_string()),
+                    snapshot_record: Some(snapshot_record.clone()),
+                    content_package: Some(content_package.clone()),
+                    max_diff_bytes: Some(4096),
+                    approval: None,
+                    approval_decision: None,
+                    policy_decision: None,
+                    decision: None,
+                    status: None,
+                    confirm: None,
+                    confirmed: None,
+                    confirm_restore_apply: None,
+                    apply_confirmed: None,
+                    approval_granted: None,
+                    approved: None,
+                    restore_conflict_policy: None,
+                    conflict_policy: None,
+                    restore_policy: None,
+                    allow_conflicts: None,
+                    override_conflicts: None,
+                },
+            })
+            .expect("blocked restore apply response");
+
+        assert_eq!(blocked_apply["restore_apply"]["apply_status"], "blocked");
+        assert_eq!(blocked_apply["restore_apply"]["approval_satisfied"], false);
+        assert_eq!(fs::read_to_string(&file_path).expect("current"), "new");
+
+        let applied =
+            apply_workspace_snapshot_restore_response(WorkspaceSnapshotRestoreBridgeRequest {
+                backend: Some("rust_workspace_restore".to_string()),
+                request: WorkspaceSnapshotRestoreRequest {
+                    schema_version: WORKSPACE_SNAPSHOT_RESTORE_APPLY_REQUEST_SCHEMA_VERSION
+                        .to_string(),
+                    thread_id: "thread_alpha".to_string(),
+                    snapshot_id: snapshot_id.clone(),
+                    workspace_root: workspace.to_string_lossy().to_string(),
+                    workflow_graph_id: Some("graph_alpha".to_string()),
+                    workflow_node_id: Some("restore_apply".to_string()),
+                    idempotency_key: Some("idem-apply-approved".to_string()),
+                    source: Some("sdk_client".to_string()),
+                    snapshot_record: Some(snapshot_record),
+                    content_package: Some(content_package),
+                    max_diff_bytes: Some(4096),
+                    approval_granted: Some(Value::Bool(true)),
+                    approval: None,
+                    approval_decision: None,
+                    policy_decision: None,
+                    decision: None,
+                    status: None,
+                    confirm: None,
+                    confirmed: None,
+                    confirm_restore_apply: None,
+                    apply_confirmed: None,
+                    approved: None,
+                    restore_conflict_policy: None,
+                    conflict_policy: None,
+                    restore_policy: None,
+                    allow_conflicts: None,
+                    override_conflicts: None,
+                },
+            })
+            .expect("approved restore apply response");
+
+        assert_eq!(applied["restore_apply"]["apply_status"], "applied");
+        assert_eq!(applied["restore_apply"]["approval_satisfied"], true);
+        assert_eq!(applied["restore_apply"]["applied_count"], 1);
+        assert_eq!(fs::read_to_string(&file_path).expect("restored"), "old");
+        let _ = fs::remove_dir_all(workspace);
     }
 }

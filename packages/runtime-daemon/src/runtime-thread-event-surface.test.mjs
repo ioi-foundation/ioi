@@ -100,9 +100,6 @@ function harness() {
       return status === "archived" ? "archived" : "active";
     },
     threadTurnProjection,
-    ttiEnvelopeForRunEvent() {
-      return { event_id: "tti" };
-    },
     turnIdForRun(runId) {
       return `turn-${runId}`;
     },
@@ -203,7 +200,6 @@ test("runtime thread event surface delegates replay and projection helpers", () 
     "isRuntimeBackedAgent",
     "runtimeError",
     "threadIdForAgent",
-    "ttiEnvelopeForRunEvent",
     "turnIdForRun",
   ]);
   assert.deepEqual(calls.find((call) => call.name === "appendRuntimeEvent").depKeys, [

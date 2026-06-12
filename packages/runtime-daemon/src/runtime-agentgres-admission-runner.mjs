@@ -1,6 +1,18 @@
 export const RUNTIME_AGENTGRES_COMMAND_SCHEMA_VERSION = "ioi.runtime.daemon_core.command.v1";
 export const RUST_RUNTIME_AGENTGRES_BACKEND = "rust_runtime_agentgres";
 export const RUST_AGENTGRES_STORAGE_BACKEND = "rust_agentgres_storage";
+export const CODING_TOOL_RESULT_EVENT_ADMISSION_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.coding-tool-result-event-admission-request.v1";
+export const CODING_TOOL_COMMAND_STREAM_ADMISSION_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.coding-tool-command-stream-admission-request.v1";
+export const RUNTIME_THREAD_EVENT_ADMISSION_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.thread-event-admission-request.v1";
+export const RUNTIME_THREAD_EVENT_PROJECTION_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.thread-event-projection-request.v1";
+export const RUNTIME_THREAD_EVENT_REPLAY_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.thread-event-replay-request.v1";
+export const RUNTIME_THREAD_TURN_PROJECTION_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.thread-turn-projection-request.v1";
 
 export function createRuntimeAgentgresAdmissionRunnerFromEnv(env = process.env, options = {}) {
   assertNoRuntimeAgentgresCommandArgs(options.args ?? env.IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS);
@@ -48,6 +60,84 @@ export class RustRuntimeAgentgresAdmissionRunner {
       request,
     };
     return normalizeStorageBackendWriteBridgeResult(this.invokeDaemonCore(bridgeRequest));
+  }
+
+  admitCodingToolResultEvent(request = {}) {
+    const bridgeRequest = {
+      schema_version: RUNTIME_AGENTGRES_COMMAND_SCHEMA_VERSION,
+      operation: "admit_coding_tool_result_event",
+      backend: RUST_RUNTIME_AGENTGRES_BACKEND,
+      request: {
+        ...request,
+        schema_version: CODING_TOOL_RESULT_EVENT_ADMISSION_REQUEST_SCHEMA_VERSION,
+      },
+    };
+    return normalizeCodingToolResultEventAdmissionBridgeResult(this.invokeDaemonCore(bridgeRequest));
+  }
+
+  admitCodingToolCommandStreamEvents(request = {}) {
+    const bridgeRequest = {
+      schema_version: RUNTIME_AGENTGRES_COMMAND_SCHEMA_VERSION,
+      operation: "admit_coding_tool_command_stream_events",
+      backend: RUST_RUNTIME_AGENTGRES_BACKEND,
+      request: {
+        ...request,
+        schema_version: CODING_TOOL_COMMAND_STREAM_ADMISSION_REQUEST_SCHEMA_VERSION,
+      },
+    };
+    return normalizeCodingToolCommandStreamAdmissionBridgeResult(this.invokeDaemonCore(bridgeRequest));
+  }
+
+  admitRuntimeThreadEvent(request = {}) {
+    const bridgeRequest = {
+      schema_version: RUNTIME_AGENTGRES_COMMAND_SCHEMA_VERSION,
+      operation: "admit_runtime_thread_event",
+      backend: RUST_RUNTIME_AGENTGRES_BACKEND,
+      request: {
+        ...request,
+        schema_version: RUNTIME_THREAD_EVENT_ADMISSION_REQUEST_SCHEMA_VERSION,
+      },
+    };
+    return normalizeRuntimeThreadEventAdmissionBridgeResult(this.invokeDaemonCore(bridgeRequest));
+  }
+
+  projectRuntimeThreadEvents(request = {}) {
+    const bridgeRequest = {
+      schema_version: RUNTIME_AGENTGRES_COMMAND_SCHEMA_VERSION,
+      operation: "project_runtime_thread_events",
+      backend: RUST_RUNTIME_AGENTGRES_BACKEND,
+      request: {
+        ...request,
+        schema_version: RUNTIME_THREAD_EVENT_PROJECTION_REQUEST_SCHEMA_VERSION,
+      },
+    };
+    return normalizeRuntimeThreadEventProjectionBridgeResult(this.invokeDaemonCore(bridgeRequest));
+  }
+
+  projectRuntimeThreadEventReplay(request = {}) {
+    const bridgeRequest = {
+      schema_version: RUNTIME_AGENTGRES_COMMAND_SCHEMA_VERSION,
+      operation: "project_runtime_thread_event_replay",
+      backend: RUST_RUNTIME_AGENTGRES_BACKEND,
+      request: {
+        ...request,
+        schema_version: RUNTIME_THREAD_EVENT_REPLAY_REQUEST_SCHEMA_VERSION,
+      },
+    };
+    return normalizeRuntimeThreadEventReplayBridgeResult(this.invokeDaemonCore(bridgeRequest));
+  }
+
+  projectRuntimeThreadTurnProjection(request = {}) {
+    const bridgeRequest = {
+      schema_version: RUNTIME_AGENTGRES_COMMAND_SCHEMA_VERSION,
+      operation: "project_runtime_thread_turn_projection",
+      backend: RUST_RUNTIME_AGENTGRES_BACKEND,
+      request: {
+        ...request,
+        schema_version: RUNTIME_THREAD_TURN_PROJECTION_REQUEST_SCHEMA_VERSION,
+      },
+    };
+    return normalizeRuntimeThreadTurnProjectionBridgeResult(this.invokeDaemonCore(bridgeRequest));
   }
 
   commitRuntimeRunState(stateDir, request) {
@@ -172,6 +262,175 @@ export function normalizeStorageBackendWriteBridgeResult(value = {}) {
     artifact_refs: Array.isArray(result.artifact_refs) ? result.artifact_refs : record.artifact_refs ?? null,
     payload_refs: Array.isArray(result.payload_refs) ? result.payload_refs : record.payload_refs ?? null,
     receipt_refs: Array.isArray(result.receipt_refs) ? result.receipt_refs : record.receipt_refs ?? null,
+    evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : null,
+  };
+}
+
+export function normalizeCodingToolResultEventAdmissionBridgeResult(value = {}) {
+  const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const record = result.record && typeof result.record === "object" ? result.record : {};
+  const event = result.event && typeof result.event === "object" && !Array.isArray(result.event)
+    ? result.event
+    : record.event && typeof record.event === "object" && !Array.isArray(record.event)
+      ? record.event
+      : null;
+  return {
+    source: result.source ?? "rust_coding_tool_result_event_admission_command",
+    backend: result.backend ?? RUST_RUNTIME_AGENTGRES_BACKEND,
+    admitted: result.admitted ?? record.status === "admitted",
+    record,
+    event,
+    event_id: result.event_id ?? record.event_id ?? event?.event_id ?? null,
+    seq: result.seq ?? record.seq ?? event?.seq ?? null,
+    operation_kind: result.operation_kind ?? record.operation_kind ?? null,
+    operation_ref: result.operation_ref ?? record.operation_ref ?? event?.agentgres_operation_ref ?? null,
+    state_root_before: result.state_root_before ?? record.state_root_before ?? event?.state_root_before ?? null,
+    state_root_after: result.state_root_after ?? record.state_root_after ?? event?.state_root_after ?? null,
+    resulting_head: result.resulting_head ?? record.resulting_head ?? event?.resulting_head ?? null,
+    projection_watermark: result.projection_watermark ?? record.projection_watermark ?? event?.projection_watermark ?? null,
+    payload_refs: arrayOrNull(result.payload_refs) ?? arrayOrNull(record.payload_refs) ?? arrayOrNull(event?.payload_refs),
+    receipt_refs: arrayOrNull(result.receipt_refs) ?? arrayOrNull(record.receipt_refs) ?? arrayOrNull(event?.receipt_refs),
+    artifact_refs: arrayOrNull(result.artifact_refs) ?? arrayOrNull(record.artifact_refs) ?? arrayOrNull(event?.artifact_refs),
+    rollback_refs: arrayOrNull(result.rollback_refs) ?? arrayOrNull(record.rollback_refs) ?? arrayOrNull(event?.rollback_refs),
+    storage_admission: result.storage_admission ?? record.storage_admission ?? null,
+    admission_hash: result.admission_hash ?? record.admission_hash ?? null,
+    evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : null,
+  };
+}
+
+export function normalizeCodingToolCommandStreamAdmissionBridgeResult(value = {}) {
+  const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const record = result.record && typeof result.record === "object" ? result.record : {};
+  const events = arrayOrNull(result.events) ?? arrayOrNull(record.events) ?? [];
+  return {
+    source: result.source ?? "rust_coding_tool_command_stream_admission_command",
+    backend: result.backend ?? RUST_RUNTIME_AGENTGRES_BACKEND,
+    admitted: result.admitted ?? record.status === "admitted",
+    record,
+    events,
+    event_count: result.event_count ?? record.event_count ?? events.length,
+    operation_kind: result.operation_kind ?? record.operation_kind ?? null,
+    state_root_before: result.state_root_before ?? record.state_root_before ?? null,
+    state_root_after: result.state_root_after ?? record.state_root_after ?? null,
+    resulting_head: result.resulting_head ?? record.resulting_head ?? null,
+    projection_watermark: result.projection_watermark ?? record.projection_watermark ?? null,
+    payload_refs: arrayOrNull(result.payload_refs) ?? arrayOrNull(record.payload_refs),
+    receipt_refs: arrayOrNull(result.receipt_refs) ?? arrayOrNull(record.receipt_refs),
+    artifact_refs: arrayOrNull(result.artifact_refs) ?? arrayOrNull(record.artifact_refs),
+    storage_admissions: arrayOrNull(result.storage_admissions) ?? arrayOrNull(record.storage_admissions),
+    admission_hash: result.admission_hash ?? record.admission_hash ?? null,
+    evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : null,
+  };
+}
+
+export function normalizeRuntimeThreadEventAdmissionBridgeResult(value = {}) {
+  const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const record = result.record && typeof result.record === "object" ? result.record : {};
+  const event = result.event && typeof result.event === "object" && !Array.isArray(result.event)
+    ? result.event
+    : record.event && typeof record.event === "object" && !Array.isArray(record.event)
+      ? record.event
+      : null;
+  return {
+    source: result.source ?? "rust_runtime_thread_event_admission_command",
+    backend: result.backend ?? RUST_RUNTIME_AGENTGRES_BACKEND,
+    admitted: result.admitted ?? record.status === "admitted",
+    record,
+    event,
+    event_id: result.event_id ?? record.event_id ?? event?.event_id ?? null,
+    seq: result.seq ?? record.seq ?? event?.seq ?? null,
+    operation_kind: result.operation_kind ?? record.operation_kind ?? null,
+    operation_ref: result.operation_ref ?? record.operation_ref ?? event?.agentgres_operation_ref ?? null,
+    state_root_before: result.state_root_before ?? record.state_root_before ?? event?.state_root_before ?? null,
+    state_root_after: result.state_root_after ?? record.state_root_after ?? event?.state_root_after ?? null,
+    resulting_head: result.resulting_head ?? record.resulting_head ?? event?.resulting_head ?? null,
+    projection_watermark: result.projection_watermark ?? record.projection_watermark ?? event?.projection_watermark ?? null,
+    payload_refs: arrayOrNull(result.payload_refs) ?? arrayOrNull(record.payload_refs) ?? arrayOrNull(event?.payload_refs),
+    receipt_refs: arrayOrNull(result.receipt_refs) ?? arrayOrNull(record.receipt_refs) ?? arrayOrNull(event?.receipt_refs),
+    artifact_refs: arrayOrNull(result.artifact_refs) ?? arrayOrNull(record.artifact_refs) ?? arrayOrNull(event?.artifact_refs),
+    rollback_refs: arrayOrNull(result.rollback_refs) ?? arrayOrNull(record.rollback_refs) ?? arrayOrNull(event?.rollback_refs),
+    storage_admission: result.storage_admission ?? record.storage_admission ?? null,
+    admission_hash: result.admission_hash ?? record.admission_hash ?? null,
+    evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : null,
+  };
+}
+
+export function normalizeRuntimeThreadEventProjectionBridgeResult(value = {}) {
+  const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const record = result.record && typeof result.record === "object" ? result.record : {};
+  const events = arrayOrNull(result.events) ?? arrayOrNull(record.events) ?? [];
+  const admissions = arrayOrNull(result.admissions) ?? arrayOrNull(record.admissions) ?? [];
+  return {
+    source: result.source ?? "rust_runtime_thread_event_projection_command",
+    backend: result.backend ?? RUST_RUNTIME_AGENTGRES_BACKEND,
+    projected: result.projected ?? record.status === "projected",
+    record,
+    events,
+    admissions,
+    event_count: result.event_count ?? record.event_count ?? events.length,
+    skipped_count: result.skipped_count ?? record.skipped_count ?? 0,
+    operation_kind: result.operation_kind ?? record.operation_kind ?? null,
+    projection_kind: result.projection_kind ?? record.projection_kind ?? null,
+    resulting_seq: result.resulting_seq ?? record.resulting_seq ?? null,
+    resulting_head: result.resulting_head ?? record.resulting_head ?? null,
+    state_root_after: result.state_root_after ?? record.state_root_after ?? null,
+    projection_watermark: result.projection_watermark ?? record.projection_watermark ?? null,
+    payload_refs: arrayOrNull(result.payload_refs) ?? arrayOrNull(record.payload_refs),
+    receipt_refs: arrayOrNull(result.receipt_refs) ?? arrayOrNull(record.receipt_refs),
+    artifact_refs: arrayOrNull(result.artifact_refs) ?? arrayOrNull(record.artifact_refs),
+    projection_hash: result.projection_hash ?? record.projection_hash ?? null,
+    evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : null,
+  };
+}
+
+export function normalizeRuntimeThreadEventReplayBridgeResult(value = {}) {
+  const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const record = result.record && typeof result.record === "object" ? result.record : {};
+  const events = arrayOrNull(result.events) ?? arrayOrNull(record.events) ?? [];
+  return {
+    source: result.source ?? "rust_runtime_thread_event_replay_command",
+    backend: result.backend ?? RUST_RUNTIME_AGENTGRES_BACKEND,
+    projected: result.projected ?? record.status === "projected",
+    record,
+    events,
+    event_count: result.event_count ?? record.event_count ?? events.length,
+    operation_kind: result.operation_kind ?? record.operation_kind ?? null,
+    replay_kind: result.replay_kind ?? record.replay_kind ?? null,
+    latest_seq: result.latest_seq ?? record.latest_seq ?? null,
+    cursor_seq: result.cursor_seq ?? record.cursor_seq ?? null,
+    resulting_seq: result.resulting_seq ?? record.resulting_seq ?? null,
+    resulting_head: result.resulting_head ?? record.resulting_head ?? null,
+    state_root_after: result.state_root_after ?? record.state_root_after ?? null,
+    projection_watermark: result.projection_watermark ?? record.projection_watermark ?? null,
+    payload_refs: arrayOrNull(result.payload_refs) ?? arrayOrNull(record.payload_refs),
+    receipt_refs: arrayOrNull(result.receipt_refs) ?? arrayOrNull(record.receipt_refs),
+    artifact_refs: arrayOrNull(result.artifact_refs) ?? arrayOrNull(record.artifact_refs),
+    replay_hash: result.replay_hash ?? record.replay_hash ?? null,
+    evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : null,
+  };
+}
+
+export function normalizeRuntimeThreadTurnProjectionBridgeResult(value = {}) {
+  const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const projection = result.projection && typeof result.projection === "object" ? result.projection : {};
+  const record = result.record && typeof result.record === "object"
+    ? result.record
+    : projection.record && typeof projection.record === "object"
+      ? projection.record
+      : {};
+  return {
+    source: result.source ?? "rust_runtime_thread_turn_projection_command",
+    backend: result.backend ?? RUST_RUNTIME_AGENTGRES_BACKEND,
+    projected: result.projected ?? projection.status === "projected",
+    projection,
+    record,
+    event_count: result.event_count ?? projection.event_count ?? null,
+    operation_kind: result.operation_kind ?? projection.operation_kind ?? null,
+    projection_kind: result.projection_kind ?? projection.projection_kind ?? null,
+    thread_id: result.thread_id ?? projection.thread_id ?? record.thread_id ?? null,
+    turn_id: result.turn_id ?? projection.turn_id ?? record.turn_id ?? null,
+    latest_seq: result.latest_seq ?? projection.latest_seq ?? record.latest_seq ?? null,
+    projection_hash: result.projection_hash ?? projection.projection_hash ?? null,
     evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : null,
   };
 }

@@ -104,7 +104,40 @@ function fakeStore(calls = []) {
   };
 }
 
-test("runtime event append fails closed before JS event stream mutation", () => {
+test("runtime event append routes through Rust admission before replay registration", () => {
+  const calls = [];
+  const store = fakeStore(calls);
+  store.admitRuntimeThreadEventForThread = (inputStore, request) => {
+    calls.push({ operation: "admit_runtime_thread_event", event: request.event });
+    const admitted = {
+      ...request.event,
+      event_id: "event_runtime_thread_1",
+      seq: 1,
+      state_root_after: "sha256:after",
+      resulting_head: "agentgres://runtime-events/stream_thread/head/after",
+      projection_watermark: "runtime-events:stream:thread:1",
+      payload_refs: ["payload://runtime-events/stream_thread/events/event_runtime_thread_1"],
+    };
+    registerRuntimeEvent(inputStore, admitted);
+    return admitted;
+  };
+  const event = {
+    event_stream_id: "stream:thread",
+    thread_id: "thread_1",
+    turn_id: "turn_1",
+    idempotency_key: "idem_1",
+    event_kind: "turn.started",
+    receipt_refs: ["receipt_thread_event"],
+  };
+
+  const admitted = appendRuntimeEvent(store, event, deps(calls));
+
+  assert.equal(admitted.event_id, "event_runtime_thread_1");
+  assert.deepEqual(calls, [{ operation: "admit_runtime_thread_event", event }]);
+  assert.deepEqual(store.runtimeEventStream("stream:thread").events, [admitted]);
+});
+
+test("runtime event append fails closed without Rust admission before JS event stream mutation", () => {
   const calls = [];
   const store = fakeStore(calls);
   const event = {
@@ -113,6 +146,7 @@ test("runtime event append fails closed before JS event stream mutation", () => 
     turn_id: "turn_1",
     idempotency_key: "idem_1",
     event_kind: "turn.started",
+    receipt_refs: ["receipt_thread_event"],
   };
 
   assert.throws(
@@ -134,6 +168,19 @@ test("runtime event append fails closed before JS event stream mutation", () => 
 test("runtime events replay by stream and cursor", () => {
   const calls = [];
   const store = fakeStore(calls);
+  store.projectRuntimeThreadEventReplayForThread = (inputStore, request) => {
+    calls.push({
+      operation: "project_runtime_thread_event_replay",
+      replay_kind: request.replay_kind,
+      event_stream_id: request.event_stream_id,
+      turn_id: request.turn_id,
+      cursor: request.cursor,
+    });
+    if (request.replay_kind === "stream") {
+      return { events: [inputStore.runtimeEventStream(request.event_stream_id).events[1]] };
+    }
+    return { events: [inputStore.runtimeEventStream("stream:thread").events[1]] };
+  };
   registerRuntimeEvent(store, {
     event_stream_id: "stream:thread",
     event_id: "evt_1",
@@ -151,9 +198,57 @@ test("runtime events replay by stream and cursor", () => {
     seq: 2,
   });
 
-  assert.deepEqual(runtimeEventsForStream(store, "stream:thread", { since_seq: 1 }).map((event) => event.seq), [2]);
-  assert.deepEqual(runtimeEventsForTurn(store, "turn_1", "evt_1").map((event) => event.seq), [2]);
+  assert.deepEqual(runtimeEventsForStream(store, "stream:thread", { since_seq: 1 }, deps(calls)).map((event) => event.seq), [2]);
+  assert.deepEqual(runtimeEventsForTurn(store, "turn_1", { last_event_id: "evt_1" }, deps(calls)).map((event) => event.seq), [2]);
   assert.equal(latestRuntimeEventSeq(store, "stream:thread"), 2);
+  assert.deepEqual(calls, [
+    {
+      operation: "project_runtime_thread_event_replay",
+      replay_kind: "stream",
+      event_stream_id: "stream:thread",
+      turn_id: undefined,
+      cursor: { since_seq: 1 },
+    },
+    {
+      operation: "project_runtime_thread_event_replay",
+      replay_kind: "turn",
+      event_stream_id: undefined,
+      turn_id: "turn_1",
+      cursor: { last_event_id: "evt_1" },
+    },
+  ]);
+});
+
+test("runtime events replay fails closed without Rust replay before JS cursor filtering", () => {
+  const calls = [];
+  const store = fakeStore(calls);
+  registerRuntimeEvent(store, {
+    event_stream_id: "stream:thread",
+    event_id: "evt_1",
+    turn_id: "turn_1",
+    idempotency_key: "idem_1",
+    event_kind: "turn.started",
+    seq: 1,
+  });
+
+  assert.throws(
+    () => runtimeEventsForStream(store, "stream:thread", { since_seq: 0 }, deps(calls)),
+    (error) => {
+      assert.equal(error.code, "runtime_thread_event_rust_core_required");
+      assert.equal(error.details.operation, "stream_event_replay");
+      assert.equal(error.details.event_stream_id, "stream:thread");
+      return true;
+    },
+  );
+  assert.throws(
+    () => runtimeEventsForTurn(store, "turn_1", { last_event_id: "evt_1" }, deps(calls)),
+    (error) => {
+      assert.equal(error.code, "runtime_thread_event_rust_core_required");
+      assert.equal(error.details.operation, "turn_event_replay");
+      assert.equal(error.details.turn_id, "turn_1");
+      return true;
+    },
+  );
 });
 
 test("runtime cursor rejects missing and future cursors", () => {
@@ -213,6 +308,132 @@ test("runtime event registration sorts persisted records", () => {
 test("runtime event stream path uses runtime event filename helper", () => {
   const store = fakeStore();
   assert.equal(runtimeEventStreamPath(store, "stream:thread", deps()), "/state/events/stream_thread.jsonl");
+});
+
+test("thread replay projects thread start through Rust projection before replay registration", () => {
+  const calls = [];
+  const store = fakeStore(calls);
+  store.projectRuntimeThreadEventsForThread = (inputStore, request) => {
+    calls.push({ operation: "project_runtime_thread_events", projection_kind: request.projection_kind, agent: request.agent });
+    const admitted = {
+      event_stream_id: "stream_thread_agent_1",
+      event_id: "event_thread_started",
+      thread_id: "thread_agent_1",
+      idempotency_key: "thread:thread_agent_1:started",
+      event_kind: "thread.started",
+      seq: 1,
+      state_root_after: "sha256:after",
+      receipt_refs: ["receipt_agent_state"],
+    };
+    registerRuntimeEvent(inputStore, admitted);
+    return { events: [admitted] };
+  };
+  const agent = {
+    id: "agent_1",
+    status: "active",
+    createdAt: "2026-06-03T00:00:00.000Z",
+    cwd: "/workspace",
+    receipt_refs: ["receipt_agent_state"],
+  };
+
+  const projection = ensureThreadStartedEvent(store, agent, deps(calls));
+
+  assert.equal(projection.events[0].event_kind, "thread.started");
+  assert.deepEqual(calls, [{
+    operation: "project_runtime_thread_events",
+    projection_kind: "thread_started",
+    agent,
+  }]);
+  assert.deepEqual(store.runtimeEventStream("stream_thread_agent_1").events, projection.events);
+});
+
+test("thread replay projects run events through Rust projection before replay registration", () => {
+  const calls = [];
+  const store = fakeStore(calls);
+  store.projectRuntimeThreadEventsForThread = (inputStore, request) => {
+    calls.push({
+      operation: "project_runtime_thread_events",
+      projection_kind: request.projection_kind,
+      runIds: request.runs.map((run) => run.id),
+    });
+    const admitted = {
+      event_stream_id: "stream_thread_agent_1",
+      event_id: "event_turn_started",
+      thread_id: "thread_agent_1",
+      turn_id: "turn_run_1",
+      idempotency_key: "run:run_1:event:event_run_started",
+      event_kind: "turn.started",
+      seq: 1,
+      state_root_after: "sha256:after",
+      receipt_refs: ["receipt_run_policy"],
+    };
+    registerRuntimeEvent(inputStore, admitted);
+    return { events: [admitted] };
+  };
+  const agent = {
+    id: "agent_1",
+    status: "active",
+    cwd: "/workspace",
+  };
+  const run = {
+    id: "run_1",
+    agentId: "agent_1",
+    events: [{ id: "event_run_started", type: "run_started", data: { receipt_id: "receipt_run_policy" } }],
+  };
+
+  const projection = projectRunEvents(store, run, agent, deps(calls));
+
+  assert.equal(projection.events[0].event_kind, "turn.started");
+  assert.deepEqual(calls, [{
+    operation: "project_runtime_thread_events",
+    projection_kind: "run",
+    runIds: ["run_1"],
+  }]);
+  assert.deepEqual(store.runtimeEventStream("stream_thread_agent_1").events, projection.events);
+});
+
+test("thread replay projects whole thread through Rust projection before replay registration", () => {
+  const calls = [];
+  const store = fakeStore(calls);
+  store.runs = [{
+    id: "run_1",
+    agentId: "agent_1",
+    events: [{ id: "event_run_started", type: "run_started", data: { receipt_id: "receipt_run_policy" } }],
+  }];
+  store.projectRuntimeThreadEventsForThread = (inputStore, request) => {
+    calls.push({
+      operation: "project_runtime_thread_events",
+      projection_kind: request.projection_kind,
+      runIds: request.runs.map((run) => run.id),
+    });
+    const admitted = {
+      event_stream_id: "stream_thread_agent_1",
+      event_id: "event_thread_started",
+      thread_id: "thread_agent_1",
+      idempotency_key: "thread:thread_agent_1:started",
+      event_kind: "thread.started",
+      seq: 1,
+      receipt_refs: ["receipt_agent_state"],
+    };
+    registerRuntimeEvent(inputStore, admitted);
+    return { events: [admitted] };
+  };
+  const agent = {
+    id: "agent_1",
+    status: "active",
+    cwd: "/workspace",
+    receipt_refs: ["receipt_agent_state"],
+  };
+
+  const projection = projectThreadEvents(store, agent, deps(calls));
+
+  assert.equal(projection.events[0].event_kind, "thread.started");
+  assert.deepEqual(calls, [{
+    operation: "project_runtime_thread_events",
+    projection_kind: "thread",
+    runIds: ["run_1"],
+  }]);
+  assert.deepEqual(store.runtimeEventStream("stream_thread_agent_1").events, projection.events);
 });
 
 test("thread replay thread-start projection fails closed before JS append", () => {

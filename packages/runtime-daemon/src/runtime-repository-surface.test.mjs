@@ -3,22 +3,79 @@ import test from "node:test";
 
 import { createRuntimeRepositorySurface } from "./runtime-repository-surface.mjs";
 
-test("runtime repository surface fails closed before JS public projection builders", () => {
+test("runtime repository surface returns Rust-owned repository workflow projections", () => {
+  const calls = [];
   const surface = createRuntimeRepositorySurface({
+    repositoryRunner: {
+      projectRepositoryWorkflow(request) {
+        calls.push(request);
+        if (request.projection_kind === "repository_context") {
+          return {
+            source: "rust_repository_workflow_projection_command",
+            projection_kind: "repository_context",
+            projection: {
+              schemaVersion: "ioi.agent-runtime.repository-context.v1",
+              object: "ioi.repository_context",
+              contextId: "repoctx_one",
+            },
+          };
+        }
+        return {
+          source: "rust_repository_workflow_projection_command",
+          projection_kind: "pr_attempts",
+          projection: [
+            {
+              schemaVersion: "ioi.agent-runtime.pr-attempt.v1",
+              object: "ioi.pr_attempt",
+              attemptId: "pr_attempt_one",
+            },
+          ],
+        };
+      },
+    },
     repositoryContextProjection() {
       throw new Error("JS repository projection must not author public truth");
     },
   });
   const store = { defaultCwd: "/workspace/project" };
 
+  assert.equal(surface.repositoryContext(store).contextId, "repoctx_one");
+  assert.equal(surface.prAttempts(store)[0].attemptId, "pr_attempt_one");
+  assert.deepEqual(calls, [
+    {
+      operation: "repository_workflow_repository_context",
+      operation_kind: "repository_workflow.projection.repository_context",
+      projection_kind: "repository_context",
+      workspace_root: "/workspace/project",
+      source: "runtime.repository_surface",
+      evidence_refs: [
+        "runtime_repository_workflow_rust_projection",
+        "agentgres_repository_workflow_truth_required",
+      ],
+    },
+    {
+      operation: "repository_workflow_pr_attempts",
+      operation_kind: "repository_workflow.projection.pr_attempts",
+      projection_kind: "pr_attempts",
+      workspace_root: "/workspace/project",
+      source: "runtime.repository_surface",
+      evidence_refs: [
+        "runtime_repository_workflow_rust_projection",
+        "agentgres_repository_workflow_truth_required",
+      ],
+    },
+  ]);
+});
+
+test("runtime repository surface fails closed when Rust projection is missing", () => {
+  const surface = createRuntimeRepositorySurface({});
+  const store = { defaultCwd: "/workspace/project" };
+
   assert.throws(
     () => surface.repositoryContext(store),
     (error) => {
       assert.equal(error.status, 501);
-      assert.equal(
-        error.code,
-        "runtime_repository_workflow_projection_rust_core_required",
-      );
+      assert.equal(error.code, "runtime_repository_workflow_rust_projection_missing");
       assert.equal(
         error.details.rust_core_boundary,
         "runtime.repository_workflow_projection",
@@ -40,27 +97,15 @@ test("runtime repository surface fails closed before JS public projection builde
   );
 });
 
-test("runtime repository surface translates mounted Rust projection-required record", () => {
-  let captured = null;
+test("runtime repository surface rejects Rust projection mismatches", () => {
   const surface = createRuntimeRepositorySurface({
     repositoryRunner: {
-      planRepositoryWorkflowProjectionRequired(request) {
-        captured = request;
+      projectRepositoryWorkflow() {
         return {
-          record: {
-            status_code: 501,
-            code: "runtime_repository_workflow_projection_rust_core_required",
-            message:
-              "Repository workflow projection requires direct Rust daemon-core projection over Agentgres-admitted repository workflow truth.",
-            details: {
-              rust_core_boundary: "runtime.repository_workflow_projection",
-              operation: request.operation,
-              operation_kind: request.operation_kind,
-              projection_kind: request.projection_kind,
-              workspace_root: request.workspace_root,
-              source: request.source,
-              evidence_refs: request.evidence_refs,
-            },
+          source: "rust_repository_workflow_projection_command",
+          projection_kind: "github_context",
+          projection: {
+            schemaVersion: "ioi.agent-runtime.github-context.v1",
           },
         };
       },
@@ -69,40 +114,17 @@ test("runtime repository surface translates mounted Rust projection-required rec
   const store = { defaultCwd: "/workspace/project" };
 
   assert.throws(
-    () => surface.prAttempts(store),
+    () => surface.branchPolicy(store),
     (error) => {
-      assert.equal(error.status, 501);
-      assert.equal(
-        error.code,
-        "runtime_repository_workflow_projection_rust_core_required",
-      );
-      assert.equal(error.details.operation, "repository_workflow_pr_attempts");
+      assert.equal(error.status, 502);
+      assert.equal(error.code, "runtime_repository_workflow_rust_projection_invalid");
+      assert.equal(error.details.expected_projection_kind, "branch_policy");
+      assert.equal(error.details.actual_projection_kind, "github_context");
       assert.equal(
         error.details.operation_kind,
-        "repository_workflow.projection.pr_attempts",
+        "repository_workflow.projection.branch_policy",
       );
-      assert.equal(error.details.projection_kind, "pr_attempts");
-      assert.equal(error.details.workspace_root, "/workspace/project");
-      assert.equal(error.details.source, "runtime.repository_surface");
-      assert.deepEqual(error.details.evidence_refs, [
-        "runtime_repository_workflow_js_projection_retired",
-        "rust_daemon_core_repository_workflow_projection_required",
-        "agentgres_repository_workflow_truth_required",
-      ]);
       return true;
     },
   );
-
-  assert.deepEqual(captured, {
-    operation: "repository_workflow_pr_attempts",
-    operation_kind: "repository_workflow.projection.pr_attempts",
-    projection_kind: "pr_attempts",
-    workspace_root: "/workspace/project",
-    source: "runtime.repository_surface",
-    evidence_refs: [
-      "runtime_repository_workflow_js_projection_retired",
-      "rust_daemon_core_repository_workflow_projection_required",
-      "agentgres_repository_workflow_truth_required",
-    ],
-  });
 });

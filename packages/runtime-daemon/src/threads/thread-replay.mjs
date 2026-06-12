@@ -2,6 +2,9 @@ export function appendRuntimeEvent(store, event, deps = {}) {
   const { runtimeError } = deps;
   const streamId = event.event_stream_id;
   const idempotencyKey = String(event.idempotency_key ?? event.event_id ?? "");
+  if (typeof store.admitRuntimeThreadEventForThread === "function") {
+    return store.admitRuntimeThreadEventForThread(store, { event });
+  }
   throwRuntimeThreadEventRustCoreRequired(runtimeError, "runtime_event_append", "runtime.event.append", {
     event_stream_id: streamId ?? null,
     thread_id: event.thread_id ?? null,
@@ -23,6 +26,12 @@ export function ensureThreadStartedEvent(store, agent, deps = {}) {
     threadIdForAgent,
   } = deps;
   const threadId = threadIdForAgent(agent.id);
+  if (typeof store.projectRuntimeThreadEventsForThread === "function") {
+    return store.projectRuntimeThreadEventsForThread(store, {
+      projection_kind: "thread_started",
+      agent,
+    });
+  }
   throwRuntimeThreadEventRustCoreRequired(runtimeError, "thread_started_event_admission", "thread.started", {
     agent_id: agent.id,
     thread_id: threadId,
@@ -39,6 +48,13 @@ export function ensureThreadStartedEvent(store, agent, deps = {}) {
 export function projectThreadEvents(store, agent, deps = {}) {
   const { isRuntimeBackedAgent, runtimeError } = deps;
   if (isRuntimeBackedAgent(agent)) return;
+  if (typeof store.projectRuntimeThreadEventsForThread === "function") {
+    return store.projectRuntimeThreadEventsForThread(store, {
+      projection_kind: "thread",
+      agent,
+      runs: typeof store.listRuns === "function" ? store.listRuns(agent.id) : [],
+    });
+  }
   throwRuntimeThreadEventRustCoreRequired(runtimeError, "thread_event_projection", "runtime.thread_event_projection", {
     agent_id: agent.id,
     evidence_refs: [
@@ -59,6 +75,13 @@ export function projectRunEvents(store, run, agent, deps = {}) {
   if (isRuntimeBackedAgent(agent)) return;
   const threadId = threadIdForAgent(agent.id);
   const turnId = turnIdForRun(run.id);
+  if (typeof store.projectRuntimeThreadEventsForThread === "function") {
+    return store.projectRuntimeThreadEventsForThread(store, {
+      projection_kind: "run",
+      agent,
+      runs: [run],
+    });
+  }
   throwRuntimeThreadEventRustCoreRequired(runtimeError, "run_event_projection", "runtime.run_event_projection", {
     agent_id: agent.id,
     run_id: run.id,
@@ -73,21 +96,44 @@ export function projectRunEvents(store, run, agent, deps = {}) {
   });
 }
 
-export function runtimeEventsForStream(store, eventStreamId, cursor = {}) {
-  const stream = store.runtimeEventStream(eventStreamId);
-  const cursorSeq = store.runtimeCursorSeq(stream, cursor);
-  return stream.events.filter((event) => event.seq > cursorSeq);
+export function runtimeEventsForStream(store, eventStreamId, cursor = {}, deps = {}) {
+  const { runtimeError } = deps;
+  if (typeof store.projectRuntimeThreadEventReplayForThread === "function") {
+    const replay = store.projectRuntimeThreadEventReplayForThread(store, {
+      replay_kind: "stream",
+      event_stream_id: eventStreamId,
+      cursor,
+    });
+    return Array.isArray(replay?.events) ? replay.events : [];
+  }
+  throwRuntimeThreadEventRustCoreRequired(runtimeError, "stream_event_replay", "runtime.thread_event_replay", {
+    event_stream_id: eventStreamId,
+    evidence_refs: [
+      "runtime_thread_event_js_replay_retired",
+      "rust_daemon_core_thread_event_replay_required",
+      "agentgres_thread_event_truth_required",
+    ],
+  });
 }
 
-export function runtimeEventsForTurn(store, turnId, cursor = {}) {
-  const events = [...store.runtimeEventStreams.values()]
-    .flatMap((stream) => stream.events)
-    .filter((event) => event.turn_id === turnId)
-    .sort((left, right) => left.seq - right.seq);
-  if (!events.length) return [];
-  const stream = store.runtimeEventStream(events[0].event_stream_id);
-  const cursorSeq = store.runtimeCursorSeq(stream, cursor);
-  return events.filter((event) => event.seq > cursorSeq);
+export function runtimeEventsForTurn(store, turnId, cursor = {}, deps = {}) {
+  const { runtimeError } = deps;
+  if (typeof store.projectRuntimeThreadEventReplayForThread === "function") {
+    const replay = store.projectRuntimeThreadEventReplayForThread(store, {
+      replay_kind: "turn",
+      turn_id: turnId,
+      cursor,
+    });
+    return Array.isArray(replay?.events) ? replay.events : [];
+  }
+  throwRuntimeThreadEventRustCoreRequired(runtimeError, "turn_event_replay", "runtime.thread_event_replay", {
+    turn_id: turnId,
+    evidence_refs: [
+      "runtime_thread_event_js_replay_retired",
+      "rust_daemon_core_thread_event_replay_required",
+      "agentgres_thread_event_truth_required",
+    ],
+  });
 }
 
 export function runtimeCursorSeq(store, stream, cursor = {}, deps = {}) {

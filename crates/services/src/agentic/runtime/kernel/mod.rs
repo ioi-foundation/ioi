@@ -10,6 +10,7 @@ pub mod authority;
 pub mod capability;
 pub mod coding_tool_artifact;
 pub mod coding_tool_computer_use;
+pub mod coding_tool_event;
 pub mod coding_tool_execution;
 pub mod coding_tool_step_module;
 pub mod coding_tool_workspace;
@@ -32,8 +33,13 @@ pub mod policy;
 pub mod profile;
 pub mod projection;
 pub mod receipt_binder;
+pub mod repository_workflow;
+pub mod runtime_lifecycle;
+pub mod runtime_thread_event;
+pub mod runtime_tool_catalog;
 pub mod scope;
 pub mod settlement;
+pub mod skill_hook_registry;
 pub mod step_module;
 pub mod step_router;
 pub mod trace;
@@ -56,20 +62,36 @@ use agentgres_admission::{
     StorageBackendWriteAdmissionRecord, StorageBackendWriteProposal,
 };
 use approval::{
-    ApprovalDecisionStateUpdateCore, ApprovalDecisionStateUpdateError,
-    ApprovalDecisionStateUpdateRecord, ApprovalDecisionStateUpdateRequest,
-    ApprovalRequestStateUpdateCore, ApprovalRequestStateUpdateError,
-    ApprovalRequestStateUpdateRecord, ApprovalRequestStateUpdateRequest,
-    ApprovalRevokeStateUpdateCore, ApprovalRevokeStateUpdateError, ApprovalRevokeStateUpdateRecord,
+    ApprovalDecisionAuthorityCore, ApprovalDecisionAuthorityError, ApprovalDecisionAuthorityRecord,
+    ApprovalDecisionAuthorityRequest, ApprovalDecisionStateUpdateCore,
+    ApprovalDecisionStateUpdateError, ApprovalDecisionStateUpdateRecord,
+    ApprovalDecisionStateUpdateRequest, ApprovalQueueProjectionCore, ApprovalQueueProjectionError,
+    ApprovalQueueProjectionRecord, ApprovalQueueProjectionRequest, ApprovalRequestStateUpdateCore,
+    ApprovalRequestStateUpdateError, ApprovalRequestStateUpdateRecord,
+    ApprovalRequestStateUpdateRequest, ApprovalRevokeStateUpdateCore,
+    ApprovalRevokeStateUpdateError, ApprovalRevokeStateUpdateRecord,
     ApprovalRevokeStateUpdateRequest, ApprovalScopeContext, AuthorityScopeMatcher,
-    CodingToolApprovalCore, CodingToolApprovalError, CodingToolApprovalPlan,
-    CodingToolApprovalRequest, ScopeMatchDecision,
+    CodingToolApprovalBlockCore, CodingToolApprovalBlockError, CodingToolApprovalBlockRecord,
+    CodingToolApprovalBlockRequest, CodingToolApprovalCore, CodingToolApprovalError,
+    CodingToolApprovalPlan, CodingToolApprovalRequest, CodingToolApprovalSatisfactionCore,
+    CodingToolApprovalSatisfactionError, CodingToolApprovalSatisfactionProjectionCore,
+    CodingToolApprovalSatisfactionProjectionError, CodingToolApprovalSatisfactionProjectionRecord,
+    CodingToolApprovalSatisfactionProjectionRequest, CodingToolApprovalSatisfactionRecord,
+    CodingToolApprovalSatisfactionRequest, ScopeMatchDecision,
 };
 use authority::{
     ExternalCapabilityExitAuthorityRecord, ExternalCapabilityExitRequest, WalletAuthorityCore,
     WalletAuthorityError,
 };
 use capability::CapabilityLeaseDecision;
+use coding_tool_event::{
+    CodingToolCommandStreamAdmissionCore, CodingToolCommandStreamAdmissionError,
+    CodingToolCommandStreamAdmissionRecord, CodingToolCommandStreamAdmissionRequest,
+    CodingToolResultEventAdmissionCore, CodingToolResultEventAdmissionError,
+    CodingToolResultEventAdmissionRecord, CodingToolResultEventAdmissionRequest,
+    PostEditDiagnosticsFeedbackPlanCore, PostEditDiagnosticsFeedbackPlanError,
+    PostEditDiagnosticsFeedbackPlanRecord, PostEditDiagnosticsFeedbackPlanRequest,
+};
 use ctee::{
     CteeNodeTrust, CteePrivateWorkspaceError, CteePrivateWorkspaceExecutionRecord,
     CteePrivateWorkspaceReceipt, PrivateWorkspaceCteeModule,
@@ -94,9 +116,12 @@ use model_mount::{
 use plan::{validate_plan, ExecutablePlan, PlanValidationError};
 use policy::{
     AgentCreateStateUpdateCore, AgentCreateStateUpdateError, AgentCreateStateUpdateRecord,
-    AgentCreateStateUpdateRequest, AgentStatusStateUpdateCore, AgentStatusStateUpdateError,
-    AgentStatusStateUpdateRecord, AgentStatusStateUpdateRequest,
-    CodingToolBudgetRecoveryAdmissionRequiredCore, CodingToolBudgetRecoveryAdmissionRequiredError,
+    AgentCreateStateUpdateRequest, AgentDeleteStateUpdateCore, AgentDeleteStateUpdateError,
+    AgentDeleteStateUpdateRecord, AgentDeleteStateUpdateRequest, AgentStatusStateUpdateCore,
+    AgentStatusStateUpdateError, AgentStatusStateUpdateRecord, AgentStatusStateUpdateRequest,
+    CodingToolBudgetBlockCore, CodingToolBudgetBlockError, CodingToolBudgetBlockRecord,
+    CodingToolBudgetBlockRequest, CodingToolBudgetRecoveryAdmissionRequiredCore,
+    CodingToolBudgetRecoveryAdmissionRequiredError,
     CodingToolBudgetRecoveryAdmissionRequiredRecord,
     CodingToolBudgetRecoveryAdmissionRequiredRequest, CodingToolBudgetRecoveryStateUpdateCore,
     CodingToolBudgetRecoveryStateUpdateError, CodingToolBudgetRecoveryStateUpdateRecord,
@@ -129,8 +154,6 @@ use policy::{
     OperatorInterruptStateUpdateError, OperatorInterruptStateUpdateRecord,
     OperatorInterruptStateUpdateRequest, OperatorSteerStateUpdateCore,
     OperatorSteerStateUpdateError, OperatorSteerStateUpdateRecord, OperatorSteerStateUpdateRequest,
-    RepositoryWorkflowProjectionRequiredCore, RepositoryWorkflowProjectionRequiredError,
-    RepositoryWorkflowProjectionRequiredRecord, RepositoryWorkflowProjectionRequiredRequest,
     RunCancelAdmissionRequiredCore, RunCancelAdmissionRequiredError,
     RunCancelAdmissionRequiredRecord, RunCancelAdmissionRequiredRequest, RunCancelStateUpdateCore,
     RunCancelStateUpdateError, RunCancelStateUpdateRecord, RunCancelStateUpdateRequest,
@@ -139,14 +162,13 @@ use policy::{
     RuntimeBridgeThreadStartAgentStateUpdateError, RuntimeBridgeThreadStartAgentStateUpdateRecord,
     RuntimeBridgeThreadStartAgentStateUpdateRequest, RuntimeBridgeTurnRunStateUpdateCore,
     RuntimeBridgeTurnRunStateUpdateError, RuntimeBridgeTurnRunStateUpdateRecord,
-    RuntimeBridgeTurnRunStateUpdateRequest, RuntimeLifecycleProjectionRequiredCore,
-    RuntimeLifecycleProjectionRequiredError, RuntimeLifecycleProjectionRequiredRecord,
-    RuntimeLifecycleProjectionRequiredRequest, RuntimeToolCatalogProjectionRequiredCore,
-    RuntimeToolCatalogProjectionRequiredError, RuntimeToolCatalogProjectionRequiredRecord,
-    RuntimeToolCatalogProjectionRequiredRequest, SkillHookRegistryProjectionRequiredCore,
-    SkillHookRegistryProjectionRequiredError, SkillHookRegistryProjectionRequiredRecord,
-    SkillHookRegistryProjectionRequiredRequest, SubagentRecordStateUpdateCore,
-    SubagentRecordStateUpdateError, SubagentRecordStateUpdateRecord,
+    RuntimeBridgeTurnRunStateUpdateRequest, RuntimeTaskJobCancelStateUpdateCore,
+    RuntimeTaskJobCancelStateUpdateError, RuntimeTaskJobCancelStateUpdateRecord,
+    RuntimeTaskJobCancelStateUpdateRequest, RuntimeTaskJobCreateStateUpdateCore,
+    RuntimeTaskJobCreateStateUpdateError, RuntimeTaskJobCreateStateUpdateRecord,
+    RuntimeTaskJobCreateStateUpdateRequest, RuntimeTaskJobProjectionCore,
+    RuntimeTaskJobProjectionError, RuntimeTaskJobProjectionRecord, RuntimeTaskJobProjectionRequest,
+    SubagentRecordStateUpdateCore, SubagentRecordStateUpdateError, SubagentRecordStateUpdateRecord,
     SubagentRecordStateUpdateRequest, ThreadControlAgentStateUpdateCore,
     ThreadControlAgentStateUpdateError, ThreadControlAgentStateUpdateRecord,
     ThreadControlAgentStateUpdateRequest, ThreadMemoryAgentStateUpdateCore,
@@ -161,6 +183,13 @@ use receipt_binder::{
     AcceptedReceiptAppendRecord, AcceptedReceiptAppendRequest, ReceiptBinder, ReceiptBindingError,
     StepModuleReceiptBinding,
 };
+use runtime_thread_event::{
+    RuntimeThreadEventAdmissionCore, RuntimeThreadEventAdmissionError,
+    RuntimeThreadEventAdmissionRecord, RuntimeThreadEventAdmissionRequest,
+    RuntimeThreadEventProjectionRecord, RuntimeThreadEventProjectionRequest,
+    RuntimeThreadEventReplayRecord, RuntimeThreadEventReplayRequest,
+    RuntimeThreadTurnProjectionRecord, RuntimeThreadTurnProjectionRequest,
+};
 use settlement::{
     ArtifactPromotionReceipt, L1SettlementAdmissionError, L1SettlementAdmissionRecord,
     L1SettlementAttempt, L1SettlementTriggerGuard, PromotionValidationError,
@@ -171,11 +200,15 @@ use step_router::{
     StepModuleExecutionAdmissionRecord, StepModuleRouterCore, StepModuleRouterError,
 };
 use workspace_restore::{
+    apply_workspace_snapshot_restore_response, preview_workspace_snapshot_restore_response,
+    project_workspace_snapshot_content_package_response, project_workspace_snapshot_list_response,
     WorkspaceRestoreApplyPolicyCore, WorkspaceRestoreApplyPolicyError,
     WorkspaceRestoreApplyPolicyPlan, WorkspaceRestoreApplyPolicyRequest,
     WorkspaceRestoreOperationError, WorkspaceRestoreOperationRecord,
     WorkspaceRestoreOperationsCore, WorkspaceRestoreOperationsRequest,
     WorkspaceSnapshotCaptureCore, WorkspaceSnapshotCaptureRequest, WorkspaceSnapshotCaptureResult,
+    WorkspaceSnapshotContentPackageBridgeRequest, WorkspaceSnapshotListBridgeRequest,
+    WorkspaceSnapshotRestoreBridgeRequest,
 };
 
 use ioi_types::app::ApprovalAuthority;
@@ -205,6 +238,93 @@ impl RuntimeKernelService {
         request: &CodingToolApprovalRequest,
     ) -> Result<CodingToolApprovalPlan, CodingToolApprovalError> {
         CodingToolApprovalCore.plan_manifest(request)
+    }
+
+    pub fn plan_coding_tool_approval_satisfaction(
+        &self,
+        request: &CodingToolApprovalSatisfactionRequest,
+    ) -> Result<CodingToolApprovalSatisfactionRecord, CodingToolApprovalSatisfactionError> {
+        CodingToolApprovalSatisfactionCore.plan(request)
+    }
+
+    pub fn project_coding_tool_approval_satisfaction(
+        &self,
+        request: &CodingToolApprovalSatisfactionProjectionRequest,
+    ) -> Result<
+        CodingToolApprovalSatisfactionProjectionRecord,
+        CodingToolApprovalSatisfactionProjectionError,
+    > {
+        CodingToolApprovalSatisfactionProjectionCore.project(request)
+    }
+
+    pub fn plan_coding_tool_approval_block(
+        &self,
+        request: &CodingToolApprovalBlockRequest,
+    ) -> Result<CodingToolApprovalBlockRecord, CodingToolApprovalBlockError> {
+        CodingToolApprovalBlockCore.plan(request)
+    }
+
+    pub fn project_approval_queue(
+        &self,
+        request: &ApprovalQueueProjectionRequest,
+    ) -> Result<ApprovalQueueProjectionRecord, ApprovalQueueProjectionError> {
+        ApprovalQueueProjectionCore.project(request)
+    }
+
+    pub fn authorize_approval_decision(
+        &self,
+        request: &ApprovalDecisionAuthorityRequest,
+    ) -> Result<ApprovalDecisionAuthorityRecord, ApprovalDecisionAuthorityError> {
+        ApprovalDecisionAuthorityCore.authorize(request)
+    }
+
+    pub fn admit_coding_tool_result_event(
+        &self,
+        request: &CodingToolResultEventAdmissionRequest,
+    ) -> Result<CodingToolResultEventAdmissionRecord, CodingToolResultEventAdmissionError> {
+        CodingToolResultEventAdmissionCore.admit(request)
+    }
+
+    pub fn admit_coding_tool_command_stream_events(
+        &self,
+        request: &CodingToolCommandStreamAdmissionRequest,
+    ) -> Result<CodingToolCommandStreamAdmissionRecord, CodingToolCommandStreamAdmissionError> {
+        CodingToolCommandStreamAdmissionCore.admit(request)
+    }
+
+    pub fn admit_runtime_thread_event(
+        &self,
+        request: &RuntimeThreadEventAdmissionRequest,
+    ) -> Result<RuntimeThreadEventAdmissionRecord, RuntimeThreadEventAdmissionError> {
+        RuntimeThreadEventAdmissionCore.admit(request)
+    }
+
+    pub fn project_runtime_thread_events(
+        &self,
+        request: &RuntimeThreadEventProjectionRequest,
+    ) -> Result<RuntimeThreadEventProjectionRecord, RuntimeThreadEventAdmissionError> {
+        RuntimeThreadEventAdmissionCore.project(request)
+    }
+
+    pub fn project_runtime_thread_event_replay(
+        &self,
+        request: &RuntimeThreadEventReplayRequest,
+    ) -> Result<RuntimeThreadEventReplayRecord, RuntimeThreadEventAdmissionError> {
+        RuntimeThreadEventAdmissionCore.replay(request)
+    }
+
+    pub fn project_runtime_thread_turn_projection(
+        &self,
+        request: &RuntimeThreadTurnProjectionRequest,
+    ) -> Result<RuntimeThreadTurnProjectionRecord, RuntimeThreadEventAdmissionError> {
+        RuntimeThreadEventAdmissionCore.project_thread_turn(request)
+    }
+
+    pub fn plan_post_edit_diagnostics_feedback(
+        &self,
+        request: &PostEditDiagnosticsFeedbackPlanRequest,
+    ) -> Result<PostEditDiagnosticsFeedbackPlanRecord, PostEditDiagnosticsFeedbackPlanError> {
+        PostEditDiagnosticsFeedbackPlanCore.plan(request)
     }
 
     pub fn plan_approval_request_state_update(
@@ -240,6 +360,13 @@ impl RuntimeKernelService {
         request: &ContextBudgetPolicyRequest,
     ) -> Result<ContextBudgetPolicyRecord, ContextBudgetPolicyError> {
         self.evaluate_context_budget_policy(request)
+    }
+
+    pub fn plan_coding_tool_budget_block(
+        &self,
+        request: &CodingToolBudgetBlockRequest,
+    ) -> Result<CodingToolBudgetBlockRecord, CodingToolBudgetBlockError> {
+        CodingToolBudgetBlockCore.plan(request)
     }
 
     pub fn evaluate_compaction_policy(
@@ -334,36 +461,25 @@ impl RuntimeKernelService {
         RunCancelAdmissionRequiredCore.plan(request)
     }
 
-    pub fn plan_skill_hook_registry_projection_required(
+    pub fn plan_runtime_task_job_cancel_state_update(
         &self,
-        request: &SkillHookRegistryProjectionRequiredRequest,
-    ) -> Result<SkillHookRegistryProjectionRequiredRecord, SkillHookRegistryProjectionRequiredError>
-    {
-        SkillHookRegistryProjectionRequiredCore.plan(request)
+        request: &RuntimeTaskJobCancelStateUpdateRequest,
+    ) -> Result<RuntimeTaskJobCancelStateUpdateRecord, RuntimeTaskJobCancelStateUpdateError> {
+        RuntimeTaskJobCancelStateUpdateCore.plan(request)
     }
 
-    pub fn plan_repository_workflow_projection_required(
+    pub fn plan_runtime_task_job_create_state_update(
         &self,
-        request: &RepositoryWorkflowProjectionRequiredRequest,
-    ) -> Result<RepositoryWorkflowProjectionRequiredRecord, RepositoryWorkflowProjectionRequiredError>
-    {
-        RepositoryWorkflowProjectionRequiredCore.plan(request)
+        request: &RuntimeTaskJobCreateStateUpdateRequest,
+    ) -> Result<RuntimeTaskJobCreateStateUpdateRecord, RuntimeTaskJobCreateStateUpdateError> {
+        RuntimeTaskJobCreateStateUpdateCore.plan(request)
     }
 
-    pub fn plan_runtime_tool_catalog_projection_required(
+    pub fn project_runtime_task_job_projection(
         &self,
-        request: &RuntimeToolCatalogProjectionRequiredRequest,
-    ) -> Result<RuntimeToolCatalogProjectionRequiredRecord, RuntimeToolCatalogProjectionRequiredError>
-    {
-        RuntimeToolCatalogProjectionRequiredCore.plan(request)
-    }
-
-    pub fn plan_runtime_lifecycle_projection_required(
-        &self,
-        request: &RuntimeLifecycleProjectionRequiredRequest,
-    ) -> Result<RuntimeLifecycleProjectionRequiredRecord, RuntimeLifecycleProjectionRequiredError>
-    {
-        RuntimeLifecycleProjectionRequiredCore.plan(request)
+        request: &RuntimeTaskJobProjectionRequest,
+    ) -> Result<RuntimeTaskJobProjectionRecord, RuntimeTaskJobProjectionError> {
+        RuntimeTaskJobProjectionCore.project(request)
     }
 
     pub fn plan_thread_control_agent_state_update(
@@ -481,6 +597,13 @@ impl RuntimeKernelService {
         request: &AgentStatusStateUpdateRequest,
     ) -> Result<AgentStatusStateUpdateRecord, AgentStatusStateUpdateError> {
         AgentStatusStateUpdateCore.plan(request)
+    }
+
+    pub fn plan_agent_delete_state_update(
+        &self,
+        request: &AgentDeleteStateUpdateRequest,
+    ) -> Result<AgentDeleteStateUpdateRecord, AgentDeleteStateUpdateError> {
+        AgentDeleteStateUpdateCore.plan(request)
     }
 
     pub fn issue_capability_lease(
@@ -841,5 +964,33 @@ impl RuntimeKernelService {
         request: &WorkspaceSnapshotCaptureRequest,
     ) -> Result<WorkspaceSnapshotCaptureResult, WorkspaceRestoreOperationError> {
         WorkspaceSnapshotCaptureCore.capture_files(request)
+    }
+
+    pub fn project_workspace_snapshot_list(
+        &self,
+        request: WorkspaceSnapshotListBridgeRequest,
+    ) -> Result<serde_json::Value, workspace_restore::WorkspaceRestoreCommandError> {
+        project_workspace_snapshot_list_response(request)
+    }
+
+    pub fn project_workspace_snapshot_content_package(
+        &self,
+        request: WorkspaceSnapshotContentPackageBridgeRequest,
+    ) -> Result<serde_json::Value, workspace_restore::WorkspaceRestoreCommandError> {
+        project_workspace_snapshot_content_package_response(request)
+    }
+
+    pub fn preview_workspace_snapshot_restore(
+        &self,
+        request: WorkspaceSnapshotRestoreBridgeRequest,
+    ) -> Result<serde_json::Value, workspace_restore::WorkspaceRestoreCommandError> {
+        preview_workspace_snapshot_restore_response(request)
+    }
+
+    pub fn apply_workspace_snapshot_restore(
+        &self,
+        request: WorkspaceSnapshotRestoreBridgeRequest,
+    ) -> Result<serde_json::Value, workspace_restore::WorkspaceRestoreCommandError> {
+        apply_workspace_snapshot_restore_response(request)
     }
 }

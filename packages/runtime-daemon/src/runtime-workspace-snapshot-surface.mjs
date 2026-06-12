@@ -41,6 +41,7 @@ const CANONICAL_WORKSPACE_RESTORE_REQUEST_FIELDS = [
 export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
   const {
     runtimeError = defaultRuntimeError,
+    workspaceRestoreRunner = null,
   } = deps;
 
   function throwWorkspaceSnapshotRustCoreRequired(operation, operationKind, details = {}) {
@@ -62,21 +63,109 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
     { threadId, turnId, workspaceRoot, toolCallId, workflowGraphId, workflowNodeId, result = {} } = {},
   ) {
     if (!result?.applied) return null;
-    throwWorkspaceSnapshotRustCoreRequired("workspace_snapshot_patch_capture", "workspace_snapshot.capture", {
+    if (typeof workspaceRestoreRunner?.captureSnapshotFiles !== "function") {
+      throwWorkspaceSnapshotRustCoreRequired("workspace_snapshot_patch_capture", "workspace_snapshot.capture", {
+        thread_id: threadId,
+        turn_id: turnId || null,
+        workspace_root: workspaceRoot,
+        tool_call_id: toolCallId ?? null,
+        workflow_graph_id: workflowGraphId ?? null,
+        workflow_node_id: workflowNodeId ?? null,
+        changed_file_count: normalizeArray(result.changed_files).length,
+        snapshot_draft_count: normalizeArray(result.workspace_snapshot_drafts).length,
+        evidence_refs: [
+          "workspace_snapshot_js_capture_facade_retired",
+          "rust_daemon_core_workspace_snapshot_admission_required",
+          "agentgres_workspace_snapshot_truth_required",
+        ],
+      });
+    }
+    const capture = workspaceRestoreRunner.captureSnapshotFiles({
       thread_id: threadId,
       turn_id: turnId || null,
       workspace_root: workspaceRoot,
       tool_call_id: toolCallId ?? null,
       workflow_graph_id: workflowGraphId ?? null,
       workflow_node_id: workflowNodeId ?? null,
-      changed_file_count: normalizeArray(result.changed_files).length,
-      snapshot_draft_count: normalizeArray(result.workspace_snapshot_drafts).length,
-      evidence_refs: [
-        "workspace_snapshot_js_capture_facade_retired",
-        "rust_daemon_core_workspace_snapshot_admission_required",
-        "agentgres_workspace_snapshot_truth_required",
-      ],
+      changed_files: snapshotChangedFilesForPatch(result),
+      content_drafts: snapshotContentDraftsForPatch(result),
+      max_content_bytes: result.max_content_bytes,
     });
+    const record = capture?.snapshot_record ?? null;
+    if (!record?.snapshot_id) {
+      throwWorkspaceSnapshotRustCoreRequired("workspace_snapshot_capture_record", "workspace_snapshot.capture", {
+        thread_id: threadId,
+        turn_id: turnId || null,
+        workspace_root: workspaceRoot,
+        tool_call_id: toolCallId ?? null,
+        workflow_graph_id: workflowGraphId ?? null,
+        workflow_node_id: workflowNodeId ?? null,
+        changed_file_count: normalizeArray(result.changed_files).length,
+        snapshot_draft_count: normalizeArray(result.workspace_snapshot_drafts).length,
+        evidence_refs: [
+          "rust_daemon_core_workspace_snapshot_record_required",
+          "agentgres_workspace_snapshot_truth_required",
+        ],
+      });
+    }
+    const receiptRefs = normalizeArray(record.receipt_refs);
+    const artifactRefs = normalizeArray(record.artifact_refs);
+    if (!receiptRefs.length || !artifactRefs.length) {
+      throwWorkspaceSnapshotRustCoreRequired("workspace_snapshot_capture_refs", "workspace_snapshot.capture", {
+        thread_id: threadId,
+        turn_id: turnId || null,
+        workspace_root: workspaceRoot,
+        tool_call_id: toolCallId ?? null,
+        workflow_graph_id: workflowGraphId ?? null,
+        workflow_node_id: workflowNodeId ?? null,
+        snapshot_id: record.snapshot_id,
+        receipt_ref_count: receiptRefs.length,
+        artifact_ref_count: artifactRefs.length,
+        evidence_refs: [
+          "rust_daemon_core_workspace_snapshot_receipt_binding_required",
+          "agentgres_workspace_snapshot_artifact_truth_required",
+        ],
+      });
+    }
+    return {
+      capture,
+      record: {
+        ...record,
+        receipt_refs: receiptRefs,
+        artifact_refs: artifactRefs,
+      },
+      event: capture?.snapshot_event ?? null,
+    };
+  }
+
+  function snapshotChangedFilesForPatch(result = {}) {
+    return normalizeArray(result.changed_files).map((entry) => ({
+      path: optionalString(entry?.path) ?? "",
+      created: Boolean(entry?.created),
+      before_hash: optionalString(entry?.before_hash),
+      after_hash: optionalString(entry?.after_hash),
+      before_exists: Boolean(entry?.before_exists),
+      after_exists: Object.hasOwn(entry, "after_exists") ? Boolean(entry.after_exists) : undefined,
+      before_size_bytes: finiteNumber(entry?.before_size_bytes),
+      after_size_bytes: finiteNumber(entry?.after_size_bytes),
+      before_mtime_ms: finiteNumber(entry?.before_mtime_ms),
+      after_mtime_ms: finiteNumber(entry?.after_mtime_ms),
+    }));
+  }
+
+  function snapshotContentDraftsForPatch(result = {}) {
+    return normalizeArray(result.workspace_snapshot_drafts).map((entry) => ({
+      path: optionalString(entry?.path) ?? "",
+      before_content: typeof entry?.before_content === "string" ? entry.before_content : undefined,
+      after_content: typeof entry?.after_content === "string" ? entry.after_content : undefined,
+      encoding: optionalString(entry?.encoding) ?? "utf8",
+    }));
+  }
+
+  function finiteNumber(value) {
+    if (value === null || value === undefined || value === "") return undefined;
+    const number = Number(value);
+    return Number.isFinite(number) ? number : undefined;
   }
 
   function materializeWorkspaceSnapshotArtifact(
@@ -121,17 +210,22 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
 
   function listWorkspaceSnapshots(store, threadId) {
     void store;
-    throwWorkspaceSnapshotRustCoreRequired("workspace_snapshot_list", "workspace_snapshot.list", {
+    if (typeof workspaceRestoreRunner?.listSnapshots !== "function") {
+      throwWorkspaceSnapshotRustCoreRequired("workspace_snapshot_list", "workspace_snapshot.list", {
+        thread_id: threadId,
+        evidence_refs: [
+          "workspace_snapshot_list_js_projection_retired",
+          "rust_daemon_core_workspace_snapshot_projection_required",
+          "agentgres_workspace_snapshot_projection_truth_required",
+        ],
+      });
+    }
+    return workspaceRestoreRunner.listSnapshots({
       thread_id: threadId,
-      evidence_refs: [
-        "workspace_snapshot_list_js_projection_retired",
-        "rust_daemon_core_workspace_snapshot_projection_required",
-        "agentgres_workspace_snapshot_projection_truth_required",
-      ],
     });
   }
 
-  function previewWorkspaceSnapshotRestore(_store, threadId, snapshotId, request = {}) {
+  function previewWorkspaceSnapshotRestore(store, threadId, snapshotId, request = {}) {
     assertCanonicalWorkspaceRestoreRequestBody(request);
     const normalizedSnapshotId = optionalString(snapshotId);
     if (!normalizedSnapshotId) {
@@ -146,21 +240,32 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
     const workflowNodeId =
       optionalString(request.workflow_node_id) ?? WORKSPACE_RESTORE_PREVIEW_NODE_ID;
     const idempotencyKey = optionalString(request.idempotency_key);
-    throwWorkspaceSnapshotRustCoreRequired("workspace_restore_preview", "workspace_restore.preview", {
+    if (typeof workspaceRestoreRunner?.previewSnapshotRestore !== "function") {
+      throwWorkspaceSnapshotRustCoreRequired("workspace_restore_preview", "workspace_restore.preview", {
+        thread_id: threadId,
+        snapshot_id: normalizedSnapshotId,
+        workflow_graph_id: workflowGraphId,
+        workflow_node_id: workflowNodeId,
+        idempotency_key: idempotencyKey ?? null,
+        evidence_refs: [
+          "workspace_restore_preview_js_facade_retired",
+          "rust_daemon_core_workspace_restore_preview_required",
+          "agentgres_workspace_restore_preview_truth_required",
+        ],
+      });
+    }
+    return workspaceRestoreRunner.previewSnapshotRestore({
+      ...canonicalWorkspaceRestoreRequest(request),
       thread_id: threadId,
       snapshot_id: normalizedSnapshotId,
+      workspace_root: workspaceRootForThread(store, threadId),
       workflow_graph_id: workflowGraphId,
       workflow_node_id: workflowNodeId,
       idempotency_key: idempotencyKey ?? null,
-      evidence_refs: [
-        "workspace_restore_preview_js_facade_retired",
-        "rust_daemon_core_workspace_restore_preview_required",
-        "agentgres_workspace_restore_preview_truth_required",
-      ],
     });
   }
 
-  function applyWorkspaceSnapshotRestore(_store, threadId, snapshotId, request = {}) {
+  function applyWorkspaceSnapshotRestore(store, threadId, snapshotId, request = {}) {
     assertCanonicalWorkspaceRestoreRequestBody(request);
     const normalizedSnapshotId = optionalString(snapshotId);
     if (!normalizedSnapshotId) {
@@ -175,17 +280,28 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
     const workflowNodeId =
       optionalString(request.workflow_node_id) ?? WORKSPACE_RESTORE_PREVIEW_NODE_ID;
     const idempotencyKey = optionalString(request.idempotency_key);
-    throwWorkspaceSnapshotRustCoreRequired("workspace_restore_apply", "workspace_restore.apply", {
+    if (typeof workspaceRestoreRunner?.applySnapshotRestore !== "function") {
+      throwWorkspaceSnapshotRustCoreRequired("workspace_restore_apply", "workspace_restore.apply", {
+        thread_id: threadId,
+        snapshot_id: normalizedSnapshotId,
+        workflow_graph_id: workflowGraphId,
+        workflow_node_id: workflowNodeId,
+        idempotency_key: idempotencyKey ?? null,
+        evidence_refs: [
+          "workspace_restore_apply_js_facade_retired",
+          "rust_daemon_core_workspace_restore_apply_required",
+          "agentgres_workspace_restore_apply_truth_required",
+        ],
+      });
+    }
+    return workspaceRestoreRunner.applySnapshotRestore({
+      ...canonicalWorkspaceRestoreRequest(request),
       thread_id: threadId,
       snapshot_id: normalizedSnapshotId,
+      workspace_root: workspaceRootForThread(store, threadId),
       workflow_graph_id: workflowGraphId,
       workflow_node_id: workflowNodeId,
       idempotency_key: idempotencyKey ?? null,
-      evidence_refs: [
-        "workspace_restore_apply_js_facade_retired",
-        "rust_daemon_core_workspace_restore_apply_required",
-        "agentgres_workspace_restore_apply_truth_required",
-      ],
     });
   }
 
@@ -207,19 +323,39 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
 
   function workspaceSnapshotContentPackage(store, threadId, snapshotId) {
     void store;
-    throwWorkspaceSnapshotRustCoreRequired(
-      "workspace_snapshot_content_package",
-      "workspace_snapshot.content_package",
-      {
-        thread_id: threadId,
-        snapshot_id: snapshotId,
-        evidence_refs: [
-          "workspace_snapshot_content_package_js_projection_retired",
-          "rust_daemon_core_workspace_snapshot_content_package_required",
-          "agentgres_workspace_snapshot_artifact_truth_required",
-        ],
-      },
-    );
+    if (typeof workspaceRestoreRunner?.workspaceSnapshotContentPackage !== "function") {
+      throwWorkspaceSnapshotRustCoreRequired(
+        "workspace_snapshot_content_package",
+        "workspace_snapshot.content_package",
+        {
+          thread_id: threadId,
+          snapshot_id: snapshotId,
+          evidence_refs: [
+            "workspace_snapshot_content_package_js_projection_retired",
+            "rust_daemon_core_workspace_snapshot_content_package_required",
+            "agentgres_workspace_snapshot_artifact_truth_required",
+          ],
+        },
+      );
+    }
+    return workspaceRestoreRunner.workspaceSnapshotContentPackage({
+      thread_id: threadId,
+      snapshot_id: snapshotId,
+    });
+  }
+
+  function canonicalWorkspaceRestoreRequest(request = {}) {
+    return CANONICAL_WORKSPACE_RESTORE_REQUEST_FIELDS.reduce((record, field) => {
+      if (Object.prototype.hasOwnProperty.call(request, field)) {
+        record[field] = request[field];
+      }
+      return record;
+    }, {});
+  }
+
+  function workspaceRootForThread(store, threadId) {
+    const agent = typeof store?.agentForThread === "function" ? store.agentForThread(threadId) : null;
+    return optionalString(agent?.cwd) ?? optionalString(store?.defaultCwd) ?? null;
   }
 
   function materializeWorkspaceRestorePreviewArtifact(

@@ -370,50 +370,36 @@ test("public runtime routes delegate thread subroutes unchanged", async () => {
   assert.equal(response.ended, false);
 });
 
-test("public runtime agent and thread list routes fail closed through lifecycle projection surface", async () => {
+test("public runtime agent and thread list routes use mounted lifecycle projection surface", async () => {
   const { handleRequest } = routeHarness();
   const calls = [];
   const store = {
     lifecycleProjectionSurface: {
       listAgents(surfaceStore) {
         calls.push({ method: "listAgents", surfaceStore });
-        const error = new Error("runtime lifecycle projection requires Rust core");
-        error.status = 501;
-        error.code = "runtime_lifecycle_projection_rust_core_required";
-        error.details = {
-          rust_core_boundary: "runtime.lifecycle_projection",
-          projection_kind: "agents",
-        };
-        throw error;
+        return [{ id: "agent_route" }];
       },
       listThreads(surfaceStore) {
         calls.push({ method: "listThreads", surfaceStore });
-        const error = new Error("runtime lifecycle projection requires Rust core");
-        error.status = 501;
-        error.code = "runtime_lifecycle_projection_rust_core_required";
-        error.details = {
-          rust_core_boundary: "runtime.lifecycle_projection",
-          projection_kind: "threads",
-        };
-        throw error;
+        return [{ thread_id: "thread_route" }];
       },
     },
   };
 
   const agentsResponse = responseRecorder();
   await handleRequest({ request: request({ url: "/v1/agents" }), response: agentsResponse, store });
-  assert.equal(agentsResponse.statusCode, 501);
-  assert.equal(agentsResponse.error.details.projection_kind, "agents");
+  assert.equal(agentsResponse.statusCode, 200);
+  assert.deepEqual(JSON.parse(agentsResponse.body), [{ id: "agent_route" }]);
 
   const threadsResponse = responseRecorder();
   await handleRequest({ request: request({ url: "/v1/threads" }), response: threadsResponse, store });
-  assert.equal(threadsResponse.statusCode, 501);
-  assert.equal(threadsResponse.error.details.projection_kind, "threads");
+  assert.equal(threadsResponse.statusCode, 200);
+  assert.deepEqual(JSON.parse(threadsResponse.body), [{ thread_id: "thread_route" }]);
   assert.deepEqual(calls.map((call) => call.method), ["listAgents", "listThreads"]);
   assert.equal(calls.every((call) => call.surfaceStore === store), true);
 });
 
-test("public runtime run list route fails closed through lifecycle projection surface", async () => {
+test("public runtime run list route uses mounted lifecycle projection surface", async () => {
   const { handleRequest } = routeHarness();
   const response = responseRecorder();
   const calls = [];
@@ -421,15 +407,7 @@ test("public runtime run list route fails closed through lifecycle projection su
     lifecycleProjectionSurface: {
       listRuns(_store, agent_id) {
         calls.push({ agent_id });
-        const error = new Error("runtime lifecycle projection requires Rust core");
-        error.status = 501;
-        error.code = "runtime_lifecycle_projection_rust_core_required";
-        error.details = {
-          rust_core_boundary: "runtime.lifecycle_projection",
-          projection_kind: agent_id ? "agent_runs" : "runs",
-          agent_id: agent_id ?? null,
-        };
-        throw error;
+        return [{ id: "run_route", agent_id: agent_id ?? null }];
       },
     },
   };
@@ -440,11 +418,11 @@ test("public runtime run list route fails closed through lifecycle projection su
     store,
   });
 
-  assert.equal(response.statusCode, 501);
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(JSON.parse(response.body), [
+    { id: "run_route", agent_id: "agent-canonical" },
+  ]);
   assert.deepEqual(calls, [{ agent_id: "agent-canonical" }]);
-  assert.equal(response.error.code, "runtime_lifecycle_projection_rust_core_required");
-  assert.equal(response.error.details.projection_kind, "agent_runs");
-  assert.equal(response.error.details.agent_id, "agent-canonical");
 
   const unfilteredResponse = responseRecorder();
   await handleRequest({
@@ -454,9 +432,10 @@ test("public runtime run list route fails closed through lifecycle projection su
   });
 
   assert.deepEqual(calls.at(-1), { agent_id: undefined });
-  assert.equal(unfilteredResponse.statusCode, 501);
-  assert.equal(unfilteredResponse.error.details.projection_kind, "runs");
-  assert.equal(unfilteredResponse.error.details.agent_id, null);
+  assert.equal(unfilteredResponse.statusCode, 200);
+  assert.deepEqual(JSON.parse(unfilteredResponse.body), [
+    { id: "run_route", agent_id: null },
+  ]);
 });
 
 test("public runtime agent create route uses mounted agent lifecycle surface", async () => {

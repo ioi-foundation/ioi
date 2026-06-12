@@ -2,13 +2,26 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  CODING_TOOL_COMMAND_STREAM_ADMISSION_REQUEST_SCHEMA_VERSION,
+  CODING_TOOL_RESULT_EVENT_ADMISSION_REQUEST_SCHEMA_VERSION,
   RUNTIME_AGENTGRES_COMMAND_SCHEMA_VERSION,
+  RUNTIME_THREAD_EVENT_ADMISSION_REQUEST_SCHEMA_VERSION,
+  RUNTIME_THREAD_EVENT_PROJECTION_REQUEST_SCHEMA_VERSION,
+  RUNTIME_THREAD_EVENT_REPLAY_REQUEST_SCHEMA_VERSION,
+  RUNTIME_THREAD_TURN_PROJECTION_REQUEST_SCHEMA_VERSION,
   RUST_AGENTGRES_STORAGE_BACKEND,
+  RUST_RUNTIME_AGENTGRES_BACKEND,
   RuntimeAgentgresAdmissionRunnerError,
   RustRuntimeAgentgresAdmissionRunner,
   createRuntimeAgentgresAdmissionRunnerFromEnv,
+  normalizeCodingToolCommandStreamAdmissionBridgeResult,
+  normalizeCodingToolResultEventAdmissionBridgeResult,
   normalizeRuntimeAgentStateCommitBridgeResult,
   normalizeRuntimeArtifactStateCommitBridgeResult,
+  normalizeRuntimeThreadEventAdmissionBridgeResult,
+  normalizeRuntimeThreadEventProjectionBridgeResult,
+  normalizeRuntimeThreadEventReplayBridgeResult,
+  normalizeRuntimeThreadTurnProjectionBridgeResult,
   normalizeRuntimeMemoryStateCommitBridgeResult,
   normalizeRuntimeModelMountReceiptStateCommitBridgeResult,
   normalizeRuntimeModelMountRecordStateCommitBridgeResult,
@@ -190,6 +203,649 @@ function createRunner(calls, responseForRequest) {
     },
   });
 }
+
+function codingToolResultEventAdmissionRequest() {
+  return {
+    event: {
+      event_stream_id: "thread_1:events",
+      thread_id: "thread_1",
+      turn_id: "turn_1",
+      item_id: "turn_1:item:coding-tool:workspace.status:abc",
+      idempotency_key: "thread:thread_1:coding-tool:tool_1",
+      source: "runtime_auto",
+      source_event_kind: "coding_tool.workspace.status",
+      event_kind: "tool.completed",
+      status: "completed",
+      actor: "runtime",
+      workspace_root: "/tmp/workspace",
+      component_kind: "coding_tool",
+      tool_call_id: "tool_1",
+      receipt_refs: ["receipt_tool"],
+      artifact_refs: [],
+      payload_schema_version: "ioi.runtime.coding-tool-result.v1",
+      payload_summary: {
+        schema_version: "ioi.runtime.coding-tool-result.v1",
+        event_kind: "CodingToolResult",
+        tool_name: "workspace.status",
+        tool_call_id: "tool_1",
+        status: "completed",
+        receipt_refs: ["receipt_tool"],
+      },
+    },
+    latest_seq: 4,
+    expected_head: "agentgres://runtime-events/thread_1_events/head/4",
+  };
+}
+
+function codingToolCommandStreamAdmissionRequest() {
+  return {
+    event_stream_id: "thread_1:events",
+    thread_id: "thread_1",
+    turn_id: "turn_1",
+    tool_id: "test.run",
+    tool_call_id: "tool_1",
+    workspace_root: "/tmp/workspace",
+    workflow_graph_id: "graph_1",
+    workflow_node_id: "node_1",
+    source: "runtime_auto",
+    status: "completed",
+    request: { stream_output: true },
+    result: { stdout: "ok", stderr: "warn" },
+    latest_seq: 5,
+    expected_head: "agentgres://runtime-events/thread_1_events/head/5",
+    receipt_refs: ["receipt_tool"],
+    artifact_refs: ["artifact_tool"],
+  };
+}
+
+function runtimeThreadEventAdmissionRequest() {
+  return {
+    event: {
+      event_stream_id: "thread_1:events",
+      thread_id: "thread_1",
+      turn_id: "turn_1",
+      item_id: "turn_1:item:operator:mode",
+      idempotency_key: "thread:thread_1:mode:review",
+      source: "operator",
+      source_event_kind: "OperatorControl.Mode",
+      event_kind: "thread.mode_updated",
+      status: "completed",
+      actor: "operator",
+      payload_schema_version: "ioi.runtime.thread-control.v1",
+      payload_summary: {
+        event_kind: "ThreadModeUpdated",
+        receipt_refs: ["receipt_thread_control"],
+      },
+      receipt_refs: ["receipt_thread_control"],
+      artifact_refs: [],
+    },
+    latest_seq: 4,
+    expected_head: "agentgres://runtime-events/thread_1_events/head/4",
+  };
+}
+
+function runtimeThreadEventProjectionRequest() {
+  return {
+    projection_kind: "thread",
+    thread_id: "thread_1",
+    event_stream_id: "thread_1:events",
+    workspace_root: "/workspace",
+    agent: {
+      agent_id: "agent_1",
+      status: "active",
+      created_at: "2026-06-12T00:00:00.000Z",
+      workspace_root: "/workspace",
+      receipt_refs: ["receipt_agent_state"],
+      model_route_receipt_id: "receipt_model_route",
+    },
+    runs: [{
+      run_id: "run_1",
+      turn_id: "turn_1",
+      workspace_root: "/workspace",
+      events: [{
+        id: "event_run_started",
+        type: "run_started",
+        run_id: "run_1",
+        created_at: "2026-06-12T00:00:01.000Z",
+        data: {
+          receipt_id: "receipt_run_policy",
+        },
+      }],
+    }],
+    latest_seq: 4,
+    expected_head: "agentgres://runtime-events/thread_1_events/head/4",
+    existing_idempotency_keys: ["thread:thread_1:started"],
+  };
+}
+
+function runtimeThreadEventReplayRequest() {
+  return {
+    replay_kind: "turn",
+    event_stream_id: "thread_1:events",
+    turn_id: "turn_1",
+    cursor: { since_seq: 4 },
+    events: [{
+      event_stream_id: "thread_1:events",
+      thread_id: "thread_1",
+      turn_id: "turn_1",
+      event_id: "event_projected_1",
+      seq: 5,
+      event_kind: "turn.started",
+      idempotency_key: "run:run_1:event:event_run_started",
+      agentgres_operation_ref: "agentgres://runtime-events/thread_1_events/operations/event_projected_1",
+      state_root_after: "sha256:after",
+      resulting_head: "agentgres://runtime-events/thread_1_events/head/after",
+      projection_watermark: "runtime-events:thread_1:events:5",
+      receipt_refs: ["receipt_run_policy"],
+      payload_refs: ["payload://runtime-events/thread_1_events/events/event_projected_1"],
+      artifact_refs: [],
+    }],
+  };
+}
+
+function runtimeThreadTurnProjectionRequest() {
+  return {
+    projection_kind: "thread",
+    thread_schema_version: "ioi.runtime.thread.v1",
+    thread_id: "thread_1",
+    event_stream_id: "thread_1:events",
+    session_id: "session:agent_1",
+    fixture_profile: "fixture",
+    runtime_profile: "runtime_service",
+    agent: {
+      agent_id: "agent_1",
+      workspace_root: "/workspace",
+      status: "active",
+      model_id: "qwen",
+      created_at: "2026-06-12T00:00:00.000Z",
+      updated_at: "2026-06-12T00:00:01.000Z",
+    },
+    runs: [{
+      run_id: "run_1",
+      agent_id: "agent_1",
+      objective: "Latest",
+      status: "completed",
+      created_at: "2026-06-12T00:00:01.000Z",
+      updated_at: "2026-06-12T00:00:02.000Z",
+    }],
+    runtime_controls: {
+      mode: "agent",
+      approval_mode: "suggest",
+      model: {},
+    },
+    usage_telemetry: { scope: "thread" },
+    memory_count: 2,
+    latest_seq: 5,
+  };
+}
+
+test("runtime Agentgres runner admits coding-tool result events through direct daemon-core invoker", () => {
+  const calls = [];
+  const runner = createRunner(calls, (request) => ({
+    source: "rust_coding_tool_result_event_admission_command",
+    backend: RUST_RUNTIME_AGENTGRES_BACKEND,
+    admitted: true,
+    record: {
+      schema_version: "ioi.runtime.coding-tool-result-event-admission.v1",
+      status: "admitted",
+      operation_kind: "runtime.coding_tool_result_event",
+      event_id: "event_coding_tool_1",
+      seq: 5,
+      operation_ref: "agentgres://runtime-events/thread_1_events/operations/event_coding_tool_1",
+      state_root_before: "sha256:before",
+      state_root_after: "sha256:after",
+      resulting_head: "agentgres://runtime-events/thread_1_events/head/after",
+      projection_watermark: "runtime-events:thread_1:events:5",
+      payload_refs: ["payload://runtime-events/thread_1_events/events/event_coding_tool_1"],
+      receipt_refs: ["receipt_tool"],
+      artifact_refs: [],
+      rollback_refs: [],
+      storage_admission: { admission_hash: "sha256:storage" },
+      admission_hash: "sha256:admission",
+      event: {
+        ...request.request.event,
+        event_id: "event_coding_tool_1",
+        seq: 5,
+        state_root_after: "sha256:after",
+        resulting_head: "agentgres://runtime-events/thread_1_events/head/after",
+        payload_refs: ["payload://runtime-events/thread_1_events/events/event_coding_tool_1"],
+      },
+    },
+  }));
+
+  const result = runner.admitCodingToolResultEvent(codingToolResultEventAdmissionRequest());
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].request.schema_version, RUNTIME_AGENTGRES_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.operation, "admit_coding_tool_result_event");
+  assert.equal(calls[0].request.backend, RUST_RUNTIME_AGENTGRES_BACKEND);
+  assert.equal(
+    calls[0].request.request.schema_version,
+    CODING_TOOL_RESULT_EVENT_ADMISSION_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(calls[0].request.request.event.tool_call_id, "tool_1");
+  assert.equal(calls[0].request.request.latest_seq, 4);
+  assert.equal(result.admitted, true);
+  assert.equal(result.event.event_id, "event_coding_tool_1");
+  assert.equal(result.seq, 5);
+  assert.equal(result.state_root_after, "sha256:after");
+  assert.deepEqual(result.receipt_refs, ["receipt_tool"]);
+  assert.equal(result.admission_hash, "sha256:admission");
+});
+
+test("coding-tool result-event admission normalizer exposes only Rust-returned event truth", () => {
+  const result = normalizeCodingToolResultEventAdmissionBridgeResult({
+    record: {
+      status: "admitted",
+      event_id: "event_record",
+      seq: 7,
+      receipt_refs: ["receipt_record"],
+      event: {
+        event_stream_id: "thread_1:events",
+        event_id: "event_record",
+        seq: 7,
+        idempotency_key: "idem",
+      },
+    },
+    admission_hash: "sha256:admission",
+  });
+
+  assert.equal(result.admitted, true);
+  assert.equal(result.event.event_id, "event_record");
+  assert.equal(result.seq, 7);
+  assert.deepEqual(result.receipt_refs, ["receipt_record"]);
+  assert.equal(result.admission_hash, "sha256:admission");
+});
+
+test("runtime Agentgres runner admits runtime thread events through direct daemon-core invoker", () => {
+  const calls = [];
+  const runner = createRunner(calls, (request) => ({
+    source: "rust_runtime_thread_event_admission_command",
+    backend: RUST_RUNTIME_AGENTGRES_BACKEND,
+    admitted: true,
+    record: {
+      schema_version: "ioi.runtime.thread-event-admission.v1",
+      status: "admitted",
+      operation_kind: "runtime.thread_event",
+      event_id: "event_runtime_thread_1",
+      seq: 5,
+      operation_ref: "agentgres://runtime-events/thread_1_events/operations/event_runtime_thread_1",
+      state_root_before: "sha256:before",
+      state_root_after: "sha256:after",
+      resulting_head: "agentgres://runtime-events/thread_1_events/head/after",
+      projection_watermark: "runtime-events:thread_1:events:5",
+      payload_refs: ["payload://runtime-events/thread_1_events/events/event_runtime_thread_1"],
+      receipt_refs: ["receipt_thread_control"],
+      artifact_refs: [],
+      rollback_refs: [],
+      storage_admission: { admission_hash: "sha256:storage" },
+      admission_hash: "sha256:admission",
+      event: {
+        ...request.request.event,
+        event_id: "event_runtime_thread_1",
+        seq: 5,
+        state_root_after: "sha256:after",
+        resulting_head: "agentgres://runtime-events/thread_1_events/head/after",
+        payload_refs: ["payload://runtime-events/thread_1_events/events/event_runtime_thread_1"],
+      },
+    },
+  }));
+
+  const result = runner.admitRuntimeThreadEvent(runtimeThreadEventAdmissionRequest());
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].request.schema_version, RUNTIME_AGENTGRES_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.operation, "admit_runtime_thread_event");
+  assert.equal(calls[0].request.backend, RUST_RUNTIME_AGENTGRES_BACKEND);
+  assert.equal(
+    calls[0].request.request.schema_version,
+    RUNTIME_THREAD_EVENT_ADMISSION_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(calls[0].request.request.event.event_kind, "thread.mode_updated");
+  assert.equal(calls[0].request.request.latest_seq, 4);
+  assert.equal(result.admitted, true);
+  assert.equal(result.event.event_id, "event_runtime_thread_1");
+  assert.equal(result.seq, 5);
+  assert.equal(result.state_root_after, "sha256:after");
+  assert.deepEqual(result.receipt_refs, ["receipt_thread_control"]);
+  assert.equal(result.admission_hash, "sha256:admission");
+});
+
+test("runtime thread event admission normalizer exposes only Rust-returned event truth", () => {
+  const result = normalizeRuntimeThreadEventAdmissionBridgeResult({
+    record: {
+      status: "admitted",
+      event_id: "event_record",
+      seq: 7,
+      receipt_refs: ["receipt_record"],
+      event: {
+        event_stream_id: "thread_1:events",
+        event_id: "event_record",
+        seq: 7,
+        idempotency_key: "idem",
+      },
+    },
+    admission_hash: "sha256:admission",
+  });
+
+  assert.equal(result.source, "rust_runtime_thread_event_admission_command");
+  assert.equal(result.admitted, true);
+  assert.equal(result.event.event_id, "event_record");
+  assert.equal(result.seq, 7);
+  assert.deepEqual(result.receipt_refs, ["receipt_record"]);
+  assert.equal(result.admission_hash, "sha256:admission");
+  assert.equal(Object.hasOwn(result.event, "eventId"), false);
+});
+
+test("runtime Agentgres runner projects runtime thread events through direct daemon-core invoker", () => {
+  const calls = [];
+  const runner = createRunner(calls, (request) => ({
+    source: "rust_runtime_thread_event_projection_command",
+    backend: RUST_RUNTIME_AGENTGRES_BACKEND,
+    projected: true,
+    record: {
+      schema_version: "ioi.runtime.thread-event-projection.v1",
+      status: "projected",
+      operation_kind: "runtime.thread_event_projection",
+      projection_kind: "thread",
+      event_count: 2,
+      skipped_count: 1,
+      resulting_seq: 6,
+      resulting_head: "agentgres://runtime-events/thread_1_events/head/after",
+      state_root_after: "sha256:after",
+      projection_watermark: "runtime-events:thread_1:events:6",
+      receipt_refs: ["receipt_agent_state", "receipt_run_policy"],
+      artifact_refs: [],
+      payload_refs: ["payload://runtime-events/thread_1_events/events/event_projected_1"],
+      projection_hash: "sha256:projection",
+      admissions: [{ event_id: "event_projected_1" }],
+      events: [{
+        event_stream_id: "thread_1:events",
+        event_id: "event_projected_1",
+        seq: 5,
+        event_kind: "turn.started",
+        idempotency_key: "run:run_1:event:event_run_started",
+      }],
+    },
+  }));
+
+  const result = runner.projectRuntimeThreadEvents(runtimeThreadEventProjectionRequest());
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].request.schema_version, RUNTIME_AGENTGRES_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.operation, "project_runtime_thread_events");
+  assert.equal(calls[0].request.backend, RUST_RUNTIME_AGENTGRES_BACKEND);
+  assert.equal(
+    calls[0].request.request.schema_version,
+    RUNTIME_THREAD_EVENT_PROJECTION_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(calls[0].request.request.projection_kind, "thread");
+  assert.deepEqual(calls[0].request.request.existing_idempotency_keys, [
+    "thread:thread_1:started",
+  ]);
+  assert.equal(result.projected, true);
+  assert.equal(result.event_count, 2);
+  assert.equal(result.skipped_count, 1);
+  assert.equal(result.events[0].event_id, "event_projected_1");
+  assert.equal(result.projection_hash, "sha256:projection");
+});
+
+test("runtime thread event projection normalizer exposes only Rust-returned projection truth", () => {
+  const result = normalizeRuntimeThreadEventProjectionBridgeResult({
+    record: {
+      status: "projected",
+      projection_kind: "run",
+      event_count: 1,
+      skipped_count: 0,
+      receipt_refs: ["receipt_run_policy"],
+      events: [{
+        event_stream_id: "thread_1:events",
+        event_id: "event_projected",
+        seq: 9,
+        event_kind: "turn.started",
+      }],
+    },
+    projection_hash: "sha256:projection",
+  });
+
+  assert.equal(result.source, "rust_runtime_thread_event_projection_command");
+  assert.equal(result.projected, true);
+  assert.equal(result.projection_kind, "run");
+  assert.equal(result.event_count, 1);
+  assert.equal(result.events[0].event_id, "event_projected");
+  assert.deepEqual(result.receipt_refs, ["receipt_run_policy"]);
+  assert.equal(result.projection_hash, "sha256:projection");
+  assert.equal(Object.hasOwn(result.events[0], "eventId"), false);
+});
+
+test("runtime Agentgres runner replays runtime thread events through direct daemon-core invoker", () => {
+  const calls = [];
+  const runner = createRunner(calls, (request) => ({
+    source: "rust_runtime_thread_event_replay_command",
+    backend: RUST_RUNTIME_AGENTGRES_BACKEND,
+    projected: true,
+    record: {
+      schema_version: "ioi.runtime.thread-event-replay.v1",
+      status: "projected",
+      operation_kind: "runtime.thread_event_replay",
+      replay_kind: "turn",
+      event_count: 1,
+      latest_seq: 5,
+      cursor_seq: 4,
+      resulting_seq: 5,
+      resulting_head: "agentgres://runtime-events/thread_1_events/head/after",
+      state_root_after: "sha256:after",
+      projection_watermark: "runtime-events:thread_1:events:5",
+      receipt_refs: ["receipt_run_policy"],
+      artifact_refs: [],
+      payload_refs: ["payload://runtime-events/thread_1_events/events/event_projected_1"],
+      replay_hash: "sha256:replay",
+      events: request.request.events,
+    },
+  }));
+
+  const result = runner.projectRuntimeThreadEventReplay(runtimeThreadEventReplayRequest());
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].request.schema_version, RUNTIME_AGENTGRES_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.operation, "project_runtime_thread_event_replay");
+  assert.equal(calls[0].request.backend, RUST_RUNTIME_AGENTGRES_BACKEND);
+  assert.equal(
+    calls[0].request.request.schema_version,
+    RUNTIME_THREAD_EVENT_REPLAY_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(calls[0].request.request.replay_kind, "turn");
+  assert.deepEqual(calls[0].request.request.cursor, { since_seq: 4 });
+  assert.equal(result.projected, true);
+  assert.equal(result.events[0].event_id, "event_projected_1");
+  assert.equal(result.cursor_seq, 4);
+  assert.deepEqual(result.receipt_refs, ["receipt_run_policy"]);
+  assert.equal(result.replay_hash, "sha256:replay");
+});
+
+test("runtime thread event replay normalizer exposes only Rust-returned event truth", () => {
+  const result = normalizeRuntimeThreadEventReplayBridgeResult({
+    record: {
+      status: "projected",
+      replay_kind: "stream",
+      event_count: 1,
+      latest_seq: 7,
+      cursor_seq: 6,
+      receipt_refs: ["receipt_record"],
+      replay_hash: "sha256:replay",
+      events: [{
+        event_stream_id: "thread_1:events",
+        event_id: "event_record",
+        seq: 7,
+        idempotency_key: "idem",
+      }],
+    },
+  });
+
+  assert.equal(result.source, "rust_runtime_thread_event_replay_command");
+  assert.equal(result.projected, true);
+  assert.equal(result.replay_kind, "stream");
+  assert.equal(result.events[0].event_id, "event_record");
+  assert.equal(result.cursor_seq, 6);
+  assert.deepEqual(result.receipt_refs, ["receipt_record"]);
+  assert.equal(result.replay_hash, "sha256:replay");
+  assert.equal(Object.hasOwn(result.events[0], "eventId"), false);
+});
+
+test("runtime Agentgres runner projects runtime thread and turn records through direct daemon-core invoker", () => {
+  const calls = [];
+  const runner = createRunner(calls, (request) => ({
+    source: "rust_runtime_thread_turn_projection_command",
+    backend: RUST_RUNTIME_AGENTGRES_BACKEND,
+    projected: true,
+    projection: {
+      schema_version: "ioi.runtime.thread-turn-projection.v1",
+      status: "projected",
+      operation_kind: "runtime.thread_turn_projection",
+      projection_kind: "thread",
+      thread_id: "thread_1",
+      event_count: 0,
+      latest_seq: 5,
+      projection_hash: "sha256:projection",
+      record: {
+        schema_version: "ioi.runtime.thread.v1",
+        thread_id: "thread_1",
+        title: "Latest",
+      },
+    },
+  }));
+
+  const result = runner.projectRuntimeThreadTurnProjection(runtimeThreadTurnProjectionRequest());
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].request.schema_version, RUNTIME_AGENTGRES_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.operation, "project_runtime_thread_turn_projection");
+  assert.equal(calls[0].request.backend, RUST_RUNTIME_AGENTGRES_BACKEND);
+  assert.equal(
+    calls[0].request.request.schema_version,
+    RUNTIME_THREAD_TURN_PROJECTION_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(calls[0].request.request.projection_kind, "thread");
+  assert.equal(calls[0].request.request.thread_id, "thread_1");
+  assert.equal(result.projected, true);
+  assert.equal(result.record.thread_id, "thread_1");
+  assert.equal(result.projection_kind, "thread");
+  assert.equal(result.projection_hash, "sha256:projection");
+});
+
+test("runtime thread and turn projection normalizer exposes only Rust-returned record truth", () => {
+  const result = normalizeRuntimeThreadTurnProjectionBridgeResult({
+    projection: {
+      status: "projected",
+      operation_kind: "runtime.thread_turn_projection",
+      projection_kind: "turn",
+      thread_id: "thread_1",
+      turn_id: "turn_1",
+      latest_seq: 7,
+      projection_hash: "sha256:projection",
+      record: {
+        schema_version: "ioi.runtime.turn.v1",
+        turn_id: "turn_1",
+        seq_end: 7,
+      },
+    },
+  });
+
+  assert.equal(result.source, "rust_runtime_thread_turn_projection_command");
+  assert.equal(result.projected, true);
+  assert.equal(result.projection_kind, "turn");
+  assert.equal(result.record.turn_id, "turn_1");
+  assert.equal(result.latest_seq, 7);
+  assert.equal(result.projection_hash, "sha256:projection");
+  assert.equal(Object.hasOwn(result.record, "turnId"), false);
+});
+
+test("runtime Agentgres runner admits coding-tool command-stream events through direct daemon-core invoker", () => {
+  const calls = [];
+  const runner = createRunner(calls, (request) => ({
+    source: "rust_coding_tool_command_stream_admission_command",
+    backend: RUST_RUNTIME_AGENTGRES_BACKEND,
+    admitted: true,
+    record: {
+      schema_version: "ioi.runtime.coding-tool-command-stream-admission.v1",
+      status: "admitted",
+      operation_kind: "runtime.coding_tool_command_stream",
+      event_count: 2,
+      state_root_before: "sha256:before",
+      state_root_after: "sha256:after",
+      resulting_head: "agentgres://runtime-events/thread_1_events/head/after",
+      projection_watermark: "runtime-events:thread_1:events:7",
+      payload_refs: ["payload://runtime-events/thread_1_events/command-stream/event_stream_1"],
+      receipt_refs: ["receipt_tool"],
+      artifact_refs: ["artifact_tool"],
+      storage_admissions: [{ admission_hash: "sha256:storage" }],
+      admission_hash: "sha256:admission",
+      events: [
+        {
+          event_stream_id: request.request.event_stream_id,
+          event_kind: "artifact.command_stream",
+          event_id: "event_stream_1",
+          seq: 6,
+          idempotency_key: "thread:thread_1:coding-tool-command-stream:tool_1:0",
+          state_root_after: "sha256:mid",
+        },
+        {
+          event_stream_id: request.request.event_stream_id,
+          event_kind: "artifact.command_stream",
+          event_id: "event_stream_2",
+          seq: 7,
+          idempotency_key: "thread:thread_1:coding-tool-command-stream:tool_1:1",
+          state_root_after: "sha256:after",
+        },
+      ],
+    },
+  }));
+
+  const result = runner.admitCodingToolCommandStreamEvents(codingToolCommandStreamAdmissionRequest());
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].request.schema_version, RUNTIME_AGENTGRES_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.operation, "admit_coding_tool_command_stream_events");
+  assert.equal(calls[0].request.backend, RUST_RUNTIME_AGENTGRES_BACKEND);
+  assert.equal(
+    calls[0].request.request.schema_version,
+    CODING_TOOL_COMMAND_STREAM_ADMISSION_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(calls[0].request.request.tool_call_id, "tool_1");
+  assert.equal(calls[0].request.request.latest_seq, 5);
+  assert.equal(result.admitted, true);
+  assert.equal(result.events.length, 2);
+  assert.equal(result.events[0].event_kind, "artifact.command_stream");
+  assert.equal(result.event_count, 2);
+  assert.equal(result.state_root_after, "sha256:after");
+  assert.deepEqual(result.receipt_refs, ["receipt_tool"]);
+  assert.equal(result.admission_hash, "sha256:admission");
+});
+
+test("coding-tool command-stream normalizer exposes only Rust-returned events", () => {
+  const result = normalizeCodingToolCommandStreamAdmissionBridgeResult({
+    record: {
+      status: "admitted",
+      event_count: 1,
+      receipt_refs: ["receipt_record"],
+      events: [
+        {
+          event_stream_id: "thread_1:events",
+          event_id: "event_record",
+          seq: 8,
+          idempotency_key: "idem",
+        },
+      ],
+    },
+    admission_hash: "sha256:admission",
+  });
+
+  assert.equal(result.admitted, true);
+  assert.equal(result.events[0].event_id, "event_record");
+  assert.equal(result.event_count, 1);
+  assert.deepEqual(result.receipt_refs, ["receipt_record"]);
+  assert.equal(result.admission_hash, "sha256:admission");
+});
 
 test("runtime Agentgres runner sends runtime run-state commit through direct daemon-core invoker", () => {
   const calls = [];

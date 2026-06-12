@@ -1,6 +1,3 @@
-import { createDaemonCoreCommandInvoker } from "../runtime-daemon-core-command-runner.mjs";
-
-export const MODEL_MOUNT_ADMISSION_COMMAND_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND";
 export const MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION = "ioi.runtime.daemon_core.command.v1";
 export const RUST_MODEL_MOUNT_ADMISSION_BACKEND = "rust_model_mount_live";
 export const RUST_MODEL_MOUNT_FIXTURE_BACKEND = "rust_model_mount_fixture";
@@ -20,11 +17,16 @@ export const RUST_MODEL_MOUNT_NATIVE_LOCAL_INVENTORY_BACKEND = "rust_model_mount
 export const RUST_MODEL_MOUNT_NATIVE_LOCAL_LIFECYCLE_BACKEND = "rust_model_mount_native_local_lifecycle";
 
 export function createModelMountAdmissionRunnerFromEnv(env = process.env, options = {}) {
-  assertNoModelMountAdmissionCommandArgs(options.args ?? env.IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS);
+  assertNoModelMountAdmissionCommandArgs(
+    options.args ??
+      env.IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS ??
+      env.IOI_MODEL_MOUNT_ADMISSION_COMMAND_ARGS,
+  );
+  assertNoModelMountAdmissionCommandSelection(
+    options.command ?? env.IOI_RUNTIME_DAEMON_CORE_COMMAND ?? env.IOI_MODEL_MOUNT_ADMISSION_COMMAND,
+  );
   return new RustModelMountAdmissionRunner({
-    command: options.command ?? env[MODEL_MOUNT_ADMISSION_COMMAND_ENV] ?? null,
     daemonCoreInvoker: options.daemonCoreInvoker,
-    spawnSyncImpl: options.spawnSyncImpl,
   });
 }
 
@@ -39,28 +41,21 @@ export function assertNoModelMountAdmissionCommandArgs(value) {
   );
 }
 
+export function assertNoModelMountAdmissionCommandSelection(value) {
+  if (value == null) return;
+  if (typeof value === "string" && value.trim().length === 0) return;
+  throw new ModelMountAdmissionRunnerError(
+    "Model-mount admission binary command selection is retired; use daemonCoreInvoker for direct Rust daemon-core model_mount admission.",
+    "model_mount_admission_command_selection_retired",
+    { retired_command: value },
+  );
+}
+
 export class RustModelMountAdmissionRunner {
   constructor(options = {}) {
     assertNoModelMountAdmissionCommandArgs(options.args);
-    this.command = optionalString(options.command);
-    this.invokeBridge = createDaemonCoreCommandInvoker({
-      command: this.command,
-      daemonCoreInvoker: options.daemonCoreInvoker,
-      spawnSyncImpl: options.spawnSyncImpl,
-      ErrorClass: ModelMountAdmissionRunnerError,
-      env: MODEL_MOUNT_ADMISSION_COMMAND_ENV,
-      unconfiguredMessage:
-        "Model mount admission requires IOI_RUNTIME_DAEMON_CORE_COMMAND for Rust daemon-core model_mount admission.",
-      unconfiguredCode: "model_mount_admission_bridge_unconfigured",
-      spawnFailedMessage: "Failed to spawn Rust model_mount admission bridge command.",
-      spawnFailedCode: "model_mount_admission_bridge_spawn_failed",
-      commandFailedMessage: "Rust model_mount admission bridge command failed.",
-      commandFailedCode: "model_mount_admission_bridge_failed",
-      invalidJsonMessage: "Rust model_mount admission bridge command returned invalid JSON.",
-      invalidJsonCode: "model_mount_admission_bridge_invalid_json",
-      rejectedMessage: "Rust model_mount core rejected the admission request.",
-      rejectedCode: "model_mount_admission_bridge_rejected",
-    });
+    assertNoModelMountAdmissionCommandSelection(options.command);
+    this.daemonCoreInvoker = optionalFunction(options.daemonCoreInvoker);
   }
 
   admitRouteDecision(request) {
@@ -70,7 +65,7 @@ export class RustModelMountAdmissionRunner {
       backend: RUST_MODEL_MOUNT_ADMISSION_BACKEND,
       request,
     };
-    return normalizeRouteDecisionBridgeResult(this.invokeBridge(bridgeRequest));
+    return normalizeRouteDecisionBridgeResult(this.invokeDaemonCore(bridgeRequest));
   }
 
   admitInvocation(request) {
@@ -80,7 +75,7 @@ export class RustModelMountAdmissionRunner {
       backend: RUST_MODEL_MOUNT_ADMISSION_BACKEND,
       request,
     };
-    return normalizeInvocationBridgeResult(this.invokeBridge(bridgeRequest));
+    return normalizeInvocationBridgeResult(this.invokeDaemonCore(bridgeRequest));
   }
 
   admitProviderExecution(request) {
@@ -90,7 +85,7 @@ export class RustModelMountAdmissionRunner {
       backend: RUST_MODEL_MOUNT_ADMISSION_BACKEND,
       request,
     };
-    return normalizeProviderExecutionBridgeResult(this.invokeBridge(bridgeRequest));
+    return normalizeProviderExecutionBridgeResult(this.invokeDaemonCore(bridgeRequest));
   }
 
   executeProviderInvocation(request) {
@@ -100,7 +95,7 @@ export class RustModelMountAdmissionRunner {
       backend: request?.execution_backend ?? RUST_MODEL_MOUNT_FIXTURE_BACKEND,
       request,
     };
-    return normalizeProviderInvocationBridgeResult(this.invokeBridge(bridgeRequest));
+    return normalizeProviderInvocationBridgeResult(this.invokeDaemonCore(bridgeRequest));
   }
 
   executeProviderStreamInvocation(request) {
@@ -110,7 +105,7 @@ export class RustModelMountAdmissionRunner {
       backend: request?.execution_backend ?? RUST_MODEL_MOUNT_NATIVE_LOCAL_BACKEND,
       request,
     };
-    return normalizeProviderStreamInvocationBridgeResult(this.invokeBridge(bridgeRequest));
+    return normalizeProviderStreamInvocationBridgeResult(this.invokeDaemonCore(bridgeRequest));
   }
 
   planProviderLifecycle(request) {
@@ -120,7 +115,7 @@ export class RustModelMountAdmissionRunner {
       backend: request?.execution_backend ?? RUST_MODEL_MOUNT_NATIVE_LOCAL_LIFECYCLE_BACKEND,
       request,
     };
-    return normalizeProviderLifecycleBridgeResult(this.invokeBridge(bridgeRequest));
+    return normalizeProviderLifecycleBridgeResult(this.invokeDaemonCore(bridgeRequest));
   }
 
   planProviderInventory(request) {
@@ -130,7 +125,7 @@ export class RustModelMountAdmissionRunner {
       backend: request?.execution_backend ?? RUST_MODEL_MOUNT_NATIVE_LOCAL_INVENTORY_BACKEND,
       request,
     };
-    return normalizeProviderInventoryBridgeResult(this.invokeBridge(bridgeRequest));
+    return normalizeProviderInventoryBridgeResult(this.invokeDaemonCore(bridgeRequest));
   }
 
   planInstanceLifecycle(request) {
@@ -140,7 +135,7 @@ export class RustModelMountAdmissionRunner {
       backend: request?.execution_backend ?? RUST_MODEL_MOUNT_INSTANCE_LIFECYCLE_BACKEND,
       request,
     };
-    return normalizeInstanceLifecycleBridgeResult(this.invokeBridge(bridgeRequest));
+    return normalizeInstanceLifecycleBridgeResult(this.invokeDaemonCore(bridgeRequest));
   }
 
   admitProviderResult(request) {
@@ -150,7 +145,7 @@ export class RustModelMountAdmissionRunner {
       backend: RUST_MODEL_MOUNT_ADMISSION_BACKEND,
       request,
     };
-    return normalizeProviderResultBridgeResult(this.invokeBridge(bridgeRequest));
+    return normalizeProviderResultBridgeResult(this.invokeDaemonCore(bridgeRequest));
   }
 
   planBackendProcess(request) {
@@ -160,7 +155,7 @@ export class RustModelMountAdmissionRunner {
       backend: RUST_MODEL_MOUNT_BACKEND_PROCESS_BACKEND,
       request,
     };
-    return normalizeBackendProcessPlanBridgeResult(this.invokeBridge(bridgeRequest));
+    return normalizeBackendProcessPlanBridgeResult(this.invokeDaemonCore(bridgeRequest));
   }
 
   planBackendLifecycleRequired(request) {
@@ -170,7 +165,7 @@ export class RustModelMountAdmissionRunner {
       backend: RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_REQUIRED_BACKEND,
       request,
     };
-    return normalizeBackendLifecycleRequiredBridgeResult(this.invokeBridge(bridgeRequest));
+    return normalizeBackendLifecycleRequiredBridgeResult(this.invokeDaemonCore(bridgeRequest));
   }
 
   planServerControlRequired(request) {
@@ -180,7 +175,7 @@ export class RustModelMountAdmissionRunner {
       backend: RUST_MODEL_MOUNT_SERVER_CONTROL_REQUIRED_BACKEND,
       request,
     };
-    return normalizeServerControlRequiredBridgeResult(this.invokeBridge(bridgeRequest));
+    return normalizeServerControlRequiredBridgeResult(this.invokeDaemonCore(bridgeRequest));
   }
 
   planRuntimeEngineRequired(request) {
@@ -190,7 +185,7 @@ export class RustModelMountAdmissionRunner {
       backend: RUST_MODEL_MOUNT_RUNTIME_ENGINE_REQUIRED_BACKEND,
       request,
     };
-    return normalizeRuntimeEngineRequiredBridgeResult(this.invokeBridge(bridgeRequest));
+    return normalizeRuntimeEngineRequiredBridgeResult(this.invokeDaemonCore(bridgeRequest));
   }
 
   planTokenizerRequired(request) {
@@ -200,7 +195,7 @@ export class RustModelMountAdmissionRunner {
       backend: RUST_MODEL_MOUNT_TOKENIZER_REQUIRED_BACKEND,
       request,
     };
-    return normalizeTokenizerRequiredBridgeResult(this.invokeBridge(bridgeRequest));
+    return normalizeTokenizerRequiredBridgeResult(this.invokeDaemonCore(bridgeRequest));
   }
 
   planRouteControlRequired(request) {
@@ -210,7 +205,7 @@ export class RustModelMountAdmissionRunner {
       backend: RUST_MODEL_MOUNT_ROUTE_CONTROL_REQUIRED_BACKEND,
       request,
     };
-    return normalizeRouteControlRequiredBridgeResult(this.invokeBridge(bridgeRequest));
+    return normalizeRouteControlRequiredBridgeResult(this.invokeDaemonCore(bridgeRequest));
   }
 
   planAcceptedReceiptHead(request) {
@@ -220,7 +215,7 @@ export class RustModelMountAdmissionRunner {
       backend: RUST_MODEL_MOUNT_ACCEPTED_RECEIPT_HEAD_BACKEND,
       request,
     };
-    return normalizeAcceptedReceiptHeadBridgeResult(this.invokeBridge(bridgeRequest));
+    return normalizeAcceptedReceiptHeadBridgeResult(this.invokeDaemonCore(bridgeRequest));
   }
 
   planAcceptedReceiptTransition(request) {
@@ -230,7 +225,7 @@ export class RustModelMountAdmissionRunner {
       backend: RUST_MODEL_MOUNT_ACCEPTED_RECEIPT_TRANSITION_BACKEND,
       request,
     };
-    return normalizeAcceptedReceiptTransitionBridgeResult(this.invokeBridge(bridgeRequest));
+    return normalizeAcceptedReceiptTransitionBridgeResult(this.invokeDaemonCore(bridgeRequest));
   }
 
   planReadProjection(request) {
@@ -240,7 +235,7 @@ export class RustModelMountAdmissionRunner {
       backend: "rust_model_mount_read_projection",
       request,
     };
-    return normalizeReadProjectionBridgeResult(this.invokeBridge(bridgeRequest));
+    return normalizeReadProjectionBridgeResult(this.invokeDaemonCore(bridgeRequest));
   }
 
   bindInvocationReceipt(request = {}) {
@@ -266,9 +261,28 @@ export class RustModelMountAdmissionRunner {
       accepted_receipt_transition: acceptedReceiptTransition,
       receipt_ref: receiptRef,
     };
-    return normalizeInvocationReceiptBindingBridgeResult(this.invokeBridge(bridgeRequest));
+    return normalizeInvocationReceiptBindingBridgeResult(this.invokeDaemonCore(bridgeRequest));
   }
 
+  invokeDaemonCore(request) {
+    if (!this.daemonCoreInvoker) {
+      throw new ModelMountAdmissionRunnerError(
+        "Model mount admission requires daemonCoreInvoker for direct Rust daemon-core model_mount admission.",
+        "model_mount_admission_direct_invoker_unconfigured",
+        { boundary: "daemonCoreInvoker" },
+      );
+    }
+    const response = this.daemonCoreInvoker(request);
+    const responseError = objectRecord(response?.error);
+    if (response?.ok === false && responseError) {
+      throw new ModelMountAdmissionRunnerError(
+        responseError.message ?? "Rust model_mount core rejected the admission request.",
+        responseError.code ?? "model_mount_admission_direct_invoker_rejected",
+        { error: responseError },
+      );
+    }
+    return response?.ok === true ? response.result : response;
+  }
 }
 
 export class ModelMountAdmissionRunnerError extends Error {
@@ -763,10 +777,12 @@ function normalizeReadProjectionBridgeResult(value = {}) {
   };
 }
 
-function optionalString(value) {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  return trimmed ? trimmed : null;
+function optionalFunction(value) {
+  return typeof value === "function" ? value : null;
+}
+
+function objectRecord(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : null;
 }
 
 function arrayOrNull(value) {

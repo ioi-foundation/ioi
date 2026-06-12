@@ -1,5 +1,8 @@
 import {
+  CODING_TOOL_APPROVAL_BLOCK_REQUEST_SCHEMA_VERSION,
   CODING_TOOL_APPROVAL_REQUEST_SCHEMA_VERSION,
+  CODING_TOOL_APPROVAL_SATISFACTION_PROJECTION_REQUEST_SCHEMA_VERSION,
+  CODING_TOOL_APPROVAL_SATISFACTION_REQUEST_SCHEMA_VERSION,
   createCodingToolApprovalRunnerFromEnv,
 } from "./runtime-coding-tool-approval-runner.mjs";
 
@@ -11,6 +14,10 @@ function defaultOptionalString(value) {
 
 function defaultNormalizeArray(value) {
   return Array.isArray(value) ? value : [];
+}
+
+function objectRecord(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : null;
 }
 
 export function createCodingToolApprovalPolicy(deps = {}) {
@@ -123,22 +130,114 @@ export function createCodingToolApprovalPolicy(deps = {}) {
     return plan.manifest ?? null;
   }
 
-  function codingToolApprovalManifestsMatch(requestedManifest, retryManifest) {
-    if (!requestedManifest || !retryManifest) return false;
-    for (const key of ["thread_id", "tool_id", "tool_call_id", "effect_class", "input_hash"]) {
-      const left = optionalString(requestedManifest[key]);
-      const right = optionalString(retryManifest[key]);
-      if (left && right && left !== right) return false;
-      if (!left || !right) return false;
+  function codingToolApprovalSatisfactionForThread({
+    store,
+    threadId,
+    approval_manifest: approvalManifest,
+    request = {},
+    toolId,
+    toolCallId,
+    workflowGraphId,
+    workflowNodeId,
+  }) {
+    const approvalId = optionalString(request.approval_id);
+    if (!approvalId) {
+      return approvalRunner.planApprovalSatisfaction({
+        schema_version: CODING_TOOL_APPROVAL_SATISFACTION_REQUEST_SCHEMA_VERSION,
+        thread_id: threadId,
+        approval_id: null,
+        approval_manifest: approvalManifest,
+      });
     }
-    const requestedNode = optionalString(requestedManifest.workflow_node_id);
-    const retryNode = optionalString(retryManifest.workflow_node_id);
-    if (requestedNode && retryNode && requestedNode !== retryNode) return false;
-    return true;
+    const projectionContext = approvalProjectionContextForThread(store, threadId, request);
+    const projection = approvalRunner.projectApprovalSatisfaction({
+      schema_version: CODING_TOOL_APPROVAL_SATISFACTION_PROJECTION_REQUEST_SCHEMA_VERSION,
+      thread_id: threadId,
+      approval_id: approvalId,
+      approval_manifest: approvalManifest,
+      run: projectionContext.run,
+      agent: projectionContext.agent,
+      expected_head: optionalString(request.expected_head) ?? null,
+      state_root_before: optionalString(request.state_root_before) ?? null,
+      tool_id: toolId,
+      tool_call_id: toolCallId,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
+    });
+    return approvalRunner.planApprovalSatisfaction({
+      schema_version: CODING_TOOL_APPROVAL_SATISFACTION_REQUEST_SCHEMA_VERSION,
+      thread_id: threadId,
+      approval_id: approvalId,
+      approval_manifest: approvalManifest,
+      approval_request: projection?.approval_request ?? null,
+      latest_decision: projection?.latest_decision ?? null,
+      lease_state: projection?.lease_state ?? null,
+      expected_head: projection?.expected_head ?? null,
+      state_root_before: projection?.state_root_before ?? null,
+    });
+  }
+
+  function approvalProjectionContextForThread(store, threadId, request = {}) {
+    const explicitRunId = optionalString(request.run_id);
+    let run = null;
+    if (explicitRunId) {
+      run = store?.getRun?.(explicitRunId) ?? store?.runs?.get?.(explicitRunId) ?? null;
+    }
+    const agent = objectRecord(request.agent) ?? store?.agentForThread?.(threadId) ?? null;
+    if (!run && agent?.id && typeof store?.listRuns === "function") {
+      const runs = store.listRuns(agent.id);
+      run = Array.isArray(runs) ? runs.at(-1) ?? null : null;
+    }
+    return {
+      agent,
+      run,
+    };
+  }
+
+  function codingToolApprovalBlockForThread({
+    threadId,
+    turnId,
+    toolId,
+    toolCallId,
+    workspaceRoot,
+    workflowGraphId,
+    workflowNodeId,
+    request = {},
+    approval_manifest: approvalManifest,
+    approval_gate: approvalGate,
+    input,
+    rollbackRefs = [],
+    receiptRefs = [],
+    policyDecisionRefs = [],
+    artifactRefs = [],
+    receiptId,
+    idempotencyKey,
+  }) {
+    return approvalRunner.planApprovalBlock({
+      schema_version: CODING_TOOL_APPROVAL_BLOCK_REQUEST_SCHEMA_VERSION,
+      thread_id: threadId,
+      turn_id: turnId || null,
+      tool_id: toolId,
+      tool_call_id: toolCallId,
+      workspace_root: workspaceRoot || null,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
+      source: request.source ?? null,
+      idempotency_key: idempotencyKey ?? null,
+      receipt_id: receiptId ?? null,
+      approval_manifest: approvalManifest,
+      approval_gate: approvalGate,
+      input_summary: codingToolInputSummary(toolId, input),
+      rollback_refs: uniqueStrings(rollbackRefs),
+      receipt_refs: uniqueStrings(receiptRefs),
+      policy_decision_refs: uniqueStrings(policyDecisionRefs),
+      artifact_refs: uniqueStrings(artifactRefs),
+    });
   }
 
   return {
     codingToolApprovalManifestForThread,
-    codingToolApprovalManifestsMatch,
+    codingToolApprovalBlockForThread,
+    codingToolApprovalSatisfactionForThread,
   };
 }

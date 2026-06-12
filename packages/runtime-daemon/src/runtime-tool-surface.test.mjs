@@ -3,67 +3,113 @@ import test from "node:test";
 
 import { createRuntimeToolSurface } from "./runtime-tool-surface.mjs";
 
-test("runtime tool surface fails closed for retired JS public projections", () => {
+test("runtime tool surface returns Rust-owned account nodes and tools", () => {
   const calls = [];
   const toolCatalogRunner = {
-    planRuntimeToolCatalogProjectionRequired(request) {
+    projectRuntimeToolCatalog(request) {
       calls.push(request);
-      return {
-        source: "rust_runtime_tool_catalog_projection_required_command",
-        record: {
-          status_code: 501,
-          code: "runtime_tool_catalog_rust_core_required",
-          message:
-            "Runtime account, node, and tool catalog projections require direct Rust daemon-core projection over Agentgres-admitted runtime catalog truth.",
-          details: {
-            rust_core_boundary: "runtime.tool_catalog",
-            operation: request.operation,
-            operation_kind: request.operation_kind,
-            projection_kind: request.projection_kind,
-            pack: request.pack ?? null,
-            workspace_root: request.workspace_root,
-            evidence_refs: request.evidence_refs,
+      if (request.projection_kind === "account") {
+        return {
+          projection_kind: "account",
+          operation_kind: request.operation_kind,
+          account: {
+            id: "local-operator",
+            email: request.operator_email,
+            authorityLevel: "local",
+            privacyClass: "local_private",
+            source: "rust-daemon-core-agentgres",
           },
-        },
+        };
+      }
+      if (request.projection_kind === "runtime_nodes") {
+        return {
+          projection_kind: "runtime_nodes",
+          operation_kind: request.operation_kind,
+          runtime_nodes: [
+            {
+              id: "hosted-provider",
+              status: request.hosted_endpoint_configured ? "available" : "blocked",
+              privacyClass: "hosted",
+              evidence_refs: ["IOI_AGENT_SDK_HOSTED_ENDPOINT"],
+            },
+          ],
+        };
+      }
+      return {
+        projection_kind: "tools",
+        operation_kind: request.operation_kind,
+        pack: request.pack,
+        tools: [
+          {
+            stable_tool_id: "file.apply_patch",
+            pack: "coding",
+            approval_required: true,
+          },
+        ],
       };
     },
   };
   const surface = createRuntimeToolSurface({
+    env: {
+      IOI_OPERATOR_EMAIL: "operator@example.test",
+      IOI_AGENT_SDK_HOSTED_ENDPOINT: "https://hosted.example.test",
+    },
     toolCatalogRunner,
     workspaceRoot: "/workspace/project",
   });
 
-  assert.throws(
-    () => surface.getAccount(),
-    (error) =>
-      error.code === "runtime_tool_catalog_rust_core_required" &&
-      error.details.projection_kind === "account" &&
-      error.details.workspace_root === "/workspace/project" &&
-      !Object.hasOwn(error.details, "projectionKind"),
-  );
-  assert.throws(
-    () => surface.listRuntimeNodes(),
-    (error) =>
-      error.code === "runtime_tool_catalog_rust_core_required" &&
-      error.details.projection_kind === "runtime_nodes" &&
-      !Object.hasOwn(error.details, "workspaceRoot"),
-  );
-  assert.throws(
-    () => surface.listTools({ pack: "Coding" }),
-    (error) =>
-      error.code === "runtime_tool_catalog_rust_core_required" &&
-      error.details.projection_kind === "tools" &&
-      error.details.pack === "coding",
-  );
+  const account = surface.getAccount();
+  const nodes = surface.listRuntimeNodes();
+  const tools = surface.listTools({ pack: "Coding" });
 
+  assert.equal(account.source, "rust-daemon-core-agentgres");
+  assert.equal(nodes[0].status, "available");
+  assert.deepEqual(tools.map((tool) => tool.stable_tool_id), ["file.apply_patch"]);
+  assert.equal(Object.hasOwn(tools[0], "stableToolId"), false);
   assert.deepEqual(calls.map((call) => call.projection_kind), [
     "account",
     "runtime_nodes",
     "tools",
   ]);
-  assert.deepEqual(calls.map((call) => call.source), [
-    "runtime.tool_surface",
-    "runtime.tool_surface",
-    "runtime.tool_surface",
-  ]);
+  assert.equal(calls[0].operator_email, "operator@example.test");
+  assert.equal(calls[1].hosted_endpoint_configured, true);
+  assert.equal(calls[2].pack, "coding");
+  assert.equal(calls[2].workspace_root, "/workspace/project");
+  assert.equal(Object.hasOwn(calls[2], "workspaceRoot"), false);
+});
+
+test("runtime tool surface fails closed when Rust projection is missing", () => {
+  const surface = createRuntimeToolSurface({ workspaceRoot: "/workspace/project" });
+
+  assert.throws(
+    () => surface.listTools({ pack: "coding" }),
+    (error) =>
+      error.code === "runtime_tool_catalog_rust_core_required" &&
+      error.details.projection_kind === "tools" &&
+      error.details.pack === "coding" &&
+      error.details.workspace_root === "/workspace/project" &&
+      !Object.hasOwn(error.details, "projectionKind"),
+  );
+});
+
+test("runtime tool surface rejects Rust projection mismatches", () => {
+  const surface = createRuntimeToolSurface({
+    toolCatalogRunner: {
+      projectRuntimeToolCatalog() {
+        return {
+          projection_kind: "account",
+          operation_kind: "runtime.tool_catalog.projection.account",
+          account: { id: "local-operator" },
+        };
+      },
+    },
+  });
+
+  assert.throws(
+    () => surface.listTools(),
+    (error) =>
+      error.code === "runtime_tool_catalog_rust_projection_invalid" &&
+      error.details.expected_projection_kind === "tools" &&
+      error.details.projection_kind === "account",
+  );
 });

@@ -1,18 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { codingToolContracts } from "./coding-tools.mjs";
 import {
   RustWorkloadStepModuleRunner,
   StepModuleRunnerError,
   createStepModuleRunnerFromEnv,
 } from "./step-module-runner.mjs";
 
-const workspaceStatusContract = codingToolContracts().find(
-  (contract) => contract.stable_tool_id === "workspace.status",
-);
-
-test("default StepModuleRunner is Rust workload live and fails closed without command", () => {
+test("default StepModuleRunner is Rust workload live and fails closed without direct invoker", () => {
   const runner = createStepModuleRunnerFromEnv({});
   assert.ok(runner instanceof RustWorkloadStepModuleRunner);
   assert.equal(runner.backend, "rust_workload_live");
@@ -20,14 +15,12 @@ test("default StepModuleRunner is Rust workload live and fails closed without co
   assert.throws(
     () =>
       runner.runCodingTool({
-        contract: workspaceStatusContract,
         toolId: "workspace.status",
         input: {},
-        result: {},
       }),
     (error) =>
       error instanceof StepModuleRunnerError &&
-      error.code === "rust_workload_bridge_unconfigured",
+      error.code === "rust_workload_direct_invoker_unconfigured",
   );
 });
 
@@ -65,7 +58,16 @@ test("retired StepModule command env fails closed", () => {
     () => createStepModuleRunnerFromEnv({ IOI_STEP_MODULE_COMMAND: "retired-step-module-bridge" }),
     (error) =>
       error instanceof StepModuleRunnerError &&
-      error.code === "step_module_command_env_retired",
+      error.code === "step_module_command_selection_retired",
+  );
+});
+
+test("retired daemon-core command env fails closed for StepModule runner", () => {
+  assert.throws(
+    () => createStepModuleRunnerFromEnv({ IOI_RUNTIME_DAEMON_CORE_COMMAND: "retired-daemon-core" }),
+    (error) =>
+      error instanceof StepModuleRunnerError &&
+      error.code === "step_module_command_selection_retired",
   );
 });
 
@@ -78,46 +80,32 @@ test("retired StepModule command args constructor option fails closed", () => {
   );
 });
 
-test("StepModule runner reads unified daemon-core command env", () => {
-  const calls = [];
-  const runner = createStepModuleRunnerFromEnv(
-    { IOI_RUNTIME_DAEMON_CORE_COMMAND: "mock-daemon-core-command" },
-    {
-      spawnSyncImpl(command, args, options) {
-        calls.push({ command, args, request: JSON.parse(options.input) });
-        return {
-          status: 0,
-          stdout: JSON.stringify({
-            ok: true,
-            result: {
-              source: "rust_daemon_core_command",
-              result: null,
-            },
-          }),
-          stderr: "",
-        };
-      },
-    },
+test("retired daemon-core command args env fails closed for StepModule runner", () => {
+  assert.throws(
+    () => createStepModuleRunnerFromEnv({ IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS: "--json" }),
+    (error) =>
+      error instanceof StepModuleRunnerError &&
+      error.code === "step_module_command_args_retired",
   );
-  runner.runCodingTool({
-    contract: workspaceStatusContract,
-    toolId: "workspace.status",
-    input: {},
-    result: {},
-  });
+});
 
-  assert.equal(calls.length, 1);
-  assert.equal(calls[0].command, "mock-daemon-core-command");
-  assert.deepEqual(calls[0].args, []);
-  assert.equal(calls[0].request.schema_version, "ioi.runtime.daemon_core.command.v1");
-  assert.equal(calls[0].request.operation, "run_coding_tool_step_module");
+test("retired StepModule command constructor option fails closed", () => {
+  assert.throws(
+    () => new RustWorkloadStepModuleRunner({ command: "retired-daemon-core" }),
+    (error) =>
+      error instanceof StepModuleRunnerError &&
+      error.code === "step_module_command_selection_retired",
+  );
 });
 
 test("rust workload live runner produces workload invocation with direct daemon-core result", () => {
   const runner = new RustWorkloadStepModuleRunner({
-    daemonCoreInvoker() {
+    daemonCoreInvoker(request) {
+      assert.equal(request.tool_id, "workspace.status");
+      assert.equal(Object.hasOwn(request, "invocation"), false);
       return {
         source: "direct_daemon_core_api",
+        invocation: rustInvocation(request.tool_id),
         result: {
           schema_version: "ioi.step_module_result.v1",
           invocation_id: "invocation://direct",
@@ -148,10 +136,8 @@ test("rust workload live runner produces workload invocation with direct daemon-
     },
   });
   const projection = runner.runCodingTool({
-    contract: workspaceStatusContract,
     toolId: "workspace.status",
     input: {},
-    result: {},
     context: {
       run_id: "run:test",
       task_id: "task:test",
@@ -167,52 +153,67 @@ test("rust workload live runner produces workload invocation with direct daemon-
   assert.equal(projection.blocking, true);
 });
 
-test("rust workload command bridge sends StepModuleInvocation request", () => {
+test("rust workload direct daemon-core invoker sends canonical coding-tool request", () => {
   const calls = [];
   const runner = new RustWorkloadStepModuleRunner({
-    command: "mock-step-module-bridge",
-    spawnSyncImpl(command, args, options) {
-      calls.push({ command, args, request: JSON.parse(options.input) });
+    daemonCoreInvoker(request) {
+      calls.push({ request });
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
-            source: "rust_workload_command",
-            receipt_binding: {
-              schema_version: "ioi.step_module_receipt_binding.v1",
-              binding_hash: "sha256:test",
-            },
-            result: null,
+        ok: true,
+        result: {
+          source: "rust_workload_command",
+          invocation: rustInvocation(request.tool_id),
+          receipt_binding: {
+            schema_version: "ioi.step_module_receipt_binding.v1",
+            binding_hash: "sha256:test",
           },
-        }),
-        stderr: "",
+          result: null,
+        },
       };
     },
   });
   const projection = runner.runCodingTool({
-    contract: workspaceStatusContract,
     toolId: "workspace.status",
     input: { includeIgnored: true },
-    result: {},
     context: {
       workspaceRoot: "/tmp/retired-workspace",
       workspace_root: "/tmp/workspace",
+      workflow_node_id: "node:test",
     },
   });
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].command, "mock-step-module-bridge");
-  assert.deepEqual(calls[0].args, []);
   assert.equal(calls[0].request.schema_version, "ioi.runtime.daemon_core.command.v1");
   assert.equal(calls[0].request.operation, "run_coding_tool_step_module");
+  assert.equal(
+    calls[0].request.request_schema_version,
+    "ioi.runtime.coding-tool-step-module-request.v1",
+  );
+  assert.equal(calls[0].request.tool_id, "workspace.status");
   assert.equal(calls[0].request.workspace_root, "/tmp/workspace");
   assert.notEqual(calls[0].request.workspace_root, "/tmp/retired-workspace");
-  assert.equal(calls[0].request.invocation.schema_version, "ioi.step_module_invocation.v1");
-  assert.equal(calls[0].request.invocation.execution.backend, "workload_grpc");
+  assert.equal(calls[0].request.workflow_node_id, "node:test");
+  assert.equal(Object.hasOwn(calls[0].request, "invocation"), false);
+  assert.equal(projection.invocation.module_ref.kind, "workload_job");
+  assert.equal(projection.invocation.execution.backend, "workload_grpc");
   assert.equal(
     projection.bridge_result.receipt_binding.schema_version,
     "ioi.step_module_receipt_binding.v1",
   );
   assert.equal(projection.result, null);
 });
+
+function rustInvocation(toolId = "workspace.status") {
+  return {
+    schema_version: "ioi.step_module_invocation.v1",
+    invocation_id: "invocation://rust-daemon-core/test",
+    module_ref: {
+      kind: "workload_job",
+      id: toolId,
+      version: "ioi.runtime.coding-tool-pack.v1",
+    },
+    execution: {
+      backend: "workload_grpc",
+    },
+  };
+}

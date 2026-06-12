@@ -318,13 +318,13 @@ test("coding-tool artifact surface requires retrieve targets", () => {
   );
 });
 
-test("coding-tool artifact surface fails closed before JS command-stream event append", () => {
+test("coding-tool artifact surface requires Rust command-stream event admission", () => {
   const { surface } = createSurface();
   const store = createStore();
 
   assert.throws(
     () =>
-      surface.appendCodingToolCommandStreamEvents(store, {
+      surface.admitCodingToolCommandStreamEvents(store, {
         agent: { cwd: "/workspace" },
         threadId: "thread_alpha",
         turnId: "turn_alpha",
@@ -346,8 +346,8 @@ test("coding-tool artifact surface fails closed before JS command-stream event a
     (error) => {
       assert.equal(error.status, 501);
       assert.equal(error.code, "runtime_coding_tool_artifact_rust_core_required");
-      assert.equal(error.details.operation_kind, "artifact.command_stream");
-      assert.equal(error.details.stream_chunk_count, 2);
+      assert.equal(error.details.operation, "coding_tool_command_stream_event_admission");
+      assert.equal(error.details.operation_kind, "runtime.coding_tool_command_stream");
       assert.deepEqual(error.details.receipt_refs, ["receipt_alpha"]);
       assert.ok(error.details.evidence_refs.includes("coding_tool_command_stream_js_event_append_retired"));
       return true;
@@ -356,12 +356,71 @@ test("coding-tool artifact surface fails closed before JS command-stream event a
   assert.equal(store.events.length, 0);
 });
 
+test("coding-tool artifact surface admits command-stream events through Rust core", () => {
+  const calls = [];
+  const { surface } = createSurface({
+    codingToolCommandStreamAdmissionForThread(store, request) {
+      calls.push({ store, request });
+      return {
+        source: "rust_coding_tool_command_stream_admission_command",
+        events: [
+          {
+            event_stream_id: request.event_stream_id,
+            event_kind: "artifact.command_stream",
+            event_id: "event_command_stream_1",
+            seq: 7,
+            idempotency_key: "thread:thread_alpha:coding-tool-command-stream:tool_call_alpha:0",
+            state_root_after: "sha256:stream-after",
+            payload_summary: {
+              schema_version: "ioi.runtime.coding-tool-command-stream.v1",
+              channel: "stdout",
+              text: "ok",
+            },
+          },
+        ],
+      };
+    },
+  });
+  const store = createStore();
+
+  const events = surface.admitCodingToolCommandStreamEvents(store, {
+    agent: { cwd: "/workspace" },
+    threadId: "thread_alpha",
+    turnId: "turn_alpha",
+    toolId: "test.run",
+    toolCallId: "tool_call_alpha",
+    workflowGraphId: "graph_alpha",
+    workflowNodeId: "node_alpha",
+    request: { stream_output: true, source: "operator" },
+    result: { stdout: "ok", stderr: "warn" },
+    status: "completed",
+    receiptRefs: ["receipt_alpha", "receipt_alpha"],
+    artifactRefs: ["artifact_alpha"],
+  });
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].store, store);
+  assert.equal(calls[0].request.event_stream_id, "thread_alpha:events");
+  assert.equal(calls[0].request.thread_id, "thread_alpha");
+  assert.equal(calls[0].request.tool_id, "test.run");
+  assert.equal(calls[0].request.tool_call_id, "tool_call_alpha");
+  assert.equal(calls[0].request.workflow_graph_id, "graph_alpha");
+  assert.equal(calls[0].request.workflow_node_id, "node_alpha");
+  assert.deepEqual(calls[0].request.receipt_refs, ["receipt_alpha"]);
+  assert.deepEqual(calls[0].request.artifact_refs, ["artifact_alpha"]);
+  assert.deepEqual(calls[0].request.result, { stdout: "ok", stderr: "warn" });
+  assert.equal(events.length, 1);
+  assert.equal(events[0].event_kind, "artifact.command_stream");
+  assert.equal(events[0].state_root_after, "sha256:stream-after");
+  assert.equal(store.events.length, 0);
+});
+
 test("coding-tool artifact surface skips command-stream events without stream request", () => {
   const { surface } = createSurface();
   const store = createStore();
 
   assert.deepEqual(
-    surface.appendCodingToolCommandStreamEvents(store, {
+    surface.admitCodingToolCommandStreamEvents(store, {
       agent: { cwd: "/workspace" },
       threadId: "thread_alpha",
       toolId: "shell.exec",
