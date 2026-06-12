@@ -50,11 +50,13 @@ export class RustL1SettlementRunner {
     });
   }
 
-  admitAttempt(attempt) {
+  admitAttempt(attempt, context = {}) {
     const bridgeRequest = {
       schema_version: L1_SETTLEMENT_COMMAND_SCHEMA_VERSION,
       operation: "admit_l1_settlement_attempt",
       backend: RUST_L1_SETTLEMENT_BACKEND,
+      thread_id: optionalString(context.thread_id),
+      agent_id: optionalString(context.agent_id),
       attempt,
     };
     return normalizeL1SettlementBridgeResult(this.invokeBridge(bridgeRequest));
@@ -78,6 +80,12 @@ export function normalizeL1SettlementBridgeResult(value = {}) {
   return {
     source: result.source ?? "rust_l1_settlement_guard_command",
     backend: result.backend ?? RUST_L1_SETTLEMENT_BACKEND,
+    schema_version: result.schema_version ?? null,
+    object: result.object ?? null,
+    status: result.status ?? null,
+    settlement_admitted: result.settlement_admitted ?? null,
+    thread_id: result.thread_id ?? null,
+    agent_id: result.agent_id ?? null,
     record,
     settlement_ref: result.settlement_ref ?? record.settlement_ref ?? null,
     domain_ref: result.domain_ref ?? record.domain_ref ?? null,

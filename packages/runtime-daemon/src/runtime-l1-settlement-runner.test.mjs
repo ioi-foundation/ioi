@@ -33,6 +33,12 @@ test("L1 settlement runner sends admission bridge request", () => {
           result: {
             source: "rust_l1_settlement_guard_command",
             backend: "l1_settlement_guard",
+            schema_version: "ioi.runtime.l1_settlement_admission.v1",
+            object: "ioi.runtime_l1_settlement_admission",
+            status: "admitted",
+            settlement_admitted: true,
+            thread_id: bridgeRequest.thread_id,
+            agent_id: bridgeRequest.agent_id,
             record: {
               ...bridgeRequest.attempt,
               admission_hash: [1, 2, 3],
@@ -50,17 +56,28 @@ test("L1 settlement runner sends admission bridge request", () => {
     },
   });
 
-  const result = runner.admitAttempt(settlementAttempt());
+  const result = runner.admitAttempt(settlementAttempt(), {
+    thread_id: "thread:l1-runner",
+    agent_id: "agent:l1-runner",
+  });
 
   assert.equal(calls[0].command, "mock-l1-settlement-bridge");
   assert.deepEqual(calls[0].args, []);
   assert.equal(calls[0].bridgeRequest.operation, "admit_l1_settlement_attempt");
   assert.equal(calls[0].bridgeRequest.backend, "l1_settlement_guard");
+  assert.equal(calls[0].bridgeRequest.thread_id, "thread:l1-runner");
+  assert.equal(calls[0].bridgeRequest.agent_id, "agent:l1-runner");
   assert.equal(calls[0].bridgeRequest.attempt.settlement_ref, "l1://settlement/marketplace-transaction");
   assert.deepEqual(calls[0].bridgeRequest.attempt.trigger_refs, [
     "l1-trigger://service-contract/payment",
   ]);
   assert.equal(result.source, "rust_l1_settlement_guard_command");
+  assert.equal(result.schema_version, "ioi.runtime.l1_settlement_admission.v1");
+  assert.equal(result.object, "ioi.runtime_l1_settlement_admission");
+  assert.equal(result.status, "admitted");
+  assert.equal(result.settlement_admitted, true);
+  assert.equal(result.thread_id, "thread:l1-runner");
+  assert.equal(result.agent_id, "agent:l1-runner");
   assert.equal(result.settlement_ref, "l1://settlement/marketplace-transaction");
   assert.deepEqual(result.receipt_refs, ["receipt://local-settlement/payment"]);
   assert.deepEqual(result.admission_hash, [1, 2, 3]);

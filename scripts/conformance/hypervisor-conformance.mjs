@@ -14742,6 +14742,11 @@ function runBridge() {
 
       /L1SettlementTriggerGuard/.test(governedAdmissionCore) &&
       /rust_l1_settlement_guard_command/.test(governedAdmissionCore) &&
+      /"schema_version":\s*"ioi\.runtime\.l1_settlement_admission\.v1"/.test(governedAdmissionCore) &&
+      /"object":\s*"ioi\.runtime_l1_settlement_admission"/.test(governedAdmissionCore) &&
+      /"settlement_admitted":\s*true/.test(governedAdmissionCore) &&
+      /"thread_id":\s*request\.thread_id/.test(governedAdmissionCore) &&
+      /"agent_id":\s*request\.agent_id/.test(governedAdmissionCore) &&
       /l1_settlement_guard/.test(governedAdmissionCore) &&
       /l1_settlement_admission_invalid/.test(governedAdmissionCore) &&
       /l1_settlement_rejects_step_module_command_schema/.test(bridgeModule) &&
@@ -14798,12 +14803,16 @@ function runBridge() {
   assertCheck(
     result,
     "l1-settlement-product-route",
-    /createRuntimeL1SettlementSurface/.test(runtimeDaemonIndex) &&
+      /createRuntimeL1SettlementSurface/.test(runtimeDaemonIndex) &&
       /this\.l1SettlementSurface/.test(runtimeDaemonIndex) &&
       !/^\s*admitL1SettlementAttempt\(threadId, request = \{\}\) \{/m.test(runtimeDaemonIndex) &&
-      /L1_SETTLEMENT_ADMISSION_RESPONSE_SCHEMA_VERSION/.test(l1SettlementSurface) &&
-      /settlement_admitted:\s*true/.test(l1SettlementSurface) &&
-      /store\.l1SettlementRunner\.admitAttempt/.test(l1SettlementSurface) &&
+      !/L1_SETTLEMENT_ADMISSION_RESPONSE_SCHEMA_VERSION/.test(l1SettlementSurface) &&
+      !/settlement_admitted:\s*true/.test(l1SettlementSurface) &&
+      !/settlement_ref:\s*admission\.settlement_ref/.test(l1SettlementSurface) &&
+      !/admission_hash:\s*admission\.admission_hash/.test(l1SettlementSurface) &&
+      /return store\.l1SettlementRunner\.admitAttempt\(attempt,\s*\{\s*thread_id:\s*threadId,\s*agent_id:\s*agent\.id,\s*\}\)/.test(
+        l1SettlementSurface,
+      ) &&
       /l1-settlement-attempts/.test(runtimeRouteHandlers) &&
       /store\.l1SettlementSurface\.admitL1SettlementAttempt\(store,\s*threadId,\s*await readBody\(request\)\)/.test(
         runtimeRouteHandlers,
@@ -14811,6 +14820,9 @@ function runBridge() {
       /thread route sends admission controls through mounted admission surfaces/.test(runtimeRouteHandlersTest) &&
       /thread route does not expose L1 settlement apply shortcut/.test(runtimeRouteHandlersTest) &&
       /L1 settlement surface admits nested attempt through Rust runner/.test(l1SettlementSurfaceTest) &&
+      /context:\s*\{\s*thread_id:\s*"thread_surface",\s*agent_id:\s*"agent_surface",\s*\}/.test(
+        l1SettlementSurfaceTest,
+      ) &&
       /L1 settlement surface fails closed without attempt payload/.test(l1SettlementSurfaceTest),
     [
       "packages/runtime-daemon/src/runtime-l1-settlement-surface.mjs",

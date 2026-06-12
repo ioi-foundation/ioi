@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  L1_SETTLEMENT_ADMISSION_RESPONSE_SCHEMA_VERSION,
-  createRuntimeL1SettlementSurface,
-} from "./runtime-l1-settlement-surface.mjs";
+import { createRuntimeL1SettlementSurface } from "./runtime-l1-settlement-surface.mjs";
+
+const L1_SETTLEMENT_ADMISSION_RESPONSE_SCHEMA_VERSION =
+  "ioi.runtime.l1_settlement_admission.v1";
 
 function settlementAttempt() {
   return {
@@ -26,9 +26,15 @@ function store() {
       return { id: "agent_surface" };
     },
     l1SettlementRunner: {
-      admitAttempt(input) {
-        calls.push({ name: "admitAttempt", input });
+      admitAttempt(input, context) {
+        calls.push({ name: "admitAttempt", input, context });
         return {
+          schema_version: L1_SETTLEMENT_ADMISSION_RESPONSE_SCHEMA_VERSION,
+          object: "ioi.runtime_l1_settlement_admission",
+          status: "admitted",
+          settlement_admitted: true,
+          thread_id: "thread_surface",
+          agent_id: "agent_surface",
           source: "rust_l1_settlement_guard_command",
           backend: "l1_settlement_guard",
           record: {
@@ -79,6 +85,14 @@ test("L1 settlement surface admits nested attempt through Rust runner", () => {
   assert.deepEqual(result.trigger_refs, ["l1-trigger://service-contract/payment"]);
   assert.deepEqual(result.receipt_refs, ["receipt://local-settlement/payment"]);
   assert.deepEqual(result.admission_hash, [1, 2, 3]);
+  assert.deepEqual(runtimeStore.calls[1], {
+    name: "admitAttempt",
+    input: settlementAttempt(),
+    context: {
+      thread_id: "thread_surface",
+      agent_id: "agent_surface",
+    },
+  });
   assert.deepEqual(runtimeStore.calls.map((call) => call.name), ["agentForThread", "admitAttempt"]);
 });
 

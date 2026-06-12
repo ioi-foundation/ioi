@@ -6671,6 +6671,25 @@ runner/caller path and broad bridge transport with direct Rust daemon-core and
 Rust/WASM workload protocol APIs once that seam is clear enough to remove
 without preserving compatibility behavior.
 
+Slice 1143 moves L1 settlement product-route admission envelope authorship out
+of the JS surface and into Rust `governed_admission.rs`. The Rust
+`L1SettlementAdmissionBridgeRequest` now accepts thread/agent route context and
+`admit_l1_settlement_attempt_response()` emits the canonical
+`ioi.runtime.l1_settlement_admission.v1` route envelope, including
+`settlement_admitted`, `thread_id`, `agent_id`, settlement refs, trigger refs,
+receipt refs, and admission hash. The JS L1 settlement surface now only
+extracts the canonical `attempt` request body, rejects retired request aliases,
+looks up the thread agent, and forwards context to the Rust-backed runner; it
+no longer mints the public settlement-admission response locally.
+
+This remains non-terminal because the route still reaches Rust through the
+shared JS daemon-core command runner and Node bridge stdin/JSON transport. The
+deleted JS-side L1 response-envelope authorship must not be recreated or
+treated as canonical. The next larger cuts should repeat this ownership move
+for the remaining governed admission/product-route families where Rust already
+has the response context, then replace the shared command runner/caller path
+and broad bridge transport with direct Rust daemon-core protocol APIs.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

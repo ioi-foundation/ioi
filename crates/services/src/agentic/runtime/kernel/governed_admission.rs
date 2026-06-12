@@ -29,6 +29,10 @@ impl GovernedAdmissionError {
 pub struct L1SettlementAdmissionBridgeRequest {
     #[serde(default)]
     pub backend: Option<String>,
+    #[serde(default)]
+    pub thread_id: Option<String>,
+    #[serde(default)]
+    pub agent_id: Option<String>,
     pub attempt: L1SettlementAttempt,
 }
 
@@ -48,8 +52,14 @@ pub fn admit_l1_settlement_attempt_response(
             GovernedAdmissionError::new("l1_settlement_admission_invalid", format!("{error:?}"))
         })?;
     Ok(json!({
+        "schema_version": "ioi.runtime.l1_settlement_admission.v1",
+        "object": "ioi.runtime_l1_settlement_admission",
+        "status": "admitted",
+        "settlement_admitted": true,
         "source": "rust_l1_settlement_guard_command",
         "backend": request.backend.unwrap_or_else(|| "l1_settlement_guard".to_string()),
+        "thread_id": request.thread_id,
+        "agent_id": request.agent_id,
         "record": record.clone(),
         "settlement_ref": record.settlement_ref,
         "domain_ref": record.domain_ref,
@@ -103,6 +113,8 @@ mod tests {
     fn rust_core_shapes_l1_settlement_response() {
         let response = admit_l1_settlement_attempt_response(L1SettlementAdmissionBridgeRequest {
             backend: Some("l1_settlement_guard".to_string()),
+            thread_id: Some("thread:l1".to_string()),
+            agent_id: Some("agent:l1".to_string()),
             attempt: L1SettlementAttempt {
                 schema_version: L1_SETTLEMENT_ADMISSION_SCHEMA_VERSION.to_string(),
                 settlement_ref: "l1://settlement/marketplace-transaction".to_string(),
@@ -116,6 +128,15 @@ mod tests {
 
         assert_eq!(response["source"], "rust_l1_settlement_guard_command");
         assert_eq!(response["backend"], "l1_settlement_guard");
+        assert_eq!(
+            response["schema_version"],
+            "ioi.runtime.l1_settlement_admission.v1"
+        );
+        assert_eq!(response["object"], "ioi.runtime_l1_settlement_admission");
+        assert_eq!(response["status"], "admitted");
+        assert_eq!(response["settlement_admitted"], true);
+        assert_eq!(response["thread_id"], "thread:l1");
+        assert_eq!(response["agent_id"], "agent:l1");
         assert_eq!(
             response["settlement_ref"],
             "l1://settlement/marketplace-transaction"

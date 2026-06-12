@@ -15697,6 +15697,38 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1143
+
+Slice 1143 moves L1 settlement route-response envelope authorship from the JS
+product surface into Rust governed admission. Rust
+`L1SettlementAdmissionBridgeRequest` now carries optional `thread_id` and
+`agent_id` route context, and `admit_l1_settlement_attempt_response()` emits
+the canonical `ioi.runtime.l1_settlement_admission.v1` public admission
+envelope with `settlement_admitted`, `thread_id`, `agent_id`, settlement refs,
+trigger refs, receipt refs, and admission hash. The JS
+`runtime-l1-settlement-surface.mjs` remains route glue only: it extracts the
+canonical `attempt`, rejects retired request aliases, resolves the thread
+agent, and forwards context to the Rust-backed runner without minting the
+public settlement admission response.
+
+This is migration progress only. The Node bridge binary, shared JS daemon-core
+command runner/caller path, and broad stdin/JSON bridge transport remain
+temporary scaffolding until direct Rust daemon-core APIs replace command
+transport. The retired JS-side L1 admission response-envelope authorship must
+not be recreated or treated as canonical architecture.
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-services governed_admission --lib` | passed |
+| `cargo test -p ioi-node l1_settlement --bin ioi-step-module-bridge` | passed |
+| `node --check packages/runtime-daemon/src/runtime-l1-settlement-runner.mjs packages/runtime-daemon/src/runtime-l1-settlement-surface.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-l1-settlement-runner.test.mjs packages/runtime-daemon/src/runtime-l1-settlement-surface.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1142
 
 Slice 1142 retires the dedicated StepModule JS command-wrapper file:
