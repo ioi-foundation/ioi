@@ -663,6 +663,7 @@ mod tests {
         StepModuleExecution, StepModuleInput, StepModuleKind, StepModulePlaintextPolicy,
         StepModulePrivacyProfile, StepModuleRef, STEP_MODULE_INVOCATION_SCHEMA_VERSION,
     };
+    use std::fs;
 
     fn request(backend: &str) -> CodingToolStepModuleRequest {
         CodingToolStepModuleRequest {
@@ -784,5 +785,422 @@ mod tests {
             .expect("evidence refs")
             .iter()
             .any(|value| value == "rust_workload_client_step_module_dispatch"));
+    }
+
+    #[test]
+    fn rust_core_file_apply_patch_writes_and_binds_agentgres_admission() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir(&workspace).expect("workspace dir");
+        fs::write(workspace.join("README.md"), "before\n").expect("fixture file");
+        let request = bridge_request(
+            "file.apply_patch",
+            workspace.to_str().expect("utf8 path"),
+            json!({
+                "path": "README.md",
+                "oldText": "before",
+                "newText": "after"
+            }),
+        );
+
+        let response = file_apply_patch_response(request).expect("patch response");
+
+        assert_eq!(
+            fs::read_to_string(workspace.join("README.md")).expect("updated file"),
+            "after\n"
+        );
+        assert_eq!(response["workload_observation"]["result"]["applied"], true);
+        assert_eq!(
+            response["router_admission"]["authoritative_transition"],
+            true
+        );
+        assert_eq!(
+            response["workload_dispatch"]["schema_version"],
+            WORKLOAD_STEP_MODULE_DISPATCH_SCHEMA_VERSION,
+        );
+        assert_eq!(
+            response["result"]["agentgres_operation_refs"][0],
+            response["agentgres_admission"]["operation_ref"],
+        );
+        assert!(response["result"]["state_root_after"]
+            .as_str()
+            .expect("state root")
+            .starts_with("state://workspace/"));
+        assert_eq!(
+            response["agentgres_admission"]["state_root_after"],
+            response["result"]["state_root_after"],
+        );
+    }
+
+    #[test]
+    fn rust_core_file_apply_patch_dry_run_has_no_agentgres_transition() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir(&workspace).expect("workspace dir");
+        fs::write(workspace.join("README.md"), "before\n").expect("fixture file");
+        let request = bridge_request(
+            "file.apply_patch",
+            workspace.to_str().expect("utf8 path"),
+            json!({
+                "path": "README.md",
+                "oldText": "before",
+                "newText": "after",
+                "dryRun": true
+            }),
+        );
+
+        let response = file_apply_patch_response(request).expect("patch response");
+
+        assert_eq!(
+            fs::read_to_string(workspace.join("README.md")).expect("original file"),
+            "before\n"
+        );
+        assert_eq!(response["workload_observation"]["result"]["applied"], false);
+        assert_eq!(response["result"]["agentgres_operation_refs"], json!([]));
+        assert_eq!(response["agentgres_admission"], Value::Null);
+        assert_eq!(response["result"]["state_root_after"], Value::Null);
+    }
+
+    #[test]
+    fn rust_core_artifact_read_uses_prefetched_data_plane_payload() {
+        let request = bridge_request(
+            "artifact.read",
+            "/tmp",
+            json!({
+                "artifact_id": "artifact_alpha",
+                "rust_workload_data_plane": {
+                    "schema_version": "ioi.runtime.coding-tool-data-plane.v1",
+                    "source": "daemon_artifact_store",
+                    "operation": "artifact.read",
+                    "artifact_id": "artifact_alpha",
+                    "result": {
+                        "schema_version": "ioi.runtime.coding-tool-result.v1",
+                        "artifact_id": "artifact_alpha",
+                        "artifact_ref": "artifact_alpha",
+                        "artifact_refs": ["artifact_alpha"],
+                        "content": "hello artifact\n",
+                        "receipt_refs": ["receipt_artifact_prefetch"],
+                        "schemaVersion": "retired",
+                        "artifactRefs": ["retired_artifact"],
+                        "contentHash": "retired-hash",
+                        "receiptRefs": ["retired_receipt"],
+                        "shellFallbackUsed": true
+                    }
+                }
+            }),
+        );
+
+        let response = artifact_read_response(request).expect("artifact read response");
+
+        assert_eq!(
+            response["workload_observation"]["result"]["backend"],
+            "rust_artifact_read"
+        );
+        assert_eq!(
+            response["workload_observation"]["result"]["data_plane_source"],
+            "daemon_artifact_store"
+        );
+        assert_eq!(
+            response["workload_observation"]["result"]["shell_fallback_used"],
+            false
+        );
+        assert_eq!(
+            response["workload_observation"]["result"]["content_hash"]
+                .as_str()
+                .expect("content hash")
+                .len(),
+            64
+        );
+        for retired_field in [
+            "schemaVersion",
+            "artifactRefs",
+            "contentHash",
+            "receiptRefs",
+            "shellFallbackUsed",
+        ] {
+            assert_eq!(
+                response["workload_observation"]["result"][retired_field],
+                Value::Null
+            );
+        }
+        assert_eq!(
+            response["result"]["artifact_refs"],
+            json!(["artifact_alpha"])
+        );
+        assert!(response["result"]["receipt_refs"]
+            .as_array()
+            .expect("receipt refs")
+            .iter()
+            .any(|value| value == "receipt_artifact_prefetch"));
+    }
+
+    #[test]
+    fn rust_core_artifact_read_requires_prefetched_data_plane_payload() {
+        let request = bridge_request(
+            "artifact.read",
+            "/tmp",
+            json!({
+                "artifact_id": "artifact_alpha"
+            }),
+        );
+
+        let error = artifact_read_response(request).expect_err("missing payload should fail");
+
+        assert_eq!(error.code(), "data_plane_payload_required");
+    }
+
+    #[test]
+    fn rust_core_tool_retrieve_result_uses_prefetched_data_plane_payload() {
+        let request = bridge_request(
+            "tool.retrieve_result",
+            "/tmp",
+            json!({
+                "tool_call_id": "tool_patch",
+                "channel": "stdout",
+                "rust_workload_data_plane": {
+                    "schema_version": "ioi.runtime.coding-tool-data-plane.v1",
+                    "source": "daemon_artifact_store",
+                    "operation": "tool.retrieve_result",
+                    "query": {
+                        "tool_call_id": "tool_patch",
+                        "channel": "stdout"
+                    },
+                    "result": {
+                        "schema_version": "ioi.runtime.coding-tool-result.v1",
+                        "tool_call_id": "tool_patch",
+                        "artifact_id": "artifact_result",
+                        "artifact_ref": "artifact_result",
+                        "artifact_refs": ["artifact_result"],
+                        "channel": "stdout",
+                        "content": "stored stdout\n",
+                        "receipt_refs": ["receipt_tool_result_prefetch"],
+                        "schemaVersion": "retired",
+                        "artifactRefs": ["retired_artifact"],
+                        "contentHash": "retired-hash",
+                        "receiptRefs": ["retired_receipt"],
+                        "shellFallbackUsed": true
+                    }
+                }
+            }),
+        );
+
+        let response = tool_retrieve_result_response(request).expect("retrieve response");
+
+        assert_eq!(
+            response["workload_observation"]["result"]["backend"],
+            "rust_tool_result_retrieve"
+        );
+        assert_eq!(
+            response["workload_observation"]["result"]["tool_call_id"],
+            "tool_patch"
+        );
+        assert_eq!(
+            response["workload_observation"]["result"]["content_hash"]
+                .as_str()
+                .expect("content hash")
+                .len(),
+            64
+        );
+        for retired_field in [
+            "schemaVersion",
+            "artifactRefs",
+            "contentHash",
+            "receiptRefs",
+            "shellFallbackUsed",
+        ] {
+            assert_eq!(
+                response["workload_observation"]["result"][retired_field],
+                Value::Null
+            );
+        }
+        assert_eq!(
+            response["result"]["artifact_refs"],
+            json!(["artifact_result"])
+        );
+        assert!(response["result"]["receipt_refs"]
+            .as_array()
+            .expect("receipt refs")
+            .iter()
+            .any(|value| value == "receipt_tool_result_prefetch"));
+    }
+
+    #[test]
+    fn rust_core_computer_use_request_lease_ignores_retired_aliases() {
+        let request = bridge_request(
+            "computer_use.request_lease",
+            "/tmp/workspace",
+            json!({
+                "prompt": "Try retired aliases.",
+                "computerUseLane": "sandboxed_hosted",
+                "actionKind": "click",
+                "approvalRef": "approval_legacy",
+                "targetRef": "target_retired",
+                "sessionMode": "hosted_sandbox",
+                "observationRetentionMode": "local_raw_artifacts"
+            }),
+        );
+
+        let response =
+            computer_use_request_lease_response(request).expect("lease request response");
+        let workload_result = &response["workload_observation"]["result"];
+
+        assert_eq!(workload_result["lease_request"]["lane"], "native_browser");
+        assert_eq!(workload_result["lease_request"]["action_kind"], "inspect");
+        assert_eq!(
+            workload_result["lease_request"]["approval_ref"],
+            Value::Null
+        );
+        assert_eq!(
+            workload_result["lease_request"]["authority_scope"],
+            "computer_use.native_browser.read"
+        );
+        assert_eq!(
+            workload_result["thread_tool"]["input"]["target_ref"],
+            Value::Null
+        );
+        assert_eq!(
+            workload_result["thread_tool"]["input"]["session_mode"],
+            "owned_hermetic_browser"
+        );
+        assert_eq!(
+            workload_result["thread_tool"]["input"]["observation_retention_mode"],
+            "prompt_visible_summary_only"
+        );
+    }
+
+    #[test]
+    fn rust_core_computer_use_request_lease_ignores_retired_approval_alias() {
+        let request = bridge_request(
+            "computer_use.request_lease",
+            "/tmp/workspace",
+            json!({
+                "prompt": "Try to satisfy approval through a retired alias.",
+                "lane": "native_browser",
+                "action_kind": "click",
+                "approvalRef": "approval_legacy"
+            }),
+        );
+
+        let response =
+            computer_use_request_lease_response(request).expect("lease request response");
+        let workload_result = &response["workload_observation"]["result"];
+
+        assert_eq!(
+            workload_result["lease_request"]["authority_scope"],
+            "computer_use.native_browser.act"
+        );
+        assert_eq!(
+            workload_result["lease_request"]["approval_ref"],
+            Value::Null
+        );
+        assert_eq!(workload_result["approval_required_before_execution"], true);
+        assert_eq!(
+            workload_result["wallet_network_authority_boundary"]["required_before_execution"],
+            true
+        );
+    }
+
+    #[test]
+    fn rust_core_computer_use_request_lease_ignores_retired_action_kind_alias() {
+        let request = bridge_request(
+            "computer_use.request_lease",
+            "/tmp/workspace",
+            json!({
+                "prompt": "Try to escalate authority through a retired action alias.",
+                "lane": "native_browser",
+                "actionKind": "click"
+            }),
+        );
+
+        let response =
+            computer_use_request_lease_response(request).expect("lease request response");
+        let workload_result = &response["workload_observation"]["result"];
+
+        assert_eq!(workload_result["lease_request"]["action_kind"], "inspect");
+        assert_eq!(
+            workload_result["lease_request"]["authority_scope"],
+            "computer_use.native_browser.read"
+        );
+        assert_eq!(workload_result["approval_required_before_execution"], false);
+        assert_eq!(
+            workload_result["wallet_network_authority_boundary"]["required_before_execution"],
+            false
+        );
+    }
+
+    #[test]
+    fn rust_core_computer_use_request_lease_binds_canonical_receipt_and_request_refs() {
+        let request = bridge_request(
+            "computer_use.request_lease",
+            "/tmp/workspace",
+            json!({
+                "prompt": "Bind canonical computer-use refs.",
+                "lane": "native_browser",
+                "action_kind": "inspect"
+            }),
+        );
+
+        let response =
+            computer_use_request_lease_response(request).expect("lease request response");
+        let workload_result = &response["workload_observation"]["result"];
+        let canonical_receipt_ref = workload_result["receipt_refs"][0]
+            .as_str()
+            .expect("canonical receipt ref");
+        let canonical_request_ref = workload_result["request_ref"]
+            .as_str()
+            .expect("canonical request ref");
+        let evidence_ref =
+            format!("evidence://rust-workload/computer_use.request_lease/{canonical_request_ref}");
+
+        assert!(response["result"]["receipt_refs"]
+            .as_array()
+            .expect("result receipt refs")
+            .iter()
+            .any(|value| value == canonical_receipt_ref));
+        assert!(response["result"]["workflow_projection"]["evidence_refs"]
+            .as_array()
+            .expect("projection evidence refs")
+            .iter()
+            .any(|value| value == &evidence_ref));
+        for retired_field in [
+            "schemaVersion",
+            "requestRef",
+            "leaseRequest",
+            "threadTool",
+            "providerRegistry",
+            "approvalRequiredBeforeExecution",
+            "walletNetworkAuthorityBoundary",
+            "evidenceRefs",
+            "receiptRefs",
+            "shellFallbackUsed",
+        ] {
+            assert!(
+                workload_result.get(retired_field).is_none(),
+                "retired workload result field {retired_field} must not be emitted"
+            );
+        }
+    }
+
+    fn bridge_request(
+        tool_id: &str,
+        workspace_root: &str,
+        input: Value,
+    ) -> CodingToolStepModuleBridgeRequest {
+        let mut request = request("rust_workload_live");
+        request.invocation.module_ref.id = tool_id.to_string();
+        request.invocation.module_ref.version = "test".to_string();
+        request.invocation.invocation_id = format!("invocation://test/{tool_id}");
+        request.invocation.workflow_node_id = Some(format!("node:test:{tool_id}"));
+        request.invocation.action_proposal_ref = format!("action:test:{tool_id}");
+        request.invocation.gate_result_ref = format!("gate:test:{tool_id}");
+        request.invocation.input.expected_schema_ref =
+            format!("schema://coding-tool/{tool_id}/input");
+        request.invocation.execution.idempotency_key = format!("idempotency:test:{tool_id}");
+        CodingToolStepModuleBridgeRequest {
+            backend: request.backend,
+            invocation: request.invocation,
+            workspace_root: Some(workspace_root.to_string()),
+            input,
+        }
     }
 }

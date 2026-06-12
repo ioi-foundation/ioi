@@ -15861,6 +15861,47 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1187
+
+Slice 1187 deletes the remaining temporary bridge proof module and moves its
+coding-tool StepModule proof obligations into Rust owner code:
+
+- `crates/services/src/agentic/runtime/kernel/coding_tool_step_module.rs`
+- `crates/services/src/agentic/runtime/kernel/coding_tool_workspace.rs`
+- `crates/node/src/bin/ioi_step_module_bridge/mod.rs`
+- `crates/node/src/bin/ioi_step_module_bridge/bridge_dispatch.rs`
+
+The Node bridge module now only re-exports the temporary stdin/JSON transport
+entry point, and `crates/node/src/bin/ioi_step_module_bridge/proof_tests.rs`
+is absent. Coding-tool StepModule proof coverage for file patch admission,
+artifact read and tool-result data-plane normalization, computer-use
+request-lease alias retirement, wallet.network authority requirements, and
+canonical receipt/request binding now lives in Rust owner tests. Bridge
+conformance requires those owner test names and proves the bridge proof module
+and its service-owner imports stay absent.
+`cargo test -p ioi-node --bin ioi-step-module-bridge` now runs zero semantic
+bridge tests.
+
+This is a Rust-owner proof-retirement cut, not terminal bridge removal. The
+temporary Node bridge binary still exists as command transport until direct
+Rust daemon-core StepModule/coding-tool protocol APIs own command-envelope
+validation, dispatch, workload execution, receipt binding, Agentgres
+admission, replay, projection, and stable IDE/CLI/SDK surfaces end to end.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt` | passed |
+| `cargo fmt --check` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `cargo test -p ioi-services agentic::runtime::kernel::coding_tool_step_module::tests` | passed; 11 tests |
+| `cargo test -p ioi-node --bin ioi-step-module-bridge` | passed; 0 tests |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1186
 
 Slice 1186 moves the remaining model-mount accepted-receipt and

@@ -7429,6 +7429,27 @@ heads, state-root transitions, projection/replay reads, Agentgres truth,
 replay, and stable IDE/CLI/SDK surfaces no longer depend on Node bridge
 endpoint proof scaffolding.
 
+Slice 1187 deletes the remaining temporary bridge proof module and moves its
+coding-tool StepModule proof obligations into Rust owner tests. The Node bridge
+module now exports only the temporary stdin/JSON transport entry point through
+`bridge_dispatch.rs`; `ioi_step_module_bridge/proof_tests.rs` is absent and
+`cargo test -p ioi-node --bin ioi-step-module-bridge` runs zero semantic bridge
+tests. Coding-tool StepModule response/admission/receipt/projection coverage
+now lives in
+`crates/services/src/agentic/runtime/kernel/coding_tool_step_module.rs`, while
+workspace execution/inspection coverage remains in
+`crates/services/src/agentic/runtime/kernel/coding_tool_workspace.rs`.
+Bridge conformance now requires the Rust owner test names for file patch,
+artifact read, result retrieval, and computer-use request-lease alias/authority
+proofs, and proves the bridge proof module and its service-owner imports stay
+absent.
+
+This remains non-terminal because the Node bridge is still temporary command
+transport. The target is direct Rust daemon-core StepModule/coding-tool
+protocol/API ownership where command-envelope validation, dispatch, workload
+execution, receipt binding, Agentgres admission, replay, projection, and stable
+IDE/CLI/SDK surfaces no longer require a Node bridge binary at all.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The
