@@ -15979,6 +15979,40 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1196
+
+Slice 1196 retires L1 settlement binary-spawn fallback from the daemon runner:
+
+- `packages/runtime-daemon/src/runtime-l1-settlement-runner.mjs`
+- `packages/runtime-daemon/src/runtime-l1-settlement-runner.test.mjs`
+- `scripts/conformance/hypervisor-conformance.mjs`
+
+The L1 settlement runner no longer imports the shared JS daemon-core command
+invoker, no longer exposes a command-env transport constant, and no longer
+accepts constructor command selection or spawn hooks. The surface now requires
+the daemon-level `daemonCoreInvoker` direct Rust-core seam for
+`admit_l1_settlement_attempt`, rejects `IOI_RUNTIME_DAEMON_CORE_COMMAND` and
+retired `IOI_L1_SETTLEMENT_COMMAND` values as forbidden command selection, and
+fails closed when no direct invoker is configured.
+
+This is not terminal daemon-wide Rust ownership: other daemon-core runners may
+still use the temporary shared command invoker until their direct Rust API
+boundaries are clear. It does make the L1 settlement product-admission path a
+larger pure-Rust-direction cut: command transport can no longer be used as a
+compatibility fallback for this surface, and future work must either provide a
+real direct Rust daemon-core invoker or fail closed.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/runtime-l1-settlement-runner.mjs packages/runtime-daemon/src/runtime-l1-settlement-runner.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-l1-settlement-runner.test.mjs` | passed; 10 tests |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1195
 
 Slice 1195 promotes the direct daemon-core invoker seam to the daemon

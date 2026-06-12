@@ -1,15 +1,13 @@
-import { createDaemonCoreCommandInvoker } from "./runtime-daemon-core-command-runner.mjs";
-
-export const L1_SETTLEMENT_COMMAND_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND";
 export const L1_SETTLEMENT_COMMAND_SCHEMA_VERSION = "ioi.runtime.daemon_core.command.v1";
 export const RUST_L1_SETTLEMENT_BACKEND = "l1_settlement_guard";
 
 export function createL1SettlementRunnerFromEnv(env = process.env, options = {}) {
   assertNoL1SettlementCommandArgs(options.args ?? env.IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS);
+  assertNoL1SettlementCommandSelection(
+    options.command ?? env.IOI_RUNTIME_DAEMON_CORE_COMMAND ?? env.IOI_L1_SETTLEMENT_COMMAND,
+  );
   return new RustL1SettlementRunner({
-    command: options.command ?? env[L1_SETTLEMENT_COMMAND_ENV] ?? null,
     daemonCoreInvoker: options.daemonCoreInvoker,
-    spawnSyncImpl: options.spawnSyncImpl,
   });
 }
 
@@ -24,28 +22,21 @@ export function assertNoL1SettlementCommandArgs(value) {
   );
 }
 
+export function assertNoL1SettlementCommandSelection(value) {
+  if (typeof value === "string" && value.trim().length === 0) return;
+  if (value == null) return;
+  throw new L1SettlementRunnerError(
+    "L1 settlement binary command selection is retired; use daemonCoreInvoker for direct Rust daemon-core admission.",
+    "l1_settlement_command_selection_retired",
+    { retired_command: value },
+  );
+}
+
 export class RustL1SettlementRunner {
   constructor(options = {}) {
     assertNoL1SettlementCommandArgs(options.args);
-    this.command = optionalString(options.command);
-    this.invokeBridge = createDaemonCoreCommandInvoker({
-      command: this.command,
-      daemonCoreInvoker: options.daemonCoreInvoker,
-      spawnSyncImpl: options.spawnSyncImpl,
-      ErrorClass: L1SettlementRunnerError,
-      env: L1_SETTLEMENT_COMMAND_ENV,
-      unconfiguredMessage:
-        "L1 settlement admission requires IOI_RUNTIME_DAEMON_CORE_COMMAND for Rust daemon-core trigger admission.",
-      unconfiguredCode: "l1_settlement_bridge_unconfigured",
-      spawnFailedMessage: "Failed to spawn Rust L1 settlement admission bridge command.",
-      spawnFailedCode: "l1_settlement_bridge_spawn_failed",
-      commandFailedMessage: "Rust L1 settlement admission bridge command failed.",
-      commandFailedCode: "l1_settlement_bridge_failed",
-      invalidJsonMessage: "Rust L1 settlement admission bridge command returned invalid JSON.",
-      invalidJsonCode: "l1_settlement_bridge_invalid_json",
-      rejectedMessage: "Rust L1 settlement guard rejected the attempt.",
-      rejectedCode: "l1_settlement_bridge_rejected",
-    });
+    assertNoL1SettlementCommandSelection(options.command);
+    this.daemonCoreInvoker = optionalFunction(options.daemonCoreInvoker);
   }
 
   admitAttempt(attempt, context = {}) {
@@ -57,9 +48,28 @@ export class RustL1SettlementRunner {
       agent_id: optionalString(context.agent_id),
       attempt,
     };
-    return normalizeL1SettlementBridgeResult(this.invokeBridge(bridgeRequest));
+    return normalizeL1SettlementBridgeResult(this.invokeDaemonCore(bridgeRequest));
   }
 
+  invokeDaemonCore(request) {
+    if (!this.daemonCoreInvoker) {
+      throw new L1SettlementRunnerError(
+        "L1 settlement admission requires daemonCoreInvoker for direct Rust daemon-core trigger admission.",
+        "l1_settlement_direct_invoker_unconfigured",
+        { boundary: "daemonCoreInvoker" },
+      );
+    }
+    const response = this.daemonCoreInvoker(request);
+    if (response?.ok === false) {
+      const error = objectRecord(response.error) ?? {};
+      throw new L1SettlementRunnerError(
+        error.message ?? "Rust L1 settlement guard rejected the attempt.",
+        error.code ?? "l1_settlement_direct_invoker_rejected",
+        { error },
+      );
+    }
+    return response?.result ?? response;
+  }
 }
 
 export class L1SettlementRunnerError extends Error {
@@ -109,4 +119,8 @@ function optionalString(value) {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   return trimmed ? trimmed : null;
+}
+
+function optionalFunction(value) {
+  return typeof value === "function" ? value : null;
 }

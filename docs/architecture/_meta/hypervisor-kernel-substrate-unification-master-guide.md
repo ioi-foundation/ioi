@@ -7583,6 +7583,24 @@ API can now be injected at the daemon boundary and exercised across default
 hot-path runners before the `IOI_RUNTIME_DAEMON_CORE_COMMAND` spawn fallback and
 JS command invoker are deleted.
 
+Slice 1196 retires the temporary binary-spawn fallback for the daemon L1
+settlement runner. `runtime-l1-settlement-runner.mjs` no longer imports the
+shared JS daemon-core command invoker, no longer exposes or reads a live
+`L1_SETTLEMENT_COMMAND_ENV`, and no longer accepts constructor command
+selection or spawn hooks. L1 settlement admission now requires the
+daemon-level `daemonCoreInvoker` direct Rust-core seam and fails closed when it
+is absent. `IOI_RUNTIME_DAEMON_CORE_COMMAND` and retired
+`IOI_L1_SETTLEMENT_COMMAND` values are treated only as forbidden command
+selection input for this surface, not as fallback transport.
+
+This is a first surface-level binary-spawn retirement, not terminal Rust API
+ownership for the whole daemon. The remaining daemon-core command runners still
+carry temporary command transport until their direct Rust daemon-core APIs are
+clear enough to own each path. Resume by repeating this pattern on the next
+reviewable hot-path surface: require the daemon-level direct invoker, reject
+command/env compatibility selection, update conformance, and then delete the
+shared JS command invoker once no surface still depends on it.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

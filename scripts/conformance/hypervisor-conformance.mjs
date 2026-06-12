@@ -15578,10 +15578,11 @@ function runBridge() {
   assertCheck(
     result,
     "l1-settlement-daemon-runner",
-    /L1_SETTLEMENT_COMMAND_ENV/.test(l1SettlementRunner) &&
-      /IOI_RUNTIME_DAEMON_CORE_COMMAND/.test(l1SettlementRunner) &&
+    !/L1_SETTLEMENT_COMMAND_ENV/.test(l1SettlementRunner) &&
+      /assertNoL1SettlementCommandSelection\(\s*options\.command \?\? env\.IOI_RUNTIME_DAEMON_CORE_COMMAND \?\? env\.IOI_L1_SETTLEMENT_COMMAND,\s*\)/.test(
+        l1SettlementRunner,
+      ) &&
       /ioi\.runtime\.daemon_core\.command\.v1/.test(l1SettlementRunner) &&
-      !/IOI_L1_SETTLEMENT_COMMAND/.test(l1SettlementRunner) &&
       !/IOI_STEP_MODULE_COMMAND/.test(l1SettlementRunner) &&
       !/L1_SETTLEMENT_COMMAND_ARGS_ENV/.test(l1SettlementRunner) &&
       !/parseCommandArgs/.test(l1SettlementRunner) &&
@@ -15590,18 +15591,21 @@ function runBridge() {
       !/argsEnv/.test(l1SettlementRunner) &&
       /RustL1SettlementRunner/.test(l1SettlementRunner) &&
       /assertNoL1SettlementCommandArgs/.test(l1SettlementRunner) &&
+      /assertNoL1SettlementCommandSelection/.test(l1SettlementRunner) &&
       /createL1SettlementRunnerFromEnv/.test(l1SettlementRunner) &&
       /createL1SettlementRunnerFromEnv/.test(runtimeDaemonIndex) &&
       /this\.l1SettlementRunner/.test(runtimeDaemonIndex) &&
       /admitAttempt/.test(l1SettlementRunner) &&
       /admit_l1_settlement_attempt/.test(l1SettlementRunner) &&
       /l1_settlement_guard/.test(l1SettlementRunner) &&
-      /l1_settlement_bridge_unconfigured/.test(l1SettlementRunner) &&
+      /daemonCoreInvoker: options\.daemonCoreInvoker/.test(l1SettlementRunner) &&
+      /this\.daemonCoreInvoker = optionalFunction\(options\.daemonCoreInvoker\)/.test(l1SettlementRunner) &&
+      /l1_settlement_direct_invoker_unconfigured/.test(l1SettlementRunner) &&
       /l1_settlement_command_args_retired/.test(l1SettlementRunner) &&
-      /createDaemonCoreCommandInvoker/.test(l1SettlementRunner) &&
+      /l1_settlement_command_selection_retired/.test(l1SettlementRunner) &&
+      !/createDaemonCoreCommandInvoker/.test(l1SettlementRunner) &&
       !/from "node:child_process"/.test(l1SettlementRunner) &&
-      /spawnSyncImpl\(commandPath,\s*\[\]/.test(daemonCoreCommandRunner) &&
-      /L1 settlement runner sends admission bridge request/.test(l1SettlementRunnerTest) &&
+      /L1 settlement runner sends admission request through direct daemon-core invoker/.test(l1SettlementRunnerTest) &&
       /L1 settlement runner does not synthesize Rust-owned trigger or receipt refs/.test(
         l1SettlementRunnerTest,
       ) &&
@@ -15617,11 +15621,14 @@ function runBridge() {
       !/receipt_refs:\s*stringArray\(result\.receipt_refs\)\s*\?\?\s*stringArray\(record\.receipt_refs\)\s*\?\?\s*\[\]/.test(
         l1SettlementRunner,
       ) &&
-      /assert\.deepEqual\(calls\[0\]\.args,\s*\[\]\)/.test(l1SettlementRunnerTest) &&
-      /L1 settlement runner env uses daemon-core command boundary/.test(l1SettlementRunnerTest) &&
+      !/assert\.deepEqual\(calls\[0\]\.args,\s*\[\]\)/.test(l1SettlementRunnerTest) &&
+      /L1 settlement runner env uses daemon-level direct invoker/.test(l1SettlementRunnerTest) &&
+      /L1 settlement runner rejects retired binary command env/.test(l1SettlementRunnerTest) &&
+      /L1 settlement runner rejects retired L1 command env/.test(l1SettlementRunnerTest) &&
       /L1 settlement runner command args env fails closed/.test(l1SettlementRunnerTest) &&
+      /L1 settlement runner command constructor option fails closed/.test(l1SettlementRunnerTest) &&
       /L1 settlement runner command args constructor option fails closed/.test(l1SettlementRunnerTest) &&
-      /L1 settlement runner fails closed without command/.test(l1SettlementRunnerTest) &&
+      /L1 settlement runner fails closed without direct invoker/.test(l1SettlementRunnerTest) &&
       /L1 settlement runner surfaces Rust settlement rejection/.test(l1SettlementRunnerTest) &&
       /runtime store mounts L1 settlement runner from options/.test(l1SettlementStoreTest),
     [
@@ -15630,7 +15637,7 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-l1-settlement-store.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
     ],
-    "Phase 8/11 is pending: daemon L1 settlement facade must call the Rust trigger guard bridge and fail closed when unconfigured",
+    "Phase 8/11 is pending: daemon L1 settlement facade must call the Rust trigger guard through a direct daemon-core invoker and fail closed when unconfigured",
   );
   assertCheck(
     result,
