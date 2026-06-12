@@ -7467,6 +7467,25 @@ validation, dispatch, workload execution, receipt binding, Agentgres admission,
 replay, projection, and stable IDE/CLI/SDK surfaces no longer require any
 Node-launched command bridge.
 
+Slice 1189 retires the live StepModule command schema family for coding-tool
+StepModule dispatch. `run_coding_tool_step_module` is now a daemon-core command
+operation and validates only with `ioi.runtime.daemon_core.command.v1`; the old
+`ioi.step_module.command_bridge.v1` schema is retained only as rejected legacy
+negative evidence. `CommandProtocol` now places
+`run_coding_tool_step_module` in the daemon-core catalog, `COMMAND_SCHEMA_VERSION`
+defaults to the daemon-core schema, and focused Rust tests prove the retired
+StepModule schema fails closed for coding-tool StepModule dispatch. The JS
+StepModule runner now emits the daemon-core command schema in its live request,
+and bridge conformance requires both the Rust protocol proof names and the JS
+schema assertion.
+
+This remains non-terminal because the daemon-core command schema still crosses
+temporary Node-launched transport. The target is direct Rust daemon-core
+StepModuleRouter/coding-tool protocol/API ownership where schema validation,
+dispatch, workload execution, receipt binding, Agentgres admission, replay,
+projection, and stable IDE/CLI/SDK surfaces no longer require command-bridge
+transport at all.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

@@ -15935,6 +15935,42 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1189
+
+Slice 1189 retires the live StepModule command schema family for coding-tool
+StepModule dispatch:
+
+- `crates/services/src/agentic/runtime/kernel/command_protocol.rs`
+- `packages/runtime-daemon/src/step-module-runner.mjs`
+- `packages/runtime-daemon/src/step-module-runner.test.mjs`
+- `scripts/conformance/hypervisor-conformance.mjs`
+
+`run_coding_tool_step_module` is now a daemon-core command operation and
+validates only with `ioi.runtime.daemon_core.command.v1`. The old
+`ioi.step_module.command_bridge.v1` schema is retained only as rejected legacy
+negative evidence. `CommandProtocol` now places
+`run_coding_tool_step_module` in the daemon-core catalog, and the JS
+StepModule runner emits the daemon-core command schema in its live request.
+
+This is a command-schema unification cut, not terminal command-transport
+retirement. The daemon-core schema still crosses temporary Node-launched
+transport until direct Rust daemon-core StepModuleRouter/coding-tool protocol
+APIs own validation, dispatch, workload execution, receipt binding, Agentgres
+admission, replay, projection, and stable IDE/CLI/SDK surfaces end to end.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt` | passed |
+| `cargo test -p ioi-services command_protocol` | passed; 11 tests |
+| `node --check packages/runtime-daemon/src/step-module-runner.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/step-module-runner.test.mjs packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs` | passed; 27 tests |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1186
 
 Slice 1186 moves the remaining model-mount accepted-receipt and

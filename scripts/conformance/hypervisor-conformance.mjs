@@ -2498,12 +2498,14 @@ function runBridge() {
       /pub fn is_step_module_operation/.test(commandProtocolCore) &&
       /pub fn is_daemon_core_operation/.test(commandProtocolCore) &&
       /daemon_core_operations_use_daemon_core_command_schema/.test(commandProtocolCore) &&
-      /step_module_operation_uses_step_module_command_schema/.test(commandProtocolCore) &&
+      /coding_tool_step_module_operation_uses_daemon_core_command_schema/.test(commandProtocolCore) &&
       /unknown_operation_has_no_command_schema_family/.test(commandProtocolCore) &&
       /command_envelope_rejects_retired_schema_version_alias/.test(commandProtocolCore) &&
       /daemon_core_operation_rejects_step_module_command_schema/.test(commandProtocolCore) &&
       /daemon_core_catalog_rejects_step_module_command_schema/.test(commandProtocolCore) &&
-      /step_module_operation_rejects_daemon_core_command_schema/.test(commandProtocolCore) &&
+      /coding_tool_step_module_operation_rejects_retired_step_module_command_schema/.test(
+        commandProtocolCore,
+      ) &&
       /command_operation\(operation\)\.expect\("daemon-core operation has typed identity"\)/.test(commandProtocolCore) &&
       /command_envelope_requires_canonical_schema_version_field/.test(commandProtocolCore) &&
       /command_catalog_operations_have_schema_families/.test(commandProtocolCore) &&
@@ -4264,7 +4266,12 @@ function runBridge() {
       /validate_command_envelope\(\s*"run_coding_tool_step_module",[\s\n]*DAEMON_CORE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
         commandProtocolCore,
       ) &&
-      /step_module_operation_rejects_daemon_core_command_schema/.test(commandProtocolCore) &&
+      /coding_tool_step_module_operation_rejects_retired_step_module_command_schema/.test(
+        commandProtocolCore,
+      ) &&
+      /request\.schema_version,\s*"ioi\.runtime\.daemon_core\.command\.v1"/.test(
+        read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
+      ) &&
       !/coding_tool_step_module_rejects_daemon_core_command_schema/.test(bridgeModule) &&
       !/CodingToolStepModuleBridgeRequest as StepModuleBridgeRequest/.test(bridgeModule) &&
       !/fn run_coding_tool_step_module/.test(bridgeModule) &&

@@ -2,11 +2,12 @@ use serde::Deserialize;
 
 pub const STEP_MODULE_COMMAND_SCHEMA_VERSION: &str = "ioi.step_module.command_bridge.v1";
 pub const DAEMON_CORE_COMMAND_SCHEMA_VERSION: &str = "ioi.runtime.daemon_core.command.v1";
-pub const COMMAND_SCHEMA_VERSION: &str = STEP_MODULE_COMMAND_SCHEMA_VERSION;
+pub const COMMAND_SCHEMA_VERSION: &str = DAEMON_CORE_COMMAND_SCHEMA_VERSION;
 
-pub const STEP_MODULE_OPERATIONS: &[&str] = &["run_coding_tool_step_module"];
+pub const STEP_MODULE_OPERATIONS: &[&str] = &[];
 
 pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
+    "run_coding_tool_step_module",
     "admit_storage_backend_write",
     "admit_model_mount_route_decision",
     "admit_model_mount_invocation",
@@ -305,10 +306,7 @@ impl CommandOperation {
     }
 
     pub fn command_family(self) -> CommandFamily {
-        match self {
-            Self::RunCodingToolStepModule => CommandFamily::StepModule,
-            _ => CommandFamily::DaemonCore,
-        }
+        CommandFamily::DaemonCore
     }
 }
 
@@ -610,10 +608,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn step_module_operation_uses_step_module_command_schema() {
+    fn coding_tool_step_module_operation_uses_daemon_core_command_schema() {
         assert_eq!(
             command_family("run_coding_tool_step_module"),
-            Some(CommandFamily::StepModule)
+            Some(CommandFamily::DaemonCore)
         );
         assert_eq!(
             command_operation("run_coding_tool_step_module"),
@@ -621,10 +619,10 @@ mod tests {
         );
         assert_eq!(
             expected_command_schema_version("run_coding_tool_step_module"),
-            Some(STEP_MODULE_COMMAND_SCHEMA_VERSION)
+            Some(DAEMON_CORE_COMMAND_SCHEMA_VERSION)
         );
-        assert!(is_step_module_operation("run_coding_tool_step_module"));
-        assert!(!is_daemon_core_operation("run_coding_tool_step_module"));
+        assert!(is_daemon_core_operation("run_coding_tool_step_module"));
+        assert!(!is_step_module_operation("run_coding_tool_step_module"));
     }
 
     #[test]
@@ -713,16 +711,16 @@ mod tests {
     }
 
     #[test]
-    fn step_module_operation_rejects_daemon_core_command_schema() {
+    fn coding_tool_step_module_operation_rejects_retired_step_module_command_schema() {
         let error = validate_command_envelope(
             "run_coding_tool_step_module",
-            DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+            STEP_MODULE_COMMAND_SCHEMA_VERSION,
         )
-        .expect_err("Rust command protocol rejects daemon-core schema before StepModule dispatch");
+        .expect_err("Rust command protocol rejects retired StepModule schema before dispatch");
 
         assert_eq!(error.code(), "schema_version_invalid");
-        assert!(error.message().contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
         assert!(error.message().contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
+        assert!(error.message().contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
     }
 
     #[test]
@@ -761,18 +759,18 @@ mod tests {
     fn validate_command_envelope_returns_rust_owned_family() {
         let step_module = validate_command_envelope(
             "run_coding_tool_step_module",
-            STEP_MODULE_COMMAND_SCHEMA_VERSION,
+            DAEMON_CORE_COMMAND_SCHEMA_VERSION,
         )
-        .expect("step module command envelope");
+        .expect("coding-tool StepModule command envelope");
         assert_eq!(step_module.operation, "run_coding_tool_step_module");
         assert_eq!(
             step_module.command_operation,
             CommandOperation::RunCodingToolStepModule
         );
-        assert_eq!(step_module.command_family, CommandFamily::StepModule);
+        assert_eq!(step_module.command_family, CommandFamily::DaemonCore);
         assert_eq!(
             step_module.schema_version,
-            STEP_MODULE_COMMAND_SCHEMA_VERSION
+            DAEMON_CORE_COMMAND_SCHEMA_VERSION
         );
 
         let daemon_core = validate_command_envelope(
@@ -795,7 +793,7 @@ mod tests {
     #[test]
     fn command_envelope_requires_canonical_schema_version_field() {
         let canonical: CommandEnvelope = serde_json::from_value(serde_json::json!({
-            "schema_version": STEP_MODULE_COMMAND_SCHEMA_VERSION,
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
             "operation": "run_coding_tool_step_module"
         }))
         .expect("canonical command envelope");

@@ -7,7 +7,7 @@ export const WORKLOAD_GRPC_ADDR_ENV = "IOI_WORKLOAD_GRPC_ADDR";
 export const WORKLOAD_SHMEM_ID_ENV = "IOI_SHMEM_ID";
 export const DAEMON_CORE_COMMAND_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND";
 
-const COMMAND_SCHEMA_VERSION = "ioi.step_module.command_bridge.v1";
+const COMMAND_SCHEMA_VERSION = "ioi.runtime.daemon_core.command.v1";
 
 export function createStepModuleRunnerFromEnv(env = process.env, options = {}) {
   assertNoStepModuleBackendSelection(options.backend ?? env.IOI_STEP_MODULE_BACKEND);

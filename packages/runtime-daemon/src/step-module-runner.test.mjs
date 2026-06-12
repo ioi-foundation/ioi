@@ -109,6 +109,7 @@ test("StepModule runner reads unified daemon-core command env", () => {
   assert.equal(calls.length, 1);
   assert.equal(calls[0].command, "mock-daemon-core-command");
   assert.deepEqual(calls[0].args, []);
+  assert.equal(calls[0].request.schema_version, "ioi.runtime.daemon_core.command.v1");
   assert.equal(calls[0].request.operation, "run_coding_tool_step_module");
 });
 
@@ -201,6 +202,7 @@ test("rust workload command bridge sends StepModuleInvocation request", () => {
   assert.equal(calls.length, 1);
   assert.equal(calls[0].command, "mock-step-module-bridge");
   assert.deepEqual(calls[0].args, []);
+  assert.equal(calls[0].request.schema_version, "ioi.runtime.daemon_core.command.v1");
   assert.equal(calls[0].request.operation, "run_coding_tool_step_module");
   assert.equal(calls[0].request.workspace_root, "/tmp/workspace");
   assert.notEqual(calls[0].request.workspace_root, "/tmp/retired-workspace");
