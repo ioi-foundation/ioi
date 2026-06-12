@@ -256,8 +256,8 @@ function normalizeSnapshotCapturedFile(value) {
     changed: Boolean(record.changed),
     before: normalizeSnapshotCapturedSide(record.before),
     after: normalizeSnapshotCapturedSide(record.after),
-    receipt_refs: stringArray(record.receipt_refs) ?? [],
-    artifact_refs: stringArray(record.artifact_refs) ?? [],
+    receipt_refs: stringArray(record.receipt_refs),
+    artifact_refs: stringArray(record.artifact_refs),
     encoding: optionalString(record.encoding) ?? undefined,
   };
 }

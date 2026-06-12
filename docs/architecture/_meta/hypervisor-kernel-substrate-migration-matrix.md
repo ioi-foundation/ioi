@@ -15984,6 +15984,38 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1158
+
+Slice 1158 retires JS-side fallback synthesis in
+`packages/runtime-daemon/src/runtime-workspace-restore-runner.mjs` for
+Rust-owned workspace snapshot capture file refs. The workspace restore runner
+now preserves missing Rust-authored per-file `receipt_refs` and
+`artifact_refs` as `null` instead of synthesizing empty arrays from JS when
+Rust omits those fields. Rust `workspace_restore.rs` remains the workspace
+restore apply-policy, preview/apply operation, and snapshot capture
+response-shaping owner behind the temporary daemon-core command path.
+
+This is not terminal workspace snapshot/restore migration. The JS workspace
+restore runner, shared daemon-core command runner, and Node bridge transport
+remain migration scaffolding until direct Rust daemon-core workspace
+snapshot/restore APIs own capture, preview/apply, policy/approval,
+receipt/state-root binding, Agentgres ArtifactRef/PayloadRef admission,
+projection, replay, and stable IDE/CLI/SDK protocol surfaces end to end. The
+retired JS fallback behavior must not be recreated as compatibility
+normalization.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/runtime-workspace-restore-runner.mjs packages/runtime-daemon/src/runtime-workspace-restore-runner.test.mjs` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-workspace-restore-runner.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1148
 
 Slice 1148 removes the remaining JS-side defaulting for the external

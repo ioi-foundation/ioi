@@ -14420,6 +14420,15 @@ function runBridge() {
       /workspace restore runner sends snapshot capture bridge request/.test(
         workspaceRestoreRunnerTest,
       ) &&
+      /workspace restore runner does not synthesize Rust-owned snapshot capture refs/.test(
+        workspaceRestoreRunnerTest,
+      ) &&
+      /assert\.equal\(capture\.files\[0\]\.receipt_refs,\s*null\)/.test(
+        workspaceRestoreRunnerTest,
+      ) &&
+      /assert\.equal\(capture\.files\[0\]\.artifact_refs,\s*null\)/.test(
+        workspaceRestoreRunnerTest,
+      ) &&
       /workspace restore runner ignores retired result reader aliases/.test(
         workspaceRestoreRunnerTest,
       ) &&
@@ -14448,6 +14457,14 @@ function runBridge() {
         workspaceRestoreRunner,
       ) &&
       !/\brecord\.(?:receiptRefs|artifactRefs|currentExists|currentHash|currentBytes|targetExists|targetHash|snapshotAfterExists|snapshotAfterHash|currentMatchesSnapshotPost|currentMatchesRestoreTarget|blockedReason|diffBytes|diffHash|diffTruncated|applyStatus|applyReason|appliedExists|appliedHash|appliedBytes|appliedMatchesTarget|errorMessage)\b/.test(
+        workspaceRestoreRunner,
+      ) &&
+      /receipt_refs:\s*stringArray\(record\.receipt_refs\),/.test(workspaceRestoreRunner) &&
+      /artifact_refs:\s*stringArray\(record\.artifact_refs\),/.test(workspaceRestoreRunner) &&
+      !/receipt_refs:\s*stringArray\(record\.receipt_refs\)\s*\?\?\s*\[\]/.test(
+        workspaceRestoreRunner,
+      ) &&
+      !/artifact_refs:\s*stringArray\(record\.artifact_refs\)\s*\?\?\s*\[\]/.test(
         workspaceRestoreRunner,
       ) &&
       !/function normalizeSnapshotCapturedSide[\s\S]*?\bside\.(?:contentHash|sizeBytes|mtimeMs|contentCaptured|contentBytes|omittedReason)\b[\s\S]*?function normalizeWorkspaceRestoreOperation/.test(

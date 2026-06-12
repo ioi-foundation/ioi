@@ -6931,6 +6931,22 @@ state-root binding, storage admission, durable write materialization,
 projection, replay, and stable IDE/CLI/SDK protocol surfaces, not preservation
 of JS normalizers as compatibility shims.
 
+Slice 1158 retires JS-side workspace snapshot capture ref fallback synthesis
+from the workspace restore runner. Rust `workspace_restore.rs` already owns
+workspace restore apply-policy, preview/apply operation, and snapshot capture
+response shaping behind the temporary daemon-core command path, so
+`runtime-workspace-restore-runner.mjs` now preserves omitted Rust-authored
+per-file `receipt_refs` and `artifact_refs` as `null` instead of inventing
+empty arrays at the JS edge.
+
+This remains non-terminal because the JS workspace restore runner, shared
+daemon-core command runner, and Node bridge transport still carry workspace
+restore/snapshot requests to Rust. The target is direct Rust daemon-core
+workspace snapshot/restore protocol/API ownership over capture, preview/apply,
+policy/approval, receipt/state-root binding, Agentgres ArtifactRef/PayloadRef
+admission, projection, replay, and stable IDE/CLI/SDK protocol surfaces, not
+preservation of JS normalizers as compatibility shims.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

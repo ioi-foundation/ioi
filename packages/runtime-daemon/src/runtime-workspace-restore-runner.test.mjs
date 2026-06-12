@@ -394,6 +394,48 @@ test("workspace restore runner sends snapshot capture bridge request", () => {
   }
 });
 
+test("workspace restore runner does not synthesize Rust-owned snapshot capture refs", () => {
+  const runner = new RustWorkspaceRestoreRunner({
+    command: "mock-workspace-restore-bridge",
+    spawnSyncImpl() {
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_workspace_snapshot_capture_command",
+            backend: "rust_workspace_restore",
+            files: [
+              {
+                path: "src/app.js",
+                before: {},
+                after: {},
+              },
+            ],
+            content_files: [
+              {
+                path: "src/app.js",
+                before: {},
+                after: {},
+              },
+            ],
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const capture = runner.captureSnapshotFiles({
+    changed_files: [{ path: "src/app.js" }],
+  });
+
+  assert.equal(capture.files[0].receipt_refs, null);
+  assert.equal(capture.files[0].artifact_refs, null);
+  assert.equal(capture.content_files[0].receipt_refs, null);
+  assert.equal(capture.content_files[0].artifact_refs, null);
+});
+
 test("workspace restore runner ignores retired result reader aliases", () => {
   const runner = new RustWorkspaceRestoreRunner({
     command: "mock-workspace-restore-bridge",
@@ -509,8 +551,8 @@ test("workspace restore runner ignores retired result reader aliases", () => {
   assert.equal(capture.files[0].before.content_captured, false);
   assert.equal(capture.files[0].before.content_bytes, 0);
   assert.equal(capture.files[0].before.omitted_reason, null);
-  assert.deepEqual(capture.files[0].receipt_refs, []);
-  assert.deepEqual(capture.files[0].artifact_refs, []);
+  assert.equal(capture.files[0].receipt_refs, null);
+  assert.equal(capture.files[0].artifact_refs, null);
 });
 
 test("workspace restore runner ignores retired request aliases", () => {
