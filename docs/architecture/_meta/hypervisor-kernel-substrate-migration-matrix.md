@@ -15979,6 +15979,44 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1198
+
+Slice 1198 retires governed improvement binary-spawn fallback from the daemon
+runner:
+
+- `packages/runtime-daemon/src/runtime-governed-improvement-runner.mjs`
+- `packages/runtime-daemon/src/runtime-governed-improvement-runner.test.mjs`
+- `scripts/conformance/hypervisor-conformance.mjs`
+
+The governed improvement runner no longer imports the shared JS daemon-core
+command invoker, no longer exposes a command-env transport constant, and no
+longer accepts constructor command selection or spawn hooks. The surface now
+requires the daemon-level `daemonCoreInvoker` direct Rust-core seam for
+`admit_governed_runtime_improvement_proposal`, rejects
+`IOI_RUNTIME_DAEMON_CORE_COMMAND` and retired
+`IOI_GOVERNED_IMPROVEMENT_COMMAND` values as forbidden command selection, and
+fails closed when no direct invoker is configured.
+
+This is not terminal daemon-wide Rust ownership: the JS product surface still
+extracts the proposal and forwards it to the runner, and other daemon-core
+runners may still use temporary shared command transport until their direct
+Rust API boundaries are clear. It does make governed runtime-improvement
+proposal admission a larger pure-Rust-direction cut: command transport can no
+longer admit proposal truth as a compatibility fallback, and future work must
+either provide a real direct Rust daemon-core governed-admission invoker or
+fail closed.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/runtime-governed-improvement-runner.mjs packages/runtime-daemon/src/runtime-governed-improvement-runner.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-governed-improvement-runner.test.mjs` | passed; 10 tests |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1197
 
 Slice 1197 retires external capability authority binary-spawn fallback from

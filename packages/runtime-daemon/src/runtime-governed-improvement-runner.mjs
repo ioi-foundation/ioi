@@ -1,15 +1,13 @@
-import { createDaemonCoreCommandInvoker } from "./runtime-daemon-core-command-runner.mjs";
-
-export const GOVERNED_IMPROVEMENT_COMMAND_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND";
 export const GOVERNED_IMPROVEMENT_COMMAND_SCHEMA_VERSION = "ioi.runtime.daemon_core.command.v1";
 export const RUST_GOVERNED_IMPROVEMENT_BACKEND = "rust_governed_evolution";
 
 export function createGovernedImprovementRunnerFromEnv(env = process.env, options = {}) {
   assertNoGovernedImprovementCommandArgs(options.args ?? env.IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS);
+  assertNoGovernedImprovementCommandSelection(
+    options.command ?? env.IOI_RUNTIME_DAEMON_CORE_COMMAND ?? env.IOI_GOVERNED_IMPROVEMENT_COMMAND,
+  );
   return new RustGovernedImprovementRunner({
-    command: options.command ?? env[GOVERNED_IMPROVEMENT_COMMAND_ENV] ?? null,
     daemonCoreInvoker: options.daemonCoreInvoker,
-    spawnSyncImpl: options.spawnSyncImpl,
   });
 }
 
@@ -24,28 +22,21 @@ export function assertNoGovernedImprovementCommandArgs(value) {
   );
 }
 
+export function assertNoGovernedImprovementCommandSelection(value) {
+  if (typeof value === "string" && value.trim().length === 0) return;
+  if (value == null) return;
+  throw new GovernedImprovementRunnerError(
+    "Governed improvement binary command selection is retired; use daemonCoreInvoker for direct Rust daemon-core proposal admission.",
+    "governed_improvement_command_selection_retired",
+    { retired_command: value },
+  );
+}
+
 export class RustGovernedImprovementRunner {
   constructor(options = {}) {
     assertNoGovernedImprovementCommandArgs(options.args);
-    this.command = optionalString(options.command);
-    this.invokeBridge = createDaemonCoreCommandInvoker({
-      command: this.command,
-      daemonCoreInvoker: options.daemonCoreInvoker,
-      spawnSyncImpl: options.spawnSyncImpl,
-      ErrorClass: GovernedImprovementRunnerError,
-      env: GOVERNED_IMPROVEMENT_COMMAND_ENV,
-      unconfiguredMessage:
-        "Governed improvement admission requires IOI_RUNTIME_DAEMON_CORE_COMMAND for Rust daemon-core proposal admission.",
-      unconfiguredCode: "governed_improvement_bridge_unconfigured",
-      spawnFailedMessage: "Failed to spawn Rust governed improvement admission bridge command.",
-      spawnFailedCode: "governed_improvement_bridge_spawn_failed",
-      commandFailedMessage: "Rust governed improvement admission bridge command failed.",
-      commandFailedCode: "governed_improvement_bridge_failed",
-      invalidJsonMessage: "Rust governed improvement admission bridge command returned invalid JSON.",
-      invalidJsonCode: "governed_improvement_bridge_invalid_json",
-      rejectedMessage: "Rust governed improvement core rejected the proposal.",
-      rejectedCode: "governed_improvement_bridge_rejected",
-    });
+    assertNoGovernedImprovementCommandSelection(options.command);
+    this.daemonCoreInvoker = optionalFunction(options.daemonCoreInvoker);
   }
 
   admitProposal(proposal, context = {}) {
@@ -57,9 +48,30 @@ export class RustGovernedImprovementRunner {
       agent_id: optionalString(context.agent_id),
       proposal,
     };
-    return normalizeGovernedImprovementBridgeResult(this.invokeBridge(bridgeRequest));
+    return normalizeGovernedImprovementBridgeResult(this.invokeDaemonCore(bridgeRequest));
   }
 
+  invokeDaemonCore(request) {
+    if (!this.daemonCoreInvoker) {
+      throw new GovernedImprovementRunnerError(
+        "Governed improvement admission requires daemonCoreInvoker for direct Rust daemon-core proposal admission.",
+        "governed_improvement_direct_invoker_unconfigured",
+        { boundary: "daemonCoreInvoker" },
+      );
+    }
+    const response = this.daemonCoreInvoker(request);
+    if (response?.ok === false) {
+      const error = response.error && typeof response.error === "object" && !Array.isArray(response.error)
+        ? response.error
+        : {};
+      throw new GovernedImprovementRunnerError(
+        error.message ?? "Rust governed improvement core rejected the proposal.",
+        error.code ?? "governed_improvement_direct_invoker_rejected",
+        { error },
+      );
+    }
+    return response?.result ?? response;
+  }
 }
 
 export class GovernedImprovementRunnerError extends Error {
@@ -108,4 +120,8 @@ function optionalString(value) {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   return trimmed ? trimmed : null;
+}
+
+function optionalFunction(value) {
+  return typeof value === "function" ? value : null;
 }

@@ -15908,10 +15908,11 @@ function runBridge() {
   assertCheck(
     result,
     "governed-meta-improvement-daemon-runner",
-    /GOVERNED_IMPROVEMENT_COMMAND_ENV/.test(governedImprovementRunner) &&
-      /IOI_RUNTIME_DAEMON_CORE_COMMAND/.test(governedImprovementRunner) &&
+    !/GOVERNED_IMPROVEMENT_COMMAND_ENV/.test(governedImprovementRunner) &&
+      /assertNoGovernedImprovementCommandSelection\(\s*options\.command \?\? env\.IOI_RUNTIME_DAEMON_CORE_COMMAND \?\? env\.IOI_GOVERNED_IMPROVEMENT_COMMAND,\s*\)/.test(
+        governedImprovementRunner,
+      ) &&
       /ioi\.runtime\.daemon_core\.command\.v1/.test(governedImprovementRunner) &&
-      !/IOI_GOVERNED_IMPROVEMENT_COMMAND/.test(governedImprovementRunner) &&
       !/IOI_STEP_MODULE_COMMAND/.test(governedImprovementRunner) &&
       !/GOVERNED_IMPROVEMENT_COMMAND_ARGS_ENV/.test(governedImprovementRunner) &&
       !/parseCommandArgs/.test(governedImprovementRunner) &&
@@ -15920,6 +15921,7 @@ function runBridge() {
       !/argsEnv/.test(governedImprovementRunner) &&
       /RustGovernedImprovementRunner/.test(governedImprovementRunner) &&
       /assertNoGovernedImprovementCommandArgs/.test(governedImprovementRunner) &&
+      /assertNoGovernedImprovementCommandSelection/.test(governedImprovementRunner) &&
       /createGovernedImprovementRunnerFromEnv/.test(governedImprovementRunner) &&
       /createGovernedImprovementRunnerFromEnv/.test(runtimeDaemonIndex) &&
       /this\.governedImprovementRunner/.test(runtimeDaemonIndex) &&
@@ -15928,12 +15930,16 @@ function runBridge() {
       /thread_id:\s*optionalString\(context\.thread_id\)/.test(governedImprovementRunner) &&
       /agent_id:\s*optionalString\(context\.agent_id\)/.test(governedImprovementRunner) &&
       /rust_governed_evolution/.test(governedImprovementRunner) &&
-      /governed_improvement_bridge_unconfigured/.test(governedImprovementRunner) &&
+      /daemonCoreInvoker: options\.daemonCoreInvoker/.test(governedImprovementRunner) &&
+      /this\.daemonCoreInvoker = optionalFunction\(options\.daemonCoreInvoker\)/.test(
+        governedImprovementRunner,
+      ) &&
+      /governed_improvement_direct_invoker_unconfigured/.test(governedImprovementRunner) &&
       /governed_improvement_command_args_retired/.test(governedImprovementRunner) &&
-      /createDaemonCoreCommandInvoker/.test(governedImprovementRunner) &&
+      /governed_improvement_command_selection_retired/.test(governedImprovementRunner) &&
+      !/createDaemonCoreCommandInvoker/.test(governedImprovementRunner) &&
       !/from "node:child_process"/.test(governedImprovementRunner) &&
-      /spawnSyncImpl\(commandPath,\s*\[\]/.test(daemonCoreCommandRunner) &&
-      /governed improvement runner sends proposal admission bridge request/.test(governedImprovementRunnerTest) &&
+      /governed improvement runner sends proposal admission request through direct daemon-core invoker/.test(governedImprovementRunnerTest) &&
       /governed improvement runner does not synthesize Rust-owned heads or receipt refs/.test(
         governedImprovementRunnerTest,
       ) &&
@@ -15955,17 +15961,20 @@ function runBridge() {
       !/verifier_receipt_refs:\s*Array\.isArray\(result\.verifier_receipt_refs\)[\s\S]*?:\s*record\.verifier_receipt_refs\s*\?\?\s*\[\]/.test(
         governedImprovementRunner,
       ) &&
-      /assert\.deepEqual\(calls\[0\]\.args,\s*\[\]\)/.test(governedImprovementRunnerTest) &&
-      /assert\.equal\(calls\[0\]\.request\.thread_id,\s*"thread:governed-runner"\)/.test(
+      !/assert\.deepEqual\(calls\[0\]\.args,\s*\[\]\)/.test(governedImprovementRunnerTest) &&
+      /assert\.equal\(calls\[0\]\.thread_id,\s*"thread:governed-runner"\)/.test(
         governedImprovementRunnerTest,
       ) &&
-      /assert\.equal\(calls\[0\]\.request\.agent_id,\s*"agent:governed-runner"\)/.test(
+      /assert\.equal\(calls\[0\]\.agent_id,\s*"agent:governed-runner"\)/.test(
         governedImprovementRunnerTest,
       ) &&
-      /governed improvement runner env uses daemon-core command boundary/.test(governedImprovementRunnerTest) &&
+      /governed improvement runner env uses daemon-level direct invoker/.test(governedImprovementRunnerTest) &&
+      /governed improvement runner rejects retired binary command env/.test(governedImprovementRunnerTest) &&
+      /governed improvement runner rejects retired governed command env/.test(governedImprovementRunnerTest) &&
       /governed improvement runner command args env fails closed/.test(governedImprovementRunnerTest) &&
+      /governed improvement runner command constructor option fails closed/.test(governedImprovementRunnerTest) &&
       /governed improvement runner command args constructor option fails closed/.test(governedImprovementRunnerTest) &&
-      /governed improvement runner fails closed without command/.test(governedImprovementRunnerTest) &&
+      /governed improvement runner fails closed without direct invoker/.test(governedImprovementRunnerTest) &&
       /governed improvement runner surfaces Rust proposal rejection/.test(governedImprovementRunnerTest) &&
       /runtime store mounts governed improvement runner from options/.test(governedImprovementStoreTest),
     [
@@ -15974,7 +15983,7 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-governed-improvement-store.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
     ],
-    "Phase 9 is pending: daemon meta-improvement facade must call the Rust governed proposal bridge and fail closed when unconfigured",
+    "Phase 9 is pending: daemon meta-improvement facade must call Rust governed proposal admission through a direct daemon-core invoker and fail closed when unconfigured",
   );
   assertCheck(
     result,

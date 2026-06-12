@@ -7620,6 +7620,25 @@ cutting the next authority/admission runner to the same direct-invoker-only
 shape, and keep conformance proving that command-env compatibility cannot
 authorize external effects.
 
+Slice 1198 retires the temporary binary-spawn fallback for the daemon governed
+improvement runner. `runtime-governed-improvement-runner.mjs` no longer imports
+the shared JS daemon-core command invoker, no longer exposes or reads a live
+`GOVERNED_IMPROVEMENT_COMMAND_ENV`, and no longer accepts constructor command
+selection or spawn hooks. Governed runtime-improvement proposal admission now
+requires the daemon-level `daemonCoreInvoker` direct Rust-core seam and fails
+closed when it is absent. `IOI_RUNTIME_DAEMON_CORE_COMMAND` and retired
+`IOI_GOVERNED_IMPROVEMENT_COMMAND` values are treated only as forbidden command
+selection input for this surface, not as fallback transport.
+
+This makes another admitted-truth path direct-invoker-only: proposal admission,
+expected-head/state-root binding fields, evaluation receipts, verifier
+receipts, approval refs, and rollback refs must arrive from Rust daemon-core
+admission output or stay absent at the JS edge. It is still not terminal
+daemon-wide Rust API ownership because other command runners remain on
+temporary command transport. Resume by cutting the remaining admission and
+receipt-bearing runners the same way, then deleting the shared JS command
+invoker once no live surface depends on it.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

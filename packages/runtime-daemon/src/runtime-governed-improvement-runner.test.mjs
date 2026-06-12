@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  GOVERNED_IMPROVEMENT_COMMAND_ENV,
   GOVERNED_IMPROVEMENT_COMMAND_SCHEMA_VERSION,
   GovernedImprovementRunnerError,
   RUST_GOVERNED_IMPROVEMENT_BACKEND,
@@ -25,47 +24,42 @@ function governedProposal() {
   };
 }
 
-test("governed improvement runner sends proposal admission bridge request", () => {
+function admittedResult(request) {
+  return {
+    schema_version: "ioi.runtime.governed_improvement_admission.v1",
+    object: "ioi.runtime_governed_improvement_admission",
+    status: "admitted",
+    proposal_admitted: true,
+    mutation_executed: false,
+    source: "direct_daemon_core_api",
+    backend: RUST_GOVERNED_IMPROVEMENT_BACKEND,
+    thread_id: request.thread_id,
+    agent_id: request.agent_id,
+    record: {
+      ...request.proposal,
+      admission_hash: "sha256:governed-improvement-admission",
+      agentgres_operation_ref: "agentgres://runtime-improvement/operations/rust-derived",
+      expected_heads: ["agentgres://runtime-improvement/head/current"],
+      state_root_before: "sha256:rust-derived-before",
+      state_root_after: "sha256:rust-derived-after",
+      resulting_head: "agentgres://runtime-improvement/head/rust-derived",
+    },
+    admission_hash: "sha256:governed-improvement-admission",
+    agentgres_operation_ref: "agentgres://runtime-improvement/operations/rust-derived",
+    expected_heads: ["agentgres://runtime-improvement/head/current"],
+    eval_receipt_refs: request.proposal.eval_receipt_refs,
+    verifier_receipt_refs: request.proposal.verifier_receipt_refs,
+    approval_ref: request.proposal.approval_ref,
+    rollback_ref: request.proposal.rollback_ref,
+  };
+}
+
+test("governed improvement runner sends proposal admission request through direct daemon-core invoker", () => {
   const calls = [];
   const runner = new RustGovernedImprovementRunner({
-    command: "mock-governed-improvement-bridge",
-    spawnSyncImpl(command, args, options) {
-      const request = JSON.parse(options.input);
-      calls.push({ command, args, request });
-      return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
-            schema_version: "ioi.runtime.governed_improvement_admission.v1",
-            object: "ioi.runtime_governed_improvement_admission",
-            status: "admitted",
-            proposal_admitted: true,
-            mutation_executed: false,
-            source: "rust_governed_meta_improvement_command",
-            backend: RUST_GOVERNED_IMPROVEMENT_BACKEND,
-            thread_id: request.thread_id,
-            agent_id: request.agent_id,
-            record: {
-              ...request.proposal,
-              admission_hash: "sha256:governed-improvement-admission",
-              agentgres_operation_ref: "agentgres://runtime-improvement/operations/rust-derived",
-              expected_heads: ["agentgres://runtime-improvement/head/current"],
-              state_root_before: "sha256:rust-derived-before",
-              state_root_after: "sha256:rust-derived-after",
-              resulting_head: "agentgres://runtime-improvement/head/rust-derived",
-            },
-            admission_hash: "sha256:governed-improvement-admission",
-            agentgres_operation_ref: "agentgres://runtime-improvement/operations/rust-derived",
-            expected_heads: ["agentgres://runtime-improvement/head/current"],
-            eval_receipt_refs: request.proposal.eval_receipt_refs,
-            verifier_receipt_refs: request.proposal.verifier_receipt_refs,
-            approval_ref: request.proposal.approval_ref,
-            rollback_ref: request.proposal.rollback_ref,
-          },
-        }),
-        stderr: "",
-      };
+    daemonCoreInvoker(request) {
+      calls.push(request);
+      return admittedResult(request);
     },
   });
 
@@ -75,14 +69,12 @@ test("governed improvement runner sends proposal admission bridge request", () =
   });
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].command, "mock-governed-improvement-bridge");
-  assert.deepEqual(calls[0].args, []);
-  assert.equal(calls[0].request.schema_version, GOVERNED_IMPROVEMENT_COMMAND_SCHEMA_VERSION);
-  assert.equal(calls[0].request.operation, "admit_governed_runtime_improvement_proposal");
-  assert.equal(calls[0].request.backend, RUST_GOVERNED_IMPROVEMENT_BACKEND);
-  assert.equal(calls[0].request.thread_id, "thread:governed-runner");
-  assert.equal(calls[0].request.agent_id, "agent:governed-runner");
-  assert.equal(calls[0].request.proposal.proposal_id, "proposal://runtime-improvement/daemon-runner");
+  assert.equal(calls[0].schema_version, GOVERNED_IMPROVEMENT_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].operation, "admit_governed_runtime_improvement_proposal");
+  assert.equal(calls[0].backend, RUST_GOVERNED_IMPROVEMENT_BACKEND);
+  assert.equal(calls[0].thread_id, "thread:governed-runner");
+  assert.equal(calls[0].agent_id, "agent:governed-runner");
+  assert.equal(calls[0].proposal.proposal_id, "proposal://runtime-improvement/daemon-runner");
   assert.equal(result.schema_version, "ioi.runtime.governed_improvement_admission.v1");
   assert.equal(result.object, "ioi.runtime_governed_improvement_admission");
   assert.equal(result.status, "admitted");
@@ -90,7 +82,7 @@ test("governed improvement runner sends proposal admission bridge request", () =
   assert.equal(result.mutation_executed, false);
   assert.equal(result.thread_id, "thread:governed-runner");
   assert.equal(result.agent_id, "agent:governed-runner");
-  assert.equal(result.source, "rust_governed_meta_improvement_command");
+  assert.equal(result.source, "direct_daemon_core_api");
   assert.equal(result.backend, RUST_GOVERNED_IMPROVEMENT_BACKEND);
   assert.equal(result.admission_hash, "sha256:governed-improvement-admission");
   assert.equal(result.agentgres_operation_ref, "agentgres://runtime-improvement/operations/rust-derived");
@@ -103,18 +95,8 @@ test("governed improvement runner sends proposal admission bridge request", () =
 
 test("governed improvement runner does not synthesize Rust-owned heads or receipt refs", () => {
   const runner = new RustGovernedImprovementRunner({
-    command: "mock-governed-improvement-bridge",
-    spawnSyncImpl() {
-      return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
-            record: {},
-          },
-        }),
-        stderr: "",
-      };
+    daemonCoreInvoker() {
+      return { record: {} };
     },
   });
 
@@ -125,28 +107,71 @@ test("governed improvement runner does not synthesize Rust-owned heads or receip
   assert.equal(result.verifier_receipt_refs, null);
 });
 
-test("governed improvement runner env uses daemon-core command boundary", () => {
+test("governed improvement runner env uses daemon-level direct invoker", () => {
+  const calls = [];
   const runner = createGovernedImprovementRunnerFromEnv({
-    [GOVERNED_IMPROVEMENT_COMMAND_ENV]: "ioi-runtime-daemon-core",
-    IOI_GOVERNED_IMPROVEMENT_COMMAND: "retired-governed-improvement-bridge",
     IOI_GOVERNED_IMPROVEMENT_COMMAND_ARGS: "--retired-governed",
     IOI_STEP_MODULE_COMMAND: "retired-step-module-bridge",
     IOI_STEP_MODULE_COMMAND_ARGS: "--retired-step",
+  }, {
+    daemonCoreInvoker(request) {
+      calls.push(request);
+      return admittedResult(request);
+    },
   });
 
-  assert.equal(runner.command, "ioi-runtime-daemon-core");
+  const result = runner.admitProposal(governedProposal());
+
+  assert.equal(calls[0].operation, "admit_governed_runtime_improvement_proposal");
+  assert.equal(result.source, "direct_daemon_core_api");
+});
+
+test("governed improvement runner rejects retired binary command env", () => {
+  assert.throws(
+    () =>
+      createGovernedImprovementRunnerFromEnv({
+        IOI_RUNTIME_DAEMON_CORE_COMMAND: "ioi-runtime-daemon-core",
+      }, {
+        daemonCoreInvoker() {},
+      }),
+    (error) =>
+      error instanceof GovernedImprovementRunnerError &&
+      error.code === "governed_improvement_command_selection_retired",
+  );
+});
+
+test("governed improvement runner rejects retired governed command env", () => {
+  assert.throws(
+    () =>
+      createGovernedImprovementRunnerFromEnv({
+        IOI_GOVERNED_IMPROVEMENT_COMMAND: "retired-governed-improvement-bridge",
+      }, {
+        daemonCoreInvoker() {},
+      }),
+    (error) =>
+      error instanceof GovernedImprovementRunnerError &&
+      error.code === "governed_improvement_command_selection_retired",
+  );
 });
 
 test("governed improvement runner command args env fails closed", () => {
   assert.throws(
     () =>
       createGovernedImprovementRunnerFromEnv({
-        [GOVERNED_IMPROVEMENT_COMMAND_ENV]: "ioi-runtime-daemon-core",
         IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS: "--json",
       }),
     (error) =>
       error instanceof GovernedImprovementRunnerError &&
       error.code === "governed_improvement_command_args_retired",
+  );
+});
+
+test("governed improvement runner command constructor option fails closed", () => {
+  assert.throws(
+    () => new RustGovernedImprovementRunner({ command: "ioi-runtime-daemon-core" }),
+    (error) =>
+      error instanceof GovernedImprovementRunnerError &&
+      error.code === "governed_improvement_command_selection_retired",
   );
 });
 
@@ -159,31 +184,26 @@ test("governed improvement runner command args constructor option fails closed",
   );
 });
 
-test("governed improvement runner fails closed without command", () => {
+test("governed improvement runner fails closed without direct invoker", () => {
   const runner = new RustGovernedImprovementRunner();
 
   assert.throws(
     () => runner.admitProposal(governedProposal()),
     (error) =>
       error instanceof GovernedImprovementRunnerError &&
-      error.code === "governed_improvement_bridge_unconfigured",
+      error.code === "governed_improvement_direct_invoker_unconfigured",
   );
 });
 
 test("governed improvement runner surfaces Rust proposal rejection", () => {
   const runner = new RustGovernedImprovementRunner({
-    command: "mock-governed-improvement-bridge",
-    spawnSyncImpl() {
+    daemonCoreInvoker() {
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: false,
-          error: {
-            code: "governed_runtime_improvement_invalid",
-            message: "missing approval_ref",
-          },
-        }),
-        stderr: "",
+        ok: false,
+        error: {
+          code: "governed_runtime_improvement_invalid",
+          message: "missing approval_ref",
+        },
       };
     },
   });
