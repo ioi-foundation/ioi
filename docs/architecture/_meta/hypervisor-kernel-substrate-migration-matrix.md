@@ -16207,6 +16207,35 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1173
+
+Slice 1173 moves the remaining generic daemon-core rejects-StepModule-schema
+proof coverage out of the temporary bridge proof surface and into the Rust
+command protocol owner. `command_protocol.rs` now proves every daemon-core
+catalog operation rejects the StepModule command schema through
+`daemon_core_catalog_rejects_step_module_command_schema`; the temporary
+`ioi_step_module_bridge/proof_tests.rs` no longer carries per-surface
+`*_rejects_step_module_command_schema` duplicates or the
+`assert_model_mount_command_rejects_step_module_schema` helper.
+
+This is not terminal bridge retirement. The bridge proof suite still proves
+temporary endpoint behavior, but generic schema-family rejection is now
+catalog-wide Rust command-protocol coverage instead of bridge-local
+per-surface scaffolding.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-services agentic::runtime::kernel::command_protocol::tests` | passed |
+| `cargo test -p ioi-node --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1172
 
 Slice 1172 moves generic command-protocol proof coverage out of the temporary

@@ -7154,6 +7154,25 @@ temporary bridge endpoint proofs. The target is to keep migrating generic
 protocol, authority, admission, receipt, projection, and replay proof coverage
 into Rust owner modules until the bridge proof surface can disappear.
 
+Slice 1173 moves the remaining generic daemon-core rejects-StepModule-schema
+proofs out of `ioi_step_module_bridge/proof_tests.rs` and into a catalog-wide
+Rust owner test in
+`crates/services/src/agentic/runtime/kernel/command_protocol.rs`. The bridge
+proof suite no longer carries per-surface
+`*_rejects_step_module_command_schema` duplicates for authority, approval,
+workspace restore, cTEE, worker/service package, L1 settlement,
+governed-improvement, context policy, runtime control, lifecycle, MCP/memory,
+runtime Agentgres, or model_mount command families. Bridge conformance now
+requires the Rust `daemon_core_catalog_rejects_step_module_command_schema`
+owner proof and proves those local bridge checks stay absent.
+
+This remains non-terminal because `proof_tests.rs` still proves temporary
+bridge endpoint behavior and the Node bridge is still migration transport. The
+target is direct Rust daemon-core protocol APIs where schema-family validation,
+operation identity, dispatch, authority, admission, receipt/state-root binding,
+projection, replay, and conformance are owned by Rust modules rather than by
+bridge-local proof scaffolding.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

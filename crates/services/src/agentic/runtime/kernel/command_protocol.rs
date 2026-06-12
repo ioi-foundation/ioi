@@ -701,6 +701,18 @@ mod tests {
     }
 
     #[test]
+    fn daemon_core_catalog_rejects_step_module_command_schema() {
+        for operation in DAEMON_CORE_OPERATIONS {
+            let error = validate_command_envelope(operation, STEP_MODULE_COMMAND_SCHEMA_VERSION)
+                .expect_err("daemon-core operation must reject StepModule schema");
+
+            assert_eq!(error.code(), "schema_version_invalid");
+            assert!(error.message().contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
+            assert!(error.message().contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
+        }
+    }
+
+    #[test]
     fn step_module_operation_rejects_daemon_core_command_schema() {
         let error = validate_command_envelope(
             "run_coding_tool_step_module",

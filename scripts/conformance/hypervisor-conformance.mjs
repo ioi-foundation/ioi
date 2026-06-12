@@ -2502,6 +2502,7 @@ function runBridge() {
       /unknown_operation_has_no_command_schema_family/.test(commandProtocolCore) &&
       /command_envelope_rejects_retired_schema_version_alias/.test(commandProtocolCore) &&
       /daemon_core_operation_rejects_step_module_command_schema/.test(commandProtocolCore) &&
+      /daemon_core_catalog_rejects_step_module_command_schema/.test(commandProtocolCore) &&
       /step_module_operation_rejects_daemon_core_command_schema/.test(commandProtocolCore) &&
       /command_operation\(operation\)\.expect\("daemon-core operation has typed identity"\)/.test(commandProtocolCore) &&
       /command_envelope_requires_canonical_schema_version_field/.test(commandProtocolCore) &&
@@ -6386,7 +6387,7 @@ function runBridge() {
       !approvalCommandBridgeExists &&
       /plan_coding_tool_approval_manifest_response as plan_coding_tool_approval_manifest/.test(bridgeModule) &&
       /CodingToolApprovalBridgeRequest/.test(bridgeModule) &&
-      /approval_authority_rejects_step_module_command_schema/.test(bridgeModule) &&
+      !/approval_authority_rejects_step_module_command_schema/.test(bridgeModule) &&
       /bridge_plans_coding_tool_approval_manifest_through_rust_core/.test(bridgeModule) &&
       !/fn plan_coding_tool_approval_manifest/.test(bridgeModule) &&
       !/struct CodingToolApprovalBridgeRequest/.test(bridgeModule) &&
@@ -6467,7 +6468,7 @@ function runBridge() {
       /"thread_id":\s*request\.thread_id/.test(authorityCore) &&
       /"agent_id":\s*request\.agent_id/.test(authorityCore) &&
       /external_capability_exit_authority_invalid/.test(authorityCore) &&
-      /external_capability_authority_rejects_step_module_command_schema/.test(
+      !/external_capability_authority_rejects_step_module_command_schema/.test(
         bridgeModule,
       ) &&
       /bridge_authorizes_external_capability_exit_through_rust_authority_core/.test(
@@ -6495,7 +6496,8 @@ function runBridge() {
       !/operation:\s*String/.test(authorityPolicyProjectionCommandWrappers) &&
       !/schema_version_invalid/.test(authorityPolicyProjectionCommandWrappers) &&
       !/operation_unsupported/.test(authorityPolicyProjectionCommandWrappers) &&
-      /validate_command_envelope\(\s*"authorize_external_capability_exit",[\s\n]*STEP_MODULE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
+      /daemon_core_catalog_rejects_step_module_command_schema/.test(commandProtocolCore) &&
+      !/validate_command_envelope\(\s*"authorize_external_capability_exit",[\s\n]*STEP_MODULE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
         bridgeModule,
       ) &&
       !authorityCommandBridgeExists &&
@@ -6533,16 +6535,17 @@ function runBridge() {
       !/mod governed_admission_command;/.test(bridgeModule) &&
       !governedAdmissionCommandBridgeExists &&
       !governedReceiptCommandBridgeExists &&
-      /validate_command_envelope\(\s*"execute_private_workspace_ctee_action",[\s\n]*STEP_MODULE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
+      /daemon_core_catalog_rejects_step_module_command_schema/.test(commandProtocolCore) &&
+      !/validate_command_envelope\(\s*"execute_private_workspace_ctee_action",[\s\n]*STEP_MODULE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
         bridgeModule,
       ) &&
-      /validate_command_envelope\(\s*"admit_worker_service_package_invocation",[\s\n]*STEP_MODULE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
+      !/validate_command_envelope\(\s*"admit_worker_service_package_invocation",[\s\n]*STEP_MODULE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
         bridgeModule,
       ) &&
-      /validate_command_envelope\(\s*"admit_l1_settlement_attempt",[\s\n]*STEP_MODULE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
+      !/validate_command_envelope\(\s*"admit_l1_settlement_attempt",[\s\n]*STEP_MODULE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
         bridgeModule,
       ) &&
-      /validate_command_envelope\(\s*"admit_governed_runtime_improvement_proposal",[\s\n]*STEP_MODULE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
+      !/validate_command_envelope\(\s*"admit_governed_runtime_improvement_proposal",[\s\n]*STEP_MODULE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
         bridgeModule,
       ) &&
       !/ReceiptBinder/.test(governedAdmissionCommandBridge) &&
@@ -6595,13 +6598,14 @@ function runBridge() {
       !/operation:\s*String/.test(approvalWorkspaceCommandWrappers) &&
       !/schema_version_invalid/.test(approvalWorkspaceCommandWrappers) &&
       !/operation_unsupported/.test(approvalWorkspaceCommandWrappers) &&
-      /validate_command_envelope\(\s*"plan_coding_tool_approval_manifest",[\s\n]*STEP_MODULE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
+      /daemon_core_catalog_rejects_step_module_command_schema/.test(commandProtocolCore) &&
+      !/validate_command_envelope\(\s*"plan_coding_tool_approval_manifest",[\s\n]*STEP_MODULE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
         bridgeModule,
       ) &&
-      /validate_command_envelope\(\s*"plan_approval_request_state_update",[\s\n]*STEP_MODULE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
+      !/validate_command_envelope\(\s*"plan_approval_request_state_update",[\s\n]*STEP_MODULE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
         bridgeModule,
       ) &&
-      /validate_command_envelope\(\s*"apply_workspace_restore_operations",[\s\n]*STEP_MODULE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
+      !/validate_command_envelope\(\s*"apply_workspace_restore_operations",[\s\n]*STEP_MODULE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
         bridgeModule,
       ) &&
       !approvalCommandBridgeExists &&
@@ -6804,16 +6808,17 @@ function runBridge() {
       !/operation:\s*String/.test(policyLifecycleMemoryCommandWrappers) &&
       !/schema_version_invalid/.test(policyLifecycleMemoryCommandWrappers) &&
       !/operation_unsupported/.test(policyLifecycleMemoryCommandWrappers) &&
-      /validate_command_envelope\(\s*"evaluate_context_budget_policy",[\s\n]*STEP_MODULE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
+      /daemon_core_catalog_rejects_step_module_command_schema/.test(commandProtocolCore) &&
+      !/validate_command_envelope\(\s*"evaluate_context_budget_policy",[\s\n]*STEP_MODULE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
         bridgeModule,
       ) &&
-      /validate_command_envelope\(\s*"plan_operator_interrupt_state_update",[\s\n]*STEP_MODULE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
+      !/validate_command_envelope\(\s*"plan_operator_interrupt_state_update",[\s\n]*STEP_MODULE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
         bridgeModule,
       ) &&
-      /validate_command_envelope\(\s*"plan_runtime_bridge_thread_start_agent_state_update",[\s\n]*STEP_MODULE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
+      !/validate_command_envelope\(\s*"plan_runtime_bridge_thread_start_agent_state_update",[\s\n]*STEP_MODULE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
         bridgeModule,
       ) &&
-      /validate_command_envelope\(\s*"validate_mcp_servers",[\s\n]*STEP_MODULE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
+      !/validate_command_envelope\(\s*"validate_mcp_servers",[\s\n]*STEP_MODULE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
         bridgeModule,
       ) &&
       !contextPolicyCommandBridgeExists &&
@@ -6862,17 +6867,17 @@ function runBridge() {
       !/schema_version_invalid/.test(modelMountReceiptCommandBridge) &&
       !/operation_unsupported/.test(modelMountCommandBridge) &&
       !/operation_unsupported/.test(modelMountReceiptCommandBridge) &&
-      /fn assert_model_mount_command_rejects_step_module_schema/.test(bridgeModule) &&
-      /assert_model_mount_command_rejects_step_module_schema\(\s*"admit_model_mount_route_decision",?\s*\)/.test(
+      !/fn assert_model_mount_command_rejects_step_module_schema/.test(bridgeModule) &&
+      !/assert_model_mount_command_rejects_step_module_schema\(\s*"admit_model_mount_route_decision",?\s*\)/.test(
         bridgeModule,
       ) &&
-      /assert_model_mount_command_rejects_step_module_schema\(\s*"execute_model_mount_provider_invocation",?\s*\)/.test(
+      !/assert_model_mount_command_rejects_step_module_schema\(\s*"execute_model_mount_provider_invocation",?\s*\)/.test(
         bridgeModule,
       ) &&
-      /assert_model_mount_command_rejects_step_module_schema\(\s*"bind_model_mount_invocation_receipt",?\s*\)/.test(
+      !/assert_model_mount_command_rejects_step_module_schema\(\s*"bind_model_mount_invocation_receipt",?\s*\)/.test(
         bridgeModule,
       ) &&
-      /assert_model_mount_command_rejects_step_module_schema\(\s*"plan_model_mount_read_projection",?\s*\)/.test(
+      !/assert_model_mount_command_rejects_step_module_schema\(\s*"plan_model_mount_read_projection",?\s*\)/.test(
         bridgeModule,
       ) &&
       /admit_model_mount_route_decision_response as admit_model_mount_route_decision/.test(bridgeModule) &&
@@ -7521,7 +7526,7 @@ function runBridge() {
       !approvalCommandBridgeExists &&
       /plan_approval_request_state_update_response as plan_approval_request_state_update/.test(bridgeModule) &&
       /ApprovalRequestStateUpdateBridgeRequest/.test(bridgeModule) &&
-      /approval_state_rejects_step_module_command_schema/.test(bridgeModule) &&
+      !/approval_state_rejects_step_module_command_schema/.test(bridgeModule) &&
       /bridge_plans_approval_request_state_update_through_rust_core/.test(bridgeModule) &&
       /bridge_plans_approval_request_agent_state_update_through_rust_core/.test(
         bridgeModule,
@@ -7912,7 +7917,7 @@ function runBridge() {
       /ContextBudgetPolicyBridgeRequest/.test(policyContextLifecycleCore) &&
       /is_daemon_core_operation/.test(commandProtocolCore) &&
       !/is_daemon_core_operation/.test(bridgeDispatch) &&
-      /context_policy_rejects_step_module_command_schema/.test(bridgeModule) &&
+      !/context_policy_rejects_step_module_command_schema/.test(bridgeModule) &&
       /rust_context_budget_policy_command/.test(policyContextLifecycleCore) &&
       /context_budget_policy_invalid/.test(policyContextLifecycleCore) &&
       /policy_record_response/.test(policyContextLifecycleCore) &&
@@ -11319,7 +11324,7 @@ function runBridge() {
       /admit_model_mount_route_decision/.test(modelMountCommandSurface) &&
       /ModelMountRouteDecisionRequest/.test(modelMountCore) &&
       /bridge_admits_model_mount_route_decision_through_rust_core/.test(modelMountCommandSurface) &&
-      /model_mount_route_decision_rejects_step_module_command_schema/.test(modelMountCommandSurface) &&
+      !/model_mount_route_decision_rejects_step_module_command_schema/.test(modelMountCommandSurface) &&
       /RustModelMountAdmissionRunner/.test(modelMountAdmissionRunner) &&
       /MODEL_MOUNT_ADMISSION_COMMAND_ENV/.test(modelMountAdmissionRunner) &&
       /IOI_RUNTIME_DAEMON_CORE_COMMAND/.test(modelMountAdmissionRunner) &&
@@ -14309,7 +14314,7 @@ function runBridge() {
       /accepted_receipt_append/.test(governedReceiptCore) &&
       /agentgres:\/\/worker-service-package\/head\/current/.test(bridgeModule) &&
       /bridge_admits_worker_service_package_invocation_through_rust_core/.test(bridgeModule) &&
-      /worker_service_package_rejects_step_module_command_schema/.test(bridgeModule),
+      !/worker_service_package_rejects_step_module_command_schema/.test(bridgeModule),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "crates/services/src/agentic/runtime/kernel/governed_receipt.rs",
@@ -14451,7 +14456,7 @@ function runBridge() {
       !/fn preview_workspace_restore_operations/.test(bridgeModule) &&
       !/fn apply_workspace_restore_operations/.test(bridgeModule) &&
       /bridge_applies_workspace_restore_operations_through_rust_core/.test(bridgeModule) &&
-      /workspace_restore_apply_rejects_step_module_command_schema/.test(bridgeModule),
+      !/workspace_restore_apply_rejects_step_module_command_schema/.test(bridgeModule),
     [
       "crates/services/src/agentic/runtime/kernel/workspace_restore.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
@@ -15008,7 +15013,7 @@ function runBridge() {
       /"agent_id":\s*request\.agent_id/.test(governedAdmissionCore) &&
       /l1_settlement_guard/.test(governedAdmissionCore) &&
       /l1_settlement_admission_invalid/.test(governedAdmissionCore) &&
-      /l1_settlement_rejects_step_module_command_schema/.test(bridgeModule) &&
+      !/l1_settlement_rejects_step_module_command_schema/.test(bridgeModule) &&
       /bridge_admits_l1_settlement_attempt_through_rust_core/.test(bridgeModule),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
@@ -15315,7 +15320,7 @@ function runBridge() {
       /"thread_id":\s*request\.thread_id/.test(governedAdmissionCore) &&
       /"agent_id":\s*request\.agent_id/.test(governedAdmissionCore) &&
       /bridge_admits_governed_runtime_improvement_proposal_through_rust_core/.test(bridgeModule) &&
-      /governed_improvement_rejects_step_module_command_schema/.test(bridgeModule) &&
+      !/governed_improvement_rejects_step_module_command_schema/.test(bridgeModule) &&
       /agentgres:\/\/runtime-improvement\/head\/current/.test(bridgeModule),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
@@ -20605,7 +20610,7 @@ function runReceipts() {
       !/runtime_state_record_path/.test(agentgresCommandBridge) &&
       !/from "std::fs"|use std::fs|fs::/.test(agentgresCommandBridge) &&
       /DAEMON_CORE_COMMAND_SCHEMA_VERSION/.test(commandProtocolCore) &&
-      /runtime_agentgres_commit_rejects_step_module_command_schema/.test(bridgeModule) &&
+      !/runtime_agentgres_commit_rejects_step_module_command_schema/.test(bridgeModule) &&
       /rust_agentgres_runtime_run_state_commit_command/.test(agentgresCommandCore) &&
       !/plan_runtime_run_state_transition/.test(bridgeModule) &&
       !/rust_runtime_agentgres_transition_command/.test(bridgeModule) &&
@@ -20724,7 +20729,7 @@ function runReceipts() {
       !/fn admit_storage_backend_write/.test(bridgeModule) &&
       /StorageBackendWriteBridgeRequest/.test(bridgeModule) && /pub struct StorageBackendWriteBridgeRequest/.test(agentgresCommandCore) &&
       /admit_storage_backend_write_response as admit_storage_backend_write/.test(bridgeModule) &&
-      /runtime_agentgres_storage_rejects_step_module_command_schema/.test(bridgeModule) &&
+      !/runtime_agentgres_storage_rejects_step_module_command_schema/.test(bridgeModule) &&
       !/materialize_runtime_state_records/.test(bridgeModule) &&
       !/plan_runtime_state_storage_writes/.test(bridgeModule) &&
       !/persist_runtime_state_records/.test(bridgeModule) &&
@@ -20884,10 +20889,11 @@ function runReceipts() {
       !/operation_unsupported/.test(agentgresCommandBridge) &&
       !/AgentgresAdmissionCore/.test(agentgresCommandBridge) &&
       /AgentgresAdmissionCore/.test(agentgresCommandCore) &&
-      /validate_command_envelope\(\s*"admit_storage_backend_write",[\s\n]*STEP_MODULE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
+      /daemon_core_catalog_rejects_step_module_command_schema/.test(commandProtocolCore) &&
+      !/validate_command_envelope\(\s*"admit_storage_backend_write",[\s\n]*STEP_MODULE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
         bridgeModule,
       ) &&
-      /validate_command_envelope\(\s*"commit_runtime_agent_state",[\s\n]*STEP_MODULE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
+      !/validate_command_envelope\(\s*"commit_runtime_agent_state",[\s\n]*STEP_MODULE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
         bridgeModule,
       ) &&
       !agentgresCommandBridgeExists &&
@@ -21576,7 +21582,7 @@ function runCtee() {
       /"agent_id":\s*request\.agent_id/.test(governedReceiptCore) &&
       /accepted_receipt_append/.test(governedReceiptCore) &&
       !/accepted_receipt_append/.test(governedAdmissionCommandBridge) &&
-      /ctee_private_workspace_rejects_step_module_command_schema/.test(
+      !/ctee_private_workspace_rejects_step_module_command_schema/.test(
         bridgeModule,
       ) &&
       /bridge_executes_private_workspace_ctee_action_through_rust_core/.test(bridgeModule),

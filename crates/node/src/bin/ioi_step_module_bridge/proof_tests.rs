@@ -36,10 +36,7 @@ mod tests {
         inspect_git_diff, inspect_lsp_diagnostics, inspect_test_run, inspect_workspace_path,
         inspect_workspace_status,
     };
-    use ioi_services::agentic::runtime::kernel::command_protocol::{
-        validate_command_envelope, DAEMON_CORE_COMMAND_SCHEMA_VERSION,
-        STEP_MODULE_COMMAND_SCHEMA_VERSION,
-    };
+    use ioi_services::agentic::runtime::kernel::command_protocol::DAEMON_CORE_COMMAND_SCHEMA_VERSION;
     use ioi_services::agentic::runtime::kernel::governed_admission::{
         admit_governed_runtime_improvement_proposal_response as admit_governed_runtime_improvement_proposal,
         admit_l1_settlement_attempt_response as admit_l1_settlement_attempt,
@@ -217,40 +214,6 @@ mod tests {
             .as_str()
             .expect("route decision ref")
             .starts_with("model_mount://route_decision/"));
-    }
-
-    #[test]
-    fn model_mount_route_decision_rejects_step_module_command_schema() {
-        assert_model_mount_command_rejects_step_module_schema("admit_model_mount_route_decision");
-    }
-
-    #[test]
-    fn model_mount_provider_invocation_rejects_step_module_command_schema() {
-        assert_model_mount_command_rejects_step_module_schema(
-            "execute_model_mount_provider_invocation",
-        );
-    }
-
-    #[test]
-    fn model_mount_receipt_binding_rejects_step_module_command_schema() {
-        assert_model_mount_command_rejects_step_module_schema(
-            "bind_model_mount_invocation_receipt",
-        );
-    }
-
-    #[test]
-    fn model_mount_read_projection_rejects_step_module_command_schema() {
-        assert_model_mount_command_rejects_step_module_schema("plan_model_mount_read_projection");
-    }
-
-    fn assert_model_mount_command_rejects_step_module_schema(operation: &str) {
-        let error = validate_command_envelope(operation, STEP_MODULE_COMMAND_SCHEMA_VERSION)
-            .expect_err(
-                "Rust command protocol rejects StepModule schema before model-mount dispatch",
-            );
-        assert_eq!(error.code(), "schema_version_invalid");
-        assert!(error.message().contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
-        assert!(error.message().contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
     }
 
     #[test]
@@ -2559,19 +2522,6 @@ mod tests {
     }
 
     #[test]
-    fn ctee_private_workspace_rejects_step_module_command_schema() {
-        let error = validate_command_envelope(
-            "execute_private_workspace_ctee_action",
-            STEP_MODULE_COMMAND_SCHEMA_VERSION,
-        )
-        .expect_err("Rust command protocol rejects StepModule schema before cTEE dispatch");
-
-        assert_eq!(error.code(), "schema_version_invalid");
-        assert!(error.message().contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
-        assert!(error.message().contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
-    }
-
-    #[test]
     fn bridge_admits_worker_service_package_invocation_through_rust_core() {
         let request: WorkerServicePackageInvocationBridgeRequest =
             serde_json::from_value(json!({
@@ -2701,19 +2651,6 @@ mod tests {
     }
 
     #[test]
-    fn worker_service_package_rejects_step_module_command_schema() {
-        let error = validate_command_envelope(
-            "admit_worker_service_package_invocation",
-            STEP_MODULE_COMMAND_SCHEMA_VERSION,
-        )
-        .expect_err("Rust command protocol rejects StepModule schema before package dispatch");
-
-        assert_eq!(error.code(), "schema_version_invalid");
-        assert!(error.message().contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
-        assert!(error.message().contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
-    }
-
-    #[test]
     fn bridge_admits_l1_settlement_attempt_through_rust_core() {
         let request: L1SettlementAdmissionBridgeRequest = serde_json::from_value(json!({
             "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
@@ -2747,19 +2684,6 @@ mod tests {
             "receipt://local-settlement/payment"
         );
         assert_ne!(response["admission_hash"][0], 0);
-    }
-
-    #[test]
-    fn l1_settlement_rejects_step_module_command_schema() {
-        let error = validate_command_envelope(
-            "admit_l1_settlement_attempt",
-            STEP_MODULE_COMMAND_SCHEMA_VERSION,
-        )
-        .expect_err("Rust command protocol rejects StepModule schema before L1 dispatch");
-
-        assert_eq!(error.code(), "schema_version_invalid");
-        assert!(error.message().contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
-        assert!(error.message().contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
     }
 
     #[test]
@@ -2835,19 +2759,6 @@ mod tests {
     }
 
     #[test]
-    fn external_capability_authority_rejects_step_module_command_schema() {
-        let error = validate_command_envelope(
-            "authorize_external_capability_exit",
-            STEP_MODULE_COMMAND_SCHEMA_VERSION,
-        )
-        .expect_err("Rust command protocol rejects StepModule schema before authority dispatch");
-
-        assert_eq!(error.code(), "schema_version_invalid");
-        assert!(error.message().contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
-        assert!(error.message().contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
-    }
-
-    #[test]
     fn bridge_admits_governed_runtime_improvement_proposal_through_rust_core() {
         let request: GovernedRuntimeImprovementBridgeRequest = serde_json::from_value(json!({
             "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
@@ -2917,19 +2828,6 @@ mod tests {
             .as_str()
             .expect("admission hash")
             .starts_with("sha256:"));
-    }
-
-    #[test]
-    fn governed_improvement_rejects_step_module_command_schema() {
-        let error = validate_command_envelope(
-            "admit_governed_runtime_improvement_proposal",
-            STEP_MODULE_COMMAND_SCHEMA_VERSION,
-        )
-        .expect_err("Rust command protocol rejects StepModule schema before governed dispatch");
-
-        assert_eq!(error.code(), "schema_version_invalid");
-        assert!(error.message().contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
-        assert!(error.message().contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
     }
 
     #[test]
@@ -3025,19 +2923,6 @@ mod tests {
         assert_eq!(response["operations"][0]["apply_status"], "applied");
         assert_eq!(fs::read_to_string(&target).expect("restored"), "old");
         let _ = fs::remove_dir_all(workspace);
-    }
-
-    #[test]
-    fn workspace_restore_apply_rejects_step_module_command_schema() {
-        let error = validate_command_envelope(
-            "apply_workspace_restore_operations",
-            STEP_MODULE_COMMAND_SCHEMA_VERSION,
-        )
-        .expect_err("Rust command protocol rejects StepModule schema before restore dispatch");
-
-        assert_eq!(error.code(), "schema_version_invalid");
-        assert!(error.message().contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
-        assert!(error.message().contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
     }
 
     #[test]
@@ -3371,34 +3256,6 @@ mod tests {
     }
 
     #[test]
-    fn approval_authority_rejects_step_module_command_schema() {
-        let error = validate_command_envelope(
-            "plan_coding_tool_approval_manifest",
-            STEP_MODULE_COMMAND_SCHEMA_VERSION,
-        )
-        .expect_err("Rust command protocol rejects StepModule schema before approval dispatch");
-
-        assert_eq!(error.code(), "schema_version_invalid");
-        assert!(error.message().contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
-        assert!(error.message().contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
-    }
-
-    #[test]
-    fn approval_state_rejects_step_module_command_schema() {
-        let error = validate_command_envelope(
-            "plan_approval_request_state_update",
-            STEP_MODULE_COMMAND_SCHEMA_VERSION,
-        )
-        .expect_err(
-            "Rust command protocol rejects StepModule schema before approval-state dispatch",
-        );
-
-        assert_eq!(error.code(), "schema_version_invalid");
-        assert!(error.message().contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
-        assert!(error.message().contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
-    }
-
-    #[test]
     fn bridge_evaluates_context_budget_policy_through_rust_core() {
         let request: ContextBudgetPolicyBridgeRequest = serde_json::from_value(json!({
             "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
@@ -3449,60 +3306,6 @@ mod tests {
             .as_str()
             .expect("runtime event idempotency key")
             .starts_with("thread:thread_budget:context-budget:policy_context_budget_thread_"));
-    }
-
-    #[test]
-    fn context_policy_rejects_step_module_command_schema() {
-        let error = validate_command_envelope(
-            "evaluate_context_budget_policy",
-            STEP_MODULE_COMMAND_SCHEMA_VERSION,
-        )
-        .expect_err(
-            "Rust command protocol rejects StepModule schema before context-policy dispatch",
-        );
-        assert_eq!(error.code(), "schema_version_invalid");
-        assert!(error.message().contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
-        assert!(error.message().contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
-    }
-
-    #[test]
-    fn runtime_control_rejects_step_module_command_schema() {
-        let error = validate_command_envelope(
-            "plan_operator_interrupt_state_update",
-            STEP_MODULE_COMMAND_SCHEMA_VERSION,
-        )
-        .expect_err(
-            "Rust command protocol rejects StepModule schema before runtime-control dispatch",
-        );
-        assert_eq!(error.code(), "schema_version_invalid");
-        assert!(error.message().contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
-        assert!(error.message().contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
-    }
-
-    #[test]
-    fn thread_lifecycle_rejects_step_module_command_schema() {
-        let error = validate_command_envelope(
-            "plan_runtime_bridge_thread_start_agent_state_update",
-            STEP_MODULE_COMMAND_SCHEMA_VERSION,
-        )
-        .expect_err(
-            "Rust command protocol rejects StepModule schema before thread-lifecycle dispatch",
-        );
-        assert_eq!(error.code(), "schema_version_invalid");
-        assert!(error.message().contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
-        assert!(error.message().contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
-    }
-
-    #[test]
-    fn mcp_memory_rejects_step_module_command_schema() {
-        let error =
-            validate_command_envelope("validate_mcp_servers", STEP_MODULE_COMMAND_SCHEMA_VERSION)
-                .expect_err(
-                    "Rust command protocol rejects StepModule schema before MCP/memory dispatch",
-                );
-        assert_eq!(error.code(), "schema_version_invalid");
-        assert!(error.message().contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
-        assert!(error.message().contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
     }
 
     #[test]
@@ -5446,30 +5249,6 @@ mod tests {
             response["run"]["trace"]["usage_telemetry"]["total_tokens"],
             7
         );
-    }
-
-    #[test]
-    fn runtime_agentgres_storage_rejects_step_module_command_schema() {
-        let error = validate_command_envelope(
-            "admit_storage_backend_write",
-            STEP_MODULE_COMMAND_SCHEMA_VERSION,
-        )
-        .expect_err("Rust command protocol rejects StepModule schema before Agentgres admission");
-        assert_eq!(error.code(), "schema_version_invalid");
-        assert!(error.message().contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
-        assert!(error.message().contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
-    }
-
-    #[test]
-    fn runtime_agentgres_commit_rejects_step_module_command_schema() {
-        let error = validate_command_envelope(
-            "commit_runtime_agent_state",
-            STEP_MODULE_COMMAND_SCHEMA_VERSION,
-        )
-        .expect_err("Rust command protocol rejects StepModule schema before Agentgres commit");
-        assert_eq!(error.code(), "schema_version_invalid");
-        assert!(error.message().contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
-        assert!(error.message().contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
     }
 
     #[test]
