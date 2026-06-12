@@ -6915,6 +6915,22 @@ receipt/state-root binding, wallet approval, projection, replay, rollback
 metadata, and stable IDE/CLI/SDK protocol surfaces, not preservation of JS
 normalizers as compatibility shims.
 
+Slice 1157 retires JS-side runtime Agentgres ref/evidence fallback synthesis
+from the Agentgres admission runner. Rust `agentgres_admission.rs` and
+`agentgres_command.rs` already own storage-write admission and runtime
+state-commit response shaping behind the temporary daemon-core command path, so
+`runtime-agentgres-admission-runner.mjs` now preserves omitted Rust-authored
+`artifact_refs`, `payload_refs`, `receipt_refs`, and `evidence_refs` as `null`
+instead of inventing empty arrays at the JS edge.
+
+This remains non-terminal because the JS runtime Agentgres runner, shared
+daemon-core command runner, and Node bridge transport still carry Agentgres
+admission and state-commit requests to Rust. The target is direct Rust
+daemon-core Agentgres protocol/API ownership over expected-head checks,
+state-root binding, storage admission, durable write materialization,
+projection, replay, and stable IDE/CLI/SDK protocol surfaces, not preservation
+of JS normalizers as compatibility shims.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

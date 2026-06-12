@@ -8,6 +8,14 @@ import {
   RuntimeAgentgresAdmissionRunnerError,
   RustRuntimeAgentgresAdmissionRunner,
   createRuntimeAgentgresAdmissionRunnerFromEnv,
+  normalizeRuntimeAgentStateCommitBridgeResult,
+  normalizeRuntimeArtifactStateCommitBridgeResult,
+  normalizeRuntimeMemoryStateCommitBridgeResult,
+  normalizeRuntimeModelMountReceiptStateCommitBridgeResult,
+  normalizeRuntimeModelMountRecordStateCommitBridgeResult,
+  normalizeRuntimeRunStateCommitBridgeResult,
+  normalizeRuntimeSubagentStateCommitBridgeResult,
+  normalizeStorageBackendWriteBridgeResult,
 } from "./runtime-agentgres-admission-runner.mjs";
 
 function storageWriteRequest() {
@@ -285,6 +293,30 @@ test("runtime Agentgres runner sends storage write admission bridge request", ()
   assert.equal(result.admission_hash, "sha256:storage-admission");
   assert.equal(result.object_ref, "agentgres://runtime-state/runs/run_1/records/runs/run_1.json");
   assert.deepEqual(result.evidence_refs, ["rust_agentgres_storage_write_admission"]);
+});
+
+test("runtime Agentgres runner does not synthesize Rust-owned refs or evidence", () => {
+  const storageWrite = normalizeStorageBackendWriteBridgeResult({ record: {} });
+  assert.equal(storageWrite.artifact_refs, null);
+  assert.equal(storageWrite.payload_refs, null);
+  assert.equal(storageWrite.receipt_refs, null);
+  assert.equal(storageWrite.evidence_refs, null);
+
+  const runtimeRun = normalizeRuntimeRunStateCommitBridgeResult({ record: {} });
+  assert.equal(runtimeRun.evidence_refs, null);
+
+  for (const result of [
+    normalizeRuntimeAgentStateCommitBridgeResult({ record: {} }),
+    normalizeRuntimeMemoryStateCommitBridgeResult({ record: {} }),
+    normalizeRuntimeSubagentStateCommitBridgeResult({ record: {} }),
+    normalizeRuntimeArtifactStateCommitBridgeResult({ record: {} }),
+    normalizeRuntimeModelMountRecordStateCommitBridgeResult({ record: {} }),
+    normalizeRuntimeModelMountReceiptStateCommitBridgeResult({ record: {} }),
+  ]) {
+    assert.equal(result.payload_refs, null);
+    assert.equal(result.receipt_refs, null);
+    assert.equal(result.evidence_refs, null);
+  }
 });
 
 test("runtime Agentgres runner sends runtime agent-state commit bridge request", () => {

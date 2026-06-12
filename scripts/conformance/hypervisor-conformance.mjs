@@ -20642,6 +20642,33 @@ function runReceipts() {
       /runtime Agentgres runner sends storage write admission bridge request/.test(
         read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
       ) &&
+      /runtime Agentgres runner does not synthesize Rust-owned refs or evidence/.test(
+        read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
+      ) &&
+      /artifact_refs:\s*Array\.isArray\(result\.artifact_refs\)\s*\?\s*result\.artifact_refs\s*:\s*record\.artifact_refs\s*\?\?\s*null/.test(
+        runtimeAgentgresRunner,
+      ) &&
+      /payload_refs:\s*Array\.isArray\(result\.payload_refs\)\s*\?\s*result\.payload_refs\s*:\s*(?:record|storageRecord)\.payload_refs\s*\?\?\s*null/.test(
+        runtimeAgentgresRunner,
+      ) &&
+      /receipt_refs:\s*Array\.isArray\(result\.receipt_refs\)\s*\?\s*result\.receipt_refs\s*:\s*(?:record|storageRecord)\.receipt_refs\s*\?\?\s*null/.test(
+        runtimeAgentgresRunner,
+      ) &&
+      /evidence_refs:\s*Array\.isArray\(result\.evidence_refs\)\s*\?\s*result\.evidence_refs\s*:\s*null/.test(
+        runtimeAgentgresRunner,
+      ) &&
+      !/artifact_refs:\s*Array\.isArray\(result\.artifact_refs\)\s*\?\s*result\.artifact_refs\s*:\s*record\.artifact_refs\s*\?\?\s*\[\]/.test(
+        runtimeAgentgresRunner,
+      ) &&
+      !/payload_refs:\s*Array\.isArray\(result\.payload_refs\)\s*\?\s*result\.payload_refs\s*:\s*(?:record|storageRecord)\.payload_refs\s*\?\?\s*\[\]/.test(
+        runtimeAgentgresRunner,
+      ) &&
+      !/receipt_refs:\s*Array\.isArray\(result\.receipt_refs\)\s*\?\s*result\.receipt_refs\s*:\s*(?:record|storageRecord)\.receipt_refs\s*\?\?\s*\[\]/.test(
+        runtimeAgentgresRunner,
+      ) &&
+      !/evidence_refs:\s*Array\.isArray\(result\.evidence_refs\)\s*\?\s*result\.evidence_refs\s*:\s*\[\]/.test(
+        runtimeAgentgresRunner,
+      ) &&
       !/runtime Agentgres runner sends runtime-state record materialization bridge request/.test(
         read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
       ) &&

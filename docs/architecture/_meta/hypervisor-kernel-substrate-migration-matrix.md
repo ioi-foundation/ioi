@@ -15951,6 +15951,39 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1157
+
+Slice 1157 retires JS-side fallback synthesis in
+`packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs` for
+Rust-owned runtime Agentgres refs and evidence. The runtime Agentgres admission
+runner now preserves missing Rust-authored `artifact_refs`, `payload_refs`,
+`receipt_refs`, and `evidence_refs` as `null` instead of synthesizing empty
+arrays from JS when Rust omits those fields. Rust `agentgres_admission.rs` and
+`agentgres_command.rs` remain the storage-write admission and runtime
+state-commit response-shaping owners behind the temporary daemon-core command
+path.
+
+This is not terminal Agentgres migration. The JS runtime Agentgres runner,
+shared daemon-core command runner, and Node bridge transport remain migration
+scaffolding until direct Rust daemon-core Agentgres APIs own expected-head
+checks, state-root binding, storage admission, durable write materialization,
+projection, replay, and stable IDE/CLI/SDK protocol surfaces end to end. The
+retired JS fallback behavior must not be recreated as compatibility
+normalization.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:negative` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1148
 
 Slice 1148 removes the remaining JS-side defaulting for the external
