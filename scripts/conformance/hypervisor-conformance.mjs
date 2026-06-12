@@ -19643,18 +19643,20 @@ function runReceipts() {
       /pub fn commit_runtime_model_mount_receipt_state/.test(runtimeKernelModule) &&
       !/mod agentgres_command;/.test(bridgeModule) &&
       !agentgresCommandBridgeExists &&
-      /commit_runtime_model_mount_receipt_state/.test(bridgeModule) &&
+      /commit_runtime_model_mount_receipt_state/.test(agentgresCommandCore) &&
+      !/commit_runtime_model_mount_receipt_state_response as commit_runtime_model_mount_receipt_state/.test(bridgeModule) &&
       !/struct RuntimeModelMountReceiptStateCommitBridgeRequest/.test(bridgeModule) &&
       !/fn commit_runtime_model_mount_receipt_state/.test(bridgeModule) &&
-      /RuntimeModelMountReceiptStateCommitBridgeRequest/.test(bridgeModule) &&
+      !/RuntimeModelMountReceiptStateCommitBridgeRequest/.test(bridgeModule) &&
       /pub struct RuntimeModelMountReceiptStateCommitBridgeRequest/.test(
         agentgresCommandCore,
       ) &&
-      /commit_runtime_model_mount_receipt_state_response as commit_runtime_model_mount_receipt_state/.test(bridgeModule) &&
+      /commit_runtime_model_mount_receipt_state_response/.test(agentgresCommandCore) &&
       /rust_agentgres_runtime_model_mount_receipt_state_commit_command/.test(
         agentgresCommandCore,
       ) &&
-      /bridge_commits_runtime_model_mount_receipt_state_through_rust_core/.test(bridgeModule) &&
+      /agentgres_command_commits_runtime_model_mount_receipt_state_through_rust_core/.test(agentgresCommandCore) &&
+      !/bridge_commits_runtime_model_mount_receipt_state_through_rust_core/.test(bridgeModule) &&
       /commitRuntimeModelMountReceiptState/.test(runtimeAgentgresRunner) &&
       /normalizeRuntimeModelMountReceiptStateCommitBridgeResult/.test(runtimeAgentgresRunner) &&
       !/RUNTIME_AGENTGRES_COMMAND_ARGS_ENV/.test(runtimeAgentgresRunner) &&
@@ -19855,13 +19857,15 @@ function runReceipts() {
         agentgresAdmissionCore,
       ) &&
       /pub fn commit_runtime_memory_state/.test(runtimeKernelModule) &&
-      /commit_runtime_memory_state/.test(bridgeModule) &&
+      /commit_runtime_memory_state/.test(agentgresCommandCore) &&
+      !/commit_runtime_memory_state_response as commit_runtime_memory_state/.test(bridgeModule) &&
       !/struct RuntimeMemoryStateCommitBridgeRequest/.test(bridgeModule) &&
       !/fn commit_runtime_memory_state/.test(bridgeModule) &&
-      /RuntimeMemoryStateCommitBridgeRequest/.test(bridgeModule) && /pub struct RuntimeMemoryStateCommitBridgeRequest/.test(agentgresCommandCore) &&
-      /commit_runtime_memory_state_response as commit_runtime_memory_state/.test(bridgeModule) &&
+      !/RuntimeMemoryStateCommitBridgeRequest/.test(bridgeModule) && /pub struct RuntimeMemoryStateCommitBridgeRequest/.test(agentgresCommandCore) &&
+      /commit_runtime_memory_state_response/.test(agentgresCommandCore) &&
       /rust_agentgres_runtime_memory_state_commit_command/.test(agentgresCommandCore) &&
-      /bridge_commits_runtime_memory_state_through_rust_core/.test(bridgeModule) &&
+      /agentgres_command_commits_runtime_memory_state_through_rust_core/.test(agentgresCommandCore) &&
+      !/bridge_commits_runtime_memory_state_through_rust_core/.test(bridgeModule) &&
       /commitRuntimeMemoryState/.test(runtimeAgentgresRunner) &&
       /normalizeRuntimeMemoryStateCommitBridgeResult/.test(runtimeAgentgresRunner) &&
       /runtime Agentgres runner sends runtime memory-state commit bridge request/.test(
@@ -19914,14 +19918,16 @@ function runReceipts() {
         agentgresAdmissionCore,
       ) &&
       /pub fn commit_runtime_artifact_state/.test(runtimeKernelModule) &&
-      /commit_runtime_artifact_state/.test(bridgeModule) &&
+      /commit_runtime_artifact_state/.test(agentgresCommandCore) &&
+      !/commit_runtime_artifact_state_response as commit_runtime_artifact_state/.test(bridgeModule) &&
       !/struct RuntimeArtifactStateCommitBridgeRequest/.test(bridgeModule) &&
       !/fn commit_runtime_artifact_state/.test(bridgeModule) &&
-      /RuntimeArtifactStateCommitBridgeRequest/.test(bridgeModule) &&
+      !/RuntimeArtifactStateCommitBridgeRequest/.test(bridgeModule) &&
       /pub struct RuntimeArtifactStateCommitBridgeRequest/.test(agentgresCommandCore) &&
-      /commit_runtime_artifact_state_response as commit_runtime_artifact_state/.test(bridgeModule) &&
+      /commit_runtime_artifact_state_response/.test(agentgresCommandCore) &&
       /rust_agentgres_runtime_artifact_state_commit_command/.test(agentgresCommandCore) &&
-      /bridge_commits_runtime_artifact_state_through_rust_core/.test(bridgeModule) &&
+      /agentgres_command_commits_runtime_artifact_state_through_rust_core/.test(agentgresCommandCore) &&
+      !/bridge_commits_runtime_artifact_state_through_rust_core/.test(bridgeModule) &&
       /commitRuntimeArtifactState/.test(runtimeAgentgresRunner) &&
       /normalizeRuntimeArtifactStateCommitBridgeResult/.test(runtimeAgentgresRunner) &&
       /runtime Agentgres runner sends runtime artifact-state commit bridge request/.test(
@@ -20599,11 +20605,12 @@ function runReceipts() {
       ) &&
       !/mod agentgres_command;/.test(bridgeModule) &&
       !agentgresCommandBridgeExists &&
-      /commit_runtime_run_state/.test(bridgeModule) &&
+      /commit_runtime_run_state/.test(agentgresCommandCore) &&
+      !/commit_runtime_run_state_response as commit_runtime_run_state/.test(bridgeModule) &&
       !/struct RuntimeRunStateCommitBridgeRequest/.test(bridgeModule) &&
       !/fn commit_runtime_run_state/.test(bridgeModule) &&
-      /RuntimeRunStateCommitBridgeRequest/.test(bridgeModule) && /pub struct RuntimeRunStateCommitBridgeRequest/.test(agentgresCommandCore) &&
-      /commit_runtime_run_state_response as commit_runtime_run_state/.test(bridgeModule) &&
+      !/RuntimeRunStateCommitBridgeRequest/.test(bridgeModule) && /pub struct RuntimeRunStateCommitBridgeRequest/.test(agentgresCommandCore) &&
+      /commit_runtime_run_state_response/.test(agentgresCommandCore) &&
       /commit_runtime_run_state_to_dir/.test(agentgresCommandCore) &&
       !/read_runtime_state_previous_transition/.test(agentgresCommandBridge) &&
       !/runtime_state_projection_watermark/.test(agentgresCommandBridge) &&
@@ -20614,7 +20621,8 @@ function runReceipts() {
       /rust_agentgres_runtime_run_state_commit_command/.test(agentgresCommandCore) &&
       !/plan_runtime_run_state_transition/.test(bridgeModule) &&
       !/rust_runtime_agentgres_transition_command/.test(bridgeModule) &&
-      /bridge_commits_runtime_run_state_through_rust_core/.test(bridgeModule) &&
+      /agentgres_command_commits_runtime_run_state_through_rust_core/.test(agentgresCommandCore) &&
+      !/bridge_commits_runtime_run_state_through_rust_core/.test(bridgeModule) &&
       /RustRuntimeAgentgresAdmissionRunner/.test(runtimeAgentgresRunner) &&
       /IOI_RUNTIME_DAEMON_CORE_COMMAND/.test(runtimeAgentgresRunner) &&
       /ioi\.runtime\.daemon_core\.command\.v1/.test(runtimeAgentgresRunner) &&
@@ -20723,12 +20731,14 @@ function runReceipts() {
       /plans_runtime_state_persistence_with_materialization_and_storage_write_set/.test(agentgresAdmissionCore) &&
       /persists_runtime_run_state_to_dir_through_rust_core/.test(agentgresAdmissionCore) &&
       /runtime_state_persistence_rejects_record_path_escape_in_rust_core/.test(agentgresAdmissionCore) &&
-      /admit_storage_backend_write/.test(bridgeModule) &&
-      /commit_runtime_run_state/.test(bridgeModule) &&
+      /admit_storage_backend_write/.test(agentgresCommandCore) &&
+      !/admit_storage_backend_write_response as admit_storage_backend_write/.test(bridgeModule) &&
+      /commit_runtime_run_state/.test(agentgresCommandCore) &&
+      !/commit_runtime_run_state_response as commit_runtime_run_state/.test(bridgeModule) &&
       !/struct StorageBackendWriteBridgeRequest/.test(bridgeModule) &&
       !/fn admit_storage_backend_write/.test(bridgeModule) &&
-      /StorageBackendWriteBridgeRequest/.test(bridgeModule) && /pub struct StorageBackendWriteBridgeRequest/.test(agentgresCommandCore) &&
-      /admit_storage_backend_write_response as admit_storage_backend_write/.test(bridgeModule) &&
+      !/StorageBackendWriteBridgeRequest/.test(bridgeModule) && /pub struct StorageBackendWriteBridgeRequest/.test(agentgresCommandCore) &&
+      /admit_storage_backend_write_response/.test(agentgresCommandCore) &&
       !/runtime_agentgres_storage_rejects_step_module_command_schema/.test(bridgeModule) &&
       !/materialize_runtime_state_records/.test(bridgeModule) &&
       !/plan_runtime_state_storage_writes/.test(bridgeModule) &&
@@ -20744,9 +20754,11 @@ function runReceipts() {
       !/rust_agentgres_runtime_state_storage_write_set_command/.test(bridgeModule) &&
       !/rust_agentgres_runtime_state_persistence_command/.test(bridgeModule) &&
       !/rust_runtime_agentgres_transition_command/.test(bridgeModule) &&
-      /bridge_admits_storage_backend_write_through_rust_core/.test(bridgeModule) &&
-      /bridge_commits_runtime_run_state_through_rust_core/.test(bridgeModule) &&
-      /state_dir\.join\("agents\/agent_1\.json"\)\.exists/.test(bridgeModule) &&
+      /agentgres_command_admits_storage_backend_write_through_rust_core/.test(agentgresCommandCore) &&
+      !/bridge_admits_storage_backend_write_through_rust_core/.test(bridgeModule) &&
+      /agentgres_command_commits_runtime_run_state_through_rust_core/.test(agentgresCommandCore) &&
+      !/bridge_commits_runtime_run_state_through_rust_core/.test(bridgeModule) &&
+      /state_dir\.join\("agents\/agent_1\.json"\)\.exists/.test(agentgresCommandCore) &&
       !/bridge_materializes_runtime_state_records_through_rust_core/.test(bridgeModule) &&
       !/bridge_plans_runtime_state_storage_writes_through_rust_core/.test(bridgeModule) &&
       !/bridge_persists_runtime_state_records_through_rust_core/.test(bridgeModule) &&
@@ -20897,14 +20909,22 @@ function runReceipts() {
         bridgeModule,
       ) &&
       !agentgresCommandBridgeExists &&
-      /admit_storage_backend_write_response as admit_storage_backend_write/.test(bridgeModule) &&
-      /commit_runtime_run_state_response as commit_runtime_run_state/.test(bridgeModule) &&
-      /commit_runtime_agent_state_response as commit_runtime_agent_state/.test(bridgeModule) &&
-      /commit_runtime_memory_state_response as commit_runtime_memory_state/.test(bridgeModule) &&
-      /commit_runtime_subagent_state_response as commit_runtime_subagent_state/.test(bridgeModule) &&
-      /commit_runtime_artifact_state_response as commit_runtime_artifact_state/.test(bridgeModule) &&
-      /commit_runtime_model_mount_record_state_response as commit_runtime_model_mount_record_state/.test(bridgeModule) &&
-      /commit_runtime_model_mount_receipt_state_response as commit_runtime_model_mount_receipt_state/.test(bridgeModule),
+      /admit_storage_backend_write_response/.test(agentgresCommandCore) &&
+      /commit_runtime_run_state_response/.test(agentgresCommandCore) &&
+      /commit_runtime_agent_state_response/.test(agentgresCommandCore) &&
+      /commit_runtime_memory_state_response/.test(agentgresCommandCore) &&
+      /commit_runtime_subagent_state_response/.test(agentgresCommandCore) &&
+      /commit_runtime_artifact_state_response/.test(agentgresCommandCore) &&
+      /commit_runtime_model_mount_record_state_response/.test(agentgresCommandCore) &&
+      /commit_runtime_model_mount_receipt_state_response/.test(agentgresCommandCore) &&
+      !/admit_storage_backend_write_response as admit_storage_backend_write/.test(bridgeModule) &&
+      !/commit_runtime_run_state_response as commit_runtime_run_state/.test(bridgeModule) &&
+      !/commit_runtime_agent_state_response as commit_runtime_agent_state/.test(bridgeModule) &&
+      !/commit_runtime_memory_state_response as commit_runtime_memory_state/.test(bridgeModule) &&
+      !/commit_runtime_subagent_state_response as commit_runtime_subagent_state/.test(bridgeModule) &&
+      !/commit_runtime_artifact_state_response as commit_runtime_artifact_state/.test(bridgeModule) &&
+      !/commit_runtime_model_mount_record_state_response as commit_runtime_model_mount_record_state/.test(bridgeModule) &&
+      !/commit_runtime_model_mount_receipt_state_response as commit_runtime_model_mount_receipt_state/.test(bridgeModule),
     [
       "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
       "crates/services/src/agentic/runtime/kernel/agentgres_admission.rs",
@@ -20959,13 +20979,15 @@ function runReceipts() {
         agentgresAdmissionCore,
       ) &&
       /pub fn commit_runtime_agent_state/.test(runtimeKernelModule) &&
-      /commit_runtime_agent_state/.test(bridgeModule) &&
+      /commit_runtime_agent_state/.test(agentgresCommandCore) &&
+      !/commit_runtime_agent_state_response as commit_runtime_agent_state/.test(bridgeModule) &&
       !/struct RuntimeAgentStateCommitBridgeRequest/.test(bridgeModule) &&
       !/fn commit_runtime_agent_state/.test(bridgeModule) &&
-      /RuntimeAgentStateCommitBridgeRequest/.test(bridgeModule) && /pub struct RuntimeAgentStateCommitBridgeRequest/.test(agentgresCommandCore) &&
-      /commit_runtime_agent_state_response as commit_runtime_agent_state/.test(bridgeModule) &&
+      !/RuntimeAgentStateCommitBridgeRequest/.test(bridgeModule) && /pub struct RuntimeAgentStateCommitBridgeRequest/.test(agentgresCommandCore) &&
+      /commit_runtime_agent_state_response/.test(agentgresCommandCore) &&
       /rust_agentgres_runtime_agent_state_commit_command/.test(agentgresCommandCore) &&
-      /bridge_commits_runtime_agent_state_through_rust_core/.test(bridgeModule) &&
+      /agentgres_command_commits_runtime_agent_state_through_rust_core/.test(agentgresCommandCore) &&
+      !/bridge_commits_runtime_agent_state_through_rust_core/.test(bridgeModule) &&
       /commitRuntimeAgentState/.test(runtimeAgentgresRunner) &&
       /normalizeRuntimeAgentStateCommitBridgeResult/.test(runtimeAgentgresRunner) &&
       /runtime Agentgres runner sends runtime agent-state commit bridge request/.test(
@@ -21030,14 +21052,16 @@ function runReceipts() {
         agentgresAdmissionCore,
       ) &&
       /pub fn commit_runtime_subagent_state/.test(runtimeKernelModule) &&
-      /commit_runtime_subagent_state/.test(bridgeModule) &&
+      /commit_runtime_subagent_state/.test(agentgresCommandCore) &&
+      !/commit_runtime_subagent_state_response as commit_runtime_subagent_state/.test(bridgeModule) &&
       !/struct RuntimeSubagentStateCommitBridgeRequest/.test(bridgeModule) &&
       !/fn commit_runtime_subagent_state/.test(bridgeModule) &&
-      /RuntimeSubagentStateCommitBridgeRequest/.test(bridgeModule) &&
+      !/RuntimeSubagentStateCommitBridgeRequest/.test(bridgeModule) &&
       /pub struct RuntimeSubagentStateCommitBridgeRequest/.test(agentgresCommandCore) &&
-      /commit_runtime_subagent_state_response as commit_runtime_subagent_state/.test(bridgeModule) &&
+      /commit_runtime_subagent_state_response/.test(agentgresCommandCore) &&
       /rust_agentgres_runtime_subagent_state_commit_command/.test(agentgresCommandCore) &&
-      /bridge_commits_runtime_subagent_state_through_rust_core/.test(bridgeModule) &&
+      /agentgres_command_commits_runtime_subagent_state_through_rust_core/.test(agentgresCommandCore) &&
+      !/bridge_commits_runtime_subagent_state_through_rust_core/.test(bridgeModule) &&
       /commitRuntimeSubagentState/.test(runtimeAgentgresRunner) &&
       /normalizeRuntimeSubagentStateCommitBridgeResult/.test(runtimeAgentgresRunner) &&
       /runtime Agentgres runner sends runtime subagent-state commit bridge request/.test(

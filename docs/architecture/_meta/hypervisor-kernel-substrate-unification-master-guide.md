@@ -7173,6 +7173,23 @@ operation identity, dispatch, authority, admission, receipt/state-root binding,
 projection, replay, and conformance are owned by Rust modules rather than by
 bridge-local proof scaffolding.
 
+Slice 1174 moves the Agentgres command-response proof family out of the
+temporary bridge proof surface and into the Rust owner at
+`crates/services/src/agentic/runtime/kernel/agentgres_command.rs`. Storage
+backend write admission, runtime run-state commit, agent-state commit,
+memory-state commit, subagent-state commit, artifact-state commit, model_mount
+record-state commit, and model_mount receipt-state commit response/persistence
+proofs now run as Agentgres command owner tests. Receipts conformance now
+requires those `agentgres_command_*_through_rust_core` tests and proves the old
+bridge proof names, request-type imports, and response-function aliases stay
+absent from `ioi_step_module_bridge/proof_tests.rs`.
+
+This remains non-terminal because Agentgres command request/response shaping is
+still exposed through temporary command transport. The target is direct Rust
+daemon-core Agentgres protocol/API ownership where admitted truth, expected
+heads/state roots, durable writes, replay, and conformance no longer depend on
+Node bridge endpoint proof scaffolding.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

@@ -16207,6 +16207,34 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1174
+
+Slice 1174 moves Agentgres command-response proof coverage out of the temporary
+bridge proof surface and into the Rust Agentgres command owner. The owner tests
+in `crates/services/src/agentic/runtime/kernel/agentgres_command.rs` now prove
+storage backend write admission plus runtime run, agent, memory, subagent,
+artifact, model_mount record, and model_mount receipt state commits through the
+Rust Agentgres command response path. The temporary
+`ioi_step_module_bridge/proof_tests.rs` no longer imports Agentgres command
+request types or carries the old bridge-named Agentgres command tests.
+
+This is not terminal Agentgres transport retirement. The temporary command
+transport still exists, but the proof ownership moved to the Rust Agentgres
+command module so the bridge proof surface keeps shrinking toward removal.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-services agentic::runtime::kernel::agentgres_command::tests` | passed |
+| `cargo test -p ioi-node --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1173
 
 Slice 1173 moves the remaining generic daemon-core rejects-StepModule-schema
