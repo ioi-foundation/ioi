@@ -38,11 +38,8 @@ use ioi_services::agentic::runtime::kernel::authority::{
     ExternalCapabilityExitAuthorityBridgeRequest,
 };
 use ioi_services::agentic::runtime::kernel::coding_tool_step_module::{
-    artifact_read_response as core_artifact_read_response,
-    computer_use_request_lease_response as core_computer_use_request_lease_response,
-    file_apply_patch_response as core_file_apply_patch_response,
-    tool_retrieve_result_response as core_tool_retrieve_result_response,
-    CodingToolStepModuleBridgeRequest as StepModuleBridgeRequest, CodingToolStepModuleCommandError,
+    artifact_read_response, computer_use_request_lease_response, file_apply_patch_response,
+    tool_retrieve_result_response, CodingToolStepModuleBridgeRequest as StepModuleBridgeRequest,
 };
 use ioi_services::agentic::runtime::kernel::coding_tool_workspace::{
     inspect_git_diff, inspect_lsp_diagnostics, inspect_test_run, inspect_workspace_path,
@@ -175,28 +172,6 @@ impl BridgeError {
     fn new(code: &'static str, message: String) -> Self {
         Self { code, message }
     }
-}
-
-fn file_apply_patch_response(request: StepModuleBridgeRequest) -> Result<Value, BridgeError> {
-    core_file_apply_patch_response(request).map_err(coding_tool_bridge_error)
-}
-
-fn artifact_read_response(request: StepModuleBridgeRequest) -> Result<Value, BridgeError> {
-    core_artifact_read_response(request).map_err(coding_tool_bridge_error)
-}
-
-fn tool_retrieve_result_response(request: StepModuleBridgeRequest) -> Result<Value, BridgeError> {
-    core_tool_retrieve_result_response(request).map_err(coding_tool_bridge_error)
-}
-
-fn computer_use_request_lease_response(
-    request: StepModuleBridgeRequest,
-) -> Result<Value, BridgeError> {
-    core_computer_use_request_lease_response(request).map_err(coding_tool_bridge_error)
-}
-
-fn coding_tool_bridge_error(error: CodingToolStepModuleCommandError) -> BridgeError {
-    BridgeError::new(error.code(), error.message().to_string())
 }
 
 #[cfg(test)]
@@ -6615,7 +6590,7 @@ mod tests {
 
         let error = artifact_read_response(request).expect_err("missing payload should fail");
 
-        assert_eq!(error.code, "data_plane_payload_required");
+        assert_eq!(error.code(), "data_plane_payload_required");
     }
 
     #[test]
@@ -6639,7 +6614,7 @@ mod tests {
 
         let error = artifact_read_response(request).expect_err("retired payload alias should fail");
 
-        assert_eq!(error.code, "data_plane_payload_alias_retired");
+        assert_eq!(error.code(), "data_plane_payload_alias_retired");
     }
 
     #[test]

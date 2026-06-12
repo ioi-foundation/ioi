@@ -7079,6 +7079,20 @@ Rust daemon-core coding-tool artifact/result projection backed by Agentgres
 ArtifactRef/PayloadRef admission, receipt binding, expected-head/state-root
 checks, replay, and stable protocol APIs.
 
+Slice 1167 retires the remaining coding-tool response facade inside the
+temporary Rust Node bridge module. `ioi_step_module_bridge/mod.rs` now imports
+`file_apply_patch_response`, `artifact_read_response`,
+`tool_retrieve_result_response`, and `computer_use_request_lease_response`
+directly from `crates/services/src/agentic/runtime/kernel/coding_tool_step_module.rs`
+for bridge proof tests instead of defining bridge-local wrapper functions and
+bridge-local `CodingToolStepModuleCommandError` remapping glue.
+
+This remains non-terminal because the Node bridge itself is still fixed
+migration transport. The target is direct Rust daemon-core StepModule/coding
+tool protocol APIs, where the bridge no longer exists as a long-term endpoint
+and coding-tool response authorship, admission, receipt/state-root binding,
+Agentgres persistence, replay, and projection stay in the Rust daemon core.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

@@ -16207,6 +16207,34 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1167
+
+Slice 1167 retires the coding-tool response facade that remained inside the
+temporary Rust Node bridge module. `ioi_step_module_bridge/mod.rs` now imports
+the Rust service owner functions for file patch, artifact read, result
+retrieve, and computer-use lease proof tests directly from
+`coding_tool_step_module.rs`; it no longer defines local response wrapper
+functions, `core_*` alias wrappers, or bridge-local
+`CodingToolStepModuleCommandError` remapping glue.
+
+This is not terminal command-transport migration. The Node bridge remains fixed
+migration transport until direct Rust daemon-core StepModule/coding-tool
+protocol APIs replace it. The important invariant is that coding-tool response
+authorship stays in the Rust service kernel instead of being reintroduced as a
+bridge-local facade.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-node --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1166
 
 Slice 1166 retires JS-side artifact-read receipt synthesis in

@@ -3960,7 +3960,13 @@ function runBridge() {
       /payload:\/\/workspace\/file\.apply_patch/.test(codingToolWorkspaceCore) &&
       /agentgres:\/\/operation\/file\.apply_patch/.test(codingToolWorkspaceCore) &&
       /apply_workspace_patch\(&workspace_root, &request\.input\)/.test(codingToolStepModuleCore) &&
-      /core_file_apply_patch_response/.test(bridgeModule) &&
+      /file_apply_patch_response,\s*\n\s*tool_retrieve_result_response/.test(bridgeModule) &&
+      !/core_file_apply_patch_response/.test(bridgeModule) &&
+      !/fn file_apply_patch_response\(/.test(bridgeModule) &&
+      !/fn artifact_read_response\(/.test(bridgeModule) &&
+      !/fn tool_retrieve_result_response\(/.test(bridgeModule) &&
+      !/fn computer_use_request_lease_response\(/.test(bridgeModule) &&
+      !/coding_tool_bridge_error/.test(bridgeModule) &&
       !codingToolHelpersBridgeExists &&
       !/apply_core_workspace_patch/.test(codingToolHelpersBridge) &&
       !/fn normalize_patch_edits/.test(codingToolHelpersBridge) &&
@@ -4003,6 +4009,32 @@ function runBridge() {
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
     ],
     "Phase 10/11 remains non-terminal: file.inspect workspace containment, directory listing, metadata, preview, and preview hashing must stay in the Rust kernel service crate; the former bridge helper is retired while the broad bridge remains temporary StepModule response glue",
+  );
+  assertCheck(
+    result,
+    "coding-tool-bridge-local-response-facade-retired",
+    /artifact_read_response,\s*computer_use_request_lease_response,\s*file_apply_patch_response/.test(
+      bridgeModule,
+    ) &&
+      /tool_retrieve_result_response,\s*CodingToolStepModuleBridgeRequest as StepModuleBridgeRequest/.test(
+        bridgeModule,
+      ) &&
+      !/core_file_apply_patch_response/.test(bridgeModule) &&
+      !/core_artifact_read_response/.test(bridgeModule) &&
+      !/core_tool_retrieve_result_response/.test(bridgeModule) &&
+      !/core_computer_use_request_lease_response/.test(bridgeModule) &&
+      !/fn file_apply_patch_response\(/.test(bridgeModule) &&
+      !/fn artifact_read_response\(/.test(bridgeModule) &&
+      !/fn tool_retrieve_result_response\(/.test(bridgeModule) &&
+      !/fn computer_use_request_lease_response\(/.test(bridgeModule) &&
+      !/coding_tool_bridge_error/.test(bridgeModule) &&
+      !/CodingToolStepModuleCommandError/.test(bridgeModule),
+    [
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "crates/services/src/agentic/runtime/kernel/coding_tool_step_module.rs",
+      "scripts/conformance/hypervisor-conformance.mjs",
+    ],
+    "Phase 10/11 remains non-terminal: coding-tool response authorship must stay in the Rust service kernel; the temporary Node bridge may import those owner functions for proof tests, but must not keep local response facades or bridge-local error remapping wrappers",
   );
   assertCheck(
     result,
@@ -4049,8 +4081,12 @@ function runBridge() {
       /artifact_refs/.test(codingToolArtifactCore) &&
       /normalize_artifact_read/.test(codingToolStepModuleCore) &&
       /normalize_tool_retrieve_result/.test(codingToolStepModuleCore) &&
-      /core_artifact_read_response/.test(bridgeModule) &&
-      /core_tool_retrieve_result_response/.test(bridgeModule) &&
+      /artifact_read_response,\s*computer_use_request_lease_response/.test(bridgeModule) &&
+      /tool_retrieve_result_response,\s*CodingToolStepModuleBridgeRequest as StepModuleBridgeRequest/.test(
+        bridgeModule,
+      ) &&
+      !/core_artifact_read_response/.test(bridgeModule) &&
+      !/core_tool_retrieve_result_response/.test(bridgeModule) &&
       !/normalize_artifact_read/.test(codingToolCommandBridge) &&
       !/normalize_tool_retrieve_result/.test(codingToolCommandBridge) &&
       !/fn normalize_prefetched_artifact_result/.test(codingToolCommandBridge) &&
@@ -4370,10 +4406,12 @@ function runBridge() {
   assertCheck(
     result,
     "computer-use-request-lease-binding-output-aliases-retired",
-    /computer_use_request_lease_response/.test(codingToolStepModuleCore) &&
+      /computer_use_request_lease_response/.test(codingToolStepModuleCore) &&
       /json_string_refs\(\s*&lease_request,\s*&\["receipt_refs"\],?\s*\)/.test(codingToolStepModuleCore) &&
       /optional_json_string\(&lease_request,\s*&\["request_ref"\]\)/.test(codingToolStepModuleCore) &&
-      /core_computer_use_request_lease_response/.test(bridgeModule) &&
+      /computer_use_request_lease_response,\s*file_apply_patch_response/.test(bridgeModule) &&
+      !/core_computer_use_request_lease_response/.test(bridgeModule) &&
+      !/fn computer_use_request_lease_response\(/.test(bridgeModule) &&
       !/json_string_refs\(\s*&lease_request,\s*&\["receiptRefs",\s*"receipt_refs"\]/.test(
         codingToolStepModuleCore,
       ) &&
@@ -4385,7 +4423,7 @@ function runBridge() {
       ),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/computer_use.rs",
+      "crates/services/src/agentic/runtime/kernel/coding_tool_step_module.rs",
     ],
     "Phase 10/11 is pending: Rust computer-use request-lease StepModule receipt/evidence binding must consume canonical receipt_refs/request_ref rather than retired receiptRefs/requestRef output aliases",
   );
