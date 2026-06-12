@@ -15232,6 +15232,27 @@ function runBridge() {
       !/from "node:child_process"/.test(governedImprovementRunner) &&
       /spawnSyncImpl\(commandPath,\s*\[\]/.test(daemonCoreCommandRunner) &&
       /governed improvement runner sends proposal admission bridge request/.test(governedImprovementRunnerTest) &&
+      /governed improvement runner does not synthesize Rust-owned heads or receipt refs/.test(
+        governedImprovementRunnerTest,
+      ) &&
+      /expected_heads:\s*Array\.isArray\(result\.expected_heads\)\s*\?\s*result\.expected_heads\s*:\s*record\.expected_heads\s*\?\?\s*null/.test(
+        governedImprovementRunner,
+      ) &&
+      /eval_receipt_refs:\s*Array\.isArray\(result\.eval_receipt_refs\)\s*\?\s*result\.eval_receipt_refs\s*:\s*record\.eval_receipt_refs\s*\?\?\s*null/.test(
+        governedImprovementRunner,
+      ) &&
+      /verifier_receipt_refs:\s*Array\.isArray\(result\.verifier_receipt_refs\)[\s\S]*?:\s*record\.verifier_receipt_refs\s*\?\?\s*null/.test(
+        governedImprovementRunner,
+      ) &&
+      !/expected_heads:\s*Array\.isArray\(result\.expected_heads\)\s*\?\s*result\.expected_heads\s*:\s*record\.expected_heads\s*\?\?\s*\[\]/.test(
+        governedImprovementRunner,
+      ) &&
+      !/eval_receipt_refs:\s*Array\.isArray\(result\.eval_receipt_refs\)\s*\?\s*result\.eval_receipt_refs\s*:\s*record\.eval_receipt_refs\s*\?\?\s*\[\]/.test(
+        governedImprovementRunner,
+      ) &&
+      !/verifier_receipt_refs:\s*Array\.isArray\(result\.verifier_receipt_refs\)[\s\S]*?:\s*record\.verifier_receipt_refs\s*\?\?\s*\[\]/.test(
+        governedImprovementRunner,
+      ) &&
       /assert\.deepEqual\(calls\[0\]\.args,\s*\[\]\)/.test(governedImprovementRunnerTest) &&
       /assert\.equal\(calls\[0\]\.request\.thread_id,\s*"thread:governed-runner"\)/.test(
         governedImprovementRunnerTest,

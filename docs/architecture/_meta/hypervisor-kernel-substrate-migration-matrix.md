@@ -15918,6 +15918,39 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1156
+
+Slice 1156 retires JS-side fallback synthesis in
+`packages/runtime-daemon/src/runtime-governed-improvement-runner.mjs` for
+Rust-owned governed-improvement Agentgres heads and receipt refs. The governed
+improvement runner now preserves missing Rust-authored `expected_heads`,
+`eval_receipt_refs`, and `verifier_receipt_refs` as `null` instead of
+synthesizing empty arrays from JS when Rust omits those fields. Rust
+`governed_admission.rs` remains the governed runtime-improvement proposal
+admission and response-shaping owner behind the temporary daemon-core command
+path.
+
+This is not terminal governed-improvement migration. The JS governed
+improvement runner, shared daemon-core command runner, and Node bridge
+transport remain migration scaffolding until direct Rust daemon-core
+governed-improvement APIs own Agentgres admission, receipt/state-root binding,
+wallet approval, projection, replay, rollback metadata, and stable IDE/CLI/SDK
+protocol surfaces end to end. The retired JS fallback behavior must not be
+recreated as compatibility normalization.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/runtime-governed-improvement-runner.mjs packages/runtime-daemon/src/runtime-governed-improvement-runner.test.mjs` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-governed-improvement-runner.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1148
 
 Slice 1148 removes the remaining JS-side defaulting for the external

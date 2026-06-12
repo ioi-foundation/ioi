@@ -6899,6 +6899,22 @@ applicable, receipt/state-root binding, Agentgres truth, projection, replay,
 and stable IDE/CLI/SDK protocol surfaces, not preservation of JS normalizers as
 compatibility shims.
 
+Slice 1156 retires JS-side Agentgres head and receipt-ref fallback synthesis
+from the governed-improvement runner. Rust `governed_admission.rs` already
+owns governed runtime-improvement proposal admission and response shaping behind
+the temporary daemon-core command path, so
+`runtime-governed-improvement-runner.mjs` now preserves omitted Rust-authored
+`expected_heads`, `eval_receipt_refs`, and `verifier_receipt_refs` as `null`
+instead of inventing empty arrays at the JS edge.
+
+This remains non-terminal because the JS governed-improvement runner, shared
+daemon-core command runner, and Node bridge transport still carry improvement
+proposal admission requests to Rust. The target is direct Rust daemon-core
+governed-improvement protocol/API ownership over Agentgres admission,
+receipt/state-root binding, wallet approval, projection, replay, rollback
+metadata, and stable IDE/CLI/SDK protocol surfaces, not preservation of JS
+normalizers as compatibility shims.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

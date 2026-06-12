@@ -101,6 +101,30 @@ test("governed improvement runner sends proposal admission bridge request", () =
   assert.equal(result.rollback_ref, "rollback://skill/runtime-auditor/current");
 });
 
+test("governed improvement runner does not synthesize Rust-owned heads or receipt refs", () => {
+  const runner = new RustGovernedImprovementRunner({
+    command: "mock-governed-improvement-bridge",
+    spawnSyncImpl() {
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            record: {},
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.admitProposal(governedProposal());
+
+  assert.equal(result.expected_heads, null);
+  assert.equal(result.eval_receipt_refs, null);
+  assert.equal(result.verifier_receipt_refs, null);
+});
+
 test("governed improvement runner env uses daemon-core command boundary", () => {
   const runner = createGovernedImprovementRunnerFromEnv({
     [GOVERNED_IMPROVEMENT_COMMAND_ENV]: "ioi-runtime-daemon-core",

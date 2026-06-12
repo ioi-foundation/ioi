@@ -93,14 +93,14 @@ export function normalizeGovernedImprovementBridgeResult(value = {}) {
     candidate_ref: result.candidate_ref ?? record.candidate_ref ?? null,
     admission_hash: result.admission_hash ?? record.admission_hash ?? null,
     agentgres_operation_ref: result.agentgres_operation_ref ?? record.agentgres_operation_ref ?? null,
-    expected_heads: Array.isArray(result.expected_heads) ? result.expected_heads : record.expected_heads ?? [],
+    expected_heads: Array.isArray(result.expected_heads) ? result.expected_heads : record.expected_heads ?? null,
     state_root_before: result.state_root_before ?? record.state_root_before ?? null,
     state_root_after: result.state_root_after ?? record.state_root_after ?? null,
     resulting_head: result.resulting_head ?? record.resulting_head ?? null,
-    eval_receipt_refs: Array.isArray(result.eval_receipt_refs) ? result.eval_receipt_refs : record.eval_receipt_refs ?? [],
+    eval_receipt_refs: Array.isArray(result.eval_receipt_refs) ? result.eval_receipt_refs : record.eval_receipt_refs ?? null,
     verifier_receipt_refs: Array.isArray(result.verifier_receipt_refs)
       ? result.verifier_receipt_refs
-      : record.verifier_receipt_refs ?? [],
+      : record.verifier_receipt_refs ?? null,
     approval_ref: result.approval_ref ?? record.approval_ref ?? null,
     rollback_ref: result.rollback_ref ?? record.rollback_ref ?? null,
   };
