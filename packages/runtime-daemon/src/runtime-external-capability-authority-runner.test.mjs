@@ -41,6 +41,13 @@ test("external capability authority runner sends Rust authority bridge request",
           result: {
             source: "rust_external_capability_exit_authority_command",
             backend: RUST_EXTERNAL_CAPABILITY_AUTHORITY_BACKEND,
+            schema_version: "ioi.runtime.external_capability_authority.v1",
+            object: "ioi.runtime_external_capability_authority",
+            status: "authorized",
+            exit_authorized: true,
+            direct_truth_write_allowed: false,
+            thread_id: request.thread_id,
+            agent_id: request.agent_id,
             authority: {
               ...request.request,
               wallet_network_grant_refs: request.request.authority_grant_refs,
@@ -56,7 +63,10 @@ test("external capability authority runner sends Rust authority bridge request",
     },
   });
 
-  const result = runner.authorizeExit(externalCapabilityExitRequest());
+  const result = runner.authorizeExit(externalCapabilityExitRequest(), {
+    thread_id: "thread_runner",
+    agent_id: "agent_runner",
+  });
 
   assert.equal(calls.length, 1);
   assert.equal(calls[0].command, "mock-external-capability-authority-bridge");
@@ -64,7 +74,16 @@ test("external capability authority runner sends Rust authority bridge request",
   assert.equal(calls[0].request.schema_version, EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_SCHEMA_VERSION);
   assert.equal(calls[0].request.operation, "authorize_external_capability_exit");
   assert.equal(calls[0].request.backend, RUST_EXTERNAL_CAPABILITY_AUTHORITY_BACKEND);
+  assert.equal(calls[0].request.thread_id, "thread_runner");
+  assert.equal(calls[0].request.agent_id, "agent_runner");
   assert.equal(calls[0].request.request.exit_ref, "exit://aiip/slack-post-message");
+  assert.equal(result.schema_version, "ioi.runtime.external_capability_authority.v1");
+  assert.equal(result.object, "ioi.runtime_external_capability_authority");
+  assert.equal(result.status, "authorized");
+  assert.equal(result.exit_authorized, true);
+  assert.equal(result.direct_truth_write_allowed, false);
+  assert.equal(result.thread_id, "thread_runner");
+  assert.equal(result.agent_id, "agent_runner");
   assert.equal(result.source, "rust_external_capability_exit_authority_command");
   assert.equal(result.backend, RUST_EXTERNAL_CAPABILITY_AUTHORITY_BACKEND);
   assert.deepEqual(result.wallet_network_grant_refs, [

@@ -15697,6 +15697,43 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1147
+
+Slice 1147 moves external capability exit authority product-route response
+envelope authorship from the JS product surface into Rust authority core. Rust
+`ExternalCapabilityExitAuthorityBridgeRequest` now carries optional
+`thread_id` and `agent_id` route context, and
+`authorize_external_capability_exit_response()` emits the canonical
+`ioi.runtime.external_capability_authority.v1` public authority envelope with
+`status`, `exit_authorized`, `direct_truth_write_allowed`, route context,
+authority refs, wallet.network grant refs, authority receipt refs, and the
+authority hash. The JS
+`runtime-external-capability-authority-surface.mjs` remains route glue only:
+it extracts the canonical `request`, rejects retired aliases, resolves the
+thread agent, and forwards context to the Rust-backed runner without minting
+the public external-capability authority response.
+
+This is migration progress only. The Node bridge binary, shared JS daemon-core
+command runner/caller path, and broad stdin/JSON bridge transport remain
+temporary scaffolding until direct Rust daemon-core authority APIs replace
+command transport. The retired JS-side external capability authority
+response-envelope authorship must not be recreated or treated as canonical
+architecture.
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-services authority --lib` | passed |
+| `cargo test -p ioi-node external_capability --bin ioi-step-module-bridge` | passed |
+| `node --check packages/runtime-daemon/src/runtime-external-capability-authority-runner.mjs` | passed |
+| `node --check packages/runtime-daemon/src/runtime-external-capability-authority-surface.mjs` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-external-capability-authority-runner.test.mjs packages/runtime-daemon/src/runtime-external-capability-authority-surface.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1146
 
 Slice 1146 moves governed runtime-improvement route-response envelope

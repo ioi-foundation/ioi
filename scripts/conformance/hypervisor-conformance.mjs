@@ -6354,6 +6354,14 @@ function runBridge() {
       !/fn authorize_external_capability_exit/.test(bridgeModule) &&
       /WalletAuthorityCore/.test(authorityCore) &&
       /rust_external_capability_exit_authority_command/.test(authorityCore) &&
+      /"schema_version":\s*"ioi\.runtime\.external_capability_authority\.v1"/.test(
+        authorityCore,
+      ) &&
+      /"object":\s*"ioi\.runtime_external_capability_authority"/.test(authorityCore) &&
+      /"exit_authorized":\s*true/.test(authorityCore) &&
+      /"direct_truth_write_allowed":\s*false/.test(authorityCore) &&
+      /"thread_id":\s*request\.thread_id/.test(authorityCore) &&
+      /"agent_id":\s*request\.agent_id/.test(authorityCore) &&
       /external_capability_exit_authority_invalid/.test(authorityCore) &&
       /external_capability_authority_rejects_step_module_command_schema/.test(
         bridgeModule,
@@ -7060,6 +7068,17 @@ function runBridge() {
       /authorizeExit/.test(externalCapabilityAuthorityRunner) &&
       /authorize_external_capability_exit/.test(externalCapabilityAuthorityRunner) &&
       /rust_authority/.test(externalCapabilityAuthorityRunner) &&
+      /thread_id:\s*optionalString\(context\.thread_id\)/.test(externalCapabilityAuthorityRunner) &&
+      /agent_id:\s*optionalString\(context\.agent_id\)/.test(externalCapabilityAuthorityRunner) &&
+      /schema_version:\s*result\.schema_version\s*\?\?\s*"ioi\.runtime\.external_capability_authority\.v1"/.test(
+        externalCapabilityAuthorityRunner,
+      ) &&
+      /exit_authorized:\s*result\.exit_authorized\s*\?\?\s*true/.test(
+        externalCapabilityAuthorityRunner,
+      ) &&
+      /direct_truth_write_allowed:\s*result\.direct_truth_write_allowed\s*\?\?\s*false/.test(
+        externalCapabilityAuthorityRunner,
+      ) &&
       /external_capability_authority_bridge_unconfigured/.test(externalCapabilityAuthorityRunner) &&
       /external_capability_authority_command_args_retired/.test(externalCapabilityAuthorityRunner) &&
       /createDaemonCoreCommandInvoker/.test(externalCapabilityAuthorityRunner) &&
@@ -7069,6 +7088,12 @@ function runBridge() {
         externalCapabilityAuthorityRunnerTest,
       ) &&
       /assert\.deepEqual\(calls\[0\]\.args,\s*\[\]\)/.test(externalCapabilityAuthorityRunnerTest) &&
+      /assert\.equal\(calls\[0\]\.request\.thread_id,\s*"thread_runner"\)/.test(
+        externalCapabilityAuthorityRunnerTest,
+      ) &&
+      /assert\.equal\(result\.exit_authorized,\s*true\)/.test(
+        externalCapabilityAuthorityRunnerTest,
+      ) &&
       /external capability authority runner env uses daemon-core command boundary/.test(
         externalCapabilityAuthorityRunnerTest,
       ) &&
@@ -7103,12 +7128,13 @@ function runBridge() {
       !/^\s*authorizeExternalCapabilityExit\(threadId, request = \{\}\) \{/m.test(
         runtimeDaemonIndex,
       ) &&
-      /EXTERNAL_CAPABILITY_AUTHORITY_RESPONSE_SCHEMA_VERSION/.test(
+      !/EXTERNAL_CAPABILITY_AUTHORITY_RESPONSE_SCHEMA_VERSION/.test(
         externalCapabilityAuthoritySurface,
       ) &&
-      /exit_authorized:\s*true/.test(externalCapabilityAuthoritySurface) &&
-      /direct_truth_write_allowed:\s*false/.test(externalCapabilityAuthoritySurface) &&
-      /store\.externalCapabilityAuthorityRunner\.authorizeExit/.test(
+      !/exit_authorized:\s*true/.test(externalCapabilityAuthoritySurface) &&
+      !/direct_truth_write_allowed:\s*false/.test(externalCapabilityAuthoritySurface) &&
+      !/exit_ref:\s*authorization\.exit_ref/.test(externalCapabilityAuthoritySurface) &&
+      /return store\.externalCapabilityAuthorityRunner\.authorizeExit\(authorityRequest,\s*\{\s*thread_id:\s*threadId,\s*agent_id:\s*agent\.id,\s*\}\)/s.test(
         externalCapabilityAuthoritySurface,
       ) &&
       /external-capability-exits/.test(runtimeRouteHandlers) &&
@@ -7116,6 +7142,9 @@ function runBridge() {
         runtimeRouteHandlers,
       ) &&
       /external capability authority surface authorizes nested request through Rust runner/.test(
+        externalCapabilityAuthoritySurfaceTest,
+      ) &&
+      /assert\.deepEqual\(runtimeStore\.calls\.at\(-1\)\.context,\s*\{\s*thread_id:\s*"thread_surface",\s*agent_id:\s*"agent_surface",\s*\}\)/s.test(
         externalCapabilityAuthoritySurfaceTest,
       ) &&
       /external capability authority surface rejects retired aliases before Rust runner/.test(

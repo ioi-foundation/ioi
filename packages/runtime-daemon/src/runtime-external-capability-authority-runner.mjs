@@ -50,11 +50,13 @@ export class RustExternalCapabilityAuthorityRunner {
     });
   }
 
-  authorizeExit(request) {
+  authorizeExit(request, context = {}) {
     const bridgeRequest = {
       schema_version: EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_SCHEMA_VERSION,
       operation: "authorize_external_capability_exit",
       backend: RUST_EXTERNAL_CAPABILITY_AUTHORITY_BACKEND,
+      thread_id: optionalString(context.thread_id),
+      agent_id: optionalString(context.agent_id),
       request,
     };
     return normalizeExternalCapabilityAuthorityBridgeResult(this.invokeBridge(bridgeRequest));
@@ -76,6 +78,13 @@ export function normalizeExternalCapabilityAuthorityBridgeResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const authority = objectRecord(result.authority) ?? {};
   return {
+    schema_version: result.schema_version ?? "ioi.runtime.external_capability_authority.v1",
+    object: result.object ?? "ioi.runtime_external_capability_authority",
+    status: result.status ?? "authorized",
+    exit_authorized: result.exit_authorized ?? true,
+    direct_truth_write_allowed: result.direct_truth_write_allowed ?? false,
+    thread_id: result.thread_id ?? null,
+    agent_id: result.agent_id ?? null,
     source: result.source ?? "rust_external_capability_exit_authority_command",
     backend: result.backend ?? RUST_EXTERNAL_CAPABILITY_AUTHORITY_BACKEND,
     authority,

@@ -70,6 +70,10 @@ pub struct ExternalCapabilityExitAuthorityRecord {
 pub struct ExternalCapabilityExitAuthorityBridgeRequest {
     #[serde(default)]
     pub backend: Option<String>,
+    #[serde(default)]
+    pub thread_id: Option<String>,
+    #[serde(default)]
+    pub agent_id: Option<String>,
     pub request: ExternalCapabilityExitRequest,
 }
 
@@ -121,9 +125,21 @@ pub fn authorize_external_capability_exit_response(
             )
         })?;
     Ok(json!({
+        "schema_version": "ioi.runtime.external_capability_authority.v1",
+        "object": "ioi.runtime_external_capability_authority",
+        "status": "authorized",
+        "exit_authorized": true,
+        "direct_truth_write_allowed": false,
+        "thread_id": request.thread_id,
+        "agent_id": request.agent_id,
         "source": "rust_external_capability_exit_authority_command",
         "backend": request.backend.unwrap_or_else(|| "rust_authority".to_string()),
         "authority": record.clone(),
+        "exit_ref": record.exit_ref.clone(),
+        "capability_ref": record.capability_ref.clone(),
+        "target_ref": record.target_ref.clone(),
+        "policy_hash": record.policy_hash.clone(),
+        "idempotency_key": record.idempotency_key.clone(),
         "wallet_network_grant_refs": record.wallet_network_grant_refs.clone(),
         "authority_receipt_refs": record.authority_receipt_refs.clone(),
         "authority_hash": record.authority_hash.clone(),
@@ -243,16 +259,36 @@ mod tests {
         let response = authorize_external_capability_exit_response(
             ExternalCapabilityExitAuthorityBridgeRequest {
                 backend: Some("rust_authority".to_string()),
+                thread_id: Some("thread_authority".to_string()),
+                agent_id: Some("agent_authority".to_string()),
                 request: request(),
             },
         )
         .expect("authority response");
 
         assert_eq!(
+            response["schema_version"],
+            "ioi.runtime.external_capability_authority.v1"
+        );
+        assert_eq!(
+            response["object"],
+            "ioi.runtime_external_capability_authority"
+        );
+        assert_eq!(response["status"], "authorized");
+        assert_eq!(response["exit_authorized"], true);
+        assert_eq!(response["direct_truth_write_allowed"], false);
+        assert_eq!(response["thread_id"], "thread_authority");
+        assert_eq!(response["agent_id"], "agent_authority");
+        assert_eq!(
             response["source"],
             "rust_external_capability_exit_authority_command"
         );
         assert_eq!(response["backend"], "rust_authority");
+        assert_eq!(response["exit_ref"], "exit://aiip/send-message");
+        assert_eq!(
+            response["capability_ref"],
+            "capability://connector/slack.postMessage"
+        );
         assert_eq!(
             response["wallet_network_grant_refs"][0],
             "wallet.network://grant/external-capability/slack"

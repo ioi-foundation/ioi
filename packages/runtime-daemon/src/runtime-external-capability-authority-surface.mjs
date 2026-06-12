@@ -1,8 +1,5 @@
 import { runtimeError } from "./runtime-http-utils.mjs";
-import { objectRecord, optionalString } from "./runtime-value-helpers.mjs";
-
-export const EXTERNAL_CAPABILITY_AUTHORITY_RESPONSE_SCHEMA_VERSION =
-  "ioi.runtime.external_capability_authority.v1";
+import { objectRecord } from "./runtime-value-helpers.mjs";
 
 const RETIRED_EXTERNAL_CAPABILITY_AUTHORITY_REQUEST_ALIASES = [
   "authorityRequest",
@@ -54,38 +51,10 @@ export function createRuntimeExternalCapabilityAuthoritySurface(deps = {}) {
   function authorizeExternalCapabilityExit(store, threadId, request = {}) {
     const authorityRequest = authorityRequestForRequest(request);
     const agent = store.agentForThread(threadId);
-    const authorization = store.externalCapabilityAuthorityRunner.authorizeExit(authorityRequest);
-    const authority = objectRecord(authorization.authority) ?? {};
-    return {
-      schema_version: EXTERNAL_CAPABILITY_AUTHORITY_RESPONSE_SCHEMA_VERSION,
-      object: "ioi.runtime_external_capability_authority",
-      status: "authorized",
-      exit_authorized: true,
-      direct_truth_write_allowed: false,
+    return store.externalCapabilityAuthorityRunner.authorizeExit(authorityRequest, {
       thread_id: threadId,
       agent_id: agent.id,
-      exit_ref:
-        authorization.exit_ref ?? authority.exit_ref ?? optionalString(authorityRequest.exit_ref),
-      capability_ref:
-        authorization.capability_ref ??
-        authority.capability_ref ??
-        optionalString(authorityRequest.capability_ref),
-      target_ref:
-        authorization.target_ref ?? authority.target_ref ?? optionalString(authorityRequest.target_ref),
-      policy_hash:
-        authorization.policy_hash ?? authority.policy_hash ?? optionalString(authorityRequest.policy_hash),
-      idempotency_key:
-        authorization.idempotency_key ??
-        authority.idempotency_key ??
-        optionalString(authorityRequest.idempotency_key),
-      wallet_network_grant_refs:
-        authorization.wallet_network_grant_refs ?? authority.wallet_network_grant_refs ?? [],
-      authority_receipt_refs:
-        authorization.authority_receipt_refs ?? authority.authority_receipt_refs ?? [],
-      authority_hash: authorization.authority_hash ?? authority.authority_hash ?? null,
-      authorization,
-      authority,
-    };
+    });
   }
 
   return {

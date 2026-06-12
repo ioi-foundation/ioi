@@ -6752,6 +6752,26 @@ shared command runner/caller path and broad bridge transport with direct Rust
 daemon-core protocol APIs once that seam is clear enough, then continue facade
 retirement for the remaining JS product/readback surfaces.
 
+Slice 1147 moves external capability exit authority product-route response
+envelope authorship out of the JS surface and into Rust `authority.rs`. The
+Rust `ExternalCapabilityExitAuthorityBridgeRequest` now accepts thread/agent
+route context and `authorize_external_capability_exit_response()` emits the
+canonical `ioi.runtime.external_capability_authority.v1` route envelope,
+including `status`, `exit_authorized`, `direct_truth_write_allowed`,
+`thread_id`, `agent_id`, authority refs, grant refs, receipt refs, and the
+authority hash. The JS external-capability authority surface now only extracts
+the canonical `request` body, rejects retired aliases, looks up the thread
+agent, and forwards context to the Rust-backed runner; it no longer mints the
+public authority response locally.
+
+This remains non-terminal because the route still reaches Rust through the
+shared JS daemon-core command runner and Node bridge stdin/JSON transport. The
+deleted JS-side external capability authority response-envelope authorship
+must not be recreated or treated as canonical. The next larger cuts should
+replace the shared command runner/caller path and broad bridge transport with
+direct Rust daemon-core authority protocol APIs once that seam is clear enough,
+then continue facade retirement for the remaining JS product/readback surfaces.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

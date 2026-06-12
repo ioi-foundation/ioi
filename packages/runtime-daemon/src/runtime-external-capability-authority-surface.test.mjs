@@ -2,9 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  EXTERNAL_CAPABILITY_AUTHORITY_RESPONSE_SCHEMA_VERSION,
   createRuntimeExternalCapabilityAuthoritySurface,
 } from "./runtime-external-capability-authority-surface.mjs";
+
+const EXTERNAL_CAPABILITY_AUTHORITY_RESPONSE_SCHEMA_VERSION =
+  "ioi.runtime.external_capability_authority.v1";
 
 function authorityRequest() {
   return {
@@ -32,9 +34,16 @@ function store() {
       return { id: "agent_surface" };
     },
     externalCapabilityAuthorityRunner: {
-      authorizeExit(input) {
-        calls.push({ name: "authorizeExit", input });
+      authorizeExit(input, context = {}) {
+        calls.push({ name: "authorizeExit", input, context });
         return {
+          schema_version: EXTERNAL_CAPABILITY_AUTHORITY_RESPONSE_SCHEMA_VERSION,
+          object: "ioi.runtime_external_capability_authority",
+          status: "authorized",
+          exit_authorized: true,
+          direct_truth_write_allowed: false,
+          thread_id: context.thread_id,
+          agent_id: context.agent_id,
           source: "rust_external_capability_exit_authority_command",
           backend: "rust_authority",
           authority: {
@@ -42,6 +51,11 @@ function store() {
             wallet_network_grant_refs: input.authority_grant_refs,
             authority_hash: "sha256:external-capability-authority",
           },
+          exit_ref: input.exit_ref,
+          capability_ref: input.capability_ref,
+          target_ref: input.target_ref,
+          policy_hash: input.policy_hash,
+          idempotency_key: input.idempotency_key,
           wallet_network_grant_refs: input.authority_grant_refs,
           authority_receipt_refs: input.authority_receipt_refs,
           authority_hash: "sha256:external-capability-authority",
@@ -94,6 +108,10 @@ test("external capability authority surface authorizes nested request through Ru
   ]);
   assert.equal(result.authority_hash, "sha256:external-capability-authority");
   assert.deepEqual(runtimeStore.calls.map((call) => call.name), ["agentForThread", "authorizeExit"]);
+  assert.deepEqual(runtimeStore.calls.at(-1).context, {
+    thread_id: "thread_surface",
+    agent_id: "agent_surface",
+  });
 });
 
 test("external capability authority surface rejects retired aliases before Rust runner", () => {
