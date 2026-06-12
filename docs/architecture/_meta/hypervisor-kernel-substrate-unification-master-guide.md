@@ -6711,6 +6711,26 @@ removing JS product-route envelope authorship where Rust already owns the
 admission/receipt context, then replace the shared command runner/caller path
 and broad bridge transport with direct Rust daemon-core protocol APIs.
 
+Slice 1145 moves cTEE Private Workspace product-route admission envelope
+authorship out of the JS surface and into Rust `governed_receipt.rs`. The Rust
+`CteePrivateWorkspaceBridgeRequest` now accepts thread/agent route context and
+`execute_private_workspace_ctee_action_response()` emits the canonical
+`ioi.runtime.ctee_private_workspace_admission.v1` route envelope, including
+`action_executed`, `thread_id`, `agent_id`, invocation/receipt refs, receipt,
+result, receipt binding, accepted-receipt append, Agentgres admission,
+projection record, receipt refs, and evidence refs. The JS cTEE surface now
+only extracts the canonical `action` body, rejects retired request/truth
+fields, looks up the thread agent, and forwards context to the Rust-backed
+runner; it no longer mints the public cTEE admission response locally.
+
+This remains non-terminal because the route still reaches Rust through the
+shared JS daemon-core command runner and Node bridge stdin/JSON transport. The
+deleted JS-side cTEE response-envelope authorship must not be recreated or
+treated as canonical. The next larger cuts should replace the shared command
+runner/caller path and broad bridge transport with direct Rust daemon-core
+protocol APIs once that seam is clear enough, then continue facade retirement
+for the remaining JS product/readback surfaces.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

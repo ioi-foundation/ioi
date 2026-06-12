@@ -56,12 +56,14 @@ export class RustCteePrivateWorkspaceRunner {
     });
   }
 
-  executeAction(request = {}) {
+  executeAction(request = {}, context = {}) {
     assertCanonicalCteePrivateWorkspaceRunnerRequest(request);
     const bridgeRequest = {
       schema_version: CTEE_PRIVATE_WORKSPACE_COMMAND_SCHEMA_VERSION,
       operation: "execute_private_workspace_ctee_action",
       backend: RUST_CTEE_PRIVATE_WORKSPACE_BACKEND,
+      thread_id: optionalString(context.thread_id),
+      agent_id: optionalString(context.agent_id),
       invocation: request.invocation,
       node_trust: request.node_trust,
     };
@@ -101,8 +103,16 @@ export function normalizeCteePrivateWorkspaceBridgeResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? {};
   return {
+    schema_version: result.schema_version ?? null,
+    object: result.object ?? null,
+    status: result.status ?? null,
+    action_executed: result.action_executed ?? null,
     source: result.source ?? "rust_ctee_private_workspace_command",
     backend: result.backend ?? RUST_CTEE_PRIVATE_WORKSPACE_BACKEND,
+    thread_id: result.thread_id ?? null,
+    agent_id: result.agent_id ?? null,
+    invocation_id: result.invocation_id ?? null,
+    receipt_ref: result.receipt_ref ?? null,
     record,
     receipt: objectRecord(result.receipt) ?? objectRecord(record.receipt) ?? null,
     result: objectRecord(result.result) ?? objectRecord(record.result) ?? null,

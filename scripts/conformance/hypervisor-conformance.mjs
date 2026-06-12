@@ -21173,6 +21173,15 @@ function runCtee() {
       /execute_private_workspace_ctee_action_response as execute_private_workspace_ctee_action/.test(bridgeModule) &&
       /PrivateWorkspaceCteeModule/.test(governedReceiptCore) &&
       /rust_ctee_private_workspace_command/.test(governedReceiptCore) &&
+      /"schema_version":\s*"ioi\.runtime\.ctee_private_workspace_admission\.v1"/.test(
+        governedReceiptCore,
+      ) &&
+      /"object":\s*"ioi\.runtime_ctee_private_workspace_admission"/.test(
+        governedReceiptCore,
+      ) &&
+      /"action_executed":\s*true/.test(governedReceiptCore) &&
+      /"thread_id":\s*request\.thread_id/.test(governedReceiptCore) &&
+      /"agent_id":\s*request\.agent_id/.test(governedReceiptCore) &&
       /accepted_receipt_append/.test(governedReceiptCore) &&
       !/accepted_receipt_append/.test(governedAdmissionCommandBridge) &&
       /ctee_private_workspace_rejects_step_module_command_schema/.test(
@@ -21205,6 +21214,8 @@ function runCtee() {
       /this\.cteePrivateWorkspaceRunner/.test(runtimeDaemonIndex) &&
       /executeAction/.test(cteePrivateWorkspaceRunner) &&
       /execute_private_workspace_ctee_action/.test(cteePrivateWorkspaceRunner) &&
+      /thread_id:\s*optionalString\(context\.thread_id\)/.test(cteePrivateWorkspaceRunner) &&
+      /agent_id:\s*optionalString\(context\.agent_id\)/.test(cteePrivateWorkspaceRunner) &&
       /ctee_operator/.test(cteePrivateWorkspaceRunner) &&
       /ctee_private_workspace_bridge_unconfigured/.test(cteePrivateWorkspaceRunner) &&
       /ctee_private_workspace_command_args_retired/.test(cteePrivateWorkspaceRunner) &&
@@ -21213,6 +21224,12 @@ function runCtee() {
       /spawnSyncImpl\(commandPath,\s*\[\]/.test(daemonCoreCommandRunner) &&
       /cTEE private workspace runner sends execution bridge request/.test(cteePrivateWorkspaceRunnerTest) &&
       /assert\.deepEqual\(calls\[0\]\.args,\s*\[\]\)/.test(cteePrivateWorkspaceRunnerTest) &&
+      /assert\.equal\(calls\[0\]\.bridgeRequest\.thread_id,\s*"thread:ctee-runner"\)/.test(
+        cteePrivateWorkspaceRunnerTest,
+      ) &&
+      /assert\.equal\(calls\[0\]\.bridgeRequest\.agent_id,\s*"agent:ctee-runner"\)/.test(
+        cteePrivateWorkspaceRunnerTest,
+      ) &&
       /cTEE private workspace runner env uses daemon-core command boundary/.test(cteePrivateWorkspaceRunnerTest) &&
       /cTEE private workspace runner command args env fails closed/.test(cteePrivateWorkspaceRunnerTest) &&
       /cTEE private workspace runner command args constructor option fails closed/.test(
@@ -21239,11 +21256,17 @@ function runCtee() {
       !/^\s*executeCteePrivateWorkspaceAction\(threadId, request = \{\}\) \{/m.test(
         runtimeDaemonIndex,
       ) &&
-      /CTEE_PRIVATE_WORKSPACE_ADMISSION_RESPONSE_SCHEMA_VERSION/.test(cteePrivateWorkspaceSurface) &&
-      /action_executed:\s*true/.test(cteePrivateWorkspaceSurface) &&
+      !/CTEE_PRIVATE_WORKSPACE_ADMISSION_RESPONSE_SCHEMA_VERSION/.test(cteePrivateWorkspaceSurface) &&
+      !/action_executed:\s*true/.test(cteePrivateWorkspaceSurface) &&
+      !/receipt_ref:\s*receipt\?\.receipt_ref/.test(cteePrivateWorkspaceSurface) &&
+      !/accepted_receipt_append:\s*admission\.accepted_receipt_append/.test(
+        cteePrivateWorkspaceSurface,
+      ) &&
       /RETIRED_CTEE_PRIVATE_WORKSPACE_TRUTH_FIELDS/.test(cteePrivateWorkspaceSurface) &&
       /ctee_private_workspace_agentgres_truth_fields_retired/.test(cteePrivateWorkspaceSurface) &&
-      /store\.cteePrivateWorkspaceRunner\.executeAction/.test(cteePrivateWorkspaceSurface) &&
+      /return store\.cteePrivateWorkspaceRunner\.executeAction\(action,\s*\{\s*thread_id:\s*threadId,\s*agent_id:\s*agent\.id,\s*\}\)/.test(
+        cteePrivateWorkspaceSurface,
+      ) &&
       /ctee-private-workspace-actions/.test(runtimeRouteHandlers) &&
       /store\.cteePrivateWorkspaceSurface\.executeCteePrivateWorkspaceAction\(store,\s*threadId,\s*await readBody\(request\)\)/.test(
         runtimeRouteHandlers,
@@ -21258,6 +21281,9 @@ function runCtee() {
         runtimeRouteHandlersTest,
       ) &&
       /cTEE private workspace surface executes nested action through Rust runner/.test(
+        cteePrivateWorkspaceSurfaceTest,
+      ) &&
+      /assert\.deepEqual\(runtimeStore\.calls\.at\(-1\)\.context,\s*\{\s*thread_id:\s*"thread_surface",\s*agent_id:\s*"agent_surface",\s*\}\)/.test(
         cteePrivateWorkspaceSurfaceTest,
       ) &&
       /cTEE private workspace surface fails closed without action payload/.test(

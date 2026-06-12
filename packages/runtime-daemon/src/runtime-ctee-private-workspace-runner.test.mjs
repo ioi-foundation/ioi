@@ -78,8 +78,16 @@ test("cTEE private workspace runner sends execution bridge request", () => {
         stdout: JSON.stringify({
           ok: true,
           result: {
+            schema_version: "ioi.runtime.ctee_private_workspace_admission.v1",
+            object: "ioi.runtime_ctee_private_workspace_admission",
+            status: "admitted",
+            action_executed: true,
             source: "rust_ctee_private_workspace_command",
             backend: "ctee_operator",
+            thread_id: bridgeRequest.thread_id,
+            agent_id: bridgeRequest.agent_id,
+            invocation_id: bridgeRequest.invocation.invocation_id,
+            receipt_ref: "receipt://ctee/private-workspace/daemon-runner",
             record: {
               receipt: {
                 receipt_ref: "receipt://ctee/private-workspace/daemon-runner",
@@ -128,15 +136,28 @@ test("cTEE private workspace runner sends execution bridge request", () => {
     },
   });
 
-  const result = runner.executeAction(cteeRequest());
+  const result = runner.executeAction(cteeRequest(), {
+    thread_id: "thread:ctee-runner",
+    agent_id: "agent:ctee-runner",
+  });
 
   assert.equal(calls[0].command, "mock-ctee-bridge");
   assert.deepEqual(calls[0].args, []);
   assert.equal(calls[0].bridgeRequest.operation, "execute_private_workspace_ctee_action");
   assert.equal(calls[0].bridgeRequest.backend, "ctee_operator");
+  assert.equal(calls[0].bridgeRequest.thread_id, "thread:ctee-runner");
+  assert.equal(calls[0].bridgeRequest.agent_id, "agent:ctee-runner");
   assert.equal(calls[0].bridgeRequest.invocation.invocation_id, "invocation://ctee/daemon-runner");
   assert.equal(calls[0].bridgeRequest.node_trust.trusted_for_plaintext, false);
   assert.equal(Object.hasOwn(calls[0].bridgeRequest, "expected_heads"), false);
+  assert.equal(result.schema_version, "ioi.runtime.ctee_private_workspace_admission.v1");
+  assert.equal(result.object, "ioi.runtime_ctee_private_workspace_admission");
+  assert.equal(result.status, "admitted");
+  assert.equal(result.action_executed, true);
+  assert.equal(result.thread_id, "thread:ctee-runner");
+  assert.equal(result.agent_id, "agent:ctee-runner");
+  assert.equal(result.invocation_id, "invocation://ctee/daemon-runner");
+  assert.equal(result.receipt_ref, "receipt://ctee/private-workspace/daemon-runner");
   assert.equal(result.source, "rust_ctee_private_workspace_command");
   assert.equal(result.receipt.custody_proof_ref, "artifact://custody-proof");
   assert.equal(result.receipt_binding.binding_hash, "sha256:ctee-binding");

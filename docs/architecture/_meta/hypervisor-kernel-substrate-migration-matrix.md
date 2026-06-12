@@ -15697,6 +15697,41 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1145
+
+Slice 1145 moves cTEE Private Workspace route-response envelope authorship
+from the JS product surface into Rust governed receipt. Rust
+`CteePrivateWorkspaceBridgeRequest` now carries optional `thread_id` and
+`agent_id` route context, and
+`execute_private_workspace_ctee_action_response()` emits the canonical
+`ioi.runtime.ctee_private_workspace_admission.v1` public admission envelope
+with `action_executed`, `thread_id`, `agent_id`, invocation/receipt refs,
+receipt, result, receipt binding, accepted-receipt append, Agentgres
+admission, projection record, receipt refs, and evidence refs. The JS
+`runtime-ctee-private-workspace-surface.mjs` remains route glue only: it
+extracts the canonical `action`, rejects retired request/truth fields, resolves
+the thread agent, and forwards context to the Rust-backed runner without
+minting the public cTEE admission response.
+
+This is migration progress only. The Node bridge binary, shared JS daemon-core
+command runner/caller path, and broad stdin/JSON bridge transport remain
+temporary scaffolding until direct Rust daemon-core APIs replace command
+transport. The retired JS-side cTEE admission response-envelope authorship must
+not be recreated or treated as canonical architecture.
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-services governed_receipt --lib` | passed |
+| `cargo test -p ioi-node ctee --bin ioi-step-module-bridge` | passed |
+| `node --check packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.mjs packages/runtime-daemon/src/runtime-ctee-private-workspace-surface.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.test.mjs packages/runtime-daemon/src/runtime-ctee-private-workspace-surface.test.mjs` | passed |
+| `npm run hypervisor-conformance:ctee` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1144
 
 Slice 1144 moves worker/service package route-response envelope authorship

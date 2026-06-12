@@ -35,6 +35,10 @@ impl GovernedReceiptError {
 pub struct CteePrivateWorkspaceBridgeRequest {
     #[serde(default)]
     pub backend: Option<String>,
+    #[serde(default)]
+    pub thread_id: Option<String>,
+    #[serde(default)]
+    pub agent_id: Option<String>,
     pub invocation: StepModuleInvocation,
     pub node_trust: CteeNodeTrust,
     #[serde(default)]
@@ -94,8 +98,16 @@ pub fn execute_private_workspace_ctee_action_response(
     let receipt_refs = record.result.receipt_refs.clone();
     let evidence_refs = record.projection.evidence_refs.clone();
     Ok(json!({
+        "schema_version": "ioi.runtime.ctee_private_workspace_admission.v1",
+        "object": "ioi.runtime_ctee_private_workspace_admission",
+        "status": "admitted",
+        "action_executed": true,
         "source": "rust_ctee_private_workspace_command",
         "backend": request.backend.unwrap_or_else(|| "ctee_operator".to_string()),
+        "thread_id": request.thread_id,
+        "agent_id": request.agent_id,
+        "invocation_id": record.result.invocation_id.clone(),
+        "receipt_ref": record.receipt.receipt_ref.clone(),
         "record": record.clone(),
         "receipt": record.receipt.clone(),
         "result": record.result.clone(),
@@ -333,6 +345,8 @@ mod tests {
         let response =
             execute_private_workspace_ctee_action_response(CteePrivateWorkspaceBridgeRequest {
                 backend: Some("ctee_operator".to_string()),
+                thread_id: Some("thread:ctee".to_string()),
+                agent_id: Some("agent:ctee".to_string()),
                 invocation: ctee_invocation(),
                 node_trust: CteeNodeTrust {
                     runtime_node_ref: "node://private-workspace".to_string(),
@@ -344,6 +358,23 @@ mod tests {
             .expect("ctee response");
 
         assert_eq!(response["source"], "rust_ctee_private_workspace_command");
+        assert_eq!(
+            response["schema_version"],
+            "ioi.runtime.ctee_private_workspace_admission.v1"
+        );
+        assert_eq!(
+            response["object"],
+            "ioi.runtime_ctee_private_workspace_admission"
+        );
+        assert_eq!(response["status"], "admitted");
+        assert_eq!(response["action_executed"], true);
+        assert_eq!(response["thread_id"], "thread:ctee");
+        assert_eq!(response["agent_id"], "agent:ctee");
+        assert_eq!(
+            response["invocation_id"],
+            "invocation://ctee.governed-receipt.test"
+        );
+        assert_eq!(response["receipt_ref"], response["receipt"]["receipt_ref"]);
         assert_eq!(
             response["accepted_receipt_append"]["receipt_ref"],
             response["receipt"]["receipt_ref"]

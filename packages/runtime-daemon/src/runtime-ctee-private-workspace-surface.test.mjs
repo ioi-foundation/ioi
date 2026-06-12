@@ -2,9 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  CTEE_PRIVATE_WORKSPACE_ADMISSION_RESPONSE_SCHEMA_VERSION,
   createRuntimeCteePrivateWorkspaceSurface,
 } from "./runtime-ctee-private-workspace-surface.mjs";
+
+const CTEE_PRIVATE_WORKSPACE_ADMISSION_RESPONSE_SCHEMA_VERSION =
+  "ioi.runtime.ctee_private_workspace_admission.v1";
 
 function cteeAction() {
   return {
@@ -46,11 +48,19 @@ function store() {
       return { id: "agent_surface" };
     },
     cteePrivateWorkspaceRunner: {
-      executeAction(input) {
-        calls.push({ name: "executeAction", input });
+      executeAction(input, context) {
+        calls.push({ name: "executeAction", input, context });
         return {
+          schema_version: CTEE_PRIVATE_WORKSPACE_ADMISSION_RESPONSE_SCHEMA_VERSION,
+          object: "ioi.runtime_ctee_private_workspace_admission",
+          status: "admitted",
+          action_executed: true,
           source: "rust_ctee_private_workspace_command",
           backend: "ctee_operator",
+          thread_id: context.thread_id,
+          agent_id: context.agent_id,
+          invocation_id: "invocation://ctee/surface",
+          receipt_ref: "receipt://ctee/private-workspace/surface",
           record: {
             receipt: {
               receipt_ref: "receipt://ctee/private-workspace/surface",
@@ -143,6 +153,10 @@ test("cTEE private workspace surface executes nested action through Rust runner"
   assert.deepEqual(result.receipt_refs, ["receipt://ctee/private-workspace/surface"]);
   assert.deepEqual(result.evidence_refs, ["receipt://ctee/private-workspace/surface"]);
   assert.deepEqual(runtimeStore.calls.map((call) => call.name), ["agentForThread", "executeAction"]);
+  assert.deepEqual(runtimeStore.calls.at(-1).context, {
+    thread_id: "thread_surface",
+    agent_id: "agent_surface",
+  });
 });
 
 test("cTEE private workspace surface rejects retired request aliases before agent lookup or Rust runner", () => {
@@ -194,6 +208,12 @@ test("cTEE private workspace surface ignores retired nested invocation identity 
   runtimeStore.cteePrivateWorkspaceRunner.executeAction = (input) => {
     runtimeStore.calls.push({ name: "executeAction", input });
     return {
+      schema_version: CTEE_PRIVATE_WORKSPACE_ADMISSION_RESPONSE_SCHEMA_VERSION,
+      object: "ioi.runtime_ctee_private_workspace_admission",
+      status: "admitted",
+      action_executed: true,
+      invocation_id: undefined,
+      receipt_ref: null,
       record: {
         result: {
           status: "success",
