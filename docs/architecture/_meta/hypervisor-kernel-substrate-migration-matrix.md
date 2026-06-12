@@ -15760,6 +15760,38 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1151
+
+Slice 1151 retires the remaining JS-side state-update envelope fallback
+authorship in `packages/runtime-daemon/src/runtime-context-policy-runner.mjs`.
+Coding-tool budget recovery, diagnostics operator override, operator
+interrupt/steer, run cancel, thread control, MCP control, thread memory,
+runtime bridge thread start/turn submit, subagent record, agent create/status,
+and run create state-update normalizers now pass missing Rust-owned `object`
+and `status` fields through as `null` instead of synthesizing
+`status: "planned"` compatibility truth. Rust policy owners in
+`policy/coding_tool_budget_recovery.rs`, `policy/operator_control.rs`,
+`policy/thread_lifecycle.rs`, and `policy/mcp_memory.rs` remain the
+state-update record authors behind the temporary daemon-core command path.
+
+This is not terminal state-update migration. The shared JS context-policy
+runner and Node bridge transport remain migration scaffolding until direct Rust
+daemon-core state-update/admission/projection APIs own Agentgres
+expected-head/state-root persistence, receipts/events, replay, and stable
+IDE/CLI/SDK protocol surfaces end to end.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/runtime-context-policy-runner.mjs packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1148
 
 Slice 1148 removes the remaining JS-side defaulting for the external

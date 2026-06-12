@@ -6821,6 +6821,23 @@ expected-head/state-root persistence, policy receipts/events, replay,
 projection, and stable IDE/CLI/SDK wiring. The retired JS fallback context
 lifecycle behavior must not be recreated as a compatibility shim.
 
+Slice 1151 retires the remaining JS-side state-update envelope fallbacks from
+the shared context-policy runner. Rust policy cores already author typed
+state-update records for coding-tool budget recovery, diagnostics operator
+override, operator interrupt/steer, run cancel, thread control, MCP control,
+thread memory, runtime bridge thread start/turn submit, subagent record,
+agent create/status, and run create paths. The JS
+`runtime-context-policy-runner.mjs` now passes missing Rust-owned `object` and
+`status` fields through as `null` for those state-update normalizers instead
+of synthesizing `status: "planned"` as compatibility truth.
+
+This remains non-terminal because the JS context-policy runner and Node bridge
+transport still carry the state-update requests to Rust. The target is direct
+Rust daemon-core state-update/admission/projection APIs backed by Agentgres
+expected-head/state-root persistence, receipts/events, replay, and stable
+IDE/CLI/SDK protocol surfaces, not preservation of a JS normalizer as a
+canonical state-update envelope author.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

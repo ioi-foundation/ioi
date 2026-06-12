@@ -46,10 +46,14 @@ import {
   WORKFLOW_EDIT_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
   createContextPolicyRunnerFromEnv,
   normalizeAgentCreateStateUpdateBridgeResult,
+  normalizeAgentStatusStateUpdateBridgeResult,
+  normalizeCodingToolBudgetRecoveryStateUpdateBridgeResult,
   normalizeCompactionPolicyBridgeResult,
   normalizeContextBudgetPolicyBridgeResult,
   normalizeContextCompactionPlanBridgeResult,
   normalizeContextCompactionStateUpdateBridgeResult,
+  normalizeDiagnosticsOperatorOverrideStateUpdateBridgeResult,
+  normalizeMcpControlAgentStateUpdateBridgeResult,
   normalizeMcpManagerCatalogProjectionBridgeResult,
   normalizeMcpManagerCatalogSummaryProjectionBridgeResult,
   normalizeMcpManagerStatusProjectionBridgeResult,
@@ -57,8 +61,14 @@ import {
   normalizeMemoryManagerStatusProjectionBridgeResult,
   normalizeMemoryManagerValidationProjectionBridgeResult,
   normalizeOperatorInterruptStateUpdateBridgeResult,
+  normalizeOperatorSteerStateUpdateBridgeResult,
+  normalizeRunCancelStateUpdateBridgeResult,
+  normalizeRunCreateStateUpdateBridgeResult,
+  normalizeRuntimeBridgeThreadStartAgentStateUpdateBridgeResult,
+  normalizeRuntimeBridgeTurnRunStateUpdateBridgeResult,
   normalizeSubagentRecordStateUpdateBridgeResult,
   normalizeThreadControlAgentStateUpdateBridgeResult,
+  normalizeThreadMemoryAgentStateUpdateBridgeResult,
 } from "./runtime-context-policy-runner.mjs";
 
 function assertNoRetiredOperationKindDetailAliases(details) {
@@ -477,6 +487,116 @@ test("context lifecycle runners do not synthesize Rust-owned public fields", () 
   assert.equal(update.status, null);
   assert.equal(update.target_kind, null);
   assert.equal(update.operation_kind, "thread.compact");
+});
+
+test("runtime state-update runners do not synthesize Rust-owned envelopes", () => {
+  const sparseCases = [
+    [
+      normalizeCodingToolBudgetRecoveryStateUpdateBridgeResult,
+      {
+        source: "rust_coding_tool_budget_recovery_state_update_command",
+        operation_kind: "workflow.run.retry_completed",
+      },
+    ],
+    [
+      normalizeDiagnosticsOperatorOverrideStateUpdateBridgeResult,
+      {
+        source: "rust_diagnostics_operator_override_state_update_command",
+        operation_kind: "diagnostics.operator_override.event",
+      },
+    ],
+    [
+      normalizeOperatorInterruptStateUpdateBridgeResult,
+      {
+        source: "rust_operator_interrupt_state_update_command",
+        operation_kind: "turn.interrupt",
+      },
+    ],
+    [
+      normalizeOperatorSteerStateUpdateBridgeResult,
+      {
+        source: "rust_operator_steer_state_update_command",
+        operation_kind: "turn.steer",
+      },
+    ],
+    [
+      normalizeRunCancelStateUpdateBridgeResult,
+      {
+        source: "rust_run_cancel_state_update_command",
+        operation_kind: "run.cancel",
+      },
+    ],
+    [
+      normalizeThreadControlAgentStateUpdateBridgeResult,
+      {
+        source: "rust_thread_control_agent_state_update_command",
+        operation_kind: "thread.pause",
+      },
+    ],
+    [
+      normalizeMcpControlAgentStateUpdateBridgeResult,
+      {
+        source: "rust_mcp_control_agent_state_update_command",
+        operation_kind: "thread.mcp_import",
+      },
+    ],
+    [
+      normalizeThreadMemoryAgentStateUpdateBridgeResult,
+      {
+        source: "rust_thread_memory_agent_state_update_command",
+        operation_kind: "thread.memory_append",
+      },
+    ],
+    [
+      normalizeRuntimeBridgeThreadStartAgentStateUpdateBridgeResult,
+      {
+        source: "rust_runtime_bridge_thread_start_agent_state_update_command",
+        operation_kind: "thread.runtime_bridge.start",
+      },
+    ],
+    [
+      normalizeRuntimeBridgeTurnRunStateUpdateBridgeResult,
+      {
+        source: "rust_runtime_bridge_turn_run_state_update_command",
+        operation_kind: "turn.runtime_bridge.submit",
+      },
+    ],
+    [
+      normalizeSubagentRecordStateUpdateBridgeResult,
+      {
+        source: "rust_subagent_record_state_update_command",
+        operation_kind: "subagent.spawn",
+      },
+    ],
+    [
+      normalizeAgentCreateStateUpdateBridgeResult,
+      {
+        source: "rust_agent_create_state_update_command",
+        operation_kind: "agent.create",
+      },
+    ],
+    [
+      normalizeRunCreateStateUpdateBridgeResult,
+      {
+        source: "rust_run_create_state_update_command",
+        operation_kind: "run.create",
+      },
+    ],
+    [
+      normalizeAgentStatusStateUpdateBridgeResult,
+      {
+        source: "rust_agent_status_state_update_command",
+        operation_kind: "agent.status",
+      },
+    ],
+  ];
+
+  for (const [normalize, input] of sparseCases) {
+    const result = normalize(input);
+    assert.equal(result.object, null, `${input.source} object`);
+    assert.equal(result.status, null, `${input.source} status`);
+    assert.equal(result.operation_kind, input.operation_kind);
+  }
 });
 
 test("coding tool budget recovery state update runner sends Rust state update bridge request", () => {

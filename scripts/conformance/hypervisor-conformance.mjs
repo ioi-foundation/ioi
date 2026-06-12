@@ -9741,6 +9741,10 @@ function runBridge() {
       /context lifecycle runners do not synthesize Rust-owned public fields/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
+      /runtime state-update runners do not synthesize Rust-owned envelopes/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      !/\?\?\s*"planned"/.test(runtimeContextPolicyRunner) &&
       !/context_budget\.evaluated/.test(runtimeContextPolicyRunner) &&
       !/compaction_policy\.evaluated/.test(runtimeContextPolicyRunner) &&
       !/"OperatorControl\.Compact"/.test(runtimeContextPolicyRunner) &&
