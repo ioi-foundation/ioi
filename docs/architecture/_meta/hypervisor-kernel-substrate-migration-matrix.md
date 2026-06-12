@@ -16177,6 +16177,36 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1165
+
+Slice 1165 closes the diagnostics feedback surface consumer left behind after
+the repair-policy output alias retirement. `runtime-diagnostics-feedback-surface.mjs`
+now builds post-edit diagnostics repair contexts from canonical
+`repairPolicyConfig.restore_policy`, `restore_conflict_policy`,
+`diagnostics_repair_default`, and `operator_override_requires_approval` only.
+The focused surface test stubs the same canonical repair policy config and
+asserts those snake_case fields reach `diagnostics_repair_context`, while
+retired camelCase repair-context aliases remain absent.
+
+This is not terminal diagnostics repair migration. The feedback surface remains
+temporary JS protocol scaffolding until Rust daemon-core diagnostics repair
+admission/projection, receipt/policy binding, Agentgres expected-head/state-root
+binding, replay, and stable IDE/CLI/SDK APIs own the surface end to end. The
+retired repair-policy config aliases must not be recreated as feedback-surface
+compatibility.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/runtime-diagnostics-feedback-surface.mjs` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-diagnostics-feedback-surface.test.mjs packages/runtime-daemon/src/diagnostics-feedback.test.mjs packages/runtime-daemon/src/diagnostics-repair-policy.test.mjs` | passed |
+| `npm run hypervisor-conformance:compositor` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1158
 
 Slice 1158 retires JS-side fallback synthesis in

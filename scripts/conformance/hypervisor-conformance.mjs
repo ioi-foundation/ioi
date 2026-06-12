@@ -28899,14 +28899,17 @@ function runCompositor() {
       /optionalString\(patchResult\?\.workspace_snapshot_id\)/.test(runtimeDiagnosticsFeedbackSurface) &&
       /optionalString\(workspaceSnapshot\?\.snapshot_id\)/.test(runtimeDiagnosticsFeedbackSurface) &&
       /\.\.\.normalizeArray\(patchResult\?\.rollback_refs\)/.test(runtimeDiagnosticsFeedbackSurface) &&
-      /restore_policy:\s*repairPolicyConfig\.restorePolicy/.test(runtimeDiagnosticsFeedbackSurface) &&
-      /restore_conflict_policy:\s*repairPolicyConfig\.restoreConflictPolicy/.test(
+      /restore_policy:\s*repairPolicyConfig\.restore_policy/.test(runtimeDiagnosticsFeedbackSurface) &&
+      /restore_conflict_policy:\s*repairPolicyConfig\.restore_conflict_policy/.test(
         runtimeDiagnosticsFeedbackSurface,
       ) &&
-      /diagnostics_repair_default:\s*repairPolicyConfig\.diagnosticsRepairDefault/.test(
+      /diagnostics_repair_default:\s*repairPolicyConfig\.diagnostics_repair_default/.test(
         runtimeDiagnosticsFeedbackSurface,
       ) &&
-      /operator_override_requires_approval:\s*repairPolicyConfig\.operatorOverrideRequiresApproval/.test(
+      /operator_override_requires_approval:\s*repairPolicyConfig\.operator_override_requires_approval/.test(
+        runtimeDiagnosticsFeedbackSurface,
+      ) &&
+      !/\brepairPolicyConfig\.(?:restorePolicy|restoreConflictPolicy|diagnosticsRepairDefault|operatorOverrideRequiresApproval)\b/.test(
         runtimeDiagnosticsFeedbackSurface,
       ) &&
       /changed_files:\s*normalizeArray\(patchResult\?\.changedFiles\)/.test(
@@ -28934,6 +28937,13 @@ function runCompositor() {
       ) &&
       /source_workflow_node_id,\s*null/.test(runtimeDiagnosticsFeedbackSurfaceTest) &&
       /Object\.hasOwn\(request\.diagnostics_repair_context,\s*field\),\s*false/.test(
+        runtimeDiagnosticsFeedbackSurfaceTest,
+      ) &&
+      /restore_policy:\s*"snapshot_restore"/.test(runtimeDiagnosticsFeedbackSurfaceTest) &&
+      /restore_conflict_policy:\s*"clean_preview_only"/.test(runtimeDiagnosticsFeedbackSurfaceTest) &&
+      /diagnostics_repair_default:\s*"repair_retry"/.test(runtimeDiagnosticsFeedbackSurfaceTest) &&
+      /operator_override_requires_approval:\s*true/.test(runtimeDiagnosticsFeedbackSurfaceTest) &&
+      /request\.diagnostics_repair_context\.restore_policy,\s*"snapshot_restore"/.test(
         runtimeDiagnosticsFeedbackSurfaceTest,
       ) &&
       /Object\.hasOwn\(request\.diagnostics_repair_context\.changed_files\[0\],\s*"beforeHash"\),\s*false/.test(

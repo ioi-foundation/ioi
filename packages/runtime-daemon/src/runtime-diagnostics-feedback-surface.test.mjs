@@ -15,10 +15,10 @@ function createSurface() {
     },
     diagnosticsRepairPolicyConfig() {
       return {
-        restorePolicy: "snapshot_restore",
-        restoreConflictPolicy: "clean_preview_only",
-        diagnosticsRepairDefault: "repair_retry",
-        operatorOverrideRequiresApproval: true,
+        restore_policy: "snapshot_restore",
+        restore_conflict_policy: "clean_preview_only",
+        diagnostics_repair_default: "repair_retry",
+        operator_override_requires_approval: true,
       };
     },
     normalizeDiagnosticsMode(value) {
@@ -124,6 +124,10 @@ test("diagnostics feedback surface invokes lsp diagnostics with repair context",
   assert.deepEqual(request.rollback_refs, ["snapshot_alpha", "rollback_alpha"]);
   assert.equal(request.diagnostics_repair_context.workspace_snapshot_id, "snapshot_alpha");
   assert.equal(request.diagnostics_repair_context.source_workflow_node_id, "patch_node");
+  assert.equal(request.diagnostics_repair_context.restore_policy, "snapshot_restore");
+  assert.equal(request.diagnostics_repair_context.restore_conflict_policy, "clean_preview_only");
+  assert.equal(request.diagnostics_repair_context.diagnostics_repair_default, "repair_retry");
+  assert.equal(request.diagnostics_repair_context.operator_override_requires_approval, true);
   assert.equal(request.diagnostics_repair_context.changed_files[0].before_hash, "before_hash");
   assert.equal(request.diagnostics_repair_context.changed_files[0].after_hash, "after_hash");
   for (const field of [

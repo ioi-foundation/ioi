@@ -7050,6 +7050,21 @@ Agentgres expected-head/state-root binding, receipt/policy binding, replay, and
 stable IDE/CLI/SDK protocol APIs. The snake_case-only shape is a migration
 guard so temporary JS scaffolding cannot be mistaken for a compatibility API.
 
+Slice 1165 closes the remaining diagnostics feedback surface consumer of the
+retired repair-policy config aliases. `runtime-diagnostics-feedback-surface.mjs`
+now constructs post-edit diagnostics repair contexts from canonical
+`repairPolicyConfig.restore_policy`, `restore_conflict_policy`,
+`diagnostics_repair_default`, and `operator_override_requires_approval` only.
+The focused surface test stubs the same canonical shape and asserts the emitted
+repair context carries those snake_case policy fields while retired camelCase
+context aliases remain absent.
+
+This remains non-terminal because the post-edit diagnostics feedback surface is
+still JS protocol scaffolding over the temporary diagnostics repair policy
+helper. The target is direct Rust daemon-core diagnostics repair admission,
+repair-policy projection, receipt/policy binding, Agentgres replay, and stable
+IDE/CLI/SDK APIs without JS repair-context assembly as accepted truth.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The
