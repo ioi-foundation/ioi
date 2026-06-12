@@ -7601,6 +7601,25 @@ reviewable hot-path surface: require the daemon-level direct invoker, reject
 command/env compatibility selection, update conformance, and then delete the
 shared JS command invoker once no surface still depends on it.
 
+Slice 1197 retires the temporary binary-spawn fallback for the daemon external
+capability authority runner. `runtime-external-capability-authority-runner.mjs`
+no longer imports the shared JS daemon-core command invoker, no longer exposes
+or reads a live `EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_ENV`, and no longer
+accepts constructor command selection or spawn hooks. External capability exit
+authorization now requires the daemon-level `daemonCoreInvoker` direct
+Rust-core seam and fails closed when it is absent. `IOI_RUNTIME_DAEMON_CORE_COMMAND`
+and retired `IOI_EXTERNAL_CAPABILITY_AUTHORITY_COMMAND` values are treated only
+as forbidden command selection input for this surface, not as fallback
+transport.
+
+This is the first wallet.network authority surface with binary-spawn fallback
+retired at the daemon runner. It is still not terminal daemon-wide Rust API
+ownership: the JS product surface remains a request extractor and other
+daemon-core command runners still carry temporary command transport. Resume by
+cutting the next authority/admission runner to the same direct-invoker-only
+shape, and keep conformance proving that command-env compatibility cannot
+authorize external effects.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

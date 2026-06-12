@@ -15979,6 +15979,44 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1197
+
+Slice 1197 retires external capability authority binary-spawn fallback from
+the daemon runner:
+
+- `packages/runtime-daemon/src/runtime-external-capability-authority-runner.mjs`
+- `packages/runtime-daemon/src/runtime-external-capability-authority-runner.test.mjs`
+- `scripts/conformance/hypervisor-conformance.mjs`
+
+The external capability authority runner no longer imports the shared JS
+daemon-core command invoker, no longer exposes a command-env transport
+constant, and no longer accepts constructor command selection or spawn hooks.
+The surface now requires the daemon-level `daemonCoreInvoker` direct Rust-core
+seam for `authorize_external_capability_exit`, rejects
+`IOI_RUNTIME_DAEMON_CORE_COMMAND` and retired
+`IOI_EXTERNAL_CAPABILITY_AUTHORITY_COMMAND` values as forbidden command
+selection, and fails closed when no direct invoker is configured.
+
+This is not terminal daemon-wide Rust ownership: the JS product surface still
+extracts the request and forwards it to the runner, and other daemon-core
+runners may still use the temporary shared command invoker until their direct
+Rust API boundaries are clear. It does make the external effect authority path
+a larger pure-Rust-direction cut: command transport can no longer authorize an
+external capability exit as a compatibility fallback, and future work must
+either provide a real direct Rust daemon-core wallet.network authority invoker
+or fail closed.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/runtime-external-capability-authority-runner.mjs packages/runtime-daemon/src/runtime-external-capability-authority-runner.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-external-capability-authority-runner.test.mjs` | passed; 10 tests |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1196
 
 Slice 1196 retires L1 settlement binary-spawn fallback from the daemon runner:

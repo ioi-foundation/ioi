@@ -1,15 +1,15 @@
-import { createDaemonCoreCommandInvoker } from "./runtime-daemon-core-command-runner.mjs";
-
-export const EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND";
 export const EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_SCHEMA_VERSION = "ioi.runtime.daemon_core.command.v1";
 export const RUST_EXTERNAL_CAPABILITY_AUTHORITY_BACKEND = "rust_authority";
 
 export function createExternalCapabilityAuthorityRunnerFromEnv(env = process.env, options = {}) {
   assertNoExternalCapabilityAuthorityCommandArgs(options.args ?? env.IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS);
+  assertNoExternalCapabilityAuthorityCommandSelection(
+    options.command ??
+      env.IOI_RUNTIME_DAEMON_CORE_COMMAND ??
+      env.IOI_EXTERNAL_CAPABILITY_AUTHORITY_COMMAND,
+  );
   return new RustExternalCapabilityAuthorityRunner({
-    command: options.command ?? env[EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_ENV] ?? null,
     daemonCoreInvoker: options.daemonCoreInvoker,
-    spawnSyncImpl: options.spawnSyncImpl,
   });
 }
 
@@ -24,28 +24,21 @@ export function assertNoExternalCapabilityAuthorityCommandArgs(value) {
   );
 }
 
+export function assertNoExternalCapabilityAuthorityCommandSelection(value) {
+  if (typeof value === "string" && value.trim().length === 0) return;
+  if (value == null) return;
+  throw new ExternalCapabilityAuthorityRunnerError(
+    "External capability authority binary command selection is retired; use daemonCoreInvoker for direct Rust daemon-core wallet.network authority.",
+    "external_capability_authority_command_selection_retired",
+    { retired_command: value },
+  );
+}
+
 export class RustExternalCapabilityAuthorityRunner {
   constructor(options = {}) {
     assertNoExternalCapabilityAuthorityCommandArgs(options.args);
-    this.command = optionalString(options.command);
-    this.invokeBridge = createDaemonCoreCommandInvoker({
-      command: this.command,
-      daemonCoreInvoker: options.daemonCoreInvoker,
-      spawnSyncImpl: options.spawnSyncImpl,
-      ErrorClass: ExternalCapabilityAuthorityRunnerError,
-      env: EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_ENV,
-      unconfiguredMessage:
-        "External capability exits require IOI_RUNTIME_DAEMON_CORE_COMMAND for Rust daemon-core wallet.network authority.",
-      unconfiguredCode: "external_capability_authority_bridge_unconfigured",
-      spawnFailedMessage: "Failed to spawn Rust external capability authority bridge command.",
-      spawnFailedCode: "external_capability_authority_bridge_spawn_failed",
-      commandFailedMessage: "Rust external capability authority bridge command failed.",
-      commandFailedCode: "external_capability_authority_bridge_failed",
-      invalidJsonMessage: "Rust external capability authority bridge command returned invalid JSON.",
-      invalidJsonCode: "external_capability_authority_bridge_invalid_json",
-      rejectedMessage: "Rust authority core rejected the external capability exit.",
-      rejectedCode: "external_capability_authority_bridge_rejected",
-    });
+    assertNoExternalCapabilityAuthorityCommandSelection(options.command);
+    this.daemonCoreInvoker = optionalFunction(options.daemonCoreInvoker);
   }
 
   authorizeExit(request, context = {}) {
@@ -57,9 +50,28 @@ export class RustExternalCapabilityAuthorityRunner {
       agent_id: optionalString(context.agent_id),
       request,
     };
-    return normalizeExternalCapabilityAuthorityBridgeResult(this.invokeBridge(bridgeRequest));
+    return normalizeExternalCapabilityAuthorityBridgeResult(this.invokeDaemonCore(bridgeRequest));
   }
 
+  invokeDaemonCore(request) {
+    if (!this.daemonCoreInvoker) {
+      throw new ExternalCapabilityAuthorityRunnerError(
+        "External capability exits require daemonCoreInvoker for direct Rust daemon-core wallet.network authority.",
+        "external_capability_authority_direct_invoker_unconfigured",
+        { boundary: "daemonCoreInvoker" },
+      );
+    }
+    const response = this.daemonCoreInvoker(request);
+    if (response?.ok === false) {
+      const error = objectRecord(response.error) ?? {};
+      throw new ExternalCapabilityAuthorityRunnerError(
+        error.message ?? "Rust authority core rejected the external capability exit.",
+        error.code ?? "external_capability_authority_direct_invoker_rejected",
+        { error },
+      );
+    }
+    return response?.result ?? response;
+  }
 }
 
 export class ExternalCapabilityAuthorityRunnerError extends Error {
@@ -118,4 +130,8 @@ function optionalString(value) {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   return trimmed ? trimmed : null;
+}
+
+function optionalFunction(value) {
+  return typeof value === "function" ? value : null;
 }

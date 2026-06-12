@@ -7612,10 +7612,11 @@ function runBridge() {
   assertCheck(
     result,
     "external-capability-exit-authority-daemon-runner",
-    /EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_ENV/.test(externalCapabilityAuthorityRunner) &&
-      /IOI_RUNTIME_DAEMON_CORE_COMMAND/.test(externalCapabilityAuthorityRunner) &&
+    !/EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_ENV/.test(externalCapabilityAuthorityRunner) &&
+      /assertNoExternalCapabilityAuthorityCommandSelection\(\s*options\.command \?\?\s*env\.IOI_RUNTIME_DAEMON_CORE_COMMAND \?\?\s*env\.IOI_EXTERNAL_CAPABILITY_AUTHORITY_COMMAND,\s*\)/.test(
+        externalCapabilityAuthorityRunner,
+      ) &&
       /ioi\.runtime\.daemon_core\.command\.v1/.test(externalCapabilityAuthorityRunner) &&
-      !/IOI_EXTERNAL_CAPABILITY_AUTHORITY_COMMAND/.test(externalCapabilityAuthorityRunner) &&
       !/IOI_STEP_MODULE_COMMAND/.test(externalCapabilityAuthorityRunner) &&
       !/EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_ARGS_ENV/.test(externalCapabilityAuthorityRunner) &&
       !/parseCommandArgs/.test(externalCapabilityAuthorityRunner) &&
@@ -7624,6 +7625,7 @@ function runBridge() {
       !/argsEnv/.test(externalCapabilityAuthorityRunner) &&
       /RustExternalCapabilityAuthorityRunner/.test(externalCapabilityAuthorityRunner) &&
       /assertNoExternalCapabilityAuthorityCommandArgs/.test(externalCapabilityAuthorityRunner) &&
+      /assertNoExternalCapabilityAuthorityCommandSelection/.test(externalCapabilityAuthorityRunner) &&
       /createExternalCapabilityAuthorityRunnerFromEnv/.test(externalCapabilityAuthorityRunner) &&
       /createExternalCapabilityAuthorityRunnerFromEnv/.test(runtimeDaemonIndex) &&
       /this\.externalCapabilityAuthorityRunner/.test(runtimeDaemonIndex) &&
@@ -7643,16 +7645,20 @@ function runBridge() {
       /direct_truth_write_allowed:\s*result\.direct_truth_write_allowed\s*\?\?\s*null/.test(
         externalCapabilityAuthorityRunner,
       ) &&
-      /external_capability_authority_bridge_unconfigured/.test(externalCapabilityAuthorityRunner) &&
+      /daemonCoreInvoker: options\.daemonCoreInvoker/.test(externalCapabilityAuthorityRunner) &&
+      /this\.daemonCoreInvoker = optionalFunction\(options\.daemonCoreInvoker\)/.test(
+        externalCapabilityAuthorityRunner,
+      ) &&
+      /external_capability_authority_direct_invoker_unconfigured/.test(externalCapabilityAuthorityRunner) &&
       /external_capability_authority_command_args_retired/.test(externalCapabilityAuthorityRunner) &&
-      /createDaemonCoreCommandInvoker/.test(externalCapabilityAuthorityRunner) &&
+      /external_capability_authority_command_selection_retired/.test(externalCapabilityAuthorityRunner) &&
+      !/createDaemonCoreCommandInvoker/.test(externalCapabilityAuthorityRunner) &&
       !/from "node:child_process"/.test(externalCapabilityAuthorityRunner) &&
-      /spawnSyncImpl\(commandPath,\s*\[\]/.test(daemonCoreCommandRunner) &&
-      /external capability authority runner sends Rust authority bridge request/.test(
+      /external capability authority runner sends Rust authority request through direct daemon-core invoker/.test(
         externalCapabilityAuthorityRunnerTest,
       ) &&
-      /assert\.deepEqual\(calls\[0\]\.args,\s*\[\]\)/.test(externalCapabilityAuthorityRunnerTest) &&
-      /assert\.equal\(calls\[0\]\.request\.thread_id,\s*"thread_runner"\)/.test(
+      !/assert\.deepEqual\(calls\[0\]\.args,\s*\[\]\)/.test(externalCapabilityAuthorityRunnerTest) &&
+      /assert\.equal\(calls\[0\]\.thread_id,\s*"thread_runner"\)/.test(
         externalCapabilityAuthorityRunnerTest,
       ) &&
       /assert\.equal\(result\.exit_authorized,\s*true\)/.test(
@@ -7661,16 +7667,25 @@ function runBridge() {
       /external capability authority runner does not synthesize product route envelope/.test(
         externalCapabilityAuthorityRunnerTest,
       ) &&
-      /external capability authority runner env uses daemon-core command boundary/.test(
+      /external capability authority runner env uses daemon-level direct invoker/.test(
+        externalCapabilityAuthorityRunnerTest,
+      ) &&
+      /external capability authority runner rejects retired binary command env/.test(
+        externalCapabilityAuthorityRunnerTest,
+      ) &&
+      /external capability authority runner rejects retired authority command env/.test(
         externalCapabilityAuthorityRunnerTest,
       ) &&
       /external capability authority runner command args env fails closed/.test(
         externalCapabilityAuthorityRunnerTest,
       ) &&
+      /external capability authority runner command constructor option fails closed/.test(
+        externalCapabilityAuthorityRunnerTest,
+      ) &&
       /external capability authority runner command args constructor option fails closed/.test(
         externalCapabilityAuthorityRunnerTest,
       ) &&
-      /external capability authority runner fails closed without command/.test(
+      /external capability authority runner fails closed without direct invoker/.test(
         externalCapabilityAuthorityRunnerTest,
       ) &&
       /external capability authority runner surfaces Rust wallet\.network rejection/.test(
@@ -7685,7 +7700,7 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-external-capability-authority-store.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
     ],
-    "Phase 9/10 is pending: daemon external capability exit facade must call the Rust authority bridge and fail closed when unconfigured",
+    "Phase 9/10 is pending: daemon external capability exit facade must call Rust wallet.network authority through a direct daemon-core invoker and fail closed when unconfigured",
   );
   assertCheck(
     result,

@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_ENV,
   EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_SCHEMA_VERSION,
   ExternalCapabilityAuthorityRunnerError,
   RUST_EXTERNAL_CAPABILITY_AUTHORITY_BACKEND,
@@ -28,39 +27,34 @@ function externalCapabilityExitRequest() {
   };
 }
 
-test("external capability authority runner sends Rust authority bridge request", () => {
+function authorizedResult(request) {
+  return {
+    source: "direct_daemon_core_api",
+    backend: RUST_EXTERNAL_CAPABILITY_AUTHORITY_BACKEND,
+    schema_version: "ioi.runtime.external_capability_authority.v1",
+    object: "ioi.runtime_external_capability_authority",
+    status: "authorized",
+    exit_authorized: true,
+    direct_truth_write_allowed: false,
+    thread_id: request.thread_id,
+    agent_id: request.agent_id,
+    authority: {
+      ...request.request,
+      wallet_network_grant_refs: request.request.authority_grant_refs,
+      authority_hash: "sha256:external-capability-authority",
+    },
+    wallet_network_grant_refs: request.request.authority_grant_refs,
+    authority_receipt_refs: request.request.authority_receipt_refs,
+    authority_hash: "sha256:external-capability-authority",
+  };
+}
+
+test("external capability authority runner sends Rust authority request through direct daemon-core invoker", () => {
   const calls = [];
   const runner = new RustExternalCapabilityAuthorityRunner({
-    command: "mock-external-capability-authority-bridge",
-    spawnSyncImpl(command, args, options) {
-      const request = JSON.parse(options.input);
-      calls.push({ command, args, request });
-      return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
-            source: "rust_external_capability_exit_authority_command",
-            backend: RUST_EXTERNAL_CAPABILITY_AUTHORITY_BACKEND,
-            schema_version: "ioi.runtime.external_capability_authority.v1",
-            object: "ioi.runtime_external_capability_authority",
-            status: "authorized",
-            exit_authorized: true,
-            direct_truth_write_allowed: false,
-            thread_id: request.thread_id,
-            agent_id: request.agent_id,
-            authority: {
-              ...request.request,
-              wallet_network_grant_refs: request.request.authority_grant_refs,
-              authority_hash: "sha256:external-capability-authority",
-            },
-            wallet_network_grant_refs: request.request.authority_grant_refs,
-            authority_receipt_refs: request.request.authority_receipt_refs,
-            authority_hash: "sha256:external-capability-authority",
-          },
-        }),
-        stderr: "",
-      };
+    daemonCoreInvoker(request) {
+      calls.push(request);
+      return authorizedResult(request);
     },
   });
 
@@ -70,14 +64,12 @@ test("external capability authority runner sends Rust authority bridge request",
   });
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].command, "mock-external-capability-authority-bridge");
-  assert.deepEqual(calls[0].args, []);
-  assert.equal(calls[0].request.schema_version, EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_SCHEMA_VERSION);
-  assert.equal(calls[0].request.operation, "authorize_external_capability_exit");
-  assert.equal(calls[0].request.backend, RUST_EXTERNAL_CAPABILITY_AUTHORITY_BACKEND);
-  assert.equal(calls[0].request.thread_id, "thread_runner");
-  assert.equal(calls[0].request.agent_id, "agent_runner");
-  assert.equal(calls[0].request.request.exit_ref, "exit://aiip/slack-post-message");
+  assert.equal(calls[0].schema_version, EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].operation, "authorize_external_capability_exit");
+  assert.equal(calls[0].backend, RUST_EXTERNAL_CAPABILITY_AUTHORITY_BACKEND);
+  assert.equal(calls[0].thread_id, "thread_runner");
+  assert.equal(calls[0].agent_id, "agent_runner");
+  assert.equal(calls[0].request.exit_ref, "exit://aiip/slack-post-message");
   assert.equal(result.schema_version, "ioi.runtime.external_capability_authority.v1");
   assert.equal(result.object, "ioi.runtime_external_capability_authority");
   assert.equal(result.status, "authorized");
@@ -85,7 +77,7 @@ test("external capability authority runner sends Rust authority bridge request",
   assert.equal(result.direct_truth_write_allowed, false);
   assert.equal(result.thread_id, "thread_runner");
   assert.equal(result.agent_id, "agent_runner");
-  assert.equal(result.source, "rust_external_capability_exit_authority_command");
+  assert.equal(result.source, "direct_daemon_core_api");
   assert.equal(result.backend, RUST_EXTERNAL_CAPABILITY_AUTHORITY_BACKEND);
   assert.deepEqual(result.wallet_network_grant_refs, [
     "wallet.network://grant/external-capability/slack-post-message",
@@ -96,23 +88,57 @@ test("external capability authority runner sends Rust authority bridge request",
   assert.equal(result.authority_hash, "sha256:external-capability-authority");
 });
 
-test("external capability authority runner env uses daemon-core command boundary", () => {
+test("external capability authority runner env uses daemon-level direct invoker", () => {
+  const calls = [];
   const runner = createExternalCapabilityAuthorityRunnerFromEnv({
-    [EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_ENV]: "ioi-runtime-daemon-core",
-    IOI_EXTERNAL_CAPABILITY_AUTHORITY_COMMAND: "retired-external-capability-bridge",
     IOI_EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_ARGS: "--retired-external",
     IOI_STEP_MODULE_COMMAND: "retired-step-module-bridge",
     IOI_STEP_MODULE_COMMAND_ARGS: "--retired-step",
+  }, {
+    daemonCoreInvoker(request) {
+      calls.push(request);
+      return authorizedResult(request);
+    },
   });
 
-  assert.equal(runner.command, "ioi-runtime-daemon-core");
+  const result = runner.authorizeExit(externalCapabilityExitRequest());
+
+  assert.equal(calls[0].operation, "authorize_external_capability_exit");
+  assert.equal(result.source, "direct_daemon_core_api");
+});
+
+test("external capability authority runner rejects retired binary command env", () => {
+  assert.throws(
+    () =>
+      createExternalCapabilityAuthorityRunnerFromEnv({
+        IOI_RUNTIME_DAEMON_CORE_COMMAND: "ioi-runtime-daemon-core",
+      }, {
+        daemonCoreInvoker() {},
+      }),
+    (error) =>
+      error instanceof ExternalCapabilityAuthorityRunnerError &&
+      error.code === "external_capability_authority_command_selection_retired",
+  );
+});
+
+test("external capability authority runner rejects retired authority command env", () => {
+  assert.throws(
+    () =>
+      createExternalCapabilityAuthorityRunnerFromEnv({
+        IOI_EXTERNAL_CAPABILITY_AUTHORITY_COMMAND: "retired-external-capability-bridge",
+      }, {
+        daemonCoreInvoker() {},
+      }),
+    (error) =>
+      error instanceof ExternalCapabilityAuthorityRunnerError &&
+      error.code === "external_capability_authority_command_selection_retired",
+  );
 });
 
 test("external capability authority runner command args env fails closed", () => {
   assert.throws(
     () =>
       createExternalCapabilityAuthorityRunnerFromEnv({
-        [EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_ENV]: "ioi-runtime-daemon-core",
         IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS: "--json",
       }),
     (error) =>
@@ -136,6 +162,15 @@ test("external capability authority runner does not synthesize product route env
   assert.equal(result.direct_truth_write_allowed, null);
 });
 
+test("external capability authority runner command constructor option fails closed", () => {
+  assert.throws(
+    () => new RustExternalCapabilityAuthorityRunner({ command: "ioi-runtime-daemon-core" }),
+    (error) =>
+      error instanceof ExternalCapabilityAuthorityRunnerError &&
+      error.code === "external_capability_authority_command_selection_retired",
+  );
+});
+
 test("external capability authority runner command args constructor option fails closed", () => {
   assert.throws(
     () => new RustExternalCapabilityAuthorityRunner({ args: ["--json"] }),
@@ -145,31 +180,26 @@ test("external capability authority runner command args constructor option fails
   );
 });
 
-test("external capability authority runner fails closed without command", () => {
+test("external capability authority runner fails closed without direct invoker", () => {
   const runner = createExternalCapabilityAuthorityRunnerFromEnv({});
 
   assert.throws(
     () => runner.authorizeExit(externalCapabilityExitRequest()),
     (error) =>
       error instanceof ExternalCapabilityAuthorityRunnerError &&
-      error.code === "external_capability_authority_bridge_unconfigured",
+      error.code === "external_capability_authority_direct_invoker_unconfigured",
   );
 });
 
 test("external capability authority runner surfaces Rust wallet.network rejection", () => {
   const runner = new RustExternalCapabilityAuthorityRunner({
-    command: "mock-external-capability-authority-bridge",
-    spawnSyncImpl() {
+    daemonCoreInvoker() {
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: false,
-          error: {
-            code: "external_capability_exit_authority_invalid",
-            message: "MissingWalletNetworkAuthority",
-          },
-        }),
-        stderr: "",
+        ok: false,
+        error: {
+          code: "external_capability_exit_authority_invalid",
+          message: "MissingWalletNetworkAuthority",
+        },
       };
     },
   });
