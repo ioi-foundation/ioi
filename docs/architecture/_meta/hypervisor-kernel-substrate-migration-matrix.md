@@ -15971,6 +15971,38 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1192
+
+Slice 1192 removes the last live command-transport re-export from the old broad
+bridge module:
+
+- `crates/node/src/bin/ioi-step-module-bridge.rs`
+- `crates/node/src/bin/ioi_step_module_bridge/mod.rs`
+- `scripts/conformance/hypervisor-conformance.mjs`
+
+The temporary `ioi-step-module-bridge` binary now calls
+`ioi_services::agentic::runtime::kernel::command_dispatch::run_daemon_core_command_response_from_stdin()`
+directly. `ioi_step_module_bridge/mod.rs` remains only as an empty retired
+surface tombstone so conformance can prove bridge wrappers, proof modules,
+helper imports, command facades, and transport re-exports are not recreated.
+
+This is not terminal command transport retirement: JS runners still spawn the
+temporary binary through `IOI_RUNTIME_DAEMON_CORE_COMMAND`. The next
+Rust-core extraction should replace `runtime-daemon-core-command-runner.mjs`
+and its binary spawn path with direct daemon-core protocol/API calls.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt` | passed |
+| `cargo test -p ioi-node --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1191
 
 Slice 1191 moves temporary daemon-core command stdin/JSON transport ownership

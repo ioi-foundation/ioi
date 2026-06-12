@@ -7521,6 +7521,21 @@ and conformance fails if the deleted bridge-local transport module is
 recreated. Resume by replacing the remaining JS command invoker and binary
 spawn path with direct Rust daemon-core protocol/API calls.
 
+Slice 1192 removes the last live transport re-export from
+`crates/node/src/bin/ioi_step_module_bridge/mod.rs`. The temporary
+`ioi-step-module-bridge` binary now calls
+`ioi_services::agentic::runtime::kernel::command_dispatch::run_daemon_core_command_response_from_stdin()`
+directly, while `ioi_step_module_bridge/mod.rs` remains only as an empty
+tombstone for static conformance to prove retired bridge wrappers, proof
+modules, helper imports, and command facades are not recreated.
+
+This is not terminal because the JS daemon still invokes the temporary binary.
+It does remove another compatibility shim from the live path: there is no
+bridge module between the temporary process entry point and the Rust
+service-kernel command transport owner. Resume by replacing
+`runtime-daemon-core-command-runner.mjs` and its `IOI_RUNTIME_DAEMON_CORE_COMMAND`
+spawn path with direct Rust daemon-core protocol/API calls.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

@@ -2431,8 +2431,11 @@ function runBridge() {
       !bridgeCommandEnvelopeExists &&
       !bridgeCommandDispatchExists &&
       /pub mod command_dispatch;/.test(kernelModuleForBridgeChecks) &&
-      /pub use ioi_services::agentic::runtime::kernel::command_dispatch::run_daemon_core_command_response_from_stdin;/.test(
+      !/pub use ioi_services::agentic::runtime::kernel::command_dispatch::run_daemon_core_command_response_from_stdin;/.test(
         bridgeModuleRuntime,
+      ) &&
+      /ioi_services::agentic::runtime::kernel::command_dispatch::run_daemon_core_command_response_from_stdin\(\)/.test(
+        bridgeBin,
       ) &&
       !/struct BridgeEnvelope/.test(bridgeDispatch) &&
       !/struct BridgeError/.test(bridgeModule) &&
