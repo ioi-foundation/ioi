@@ -573,7 +573,7 @@ function normalizeBackendLifecycleRequiredBridgeResult(value = {}) {
       result.rust_core_boundary ?? record.rust_core_boundary ?? "model_mount.backend_lifecycle",
     operation_kind: result.operation_kind ?? record.operation_kind ?? details.operation_kind ?? null,
     details,
-    evidence_refs: Array.isArray(record.evidence_refs) ? record.evidence_refs : details.evidence_refs ?? [],
+    evidence_refs: arrayOrNull(record.evidence_refs) ?? arrayOrNull(details.evidence_refs),
   };
 }
 
@@ -602,7 +602,7 @@ function normalizeServerControlRequiredBridgeResult(value = {}) {
       result.rust_core_boundary ?? record.rust_core_boundary ?? "model_mount.server_control",
     operation_kind: result.operation_kind ?? record.operation_kind ?? details.operation_kind ?? null,
     details,
-    evidence_refs: Array.isArray(record.evidence_refs) ? record.evidence_refs : details.evidence_refs ?? [],
+    evidence_refs: arrayOrNull(record.evidence_refs) ?? arrayOrNull(details.evidence_refs),
   };
 }
 
@@ -631,7 +631,7 @@ function normalizeRuntimeEngineRequiredBridgeResult(value = {}) {
       result.rust_core_boundary ?? record.rust_core_boundary ?? "model_mount.runtime_engine",
     operation_kind: result.operation_kind ?? record.operation_kind ?? details.operation_kind ?? null,
     details,
-    evidence_refs: Array.isArray(record.evidence_refs) ? record.evidence_refs : details.evidence_refs ?? [],
+    evidence_refs: arrayOrNull(record.evidence_refs) ?? arrayOrNull(details.evidence_refs),
   };
 }
 
@@ -659,7 +659,7 @@ function normalizeTokenizerRequiredBridgeResult(value = {}) {
     rust_core_boundary: result.rust_core_boundary ?? record.rust_core_boundary ?? "model_mount.tokenizer",
     operation: result.operation ?? record.operation ?? details.operation ?? null,
     details,
-    evidence_refs: Array.isArray(record.evidence_refs) ? record.evidence_refs : details.evidence_refs ?? [],
+    evidence_refs: arrayOrNull(record.evidence_refs) ?? arrayOrNull(details.evidence_refs),
   };
 }
 
@@ -686,7 +686,7 @@ function normalizeRouteControlRequiredBridgeResult(value = {}) {
     operation: result.operation ?? record.operation ?? details.operation ?? null,
     operation_kind: result.operation_kind ?? record.operation_kind ?? details.operation_kind ?? null,
     details,
-    evidence_refs: Array.isArray(record.evidence_refs) ? record.evidence_refs : details.evidence_refs ?? [],
+    evidence_refs: arrayOrNull(record.evidence_refs) ?? arrayOrNull(details.evidence_refs),
   };
 }
 
@@ -769,4 +769,8 @@ function optionalString(value) {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   return trimmed ? trimmed : null;
+}
+
+function arrayOrNull(value) {
+  return Array.isArray(value) ? value : null;
 }

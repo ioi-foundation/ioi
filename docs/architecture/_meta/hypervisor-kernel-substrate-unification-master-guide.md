@@ -6966,6 +6966,24 @@ state-root binding, storage admission, durable write materialization,
 projection, replay, and stable IDE/CLI/SDK protocol surfaces, not preservation
 of JS normalizers as compatibility shims.
 
+Slice 1160 retires JS-side required-boundary evidence fallback synthesis from
+the model_mount admission runner. Rust model_mount required-boundary planners
+already own backend-lifecycle, server-control, runtime-engine, tokenizer, and
+route-control required records behind the temporary daemon-core command path,
+so `model-mount-admission-runner.mjs` now preserves omitted Rust-authored
+required-boundary `evidence_refs` as `null` instead of inventing empty arrays
+from JS. If Rust includes evidence in the returned record or record details,
+the temporary JS edge may pass that Rust-authored array through, but it may not
+create compatibility proof material when Rust omits it.
+
+This remains non-terminal because the JS model_mount runner, shared
+daemon-core command runner, and Node bridge transport still carry model_mount
+required-boundary requests to Rust. The target is direct Rust daemon-core
+model_mount protocol/API ownership over lifecycle/control/tokenizer/route
+admission, receipt/state-root binding, Agentgres projection, replay, and
+stable IDE/CLI/SDK protocol surfaces, not preservation of JS normalizers as
+compatibility shims.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

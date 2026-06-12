@@ -16018,6 +16018,39 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1160
+
+Slice 1160 retires JS-side fallback synthesis in
+`packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs`
+for Rust-owned model_mount required-boundary evidence refs. Backend-lifecycle,
+server-control, runtime-engine, tokenizer, and route-control required-boundary
+normalizers now preserve missing Rust-authored `evidence_refs` as `null`
+instead of synthesizing empty arrays from JS when Rust omits those fields. Rust
+model_mount required-boundary planners remain the lifecycle/control/tokenizer
+required-record response-shaping owners behind the temporary daemon-core command
+path.
+
+This is not terminal model_mount migration. The JS model_mount admission
+runner, shared daemon-core command runner, and Node bridge transport remain
+migration scaffolding until direct Rust daemon-core model_mount APIs own
+lifecycle/control/tokenizer/route admission, receipt/state-root binding,
+Agentgres projection, replay, and stable IDE/CLI/SDK protocol surfaces end to
+end. The retired JS fallback behavior must not be recreated as compatibility
+normalization.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1158
 
 Slice 1158 retires JS-side fallback synthesis in

@@ -334,7 +334,7 @@ function routeControlRequiredRequest() {
   };
 }
 
-test("Rust model_mount runner does not synthesize Rust-owned receipt evidence or process fields", () => {
+test("Rust model_mount runner does not synthesize Rust-owned receipt, required-boundary evidence, or process fields", () => {
   const sparseResultByOperation = new Map([
     ["admit_model_mount_route_decision", { record: {} }],
     ["admit_model_mount_invocation", { record: {} }],
@@ -350,6 +350,11 @@ test("Rust model_mount runner does not synthesize Rust-owned receipt evidence or
     ["plan_model_mount_accepted_receipt_transition", { transition: {} }],
     ["bind_model_mount_invocation_receipt", {}],
     ["plan_model_mount_read_projection", {}],
+    ["plan_model_mount_backend_lifecycle_required", { record: { details: {} } }],
+    ["plan_model_mount_server_control_required", { record: { details: {} } }],
+    ["plan_model_mount_runtime_engine_required", { record: { details: {} } }],
+    ["plan_model_mount_tokenizer_required", { record: { details: {} } }],
+    ["plan_model_mount_route_control_required", { record: { details: {} } }],
   ]);
   const runner = new RustModelMountAdmissionRunner({
     command: "ioi-runtime-daemon-core",
@@ -424,6 +429,21 @@ test("Rust model_mount runner does not synthesize Rust-owned receipt evidence or
 
   const projection = runner.planReadProjection({});
   assert.equal(projection.evidence_refs, null);
+
+  const backendLifecycleRequired = runner.planBackendLifecycleRequired(backendLifecycleRequiredRequest());
+  assert.equal(backendLifecycleRequired.evidence_refs, null);
+
+  const serverControlRequired = runner.planServerControlRequired(serverControlRequiredRequest());
+  assert.equal(serverControlRequired.evidence_refs, null);
+
+  const runtimeEngineRequired = runner.planRuntimeEngineRequired(runtimeEngineRequiredRequest());
+  assert.equal(runtimeEngineRequired.evidence_refs, null);
+
+  const tokenizerRequired = runner.planTokenizerRequired(tokenizerRequiredRequest());
+  assert.equal(tokenizerRequired.evidence_refs, null);
+
+  const routeControlRequired = runner.planRouteControlRequired(routeControlRequiredRequest());
+  assert.equal(routeControlRequired.evidence_refs, null);
 });
 
 test("Rust model_mount admission runner sends route-decision bridge request", () => {

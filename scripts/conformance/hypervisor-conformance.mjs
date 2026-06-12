@@ -21163,6 +21163,7 @@ function runReceipts() {
     /head\.evidence_refs\s*\?\?\s*\[\]/,
     /transition\.expected_heads\s*\?\?\s*\[\]/,
     /transition\.evidence_refs\s*\?\?\s*\[\]/,
+    /details\.evidence_refs\s*\?\?\s*\[\]/,
     /Array\.isArray\(result\.evidence_refs\)\s*\?\s*result\.evidence_refs\s*:\s*\[\]/,
     /Array\.isArray\(result\.receipt_refs\)\s*\?\s*result\.receipt_refs\s*:\s*\[\]/,
     /Boolean\(result\.supports_supervision\s*\?\?\s*record\.supports_supervision\)/,
@@ -21173,13 +21174,19 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-runner-rust-owned-field-fallbacks-retired",
-    /Rust model_mount runner does not synthesize Rust-owned receipt evidence or process fields/.test(
+    /Rust model_mount runner does not synthesize Rust-owned receipt, required-boundary evidence, or process fields/.test(
       modelMountAdmissionRunnerTest,
     ) &&
+      /function\s+arrayOrNull\(value\)\s*\{[\s\S]*?Array\.isArray\(value\)\s*\?\s*value\s*:\s*null/.test(
+        modelMountAdmissionRunner,
+      ) &&
       /receipt_refs:\s*Array\.isArray\(result\.receipt_refs\)[\s\S]*?:\s*null/.test(
         modelMountAdmissionRunner,
       ) &&
       /evidence_refs:\s*Array\.isArray\(result\.evidence_refs\)[\s\S]*?:\s*null/.test(
+        modelMountAdmissionRunner,
+      ) &&
+      /evidence_refs:\s*arrayOrNull\(record\.evidence_refs\)\s*\?\?\s*arrayOrNull\(details\.evidence_refs\)/.test(
         modelMountAdmissionRunner,
       ) &&
       /supports_supervision:\s*result\.supports_supervision\s*\?\?\s*record\.supports_supervision\s*\?\?\s*null/.test(
