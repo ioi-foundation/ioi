@@ -7055,15 +7055,27 @@ function runBridge() {
       !/execute_model_mount_provider_stream_invocation_response as execute_model_mount_provider_stream_invocation/.test(
         bridgeModule,
       ) &&
-      /plan_model_mount_provider_lifecycle_response as plan_model_mount_provider_lifecycle/.test(
+      !/plan_model_mount_provider_lifecycle_response as plan_model_mount_provider_lifecycle/.test(
         bridgeModule,
       ) &&
-      /plan_model_mount_provider_inventory_response as plan_model_mount_provider_inventory/.test(
+      !/plan_model_mount_provider_inventory_response as plan_model_mount_provider_inventory/.test(
         bridgeModule,
       ) &&
-      /plan_model_mount_instance_lifecycle_response as plan_model_mount_instance_lifecycle/.test(
+      !/plan_model_mount_instance_lifecycle_response as plan_model_mount_instance_lifecycle/.test(
         bridgeModule,
       ) &&
+      /plan_model_mount_provider_lifecycle_response\(decode\(raw_request\)\?\)/.test(
+        coreCommandDispatch,
+      ) &&
+      /plan_model_mount_provider_inventory_response\(decode\(raw_request\)\?\)/.test(
+        coreCommandDispatch,
+      ) &&
+      /plan_model_mount_instance_lifecycle_response\(decode\(raw_request\)\?\)/.test(
+        coreCommandDispatch,
+      ) &&
+      /rust_core_shapes_model_mount_provider_lifecycle_command_response/.test(modelMountCore) &&
+      /rust_core_shapes_model_mount_provider_inventory_command_response/.test(modelMountCore) &&
+      /rust_core_shapes_model_mount_instance_lifecycle_command_response/.test(modelMountCore) &&
       !/admit_model_mount_provider_result_response as admit_model_mount_provider_result/.test(
         bridgeModule,
       ) &&
@@ -7325,9 +7337,18 @@ function runBridge() {
       /rust_model_mount_provider_inventory_command/.test(modelMountCore) &&
       /rust_model_mount_instance_lifecycle_command/.test(modelMountCore) &&
       !modelMountCommandBridgeExists &&
-      /plan_model_mount_provider_lifecycle_response as plan_model_mount_provider_lifecycle/.test(bridgeModule) &&
-      /plan_model_mount_provider_inventory_response as plan_model_mount_provider_inventory/.test(bridgeModule) &&
-      /plan_model_mount_instance_lifecycle_response as plan_model_mount_instance_lifecycle/.test(bridgeModule) &&
+      /rust_core_shapes_model_mount_provider_lifecycle_command_response/.test(modelMountCore) &&
+      /rust_core_shapes_model_mount_provider_inventory_command_response/.test(modelMountCore) &&
+      /rust_core_shapes_model_mount_instance_lifecycle_command_response/.test(modelMountCore) &&
+      /plan_model_mount_provider_lifecycle_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      /plan_model_mount_provider_inventory_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      /plan_model_mount_instance_lifecycle_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      !/plan_model_mount_provider_lifecycle_response as plan_model_mount_provider_lifecycle/.test(bridgeModule) &&
+      !/plan_model_mount_provider_inventory_response as plan_model_mount_provider_inventory/.test(bridgeModule) &&
+      !/plan_model_mount_instance_lifecycle_response as plan_model_mount_instance_lifecycle/.test(bridgeModule) &&
+      !/bridge_plans_native_local_model_mount_provider_lifecycle_through_rust_core/.test(bridgeModule) &&
+      !/bridge_plans_local_model_mount_provider_inventory_through_rust_core/.test(bridgeModule) &&
+      !/bridge_plans_model_mount_instance_lifecycle_through_rust_core/.test(bridgeModule) &&
       !/struct ModelMountProviderLifecycleBridgeRequest/.test(modelMountCommandBridge) &&
       !/struct ModelMountProviderInventoryBridgeRequest/.test(modelMountCommandBridge) &&
       !/struct ModelMountInstanceLifecycleBridgeRequest/.test(modelMountCommandBridge) &&
@@ -13955,20 +13976,21 @@ function runBridge() {
   );
   assertCheck(
     result,
-    "model-mount-native-local-lifecycle-live-bridge",
+    "model-mount-native-local-lifecycle-rust-owner",
     (() => {
-      const providerLifecycleBridgeBlock =
-        modelMountCommandSurface.match(/fn plan_model_mount_provider_lifecycle[\s\S]*?(?=\npub\(super\) fn plan_model_mount_provider_inventory)/)?.[0] ?? "";
+      const providerLifecycleCoreBlock =
+        modelMountCore.match(/pub fn plan_model_mount_provider_lifecycle_response[\s\S]*?(?=\n\npub fn plan_model_mount_provider_inventory_response)/)?.[0] ?? "";
       const providerLifecycleRunnerBlock =
         modelMountAdmissionRunner.match(/function normalizeProviderLifecycleBridgeResult[\s\S]*?(?=\n\nfunction normalizeProviderInventoryBridgeResult)/)?.[0] ?? "";
-      return /plan_model_mount_provider_lifecycle/.test(modelMountCommandSurface) &&
-      /ModelMountProviderLifecycleBridgeRequest/.test(modelMountCommandSurface) &&
-      /plan_model_mount_provider_lifecycle_response as plan_model_mount_provider_lifecycle/.test(modelMountCommandSurface) &&
-      /bridge_plans_native_local_model_mount_provider_lifecycle_through_rust_core/.test(modelMountCommandSurface) &&
+      return /pub struct ModelMountProviderLifecycleBridgeRequest/.test(modelMountCore) &&
       /pub fn plan_model_mount_provider_lifecycle_response/.test(modelMountCore) &&
+      /rust_core_shapes_model_mount_provider_lifecycle_command_response/.test(modelMountCore) &&
+      /plan_model_mount_provider_lifecycle_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      !/plan_model_mount_provider_lifecycle_response as plan_model_mount_provider_lifecycle/.test(modelMountCommandSurface) &&
+      !/bridge_plans_native_local_model_mount_provider_lifecycle_through_rust_core/.test(modelMountCommandSurface) &&
       /"backend_id":\s*backend_id/.test(modelMountCore) &&
       /"provider_backend":\s*backend/.test(modelMountCore) &&
-      !/"(?:backendId|providerBackend)":/.test(providerLifecycleBridgeBlock) &&
+      !/"(?:backendId|providerBackend)":/.test(providerLifecycleCoreBlock) &&
       /backendId:\s*result\.backend_id \?\? record\.backend_id \?\? null/.test(
         providerLifecycleRunnerBlock,
       ) &&
@@ -14149,22 +14171,23 @@ function runBridge() {
   );
   assertCheck(
     result,
-    "model-mount-local-provider-inventory-live-bridge",
+    "model-mount-local-provider-inventory-rust-owner",
     (() => {
-      const providerInventoryBridgeBlock =
-        modelMountCommandSurface.match(/fn plan_model_mount_provider_inventory[\s\S]*?(?=\npub\(super\) fn plan_model_mount_instance_lifecycle)/)?.[0] ?? "";
+      const providerInventoryCoreBlock =
+        modelMountCore.match(/pub fn plan_model_mount_provider_inventory_response[\s\S]*?(?=\n\npub fn plan_model_mount_instance_lifecycle_response)/)?.[0] ?? "";
       const providerInventoryRunnerBlock =
         modelMountAdmissionRunner.match(/function normalizeProviderInventoryBridgeResult[\s\S]*?(?=\n\nfunction normalizeInstanceLifecycleBridgeResult)/)?.[0] ?? "";
-      return /plan_model_mount_provider_inventory/.test(modelMountCommandSurface) &&
-      /ModelMountProviderInventoryBridgeRequest/.test(modelMountCommandSurface) &&
-      /plan_model_mount_provider_inventory_response as plan_model_mount_provider_inventory/.test(modelMountCommandSurface) &&
-      /bridge_plans_local_model_mount_provider_inventory_through_rust_core/.test(modelMountCommandSurface) &&
+      return /pub struct ModelMountProviderInventoryBridgeRequest/.test(modelMountCore) &&
       /pub fn plan_model_mount_provider_inventory_response/.test(modelMountCore) &&
+      /rust_core_shapes_model_mount_provider_inventory_command_response/.test(modelMountCore) &&
+      /plan_model_mount_provider_inventory_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      !/plan_model_mount_provider_inventory_response as plan_model_mount_provider_inventory/.test(modelMountCommandSurface) &&
+      !/bridge_plans_local_model_mount_provider_inventory_through_rust_core/.test(modelMountCommandSurface) &&
       /"backend_id":\s*backend_id/.test(modelMountCore) &&
       /"provider_backend":\s*backend/.test(modelMountCore) &&
       /"item_refs":\s*item_refs/.test(modelMountCore) &&
       /"item_count":\s*item_count/.test(modelMountCore) &&
-      !/"(?:backendId|providerBackend|itemRefs|itemCount)":/.test(providerInventoryBridgeBlock) &&
+      !/"(?:backendId|providerBackend|itemRefs|itemCount)":/.test(providerInventoryCoreBlock) &&
       /const itemRefs = Array\.isArray\(result\.item_refs\)/.test(
         providerInventoryRunnerBlock,
       ) &&
@@ -14201,18 +14224,19 @@ function runBridge() {
   assertCheck(
     result,
     "model-mount-instance-lifecycle-js-facade-retired",
-    /plan_model_mount_instance_lifecycle/.test(modelMountCommandSurface) &&
-      /ModelMountInstanceLifecycleBridgeRequest/.test(modelMountCommandSurface) &&
-      /plan_model_mount_instance_lifecycle_response as plan_model_mount_instance_lifecycle/.test(modelMountCommandSurface) &&
-      /bridge_plans_model_mount_instance_lifecycle_through_rust_core/.test(modelMountCommandSurface) &&
+    /pub struct ModelMountInstanceLifecycleBridgeRequest/.test(modelMountCore) &&
       /pub fn plan_model_mount_instance_lifecycle_response/.test(modelMountCore) &&
+      /rust_core_shapes_model_mount_instance_lifecycle_command_response/.test(modelMountCore) &&
+      /plan_model_mount_instance_lifecycle_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      !/plan_model_mount_instance_lifecycle_response as plan_model_mount_instance_lifecycle/.test(modelMountCommandSurface) &&
+      !/bridge_plans_model_mount_instance_lifecycle_through_rust_core/.test(modelMountCommandSurface) &&
       /planInstanceLifecycle/.test(modelMountAdmissionRunner) &&
       /rust_model_mount_instance_lifecycle_command/.test(modelMountAdmissionRunner) &&
       /RUST_MODEL_MOUNT_INSTANCE_LIFECYCLE_BACKEND/.test(modelMountAdmissionRunner) &&
       /provider_lifecycle_hash/.test(modelMountAdmissionRunner) &&
       !/providerLifecycleHash/.test(modelMountAdmissionRunner) &&
       /provider_lifecycle_hash/.test(modelMountCore) &&
-      /response\.get\("providerLifecycleHash"\)\.is_none/.test(modelMountCommandSurface) &&
+      /response\.get\("providerLifecycleHash"\)\.is_none/.test(modelMountCore) &&
       !/planModelMountInstanceLifecycle/.test(modelMountingState) &&
       !exists("packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs") &&
       !/planModelMountInstanceLifecycleForMigratedProvider/.test(modelMountReceiptWriteGuardsBridge) &&
