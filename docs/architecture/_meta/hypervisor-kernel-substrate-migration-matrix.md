@@ -15935,6 +15935,50 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1193
+
+Slice 1193 adds the direct Rust daemon-core API seam that will replace the
+temporary binary-spawn command transport:
+
+- `packages/runtime-daemon/src/runtime-daemon-core-command-runner.mjs`
+- `packages/runtime-daemon/src/runtime-daemon-core-command-runner.test.mjs`
+- `packages/runtime-daemon/src/step-module-runner.mjs`
+- `packages/runtime-daemon/src/runtime-coding-tool-approval-runner.mjs`
+- `packages/runtime-daemon/src/runtime-approval-state-runner.mjs`
+- `packages/runtime-daemon/src/runtime-context-policy-runner.mjs`
+- `packages/runtime-daemon/src/runtime-governed-improvement-runner.mjs`
+- `packages/runtime-daemon/src/runtime-worker-service-package-runner.mjs`
+- `packages/runtime-daemon/src/runtime-workspace-restore-runner.mjs`
+- `packages/runtime-daemon/src/runtime-l1-settlement-runner.mjs`
+- `packages/runtime-daemon/src/runtime-external-capability-authority-runner.mjs`
+- `packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs`
+- `packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.mjs`
+- `packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs`
+- `scripts/conformance/hypervisor-conformance.mjs`
+
+`runtime-daemon-core-command-runner.mjs` now accepts `daemonCoreInvoker` and
+uses it before mocks and before the temporary `IOI_RUNTIME_DAEMON_CORE_COMMAND`
+spawn fallback. Every current JS daemon-core command runner threads
+`options.daemonCoreInvoker` through its factory/constructor boundary so the next
+Rust-core extraction can plug in direct daemon-core protocol/API entry points
+without adding one-off bridge behavior per surface.
+
+This is not terminal: binary spawn remains an explicit migration fallback. The
+next larger pure-Rust cut should wire the direct invoker to real Rust
+daemon-core APIs and then delete the spawn fallback plus JS command invoker
+scaffolding once conformance proves the Rust path owns the hot surfaces.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-daemon-core-command-runner.test.mjs packages/runtime-daemon/src/step-module-runner.test.mjs packages/runtime-daemon/src/runtime-coding-tool-approval-runner.test.mjs packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.test.mjs packages/runtime-daemon/src/runtime-l1-settlement-runner.test.mjs packages/runtime-daemon/src/runtime-worker-service-package-runner.test.mjs` | passed; 40 tests |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1189
 
 Slice 1189 retires the live StepModule command schema family for coding-tool

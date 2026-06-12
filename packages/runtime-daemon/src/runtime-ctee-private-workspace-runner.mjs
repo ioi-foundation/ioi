@@ -14,6 +14,7 @@ export function createCteePrivateWorkspaceRunnerFromEnv(env = process.env, optio
   assertNoCteePrivateWorkspaceCommandArgs(options.args ?? env.IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS);
   return new RustCteePrivateWorkspaceRunner({
     command: options.command ?? env[CTEE_PRIVATE_WORKSPACE_COMMAND_ENV] ?? null,
+    daemonCoreInvoker: options.daemonCoreInvoker,
     spawnSyncImpl: options.spawnSyncImpl,
     mockResult: options.mockResult,
   });
@@ -36,6 +37,7 @@ export class RustCteePrivateWorkspaceRunner {
     this.command = optionalString(options.command);
     this.invokeBridge = createDaemonCoreCommandInvoker({
       command: this.command,
+      daemonCoreInvoker: options.daemonCoreInvoker,
       spawnSyncImpl: options.spawnSyncImpl,
       mockResult: options.mockResult,
       mockSource: "rust_ctee_private_workspace_mock",

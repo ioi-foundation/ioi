@@ -9,6 +9,7 @@ export function createRuntimeAgentgresAdmissionRunnerFromEnv(env = process.env, 
   assertNoRuntimeAgentgresCommandArgs(options.args ?? env.IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS);
   return new RustRuntimeAgentgresAdmissionRunner({
     command: options.command ?? env[RUNTIME_AGENTGRES_COMMAND_ENV] ?? null,
+    daemonCoreInvoker: options.daemonCoreInvoker,
     spawnSyncImpl: options.spawnSyncImpl,
     mockResult: options.mockResult,
   });
@@ -31,6 +32,7 @@ export class RustRuntimeAgentgresAdmissionRunner {
     this.command = optionalString(options.command);
     this.invokeBridge = createDaemonCoreCommandInvoker({
       command: this.command,
+      daemonCoreInvoker: options.daemonCoreInvoker,
       spawnSyncImpl: options.spawnSyncImpl,
       mockResult: options.mockResult,
       mockSource: "rust_runtime_agentgres_mock",

@@ -84,6 +84,7 @@ export function createContextPolicyRunnerFromEnv(env = process.env, options = {}
   assertNoContextPolicyCommandArgs(options.args ?? env.IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS);
   return new RustContextPolicyRunner({
     command: options.command ?? env[CONTEXT_POLICY_COMMAND_ENV] ?? null,
+    daemonCoreInvoker: options.daemonCoreInvoker,
     spawnSyncImpl: options.spawnSyncImpl,
     mockResult: options.mockResult,
   });
@@ -106,6 +107,7 @@ export class RustContextPolicyRunner {
     this.command = optionalString(options.command);
     this.invokeBridge = createDaemonCoreCommandInvoker({
       command: this.command,
+      daemonCoreInvoker: options.daemonCoreInvoker,
       spawnSyncImpl: options.spawnSyncImpl,
       mockResult: options.mockResult,
       mockSource: "rust_context_budget_policy_mock",

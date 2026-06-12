@@ -3167,6 +3167,9 @@ function runBridge() {
   const daemonCoreCommandRunner = exists("packages/runtime-daemon/src/runtime-daemon-core-command-runner.mjs")
     ? read("packages/runtime-daemon/src/runtime-daemon-core-command-runner.mjs")
     : "";
+  const daemonCoreCommandRunnerTest = exists("packages/runtime-daemon/src/runtime-daemon-core-command-runner.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-daemon-core-command-runner.test.mjs")
+    : "";
   const governedImprovementRunner = exists("packages/runtime-daemon/src/runtime-governed-improvement-runner.mjs")
     ? read("packages/runtime-daemon/src/runtime-governed-improvement-runner.mjs")
     : "";
@@ -3671,6 +3674,12 @@ function runBridge() {
     l1SettlementControlNodes.match(
       /export interface RuntimeL1SettlementWorkflowNodeOptions[\s\S]*?\n}\n/,
     )?.[0] ?? "";
+  const runtimeAgentgresRunner = exists("packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs")
+    ? read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs")
+    : "";
+  const cteePrivateWorkspaceRunner = exists("packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.mjs")
+    ? read("packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.mjs")
+    : "";
   const cliMain = exists("crates/cli/src/main.rs") ? read("crates/cli/src/main.rs") : "";
   const cliRuntime = exists("crates/cli/src/commands/runtime.rs")
     ? read("crates/cli/src/commands/runtime.rs")
@@ -3736,6 +3745,45 @@ function runBridge() {
   const modelStreamCancelDetailsObject =
     openAiCompatRoutes.match(/error\.details = \{\n {4}boundary: "model_mount\.stream_cancel"[\s\S]*?\n {2}\};/)?.[0] ?? "";
   const retiredRouteDecisionEnvPattern = new RegExp("MODEL_MOUNT_" + "ROUTE_DECISION_COMMAND_ENV");
+  const daemonCoreDirectInvokerRunners = [
+    stepModuleRunner,
+    runtimeCodingToolApprovalRunner,
+    runtimeApprovalStateRunner,
+    runtimeContextPolicyRunner,
+    governedImprovementRunner,
+    workerServicePackageRunner,
+    workspaceRestoreRunner,
+    l1SettlementRunner,
+    externalCapabilityAuthorityRunner,
+    modelMountAdmissionRunner,
+    runtimeAgentgresRunner,
+    cteePrivateWorkspaceRunner,
+  ];
+  assertCheck(
+    result,
+    "daemon-core-direct-invoker-seam",
+    /daemonCoreInvoker/.test(daemonCoreCommandRunner) &&
+      /const directInvoker = optionalFunction\(daemonCoreInvoker\);/.test(daemonCoreCommandRunner) &&
+      /function optionalFunction\(value\)/.test(daemonCoreCommandRunner) &&
+      /if \(directInvoker\) \{\s*return directInvoker\(request\);\s*\}/.test(daemonCoreCommandRunner) &&
+      /if \(directInvoker\)[\s\S]*if \(mockResult\)[\s\S]*spawnSyncImpl\(commandPath,\s*\[\]/.test(
+        daemonCoreCommandRunner,
+      ) &&
+      daemonCoreDirectInvokerRunners.every((runner) => /daemonCoreInvoker: options\.daemonCoreInvoker/.test(runner)) &&
+      /direct daemon-core invoker bypasses temporary binary spawn/.test(daemonCoreCommandRunnerTest) &&
+      /direct daemon-core invoker takes precedence over mock result/.test(daemonCoreCommandRunnerTest) &&
+      /temporary binary spawn remains explicit migration fallback/.test(daemonCoreCommandRunnerTest) &&
+      /missing direct invoker and command still fails closed/.test(daemonCoreCommandRunnerTest),
+    [
+      "packages/runtime-daemon/src/runtime-daemon-core-command-runner.mjs",
+      "packages/runtime-daemon/src/runtime-daemon-core-command-runner.test.mjs",
+      "packages/runtime-daemon/src/step-module-runner.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-approval-runner.mjs",
+      "packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
+    ],
+    "Rust daemon-core migration needs one explicit direct-invoker seam before retiring temporary binary spawn transport",
+  );
   assertCheck(
     result,
     "step-module-runner-interface",

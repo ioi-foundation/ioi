@@ -8,6 +8,7 @@ export function createL1SettlementRunnerFromEnv(env = process.env, options = {})
   assertNoL1SettlementCommandArgs(options.args ?? env.IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS);
   return new RustL1SettlementRunner({
     command: options.command ?? env[L1_SETTLEMENT_COMMAND_ENV] ?? null,
+    daemonCoreInvoker: options.daemonCoreInvoker,
     spawnSyncImpl: options.spawnSyncImpl,
     mockResult: options.mockResult,
   });
@@ -30,6 +31,7 @@ export class RustL1SettlementRunner {
     this.command = optionalString(options.command);
     this.invokeBridge = createDaemonCoreCommandInvoker({
       command: this.command,
+      daemonCoreInvoker: options.daemonCoreInvoker,
       spawnSyncImpl: options.spawnSyncImpl,
       mockResult: options.mockResult,
       mockSource: "rust_l1_settlement_guard_mock",

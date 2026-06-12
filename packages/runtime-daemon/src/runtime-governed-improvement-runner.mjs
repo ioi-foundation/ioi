@@ -8,6 +8,7 @@ export function createGovernedImprovementRunnerFromEnv(env = process.env, option
   assertNoGovernedImprovementCommandArgs(options.args ?? env.IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS);
   return new RustGovernedImprovementRunner({
     command: options.command ?? env[GOVERNED_IMPROVEMENT_COMMAND_ENV] ?? null,
+    daemonCoreInvoker: options.daemonCoreInvoker,
     spawnSyncImpl: options.spawnSyncImpl,
     mockResult: options.mockResult,
   });
@@ -30,6 +31,7 @@ export class RustGovernedImprovementRunner {
     this.command = optionalString(options.command);
     this.invokeBridge = createDaemonCoreCommandInvoker({
       command: this.command,
+      daemonCoreInvoker: options.daemonCoreInvoker,
       spawnSyncImpl: options.spawnSyncImpl,
       mockResult: options.mockResult,
       mockSource: "rust_governed_improvement_mock",

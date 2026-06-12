@@ -14,6 +14,7 @@ export function createRuntimeApprovalStateRunnerFromEnv(env = process.env, optio
   assertNoApprovalStateCommandArgs(options.args ?? env.IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS);
   return new RustRuntimeApprovalStateRunner({
     command: options.command ?? env[APPROVAL_STATE_COMMAND_ENV] ?? null,
+    daemonCoreInvoker: options.daemonCoreInvoker,
     spawnSyncImpl: options.spawnSyncImpl,
     mockResult: options.mockResult,
   });
@@ -36,6 +37,7 @@ export class RustRuntimeApprovalStateRunner {
     this.command = optionalString(options.command);
     this.invokeBridge = createDaemonCoreCommandInvoker({
       command: this.command,
+      daemonCoreInvoker: options.daemonCoreInvoker,
       spawnSyncImpl: options.spawnSyncImpl,
       mockResult: options.mockResult,
       mockSource: "rust_approval_state_mock",

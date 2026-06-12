@@ -10,6 +10,7 @@ export function createCodingToolApprovalRunnerFromEnv(env = process.env, options
   assertNoCodingToolApprovalCommandArgs(options.args ?? env.IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS);
   return new RustCodingToolApprovalRunner({
     command: options.command ?? env[CODING_TOOL_APPROVAL_COMMAND_ENV] ?? null,
+    daemonCoreInvoker: options.daemonCoreInvoker,
     spawnSyncImpl: options.spawnSyncImpl,
     mockResult: options.mockResult,
   });
@@ -32,6 +33,7 @@ export class RustCodingToolApprovalRunner {
     this.command = optionalString(options.command);
     this.invokeBridge = createDaemonCoreCommandInvoker({
       command: this.command,
+      daemonCoreInvoker: options.daemonCoreInvoker,
       spawnSyncImpl: options.spawnSyncImpl,
       mockResult: options.mockResult,
       mockSource: "rust_coding_tool_approval_mock",

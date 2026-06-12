@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 
 export function createDaemonCoreCommandInvoker({
   command,
+  daemonCoreInvoker,
   spawnSyncImpl = spawnSync,
   mockResult,
   mockSource,
@@ -20,7 +21,11 @@ export function createDaemonCoreCommandInvoker({
   rejectedCode,
 }) {
   const commandPath = optionalString(command);
+  const directInvoker = optionalFunction(daemonCoreInvoker);
   return function invokeDaemonCoreCommand(request) {
+    if (directInvoker) {
+      return directInvoker(request);
+    }
     if (mockResult) {
       const value = typeof mockResult === "function" ? mockResult(request) : mockResult;
       return {
@@ -71,4 +76,8 @@ function optionalString(value) {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   return trimmed ? trimmed : null;
+}
+
+function optionalFunction(value) {
+  return typeof value === "function" ? value : null;
 }

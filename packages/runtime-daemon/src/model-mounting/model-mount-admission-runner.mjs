@@ -23,6 +23,7 @@ export function createModelMountAdmissionRunnerFromEnv(env = process.env, option
   assertNoModelMountAdmissionCommandArgs(options.args ?? env.IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS);
   return new RustModelMountAdmissionRunner({
     command: options.command ?? env[MODEL_MOUNT_ADMISSION_COMMAND_ENV] ?? null,
+    daemonCoreInvoker: options.daemonCoreInvoker,
     spawnSyncImpl: options.spawnSyncImpl,
     mockResult: options.mockResult,
   });
@@ -45,6 +46,7 @@ export class RustModelMountAdmissionRunner {
     this.command = optionalString(options.command);
     this.invokeBridge = createDaemonCoreCommandInvoker({
       command: this.command,
+      daemonCoreInvoker: options.daemonCoreInvoker,
       spawnSyncImpl: options.spawnSyncImpl,
       mockResult: options.mockResult,
       mockSource: "rust_model_mount_mock",

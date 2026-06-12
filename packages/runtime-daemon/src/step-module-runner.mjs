@@ -15,6 +15,7 @@ export function createStepModuleRunnerFromEnv(env = process.env, options = {}) {
   assertNoStepModuleCommandSelection(env.IOI_STEP_MODULE_COMMAND);
   return new RustWorkloadStepModuleRunner({
     command: options.command ?? env[DAEMON_CORE_COMMAND_ENV] ?? null,
+    daemonCoreInvoker: options.daemonCoreInvoker,
     grpcAddr: options.grpcAddr ?? env[WORKLOAD_GRPC_ADDR_ENV] ?? null,
     shmemId: options.shmemId ?? env[WORKLOAD_SHMEM_ID_ENV] ?? null,
     spawnSyncImpl: options.spawnSyncImpl,
@@ -78,6 +79,7 @@ export class RustWorkloadStepModuleRunner extends StepModuleRunner {
     this.shmemId = optionalString(options.shmemId);
     this.invokeCommand = createDaemonCoreCommandInvoker({
       command: options.command,
+      daemonCoreInvoker: options.daemonCoreInvoker,
       spawnSyncImpl: options.spawnSyncImpl,
       mockResult: options.mockResult,
       mockSource: "rust_workload_mock",

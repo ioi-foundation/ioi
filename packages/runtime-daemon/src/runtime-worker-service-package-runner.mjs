@@ -8,6 +8,7 @@ export function createWorkerServicePackageRunnerFromEnv(env = process.env, optio
   assertNoWorkerServicePackageCommandArgs(options.args ?? env.IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS);
   return new RustWorkerServicePackageRunner({
     command: options.command ?? env[WORKER_SERVICE_PACKAGE_COMMAND_ENV] ?? null,
+    daemonCoreInvoker: options.daemonCoreInvoker,
     spawnSyncImpl: options.spawnSyncImpl,
     mockResult: options.mockResult,
   });
@@ -30,6 +31,7 @@ export class RustWorkerServicePackageRunner {
     this.command = optionalString(options.command);
     this.invokeBridge = createDaemonCoreCommandInvoker({
       command: this.command,
+      daemonCoreInvoker: options.daemonCoreInvoker,
       spawnSyncImpl: options.spawnSyncImpl,
       mockResult: options.mockResult,
       mockSource: "rust_worker_service_package_mock",

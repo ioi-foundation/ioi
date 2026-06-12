@@ -8,6 +8,7 @@ export function createExternalCapabilityAuthorityRunnerFromEnv(env = process.env
   assertNoExternalCapabilityAuthorityCommandArgs(options.args ?? env.IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS);
   return new RustExternalCapabilityAuthorityRunner({
     command: options.command ?? env[EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_ENV] ?? null,
+    daemonCoreInvoker: options.daemonCoreInvoker,
     spawnSyncImpl: options.spawnSyncImpl,
     mockResult: options.mockResult,
   });
@@ -30,6 +31,7 @@ export class RustExternalCapabilityAuthorityRunner {
     this.command = optionalString(options.command);
     this.invokeBridge = createDaemonCoreCommandInvoker({
       command: this.command,
+      daemonCoreInvoker: options.daemonCoreInvoker,
       spawnSyncImpl: options.spawnSyncImpl,
       mockResult: options.mockResult,
       mockSource: "rust_external_capability_authority_mock",

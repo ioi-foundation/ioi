@@ -15,6 +15,14 @@ This matrix answers the implementer question:
 Do not use this file to invent competing doctrine. If a row conflicts with its
 canonical owner, update the owner doc first and then update this matrix.
 
+Current sprint lane: `RuntimeDaemonCoreDirectInvokerSeam` is migration
+scaffolding, not a terminal architecture. The shared JS daemon-core command
+invoker accepts `daemonCoreInvoker` and current daemon-core command runners
+thread that option so the next Rust-core extraction can wire real daemon-core
+protocol/API calls. Once that direct Rust API path is verified, delete the JS
+command invoker scaffolding and `IOI_RUNTIME_DAEMON_CORE_COMMAND` binary-spawn
+fallback instead of preserving them as compatibility wrappers.
+
 Status values:
 
 ```text
