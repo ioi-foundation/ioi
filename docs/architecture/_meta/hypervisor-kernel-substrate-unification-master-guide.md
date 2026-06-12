@@ -7406,6 +7406,29 @@ server control, runtime-engine control, tokenizer/context-fit control,
 route-control admission, Agentgres truth, replay, and stable IDE/CLI/SDK
 surfaces no longer depend on Node bridge endpoint proof scaffolding.
 
+Slice 1186 moves the remaining model-mount accepted-receipt and read-projection
+command-response proof cluster out of the temporary bridge proof surface and
+into Rust owners at
+`crates/services/src/agentic/runtime/kernel/model_mount_receipt.rs` and
+`crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs`.
+Accepted-receipt head, accepted-receipt transition, and read-projection
+command-envelope response shaping now run as Rust owner tests. Bridge
+conformance now requires those owner tests, proves typed Rust
+`command_dispatch.rs` still dispatches
+`plan_model_mount_accepted_receipt_head`,
+`plan_model_mount_accepted_receipt_transition`, and
+`plan_model_mount_read_projection`, and proves the old bridge-named tests,
+request-type imports, response-function aliases, and command-protocol proof
+imports stay absent from `ioi_step_module_bridge/proof_tests.rs`. The bridge
+proof suite now runs 32 tests.
+
+This remains non-terminal because accepted-receipt planning and read-projection
+response shaping still cross temporary command transport. The target is direct
+Rust daemon-core model-mount protocol/API ownership where accepted receipt
+heads, state-root transitions, projection/replay reads, Agentgres truth,
+replay, and stable IDE/CLI/SDK surfaces no longer depend on Node bridge
+endpoint proof scaffolding.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

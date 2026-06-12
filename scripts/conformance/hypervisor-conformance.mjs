@@ -2440,7 +2440,7 @@ function runBridge() {
       /dispatch_command_operation_response/.test(bridgeDispatch) &&
       !/ioi_services::agentic::runtime::kernel::/.test(bridgeModuleRuntime) &&
       !/ioi_client::workload_client/.test(bridgeModuleRuntime) &&
-      /#\[cfg\(test\)\]\s*mod tests \{[\s\S]*use ioi_services::agentic::runtime::kernel::command_protocol::/.test(
+      !/#\[cfg\(test\)\]\s*mod tests \{[\s\S]*use ioi_services::agentic::runtime::kernel::command_protocol::/.test(
         bridgeProofTests,
       ) &&
       /#\[cfg\(test\)\]\s*mod tests \{[\s\S]*use ioi_client::workload_client::WORKLOAD_STEP_MODULE_DISPATCH_SCHEMA_VERSION/.test(
@@ -2449,7 +2449,7 @@ function runBridge() {
       /use ioi_services::agentic::runtime::kernel::command_protocol::\{\s*validate_command_envelope_payload,\s*CommandEnvelope,\s*\};/.test(
         bridgeDispatch,
       ) &&
-      /use ioi_services::agentic::runtime::kernel::command_protocol::/.test(bridgeModule) &&
+      /use ioi_services::agentic::runtime::kernel::command_protocol::/.test(bridgeDispatch) &&
       /let envelope: CommandEnvelope = serde_json::from_value\(raw_request\.clone\(\)\)/.test(bridgeDispatch) &&
       /validate_command_envelope_payload\(&envelope\)/.test(bridgeDispatch) &&
       /error\.into_parts\(\)/.test(bridgeDispatch) &&
@@ -4067,9 +4067,7 @@ function runBridge() {
       /#\[cfg\(test\)\]\s*mod tests \{[\s\S]*const CODING_TOOL_RESULT_SCHEMA_VERSION:/.test(
         bridgeModule,
       ) &&
-      /#\[cfg\(test\)\]\s*mod tests \{[\s\S]*const MODEL_MOUNT_RUNTIME_SCHEMA_VERSION:/.test(
-        bridgeModule,
-      ),
+      !/MODEL_MOUNT_RUNTIME_SCHEMA_VERSION/.test(bridgeModule),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "crates/services/src/agentic/runtime/kernel/coding_tool_step_module.rs",
@@ -7145,12 +7143,22 @@ function runBridge() {
       !/ReceiptBinder/.test(modelMountCommandBridge) &&
       !/AgentgresAdmissionCore/.test(modelMountCommandBridge) &&
       !/RustProjectionCore/.test(modelMountCommandBridge) &&
-      /plan_model_mount_accepted_receipt_head_response as plan_model_mount_accepted_receipt_head/.test(
+      !/plan_model_mount_accepted_receipt_head_response as plan_model_mount_accepted_receipt_head/.test(
         bridgeModule,
       ) &&
-      /plan_model_mount_accepted_receipt_transition_response as plan_model_mount_accepted_receipt_transition/.test(
+      !/plan_model_mount_accepted_receipt_transition_response as plan_model_mount_accepted_receipt_transition/.test(
         bridgeModule,
       ) &&
+      /plan_model_mount_accepted_receipt_head_response\(decode\(raw_request\)\?\)/.test(
+        coreCommandDispatch,
+      ) &&
+      /plan_model_mount_accepted_receipt_transition_response\(decode\(raw_request\)\?\)/.test(
+        coreCommandDispatch,
+      ) &&
+      /rust_core_shapes_accepted_receipt_head_response/.test(modelMountReceiptCore) &&
+      /rust_core_shapes_accepted_receipt_transition_response/.test(modelMountReceiptCore) &&
+      !/bridge_plans_model_mount_accepted_receipt_head_through_rust_core/.test(bridgeModule) &&
+      !/bridge_plans_model_mount_accepted_receipt_transition_through_rust_core/.test(bridgeModule) &&
       !/bind_model_mount_invocation_receipt_response as bind_model_mount_invocation_receipt/.test(
         bridgeModule,
       ) &&
@@ -7168,9 +7176,14 @@ function runBridge() {
       /ReceiptBinder/.test(modelMountReceiptCore) &&
       /AgentgresAdmissionCore/.test(modelMountReceiptCore) &&
       /RustProjectionCore/.test(modelMountReceiptCore) &&
-      /plan_model_mount_read_projection_response as plan_model_mount_read_projection/.test(
+      !/plan_model_mount_read_projection_response as plan_model_mount_read_projection/.test(
         bridgeModule,
-      ),
+      ) &&
+      /plan_model_mount_read_projection_response\(decode\(raw_request\)\?\)/.test(
+        coreCommandDispatch,
+      ) &&
+      /rust_core_shapes_model_mount_read_projection_command_response/.test(modelMountCore) &&
+      !/bridge_plans_model_mount_read_projection_through_rust_core/.test(bridgeModule),
     [
       "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
@@ -7187,9 +7200,14 @@ function runBridge() {
       /pub fn plan_model_mount_read_projection_response/.test(modelMountCore) &&
       /rust_model_mount_read_projection_command/.test(modelMountCore) &&
       /model_mount_read_projection_kind_unsupported/.test(modelMountCore) &&
+      /rust_core_shapes_model_mount_read_projection_command_response/.test(modelMountCore) &&
+      /plan_model_mount_read_projection_response\(decode\(raw_request\)\?\)/.test(
+        coreCommandDispatch,
+      ) &&
       !modelMountCommandBridgeExists &&
-      /plan_model_mount_read_projection_response as plan_model_mount_read_projection/.test(bridgeModule) &&
-      /ModelMountReadProjectionBridgeRequest/.test(bridgeModule) &&
+      !/plan_model_mount_read_projection_response as plan_model_mount_read_projection/.test(bridgeModule) &&
+      !/ModelMountReadProjectionBridgeRequest/.test(bridgeModule) &&
+      !/bridge_plans_model_mount_read_projection_through_rust_core/.test(bridgeModule) &&
       !/struct ModelMountReadProjectionBridgeRequest/.test(modelMountCommandBridge) &&
       !/ModelMountReadProjectionRequest/.test(modelMountCommandBridge) &&
       !/rust_model_mount_read_projection_command/.test(modelMountCommandBridge) &&
@@ -12181,8 +12199,10 @@ function runBridge() {
       !/return buildModelMountingProjection\(state,\s*\{ schemaVersion: modelMountSchemaVersion \}\);/.test(
         modelMountingReadProjectionFacade,
       ) &&
-      /plan_model_mount_read_projection_response as plan_model_mount_read_projection/.test(modelMountCommandSurface) &&
-      /bridge_plans_model_mount_read_projection_through_rust_core/.test(modelMountCommandSurface),
+      /plan_model_mount_read_projection_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      /rust_core_shapes_model_mount_read_projection_command_response/.test(modelMountCore) &&
+      !/plan_model_mount_read_projection_response as plan_model_mount_read_projection/.test(modelMountCommandSurface) &&
+      !/bridge_plans_model_mount_read_projection_through_rust_core/.test(modelMountCommandSurface),
     [
       "packages/runtime-daemon/src/model-mounting/io.mjs",
       "packages/runtime-daemon/src/runtime-http-utils.mjs",
@@ -12693,7 +12713,6 @@ function runBridge() {
       /"agentgres": \{[\s\S]*"port": "AgentgresStorePort"[\s\S]*"implementation": "agentgres_admitted_model_mounting_store"/.test(modelMountReadProjectionEvidence) &&
       /"wallet": \{[\s\S]*"port": "WalletAuthorityPort"[\s\S]*"implementation": "wallet_network_authority"/.test(modelMountReadProjectionEvidence) &&
       /"vault": \{[\s\S]*"port": "VaultPort"[\s\S]*"plaintextPersistence": false/.test(modelMountReadProjectionEvidence) &&
-      /"state": \{\}[\s\S]*?expect\("model_mount adapter boundaries request"\)/.test(modelMountReadProjectionEvidence) &&
       /"plaintextPersistence": false/.test(modelMountReadProjectionEvidence) &&
       /model_mount_provider_health_not_found/.test(modelMountReadProjectionEvidence) &&
       /model_mount_vault_health_not_found/.test(modelMountReadProjectionEvidence) &&
@@ -12709,74 +12728,31 @@ function runBridge() {
       /rust_daemon_core_model_mount_projection/.test(modelMountReadProjectionEvidence) &&
       /agentgres_model_mount_read_truth/.test(modelMountReadProjectionEvidence) &&
       /pub base_url: Option<String>/.test(modelMountReadProjectionEvidence) &&
-      /"projection_kind": "snapshot"/.test(modelMountReadProjectionEvidence) &&
-      /"projection_kind": "server_status"/.test(modelMountReadProjectionEvidence) &&
+      /rust_core_shapes_model_mount_read_projection_command_response/.test(
+        modelMountReadProjectionEvidence,
+      ) &&
+      /plan_model_mount_read_projection_response\(decode\(raw_request\)\?\)/.test(
+        coreCommandDispatch,
+      ) &&
+      !/plan_model_mount_read_projection_response as plan_model_mount_read_projection/.test(
+        modelMountCommandSurface,
+      ) &&
+      !/bridge_plans_model_mount_read_projection_through_rust_core/.test(
+        modelMountCommandSurface,
+      ) &&
+      /"projection_kind": "projection"/.test(modelMountReadProjectionEvidence) &&
       !/server_status_input/.test(modelMountReadProjectionEvidence) &&
       /"status": "stopped"/.test(modelMountReadProjectionEvidence) &&
       /"loadedInstances": 0/.test(modelMountReadProjectionEvidence) &&
       /"mountedEndpoints": 0/.test(modelMountReadProjectionEvidence) &&
-      /"projection_kind": "catalog_status"/.test(modelMountReadProjectionEvidence) &&
-      /"catalog_status_input"/.test(modelMountReadProjectionEvidence) &&
       !/fn model_mount_catalog_status(?:(?!\nfn ).)*request\.state\.get\("catalog_status_input"\)/s.test(modelMountReadProjectionEvidence) &&
       /"runtime_model_catalog"/.test(modelMountingReadProjectionFacadeTest) &&
       /"open_ai_model_list"/.test(modelMountingReadProjectionFacadeTest) &&
       /"product_artifacts"/.test(modelMountingReadProjectionFacadeTest) &&
-      /"projection_kind": "workflow_bindings"/.test(modelMountReadProjectionEvidence) &&
-      /"projection_kind": "adapter_boundaries"/.test(modelMountReadProjectionEvidence) &&
-      /"projection_kind": "receipt_replay"/.test(modelMountReadProjectionEvidence) &&
-      /receipt replay projected from receipt-only Rust context/.test(modelMountReadProjectionEvidence) &&
-      /receipt_replay_response\["projection"\]\["route"\],\s*Value::Null/.test(modelMountReadProjectionEvidence) &&
-      /receipt_replay_response\["projection"\]\["endpoint"\],\s*Value::Null/.test(modelMountReadProjectionEvidence) &&
-      /receipt_replay_response\["projection"\]\["provider"\],\s*Value::Null/.test(modelMountReadProjectionEvidence) &&
-      /"projection_kind": "runtime_engines"/.test(modelMountReadProjectionEvidence) &&
-      /"projection_kind": "runtime_engine_profiles"/.test(modelMountReadProjectionEvidence) &&
-      /"projection_kind": "runtime_preference"/.test(modelMountReadProjectionEvidence) &&
-      /"projection_kind": "runtime_preference_for_endpoint"/.test(modelMountReadProjectionEvidence) &&
-      /"projection_kind": "runtime_default_load_options"/.test(modelMountReadProjectionEvidence) &&
-      /"projection_kind": "runtime_engine_detail"/.test(modelMountReadProjectionEvidence) &&
-      /"projection_kind": "runtime_engines"[\s\S]*?"runtime_engines": \[\{[\s\S]*?runtime_engines_response\["projection"\][\s\S]*?\.len\(\),\s*0/.test(modelMountReadProjectionEvidence) &&
-      /"projection_kind": "runtime_engine_profiles"[\s\S]*?"runtime_engine_profiles": \[\{[\s\S]*?runtime_profiles_response\["projection"\][\s\S]*?\.len\(\),\s*0/.test(modelMountReadProjectionEvidence) &&
-      /"projection_kind": "runtime_preference"[\s\S]*?"runtime_preference": \{"routeId": "route\.local-first"\}[\s\S]*?runtime_preference_response\["projection"\],\s*Value::Null/.test(modelMountReadProjectionEvidence) &&
-      /"projection_kind": "runtime_preference_for_endpoint"[\s\S]*?"runtime_preference": \{"routeId": "route\.local-first"\}[\s\S]*?runtime_endpoint_preference_response\["projection"\],\s*Value::Null/.test(modelMountReadProjectionEvidence) &&
-      /"projection_kind": "runtime_default_load_options"[\s\S]*?"default_load_options": \{"gpuLayers": 42\}[\s\S]*?runtime_default_load_options_response\["projection"\],\s*Value::Null/.test(modelMountReadProjectionEvidence) &&
-      /"projection_kind": "runtime_engine_detail"[\s\S]*?"engine_id": "backend\.llama-cpp"[\s\S]*?"runtime_engine": \{[\s\S]*?expect_err\("runtime engine detail fails closed without Rust-owned engine state"\)/.test(modelMountReadProjectionEvidence) &&
-      /"projection_kind": "runtime_engine_detail"[\s\S]*?"engine_id": "backend\.missing"[\s\S]*?"state": \{\}[\s\S]*?expect_err\("runtime engine detail fails closed when engine is missing"\)/.test(modelMountReadProjectionEvidence) &&
-      /"projection_kind": "latest_runtime_survey"/.test(modelMountReadProjectionEvidence) &&
-      /"projection_kind": "latest_runtime_survey"[\s\S]*?"state": \{\s*"receipts": \[\]\s*\}[\s\S]*?latest_runtime_survey_response\["projection"\]\["engineCount"\],\s*0/.test(modelMountReadProjectionEvidence) &&
-      /latest_runtime_survey_response\["projection"\]\["runtimePreference"\],\s*Value::Null/.test(modelMountReadProjectionEvidence) &&
-      /latest_runtime_survey_response\["projection"\]\["hardware"\],\s*Value::Null/.test(modelMountReadProjectionEvidence) &&
-      /checked_runtime_survey_request[\s\S]*?"projection_kind": "latest_runtime_survey"[\s\S]*?"state": \{\s*"receipts": \[\{[\s\S]*?"id": "receipt-runtime-survey"/.test(modelMountReadProjectionEvidence) &&
-      /"projection_kind": "latest_provider_health"/.test(modelMountReadProjectionEvidence) &&
-      /"projection_kind": "latest_provider_health"[\s\S]*?"state": \{\s*"receipts": state_with_health\["receipts"\]\.clone\(\)\s*\}/.test(modelMountReadProjectionEvidence) &&
-      /"provider_id": "provider\.local"[\s\S]*?"kind": "provider_health"/.test(modelMountReadProjectionEvidence) &&
-      /provider_health_response\["projection"\]\["health"\]\["provider_id"\],\s*"provider\.local"/.test(modelMountReadProjectionEvidence) &&
-      /latest provider health fails closed when provider health receipt is missing/.test(modelMountReadProjectionEvidence) &&
-      /missing_provider_error\.code,\s*[\r\n]+\s*"model_mount_provider_health_not_found"/.test(modelMountReadProjectionEvidence) &&
-      /"projection_kind": "latest_vault_health"/.test(modelMountReadProjectionEvidence) &&
       /response\["projection"\]\["adapterBoundaries"\]\["agentgres"\]\["port"\]/.test(modelMountReadProjectionEvidence) &&
-      /snapshot_response\["projection"\]\["adapterBoundaries"\]\["agentgres"\]\["port"\]/.test(modelMountReadProjectionEvidence) &&
-      /response\["projection"\]\["workflowBindings"\]\[4\]\["capability"\]/.test(modelMountReadProjectionEvidence) &&
-      /response\["projection"\]\["modelCapabilities"\][\s\S]*?\.len\(\),\s*0/.test(modelMountReadProjectionEvidence) &&
-      /response\["projection"\]\["productArtifacts"\][\s\S]*?\.len\(\),\s*0/.test(modelMountReadProjectionEvidence) &&
-      /response\["projection"\]\["runtimeModelCatalog"\][\s\S]*?\.len\(\),\s*0/.test(modelMountReadProjectionEvidence) &&
-      /response\["projection"\]\["openAiModelList"\]\["data"\][\s\S]*?\.len\(\),\s*0/.test(modelMountReadProjectionEvidence) &&
-      /snapshot_response\["projection"\]\["workflowNodes"\]/.test(modelMountReadProjectionEvidence) &&
-      /server status projected in Rust/.test(modelMountReadProjectionEvidence) &&
-      /catalog status fails closed until Rust catalog projection owns readback/.test(modelMountReadProjectionEvidence) &&
-      /runtime engines projected in Rust/.test(modelMountReadProjectionEvidence) &&
-      /runtime engine profiles projected in Rust/.test(modelMountReadProjectionEvidence) &&
-      /runtime preference projected in Rust/.test(modelMountReadProjectionEvidence) &&
-      /endpoint runtime preference projected in Rust/.test(modelMountReadProjectionEvidence) &&
-      /runtime default load options projected in Rust/.test(modelMountReadProjectionEvidence) &&
-      /runtime engine detail fails closed without Rust-owned engine state/.test(modelMountReadProjectionEvidence) &&
-      /runtime engine detail fails closed when engine is missing/.test(modelMountReadProjectionEvidence) &&
-      /latest runtime survey default projected in Rust/.test(modelMountReadProjectionEvidence) &&
-      /latest runtime survey receipt projected in Rust/.test(modelMountReadProjectionEvidence) &&
-      /latest provider health projected in Rust/.test(modelMountReadProjectionEvidence) &&
-      /latest provider health fails closed when provider health receipt is missing/.test(modelMountReadProjectionEvidence) &&
-      /latest vault health projected in Rust/.test(modelMountReadProjectionEvidence) &&
-      /latest vault health fails closed when health receipt is missing/.test(modelMountReadProjectionEvidence) &&
-      /snapshot projection planned in Rust/.test(modelMountReadProjectionEvidence),
+      /response\["projection"\]\["routeDecisions"\]\[0\]\["receipt_id"\]/.test(modelMountReadProjectionEvidence) &&
+      /response\["projection"\]\["routeDecisions"\]\[0\]\["selected_model"\]/.test(modelMountReadProjectionEvidence) &&
+      /model_mount_js_read_projection_authoring_retired/.test(modelMountReadProjectionEvidence),
     [
       "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/read-projection-facade.mjs",
@@ -21586,7 +21562,10 @@ function runReceipts() {
       /acceptedReceiptTransition\.expected_heads/.test(modelInvocationOpsTest) &&
       /planAcceptedReceiptHead/.test(modelMountingState) &&
       /plan_model_mount_accepted_receipt_head/.test(modelMountAdmissionRunner) &&
-      /plan_model_mount_accepted_receipt_head/.test(bridgeModule) &&
+      /plan_model_mount_accepted_receipt_head_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      !/plan_model_mount_accepted_receipt_head_response as plan_model_mount_accepted_receipt_head/.test(bridgeModule) &&
+      !/bridge_plans_model_mount_accepted_receipt_head_through_rust_core/.test(bridgeModule) &&
+      /rust_core_shapes_accepted_receipt_head_response/.test(modelMountReceiptCore) &&
       /ModelMountAcceptedReceiptHeadRequest/.test(modelMountReceiptCore) &&
       /mod accepted_receipt;/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
@@ -21627,7 +21606,9 @@ function runReceipts() {
       /state_root:\s*hashRef\(value\?\.state_root,\s*"agentgresHead\.state_root"\)/.test(
         modelInvocationOps,
       ) &&
-      /plan_model_mount_accepted_receipt_transition/.test(bridgeModule) &&
+      /plan_model_mount_accepted_receipt_transition_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      !/plan_model_mount_accepted_receipt_transition_response as plan_model_mount_accepted_receipt_transition/.test(bridgeModule) &&
+      !/bridge_plans_model_mount_accepted_receipt_transition_through_rust_core/.test(bridgeModule) &&
       /accepted_receipt_transition:\s*Option<ModelMountAcceptedReceiptTransition>/.test(modelMountReceiptCore) &&
       /model_mount_caller_supplied_expected_heads/.test(modelMountInvocationReceiptBridgeBlock) &&
       /model_mount_accepted_receipt_transition_required/.test(modelMountInvocationReceiptBridgeBlock) &&
@@ -21637,7 +21618,7 @@ function runReceipts() {
       !/expected_heads:/.test(modelMountInvocationReceiptRunnerBlock) &&
       /accepted_receipt_transition:\s*acceptedReceiptTransition/.test(modelMountInvocationReceiptRunnerBlock) &&
       /Rust model_mount admission runner rejects direct expected head binding input/.test(modelMountAdmissionRunnerTest) &&
-      /ModelMountAcceptedReceiptTransitionBridgeRequest/.test(bridgeModule) &&
+      /ModelMountAcceptedReceiptTransitionBridgeRequest/.test(modelMountReceiptCore) &&
       /ModelMountAcceptedReceiptTransitionRequest/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount/accepted_receipt.rs"),
       ) &&
@@ -21668,7 +21649,7 @@ function runReceipts() {
       /model-mounting-accepted-receipts/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount/accepted_receipt.rs"),
       ) &&
-      /agentgres:\/\/model-mounting\/accepted-receipts/.test(bridgeModule) &&
+      /agentgres:\/\/model-mounting\/accepted-receipts/.test(modelMountReceiptCore) &&
       /agentgres:\/\/model-mounting\/accepted-receipts/.test(agentgresAdmissionCore) &&
       !/agentgres:\/\/model-mounting\/operation-log/.test(
         `${modelInvocationOps}\n${modelMountingState}\n${bridgeModule}\n${agentgresAdmissionCore}\n${modelMountCore}`,

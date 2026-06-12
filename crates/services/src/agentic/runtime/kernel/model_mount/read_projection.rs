@@ -135,6 +135,8 @@ pub(super) fn model_mount_read_projection(
 
 #[cfg(test)]
 mod tests {
+    use crate::agentic::runtime::kernel::command_protocol::DAEMON_CORE_COMMAND_SCHEMA_VERSION;
+
     use super::super::MODEL_MOUNT_RUNTIME_SCHEMA_VERSION;
     use super::*;
 
@@ -175,5 +177,73 @@ mod tests {
                 "model_mount_js_read_projection_authoring_retired",
             ],
         );
+    }
+
+    #[test]
+    fn rust_core_shapes_model_mount_read_projection_command_response() {
+        let request: ModelMountReadProjectionBridgeRequest = serde_json::from_value(json!({
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+            "operation": "plan_model_mount_read_projection",
+            "backend": "rust_model_mount_read_projection",
+            "request": {
+                "projection_kind": "projection",
+                "schema_version": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
+                "generated_at": "2026-06-08T00:00:00.000Z",
+                "state": {
+                    "wallet": {"port": "WalletAuthorityPort"},
+                    "vault": {"port": "VaultPort"},
+                    "agentgres_store": {"port": "AgentgresStorePort"},
+                    "receipts": [{
+                        "id": "receipt-route",
+                        "kind": "model_route_selection",
+                        "createdAt": "2026-06-08T00:00:00.000Z",
+                        "details": {
+                            "model_route_decision": {
+                                "schema_version": "ioi.model-route-decision.v1",
+                                "route_id": "route.local-first",
+                                "selected_model": "model.local"
+                            },
+                            "route_id": "route.local-first",
+                            "endpoint_id": "endpoint.local",
+                            "provider_id": "provider.local"
+                        }
+                    }]
+                }
+            }
+        }))
+        .expect("read projection command request");
+
+        let response =
+            plan_model_mount_read_projection_response(request).expect("read projection response");
+
+        assert_eq!(
+            response["source"],
+            "rust_model_mount_read_projection_command"
+        );
+        assert_eq!(response["backend"], "rust_model_mount_read_projection");
+        assert_eq!(response["projection_kind"], "projection");
+        assert_eq!(
+            response["projection"]["source"],
+            "agentgres_model_mounting_projection"
+        );
+        assert_eq!(response["projection"]["watermark"], 1);
+        assert_eq!(
+            response["projection"]["routeDecisions"][0]["receipt_id"],
+            "receipt-route"
+        );
+        assert_eq!(
+            response["projection"]["routeDecisions"][0]["selected_model"],
+            "model.local"
+        );
+        assert_eq!(
+            response["projection"]["adapterBoundaries"]["agentgres"]["port"],
+            "AgentgresStorePort"
+        );
+        assert!(response["projection"].get("route_decisions").is_none());
+        assert!(response["evidence_refs"]
+            .as_array()
+            .expect("evidence refs")
+            .iter()
+            .any(|value| value == "model_mount_js_read_projection_authoring_retired"));
     }
 }

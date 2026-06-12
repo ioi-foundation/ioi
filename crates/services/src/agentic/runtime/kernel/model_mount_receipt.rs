@@ -400,25 +400,112 @@ mod tests {
 
     #[test]
     fn rust_core_shapes_accepted_receipt_head_response() {
-        let response = plan_model_mount_accepted_receipt_head_response(
-            ModelMountAcceptedReceiptHeadBridgeRequest {
-                backend: Some("rust_model_mount_accepted_receipt_head".to_string()),
-                request: ModelMountAcceptedReceiptHeadRequest {
-                    schema_version: MODEL_MOUNT_ACCEPTED_RECEIPT_HEAD_SCHEMA_VERSION.to_string(),
-                    sequence: 7,
-                },
-            },
-        )
-        .expect("head response");
+        let request: ModelMountAcceptedReceiptHeadBridgeRequest = serde_json::from_value(json!({
+        "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+            "operation": "plan_model_mount_accepted_receipt_head",
+            "backend": "rust_model_mount_accepted_receipt_head",
+            "request": {
+                "schema_version": MODEL_MOUNT_ACCEPTED_RECEIPT_HEAD_SCHEMA_VERSION,
+                "sequence": 7
+            }
+        }))
+        .expect("head command request");
+        let response =
+            plan_model_mount_accepted_receipt_head_response(request).expect("head response");
 
         assert_eq!(
             response["source"],
             "rust_model_mount_accepted_receipt_head_command"
         );
+        assert_eq!(
+            response["backend"],
+            "rust_model_mount_accepted_receipt_head"
+        );
         assert_eq!(response["sequence"], 7);
+        assert_eq!(
+            response["head_ref"],
+            "agentgres://model-mounting/accepted-receipts/head/7"
+        );
+        assert!(response["state_root"]
+            .as_str()
+            .is_some_and(|value| value.starts_with("sha256:")));
+        assert_eq!(
+            response["projection_watermark"],
+            "model-mounting-accepted-receipts:7"
+        );
         assert!(response["head_hash"]
             .as_str()
             .is_some_and(|value| value.starts_with("sha256:")));
+        assert!(response["evidence_refs"]
+            .as_array()
+            .expect("evidence refs")
+            .iter()
+            .any(|value| value == "rust_agentgres_receipt_head_planner"));
+    }
+
+    #[test]
+    fn rust_core_shapes_accepted_receipt_transition_response() {
+        let request: ModelMountAcceptedReceiptTransitionBridgeRequest =
+            serde_json::from_value(json!({
+                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+                "operation": "plan_model_mount_accepted_receipt_transition",
+                "backend": "rust_model_mount_accepted_receipt_transition",
+                "request": {
+                    "schema_version": MODEL_MOUNT_ACCEPTED_RECEIPT_TRANSITION_SCHEMA_VERSION,
+                    "current_sequence": 0,
+                    "current_head_ref": "agentgres://model-mounting/accepted-receipts/head/0",
+                    "current_state_root": "sha256:state-0",
+                    "receipt_id": "receipt.invoke",
+                    "receipt_kind": "model_invocation",
+                    "route_decision_ref": "model_mount://route_decision/test",
+                    "invocation_admission_ref": "model_mount://invocation_admission/test",
+                    "invocation_admission_hash": "sha256:invocation-test",
+                    "input_hash": "sha256:input",
+                    "output_hash": "sha256:output"
+                }
+            }))
+            .expect("accepted receipt transition command request");
+
+        let response = plan_model_mount_accepted_receipt_transition_response(request)
+            .expect("accepted receipt transition response");
+
+        assert_eq!(
+            response["source"],
+            "rust_model_mount_accepted_receipt_transition_command"
+        );
+        assert_eq!(
+            response["backend"],
+            "rust_model_mount_accepted_receipt_transition"
+        );
+        assert_eq!(response["operation_id"], "op_00000001_model_invocation");
+        assert_eq!(
+            response["operation_ref"],
+            "agentgres://model-mounting/accepted-receipts/op_00000001_model_invocation"
+        );
+        assert_eq!(
+            response["expected_heads"][0],
+            "agentgres://model-mounting/accepted-receipts/head/0"
+        );
+        assert_eq!(response["state_root_before"], "sha256:state-0");
+        assert!(response["state_root_after"]
+            .as_str()
+            .is_some_and(|value| value.starts_with("sha256:")));
+        assert_eq!(
+            response["resulting_head"],
+            "agentgres://model-mounting/accepted-receipts/head/1"
+        );
+        assert_eq!(
+            response["projection_watermark"],
+            "model-mounting-accepted-receipts:1"
+        );
+        assert!(response["transition_hash"]
+            .as_str()
+            .is_some_and(|value| value.starts_with("sha256:")));
+        assert!(response["evidence_refs"]
+            .as_array()
+            .expect("evidence refs")
+            .iter()
+            .any(|value| value == "rust_agentgres_receipt_state_root_planner"));
     }
 
     #[test]

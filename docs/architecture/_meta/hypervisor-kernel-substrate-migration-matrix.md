@@ -15861,6 +15861,49 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1186
+
+Slice 1186 moves the remaining model-mount accepted-receipt and
+read-projection command-response proof cluster out of the temporary bridge
+proof surface and into Rust owner code:
+
+- `crates/services/src/agentic/runtime/kernel/model_mount_receipt.rs`
+- `crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs`
+- `crates/services/src/agentic/runtime/kernel/command_dispatch.rs`
+
+The Rust owner tests now cover accepted-receipt head response shaping,
+accepted-receipt transition response shaping, and read-projection
+command-envelope response shaping. Bridge conformance requires those owner
+tests, proves typed Rust `command_dispatch.rs` dispatches
+`plan_model_mount_accepted_receipt_head`,
+`plan_model_mount_accepted_receipt_transition`, and
+`plan_model_mount_read_projection`, and proves the old bridge proof aliases,
+request-type imports, bridge-named tests, and bridge command-protocol proof
+imports stay absent from `ioi_step_module_bridge/proof_tests.rs`.
+`cargo test -p ioi-node --bin ioi-step-module-bridge` now runs 32 bridge
+tests.
+
+This is a Rust-owner proof-retirement cut, not terminal model-mount migration.
+Accepted-receipt planning and read-projection response shaping still cross
+temporary command transport until direct Rust daemon-core protocol APIs own
+accepted receipt heads, state-root transitions, projection/replay reads,
+Agentgres truth, replay, and stable IDE/CLI/SDK surfaces end to end.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt` | passed |
+| `cargo fmt --check` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `cargo test -p ioi-services agentic::runtime::kernel::model_mount_receipt::tests` | passed |
+| `cargo test -p ioi-services agentic::runtime::kernel::model_mount::read_projection::tests` | passed |
+| `cargo test -p ioi-node --bin ioi-step-module-bridge` | passed; 32 tests |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1185
 
 Slice 1185 moves the model-mount backend-process and required-control
