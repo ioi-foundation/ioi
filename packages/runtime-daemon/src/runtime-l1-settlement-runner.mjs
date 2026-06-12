@@ -90,8 +90,8 @@ export function normalizeL1SettlementBridgeResult(value = {}) {
     settlement_ref: result.settlement_ref ?? record.settlement_ref ?? null,
     domain_ref: result.domain_ref ?? record.domain_ref ?? null,
     state_root_ref: result.state_root_ref ?? record.state_root_ref ?? null,
-    trigger_refs: stringArray(result.trigger_refs) ?? stringArray(record.trigger_refs) ?? [],
-    receipt_refs: stringArray(result.receipt_refs) ?? stringArray(record.receipt_refs) ?? [],
+    trigger_refs: stringArray(result.trigger_refs) ?? stringArray(record.trigger_refs) ?? null,
+    receipt_refs: stringArray(result.receipt_refs) ?? stringArray(record.receipt_refs) ?? null,
     admission_hash: result.admission_hash ?? record.admission_hash ?? null,
   };
 }

@@ -14923,6 +14923,21 @@ function runBridge() {
       !/from "node:child_process"/.test(l1SettlementRunner) &&
       /spawnSyncImpl\(commandPath,\s*\[\]/.test(daemonCoreCommandRunner) &&
       /L1 settlement runner sends admission bridge request/.test(l1SettlementRunnerTest) &&
+      /L1 settlement runner does not synthesize Rust-owned trigger or receipt refs/.test(
+        l1SettlementRunnerTest,
+      ) &&
+      /trigger_refs:\s*stringArray\(result\.trigger_refs\)\s*\?\?\s*stringArray\(record\.trigger_refs\)\s*\?\?\s*null/.test(
+        l1SettlementRunner,
+      ) &&
+      /receipt_refs:\s*stringArray\(result\.receipt_refs\)\s*\?\?\s*stringArray\(record\.receipt_refs\)\s*\?\?\s*null/.test(
+        l1SettlementRunner,
+      ) &&
+      !/trigger_refs:\s*stringArray\(result\.trigger_refs\)\s*\?\?\s*stringArray\(record\.trigger_refs\)\s*\?\?\s*\[\]/.test(
+        l1SettlementRunner,
+      ) &&
+      !/receipt_refs:\s*stringArray\(result\.receipt_refs\)\s*\?\?\s*stringArray\(record\.receipt_refs\)\s*\?\?\s*\[\]/.test(
+        l1SettlementRunner,
+      ) &&
       /assert\.deepEqual\(calls\[0\]\.args,\s*\[\]\)/.test(l1SettlementRunnerTest) &&
       /L1 settlement runner env uses daemon-core command boundary/.test(l1SettlementRunnerTest) &&
       /L1 settlement runner command args env fails closed/.test(l1SettlementRunnerTest) &&

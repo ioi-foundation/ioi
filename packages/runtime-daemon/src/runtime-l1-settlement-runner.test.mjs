@@ -83,6 +83,29 @@ test("L1 settlement runner sends admission bridge request", () => {
   assert.deepEqual(result.admission_hash, [1, 2, 3]);
 });
 
+test("L1 settlement runner does not synthesize Rust-owned trigger or receipt refs", () => {
+  const runner = new RustL1SettlementRunner({
+    command: "mock-l1-settlement-bridge",
+    spawnSyncImpl() {
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            record: {},
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.admitAttempt(settlementAttempt());
+
+  assert.equal(result.trigger_refs, null);
+  assert.equal(result.receipt_refs, null);
+});
+
 test("L1 settlement runner env uses daemon-core command boundary", () => {
   const runner = createL1SettlementRunnerFromEnv({
     [L1_SETTLEMENT_COMMAND_ENV]: "ioi-runtime-daemon-core",

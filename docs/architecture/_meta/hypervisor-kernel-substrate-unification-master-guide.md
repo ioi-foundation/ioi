@@ -6884,6 +6884,21 @@ ownership over StepModuleRouter admission, wallet authority, receipt/state-root
 binding, Agentgres truth, projection, replay, and stable IDE/CLI/SDK protocol
 surfaces, not preservation of JS normalizers as compatibility shims.
 
+Slice 1155 retires JS-side trigger/receipt ref fallback synthesis from the L1
+settlement runner. Rust `governed_admission.rs` already owns L1 settlement
+trigger admission and response shaping behind the temporary daemon-core command
+path, so `runtime-l1-settlement-runner.mjs` now preserves omitted
+Rust-authored `trigger_refs` and `receipt_refs` as `null` instead of inventing
+empty arrays at the JS edge.
+
+This remains non-terminal because the JS L1 settlement runner, shared
+daemon-core command runner, and Node bridge transport still carry settlement
+admission requests to Rust. The target is direct Rust daemon-core settlement
+protocol/API ownership over trigger admission, wallet authority where
+applicable, receipt/state-root binding, Agentgres truth, projection, replay,
+and stable IDE/CLI/SDK protocol surfaces, not preservation of JS normalizers as
+compatibility shims.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The
