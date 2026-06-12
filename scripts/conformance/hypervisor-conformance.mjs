@@ -7070,13 +7070,15 @@ function runBridge() {
       /rust_authority/.test(externalCapabilityAuthorityRunner) &&
       /thread_id:\s*optionalString\(context\.thread_id\)/.test(externalCapabilityAuthorityRunner) &&
       /agent_id:\s*optionalString\(context\.agent_id\)/.test(externalCapabilityAuthorityRunner) &&
-      /schema_version:\s*result\.schema_version\s*\?\?\s*"ioi\.runtime\.external_capability_authority\.v1"/.test(
+      /schema_version:\s*result\.schema_version\s*\?\?\s*null/.test(
         externalCapabilityAuthorityRunner,
       ) &&
-      /exit_authorized:\s*result\.exit_authorized\s*\?\?\s*true/.test(
+      /object:\s*result\.object\s*\?\?\s*null/.test(externalCapabilityAuthorityRunner) &&
+      /status:\s*result\.status\s*\?\?\s*null/.test(externalCapabilityAuthorityRunner) &&
+      /exit_authorized:\s*result\.exit_authorized\s*\?\?\s*null/.test(
         externalCapabilityAuthorityRunner,
       ) &&
-      /direct_truth_write_allowed:\s*result\.direct_truth_write_allowed\s*\?\?\s*false/.test(
+      /direct_truth_write_allowed:\s*result\.direct_truth_write_allowed\s*\?\?\s*null/.test(
         externalCapabilityAuthorityRunner,
       ) &&
       /external_capability_authority_bridge_unconfigured/.test(externalCapabilityAuthorityRunner) &&
@@ -7092,6 +7094,9 @@ function runBridge() {
         externalCapabilityAuthorityRunnerTest,
       ) &&
       /assert\.equal\(result\.exit_authorized,\s*true\)/.test(
+        externalCapabilityAuthorityRunnerTest,
+      ) &&
+      /external capability authority runner does not synthesize product route envelope/.test(
         externalCapabilityAuthorityRunnerTest,
       ) &&
       /external capability authority runner env uses daemon-core command boundary/.test(

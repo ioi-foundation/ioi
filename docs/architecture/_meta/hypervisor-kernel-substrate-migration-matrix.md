@@ -15697,6 +15697,32 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1148
+
+Slice 1148 removes the remaining JS-side defaulting for the external
+capability authority product-route envelope from the daemon runner normalizer.
+`normalizeExternalCapabilityAuthorityBridgeResult()` now passes missing
+`schema_version`, `object`, `status`, `exit_authorized`, and
+`direct_truth_write_allowed` fields through as `null` instead of synthesizing a
+successful public route response. Rust `authority.rs` remains the only owner of
+the accepted external capability authority response envelope, while the JS
+runner stays temporary command transport normalization only.
+
+This is migration progress only. The shared daemon-core command runner and
+Node bridge stdin/JSON transport remain scaffolding until direct Rust
+daemon-core authority APIs replace command transport. The retired JS-side
+authority envelope fallback must not be recreated or treated as compatibility
+behavior.
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/runtime-external-capability-authority-runner.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-external-capability-authority-runner.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1147
 
 Slice 1147 moves external capability exit authority product-route response

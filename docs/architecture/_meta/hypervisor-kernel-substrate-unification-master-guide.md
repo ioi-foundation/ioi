@@ -6772,6 +6772,21 @@ replace the shared command runner/caller path and broad bridge transport with
 direct Rust daemon-core authority protocol APIs once that seam is clear enough,
 then continue facade retirement for the remaining JS product/readback surfaces.
 
+Slice 1148 removes the remaining JS-side defaulting for the external
+capability authority product-route envelope from the daemon runner
+normalizer. `runtime-external-capability-authority-runner.mjs` now passes
+missing product-envelope fields through as `null` instead of synthesizing
+`schema_version`, `object`, `status`, `exit_authorized`, or
+`direct_truth_write_allowed`. This makes Rust `authority.rs` the only owner of
+the successful external capability authority route envelope and prevents the
+temporary command caller from becoming a compatibility shim for public
+authority truth.
+
+This remains non-terminal because the shared JS daemon-core command runner and
+Node bridge transport still carry the request to Rust. The long-term target is
+still direct Rust daemon-core authority protocol/API wiring, not preservation
+of the current Node command path.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

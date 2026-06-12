@@ -78,11 +78,11 @@ export function normalizeExternalCapabilityAuthorityBridgeResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const authority = objectRecord(result.authority) ?? {};
   return {
-    schema_version: result.schema_version ?? "ioi.runtime.external_capability_authority.v1",
-    object: result.object ?? "ioi.runtime_external_capability_authority",
-    status: result.status ?? "authorized",
-    exit_authorized: result.exit_authorized ?? true,
-    direct_truth_write_allowed: result.direct_truth_write_allowed ?? false,
+    schema_version: result.schema_version ?? null,
+    object: result.object ?? null,
+    status: result.status ?? null,
+    exit_authorized: result.exit_authorized ?? null,
+    direct_truth_write_allowed: result.direct_truth_write_allowed ?? null,
     thread_id: result.thread_id ?? null,
     agent_id: result.agent_id ?? null,
     source: result.source ?? "rust_external_capability_exit_authority_command",

@@ -8,6 +8,7 @@ import {
   RUST_EXTERNAL_CAPABILITY_AUTHORITY_BACKEND,
   RustExternalCapabilityAuthorityRunner,
   createExternalCapabilityAuthorityRunnerFromEnv,
+  normalizeExternalCapabilityAuthorityBridgeResult,
 } from "./runtime-external-capability-authority-runner.mjs";
 
 function externalCapabilityExitRequest() {
@@ -118,6 +119,21 @@ test("external capability authority runner command args env fails closed", () =>
       error instanceof ExternalCapabilityAuthorityRunnerError &&
       error.code === "external_capability_authority_command_args_retired",
   );
+});
+
+test("external capability authority runner does not synthesize product route envelope", () => {
+  const result = normalizeExternalCapabilityAuthorityBridgeResult({
+    source: "legacy_external_capability_authority_fixture",
+    authority: {
+      exit_ref: "exit://aiip/slack-post-message",
+    },
+  });
+
+  assert.equal(result.schema_version, null);
+  assert.equal(result.object, null);
+  assert.equal(result.status, null);
+  assert.equal(result.exit_authorized, null);
+  assert.equal(result.direct_truth_write_allowed, null);
 });
 
 test("external capability authority runner command args constructor option fails closed", () => {
