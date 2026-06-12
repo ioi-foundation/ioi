@@ -15697,6 +15697,42 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1144
+
+Slice 1144 moves worker/service package route-response envelope authorship
+from the JS product surface into Rust governed receipt. Rust
+`WorkerServicePackageInvocationBridgeRequest` now carries optional `thread_id`
+and `agent_id` route context, and
+`admit_worker_service_package_invocation_response()` emits the canonical
+`ioi.runtime.worker_service_package_admission.v1` public admission envelope
+with `invocation_admitted`, `thread_id`, `agent_id`, package refs,
+StepModuleRouter admission, receipt binding, accepted-receipt append,
+Agentgres admission, projection record, receipt refs, artifact refs, payload
+refs, and authority grant refs. The JS
+`runtime-worker-service-package-surface.mjs` remains route glue only: it
+extracts the canonical `invocation`, rejects retired request/truth fields,
+resolves the thread agent, and forwards context to the Rust-backed runner
+without minting the public worker/service package admission response.
+
+This is migration progress only. The Node bridge binary, shared JS daemon-core
+command runner/caller path, and broad stdin/JSON bridge transport remain
+temporary scaffolding until direct Rust daemon-core APIs replace command
+transport. The retired JS-side worker/service package admission
+response-envelope authorship must not be recreated or treated as canonical
+architecture.
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-services governed_receipt --lib` | passed |
+| `cargo test -p ioi-node worker_service_package --bin ioi-step-module-bridge` | passed |
+| `node --check packages/runtime-daemon/src/runtime-worker-service-package-runner.mjs packages/runtime-daemon/src/runtime-worker-service-package-surface.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-worker-service-package-runner.test.mjs packages/runtime-daemon/src/runtime-worker-service-package-surface.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1143
 
 Slice 1143 moves L1 settlement route-response envelope authorship from the JS

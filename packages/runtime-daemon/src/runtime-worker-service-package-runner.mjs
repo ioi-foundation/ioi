@@ -50,11 +50,13 @@ export class RustWorkerServicePackageRunner {
     });
   }
 
-  admitInvocation(request) {
+  admitInvocation(request, context = {}) {
     const bridgeRequest = {
       schema_version: WORKER_SERVICE_PACKAGE_COMMAND_SCHEMA_VERSION,
       operation: "admit_worker_service_package_invocation",
       backend: RUST_WORKER_SERVICE_PACKAGE_BACKEND,
+      thread_id: optionalString(context.thread_id),
+      agent_id: optionalString(context.agent_id),
       request,
     };
     return normalizeWorkerServicePackageBridgeResult(this.invokeBridge(bridgeRequest));
@@ -76,8 +78,14 @@ export function normalizeWorkerServicePackageBridgeResult(value = {}) {
   const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   const record = objectRecord(result.record) ?? {};
   return {
+    schema_version: result.schema_version ?? null,
+    object: result.object ?? null,
+    status: result.status ?? null,
+    invocation_admitted: result.invocation_admitted ?? null,
     source: result.source ?? "rust_worker_service_package_invocation_command",
     backend: result.backend ?? RUST_WORKER_SERVICE_PACKAGE_BACKEND,
+    thread_id: result.thread_id ?? null,
+    agent_id: result.agent_id ?? null,
     record,
     package_kind: result.package_kind ?? record.package_kind ?? null,
     package_ref: result.package_ref ?? record.package_ref ?? null,

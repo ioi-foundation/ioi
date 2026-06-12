@@ -101,8 +101,14 @@ test("worker/service package runner sends invocation admission bridge request", 
         stdout: JSON.stringify({
           ok: true,
           result: {
+            schema_version: "ioi.runtime.worker_service_package_admission.v1",
+            object: "ioi.runtime_worker_service_package_admission",
+            status: "admitted",
+            invocation_admitted: true,
             source: "rust_worker_service_package_invocation_command",
             backend: RUST_WORKER_SERVICE_PACKAGE_BACKEND,
+            thread_id: bridgeRequest.thread_id,
+            agent_id: bridgeRequest.agent_id,
             record: {
               package_kind: bridgeRequest.request.package_kind,
               package_ref: bridgeRequest.request.package_ref,
@@ -143,7 +149,10 @@ test("worker/service package runner sends invocation admission bridge request", 
     },
   });
 
-  const result = runner.admitInvocation(packageInvocationRequest());
+  const result = runner.admitInvocation(packageInvocationRequest(), {
+    thread_id: "thread:worker-runner",
+    agent_id: "agent:worker-runner",
+  });
 
   assert.equal(calls.length, 1);
   assert.equal(calls[0].command, "mock-worker-service-package-bridge");
@@ -151,7 +160,15 @@ test("worker/service package runner sends invocation admission bridge request", 
   assert.equal(calls[0].bridgeRequest.schema_version, WORKER_SERVICE_PACKAGE_COMMAND_SCHEMA_VERSION);
   assert.equal(calls[0].bridgeRequest.operation, "admit_worker_service_package_invocation");
   assert.equal(calls[0].bridgeRequest.backend, RUST_WORKER_SERVICE_PACKAGE_BACKEND);
+  assert.equal(calls[0].bridgeRequest.thread_id, "thread:worker-runner");
+  assert.equal(calls[0].bridgeRequest.agent_id, "agent:worker-runner");
   assert.equal(calls[0].bridgeRequest.request.package_ref, "worker://runtime-auditor");
+  assert.equal(result.schema_version, "ioi.runtime.worker_service_package_admission.v1");
+  assert.equal(result.object, "ioi.runtime_worker_service_package_admission");
+  assert.equal(result.status, "admitted");
+  assert.equal(result.invocation_admitted, true);
+  assert.equal(result.thread_id, "thread:worker-runner");
+  assert.equal(result.agent_id, "agent:worker-runner");
   assert.equal(result.source, "rust_worker_service_package_invocation_command");
   assert.equal(result.backend, RUST_WORKER_SERVICE_PACKAGE_BACKEND);
   assert.equal(result.package_ref, "worker://runtime-auditor");

@@ -2,9 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  WORKER_SERVICE_PACKAGE_ADMISSION_RESPONSE_SCHEMA_VERSION,
   createRuntimeWorkerServicePackageSurface,
 } from "./runtime-worker-service-package-surface.mjs";
+
+const WORKER_SERVICE_PACKAGE_ADMISSION_RESPONSE_SCHEMA_VERSION =
+  "ioi.runtime.worker_service_package_admission.v1";
 
 function packageInvocation() {
   return {
@@ -79,11 +81,17 @@ function store() {
       return { id: "agent_surface" };
     },
     workerServicePackageRunner: {
-      admitInvocation(input) {
-        calls.push({ name: "admitInvocation", input });
+      admitInvocation(input, context) {
+        calls.push({ name: "admitInvocation", input, context });
         return {
+          schema_version: WORKER_SERVICE_PACKAGE_ADMISSION_RESPONSE_SCHEMA_VERSION,
+          object: "ioi.runtime_worker_service_package_admission",
+          status: "admitted",
+          invocation_admitted: true,
           source: "rust_worker_service_package_invocation_command",
           backend: "rust_package_invocation",
+          thread_id: context.thread_id,
+          agent_id: context.agent_id,
           record: {
             ...input,
             router_admission: {
@@ -184,6 +192,10 @@ test("worker/service package surface admits nested invocation through Rust runne
   assert.deepEqual(result.payload_refs, ["payload://worker-package/output"]);
   assert.deepEqual(result.authority_grant_refs, ["grant://wallet/worker-package"]);
   assert.deepEqual(runtimeStore.calls.map((call) => call.name), ["agentForThread", "admitInvocation"]);
+  assert.deepEqual(runtimeStore.calls.at(-1).context, {
+    thread_id: "thread_surface",
+    agent_id: "agent_surface",
+  });
 });
 
 test("worker/service package surface rejects retired request aliases before agent lookup or Rust runner", () => {

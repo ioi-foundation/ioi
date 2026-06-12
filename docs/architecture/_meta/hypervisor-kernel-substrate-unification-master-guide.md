@@ -6690,6 +6690,27 @@ for the remaining governed admission/product-route families where Rust already
 has the response context, then replace the shared command runner/caller path
 and broad bridge transport with direct Rust daemon-core protocol APIs.
 
+Slice 1144 moves worker/service package product-route admission envelope
+authorship out of the JS surface and into Rust `governed_receipt.rs`. The Rust
+`WorkerServicePackageInvocationBridgeRequest` now accepts thread/agent route
+context and `admit_worker_service_package_invocation_response()` emits the
+canonical `ioi.runtime.worker_service_package_admission.v1` route envelope,
+including `invocation_admitted`, `thread_id`, `agent_id`, package refs,
+StepModuleRouter admission, receipt binding, accepted-receipt append,
+Agentgres admission, projection record, receipt refs, artifact refs, payload
+refs, and authority grant refs. The JS worker/service package surface now only
+extracts the canonical `invocation` body, rejects retired request/truth fields,
+looks up the thread agent, and forwards context to the Rust-backed runner; it
+no longer mints the public package-admission response locally.
+
+This remains non-terminal because the route still reaches Rust through the
+shared JS daemon-core command runner and Node bridge stdin/JSON transport. The
+deleted JS-side worker/service package response-envelope authorship must not be
+recreated or treated as canonical. The next larger cuts should continue
+removing JS product-route envelope authorship where Rust already owns the
+admission/receipt context, then replace the shared command runner/caller path
+and broad bridge transport with direct Rust daemon-core protocol APIs.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

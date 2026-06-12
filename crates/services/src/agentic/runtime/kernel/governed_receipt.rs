@@ -45,6 +45,10 @@ pub struct CteePrivateWorkspaceBridgeRequest {
 pub struct WorkerServicePackageInvocationBridgeRequest {
     #[serde(default)]
     pub backend: Option<String>,
+    #[serde(default)]
+    pub thread_id: Option<String>,
+    #[serde(default)]
+    pub agent_id: Option<String>,
     pub request: WorkerServicePackageInvocationRequest,
 }
 
@@ -139,9 +143,19 @@ pub fn admit_worker_service_package_invocation_response(
             GovernedReceiptError::new("accepted_receipt_append_invalid", format!("{error:?}"))
         })?;
     Ok(json!({
+        "schema_version": "ioi.runtime.worker_service_package_admission.v1",
+        "object": "ioi.runtime_worker_service_package_admission",
+        "status": "admitted",
+        "invocation_admitted": true,
         "source": "rust_worker_service_package_invocation_command",
         "backend": request.backend.unwrap_or_else(|| "rust_package_invocation".to_string()),
+        "thread_id": request.thread_id,
+        "agent_id": request.agent_id,
         "record": record.clone(),
+        "package_kind": record.package_kind.clone(),
+        "package_ref": record.package_ref.clone(),
+        "manifest_ref": record.manifest_ref.clone(),
+        "invocation_id": record.invocation_id.clone(),
         "router_admission": record.router_admission.clone(),
         "receipt_binding": record.receipt_binding.clone(),
         "accepted_receipt_append": accepted_receipt_append,
@@ -345,6 +359,8 @@ mod tests {
         let response = admit_worker_service_package_invocation_response(
             WorkerServicePackageInvocationBridgeRequest {
                 backend: Some("rust_package_invocation".to_string()),
+                thread_id: Some("thread:worker".to_string()),
+                agent_id: Some("agent:worker".to_string()),
                 request: WorkerServicePackageInvocationRequest {
                     schema_version: WORKER_SERVICE_PACKAGE_INVOCATION_SCHEMA_VERSION.to_string(),
                     package_kind: WorkerServicePackageKind::WorkerPackage,
@@ -361,6 +377,25 @@ mod tests {
         assert_eq!(
             response["source"],
             "rust_worker_service_package_invocation_command"
+        );
+        assert_eq!(
+            response["schema_version"],
+            "ioi.runtime.worker_service_package_admission.v1"
+        );
+        assert_eq!(
+            response["object"],
+            "ioi.runtime_worker_service_package_admission"
+        );
+        assert_eq!(response["status"], "admitted");
+        assert_eq!(response["invocation_admitted"], true);
+        assert_eq!(response["thread_id"], "thread:worker");
+        assert_eq!(response["agent_id"], "agent:worker");
+        assert_eq!(response["package_kind"], "worker_package");
+        assert_eq!(response["package_ref"], "worker://test");
+        assert_eq!(response["manifest_ref"], "module://worker/test@1");
+        assert_eq!(
+            response["invocation_id"],
+            "invocation://worker.governed-receipt.test"
         );
         assert_eq!(
             response["accepted_receipt_append"]["receipt_ref"],

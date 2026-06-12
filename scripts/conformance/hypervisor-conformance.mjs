@@ -14108,6 +14108,15 @@ function runBridge() {
       /rust_worker_service_package_invocation_command/.test(
         governedReceiptCore,
       ) &&
+      /"schema_version":\s*"ioi\.runtime\.worker_service_package_admission\.v1"/.test(
+        governedReceiptCore,
+      ) &&
+      /"object":\s*"ioi\.runtime_worker_service_package_admission"/.test(
+        governedReceiptCore,
+      ) &&
+      /"invocation_admitted":\s*true/.test(governedReceiptCore) &&
+      /"thread_id":\s*request\.thread_id/.test(governedReceiptCore) &&
+      /"agent_id":\s*request\.agent_id/.test(governedReceiptCore) &&
       /accepted_receipt_append/.test(governedReceiptCore) &&
       /agentgres:\/\/worker-service-package\/head\/current/.test(bridgeModule) &&
       /bridge_admits_worker_service_package_invocation_through_rust_core/.test(bridgeModule) &&
@@ -14138,6 +14147,8 @@ function runBridge() {
       /this\.workerServicePackageRunner/.test(runtimeDaemonIndex) &&
       /admitInvocation/.test(workerServicePackageRunner) &&
       /admit_worker_service_package_invocation/.test(workerServicePackageRunner) &&
+      /thread_id:\s*optionalString\(context\.thread_id\)/.test(workerServicePackageRunner) &&
+      /agent_id:\s*optionalString\(context\.agent_id\)/.test(workerServicePackageRunner) &&
       /rust_package_invocation/.test(workerServicePackageRunner) &&
       /worker_service_package_bridge_unconfigured/.test(workerServicePackageRunner) &&
       /worker_service_package_command_args_retired/.test(workerServicePackageRunner) &&
@@ -14148,6 +14159,12 @@ function runBridge() {
         workerServicePackageRunnerTest,
       ) &&
       /assert\.deepEqual\(calls\[0\]\.args,\s*\[\]\)/.test(workerServicePackageRunnerTest) &&
+      /assert\.equal\(calls\[0\]\.bridgeRequest\.thread_id,\s*"thread:worker-runner"\)/.test(
+        workerServicePackageRunnerTest,
+      ) &&
+      /assert\.equal\(calls\[0\]\.bridgeRequest\.agent_id,\s*"agent:worker-runner"\)/.test(
+        workerServicePackageRunnerTest,
+      ) &&
       /worker\/service package runner env uses daemon-core command boundary/.test(
         workerServicePackageRunnerTest,
       ) &&
@@ -14532,11 +14549,17 @@ function runBridge() {
       !/^\s*admitWorkerServicePackageInvocation\(threadId, request = \{\}\) \{/m.test(
         runtimeDaemonIndex,
       ) &&
-      /WORKER_SERVICE_PACKAGE_ADMISSION_RESPONSE_SCHEMA_VERSION/.test(workerServicePackageSurface) &&
-      /invocation_admitted:\s*true/.test(workerServicePackageSurface) &&
+      !/WORKER_SERVICE_PACKAGE_ADMISSION_RESPONSE_SCHEMA_VERSION/.test(workerServicePackageSurface) &&
+      !/invocation_admitted:\s*true/.test(workerServicePackageSurface) &&
+      !/package_ref:\s*admission\.package_ref/.test(workerServicePackageSurface) &&
+      !/accepted_receipt_append:\s*admission\.accepted_receipt_append/.test(
+        workerServicePackageSurface,
+      ) &&
       /RETIRED_WORKER_SERVICE_PACKAGE_TRUTH_FIELDS/.test(workerServicePackageSurface) &&
       /worker_service_package_agentgres_truth_fields_retired/.test(workerServicePackageSurface) &&
-      /store\.workerServicePackageRunner\.admitInvocation/.test(workerServicePackageSurface) &&
+      /return store\.workerServicePackageRunner\.admitInvocation\(invocation,\s*\{\s*thread_id:\s*threadId,\s*agent_id:\s*agent\.id,\s*\}\)/.test(
+        workerServicePackageSurface,
+      ) &&
       /worker-service-package-invocations/.test(runtimeRouteHandlers) &&
       /store\.workerServicePackageSurface\.admitWorkerServicePackageInvocation\(store,\s*threadId,\s*await readBody\(request\)\)/.test(
         runtimeRouteHandlers,
@@ -14544,6 +14567,9 @@ function runBridge() {
       /thread route sends admission controls through mounted admission surfaces/.test(runtimeRouteHandlersTest) &&
       /thread route does not expose worker\/service package apply shortcut/.test(runtimeRouteHandlersTest) &&
       /worker\/service package surface admits nested invocation through Rust runner/.test(
+        workerServicePackageSurfaceTest,
+      ) &&
+      /assert\.deepEqual\(runtimeStore\.calls\.at\(-1\)\.context,\s*\{\s*thread_id:\s*"thread_surface",\s*agent_id:\s*"agent_surface",\s*\}\)/.test(
         workerServicePackageSurfaceTest,
       ) &&
       /worker\/service package surface fails closed without invocation payload/.test(
