@@ -90,6 +90,7 @@ import { createRuntimeCodingToolResultHelpers } from "./runtime-coding-tool-resu
 import { createRuntimeDoctorReport } from "./runtime-doctor-report.mjs";
 import { createRuntimeCodingToolArtifactSurface } from "./runtime-coding-tool-artifact-surface.mjs";
 import { createRuntimeCodingToolInvocationSurface } from "./runtime-coding-tool-invocation-surface.mjs";
+import { createStepModuleRunnerFromEnv } from "./step-module-runner.mjs";
 import { createRuntimeWorkspaceSnapshotSurface } from "./runtime-workspace-snapshot-surface.mjs";
 import { createRuntimeCodingToolGovernanceSurface } from "./runtime-coding-tool-governance-surface.mjs";
 import { createRuntimeCodingToolBudgetRecoverySurface } from "./runtime-coding-tool-budget-recovery-surface.mjs";
@@ -617,22 +618,47 @@ export class AgentgresRuntimeStateStore {
     this.codingArtifacts = new Map();
     this.conversationArtifacts = new ConversationArtifactStore(this.stateDir);
     this.runtimeBridge = createRuntimeApiBridge(options.runtimeBridge);
+    this.daemonCoreInvoker = options.daemonCoreInvoker;
     this.runtimeAgentgresAdmissionRunner =
-      options.runtimeAgentgresAdmissionRunner ?? createRuntimeAgentgresAdmissionRunnerFromEnv(process.env);
+      options.runtimeAgentgresAdmissionRunner ??
+      createRuntimeAgentgresAdmissionRunnerFromEnv(process.env, {
+        daemonCoreInvoker: this.daemonCoreInvoker,
+      });
     this.contextPolicyRunner =
-      options.contextPolicyRunner ?? createContextPolicyRunnerFromEnv(process.env);
+      options.contextPolicyRunner ??
+      createContextPolicyRunnerFromEnv(process.env, {
+        daemonCoreInvoker: this.daemonCoreInvoker,
+      });
     this.governedImprovementRunner =
-      options.governedImprovementRunner ?? createGovernedImprovementRunnerFromEnv(process.env);
+      options.governedImprovementRunner ??
+      createGovernedImprovementRunnerFromEnv(process.env, {
+        daemonCoreInvoker: this.daemonCoreInvoker,
+      });
     this.externalCapabilityAuthorityRunner =
-      options.externalCapabilityAuthorityRunner ?? createExternalCapabilityAuthorityRunnerFromEnv(process.env);
+      options.externalCapabilityAuthorityRunner ??
+      createExternalCapabilityAuthorityRunnerFromEnv(process.env, {
+        daemonCoreInvoker: this.daemonCoreInvoker,
+      });
     this.workerServicePackageRunner =
-      options.workerServicePackageRunner ?? createWorkerServicePackageRunnerFromEnv(process.env);
+      options.workerServicePackageRunner ??
+      createWorkerServicePackageRunnerFromEnv(process.env, {
+        daemonCoreInvoker: this.daemonCoreInvoker,
+      });
     this.cteePrivateWorkspaceRunner =
-      options.cteePrivateWorkspaceRunner ?? createCteePrivateWorkspaceRunnerFromEnv(process.env);
+      options.cteePrivateWorkspaceRunner ??
+      createCteePrivateWorkspaceRunnerFromEnv(process.env, {
+        daemonCoreInvoker: this.daemonCoreInvoker,
+      });
     this.l1SettlementRunner =
-      options.l1SettlementRunner ?? createL1SettlementRunnerFromEnv(process.env);
+      options.l1SettlementRunner ??
+      createL1SettlementRunnerFromEnv(process.env, {
+        daemonCoreInvoker: this.daemonCoreInvoker,
+      });
     this.workspaceRestoreRunner =
-      options.workspaceRestoreRunner ?? createWorkspaceRestoreRunnerFromEnv(process.env);
+      options.workspaceRestoreRunner ??
+      createWorkspaceRestoreRunnerFromEnv(process.env, {
+        daemonCoreInvoker: this.daemonCoreInvoker,
+      });
     this.schemaVersion = "ioi.agentgres.runtime.v0";
     this.ensureDirs();
     this.modelMounting = new ModelMountingState({
@@ -641,6 +667,7 @@ export class AgentgresRuntimeStateStore {
       homeDir: options.homeDir,
       vaultSecrets: options.vaultSecrets,
       modelMountAdmissionRunner: options.modelMountAdmissionRunner,
+      daemonCoreInvoker: this.daemonCoreInvoker,
       commitRuntimeModelMountRecordState: (request) => this.commitRuntimeModelMountRecordState(request),
       commitRuntimeModelMountReceiptState: (request) => this.commitRuntimeModelMountReceiptState(request),
     });
@@ -720,6 +747,9 @@ export class AgentgresRuntimeStateStore {
       codingToolResultWithoutDrafts,
       diagnosticsRepairContextForRequest,
       diagnosticsRepairContextForToolPack,
+      stepModuleRunner: createStepModuleRunnerFromEnv(process.env, {
+        daemonCoreInvoker: this.daemonCoreInvoker,
+      }),
     });
     this.workspaceSnapshotSurface = createRuntimeWorkspaceSnapshotSurface({
       notFound,

@@ -15979,6 +15979,40 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1195
+
+Slice 1195 promotes the direct daemon-core invoker seam to the daemon
+composition boundary:
+
+- `packages/runtime-daemon/src/index.mjs`
+- `packages/runtime-daemon/src/model-mounting.mjs`
+- `packages/runtime-daemon/src/runtime-daemon-core-direct-invoker-service.test.mjs`
+- `scripts/conformance/hypervisor-conformance.mjs`
+
+`AgentgresRuntimeStateStore` now accepts `daemonCoreInvoker`, stores it once,
+and threads it through the default runtime Agentgres, context-policy,
+governed-improvement, external capability, worker/service package, cTEE private
+workspace, L1 settlement, workspace-restore, model_mount admission, and
+StepModule runner construction paths. The coding-tool invocation surface now
+receives a StepModule runner constructed with the daemon-level direct invoker.
+
+This is not terminal because the temporary `IOI_RUNTIME_DAEMON_CORE_COMMAND`
+spawn fallback still exists inside the shared command invoker. It does move the
+direct Rust API replacement seam to the daemon composition boundary, so the next
+pure-Rust slice can wire one real daemon-core API into default hot-path runners
+before deleting binary spawn and JS command-invoker scaffolding.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/index.mjs packages/runtime-daemon/src/model-mounting.mjs packages/runtime-daemon/src/runtime-daemon-core-direct-invoker-service.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-daemon-core-direct-invoker-service.test.mjs packages/runtime-daemon/src/runtime-daemon-core-command-runner.test.mjs packages/runtime-daemon/src/runtime-l1-settlement-runner.test.mjs` | passed; 13 tests |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1194
 
 Slice 1194 removes the shared JS-authored mock command-result fallback from the

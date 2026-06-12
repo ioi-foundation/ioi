@@ -393,6 +393,7 @@ export class ModelMountingState {
     now = () => new Date(),
     vaultSecrets = {},
     modelMountAdmissionRunner = null,
+    daemonCoreInvoker = null,
     commitRuntimeModelMountRecordState = null,
     commitRuntimeModelMountReceiptState = null,
   }) {
@@ -403,7 +404,10 @@ export class ModelMountingState {
     this.bootId = `daemon_boot_${crypto.randomUUID()}`;
     this.now = now;
     this.modelMountAdmissionRunner =
-      modelMountAdmissionRunner ?? createModelMountAdmissionRunnerFromEnv(process.env);
+      modelMountAdmissionRunner ??
+      createModelMountAdmissionRunnerFromEnv(process.env, {
+        daemonCoreInvoker,
+      });
     this.commitRuntimeModelMountRecordState = commitRuntimeModelMountRecordState;
     this.store = new AgentgresModelMountingStore({
       stateDir: this.stateDir,

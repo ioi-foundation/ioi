@@ -7567,6 +7567,22 @@ there is now a single reviewed direct-invoker seam for in-process Rust API
 wiring and one explicit binary-spawn fallback to delete after that wiring is
 verified.
 
+Slice 1195 lifts the direct daemon-core invoker seam from per-runner test
+plumbing into the daemon composition boundary. `AgentgresRuntimeStateStore`
+accepts `daemonCoreInvoker`, stores it once, and passes it through the default
+runtime Agentgres, context-policy, governed-improvement, external capability,
+worker/service package, cTEE private workspace, L1 settlement, workspace
+restore, model_mount admission, and StepModule runner construction paths. The
+coding-tool invocation surface now receives a StepModule runner constructed
+with the daemon-level direct invoker instead of relying on its own env-only
+default.
+
+This is still migration scaffolding, not terminal direct Rust ownership. It
+does make the next pure-Rust cut larger and cleaner: a real Rust daemon-core
+API can now be injected at the daemon boundary and exercised across default
+hot-path runners before the `IOI_RUNTIME_DAEMON_CORE_COMMAND` spawn fallback and
+JS command invoker are deleted.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

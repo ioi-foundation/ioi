@@ -3170,6 +3170,11 @@ function runBridge() {
   const daemonCoreCommandRunnerTest = exists("packages/runtime-daemon/src/runtime-daemon-core-command-runner.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-daemon-core-command-runner.test.mjs")
     : "";
+  const daemonCoreDirectInvokerServiceTest = exists(
+    "packages/runtime-daemon/src/runtime-daemon-core-direct-invoker-service.test.mjs",
+  )
+    ? read("packages/runtime-daemon/src/runtime-daemon-core-direct-invoker-service.test.mjs")
+    : "";
   const governedImprovementRunner = exists("packages/runtime-daemon/src/runtime-governed-improvement-runner.mjs")
     ? read("packages/runtime-daemon/src/runtime-governed-improvement-runner.mjs")
     : "";
@@ -3779,10 +3784,42 @@ function runBridge() {
       /retired mock result fallback does not bypass direct Rust seam/.test(daemonCoreCommandRunnerTest) &&
       /retired mock result fallback fails closed without direct invoker or command/.test(daemonCoreCommandRunnerTest) &&
       /temporary binary spawn remains explicit migration fallback/.test(daemonCoreCommandRunnerTest) &&
-      /missing direct invoker and command still fails closed/.test(daemonCoreCommandRunnerTest),
+      /missing direct invoker and command still fails closed/.test(daemonCoreCommandRunnerTest) &&
+      /this\.daemonCoreInvoker = options\.daemonCoreInvoker/.test(runtimeDaemonIndex) &&
+      /createRuntimeAgentgresAdmissionRunnerFromEnv\(process\.env,\s*\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /createContextPolicyRunnerFromEnv\(process\.env,\s*\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /createGovernedImprovementRunnerFromEnv\(process\.env,\s*\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /createExternalCapabilityAuthorityRunnerFromEnv\(process\.env,\s*\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /createWorkerServicePackageRunnerFromEnv\(process\.env,\s*\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /createCteePrivateWorkspaceRunnerFromEnv\(process\.env,\s*\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /createL1SettlementRunnerFromEnv\(process\.env,\s*\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /createWorkspaceRestoreRunnerFromEnv\(process\.env,\s*\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /daemonCoreInvoker: this\.daemonCoreInvoker/.test(runtimeDaemonIndex) &&
+      /createStepModuleRunnerFromEnv\(process\.env,\s*\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /daemon-level direct invoker feeds default daemon-core runners/.test(daemonCoreDirectInvokerServiceTest),
     [
       "packages/runtime-daemon/src/runtime-daemon-core-command-runner.mjs",
       "packages/runtime-daemon/src/runtime-daemon-core-command-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-daemon-core-direct-invoker-service.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
       "packages/runtime-daemon/src/step-module-runner.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-approval-runner.mjs",
       "packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.mjs",
