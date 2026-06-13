@@ -1483,7 +1483,7 @@ test("coding-tool artifact read projection runner sends Rust daemon-core request
     thread_id: "thread_alpha",
     artifact_id: "artifact_rust",
     range: { offset_bytes: 0, length_bytes: 64 },
-    artifact_records: [{ id: "artifact_rust", thread_id: "thread_alpha", content: "hello" }],
+    state_dir: "/runtime-state",
   });
 
   assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
@@ -1495,7 +1495,8 @@ test("coding-tool artifact read projection runner sends Rust daemon-core request
   );
   assert.equal(captured.request.thread_id, "thread_alpha");
   assert.equal(captured.request.artifact_id, "artifact_rust");
-  assert.equal(captured.request.artifact_records[0].id, "artifact_rust");
+  assert.equal(captured.request.state_dir, "/runtime-state");
+  assert.equal(Object.hasOwn(captured.request, "artifact_records"), false);
   assert.equal(result.source, "rust_runtime_coding_tool_artifact_read_projection_command");
   assert.equal(result.operation_kind, "artifact.read_projection");
   assert.equal(result.result.content, "hello");

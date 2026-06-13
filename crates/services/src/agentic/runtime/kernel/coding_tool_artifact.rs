@@ -1,7 +1,7 @@
 use serde::Deserialize;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, fs, path::Path};
 
 pub const RUNTIME_CODING_TOOL_ARTIFACT_DRAFT_PLAN_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.coding-tool-artifact-draft-plan-request.v1";
@@ -64,7 +64,7 @@ pub struct RuntimeCodingToolArtifactReadProjectionRequest {
     #[serde(default)]
     pub query: Value,
     #[serde(default)]
-    pub artifact_records: Value,
+    pub state_dir: Option<String>,
     #[serde(default)]
     pub evidence_refs: Vec<String>,
     #[serde(flatten)]
@@ -307,12 +307,12 @@ fn project_runtime_coding_tool_artifact_read(
             "coding-tool artifact read projection requires thread_id",
         )
     })?;
-    let artifact_records = artifact_record_values(&request.artifact_records);
+    let artifact_records = agentgres_artifact_records(request)?;
     let mut evidence_refs = string_vec(&request.evidence_refs);
     if evidence_refs.is_empty() {
         evidence_refs = vec![
             "coding_tool_artifact_read_projection_rust_owned".to_string(),
-            "artifact_projection_cache_transport_only".to_string(),
+            "rust_daemon_core_artifact_replay_required".to_string(),
             "agentgres_artifact_state_truth_required".to_string(),
         ];
     }
@@ -824,6 +824,7 @@ fn reject_read_projection_aliases(
     for alias in [
         "artifactId",
         "artifactRef",
+        "artifact_records",
         "toolCallId",
         "offsetBytes",
         "lengthBytes",
@@ -860,7 +861,9 @@ fn reject_read_projection_aliases(
 }
 
 fn read_projection_alias_error(alias: &str) -> RuntimeCodingToolArtifactReadProjectionCommandError {
-    let code = if matches!(alias, "offsetBytes" | "lengthBytes" | "maxBytes") {
+    let code = if alias == "artifact_records" {
+        "runtime_coding_tool_artifact_candidate_transport_retired"
+    } else if matches!(alias, "offsetBytes" | "lengthBytes" | "maxBytes") {
         "artifact_read_range_aliases_retired"
     } else {
         "runtime_coding_tool_artifact_read_target_alias_retired"
@@ -871,18 +874,78 @@ fn read_projection_alias_error(alias: &str) -> RuntimeCodingToolArtifactReadProj
     )
 }
 
-fn artifact_record_values(value: &Value) -> Vec<Value> {
-    value
-        .as_array()
-        .map(|items| {
-            items
-                .iter()
-                .filter(|item| item.as_object().is_some())
-                .take(500)
-                .cloned()
-                .collect::<Vec<_>>()
-        })
-        .unwrap_or_default()
+fn agentgres_artifact_records(
+    request: &RuntimeCodingToolArtifactReadProjectionRequest,
+) -> Result<Vec<Value>, RuntimeCodingToolArtifactReadProjectionCommandError> {
+    let state_dir = optional_trimmed(request.state_dir.as_deref()).ok_or_else(|| {
+        RuntimeCodingToolArtifactReadProjectionCommandError::new(
+            "runtime_coding_tool_artifact_replay_state_dir_required",
+            "coding-tool artifact read projection requires runtime state_dir for Agentgres artifact replay",
+        )
+    })?;
+    let artifact_dir = Path::new(&state_dir).join("artifacts");
+    if !artifact_dir.exists() {
+        return Ok(Vec::new());
+    }
+    let entries = fs::read_dir(&artifact_dir).map_err(|error| {
+        RuntimeCodingToolArtifactReadProjectionCommandError::new(
+            "runtime_coding_tool_artifact_replay_read_failed",
+            format!(
+                "coding-tool artifact read projection could not read Agentgres artifacts: {error}"
+            ),
+        )
+    })?;
+    let mut paths = Vec::new();
+    for entry in entries {
+        let entry = entry.map_err(|error| {
+            RuntimeCodingToolArtifactReadProjectionCommandError::new(
+                "runtime_coding_tool_artifact_replay_read_failed",
+                format!(
+                    "coding-tool artifact read projection could not inspect Agentgres artifact entry: {error}"
+                ),
+            )
+        })?;
+        let path = entry.path();
+        if path.is_file() && path.extension().and_then(|value| value.to_str()) == Some("json") {
+            paths.push(path);
+        }
+    }
+    paths.sort();
+
+    let mut records = Vec::new();
+    for path in paths.into_iter().take(500) {
+        let contents = fs::read_to_string(&path).map_err(|error| {
+            RuntimeCodingToolArtifactReadProjectionCommandError::new(
+                "runtime_coding_tool_artifact_replay_read_failed",
+                format!(
+                    "coding-tool artifact read projection could not read Agentgres artifact record {}: {error}",
+                    path.display()
+                ),
+            )
+        })?;
+        let record: Value = serde_json::from_str(&contents).map_err(|error| {
+            RuntimeCodingToolArtifactReadProjectionCommandError::new(
+                "runtime_coding_tool_artifact_replay_record_invalid",
+                format!(
+                    "coding-tool artifact read projection found invalid Agentgres artifact record {}: {error}",
+                    path.display()
+                ),
+            )
+        })?;
+        if canonical_coding_tool_artifact_record(&record) {
+            records.push(record);
+        }
+    }
+    Ok(records)
+}
+
+fn canonical_coding_tool_artifact_record(record: &Value) -> bool {
+    record.as_object().is_some()
+        && artifact_string(record, "schema_version").as_deref()
+            == Some(CODING_TOOL_ARTIFACT_SCHEMA_VERSION)
+        && artifact_string(record, "id").is_some()
+        && artifact_string(record, "source").as_deref()
+            == Some("rust_runtime_coding_tool_artifact_draft_plan")
 }
 
 fn read_projection_artifact_id(
@@ -1093,6 +1156,29 @@ fn sha256_hex(bytes: &[u8]) -> Result<String, CodingToolArtifactError> {
 mod tests {
     use super::*;
     use serde_json::json;
+    use std::{fs, path::Path};
+
+    fn write_artifact_record(state_dir: &Path, record: Value) {
+        let artifact_id = record["id"].as_str().expect("artifact id");
+        let artifact_dir = state_dir.join("artifacts");
+        fs::create_dir_all(&artifact_dir).expect("artifact dir");
+        fs::write(
+            artifact_dir.join(format!("{artifact_id}.json")),
+            serde_json::to_string_pretty(&record).expect("artifact json"),
+        )
+        .expect("write artifact record");
+    }
+
+    fn artifact_record(record: Value) -> Value {
+        let mut record = record.as_object().expect("artifact object").clone();
+        record
+            .entry("schema_version".to_string())
+            .or_insert_with(|| json!(CODING_TOOL_ARTIFACT_SCHEMA_VERSION));
+        record
+            .entry("source".to_string())
+            .or_insert_with(|| json!("rust_runtime_coding_tool_artifact_draft_plan"));
+        Value::Object(record)
+    }
 
     #[test]
     fn artifact_draft_planner_authors_rust_artifact_records() {
@@ -1179,7 +1265,23 @@ mod tests {
     }
 
     #[test]
-    fn artifact_read_projection_selects_record_and_range_in_rust() {
+    fn artifact_read_projection_replays_agentgres_artifacts_from_state_dir() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        write_artifact_record(
+            temp.path(),
+            artifact_record(json!({
+                "id": "artifact_alpha",
+                "thread_id": "thread_alpha",
+                "tool_name": "git.diff",
+                "tool_call_id": "tool_call_alpha",
+                "channel": "stdout",
+                "media_type": "text/plain",
+                "content": "abcdef",
+                "content_bytes": 6,
+                "content_hash": "sha256:full",
+                "receipt_refs": ["receipt_alpha"]
+            })),
+        );
         let request: RuntimeCodingToolArtifactReadProjectionRequest =
             serde_json::from_value(json!({
                 "schema_version": "ioi.runtime.coding-tool-artifact-read-projection-request.v1",
@@ -1188,20 +1290,7 @@ mod tests {
                 "thread_id": "thread_alpha",
                 "artifact_id": "artifact_alpha",
                 "range": { "offset_bytes": 1, "length_bytes": 3 },
-                "artifact_records": [
-                    {
-                        "id": "artifact_alpha",
-                        "thread_id": "thread_alpha",
-                        "tool_name": "git.diff",
-                        "tool_call_id": "tool_call_alpha",
-                        "channel": "stdout",
-                        "media_type": "text/plain",
-                        "content": "abcdef",
-                        "content_bytes": 6,
-                        "content_hash": "sha256:full",
-                        "receipt_refs": ["receipt_alpha"]
-                    }
-                ]
+                "state_dir": temp.path().to_string_lossy().to_string()
             }))
             .expect("request");
 
@@ -1227,7 +1316,28 @@ mod tests {
     }
 
     #[test]
-    fn tool_retrieve_projection_selects_channel_and_available_artifacts_in_rust() {
+    fn tool_retrieve_projection_replays_agentgres_artifacts_from_state_dir() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        write_artifact_record(
+            temp.path(),
+            artifact_record(json!({
+                "id": "artifact_stdout",
+                "thread_id": "thread_alpha",
+                "tool_call_id": "tool_call_alpha",
+                "channel": "stdout",
+                "content": "out"
+            })),
+        );
+        write_artifact_record(
+            temp.path(),
+            artifact_record(json!({
+                "id": "artifact_stderr",
+                "thread_id": "thread_alpha",
+                "tool_call_id": "tool_call_alpha",
+                "channel": "stderr",
+                "content": "err"
+            })),
+        );
         let request: RuntimeCodingToolArtifactReadProjectionRequest =
             serde_json::from_value(json!({
                 "schema_version": "ioi.runtime.coding-tool-artifact-read-projection-request.v1",
@@ -1239,22 +1349,7 @@ mod tests {
                     "channel": "stderr",
                     "range": { "max_bytes": 64 }
                 },
-                "artifact_records": [
-                    {
-                        "id": "artifact_stdout",
-                        "thread_id": "thread_alpha",
-                        "tool_call_id": "tool_call_alpha",
-                        "channel": "stdout",
-                        "content": "out"
-                    },
-                    {
-                        "id": "artifact_stderr",
-                        "thread_id": "thread_alpha",
-                        "tool_call_id": "tool_call_alpha",
-                        "channel": "stderr",
-                        "content": "err"
-                    }
-                ]
+                "state_dir": temp.path().to_string_lossy().to_string()
             }))
             .expect("request");
 
@@ -1278,7 +1373,7 @@ mod tests {
                 "operation": "artifact.read",
                 "thread_id": "thread_alpha",
                 "artifactId": "artifact_alpha",
-                "artifact_records": []
+                "state_dir": "/tmp/runtime-state"
             }))
             .expect("request");
 
@@ -1292,7 +1387,57 @@ mod tests {
     }
 
     #[test]
+    fn artifact_read_projection_rejects_retired_candidate_transport_in_rust() {
+        let request: RuntimeCodingToolArtifactReadProjectionRequest =
+            serde_json::from_value(json!({
+                "schema_version": "ioi.runtime.coding-tool-artifact-read-projection-request.v1",
+                "operation": "artifact.read",
+                "thread_id": "thread_alpha",
+                "artifact_id": "artifact_alpha",
+                "artifact_records": []
+            }))
+            .expect("request");
+
+        let error = project_runtime_coding_tool_artifact_read_response(request)
+            .expect_err("retired candidate transport should fail");
+
+        assert_eq!(
+            error.code(),
+            "runtime_coding_tool_artifact_candidate_transport_retired"
+        );
+    }
+
+    #[test]
+    fn artifact_read_projection_fails_closed_without_agentgres_state_dir() {
+        let request: RuntimeCodingToolArtifactReadProjectionRequest =
+            serde_json::from_value(json!({
+                "schema_version": "ioi.runtime.coding-tool-artifact-read-projection-request.v1",
+                "operation": "artifact.read",
+                "thread_id": "thread_alpha",
+                "artifact_id": "artifact_alpha"
+            }))
+            .expect("request");
+
+        let error = project_runtime_coding_tool_artifact_read_response(request)
+            .expect_err("state_dir should be required");
+
+        assert_eq!(
+            error.code(),
+            "runtime_coding_tool_artifact_replay_state_dir_required"
+        );
+    }
+
+    #[test]
     fn artifact_read_projection_rejects_retired_range_alias_in_rust() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        write_artifact_record(
+            temp.path(),
+            artifact_record(json!({
+                "id": "artifact_alpha",
+                "thread_id": "thread_alpha",
+                "content": "abcdef"
+            })),
+        );
         let request: RuntimeCodingToolArtifactReadProjectionRequest =
             serde_json::from_value(json!({
                 "schema_version": "ioi.runtime.coding-tool-artifact-read-projection-request.v1",
@@ -1300,13 +1445,7 @@ mod tests {
                 "thread_id": "thread_alpha",
                 "artifact_id": "artifact_alpha",
                 "range": { "offsetBytes": 1 },
-                "artifact_records": [
-                    {
-                        "id": "artifact_alpha",
-                        "thread_id": "thread_alpha",
-                        "content": "abcdef"
-                    }
-                ]
+                "state_dir": temp.path().to_string_lossy().to_string()
             }))
             .expect("request");
 
@@ -1318,19 +1457,22 @@ mod tests {
 
     #[test]
     fn artifact_read_projection_blocks_cross_thread_in_rust() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        write_artifact_record(
+            temp.path(),
+            artifact_record(json!({
+                "id": "artifact_alpha",
+                "thread_id": "thread_alpha",
+                "content": "secret"
+            })),
+        );
         let request: RuntimeCodingToolArtifactReadProjectionRequest =
             serde_json::from_value(json!({
                 "schema_version": "ioi.runtime.coding-tool-artifact-read-projection-request.v1",
                 "operation": "artifact.read",
                 "thread_id": "thread_beta",
                 "artifact_id": "artifact_alpha",
-                "artifact_records": [
-                    {
-                        "id": "artifact_alpha",
-                        "thread_id": "thread_alpha",
-                        "content": "secret"
-                    }
-                ]
+                "state_dir": temp.path().to_string_lossy().to_string()
             }))
             .expect("request");
 

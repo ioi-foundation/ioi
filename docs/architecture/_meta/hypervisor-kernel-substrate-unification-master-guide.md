@@ -7505,13 +7505,15 @@ range. The helper also no longer depends on `safeId` for retired receipt-id
 construction.
 
 This has since advanced: artifact read/retrieve projection now calls Rust
-daemon-core `project_runtime_coding_tool_artifact_read`, and Rust selects
-artifact candidates, enforces thread ownership and canonical target/range
-aliases, shapes byte ranges/result metadata/receipt refs, and fails closed when
-the projector is absent. This is still non-terminal because JS supplies the
-temporary committed-artifact candidate transport; durable Rust replay directly
-over Agentgres ArtifactRef/PayloadRef admission, receipt binding,
-expected-head/state-root checks, and stable protocol APIs remains pending.
+daemon-core `project_runtime_coding_tool_artifact_read` with runtime
+`state_dir`, and Rust replays committed `artifacts/*.json` Agentgres records,
+filters canonical Rust-authored coding-tool artifacts, enforces thread
+ownership and canonical target/range aliases, shapes byte ranges/result
+metadata/receipt refs, rejects retired `artifact_records` candidate transport,
+and fails closed when the projector or `state_dir` is absent. This is still
+non-terminal because richer ArtifactRef/PayloadRef admission, receipt binding,
+expected-head/state-root checks, runner transport retirement, and stable
+protocol APIs remain pending.
 
 Slice 1167 retires the remaining coding-tool response facade inside the
 temporary Rust Node bridge module. `ioi_step_module_bridge/mod.rs` now imports
@@ -8406,15 +8408,15 @@ receives Rust-authored artifact records, and commits them through Rust
 Agentgres artifact-state admission before the daemon updates its temporary read
 cache; the old JS artifact draft record materializer remains retired. Artifact
 read/retrieve projection now calls Rust
-`project_runtime_coding_tool_artifact_read`, so Rust owns artifact selection,
-thread ownership checks, byte-range shaping, result metadata, receipt refs, and
-available-artifact projection while JS supplies only temporary committed-record
-candidates as transport. JS still coordinates snapshot materialization,
+`project_runtime_coding_tool_artifact_read` with runtime `state_dir`, so Rust
+owns durable `artifacts/*.json` Agentgres replay, canonical coding-tool artifact
+filtering, thread ownership checks, byte-range shaping, result metadata,
+receipt refs, available-artifact projection, and retired `artifact_records`
+candidate-transport rejection. JS still coordinates snapshot materialization,
 diagnostics orchestration, runner transport, and projection adapters around
-Rust-owned plans. Durable Agentgres artifact replay, diagnostics
-projection/replay, temporary runner transport, approval request/grant issuance
-semantics, and authority projection/replay still need direct Rust daemon-core
-ownership.
+Rust-owned plans. Diagnostics projection/replay, temporary runner transport,
+approval request/grant issuance semantics, and authority projection/replay
+still need direct Rust daemon-core ownership.
 
 This is still not terminal migration. These runner, gate, coding-tool,
 thread-control, run-cancel, task/job create/control/projection,

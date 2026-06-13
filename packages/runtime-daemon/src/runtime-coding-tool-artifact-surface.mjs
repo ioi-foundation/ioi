@@ -77,7 +77,7 @@ export function createRuntimeCodingToolArtifactSurface(deps = {}) {
         evidence_refs: [
           "coding_tool_artifact_read_projection_rust_owned",
           "rust_daemon_core_artifact_read_projection_required",
-          "artifact_projection_cache_transport_only",
+          "rust_daemon_core_artifact_replay_required",
         ],
       },
     );
@@ -217,11 +217,11 @@ export function createRuntimeCodingToolArtifactSurface(deps = {}) {
     const runner = codingToolArtifactReadProjector(store, request);
     const projectionRequest = {
       ...request,
-      artifact_records: artifactProjectionCandidateRecords(store),
+      state_dir: store?.stateDir ?? null,
       evidence_refs: [
         "coding_tool_artifact_read_projection_rust_owned",
         "rust_daemon_core_artifact_read_projection_required",
-        "artifact_projection_cache_transport_only",
+        "rust_daemon_core_artifact_replay_required",
         "agentgres_artifact_state_truth_required",
       ],
     };
@@ -265,7 +265,7 @@ export function createRuntimeCodingToolArtifactSurface(deps = {}) {
       throw policyError("Artifact read blocked outside the owning runtime thread.", {
         thread_id: request.thread_id ?? null,
         artifact_id: artifactId,
-        owner_thread_id: ownerThreadForArtifact(request.artifact_records, artifactId),
+        owner_thread_id: null,
       });
     }
     if (
@@ -273,6 +273,7 @@ export function createRuntimeCodingToolArtifactSurface(deps = {}) {
         "artifact_read_id_required",
         "tool_retrieve_result_target_required",
         "artifact_read_range_aliases_retired",
+        "runtime_coding_tool_artifact_candidate_transport_retired",
         "runtime_coding_tool_artifact_read_target_alias_retired",
         "runtime_coding_tool_artifact_read_projection_operation_invalid",
         "runtime_coding_tool_artifact_read_projection_operation_kind_invalid",
@@ -293,9 +294,14 @@ export function createRuntimeCodingToolArtifactSurface(deps = {}) {
         },
       });
     }
-    if (error?.code === "runtime_coding_tool_artifact_read_projection_result_missing") {
+    if (
+      [
+        "runtime_coding_tool_artifact_replay_state_dir_required",
+        "runtime_coding_tool_artifact_read_projection_result_missing",
+      ].includes(error?.code)
+    ) {
       throw runtimeError({
-        status: 502,
+        status: error?.code === "runtime_coding_tool_artifact_replay_state_dir_required" ? 501 : 502,
         code: error.code,
         message: error.message,
         details: {
@@ -305,15 +311,29 @@ export function createRuntimeCodingToolArtifactSurface(deps = {}) {
         },
       });
     }
+    if (
+      [
+        "runtime_coding_tool_artifact_replay_read_failed",
+        "runtime_coding_tool_artifact_replay_record_invalid",
+      ].includes(error?.code)
+    ) {
+      throw runtimeError({
+        status: 502,
+        code: error.code,
+        message: error.message,
+        details: {
+          rust_core_boundary: "runtime.coding_tool_artifact",
+          operation: request.operation ?? null,
+          operation_kind: request.operation_kind ?? null,
+          state_dir: request.state_dir ?? null,
+        },
+      });
+    }
     throw error;
   }
 
   function objectRecord(value) {
     return value && typeof value === "object" && !Array.isArray(value) ? value : null;
-  }
-
-  function artifactProjectionCandidateRecords(store) {
-    return [...(store?.codingArtifacts?.values?.() ?? [])].filter((record) => objectRecord(record));
   }
 
   function artifactIdForProjectionRequest(request = {}) {
@@ -327,14 +347,6 @@ export function createRuntimeCodingToolArtifactSurface(deps = {}) {
 
   function toolCallIdForProjectionRequest(request = {}) {
     return optionalString(request.tool_call_id ?? request.query?.tool_call_id) ?? null;
-  }
-
-  function ownerThreadForArtifact(artifactRecords = [], artifactId = null) {
-    return optionalString(
-      normalizeArray(artifactRecords).find(
-        (record) => record?.id === artifactId || record?.artifact_id === artifactId,
-      )?.thread_id,
-    ) ?? null;
   }
 
   function retiredArtifactReadRangeAliasesForProjectionRequest(request = {}) {

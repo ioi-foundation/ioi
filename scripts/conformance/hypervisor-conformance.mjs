@@ -5620,13 +5620,21 @@ function runBridge() {
     "coding-tool-artifact-retrieval-input-aliases-retired",
     /RUNTIME_CODING_TOOL_ARTIFACT_READ_PROJECTION_REQUEST_SCHEMA_VERSION/.test(codingToolArtifactCore) &&
       /RuntimeCodingToolArtifactReadProjectionRequest/.test(codingToolArtifactCore) &&
+      /pub state_dir: Option<String>/.test(codingToolArtifactCore) &&
       /project_runtime_coding_tool_artifact_read_response/.test(codingToolArtifactCore) &&
       /project_runtime_coding_tool_artifact_read/.test(codingToolArtifactCore) &&
+      /agentgres_artifact_records/.test(codingToolArtifactCore) &&
+      /canonical_coding_tool_artifact_record/.test(codingToolArtifactCore) &&
       /coding_tool_artifact_read_projection_result/.test(codingToolArtifactCore) &&
-      /artifact_read_projection_selects_record_and_range_in_rust/.test(codingToolArtifactCore) &&
-      /tool_retrieve_projection_selects_channel_and_available_artifacts_in_rust/.test(codingToolArtifactCore) &&
+      /artifact_read_projection_replays_agentgres_artifacts_from_state_dir/.test(codingToolArtifactCore) &&
+      /tool_retrieve_projection_replays_agentgres_artifacts_from_state_dir/.test(codingToolArtifactCore) &&
       /artifact_read_projection_rejects_retired_target_alias_in_rust/.test(codingToolArtifactCore) &&
+      /artifact_read_projection_rejects_retired_candidate_transport_in_rust/.test(codingToolArtifactCore) &&
+      /artifact_read_projection_fails_closed_without_agentgres_state_dir/.test(codingToolArtifactCore) &&
       /artifact_read_projection_blocks_cross_thread_in_rust/.test(codingToolArtifactCore) &&
+      /runtime_coding_tool_artifact_candidate_transport_retired/.test(codingToolArtifactCore) &&
+      /runtime_coding_tool_artifact_replay_state_dir_required/.test(codingToolArtifactCore) &&
+      /rust_daemon_core_artifact_replay_required/.test(codingToolArtifactCore) &&
       /project_runtime_coding_tool_artifact_read/.test(commandProtocolCore) &&
       /CommandOperation::ProjectRuntimeCodingToolArtifactRead/.test(commandProtocolCore) &&
       /project_runtime_coding_tool_artifact_read_response/.test(coreCommandDispatch) &&
@@ -5637,6 +5645,8 @@ function runBridge() {
       /project_runtime_coding_tool_artifact_read/.test(runtimeContextPolicyRunner) &&
       /coding-tool artifact read projection runner sends Rust daemon-core request/.test(runtimeContextPolicyRunnerTest) &&
       /coding-tool artifact read projection normalizer rejects missing Rust result/.test(runtimeContextPolicyRunnerTest) &&
+      /assert\.equal\(captured\.request\.state_dir,\s*"\/runtime-state"\)/.test(runtimeContextPolicyRunnerTest) &&
+      /assert\.equal\(Object\.hasOwn\(captured\.request,\s*"artifact_records"\),\s*false\)/.test(runtimeContextPolicyRunnerTest) &&
       /const artifactId = optionalString\(input\.artifact_id \?\? input\.artifact_ref\)/.test(
         runtimeCodingToolInvocationSurface,
       ) &&
@@ -5654,10 +5664,12 @@ function runBridge() {
       /codingToolArtifactReadProjector/.test(runtimeCodingToolArtifactSurface) &&
       /projectCodingToolArtifactRead/.test(runtimeCodingToolArtifactSurface) &&
       /projectRuntimeCodingToolArtifactRead/.test(runtimeCodingToolArtifactSurface) &&
-      /artifactProjectionCandidateRecords/.test(runtimeCodingToolArtifactSurface) &&
+      /state_dir:\s*store\?\.stateDir \?\? null/.test(runtimeCodingToolArtifactSurface) &&
       /coding_tool_artifact_read_projection_rust_owned/.test(runtimeCodingToolArtifactSurface) &&
       /rust_daemon_core_artifact_read_projection_required/.test(runtimeCodingToolArtifactSurface) &&
-      /artifact_projection_cache_transport_only/.test(runtimeCodingToolArtifactSurface) &&
+      /rust_daemon_core_artifact_replay_required/.test(runtimeCodingToolArtifactSurface) &&
+      /runtime_coding_tool_artifact_replay_state_dir_required/.test(runtimeCodingToolArtifactSurface) &&
+      /runtime_coding_tool_artifact_candidate_transport_retired/.test(runtimeCodingToolArtifactSurface) &&
       /runtime_coding_tool_artifact_read_target_alias_retired/.test(runtimeCodingToolArtifactSurface) &&
       /notFound\(`Artifact not found: \$\{artifactId\}`,\s*\{\s*thread_id: request\.thread_id \?\? null,\s*artifact_id: artifactId,\s*\}\)/.test(runtimeCodingToolArtifactSurface) &&
       /notFound\(`Tool result artifact not found: \$\{toolCallId\}`,\s*\{\s*thread_id: request\.thread_id \?\? null,\s*tool_call_id: toolCallId,\s*\}\)/.test(runtimeCodingToolArtifactSurface) &&
@@ -5669,6 +5681,8 @@ function runBridge() {
       /createArtifactReadProjector/.test(runtimeCodingToolArtifactSurfaceTest) &&
       /assert\.equal\(projectionCalls\[0\]\.operation,\s*"artifact\.read"\)/.test(runtimeCodingToolArtifactSurfaceTest) &&
       /assert\.equal\(projectionCalls\[0\]\.operation_kind,\s*"artifact\.read_projection"\)/.test(runtimeCodingToolArtifactSurfaceTest) &&
+      /assert\.equal\(projectionCalls\[0\]\.state_dir,\s*store\.stateDir\)/.test(runtimeCodingToolArtifactSurfaceTest) &&
+      /assert\.equal\(Object\.hasOwn\(projectionCalls\[0\],\s*"artifact_records"\),\s*false\)/.test(runtimeCodingToolArtifactSurfaceTest) &&
       /assert\.equal\(projectionCalls\[0\]\.operation,\s*"tool\.retrieve_result"\)/.test(runtimeCodingToolArtifactSurfaceTest) &&
       /assert\.equal\(projectionCalls\[0\]\.operation_kind,\s*"tool\.retrieve_result_projection"\)/.test(runtimeCodingToolArtifactSurfaceTest) &&
       /surface\.retrieveCodingToolResult\(store, "thread_alpha", \{ toolCallId: "tool_call_alpha" \}\)/.test(
@@ -5689,6 +5703,9 @@ function runBridge() {
       !/input\.(?:artifactId|artifactRef|toolCallId)\b/.test(runtimeCodingToolInvocationSurface) &&
       !/\{ threadId, toolId \}/.test(runtimeCodingToolInvocationSurface) &&
       !/query\.(?:artifactId|toolCallId)\b/.test(runtimeCodingToolArtifactSurface) &&
+      !/artifactProjectionCandidateRecords/.test(runtimeCodingToolArtifactSurface) &&
+      !/artifact_records:\s*artifactProjectionCandidateRecords/.test(runtimeCodingToolArtifactSurface) &&
+      !/store\.codingArtifacts\.values/.test(runtimeCodingToolArtifactSurface) &&
       !/store\.codingArtifacts\.get/.test(runtimeCodingToolArtifactSurface) &&
       !/codingToolArtifactReadResult/.test(runtimeCodingToolArtifactSurface) &&
       !/codingToolArtifactMetadata/.test(runtimeCodingToolArtifactSurface) &&
@@ -5788,7 +5805,7 @@ function runBridge() {
       /"offset_bytes"/.test(codingToolArtifactCore) &&
       /"full_content_hash"/.test(codingToolArtifactCore) &&
       /"shell_fallback_used"/.test(codingToolArtifactCore) &&
-      /artifact_read_projection_selects_record_and_range_in_rust/.test(codingToolArtifactCore) &&
+      /artifact_read_projection_replays_agentgres_artifacts_from_state_dir/.test(codingToolArtifactCore) &&
       /schema_version:\s*CODING_TOOL_ARTIFACT_SCHEMA_VERSION/.test(runtimeCodingToolResults) &&
       /artifact_id:\s*artifactRecord\.id/.test(runtimeCodingToolResults) &&
       /thread_id:\s*artifactRecord\.thread_id \?\? null/.test(runtimeCodingToolResults) &&
