@@ -82,7 +82,7 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "plan_context_compaction",
     "plan_context_compaction_state_update",
     "plan_coding_tool_budget_recovery_state_update",
-    "plan_coding_tool_budget_recovery_admission_required",
+    "plan_coding_tool_budget_recovery_control",
     "plan_workflow_edit_admission_required",
     "plan_diagnostics_repair_admission_required",
     "plan_runtime_diagnostics_repair_control",
@@ -218,7 +218,7 @@ pub enum CommandOperation {
     PlanContextCompaction,
     PlanContextCompactionStateUpdate,
     PlanCodingToolBudgetRecoveryStateUpdate,
-    PlanCodingToolBudgetRecoveryAdmissionRequired,
+    PlanCodingToolBudgetRecoveryControl,
     PlanWorkflowEditAdmissionRequired,
     PlanDiagnosticsRepairAdmissionRequired,
     PlanRuntimeDiagnosticsRepairControl,
@@ -373,9 +373,7 @@ impl CommandOperation {
             Self::PlanCodingToolBudgetRecoveryStateUpdate => {
                 "plan_coding_tool_budget_recovery_state_update"
             }
-            Self::PlanCodingToolBudgetRecoveryAdmissionRequired => {
-                "plan_coding_tool_budget_recovery_admission_required"
-            }
+            Self::PlanCodingToolBudgetRecoveryControl => "plan_coding_tool_budget_recovery_control",
             Self::PlanWorkflowEditAdmissionRequired => "plan_workflow_edit_admission_required",
             Self::PlanDiagnosticsRepairAdmissionRequired => {
                 "plan_diagnostics_repair_admission_required"
@@ -687,8 +685,8 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
         "plan_coding_tool_budget_recovery_state_update" => {
             Some(CommandOperation::PlanCodingToolBudgetRecoveryStateUpdate)
         }
-        "plan_coding_tool_budget_recovery_admission_required" => {
-            Some(CommandOperation::PlanCodingToolBudgetRecoveryAdmissionRequired)
+        "plan_coding_tool_budget_recovery_control" => {
+            Some(CommandOperation::PlanCodingToolBudgetRecoveryControl)
         }
         "plan_workflow_edit_admission_required" => {
             Some(CommandOperation::PlanWorkflowEditAdmissionRequired)

@@ -7,8 +7,8 @@ export const CODING_TOOL_BUDGET_BLOCK_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.coding-tool-budget-block-request.v1";
 export const CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.coding-tool-budget-recovery-state-update-request.v1";
-export const CODING_TOOL_BUDGET_RECOVERY_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION =
-  "ioi.runtime.coding-tool-budget-recovery-admission-required-request.v1";
+export const CODING_TOOL_BUDGET_RECOVERY_CONTROL_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.coding-tool-budget-recovery-control-request.v1";
 export const CODING_TOOL_RESULT_ENVELOPE_PLAN_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.coding-tool-result-envelope-plan-request.v1";
 export const RUNTIME_CODING_TOOL_ARTIFACT_DRAFT_PLAN_REQUEST_SCHEMA_VERSION =
@@ -225,10 +225,10 @@ export class RustContextPolicyRunner {
     }));
   }
 
-  planCodingToolBudgetRecoveryAdmissionRequired(request = {}) {
+  planCodingToolBudgetRecoveryControl(request = {}) {
     return this.evaluateRawPolicy({
-      operation: "plan_coding_tool_budget_recovery_admission_required",
-      schemaVersion: CODING_TOOL_BUDGET_RECOVERY_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
+      operation: "plan_coding_tool_budget_recovery_control",
+      schemaVersion: CODING_TOOL_BUDGET_RECOVERY_CONTROL_REQUEST_SCHEMA_VERSION,
       request,
     });
   }

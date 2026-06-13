@@ -1,9 +1,11 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
+use std::collections::BTreeMap;
 
 use super::{
-    CODING_TOOL_BUDGET_RECOVERY_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
-    CODING_TOOL_BUDGET_RECOVERY_ADMISSION_REQUIRED_RESULT_SCHEMA_VERSION,
+    CODING_TOOL_BUDGET_RECOVERY_CONTROL_REQUEST_SCHEMA_VERSION,
+    CODING_TOOL_BUDGET_RECOVERY_CONTROL_RESULT_SCHEMA_VERSION,
     CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
     CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_RESULT_SCHEMA_VERSION,
 };
@@ -18,12 +20,17 @@ pub enum CodingToolBudgetRecoveryStateUpdateError {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum CodingToolBudgetRecoveryAdmissionRequiredError {
+pub enum CodingToolBudgetRecoveryControlError {
     InvalidSchemaVersion {
         expected: &'static str,
         actual: String,
     },
     MissingField(&'static str),
+    UnsupportedAction(String),
+    MissingWalletNetworkAuthority,
+    MissingAuthorityReceipt,
+    RetiredControlTransport(Vec<String>),
+    HashFailed(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -62,7 +69,7 @@ pub struct CodingToolBudgetRecoveryStateUpdateRecord {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct CodingToolBudgetRecoveryAdmissionRequiredRequest {
+pub struct CodingToolBudgetRecoveryControlRequest {
     pub schema_version: String,
     pub operation: String,
     pub operation_kind: String,
@@ -78,18 +85,36 @@ pub struct CodingToolBudgetRecoveryAdmissionRequiredRequest {
     #[serde(default)]
     pub source: Option<String>,
     #[serde(default)]
+    pub run: Value,
+    #[serde(default)]
+    pub event_id: Option<String>,
+    #[serde(default)]
+    pub seq: Option<u64>,
+    #[serde(default)]
+    pub created_at: Option<String>,
+    #[serde(default)]
+    pub reason: Option<String>,
+    #[serde(default)]
+    pub receipt_refs: Vec<String>,
+    #[serde(default)]
+    pub policy_decision_refs: Vec<String>,
+    #[serde(default)]
+    pub authority_grant_refs: Vec<String>,
+    #[serde(default)]
+    pub authority_receipt_refs: Vec<String>,
+    #[serde(default)]
+    pub authority_context: Value,
+    #[serde(default)]
     pub evidence_refs: Vec<String>,
+    #[serde(default, flatten)]
+    pub extra: BTreeMap<String, Value>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct CodingToolBudgetRecoveryAdmissionRequiredRecord {
+pub struct CodingToolBudgetRecoveryControlRecord {
     pub schema_version: String,
     pub object: String,
     pub status: String,
-    pub status_code: u16,
-    pub code: String,
-    pub message: String,
-    pub rust_core_boundary: String,
     pub operation: String,
     pub operation_kind: String,
     pub run_id: String,
@@ -103,9 +128,40 @@ pub struct CodingToolBudgetRecoveryAdmissionRequiredRecord {
     pub source_event_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source: Option<String>,
+    pub updated_at: String,
+    pub operator_control: Value,
+    pub run: Value,
+    pub receipt_refs: Vec<String>,
+    pub policy_decision_refs: Vec<String>,
+    pub wallet_network_grant_refs: Vec<String>,
+    pub authority_receipt_refs: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub authority: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub authority_hash: Option<String>,
     pub evidence_refs: Vec<String>,
-    pub details: Value,
     pub generated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+struct CodingToolBudgetRecoveryAuthorityRecord {
+    schema_version: String,
+    object: String,
+    status: String,
+    operation_kind: String,
+    thread_id: Option<String>,
+    run_id: String,
+    approval_id: String,
+    action: String,
+    source: Option<String>,
+    source_event_id: Option<String>,
+    wallet_network_grant_refs: Vec<String>,
+    authority_receipt_refs: Vec<String>,
+    policy_decision_refs: Vec<String>,
+    direct_truth_write_allowed: bool,
+    authority_hash: String,
+    projection_source: String,
+    generated_at: String,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -139,10 +195,10 @@ pub struct CodingToolBudgetRecoveryStateUpdateBridgeRequest {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct CodingToolBudgetRecoveryAdmissionRequiredBridgeRequest {
+pub struct CodingToolBudgetRecoveryControlBridgeRequest {
     #[serde(default)]
     backend: Option<String>,
-    request: CodingToolBudgetRecoveryAdmissionRequiredRequest,
+    request: CodingToolBudgetRecoveryControlRequest,
 }
 
 pub fn plan_coding_tool_budget_recovery_state_update_response(
@@ -168,28 +224,32 @@ pub fn plan_coding_tool_budget_recovery_state_update_response(
     }))
 }
 
-pub fn plan_coding_tool_budget_recovery_admission_required_response(
-    request: CodingToolBudgetRecoveryAdmissionRequiredBridgeRequest,
+pub fn plan_coding_tool_budget_recovery_control_response(
+    request: CodingToolBudgetRecoveryControlBridgeRequest,
 ) -> Result<Value, CodingToolBudgetRecoveryCommandError> {
-    let record = CodingToolBudgetRecoveryAdmissionRequiredCore
+    let record = CodingToolBudgetRecoveryControlCore
         .plan(&request.request)
         .map_err(|error| {
             CodingToolBudgetRecoveryCommandError::from_debug(
-                "coding_tool_budget_recovery_admission_required_invalid",
+                "coding_tool_budget_recovery_control_invalid",
                 error,
             )
         })?;
     Ok(json!({
-        "source": "rust_coding_tool_budget_recovery_admission_required_command",
+        "source": "rust_coding_tool_budget_recovery_control_command",
         "backend": runtime_control_policy_backend(request.backend),
         "record": record.clone(),
         "status": record.status.clone(),
-        "status_code": record.status_code,
-        "code": record.code.clone(),
-        "message": record.message.clone(),
-        "rust_core_boundary": record.rust_core_boundary.clone(),
+        "action": record.action.clone(),
         "operation_kind": record.operation_kind.clone(),
-        "details": record.details.clone(),
+        "operator_control": record.operator_control.clone(),
+        "run": record.run.clone(),
+        "receipt_refs": record.receipt_refs.clone(),
+        "policy_decision_refs": record.policy_decision_refs.clone(),
+        "wallet_network_grant_refs": record.wallet_network_grant_refs.clone(),
+        "authority_receipt_refs": record.authority_receipt_refs.clone(),
+        "authority": record.authority.clone(),
+        "authority_hash": record.authority_hash.clone(),
     }))
 }
 
@@ -256,68 +316,169 @@ impl CodingToolBudgetRecoveryStateUpdateCore {
 }
 
 #[derive(Debug, Default, Clone)]
-pub struct CodingToolBudgetRecoveryAdmissionRequiredCore;
+pub struct CodingToolBudgetRecoveryControlCore;
 
-impl CodingToolBudgetRecoveryAdmissionRequiredCore {
+impl CodingToolBudgetRecoveryControlCore {
     pub fn plan(
         &self,
-        request: &CodingToolBudgetRecoveryAdmissionRequiredRequest,
-    ) -> Result<
-        CodingToolBudgetRecoveryAdmissionRequiredRecord,
-        CodingToolBudgetRecoveryAdmissionRequiredError,
-    > {
+        request: &CodingToolBudgetRecoveryControlRequest,
+    ) -> Result<CodingToolBudgetRecoveryControlRecord, CodingToolBudgetRecoveryControlError> {
         request.validate()?;
         let operation = optional_trimmed(Some(request.operation.as_str())).unwrap();
-        let operation_kind = optional_trimmed(Some(request.operation_kind.as_str())).unwrap();
         let run_id = optional_trimmed(Some(request.run_id.as_str())).unwrap();
         let thread_id = optional_trimmed(request.thread_id.as_deref());
-        let action = optional_trimmed(request.action.as_deref());
-        let approval_id = optional_trimmed(request.approval_id.as_deref());
+        let action = normalized_budget_recovery_control_action(request.action.as_deref());
+        let operation_kind = budget_recovery_control_operation_kind(&action);
+        let approval_id = optional_trimmed(request.approval_id.as_deref()).ok_or(
+            CodingToolBudgetRecoveryControlError::MissingField("approval_id"),
+        )?;
         let source_event_id = optional_trimmed(request.source_event_id.as_deref());
         let source = optional_trimmed(request.source.as_deref());
+        let event_id = optional_trimmed(request.event_id.as_deref()).ok_or(
+            CodingToolBudgetRecoveryControlError::MissingField("event_id"),
+        )?;
+        let seq = request
+            .seq
+            .filter(|seq| *seq > 0)
+            .ok_or(CodingToolBudgetRecoveryControlError::MissingField("seq"))?;
+        let created_at = optional_trimmed(request.created_at.as_deref()).ok_or(
+            CodingToolBudgetRecoveryControlError::MissingField("created_at"),
+        )?;
+        let reason = optional_trimmed(request.reason.as_deref())
+            .unwrap_or_else(|| budget_recovery_control_reason(&action));
+        let authority = budget_recovery_control_authority(
+            request,
+            &action,
+            thread_id.clone(),
+            &run_id,
+            &approval_id,
+            source.clone(),
+            source_event_id.clone(),
+        )?;
+        let authority_value = authority
+            .as_ref()
+            .map(|record| serde_json::to_value(record).unwrap_or(Value::Null));
+        let wallet_network_grant_refs = authority
+            .as_ref()
+            .map(|record| record.wallet_network_grant_refs.clone())
+            .unwrap_or_default();
+        let authority_receipt_refs = authority
+            .as_ref()
+            .map(|record| record.authority_receipt_refs.clone())
+            .unwrap_or_default();
+        let authority_hash = authority
+            .as_ref()
+            .map(|record| record.authority_hash.clone());
+        let policy_decision_refs = unique_trimmed(&request.policy_decision_refs);
+        let receipt_refs = unique_trimmed_values(
+            request
+                .receipt_refs
+                .iter()
+                .cloned()
+                .chain(authority_receipt_refs.iter().cloned())
+                .collect::<Vec<_>>()
+                .as_slice(),
+        );
+        let operator_status = budget_recovery_control_status(&action);
+        let operator_control = json!({
+            "control": "coding_tool_budget_recovery",
+            "action": action.clone(),
+            "approval_id": approval_id.clone(),
+            "status": operator_status.clone(),
+            "approval_required": true,
+            "approval_satisfied": action == "approve_override",
+            "source": source.clone(),
+            "reason": reason.clone(),
+            "source_event_id": source_event_id.clone(),
+            "event_id": event_id.clone(),
+            "seq": seq,
+            "receipt_refs": receipt_refs.clone(),
+            "policy_decision_refs": policy_decision_refs.clone(),
+            "authority": authority_value.clone(),
+            "authority_hash": authority_hash.clone(),
+            "wallet_network_grant_refs": wallet_network_grant_refs.clone(),
+            "authority_receipt_refs": authority_receipt_refs.clone(),
+            "direct_truth_write_allowed": false,
+            "created_at": created_at.clone(),
+        });
+        let mut run = object_value(&request.run)
+            .ok_or(CodingToolBudgetRecoveryControlError::MissingField("run"))?;
+        run.insert("updatedAt".to_string(), Value::String(created_at.clone()));
+        if action == "request_approval" {
+            run.insert(
+                "turnStatus".to_string(),
+                Value::String("waiting_for_approval".to_string()),
+            );
+            let prior_status = run
+                .get("status")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_string();
+            if matches!(prior_status.as_str(), "queued" | "running") {
+                run.insert("status".to_string(), Value::String("blocked".to_string()));
+            }
+        }
+        let mut trace = run.get("trace").and_then(object_value).unwrap_or_default();
+        trace.insert(
+            "operatorControls".to_string(),
+            append_operator_control(trace.get("operatorControls"), &operator_control),
+        );
+        trace.insert(
+            "budgetRecoveryControls".to_string(),
+            append_operator_control(trace.get("budgetRecoveryControls"), &operator_control),
+        );
+        if action == "request_approval" {
+            trace.insert(
+                "approvalRequests".to_string(),
+                append_operator_control(trace.get("approvalRequests"), &operator_control),
+            );
+        } else {
+            trace.insert(
+                "approvalDecisions".to_string(),
+                append_operator_control(trace.get("approvalDecisions"), &operator_control),
+            );
+        }
+        run.insert("trace".to_string(), Value::Object(trace));
+        run.insert(
+            "operatorControls".to_string(),
+            append_operator_control(run.get("operatorControls"), &operator_control),
+        );
+        run.insert(
+            "budgetRecoveryControls".to_string(),
+            append_operator_control(run.get("budgetRecoveryControls"), &operator_control),
+        );
         let evidence_refs = if request.evidence_refs.is_empty() {
             vec![
-                format!("{operation}_js_facade_retired"),
-                "rust_daemon_core_coding_tool_budget_recovery_admission_required".to_string(),
-                "agentgres_coding_tool_budget_recovery_truth_required".to_string(),
+                "coding_tool_budget_recovery_control_rust_owned".to_string(),
+                "rust_daemon_core_budget_recovery_control".to_string(),
+                "rust_agentgres_runtime_run_state_commit".to_string(),
             ]
         } else {
-            request.evidence_refs.clone()
+            unique_trimmed(&request.evidence_refs)
         };
-        let details = json!({
-            "rust_core_boundary": "runtime.coding_tool_budget_recovery",
-            "operation": operation,
-            "operation_kind": operation_kind,
-            "run_id": run_id,
-            "thread_id": thread_id,
-            "action": action,
-            "approval_id": approval_id,
-            "source_event_id": source_event_id,
-            "source": source,
-            "evidence_refs": evidence_refs,
-        });
 
-        Ok(CodingToolBudgetRecoveryAdmissionRequiredRecord {
-            schema_version: CODING_TOOL_BUDGET_RECOVERY_ADMISSION_REQUIRED_RESULT_SCHEMA_VERSION
-                .to_string(),
-            object: "ioi.runtime_coding_tool_budget_recovery_admission_required".to_string(),
-            status: "rust_core_required".to_string(),
-            status_code: 501,
-            code: "runtime_coding_tool_budget_recovery_rust_core_required".to_string(),
-            message:
-                "Runtime coding-tool budget recovery requires direct Rust daemon-core admission and persistence."
-                    .to_string(),
-            rust_core_boundary: "runtime.coding_tool_budget_recovery".to_string(),
+        Ok(CodingToolBudgetRecoveryControlRecord {
+            schema_version: CODING_TOOL_BUDGET_RECOVERY_CONTROL_RESULT_SCHEMA_VERSION.to_string(),
+            object: "ioi.runtime_coding_tool_budget_recovery_control".to_string(),
+            status: "planned".to_string(),
             operation,
             operation_kind,
             run_id,
             thread_id,
-            action,
-            approval_id,
+            action: Some(action),
+            approval_id: Some(approval_id),
             source_event_id,
             source,
+            updated_at: created_at,
+            operator_control,
+            run: Value::Object(run),
+            receipt_refs,
+            policy_decision_refs,
+            wallet_network_grant_refs,
+            authority_receipt_refs,
+            authority: authority_value,
+            authority_hash,
             evidence_refs,
-            details,
             generated_at: "rust_policy_core".to_string(),
         })
     }
@@ -362,28 +523,33 @@ impl CodingToolBudgetRecoveryStateUpdateRequest {
     }
 }
 
-impl CodingToolBudgetRecoveryAdmissionRequiredRequest {
-    pub fn validate(&self) -> Result<(), CodingToolBudgetRecoveryAdmissionRequiredError> {
-        if self.schema_version
-            != CODING_TOOL_BUDGET_RECOVERY_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION
-        {
-            return Err(
-                CodingToolBudgetRecoveryAdmissionRequiredError::InvalidSchemaVersion {
-                    expected: CODING_TOOL_BUDGET_RECOVERY_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
-                    actual: self.schema_version.clone(),
-                },
-            );
+impl CodingToolBudgetRecoveryControlRequest {
+    pub fn validate(&self) -> Result<(), CodingToolBudgetRecoveryControlError> {
+        if self.schema_version != CODING_TOOL_BUDGET_RECOVERY_CONTROL_REQUEST_SCHEMA_VERSION {
+            return Err(CodingToolBudgetRecoveryControlError::InvalidSchemaVersion {
+                expected: CODING_TOOL_BUDGET_RECOVERY_CONTROL_REQUEST_SCHEMA_VERSION,
+                actual: self.schema_version.clone(),
+            });
         }
+        reject_retired_budget_recovery_control_transport(self)?;
         if optional_trimmed(Some(self.operation.as_str())).is_none() {
-            return Err(CodingToolBudgetRecoveryAdmissionRequiredError::MissingField("operation"));
+            return Err(CodingToolBudgetRecoveryControlError::MissingField(
+                "operation",
+            ));
         }
         if optional_trimmed(Some(self.operation_kind.as_str())).is_none() {
-            return Err(
-                CodingToolBudgetRecoveryAdmissionRequiredError::MissingField("operation_kind"),
-            );
+            return Err(CodingToolBudgetRecoveryControlError::MissingField(
+                "operation_kind",
+            ));
         }
         if optional_trimmed(Some(self.run_id.as_str())).is_none() {
-            return Err(CodingToolBudgetRecoveryAdmissionRequiredError::MissingField("run_id"));
+            return Err(CodingToolBudgetRecoveryControlError::MissingField("run_id"));
+        }
+        let action = normalized_budget_recovery_control_action(self.action.as_deref());
+        if !matches!(action.as_str(), "request_approval" | "approve_override") {
+            return Err(CodingToolBudgetRecoveryControlError::UnsupportedAction(
+                action,
+            ));
         }
         Ok(())
     }
@@ -424,6 +590,154 @@ fn append_operator_control(existing: Option<&Value>, control: &Value) -> Value {
     Value::Array(entries)
 }
 
+fn normalized_budget_recovery_control_action(value: Option<&str>) -> String {
+    optional_trimmed(value)
+        .unwrap_or_else(|| "request_approval".to_string())
+        .to_lowercase()
+        .replace('-', "_")
+}
+
+fn budget_recovery_control_operation_kind(action: &str) -> String {
+    format!("workflow.run.coding_tool_budget_recovery.{action}")
+}
+
+fn budget_recovery_control_status(action: &str) -> String {
+    match action {
+        "approve_override" => "override_approved",
+        _ => "waiting_for_approval",
+    }
+    .to_string()
+}
+
+fn budget_recovery_control_reason(action: &str) -> String {
+    match action {
+        "approve_override" => "Operator approved coding-tool budget recovery override.",
+        _ => "Coding-tool budget recovery requires operator approval.",
+    }
+    .to_string()
+}
+
+fn budget_recovery_control_authority(
+    request: &CodingToolBudgetRecoveryControlRequest,
+    action: &str,
+    thread_id: Option<String>,
+    run_id: &str,
+    approval_id: &str,
+    source: Option<String>,
+    source_event_id: Option<String>,
+) -> Result<Option<CodingToolBudgetRecoveryAuthorityRecord>, CodingToolBudgetRecoveryControlError> {
+    if action != "approve_override" {
+        return Ok(None);
+    }
+    let wallet_network_grant_refs = unique_trimmed_values(
+        request
+            .authority_grant_refs
+            .iter()
+            .filter(|grant_ref| is_wallet_network_grant_ref(grant_ref))
+            .cloned()
+            .collect::<Vec<_>>()
+            .as_slice(),
+    );
+    if wallet_network_grant_refs.is_empty() {
+        return Err(CodingToolBudgetRecoveryControlError::MissingWalletNetworkAuthority);
+    }
+    let authority_receipt_refs = unique_trimmed(&request.authority_receipt_refs);
+    if authority_receipt_refs.is_empty() {
+        return Err(CodingToolBudgetRecoveryControlError::MissingAuthorityReceipt);
+    }
+    let policy_decision_refs = unique_trimmed(&request.policy_decision_refs);
+    let mut record = CodingToolBudgetRecoveryAuthorityRecord {
+        schema_version: "ioi.runtime.coding-tool-budget-recovery-authority.v1".to_string(),
+        object: "ioi.runtime_coding_tool_budget_recovery_authority".to_string(),
+        status: "authorized".to_string(),
+        operation_kind: budget_recovery_control_operation_kind(action),
+        thread_id,
+        run_id: run_id.to_string(),
+        approval_id: approval_id.to_string(),
+        action: action.to_string(),
+        source,
+        source_event_id,
+        wallet_network_grant_refs,
+        authority_receipt_refs,
+        policy_decision_refs,
+        direct_truth_write_allowed: false,
+        authority_hash: String::new(),
+        projection_source: "rust_daemon_core_wallet_network_coding_tool_budget_recovery_authority"
+            .to_string(),
+        generated_at: "rust_policy_core".to_string(),
+    };
+    record.authority_hash = budget_recovery_control_authority_hash(&record)?;
+    Ok(Some(record))
+}
+
+fn budget_recovery_control_authority_hash(
+    record: &CodingToolBudgetRecoveryAuthorityRecord,
+) -> Result<String, CodingToolBudgetRecoveryControlError> {
+    let mut canonical = record.clone();
+    canonical.authority_hash.clear();
+    let bytes = serde_json::to_vec(&canonical)
+        .map_err(|error| CodingToolBudgetRecoveryControlError::HashFailed(error.to_string()))?;
+    Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
+}
+
+fn reject_retired_budget_recovery_control_transport(
+    request: &CodingToolBudgetRecoveryControlRequest,
+) -> Result<(), CodingToolBudgetRecoveryControlError> {
+    let retired: Vec<String> = request
+        .extra
+        .keys()
+        .filter(|key| {
+            matches!(
+                key.as_str(),
+                "threadId"
+                    | "runId"
+                    | "operationKind"
+                    | "approvalId"
+                    | "sourceEventId"
+                    | "eventId"
+                    | "createdAt"
+                    | "recoveryAction"
+                    | "receiptRefs"
+                    | "policyDecisionRefs"
+                    | "authority"
+                    | "authorityHash"
+                    | "authorityGrantRefs"
+                    | "authorityReceiptRefs"
+                    | "walletNetworkGrantRefs"
+            )
+        })
+        .cloned()
+        .collect();
+    if retired.is_empty() {
+        Ok(())
+    } else {
+        Err(CodingToolBudgetRecoveryControlError::RetiredControlTransport(retired))
+    }
+}
+
+fn unique_trimmed(values: &[String]) -> Vec<String> {
+    unique_trimmed_values(values)
+}
+
+fn unique_trimmed_values(values: &[String]) -> Vec<String> {
+    let mut out = Vec::new();
+    for value in values {
+        if let Some(trimmed) = optional_trimmed(Some(value.as_str())) {
+            if !out.contains(&trimmed) {
+                out.push(trimmed);
+            }
+        }
+    }
+    out
+}
+
+fn is_wallet_network_grant_ref(value: &str) -> bool {
+    let trimmed = value.trim();
+    trimmed.starts_with("wallet.network://")
+        || trimmed.starts_with("wallet-network://")
+        || trimmed.starts_with("wallet_network://")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -447,6 +761,43 @@ mod tests {
             source: "runtime_auto".to_string(),
             receipt_refs: vec!["receipt_retry".to_string()],
             policy_decision_refs: vec!["policy_retry".to_string()],
+        }
+    }
+
+    fn coding_tool_budget_recovery_control_request(
+        action: &str,
+    ) -> CodingToolBudgetRecoveryControlRequest {
+        CodingToolBudgetRecoveryControlRequest {
+            schema_version: CODING_TOOL_BUDGET_RECOVERY_CONTROL_REQUEST_SCHEMA_VERSION.to_string(),
+            operation: "coding_tool_budget_recovery_control".to_string(),
+            operation_kind: "workflow.run.coding_tool_budget_recovery".to_string(),
+            run_id: "run_alpha".to_string(),
+            thread_id: Some("thread_alpha".to_string()),
+            action: Some(action.to_string()),
+            approval_id: Some("approval_alpha".to_string()),
+            source_event_id: Some("event_budget".to_string()),
+            source: Some("agent_studio".to_string()),
+            run: json!({
+                "id": "run_alpha",
+                "agentId": "agent_alpha",
+                "status": "running",
+                "trace": {},
+            }),
+            event_id: Some(format!("event_budget_{action}")),
+            seq: Some(17),
+            created_at: Some("2026-06-12T10:40:00.000Z".to_string()),
+            reason: Some("budget recovery needs approval".to_string()),
+            receipt_refs: vec!["receipt_budget_control".to_string()],
+            policy_decision_refs: vec!["policy_budget_control".to_string()],
+            authority_grant_refs: vec![
+                "wallet.network://grant/coding-tool-budget-recovery".to_string()
+            ],
+            authority_receipt_refs: vec![
+                "receipt://wallet.network/coding-tool-budget-recovery".to_string()
+            ],
+            authority_context: Value::Null,
+            evidence_refs: vec![],
+            extra: BTreeMap::new(),
         }
     }
 
@@ -512,107 +863,119 @@ mod tests {
     }
 
     #[test]
-    fn rust_policy_plans_coding_tool_budget_recovery_admission_required() {
-        let record = CodingToolBudgetRecoveryAdmissionRequiredCore
-            .plan(&CodingToolBudgetRecoveryAdmissionRequiredRequest {
-                schema_version:
-                    CODING_TOOL_BUDGET_RECOVERY_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION
-                        .to_string(),
-                operation: "coding_tool_budget_recovery_control".to_string(),
-                operation_kind: "workflow.run.coding_tool_budget_recovery".to_string(),
-                run_id: "run_alpha".to_string(),
-                thread_id: Some("thread_alpha".to_string()),
-                action: Some("retry_approved".to_string()),
-                approval_id: Some("approval_alpha".to_string()),
-                source_event_id: Some("event_budget".to_string()),
-                source: Some("agent_studio".to_string()),
-                evidence_refs: vec![
-                    "coding_tool_budget_recovery_js_facade_retired".to_string(),
-                    "rust_daemon_core_budget_recovery_admission_required".to_string(),
-                    "agentgres_budget_recovery_state_truth_required".to_string(),
-                ],
-            })
-            .expect("coding-tool budget recovery admission required");
+    fn rust_policy_plans_coding_tool_budget_recovery_request_approval_control() {
+        let record = CodingToolBudgetRecoveryControlCore
+            .plan(&coding_tool_budget_recovery_control_request(
+                "request_approval",
+            ))
+            .expect("coding-tool budget recovery request approval control");
 
         assert_eq!(
             record.schema_version,
-            CODING_TOOL_BUDGET_RECOVERY_ADMISSION_REQUIRED_RESULT_SCHEMA_VERSION
+            CODING_TOOL_BUDGET_RECOVERY_CONTROL_RESULT_SCHEMA_VERSION
         );
-        assert_eq!(record.status, "rust_core_required");
-        assert_eq!(record.status_code, 501);
-        assert_eq!(
-            record.code,
-            "runtime_coding_tool_budget_recovery_rust_core_required"
-        );
-        assert_eq!(
-            record.rust_core_boundary,
-            "runtime.coding_tool_budget_recovery"
-        );
+        assert_eq!(record.status, "planned");
         assert_eq!(record.operation, "coding_tool_budget_recovery_control");
         assert_eq!(
             record.operation_kind,
-            "workflow.run.coding_tool_budget_recovery"
+            "workflow.run.coding_tool_budget_recovery.request_approval"
         );
-        assert_eq!(record.details["run_id"], "run_alpha");
-        assert_eq!(record.details["thread_id"], "thread_alpha");
-        assert_eq!(record.details["approval_id"], "approval_alpha");
-        assert!(record.details.get("runId").is_none());
+        assert_eq!(
+            record.operator_control["control"],
+            "coding_tool_budget_recovery"
+        );
+        assert_eq!(record.operator_control["action"], "request_approval");
+        assert_eq!(record.operator_control["approval_required"], true);
+        assert_eq!(record.operator_control["approval_satisfied"], false);
+        assert_eq!(record.run["status"], "blocked");
+        assert_eq!(record.run["turnStatus"], "waiting_for_approval");
+        assert_eq!(
+            record.run["trace"]["approvalRequests"][0]["approval_id"],
+            "approval_alpha"
+        );
+        assert!(record.operator_control.get("approvalId").is_none());
+        assert!(record.operator_control.get("sourceEventId").is_none());
+        assert!(record.operator_control.get("authorityHash").is_none());
     }
 
     #[test]
-    fn rust_policy_shapes_coding_tool_budget_recovery_admission_required_command_response() {
-        let response = plan_coding_tool_budget_recovery_admission_required_response(
-            CodingToolBudgetRecoveryAdmissionRequiredBridgeRequest {
+    fn rust_policy_shapes_coding_tool_budget_recovery_control_command_response() {
+        let response = plan_coding_tool_budget_recovery_control_response(
+            CodingToolBudgetRecoveryControlBridgeRequest {
                 backend: Some("rust_policy".to_string()),
-                request: CodingToolBudgetRecoveryAdmissionRequiredRequest {
-                    schema_version:
-                        CODING_TOOL_BUDGET_RECOVERY_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION
-                            .to_string(),
-                    operation: "coding_tool_budget_recovery_control".to_string(),
-                    operation_kind: "workflow.run.coding_tool_budget_recovery".to_string(),
-                    run_id: "run_alpha".to_string(),
-                    thread_id: Some("thread_alpha".to_string()),
-                    action: Some("retry_approved".to_string()),
-                    approval_id: Some("approval_alpha".to_string()),
-                    source_event_id: Some("event_budget".to_string()),
-                    source: Some("agent_studio".to_string()),
-                    evidence_refs: vec![
-                        "coding_tool_budget_recovery_js_facade_retired".to_string(),
-                        "rust_daemon_core_budget_recovery_admission_required".to_string(),
-                        "agentgres_budget_recovery_state_truth_required".to_string(),
-                    ],
-                },
+                request: coding_tool_budget_recovery_control_request("approve_override"),
             },
         )
-        .expect("coding-tool budget recovery admission-required command response");
+        .expect("coding-tool budget recovery control command response");
 
         assert_eq!(
             response["source"],
-            "rust_coding_tool_budget_recovery_admission_required_command"
+            "rust_coding_tool_budget_recovery_control_command"
         );
         assert_eq!(response["backend"], "rust_policy");
-        assert_eq!(response["status"], "rust_core_required");
-        assert_eq!(response["status_code"], 501);
+        assert_eq!(response["status"], "planned");
         assert_eq!(
-            response["code"],
-            "runtime_coding_tool_budget_recovery_rust_core_required"
+            response["operation_kind"],
+            "workflow.run.coding_tool_budget_recovery.approve_override"
+        );
+        assert_eq!(response["action"], "approve_override");
+        assert_eq!(
+            response["operator_control"]["approval_id"],
+            "approval_alpha"
         );
         assert_eq!(
-            response["details"]["rust_core_boundary"],
-            "runtime.coding_tool_budget_recovery"
+            response["wallet_network_grant_refs"][0],
+            "wallet.network://grant/coding-tool-budget-recovery"
         );
         assert_eq!(
-            response["details"]["operation"],
-            "coding_tool_budget_recovery_control"
+            response["authority_receipt_refs"][0],
+            "receipt://wallet.network/coding-tool-budget-recovery"
         );
         assert_eq!(
-            response["details"]["operation_kind"],
-            "workflow.run.coding_tool_budget_recovery"
+            response["authority"]["projection_source"],
+            "rust_daemon_core_wallet_network_coding_tool_budget_recovery_authority"
         );
-        assert_eq!(response["details"]["run_id"], "run_alpha");
-        assert_eq!(response["details"]["approval_id"], "approval_alpha");
-        assert!(response["details"].get("runId").is_none());
-        assert!(response["details"].get("approvalId").is_none());
+        assert!(response["authority_hash"]
+            .as_str()
+            .unwrap()
+            .starts_with("sha256:"));
+        assert!(response["operator_control"].get("approvalId").is_none());
+        assert!(response["operator_control"].get("authorityHash").is_none());
+    }
+
+    #[test]
+    fn rust_policy_rejects_coding_tool_budget_recovery_override_without_wallet_authority() {
+        let mut request = coding_tool_budget_recovery_control_request("approve_override");
+        request.authority_grant_refs = vec!["grant://local-debug".to_string()];
+
+        let error = CodingToolBudgetRecoveryControlCore
+            .plan(&request)
+            .expect_err("override authority must require wallet.network");
+
+        assert_eq!(
+            error,
+            CodingToolBudgetRecoveryControlError::MissingWalletNetworkAuthority
+        );
+    }
+
+    #[test]
+    fn rust_policy_rejects_coding_tool_budget_recovery_control_alias_transport() {
+        let mut request = coding_tool_budget_recovery_control_request("request_approval");
+        request.extra.insert(
+            "approvalId".to_string(),
+            Value::String("approval_js".to_string()),
+        );
+
+        let error = CodingToolBudgetRecoveryControlCore
+            .plan(&request)
+            .expect_err("retired alias transport must fail");
+
+        assert_eq!(
+            error,
+            CodingToolBudgetRecoveryControlError::RetiredControlTransport(vec![
+                "approvalId".to_string()
+            ])
+        );
     }
 
     #[test]

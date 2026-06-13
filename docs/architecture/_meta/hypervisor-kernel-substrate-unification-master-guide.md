@@ -2450,21 +2450,17 @@ The later workflow-edit control cut supersedes the route-facing refusal path for
 proposal/apply event materialization: public workflow-edit proposal and apply
 now require Rust daemon-core `plan_runtime_workflow_edit_control` and Rust
 runtime-event Agentgres admission before returning accepted control truth.
-Slice 967 moved the coding-tool budget recovery Rust-core-required admission
-refusal into the Rust daemon-core policy bridge. `CodingToolBudgetRecoveryAdmissionRequiredCore`
-now emits the canonical fail-closed envelope and snake_case detail payload,
-`ioi_step_module_bridge` exposes
-`plan_coding_tool_budget_recovery_admission_required`, and the runtime daemon
-mounts that runner into the coding-tool budget recovery surface. JS still
-translates the Rust-authored refusal at the HTTP edge, but no longer acts as
-the canonical author for budget recovery admission-required control or
-blocked-event projection refusal when the daemon-core command is configured.
-This does not claim terminal coding-tool budget recovery migration: direct Rust
-daemon-core retry admission/projection, wallet.network approval authority,
-Agentgres expected-head/state-root binding, policy receipts, retry-event
-materialization, run persistence, replay, command-transport retirement, and
-stable SDK/IDE/CLI protocol APIs remain required before terminal pure Rust
-substrate conformance.
+The earlier Slice 967 refusal bridge for coding-tool budget recovery has been
+superseded by the positive Rust control boundary. `CodingToolBudgetRecoveryControlCore`
+now authors `request_approval` and `approve_override` run projections, the
+daemon-core command surface exposes `plan_coding_tool_budget_recovery_control`,
+and the runtime daemon commits only the Rust-planned run through Agentgres-backed
+run-state persistence. Override issuance requires wallet.network grant refs plus
+authority receipts and binds the Rust authority hash into the projection; the old
+admission-required budget-recovery command is retired. This does not claim
+terminal coding-tool budget recovery migration: retry-event materialization,
+durable replay/projection, command-transport retirement, and stable SDK/IDE/CLI
+protocol APIs remain required before terminal pure Rust substrate conformance.
 Slice 968 moved the diagnostics repair Rust-core-required admission refusal
 into the Rust daemon-core policy bridge. `DiagnosticsRepairAdmissionRequiredCore`
 now emits the canonical fail-closed envelope and snake_case detail payload,
@@ -5161,14 +5157,14 @@ stable IDE/CLI/SDK protocol APIs.
 Slice 1037 moves the coding-tool budget recovery policy owner family out of
 the broad Rust `policy.rs` facade into
 `crates/services/src/agentic/runtime/kernel/policy/coding_tool_budget_recovery.rs`.
-The child module owns budget-recovery state-update and admission-required
+The child module owns budget-recovery state-update and control
 request/record/error types, planner cores, validation, helper operator-control
 planning, and focused proof tests; the parent facade only re-exports the
 surface. This is an extraction toward the pure Rust daemon-core substrate, not
 the terminal budget recovery architecture. The current JS coding-tool budget
 recovery facade, JS context-policy runner, and Node command bridge remain
 temporary migration transport. Resume by replacing that transport path with
-direct Rust daemon-core budget recovery admission/persistence over wallet
+direct Rust daemon-core budget recovery persistence over wallet
 authority, Agentgres expected heads/state roots, policy receipts,
 retry-event materialization, replay, projection, and stable IDE/CLI/SDK
 protocol APIs.
@@ -8493,12 +8489,13 @@ projection/replay, receipt/state-root binding, command-transport retirement,
 and stable protocol APIs.
 Run-level coding-tool budget recovery retry completion has moved from the
 fail-closed JS control facade to Rust `plan_coding_tool_budget_recovery_state_update`
-plus Agentgres-backed run-state commit. The public route now accepts the
-canonical `retry_approved` path only when Rust returns a complete
-`workflow.run.retry_completed` operator control and run projection, keeps
-approval request/override actions fail-closed through the Rust admission-required
-planner, and deletes the standalone JS budget-recovery policy/result helper.
-This remains non-terminal because wallet approval issuance/decision authority,
+plus Agentgres-backed run-state commit, and budget recovery `request_approval`
+and `approve_override` now move through Rust `plan_coding_tool_budget_recovery_control`.
+The public route now accepts these controls only when Rust returns a complete
+operator control and run projection; override issuance additionally requires
+wallet.network grant and authority receipt refs and carries a Rust-authored
+authority hash. The standalone JS budget-recovery policy/result helper and the
+old admission-required command remain retired. This remains non-terminal because
 retry-event materialization, durable replay/projection, command-transport
 retirement, and stable SDK/IDE/CLI APIs still need direct Rust ownership.
 Managed-session inspection/control has moved from a fail-closed public facade to

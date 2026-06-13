@@ -41,9 +41,9 @@ pub mod runtime_diagnostics_repair_policy;
 pub mod runtime_diagnostics_repair_projection;
 pub mod runtime_lifecycle;
 pub mod runtime_managed_session_control;
+pub mod runtime_mcp_serve;
 pub mod runtime_memory_control;
 pub mod runtime_memory_projection;
-pub mod runtime_mcp_serve;
 pub mod runtime_subagent_control;
 pub mod runtime_subagent_projection;
 pub mod runtime_thread_event;
@@ -136,10 +136,9 @@ use policy::{
     AgentDeleteStateUpdateRecord, AgentDeleteStateUpdateRequest, AgentStatusStateUpdateCore,
     AgentStatusStateUpdateError, AgentStatusStateUpdateRecord, AgentStatusStateUpdateRequest,
     CodingToolBudgetBlockCore, CodingToolBudgetBlockError, CodingToolBudgetBlockRecord,
-    CodingToolBudgetBlockRequest, CodingToolBudgetRecoveryAdmissionRequiredCore,
-    CodingToolBudgetRecoveryAdmissionRequiredError,
-    CodingToolBudgetRecoveryAdmissionRequiredRecord,
-    CodingToolBudgetRecoveryAdmissionRequiredRequest, CodingToolBudgetRecoveryStateUpdateCore,
+    CodingToolBudgetBlockRequest, CodingToolBudgetRecoveryControlCore,
+    CodingToolBudgetRecoveryControlError, CodingToolBudgetRecoveryControlRecord,
+    CodingToolBudgetRecoveryControlRequest, CodingToolBudgetRecoveryStateUpdateCore,
     CodingToolBudgetRecoveryStateUpdateError, CodingToolBudgetRecoveryStateUpdateRecord,
     CodingToolBudgetRecoveryStateUpdateRequest, CompactionPolicyCore, CompactionPolicyError,
     CompactionPolicyRecord, CompactionPolicyRequest, ContextBudgetPolicyCore,
@@ -449,14 +448,11 @@ impl RuntimeKernelService {
         CodingToolBudgetRecoveryStateUpdateCore.plan(request)
     }
 
-    pub fn plan_coding_tool_budget_recovery_admission_required(
+    pub fn plan_coding_tool_budget_recovery_control(
         &self,
-        request: &CodingToolBudgetRecoveryAdmissionRequiredRequest,
-    ) -> Result<
-        CodingToolBudgetRecoveryAdmissionRequiredRecord,
-        CodingToolBudgetRecoveryAdmissionRequiredError,
-    > {
-        CodingToolBudgetRecoveryAdmissionRequiredCore.plan(request)
+        request: &CodingToolBudgetRecoveryControlRequest,
+    ) -> Result<CodingToolBudgetRecoveryControlRecord, CodingToolBudgetRecoveryControlError> {
+        CodingToolBudgetRecoveryControlCore.plan(request)
     }
 
     pub fn plan_workflow_edit_admission_required(

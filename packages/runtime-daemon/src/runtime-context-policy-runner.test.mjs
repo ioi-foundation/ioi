@@ -7,7 +7,7 @@ import {
   AGENT_STATUS_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   CODING_TOOL_BUDGET_BLOCK_REQUEST_SCHEMA_VERSION,
   CODING_TOOL_BUDGET_POLICY_REQUEST_SCHEMA_VERSION,
-  CODING_TOOL_BUDGET_RECOVERY_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
+  CODING_TOOL_BUDGET_RECOVERY_CONTROL_REQUEST_SCHEMA_VERSION,
   CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   CODING_TOOL_RESULT_ENVELOPE_PLAN_REQUEST_SCHEMA_VERSION,
   RUNTIME_CODING_TOOL_ARTIFACT_DRAFT_PLAN_REQUEST_SCHEMA_VERSION,
@@ -806,58 +806,67 @@ test("coding tool budget block runner sends Rust block request through direct da
   assert.equal(Object.hasOwn(result.event.payload_summary, "receiptRefs"), false);
 });
 
-test("coding-tool budget recovery admission-required runner sends Rust daemon-core request", () => {
+test("coding-tool budget recovery control runner sends Rust daemon-core request", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
     daemonCoreInvoker(request) {
       captured = request;
       return {
-            source: "rust_coding_tool_budget_recovery_admission_required_command",
-            backend: "rust_policy",
-            record: {
-              status_code: 501,
-              code: "runtime_coding_tool_budget_recovery_rust_core_required",
-              message:
-                "Runtime coding-tool budget recovery requires direct Rust daemon-core admission and persistence.",
-              details: {
-                rust_core_boundary: "runtime.coding_tool_budget_recovery",
-                operation: "coding_tool_budget_recovery_control",
-                operation_kind: "workflow.run.coding_tool_budget_recovery",
-                run_id: "run_alpha",
-                thread_id: "thread_alpha",
-                approval_id: "approval_alpha",
-                evidence_refs: ["coding_tool_budget_recovery_js_facade_retired"],
-              },
-            },
-          };
+        source: "rust_coding_tool_budget_recovery_control_command",
+        backend: "rust_policy",
+        status: "planned",
+        action: "approve_override",
+        operation_kind: "workflow.run.coding_tool_budget_recovery.approve_override",
+        operator_control: {
+          control: "coding_tool_budget_recovery",
+          action: "approve_override",
+          approval_id: "approval_alpha",
+          event_id: "event_budget_override",
+          authority_hash: "sha256:budget-authority",
+          wallet_network_grant_refs: ["wallet.network://grant/coding-tool-budget-recovery"],
+          authority_receipt_refs: ["receipt://wallet.network/coding-tool-budget-recovery"],
+        },
+        run: { id: "run_alpha" },
+      };
     },
   });
 
-  const result = runner.planCodingToolBudgetRecoveryAdmissionRequired({
+  const result = runner.planCodingToolBudgetRecoveryControl({
     operation: "coding_tool_budget_recovery_control",
     operation_kind: "workflow.run.coding_tool_budget_recovery",
     run_id: "run_alpha",
     thread_id: "thread_alpha",
+    action: "approve_override",
     approval_id: "approval_alpha",
-    evidence_refs: ["coding_tool_budget_recovery_js_facade_retired"],
+    run: { id: "run_alpha" },
+    event_id: "event_budget_override",
+    seq: 19,
+    created_at: "2026-06-12T10:41:00.000Z",
+    authority_grant_refs: ["wallet.network://grant/coding-tool-budget-recovery"],
+    authority_receipt_refs: ["receipt://wallet.network/coding-tool-budget-recovery"],
+    evidence_refs: ["coding_tool_budget_recovery_control_rust_owned"],
   });
 
   assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "plan_coding_tool_budget_recovery_admission_required");
+  assert.equal(captured.operation, "plan_coding_tool_budget_recovery_control");
   assert.equal(captured.backend, "rust_policy");
   assert.equal(
     captured.request.schema_version,
-    CODING_TOOL_BUDGET_RECOVERY_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
+    CODING_TOOL_BUDGET_RECOVERY_CONTROL_REQUEST_SCHEMA_VERSION,
   );
   assert.equal(captured.request.operation, "coding_tool_budget_recovery_control");
   assert.equal(
     captured.request.operation_kind,
     "workflow.run.coding_tool_budget_recovery",
   );
-  assert.equal(result.source, "rust_coding_tool_budget_recovery_admission_required_command");
-  assert.equal(result.record.status_code, 501);
-  assert.equal(result.record.details.run_id, "run_alpha");
-  assert.equal(Object.hasOwn(result.record.details, "runId"), false);
+  assert.equal(captured.request.action, "approve_override");
+  assert.deepEqual(captured.request.authority_grant_refs, [
+    "wallet.network://grant/coding-tool-budget-recovery",
+  ]);
+  assert.equal(result.source, "rust_coding_tool_budget_recovery_control_command");
+  assert.equal(result.status, "planned");
+  assert.equal(result.operator_control.authority_hash, "sha256:budget-authority");
+  assert.equal(Object.hasOwn(result.operator_control, "authorityHash"), false);
 });
 
 test("workflow-edit admission-required runner sends Rust daemon-core request", () => {

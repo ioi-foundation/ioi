@@ -1728,7 +1728,7 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 941-969/.test(matrix) &&
       /Slices 941-969 are compacted into this preservation summary/.test(matrix) &&
       /Moved workflow-edit admission-required refusal authoring into `WorkflowEditAdmissionRequiredCore`/.test(matrix) &&
-      /Moved coding-tool budget recovery admission-required refusal authoring into\s+`CodingToolBudgetRecoveryAdmissionRequiredCore`/.test(matrix) &&
+	      /budget-recovery request\/override\s+Rust-control and wallet-authority cut/.test(matrix) &&
       /Moved diagnostics repair admission-required refusal authoring into\s+`DiagnosticsRepairAdmissionRequiredCore`/.test(matrix) &&
       /Moved run-cancel admission-required refusal authoring into\s+`RunCancelAdmissionRequiredCore`/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slices 941-969 is now satisfied/.test(matrix) &&
@@ -3030,10 +3030,10 @@ function runBridge() {
     policyContextLifecycleCore.match(
       /impl ContextCompactionStateUpdateCore \{[\s\S]*?(?=\n\nimpl ContextBudgetPolicyRequest \{)/,
     )?.[0] ?? "";
-  const codingToolBudgetRecoveryStateUpdateCoreBlock =
-    policyCodingToolBudgetRecoveryCore.match(
-      /impl CodingToolBudgetRecoveryStateUpdateCore \{[\s\S]*?(?=\n\n#\[derive\(Debug, Default, Clone\)\]\npub struct CodingToolBudgetRecoveryAdmissionRequiredCore;)/,
-    )?.[0] ?? "";
+	  const codingToolBudgetRecoveryStateUpdateCoreBlock =
+	    policyCodingToolBudgetRecoveryCore.match(
+	      /impl CodingToolBudgetRecoveryStateUpdateCore \{[\s\S]*?(?=\n\n#\[derive\(Debug, Default, Clone\)\]\npub struct CodingToolBudgetRecoveryControlCore;)/,
+	    )?.[0] ?? "";
   const diagnosticsOperatorOverrideStateUpdateCoreBlock =
     policyOperatorControlCore.match(
       /impl DiagnosticsOperatorOverrideStateUpdateCore \{[\s\S]*?(?=\n\n#\[derive\(Debug, Default, Clone\)\]\npub struct OperatorInterruptStateUpdateCore;)/,
@@ -7738,21 +7738,25 @@ function runBridge() {
       /pub fn plan_coding_tool_budget_recovery_state_update_response/.test(
         policyCodingToolBudgetRecoveryCore,
       ) &&
-      /pub fn plan_coding_tool_budget_recovery_admission_required_response/.test(
-        policyCodingToolBudgetRecoveryCore,
-      ) &&
-      /rust_coding_tool_budget_recovery_state_update_command/.test(
-        policyCodingToolBudgetRecoveryCore,
-      ) &&
-      /rust_coding_tool_budget_recovery_admission_required_command/.test(
-        policyCodingToolBudgetRecoveryCore,
-      ) &&
+	      /pub fn plan_coding_tool_budget_recovery_control_response/.test(
+	        policyCodingToolBudgetRecoveryCore,
+	      ) &&
+	      !/plan_coding_tool_budget_recovery_admission_required/.test(
+	        commandProtocolCore + coreCommandDispatch + policyCodingToolBudgetRecoveryCore + runtimeContextPolicyRunner,
+	      ) &&
+	      !/planCodingToolBudgetRecoveryAdmissionRequired/.test(runtimeContextPolicyRunner) &&
+	      /rust_coding_tool_budget_recovery_state_update_command/.test(
+	        policyCodingToolBudgetRecoveryCore,
+	      ) &&
+	      /rust_coding_tool_budget_recovery_control_command/.test(
+	        policyCodingToolBudgetRecoveryCore,
+	      ) &&
       /rust_policy_shapes_coding_tool_budget_recovery_state_update_command_response/.test(
         policyCodingToolBudgetRecoveryCore,
       ) &&
-      /rust_policy_shapes_coding_tool_budget_recovery_admission_required_command_response/.test(
-        policyCodingToolBudgetRecoveryCore,
-      ) &&
+	      /rust_policy_shapes_coding_tool_budget_recovery_control_command_response/.test(
+	        policyCodingToolBudgetRecoveryCore,
+	      ) &&
       /pub struct OperatorControlCommandError/.test(policyOperatorControlCore) &&
       /pub fn plan_diagnostics_operator_override_state_update_response/.test(
         policyOperatorControlCore,
@@ -7798,9 +7802,9 @@ function runBridge() {
       !/plan_coding_tool_budget_recovery_state_update_response as plan_coding_tool_budget_recovery_state_update/.test(
         bridgeModule,
       ) &&
-      !/plan_coding_tool_budget_recovery_admission_required_response as plan_coding_tool_budget_recovery_admission_required/.test(
-        bridgeModule,
-      ) &&
+	      !/plan_coding_tool_budget_recovery_control_response as plan_coding_tool_budget_recovery_control/.test(
+	        bridgeModule,
+	      ) &&
       !/plan_operator_interrupt_state_update_response as plan_operator_interrupt_state_update/.test(
         bridgeModule,
       ) &&
@@ -9909,28 +9913,31 @@ function runBridge() {
       /pub struct CodingToolBudgetRecoveryStateUpdateCore;/.test(
         policyCodingToolBudgetRecoveryCore,
       ) &&
-      /pub struct CodingToolBudgetRecoveryAdmissionRequiredCore;/.test(
-        policyCodingToolBudgetRecoveryCore,
-      ) &&
+	      /pub struct CodingToolBudgetRecoveryControlCore;/.test(
+	        policyCodingToolBudgetRecoveryCore,
+	      ) &&
       /pub struct CodingToolBudgetRecoveryStateUpdateRequest/.test(
         policyCodingToolBudgetRecoveryCore,
       ) &&
-      /pub struct CodingToolBudgetRecoveryAdmissionRequiredRequest/.test(
-        policyCodingToolBudgetRecoveryCore,
-      ) &&
+	      /pub struct CodingToolBudgetRecoveryControlRequest/.test(
+	        policyCodingToolBudgetRecoveryCore,
+	      ) &&
       /append_operator_control/.test(policyCodingToolBudgetRecoveryCore) &&
       /rust_policy_plans_coding_tool_budget_recovery_state_update/.test(
         policyCodingToolBudgetRecoveryCore,
       ) &&
-      /rust_policy_plans_coding_tool_budget_recovery_admission_required/.test(
-        policyCodingToolBudgetRecoveryCore,
-      ) &&
+	      /rust_policy_plans_coding_tool_budget_recovery_request_approval_control/.test(
+	        policyCodingToolBudgetRecoveryCore,
+	      ) &&
+	      /rust_policy_rejects_coding_tool_budget_recovery_override_without_wallet_authority/.test(
+	        policyCodingToolBudgetRecoveryCore,
+	      ) &&
       /rust_policy_shapes_coding_tool_budget_recovery_state_update_command_response/.test(
         policyCodingToolBudgetRecoveryCore,
       ) &&
-      /rust_policy_shapes_coding_tool_budget_recovery_admission_required_command_response/.test(
-        policyCodingToolBudgetRecoveryCore,
-      ) &&
+	      /rust_policy_shapes_coding_tool_budget_recovery_control_command_response/.test(
+	        policyCodingToolBudgetRecoveryCore,
+	      ) &&
       !/pub struct CodingToolBudgetRecoveryStateUpdateCore;/.test(policyFacade) &&
       !/rust_policy_plans_coding_tool_budget_recovery_state_update/.test(policyFacade),
     [
@@ -9938,11 +9945,11 @@ function runBridge() {
       "crates/services/src/agentic/runtime/kernel/policy/coding_tool_budget_recovery.rs",
       "scripts/conformance/hypervisor-conformance.mjs",
     ],
-    "Phase 10/11 remains non-terminal: coding-tool budget recovery policy owners must stay in the Rust policy child module while direct Rust daemon-core recovery admission/persistence replaces command transport",
-  );
-  assertCheck(
-    result,
-    "coding-tool-budget-recovery-retry-rust-owned",
+	    "Phase 10/11 remains non-terminal: coding-tool budget recovery policy owners must stay in the Rust policy child module while direct Rust daemon-core recovery control/persistence replaces command transport",
+	  );
+	  assertCheck(
+	    result,
+	    "coding-tool-budget-recovery-control-rust-owned",
     /runtime_coding_tool_budget_recovery_rust_core_required/.test(
       runtimeCodingToolBudgetRecoverySurface,
     ) &&
@@ -9959,64 +9966,74 @@ function runBridge() {
       /store\.writeRun\(plannedRun,\s*plannedOperationKind\)/.test(
         runtimeCodingToolBudgetRecoverySurface,
       ) &&
-      /coding_tool_budget_recovery_js_facade_retired/.test(
-        runtimeCodingToolBudgetRecoverySurface,
-      ) &&
-      /CODING_TOOL_BUDGET_RECOVERY_ADMISSION_REQUIRED_EVIDENCE_REFS/.test(
-        runtimeCodingToolBudgetRecoverySurface,
-      ) &&
+	      /coding_tool_budget_recovery_control_rust_owned/.test(
+	        runtimeCodingToolBudgetRecoverySurface,
+	      ) &&
+	      /CODING_TOOL_BUDGET_RECOVERY_CONTROL_EVIDENCE_REFS/.test(
+	        runtimeCodingToolBudgetRecoverySurface,
+	      ) &&
       !/coding_tool_budget_blocked_event_js_projection_retired/.test(
         runtimeCodingToolBudgetRecoverySurface,
       ) &&
       !runtimeCodingToolBudgetRecoveryExists &&
       !runtimeCodingToolBudgetRecoveryTestExists &&
-      /CodingToolBudgetRecoveryAdmissionRequiredCore/.test(policyCore) &&
-      /CodingToolBudgetRecoveryStateUpdateCore/.test(policyCore) &&
-      /CODING_TOOL_BUDGET_RECOVERY_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION/.test(
-        policyCore,
-      ) &&
+	      /CodingToolBudgetRecoveryControlCore/.test(policyCore) &&
+	      /CodingToolBudgetRecoveryStateUpdateCore/.test(policyCore) &&
+	      /CODING_TOOL_BUDGET_RECOVERY_CONTROL_REQUEST_SCHEMA_VERSION/.test(
+	        policyCore,
+	      ) &&
       /CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
         policyCore,
       ) &&
       /rust_policy_plans_coding_tool_budget_recovery_state_update/.test(
         policyCore,
       ) &&
-      /rust_policy_plans_coding_tool_budget_recovery_admission_required/.test(
-        policyCore,
-      ) &&
+	      /rust_policy_plans_coding_tool_budget_recovery_request_approval_control/.test(
+	        policyCore,
+	      ) &&
+	      /rust_policy_rejects_coding_tool_budget_recovery_override_without_wallet_authority/.test(
+	        policyCore,
+	      ) &&
+	      /CodingToolBudgetRecoveryAuthorityRecord/.test(
+	        policyCodingToolBudgetRecoveryCore,
+	      ) &&
+	      /rust_daemon_core_wallet_network_coding_tool_budget_recovery_authority/.test(
+	        policyCodingToolBudgetRecoveryCore,
+	      ) &&
+	      /MissingWalletNetworkAuthority/.test(policyCodingToolBudgetRecoveryCore) &&
       /pub fn plan_coding_tool_budget_recovery_state_update_response/.test(
         policyCodingToolBudgetRecoveryCore,
       ) &&
-      /pub fn plan_coding_tool_budget_recovery_admission_required_response/.test(
-        policyCodingToolBudgetRecoveryCore,
-      ) &&
+	      /pub fn plan_coding_tool_budget_recovery_control_response/.test(
+	        policyCodingToolBudgetRecoveryCore,
+	      ) &&
       /rust_coding_tool_budget_recovery_state_update_command/.test(
         policyCodingToolBudgetRecoveryCore,
       ) &&
-      /rust_coding_tool_budget_recovery_admission_required_command/.test(
-        policyCodingToolBudgetRecoveryCore,
-      ) &&
+	      /rust_coding_tool_budget_recovery_control_command/.test(
+	        policyCodingToolBudgetRecoveryCore,
+	      ) &&
       /rust_policy_shapes_coding_tool_budget_recovery_state_update_command_response/.test(
         policyCodingToolBudgetRecoveryCore,
       ) &&
-      /rust_policy_shapes_coding_tool_budget_recovery_admission_required_command_response/.test(
-        policyCodingToolBudgetRecoveryCore,
-      ) &&
-      !/plan_coding_tool_budget_recovery_state_update_response as plan_coding_tool_budget_recovery_state_update/.test(bridgeModule) &&
-      !/plan_coding_tool_budget_recovery_admission_required_response as plan_coding_tool_budget_recovery_admission_required/.test(bridgeModule) &&
-      !/CodingToolBudgetRecoveryStateUpdateBridgeRequest/.test(bridgeModule) &&
-      !/CodingToolBudgetRecoveryAdmissionRequiredBridgeRequest/.test(bridgeModule) &&
-      !/bridge_plans_coding_tool_budget_recovery_admission_required_through_rust_core/.test(
-        bridgeModule,
-      ) &&
-      !/fn plan_coding_tool_budget_recovery_admission_required/.test(bridgeModule) &&
-      !/struct CodingToolBudgetRecoveryAdmissionRequiredBridgeRequest/.test(bridgeModule) &&
-      /planCodingToolBudgetRecoveryAdmissionRequired\(request = \{\}\)/.test(
-        runtimeContextPolicyRunner,
-      ) &&
-      /coding-tool budget recovery admission-required runner sends Rust daemon-core request/.test(
-        runtimeContextPolicyRunnerTest,
-      ) &&
+	      /rust_policy_shapes_coding_tool_budget_recovery_control_command_response/.test(
+	        policyCodingToolBudgetRecoveryCore,
+	      ) &&
+	      !/plan_coding_tool_budget_recovery_state_update_response as plan_coding_tool_budget_recovery_state_update/.test(bridgeModule) &&
+	      !/plan_coding_tool_budget_recovery_control_response as plan_coding_tool_budget_recovery_control/.test(bridgeModule) &&
+	      !/CodingToolBudgetRecoveryStateUpdateBridgeRequest/.test(bridgeModule) &&
+	      !/CodingToolBudgetRecoveryControlBridgeRequest/.test(bridgeModule) &&
+	      !/bridge_plans_coding_tool_budget_recovery_control_through_rust_core/.test(
+	        bridgeModule,
+	      ) &&
+	      !/fn plan_coding_tool_budget_recovery_control/.test(bridgeModule) &&
+	      !/struct CodingToolBudgetRecoveryControlBridgeRequest/.test(bridgeModule) &&
+	      /planCodingToolBudgetRecoveryControl\(request = \{\}\)/.test(
+	        runtimeContextPolicyRunner,
+	      ) &&
+	      /coding-tool budget recovery control runner sends Rust daemon-core request/.test(
+	        runtimeContextPolicyRunnerTest,
+	      ) &&
       /codingToolBudgetRecoveryRunner:\s*this\.contextPolicyRunner/.test(
         runtimeDaemonIndex,
       ) &&
@@ -10026,9 +10043,15 @@ function runBridge() {
       /coding-tool budget recovery retry completion uses Rust planner and Agentgres run commit/.test(
         runtimeCodingToolBudgetRecoverySurfaceTest,
       ) &&
-      /coding-tool budget recovery unsupported actions use Rust admission-required planner without JS truth lookup/.test(
-        runtimeCodingToolBudgetRecoverySurfaceTest,
-      ) &&
+	      /coding-tool budget recovery request approval uses Rust control planner and Agentgres run commit/.test(
+	        runtimeCodingToolBudgetRecoverySurfaceTest,
+	      ) &&
+	      /coding-tool budget recovery approve override uses Rust wallet authority control/.test(
+	        runtimeCodingToolBudgetRecoverySurfaceTest,
+	      ) &&
+	      /coding-tool budget recovery request approval fails before JS lookup when canonical control inputs are missing/.test(
+	        runtimeCodingToolBudgetRecoverySurfaceTest,
+	      ) &&
       /coding-tool budget blocked-event projection facade is retired/.test(
         runtimeCodingToolBudgetRecoverySurfaceTest,
       ) &&
@@ -10072,8 +10095,8 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.test.mjs",
       "crates/services/src/agentic/runtime/kernel/policy/coding_tool_budget_recovery.rs",
     ],
-    "Phase 10/11 is pending: coding-tool budget recovery retry completion must use Rust state-update planning plus Agentgres run-state commit, while unsupported approval actions stay Rust fail-closed and the standalone JS helper stays deleted",
-  );
+	    "Phase 10/11 is pending: coding-tool budget recovery retry completion plus request/override controls must use Rust planning, wallet authority where required, and Agentgres run-state commit while the standalone JS helper stays deleted",
+	  );
   assertCheck(
     result,
     "coding-tool-budget-recovery-blocked-payload-aliases-retired",
@@ -30155,9 +30178,9 @@ function runCompositor() {
       /runtime_coding_tool_budget_recovery_state_update_input_required/.test(
         runtimeCodingToolBudgetRecoverySurface,
       ) &&
-      /coding_tool_budget_recovery_js_facade_retired/.test(
-        runtimeCodingToolBudgetRecoverySurface,
-      ) &&
+	      /coding_tool_budget_recovery_control_rust_owned/.test(
+	        runtimeCodingToolBudgetRecoverySurface,
+	      ) &&
       !/^\s*(?:schemaVersion|requiresApproval|allowOverride|retryLimit|approvalScope|operatorRole|targetNodeIds)\s*:/m.test(
         codingToolBudgetRecoveryPolicyBlock,
       ) &&

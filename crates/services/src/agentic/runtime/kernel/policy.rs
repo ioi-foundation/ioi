@@ -21,15 +21,13 @@ pub use admission_required::{
     WorkflowEditAdmissionRequiredRecord, WorkflowEditAdmissionRequiredRequest,
 };
 pub use coding_tool_budget_recovery::{
-    plan_coding_tool_budget_recovery_admission_required_response,
-    plan_coding_tool_budget_recovery_state_update_response,
-    CodingToolBudgetRecoveryAdmissionRequiredBridgeRequest,
-    CodingToolBudgetRecoveryAdmissionRequiredCore, CodingToolBudgetRecoveryAdmissionRequiredError,
-    CodingToolBudgetRecoveryAdmissionRequiredRecord,
-    CodingToolBudgetRecoveryAdmissionRequiredRequest, CodingToolBudgetRecoveryCommandError,
-    CodingToolBudgetRecoveryStateUpdateBridgeRequest, CodingToolBudgetRecoveryStateUpdateCore,
-    CodingToolBudgetRecoveryStateUpdateError, CodingToolBudgetRecoveryStateUpdateRecord,
-    CodingToolBudgetRecoveryStateUpdateRequest,
+    plan_coding_tool_budget_recovery_control_response,
+    plan_coding_tool_budget_recovery_state_update_response, CodingToolBudgetRecoveryCommandError,
+    CodingToolBudgetRecoveryControlBridgeRequest, CodingToolBudgetRecoveryControlCore,
+    CodingToolBudgetRecoveryControlError, CodingToolBudgetRecoveryControlRecord,
+    CodingToolBudgetRecoveryControlRequest, CodingToolBudgetRecoveryStateUpdateBridgeRequest,
+    CodingToolBudgetRecoveryStateUpdateCore, CodingToolBudgetRecoveryStateUpdateError,
+    CodingToolBudgetRecoveryStateUpdateRecord, CodingToolBudgetRecoveryStateUpdateRequest,
 };
 pub use context_lifecycle::{
     evaluate_coding_tool_budget_policy_response, evaluate_compaction_policy_response,
@@ -179,10 +177,10 @@ pub const CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str 
     "ioi.runtime.coding-tool-budget-recovery-state-update-request.v1";
 pub const CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =
     "ioi.runtime.coding-tool-budget-recovery-state-update.v1";
-pub const CODING_TOOL_BUDGET_RECOVERY_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION: &str =
-    "ioi.runtime.coding-tool-budget-recovery-admission-required-request.v1";
-pub const CODING_TOOL_BUDGET_RECOVERY_ADMISSION_REQUIRED_RESULT_SCHEMA_VERSION: &str =
-    "ioi.runtime.coding-tool-budget-recovery-admission-required.v1";
+pub const CODING_TOOL_BUDGET_RECOVERY_CONTROL_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.coding-tool-budget-recovery-control-request.v1";
+pub const CODING_TOOL_BUDGET_RECOVERY_CONTROL_RESULT_SCHEMA_VERSION: &str =
+    "ioi.runtime.coding-tool-budget-recovery-control.v1";
 pub const DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.diagnostics-operator-override-state-update-request.v1";
 pub const DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =

@@ -94,9 +94,9 @@ test("coding-tool budget recovery control fails closed before JS approval, event
       assert.equal(error.details.approval_id, "approval_alpha");
       assert.equal(error.details.source_event_id, "event_budget");
       assert.deepEqual(error.details.evidence_refs, [
-        "coding_tool_budget_recovery_js_facade_retired",
-        "rust_daemon_core_budget_recovery_admission_required",
-        "agentgres_budget_recovery_state_truth_required",
+        "coding_tool_budget_recovery_state_update_rust_owned",
+        "rust_daemon_core_budget_recovery_state_update",
+        "rust_agentgres_runtime_run_state_commit",
       ]);
       assertNoRetiredBudgetRecoveryDetailAliases(error.details);
       return true;
@@ -220,66 +220,69 @@ test("coding-tool budget recovery retry completion uses Rust planner and Agentgr
   }
 });
 
-test("coding-tool budget recovery unsupported actions use Rust admission-required planner without JS truth lookup", () => {
+test("coding-tool budget recovery request approval uses Rust control planner and Agentgres run commit", () => {
   const calls = [];
   const runnerCalls = [];
+  const run = { id: "run_alpha", agentId: "agent_alpha", status: "running", trace: {} };
   const store = {
     getRun(runId) {
       calls.push({ name: "getRun", runId });
-      throw new Error("Budget recovery facade must not look up runs for unsupported actions.");
+      return run;
     },
     writeRun(run, operationKind) {
       calls.push({ name: "writeRun", run, operationKind });
-      throw new Error("Budget recovery facade must not persist unsupported action truth.");
+      return {
+        source: "rust_agentgres_runtime_run_state_commit_command",
+        receipt_refs: ["receipt_commit"],
+        policy_decision_refs: ["policy_commit"],
+      };
     },
   };
   const surface = createRuntimeCodingToolBudgetRecoverySurface({
     runtimeError,
     codingToolBudgetRecoveryRunner: {
-      planCodingToolBudgetRecoveryAdmissionRequired(request) {
+      planCodingToolBudgetRecoveryControl(request) {
         runnerCalls.push(request);
         return {
-          source: "rust_coding_tool_budget_recovery_admission_required_command",
+          source: "rust_coding_tool_budget_recovery_control_command",
           backend: "rust_policy",
-          record: {
-            status_code: 501,
-            code: "runtime_coding_tool_budget_recovery_rust_core_required",
-            message:
-              "Runtime coding-tool budget recovery requires direct Rust daemon-core admission and persistence.",
-            details: {
-              rust_core_boundary: "runtime.coding_tool_budget_recovery",
-              operation: request.operation,
-              operation_kind: request.operation_kind,
-              run_id: request.run_id,
-              thread_id: request.thread_id,
-              action: request.action,
-              approval_id: request.approval_id,
-              source_event_id: request.source_event_id,
-              evidence_refs: request.evidence_refs,
-            },
+          status: "planned",
+          action: "request_approval",
+          operation_kind: "workflow.run.coding_tool_budget_recovery.request_approval",
+          operator_control: {
+            control: "coding_tool_budget_recovery",
+            action: "request_approval",
+            approval_id: request.approval_id,
+            status: "waiting_for_approval",
+            event_id: request.event_id,
+            seq: request.seq,
+            receipt_refs: request.receipt_refs,
+            policy_decision_refs: request.policy_decision_refs,
+            created_at: request.created_at,
+          },
+          run: {
+            ...request.run,
+            updatedAt: request.created_at,
+            status: "blocked",
+            turnStatus: "waiting_for_approval",
           },
         };
       },
     },
   });
 
-  assert.throws(
-    () =>
-      surface.codingToolBudgetRecoveryForRun(store, "run_alpha", {
-        thread_id: "thread_alpha",
-        action: "request_approval",
-        approval_id: "approval_alpha",
-        source_event_id: "event_budget",
-      }),
-    (error) => {
-      assert.equal(error.status, 501);
-      assert.equal(error.code, "runtime_coding_tool_budget_recovery_rust_core_required");
-      assert.equal(error.details.run_id, "run_alpha");
-      assert.equal(error.details.action, "request_approval");
-      assertNoRetiredBudgetRecoveryDetailAliases(error.details);
-      return true;
-    },
-  );
+  const result = surface.codingToolBudgetRecoveryForRun(store, "run_alpha", {
+    thread_id: "thread_alpha",
+    action: "request_approval",
+    approval_id: "approval_alpha",
+    source_event_id: "event_budget",
+    event_id: "event_budget_request",
+    seq: 21,
+    created_at: "2026-06-12T10:35:00.000Z",
+    source: "agent_studio",
+    receipt_refs: ["receipt_request"],
+    policy_decision_refs: ["policy_request"],
+  });
 
   assert.deepEqual(runnerCalls, [{
     operation: "coding_tool_budget_recovery_control",
@@ -289,14 +292,130 @@ test("coding-tool budget recovery unsupported actions use Rust admission-require
     action: "request_approval",
     approval_id: "approval_alpha",
     source_event_id: "event_budget",
-    source: undefined,
+    source: "agent_studio",
+    run,
+    event_id: "event_budget_request",
+    seq: 21,
+    created_at: "2026-06-12T10:35:00.000Z",
+    reason: null,
+    receipt_refs: ["receipt_request"],
+    policy_decision_refs: ["policy_request"],
+    authority_grant_refs: [],
+    authority_receipt_refs: [],
+    authority_context: {},
     evidence_refs: [
-      "coding_tool_budget_recovery_js_facade_retired",
-      "rust_daemon_core_budget_recovery_admission_required",
-      "agentgres_budget_recovery_state_truth_required",
+      "coding_tool_budget_recovery_control_rust_owned",
+      "rust_daemon_core_budget_recovery_control",
+      "rust_agentgres_runtime_run_state_commit",
     ],
   }]);
-  assert.deepEqual(calls, []);
+  assert.equal(result.status, "waiting_for_approval");
+  assert.equal(result.operation_kind, "workflow.run.coding_tool_budget_recovery.request_approval");
+  assert.equal(result.action, "request_approval");
+  assert.deepEqual(result.receipt_refs, ["receipt_request", "receipt_commit"]);
+  assert.deepEqual(result.policy_decision_refs, ["policy_request", "policy_commit"]);
+  assert.deepEqual(result.evidence_refs, [
+    "coding_tool_budget_recovery_control_rust_owned",
+    "rust_daemon_core_budget_recovery_control",
+    "rust_agentgres_runtime_run_state_commit",
+  ]);
+  assert.deepEqual(calls, [
+    { name: "getRun", runId: "run_alpha" },
+    {
+      name: "writeRun",
+      run: result.run,
+      operationKind: "workflow.run.coding_tool_budget_recovery.request_approval",
+    },
+  ]);
+  assert.equal(Object.hasOwn(result, "approvalId"), false);
+  assert.equal(Object.hasOwn(result.operator_control, "approvalId"), false);
+});
+
+test("coding-tool budget recovery approve override uses Rust wallet authority control", () => {
+  const calls = [];
+  const runnerCalls = [];
+  const run = { id: "run_alpha", agentId: "agent_alpha", trace: {} };
+  const store = {
+    getRun(runId) {
+      calls.push({ name: "getRun", runId });
+      return run;
+    },
+    writeRun(run, operationKind) {
+      calls.push({ name: "writeRun", run, operationKind });
+      return { receipt_refs: ["receipt_commit"], policy_decision_refs: ["policy_commit"] };
+    },
+  };
+  const surface = createRuntimeCodingToolBudgetRecoverySurface({
+    runtimeError,
+    codingToolBudgetRecoveryRunner: {
+      planCodingToolBudgetRecoveryControl(request) {
+        runnerCalls.push(request);
+        return {
+          source: "rust_coding_tool_budget_recovery_control_command",
+          backend: "rust_policy",
+          status: "planned",
+          action: "approve_override",
+          operation_kind: "workflow.run.coding_tool_budget_recovery.approve_override",
+          wallet_network_grant_refs: request.authority_grant_refs,
+          authority_receipt_refs: request.authority_receipt_refs,
+          authority_hash: "sha256:budget-authority",
+          operator_control: {
+            control: "coding_tool_budget_recovery",
+            action: "approve_override",
+            approval_id: request.approval_id,
+            status: "override_approved",
+            event_id: request.event_id,
+            seq: request.seq,
+            receipt_refs: request.receipt_refs,
+            policy_decision_refs: request.policy_decision_refs,
+            wallet_network_grant_refs: request.authority_grant_refs,
+            authority_receipt_refs: request.authority_receipt_refs,
+            authority_hash: "sha256:budget-authority",
+            direct_truth_write_allowed: false,
+          },
+          run: { ...request.run, updatedAt: request.created_at },
+        };
+      },
+    },
+  });
+
+  const result = surface.codingToolBudgetRecoveryForRun(store, "run_alpha", {
+    thread_id: "thread_alpha",
+    action: "approve_override",
+    approval_id: "approval_alpha",
+    source_event_id: "event_budget",
+    event_id: "event_budget_override",
+    seq: 22,
+    created_at: "2026-06-12T10:36:00.000Z",
+    authority_grant_refs: ["wallet.network://grant/coding-tool-budget-recovery"],
+    authority_receipt_refs: ["receipt://wallet.network/coding-tool-budget-recovery"],
+    policy_decision_refs: ["policy_override"],
+  });
+
+  assert.deepEqual(runnerCalls[0].authority_grant_refs, [
+    "wallet.network://grant/coding-tool-budget-recovery",
+  ]);
+  assert.deepEqual(runnerCalls[0].authority_receipt_refs, [
+    "receipt://wallet.network/coding-tool-budget-recovery",
+  ]);
+  assert.equal(result.status, "override_approved");
+  assert.equal(result.operation_kind, "workflow.run.coding_tool_budget_recovery.approve_override");
+  assert.deepEqual(result.wallet_network_grant_refs, [
+    "wallet.network://grant/coding-tool-budget-recovery",
+  ]);
+  assert.deepEqual(result.authority_receipt_refs, [
+    "receipt://wallet.network/coding-tool-budget-recovery",
+  ]);
+  assert.equal(result.authority_hash, "sha256:budget-authority");
+  assert.equal(result.operator_control.direct_truth_write_allowed, false);
+  assert.deepEqual(calls, [
+    { name: "getRun", runId: "run_alpha" },
+    {
+      name: "writeRun",
+      run: result.run,
+      operationKind: "workflow.run.coding_tool_budget_recovery.approve_override",
+    },
+  ]);
 });
 
 test("coding-tool budget blocked-event projection facade is retired", () => {
@@ -320,6 +439,49 @@ test("coding-tool budget recovery defaults action canonically while ignoring ret
       assert.equal(error.details.action, "request_approval");
       assert.equal(error.details.approval_id, null);
       assert.equal(error.details.source_event_id, null);
+      assertNoRetiredBudgetRecoveryDetailAliases(error.details);
+      return true;
+    },
+  );
+
+  assert.deepEqual(calls, []);
+});
+
+test("coding-tool budget recovery request approval fails before JS lookup when canonical control inputs are missing", () => {
+  const calls = [];
+  const store = {
+    getRun(runId) {
+      calls.push({ name: "getRun", runId });
+      throw new Error("Budget recovery facade must not look up runs before canonical control inputs are present.");
+    },
+    writeRun(run, operationKind) {
+      calls.push({ name: "writeRun", run, operationKind });
+      throw new Error("Budget recovery facade must not persist before canonical control inputs are present.");
+    },
+  };
+  const surface = createRuntimeCodingToolBudgetRecoverySurface({
+    runtimeError,
+    codingToolBudgetRecoveryRunner: {
+      planCodingToolBudgetRecoveryControl() {
+        throw new Error("Rust control planner must not run before required canonical inputs are present.");
+      },
+    },
+  });
+
+  assert.throws(
+    () =>
+      surface.codingToolBudgetRecoveryForRun(store, "run_alpha", {
+        thread_id: "thread_alpha",
+        action: "request_approval",
+        approval_id: "approval_alpha",
+      }),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "runtime_coding_tool_budget_recovery_control_input_required");
+      assert.equal(error.details.run_id, "run_alpha");
+      assert.equal(error.details.event_id, null);
+      assert.equal(error.details.seq, null);
+      assert.equal(error.details.created_at, null);
       assertNoRetiredBudgetRecoveryDetailAliases(error.details);
       return true;
     },

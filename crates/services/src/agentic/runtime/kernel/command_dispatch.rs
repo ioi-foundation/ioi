@@ -428,8 +428,8 @@ pub fn dispatch_command_operation_response(
             plan_coding_tool_budget_recovery_state_update_response(decode(raw_request)?)
                 .map_err(Into::into)
         }
-        CommandOperation::PlanCodingToolBudgetRecoveryAdmissionRequired => {
-            plan_coding_tool_budget_recovery_admission_required_response(decode(raw_request)?)
+        CommandOperation::PlanCodingToolBudgetRecoveryControl => {
+            plan_coding_tool_budget_recovery_control_response(decode(raw_request)?)
                 .map_err(Into::into)
         }
         CommandOperation::PlanWorkflowEditAdmissionRequired => {
