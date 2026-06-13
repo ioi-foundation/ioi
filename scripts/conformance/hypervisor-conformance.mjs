@@ -731,13 +731,16 @@ function runDocs() {
       /canonical\s+`provider_id`/.test(guide) &&
       /Slice 861 retired dedicated model-topology list JS read-projection\s+input/.test(guide) &&
       /`artifacts`, `providers`, `endpoints`, `instances`, `routes`,\s+`model_capabilities`, and `downloads` read projections now send empty state\s+objects/.test(guide) &&
-      /Rust bridge direct arms return\s+empty\/default lists instead of echoing caller-supplied topology arrays/.test(guide) &&
+      /`model_capabilities` also send runtime `state_dir`/.test(guide) &&
+      /Rust replays admitted\s+instance, route, route-endpoint-resolution, provider-inventory, artifact, and\s+loaded-instance records/.test(guide) &&
+      /no longer returns a default empty list for\s+admitted route truth/.test(guide) &&
       /Slice 862 retired dedicated product artifact\/catalog JS read-projection\s+input/.test(guide) &&
       /`product_artifacts`, `runtime_model_catalog`, and `open_ai_model_list`\s+read projections now send empty state objects/.test(guide) &&
       /Rust bridge direct arms return empty\/default product\/catalog lists\s+instead of filtering or translating caller-supplied artifact arrays/.test(guide) &&
       /Slice 863 retired broad snapshot\/projection topology and product-catalog\s+materialization/.test(guide) &&
       /returns empty\/default topology, runtime-engine, MCP\/conversation, and\s+product-catalog fields instead of honoring direct caller arrays/.test(guide) &&
-      /retired\s+Rust product artifact, runtime catalog, OpenAI model-list, fixture filtering,\s+model-capability, and ad hoc timestamp helper tree was deleted/.test(guide) &&
+      /retired\s+Rust product artifact, runtime catalog, OpenAI model-list, fixture filtering,\s+and ad hoc timestamp helper tree was deleted/.test(guide) &&
+      /Model-capability derivation now exists only as Rust Agentgres\s+replay/.test(guide) &&
       /Slice 864 retired receipt-replay topology input from the runtime-daemon facade\s+and Rust bridge/.test(guide) &&
       /`receipt_replay` read projection now sends only admitted\s+receipts plus `receipt_id`/.test(guide) &&
       /Rust preserves the receipt and embedded\s+`model_route_decision` evidence but returns null route, endpoint, instance, and\s+provider enrichments/.test(guide) &&
@@ -1493,7 +1496,9 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 861/.test(matrix) &&
       /Slice 861 retired dedicated model-topology list JS read-projection\s+input/.test(matrix) &&
       /`artifacts`, `providers`, `endpoints`, `instances`, `routes`,\s+`model_capabilities`, and `downloads` read projections now send `\{\}`/.test(matrix) &&
-      /Rust bridge direct arms for those projection kinds\s+return empty\/default lists instead of echoing caller-supplied topology arrays/.test(matrix) &&
+      /Public model-capability projection positive Rust path/.test(matrix) &&
+      /`listModelCapabilities\(\)` now calls Rust model_mount read-projection kind `model_capabilities` with empty request state plus runtime `state_dir`/.test(matrix) &&
+      /emits canonical `ioi\.model-capability\.v1` readiness contracts instead of a default empty placeholder/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 861 is now satisfied/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 862/.test(matrix) &&
       /Slice 862 retired dedicated product artifact\/catalog JS read-projection\s+input/.test(matrix) &&
@@ -1503,7 +1508,7 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 863/.test(matrix) &&
       /Slice 863 retired broad snapshot\/projection topology and product-catalog\s+materialization/.test(matrix) &&
       /fields now return empty\/default topology, runtime-engine, MCP\/conversation, and\s+product-catalog values instead of honoring direct caller arrays/.test(matrix) &&
-      /retired\s+Rust helper tree for product artifacts, runtime catalog, OpenAI model-list\s+projection, fixture filtering, model-capability derivation, and ad hoc\s+timestamp parsing was deleted/.test(matrix) &&
+      /model-capability projection over admitted route\/topology records/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 863 is now satisfied/.test(matrix) &&
       /Implementation Slice Evidence: 864/.test(matrix) &&
       /Slice 864 retired receipt-replay topology input from the runtime-daemon facade\s+and Rust bridge/.test(matrix) &&
@@ -1645,15 +1650,16 @@ function runDocs() {
       /latest runtime-survey readback now routes through Rust `plan_model_mount_read_projection` kind `latest_runtime_survey` with empty request state plus runtime state_dir receipt replay/.test(implementationMatrix) &&
       /Rust now authors not-checked readback as zero\/null\/default and checked readback only from admitted `runtime_survey` receipt details/.test(implementationMatrix) &&
       /broad snapshot\/projection requests also no longer send `artifacts`, `endpoints`, `instances`, `providers`, `routes`, `downloads`, or `product_artifact_policy`/.test(implementationMatrix) &&
-      /dedicated `artifacts`, `providers`, `endpoints`, `instances`, `routes`, `model_capabilities`, and `downloads` read projections now send empty request state; `instances` and `routes` also send runtime `state_dir`/.test(implementationMatrix) &&
-      /Rust bridge direct arms return Rust-owned replay or empty\/default lists instead of caller-supplied topology arrays/.test(implementationMatrix) &&
+      /dedicated `artifacts`, `providers`, `endpoints`, `instances`, `routes`, `model_capabilities`, and `downloads` read projections now send empty request state; `instances`, `routes`, and `model_capabilities` also send runtime `state_dir`/.test(implementationMatrix) &&
+      /route\/endpoint\/provider\/artifact\/instance records into Rust-authored model-capability readiness contracts/.test(implementationMatrix) &&
+      /public `modelCapabilities` list readback now replays Agentgres-backed route, endpoint-resolution, provider-inventory, artifact, and instance truth through Rust `model_capabilities`/.test(implementationMatrix) &&
       /dedicated `product_artifacts`, `runtime_model_catalog`, and `open_ai_model_list` read projections also send empty request state/.test(implementationMatrix) &&
       /JS artifact maps and fixture policy cannot become public product catalog or OpenAI-compatible model-list truth/.test(implementationMatrix) &&
       /internal fixture seeding now honors only the explicit `IOI_EXPOSE_INTERNAL_FIXTURE_MODELS` toggle and ignores the retired `IOI_ENABLE_INTERNAL_FIXTURE_MODELS` alias/.test(
         implementationMatrix,
       ) &&
       /broad Rust `snapshot` and `projection` envelopes now also return empty\/default topology, runtime-engine, MCP\/conversation, and product-catalog fields/.test(implementationMatrix) &&
-      /dead Rust product-artifact\/runtime-catalog\/OpenAI-list\/fixture-filter\/model-capability helper tree plus the JS fixture mirror were deleted/.test(implementationMatrix) &&
+      /model-capability derivation now exists only as Rust Agentgres replay/.test(implementationMatrix) &&
       /receipt-replay now sends empty request state plus receipt_id and runtime state_dir, and Rust replays admitted receipts\/\*\.json records/.test(implementationMatrix) &&
       /returns null route\/endpoint\/instance\/provider enrichments until direct Agentgres topology lookup/.test(implementationMatrix) &&
       /JS topology imports plus Rust projection_lookup helper are removed/.test(implementationMatrix) &&
@@ -14607,7 +14613,7 @@ function runBridge() {
       /projectionKind !== "server_status" &&\s*projectionKind !== "backends" &&\s*projectionKind !== "mcp_servers" &&\s*projectionKind !== "runtime_engines"/.test(
         modelMountingReadProjectionFacade,
       ) &&
-      /projectionKind !== "model_conversation_states" &&\s*projectionKind !== "instances" &&\s*projectionKind !== "provider_inventory_records" &&\s*projectionKind !== "catalog_search" &&\s*projectionKind !== "catalog_status" &&\s*projectionKind !== "model_tokenizer_records" &&\s*projectionKind !== "routes" &&\s*projectionKind !== "model_route_decisions" &&\s*projectionKind !== "model_route_endpoint_resolutions" &&\s*projectionKind !== "artifacts" &&\s*projectionKind !== "product_artifacts" &&\s*projectionKind !== "providers" &&\s*projectionKind !== "endpoints" &&\s*projectionKind !== "runtime_model_catalog" &&\s*projectionKind !== "open_ai_model_list"/.test(
+      /projectionKind !== "model_conversation_states" &&\s*projectionKind !== "instances" &&\s*projectionKind !== "provider_inventory_records" &&\s*projectionKind !== "catalog_search" &&\s*projectionKind !== "catalog_status" &&\s*projectionKind !== "model_tokenizer_records" &&\s*projectionKind !== "routes" &&\s*projectionKind !== "model_capabilities" &&\s*projectionKind !== "model_route_decisions" &&\s*projectionKind !== "model_route_endpoint_resolutions" &&\s*projectionKind !== "artifacts" &&\s*projectionKind !== "product_artifacts" &&\s*projectionKind !== "providers" &&\s*projectionKind !== "endpoints" &&\s*projectionKind !== "runtime_model_catalog" &&\s*projectionKind !== "open_ai_model_list"/.test(
         modelMountingReadProjectionFacade,
       ) &&
       /latestProviderHealth\(state,\s*providerId\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"latest_provider_health",\s*\{ providerId \}\)/.test(modelMountingReadProjectionFacade) &&
@@ -14802,7 +14808,18 @@ function runBridge() {
       /routeRequest\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(routeRequest\.state,\s*"routes"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /routeRecordsFromAgentgresStateDir/.test(modelMountingReadProjectionFacadeTest) &&
-      /assert\.deepEqual\(facade\.listModelCapabilities\(state\),\s*\[\]\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /const modelCapabilities = facade\.listModelCapabilities\(state\)/.test(
+        modelMountingReadProjectionFacadeTest,
+      ) &&
+      /assert\.equal\(modelCapabilities\[0\]\.rust_core_boundary,\s*"model_mount\.model_capability_projection"\)/.test(
+        modelMountingReadProjectionFacadeTest,
+      ) &&
+      /modelCapabilitiesRequest\.state_dir,\s*state\.stateDir/.test(
+        modelMountingReadProjectionFacadeTest,
+      ) &&
+      /Object\.hasOwn\(modelCapabilitiesRequest\.state,\s*"model_capabilities"\),\s*false/.test(
+        modelMountingReadProjectionFacadeTest,
+      ) &&
       /facade\.listDownloads\(state\)/.test(modelMountingReadProjectionFacadeTest) &&
       /downloads\.map\(\(download\) => download\.id\),\s*\["download\.qwen3"\]/.test(modelMountingReadProjectionFacadeTest) &&
       /downloadRequest\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
@@ -14906,6 +14923,8 @@ function runBridge() {
       /Object\.hasOwn\(request\.state,\s*"adapter_boundaries"\)/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(request\.state,\s*"workflow_bindings"\)/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(request\.state,\s*"model_capabilities"\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /modelCapabilitiesRequest\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
+      /modelCapabilities\[0\]\.rust_core_boundary,\s*"model_mount\.model_capability_projection"/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.keys\(request\.state\)\.length === 0/.test(modelMountingReadProjectionFacadeTest) &&
       /"runtime_model_catalog"[\s\S]*"open_ai_model_list"[\s\S]*"product_artifacts"/.test(modelMountingReadProjectionFacadeTest) &&
       /"artifacts"[\s\S]*"providers"[\s\S]*"endpoints"[\s\S]*"instances"[\s\S]*"routes"[\s\S]*"model_capabilities"[\s\S]*"downloads"[\s\S]*"provider_health"/.test(modelMountingReadProjectionFacadeTest) &&
@@ -15022,7 +15041,11 @@ function runBridge() {
       /endpoint_projection_fails_closed_without_agentgres_state_dir/.test(modelMountReadProjectionEvidence) &&
       /MODEL_MOUNT_INSTANCES_PROJECTION_KIND => topology::instances\(request\)/.test(modelMountReadProjectionEvidence) &&
       /MODEL_MOUNT_ROUTES_PROJECTION_KIND => topology::routes\(request\)/.test(modelMountReadProjectionEvidence) &&
-      /"model_capabilities" => Ok\(topology::model_capabilities\(\)\)/.test(modelMountReadProjectionEvidence) &&
+      /MODEL_MOUNT_MODEL_CAPABILITIES_PROJECTION_KIND => topology::model_capabilities\(request\)/.test(modelMountReadProjectionEvidence) &&
+      /rust_daemon_core_model_capability_projection/.test(modelMountReadProjectionEvidence) &&
+      /agentgres_model_capability_replay_required/.test(modelMountReadProjectionEvidence) &&
+      /model_capability_projection_replays_agentgres_records_and_filters_js_truth/.test(modelMountReadProjectionEvidence) &&
+      /model_capability_projection_fails_closed_without_agentgres_state_dir/.test(modelMountReadProjectionEvidence) &&
       /MODEL_MOUNT_DOWNLOADS_PROJECTION_KIND => topology::downloads\(request\)/.test(modelMountReadProjectionEvidence) &&
       /MODEL_MOUNT_DOWNLOAD_STATUS_PROJECTION_KIND => topology::download_status\(request\)/.test(modelMountReadProjectionEvidence) &&
       /MODEL_MOUNT_STORAGE_SUMMARY_PROJECTION_KIND => topology::storage_summary\(request\)/.test(modelMountReadProjectionEvidence) &&
@@ -22294,7 +22317,7 @@ function runReceipts() {
       /projectionKind === "catalog_search"[\s\S]*?catalog_search:\s*catalogQuery/.test(
         modelMountingReadProjectionFacade,
       ) &&
-      /projectionKind !== "model_conversation_states" &&\s*projectionKind !== "instances" &&\s*projectionKind !== "provider_inventory_records" &&\s*projectionKind !== "catalog_search" &&\s*projectionKind !== "catalog_status" &&\s*projectionKind !== "model_tokenizer_records" &&\s*projectionKind !== "routes" &&\s*projectionKind !== "model_route_decisions" &&\s*projectionKind !== "model_route_endpoint_resolutions" &&\s*projectionKind !== "artifacts" &&\s*projectionKind !== "product_artifacts" &&\s*projectionKind !== "providers" &&\s*projectionKind !== "endpoints" &&\s*projectionKind !== "runtime_model_catalog" &&\s*projectionKind !== "open_ai_model_list"/.test(
+      /projectionKind !== "model_conversation_states" &&\s*projectionKind !== "instances" &&\s*projectionKind !== "provider_inventory_records" &&\s*projectionKind !== "catalog_search" &&\s*projectionKind !== "catalog_status" &&\s*projectionKind !== "model_tokenizer_records" &&\s*projectionKind !== "routes" &&\s*projectionKind !== "model_capabilities" &&\s*projectionKind !== "model_route_decisions" &&\s*projectionKind !== "model_route_endpoint_resolutions" &&\s*projectionKind !== "artifacts" &&\s*projectionKind !== "product_artifacts" &&\s*projectionKind !== "providers" &&\s*projectionKind !== "endpoints" &&\s*projectionKind !== "runtime_model_catalog" &&\s*projectionKind !== "open_ai_model_list"/.test(
         modelMountingReadProjectionFacade,
       ) &&
       /MODEL_MOUNT_CATALOG_SEARCH_PROJECTION_KIND/.test(modelMountCore) &&

@@ -176,8 +176,10 @@ pub(super) fn tokenizer_records(
     Ok(Value::Array(agentgres_tokenizer_records(request)?))
 }
 
-pub(super) fn model_capabilities() -> Value {
-    empty_list()
+pub(super) fn model_capabilities(
+    request: &ModelMountReadProjectionRequest,
+) -> Result<Value, ModelMountReadProjectionError> {
+    Ok(Value::Array(model_capability_records(request)?))
 }
 
 pub(super) fn downloads(
@@ -340,10 +342,6 @@ pub(super) fn open_ai_model_list_value(request: &ModelMountReadProjectionRequest
         "object": "list",
         "data": data,
     })
-}
-
-fn empty_list() -> Value {
-    Value::Array(Vec::new())
 }
 
 fn agentgres_instance_records(
@@ -557,6 +555,417 @@ fn open_ai_model_records(
             })
     });
     Ok(records)
+}
+
+fn model_capability_records(
+    request: &ModelMountReadProjectionRequest,
+) -> Result<Vec<Value>, ModelMountReadProjectionError> {
+    if request
+        .state_dir
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .is_none()
+    {
+        return Err(ModelMountReadProjectionError::new(
+            "model_mount_model_capability_replay_state_dir_required",
+            "model capability projection requires Rust Agentgres state_dir replay",
+        ));
+    }
+
+    let mut endpoint_by_id = BTreeMap::new();
+    for endpoint in endpoint_records_from_route_control(request)? {
+        endpoint_by_id.insert(string_field(&endpoint, "id"), endpoint);
+    }
+
+    let mut provider_by_id = BTreeMap::new();
+    for provider in provider_records_from_provider_inventory(request)? {
+        for key in [
+            string_field(&provider, "id"),
+            string_field(&provider, "provider_ref"),
+        ] {
+            if !key.is_empty() {
+                provider_by_id.insert(key, provider.clone());
+            }
+        }
+    }
+
+    let mut artifact_by_model_id = BTreeMap::new();
+    for artifact in
+        artifact_records_from_provider_inventory(request, "ioi.model_mount_model_artifact")?
+    {
+        artifact_by_model_id.insert(string_field(&artifact, "model_id"), artifact);
+    }
+
+    let loaded_endpoint_ids = agentgres_instance_records(request)?
+        .into_iter()
+        .filter(|record| string_field(record, "status") == "loaded")
+        .map(|record| string_field(&record, "endpoint_id"))
+        .filter(|value| !value.is_empty())
+        .collect::<BTreeSet<_>>();
+
+    let context = ModelCapabilityContext {
+        endpoint_by_id,
+        provider_by_id,
+        artifact_by_model_id,
+        loaded_endpoint_ids,
+    };
+    let mut records = agentgres_route_records(request)?
+        .iter()
+        .map(|route| model_capability_for_route(route, &context))
+        .collect::<Vec<_>>();
+    records.sort_by(|left, right| {
+        string_field(left, "route_id").cmp(&string_field(right, "route_id"))
+    });
+    Ok(records)
+}
+
+struct ModelCapabilityContext {
+    endpoint_by_id: BTreeMap<String, Value>,
+    provider_by_id: BTreeMap<String, Value>,
+    artifact_by_model_id: BTreeMap<String, Value>,
+    loaded_endpoint_ids: BTreeSet<String>,
+}
+
+fn model_capability_for_route(route: &Value, context: &ModelCapabilityContext) -> Value {
+    let route_id = string_field(route, "id");
+    let candidates = string_array_field(route, "fallback")
+        .iter()
+        .enumerate()
+        .map(|(priority, endpoint_id)| {
+            model_capability_candidate(route, endpoint_id, priority, context)
+        })
+        .collect::<Vec<_>>();
+    let ready_candidates = candidates
+        .iter()
+        .filter(|candidate| bool_field(candidate, "ready"))
+        .collect::<Vec<_>>();
+    let selected_candidate = ready_candidates
+        .first()
+        .copied()
+        .or_else(|| candidates.first());
+    let credential_status = model_capability_readiness_status(route, &candidates);
+    let available = string_field(route, "status") == "active" && !ready_candidates.is_empty();
+    let capability = selected_candidate
+        .map(|candidate| string_field(candidate, "capability"))
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| "chat".to_string());
+    let missing_vault_count = candidates
+        .iter()
+        .filter(|candidate| {
+            bool_field(candidate, "vault_required") && !bool_field(candidate, "vault_ready")
+        })
+        .count();
+    let required_vault_count = candidates
+        .iter()
+        .filter(|candidate| bool_field(candidate, "vault_required"))
+        .count();
+    let configured_vault_count = candidates
+        .iter()
+        .filter(|candidate| {
+            bool_field(candidate, "vault_required") && bool_field(candidate, "vault_ready")
+        })
+        .count();
+    let evidence_refs = compact_string_refs(candidates.iter().flat_map(evidence_refs));
+
+    json!({
+        "schema_version": "ioi.model-capability.v1",
+        "object": "ioi.model_capability",
+        "id": format!("model-capability:{route_id}"),
+        "route_id": route_id,
+        "role": string_field(route, "role"),
+        "model_role": string_field(route, "role"),
+        "capability": capability,
+        "primitive_capability": format!("prim:model.{capability}"),
+        "authority_scope_requirements": [
+            format!("route.use:{route_id}"),
+            format!("model.{capability}:*")
+        ],
+        "policy_target": model_capability_policy_target(&route_id),
+        "privacy_tier": string_field(route, "privacy"),
+        "provider_priority": string_array_field(route, "providerEligibility"),
+        "fallback_policy": {
+            "allowed": string_array_field(route, "fallback").len() > 1,
+            "endpoint_ids": string_array_field(route, "fallback"),
+            "denied_providers": string_array_field(route, "deniedProviders"),
+            "selected_endpoint_id": selected_candidate
+                .map(|candidate| candidate.get("endpoint_id").cloned().unwrap_or(Value::Null))
+                .unwrap_or(Value::Null),
+            "deterministic_order": true,
+        },
+        "fallback_evidence": candidates
+            .iter()
+            .map(|candidate| candidate.get("evidence").cloned().unwrap_or_else(|| json!({})))
+            .collect::<Vec<_>>(),
+        "cost_estimate_visibility": {
+            "visible": true,
+            "max_cost_usd": route.get("maxCostUsd").cloned().unwrap_or(Value::Null),
+            "max_latency_ms": route.get("maxLatencyMs").cloned().unwrap_or(Value::Null),
+            "source": "model_route_policy",
+        },
+        "credential_readiness": {
+            "status": credential_status,
+            "reason": model_capability_readiness_reason(route, &candidates),
+            "evidence_refs": evidence_refs,
+        },
+        "vault_readiness": {
+            "status": if missing_vault_count == 0 { "ready" } else { "missing" },
+            "required_count": required_vault_count,
+            "configured_count": configured_vault_count,
+            "missing_count": missing_vault_count,
+        },
+        "byok_required": required_vault_count > 0,
+        "receipt_behavior": {
+            "receipt_required": true,
+            "required_receipt_types": ["model_route_selection", "model_invocation"],
+        },
+        "workflow_availability": {
+            "available": available,
+            "reason": if available {
+                "At least one route candidate is executable."
+            } else {
+                "No executable model route candidate is ready."
+            },
+            "config_fields": ["model_ref", "route_id", "model_binding"],
+            "evidence_refs": evidence_refs,
+        },
+        "agent_availability": {
+            "available": available,
+            "reason": if available {
+                "Agent runtime can request this route capability."
+            } else {
+                "Agent runtime must resolve model readiness first."
+            },
+            "evidence_refs": evidence_refs,
+        },
+        "candidates": candidates,
+        "source": "agentgres_model_capability_replay",
+        "rust_core_boundary": "model_mount.model_capability_projection",
+        "state_dir_replay_required": true,
+        "evidence_refs": [
+            "rust_daemon_core_model_capability_projection",
+            "agentgres_model_capability_replay_required",
+            "model_mount_model_capability_js_projection_retired"
+        ],
+    })
+}
+
+fn model_capability_candidate(
+    route: &Value,
+    endpoint_id: &str,
+    priority: usize,
+    context: &ModelCapabilityContext,
+) -> Value {
+    let endpoint = context.endpoint_by_id.get(endpoint_id);
+    let provider = endpoint
+        .and_then(|endpoint| string_field_any(endpoint, &["provider_id", "providerId"]))
+        .and_then(|provider_id| context.provider_by_id.get(&provider_id));
+    let artifact = endpoint
+        .and_then(|endpoint| string_field_any(endpoint, &["model_id", "modelId"]))
+        .and_then(|model_id| context.artifact_by_model_id.get(&model_id));
+    let vault_required = provider.map(provider_requires_vault).unwrap_or(false);
+    let vault_ready = !vault_required || provider.map(provider_vault_ready).unwrap_or(false);
+    let provider_ready = provider.map(provider_is_ready).unwrap_or(false);
+    let endpoint_ready = endpoint
+        .map(|endpoint| {
+            string_field(endpoint, "status") == "mounted"
+                || context
+                    .loaded_endpoint_ids
+                    .contains(&string_field(endpoint, "id"))
+        })
+        .unwrap_or(false);
+    let ready = string_field(route, "status") == "active"
+        && endpoint_ready
+        && provider_ready
+        && vault_ready;
+    let reason = model_capability_candidate_reason(
+        endpoint,
+        endpoint_ready,
+        provider,
+        provider_ready,
+        vault_required,
+        vault_ready,
+    );
+    let evidence_refs = compact_string_refs(
+        endpoint
+            .into_iter()
+            .flat_map(evidence_refs)
+            .chain(provider.into_iter().flat_map(evidence_refs))
+            .chain(artifact.into_iter().flat_map(evidence_refs)),
+    );
+    let capability = endpoint
+        .and_then(|endpoint| first_string_array_value(endpoint, "capabilities"))
+        .or_else(|| {
+            artifact.and_then(|artifact| first_string_array_value(artifact, "capabilities"))
+        })
+        .unwrap_or_else(|| "chat".to_string());
+    let model_id = endpoint
+        .and_then(|endpoint| string_field_any(endpoint, &["model_id", "modelId"]))
+        .filter(|value| !value.is_empty());
+    let provider_id = provider
+        .map(|provider| string_field(provider, "id"))
+        .filter(|value| !value.is_empty());
+    let provider_kind = provider
+        .map(|provider| string_field(provider, "provider_kind"))
+        .filter(|value| !value.is_empty());
+    let privacy_tier = endpoint
+        .and_then(|endpoint| string_field_any(endpoint, &["privacy_tier", "privacyClass"]))
+        .or_else(|| {
+            provider
+                .and_then(|provider| string_field_any(provider, &["privacy_tier", "privacyClass"]))
+        })
+        .unwrap_or_else(|| string_field(route, "privacy"));
+
+    json!({
+        "endpoint_id": endpoint_id,
+        "priority": priority,
+        "model_id": model_id,
+        "provider_id": provider_id,
+        "provider_kind": provider_kind,
+        "capability": capability,
+        "privacy_tier": privacy_tier,
+        "status": if ready { "ready" } else { "blocked" },
+        "ready": ready,
+        "vault_required": vault_required,
+        "vault_ready": vault_ready,
+        "reason": reason,
+        "evidence_refs": evidence_refs,
+        "evidence": {
+            "endpoint_id": endpoint_id,
+            "provider_id": provider_id,
+            "status": if ready { "ready" } else { "blocked" },
+            "reason": reason,
+            "vault_required": vault_required,
+            "vault_ready": vault_ready,
+        },
+    })
+}
+
+fn provider_is_ready(provider: &Value) -> bool {
+    let status = string_field(provider, "status");
+    status.is_empty()
+        || matches!(
+            status.as_str(),
+            "available" | "configured" | "running" | "listed"
+        )
+}
+
+fn provider_requires_vault(provider: &Value) -> bool {
+    if provider
+        .get("vault_boundary")
+        .and_then(|value| value.get("required"))
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
+    {
+        return true;
+    }
+    matches!(
+        string_field(provider, "provider_kind").as_str(),
+        "openai" | "anthropic" | "gemini" | "custom_http"
+    )
+}
+
+fn provider_vault_ready(provider: &Value) -> bool {
+    bool_field(provider, "secret_configured")
+        || provider
+            .get("vault_boundary")
+            .and_then(|value| value.get("configured"))
+            .and_then(Value::as_bool)
+            .unwrap_or(false)
+}
+
+fn model_capability_readiness_status(route: &Value, candidates: &[Value]) -> &'static str {
+    if string_field(route, "status") != "active" {
+        return "disabled";
+    }
+    if candidates
+        .iter()
+        .any(|candidate| bool_field(candidate, "ready"))
+    {
+        return "ready";
+    }
+    if candidates.iter().any(|candidate| {
+        bool_field(candidate, "vault_required") && !bool_field(candidate, "vault_ready")
+    }) {
+        return "missing";
+    }
+    "degraded"
+}
+
+fn model_capability_readiness_reason(route: &Value, candidates: &[Value]) -> String {
+    if string_field(route, "status") != "active" {
+        return "Model route is disabled.".to_string();
+    }
+    if candidates
+        .iter()
+        .any(|candidate| bool_field(candidate, "ready"))
+    {
+        return "Route has an executable candidate.".to_string();
+    }
+    candidates
+        .first()
+        .map(|candidate| string_field(candidate, "reason"))
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| "Route has no configured fallback candidates.".to_string())
+}
+
+fn model_capability_candidate_reason(
+    endpoint: Option<&Value>,
+    endpoint_ready: bool,
+    provider: Option<&Value>,
+    provider_ready: bool,
+    vault_required: bool,
+    vault_ready: bool,
+) -> String {
+    if endpoint.is_none() {
+        return "Route fallback endpoint is not registered.".to_string();
+    }
+    if provider.is_none() {
+        return "Endpoint provider is not registered.".to_string();
+    }
+    if !provider_ready {
+        return format!(
+            "Provider status is {}.",
+            provider
+                .map(|value| string_field(value, "status"))
+                .unwrap_or_default()
+        );
+    }
+    if vault_required && !vault_ready {
+        return "Provider requires wallet vault credentials.".to_string();
+    }
+    if !endpoint_ready {
+        return format!(
+            "Endpoint status is {}.",
+            endpoint
+                .map(|value| string_field(value, "status"))
+                .unwrap_or_default()
+        );
+    }
+    "Endpoint, provider, and credential posture are ready.".to_string()
+}
+
+fn model_capability_policy_target(route_id: &str) -> String {
+    if route_id.starts_with("route.") {
+        format!("model.{route_id}")
+    } else {
+        format!("model.route.{route_id}")
+    }
+}
+
+fn first_string_array_value(value: &Value, key: &str) -> Option<String> {
+    string_array_field(value, key)
+        .into_iter()
+        .find(|value| !value.is_empty())
+}
+
+fn compact_string_refs(values: impl IntoIterator<Item = String>) -> Vec<String> {
+    values
+        .into_iter()
+        .filter(|value| !value.trim().is_empty())
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect()
 }
 
 fn endpoint_records_from_route_control(
@@ -1826,8 +2235,15 @@ mod tests {
         caller_supplied[["model", "capabilities"].join("_")] = json!([{"id": "capability.js"}]);
         let _proof = caller_supplied;
 
-        assert_eq!(model_capabilities(), json!([]));
         let temp = tempfile::tempdir().expect("tempdir");
+        assert_eq!(
+            model_capabilities(&request(
+                "model_capabilities",
+                Some(temp.path().to_string_lossy().to_string())
+            ))
+            .expect("model capabilities projection"),
+            json!([])
+        );
         assert_eq!(
             downloads(&request(
                 "downloads",
@@ -2176,6 +2592,142 @@ mod tests {
         assert!(runtime_records
             .iter()
             .all(|record| record["provider_ref"] != "provider://native"));
+    }
+
+    #[test]
+    fn model_capability_projection_replays_agentgres_records_and_filters_js_truth() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        write_provider_inventory_materialization_records(temp.path());
+        let route_dir = temp.path().join("model-routes");
+        fs::create_dir_all(&route_dir).expect("route dir");
+        for record in [
+            json!({
+                "id": "legacy-js-route",
+                "role": "legacy",
+                "status": "active",
+                "updatedAt": "2026-06-13T00:00:00.000Z",
+                "receiptRefs": ["receipt://legacy-route"],
+                "routeControl": {
+                    "rust_core_boundary": "daemon_js",
+                    "evidence_refs": ["legacy_js_route_writer"]
+                }
+            }),
+            json!({
+                "id": "route.fixture",
+                "role": "default",
+                "description": "Rust-authored fixture route.",
+                "privacy": "local_or_enterprise",
+                "quality": "adaptive",
+                "maxCostUsd": 0.25,
+                "maxLatencyMs": 30000,
+                "providerEligibility": ["local_folder"],
+                "fallback": ["endpoint.fixture"],
+                "deniedProviders": [],
+                "status": "active",
+                "receiptRefs": ["receipt://model-mount/route-control/write"],
+                "updatedAt": "2026-06-13T00:00:01.000Z",
+                "routeControl": {
+                    "source": "runtime-daemon.model_mounting.route_control",
+                    "operation_kind": "model_mount.route.write",
+                    "rust_core_boundary": "model_mount.route_control",
+                    "evidence_refs": [
+                        "model_mount_route_control_rust_owned",
+                        "rust_daemon_core_route_control_plan",
+                        "agentgres_route_truth_required"
+                    ]
+                }
+            }),
+        ] {
+            fs::write(
+                route_dir.join(format!("{}.json", string_field(&record, "id"))),
+                serde_json::to_string_pretty(&record).expect("route record json"),
+            )
+            .expect("write route record");
+        }
+        let endpoint_resolution_dir = temp.path().join("model-route-endpoint-resolutions");
+        fs::create_dir_all(&endpoint_resolution_dir).expect("endpoint resolution dir");
+        for record in [
+            json!({
+                "id": "legacy-js-resolution",
+                "object": "ioi.model_mount_explicit_model_endpoints",
+                "route_id": "route.js",
+                "model_id": "legacy",
+                "endpoint_ids": ["endpoint.js"],
+                "rust_core_boundary": "daemon_js",
+                "route_selection_boundary": "model_mount.route_selection",
+                "evidence_refs": ["legacy_js_endpoint_resolution"]
+            }),
+            json!({
+                "id": "route_endpoint_resolution:route.fixture:test",
+                "object": "ioi.model_mount_explicit_model_endpoints",
+                "route_id": "route.fixture",
+                "model_id": "qwen3",
+                "endpoint_ids": ["endpoint.fixture"],
+                "endpoints": [{
+                    "id": "endpoint.fixture",
+                    "providerId": "provider://fixture",
+                    "modelId": "qwen3"
+                }],
+                "receipt_refs": ["receipt://route-control/explicit-endpoints"],
+                "evidence_refs": [
+                    "model_mount_route_control_rust_owned",
+                    "rust_daemon_core_route_control_plan",
+                    "agentgres_route_truth_required"
+                ],
+                "rust_core_boundary": "model_mount.route_control",
+                "route_selection_boundary": "model_mount.route_selection",
+                "source": "runtime-daemon.model_mounting.route_control",
+                "resolved_at": "2026-06-13T00:03:00.000Z"
+            }),
+        ] {
+            fs::write(
+                endpoint_resolution_dir.join(format!("{}.json", string_field(&record, "id"))),
+                serde_json::to_string_pretty(&record).expect("endpoint resolution json"),
+            )
+            .expect("write endpoint resolution record");
+        }
+
+        let projection = model_capabilities(&request(
+            "model_capabilities",
+            Some(temp.path().to_string_lossy().to_string()),
+        ))
+        .expect("model capability projection");
+        let records = projection.as_array().expect("model capability records");
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0]["route_id"], "route.fixture");
+        assert_eq!(records[0]["schema_version"], "ioi.model-capability.v1");
+        assert_eq!(records[0]["credential_readiness"]["status"], "ready");
+        assert_eq!(
+            records[0]["fallback_policy"]["selected_endpoint_id"],
+            "endpoint.fixture"
+        );
+        assert_eq!(
+            records[0]["candidates"][0]["provider_id"],
+            "provider://fixture"
+        );
+        assert_eq!(records[0]["candidates"][0]["model_id"], "qwen3");
+        assert_eq!(
+            records[0]["rust_core_boundary"],
+            "model_mount.model_capability_projection"
+        );
+        assert!(records[0]["evidence_refs"]
+            .as_array()
+            .expect("evidence refs")
+            .iter()
+            .any(|value| value == "rust_daemon_core_model_capability_projection"));
+        assert!(records
+            .iter()
+            .all(|record| record["route_id"] != "legacy-js-route"));
+    }
+
+    #[test]
+    fn model_capability_projection_fails_closed_without_agentgres_state_dir() {
+        let error = model_capabilities(&request("model_capabilities", None))
+            .expect_err("state dir required");
+        assert_eq!(
+            error.code,
+            "model_mount_model_capability_replay_state_dir_required"
+        );
     }
 
     #[test]

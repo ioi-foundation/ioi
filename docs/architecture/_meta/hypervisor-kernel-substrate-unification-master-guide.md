@@ -1874,11 +1874,13 @@ target.
 Slice 861 retired dedicated model-topology list JS read-projection input. The
 `artifacts`, `providers`, `endpoints`, `instances`, `routes`,
 `model_capabilities`, and `downloads` read projections now send empty state
-objects from the runtime-daemon facade, and the Rust bridge direct arms return
-empty/default lists instead of echoing caller-supplied topology arrays. This
-prevents local JS maps from becoming public topology or capability-list truth
-through the dedicated list surfaces while direct Rust daemon-core Agentgres
-topology projection APIs are still pending. Product artifact/catalog readbacks
+objects from the runtime-daemon facade; `instances`, `routes`, and
+`model_capabilities` also send runtime `state_dir`. Rust replays admitted
+instance, route, route-endpoint-resolution, provider-inventory, artifact, and
+loaded-instance records for the migrated list/capability surfaces instead of
+echoing caller-supplied topology arrays or returning the old capability-list
+placeholder. This prevents local JS maps from becoming public topology or
+capability-list truth through the dedicated list surfaces. Product artifact/catalog readbacks
 and receipt replay remain separate migration seams: product-safe catalog
 surfaces still receive artifact/policy input, and receipt replay still receives
 the topology context it explicitly needs for replay until Rust-owned topology
@@ -1901,9 +1903,11 @@ the public `snapshot` and `projection` envelope fields schema-stable but
 returns empty/default topology, runtime-engine, MCP/conversation, and
 product-catalog fields instead of honoring direct caller arrays. The retired
 Rust product artifact, runtime catalog, OpenAI model-list, fixture filtering,
-model-capability, and ad hoc timestamp helper tree was deleted, and the focused
-JS fixture planner mirrors the default envelope rather than reimplementing the
-old derivation. Receipt replay remained a separate topology-lookup seam.
+and ad hoc timestamp helper tree was deleted, and the focused JS fixture
+planner mirrors the default envelope rather than reimplementing the old
+derivation. Model-capability derivation now exists only as Rust Agentgres
+replay, not as caller-supplied bridge-state derivation. Receipt replay remained
+a separate topology-lookup seam.
 
 Slice 864 retired receipt-replay topology input from the runtime-daemon facade
 and Rust bridge. The `receipt_replay` read projection now sends only admitted
@@ -3037,10 +3041,15 @@ preserved as a daemon-side fallback capability builder after public
 Rust `plan_model_mount_read_projection`. The SDK still declares the canonical
 snake_case protocol contract, but the daemon no longer carries a self-tested JS
 implementation that can reconstruct route/provider/artifact readiness as public
-truth. Direct Rust daemon-core model-capability projection over Agentgres-backed
-topology, receipt/state-root binding, replay, stable protocol APIs, and
-command-transport retirement remain required before capability projection
-reaches terminal pure Rust conformance.
+truth. The follow-on capability projection cut moved `listModelCapabilities()`
+to Rust `model_mount/read_projection/topology.rs` over runtime `state_dir`
+replay: Rust derives canonical `ioi.model-capability.v1` records from admitted
+`model-routes`, `model-route-endpoint-resolutions`, `model-provider-inventory`,
+and `model-instances` records, filters JS-authored records, emits explicit
+candidate readiness/evidence, and no longer returns a default empty list for
+admitted route truth. Command-transport retirement, richer wallet/cTEE authority
+binding, stable protocol APIs, and broader hosted/provider materialization still
+remain before capability projection reaches terminal pure Rust conformance.
 
 Slice 915 deleted the orphan JS model-instance lifecycle planning facades while
 leaving the Rust bridge and receipt-binding guards in place. The helper module

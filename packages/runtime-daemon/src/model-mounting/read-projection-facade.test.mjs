@@ -1022,7 +1022,9 @@ function rustProjectionFixture(request) {
   if (request.projection_kind === "model_route_endpoint_resolutions") {
     return routeEndpointResolutionsFromAgentgresStateDir(request.state_dir);
   }
-  if (request.projection_kind === "model_capabilities") return [];
+  if (request.projection_kind === "model_capabilities") {
+    return modelCapabilitiesFromAgentgresStateDir(request.state_dir);
+  }
   if (request.projection_kind === "downloads") return downloadRecordsFromAgentgresStateDir(request.state_dir);
   if (request.projection_kind === "download_status") {
     const download = downloadRecordsFromAgentgresStateDir(request.state_dir)
@@ -1929,6 +1931,204 @@ function openAiModelListFromAgentgresStateDir(stateDir) {
   };
 }
 
+function modelCapabilitiesFromAgentgresStateDir(stateDir) {
+  const endpoints = new Map(endpointRecordsFromAgentgresStateDir(stateDir).map((endpoint) => [endpoint.id, endpoint]));
+  const providers = new Map();
+  for (const provider of providerRecordsFromAgentgresStateDir(stateDir)) {
+    if (provider.id) providers.set(provider.id, provider);
+    if (provider.provider_ref) providers.set(provider.provider_ref, provider);
+  }
+  const artifacts = new Map(
+    artifactRecordsFromAgentgresStateDir(stateDir, "ioi.model_mount_model_artifact")
+      .map((artifact) => [artifact.model_id, artifact]),
+  );
+  const loadedEndpointIds = new Set(
+    instanceRecordsFromAgentgresStateDir(stateDir)
+      .filter((instance) => instance.status === "loaded")
+      .map((instance) => instance.endpoint_id),
+  );
+  return routeRecordsFromAgentgresStateDir(stateDir)
+    .map((route) => modelCapabilityForRoute(route, {
+      artifacts,
+      endpoints,
+      loadedEndpointIds,
+      providers,
+    }))
+    .sort((left, right) => String(left.route_id ?? "").localeCompare(String(right.route_id ?? "")));
+}
+
+function modelCapabilityForRoute(route, context) {
+  const candidates = (route.fallback ?? []).map((endpointId, priority) =>
+    modelCapabilityCandidate(route, endpointId, priority, context));
+  const readyCandidates = candidates.filter((candidate) => candidate.ready);
+  const selectedCandidate = readyCandidates[0] ?? candidates[0] ?? null;
+  const capability = selectedCandidate?.capability ?? "chat";
+  const evidenceRefs = uniqueStrings(candidates.flatMap((candidate) => candidate.evidence_refs ?? []));
+  const missingVaultCount = candidates
+    .filter((candidate) => candidate.vault_required && !candidate.vault_ready).length;
+  const requiredVaultCount = candidates.filter((candidate) => candidate.vault_required).length;
+  const configuredVaultCount = candidates
+    .filter((candidate) => candidate.vault_required && candidate.vault_ready).length;
+  const available = route.status === "active" && readyCandidates.length > 0;
+  return {
+    schema_version: "ioi.model-capability.v1",
+    object: "ioi.model_capability",
+    id: `model-capability:${route.id}`,
+    route_id: route.id,
+    role: route.role,
+    model_role: route.role,
+    capability,
+    primitive_capability: `prim:model.${capability}`,
+    authority_scope_requirements: [`route.use:${route.id}`, `model.${capability}:*`],
+    policy_target: String(route.id ?? "").startsWith("route.") ? `model.${route.id}` : `model.route.${route.id}`,
+    privacy_tier: route.privacy ?? "",
+    provider_priority: route.providerEligibility ?? [],
+    fallback_policy: {
+      allowed: (route.fallback ?? []).length > 1,
+      endpoint_ids: route.fallback ?? [],
+      denied_providers: route.deniedProviders ?? [],
+      selected_endpoint_id: selectedCandidate?.endpoint_id ?? null,
+      deterministic_order: true,
+    },
+    fallback_evidence: candidates.map((candidate) => candidate.evidence),
+    cost_estimate_visibility: {
+      visible: true,
+      max_cost_usd: route.maxCostUsd ?? null,
+      max_latency_ms: route.maxLatencyMs ?? null,
+      source: "model_route_policy",
+    },
+    credential_readiness: {
+      status: modelCapabilityReadinessStatus(route, candidates),
+      reason: modelCapabilityReadinessReason(route, candidates),
+      evidence_refs: evidenceRefs,
+    },
+    vault_readiness: {
+      status: missingVaultCount === 0 ? "ready" : "missing",
+      required_count: requiredVaultCount,
+      configured_count: configuredVaultCount,
+      missing_count: missingVaultCount,
+    },
+    byok_required: requiredVaultCount > 0,
+    receipt_behavior: {
+      receipt_required: true,
+      required_receipt_types: ["model_route_selection", "model_invocation"],
+    },
+    workflow_availability: {
+      available,
+      reason: available
+        ? "At least one route candidate is executable."
+        : "No executable model route candidate is ready.",
+      config_fields: ["model_ref", "route_id", "model_binding"],
+      evidence_refs: evidenceRefs,
+    },
+    agent_availability: {
+      available,
+      reason: available
+        ? "Agent runtime can request this route capability."
+        : "Agent runtime must resolve model readiness first.",
+      evidence_refs: evidenceRefs,
+    },
+    candidates,
+    source: "agentgres_model_capability_replay",
+    rust_core_boundary: "model_mount.model_capability_projection",
+    state_dir_replay_required: true,
+    evidence_refs: [
+      "rust_daemon_core_model_capability_projection",
+      "agentgres_model_capability_replay_required",
+      "model_mount_model_capability_js_projection_retired",
+    ],
+  };
+}
+
+function modelCapabilityCandidate(route, endpointId, priority, { artifacts, endpoints, loadedEndpointIds, providers }) {
+  const endpoint = endpoints.get(endpointId) ?? null;
+  const provider = endpoint?.provider_id ? providers.get(endpoint.provider_id) ?? null : null;
+  const artifact = endpoint?.model_id ? artifacts.get(endpoint.model_id) ?? null : null;
+  const vaultRequired = providerRequiresVault(provider);
+  const vaultReady = !vaultRequired || Boolean(provider?.secret_configured || provider?.vault_boundary?.configured);
+  const providerReady = provider ? providerIsReady(provider) : false;
+  const endpointReady = endpoint
+    ? endpoint.status === "mounted" || loadedEndpointIds.has(endpoint.id)
+    : false;
+  const ready = route.status === "active" && endpointReady && providerReady && vaultReady;
+  const reason = modelCapabilityCandidateReason({
+    endpoint,
+    endpointReady,
+    provider,
+    providerReady,
+    vaultRequired,
+    vaultReady,
+  });
+  const evidenceRefs = uniqueStrings([
+    ...(endpoint?.evidence_refs ?? []),
+    ...(provider?.evidence_refs ?? []),
+    ...(artifact?.evidence_refs ?? []),
+  ]);
+  return {
+    endpoint_id: endpointId,
+    priority,
+    model_id: endpoint?.model_id ?? null,
+    provider_id: provider?.id ?? null,
+    provider_kind: provider?.provider_kind ?? null,
+    capability: firstCapability(endpoint?.capabilities ?? artifact?.capabilities),
+    privacy_tier: endpoint?.privacy_tier ?? provider?.privacy_tier ?? route.privacy ?? "",
+    status: ready ? "ready" : "blocked",
+    ready,
+    vault_required: vaultRequired,
+    vault_ready: vaultReady,
+    reason,
+    evidence_refs: evidenceRefs,
+    evidence: {
+      endpoint_id: endpointId,
+      provider_id: provider?.id ?? null,
+      status: ready ? "ready" : "blocked",
+      reason,
+      vault_required: vaultRequired,
+      vault_ready: vaultReady,
+    },
+  };
+}
+
+function providerIsReady(provider) {
+  return !provider.status || ["available", "configured", "running", "listed"].includes(String(provider.status));
+}
+
+function providerRequiresVault(provider) {
+  if (!provider) return false;
+  return Boolean(provider.vault_boundary?.required) ||
+    ["openai", "anthropic", "gemini", "custom_http"].includes(String(provider.provider_kind));
+}
+
+function modelCapabilityReadinessStatus(route, candidates) {
+  if (route.status !== "active") return "disabled";
+  if (candidates.some((candidate) => candidate.ready)) return "ready";
+  if (candidates.some((candidate) => candidate.vault_required && !candidate.vault_ready)) return "missing";
+  return "degraded";
+}
+
+function modelCapabilityReadinessReason(route, candidates) {
+  if (route.status !== "active") return "Model route is disabled.";
+  if (candidates.some((candidate) => candidate.ready)) return "Route has an executable candidate.";
+  return candidates[0]?.reason ?? "Route has no configured fallback candidates.";
+}
+
+function modelCapabilityCandidateReason({ endpoint, endpointReady, provider, providerReady, vaultRequired, vaultReady }) {
+  if (!endpoint) return "Route fallback endpoint is not registered.";
+  if (!provider) return "Endpoint provider is not registered.";
+  if (!providerReady) return `Provider status is ${provider.status ?? ""}.`;
+  if (vaultRequired && !vaultReady) return "Provider requires wallet vault credentials.";
+  if (!endpointReady) return `Endpoint status is ${endpoint.status ?? ""}.`;
+  return "Endpoint, provider, and credential posture are ready.";
+}
+
+function firstCapability(capabilities) {
+  return Array.isArray(capabilities) && capabilities.length > 0 ? String(capabilities[0]) : "chat";
+}
+
+function uniqueStrings(values) {
+  return [...new Set(values.filter((value) => typeof value === "string" && value.trim().length > 0))];
+}
+
 function modelIdFromItemRef(itemRef) {
   return String(itemRef).split(/[/:]/).filter(Boolean).at(-1) ?? String(itemRef);
 }
@@ -2702,7 +2902,16 @@ test("read projection facade delegates product-safe lists and capabilities", () 
     "route.local-first",
     "route.research",
   ]);
-  assert.deepEqual(facade.listModelCapabilities(state), []);
+  const modelCapabilities = facade.listModelCapabilities(state);
+  assert.deepEqual(modelCapabilities.map((capability) => capability.route_id), [
+    "route.local-first",
+    "route.research",
+  ]);
+  assert.equal(modelCapabilities[0].schema_version, "ioi.model-capability.v1");
+  assert.equal(modelCapabilities[0].rust_core_boundary, "model_mount.model_capability_projection");
+  assert.equal(modelCapabilities[0].credential_readiness.status, "degraded");
+  assert.equal(modelCapabilities[0].candidates[0].reason, "Endpoint provider is not registered.");
+  assert.equal(Object.hasOwn(modelCapabilities[0], "routeId"), false);
   const downloads = facade.listDownloads(state);
   assert.deepEqual(downloads.map((download) => download.id), ["download.qwen3"]);
   assert.equal(downloads[0].storage_projection_boundary, "model_mount.storage_projection");
@@ -2844,6 +3053,12 @@ test("read projection facade delegates product-safe lists and capabilities", () 
   assert.deepEqual(routeRequest.state, {});
   assert.equal(routeRequest.state_dir, state.stateDir);
   assert.equal(Object.hasOwn(routeRequest.state, "routes"), false);
+  const modelCapabilitiesRequest = readProjectionRequests.find((request) =>
+    request.projection_kind === "model_capabilities");
+  assert.deepEqual(modelCapabilitiesRequest.state, {});
+  assert.equal(modelCapabilitiesRequest.state_dir, state.stateDir);
+  assert.equal(Object.hasOwn(modelCapabilitiesRequest.state, "model_capabilities"), false);
+  assert.equal(Object.hasOwn(modelCapabilitiesRequest.state, "routes"), false);
   const downloadRequest = readProjectionRequests.find((request) => request.projection_kind === "downloads");
   assert.deepEqual(downloadRequest.state, {});
   assert.equal(downloadRequest.state_dir, state.stateDir);

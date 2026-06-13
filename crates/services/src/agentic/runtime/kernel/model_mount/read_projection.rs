@@ -59,6 +59,7 @@ pub(super) const MODEL_MOUNT_PROVIDER_MATERIALIZATION_PROJECTION_KINDS: [&str; 5
 ];
 pub(super) const MODEL_MOUNT_ENDPOINTS_PROJECTION_KIND: &str = "endpoints";
 pub(super) const MODEL_MOUNT_ROUTES_PROJECTION_KIND: &str = "routes";
+pub(super) const MODEL_MOUNT_MODEL_CAPABILITIES_PROJECTION_KIND: &str = "model_capabilities";
 pub(super) const MODEL_MOUNT_ROUTE_DECISIONS_PROJECTION_KIND: &str = "model_route_decisions";
 pub(super) const MODEL_MOUNT_ROUTE_ENDPOINT_RESOLUTIONS_PROJECTION_KIND: &str =
     "model_route_endpoint_resolutions";
@@ -193,6 +194,13 @@ pub(super) fn plan_read_projection(
             "model_mount_route_list_js_facade_retired".to_string(),
         ]);
     }
+    if request.projection_kind == MODEL_MOUNT_MODEL_CAPABILITIES_PROJECTION_KIND {
+        evidence_refs.extend([
+            "rust_daemon_core_model_capability_projection".to_string(),
+            "agentgres_model_capability_replay_required".to_string(),
+            "model_mount_model_capability_js_projection_retired".to_string(),
+        ]);
+    }
     if request.projection_kind == MODEL_MOUNT_ROUTE_DECISIONS_PROJECTION_KIND {
         evidence_refs.extend([
             "rust_daemon_core_model_route_decision_projection".to_string(),
@@ -302,7 +310,7 @@ pub(super) fn model_mount_read_projection(
         MODEL_MOUNT_CATALOG_SEARCH_PROJECTION_KIND => topology::catalog_search(request),
         MODEL_MOUNT_ROUTES_PROJECTION_KIND => topology::routes(request),
         MODEL_MOUNT_TOKENIZER_RECORDS_PROJECTION_KIND => topology::tokenizer_records(request),
-        "model_capabilities" => Ok(topology::model_capabilities()),
+        MODEL_MOUNT_MODEL_CAPABILITIES_PROJECTION_KIND => topology::model_capabilities(request),
         MODEL_MOUNT_DOWNLOADS_PROJECTION_KIND => topology::downloads(request),
         MODEL_MOUNT_DOWNLOAD_STATUS_PROJECTION_KIND => topology::download_status(request),
         MODEL_MOUNT_STORAGE_SUMMARY_PROJECTION_KIND => topology::storage_summary(request),

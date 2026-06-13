@@ -429,6 +429,7 @@ export function createModelMountingReadProjectionFacade({
       projectionKind !== "catalog_status" &&
       projectionKind !== "model_tokenizer_records" &&
       projectionKind !== "routes" &&
+      projectionKind !== "model_capabilities" &&
       projectionKind !== "model_route_decisions" &&
       projectionKind !== "model_route_endpoint_resolutions" &&
       projectionKind !== "artifacts" &&
