@@ -16884,6 +16884,7 @@ function runBridge() {
       /planProviderInventory/.test(modelMountAdmissionRunner) &&
       /rust_model_mount_provider_inventory_command/.test(modelMountAdmissionRunner) &&
       /RUST_MODEL_MOUNT_FIXTURE_INVENTORY_BACKEND/.test(modelMountAdmissionRunner) &&
+      /RUST_MODEL_MOUNT_HOSTED_PROVIDER_INVENTORY_BACKEND/.test(modelMountAdmissionRunner) &&
       /planModelMountProviderInventory/.test(modelMountingState) &&
       !exists("packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/provider-local-drivers.test.mjs") &&
@@ -21652,6 +21653,9 @@ function runReceipts() {
       /MODEL_MOUNT_PROVIDER_INVENTORY_SCHEMA_VERSION/.test(providerOperations) &&
       /RUST_MODEL_MOUNT_NATIVE_LOCAL_INVENTORY_BACKEND/.test(providerOperations) &&
       /RUST_MODEL_MOUNT_FIXTURE_INVENTORY_BACKEND/.test(providerOperations) &&
+      /RUST_MODEL_MOUNT_HOSTED_PROVIDER_INVENTORY_BACKEND/.test(providerOperations) &&
+      /hostedProviderInventoryMetadata/.test(providerOperations) &&
+      /providerInventoryItemRefs/.test(providerOperations) &&
       /assertRustAuthoredProviderInventoryResult/.test(providerOperations) &&
       /model_mount_provider_inventory_rust_result_required/.test(providerOperations) &&
       /rust_core_api:\s*"plan_model_mount_provider_inventory"/.test(providerOperations) &&
@@ -21698,6 +21702,11 @@ function runReceipts() {
       /local provider inventory uses Rust native-local inventory planner without JS driver/.test(
         read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
       ) &&
+      /hosted provider inventory commits Rust metadata records without JS driver execution/.test(
+        providerOperationsTest,
+      ) &&
+      /rust_model_mount_hosted_provider_inventory/.test(providerOperationsTest) &&
+      /hosted_provider_transport_not_executed/.test(providerOperationsTest) &&
       /local provider inventory fails closed when Rust inventory planner is unavailable/.test(
         read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
       ) &&
@@ -21720,7 +21729,7 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/receipt-write-guards.mjs",
       "packages/runtime-daemon/src/model-mounting/store.test.mjs",
     ],
-    "Phase 9/10 is pending: public provider inventory list APIs must be Rust-owned for migrated fixture/native-local providers and fail closed before JS driver, receipt, or local fallback truth paths",
+    "Phase 9/10 is pending: public provider inventory list APIs must be Rust-owned for fixture/native-local and hosted metadata providers before JS driver, receipt, or local fallback truth paths can return",
   );
   assertCheck(
     result,
@@ -23012,7 +23021,7 @@ function runReceipts() {
       /hosted provider health fails closed before JS driver execution/.test(providerOperationsTest) &&
       /assert\.equal\(healthCalls,\s*0\)/.test(providerOperationsTest) &&
       /provider inventory list routes through Rust inventory planner without JS driver or local fallback reads/.test(providerOperationsTest) &&
-      /hosted provider inventory fails closed before JS driver execution/.test(providerOperationsTest) &&
+      /hosted provider inventory commits Rust metadata records without JS driver execution/.test(providerOperationsTest) &&
       /assert\.equal\(listModelCalls,\s*0\)/.test(providerOperationsTest) &&
       /assert\.equal\(listLoadedCalls,\s*0\)/.test(providerOperationsTest) &&
       /assert\.equal\(listArtifactsCalls,\s*0\)/.test(providerOperationsTest) &&

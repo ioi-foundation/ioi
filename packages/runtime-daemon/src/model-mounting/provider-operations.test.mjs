@@ -139,10 +139,13 @@ function fakeState() {
     planModelMountProviderInventory(request) {
       this.modelMountInventoryRequests.push(JSON.parse(JSON.stringify(request)));
       const nativeLocal = request.execution_backend === "rust_model_mount_native_local_inventory";
+      const hostedProvider = request.execution_backend === "rust_model_mount_hosted_provider_inventory";
       const itemRefs = Array.isArray(request.item_refs) ? request.item_refs : [];
       const backendId = request.backend_ref ?? (nativeLocal
         ? "backend.autopilot.native-local.fixture"
-        : "backend.fixture");
+        : hostedProvider
+          ? `backend.hosted.${request.provider_kind}`
+          : "backend.fixture");
       const operationKind = request.action === "list_loaded"
         ? "model_mount.provider.inventory.list_loaded"
         : "model_mount.provider.inventory.list_models";
@@ -151,7 +154,15 @@ function fakeState() {
         "agentgres_provider_inventory_truth_required",
         nativeLocal
           ? "rust_model_mount_native_local_inventory_backend"
-          : "rust_model_mount_fixture_inventory_backend",
+          : hostedProvider
+            ? "rust_model_mount_hosted_provider_inventory_backend"
+            : "rust_model_mount_fixture_inventory_backend",
+        ...(hostedProvider
+          ? [
+            "hosted_provider_transport_not_executed",
+            "wallet_network_provider_secret_boundary",
+          ]
+          : []),
       ];
       const inventoryHash = `sha256:${request.provider_ref}:${request.action}`;
       const recordId = `provider_inventory_${request.provider_ref.replace(/[^a-z0-9._-]+/gi, "_").replace(/^_+|_+$/g, "")}_${request.action}_test`;
@@ -164,9 +175,13 @@ function fakeState() {
         action: request.action,
         operation_kind: operationKind,
         status: "listed",
-        backend: nativeLocal ? "autopilot.native_local.fixture" : "ioi_fixture",
+        backend: nativeLocal
+          ? "autopilot.native_local.fixture"
+          : hostedProvider
+            ? "hosted_provider_metadata"
+            : "ioi_fixture",
         backend_id: backendId,
-        driver: nativeLocal ? "native_local" : "fixture",
+        driver: nativeLocal ? "native_local" : hostedProvider ? "hosted_provider_metadata" : "fixture",
         execution_backend: request.execution_backend,
         item_refs: itemRefs,
         item_count: itemRefs.length,
@@ -182,9 +197,13 @@ function fakeState() {
         ...request,
         operation_kind: operationKind,
         status: "listed",
-        backend: nativeLocal ? "autopilot.native_local.fixture" : "ioi_fixture",
+        backend: nativeLocal
+          ? "autopilot.native_local.fixture"
+          : hostedProvider
+            ? "hosted_provider_metadata"
+            : "ioi_fixture",
         backend_id: backendId,
-        driver: nativeLocal ? "native_local" : "fixture",
+        driver: nativeLocal ? "native_local" : hostedProvider ? "hosted_provider_metadata" : "fixture",
         item_refs: itemRefs,
         item_count: itemRefs.length,
         inventory_hash: inventoryHash,
@@ -857,7 +876,7 @@ test("provider inventory list routes through Rust inventory planner without JS d
   assert.equal(state.projections, 0);
 });
 
-test("hosted provider inventory fails closed before JS driver execution", async () => {
+test("hosted provider inventory commits Rust metadata records without JS driver execution", async () => {
   const state = fakeState();
   let listModelCalls = 0;
   let listLoadedCalls = 0;
@@ -866,6 +885,8 @@ test("hosted provider inventory fails closed before JS driver execution", async 
     kind: "custom_http",
     label: "Remote",
     status: "available",
+    item_refs: ["model://remote/configured"],
+    loaded_item_refs: ["model_instance://remote/configured"],
     discovery: { evidenceRefs: ["remote_provider"] },
   });
   state.drivers.set("provider.remote", {
@@ -879,39 +900,38 @@ test("hosted provider inventory fails closed before JS driver execution", async 
     },
   });
 
-  await assert.rejects(
-    () => listProviderModels(state, "provider.remote"),
-    (error) =>
-      error.code === "model_mount_provider_inventory_rust_core_required" &&
-      error.status === 501 &&
-      error.details.rust_core_boundary === "model_mount.provider_inventory" &&
-      error.details.operation === "provider_models_list" &&
-      error.details.operation_kind === "model_mount.provider.inventory.list_models" &&
-      error.details.provider_id === "provider.remote" &&
-      error.details.provider_kind === "custom_http" &&
-      error.details.unsupported_provider_inventory_backend === true &&
-      error.details.evidence_refs.includes("model_mount_provider_inventory_js_facade_retired") &&
-      error.details.evidence_refs.includes("rust_daemon_core_provider_inventory_required") &&
-      error.details.evidence_refs.includes("agentgres_provider_inventory_truth_required") &&
-      error.details.evidence_refs.includes("agentgres_provider_inventory_replay_required") &&
-      Object.hasOwn(error.details, "providerId") === false,
-  );
-  await assert.rejects(
-    () => listProviderLoaded(state, "provider.remote"),
-    (error) =>
-      error.code === "model_mount_provider_inventory_rust_core_required" &&
-      error.status === 501 &&
-      error.details.operation === "provider_loaded_list" &&
-      error.details.operation_kind === "model_mount.provider.inventory.list_loaded" &&
-      error.details.unsupported_provider_inventory_backend === true &&
-      Object.hasOwn(error.details, "providerId") === false,
-  );
+  const models = await listProviderModels(state, "provider.remote");
+  const loaded = await listProviderLoaded(state, "provider.remote");
 
   assert.equal(listModelCalls, 0);
   assert.equal(listLoadedCalls, 0);
-  assert.deepEqual(state.modelMountInventoryRequests, []);
+  assert.equal(state.modelMountInventoryRequests.length, 2);
+  assert.equal(state.modelMountInventoryRequests[0].provider_ref, "provider://provider.remote");
+  assert.equal(state.modelMountInventoryRequests[0].provider_kind, "custom_http");
+  assert.equal(
+    state.modelMountInventoryRequests[0].execution_backend,
+    "rust_model_mount_hosted_provider_inventory",
+  );
+  assert.deepEqual(state.modelMountInventoryRequests[0].item_refs, ["model://remote/configured"]);
+  assert.equal(state.modelMountInventoryRequests[1].action, "list_loaded");
+  assert.deepEqual(state.modelMountInventoryRequests[1].item_refs, ["model_instance://remote/configured"]);
+  assert.equal(models.status, "listed");
+  assert.equal(models.executionBackend, "rust_model_mount_hosted_provider_inventory");
+  assert.equal(models.result.driver, "hosted_provider_metadata");
+  assert.equal(models.itemCount, 1);
+  assert.equal(models.record.rust_core_boundary, "model_mount.provider_inventory");
+  assert.equal(models.evidence_refs.includes("rust_model_mount_hosted_provider_inventory_backend"), true);
+  assert.equal(models.evidence_refs.includes("hosted_provider_transport_not_executed"), true);
+  assert.equal(models.commit.record_id, models.record_id);
+  assert.equal(loaded.status, "listed");
+  assert.equal(loaded.operation_kind, "model_mount.provider.inventory.list_loaded");
+  assert.equal(loaded.evidence_refs.includes("wallet_network_provider_secret_boundary"), true);
   assert.deepEqual(state.receipts, []);
-  assert.deepEqual(state.recordStateCommits, []);
+  assert.equal(state.recordStateCommits.length, 2);
+  assert.equal(state.recordStateCommits[0].record_dir, "model-provider-inventory");
+  assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.provider.inventory.list_models");
+  assert.equal(state.recordStateCommits[0].record.driver, "hosted_provider_metadata");
+  assert.equal(state.recordStateCommits[1].operation_kind, "model_mount.provider.inventory.list_loaded");
   assert.deepEqual(state.writes, []);
   assert.equal(state.projections, 0);
 });

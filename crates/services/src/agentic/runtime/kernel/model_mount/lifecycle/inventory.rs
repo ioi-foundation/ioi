@@ -68,6 +68,7 @@ impl ModelMountProviderInventoryRequest {
         }
         if !is_native_local_provider_inventory_backend(self)
             && !is_fixture_provider_inventory_backend(self)
+            && !is_hosted_provider_inventory_backend(self)
         {
             return Err(ModelMountError::UnsupportedProviderInventoryBackend);
         }
@@ -138,9 +139,39 @@ fn is_fixture_provider_inventory_backend(request: &ModelMountProviderInventoryRe
     provider_kind == "local_folder" || driver == "fixture" || api_format == "ioi_fixture"
 }
 
+fn is_hosted_provider_inventory_backend(request: &ModelMountProviderInventoryRequest) -> bool {
+    if request.execution_backend.trim() != "rust_model_mount_hosted_provider_inventory" {
+        return false;
+    }
+    let provider_kind = request.provider_kind.trim();
+    let api_format = request.api_format.as_deref().unwrap_or("").trim();
+    let driver = request.driver.as_deref().unwrap_or("").trim();
+    matches!(
+        provider_kind,
+        "openai"
+            | "anthropic"
+            | "gemini"
+            | "custom_http"
+            | "openai_compatible"
+            | "ollama"
+            | "vllm"
+            | "llama_cpp"
+            | "lm_studio"
+            | "depin_tee"
+    ) || matches!(
+        api_format,
+        "openai" | "anthropic" | "gemini" | "custom" | "openai_compatible" | "ollama"
+    ) || matches!(
+        driver,
+        "openai_compatible" | "hosted_provider" | "hosted_provider_metadata"
+    )
+}
+
 fn provider_inventory_backend(request: &ModelMountProviderInventoryRequest) -> String {
     if is_native_local_provider_inventory_backend(request) {
         "autopilot.native_local.fixture".to_string()
+    } else if is_hosted_provider_inventory_backend(request) {
+        "hosted_provider_metadata".to_string()
     } else {
         request
             .api_format
@@ -162,6 +193,20 @@ fn provider_inventory_backend_id(request: &ModelMountProviderInventoryRequest) -
             .unwrap_or("backend.autopilot.native-local.fixture")
             .to_string();
     }
+    if is_hosted_provider_inventory_backend(request) {
+        return request
+            .backend_ref
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(str::to_string)
+            .unwrap_or_else(|| {
+                format!(
+                    "backend.hosted.{}",
+                    record_id_segment(&request.provider_kind, "provider")
+                )
+            });
+    }
     request
         .backend_ref
         .as_deref()
@@ -174,6 +219,8 @@ fn provider_inventory_backend_id(request: &ModelMountProviderInventoryRequest) -
 fn provider_inventory_driver(request: &ModelMountProviderInventoryRequest) -> String {
     if is_native_local_provider_inventory_backend(request) {
         "native_local".to_string()
+    } else if is_hosted_provider_inventory_backend(request) {
+        "hosted_provider_metadata".to_string()
     } else {
         "fixture".to_string()
     }
@@ -191,6 +238,15 @@ fn provider_inventory_evidence_refs(request: &ModelMountProviderInventoryRequest
             refs.push("autopilot_native_local_process_supervisor".to_string());
         }
         refs.push("deterministic_native_local_fixture".to_string());
+    } else if is_hosted_provider_inventory_backend(request) {
+        refs.push("rust_model_mount_hosted_provider_inventory_backend".to_string());
+        refs.push("hosted_provider_transport_not_executed".to_string());
+        refs.push("wallet_network_provider_secret_boundary".to_string());
+        if request.action.trim() == "list_loaded" {
+            refs.push("hosted_provider_loaded_instance_replay_required".to_string());
+        } else {
+            refs.push("hosted_provider_catalog_metadata_recorded".to_string());
+        }
     } else {
         refs.push("rust_model_mount_fixture_inventory_backend".to_string());
         refs.push("agentgres_model_registry_fixture".to_string());
@@ -326,6 +382,22 @@ mod tests {
         }
     }
 
+    fn hosted_provider_inventory_request() -> ModelMountProviderInventoryRequest {
+        ModelMountProviderInventoryRequest {
+            schema_version: MODEL_MOUNT_PROVIDER_INVENTORY_SCHEMA_VERSION.to_string(),
+            provider_ref: "provider://openai".to_string(),
+            provider_kind: "openai".to_string(),
+            action: "list_models".to_string(),
+            execution_backend: "rust_model_mount_hosted_provider_inventory".to_string(),
+            api_format: Some("openai".to_string()),
+            driver: Some("openai_compatible".to_string()),
+            backend_ref: None,
+            provider_status: Some("configured".to_string()),
+            item_refs: vec![],
+            evidence_refs: vec!["operator_provider_config".to_string()],
+        }
+    }
+
     #[test]
     fn provider_inventory_child_module_owns_planner_surface() {
         let result = plan_provider_inventory(&provider_inventory_request())
@@ -426,6 +498,56 @@ mod tests {
         assert!(result
             .evidence_refs
             .contains(&"agentgres_model_instance_registry_fixture".to_string()));
+    }
+
+    #[test]
+    fn hosted_provider_inventory_is_planned_in_rust_without_js_transport() {
+        let mut request = hosted_provider_inventory_request();
+
+        let result = plan_provider_inventory(&request)
+            .expect("hosted provider metadata inventory planned in Rust");
+
+        assert_eq!(result.action, "list_models");
+        assert_eq!(
+            result.operation_kind,
+            "model_mount.provider.inventory.list_models"
+        );
+        assert_eq!(result.status, "listed");
+        assert_eq!(result.backend, "hosted_provider_metadata");
+        assert_eq!(result.backend_id, "backend.hosted.openai");
+        assert_eq!(result.driver, "hosted_provider_metadata");
+        assert_eq!(
+            result.execution_backend,
+            "rust_model_mount_hosted_provider_inventory"
+        );
+        assert_eq!(result.item_refs, Vec::<String>::new());
+        assert_eq!(result.item_count, 0);
+        assert!(result
+            .evidence_refs
+            .contains(&"rust_model_mount_hosted_provider_inventory_backend".to_string()));
+        assert!(result
+            .evidence_refs
+            .contains(&"hosted_provider_transport_not_executed".to_string()));
+        assert!(result
+            .evidence_refs
+            .contains(&"wallet_network_provider_secret_boundary".to_string()));
+        assert!(result
+            .evidence_refs
+            .contains(&"hosted_provider_catalog_metadata_recorded".to_string()));
+        assert!(result.record_id.starts_with("provider_inventory_provider_"));
+        assert_eq!(result.record["id"], result.record_id);
+        assert_eq!(
+            result.record["rust_core_boundary"],
+            "model_mount.provider_inventory"
+        );
+
+        request.action = "list_loaded".to_string();
+        let result = plan_provider_inventory(&request)
+            .expect("hosted provider loaded metadata inventory planned in Rust");
+        assert_eq!(result.action, "list_loaded");
+        assert!(result
+            .evidence_refs
+            .contains(&"hosted_provider_loaded_instance_replay_required".to_string()));
     }
 
     #[test]

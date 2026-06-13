@@ -8593,16 +8593,19 @@ from `model-catalog-imports`, `model-downloads`, and `model-storage-controls`,
 and filter out JS-authored storage/download truth. Richer filesystem custody,
 richer catalog/download materialization, command-transport retirement, and
 stable protocol APIs remain non-terminal.
-Public provider inventory for migrated fixture/local-folder and native-local
-providers has moved from fail-closed JS list facades to the Rust
+Public provider inventory for migrated fixture/local-folder, native-local, and
+hosted metadata providers has moved from fail-closed JS list facades to the Rust
 `plan_model_mount_provider_inventory` planner. `listProviderModels()` and
 `listProviderLoaded()` now require Rust inventory hash/evidence/action/status
 envelopes, receive Rust-authored `model-provider-inventory` records, and commit
 only those records through Rust Agentgres model_mount record-state admission
-before inventory truth can return. `providerInventoryRecords()` now calls Rust
-read-projection kind `provider_inventory_records` with runtime `state_dir`; Rust
-replays persisted `model-provider-inventory/*.json` Agentgres records and
-filters public truth to Rust-authored fixture/native-local inventory records.
+before inventory truth can return. Hosted/nonlocal provider inventory uses the
+Rust `rust_model_mount_hosted_provider_inventory` metadata backend, records only
+canonical provider metadata/item refs, marks hosted transport as not executed,
+and still avoids JS driver/network execution. `providerInventoryRecords()` now
+calls Rust read-projection kind `provider_inventory_records` with runtime
+`state_dir`; Rust replays persisted `model-provider-inventory/*.json` Agentgres
+records and filters public truth to Rust-authored provider inventory records.
 Migrated provider inventory no longer uses JS driver execution, JS inventory
 receipts, local artifact/instance fallback reads, artifact or instance map
 mutation, or no-commit planner success.
@@ -8648,8 +8651,10 @@ and returns catalog provider status, storage status, last-search summary, and
 result rows with catalog-status evidence. JS `catalog_status_input`, provider
 port iteration, storage summarization, `lastCatalogSearch` readback, and status
 aggregation stay retired.
-Hosted/nonlocal provider inventory remains fail-closed before JS driver
-execution. Public `listInstances()` now calls Rust read-projection kind
+Hosted/nonlocal provider transport execution and dynamic hosted catalog
+materialization remain non-terminal, but the public hosted inventory facade no
+longer fails closed or returns through JS driver execution. Public
+`listInstances()` now calls Rust read-projection kind
 `instances` with runtime `state_dir`; Rust replays persisted
 `model-instances/*.json` Agentgres records, filters to Rust-authored
 instance-lifecycle records with lifecycle hashes and Agentgres registry

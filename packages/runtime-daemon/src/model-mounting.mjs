@@ -7,6 +7,7 @@ import {
   RUST_MODEL_MOUNT_CONVERSATION_STATE_BACKEND,
   RUST_MODEL_MOUNT_FIXTURE_INVENTORY_BACKEND,
   RUST_MODEL_MOUNT_FIXTURE_LIFECYCLE_BACKEND,
+  RUST_MODEL_MOUNT_HOSTED_PROVIDER_INVENTORY_BACKEND,
   RUST_MODEL_MOUNT_INSTANCE_LIFECYCLE_BACKEND,
   RUST_MODEL_MOUNT_NATIVE_LOCAL_INVENTORY_BACKEND,
   RUST_MODEL_MOUNT_NATIVE_LOCAL_LIFECYCLE_BACKEND,
@@ -3621,7 +3622,7 @@ function modelMountProviderInventoryRequest(provider, options = {}) {
     driver: provider?.driver ?? null,
     backend_ref: provider?.backend_ref ?? provider?.backend_id ?? provider?.backendId ?? null,
     provider_status: provider?.status ?? null,
-    item_refs: [],
+    item_refs: providerInventoryItemRefs(provider, action),
     evidence_refs: providerInventoryEvidenceRefs(provider, operation),
   };
 }
@@ -3641,7 +3642,40 @@ function providerInventoryExecutionBackend(provider = {}) {
   ) {
     return RUST_MODEL_MOUNT_FIXTURE_INVENTORY_BACKEND;
   }
+  if (hostedProviderInventoryMetadata(provider)) {
+    return RUST_MODEL_MOUNT_HOSTED_PROVIDER_INVENTORY_BACKEND;
+  }
   return null;
+}
+
+function hostedProviderInventoryMetadata(provider = {}) {
+  const providerKind = String(provider?.kind ?? "").trim();
+  const driver = String(provider?.driver ?? "").trim();
+  const apiFormat = String(provider?.api_format ?? provider?.apiFormat ?? "").trim();
+  return [
+    "openai",
+    "anthropic",
+    "gemini",
+    "custom_http",
+    "openai_compatible",
+    "ollama",
+    "vllm",
+    "llama_cpp",
+    "lm_studio",
+    "depin_tee",
+  ].includes(providerKind) ||
+    ["openai", "anthropic", "gemini", "custom", "openai_compatible", "ollama"].includes(apiFormat) ||
+    ["openai_compatible", "hosted_provider", "hosted_provider_metadata"].includes(driver);
+}
+
+function providerInventoryItemRefs(provider = {}, action = "list_models") {
+  const refs = action === "list_loaded"
+    ? provider?.loaded_item_refs
+    : provider?.item_refs;
+  if (!Array.isArray(refs)) return [];
+  return refs
+    .map((value) => (typeof value === "string" ? value.trim() : ""))
+    .filter(Boolean);
 }
 
 function providerInventoryEvidenceRefs(provider = {}, operation) {
