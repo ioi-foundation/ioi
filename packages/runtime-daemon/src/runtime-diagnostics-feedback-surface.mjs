@@ -121,6 +121,7 @@ export function createRuntimeDiagnosticsFeedbackSurface(deps = {}) {
       threadId,
       mode: injectionMode,
       diagnosticEvents,
+      stateDir: store?.stateDir ?? null,
       diagnosticsRepairPolicyProjector,
     });
   }

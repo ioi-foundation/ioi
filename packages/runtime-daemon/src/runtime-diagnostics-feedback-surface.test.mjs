@@ -24,11 +24,13 @@ function createSurface({
       threadId,
       mode,
       diagnosticEvents,
+      stateDir,
       diagnosticsRepairPolicyProjector: projector,
     }) {
       return {
         threadId,
         mode,
+        stateDir,
         diagnosticCount: diagnosticEvents.length,
         eventIds: diagnosticEvents.map((event) => event.event_id),
         rustPolicyProjectorMounted:
@@ -61,6 +63,7 @@ function createPlanner(planForRequest) {
 function createStore(events = []) {
   const calls = [];
   return {
+    stateDir: "/tmp/runtime-diagnostics-feedback-state",
     calls,
     codingToolInvocationSurface: {
       invokeThreadTool(surfaceStore, threadId, toolId, request) {
@@ -422,6 +425,7 @@ test("diagnostics feedback surface returns pending diagnostics after last inject
   });
 
   assert.equal(feedback.mode, "blocking");
+  assert.equal(feedback.stateDir, store.stateDir);
   assert.equal(feedback.diagnosticCount, 2);
   assert.equal(feedback.rustPolicyProjectorMounted, true);
   assert.deepEqual(feedback.eventIds, ["event_old", "event_diagnostics"]);

@@ -6,7 +6,6 @@ import {
 } from "./runtime-contract-constants.mjs";
 
 export function createDiagnosticsFeedbackHelpers({
-  diagnosticsRepairContextForPayload,
   doctorHash,
   eventStreamIdForThread,
   maxInjectedFindings,
@@ -79,27 +78,18 @@ export function createDiagnosticsFeedbackHelpers({
     threadId,
     mode,
     diagnosticEvents,
+    stateDir = null,
     diagnosticsRepairPolicyProjector = null,
   }) {
     const findings = [];
     const statuses = [];
     const diagnosticEventIds = [];
     const receiptRefs = [];
-    const rollbackRefs = [];
-    const diagnosticsRepairContexts = [];
     for (const event of diagnosticEvents) {
       const payload = event.payload_summary ?? event.payload ?? {};
       const result = payload.result ?? {};
-      const repairContext = diagnosticsRepairContextForPayload(payload);
       diagnosticEventIds.push(event.event_id);
       receiptRefs.push(...normalizeArray(event.receipt_refs));
-      rollbackRefs.push(...normalizeArray(event.rollback_refs));
-      if (repairContext) {
-        diagnosticsRepairContexts.push(repairContext);
-        rollbackRefs.push(...normalizeArray(repairContext.rollback_refs));
-        const contextSnapshotId = optionalString(repairContext.workspace_snapshot_id);
-        if (contextSnapshotId) rollbackRefs.push(contextSnapshotId);
-      }
       statuses.push(result.diagnostic_status ?? payload.result_summary?.diagnostic_status ?? "clean");
       for (const diagnostic of normalizeArray(result.diagnostics)) {
         findings.push(compactDiagnosticFinding(diagnostic, event));
@@ -116,38 +106,30 @@ export function createDiagnosticsFeedbackHelpers({
       diagnosticStatus === "findings"
         ? `Injected ${visibleFindings.length}${omittedCount ? ` of ${findings.length}` : ""} post-edit diagnostic finding(s).`
         : `Injected post-edit diagnostics status: ${diagnosticStatus}.`;
-    const injectionId = `lsp_diagnostics_injection_${doctorHash(
-      `${threadId}:${diagnosticEventIds.join(",")}:${mode}`,
-    ).slice(0, 16)}`;
-    const uniqueRollbackRefs = uniqueStrings(rollbackRefs);
-    const workspaceSnapshotRefs = uniqueStrings([
-      ...uniqueRollbackRefs,
-      ...diagnosticsRepairContexts.map((context) =>
-        optionalString(context.workspace_snapshot_id),
-      ),
-    ]);
-    const sourceToolCallIds = uniqueStrings(
-      diagnosticsRepairContexts.map((context) =>
-        optionalString(context.source_tool_call_id),
-      ),
-    );
     const policyProjection = projectDiagnosticsRepairPolicy({
       diagnosticsRepairPolicyProjector,
       request: {
         thread_id: threadId,
-        injection_id: injectionId,
         mode,
-        diagnostic_status: diagnosticStatus,
-        diagnostic_count: findings.length,
-        workspace_snapshot_refs: workspaceSnapshotRefs,
-        rollback_refs: uniqueRollbackRefs,
-        source_tool_call_ids: sourceToolCallIds,
-        diagnostics_repair_contexts: diagnosticsRepairContexts,
-        receipt_refs: uniqueStrings(receiptRefs),
+        state_dir: stateDir,
+        diagnostic_event_ids: diagnosticEventIds,
       },
     });
     const repairPolicyConfig = policyProjection.repair_policy_config;
     const repairPolicy = policyProjection.repair_policy;
+    const projectedInjectionId = optionalString(policyProjection.injection_id);
+    const projectedDiagnosticStatus = optionalString(policyProjection.diagnostic_status);
+    const projectedDiagnosticCount = Number(policyProjection.diagnostic_count);
+    const projectedRollbackRefs = uniqueStrings(normalizeArray(policyProjection.rollback_refs));
+    const projectedWorkspaceSnapshotRefs = uniqueStrings(
+      normalizeArray(policyProjection.workspace_snapshot_refs),
+    );
+    const projectedSourceToolCallIds = uniqueStrings(
+      normalizeArray(policyProjection.source_tool_call_ids),
+    );
+    const projectedRepairContexts = normalizeArray(
+      policyProjection.diagnostics_repair_contexts,
+    );
     const projectedReceiptRefs = uniqueStrings([
       ...receiptRefs,
       ...normalizeArray(policyProjection.receipt_refs),
@@ -155,20 +137,20 @@ export function createDiagnosticsFeedbackHelpers({
     return {
       schema_version: LSP_DIAGNOSTICS_INJECTION_SCHEMA_VERSION,
       object: "ioi.runtime_lsp_diagnostics_injection",
-      injection_id: injectionId,
+      injection_id: projectedInjectionId,
       thread_id: threadId,
       mode,
       blocking: mode === "blocking",
-      diagnostic_status: diagnosticStatus,
-      diagnostic_count: findings.length,
+      diagnostic_status: projectedDiagnosticStatus,
+      diagnostic_count: projectedDiagnosticCount,
       injected_finding_count: visibleFindings.length,
       omitted_finding_count: omittedCount,
       findings: visibleFindings,
       diagnostic_event_ids: diagnosticEventIds,
-      rollback_refs: uniqueRollbackRefs,
-      workspace_snapshot_refs: workspaceSnapshotRefs,
-      source_tool_call_ids: sourceToolCallIds,
-      diagnostics_repair_contexts: diagnosticsRepairContexts,
+      rollback_refs: projectedRollbackRefs,
+      workspace_snapshot_refs: projectedWorkspaceSnapshotRefs,
+      source_tool_call_ids: projectedSourceToolCallIds,
+      diagnostics_repair_contexts: projectedRepairContexts,
       repair_policy_config: repairPolicyConfig,
       repair_policy: repairPolicy,
       receipt_refs: projectedReceiptRefs,
@@ -361,15 +343,34 @@ export function createDiagnosticsFeedbackHelpers({
         ],
       });
     }
+    if (!optionalString(request?.state_dir)) {
+      throwDiagnosticsRepairPolicyProjectionRequired({
+        operation: "runtime_diagnostics_repair_policy_projection",
+        operation_kind: "runtime.diagnostics_repair_policy.projection",
+        thread_id: request?.thread_id ?? null,
+        evidence_refs: [
+          "runtime_diagnostics_repair_policy_projection_rust_owned",
+          "rust_daemon_core_diagnostics_repair_policy_replay_required",
+        ],
+      });
+    }
     const projected = diagnosticsRepairPolicyProjector.projectRuntimeDiagnosticsRepairPolicy(request);
     const repairPolicy = objectRecord(projected?.repair_policy ?? projected?.policy);
     const repairPolicyConfig = objectRecord(projected?.repair_policy_config);
+    const injectionId = optionalString(projected?.injection_id ?? repairPolicy?.injection_id);
+    const diagnosticStatus = optionalString(
+      projected?.diagnostic_status ?? repairPolicy?.diagnostic_status,
+    );
+    const diagnosticCount = Number(projected?.diagnostic_count ?? repairPolicy?.diagnostic_count);
     if (
       !repairPolicy ||
       repairPolicy.object !== "ioi.runtime_diagnostics_rollback_repair_policy" ||
       !Array.isArray(repairPolicy.decisions) ||
       !Array.isArray(repairPolicy.decision_refs) ||
-      !repairPolicyConfig
+      !repairPolicyConfig ||
+      !injectionId ||
+      !diagnosticStatus ||
+      !Number.isFinite(diagnosticCount)
     ) {
       throwDiagnosticsRepairPolicyProjectionRequired({
         operation: "runtime_diagnostics_repair_policy_projection",
@@ -385,6 +386,20 @@ export function createDiagnosticsFeedbackHelpers({
     return {
       repair_policy: repairPolicy,
       repair_policy_config: repairPolicyConfig,
+      injection_id: injectionId,
+      diagnostic_status: diagnosticStatus,
+      diagnostic_count: diagnosticCount,
+      diagnostic_event_ids: uniqueStrings(
+        normalizeArray(projected?.diagnostic_event_ids ?? repairPolicy.diagnostic_event_ids),
+      ),
+      rollback_refs: uniqueStrings(normalizeArray(projected?.rollback_refs ?? repairPolicy.rollback_refs)),
+      workspace_snapshot_refs: uniqueStrings(
+        normalizeArray(projected?.workspace_snapshot_refs ?? repairPolicy.workspace_snapshot_refs),
+      ),
+      source_tool_call_ids: uniqueStrings(
+        normalizeArray(projected?.source_tool_call_ids ?? repairPolicy.source_tool_call_ids),
+      ),
+      diagnostics_repair_contexts: normalizeArray(projected?.diagnostics_repair_contexts),
       receipt_refs: uniqueStrings(normalizeArray(projected?.receipt_refs)),
       evidence_refs: uniqueStrings(normalizeArray(projected?.evidence_refs)),
       projection_hash: optionalString(projected?.projection_hash) ?? null,

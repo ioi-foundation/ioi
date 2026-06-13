@@ -513,7 +513,6 @@ const {
   insertRuntimeBridgeDiagnosticsInjectionEvent,
   promptWithDiagnosticsFeedback,
 } = createDiagnosticsFeedbackHelpers({
-  diagnosticsRepairContextForPayload,
   doctorHash,
   eventStreamIdForThread,
   maxInjectedFindings: LSP_DIAGNOSTICS_MAX_INJECTED_FINDINGS,

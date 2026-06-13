@@ -2150,7 +2150,7 @@ function runDocs() {
       /JS-authored StepModule context, JS-authored result payload summary\/source-event kind\/result-event candidate/.test(
         matrix,
       ) &&
-      /Move remaining diagnostics repair policy\/approval authority and broader diagnostics orchestration\/replay into the Rust-owned execution spine/.test(
+      /Move remaining diagnostics repair approval authority and broader orchestration into the Rust-owned execution spine/.test(
         matrix,
       ) &&
       /Public workspace snapshot\/restore API Rust-owned/.test(matrix) &&
@@ -34302,10 +34302,35 @@ function runCompositor() {
       /ioi\.runtime_diagnostics_rollback_repair_policy/.test(
         runtimeDiagnosticsRepairPolicyCore,
       ) &&
-      /rust_projects_runtime_diagnostics_repair_policy/.test(
+      /pub state_dir: Option<String>/.test(runtimeDiagnosticsRepairPolicyCore) &&
+      /pub diagnostic_event_ids: Vec<String>/.test(
+        runtimeDiagnosticsRepairPolicyCore,
+      ) &&
+      /replay_diagnostics_repair_policy_inputs/.test(
+        runtimeDiagnosticsRepairPolicyCore,
+      ) &&
+      /runtime_diagnostics_repair_policy_candidate_transport_retired/.test(
+        runtimeDiagnosticsRepairPolicyCore,
+      ) &&
+      /runtime_diagnostics_repair_policy_state_dir_required/.test(
+        runtimeDiagnosticsRepairPolicyCore,
+      ) &&
+      /runtime_diagnostics_repair_policy_diagnostic_event_ids_required/.test(
+        runtimeDiagnosticsRepairPolicyCore,
+      ) &&
+      /rust_replays_runtime_diagnostics_repair_policy_from_state_dir/.test(
         runtimeDiagnosticsRepairPolicyCore,
       ) &&
       /rust_shapes_runtime_diagnostics_repair_policy_command_response/.test(
+        runtimeDiagnosticsRepairPolicyCore,
+      ) &&
+      /rust_rejects_runtime_diagnostics_repair_policy_candidate_transport/.test(
+        runtimeDiagnosticsRepairPolicyCore,
+      ) &&
+      /rust_rejects_runtime_diagnostics_repair_policy_without_state_dir/.test(
+        runtimeDiagnosticsRepairPolicyCore,
+      ) &&
+      /rust_rejects_runtime_diagnostics_repair_policy_without_event_ids/.test(
         runtimeDiagnosticsRepairPolicyCore,
       ) &&
       /rust_rejects_runtime_diagnostics_repair_policy_without_thread_id/.test(
@@ -34331,12 +34356,39 @@ function runCompositor() {
       /runtime diagnostics repair policy runner sends Rust daemon-core request/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
+      /captured\.request\.state_dir,\s*"\/runtime-state"/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /captured\.request\.diagnostic_event_ids,\s*\["event_diagnostics_alpha"\]/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /Object\.hasOwn\(captured\.request,\s*field\),\s*false/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
       /diagnosticsRepairPolicyProjector:\s*this\.contextPolicyRunner/.test(
         runtimeDaemonIndex,
       ) &&
       /projectDiagnosticsRepairPolicy/.test(diagnosticsFeedback) &&
       /projectRuntimeDiagnosticsRepairPolicy/.test(diagnosticsFeedback) &&
+      /state_dir:\s*stateDir/.test(diagnosticsFeedback) &&
+      /diagnostic_event_ids:\s*diagnosticEventIds/.test(diagnosticsFeedback) &&
+      !/diagnostic_status:\s*diagnosticStatus,\s*\n\s*diagnostic_count:\s*findings\.length/.test(
+        diagnosticsFeedback,
+      ) &&
+      !/workspace_snapshot_refs:\s*workspaceSnapshotRefs,\s*\n\s*rollback_refs:\s*uniqueRollbackRefs/.test(
+        diagnosticsFeedback,
+      ) &&
+      !/rollback_refs:\s*uniqueRollbackRefs/.test(diagnosticsFeedback) &&
+      !/source_tool_call_ids:\s*sourceToolCallIds,\s*\n\s*diagnostics_repair_contexts:\s*diagnosticsRepairContexts/.test(
+        diagnosticsFeedback,
+      ) &&
+      !/diagnostics_repair_contexts:\s*diagnosticsRepairContexts/.test(
+        diagnosticsFeedback,
+      ) &&
       /runtime_diagnostics_repair_policy_projection_required/.test(
+        diagnosticsFeedback,
+      ) &&
+      /rust_daemon_core_diagnostics_repair_policy_replay_required/.test(
         diagnosticsFeedback,
       ) &&
       /diagnostics repair policy projection requires Rust daemon-core ownership/i.test(
@@ -34344,6 +34396,20 @@ function runCompositor() {
       ) &&
       /compact diagnostics feedback fails closed without Rust repair policy projection/.test(
         diagnosticsFeedbackTest,
+      ) &&
+      /stateDir:\s*"\/tmp\/runtime-diagnostics-state"/.test(
+        diagnosticsFeedbackTest,
+      ) &&
+      /state_dir:\s*"\/tmp\/runtime-diagnostics-state"/.test(
+        diagnosticsFeedbackTest,
+      ) &&
+      /diagnostic_event_ids:\s*\["event-one"\]/.test(diagnosticsFeedbackTest) &&
+      /must not be sent as JS policy truth/.test(diagnosticsFeedbackTest) &&
+      /stateDir:\s*store\?\.stateDir \?\? null/.test(
+        runtimeDiagnosticsFeedbackSurface,
+      ) &&
+      /feedback\.stateDir,\s*store\.stateDir/.test(
+        runtimeDiagnosticsFeedbackSurfaceTest,
       ) &&
       /diagnostics rollback repair policy authoring is retired from JS helpers/.test(
         diagnosticsRepairPolicyTest,
@@ -34365,7 +34431,7 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-diagnostics-feedback-surface.mjs",
       "packages/runtime-daemon/src/runtime-diagnostics-feedback-surface.test.mjs",
     ],
-    "Diagnostics rollback repair policy output must be projected by Rust daemon-core; JS may forward canonical diagnostics facts but must not author policy truth",
+    "Diagnostics rollback repair policy output must be projected by Rust daemon-core replay; JS may forward state_dir and diagnostic event ids but must not author policy truth",
   );
 	  assertCheck(
 	    result,
@@ -34539,10 +34605,14 @@ function runCompositor() {
     /schema_version:\s*LSP_DIAGNOSTICS_INJECTION_SCHEMA_VERSION/.test(
       compactDiagnosticsFeedbackBody,
     ) &&
-      /injection_id:\s*injectionId/.test(compactDiagnosticsFeedbackBody) &&
+      /injection_id:\s*projectedInjectionId/.test(compactDiagnosticsFeedbackBody) &&
       /thread_id:\s*threadId/.test(compactDiagnosticsFeedbackBody) &&
-      /diagnostic_status:\s*diagnosticStatus/.test(compactDiagnosticsFeedbackBody) &&
-      /diagnostic_count:\s*findings\.length/.test(compactDiagnosticsFeedbackBody) &&
+      /diagnostic_status:\s*projectedDiagnosticStatus/.test(
+        compactDiagnosticsFeedbackBody,
+      ) &&
+      /diagnostic_count:\s*projectedDiagnosticCount/.test(
+        compactDiagnosticsFeedbackBody,
+      ) &&
       /statuses\.push\(result\.diagnostic_status \?\? payload\.result_summary\?\.diagnostic_status \?\? "clean"\)/.test(
         compactDiagnosticsFeedbackBody,
       ) &&
@@ -34559,16 +34629,35 @@ function runCompositor() {
       /policy_projection_hash:\s*policyProjection\.projection_hash/.test(
         compactDiagnosticsFeedbackBody,
       ) &&
-      /rollbackRefs\.push\(\.\.\.normalizeArray\(repairContext\.rollback_refs\)\)/.test(
+      /const projectedRollbackRefs = uniqueStrings\(normalizeArray\(policyProjection\.rollback_refs\)\)/.test(
         compactDiagnosticsFeedbackBody,
       ) &&
-      /optionalString\(repairContext\.workspace_snapshot_id\)/.test(
+      /const projectedWorkspaceSnapshotRefs = uniqueStrings/.test(
         compactDiagnosticsFeedbackBody,
       ) &&
-      /optionalString\(context\.workspace_snapshot_id\)/.test(
+      /normalizeArray\(policyProjection\.workspace_snapshot_refs\)/.test(
         compactDiagnosticsFeedbackBody,
       ) &&
-      /optionalString\(context\.source_tool_call_id\)/.test(
+      /const projectedSourceToolCallIds = uniqueStrings/.test(
+        compactDiagnosticsFeedbackBody,
+      ) &&
+      /normalizeArray\(policyProjection\.source_tool_call_ids\)/.test(
+        compactDiagnosticsFeedbackBody,
+      ) &&
+      /const projectedRepairContexts = normalizeArray/.test(
+        compactDiagnosticsFeedbackBody,
+      ) &&
+      /policyProjection\.diagnostics_repair_contexts/.test(
+        compactDiagnosticsFeedbackBody,
+      ) &&
+      /rollback_refs:\s*projectedRollbackRefs/.test(compactDiagnosticsFeedbackBody) &&
+      /workspace_snapshot_refs:\s*projectedWorkspaceSnapshotRefs/.test(
+        compactDiagnosticsFeedbackBody,
+      ) &&
+      /source_tool_call_ids:\s*projectedSourceToolCallIds/.test(
+        compactDiagnosticsFeedbackBody,
+      ) &&
+      /diagnostics_repair_contexts:\s*projectedRepairContexts/.test(
         compactDiagnosticsFeedbackBody,
       ) &&
       !/\b(?:repairContext|context)\.(?:rollbackRefs|workspaceSnapshotId|sourceToolCallId)\b/.test(

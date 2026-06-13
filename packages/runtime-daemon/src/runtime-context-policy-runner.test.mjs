@@ -1155,22 +1155,11 @@ test("runtime diagnostics repair policy runner sends Rust daemon-core request", 
     },
   });
 
-  const diagnosticsRepairContexts = [{
-    restore_policy: "preview",
-    restore_conflict_policy: "approval",
-    default_repair_decision: "restore_preview",
-    operator_override_requires_approval: false,
-  }];
   const result = runner.projectRuntimeDiagnosticsRepairPolicy({
     thread_id: "thread_alpha",
-    injection_id: "injection_alpha",
     mode: "blocking",
-    diagnostic_status: "findings",
-    diagnostic_count: 2,
-    workspace_snapshot_refs: ["snapshot_alpha"],
-    rollback_refs: ["rollback_alpha"],
-    source_tool_call_ids: ["tool_call_alpha"],
-    diagnostics_repair_contexts: diagnosticsRepairContexts,
+    state_dir: "/runtime-state",
+    diagnostic_event_ids: ["event_diagnostics_alpha"],
   });
 
   assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
@@ -1181,8 +1170,20 @@ test("runtime diagnostics repair policy runner sends Rust daemon-core request", 
     RUNTIME_DIAGNOSTICS_REPAIR_POLICY_REQUEST_SCHEMA_VERSION,
   );
   assert.equal(captured.request.thread_id, "thread_alpha");
-  assert.equal(captured.request.injection_id, "injection_alpha");
-  assert.deepEqual(captured.request.diagnostics_repair_contexts, diagnosticsRepairContexts);
+  assert.equal(captured.request.state_dir, "/runtime-state");
+  assert.deepEqual(captured.request.diagnostic_event_ids, ["event_diagnostics_alpha"]);
+  for (const field of [
+    "injection_id",
+    "diagnostic_status",
+    "diagnostic_count",
+    "workspace_snapshot_refs",
+    "rollback_refs",
+    "source_tool_call_ids",
+    "diagnostics_repair_contexts",
+    "receipt_refs",
+  ]) {
+    assert.equal(Object.hasOwn(captured.request, field), false, `${field} must not be sent`);
+  }
   assert.equal(result.source, "rust_runtime_diagnostics_repair_policy_command");
   assert.equal(result.operation_kind, "runtime.diagnostics_repair_policy.projection");
   assert.equal(result.repair_policy.policy_id, "policy_alpha");

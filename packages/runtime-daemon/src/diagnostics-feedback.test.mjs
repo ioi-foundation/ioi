@@ -37,7 +37,6 @@ function helpers() {
   });
 
   return createDiagnosticsFeedbackHelpers({
-    diagnosticsRepairContextForPayload: policy.diagnosticsRepairContextForPayload,
     doctorHash,
     eventStreamIdForThread: (threadId) => `events_${threadId}`,
     maxInjectedFindings: 2,
@@ -54,14 +53,33 @@ function diagnosticsRepairPolicyProjector(overrides = {}) {
   return {
     calls,
     projectRuntimeDiagnosticsRepairPolicy(request) {
+      for (const field of [
+        "injection_id",
+        "diagnostic_status",
+        "diagnostic_count",
+        "workspace_snapshot_refs",
+        "rollback_refs",
+        "source_tool_call_ids",
+        "diagnostics_repair_contexts",
+        "receipt_refs",
+      ]) {
+        assert.equal(Object.hasOwn(request, field), false, `${field} must not be sent as JS policy truth`);
+      }
       calls.push(request);
-      const policyId = `policy_${request.injection_id}`;
+      const injectionId = overrides.injection_id ?? `lsp_diagnostics_injection_${request.diagnostic_event_ids.join("_")}`;
+      const policyId = `policy_${injectionId}`;
       const defaultDecision = overrides.default_decision ?? "restore_preview";
+      const diagnosticStatus = overrides.diagnostic_status ?? "findings";
+      const diagnosticCount = overrides.diagnostic_count ?? 1;
+      const rollbackRefs = overrides.rollback_refs ?? [];
+      const workspaceSnapshotRefs = overrides.workspace_snapshot_refs ?? rollbackRefs;
+      const sourceToolCallIds = overrides.source_tool_call_ids ?? [];
+      const diagnosticsRepairContexts = overrides.diagnostics_repair_contexts ?? [];
       return {
         source: "rust_runtime_diagnostics_repair_policy_command",
         operation_kind: "runtime.diagnostics_repair_policy.projection",
         thread_id: request.thread_id,
-        injection_id: request.injection_id,
+        injection_id: injectionId,
         repair_policy_config: {
           restore_policy: "preview_only",
           restore_conflict_policy: "require_approval",
@@ -73,13 +91,13 @@ function diagnosticsRepairPolicyProjector(overrides = {}) {
           object: "ioi.runtime_diagnostics_rollback_repair_policy",
           policy_id: policyId,
           thread_id: request.thread_id,
-          injection_id: request.injection_id,
+          injection_id: injectionId,
           mode: request.mode,
-          diagnostic_status: request.diagnostic_status,
-          diagnostic_count: request.diagnostic_count,
-          rollback_refs: request.rollback_refs,
-          workspace_snapshot_refs: request.workspace_snapshot_refs,
-          source_tool_call_ids: request.source_tool_call_ids,
+          diagnostic_status: diagnosticStatus,
+          diagnostic_count: diagnosticCount,
+          rollback_refs: rollbackRefs,
+          workspace_snapshot_refs: workspaceSnapshotRefs,
+          source_tool_call_ids: sourceToolCallIds,
           restore_policy: "preview_only",
           restore_conflict_policy: "require_approval",
           diagnostics_repair_default: defaultDecision,
@@ -97,8 +115,8 @@ function diagnosticsRepairPolicyProjector(overrides = {}) {
               action: "restore_preview",
               status: "available",
               requires_approval: false,
-              rollback_refs: request.rollback_refs,
-              workspace_snapshot_refs: request.workspace_snapshot_refs,
+              rollback_refs: rollbackRefs,
+              workspace_snapshot_refs: workspaceSnapshotRefs,
             },
           ],
           decision_refs: [
@@ -106,11 +124,20 @@ function diagnosticsRepairPolicyProjector(overrides = {}) {
             `${policyId}_decision_restore_preview`,
           ],
         },
+        diagnostic_status: diagnosticStatus,
+        diagnostic_count: diagnosticCount,
+        diagnostic_event_ids: request.diagnostic_event_ids,
+        rollback_refs: rollbackRefs,
+        workspace_snapshot_refs: workspaceSnapshotRefs,
+        source_tool_call_ids: sourceToolCallIds,
+        diagnostics_repair_contexts: diagnosticsRepairContexts,
         receipt_refs: [
-          ...uniqueStrings(request.receipt_refs),
           "receipt_runtime_diagnostics_repair_policy_projection",
         ],
-        evidence_refs: ["runtime_diagnostics_repair_policy_projection_rust_owned"],
+        evidence_refs: [
+          "runtime_diagnostics_repair_policy_projection_rust_owned",
+          "rust_daemon_core_diagnostics_repair_policy_replay_required",
+        ],
         projection_hash: "sha256:policy_projection",
       };
     },
@@ -147,10 +174,27 @@ test("compact diagnostics feedback fails closed without Rust repair policy proje
 
 test("compact diagnostics feedback emits canonical envelope and bounded prompt context", () => {
   const runtime = helpers();
-  const policyProjector = diagnosticsRepairPolicyProjector();
+  const projectedContext = {
+    source_tool_call_id: "tool-call-one",
+    workspace_snapshot_id: "snapshot-one",
+    rollback_refs: ["rollback-context-one", "snapshot-one"],
+    restore_policy: "preview_only",
+    restore_conflict_policy: "require_approval",
+    diagnostics_repair_default: "restore_preview",
+    operator_override_requires_approval: true,
+  };
+  const policyProjector = diagnosticsRepairPolicyProjector({
+    diagnostic_status: "findings",
+    diagnostic_count: 3,
+    rollback_refs: ["rollback-one", "rollback-context-one", "snapshot-one"],
+    workspace_snapshot_refs: ["rollback-one", "rollback-context-one", "snapshot-one"],
+    source_tool_call_ids: ["tool-call-one"],
+    diagnostics_repair_contexts: [projectedContext],
+  });
   const feedback = runtime.compactDiagnosticsFeedback({
     threadId: "thread-one",
     mode: "blocking",
+    stateDir: "/tmp/runtime-diagnostics-state",
     diagnosticEvents: [
       {
         event_id: "event-one",
@@ -209,7 +253,13 @@ test("compact diagnostics feedback emits canonical envelope and bounded prompt c
   assert.equal(feedback.repair_policy.restore_policy, "preview_only");
   assert.equal(feedback.repair_policy.diagnostics_repair_default, "restore_preview");
   assert.equal(feedback.policy_projection_hash, "sha256:policy_projection");
-  assert.deepEqual(policyProjector.calls[0].diagnostics_repair_contexts, feedback.diagnostics_repair_contexts);
+  assert.deepEqual(feedback.diagnostics_repair_contexts, [projectedContext]);
+  assert.deepEqual(policyProjector.calls, [{
+    thread_id: "thread-one",
+    mode: "blocking",
+    state_dir: "/tmp/runtime-diagnostics-state",
+    diagnostic_event_ids: ["event-one"],
+  }]);
   assert.equal(feedback.receipt_id, null);
   for (const field of [
     "schemaVersion",
@@ -239,6 +289,7 @@ test("compact diagnostics feedback ignores retired diagnostic result aliases", (
   const feedback = runtime.compactDiagnosticsFeedback({
     threadId: "thread-one",
     mode: "blocking",
+    stateDir: "/tmp/runtime-diagnostics-state",
     diagnosticEvents: [
       {
         event_id: "event-one",
@@ -253,7 +304,10 @@ test("compact diagnostics feedback ignores retired diagnostic result aliases", (
         },
       },
     ],
-    diagnosticsRepairPolicyProjector: diagnosticsRepairPolicyProjector(),
+    diagnosticsRepairPolicyProjector: diagnosticsRepairPolicyProjector({
+      diagnostic_status: "clean",
+      diagnostic_count: 1,
+    }),
   });
 
   assert.equal(feedback.diagnostic_status, "clean");
@@ -267,6 +321,7 @@ test("blocking gate and request feedback keep advisory repair actions without JS
   const diagnosticsFeedback = runtime.compactDiagnosticsFeedback({
     threadId: "thread-one",
     mode: "blocking",
+    stateDir: "/tmp/runtime-diagnostics-state",
     diagnosticEvents: [
       {
         event_id: "event-one",
@@ -282,7 +337,12 @@ test("blocking gate and request feedback keep advisory repair actions without JS
         },
       },
     ],
-    diagnosticsRepairPolicyProjector: diagnosticsRepairPolicyProjector(),
+    diagnosticsRepairPolicyProjector: diagnosticsRepairPolicyProjector({
+      diagnostic_status: "findings",
+      diagnostic_count: 1,
+      rollback_refs: ["snapshot-one"],
+      workspace_snapshot_refs: ["snapshot-one"],
+    }),
   });
 
   const gate = runtime.diagnosticsBlockingGateForFeedback(diagnosticsFeedback);
@@ -397,6 +457,7 @@ test("diagnostics feedback does not synthesize JS receipt or policy refs", () =>
   const feedback = runtime.compactDiagnosticsFeedback({
     threadId: "thread-one",
     mode: "blocking",
+    stateDir: "/tmp/runtime-diagnostics-state",
     diagnosticEvents: [
       {
         event_id: "event-one",
@@ -409,7 +470,10 @@ test("diagnostics feedback does not synthesize JS receipt or policy refs", () =>
         },
       },
     ],
-    diagnosticsRepairPolicyProjector: diagnosticsRepairPolicyProjector(),
+    diagnosticsRepairPolicyProjector: diagnosticsRepairPolicyProjector({
+      diagnostic_status: "findings",
+      diagnostic_count: 1,
+    }),
   });
   const gate = runtime.diagnosticsBlockingGateForFeedback(feedback);
 

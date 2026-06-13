@@ -7479,26 +7479,32 @@ protocol/context scaffolding only.
 
 The diagnostics repair policy-projection cut supersedes the earlier
 snake_case-only JS policy scaffolding. `project_runtime_diagnostics_repair_policy`
-is now a Rust daemon-core operation that receives canonical diagnostic event
-facts plus repair contexts and returns the rollback repair policy/config,
-decision refs, projection receipt refs, evidence refs, and projection hash.
-Pending diagnostics feedback calls that Rust projector before returning a
-blocking feedback envelope, and blocking-gate creation fails closed when the
-Rust policy projection is absent or malformed.
+is now a Rust daemon-core operation that receives runtime `state_dir` plus
+diagnostic event ids, replays admitted Agentgres runtime events to derive
+diagnostic status/count, rollback refs, snapshot refs, source tool-call refs,
+repair contexts, and deterministic injection id, then returns the rollback
+repair policy/config, decision refs, projection receipt refs, evidence refs, and
+projection hash. Pending diagnostics feedback calls that Rust projector before
+returning a blocking feedback envelope, and blocking-gate creation fails closed
+when the Rust policy projection is absent or malformed.
 
 The JS `diagnosticsRollbackRepairPolicy`, default-decision helper, and
-context-policy aggregation facade are retired. `diagnostics-feedback.mjs` still
-collects temporary diagnostic events, findings, rollback refs, source tool-call
-ids, and repair-context facts, but it no longer authors rollback repair policy
-truth. `runtime-diagnostics-feedback-surface.mjs` mounts the context-policy
-runner as the diagnostics repair policy projector and refuses pending feedback
-policy projection without that Rust boundary.
+context-policy aggregation facade are retired. The follow-on replay cut also
+retires JS policy-input candidate transport for `diagnostic_status`,
+`diagnostic_count`, `workspace_snapshot_refs`, `rollback_refs`,
+`source_tool_call_ids`, `diagnostics_repair_contexts`, and `receipt_refs`.
+`diagnostics-feedback.mjs` still selects diagnostic event ids and compacts prompt
+text from the event stream, but it no longer supplies rollback repair policy
+inputs or authors rollback repair policy truth. The diagnostics feedback
+surface mounts the context-policy runner as the diagnostics repair policy
+projector and refuses pending feedback policy projection without that Rust
+boundary.
 
-This remains non-terminal because wallet-governed override authority, durable
-Agentgres-backed diagnostics repair projection/replay, expected-head/state-root
-binding, receipt/policy binding, command-transport retirement, and stable
-IDE/CLI/SDK protocol APIs are still pending beyond the Rust policy projection
-API. The target is no JS repair policy object authoring as accepted truth, not
+This remains non-terminal because wallet-governed override authority, broader
+diagnostics orchestration, expected-head/state-root binding, receipt/policy
+binding, command-transport retirement, and stable IDE/CLI/SDK protocol APIs are
+still pending beyond the Rust policy replay projection API. The target is no JS
+repair policy object or policy-input authoring as accepted truth, not
 preservation of JS diagnostics feedback helpers as a compatibility layer.
 
 Slice 1166 retires JS-side artifact-read receipt synthesis from the temporary
@@ -8466,10 +8472,12 @@ execution now uses Rust state-update planning plus Rust Agentgres run-state
 admission; diagnostics repair retry-turn creation/direct retry-event append now
 use Rust run-create composition plus Rust diagnostics repair event
 planning/admission, and direct operator-override event append now uses Rust
-diagnostics repair event planning/admission. The remaining diagnostics repair
-blockers are wallet-governed repair policy authority, durable projection/replay,
-receipt/state-root binding, command-transport retirement, and stable protocol
-APIs.
+diagnostics repair event planning/admission. Diagnostics repair policy
+projection now replays admitted Agentgres runtime events from runtime `state_dir`
+instead of accepting JS policy-input candidates. The remaining diagnostics
+repair blockers are wallet-governed repair/override authority, broader
+orchestration, receipt/state-root binding, command-transport retirement, and
+stable protocol APIs.
 Run-level coding-tool budget recovery retry completion has moved from the
 fail-closed JS control facade to Rust `plan_coding_tool_budget_recovery_state_update`
 plus Agentgres-backed run-state commit. The public route now accepts the
