@@ -1,5 +1,6 @@
 import {
   contextBudgetUsageTelemetryFromRequest,
+  evaluateCompactionPolicyDecision,
   evaluateContextBudgetPolicy,
 } from "./threads/context-budget-policy.mjs";
 import { eventStreamIdForThread } from "./runtime-identifiers.mjs";
@@ -23,9 +24,34 @@ const CONTEXT_COMPACTION_REQUIRED_EVIDENCE_REFS = [
   "agentgres_context_compaction_state_truth_required",
 ];
 
+const CONTEXT_BUDGET_EVIDENCE_REFS = [
+  "context_budget_evaluation_rust_owned",
+  "rust_daemon_core_context_budget_event",
+  "agentgres_context_budget_event_truth_required",
+];
+
+const CONTEXT_BUDGET_REQUIRED_EVIDENCE_REFS = [
+  "context_budget_evaluation_js_event_facade_retired",
+  "rust_daemon_core_context_budget_event_required",
+  "agentgres_context_budget_event_truth_required",
+];
+
+const COMPACTION_POLICY_EVIDENCE_REFS = [
+  "compaction_policy_evaluation_rust_owned",
+  "rust_daemon_core_compaction_policy_event",
+  "agentgres_compaction_policy_event_truth_required",
+];
+
+const COMPACTION_POLICY_REQUIRED_EVIDENCE_REFS = [
+  "compaction_policy_evaluation_js_event_facade_retired",
+  "rust_daemon_core_compaction_policy_event_required",
+  "agentgres_compaction_policy_event_truth_required",
+];
+
 export function createRuntimeContextPolicySurface({
   contextBudgetUsageTelemetryFromRequest: contextBudgetUsageTelemetryFromRequestDep = contextBudgetUsageTelemetryFromRequest,
   contextPolicyRunner = null,
+  evaluateCompactionPolicyDecision: evaluateCompactionPolicyDecisionDep = evaluateCompactionPolicyDecision,
   evaluateContextBudgetPolicy: evaluateContextBudgetPolicyDep = evaluateContextBudgetPolicy,
   eventStreamIdForThread: eventStreamIdForThreadDep = eventStreamIdForThread,
   optionalString: optionalStringDep = optionalString,
@@ -290,31 +316,72 @@ export function createRuntimeContextPolicySurface({
     },
 
     evaluateContextBudget(store, { threadId = null, runId = null, request = {} } = {}) {
-      const requestedRunId = optionalStringDep(request.run_id) ?? runId;
-      const requestedThreadId = optionalStringDep(request.thread_id) ?? threadId;
+      const canonicalRequest = canonicalContextPolicyRequest(request);
+      const requestedRunId = optionalStringDep(canonicalRequest.run_id) ?? runId;
+      const requestedThreadId = optionalStringDep(canonicalRequest.thread_id) ?? threadId;
       if (requestedThreadId || requestedRunId) {
-        throwContextPolicyRustCoreRequired("context_budget_evaluation", "context_budget.evaluate", {
-          thread_id: requestedThreadId,
-          run_id: requestedRunId,
-          evidence_refs: [
-            "context_budget_evaluation_js_event_facade_retired",
-            "rust_daemon_core_context_budget_event_required",
-            "agentgres_context_budget_event_truth_required",
-          ],
+        const runner = store?.contextPolicyRunner ?? contextPolicyRunner;
+        if (
+          typeof runner?.evaluateContextBudgetPolicy !== "function" ||
+          typeof store?.appendRuntimeEvent !== "function"
+        ) {
+          throwContextPolicyRustCoreRequired("context_budget_evaluation", "context_budget.evaluate", {
+            thread_id: requestedThreadId,
+            run_id: requestedRunId,
+            evidence_refs: CONTEXT_BUDGET_REQUIRED_EVIDENCE_REFS,
+          });
+        }
+
+        const usageTelemetry =
+          contextBudgetUsageTelemetryFromRequestDep(canonicalRequest) ??
+          contextBudgetUsageForScope(store, { threadId: requestedThreadId, runId: requestedRunId });
+        const usageRecord = objectRecord(usageTelemetry);
+        const policyThreadId =
+          requestedThreadId ?? optionalStringDep(usageRecord?.thread_id) ?? null;
+        if (!policyThreadId) {
+          throwContextPolicyEventError({
+            status: 400,
+            code: "runtime_context_budget_thread_required",
+            message: "Thread-bound context budget evaluation requires a thread id.",
+            evidenceRefs: CONTEXT_BUDGET_EVIDENCE_REFS,
+            details: { run_id: requestedRunId ?? null },
+          });
+        }
+        const policyRunId = requestedRunId ?? optionalStringDep(usageRecord?.run_id) ?? null;
+        const policyTurnId =
+          optionalStringDep(canonicalRequest.turn_id) ??
+          optionalStringDep(usageRecord?.turn_id) ??
+          null;
+        const policy = evaluateContextBudgetPolicyDep({
+          usageTelemetry: usageRecord ?? {},
+          request: {
+            ...canonicalRequest,
+            scope: optionalStringDep(canonicalRequest.scope) ?? (policyRunId ? "run" : "thread"),
+            thread_id: policyThreadId,
+            turn_id: policyTurnId,
+            run_id: policyRunId,
+          },
+          budgetRunner: runner,
         });
+        validateContextPolicyEventPlan(policy, {
+          code: "runtime_context_budget_event_plan_incomplete",
+          componentKind: "context_budget",
+          evidenceRefs: CONTEXT_BUDGET_EVIDENCE_REFS,
+          threadId: policyThreadId,
+          runId: policyRunId,
+        });
+        const event = admitContextPolicyRuntimeEvent(store, {
+          componentKind: "context_budget",
+          evidenceRefs: CONTEXT_BUDGET_EVIDENCE_REFS,
+          policy,
+          request: canonicalRequest,
+          threadId: policyThreadId,
+          turnId: policyTurnId,
+          runId: policyRunId,
+        });
+        return contextPolicyResultEnvelope(policy, event, CONTEXT_BUDGET_EVIDENCE_REFS);
       }
 
-      const canonicalRequest = { ...request };
-      for (const retiredField of [
-        "eventKind",
-        "runId",
-        "threadId",
-        "turnId",
-        "workflowGraphId",
-        "workflowNodeId",
-      ]) {
-        delete canonicalRequest[retiredField];
-      }
       const usageTelemetry =
         contextBudgetUsageTelemetryFromRequestDep(canonicalRequest) ??
         store.listUsage({ group_by: "thread" });
@@ -332,7 +399,8 @@ export function createRuntimeContextPolicySurface({
     },
 
     evaluateCompactionPolicy(store, { threadId, request = {} } = {}) {
-      const requestedThreadId = optionalStringDep(request.thread_id) ?? threadId;
+      const canonicalRequest = canonicalContextPolicyRequest(request);
+      const requestedThreadId = optionalStringDep(canonicalRequest.thread_id) ?? threadId;
       if (!requestedThreadId) {
         throw runtimeError({
           status: 400,
@@ -340,16 +408,243 @@ export function createRuntimeContextPolicySurface({
           message: "Compaction policy evaluation requires a thread id.",
         });
       }
-      throwContextPolicyRustCoreRequired("compaction_policy_evaluation", "compaction_policy.evaluate", {
-        thread_id: requestedThreadId,
-        evidence_refs: [
-          "compaction_policy_evaluation_js_event_facade_retired",
-          "rust_daemon_core_compaction_policy_event_required",
-          "agentgres_compaction_policy_event_truth_required",
-        ],
+      const runner = store?.contextPolicyRunner ?? contextPolicyRunner;
+      if (
+        typeof runner?.evaluateCompactionPolicy !== "function" ||
+        typeof store?.appendRuntimeEvent !== "function"
+      ) {
+        throwContextPolicyRustCoreRequired("compaction_policy_evaluation", "compaction_policy.evaluate", {
+          thread_id: requestedThreadId,
+          evidence_refs: COMPACTION_POLICY_REQUIRED_EVIDENCE_REFS,
+        });
+      }
+
+      const policy = evaluateCompactionPolicyDecisionDep({
+        threadId: requestedThreadId,
+        turnId: optionalStringDep(canonicalRequest.turn_id) ?? "",
+        request: canonicalRequest,
+        policyRunner: runner,
       });
+      validateContextPolicyEventPlan(policy, {
+        code: "runtime_compaction_policy_event_plan_incomplete",
+        componentKind: "compaction_policy",
+        evidenceRefs: COMPACTION_POLICY_EVIDENCE_REFS,
+        threadId: requestedThreadId,
+        runId: null,
+      });
+      const event = admitContextPolicyRuntimeEvent(store, {
+        componentKind: "compaction_policy",
+        evidenceRefs: COMPACTION_POLICY_EVIDENCE_REFS,
+        policy,
+        request: canonicalRequest,
+        threadId: requestedThreadId,
+        turnId: optionalStringDep(canonicalRequest.turn_id) ?? optionalStringDep(policy.turn_id) ?? null,
+        runId: null,
+      });
+      const compaction = policy.execute_compaction === true
+        ? this.compactThread(store, requestedThreadId, {
+            reason: optionalStringDep(policy.compact_reason) ?? "compaction policy requested context compaction",
+            scope: optionalStringDep(policy.compact_scope) ?? "thread",
+            source: optionalStringDep(policy.source) ?? optionalStringDep(canonicalRequest.source) ?? "sdk_client",
+            actor: optionalStringDep(policy.actor) ?? optionalStringDep(canonicalRequest.actor) ?? "operator",
+            requested_by:
+              optionalStringDep(policy.requested_by) ??
+              optionalStringDep(canonicalRequest.requested_by) ??
+              "operator",
+            workflow_graph_id:
+              optionalStringDep(policy.workflow_graph_id) ??
+              optionalStringDep(canonicalRequest.workflow_graph_id) ??
+              null,
+            workflow_node_id:
+              optionalStringDep(policy.compact_workflow_node_id) ?? "runtime.context-compact",
+            idempotency_key: optionalStringDep(policy.compact_idempotency_key) ?? null,
+            created_at: optionalStringDep(canonicalRequest.created_at) ?? event.created_at ?? null,
+          })
+        : null;
+      return {
+        ...contextPolicyResultEnvelope(policy, event, COMPACTION_POLICY_EVIDENCE_REFS),
+        context_compaction: compaction,
+      };
     },
   };
+
+  function canonicalContextPolicyRequest(request = {}) {
+    const canonicalRequest = { ...request };
+    for (const retiredField of [
+      "compactIdempotencyKey",
+      "eventKind",
+      "runId",
+      "threadId",
+      "turnId",
+      "workflowGraphId",
+      "workflowNodeId",
+    ]) {
+      delete canonicalRequest[retiredField];
+    }
+    return canonicalRequest;
+  }
+
+  function contextBudgetUsageForScope(store, { threadId = null, runId = null } = {}) {
+    if (runId && typeof store?.usageForRun === "function") {
+      return store.usageForRun(runId);
+    }
+    if (threadId && typeof store?.usageForThread === "function") {
+      return store.usageForThread(threadId);
+    }
+    return null;
+  }
+
+  function validateContextPolicyEventPlan(policy, {
+    code,
+    componentKind,
+    evidenceRefs,
+    threadId,
+    runId = null,
+  }) {
+    if (
+      !objectRecord(policy) ||
+      !optionalStringDep(policy.status) ||
+      optionalStringDep(policy.component_kind) !== componentKind ||
+      !optionalStringDep(policy.policy_decision_id) ||
+      !optionalStringDep(policy.runtime_event_kind) ||
+      !optionalStringDep(policy.runtime_event_status) ||
+      !optionalStringDep(policy.runtime_event_item_id) ||
+      !optionalStringDep(policy.runtime_event_idempotency_key)
+    ) {
+      throwContextPolicyEventError({
+        code,
+        message: "Rust daemon-core context policy evaluation did not return a complete event plan.",
+        evidenceRefs,
+        details: {
+          thread_id: threadId,
+          run_id: runId,
+          component_kind: componentKind,
+          actual_status: optionalStringDep(policy?.status) ?? null,
+          actual_component_kind: optionalStringDep(policy?.component_kind) ?? null,
+        },
+      });
+    }
+  }
+
+  function admitContextPolicyRuntimeEvent(store, {
+    componentKind,
+    evidenceRefs,
+    policy,
+    request,
+    threadId,
+    turnId = null,
+    runId = null,
+  }) {
+    const eventStreamId = eventStreamIdForThreadDep(threadId);
+    const previousLatestSeq = typeof store.latestRuntimeEventSeq === "function"
+      ? Number(store.latestRuntimeEventSeq(eventStreamId) ?? 0)
+      : 0;
+    const seq = Number.isFinite(previousLatestSeq) ? previousLatestSeq + 1 : 1;
+    const eventId =
+      optionalStringDep(request.event_id) ??
+      contextPolicyEventId(componentKind, threadId, policy.policy_decision_id, seq);
+    const event = {
+      event_stream_id: eventStreamId,
+      event_id: eventId,
+      seq,
+      thread_id: threadId,
+      turn_id: optionalStringDep(policy.turn_id) ?? turnId ?? null,
+      item_id: policy.runtime_event_item_id,
+      idempotency_key: policy.runtime_event_idempotency_key,
+      source: optionalStringDep(policy.source) ?? optionalStringDep(request.source) ?? "sdk_client",
+      source_event_kind: optionalStringDep(policy.event_kind) ?? null,
+      event_kind: policy.runtime_event_kind,
+      status: policy.runtime_event_status,
+      actor: optionalStringDep(policy.actor) ?? optionalStringDep(request.actor) ?? "operator",
+      workflow_graph_id:
+        optionalStringDep(policy.workflow_graph_id) ??
+        optionalStringDep(request.workflow_graph_id) ??
+        null,
+      workflow_node_id:
+        optionalStringDep(policy.workflow_node_id) ??
+        optionalStringDep(request.workflow_node_id) ??
+        `runtime.${componentKind.replaceAll("_", "-")}`,
+      component_kind: componentKind,
+      payload_schema_version:
+        optionalStringDep(policy.payload_schema_version) ??
+        `ioi.runtime.${componentKind.replaceAll("_", "-")}.v1`,
+      payload: contextPolicyEventPayload(policy, componentKind),
+      receipt_refs: stringRefs(policy.receipt_refs),
+      policy_decision_refs: stringRefs(policy.policy_decision_refs),
+      artifact_refs: stringRefs(policy.artifact_refs),
+      rollback_refs: stringRefs(policy.rollback_refs),
+      redaction_profile: optionalStringDep(policy.redaction_profile) ?? "internal",
+      created_at: optionalStringDep(request.created_at) ?? new Date().toISOString(),
+      evidence_refs: evidenceRefs,
+    };
+    const admittedEvent = objectRecord(store.appendRuntimeEvent(event));
+    const admittedEventId = optionalStringDep(admittedEvent?.event_id);
+    const admittedSeq = positiveInteger(admittedEvent?.seq);
+    if (!admittedEvent || !admittedEventId || !admittedSeq) {
+      throwContextPolicyEventError({
+        code: "runtime_context_policy_event_admission_incomplete",
+        message: "Rust Agentgres runtime-event admission did not return an admitted event identity.",
+        evidenceRefs,
+        details: {
+          thread_id: threadId,
+          run_id: runId,
+          event_id: eventId,
+          seq,
+          component_kind: componentKind,
+        },
+      });
+    }
+    return admittedEvent;
+  }
+
+  function contextPolicyEventPayload(policy, componentKind) {
+    if (componentKind === "context_budget") {
+      return {
+        status: policy.status,
+        mode: policy.mode ?? null,
+        scope: policy.scope ?? null,
+        summary: policy.summary ?? null,
+        policy_decision_id: policy.policy_decision_id ?? null,
+        policy_decision: objectRecord(policy.policy_decision) ?? null,
+        usage_telemetry: objectRecord(policy.usage_telemetry) ?? {},
+        usage_summary: objectRecord(policy.usage_summary) ?? {},
+        thresholds: objectRecord(policy.thresholds) ?? null,
+        warnings: normalizeArray(policy.warnings),
+        violations: normalizeArray(policy.violations),
+        would_block: policy.would_block ?? null,
+      };
+    }
+    return {
+      status: policy.status,
+      action: policy.action ?? null,
+      selected_action: policy.selected_action ?? null,
+      budget_status: policy.budget_status ?? null,
+      summary: policy.summary ?? null,
+      policy_decision_id: policy.policy_decision_id ?? null,
+      context_budget: objectRecord(policy.context_budget) ?? {},
+      approval_id: policy.approval_id ?? null,
+      approval_required: policy.approval_required ?? null,
+      approval_granted: policy.approval_granted ?? null,
+      approval_satisfied: policy.approval_satisfied ?? null,
+      execute_compaction: policy.execute_compaction ?? null,
+      compaction_requested: policy.compaction_requested ?? null,
+      compact_reason: policy.compact_reason ?? null,
+      compact_scope: policy.compact_scope ?? null,
+      continuation_allowed: policy.continuation_allowed ?? null,
+    };
+  }
+
+  function contextPolicyResultEnvelope(policy, event, evidenceRefs) {
+    return {
+      ...policy,
+      event,
+      event_id: event.event_id,
+      seq: event.seq,
+      receipt_refs: uniqueRefs(policy.receipt_refs, event.receipt_refs),
+      policy_decision_refs: uniqueRefs(policy.policy_decision_refs, event.policy_decision_refs),
+      evidence_refs: evidenceRefs,
+    };
+  }
 
   function commitContextCompactionRun(store, plannedRun, runId, operationKind) {
     if (!plannedRun || optionalStringDep(plannedRun.id) !== runId) {
@@ -393,6 +688,35 @@ export function createRuntimeContextPolicySurface({
       safeIdSegment(targetId),
       String(seq).padStart(8, "0"),
     ].join("_");
+  }
+
+  function contextPolicyEventId(componentKind, threadId, policyDecisionId, seq) {
+    return [
+      "event",
+      safeIdSegment(componentKind),
+      safeIdSegment(threadId),
+      safeIdSegment(policyDecisionId),
+      String(seq).padStart(8, "0"),
+    ].join("_");
+  }
+
+  function throwContextPolicyEventError({
+    status = 502,
+    code,
+    message,
+    evidenceRefs,
+    details = {},
+  }) {
+    throw runtimeError({
+      status,
+      code,
+      message,
+      details: {
+        rust_core_boundary: "runtime.context_policy",
+        evidence_refs: evidenceRefs,
+        ...details,
+      },
+    });
   }
 
   function safeIdSegment(value) {

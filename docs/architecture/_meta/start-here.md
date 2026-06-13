@@ -40,6 +40,12 @@ wallet.network
   decryption, revocation, and protection actions; route sources produce
   exchange candidates, but Wallet owns authority
 
+decentralized.* resource lanes
+  route liquidity, exposure, and execution without becoming authority or trust
+  roots: decentralized.exchange proposes exchange routes, decentralized.trade
+  proposes exposure/position routes, and decentralized.cloud proposes
+  compute/storage/execution routes
+
 Agentgres
   admits and proves operational truth for app, user, agent, and run state
 
@@ -104,6 +110,7 @@ HypervisorOS roots serious nodes.
 Hypervisor Fleet manages infrastructure for autonomous systems.
 Default Harness Profile orchestrates.
 wallet.network authorizes, risk-labels, approves/denies, revokes, protects, and receipts.
+decentralized.* lanes propose liquidity, exposure, and execution routes.
 Agentgres admits truth.
 Agent Wiki remembers.
 Artifact refs define payload meaning.
@@ -143,11 +150,12 @@ Start here:
 3. [`components/daemon-runtime/runtime-nodes-tee-depin.md`](../components/daemon-runtime/runtime-nodes-tee-depin.md)
 4. [`components/daemon-runtime/hypervisoros.md`](../components/daemon-runtime/hypervisoros.md)
 5. [`components/hypervisor/fleet.md`](../components/hypervisor/fleet.md)
-6. [`components/daemon-runtime/doctrine.md`](../components/daemon-runtime/doctrine.md)
-7. [`components/daemon-runtime/api.md`](../components/daemon-runtime/api.md)
-8. [`components/daemon-runtime/events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md)
-9. [`../conformance/agentic-runtime/CIRC.md`](../../conformance/agentic-runtime/CIRC.md)
-10. [`../conformance/agentic-runtime/CEC.md`](../../conformance/agentic-runtime/CEC.md)
+6. [`foundations/decentralized-resource-lanes.md`](../foundations/decentralized-resource-lanes.md)
+7. [`components/daemon-runtime/doctrine.md`](../components/daemon-runtime/doctrine.md)
+8. [`components/daemon-runtime/api.md`](../components/daemon-runtime/api.md)
+9. [`components/daemon-runtime/events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md)
+10. [`../conformance/agentic-runtime/CIRC.md`](../../conformance/agentic-runtime/CIRC.md)
+11. [`../conformance/agentic-runtime/CEC.md`](../../conformance/agentic-runtime/CEC.md)
 
 Build for: intent resolution, action proposals, policy/authority gates,
 execution, normalized observations, receipts, context topology, output
@@ -171,6 +179,9 @@ GPU endpoints, storage posture, runtime placement, fleet health, cost posture,
 cTEE posture, receipt/replay projections, and migration cockpit workflows.
 Fleet manages machines and workload posture while coordinating governance;
 Hypervisor Daemon executes; wallet.network authorizes; Agentgres records truth.
+For resource routing, decentralized.cloud may propose CloudRoute candidates,
+but Fleet and Hypervisor still route through wallet.network authority,
+daemon/provider execution boundaries, Agentgres refs, and receipts.
 
 ### Implementing Agentgres
 
@@ -212,12 +223,14 @@ Start here:
 1. [`components/wallet-network/doctrine.md`](../components/wallet-network/doctrine.md)
 2. [`components/wallet-network/product-exchange-risk.md`](../components/wallet-network/product-exchange-risk.md)
 3. [`components/wallet-network/api-authority-scopes.md`](../components/wallet-network/api-authority-scopes.md)
-4. [`foundations/security-privacy-policy-invariants.md`](../foundations/security-privacy-policy-invariants.md)
-5. [`components/daemon-runtime/api.md#action-mediation--authority-gateway-api`](../components/daemon-runtime/api.md#action-mediation--authority-gateway-api)
+4. [`foundations/decentralized-resource-lanes.md`](../foundations/decentralized-resource-lanes.md)
+5. [`foundations/security-privacy-policy-invariants.md`](../foundations/security-privacy-policy-invariants.md)
+6. [`components/daemon-runtime/api.md#action-mediation--authority-gateway-api`](../components/daemon-runtime/api.md#action-mediation--authority-gateway-api)
 
 Build for: `scope:*` authority scopes, `prim:*` primitive capabilities,
 grants, approvals, exact request hashes, revocation epochs, decryption leases,
-payment authority, exchange authority, route-source boundaries, risk labels,
+payment authority, exchange authority, trade authority, route-source
+boundaries, risk labels,
 asset exposure records, protection actions, approval inbox items, and wallet
 receipts.
 
@@ -285,6 +298,9 @@ Avoid these models:
 Default Harness Profile = a peer runtime beside the daemon
 Hypervisor IDE = runtime truth
 Hypervisor Fleet = execution runtime or authority plane
+decentralized.exchange = exchange backend or liquidity owner
+decentralized.trade = broker, custodian, or ordinary swap route
+decentralized.cloud = compute provider or privacy proof
 Persistent rented GPU node = trusted private machine
 Agentgres = all memory or all payload bytes
 Agent Wiki / ioi-memory = canonical admitted truth
@@ -312,6 +328,7 @@ storage backends hold bytes
 Private Workspace backed by cTEE forbids protected plaintext on rented nodes
 Plaintext-Free Runtime Mounting exposes only public/redacted refs and private handles
 wallet.network authorizes
+decentralized.* lanes propose routes
 AIIP moves bounded autonomous work
 L1 settles selected public/economic/cross-domain commitments
 ```

@@ -257,8 +257,10 @@ See [`product-exchange-risk.md`](./product-exchange-risk.md) for:
 - Wallet product surface doctrine;
 - Exchange and Route Authority;
 - relationship to `decentralized.exchange`;
-- `ExchangeIntent`, `RouteCandidate`, `WalletReceipt`, and
-  `AssetExposureRecord`;
+- Trade and Position Authority;
+- relationship to `decentralized.trade`;
+- `ExchangeIntent`, `RouteCandidate`, `TradeIntent`, `PositionReceipt`,
+  `WalletReceipt`, and `AssetExposureRecord`;
 - authority risk classes versus asset/route/security risk labels;
 - protection actions;
 - approval inbox;
@@ -536,6 +538,9 @@ passed a boot measurement
 a centralized exchange
 a single liquidity router
 a mandatory dependency on decentralized.exchange
+a broker or custodian for decentralized.trade
+a place where perps, margin, or leveraged positions are treated as ordinary swaps
+a place where agents get open-ended trading authority by default
 a place where route candidates become approval
 a quote API trust root
 a blanket post-quantum safety wrapper for legacy chains

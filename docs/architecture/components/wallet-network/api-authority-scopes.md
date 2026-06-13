@@ -388,6 +388,72 @@ Exchange intent:
 No route candidate is authority. Final execution requires an approved
 `ExchangeIntent` and exact `TxIntent` binding.
 
+## Trade and Position Authority API
+
+Advanced trading is a high-risk wallet action. Perps, margin, leverage,
+strategy execution, and ongoing position management are not ordinary Exchange
+routes.
+
+```http
+POST /v1/trade/candidates
+POST /v1/trade/intents
+POST /v1/trade/intents/{intent_id}/simulate
+POST /v1/trade/intents/{intent_id}/approve
+POST /v1/trade/intents/{intent_id}/deny
+GET  /v1/trade/positions
+GET  /v1/trade/positions/{position_id}
+GET  /v1/trade/positions/{position_id}/receipts
+POST /v1/trade/positions/{position_id}/close
+POST /v1/trade/positions/{position_id}/reduce-risk
+```
+
+Trade intent:
+
+```json
+{
+  "intent_id": "trade_intent://...",
+  "initiator_id": "user://123 | agent://trader",
+  "account_id": "wallet://account/main",
+  "venue": "venue://...",
+  "market": "market://BTC-PERP",
+  "side": "long | short | buy | sell",
+  "collateral_asset": "asset://.../USDC",
+  "collateral_amount": "100.00",
+  "leverage": "1.5",
+  "margin_mode": "isolated | cross",
+  "order_type": "market | limit | stop | tp_sl",
+  "liquidation_price_estimate": "61500.00",
+  "funding_rate_snapshot": "0.0001",
+  "oracle_source": "oracle://...",
+  "mark_price_snapshot": "65000.00",
+  "max_loss_policy": {
+    "max_loss_amount": "25.00",
+    "daily_loss_limit": "25.00",
+    "stop_loss_required": true
+  },
+  "stop_loss": "order_condition://...",
+  "take_profit": "order_condition://... | null",
+  "policy_hash": "sha256:...",
+  "grant_id": "grant://... | null",
+  "lease_id": "lease://... | null",
+  "revocation_epoch": 7,
+  "simulation_hash": "sha256:...",
+  "risk_labels": [
+    "Leverage Risk",
+    "Liquidation Risk",
+    "Funding Rate Risk",
+    "Agent Trading Limited"
+  ],
+  "venue_intents": ["venue_intent://..."],
+  "tx_intents": ["tx_intent://..."]
+}
+```
+
+Agent live trading must be denied by default or constrained by explicit policy:
+paper mode, max collateral, max leverage, isolated margin, market allowlist,
+required stop loss, max daily loss, no collateral add without step-up, lease
+expiry, and immediate revocation.
+
 ## Asset Exposure and Protection API
 
 ```http

@@ -9387,6 +9387,19 @@ function runBridge() {
       /runtime_context_policy_rust_core_required/.test(runtimeContextPolicySurface) &&
       /rust_core_boundary:\s*"runtime\.context_policy"/.test(runtimeContextPolicySurface) &&
       /context_budget_evaluation_js_event_facade_retired/.test(runtimeContextPolicySurface) &&
+      /context_budget_evaluation_rust_owned/.test(runtimeContextPolicySurface) &&
+      /rust_daemon_core_context_budget_event/.test(runtimeContextPolicySurface) &&
+      /agentgres_context_budget_event_truth_required/.test(runtimeContextPolicySurface) &&
+      /runner\?\.evaluateContextBudgetPolicy/.test(runtimeContextPolicySurface) &&
+      /evaluateContextBudgetPolicyDep\(\{[\s\S]*?budgetRunner:\s*runner/.test(
+        runtimeContextPolicySurface,
+      ) &&
+      /admitContextPolicyRuntimeEvent\(store,\s*\{[\s\S]*?componentKind:\s*"context_budget"/.test(
+        runtimeContextPolicySurface,
+      ) &&
+      /store\.appendRuntimeEvent\(event\)/.test(runtimeContextPolicySurface) &&
+      /runtime_context_budget_event_plan_incomplete/.test(runtimeContextPolicySurface) &&
+      /runtime_context_policy_event_admission_incomplete/.test(runtimeContextPolicySurface) &&
       /store\.contextPolicySurface\.evaluateContextBudget\(store,\s*\{ request: await readBody\(request\) \}\)/.test(
         publicRuntimeRoutes,
       ) &&
@@ -9405,10 +9418,16 @@ function runBridge() {
       /workflow-only context budget remains projection-only and ignores retired request aliases/.test(
         runtimeContextPolicySurfaceTest,
       ) &&
-      /thread-bound context budget facade fails closed before event append or JS lookup/.test(
+      /thread-bound context budget uses Rust policy planning and event admission/.test(
         runtimeContextPolicySurfaceTest,
       ) &&
-      !/appendRuntimeEvent|agentForThread|getRun|writeRun|writeAgent/.test(
+      /run context budget uses Rust policy planning and admitted thread event/.test(
+        runtimeContextPolicySurfaceTest,
+      ) &&
+      /thread-bound context budget fails closed before usage lookup or event append without Rust planning/.test(
+        runtimeContextPolicySurfaceTest,
+      ) &&
+      !/(?:\.|\b)(?:agentForThread|getRun|writeRun|writeAgent)\s*\(/.test(
         runtimeContextBudgetEvaluationBlock,
       ) &&
       /context policy runner fails closed without direct invoker/.test(
@@ -9455,7 +9474,7 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-context-policy-surface.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-surface.test.mjs",
     ],
-    "Phase 9/10 is pending: generic context-budget policy bridge remains migration plumbing, while thread-bound daemon context-budget event facades must fail closed until Rust daemon-core owns admission and persistence",
+    "Thread/run context-budget policy routes must use Rust daemon-core policy planning plus Rust runtime-event admission before returning route truth",
   );
   assertCheck(
     result,
@@ -13147,13 +13166,31 @@ function runBridge() {
       ) &&
       /runtime_context_policy_rust_core_required/.test(runtimeContextPolicySurface) &&
       /compaction_policy_evaluation_js_event_facade_retired/.test(runtimeContextPolicySurface) &&
+      /compaction_policy_evaluation_rust_owned/.test(runtimeContextPolicySurface) &&
+      /rust_daemon_core_compaction_policy_event/.test(runtimeContextPolicySurface) &&
+      /agentgres_compaction_policy_event_truth_required/.test(runtimeContextPolicySurface) &&
+      /runner\?\.evaluateCompactionPolicy/.test(runtimeContextPolicySurface) &&
+      /evaluateCompactionPolicyDecisionDep\(\{[\s\S]*?policyRunner:\s*runner/.test(
+        runtimeContextPolicySurface,
+      ) &&
+      /admitContextPolicyRuntimeEvent\(store,\s*\{[\s\S]*?componentKind:\s*"compaction_policy"/.test(
+        runtimeContextPolicySurface,
+      ) &&
+      /this\.compactThread\(store,\s*requestedThreadId/.test(runtimeContextPolicySurface) &&
+      /runtime_compaction_policy_event_plan_incomplete/.test(runtimeContextPolicySurface) &&
       /store\.contextPolicySurface\.evaluateCompactionPolicy\(store,\s*\{ threadId,\s*request: await readBody\(request\) \}\)/.test(
         runtimeRouteHandlers,
       ) &&
       /thread and run routes send context policy controls through mounted context policy surface/.test(
         runtimeRouteHandlersTest,
       ) &&
-      /compaction policy facade fails closed before event append, compaction execution, or JS persistence/.test(
+      /compaction policy uses Rust planning and event admission before returning route truth/.test(
+        runtimeContextPolicySurfaceTest,
+      ) &&
+      /compaction policy executes Rust-owned compactThread when Rust requests compaction/.test(
+        runtimeContextPolicySurfaceTest,
+      ) &&
+      /compaction policy fails closed before event append, compaction execution, or JS persistence without Rust planning/.test(
         runtimeContextPolicySurfaceTest,
       ) &&
       /compaction policy still rejects missing thread id as a request error/.test(
@@ -13179,7 +13216,7 @@ function runBridge() {
       "packages/runtime-daemon/src/threads/context-budget-policy.test.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-surface.mjs",
     ],
-    "Phase 9/10 is pending: compaction policy bridge remains migration plumbing, while thread-bound daemon compaction-policy event facades must fail closed until Rust daemon-core owns admission and persistence",
+    "Thread compaction-policy route must use Rust daemon-core policy planning plus Rust runtime-event admission and compose approved execution through Rust-owned compactThread",
   );
   assertCheck(
     result,

@@ -26,3 +26,10 @@ Current Wallet addition:
 > direct pools, routers, solvers, and quote APIs produce candidates, but
 > wallet.network owns exchange authority, risk disclosure, approval, signing or
 > denial, revocation, protection actions, and receipts.**
+
+Current decentralized resource-lane addition:
+
+> **decentralized.exchange routes liquidity, decentralized.trade routes
+> exposure, and decentralized.cloud routes execution. They propose candidates;
+> wallet.network authorizes; Hypervisor executes or deploys; venues and
+> providers perform; Agentgres records; IOI L1 settles by trigger.**

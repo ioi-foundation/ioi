@@ -2,11 +2,12 @@
 
 Status: canonical architecture product module.
 Canonical owner: this file for wallet.network product doctrine, exchange
-authority, route-source boundaries, asset exposure, protection actions,
-approval inbox, user-facing wallet receipts, and wallet SDK events.
-Supersedes: wallet product, swap, risk-center, and route-authority language
-embedded only in prototypes or supporting product notes when it conflicts with
-this file.
+authority, route-source boundaries, advanced trade authority, position-risk
+boundaries, asset exposure, protection actions, approval inbox, user-facing
+wallet receipts, and wallet SDK events.
+Supersedes: wallet product, swap, trade, risk-center, and route-authority
+language embedded only in prototypes or supporting product notes when it
+conflicts with this file.
 Superseded by: none.
 Last alignment pass: 2026-06-12.
 
@@ -16,7 +17,8 @@ Last alignment pass: 2026-06-12.
 
 It is not merely a crypto wallet and not merely an IAM service. It lets users
 and organizations hold assets, exchange assets, delegate bounded financial
-authority, revoke authority, inspect risk, protect assets, and verify receipts.
+authority, revoke authority, inspect risk, protect assets, manage approved
+trading exposure, and verify receipts.
 
 The product grammar is:
 
@@ -30,9 +32,9 @@ Action
 -> receipt
 ```
 
-This grammar applies to sends, receives, exchanges, approvals, delegations,
-revocations, protection actions, secret brokerage, declassification, payment
-authorization, and agent actions.
+This grammar applies to sends, receives, exchanges, advanced trades, approvals,
+delegations, revocations, protection actions, secret brokerage,
+declassification, payment authorization, and agent actions.
 
 ## Owns
 
@@ -44,8 +46,8 @@ actions:
 - authority risk classification;
 - asset, route, and security risk labeling;
 - approval, denial, step-up, revocation, and emergency stop;
-- exact intent binding for sends, exchanges, delegations, protection actions,
-  capability exits, and agent actions;
+- exact intent binding for sends, exchanges, advanced trades, position changes,
+  delegations, protection actions, capability exits, and agent actions;
 - signing or denial of executable intents;
 - user-facing and machine-verifiable wallet receipts;
 - asset exposure records and protection recommendations;
@@ -58,8 +60,11 @@ wallet.network does not own:
 
 - liquidity;
 - DEX, bridge, or venue execution mechanics;
+- trading venue mechanics;
+- user positions as venue-native state;
 - quote APIs or solver networks;
 - `decentralized.exchange` route proposals;
+- `decentralized.trade` venue proposals;
 - chain execution or finality;
 - Agentgres operational truth;
 - IOI L1 settlement state;
@@ -79,6 +84,10 @@ Assets
 
 Exchange
   route-visible swaps with simulation, risk labels, fees, approvals, receipts
+
+Trade
+  advanced, eligibility-gated exposure management for spot orders, perps,
+  leverage, collateral, margin, liquidation, funding, and position receipts
 
 Authority
   apps, agents, grants, policies, leases, revocation, emergency stop
@@ -104,6 +113,7 @@ hold
 send
 receive
 exchange
+trade
 delegate
 revoke
 review
@@ -179,6 +189,92 @@ Incorrect product framing:
 decentralized.exchange is the exchange backend for Wallet.
 ```
 
+## Relationship to decentralized.trade
+
+`decentralized.trade` is a source-agnostic trading interface and adapter lane.
+It may own venue adapters, order-ticket normalization, market discovery,
+position/risk display, margin calculations, strategy templates, venue
+comparison, and trade-candidate receipts.
+
+It does not own:
+
+- user authority;
+- Wallet keys;
+- collateral custody;
+- trading eligibility;
+- final approval;
+- venue execution;
+- user positions as canonical Wallet truth;
+- policy or compliance decisions;
+- Agentgres receipt truth;
+- IOI L1 settlement.
+
+Correct product framing:
+
+```text
+Wallet owns trade authority.
+decentralized.trade proposes exposure routes and venue actions.
+Venues execute and maintain venue-native position state.
+Wallet and Agentgres make authority, receipts, and risk state accountable.
+```
+
+Incorrect product framing:
+
+```text
+decentralized.trade owns the user's positions.
+Perps are just another exchange route.
+Agents may trade leveraged products by default.
+```
+
+## Trade and Position Authority
+
+Trade is a first-class but high-risk Wallet action. It is not the same product
+surface as simple exchange.
+
+```text
+Exchange
+  "I have X and need Y."
+  Spot conversion, route risk, slippage, fees, and execution dependency.
+
+Trade
+  "I want exposure to price movement under defined risk."
+  Venue, market, side, collateral, leverage, margin mode, liquidation,
+  funding, stop-loss, take-profit, position lifecycle, and eligibility.
+```
+
+Spot swaps can be ordinary Wallet actions when policy allows. Perps, margin,
+leveraged trading, strategy execution, and ongoing position management must be
+quarantined as advanced actions with separate risk labels, disclosures,
+receipts, and policy gates.
+
+Canonical invariant:
+
+> **A position is not a route. Leveraged or margined exposure must be approved
+> as an exact TradeIntent with venue, market, collateral, leverage, margin mode,
+> liquidation/funding assumptions, risk labels, policy, and receipt binding.**
+
+Agent trading over perps or margin is exceptional:
+
+```text
+default:
+  agent may not trade perps or margin
+
+paper/sandbox:
+  agent may propose or simulate only
+
+restricted live:
+  max collateral
+  max leverage
+  isolated margin only unless explicitly approved
+  market allowlist
+  required stop loss
+  max daily realized loss
+  no adding collateral without step-up
+  no new market without step-up
+  lease expiry
+  immediate revocation path
+```
+
 ## Canonical Exchange Flow
 
 ```text
@@ -194,6 +290,25 @@ user or agent requests exchange
   -> Wallet signs exact TxIntent(s)
   -> chain executes
   -> Wallet emits ExchangeReceipt
+  -> Agentgres records receipt/evidence/outcome refs
+  -> IOI L1 receives only selected public/economic/dispute commitments
+```
+
+## Canonical Trade Flow
+
+```text
+user or agent requests exposure
+  -> Wallet opens a high-risk trade authority context
+  -> decentralized.trade, direct venue adapters, order-book venues,
+     perp venues, solver venues, or user routes return trade candidates
+  -> Wallet evaluates eligibility, collateral, leverage, margin mode,
+     liquidation estimate, funding, oracle/mark-price risk, venue risk,
+     jurisdiction policy, agent authority, stop-loss, max-loss policy,
+     and simulation result
+  -> user, org, standing policy, or restricted agent grant approves TradeIntent
+  -> Wallet signs exact venue/order/TxIntent records or denies execution
+  -> venue executes and maintains venue-native position state
+  -> Wallet/venue adapter monitors position risk and emits receipts
   -> Agentgres records receipt/evidence/outcome refs
   -> IOI L1 receives only selected public/economic/dispute commitments
 ```
@@ -258,6 +373,78 @@ struct RouteCandidate {
 }
 ```
 
+### TradeIntent
+
+`TradeIntent` is the semantic wallet object above raw order, venue, or calldata
+execution. The user or agent does not approve vague market exposure; they
+approve an exact, policy-bound trade intent.
+
+```rust
+struct TradeIntent {
+    intent_id: Hash,
+    initiator_id: PrincipalId,       // user | org | app | agent
+    account_id: AccountId,
+
+    venue: VenueRef,
+    market: MarketRef,
+    side: TradeSide,                 // long | short | buy | sell
+    collateral_asset: AssetRef,
+    collateral_amount: Amount,
+    leverage: Decimal,
+    margin_mode: MarginMode,         // isolated | cross
+    order_type: OrderType,           // market | limit | stop | tp_sl
+
+    liquidation_price_estimate: Option<Price>,
+    funding_rate_snapshot: Option<FundingRate>,
+    oracle_source: Option<OracleRef>,
+    mark_price_snapshot: Option<Price>,
+
+    max_loss_policy: MaxLossPolicy,
+    stop_loss: Option<OrderCondition>,
+    take_profit: Option<OrderCondition>,
+
+    policy_hash: Hash,
+    grant_id: Option<Hash>,
+    lease_id: Option<Hash>,
+    revocation_epoch: u64,
+
+    simulation_hash: Hash,
+    risk_labels: Vec<RiskLabel>,
+    user_disclosures: Vec<DisclosureRef>,
+
+    venue_intents: Vec<VenueIntent>,
+    tx_intents: Vec<TxIntent>
+}
+```
+
+### PositionReceipt
+
+`PositionReceipt` is the user-facing and machine-verifiable record of position
+state, risk, and policy status at a meaningful transition or checkpoint.
+
+```rust
+struct PositionReceipt {
+    receipt_id: ReceiptId,
+    position_id: PositionId,
+    venue: VenueRef,
+    market: MarketRef,
+    side: TradeSide,
+    size: Amount,
+    collateral: Amount,
+    leverage: Decimal,
+    margin_mode: MarginMode,
+    entry_price: Price,
+    mark_price: Price,
+    liquidation_price: Option<Price>,
+    funding_paid_or_received: Amount,
+    pnl: Amount,
+    policy_status: PolicyStatus,
+    risk_status: RiskStatus,
+    close_conditions: Vec<OrderCondition>,
+    created_at: Timestamp
+}
+```
+
 ### TxIntent
 
 `TxIntent` remains the low-level chain-execution object. `ExchangeIntent`
@@ -303,6 +490,10 @@ User-facing receipt types include:
 - `SendReceipt`;
 - `ReceiveReceipt`;
 - `ExchangeReceipt`;
+- `TradeIntentReceipt`;
+- `OrderReceipt`;
+- `PositionReceipt`;
+- `PositionRiskReceipt`;
 - `ApprovalReceipt`;
 - `DelegationReceipt`;
 - `RevocationReceipt`;
@@ -362,6 +553,31 @@ External Custody Dependency
 Quantum and post-quantum labels must be accurate disclosures, not marketing
 claims. Legacy-chain custody remains constrained by the legacy chain's own
 cryptographic limits.
+
+### Trade / Position Risk Labels
+
+Trade risk labels describe the risk assumptions behind a market exposure or
+position lifecycle:
+
+```text
+Leverage Risk
+Liquidation Risk
+Funding Rate Risk
+Oracle / Mark Price Risk
+Cross-Margin Risk
+Venue Risk
+Insurance Fund / ADL Risk
+Open Interest Risk
+Withdrawal / Settlement Risk
+Jurisdiction Restricted
+Agent Trading Disabled
+Agent Trading Limited
+Paper Mode Only
+```
+
+Trade labels must be actionable. If a user sees liquidation, cross-margin,
+funding, venue, or jurisdiction risk, Wallet should also show the policy status
+and available protection, reduction, close, revoke, or step-up actions.
 
 ## Asset Exposure Model
 
@@ -429,6 +645,9 @@ wallet.network should expose a unified inbox for pending authority decisions:
 - step-up requests;
 - policy-widening requests;
 - exchange exceptions;
+- trade exceptions;
+- margin, leverage, or perps requests;
+- position-risk escalation;
 - bridge-use requests;
 - unknown-contract requests;
 - unlimited-approval requests;
@@ -449,6 +668,7 @@ Each approval item must show:
 - destination;
 - policy diff;
 - simulation result;
+- liquidation, funding, margin, and position-risk summary when applicable;
 - expiry;
 - deny, edit, or approve actions.
 
@@ -473,6 +693,30 @@ For every exchange, Wallet must disclose:
 
 If Wallet charges a fee or spread, that fee must be explicit in the
 `ExchangeEconomics` object and in the `ExchangeReceipt`.
+
+## Trade Economics and Position Disclosure
+
+For every advanced trade or position-affecting action, Wallet must disclose:
+
+- collateral asset and amount;
+- notional exposure;
+- leverage;
+- margin mode;
+- order type;
+- entry or trigger price;
+- estimated liquidation price, if applicable;
+- mark price and oracle source;
+- funding rate snapshot, if applicable;
+- venue fees;
+- protocol or wallet fee, if any;
+- withdrawal or settlement constraints;
+- stop-loss and take-profit status;
+- max-loss policy status;
+- agent authority status;
+- jurisdiction or eligibility status.
+
+If any field is unavailable, stale, or venue-specific, the receipt and risk
+panel must say so rather than pretending the position is fully knowable.
 
 ## Organization Authority
 
@@ -563,6 +807,23 @@ A conforming Wallet Exchange path must prove:
   operational truth;
 - IOI L1 receives commitments only when settlement triggers apply.
 
+A conforming Wallet Trade path must prove:
+
+- trade source is not treated as authority;
+- final approval binds an exact `TradeIntent`;
+- venue, market, side, collateral, leverage, margin mode, order type,
+  liquidation/funding assumptions, stop-loss, max-loss policy, and simulation
+  are bound into approval and receipts where applicable;
+- perps, leverage, margin, and position management are high-risk actions;
+- agent live trading is denied by default or constrained by explicit policy;
+- position state changes emit `OrderReceipt`, `PositionReceipt`, or
+  `PositionRiskReceipt` when they affect user risk;
+- compliance, eligibility, and jurisdiction policy checks are represented as
+  policy outcomes, not buried in UI text;
+- Agentgres receives trade receipt/evidence refs when the trade affects
+  operational truth;
+- IOI L1 receives commitments only when settlement triggers apply.
+
 ## Anti-Patterns
 
 Do not model wallet.network as:
@@ -575,6 +836,8 @@ a place where route sources become approval
 a product that hides route dependencies from users
 a quote API trust root
 a bridge-risk laundering layer
+a perps broker hidden behind "swap"
+an agent-leverage machine with open-ended authority
 a blanket post-quantum safety wrapper for legacy chains
 a receipt UI without machine-verifiable receipt binding
 an app database for exchange history outside Agentgres-backed truth
@@ -586,14 +849,18 @@ Correct model:
 wallet.network owns exchange authority.
 Wallet Exchange evaluates route candidates.
 decentralized.exchange is a preferred, non-exclusive route source.
+Wallet Trade evaluates exposure candidates.
+decentralized.trade is a preferred, non-exclusive trading route source.
 Liquidity lives in pools and venues.
-Execution lives onchain or in the selected venue.
+Positions and execution live in chains or selected venues.
 Agentgres records receipts and evidence.
 IOI L1 anchors only selected public/economic commitments.
 ```
 
 ## Related Canon
 
+- [`../../foundations/decentralized-resource-lanes.md`](../../foundations/decentralized-resource-lanes.md):
+  decentralized exchange, trade, and cloud resource-lane doctrine.
 - [`doctrine.md`](./doctrine.md): wallet.network authority doctrine.
 - [`api-authority-scopes.md`](./api-authority-scopes.md): low-level account,
   scope, approval, payment, exchange, exposure, receipt, and revocation APIs.

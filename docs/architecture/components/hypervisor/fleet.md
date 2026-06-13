@@ -19,7 +19,8 @@ cloud, local, edge, customer, and bare-metal nodes.**
 It manages runtime inventory, VM/container/microVM/WASM workload posture,
 images, volumes, networks, snapshots, provider integrations, placement, health,
 cost, storage posture, cTEE posture, receipts, replay projections, policy
-visibility, node lifecycle, and infrastructure-manager workflows.
+visibility, node lifecycle, cloud-route intelligence, and
+infrastructure-manager workflows.
 
 It does not execute work, authorize power, admit operational truth, or own
 payload bytes.
@@ -78,6 +79,7 @@ DePIN compute
 cloud GPU endpoints
 Akash and similar compute markets
 Filecoin/CAS/S3/local storage posture
+decentralized.cloud route candidates
 cTEE private workspaces
 Agentgres domains
 model mounts
@@ -138,6 +140,48 @@ These primitives are not separate from autonomous-system management. They are
 the substrate persistent agents, workers, services, model servers, private
 workspaces, and HypervisorOS nodes require.
 
+## Relationship to decentralized.cloud
+
+`decentralized.cloud` is the source-agnostic cloud/resource route-intelligence
+lane for compute, storage, GPU, bandwidth, confidential execution, DePIN,
+customer cloud, and local infrastructure.
+
+It may propose CloudRoute candidates, normalize provider metadata, compare
+price/latency/reliability, track provider reputation, expose attestation
+descriptors, and provide deployment templates.
+
+It does not own:
+
+- Hypervisor execution;
+- Fleet truth;
+- provider infrastructure;
+- user or org authority;
+- secrets;
+- private workspace plaintext;
+- Agentgres operation admission;
+- storage payload meaning;
+- declassification decisions;
+- IOI L1 settlement.
+
+Correct product framing:
+
+```text
+decentralized.cloud proposes execution lanes.
+Hypervisor Fleet compares and displays infrastructure posture.
+wallet.network authorizes spend, provider access, secret release, and policy.
+Hypervisor Daemon or provider connector deploys and runs.
+Providers supply resources.
+Agentgres records receipts and state refs.
+```
+
+Incorrect product framing:
+
+```text
+decentralized.cloud is the compute provider.
+decentralized.cloud owns Hypervisor execution.
+cheap DePIN GPU route = private route.
+```
+
 ## Surfaces
 
 Fleet is a substrate abstraction with multiple surfaces, not another mental app
@@ -183,6 +227,7 @@ Fleet may own or coordinate:
 - GPU pool, model-server placement, and accelerator utilization visibility;
 - DePIN compute endpoint metadata;
 - cloud GPU and VM endpoint metadata;
+- decentralized.cloud route-candidate metadata;
 - storage-backend posture for local disk, S3/object stores, Filecoin, CAS/IPFS,
   provider blob stores, and customer VPC blob stores;
 - runtime assignment visibility and placement recommendations;
@@ -236,6 +281,23 @@ provider account or local node is registered
   -> Agentgres records admitted operations and receipt refs
   -> storage backends hold payload bytes
   -> Fleet updates observability and control projections
+```
+
+Cloud routing lifecycle:
+
+```text
+agent, workflow, service, or operator requests infrastructure
+  -> Hypervisor creates workload/resource intent
+  -> decentralized.cloud or provider connectors return CloudRoute candidates
+  -> Fleet compares price, latency, hardware, GPU class, storage locality,
+     privacy posture, cTEE posture, attestation, jurisdiction, reliability,
+     provider reputation, and budget
+  -> wallet.network authorizes spend, admin scopes, provider account use,
+     secret release, or declassification policy where needed
+  -> Hypervisor Daemon or approved provider connector deploys/runs workload
+  -> Agentgres records execution receipts, state refs, artifact refs, and
+     restore/replay metadata
+  -> Fleet updates placement, cost, risk, receipt, and replay projections
 ```
 
 ## Minimal Implementation Objects
@@ -313,6 +375,106 @@ FleetStoragePosture:
     public | internal | confidential | secret
   authority_refs:
     - grant://...
+```
+
+```yaml
+CloudRoute:
+  route_id: cloud_route://...
+  workload_id: workload://...
+  requester:
+    user://... | org://... | agent://... | hypervisor://...
+  purpose: string
+  resource_requirements:
+    cpu: optional
+    memory: optional
+    gpu:
+      class: H100 | A100 | RTX_4090 | RTX_3090 | other | null
+      vram_gb: number | null
+    storage: optional
+    bandwidth: optional
+  privacy_requirements:
+    posture:
+      public_compute | provider_trust | ctee_split_path |
+      confidential_compute | customer_cloud | local_only
+    plaintext_custody_allowed: true | false
+    attestation_required: true | false
+  storage_requirements:
+    persistence: ephemeral | persistent | archive
+    encrypted_payloads_required: true | false
+    allowed_backends:
+      - local_disk
+      - s3
+      - filecoin
+      - cas
+      - provider_blob
+      - customer_vpc_blob
+  budget:
+    max_cost: optional
+    max_duration: optional
+  jurisdiction:
+    - region_policy://...
+  candidates:
+    - cloud_candidate://...
+  selected_candidate: cloud_candidate://... | null
+  provider_trust_model:
+    local | customer_controlled | confidential_compute |
+    provider_trust | ctee_split | unsafe
+  attestation_requirements: attestation_policy://... | null
+  secret_release_policy: policy://...
+  wallet_policy_hash: sha256:...
+  authority_refs:
+    - grant://...
+  expected_cost: cost://... | null
+  risk_labels:
+    - CloudRiskLabel
+  receipt_refs:
+    - receipt://...
+  status:
+    proposed | approved | denied | running | completed |
+    failed | cancelled | archived
+```
+
+```yaml
+CloudCandidate:
+  candidate_id: cloud_candidate://...
+  source:
+    decentralized_cloud | provider_connector | user_specified |
+    local_inventory | customer_cloud | depin_market
+  provider_ref: provider://...
+  resource_type:
+    gpu | cpu | storage | enclave | vm | container |
+    kubernetes | bare_metal | hypervisoros
+  hardware: string | null
+  region: string | null
+  price_estimate: cost://...
+  availability:
+    available | scarce | delayed | unknown
+  privacy_posture:
+    public_compute | provider_trust | ctee_split_path |
+    confidential_compute | customer_cloud | local_only | unsafe
+  attestation:
+    available: true | false
+    descriptor_ref: attestation://... | null
+  storage_persistence:
+    ephemeral | persistent | archive | unknown
+  network_profile: network_profile://...
+  reputation_score: number | null
+  risk_labels:
+    - Provider-Trust Route
+    - Confidential Compute
+    - Attestation Available
+    - Attestation Missing
+    - TEE-Limited
+    - GPU Plaintext Risk
+    - cTEE Split Path
+    - Local-Only
+    - Customer Cloud
+    - Decentralized Provider
+    - Storage Retrieval Risk
+    - Region Risk
+    - Cost Spike Risk
+    - No Persistent Storage
+    - Encrypted Archive Required
 ```
 
 ```yaml
@@ -401,6 +563,11 @@ Agentgres operations, receipt refs, artifact refs, and projection watermarks.
   the daemon/cTEE custody receipts support the claim.
 - Fleet cannot route private workspace plaintext to provider-rooted nodes
   unless policy explicitly allows plaintext custody.
+- Fleet cannot treat a `decentralized.cloud` route candidate as authority,
+  proof of provider privacy, or permission to spend funds or release secrets.
+- Fleet cannot compare cloud routes on price alone when privacy posture,
+  attestation, jurisdiction, persistence, storage locality, or cTEE posture
+  materially affects the workload.
 - Fleet cannot make IOI L1 the default settlement path for ordinary runtime
   operations.
 - Fleet observability must link back to receipts, Agentgres refs, artifact refs,
@@ -427,12 +594,17 @@ Reject these:
    authority.
 10. Fleet logs as canonical proof without receipt and artifact-ref linkage.
 11. Fleet storage status as proof that payload meaning or restore validity is
-   accepted.
+    accepted.
 12. One GUI app per vertical when a Hypervisor IDE application lens over the
-   same substrate is sufficient.
+    same substrate is sufficient.
+13. Treating `decentralized.cloud` as the compute provider or execution owner.
+14. Treating cheap DePIN GPU availability as a privacy guarantee.
+15. Treating confidential compute as magic without attestation, key-release,
+    workload-design, cTEE, side-channel, and provider assumptions.
 
 ## Related Canon
 
+- [`../../foundations/decentralized-resource-lanes.md`](../../foundations/decentralized-resource-lanes.md)
 - [`../daemon-runtime/doctrine.md`](../daemon-runtime/doctrine.md)
 - [`../daemon-runtime/private-workspace-ctee.md`](../daemon-runtime/private-workspace-ctee.md)
 - [`../daemon-runtime/runtime-nodes-tee-depin.md`](../daemon-runtime/runtime-nodes-tee-depin.md)

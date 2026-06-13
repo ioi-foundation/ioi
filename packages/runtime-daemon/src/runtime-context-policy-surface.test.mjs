@@ -88,6 +88,104 @@ function compactHarness() {
     trace: {},
   };
   const runner = {
+    evaluateContextBudgetPolicy(request) {
+      calls.push({ name: "evaluateContextBudgetPolicy", request });
+      const status = request.mode === "block" ? "blocked" : "ok";
+      return {
+        schema_version: "ioi.runtime.context-budget-policy.v1",
+        object: "ioi.runtime_context_budget_policy",
+        source: "rust_context_budget_policy_command",
+        backend: "rust_policy",
+        status,
+        mode: request.mode,
+        scope: request.scope,
+        thread_id: request.thread_id,
+        turn_id: request.turn_id,
+        run_id: request.run_id,
+        actor: request.actor,
+        event_kind: request.event_kind,
+        component_kind: "context_budget",
+        payload_schema_version: "ioi.runtime.context-budget-policy.v1",
+        workflow_graph_id: request.workflow_graph_id,
+        workflow_node_id: request.workflow_node_id,
+        thresholds: request.thresholds,
+        usage_telemetry: request.usage_telemetry,
+        usage_summary: { total_tokens: request.usage_telemetry.total_tokens ?? 0 },
+        policy_decision_id: "policy_context_budget_thread_mock",
+        policy_decision: { status },
+        receipt_refs: ["receipt_context_budget_thread_mock"],
+        policy_decision_refs: ["policy_context_budget_thread_mock"],
+        warnings: [],
+        violations: status === "blocked" ? [{ id: "total_tokens" }] : [],
+        would_block: status === "blocked",
+        runtime_event_kind: status === "blocked" ? "policy.blocked" : "context_budget.evaluated",
+        runtime_event_status: status === "blocked" ? "blocked" : "completed",
+        runtime_event_item_id:
+          `${request.turn_id ?? request.thread_id}:item:context-budget:policy_context_budget_thread_mock`,
+        runtime_event_idempotency_key:
+          `thread:${request.thread_id}:context-budget:policy_context_budget_thread_mock`,
+        summary:
+          status === "blocked"
+            ? "Context budget blocked: total tokens exceeded."
+            : "Context budget is within policy.",
+      };
+    },
+    evaluateCompactionPolicy(request) {
+      calls.push({ name: "evaluateCompactionPolicy", request });
+      const approvalGranted = request.approval?.approval_granted === true;
+      const executeCompaction = request.compact?.execute_compaction === true;
+      const action = approvalGranted && executeCompaction ? "compact" : "approval_required";
+      const status = action === "compact" ? "compacted" : "waiting";
+      return {
+        schema_version: "ioi.runtime.compaction-policy.v1",
+        object: "ioi.runtime_compaction_policy",
+        source: "rust_compaction_policy_command",
+        backend: "rust_policy",
+        status,
+        action,
+        selected_action: "compact",
+        budget_status: "blocked",
+        thread_id: request.thread_id,
+        turn_id: request.turn_id,
+        actor: request.actor,
+        event_kind: request.event_kind,
+        component_kind: "compaction_policy",
+        payload_schema_version: "ioi.runtime.compaction-policy.v1",
+        workflow_graph_id: request.workflow_graph_id,
+        workflow_node_id: request.workflow_node_id,
+        policy_decision_id: "policy_compaction_thread_mock",
+        receipt_refs: ["receipt_compaction_policy_thread_mock"],
+        policy_decision_refs: ["policy_compaction_thread_mock"],
+        approval_id: action === "approval_required" ? "approval_compaction_thread_mock" : null,
+        approval_required: true,
+        approval_granted: approvalGranted,
+        approval_satisfied: approvalGranted,
+        execute_compaction: executeCompaction,
+        compaction_requested: action === "compact",
+        compaction_executed: false,
+        compaction_event_id: null,
+        compaction_seq: null,
+        compact_reason: request.compact?.compact_reason ?? "trim context after budget block",
+        compact_scope: request.compact?.compact_scope ?? "thread",
+        compact_idempotency_key:
+          "thread:thread_one:compaction-policy:compact:policy_compaction_thread_mock",
+        compact_workflow_node_id:
+          request.compact?.compact_workflow_node_id ?? "runtime.context-compact",
+        continuation_allowed: true,
+        runtime_event_kind:
+          action === "approval_required" ? "approval.required" : "compaction_policy.evaluated",
+        runtime_event_status: action === "approval_required" ? "waiting" : "completed",
+        runtime_event_item_id:
+          `${request.turn_id ?? request.thread_id}:item:compaction-policy:policy_compaction_thread_mock`,
+        runtime_event_idempotency_key:
+          `thread:${request.thread_id}:compaction-policy:policy_compaction_thread_mock`,
+        context_budget: request.context_budget,
+        summary:
+          action === "approval_required"
+            ? "Compaction policy requires operator approval before compacting."
+            : "Compaction policy executed context compaction.",
+      };
+    },
     planContextCompaction(request) {
       calls.push({ name: "planContextCompaction", request });
       return {
@@ -185,12 +283,20 @@ function compactHarness() {
       calls.push({ name: "latestRuntimeEventSeq", eventStreamId });
       return 4;
     },
+    usageForThread(threadId) {
+      calls.push({ name: "usageForThread", threadId });
+      return { total_tokens: 120, thread_id: threadId, scope: "thread" };
+    },
+    usageForRun(runId) {
+      calls.push({ name: "usageForRun", runId });
+      return { total_tokens: 80, thread_id: "thread_one", run_id: runId, turn_id: "turn_one", scope: "run" };
+    },
     appendRuntimeEvent(event) {
       calls.push({ name: "appendRuntimeEvent", event });
       const admitted = {
         ...event,
         admitted: true,
-        receipt_refs: [...event.receipt_refs, "receipt_context_compaction_admitted"],
+        receipt_refs: [...event.receipt_refs, `receipt_${event.component_kind}_admitted`],
       };
       events.push(admitted);
       return admitted;
@@ -387,7 +493,74 @@ test("compactThread fails closed before lookup or event append without Rust plan
   assert.deepEqual(calls, []);
 });
 
-test("thread-bound context budget facade fails closed before event append or JS lookup", () => {
+test("thread-bound context budget uses Rust policy planning and event admission", () => {
+  const { calls, events, store, surface } = compactHarness();
+
+  const result = surface.evaluateContextBudget(store, {
+    threadId: "thread_one",
+    request: {
+      mode: "block",
+      thresholds: { max_total_tokens: 100 },
+      created_at: "2026-06-13T12:09:00.000Z",
+      workflow_graph_id: "graph_one",
+      workflow_node_id: "node_budget",
+      runId: "run_retired",
+      workflowNodeId: "node_retired",
+      idempotencyKey: "context_budget_idempotency_retired",
+    },
+  });
+
+  assert.equal(result.status, "blocked");
+  assert.equal(result.event.admitted, true);
+  assert.equal(result.event.event_kind, "policy.blocked");
+  assert.equal(result.event.event_id, "event_context_budget_thread_one_policy_context_budget_thread_mock_00000005");
+  assert.equal(result.event.payload.policy_decision_id, "policy_context_budget_thread_mock");
+  assert.equal(result.receipt_refs.includes("receipt_context_budget_admitted"), true);
+  assert.deepEqual(calls.map((call) => call.name), [
+    "usageForThread",
+    "evaluateContextBudgetPolicy",
+    "latestRuntimeEventSeq",
+    "appendRuntimeEvent",
+  ]);
+  assert.equal(calls[1].request.thread_id, "thread_one");
+  assert.equal(calls[1].request.run_id, null);
+  assert.equal(calls[1].request.usage_telemetry.total_tokens, 120);
+  assert.equal(calls[3].event.thread_id, "thread_one");
+  assert.equal(events.length, 1);
+  for (const key of ["runId", "workflowNodeId", "idempotencyKey"]) {
+    assert.equal(Object.hasOwn(calls[1].request, key), false, `${key} alias must be absent`);
+  }
+});
+
+test("run context budget uses Rust policy planning and admitted thread event", () => {
+  const { calls, store, surface } = compactHarness();
+
+  const result = surface.evaluateContextBudget(store, {
+    runId: "run_one",
+    request: {
+      mode: "simulate",
+      thresholds: { max_total_tokens: 100 },
+      created_at: "2026-06-13T12:10:00.000Z",
+    },
+  });
+
+  assert.equal(result.status, "ok");
+  assert.equal(result.event.event_kind, "context_budget.evaluated");
+  assert.equal(result.event.thread_id, "thread_one");
+  assert.equal(result.event.turn_id, "turn_one");
+  assert.equal(result.event.event_stream_id, "event_stream_thread_one");
+  assert.deepEqual(calls.map((call) => call.name), [
+    "usageForRun",
+    "evaluateContextBudgetPolicy",
+    "latestRuntimeEventSeq",
+    "appendRuntimeEvent",
+  ]);
+  assert.equal(calls[1].request.scope, "run");
+  assert.equal(calls[1].request.run_id, "run_one");
+  assert.equal(calls[1].request.thread_id, "thread_one");
+});
+
+test("thread-bound context budget fails closed before usage lookup or event append without Rust planning", () => {
   const { calls, events, store, surface } = harness();
 
   assert.throws(
@@ -455,7 +628,75 @@ test("workflow-only context budget remains projection-only and ignores retired r
   }
 });
 
-test("compaction policy facade fails closed before event append, compaction execution, or JS persistence", () => {
+test("compaction policy uses Rust planning and event admission before returning route truth", () => {
+  const { calls, events, store, surface } = compactHarness();
+
+  const result = surface.evaluateCompactionPolicy(store, {
+    threadId: "thread_one",
+    request: {
+      turn_id: "turn_one",
+      context_budget: { status: "blocked" },
+      policy: { blocked_action: "compact", approval_required: true },
+      created_at: "2026-06-13T12:11:00.000Z",
+      eventKind: "RuntimeCompactionPolicy.Retired",
+      compactIdempotencyKey: "compaction_execute_idempotency_retired",
+    },
+  });
+
+  assert.equal(result.status, "waiting");
+  assert.equal(result.event.admitted, true);
+  assert.equal(result.event.event_kind, "approval.required");
+  assert.equal(result.event.event_id, "event_compaction_policy_thread_one_policy_compaction_thread_mock_00000005");
+  assert.equal(result.context_compaction, null);
+  assert.deepEqual(calls.map((call) => call.name), [
+    "evaluateCompactionPolicy",
+    "latestRuntimeEventSeq",
+    "appendRuntimeEvent",
+  ]);
+  assert.equal(calls[0].request.thread_id, "thread_one");
+  assert.equal(calls[0].request.turn_id, "turn_one");
+  assert.equal(calls[2].event.payload.approval_required, true);
+  assert.equal(events.length, 1);
+  for (const key of ["eventKind", "compactIdempotencyKey"]) {
+    assert.equal(Object.hasOwn(calls[0].request, key), false, `${key} alias must be absent`);
+  }
+});
+
+test("compaction policy executes Rust-owned compactThread when Rust requests compaction", () => {
+  const { calls, events, store, surface } = compactHarness();
+
+  const result = surface.evaluateCompactionPolicy(store, {
+    threadId: "thread_one",
+    request: {
+      turn_id: "turn_one",
+      context_budget: { status: "blocked" },
+      policy: { blocked_action: "compact", approval_required: true, approval_granted: true },
+      execute_compaction: true,
+      created_at: "2026-06-13T12:12:00.000Z",
+    },
+  });
+
+  assert.equal(result.status, "compacted");
+  assert.equal(result.context_compaction.status, "completed");
+  assert.equal(result.context_compaction.target_kind, "agent");
+  assert.equal(events.length, 2);
+  assert.deepEqual(calls.map((call) => call.name), [
+    "evaluateCompactionPolicy",
+    "latestRuntimeEventSeq",
+    "appendRuntimeEvent",
+    "agentForThread",
+    "latestRuntimeEventSeq",
+    "planContextCompaction",
+    "appendRuntimeEvent",
+    "planContextCompactionStateUpdate",
+    "writeAgent",
+  ]);
+  assert.equal(calls[5].request.reason, "trim context after budget block");
+  assert.equal(calls[5].request.idempotency_key, "thread:thread_one:compaction-policy:compact:policy_compaction_thread_mock");
+  assert.equal(calls[7].request.event_id, result.context_compaction.event_id);
+});
+
+test("compaction policy fails closed before event append, compaction execution, or JS persistence without Rust planning", () => {
   const { calls, events, store, surface } = harness();
 
   assert.throws(

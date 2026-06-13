@@ -103,6 +103,17 @@ compliance acronyms for hidden audit material.
   on risk, that records why a workload, private workspace, model mount, worker,
   service, or runtime assignment should land on a node/provider. It cannot
   bypass wallet.network, daemon execution, cTEE custody, or Agentgres admission.
+- `CloudRoute`: the Hypervisor/Fleet object for routing a workload to compute,
+  storage, GPU, network, confidential compute, DePIN, customer cloud, local, or
+  provider infrastructure. It binds resource requirements, privacy posture,
+  storage requirements, budget, jurisdiction, selected candidate, provider trust
+  model, attestation requirements, secret-release policy, wallet policy hash,
+  authority refs, cost, risk labels, and receipts.
+- `CloudCandidate`: a resource route candidate from decentralized.cloud,
+  provider connector, user route, local inventory, customer cloud, or DePIN
+  market. It is not authority, execution, storage truth, or privacy proof until
+  selected into an approved CloudRoute and executed through the daemon/provider
+  boundary with receipts.
 - `DefaultHarnessProfile`: the standard daemon-executed, wallet-authorized,
   Agentgres-backed, loop-native orchestration profile for bounded autonomous
   work. It is not a peer runtime beside the daemon; it configures how daemon
@@ -247,6 +258,31 @@ compliance acronyms for hidden audit material.
   exchange surface. It may own its route proposals, adapter registry,
   route-candidate receipts, and comparison views, but it does not own Wallet
   exchange authority, liquidity, execution, exchange truth, or settlement.
+- `DecentralizedResourceLane`: the shared doctrine for decentralized.exchange,
+  decentralized.trade, and decentralized.cloud. These lanes propose candidate
+  routes for liquidity, exposure, or execution; wallet.network authorizes;
+  Hypervisor deploys or executes when runtime work is involved; venues and
+  providers perform; Agentgres records; IOI L1 settles only by trigger.
+- `decentralized.trade`: a preferred first-party trading route source and
+  advanced exposure-management surface. It may own venue adapters,
+  order-ticket normalization, market discovery, position/risk display, margin
+  calculations, strategy templates, venue comparison, and trade-candidate
+  receipts, but it does not own user authority, custody, final approval, venue
+  execution, user positions, policy, or settlement truth.
+- `decentralized.cloud`: a preferred first-party cloud/resource route source
+  for compute, storage, GPU, bandwidth, confidential execution, DePIN,
+  customer cloud, local infrastructure, and provider route comparison. It does
+  not own Hypervisor execution, provider infrastructure, user authority,
+  secrets, storage meaning, declassification, or settlement truth.
+- `TradeIntent`: the semantic wallet object above raw venue order or calldata.
+  It binds venue, market, side, collateral, leverage, margin mode, order type,
+  liquidation/funding assumptions, max-loss policy, simulation, risk labels,
+  grants/leases, revocation epoch, and exact venue/order/TxIntent records
+  before advanced trading can be approved or signed.
+- `PositionReceipt`: the wallet receipt that records position state, risk, and
+  policy status at meaningful transitions or checkpoints, including venue,
+  market, side, size, collateral, leverage, margin mode, entry/mark/liquidation
+  prices, funding, PnL, close conditions, and policy status.
 - `AssetExposureRecord`: a wallet.network risk record over an account or asset,
   including cryptographic regime, public-key exposure, bridge/admin/oracle
   dependencies, approval exposure, agent-access exposure, protection level,
