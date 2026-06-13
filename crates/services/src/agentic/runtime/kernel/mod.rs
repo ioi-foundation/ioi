@@ -205,6 +205,8 @@ use runtime_conversation_artifact_projection::{
 use runtime_diagnostics_repair_control::{
     RuntimeDiagnosticsRepairControlCommandError, RuntimeDiagnosticsRepairControlCore,
     RuntimeDiagnosticsRepairControlRecord, RuntimeDiagnosticsRepairControlRequest,
+    RuntimeDiagnosticsRepairRetryRunCore, RuntimeDiagnosticsRepairRetryRunRecord,
+    RuntimeDiagnosticsRepairRetryRunRequest,
 };
 use runtime_diagnostics_repair_policy::{
     RuntimeDiagnosticsRepairPolicyCommandError, RuntimeDiagnosticsRepairPolicyCore,
@@ -556,6 +558,14 @@ impl RuntimeKernelService {
     ) -> Result<RuntimeDiagnosticsRepairControlRecord, RuntimeDiagnosticsRepairControlCommandError>
     {
         RuntimeDiagnosticsRepairControlCore.plan(request)
+    }
+
+    pub fn plan_runtime_diagnostics_repair_retry_run(
+        &self,
+        request: &RuntimeDiagnosticsRepairRetryRunRequest,
+    ) -> Result<RuntimeDiagnosticsRepairRetryRunRecord, RuntimeDiagnosticsRepairControlCommandError>
+    {
+        RuntimeDiagnosticsRepairRetryRunCore.plan(request)
     }
 
     pub fn project_runtime_diagnostics_repair_projection(

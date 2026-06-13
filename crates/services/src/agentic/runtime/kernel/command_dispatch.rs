@@ -443,6 +443,10 @@ pub fn dispatch_command_operation_response(
             plan_runtime_diagnostics_repair_control_response(decode(raw_request)?)
                 .map_err(Into::into)
         }
+        CommandOperation::PlanRuntimeDiagnosticsRepairRetryRun => {
+            plan_runtime_diagnostics_repair_retry_run_response(decode(raw_request)?)
+                .map_err(Into::into)
+        }
         CommandOperation::ProjectRuntimeDiagnosticsRepairProjection => {
             project_runtime_diagnostics_repair_projection_response(decode(raw_request)?)
                 .map_err(Into::into)

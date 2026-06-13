@@ -1,11 +1,15 @@
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{json, Map, Value};
 use sha2::{Digest, Sha256};
 
 pub const RUNTIME_DIAGNOSTICS_REPAIR_CONTROL_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.diagnostics-repair-control-request.v1";
 pub const RUNTIME_DIAGNOSTICS_REPAIR_CONTROL_RESULT_SCHEMA_VERSION: &str =
     "ioi.runtime.diagnostics_repair_control.v1";
+pub const RUNTIME_DIAGNOSTICS_REPAIR_RETRY_RUN_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.diagnostics-repair-retry-run-request.v1";
+pub const RUNTIME_DIAGNOSTICS_REPAIR_RETRY_RUN_RESULT_SCHEMA_VERSION: &str =
+    "ioi.runtime.diagnostics_repair_retry_run.v1";
 
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct RuntimeDiagnosticsRepairControlRequest {
@@ -86,12 +90,74 @@ pub struct RuntimeDiagnosticsRepairControlRecord {
     pub evidence_refs: Vec<String>,
 }
 
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct RuntimeDiagnosticsRepairRetryRunRequest {
+    #[serde(default)]
+    pub schema_version: Option<String>,
+    #[serde(default)]
+    pub operation: Option<String>,
+    #[serde(default)]
+    pub operation_kind: Option<String>,
+    #[serde(default)]
+    pub thread_id: Option<String>,
+    #[serde(default)]
+    pub agent_id: Option<String>,
+    #[serde(default)]
+    pub decision_id: Option<String>,
+    #[serde(default)]
+    pub gate_event_id: Option<String>,
+    #[serde(default)]
+    pub snapshot_id: Option<String>,
+    #[serde(default)]
+    pub target_run_id: Option<String>,
+    #[serde(default)]
+    pub prompt: Option<String>,
+    #[serde(default)]
+    pub source: Option<String>,
+    #[serde(default)]
+    pub request: Value,
+    #[serde(default)]
+    pub receipt_refs: Vec<String>,
+    #[serde(default)]
+    pub policy_decision_refs: Vec<String>,
+    #[serde(default)]
+    pub evidence_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct RuntimeDiagnosticsRepairRetryRunCore;
+
+#[derive(Debug, Clone)]
+pub struct RuntimeDiagnosticsRepairRetryRunRecord {
+    pub operation: String,
+    pub operation_kind: String,
+    pub thread_id: String,
+    pub agent_id: String,
+    pub decision_id: String,
+    pub run_request: Value,
+    pub retry_event_request: Value,
+    pub receipt_refs: Vec<String>,
+    pub policy_decision_refs: Vec<String>,
+    pub evidence_refs: Vec<String>,
+}
+
 pub fn plan_runtime_diagnostics_repair_control_response(
     request: RuntimeDiagnosticsRepairControlRequest,
 ) -> Result<Value, RuntimeDiagnosticsRepairControlCommandError> {
     let record = RuntimeDiagnosticsRepairControlCore.plan(&request)?;
     Ok(json!({
         "source": "rust_runtime_diagnostics_repair_control_command",
+        "backend": "rust_policy",
+        "record": record.to_value(),
+    }))
+}
+
+pub fn plan_runtime_diagnostics_repair_retry_run_response(
+    request: RuntimeDiagnosticsRepairRetryRunRequest,
+) -> Result<Value, RuntimeDiagnosticsRepairControlCommandError> {
+    let record = RuntimeDiagnosticsRepairRetryRunCore.plan(&request)?;
+    Ok(json!({
+        "source": "rust_runtime_diagnostics_repair_retry_run_command",
         "backend": "rust_policy",
         "record": record.to_value(),
     }))
@@ -237,6 +303,158 @@ impl RuntimeDiagnosticsRepairControlRecord {
             "decision_id": self.decision_id,
             "control_status": self.status,
             "event": self.event,
+            "receipt_refs": self.receipt_refs,
+            "policy_decision_refs": self.policy_decision_refs,
+            "evidence_refs": self.evidence_refs,
+        })
+    }
+}
+
+impl RuntimeDiagnosticsRepairRetryRunCore {
+    pub fn plan(
+        &self,
+        request: &RuntimeDiagnosticsRepairRetryRunRequest,
+    ) -> Result<RuntimeDiagnosticsRepairRetryRunRecord, RuntimeDiagnosticsRepairControlCommandError>
+    {
+        if let Some(schema_version) = optional_trimmed(request.schema_version.as_deref()) {
+            if schema_version != RUNTIME_DIAGNOSTICS_REPAIR_RETRY_RUN_REQUEST_SCHEMA_VERSION {
+                return Err(RuntimeDiagnosticsRepairControlCommandError::new(
+                    "runtime_diagnostics_repair_retry_run_schema_version_invalid",
+                    format!(
+                        "expected {RUNTIME_DIAGNOSTICS_REPAIR_RETRY_RUN_REQUEST_SCHEMA_VERSION}, got {schema_version}"
+                    ),
+                ));
+            }
+        }
+
+        let operation = optional_trimmed(request.operation.as_deref())
+            .unwrap_or_else(|| "diagnostics_repair_retry_run_create".to_string());
+        if operation != "diagnostics_repair_retry_run_create" {
+            return Err(RuntimeDiagnosticsRepairControlCommandError::new(
+                "runtime_diagnostics_repair_retry_run_operation_unsupported",
+                format!("{operation} is not a diagnostics repair retry run operation"),
+            ));
+        }
+        let operation_kind = optional_trimmed(request.operation_kind.as_deref())
+            .unwrap_or_else(|| "diagnostics.repair_retry.run_create".to_string());
+        if operation_kind != "diagnostics.repair_retry.run_create" {
+            return Err(RuntimeDiagnosticsRepairControlCommandError::new(
+                "runtime_diagnostics_repair_retry_run_operation_kind_unsupported",
+                format!("{operation_kind} is not a diagnostics repair retry run operation kind"),
+            ));
+        }
+        reject_retired_retry_run_request_transport(&request.request)?;
+
+        let thread_id = optional_trimmed(request.thread_id.as_deref()).ok_or_else(|| {
+            RuntimeDiagnosticsRepairControlCommandError::new(
+                "runtime_diagnostics_repair_retry_run_thread_id_required",
+                "diagnostics repair retry run planning requires thread_id",
+            )
+        })?;
+        let agent_id = optional_trimmed(request.agent_id.as_deref()).ok_or_else(|| {
+            RuntimeDiagnosticsRepairControlCommandError::new(
+                "runtime_diagnostics_repair_retry_run_agent_id_required",
+                "diagnostics repair retry run planning requires agent_id",
+            )
+        })?;
+        let decision_id = optional_trimmed(request.decision_id.as_deref())
+            .or_else(|| string_field(&request.request, "decision_id"))
+            .ok_or_else(|| {
+                RuntimeDiagnosticsRepairControlCommandError::new(
+                    "runtime_diagnostics_repair_retry_run_decision_id_required",
+                    "diagnostics repair retry run planning requires decision_id",
+                )
+            })?;
+        let gate_event_id = optional_trimmed(request.gate_event_id.as_deref())
+            .or_else(|| string_field(&request.request, "gate_event_id"));
+        let snapshot_id = optional_trimmed(request.snapshot_id.as_deref())
+            .or_else(|| string_field(&request.request, "snapshot_id"));
+        let target_run_id = optional_trimmed(request.target_run_id.as_deref())
+            .or_else(|| string_field(&request.request, "target_run_id"));
+        let prompt = optional_trimmed(request.prompt.as_deref())
+            .or_else(|| string_field(&request.request, "prompt"))
+            .unwrap_or_else(|| format!("Retry diagnostics repair for {decision_id}."));
+        let summary = string_field(&request.request, "summary")
+            .unwrap_or_else(|| "Diagnostics repair retry turn created.".to_string());
+        let receipt_refs = unique_strings(
+            request
+                .receipt_refs
+                .iter()
+                .cloned()
+                .chain(string_array_field(&request.request, "receipt_refs"))
+                .collect(),
+        );
+        let policy_decision_refs = unique_strings(
+            request
+                .policy_decision_refs
+                .iter()
+                .cloned()
+                .chain(string_array_field(&request.request, "policy_decision_refs"))
+                .collect(),
+        );
+        let evidence_refs = diagnostics_repair_retry_run_evidence_refs(request);
+
+        let mut options = object_field(&request.request, "options").unwrap_or_default();
+        options.insert(
+            "diagnostics_repair".to_string(),
+            json!({
+                "action": "repair_retry",
+                "decision_id": decision_id,
+                "gate_event_id": gate_event_id,
+                "snapshot_id": snapshot_id,
+            }),
+        );
+        let diagnostics_feedback = json!({
+            "mode": "repair_retry",
+            "decision_id": decision_id,
+            "gate_event_id": gate_event_id,
+            "snapshot_id": snapshot_id,
+        });
+        let run_request = json!({
+            "mode": "send",
+            "prompt": prompt,
+            "options": Value::Object(options),
+            "diagnostics_feedback": diagnostics_feedback,
+        });
+        let retry_event_request = json!({
+            "decision_id": decision_id,
+            "gate_event_id": gate_event_id,
+            "snapshot_id": snapshot_id,
+            "action": "repair_retry",
+            "target_run_id": target_run_id,
+            "summary": summary,
+            "receipt_refs": receipt_refs,
+            "policy_decision_refs": policy_decision_refs,
+        });
+
+        Ok(RuntimeDiagnosticsRepairRetryRunRecord {
+            operation,
+            operation_kind,
+            thread_id,
+            agent_id,
+            decision_id,
+            run_request,
+            retry_event_request,
+            receipt_refs,
+            policy_decision_refs,
+            evidence_refs,
+        })
+    }
+}
+
+impl RuntimeDiagnosticsRepairRetryRunRecord {
+    fn to_value(&self) -> Value {
+        json!({
+            "schema_version": RUNTIME_DIAGNOSTICS_REPAIR_RETRY_RUN_RESULT_SCHEMA_VERSION,
+            "object": "ioi.runtime_diagnostics_repair_retry_run",
+            "status": "planned",
+            "operation": self.operation,
+            "operation_kind": self.operation_kind,
+            "thread_id": self.thread_id,
+            "agent_id": self.agent_id,
+            "decision_id": self.decision_id,
+            "run_request": self.run_request,
+            "retry_event_request": self.retry_event_request,
             "receipt_refs": self.receipt_refs,
             "policy_decision_refs": self.policy_decision_refs,
             "evidence_refs": self.evidence_refs,
@@ -514,6 +732,57 @@ fn diagnostics_repair_evidence_refs(
     ]
 }
 
+fn diagnostics_repair_retry_run_evidence_refs(
+    request: &RuntimeDiagnosticsRepairRetryRunRequest,
+) -> Vec<String> {
+    if !request.evidence_refs.is_empty() {
+        return request.evidence_refs.clone();
+    }
+    vec![
+        "runtime_diagnostics_repair_retry_run_request_rust_owned".to_string(),
+        "diagnostics_repair_retry_run_create_rust_owned".to_string(),
+        "runtime_run_create_js_facade_retired".to_string(),
+    ]
+}
+
+fn object_field(value: &Value, key: &str) -> Option<Map<String, Value>> {
+    value.get(key)?.as_object().cloned()
+}
+
+fn reject_retired_retry_run_request_transport(
+    request: &Value,
+) -> Result<(), RuntimeDiagnosticsRepairControlCommandError> {
+    let Some(request) = request.as_object() else {
+        return Ok(());
+    };
+    let retired: Vec<String> = [
+        "repair_prompt",
+        "repairPrompt",
+        "targetRunId",
+        "gateEventId",
+        "snapshotId",
+        "decisionId",
+        "receiptRefs",
+        "policyDecisionRefs",
+        "idempotencyKey",
+        "repairRetryIdempotencyKey",
+        "retryRunId",
+        "retryTurnId",
+    ]
+    .into_iter()
+    .filter(|field| request.contains_key(*field))
+    .map(str::to_string)
+    .collect();
+    if retired.is_empty() {
+        Ok(())
+    } else {
+        Err(RuntimeDiagnosticsRepairControlCommandError::new(
+            "runtime_diagnostics_repair_retry_run_transport_retired",
+            format!("retired diagnostics repair retry run transport: {retired:?}"),
+        ))
+    }
+}
+
 fn optional_trimmed(value: Option<&str>) -> Option<String> {
     let value = value?.trim();
     if value.is_empty() {
@@ -606,6 +875,34 @@ mod tests {
         }
     }
 
+    fn retry_run_request() -> RuntimeDiagnosticsRepairRetryRunRequest {
+        RuntimeDiagnosticsRepairRetryRunRequest {
+            schema_version: Some(
+                RUNTIME_DIAGNOSTICS_REPAIR_RETRY_RUN_REQUEST_SCHEMA_VERSION.to_string(),
+            ),
+            operation: Some("diagnostics_repair_retry_run_create".to_string()),
+            operation_kind: Some("diagnostics.repair_retry.run_create".to_string()),
+            thread_id: Some("thread_alpha".to_string()),
+            agent_id: Some("agent_alpha".to_string()),
+            decision_id: Some("decision_retry".to_string()),
+            gate_event_id: Some("event_gate_alpha".to_string()),
+            snapshot_id: Some("snapshot_alpha".to_string()),
+            target_run_id: Some("run_blocked".to_string()),
+            request: json!({
+                "prompt": "Retry the diagnostics repair.",
+                "summary": "Retry queued.",
+                "options": {
+                    "model": { "id": "route.local" }
+                },
+                "receipt_refs": ["receipt_retry_request"],
+                "policy_decision_refs": ["policy_retry_request"]
+            }),
+            receipt_refs: vec!["receipt_retry_outer".to_string()],
+            policy_decision_refs: vec!["policy_retry_outer".to_string()],
+            ..Default::default()
+        }
+    }
+
     #[test]
     fn rust_plans_runtime_diagnostics_repair_decision_execution_control_event() {
         let record = RuntimeDiagnosticsRepairControlCore
@@ -680,6 +977,74 @@ mod tests {
         assert!(record
             .evidence_refs
             .contains(&"runtime_diagnostics_repair_retry_event_rust_owned".to_string()));
+    }
+
+    #[test]
+    fn rust_plans_runtime_diagnostics_repair_retry_run_create_request() {
+        let record = RuntimeDiagnosticsRepairRetryRunCore
+            .plan(&retry_run_request())
+            .expect("diagnostics repair retry run plan");
+
+        assert_eq!(record.operation, "diagnostics_repair_retry_run_create");
+        assert_eq!(record.operation_kind, "diagnostics.repair_retry.run_create");
+        assert_eq!(record.thread_id, "thread_alpha");
+        assert_eq!(record.agent_id, "agent_alpha");
+        assert_eq!(record.decision_id, "decision_retry");
+        assert_eq!(record.run_request["mode"], "send");
+        assert_eq!(
+            record.run_request["prompt"],
+            Value::String("Retry the diagnostics repair.".to_string())
+        );
+        assert_eq!(
+            record.run_request["options"]["diagnostics_repair"]["action"],
+            "repair_retry"
+        );
+        assert_eq!(
+            record.run_request["options"]["diagnostics_repair"]["decision_id"],
+            "decision_retry"
+        );
+        assert_eq!(
+            record.run_request["diagnostics_feedback"]["snapshot_id"],
+            "snapshot_alpha"
+        );
+        assert_eq!(
+            record.retry_event_request["target_run_id"],
+            Value::String("run_blocked".to_string())
+        );
+        assert_eq!(record.retry_event_request["summary"], "Retry queued.");
+        assert!(record
+            .receipt_refs
+            .contains(&"receipt_retry_outer".to_string()));
+        assert!(record
+            .receipt_refs
+            .contains(&"receipt_retry_request".to_string()));
+        assert!(record
+            .evidence_refs
+            .contains(&"runtime_diagnostics_repair_retry_run_request_rust_owned".to_string()));
+    }
+
+    #[test]
+    fn rust_shapes_runtime_diagnostics_repair_retry_run_command_response() {
+        let response = plan_runtime_diagnostics_repair_retry_run_response(retry_run_request())
+            .expect("diagnostics repair retry run response");
+
+        assert_eq!(
+            response["source"],
+            "rust_runtime_diagnostics_repair_retry_run_command"
+        );
+        assert_eq!(response["record"]["status"], "planned");
+        assert_eq!(
+            response["record"]["operation_kind"],
+            "diagnostics.repair_retry.run_create"
+        );
+        assert_eq!(
+            response["record"]["run_request"]["options"]["diagnostics_repair"]["decision_id"],
+            "decision_retry"
+        );
+        assert_eq!(
+            response["record"]["retry_event_request"]["action"],
+            "repair_retry"
+        );
     }
 
     #[test]
@@ -764,6 +1129,23 @@ mod tests {
         assert_eq!(
             error.code(),
             "runtime_diagnostics_operator_override_authority_receipt_required"
+        );
+    }
+
+    #[test]
+    fn rust_rejects_runtime_diagnostics_repair_retry_run_retired_transport() {
+        let mut request = retry_run_request();
+        request.request = json!({
+            "repair_prompt": "legacy retry prompt",
+            "targetRunId": "run_legacy"
+        });
+
+        let error = RuntimeDiagnosticsRepairRetryRunCore
+            .plan(&request)
+            .expect_err("retired retry run transport is rejected");
+        assert_eq!(
+            error.code(),
+            "runtime_diagnostics_repair_retry_run_transport_retired"
         );
     }
 

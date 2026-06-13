@@ -10,6 +10,13 @@ const DIAGNOSTICS_REPAIR_CONTROL_EVENT_EVIDENCE_REFS = [
   "agentgres_runtime_thread_event_truth_required",
 ];
 
+const DIAGNOSTICS_REPAIR_RETRY_RUN_EVIDENCE_REFS = [
+  "runtime_diagnostics_repair_retry_run_request_rust_owned",
+  "diagnostics_repair_retry_run_create_rust_owned",
+  "runtime_run_create_js_facade_retired",
+  "agentgres_run_create_state_truth_required",
+];
+
 const DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_EVIDENCE_REFS = [
   "diagnostics_operator_override_state_update_rust_owned",
   "rust_daemon_core_operator_override_state_required",
@@ -82,6 +89,33 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
       thread_id: request.thread_id,
       decision_id: request.decision_id,
     });
+  }
+
+  function throwDiagnosticsRepairRetryRunRustCoreRequired(details = {}) {
+    throw runtimeError({
+      status: 501,
+      code: "runtime_diagnostics_repair_retry_run_rust_core_required",
+      message:
+        "Diagnostics repair retry creation requires Rust daemon-core retry-run planning.",
+      details: {
+        rust_core_boundary: "runtime.diagnostics_repair.retry_run",
+        operation: "diagnostics_repair_retry_run_create",
+        operation_kind: "diagnostics.repair_retry.run_create",
+        ...details,
+        evidence_refs: DIAGNOSTICS_REPAIR_RETRY_RUN_EVIDENCE_REFS,
+      },
+    });
+  }
+
+  function diagnosticsRepairRetryRunRunner(store, details = {}) {
+    const runner = store?.contextPolicyRunner ?? diagnosticsRepairRunner;
+    if (
+      runner?.planRuntimeDiagnosticsRepairRetryRun &&
+      runner?.planRuntimeDiagnosticsRepairControl
+    ) {
+      return runner;
+    }
+    throwDiagnosticsRepairRetryRunRustCoreRequired(details);
   }
 
   function diagnosticsRepairProjectionRunner(store, details = {}) {
@@ -471,25 +505,13 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
       gate_event_id: gateEventId,
       snapshot_id: normalizedSnapshotId,
     };
-    diagnosticsRepairControlRunner(store, {
-      operation: "diagnostics_repair_retry_event_append",
-      operation_kind: "diagnostics.repair_retry.created",
-      thread_id: threadId,
-      decision_id: decisionId,
-    });
+    const retryRunRunner = diagnosticsRepairRetryRunRunner(store, details);
     const runCreateSurface = store?.agentRunLifecycleSurface;
     if (
       typeof runCreateSurface?.createRun !== "function" ||
       typeof store?.agentForThread !== "function"
     ) {
-      throwDiagnosticsRepairRustCoreRequired("diagnostics_repair_retry_turn_creation", "diagnostics.repair_retry.create", {
-        ...details,
-        evidence_refs: [
-          "diagnostics_repair_retry_run_create_rust_owned",
-          "runtime_run_create_js_facade_retired",
-          "agentgres_run_create_state_truth_required",
-        ],
-      });
+      throwDiagnosticsRepairRetryRunRustCoreRequired(details);
     }
     const agent = objectRecord(store.agentForThread(threadId));
     const agentId = optionalString(agent?.id ?? agent?.agent_id);
@@ -504,28 +526,66 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
         },
       });
     }
-    const prompt =
-      optionalString(normalizedRequest.prompt ?? normalizedRequest.repair_prompt) ??
-      `Retry diagnostics repair for ${decisionId}.`;
-    const retryRun = runCreateSurface.createRun(store, agentId, {
-      mode: "send",
-      prompt,
-      options: {
-        ...(objectRecord(normalizedRequest.options) ?? {}),
-        diagnostics_repair: {
-          action: "repair_retry",
-          decision_id: decisionId,
-          gate_event_id: gateEventId,
-          snapshot_id: normalizedSnapshotId,
-        },
-      },
-      diagnostics_feedback: {
-        mode: "repair_retry",
-        decision_id: decisionId,
-        gate_event_id: gateEventId,
-        snapshot_id: normalizedSnapshotId,
-      },
+    const targetRunId =
+      optionalString(
+        normalizedRequest.target_run_id ??
+          gateEvent?.target_run_id ??
+          gateEvent?.payload?.target_run_id ??
+          decision?.target_run_id,
+      ) ?? null;
+    const plannedRetryRun = retryRunRunner.planRuntimeDiagnosticsRepairRetryRun({
+      operation: "diagnostics_repair_retry_run_create",
+      operation_kind: "diagnostics.repair_retry.run_create",
+      thread_id: threadId,
+      agent_id: agentId,
+      decision_id: decisionId,
+      gate_event_id: gateEventId,
+      snapshot_id: normalizedSnapshotId,
+      target_run_id: targetRunId,
+      request: normalizedRequest,
+      receipt_refs: stringRefs(normalizedRequest.receipt_refs),
+      policy_decision_refs: stringRefs(normalizedRequest.policy_decision_refs),
+      evidence_refs: DIAGNOSTICS_REPAIR_RETRY_RUN_EVIDENCE_REFS,
     });
+    const plannedRunRequest = objectRecord(plannedRetryRun?.run_request);
+    const plannedEventRequest = objectRecord(plannedRetryRun?.retry_event_request);
+    const plannedRunOptions = objectRecord(plannedRunRequest?.options);
+    const plannedRunDiagnosticsRepair = objectRecord(plannedRunOptions?.diagnostics_repair);
+    const plannedDiagnosticsFeedback = objectRecord(plannedRunRequest?.diagnostics_feedback);
+    if (
+      optionalString(plannedRetryRun?.status) !== "planned" ||
+      optionalString(plannedRetryRun?.operation_kind) !== "diagnostics.repair_retry.run_create" ||
+      optionalString(plannedRetryRun?.thread_id) !== threadId ||
+      optionalString(plannedRetryRun?.agent_id) !== agentId ||
+      optionalString(plannedRetryRun?.decision_id) !== decisionId ||
+      !plannedRunRequest ||
+      optionalString(plannedRunRequest.mode) !== "send" ||
+      optionalString(plannedRunRequest.prompt) == null ||
+      !plannedRunDiagnosticsRepair ||
+      optionalString(plannedRunDiagnosticsRepair.action) !== "repair_retry" ||
+      optionalString(plannedRunDiagnosticsRepair.decision_id) !== decisionId ||
+      !plannedDiagnosticsFeedback ||
+      optionalString(plannedDiagnosticsFeedback.mode) !== "repair_retry" ||
+      optionalString(plannedDiagnosticsFeedback.decision_id) !== decisionId ||
+      !plannedEventRequest ||
+      optionalString(plannedEventRequest.action) !== "repair_retry" ||
+      optionalString(plannedEventRequest.decision_id) !== decisionId
+    ) {
+      throw runtimeError({
+        status: 502,
+        code: "runtime_diagnostics_repair_retry_run_projection_incomplete",
+        message:
+          "Rust diagnostics repair retry-run planning did not return a complete run-create request.",
+        details: {
+          rust_core_boundary: "runtime.diagnostics_repair.retry_run",
+          ...details,
+          agent_id: agentId,
+          actual_operation_kind: optionalString(plannedRetryRun?.operation_kind) ?? null,
+          evidence_refs: DIAGNOSTICS_REPAIR_RETRY_RUN_EVIDENCE_REFS,
+        },
+      });
+    }
+    const retryRun = runCreateSurface.createRun(store, agentId, plannedRunRequest);
     const retryRunId = optionalString(retryRun?.id);
     if (!retryRunId) {
       throw runtimeError({
@@ -540,30 +600,17 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
       });
     }
     const retryTurnId = optionalString(retryRun?.turn_id ?? retryRun?.turnId) ?? retryRunId;
-    const targetRunId =
-      optionalString(
-        normalizedRequest.target_run_id ??
-          gateEvent?.target_run_id ??
-          gateEvent?.payload?.target_run_id ??
-          decision?.target_run_id,
-      ) ?? null;
     const summary =
-      optionalString(normalizedRequest.summary) ??
+      optionalString(plannedEventRequest.summary) ??
       "Diagnostics repair retry turn created.";
     const admittedEvent = appendPlannedDiagnosticsRepairControlEvent(
       store,
       planDiagnosticsRepairControlEvent(store, threadId, {
-        decision_id: decisionId,
-        gate_event_id: gateEventId,
-        snapshot_id: normalizedSnapshotId,
-        action: "repair_retry",
+        ...plannedEventRequest,
         retry_turn_id: retryTurnId,
         retry_request_id: retryRunId,
         retry_run_id: retryRunId,
-        target_run_id: targetRunId,
         summary,
-        receipt_refs: stringRefs(normalizedRequest.receipt_refs),
-        policy_decision_refs: stringRefs(normalizedRequest.policy_decision_refs),
       }, {
         operation: "diagnostics_repair_retry_event_append",
         operationKind: "diagnostics.repair_retry.created",

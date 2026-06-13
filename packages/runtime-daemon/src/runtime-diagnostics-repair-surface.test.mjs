@@ -71,6 +71,7 @@ function harness() {
 
 function diagnosticsRepairControlRunner({ operationKind = "diagnostics.repair_decision.execute" } = {}) {
   const requests = [];
+  const retryRunRequests = [];
   const controlStatus = operationKind === "diagnostics.repair_decision.executed"
     ? "executed"
     : operationKind === "diagnostics.repair_retry.created"
@@ -80,6 +81,53 @@ function diagnosticsRepairControlRunner({ operationKind = "diagnostics.repair_de
         : "accepted";
   return {
     requests,
+    retryRunRequests,
+    planRuntimeDiagnosticsRepairRetryRun(request) {
+      retryRunRequests.push(request);
+      const retryRequest = request.request ?? {};
+      return {
+        source: "rust_runtime_diagnostics_repair_retry_run_command",
+        backend: "rust_policy",
+        status: "planned",
+        operation: "diagnostics_repair_retry_run_create",
+        operation_kind: "diagnostics.repair_retry.run_create",
+        thread_id: request.thread_id,
+        agent_id: request.agent_id,
+        decision_id: request.decision_id,
+        run_request: {
+          mode: "send",
+          prompt: retryRequest.prompt ?? `Retry diagnostics repair for ${request.decision_id}.`,
+          options: {
+            ...(retryRequest.options ?? {}),
+            diagnostics_repair: {
+              action: "repair_retry",
+              decision_id: request.decision_id,
+              gate_event_id: request.gate_event_id ?? null,
+              snapshot_id: request.snapshot_id ?? null,
+            },
+          },
+          diagnostics_feedback: {
+            mode: "repair_retry",
+            decision_id: request.decision_id,
+            gate_event_id: request.gate_event_id ?? null,
+            snapshot_id: request.snapshot_id ?? null,
+          },
+        },
+        retry_event_request: {
+          decision_id: request.decision_id,
+          gate_event_id: request.gate_event_id ?? null,
+          snapshot_id: request.snapshot_id ?? null,
+          action: "repair_retry",
+          target_run_id: request.target_run_id ?? null,
+          summary: retryRequest.summary ?? "Diagnostics repair retry turn created.",
+          receipt_refs: retryRequest.receipt_refs ?? [],
+          policy_decision_refs: retryRequest.policy_decision_refs ?? [],
+        },
+        receipt_refs: request.receipt_refs ?? [],
+        policy_decision_refs: request.policy_decision_refs ?? [],
+        evidence_refs: request.evidence_refs ?? [],
+      };
+    },
     planRuntimeDiagnosticsRepairControl(request) {
       requests.push(request);
       return {
@@ -486,7 +534,7 @@ test("diagnostics operator override fails closed before run lookup without Rust 
   assert.deepEqual(calls, []);
 });
 
-test("diagnostics repair retry creates Rust-owned run and retry event admission", () => {
+test("diagnostics repair retry uses Rust retry-run planning, run creation, and event admission", () => {
   const appended = [];
   const runner = diagnosticsRepairControlRunner({
     operationKind: "diagnostics.repair_retry.created",
@@ -535,6 +583,32 @@ test("diagnostics repair retry creates Rust-owned run and retry event admission"
   assert.equal(result.event.admitted, true);
   assert.equal(appended[0].event_kind, "diagnostics.repair_retry.created");
   assert.equal(appended[0].payload.retry_run_id, "run_retry");
+  assert.deepEqual(runner.retryRunRequests, [{
+    operation: "diagnostics_repair_retry_run_create",
+    operation_kind: "diagnostics.repair_retry.run_create",
+    thread_id: "thread_alpha",
+    agent_id: "agent_alpha",
+    decision_id: "decision_retry",
+    gate_event_id: "event_gate",
+    snapshot_id: "snapshot_alpha",
+    target_run_id: "run_blocked",
+    request: {
+      decision_id: "decision_retry",
+      prompt: "Retry the diagnostics repair.",
+      target_run_id: "run_blocked",
+      summary: "Retry queued.",
+      receipt_refs: ["receipt_retry_request"],
+      policy_decision_refs: ["policy_retry_request"],
+    },
+    receipt_refs: ["receipt_retry_request"],
+    policy_decision_refs: ["policy_retry_request"],
+    evidence_refs: [
+      "runtime_diagnostics_repair_retry_run_request_rust_owned",
+      "diagnostics_repair_retry_run_create_rust_owned",
+      "runtime_run_create_js_facade_retired",
+      "agentgres_run_create_state_truth_required",
+    ],
+  }]);
   assert.deepEqual(runCreates, [{
     agentId: "agent_alpha",
     request: {
@@ -592,7 +666,7 @@ test("diagnostics repair retry creates Rust-owned run and retry event admission"
   }]);
 });
 
-test("diagnostics repair retry fails closed before JS lookup without Rust planning", () => {
+test("diagnostics repair retry fails closed before JS lookup without Rust retry-run planning", () => {
   const { calls, store, surface } = harness();
 
   assert.throws(
@@ -605,15 +679,16 @@ test("diagnostics repair retry fails closed before JS lookup without Rust planni
       }),
     (error) => {
       assert.equal(error.status, 501);
-      assert.equal(error.code, "runtime_diagnostics_repair_control_rust_core_required");
-      assert.equal(error.details.operation, "diagnostics_repair_retry_event_append");
-      assert.equal(error.details.operation_kind, "diagnostics.repair_retry.created");
+      assert.equal(error.code, "runtime_diagnostics_repair_retry_run_rust_core_required");
+      assert.equal(error.details.operation, "diagnostics_repair_retry_run_create");
+      assert.equal(error.details.operation_kind, "diagnostics.repair_retry.run_create");
       assert.equal(error.details.thread_id, "thread_alpha");
       assert.equal(error.details.decision_id, "decision_retry");
       assert.deepEqual(error.details.evidence_refs, [
-        "runtime_diagnostics_repair_retry_event_rust_owned",
-        "runtime_diagnostics_repair_control_event_rust_owned",
-        "agentgres_runtime_thread_event_truth_required",
+        "runtime_diagnostics_repair_retry_run_request_rust_owned",
+        "diagnostics_repair_retry_run_create_rust_owned",
+        "runtime_run_create_js_facade_retired",
+        "agentgres_run_create_state_truth_required",
       ]);
       assertNoRetiredDiagnosticsRepairDetailAliases(error.details);
       return true;

@@ -86,6 +86,7 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "plan_workflow_edit_admission_required",
     "plan_diagnostics_repair_admission_required",
     "plan_runtime_diagnostics_repair_control",
+    "plan_runtime_diagnostics_repair_retry_run",
     "project_runtime_diagnostics_repair_projection",
     "project_runtime_diagnostics_repair_policy",
     "plan_diagnostics_operator_override_state_update",
@@ -222,6 +223,7 @@ pub enum CommandOperation {
     PlanWorkflowEditAdmissionRequired,
     PlanDiagnosticsRepairAdmissionRequired,
     PlanRuntimeDiagnosticsRepairControl,
+    PlanRuntimeDiagnosticsRepairRetryRun,
     ProjectRuntimeDiagnosticsRepairProjection,
     ProjectRuntimeDiagnosticsRepairPolicy,
     PlanDiagnosticsOperatorOverrideStateUpdate,
@@ -379,6 +381,9 @@ impl CommandOperation {
                 "plan_diagnostics_repair_admission_required"
             }
             Self::PlanRuntimeDiagnosticsRepairControl => "plan_runtime_diagnostics_repair_control",
+            Self::PlanRuntimeDiagnosticsRepairRetryRun => {
+                "plan_runtime_diagnostics_repair_retry_run"
+            }
             Self::ProjectRuntimeDiagnosticsRepairProjection => {
                 "project_runtime_diagnostics_repair_projection"
             }
@@ -696,6 +701,9 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
         }
         "plan_runtime_diagnostics_repair_control" => {
             Some(CommandOperation::PlanRuntimeDiagnosticsRepairControl)
+        }
+        "plan_runtime_diagnostics_repair_retry_run" => {
+            Some(CommandOperation::PlanRuntimeDiagnosticsRepairRetryRun)
         }
         "project_runtime_diagnostics_repair_projection" => {
             Some(CommandOperation::ProjectRuntimeDiagnosticsRepairProjection)

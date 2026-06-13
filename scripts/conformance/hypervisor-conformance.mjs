@@ -33881,10 +33881,15 @@ function runCompositor() {
     /diagnostics\.repair_retry\.created/.test(runtimeDiagnosticsRepairSurface) &&
     /diagnostics\.operator_override\.event/.test(runtimeDiagnosticsRepairSurface) &&
     /RuntimeDiagnosticsRepairControlCore/.test(runtimeDiagnosticsRepairControlCore) &&
+    /RuntimeDiagnosticsRepairRetryRunCore/.test(runtimeDiagnosticsRepairControlCore) &&
     /RUNTIME_DIAGNOSTICS_REPAIR_CONTROL_REQUEST_SCHEMA_VERSION/.test(
       runtimeDiagnosticsRepairControlCore,
     ) &&
+    /RUNTIME_DIAGNOSTICS_REPAIR_RETRY_RUN_REQUEST_SCHEMA_VERSION/.test(
+      runtimeDiagnosticsRepairControlCore,
+    ) &&
     /diagnostics\.repair_retry\.created/.test(runtimeDiagnosticsRepairControlCore) &&
+    /diagnostics\.repair_retry\.run_create/.test(runtimeDiagnosticsRepairControlCore) &&
     /DiagnosticsRepair\.RetryCreated/.test(runtimeDiagnosticsRepairControlCore) &&
     /diagnostics\.operator_override\.event/.test(runtimeDiagnosticsRepairControlCore) &&
     /DiagnosticsRepair\.OperatorOverride/.test(runtimeDiagnosticsRepairControlCore) &&
@@ -33921,6 +33926,15 @@ function runCompositor() {
     /rust_plans_runtime_diagnostics_repair_retry_created_control_event/.test(
       runtimeDiagnosticsRepairControlCore,
     ) &&
+    /rust_plans_runtime_diagnostics_repair_retry_run_create_request/.test(
+      runtimeDiagnosticsRepairControlCore,
+    ) &&
+    /rust_shapes_runtime_diagnostics_repair_retry_run_command_response/.test(
+      runtimeDiagnosticsRepairControlCore,
+    ) &&
+    /rust_rejects_runtime_diagnostics_repair_retry_run_retired_transport/.test(
+      runtimeDiagnosticsRepairControlCore,
+    ) &&
     /rust_plans_runtime_diagnostics_operator_override_control_event/.test(
       runtimeDiagnosticsRepairControlCore,
     ) &&
@@ -33934,18 +33948,34 @@ function runCompositor() {
       runtimeDiagnosticsRepairControlCore,
     ) &&
     /PlanRuntimeDiagnosticsRepairControl/.test(commandProtocolCoreForCompositor) &&
+    /PlanRuntimeDiagnosticsRepairRetryRun/.test(commandProtocolCoreForCompositor) &&
     /"plan_runtime_diagnostics_repair_control"/.test(commandProtocolCoreForCompositor) &&
+    /"plan_runtime_diagnostics_repair_retry_run"/.test(
+      commandProtocolCoreForCompositor,
+    ) &&
     /plan_runtime_diagnostics_repair_control_response/.test(
+      coreCommandDispatchForCompositor,
+    ) &&
+    /plan_runtime_diagnostics_repair_retry_run_response/.test(
       coreCommandDispatchForCompositor,
     ) &&
     /pub mod runtime_diagnostics_repair_control;/.test(kernelModuleForCompositor) &&
     /planRuntimeDiagnosticsRepairControl\(request = \{\}\)/.test(
       runtimeContextPolicyRunner,
     ) &&
+    /planRuntimeDiagnosticsRepairRetryRun\(request = \{\}\)/.test(
+      runtimeContextPolicyRunner,
+    ) &&
     /normalizeRuntimeDiagnosticsRepairControlBridgeResult/.test(
       runtimeContextPolicyRunner,
     ) &&
+    /normalizeRuntimeDiagnosticsRepairRetryRunBridgeResult/.test(
+      runtimeContextPolicyRunner,
+    ) &&
     /runtime diagnostics repair control runner sends Rust daemon-core request/.test(
+      runtimeContextPolicyRunnerTest,
+    ) &&
+    /runtime diagnostics repair retry-run runner sends Rust daemon-core request/.test(
       runtimeContextPolicyRunnerTest,
     ) &&
     /diagnosticsRepairRunner:\s*this\.contextPolicyRunner/.test(runtimeDaemonIndex) &&
@@ -33959,12 +33989,21 @@ function runCompositor() {
     /diagnostics repair decision execution fails closed before event append without Rust planning/.test(
       runtimeDiagnosticsRepairSurfaceTest,
     ) &&
-    /diagnostics repair retry creates Rust-owned run and retry event admission/.test(
+    /diagnostics repair retry uses Rust retry-run planning, run creation, and event admission/.test(
       runtimeDiagnosticsRepairSurfaceTest,
     ) &&
-    /diagnostics repair retry fails closed before JS lookup without Rust planning/.test(
+    /diagnostics repair retry fails closed before JS lookup without Rust retry-run planning/.test(
       runtimeDiagnosticsRepairSurfaceTest,
     ) &&
+    /runtime_diagnostics_repair_retry_run_request_rust_owned/.test(
+      runtimeDiagnosticsRepairSurface,
+    ) &&
+    /diagnosticsRepairRetryRunRunner/.test(runtimeDiagnosticsRepairSurface) &&
+    /plannedRetryRun\?\.run_request/.test(runtimeDiagnosticsRepairSurface) &&
+    !/normalizedRequest\.prompt \?\? normalizedRequest\.repair_prompt/.test(
+      runtimeDiagnosticsRepairSurface,
+    ) &&
+    !/repair_prompt/.test(runtimeDiagnosticsRepairSurface) &&
     /diagnostics repair retry event append uses Rust planning and runtime event admission/.test(
       runtimeDiagnosticsRepairSurfaceTest,
     ) &&
@@ -34216,12 +34255,22 @@ function runCompositor() {
       /diagnostics operator override fails closed before run lookup without Rust state update/.test(
         runtimeDiagnosticsRepairSurfaceTest,
       ) &&
-      /diagnostics repair retry creates Rust-owned run and retry event admission/.test(
-        runtimeDiagnosticsRepairSurfaceTest,
-      ) &&
-      /diagnostics repair retry fails closed before JS lookup without Rust planning/.test(
-        runtimeDiagnosticsRepairSurfaceTest,
-      ) &&
+	      /diagnostics repair retry uses Rust retry-run planning, run creation, and event admission/.test(
+	        runtimeDiagnosticsRepairSurfaceTest,
+	      ) &&
+	      /diagnostics repair retry fails closed before JS lookup without Rust retry-run planning/.test(
+	        runtimeDiagnosticsRepairSurfaceTest,
+	      ) &&
+	      /planRuntimeDiagnosticsRepairRetryRun\(request = \{\}\)/.test(
+	        runtimeContextPolicyRunner,
+	      ) &&
+	      /runtime_diagnostics_repair_retry_run_request_rust_owned/.test(
+	        runtimeDiagnosticsRepairSurface,
+	      ) &&
+	      /plannedRetryRun\?\.run_request/.test(runtimeDiagnosticsRepairSurface) &&
+	      !/normalizedRequest\.prompt \?\? normalizedRequest\.repair_prompt/.test(
+	        runtimeDiagnosticsRepairSurface,
+	      ) &&
       /diagnostics repair retry event append uses Rust planning and runtime event admission/.test(
         runtimeDiagnosticsRepairSurfaceTest,
       ) &&

@@ -20,6 +20,7 @@ import {
   ContextPolicyRunnerError,
   DIAGNOSTICS_REPAIR_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
   RUNTIME_DIAGNOSTICS_REPAIR_CONTROL_REQUEST_SCHEMA_VERSION,
+  RUNTIME_DIAGNOSTICS_REPAIR_RETRY_RUN_REQUEST_SCHEMA_VERSION,
   RUNTIME_DIAGNOSTICS_REPAIR_PROJECTION_REQUEST_SCHEMA_VERSION,
   RUNTIME_DIAGNOSTICS_REPAIR_POLICY_REQUEST_SCHEMA_VERSION,
   DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
@@ -1032,6 +1033,81 @@ test("runtime diagnostics repair control runner sends Rust daemon-core request",
   assert.equal(result.decision_id, "decision_alpha");
   assert.equal(result.event.event_kind, "diagnostics.repair_decision.execute");
   assert.deepEqual(result.receipt_refs, ["receipt_diagnostics_repair_decision_alpha"]);
+});
+
+test("runtime diagnostics repair retry-run runner sends Rust daemon-core request", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    daemonCoreInvoker(request) {
+      captured = request;
+      return {
+        source: "rust_runtime_diagnostics_repair_retry_run_command",
+        backend: "rust_policy",
+        record: {
+          schema_version: "ioi.runtime.diagnostics_repair_retry_run.v1",
+          object: "ioi.runtime_diagnostics_repair_retry_run",
+          status: "planned",
+          operation: "diagnostics_repair_retry_run_create",
+          operation_kind: "diagnostics.repair_retry.run_create",
+          thread_id: "thread_alpha",
+          agent_id: "agent_alpha",
+          decision_id: "decision_retry",
+          run_request: {
+            mode: "send",
+            prompt: "Retry the diagnostics repair.",
+            options: {
+              diagnostics_repair: {
+                action: "repair_retry",
+                decision_id: "decision_retry",
+              },
+            },
+            diagnostics_feedback: {
+              mode: "repair_retry",
+              decision_id: "decision_retry",
+            },
+          },
+          retry_event_request: {
+            decision_id: "decision_retry",
+            action: "repair_retry",
+            target_run_id: "run_blocked",
+            summary: "Retry queued.",
+          },
+          receipt_refs: ["receipt_retry"],
+          policy_decision_refs: ["policy_retry"],
+          evidence_refs: ["runtime_diagnostics_repair_retry_run_request_rust_owned"],
+        },
+      };
+    },
+  });
+
+  const result = runner.planRuntimeDiagnosticsRepairRetryRun({
+    operation: "diagnostics_repair_retry_run_create",
+    operation_kind: "diagnostics.repair_retry.run_create",
+    thread_id: "thread_alpha",
+    agent_id: "agent_alpha",
+    decision_id: "decision_retry",
+    target_run_id: "run_blocked",
+    request: { prompt: "Retry the diagnostics repair." },
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "plan_runtime_diagnostics_repair_retry_run");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    RUNTIME_DIAGNOSTICS_REPAIR_RETRY_RUN_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.operation, "diagnostics_repair_retry_run_create");
+  assert.equal(
+    captured.request.operation_kind,
+    "diagnostics.repair_retry.run_create",
+  );
+  assert.equal(captured.request.agent_id, "agent_alpha");
+  assert.equal(result.source, "rust_runtime_diagnostics_repair_retry_run_command");
+  assert.equal(result.operation_kind, "diagnostics.repair_retry.run_create");
+  assert.equal(result.run_request.options.diagnostics_repair.action, "repair_retry");
+  assert.equal(result.retry_event_request.target_run_id, "run_blocked");
+  assert.deepEqual(result.receipt_refs, ["receipt_retry"]);
 });
 
 test("runtime diagnostics repair projection runner sends Rust daemon-core request", () => {

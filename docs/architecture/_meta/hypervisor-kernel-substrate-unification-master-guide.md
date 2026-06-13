@@ -2500,12 +2500,13 @@ operator-override event refusal path: direct append now requires Rust
 `plan_runtime_diagnostics_repair_control` to author
 `diagnostics.operator_override.event` and admits only that Rust-authored runtime
 event through Rust runtime-event Agentgres admission.
-The diagnostics repair retry cut supersedes the retry creation/direct retry-event
-refusal path: retry-turn creation now enters the Rust-owned run-create lifecycle
-surface and admits only a Rust-authored `diagnostics.repair_retry.created`
-event planned by `plan_runtime_diagnostics_repair_control`; direct retry-event
-append uses the same Rust diagnostics repair event planning and runtime-event
-admission path.
+The diagnostics repair retry-run cut supersedes the retry creation/direct
+retry-event refusal path: retry-turn creation now requires Rust
+`plan_runtime_diagnostics_repair_retry_run` before lookup, uses the Rust-authored
+run-create request for the mounted run-create lifecycle surface, and admits only
+a Rust-authored `diagnostics.repair_retry.created` event planned by
+`plan_runtime_diagnostics_repair_control`; direct retry-event append uses the
+same Rust diagnostics repair event planning and runtime-event admission path.
 Slice 969 moved the run-cancel Rust-core-required admission refusal into the
 Rust daemon-core policy bridge. `RunCancelAdmissionRequiredCore` now emits the
 canonical fail-closed envelope and snake_case detail payload,
@@ -8480,8 +8481,11 @@ require wallet.network grant and authority receipt refs in Rust, bind a
 Rust-authored override authority hash into the operator control projection, and
 reject retired JS authority transport; direct operator-override event append
 uses the same Rust wallet authority gate before runtime-event admission.
-Diagnostics repair retry-turn creation/direct retry-event append now use Rust
-run-create composition plus Rust diagnostics repair event planning/admission.
+Diagnostics repair retry-turn creation now uses Rust
+`plan_runtime_diagnostics_repair_retry_run` for retry run-create request
+authorship before Rust-owned run-create state update and Rust diagnostics repair
+event planning/admission; direct retry-event append still uses Rust diagnostics
+repair event planning/admission.
 Diagnostics repair policy projection now replays admitted Agentgres runtime
 events from runtime `state_dir` instead of accepting JS policy-input candidates.
 The remaining diagnostics repair blockers are broader orchestration, durable

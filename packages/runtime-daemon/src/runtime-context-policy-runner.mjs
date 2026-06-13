@@ -21,6 +21,8 @@ export const DIAGNOSTICS_REPAIR_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.diagnostics-repair-admission-required-request.v1";
 export const RUNTIME_DIAGNOSTICS_REPAIR_CONTROL_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.diagnostics-repair-control-request.v1";
+export const RUNTIME_DIAGNOSTICS_REPAIR_RETRY_RUN_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.diagnostics-repair-retry-run-request.v1";
 export const RUNTIME_DIAGNOSTICS_REPAIR_PROJECTION_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.diagnostics-repair-projection-request.v1";
 export const RUNTIME_DIAGNOSTICS_REPAIR_POLICY_REQUEST_SCHEMA_VERSION =
@@ -277,6 +279,14 @@ export class RustContextPolicyRunner {
     return normalizeRuntimeDiagnosticsRepairControlBridgeResult(this.evaluateRawPolicy({
       operation: "plan_runtime_diagnostics_repair_control",
       schemaVersion: RUNTIME_DIAGNOSTICS_REPAIR_CONTROL_REQUEST_SCHEMA_VERSION,
+      request,
+    }));
+  }
+
+  planRuntimeDiagnosticsRepairRetryRun(request = {}) {
+    return normalizeRuntimeDiagnosticsRepairRetryRunBridgeResult(this.evaluateRawPolicy({
+      operation: "plan_runtime_diagnostics_repair_retry_run",
+      schemaVersion: RUNTIME_DIAGNOSTICS_REPAIR_RETRY_RUN_REQUEST_SCHEMA_VERSION,
       request,
     }));
   }
@@ -1236,7 +1246,12 @@ export function normalizeRuntimeDiagnosticsRepairControlBridgeResult(value = {})
     operation: optionalString(result.operation ?? record.operation) ?? null,
     operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
       codePrefix: "runtime_diagnostics_repair_control",
-      expectedPrefix: "diagnostics.repair_decision.",
+      expectedOperationKinds: [
+        "diagnostics.repair_decision.execute",
+        "diagnostics.repair_decision.executed",
+        "diagnostics.repair_retry.created",
+        "diagnostics.operator_override.event",
+      ],
     }),
     thread_id: optionalString(result.thread_id ?? record.thread_id) ?? null,
     decision_id: optionalString(result.decision_id ?? record.decision_id) ?? null,
@@ -1249,6 +1264,48 @@ export function normalizeRuntimeDiagnosticsRepairControlBridgeResult(value = {})
     ),
     evidence_refs: stringArray(result.evidence_refs ?? record.evidence_refs),
     record,
+  };
+}
+
+export function normalizeRuntimeDiagnosticsRepairRetryRunBridgeResult(value = {}) {
+  const result = objectRecord(value) ?? {};
+  const record = objectRecord(result.record) ?? result;
+  const runRequest = objectRecord(result.run_request ?? record.run_request);
+  const retryEventRequest = objectRecord(
+    result.retry_event_request ?? record.retry_event_request,
+  );
+  if (!runRequest || !retryEventRequest) {
+    throw new ContextPolicyRunnerError(
+      "Rust diagnostics repair retry-run planning did not return run and event requests.",
+      "runtime_diagnostics_repair_retry_run_projection_incomplete",
+      { operation_kind: optionalString(result.operation_kind ?? record.operation_kind) },
+    );
+  }
+  return {
+    ...record,
+    source:
+      result.source ??
+      record.source ??
+      "rust_runtime_diagnostics_repair_retry_run_command",
+    backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
+    record,
+    object: optionalString(result.object ?? record.object) ?? null,
+    status: optionalString(result.status ?? record.status) ?? null,
+    operation: optionalString(result.operation ?? record.operation) ?? null,
+    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+      codePrefix: "runtime_diagnostics_repair_retry_run",
+      expectedOperationKind: "diagnostics.repair_retry.run_create",
+    }),
+    thread_id: optionalString(result.thread_id ?? record.thread_id) ?? null,
+    agent_id: optionalString(result.agent_id ?? record.agent_id) ?? null,
+    decision_id: optionalString(result.decision_id ?? record.decision_id) ?? null,
+    run_request: runRequest,
+    retry_event_request: retryEventRequest,
+    receipt_refs: stringArray(result.receipt_refs ?? record.receipt_refs),
+    policy_decision_refs: stringArray(
+      result.policy_decision_refs ?? record.policy_decision_refs,
+    ),
+    evidence_refs: stringArray(result.evidence_refs ?? record.evidence_refs),
   };
 }
 
