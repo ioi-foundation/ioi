@@ -8610,20 +8610,25 @@ Migrated provider inventory no longer uses JS driver execution, JS inventory
 receipts, local artifact/instance fallback reads, artifact or instance map
 mutation, or no-commit planner success.
 Public model-mount server-control start/stop/restart/write, operation
-recording, log/event reads, log projection, and log append have moved from the
-fail-closed required-record facade to Rust `plan_model_mount_server_control`
-planning plus Rust Agentgres model_mount record-state admission. Migrated
-server-control methods receive Rust-authored `model-server-controls` records,
-commit only those records, and return Rust public responses with JS state
-writes, JS log writes, and JS transport execution marked false. Dedicated
-`serverStatus()` now calls Rust read-projection kind `server_status` with empty
-JS request state plus runtime `state_dir`; Rust replays admitted
-`model-server-controls/*.json`, filters JS-authored server controls, and
-materializes server status, last operation, last receipt, topology counts, and
-backend-state counts from Rust-owned records. This remains non-terminal because
-actual process supervision, transport execution, richer Agentgres-backed
-log/event replay and projection, command-transport retirement, and stable
-server-control protocol APIs still need direct Rust ownership.
+recording, and log append have moved from the fail-closed required-record facade
+to Rust `plan_model_mount_server_control` planning plus Rust Agentgres
+model_mount record-state admission. Migrated server-control mutation methods
+receive Rust-authored `model-server-controls` records, commit only those
+records, and return Rust public responses with JS state writes, JS log writes,
+and JS transport execution marked false. Dedicated `serverStatus()` now calls
+Rust read-projection kind `server_status` with empty JS request state plus
+runtime `state_dir`; Rust replays admitted `model-server-controls/*.json`,
+filters JS-authored server controls, and materializes server status, last
+operation, last receipt, topology counts, and backend-state counts from
+Rust-owned records. `serverLogs()`, `serverEvents()`, and `serverLogRecords()`
+now call Rust read-projection kinds `server_logs`, `server_events`, and
+`server_log_records` with canonical `server_log_query` plus runtime `state_dir`;
+Rust replays admitted `model-server-controls/*.json`, filters JS-authored
+controls and retired read-as-mutation `logs_read`/`events_read`/`log_projection`
+records, and returns redacted log/event projections without committing
+server-control truth for reads. This remains non-terminal because actual
+process supervision, transport execution, command-transport retirement, and
+stable server-control protocol APIs still need direct Rust ownership.
 Provider-inventory topology and catalog materialization now replays that same
 admitted Agentgres truth in Rust. `listArtifacts()`, `listProductArtifacts()`,
 `listProviders()`, `runtimeModelCatalogList()`, and `openAiModelList()` call

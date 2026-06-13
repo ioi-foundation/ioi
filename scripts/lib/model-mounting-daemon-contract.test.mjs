@@ -433,7 +433,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.ok(serverLogs.records.some((record) => record.event === "server_restart"));
     assert.equal(JSON.stringify(serverLogs).includes(grant.token), false);
     const serverEvents = await expectOk(daemon.endpoint, "/api/v1/server/events?limit=20", { token: grant.token });
-    assert.ok(serverEvents.events.some((event) => event.event === "server_events_read"));
+    assert.ok(serverEvents.events.some((event) => event.event === "server_restart"));
 
     const snapshot = await expectOk(daemon.endpoint, "/api/v1/models");
     assert.equal(snapshot.server.controlStatus, "running");

@@ -23,6 +23,58 @@ pub(super) fn server_status_or_default(request: &ModelMountReadProjectionRequest
     server_status_from_records(request, server_controls, backend_records)
 }
 
+pub(super) fn server_logs(
+    request: &ModelMountReadProjectionRequest,
+) -> Result<Value, ModelMountReadProjectionError> {
+    let records = agentgres_server_control_records(request)?;
+    Ok(server_log_projection(request, records, "server_logs"))
+}
+
+pub(super) fn server_events(
+    request: &ModelMountReadProjectionRequest,
+) -> Result<Value, ModelMountReadProjectionError> {
+    let records = agentgres_server_control_records(request)?;
+    let logs = server_log_entries_from_records(&records, server_log_query_limit(request, 80));
+    let events = logs
+        .iter()
+        .map(|entry| {
+            json!({
+                "event": entry.get("event").cloned().unwrap_or(Value::Null),
+                "timestamp": entry.get("timestamp").cloned().unwrap_or(Value::Null),
+                "level": entry.get("level").cloned().unwrap_or(Value::Null),
+                "operation_kind": entry.get("operation_kind").cloned().unwrap_or(Value::Null),
+                "receiptId": entry.get("receiptId").cloned().unwrap_or(Value::Null),
+                "record_id": entry.get("record_id").cloned().unwrap_or(Value::Null),
+                "rust_core_boundary": "model_mount.server_control_log_projection",
+            })
+        })
+        .collect::<Vec<_>>();
+    Ok(json!({
+        "schemaVersion": model_mount_projection_schema_version(request),
+        "object": "ioi.model_mount_server_events",
+        "status": "projected",
+        "events": events,
+        "count": logs.len(),
+        "receiptId": latest_server_control_receipt(&records).map(Value::String).unwrap_or(Value::Null),
+        "source": "agentgres_server_control",
+        "recordDir": "model-server-controls",
+        "recordCount": records.len(),
+        "rustCoreBoundary": "model_mount.server_control_log_projection",
+        "evidenceRefs": server_log_projection_evidence_refs(),
+    }))
+}
+
+pub(super) fn server_log_records(
+    request: &ModelMountReadProjectionRequest,
+) -> Result<Value, ModelMountReadProjectionError> {
+    let records = agentgres_server_control_records(request)?;
+    Ok(server_log_projection(
+        request,
+        records,
+        "server_log_records",
+    ))
+}
+
 fn server_status_from_records(
     request: &ModelMountReadProjectionRequest,
     server_controls: Vec<Value>,
@@ -116,6 +168,129 @@ fn server_status_from_records(
     })
 }
 
+fn server_log_projection(
+    request: &ModelMountReadProjectionRequest,
+    records: Vec<Value>,
+    projection_kind: &str,
+) -> Value {
+    let limit = server_log_query_limit(request, 80);
+    let entries = server_log_entries_from_records(&records, limit);
+    json!({
+        "schemaVersion": model_mount_projection_schema_version(request),
+        "object": "ioi.model_mount_server_logs",
+        "status": "projected",
+        "projectionKind": projection_kind,
+        "redaction": "redacted",
+        "records": entries,
+        "count": records.len().min(limit),
+        "receiptId": latest_server_control_receipt(&records).map(Value::String).unwrap_or(Value::Null),
+        "source": "agentgres_server_control",
+        "recordDir": "model-server-controls",
+        "recordCount": records.len(),
+        "rustCoreBoundary": "model_mount.server_control_log_projection",
+        "evidenceRefs": server_log_projection_evidence_refs(),
+    })
+}
+
+fn server_log_entries_from_records(records: &[Value], limit: usize) -> Vec<Value> {
+    let start = records.len().saturating_sub(limit);
+    records.iter().skip(start).map(server_log_entry).collect()
+}
+
+fn server_log_entry(record: &Value) -> Value {
+    let public_response = record.get("public_response").unwrap_or(&Value::Null);
+    let event = server_control_event(record, public_response);
+    let level = non_empty_field(public_response, "level")
+        .or_else(|| {
+            if string_field(public_response, "operation_status") == "blocked" {
+                Some("warn".to_string())
+            } else {
+                None
+            }
+        })
+        .unwrap_or_else(|| "info".to_string());
+    let message = non_empty_field(public_response, "message").unwrap_or_else(|| {
+        event
+            .split('_')
+            .filter(|segment| !segment.is_empty())
+            .collect::<Vec<_>>()
+            .join(" ")
+    });
+    json!({
+        "event": event,
+        "level": level,
+        "message": message,
+        "timestamp": string_field(record, "generated_at"),
+        "operation_kind": string_field(record, "operation_kind"),
+        "operation_status": non_empty_field(public_response, "operation_status")
+            .or_else(|| non_empty_field(record, "status"))
+            .map(Value::String)
+            .unwrap_or(Value::Null),
+        "server_control_id": string_field(record, "server_control_id"),
+        "receiptId": latest_non_control_receipt_ref(record).map(Value::String).unwrap_or(Value::Null),
+        "receipt_refs": string_array_field(record, "receipt_refs"),
+        "record_dir": "model-server-controls",
+        "record_id": string_field(record, "id"),
+        "control_hash": string_field(record, "control_hash"),
+        "source": string_field(record, "source"),
+        "rust_core_boundary": "model_mount.server_control_log_projection",
+        "evidence_refs": server_log_projection_evidence_refs(),
+    })
+}
+
+fn server_control_event(record: &Value, public_response: &Value) -> String {
+    if let Some(event) = non_empty_field(public_response, "event") {
+        return event;
+    }
+    if let Some(operation) = non_empty_field(public_response, "operation") {
+        return operation;
+    }
+    match string_field(record, "operation_kind").as_str() {
+        "model_mount.server_control.start" => "server_start".to_string(),
+        "model_mount.server_control.stop" => "server_stop".to_string(),
+        "model_mount.server_control.restart" => "server_restart".to_string(),
+        "model_mount.server_control.write" => "server_control_state_write".to_string(),
+        "model_mount.server_control.record_operation" => "server_operation_recorded".to_string(),
+        "model_mount.server_control.log_append" => "server_log_appended".to_string(),
+        _ => "server_control_recorded".to_string(),
+    }
+}
+
+fn server_log_query_limit(
+    request: &ModelMountReadProjectionRequest,
+    default_limit: usize,
+) -> usize {
+    let raw_limit = request
+        .state
+        .get("server_log_query")
+        .and_then(|query| query.get("limit"));
+    let parsed = raw_limit
+        .and_then(Value::as_u64)
+        .or_else(|| {
+            raw_limit
+                .and_then(Value::as_str)
+                .and_then(|value| value.trim().parse::<u64>().ok())
+        })
+        .filter(|value| *value > 0)
+        .unwrap_or(default_limit as u64);
+    parsed.min(500) as usize
+}
+
+fn latest_server_control_receipt(records: &[Value]) -> Option<String> {
+    records
+        .iter()
+        .rev()
+        .find_map(latest_non_control_receipt_ref)
+}
+
+fn server_log_projection_evidence_refs() -> Vec<&'static str> {
+    vec![
+        "rust_daemon_core_server_control_log_projection",
+        "agentgres_server_control_log_replay_required",
+        "model_mount_server_log_read_js_control_path_retired",
+    ]
+}
+
 fn agentgres_server_control_records(
     request: &ModelMountReadProjectionRequest,
 ) -> Result<Vec<Value>, ModelMountReadProjectionError> {
@@ -199,9 +374,6 @@ fn admitted_server_control_record(record: Value) -> Option<Value> {
             | "model_mount.server_control.restart"
             | "model_mount.server_control.write"
             | "model_mount.server_control.record_operation"
-            | "model_mount.server_control.logs_read"
-            | "model_mount.server_control.events_read"
-            | "model_mount.server_control.log_projection"
             | "model_mount.server_control.log_append"
     ) {
         return None;
@@ -644,6 +816,144 @@ mod tests {
             error.code,
             "model_mount_server_control_replay_state_dir_required"
         );
+    }
+
+    #[test]
+    fn server_logs_and_events_replay_agentgres_server_control_records() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        write_server_control_record(
+            temp.path(),
+            json!({
+                "id": "server-control:restart",
+                "schema_version": "ioi.model_mount.server_control_plan.v1",
+                "object": "ioi.model_mount_server_control_record",
+                "server_control_id": "server-control.default",
+                "operation_kind": "model_mount.server_control.restart",
+                "status": "planned",
+                "source": "runtime-daemon.model_mounting.server_control",
+                "generated_at": "2026-06-13T00:00:01.000Z",
+                "rust_core_boundary": "model_mount.server_control",
+                "control_hash": "sha256:server-restart",
+                "public_response": {
+                    "object": "ioi.model_mount_server_control",
+                    "status": "planned",
+                    "operation_kind": "model_mount.server_control.restart",
+                    "server_control_id": "server-control.default",
+                    "rust_core_boundary": "model_mount.server_control",
+                    "server_status": "restart_planned",
+                    "js_state_write": false,
+                    "js_log_write": false,
+                    "js_transport_execution": false
+                },
+                "receipt_refs": ["receipt://server/restart", "sha256:server-restart"],
+                "evidence_refs": [
+                    "public_server_control_js_facade_retired",
+                    "rust_daemon_core_server_control",
+                    "agentgres_server_control_truth_required"
+                ]
+            }),
+        );
+        write_server_control_record(
+            temp.path(),
+            json!({
+                "id": "server-control:log-append",
+                "schema_version": "ioi.model_mount.server_control_plan.v1",
+                "object": "ioi.model_mount_server_control_record",
+                "server_control_id": "server-control.default",
+                "operation_kind": "model_mount.server_control.log_append",
+                "status": "planned",
+                "source": "runtime-daemon.model_mounting.server_control",
+                "generated_at": "2026-06-13T00:00:02.000Z",
+                "rust_core_boundary": "model_mount.server_control",
+                "control_hash": "sha256:server-log-append",
+                "public_response": {
+                    "object": "ioi.model_mount_server_control",
+                    "status": "planned",
+                    "operation_kind": "model_mount.server_control.log_append",
+                    "server_control_id": "server-control.default",
+                    "rust_core_boundary": "model_mount.server_control",
+                    "event": "provider_probe",
+                    "level": "info",
+                    "message": "provider probe completed",
+                    "log_appended": true,
+                    "js_state_write": false,
+                    "js_log_write": false,
+                    "js_transport_execution": false
+                },
+                "receipt_refs": ["receipt://server/log-append", "sha256:server-log-append"],
+                "evidence_refs": [
+                    "public_server_control_js_facade_retired",
+                    "rust_daemon_core_server_control",
+                    "agentgres_server_control_truth_required"
+                ]
+            }),
+        );
+        write_server_control_record(
+            temp.path(),
+            json!({
+                "id": "server-control:retired-logs-read",
+                "schema_version": "ioi.model_mount.server_control_plan.v1",
+                "object": "ioi.model_mount_server_control_record",
+                "server_control_id": "server-control.default",
+                "operation_kind": "model_mount.server_control.logs_read",
+                "status": "planned",
+                "source": "runtime-daemon.model_mounting.server_control",
+                "generated_at": "2026-06-13T00:00:03.000Z",
+                "rust_core_boundary": "model_mount.server_control",
+                "control_hash": "sha256:retired-logs-read",
+                "public_response": {
+                    "object": "ioi.model_mount_server_control",
+                    "status": "planned",
+                    "operation_kind": "model_mount.server_control.logs_read",
+                    "server_control_id": "server-control.default"
+                },
+                "receipt_refs": ["receipt://server/logs-read", "sha256:retired-logs-read"],
+                "evidence_refs": [
+                    "public_server_control_js_facade_retired",
+                    "rust_daemon_core_server_control",
+                    "agentgres_server_control_truth_required"
+                ]
+            }),
+        );
+        let request = ModelMountReadProjectionRequest {
+            projection_kind: "server_logs".to_string(),
+            schema_version: Some(MODEL_MOUNT_RUNTIME_SCHEMA_VERSION.to_string()),
+            generated_at: Some("2026-06-13T00:00:04.000Z".to_string()),
+            receipt_id: None,
+            engine_id: None,
+            provider_id: None,
+            download_id: None,
+            base_url: None,
+            state_dir: Some(temp.path().to_string_lossy().to_string()),
+            state: json!({ "server_log_query": { "limit": 2 } }),
+        };
+
+        let logs = server_logs(&request).expect("server logs replay");
+        let events = server_events(&ModelMountReadProjectionRequest {
+            projection_kind: "server_events".to_string(),
+            ..request
+        })
+        .expect("server events replay");
+
+        assert_eq!(logs["redaction"], "redacted");
+        assert_eq!(logs["recordCount"], 2);
+        assert_eq!(logs["records"][0]["event"], "server_restart");
+        assert_eq!(logs["records"][1]["event"], "provider_probe");
+        assert_eq!(
+            logs["records"][1]["receiptId"],
+            "receipt://server/log-append"
+        );
+        assert_eq!(
+            logs["rustCoreBoundary"],
+            "model_mount.server_control_log_projection"
+        );
+        assert_eq!(events["events"][0]["event"], "server_restart");
+        assert_eq!(events["events"][1]["event"], "provider_probe");
+        assert!(events["events"]
+            .as_array()
+            .expect("events")
+            .iter()
+            .all(|event| event["event"] != "server_events_read"));
     }
 
     #[test]

@@ -11,7 +11,22 @@ function fakeState() {
   const state = {
     serverControlPlans: [],
     recordStateCommits: [],
+    readProjectionCalls: [],
     nowIso: () => "2026-06-13T12:00:00.000Z",
+    readProjectionFacade: {
+      serverLogs(target, query) {
+        state.readProjectionCalls.push({ projection_kind: "server_logs", query, sameState: target === state });
+        return serverProjectionResponse("server_logs", { records: [{ event: "server_restart" }] });
+      },
+      serverEvents(target, query) {
+        state.readProjectionCalls.push({ projection_kind: "server_events", query, sameState: target === state });
+        return serverProjectionResponse("server_events", { events: [{ event: "server_restart" }] });
+      },
+      serverLogRecords(target, query) {
+        state.readProjectionCalls.push({ projection_kind: "server_log_records", query, sameState: target === state });
+        return serverProjectionResponse("server_log_records", { records: [{ event: "server_restart" }] });
+      },
+    },
     planServerControl(request) {
       state.serverControlPlans.push(request);
       const hash = `sha256:${request.operation_kind.replaceAll(".", "_")}`;
@@ -37,8 +52,6 @@ function fakeState() {
             status: "planned",
             operation_kind: request.operation_kind,
             server_control_id: request.server_control_id,
-            logs: request.operation_kind.endsWith("logs_read") ? [] : undefined,
-            events: request.operation_kind.endsWith("events_read") ? [] : undefined,
           },
           evidence_refs: [
             "public_server_control_js_facade_retired",
@@ -84,6 +97,21 @@ function fakeState() {
   return state;
 }
 
+function serverProjectionResponse(projectionKind, payload) {
+  return {
+    object: "ioi.model_mount_server_logs",
+    status: "projected",
+    projectionKind,
+    rustCoreBoundary: "model_mount.server_control_log_projection",
+    evidenceRefs: [
+      "rust_daemon_core_server_control_log_projection",
+      "agentgres_server_control_log_replay_required",
+      "model_mount_server_log_read_js_control_path_retired",
+    ],
+    ...payload,
+  };
+}
+
 function fakeStateWithoutPlanner() {
   const state = fakeState();
   delete state.planServerControl;
@@ -127,15 +155,12 @@ test("mounted server control state is volatile input only", () => {
   assert.equal(Object.hasOwn(controlState, "schema_version"), false);
 });
 
-test("mounted server control mutation/log facades commit Rust-authored records", () => {
+test("mounted server control mutation facades commit Rust-authored records", () => {
   const state = fakeState();
   const cases = [
     [() => callMounted("serverStart", state, null), "model_mount.server_control.start"],
     [() => callMounted("serverStop", state, null), "model_mount.server_control.stop"],
     [() => callMounted("serverRestart", state, "http://daemon.test"), "model_mount.server_control.restart"],
-    [() => callMounted("serverLogs", state, { limit: "500" }), "model_mount.server_control.logs_read"],
-    [() => callMounted("serverEvents", state, { limit: 1 }), "model_mount.server_control.events_read"],
-    [() => callMounted("serverLogRecords", state, { limit: 2 }), "model_mount.server_control.log_projection"],
     [() => callMounted("writeServerLog", state, { event: "provider_probe", authorization: "Bearer secret-token" }), "model_mount.server_control.log_append"],
   ];
 
@@ -160,6 +185,27 @@ test("mounted server control mutation/log facades commit Rust-authored records",
   );
   assert.equal(state.serverControlPlans.at(-1).body.authorization, undefined);
   assert.equal(Object.hasOwn(state.serverControlPlans[0], "operationKind"), false);
+});
+
+test("mounted server log and event reads use Rust read projection", () => {
+  const state = fakeState();
+
+  const logs = callMounted("serverLogs", state, { limit: "500", authorization: "Bearer secret-token" });
+  const events = callMounted("serverEvents", state, { limit: 1 });
+  const records = callMounted("serverLogRecords", state, { limit: 2 });
+
+  assert.equal(logs.rustCoreBoundary, "model_mount.server_control_log_projection");
+  assert.equal(events.rustCoreBoundary, "model_mount.server_control_log_projection");
+  assert.equal(records.rustCoreBoundary, "model_mount.server_control_log_projection");
+  assert.deepEqual(state.readProjectionCalls.map((call) => call.projection_kind), [
+    "server_logs",
+    "server_events",
+    "server_log_records",
+  ]);
+  assert.equal(state.readProjectionCalls.every((call) => call.sameState), true);
+  assert.deepEqual(state.readProjectionCalls[0].query, { limit: "500", authorization: "Bearer secret-token" });
+  assert.equal(state.serverControlPlans.length, 0);
+  assert.equal(state.recordStateCommits.length, 0);
 });
 
 test("mounted server control state writes and operation recording commit Rust truth", () => {

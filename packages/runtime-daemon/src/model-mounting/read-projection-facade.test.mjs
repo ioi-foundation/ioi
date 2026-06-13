@@ -1110,6 +1110,9 @@ function rustProjectionFixture(request) {
     return providerHealthFromReceipts(request, receipts);
   }
   if (request.projection_kind === "server_status") return serverStatusFromRustRequest(request);
+  if (request.projection_kind === "server_logs") return serverLogsFromRustRequest(request);
+  if (request.projection_kind === "server_events") return serverEventsFromRustRequest(request);
+  if (request.projection_kind === "server_log_records") return serverLogRecordsFromRustRequest(request);
   if (request.projection_kind === "workflow_bindings") return workflowBindingsFromRust();
   if (request.projection_kind === "adapter_boundaries") return adapterBoundariesFromState(state);
   if (request.projection_kind === "runtime_engines") {
@@ -1421,6 +1424,104 @@ function serverStatusFromRustRequest(request) {
       "model_mount_server_status_js_projection_retired",
     ],
   };
+}
+
+function serverLogsFromRustRequest(request) {
+  const records = serverControlLogEntriesFromAgentgresRequest(request);
+  const serverControls = serverControlRecordsFromAgentgresStateDir(request.state_dir);
+  return {
+    schemaVersion: request.schema_version,
+    object: "ioi.model_mount_server_logs",
+    status: "projected",
+    projectionKind: "server_logs",
+    redaction: "redacted",
+    records,
+    count: records.length,
+    receiptId: records.at(-1)?.receiptId ?? null,
+    source: "agentgres_server_control",
+    recordDir: "model-server-controls",
+    recordCount: serverControls.length,
+    rustCoreBoundary: "model_mount.server_control_log_projection",
+    evidenceRefs: serverLogProjectionEvidenceRefs(),
+  };
+}
+
+function serverEventsFromRustRequest(request) {
+  const records = serverControlLogEntriesFromAgentgresRequest(request);
+  const serverControls = serverControlRecordsFromAgentgresStateDir(request.state_dir);
+  return {
+    schemaVersion: request.schema_version,
+    object: "ioi.model_mount_server_events",
+    status: "projected",
+    events: records.map((record) => ({
+      event: record.event,
+      timestamp: record.timestamp,
+      level: record.level,
+      operation_kind: record.operation_kind,
+      receiptId: record.receiptId,
+      record_id: record.record_id,
+      rust_core_boundary: "model_mount.server_control_log_projection",
+    })),
+    count: records.length,
+    receiptId: records.at(-1)?.receiptId ?? null,
+    source: "agentgres_server_control",
+    recordDir: "model-server-controls",
+    recordCount: serverControls.length,
+    rustCoreBoundary: "model_mount.server_control_log_projection",
+    evidenceRefs: serverLogProjectionEvidenceRefs(),
+  };
+}
+
+function serverLogRecordsFromRustRequest(request) {
+  return {
+    ...serverLogsFromRustRequest(request),
+    projectionKind: "server_log_records",
+  };
+}
+
+function serverControlLogEntriesFromAgentgresRequest(request) {
+  const limit = Math.min(Number.parseInt(String(request.state?.server_log_query?.limit ?? 80), 10) || 80, 500);
+  const records = serverControlRecordsFromAgentgresStateDir(request.state_dir);
+  return records.slice(Math.max(records.length - limit, 0)).map((record) => {
+    const publicResponse = record.public_response ?? {};
+    const event = publicResponse.event ?? publicResponse.operation ?? serverControlEvent(record.operation_kind);
+    return {
+      event,
+      level: publicResponse.level ?? (publicResponse.operation_status === "blocked" ? "warn" : "info"),
+      message: publicResponse.message ?? event.split("_").join(" "),
+      timestamp: record.generated_at,
+      operation_kind: record.operation_kind,
+      operation_status: publicResponse.operation_status ?? record.status,
+      server_control_id: record.server_control_id,
+      receiptId: record.receipt_refs?.find((ref) => !String(ref).startsWith("sha256:")) ?? record.receipt_refs?.[0] ?? null,
+      receipt_refs: record.receipt_refs ?? [],
+      record_dir: "model-server-controls",
+      record_id: record.id,
+      control_hash: record.control_hash,
+      source: record.source,
+      rust_core_boundary: "model_mount.server_control_log_projection",
+      evidence_refs: serverLogProjectionEvidenceRefs(),
+    };
+  });
+}
+
+function serverControlEvent(operationKind) {
+  return {
+    "model_mount.server_control.start": "server_start",
+    "model_mount.server_control.stop": "server_stop",
+    "model_mount.server_control.restart": "server_restart",
+    "model_mount.server_control.write": "server_control_state_write",
+    "model_mount.server_control.record_operation": "server_operation_recorded",
+    "model_mount.server_control.log_append": "server_log_appended",
+  }[operationKind] ?? "server_control_recorded";
+}
+
+function serverLogProjectionEvidenceRefs() {
+  return [
+    "rust_daemon_core_server_control_log_projection",
+    "agentgres_server_control_log_replay_required",
+    "model_mount_server_log_read_js_control_path_retired",
+  ];
 }
 
 function catalogStatusFromAgentgresStateDir(stateDir, schemaVersion, generatedAt) {
@@ -2779,9 +2880,6 @@ function serverControlRecordsFromAgentgresStateDir(stateDir) {
         "model_mount.server_control.restart",
         "model_mount.server_control.write",
         "model_mount.server_control.record_operation",
-        "model_mount.server_control.logs_read",
-        "model_mount.server_control.events_read",
-        "model_mount.server_control.log_projection",
         "model_mount.server_control.log_append",
       ].includes(record?.operation_kind) &&
       Array.isArray(record?.evidence_refs) &&
@@ -3555,6 +3653,125 @@ test("read projection facade delegates server status through Rust projection", (
   assert.equal(readProjectionRequests[0].base_url, "http://127.0.0.1:3200");
   assert.equal(Object.hasOwn(readProjectionRequests[0].state, "receipts"), false);
   assert.equal(Object.hasOwn(readProjectionRequests[0].state, "projection"), false);
+});
+
+test("read projection facade delegates server logs and events through Rust projection", () => {
+  const { facade, state, readProjectionRequests } = createState();
+  writeServerControlRecords(state.stateDir, [
+    {
+      id: "server-control:restart",
+      schema_version: "ioi.model_mount.server_control_plan.v1",
+      object: "ioi.model_mount_server_control_record",
+      server_control_id: "server-control.default",
+      operation_kind: "model_mount.server_control.restart",
+      status: "planned",
+      source: "runtime-daemon.model_mounting.server_control",
+      generated_at: "2026-06-03T00:00:03.000Z",
+      rust_core_boundary: "model_mount.server_control",
+      control_hash: "sha256:server-restart",
+      public_response: {
+        object: "ioi.model_mount_server_control",
+        status: "planned",
+        operation_kind: "model_mount.server_control.restart",
+        server_control_id: "server-control.default",
+        rust_core_boundary: "model_mount.server_control",
+        server_status: "restart_planned",
+        js_state_write: false,
+        js_log_write: false,
+        js_transport_execution: false,
+      },
+      receipt_refs: ["receipt://server/restart", "sha256:server-restart"],
+      evidence_refs: [
+        "public_server_control_js_facade_retired",
+        "rust_daemon_core_server_control",
+        "agentgres_server_control_truth_required",
+      ],
+    },
+    {
+      id: "server-control:log-append",
+      schema_version: "ioi.model_mount.server_control_plan.v1",
+      object: "ioi.model_mount_server_control_record",
+      server_control_id: "server-control.default",
+      operation_kind: "model_mount.server_control.log_append",
+      status: "planned",
+      source: "runtime-daemon.model_mounting.server_control",
+      generated_at: "2026-06-03T00:00:04.000Z",
+      rust_core_boundary: "model_mount.server_control",
+      control_hash: "sha256:server-log-append",
+      public_response: {
+        object: "ioi.model_mount_server_control",
+        status: "planned",
+        operation_kind: "model_mount.server_control.log_append",
+        server_control_id: "server-control.default",
+        rust_core_boundary: "model_mount.server_control",
+        event: "provider_probe",
+        level: "info",
+        message: "provider probe completed",
+        log_appended: true,
+        js_state_write: false,
+        js_log_write: false,
+        js_transport_execution: false,
+      },
+      receipt_refs: ["receipt://server/log-append", "sha256:server-log-append"],
+      evidence_refs: [
+        "public_server_control_js_facade_retired",
+        "rust_daemon_core_server_control",
+        "agentgres_server_control_truth_required",
+      ],
+    },
+    {
+      id: "server-control:retired-logs-read",
+      schema_version: "ioi.model_mount.server_control_plan.v1",
+      object: "ioi.model_mount_server_control_record",
+      server_control_id: "server-control.default",
+      operation_kind: "model_mount.server_control.logs_read",
+      status: "planned",
+      source: "runtime-daemon.model_mounting.server_control",
+      generated_at: "2026-06-03T00:00:05.000Z",
+      rust_core_boundary: "model_mount.server_control",
+      control_hash: "sha256:retired-logs-read",
+      public_response: {
+        object: "ioi.model_mount_server_control",
+        status: "planned",
+        operation_kind: "model_mount.server_control.logs_read",
+        server_control_id: "server-control.default",
+      },
+      receipt_refs: ["receipt://server/logs-read", "sha256:retired-logs-read"],
+      evidence_refs: [
+        "public_server_control_js_facade_retired",
+        "rust_daemon_core_server_control",
+        "agentgres_server_control_truth_required",
+      ],
+    },
+  ]);
+
+  const logs = facade.serverLogs(state, {
+    limit: "2",
+    event: "server_restart",
+    authorization: "Bearer secret-token",
+  });
+  const events = facade.serverEvents(state, { limit: "2" });
+  const records = facade.serverLogRecords(state, { limit: 1 });
+
+  assert.deepEqual(logs.records.map((record) => record.event), ["server_restart", "provider_probe"]);
+  assert.deepEqual(events.events.map((event) => event.event), ["server_restart", "provider_probe"]);
+  assert.deepEqual(records.records.map((record) => record.event), ["provider_probe"]);
+  assert.equal(logs.redaction, "redacted");
+  assert.equal(logs.recordCount, 4);
+  assert.equal(events.events.some((event) => event.event === "server_events_read"), false);
+  assert.equal(logs.evidenceRefs.includes("model_mount_server_log_read_js_control_path_retired"), true);
+  assert.deepEqual(readProjectionRequests.map((request) => request.projection_kind), [
+    "server_logs",
+    "server_events",
+    "server_log_records",
+  ]);
+  assert.deepEqual(readProjectionRequests[0].state, {
+    server_log_query: {
+      limit: 2,
+    },
+  });
+  assert.equal(readProjectionRequests[0].state.server_log_query.authorization, undefined);
+  assert.equal(readProjectionRequests[0].state_dir, state.stateDir);
 });
 
 test("read projection facade delegates catalog status through Rust projection", () => {

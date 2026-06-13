@@ -602,21 +602,15 @@ export class ModelMountingState {
   }
 
   serverLogs(query = {}) {
-    return commitServerControlForState(this, "model_mount.server_control.logs_read", {
-      body: serverControlBody(query),
-    });
+    return this.readProjectionFacade.serverLogs(this, query);
   }
 
   serverEvents(query = {}) {
-    return commitServerControlForState(this, "model_mount.server_control.events_read", {
-      body: serverControlBody(query),
-    });
+    return this.readProjectionFacade.serverEvents(this, query);
   }
 
   serverLogRecords({ limit = 80 } = {}) {
-    return commitServerControlForState(this, "model_mount.server_control.log_projection", {
-      body: serverControlBody({ limit }),
-    });
+    return this.readProjectionFacade.serverLogRecords(this, { limit });
   }
 
   writeServerLog(event) {

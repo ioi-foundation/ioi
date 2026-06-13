@@ -2091,7 +2091,7 @@ function runDocs() {
       /visual GUI local fixture capture\/execution no longer reads `IOI_RUNTIME_ENABLE_VISUAL_CAPTURE_FIXTURE` or `IOI_RUNTIME_ENABLE_VISUAL_EXECUTOR_FIXTURE`/.test(
         implementationMatrix,
       ) &&
-      /actual process supervision\/transport execution, richer server log\/event replay and projection,\s+command-transport retirement, and stable SDK\/IDE server-control APIs remain non-terminal/.test(
+      /actual process supervision\/transport execution,\s+command-transport retirement, and stable SDK\/IDE server-control APIs remain non-terminal/.test(
         implementationMatrix,
       ) &&
       /OAuth callback preflight now accepts only `state`, not retired\s+`oauth_state`\/`oauthState` aliases/.test(implementationMatrix) &&
@@ -14536,6 +14536,9 @@ function runBridge() {
       !exists(modelProjectionsPath) &&
       !exists(modelProjectionsTestPath) &&
       /serverStatus\(state,\s*baseUrl\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"server_status",\s*\{ baseUrl \}\)/.test(modelMountingReadProjectionFacade) &&
+      /serverLogs\(state,\s*query = \{\}\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"server_logs"/.test(modelMountingReadProjectionFacade) &&
+      /serverEvents\(state,\s*query = \{\}\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"server_events"/.test(modelMountingReadProjectionFacade) &&
+      /serverLogRecords\(state,\s*query = \{\}\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"server_log_records"/.test(modelMountingReadProjectionFacade) &&
       /adapterBoundaries\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"adapter_boundaries"\)/.test(modelMountingReadProjectionFacade) &&
       /workflowNodeBindings\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"workflow_bindings"\)/.test(modelMountingReadProjectionFacade) &&
       /mcpServers\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"mcp_servers"\)/.test(modelMountingReadProjectionFacade) &&
@@ -14561,6 +14564,7 @@ function runBridge() {
       !/serverStatusProjectionInput/.test(modelMountingReadProjectionFacade) &&
       !/serverStatus as serverStatusInput/.test(modelMountingReadProjectionFacade) &&
       /projectionKind === "server_status"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
+      /projectionKind === "server_logs" \|\|[\s\S]*?projectionKind === "server_events" \|\|[\s\S]*?projectionKind === "server_log_records"[\s\S]*?server_log_query:\s*serverLogQuery/.test(modelMountingReadProjectionFacade) &&
       /catalogStatus\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"catalog_status"\)/.test(modelMountingReadProjectionFacade) &&
       !/translateCatalogStatusError/.test(modelMountingReadProjectionFacade) &&
       !/model_catalog_status_js_readback_retired/.test(modelMountingReadProjectionFacade) &&
@@ -14610,7 +14614,7 @@ function runBridge() {
       /state_dir:\s*readProjectionStateDir\(state,\s*projectionKind\)/.test(modelMountingReadProjectionFacade) &&
       /projectionKind === "model_conversation_states"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
       /function readProjectionStateDir\(state,\s*projectionKind\)/.test(modelMountingReadProjectionFacade) &&
-      /projectionKind !== "server_status" &&\s*projectionKind !== "backends" &&\s*projectionKind !== "mcp_servers" &&\s*projectionKind !== "runtime_engines"/.test(
+      /projectionKind !== "server_status" &&\s*projectionKind !== "server_logs" &&\s*projectionKind !== "server_events" &&\s*projectionKind !== "server_log_records" &&\s*projectionKind !== "backends" &&\s*projectionKind !== "mcp_servers" &&\s*projectionKind !== "runtime_engines"/.test(
         modelMountingReadProjectionFacade,
       ) &&
       /projectionKind !== "model_conversation_states" &&\s*projectionKind !== "instances" &&\s*projectionKind !== "provider_inventory_records" &&\s*projectionKind !== "catalog_search" &&\s*projectionKind !== "catalog_status" &&\s*projectionKind !== "model_tokenizer_records" &&\s*projectionKind !== "routes" &&\s*projectionKind !== "model_capabilities" &&\s*projectionKind !== "model_route_decisions" &&\s*projectionKind !== "model_route_endpoint_resolutions" &&\s*projectionKind !== "artifacts" &&\s*projectionKind !== "product_artifacts" &&\s*projectionKind !== "providers" &&\s*projectionKind !== "endpoints" &&\s*projectionKind !== "runtime_model_catalog" &&\s*projectionKind !== "open_ai_model_list"/.test(
@@ -14725,6 +14729,11 @@ function runBridge() {
       /assert\.equal\(detail\.profile_record_id,\s*"runtime-engine-control:profile"\)/.test(modelMountingReadProjectionFacadeTest) &&
       /readProjectionRequests\.every\(\(request\) => request\.state_dir === state\.stateDir\)/.test(modelMountingReadProjectionFacadeTest) &&
       /read projection facade delegates server status through Rust projection/.test(modelMountingReadProjectionFacadeTest) &&
+      /read projection facade delegates server logs and events through Rust projection/.test(modelMountingReadProjectionFacadeTest) &&
+      /server_log_query:\s*\{[\s\S]*limit:\s*2[\s\S]*\}/.test(modelMountingReadProjectionFacadeTest) &&
+      /events\.events\.some\(\(event\) => event\.event === "server_events_read"\),\s*false/.test(
+        modelMountingReadProjectionFacadeTest,
+      ) &&
       /read projection facade delegates catalog status through Rust projection/.test(
         modelMountingReadProjectionFacadeTest,
       ) &&
@@ -14940,6 +14949,9 @@ function runBridge() {
       /"runtime_engines"[\s\S]*"runtime_engine_profiles"[\s\S]*"runtime_preference"[\s\S]*"runtime_preference_for_endpoint"[\s\S]*"runtime_default_load_options"[\s\S]*"runtime_engine_detail"/.test(modelMountingReadProjectionFacadeTest) &&
       /"latest_runtime_survey"/.test(modelMountingReadProjectionFacadeTest) &&
       /"server_status"/.test(modelMountingReadProjectionFacadeTest) &&
+      /"server_logs"/.test(modelMountingReadProjectionFacadeTest) &&
+      /"server_events"/.test(modelMountingReadProjectionFacadeTest) &&
+      /"server_log_records"/.test(modelMountingReadProjectionFacadeTest) &&
       /assert\.equal\(engines\.length,\s*1\)/.test(modelMountingReadProjectionFacadeTest) &&
       /assert\.equal\(profiles\.length,\s*1\)/.test(modelMountingReadProjectionFacadeTest) &&
       /preference\.selected_engine_id,\s*"backend\.llama-cpp"/.test(modelMountingReadProjectionFacadeTest) &&
@@ -14956,6 +14968,9 @@ function runBridge() {
       /adapterBoundariesFromState/.test(modelMountingReadProjectionFacadeTest) &&
       /workflowBindingsFromRust/.test(modelMountingReadProjectionFacadeTest) &&
       /serverStatusFromRustRequest/.test(modelMountingReadProjectionFacadeTest) &&
+      /serverLogsFromRustRequest/.test(modelMountingReadProjectionFacadeTest) &&
+      /serverEventsFromRustRequest/.test(modelMountingReadProjectionFacadeTest) &&
+      /serverLogRecordsFromRustRequest/.test(modelMountingReadProjectionFacadeTest) &&
       /catalogStatusFromAgentgresStateDir/.test(modelMountingReadProjectionFacadeTest) &&
       /Reranker"\)\.capability,\s*"rerank"/.test(modelMountingReadProjectionFacadeTest) &&
       /provider health has not been checked/.test(modelMountingReadProjectionFacadeTest) &&
@@ -21570,9 +21585,12 @@ function runReceipts() {
       /commitServerControlForState\(this,\s*"model_mount\.server_control\.start"/.test(modelMountingState) &&
       /commitServerControlForState\(this,\s*"model_mount\.server_control\.stop"/.test(modelMountingState) &&
       /commitServerControlForState\(this,\s*"model_mount\.server_control\.restart"/.test(modelMountingState) &&
-      /commitServerControlForState\(this,\s*"model_mount\.server_control\.logs_read"/.test(modelMountingState) &&
-      /commitServerControlForState\(this,\s*"model_mount\.server_control\.events_read"/.test(modelMountingState) &&
-      /commitServerControlForState\(this,\s*"model_mount\.server_control\.log_projection"/.test(modelMountingState) &&
+      /serverLogs\(query = \{\}\)\s*\{[\s\S]*?readProjectionFacade\.serverLogs\(this,\s*query\)/.test(modelMountingState) &&
+      /serverEvents\(query = \{\}\)\s*\{[\s\S]*?readProjectionFacade\.serverEvents\(this,\s*query\)/.test(modelMountingState) &&
+      /serverLogRecords\(\{ limit = 80 \} = \{\}\)\s*\{[\s\S]*?readProjectionFacade\.serverLogRecords\(this,\s*\{ limit \}\)/.test(modelMountingState) &&
+      !/commitServerControlForState\(this,\s*"model_mount\.server_control\.logs_read"/.test(modelMountingState) &&
+      !/commitServerControlForState\(this,\s*"model_mount\.server_control\.events_read"/.test(modelMountingState) &&
+      !/commitServerControlForState\(this,\s*"model_mount\.server_control\.log_projection"/.test(modelMountingState) &&
       /commitServerControlForState\(this,\s*"model_mount\.server_control\.log_append"/.test(modelMountingState) &&
       /commitServerControlForState\(this,\s*"model_mount\.server_control\.write"/.test(modelMountingState) &&
       /commitServerControlForState\(this,\s*"model_mount\.server_control\.record_operation"/.test(modelMountingState) &&
@@ -21593,6 +21611,7 @@ function runReceipts() {
       /server_control_operation_supported/.test(modelMountServerControlCore) &&
       /model_mount\.server_control\.start/.test(modelMountServerControlCore) &&
       /model_mount\.server_control\.log_append/.test(modelMountServerControlCore) &&
+      /rust_core_rejects_retired_server_control_read_operations/.test(modelMountServerControlCore) &&
       /record_dir:\s*"model-server-controls"/.test(modelMountServerControlCore) &&
       /public_server_control_js_facade_retired/.test(modelMountServerControlCore) &&
       /rust_daemon_core_server_control/.test(modelMountServerControlCore) &&
@@ -21616,12 +21635,38 @@ function runReceipts() {
       !/state\.lifecycleReceipt\("server_(?:start|stop|restart|logs_read|events_read)"/.test(modelMountingState) &&
       !/function serverStatusProjectionInput/.test(modelMountingReadProjectionFacade) &&
       !/function serverControlStateInput/.test(modelMountingReadProjectionFacade) &&
+      /serverLogs\(state,\s*query = \{\}\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"server_logs"/.test(
+        modelMountingReadProjectionFacade,
+      ) &&
+      /serverEvents\(state,\s*query = \{\}\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"server_events"/.test(
+        modelMountingReadProjectionFacade,
+      ) &&
+      /serverLogRecords\(state,\s*query = \{\}\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"server_log_records"/.test(
+        modelMountingReadProjectionFacade,
+      ) &&
+      /canonicalServerLogQuery/.test(modelMountingReadProjectionFacade) &&
+      /server_log_query: serverLogQuery/.test(modelMountingReadProjectionFacade) &&
+      /projectionKind !== "server_logs"/.test(modelMountingReadProjectionFacade) &&
+      /MODEL_MOUNT_SERVER_LOGS_PROJECTION_KIND => status::server_logs\(request\)/.test(
+        modelMountReadProjectionEvidence,
+      ) &&
+      /MODEL_MOUNT_SERVER_EVENTS_PROJECTION_KIND => status::server_events\(request\)/.test(
+        modelMountReadProjectionEvidence,
+      ) &&
+      /MODEL_MOUNT_SERVER_LOG_RECORDS_PROJECTION_KIND => status::server_log_records\(request\)/.test(
+        modelMountReadProjectionEvidence,
+      ) &&
+      /server_logs_and_events_replay_agentgres_server_control_records/.test(
+        modelMountReadProjectionEvidence,
+      ) &&
+      /model_mount_server_log_read_js_control_path_retired/.test(modelMountReadProjectionEvidence) &&
       !/state\.providers\.values\(\)/.test(modelMountingReadProjectionFacade) &&
       !/provider_statuses/.test(modelMountingReadProjectionFacade) &&
       !/state\.listBackends\(\)/.test(modelMountingReadProjectionFacade) &&
       !/backend_statuses/.test(modelMountingReadProjectionFacade) &&
       /mounted server control state is volatile input only/.test(serverControlMountedTest) &&
-      /mounted server control mutation\/log facades commit Rust-authored records/.test(serverControlMountedTest) &&
+      /mounted server control mutation facades commit Rust-authored records/.test(serverControlMountedTest) &&
+      /mounted server log and event reads use Rust read projection/.test(serverControlMountedTest) &&
       /mounted server control state writes and operation recording commit Rust truth/.test(serverControlMountedTest) &&
       /mounted server control fails closed before JS writes when Rust planner is missing/.test(serverControlMountedTest) &&
       /Rust model_mount admission runner sends positive server-control request/.test(

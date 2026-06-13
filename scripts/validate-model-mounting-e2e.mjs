@@ -537,7 +537,7 @@ async function main() {
       assert.equal(logs.redaction, "redacted");
       assert.ok(logs.records.some((record) => record.event === "server_restart"));
       const events = await expectOk(daemon.endpoint, "/api/v1/server/events?limit=20", { token });
-      assert.ok(events.events.some((event) => event.event === "server_events_read"));
+      assert.ok(events.events.some((event) => event.event === "server_restart"));
       return {
         stopReceiptId: stopped.receiptId,
         restartReceiptId: restarted.receiptId,

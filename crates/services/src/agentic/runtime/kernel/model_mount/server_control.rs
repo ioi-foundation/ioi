@@ -206,16 +206,17 @@ fn public_response_for(
                 Value::String("restart_planned".to_string()),
             );
         }
-        "model_mount.server_control.logs_read" | "model_mount.server_control.log_projection" => {
-            response.insert("logs".to_string(), Value::Array(Vec::new()));
-            response.insert("count".to_string(), Value::Number(0.into()));
-        }
-        "model_mount.server_control.events_read" => {
-            response.insert("events".to_string(), Value::Array(Vec::new()));
-            response.insert("count".to_string(), Value::Number(0.into()));
-        }
         "model_mount.server_control.log_append" => {
             response.insert("log_appended".to_string(), Value::Bool(true));
+            if let Some(event) = string_field(body, "event") {
+                response.insert("event".to_string(), Value::String(event));
+            }
+            if let Some(level) = string_field(body, "level") {
+                response.insert("level".to_string(), Value::String(level));
+            }
+            if let Some(message) = string_field(body, "message") {
+                response.insert("message".to_string(), Value::String(message));
+            }
         }
         "model_mount.server_control.write" => {
             response.insert("state_recorded".to_string(), Value::Bool(true));
@@ -242,9 +243,6 @@ fn server_control_operation_supported(operation_kind: &str) -> bool {
             | "model_mount.server_control.restart"
             | "model_mount.server_control.write"
             | "model_mount.server_control.record_operation"
-            | "model_mount.server_control.logs_read"
-            | "model_mount.server_control.events_read"
-            | "model_mount.server_control.log_projection"
             | "model_mount.server_control.log_append"
     )
 }
@@ -338,19 +336,23 @@ mod tests {
     }
 
     #[test]
-    fn rust_core_plans_server_control_read_and_log_records() {
-        let logs = plan_server_control(&request("model_mount.server_control.logs_read"))
-            .expect("logs read plan");
-        assert_eq!(
-            logs.public_response["logs"].as_array().map(Vec::len),
-            Some(0)
-        );
-        assert_eq!(logs.public_response["count"], 0);
-
+    fn rust_core_plans_server_control_log_append_record() {
         let append = plan_server_control(&request("model_mount.server_control.log_append"))
             .expect("log append plan");
         assert_eq!(append.public_response["log_appended"], true);
         assert_eq!(append.record["public_response"]["js_log_write"], false);
+    }
+
+    #[test]
+    fn rust_core_rejects_retired_server_control_read_operations() {
+        for operation_kind in [
+            "model_mount.server_control.logs_read",
+            "model_mount.server_control.events_read",
+            "model_mount.server_control.log_projection",
+        ] {
+            let error = plan_server_control(&request(operation_kind)).expect_err("read retired");
+            assert_eq!(error, ModelMountError::UnsupportedServerControlOperation);
+        }
     }
 
     #[test]

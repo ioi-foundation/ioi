@@ -69,6 +69,9 @@ pub(super) const MODEL_MOUNT_DOWNLOAD_STATUS_PROJECTION_KIND: &str = "download_s
 pub(super) const MODEL_MOUNT_STORAGE_SUMMARY_PROJECTION_KIND: &str = "storage_summary";
 pub(super) const MODEL_MOUNT_BACKENDS_PROJECTION_KIND: &str = "backends";
 pub(super) const MODEL_MOUNT_SERVER_STATUS_PROJECTION_KIND: &str = "server_status";
+pub(super) const MODEL_MOUNT_SERVER_LOGS_PROJECTION_KIND: &str = "server_logs";
+pub(super) const MODEL_MOUNT_SERVER_EVENTS_PROJECTION_KIND: &str = "server_events";
+pub(super) const MODEL_MOUNT_SERVER_LOG_RECORDS_PROJECTION_KIND: &str = "server_log_records";
 pub(super) const MODEL_MOUNT_MCP_SERVERS_PROJECTION_KIND: &str = "mcp_servers";
 pub(super) const MODEL_MOUNT_PROVIDER_HEALTH_PROJECTION_KIND: &str = "provider_health";
 pub(super) const MODEL_MOUNT_RECEIPT_REPLAY_PROJECTION_KINDS: [&str; 9] = [
@@ -256,6 +259,18 @@ pub(super) fn plan_read_projection(
             "model_mount_server_status_js_projection_retired".to_string(),
         ]);
     }
+    if matches!(
+        request.projection_kind.as_str(),
+        MODEL_MOUNT_SERVER_LOGS_PROJECTION_KIND
+            | MODEL_MOUNT_SERVER_EVENTS_PROJECTION_KIND
+            | MODEL_MOUNT_SERVER_LOG_RECORDS_PROJECTION_KIND
+    ) {
+        evidence_refs.extend([
+            "rust_daemon_core_server_control_log_projection".to_string(),
+            "agentgres_server_control_log_replay_required".to_string(),
+            "model_mount_server_log_read_js_control_path_retired".to_string(),
+        ]);
+    }
     if request.projection_kind == MODEL_MOUNT_MCP_SERVERS_PROJECTION_KIND {
         evidence_refs.extend([
             "rust_daemon_core_model_mount_mcp_projection".to_string(),
@@ -299,6 +314,9 @@ pub(super) fn model_mount_read_projection(
         MODEL_MOUNT_CONVERSATION_PROJECTION_KIND => conversation::conversation_states(request),
         "authority_snapshot" => authority::authority_snapshot(request),
         MODEL_MOUNT_SERVER_STATUS_PROJECTION_KIND => status::server_status(request),
+        MODEL_MOUNT_SERVER_LOGS_PROJECTION_KIND => status::server_logs(request),
+        MODEL_MOUNT_SERVER_EVENTS_PROJECTION_KIND => status::server_events(request),
+        MODEL_MOUNT_SERVER_LOG_RECORDS_PROJECTION_KIND => status::server_log_records(request),
         "artifacts" => topology::artifacts(request),
         "product_artifacts" => topology::product_artifacts(request),
         "providers" => topology::providers(request),
