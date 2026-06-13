@@ -43,6 +43,7 @@ pub mod runtime_lifecycle;
 pub mod runtime_managed_session_control;
 pub mod runtime_memory_control;
 pub mod runtime_memory_projection;
+pub mod runtime_mcp_serve;
 pub mod runtime_subagent_control;
 pub mod runtime_subagent_projection;
 pub mod runtime_thread_event;

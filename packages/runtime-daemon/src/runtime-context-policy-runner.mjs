@@ -53,6 +53,8 @@ export const RUNTIME_MEMORY_PROJECTION_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.memory-projection-request.v1";
 export const RUNTIME_MEMORY_CONTROL_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.memory-control-request.v1";
+export const RUNTIME_MCP_SERVE_TOOL_CALL_PLAN_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.mcp-serve-tool-call-plan-request.v1";
 export const RUNTIME_WORKFLOW_EDIT_CONTROL_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.workflow-edit-control-request.v1";
 export const RUNTIME_MANAGED_SESSION_PROJECTION_REQUEST_SCHEMA_VERSION =
@@ -399,6 +401,14 @@ export class RustContextPolicyRunner {
     return normalizeRuntimeMemoryControlBridgeResult(this.evaluateRawPolicy({
       operation: "plan_runtime_memory_control",
       schemaVersion: RUNTIME_MEMORY_CONTROL_REQUEST_SCHEMA_VERSION,
+      request,
+    }));
+  }
+
+  planRuntimeMcpServeToolCall(request = {}) {
+    return normalizeRuntimeMcpServeToolCallPlanBridgeResult(this.evaluateRawPolicy({
+      operation: "plan_runtime_mcp_serve_tool_call",
+      schemaVersion: RUNTIME_MCP_SERVE_TOOL_CALL_PLAN_REQUEST_SCHEMA_VERSION,
       request,
     }));
   }
@@ -1603,6 +1613,50 @@ export function normalizeRuntimeMemoryControlBridgeResult(value = {}) {
       optionalString(result.workspace_root ?? record.workspace_root) ?? null,
     payload,
     receipt_refs: stringArray(result.receipt_refs ?? record.receipt_refs),
+    evidence_refs: stringArray(result.evidence_refs ?? record.evidence_refs),
+    record,
+  };
+}
+
+export function normalizeRuntimeMcpServeToolCallPlanBridgeResult(value = {}) {
+  const result = objectRecord(value) ?? {};
+  const record = objectRecord(result.record) ?? result;
+  const request = objectRecord(result.request) ?? objectRecord(record.request);
+  if (!request) {
+    throw new ContextPolicyRunnerError(
+      "Rust MCP serve tool-call planner did not return a coding-tool request.",
+      "runtime_mcp_serve_tool_call_plan_request_missing",
+      { operation_kind: optionalString(result.operation_kind ?? record.operation_kind) },
+    );
+  }
+  return {
+    ...record,
+    source:
+      result.source ??
+      record.source ??
+      "rust_runtime_mcp_serve_tool_call_plan_command",
+    backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
+    object: optionalString(result.object ?? record.object) ?? null,
+    status: optionalString(result.status ?? record.status) ?? null,
+    operation: optionalString(result.operation ?? record.operation) ?? null,
+    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+      codePrefix: "runtime_mcp_serve_tool_call_plan",
+      expectedOperationKind: "mcp.serve.tools.call",
+    }),
+    thread_id: optionalString(result.thread_id ?? record.thread_id) ?? null,
+    tool_id: optionalString(result.tool_id ?? record.tool_id) ?? null,
+    tool_name: optionalString(result.tool_name ?? record.tool_name) ?? null,
+    method: optionalString(result.method ?? record.method) ?? null,
+    tool_call_id: optionalString(result.tool_call_id ?? record.tool_call_id) ?? null,
+    idempotency_key: optionalString(result.idempotency_key ?? record.idempotency_key) ?? null,
+    workflow_graph_id:
+      optionalString(result.workflow_graph_id ?? record.workflow_graph_id) ?? null,
+    workflow_node_id:
+      optionalString(result.workflow_node_id ?? record.workflow_node_id) ?? null,
+    request_hash: optionalString(result.request_hash ?? record.request_hash) ?? null,
+    request,
+    receipt_refs: stringArray(result.receipt_refs ?? record.receipt_refs),
+    policy_decision_refs: stringArray(result.policy_decision_refs ?? record.policy_decision_refs),
     evidence_refs: stringArray(result.evidence_refs ?? record.evidence_refs),
     record,
   };

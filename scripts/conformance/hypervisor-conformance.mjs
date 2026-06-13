@@ -26372,6 +26372,9 @@ function runCompositor() {
   )
     ? read("packages/runtime-daemon/src/runtime-mcp-serve-surface.test.mjs")
     : "";
+  const runtimeMcpServeCore = exists("crates/services/src/agentic/runtime/kernel/runtime_mcp_serve.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/runtime_mcp_serve.rs")
+    : "";
   const runtimeMcpServeStatusBlock =
     runtimeMcpServeSurface.match(/mcpServeStatus\(store, options = \{\}\) \{[\s\S]*?\n    \},\n    mcpServeToolCatalog/)?.[0] ??
     "";
@@ -35422,21 +35425,39 @@ function runCompositor() {
       /mcpServeToolCallResult: mcpServeToolCallResultDep = mcpServeToolCallResult/.test(
         runtimeMcpServeSurface,
       ) &&
+      /plan_runtime_mcp_serve_tool_call/.test(commandProtocolCoreForCompositor) &&
+      /CommandOperation::PlanRuntimeMcpServeToolCall/.test(commandProtocolCoreForCompositor) &&
+      /plan_runtime_mcp_serve_tool_call_response/.test(coreCommandDispatchForCompositor) &&
+      /pub mod runtime_mcp_serve;/.test(kernelModuleForCompositor) &&
+      /RuntimeMcpServeToolCallPlanCore/.test(runtimeMcpServeCore) &&
+      /RuntimeMcpServeToolCallPlanRequest/.test(runtimeMcpServeCore) &&
+      /plan_runtime_mcp_serve_tool_call_response/.test(runtimeMcpServeCore) &&
+      /rust_plans_mcp_serve_tool_call_request/.test(runtimeMcpServeCore) &&
+      /rust_shapes_mcp_serve_tool_call_command_response/.test(runtimeMcpServeCore) &&
+      /planRuntimeMcpServeToolCall\(request = \{\}\)/.test(runtimeContextPolicyRunner) &&
+      /operation:\s*"plan_runtime_mcp_serve_tool_call"/.test(runtimeContextPolicyRunner) &&
+      /RUNTIME_MCP_SERVE_TOOL_CALL_PLAN_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyRunner) &&
+      /normalizeRuntimeMcpServeToolCallPlanBridgeResult/.test(runtimeContextPolicyRunner) &&
+      /runtime MCP serve tool-call planner sends Rust daemon-core request/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /captured\.operation,\s*"plan_runtime_mcp_serve_tool_call"/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
       /store\?\.codingToolInvocationSurface\?\.invokeThreadTool/.test(runtimeMcpServeSurface) &&
-      /mcpServeToolInvocationRequest/.test(runtimeMcpServeSurface) &&
-      /source:\s*"mcp_serve"/.test(runtimeMcpServeSurface) &&
-      /workflow_graph_id:\s*optionalString\(request\.workflow_graph_id\)/.test(
-        runtimeMcpServeSurface,
-      ) &&
-      /workflow_node_id:\s*optionalString\(request\.workflow_node_id\)/.test(
-        runtimeMcpServeSurface,
-      ) &&
+      /planner\.planRuntimeMcpServeToolCall/.test(runtimeMcpServeSurface) &&
+      /plannedMcpServeToolInvocationRequest/.test(runtimeMcpServeSurface) &&
+      /request\.source !== "mcp_serve"/.test(runtimeMcpServeSurface) &&
       /runtime_mcp_serve_tool_call_rust_core_required/.test(runtimeMcpServeSurface) &&
       /runtime_mcp_serve_tool_call_js_facade_retired/.test(runtimeMcpServeSurface) &&
       /rust_daemon_core_runtime_mcp_serve_tool_call_required/.test(runtimeMcpServeSurface) &&
+      /runtime_mcp_serve_tool_call_plan_incomplete/.test(runtimeMcpServeSurface) &&
       /agentgres_runtime_mcp_serve_tool_call_truth_required/.test(runtimeMcpServeSurface) &&
       /wallet_runtime_mcp_serve_authority_required/.test(runtimeMcpServeSurface) &&
       /runtime MCP serve surface invokes Rust-owned coding-tool path for allowed tool calls/.test(
+        runtimeMcpServeSurfaceTest,
+      ) &&
+      /plans\[0\]\.operation_kind,\s*"mcp\.serve\.tools\.call"/.test(
         runtimeMcpServeSurfaceTest,
       ) &&
       /response\.result\.structuredContent\.event_id,\s*"event_mcp_serve_tool_call"/.test(
@@ -35452,6 +35473,12 @@ function runCompositor() {
       /runtime MCP serve tool calls fail closed without Rust-owned coding-tool invocation surface/.test(
         runtimeMcpServeSurfaceTest,
       ) &&
+      /runtime MCP serve tool calls fail closed without Rust-owned MCP serve planner/.test(
+        runtimeMcpServeSurfaceTest,
+      ) &&
+      /runtime MCP serve tool calls reject incomplete Rust daemon-core plans/.test(
+        runtimeMcpServeSurfaceTest,
+      ) &&
       /response\.error\.data\.code,\s*"runtime_mcp_serve_tool_call_rust_core_required"/.test(
         runtimeMcpServeSurfaceTest,
       ) &&
@@ -35465,13 +35492,26 @@ function runCompositor() {
       !/request\.(?:workflowGraphId|workflowNodeId)\b/.test(runtimeMcpServeSurface) &&
       !/params\.toolName\b/.test(runtimeMcpServeSurface) &&
       !/params\.args\b/.test(runtimeMcpServeSurface) &&
+      !/function mcpServeToolInvocationRequest/.test(runtimeMcpServeSurface) &&
+      !/workflow_graph_id:\s*optionalString\(request\.workflow_graph_id\)/.test(
+        runtimeMcpServeSurface,
+      ) &&
+      !/workflow_node_id:\s*optionalString\(request\.workflow_node_id\)/.test(
+        runtimeMcpServeSurface,
+      ) &&
       !/store\.agentForThread/.test(runtimeMcpServeSurface) &&
       !/store\.invokeThreadTool(?:Async)?\(/.test(runtimeMcpServeSurface),
     [
+      "crates/services/src/agentic/runtime/kernel/runtime_mcp_serve.rs",
+      "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
+      "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
+      "crates/services/src/agentic/runtime/kernel/mod.rs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
       "packages/runtime-daemon/src/runtime-mcp-serve-surface.mjs",
       "packages/runtime-daemon/src/runtime-mcp-serve-surface.test.mjs",
     ],
-    "Phase 10/11 is pending: MCP serve tool-call requests must route through the Rust-owned coding-tool invocation surface, fail closed when that boundary is missing, and ignore retired camelCase aliases",
+    "Phase 10/11 is pending: MCP serve tool-call requests must be planned by Rust daemon-core before routing through the Rust-owned coding-tool invocation surface, fail closed when either boundary is missing, and ignore retired camelCase aliases",
   );
   assertCheck(
     result,

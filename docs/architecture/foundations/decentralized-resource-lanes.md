@@ -1,24 +1,25 @@
-# Decentralized Resource Lanes
+# Resource Lanes
 
 Status: alpha canon architecture doctrine.
-Canonical owner: this file for the `decentralized.*` resource-lane family,
-route-intelligence boundaries, and cross-lane ownership doctrine.
+Canonical owner: this file for the current `decentralized.*` Wallet-native
+resource-lane family, the Hypervisor Cloud Resource Lane, route-intelligence
+boundaries, and cross-lane ownership doctrine.
 Supersedes: product prose that treats `decentralized.exchange`,
-`decentralized.trade`, or `decentralized.cloud` as mandatory middlemen,
-resource owners, custody owners, authority layers, or trust roots.
+`decentralized.trade`, cloud provider catalogs, or cloud routers as mandatory
+middlemen, resource owners, custody owners, authority layers, or trust roots.
 Superseded by: none.
 Last alignment pass: 2026-06-13.
 
 ## Canonical Definition
 
-**Decentralized Resource Lanes are source-agnostic route-intelligence lanes for
-resources autonomous systems need.**
+**Resource Lanes are source-agnostic route-intelligence lanes for resources
+autonomous systems need.**
 
 They help users, agents, Wallet, Hypervisor, and application domains discover,
 compare, normalize, score, and receipt candidate routes across liquidity,
 exposure, compute, storage, and execution venues.
 
-The canon family is:
+The present canon family is:
 
 ```text
 decentralized.exchange
@@ -27,9 +28,9 @@ decentralized.exchange
 decentralized.trade
   route exposure / manage positions
 
-decentralized.cloud
-  route execution / source compute, storage, GPU, bandwidth, and
-  confidential-compute lanes
+Cloud Resource Lane
+  route execution / source compute, storage, GPU, bandwidth,
+  confidential-compute, DePIN, hyperscaler, customer-cloud, and local lanes
 ```
 
 Resource lanes do not own the underlying resources.
@@ -73,10 +74,11 @@ decentralized.trade
   position/risk display, margin calculations, strategy templates,
   venue comparison, and trade-candidate receipts
 
-decentralized.cloud
-  compute/storage/provider adapters, hardware and GPU availability,
-  confidential-compute capability metadata, attestation descriptors,
-  deployment templates, price/latency/reliability comparison,
+Hypervisor Cloud Resource Lane
+  direct provider connectors, local inventory, customer cloud connectors,
+  DePIN market connectors, storage-network connectors, hardware and GPU
+  availability, confidential-compute capability metadata, attestation
+  descriptors, deployment templates, price/latency/reliability comparison,
   provider reputation, and cloud-route receipts
 ```
 
@@ -111,8 +113,8 @@ It is the liquidity route-intelligence lane.
 decentralized.trade is not the broker.
 It is the exposure route-intelligence lane.
 
-decentralized.cloud is not the cloud.
-It is the compute, storage, and execution route-intelligence lane.
+Cloud Resource Lane is not the cloud.
+It is the source-agnostic execution route-intelligence lane.
 ```
 
 Incorrect framing:
@@ -120,8 +122,32 @@ Incorrect framing:
 ```text
 decentralized.exchange is the exchange backend.
 decentralized.trade owns user positions.
-decentralized.cloud is the compute provider.
+cloud provider catalog = Hypervisor execution owner.
+cloud router = mandatory gateway for cloud or DePIN.
 ```
+
+## Parked Future: decentralized.cloud
+
+`decentralized.cloud` is not part of the present canon spine or near-term
+product architecture.
+
+It is parked as a possible future public cloud layer:
+
+```text
+future decentralized.cloud
+  provider marketplace
+  P2P / PQ-aware cloud routing layer
+  compute and storage receipt explorer
+  cloud/provider reputation surface
+  public provider catalog
+  infrastructure marketplace with bonds, SLAs, and disputes
+```
+
+Current canon should not require Hypervisor, Fleet, Wallet, or agents to route
+through `decentralized.cloud`. Hypervisor must support direct provider mode for
+local machines, customer cloud accounts, hyperscalers, cloud GPU providers,
+enterprise clusters, DePIN compute providers, decentralized storage networks,
+and user-specified routes.
 
 ## Lifecycle
 
@@ -166,7 +192,9 @@ user, agent, app, or service requests market exposure
 ```text
 agent, workflow, service, or operator requests infrastructure
   -> Hypervisor creates a workload/resource intent
-  -> decentralized.cloud or provider connectors return CloudRoute candidates
+  -> direct provider connectors, local inventory, customer cloud connectors,
+     DePIN markets, storage networks, or user-specified routes return
+     CloudRoute candidates
   -> Fleet compares price, latency, hardware, GPU class, storage locality,
      privacy posture, cTEE posture, attestation, jurisdiction, reliability,
      provider reputation, and budget
@@ -187,7 +215,7 @@ agent, workflow, service, or operator requests infrastructure
 ```yaml
 DecentralizedResourceLane:
   lane_id:
-    decentralized.exchange | decentralized.trade | decentralized.cloud
+    decentralized.exchange | decentralized.trade | cloud_resource_lane
   resource_kind:
     liquidity | exposure | execution
   candidate_types:
@@ -318,8 +346,10 @@ struct CloudRoute {
 struct CloudCandidate {
     candidate_id: CloudCandidateId,
     source: CloudRouteSourceRef,
-    provider: ProviderRef,           // Akash | Filecoin | AWS | GCP |
-                                     // local | customer_cloud | etc.
+    provider: ProviderRef,           // AWS | GCP | Azure | CoreWeave |
+                                     // Lambda | RunPod | Vast | Akash |
+                                     // Filecoin | local | customer_cloud |
+                                     // enterprise_kubernetes | etc.
     resource_type: ResourceType,     // gpu | cpu | storage | enclave |
                                      // vm | container | k8s | bare_metal
     hardware: Option<String>,        // H100 | A100 | RTX_4090 | etc.
@@ -463,8 +493,8 @@ Receipts should bind:
 - Agent trading over perps or margin must be disabled by default or constrained
   by explicit paper/sandbox, max collateral, max leverage, isolated-margin,
   stop-loss, max daily loss, market whitelist, expiry, and step-up policies.
-- `decentralized.cloud` cannot treat a cheap provider as privacy-safe merely
-  because payload bytes are encrypted at rest.
+- Cloud Resource Lane routing cannot treat a cheap provider as privacy-safe
+  merely because payload bytes are encrypted at rest.
 - Cloud routing cannot release secrets or protected plaintext without
   wallet.network authority and the declared cTEE, TEE, local, customer-cloud,
   or provider-trust posture.
@@ -479,7 +509,7 @@ Reject these:
 1. Treating `decentralized.exchange` as the wallet exchange backend.
 2. Treating `decentralized.trade` as a broker, custodian, or user-position
    owner.
-3. Treating `decentralized.cloud` as the cloud provider.
+3. Promoting parked future `decentralized.cloud` into a mandatory gateway.
 4. Treating route sources, quote APIs, solvers, venues, or provider catalogs as
    trust roots.
 5. Treating spot swaps, perps, margin, and strategy execution as one risk class.

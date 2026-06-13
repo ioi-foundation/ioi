@@ -12,7 +12,7 @@ import {
   mcpServeToolDescriptor,
   mcpServeToolIdForName,
 } from "./runtime-mcp-helpers.mjs";
-import { doctorHash, objectRecord, optionalString, safeId } from "./runtime-value-helpers.mjs";
+import { objectRecord, optionalString } from "./runtime-value-helpers.mjs";
 
 export function createRuntimeMcpServeSurface({
   RUNTIME_MCP_SERVE_PROTOCOL_VERSION: protocolVersion = RUNTIME_MCP_SERVE_PROTOCOL_VERSION,
@@ -25,6 +25,7 @@ export function createRuntimeMcpServeSurface({
   mcpServeToolCallResult: mcpServeToolCallResultDep = mcpServeToolCallResult,
   mcpServeToolDescriptor: mcpServeToolDescriptorDep = mcpServeToolDescriptor,
   mcpServeToolIdForName: mcpServeToolIdForNameDep = mcpServeToolIdForName,
+  contextPolicyRunner = null,
   optionalString: optionalStringDep = optionalString,
 } = {}) {
   function mcpServeRustCoreRequiredError(id, { threadId, toolId, toolName }) {
@@ -138,28 +139,40 @@ export function createRuntimeMcpServeSurface({
               allowed_tools: mcpServeAllowedToolIdsDep(request),
             });
           }
+          const planner = store?.contextPolicyRunner ?? contextPolicyRunner;
           const invokeRustCodingTool = store?.codingToolInvocationSurface?.invokeThreadTool;
-          if (typeof invokeRustCodingTool !== "function") {
+          if (
+            typeof planner?.planRuntimeMcpServeToolCall !== "function" ||
+            typeof invokeRustCodingTool !== "function"
+          ) {
             return mcpServeRustCoreRequiredError(id, {
               threadId,
               toolId,
               toolName,
             });
           }
+          const plan = planner.planRuntimeMcpServeToolCall({
+            operation: "runtime_mcp_serve_tool_call",
+            operation_kind: "mcp.serve.tools.call",
+            thread_id: threadId,
+            tool_id: toolId,
+            tool_name: toolName,
+            method: "tools/call",
+            jsonrpc_id: id ?? null,
+            params,
+            request,
+            mcp_serve_schema_version: schemaVersion,
+          });
+          const invocationRequest = plannedMcpServeToolInvocationRequest(plan, {
+            threadId,
+            toolId,
+          });
           const invocation = await invokeRustCodingTool.call(
             store.codingToolInvocationSurface,
             store,
             threadId,
             toolId,
-            mcpServeToolInvocationRequest({
-              id,
-              params,
-              request,
-              schemaVersion,
-              threadId,
-              toolId,
-              toolName,
-            }),
+            invocationRequest,
           );
           return mcpJsonRpcResultDep(id, mcpServeToolCallResultDep(invocation));
         }
@@ -184,43 +197,35 @@ export function createRuntimeMcpServeSurface({
   };
 }
 
-function mcpServeToolInvocationRequest({
-  id,
-  params = {},
-  request = {},
-  schemaVersion,
-  threadId,
-  toolId,
-  toolName,
-}) {
-  const input = objectRecord(params.arguments) ?? {};
-  const requestHash = doctorHash(JSON.stringify({
-    id: id ?? null,
-    input,
-    thread_id: threadId,
-    tool_id: toolId,
-  })).slice(0, 16);
-  const toolCallId =
-    optionalString(params.tool_call_id) ??
-    optionalString(request.tool_call_id) ??
-    `mcp_serve_${safeId(toolId)}_${requestHash}`;
-  return {
-    ...input,
-    source: "mcp_serve",
-    tool_call_id: toolCallId,
-    idempotency_key:
-      optionalString(params.idempotency_key) ??
-      optionalString(request.idempotency_key) ??
-      `thread:${threadId}:mcp-serve:${toolCallId}`,
-    workflow_graph_id: optionalString(request.workflow_graph_id) ?? "runtime.mcp_serve",
-    workflow_node_id: optionalString(request.workflow_node_id) ?? `runtime.mcp_serve.${safeId(toolId)}`,
-    mcp_serve_request: {
-      schema_version: schemaVersion,
-      jsonrpc_id: id ?? null,
-      method: "tools/call",
-      thread_id: threadId,
-      tool_id: toolId,
-      tool_name: toolName ?? null,
-    },
-  };
+function plannedMcpServeToolInvocationRequest(plan, { threadId, toolId }) {
+  const record = objectRecord(plan);
+  const request = objectRecord(record?.request);
+  const mcpServeRequest = objectRecord(request?.mcp_serve_request);
+  if (
+    !record ||
+    record.status !== "planned" ||
+    record.operation_kind !== "mcp.serve.tools.call" ||
+    record.thread_id !== threadId ||
+    record.tool_id !== toolId ||
+    !request ||
+    request.source !== "mcp_serve" ||
+    !optionalString(request.tool_call_id) ||
+    !optionalString(request.idempotency_key) ||
+    !optionalString(request.workflow_graph_id) ||
+    !optionalString(request.workflow_node_id) ||
+    !mcpServeRequest ||
+    mcpServeRequest.method !== "tools/call" ||
+    mcpServeRequest.thread_id !== threadId ||
+    mcpServeRequest.tool_id !== toolId
+  ) {
+    const error = new Error("Rust daemon-core MCP serve tool-call plan is incomplete.");
+    error.code = "runtime_mcp_serve_tool_call_plan_incomplete";
+    error.details = {
+      operation_kind: record?.operation_kind ?? null,
+      thread_id: record?.thread_id ?? null,
+      tool_id: record?.tool_id ?? null,
+    };
+    throw error;
+  }
+  return request;
 }

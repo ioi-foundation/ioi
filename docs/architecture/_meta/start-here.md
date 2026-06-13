@@ -43,8 +43,9 @@ wallet.network
 decentralized.* resource lanes
   route liquidity, exposure, and execution without becoming authority or trust
   roots: decentralized.exchange proposes exchange routes, decentralized.trade
-  proposes exposure/position routes, and decentralized.cloud proposes
-  compute/storage/execution routes
+  proposes exposure/position routes, and the Cloud Resource Lane proposes
+  compute/storage/execution routes through direct provider connectors, local
+  inventory, customer clouds, DePIN markets, storage networks, and user routes
 
 Agentgres
   admits and proves operational truth for app, user, agent, and run state
@@ -110,7 +111,7 @@ HypervisorOS roots serious nodes.
 Hypervisor Fleet manages infrastructure for autonomous systems.
 Default Harness Profile orchestrates.
 wallet.network authorizes, risk-labels, approves/denies, revokes, protects, and receipts.
-decentralized.* lanes propose liquidity, exposure, and execution routes.
+decentralized.* lanes propose liquidity and exposure routes; Cloud Resource Lane proposes execution routes.
 Agentgres admits truth.
 Agent Wiki remembers.
 Artifact refs define payload meaning.
@@ -179,9 +180,10 @@ GPU endpoints, storage posture, runtime placement, fleet health, cost posture,
 cTEE posture, receipt/replay projections, and migration cockpit workflows.
 Fleet manages machines and workload posture while coordinating governance;
 Hypervisor Daemon executes; wallet.network authorizes; Agentgres records truth.
-For resource routing, decentralized.cloud may propose CloudRoute candidates,
-but Fleet and Hypervisor still route through wallet.network authority,
-daemon/provider execution boundaries, Agentgres refs, and receipts.
+For resource routing, direct provider connectors, local inventory, customer
+clouds, DePIN markets, storage networks, or user-specified routes may propose
+CloudRoute candidates. Fleet and Hypervisor still route through wallet.network
+authority, daemon/provider execution boundaries, Agentgres refs, and receipts.
 
 ### Implementing Agentgres
 
@@ -300,7 +302,7 @@ Hypervisor IDE = runtime truth
 Hypervisor Fleet = execution runtime or authority plane
 decentralized.exchange = exchange backend or liquidity owner
 decentralized.trade = broker, custodian, or ordinary swap route
-decentralized.cloud = compute provider or privacy proof
+parked future decentralized.cloud = present cloud gateway or privacy proof
 Persistent rented GPU node = trusted private machine
 Agentgres = all memory or all payload bytes
 Agent Wiki / ioi-memory = canonical admitted truth
@@ -328,7 +330,7 @@ storage backends hold bytes
 Private Workspace backed by cTEE forbids protected plaintext on rented nodes
 Plaintext-Free Runtime Mounting exposes only public/redacted refs and private handles
 wallet.network authorizes
-decentralized.* lanes propose routes
+decentralized.* lanes propose liquidity/exposure routes; Cloud Resource Lane proposes execution routes
 AIIP moves bounded autonomous work
 L1 settles selected public/economic/cross-domain commitments
 ```

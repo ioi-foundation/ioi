@@ -32,6 +32,7 @@ Current Wallet addition:
 Current decentralized resource-lane addition:
 
 > **decentralized.exchange routes liquidity, decentralized.trade routes
-> exposure, and decentralized.cloud routes execution. They propose candidates;
-> wallet.network authorizes; Hypervisor executes or deploys; venues and
-> providers perform; Agentgres records; IOI L1 settles by trigger.**
+> exposure, and the Hypervisor Cloud Resource Lane routes execution through
+> direct provider integrations. Lanes propose candidates; wallet.network
+> authorizes; Hypervisor executes or deploys; venues and providers perform;
+> Agentgres records; IOI L1 settles by trigger.**

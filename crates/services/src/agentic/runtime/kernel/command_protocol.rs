@@ -101,6 +101,7 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "project_runtime_lifecycle",
     "project_runtime_memory_projection",
     "plan_runtime_memory_control",
+    "plan_runtime_mcp_serve_tool_call",
     "plan_runtime_workflow_edit_control",
     "project_runtime_managed_session_projection",
     "plan_runtime_managed_session_control",
@@ -234,6 +235,7 @@ pub enum CommandOperation {
     ProjectRuntimeLifecycle,
     ProjectRuntimeMemoryProjection,
     PlanRuntimeMemoryControl,
+    PlanRuntimeMcpServeToolCall,
     PlanRuntimeWorkflowEditControl,
     ProjectRuntimeManagedSessionProjection,
     PlanRuntimeManagedSessionControl,
@@ -400,6 +402,7 @@ impl CommandOperation {
             Self::ProjectRuntimeLifecycle => "project_runtime_lifecycle",
             Self::ProjectRuntimeMemoryProjection => "project_runtime_memory_projection",
             Self::PlanRuntimeMemoryControl => "plan_runtime_memory_control",
+            Self::PlanRuntimeMcpServeToolCall => "plan_runtime_mcp_serve_tool_call",
             Self::PlanRuntimeWorkflowEditControl => "plan_runtime_workflow_edit_control",
             Self::ProjectRuntimeManagedSessionProjection => {
                 "project_runtime_managed_session_projection"
@@ -719,6 +722,9 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
             Some(CommandOperation::ProjectRuntimeMemoryProjection)
         }
         "plan_runtime_memory_control" => Some(CommandOperation::PlanRuntimeMemoryControl),
+        "plan_runtime_mcp_serve_tool_call" => {
+            Some(CommandOperation::PlanRuntimeMcpServeToolCall)
+        }
         "plan_runtime_workflow_edit_control" => {
             Some(CommandOperation::PlanRuntimeWorkflowEditControl)
         }
@@ -883,6 +889,7 @@ mod tests {
             "project_runtime_task_job_projection",
             "project_runtime_tool_catalog",
             "project_runtime_memory_projection",
+            "plan_runtime_mcp_serve_tool_call",
             "project_runtime_managed_session_projection",
             "plan_runtime_managed_session_control",
             "project_runtime_workspace_change_projection",

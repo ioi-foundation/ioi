@@ -79,7 +79,7 @@ DePIN compute
 cloud GPU endpoints
 Akash and similar compute markets
 Filecoin/CAS/S3/local storage posture
-decentralized.cloud route candidates
+Cloud Resource Lane route candidates
 cTEE private workspaces
 Agentgres domains
 model mounts
@@ -140,15 +140,31 @@ These primitives are not separate from autonomous-system management. They are
 the substrate persistent agents, workers, services, model servers, private
 workspaces, and HypervisorOS nodes require.
 
-## Relationship to decentralized.cloud
+## Cloud Resource Lane
 
-`decentralized.cloud` is the source-agnostic cloud/resource route-intelligence
-lane for compute, storage, GPU, bandwidth, confidential execution, DePIN,
-customer cloud, and local infrastructure.
+The **Cloud Resource Lane** is the source-agnostic infrastructure lane used by
+Hypervisor to run workloads across local machines, customer clouds,
+hyperscalers, DePIN compute markets, decentralized storage networks,
+confidential-compute providers, enterprise clusters, and user-specified
+provider routes.
 
-It may propose CloudRoute candidates, normalize provider metadata, compare
-price/latency/reliability, track provider reputation, expose attestation
-descriptors, and provide deployment templates.
+Hypervisor may route directly to:
+
+- local machines and homelabs;
+- user-owned or org-owned AWS, Google Cloud, Azure, and other cloud accounts;
+- enterprise Kubernetes, KubeVirt, VMware, Proxmox, Nutanix, or bare-metal
+  estates;
+- hyperscaler confidential-compute services;
+- cloud GPU providers;
+- DePIN compute markets;
+- decentralized storage networks;
+- provider-specific GPU or storage markets;
+- user-specified provider routes.
+
+`decentralized.cloud` is parked future product space, not present Fleet canon.
+It may later become a public provider catalog, P2P/PQ-aware cloud routing layer,
+compute/storage receipt explorer, provider reputation surface, or infrastructure
+marketplace, but current Hypervisor/Fleet architecture must not depend on it.
 
 It does not own:
 
@@ -166,7 +182,8 @@ It does not own:
 Correct product framing:
 
 ```text
-decentralized.cloud proposes execution lanes.
+Cloud Resource Lane routes execution candidates.
+Direct provider mode routes through provider connectors or local inventory.
 Hypervisor Fleet compares and displays infrastructure posture.
 wallet.network authorizes spend, provider access, secret release, and policy.
 Hypervisor Daemon or provider connector deploys and runs.
@@ -177,8 +194,9 @@ Agentgres records receipts and state refs.
 Incorrect product framing:
 
 ```text
-decentralized.cloud is the compute provider.
-decentralized.cloud owns Hypervisor execution.
+cloud provider catalog = compute provider.
+cloud router = Hypervisor execution owner.
+future decentralized.cloud = mandatory gateway for cloud or DePIN.
 cheap DePIN GPU route = private route.
 ```
 
@@ -227,7 +245,7 @@ Fleet may own or coordinate:
 - GPU pool, model-server placement, and accelerator utilization visibility;
 - DePIN compute endpoint metadata;
 - cloud GPU and VM endpoint metadata;
-- decentralized.cloud route-candidate metadata;
+- Cloud Resource Lane route-candidate metadata;
 - storage-backend posture for local disk, S3/object stores, Filecoin, CAS/IPFS,
   provider blob stores, and customer VPC blob stores;
 - runtime assignment visibility and placement recommendations;
@@ -288,7 +306,9 @@ Cloud routing lifecycle:
 ```text
 agent, workflow, service, or operator requests infrastructure
   -> Hypervisor creates workload/resource intent
-  -> decentralized.cloud or provider connectors return CloudRoute candidates
+  -> direct provider connectors, local inventory, customer cloud connectors,
+     DePIN markets, storage networks, or user-specified routes return
+     CloudRoute candidates
   -> Fleet compares price, latency, hardware, GPU class, storage locality,
      privacy posture, cTEE posture, attestation, jurisdiction, reliability,
      provider reputation, and budget
@@ -438,8 +458,10 @@ CloudRoute:
 CloudCandidate:
   candidate_id: cloud_candidate://...
   source:
-    decentralized_cloud | provider_connector | user_specified |
-    local_inventory | customer_cloud | depin_market
+    provider_connector | hyperscaler | cloud_gpu_provider |
+    user_specified | local_inventory | customer_cloud |
+    depin_compute_market |
+    decentralized_storage_network | enterprise_cluster
   provider_ref: provider://...
   resource_type:
     gpu | cpu | storage | enclave | vm | container |
@@ -563,8 +585,8 @@ Agentgres operations, receipt refs, artifact refs, and projection watermarks.
   the daemon/cTEE custody receipts support the claim.
 - Fleet cannot route private workspace plaintext to provider-rooted nodes
   unless policy explicitly allows plaintext custody.
-- Fleet cannot treat a `decentralized.cloud` route candidate as authority,
-  proof of provider privacy, or permission to spend funds or release secrets.
+- Fleet cannot treat a Cloud Resource Lane candidate as authority, proof of
+  provider privacy, or permission to spend funds or release secrets.
 - Fleet cannot compare cloud routes on price alone when privacy posture,
   attestation, jurisdiction, persistence, storage locality, or cTEE posture
   materially affects the workload.
@@ -597,7 +619,8 @@ Reject these:
     accepted.
 12. One GUI app per vertical when a Hypervisor IDE application lens over the
     same substrate is sufficient.
-13. Treating `decentralized.cloud` as the compute provider or execution owner.
+13. Promoting parked future `decentralized.cloud` into a mandatory cloud
+    gateway.
 14. Treating cheap DePIN GPU availability as a privacy guarantee.
 15. Treating confidential compute as magic without attestation, key-release,
     workload-design, cTEE, side-channel, and provider assumptions.

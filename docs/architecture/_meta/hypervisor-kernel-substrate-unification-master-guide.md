@@ -604,10 +604,13 @@ extraction or facade-retirement seam lands.
 Slice 769 retired the MCP serve `tools/call` `params.args` fallback before
 served runtime tool invocation input crosses into the daemon: at that slice,
 the MCP serve surface consumes canonical MCP `params.arguments` only. Slice 955
-later retired the remaining MCP serve JS tool-call dispatch path entirely, so
-canonical `params.arguments` no longer crosses into JS `invokeThreadToolAsync`.
-This does not claim terminal MCP serve migration: direct Rust daemon-core MCP
-serve/control/admission/projection still needs to own wallet authority,
+later retired the remaining MCP serve JS tool-call dispatch path entirely, and
+the current MCP serve cut moves served tool-call request-envelope authorship to
+Rust daemon-core `plan_runtime_mcp_serve_tool_call`; canonical
+`params.arguments` now crosses only as Rust planner input before the adapter
+calls the Rust-owned coding-tool invocation surface. This does not claim
+terminal MCP serve migration: direct Rust daemon-core MCP serve/control,
+admission/projection still needs to own wallet authority,
 transport containment, StepModuleRouter dispatch, receipt binding, Agentgres
 expected-head/state-root binding, projection, replay, SDK/IDE protocol coverage,
 and conformance. Do not encode the remaining JS MCP serve protocol facade as
@@ -2602,18 +2605,19 @@ authority, durable Agentgres expected-head/state-root binding, replay, and
 projection remain required before terminal runtime bridge thread/turn/control
 conformance.
 Slice 955 retired the remaining MCP serve direct JS dispatch path, and the
-current MCP serve follow-up replaces the fail-closed `tools/call` facade with a
-positive protocol adapter over the mounted Rust-owned coding-tool invocation
-surface. `RuntimeMcpServe.handleSingleMcpServeJsonRpc()` still owns only
-JSON-RPC status, catalog, and canonical request translation; allowed served
-tool calls now route to `codingToolInvocationSurface.invokeThreadTool()`, return
-Rust-admitted coding-tool result projections, and fail closed only when that
-Rust-owned invocation boundary is missing. JS still does not resolve thread
-agents directly or call `invokeThreadToolAsync()` as the served tool-call
-admission path. Direct Rust daemon-core MCP transport admission, wallet
-authority for raw MCP exits, transport containment, replay/projection storage,
-and stable SDK/IDE/CLI protocol APIs remain required before terminal MCP serve
-conformance.
+current MCP serve follow-up replaces request-envelope authorship with Rust
+daemon-core `plan_runtime_mcp_serve_tool_call` before the protocol adapter calls
+the mounted Rust-owned coding-tool invocation surface.
+`RuntimeMcpServe.handleSingleMcpServeJsonRpc()` still owns only JSON-RPC
+status/catalog parsing and planner invocation; served tool-call ids,
+idempotency keys, workflow ids, and
+`mcp_serve_request` now come from Rust, the old JS request helper is gone, and
+the path fails closed when either the Rust planner or Rust coding-tool
+invocation boundary is missing. JS still does not resolve thread agents directly
+or call `invokeThreadToolAsync()` as the served tool-call admission path. Direct
+Rust daemon-core MCP transport admission, wallet authority for raw MCP exits,
+transport containment, replay/projection storage, and stable SDK/IDE/CLI
+protocol APIs remain required before terminal MCP serve conformance.
 Slice 956 retired the daemon-store `invokeThreadToolAsync()` compatibility
 wrapper. The public `/v1/threads/:thread_id/tools/:tool_id/invoke` route now
 calls the mounted `codingToolInvocationSurface.invokeThreadTool(store, ...)`
@@ -8423,12 +8427,14 @@ persistence; live MCP invoke/discovery exits now also require Rust-authored
 Agentgres-backed agent commits. The JS surface only forwards canonical
 request/server/tool/transport facts and keeps direct registry mutation, event
 append, `agents.set`, JS MCP transport execution, and old compatibility aliases
-retired. MCP serve `tools/call` now routes allowed served coding-tool
-requests through the Rust-owned coding-tool invocation surface and returns the
-Rust-admitted result projection instead of preserving a fail-closed JS facade.
-Actual MCP transport execution, wallet authority for external exits, transport
-containment, content receipts, replay/projection storage, and stable protocol
-APIs remain non-terminal.
+retired. MCP serve `tools/call` now requires Rust daemon-core
+`plan_runtime_mcp_serve_tool_call` for request-envelope authorship before
+routing allowed served coding-tool requests through the Rust-owned coding-tool
+invocation surface; JS no longer derives served tool-call ids, idempotency keys,
+workflow ids, or `mcp_serve_request`, and the path fails closed instead of
+preserving a JS envelope facade. Actual MCP transport execution, wallet
+authority for external exits, transport containment, content receipts,
+replay/projection storage, and stable protocol APIs remain non-terminal.
 Workflow-edit proposal/apply controls have also moved to Rust-owned event
 planning plus Rust runtime-event admission; the remaining workflow-edit blockers
 are wallet approval authority, workflow mutation custody, durable

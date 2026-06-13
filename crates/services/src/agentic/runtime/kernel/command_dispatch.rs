@@ -10,8 +10,9 @@ use super::{
     runtime_diagnostics_repair_control::*, runtime_diagnostics_repair_policy::*,
     runtime_diagnostics_repair_projection::*, runtime_lifecycle::*,
     runtime_managed_session_control::*, runtime_memory_control::*, runtime_memory_projection::*,
-    runtime_subagent_control::*, runtime_subagent_projection::*, runtime_thread_event::*,
-    runtime_thread_fork_control::*, runtime_tool_catalog::*, runtime_workflow_edit_control::*,
+    runtime_mcp_serve::*, runtime_subagent_control::*, runtime_subagent_projection::*,
+    runtime_thread_event::*, runtime_thread_fork_control::*, runtime_tool_catalog::*,
+    runtime_workflow_edit_control::*,
     runtime_workspace_change_control::*, skill_hook_registry::*, workspace_restore::*,
 };
 
@@ -491,6 +492,9 @@ pub fn dispatch_command_operation_response(
         CommandOperation::PlanRuntimeMemoryControl => {
             plan_runtime_memory_control_response(decode(raw_request)?).map_err(Into::into)
         }
+        CommandOperation::PlanRuntimeMcpServeToolCall => {
+            plan_runtime_mcp_serve_tool_call_response(decode(raw_request)?).map_err(Into::into)
+        }
         CommandOperation::PlanRuntimeWorkflowEditControl => {
             plan_runtime_workflow_edit_control_response(decode(raw_request)?).map_err(Into::into)
         }
@@ -674,6 +678,7 @@ command_error_from!(RuntimeDiagnosticsRepairPolicyCommandError);
 command_error_from!(RuntimeManagedSessionCommandError);
 command_error_from!(RuntimeMemoryControlCommandError);
 command_error_from!(RuntimeMemoryProjectionCommandError);
+command_error_from!(RuntimeMcpServeCommandError);
 command_error_from!(RuntimeWorkspaceChangeCommandError);
 command_error_from!(RuntimeThreadForkCommandError);
 command_error_from!(RuntimeConversationArtifactControlCommandError);
