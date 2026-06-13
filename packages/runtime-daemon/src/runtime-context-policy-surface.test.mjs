@@ -71,7 +71,293 @@ function harness() {
   return { calls, events, store, surface };
 }
 
-test("compactThread facade fails closed before event append, Rust planning, or JS persistence", () => {
+function compactHarness() {
+  const calls = [];
+  const events = [];
+  const agent = {
+    id: "agent_one",
+    status: "active",
+    cwd: "/workspace",
+    updatedAt: "2026-06-13T12:00:00.000Z",
+  };
+  const run = {
+    id: "run_one",
+    agentId: "agent_one",
+    status: "running",
+    updatedAt: "2026-06-13T12:00:00.000Z",
+    trace: {},
+  };
+  const runner = {
+    planContextCompaction(request) {
+      calls.push({ name: "planContextCompaction", request });
+      return {
+        backend: "rust_policy",
+        status: "planned",
+        thread_id: request.thread_id,
+        agent_id: request.agent_id,
+        run_id: request.run_id,
+        turn_id: request.turn_id,
+        event_stream_id: request.event_stream_id,
+        item_id: `${request.thread_id}:item:context-compact:hash_one`,
+        idempotency_key: `thread:${request.thread_id}:context.compact:hash_one`,
+        source: request.source,
+        source_event_kind: "OperatorControl.Compact",
+        event_kind: "context.compacted",
+        actor: request.actor,
+        requested_by: request.requested_by,
+        workflow_graph_id: request.workflow_graph_id,
+        workflow_node_id: request.workflow_node_id,
+        component_kind: "context_compaction",
+        payload_schema_version: "ioi.runtime.context-compaction.v1",
+        payload: {
+          reason: request.reason,
+          scope: request.scope,
+          previous_latest_seq: request.previous_latest_seq,
+        },
+        receipt_refs: ["receipt_context_compaction_plan"],
+        policy_decision_refs: ["policy_context_compaction_plan"],
+        artifact_refs: [],
+        rollback_refs: [],
+        redaction_profile: "internal",
+        reason: request.reason,
+        scope: request.scope,
+        previous_latest_seq: request.previous_latest_seq,
+      };
+    },
+    planContextCompactionStateUpdate(request) {
+      calls.push({ name: "planContextCompactionStateUpdate", request });
+      const operatorControl = {
+        control: "compact",
+        source: request.source,
+        reason: request.reason,
+        scope: request.scope,
+        event_id: request.event_id,
+        seq: request.seq,
+        created_at: request.created_at,
+      };
+      const contextCompaction = {
+        reason: request.reason,
+        scope: request.scope,
+        event_id: request.event_id,
+        seq: request.seq,
+        compacted_tokens: 0,
+      };
+      return {
+        source: "rust_context_compaction_state_update_command",
+        backend: "rust_policy",
+        status: "planned",
+        target_kind: request.target_kind,
+        operation_kind: "thread.compact",
+        updated_at: request.created_at,
+        operator_control: operatorControl,
+        context_compaction: contextCompaction,
+        run: request.target_kind === "run"
+          ? {
+              ...request.run,
+              updatedAt: request.created_at,
+              trace: {
+                ...(request.run.trace ?? {}),
+                contextCompaction,
+                operatorControls: [operatorControl],
+              },
+            }
+          : null,
+        agent: request.target_kind === "agent"
+          ? {
+              ...request.agent,
+              updatedAt: request.created_at,
+            }
+          : null,
+      };
+    },
+  };
+  const store = {
+    contextPolicyRunner: runner,
+    agentForThread(threadId) {
+      calls.push({ name: "agentForThread", threadId });
+      return agent;
+    },
+    getRun(runId) {
+      calls.push({ name: "getRun", runId });
+      return runId === run.id ? run : null;
+    },
+    latestRuntimeEventSeq(eventStreamId) {
+      calls.push({ name: "latestRuntimeEventSeq", eventStreamId });
+      return 4;
+    },
+    appendRuntimeEvent(event) {
+      calls.push({ name: "appendRuntimeEvent", event });
+      const admitted = {
+        ...event,
+        admitted: true,
+        receipt_refs: [...event.receipt_refs, "receipt_context_compaction_admitted"],
+      };
+      events.push(admitted);
+      return admitted;
+    },
+    writeRun(plannedRun, operationKind) {
+      calls.push({ name: "writeRun", plannedRun, operationKind });
+      return {
+        operation_kind: operationKind,
+        receipt_refs: [`receipt://${operationKind}/${plannedRun.id}`],
+        policy_decision_refs: [`policy://${operationKind}/${plannedRun.id}`],
+      };
+    },
+    writeAgent(plannedAgent, operationKind) {
+      calls.push({ name: "writeAgent", plannedAgent, operationKind });
+      return {
+        operation_kind: operationKind,
+        receipt_refs: [`receipt://${operationKind}/${plannedAgent.id}`],
+        policy_decision_refs: [`policy://${operationKind}/${plannedAgent.id}`],
+      };
+    },
+  };
+  const surface = createRuntimeContextPolicySurface({
+    eventStreamIdForThread: (threadId) => `event_stream_${threadId}`,
+    runtimeError,
+  });
+  return { calls, events, store, surface };
+}
+
+test("compactThread uses Rust compaction planning, event admission, and run persistence", () => {
+  const { calls, events, store, surface } = compactHarness();
+
+  const result = surface.compactThread(store, "thread_one", {
+    run_id: "run_one",
+    turn_id: "turn_one",
+    reason: "trim context",
+    scope: "run",
+    source: "sdk_client",
+    created_at: "2026-06-13T12:05:00.000Z",
+    workflow_graph_id: "graph_one",
+    workflow_node_id: "node_one",
+    turnId: "turn_retired",
+    workflowGraphId: "graph_retired",
+    idempotencyKey: "context_compaction_idempotency_retired",
+  });
+
+  assert.equal(result.status, "completed");
+  assert.equal(result.operation, "context_compaction");
+  assert.equal(result.operation_kind, "thread.compact");
+  assert.equal(result.target_kind, "run");
+  assert.equal(result.event.admitted, true);
+  assert.equal(result.event.event_kind, "context.compacted");
+  assert.equal(result.event.event_id, "event_context_compaction_thread_one_run_one_00000005");
+  assert.equal(result.operator_control.event_id, result.event.event_id);
+  assert.equal(result.context_compaction.compacted_tokens, 0);
+  assert.equal(result.run.trace.contextCompaction.event_id, result.event.event_id);
+  assert.equal(result.receipt_refs.includes("receipt_context_compaction_admitted"), true);
+  assert.equal(result.receipt_refs.includes("receipt://thread.compact/run_one"), true);
+  assert.deepEqual(calls.map((call) => call.name), [
+    "agentForThread",
+    "getRun",
+    "latestRuntimeEventSeq",
+    "planContextCompaction",
+    "appendRuntimeEvent",
+    "planContextCompactionStateUpdate",
+    "writeRun",
+  ]);
+  assert.equal(calls[3].request.thread_id, "thread_one");
+  assert.equal(calls[3].request.run_id, "run_one");
+  assert.equal(calls[3].request.turn_id, "turn_one");
+  assert.equal(calls[3].request.previous_latest_seq, 4);
+  assert.equal(calls[5].request.event_id, result.event.event_id);
+  assert.equal(calls[5].request.target_kind, "run");
+  assert.equal(events.length, 1);
+  for (const key of ["turnId", "workflowGraphId", "idempotencyKey"]) {
+    assert.equal(Object.hasOwn(calls[3].request, key), false, `${key} alias must be absent`);
+  }
+});
+
+test("compactThread uses Rust runless agent update when no run is targeted", () => {
+  const { calls, store, surface } = compactHarness();
+
+  const result = surface.compactThread(store, "thread_one", {
+    reason: "trim thread context",
+    target_kind: "agent",
+    created_at: "2026-06-13T12:06:00.000Z",
+  });
+
+  assert.equal(result.status, "completed");
+  assert.equal(result.target_kind, "agent");
+  assert.equal(result.run, null);
+  assert.equal(result.agent.id, "agent_one");
+  assert.equal(result.event.event_id, "event_context_compaction_thread_one_agent_one_00000005");
+  assert.deepEqual(calls.map((call) => call.name), [
+    "agentForThread",
+    "latestRuntimeEventSeq",
+    "planContextCompaction",
+    "appendRuntimeEvent",
+    "planContextCompactionStateUpdate",
+    "writeAgent",
+  ]);
+  assert.equal(calls[4].request.target_kind, "agent");
+  assert.equal(calls[5].operationKind, "thread.compact");
+});
+
+test("compactThread fails closed when targeted run has no admitted record", () => {
+  const { calls, events, store, surface } = compactHarness();
+  store.getRun = (runId) => {
+    calls.push({ name: "getRun", runId });
+    return null;
+  };
+
+  assert.throws(
+    () => surface.compactThread(store, "thread_one", {
+      run_id: "run_missing",
+      turn_id: "turn_one",
+      created_at: "2026-06-13T12:07:00.000Z",
+    }),
+    (error) => {
+      assert.equal(error.code, "runtime_context_compaction_run_unavailable");
+      assert.equal(error.status, 404);
+      assert.equal(error.details.rust_core_boundary, "runtime.context_policy");
+      assert.equal(error.details.thread_id, "thread_one");
+      assert.equal(error.details.run_id, "run_missing");
+      assert.equal(error.details.turn_id, "turn_one");
+      return true;
+    },
+  );
+
+  assert.deepEqual(calls.map((call) => call.name), ["agentForThread", "getRun"]);
+  assert.deepEqual(events, []);
+});
+
+test("compactThread fails closed when Rust event admission omits admitted identity", () => {
+  const { calls, store, surface } = compactHarness();
+  store.appendRuntimeEvent = (event) => {
+    calls.push({ name: "appendRuntimeEvent", event });
+    return null;
+  };
+
+  assert.throws(
+    () => surface.compactThread(store, "thread_one", {
+      run_id: "run_one",
+      turn_id: "turn_one",
+      created_at: "2026-06-13T12:08:00.000Z",
+    }),
+    (error) => {
+      assert.equal(error.code, "runtime_context_compaction_event_admission_incomplete");
+      assert.equal(error.status, 502);
+      assert.equal(error.details.rust_core_boundary, "runtime.context_policy");
+      assert.equal(error.details.thread_id, "thread_one");
+      assert.equal(error.details.run_id, "run_one");
+      assert.equal(error.details.event_id, "event_context_compaction_thread_one_run_one_00000005");
+      assert.equal(error.details.seq, 5);
+      return true;
+    },
+  );
+
+  assert.deepEqual(calls.map((call) => call.name), [
+    "agentForThread",
+    "getRun",
+    "latestRuntimeEventSeq",
+    "planContextCompaction",
+    "appendRuntimeEvent",
+  ]);
+});
+
+test("compactThread fails closed before lookup or event append without Rust planning", () => {
   const { calls, events, store, surface } = harness();
 
   assert.throws(

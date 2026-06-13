@@ -2389,13 +2389,18 @@ required before terminal pure Rust substrate conformance.
 Slice 963 retired the daemon-store context-policy route pass-through wrappers.
 The public workflow-only context-budget, thread context-budget, thread
 compaction-policy, thread compact, and run context-budget routes now call the
-mounted fail-closed context-policy surface directly, so JS no longer preserves
+mounted context-policy surface directly, so JS no longer preserves
 `evaluateContextBudget()`, `evaluateCompactionPolicy()`, or `compactThread()`
-as daemon-store compatibility wrappers. This does not claim terminal
-context-policy migration: direct Rust daemon-core route admission, Agentgres
-expected-head/state-root binding, policy receipt/event materialization, replay,
-projection, command-transport retirement, and stable SDK/IDE/CLI protocol APIs
-remain required before terminal pure Rust substrate conformance.
+as daemon-store compatibility wrappers. Public `compactThread()` has since
+moved to Rust-planned event and state-update ownership with Rust Agentgres
+runtime-event admission and Agentgres-backed run/agent commits; the
+thread-bound context-budget and compaction-policy routes still fail closed until
+their event admission and persistence boundaries move. This does not claim
+terminal context-policy migration: direct Rust daemon-core route admission,
+Agentgres expected-head/state-root binding across the remaining context-policy
+routes, policy receipt/event materialization, replay, projection,
+command-transport retirement, and stable SDK/IDE/CLI protocol APIs remain
+required before terminal pure Rust substrate conformance.
 Slice 964 retired the daemon-store MCP route pass-through wrappers. Public MCP
 catalog, validation, import/add/remove/enable/disable, invoke, and serve
 routes plus thread-scoped MCP import/add/remove/enable/disable, search/fetch,
@@ -6696,7 +6701,11 @@ bridge-facing error codes for rejected context lifecycle command bodies.
 
 This remains non-terminal because the Node bridge, command dispatch table,
 shared daemon-core command runner, JS command callers, context-policy runners,
-and public fail-closed surfaces still exist. The remaining
+and public fail-closed thread-bound context-budget / compaction-policy surfaces
+still exist. Public `compactThread()` now consumes the Rust context-compaction
+plan and state-update plan through Rust Agentgres runtime-event admission and
+Agentgres-backed run/agent persistence, but still crosses the temporary
+context-policy runner transport. The remaining
 `ioi_step_module_bridge/context_policy_command.rs` file is a temporary delegate
 to Rust core, not a durable context policy boundary. The long-term target
 remains direct Rust daemon-core context admission/projection protocol APIs over
@@ -7226,9 +7235,14 @@ defaults or bridge transport metadata.
 This remains non-terminal because the shared JS daemon-core command runner and
 Node bridge transport still carry those context lifecycle requests to Rust, and
 context policy still needs direct Rust daemon-core protocol APIs, Agentgres
-expected-head/state-root persistence, policy receipts/events, replay,
-projection, and stable IDE/CLI/SDK wiring. The retired JS fallback context
-lifecycle behavior must not be recreated as a compatibility shim.
+expected-head/state-root persistence for thread-bound context-budget and
+compaction-policy routes, policy receipts/events, replay, projection, and stable
+IDE/CLI/SDK wiring. Public `compactThread()` is now Rust-planned, admits the
+Rust-authored `context.compacted` event through Rust Agentgres runtime-event
+admission, binds the state update to the admitted event id/seq, and commits only
+the Rust-planned run/agent projection through Agentgres-backed persistence. The
+retired JS fallback context lifecycle behavior must not be recreated as a
+compatibility shim.
 
 Slice 1151 retires the remaining JS-side state-update envelope fallbacks from
 the shared context-policy runner. Rust policy cores already author typed
@@ -7655,11 +7669,14 @@ and response-function aliases stay absent from
 This remains non-terminal because context lifecycle policy decisions still cross
 temporary command transport. The target is direct Rust daemon-core context
 lifecycle policy/projection API ownership where context-budget admission,
-compaction policy, context compaction event materialization, Agentgres truth,
-replay, and conformance no longer depend on Node bridge endpoint proof
-scaffolding. Schedule the next matrix-compaction pass only after the next
-direct Rust-core API extraction or facade-retirement seam makes it clear which
-temporary transport rows can be collapsed without canonizing the bridge.
+compaction policy, Agentgres truth, replay, and conformance no longer depend on
+Node bridge endpoint proof scaffolding. Public context compaction is no longer a
+fail-closed JS facade: `compactThread()` now uses Rust event planning, Rust
+runtime-event admission, Rust state-update planning bound to the admitted event
+id/seq, and Agentgres-backed run/agent persistence. Schedule the next
+matrix-compaction pass only after the next direct Rust-core API extraction or
+facade-retirement seam makes it clear which temporary transport rows can be
+collapsed without canonizing the bridge.
 
 Slice 1179 moves the runtime-control command-response proof cluster out of the
 temporary bridge proof surface and relies on the Rust policy owners at

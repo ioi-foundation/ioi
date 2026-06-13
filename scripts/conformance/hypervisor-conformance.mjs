@@ -13187,7 +13187,19 @@ function runBridge() {
     /for \(const retiredField of \[[\s\S]*?"eventKind"[\s\S]*?"workflowNodeId"[\s\S]*?\]\)/.test(
       runtimeContextPolicySurface,
     ) &&
-      /compactThread facade fails closed before event append, Rust planning, or JS persistence/.test(
+      /compactThread uses Rust compaction planning, event admission, and run persistence/.test(
+        runtimeContextPolicySurfaceTest,
+      ) &&
+      /compactThread uses Rust runless agent update when no run is targeted/.test(
+        runtimeContextPolicySurfaceTest,
+      ) &&
+      /compactThread fails closed when targeted run has no admitted record/.test(
+        runtimeContextPolicySurfaceTest,
+      ) &&
+      /compactThread fails closed when Rust event admission omits admitted identity/.test(
+        runtimeContextPolicySurfaceTest,
+      ) &&
+      /compactThread fails closed before lookup or event append without Rust planning/.test(
         runtimeContextPolicySurfaceTest,
       ) &&
       /workflow-only context budget remains projection-only and ignores retired request aliases/.test(
@@ -13216,7 +13228,7 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-context-policy-surface.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-surface.test.mjs",
     ],
-    "Phase 10/11 is pending: context policy facades must ignore retired JS facade identity/event aliases and fail closed before thread-bound Rust planning or JS event persistence",
+    "Context policy facades must ignore retired JS facade identity/event aliases while compactThread uses Rust planning, Rust event admission, and Rust-planned persistence",
   );
   assertCheck(
     result,
@@ -13497,17 +13509,40 @@ function runBridge() {
       ) &&
       /runtime_context_policy_rust_core_required/.test(runtimeContextPolicySurface) &&
       /context_compaction_js_facade_retired/.test(runtimeContextPolicySurface) &&
+      /context_compaction_rust_owned/.test(runtimeContextPolicySurface) &&
+      /rust_daemon_core_context_compaction_plan/.test(runtimeContextPolicySurface) &&
+      /agentgres_runtime_thread_event_truth_required/.test(runtimeContextPolicySurface) &&
+      /runner\.planContextCompaction\(\{/.test(runtimeContextPolicySurface) &&
+      /store\.appendRuntimeEvent\(plannedEvent\)/.test(runtimeContextPolicySurface) &&
+      /runtime_context_compaction_run_unavailable/.test(runtimeContextPolicySurface) &&
+      /runtime_context_compaction_event_admission_incomplete/.test(runtimeContextPolicySurface) &&
+      /eventStreamIdForThread/.test(runtimeContextPolicySurface) &&
       /store\.contextPolicySurface\.compactThread\(store,\s*threadId,\s*await readBody\(request\)\)/.test(
         runtimeRouteHandlers,
       ) &&
       /thread and run routes send context policy controls through mounted context policy surface/.test(
         runtimeRouteHandlersTest,
       ) &&
-      /compactThread facade fails closed before event append, Rust planning, or JS persistence/.test(
+      /compactThread uses Rust compaction planning, event admission, and run persistence/.test(
+        runtimeContextPolicySurfaceTest,
+      ) &&
+      /compactThread uses Rust runless agent update when no run is targeted/.test(
+        runtimeContextPolicySurfaceTest,
+      ) &&
+      /compactThread fails closed when targeted run has no admitted record/.test(
+        runtimeContextPolicySurfaceTest,
+      ) &&
+      /compactThread fails closed when Rust event admission omits admitted identity/.test(
+        runtimeContextPolicySurfaceTest,
+      ) &&
+      /compactThread fails closed before lookup or event append without Rust planning/.test(
+        runtimeContextPolicySurfaceTest,
+      ) &&
+      /calls\.map\(\(call\) => call\.name\), \[[\s\S]*?"planContextCompaction"[\s\S]*?"appendRuntimeEvent"[\s\S]*?\]/.test(
         runtimeContextPolicySurfaceTest,
       ) &&
       !/^\s*compactThread\(threadId, request = \{\}\) \{/m.test(runtimeDaemonIndex) &&
-      !/planContextCompaction|compactHash|createHash/.test(runtimeContextPolicySurface),
+      !/compactHash|createHash/.test(runtimeContextPolicySurface),
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
@@ -13517,7 +13552,7 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-context-policy-surface.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-surface.test.mjs",
     ],
-    "Phase 9/10 is pending: context-compaction planning bridge remains migration plumbing, while public JS compactThread must fail closed until Rust daemon-core owns event admission and persistence",
+    "Public compactThread must use Rust daemon-core context-compaction event planning and Rust runtime-event admission before returning route truth",
   );
   assertCheck(
     result,
@@ -13580,24 +13615,57 @@ function runBridge() {
       ) &&
       /runtime_context_policy_rust_core_required/.test(runtimeContextPolicySurface) &&
       /rust_daemon_core_context_compaction_required/.test(runtimeContextPolicySurface) &&
+      /rust_daemon_core_context_compaction_state_update/.test(runtimeContextPolicySurface) &&
       /agentgres_context_compaction_state_truth_required/.test(runtimeContextPolicySurface) &&
+      /runner\.planContextCompactionStateUpdate\(\{/.test(runtimeContextPolicySurface) &&
+      /const admittedEventId = optionalStringDep\(admittedEvent\?\.event_id\);/.test(
+        runtimeContextPolicySurface,
+      ) &&
+      /const admittedSeq = positiveInteger\(admittedEvent\?\.seq\);/.test(
+        runtimeContextPolicySurface,
+      ) &&
+      /commitContextCompactionRun\(store,\s*plannedRun,\s*runId,\s*operationKind\)/.test(
+        runtimeContextPolicySurface,
+      ) &&
+      /commitContextCompactionAgent\(store,\s*plannedAgent,\s*agentId,\s*operationKind\)/.test(
+        runtimeContextPolicySurface,
+      ) &&
+      /store\.writeRun\(plannedRun,\s*operationKind\)/.test(runtimeContextPolicySurface) &&
+      /store\.writeAgent\(plannedAgent,\s*operationKind\)/.test(runtimeContextPolicySurface) &&
       /store\.contextPolicySurface\.compactThread\(store,\s*threadId,\s*await readBody\(request\)\)/.test(
         runtimeRouteHandlers,
       ) &&
       /thread and run routes send context policy controls through mounted context policy surface/.test(
         runtimeRouteHandlersTest,
       ) &&
-      /compactThread facade fails closed before event append, Rust planning, or JS persistence/.test(
+      /compactThread uses Rust compaction planning, event admission, and run persistence/.test(
         runtimeContextPolicySurfaceTest,
       ) &&
+      /compactThread uses Rust runless agent update when no run is targeted/.test(
+        runtimeContextPolicySurfaceTest,
+      ) &&
+      /compactThread fails closed when targeted run has no admitted record/.test(
+        runtimeContextPolicySurfaceTest,
+      ) &&
+      /compactThread fails closed when Rust event admission omits admitted identity/.test(
+        runtimeContextPolicySurfaceTest,
+      ) &&
+      /compactThread fails closed before lookup or event append without Rust planning/.test(
+        runtimeContextPolicySurfaceTest,
+      ) &&
+      /calls\[5\]\.request\.target_kind,\s*"run"/.test(runtimeContextPolicySurfaceTest) &&
+      /calls\[4\]\.request\.target_kind,\s*"agent"/.test(runtimeContextPolicySurfaceTest) &&
       !/^\s*compactThread\(threadId, request = \{\}\) \{/m.test(runtimeDaemonIndex) &&
-      !/planContextCompactionStateUpdate|plannedContextCompactionRunRecord|plannedContextCompactionAgentRecord|plannedContextCompactionOperationKind/.test(
+      !/plannedContextCompactionRunRecord|plannedContextCompactionAgentRecord|plannedContextCompactionOperationKind/.test(
         runtimeContextPolicySurface,
       ) &&
-      !/appendOperatorControlDep|contextCompaction:\s*\{|writeRun|writeAgent|\.runs\.set|\.agents\.set/.test(
+      !/appendOperatorControlDep|contextCompaction:\s*\{|\.runs\.set|\.agents\.set/.test(
         runtimeContextPolicySurface,
       ) &&
       !/stateUpdate\.run\s*\?\?\s*latestRun/.test(runtimeContextPolicySurface) &&
+      !/admittedEventId\s*=\s*optionalStringDep\(admittedEvent\?\.event_id\)\s*\?\?\s*eventId/.test(
+        runtimeContextPolicySurface,
+      ) &&
       !/stateUpdate\.operation_kind\s*\?\?\s*"thread\.compact"/.test(
         runtimeContextPolicySurface,
       ),
@@ -13610,7 +13678,7 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-context-policy-surface.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-surface.test.mjs",
     ],
-    "Phase 9/10 is pending: context-compaction state-update bridge remains migration plumbing, while public JS compactThread must fail closed until Rust daemon-core owns Agentgres-bound state persistence",
+    "Public compactThread must bind Rust-planned context compaction state updates to Agentgres-backed run or agent persistence without restoring JS map mutation",
   );
   assertCheck(
     result,
