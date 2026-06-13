@@ -5,6 +5,7 @@ mod adapter_boundary;
 mod aggregate;
 mod authority;
 mod common;
+mod conversation;
 mod health;
 mod oauth;
 mod receipt;
@@ -27,7 +28,11 @@ pub struct ModelMountReadProjectionRequest {
     #[serde(default)]
     pub provider_id: Option<String>,
     #[serde(default)]
+    pub download_id: Option<String>,
+    #[serde(default)]
     pub base_url: Option<String>,
+    #[serde(default)]
+    pub state_dir: Option<String>,
     pub state: Value,
 }
 
@@ -38,6 +43,39 @@ pub struct ModelMountReadProjectionPlan {
     pub evidence_refs: Vec<String>,
 }
 
+pub(super) const MODEL_MOUNT_CONVERSATION_PROJECTION_KIND: &str = "model_conversation_states";
+pub(super) const MODEL_MOUNT_INSTANCES_PROJECTION_KIND: &str = "instances";
+pub(super) const MODEL_MOUNT_PROVIDER_INVENTORY_PROJECTION_KIND: &str =
+    "provider_inventory_records";
+pub(super) const MODEL_MOUNT_CATALOG_SEARCH_PROJECTION_KIND: &str = "catalog_search";
+pub(super) const MODEL_MOUNT_CATALOG_STATUS_PROJECTION_KIND: &str = "catalog_status";
+pub(super) const MODEL_MOUNT_PROVIDER_MATERIALIZATION_PROJECTION_KINDS: [&str; 5] = [
+    "artifacts",
+    "product_artifacts",
+    "providers",
+    "runtime_model_catalog",
+    "open_ai_model_list",
+];
+pub(super) const MODEL_MOUNT_ENDPOINTS_PROJECTION_KIND: &str = "endpoints";
+pub(super) const MODEL_MOUNT_ROUTES_PROJECTION_KIND: &str = "routes";
+pub(super) const MODEL_MOUNT_ROUTE_DECISIONS_PROJECTION_KIND: &str = "model_route_decisions";
+pub(super) const MODEL_MOUNT_ROUTE_ENDPOINT_RESOLUTIONS_PROJECTION_KIND: &str =
+    "model_route_endpoint_resolutions";
+pub(super) const MODEL_MOUNT_TOKENIZER_RECORDS_PROJECTION_KIND: &str = "model_tokenizer_records";
+pub(super) const MODEL_MOUNT_DOWNLOADS_PROJECTION_KIND: &str = "downloads";
+pub(super) const MODEL_MOUNT_DOWNLOAD_STATUS_PROJECTION_KIND: &str = "download_status";
+pub(super) const MODEL_MOUNT_STORAGE_SUMMARY_PROJECTION_KIND: &str = "storage_summary";
+pub(super) const MODEL_MOUNT_BACKENDS_PROJECTION_KIND: &str = "backends";
+pub(super) const MODEL_MOUNT_SERVER_STATUS_PROJECTION_KIND: &str = "server_status";
+pub(super) const MODEL_MOUNT_RUNTIME_ENGINE_PROJECTION_KINDS: [&str; 6] = [
+    "runtime_engines",
+    "runtime_engine_profiles",
+    "runtime_preference",
+    "runtime_preference_for_endpoint",
+    "runtime_default_load_options",
+    "runtime_engine_detail",
+];
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ModelMountReadProjectionError {
     pub code: &'static str,
@@ -45,7 +83,7 @@ pub struct ModelMountReadProjectionError {
 }
 
 impl ModelMountReadProjectionError {
-    fn new(code: &'static str, message: impl Into<String>) -> Self {
+    pub(super) fn new(code: &'static str, message: impl Into<String>) -> Self {
         Self {
             code,
             message: message.into(),
@@ -77,14 +115,129 @@ pub(super) fn plan_read_projection(
     request: &ModelMountReadProjectionRequest,
 ) -> Result<ModelMountReadProjectionPlan, ModelMountReadProjectionError> {
     let projection = model_mount_read_projection(request)?;
+    let mut evidence_refs = vec![
+        "rust_daemon_core_model_mount_projection".to_string(),
+        "agentgres_model_mount_read_truth".to_string(),
+        "model_mount_js_read_projection_authoring_retired".to_string(),
+    ];
+    if request.projection_kind == MODEL_MOUNT_CONVERSATION_PROJECTION_KIND {
+        evidence_refs.extend([
+            "rust_daemon_core_model_conversation_projection".to_string(),
+            "agentgres_model_conversation_replay_required".to_string(),
+            "model_mount_conversation_list_js_facade_retired".to_string(),
+        ]);
+    }
+    if request.projection_kind == MODEL_MOUNT_INSTANCES_PROJECTION_KIND {
+        evidence_refs.extend([
+            "rust_daemon_core_model_instance_projection".to_string(),
+            "agentgres_model_instance_replay_required".to_string(),
+            "model_mount_instance_list_js_facade_retired".to_string(),
+        ]);
+    }
+    if request.projection_kind == MODEL_MOUNT_PROVIDER_INVENTORY_PROJECTION_KIND {
+        evidence_refs.extend([
+            "rust_daemon_core_provider_inventory_projection".to_string(),
+            "agentgres_provider_inventory_replay_required".to_string(),
+            "model_mount_provider_inventory_js_projection_retired".to_string(),
+        ]);
+    }
+    if request.projection_kind == MODEL_MOUNT_CATALOG_SEARCH_PROJECTION_KIND {
+        evidence_refs.extend([
+            "rust_daemon_core_catalog_search_projection".to_string(),
+            "agentgres_catalog_search_replay_required".to_string(),
+            "model_catalog_search_js_orchestrator_retired".to_string(),
+        ]);
+    }
+    if request.projection_kind == MODEL_MOUNT_CATALOG_STATUS_PROJECTION_KIND {
+        evidence_refs.extend([
+            "rust_daemon_core_catalog_status_projection".to_string(),
+            "agentgres_catalog_status_replay_required".to_string(),
+            "agentgres_provider_inventory_truth_required".to_string(),
+            "model_catalog_status_js_readback_retired".to_string(),
+        ]);
+    }
+    if MODEL_MOUNT_PROVIDER_MATERIALIZATION_PROJECTION_KINDS
+        .contains(&request.projection_kind.as_str())
+    {
+        evidence_refs.extend([
+            "rust_daemon_core_provider_inventory_materialization".to_string(),
+            "agentgres_provider_inventory_materialization_required".to_string(),
+            "model_mount_topology_js_materialization_retired".to_string(),
+        ]);
+    }
+    if request.projection_kind == MODEL_MOUNT_ENDPOINTS_PROJECTION_KIND {
+        evidence_refs.extend([
+            "rust_daemon_core_model_endpoint_projection".to_string(),
+            "agentgres_model_route_endpoint_resolution_replay_required".to_string(),
+            "model_mount_endpoint_list_js_facade_retired".to_string(),
+        ]);
+    }
+    if request.projection_kind == MODEL_MOUNT_ROUTES_PROJECTION_KIND {
+        evidence_refs.extend([
+            "rust_daemon_core_model_route_projection".to_string(),
+            "agentgres_model_route_replay_required".to_string(),
+            "model_mount_route_list_js_facade_retired".to_string(),
+        ]);
+    }
+    if request.projection_kind == MODEL_MOUNT_ROUTE_DECISIONS_PROJECTION_KIND {
+        evidence_refs.extend([
+            "rust_daemon_core_model_route_decision_projection".to_string(),
+            "agentgres_model_route_selection_replay_required".to_string(),
+            "model_mount_route_decision_js_receipt_projection_retired".to_string(),
+        ]);
+    }
+    if request.projection_kind == MODEL_MOUNT_ROUTE_ENDPOINT_RESOLUTIONS_PROJECTION_KIND {
+        evidence_refs.extend([
+            "rust_daemon_core_model_route_endpoint_resolution_projection".to_string(),
+            "agentgres_model_route_endpoint_resolution_replay_required".to_string(),
+            "model_mount_route_endpoint_resolution_js_projection_retired".to_string(),
+        ]);
+    }
+    if request.projection_kind == MODEL_MOUNT_TOKENIZER_RECORDS_PROJECTION_KIND {
+        evidence_refs.extend([
+            "rust_daemon_core_model_tokenizer_projection".to_string(),
+            "agentgres_model_tokenizer_replay_required".to_string(),
+            "model_mount_tokenizer_js_projection_retired".to_string(),
+        ]);
+    }
+    if matches!(
+        request.projection_kind.as_str(),
+        MODEL_MOUNT_DOWNLOADS_PROJECTION_KIND
+            | MODEL_MOUNT_DOWNLOAD_STATUS_PROJECTION_KIND
+            | MODEL_MOUNT_STORAGE_SUMMARY_PROJECTION_KIND
+    ) {
+        evidence_refs.extend([
+            "rust_daemon_core_model_storage_projection".to_string(),
+            "agentgres_model_storage_replay_required".to_string(),
+            "model_mount_storage_summary_js_facade_retired".to_string(),
+            "model_mount_download_status_js_map_retired".to_string(),
+        ]);
+    }
+    if MODEL_MOUNT_RUNTIME_ENGINE_PROJECTION_KINDS.contains(&request.projection_kind.as_str()) {
+        evidence_refs.extend([
+            "rust_daemon_core_runtime_engine_projection".to_string(),
+            "agentgres_runtime_engine_replay_required".to_string(),
+            "model_mount_runtime_engine_js_projection_retired".to_string(),
+        ]);
+    }
+    if request.projection_kind == MODEL_MOUNT_BACKENDS_PROJECTION_KIND {
+        evidence_refs.extend([
+            "rust_daemon_core_backend_lifecycle_projection".to_string(),
+            "agentgres_backend_lifecycle_replay_required".to_string(),
+            "model_mount_backend_list_js_facade_retired".to_string(),
+        ]);
+    }
+    if request.projection_kind == MODEL_MOUNT_SERVER_STATUS_PROJECTION_KIND {
+        evidence_refs.extend([
+            "rust_daemon_core_server_control_projection".to_string(),
+            "agentgres_server_control_replay_required".to_string(),
+            "model_mount_server_status_js_projection_retired".to_string(),
+        ]);
+    }
     Ok(ModelMountReadProjectionPlan {
         projection_kind: request.projection_kind.clone(),
         projection,
-        evidence_refs: vec![
-            "rust_daemon_core_model_mount_projection".to_string(),
-            "agentgres_model_mount_read_truth".to_string(),
-            "model_mount_js_read_projection_authoring_retired".to_string(),
-        ],
+        evidence_refs,
     })
 }
 
@@ -96,35 +249,46 @@ pub(super) fn model_mount_read_projection(
         "projection" => Ok(aggregate::projection(request)),
         "projection_summary" => Ok(receipt::projection_summary(request)),
         "receipt_replay" => receipt::receipt_replay(request),
-        "model_route_decisions" => Ok(route_decision::route_decisions(request)),
+        MODEL_MOUNT_ROUTE_DECISIONS_PROJECTION_KIND => route_decision::route_decisions(request),
+        MODEL_MOUNT_ROUTE_ENDPOINT_RESOLUTIONS_PROJECTION_KIND => {
+            route_decision::endpoint_resolutions(request)
+        }
+        MODEL_MOUNT_CONVERSATION_PROJECTION_KIND => conversation::conversation_states(request),
         "authority_snapshot" => Ok(authority::authority_snapshot(request)),
-        "server_status" => Ok(status::server_status(request)),
-        "artifacts" => Ok(topology::artifacts()),
-        "product_artifacts" => Ok(topology::product_artifacts()),
-        "providers" => Ok(topology::providers()),
-        "endpoints" => Ok(topology::endpoints()),
-        "instances" => Ok(topology::instances()),
-        "routes" => Ok(topology::routes()),
+        MODEL_MOUNT_SERVER_STATUS_PROJECTION_KIND => status::server_status(request),
+        "artifacts" => topology::artifacts(request),
+        "product_artifacts" => topology::product_artifacts(request),
+        "providers" => topology::providers(request),
+        MODEL_MOUNT_ENDPOINTS_PROJECTION_KIND => topology::endpoints(request),
+        MODEL_MOUNT_INSTANCES_PROJECTION_KIND => topology::instances(request),
+        MODEL_MOUNT_PROVIDER_INVENTORY_PROJECTION_KIND => {
+            topology::provider_inventory_records(request)
+        }
+        MODEL_MOUNT_CATALOG_SEARCH_PROJECTION_KIND => topology::catalog_search(request),
+        MODEL_MOUNT_ROUTES_PROJECTION_KIND => topology::routes(request),
+        MODEL_MOUNT_TOKENIZER_RECORDS_PROJECTION_KIND => topology::tokenizer_records(request),
         "model_capabilities" => Ok(topology::model_capabilities()),
-        "downloads" => Ok(topology::downloads()),
-        "backends" => Ok(topology::backends()),
+        MODEL_MOUNT_DOWNLOADS_PROJECTION_KIND => topology::downloads(request),
+        MODEL_MOUNT_DOWNLOAD_STATUS_PROJECTION_KIND => topology::download_status(request),
+        MODEL_MOUNT_STORAGE_SUMMARY_PROJECTION_KIND => topology::storage_summary(request),
+        MODEL_MOUNT_BACKENDS_PROJECTION_KIND => topology::backends(request),
         "oauth_sessions" => oauth::sessions(),
         "oauth_states" => oauth::states(),
         "provider_health" => Ok(topology::provider_health()),
         "workflow_bindings" => Ok(adapter_boundary::workflow_bindings()),
         "adapter_boundaries" => Ok(adapter_boundary::adapter_boundaries(&request.state)),
-        "runtime_engines" => Ok(runtime::engines()),
-        "runtime_engine_profiles" => Ok(runtime::engine_profiles()),
-        "runtime_preference" => Ok(runtime::preference()),
-        "runtime_preference_for_endpoint" => Ok(runtime::preference_for_endpoint()),
-        "runtime_default_load_options" => Ok(runtime::default_load_options()),
+        "runtime_engines" => runtime::engines(request),
+        "runtime_engine_profiles" => runtime::engine_profiles(request),
+        "runtime_preference" => runtime::preference(request),
+        "runtime_preference_for_endpoint" => runtime::preference_for_endpoint(request),
+        "runtime_default_load_options" => runtime::default_load_options(request),
         "runtime_engine_detail" => runtime::engine_detail(request),
-        "runtime_model_catalog" => Ok(topology::runtime_model_catalog()),
-        "open_ai_model_list" => Ok(topology::open_ai_model_list()),
+        "runtime_model_catalog" => topology::runtime_model_catalog(request),
+        "open_ai_model_list" => topology::open_ai_model_list(request),
         "latest_provider_health" => health::latest_provider_health(request),
         "latest_vault_health" => health::latest_vault_health(request),
         "latest_runtime_survey" => Ok(health::latest_runtime_survey(request)),
-        "catalog_status" => Ok(status::catalog_status(request)),
+        MODEL_MOUNT_CATALOG_STATUS_PROJECTION_KIND => status::catalog_status(request),
         other => Err(ModelMountReadProjectionError::new(
             "model_mount_read_projection_kind_unsupported",
             format!("unsupported model_mount read projection kind {other}"),
@@ -148,7 +312,9 @@ mod tests {
             receipt_id: None,
             engine_id: None,
             provider_id: None,
+            download_id: None,
             base_url: None,
+            state_dir: None,
             state: serde_json::json!({
                 "receipts": [
                     {"id": "receipt_1", "kind": "model_route_selection", "details": {}}
@@ -188,6 +354,7 @@ mod tests {
                 "projection_kind": "projection",
                 "schema_version": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
                 "generated_at": "2026-06-08T00:00:00.000Z",
+                "state_dir": null,
                 "state": {
                     "wallet": {"port": "WalletAuthorityPort"},
                     "vault": {"port": "VaultPort"},
@@ -226,14 +393,7 @@ mod tests {
             "agentgres_model_mounting_projection"
         );
         assert_eq!(response["projection"]["watermark"], 1);
-        assert_eq!(
-            response["projection"]["routeDecisions"][0]["receipt_id"],
-            "receipt-route"
-        );
-        assert_eq!(
-            response["projection"]["routeDecisions"][0]["selected_model"],
-            "model.local"
-        );
+        assert_eq!(response["projection"]["routeDecisions"], json!([]));
         assert_eq!(
             response["projection"]["adapterBoundaries"]["agentgres"]["port"],
             "AgentgresStorePort"
@@ -244,5 +404,55 @@ mod tests {
             .expect("evidence refs")
             .iter()
             .any(|value| value == "model_mount_js_read_projection_authoring_retired"));
+    }
+
+    #[test]
+    fn read_projection_plans_model_conversation_states_from_agentgres_with_conversation_evidence() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let conversation_dir = temp.path().join("model-conversations");
+        std::fs::create_dir_all(&conversation_dir).expect("conversation dir");
+        std::fs::write(
+            conversation_dir.join("resp-rust.json"),
+            serde_json::to_string_pretty(&json!({
+                "id": "resp-rust",
+                "object": "ioi.model_mount_conversation_state",
+                "created_at": "2026-06-13T00:00:00.000Z",
+                "rust_core_boundary": "model_mount.conversation",
+                "conversation_hash": "sha256:conversation",
+                "evidence_refs": [
+                    "model_mount_conversation_state_rust_owned",
+                    "agentgres_model_conversation_truth_required"
+                ]
+            }))
+            .expect("record json"),
+        )
+        .expect("write conversation record");
+        let plan = plan_read_projection(&ModelMountReadProjectionRequest {
+            projection_kind: MODEL_MOUNT_CONVERSATION_PROJECTION_KIND.to_string(),
+            schema_version: Some(MODEL_MOUNT_RUNTIME_SCHEMA_VERSION.to_string()),
+            generated_at: Some("2026-06-13T00:00:00.000Z".to_string()),
+            receipt_id: None,
+            engine_id: None,
+            provider_id: None,
+            download_id: None,
+            base_url: None,
+            state_dir: Some(temp.path().to_string_lossy().to_string()),
+            state: serde_json::json!({}),
+        })
+        .expect("conversation state projection planned");
+
+        assert_eq!(
+            plan.projection_kind,
+            MODEL_MOUNT_CONVERSATION_PROJECTION_KIND
+        );
+        assert_eq!(plan.projection.as_array().expect("records").len(), 1);
+        assert!(plan
+            .evidence_refs
+            .iter()
+            .any(|value| value == "rust_daemon_core_model_conversation_projection"));
+        assert!(plan
+            .evidence_refs
+            .iter()
+            .any(|value| value == "model_mount_conversation_list_js_facade_retired"));
     }
 }

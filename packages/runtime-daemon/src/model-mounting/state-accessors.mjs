@@ -74,7 +74,10 @@ export function resolveEndpoint(state, endpointId, modelId, deps = {}) {
 export async function ensureLoaded(state, endpointRecord, deps = {}) {
   const existing = state.loadedInstanceForEndpoint(endpointRecord.id, false);
   if (existing) return existing;
-  return state.loadModel({ endpoint_id: endpointRecord.id, load_policy: endpointRecord.loadPolicy });
+  return state.loadModel({
+    endpoint_id: endpointRecord.id,
+    load_policy: endpointRecord.load_policy,
+  });
 }
 
 export function throwStateAccessorRustCoreRequired(operation_kind, details = {}) {

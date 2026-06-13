@@ -15,7 +15,7 @@ import {
 function fakeState() {
   return {
     endpoints: new Map([
-      ["endpoint.active", { id: "endpoint.active", modelId: "llama-test", status: "mounted", loadPolicy: { mode: "on_demand" } }],
+      ["endpoint.active", { id: "endpoint.active", modelId: "llama-test", status: "mounted", load_policy: { mode: "on_demand" } }],
       ["endpoint.unmounted", { id: "endpoint.unmounted", modelId: "gone", status: "unmounted" }],
     ]),
     artifacts: new Map([
@@ -210,7 +210,7 @@ test("ensureLoaded reuses existing instance without JS touch mutation", async ()
     id: "instance.loaded",
     endpointId: "endpoint.active",
     status: "loaded",
-    loadPolicy: { mode: "on_demand" },
+    load_policy: { mode: "on_demand" },
     lastUsedAt: "old",
   });
 
@@ -232,7 +232,7 @@ test("ensureLoaded existing instance reuse does not require JS record-state comm
     id: "instance.loaded",
     endpointId: "endpoint.active",
     status: "loaded",
-    loadPolicy: { mode: "on_demand" },
+    load_policy: { mode: "on_demand" },
     lastUsedAt: "old",
   });
   delete state.commitRuntimeModelMountRecordState;

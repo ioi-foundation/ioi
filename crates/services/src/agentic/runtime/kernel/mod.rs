@@ -34,11 +34,22 @@ pub mod profile;
 pub mod projection;
 pub mod receipt_binder;
 pub mod repository_workflow;
+pub mod runtime_conversation_artifact_control;
 pub mod runtime_conversation_artifact_projection;
+pub mod runtime_diagnostics_repair_control;
+pub mod runtime_diagnostics_repair_policy;
+pub mod runtime_diagnostics_repair_projection;
 pub mod runtime_lifecycle;
+pub mod runtime_managed_session_control;
+pub mod runtime_memory_control;
 pub mod runtime_memory_projection;
+pub mod runtime_subagent_control;
+pub mod runtime_subagent_projection;
 pub mod runtime_thread_event;
+pub mod runtime_thread_fork_control;
 pub mod runtime_tool_catalog;
+pub mod runtime_workflow_edit_control;
+pub mod runtime_workspace_change_control;
 pub mod scope;
 pub mod settlement;
 pub mod skill_hook_registry;
@@ -89,6 +100,8 @@ use capability::CapabilityLeaseDecision;
 use coding_tool_event::{
     CodingToolCommandStreamAdmissionCore, CodingToolCommandStreamAdmissionError,
     CodingToolCommandStreamAdmissionRecord, CodingToolCommandStreamAdmissionRequest,
+    CodingToolResultEnvelopePlanCore, CodingToolResultEnvelopePlanError,
+    CodingToolResultEnvelopePlanRecord, CodingToolResultEnvelopePlanRequest,
     CodingToolResultEventAdmissionCore, CodingToolResultEventAdmissionError,
     CodingToolResultEventAdmissionRecord, CodingToolResultEventAdmissionRequest,
     PostEditDiagnosticsFeedbackPlanCore, PostEditDiagnosticsFeedbackPlanError,
@@ -189,6 +202,22 @@ use runtime_conversation_artifact_projection::{
     RuntimeConversationArtifactProjectionCommandError, RuntimeConversationArtifactProjectionCore,
     RuntimeConversationArtifactProjectionRecord, RuntimeConversationArtifactProjectionRequest,
 };
+use runtime_diagnostics_repair_control::{
+    RuntimeDiagnosticsRepairControlCommandError, RuntimeDiagnosticsRepairControlCore,
+    RuntimeDiagnosticsRepairControlRecord, RuntimeDiagnosticsRepairControlRequest,
+};
+use runtime_diagnostics_repair_policy::{
+    RuntimeDiagnosticsRepairPolicyCommandError, RuntimeDiagnosticsRepairPolicyCore,
+    RuntimeDiagnosticsRepairPolicyRecord, RuntimeDiagnosticsRepairPolicyRequest,
+};
+use runtime_diagnostics_repair_projection::{
+    RuntimeDiagnosticsRepairProjectionCommandError, RuntimeDiagnosticsRepairProjectionCore,
+    RuntimeDiagnosticsRepairProjectionRecord, RuntimeDiagnosticsRepairProjectionRequest,
+};
+use runtime_memory_control::{
+    RuntimeMemoryControlCommandError, RuntimeMemoryControlCore, RuntimeMemoryControlRecord,
+    RuntimeMemoryControlRequest,
+};
 use runtime_memory_projection::{
     RuntimeMemoryProjectionBridgeRequest, RuntimeMemoryProjectionCommandError,
     RuntimeMemoryProjectionCore, RuntimeMemoryProjectionRecord,
@@ -199,6 +228,10 @@ use runtime_thread_event::{
     RuntimeThreadEventProjectionRecord, RuntimeThreadEventProjectionRequest,
     RuntimeThreadEventReplayRecord, RuntimeThreadEventReplayRequest,
     RuntimeThreadTurnProjectionRecord, RuntimeThreadTurnProjectionRequest,
+};
+use runtime_workflow_edit_control::{
+    RuntimeWorkflowEditControlCommandError, RuntimeWorkflowEditControlCore,
+    RuntimeWorkflowEditControlRecord, RuntimeWorkflowEditControlRequest,
 };
 use settlement::{
     ArtifactPromotionReceipt, L1SettlementAdmissionError, L1SettlementAdmissionRecord,
@@ -293,6 +326,13 @@ impl RuntimeKernelService {
         request: &CodingToolResultEventAdmissionRequest,
     ) -> Result<CodingToolResultEventAdmissionRecord, CodingToolResultEventAdmissionError> {
         CodingToolResultEventAdmissionCore.admit(request)
+    }
+
+    pub fn plan_coding_tool_result_envelope(
+        &self,
+        request: &CodingToolResultEnvelopePlanRequest,
+    ) -> Result<CodingToolResultEnvelopePlanRecord, CodingToolResultEnvelopePlanError> {
+        CodingToolResultEnvelopePlanCore.plan(request)
     }
 
     pub fn admit_coding_tool_command_stream_events(
@@ -497,6 +537,46 @@ impl RuntimeKernelService {
         request: &RuntimeMemoryProjectionBridgeRequest,
     ) -> Result<RuntimeMemoryProjectionRecord, RuntimeMemoryProjectionCommandError> {
         RuntimeMemoryProjectionCore.project(request)
+    }
+
+    pub fn plan_runtime_memory_control(
+        &self,
+        request: &RuntimeMemoryControlRequest,
+    ) -> Result<RuntimeMemoryControlRecord, RuntimeMemoryControlCommandError> {
+        RuntimeMemoryControlCore.plan(request)
+    }
+
+    pub fn plan_runtime_workflow_edit_control(
+        &self,
+        request: &RuntimeWorkflowEditControlRequest,
+    ) -> Result<RuntimeWorkflowEditControlRecord, RuntimeWorkflowEditControlCommandError> {
+        RuntimeWorkflowEditControlCore.plan(request)
+    }
+
+    pub fn plan_runtime_diagnostics_repair_control(
+        &self,
+        request: &RuntimeDiagnosticsRepairControlRequest,
+    ) -> Result<RuntimeDiagnosticsRepairControlRecord, RuntimeDiagnosticsRepairControlCommandError>
+    {
+        RuntimeDiagnosticsRepairControlCore.plan(request)
+    }
+
+    pub fn project_runtime_diagnostics_repair_projection(
+        &self,
+        request: &RuntimeDiagnosticsRepairProjectionRequest,
+    ) -> Result<
+        RuntimeDiagnosticsRepairProjectionRecord,
+        RuntimeDiagnosticsRepairProjectionCommandError,
+    > {
+        RuntimeDiagnosticsRepairProjectionCore.project(request)
+    }
+
+    pub fn project_runtime_diagnostics_repair_policy(
+        &self,
+        request: &RuntimeDiagnosticsRepairPolicyRequest,
+    ) -> Result<RuntimeDiagnosticsRepairPolicyRecord, RuntimeDiagnosticsRepairPolicyCommandError>
+    {
+        RuntimeDiagnosticsRepairPolicyCore.project(request)
     }
 
     pub fn project_runtime_conversation_artifact_projection(

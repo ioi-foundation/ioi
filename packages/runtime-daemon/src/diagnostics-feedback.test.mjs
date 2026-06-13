@@ -38,9 +38,6 @@ function helpers() {
 
   return createDiagnosticsFeedbackHelpers({
     diagnosticsRepairContextForPayload: policy.diagnosticsRepairContextForPayload,
-    diagnosticsRepairPolicyConfig: policy.diagnosticsRepairPolicyConfig,
-    diagnosticsRepairPolicyConfigForContexts: policy.diagnosticsRepairPolicyConfigForContexts,
-    diagnosticsRollbackRepairPolicy: policy.diagnosticsRollbackRepairPolicy,
     doctorHash,
     eventStreamIdForThread: (threadId) => `events_${threadId}`,
     maxInjectedFindings: 2,
@@ -52,74 +49,105 @@ function helpers() {
   });
 }
 
-test("post-edit diagnostics config normalizes command and repair policy aliases", () => {
+function diagnosticsRepairPolicyProjector(overrides = {}) {
+  const calls = [];
+  return {
+    calls,
+    projectRuntimeDiagnosticsRepairPolicy(request) {
+      calls.push(request);
+      const policyId = `policy_${request.injection_id}`;
+      const defaultDecision = overrides.default_decision ?? "restore_preview";
+      return {
+        source: "rust_runtime_diagnostics_repair_policy_command",
+        operation_kind: "runtime.diagnostics_repair_policy.projection",
+        thread_id: request.thread_id,
+        injection_id: request.injection_id,
+        repair_policy_config: {
+          restore_policy: "preview_only",
+          restore_conflict_policy: "require_approval",
+          diagnostics_repair_default: defaultDecision,
+          operator_override_requires_approval: true,
+        },
+        repair_policy: {
+          schema_version: "ioi.runtime.diagnostics-rollback-repair-policy.v1",
+          object: "ioi.runtime_diagnostics_rollback_repair_policy",
+          policy_id: policyId,
+          thread_id: request.thread_id,
+          injection_id: request.injection_id,
+          mode: request.mode,
+          diagnostic_status: request.diagnostic_status,
+          diagnostic_count: request.diagnostic_count,
+          rollback_refs: request.rollback_refs,
+          workspace_snapshot_refs: request.workspace_snapshot_refs,
+          source_tool_call_ids: request.source_tool_call_ids,
+          restore_policy: "preview_only",
+          restore_conflict_policy: "require_approval",
+          diagnostics_repair_default: defaultDecision,
+          default_decision: defaultDecision,
+          operator_override_requires_approval: true,
+          decisions: [
+            {
+              decision_id: `${policyId}_decision_repair_retry`,
+              action: "repair_retry",
+              status: "available",
+              requires_approval: false,
+            },
+            {
+              decision_id: `${policyId}_decision_restore_preview`,
+              action: "restore_preview",
+              status: "available",
+              requires_approval: false,
+              rollback_refs: request.rollback_refs,
+              workspace_snapshot_refs: request.workspace_snapshot_refs,
+            },
+          ],
+          decision_refs: [
+            `${policyId}_decision_repair_retry`,
+            `${policyId}_decision_restore_preview`,
+          ],
+        },
+        receipt_refs: [
+          ...uniqueStrings(request.receipt_refs),
+          "receipt_runtime_diagnostics_repair_policy_projection",
+        ],
+        evidence_refs: ["runtime_diagnostics_repair_policy_projection_rust_owned"],
+        projection_hash: "sha256:policy_projection",
+      };
+    },
+  };
+}
+
+test("compact diagnostics feedback fails closed without Rust repair policy projection", () => {
   const runtime = helpers();
 
-  const config = runtime.postEditDiagnosticsConfig({
-    diagnostics_mode: "fail",
-    diagnostic_command_id: "npm.test",
-    tool_pack: {
-      coding: {
-        restore_policy: "preview",
-        conflict_policy: "approval",
-        default_repair_decision: "apply",
-        operator_override_requires_approval: "false",
-        timeout_ms: 1500,
-      },
+  assert.throws(
+    () =>
+      runtime.compactDiagnosticsFeedback({
+        threadId: "thread-one",
+        mode: "blocking",
+        diagnosticEvents: [
+          {
+            event_id: "event-one",
+            payload_summary: {
+              result: {
+                diagnostic_status: "findings",
+                diagnostics: [{ path: "src/a.js", message: "broken" }],
+              },
+            },
+          },
+        ],
+      }),
+    (error) => {
+      assert.equal(error.code, "runtime_diagnostics_repair_policy_projection_required");
+      assert.equal(error.details.rust_core_boundary, "runtime.diagnostics_repair_policy");
+      return true;
     },
-  }, {
-    cwd: "packages/runtime-daemon",
-    diagnostic_max_output_bytes: 2048,
-  });
-
-  assert.equal(config.mode, "blocking");
-  assert.equal(config.commandId, "npm.test");
-  assert.equal(config.cwd, "packages/runtime-daemon");
-  assert.equal(config.timeoutMs, 1500);
-  assert.equal(config.maxOutputBytes, 2048);
-  assert.equal(config.repairPolicyConfig.restore_policy, "preview_only");
-  assert.equal(config.repairPolicyConfig.restore_conflict_policy, "require_approval");
-  assert.equal(config.repairPolicyConfig.diagnostics_repair_default, "restore_apply");
-  assert.equal(config.repairPolicyConfig.operator_override_requires_approval, false);
-});
-
-test("post-edit diagnostics config ignores retired request and input aliases", () => {
-  const runtime = helpers();
-
-  const config = runtime.postEditDiagnosticsConfig({
-    diagnosticsMode: "fail",
-    diagnosticCommandId: "alias.command",
-    diagnosticTimeoutMs: 1,
-    diagnosticMaxOutputBytes: 2,
-    toolPack: {
-      coding: {
-        diagnosticsMode: "blocking",
-        diagnosticMode: "fail",
-        defaultDiagnosticCommandId: "alias.pack.command",
-        timeoutMs: 3,
-      },
-    },
-    options: {
-      toolPack: {
-        diagnosticsMode: "skip",
-        defaultDiagnosticCommandId: "alias.options.command",
-      },
-    },
-  }, {
-    diagnosticsMode: "blocking",
-    diagnosticCommandId: "alias.input.command",
-    diagnosticTimeoutMs: 4,
-    diagnosticMaxOutputBytes: 5,
-  });
-
-  assert.equal(config.mode, "advisory");
-  assert.equal(config.commandId, "auto");
-  assert.equal(config.timeoutMs, 30000);
-  assert.equal(config.maxOutputBytes, 4096);
+  );
 });
 
 test("compact diagnostics feedback emits canonical envelope and bounded prompt context", () => {
   const runtime = helpers();
+  const policyProjector = diagnosticsRepairPolicyProjector();
   const feedback = runtime.compactDiagnosticsFeedback({
     threadId: "thread-one",
     mode: "blocking",
@@ -151,6 +179,7 @@ test("compact diagnostics feedback emits canonical envelope and bounded prompt c
         },
       },
     ],
+    diagnosticsRepairPolicyProjector: policyProjector,
   });
 
   assert.equal(feedback.object, "ioi.runtime_lsp_diagnostics_injection");
@@ -160,7 +189,10 @@ test("compact diagnostics feedback emits canonical envelope and bounded prompt c
   assert.equal(feedback.injected_finding_count, 2);
   assert.equal(feedback.omitted_finding_count, 1);
   assert.deepEqual(feedback.diagnostic_event_ids, ["event-one"]);
-  assert.deepEqual(feedback.receipt_refs, ["receipt-one"]);
+  assert.deepEqual(feedback.receipt_refs, [
+    "receipt-one",
+    "receipt_runtime_diagnostics_repair_policy_projection",
+  ]);
   assert.deepEqual(feedback.rollback_refs, ["rollback-one", "rollback-context-one", "snapshot-one"]);
   assert.equal(feedback.rollback_refs.includes("rollback-retired"), false);
   assert.equal(feedback.rollback_refs.includes("snapshot-retired"), false);
@@ -176,6 +208,8 @@ test("compact diagnostics feedback emits canonical envelope and bounded prompt c
   assert.match(feedback.prompt_text, /1 additional finding/);
   assert.equal(feedback.repair_policy.restore_policy, "preview_only");
   assert.equal(feedback.repair_policy.diagnostics_repair_default, "restore_preview");
+  assert.equal(feedback.policy_projection_hash, "sha256:policy_projection");
+  assert.deepEqual(policyProjector.calls[0].diagnostics_repair_contexts, feedback.diagnostics_repair_contexts);
   assert.equal(feedback.receipt_id, null);
   for (const field of [
     "schemaVersion",
@@ -219,6 +253,7 @@ test("compact diagnostics feedback ignores retired diagnostic result aliases", (
         },
       },
     ],
+    diagnosticsRepairPolicyProjector: diagnosticsRepairPolicyProjector(),
   });
 
   assert.equal(feedback.diagnostic_status, "clean");
@@ -247,6 +282,7 @@ test("blocking gate and request feedback keep advisory repair actions without JS
         },
       },
     ],
+    diagnosticsRepairPolicyProjector: diagnosticsRepairPolicyProjector(),
   });
 
   const gate = runtime.diagnosticsBlockingGateForFeedback(diagnosticsFeedback);
@@ -373,11 +409,15 @@ test("diagnostics feedback does not synthesize JS receipt or policy refs", () =>
         },
       },
     ],
+    diagnosticsRepairPolicyProjector: diagnosticsRepairPolicyProjector(),
   });
   const gate = runtime.diagnosticsBlockingGateForFeedback(feedback);
 
   assert.equal(feedback.receipt_id, null);
-  assert.deepEqual(feedback.receipt_refs, ["receipt-rust-diagnostics"]);
+  assert.deepEqual(feedback.receipt_refs, [
+    "receipt-rust-diagnostics",
+    "receipt_runtime_diagnostics_repair_policy_projection",
+  ]);
   assert.equal(gate.receipt_id, null);
   assert.equal(gate.policy_decision_id, null);
   assert.deepEqual(gate.policy_decision_refs, []);

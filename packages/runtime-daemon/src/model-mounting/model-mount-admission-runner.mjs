@@ -4,11 +4,21 @@ export const RUST_MODEL_MOUNT_FIXTURE_BACKEND = "rust_model_mount_fixture";
 export const RUST_MODEL_MOUNT_FIXTURE_INVENTORY_BACKEND = "rust_model_mount_fixture_inventory";
 export const RUST_MODEL_MOUNT_FIXTURE_LIFECYCLE_BACKEND = "rust_model_mount_fixture_lifecycle";
 export const RUST_MODEL_MOUNT_BACKEND_PROCESS_BACKEND = "rust_model_mount_backend_process";
-export const RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_REQUIRED_BACKEND = "rust_model_mount_backend_lifecycle_required";
-export const RUST_MODEL_MOUNT_SERVER_CONTROL_REQUIRED_BACKEND = "rust_model_mount_server_control_required";
-export const RUST_MODEL_MOUNT_RUNTIME_ENGINE_REQUIRED_BACKEND = "rust_model_mount_runtime_engine_required";
+export const RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_BACKEND = "rust_model_mount_backend_lifecycle";
+export const RUST_MODEL_MOUNT_ARTIFACT_ENDPOINT_BACKEND = "rust_model_mount_artifact_endpoint";
+export const RUST_MODEL_MOUNT_STORAGE_CONTROL_BACKEND = "rust_model_mount_storage_control";
+export const RUST_MODEL_MOUNT_SERVER_CONTROL_BACKEND = "rust_model_mount_server_control";
+export const RUST_MODEL_MOUNT_RUNTIME_ENGINE_BACKEND = "rust_model_mount_runtime_engine";
 export const RUST_MODEL_MOUNT_TOKENIZER_REQUIRED_BACKEND = "rust_model_mount_tokenizer_required";
 export const RUST_MODEL_MOUNT_ROUTE_CONTROL_REQUIRED_BACKEND = "rust_model_mount_route_control_required";
+export const RUST_MODEL_MOUNT_ROUTE_CONTROL_BACKEND = "rust_model_mount_route_control";
+export const RUST_MODEL_MOUNT_CATALOG_PROVIDER_CONTROL_BACKEND = "rust_model_mount_catalog_provider_control";
+export const RUST_MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_BACKEND = "rust_model_mount_capability_token_control";
+export const RUST_MODEL_MOUNT_VAULT_CONTROL_BACKEND = "rust_model_mount_vault_control";
+export const RUST_MODEL_MOUNT_RECEIPT_GATE_BACKEND = "rust_model_mount_receipt_gate";
+export const RUST_MODEL_MOUNT_TOKENIZER_BACKEND = "rust_model_mount_tokenizer";
+export const RUST_MODEL_MOUNT_CONVERSATION_STATE_BACKEND = "rust_model_mount_conversation_state";
+export const RUST_MODEL_MOUNT_STREAM_COMPLETION_BACKEND = "rust_model_mount_stream_completion";
 export const RUST_MODEL_MOUNT_ACCEPTED_RECEIPT_HEAD_BACKEND = "rust_model_mount_accepted_receipt_head";
 export const RUST_MODEL_MOUNT_ACCEPTED_RECEIPT_TRANSITION_BACKEND = "rust_model_mount_accepted_receipt_transition";
 export const RUST_MODEL_MOUNT_INSTANCE_LIFECYCLE_BACKEND = "rust_model_mount_instance_lifecycle";
@@ -158,34 +168,54 @@ export class RustModelMountAdmissionRunner {
     return normalizeBackendProcessPlanBridgeResult(this.invokeDaemonCore(bridgeRequest));
   }
 
-  planBackendLifecycleRequired(request) {
+  planBackendLifecycle(request) {
     const bridgeRequest = {
       schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
-      operation: "plan_model_mount_backend_lifecycle_required",
-      backend: RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_REQUIRED_BACKEND,
+      operation: "plan_model_mount_backend_lifecycle",
+      backend: RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_BACKEND,
       request,
     };
-    return normalizeBackendLifecycleRequiredBridgeResult(this.invokeDaemonCore(bridgeRequest));
+    return normalizeBackendLifecycleBridgeResult(this.invokeDaemonCore(bridgeRequest));
   }
 
-  planServerControlRequired(request) {
+  planArtifactEndpoint(request) {
     const bridgeRequest = {
       schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
-      operation: "plan_model_mount_server_control_required",
-      backend: RUST_MODEL_MOUNT_SERVER_CONTROL_REQUIRED_BACKEND,
+      operation: "plan_model_mount_artifact_endpoint",
+      backend: RUST_MODEL_MOUNT_ARTIFACT_ENDPOINT_BACKEND,
       request,
     };
-    return normalizeServerControlRequiredBridgeResult(this.invokeDaemonCore(bridgeRequest));
+    return normalizeArtifactEndpointBridgeResult(this.invokeDaemonCore(bridgeRequest));
   }
 
-  planRuntimeEngineRequired(request) {
+  planStorageControl(request) {
     const bridgeRequest = {
       schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
-      operation: "plan_model_mount_runtime_engine_required",
-      backend: RUST_MODEL_MOUNT_RUNTIME_ENGINE_REQUIRED_BACKEND,
+      operation: "plan_model_mount_storage_control",
+      backend: RUST_MODEL_MOUNT_STORAGE_CONTROL_BACKEND,
       request,
     };
-    return normalizeRuntimeEngineRequiredBridgeResult(this.invokeDaemonCore(bridgeRequest));
+    return normalizeStorageControlBridgeResult(this.invokeDaemonCore(bridgeRequest));
+  }
+
+  planServerControl(request) {
+    const bridgeRequest = {
+      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      operation: "plan_model_mount_server_control",
+      backend: RUST_MODEL_MOUNT_SERVER_CONTROL_BACKEND,
+      request,
+    };
+    return normalizeServerControlBridgeResult(this.invokeDaemonCore(bridgeRequest));
+  }
+
+  planRuntimeEngine(request) {
+    const bridgeRequest = {
+      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      operation: "plan_model_mount_runtime_engine",
+      backend: RUST_MODEL_MOUNT_RUNTIME_ENGINE_BACKEND,
+      request,
+    };
+    return normalizeRuntimeEngineBridgeResult(this.invokeDaemonCore(bridgeRequest));
   }
 
   planTokenizerRequired(request) {
@@ -198,6 +228,36 @@ export class RustModelMountAdmissionRunner {
     return normalizeTokenizerRequiredBridgeResult(this.invokeDaemonCore(bridgeRequest));
   }
 
+  planTokenizer(request) {
+    const bridgeRequest = {
+      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      operation: "plan_model_mount_tokenizer",
+      backend: RUST_MODEL_MOUNT_TOKENIZER_BACKEND,
+      request,
+    };
+    return normalizeTokenizerBridgeResult(this.invokeDaemonCore(bridgeRequest));
+  }
+
+  planConversationState(request) {
+    const bridgeRequest = {
+      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      operation: "plan_model_mount_conversation_state",
+      backend: RUST_MODEL_MOUNT_CONVERSATION_STATE_BACKEND,
+      request,
+    };
+    return normalizeConversationStateBridgeResult(this.invokeDaemonCore(bridgeRequest));
+  }
+
+  planStreamCompletion(request) {
+    const bridgeRequest = {
+      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      operation: "plan_model_mount_stream_completion",
+      backend: RUST_MODEL_MOUNT_STREAM_COMPLETION_BACKEND,
+      request,
+    };
+    return normalizeStreamCompletionBridgeResult(this.invokeDaemonCore(bridgeRequest));
+  }
+
   planRouteControlRequired(request) {
     const bridgeRequest = {
       schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
@@ -206,6 +266,56 @@ export class RustModelMountAdmissionRunner {
       request,
     };
     return normalizeRouteControlRequiredBridgeResult(this.invokeDaemonCore(bridgeRequest));
+  }
+
+  planRouteControl(request) {
+    const bridgeRequest = {
+      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      operation: "plan_model_mount_route_control",
+      backend: RUST_MODEL_MOUNT_ROUTE_CONTROL_BACKEND,
+      request,
+    };
+    return normalizeRouteControlBridgeResult(this.invokeDaemonCore(bridgeRequest));
+  }
+
+  planCatalogProviderControl(request) {
+    const bridgeRequest = {
+      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      operation: "plan_model_mount_catalog_provider_control",
+      backend: RUST_MODEL_MOUNT_CATALOG_PROVIDER_CONTROL_BACKEND,
+      request,
+    };
+    return normalizeCatalogProviderControlBridgeResult(this.invokeDaemonCore(bridgeRequest));
+  }
+
+  planCapabilityTokenControl(request) {
+    const bridgeRequest = {
+      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      operation: "plan_model_mount_capability_token_control",
+      backend: RUST_MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_BACKEND,
+      request,
+    };
+    return normalizeCapabilityTokenControlBridgeResult(this.invokeDaemonCore(bridgeRequest));
+  }
+
+  planVaultControl(request) {
+    const bridgeRequest = {
+      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      operation: "plan_model_mount_vault_control",
+      backend: RUST_MODEL_MOUNT_VAULT_CONTROL_BACKEND,
+      request,
+    };
+    return normalizeVaultControlBridgeResult(this.invokeDaemonCore(bridgeRequest));
+  }
+
+  planReceiptGate(request) {
+    const bridgeRequest = {
+      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      operation: "plan_model_mount_receipt_gate",
+      backend: RUST_MODEL_MOUNT_RECEIPT_GATE_BACKEND,
+      request,
+    };
+    return normalizeReceiptGateBridgeResult(this.invokeDaemonCore(bridgeRequest));
   }
 
   planAcceptedReceiptHead(request) {
@@ -423,6 +533,11 @@ function normalizeProviderStreamInvocationBridgeResult(value = {}) {
 function normalizeProviderLifecycleBridgeResult(value = {}) {
   const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   const record = result.result && typeof result.result === "object" ? result.result : {};
+  const lifecycleRecord = result.record && typeof result.record === "object" && !Array.isArray(result.record)
+    ? result.record
+    : record.record && typeof record.record === "object" && !Array.isArray(record.record)
+      ? record.record
+      : null;
   return {
     source: result.source ?? "rust_model_mount_provider_lifecycle_command",
     backend: result.backend ?? record.execution_backend ?? RUST_MODEL_MOUNT_NATIVE_LOCAL_LIFECYCLE_BACKEND,
@@ -433,6 +548,21 @@ function normalizeProviderLifecycleBridgeResult(value = {}) {
     driver: result.driver ?? record.driver ?? null,
     executionBackend: result.execution_backend ?? record.execution_backend ?? null,
     lifecycle_hash: result.lifecycle_hash ?? record.lifecycle_hash ?? null,
+    operation_kind: result.operation_kind ?? record.operation_kind ?? lifecycleRecord?.operation_kind ?? null,
+    rust_core_boundary: result.rust_core_boundary ?? record.rust_core_boundary ?? lifecycleRecord?.rust_core_boundary ?? null,
+    record_dir: result.record_dir ?? record.record_dir ?? lifecycleRecord?.record_dir ?? null,
+    record_id: result.record_id ?? record.record_id ?? lifecycleRecord?.record_id ?? lifecycleRecord?.id ?? null,
+    record: lifecycleRecord,
+    public_response: result.public_response && typeof result.public_response === "object" && !Array.isArray(result.public_response)
+      ? result.public_response
+      : record.public_response && typeof record.public_response === "object" && !Array.isArray(record.public_response)
+        ? record.public_response
+        : null,
+    receipt_refs: Array.isArray(result.receipt_refs)
+      ? result.receipt_refs
+      : Array.isArray(record.receipt_refs)
+        ? record.receipt_refs
+        : [],
     evidence_refs: Array.isArray(result.evidence_refs)
       ? result.evidence_refs
       : Array.isArray(record.evidence_refs)
@@ -466,6 +596,20 @@ function normalizeProviderInventoryBridgeResult(value = {}) {
     itemRefs,
     itemCount: result.item_count ?? record.item_count ?? null,
     inventory_hash: result.inventory_hash ?? record.inventory_hash ?? null,
+    operation_kind: result.operation_kind ?? record.operation_kind ?? null,
+    rust_core_boundary: result.rust_core_boundary ?? record.rust_core_boundary ?? null,
+    record_dir: result.record_dir ?? record.record_dir ?? null,
+    record_id: result.record_id ?? record.record_id ?? record.id ?? null,
+    record: result.record && typeof result.record === "object" && !Array.isArray(result.record)
+      ? result.record
+      : record.record && typeof record.record === "object" && !Array.isArray(record.record)
+        ? record.record
+        : null,
+    receipt_refs: Array.isArray(result.receipt_refs)
+      ? result.receipt_refs
+      : Array.isArray(record.receipt_refs)
+        ? record.receipt_refs
+        : [],
     evidence_refs: Array.isArray(result.evidence_refs)
       ? result.evidence_refs
       : Array.isArray(record.evidence_refs)
@@ -560,91 +704,305 @@ function normalizeBackendProcessPlanBridgeResult(value = {}) {
   };
 }
 
-function normalizeBackendLifecycleRequiredBridgeResult(value = {}) {
+function normalizeBackendLifecycleBridgeResult(value = {}) {
   const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const plan = result.plan && typeof result.plan === "object" && !Array.isArray(result.plan)
+    ? result.plan
+    : {};
   const record = result.record && typeof result.record === "object" && !Array.isArray(result.record)
     ? result.record
-    : {};
-  const details = result.details && typeof result.details === "object" && !Array.isArray(result.details)
-    ? result.details
-    : record.details && typeof record.details === "object" && !Array.isArray(record.details)
-      ? record.details
-      : {};
-  return {
-    source: result.source ?? "rust_model_mount_backend_lifecycle_required_command",
-    backend: result.backend ?? RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_REQUIRED_BACKEND,
+    : plan.record && typeof plan.record === "object" && !Array.isArray(plan.record)
+      ? plan.record
+      : null;
+  const normalized = {
+    source: result.source ?? "rust_model_mount_backend_lifecycle_command",
+    backend: result.backend ?? RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_BACKEND,
+    plan,
+    record_dir: result.record_dir ?? plan.record_dir ?? null,
+    record_id: result.record_id ?? plan.record_id ?? null,
     record,
-    status: result.status ?? record.status ?? "rust_core_required",
-    status_code: result.status_code ?? record.status_code ?? 501,
-    code: result.code ?? record.code ?? "model_mount_backend_lifecycle_rust_core_required",
-    message:
-      result.message ??
-      record.message ??
-      "Backend lifecycle facade control requires Rust daemon-core model_mount lifecycle ownership.",
-    rust_core_boundary:
-      result.rust_core_boundary ?? record.rust_core_boundary ?? "model_mount.backend_lifecycle",
-    operation_kind: result.operation_kind ?? record.operation_kind ?? details.operation_kind ?? null,
-    details,
-    evidence_refs: arrayOrNull(record.evidence_refs) ?? arrayOrNull(details.evidence_refs),
+    public_response: result.public_response ?? plan.public_response ?? null,
+    operation_kind: result.operation_kind ?? plan.operation_kind ?? null,
+    rust_core_boundary: result.rust_core_boundary ?? plan.rust_core_boundary ?? null,
+    receipt_refs: arrayOrNull(result.receipt_refs) ?? arrayOrNull(plan.receipt_refs) ?? [],
+    evidence_refs: arrayOrNull(result.evidence_refs) ?? arrayOrNull(plan.evidence_refs),
+    control_hash: result.control_hash ?? plan.control_hash ?? null,
   };
+  const missing = [];
+  for (const field of ["record_dir", "record_id", "record", "operation_kind", "control_hash"]) {
+    if (!normalized[field]) missing.push(field);
+  }
+  if (normalized.rust_core_boundary !== "model_mount.backend_lifecycle") {
+    missing.push("rust_core_boundary");
+  }
+  if (
+    !Array.isArray(normalized.evidence_refs) ||
+    !normalized.evidence_refs.includes("rust_daemon_core_backend_lifecycle")
+  ) {
+    missing.push("evidence_refs.rust_daemon_core_backend_lifecycle");
+  }
+  if (
+    !Array.isArray(normalized.evidence_refs) ||
+    !normalized.evidence_refs.includes("agentgres_backend_lifecycle_truth_required")
+  ) {
+    missing.push("evidence_refs.agentgres_backend_lifecycle_truth_required");
+  }
+  if (missing.length > 0) {
+    const error = new Error("Rust model_mount backend-lifecycle plan is incomplete.");
+    error.code = "model_mount_backend_lifecycle_plan_invalid";
+    error.details = {
+      missing,
+      source: normalized.source,
+      backend: normalized.backend,
+      operation_kind: normalized.operation_kind,
+    };
+    throw error;
+  }
+  return normalized;
 }
 
-function normalizeServerControlRequiredBridgeResult(value = {}) {
+function normalizeArtifactEndpointBridgeResult(value = {}) {
   const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const plan = result.plan && typeof result.plan === "object" && !Array.isArray(result.plan)
+    ? result.plan
+    : {};
   const record = result.record && typeof result.record === "object" && !Array.isArray(result.record)
     ? result.record
-    : {};
-  const details = result.details && typeof result.details === "object" && !Array.isArray(result.details)
-    ? result.details
-    : record.details && typeof record.details === "object" && !Array.isArray(record.details)
-      ? record.details
-      : {};
-  return {
-    source: result.source ?? "rust_model_mount_server_control_required_command",
-    backend: result.backend ?? RUST_MODEL_MOUNT_SERVER_CONTROL_REQUIRED_BACKEND,
+    : plan.record && typeof plan.record === "object" && !Array.isArray(plan.record)
+      ? plan.record
+      : null;
+  const normalized = {
+    source: result.source ?? "rust_model_mount_artifact_endpoint_command",
+    backend: result.backend ?? RUST_MODEL_MOUNT_ARTIFACT_ENDPOINT_BACKEND,
+    plan,
+    record_dir: result.record_dir ?? plan.record_dir ?? null,
+    record_id: result.record_id ?? plan.record_id ?? null,
     record,
-    status: result.status ?? record.status ?? "rust_core_required",
-    status_code: result.status_code ?? record.status_code ?? 501,
-    code: result.code ?? record.code ?? "model_mount_server_control_rust_core_required",
-    message:
-      result.message ??
-      record.message ??
-      "Server-control facade requires Rust daemon-core model_mount server-control ownership.",
-    rust_core_boundary:
-      result.rust_core_boundary ?? record.rust_core_boundary ?? "model_mount.server_control",
-    operation_kind: result.operation_kind ?? record.operation_kind ?? details.operation_kind ?? null,
-    details,
-    evidence_refs: arrayOrNull(record.evidence_refs) ?? arrayOrNull(details.evidence_refs),
+    public_response: result.public_response ?? plan.public_response ?? null,
+    operation_kind: result.operation_kind ?? plan.operation_kind ?? null,
+    rust_core_boundary: result.rust_core_boundary ?? plan.rust_core_boundary ?? null,
+    receipt_refs: arrayOrNull(result.receipt_refs) ?? arrayOrNull(plan.receipt_refs) ?? [],
+    authority_grant_refs: arrayOrNull(result.authority_grant_refs) ?? arrayOrNull(plan.authority_grant_refs) ?? [],
+    authority_receipt_refs:
+      arrayOrNull(result.authority_receipt_refs) ?? arrayOrNull(plan.authority_receipt_refs) ?? [],
+    evidence_refs: arrayOrNull(result.evidence_refs) ?? arrayOrNull(plan.evidence_refs),
+    control_hash: result.control_hash ?? plan.control_hash ?? null,
+    authority_hash: result.authority_hash ?? plan.authority_hash ?? null,
   };
+  const missing = [];
+  for (const field of ["record_dir", "record_id", "record", "operation_kind", "control_hash", "authority_hash"]) {
+    if (!normalized[field]) missing.push(field);
+  }
+  if (normalized.rust_core_boundary !== "model_mount.artifact_endpoint") {
+    missing.push("rust_core_boundary");
+  }
+  if (
+    !Array.isArray(normalized.evidence_refs) ||
+    !normalized.evidence_refs.includes("rust_daemon_core_artifact_endpoint")
+  ) {
+    missing.push("evidence_refs.rust_daemon_core_artifact_endpoint");
+  }
+  if (
+    !Array.isArray(normalized.evidence_refs) ||
+    !normalized.evidence_refs.includes("agentgres_artifact_endpoint_truth_required")
+  ) {
+    missing.push("evidence_refs.agentgres_artifact_endpoint_truth_required");
+  }
+  if (record?.id !== normalized.record_id) {
+    missing.push("record.id");
+  }
+  if (missing.length > 0) {
+    const error = new Error("Rust model_mount artifact-endpoint plan is incomplete.");
+    error.status = 502;
+    error.code = "model_mount_artifact_endpoint_plan_invalid";
+    error.details = {
+      missing,
+      source: normalized.source,
+      backend: normalized.backend,
+      operation_kind: normalized.operation_kind,
+    };
+    throw error;
+  }
+  return normalized;
 }
 
-function normalizeRuntimeEngineRequiredBridgeResult(value = {}) {
+function normalizeStorageControlBridgeResult(value = {}) {
   const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const plan = result.plan && typeof result.plan === "object" && !Array.isArray(result.plan)
+    ? result.plan
+    : {};
   const record = result.record && typeof result.record === "object" && !Array.isArray(result.record)
     ? result.record
-    : {};
-  const details = result.details && typeof result.details === "object" && !Array.isArray(result.details)
-    ? result.details
-    : record.details && typeof record.details === "object" && !Array.isArray(record.details)
-      ? record.details
-      : {};
-  return {
-    source: result.source ?? "rust_model_mount_runtime_engine_required_command",
-    backend: result.backend ?? RUST_MODEL_MOUNT_RUNTIME_ENGINE_REQUIRED_BACKEND,
+    : plan.record && typeof plan.record === "object" && !Array.isArray(plan.record)
+      ? plan.record
+      : null;
+  const normalized = {
+    source: result.source ?? "rust_model_mount_storage_control_command",
+    backend: result.backend ?? RUST_MODEL_MOUNT_STORAGE_CONTROL_BACKEND,
+    plan,
+    record_dir: result.record_dir ?? plan.record_dir ?? null,
+    record_id: result.record_id ?? plan.record_id ?? null,
     record,
-    status: result.status ?? record.status ?? "rust_core_required",
-    status_code: result.status_code ?? record.status_code ?? 501,
-    code: result.code ?? record.code ?? "model_mount_runtime_engine_rust_core_required",
-    message:
-      result.message ??
-      record.message ??
-      "Runtime-engine mutation facade requires Rust daemon-core model_mount runtime-engine ownership.",
-    rust_core_boundary:
-      result.rust_core_boundary ?? record.rust_core_boundary ?? "model_mount.runtime_engine",
-    operation_kind: result.operation_kind ?? record.operation_kind ?? details.operation_kind ?? null,
-    details,
-    evidence_refs: arrayOrNull(record.evidence_refs) ?? arrayOrNull(details.evidence_refs),
+    public_response: result.public_response ?? plan.public_response ?? null,
+    operation_kind: result.operation_kind ?? plan.operation_kind ?? null,
+    rust_core_boundary: result.rust_core_boundary ?? plan.rust_core_boundary ?? null,
+    receipt_refs: arrayOrNull(result.receipt_refs) ?? arrayOrNull(plan.receipt_refs) ?? [],
+    authority_grant_refs: arrayOrNull(result.authority_grant_refs) ?? arrayOrNull(plan.authority_grant_refs) ?? [],
+    authority_receipt_refs:
+      arrayOrNull(result.authority_receipt_refs) ?? arrayOrNull(plan.authority_receipt_refs) ?? [],
+    evidence_refs: arrayOrNull(result.evidence_refs) ?? arrayOrNull(plan.evidence_refs),
+    control_hash: result.control_hash ?? plan.control_hash ?? null,
+    authority_hash: result.authority_hash ?? plan.authority_hash ?? null,
   };
+  const missing = [];
+  for (const field of ["record_dir", "record_id", "record", "operation_kind", "control_hash", "authority_hash"]) {
+    if (!normalized[field]) missing.push(field);
+  }
+  if (normalized.rust_core_boundary !== "model_mount.storage_control") {
+    missing.push("rust_core_boundary");
+  }
+  if (
+    !Array.isArray(normalized.evidence_refs) ||
+    !normalized.evidence_refs.includes("rust_daemon_core_model_storage")
+  ) {
+    missing.push("evidence_refs.rust_daemon_core_model_storage");
+  }
+  if (
+    !Array.isArray(normalized.evidence_refs) ||
+    !normalized.evidence_refs.includes("agentgres_model_storage_truth_required")
+  ) {
+    missing.push("evidence_refs.agentgres_model_storage_truth_required");
+  }
+  if (record?.id !== normalized.record_id) {
+    missing.push("record.id");
+  }
+  if (missing.length > 0) {
+    const error = new Error("Rust model_mount storage-control plan is incomplete.");
+    error.status = 502;
+    error.code = "model_mount_storage_control_plan_invalid";
+    error.details = {
+      missing,
+      source: normalized.source,
+      backend: normalized.backend,
+      operation_kind: normalized.operation_kind,
+    };
+    throw error;
+  }
+  return normalized;
+}
+
+function normalizeServerControlBridgeResult(value = {}) {
+  const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const plan = result.plan && typeof result.plan === "object" && !Array.isArray(result.plan)
+    ? result.plan
+    : {};
+  const record = result.record && typeof result.record === "object" && !Array.isArray(result.record)
+    ? result.record
+    : plan.record && typeof plan.record === "object" && !Array.isArray(plan.record)
+      ? plan.record
+      : null;
+  const normalized = {
+    source: result.source ?? "rust_model_mount_server_control_command",
+    backend: result.backend ?? RUST_MODEL_MOUNT_SERVER_CONTROL_BACKEND,
+    plan,
+    record_dir: result.record_dir ?? plan.record_dir ?? null,
+    record_id: result.record_id ?? plan.record_id ?? null,
+    record,
+    public_response: result.public_response ?? plan.public_response ?? null,
+    operation_kind: result.operation_kind ?? plan.operation_kind ?? null,
+    rust_core_boundary: result.rust_core_boundary ?? plan.rust_core_boundary ?? null,
+    receipt_refs: arrayOrNull(result.receipt_refs) ?? arrayOrNull(plan.receipt_refs) ?? [],
+    evidence_refs: arrayOrNull(result.evidence_refs) ?? arrayOrNull(plan.evidence_refs),
+    control_hash: result.control_hash ?? plan.control_hash ?? null,
+  };
+  const missing = [];
+  for (const field of ["record_dir", "record_id", "record", "operation_kind", "control_hash"]) {
+    if (!normalized[field]) missing.push(field);
+  }
+  if (normalized.rust_core_boundary !== "model_mount.server_control") {
+    missing.push("rust_core_boundary");
+  }
+  if (
+    !Array.isArray(normalized.evidence_refs) ||
+    !normalized.evidence_refs.includes("rust_daemon_core_server_control")
+  ) {
+    missing.push("evidence_refs.rust_daemon_core_server_control");
+  }
+  if (
+    !Array.isArray(normalized.evidence_refs) ||
+    !normalized.evidence_refs.includes("agentgres_server_control_truth_required")
+  ) {
+    missing.push("evidence_refs.agentgres_server_control_truth_required");
+  }
+  if (missing.length > 0) {
+    const error = new Error("Rust model_mount server-control plan is incomplete.");
+    error.code = "model_mount_server_control_plan_invalid";
+    error.details = {
+      missing,
+      source: normalized.source,
+      backend: normalized.backend,
+      operation_kind: normalized.operation_kind,
+    };
+    throw error;
+  }
+  return normalized;
+}
+
+function normalizeRuntimeEngineBridgeResult(value = {}) {
+  const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const plan = result.plan && typeof result.plan === "object" && !Array.isArray(result.plan)
+    ? result.plan
+    : {};
+  const record = result.record && typeof result.record === "object" && !Array.isArray(result.record)
+    ? result.record
+    : plan.record && typeof plan.record === "object" && !Array.isArray(plan.record)
+      ? plan.record
+      : null;
+  const normalized = {
+    source: result.source ?? "rust_model_mount_runtime_engine_command",
+    backend: result.backend ?? RUST_MODEL_MOUNT_RUNTIME_ENGINE_BACKEND,
+    plan,
+    record_dir: result.record_dir ?? plan.record_dir ?? null,
+    record_id: result.record_id ?? plan.record_id ?? null,
+    record,
+    public_response: result.public_response ?? plan.public_response ?? null,
+    operation_kind: result.operation_kind ?? plan.operation_kind ?? null,
+    rust_core_boundary: result.rust_core_boundary ?? plan.rust_core_boundary ?? null,
+    receipt_refs: arrayOrNull(result.receipt_refs) ?? arrayOrNull(plan.receipt_refs) ?? [],
+    evidence_refs: arrayOrNull(result.evidence_refs) ?? arrayOrNull(plan.evidence_refs),
+    control_hash: result.control_hash ?? plan.control_hash ?? null,
+  };
+  const missing = [];
+  for (const field of ["record_dir", "record_id", "record", "operation_kind", "control_hash"]) {
+    if (!normalized[field]) missing.push(field);
+  }
+  if (normalized.rust_core_boundary !== "model_mount.runtime_engine") {
+    missing.push("rust_core_boundary");
+  }
+  if (
+    !Array.isArray(normalized.evidence_refs) ||
+    !normalized.evidence_refs.includes("rust_daemon_core_runtime_engine")
+  ) {
+    missing.push("evidence_refs.rust_daemon_core_runtime_engine");
+  }
+  if (
+    !Array.isArray(normalized.evidence_refs) ||
+    !normalized.evidence_refs.includes("agentgres_runtime_engine_truth_required")
+  ) {
+    missing.push("evidence_refs.agentgres_runtime_engine_truth_required");
+  }
+  if (missing.length > 0) {
+    const error = new Error("Rust model_mount runtime-engine plan is incomplete.");
+    error.code = "model_mount_runtime_engine_plan_invalid";
+    error.details = {
+      missing,
+      source: normalized.source,
+      backend: normalized.backend,
+      operation_kind: normalized.operation_kind,
+    };
+    throw error;
+  }
+  return normalized;
 }
 
 function normalizeTokenizerRequiredBridgeResult(value = {}) {
@@ -700,6 +1058,561 @@ function normalizeRouteControlRequiredBridgeResult(value = {}) {
     details,
     evidence_refs: arrayOrNull(record.evidence_refs) ?? arrayOrNull(details.evidence_refs),
   };
+}
+
+function normalizeRouteControlBridgeResult(value = {}) {
+  const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const plan = result.plan && typeof result.plan === "object" && !Array.isArray(result.plan)
+    ? result.plan
+    : {};
+  const record = result.record && typeof result.record === "object" && !Array.isArray(result.record)
+    ? result.record
+    : plan.record && typeof plan.record === "object" && !Array.isArray(plan.record)
+      ? plan.record
+      : null;
+  const normalized = {
+    source: result.source ?? "rust_model_mount_route_control_command",
+    backend: result.backend ?? RUST_MODEL_MOUNT_ROUTE_CONTROL_BACKEND,
+    plan,
+    record_dir: result.record_dir ?? plan.record_dir ?? null,
+    record_id: result.record_id ?? plan.record_id ?? null,
+    record,
+    operation_kind: result.operation_kind ?? plan.operation_kind ?? null,
+    rust_core_boundary: result.rust_core_boundary ?? plan.rust_core_boundary ?? null,
+    receipt_refs: arrayOrNull(result.receipt_refs) ?? arrayOrNull(plan.receipt_refs),
+    evidence_refs: arrayOrNull(result.evidence_refs) ?? arrayOrNull(plan.evidence_refs),
+    control_hash: result.control_hash ?? plan.control_hash ?? null,
+  };
+  const missing = [];
+  for (const field of ["record_dir", "record_id", "record", "operation_kind", "control_hash"]) {
+    if (!normalized[field]) missing.push(field);
+  }
+  if (normalized.rust_core_boundary !== "model_mount.route_control") {
+    missing.push("rust_core_boundary");
+  }
+  if (!Array.isArray(normalized.receipt_refs) || normalized.receipt_refs.length === 0) {
+    missing.push("receipt_refs");
+  }
+  if (!Array.isArray(normalized.evidence_refs) || !normalized.evidence_refs.includes("model_mount_route_control_rust_owned")) {
+    missing.push("evidence_refs.model_mount_route_control_rust_owned");
+  }
+  if (record?.id !== normalized.record_id) {
+    missing.push("record.id");
+  }
+  if (missing.length > 0) {
+    const error = new Error("Rust model_mount route-control plan is incomplete.");
+    error.status = 502;
+    error.code = "model_mount_route_control_plan_invalid";
+    error.details = {
+      missing,
+      source: normalized.source,
+      backend: normalized.backend,
+      operation_kind: normalized.operation_kind,
+    };
+    throw error;
+  }
+  return normalized;
+}
+
+function normalizeCatalogProviderControlBridgeResult(value = {}) {
+  const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const plan = result.plan && typeof result.plan === "object" && !Array.isArray(result.plan)
+    ? result.plan
+    : {};
+  const record = result.record && typeof result.record === "object" && !Array.isArray(result.record)
+    ? result.record
+    : plan.record && typeof plan.record === "object" && !Array.isArray(plan.record)
+      ? plan.record
+      : null;
+  const normalized = {
+    source: result.source ?? "rust_model_mount_catalog_provider_control_command",
+    backend: result.backend ?? RUST_MODEL_MOUNT_CATALOG_PROVIDER_CONTROL_BACKEND,
+    plan,
+    record_dir: result.record_dir ?? plan.record_dir ?? null,
+    record_id: result.record_id ?? plan.record_id ?? null,
+    record,
+    operation_kind: result.operation_kind ?? plan.operation_kind ?? null,
+    rust_core_boundary: result.rust_core_boundary ?? plan.rust_core_boundary ?? null,
+    receipt_refs: arrayOrNull(result.receipt_refs) ?? arrayOrNull(plan.receipt_refs) ?? [],
+    authority_grant_refs: arrayOrNull(result.authority_grant_refs) ?? arrayOrNull(plan.authority_grant_refs) ?? [],
+    authority_receipt_refs:
+      arrayOrNull(result.authority_receipt_refs) ?? arrayOrNull(plan.authority_receipt_refs) ?? [],
+    evidence_refs: arrayOrNull(result.evidence_refs) ?? arrayOrNull(plan.evidence_refs),
+    control_hash: result.control_hash ?? plan.control_hash ?? null,
+    authority_hash: result.authority_hash ?? plan.authority_hash ?? null,
+  };
+  const missing = [];
+  for (const field of ["record_dir", "record_id", "record", "operation_kind", "control_hash", "authority_hash"]) {
+    if (!normalized[field]) missing.push(field);
+  }
+  if (normalized.rust_core_boundary !== "model_mount.catalog_provider_control") {
+    missing.push("rust_core_boundary");
+  }
+  if (
+    !Array.isArray(normalized.evidence_refs) ||
+    !normalized.evidence_refs.includes("rust_daemon_core_catalog_provider_control")
+  ) {
+    missing.push("evidence_refs.rust_daemon_core_catalog_provider_control");
+  }
+  if (
+    !Array.isArray(normalized.evidence_refs) ||
+    !normalized.evidence_refs.includes("ctee_catalog_provider_custody_enforced")
+  ) {
+    missing.push("evidence_refs.ctee_catalog_provider_custody_enforced");
+  }
+  if (
+    !Array.isArray(normalized.evidence_refs) ||
+    !normalized.evidence_refs.includes("agentgres_catalog_provider_control_truth_required")
+  ) {
+    missing.push("evidence_refs.agentgres_catalog_provider_control_truth_required");
+  }
+  if (record?.id !== normalized.record_id) {
+    missing.push("record.id");
+  }
+  if (record?.plaintext_material_returned !== false) {
+    missing.push("record.plaintext_material_returned_false");
+  }
+  if (missing.length > 0) {
+    const error = new Error("Rust model_mount catalog-provider-control plan is incomplete.");
+    error.status = 502;
+    error.code = "model_mount_catalog_provider_control_plan_invalid";
+    error.details = {
+      missing,
+      source: normalized.source,
+      backend: normalized.backend,
+      operation_kind: normalized.operation_kind,
+    };
+    throw error;
+  }
+  return normalized;
+}
+
+function normalizeCapabilityTokenControlBridgeResult(value = {}) {
+  const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const plan = result.plan && typeof result.plan === "object" && !Array.isArray(result.plan)
+    ? result.plan
+    : {};
+  const record = result.record && typeof result.record === "object" && !Array.isArray(result.record)
+    ? result.record
+    : plan.record && typeof plan.record === "object" && !Array.isArray(plan.record)
+      ? plan.record
+      : null;
+  const normalized = {
+    source: result.source ?? "rust_model_mount_capability_token_control_command",
+    backend: result.backend ?? RUST_MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_BACKEND,
+    plan,
+    record_dir: result.record_dir ?? plan.record_dir ?? null,
+    record_id: result.record_id ?? plan.record_id ?? null,
+    record,
+    public_response: result.public_response ?? plan.public_response ?? null,
+    operation_kind: result.operation_kind ?? plan.operation_kind ?? null,
+    rust_core_boundary: result.rust_core_boundary ?? plan.rust_core_boundary ?? null,
+    receipt_refs: arrayOrNull(result.receipt_refs) ?? arrayOrNull(plan.receipt_refs) ?? [],
+    authority_grant_refs: arrayOrNull(result.authority_grant_refs) ?? arrayOrNull(plan.authority_grant_refs) ?? [],
+    authority_receipt_refs:
+      arrayOrNull(result.authority_receipt_refs) ?? arrayOrNull(plan.authority_receipt_refs) ?? [],
+    evidence_refs: arrayOrNull(result.evidence_refs) ?? arrayOrNull(plan.evidence_refs),
+    control_hash: result.control_hash ?? plan.control_hash ?? null,
+    authority_hash: result.authority_hash ?? plan.authority_hash ?? null,
+  };
+  const missing = [];
+  for (const field of ["record_dir", "record_id", "record", "operation_kind", "control_hash", "authority_hash"]) {
+    if (!normalized[field]) missing.push(field);
+  }
+  if (normalized.rust_core_boundary !== "model_mount.capability_token") {
+    missing.push("rust_core_boundary");
+  }
+  if (
+    !Array.isArray(normalized.evidence_refs) ||
+    !normalized.evidence_refs.includes("rust_daemon_core_capability_token_control")
+  ) {
+    missing.push("evidence_refs.rust_daemon_core_capability_token_control");
+  }
+  if (
+    !Array.isArray(normalized.evidence_refs) ||
+    !normalized.evidence_refs.includes("wallet_network_capability_token_authority_required")
+  ) {
+    missing.push("evidence_refs.wallet_network_capability_token_authority_required");
+  }
+  if (
+    !Array.isArray(normalized.evidence_refs) ||
+    !normalized.evidence_refs.includes("agentgres_capability_token_truth_required")
+  ) {
+    missing.push("evidence_refs.agentgres_capability_token_truth_required");
+  }
+  if (record?.id !== normalized.record_id) {
+    missing.push("record.id");
+  }
+  if (record?.public_response?.token != null) {
+    missing.push("record.public_response.token_absent");
+  }
+  if (record?.public_response?.plaintext_material_persisted !== false) {
+    missing.push("record.public_response.plaintext_material_persisted_false");
+  }
+  if (missing.length > 0) {
+    const error = new Error("Rust model_mount capability-token-control plan is incomplete.");
+    error.status = 502;
+    error.code = "model_mount_capability_token_control_plan_invalid";
+    error.details = {
+      missing,
+      source: normalized.source,
+      backend: normalized.backend,
+      operation_kind: normalized.operation_kind,
+    };
+    throw error;
+  }
+  return normalized;
+}
+
+function normalizeVaultControlBridgeResult(value = {}) {
+  const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const plan = result.plan && typeof result.plan === "object" && !Array.isArray(result.plan)
+    ? result.plan
+    : {};
+  const record = result.record && typeof result.record === "object" && !Array.isArray(result.record)
+    ? result.record
+    : plan.record && typeof plan.record === "object" && !Array.isArray(plan.record)
+      ? plan.record
+      : null;
+  const normalized = {
+    source: result.source ?? "rust_model_mount_vault_control_command",
+    backend: result.backend ?? RUST_MODEL_MOUNT_VAULT_CONTROL_BACKEND,
+    plan,
+    record_dir: result.record_dir ?? plan.record_dir ?? null,
+    record_id: result.record_id ?? plan.record_id ?? null,
+    record,
+    public_response: result.public_response ?? plan.public_response ?? null,
+    operation_kind: result.operation_kind ?? plan.operation_kind ?? null,
+    rust_core_boundary: result.rust_core_boundary ?? plan.rust_core_boundary ?? null,
+    receipt_refs: arrayOrNull(result.receipt_refs) ?? arrayOrNull(plan.receipt_refs) ?? [],
+    authority_grant_refs: arrayOrNull(result.authority_grant_refs) ?? arrayOrNull(plan.authority_grant_refs) ?? [],
+    authority_receipt_refs:
+      arrayOrNull(result.authority_receipt_refs) ?? arrayOrNull(plan.authority_receipt_refs) ?? [],
+    evidence_refs: arrayOrNull(result.evidence_refs) ?? arrayOrNull(plan.evidence_refs),
+    control_hash: result.control_hash ?? plan.control_hash ?? null,
+    authority_hash: result.authority_hash ?? plan.authority_hash ?? null,
+  };
+  const missing = [];
+  for (const field of ["record_dir", "record_id", "record", "operation_kind", "control_hash", "authority_hash"]) {
+    if (!normalized[field]) missing.push(field);
+  }
+  if (normalized.rust_core_boundary !== "model_mount.vault") {
+    missing.push("rust_core_boundary");
+  }
+  if (
+    !Array.isArray(normalized.evidence_refs) ||
+    !normalized.evidence_refs.includes("rust_daemon_core_vault_control")
+  ) {
+    missing.push("evidence_refs.rust_daemon_core_vault_control");
+  }
+  if (
+    !Array.isArray(normalized.evidence_refs) ||
+    !normalized.evidence_refs.includes("wallet_network_vault_authority_required")
+  ) {
+    missing.push("evidence_refs.wallet_network_vault_authority_required");
+  }
+  if (
+    !Array.isArray(normalized.evidence_refs) ||
+    !normalized.evidence_refs.includes("ctee_vault_custody_enforced")
+  ) {
+    missing.push("evidence_refs.ctee_vault_custody_enforced");
+  }
+  if (
+    !Array.isArray(normalized.evidence_refs) ||
+    !normalized.evidence_refs.includes("agentgres_vault_truth_required")
+  ) {
+    missing.push("evidence_refs.agentgres_vault_truth_required");
+  }
+  if (record?.id !== normalized.record_id) {
+    missing.push("record.id");
+  }
+  if (record?.public_response?.material != null) {
+    missing.push("record.public_response.material_absent");
+  }
+  if (record?.ctee_custody?.plaintext_material_persisted !== false) {
+    missing.push("record.ctee_custody.plaintext_material_persisted_false");
+  }
+  if (record?.ctee_custody?.plaintext_material_returned !== false) {
+    missing.push("record.ctee_custody.plaintext_material_returned_false");
+  }
+  if (missing.length > 0) {
+    const error = new Error("Rust model_mount vault-control plan is incomplete.");
+    error.status = 502;
+    error.code = "model_mount_vault_control_plan_invalid";
+    error.details = {
+      missing,
+      source: normalized.source,
+      backend: normalized.backend,
+      operation_kind: normalized.operation_kind,
+    };
+    throw error;
+  }
+  return normalized;
+}
+
+function normalizeTokenizerBridgeResult(value = {}) {
+  const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const plan = result.plan && typeof result.plan === "object" && !Array.isArray(result.plan)
+    ? result.plan
+    : {};
+  const record = result.record && typeof result.record === "object" && !Array.isArray(result.record)
+    ? result.record
+    : plan.record && typeof plan.record === "object" && !Array.isArray(plan.record)
+      ? plan.record
+      : null;
+  const normalized = {
+    source: result.source ?? "rust_model_mount_tokenizer_command",
+    backend: result.backend ?? RUST_MODEL_MOUNT_TOKENIZER_BACKEND,
+    plan,
+    record_dir: result.record_dir ?? plan.record_dir ?? null,
+    record_id: result.record_id ?? plan.record_id ?? null,
+    record,
+    operation: result.operation ?? plan.operation ?? null,
+    rust_core_boundary: result.rust_core_boundary ?? plan.rust_core_boundary ?? null,
+    receipt_refs: arrayOrNull(result.receipt_refs) ?? arrayOrNull(plan.receipt_refs),
+    evidence_refs: arrayOrNull(result.evidence_refs) ?? arrayOrNull(plan.evidence_refs),
+    control_hash: result.control_hash ?? plan.control_hash ?? null,
+  };
+  const missing = [];
+  for (const field of ["record_dir", "record_id", "record", "operation", "control_hash"]) {
+    if (!normalized[field]) missing.push(field);
+  }
+  if (normalized.rust_core_boundary !== "model_mount.tokenizer") {
+    missing.push("rust_core_boundary");
+  }
+  if (!Array.isArray(normalized.receipt_refs) || normalized.receipt_refs.length === 0) {
+    missing.push("receipt_refs");
+  }
+  if (!Array.isArray(normalized.evidence_refs) || !normalized.evidence_refs.includes("model_mount_tokenizer_rust_owned")) {
+    missing.push("evidence_refs.model_mount_tokenizer_rust_owned");
+  }
+  if (record?.id !== normalized.record_id) {
+    missing.push("record.id");
+  }
+  if (missing.length > 0) {
+    const error = new Error("Rust model_mount tokenizer plan is incomplete.");
+    error.status = 502;
+    error.code = "model_mount_tokenizer_plan_invalid";
+    error.details = {
+      missing,
+      source: normalized.source,
+      backend: normalized.backend,
+      operation: normalized.operation,
+    };
+    throw error;
+  }
+  return normalized;
+}
+
+function normalizeConversationStateBridgeResult(value = {}) {
+  const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const plan = result.plan && typeof result.plan === "object" && !Array.isArray(result.plan)
+    ? result.plan
+    : {};
+  const record = result.record && typeof result.record === "object" && !Array.isArray(result.record)
+    ? result.record
+    : plan.record && typeof plan.record === "object" && !Array.isArray(plan.record)
+      ? plan.record
+      : null;
+  const normalized = {
+    source: result.source ?? "rust_model_mount_conversation_state_command",
+    backend: result.backend ?? RUST_MODEL_MOUNT_CONVERSATION_STATE_BACKEND,
+    plan,
+    record_dir: result.record_dir ?? plan.record_dir ?? null,
+    record_id: result.record_id ?? plan.record_id ?? null,
+    record,
+    operation: result.operation ?? plan.operation ?? null,
+    operation_kind: result.operation_kind ?? plan.operation_kind ?? null,
+    rust_core_boundary: result.rust_core_boundary ?? plan.rust_core_boundary ?? null,
+    receipt_refs: arrayOrNull(result.receipt_refs) ?? arrayOrNull(plan.receipt_refs),
+    evidence_refs: arrayOrNull(result.evidence_refs) ?? arrayOrNull(plan.evidence_refs),
+    conversation_hash: result.conversation_hash ?? plan.conversation_hash ?? null,
+  };
+  const missing = [];
+  for (const field of ["record_dir", "record_id", "record", "operation", "operation_kind", "conversation_hash"]) {
+    if (!normalized[field]) missing.push(field);
+  }
+  if (normalized.rust_core_boundary !== "model_mount.conversation") {
+    missing.push("rust_core_boundary");
+  }
+  if (!Array.isArray(normalized.receipt_refs) || normalized.receipt_refs.length === 0) {
+    missing.push("receipt_refs");
+  }
+  if (
+    !Array.isArray(normalized.evidence_refs) ||
+    !normalized.evidence_refs.includes("model_mount_conversation_state_rust_owned")
+  ) {
+    missing.push("evidence_refs.model_mount_conversation_state_rust_owned");
+  }
+  if (record?.id !== normalized.record_id) {
+    missing.push("record.id");
+  }
+  if (missing.length > 0) {
+    const error = new Error("Rust model_mount conversation-state plan is incomplete.");
+    error.status = 502;
+    error.code = "model_mount_conversation_state_plan_invalid";
+    error.details = {
+      missing,
+      source: normalized.source,
+      backend: normalized.backend,
+      operation: normalized.operation,
+    };
+    throw error;
+  }
+  return normalized;
+}
+
+function normalizeStreamCompletionBridgeResult(value = {}) {
+  const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const plan = result.plan && typeof result.plan === "object" && !Array.isArray(result.plan)
+    ? result.plan
+    : {};
+  const record = result.record && typeof result.record === "object" && !Array.isArray(result.record)
+    ? result.record
+    : plan.record && typeof plan.record === "object" && !Array.isArray(plan.record)
+      ? plan.record
+      : null;
+  const receipt = result.receipt && typeof result.receipt === "object" && !Array.isArray(result.receipt)
+    ? result.receipt
+    : plan.receipt && typeof plan.receipt === "object" && !Array.isArray(plan.receipt)
+      ? plan.receipt
+      : null;
+  const normalized = {
+    source: result.source ?? "rust_model_mount_stream_completion_command",
+    backend: result.backend ?? RUST_MODEL_MOUNT_STREAM_COMPLETION_BACKEND,
+    plan,
+    record_dir: result.record_dir ?? plan.record_dir ?? null,
+    record_id: result.record_id ?? plan.record_id ?? null,
+    record,
+    receipt,
+    operation: result.operation ?? plan.operation ?? null,
+    operation_kind: result.operation_kind ?? plan.operation_kind ?? null,
+    rust_core_boundary: result.rust_core_boundary ?? plan.rust_core_boundary ?? null,
+    receipt_refs: arrayOrNull(result.receipt_refs) ?? arrayOrNull(plan.receipt_refs),
+    evidence_refs: arrayOrNull(result.evidence_refs) ?? arrayOrNull(plan.evidence_refs),
+    stream_completion_hash: result.stream_completion_hash ?? plan.stream_completion_hash ?? null,
+    conversation_hash: result.conversation_hash ?? plan.conversation_hash ?? null,
+  };
+  const missing = [];
+  for (const field of [
+    "record_dir",
+    "record_id",
+    "record",
+    "receipt",
+    "operation",
+    "operation_kind",
+    "stream_completion_hash",
+    "conversation_hash",
+  ]) {
+    if (!normalized[field]) missing.push(field);
+  }
+  if (normalized.rust_core_boundary !== "model_mount.conversation") {
+    missing.push("rust_core_boundary");
+  }
+  if (!Array.isArray(normalized.receipt_refs) || normalized.receipt_refs.length === 0) {
+    missing.push("receipt_refs");
+  }
+  if (
+    !Array.isArray(normalized.evidence_refs) ||
+    !normalized.evidence_refs.includes("model_mount_stream_completion_rust_owned")
+  ) {
+    missing.push("evidence_refs.model_mount_stream_completion_rust_owned");
+  }
+  if (record?.id !== normalized.record_id) {
+    missing.push("record.id");
+  }
+  if (receipt?.kind !== "model_invocation_stream_completed") {
+    missing.push("receipt.kind");
+  }
+  if (!receipt?.details?.model_mount_step_module_result?.agentgres_operation_refs) {
+    missing.push("receipt.details.model_mount_step_module_result.agentgres_operation_refs");
+  }
+  if (missing.length > 0) {
+    const error = new Error("Rust model_mount stream-completion plan is incomplete.");
+    error.status = 502;
+    error.code = "model_mount_stream_completion_plan_invalid";
+    error.details = {
+      missing,
+      source: normalized.source,
+      backend: normalized.backend,
+      operation: normalized.operation,
+    };
+    throw error;
+  }
+  return normalized;
+}
+
+function normalizeReceiptGateBridgeResult(value = {}) {
+  const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const plan = result.plan && typeof result.plan === "object" && !Array.isArray(result.plan)
+    ? result.plan
+    : {};
+  const receipt = result.receipt && typeof result.receipt === "object" && !Array.isArray(result.receipt)
+    ? result.receipt
+    : plan.receipt && typeof plan.receipt === "object" && !Array.isArray(plan.receipt)
+      ? plan.receipt
+      : null;
+  const normalized = {
+    source: result.source ?? "rust_model_mount_receipt_gate_command",
+    backend: result.backend ?? RUST_MODEL_MOUNT_RECEIPT_GATE_BACKEND,
+    plan,
+    receipt,
+    public_response: result.public_response ?? plan.public_response ?? null,
+    operation_kind: result.operation_kind ?? plan.operation_kind ?? null,
+    rust_core_boundary: result.rust_core_boundary ?? plan.rust_core_boundary ?? null,
+    gate_hash: result.gate_hash ?? plan.gate_hash ?? null,
+    receipt_refs: arrayOrNull(result.receipt_refs) ?? arrayOrNull(plan.receipt_refs) ?? [],
+    evidence_refs: arrayOrNull(result.evidence_refs) ?? arrayOrNull(plan.evidence_refs),
+  };
+  const details = receipt?.details && typeof receipt.details === "object" && !Array.isArray(receipt.details)
+    ? receipt.details
+    : {};
+  const missing = [];
+  for (const field of ["receipt", "operation_kind", "gate_hash"]) {
+    if (!normalized[field]) missing.push(field);
+  }
+  if (normalized.rust_core_boundary !== "model_mount.receipt_gate") {
+    missing.push("rust_core_boundary");
+  }
+  if (!["workflow_receipt_gate", "workflow_receipt_gate_blocked"].includes(receipt?.kind)) {
+    missing.push("receipt.kind");
+  }
+  if (!details.model_mount_receipt_gate_hash) {
+    missing.push("receipt.details.model_mount_receipt_gate_hash");
+  }
+  if (!details.model_mount_receipt_binding_ref) {
+    missing.push("receipt.details.model_mount_receipt_binding_ref");
+  }
+  if (!details.model_mount_agentgres_operation_ref) {
+    missing.push("receipt.details.model_mount_agentgres_operation_ref");
+  }
+  if (!Array.isArray(normalized.evidence_refs)) {
+    missing.push("evidence_refs");
+  } else {
+    for (const evidenceRef of [
+      "model_mount_receipt_gate_rust_owned",
+      "model_mount_receipt_gate_js_facade_retired",
+      "rust_receipt_binder_core",
+      "agentgres_model_receipt_gate_truth_required",
+    ]) {
+      if (!normalized.evidence_refs.includes(evidenceRef)) {
+        missing.push(`evidence_refs.${evidenceRef}`);
+      }
+    }
+  }
+  if (missing.length > 0) {
+    const error = new Error("Rust model_mount receipt-gate plan is incomplete.");
+    error.status = 502;
+    error.code = "model_mount_receipt_gate_plan_invalid";
+    error.details = {
+      missing,
+      source: normalized.source,
+      backend: normalized.backend,
+      operation_kind: normalized.operation_kind,
+    };
+    throw error;
+  }
+  return normalized;
 }
 
 function normalizeAcceptedReceiptHeadBridgeResult(value = {}) {

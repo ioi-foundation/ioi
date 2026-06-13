@@ -34,30 +34,26 @@ const RETIRED_MODEL_INVOCATION_HELPER_ALIASES = [
   "tokenCount",
 ];
 
-const MODEL_INVOCATION_RUST_CORE_REQUIRED_EVIDENCE_REFS = [
-  "model_mount_invocation_js_facade_retired",
-  "rust_daemon_core_model_invocation_required",
-  "agentgres_model_invocation_truth_required",
-];
-
-export async function invokeModel(state, { requiredScope, kind, body = {} } = {}) {
+export async function invokeModel(state, { authorization, requiredScope, kind, body = {} } = {}, deps = {}) {
+  void authorization;
   assertCanonicalModelInvocationRequestBody(body);
-  throwModelInvocationRustCoreRequired("model_mount.invocation.invoke", {
+  return executeModelInvocationThroughRustCore(state, {
+    body,
+    deps,
     kind,
-    model_id: body.model ?? body.model_id ?? null,
-    route_id: body.route_id ?? null,
-    required_scope: requiredScope ?? null,
+    requiredScope,
     stream: false,
   });
 }
 
-export async function startModelStream(state, { requiredScope, kind, body = {} } = {}) {
+export async function startModelStream(state, { authorization, requiredScope, kind, body = {} } = {}, deps = {}) {
+  void authorization;
   assertCanonicalModelInvocationRequestBody(body);
-  throwModelInvocationRustCoreRequired("model_mount.invocation.stream_start", {
+  return executeModelInvocationThroughRustCore(state, {
+    body,
+    deps,
     kind,
-    model_id: body.model ?? body.model_id ?? null,
-    route_id: body.route_id ?? null,
-    required_scope: requiredScope ?? null,
+    requiredScope,
     stream: true,
   });
 }
@@ -543,6 +539,296 @@ export function withModelMountInvocationReceiptBinding(details, binding) {
   };
 }
 
+function withModelMountProviderResultAdmission(providerResult, admission) {
+  return {
+    ...providerResult,
+    model_mount_provider_result_admission_schema_version: "ioi.model_mount.provider_result.v1",
+    model_mount_provider_result_admission_ref: admission.provider_result_ref,
+    model_mount_provider_result_admission_hash: admission.provider_result_hash,
+    model_mount_provider_result_admission_source: admission.source,
+    model_mount_provider_result_admission_backend: admission.backend,
+    model_mount_provider_result_admission_receipt_refs: admission.receipt_refs ?? [],
+    model_mount_provider_result_admission_evidence_refs: admission.evidence_refs ?? [],
+    model_mount_provider_result_admission: admission.record,
+    backend_evidence_refs: uniqueRefs([
+      ...(providerResult.backend_evidence_refs ?? []),
+      admission.provider_result_ref,
+      ...(admission.evidence_refs ?? []),
+    ]),
+  };
+}
+
+async function executeModelInvocationThroughRustCore(
+  state,
+  {
+    body = {},
+    deps = {},
+    kind,
+    requiredScope = null,
+    stream = false,
+  } = {},
+) {
+  const {
+    inputText = modelInvocationInputText,
+    stableHash: hash = stableHash,
+    supportsResponseState = modelInvocationSupportsResponseState,
+  } = deps;
+  const started = nowMs(state);
+  const requestBody = objectRecord(body) ?? {};
+  const input = inputText(requestBody);
+  const statefulInvocation = supportsResponseState(kind);
+  const previousResponseId = statefulInvocation ? optionalRef(requestBody.previous_response_id) : null;
+  const previousState = previousResponseId ? state.conversationState(previousResponseId) : null;
+  const responseId = statefulInvocation ? state.nextResponseId(requestBody.response_id) : null;
+  const capability = capabilityForInvocationKind(kind);
+  const rawSelection = state.selectRoute({
+    modelId: requestBody.model ?? requestBody.model_id ?? null,
+    routeId: requestBody.route_id ?? null,
+    capability,
+    policy: requestBody.model_policy ?? {},
+    body: requestBody,
+  });
+  const selection = normalizeModelMountSelection(rawSelection);
+  const routeReceipt = requiredRouteReceipt(selection);
+  const continuationSafety = state.validateContinuationSafety({
+    previousState,
+    selection,
+    body: requestBody,
+  });
+  const rawInstance = await state.ensureLoaded(rawSelection?.endpoint ?? selection.endpoint);
+  const instance = normalizeModelMountInstance(rawInstance, selection);
+  const ephemeralMcp = normalizeEphemeralMcp(
+    state.compileEphemeralMcpIntegrations({ body: requestBody, input }),
+  );
+  const providerBody = requestBody;
+  const token = normalizeInvocationToken(null);
+  const providerExecutionAdmission = admitModelMountProviderExecution(
+    state,
+    modelMountProviderExecutionRequestForInvocation({
+      body: requestBody,
+      capability,
+      ephemeralMcp,
+      hash,
+      input,
+      instance,
+      kind,
+      previousResponseId,
+      providerBody,
+      responseId,
+      routeReceipt,
+      selection,
+      streamStatus: stream ? "started" : null,
+      token,
+    }),
+  );
+  const providerInvocation = stream
+    ? executeModelMountProviderStreamInvocation(
+        state,
+        modelMountProviderStreamInvocationRequestForExecution({
+          input,
+          instance,
+          kind,
+          modelMountProviderExecutionAdmission: providerExecutionAdmission,
+          selection,
+        }),
+      )
+    : executeModelMountProviderInvocation(
+        state,
+        modelMountProviderInvocationRequestForExecution({
+          input,
+          instance,
+          kind,
+          modelMountProviderExecutionAdmission: providerExecutionAdmission,
+          selection,
+        }),
+      );
+  const providerResultForAdmission = canonicalProviderResultForAdmission(providerInvocation);
+  const providerResultAdmission = admitModelMountProviderResult(
+    state,
+    modelMountProviderResultAdmissionRequestForExecution({
+      input,
+      instance,
+      kind,
+      modelMountProviderExecutionAdmission: providerExecutionAdmission,
+      providerResult: providerResultForAdmission,
+      selection,
+    }),
+  );
+  const providerResult = withModelMountProviderResultAdmission(
+    providerResultForAdmission,
+    providerResultAdmission,
+  );
+  const outputText = stream ? "" : providerResult.output_text;
+  const tokenCount = providerResult.token_count;
+  const latencyMs = Math.max(1, nowMs(state) - started);
+  const receiptKind = "model_invocation";
+  const receiptId = nextInvocationReceiptId(state, receiptKind);
+  const receiptDetails = withModelMountProviderExecutionAdmission(
+    invocationReceiptDetails({
+      body: requestBody,
+      continuationSafety,
+      ephemeralMcp,
+      hash,
+      input,
+      instance,
+      latencyMs,
+      outputText: providerResult.output_text,
+      previousResponseId,
+      providerResult,
+      requiredScope,
+      responseId,
+      routeReceipt,
+      selection,
+      token,
+      tokenCount,
+      stream,
+    }),
+    providerExecutionAdmission,
+  );
+  const invocationAdmissionRequest = modelMountInvocationAdmissionRequestForReceipt({
+    body: requestBody,
+    capability,
+    kind,
+    receiptDetails,
+    receiptId,
+    receiptKind,
+    routeReceipt,
+    selection,
+    streamStatus: stream ? "started" : null,
+  });
+  const invocationAdmission = admitModelMountInvocation(state, invocationAdmissionRequest);
+  const agentgresTransition = modelMountInvocationAgentgresTransitionForReceipt(state, {
+    admission: invocationAdmission,
+    admissionRequest: invocationAdmissionRequest,
+    receiptDetails,
+    receiptId,
+    receiptKind,
+  });
+  const receiptBinding = invokeRustModelMountReceiptBinding(
+    state,
+    modelMountInvocationReceiptBindingRequestForReceipt({
+      admission: invocationAdmission,
+      admissionRequest: invocationAdmissionRequest,
+      agentgresTransition,
+      receiptDetails,
+      receiptId,
+    }),
+  );
+  const receipt = persistModelInvocationReceipt(state, {
+    details: withModelMountInvocationReceiptBinding(
+      withModelMountInvocationAdmission(receiptDetails, invocationAdmission),
+      receiptBinding,
+    ),
+    kind: receiptKind,
+    receiptBinding,
+    receiptId,
+    routeReceipt,
+    selection,
+    stream,
+  });
+  const invocation = {
+    kind,
+    input,
+    outputText,
+    model: selection.endpoint.model_id,
+    route: selection.route,
+    endpoint: selection.endpoint,
+    instance,
+    receipt,
+    routeReceipt,
+    tokenCount,
+    providerResponse: providerInvocation["providerResponse"] ?? providerInvocation.provider_response ?? null,
+    providerResponseKind: providerResult.provider_response_kind ?? null,
+    toolReceiptIds: ephemeralMcp.toolReceiptIds,
+    responseId,
+    previousResponseId,
+    previousConversationState: previousState,
+    continuationSafety,
+  };
+  if (!stream) return invocation;
+  const streamHandle = readableStreamFromRustProviderChunks(
+    providerInvocation["streamChunks"] ??
+      providerInvocation.stream_chunks ??
+      providerInvocation.result?.stream_chunks ??
+      [],
+  );
+  return {
+    native: true,
+    invocation,
+    providerStream: streamHandle.stream,
+    abort: streamHandle.abort,
+    providerResult: {
+      ...providerInvocation,
+      ...providerResult,
+      streamFormat:
+        providerInvocation["streamFormat"] ??
+        providerInvocation.stream_format ??
+        providerInvocation.result?.stream_format ??
+        null,
+      streamKind:
+        providerInvocation["streamKind"] ??
+        providerInvocation.stream_kind ??
+        providerInvocation.result?.stream_kind ??
+        null,
+    },
+  };
+}
+
+function persistModelInvocationReceipt(
+  state,
+  {
+    details,
+    kind,
+    receiptBinding = {},
+    receiptId,
+    routeReceipt,
+    selection,
+    stream = false,
+  } = {},
+) {
+  const receipt = {
+    id: receiptId,
+    runId: null,
+    kind,
+    summary: stream
+      ? `${details.invocation_kind ?? "model"} invocation stream started through ${selection.route.id} to ${selection.endpoint.model_id}.`
+      : `${details.invocation_kind ?? "model"} invocation routed through ${selection.route.id} to ${selection.endpoint.model_id}.`,
+    redaction: "redacted",
+    evidenceRefs: uniqueRefs([
+      "model_router",
+      "rust_model_mount_core",
+      "model_mount_invocation_positive_rust_path",
+      "model_mount_invocation_js_facade_retired",
+      "agentgres_model_invocation_truth_required",
+      "rust_daemon_core_model_invocation_receipt",
+      routeReceipt?.id,
+      selection.route?.id,
+      selection.endpoint?.id,
+      selection.provider?.id,
+      details.model_mount_provider_execution_ref,
+      details.model_mount_provider_result_admission_ref,
+      details.model_mount_invocation_admission_ref,
+      receiptBinding.receipt_binding?.binding_hash,
+      receiptBinding.accepted_receipt_append?.append_hash,
+      ...(receiptBinding.evidence_refs ?? []),
+    ]),
+    createdAt: nowIsoForState(state),
+    details: {
+      ...details,
+      rust_daemon_core_receipt_author: "ModelMountCore.bind_model_mount_invocation_receipt",
+    },
+    schemaVersion: "ioi.model-mounting.runtime.v1",
+  };
+  if (typeof state.persistRustAuthoredReceipt !== "function") {
+    const error = new Error("Model invocation receipts require Rust-authored receipt persistence.");
+    error.status = 500;
+    error.code = "model_mount_invocation_receipt_persistence_required";
+    error.details = { receipt_id: receiptId };
+    throw error;
+  }
+  return state.persistRustAuthoredReceipt(receipt);
+}
+
 export function modelMountProviderInvocationRequiresRust(selection = {}, options = {}) {
   assertCanonicalModelInvocationHelperInputs({ selection });
   void options;
@@ -552,6 +838,353 @@ export function modelMountProviderInvocationRequiresRust(selection = {}, options
 export function modelMountProviderStreamInvocationRequiresRust(selection = {}) {
   assertCanonicalModelInvocationHelperInputs({ selection });
   return true;
+}
+
+function admitModelMountInvocation(state, request) {
+  if (typeof state.admitModelMountInvocation !== "function") {
+    const error = new Error("Model invocation requires Rust model_mount invocation admission.");
+    error.status = 500;
+    error.code = "model_mount_invocation_admission_required";
+    throw error;
+  }
+  return state.admitModelMountInvocation(request);
+}
+
+function admitModelMountProviderExecution(state, request) {
+  if (typeof state.admitModelMountProviderExecution !== "function") {
+    const error = new Error("Model provider execution requires Rust model_mount provider execution admission.");
+    error.status = 500;
+    error.code = "model_mount_provider_execution_admission_required";
+    throw error;
+  }
+  return state.admitModelMountProviderExecution(request);
+}
+
+function admitModelMountProviderResult(state, request) {
+  if (typeof state.admitModelMountProviderResult !== "function") {
+    const error = new Error("Model provider result requires Rust model_mount provider result admission.");
+    error.status = 500;
+    error.code = "model_mount_provider_result_admission_required";
+    throw error;
+  }
+  return state.admitModelMountProviderResult(request);
+}
+
+function executeModelMountProviderInvocation(state, request) {
+  if (typeof state.executeModelMountProviderInvocation !== "function") {
+    const error = new Error("Migrated model provider execution requires Rust model_mount provider invocation execution.");
+    error.status = 500;
+    error.code = "model_mount_provider_invocation_rust_core_unavailable";
+    throw error;
+  }
+  return state.executeModelMountProviderInvocation(request);
+}
+
+function executeModelMountProviderStreamInvocation(state, request) {
+  if (typeof state.executeModelMountProviderStreamInvocation !== "function") {
+    const error = new Error("Migrated native-local model stream execution requires Rust model_mount provider stream invocation execution.");
+    error.status = 500;
+    error.code = "model_mount_provider_stream_invocation_rust_core_unavailable";
+    throw error;
+  }
+  return state.executeModelMountProviderStreamInvocation(request);
+}
+
+function invokeRustModelMountReceiptBinding(state, request) {
+  if (typeof state.bindModelMountInvocationReceipt !== "function") {
+    const error = new Error("Model invocation receipt persistence requires Rust receipt_binder binding.");
+    error.status = 500;
+    error.code = "model_mount_invocation_receipt_binding_required";
+    throw error;
+  }
+  return state.bindModelMountInvocationReceipt(request);
+}
+
+function nextInvocationReceiptId(state, kind) {
+  if (typeof state.nextReceiptId !== "function") {
+    const error = new Error("Model invocation admission requires a precomputed receipt id before Rust admission.");
+    error.status = 500;
+    error.code = "model_mount_invocation_receipt_id_required";
+    throw error;
+  }
+  return state.nextReceiptId(kind);
+}
+
+function normalizeModelMountSelection(selection = {}) {
+  const endpoint = canonicalEndpointRecord(selection.endpoint);
+  const provider = canonicalProviderRecord(selection.provider, endpoint);
+  const routeDecision = objectRecord(selection.route_decision ?? selection.routeDecision) ?? {};
+  const routeReceipt =
+    objectRecord(selection.route_receipt ?? selection.routeReceipt ?? selection.accepted_receipt_record) ?? null;
+  return {
+    route: objectRecord(selection.route) ?? {},
+    endpoint,
+    provider,
+    route_decision: routeDecision,
+    route_receipt: routeReceipt,
+    route_control: objectRecord(selection.route_control ?? selection.routeControl) ?? null,
+    rust_core_boundary: optionalRef(selection.rust_core_boundary),
+    evidence_refs: uniqueRefs(selection.evidence_refs ?? selection.evidenceRefs ?? []),
+  };
+}
+
+function canonicalEndpointRecord(endpoint = {}) {
+  const record = objectRecord(endpoint) ?? {};
+  return {
+    id: optionalRef(record.id),
+    model_id: optionalRef(record.model_id ?? record.modelId),
+    provider_id: optionalRef(record.provider_id ?? record.providerId),
+    api_format: optionalRef(record.api_format ?? record.apiFormat),
+    driver: optionalRef(record.driver),
+    backend_id: optionalRef(record.backend_id ?? record.backendId),
+    custody_ref: optionalRef(record.custody_ref ?? record.custodyRef),
+    node_plaintext_allowed: Boolean(record.node_plaintext_allowed ?? record.nodePlaintextAllowed ?? false),
+    privacy_class: optionalRef(record.privacy_class ?? record.privacyClass),
+    status: optionalRef(record.status),
+    capabilities: arrayOfStrings(record.capabilities),
+    load_policy: objectRecord(record.load_policy ?? record.loadPolicy),
+  };
+}
+
+function canonicalProviderRecord(provider = {}, endpoint = {}) {
+  const record = objectRecord(provider) ?? {};
+  return {
+    id: optionalRef(record.id ?? endpoint.provider_id),
+    kind: optionalRef(record.kind),
+    api_format: optionalRef(record.api_format ?? record.apiFormat),
+    driver: optionalRef(record.driver),
+    custody_ref: optionalRef(record.custody_ref ?? record.custodyRef),
+    node_plaintext_allowed: Boolean(record.node_plaintext_allowed ?? record.nodePlaintextAllowed ?? false),
+    privacy_class: optionalRef(record.privacy_class ?? record.privacyClass),
+    status: optionalRef(record.status),
+    capabilities: arrayOfStrings(record.capabilities),
+  };
+}
+
+function normalizeModelMountInstance(instance = {}, selection = {}) {
+  const record = objectRecord(instance) ?? {};
+  return {
+    id: optionalRef(record.id),
+    endpoint_id: optionalRef(record.endpoint_id ?? record.endpointId ?? selection.endpoint?.id),
+    provider_id: optionalRef(record.provider_id ?? record.providerId ?? selection.provider?.id),
+    backend_id: optionalRef(record.backend_id ?? record.backendId ?? selection.endpoint?.backend_id),
+    backend_process: objectRecord(record.backend_process ?? record.backendProcess),
+    backend_process_id: optionalRef(record.backend_process_id ?? record.backendProcessId),
+    backend_process_pid_hash: optionalRef(record.backend_process_pid_hash ?? record.backendProcessPidHash),
+  };
+}
+
+function normalizeEphemeralMcp(value = {}) {
+  return {
+    toolReceiptIds: uniqueRefs(value.toolReceiptIds ?? value.tool_receipt_ids ?? []),
+    serverIds: uniqueRefs(value.serverIds ?? value.server_ids ?? []),
+    evidenceRefs: uniqueRefs(value.evidenceRefs ?? value.evidence_refs ?? []),
+  };
+}
+
+function normalizeInvocationToken(value = {}) {
+  return {
+    grant_ref: optionalRef(value?.grant_ref ?? value?.grantId),
+  };
+}
+
+function requiredRouteReceipt(selection = {}) {
+  const routeReceipt = objectRecord(selection.route_receipt);
+  if (!routeReceipt) {
+    const error = new Error("Model invocation requires a Rust-authored route-selection receipt.");
+    error.status = 500;
+    error.code = "model_mount_route_selection_receipt_required";
+    throw error;
+  }
+  return routeReceipt;
+}
+
+function canonicalProviderResultForAdmission(providerResult = {}) {
+  const result = objectRecord(providerResult.result) ?? {};
+  return {
+    output_text: String(providerResult.output_text ?? providerResult["outputText"] ?? result.output_text ?? ""),
+    token_count:
+      objectRecord(providerResult.token_count ?? providerResult["tokenCount"] ?? result.token_count) ?? null,
+    provider_response_kind: optionalRef(
+      providerResult.provider_response_kind ??
+        providerResult["providerResponseKind"] ??
+        result.provider_response_kind,
+    ),
+    execution_backend: optionalRef(
+      providerResult.execution_backend ??
+        providerResult["executionBackend"] ??
+        result.execution_backend,
+    ),
+    backend_id: optionalRef(providerResult.backend_id ?? providerResult["backendId"] ?? result.backend_id),
+    provider_auth_evidence_refs: uniqueRefs(
+      providerResult.provider_auth_evidence_refs ??
+        providerResult["providerAuthEvidenceRefs"] ??
+        result.provider_auth_evidence_refs ??
+        [],
+    ),
+    backend_evidence_refs: uniqueRefs(
+      providerResult.backend_evidence_refs ??
+        providerResult["backendEvidenceRefs"] ??
+        result.backend_evidence_refs ??
+        result.evidence_refs ??
+        providerResult.evidence_refs ??
+        [],
+    ),
+    evidence_refs: uniqueRefs(providerResult.evidence_refs ?? result.evidence_refs ?? []),
+  };
+}
+
+function invocationReceiptDetails({
+  body = {},
+  continuationSafety,
+  ephemeralMcp,
+  hash,
+  input,
+  instance,
+  latencyMs,
+  outputText,
+  previousResponseId,
+  providerResult,
+  requiredScope,
+  responseId,
+  routeReceipt,
+  selection,
+  token,
+  tokenCount,
+  stream,
+}) {
+  const backendId = providerResult.backend_id ?? instance.backend_id ?? selection.endpoint.backend_id ?? null;
+  const routeDecisionRef = requiredStringRef(
+    "routeReceipt.details.model_mount_route_decision_ref",
+    routeReceipt?.details?.model_mount_route_decision_ref ??
+      selection.route_decision?.route_decision_ref,
+  );
+  return {
+    route_id: requiredStringRef("route.id", selection.route?.id),
+    route_receipt_id: requiredStringRef("routeReceipt.id", routeReceipt?.id),
+    selected_model: requiredStringRef("endpoint.model_id", selection.endpoint?.model_id),
+    endpoint_id: requiredStringRef("endpoint.id", selection.endpoint?.id),
+    provider_id: requiredStringRef("provider.id", selection.provider?.id),
+    instance_id: requiredStringRef("instance.id", instance?.id),
+    backend: providerResult.execution_backend ?? selection.endpoint?.api_format ?? null,
+    backend_id: backendId,
+    selected_backend: backendId,
+    policy_hash: hash(body.model_policy ?? {}),
+    required_scope: requiredScope ?? null,
+    grant_id: token.grant_ref,
+    token_count: tokenCount,
+    latency_ms: latencyMs,
+    input_hash: hash(input),
+    output_hash: hash(outputText),
+    provider_response_kind: providerResult.provider_response_kind ?? null,
+    backend_process: instance.backend_process ?? null,
+    backend_process_id: instance.backend_process_id ?? null,
+    backend_process_pid_hash: instance.backend_process_pid_hash ?? null,
+    backend_evidence_refs: providerResult.backend_evidence_refs ?? [],
+    provider_auth_evidence_refs: providerResult.provider_auth_evidence_refs ?? [],
+    provider_auth_header_names: [],
+    model_mount_route_decision_ref: routeDecisionRef,
+    model_mount_provider_result_admission_schema_version:
+      providerResult.model_mount_provider_result_admission_schema_version ?? null,
+    model_mount_provider_result_admission_ref:
+      providerResult.model_mount_provider_result_admission_ref ?? null,
+    model_mount_provider_result_admission_hash:
+      providerResult.model_mount_provider_result_admission_hash ?? null,
+    model_mount_provider_result_admission_source:
+      providerResult.model_mount_provider_result_admission_source ?? null,
+    model_mount_provider_result_admission_backend:
+      providerResult.model_mount_provider_result_admission_backend ?? null,
+    model_mount_provider_result_admission_receipt_refs:
+      providerResult.model_mount_provider_result_admission_receipt_refs ?? [],
+    model_mount_provider_result_admission_evidence_refs:
+      providerResult.model_mount_provider_result_admission_evidence_refs ?? [],
+    model_mount_provider_result_admission:
+      providerResult.model_mount_provider_result_admission ?? null,
+    tool_receipt_ids: ephemeralMcp.toolReceiptIds,
+    ephemeral_mcp_server_ids: ephemeralMcp.serverIds,
+    response_id: responseId,
+    previous_response_id: previousResponseId,
+    continuation: continuationSafety,
+    invocation_kind: stream ? "model_mount.invocation.stream_start" : "model_mount.invocation.invoke",
+    stream_status: stream ? "started" : null,
+    stream_source: stream ? "provider_native" : null,
+    send_options: body.send_options ?? null,
+    memory: body.memory ?? body.send_options?.memory ?? null,
+  };
+}
+
+function modelInvocationInputText(body = {}) {
+  if (typeof body.input === "string") return body.input;
+  if (Array.isArray(body.input)) return body.input.map(inputPartToText).join("\n");
+  if (typeof body.prompt === "string") return body.prompt;
+  if (typeof body.query === "string") return body.query;
+  if (Array.isArray(body.messages)) {
+    return body.messages
+      .map((message) => `${message?.role ?? "user"}: ${inputPartToText(message?.content ?? "")}`)
+      .join("\n");
+  }
+  if (Array.isArray(body.documents)) {
+    return [body.query, ...body.documents].map(inputPartToText).filter(Boolean).join("\n");
+  }
+  return JSON.stringify(body ?? {});
+}
+
+function inputPartToText(value) {
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) return value.map(inputPartToText).join("\n");
+  if (value && typeof value === "object") {
+    if (typeof value.text === "string") return value.text;
+    if (typeof value.content === "string") return value.content;
+    if (typeof value.input_text === "string") return value.input_text;
+    return JSON.stringify(value);
+  }
+  return String(value ?? "");
+}
+
+function modelInvocationSupportsResponseState(kind) {
+  return ["chat", "chat.completions", "responses", "messages", "completions"].includes(kind);
+}
+
+function readableStreamFromRustProviderChunks(chunks = []) {
+  const encoder = new TextEncoder();
+  const encoded = (Array.isArray(chunks) ? chunks : []).map((chunk) => encoder.encode(String(chunk ?? "")));
+  let controllerRef = null;
+  let closed = false;
+  const close = () => {
+    if (closed) return;
+    closed = true;
+    try {
+      controllerRef?.close();
+    } catch {
+      // The stream may already be canceled by the protocol adapter.
+    }
+  };
+  const abort = () => close();
+  const stream = new ReadableStream({
+    start(controller) {
+      controllerRef = controller;
+      for (const chunk of encoded) {
+        if (closed) break;
+        controller.enqueue(chunk);
+      }
+      close();
+    },
+    cancel() {
+      abort();
+    },
+  });
+  return { stream, abort };
+}
+
+function nowMs(state) {
+  const value = typeof state?.now === "function" ? state.now() : new Date();
+  if (typeof value?.getTime === "function") return value.getTime();
+  return Date.now();
+}
+
+function nowIsoForState(state) {
+  if (typeof state?.nowIso === "function") return state.nowIso();
+  return new Date().toISOString();
 }
 
 function modelMountProviderInvocationExecutionBackend(selection = {}) {
@@ -802,23 +1435,6 @@ function providerResultTokenCountRequired(field) {
   return error;
 }
 
-export function modelInvocationRustCoreRequiredError(operation_kind, details = {}) {
-  const error = new Error("Model invocation execution requires Rust daemon-core ownership.");
-  error.status = 501;
-  error.code = "model_mount_invocation_rust_core_required";
-  error.details = {
-    rust_core_boundary: "model_mount.invocation",
-    operation_kind,
-    ...details,
-    evidence_refs: MODEL_INVOCATION_RUST_CORE_REQUIRED_EVIDENCE_REFS,
-  };
-  return error;
-}
-
-function throwModelInvocationRustCoreRequired(operation_kind, details = {}) {
-  throw modelInvocationRustCoreRequiredError(operation_kind, details);
-}
-
 function policyHashRef(value) {
   const normalized = requiredStringRef("policy_hash", value);
   return normalized.startsWith("sha256:") ? normalized : `sha256:${normalized}`;
@@ -841,6 +1457,11 @@ function uniqueRefs(values = []) {
     if (ref && !refs.includes(ref)) refs.push(ref);
   }
   return refs;
+}
+
+function arrayOfStrings(value) {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item) => typeof item === "string" && item.trim()).map((item) => item.trim());
 }
 
 function objectRecord(value) {

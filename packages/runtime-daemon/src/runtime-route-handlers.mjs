@@ -715,7 +715,7 @@ export function createRuntimeRouteHandlers(deps) {
       return;
     }
     if (request.method === "POST" && action === "fork") {
-      writeJsonResponse(response, store.threadAuxiliarySurface.forkThread(store, threadId, await readBody(request)));
+      writeJsonResponse(response, await store.threadAuxiliarySurface.forkThread(store, threadId, await readBody(request)));
       return;
     }
     if (request.method === "POST" && action === "compact") {

@@ -670,11 +670,11 @@ function runDocs() {
       /Slice 842 retired stale public catalog-search orchestration helper injection/.test(guide) &&
       /injecting `catalogProviderStatus\(\)` or `normalizeLimit\(\)`/.test(guide) &&
       /Slice 843 retired cached catalog-provider runtime-material readback/.test(guide) &&
-      /`catalogProviderRuntimeMaterial\(\)` now fails\s+closed with `model_mount_catalog_provider_control_rust_core_required` even when/.test(guide) &&
-      /Catalog-provider port\s+health helpers also no longer call `state\.catalogProviderRuntimeMaterial\(\)`/.test(guide) &&
+      /`catalogProviderRuntimeMaterial\(\)` now sends only the\s+provider id and canonical request facts to `plan_model_mount_catalog_provider_control`/.test(guide) &&
+      /returns the\s+Rust-authored cTEE custody envelope/.test(guide) &&
       /Slice 844 retired private catalog-provider configuration readback/.test(guide) &&
-      /`catalogProviderConfig\(\)` helper now fails closed at\s+`model_mount\.catalog_provider_configuration\.read_private`/.test(guide) &&
-      /Catalog-provider\s+auth-header resolution now fails closed before calling\s+`state\.catalogProviderConfig\(\)`/.test(guide) &&
+      /`catalogProviderConfig\(\)` calls `plan_model_mount_catalog_provider_control` for\s+`model_mount\.catalog_provider_configuration\.read_private`/.test(guide) &&
+      /Auth-header\s+materialization remains absent/.test(guide) &&
       /Slice 845 retired the remaining Ollama catalog-provider JS provider-map\s+readback/.test(guide) &&
       /`ollamaCatalogProviderPort\(\)` no longer\s+reads `state\.providers\.get\("provider\.ollama"\)`/.test(guide) &&
       /At that slice, its port-local health\/search metadata was only a\s+gated Rust-core-required migration placeholder/.test(guide) &&
@@ -694,7 +694,7 @@ function runDocs() {
       /local JS backend registry\/process maps cannot become\s+public projection truth/.test(guide) &&
       /Slice 851 retired broad snapshot\/projection runtime-engine input from JS/.test(guide) &&
       /no longer sends\s+`runtime_engines: state\.listRuntimeEngines\(\)`,\s+`runtime_engine_profiles: state\.listRuntimeEngineProfiles\(\)`, or\s+`runtime_preference: state\.runtimePreference\(\)`/.test(guide) &&
-      /Dedicated runtime-engine read projections still use\s+narrow Rust-planned inputs/.test(guide) &&
+      /Dedicated runtime-engine read projections now send empty\s+JS state plus runtime `state_dir` and replay admitted `runtime-engine-controls`/.test(guide) &&
       /Slice 852 retired broad snapshot\/projection MCP and conversation input from JS/.test(guide) &&
       /no longer sends\s+`mcp_servers: state\.listMcpServers\(\)` or\s+`conversation_states: state\.listConversations\(\)`/.test(guide) &&
       /local JS MCP\/conversation maps cannot become public\s+projection truth/.test(guide) &&
@@ -717,7 +717,9 @@ function runDocs() {
       /`authority_snapshot` read\s+projection now sends only admitted receipts/.test(guide) &&
       /Slice 858 retired dedicated runtime-engine JS read-projection\s+input/.test(guide) &&
       /`runtime_engines`, `runtime_engine_profiles`, `runtime_preference`,\s+`runtime_preference_for_endpoint`, `runtime_default_load_options`, and\s+`runtime_engine_detail` read projections now send empty state objects/.test(guide) &&
-      /Rust returns empty list\/profile projections, null\s+preference\/default-load projections, and fails closed with\s+`model_mount_runtime_engine_not_found`/.test(guide) &&
+      /runtime `state_dir` for Agentgres replay/.test(guide) &&
+      /Rust now\s+requires `state_dir`, reads admitted `runtime-engine-controls\/\*\.json` records,\s+filters out JS-authored controls/.test(guide) &&
+      /fails closed with\s+`model_mount_runtime_engine_not_found` only when the requested engine has no\s+admitted runtime-engine control truth/.test(guide) &&
       /Slice 859 retired dedicated latest-runtime-survey JS primitive read-projection\s+input/.test(guide) &&
       /`latest_runtime_survey` read projection now sends only admitted\s+receipts/.test(guide) &&
       /Rust ignores `runtime_survey_input` for\s+this projection/.test(guide) &&
@@ -881,7 +883,7 @@ function runDocs() {
       /`catalog-provider-ports\.mjs`, `catalog-provider-ports\.test\.mjs`,\s+`catalog-registry\.mjs`, and `catalog-registry\.test\.mjs` are absent/.test(guide) &&
       /mounted `catalogProviderPorts\(\)` method is gone/.test(guide) &&
       /Slice 911 deleted the remaining catalog-provider source\/auth shaping and OAuth\s+boundary helper surface from JS/.test(guide) &&
-      /`catalog-provider-config\.mjs` now retains only\s+the configurable-provider preflight and shared Rust-core-required error/.test(guide) &&
+      /`catalog-provider-config\.mjs` now contains the\s+catalog-provider-control Rust client helper, Agentgres record-state commit\s+adapter, and defensive missing-planner error only/.test(guide) &&
       /`catalog-provider-config\.test\.mjs`,\s+`oauth-boundary\.mjs`, and `oauth-boundary\.test\.mjs` are absent/.test(guide) &&
       /Slice 912 deleted the standalone runtime-engine compatibility helper/.test(guide) &&
       /`runtime-engines\.mjs` and `runtime-engines\.test\.mjs` are absent/.test(guide) &&
@@ -891,7 +893,7 @@ function runDocs() {
       /Slice 914 deleted the orphan JS model-capability materializer/.test(guide) &&
       /`model-capability\.mjs` and `model-capability\.test\.mjs` are absent/.test(guide) &&
       /Slice 915 deleted the orphan JS model-instance lifecycle planning facades/.test(guide) &&
-      /`ModelMountingState\.planModelMountInstanceLifecycle\(\)` is absent/.test(guide) &&
+      /The mounted\s+`ModelMountingState\.planModelMountInstanceLifecycle\(\)` method is now a\s+temporary positive Rust client/.test(guide) &&
       /Slice 916 retired the remaining JS route-control record and route-selection\s+receipt builder facades/.test(guide) &&
       /`routes\.mjs` no longer exports `upsertRouteRecord\(\)`,\s+`routeSelectionReceipt\(\)`, `routeSelectionReceiptForState\(\)`,\s+`modelMountRouteDecisionRequestForSelection\(\)`, or\s+`persistModelRouteSelectionState\(\)`/.test(guide) &&
       /Slice 917 deleted the canonical provider-registry public-provider projection\s+helper/.test(guide) &&
@@ -953,9 +955,9 @@ function runDocs() {
       /`model_catalog_status_js_readback_retired`/.test(guide) &&
       /`catalog_status_input`/.test(guide) &&
       /Slice 867 moved public catalog-status readback refusal onto the Rust\s+read-projection boundary/.test(guide) &&
-      /Public `catalogStatus\(\)` now calls\s+`plan_model_mount_read_projection` kind `catalog_status` with empty request\s+state/.test(guide) &&
+      /public `catalogStatus\(\)` now calls `plan_model_mount_read_projection` kind\s+`catalog_status` with empty request state plus runtime `state_dir`/.test(guide) &&
       /current macro cut supersedes that refusal/.test(guide) &&
-      /direct Rust `catalog_status` arm ignores caller-supplied\s+`catalog_status_input` while returning the shared empty\/default catalog\s+projection/.test(guide) &&
+      /direct Rust `catalog_status` arm ignores caller-supplied\s+`catalog_status_input` while returning provider status, storage status,\s+last-search summary, and result rows/.test(guide) &&
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(guide) &&
       /`model_catalog_variant_enrichment_js_retired`/.test(guide) &&
       /`catalogVariantForSource\(\)`/.test(guide) &&
@@ -1148,9 +1150,9 @@ function runDocs() {
       /catalogProviderConfigs/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 836 is now satisfied/.test(matrix) &&
       /model_mount catalog-status Rust read-projection positive API cut/.test(matrix) &&
-      /public `catalogStatus\(\)` now returns the Rust-authored `catalog_status` projection directly/.test(matrix) &&
+      /public `catalogStatus\(\)` now calls Rust read-projection kind `catalog_status` with runtime `state_dir`/.test(matrix) &&
       /Model_mount catalog-status projection positive API/.test(matrix) &&
-      /obsolete JS edge translator plus Rust refusal module are deleted/.test(matrix) &&
+      /Rust replays admitted `model-provider-inventory\/\*\.json` Agentgres records/.test(matrix) &&
       /Implementation Slice Evidence: 868/.test(matrix) &&
       /Slice 868 retired the remaining runtime-survey projection-input and LM Studio\s+runtime placeholder helpers from JS/.test(matrix) &&
       /`latestRuntimeSurveyProjectionInput\(\)`, `lmStudioRuntimeEngines\(\)`, and\s+`lmStudioRuntimeSurvey\(\)` were deleted/.test(matrix) &&
@@ -1172,12 +1174,14 @@ function runDocs() {
       /`ModelMountingState` storage methods now own canonical storage request alias\s+rejection/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 872 is now satisfied/.test(matrix) &&
       /Implementation Slice Evidence: 873/.test(matrix) &&
-      /Slice 873 retired the fail-closed `capability-token-operations\.mjs` helper\s+module/.test(matrix) &&
-      /`ModelMountingState\.listTokens\(\)` now fails closed at\s+`model_mount\.capability_token\.list`/.test(matrix) &&
+      /Model_mount capability-token control positive API/.test(matrix) &&
+      /plan_model_mount_capability_token_control/.test(matrix) &&
+      /one-time token material is returned outside the persisted record/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 873 is now satisfied/.test(matrix) &&
       /Implementation Slice Evidence: 874/.test(matrix) &&
-      /Slice 874 retired the fail-closed `vault-operations\.mjs` helper module/.test(matrix) &&
-      /`ModelMountingState\.listVaultRefs\(\)`, `vaultRefMetadata\(\)`, and `vaultStatus\(\)`\s+now fail closed at `model_mount\.vault_ref\.list`/.test(matrix) &&
+      /Model_mount vault control positive API/.test(matrix) &&
+      /plan_model_mount_vault_control/.test(matrix) &&
+      /without plaintext material/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 874 is now satisfied/.test(matrix) &&
       /Implementation Slice Evidence: 875/.test(matrix) &&
       /Slice 875 retired the fail-closed `tokenizer-operations\.mjs` helper module/.test(matrix) &&
@@ -1341,7 +1345,7 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 914 is now satisfied/.test(matrix) &&
       /Implementation Slice Evidence: 915/.test(matrix) &&
       /Slice 915 deleted the orphan JS model-instance lifecycle planning facades/.test(matrix) &&
-      /`ModelMountingState\.planModelMountInstanceLifecycle\(\)` is absent/.test(matrix) &&
+      /Public model load\/unload positive Rust path/.test(matrix) &&
       /Implementation Slice Evidence: 916/.test(matrix) &&
       /Slice 916 retired the remaining JS route-control record and route-selection\s+receipt builder facades/.test(matrix) &&
       /`routes\.mjs` no longer exports `upsertRouteRecord\(\)`,\s+`routeSelectionReceipt\(\)`, `routeSelectionReceiptForState\(\)`,\s+`modelMountRouteDecisionRequestForSelection\(\)`, or\s+`persistModelRouteSelectionState\(\)`/.test(matrix) &&
@@ -1572,12 +1576,13 @@ function runDocs() {
       /Next scheduled matrix-compaction pass: compact Slice 920/.test(matrix) &&
       /the fail-closed `storage-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` storage methods now own canonical storage request alias rejection/.test(implementationMatrix) &&
-      /the fail-closed `capability-token-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
-      /public capability-token create\/revoke, Bearer authorization, and token-list projection now fail closed/.test(implementationMatrix) &&
-      /the fail-closed `vault-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
-      /public vault bind\/remove, health-receipt mutation, and vault list\/status\/metadata projection facades now fail closed/.test(implementationMatrix) &&
-      /the fail-closed `tokenizer-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
-      /public tokenize\/count\/context-fit utility facades now request Rust-authored `model_mount\.tokenizer` required records/.test(implementationMatrix) &&
+      /public capability-token create\/list\/authorize\/revoke now call Rust daemon-core `plan_model_mount_capability_token_control`/.test(implementationMatrix) &&
+      /committed records persist token hashes and authority facts without plaintext token material/.test(implementationMatrix) &&
+      /public vault bind\/list\/metadata\/status\/health\/remove now call Rust daemon-core `plan_model_mount_vault_control`/.test(implementationMatrix) &&
+      /committed records persist vault_ref_hash, material_hash, custody facts, and authority facts without plaintext material/.test(implementationMatrix) &&
+      /JS vault-port metadata\/write helpers no longer author accepted vault truth/.test(implementationMatrix) &&
+      /public tokenize\/count\/context-fit utility facades now call Rust daemon-core `plan_model_mount_tokenizer`/.test(implementationMatrix) &&
+      /commit only those records through Rust Agentgres `commit_runtime_model_mount_record_state`/.test(implementationMatrix) &&
       /the fail-closed `artifact-endpoint-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` artifact\/endpoint methods now own canonical import, endpoint mount, and endpoint unmount request alias rejection/.test(implementationMatrix) &&
       /the fail-closed `catalog-download-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
@@ -1603,14 +1608,14 @@ function runDocs() {
       /private `OAuthCredentialProvider` helper is no longer mounted and its retired helper module is deleted/.test(implementationMatrix) &&
       /mounted OAuth start\/callback\/exchange\/refresh\/revoke facades no longer inject `publicCatalogProviderConfig\(\)`, `catalogProviderStatus\(\)`, `oauthBoundaryForSession\(\)`, `publicOAuthSession\(\)`, or `stableHash\(\)`/.test(implementationMatrix) &&
       /the fail-closed `catalog-provider-oauth\.mjs` helper module is deleted/.test(implementationMatrix) &&
-      /mounted public `ModelMountingState` OAuth methods now own provider configurability preflight/.test(implementationMatrix) &&
-      /catalog source runtime-material lookup now fails closed/.test(implementationMatrix) &&
-      /catalog-provider config-map reads/.test(implementationMatrix) &&
+      /`ModelCatalogProviderControl` now has a positive Rust daemon-core control path/.test(implementationMatrix) &&
+      /call `plan_model_mount_catalog_provider_control`/.test(implementationMatrix) &&
+      /commit only Rust-authored `model-catalog-provider-controls` records through Agentgres model_mount/.test(implementationMatrix) &&
+      /keep JS from executing OAuth credential helpers/.test(implementationMatrix) &&
+      /returning plaintext catalog-provider material/.test(implementationMatrix) &&
       /catalog-provider source\/auth shaping plus OAuth boundary helper surface is also deleted/.test(implementationMatrix) &&
-      /`catalog-provider-config\.mjs` now retains only the configurable-provider preflight and shared Rust-core-required error/.test(implementationMatrix) &&
+      /`catalog-provider-config\.mjs` now contains the catalog-provider-control Rust client helper/.test(implementationMatrix) &&
       /`catalog-provider-config\.test\.mjs`, `oauth-boundary\.mjs`, and `oauth-boundary\.test\.mjs` are absent/.test(implementationMatrix) &&
-      /private catalog-provider config readback now fails closed at `model_mount\.catalog_provider_configuration\.read_private`/.test(implementationMatrix) &&
-      /cached bound\/missing\/failed runtime-material readback/.test(implementationMatrix) &&
       /the catalog-provider port\/registry helper surface is deleted/.test(implementationMatrix) &&
       /mounted `catalogProviderPorts\(\)`, provider-port ordering, health-status merge/.test(implementationMatrix) &&
       /default seeding no longer calls `state\.discoverLmStudioProvider\(checkedAt\)` or inserts `provider\.lmstudio` into `state\.providers`/.test(implementationMatrix) &&
@@ -1637,8 +1642,8 @@ function runDocs() {
       /latest runtime-survey readback now routes through Rust `plan_model_mount_read_projection` kind `latest_runtime_survey` with receipt-only request state/.test(implementationMatrix) &&
       /Rust now authors not-checked readback as zero\/null\/default and checked readback only from admitted `runtime_survey` receipt details/.test(implementationMatrix) &&
       /broad snapshot\/projection requests also no longer send `artifacts`, `endpoints`, `instances`, `providers`, `routes`, `downloads`, or `product_artifact_policy`/.test(implementationMatrix) &&
-      /dedicated `artifacts`, `providers`, `endpoints`, `instances`, `routes`, `model_capabilities`, and `downloads` read projections now also send empty request state/.test(implementationMatrix) &&
-      /Rust bridge direct arms return empty\/default lists instead of caller-supplied topology arrays/.test(implementationMatrix) &&
+      /dedicated `artifacts`, `providers`, `endpoints`, `instances`, `routes`, `model_capabilities`, and `downloads` read projections now send empty request state; `instances` and `routes` also send runtime `state_dir`/.test(implementationMatrix) &&
+      /Rust bridge direct arms return Rust-owned replay or empty\/default lists instead of caller-supplied topology arrays/.test(implementationMatrix) &&
       /dedicated `product_artifacts`, `runtime_model_catalog`, and `open_ai_model_list` read projections also send empty request state/.test(implementationMatrix) &&
       /JS artifact maps and fixture policy cannot become public product catalog or OpenAI-compatible model-list truth/.test(implementationMatrix) &&
       /internal fixture seeding now honors only the explicit `IOI_EXPOSE_INTERNAL_FIXTURE_MODELS` toggle and ignores the retired `IOI_ENABLE_INTERNAL_FIXTURE_MODELS` alias/.test(
@@ -1654,16 +1659,20 @@ function runDocs() {
       /dedicated `authoritySnapshot\(\)` now sends only admitted receipts/.test(implementationMatrix) &&
       /`runtime-engines\.mjs` and `runtime-engines\.test\.mjs` are deleted/.test(implementationMatrix) &&
       /mounted `ModelMountingState` methods/.test(implementationMatrix) &&
-      /list\/detail\/default-load\/preference\/profile reads (?:now|continue to) route through Rust `plan_model_mount_read_projection` runtime-engine projection kinds with empty JS request state/.test(implementationMatrix) &&
-      /empty list\/profile projections, null preference\/default-load projections, and fail-closed detail/.test(implementationMatrix) &&
+      /list\/detail\/default-load\/preference\/profile reads now route through Rust `plan_model_mount_read_projection` runtime-engine projection kinds with empty JS request state plus runtime `state_dir`/.test(implementationMatrix) &&
+      /Rust replays admitted `runtime-engine-controls\/\*\.json` records for runtime-engine projection truth while filtering out JS-authored controls/.test(implementationMatrix) &&
       /catalog-provider source\/auth shaping plus OAuth boundary helper surface is also deleted/.test(implementationMatrix) &&
       /auth-header materialization, OAuth token transport, PKCE helpers, OAuth vault-ref helpers/.test(implementationMatrix) &&
       /the catalog-provider port\/registry helper surface is deleted/.test(
         implementationMatrix,
       ) &&
-      /`catalog-provider-config\.mjs` now retains only the configurable-provider preflight and shared Rust-core-required error/.test(
+      /`ModelCatalogProviderControl` now has a positive Rust daemon-core control path/.test(
         implementationMatrix,
       ) &&
+      /call `plan_model_mount_catalog_provider_control`/.test(
+        implementationMatrix,
+      ) &&
+      /keep JS from executing OAuth credential helpers/.test(implementationMatrix) &&
       /public catalog search orchestration now fails closed with `model_catalog_search_js_orchestrator_retired`/.test(
         implementationMatrix,
       ) &&
@@ -1673,7 +1682,7 @@ function runDocs() {
       /mounted `ModelMountingState` catalog methods now own storage-summary readback/.test(
         implementationMatrix,
       ) &&
-      /public catalog-provider configuration list\/get now fail closed at `model_mount\.catalog_provider_configuration\.list`\/`get`/.test(
+      /commit only Rust-authored `model-catalog-provider-controls` records through Agentgres model_mount/.test(
         implementationMatrix,
       ) &&
       /broad snapshot\/projection transport no longer sends `catalog_provider_configs` or emits `catalogProviderConfigs` compatibility fields/.test(
@@ -1685,7 +1694,7 @@ function runDocs() {
       /no longer preserves JS `catalogStatus\(\)` or `catalogStatusProjectionInput\(\)` helpers/.test(
         implementationMatrix,
       ) &&
-      /direct Rust `catalog_status` ignores `catalog_status_input` while broad catalog envelopes remain empty\/default/.test(
+      /direct Rust `catalog_status` ignores `catalog_status_input` while catalog status replays admitted provider-inventory truth/.test(
         implementationMatrix,
       ) &&
       /the orphaned JS `read-model\.mjs` projection helper module and test were deleted/.test(
@@ -1755,12 +1764,16 @@ function runDocs() {
       /Slice 744 retired workspace-change and managed-session JS bridge-control\s+authority/.test(
         matrix,
       ) &&
-      /runtime_workspace_change_control_rust_core_required/.test(
+      /Runtime workspace-change projection\/control positive API/.test(
         matrix,
       ) &&
-      /runtime_managed_session_control_rust_core_required/.test(
+      /project_runtime_workspace_change_projection/.test(matrix) &&
+      /plan_runtime_workspace_change_control/.test(matrix) &&
+      /Runtime managed-session projection\/control positive API/.test(
         matrix,
       ) &&
+      /project_runtime_managed_session_projection/.test(matrix) &&
+      /plan_runtime_managed_session_control/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 745/.test(matrix) &&
       /Slice 745 retired the remaining JS-authoritative MCP workflow control surface/.test(
         matrix,
@@ -1770,7 +1783,8 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 745 is now satisfied/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 746/.test(matrix) &&
       /Slice 746 retired JS-authoritative model conversation-state writes and native\s+stream-completion finalization/.test(matrix) &&
-      /model_mount_conversation_rust_core_required/.test(matrix) &&
+      /model_conversation_states/.test(matrix) &&
+      /model_mount_conversation_list_js_facade_retired/.test(matrix) &&
       /model_mount_stream_completion_js_facade_retired/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 746 is now satisfied/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 747/.test(matrix) &&
@@ -1796,6 +1810,9 @@ function runDocs() {
       /model_mount_invocation_rust_core_required/.test(matrix) &&
       /model_mount_invocation_js_facade_retired/.test(matrix) &&
       /rust_daemon_core_model_invocation_required/.test(matrix) &&
+      /Public model invocation positive Rust path/.test(matrix) &&
+      /model_mount_invocation_positive_rust_path/.test(matrix) &&
+      /rust_daemon_core_model_invocation_receipt/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 749 is now satisfied/.test(
         matrix,
       ) &&
@@ -1822,10 +1839,9 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 752/.test(
         matrix,
       ) &&
-      /model_mount_receipt_gate_rust_core_required/.test(matrix) &&
-      /model_mount_receipt_gate_js_facade_retired/.test(matrix) &&
-      /rust_daemon_core_model_receipt_gate_required/.test(matrix) &&
-      /agentgres_model_receipt_gate_truth_required/.test(matrix) &&
+      /Model_mount receipt-gate positive API/.test(matrix) &&
+      /plan_model_mount_receipt_gate/.test(matrix) &&
+      /JS no longer computes gate failures or authors gate receipts/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 752 is now satisfied/.test(
         matrix,
       ) &&
@@ -2027,8 +2043,8 @@ function runDocs() {
       /derived backend registry records no longer read `state\.providers` or provider-map records\s+for LM Studio, OpenAI-compatible, Ollama, or vLLM status, base URL, or public-CLI binary path projection/.test(implementationMatrix) &&
       /the local runtime-engine helper tail no longer exports `llamaCppGpuLayersArg\(\)` or `backendBindAddress\(\)`/.test(implementationMatrix) &&
       /the orphan `workflow-node\.mjs` response helper\/test module is deleted/.test(implementationMatrix) &&
-      /the standalone `server-control\.mjs` helper\/test module is deleted/.test(implementationMatrix) &&
-      /`recordServerOperation\(\)` fails closed instead of delegating to a missing helper export/.test(implementationMatrix) &&
+      /the standalone `server-control\.mjs` helper\/test module remains deleted/.test(implementationMatrix) &&
+      /`recordServerOperation\(\)` now commits Rust server-control truth instead of delegating to a JS helper or required-record facade/.test(implementationMatrix) &&
       /the orphan `catalog-projections\.mjs` product\/config\/auth projection helper\/test module is deleted/.test(implementationMatrix) &&
       /dead catalog download policy\/risk\/recommendation helpers are deleted from `catalog-helpers\.mjs`/.test(implementationMatrix) &&
       /the orphan `download-helpers\.mjs` HTTP\/partial-file catalog download materializer is deleted/.test(implementationMatrix) &&
@@ -2059,25 +2075,27 @@ function runDocs() {
       /`allowedTools`, `allowedResources`, `allowedPrompts`, `serverUrl`,\s+`containmentMode`, `allowNetworkEgress`, `allowChildProcesses`, and\s+`secretRefs` aliases/.test(
         implementationMatrix,
       ) &&
-      /MCP serve `tools\/call` now fails closed with `runtime_mcp_serve_tool_call_rust_core_required`/.test(
+      /MCP serve `tools\/call` now routes allowed tool calls through the mounted Rust-owned coding-tool invocation surface/.test(
         implementationMatrix,
       ) &&
       /visual observation mutation metadata now considers only canonical\s+`screenshot_path`, `som_path`, and `ax_path`/.test(implementationMatrix) &&
       /visual GUI local fixture capture\/execution no longer reads `IOI_RUNTIME_ENABLE_VISUAL_CAPTURE_FIXTURE` or `IOI_RUNTIME_ENABLE_VISUAL_EXECUTOR_FIXTURE`/.test(
         implementationMatrix,
       ) &&
-      /JS may remain only as primitive volatile-state collection and protocol\/input transport until direct Rust projection APIs own\s+the full server-control surface/.test(
+      /actual process supervision\/transport execution, richer server log\/event replay and projection,\s+command-transport retirement, and stable SDK\/IDE server-control APIs remain non-terminal/.test(
         implementationMatrix,
       ) &&
       /OAuth callback preflight now accepts only `state`, not retired\s+`oauth_state`\/`oauthState` aliases/.test(implementationMatrix) &&
       /the hidden `catalogProviderConfigUpdate` JS writer has been removed/.test(implementationMatrix) &&
       /catalog-provider source\/auth shaping plus OAuth boundary helper surface is also deleted/.test(implementationMatrix) &&
-      /catalog source runtime-material lookup now fails closed/.test(implementationMatrix) &&
+      /catalog source runtime-material lookup now routes through Rust daemon-core/.test(implementationMatrix) &&
       /auth-header materialization, OAuth token transport, PKCE helpers, OAuth vault-ref helpers/.test(implementationMatrix) &&
       /dead catalog download policy\/risk\/recommendation helpers are deleted from `catalog-helpers\.mjs`/.test(implementationMatrix) &&
       /the orphan `download-helpers\.mjs` HTTP\/partial-file catalog download materializer is deleted/.test(implementationMatrix) &&
       /the dormant catalog import materializer helper tail is deleted from `catalog-helpers\.mjs`/.test(implementationMatrix) &&
-      /public route upsert\/test, mounted route-selection, explicit-model endpoint resolution,\s+and retired route-selection receipt helper paths now request Rust-authored\s+`model_mount\.route_control` required records/.test(implementationMatrix) &&
+      /public route upsert\/test, mounted route-selection, and explicit-model endpoint resolution now call Rust daemon-core\s+`plan_model_mount_route_control`/.test(implementationMatrix) &&
+      /direct receipt-gate validation now calls Rust daemon-core `plan_model_mount_receipt_gate`/.test(implementationMatrix) &&
+      /JS no longer computes gate failures, creates gate receipts, or accepts receipt-gate truth without the Rust planner/.test(implementationMatrix) &&
       /Slice\s+755 workflow-edit read-helper facade-retirement compaction is complete/.test(
         guide,
       ) &&
@@ -2123,8 +2141,16 @@ function runDocs() {
       /Rust daemon-core constructs the coding-tool `StepModuleInvocation` envelope before workload dispatch\/admission/.test(
         matrix,
       ) &&
-      /JS invocation surface still builds protocol context/.test(matrix) &&
-      /Move diagnostics projection\/replay and remaining coding-tool context\/result-event envelope authorship into one Rust-owned execution spine/.test(
+      /JS invocation surface still coordinates temporary runner transport plus fail-closed governance\/artifact\/snapshot surfaces/.test(
+        matrix,
+      ) &&
+      /normal success\/failure execution now calls Rust `plan_coding_tool_result_envelope` before dispatch/.test(
+        matrix,
+      ) &&
+      /JS-authored StepModule context, JS-authored result payload summary\/source-event kind\/result-event candidate/.test(
+        matrix,
+      ) &&
+      /Move diagnostics projection\/replay into the Rust-owned execution spine/.test(
         matrix,
       ) &&
       /Public workspace snapshot\/restore API Rust-owned/.test(matrix) &&
@@ -2140,6 +2166,12 @@ function runDocs() {
       ) &&
       /Coding-tool approval block positive API/.test(matrix) &&
       /`plan_coding_tool_approval_block` is a Rust daemon-core operation/.test(
+        matrix,
+      ) &&
+      /Coding-tool result envelope\/context planning positive API/.test(
+        matrix,
+      ) &&
+      /`plan_coding_tool_result_envelope` is a Rust daemon-core operation/.test(
         matrix,
       ) &&
       /Coding-tool result-event admission positive API/.test(matrix) &&
@@ -2626,11 +2658,26 @@ function runBridge() {
         exists("crates/services/src/agentic/runtime/kernel/model_mount/accepted_receipt.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/accepted_receipt.rs")
           : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/catalog_provider_control.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/catalog_provider_control.rs")
+          : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/capability_token_control.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/capability_token_control.rs")
+          : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/vault_control.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/vault_control.rs")
+          : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/receipt_gate.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/receipt_gate.rs")
+          : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs")
           : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/aggregate.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/aggregate.rs")
+          : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/conversation.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/conversation.rs")
           : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/adapter_boundary.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/adapter_boundary.rs")
@@ -2668,20 +2715,20 @@ function runBridge() {
         exists("crates/services/src/agentic/runtime/kernel/model_mount/required.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/required.rs")
           : "",
-        exists("crates/services/src/agentic/runtime/kernel/model_mount/required/backend_lifecycle.rs")
-          ? read("crates/services/src/agentic/runtime/kernel/model_mount/required/backend_lifecycle.rs")
-          : "",
-        exists("crates/services/src/agentic/runtime/kernel/model_mount/required/server_control.rs")
-          ? read("crates/services/src/agentic/runtime/kernel/model_mount/required/server_control.rs")
-          : "",
-        exists("crates/services/src/agentic/runtime/kernel/model_mount/required/runtime_engine.rs")
-          ? read("crates/services/src/agentic/runtime/kernel/model_mount/required/runtime_engine.rs")
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/backend_lifecycle.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/backend_lifecycle.rs")
           : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/required/tokenizer.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/required/tokenizer.rs")
           : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/required/route_control.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/required/route_control.rs")
+          : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/server_control.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/server_control.rs")
+          : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/runtime_engine.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/runtime_engine.rs")
           : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/backend_process.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/backend_process.rs")
@@ -2717,6 +2764,21 @@ function runBridge() {
     : "";
   const modelMountCommandSurface = [bridgeModule, modelMountCommandBridge, modelMountReceiptCommandBridge].join("\n");
   const modelMountReadProjectionEvidence = [modelMountCommandSurface, modelMountCore].join("\n");
+  const modelMountArtifactEndpointCore = exists(
+    "crates/services/src/agentic/runtime/kernel/model_mount/artifact_endpoint.rs",
+  )
+    ? read("crates/services/src/agentic/runtime/kernel/model_mount/artifact_endpoint.rs")
+    : "";
+  const modelMountArtifactEndpointEvidence = [
+    modelMountCore,
+    modelMountArtifactEndpointCore,
+  ].join("\n");
+  const modelMountRouteControlEvidence = [
+    modelMountCore,
+    exists("crates/services/src/agentic/runtime/kernel/model_mount/route_control.rs")
+      ? read("crates/services/src/agentic/runtime/kernel/model_mount/route_control.rs")
+      : "",
+  ].join("\n");
   const modelMountInvocationReceiptProjectionEvidence = modelMountCore;
   const modelMountReceiptOperationsBridge = modelMountingState;
   const modelMountReceiptWriteGuardsBridge = exists("packages/runtime-daemon/src/model-mounting/receipt-write-guards.mjs")
@@ -2787,6 +2849,15 @@ function runBridge() {
     "";
   const modelTokenizerOperationsTest = exists("packages/runtime-daemon/src/model-mounting/tokenizer-operations.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/tokenizer-operations.test.mjs")
+    : "";
+  const modelTokenizerFacadeBlock =
+    modelMountingState.match(/\n\s+modelTokenizerUtility\([\s\S]*?\n\s+tokenizeModel\(/)?.[0] ??
+    "";
+  const modelTokenizerControl = exists("packages/runtime-daemon/src/model-mounting/tokenizer-control.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/tokenizer-control.mjs")
+    : "";
+  const modelMountTokenizerCore = exists("crates/services/src/agentic/runtime/kernel/model_mount/tokenizer.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/model_mount/tokenizer.rs")
     : "";
   const modelMountRecordStateCommits = exists("packages/runtime-daemon/src/model-mounting/record-state-commits.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/record-state-commits.mjs")
@@ -2946,6 +3017,11 @@ function runBridge() {
   )
     ? read("crates/services/src/agentic/runtime/kernel/runtime_memory_projection.rs")
     : "";
+  const runtimeMemoryControlCore = exists(
+    "crates/services/src/agentic/runtime/kernel/runtime_memory_control.rs",
+  )
+    ? read("crates/services/src/agentic/runtime/kernel/runtime_memory_control.rs")
+    : "";
   const policyRunCancelCore = exists("crates/services/src/agentic/runtime/kernel/policy/run_cancel.rs")
     ? read("crates/services/src/agentic/runtime/kernel/policy/run_cancel.rs")
     : "";
@@ -2988,7 +3064,11 @@ function runBridge() {
     )?.[0] ?? "";
   const runtimeBridgeThreadStartAgentStateUpdateCoreBlock =
     policyThreadLifecycleCore.match(
-      /impl RuntimeBridgeThreadStartAgentStateUpdateCore \{[\s\S]*?(?=\n\n#\[derive\(Debug, Default, Clone\)\]\npub struct RuntimeBridgeTurnRunStateUpdateCore;)/,
+      /impl RuntimeBridgeThreadStartAgentStateUpdateCore \{[\s\S]*?(?=\n\n#\[derive\(Debug, Default, Clone\)\]\npub struct RuntimeBridgeThreadControlAgentStateUpdateCore;)/,
+    )?.[0] ?? "";
+  const runtimeBridgeThreadControlAgentStateUpdateCoreBlock =
+    policyThreadLifecycleCore.match(
+      /impl RuntimeBridgeThreadControlAgentStateUpdateCore \{[\s\S]*?(?=\n\n#\[derive\(Debug, Default, Clone\)\]\npub struct RuntimeBridgeTurnRunStateUpdateCore;)/,
     )?.[0] ?? "";
   const runtimeBridgeTurnRunStateUpdateCoreBlock =
     policyThreadLifecycleCore.match(
@@ -3220,10 +3300,12 @@ function runBridge() {
   const runtimeCodingToolBudgetRecoverySurface = exists("packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.mjs")
     : "";
-  const runtimeCodingToolBudgetRecovery = exists("packages/runtime-daemon/src/runtime-coding-tool-budget-recovery.mjs")
+  const runtimeCodingToolBudgetRecoveryExists = exists("packages/runtime-daemon/src/runtime-coding-tool-budget-recovery.mjs");
+  const runtimeCodingToolBudgetRecovery = runtimeCodingToolBudgetRecoveryExists
     ? read("packages/runtime-daemon/src/runtime-coding-tool-budget-recovery.mjs")
     : "";
-  const runtimeCodingToolBudgetRecoveryTest = exists("packages/runtime-daemon/src/runtime-coding-tool-budget-recovery.test.mjs")
+  const runtimeCodingToolBudgetRecoveryTestExists = exists("packages/runtime-daemon/src/runtime-coding-tool-budget-recovery.test.mjs");
+  const runtimeCodingToolBudgetRecoveryTest = runtimeCodingToolBudgetRecoveryTestExists
     ? read("packages/runtime-daemon/src/runtime-coding-tool-budget-recovery.test.mjs")
     : "";
   const runtimeCodingToolBudgetRecoverySurfaceTest = exists("packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.test.mjs")
@@ -3234,6 +3316,15 @@ function runBridge() {
     : "";
   const runtimeDiagnosticsRepairSurfaceTest = exists("packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs")
+    : "";
+  const runtimeDiagnosticsRepairControlCore = exists("crates/services/src/agentic/runtime/kernel/runtime_diagnostics_repair_control.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/runtime_diagnostics_repair_control.rs")
+    : "";
+  const runtimeDiagnosticsRepairProjectionCore = exists("crates/services/src/agentic/runtime/kernel/runtime_diagnostics_repair_projection.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/runtime_diagnostics_repair_projection.rs")
+    : "";
+  const runtimeDiagnosticsRepairPolicyCore = exists("crates/services/src/agentic/runtime/kernel/runtime_diagnostics_repair_policy.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/runtime_diagnostics_repair_policy.rs")
     : "";
   const runtimeContextPolicySurface = exists("packages/runtime-daemon/src/runtime-context-policy-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-context-policy-surface.mjs")
@@ -3246,6 +3337,9 @@ function runBridge() {
     : "";
   const runtimeWorkflowEditSurfaceTest = exists("packages/runtime-daemon/src/runtime-workflow-edit-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-workflow-edit-surface.test.mjs")
+    : "";
+  const runtimeWorkflowEditControlCore = exists("crates/services/src/agentic/runtime/kernel/runtime_workflow_edit_control.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/runtime_workflow_edit_control.rs")
     : "";
   const codingTools = exists("packages/runtime-daemon/src/coding-tools.mjs")
     ? read("packages/runtime-daemon/src/coding-tools.mjs")
@@ -3353,6 +3447,11 @@ function runBridge() {
     : "";
   const runtimeThreadForkStateTest = exists("packages/runtime-daemon/src/threads/thread-fork-state.test.mjs")
     ? read("packages/runtime-daemon/src/threads/thread-fork-state.test.mjs")
+    : "";
+  const runtimeThreadForkControlCore = exists(
+    "crates/services/src/agentic/runtime/kernel/runtime_thread_fork_control.rs",
+  )
+    ? read("crates/services/src/agentic/runtime/kernel/runtime_thread_fork_control.rs")
     : "";
   const runtimeBridgeThread = exists("packages/runtime-daemon/src/threads/runtime-bridge-thread.mjs")
     ? read("packages/runtime-daemon/src/threads/runtime-bridge-thread.mjs")
@@ -4566,16 +4665,39 @@ function runBridge() {
       /CodingToolResultEventAdmissionCore/.test(codingToolEventCore) &&
       /CodingToolResultEventAdmissionRequest/.test(codingToolEventCore) &&
       /CodingToolResultEventAdmissionRecord/.test(codingToolEventCore) &&
+      /CodingToolResultEnvelopePlanCore/.test(codingToolEventCore) &&
+      /CodingToolResultEnvelopePlanRequest/.test(codingToolEventCore) &&
+      /CodingToolResultEnvelopePlanRecord/.test(codingToolEventCore) &&
       /CODING_TOOL_RESULT_EVENT_ADMISSION_REQUEST_SCHEMA_VERSION/.test(codingToolEventCore) &&
+      /CODING_TOOL_RESULT_ENVELOPE_PLAN_REQUEST_SCHEMA_VERSION/.test(codingToolEventCore) &&
       /pub fn admit_coding_tool_result_event_response/.test(codingToolEventCore) &&
+      /pub fn plan_coding_tool_result_envelope_response/.test(codingToolEventCore) &&
       /rust_admits_coding_tool_result_event_with_agentgres_refs/.test(codingToolEventCore) &&
       /rust_rejects_coding_tool_result_event_without_receipts/.test(codingToolEventCore) &&
+      /rust_plans_coding_tool_result_step_module_context/.test(codingToolEventCore) &&
+      /rust_plans_coding_tool_result_event_envelope/.test(codingToolEventCore) &&
+      /rust_shapes_coding_tool_result_envelope_command_response/.test(codingToolEventCore) &&
       /rust_core_shapes_coding_tool_result_event_admission_command_response/.test(
         codingToolEventCore,
       ) &&
       /admit_coding_tool_result_event/.test(commandProtocolCore) &&
+      /plan_coding_tool_result_envelope/.test(commandProtocolCore) &&
       /CommandOperation::AdmitCodingToolResultEvent/.test(commandProtocolCore) &&
+      /CommandOperation::PlanCodingToolResultEnvelope/.test(commandProtocolCore) &&
       /admit_coding_tool_result_event_response/.test(coreCommandDispatch) &&
+      /plan_coding_tool_result_envelope_response/.test(coreCommandDispatch) &&
+      /CODING_TOOL_RESULT_ENVELOPE_PLAN_REQUEST_SCHEMA_VERSION/.test(
+        runtimeContextPolicyRunner,
+      ) &&
+      /planCodingToolResultEnvelope\(request = \{\}\)/.test(runtimeContextPolicyRunner) &&
+      /operation:\s*"plan_coding_tool_result_envelope"/.test(runtimeContextPolicyRunner) &&
+      /normalizeCodingToolResultEnvelopePlanBridgeResult/.test(runtimeContextPolicyRunner) &&
+      /coding-tool result envelope runner sends Rust daemon-core plan request/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /coding-tool result envelope normalizer rejects wrong operation kind/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
       /CODING_TOOL_RESULT_EVENT_ADMISSION_REQUEST_SCHEMA_VERSION/.test(
         runtimeAgentgresRunner,
       ) &&
@@ -4588,6 +4710,23 @@ function runBridge() {
       /codingToolResultEventAdmissionForThread = requireRustCoreCodingToolResultEventAdmission/.test(
         runtimeCodingToolInvocationSurface,
       ) &&
+      /codingToolResultEnvelopeForThread = requireRustCoreCodingToolResultEnvelopePlanning/.test(
+        runtimeCodingToolInvocationSurface,
+      ) &&
+      /const stepModuleEnvelope = codingToolResultEnvelopeForThread/.test(
+        runtimeCodingToolInvocationSurface,
+      ) &&
+      /const stepModuleContext = requireRustPlannedStepModuleContext/.test(
+        runtimeCodingToolInvocationSurface,
+      ) &&
+      /context:\s*stepModuleContext/.test(runtimeCodingToolInvocationSurface) &&
+      /const resultEnvelope = codingToolResultEnvelopeForThread/.test(
+        runtimeCodingToolInvocationSurface,
+      ) &&
+      /const resultEvent = requireRustPlannedResultEvent/.test(
+        runtimeCodingToolInvocationSurface,
+      ) &&
+      /event:\s*resultEvent/.test(runtimeCodingToolInvocationSurface) &&
       /const blockedEvent = codingToolResultEventAdmissionForThread/.test(
         runtimeCodingToolInvocationSurface,
       ) &&
@@ -4595,8 +4734,24 @@ function runBridge() {
         runtimeCodingToolInvocationSurface,
       ) &&
       /admitCodingToolResultEventForThread/.test(runtimeDaemonIndex) &&
+      /contextPolicyRunner\.planCodingToolResultEnvelope/.test(runtimeDaemonIndex) &&
       /runtimeAgentgresAdmissionRunner\.admitCodingToolResultEvent/.test(runtimeDaemonIndex) &&
       /store\.registerRuntimeEvent\(admittedEvent\)/.test(runtimeDaemonIndex) &&
+      /runtime_coding_tool_result_envelope_rust_core_required/.test(
+        runtimeCodingToolInvocationSurface,
+      ) &&
+      /operation:\s*"coding_tool_result_envelope_planning"/.test(
+        runtimeCodingToolInvocationSurface,
+      ) &&
+      /operation_kind:\s*"runtime\.coding_tool\.result_envelope"/.test(
+        runtimeCodingToolInvocationSurface,
+      ) &&
+      /coding_tool_result_envelope_js_authoring_retired/.test(
+        runtimeCodingToolInvocationSurface,
+      ) &&
+      /rust_daemon_core_coding_tool_result_envelope_required/.test(
+        runtimeCodingToolInvocationSurface,
+      ) &&
       /runtime_coding_tool_invocation_rust_core_required/.test(runtimeCodingToolInvocationSurface) &&
       /rust_core_boundary:\s*"runtime\.coding_tool_invocation"/.test(runtimeCodingToolInvocationSurface) &&
       /operation:\s*"coding_tool_result_event_admission"/.test(runtimeCodingToolInvocationSurface) &&
@@ -4609,12 +4764,19 @@ function runBridge() {
       /coding tool invocation surface fails closed until Rust result-event admission is wired/.test(
         runtimeCodingToolInvocationSurfaceTest,
       ) &&
+      /coding tool invocation surface fails closed before workload execution without Rust result envelope planning/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
+      /assert\.equal\(runnerCalled,\s*false\)/.test(runtimeCodingToolInvocationSurfaceTest) &&
+      /planCodingToolResultEnvelopeForTest/.test(runtimeCodingToolInvocationSurfaceTest) &&
       /rustResultEventAdmission/.test(runtimeCodingToolInvocationSurfaceTest) &&
       /registerRuntimeEvent/.test(runtimeCodingToolInvocationSurfaceTest) &&
       /appendRuntimeEvent must not be called by coding-tool invocation result admission/.test(
         runtimeCodingToolInvocationSurfaceTest,
       ) &&
       /assert\.equal\(store\.events\.length,\s*0\)/.test(runtimeCodingToolInvocationSurfaceTest) &&
+      !/const payloadSummary = \{/.test(runtimeCodingToolInvocationSurface) &&
+      !/source_event_kind:\s*codingToolSourceEventKind/.test(runtimeCodingToolInvocationSurface) &&
       !/admitCodingToolResultEvent/.test(runtimeCodingToolInvocationSurface) &&
       !/store\.appendRuntimeEvent\(/.test(runtimeCodingToolInvocationSurface),
     [
@@ -4628,7 +4790,7 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs",
     ],
-    "Phase 10/11 is pending: coding-tool result events and approval-block persistence must be admitted by Rust daemon-core Agentgres/projection before JS projection registration",
+    "Phase 10/11 is pending: coding-tool result envelopes, result events, and approval-block persistence must be planned/admitted by Rust daemon-core before JS projection registration",
   );
   assertCheck(
     result,
@@ -4995,14 +5157,12 @@ function runBridge() {
       /runnerCalls\[0\]\.context\.workflow_node_id, "runtime\.coding-tool\.workspace\.status"/.test(
         runtimeCodingToolInvocationSurfaceTest,
       ) &&
-      /run_id:\s*`run:\$\{threadId\}`/.test(codingToolStepModuleContextBlock) &&
-      /workflow_node_id:\s*workflowNodeId/.test(codingToolStepModuleContextBlock) &&
-      /^\s*receipt_refs,?$/m.test(codingToolStepModuleContextBlock) &&
-      /^\s*artifact_refs,?$/m.test(codingToolStepModuleContextBlock) &&
-      /workspace_root:\s*agent\.cwd/.test(codingToolStepModuleContextBlock) &&
-      !/^\s*(?:runId|taskId|threadId|workflowGraphId|workflowNodeId|actionProposalRef|gateResultRef|approvalRef|idempotencyKey|workflowProjectionStatus|receiptRefs|artifactRefs|workspaceRoot):/m.test(
-        codingToolStepModuleContextBlock,
-      ) &&
+      /phase:\s*"step_module_context"/.test(runtimeCodingToolInvocationSurface) &&
+      /workflow_node_id:\s*workflowNodeId/.test(runtimeCodingToolInvocationSurface) &&
+      /receipt_refs:\s*receiptRefs/.test(runtimeCodingToolInvocationSurface) &&
+      /artifact_refs:\s*artifactRefs/.test(runtimeCodingToolInvocationSurface) &&
+      /workspace_root:\s*agent\.cwd/.test(runtimeCodingToolInvocationSurface) &&
+      /requireRustPlannedStepModuleContext/.test(runtimeCodingToolInvocationSurface) &&
       !/\bcontext\.(?:workflowGraphId|workflowNodeId|workflowProjectionStatus|receiptRefs|artifactRefs)\b/.test(
         runtimeCodingToolInvocationSurfaceTest,
       ) &&
@@ -7716,10 +7876,16 @@ function runBridge() {
       !/plan_model_mount_backend_process_response as plan_model_mount_backend_process/.test(
         bridgeModule,
       ) &&
+      !/plan_model_mount_backend_lifecycle_response as plan_model_mount_backend_lifecycle/.test(
+        bridgeModule,
+      ) &&
       !/plan_model_mount_backend_lifecycle_required_response as plan_model_mount_backend_lifecycle_required/.test(
         bridgeModule,
       ) &&
-      !/plan_model_mount_server_control_required_response as plan_model_mount_server_control_required/.test(
+      !/plan_model_mount_server_control_response as plan_model_mount_server_control/.test(
+        bridgeModule,
+      ) &&
+      !/plan_model_mount_runtime_engine_response as plan_model_mount_runtime_engine/.test(
         bridgeModule,
       ) &&
       !/plan_model_mount_runtime_engine_required_response as plan_model_mount_runtime_engine_required/.test(
@@ -7734,15 +7900,18 @@ function runBridge() {
       /plan_model_mount_backend_process_response\(decode\(raw_request\)\?\)/.test(
         coreCommandDispatch,
       ) &&
-      /plan_model_mount_backend_lifecycle_required_response\(decode\(raw_request\)\?\)/.test(
+      /plan_model_mount_backend_lifecycle_response\(decode\(raw_request\)\?\)/.test(
         coreCommandDispatch,
       ) &&
-      /plan_model_mount_server_control_required_response\(decode\(raw_request\)\?\)/.test(
+      !/plan_model_mount_backend_lifecycle_required_response/.test(coreCommandDispatch) &&
+      /plan_model_mount_server_control_response\(decode\(raw_request\)\?\)/.test(
         coreCommandDispatch,
       ) &&
-      /plan_model_mount_runtime_engine_required_response\(decode\(raw_request\)\?\)/.test(
+      !/plan_model_mount_server_control_required_response/.test(coreCommandDispatch) &&
+      /plan_model_mount_runtime_engine_response\(decode\(raw_request\)\?\)/.test(
         coreCommandDispatch,
       ) &&
+      !/plan_model_mount_runtime_engine_required_response/.test(coreCommandDispatch) &&
       /plan_model_mount_tokenizer_required_response\(decode\(raw_request\)\?\)/.test(
         coreCommandDispatch,
       ) &&
@@ -7750,13 +7919,22 @@ function runBridge() {
         coreCommandDispatch,
       ) &&
       /rust_core_shapes_model_mount_backend_process_command_response/.test(modelMountCore) &&
-      /rust_core_shapes_model_mount_backend_lifecycle_required_command_response/.test(
+      /rust_core_shapes_model_mount_backend_lifecycle_command_response/.test(
         modelMountCore,
       ) &&
-      /rust_core_shapes_model_mount_server_control_required_command_response/.test(
+      !/rust_core_shapes_model_mount_backend_lifecycle_required_command_response/.test(
         modelMountCore,
       ) &&
-      /rust_core_shapes_model_mount_runtime_engine_required_command_response/.test(
+      /rust_core_shapes_model_mount_server_control_command_response/.test(
+        modelMountCore,
+      ) &&
+      !/rust_core_shapes_model_mount_server_control_required_command_response/.test(
+        modelMountCore,
+      ) &&
+      /rust_core_shapes_model_mount_runtime_engine_command_response/.test(
+        modelMountCore,
+      ) &&
+      !/rust_core_shapes_model_mount_runtime_engine_required_command_response/.test(
         modelMountCore,
       ) &&
       /rust_core_shapes_model_mount_tokenizer_required_command_response/.test(modelMountCore) &&
@@ -7948,31 +8126,46 @@ function runBridge() {
     "model-mount-planning-command-envelopes-owned-by-rust-core",
     /pub struct ModelMountBackendProcessPlanBridgeRequest/.test(modelMountCore) &&
       /pub fn plan_model_mount_backend_process_response/.test(modelMountCore) &&
-      /pub struct ModelMountBackendLifecycleRequiredBridgeRequest/.test(modelMountCore) &&
-      /pub fn plan_model_mount_backend_lifecycle_required_response/.test(modelMountCore) &&
-      /pub struct ModelMountServerControlRequiredBridgeRequest/.test(modelMountCore) &&
-      /pub fn plan_model_mount_server_control_required_response/.test(modelMountCore) &&
-      /pub struct ModelMountRuntimeEngineRequiredBridgeRequest/.test(modelMountCore) &&
-      /pub fn plan_model_mount_runtime_engine_required_response/.test(modelMountCore) &&
+      /pub struct ModelMountBackendLifecycleBridgeRequest/.test(modelMountCore) &&
+      /pub fn plan_model_mount_backend_lifecycle_response/.test(modelMountCore) &&
+      !/ModelMountBackendLifecycleRequiredBridgeRequest/.test(modelMountCore) &&
+      !/plan_model_mount_backend_lifecycle_required_response/.test(modelMountCore) &&
+      /pub struct ModelMountServerControlBridgeRequest/.test(modelMountCore) &&
+      /pub fn plan_model_mount_server_control_response/.test(modelMountCore) &&
+      !/ModelMountServerControlRequiredBridgeRequest/.test(modelMountCore) &&
+      !/plan_model_mount_server_control_required_response/.test(modelMountCore) &&
+      /pub struct ModelMountRuntimeEngineBridgeRequest/.test(modelMountCore) &&
+      /pub fn plan_model_mount_runtime_engine_response/.test(modelMountCore) &&
+      !/ModelMountRuntimeEngineRequiredBridgeRequest/.test(modelMountCore) &&
+      !/plan_model_mount_runtime_engine_required_response/.test(modelMountCore) &&
       /pub struct ModelMountTokenizerRequiredBridgeRequest/.test(modelMountCore) &&
       /pub fn plan_model_mount_tokenizer_required_response/.test(modelMountCore) &&
       /pub struct ModelMountRouteControlRequiredBridgeRequest/.test(modelMountCore) &&
       /pub fn plan_model_mount_route_control_required_response/.test(modelMountCore) &&
       /rust_model_mount_backend_process_command/.test(modelMountCore) &&
-      /rust_model_mount_backend_lifecycle_required_command/.test(modelMountCore) &&
-      /rust_model_mount_server_control_required_command/.test(modelMountCore) &&
-      /rust_model_mount_runtime_engine_required_command/.test(modelMountCore) &&
+      /rust_model_mount_backend_lifecycle_command/.test(modelMountCore) &&
+      !/rust_model_mount_backend_lifecycle_required_command/.test(modelMountCore) &&
+      /rust_model_mount_server_control_command/.test(modelMountCore) &&
+      !/rust_model_mount_server_control_required_command/.test(modelMountCore) &&
+      /rust_model_mount_runtime_engine_command/.test(modelMountCore) &&
+      !/rust_model_mount_runtime_engine_required_command/.test(modelMountCore) &&
       /rust_model_mount_tokenizer_required_command/.test(modelMountCore) &&
       /rust_model_mount_route_control_required_command/.test(modelMountCore) &&
       !modelMountCommandBridgeExists &&
       /rust_core_shapes_model_mount_backend_process_command_response/.test(modelMountCore) &&
-      /rust_core_shapes_model_mount_backend_lifecycle_required_command_response/.test(
+      /rust_core_shapes_model_mount_backend_lifecycle_command_response/.test(
         modelMountCore,
       ) &&
-      /rust_core_shapes_model_mount_server_control_required_command_response/.test(
+      !/rust_core_shapes_model_mount_backend_lifecycle_required_command_response/.test(
         modelMountCore,
       ) &&
-      /rust_core_shapes_model_mount_runtime_engine_required_command_response/.test(
+      /rust_core_shapes_model_mount_server_control_command_response/.test(
+        modelMountCore,
+      ) &&
+      /rust_core_shapes_model_mount_runtime_engine_command_response/.test(
+        modelMountCore,
+      ) &&
+      !/rust_core_shapes_model_mount_runtime_engine_required_command_response/.test(
         modelMountCore,
       ) &&
       /rust_core_shapes_model_mount_tokenizer_required_command_response/.test(modelMountCore) &&
@@ -7980,15 +8173,18 @@ function runBridge() {
         modelMountCore,
       ) &&
       /plan_model_mount_backend_process_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
-      /plan_model_mount_backend_lifecycle_required_response\(decode\(raw_request\)\?\)/.test(
+      /plan_model_mount_backend_lifecycle_response\(decode\(raw_request\)\?\)/.test(
         coreCommandDispatch,
       ) &&
-      /plan_model_mount_server_control_required_response\(decode\(raw_request\)\?\)/.test(
+      !/plan_model_mount_backend_lifecycle_required_response/.test(coreCommandDispatch) &&
+      /plan_model_mount_server_control_response\(decode\(raw_request\)\?\)/.test(
         coreCommandDispatch,
       ) &&
-      /plan_model_mount_runtime_engine_required_response\(decode\(raw_request\)\?\)/.test(
+      !/plan_model_mount_server_control_required_response/.test(coreCommandDispatch) &&
+      /plan_model_mount_runtime_engine_response\(decode\(raw_request\)\?\)/.test(
         coreCommandDispatch,
       ) &&
+      !/plan_model_mount_runtime_engine_required_response/.test(coreCommandDispatch) &&
       /plan_model_mount_tokenizer_required_response\(decode\(raw_request\)\?\)/.test(
         coreCommandDispatch,
       ) &&
@@ -7996,10 +8192,16 @@ function runBridge() {
         coreCommandDispatch,
       ) &&
       !/plan_model_mount_backend_process_response as plan_model_mount_backend_process/.test(bridgeModule) &&
+      !/plan_model_mount_backend_lifecycle_response as plan_model_mount_backend_lifecycle/.test(
+        bridgeModule,
+      ) &&
       !/plan_model_mount_backend_lifecycle_required_response as plan_model_mount_backend_lifecycle_required/.test(
         bridgeModule,
       ) &&
-      !/plan_model_mount_server_control_required_response as plan_model_mount_server_control_required/.test(
+      !/plan_model_mount_server_control_response as plan_model_mount_server_control/.test(
+        bridgeModule,
+      ) &&
+      !/plan_model_mount_runtime_engine_response as plan_model_mount_runtime_engine/.test(
         bridgeModule,
       ) &&
       !/plan_model_mount_runtime_engine_required_response as plan_model_mount_runtime_engine_required/.test(
@@ -8010,37 +8212,50 @@ function runBridge() {
         bridgeModule,
       ) &&
       !/bridge_plans_model_mount_backend_process_through_rust_core/.test(bridgeModule) &&
+      !/bridge_plans_model_mount_backend_lifecycle_through_rust_core/.test(bridgeModule) &&
       !/bridge_plans_model_mount_backend_lifecycle_required_through_rust_core/.test(bridgeModule) &&
       !/bridge_plans_model_mount_server_control_required_through_rust_core/.test(bridgeModule) &&
+      !/bridge_plans_model_mount_server_control_through_rust_core/.test(bridgeModule) &&
+      !/bridge_plans_model_mount_runtime_engine_through_rust_core/.test(bridgeModule) &&
       !/bridge_plans_model_mount_runtime_engine_required_through_rust_core/.test(bridgeModule) &&
       !/bridge_plans_model_mount_tokenizer_required_through_rust_core/.test(bridgeModule) &&
       !/bridge_plans_model_mount_route_control_required_through_rust_core/.test(bridgeModule) &&
       !/struct ModelMountBackendProcessPlanBridgeRequest/.test(modelMountCommandBridge) &&
+      !/struct ModelMountBackendLifecycleBridgeRequest/.test(modelMountCommandBridge) &&
       !/struct ModelMountBackendLifecycleRequiredBridgeRequest/.test(modelMountCommandBridge) &&
       !/struct ModelMountServerControlRequiredBridgeRequest/.test(modelMountCommandBridge) &&
+      !/struct ModelMountServerControlBridgeRequest/.test(modelMountCommandBridge) &&
+      !/struct ModelMountRuntimeEngineBridgeRequest/.test(modelMountCommandBridge) &&
       !/struct ModelMountRuntimeEngineRequiredBridgeRequest/.test(modelMountCommandBridge) &&
       !/struct ModelMountTokenizerRequiredBridgeRequest/.test(modelMountCommandBridge) &&
       !/struct ModelMountRouteControlRequiredBridgeRequest/.test(modelMountCommandBridge) &&
       !/ModelMountBackendProcessPlanRequest/.test(modelMountCommandBridge) &&
+      !/ModelMountBackendLifecycleRequest/.test(modelMountCommandBridge) &&
       !/ModelMountBackendLifecycleRequiredRequest/.test(modelMountCommandBridge) &&
       !/ModelMountServerControlRequiredRequest/.test(modelMountCommandBridge) &&
+      !/ModelMountServerControlRequest/.test(modelMountCommandBridge) &&
+      !/ModelMountRuntimeEngineRequest/.test(modelMountCommandBridge) &&
       !/ModelMountRuntimeEngineRequiredRequest/.test(modelMountCommandBridge) &&
       !/ModelMountTokenizerRequiredRequest/.test(modelMountCommandBridge) &&
       !/ModelMountRouteControlRequiredRequest/.test(modelMountCommandBridge) &&
       !/rust_model_mount_backend_process_command/.test(modelMountCommandBridge) &&
+      !/rust_model_mount_backend_lifecycle_command/.test(modelMountCommandBridge) &&
       !/rust_model_mount_backend_lifecycle_required_command/.test(modelMountCommandBridge) &&
       !/rust_model_mount_server_control_required_command/.test(modelMountCommandBridge) &&
+      !/rust_model_mount_server_control_command/.test(modelMountCommandBridge) &&
+      !/rust_model_mount_runtime_engine_command/.test(modelMountCommandBridge) &&
       !/rust_model_mount_runtime_engine_required_command/.test(modelMountCommandBridge) &&
       !/rust_model_mount_tokenizer_required_command/.test(modelMountCommandBridge) &&
       !/rust_model_mount_route_control_required_command/.test(modelMountCommandBridge),
     [
       "crates/services/src/agentic/runtime/kernel/model_mount/backend_process.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount/backend_lifecycle.rs",
       "crates/services/src/agentic/runtime/kernel/model_mount/required.rs",
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "scripts/conformance/hypervisor-conformance.mjs",
     ],
-    "Phase 10/11 migration guard: model-mount backend-process and required-control command request/response envelopes live in Rust model_mount core; the child Node delegate is retired while the broad bridge remains temporary transport only",
+    "Phase 10/11 migration guard: model-mount backend-process, backend-lifecycle, and remaining required-control command request/response envelopes live in Rust model_mount core; the child Node delegate is retired while the broad bridge remains temporary transport only",
   );
   assertCheck(
     result,
@@ -8495,24 +8710,24 @@ function runBridge() {
       ) &&
       !/store\.requestThreadApproval\(/.test(runtimeCodingToolGovernanceSurface) &&
       !/approvalRequired:\s*Boolean\(approvalManifest\)/.test(
-        codingToolInvocationPayloadSummaryBlock,
+        runtimeCodingToolInvocationSurface,
       ) &&
       !/approvalSatisfied:\s*Boolean\(approvalSatisfaction\?\.satisfied\)/.test(
-        codingToolInvocationPayloadSummaryBlock,
+        runtimeCodingToolInvocationSurface,
       ) &&
       !/approvalId:\s*approvalSatisfaction\?\.approvalId/.test(
-        codingToolInvocationPayloadSummaryBlock,
+        runtimeCodingToolInvocationSurface,
       ) &&
       /approval_id:\s*approvalGate\?\.approval_id \?\? null/.test(
-        codingToolInvocationPayloadSummaryBlock,
+        runtimeCodingToolInvocationSurface,
       ) &&
-      !/approvalManifest:\s*approvalManifest/.test(codingToolInvocationPayloadSummaryBlock) &&
-      /approval_manifest:\s*approvalManifest \?\? null/.test(codingToolInvocationPayloadSummaryBlock) &&
+      !/approvalManifest:\s*approvalManifest/.test(runtimeCodingToolInvocationSurface) &&
+      /approval_manifest:\s*approvalManifest \?\? null/.test(runtimeCodingToolInvocationSurface) &&
       !/approvalDecisionEventId:\s*approvalSatisfaction\?\.decisionEventId/.test(
-        codingToolInvocationPayloadSummaryBlock,
+        runtimeCodingToolInvocationSurface,
       ) &&
       /approval_decision_event_id:\s*approvalGate\?\.decision_event_id \?\? null/.test(
-        codingToolInvocationPayloadSummaryBlock,
+        runtimeCodingToolInvocationSurface,
       ) &&
       !/store\.codingToolGovernanceSurface\.codingToolApprovalSatisfaction/.test(
         runtimeCodingToolInvocationSurface,
@@ -8521,7 +8736,12 @@ function runBridge() {
         runtimeCodingToolInvocationSurface,
       ) &&
       !/approvalSatisfaction\?\.approvalId/.test(runtimeCodingToolInvocationSurface) &&
-      !/^\s*diagnosticsRepairContext,\s*$/m.test(codingToolInvocationPayloadSummaryBlock) &&
+      !/diagnosticsRepairContext:\s*diagnosticsRepairContext/.test(
+        runtimeCodingToolInvocationSurface,
+      ) &&
+      /diagnostics_repair_context:\s*diagnosticsRepairContext \?\? null/.test(
+        runtimeCodingToolInvocationSurface,
+      ) &&
       /Object\.hasOwn\(result\.event\.payload_summary,\s*field\),\s*false/.test(
         runtimeCodingToolInvocationSurfaceTest,
       ) &&
@@ -9538,24 +9758,31 @@ function runBridge() {
         runtimeCodingToolBudgetRecoverySurface,
       ) &&
       /workflow\.run\.coding_tool_budget_recovery/.test(runtimeCodingToolBudgetRecoverySurface) &&
-      /coding-tool budget recovery control facade fails closed before JS approval, event append, or run persistence/.test(
+      /coding-tool budget recovery control fails closed before JS approval, event append, or run persistence without Rust planner/.test(
         runtimeCodingToolBudgetRecoverySurfaceTest,
       ) &&
-      /Budget recovery facade must not persist run state in JS/.test(
+      /coding-tool budget recovery retry completion uses Rust planner and Agentgres run commit/.test(
+        runtimeCodingToolBudgetRecoverySurfaceTest,
+      ) &&
+      /coding-tool budget recovery retry completion fails before JS lookup when canonical state-update inputs are missing/.test(
         runtimeCodingToolBudgetRecoverySurfaceTest,
       ) &&
       /Object\.hasOwn\(details \?\? \{\},\s*key\),\s*false/.test(
         runtimeCodingToolBudgetRecoverySurfaceTest,
       ) &&
-      !/planCodingToolBudgetRecoveryStateUpdate/.test(runtimeCodingToolBudgetRecoverySurface) &&
-      !/store\.(?:getRun|getAgent|projectThreadEvents|requestThreadApproval|decideThreadApproval|appendRuntimeEvent|writeRun|runs\.set)\b/.test(
+      /planCodingToolBudgetRecoveryStateUpdate/.test(runtimeCodingToolBudgetRecoverySurface) &&
+      /store\.getRun\(runId\)/.test(runtimeCodingToolBudgetRecoverySurface) &&
+      /store\.writeRun\(plannedRun,\s*plannedOperationKind\)/.test(
+        runtimeCodingToolBudgetRecoverySurface,
+      ) &&
+      !/store\.(?:getAgent|projectThreadEvents|requestThreadApproval|decideThreadApproval|appendRuntimeEvent|runs\.set)\b/.test(
         runtimeCodingToolBudgetRecoverySurface,
       ) &&
       !/stateUpdate\.run\s*\?\?\s*run/.test(runtimeCodingToolBudgetRecoverySurface) &&
       !/stateUpdate\.operation_kind\s*\?\?\s*"workflow\.run\.retry_completed"/.test(
         runtimeCodingToolBudgetRecoverySurface,
       ) &&
-      !/\b(?:threadId|runId|operationKind|expectedOperationKind|approvalId|sourceEventId)\s*:/.test(
+      !/\b(?:threadId|runId|operationKind|approvalId|sourceEventId)\s*:/.test(
         runtimeCodingToolBudgetRecoverySurface,
       ) &&
       !/appendOperatorControl/.test(runtimeCodingToolBudgetRecoverySurface),
@@ -9568,7 +9795,7 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.test.mjs",
     ],
-    "Phase 9/10 is pending: coding-tool budget recovery retry state updates must be planned by Rust policy core through the command bridge while the public JS facade fails closed before JS state planning or JS persistence",
+    "Phase 9/10 is pending: coding-tool budget recovery retry state updates must be planned by Rust policy core and committed through Agentgres without JS approval, event append, map mutation, or compatibility fallback",
   );
   assertCheck(
     result,
@@ -9611,33 +9838,69 @@ function runBridge() {
   );
   assertCheck(
     result,
-    "coding-tool-budget-recovery-control-js-facade-retired",
+    "coding-tool-budget-recovery-retry-rust-owned",
     /runtime_coding_tool_budget_recovery_rust_core_required/.test(
       runtimeCodingToolBudgetRecoverySurface,
     ) &&
+      /runtime_coding_tool_budget_recovery_state_update_input_required/.test(
+        runtimeCodingToolBudgetRecoverySurface,
+      ) &&
+      /coding_tool_budget_recovery_state_update_rust_owned/.test(
+        runtimeCodingToolBudgetRecoverySurface,
+      ) &&
+      /planCodingToolBudgetRecoveryStateUpdate/.test(
+        runtimeCodingToolBudgetRecoverySurface,
+      ) &&
+      /store\.getRun\(runId\)/.test(runtimeCodingToolBudgetRecoverySurface) &&
+      /store\.writeRun\(plannedRun,\s*plannedOperationKind\)/.test(
+        runtimeCodingToolBudgetRecoverySurface,
+      ) &&
       /coding_tool_budget_recovery_js_facade_retired/.test(
+        runtimeCodingToolBudgetRecoverySurface,
+      ) &&
+      /CODING_TOOL_BUDGET_RECOVERY_ADMISSION_REQUIRED_EVIDENCE_REFS/.test(
         runtimeCodingToolBudgetRecoverySurface,
       ) &&
       !/coding_tool_budget_blocked_event_js_projection_retired/.test(
         runtimeCodingToolBudgetRecoverySurface,
       ) &&
+      !runtimeCodingToolBudgetRecoveryExists &&
+      !runtimeCodingToolBudgetRecoveryTestExists &&
       /CodingToolBudgetRecoveryAdmissionRequiredCore/.test(policyCore) &&
+      /CodingToolBudgetRecoveryStateUpdateCore/.test(policyCore) &&
       /CODING_TOOL_BUDGET_RECOVERY_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION/.test(
+        policyCore,
+      ) &&
+      /CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
+        policyCore,
+      ) &&
+      /rust_policy_plans_coding_tool_budget_recovery_state_update/.test(
         policyCore,
       ) &&
       /rust_policy_plans_coding_tool_budget_recovery_admission_required/.test(
         policyCore,
       ) &&
+      /pub fn plan_coding_tool_budget_recovery_state_update_response/.test(
+        policyCodingToolBudgetRecoveryCore,
+      ) &&
       /pub fn plan_coding_tool_budget_recovery_admission_required_response/.test(
+        policyCodingToolBudgetRecoveryCore,
+      ) &&
+      /rust_coding_tool_budget_recovery_state_update_command/.test(
         policyCodingToolBudgetRecoveryCore,
       ) &&
       /rust_coding_tool_budget_recovery_admission_required_command/.test(
         policyCodingToolBudgetRecoveryCore,
       ) &&
+      /rust_policy_shapes_coding_tool_budget_recovery_state_update_command_response/.test(
+        policyCodingToolBudgetRecoveryCore,
+      ) &&
       /rust_policy_shapes_coding_tool_budget_recovery_admission_required_command_response/.test(
         policyCodingToolBudgetRecoveryCore,
       ) &&
+      !/plan_coding_tool_budget_recovery_state_update_response as plan_coding_tool_budget_recovery_state_update/.test(bridgeModule) &&
       !/plan_coding_tool_budget_recovery_admission_required_response as plan_coding_tool_budget_recovery_admission_required/.test(bridgeModule) &&
+      !/CodingToolBudgetRecoveryStateUpdateBridgeRequest/.test(bridgeModule) &&
       !/CodingToolBudgetRecoveryAdmissionRequiredBridgeRequest/.test(bridgeModule) &&
       !/bridge_plans_coding_tool_budget_recovery_admission_required_through_rust_core/.test(
         bridgeModule,
@@ -9653,10 +9916,13 @@ function runBridge() {
       /codingToolBudgetRecoveryRunner:\s*this\.contextPolicyRunner/.test(
         runtimeDaemonIndex,
       ) &&
-      /coding-tool budget recovery control facade fails closed before JS approval, event append, or run persistence/.test(
+      /coding-tool budget recovery control fails closed before JS approval, event append, or run persistence without Rust planner/.test(
         runtimeCodingToolBudgetRecoverySurfaceTest,
       ) &&
-      /coding-tool budget recovery control uses Rust daemon-core admission-required planner when mounted/.test(
+      /coding-tool budget recovery retry completion uses Rust planner and Agentgres run commit/.test(
+        runtimeCodingToolBudgetRecoverySurfaceTest,
+      ) &&
+      /coding-tool budget recovery unsupported actions use Rust admission-required planner without JS truth lookup/.test(
         runtimeCodingToolBudgetRecoverySurfaceTest,
       ) &&
       /coding-tool budget blocked-event projection facade is retired/.test(
@@ -9672,6 +9938,9 @@ function runBridge() {
       /coding-tool budget recovery defaults action canonically while ignoring retired aliases/.test(
         runtimeCodingToolBudgetRecoverySurfaceTest,
       ) &&
+      /coding-tool budget recovery retry completion fails before JS lookup when canonical state-update inputs are missing/.test(
+        runtimeCodingToolBudgetRecoverySurfaceTest,
+      ) &&
       /store\.codingToolBudgetRecoverySurface\.codingToolBudgetRecoveryForRun\(\s*store,\s*runId,\s*await readBody\(request\)\s*\)/m.test(
         runtimeRouteHandlers,
       ) &&
@@ -9685,46 +9954,27 @@ function runBridge() {
       /assertNoRetiredBudgetRecoveryDetailAliases\(error\.details\)/.test(
         runtimeCodingToolBudgetRecoverySurfaceTest,
       ) &&
-      /\.\.\.normalizeArray\(request\.target_node_ids\)/.test(runtimeCodingToolBudgetRecovery) &&
-      /optionalString\(request\.workflow_node_id\)/.test(runtimeCodingToolBudgetRecovery) &&
+      !/requestThreadApproval|decideThreadApproval|appendRuntimeEvent/.test(
+        runtimeCodingToolBudgetRecoverySurface,
+      ) &&
       !/request\.(?:threadId|workflowNodeId|workflowGraphId|recoveryAction|requestedBy|sourceEventId|approvalId|receiptRefs|policyDecisionRefs|idempotencyKey)\b/.test(
         runtimeCodingToolBudgetRecoverySurface,
       ) &&
       !/^\s+codingToolBudgetRecoveryForRun\(runId, request = \{\}\) \{/m.test(
         runtimeDaemonIndex,
-      ) &&
-      !/request\.(?:targetNodeIds|workflowNodeId|recoveryPolicy|retryLimit)\b/.test(
-        runtimeCodingToolBudgetRecovery,
       ),
     [
-      "packages/runtime-daemon/src/runtime-coding-tool-budget-recovery.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.test.mjs",
+      "crates/services/src/agentic/runtime/kernel/policy/coding_tool_budget_recovery.rs",
     ],
-    "Phase 10/11 is pending: coding-tool budget recovery control must use the Rust daemon-core admission-required planner and fail closed before JS approval calls, accepted-event append, projection reads, run mutation, or persistence",
+    "Phase 10/11 is pending: coding-tool budget recovery retry completion must use Rust state-update planning plus Agentgres run-state commit, while unsupported approval actions stay Rust fail-closed and the standalone JS helper stays deleted",
   );
   assertCheck(
     result,
     "coding-tool-budget-recovery-blocked-payload-aliases-retired",
-    /budget recovery ignores retired blocked payload aliases/.test(
-      runtimeCodingToolBudgetRecoveryTest,
-    ) &&
-      /budget recovery ignores retired blocked-event detector aliases/.test(
-        runtimeCodingToolBudgetRecoveryTest,
-      ) &&
-      /eventKind:\s*"WorkflowRunCodingToolBudgetPreflightBlocked"/.test(
-        runtimeCodingToolBudgetRecoveryTest,
-      ) &&
-      /blockReason:\s*"coding_tool_budget_exceeded"/.test(
-        runtimeCodingToolBudgetRecoveryTest,
-      ) &&
-      !/blockedPayload\.(?:approvalManifest|recoveryPolicy|targetNodeIds|workflowGraphId|workflowNodeId|approvalId)\b/.test(
-        runtimeCodingToolBudgetRecovery,
-      ) &&
-      !/\bpayload\.(?:eventKind|blockReason|budgetStatus|contextBudgetStatus|resultSummary)\b/.test(
-        runtimeCodingToolBudgetRecovery,
-      ) &&
-      !/manifest\.recoveryPolicy\b/.test(runtimeCodingToolBudgetRecovery) &&
+    !runtimeCodingToolBudgetRecoveryExists &&
+      !runtimeCodingToolBudgetRecoveryTestExists &&
       /coding-tool budget blocked-event projection facade is retired/.test(
         runtimeCodingToolBudgetRecoverySurfaceTest,
       ) &&
@@ -9737,14 +9987,15 @@ function runBridge() {
       ) &&
       !/payload\.(?:approvalId|sourceEventId)\b/.test(
         runtimeCodingToolBudgetRecoverySurface,
+      ) &&
+      !/request\.(?:targetNodeIds|workflowNodeId|recoveryPolicy|retryLimit|workflowGraphId)\b/.test(
+        runtimeCodingToolBudgetRecoverySurface,
       ),
     [
-      "packages/runtime-daemon/src/runtime-coding-tool-budget-recovery.mjs",
-      "packages/runtime-daemon/src/runtime-coding-tool-budget-recovery.test.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.test.mjs",
     ],
-    "Phase 10/11 is pending: coding-tool budget recovery blocked-event payloads and retry accounting must use canonical snake_case fields without retired camelCase fallbacks",
+    "Phase 10/11 is pending: retired coding-tool budget blocked-event payload/result helper must stay deleted while the live surface rejects retired camelCase payload fallbacks",
   );
   assertCheck(
     result,
@@ -9802,7 +10053,25 @@ function runBridge() {
       /diagnostics\.operator_override\.execute/.test(
         runtimeDiagnosticsRepairSurface,
       ) &&
-      /diagnostics operator override facade fails closed before JS run writes/.test(
+      /diagnosticsOperatorOverrideStateUpdateRunner/.test(
+        runtimeDiagnosticsRepairSurface,
+      ) &&
+      /planDiagnosticsOperatorOverrideStateUpdate/.test(
+        runtimeDiagnosticsRepairSurface,
+      ) &&
+      /diagnostics_operator_override_state_update_rust_owned/.test(
+        runtimeDiagnosticsRepairSurface,
+      ) &&
+      /rust_agentgres_runtime_run_state_commit/.test(
+        runtimeDiagnosticsRepairSurface,
+      ) &&
+      /store\.writeRun\(plannedRun, plannedOperationKind\)/.test(
+        runtimeDiagnosticsRepairSurface,
+      ) &&
+      /diagnostics operator override uses Rust state update and run-state admission/.test(
+        runtimeDiagnosticsRepairSurfaceTest,
+      ) &&
+      /diagnostics operator override fails closed before run lookup without Rust state update/.test(
         runtimeDiagnosticsRepairSurfaceTest,
       ) &&
       /Diagnostics repair facade must not persist run state in JS/.test(
@@ -9811,8 +10080,7 @@ function runBridge() {
       /Object\.hasOwn\(details \?\? \{\},\s*key\),\s*false/.test(
         runtimeDiagnosticsRepairSurfaceTest,
       ) &&
-      !/planDiagnosticsOperatorOverrideStateUpdate/.test(runtimeDiagnosticsRepairSurface) &&
-      !/store\.runs\.set|store\.writeRun|store\.appendRuntimeEvent|store\.appendDiagnosticsOperatorOverrideEvent/.test(
+      !/store\.runs\.set|store\.appendDiagnosticsOperatorOverrideEvent/.test(
         runtimeDiagnosticsRepairSurface,
       ) &&
       !/control:\s*"diagnostics_operator_override"|appendOperatorControl/.test(
@@ -9831,7 +10099,7 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs",
       "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs",
     ],
-    "Phase 9/10 is pending: diagnostics operator override run state updates must be planned by Rust policy core through the command bridge",
+    "Diagnostics operator override execution must use Rust policy state-update planning plus Rust Agentgres run-state commit and must fail closed without that Rust boundary",
   );
   assertCheck(
     result,
@@ -11029,6 +11297,12 @@ function runBridge() {
       /McpControlAgentStateUpdateRequest/.test(policyCore) &&
       /MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
       /rust_policy_plans_mcp_control_agent_state_update/.test(policyCore) &&
+      /rust_policy_applies_mcp_control_agent_state_update_registry_mutations/.test(
+        policyMcpMemoryCore,
+      ) &&
+      /rust_policy_ignores_retired_mcp_control_request_aliases/.test(
+        policyMcpMemoryCore,
+      ) &&
       /rust_policy_rejects_invalid_mcp_control_agent_state_update_schema/.test(policyCore) &&
       /McpServerValidationCore/.test(policyCore) &&
       /McpServerValidationRequest/.test(policyCore) &&
@@ -11059,6 +11333,9 @@ function runBridge() {
       /"control_kind": control_kind/.test(mcpControlAgentStateUpdateCoreBlock) &&
       /"event_id": request\.event_id/.test(mcpControlAgentStateUpdateCoreBlock) &&
       /"created_at": request\.created_at/.test(mcpControlAgentStateUpdateCoreBlock) &&
+      /mcp_control_registry_update/.test(mcpControlAgentStateUpdateCoreBlock) &&
+      /"registry_hash": registry\.registry_hash/.test(mcpControlAgentStateUpdateCoreBlock) &&
+      /"mutation_applied": registry\.mutation_applied/.test(mcpControlAgentStateUpdateCoreBlock) &&
       !/"controlKind": control_kind|"eventId": request\.event_id|"createdAt": request\.created_at/.test(
         mcpControlAgentStateUpdateCoreBlock,
       ) &&
@@ -11367,23 +11644,47 @@ function runBridge() {
       /boundary:\s*"runtime\.mcp_control"/.test(runtimeMcpControlSurface) &&
       /required_core:\s*"rust_daemon_core"/.test(runtimeMcpControlSurface) &&
       /migration_transport_only:\s*false/.test(runtimeMcpControlSurface) &&
-      !/contextPolicyRunnerDep\.planMcpControlAgentStateUpdate/.test(
+      /mcpControlStateUpdatePlanner/.test(runtimeMcpControlSurface) &&
+      /contextPolicyRunner\.planMcpControlAgentStateUpdate/.test(
         runtimeMcpControlSurface,
       ) &&
+      /mcpControlRequestPayload/.test(runtimeMcpControlSurface) &&
+      /mcpControlAgentWriter/.test(runtimeMcpControlSurface) &&
+      /store\?\.writeAgent/.test(runtimeMcpControlSurface) &&
       !/requiredMcpControlOperationKind/.test(runtimeMcpControlSurface) &&
       !/store\.appendRuntimeEvent/.test(runtimeMcpControlSurface) &&
       !/store\.agents\.set/.test(runtimeMcpControlSurface) &&
-      !/store\.writeAgent/.test(runtimeMcpControlSurface) &&
       !/invokeMcp(?:Stdio|Http)ToolDep/.test(runtimeMcpControlSurface) &&
       !/discoverMcp(?:Stdio|Http)CatalogDep/.test(runtimeMcpControlSurface) &&
-      !/stateUpdate\.operation_kind\s*\?\?\s*`thread\.\$\{controlKind\}`/.test(
+      /runtime MCP control mutations plan in Rust and commit agent state without JS state mutation/.test(
+        runtimeMcpControlSurfaceTest,
+      ) &&
+      /runtime MCP control planner absence fails closed before JS state mutation/.test(
+        runtimeMcpControlSurfaceTest,
+      ) &&
+      /runtime MCP live exits use Rust control admission before JS transport invocation/.test(
+        runtimeMcpControlSurfaceTest,
+      ) &&
+      /runtime MCP live exits fail closed when Rust control planner is missing/.test(
+        runtimeMcpControlSurfaceTest,
+      ) &&
+      /applyRustMcpControlStateUpdate\(store, requestedThreadId, "mcp_invoke", "invoke_mcp_tool"/.test(
         runtimeMcpControlSurface,
       ) &&
-      /runtime MCP control mutations fail closed before JS state mutation/.test(
-        runtimeMcpControlSurfaceTest,
+      /applyRustMcpControlStateUpdate\(store, threadId, "mcp_live_discovery", "mcp_live_discovery"/.test(
+        runtimeMcpControlSurface,
       ) &&
-      /runtime MCP live exits fail closed before JS transport invocation/.test(
-        runtimeMcpControlSurfaceTest,
+      /live_transport:\s*optionalStringDep\(request\.live_transport\) \?\? null/.test(
+        runtimeMcpControlSurface,
+      ) &&
+      /execution_mode:\s*optionalStringDep\(request\.execution_mode\) \?\? "live"/.test(
+        runtimeMcpControlSurface,
+      ) &&
+      /execution_mode:\s*optionalStringDep\(request\.execution_mode\) \?\? "discovery"/.test(
+        runtimeMcpControlSurface,
+      ) &&
+      /timeout_ms:\s*finitePositiveNumber\(request\.timeout_ms\)/.test(
+        runtimeMcpControlSurface,
       ) &&
       /mcp_control_rust_core_required/.test(runtimeMcpControlSurfaceTest),
     [
@@ -11398,6 +11699,113 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs",
     ],
     "Phase 10/11 is pending: MCP control mutations and live transport exits must be retired from the JS facade and routed through the Rust daemon core API",
+  );
+  const runtimeThreadMemoryMutationControlRustOwned =
+    /runtime_memory_control_rust_owned/.test(runtimeThreadMemoryState) &&
+    /memoryControlRunner/.test(runtimeThreadMemoryState) &&
+    /commitMemoryControl/.test(runtimeThreadMemoryState) &&
+    /planRuntimeMemoryControl/.test(runtimeThreadMemoryState) &&
+    /store\.commitRuntimeMemoryState\(/.test(runtimeThreadMemoryState) &&
+    /RUNTIME_MEMORY_STATE_COMMIT_SCHEMA_VERSION/.test(runtimeThreadMemoryState) &&
+    /RUST_AGENTGRES_STORAGE_BACKEND/.test(runtimeThreadMemoryState) &&
+    /runtime_memory_state_store_js_mutation_retired/.test(runtimeThreadMemoryState) &&
+    /agentgres_thread_memory_state_truth_required/.test(runtimeThreadMemoryState) &&
+    !/store\.memory\.(?:remember|setPolicy|updateRecord|deleteRecord)\(/.test(
+      runtimeThreadMemoryState,
+    ) &&
+    /planRuntimeMemoryControl\(request/.test(runtimeContextPolicyRunner) &&
+    /plan_runtime_memory_control/.test(runtimeContextPolicyRunner) &&
+    /RUNTIME_MEMORY_CONTROL_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyRunner) &&
+    /normalizeRuntimeMemoryControlBridgeResult/.test(runtimeContextPolicyRunner) &&
+    /runtime memory control runner sends Rust daemon-core request/.test(
+      runtimeContextPolicyRunnerTest,
+    ) &&
+    /pub struct RuntimeMemoryControlCore;/.test(runtimeMemoryControlCore) &&
+    /pub fn plan_runtime_memory_control_response/.test(runtimeMemoryControlCore) &&
+    /rust_plans_runtime_memory_write_control/.test(runtimeMemoryControlCore) &&
+    /rust_plans_runtime_memory_policy_control/.test(runtimeMemoryControlCore) &&
+    /rust_rejects_unowned_runtime_memory_control_kind/.test(runtimeMemoryControlCore) &&
+    /PlanRuntimeMemoryControl/.test(commandProtocolCore) &&
+    /"plan_runtime_memory_control"/.test(commandProtocolCore) &&
+    /plan_runtime_memory_control_response/.test(coreCommandDispatch) &&
+    /pub mod runtime_memory_control;/.test(kernelModuleForBridgeChecks) &&
+    /thread memory mutation and policy controls use Rust planning and Agentgres commits/.test(
+      runtimeThreadMemoryStateTest,
+    ) &&
+    /thread memory mutation controls fail closed before JS store mutation without Rust planner/.test(
+      runtimeThreadMemoryStateTest,
+    ) &&
+    /state\.rememberForAgentId\(store, "agent_a",/.test(
+      runtimeThreadMemoryStateTest,
+    ) &&
+    /state\.setMemoryPolicyForAgent\(store, "agent_a",/.test(
+      runtimeThreadMemoryStateTest,
+    ) &&
+    /state\.updateMemoryForAgentId\(store, "agent_a",/.test(
+      runtimeThreadMemoryStateTest,
+    ) &&
+    /state\.deleteMemoryForAgentId\(store, "agent_a",/.test(
+      runtimeThreadMemoryStateTest,
+    );
+  const runtimeThreadMemoryStatusValidationControlRustOwned =
+    /runtime_memory_control_event_rust_owned/.test(runtimeThreadMemoryState) &&
+    /runtime_memory_status_validation_control_rust_owned/.test(runtimeThreadMemoryState) &&
+    /memoryControlEventRunner/.test(runtimeThreadMemoryState) &&
+    /planMemoryControlEvent/.test(runtimeThreadMemoryState) &&
+    /appendPlannedMemoryControlEvent/.test(runtimeThreadMemoryState) &&
+    /recordThreadMemoryStatus\(store, threadId, request = \{\}, schemaVersion\) \{[\s\S]*?publicMemoryStatus\(store,[\s\S]*?appendThreadMemoryControlEvent/.test(
+      runtimeThreadMemoryState,
+    ) &&
+    /validateThreadMemory\(store, threadId, request = \{\}, schemaVersion\) \{[\s\S]*?publicValidateMemory\(store,[\s\S]*?appendThreadMemoryControlEvent/.test(
+      runtimeThreadMemoryState,
+    ) &&
+    /appendThreadMemoryControlEvent\(store, \{[\s\S]*?planMemoryControlEvent\(store,[\s\S]*?appendPlannedMemoryControlEvent\(store,\s*plannedControl\)/.test(
+      runtimeThreadMemoryState,
+    ) &&
+    /store\.appendRuntimeEvent\(event\)/.test(runtimeThreadMemoryState) &&
+    /rust_plans_runtime_memory_status_control_event/.test(runtimeMemoryControlCore) &&
+    /rust_plans_runtime_memory_validation_control_event/.test(runtimeMemoryControlCore) &&
+    /runtime_memory_status_control_rust_owned/.test(runtimeMemoryControlCore) &&
+    /runtime_memory_validation_control_rust_owned/.test(runtimeMemoryControlCore) &&
+    /runtime_memory_control_event_rust_owned/.test(runtimeMemoryControlCore) &&
+    /thread memory status, validation, and direct control events use Rust planning and runtime event admission/.test(
+      runtimeThreadMemoryStateTest,
+    ) &&
+    /thread memory direct control event fails closed before appendRuntimeEvent without Rust planning/.test(
+      runtimeThreadMemoryStateTest,
+    ) &&
+    !/thread memory status and validation facades fail closed before event append or Rust planning/.test(
+      runtimeThreadMemoryStateTest,
+    ) &&
+    !/thread memory direct control event facade fails closed before appendRuntimeEvent/.test(
+      runtimeThreadMemoryStateTest,
+    );
+  assertCheck(
+    result,
+    "runtime-thread-memory-mutation-control-rust-owned",
+    runtimeThreadMemoryMutationControlRustOwned,
+    [
+      "crates/services/src/agentic/runtime/kernel/runtime_memory_control.rs",
+      "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
+      "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
+      "crates/services/src/agentic/runtime/kernel/mod.rs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/threads/thread-memory-state.mjs",
+      "packages/runtime-daemon/src/threads/thread-memory-state.test.mjs",
+    ],
+    "Public thread/agent memory write/edit/delete/policy controls must use Rust daemon-core planning plus Rust Agentgres memory-state commits, and must not return through direct JS AgentMemoryStore writers",
+  );
+  assertCheck(
+    result,
+    "runtime-thread-memory-status-validation-control-rust-owned",
+    runtimeThreadMemoryStatusValidationControlRustOwned,
+    [
+      "crates/services/src/agentic/runtime/kernel/runtime_memory_control.rs",
+      "packages/runtime-daemon/src/threads/thread-memory-state.mjs",
+      "packages/runtime-daemon/src/threads/thread-memory-state.test.mjs",
+    ],
+    "Thread memory status, validation, and direct memory control-event append must use Rust daemon-core memory control planning plus Rust runtime-event admission without JS event authorship fallback",
   );
   assertCheck(
     result,
@@ -11457,7 +11865,7 @@ function runBridge() {
 	      /runtime_memory_public_projection_rust_owned/.test(runtimeThreadMemoryState) &&
 	      /runtime_thread_memory_write_js_facade_retired/.test(runtimeThreadMemoryState) &&
 	      /runtime_thread_memory_policy_js_facade_retired/.test(runtimeThreadMemoryState) &&
-      /runtime_thread_memory_status_validation_js_facade_retired/.test(
+      /runtime_memory_status_validation_js_facade_retired/.test(
         runtimeThreadMemoryState,
       ) &&
       /runtime_memory_state_store_js_mutation_retired/.test(runtimeThreadMemoryState) &&
@@ -11466,7 +11874,7 @@ function runBridge() {
       !/contextPolicyRunner\.planThreadMemoryAgentStateUpdate/.test(
         runtimeThreadMemoryState,
       ) &&
-      !/store\.appendRuntimeEvent\(/.test(runtimeThreadMemoryState) &&
+      runtimeThreadMemoryStatusValidationControlRustOwned &&
       !/store\.agents\.set\(updatedAgent\.id,\s*updatedAgent\)/.test(
         runtimeThreadMemoryState,
       ) &&
@@ -11480,23 +11888,29 @@ function runBridge() {
       !/stateUpdate\.operation_kind\s*\?\?\s*`thread\.\$\{controlKind\}`/.test(
         runtimeThreadMemoryState,
 	      ) &&
-	      /thread memory mutation and policy facades fail closed before JS store mutation/.test(
-	        runtimeThreadMemoryStateTest,
-	      ) &&
+      runtimeThreadMemoryMutationControlRustOwned &&
+      /thread memory mutation and policy controls use Rust planning and Agentgres commits/.test(
+        runtimeThreadMemoryStateTest,
+      ) &&
+      /thread memory mutation controls fail closed before JS store mutation without Rust planner/.test(
+        runtimeThreadMemoryStateTest,
+      ) &&
 	      /route-facing memory read projections return Rust daemon-core projections/.test(
 	        runtimeThreadMemoryStateTest,
 	      ) &&
 	      /route-facing memory projections fail closed before JS readback when Rust projection is missing/.test(
 	        runtimeThreadMemoryStateTest,
 	      ) &&
-      /thread memory status and validation facades fail closed before event append or Rust planning/.test(
+      /thread memory status, validation, and direct control events use Rust planning and runtime event admission/.test(
         runtimeThreadMemoryStateTest,
       ) &&
-      /thread memory direct control event facade fails closed before appendRuntimeEvent/.test(
+      /thread memory direct control event fails closed before appendRuntimeEvent without Rust planning/.test(
         runtimeThreadMemoryStateTest,
       ) &&
       /assertThreadMemoryRustCoreRequired/.test(runtimeThreadMemoryStateTest) &&
-      /assert\.deepEqual\(calls,\s*\[\]\)/.test(runtimeThreadMemoryStateTest) &&
+      /\["remember", "updateRecord", "deleteRecord", "setPolicy"\]\.includes\(call\.type\)/.test(
+        runtimeThreadMemoryStateTest,
+      ) &&
       !/const updatedAgent = \{ \.\.\.agent, updatedAt: event\.created_at \}/.test(
         runtimeThreadMemoryState,
       ) &&
@@ -11515,13 +11929,13 @@ function runBridge() {
       "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
     ],
-    "Phase 10/11 is pending: thread-memory mutation/control must fail closed until Rust daemon-core owns memory admission, persistence, replay, and projection; bridge planners remain migration plumbing only",
+    "Thread-memory control JS facades must stay retired: public mutation controls use Rust memory planning/state commits, status/validation/direct control events use Rust memory planning/runtime-event admission, and the direct mutation helper remains fail-closed before JS mutation",
   );
   assertCheck(
     result,
     "thread-memory-request-aliases-retired",
     /runtime_thread_memory_control_rust_core_required/.test(runtimeThreadMemoryState) &&
-      /thread memory status and validation facades fail closed before event append or Rust planning/.test(
+      /thread memory direct control event fails closed before appendRuntimeEvent without Rust planning/.test(
         runtimeThreadMemoryStateTest,
       ) &&
       !/turnId: "turn_retired"/.test(runtimeThreadMemoryStateTest) &&
@@ -11551,7 +11965,7 @@ function runBridge() {
       /thread_id:\s*threadId/.test(runtimeThreadMemoryState) &&
       /agent_id:\s*agentId/.test(runtimeThreadMemoryState) &&
       /memory_id:\s*memoryId/.test(runtimeThreadMemoryState) &&
-      /thread memory mutation and policy facades fail closed before JS store mutation/.test(
+      /thread memory mutation controls fail closed before JS store mutation without Rust planner/.test(
         runtimeThreadMemoryStateTest,
       ) &&
       /assertNoRetiredDetailAliases\(error\.details\)/.test(runtimeThreadMemoryStateTest) &&
@@ -11567,17 +11981,86 @@ function runBridge() {
     ],
     "Phase 10/11 is pending: thread-memory Rust-planning fail-closed details must expose canonical snake_case fields without duplicate camelCase aliases",
   );
-  const runtimeThreadForkControlFacadeRetired =
+  const runtimeThreadForkControlRustOwned =
+    /RuntimeThreadForkControlCore/.test(runtimeThreadForkControlCore) &&
+    /RuntimeThreadForkControlRequest/.test(runtimeThreadForkControlCore) &&
+    /RUNTIME_THREAD_FORK_CONTROL_REQUEST_SCHEMA_VERSION/.test(
+      runtimeThreadForkControlCore,
+    ) &&
+    /RUNTIME_THREAD_FORK_CONTROL_RESULT_SCHEMA_VERSION/.test(
+      runtimeThreadForkControlCore,
+    ) &&
+    /pub fn plan_runtime_thread_fork_control_response/.test(
+      runtimeThreadForkControlCore,
+    ) &&
+    /rust_runtime_thread_fork_control_command/.test(
+      runtimeThreadForkControlCore,
+    ) &&
+    /OperatorControl\.ThreadFork/.test(runtimeThreadForkControlCore) &&
+    /thread\.forked/.test(runtimeThreadForkControlCore) &&
+    /runtime_thread_fork_control_rust_owned/.test(runtimeThreadForkControlCore) &&
+    /runtime_thread_fork_event_rust_owned/.test(runtimeThreadForkControlCore) &&
+    /agentgres_thread_fork_state_truth_required/.test(
+      runtimeThreadForkControlCore,
+    ) &&
+    /rust_plans_thread_fork_agent_thread_and_event/.test(
+      runtimeThreadForkControlCore,
+    ) &&
+    /rust_shapes_thread_fork_control_command_response/.test(
+      runtimeThreadForkControlCore,
+    ) &&
+    /rust_ignores_retired_thread_fork_idempotency_alias/.test(
+      runtimeThreadForkControlCore,
+    ) &&
+    /rust_rejects_invalid_thread_fork_schema/.test(runtimeThreadForkControlCore) &&
+    /PlanRuntimeThreadForkControl/.test(commandProtocolCore) &&
+    /"plan_runtime_thread_fork_control"/.test(commandProtocolCore) &&
+    /CommandOperation::PlanRuntimeThreadForkControl/.test(coreCommandDispatch) &&
+    /plan_runtime_thread_fork_control_response/.test(coreCommandDispatch) &&
+    /command_error_from!\(RuntimeThreadForkCommandError\)/.test(
+      coreCommandDispatch,
+    ) &&
+    /pub mod runtime_thread_fork_control;/.test(kernelModuleForBridgeChecks) &&
+    /planRuntimeThreadForkControl\(request/.test(runtimeContextPolicyRunner) &&
+    /plan_runtime_thread_fork_control/.test(runtimeContextPolicyRunner) &&
+    /RUNTIME_THREAD_FORK_CONTROL_REQUEST_SCHEMA_VERSION/.test(
+      runtimeContextPolicyRunner,
+    ) &&
+    /normalizeRuntimeThreadForkControlBridgeResult/.test(
+      runtimeContextPolicyRunner,
+    ) &&
+    /expectedOperationKind:\s*"thread\.fork"/.test(runtimeContextPolicyRunner) &&
+    /runtime thread-fork control runner sends Rust daemon-core request/.test(
+      runtimeContextPolicyRunnerTest,
+    ) &&
+    /runtime_thread_fork_control_event_missing/.test(
+      runtimeContextPolicyRunnerTest,
+    ) &&
+    /threadForkRunner/.test(runtimeThreadForkState) &&
+    /planRuntimeThreadForkControl/.test(runtimeThreadForkState) &&
+    /store\.writeAgent\(agent,\s*planned\.operation_kind\)/.test(
+      runtimeThreadForkState,
+    ) &&
+    /store\.appendRuntimeEvent\(event\)/.test(runtimeThreadForkState) &&
+    /store\.threadForAgent\(agent\)/.test(runtimeThreadForkState) &&
+    /assertThreadForkPlan/.test(runtimeThreadForkState) &&
+    /assertThreadForkProjection/.test(runtimeThreadForkState) &&
     /runtime_thread_fork_rust_core_required/.test(runtimeThreadForkState) &&
+    /runtime_thread_fork_control_rust_owned/.test(runtimeThreadForkState) &&
+    /runtime_thread_fork_event_rust_owned/.test(runtimeThreadForkState) &&
     /runtime_thread_fork_js_facade_retired/.test(runtimeThreadForkState) &&
-    /rust_daemon_core_thread_fork_required/.test(runtimeThreadForkState) &&
     /agentgres_thread_fork_state_truth_required/.test(runtimeThreadForkState) &&
+    !/rust_daemon_core_thread_fork_required/.test(runtimeThreadForkState) &&
     !/store\.createAgent\(/.test(runtimeThreadForkState) &&
-    !/store\.appendRuntimeEvent\(/.test(runtimeThreadForkState) &&
-    !/store\.threadForAgent\(/.test(runtimeThreadForkState) &&
     !/store\.runtimeEventStream\(/.test(runtimeThreadForkState) &&
     !/source_event_kind:\s*"OperatorControl\.Fork"/.test(runtimeThreadForkState) &&
-    /thread fork mutation facade fails closed before JS fork lifecycle mutation/.test(
+    /thread fork uses Rust planning, Agentgres write, runtime-event admission, and Rust projection/.test(
+      runtimeThreadForkStateTest,
+    ) &&
+    /thread fork fails closed before source lookup when Rust planner is absent/.test(
+      runtimeThreadForkStateTest,
+    ) &&
+    /thread fork rejects invalid Rust plans before Agentgres write or runtime-event admission/.test(
       runtimeThreadForkStateTest,
     ) &&
     /createRuntimeThreadAuxiliarySurface/.test(runtimeThreadAuxiliarySurface) &&
@@ -11586,7 +12069,7 @@ function runBridge() {
       runtimeDaemonIndex,
     ) &&
     !/^\s*forkThread\(threadId,/m.test(runtimeDaemonIndex) &&
-    /store\.threadAuxiliarySurface\.forkThread\(store, threadId,/.test(
+    /await store\.threadAuxiliarySurface\.forkThread\(store, threadId,/.test(
       runtimeRouteHandlers,
     ) &&
     /thread auxiliary and run cancel routes use mounted auxiliary surface/.test(
@@ -11598,16 +12081,22 @@ function runBridge() {
   assertCheck(
     result,
     "thread-fork-request-aliases-retired",
-    runtimeThreadForkControlFacadeRetired &&
+    runtimeThreadForkControlRustOwned &&
+      /thread fork request aliases stay retired after Rust planning/.test(
+        runtimeThreadForkStateTest,
+      ) &&
+      /assertNoRetiredThreadForkRequestAliases/.test(runtimeThreadForkStateTest) &&
       /idempotencyKey: "retired-key"/.test(runtimeThreadForkStateTest) &&
       /workflowGraphId: "graph_retired"/.test(runtimeThreadForkStateTest) &&
       /workflowNodeId: "node_retired"/.test(runtimeThreadForkStateTest) &&
       /requestedBy: "operator_retired"/.test(runtimeThreadForkStateTest) &&
-      /error\.details\.idempotency_key, "fork-key"/.test(runtimeThreadForkStateTest) &&
+      /plannedRequest\.request\.idempotency_key, "fork-key"/.test(
+        runtimeThreadForkStateTest,
+      ) &&
       !/request\.(?:workflowGraphId|workflowNodeId|idempotencyKey|requestedBy)\b/.test(
         runtimeThreadForkState,
       ) &&
-      !/request\.(?:workflow_graph_id|workflow_node_id|idempotency_key)\s*\?\?\s*request\./.test(
+      !/(?:request|normalizedRequest)\.(?:workflow_graph_id|workflow_node_id|idempotency_key)\s*\?\?\s*(?:request|normalizedRequest)\./.test(
         runtimeThreadForkState,
       ),
     [
@@ -11618,13 +12107,19 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-route-handlers.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
     ],
-    "Phase 10/11 is pending: thread fork request routing must fail closed before JS lifecycle mutation while using canonical idempotency details only",
+    "Thread fork request routing must use canonical snake_case request fields and must not preserve retired camelCase aliases after Rust planning",
   );
   assertCheck(
     result,
-    "thread-fork-control-js-facade-retired",
-    runtimeThreadForkControlFacadeRetired,
+    "runtime-thread-fork-control-rust-owned",
+    runtimeThreadForkControlRustOwned,
     [
+      "crates/services/src/agentic/runtime/kernel/runtime_thread_fork_control.rs",
+      "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
+      "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
+      "crates/services/src/agentic/runtime/kernel/mod.rs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
       "packages/runtime-daemon/src/threads/thread-fork-state.mjs",
       "packages/runtime-daemon/src/threads/thread-fork-state.test.mjs",
       "packages/runtime-daemon/src/runtime-thread-auxiliary-surface.mjs",
@@ -11632,15 +12127,153 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-route-handlers.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
     ],
-    "Phase 10/11 is pending: thread fork mutation facades must stay retired before JS agent creation, event append, or fork projection",
+    "Runtime thread-fork control must use Rust daemon-core planning plus Rust-authored Agentgres state commit, runtime-event admission, and projection without returning to JS agent creation or event synthesis",
+  );
+  const runtimeBridgeThreadControlRustOwned =
+    /RuntimeBridgeThreadControlAgentStateUpdateCore/.test(policyCore) &&
+    /RuntimeBridgeThreadControlAgentStateUpdateRequest/.test(policyCore) &&
+    /RuntimeBridgeThreadControlAgentStateUpdateBridgeRequest/.test(policyCore) &&
+    /RuntimeBridgeThreadControlAgentStateUpdateRecord/.test(policyCore) &&
+    /RUNTIME_BRIDGE_THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
+      policyCore,
+    ) &&
+    /RUNTIME_BRIDGE_THREAD_CONTROL_AGENT_STATE_UPDATE_RESULT_SCHEMA_VERSION/.test(
+      policyCore,
+    ) &&
+    /pub fn plan_runtime_bridge_thread_control_agent_state_update_response/.test(
+      policyThreadLifecycleCore,
+    ) &&
+    /rust_runtime_bridge_thread_control_agent_state_update_command/.test(
+      policyThreadLifecycleCore,
+    ) &&
+    /rust_policy_plans_runtime_bridge_thread_control_agent_state_update/.test(
+      policyThreadLifecycleCore,
+    ) &&
+    /rust_policy_shapes_runtime_bridge_thread_control_agent_state_update_command_response/.test(
+      policyThreadLifecycleCore,
+    ) &&
+    /rust_policy_rejects_invalid_runtime_bridge_thread_control_agent_state_update_schema/.test(
+      policyThreadLifecycleCore,
+    ) &&
+    /"runtimeBridgeStatus"\.to_string\(\)/.test(
+      runtimeBridgeThreadControlAgentStateUpdateCoreBlock,
+    ) &&
+    /"runtime_bridge_status"\.to_string\(\)/.test(
+      runtimeBridgeThreadControlAgentStateUpdateCoreBlock,
+    ) &&
+    /"runtime_bridge_status": bridge_status/.test(
+      runtimeBridgeThreadControlAgentStateUpdateCoreBlock,
+    ) &&
+    /"action": action/.test(runtimeBridgeThreadControlAgentStateUpdateCoreBlock) &&
+    /"evidence_refs": evidence_refs/.test(
+      runtimeBridgeThreadControlAgentStateUpdateCoreBlock,
+    ) &&
+    /"thread\.runtime_bridge\.control"/.test(policyThreadLifecycleCore) &&
+    /PlanRuntimeBridgeThreadControlAgentStateUpdate/.test(commandProtocolCore) &&
+    /"plan_runtime_bridge_thread_control_agent_state_update"/.test(commandProtocolCore) &&
+    /CommandOperation::PlanRuntimeBridgeThreadControlAgentStateUpdate/.test(
+      coreCommandDispatch,
+    ) &&
+    /plan_runtime_bridge_thread_control_agent_state_update_response\(decode\(raw_request\)\?\)/.test(
+      coreCommandDispatch,
+    ) &&
+    !/plan_runtime_bridge_thread_control_agent_state_update_response as plan_runtime_bridge_thread_control_agent_state_update/.test(
+      bridgeModule,
+    ) &&
+    !/fn plan_runtime_bridge_thread_control_agent_state_update/.test(bridgeModule) &&
+    /planRuntimeBridgeThreadControlAgentStateUpdate/.test(runtimeContextPolicyRunner) &&
+    /RUNTIME_BRIDGE_THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
+      runtimeContextPolicyRunner,
+    ) &&
+    /normalizeRuntimeBridgeThreadControlAgentStateUpdateBridgeResult/.test(
+      runtimeContextPolicyRunner,
+    ) &&
+    /runtime bridge thread control agent state update runner sends Rust state update through direct daemon-core invoker/.test(
+      runtimeContextPolicyRunnerTest,
+    ) &&
+    /captured\.operation, "plan_runtime_bridge_thread_control_agent_state_update"/.test(
+      runtimeContextPolicyRunnerTest,
+    ) &&
+    /Object\.hasOwn\(captured\.request,\s*"threadId"\),\s*false/.test(
+      runtimeContextPolicyRunnerTest,
+    ) &&
+    /result\.control\.runtime_bridge_status, "active"/.test(
+      runtimeContextPolicyRunnerTest,
+    ) &&
+    /createRuntimeBridgeThreadControl/.test(runtimeAgentRunLifecycle) &&
+    /planRuntimeBridgeThreadControlAgentStateUpdate/.test(runtimeAgentRunLifecycle) &&
+    /runtimeBridgeThreadControlEvidenceRefs/.test(runtimeAgentRunLifecycle) &&
+    /runtime_bridge_thread_control_rust_owned/.test(runtimeAgentRunLifecycle) &&
+    /runtime_bridge_thread_control_js_facade_retired/.test(runtimeAgentRunLifecycle) &&
+    /rust_daemon_core_runtime_bridge_thread_control_required/.test(
+      runtimeAgentRunLifecycle,
+    ) &&
+    /agentgres_runtime_bridge_thread_control_truth_required/.test(
+      runtimeAgentRunLifecycle,
+    ) &&
+    /store\.writeAgent\(plannedAgent,\s*plannedOperationKind\)/.test(
+      runtimeAgentRunLifecycle,
+    ) &&
+    /thread\.runtime_bridge\.control/.test(runtimeAgentRunLifecycle) &&
+    /store\.agentRunLifecycleSurface\.createRuntimeBridgeThreadControl\(\s*store,\s*threadId,\s*agent,/.test(
+      runtimeThreadTurnSurface,
+    ) &&
+    /runtime_bridge_thread_control_rust_owned/.test(runtimeThreadTurnSurface) &&
+    /runtime_bridge_thread_control_js_facade_retired/.test(runtimeThreadTurnSurface) &&
+    /rust_daemon_core_runtime_bridge_thread_control_required/.test(
+      runtimeThreadTurnSurface,
+    ) &&
+    /agentgres_runtime_bridge_thread_control_truth_required/.test(
+      runtimeThreadTurnSurface,
+    ) &&
+    /thread turn surface controls runtime thread resume through Rust bridge-control state planning/.test(
+      runtimeThreadTurnSurfaceTest,
+    ) &&
+    /thread turn surface fails closed for runtime thread resume when Rust bridge-control boundary is missing/.test(
+      runtimeThreadTurnSurfaceTest,
+    ) &&
+    /createRuntimeBridgeThreadControl commits Rust-planned bridge agent and returns Rust thread projection/.test(
+      runtimeAgentRunLifecycleTest,
+    ) &&
+    /createRuntimeBridgeThreadControl fails closed before projection or persistence when Rust bridge-control planner is missing/.test(
+      runtimeAgentRunLifecycleTest,
+    ) &&
+    /store\.writes\[4\]\.operationKind, "thread\.runtime_bridge\.control"/.test(
+      runtimeAgentRunLifecycleTest,
+    ) &&
+    /assertRuntimeBridgeThreadRustCoreRequired/.test(runtimeAgentRunLifecycleTest) &&
+    /assertRuntimeBridgeThreadRustCoreRequired/.test(runtimeThreadTurnSurfaceTest) &&
+    !/thread turn surface fails closed for runtime thread resume before bridge control dispatch/.test(
+      runtimeThreadTurnSurfaceTest,
+    ) &&
+    !/store\.runtimeBridge\.controlThread/.test(runtimeAgentRunLifecycle) &&
+    !/store\.updateAgent\(agent\.id,\s*"active"/.test(runtimeThreadTurnSurface);
+  assertCheck(
+    result,
+    "runtime-bridge-thread-control-rust-owned",
+    runtimeBridgeThreadControlRustOwned,
+    [
+      "crates/services/src/agentic/runtime/kernel/policy.rs",
+      "crates/services/src/agentic/runtime/kernel/policy/thread_lifecycle.rs",
+      "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
+      "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-agent-run-lifecycle.mjs",
+      "packages/runtime-daemon/src/runtime-agent-run-lifecycle.test.mjs",
+      "packages/runtime-daemon/src/runtime-thread-turn-surface.mjs",
+      "packages/runtime-daemon/src/runtime-thread-turn-surface.test.mjs",
+    ],
+    "Runtime bridge thread resume/control must use Rust bridge-control agent-state planning, Agentgres writeAgent commit, and Rust thread projection while the old JS bridge-control facade remains absent",
   );
   assertCheck(
     result,
-    "runtime-bridge-thread-create-js-facade-retired",
-    /RuntimeBridgeThreadStartAgentStateUpdateCore/.test(policyCore) &&
+    "runtime-bridge-thread-start-rust-owned",
+      /RuntimeBridgeThreadStartAgentStateUpdateCore/.test(policyCore) &&
       /RuntimeBridgeTurnRunStateUpdateCore/.test(policyCore) &&
       /RuntimeBridgeThreadStartAgentStateUpdateRequest/.test(policyCore) &&
       /RuntimeBridgeTurnRunStateUpdateRequest/.test(policyCore) &&
+      runtimeBridgeThreadControlRustOwned &&
       /RUNTIME_BRIDGE_THREAD_START_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
       /RUNTIME_BRIDGE_TURN_RUN_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
       /rust_policy_plans_runtime_bridge_thread_start_agent_state_update/.test(policyCore) &&
@@ -11661,6 +12294,16 @@ function runBridge() {
         runtimeBridgeThreadStartAgentStateUpdateCoreBlock,
       ) &&
       /"updated_at": request\.updated_at/.test(
+        runtimeBridgeThreadStartAgentStateUpdateCoreBlock,
+      ) &&
+      /"runtime_profile"\.to_string\(\)/.test(runtimeBridgeThreadStartAgentStateUpdateCoreBlock) &&
+      /"runtime_session_id"\.to_string\(\)/.test(
+        runtimeBridgeThreadStartAgentStateUpdateCoreBlock,
+      ) &&
+      /"runtime_bridge_id"\.to_string\(\)/.test(
+        runtimeBridgeThreadStartAgentStateUpdateCoreBlock,
+      ) &&
+      /"runtime_bridge_source"\.to_string\(\)/.test(
         runtimeBridgeThreadStartAgentStateUpdateCoreBlock,
       ) &&
       /optional_json_string\(&projection_value,\s*"run_id"\)/.test(
@@ -11748,24 +12391,62 @@ function runBridge() {
       !/store\.createRuntimeBridgeTurn/.test(runtimeThreadTurnSurface) &&
       !/RuntimeApiBridgeUnavailableError/.test(runtimeThreadTurnSurface) &&
       /runtime_bridge_thread_rust_core_required/.test(runtimeAgentRunLifecycle) &&
+      /createRuntimeBridgeThread/.test(runtimeAgentRunLifecycle) &&
+      /planRuntimeBridgeThreadStartAgentStateUpdate/.test(runtimeAgentRunLifecycle) &&
+      /createRuntimeBridgeTurnRun/.test(runtimeAgentRunLifecycle) &&
+      /planRuntimeBridgeTurnRunStateUpdate/.test(runtimeAgentRunLifecycle) &&
+      /runtimeBridgeThreadStartEvidenceRefs/.test(runtimeAgentRunLifecycle) &&
+      /runtimeBridgeTurnSubmitEvidenceRefs/.test(runtimeAgentRunLifecycle) &&
+      /runtime_bridge_thread_start_rust_owned/.test(runtimeAgentRunLifecycle) &&
       /runtime_bridge_thread_start_js_facade_retired/.test(runtimeAgentRunLifecycle) &&
+      /runtime_bridge_turn_submit_rust_owned/.test(runtimeAgentRunLifecycle) &&
+      /runtime_bridge_turn_submit_js_facade_retired/.test(runtimeAgentRunLifecycle) &&
       /rust_daemon_core_runtime_bridge_thread_start_required/.test(runtimeAgentRunLifecycle) &&
       /agentgres_runtime_bridge_thread_start_truth_required/.test(runtimeAgentRunLifecycle) &&
+      /store\.writeAgent\(plannedAgent,\s*plannedOperationKind\)/.test(runtimeAgentRunLifecycle) &&
+      /store\.writeRun\(plannedRun,\s*plannedOperationKind\)/.test(runtimeAgentRunLifecycle) &&
+      /thread\.runtime_bridge\.start/.test(runtimeAgentRunLifecycle) &&
+      /turn\.runtime_bridge\.submit/.test(runtimeAgentRunLifecycle) &&
       /runtime_bridge_thread_rust_core_required/.test(runtimeThreadTurnSurface) &&
+      /store\.agentRunLifecycleSurface\.createRuntimeBridgeTurn\(\s*store,\s*threadId,\s*agent,\s*controlledRequest/.test(
+        runtimeThreadTurnSurface,
+      ) &&
+      /runtime_bridge_turn_submit_rust_owned/.test(runtimeThreadTurnSurface) &&
       /runtime_bridge_turn_submit_js_facade_retired/.test(runtimeThreadTurnSurface) &&
       /runtime_bridge_thread_control_js_facade_retired/.test(runtimeThreadTurnSurface) &&
       /rust_daemon_core_runtime_bridge_turn_required/.test(runtimeThreadTurnSurface) &&
       /rust_daemon_core_runtime_bridge_thread_control_required/.test(runtimeThreadTurnSurface) &&
       /agentgres_runtime_bridge_turn_truth_required/.test(runtimeThreadTurnSurface) &&
       /agentgres_runtime_bridge_thread_control_truth_required/.test(runtimeThreadTurnSurface) &&
-      /createThread facade fails closed for runtime-service threads before bridge boundary dispatch/.test(
+      /createThread starts runtime-service threads through Rust bridge-start state planning/.test(
         runtimeAgentRunLifecycleTest,
       ) &&
-      /thread turn surface fails closed for runtime thread resume before bridge control dispatch/.test(
+      /createThread fails closed for runtime-service threads before route planning when Rust bridge-start planner is missing/.test(
+        runtimeAgentRunLifecycleTest,
+      ) &&
+      /thread turn surface controls runtime thread resume through Rust bridge-control state planning/.test(
         runtimeThreadTurnSurfaceTest,
       ) &&
-      /thread turn surface fails closed for runtime turns before bridge submit dispatch/.test(
+      /thread turn surface fails closed for runtime thread resume when Rust bridge-control boundary is missing/.test(
         runtimeThreadTurnSurfaceTest,
+      ) &&
+      /thread turn surface submits runtime turns through Rust bridge-turn state planning/.test(
+        runtimeThreadTurnSurfaceTest,
+      ) &&
+      /thread turn surface fails closed for runtime turns when Rust bridge-turn lifecycle boundary is missing/.test(
+        runtimeThreadTurnSurfaceTest,
+      ) &&
+      /createRuntimeBridgeTurn commits Rust-planned runtime bridge run and returns Rust turn projection/.test(
+        runtimeAgentRunLifecycleTest,
+      ) &&
+      /createRuntimeBridgeTurn fails closed before route, memory, or persistence when Rust bridge-turn planner is missing/.test(
+        runtimeAgentRunLifecycleTest,
+      ) &&
+      /createRuntimeBridgeThreadControl commits Rust-planned bridge agent and returns Rust thread projection/.test(
+        runtimeAgentRunLifecycleTest,
+      ) &&
+      /createRuntimeBridgeThreadControl fails closed before projection or persistence when Rust bridge-control planner is missing/.test(
+        runtimeAgentRunLifecycleTest,
       ) &&
       /assertRuntimeBridgeThreadRustCoreRequired/.test(runtimeAgentRunLifecycleTest) &&
       /assertRuntimeBridgeThreadRustCoreRequired/.test(runtimeThreadTurnSurfaceTest) &&
@@ -11776,10 +12457,11 @@ function runBridge() {
       !/store\.runtimeBridge\.startThread|store\.runtimeBridge\.submitTurn|store\.runtimeBridge\.controlThread/.test(
         runtimeAgentRunLifecycle,
       ) &&
-      /runtime thread-control integration proof rejects retired model-route seeding/.test(
+      /runtime thread-control integration proof seeds model routes through Rust route control/.test(
         runtimeThreadControlTest,
       ) &&
-      /runtime-service thread creation fails before JS runtime bridge dispatch/.test(
+      /commit_runtime_model_mount_record_state/.test(runtimeThreadControlTest) &&
+      /runtime-service thread creation uses Rust bridge-start planning before JS bridge dispatch/.test(
         runtimeThreadControlTest,
       ) &&
       /runtime thread-control compatibility store wrappers stay retired/.test(
@@ -11821,7 +12503,7 @@ function runBridge() {
       "scripts/lib/workflow-stage5-stop-cancel-recover-live-gui-proof.mjs",
       "scripts/lib/workflow-stage7-delegation-live-gui-proof.mjs",
     ],
-    "Phase 10/11 is pending: runtime bridge thread start/turn/control JS facades and store wrappers must stay deleted while lifecycle/turn surfaces fail closed before bridge dispatch, JS event append, or JS agent/run persistence",
+    "Runtime bridge thread start/control and turn submit must use Rust bridge state planning plus Agentgres commits while the deleted JS bridge-thread facade and store wrappers stay absent",
   );
   assertCheck(
     result,
@@ -11860,6 +12542,58 @@ function runBridge() {
       "crates/node/src/bin/ioi-runtime-bridge.rs",
     ],
     "Phase 10/11 is pending: RuntimeApiBridge must remain injected-only while the retired JS RuntimeAgentService command adapter stays absent until direct Rust daemon-core APIs replace bridge transport",
+  );
+  assertCheck(
+    result,
+    "runtime-bridge-turn-submit-rust-owned",
+    /RuntimeBridgeTurnRunStateUpdateCore/.test(policyCore) &&
+      /RuntimeBridgeTurnRunStateUpdateRequest/.test(policyCore) &&
+      /RUNTIME_BRIDGE_TURN_RUN_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
+      /rust_policy_plans_runtime_bridge_turn_run_state_update/.test(policyCore) &&
+      /rust_policy_rejects_invalid_runtime_bridge_turn_run_state_update_schema/.test(
+        policyCore,
+      ) &&
+      /plan_runtime_bridge_turn_run_state_update_response/.test(policyThreadLifecycleCore) &&
+      /planRuntimeBridgeTurnRunStateUpdate/.test(runtimeContextPolicyRunner) &&
+      /runtime bridge turn run state update runner sends Rust state update through direct daemon-core invoker/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /createRuntimeBridgeTurnRun/.test(runtimeAgentRunLifecycle) &&
+      /runtimeBridgeTurnSubmitEvidenceRefs/.test(runtimeAgentRunLifecycle) &&
+      /runtime_bridge_turn_submit_rust_owned/.test(runtimeAgentRunLifecycle) &&
+      /planRuntimeBridgeTurnRunStateUpdate/.test(runtimeAgentRunLifecycle) &&
+      /store\.writeRun\(plannedRun,\s*plannedOperationKind\)/.test(runtimeAgentRunLifecycle) &&
+      /turn\.runtime_bridge\.submit/.test(runtimeAgentRunLifecycle) &&
+      /store\.agentRunLifecycleSurface\.createRuntimeBridgeTurn\(\s*store,\s*threadId,\s*agent,\s*controlledRequest/.test(
+        runtimeThreadTurnSurface,
+      ) &&
+      /thread turn surface submits runtime turns through Rust bridge-turn state planning/.test(
+        runtimeThreadTurnSurfaceTest,
+      ) &&
+      /thread turn surface fails closed for runtime turns when Rust bridge-turn lifecycle boundary is missing/.test(
+        runtimeThreadTurnSurfaceTest,
+      ) &&
+      /createRuntimeBridgeTurn commits Rust-planned runtime bridge run and returns Rust turn projection/.test(
+        runtimeAgentRunLifecycleTest,
+      ) &&
+      /createRuntimeBridgeTurn fails closed before route, memory, or persistence when Rust bridge-turn planner is missing/.test(
+        runtimeAgentRunLifecycleTest,
+      ) &&
+      !/thread turn surface fails closed for runtime turns before bridge submit dispatch/.test(
+        runtimeThreadTurnSurfaceTest,
+      ) &&
+      !/store\.createRuntimeBridgeTurn/.test(runtimeThreadTurnSurface) &&
+      !/store\.runtimeBridge\.submitTurn/.test(runtimeAgentRunLifecycle),
+    [
+      "crates/services/src/agentic/runtime/kernel/policy/thread_lifecycle.rs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-agent-run-lifecycle.mjs",
+      "packages/runtime-daemon/src/runtime-agent-run-lifecycle.test.mjs",
+      "packages/runtime-daemon/src/runtime-thread-turn-surface.mjs",
+      "packages/runtime-daemon/src/runtime-thread-turn-surface.test.mjs",
+    ],
+    "Runtime bridge turn submit must use Rust bridge-turn run-state planning, Agentgres writeRun commit, and Rust turn projection while the old JS bridge submit facade remains absent",
   );
   assertCheck(
     result,
@@ -12492,14 +13226,73 @@ function runBridge() {
     ],
     "Phase 10/11 is pending: context-policy bridge operation-kind failures must expose canonical snake_case details without duplicate camelCase aliases",
   );
+  const runtimeWorkflowEditControlRustOwned =
+    /runtime_workflow_edit_control_rust_core_required/.test(runtimeWorkflowEditSurface) &&
+    /rust_core_boundary:\s*"runtime\.workflow_edit"/.test(runtimeWorkflowEditSurface) &&
+    /workflowEditControlRunner/.test(runtimeWorkflowEditSurface) &&
+    /planWorkflowEditControlEvent/.test(runtimeWorkflowEditSurface) &&
+    /appendPlannedWorkflowEditControlEvent/.test(runtimeWorkflowEditSurface) &&
+    /planRuntimeWorkflowEditControl/.test(runtimeWorkflowEditSurface) &&
+    /store\.appendRuntimeEvent\(event\)/.test(runtimeWorkflowEditSurface) &&
+    /runtime_workflow_edit_proposal_control_rust_owned/.test(runtimeWorkflowEditSurface) &&
+    /runtime_workflow_edit_apply_control_rust_owned/.test(runtimeWorkflowEditSurface) &&
+    /runtime_workflow_edit_control_event_rust_owned/.test(runtimeWorkflowEditSurface) &&
+    /agentgres_runtime_thread_event_truth_required/.test(runtimeWorkflowEditSurface) &&
+    /RuntimeWorkflowEditControlCore/.test(runtimeWorkflowEditControlCore) &&
+    /RUNTIME_WORKFLOW_EDIT_CONTROL_REQUEST_SCHEMA_VERSION/.test(runtimeWorkflowEditControlCore) &&
+    /rust_plans_runtime_workflow_edit_proposal_control_event/.test(runtimeWorkflowEditControlCore) &&
+    /rust_plans_runtime_workflow_edit_apply_control_event/.test(runtimeWorkflowEditControlCore) &&
+    /rust_rejects_unowned_runtime_workflow_edit_control_kind/.test(runtimeWorkflowEditControlCore) &&
+    /PlanRuntimeWorkflowEditControl/.test(commandProtocolCore) &&
+    /"plan_runtime_workflow_edit_control"/.test(commandProtocolCore) &&
+    /plan_runtime_workflow_edit_control_response/.test(coreCommandDispatch) &&
+    /pub mod runtime_workflow_edit_control;/.test(kernelModuleForBridgeChecks) &&
+    /planRuntimeWorkflowEditControl\(request = \{\}\)/.test(runtimeContextPolicyRunner) &&
+    /normalizeRuntimeWorkflowEditControlBridgeResult/.test(runtimeContextPolicyRunner) &&
+    /runtime workflow-edit control runner sends Rust daemon-core request/.test(
+      runtimeContextPolicyRunnerTest,
+    ) &&
+    /workflowEditRunner:\s*this\.contextPolicyRunner/.test(runtimeDaemonIndex) &&
+    /eventStreamIdForThread/.test(runtimeDaemonIndex) &&
+    /workflow-edit proposal uses Rust planning and runtime event admission/.test(
+      runtimeWorkflowEditSurfaceTest,
+    ) &&
+    /workflow-edit apply uses Rust planning and runtime event admission/.test(
+      runtimeWorkflowEditSurfaceTest,
+    ) &&
+    /workflow-edit controls fail closed before event append without Rust planning/.test(
+      runtimeWorkflowEditSurfaceTest,
+    ) &&
+    !/workflow-edit proposal facade fails closed before JS event append or approval persistence/.test(
+      runtimeWorkflowEditSurfaceTest,
+    ) &&
+    !/workflow-edit proposal uses Rust daemon-core admission-required planner when mounted/.test(
+      runtimeWorkflowEditSurfaceTest,
+    ) &&
+    !/workflow-edit apply facade fails closed before JS proposal lookup or mutation replay/.test(
+      runtimeWorkflowEditSurfaceTest,
+    ) &&
+    !/planWorkflowEditAdmissionRequired/.test(runtimeWorkflowEditSurface);
+  assertCheck(
+    result,
+    "runtime-workflow-edit-control-rust-owned",
+    runtimeWorkflowEditControlRustOwned,
+    [
+      "crates/services/src/agentic/runtime/kernel/runtime_workflow_edit_control.rs",
+      "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
+      "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
+      "crates/services/src/agentic/runtime/kernel/mod.rs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-workflow-edit-surface.mjs",
+      "packages/runtime-daemon/src/runtime-workflow-edit-surface.test.mjs",
+    ],
+    "Workflow-edit proposal/apply controls must use Rust daemon-core planning plus Rust runtime-event admission without JS event or approval authorship fallback",
+  );
   assertCheck(
     result,
     "workflow-edit-request-aliases-retired",
-    /runtime_workflow_edit_rust_core_required/.test(runtimeWorkflowEditSurface) &&
-      /rust_core_boundary:\s*"runtime\.workflow_edit"/.test(runtimeWorkflowEditSurface) &&
-      /throwWorkflowEditRustCoreRequired\("workflow_edit_proposal",\s*"workflow\.edit_proposed"/.test(
-        runtimeWorkflowEditSurface,
-      ) &&
+    runtimeWorkflowEditControlRustOwned &&
       !/workflowEditThreadContext|workflow_edit_thread_context|workflow\.edit\.context/.test(
         runtimeWorkflowEditSurface,
       ) &&
@@ -12512,9 +13305,6 @@ function runBridge() {
       !/^\s+resolveWorkflowEditTarget\(agent, request = \{\}\) \{/m.test(
         runtimeDaemonIndex,
       ) &&
-      /workflow_edit_proposal_js_facade_retired/.test(runtimeWorkflowEditSurface) &&
-      /rust_daemon_core_workflow_edit_proposal_required/.test(runtimeWorkflowEditSurface) &&
-      /agentgres_workflow_edit_proposal_truth_required/.test(runtimeWorkflowEditSurface) &&
       /WorkflowEditAdmissionRequiredCore/.test(policyCore) &&
       /WORKFLOW_EDIT_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
       /rust_policy_plans_workflow_edit_admission_required/.test(policyCore) &&
@@ -12523,18 +13313,8 @@ function runBridge() {
       !/bridge_plans_workflow_edit_admission_required_through_rust_core/.test(
         bridgeModule,
       ) &&
-      /planWorkflowEditAdmissionRequired\(request = \{\}\)/.test(
-        runtimeContextPolicyRunner,
-      ) &&
       /workflow-edit admission-required runner sends Rust daemon-core request/.test(
         runtimeContextPolicyRunnerTest,
-      ) &&
-      /workflowEditRunner:\s*this\.contextPolicyRunner/.test(runtimeDaemonIndex) &&
-      /workflow-edit proposal facade fails closed before JS event append or approval persistence/.test(
-        runtimeWorkflowEditSurfaceTest,
-      ) &&
-      /workflow-edit proposal uses Rust daemon-core admission-required planner when mounted/.test(
-        runtimeWorkflowEditSurfaceTest,
       ) &&
       /workflow-edit helper facades are retired with the JS apply path/.test(
         runtimeWorkflowEditSurfaceTest,
@@ -12545,13 +13325,10 @@ function runBridge() {
       /Object\.hasOwn\(surface,\s*"resolveWorkflowEditTarget"\),\s*false/.test(
         runtimeWorkflowEditSurfaceTest,
       ) &&
-      /appendRuntimeEvent must not be called by the retired workflow-edit JS facade/.test(
+      /requestThreadApproval must not be called by the Rust-owned workflow-edit surface/.test(
         runtimeWorkflowEditSurfaceTest,
       ) &&
-      /requestThreadApproval must not be called by the retired workflow-edit JS facade/.test(
-        runtimeWorkflowEditSurfaceTest,
-      ) &&
-      /agentForThread must not be called by the retired workflow-edit JS facade/.test(
+      /agentForThread must not be called by the Rust-owned workflow-edit surface/.test(
         runtimeWorkflowEditSurfaceTest,
       ) &&
       /store\.workflowEditSurface\.proposeWorkflowEdit\(\s*store,\s*threadId,\s*await readBody\(request\)\s*\)/m.test(
@@ -12567,7 +13344,6 @@ function runBridge() {
       !/request\.(?:turnId|workflowNodeId|workflowGraphId|requestedBy|workflowPath|workflowPatch|codeDiff|editIntentId|proposalId|approvalId|receiptRefs|policyDecisionRefs|targetWorkflowNodeIds|boundedTargets|idempotencyKey)\b/.test(
         runtimeWorkflowEditSurface,
       ) &&
-      !/store\.appendRuntimeEvent\(/.test(runtimeWorkflowEditSurface) &&
       !/store\.requestThreadApproval\(/.test(runtimeWorkflowEditSurface) &&
       !/store\.agentForThread\(/.test(runtimeWorkflowEditSurface) &&
       !/^\s+proposeWorkflowEdit\(threadId, request = \{\}\) \{/m.test(
@@ -12589,13 +13365,11 @@ function runBridge() {
   assertCheck(
     result,
     "workflow-edit-envelope-aliases-retired",
-    /throwWorkflowEditRustCoreRequired\("workflow_edit_apply",\s*"workflow\.edit\.apply"/.test(
-      runtimeWorkflowEditSurface,
-    ) &&
-      /workflow_edit_apply_js_facade_retired/.test(runtimeWorkflowEditSurface) &&
-      /rust_daemon_core_workflow_edit_apply_required/.test(runtimeWorkflowEditSurface) &&
-      /agentgres_workflow_edit_apply_truth_required/.test(runtimeWorkflowEditSurface) &&
-      /workflow-edit apply facade fails closed before JS proposal lookup or mutation replay/.test(
+    runtimeWorkflowEditControlRustOwned &&
+      /operation_kind:\s*operationKind/.test(runtimeWorkflowEditSurface) &&
+      /operationKind:\s*"workflow\.edit\.apply"/.test(runtimeWorkflowEditSurface) &&
+      /runtime_workflow_edit_apply_control_rust_owned/.test(runtimeWorkflowEditSurface) &&
+      /workflow-edit apply uses Rust planning and runtime event admission/.test(
         runtimeWorkflowEditSurfaceTest,
       ) &&
       /workflow-edit apply still validates canonical proposal id before the Rust-core boundary/.test(
@@ -12951,12 +13725,23 @@ function runBridge() {
       /plan_model_mount_route_control_required_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
       !/plan_model_mount_route_control_required_response as plan_model_mount_route_control_required/.test(modelMountCommandSurface) &&
       !/bridge_plans_model_mount_route_control_required_through_rust_core/.test(modelMountCommandSurface) &&
-      /throwModelRouteControlRustCoreRequired\(\s*this\.routeControlRequired\("model_mount\.route\.select"/.test(modelMountingState) &&
-      /throwModelRouteControlRustCoreRequired\(\s*this\.routeControlRequired\("model_mount\.route\.explicit_model_endpoints"/.test(modelMountingState) &&
-      /mounted route selection facades fail closed before JS endpoint policy evaluation/.test(modelRoutesTest) &&
-      /routeControlRequiredForTest/.test(modelRoutesTest) &&
+      /operation_kind:\s*"model_mount\.route\.select"/.test(modelMountingState) &&
+      /operation_kind:\s*"model_mount\.route\.explicit_model_endpoints"/.test(modelMountingState) &&
+      /routeControlRequestForMountedState/.test(modelMountingState) &&
+      /commitRouteControlPlanState\(this/.test(modelMountingState) &&
+      /persistRustAuthoredReceipt\(routeReceipt\)/.test(modelMountingState) &&
+      !/this\.routeControlRequired\("model_mount\.route\.select"/.test(modelMountingState) &&
+      !/this\.routeControlRequired\("model_mount\.route\.explicit_model_endpoints"/.test(modelMountingState) &&
+      /rust_core_plans_model_mount_route_selection_control/.test(modelMountRouteControlEvidence) &&
+      /rust_core_plans_explicit_model_endpoint_resolution_control/.test(modelMountRouteControlEvidence) &&
+      /NoRouteCandidate/.test(modelMountRouteControlEvidence) &&
+      /admit_route_decision/.test(modelMountRouteControlEvidence) &&
+      /mounted route selection uses Rust planning and Agentgres commits before JS endpoint policy evaluation/.test(modelRoutesTest) &&
       /assert\.deepEqual\(calls,\s*\[\]\)/.test(modelRoutesTest) &&
-      /allow_hosted_fallback/.test(modelRoutesTest) &&
+      /routeControlPlans\[0\]\.operation_kind,\s*"model_mount\.route\.select"/.test(modelRoutesTest) &&
+      /routeControlPlans\[1\]\.operation_kind,\s*"model_mount\.route\.explicit_model_endpoints"/.test(modelRoutesTest) &&
+      /recordStateCommits\.map\(\(commit\) => commit\.record_dir\)/.test(modelRoutesTest) &&
+      /receiptCommits\[0\]\.id,\s*"receipt\.route-selection"/.test(modelRoutesTest) &&
       !/allowHostedFallback/.test(modelRoutes) &&
       !/allowHostedFallback/.test(modelRoutesTest) &&
       !/policy\?\.deny_fixture_models/.test(modelRoutes) &&
@@ -13362,7 +14147,16 @@ function runBridge() {
       /workflowNodeBindings\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"workflow_bindings"\)/.test(modelMountingReadProjectionFacade) &&
       /projectionKind === "workflow_bindings"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
       /projectionKind === "adapter_boundaries"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
-      /projectionKind === "model_route_decisions" \|\| projectionKind === "projection_summary"[\s\S]*?receipts:\s*state\.listReceipts\(\)/.test(modelMountingReadProjectionFacade) &&
+      /modelRouteDecisions\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"model_route_decisions"\)/.test(modelMountingReadProjectionFacade) &&
+      /modelRouteEndpointResolutions\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"model_route_endpoint_resolutions"\)/.test(modelMountingReadProjectionFacade) &&
+      /providerInventoryRecords\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"provider_inventory_records"\)/.test(modelMountingReadProjectionFacade) &&
+      /catalogSearch\(state,\s*query = \{\}\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"catalog_search"/.test(modelMountingReadProjectionFacade) &&
+      /canonicalCatalogSearchQuery\(query\)/.test(modelMountingReadProjectionFacade) &&
+      /projectionKind === "catalog_search"[\s\S]*?catalog_search:\s*catalogQuery/.test(modelMountingReadProjectionFacade) &&
+      /modelTokenizerRecords\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"model_tokenizer_records"\)/.test(modelMountingReadProjectionFacade) &&
+      /projectionKind === "provider_inventory_records" \|\|[\s\S]*?projectionKind === "model_route_decisions" \|\|[\s\S]*?projectionKind === "model_route_endpoint_resolutions"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
+      /projectionKind === "projection_summary"[\s\S]*?receipts:\s*state\.listReceipts\(\)/.test(modelMountingReadProjectionFacade) &&
+      !/projectionKind === "model_route_decisions" \|\| projectionKind === "projection_summary"[\s\S]*?receipts:\s*state\.listReceipts\(\)/.test(modelMountingReadProjectionFacade) &&
       /projectionKind === "latest_vault_health"[\s\S]*?receipts:\s*state\.listReceipts\(\)/.test(modelMountingReadProjectionFacade) &&
       !/latestRuntimeSurveyProjectionInput/.test(modelMountingReadProjectionFacade) &&
       !/latestRuntimeSurvey as latestRuntimeSurveyInput/.test(modelMountingReadProjectionFacade) &&
@@ -13409,7 +14203,17 @@ function runBridge() {
       !/runtime_preference:\s*state\.runtimePreference\(\)/.test(modelMountingReadProjectionFacade) &&
       !/mcp_servers:\s*state\.listMcpServers\(\)/.test(modelMountingReadProjectionFacade) &&
       !/conversation_states:\s*state\.listConversations\(\)/.test(modelMountingReadProjectionFacade) &&
-      /return \{\s*receipts:\s*state\.listReceipts\(\),\s*\};\s*\}\s*function throwReadProjectionRustCoreRequired/.test(modelMountingReadProjectionFacade) &&
+      !/conversation_states:\s*conversationStateRecordsForProjection\(state\)/.test(modelMountingReadProjectionFacade) &&
+      !/function conversationStateRecordsForProjection\(state\)/.test(modelMountingReadProjectionFacade) &&
+      /state_dir:\s*readProjectionStateDir\(state,\s*projectionKind\)/.test(modelMountingReadProjectionFacade) &&
+      /projectionKind === "model_conversation_states"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
+      /function readProjectionStateDir\(state,\s*projectionKind\)/.test(modelMountingReadProjectionFacade) &&
+      /projectionKind !== "server_status" &&\s*projectionKind !== "backends"/.test(
+        modelMountingReadProjectionFacade,
+      ) &&
+      /projectionKind !== "model_conversation_states" &&\s*projectionKind !== "instances" &&\s*projectionKind !== "provider_inventory_records" &&\s*projectionKind !== "catalog_search" &&\s*projectionKind !== "catalog_status" &&\s*projectionKind !== "model_tokenizer_records" &&\s*projectionKind !== "routes" &&\s*projectionKind !== "model_route_decisions" &&\s*projectionKind !== "model_route_endpoint_resolutions" &&\s*projectionKind !== "artifacts" &&\s*projectionKind !== "product_artifacts" &&\s*projectionKind !== "providers" &&\s*projectionKind !== "endpoints" &&\s*projectionKind !== "runtime_model_catalog" &&\s*projectionKind !== "open_ai_model_list"/.test(
+        modelMountingReadProjectionFacade,
+      ) &&
       /latestProviderHealth\(state,\s*providerId\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"latest_provider_health",\s*\{ providerId \}\)/.test(modelMountingReadProjectionFacade) &&
       /latestVaultHealth\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"latest_vault_health"\)/.test(modelMountingReadProjectionFacade) &&
       /latestRuntimeSurvey\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"latest_runtime_survey"\)/.test(modelMountingReadProjectionFacade) &&
@@ -13432,11 +14236,19 @@ function runBridge() {
       /listProviders\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"providers"\)/.test(modelMountingReadProjectionFacade) &&
       /listEndpoints\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"endpoints"\)/.test(modelMountingReadProjectionFacade) &&
       /listInstances\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"instances"\)/.test(modelMountingReadProjectionFacade) &&
+      /providerInventoryRecords\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"provider_inventory_records"\)/.test(modelMountingReadProjectionFacade) &&
+      /catalogSearch\(state,\s*query = \{\}\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"catalog_search"/.test(modelMountingReadProjectionFacade) &&
+      /modelTokenizerRecords\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"model_tokenizer_records"\)/.test(modelMountingReadProjectionFacade) &&
       /listRoutes\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"routes"\)/.test(modelMountingReadProjectionFacade) &&
       /listModelCapabilities\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"model_capabilities"\)/.test(modelMountingReadProjectionFacade) &&
       /listDownloads\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"downloads"\)/.test(modelMountingReadProjectionFacade) &&
+      /downloadStatus\(state,\s*jobId\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"download_status",\s*\{ downloadId: jobId \}\)/.test(modelMountingReadProjectionFacade) &&
+      /storageSummary\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"storage_summary"\)/.test(modelMountingReadProjectionFacade) &&
+      /translateDownloadStatusError/.test(modelMountingReadProjectionFacade) &&
+      /model_mount_download_not_found/.test(modelMountingReadProjectionFacade) &&
+      /download_id:\s*downloadId/.test(modelMountingReadProjectionFacade) &&
       /listBackends\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"backends"\)/.test(modelMountingReadProjectionFacade) &&
-      /projectionKind === "artifacts"[\s\S]*?projectionKind === "providers"[\s\S]*?projectionKind === "endpoints"[\s\S]*?projectionKind === "instances"[\s\S]*?projectionKind === "routes"[\s\S]*?projectionKind === "model_capabilities"[\s\S]*?projectionKind === "downloads"[\s\S]*?projectionKind === "backends"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
+      /projectionKind === "artifacts"[\s\S]*?projectionKind === "providers"[\s\S]*?projectionKind === "endpoints"[\s\S]*?projectionKind === "instances"[\s\S]*?projectionKind === "provider_inventory_records"[\s\S]*?projectionKind === "model_tokenizer_records"[\s\S]*?projectionKind === "routes"[\s\S]*?projectionKind === "model_capabilities"[\s\S]*?projectionKind === "downloads"[\s\S]*?projectionKind === "download_status"[\s\S]*?projectionKind === "storage_summary"[\s\S]*?projectionKind === "backends"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
       /projectionKind === "product_artifacts"[\s\S]*?projectionKind === "runtime_model_catalog"[\s\S]*?projectionKind === "open_ai_model_list"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
       !/if \(projectionKind === "endpoints"\)[\s\S]*?return \{ endpoints \};/.test(modelMountingReadProjectionFacade) &&
       !/if \(projectionKind === "providers"\)[\s\S]*?return \{ providers \};/.test(modelMountingReadProjectionFacade) &&
@@ -13475,6 +14287,7 @@ function runBridge() {
       /projectionKind === "runtime_preference_for_endpoint"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
       /projectionKind === "runtime_default_load_options"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
       /projectionKind === "runtime_engine_detail"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
+      /projectionKind !== "runtime_engines" &&\s*projectionKind !== "runtime_engine_profiles" &&\s*projectionKind !== "runtime_preference" &&\s*projectionKind !== "runtime_preference_for_endpoint" &&\s*projectionKind !== "runtime_default_load_options" &&\s*projectionKind !== "runtime_engine_detail"/.test(modelMountingReadProjectionFacade) &&
       /projectionKind === "provider_health"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
       !/function runtimeEngineReadInput\(state,\s*engineId\)/.test(modelMountingReadProjectionFacade) &&
       !/runtime_engine:\s*runtimeEngineReadInput/.test(modelMountingReadProjectionFacade) &&
@@ -13489,7 +14302,25 @@ function runBridge() {
       /model_mount_runtime_engine_not_found/.test(modelMountingReadProjectionFacade) &&
       /facade\.adapterBoundaries\(state\)\.agentgres\.port/.test(modelMountingReadProjectionFacadeTest) &&
       /read projection facade delegates product-safe lists and capabilities/.test(modelMountingReadProjectionFacadeTest) &&
+      /facade\.providerInventoryRecords\(state\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /providerInventoryRequest\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
+      /read projection facade delegates catalog search through Rust provider inventory replay/.test(modelMountingReadProjectionFacadeTest) &&
+      /facade\.catalogSearch\(state/.test(modelMountingReadProjectionFacadeTest) &&
+      /readProjectionRequests\[0\]\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.hasOwn\(readProjectionRequests\[0\]\.state\.catalog_search,\s*"providerRef"\),\s*false/.test(
+        modelMountingReadProjectionFacadeTest,
+      ) &&
+      /facade\.modelTokenizerRecords\(state\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /tokenizerRequest\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
       /read projection facade delegates runtime-engine reads through Rust projections/.test(modelMountingReadProjectionFacadeTest) &&
+      /assert\.equal\(engines\.length,\s*1\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /engines\[0\]\.id,\s*"backend\.llama-cpp"/.test(modelMountingReadProjectionFacadeTest) &&
+      /engines\[0\]\.evidence_refs\.includes\("agentgres_runtime_engine_replay_required"\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /profiles\[0\]\.record_dir,\s*"runtime-engine-controls"/.test(modelMountingReadProjectionFacadeTest) &&
+      /preference\.selected_engine_id,\s*"backend\.llama-cpp"/.test(modelMountingReadProjectionFacadeTest) &&
+      /assert\.deepEqual\(defaultLoadOptions,\s*\{ gpu_layers: 4 \}\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /assert\.equal\(detail\.profile_record_id,\s*"runtime-engine-control:profile"\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /readProjectionRequests\.every\(\(request\) => request\.state_dir === state\.stateDir\)/.test(modelMountingReadProjectionFacadeTest) &&
       /read projection facade delegates server status through Rust projection/.test(modelMountingReadProjectionFacadeTest) &&
       /read projection facade delegates catalog status through Rust projection/.test(
         modelMountingReadProjectionFacadeTest,
@@ -13497,12 +14328,24 @@ function runBridge() {
       /assert\.equal\(status\.adapterBoundary\.port,\s*"ModelCatalogProviderPort"\)/.test(
         modelMountingReadProjectionFacadeTest,
       ) &&
-      /assert\.deepEqual\(status\.providers,\s*\[\]\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /assert\.equal\(status\.storage,\s*null\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /assert\.equal\(status\.lastSearch,\s*null\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /status\.providers\.map\(\(provider\) => provider\.provider_ref\)[\s\S]*"provider:\/\/fixture"[\s\S]*"provider:\/\/native"/.test(
+        modelMountingReadProjectionFacadeTest,
+      ) &&
+      /status\.providers\[0\]\.rust_core_boundary,\s*"model_mount\.catalog_status"/.test(
+        modelMountingReadProjectionFacadeTest,
+      ) &&
+      /assert\.equal\(status\.storage\.record_count,\s*2\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /assert\.equal\(status\.lastSearch\.result_count,\s*1\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /status\.results\.map\(\(result\) => result\.model_ref\),\s*\["model:\/\/fixture\/qwen3"\]/.test(
+        modelMountingReadProjectionFacadeTest,
+      ) &&
+      /status\.evidence_refs\.includes\("agentgres_catalog_status_replay_required"\)/.test(
+        modelMountingReadProjectionFacadeTest,
+      ) &&
       /read projection facade delegates latest runtime survey through Rust projection/.test(modelMountingReadProjectionFacadeTest) &&
       /readProjectionRequests\.map\(\(request\) => request\.projection_kind\)/.test(modelMountingReadProjectionFacadeTest) &&
       /readProjectionRequests\[0\]\.provider_id/.test(modelMountingReadProjectionFacadeTest) &&
+      /readProjectionRequests\[0\]\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
       /workflowRequest\.state,\s*\{\}/.test(modelMountingReadProjectionFacadeTest) &&
       /adapterRequest\.state,\s*\{\}/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.keys\(summaryRequest\.state\),\s*\["receipts"\]/.test(modelMountingReadProjectionFacadeTest) &&
@@ -13517,7 +14360,12 @@ function runBridge() {
       /Object\.hasOwn\(replayRequest\.state,\s*"providers"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(replayRequest\.state,\s*"server"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(replayRequest\.state,\s*"artifacts"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.keys\(routeDecisionRequest\.state\),\s*\["receipts"\]/.test(modelMountingReadProjectionFacadeTest) &&
+      /assert\.deepEqual\(routeDecisionRequest\.state,\s*\{\}\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /routeDecisionRequest\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.hasOwn\(routeDecisionRequest\.state,\s*"receipts"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
+      /assert\.deepEqual\(endpointResolutionRequest\.state,\s*\{\}\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /endpointResolutionRequest\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.hasOwn\(endpointResolutionRequest\.state,\s*"receipts"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.keys\(authorityRequest\.state\),\s*\["receipts"\]/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(authorityRequest\.state,\s*"server_status_input"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(authorityRequest\.state,\s*"grants"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
@@ -13526,16 +14374,40 @@ function runBridge() {
       /Object\.hasOwn\(authorityRequest\.state,\s*"vault"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /assert\.deepEqual\(facade\.listProviderHealth\(state\),\s*\[\]\)/.test(modelMountingReadProjectionFacadeTest) &&
       /providerHealthRequest\.state,\s*\{\}/.test(modelMountingReadProjectionFacadeTest) &&
-      /assert\.deepEqual\(facade\.listArtifacts\(state\),\s*\[\]\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /assert\.deepEqual\(facade\.runtimeModelCatalogList\(state\),\s*\[\]\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /assert\.deepEqual\(facade\.openAiModelList\(state\),\s*\{ object: "list", data: \[\] \}\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /assert\.deepEqual\(facade\.listProductArtifacts\(state\),\s*\[\]\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /assert\.deepEqual\(facade\.listProviders\(state\),\s*\[\]\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /assert\.deepEqual\(facade\.listEndpoints\(state\),\s*\[\]\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /assert\.deepEqual\(facade\.listRoutes\(state\),\s*\[\]\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /facade\.listArtifacts\(state\)\.map\(\(artifact\) => artifact\.model_ref\),\s*\[\s*"model:\/\/fixture\/qwen3"/.test(modelMountingReadProjectionFacadeTest) &&
+      /runtimeCatalog\.map\(\(entry\) => entry\.id\),\s*\["qwen3"\]/.test(modelMountingReadProjectionFacadeTest) &&
+      /facade\.openAiModelList\(state\)\.data\.map\(\(entry\) => entry\.id\),\s*\["qwen3"\]/.test(modelMountingReadProjectionFacadeTest) &&
+      /facade\.listProductArtifacts\(state\)\.map\(\(artifact\) => artifact\.model_ref\),\s*\[\s*"model:\/\/fixture\/qwen3"/.test(modelMountingReadProjectionFacadeTest) &&
+      /facade\.listProviders\(state\)\.map\(\(provider\) => provider\.provider_ref\),\s*\[\s*"provider:\/\/fixture",\s*"provider:\/\/native"/.test(modelMountingReadProjectionFacadeTest) &&
+      /endpoints\.map\(\(endpoint\) => endpoint\.id\),\s*\["endpoint\.local"\]/.test(modelMountingReadProjectionFacadeTest) &&
+      /endpoints\[0\]\.provider_id,\s*"provider\.local"/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.hasOwn\(endpoints\[0\],\s*"providerId"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
+      /endpointRequests\.every\(\(request\) => request\.state_dir === state\.stateDir\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /facade\.listInstances\(state\)\.map\(\(instance\) => instance\.id\)[\s\S]*"instance\.loaded"[\s\S]*"instance\.old"/.test(
+        modelMountingReadProjectionFacadeTest,
+      ) &&
+      /instanceRequest\.state,\s*\{\}/.test(modelMountingReadProjectionFacadeTest) &&
+      /instanceRequest\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
+      /instanceRecordsFromAgentgresStateDir/.test(modelMountingReadProjectionFacadeTest) &&
+      /facade\.listRoutes\(state\)\.map\(\(route\) => route\.id\)[\s\S]*"route\.local-first"[\s\S]*"route\.research"/.test(
+        modelMountingReadProjectionFacadeTest,
+      ) &&
+      /routeRequest\.state,\s*\{\}/.test(modelMountingReadProjectionFacadeTest) &&
+      /routeRequest\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.hasOwn\(routeRequest\.state,\s*"routes"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
+      /routeRecordsFromAgentgresStateDir/.test(modelMountingReadProjectionFacadeTest) &&
       /assert\.deepEqual\(facade\.listModelCapabilities\(state\),\s*\[\]\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /assert\.deepEqual\(facade\.listDownloads\(state\),\s*\[\]\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /assert\.deepEqual\(facade\.listBackends\(state\),\s*\[\]\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /facade\.listDownloads\(state\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /downloads\.map\(\(download\) => download\.id\),\s*\["download\.qwen3"\]/.test(modelMountingReadProjectionFacadeTest) &&
+      /downloadRequest\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
+      /facade\.downloadStatus\(state,\s*"download\.qwen3"\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /downloadStatusRequests\.map\(\(request\) => request\.download_id\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /facade\.storageSummary\(state\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /storageSummaryRequest\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
+      /rust_model_mount_storage_summary_projection/.test(modelMountingReadProjectionFacadeTest) &&
+      /const backends = facade\.listBackends\(state\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /backends\.map\(\(record\) => record\.id\),\s*\["backend\.native",\s*"backend\.ollama"\]/.test(modelMountingReadProjectionFacadeTest) &&
+      /agentgres_backend_lifecycle_replay_required/.test(modelMountingReadProjectionFacadeTest) &&
       /store\.modelMounting\.runtimeModelCatalogList\(\)/.test(publicRuntimeRoutes) &&
       /store\.modelMounting\.listModelCapabilities\(\)/.test(publicRuntimeRoutes) &&
       !/store\.listModels\(\)/.test(publicRuntimeRoutes) &&
@@ -13640,12 +14512,12 @@ function runBridge() {
       /"runtime_engines"[\s\S]*"runtime_engine_profiles"[\s\S]*"runtime_preference"[\s\S]*"runtime_preference_for_endpoint"[\s\S]*"runtime_default_load_options"[\s\S]*"runtime_engine_detail"/.test(modelMountingReadProjectionFacadeTest) &&
       /"latest_runtime_survey"/.test(modelMountingReadProjectionFacadeTest) &&
       /"server_status"/.test(modelMountingReadProjectionFacadeTest) &&
-      /assert\.deepEqual\(engines,\s*\[\]\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /assert\.deepEqual\(profiles,\s*\[\]\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /assert\.equal\(preference,\s*null\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /assert\.equal\(endpointPreference,\s*null\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /assert\.equal\(defaultLoadOptions,\s*null\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /error\.details\.engine_id === "backend\.llama-cpp"/.test(modelMountingReadProjectionFacadeTest) &&
+      /assert\.equal\(engines\.length,\s*1\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /assert\.equal\(profiles\.length,\s*1\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /preference\.selected_engine_id,\s*"backend\.llama-cpp"/.test(modelMountingReadProjectionFacadeTest) &&
+      /endpointPreference\.selected_engine_id,\s*"backend\.llama-cpp"/.test(modelMountingReadProjectionFacadeTest) &&
+      /assert\.deepEqual\(defaultLoadOptions,\s*\{ gpu_layers: 4 \}\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /detail\.preference_record_id,\s*"runtime-engine-control:preference"/.test(modelMountingReadProjectionFacadeTest) &&
       /error\.details\.engine_id === "backend\.missing"/.test(modelMountingReadProjectionFacadeTest) &&
       /readProjectionRequests\.every\(\(request\) => Object\.keys\(request\.state\)\.length === 0\)/.test(modelMountingReadProjectionFacadeTest) &&
       !/productArtifactsFromRustState/.test(modelMountingReadProjectionFacadeTest) &&
@@ -13656,7 +14528,7 @@ function runBridge() {
       /adapterBoundariesFromState/.test(modelMountingReadProjectionFacadeTest) &&
       /workflowBindingsFromRust/.test(modelMountingReadProjectionFacadeTest) &&
       /serverStatusFromRustRequest/.test(modelMountingReadProjectionFacadeTest) &&
-      /catalogStatusFromRustState/.test(modelMountingReadProjectionFacadeTest) &&
+      /catalogStatusFromAgentgresStateDir/.test(modelMountingReadProjectionFacadeTest) &&
       /Reranker"\)\.capability,\s*"rerank"/.test(modelMountingReadProjectionFacadeTest) &&
       /provider health has not been checked/.test(modelMountingReadProjectionFacadeTest) &&
       /vault adapter health has not been checked/.test(modelMountingReadProjectionFacadeTest) &&
@@ -13672,6 +14544,20 @@ function runBridge() {
       /mod aggregate;/.test(modelMountReadProjectionEvidence) &&
       /"snapshot" => Ok\(aggregate::snapshot\(request\)\)/.test(modelMountReadProjectionEvidence) &&
       /"projection" => Ok\(aggregate::projection\(request\)\)/.test(modelMountReadProjectionEvidence) &&
+      /mod conversation;/.test(modelMountReadProjectionEvidence) &&
+      /MODEL_MOUNT_CONVERSATION_PROJECTION_KIND => conversation::conversation_states\(request\)/.test(modelMountReadProjectionEvidence) &&
+      /pub state_dir: Option<String>/.test(modelMountReadProjectionEvidence) &&
+      /model_mount_conversation_replay_state_dir_required/.test(modelMountReadProjectionEvidence) &&
+      /model_mount_instance_replay_state_dir_required/.test(modelMountReadProjectionEvidence) &&
+      /model_mount_route_replay_state_dir_required/.test(modelMountReadProjectionEvidence) &&
+      /model_mount_route_decision_replay_state_dir_required/.test(modelMountReadProjectionEvidence) &&
+      /model_mount_route_endpoint_resolution_replay_state_dir_required/.test(modelMountReadProjectionEvidence) &&
+      /model-conversations/.test(modelMountReadProjectionEvidence) &&
+      /model-instances/.test(modelMountReadProjectionEvidence) &&
+      /model-routes/.test(modelMountReadProjectionEvidence) &&
+      /model-route-selections/.test(modelMountReadProjectionEvidence) &&
+      /model-route-endpoint-resolutions/.test(modelMountReadProjectionEvidence) &&
+      /fs::read_dir/.test(modelMountReadProjectionEvidence) &&
       /mod authority;/.test(modelMountReadProjectionEvidence) &&
       /mod receipt;/.test(modelMountReadProjectionEvidence) &&
       /mod route_decision;/.test(modelMountReadProjectionEvidence) &&
@@ -13679,9 +14565,15 @@ function runBridge() {
       /mod status;/.test(modelMountReadProjectionEvidence) &&
       /"projection_summary" => Ok\(receipt::projection_summary\(request\)\)/.test(modelMountReadProjectionEvidence) &&
       /"receipt_replay" => receipt::receipt_replay\(request\)/.test(modelMountReadProjectionEvidence) &&
-      /"model_route_decisions" => Ok\(route_decision::route_decisions\(request\)\)/.test(modelMountReadProjectionEvidence) &&
+      /MODEL_MOUNT_ROUTE_DECISIONS_PROJECTION_KIND => route_decision::route_decisions\(request\)/.test(modelMountReadProjectionEvidence) &&
+      /MODEL_MOUNT_ROUTE_ENDPOINT_RESOLUTIONS_PROJECTION_KIND => \{\s*route_decision::endpoint_resolutions\(request\)\s*\}/.test(modelMountReadProjectionEvidence) &&
       /"authority_snapshot" => Ok\(authority::authority_snapshot\(request\)\)/.test(modelMountReadProjectionEvidence) &&
-      /"server_status" => Ok\(status::server_status\(request\)\)/.test(modelMountReadProjectionEvidence) &&
+      /MODEL_MOUNT_SERVER_STATUS_PROJECTION_KIND => status::server_status\(request\)/.test(modelMountReadProjectionEvidence) &&
+      /model_mount_server_control_replay_state_dir_required/.test(modelMountReadProjectionEvidence) &&
+      /agentgres_server_control_replay_required/.test(modelMountReadProjectionEvidence) &&
+      /model-server-controls/.test(modelMountReadProjectionEvidence) &&
+      /server_status_replays_agentgres_server_control_records/.test(modelMountReadProjectionEvidence) &&
+      /server_status_fails_closed_without_agentgres_state_dir/.test(modelMountReadProjectionEvidence) &&
       /mod common;/.test(modelMountReadProjectionEvidence) &&
       /pub\(super\) fn model_mount_projection_schema_version/.test(modelMountReadProjectionEvidence) &&
       /pub\(super\) fn model_mount_projection_generated_at/.test(modelMountReadProjectionEvidence) &&
@@ -13700,7 +14592,10 @@ function runBridge() {
       !/\nfn json_string_field/.test(modelMountReadProjectionEvidence) &&
       !exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/catalog.rs") &&
       !/mod catalog;/.test(modelMountReadProjectionEvidence) &&
-      /"catalog_status" => Ok\(status::catalog_status\(request\)\)/.test(modelMountReadProjectionEvidence) &&
+      /MODEL_MOUNT_CATALOG_STATUS_PROJECTION_KIND => status::catalog_status\(request\)/.test(modelMountReadProjectionEvidence) &&
+      /agentgres_catalog_status_replay_required/.test(modelMountReadProjectionEvidence) &&
+      /model_mount_catalog_status_replay_state_dir_required/.test(modelMountReadProjectionEvidence) &&
+      /catalog_status_fails_closed_without_agentgres_state_dir/.test(modelMountReadProjectionEvidence) &&
       !/pub\(super\) fn status/.test(modelMountReadProjectionEvidence) &&
       !/direct_catalog_status_readback_fails_closed_in_rust_boundary/.test(modelMountReadProjectionEvidence) &&
       !/model_catalog_status_js_readback_retired/.test(modelMountingReadProjectionFacade) &&
@@ -13709,14 +14604,23 @@ function runBridge() {
       /"latest_vault_health" => health::latest_vault_health\(request\)/.test(modelMountReadProjectionEvidence) &&
       /"latest_runtime_survey" => Ok\(health::latest_runtime_survey\(request\)\)/.test(modelMountReadProjectionEvidence) &&
       /mod topology;/.test(modelMountReadProjectionEvidence) &&
-      /"artifacts" => Ok\(topology::artifacts\(\)\)/.test(modelMountReadProjectionEvidence) &&
-      /"product_artifacts" => Ok\(topology::product_artifacts\(\)\)/.test(modelMountReadProjectionEvidence) &&
-      /"providers" => Ok\(topology::providers\(\)\)/.test(modelMountReadProjectionEvidence) &&
-      /"endpoints" => Ok\(topology::endpoints\(\)\)/.test(modelMountReadProjectionEvidence) &&
-      /"instances" => Ok\(topology::instances\(\)\)/.test(modelMountReadProjectionEvidence) &&
-      /"routes" => Ok\(topology::routes\(\)\)/.test(modelMountReadProjectionEvidence) &&
+      /"artifacts" => topology::artifacts\(request\)/.test(modelMountReadProjectionEvidence) &&
+      /"product_artifacts" => topology::product_artifacts\(request\)/.test(modelMountReadProjectionEvidence) &&
+      /"providers" => topology::providers\(request\)/.test(modelMountReadProjectionEvidence) &&
+      /MODEL_MOUNT_ENDPOINTS_PROJECTION_KIND => topology::endpoints\(request\)/.test(modelMountReadProjectionEvidence) &&
+      /rust_daemon_core_model_endpoint_projection/.test(modelMountReadProjectionEvidence) &&
+      /endpoint_projection_replays_route_control_records_and_filters_js_truth/.test(modelMountReadProjectionEvidence) &&
+      /endpoint_projection_fails_closed_without_agentgres_state_dir/.test(modelMountReadProjectionEvidence) &&
+      /MODEL_MOUNT_INSTANCES_PROJECTION_KIND => topology::instances\(request\)/.test(modelMountReadProjectionEvidence) &&
+      /MODEL_MOUNT_ROUTES_PROJECTION_KIND => topology::routes\(request\)/.test(modelMountReadProjectionEvidence) &&
       /"model_capabilities" => Ok\(topology::model_capabilities\(\)\)/.test(modelMountReadProjectionEvidence) &&
-      /"downloads" => Ok\(topology::downloads\(\)\)/.test(modelMountReadProjectionEvidence) &&
+      /MODEL_MOUNT_DOWNLOADS_PROJECTION_KIND => topology::downloads\(request\)/.test(modelMountReadProjectionEvidence) &&
+      /MODEL_MOUNT_DOWNLOAD_STATUS_PROJECTION_KIND => topology::download_status\(request\)/.test(modelMountReadProjectionEvidence) &&
+      /MODEL_MOUNT_STORAGE_SUMMARY_PROJECTION_KIND => topology::storage_summary\(request\)/.test(modelMountReadProjectionEvidence) &&
+      /pub download_id: Option<String>/.test(modelMountReadProjectionEvidence) &&
+      /model_mount_download_replay_state_dir_required/.test(modelMountReadProjectionEvidence) &&
+      /model_mount_download_not_found/.test(modelMountReadProjectionEvidence) &&
+      /storage_download_projections_replay_agentgres_storage_control_records_and_filter_js_truth/.test(modelMountReadProjectionEvidence) &&
       /mod oauth;/.test(modelMountReadProjectionEvidence) &&
       /"oauth_sessions" => oauth::sessions\(\)/.test(modelMountReadProjectionEvidence) &&
       /"oauth_states" => oauth::states\(\)/.test(modelMountReadProjectionEvidence) &&
@@ -13725,7 +14629,11 @@ function runBridge() {
       /oauth_session_read_projection_fails_closed_in_rust_boundary/.test(modelMountReadProjectionEvidence) &&
       /oauth_state_read_projection_fails_closed_in_rust_boundary/.test(modelMountReadProjectionEvidence) &&
       /"provider_health" => Ok\(topology::provider_health\(\)\)/.test(modelMountReadProjectionEvidence) &&
-      /"backends" => Ok\(topology::backends\(\)\)/.test(modelMountReadProjectionEvidence) &&
+      /MODEL_MOUNT_BACKENDS_PROJECTION_KIND => topology::backends\(request\)/.test(modelMountReadProjectionEvidence) &&
+      /model_mount_backend_lifecycle_replay_state_dir_required/.test(modelMountReadProjectionEvidence) &&
+      /agentgres_backend_lifecycle_replay_required/.test(modelMountReadProjectionEvidence) &&
+      /model-backend-lifecycle-controls/.test(modelMountReadProjectionEvidence) &&
+      /backend_projection_replays_agentgres_lifecycle_records_and_filters_js_truth/.test(modelMountReadProjectionEvidence) &&
       /pub\(super\) fn artifacts/.test(modelMountReadProjectionEvidence) &&
       /pub\(super\) fn product_artifacts/.test(modelMountReadProjectionEvidence) &&
       /pub\(super\) fn providers/.test(modelMountReadProjectionEvidence) &&
@@ -13744,38 +14652,50 @@ function runBridge() {
       /workflow_bindings_are_planned_in_rust_model_mount_projection/.test(modelMountReadProjectionEvidence) &&
       /engine_id:\s*Option<String>/.test(modelMountReadProjectionEvidence) &&
       /mod runtime;/.test(modelMountReadProjectionEvidence) &&
-      /"runtime_engines" => Ok\(runtime::engines\(\)\)/.test(modelMountReadProjectionEvidence) &&
-      /"runtime_engine_profiles" => Ok\(runtime::engine_profiles\(\)\)/.test(modelMountReadProjectionEvidence) &&
-      /"runtime_preference" => Ok\(runtime::preference\(\)\)/.test(modelMountReadProjectionEvidence) &&
-      /"runtime_preference_for_endpoint" => Ok\(runtime::preference_for_endpoint\(\)\)/.test(modelMountReadProjectionEvidence) &&
-      /"runtime_default_load_options" => Ok\(runtime::default_load_options\(\)\)/.test(modelMountReadProjectionEvidence) &&
+      /"runtime_engines" => runtime::engines\(request\)/.test(modelMountReadProjectionEvidence) &&
+      /"runtime_engine_profiles" => runtime::engine_profiles\(request\)/.test(modelMountReadProjectionEvidence) &&
+      /"runtime_preference" => runtime::preference\(request\)/.test(modelMountReadProjectionEvidence) &&
+      /"runtime_preference_for_endpoint" => runtime::preference_for_endpoint\(request\)/.test(modelMountReadProjectionEvidence) &&
+      /"runtime_default_load_options" => runtime::default_load_options\(request\)/.test(modelMountReadProjectionEvidence) &&
       /"runtime_engine_detail" => runtime::engine_detail\(request\)/.test(modelMountReadProjectionEvidence) &&
+      /MODEL_MOUNT_RUNTIME_ENGINE_PROJECTION_KINDS/.test(modelMountReadProjectionEvidence) &&
+      /rust_daemon_core_runtime_engine_projection/.test(modelMountReadProjectionEvidence) &&
+      /agentgres_runtime_engine_replay_required/.test(modelMountReadProjectionEvidence) &&
+      /model_mount_runtime_engine_js_projection_retired/.test(modelMountReadProjectionEvidence) &&
       /pub\(super\) fn engines/.test(modelMountReadProjectionEvidence) &&
       /pub\(super\) fn engine_profiles/.test(modelMountReadProjectionEvidence) &&
       /pub\(super\) fn preference/.test(modelMountReadProjectionEvidence) &&
       /pub\(super\) fn preference_for_endpoint/.test(modelMountReadProjectionEvidence) &&
       /pub\(super\) fn default_load_options/.test(modelMountReadProjectionEvidence) &&
       /pub\(super\) fn engine_detail/.test(modelMountReadProjectionEvidence) &&
-      /runtime_projection_defaults_ignore_caller_supplied_js_state/.test(modelMountReadProjectionEvidence) &&
-      /runtime_engine_detail_fails_closed_until_rust_projection_owns_state/.test(modelMountReadProjectionEvidence) &&
-      /"runtime_model_catalog" => Ok\(topology::runtime_model_catalog\(\)\)/.test(modelMountReadProjectionEvidence) &&
-      /"open_ai_model_list" => Ok\(topology::open_ai_model_list\(\)\)/.test(modelMountReadProjectionEvidence) &&
+      /model_mount_runtime_engine_replay_state_dir_required/.test(modelMountReadProjectionEvidence) &&
+      /runtime-engine-controls/.test(modelMountReadProjectionEvidence) &&
+      /runtime_projection_replays_agentgres_runtime_engine_controls/.test(modelMountReadProjectionEvidence) &&
+      /runtime_projection_fails_closed_without_agentgres_state_dir/.test(modelMountReadProjectionEvidence) &&
+      /runtime_engine_detail_fails_closed_for_missing_agentgres_record/.test(modelMountReadProjectionEvidence) &&
+      /"runtime_model_catalog" => topology::runtime_model_catalog\(request\)/.test(modelMountReadProjectionEvidence) &&
+      /"open_ai_model_list" => topology::open_ai_model_list\(request\)/.test(modelMountReadProjectionEvidence) &&
       /pub\(super\) fn runtime_model_catalog/.test(modelMountReadProjectionEvidence) &&
       /pub\(super\) fn open_ai_model_list/.test(modelMountReadProjectionEvidence) &&
-      /open_ai_model_list_default_is_rust_owned_empty_list/.test(modelMountReadProjectionEvidence) &&
+      /provider_inventory_materialization_replays_agentgres_records_and_filters_js_truth/.test(modelMountReadProjectionEvidence) &&
+      /provider_inventory_materialization_fails_closed_without_agentgres_state_dir/.test(modelMountReadProjectionEvidence) &&
+      /artifact_records_from_provider_inventory/.test(modelMountReadProjectionEvidence) &&
+      /runtime_model_catalog_records/.test(modelMountReadProjectionEvidence) &&
+      /open_ai_model_list_value/.test(modelMountReadProjectionEvidence) &&
       /pub\(super\) fn snapshot/.test(modelMountReadProjectionEvidence) &&
       /pub\(super\) fn projection/.test(modelMountReadProjectionEvidence) &&
       /aggregate_projection_is_planned_from_admitted_receipts/.test(modelMountReadProjectionEvidence) &&
       /aggregate_snapshot_is_planned_from_projection_summary_and_recent_receipts/.test(modelMountReadProjectionEvidence) &&
       !/fn model_mount_snapshot/.test(modelMountReadProjectionEvidence) &&
       !/fn model_mount_projection\(/.test(modelMountReadProjectionEvidence) &&
-      /"artifacts": \[\][\s\S]*"productArtifacts": \[\][\s\S]*"runtimeModelCatalog": \[\][\s\S]*"openAiModelList": \{\s*"object": "list",\s*"data": \[\],\s*\}/.test(modelMountReadProjectionEvidence) &&
-      /"routes": \[\][\s\S]*"modelCapabilities": \[\]/.test(modelMountReadProjectionEvidence) &&
+      /"artifacts": topology::artifact_records\(request\)[\s\S]*"productArtifacts": topology::product_artifact_records\(request\)[\s\S]*"endpoints": topology::endpoint_records\(request\)[\s\S]*"providers": topology::provider_records\(request\)[\s\S]*"runtimeModelCatalog": topology::runtime_model_catalog_records\(request\)\.unwrap_or_default\(\)[\s\S]*"openAiModelList": topology::open_ai_model_list_value\(request\)/.test(modelMountReadProjectionEvidence) &&
+      /"routes": topology::route_records\(request\)[\s\S]*"modelCapabilities": \[\]/.test(modelMountReadProjectionEvidence) &&
       !/fn model_mount_product_artifacts/.test(modelMountReadProjectionEvidence) &&
       !/fn model_mount_runtime_model_catalog/.test(modelMountReadProjectionEvidence) &&
       !/fn model_mount_open_ai_model_list/.test(modelMountReadProjectionEvidence) &&
       !/fn model_mount_model_capabilities/.test(modelMountReadProjectionEvidence) &&
       !/MODEL_CAPABILITY_SCHEMA_VERSION/.test(modelMountReadProjectionEvidence) &&
+      /"conversationStates": conversation::conversation_state_records\(request\)/.test(modelMountReadProjectionEvidence) &&
       /"adapterBoundaries": adapter_boundary::adapter_boundaries\(state\)/.test(modelMountReadProjectionEvidence) &&
       /pub\(super\) fn projection_summary/.test(modelMountReadProjectionEvidence) &&
       !/"catalogProviderConfigs"/.test(modelMountReadProjectionEvidence) &&
@@ -13796,7 +14716,7 @@ function runBridge() {
       /fn runtime_survey_not_checked/.test(modelMountReadProjectionEvidence) &&
       /projection_summary_is_planned_from_receipt_truth/.test(modelMountReadProjectionEvidence) &&
       /receipt_replay_is_planned_from_receipt_only_context/.test(modelMountReadProjectionEvidence) &&
-      /route_decisions_have_dedicated_receipt_projection_owner/.test(modelMountReadProjectionEvidence) &&
+      /route_decisions_replay_agentgres_selection_records_and_filter_js_truth/.test(modelMountReadProjectionEvidence) &&
       /latest_health_projections_have_dedicated_receipt_projection_owner/.test(modelMountReadProjectionEvidence) &&
       /runtime_survey_has_dedicated_receipt_projection_owner/.test(modelMountReadProjectionEvidence) &&
       !/fn model_mount_projection_summary/.test(modelMountReadProjectionEvidence) &&
@@ -13813,9 +14733,10 @@ function runBridge() {
       !/fn model_mount_workflow_bindings/.test(modelMountReadProjectionEvidence) &&
       /pub\(super\) fn server_status/.test(modelMountReadProjectionEvidence) &&
       /pub\(super\) fn catalog_status/.test(modelMountReadProjectionEvidence) &&
+      /pub\(super\) fn catalog_status_or_default/.test(modelMountReadProjectionEvidence) &&
       /fn catalog_adapter_boundary/.test(modelMountReadProjectionEvidence) &&
       /pub\(super\) fn authority_snapshot/.test(modelMountReadProjectionEvidence) &&
-      /server_status_is_planned_in_rust_model_mount_projection/.test(modelMountReadProjectionEvidence) &&
+      /server_status_replays_agentgres_server_control_records/.test(modelMountReadProjectionEvidence) &&
       /catalog_status_is_planned_in_rust_model_mount_projection/.test(modelMountReadProjectionEvidence) &&
       /authority_snapshot_is_planned_in_rust_model_mount_projection/.test(modelMountReadProjectionEvidence) &&
       !/fn model_mount_server_status/.test(modelMountReadProjectionEvidence) &&
@@ -13840,8 +14761,8 @@ function runBridge() {
       /model_mount_runtime_engine_not_found/.test(modelMountReadProjectionEvidence) &&
       !/runtime_survey_input/.test(modelMountReadProjectionEvidence) &&
       !/runtime_survey_default/.test(modelMountReadProjectionEvidence) &&
-      /"server": status::server_status\(request\)/.test(modelMountReadProjectionEvidence) &&
-      /"catalog": status::catalog_status\(request\)/.test(modelMountReadProjectionEvidence) &&
+      /"server": status::server_status_or_default\(request\)/.test(modelMountReadProjectionEvidence) &&
+      /"catalog": status::catalog_status_or_default\(request\)/.test(modelMountReadProjectionEvidence) &&
       /"workflowNodes": adapter_boundary::workflow_bindings\(\)/.test(modelMountReadProjectionEvidence) &&
       /"workflowBindings": adapter_boundary::workflow_bindings\(\)/.test(modelMountReadProjectionEvidence) &&
       /"modelCapabilities": \[\]/.test(modelMountReadProjectionEvidence) &&
@@ -13863,16 +14784,23 @@ function runBridge() {
       ) &&
       /"projection_kind": "projection"/.test(modelMountReadProjectionEvidence) &&
       !/server_status_input/.test(modelMountReadProjectionEvidence) &&
-      /"status": "stopped"/.test(modelMountReadProjectionEvidence) &&
-      /"loadedInstances": 0/.test(modelMountReadProjectionEvidence) &&
-      /"mountedEndpoints": 0/.test(modelMountReadProjectionEvidence) &&
+      /unwrap_or_else\(\|\| "stopped"\.to_string\(\)\)/.test(modelMountReadProjectionEvidence) &&
+      /"loadedInstances": topology::instance_records\(request\)\.len\(\)/.test(modelMountReadProjectionEvidence) &&
+      /"mountedEndpoints": topology::endpoint_records\(request\)\.len\(\)/.test(modelMountReadProjectionEvidence) &&
       !/fn model_mount_catalog_status(?:(?!\nfn ).)*request\.state\.get\("catalog_status_input"\)/s.test(modelMountReadProjectionEvidence) &&
       /"runtime_model_catalog"/.test(modelMountingReadProjectionFacadeTest) &&
       /"open_ai_model_list"/.test(modelMountingReadProjectionFacadeTest) &&
       /"product_artifacts"/.test(modelMountingReadProjectionFacadeTest) &&
+      /runtimeCatalog\.map\(\(entry\) => entry\.id\),\s*\["qwen3"\]/.test(modelMountingReadProjectionFacadeTest) &&
+      /facade\.openAiModelList\(state\)\.data\.map\(\(entry\) => entry\.id\),\s*\["qwen3"\]/.test(modelMountingReadProjectionFacadeTest) &&
+      /facade\.listProductArtifacts\(state\)\.map\(\(artifact\) => artifact\.model_ref\),\s*\[\s*"model:\/\/fixture\/qwen3"/.test(modelMountingReadProjectionFacadeTest) &&
+      /facade\.listProviders\(state\)\.map\(\(provider\) => provider\.provider_ref\),\s*\[\s*"provider:\/\/fixture",\s*"provider:\/\/native"/.test(modelMountingReadProjectionFacadeTest) &&
+      /materializationRequest\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
       /response\["projection"\]\["adapterBoundaries"\]\["agentgres"\]\["port"\]/.test(modelMountReadProjectionEvidence) &&
-      /response\["projection"\]\["routeDecisions"\]\[0\]\["receipt_id"\]/.test(modelMountReadProjectionEvidence) &&
-      /response\["projection"\]\["routeDecisions"\]\[0\]\["selected_model"\]/.test(modelMountReadProjectionEvidence) &&
+      /assert_eq!\(response\["projection"\]\["routeDecisions"\], json!\(\[\]\)\)/.test(modelMountReadProjectionEvidence) &&
+      /route_decisions_replay_agentgres_selection_records_and_filter_js_truth/.test(modelMountReadProjectionEvidence) &&
+      /endpoint_resolutions_replay_agentgres_records/.test(modelMountReadProjectionEvidence) &&
+      /model_mount_route_decision_js_receipt_projection_retired/.test(modelMountReadProjectionEvidence) &&
       /model_mount_js_read_projection_authoring_retired/.test(modelMountReadProjectionEvidence),
     [
       "packages/runtime-daemon/src/model-mounting.mjs",
@@ -13911,9 +14839,9 @@ function runBridge() {
       /routeReceipt\?\.details\?\.workflow_graph_id/.test(modelInvocationOps) &&
       /routeReceipt\?\.details\?\.workflow_node_id/.test(modelInvocationOps) &&
       !/routeReceipt\?\.details\?\.(?:workflowGraphId|workflowNodeId)/.test(modelInvocationOps) &&
-      /mounted route selection facades fail closed before JS endpoint policy evaluation/.test(modelRoutesTest) &&
-      /operation_kind,\s*"model_mount\.route\.select"/.test(modelRoutesTest) &&
-      /operation_kind,\s*"model_mount\.route\.explicit_model_endpoints"/.test(modelRoutesTest) &&
+      /mounted route selection uses Rust planning and Agentgres commits before JS endpoint policy evaluation/.test(modelRoutesTest) &&
+      /routeControlPlans\[0\]\.operation_kind,\s*"model_mount\.route\.select"/.test(modelRoutesTest) &&
+      /routeControlPlans\[1\]\.operation_kind,\s*"model_mount\.route\.explicit_model_endpoints"/.test(modelRoutesTest) &&
       /route-selection receipt helper is retired behind Rust core/.test(modelRoutesTest) &&
       /assert\.equal\(replay\.model_route_decision\.selected_model/.test(modelMountingReadProjectionFacadeTest),
     [
@@ -13931,7 +14859,7 @@ function runBridge() {
       /model_mount_route_selection_request_aliases_retired/.test(modelRoutes) &&
       (modelRoutes.match(/assertCanonicalRouteSelectionRequestBody\(body\);/g) ?? []).length >= 2 &&
       /export function assertCanonicalRouteSelectionRequest\(body = \{\}\)/.test(modelRoutes) &&
-      /routeControlRequiredForState\(state,\s*"model_mount\.route\.test"/.test(modelRoutes) &&
+      /routeControlPlanForState\(state,\s*"model_mount\.route\.test"/.test(modelRoutes) &&
       !/modelMountRouteDecisionRequestForSelection/.test(modelRoutes) &&
       !/routeSelectionReceipt(?:ForState)?/.test(modelRoutes) &&
       !/modelId:\s*body\.model \?\? body\.model_id/.test(modelRoutes) &&
@@ -13939,7 +14867,7 @@ function runBridge() {
       !/body\.(?:modelId|modelPolicy|workflowGraphId|workflowNodeId|nodeId|node_id|workflowNodeType)\b/.test(modelRoutes) &&
       /route selection rejects retired request aliases before Rust boundary/.test(modelRoutesTest) &&
       /test route rejects retired request aliases before route lookup/.test(modelRoutesTest) &&
-      /public route control facades fail closed before selection, receipts, or state mutation/.test(modelRoutesTest) &&
+      /model mounting public route control uses Rust planning and Agentgres record commits/.test(modelRoutesTest) &&
       /retired_aliases/.test(modelRoutesTest) &&
       /canonical_fields/.test(modelRoutesTest),
     [
@@ -13988,26 +14916,41 @@ function runBridge() {
       !/deniedProviders:\s*normalizeScopes\(body\.denied_providers,\s*\[\]\)/.test(modelRoutes) &&
       !/lastSelectedModel:\s*body\.last_selected_model \?\? null/.test(modelRoutes) &&
       !/lastReceiptId:\s*body\.last_receipt_id \?\? null/.test(modelRoutes) &&
-      /routeControlRequiredForState\(state,\s*"model_mount\.route\.write"/.test(modelRoutes) &&
-      /routeControlRequiredForState\(state,\s*"model_mount\.route\.test"/.test(modelRoutes) &&
+      /routeControlPlanForState\(state,\s*"model_mount\.route\.write"/.test(modelRoutes) &&
+      /routeControlPlanForState\(state,\s*"model_mount\.route\.test"/.test(modelRoutes) &&
+      /commitRouteControlPlan\(state,\s*plan/.test(modelRoutes) &&
+      /commitModelMountRecordState\(state/.test(modelRoutes) &&
       /routeControlRequiredForState\(state,\s*operation_kind,\s*details = \{\}\)/.test(modelRoutes) &&
       /this\.modelMountAdmissionRunner\.planRouteControlRequired/.test(modelMountingState) &&
+      /this\.modelMountAdmissionRunner\.planRouteControl\(request\)/.test(modelMountingState) &&
       /planRouteControlRequired\(request\)/.test(modelMountAdmissionRunner) &&
+      /planRouteControl\(request\)/.test(modelMountAdmissionRunner) &&
+      /operation:\s*"plan_model_mount_route_control"/.test(modelMountAdmissionRunner) &&
       /Rust model_mount admission runner sends route control required request/.test(modelMountAdmissionRunnerTest) &&
+      /Rust model_mount admission runner sends positive route control request/.test(modelMountAdmissionRunnerTest) &&
       /throwModelRouteControlRustCoreRequired/.test(modelRoutes) &&
       /model_mount_route_control_rust_core_required/.test(modelRoutes) &&
+      /model_mount_route_control_rust_owned/.test(modelRoutes + modelMountRouteControlEvidence) &&
+      /rust_daemon_core_route_control_plan/.test(modelRoutes + modelMountRouteControlEvidence) &&
       /rust_core_boundary:\s*details\.rust_core_boundary \?\? record\.rust_core_boundary \?\? "model_mount\.route_control"/.test(modelRoutes) &&
       /model_mount_route_control_js_facade_retired/.test(modelRoutes) &&
       /rust_daemon_core_route_control_required/.test(modelRoutes) &&
       /agentgres_route_truth_required/.test(modelRoutes) &&
+      /MODEL_MOUNT_ROUTE_CONTROL_SCHEMA_VERSION/.test(modelMountRouteControlEvidence) &&
+      /MODEL_MOUNT_ROUTE_CONTROL_PLAN_SCHEMA_VERSION/.test(modelMountRouteControlEvidence) &&
+      /pub struct ModelMountRouteControlBridgeRequest/.test(modelMountRouteControlEvidence) &&
+      /pub fn plan_model_mount_route_control_response/.test(modelMountRouteControlEvidence) &&
+      /rust_core_plans_model_mount_route_write_control/.test(modelMountRouteControlEvidence) &&
+      /rust_core_plans_model_mount_route_test_control/.test(modelMountRouteControlEvidence) &&
+      /rust_core_rejects_unowned_model_mount_route_control_kind/.test(modelMountRouteControlEvidence) &&
+      /plan_model_mount_route_control_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      /"plan_model_mount_route_control"/.test(commandProtocolCore) &&
       /model_mount\.route\.write/.test(modelRoutes) &&
       /model_mount\.route\.test/.test(modelRoutes) &&
       !/persistModelRouteSelectionState/.test(modelRoutes) &&
       /throwModelRouteSelectionRustCoreRequired/.test(modelRoutes) &&
       /model_mount\.route\.selection_update/.test(modelRoutesTest) &&
       !/commitModelRouteRecordState/.test(modelRoutes) &&
-      !/commitModelMountRecordState/.test(modelRoutes) &&
-      !/recordDir:\s*"model-routes"/.test(modelRoutes) &&
       !exists("packages/runtime-daemon/src/model-mounting/tokenizer-operations.mjs") &&
       !/model_mount\.route\.tokenizer_selection/.test(modelMountingState) &&
       !/model_mount\.route\.invocation_selection/.test(modelInvocationOps) &&
@@ -14024,15 +14967,15 @@ function runBridge() {
         modelRoutes,
       ) &&
       /route upsert rejects retired request aliases before Rust-required boundary/.test(modelRoutesTest) &&
-      /route upsert fails closed without JS route-record normalization/.test(modelRoutesTest) &&
-      /public route control facades fail closed before selection, receipts, or state mutation/.test(modelRoutesTest) &&
+      /route upsert commits Rust-planned route record without JS normalization/.test(modelRoutesTest) &&
+      /model mounting public route control uses Rust planning and Agentgres record commits/.test(modelRoutesTest) &&
       /route-selection receipt helper is retired behind Rust core/.test(modelRoutesTest) &&
-      /routeControlRequiredRequests\[0\]\.operation_kind/.test(modelRoutesTest) &&
-      /does not fall back to JS route record-state commit/.test(modelTokenizerOperationsTest) &&
-      /invokeModel public facade fails closed before JS route selection, provider execution, receipts, or projection mutation/.test(
+      /recordStateCommits\[0\]\.record_dir/.test(modelRoutesTest) &&
+      /modelTokenizerUtility uses Rust tokenizer planning and Agentgres commit without JS tokenization receipt/.test(modelTokenizerOperationsTest) &&
+      /invokeModel public facade executes migrated fixture through Rust model_mount admission, provider execution, and receipt binding/.test(
         modelInvocationOpsTest,
       ) &&
-      /assert\.deepEqual\(state\.recordStateCommits,\s*\[\]\)/.test(modelTokenizerOperationsTest) &&
+      /assert\.equal\(state\.recordStateCommits\.length,\s*1\)/.test(modelTokenizerOperationsTest) &&
       /assert\.deepEqual\(state\.recordStateCommits,\s*\[\]\)/.test(modelInvocationOpsTest) &&
       !/route upsert fails closed without Rust Agentgres record-state commit/.test(modelRoutesTest) &&
       !/route test fails closed without Rust Agentgres record-state commit/.test(modelRoutesTest) &&
@@ -14060,17 +15003,39 @@ function runBridge() {
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
       "scripts/lib/live-runtime-daemon-contract.test.mjs",
     ],
-    "Phase 3/10 is pending: model route control JS facades must fail closed and invocation/tokenizer route selections must not write duplicate JS route truth",
+    "Phase 3/10 is pending: public model route write/test control must use Rust route-control planning plus Agentgres record commits while invocation route selections must not write duplicate JS route truth",
   );
   assertCheck(
     result,
     "model-mount-catalog-provider-control-js-facade-retired",
     !exists("packages/runtime-daemon/src/model-mounting/catalog-provider-configuration-operations.mjs") &&
-      /throwCatalogProviderControlRustCoreRequired/.test(modelMountingState) &&
-      !/catalogProviderConfigState|catalogProviderRuntimeMaterialState|configureCatalogProviderState|getCatalogProviderConfigState|listCatalogProviderConfigsState/.test(modelMountingState) &&
-      /model_mount_catalog_provider_control_rust_core_required/.test(
-        catalogProviderConfig,
+      /plan_model_mount_catalog_provider_control/.test(commandProtocolCore) &&
+      /CommandOperation::PlanModelMountCatalogProviderControl/.test(commandProtocolCore) &&
+      /plan_model_mount_catalog_provider_control_response\(decode\(raw_request\)\?\)/.test(
+        coreCommandDispatch,
       ) &&
+      /mod catalog_provider_control;/.test(modelMountCore) &&
+      /pub fn plan_model_mount_catalog_provider_control_response/.test(modelMountCore) &&
+      /MODEL_MOUNT_CATALOG_PROVIDER_CONTROL_SCHEMA_VERSION/.test(modelMountCore) &&
+      /wallet_network_catalog_provider_authority_required/.test(modelMountCore) &&
+      /ctee_catalog_provider_custody_enforced/.test(modelMountCore) &&
+      /agentgres_catalog_provider_control_truth_required/.test(modelMountCore) &&
+      /planCatalogProviderControl\(request\)\s*\{[\s\S]*?this\.modelMountAdmissionRunner\.planCatalogProviderControl\(request\)/.test(
+        modelMountingState,
+      ) &&
+      /planCatalogProviderControl\(request\)\s*\{[\s\S]*?operation:\s*"plan_model_mount_catalog_provider_control"/.test(
+        modelMountAdmissionRunner,
+      ) &&
+      /normalizeCatalogProviderControlBridgeResult/.test(modelMountAdmissionRunner) &&
+      /RUST_MODEL_MOUNT_CATALOG_PROVIDER_CONTROL_BACKEND/.test(modelMountAdmissionRunner) &&
+      /Rust model_mount admission runner sends positive catalog-provider-control request/.test(
+        modelMountAdmissionRunnerTest,
+      ) &&
+      !/catalogProviderConfigState|catalogProviderRuntimeMaterialState|configureCatalogProviderState|getCatalogProviderConfigState|listCatalogProviderConfigsState/.test(modelMountingState) &&
+      /catalogProviderControlPlanForState/.test(catalogProviderConfig) &&
+      /commitCatalogProviderControlPlan/.test(catalogProviderConfig) &&
+      /catalogProviderControlResponse/.test(catalogProviderConfig) &&
+      /commitModelMountRecordState/.test(catalogProviderConfig) &&
       /rust_core_boundary:\s*"model_mount\.catalog_provider_control"/.test(
         catalogProviderConfig,
       ) &&
@@ -14079,6 +15044,9 @@ function runBridge() {
       /rust_daemon_core_wallet_ctee_custody_required/.test(catalogProviderConfig) &&
       /model_mount\.catalog_provider_configuration\.list/.test(catalogProviderListBlock) &&
       /model_mount\.catalog_provider_configuration\.get/.test(catalogProviderGetBlock) &&
+      /planAndCommitCatalogProviderControl/.test(
+        `${catalogProviderListBlock}\n${catalogProviderGetBlock}\n${catalogProviderConfigureBlock}\n${catalogProviderPrivateConfigBlock}\n${catalogProviderRuntimeMaterialBlock}`,
+      ) &&
       !/publicCatalogProviderConfig/.test(
         `${catalogProviderListBlock}\n${catalogProviderGetBlock}\n${catalogProviderConfigureBlock}`,
       ) &&
@@ -14091,9 +15059,6 @@ function runBridge() {
       !/state\.catalogProviderRuntimeMaterial/.test(catalogProviderGetBlock) &&
       /model_mount\.catalog_provider_configuration\.write/.test(catalogProviderConfigureBlock) &&
       !/state\.receipt\("model_catalog_provider_configuration"/.test(catalogProviderConfigureBlock) &&
-      !/commitModelMountRecordState/.test(
-        `${catalogProviderListBlock}\n${catalogProviderGetBlock}\n${catalogProviderConfigureBlock}`,
-      ) &&
       !/state\.catalogProviderConfigs\.set/.test(catalogProviderConfigureBlock) &&
       !/state\.catalogProviderRuntimeMaterials\.(?:set|delete)/.test(catalogProviderConfigureBlock) &&
       !/state\.writeVaultRefs\(\)/.test(
@@ -14109,35 +15074,20 @@ function runBridge() {
         catalogProviderConfigureBlock,
       ) &&
       !/state\.writeProjection\(\)/.test(catalogProviderConfigureBlock) &&
-      /catalog provider configuration list\/get fail closed before JS public projection/.test(
+      /catalog provider config list\/get\/write commit Rust control records without JS projection/.test(
         catalogProviderConfigurationOperationsTest,
       ) &&
       /model_mount\.catalog_provider_configuration\.list/.test(catalogProviderConfigurationOperationsTest) &&
       /model_mount\.catalog_provider_configuration\.get/.test(catalogProviderConfigurationOperationsTest) &&
-      /assert\.equal\(state\.catalogProviderRuntimeMaterialCalls,\s*0\)/.test(
-        catalogProviderConfigurationOperationsTest,
-      ) &&
-      /assert\.equal\(state\.calls\.some\(\(call\) => call\.name === "catalogProviderPorts"\), false\)/.test(
-        catalogProviderConfigurationOperationsTest,
-      ) &&
-      /catalog provider configuration mutation facade fails closed until Rust core owns catalog provider control/.test(
-        catalogProviderConfigurationOperationsTest,
-      ) &&
-      /model_mount_catalog_provider_control_rust_core_required/.test(catalogProviderConfigurationOperationsTest) &&
-      /public_catalog_provider_control_js_facade_retired/.test(catalogProviderConfigurationOperationsTest) &&
-      /recordStateCommits/.test(catalogProviderConfigurationOperationsTest) &&
-      /assert\.deepEqual\(state\.receipts,\s*\[\]\)/.test(catalogProviderConfigurationOperationsTest) &&
-      /assert\.deepEqual\(state\.recordStateCommits,\s*\[\]\)/.test(catalogProviderConfigurationOperationsTest) &&
-      /assert\.equal\(state\.calls\.some\(\(call\) => call\.name === "writeMap"\), false\)/.test(
-        catalogProviderConfigurationOperationsTest,
-      ) &&
-      /catalog provider runtime material fails closed before JS vault resolution/.test(
+      /model_mount\.catalog_provider_configuration\.write/.test(catalogProviderConfigurationOperationsTest) &&
+      /planCatalogProviderControl/.test(catalogProviderConfigurationOperationsTest) &&
+      /commitRuntimeModelMountRecordState/.test(catalogProviderConfigurationOperationsTest) &&
+      /ctee_catalog_provider_custody_enforced/.test(catalogProviderConfigurationOperationsTest) &&
+      /agentgres_catalog_provider_control_truth_required/.test(catalogProviderConfigurationOperationsTest) &&
+      /private config and runtime material resolve through Rust cTEE control only/.test(
         catalogProviderConfigurationOperationsTest,
       ) &&
       /model_mount\.catalog_provider_runtime_material\.resolve/.test(catalogProviderRuntimeMaterialBlock) &&
-      /runtime_material_status:\s*existing\?\.runtimeMaterialStatus \?\? "rust_core_projection_required"/.test(
-        catalogProviderRuntimeMaterialBlock,
-      ) &&
       /model_mount\.catalog_provider_configuration\.read_private/.test(catalogProviderPrivateConfigBlock) &&
       !/state\.catalogProviderConfigs\.get/.test(
         `${catalogProviderPrivateConfigBlock}\n${catalogProviderRuntimeMaterialBlock}`,
@@ -14154,7 +15104,7 @@ function runBridge() {
       !/catalog-provider-ports\.mjs/.test(modelMountingState) &&
       !/catalog-registry\.mjs/.test(modelMountingState) &&
       !/buildModelCatalogProviderPorts|modelCatalogProviderPorts|catalogProviderStatus/.test(modelMountingState) &&
-      /private catalog provider config readback fails closed before JS map projection/.test(
+      /private config and runtime material resolve through Rust cTEE control only/.test(
         catalogProviderConfigurationOperationsTest,
       ) &&
       /ModelMountingState\.prototype\.catalogProviderRuntimeMaterial\.call/.test(
@@ -14162,19 +15112,19 @@ function runBridge() {
       ) &&
       !exists("packages/runtime-daemon/src/model-mounting/catalog-projections.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/catalog-projections.test.mjs") &&
-      /assert\.equal\(resolveCount,\s*0\)/.test(catalogProviderConfigurationOperationsTest) &&
-      /assert\.equal\(state\.catalogProviderRuntimeMaterials\.has\(providerId\),\s*false\)/.test(
-        catalogProviderConfigurationOperationsTest,
-      ) &&
-      /assert\.equal\(state\.calls\.some\(\(call\) => call\.name === "resolveVaultRef"\), false\)/.test(
-        catalogProviderConfigurationOperationsTest,
-      ) &&
-      /assert\.equal\(state\.calls\.some\(\(call\) => call\.name === "writeVaultRefs"\), false\)/.test(
+      /assert\.deepEqual\(state\.calls\.map\(\(call\) => call\.request\.body\), \[\{\}, \{\}\]\)/.test(
         catalogProviderConfigurationOperationsTest,
       ),
     [
+      "crates/services/src/agentic/runtime/kernel/model_mount/catalog_provider_control.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount.rs",
+      "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
+      "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
       "packages/runtime-daemon/src/model-mounting.mjs",
+      "packages/runtime-daemon/src/model-mounting/catalog-provider-config.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-provider-configuration-operations.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-provider-ports.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-provider-ports.test.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-registry.mjs",
@@ -14182,14 +15132,17 @@ function runBridge() {
       "packages/runtime-daemon/src/model-mounting/catalog-projections.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-projections.test.mjs",
     ],
-    "Phase 9/10 is pending: public catalog provider configuration mutations must fail closed until Rust daemon-core catalog provider control owns receipts, wallet/cTEE custody, record-state, and projection semantics",
+    "Phase 9/10 is pending: public catalog provider configuration and private material control must use Rust daemon-core catalog-provider-control planning plus Agentgres record commits without JS vault/config readback",
   );
   assertCheck(
     result,
     "model-mount-catalog-provider-oauth-js-facade-retired",
     !exists("packages/runtime-daemon/src/model-mounting/catalog-provider-oauth.mjs") &&
-      /throwCatalogProviderControlRustCoreRequired/.test(modelMountingState) &&
-      /model_mount_catalog_provider_control_rust_core_required/.test(catalogProviderConfig) &&
+      /plan_model_mount_catalog_provider_control/.test(commandProtocolCore) &&
+      /planCatalogProviderControl\(request\)\s*\{[\s\S]*?operation:\s*"plan_model_mount_catalog_provider_control"/.test(
+        modelMountAdmissionRunner,
+      ) &&
+      /ctee_catalog_provider_custody_enforced/.test(modelMountCore) &&
       !exists("packages/runtime-daemon/src/model-mounting/oauth-record-state.mjs") &&
       /model_mount\.catalog_provider_oauth\.start/.test(modelMountingState) &&
       /model_mount\.catalog_provider_oauth\.callback/.test(modelMountingState) &&
@@ -14199,7 +15152,6 @@ function runBridge() {
       /requiredString\(body\.state,\s*"state"\)/.test(modelMountingState) &&
       !/body\.(?:oauth_state|oauthState)\b/.test(catalogProviderOAuthOperations) &&
       !/state\.receipt\("catalog_oauth_/.test(catalogProviderOAuthOperations) &&
-      !/commitModelMountRecordState/.test(catalogProviderOAuthOperations) &&
       !/commitOAuthStateRecordState/.test(catalogProviderOAuthOperations) &&
       !/commitOAuthSessionRecordState/.test(catalogProviderOAuthOperations) &&
       !/state\.oauthCredentialProvider\.(?:startAuthorization|completeAuthorization|exchangeAuthorizationCode|refreshAccessToken|revokeSession)/.test(
@@ -14212,17 +15164,16 @@ function runBridge() {
       !/state\.writeVaultRefs\(\)/.test(catalogProviderOAuthOperations) &&
       !/state\.writeProjection\(\)/.test(catalogProviderOAuthOperations) &&
       !/startCatalogProviderOAuthState|completeCatalogProviderOAuthState|exchangeCatalogProviderOAuthState|refreshCatalogProviderOAuthState|revokeCatalogProviderOAuthState/.test(modelMountingState) &&
-      /startCatalogProviderOAuth\(providerId,\s*body = \{\}\)\s*\{[\s\S]*?assertConfigurableCatalogProvider\(providerId\)[\s\S]*?throwCatalogProviderControlRustCoreRequired\(\s*"model_mount\.catalog_provider_oauth\.start"/.test(modelMountingState) &&
-      /completeCatalogProviderOAuth\(providerId,\s*body = \{\}\)\s*\{[\s\S]*?assertConfigurableCatalogProvider\(providerId\)[\s\S]*?requiredString\(body\.state,\s*"state"\)[\s\S]*?throwCatalogProviderControlRustCoreRequired\(\s*"model_mount\.catalog_provider_oauth\.callback"/.test(modelMountingState) &&
-      /exchangeCatalogProviderOAuth\(providerId,\s*body = \{\}\)\s*\{[\s\S]*?assertConfigurableCatalogProvider\(providerId\)[\s\S]*?throwCatalogProviderControlRustCoreRequired\(\s*"model_mount\.catalog_provider_oauth\.exchange"/.test(modelMountingState) &&
-      /refreshCatalogProviderOAuth\(providerId\)\s*\{[\s\S]*?assertConfigurableCatalogProvider\(providerId\)[\s\S]*?throwCatalogProviderControlRustCoreRequired\(\s*"model_mount\.catalog_provider_oauth\.refresh"/.test(modelMountingState) &&
-      /revokeCatalogProviderOAuth\(providerId\)\s*\{[\s\S]*?assertConfigurableCatalogProvider\(providerId\)[\s\S]*?throwCatalogProviderControlRustCoreRequired\(\s*"model_mount\.catalog_provider_oauth\.revoke"/.test(modelMountingState) &&
+      /startCatalogProviderOAuth\(providerId,\s*body = \{\}\)\s*\{[\s\S]*?planAndCommitCatalogProviderControl\(\s*this,\s*"model_mount\.catalog_provider_oauth\.start"/.test(modelMountingState) &&
+      /completeCatalogProviderOAuth\(providerId,\s*body = \{\}\)\s*\{[\s\S]*?requiredString\(body\.state,\s*"state"\)[\s\S]*?planAndCommitCatalogProviderControl\(\s*this,\s*"model_mount\.catalog_provider_oauth\.callback"/.test(modelMountingState) &&
+      /exchangeCatalogProviderOAuth\(providerId,\s*body = \{\}\)\s*\{[\s\S]*?planAndCommitCatalogProviderControl\(\s*this,\s*"model_mount\.catalog_provider_oauth\.exchange"/.test(modelMountingState) &&
+      /refreshCatalogProviderOAuth\(providerId\)\s*\{[\s\S]*?planAndCommitCatalogProviderControl\(\s*this,\s*"model_mount\.catalog_provider_oauth\.refresh"/.test(modelMountingState) &&
+      /revokeCatalogProviderOAuth\(providerId\)\s*\{[\s\S]*?planAndCommitCatalogProviderControl\(\s*this,\s*"model_mount\.catalog_provider_oauth\.revoke"/.test(modelMountingState) &&
       !/startCatalogProviderOAuth\(providerId,\s*body = \{\}\)\s*\{(?:(?!\n  async completeCatalogProviderOAuth).)*(?:catalogProviderStatus|publicCatalogProviderConfig|publicOAuthSession|oauthBoundaryForSession|stableHash)/s.test(modelMountingState) &&
       !/completeCatalogProviderOAuth\(providerId,\s*body = \{\}\)\s*\{(?:(?!\n  async exchangeCatalogProviderOAuth).)*(?:catalogProviderStatus|publicCatalogProviderConfig|publicOAuthSession|oauthBoundaryForSession|stableHash)/s.test(modelMountingState) &&
       !/exchangeCatalogProviderOAuth\(providerId,\s*body = \{\}\)\s*\{(?:(?!\n  async refreshCatalogProviderOAuth).)*(?:catalogProviderStatus|publicCatalogProviderConfig|publicOAuthSession|oauthBoundaryForSession|stableHash)/s.test(modelMountingState) &&
       !/refreshCatalogProviderOAuth\(providerId\)\s*\{(?:(?!\n  revokeCatalogProviderOAuth).)*(?:catalogProviderStatus|publicCatalogProviderConfig|publicOAuthSession|oauthBoundaryForSession|stableHash)/s.test(modelMountingState) &&
       !/revokeCatalogProviderOAuth\(providerId\)\s*\{(?:(?!\n  catalogProviderConfig).)*(?:catalogProviderStatus|publicCatalogProviderConfig|publicOAuthSession|oauthBoundaryForSession|stableHash)/s.test(modelMountingState) &&
-      /model_mount_catalog_provider_control_rust_core_required/.test(catalogProviderConfig) &&
       !exists("packages/runtime-daemon/src/model-mounting/catalog-provider-config.test.mjs") &&
       !/catalogProviderAuthHeaders/.test(catalogProviderConfig) &&
       !/model_mount\.oauth_session\.auth_header_refresh/.test(catalogProviderConfig) &&
@@ -14230,7 +15181,6 @@ function runBridge() {
         catalogProviderConfig,
       ) &&
       !/commitOAuthSessionRecordState/.test(catalogProviderConfig) &&
-      !/commitModelMountRecordState/.test(catalogProviderConfig) &&
       !/resolveAccessHeader/.test(catalogProviderConfig) &&
       !/state\?\.vault\?\.resolveVaultRef/.test(catalogProviderConfig) &&
       !/state\?\.writeVaultRefs/.test(catalogProviderConfig) &&
@@ -14244,7 +15194,7 @@ function runBridge() {
       !/writeMap\("oauth-sessions"/.test(catalogProviderConfig) &&
       !/state\.catalogProviderConfigs\.set/.test(catalogProviderConfig) &&
       !/state\.oauthSessions\.set/.test(catalogProviderConfig) &&
-      /catalog OAuth mutation facades fail closed until Rust core owns catalog provider control/.test(
+      /catalog OAuth operations commit Rust catalog-provider-control records/.test(
         catalogProviderOAuthOperationsTest,
       ) &&
       /catalog OAuth callback still validates required callback state before Rust boundary/.test(catalogProviderOAuthOperationsTest) &&
@@ -14256,21 +15206,25 @@ function runBridge() {
       !/depsWithRetiredProjectionHelpers/.test(catalogProviderOAuthOperationsTest) &&
       !/publicOAuthSession must not run in JS OAuth facade/.test(catalogProviderOAuthOperationsTest) &&
       !/publicCatalogProviderConfig must not run in JS OAuth facade/.test(catalogProviderOAuthOperationsTest) &&
-      /assertNoCatalogOAuthMutation/.test(catalogProviderOAuthOperationsTest) &&
-      /model_mount_catalog_provider_control_rust_core_required/.test(catalogProviderOAuthOperationsTest) &&
-      /public_catalog_provider_control_js_facade_retired/.test(catalogProviderOAuthOperationsTest) &&
-      /assert\.deepEqual\(state\.receipts,\s*\[\]\)/.test(catalogProviderOAuthOperationsTest) &&
-      /assert\.deepEqual\(state\.recordStateCommits,\s*\[\]\)/.test(catalogProviderOAuthOperationsTest) &&
+      /commitRuntimeModelMountRecordState/.test(catalogProviderOAuthOperationsTest) &&
+      /assert\.equal\(state\.recordStateCommits\.length,\s*5\)/.test(catalogProviderOAuthOperationsTest) &&
+      /ctee_catalog_provider_custody_enforced/.test(catalogProviderOAuthOperationsTest) &&
       !/model_mount\.catalog_provider_auth_header\.refresh/.test(catalogProviderConfig) &&
-      /assert\.deepEqual\(state\.writes,\s*\[\]\)/.test(catalogProviderOAuthOperationsTest),
+      /assert\.deepEqual\(state\.oauthSessions,\s*new Map\(\)\)/.test(catalogProviderOAuthOperationsTest),
     [
+      "crates/services/src/agentic/runtime/kernel/model_mount/catalog_provider_control.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount.rs",
+      "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
+      "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
       "packages/runtime-daemon/src/model-mounting/catalog-provider-config.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-provider-config.test.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-provider-oauth.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs",
       "packages/runtime-daemon/src/model-mounting/record-state-commits.mjs",
     ],
-    "Phase 9/10 is pending: public catalog provider OAuth mutations must fail closed until Rust daemon-core catalog provider control owns OAuth state/session receipts, wallet/cTEE custody, record-state, and projection semantics",
+    "Phase 9/10 is pending: public catalog provider OAuth control must use Rust daemon-core catalog-provider-control planning plus Agentgres record commits without JS OAuth credential execution",
   );
   assertCheck(
     result,
@@ -14313,26 +15267,53 @@ function runBridge() {
     result,
     "model-mount-receipt-gate-js-facade-retired",
     /requiredString\(body\.receipt_id,\s*"receipt_id"\)/.test(modelReceiptGateValidation) &&
+      /planReceiptGate/.test(modelMountingState) &&
+      /planReceiptGate/.test(modelReceiptGateValidation) &&
+      /schema_version:\s*"ioi\.model_mount\.receipt_gate\.v1"/.test(modelReceiptGateValidation) &&
+      /operation_kind:\s*"workflow_receipt_gate"/.test(modelReceiptGateValidation) &&
+      /tool_receipts:\s*toolReceipts/.test(modelReceiptGateValidation) &&
+      /persistRustAuthoredReceipt\(plan\.receipt\)/.test(modelReceiptGateValidation) &&
       /model_mount_receipt_gate_rust_core_required/.test(modelMountingValidation) &&
       /MODEL_RECEIPT_GATE_RUST_CORE_REQUIRED_EVIDENCE_REFS/.test(modelMountingValidation) &&
       /model_mount_receipt_gate_js_facade_retired/.test(modelMountingValidation) &&
-      /rust_daemon_core_model_receipt_gate_required/.test(modelMountingValidation) &&
+      /model_mount_receipt_gate_rust_owned/.test(modelMountingValidation) &&
+      /rust_receipt_binder_core/.test(modelMountingValidation) &&
       /agentgres_model_receipt_gate_truth_required/.test(modelMountingValidation) &&
-      /boundary:\s*"model_mount\.receipt_gate"/.test(modelMountingValidation) &&
-      /operation_kind:\s*"workflow_receipt_gate"/.test(modelMountingValidation) &&
-      /void createReceipt/.test(modelReceiptGateValidation) &&
+      /rust_core_boundary:\s*"model_mount\.receipt_gate"/.test(modelMountingValidation) &&
+      /model_mount_receipt_gate_receipt_state_commit_unconfigured/.test(modelMountingValidation) &&
+      /RUST_MODEL_MOUNT_RECEIPT_GATE_BACKEND/.test(modelMountAdmissionRunner) &&
+      /planReceiptGate\(request\)/.test(modelMountAdmissionRunner) &&
+      /operation:\s*"plan_model_mount_receipt_gate"/.test(modelMountAdmissionRunner) &&
+      /normalizeReceiptGateBridgeResult/.test(modelMountAdmissionRunner) &&
+      /receipt\.details\.model_mount_receipt_gate_hash/.test(modelMountAdmissionRunner) &&
+      /receipt\.details\.model_mount_receipt_binding_ref/.test(modelMountAdmissionRunner) &&
+      /receipt\.details\.model_mount_agentgres_operation_ref/.test(modelMountAdmissionRunner) &&
+      /Rust model_mount admission runner sends positive receipt-gate request/.test(modelMountAdmissionRunnerTest) &&
+      /plan_model_mount_receipt_gate/.test(modelMountAdmissionRunnerTest) &&
+      /RUST_MODEL_MOUNT_RECEIPT_GATE_BACKEND/.test(modelMountAdmissionRunnerTest) &&
+      /MODEL_MOUNT_RECEIPT_GATE_SCHEMA_VERSION/.test(modelMountCore) &&
+      /MODEL_MOUNT_RECEIPT_GATE_PLAN_SCHEMA_VERSION/.test(modelMountCore) &&
+      /plan_model_mount_receipt_gate_response/.test(modelMountCore) &&
+      /plan_receipt_gate/.test(modelMountCore) &&
+      /workflow_receipt_gate_blocked/.test(modelMountCore) &&
+      /model_mount_receipt_gate_rust_owned/.test(modelMountCore) &&
+      /rust_receipt_binder_core/.test(modelMountCore) &&
+      /agentgres_model_receipt_gate_truth_required/.test(modelMountCore) &&
+      /"plan_model_mount_receipt_gate"/.test(commandProtocolCore) &&
+      /CommandOperation::PlanModelMountReceiptGate/.test(commandProtocolCore) &&
+      /plan_model_mount_receipt_gate_response/.test(coreCommandDispatch) &&
       !/createReceipt\("workflow_receipt_gate/.test(modelReceiptGateValidation) &&
-      /const requiredRouteId = body\.route_id/.test(modelReceiptGateValidation) &&
-      /const requiredSelectedModel = body\.selected_model/.test(modelReceiptGateValidation) &&
+      !/void createReceipt/.test(modelReceiptGateValidation) &&
+      !/const requiredRouteId = body\.route_id/.test(modelReceiptGateValidation) &&
+      !/const requiredSelectedModel = body\.selected_model/.test(modelReceiptGateValidation) &&
       /body\.selected_endpoint \?\? body\.endpoint_id/.test(modelReceiptGateValidation) &&
       /body\.selected_backend \?\? body\.backend_id/.test(modelReceiptGateValidation) &&
       /body\.required_tool_receipt_ids/.test(modelReceiptGateValidation) &&
-      /receipt\.details\?\.route_id/.test(modelReceiptGateValidation) &&
-      /receipt\.details\?\.selected_model/.test(modelReceiptGateValidation) &&
-      /receipt\.details\?\.endpoint_id/.test(modelReceiptGateValidation) &&
-      /receipt\.details\?\.tool_receipt_ids/.test(modelReceiptGateValidation) &&
-      /receipt_id:\s*receiptId/.test(modelMountingValidation) &&
-      /gate_status:\s*failures\.length > 0 \? "blocked" : "passed"/.test(modelMountingValidation) &&
+      !/receipt\.details\?\.route_id/.test(modelReceiptGateValidation) &&
+      !/receipt\.details\?\.selected_model/.test(modelReceiptGateValidation) &&
+      !/receipt\.details\?\.endpoint_id/.test(modelReceiptGateValidation) &&
+      !/receipt\.details\?\.tool_receipt_ids/.test(modelReceiptGateValidation) &&
+      !/failures\.push/.test(modelReceiptGateValidation) &&
       /required_tool_receipt_ids:\s*requiredToolReceiptIds/.test(modelMountingValidation) &&
       !/body\.(?:receiptId|routeId|selectedModel|selectedEndpoint|endpointId|selectedBackend|backendId|requiredToolReceiptIds|redactionClass)/.test(
         modelReceiptGateValidation,
@@ -14343,33 +15324,42 @@ function runBridge() {
       !/(?:receiptId|routeId|selectedModel|endpointId|backendId|requiredToolReceiptIds|gateReceiptId):/.test(
         modelReceiptGateValidation,
       ) &&
-      /model mounting validation matching receipt gate fails closed before JS receipt creation/.test(
+      /model mounting validation commits Rust-planned matching receipt gate/.test(
         modelMountingValidationTest,
       ) &&
-      /model mounting validation mismatch gate fails closed before JS blocked receipt creation/.test(
+      /model mounting validation commits Rust-planned blocked receipt gate/.test(
         modelMountingValidationTest,
       ) &&
-      /JS workflow_receipt_gate receipt should not be created/.test(modelMountingValidationTest) &&
-      /JS workflow_receipt_gate_blocked receipt should not be created/.test(
+      /model mounting validation fails closed before JS gate decision when Rust planner is missing/.test(
         modelMountingValidationTest,
       ) &&
-      /assert\.deepEqual\(calls,\s*\[\]\)/.test(modelMountingValidationTest) &&
-      /Object\.hasOwn\(error\.details,\s*"routeId"\),\s*false/.test(modelMountingValidationTest) &&
-      /Object\.hasOwn\(error\.details,\s*"gateReceiptId"\),\s*false/.test(modelMountingValidationTest),
+      /model_mount_receipt_gate_rust_core_required/.test(modelMountingValidationTest) &&
+      /workflow_receipt_gate_blocked/.test(modelMountingValidationTest) &&
+      /model_mount_receipt_binding_ref/.test(modelMountingValidationTest) &&
+      /model_mount_agentgres_operation_ref/.test(modelMountingValidationTest) &&
+      /Object\.hasOwn\(error\.details,\s*"failures"\),\s*false/.test(modelMountingValidationTest) &&
+      /Object\.hasOwn\(error\.details,\s*"gateStatus"\),\s*false/.test(modelMountingValidationTest),
     [
       "packages/runtime-daemon/src/model-mounting/validation.mjs",
       "packages/runtime-daemon/src/model-mounting/validation.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs",
+      "crates/services/src/agentic/runtime/kernel/model_mount/receipt_gate.rs",
+      "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
+      "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
     ],
-    "Phase 10 is pending: receipt-gate validation must fail closed before JS gate receipt construction and keep canonical Rust-core-required details",
+    "Receipt-gate validation must stay Rust-owned: JS may gather canonical receipt facts but must not evaluate gate failures or author workflow_receipt_gate receipts",
   );
   assertCheck(
     result,
     "model-mount-invocation-receipt-detail-aliases-retired",
-    /throwModelInvocationRustCoreRequired\("model_mount\.invocation\.invoke"/.test(modelInvokeFacadeBlock) &&
-      /throwModelInvocationRustCoreRequired\("model_mount\.invocation\.stream_start"/.test(modelStreamFacadeBlock) &&
+    /executeModelInvocationThroughRustCore\(state/.test(modelInvokeFacadeBlock) &&
+      /stream:\s*false/.test(modelInvokeFacadeBlock) &&
+      /executeModelInvocationThroughRustCore\(state/.test(modelStreamFacadeBlock) &&
+      /stream:\s*true/.test(modelStreamFacadeBlock) &&
       !retiredModelInvocationFacadeBodyPattern.test(modelInvokeFacadeBlock) &&
       !retiredModelInvocationFacadeBodyPattern.test(modelStreamFacadeBlock) &&
-      !/function invocationReceiptDetails/.test(modelInvocationOps) &&
+      /function invocationReceiptDetails/.test(modelInvocationOps) &&
       !/function persistRouteSelection/.test(modelInvocationOps) &&
       !/state\.receipt\("model_invocation/.test(modelInvocationOps) &&
       /receiptDetails\.route_id/.test(modelInvocationOps) &&
@@ -14389,7 +15379,7 @@ function runBridge() {
         modelInvocationOps,
       ) &&
       !exists("packages/runtime-daemon/src/model-mounting/conversation-operations.mjs") &&
-      /model_mount_stream_completion_js_facade_retired/.test(modelConversationOps) &&
+      /model_mount_stream_completion_rust_owned/.test(modelConversationOps) &&
       !/const receiptDetails = \{[\s\S]*?model_invocation_stream_completed/.test(modelConversationOps) &&
       !/state\.receipt\("model_invocation_stream_completed"/.test(modelConversationOps) &&
       /details\.get\("tool_receipt_ids"\)/.test(modelMountInvocationReceiptProjectionEvidence) &&
@@ -14402,15 +15392,15 @@ function runBridge() {
         modelWorkflowNode + openAiCompatRoutes,
       ) &&
       /model_mount_invocation_js_facade_retired/.test(modelInvocationOps) &&
-      /rust_daemon_core_model_invocation_required/.test(modelInvocationOps) &&
+      /rust_daemon_core_model_invocation_receipt/.test(modelInvocationOps) &&
       /agentgres_model_invocation_truth_required/.test(modelInvocationOps) &&
-      /public facade fails closed before JS route selection, provider execution, receipts, or projection mutation/.test(
+      /public facade executes migrated fixture through Rust model_mount admission, provider execution, and receipt binding/.test(
         modelInvocationOpsTest,
       ) &&
-      /recordModelStreamCompleted fails closed before JS stream receipt or conversation mutation/.test(
+      /recordModelStreamCompleted persists Rust-authored stream receipt and conversation record/.test(
         modelConversationOpsTest,
       ) &&
-      /model_mount_stream_completion_js_facade_retired/.test(modelConversationOps),
+      /planModelMountStreamCompletion/.test(modelConversationOps),
     [
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs",
@@ -14679,14 +15669,14 @@ function runBridge() {
       !/model\.modelId/.test(modelRouteSelection) &&
       !/model\.routeId/.test(modelRouteSelection) &&
       !/options\.routeId/.test(modelRouteSelection) &&
-      /model route selection validates canonical request shape then fails closed before retired aliases run/.test(
+      /model route selection validates canonical request shape before Rust route-control selection/.test(
         modelRouteSelectionTest,
       ) &&
       /modelId:\s*"retired-model"/.test(modelRouteSelectionTest) &&
       /routeId:\s*"route\.retired-model"/.test(modelRouteSelectionTest) &&
       /routeId:\s*"route\.retired-option"/.test(modelRouteSelectionTest) &&
-      /assert\.equal\(error\.details\.requested_model,\s*"auto"\)/.test(modelRouteSelectionTest) &&
-      /assert\.equal\(error\.details\.route_id,\s*"route\.local-first"\)/.test(
+      /assert\.equal\(route\.requestedModelId,\s*"auto"\)/.test(modelRouteSelectionTest) &&
+      /assert\.equal\(route\.routeId,\s*"route\.local-first"\)/.test(
         modelRouteSelectionTest,
       ),
     [
@@ -14703,17 +15693,25 @@ function runBridge() {
     ) &&
       /runtime_model_route_selection_rust_core_required/.test(modelRouteSelection) &&
       /boundary:\s*"runtime\.model_route_selection"/.test(modelRouteSelection) &&
-      /throw modelRouteSelectionRustCoreRequiredError\("select_model_route"/.test(modelRouteSelection) &&
-      !/modelMounting\.selectRoute/.test(modelRouteSelection) &&
+      /typeof modelMounting\.selectRoute !== "function"/.test(modelRouteSelection) &&
+      /modelMounting\.selectRoute\(\{/.test(modelRouteSelection) &&
+      /runtimeModelRouteFromSelection/.test(modelRouteSelection) &&
       !/modelMounting\.routeSelectionReceipt/.test(modelRouteSelection) &&
       !/selectModelRouteWithFallback/.test(modelRouteSelection) &&
       !/runtime_model_route_fallback/.test(modelRouteSelection) &&
       !/fallbackRouteId|fallbackSelection|fallbackBody/.test(modelRouteSelection) &&
-      /direct selectModelRoute fails closed instead of creating JS fallback receipt/.test(
+      /direct selectModelRoute uses Rust selection instead of creating JS fallback receipt/.test(
         modelRouteSelectionTest,
       ) &&
-      /JS fallback route receipt should not be created/.test(modelRouteSelectionTest) &&
-      /assert\.deepEqual\(calls,\s*\[\]\)/.test(modelRouteSelectionTest),
+      /model route selection explicit facade uses Rust route-control selection without JS receipt creation/.test(
+        modelRouteSelectionTest,
+      ) &&
+      /model route selection fails closed when Rust route-control client is unavailable/.test(
+        modelRouteSelectionTest,
+      ) &&
+      /routeControl\.record_dir,\s*"model-route-selections"/.test(modelRouteSelectionTest) &&
+      /JS route-selection receipt should not be created/.test(modelRouteSelectionTest) &&
+      /assert\.equal\(calls\[0\]\[0\],\s*"selectRoute"\)/.test(modelRouteSelectionTest),
     [
       "packages/runtime-daemon/src/threads/model-route-selection.mjs",
       "packages/runtime-daemon/src/threads/model-route-selection.test.mjs",
@@ -14997,10 +15995,12 @@ function runBridge() {
       /required: "allow_continuation_fallback"/.test(modelMountingValidationTest) &&
       /previous_response_ref:\s*optionalRef\(receiptDetails\.previous_response_id\)/.test(modelInvocationOps) &&
       !/previous_response_ref:\s*optionalRef\(receiptDetails\.previousResponseId\)/.test(modelInvocationOps) &&
-      !/function invocationReceiptDetails/.test(modelInvocationOps) &&
-      /previous_response_id:\s*previousState\?\.id/.test(modelConversationOps) &&
-      /previous_response_id:\s*invocation\?\.previousResponseId/.test(modelConversationOps) &&
-      !/root_response_id:/.test(modelConversationOps) &&
+      /function invocationReceiptDetails/.test(modelInvocationOps) &&
+      /previous_response_id:\s*optionalString\(previousState\?\.id\)/.test(modelConversationOps) &&
+      /previous_response_id:\s*optionalString\(invocation\?\.previousResponseId\)/.test(modelConversationOps) &&
+      /root_response_id:\s*\n\s*optionalString\(previousState\?\.root_response_id\)/.test(
+        modelConversationOps,
+      ) &&
       !/previousResponseId:\s*previousState\?\.id/.test(modelConversationOps) &&
       !/rootResponseId:\s*previousState/.test(modelConversationOps) &&
       !/previousResponseId:\s*invocation\.previousResponseId/.test(modelConversationOps) &&
@@ -15025,26 +16025,57 @@ function runBridge() {
   );
   assertCheck(
     result,
-    "model-mount-conversation-state-js-facade-retired",
+    "model-mount-conversation-state-rust-owned-public-api",
     !exists("packages/runtime-daemon/src/model-mounting/conversation-operations.mjs") &&
-      /model_mount_conversation_state_js_facade_retired/.test(modelConversationOps) &&
-      /rust_daemon_core_model_conversation_required/.test(modelConversationOps) &&
+      /MODEL_MOUNT_CONVERSATION_STATE_SCHEMA_VERSION/.test(modelConversationOps) &&
+      /planModelMountConversationState/.test(modelConversationOps) &&
+      /commitModelConversationPlanRecordState/.test(modelConversationOps) &&
+      /model_mount_conversation_state_rust_owned/.test(modelConversationOps) &&
       /agentgres_model_conversation_truth_required/.test(modelConversationOps) &&
-      /model_mount_conversation_rust_core_required/.test(modelConversationOps) &&
       /model_conversation_state_write/.test(modelConversationOps) &&
-      /model_conversation_state_list/.test(modelConversationOps) &&
-      /recordConversationState fails closed before JS conversation projection mutation/.test(
+      /listConversations\(\)\s*\{\s*return this\.readProjectionFacade\.listConversations\(this\);/m.test(
+        modelConversationOps,
+      ) &&
+      !/modelConversationRustCoreRequiredError/.test(modelConversationOps) &&
+      !/model_mount_conversation_rust_core_required/.test(modelConversationOps) &&
+      /function listConversations\(state\)/.test(modelMountingReadProjectionFacade) &&
+      /model_conversation_states/.test(modelMountingReadProjectionFacade) &&
+      /state_dir:\s*readProjectionStateDir\(state,\s*projectionKind\)/.test(
+        modelMountingReadProjectionFacade,
+      ) &&
+      /projectionKind === "model_conversation_states"[\s\S]*?return \{\};/.test(
+        modelMountingReadProjectionFacade,
+      ) &&
+      /function readProjectionStateDir\(state,\s*projectionKind\)/.test(modelMountingReadProjectionFacade) &&
+      !/conversationStateRecordsForProjection/.test(modelMountingReadProjectionFacade) &&
+      /MODEL_MOUNT_CONVERSATION_PROJECTION_KIND/.test(modelMountReadProjectionEvidence) &&
+      /mod conversation;/.test(modelMountReadProjectionEvidence) &&
+      /MODEL_MOUNT_CONVERSATION_PROJECTION_KIND => conversation::conversation_states\(request\)/.test(
+        modelMountReadProjectionEvidence,
+      ) &&
+      /pub state_dir: Option<String>/.test(modelMountReadProjectionEvidence) &&
+      /model_mount_conversation_replay_state_dir_required/.test(modelMountReadProjectionEvidence) &&
+      /model-conversations/.test(modelMountReadProjectionEvidence) &&
+      /rust_daemon_core_model_conversation_projection/.test(modelMountReadProjectionEvidence) &&
+      /model_mount_conversation_list_js_facade_retired/.test(modelMountReadProjectionEvidence) &&
+      /recordConversationState commits Rust-authored conversation state through Agentgres/.test(
         modelConversationOpsTest,
       ) &&
-      /listConversations fails closed until Rust projection owns model conversations/.test(
+      /listConversations returns Rust-projected admitted conversation states/.test(
         modelConversationOpsTest,
       ) &&
-      /public facade fails closed before JS route selection, provider execution, receipts, or projection mutation/.test(
+      /read projection facade delegates product-safe lists and capabilities/.test(
+        modelMountingReadProjectionFacadeTest,
+      ) &&
+      /model_conversation_states/.test(modelMountingReadProjectionFacadeTest) &&
+      /conversationRequest\.state,\s*\{\}/.test(modelMountingReadProjectionFacadeTest) &&
+      /conversationRequest\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
+      /conversationStatesFromAgentgresStateDir/.test(modelMountingReadProjectionFacadeTest) &&
+      /public facade executes migrated fixture through Rust model_mount admission, provider execution, and receipt binding/.test(
         modelInvocationOpsTest,
       ) &&
       /assert\.deepEqual\(state\.recordedConversations,\s*\[\]\)/.test(modelInvocationOpsTest) &&
-      !/commitConversationRecordState/.test(modelConversationOps) &&
-      !/state\.conversations\.set/.test(modelConversationOps) &&
+      /state\.conversations\?\.set/.test(modelConversationOps) &&
       !/state\.writeMap\("model-conversations"/.test(modelConversationOps) &&
       !/left\.created_at/.test(modelConversationOps) &&
       !/this\.conversations\.values\(\)/.test(modelConversationOps) &&
@@ -15063,12 +16094,16 @@ function runBridge() {
       /assert\.deepEqual\(state\.writes,\s*\[\]\)/.test(modelConversationOpsTest),
     [
       "packages/runtime-daemon/src/model-mounting.mjs",
+      "packages/runtime-daemon/src/model-mounting/read-projection-facade.mjs",
+      "packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs",
       "packages/runtime-daemon/src/model-mounting/conversation-operations.test.mjs",
+      "crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount/read_projection/conversation.rs",
       "packages/runtime-daemon/src/model-mounting/validation.mjs",
       "packages/runtime-daemon/src/model-mounting/validation.test.mjs",
       "packages/runtime-daemon/src/model-mounting/schema-relations.mjs",
     ],
-    "Phase 10/11 is pending: model-mount conversation-state writes and list projection must fail closed until direct Rust daemon-core projection/admission owns them",
+    "Phase 10/11 is pending: model-mount conversation-state writes and public list projection must be Rust-owned; durable direct Rust Agentgres replay remains non-terminal",
   );
   assertCheck(
     result,
@@ -15168,17 +16203,30 @@ function runBridge() {
       /plan_model_mount_provider_lifecycle_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
       !/plan_model_mount_provider_lifecycle_response as plan_model_mount_provider_lifecycle/.test(modelMountCommandSurface) &&
       !/bridge_plans_native_local_model_mount_provider_lifecycle_through_rust_core/.test(modelMountCommandSurface) &&
-      /"backend_id":\s*backend_id/.test(modelMountCore) &&
-      /"provider_backend":\s*backend/.test(modelMountCore) &&
-      !/"(?:backendId|providerBackend)":/.test(providerLifecycleCoreBlock) &&
-      /backendId:\s*result\.backend_id \?\? record\.backend_id \?\? null/.test(
-        providerLifecycleRunnerBlock,
-      ) &&
-      /providerBackend:\s*result\.provider_backend \?\? record\.backend \?\? null/.test(
-        providerLifecycleRunnerBlock,
-      ) &&
-      !/result\.(?:backendId|providerBackend)\b/.test(providerLifecycleRunnerBlock) &&
-      /planProviderLifecycle/.test(modelMountAdmissionRunner) &&
+	      /"backend_id":\s*backend_id/.test(modelMountCore) &&
+	      /"provider_backend":\s*backend/.test(modelMountCore) &&
+	      /"record_dir":\s*record_dir/.test(providerLifecycleCoreBlock) &&
+	      /"record_id":\s*record_id/.test(providerLifecycleCoreBlock) &&
+	      /"record":\s*record/.test(providerLifecycleCoreBlock) &&
+	      /"public_response":\s*public_response/.test(providerLifecycleCoreBlock) &&
+	      /"rust_core_boundary":\s*rust_core_boundary/.test(providerLifecycleCoreBlock) &&
+	      !/"(?:backendId|providerBackend)":/.test(providerLifecycleCoreBlock) &&
+	      /backendId:\s*result\.backend_id \?\? record\.backend_id \?\? null/.test(
+	        providerLifecycleRunnerBlock,
+	      ) &&
+	      /providerBackend:\s*result\.provider_backend \?\? record\.backend \?\? null/.test(
+	        providerLifecycleRunnerBlock,
+	      ) &&
+	      /record_dir:\s*result\.record_dir \?\? record\.record_dir \?\? lifecycleRecord\?\.record_dir \?\? null/.test(
+	        providerLifecycleRunnerBlock,
+	      ) &&
+	      /record_id:\s*result\.record_id \?\? record\.record_id \?\? lifecycleRecord\?\.record_id \?\? lifecycleRecord\?\.id \?\? null/.test(
+	        providerLifecycleRunnerBlock,
+	      ) &&
+	      /public_response:\s*result\.public_response/.test(providerLifecycleRunnerBlock) &&
+	      /receipt_refs:\s*Array\.isArray\(result\.receipt_refs\)/.test(providerLifecycleRunnerBlock) &&
+	      !/result\.(?:backendId|providerBackend)\b/.test(providerLifecycleRunnerBlock) &&
+	      /planProviderLifecycle/.test(modelMountAdmissionRunner) &&
       /rust_model_mount_provider_lifecycle_command/.test(modelMountAdmissionRunner) &&
       /RUST_MODEL_MOUNT_FIXTURE_LIFECYCLE_BACKEND/.test(modelMountAdmissionRunner) &&
       /planModelMountProviderLifecycle/.test(modelMountingState) &&
@@ -15418,7 +16466,13 @@ function runBridge() {
       !/providerLifecycleHash/.test(modelMountAdmissionRunner) &&
       /provider_lifecycle_hash/.test(modelMountCore) &&
       /response\.get\("providerLifecycleHash"\)\.is_none/.test(modelMountCore) &&
-      !/planModelMountInstanceLifecycle/.test(modelMountingState) &&
+      /planModelMountInstanceLifecycle\(request\)/.test(modelMountingState) &&
+      /modelMountAdmissionRunner\.planInstanceLifecycle\(request\)/.test(modelMountingState) &&
+      /function planModelInstanceLifecycle/.test(modelMountingState) &&
+      /function modelMountInstanceLifecycleRequest/.test(modelMountingState) &&
+      /function commitModelInstanceLifecycleRecordState/.test(modelMountingState) &&
+      /model_mount_instance_lifecycle_record_state_commit_unconfigured/.test(modelMountingState) &&
+      /public_model_loading_rust_facade/.test(modelMountingState) &&
       !exists("packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs") &&
       !/planModelMountInstanceLifecycleForMigratedProvider/.test(modelMountReceiptWriteGuardsBridge) &&
       !/state\.planModelMountInstanceLifecycle/.test(modelMountReceiptWriteGuardsBridge) &&
@@ -15436,8 +16490,13 @@ function runBridge() {
       !/modelMountInstanceLifecycleFields/.test(modelMountReceiptWriteGuardsBridge) &&
       !/providerLifecycleHash/.test(modelMountReceiptWriteGuardsBridge) &&
       !/modelMountInstanceLifecycle(?:Action|Status|Hash|EvidenceRefs)/.test(modelMountReceiptWriteGuardsBridge) &&
+      /function planInstanceMaintenanceLifecycle/.test(loadedInstances) &&
+      /function commitInstanceMaintenanceTransition/.test(loadedInstances) &&
       /model_mount_instance_lifecycle_rust_core_required/.test(loadedInstances) &&
-      /model_mount_instance_lifecycle_js_maintenance_retired/.test(loadedInstances) &&
+      /public_model_instance_maintenance_rust_facade/.test(loadedInstances) &&
+      /model_mount_instance_eviction_rust_positive_api/.test(loadedInstances) &&
+      /model_mount_instance_supersede_rust_positive_api/.test(loadedInstances) &&
+      /superseded_by:\s*superseded_by/.test(loadedInstances) &&
       /rust_daemon_core_instance_lifecycle_required/.test(loadedInstances) &&
       /agentgres_model_instance_record_truth_required/.test(loadedInstances) &&
       !/providerLifecycleHash/.test(
@@ -15460,25 +16519,28 @@ function runBridge() {
       !/state\.driverForProvider\(provider\)\.(?:load|unload)/.test(modelLoadingOperations) &&
       !/state\.lifecycleReceipt\("model_(?:load|unload)"/.test(modelLoadingOperations) &&
       !/state\.instances\.set/.test(modelLoadingOperations) &&
+      /state\.instances\?\.set\?\./.test(modelMountingState) &&
       !/state\.supersedeLoadedInstances/.test(modelLoadingOperations) &&
+      /model_mount_model_loading_rust_positive_api/.test(modelLoadingOperations) &&
+      /model_mount_model_unloading_rust_positive_api/.test(modelLoadingOperations) &&
       !/commitModelInstanceRecordState/.test(loadedInstances) &&
       !/state\.lifecycleReceipt\("model_(?:idle_evict|supersede)"/.test(loadedInstances) &&
       !/state\.instances\.set/.test(loadedInstances) &&
       !/providerLifecycleHash/.test(modelLoadingOperations) &&
       !/modelMountInstanceLifecycle(?:Action|Status|Hash|EvidenceRefs)/.test(modelLoadingOperations) &&
-      /idle TTL eviction fails closed before JS lifecycle receipt or instance write/.test(
+      /idle TTL eviction commits Rust-planned instance lifecycle before mutating instance truth/.test(
         read("packages/runtime-daemon/src/model-mounting/loaded-instances.test.mjs"),
       ) &&
-      /explicit supersede fails closed before JS supersede mutation when state would change/.test(
+      /explicit supersede commits Rust supersede transition before returning/.test(
         read("packages/runtime-daemon/src/model-mounting/loaded-instances.test.mjs"),
       ) &&
-      /loadModel mutation facade fails closed before JS driver, receipt, or instance write/.test(
+      /loadModel commits Rust-planned instance lifecycle before returning public instance truth/.test(
         read("packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs"),
       ) &&
       /loadModel estimate-only facade fails closed before JS sizing, driver, receipt, or instance write/.test(
         read("packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs"),
       ) &&
-      /unloadModel mutation facade fails closed before JS driver, receipt, or instance write/.test(
+      /unloadModel commits Rust-planned instance lifecycle before returning public instance truth/.test(
         read("packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs"),
       ),
     [
@@ -15492,7 +16554,7 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-route-handlers.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
     ],
-    "Phase 9/10 is pending: migrated local provider model load/unload/evict/supersede JS mutation facades must stay retired while Rust model_mount owns direct instance lifecycle transition planning/admission/projection",
+    "Phase 9/10 is pending: migrated local provider model load/unload must be Rust-planned and Agentgres-committed while evict/supersede JS mutation facades stay retired",
   );
   assertCheck(
     result,
@@ -15525,7 +16587,7 @@ function runBridge() {
       /rust_model_mount_provider_result_command/.test(modelMountAdmissionRunner) &&
       /admitModelMountProviderResult/.test(modelMountingState) &&
       /modelMountProviderResultAdmissionRequestForExecution/.test(modelInvocationOps) &&
-      /model_mount_invocation_rust_core_required/.test(modelInvocationOps) &&
+      /model_mount_invocation_positive_rust_path/.test(modelInvocationOps) &&
       /model_mount_invocation_js_facade_retired/.test(modelInvocationOps) &&
       /model_mount_provider_invocation_js_false_predicate_retired/.test(modelInvocationOps) &&
       /model_mount_provider_result_js_observation_retired/.test(modelInvocationOps) &&
@@ -15573,16 +16635,13 @@ function runBridge() {
       !retiredModelInvocationFacadeBodyPattern.test(modelInvokeFacadeBlock) &&
       !retiredModelInvocationFacadeBodyPattern.test(modelStreamFacadeBlock) &&
       /schema_version:\s*"ioi\.model_mount\.provider_result\.v1"/.test(modelInvocationOps) &&
-      /invokeModel public facade fails closed before JS route selection, provider execution, receipts, or projection mutation/.test(
+      /invokeModel public facade executes migrated fixture through Rust model_mount admission, provider execution, and receipt binding/.test(
         read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
       ) &&
-      /startModelStream public facade fails closed before JS stream routing, provider execution, receipts, or fallback/.test(
+      /startModelStream public facade executes native-local stream through Rust model_mount without JS fallback/.test(
         read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
       ) &&
       /error\.details\.stream === false/.test(
-        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-      ) &&
-      /error\.details\.stream === true/.test(
         read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
       ) &&
       /error\.code === "model_mount_provider_result_rust_backend_required"/.test(
@@ -15627,11 +16686,11 @@ function runBridge() {
       !/error\.details = \{ compatTranslation \}/.test(modelInvocationOps) &&
       !/compat_translation:\s*invocation\.compatTranslation/.test(openAiCompatRoutes) &&
       !/compatTranslation\??:/.test(agentSdkModelMounts) &&
-      /invokeModel public facade fails closed before JS route selection, provider execution, receipts, or projection mutation/.test(
+      /invokeModel public facade executes migrated fixture through Rust model_mount admission, provider execution, and receipt binding/.test(
         read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
       ) &&
-      /model_mount_invocation_rust_core_required/.test(modelInvocationOps) &&
-      /startModelStream public facade fails closed before JS stream routing, provider execution, receipts, or fallback/.test(
+      /model_mount_invocation_positive_rust_path/.test(modelInvocationOps) &&
+      /startModelStream public facade executes native-local stream through Rust model_mount without JS fallback/.test(
         read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
       ),
     [
@@ -15728,7 +16787,8 @@ function runBridge() {
   assertCheck(
     result,
     "model-mount-native-stream-no-downgrade-live-bridge",
-    /throwModelInvocationRustCoreRequired\("model_mount\.invocation\.stream_start"/.test(modelStreamFacadeBlock) &&
+    /executeModelInvocationThroughRustCore\(state/.test(modelStreamFacadeBlock) &&
+      /stream:\s*true/.test(modelStreamFacadeBlock) &&
       !retiredModelInvocationFacadeBodyPattern.test(modelStreamFacadeBlock) &&
       !/model_mount_native_stream_result_required/.test(modelInvocationOps) &&
       !/if \(!providerResult\?\.stream\) \{\s*return\s*\{[\s\S]*?state\.invokeModel\(\{ authorization, requiredScope, kind, body: \{ \.\.\.body, stream: false \} \}\)/.test(modelInvocationOps),
@@ -15741,11 +16801,12 @@ function runBridge() {
   assertCheck(
     result,
     "model-mount-native-stream-pre-admission-downgrade-retired",
-    /throwModelInvocationRustCoreRequired\("model_mount\.invocation\.stream_start"/.test(modelStreamFacadeBlock) &&
+    /executeModelInvocationThroughRustCore\(state/.test(modelStreamFacadeBlock) &&
+      /stream:\s*true/.test(modelStreamFacadeBlock) &&
       !retiredModelInvocationFacadeBodyPattern.test(modelStreamFacadeBlock) &&
       !/model_mount_native_stream_backend_required/.test(modelInvocationOps) &&
       !/model_mount_provider_stream_invocation_backend_unmigrated/.test(modelInvocationOps) &&
-      /startModelStream public facade fails closed before JS stream routing, provider execution, receipts, or fallback/.test(
+      /startModelStream public facade executes native-local stream through Rust model_mount without JS fallback/.test(
         read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
       ) &&
       !/state\.invokeModel\(\{ authorization, requiredScope, kind, body: \{ \.\.\.body, stream: false \} \}\)/.test(modelInvocationOps),
@@ -16173,6 +17234,9 @@ function runBridge() {
 	      /workspace_snapshot_js_capture_facade_retired/.test(runtimeWorkspaceSnapshotSurface) &&
 	      /workspaceRestoreRunner\s*=\s*null/.test(runtimeWorkspaceSnapshotSurface) &&
 	      /workspaceRestoreRunner\.captureSnapshotFiles\(\{/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /snapshot_artifact:\s*objectRecord\(result\.snapshot_artifact\) \?\? null/.test(workspaceRestoreRunner) &&
+	      /snapshot_artifact_commit/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /admitWorkspaceSnapshotEvent/.test(runtimeWorkspaceSnapshotSurface) &&
 	      /workspaceRestoreRunner\.listSnapshots\(\{/.test(runtimeWorkspaceSnapshotSurface) &&
 	      /workspaceRestoreRunner\.workspaceSnapshotContentPackage\(\{/.test(runtimeWorkspaceSnapshotSurface) &&
 	      /workspaceRestoreRunner\.previewSnapshotRestore\(\{/.test(runtimeWorkspaceSnapshotSurface) &&
@@ -17464,6 +18528,12 @@ function runReceipts() {
     : "";
   const providerUpsertBlock =
     providerOperations.match(/\n\s+upsertProvider\(body = \{\}\) \{[\s\S]*?\n\s+normalizeProviderSecretRef/)?.[0] ?? "";
+  const providerHealthBoundaryBlock = [
+    providerOperations.match(/\n\s+async providerHealth\(providerId\) \{[\s\S]*?\n\s+async listProviderModels\(providerId\) \{/)?.[0] ?? "",
+    providerOperations.match(/function planProviderLifecycle\(state,\s*provider,\s*options = \{\}\) \{[\s\S]*?\n\}\n\nfunction providerLifecycleExecutionBackend/)?.[0] ?? "",
+  ].join("\n");
+  const serverControlBoundaryBlock =
+    modelMountingState.match(/\n\s+serverStatus\(baseUrl\) \{[\s\S]*?\n\s+runtimeModelCatalogList\(\) \{/)?.[0] ?? "";
   const catalogProviderConfig = exists("packages/runtime-daemon/src/model-mounting/catalog-provider-config.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/catalog-provider-config.mjs")
     : "";
@@ -17536,10 +18606,10 @@ function runReceipts() {
     ? read("packages/runtime-daemon/src/model-mounting/catalog-provider-oauth.test.mjs")
     : "";
   const backendLifecycle = [
-    modelMountingState.match(/\n\s+backendLifecycleRequired\(operation_kind, backendId\) \{[\s\S]*?\n\s+testRoute\(routeId, body = \{\}\) \{/)?.[0] ?? "",
+    modelMountingState.match(/\n\s+planBackendLifecycle\(request\) \{[\s\S]*?\n\s+testRoute\(routeId, body = \{\}\) \{/)?.[0] ?? "",
     modelMountingState.match(/\n\s+listBackends\(\) \{[\s\S]*?\n\s+\}/)?.[0] ?? "",
     modelMountingState.match(/\n\s+ensureBackendProcess\(backendId,[\s\S]*?\n\s+writeBackendLog\(endpointId, event\) \{/)?.[0] ?? "",
-    modelMountingState.match(/function throwBackendLifecycleRustCoreRequired\(record = \{\}\) \{[\s\S]*?\n\}\n\nfunction throwBackendProjectionRustCoreRequired\(operation_kind\) \{[\s\S]*?\n\}\n\nfunction backendProcessSupervisorRetiredError\(operation_kind, backend = \{\}, details = \{\}\) \{[\s\S]*?\n\}\n\nfunction throwBackendProcessSupervisorRetired\(operation_kind, backend, details = \{\}\) \{[\s\S]*?\n\}/)?.[0] ?? "",
+    modelMountingState.match(/function throwBackendLifecycleRustCoreRequired\(record = \{\}\) \{[\s\S]*?\n\}\n\nfunction commitBackendLifecycleForState\(state, operation_kind, details = \{\}\) \{[\s\S]*?\n\}\n\nfunction backendLifecycleControlBody\(value = \{\}\) \{[\s\S]*?\n\}\n\nfunction throwBackendProjectionRustCoreRequired\(operation_kind\) \{[\s\S]*?\n\}\n\nfunction backendProcessSupervisorRetiredError\(operation_kind, backend = \{\}, details = \{\}\) \{[\s\S]*?\n\}\n\nfunction throwBackendProcessSupervisorRetired\(operation_kind, backend, details = \{\}\) \{[\s\S]*?\n\}/)?.[0] ?? "",
   ].join("\n");
   const backendLifecycleTest = exists("packages/runtime-daemon/src/model-mounting/backend-lifecycle.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/backend-lifecycle.test.mjs")
@@ -17558,6 +18628,9 @@ function runReceipts() {
     : "";
   const capabilityTokenOperations = exists("packages/runtime-daemon/src/model-mounting/capability-token-operations.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/capability-token-operations.mjs")
+    : "";
+  const capabilityTokenControl = exists("packages/runtime-daemon/src/model-mounting/capability-token-control.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/capability-token-control.mjs")
     : "";
   const capabilityTokenOperationsTest = exists("packages/runtime-daemon/src/model-mounting/capability-token-operations.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/capability-token-operations.test.mjs")
@@ -17580,6 +18653,9 @@ function runReceipts() {
   const vaultOperations = exists("packages/runtime-daemon/src/model-mounting/vault-operations.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/vault-operations.mjs")
     : "";
+  const vaultControl = exists("packages/runtime-daemon/src/model-mounting/vault-control.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/vault-control.mjs")
+    : "";
   const vaultOperationsTest = exists("packages/runtime-daemon/src/model-mounting/vault-operations.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/vault-operations.test.mjs")
     : "";
@@ -17600,6 +18676,8 @@ function runReceipts() {
     modelMountingState.match(/\n\s+async loadModel\(body = \{\}\) \{[\s\S]*?\n\s+async downloadModel\(body = \{\}\) \{/)?.[0] ?? "",
     modelMountingState.match(/function assertCanonicalModelLoadingRequestBody\(body = \{\}\) \{[\s\S]*?\n\}\n\nfunction throwModelLoadingRustCoreRequired\(operation, provider = \{\}, details = \{\}\) \{[\s\S]*?\n\}\n\nfunction throwArtifactEndpointRustCoreRequired/)?.[0] ?? "",
   ].join("\n");
+  const modelInstanceLifecycleClientBlock =
+    modelMountingState.match(/function planModelInstanceLifecycle\(state,\s*options = \{\}\) \{[\s\S]*?\n\}\n\nfunction defaultModelInstanceId/)?.[0] ?? "";
   const modelLoadingOperationsTest = exists("packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs")
     : "";
@@ -17671,6 +18749,12 @@ function runReceipts() {
   const serverControlMountedTest = exists("packages/runtime-daemon/src/model-mounting/server-control-mounted.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/server-control-mounted.test.mjs")
     : "";
+  const modelMountServerControlCore = exists("crates/services/src/agentic/runtime/kernel/model_mount/server_control.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/model_mount/server_control.rs")
+    : "";
+  const modelMountRuntimeEngineCore = exists("crates/services/src/agentic/runtime/kernel/model_mount/runtime_engine.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/model_mount/runtime_engine.rs")
+    : "";
   const stateAccessors = exists("packages/runtime-daemon/src/model-mounting/state-accessors.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/state-accessors.mjs")
     : "";
@@ -17682,6 +18766,15 @@ function runReceipts() {
     : "";
   const modelTokenizerOperationsTest = exists("packages/runtime-daemon/src/model-mounting/tokenizer-operations.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/tokenizer-operations.test.mjs")
+    : "";
+  const modelTokenizerFacadeBlock =
+    modelMountingState.match(/\n\s+modelTokenizerUtility\([\s\S]*?\n\s+tokenizeModel\(/)?.[0] ??
+    "";
+  const modelTokenizerControl = exists("packages/runtime-daemon/src/model-mounting/tokenizer-control.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/tokenizer-control.mjs")
+    : "";
+  const modelMountTokenizerCore = exists("crates/services/src/agentic/runtime/kernel/model_mount/tokenizer.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/model_mount/tokenizer.rs")
     : "";
   const modelInstanceLifecycleReceiptBlocks = [
     modelLoadingOperations.match(/state\.lifecycleReceipt\("model_load",\s*\{[\s\S]*?\n\s+\}\);/)?.[0] ?? "",
@@ -17709,6 +18802,8 @@ function runReceipts() {
     modelMountingState.match(/\n\s+cleanupModelStorage\(body = \{\}\) \{[\s\S]*?\n\s+\}/)?.[0] ?? "";
   const storageSummaryBlock =
     modelMountingState.match(/\n\s+storageSummary\(\) \{[\s\S]*?\n\s+\}/)?.[0] ?? "";
+  const downloadStatusBlock =
+    modelMountingState.match(/\n\s+downloadStatus\(jobId\) \{[\s\S]*?\n\s+\}/)?.[0] ?? "";
   const mcpServerReceiptDetailsHelper =
     mcpWorkflowOperations.match(/function mcpServerReceiptDetails\(server\) \{[\s\S]*?\n\}/)?.[0] ?? "";
   const mcpToolReceiptDetailsObject =
@@ -17794,6 +18889,15 @@ function runReceipts() {
         exists("crates/services/src/agentic/runtime/kernel/model_mount/accepted_receipt.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/accepted_receipt.rs")
           : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/capability_token_control.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/capability_token_control.rs")
+          : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/vault_control.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/vault_control.rs")
+          : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/receipt_gate.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/receipt_gate.rs")
+          : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs")
           : "",
@@ -17836,20 +18940,17 @@ function runReceipts() {
         exists("crates/services/src/agentic/runtime/kernel/model_mount/required.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/required.rs")
           : "",
-        exists("crates/services/src/agentic/runtime/kernel/model_mount/required/backend_lifecycle.rs")
-          ? read("crates/services/src/agentic/runtime/kernel/model_mount/required/backend_lifecycle.rs")
-          : "",
-        exists("crates/services/src/agentic/runtime/kernel/model_mount/required/server_control.rs")
-          ? read("crates/services/src/agentic/runtime/kernel/model_mount/required/server_control.rs")
-          : "",
-        exists("crates/services/src/agentic/runtime/kernel/model_mount/required/runtime_engine.rs")
-          ? read("crates/services/src/agentic/runtime/kernel/model_mount/required/runtime_engine.rs")
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/backend_lifecycle.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/backend_lifecycle.rs")
           : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/required/tokenizer.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/required/tokenizer.rs")
           : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/required/route_control.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/required/route_control.rs")
+          : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/runtime_engine.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/runtime_engine.rs")
           : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/backend_process.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/backend_process.rs")
@@ -17883,6 +18984,24 @@ function runReceipts() {
           : "",
       ].join("\n")
     : "";
+  const modelMountArtifactEndpointCore = exists(
+    "crates/services/src/agentic/runtime/kernel/model_mount/artifact_endpoint.rs",
+  )
+    ? read("crates/services/src/agentic/runtime/kernel/model_mount/artifact_endpoint.rs")
+    : "";
+  const modelMountArtifactEndpointEvidence = [
+    modelMountCore,
+    modelMountArtifactEndpointCore,
+  ].join("\n");
+  const modelMountStorageControlCore = exists(
+    "crates/services/src/agentic/runtime/kernel/model_mount/storage_control.rs",
+  )
+    ? read("crates/services/src/agentic/runtime/kernel/model_mount/storage_control.rs")
+    : "";
+  const modelMountStorageControlEvidence = [
+    modelMountCore,
+    modelMountStorageControlCore,
+  ].join("\n");
   const marketplaceCore = exists("crates/services/src/agentic/runtime/kernel/marketplace.rs")
     ? read("crates/services/src/agentic/runtime/kernel/marketplace.rs")
     : "";
@@ -18285,9 +19404,12 @@ function runReceipts() {
     exists("crates/services/src/agentic/runtime/kernel/model_mount.rs") &&
       exists("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle.rs") &&
       exists("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/provider.rs") &&
-      /MODEL_MOUNT_PROVIDER_LIFECYCLE_SCHEMA_VERSION/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
-      ) &&
+	      /MODEL_MOUNT_PROVIDER_LIFECYCLE_SCHEMA_VERSION/.test(
+	        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+	      ) &&
+	      /MODEL_MOUNT_PROVIDER_LIFECYCLE_PLAN_SCHEMA_VERSION/.test(
+	        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+	      ) &&
       /mod lifecycle;/.test(read("crates/services/src/agentic/runtime/kernel/model_mount.rs")) &&
       /pub use lifecycle::/.test(read("crates/services/src/agentic/runtime/kernel/model_mount.rs")) &&
       /lifecycle::plan_provider_lifecycle\(request\)/.test(
@@ -18330,20 +19452,35 @@ function runReceipts() {
       /rust_model_mount_native_local_lifecycle/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/provider.rs"),
       ) &&
-      /provider_lifecycle_evidence_refs/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/provider.rs"),
-      ) &&
-      /plan_model_mount_provider_lifecycle/.test(
-        read("crates/services/src/agentic/runtime/kernel/mod.rs"),
-      ),
+	      /provider_lifecycle_evidence_refs/.test(
+	        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/provider.rs"),
+	      ) &&
+	      /ModelMountProviderLifecycleResult[\s\S]*record_dir:\s*String/.test(
+	        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/provider.rs"),
+	      ) &&
+	      /model-provider-lifecycle-controls/.test(
+	        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/provider.rs"),
+	      ) &&
+	      /agentgres_provider_lifecycle_truth_required/.test(
+	        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/provider.rs"),
+	      ) &&
+	      /provider_lifecycle_record\(&result\)/.test(
+	        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/provider.rs"),
+	      ) &&
+	      /MODEL_MOUNT_PROVIDER_LIFECYCLE_PLAN_SCHEMA_VERSION/.test(
+	        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/provider.rs"),
+	      ) &&
+	      /plan_model_mount_provider_lifecycle/.test(
+	        read("crates/services/src/agentic/runtime/kernel/mod.rs"),
+	      ),
     [
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
       "crates/services/src/agentic/runtime/kernel/model_mount/lifecycle.rs",
       "crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/provider.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
     ],
-    "Phase 9/10 is pending: Rust model_mount core must own native-local health/load/unload lifecycle backend, evidence, and hash planning",
-  );
+	    "Phase 9/10 is pending: Rust model_mount core must own native-local health/load/unload lifecycle backend, evidence, hash planning, and provider-lifecycle record truth",
+	  );
   assertCheck(
     result,
     "model-mount-backend-process-plan-core",
@@ -18605,6 +19742,12 @@ function runReceipts() {
       /model_mount_model_loading_js_facade_retired/.test(modelLoadingOperations) &&
       /rust_daemon_core_instance_lifecycle_required/.test(modelLoadingOperations) &&
       /agentgres_model_instance_record_truth_required/.test(modelLoadingOperations) &&
+      /planModelMountInstanceLifecycle\(request\)/.test(modelMountingState) &&
+      /function planModelInstanceLifecycle/.test(modelMountingState) &&
+      /function modelMountInstanceLifecycleRequest/.test(modelMountingState) &&
+      /function commitModelInstanceLifecycleRecordState/.test(modelMountingState) &&
+      /model_mount_instance_lifecycle_record_state_commit_unconfigured/.test(modelMountingState) &&
+      /public_model_loading_rust_facade/.test(modelMountingState) &&
       /model_mount\.instance\.estimate/.test(modelLoadingOperations) &&
       /model_load_estimate/.test(modelLoadingOperations) &&
       !/loadEstimate\(/.test(modelLoadingOperations) &&
@@ -18615,11 +19758,19 @@ function runReceipts() {
       !/state\.lifecycleReceipt\("model_load"/.test(modelLoadingOperations) &&
       !/state\.lifecycleReceipt\("model_unload"/.test(modelLoadingOperations) &&
       !/state\.instances\.set/.test(modelLoadingOperations) &&
+      /state\.instances\?\.set\?\./.test(modelMountingState) &&
       !/state\.supersedeLoadedInstances/.test(modelLoadingOperations) &&
+      /model_mount_model_loading_rust_positive_api/.test(modelLoadingOperations) &&
+      /model_mount_model_unloading_rust_positive_api/.test(modelLoadingOperations) &&
       /model_mount\.instance\.evict/.test(loadedInstances) &&
       /model_mount\.instance\.supersede/.test(loadedInstances) &&
+      /function planInstanceMaintenanceLifecycle/.test(loadedInstances) &&
+      /function commitInstanceMaintenanceTransition/.test(loadedInstances) &&
       /model_mount_instance_lifecycle_rust_core_required/.test(loadedInstances) &&
-      /model_mount_instance_lifecycle_js_maintenance_retired/.test(loadedInstances) &&
+      /public_model_instance_maintenance_rust_facade/.test(loadedInstances) &&
+      /model_mount_instance_eviction_rust_positive_api/.test(loadedInstances) &&
+      /model_mount_instance_supersede_rust_positive_api/.test(loadedInstances) &&
+      /superseded_by:\s*superseded_by/.test(loadedInstances) &&
       !/commitModelInstanceRecordState/.test(loadedInstances) &&
       !/state\.lifecycleReceipt\("model_idle_evict"/.test(loadedInstances) &&
       !/state\.lifecycleReceipt\("model_supersede"/.test(loadedInstances) &&
@@ -18628,22 +19779,22 @@ function runReceipts() {
       !/state\.writeMap\("model-instances"/.test(loadedInstances) &&
       /recordStateCommits/.test(modelLoadingOperationsTest) &&
       /recordStateCommits/.test(loadedInstancesTest) &&
-      /loadModel mutation facade fails closed before JS driver, receipt, or instance write/.test(
+      /loadModel commits Rust-planned instance lifecycle before returning public instance truth/.test(
         modelLoadingOperationsTest,
       ) &&
       /loadModel estimate-only facade fails closed before JS sizing, driver, receipt, or instance write/.test(
         modelLoadingOperationsTest,
       ) &&
-      /unloadModel mutation facade fails closed before JS driver, receipt, or instance write/.test(
+      /unloadModel commits Rust-planned instance lifecycle before returning public instance truth/.test(
         modelLoadingOperationsTest,
       ) &&
       !/loadEstimate derives native resource estimate/.test(modelLoadingOperationsTest) &&
       !/estimateNativeLocalResources/.test(localSystemProbes) &&
       !/estimateNativeLocalResources/.test(localSystemProbesTest) &&
-      /loadModel fails closed before Rust planning or Agentgres commit shims are used/.test(
+      /loadModel fails closed if Rust Agentgres commit is unavailable after Rust planning/.test(
         modelLoadingOperationsTest,
       ) &&
-      /unloadModel fails closed before Rust planning or Agentgres commit shims are used/.test(
+      /unloadModel fails closed if Rust Agentgres commit is unavailable after Rust planning/.test(
         modelLoadingOperationsTest,
       ) &&
       /loadModel fails closed for non-migrated provider before JS driver execution/.test(
@@ -18653,16 +19804,16 @@ function runReceipts() {
         modelLoadingOperationsTest,
       ) &&
       /assert\.deepEqual\(state\.driverCalls,\s*\[\]\)/.test(modelLoadingOperationsTest) &&
-      /idle TTL eviction fails closed before JS lifecycle receipt or instance write/.test(
+      /idle TTL eviction commits Rust-planned instance lifecycle before mutating instance truth/.test(
         loadedInstancesTest,
       ) &&
-      /coalescing duplicate loaded instances fails closed before JS supersede mutation/.test(
+      /coalescing duplicate loaded instances commits Rust supersede transition/.test(
         loadedInstancesTest,
       ) &&
-      /explicit supersede fails closed before JS supersede mutation when state would change/.test(
+      /explicit supersede commits Rust supersede transition before returning/.test(
         loadedInstancesTest,
       ) &&
-      /instance lifecycle maintenance does not depend on retired JS Agentgres commit shim/.test(
+      /instance lifecycle maintenance requires Rust Agentgres commit after Rust planning/.test(
         loadedInstancesTest,
       ) &&
       /reject lifecycle action\/status drift through retired per-map persistence/.test(
@@ -18711,7 +19862,7 @@ function runReceipts() {
         read("packages/runtime-daemon/src/model-mounting/receipt-operations.test.mjs"),
       ) &&
       /provider_kind:\s*provider\.kind/.test(modelLoadingOperations) &&
-      /model_mount_instance_lifecycle_js_maintenance_retired/.test(loadedInstances) &&
+      /public_model_instance_maintenance_rust_facade/.test(loadedInstances) &&
       /model instance lifecycle receipt helper fails closed even with Rust binding details/.test(
         read("packages/runtime-daemon/src/model-mounting/receipt-operations.test.mjs"),
       ) &&
@@ -18731,7 +19882,15 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-instance-lifecycle-detail-aliases-retired",
-    /instance_id:\s*instance\.id/.test(modelLoadingOperations) &&
+    /for \(const field of \["id", "endpoint_id", "model_id", "provider_id", "instance_lifecycle_hash"\]\)/.test(
+      modelInstanceLifecycleClientBlock,
+    ) &&
+      /provider_lifecycle_hash:\s*lifecycle\.provider_lifecycle_hash \?\? record\.provider_lifecycle_hash \?\? null/.test(
+        modelInstanceLifecycleClientBlock,
+      ) &&
+      /instance_lifecycle_hash:\s*lifecycle\.instance_lifecycle_hash \?\? record\.instance_lifecycle_hash \?\? null/.test(
+        modelInstanceLifecycleClientBlock,
+      ) &&
       /endpoint_id:\s*endpoint\.id/.test(modelLoadingOperations) &&
       /model_id:\s*endpoint\.modelId/.test(modelLoadingOperations) &&
       /provider_kind:\s*provider\.kind/.test(modelLoadingOperations) &&
@@ -18739,7 +19898,7 @@ function runReceipts() {
       /notFound\(`No loaded model instance for endpoint: \$\{endpointId\}`,\s*\{ endpoint_id: endpointId \}\)/.test(
         loadedInstances,
       ) &&
-      /superseded_by:\s*keepInstanceId/.test(loadedInstances) &&
+      /superseded_by:\s*superseded_by/.test(loadedInstances) &&
       !exists("packages/runtime-daemon/src/model-mounting/receipt-operations.mjs") &&
       /modelLifecycleReceiptRustCoreRequiredError/.test(modelMountReceiptOperations) &&
       /model_mount_lifecycle_receipt_rust_core_required/.test(modelMountReceiptOperations) &&
@@ -18782,7 +19941,8 @@ function runReceipts() {
       /model_mount_loading_request_aliases_retired/.test(modelLoadingOperations) &&
       (modelLoadingOperations.match(/assertCanonicalModelLoadingRequestBody\(body\);/g) ?? []).length >= 2 &&
       /this\.resolveEndpoint\(body\.endpoint_id,\s*body\.model_id\)/.test(modelLoadingOperations) &&
-      /normalizeLoadPolicy\(body\.load_policy \?\? endpoint\.loadPolicy\)/.test(modelLoadingOperations) &&
+      /normalizeLoadPolicy\(body\.load_policy \?\? endpoint\.load_policy\)/.test(modelLoadingOperations) &&
+      !/endpoint\.loadPolicy/.test(modelLoadingOperations) &&
       /const requestLoadOptions = body\.load_options \?\? \{\};/.test(modelLoadingOperations) &&
       /const instanceId = body\.instance_id \?\? body\.id;/.test(modelLoadingOperations) &&
       !/body\.(?:endpointId|modelId|loadPolicy|loadOptions|workflowScope|agentScope|instanceId)\b/.test(
@@ -18806,38 +19966,43 @@ function runReceipts() {
       !/modelTokenizerUtilityState|tokenizeModelState|countModelTokensState|fitModelContextState|contextWindowForEndpointState/.test(
         modelMountingState,
       ) &&
-      /modelTokenizerRustCoreRequiredError/.test(modelMountingState) &&
-      /model_mount_tokenizer_rust_core_required/.test(modelMountingState) &&
-      /tokenizerRequired\(operation,\s*details = \{\}\)/.test(modelMountingState) &&
-      /this\.modelMountAdmissionRunner\.planTokenizerRequired/.test(modelMountingState) &&
-      /planTokenizerRequired\(request\)/.test(modelMountAdmissionRunner) &&
-      /operation:\s*"plan_model_mount_tokenizer_required"/.test(modelMountAdmissionRunner) &&
-      /RUST_MODEL_MOUNT_TOKENIZER_REQUIRED_BACKEND/.test(modelMountAdmissionRunner) &&
+      !/modelTokenizerRustCoreRequiredError/.test(modelMountingState) &&
+      !/model_mount_tokenizer_rust_core_required/.test(modelMountingState) &&
+      !/tokenizerRequired\(operation,\s*details = \{\}\)/.test(modelMountingState) &&
+      /planTokenizer\(request\)/.test(modelMountingState) &&
+      /this\.modelMountAdmissionRunner\.planTokenizer\(request\)/.test(modelMountingState) &&
+      /modelTokenizerRecords\(\)\s*\{[\s\S]*?readProjectionFacade\.modelTokenizerRecords\(this\)/.test(modelMountingState) &&
+      /planTokenizer\(request\)/.test(modelMountAdmissionRunner) &&
+      /operation:\s*"plan_model_mount_tokenizer"/.test(modelMountAdmissionRunner) &&
+      /RUST_MODEL_MOUNT_TOKENIZER_BACKEND/.test(modelMountAdmissionRunner) &&
+      /normalizeTokenizerBridgeResult/.test(modelMountAdmissionRunner) &&
       /mod tokenizer;/.test(modelMountCore) &&
-      /ModelMountTokenizerRequiredRequest/.test(modelMountCore) &&
-      /required::plan_tokenizer_required\(request\)/.test(modelMountCore) &&
-      /tokenizer::plan_tokenizer_required\(request\)/.test(modelMountCore) &&
-      /tokenizer_required_is_planned_in_rust_model_mount/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount/required/tokenizer.rs"),
-      ) &&
-      !/fn tokenizer_required_is_planned_in_rust_model_mount/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount/required.rs"),
-      ) &&
-      !/fn tokenizer_required_is_planned_in_rust_model_mount/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
-      ) &&
-      /ModelMountTokenizerRequiredBridgeRequest/.test(modelMountCore) &&
-      /rust_core_shapes_model_mount_tokenizer_required_command_response/.test(modelMountCore) &&
-      /plan_model_mount_tokenizer_required_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      /ModelMountTokenizerRequest/.test(modelMountCore) &&
+      /ModelMountTokenizerPlan/.test(modelMountCore) &&
+      /plan_model_mount_tokenizer_response/.test(modelMountCore) &&
+      /MODEL_MOUNT_TOKENIZER_RECORDS_PROJECTION_KIND/.test(modelMountCore) &&
+      /agentgres_model_tokenizer_replay_required/.test(modelMountCore) &&
+      /tokenizer_projection_replays_agentgres_records_and_filters_js_truth/.test(modelMountCore) &&
+      /plan_model_mount_tokenizer_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      /plan_model_mount_tokenizer/.test(coreCommandDispatch) &&
+      /plan_model_mount_tokenizer/.test(commandProtocolCore) &&
+      /MODEL_MOUNT_TOKENIZER_SCHEMA_VERSION/.test(modelMountTokenizerCore) &&
+      /MODEL_MOUNT_TOKENIZER_PLAN_SCHEMA_VERSION/.test(modelMountTokenizerCore) &&
+      /tokenizer_control_is_planned_in_rust_model_mount/.test(modelMountTokenizerCore) &&
+      /context_fit_uses_rust_context_window_and_truncation/.test(modelMountTokenizerCore) &&
+      /model_mount_tokenizer_rust_owned/.test(modelMountTokenizerCore) &&
       /plan_model_mount_tokenizer_required/.test(coreCommandDispatch) &&
       !/plan_model_mount_tokenizer_required_response as plan_model_mount_tokenizer_required/.test(bridgeModule) &&
       !/bridge_plans_model_mount_tokenizer_required_through_rust_core/.test(bridgeModule) &&
-      /rust_core_boundary:\s*details\.rust_core_boundary \?\? record\.rust_core_boundary \?\? "model_mount\.tokenizer"/.test(modelMountingState) &&
-      /model_mount_tokenizer_js_facade_retired/.test(modelMountingState) &&
-      /model_mount_context_fit_js_facade_retired/.test(modelMountingState) &&
-      /rust_daemon_core_model_tokenizer_required/.test(modelMountingState) &&
-      /rust_daemon_core_model_context_fit_required/.test(modelMountingState) &&
-      /agentgres_model_tokenizer_truth_required/.test(modelMountingState) &&
+      /this\.selectRoute\(\{/.test(modelTokenizerFacadeBlock) &&
+      /this\.planTokenizer\(tokenizerRequestForMountedState/.test(modelTokenizerFacadeBlock) &&
+      /commitTokenizerControlPlanState\(this,\s*plan\)/.test(modelTokenizerFacadeBlock) &&
+      /tokenizerControlResponse\(plan,\s*commit\)/.test(modelTokenizerFacadeBlock) &&
+      /commitModelMountRecordState/.test(modelTokenizerControl) &&
+      /MODEL_MOUNT_TOKENIZER_SCHEMA_VERSION/.test(modelTokenizerControl) &&
+      /operation_kind:\s*`model_mount\.tokenizer\.\$\{plan\.operation\}`/.test(modelTokenizerControl) &&
+      /model_mount_tokenizer_record_state_commit_unconfigured/.test(modelTokenizerControl) &&
+      /agentgres_model_tokenizer_truth_required/.test(modelTokenizerOperationsTest) &&
       /tokenizeModel\(\{ authorization,\s*requiredScope = "model\.tokenize:\*",\s*body = \{\} \}\) \{[\s\S]*?operation:\s*"tokenize"/.test(
         modelMountingState,
       ) &&
@@ -18853,9 +20018,10 @@ function runReceipts() {
       !/state\.receipt\("model_tokenization"/.test(modelMountingState) &&
       !/state\.receipt\("model_context_fit"/.test(modelMountingState) &&
       !/deterministic_context_estimator/.test(modelMountingState) &&
+      !/contextWindowForEndpoint/.test(modelMountingState) &&
       !/utility\.selection/.test(modelMountingState) &&
       !/utility\.receipt/.test(modelMountingState) &&
-      /modelTokenizerUtility fails closed before JS tokenization receipt or route mutation/.test(
+      /modelTokenizerUtility uses Rust tokenizer planning and Agentgres commit without JS tokenization receipt/.test(
         modelTokenizerOperationsTest,
       ) &&
       /ModelMountingState\.prototype\.modelTokenizerUtility\.call/.test(
@@ -18864,33 +20030,39 @@ function runReceipts() {
       /ModelMountingState\.prototype\.tokenizeModel\.call/.test(modelTokenizerOperationsTest) &&
       /ModelMountingState\.prototype\.countModelTokens\.call/.test(modelTokenizerOperationsTest) &&
       /ModelMountingState\.prototype\.fitModelContext\.call/.test(modelTokenizerOperationsTest) &&
-      /ModelMountingState\.prototype\.contextWindowForEndpoint\.call/.test(
+      !/ModelMountingState\.prototype\.contextWindowForEndpoint\.call/.test(
         modelTokenizerOperationsTest,
       ) &&
-      /tokenizeModel and countModelTokens fail closed before public JS response envelopes/.test(
+      /tokenizeModel and countModelTokens return Rust tokenizer records/.test(
         modelTokenizerOperationsTest,
       ) &&
-      /fitModelContext fails closed before JS context-fit receipt or truncation envelope/.test(
+      /fitModelContext returns Rust context-fit record without JS truncation receipt/.test(
         modelTokenizerOperationsTest,
       ) &&
-      /Rust model_mount admission runner sends tokenizer required request/.test(
+      /Rust model_mount admission runner sends positive tokenizer request/.test(
         modelMountAdmissionRunnerTest,
       ) &&
-      /state\.tokenizerRequiredRequests\[0\]\.schema_version/.test(modelTokenizerOperationsTest) &&
-      /state\.tokenizerRequiredRequests\[0\]\.operation/.test(modelTokenizerOperationsTest) &&
+      /state\.tokenizerPlans\[0\]\.schema_version/.test(modelTokenizerOperationsTest) &&
+      /state\.tokenizerPlans\[0\]\.operation/.test(modelTokenizerOperationsTest) &&
       /assert\.deepEqual\(state\.authorizationCalls,\s*\[\]\)/.test(modelTokenizerOperationsTest) &&
       /assert\.deepEqual\(state\.receipts,\s*\[\]\)/.test(modelTokenizerOperationsTest) &&
       /assert\.equal\(state\.routeReceiptCount,\s*0\)/.test(modelTokenizerOperationsTest) &&
-      /assert\.deepEqual\(state\.recordStateCommits,\s*\[\]\)/.test(modelTokenizerOperationsTest),
+      /assert\.equal\(state\.recordStateCommits\.length,\s*1\)/.test(modelTokenizerOperationsTest),
     [
       "packages/runtime-daemon/src/model-mounting.mjs",
+      "packages/runtime-daemon/src/model-mounting/tokenizer-control.mjs",
       "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
       "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs",
       "packages/runtime-daemon/src/model-mounting/tokenizer-operations.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/read-projection-facade.mjs",
+      "packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount/tokenizer.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount/read_projection/topology.rs",
     ],
-    "Phase 9/11 is pending: tokenizer and context-fit public JS facades must fail closed before JS authorization, route selection, receipt synthesis, route mutation, or response-envelope shaping",
+    "Phase 9/11 is pending: tokenizer and context-fit public JS facades must call Rust tokenizer planning, bind Rust route-selection truth, and commit only Rust Agentgres tokenizer records",
   );
   assertCheck(
     result,
@@ -18899,13 +20071,14 @@ function runReceipts() {
       /RETIRED_MODEL_TOKENIZER_REQUEST_ALIASES/.test(modelMountingState) &&
       /model_mount_tokenizer_request_aliases_retired/.test(modelMountingState) &&
       /assertCanonicalModelTokenizerRequestBody\(body\);/.test(modelMountingState) &&
-      /route_id:\s*body\.route_id \?\? null/.test(modelMountingState) &&
-      /requested_scope:\s*requiredScope \?\? null/.test(modelMountingState) &&
-      /const explicit = Number\(body\.context_length\);/.test(modelMountingState) &&
+      /tokenizerRequestForMountedState/.test(modelMountingState) &&
+      !/route_id:\s*body\.route_id \?\? null/.test(modelMountingState) &&
+      !/requested_scope:\s*requiredScope \?\? null/.test(modelMountingState) &&
+      !/const explicit = Number\(body\.context_length\);/.test(modelMountingState) &&
       !/body\.(?:routeId|modelPolicy|contextLength|contextWindow|maxOutputTokens|reserveOutputTokens|reserve_output_tokens)\b/.test(
         modelMountingState,
       ) &&
-      /modelTokenizerUtility rejects retired request aliases before authorization/.test(
+      /modelTokenizerUtility rejects retired request aliases before route selection or Rust planning/.test(
         modelTokenizerOperationsTest,
       ) &&
       /retired_aliases,\s*\[\s*"routeId",\s*"modelPolicy",\s*"contextLength",\s*"contextWindow",\s*"maxOutputTokens",\s*"reserveOutputTokens",\s*"reserve_output_tokens",\s*\]/.test(
@@ -18919,25 +20092,43 @@ function runReceipts() {
   );
   assertCheck(
     result,
-    "model-mount-artifact-endpoint-js-facade-retired",
+    "model-mount-artifact-endpoint-positive-rust-api",
     !exists("packages/runtime-daemon/src/model-mounting/artifact-endpoint-operations.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/model-artifact-record-state.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/model-endpoint-record-state.mjs") &&
       !/importModelState|mountEndpointState|unmountEndpointState/.test(modelMountingState) &&
+      /MODEL_MOUNT_ARTIFACT_ENDPOINT_SCHEMA_VERSION/.test(modelMountingState) &&
+      /planAndCommitArtifactEndpoint\(this,\s*"model_mount\.artifact\.import"/.test(
+        artifactEndpointImportBlock,
+      ) &&
+      /planAndCommitArtifactEndpoint\(this,\s*"model_mount\.endpoint\.mount"/.test(
+        artifactEndpointMountBlock,
+      ) &&
+      /planAndCommitArtifactEndpoint\(this,\s*"model_mount\.endpoint\.unmount"/.test(
+        artifactEndpointUnmountBlock,
+      ) &&
+      /planArtifactEndpoint\(request\)\s*\{[\s\S]*?plan_model_mount_artifact_endpoint/.test(
+        modelMountingState,
+      ) &&
+      /commitModelMountRecordState\(state,\s*\{[\s\S]*?model_mount_artifact_endpoint_record_state_commit_unconfigured/.test(
+        modelMountingState,
+      ) &&
+      /artifactEndpointBody/.test(modelMountingState) &&
       /throwArtifactEndpointRustCoreRequired/.test(modelMountingState) &&
       /model_mount_artifact_endpoint_rust_core_required/.test(modelMountingState) &&
       /rust_core_boundary:\s*"model_mount\.artifact_endpoint"/.test(modelMountingState) &&
       /public_artifact_endpoint_js_facade_retired/.test(modelMountingState) &&
-      /rust_daemon_core_artifact_endpoint_required/.test(modelMountingState) &&
-      /throwArtifactEndpointRustCoreRequired\("model_mount\.artifact\.import",\s*\{ model_id: modelId \}\)/.test(
-        artifactEndpointImportBlock,
-      ) &&
-      /throwArtifactEndpointRustCoreRequired\("model_mount\.endpoint\.mount",\s*\{ model_id: modelId \}\)/.test(
-        artifactEndpointMountBlock,
-      ) &&
-      /throwArtifactEndpointRustCoreRequired\("model_mount\.endpoint\.unmount",\s*\{ endpoint_id: endpointId \}\)/.test(
-        artifactEndpointUnmountBlock,
-      ) &&
+      /rust_daemon_core_artifact_endpoint/.test(modelMountingState) &&
+      /agentgres_artifact_endpoint_truth_required/.test(modelMountingState) &&
+      /RUST_MODEL_MOUNT_ARTIFACT_ENDPOINT_BACKEND/.test(modelMountAdmissionRunner) &&
+      /operation:\s*"plan_model_mount_artifact_endpoint"/.test(modelMountAdmissionRunner) &&
+      /normalizeArtifactEndpointBridgeResult/.test(modelMountAdmissionRunner) &&
+      /model_mount_artifact_endpoint_plan_invalid/.test(modelMountAdmissionRunner) &&
+      /plan_model_mount_artifact_endpoint_response/.test(modelMountArtifactEndpointEvidence) &&
+      /MODEL_MOUNT_ARTIFACT_ENDPOINT_PLAN_SCHEMA_VERSION/.test(modelMountArtifactEndpointEvidence) &&
+      /pub\(super\) fn plan_artifact_endpoint/.test(modelMountArtifactEndpointEvidence) &&
+      /"model-artifacts"/.test(modelMountArtifactEndpointEvidence) &&
+      /"model-endpoints"/.test(modelMountArtifactEndpointEvidence) &&
       !/state\.lifecycleReceipt\("model_(?:import|mount|unmount)/.test(modelMountingState) &&
       !/commitModelArtifactRecordState/.test(modelMountingState) &&
       !/commitModelEndpointRecordState/.test(modelMountingState) &&
@@ -18947,19 +20138,30 @@ function runReceipts() {
       !/state\.endpoints\.set/.test(modelMountingState) &&
       !/materializeImportArtifact/.test(artifactEndpointImportBlock) &&
       !/\S/.test(artifactEndpointReceiptBlocks) &&
-      /artifact and endpoint mutation facades fail closed until Rust core owns them/.test(
+      /model import commits Rust-authored artifact record state/.test(
         artifactEndpointOperationsTest,
       ) &&
-      /ModelMountingState\.prototype\.importModel\.call/.test(artifactEndpointOperationsTest) &&
-      /ModelMountingState\.prototype\.mountEndpoint\.call/.test(artifactEndpointOperationsTest) &&
-      /ModelMountingState\.prototype\.unmountEndpoint\.call/.test(artifactEndpointOperationsTest) &&
-      /model_mount_artifact_endpoint_rust_core_required/.test(artifactEndpointOperationsTest) &&
-      /model_mount\.artifact\.import/.test(artifactEndpointOperationsTest) &&
-      /model_mount\.endpoint\.mount/.test(artifactEndpointOperationsTest) &&
-      /model_mount\.endpoint\.unmount/.test(artifactEndpointOperationsTest) &&
+      /mount and unmount commit Rust-authored endpoint record state/.test(
+        artifactEndpointOperationsTest,
+      ) &&
+      /artifact and endpoint mutation require Rust planner and record-state commit/.test(
+        artifactEndpointOperationsTest,
+      ) &&
+      /planArtifactEndpoint\(request\)/.test(artifactEndpointOperationsTest) &&
+      /commitRuntimeModelMountRecordState\(request\)/.test(artifactEndpointOperationsTest) &&
+      /model_mount_artifact_endpoint_record_state_commit_unconfigured/.test(
+        artifactEndpointOperationsTest,
+      ) &&
       /public_artifact_endpoint_js_facade_retired/.test(artifactEndpointOperationsTest) &&
+      /rust_daemon_core_artifact_endpoint/.test(artifactEndpointOperationsTest) &&
+      /agentgres_artifact_endpoint_truth_required/.test(artifactEndpointOperationsTest) &&
+      /assert\.equal\(state\.recordStateCommits\.length,\s*1\)/.test(
+        artifactEndpointOperationsTest,
+      ) &&
+      /assert\.equal\(state\.recordStateCommits\.length,\s*2\)/.test(
+        artifactEndpointOperationsTest,
+      ) &&
       /assert\.deepEqual\(state\.receipts,\s*\[\]\)/.test(artifactEndpointOperationsTest) &&
-      /assert\.deepEqual\(state\.recordStateCommits,\s*\[\]\)/.test(artifactEndpointOperationsTest) &&
       /assert\.equal\(state\.projections,\s*0\)/.test(artifactEndpointOperationsTest) &&
       /Object\.hasOwn\(error\.details,\s*"operationKind"\),\s*false/.test(
         artifactEndpointOperationsTest,
@@ -18978,7 +20180,9 @@ function runReceipts() {
       /model_import_request_aliases_retired/.test(modelMountingState) &&
       /assertCanonicalModelImportRequestBody\(body\);/.test(artifactEndpointImportBlock) &&
       /requiredString\(body\.model_id,\s*"model_id"\)/.test(artifactEndpointImportBlock) &&
-      /throwArtifactEndpointRustCoreRequired\("model_mount\.artifact\.import"/.test(artifactEndpointImportBlock) &&
+      /planAndCommitArtifactEndpoint\(this,\s*"model_mount\.artifact\.import"/.test(
+        artifactEndpointImportBlock,
+      ) &&
       !/body\.(?:modelId|sourcePath|localPath|importMode|providerId|displayName|sizeBytes|contextWindow|privacyClass)\b/.test(
         artifactEndpointImportBlock,
       ) &&
@@ -19002,10 +20206,16 @@ function runReceipts() {
       /model_unmount_endpoint_request_aliases_retired/.test(modelMountingState) &&
       /assertCanonicalEndpointMountRequestBody\(body\);/.test(artifactEndpointMountBlock) &&
       /assertCanonicalEndpointUnmountRequestBody\(body\);/.test(artifactEndpointUnmountBlock) &&
-      /const modelId = body\.model_id;/.test(artifactEndpointMountBlock) &&
-      /throwArtifactEndpointRustCoreRequired\("model_mount\.endpoint\.mount"/.test(artifactEndpointMountBlock) &&
+      /const modelId = requiredString\(body\.model_id,\s*"model_id"\);/.test(
+        artifactEndpointMountBlock,
+      ) &&
+      /planAndCommitArtifactEndpoint\(this,\s*"model_mount\.endpoint\.mount"/.test(
+        artifactEndpointMountBlock,
+      ) &&
       /requiredString\(body\.endpoint_id \?\? body\.id,\s*"endpoint_id"\)/.test(artifactEndpointUnmountBlock) &&
-      /throwArtifactEndpointRustCoreRequired\("model_mount\.endpoint\.unmount"/.test(artifactEndpointUnmountBlock) &&
+      /planAndCommitArtifactEndpoint\(this,\s*"model_mount\.endpoint\.unmount"/.test(
+        artifactEndpointUnmountBlock,
+      ) &&
       !/body\.(?:modelId|providerId|apiFormat|baseUrl|privacyClass|backendId|loadPolicy)\b/.test(
         artifactEndpointMountBlock,
       ) &&
@@ -19030,13 +20240,13 @@ function runReceipts() {
       /RETIRED_MODEL_STORAGE_REQUEST_ALIASES/.test(modelMountingState) &&
       /CANONICAL_MODEL_STORAGE_REQUEST_FIELDS/.test(modelMountingState) &&
       /model_storage_request_aliases_retired/.test(modelMountingState) &&
-      /assertCanonicalModelStorageRequestBody\(body\);[\s\S]*throwModelStorageRustCoreRequired\("model_mount\.download\.cancel"/.test(
+      /assertCanonicalModelStorageRequestBody\(body\);[\s\S]*planAndCommitStorageControl\(this,\s*"model_mount\.download\.cancel"/.test(
         cancelDownloadBlock,
       ) &&
-      /assertCanonicalModelStorageRequestBody\(body\);[\s\S]*throwModelStorageRustCoreRequired\("model_mount\.artifact\.delete"/.test(
+      /assertCanonicalModelStorageRequestBody\(body\);[\s\S]*planAndCommitStorageControl\(this,\s*"model_mount\.artifact\.delete"/.test(
         deleteModelArtifactBlock,
       ) &&
-      /assertCanonicalModelStorageRequestBody\(body\);[\s\S]*throwModelStorageRustCoreRequired\("model_mount\.storage\.cleanup"/.test(
+      /assertCanonicalModelStorageRequestBody\(body\);[\s\S]*planAndCommitStorageControl\(this,\s*"model_mount\.storage\.cleanup"/.test(
         cleanupModelStorageBlock,
       ) &&
       !/body\.(?:cleanupPartial|dryRun|removeOrphans)\b/.test(modelMountingState) &&
@@ -19055,28 +20265,62 @@ function runReceipts() {
   );
   assertCheck(
     result,
-    "model-mount-storage-js-facade-retired",
+    "model-mount-storage-control-positive-rust-api",
     !exists("packages/runtime-daemon/src/model-mounting/storage-operations.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/model-download-record-state.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/model-artifact-record-state.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/model-endpoint-record-state.mjs") &&
       !/cancelDownloadState|downloadStatusState|deleteModelArtifactState|cleanupModelStorageState/.test(modelMountingState) &&
+      /MODEL_MOUNT_STORAGE_CONTROL_SCHEMA_VERSION/.test(modelMountingState) &&
+      /planStorageControl\(request\)\s*\{[\s\S]*?plan_model_mount_storage_control/.test(
+        modelMountingState,
+      ) &&
+      /planAndCommitStorageControl\(this,\s*"model_mount\.download\.cancel"/.test(
+        cancelDownloadBlock,
+      ) &&
+      /planAndCommitStorageControl\(this,\s*"model_mount\.artifact\.delete"/.test(
+        deleteModelArtifactBlock,
+      ) &&
+      /planAndCommitStorageControl\(this,\s*"model_mount\.storage\.cleanup"/.test(
+        cleanupModelStorageBlock,
+      ) &&
+      /commitModelMountRecordState\(state,\s*\{[\s\S]*?model_mount_storage_control_record_state_commit_unconfigured/.test(
+        modelMountingState,
+      ) &&
+      /storageControlBody/.test(modelMountingState) &&
       /throwModelStorageRustCoreRequired/.test(modelMountingState) &&
-      /model_mount_storage_rust_core_required/.test(modelMountingState) &&
-      /rust_core_boundary:\s*"model_mount\.storage"/.test(modelMountingState) &&
+      /model_mount_storage_control_rust_core_required/.test(modelMountingState) &&
+      /rust_core_boundary:\s*"model_mount\.storage_control"/.test(modelMountingState) &&
       /public_model_storage_js_facade_retired/.test(modelMountingState) &&
-      /rust_daemon_core_model_storage_required/.test(modelMountingState) &&
-      /throwModelStorageRustCoreRequired\("model_mount\.download\.cancel",\s*\{ job_id: jobId \}\)/.test(
-        modelMountingState,
+      /rust_daemon_core_model_storage/.test(modelMountingState) &&
+      /agentgres_model_storage_truth_required/.test(modelMountingState) &&
+      /RUST_MODEL_MOUNT_STORAGE_CONTROL_BACKEND/.test(modelMountAdmissionRunner) &&
+      /operation:\s*"plan_model_mount_storage_control"/.test(modelMountAdmissionRunner) &&
+      /normalizeStorageControlBridgeResult/.test(modelMountAdmissionRunner) &&
+      /model_mount_storage_control_plan_invalid/.test(modelMountAdmissionRunner) &&
+      /plan_model_mount_storage_control_response/.test(modelMountStorageControlEvidence) &&
+      /MODEL_MOUNT_STORAGE_CONTROL_PLAN_SCHEMA_VERSION/.test(modelMountStorageControlEvidence) &&
+      /pub\(super\) fn plan_storage_control/.test(modelMountStorageControlEvidence) &&
+      /"model-downloads"/.test(modelMountStorageControlEvidence) &&
+      /"model-storage-controls"/.test(modelMountStorageControlEvidence) &&
+      /readProjectionFacade\.storageSummary\(this\)/.test(storageSummaryBlock) &&
+      /readProjectionFacade\.downloadStatus\(this,\s*jobId\)/.test(downloadStatusBlock) &&
+      !/this\.downloads\.get/.test(downloadStatusBlock) &&
+      /storageSummary\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"storage_summary"\)/.test(
+        modelMountingReadProjectionFacade,
       ) &&
-      /throwModelStorageRustCoreRequired\("model_mount\.artifact\.delete",\s*\{ artifact_id: id \}\)/.test(
-        modelMountingState,
+      /downloadStatus\(state,\s*jobId\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"download_status",\s*\{ downloadId: jobId \}\)/.test(
+        modelMountingReadProjectionFacade,
       ) &&
-      /throwModelStorageRustCoreRequired\("model_mount\.storage\.cleanup"\)/.test(
-        modelMountingState,
+      /model_mount_download_not_found/.test(modelMountingReadProjectionFacade) &&
+      /MODEL_MOUNT_STORAGE_SUMMARY_PROJECTION_KIND => topology::storage_summary\(request\)/.test(
+        modelMountCore,
       ) &&
-      /throwModelStorageRustCoreRequired\(\s*"model_mount\.storage\.summary",\s*\{[\s\S]*?model_root_hash:\s*stableHash\(this\.modelRoot\)/.test(
-        storageSummaryBlock,
+      /MODEL_MOUNT_DOWNLOAD_STATUS_PROJECTION_KIND => topology::download_status\(request\)/.test(
+        modelMountCore,
+      ) &&
+      /storage_download_projections_replay_agentgres_storage_control_records_and_filter_js_truth/.test(
+        modelMountCore,
       ) &&
       !/listModelFiles|fs\.readdirSync|fs\.statSync|orphanCount|quotaBytes|totalBytes/.test(
         storageSummaryBlock,
@@ -19095,37 +20339,38 @@ function runReceipts() {
       !/this\.downloads\.set/.test(modelMountingState) &&
       !/this\.artifacts\.delete/.test(modelMountingState) &&
       !/this\.endpoints\.set/.test(modelMountingState) &&
-      /notFound\(`Download job not found: \$\{jobId\}`,\s*\{ job_id: jobId \}\)/.test(modelMountingState) &&
+      /notFoundDep\(`Download job not found: \$\{jobId\}`,\s*\{ job_id: jobId \}\)/.test(
+        modelMountingReadProjectionFacade,
+      ) &&
       !/\S/.test(storageLifecycleReceiptBlocks) &&
       !/notFound\(`Download job not found: \$\{jobId\}`,\s*\{ jobId \}\)/.test(modelMountingState) &&
-      /model storage mutation facades fail closed until Rust core owns them/.test(storageOperationsTest) &&
+      /model storage mutations commit Rust-authored storage-control records/.test(storageOperationsTest) &&
       /ModelMountingState\.prototype\.cancelDownload\.call/.test(storageOperationsTest) &&
       /ModelMountingState\.prototype\.deleteModelArtifact\.call/.test(storageOperationsTest) &&
       /ModelMountingState\.prototype\.cleanupModelStorage\.call/.test(storageOperationsTest) &&
       /ModelMountingState\.prototype\.downloadStatus\.call/.test(storageOperationsTest) &&
-      /storage summary fails closed before JS filesystem scanning/.test(catalogOperationsTest) &&
+      /storage summary delegates to Rust projection before JS filesystem scanning/.test(catalogOperationsTest) &&
       /ModelMountingState\.prototype\.storageSummary\.call/.test(catalogOperationsTest) &&
-      /model_mount\.storage\.summary/.test(catalogOperationsTest) &&
-      /model_root_hash/.test(catalogOperationsTest) &&
-      /model_mount_storage_rust_core_required/.test(storageOperationsTest) &&
+      /rust_model_mount_storage_summary_projection/.test(catalogOperationsTest) &&
+      /model_mount\.storage_projection/.test(catalogOperationsTest) &&
+      /filesystem_scanned:\s*false/.test(catalogOperationsTest) &&
       /model_mount\.download\.cancel/.test(storageOperationsTest) &&
       /model_mount\.artifact\.delete/.test(storageOperationsTest) &&
       /model_mount\.storage\.cleanup/.test(storageOperationsTest) &&
       /public_model_storage_js_facade_retired/.test(storageOperationsTest) &&
       /assert\.deepEqual\(state\.receipts,\s*\[\]\)/.test(storageOperationsTest) &&
-      /assert\.deepEqual\(state\.recordStateCommits,\s*\[\]\)/.test(storageOperationsTest) &&
+      /assertOnlyRustStorageControl\(state,\s*3\)/.test(storageOperationsTest) &&
+      /state\.recordStateCommits\.map/.test(storageOperationsTest) &&
       /assert\.equal\(state\.projections,\s*0\)/.test(storageOperationsTest) &&
       /assert\.equal\(error\.details\.job_id,\s*"missing"\)/.test(storageOperationsTest) &&
-      /Object\.hasOwn\(error\.details,\s*"jobId"\),\s*false/.test(storageOperationsTest) &&
-      /Object\.hasOwn\(error\.details,\s*"operationKind"\),\s*false/.test(storageOperationsTest) &&
-      /Object\.hasOwn\(error\.details,\s*"rustCoreBoundary"\),\s*false/.test(storageOperationsTest),
+      /Object\.hasOwn\(error\.details,\s*"jobId"\),\s*false/.test(storageOperationsTest),
     [
       "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-helpers.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-operations.test.mjs",
       "packages/runtime-daemon/src/model-mounting/storage-operations.test.mjs",
     ],
-    "Phase 9/11 is pending: model storage mutation and summary readback must fail closed until Rust daemon-core owns download cancel, artifact delete, cleanup, summary, receipt, record-state, filesystem, and projection semantics",
+    "Phase 9/11 is pending: model storage mutations plus storage summary/download status must use Rust storage-control planning, Agentgres replay, and Rust read projection without JS map or filesystem fallback",
   );
   assertCheck(
     result,
@@ -19352,10 +20597,10 @@ function runReceipts() {
       /RETIRED_CATALOG_IMPORT_URL_REQUEST_ALIASES/.test(modelMountingState) &&
       /CANONICAL_CATALOG_IMPORT_URL_REQUEST_FIELDS/.test(modelMountingState) &&
       /model_catalog_import_url_request_aliases_retired/.test(modelMountingState) &&
-      /assertCanonicalCatalogImportUrlRequestBody\(body\);[\s\S]*requiredString.*\(body\.source_url \?\? body\.url,\s*"source_url"\)/.test(
+      /assertCanonicalCatalogImportUrlRequestBody\(body\);[\s\S]*requiredString.*\(body\.source_url,\s*"source_url"\)/.test(
         catalogImportUrlBlock,
       ) &&
-      /throwCatalogDownloadRustCoreRequired\(\s*"model_mount\.catalog\.import_url"/.test(
+      /planAndCommitStorageControl\(this,\s*"model_mount\.catalog\.import_url"/.test(
         catalogImportUrlBlock,
       ) &&
       !/body\.(?:sourceUrl|modelId|providerId|fileName|fixtureContent|transferApproved)\b/.test(
@@ -19387,7 +20632,7 @@ function runReceipts() {
       /assertCanonicalModelDownloadIdentityRequestBody\(body\);[\s\S]*const modelId = .*requiredString.*\(body\.model_id,\s*"model_id"\);/.test(
         downloadModelBlock,
       ) &&
-      /throwCatalogDownloadRustCoreRequired\(\s*"model_mount\.download\.queue"/.test(
+      /planAndCommitStorageControl\(this,\s*"model_mount\.download\.queue"/.test(
         downloadModelBlock,
       ) &&
       !/body\.(?:modelId|providerId|sourceUrl|sourceLabel|catalogProviderId|fileName|fixtureContent)\b/.test(
@@ -19416,7 +20661,7 @@ function runReceipts() {
       /RETIRED_MODEL_DOWNLOAD_CONTROL_REQUEST_ALIASES/.test(modelMountingState) &&
       /CANONICAL_MODEL_DOWNLOAD_CONTROL_REQUEST_FIELDS/.test(modelMountingState) &&
       /model_download_control_request_aliases_retired/.test(modelMountingState) &&
-      /assertCanonicalModelDownloadControlRequestBody\(body\);[\s\S]*throwCatalogDownloadRustCoreRequired\(/.test(
+      /assertCanonicalModelDownloadControlRequestBody\(body\);[\s\S]*planAndCommitStorageControl\(this,\s*"model_mount\.download\.queue"/.test(
         downloadModelBlock,
       ) &&
       !/body\.(?:bytesTotal|maxBytes|simulateFailure|failureReason|queuedOnly|expectedChecksum)\b/.test(
@@ -19445,7 +20690,7 @@ function runReceipts() {
       /RETIRED_MODEL_DOWNLOAD_METADATA_REQUEST_ALIASES/.test(modelMountingState) &&
       /CANONICAL_MODEL_DOWNLOAD_METADATA_REQUEST_FIELDS/.test(modelMountingState) &&
       /model_download_metadata_request_aliases_retired/.test(modelMountingState) &&
-      /assertCanonicalModelDownloadMetadataRequestBody\(body\);[\s\S]*throwCatalogDownloadRustCoreRequired\(/.test(
+      /assertCanonicalModelDownloadMetadataRequestBody\(body\);[\s\S]*planAndCommitStorageControl\(this,\s*"model_mount\.download\.queue"/.test(
         downloadModelBlock,
       ) &&
       !/body\.(?:displayName|contextWindow|privacyClass)\b/.test(downloadModelBlock) &&
@@ -19467,16 +20712,40 @@ function runReceipts() {
   );
   assertCheck(
     result,
-    "model-mount-catalog-download-js-facade-retired",
+    "model-mount-catalog-download-storage-control-positive-rust-api",
     !exists("packages/runtime-daemon/src/model-mounting/catalog-download-operations.mjs") &&
       !/catalogImportUrlState|downloadModelState/.test(modelMountingState) &&
-      /throwCatalogDownloadRustCoreRequired/.test(modelMountingState) &&
-      /model_mount_catalog_download_rust_core_required/.test(modelMountingState) &&
-      /rust_core_boundary:\s*"model_mount\.catalog_download"/.test(modelMountingState) &&
-      /public_catalog_download_js_facade_retired/.test(modelMountingState) &&
-      /rust_daemon_core_catalog_download_required/.test(modelMountingState) &&
-      /throwCatalogDownloadRustCoreRequired\(\s*"model_mount\.catalog\.import_url"/.test(catalogImportUrlBlock) &&
-      /throwCatalogDownloadRustCoreRequired\(\s*"model_mount\.download\.queue"/.test(downloadModelBlock) &&
+      !/throwCatalogDownloadRustCoreRequired/.test(modelMountingState) &&
+      !/model_mount_catalog_download_rust_core_required/.test(modelMountingState) &&
+      !/rust_core_boundary:\s*"model_mount\.catalog_download"/.test(modelMountingState) &&
+      /MODEL_MOUNT_STORAGE_CONTROL_SCHEMA_VERSION/.test(modelMountingState) &&
+      /planStorageControl\(request\)\s*\{[\s\S]*?plan_model_mount_storage_control/.test(
+        modelMountingState,
+      ) &&
+      /public_catalog_download_js_facade_retired/.test(modelMountStorageControlEvidence) &&
+      /rust_daemon_core_catalog_download/.test(modelMountStorageControlEvidence) &&
+      /agentgres_catalog_download_truth_required/.test(modelMountStorageControlEvidence) &&
+      /planAndCommitStorageControl\(this,\s*"model_mount\.catalog\.import_url"/.test(
+        catalogImportUrlBlock,
+      ) &&
+      /planAndCommitStorageControl\(this,\s*"model_mount\.download\.queue"/.test(
+        downloadModelBlock,
+      ) &&
+      /commitModelMountRecordState\(state,\s*\{[\s\S]*?model_mount_storage_control_record_state_commit_unconfigured/.test(
+        modelMountingState,
+      ) &&
+      /storageControlBody/.test(modelMountingState) &&
+      /RUST_MODEL_MOUNT_STORAGE_CONTROL_BACKEND/.test(modelMountAdmissionRunner) &&
+      /operation:\s*"plan_model_mount_storage_control"/.test(modelMountAdmissionRunner) &&
+      /normalizeStorageControlBridgeResult/.test(modelMountAdmissionRunner) &&
+      /model_mount_storage_control_plan_invalid/.test(modelMountAdmissionRunner) &&
+      /plan_model_mount_storage_control_response/.test(modelMountStorageControlEvidence) &&
+      /MODEL_MOUNT_STORAGE_CONTROL_PLAN_SCHEMA_VERSION/.test(modelMountStorageControlEvidence) &&
+      /pub\(super\) fn plan_storage_control/.test(modelMountStorageControlEvidence) &&
+      /"model-catalog-imports"/.test(modelMountStorageControlEvidence) &&
+      /"model-downloads"/.test(modelMountStorageControlEvidence) &&
+      /network_transfer_executed/.test(modelMountStorageControlEvidence) &&
+      /plaintext_source_url_returned/.test(modelMountStorageControlEvidence) &&
       !/state\.lifecycleReceipt\("model_(?:catalog_import_url|download_(?:queued|failed|running|completed))"/.test(
         `${catalogImportUrlBlock}\n${downloadModelBlock}`,
       ) &&
@@ -19491,27 +20760,32 @@ function runReceipts() {
       !/\S/.test(catalogImportUrlReceiptDetailsObject) &&
       !/\S/.test(catalogDownloadReceiptBlocks) &&
       !/\S/.test(catalogDownloadTransferReceiptObject) &&
-      /catalog import and download mutation facades fail closed until Rust core owns them/.test(
+      /catalog import and download mutations commit Rust-authored storage-control records/.test(
         catalogDownloadOperationsTest,
       ) &&
       /ModelMountingState\.prototype\.catalogImportUrl\.call/.test(catalogDownloadOperationsTest) &&
       /ModelMountingState\.prototype\.downloadModel\.call/.test(catalogDownloadOperationsTest) &&
-      /model_mount_catalog_download_rust_core_required/.test(catalogDownloadOperationsTest) &&
       /model_mount\.catalog\.import_url/.test(catalogDownloadOperationsTest) &&
       /model_mount\.download\.queue/.test(catalogDownloadOperationsTest) &&
       /public_catalog_download_js_facade_retired/.test(catalogDownloadOperationsTest) &&
-      /assertNoCatalogDownloadMutation/.test(catalogDownloadOperationsTest) &&
-      /Object\.hasOwn\(error\.details,\s*"operationKind"\),\s*false/.test(
+      /rust_daemon_core_catalog_download/.test(catalogDownloadOperationsTest) &&
+      /agentgres_catalog_download_truth_required/.test(catalogDownloadOperationsTest) &&
+      /assertOnlyRustStorageControl\(importState,\s*1\)/.test(catalogDownloadOperationsTest) &&
+      /assertOnlyRustStorageControl\(downloadState,\s*1\)/.test(catalogDownloadOperationsTest) &&
+      /importState\.recordStateCommits\[0\]\.record_dir,\s*"model-catalog-imports"/.test(
         catalogDownloadOperationsTest,
       ) &&
-      /Object\.hasOwn\(error\.details,\s*"rustCoreBoundary"\),\s*false/.test(
+      /downloadState\.recordStateCommits\[0\]\.record_dir,\s*"model-downloads"/.test(
         catalogDownloadOperationsTest,
-      ),
+      ) &&
+      /assertNoCatalogDownloadMutation/.test(catalogDownloadOperationsTest),
     [
       "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-download-operations.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
+      "crates/services/src/agentic/runtime/kernel/model_mount/storage_control.rs",
     ],
-    "Phase 9/11 is pending: catalog import/download mutation must fail closed until Rust daemon-core owns catalog/download, receipt, record-state, filesystem, artifact, and projection semantics",
+    "Phase 9/11 is pending: catalog import/download mutations must use Rust storage-control planning plus Agentgres record-state commit without JS receipt, download, filesystem, or network materialization",
   );
   assertCheck(
     result,
@@ -19592,63 +20866,80 @@ function runReceipts() {
       !exists("packages/runtime-daemon/src/model-mounting/runtime-engines.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/runtime-engines.test.mjs") &&
       !/from "\.\/model-mounting\/runtime-engines\.mjs"/.test(modelMountingState) &&
-      /runtimeEngineRequired\(operation_kind,\s*details = \{\}\)/.test(modelMountingState) &&
-      /this\.modelMountAdmissionRunner\.planRuntimeEngineRequired/.test(modelMountingState) &&
-      /planRuntimeEngineRequired\(request\)/.test(modelMountAdmissionRunner) &&
-      /operation:\s*"plan_model_mount_runtime_engine_required"/.test(modelMountAdmissionRunner) &&
-      /RUST_MODEL_MOUNT_RUNTIME_ENGINE_REQUIRED_BACKEND/.test(modelMountAdmissionRunner) &&
+      /planRuntimeEngine\(request\)\s*\{[\s\S]*this\.modelMountAdmissionRunner\.planRuntimeEngine\(request\)/.test(modelMountingState) &&
+      /planRuntimeEngine\(request\)\s*\{[\s\S]*operation:\s*"plan_model_mount_runtime_engine"/.test(modelMountAdmissionRunner) &&
+      /RUST_MODEL_MOUNT_RUNTIME_ENGINE_BACKEND/.test(modelMountAdmissionRunner) &&
+      /normalizeRuntimeEngineBridgeResult/.test(modelMountAdmissionRunner) &&
+      !/planRuntimeEngineRequired/.test(modelMountAdmissionRunner) &&
+      !/RUST_MODEL_MOUNT_RUNTIME_ENGINE_REQUIRED_BACKEND/.test(modelMountAdmissionRunner) &&
+      !/plan_model_mount_runtime_engine_required/.test(modelMountAdmissionRunner) &&
+      !/runtimeEngineRequired\(operation_kind/.test(modelMountingState) &&
       /mod runtime_engine;/.test(modelMountCore) &&
-      /ModelMountRuntimeEngineRequiredRequest/.test(modelMountCore) &&
-      /required::plan_runtime_engine_required\(request\)/.test(modelMountCore) &&
-      /runtime_engine::plan_runtime_engine_required\(request\)/.test(modelMountCore) &&
-      /runtime_engine_required_is_planned_in_rust_model_mount/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount/required/runtime_engine.rs"),
-      ) &&
-      !/fn runtime_engine_required_is_planned_in_rust_model_mount/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount/required.rs"),
-      ) &&
-      !/fn runtime_engine_required_is_planned_in_rust_model_mount/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
-      ) &&
-      /ModelMountRuntimeEngineRequiredBridgeRequest/.test(modelMountCore) &&
-      /rust_core_shapes_model_mount_runtime_engine_required_command_response/.test(modelMountCore) &&
-      /plan_model_mount_runtime_engine_required_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
-      /plan_model_mount_runtime_engine_required/.test(coreCommandDispatch) &&
+      /ModelMountRuntimeEngineRequest/.test(modelMountCore) &&
+      /ModelMountRuntimeEngineBridgeRequest/.test(modelMountCore) &&
+      /plan_model_mount_runtime_engine_response/.test(modelMountCore) &&
+      !/ModelMountRuntimeEngineRequiredRequest/.test(modelMountCore) &&
+      !/ModelMountRuntimeEngineRequiredBridgeRequest/.test(modelMountCore) &&
+      !/plan_model_mount_runtime_engine_required_response/.test(modelMountCore) &&
+      /pub struct ModelMountRuntimeEngineRequest/.test(modelMountRuntimeEngineCore) &&
+      /pub struct ModelMountRuntimeEngineBridgeRequest/.test(modelMountRuntimeEngineCore) &&
+      /pub fn plan_model_mount_runtime_engine_response/.test(modelMountRuntimeEngineCore) &&
+      /pub\(super\) fn plan_runtime_engine/.test(modelMountRuntimeEngineCore) &&
+      /MODEL_MOUNT_RUNTIME_ENGINE_SCHEMA_VERSION/.test(modelMountRuntimeEngineCore) &&
+      /MODEL_MOUNT_RUNTIME_ENGINE_PLAN_SCHEMA_VERSION/.test(modelMountRuntimeEngineCore) &&
+      /runtime_engine_operation_supported/.test(modelMountRuntimeEngineCore) &&
+      /model_mount\.runtime_preference\.write/.test(modelMountRuntimeEngineCore) &&
+      /model_mount\.runtime_engine_profile\.write/.test(modelMountRuntimeEngineCore) &&
+      /model_mount\.runtime_engine_profile\.delete/.test(modelMountRuntimeEngineCore) &&
+      /runtime-engine-controls/.test(modelMountRuntimeEngineCore) &&
+      /public_runtime_engine_js_facade_retired/.test(modelMountRuntimeEngineCore) &&
+      /rust_daemon_core_runtime_engine/.test(modelMountRuntimeEngineCore) &&
+      /agentgres_runtime_engine_truth_required/.test(modelMountRuntimeEngineCore) &&
+      /rust_core_shapes_model_mount_runtime_engine_command_response/.test(modelMountRuntimeEngineCore) &&
+      !exists("crates/services/src/agentic/runtime/kernel/model_mount/required/runtime_engine.rs") &&
+      /plan_model_mount_runtime_engine_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      !/plan_model_mount_runtime_engine_required_response/.test(coreCommandDispatch) &&
       !/plan_model_mount_runtime_engine_required_response as plan_model_mount_runtime_engine_required/.test(bridgeModule) &&
+      !/plan_model_mount_runtime_engine_response as plan_model_mount_runtime_engine/.test(bridgeModule) &&
       !/bridge_plans_model_mount_runtime_engine_required_through_rust_core/.test(bridgeModule) &&
+      !/bridge_plans_model_mount_runtime_engine_through_rust_core/.test(bridgeModule) &&
       /throwRuntimeEngineRustCoreRequired/.test(modelMountingState) &&
       /model_mount_runtime_engine_rust_core_required/.test(modelMountingState) &&
+      /commitRuntimeEngineForState\(this,\s*"model_mount\.runtime_preference\.write"/.test(modelMountingState) &&
+      /commitRuntimeEngineForState\(this,\s*"model_mount\.runtime_engine_profile\.write"/.test(modelMountingState) &&
+      /commitRuntimeEngineForState\(this,\s*"model_mount\.runtime_engine_profile\.delete"/.test(modelMountingState) &&
+      /commitModelMountRecordState\(state,\s*\{[\s\S]*model_mount_runtime_engine_record_state_commit_unconfigured/.test(modelMountingState) &&
       /rust_core_boundary:\s*details\.rust_core_boundary \?\? record\.rust_core_boundary \?\? "model_mount\.runtime_engine"/.test(modelMountingState) &&
       /public_runtime_engine_js_facade_retired/.test(modelMountingState) &&
-      /rust_daemon_core_runtime_engine_required/.test(modelMountingState) &&
+      /rust_daemon_core_runtime_engine/.test(modelMountingState) &&
       /agentgres_runtime_engine_truth_required/.test(modelMountingState) &&
-      /selectRuntimeEngine\(body = \{\}\)\s*\{[\s\S]*?const engineId = requiredString\(body\.engine_id,\s*"engine_id"\);[\s\S]*?throwRuntimeEngineRustCoreRequired\(this\.runtimeEngineRequired\("model_mount\.runtime_preference\.write",\s*\{ engine_id: engineId \}\)\)/.test(modelMountingState) &&
-      /updateRuntimeEngine\(engineId,\s*body = \{\}\)\s*\{[\s\S]*?void body;[\s\S]*?throwRuntimeEngineRustCoreRequired\(this\.runtimeEngineRequired\("model_mount\.runtime_engine_profile\.write",\s*\{ engine_id: engineId \}\)\)/.test(modelMountingState) &&
-      /removeRuntimeEngineOverride\(engineId\)\s*\{[\s\S]*?throwRuntimeEngineRustCoreRequired\(this\.runtimeEngineRequired\("model_mount\.runtime_engine_profile\.delete",\s*\{ engine_id: engineId \}\)\)/.test(modelMountingState) &&
+      /selectRuntimeEngine\(body = \{\}\)\s*\{[\s\S]*?const engineId = requiredString\(body\.engine_id,\s*"engine_id"\);[\s\S]*?commitRuntimeEngineForState\(this,\s*"model_mount\.runtime_preference\.write"/.test(modelMountingState) &&
+      /updateRuntimeEngine\(engineId,\s*body = \{\}\)\s*\{[\s\S]*?const resolvedEngineId = requiredString\(engineId,\s*"engine_id"\);[\s\S]*?commitRuntimeEngineForState\(this,\s*"model_mount\.runtime_engine_profile\.write"/.test(modelMountingState) &&
+      /removeRuntimeEngineOverride\(engineId\)\s*\{[\s\S]*?commitRuntimeEngineForState\(this,\s*"model_mount\.runtime_engine_profile\.delete"/.test(modelMountingState) &&
       !/state\.lifecycleReceipt\("runtime_engine_(?:select|update|profile_remove)"/.test(modelMountingState) &&
       !/commitRuntimeEngineRecordState/.test(modelMountingState) &&
-      !/runtime_engine_record_state_commit_unconfigured/.test(modelMountingState) &&
-      !/runtime_engine_record_state_commit_invalid/.test(modelMountingState) &&
       !/state\.writeMap\("runtime-preferences"/.test(modelMountingState) &&
       !/state\.writeMap\("runtime-engine-profiles"/.test(modelMountingState) &&
       !/state\.runtimeSelections\.set/.test(modelMountingState) &&
       !/state\.runtimeEngineProfiles\.set\(engineId/.test(modelMountingState) &&
       !/state\.runtimeEngineProfiles\.delete/.test(modelMountingState) &&
-      /mounted runtime-engine mutation facade fails closed until Rust core owns it/.test(runtimeEngineMountedTest) &&
+      /mounted runtime-engine mutation facades commit Rust-authored records/.test(runtimeEngineMountedTest) &&
+      /mounted runtime-engine mutation facades fail closed before JS writes when Rust planner is missing/.test(runtimeEngineMountedTest) &&
       /model_mount_runtime_engine_rust_core_required/.test(runtimeEngineMountedTest) &&
       /model_mount\.runtime_preference\.write/.test(runtimeEngineMountedTest) &&
       /model_mount\.runtime_engine_profile\.write/.test(runtimeEngineMountedTest) &&
       /model_mount\.runtime_engine_profile\.delete/.test(runtimeEngineMountedTest) &&
       /public_runtime_engine_js_facade_retired/.test(runtimeEngineMountedTest) &&
-      /rust_daemon_core_runtime_engine_required/.test(runtimeEngineMountedTest) &&
+      /rust_daemon_core_runtime_engine/.test(runtimeEngineMountedTest) &&
       /agentgres_runtime_engine_truth_required/.test(runtimeEngineMountedTest) &&
-      /assert\.deepEqual\(state\.receipts,\s*\[\]\)/.test(runtimeEngineMountedTest) &&
+      /state\.runtimeEnginePlans\[0\]\.schema_version/.test(runtimeEngineMountedTest) &&
+      /state\.runtimeEnginePlans\[1\]\.body\.default_load_options/.test(runtimeEngineMountedTest) &&
+      /assert\.equal\(state\.recordStateCommits\.length,\s*3\)/.test(runtimeEngineMountedTest) &&
       /assert\.deepEqual\(state\.recordStateCommits,\s*\[\]\)/.test(runtimeEngineMountedTest) &&
-      /assert\.equal\(state\.projections,\s*0\)/.test(runtimeEngineMountedTest) &&
       /mounted runtime-engine requests ignore retired camelCase aliases/.test(runtimeEngineMountedTest) &&
-      /Rust model_mount admission runner sends runtime engine required request/.test(modelMountAdmissionRunnerTest) &&
-      /state\.runtimeEngineRequiredRequests\[0\]\.schema_version/.test(runtimeEngineMountedTest) &&
-      /state\.runtimeEngineRequiredRequests\[0\]\.operation_kind/.test(runtimeEngineMountedTest) &&
+      /Rust model_mount admission runner sends positive runtime-engine request/.test(modelMountAdmissionRunnerTest) &&
+      /calls\[0\]\.request\.operation,\s*"plan_model_mount_runtime_engine"/.test(modelMountAdmissionRunnerTest) &&
+      /calls\[0\]\.request\.backend,\s*RUST_MODEL_MOUNT_RUNTIME_ENGINE_BACKEND/.test(modelMountAdmissionRunnerTest) &&
       /loadModelMountingMap applies Rust-admitted tombstone records/.test(
         read("packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs"),
       ) &&
@@ -19663,7 +20954,8 @@ function runReceipts() {
       /Object\.hasOwn\(error\.details,\s*"evidenceRefs"\),\s*false/.test(runtimeEngineMountedTest) &&
       /engineId: "backend\.llama-cpp"/.test(runtimeEngineMountedTest) &&
       /defaultLoadOptions: \{ gpu: "retired" \}/.test(runtimeEngineMountedTest) &&
-      /operatorLabel: "Retired label"/.test(runtimeEngineMountedTest),
+      /operatorLabel: "Retired label"/.test(runtimeEngineMountedTest) &&
+      !/runtimeEngineRequiredRequests/.test(runtimeEngineMountedTest),
     [
       "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
@@ -19674,7 +20966,7 @@ function runReceipts() {
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
     ],
-    "Phase 9/11 is pending: runtime-engine mutation must fail closed from the mounted state until Rust daemon-core owns preference/profile receipts, record-state admission, and projections",
+    "Phase 9/11 remains non-terminal: runtime-engine mutation and read projection now use Rust daemon-core runtime-engine controls and admitted Agentgres replay; local runtime materialization, command-transport retirement, and stable API retirement still need completion",
   );
   assertCheck(
     result,
@@ -19763,43 +21055,52 @@ function runReceipts() {
       /SERVER_CONTROL_RECORD_ID\s*=\s*"server-control\.default"/.test(modelMountingState) &&
       /throwServerControlRustCoreRequired/.test(modelMountingState) &&
       /model_mount_server_control_rust_core_required/.test(modelMountingState) &&
-      /serverControlRequired\(operation_kind,\s*details = \{\}\)/.test(modelMountingState) &&
-      /this\.modelMountAdmissionRunner\.planServerControlRequired/.test(modelMountingState) &&
-      /planServerControlRequired\(request\)/.test(modelMountAdmissionRunner) &&
-      /operation:\s*"plan_model_mount_server_control_required"/.test(modelMountAdmissionRunner) &&
-      /RUST_MODEL_MOUNT_SERVER_CONTROL_REQUIRED_BACKEND/.test(modelMountAdmissionRunner) &&
+      /commitServerControlForState\(this,\s*"model_mount\.server_control\.start"/.test(modelMountingState) &&
+      /commitServerControlForState\(this,\s*"model_mount\.server_control\.stop"/.test(modelMountingState) &&
+      /commitServerControlForState\(this,\s*"model_mount\.server_control\.restart"/.test(modelMountingState) &&
+      /commitServerControlForState\(this,\s*"model_mount\.server_control\.logs_read"/.test(modelMountingState) &&
+      /commitServerControlForState\(this,\s*"model_mount\.server_control\.events_read"/.test(modelMountingState) &&
+      /commitServerControlForState\(this,\s*"model_mount\.server_control\.log_projection"/.test(modelMountingState) &&
+      /commitServerControlForState\(this,\s*"model_mount\.server_control\.log_append"/.test(modelMountingState) &&
+      /commitServerControlForState\(this,\s*"model_mount\.server_control\.write"/.test(modelMountingState) &&
+      /commitServerControlForState\(this,\s*"model_mount\.server_control\.record_operation"/.test(modelMountingState) &&
+      /planServerControl\(request\)/.test(modelMountAdmissionRunner) &&
+      /operation:\s*"plan_model_mount_server_control"/.test(modelMountAdmissionRunner) &&
+      /RUST_MODEL_MOUNT_SERVER_CONTROL_BACKEND/.test(modelMountAdmissionRunner) &&
+      /normalizeServerControlBridgeResult/.test(modelMountAdmissionRunner) &&
+      !/planServerControlRequired\(request\)/.test(modelMountAdmissionRunner) &&
+      !/plan_model_mount_server_control_required/.test(modelMountAdmissionRunner) &&
+      !/RUST_MODEL_MOUNT_SERVER_CONTROL_REQUIRED_BACKEND/.test(modelMountAdmissionRunner) &&
       /mod server_control;/.test(modelMountCore) &&
-      /ModelMountServerControlRequiredRequest/.test(modelMountCore) &&
-      /required::plan_server_control_required\(request\)/.test(modelMountCore) &&
-      /server_control::plan_server_control_required\(request\)/.test(modelMountCore) &&
-      /server_control_required_is_planned_in_rust_model_mount/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount/required/server_control.rs"),
-      ) &&
-      !/fn server_control_required_is_planned_in_rust_model_mount/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount/required.rs"),
-      ) &&
-      !/fn server_control_required_is_planned_in_rust_model_mount/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
-      ) &&
-      /ModelMountServerControlRequiredBridgeRequest/.test(modelMountCore) &&
-      /rust_core_shapes_model_mount_server_control_required_command_response/.test(modelMountCore) &&
-      /plan_model_mount_server_control_required_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
-      /plan_model_mount_server_control_required/.test(coreCommandDispatch) &&
+      /ModelMountServerControlRequest/.test(modelMountCore) &&
+      /ModelMountServerControlBridgeRequest/.test(modelMountCore) &&
+      /ModelMountServerControlPlan/.test(modelMountCore) &&
+      /pub fn plan_model_mount_server_control_response/.test(modelMountServerControlCore) &&
+      /MODEL_MOUNT_SERVER_CONTROL_SCHEMA_VERSION/.test(modelMountServerControlCore) &&
+      /MODEL_MOUNT_SERVER_CONTROL_PLAN_SCHEMA_VERSION/.test(modelMountServerControlCore) &&
+      /server_control_operation_supported/.test(modelMountServerControlCore) &&
+      /model_mount\.server_control\.start/.test(modelMountServerControlCore) &&
+      /model_mount\.server_control\.log_append/.test(modelMountServerControlCore) &&
+      /record_dir:\s*"model-server-controls"/.test(modelMountServerControlCore) &&
+      /public_server_control_js_facade_retired/.test(modelMountServerControlCore) &&
+      /rust_daemon_core_server_control/.test(modelMountServerControlCore) &&
+      /agentgres_server_control_truth_required/.test(modelMountServerControlCore) &&
+      /rust_core_shapes_model_mount_server_control_command_response/.test(modelMountServerControlCore) &&
+      !/ModelMountServerControlRequired/.test(modelMountCore) &&
+      !exists("crates/services/src/agentic/runtime/kernel/model_mount/required/server_control.rs") &&
+      /plan_model_mount_server_control_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      !/plan_model_mount_server_control_required/.test(coreCommandDispatch) &&
       !/plan_model_mount_server_control_required_response as plan_model_mount_server_control_required/.test(bridgeModule) &&
       !/bridge_plans_model_mount_server_control_required_through_rust_core/.test(bridgeModule) &&
       /public_server_control_js_facade_retired/.test(modelMountingState) &&
-      /rust_daemon_core_server_control_required/.test(modelMountingState) &&
+      /rust_daemon_core_server_control/.test(modelMountingState) &&
       /agentgres_server_control_truth_required/.test(modelMountingState) &&
-      /throwServerControlRustCoreRequired\(this\.serverControlRequired\("model_mount\.server_control\.start"\)\)/.test(modelMountingState) &&
-      /throwServerControlRustCoreRequired\(this\.serverControlRequired\("model_mount\.server_control\.stop"\)\)/.test(modelMountingState) &&
-      /throwServerControlRustCoreRequired\(this\.serverControlRequired\("model_mount\.server_control\.restart"\)\)/.test(modelMountingState) &&
-      /throwServerControlRustCoreRequired\(this\.serverControlRequired\("model_mount\.server_control\.logs_read"\)\)/.test(modelMountingState) &&
-      /throwServerControlRustCoreRequired\(this\.serverControlRequired\("model_mount\.server_control\.events_read"\)\)/.test(modelMountingState) &&
-      /throwServerControlRustCoreRequired\(this\.serverControlRequired\("model_mount\.server_control\.log_projection"\)\)/.test(modelMountingState) &&
-      /throwServerControlRustCoreRequired\(this\.serverControlRequired\("model_mount\.server_control\.log_append"\)\)/.test(modelMountingState) &&
-      /throwServerControlRustCoreRequired\(this\.serverControlRequired\("model_mount\.server_control\.write"/.test(modelMountingState) &&
-      /throwServerControlRustCoreRequired\(this\.serverControlRequired\("model_mount\.server_control\.record_operation"/.test(modelMountingState) &&
-      !/commitModelMountRecordState/.test(modelMountingState) &&
+      /schema_version:\s*"ioi\.model_mount\.server_control\.v1"/.test(modelMountingState) &&
+      /commitModelMountRecordState\(state/.test(modelMountingState) &&
+      /recordDir:\s*plan\.record_dir/.test(modelMountingState) &&
+      /serverControlBody/.test(modelMountingState) &&
+      /authorization/.test(serverControlMountedTest) &&
+      /state\.serverControlPlans\.at\(-1\)\.body\.authorization,\s*undefined/.test(serverControlMountedTest) &&
       !/state\.lifecycleReceipt\("server_(?:start|stop|restart|logs_read|events_read)"/.test(modelMountingState) &&
       !/function serverStatusProjectionInput/.test(modelMountingReadProjectionFacade) &&
       !/function serverControlStateInput/.test(modelMountingReadProjectionFacade) &&
@@ -19808,13 +21109,15 @@ function runReceipts() {
       !/state\.listBackends\(\)/.test(modelMountingReadProjectionFacade) &&
       !/backend_statuses/.test(modelMountingReadProjectionFacade) &&
       /mounted server control state is volatile input only/.test(serverControlMountedTest) &&
-      /mounted server control mutation\/log facades fail closed before JS state or log writes/.test(serverControlMountedTest) &&
-      /mounted server control state writes and operation recording fail closed/.test(serverControlMountedTest) &&
-      /Rust model_mount admission runner sends server control required request/.test(
+      /mounted server control mutation\/log facades commit Rust-authored records/.test(serverControlMountedTest) &&
+      /mounted server control state writes and operation recording commit Rust truth/.test(serverControlMountedTest) &&
+      /mounted server control fails closed before JS writes when Rust planner is missing/.test(serverControlMountedTest) &&
+      /Rust model_mount admission runner sends positive server-control request/.test(
         modelMountAdmissionRunnerTest,
       ) &&
-      /state\.serverControlRequiredRequests\[0\]\.schema_version/.test(serverControlMountedTest) &&
-      /state\.serverControlRequiredRequests\[0\]\.operation_kind/.test(serverControlMountedTest) &&
+      !/Rust model_mount admission runner sends server control required request/.test(
+        modelMountAdmissionRunnerTest,
+      ) &&
       /recordServerOperation/.test(serverControlMountedTest) &&
       /model_mount\.server_control\.record_operation/.test(serverControlMountedTest) &&
       /assert\.equal\(Object\.hasOwn\(controlState,\s*"schema_version"\),\s*false\)/.test(serverControlMountedTest),
@@ -19829,26 +21132,43 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/record-state-commits.mjs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount/server_control.rs",
     ],
-    "Phase 9/11 is pending: public server-control facade must fail closed until Rust daemon-core model_mount owns server-control receipts, state, logs, events, and projection",
+    "Phase 9/11 migration guard: public server-control state/log methods must use Rust daemon-core model_mount server-control planning plus Agentgres record-state admission, with the old required-record bridge retired",
   );
   assertCheck(
     result,
-    "model-mount-provider-inventory-receipt-direct-write-guard",
+    "model-mount-provider-inventory-rust-owned-public-api",
     !exists("packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/provider-local-drivers.test.mjs") &&
+      /planProviderInventory\(this,\s*provider/.test(providerOperations) &&
+      /function planProviderInventory/.test(providerOperations) &&
+      /function modelMountProviderInventoryRequest/.test(providerOperations) &&
+      /MODEL_MOUNT_PROVIDER_INVENTORY_SCHEMA_VERSION/.test(providerOperations) &&
+      /RUST_MODEL_MOUNT_NATIVE_LOCAL_INVENTORY_BACKEND/.test(providerOperations) &&
+      /RUST_MODEL_MOUNT_FIXTURE_INVENTORY_BACKEND/.test(providerOperations) &&
+      /assertRustAuthoredProviderInventoryResult/.test(providerOperations) &&
+      /model_mount_provider_inventory_rust_result_required/.test(providerOperations) &&
+      /rust_core_api:\s*"plan_model_mount_provider_inventory"/.test(providerOperations) &&
       /model_mount_provider_inventory_rust_core_required/.test(providerOperations) &&
       /rust_core_boundary:\s*"model_mount\.provider_inventory"/.test(providerOperations) &&
       /model_mount_provider_inventory_js_facade_retired/.test(providerOperations) &&
       /rust_daemon_core_provider_inventory_required/.test(providerOperations) &&
-      /agentgres_provider_inventory_projection_required/.test(providerOperations) &&
+      /agentgres_provider_inventory_truth_required/.test(providerOperations) &&
+      /agentgres_provider_inventory_replay_required/.test(providerOperations) &&
+      /function commitProviderInventoryRecordState/.test(providerOperations) &&
+      /model_mount_provider_inventory_record_state_commit_unconfigured/.test(providerOperations) &&
+      /recordDir:\s*plan\.record_dir/.test(providerOperations) &&
+      /operation_kind:\s*plan\.operation_kind/.test(providerOperations) &&
+      /providerInventoryRecords\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"provider_inventory_records"\)/.test(modelMountingReadProjectionFacade) &&
+      /MODEL_MOUNT_PROVIDER_INVENTORY_PROJECTION_KIND/.test(modelMountCore) &&
+      /provider_inventory_projection_replays_agentgres_records_and_filters_js_truth/.test(modelMountCore) &&
       !/providerInventoryReceiptFields/.test(providerOperations) &&
       !/state\.driverForProvider\(provider\)\.listModels/.test(providerOperations) &&
       !/state\.driverForProvider\(provider\)\.listLoaded/.test(providerOperations) &&
       !/state\.lifecycleReceipt\("provider_models_list"/.test(providerOperations) &&
       !/state\.lifecycleReceipt\("provider_loaded_list"/.test(providerOperations) &&
       !exists("packages/runtime-daemon/src/model-mounting/provider-operations.mjs") &&
-      !/modelMountProviderInventory/.test(providerOperations) &&
       !/\binventoryHash\b/.test(providerOperations) &&
       /assertModelMountingReceiptWriteBound/.test(modelMountStore) &&
       /assertProviderInventoryReceiptBound/.test(
@@ -19867,12 +21187,20 @@ function runReceipts() {
       /retired_aliases\.includes\("providerKind"\)/.test(
         read("packages/runtime-daemon/src/model-mounting/store.test.mjs"),
       ) &&
-      /local provider inventory also fails closed until direct Rust projection exists/.test(
+      /provider inventory list routes through Rust inventory planner without JS driver or local fallback reads/.test(
         read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
       ) &&
-      /provider inventory facade does not depend on retired JS artifact record-state commit/.test(
+      /local provider inventory uses Rust native-local inventory planner without JS driver/.test(
+        read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
+      ) &&
+      /local provider inventory fails closed when Rust inventory planner is unavailable/.test(
+        read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
+      ) &&
+      /provider inventory facade requires Rust Agentgres provider-inventory record-state commit/.test(
         providerOperationsTest,
       ) &&
+      /assert\.equal\(state\.recordStateCommits\.length,\s*2\)/.test(providerOperationsTest) &&
+      /model-provider-inventory/.test(providerOperationsTest) &&
       /assert\.deepEqual\(state\.receipts,\s*\[\]\)/.test(providerOperationsTest) &&
       /modelMountProviderInventoryHash/.test(
         read("packages/runtime-daemon/src/model-mounting/store.test.mjs"),
@@ -19887,7 +21215,7 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/receipt-write-guards.mjs",
       "packages/runtime-daemon/src/model-mounting/store.test.mjs",
     ],
-    "Phase 9/10 is pending: direct JS provider inventory lifecycle receipt persistence for migrated local providers must fail closed without provider kind and Rust model_mount inventory binding",
+    "Phase 9/10 is pending: public provider inventory list APIs must be Rust-owned for migrated fixture/native-local providers and fail closed before JS driver, receipt, or local fallback truth paths",
   );
   assertCheck(
     result,
@@ -19898,8 +21226,19 @@ function runReceipts() {
       /model_mount_provider_health_js_facade_retired/.test(providerOperations) &&
       /rust_daemon_core_provider_health_required/.test(providerOperations) &&
       /agentgres_provider_health_record_truth_required/.test(providerOperations) &&
+      /MODEL_MOUNT_PROVIDER_LIFECYCLE_SCHEMA_VERSION/.test(providerOperations) &&
+      /function planProviderLifecycle\(state,\s*provider,\s*options = \{\}\)/.test(providerOperations) &&
+      /modelMountProviderLifecycleRequest\(state,\s*provider,\s*options\)/.test(providerOperations) &&
+      /state\.planModelMountProviderLifecycle\(request\)/.test(providerOperations) &&
+      /assertRustAuthoredProviderLifecycleResult\(result,\s*options\)/.test(providerOperations) &&
       /model_mount\.provider\.health/.test(providerOperations) &&
-      !/commitModelMountRecordState/.test(providerOperations) &&
+      /commitRecordState:\s*true/.test(providerHealthBoundaryBlock) &&
+      /commitProviderLifecycleRecordState\(state,\s*result\)/.test(providerHealthBoundaryBlock) &&
+      /function commitProviderLifecycleRecordState\(state,\s*plan = \{\}\)/.test(providerOperations) &&
+      /model-provider-lifecycle-controls/.test(providerOperations) &&
+      /model_mount_provider_lifecycle_record_state_commit_unconfigured/.test(providerOperations) &&
+      /agentgres_provider_lifecycle_truth_required/.test(providerOperations) &&
+      /public_response/.test(providerOperations) &&
       !/commitProviderHealthStateRecord/.test(providerOperations) &&
       !/commitProviderRecordState/.test(providerOperations) &&
       !/providerLifecycleReceiptFields/.test(providerOperations) &&
@@ -19907,19 +21246,25 @@ function runReceipts() {
       !/state\.receipt\("provider_health"/.test(providerOperations) &&
       !/state\.providers\.set/.test(providerOperations) &&
       !/state\.writeProjection/.test(providerOperations) &&
-      /provider health mutation facade fails closed before JS driver, receipt, or provider write/.test(
+      /provider health commits Rust provider-lifecycle record without JS driver, receipt, or provider write/.test(
         read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
       ) &&
-      /provider health does not depend on retired JS Agentgres record-state commit shim/.test(
+      /provider health requires Rust Agentgres provider-lifecycle record-state commit/.test(
         read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
       ) &&
-      /local provider health also fails closed until direct Rust core control exists/.test(
+      /local provider health uses Rust native-local lifecycle planner without JS driver/.test(
+        read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
+      ) &&
+      /local provider health fails closed when Rust lifecycle planner is unavailable/.test(
         read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
       ) &&
       /assert\.deepEqual\(state\.receipts,\s*\[\]\)/.test(
         read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
       ) &&
-      /assert\.deepEqual\(state\.recordStateCommits,\s*\[\]\)/.test(
+      /assert\.equal\(state\.recordStateCommits\.length,\s*1\)/.test(
+        read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
+      ) &&
+      /record\.rust_core_boundary,\s*"model_mount\.provider_lifecycle"/.test(
         read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
       ) &&
       /assert\.equal\(state\.projections,\s*0\)/.test(
@@ -19929,14 +21274,24 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/provider-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs",
     ],
-    "Phase 9/10 is pending: public provider health JS mutation facade must fail closed before driver execution, provider_health receipts, provider/provider-health record-state commits, provider-map mutation, or projection writes",
+    "Phase 9/10 is pending: public provider health must commit Rust-authored provider-lifecycle records for migrated local providers while remaining driver/receipt/provider-write/projection-free at the JS edge",
   );
   assertCheck(
     result,
     "model-mount-provider-control-receipt-direct-write-guard",
       !exists("packages/runtime-daemon/src/model-mounting/provider-operations.mjs") &&
       /model_mount_provider_control_rust_core_required/.test(providerOperations) &&
+      /modelMountProviderLifecycleRequest/.test(providerOperations) &&
+      /model_mount\.provider\.start/.test(providerOperations) &&
+      /model_mount\.provider\.stop/.test(providerOperations) &&
+      /action:\s*"load"/.test(providerOperations) &&
+      /action:\s*"unload"/.test(providerOperations) &&
+      /commitRecordState:\s*true/.test(providerHealthBoundaryBlock) &&
+      /commitProviderLifecycleRecordState\(state,\s*result\)/.test(providerOperations) &&
+      /model-provider-lifecycle-controls/.test(providerOperations) &&
+      /agentgres_provider_lifecycle_truth_required/.test(providerOperations) &&
       !/provider_stateless_start|provider_stateless_stop/.test(providerOperations) &&
+      !/state\.driverForProvider\(provider\)\.(?:start|stop)/.test(providerOperations) &&
       /assertModelMountingReceiptWriteBound/.test(modelMountStore) &&
       /assertProviderControlReceiptBound/.test(
         modelMountReceiptWriteGuards,
@@ -19946,12 +21301,20 @@ function runReceipts() {
       ) &&
       /model_mount_provider_lifecycle_hash/.test(modelMountReceiptWriteGuards) &&
       /assertNoRetiredProviderDetailAliases/.test(modelMountReceiptWriteGuards) &&
-      !/modelMountProviderLifecycle|providerLifecycleHash/.test(providerOperations) &&
       !/modelMountProviderLifecycle|providerLifecycleHash/.test(modelMountReceiptWriteGuards) &&
       /retired_aliases\.includes\("providerKind"\)/.test(
         read("packages/runtime-daemon/src/model-mounting/store.test.mjs"),
       ) &&
-      /local provider start and stop fail closed until direct Rust core control exists/.test(
+      /local provider start and stop commit Rust native-local provider-lifecycle records/.test(
+        read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
+      ) &&
+      /assert\.equal\(state\.recordStateCommits\.length,\s*2\)/.test(
+        read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
+      ) &&
+      /assert\.deepEqual\(state\.writes,\s*\[\]\)/.test(
+        read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
+      ) &&
+      /assert\.deepEqual\(state\.receipts,\s*\[\]\)/.test(
         read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
       ) &&
       /provider control receipt writes fail closed without provider kind/.test(
@@ -19964,7 +21327,7 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/receipt-write-guards.mjs",
       "packages/runtime-daemon/src/model-mounting/store.test.mjs",
     ],
-    "Phase 9/10 is pending: provider start/stop control must fail closed until direct Rust daemon-core control exists",
+    "Phase 9/10 is pending: migrated local provider start/stop control must commit Rust-authored provider-lifecycle records while direct JS lifecycle receipt writes remain guarded",
   );
   assertCheck(
     result,
@@ -20431,24 +21794,48 @@ function runReceipts() {
   );
   assertCheck(
     result,
-    "model-mount-catalog-search-js-orchestrator-retired",
+    "model-mount-catalog-search-rust-projection",
     !exists("packages/runtime-daemon/src/model-mounting/catalog-operations.mjs") &&
-      /model_catalog_search_js_orchestrator_retired/.test(catalogOperations) &&
-      /model_catalog\.search/.test(catalogOperations) &&
-      /rust_core_boundary:\s*"model_mount\.catalog_provider_search"/.test(catalogOperations) &&
-      /rust_daemon_core_catalog_search_required/.test(catalogOperations) &&
-      /agentgres_catalog_projection_required/.test(catalogOperations) &&
       !/for \(const port of (?:state|this)\.catalogProviderPorts\(\)\)/.test(catalogOperations) &&
       !/(?:state|this)\.lastCatalogSearch\s*=\s*search/.test(catalogOperations) &&
       !/providerResults/.test(catalogOperations) &&
       !/(?:state|this)\.enrichCatalogEntry/.test(catalogOperations) &&
-      /catalogSearch\(query = \{\}\)\s*\{[\s\S]*?throw runtimeError\(\{[\s\S]*?model_catalog_search_js_orchestrator_retired/.test(modelMountingState) &&
+      /catalogSearch\(query = \{\}\)\s*\{[\s\S]*?return this\.readProjectionFacade\.catalogSearch\(this,\s*query\)/.test(
+        modelMountingState,
+      ) &&
+      !/catalogSearch\(query = \{\}\)\s*\{[\s\S]*?throw runtimeError\(\{[\s\S]*?model_catalog_search_js_orchestrator_retired/.test(
+        modelMountingState,
+      ) &&
+      /catalogSearch\(state,\s*query = \{\}\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"catalog_search"/.test(
+        modelMountingReadProjectionFacade,
+      ) &&
+      /projectionKind === "catalog_search"[\s\S]*?catalog_search:\s*catalogQuery/.test(
+        modelMountingReadProjectionFacade,
+      ) &&
+      /projectionKind !== "model_conversation_states" &&\s*projectionKind !== "instances" &&\s*projectionKind !== "provider_inventory_records" &&\s*projectionKind !== "catalog_search" &&\s*projectionKind !== "catalog_status" &&\s*projectionKind !== "model_tokenizer_records" &&\s*projectionKind !== "routes" &&\s*projectionKind !== "model_route_decisions" &&\s*projectionKind !== "model_route_endpoint_resolutions" &&\s*projectionKind !== "artifacts" &&\s*projectionKind !== "product_artifacts" &&\s*projectionKind !== "providers" &&\s*projectionKind !== "endpoints" &&\s*projectionKind !== "runtime_model_catalog" &&\s*projectionKind !== "open_ai_model_list"/.test(
+        modelMountingReadProjectionFacade,
+      ) &&
+      /MODEL_MOUNT_CATALOG_SEARCH_PROJECTION_KIND/.test(modelMountCore) &&
+      /agentgres_catalog_search_replay_required/.test(modelMountCore) &&
+      /catalog_search_replays_provider_inventory_records_and_filters_js_truth/.test(
+        modelMountCore,
+      ) &&
       !/catalogSearch\(query = \{\}\)\s*\{(?:(?!\n  enrichCatalogEntry).)*(?:catalogProviderStatus|normalizeLimit)/s.test(modelMountingState) &&
       !/import\s*\{[\s\S]*?normalizeLimit[\s\S]*?\}\s*from "\.\/model-mounting\/provider-protocol\.mjs"/.test(modelMountingState) &&
       !/catalogProviderStatus,\s*modelCatalogProviderPorts/.test(modelMountingState) &&
-      /catalog search fails closed before JS provider orchestration/.test(catalogOperationsTest) &&
+      /catalog search delegates to Rust projection before JS provider orchestration/.test(catalogOperationsTest) &&
       /ModelMountingState\.prototype\.catalogSearch/.test(catalogOperationsTest) &&
+      /source:\s*"rust_model_mount_catalog_search_projection"/.test(catalogOperationsTest) &&
       /model_catalog_search_js_orchestrator_retired/.test(catalogOperationsTest) &&
+      /readProjectionCalls/.test(catalogOperationsTest) &&
+      /read projection facade delegates catalog search through Rust provider inventory replay/.test(
+        modelMountingReadProjectionFacadeTest,
+      ) &&
+      /facade\.catalogSearch\(state/.test(modelMountingReadProjectionFacadeTest) &&
+      /providerRef:\s*"provider:\/\/legacy"/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.hasOwn\(readProjectionRequests\[0\]\.state\.catalog_search,\s*"providerRef"\),\s*false/.test(
+        modelMountingReadProjectionFacadeTest,
+      ) &&
       /assert\.equal\(state\.catalogProviderPortCalls,\s*0\)/.test(catalogOperationsTest) &&
       /assert\.equal\(state\.enrichCatalogEntryCalls,\s*0\)/.test(catalogOperationsTest) &&
       /assert\.equal\(state\.lastCatalogSearch,\s*null\)/.test(catalogOperationsTest),
@@ -20456,7 +21843,7 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-operations.test.mjs",
     ],
-    "Phase 7/11 is pending: public catalog search orchestration must fail closed before JS provider iteration, entry enrichment, result aggregation, or last-search writes",
+    "Public catalog search must be a Rust read-projection over Agentgres provider-inventory records; JS provider iteration, enrichment, result aggregation, and last-search writes must stay retired",
   );
   assertCheck(
     result,
@@ -20486,18 +21873,33 @@ function runReceipts() {
       /assert\.equal\(status\.adapterBoundary\.port,\s*"ModelCatalogProviderPort"\)/.test(
         modelMountingReadProjectionFacadeTest,
       ) &&
-      /assert\.deepEqual\(status\.providers,\s*\[\]\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /assert\.equal\(status\.storage,\s*null\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /assert\.equal\(status\.lastSearch,\s*null\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /status\.providers\.map\(\(provider\) => provider\.provider_ref\)[\s\S]*"provider:\/\/fixture"[\s\S]*"provider:\/\/native"/.test(
+        modelMountingReadProjectionFacadeTest,
+      ) &&
+      /status\.providers\[0\]\.rust_core_boundary,\s*"model_mount\.catalog_status"/.test(
+        modelMountingReadProjectionFacadeTest,
+      ) &&
+      /assert\.equal\(status\.storage\.record_count,\s*2\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /assert\.equal\(status\.lastSearch\.result_count,\s*1\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /status\.results\.map\(\(result\) => result\.model_ref\),\s*\["model:\/\/fixture\/qwen3"\]/.test(
+        modelMountingReadProjectionFacadeTest,
+      ) &&
+      /status\.evidence_refs\.includes\("agentgres_catalog_status_replay_required"\)/.test(
+        modelMountingReadProjectionFacadeTest,
+      ) &&
       /assert\.deepEqual\(readProjectionRequests\.map\(\(request\) => request\.projection_kind\), \["catalog_status"\]\)/.test(
         modelMountingReadProjectionFacadeTest,
       ) &&
+      /readProjectionRequests\[0\]\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(readProjectionRequests\[0\]\.state,\s*"catalog_status_input"\),\s*false/.test(
         modelMountingReadProjectionFacadeTest,
       ) &&
       !exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/catalog.rs") &&
       !/mod catalog;/.test(modelMountCore) &&
-      /"catalog_status" => Ok\(status::catalog_status\(request\)\)/.test(modelMountCore) &&
+      /MODEL_MOUNT_CATALOG_STATUS_PROJECTION_KIND => status::catalog_status\(request\)/.test(modelMountCore) &&
+      /agentgres_catalog_status_replay_required/.test(modelMountCore) &&
+      /model_mount_catalog_status_replay_state_dir_required/.test(modelMountCore) &&
+      /catalog_status_fails_closed_without_agentgres_state_dir/.test(modelMountCore) &&
       /catalog_status_is_planned_in_rust_model_mount_projection/.test(modelMountCore) &&
       !/direct_catalog_status_readback_fails_closed_in_rust_boundary/.test(modelMountCore) &&
       !/"catalog_status" => Err\(ModelMountReadProjectionError::new/.test(modelMountCore) &&
@@ -20555,7 +21957,9 @@ function runReceipts() {
     result,
     "model-mount-catalog-provider-auth-error-detail-aliases-retired",
     !exists("packages/runtime-daemon/src/model-mounting/catalog-provider-config.test.mjs") &&
-      /details:\s*\{\s*provider_id:\s*providerId\s*\}/.test(catalogProviderConfig) &&
+      /catalogProviderControlPlanForState/.test(catalogProviderConfig) &&
+      /provider_id:\s*providerId/.test(catalogProviderConfig) &&
+      /operation_kind/.test(catalogProviderConfig) &&
       /model_mount_catalog_provider_control_rust_core_required/.test(catalogProviderConfig) &&
       /rust_core_boundary:\s*"model_mount\.catalog_provider_control"/.test(catalogProviderConfig) &&
       !/catalogProviderAuthHeaders/.test(catalogProviderConfig) &&
@@ -20703,13 +22107,16 @@ function runReceipts() {
     result,
     "model-mount-catalog-oauth-receipt-detail-aliases-retired",
       !exists("packages/runtime-daemon/src/model-mounting/catalog-provider-oauth.mjs") &&
-      /throwCatalogProviderControlRustCoreRequired/.test(modelMountingState) &&
-      /provider_id:\s*providerId/.test(modelMountingState) &&
-      /state_present:\s*true/.test(modelMountingState) &&
+      /startCatalogProviderOAuth\(providerId,\s*body = \{\}\)\s*\{[\s\S]*?planAndCommitCatalogProviderControl\(\s*this,\s*"model_mount\.catalog_provider_oauth\.start"/.test(modelMountingState) &&
+      /completeCatalogProviderOAuth\(providerId,\s*body = \{\}\)\s*\{[\s\S]*?requiredString\(body\.state,\s*"state"\)[\s\S]*?planAndCommitCatalogProviderControl\(\s*this,\s*"model_mount\.catalog_provider_oauth\.callback"/.test(modelMountingState) &&
+      /exchangeCatalogProviderOAuth\(providerId,\s*body = \{\}\)\s*\{[\s\S]*?planAndCommitCatalogProviderControl\(\s*this,\s*"model_mount\.catalog_provider_oauth\.exchange"/.test(modelMountingState) &&
+      /refreshCatalogProviderOAuth\(providerId\)\s*\{[\s\S]*?planAndCommitCatalogProviderControl\(\s*this,\s*"model_mount\.catalog_provider_oauth\.refresh"/.test(modelMountingState) &&
+      /revokeCatalogProviderOAuth\(providerId\)\s*\{[\s\S]*?planAndCommitCatalogProviderControl\(\s*this,\s*"model_mount\.catalog_provider_oauth\.revoke"/.test(modelMountingState) &&
       /requiredString\(body\.state,\s*"state"\)/.test(modelMountingState) &&
       !/body\.(?:oauth_state|oauthState)\b/.test(catalogProviderOAuth) &&
       /model_mount\.catalog_provider_oauth\.(?:start|callback|exchange|refresh|revoke)/.test(modelMountingState) &&
       !/state\.receipt\("catalog_oauth_/.test(catalogProviderOAuth) &&
+      !/state\.receipt\("catalog_oauth_/.test(modelMountingState) &&
       !/oauth_state:\s*started\.evidence/.test(catalogProviderOAuth) &&
       !/authorization_url_hash:\s*started\.authorizationUrlHash/.test(catalogProviderOAuth) &&
       !/authorization_url_redacted:\s*started\.authorizationUrlRedacted/.test(catalogProviderOAuth) &&
@@ -20717,17 +22124,21 @@ function runReceipts() {
       !/oauth_session:\s*(?:completed\.sessionEvidence|evidence|publicOAuthSession)/.test(catalogProviderOAuth) &&
       !/oauth_session_hash:\s*config\?\.oauthSessionId/.test(catalogProviderOAuth) &&
       !/details:\s*\{\s*providerId\b/.test(catalogProviderOAuth) &&
+      !/state\.oauthCredentialProvider\.(?:startAuthorization|completeAuthorization|exchangeAuthorizationCode|refreshAccessToken|revokeSession)/.test(modelMountingState) &&
       /catalog OAuth callback rejects retired OAuth state compatibility aliases/.test(
         catalogProviderOAuthTest,
       ) &&
-      /assert\.deepEqual\(state\.receipts,\s*\[\]\)/.test(catalogProviderOAuthTest) &&
-      /Object\.hasOwn\(error\.details,\s*"providerId"\),\s*false/.test(catalogProviderOAuthTest) &&
-      /Object\.hasOwn\(error\.details,\s*"operationKind"\),\s*false/.test(catalogProviderOAuthTest),
+      /catalog OAuth operations commit Rust catalog-provider-control records/.test(
+        catalogProviderOAuthTest,
+      ) &&
+      /assert\.equal\(state\.recordStateCommits\.length,\s*5\)/.test(catalogProviderOAuthTest) &&
+      /assert\.deepEqual\(state\.oauthSessions,\s*new Map\(\)\)/.test(catalogProviderOAuthTest) &&
+      /assert\.deepEqual\(state\.oauthStates,\s*new Map\(\)\)/.test(catalogProviderOAuthTest),
     [
       "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-provider-oauth.test.mjs",
     ],
-    "Phase 7/11 is pending: catalog OAuth JS accepted receipts must stay retired and Rust-core-required fail-closed details must use canonical snake_case metadata",
+    "Phase 7/11 is pending: catalog OAuth control must commit Rust catalog-provider-control records and keep JS accepted receipts/OAuth credential execution retired",
   );
   assertCheck(
     result,
@@ -20735,45 +22146,52 @@ function runReceipts() {
       !exists("packages/runtime-daemon/src/model-mounting/backend-lifecycle.mjs") &&
       /throwBackendLifecycleRustCoreRequired/.test(backendLifecycle) &&
       /model_mount_backend_lifecycle_rust_core_required/.test(backendLifecycle) &&
-      /backendLifecycleRequired\(operation_kind,\s*backendId\)/.test(backendLifecycle) &&
-      /this\.modelMountAdmissionRunner\.planBackendLifecycleRequired/.test(backendLifecycle) &&
-      /planBackendLifecycleRequired\(request\)/.test(modelMountAdmissionRunner) &&
-      /operation:\s*"plan_model_mount_backend_lifecycle_required"/.test(modelMountAdmissionRunner) &&
-      /RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_REQUIRED_BACKEND/.test(modelMountAdmissionRunner) &&
+      /planBackendLifecycle\(request\)/.test(backendLifecycle) &&
+      /this\.modelMountAdmissionRunner\.planBackendLifecycle/.test(backendLifecycle) &&
+      /planBackendLifecycle\(request\)/.test(modelMountAdmissionRunner) &&
+      /operation:\s*"plan_model_mount_backend_lifecycle"/.test(modelMountAdmissionRunner) &&
+      /RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_BACKEND/.test(modelMountAdmissionRunner) &&
+      !/backendLifecycleRequired\(operation_kind,\s*backendId\)/.test(backendLifecycle) &&
+      !/planBackendLifecycleRequired\(request\)/.test(modelMountAdmissionRunner) &&
+      !/operation:\s*"plan_model_mount_backend_lifecycle_required"/.test(modelMountAdmissionRunner) &&
+      !/RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_REQUIRED_BACKEND/.test(modelMountAdmissionRunner) &&
       /mod backend_lifecycle;/.test(modelMountCore) &&
-      /ModelMountBackendLifecycleRequiredRequest/.test(modelMountCore) &&
-      /required::plan_backend_lifecycle_required\(request\)/.test(modelMountCore) &&
-      /backend_lifecycle::plan_backend_lifecycle_required\(request\)/.test(modelMountCore) &&
-      /backend_lifecycle_required_is_planned_in_rust_model_mount/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount/required/backend_lifecycle.rs"),
-      ) &&
-      !/fn backend_lifecycle_required_is_planned_in_rust_model_mount/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount/required.rs"),
-      ) &&
-      !/fn backend_lifecycle_required_is_planned_in_rust_model_mount/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
-      ) &&
-      /ModelMountBackendLifecycleRequiredBridgeRequest/.test(modelMountCore) &&
-      /rust_core_shapes_model_mount_backend_lifecycle_required_command_response/.test(modelMountCore) &&
-      /plan_model_mount_backend_lifecycle_required_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
-      /plan_model_mount_backend_lifecycle_required/.test(coreCommandDispatch) &&
+      /ModelMountBackendLifecycleRequest/.test(modelMountCore) &&
+      /backend_lifecycle::plan_backend_lifecycle\(request\)/.test(modelMountCore) &&
+      /rust_core_plans_backend_lifecycle_start_record/.test(modelMountCore) &&
+      /ModelMountBackendLifecycleBridgeRequest/.test(modelMountCore) &&
+      /rust_core_shapes_model_mount_backend_lifecycle_command_response/.test(modelMountCore) &&
+      /plan_model_mount_backend_lifecycle_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      /plan_model_mount_backend_lifecycle/.test(coreCommandDispatch) &&
+      !exists("crates/services/src/agentic/runtime/kernel/model_mount/required/backend_lifecycle.rs") &&
+      !/ModelMountBackendLifecycleRequiredRequest/.test(modelMountCore) &&
+      !/required::plan_backend_lifecycle_required\(request\)/.test(modelMountCore) &&
+      !/backend_lifecycle::plan_backend_lifecycle_required\(request\)/.test(modelMountCore) &&
+      !/rust_core_shapes_model_mount_backend_lifecycle_required_command_response/.test(modelMountCore) &&
+      !/plan_model_mount_backend_lifecycle_required_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      !/plan_model_mount_backend_lifecycle_required/.test(coreCommandDispatch) &&
+      !/plan_model_mount_backend_lifecycle_response as plan_model_mount_backend_lifecycle/.test(bridgeModule) &&
       !/plan_model_mount_backend_lifecycle_required_response as plan_model_mount_backend_lifecycle_required/.test(bridgeModule) &&
+      !/bridge_plans_model_mount_backend_lifecycle_through_rust_core/.test(bridgeModule) &&
       !/bridge_plans_model_mount_backend_lifecycle_required_through_rust_core/.test(bridgeModule) &&
       /agentgres_backend_lifecycle_truth_required/.test(backendLifecycle) &&
       /public_backend_lifecycle_js_facade_retired/.test(backendLifecycle) &&
-      /rust_daemon_core_lifecycle_required/.test(backendLifecycle) &&
-      /throwBackendLifecycleRustCoreRequired\(this\.backendLifecycleRequired\("model_mount\.backend\.health",\s*backendId\)\)/.test(
+      /rust_daemon_core_backend_lifecycle/.test(backendLifecycle) &&
+      /commitBackendLifecycleForState\(this,\s*"model_mount\.backend\.health"/.test(
         backendLifecycle,
       ) &&
-      /throwBackendLifecycleRustCoreRequired\(this\.backendLifecycleRequired\("model_mount\.backend\.start",\s*backendId\)\)/.test(
+      /commitBackendLifecycleForState\(this,\s*"model_mount\.backend\.start"/.test(
         backendLifecycle,
       ) &&
-      /throwBackendLifecycleRustCoreRequired\(this\.backendLifecycleRequired\("model_mount\.backend\.stop",\s*backendId\)\)/.test(
+      /commitBackendLifecycleForState\(this,\s*"model_mount\.backend\.stop"/.test(
         backendLifecycle,
       ) &&
-      /throwBackendLifecycleRustCoreRequired\(this\.backendLifecycleRequired\("model_mount\.backend\.logs_read",\s*backendId\)\)/.test(
+      /commitBackendLifecycleForState\(this,\s*"model_mount\.backend\.logs_read"/.test(
         backendLifecycle,
       ) &&
+      /schema_version:\s*"ioi\.model_mount\.backend_lifecycle\.v1"/.test(backendLifecycle) &&
+      /commitModelMountRecordState\(state,\s*\{/.test(backendLifecycle) &&
+      /model_mount_backend_lifecycle_record_state_commit_unconfigured/.test(backendLifecycle) &&
       /model_mount_backend_process_supervisor_retired/.test(backendLifecycle) &&
       /throwBackendProcessSupervisorRetired\("model_mount\.backend_process\.ensure"/.test(backendLifecycle) &&
       /throwBackendProcessSupervisorRetired\("model_mount\.backend_process\.touch"/.test(backendLifecycle) &&
@@ -20806,7 +22224,9 @@ function runReceipts() {
       /listBackends\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"backends"\)/.test(
         modelMountingReadProjectionFacade,
       ) &&
-      /"backends" => Ok\(topology::backends\(\)\)/.test(modelMountCore) &&
+      /MODEL_MOUNT_BACKENDS_PROJECTION_KIND => topology::backends\(request\)/.test(modelMountCore) &&
+      /backend_projection_replays_agentgres_lifecycle_records_and_filters_js_truth/.test(modelMountCore) &&
+      /agentgres_backend_lifecycle_replay_required/.test(modelMountCore) &&
       /pub\(super\) fn backends/.test(modelMountCore) &&
       !/listBackends\(\)\s*\{[\s\S]*?return this\.backendRegistry\(\)/.test(backendLifecycle) &&
       /url\.pathname === "\/api\/v1\/backends"[\s\S]*?mounts\.listBackends\(\)/.test(runtimeRouteHandlers) &&
@@ -20833,24 +22253,27 @@ function runReceipts() {
       !/state\.stopBackendProcess\(backend,\s*\{ reason:\s*"backend_stop"/.test(backendLifecycle) &&
       /backend process supervisor entrypoints fail closed before JS process authority/.test(backendLifecycleTest) &&
       /backend process supervisor retired error uses canonical Rust-boundary metadata/.test(backendLifecycleTest) &&
-      /public backend lifecycle facade fails closed until Rust core owns lifecycle control/.test(
+      /public backend lifecycle facades commit Rust-authored records/.test(
         backendLifecycleTest,
       ) &&
-      /Rust model_mount admission runner sends backend lifecycle required request/.test(
+      /public backend lifecycle fails closed only when Rust positive planner is unavailable/.test(
+        backendLifecycleTest,
+      ) &&
+      /Rust model_mount admission runner sends positive backend lifecycle request/.test(
         modelMountAdmissionRunnerTest,
       ) &&
-      /state\.lifecycleRequiredRequests\[0\]\.schema_version/.test(backendLifecycleTest) &&
-      /state\.lifecycleRequiredRequests\[0\]\.operation_kind/.test(backendLifecycleTest) &&
+      /state\.backendLifecyclePlans\[0\]\.schema_version/.test(backendLifecycleTest) &&
+      /state\.recordStateCommits\.map/.test(backendLifecycleTest) &&
+      /assert\.ok\(response\.evidence_refs\.includes\("rust_daemon_core_backend_lifecycle"\)\)/.test(backendLifecycleTest) &&
       /public backend lifecycle must not read JS backend registry/.test(backendLifecycleTest) &&
-      /assert\.equal\(error\.details\.backend_kind,\s*null\)/.test(backendLifecycleTest) &&
       /public backend list delegates to Rust projection without JS backend registry input/.test(
         backendLifecycleTest,
       ) &&
       /Rust backend list projection must not read JS backend registry/.test(backendLifecycleTest) &&
-      /blocked backend public lifecycle start still fails at Rust-core boundary before JS control/.test(
+      /blocked backend public lifecycle start still commits through Rust boundary before JS control/.test(
         backendLifecycleTest,
       ) &&
-      /public backend logs facade fails closed before reading local logs or writing a receipt/.test(
+      /public backend logs facade commits Rust record before reading local logs or writing a receipt/.test(
         backendLifecycleTest,
       ) &&
       /assert\.deepEqual\(state\.receipts,\s*\[\]\)/.test(backendLifecycleTest) &&
@@ -20980,8 +22403,6 @@ function runReceipts() {
       !/commitProviderRecordState\(state,\s*provider,\s*"model_mount\.provider\.write",\s*\[\]\)/.test(
         providerUpsertBlock,
       ) &&
-      !/model_mount\.provider\.start/.test(providerOperations) &&
-      !/model_mount\.provider\.stop/.test(providerOperations) &&
       !/state\.writeMap\("model-providers"/.test(providerOperations) &&
       !/body\.(?:authScheme|authHeaderName|apiFormat|baseUrl|privacyClass|evidenceRefs)\b/.test(
         providerUpsertBlock,
@@ -21017,15 +22438,42 @@ function runReceipts() {
     result,
     "model-mount-provider-inventory-artifact-js-mutation-retired",
     !exists("packages/runtime-daemon/src/model-mounting/provider-operations.mjs") &&
+      /MODEL_MOUNT_PROVIDER_MATERIALIZATION_PROJECTION_KINDS/.test(modelMountCore) &&
+      /artifact_records_from_provider_inventory/.test(modelMountCore) &&
+      /provider_records_from_provider_inventory/.test(modelMountCore) &&
+      /runtime_model_catalog_entry_for_inventory_record/.test(modelMountCore) &&
+      /open_ai_model_record_for_inventory_record/.test(modelMountCore) &&
+      /provider_inventory_materialization_replays_agentgres_records_and_filters_js_truth/.test(
+        modelMountCore,
+      ) &&
+      /provider_inventory_materialization_fails_closed_without_agentgres_state_dir/.test(
+        modelMountCore,
+      ) &&
+      /rust_daemon_core_provider_inventory_materialization/.test(modelMountCore) &&
+      /agentgres_provider_inventory_materialization_required/.test(modelMountCore) &&
+      /model_mount_topology_js_materialization_retired/.test(modelMountCore) &&
+      /runtimeCatalog\.map\(\(entry\) => entry\.id\),\s*\["qwen3"\]/.test(
+        modelMountingReadProjectionFacadeTest,
+      ) &&
+      /facade\.listArtifacts\(state\)\.map\(\(artifact\) => artifact\.model_ref\),\s*\[\s*"model:\/\/fixture\/qwen3"/.test(
+        modelMountingReadProjectionFacadeTest,
+      ) &&
+      /facade\.listProviders\(state\)\.map\(\(provider\) => provider\.provider_ref\),\s*\[\s*"provider:\/\/fixture",\s*"provider:\/\/native"/.test(
+        modelMountingReadProjectionFacadeTest,
+      ) &&
+      /materializationRequest\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
       !/commitModelArtifactRecordState/.test(providerOperations) &&
       !/model_mount\.artifact\.provider_inventory/.test(providerOperations) &&
       !exists("packages/runtime-daemon/src/model-mounting/model-artifact-record-state.mjs") &&
       !/state\.artifacts\.set/.test(providerOperations) &&
       !/state\.writeMap\("model-artifacts"/.test(providerOperations) &&
-      /provider inventory facade does not depend on retired JS artifact record-state commit/.test(
+      /provider inventory facade requires Rust Agentgres provider-inventory record-state commit/.test(
         providerOperationsTest,
       ) &&
+      /model_mount_provider_inventory_record_state_commit_unconfigured/.test(providerOperationsTest) &&
+      /agentgres_provider_inventory_truth_required/.test(providerOperations) &&
       /assert\.equal\(state\.artifacts\.has\("artifact\.native"\),\s*false\)/.test(providerOperationsTest) &&
+      /assert\.equal\(state\.recordStateCommits\.length,\s*2\)/.test(providerOperationsTest) &&
       /assert\.deepEqual\(state\.recordStateCommits,\s*\[\]\)/.test(providerOperationsTest) &&
       /assert\.deepEqual\(state\.writes,\s*\[\]\)/.test(providerOperationsTest) &&
       /assert\.deepEqual\(state\.receipts,\s*\[\]\)/.test(providerOperationsTest),
@@ -21033,7 +22481,7 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/provider-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs",
     ],
-    "Phase 9/10 is pending: provider-discovered model inventory must not materialize JS artifact truth; Rust daemon-core projection/admission owns provider inventory artifacts",
+    "Phase 9/10 is pending: provider-discovered model inventory must materialize through Rust Agentgres replay while JS artifact/provider/catalog mutation stays retired",
   );
   assertCheck(
     result,
@@ -21058,7 +22506,8 @@ function runReceipts() {
       /Object\.hasOwn\(error\.details,\s*"providerId"\),\s*false/.test(providerOperationsTest) &&
       /hosted provider health fails closed before JS driver execution/.test(providerOperationsTest) &&
       /assert\.equal\(healthCalls,\s*0\)/.test(providerOperationsTest) &&
-      /provider inventory list facades fail closed before JS driver or local fallback reads/.test(providerOperationsTest) &&
+      /provider inventory list routes through Rust inventory planner without JS driver or local fallback reads/.test(providerOperationsTest) &&
+      /hosted provider inventory fails closed before JS driver execution/.test(providerOperationsTest) &&
       /assert\.equal\(listModelCalls,\s*0\)/.test(providerOperationsTest) &&
       /assert\.equal\(listLoadedCalls,\s*0\)/.test(providerOperationsTest) &&
       /assert\.equal\(listArtifactsCalls,\s*0\)/.test(providerOperationsTest) &&
@@ -21098,25 +22547,78 @@ function runReceipts() {
     "model-mount-capability-token-js-facade-retired",
     !exists("packages/runtime-daemon/src/model-mounting/capability-token-operations.mjs") &&
       !/authorizeState|createTokenState|listTokensState|revokeTokenState/.test(modelMountingState) &&
-      /details:\s*\{\s*required_scope:\s*requiredScope\s*\}/.test(modelMountingState) &&
-      /notFound\(`Token not found: \$\{tokenId\}`,\s*\{\s*token_id:\s*tokenId\s*\}\)/.test(
+      /capabilityTokenControlPlanForState/.test(modelMountingState) &&
+      /commitCapabilityTokenControlPlan/.test(modelMountingState) &&
+      /capabilityTokenControlResponse/.test(modelMountingState) &&
+      /planAndCommitCapabilityTokenControl\(\s*this,\s*"model_mount\.capability_token\.create"/.test(
         modelMountingState,
       ) &&
-      /throwCapabilityTokenRustCoreRequired/.test(modelMountingState) &&
-      /model_mount_capability_token_rust_core_required/.test(modelMountingState) &&
-      /rust_core_boundary:\s*"model_mount\.capability_token"/.test(modelMountingState) &&
-      /public_capability_token_js_facade_retired/.test(modelMountingState) &&
-      /rust_daemon_core_wallet_authority_required/.test(modelMountingState) &&
+      /planAndCommitCapabilityTokenControl\(this,\s*"model_mount\.capability_token\.list"\)/.test(
+        modelMountingState,
+      ) &&
+      /planAndCommitCapabilityTokenControl\(\s*this,\s*"model_mount\.capability_token\.revoke"/.test(
+        modelMountingState,
+      ) &&
+      /planAndCommitCapabilityTokenControl\(\s*this,\s*"model_mount\.capability_token\.authorize"/.test(
+        modelMountingState,
+      ) &&
+      /details:\s*\{\s*required_scope:\s*requiredScope\s*\}/.test(modelMountingState) &&
+      /tokenHash:\s*hashToken\(token\)/.test(modelMountingState) &&
+      /planCapabilityTokenControl\(request\)\s*\{\s*return this\.modelMountAdmissionRunner\.planCapabilityTokenControl\(request\);/.test(
+        modelMountingState,
+      ) &&
+      /function planAndCommitCapabilityTokenControl\(state,\s*operation_kind,\s*options = \{\}\)/.test(
+        modelMountingState,
+      ) &&
       /model_mount\.capability_token\.create/.test(modelMountingState) &&
       /model_mount\.capability_token\.authorize/.test(modelMountingState) &&
       /model_mount\.capability_token\.revoke/.test(modelMountingState) &&
       /model_mount\.capability_token\.list/.test(modelMountingState) &&
+      /MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_SCHEMA_VERSION/.test(capabilityTokenControl) &&
+      /state\.planCapabilityTokenControl/.test(capabilityTokenControl) &&
+      /commitModelMountRecordState/.test(capabilityTokenControl) &&
+      /recordDir:\s*plan\.record_dir/.test(capabilityTokenControl) &&
+      /model_mount_capability_token_control_record_state_commit_unconfigured/.test(
+        capabilityTokenControl,
+      ) &&
+      /plan\.public_response/.test(capabilityTokenControl) &&
+      /record\.public_response/.test(capabilityTokenControl) &&
+      /throwCapabilityTokenRustCoreRequired/.test(capabilityTokenControl) &&
+      /model_mount_capability_token_rust_core_required/.test(capabilityTokenControl) &&
+      /rust_core_boundary:\s*"model_mount\.capability_token"/.test(capabilityTokenControl) &&
+      /public_capability_token_js_facade_retired/.test(capabilityTokenControl) &&
+      /RUST_MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_BACKEND/.test(modelMountAdmissionRunner) &&
+      /planCapabilityTokenControl\(request\)/.test(modelMountAdmissionRunner) &&
+      /operation:\s*"plan_model_mount_capability_token_control"/.test(modelMountAdmissionRunner) &&
+      /normalizeCapabilityTokenControlBridgeResult/.test(modelMountAdmissionRunner) &&
+      /record\.public_response\.token_absent/.test(modelMountAdmissionRunner) &&
+      /record\.public_response\.plaintext_material_persisted_false/.test(modelMountAdmissionRunner) &&
+      /RUST_MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_BACKEND/.test(modelMountAdmissionRunnerTest) &&
+      /Rust model_mount admission runner sends positive capability-token-control request/.test(
+        modelMountAdmissionRunnerTest,
+      ) &&
+      /result\.record\.public_response\.token,\s*undefined/.test(modelMountAdmissionRunnerTest) &&
+      /result\.public_response\.token,\s*"ioi_mnt_positive_token"/.test(modelMountAdmissionRunnerTest) &&
+      /MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_SCHEMA_VERSION/.test(modelMountCore) &&
+      /MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_PLAN_SCHEMA_VERSION/.test(modelMountCore) &&
+      /plan_model_mount_capability_token_control_response/.test(modelMountCore) &&
+      /plan_capability_token_control/.test(modelMountCore) &&
+      /load_capability_tokens/.test(modelMountCore) &&
+      /"capability-tokens"/.test(modelMountCore) &&
+      /wallet_network_capability_token_authority_required/.test(modelMountCore) &&
+      /agentgres_capability_token_truth_required/.test(modelMountCore) &&
+      /plaintext_material_persisted/.test(modelMountCore) &&
+      /pub public_response: Value/.test(modelMountCore) &&
+      /"plan_model_mount_capability_token_control"/.test(commandProtocolCore) &&
+      /CommandOperation::PlanModelMountCapabilityTokenControl/.test(coreCommandDispatch) &&
+      !/this\.walletAuthority\.(?:createGrant|authorizeScope|revokeGrant)/.test(modelMountingState) &&
+      !/this\.tokens\.(?:has|values|set)/.test(modelMountingState) &&
+      !/notFound\(`Token not found: \$\{tokenId\}`/.test(modelMountingState) &&
+      !/state\.receipt\("permission_token/.test(modelMountingState) &&
+      !/state\.receipt\("permission_token/.test(capabilityTokenControl) &&
       !/commitCapabilityTokenRecordState/.test(capabilityTokenOperations) &&
-      !/commitModelMountRecordState/.test(capabilityTokenOperations) &&
       !/recordDir:\s*"tokens"/.test(capabilityTokenOperations) &&
       !/model_mount_capability_token_state_commit_unconfigured/.test(capabilityTokenOperations) &&
-      !/this\.walletAuthority\.(?:createGrant|authorizeScope|revokeGrant)/.test(modelMountingState) &&
-      !/state\.receipt\("permission_token/.test(capabilityTokenOperations) &&
       !/this\.tokens\.set/.test(modelMountingState) &&
       !/\.map\(publicToken\)/.test(modelMountingState) &&
       !/export function publicToken/.test(modelMountingIo) &&
@@ -21128,24 +22630,34 @@ function runReceipts() {
         modelMountingState,
       ) &&
       /recordStateCommits/.test(capabilityTokenOperationsTest) &&
-      /capability token mutation and authorization facades fail closed until Rust wallet authority owns them/.test(
+      /capability token create\/list\/authorize\/revoke commit Rust wallet authority records without JS token truth/.test(
         capabilityTokenOperationsTest,
       ) &&
-      /capability token list facade fails closed until Rust wallet authority owns projection/.test(capabilityTokenOperationsTest) &&
+      /capability token authorization preserves Bearer preflight before Rust boundary/.test(
+        capabilityTokenOperationsTest,
+      ) &&
+      /planCapabilityTokenControl/.test(capabilityTokenOperationsTest) &&
+      /walletAuthority\.createGrant must not authorize capability tokens/.test(capabilityTokenOperationsTest) &&
+      /plaintext_material_persisted/.test(capabilityTokenOperationsTest) &&
+      /capability-tokens/.test(capabilityTokenOperationsTest) &&
       /ModelMountingState\.prototype\.createToken\.call/.test(capabilityTokenOperationsTest) &&
       /ModelMountingState\.prototype\.revokeToken\.call/.test(capabilityTokenOperationsTest) &&
       /ModelMountingState\.prototype\.authorize\.call/.test(capabilityTokenOperationsTest) &&
       /ModelMountingState\.prototype\.listTokens\.call/.test(capabilityTokenOperationsTest) &&
-      /assertNoCapabilityTokenMutation/.test(capabilityTokenOperationsTest) &&
-      /model_mount_capability_token_rust_core_required/.test(capabilityTokenOperationsTest) &&
-      /public_capability_token_js_facade_retired/.test(capabilityTokenOperationsTest) &&
       /Object\.hasOwn\(error\.details,\s*"requiredScope"\),\s*false/.test(capabilityTokenOperationsTest) &&
-      /Object\.hasOwn\(error\.details,\s*"tokenId"\),\s*false/.test(capabilityTokenOperationsTest),
+      !/Capability token was not recognized/.test(capabilityTokenOperationsTest) &&
+      !/assertNoCapabilityTokenMutation/.test(capabilityTokenOperationsTest) &&
+      !/model_mount_capability_token_rust_core_required/.test(capabilityTokenOperationsTest),
     [
       "packages/runtime-daemon/src/model-mounting.mjs",
+      "packages/runtime-daemon/src/model-mounting/capability-token-control.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
       "packages/runtime-daemon/src/model-mounting/capability-token-operations.test.mjs",
+      "crates/services/src/agentic/runtime/kernel/model_mount/capability_token_control.rs",
+      "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
+      "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
     ],
-    "Phase 7/11 is pending: capability token mutation/authorization/list projection must fail closed until Rust daemon-core wallet authority owns grant, revocation, authorization, receipt, record-state, and projection semantics",
+    "Capability-token control must stay Rust-owned: public JS may only perform protocol/Bearer preflight and commit Rust-authored capability-token records, with no JS token-map, wallet helper, permission-token receipt, or plaintext persisted-record path returning",
   );
   assertCheck(
     result,
@@ -21181,18 +22693,18 @@ function runReceipts() {
       /RETIRED_VAULT_OPERATION_REQUEST_ALIASES/.test(modelMountingState) &&
       /CANONICAL_VAULT_OPERATION_REQUEST_FIELDS/.test(modelMountingState) &&
       /vault_operation_request_aliases_retired/.test(modelMountingState) &&
-      /throwVaultRustCoreRequired/.test(modelMountingState) &&
-      /model_mount_vault_rust_core_required/.test(modelMountingState) &&
-      /rust_core_boundary:\s*"model_mount\.vault"/.test(modelMountingState) &&
-      /public_vault_js_facade_retired/.test(modelMountingState) &&
-      /rust_daemon_core_wallet_vault_required/.test(modelMountingState) &&
-      /rust_daemon_core_ctee_custody_required/.test(modelMountingState) &&
-      /model_mount\.vault_ref\.bind/.test(modelMountingState) &&
-      /model_mount\.vault_ref\.list/.test(modelMountingState) &&
-      /model_mount\.vault_ref\.metadata/.test(modelMountingState) &&
-      /model_mount\.vault\.status/.test(modelMountingState) &&
-      /model_mount\.vault\.health/.test(modelMountingState) &&
-      /model_mount\.vault_ref\.remove/.test(modelMountingState) &&
+      /vaultControlPlanForState/.test(modelMountingState) &&
+      /commitVaultControlPlan/.test(modelMountingState) &&
+      /vaultControlResponse/.test(modelMountingState) &&
+      /planAndCommitVaultControl\([\s\S]*?"model_mount\.vault_ref\.bind"/.test(modelMountingState) &&
+      /planAndCommitVaultControl\([\s\S]*?"model_mount\.vault_ref\.list"/.test(modelMountingState) &&
+      /planAndCommitVaultControl\([\s\S]*?"model_mount\.vault_ref\.metadata"/.test(modelMountingState) &&
+      /planAndCommitVaultControl\([\s\S]*?"model_mount\.vault\.status"/.test(modelMountingState) &&
+      /planAndCommitVaultControl\([\s\S]*?"model_mount\.vault\.health"/.test(modelMountingState) &&
+      /planAndCommitVaultControl\([\s\S]*?"model_mount\.vault_ref\.remove"/.test(modelMountingState) &&
+      /planVaultControl\(request\)\s*\{[\s\S]*?modelMountAdmissionRunner\.planVaultControl\(request\)/.test(modelMountingState) &&
+      !/throwVaultRustCoreRequired/.test(modelMountingState) &&
+      !/model_mount_vault_rust_core_required/.test(modelMountingState) &&
       /assertCanonicalVaultOperationRequestBody\(body\);[\s\S]*const vaultRef = requiredString\(body\.vault_ref,\s*"vault_ref"\);[\s\S]*const material = requiredString\(body\.material,\s*"material"\);/.test(
         vaultOperationsRequestBlocks,
       ) &&
@@ -21215,45 +22727,100 @@ function runReceipts() {
       !/this\.vault\.removeVaultRef/.test(modelMountingState) &&
       !/this\.vault\.health/.test(modelMountingState) &&
       !/export function publicVaultRefs/.test(modelMountingIo) &&
-      /vault mutation and health receipt facades fail closed until Rust wallet\/cTEE custody owns them/.test(
+      /MODEL_MOUNT_VAULT_CONTROL_SCHEMA_VERSION/.test(vaultControl) &&
+      /state\.planVaultControl/.test(vaultControl) &&
+      /commitModelMountRecordState/.test(vaultControl) &&
+      /recordDir:\s*plan\.record_dir/.test(vaultControl) &&
+      /model_mount_vault_control_record_state_commit_unconfigured/.test(vaultControl) &&
+      /sanitizedVaultBody/.test(vaultControl) &&
+      /field === "material"/.test(vaultControl) &&
+      /stableHash\(material\)/.test(vaultControl) &&
+      /plan\.public_response/.test(vaultControl) &&
+      /record\.public_response/.test(vaultControl) &&
+      /throwVaultControlRustCoreRequired/.test(vaultControl) &&
+      /model_mount_vault_rust_core_required/.test(vaultControl) &&
+      /rust_core_boundary:\s*"model_mount\.vault"/.test(vaultControl) &&
+      /public_vault_js_facade_retired/.test(vaultControl) &&
+      /rust_daemon_core_vault_control/.test(vaultControl) &&
+      /wallet_network_vault_authority_required/.test(vaultControl) &&
+      /ctee_vault_custody_enforced/.test(vaultControl) &&
+      /agentgres_vault_truth_required/.test(vaultControl) &&
+      /RUST_MODEL_MOUNT_VAULT_CONTROL_BACKEND/.test(modelMountAdmissionRunner) &&
+      /planVaultControl\(request\)/.test(modelMountAdmissionRunner) &&
+      /operation:\s*"plan_model_mount_vault_control"/.test(modelMountAdmissionRunner) &&
+      /normalizeVaultControlBridgeResult/.test(modelMountAdmissionRunner) &&
+      /record\.public_response\.material_absent/.test(modelMountAdmissionRunner) &&
+      /record\.ctee_custody\.plaintext_material_persisted_false/.test(modelMountAdmissionRunner) &&
+      /record\.ctee_custody\.plaintext_material_returned_false/.test(modelMountAdmissionRunner) &&
+      /Rust model_mount admission runner sends positive vault-control request/.test(modelMountAdmissionRunnerTest) &&
+      /Object\.hasOwn\(calls\[0\]\.request\.request\.body,\s*"material"\),\s*false/.test(modelMountAdmissionRunnerTest) &&
+      /result\.record\.ctee_custody\.plaintext_material_persisted,\s*false/.test(modelMountAdmissionRunnerTest) &&
+      /MODEL_MOUNT_VAULT_CONTROL_SCHEMA_VERSION/.test(modelMountCore) &&
+      /MODEL_MOUNT_VAULT_CONTROL_PLAN_SCHEMA_VERSION/.test(modelMountCore) &&
+      /plan_model_mount_vault_control_response/.test(modelMountCore) &&
+      /plan_vault_control/.test(modelMountCore) &&
+      /load_vault_refs/.test(modelMountCore) &&
+      /"vault-refs"/.test(modelMountCore) &&
+      /wallet_network_vault_authority_required/.test(modelMountCore) &&
+      /ctee_vault_custody_enforced/.test(modelMountCore) &&
+      /agentgres_vault_truth_required/.test(modelMountCore) &&
+      /plaintext_material_persisted/.test(modelMountCore) &&
+      /pub public_response: Value/.test(modelMountCore) &&
+      /"plan_model_mount_vault_control"/.test(commandProtocolCore) &&
+      /CommandOperation::PlanModelMountVaultControl/.test(commandProtocolCore) &&
+      /plan_model_mount_vault_control_response/.test(coreCommandDispatch) &&
+      /model_mount_vault_ref_js_metadata_write_retired/.test(
+        read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs"),
+      ) &&
+      /plan_model_mount_vault_control/.test(
+        read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs"),
+      ) &&
+      !/commitVaultRefRecordState/.test(
+        read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs"),
+      ) &&
+      !/state\.vault\.metadataRecords/.test(
+        read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs"),
+      ) &&
+      !/model_mount_vault_ref_state_commit_unconfigured/.test(
+        read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs"),
+      ) &&
+      /writeModelMountingVaultRefs is retired before JS vault metadata can become truth/.test(
+        read("packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs"),
+      ) &&
+      /vault bind\/list\/metadata\/status\/health\/remove commit Rust wallet and cTEE custody records without JS vault truth/.test(
         vaultOperationsTest,
       ) &&
-      /vault list, metadata, and status fail closed until Rust wallet\/cTEE projection owns them/.test(vaultOperationsTest) &&
       /ModelMountingState\.prototype\.bindVaultRef\.call/.test(vaultOperationsTest) &&
       /ModelMountingState\.prototype\.vaultHealth\.call/.test(vaultOperationsTest) &&
       /ModelMountingState\.prototype\.removeVaultRef\.call/.test(vaultOperationsTest) &&
       /ModelMountingState\.prototype\.listVaultRefs\.call/.test(vaultOperationsTest) &&
       /ModelMountingState\.prototype\.vaultRefMetadata\.call/.test(vaultOperationsTest) &&
       /ModelMountingState\.prototype\.vaultStatus\.call/.test(vaultOperationsTest) &&
-      /assertNoVaultMutation/.test(vaultOperationsTest) &&
-      /model_mount_vault_rust_core_required/.test(vaultOperationsTest) &&
-      /public_vault_js_facade_retired/.test(vaultOperationsTest) &&
-      /vault operations reject retired request aliases before vault access/.test(vaultOperationsTest) &&
+      /planVaultControl/.test(vaultOperationsTest) &&
+      /JS vault\.bindVaultRef must not author public vault truth/.test(vaultOperationsTest) &&
+      /material_hash/.test(vaultOperationsTest) &&
+      /plaintext_material_persisted/.test(vaultOperationsTest) &&
+      /vault-refs/.test(vaultOperationsTest) &&
+      /vault operations reject retired request aliases before Rust boundary/.test(vaultOperationsTest) &&
+      /vault operations preserve required field errors before Rust boundary/.test(vaultOperationsTest) &&
       /retired_aliases,\s*\[\s*"vaultRef",\s*"secret",\s*"value"\s*\]/.test(vaultOperationsTest) &&
       /canonical_fields,\s*\[\s*"vault_ref",\s*"material"\s*\]/.test(vaultOperationsTest) &&
       /assert\.deepEqual\(state\.calls,\s*\[\]\)/.test(vaultOperationsTest) &&
-      /recordDir:\s*"vault-refs"/.test(
-        read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs"),
-      ) &&
-      /model_mount\.vault_ref\.write/.test(
-        read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs"),
-      ) &&
-      /model_mount_vault_ref_state_commit_unconfigured/.test(
-        read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs"),
-      ) &&
-      /writeModelMountingVaultRefs commits metadata through Rust Agentgres record-state/.test(
-        read("packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs"),
-      ) &&
-      /writeModelMountingVaultRefs fails closed without Rust Agentgres record-state commit/.test(
-        read("packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs"),
-      ),
+      !/model_mount_vault_rust_core_required/.test(vaultOperationsTest) &&
+      !/assertNoVaultMutation/.test(vaultOperationsTest) &&
+      !/fail closed until Rust wallet\/cTEE/.test(vaultOperationsTest),
     [
       "packages/runtime-daemon/src/model-mounting.mjs",
+      "packages/runtime-daemon/src/model-mounting/vault-control.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
       "packages/runtime-daemon/src/model-mounting/vault-operations.test.mjs",
       "packages/runtime-daemon/src/model-mounting/state-persistence.mjs",
       "packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs",
+      "crates/services/src/agentic/runtime/kernel/model_mount/vault_control.rs",
+      "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
+      "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
     ],
-    "Phase 7/11 is pending: public vault mutation and health receipt facades must fail closed until Rust daemon-core wallet/cTEE custody owns vault binding, removal, health receipt, record-state, and projection semantics",
+    "Phase 7/11 is pending: vault control must stay Rust-owned; public JS may only validate protocol fields, hash material, and commit Rust records without JS vault-port or JS metadata-writer truth",
   );
   assertCheck(
     result,
@@ -21617,18 +23184,29 @@ function runReceipts() {
 	      /workspace_snapshot_artifact_js_materializer_retired/.test(
 	        runtimeWorkspaceSnapshotSurface,
 	      ) &&
+	      /commitRuntimeArtifactRecord/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /commitWorkspaceSnapshotArtifact/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /snapshot_artifact/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /snapshot_artifact_commit/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /runtime_workspace_snapshot_artifact_admission_invalid/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /commitWorkspaceRestoreArtifact/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /restore_preview_artifact/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /restore_apply_artifact/.test(runtimeWorkspaceSnapshotSurface) &&
 	      /workspace_restore_artifact_js_materializer_retired/.test(
-	        runtimeWorkspaceSnapshotSurface,
+	        read("crates/services/src/agentic/runtime/kernel/workspace_restore.rs"),
 	      ) &&
-	      !/commitRuntimeArtifactRecord/.test(runtimeWorkspaceSnapshotSurface) &&
 	      !/writeJson\(store\.pathFor\("artifacts"/.test(runtimeCodingToolArtifactSurface) &&
 	      !/writeJson\(store\.pathFor\("artifacts"/.test(runtimeWorkspaceSnapshotSurface) &&
 	      /assert\.equal\(writes\.length, 0\)/.test(runtimeCodingToolArtifactSurfaceTest) &&
 	      /assert\.equal\(store\.artifactCommits\.length,\s*0\)/.test(runtimeCodingToolArtifactSurfaceTest) &&
-	      /assert\.equal\(store\.artifactCommits\.length,\s*0\)/.test(
+	      /store\.artifactCommits\.map\(\(request\) => request\.operation_kind\)/.test(
 	        runtimeWorkspaceSnapshotSurfaceTest,
 	      ) &&
-	      /workspace snapshot surface fails closed before JS restore artifact and event mutation/.test(
+	      /"artifact\.workspace_snapshot"/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
+	      /"artifact\.workspace_restore_preview",\s*"artifact\.workspace_restore_apply"/.test(
+	        runtimeWorkspaceSnapshotSurfaceTest,
+	      ) &&
+	      /workspace snapshot surface commits Rust restore artifacts and admits Rust restore events/.test(
 	        runtimeWorkspaceSnapshotSurfaceTest,
 	      ),
     [
@@ -23081,13 +24659,15 @@ function runReceipts() {
   );
   assertCheck(
     result,
-    "model-mount-stream-completion-js-facade-retired",
+    "model-mount-stream-completion-rust-owned-public-api",
     !exists("packages/runtime-daemon/src/model-mounting/conversation-operations.mjs") &&
       /recordModelStreamCompleted/.test(conversationOps) &&
-      /model_mount_stream_completion_js_facade_retired/.test(conversationOps) &&
-      /rust_daemon_core_model_stream_completion_required/.test(conversationOps) &&
+      /MODEL_MOUNT_STREAM_COMPLETION_SCHEMA_VERSION/.test(conversationOps) &&
+      /planModelMountStreamCompletion/.test(conversationOps) &&
+      /model_mount_stream_completion_rust_owned/.test(conversationOps) &&
+      /rust_daemon_core_model_stream_completion/.test(conversationOps) &&
       /model_stream_completion/.test(conversationOps) &&
-      /recordModelStreamCompleted fails closed before JS stream receipt or conversation mutation/.test(
+      /recordModelStreamCompleted persists Rust-authored stream receipt and conversation record/.test(
         conversationOpsTest,
       ) &&
       !/modelMountInvocationReceiptBindingRequestForReceipt/.test(conversationOps) &&
@@ -23097,7 +24677,7 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/conversation-operations.test.mjs",
     ],
-    "Phase 10/11 is pending: model stream completion finalization must fail closed until direct Rust daemon-core receipt/admission/projection owns it",
+    "Phase 10/11 is pending: model stream completion finalization is Rust-owned; durable replay/list projection remains non-terminal",
   );
   assertCheck(
     result,
@@ -23651,6 +25231,11 @@ function runCompositor() {
     ? read("crates/services/src/agentic/runtime/kernel/coding_tool_step_module.rs")
     : "";
   const policyCore = readRustPolicyCore();
+  const policyThreadLifecycleCore = exists(
+    "crates/services/src/agentic/runtime/kernel/policy/thread_lifecycle.rs",
+  )
+    ? read("crates/services/src/agentic/runtime/kernel/policy/thread_lifecycle.rs")
+    : "";
   const policyMcpMemoryCore = exists(
     "crates/services/src/agentic/runtime/kernel/policy/mcp_memory.rs",
   )
@@ -23761,10 +25346,12 @@ function runCompositor() {
   const runtimeCodingToolBudgetRecoverySurface = exists("packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.mjs")
     : "";
-  const runtimeCodingToolBudgetRecovery = exists("packages/runtime-daemon/src/runtime-coding-tool-budget-recovery.mjs")
+  const runtimeCodingToolBudgetRecoveryExists = exists("packages/runtime-daemon/src/runtime-coding-tool-budget-recovery.mjs");
+  const runtimeCodingToolBudgetRecovery = runtimeCodingToolBudgetRecoveryExists
     ? read("packages/runtime-daemon/src/runtime-coding-tool-budget-recovery.mjs")
     : "";
-  const runtimeCodingToolBudgetRecoveryTest = exists("packages/runtime-daemon/src/runtime-coding-tool-budget-recovery.test.mjs")
+  const runtimeCodingToolBudgetRecoveryTestExists = exists("packages/runtime-daemon/src/runtime-coding-tool-budget-recovery.test.mjs");
+  const runtimeCodingToolBudgetRecoveryTest = runtimeCodingToolBudgetRecoveryTestExists
     ? read("packages/runtime-daemon/src/runtime-coding-tool-budget-recovery.test.mjs")
     : "";
   const runtimeCodingToolBudgetRecoverySurfaceTest = exists("packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.test.mjs")
@@ -23801,6 +25388,27 @@ function runCompositor() {
     )?.[0] ?? managedSessionState;
   const managedSessionStateTest = exists("packages/runtime-daemon/src/threads/managed-session-state.test.mjs")
     ? read("packages/runtime-daemon/src/threads/managed-session-state.test.mjs")
+    : "";
+  const runtimeThreadForkState = exists("packages/runtime-daemon/src/threads/thread-fork-state.mjs")
+    ? read("packages/runtime-daemon/src/threads/thread-fork-state.mjs")
+    : "";
+  const runtimeThreadForkStateTest = exists("packages/runtime-daemon/src/threads/thread-fork-state.test.mjs")
+    ? read("packages/runtime-daemon/src/threads/thread-fork-state.test.mjs")
+    : "";
+  const runtimeManagedSessionControlCore = exists(
+    "crates/services/src/agentic/runtime/kernel/runtime_managed_session_control.rs",
+  )
+    ? read("crates/services/src/agentic/runtime/kernel/runtime_managed_session_control.rs")
+    : "";
+  const runtimeWorkspaceChangeControlCore = exists(
+    "crates/services/src/agentic/runtime/kernel/runtime_workspace_change_control.rs",
+  )
+    ? read("crates/services/src/agentic/runtime/kernel/runtime_workspace_change_control.rs")
+    : "";
+  const runtimeThreadForkControlCore = exists(
+    "crates/services/src/agentic/runtime/kernel/runtime_thread_fork_control.rs",
+  )
+    ? read("crates/services/src/agentic/runtime/kernel/runtime_thread_fork_control.rs")
     : "";
   const workspaceTrustState = exists("packages/runtime-daemon/src/threads/workspace-trust-state.mjs")
     ? read("packages/runtime-daemon/src/threads/workspace-trust-state.mjs")
@@ -23845,6 +25453,15 @@ function runCompositor() {
     : "";
   const runtimeDiagnosticsRepairSurfaceTest = exists("packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs")
+    : "";
+  const runtimeDiagnosticsRepairControlCore = exists("crates/services/src/agentic/runtime/kernel/runtime_diagnostics_repair_control.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/runtime_diagnostics_repair_control.rs")
+    : "";
+  const runtimeDiagnosticsRepairProjectionCore = exists("crates/services/src/agentic/runtime/kernel/runtime_diagnostics_repair_projection.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/runtime_diagnostics_repair_projection.rs")
+    : "";
+  const runtimeDiagnosticsRepairPolicyCore = exists("crates/services/src/agentic/runtime/kernel/runtime_diagnostics_repair_policy.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/runtime_diagnostics_repair_policy.rs")
     : "";
   const runtimeDiagnosticsFeedbackSurface = exists("packages/runtime-daemon/src/runtime-diagnostics-feedback-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-diagnostics-feedback-surface.mjs")
@@ -24053,13 +25670,15 @@ function runCompositor() {
     runtimeSubagentSurface.match(
       /getSubagent\(store, threadId, subagentId\) \{[\s\S]*?\n    \},\n    spawnSubagent/,
     )?.[0] ?? "";
+  const runtimeSubagentResultReadBlock =
+    runtimeSubagentSurface.match(
+      /getSubagentResult\(store, threadId, subagentId\) \{[\s\S]*?\n    \},\n    sendSubagentInput/,
+    )?.[0] ?? "";
   const runtimeSubagentWaitResultReadBlocks = [
     runtimeSubagentSurface.match(
       /waitSubagent\(store, threadId, subagentId, request = \{\}\) \{[\s\S]*?\n    \},\n    getSubagentResult/,
     )?.[0] ?? "",
-    runtimeSubagentSurface.match(
-      /getSubagentResult\(store, threadId, subagentId\) \{[\s\S]*?\n    \},\n    sendSubagentInput/,
-    )?.[0] ?? "",
+    runtimeSubagentResultReadBlock,
   ]
     .filter(Boolean)
     .join("\n");
@@ -24201,43 +25820,223 @@ function runCompositor() {
   const runtimeSubagentSavedRecordWriteCalls = (
     runtimeSubagentSurface.match(/store\.writeSubagent\(saved,\s*"subagent\./g) ?? []
   ).length;
-  const runtimeSubagentReadProjectionLegacyRemoved =
+  const commandProtocolCoreForCompositor = exists("crates/services/src/agentic/runtime/kernel/command_protocol.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/command_protocol.rs")
+    : "";
+  const coreCommandDispatchForCompositor = exists("crates/services/src/agentic/runtime/kernel/command_dispatch.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/command_dispatch.rs")
+    : "";
+  const kernelModuleForCompositor = exists("crates/services/src/agentic/runtime/kernel/mod.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/mod.rs")
+    : "";
+  const runtimeSubagentProjectionCore = exists(
+    "crates/services/src/agentic/runtime/kernel/runtime_subagent_projection.rs",
+  )
+    ? read("crates/services/src/agentic/runtime/kernel/runtime_subagent_projection.rs")
+    : "";
+  const runtimeSubagentControlCore = exists(
+    "crates/services/src/agentic/runtime/kernel/runtime_subagent_control.rs",
+  )
+    ? read("crates/services/src/agentic/runtime/kernel/runtime_subagent_control.rs")
+    : "";
+  const runtimeSubagentReadProjectionRustOwned =
     /runtime_subagent_list_js_facade_retired/.test(runtimeSubagentSurface) &&
     /runtime_subagent_get_js_facade_retired/.test(runtimeSubagentSurface) &&
     /runtime_subagent_result_js_facade_retired/.test(runtimeSubagentSurface) &&
-    /throwRuntimeSubagentRustCoreRequired/.test(runtimeSubagentListEnvelopeBlock) &&
-    /throwRuntimeSubagentRustCoreRequired/.test(runtimeSubagentGetBlock) &&
-    /throwRuntimeSubagentRustCoreRequired/.test(runtimeSubagentWaitResultReadBlocks) &&
-    !/store\.subagents\.values\(/.test(runtimeSubagentListEnvelopeBlock) &&
-    !/store\.subagents\.get\(/.test(runtimeSubagentGetBlock) &&
-    !/store\.getSubagent\(/.test(runtimeSubagentWaitResultReadBlocks) &&
-    !/store\.getRun\(/.test(runtimeSubagentWaitResultReadBlocks) &&
-    /subagent read projection facades fail closed before JS subagent\/run reads/.test(
+    /runtime_subagent_read_projection_rust_owned/.test(runtimeSubagentSurface) &&
+    /runtime_subagent_read_projection_js_facade_retired/.test(runtimeSubagentSurface) &&
+    /subagentProjectionRunner/.test(runtimeSubagentSurface) &&
+    /candidateSubagentProjectionFacts/.test(runtimeSubagentSurface) &&
+    /projectRuntimeSubagentProjection\(request\)/.test(runtimeSubagentSurface) &&
+    /runtime_subagent_read_projection_rust_projection_missing/.test(runtimeSubagentSurface) &&
+    /runtime_subagent_read_projection_rust_projection_invalid/.test(runtimeSubagentSurface) &&
+    /projectSubagentRead\(store, "list"/.test(runtimeSubagentListEnvelopeBlock) &&
+    /projectSubagentRead\(store, "get"/.test(runtimeSubagentGetBlock) &&
+    /projectSubagentRead\(store, "result"/.test(runtimeSubagentResultReadBlock) &&
+    !/throwRuntimeSubagentRustCoreRequired/.test(runtimeSubagentListEnvelopeBlock) &&
+    !/throwRuntimeSubagentRustCoreRequired/.test(runtimeSubagentGetBlock) &&
+    !/throwRuntimeSubagentRustCoreRequired/.test(runtimeSubagentResultReadBlock) &&
+    /projectRuntimeSubagentProjection\(request/.test(runtimeContextPolicyRunner) &&
+    /project_runtime_subagent_projection/.test(runtimeContextPolicyRunner) &&
+    /RUNTIME_SUBAGENT_PROJECTION_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyRunner) &&
+    /normalizeRuntimeSubagentProjectionBridgeResult/.test(runtimeContextPolicyRunner) &&
+    /runtime subagent projection runner sends Rust daemon-core request/.test(
+      runtimeContextPolicyRunnerTest,
+    ) &&
+    /pub struct RuntimeSubagentProjectionCore;/.test(runtimeSubagentProjectionCore) &&
+    /pub fn project_runtime_subagent_projection_response/.test(runtimeSubagentProjectionCore) &&
+    /rust_projects_subagent_list_get_and_result/.test(runtimeSubagentProjectionCore) &&
+    /rust_shapes_subagent_projection_command_response/.test(runtimeSubagentProjectionCore) &&
+    /ProjectRuntimeSubagentProjection/.test(commandProtocolCoreForCompositor) &&
+    /"project_runtime_subagent_projection"/.test(commandProtocolCoreForCompositor) &&
+    /project_runtime_subagent_projection_response/.test(coreCommandDispatchForCompositor) &&
+    /pub mod runtime_subagent_projection;/.test(kernelModuleForCompositor) &&
+    /contextPolicyRunner:\s*this\.contextPolicyRunner/.test(runtimeDaemonIndex) &&
+    /subagent read projections fail closed before JS subagent\/run reads without Rust/.test(
+      runtimeSubagentSurfaceTest,
+    ) &&
+    /subagent read projections return Rust daemon-core projections/.test(
+      runtimeSubagentSurfaceTest,
+    ) &&
+    !/subagent read projection facades fail closed before JS subagent\/run reads/.test(
+      runtimeSubagentSurfaceTest,
+    );
+  const runtimeSubagentWaitControlRustOwned =
+    /runtime_subagent_wait_control_rust_owned/.test(runtimeSubagentSurface) &&
+    /runtime_subagent_control_event_rust_owned/.test(runtimeSubagentSurface) &&
+    /subagentControlRunner/.test(runtimeSubagentSurface) &&
+    /planSubagentControlEvent/.test(runtimeSubagentSurface) &&
+    /appendPlannedSubagentControlEvent/.test(runtimeSubagentSurface) &&
+    /planRuntimeSubagentControl/.test(runtimeSubagentSurface) &&
+    /appendRuntimeEvent\(plannedControl\.event\)/.test(runtimeSubagentSurface) &&
+    /planSubagentRecordStateUpdate/.test(runtimeSubagentSurface) &&
+    /store\.writeSubagent\(/.test(runtimeSubagentSurface) &&
+    /waitSubagent\(store, threadId, subagentId, request = \{\}\) \{[\s\S]*?planSubagentControlEvent[\s\S]*?planSubagentRecordStateUpdate[\s\S]*?store\.writeSubagent\(/.test(
+      runtimeSubagentSurface,
+    ) &&
+    !/throwRuntimeSubagentRustCoreRequired/.test(
+      runtimeSubagentSurface.match(
+        /waitSubagent\(store, threadId, subagentId, request = \{\}\) \{[\s\S]*?\n    \},\n    getSubagentResult/,
+      )?.[0] ?? "",
+    ) &&
+    /planRuntimeSubagentControl\(request/.test(runtimeContextPolicyRunner) &&
+    /plan_runtime_subagent_control/.test(runtimeContextPolicyRunner) &&
+    /RUNTIME_SUBAGENT_CONTROL_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyRunner) &&
+    /normalizeRuntimeSubagentControlBridgeResult/.test(runtimeContextPolicyRunner) &&
+    /runtime subagent wait control runner sends Rust daemon-core request/.test(
+      runtimeContextPolicyRunnerTest,
+    ) &&
+    /pub struct RuntimeSubagentControlCore;/.test(runtimeSubagentControlCore) &&
+    /pub fn plan_runtime_subagent_control_response/.test(runtimeSubagentControlCore) &&
+    /rust_plans_subagent_wait_control_event/.test(runtimeSubagentControlCore) &&
+    /rust_shapes_subagent_wait_control_command_response/.test(runtimeSubagentControlCore) &&
+    /rust_rejects_unowned_subagent_control_kind/.test(runtimeSubagentControlCore) &&
+    /PlanRuntimeSubagentControl/.test(commandProtocolCoreForCompositor) &&
+    /"plan_runtime_subagent_control"/.test(commandProtocolCoreForCompositor) &&
+    /plan_runtime_subagent_control_response/.test(coreCommandDispatchForCompositor) &&
+    /pub mod runtime_subagent_control;/.test(kernelModuleForCompositor) &&
+    /subagent direct controls fail closed before Rust read\/control planning/.test(
+      runtimeSubagentSurfaceTest,
+    ) &&
+    /subagent wait control uses Rust control, state planning, and Agentgres commits/.test(
+      runtimeSubagentSurfaceTest,
+    );
+  const runtimeSubagentSpawnControlRustOwned =
+    /runtime_subagent_spawn_control_rust_owned/.test(runtimeSubagentSurface) &&
+    /runtime_subagent_agent_create_rust_owned/.test(runtimeSubagentSurface) &&
+    /runtime_subagent_run_create_rust_owned/.test(runtimeSubagentSurface) &&
+    /createSubagentAgent/.test(runtimeSubagentSurface) &&
+    /agentRunLifecycleSurface/.test(runtimeSubagentSurface) &&
+    /agentCreateSurface\.createAgent\(store/.test(runtimeSubagentSurface) &&
+    /createSubagentRun/.test(runtimeSubagentSurface) &&
+    !/store\.createAgent\(/.test(runtimeSubagentSurface) &&
+    !/store\.createRun\(/.test(runtimeSubagentSurface) &&
+    /spawnSubagent\(store, threadId, request = \{\}\) \{[\s\S]*?subagentControlRunner[\s\S]*?createSubagentAgent[\s\S]*?createSubagentRun[\s\S]*?commitSubagentControlRecord[\s\S]*?operation:\s*"spawn"[\s\S]*?operationKind/.test(
+      runtimeSubagentSurface,
+    ) &&
+    !/throwRuntimeSubagentRustCoreRequired/.test(runtimeSubagentSpawnBlock) &&
+    /rust_plans_subagent_spawn_control_event/.test(runtimeSubagentControlCore) &&
+    /subagent spawn control uses Rust agent and run creation, control planning, state planning, and Agentgres commits/.test(
+      runtimeSubagentSurfaceTest,
+    );
+  const runtimeSubagentDirectControlRustOwned =
+    /runtime_subagent_direct_control_rust_owned/.test(runtimeSubagentSurface) &&
+    /runtime_subagent_assign_control_rust_owned/.test(runtimeSubagentSurface) &&
+    /runtime_subagent_cancel_control_rust_owned/.test(runtimeSubagentSurface) &&
+    /runtime_subagent_cancel_run_rust_owned/.test(runtimeSubagentSurface) &&
+    /subagentControlEvidenceRefs/.test(runtimeSubagentSurface) &&
+    /commitSubagentControlRecord/.test(runtimeSubagentSurface) &&
+    /cancelRunDep\(store,\s*record\.run_id\)/.test(runtimeSubagentSurface) &&
+    !/store\.cancelRun\(/.test(runtimeSubagentSurface) &&
+    /assignSubagent\(store, threadId, subagentId, request = \{\}\) \{[\s\S]*?commitSubagentControlRecord[\s\S]*?operation:\s*"assign"[\s\S]*?operationKind/.test(
+      runtimeSubagentSurface,
+    ) &&
+    /cancelSubagent\(store, threadId, subagentId, request = \{\}\) \{[\s\S]*?cancelRunDep\(store,\s*record\.run_id\)[\s\S]*?commitSubagentControlRecord[\s\S]*?operation:\s*"cancel"[\s\S]*?operationKind/.test(
+      runtimeSubagentSurface,
+    ) &&
+    !/throwRuntimeSubagentRustCoreRequired/.test(runtimeSubagentAssignBlock) &&
+    !/throwRuntimeSubagentRustCoreRequired/.test(runtimeSubagentCancelBlock) &&
+    /rust_plans_subagent_assign_control_event/.test(runtimeSubagentControlCore) &&
+    /rust_plans_subagent_cancel_control_event/.test(runtimeSubagentControlCore) &&
+    /subagent assign and cancel controls use Rust control, state planning, and Agentgres commits/.test(
+      runtimeSubagentSurfaceTest,
+    );
+  const runtimeSubagentDirectControlEventRustOwned =
+    /runtime_subagent_control_event_rust_owned/.test(runtimeSubagentSurface) &&
+    /appendThreadSubagentControlEvent\(store, \{[\s\S]*?planSubagentControlEvent\(store,[\s\S]*?appendPlannedSubagentControlEvent\(store,\s*plannedControl\)/.test(
+      runtimeSubagentControlEventBlock,
+    ) &&
+    !/throwRuntimeSubagentRustCoreRequired/.test(
+      runtimeSubagentControlEventBlock,
+    ) &&
+    !/store\.writeSubagent\(/.test(runtimeSubagentControlEventBlock) &&
+    !/planSubagentRecordStateUpdate/.test(runtimeSubagentControlEventBlock) &&
+    /subagent control event append fails closed before JS runtime event append without Rust planning/.test(
+      runtimeSubagentSurfaceTest,
+    ) &&
+    /subagent control event append uses Rust control planning and Agentgres event admission/.test(
+      runtimeSubagentSurfaceTest,
+    );
+  const runtimeSubagentPropagationControlRustOwned =
+    /runtime_subagent_cancel_propagation_rust_owned/.test(runtimeSubagentSurface) &&
+    /propagateSubagentCancellation\(store, threadId, request = \{\}\) \{[\s\S]*?subagentControlRunner[\s\S]*?this\.listSubagents\(store,\s*threadId\)[\s\S]*?cancelRunDep\(store,\s*record\.run_id\)[\s\S]*?commitSubagentControlRecord[\s\S]*?operation:\s*"cancel"[\s\S]*?operationKind/.test(
+      runtimeSubagentSurface,
+    ) &&
+    !/throwRuntimeSubagentRustCoreRequired/.test(runtimeSubagentPropagationEnvelopeBlock) &&
+    /rust_plans_subagent_cancel_propagation_control_event/.test(runtimeSubagentControlCore) &&
+    /rust_policy_plans_subagent_propagated_cancel_record_state_update/.test(
+      policyThreadLifecycleCore,
+    ) &&
+    /subagent cancellation propagation uses Rust projection, propagated cancel planning, state planning, and Agentgres commits/.test(
+      runtimeSubagentSurfaceTest,
+    );
+  const runtimeSubagentInputResumeControlRustOwned =
+    /runtime_subagent_input_control_rust_owned/.test(runtimeSubagentSurface) &&
+    /runtime_subagent_resume_control_rust_owned/.test(runtimeSubagentSurface) &&
+    /runtime_subagent_run_create_rust_owned/.test(runtimeSubagentSurface) &&
+    /createSubagentRun/.test(runtimeSubagentSurface) &&
+    /agentRunLifecycleSurface/.test(runtimeSubagentSurface) &&
+    /runCreateSurface\.createRun\(store,\s*agentId/.test(runtimeSubagentSurface) &&
+    !/store\.createRun\(/.test(runtimeSubagentSurface) &&
+    /sendSubagentInput\(store, threadId, subagentId, request = \{\}\) \{[\s\S]*?createSubagentRun[\s\S]*?commitSubagentControlRecord[\s\S]*?operation:\s*"send_input"[\s\S]*?operationKind/.test(
+      runtimeSubagentSurface,
+    ) &&
+    /resumeSubagent\(store, threadId, subagentId, request = \{\}\) \{[\s\S]*?createSubagentRun[\s\S]*?commitSubagentControlRecord[\s\S]*?operation:\s*"resume"[\s\S]*?operationKind/.test(
+      runtimeSubagentSurface,
+    ) &&
+    !/throwRuntimeSubagentRustCoreRequired/.test(runtimeSubagentSendInputBlock) &&
+    !/throwRuntimeSubagentRustCoreRequired/.test(runtimeSubagentResumeBlock) &&
+    /rust_plans_subagent_input_control_event/.test(runtimeSubagentControlCore) &&
+    /rust_plans_subagent_resume_control_event/.test(runtimeSubagentControlCore) &&
+    /subagent input and resume controls use Rust run creation, control planning, state planning, and Agentgres commits/.test(
       runtimeSubagentSurfaceTest,
     );
   const runtimeSubagentLifecycleMutationLegacyRemoved =
-    /runtime_subagent_control_rust_core_required/.test(runtimeSubagentSurface) &&
-    /runtime_subagent_control_js_facade_retired/.test(runtimeSubagentSurface) &&
-    /rust_daemon_core_runtime_subagent_control_required/.test(runtimeSubagentSurface) &&
-    /agentgres_runtime_subagent_truth_required/.test(runtimeSubagentSurface) &&
+    !/throwRuntimeSubagentRustCoreRequired/.test(runtimeSubagentSurface) &&
+    !/runtime_subagent_control_rust_core_required/.test(runtimeSubagentSurface) &&
+    !/rust_daemon_core_runtime_subagent_control_required/.test(runtimeSubagentSurface) &&
     !/store\.createAgent\(/.test(runtimeSubagentSurface) &&
     !/store\.createRun\(/.test(runtimeSubagentSurface) &&
     !/store\.cancelRun\(/.test(runtimeSubagentSurface) &&
-    !/store\.appendRuntimeEvent\(/.test(runtimeSubagentSurface) &&
-    !/store\.writeSubagent\(/.test(runtimeSubagentSurface) &&
-    !/planSubagentRecordStateUpdate/.test(runtimeSubagentSurface) &&
-    !/subagent_record_state_update/.test(runtimeSubagentSurface) &&
+    runtimeSubagentSpawnControlRustOwned &&
+    runtimeSubagentWaitControlRustOwned &&
+    runtimeSubagentDirectControlRustOwned &&
+    runtimeSubagentDirectControlEventRustOwned &&
+    runtimeSubagentPropagationControlRustOwned &&
+    runtimeSubagentInputResumeControlRustOwned &&
     !/subagent_prompt_required/.test(runtimeSubagentSurface) &&
     !/subagent_input_required/.test(runtimeSubagentSurface) &&
     !/requiredSubagentAgentId/.test(runtimeSubagentSurface) &&
-    !/requiredPlannedSubagentOperationKind/.test(runtimeSubagentSurface) &&
-    /subagent lifecycle mutation facades fail closed before JS truth mutation/.test(
+    /subagent lifecycle mutation facades stay retired before JS truth mutation/.test(
       runtimeSubagentSurfaceTest,
     ) &&
-    /subagent control event append facade fails closed before JS runtime event append/.test(
+    /subagent control event append fails closed before JS runtime event append without Rust planning/.test(
       runtimeSubagentSurfaceTest,
     ) &&
-    runtimeSubagentReadProjectionLegacyRemoved &&
+    /subagent control event append uses Rust control planning and Agentgres event admission/.test(
+      runtimeSubagentSurfaceTest,
+    ) &&
+    runtimeSubagentReadProjectionRustOwned &&
     !/subagent surface spawns subagents with source and context metadata/.test(
       runtimeSubagentSurfaceTest,
     ) &&
@@ -24278,24 +26077,25 @@ function runCompositor() {
   const runtimeThreadEventCoreForCompositor = exists("crates/services/src/agentic/runtime/kernel/runtime_thread_event.rs")
     ? read("crates/services/src/agentic/runtime/kernel/runtime_thread_event.rs")
     : "";
-  const commandProtocolCoreForCompositor = exists("crates/services/src/agentic/runtime/kernel/command_protocol.rs")
-    ? read("crates/services/src/agentic/runtime/kernel/command_protocol.rs")
-    : "";
-  const coreCommandDispatchForCompositor = exists("crates/services/src/agentic/runtime/kernel/command_dispatch.rs")
-    ? read("crates/services/src/agentic/runtime/kernel/command_dispatch.rs")
-    : "";
-  const kernelModuleForCompositor = exists("crates/services/src/agentic/runtime/kernel/mod.rs")
-    ? read("crates/services/src/agentic/runtime/kernel/mod.rs")
-    : "";
   const runtimeMemoryProjectionCore = exists(
     "crates/services/src/agentic/runtime/kernel/runtime_memory_projection.rs",
   )
     ? read("crates/services/src/agentic/runtime/kernel/runtime_memory_projection.rs")
     : "";
+  const runtimeMemoryControlCore = exists(
+    "crates/services/src/agentic/runtime/kernel/runtime_memory_control.rs",
+  )
+    ? read("crates/services/src/agentic/runtime/kernel/runtime_memory_control.rs")
+    : "";
   const runtimeConversationArtifactProjectionCore = exists(
     "crates/services/src/agentic/runtime/kernel/runtime_conversation_artifact_projection.rs",
   )
     ? read("crates/services/src/agentic/runtime/kernel/runtime_conversation_artifact_projection.rs")
+    : "";
+  const runtimeConversationArtifactControlCore = exists(
+    "crates/services/src/agentic/runtime/kernel/runtime_conversation_artifact_control.rs",
+  )
+    ? read("crates/services/src/agentic/runtime/kernel/runtime_conversation_artifact_control.rs")
     : "";
   const runtimeAgentgresRunnerForThreadEvents = exists("packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs")
     ? read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs")
@@ -24521,18 +26321,39 @@ function runCompositor() {
     /boundary:\s*"runtime\.mcp_control"/.test(runtimeMcpControlSurface) &&
     /required_core:\s*"rust_daemon_core"/.test(runtimeMcpControlSurface) &&
     /migration_transport_only:\s*false/.test(runtimeMcpControlSurface) &&
-    /runtime MCP control mutations fail closed before JS state mutation/.test(
+    /mcpControlStateUpdatePlanner/.test(runtimeMcpControlSurface) &&
+    /contextPolicyRunner\.planMcpControlAgentStateUpdate/.test(runtimeMcpControlSurface) &&
+    /mcpControlRequestPayload/.test(runtimeMcpControlSurface) &&
+    /mcpControlAgentWriter/.test(runtimeMcpControlSurface) &&
+    /store\?\.writeAgent/.test(runtimeMcpControlSurface) &&
+    /runtime MCP control mutations plan in Rust and commit agent state without JS state mutation/.test(
       runtimeMcpControlSurfaceTest,
     ) &&
-    /runtime MCP live exits fail closed before JS transport invocation/.test(
+    /runtime MCP control planner absence fails closed before JS state mutation/.test(
       runtimeMcpControlSurfaceTest,
+    ) &&
+    /runtime MCP live exits use Rust control admission before JS transport invocation/.test(
+      runtimeMcpControlSurfaceTest,
+    ) &&
+    /runtime MCP live exits fail closed when Rust control planner is missing/.test(
+      runtimeMcpControlSurfaceTest,
+    ) &&
+    /applyRustMcpControlStateUpdate\(store, requestedThreadId, "mcp_invoke", "invoke_mcp_tool"/.test(
+      runtimeMcpControlSurface,
+    ) &&
+    /applyRustMcpControlStateUpdate\(store, threadId, "mcp_live_discovery", "mcp_live_discovery"/.test(
+      runtimeMcpControlSurface,
+    ) &&
+    /live_transport:\s*optionalStringDep\(request\.live_transport\) \?\? null/.test(
+      runtimeMcpControlSurface,
+    ) &&
+    /timeout_ms:\s*finitePositiveNumber\(request\.timeout_ms\)/.test(
+      runtimeMcpControlSurface,
     ) &&
     !/store\.appendRuntimeEvent/.test(runtimeMcpControlSurface) &&
     !/store\.agents\.set/.test(runtimeMcpControlSurface) &&
-    !/store\.writeAgent/.test(runtimeMcpControlSurface) &&
     !/invokeMcp(?:Stdio|Http)ToolDep/.test(runtimeMcpControlSurface) &&
-    !/discoverMcp(?:Stdio|Http)CatalogDep/.test(runtimeMcpControlSurface) &&
-    !/contextPolicyRunnerDep\.planMcpControlAgentStateUpdate/.test(runtimeMcpControlSurface);
+    !/discoverMcp(?:Stdio|Http)CatalogDep/.test(runtimeMcpControlSurface);
   const agentIdeTerminalRunLaunch = exists(
     "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-run-launch.ts",
   )
@@ -25006,6 +26827,92 @@ function runCompositor() {
     )?.[0] ?? "";
   const runtimeThreadMemoryMutationPayloadBlock =
     runtimeThreadMemoryMutationBlock.match(/const payload = \{[\s\S]*?\n    \};/)?.[0] ?? "";
+  const runtimeMemoryCommitControlBlock =
+    runtimeThreadMemoryState.match(
+      /function commitMemoryControl\(store, \{[\s\S]*?\n  \}\n\n  function memoryControlRecordsProjection/,
+    )?.[0] ?? "";
+  const runtimeMemoryCommitControlReturnBlock =
+    runtimeMemoryCommitControlBlock.match(/return \{[\s\S]*?\n    \};/)?.[0] ?? "";
+  const runtimeThreadMemoryMutationControlRustOwned =
+    /runtime_memory_control_rust_owned/.test(runtimeThreadMemoryState) &&
+    /memoryControlRunner/.test(runtimeThreadMemoryState) &&
+    /commitMemoryControl/.test(runtimeThreadMemoryState) &&
+    /planRuntimeMemoryControl/.test(runtimeThreadMemoryState) &&
+    /store\.commitRuntimeMemoryState\(/.test(runtimeThreadMemoryState) &&
+    /RUNTIME_MEMORY_STATE_COMMIT_SCHEMA_VERSION/.test(runtimeThreadMemoryState) &&
+    /RUST_AGENTGRES_STORAGE_BACKEND/.test(runtimeThreadMemoryState) &&
+    /runtime_memory_state_store_js_mutation_retired/.test(runtimeThreadMemoryState) &&
+    /agentgres_thread_memory_state_truth_required/.test(runtimeThreadMemoryState) &&
+    !/store\.memory\.(?:remember|setPolicy|updateRecord|deleteRecord)\(/.test(
+      runtimeThreadMemoryState,
+    ) &&
+    /planRuntimeMemoryControl\(request/.test(runtimeContextPolicyRunner) &&
+    /plan_runtime_memory_control/.test(runtimeContextPolicyRunner) &&
+    /RUNTIME_MEMORY_CONTROL_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyRunner) &&
+    /normalizeRuntimeMemoryControlBridgeResult/.test(runtimeContextPolicyRunner) &&
+    /runtime memory control runner sends Rust daemon-core request/.test(
+      runtimeContextPolicyRunnerTest,
+    ) &&
+    /pub struct RuntimeMemoryControlCore;/.test(runtimeMemoryControlCore) &&
+    /pub fn plan_runtime_memory_control_response/.test(runtimeMemoryControlCore) &&
+    /rust_plans_runtime_memory_write_control/.test(runtimeMemoryControlCore) &&
+    /rust_plans_runtime_memory_policy_control/.test(runtimeMemoryControlCore) &&
+    /rust_rejects_unowned_runtime_memory_control_kind/.test(runtimeMemoryControlCore) &&
+    /PlanRuntimeMemoryControl/.test(commandProtocolCoreForCompositor) &&
+    /"plan_runtime_memory_control"/.test(commandProtocolCoreForCompositor) &&
+    /plan_runtime_memory_control_response/.test(coreCommandDispatchForCompositor) &&
+    /pub mod runtime_memory_control;/.test(kernelModuleForCompositor) &&
+    /thread memory mutation and policy controls use Rust planning and Agentgres commits/.test(
+      runtimeThreadMemoryStateTest,
+    ) &&
+    /thread memory mutation controls fail closed before JS store mutation without Rust planner/.test(
+      runtimeThreadMemoryStateTest,
+    ) &&
+    /state\.rememberForAgentId\(store, "agent_a",/.test(
+      runtimeThreadMemoryStateTest,
+    ) &&
+    /state\.setMemoryPolicyForAgent\(store, "agent_a",/.test(
+      runtimeThreadMemoryStateTest,
+    ) &&
+    /state\.updateMemoryForAgentId\(store, "agent_a",/.test(
+      runtimeThreadMemoryStateTest,
+    ) &&
+    /state\.deleteMemoryForAgentId\(store, "agent_a",/.test(
+      runtimeThreadMemoryStateTest,
+    );
+  const runtimeThreadMemoryStatusValidationControlRustOwned =
+    /runtime_memory_control_event_rust_owned/.test(runtimeThreadMemoryState) &&
+    /runtime_memory_status_validation_control_rust_owned/.test(runtimeThreadMemoryState) &&
+    /memoryControlEventRunner/.test(runtimeThreadMemoryState) &&
+    /planMemoryControlEvent/.test(runtimeThreadMemoryState) &&
+    /appendPlannedMemoryControlEvent/.test(runtimeThreadMemoryState) &&
+    /recordThreadMemoryStatus\(store, threadId, request = \{\}, schemaVersion\) \{[\s\S]*?publicMemoryStatus\(store,[\s\S]*?appendThreadMemoryControlEvent/.test(
+      runtimeThreadMemoryState,
+    ) &&
+    /validateThreadMemory\(store, threadId, request = \{\}, schemaVersion\) \{[\s\S]*?publicValidateMemory\(store,[\s\S]*?appendThreadMemoryControlEvent/.test(
+      runtimeThreadMemoryState,
+    ) &&
+    /appendThreadMemoryControlEvent\(store, \{[\s\S]*?planMemoryControlEvent\(store,[\s\S]*?appendPlannedMemoryControlEvent\(store,\s*plannedControl\)/.test(
+      runtimeThreadMemoryState,
+    ) &&
+    /store\.appendRuntimeEvent\(event\)/.test(runtimeThreadMemoryState) &&
+    /rust_plans_runtime_memory_status_control_event/.test(runtimeMemoryControlCore) &&
+    /rust_plans_runtime_memory_validation_control_event/.test(runtimeMemoryControlCore) &&
+    /runtime_memory_status_control_rust_owned/.test(runtimeMemoryControlCore) &&
+    /runtime_memory_validation_control_rust_owned/.test(runtimeMemoryControlCore) &&
+    /runtime_memory_control_event_rust_owned/.test(runtimeMemoryControlCore) &&
+    /thread memory status, validation, and direct control events use Rust planning and runtime event admission/.test(
+      runtimeThreadMemoryStateTest,
+    ) &&
+    /thread memory direct control event fails closed before appendRuntimeEvent without Rust planning/.test(
+      runtimeThreadMemoryStateTest,
+    ) &&
+    !/thread memory status and validation facades fail closed before event append or Rust planning/.test(
+      runtimeThreadMemoryStateTest,
+    ) &&
+    !/thread memory direct control event facade fails closed before appendRuntimeEvent/.test(
+      runtimeThreadMemoryStateTest,
+    );
   const runtimeMcpSdkListOptionsBlock =
     agentSdkSubstrateClient.match(/export interface RuntimeMcpListOptions[\s\S]*?\n}\n/)?.[0] ??
     "";
@@ -25679,23 +27586,65 @@ function runCompositor() {
     "async listConversationArtifacts",
     "async createConversationArtifact",
   );
-  const runtimeConversationArtifactMutationFacadeRetired =
-    /runtime_conversation_artifact_control_rust_core_required/.test(
+  const runtimeConversationArtifactControlRustOwned =
+    /pub struct RuntimeConversationArtifactControlCore;/.test(
+      runtimeConversationArtifactControlCore,
+    ) &&
+    /pub fn plan_runtime_conversation_artifact_control_response/.test(
+      runtimeConversationArtifactControlCore,
+    ) &&
+    /rust_plans_conversation_artifact_create_record/.test(
+      runtimeConversationArtifactControlCore,
+    ) &&
+    /rust_plans_conversation_artifact_action_export_and_promote/.test(
+      runtimeConversationArtifactControlCore,
+    ) &&
+    /rust_shapes_conversation_artifact_control_command_response/.test(
+      runtimeConversationArtifactControlCore,
+    ) &&
+    /rust_ignores_retired_conversation_artifact_request_aliases/.test(
+      runtimeConversationArtifactControlCore,
+    ) &&
+    /runtime_conversation_artifact_control_rust_owned/.test(
+      runtimeConversationArtifactControlCore,
+    ) &&
+    /runtime_conversation_artifact_state_commit_rust_owned/.test(
+      runtimeConversationArtifactControlCore,
+    ) &&
+    /"plan_runtime_conversation_artifact_control"/.test(
+      commandProtocolCoreForCompositor,
+    ) &&
+    /PlanRuntimeConversationArtifactControl/.test(commandProtocolCoreForCompositor) &&
+    /plan_runtime_conversation_artifact_control_response/.test(
+      coreCommandDispatchForCompositor,
+    ) &&
+    /pub mod runtime_conversation_artifact_control;/.test(kernelModuleForCompositor) &&
+    /RUNTIME_CONVERSATION_ARTIFACT_CONTROL_REQUEST_SCHEMA_VERSION/.test(
+      runtimeContextPolicyRunner,
+    ) &&
+    /planRuntimeConversationArtifactControl\(request = \{\}\)/.test(
+      runtimeContextPolicyRunner,
+    ) &&
+    /plan_runtime_conversation_artifact_control/.test(runtimeContextPolicyRunner) &&
+    /normalizeRuntimeConversationArtifactControlBridgeResult/.test(
+      runtimeContextPolicyRunner,
+    ) &&
+    /runtime_conversation_artifact_control_artifact_missing/.test(
+      runtimeContextPolicyRunner,
+    ) &&
+    /runtime conversation artifact control runner sends Rust daemon-core request/.test(
+      runtimeContextPolicyRunnerTest,
+    ) &&
+    /commitRuntimeArtifactRecord/.test(runtimeConversationArtifactSurface) &&
+    /conversationArtifactControlRunner/.test(runtimeConversationArtifactSurface) &&
+    /planRuntimeConversationArtifactControl\(request\)/.test(
       runtimeConversationArtifactSurface,
     ) &&
-    /runtime_conversation_artifact_control_js_facade_retired/.test(
+    /commitRuntimeArtifactState/.test(runtimeConversationArtifactSurface) &&
+    /runtime_conversation_artifact_control_rust_owned/.test(
       runtimeConversationArtifactSurface,
     ) &&
-    /conversation_artifact_list_js_facade_retired/.test(runtimeConversationArtifactSurface) &&
-    /conversation_artifact_get_js_facade_retired/.test(runtimeConversationArtifactSurface) &&
-    /conversation_artifact_revision_list_js_facade_retired/.test(
-      runtimeConversationArtifactSurface,
-    ) &&
-    /conversation_artifact_create_js_facade_retired/.test(runtimeConversationArtifactSurface) &&
-    /conversation_artifact_action_js_facade_retired/.test(runtimeConversationArtifactSurface) &&
-    /conversation_artifact_export_js_facade_retired/.test(runtimeConversationArtifactSurface) &&
-    /conversation_artifact_promote_js_facade_retired/.test(runtimeConversationArtifactSurface) &&
-    /rust_daemon_core_conversation_artifact_control_required/.test(
+    /runtime_conversation_artifact_state_commit_rust_owned/.test(
       runtimeConversationArtifactSurface,
     ) &&
     /agentgres_conversation_artifact_truth_required/.test(runtimeConversationArtifactSurface) &&
@@ -25703,11 +27652,30 @@ function runCompositor() {
     !/store\.conversationArtifacts\.action\(/.test(runtimeConversationArtifactSurface) &&
     !/store\.conversationArtifacts\.exportArtifact\(/.test(runtimeConversationArtifactSurface) &&
     !/store\.conversationArtifacts\.promoteArtifact\(/.test(runtimeConversationArtifactSurface) &&
-    /conversation artifact mutation facades fail closed before JS artifact mutation/.test(
+    !/rust_daemon_core_conversation_artifact_control_required/.test(
+      runtimeConversationArtifactSurface,
+    ) &&
+    /conversation artifact mutation plans in Rust and commits artifact truth without JS writers/.test(
       runtimeConversationArtifactSurfaceTest,
     ) &&
-    /assertConversationArtifactRustCoreRequired/.test(runtimeConversationArtifactSurfaceTest) &&
-    /assert\.deepEqual\(calls,\s*\[\]\)/.test(runtimeConversationArtifactSurfaceTest);
+    /conversation artifact mutation fails before artifact lookup without Rust planner/.test(
+      runtimeConversationArtifactSurfaceTest,
+    ) &&
+    /conversation artifact mutation fails before artifact lookup without Agentgres commit/.test(
+      runtimeConversationArtifactSurfaceTest,
+    ) &&
+    /conversation artifact mutation rejects invalid Rust plans before commit/.test(
+      runtimeConversationArtifactSurfaceTest,
+    ) &&
+    /calls\.some\(\(call\) => \["create", "action", "exportArtifact", "promoteArtifact"\]/.test(
+      runtimeConversationArtifactSurfaceTest,
+    ) &&
+    /public conversation artifact routes use mounted Rust-owned artifact surface/.test(
+      publicRuntimeRoutesTest,
+    ) &&
+    /thread conversation artifact routes use mounted artifact surface/.test(
+      runtimeRouteHandlersTest,
+    );
   const runtimeConversationArtifactReadProjectionRustOwned =
     /runtime_conversation_artifact_read_projection_rust_owned/.test(
       runtimeConversationArtifactSurface,
@@ -25774,7 +27742,7 @@ function runCompositor() {
     ) &&
     /pub mod runtime_conversation_artifact_projection;/.test(kernelModuleForCompositor) &&
     /contextPolicyRunner:\s*this\.contextPolicyRunner/.test(runtimeDaemonIndex) &&
-    /public conversation artifact routes use Rust-projected read surface/.test(
+    /public conversation artifact routes use mounted Rust-owned artifact surface/.test(
       publicRuntimeRoutesTest,
     ) &&
     /thread conversation artifact routes use mounted artifact surface/.test(
@@ -25879,7 +27847,7 @@ function runCompositor() {
       ) &&
       /const threadId = query\.thread_id \?\? null/.test(conversationArtifacts) &&
       /\.filter\(\(record\) => !threadId \|\| record\.thread_id === threadId\)/.test(conversationArtifacts) &&
-      (runtimeConversationArtifactMutationFacadeRetired ||
+      (runtimeConversationArtifactControlRustOwned ||
         /thread_id:\s*threadId/.test(runtimeConversationArtifactSurface)) &&
       /store\.conversationArtifactSurface\.listConversationArtifacts\(store, \{ thread_id: threadId \}\)/.test(
         runtimeRouteHandlers,
@@ -25909,7 +27877,7 @@ function runCompositor() {
         publicRuntimeRoutes,
       ) &&
       /thread conversation artifact routes use mounted artifact surface/.test(runtimeRouteHandlersTest) &&
-      /public conversation artifact routes use Rust-projected read surface and fail closed for mutation/.test(
+      /public conversation artifact routes use mounted Rust-owned artifact surface/.test(
         publicRuntimeRoutesTest,
       ) &&
       /optionalString\(body\.thread_id\)/.test(publicRuntimeRoutesForTaskJob) &&
@@ -25978,9 +27946,15 @@ function runCompositor() {
   );
   assertCheck(
     result,
-    "conversation-artifact-control-js-facade-retired",
-    runtimeConversationArtifactMutationFacadeRetired,
+    "conversation-artifact-control-rust-owned",
+    runtimeConversationArtifactControlRustOwned,
     [
+      "crates/services/src/agentic/runtime/kernel/runtime_conversation_artifact_control.rs",
+      "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
+      "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
+      "crates/services/src/agentic/runtime/kernel/mod.rs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
       "packages/runtime-daemon/src/runtime-conversation-artifact-surface.mjs",
       "packages/runtime-daemon/src/runtime-conversation-artifact-surface.test.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.mjs",
@@ -25988,7 +27962,7 @@ function runCompositor() {
       "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
       "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
     ],
-    "Phase 10/11 is pending: conversation artifact create/action/export/promote facades must stay retired before JS artifact mutation",
+    "Phase 10/11 is pending: conversation artifact create/action/export/promote must plan in Rust daemon-core and commit Agentgres artifact truth without JS mutation writers",
   );
   assertCheck(
     result,
@@ -26157,6 +28131,33 @@ function runCompositor() {
 	  );
   assertCheck(
     result,
+    "runtime-thread-memory-mutation-control-rust-owned",
+    runtimeThreadMemoryMutationControlRustOwned,
+    [
+      "crates/services/src/agentic/runtime/kernel/runtime_memory_control.rs",
+      "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
+      "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
+      "crates/services/src/agentic/runtime/kernel/mod.rs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/threads/thread-memory-state.mjs",
+      "packages/runtime-daemon/src/threads/thread-memory-state.test.mjs",
+    ],
+    "Public memory write/edit/delete/policy routes must use Rust daemon-core planning plus Rust Agentgres memory-state commits, and must not return through direct JS AgentMemoryStore writers",
+  );
+  assertCheck(
+    result,
+    "runtime-thread-memory-status-validation-control-rust-owned",
+    runtimeThreadMemoryStatusValidationControlRustOwned,
+    [
+      "crates/services/src/agentic/runtime/kernel/runtime_memory_control.rs",
+      "packages/runtime-daemon/src/threads/thread-memory-state.mjs",
+      "packages/runtime-daemon/src/threads/thread-memory-state.test.mjs",
+    ],
+    "Thread memory status, validation, and direct memory control-event append must use Rust daemon-core memory control planning plus Rust runtime-event admission without JS event authorship fallback",
+  );
+  assertCheck(
+    result,
     "agent-memory-read-query-alias-retired",
     /const threadId = options\.thread_id \?\? threadIdForAgent\(agent\.id\)/.test(
       runtimeThreadMemoryState,
@@ -26221,6 +28222,7 @@ function runCompositor() {
   assertCheck(
     result,
     "agent-memory-mutation-request-aliases-retired",
+      runtimeThreadMemoryMutationControlRustOwned &&
 	      /runtime_thread_memory_control_rust_core_required/.test(
 	        runtimeThreadMemoryState,
 	      ) &&
@@ -26228,14 +28230,20 @@ function runCompositor() {
 	      /runtime_memory_public_projection_rust_owned/.test(runtimeThreadMemoryState) &&
 	      /runtime_thread_memory_write_js_facade_retired/.test(runtimeThreadMemoryState) &&
 	      /runtime_thread_memory_policy_js_facade_retired/.test(runtimeThreadMemoryState) &&
-      /thread memory mutation and policy facades fail closed before JS store mutation/.test(
+      /thread memory mutation and policy controls use Rust planning and Agentgres commits/.test(
         runtimeThreadMemoryStateTest,
       ) &&
       /assertThreadMemoryRustCoreRequired/.test(runtimeThreadMemoryStateTest) &&
-      /state\.rememberForAgentId\(store, "agent_a", \{ text: "Remember", thread_id: "thread_a" \}\)/.test(
+      /state\.rememberForAgentId\(store, "agent_a",/.test(
         runtimeThreadMemoryStateTest,
       ) &&
-      /state\.setMemoryPolicyForAgent\(store, "agent_a", \{ thread_id: "thread_a" \}\)/.test(
+      /state\.updateMemoryForAgentId\(store, "agent_a",/.test(
+        runtimeThreadMemoryStateTest,
+      ) &&
+      /state\.setMemoryPolicyForAgent\(store, "agent_a",/.test(
+        runtimeThreadMemoryStateTest,
+      ) &&
+      /state\.deleteMemoryForAgentId\(store, "agent_a",/.test(
         runtimeThreadMemoryStateTest,
       ) &&
       /^\s*memory_key\?: string;/m.test(agentMemorySdkListOptionsBlock) &&
@@ -26286,9 +28294,6 @@ function runCompositor() {
       /^\s*write_approved\?: boolean;/m.test(agentSdkSendOptionsMemoryBlock) &&
       /search\(query: string, options: Omit<MemoryListOptions, "query"> = \{\}\)/.test(
         agentSdkAgent,
-      ) &&
-      !/body\.(?:thread_id|threadId|target_type|targetType|target_id|targetId)\b/.test(
-        runtimeThreadMemoryState,
       ) &&
       !/body\.(?:threadId|targetType|targetId)\b/.test(runtimeThreadMemoryState) &&
       !/setPolicy\(\{[\s\S]*?(?:targetType|targetId|threadId)\s*:/m.test(runtimeThreadMemoryState) &&
@@ -26429,25 +28434,26 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-memory-mutation-output-aliases-retired",
-    /runtime_thread_memory_control_rust_core_required/.test(runtimeThreadMemoryState) &&
+    runtimeThreadMemoryMutationControlRustOwned &&
+      /runtime_thread_memory_control_rust_core_required/.test(runtimeThreadMemoryState) &&
       /runtime_thread_memory_write_js_facade_retired/.test(runtimeThreadMemoryState) &&
       /runtime_memory_state_store_js_mutation_retired/.test(runtimeThreadMemoryState) &&
-      /thread memory mutation and policy facades fail closed before JS store mutation/.test(
+      /thread memory mutation and policy controls use Rust planning and Agentgres commits/.test(
         runtimeThreadMemoryStateTest,
       ) &&
       /requested_operation/.test(runtimeThreadMemoryState) &&
       /requested_control_kind/.test(runtimeThreadMemoryState) &&
-      !/schema_version:\s*schemaVersion/.test(runtimeThreadMemoryMutationBlock) &&
-      !/memory_operation:\s*operation/.test(runtimeThreadMemoryMutationBlock) &&
-      !/mutation_status:\s*"completed"/.test(runtimeThreadMemoryMutationBlock) &&
-      !/memory_rows:\s*mutationRows/.test(runtimeThreadMemoryMutationBlock) &&
+      !/schema_version:\s*schemaVersion/.test(runtimeMemoryCommitControlReturnBlock) &&
+      !/memory_operation:\s*operation/.test(runtimeMemoryCommitControlReturnBlock) &&
+      !/mutation_status:\s*"completed"/.test(runtimeMemoryCommitControlReturnBlock) &&
+      !/memory_rows:\s*mutationRows/.test(runtimeMemoryCommitControlReturnBlock) &&
       !/workflowNodeId: "runtime\.memory\.retired"/.test(runtimeThreadMemoryStateTest) &&
       !/Object\.hasOwn\(write,\s*field\),\s*false/.test(runtimeThreadMemoryStateTest) &&
       !/^\s*(?:schemaVersion|memoryOperation|mutationStatus|threadId|agentId|memoryRecordId|memoryPolicyId|receiptRefs|memoryRows)\s*[:,]/m.test(
-        runtimeThreadMemoryMutationPayloadBlock,
+        runtimeMemoryCommitControlReturnBlock,
       ) &&
-      !/\brecord\?\.workflowNodeId\b/.test(runtimeThreadMemoryMutationBlock) &&
-      !/\.\.\.mutation\b/.test(runtimeThreadMemoryMutationBlock),
+      !/\brecord\?\.workflowNodeId\b/.test(runtimeMemoryCommitControlBlock) &&
+      !/\.\.\.mutation\b/.test(runtimeMemoryCommitControlBlock),
     [
       "packages/runtime-daemon/src/threads/thread-memory-state.mjs",
       "packages/runtime-daemon/src/threads/thread-memory-state.test.mjs",
@@ -27739,46 +29745,34 @@ function runCompositor() {
   assertCheck(
     result,
     "coding-tool-budget-recovery-output-aliases-retired",
-    codingToolBudgetRecoveryPolicyBlock.length > 0 &&
-      codingToolBudgetRecoveryResultBlock.length > 0 &&
-      /budget recovery retry limit and result envelope emit canonical fields only/.test(
-        runtimeCodingToolBudgetRecoveryTest,
-      ) &&
-      /Object\.hasOwn\(policy,\s*alias\),\s*false/.test(
-        runtimeCodingToolBudgetRecoveryTest,
-      ) &&
-      /Object\.hasOwn\(result,\s*alias\),\s*false/.test(
-        runtimeCodingToolBudgetRecoveryTest,
-      ) &&
-      /coding-tool budget recovery control facade fails closed before JS approval, event append, or run persistence/.test(
+    !runtimeCodingToolBudgetRecoveryExists &&
+      !runtimeCodingToolBudgetRecoveryTestExists &&
+      codingToolBudgetRecoveryPolicyBlock.length === 0 &&
+      codingToolBudgetRecoveryResultBlock.length === 0 &&
+      /coding-tool budget recovery retry completion uses Rust planner and Agentgres run commit/.test(
         runtimeCodingToolBudgetRecoverySurfaceTest,
       ) &&
-      /schema_version:\s*(?:\n\s*policy\.schema_version\s*\?\?\s*)?WORKFLOW_CODING_TOOL_BUDGET_RECOVERY_POLICY_SCHEMA_VERSION/.test(
-        codingToolBudgetRecoveryPolicyBlock,
+      /Object\.hasOwn\(result,\s*alias\),\s*false/.test(
+        runtimeCodingToolBudgetRecoverySurfaceTest,
       ) &&
-      /requires_approval:\s*policy\.requires_approval \?\? true/.test(
-        codingToolBudgetRecoveryPolicyBlock,
-      ) &&
-      /retry_limit:\s*Number\.isFinite\(retryLimit\)/.test(
-        codingToolBudgetRecoveryPolicyBlock,
+      /Object\.hasOwn\(result\.operator_control,\s*alias\),\s*false/.test(
+        runtimeCodingToolBudgetRecoverySurfaceTest,
       ) &&
       /schema_version:\s*WORKFLOW_CODING_TOOL_BUDGET_RECOVERY_SCHEMA_VERSION/.test(
-        codingToolBudgetRecoveryResultBlock,
+        runtimeCodingToolBudgetRecoverySurface,
       ) &&
-      /thread_id:\s*threadId/.test(codingToolBudgetRecoveryResultBlock) &&
-      /approval_id:\s*approvalId/.test(codingToolBudgetRecoveryResultBlock) &&
-      /target_node_ids:\s*targetNodeIds/.test(codingToolBudgetRecoveryResultBlock) &&
-      /recovery_action:\s*action/.test(codingToolBudgetRecoveryResultBlock) &&
-      /receipt_refs:\s*receiptRefs/.test(codingToolBudgetRecoveryResultBlock) &&
-      /thread_id: "thread_1"/.test(runtimeCodingToolBudgetRecoveryTest) &&
-      /approval_id: "approval_1"/.test(runtimeCodingToolBudgetRecoveryTest) &&
-      /target_node_ids: \["node_1"\]/.test(runtimeCodingToolBudgetRecoveryTest) &&
-      /receipt_refs: \["receipt_1"\]/.test(runtimeCodingToolBudgetRecoveryTest) &&
-      /retiredInputResult/.test(runtimeCodingToolBudgetRecoveryTest) &&
-      /assert\.notEqual\(retiredInputResult\.approval_id,\s*"approval_retired"\)/.test(
-        runtimeCodingToolBudgetRecoveryTest,
+      /thread_id:\s*details\.thread_id/.test(runtimeCodingToolBudgetRecoverySurface) &&
+      /approval_id:\s*approvalId/.test(runtimeCodingToolBudgetRecoverySurface) &&
+      /source_event_id:\s*details\.source_event_id/.test(
+        runtimeCodingToolBudgetRecoverySurface,
+      ) &&
+      /receipt_refs:\s*\[\.\.\.new Set\(receiptRefs\)\]/.test(
+        runtimeCodingToolBudgetRecoverySurface,
       ) &&
       /runtime_coding_tool_budget_recovery_rust_core_required/.test(
+        runtimeCodingToolBudgetRecoverySurface,
+      ) &&
+      /runtime_coding_tool_budget_recovery_state_update_input_required/.test(
         runtimeCodingToolBudgetRecoverySurface,
       ) &&
       /coding_tool_budget_recovery_js_facade_retired/.test(
@@ -27794,16 +29788,14 @@ function runCompositor() {
         codingToolBudgetRecoveryResultBlock,
       ) &&
       !/codingToolBudgetRecoveryResult\(\{/.test(runtimeCodingToolBudgetRecoverySurface) &&
-      !/appendRuntimeEvent|requestThreadApproval|decideThreadApproval|planCodingToolBudgetRecoveryStateUpdate|writeRun/.test(
+      !/appendRuntimeEvent|requestThreadApproval|decideThreadApproval/.test(
         runtimeCodingToolBudgetRecoverySurface,
       ),
     [
-      "packages/runtime-daemon/src/runtime-coding-tool-budget-recovery.mjs",
-      "packages/runtime-daemon/src/runtime-coding-tool-budget-recovery.test.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.test.mjs",
     ],
-    "Phase 10/11 is pending: coding-tool budget recovery policy, result, manifest, and retry payload producers must emit canonical snake_case fields without retired camelCase aliases",
+    "Phase 10/11 is pending: coding-tool budget recovery output must come from the Rust-planned retry surface with canonical snake_case fields and without revived JS policy/result producers",
   );
   assertCheck(
     result,
@@ -28234,20 +30226,22 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-subagent-control-js-facade-retired",
-    /runtime_subagent_control_rust_core_required/.test(runtimeSubagentSurface) &&
-      /runtime_subagent_control_js_facade_retired/.test(runtimeSubagentSurface) &&
-      /rust_daemon_core_runtime_subagent_control_required/.test(runtimeSubagentSurface) &&
-      /agentgres_runtime_subagent_truth_required/.test(runtimeSubagentSurface) &&
-      /runtime_subagent_spawn_js_facade_retired/.test(runtimeSubagentSurface) &&
-      /runtime_subagent_input_js_facade_retired/.test(runtimeSubagentSurface) &&
-      /runtime_subagent_resume_js_facade_retired/.test(runtimeSubagentSurface) &&
-      /runtime_subagent_assign_js_facade_retired/.test(runtimeSubagentSurface) &&
-      /runtime_subagent_cancel_js_facade_retired/.test(runtimeSubagentSurface) &&
-      /runtime_subagent_control_event_js_facade_retired/.test(runtimeSubagentSurface) &&
-      /subagent lifecycle mutation facades fail closed before JS truth mutation/.test(
+    runtimeSubagentLifecycleMutationLegacyRemoved &&
+      !/throwRuntimeSubagentRustCoreRequired/.test(runtimeSubagentSurface) &&
+      !/runtime_subagent_control_rust_core_required/.test(runtimeSubagentSurface) &&
+      runtimeSubagentSpawnControlRustOwned &&
+      runtimeSubagentWaitControlRustOwned &&
+      runtimeSubagentInputResumeControlRustOwned &&
+      runtimeSubagentDirectControlRustOwned &&
+      runtimeSubagentDirectControlEventRustOwned &&
+      runtimeSubagentPropagationControlRustOwned &&
+      /subagent lifecycle mutation facades stay retired before JS truth mutation/.test(
         runtimeSubagentSurfaceTest,
       ) &&
-      /subagent control event append facade fails closed before JS runtime event append/.test(
+      /subagent control event append fails closed before JS runtime event append without Rust planning/.test(
+        runtimeSubagentSurfaceTest,
+      ) &&
+      /subagent control event append uses Rust control planning and Agentgres event admission/.test(
         runtimeSubagentSurfaceTest,
       ) &&
       /thread route sends subagent controls through subagent surface/.test(
@@ -28284,7 +30278,7 @@ function runCompositor() {
         runtimeDaemonIndex,
       ) &&
       !/^\s*appendThreadSubagentControlEvent\(\{/m.test(runtimeDaemonIndex) &&
-      /assertRuntimeSubagentControlRustCoreRequired/.test(runtimeSubagentSurfaceTest) &&
+      /assertRuntimeSubagentControlPlanningMissing/.test(runtimeSubagentSurfaceTest) &&
       /assert\.equal\(store\.agents\.size,\s*baseline\.agents\)/.test(
         runtimeSubagentSurfaceTest,
       ) &&
@@ -28317,13 +30311,13 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-subagent-wait-state-update-live-bridge",
-    runtimeSubagentLifecycleMutationLegacyRemoved ||
+    runtimeSubagentWaitControlRustOwned &&
     /SubagentRecordStateUpdateCore/.test(policyCore) &&
       /SubagentRecordStateUpdateRequest/.test(policyCore) &&
       /SUBAGENT_RECORD_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
-      /rust_policy_plans_subagent_record_state_update/.test(policyCore) &&
+      /rust_policy_plans_subagent_record_state_update/.test(policyThreadLifecycleCore) &&
       /rust_policy_rejects_subagent_record_state_update_thread_mismatch/.test(
-        policyCore,
+        policyThreadLifecycleCore,
       ) &&
       /pub fn plan_subagent_record_state_update_response/.test(policyThreadLifecycleCore) &&
       /rust_subagent_record_state_update_command/.test(policyThreadLifecycleCore) &&
@@ -28344,13 +30338,13 @@ function runCompositor() {
       /subagent record state update runner sends Rust state update through direct daemon-core invoker/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
-      /contextPolicyRunner\.planSubagentRecordStateUpdate/.test(
+      /runner\.planSubagentRecordStateUpdate/.test(
         runtimeSubagentSurface,
       ) &&
-      /subagent wait fails closed without Rust-planned subagent record/.test(
+      /subagent direct controls fail closed before Rust read\/control planning/.test(
         runtimeSubagentSurfaceTest,
       ) &&
-      /requiredPlannedSubagentOperationKind\(stateUpdate,\s*"subagent\.wait"/.test(
+      /requiredPlannedSubagentOperationKind\(stateUpdate,\s*operationKind/.test(
         runtimeSubagentSurface,
       ) &&
       !/stateUpdate\.operation_kind \?\? "subagent\.wait"/.test(
@@ -28371,20 +30365,83 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "runtime-subagent-wait-control-rust-owned",
+    runtimeSubagentWaitControlRustOwned,
+    [
+      "crates/services/src/agentic/runtime/kernel/runtime_subagent_control.rs",
+      "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
+      "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
+      "crates/services/src/agentic/runtime/kernel/mod.rs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+    ],
+    "Runtime subagent wait control must be Rust daemon-core planned, Rust Agentgres-admitted as a runtime event, Rust state-planned, and committed through the mounted subagent surface without JS truth mutation fallback",
+  );
+  assertCheck(
+    result,
+    "runtime-subagent-direct-controls-rust-owned",
+    runtimeSubagentDirectControlRustOwned,
+    [
+      "crates/services/src/agentic/runtime/kernel/runtime_subagent_control.rs",
+      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+    ],
+    "Runtime subagent assign/cancel controls must use Rust daemon-core control planning, Rust run-cancel where applicable, Rust state planning, and Agentgres-backed subagent commits without JS truth mutation fallback",
+  );
+  assertCheck(
+    result,
+    "runtime-subagent-direct-control-event-rust-owned",
+    runtimeSubagentDirectControlEventRustOwned,
+    [
+      "crates/services/src/agentic/runtime/kernel/runtime_subagent_control.rs",
+      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+    ],
+    "Runtime subagent direct control-event append must use Rust daemon-core control planning and Rust Agentgres runtime-event admission without JS-authored event fallback or subagent record mutation",
+  );
+  assertCheck(
+    result,
+    "runtime-subagent-cancel-propagation-rust-owned",
+    runtimeSubagentPropagationControlRustOwned,
+    [
+      "crates/services/src/agentic/runtime/kernel/runtime_subagent_control.rs",
+      "crates/services/src/agentic/runtime/kernel/policy/thread_lifecycle.rs",
+      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+    ],
+    "Runtime subagent cancellation propagation must use Rust daemon-core propagated-cancel planning, Rust run-cancel, Rust state planning, and Agentgres-backed subagent commits without JS truth mutation fallback",
+  );
+  assertCheck(
+    result,
+    "runtime-subagent-spawn-control-rust-owned",
+    runtimeSubagentSpawnControlRustOwned,
+    [
+      "crates/services/src/agentic/runtime/kernel/runtime_subagent_control.rs",
+      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+    ],
+    "Runtime subagent spawn must use Rust daemon-core control planning, Rust-owned child agent/run creation, Rust state planning, and Agentgres-backed subagent commits without JS truth mutation fallback",
+  );
+  assertCheck(
+    result,
+    "runtime-subagent-input-resume-controls-rust-owned",
+    runtimeSubagentInputResumeControlRustOwned,
+    [
+      "crates/services/src/agentic/runtime/kernel/runtime_subagent_control.rs",
+      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+    ],
+    "Runtime subagent input/resume controls must use Rust-owned run creation, Rust daemon-core control planning, Rust state planning, and Agentgres-backed subagent commits without JS truth mutation fallback",
+  );
+  assertCheck(
+    result,
     "runtime-subagent-spawn-state-update-live-bridge",
-    runtimeSubagentLifecycleMutationLegacyRemoved ||
-    /planSubagentRecordStateUpdate/.test(runtimeContextPolicyRunner) &&
-      /contextPolicyRunner\.planSubagentRecordStateUpdate/.test(
-        runtimeSubagentSurface,
-      ) &&
-      /subagent spawn fails closed without Rust-planned subagent record/.test(
-        runtimeSubagentSurfaceTest,
-      ) &&
-      /subagent spawn fails closed without Rust-planned operation kind/.test(
-        runtimeSubagentSurfaceTest,
-      ) &&
-      /operation_kind:\s*"subagent\.spawn"/.test(runtimeSubagentSurface) &&
-      /requiredPlannedSubagentOperationKind\(stateUpdate,\s*"subagent\.spawn"/.test(
+    runtimeSubagentSpawnControlRustOwned &&
+      /planSubagentRecordStateUpdate/.test(runtimeContextPolicyRunner) &&
+      /operationKind = "subagent\.spawn"/.test(runtimeSubagentSpawnBlock) &&
+      /requiredPlannedSubagentOperationKind\(stateUpdate,\s*operationKind/.test(
         runtimeSubagentSurface,
       ) &&
       !/stateUpdate\.operation_kind \?\? "subagent\.spawn"/.test(
@@ -28403,16 +30460,10 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-subagent-input-state-update-live-bridge",
-    runtimeSubagentLifecycleMutationLegacyRemoved ||
-    /planSubagentRecordStateUpdate/.test(runtimeContextPolicyRunner) &&
-      /contextPolicyRunner\.planSubagentRecordStateUpdate/.test(
-        runtimeSubagentSurface,
-      ) &&
-      /subagent send input fails closed without Rust-planned subagent record/.test(
-        runtimeSubagentSurfaceTest,
-      ) &&
-      /operation_kind:\s*"subagent\.input"/.test(runtimeSubagentSurface) &&
-      /requiredPlannedSubagentOperationKind\(stateUpdate,\s*"subagent\.input"/.test(
+    runtimeSubagentInputResumeControlRustOwned &&
+      /planSubagentRecordStateUpdate/.test(runtimeContextPolicyRunner) &&
+      /operationKind = "subagent\.input"/.test(runtimeSubagentSendInputBlock) &&
+      /requiredPlannedSubagentOperationKind\(stateUpdate,\s*operationKind/.test(
         runtimeSubagentSurface,
       ) &&
       !/stateUpdate\.operation_kind \?\? "subagent\.input"/.test(
@@ -28431,16 +30482,10 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-subagent-resume-state-update-live-bridge",
-    runtimeSubagentLifecycleMutationLegacyRemoved ||
-    /planSubagentRecordStateUpdate/.test(runtimeContextPolicyRunner) &&
-      /contextPolicyRunner\.planSubagentRecordStateUpdate/.test(
-        runtimeSubagentSurface,
-      ) &&
-      /subagent resume fails closed without Rust-planned subagent record/.test(
-        runtimeSubagentSurfaceTest,
-      ) &&
-      /operation_kind:\s*"subagent\.resume"/.test(runtimeSubagentSurface) &&
-      /requiredPlannedSubagentOperationKind\(stateUpdate,\s*"subagent\.resume"/.test(
+    runtimeSubagentInputResumeControlRustOwned &&
+      /planSubagentRecordStateUpdate/.test(runtimeContextPolicyRunner) &&
+      /operationKind = "subagent\.resume"/.test(runtimeSubagentResumeBlock) &&
+      /requiredPlannedSubagentOperationKind\(stateUpdate,\s*operationKind/.test(
         runtimeSubagentSurface,
       ) &&
       !/stateUpdate\.operation_kind \?\? "subagent\.resume"/.test(
@@ -28484,16 +30529,10 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-subagent-assign-state-update-live-bridge",
-    runtimeSubagentLifecycleMutationLegacyRemoved ||
-    /planSubagentRecordStateUpdate/.test(runtimeContextPolicyRunner) &&
-      /contextPolicyRunner\.planSubagentRecordStateUpdate/.test(
-        runtimeSubagentSurface,
-      ) &&
-      /subagent assign fails closed without Rust-planned subagent record/.test(
-        runtimeSubagentSurfaceTest,
-      ) &&
-      /operation_kind:\s*"subagent\.assign"/.test(runtimeSubagentSurface) &&
-      /requiredPlannedSubagentOperationKind\(stateUpdate,\s*"subagent\.assign"/.test(
+    runtimeSubagentDirectControlRustOwned &&
+      /planSubagentRecordStateUpdate/.test(runtimeContextPolicyRunner) &&
+      /operationKind = "subagent\.assign"/.test(runtimeSubagentAssignBlock) &&
+      /requiredPlannedSubagentOperationKind\(stateUpdate,\s*operationKind/.test(
         runtimeSubagentSurface,
       ) &&
       !/stateUpdate\.operation_kind \?\? "subagent\.assign"/.test(
@@ -28512,16 +30551,10 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-subagent-cancel-state-update-live-bridge",
-    runtimeSubagentLifecycleMutationLegacyRemoved ||
-    /planSubagentRecordStateUpdate/.test(runtimeContextPolicyRunner) &&
-      /contextPolicyRunner\.planSubagentRecordStateUpdate/.test(
-        runtimeSubagentSurface,
-      ) &&
-      /subagent cancel fails closed without Rust-planned subagent record/.test(
-        runtimeSubagentSurfaceTest,
-      ) &&
-      /operation_kind:\s*"subagent\.cancel"/.test(runtimeSubagentSurface) &&
-      /requiredPlannedSubagentOperationKind\(stateUpdate,\s*"subagent\.cancel"/.test(
+    runtimeSubagentDirectControlRustOwned &&
+      /planSubagentRecordStateUpdate/.test(runtimeContextPolicyRunner) &&
+      /operationKind = "subagent\.cancel"/.test(runtimeSubagentCancelBlock) &&
+      /requiredPlannedSubagentOperationKind\(stateUpdate,\s*operationKind/.test(
         runtimeSubagentSurface,
       ) &&
       !/stateUpdate\.operation_kind \?\? "subagent\.cancel"/.test(
@@ -28539,18 +30572,25 @@ function runCompositor() {
   );
   assertCheck(
     result,
-    "runtime-subagent-read-projection-js-facades-retired",
-    runtimeSubagentReadProjectionLegacyRemoved,
+    "runtime-subagent-read-projections-rust-owned",
+    runtimeSubagentReadProjectionRustOwned,
     [
+      "crates/services/src/agentic/runtime/kernel/runtime_subagent_projection.rs",
+      "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
+      "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
+      "crates/services/src/agentic/runtime/kernel/mod.rs",
+      "packages/runtime-daemon/src/index.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
       "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
       "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
     ],
-    "Phase 10/11 is pending: runtime subagent list/get/result JS read projections must fail closed before JS subagent map and run map reads",
+    "Runtime subagent list/get/result projections must be Rust daemon-core projected through the mounted subagent surface and must fail closed before JS subagent/run map readback when Rust projection is missing",
   );
   assertCheck(
     result,
     "runtime-subagent-list-propagation-envelope-aliases-retired",
-    runtimeSubagentReadProjectionLegacyRemoved ||
+    runtimeSubagentReadProjectionRustOwned ||
     runtimeSubagentListEnvelopeBlock.length > 0 &&
       !runtimeSubagentListEnvelopeAliasPattern.test(runtimeSubagentListEnvelopeBlock) &&
       /runtime_subagent_cancel_propagation_js_facade_retired/.test(
@@ -28575,7 +30615,7 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-subagent-list-request-aliases-retired",
-    runtimeSubagentReadProjectionLegacyRemoved ||
+    runtimeSubagentReadProjectionRustOwned ||
     runtimeSubagentListEnvelopeBlock.length > 0 &&
       !runtimeSubagentListRequestAliasReadPattern.test(
         runtimeSubagentListEnvelopeBlock,
@@ -28593,7 +30633,7 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-subagent-list-lookup-record-aliases-retired",
-    runtimeSubagentReadProjectionLegacyRemoved ||
+    runtimeSubagentReadProjectionRustOwned ||
     runtimeSubagentListEnvelopeBlock.length > 0 &&
       runtimeSubagentGetBlock.length > 0 &&
       !runtimeSubagentListLookupRecordAliasReadPattern.test(
@@ -30531,7 +32571,7 @@ function runCompositor() {
     /function listWorkspaceSnapshots\(store, threadId\)/.test(runtimeWorkspaceSnapshotSurface) &&
       /workspaceRestoreRunner\.listSnapshots\(\{/.test(runtimeWorkspaceSnapshotSurface) &&
       /thread_id:\s*threadId/.test(runtimeWorkspaceSnapshotSurface) &&
-      /workspace snapshot surface calls Rust list projection and fails closed before JS snapshot event append/.test(
+      /workspace snapshot surface calls Rust list projection and rejects missing Rust snapshot event/.test(
         runtimeWorkspaceSnapshotSurfaceTest,
       ) &&
       /runnerCalls,\s*\[\{\s*thread_id:\s*"thread_alpha"\s*\}\]/.test(
@@ -30582,17 +32622,31 @@ function runCompositor() {
 	    result,
 	    "workspace-snapshot-artifact-output-aliases-retired",
 	    /workspace_snapshot_artifact_js_materializer_retired/.test(runtimeWorkspaceSnapshotSurface) &&
-	      /workspace_restore_artifact_js_materializer_retired/.test(runtimeWorkspaceSnapshotSurface) &&
-	      /workspace snapshot surface fails closed before JS restore artifact and event mutation/.test(
+	      /WORKSPACE_SNAPSHOT_ARTIFACT_SCHEMA_VERSION/.test(workspaceRestoreKernel) &&
+	      /snapshot_artifact:\s*objectRecord\(result\.snapshot_artifact\) \?\? null/.test(workspaceRestoreRunner) &&
+	      /commitWorkspaceSnapshotArtifact/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /snapshot_artifact_commit/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /runtime_workspace_snapshot_artifact_admission_invalid/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /rust_daemon_core_workspace_snapshot_artifact_required/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /agentgres_workspace_snapshot_artifact_truth_required/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /"artifact\.workspace_snapshot"/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
+	      /commitWorkspaceRestoreArtifact/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /restore_preview_artifact/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /restore_apply_artifact/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /runtime_workspace_restore_artifact_admission_invalid/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /rust_daemon_core_workspace_restore_artifact_required/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /agentgres_workspace_restore_artifact_truth_required/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /workspace_restore_artifact_js_materializer_retired/.test(workspaceRestoreKernel) &&
+	      /workspace snapshot surface commits Rust restore artifacts and admits Rust restore events/.test(
 	        runtimeWorkspaceSnapshotSurfaceTest,
 	      ) &&
-	      /assertWorkspaceSnapshotRustCoreRequired\(error,\s*"artifact\.restore-preview"\)/.test(
+	      /"artifact\.workspace_restore_preview",\s*"artifact\.workspace_restore_apply"/.test(
 	        runtimeWorkspaceSnapshotSurfaceTest,
 	      ) &&
 	      !/function materializeWorkspaceSnapshotArtifact(?:(?!\n  function appendWorkspaceSnapshotEvent)[\s\S])*?\b(?:schemaVersion|threadId|toolName|toolCallId|workspaceRoot|mediaType|receiptId|contentBytes|contentHash|createdAt)\s*:/.test(
         runtimeWorkspaceSnapshotSurface,
       ) &&
-      !/function materializeWorkspaceRestoreArtifact(?:(?!\n  function appendWorkspaceRestorePreviewEvent)[\s\S])*?\b(?:schemaVersion|threadId|toolName|toolCallId|workspaceRoot|mediaType|receiptId|contentBytes|contentHash|createdAt)\s*:/.test(
+      !/function commitWorkspaceRestoreArtifact(?:(?!\n  function appendWorkspaceRestorePreviewEvent)[\s\S])*?\b(?:schemaVersion|threadId|toolName|toolCallId|workspaceRoot|mediaType|receiptId|contentBytes|contentHash|createdAt)\s*:/.test(
         runtimeWorkspaceSnapshotSurface,
       ),
     [
@@ -30650,11 +32704,18 @@ function runCompositor() {
 	        runtimeWorkspaceSnapshotSurfaceTest,
 	      ) &&
 	      /workspace_snapshot_event_js_append_retired/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /admitWorkspaceSnapshotEvent/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /runtime_workspace_snapshot_event_admission_invalid/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /rust_daemon_core_workspace_snapshot_event_required/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /agentgres_workspace_snapshot_event_truth_required/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /idempotency_key:\s*optionalString\(event\.idempotency_key\) \?\? null/.test(workspaceRestoreRunner) &&
+	      /snapshot_artifact:\s*objectRecord\(event\.snapshot_artifact\) \?\? null/.test(workspaceRestoreRunner) &&
+	      /event_workspace_snapshot_captured/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
 	      !/appendWorkspaceSnapshotEvent/.test(runtimeCodingToolInvocationSurface) &&
 	      /assert\.ok\(!store\.calls\.some\(\(call\) => call\.name === "appendSnapshotEvent"\)\)/.test(
 	        runtimeCodingToolInvocationSurfaceTest,
 	      ) &&
-	      /workspace snapshot surface calls Rust list projection and fails closed before JS snapshot event append/.test(
+	      /workspace snapshot surface calls Rust list projection and rejects missing Rust snapshot event/.test(
 	        runtimeWorkspaceSnapshotSurfaceTest,
 	      ) &&
       !/function appendWorkspaceSnapshotEvent(?:(?!\n  function listWorkspaceSnapshots)[\s\S])*?\bsnapshot\.(?:snapshotId|snapshotHash|snapshotKind|fileCount|changedFileCount|createdFileCount|deletedFileCount|receiptRefs|artifactRefs)\b/.test(
@@ -30680,9 +32741,18 @@ function runCompositor() {
 	    /preview_status: "ready"/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
 	      /apply_status: "blocked"/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
 	      /policy_decision_refs: \["policy_apply"\]/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
-	      /workspace_restore_preview_event_js_append_retired/.test(runtimeWorkspaceSnapshotSurface) &&
-	      /workspace_restore_apply_event_js_append_retired/.test(runtimeWorkspaceSnapshotSurface) &&
-	      /workspace snapshot surface fails closed before JS restore artifact and event mutation/.test(
+	      /admitWorkspaceRestoreEvent/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /runtimeThreadEventAdmissionForThread/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /restore_preview_event/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /restore_apply_event/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /runtime_workspace_restore_event_admission_invalid/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /rust_daemon_core_workspace_restore_event_required/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /agentgres_workspace_restore_event_truth_required/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /workspace_restore_event_js_append_retired/.test(workspaceRestoreKernel) &&
+	      /workspace snapshot surface commits Rust restore artifacts and admits Rust restore events/.test(
+	        runtimeWorkspaceSnapshotSurfaceTest,
+	      ) &&
+	      /"event_workspace_restore_preview",\s*"event_workspace_restore_apply"/.test(
 	        runtimeWorkspaceSnapshotSurfaceTest,
 	      ) &&
       !/function appendWorkspaceRestorePreviewEvent(?:(?!\n  function appendWorkspaceRestoreApplyEvent)[\s\S])*?\b(?:preview|apply)\.(?:snapshotId|previewStatus|applyStatus|artifactRefs|receiptRefs|rollbackRefs|policyDecisionRefs|idempotencyKey)\b/.test(
@@ -30718,6 +32788,11 @@ function runCompositor() {
 	      /rust_core_shapes_workspace_snapshot_restore_preview_and_apply_responses/.test(
 	        workspaceRestoreKernel,
 	      ) &&
+	      /restore_preview_artifact/.test(workspaceRestoreRunner) &&
+	      /restore_apply_artifact/.test(workspaceRestoreRunner) &&
+	      /restore_preview_artifact_commit/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /restore_apply_artifact_commit/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /runtimeThreadEventAdmissionForThread:\s*\(store,\s*request = \{\}\) =>/.test(runtimeDaemonIndex) &&
 	      /preview_workspace_snapshot_restore/.test(workspaceRestoreRunner) &&
 	      /apply_workspace_snapshot_restore/.test(workspaceRestoreRunner) &&
 	      !workspaceRestoreResultAliasPattern.test(previewWorkspaceSnapshotRestoreBody) &&
@@ -30812,32 +32887,116 @@ function runCompositor() {
   );
   assertCheck(
     result,
-    "managed-session-envelope-aliases-retired",
-    /runtime_managed_session_control_rust_core_required/.test(managedSessionInspectionStateBlock) &&
+    "runtime-managed-session-control-rust-owned",
+    /runtime_managed_session_projection_rust_owned/.test(managedSessionState) &&
+      /runtime_managed_session_control_rust_owned/.test(managedSessionState) &&
+      /runtime_managed_session_control_event_rust_owned/.test(managedSessionState) &&
       /managed_session_inspection_js_facade_retired/.test(managedSessionState) &&
-      /managed_session_inspection_bridge_projection_retired/.test(managedSessionState) &&
-      /rust_daemon_core_managed_session_projection_required/.test(managedSessionState) &&
-      /agentgres_managed_session_truth_required/.test(managedSessionState) &&
-      /runtime_managed_session_control_rust_core_required/.test(managedSessionState) &&
       /managed_session_control_js_facade_retired/.test(managedSessionState) &&
-      /managed_session_control_bridge_dispatch_retired/.test(managedSessionState) &&
-      /managed_session_control_result_envelope_js_retired/.test(managedSessionState) &&
-      /rust_daemon_core_managed_session_control_required/.test(managedSessionState) &&
       /agentgres_managed_session_truth_required/.test(managedSessionState) &&
+      /runtime_managed_session_projection_rust_core_required/.test(managedSessionState) &&
+      /managedSessionProjectionRunner/.test(managedSessionState) &&
+      /managedSessionControlRunner/.test(managedSessionState) &&
+      /managedSessionCandidatesForThread/.test(managedSessionState) &&
+      /projectRuntimeManagedSessionProjection/.test(managedSessionState) &&
+      /planRuntimeManagedSessionControl/.test(managedSessionState) &&
+      /store\.appendRuntimeEvent\(event\)/.test(managedSessionState) &&
+      /assertManagedSessionProjectionResult/.test(managedSessionState) &&
+      /assertManagedSessionControlPlan/.test(managedSessionState) &&
+      /managed_session\.inspect/.test(managedSessionState) &&
+      /managed_session\.control/.test(managedSessionState) &&
+      /projectRuntimeManagedSessionProjection\(request/.test(runtimeContextPolicyRunner) &&
+      /planRuntimeManagedSessionControl\(request/.test(runtimeContextPolicyRunner) &&
+      /project_runtime_managed_session_projection/.test(runtimeContextPolicyRunner) &&
+      /plan_runtime_managed_session_control/.test(runtimeContextPolicyRunner) &&
+      /RUNTIME_MANAGED_SESSION_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
+        runtimeContextPolicyRunner,
+      ) &&
+      /RUNTIME_MANAGED_SESSION_CONTROL_REQUEST_SCHEMA_VERSION/.test(
+        runtimeContextPolicyRunner,
+      ) &&
+      /normalizeRuntimeManagedSessionProjectionBridgeResult/.test(
+        runtimeContextPolicyRunner,
+      ) &&
+      /normalizeRuntimeManagedSessionControlBridgeResult/.test(
+        runtimeContextPolicyRunner,
+      ) &&
+      /runtime managed-session projection runner sends Rust daemon-core request/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /runtime managed-session control runner sends Rust daemon-core request/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /pub struct RuntimeManagedSessionProjectionCore;/.test(
+        runtimeManagedSessionControlCore,
+      ) &&
+      /pub struct RuntimeManagedSessionControlCore;/.test(
+        runtimeManagedSessionControlCore,
+      ) &&
+      /pub fn project_runtime_managed_session_projection_response/.test(
+        runtimeManagedSessionControlCore,
+      ) &&
+      /pub fn plan_runtime_managed_session_control_response/.test(
+        runtimeManagedSessionControlCore,
+      ) &&
+      /rust_projects_managed_session_inspection/.test(
+        runtimeManagedSessionControlCore,
+      ) &&
+      /rust_plans_managed_session_control_event/.test(
+        runtimeManagedSessionControlCore,
+      ) &&
+      /rust_rejects_unowned_managed_session_control_state/.test(
+        runtimeManagedSessionControlCore,
+      ) &&
+      /rust_rejects_retired_managed_session_control_action_alias/.test(
+        runtimeManagedSessionControlCore,
+      ) &&
+      !/pub action:|request\.action|string_field\(&request\.request,\s*"action"\)/.test(
+        runtimeManagedSessionControlCore,
+      ) &&
+      /ProjectRuntimeManagedSessionProjection/.test(commandProtocolCoreForCompositor) &&
+      /PlanRuntimeManagedSessionControl/.test(commandProtocolCoreForCompositor) &&
+      /"project_runtime_managed_session_projection"/.test(
+        commandProtocolCoreForCompositor,
+      ) &&
+      /"plan_runtime_managed_session_control"/.test(
+        commandProtocolCoreForCompositor,
+      ) &&
+      /CommandOperation::ProjectRuntimeManagedSessionProjection/.test(
+        coreCommandDispatchForCompositor,
+      ) &&
+      /CommandOperation::PlanRuntimeManagedSessionControl/.test(
+        coreCommandDispatchForCompositor,
+      ) &&
+      /project_runtime_managed_session_projection_response/.test(
+        coreCommandDispatchForCompositor,
+      ) &&
+      /plan_runtime_managed_session_control_response/.test(
+        coreCommandDispatchForCompositor,
+      ) &&
+      /pub mod runtime_managed_session_control;/.test(kernelModuleForCompositor) &&
       !exists("packages/runtime-daemon/src/managed-session-inspection.mjs") &&
       !exists("packages/runtime-daemon/src/managed-session-inspection.test.mjs") &&
-      /managed session thread inspection fails closed for fixture threads before JS fallback projection/.test(
+      /managed session inspection returns Rust daemon-core projection without JS bridge readback/.test(
         managedSessionStateTest,
       ) &&
-      /managed session thread inspection fails closed before JS bridge projection/.test(
+      /managed session inspection fails closed before JS fallback projection when Rust projector is missing/.test(
         managedSessionStateTest,
       ) &&
-      /managed session thread inspection fails closed before retired request alias handling/.test(
+      /managed session control uses Rust planning and runtime event admission/.test(
         managedSessionStateTest,
       ) &&
-      /assertManagedSessionInspectionRustCoreRequired/.test(managedSessionStateTest) &&
-      /assertManagedSessionControlRustCoreRequired/.test(managedSessionStateTest) &&
-      /managed session control facade fails closed before JS bridge dispatch or result envelope/.test(
+      /managed session control fails closed before Rust planning or event append when planner is missing/.test(
+        managedSessionStateTest,
+      ) &&
+      /managed session control ignores retired request aliases before Rust planning/.test(
+        managedSessionStateTest,
+      ) &&
+      /assertNoRetiredManagedSessionDetailAliases/.test(managedSessionStateTest) &&
+      !/managed session thread inspection fails closed for fixture threads before JS fallback projection/.test(
+        managedSessionStateTest,
+      ) &&
+      !/managed session control facade fails closed before JS bridge dispatch or result envelope/.test(
         managedSessionStateTest,
       ) &&
       /createRuntimeThreadAuxiliarySurface/.test(runtimeThreadAuxiliarySurface) &&
@@ -30868,57 +33027,156 @@ function runCompositor() {
       !/store\.(?:inspectManagedSessionsForThread|controlManagedSessionForThread)\(threadId,/.test(
         runtimeRouteHandlers,
       ) &&
-      /assert\.deepEqual\(store\.calls,\s*\[\]\)/.test(managedSessionStateTest) &&
       !/details:\s*\{\s*threadId\s*(?:,|:)/.test(managedSessionState) &&
       !/^\s*(?:threadId|sessionId|managedSessions|managedSessionId)\s*:/m.test(
         managedSessionState,
       ) &&
       !/retiredManagedSessionInspectionAliases/.test(managedSessionState) &&
       !/retiredManagedSessionControlAliases/.test(managedSessionState) &&
+      !/managed_session_inspection_bridge_projection_retired|rust_daemon_core_managed_session_projection_required|managed_session_control_bridge_dispatch_retired|managed_session_control_result_envelope_js_retired|rust_daemon_core_managed_session_control_required/.test(
+        managedSessionState,
+      ) &&
       !/store\.agentForThread|agentForThread\(|store\.assertRuntimeBridgeAvailable|runtimeBridge\.inspectThread|store\.runtimeBridge\.controlThread|runtimeBridge\.controlThread|request_hash:|managed_session_id:\s*managedSessionId|schema_version:\s*"ioi\.runtime\.managed-session-control\.daemon\.v1"/.test(
+        managedSessionState,
+      ) &&
+      !/\b(?:request|normalizedRequest)\.(?:threadId|sessionId|managedSessionId|action|createdAt|requestHash)\b/.test(
         managedSessionState,
       ),
     [
       "packages/runtime-daemon/src/threads/managed-session-state.mjs",
       "packages/runtime-daemon/src/threads/managed-session-state.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "crates/services/src/agentic/runtime/kernel/runtime_managed_session_control.rs",
+      "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
+      "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
       "packages/runtime-daemon/src/runtime-thread-auxiliary-surface.mjs",
       "packages/runtime-daemon/src/index.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
     ],
-    "Phase 10/11 is pending: managed-session inspection/control facades must fail closed before JS bridge projection or control dispatch",
+    "Phase 10/11 is pending: managed-session inspection/control must use Rust daemon-core projection/planning and runtime-event admission without JS bridge fallback",
   );
   assertCheck(
     result,
-    "workspace-change-review-aliases-retired",
-    /runtime_workspace_change_control_rust_core_required/.test(workspaceChangeInspectionStateBlock) &&
+    "runtime-workspace-change-control-rust-owned",
+    /RuntimeWorkspaceChangeProjectionCore/.test(runtimeWorkspaceChangeControlCore) &&
+      /RuntimeWorkspaceChangeControlCore/.test(runtimeWorkspaceChangeControlCore) &&
+      /RUNTIME_WORKSPACE_CHANGE_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
+        runtimeWorkspaceChangeControlCore,
+      ) &&
+      /RUNTIME_WORKSPACE_CHANGE_CONTROL_REQUEST_SCHEMA_VERSION/.test(
+        runtimeWorkspaceChangeControlCore,
+      ) &&
+      /pub fn project_runtime_workspace_change_projection_response/.test(
+        runtimeWorkspaceChangeControlCore,
+      ) &&
+      /pub fn plan_runtime_workspace_change_control_response/.test(
+        runtimeWorkspaceChangeControlCore,
+      ) &&
+      /rust_runtime_workspace_change_projection_command/.test(
+        runtimeWorkspaceChangeControlCore,
+      ) &&
+      /rust_runtime_workspace_change_control_command/.test(
+        runtimeWorkspaceChangeControlCore,
+      ) &&
+      /OperatorControl\.WorkspaceChangeControl/.test(runtimeWorkspaceChangeControlCore) &&
+      /workspace_change\.controlled/.test(runtimeWorkspaceChangeControlCore) &&
+      /runtime_workspace_change_control_event_rust_owned/.test(
+        runtimeWorkspaceChangeControlCore,
+      ) &&
+      /rust_projects_workspace_change_inspection/.test(runtimeWorkspaceChangeControlCore) &&
+      /rust_plans_workspace_change_control_event/.test(runtimeWorkspaceChangeControlCore) &&
+      /rust_rejects_retired_workspace_change_control_action_alias/.test(
+        runtimeWorkspaceChangeControlCore,
+      ) &&
+      /project_runtime_workspace_change_projection/.test(commandProtocolCoreForCompositor) &&
+      /plan_runtime_workspace_change_control/.test(commandProtocolCoreForCompositor) &&
+      /CommandOperation::ProjectRuntimeWorkspaceChangeProjection/.test(
+        commandProtocolCoreForCompositor,
+      ) &&
+      /CommandOperation::PlanRuntimeWorkspaceChangeControl/.test(
+        commandProtocolCoreForCompositor,
+      ) &&
+      /CommandOperation::ProjectRuntimeWorkspaceChangeProjection/.test(
+        coreCommandDispatchForCompositor,
+      ) &&
+      /CommandOperation::PlanRuntimeWorkspaceChangeControl/.test(
+        coreCommandDispatchForCompositor,
+      ) &&
+      /project_runtime_workspace_change_projection_response/.test(
+        coreCommandDispatchForCompositor,
+      ) &&
+      /plan_runtime_workspace_change_control_response/.test(
+        coreCommandDispatchForCompositor,
+      ) &&
+      /command_error_from!\(RuntimeWorkspaceChangeCommandError\)/.test(
+        coreCommandDispatchForCompositor,
+      ) &&
+      /projectRuntimeWorkspaceChangeProjection/.test(runtimeContextPolicyRunner) &&
+      /planRuntimeWorkspaceChangeControl/.test(runtimeContextPolicyRunner) &&
+      /RUNTIME_WORKSPACE_CHANGE_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
+        runtimeContextPolicyRunner,
+      ) &&
+      /RUNTIME_WORKSPACE_CHANGE_CONTROL_REQUEST_SCHEMA_VERSION/.test(
+        runtimeContextPolicyRunner,
+      ) &&
+      /normalizeRuntimeWorkspaceChangeProjectionBridgeResult/.test(
+        runtimeContextPolicyRunner,
+      ) &&
+      /normalizeRuntimeWorkspaceChangeControlBridgeResult/.test(
+        runtimeContextPolicyRunner,
+      ) &&
+      /expectedOperationKind:\s*"workspace_change\.inspect"/.test(
+        runtimeContextPolicyRunner,
+      ) &&
+      /expectedOperationKind:\s*"workspace_change\.control"/.test(
+        runtimeContextPolicyRunner,
+      ) &&
+      /runtime workspace-change projection runner sends Rust daemon-core request/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /runtime workspace-change control runner sends Rust daemon-core request/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /runtime_workspace_change_control_event_missing/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /runtime_workspace_change_projection_rust_core_required/.test(
+        workspaceChangeState,
+      ) &&
+      /projectRuntimeWorkspaceChangeProjection/.test(workspaceChangeState) &&
+      /planRuntimeWorkspaceChangeControl/.test(workspaceChangeState) &&
+      /store\.appendRuntimeEvent\(event\)/.test(workspaceChangeState) &&
       /workspace_change_inspection_js_facade_retired/.test(workspaceChangeState) &&
-      /workspace_change_inspection_bridge_projection_retired/.test(workspaceChangeState) &&
-      /rust_daemon_core_workspace_change_projection_required/.test(workspaceChangeState) &&
-      /agentgres_workspace_change_truth_required/.test(workspaceChangeState) &&
+      /runtime_workspace_change_projection_rust_owned/.test(workspaceChangeState) &&
       /runtime_workspace_change_control_rust_core_required/.test(workspaceChangeState) &&
+      /runtime_workspace_change_control_rust_owned/.test(workspaceChangeState) &&
+      /runtime_workspace_change_control_event_rust_owned/.test(workspaceChangeState) &&
       /workspace_change_control_js_facade_retired/.test(workspaceChangeState) &&
-      /workspace_change_control_bridge_dispatch_retired/.test(workspaceChangeState) &&
-      /workspace_change_control_receipt_synthesis_js_retired/.test(workspaceChangeState) &&
-      /rust_daemon_core_workspace_change_control_required/.test(workspaceChangeState) &&
       /agentgres_workspace_change_truth_required/.test(workspaceChangeState) &&
+      !/workspace_change_inspection_bridge_projection_retired|rust_daemon_core_workspace_change_projection_required|workspace_change_control_bridge_dispatch_retired|workspace_change_control_receipt_synthesis_js_retired|rust_daemon_core_workspace_change_control_required/.test(
+        workspaceChangeState,
+      ) &&
       !/WORKSPACE_CHANGE_CONTROL_TOOL_IDS/.test(runtimeDaemonIndex) &&
       !/workspace_change__accept|workspace_change__reject|workspace_change__rollback/.test(
         runtimeDaemonIndex,
       ) &&
       !exists("packages/runtime-daemon/src/workspace-change-inspection.mjs") &&
       !exists("packages/runtime-daemon/src/workspace-change-inspection.test.mjs") &&
-      /workspace change inspection fails closed for fixture threads before JS fallback projection/.test(
+      /workspace change inspection returns Rust daemon-core projection without JS bridge readback/.test(
         workspaceChangeStateTest,
       ) &&
-      /workspace change inspection fails closed before JS bridge projection/.test(
+      /workspace change inspection fails closed before JS fallback projection when Rust projector is missing/.test(
         workspaceChangeStateTest,
       ) &&
-      /workspace change inspection fails closed before retired request alias handling/.test(
+      /workspace change control uses Rust planning and runtime event admission/.test(
         workspaceChangeStateTest,
       ) &&
-      /assertWorkspaceChangeInspectionRustCoreRequired/.test(workspaceChangeStateTest) &&
-      /workspace change control facade fails closed before JS bridge dispatch or result envelope/.test(
+      /workspace change control fails closed before Rust planning or event append when planner is missing/.test(
+        workspaceChangeStateTest,
+      ) &&
+      /workspace change control ignores retired request aliases before Rust planning/.test(
         workspaceChangeStateTest,
       ) &&
       /createRuntimeThreadAuxiliarySurface/.test(runtimeThreadAuxiliarySurface) &&
@@ -30946,9 +33204,6 @@ function runCompositor() {
       !/store\.inspectWorkspaceChangeReviewsForThread\(threadId,/.test(
         runtimeRouteHandlers,
       ) &&
-      /assertWorkspaceChangeControlRustCoreRequired/.test(
-        workspaceChangeStateTest,
-      ) &&
       /assert\.deepEqual\(store\.calls,\s*\[\]\)/.test(
         workspaceChangeStateTest,
       ) &&
@@ -30960,7 +33215,7 @@ function runCompositor() {
       ) &&
       !/retiredWorkspaceChangeInspectionAliases/.test(workspaceChangeState) &&
       !/retiredWorkspaceChangeControlAliases/.test(workspaceChangeState) &&
-      !/store\.agentForThread|agentForThread\(|store\.assertRuntimeBridgeAvailable|runtimeBridge\.inspectThread|store\.runtimeBridge\.controlThread|runtimeBridge\.controlThread|request_hash:|receipt_workspace_change|schema_version:\s*"ioi\.runtime\.workspace-change-control\.daemon\.v1"/.test(
+      !/store\.agentForThread|agentForThread\(|store\.assertRuntimeBridgeAvailable|runtimeBridge\.inspectThread|store\.runtimeBridge\.controlThread|runtimeBridge\.controlThread|request_hash:|schema_version:\s*"ioi\.runtime\.workspace-change-control\.daemon\.v1"/.test(
         workspaceChangeState,
       ) &&
       !/\b(?:request|input)\.(?:toolId|createdAt|requestHash|workspaceChangeId)\b/.test(
@@ -30972,12 +33227,94 @@ function runCompositor() {
     [
       "packages/runtime-daemon/src/threads/workspace-change-state.mjs",
       "packages/runtime-daemon/src/threads/workspace-change-state.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "crates/services/src/agentic/runtime/kernel/runtime_workspace_change_control.rs",
+      "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
+      "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
       "packages/runtime-daemon/src/runtime-thread-auxiliary-surface.mjs",
       "packages/runtime-daemon/src/index.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
     ],
-    "Phase 10/11 is pending: workspace-change review/control facades must fail closed before JS bridge projection or control dispatch",
+    "Phase 10/11 is pending: workspace-change review/control must use Rust daemon-core projection/planning and runtime-event admission without JS bridge fallback",
+  );
+  assertCheck(
+    result,
+    "runtime-thread-fork-control-compositor-rust-owned",
+    /RuntimeThreadForkControlCore/.test(runtimeThreadForkControlCore) &&
+      /RUNTIME_THREAD_FORK_CONTROL_REQUEST_SCHEMA_VERSION/.test(
+        runtimeThreadForkControlCore,
+      ) &&
+      /pub fn plan_runtime_thread_fork_control_response/.test(
+        runtimeThreadForkControlCore,
+      ) &&
+      /rust_runtime_thread_fork_control_command/.test(
+        runtimeThreadForkControlCore,
+      ) &&
+      /OperatorControl\.ThreadFork/.test(runtimeThreadForkControlCore) &&
+      /thread\.forked/.test(runtimeThreadForkControlCore) &&
+      /runtime_thread_fork_control_rust_owned/.test(runtimeThreadForkControlCore) &&
+      /runtime_thread_fork_event_rust_owned/.test(runtimeThreadForkControlCore) &&
+      /PlanRuntimeThreadForkControl/.test(commandProtocolCoreForCompositor) &&
+      /"plan_runtime_thread_fork_control"/.test(commandProtocolCoreForCompositor) &&
+      /CommandOperation::PlanRuntimeThreadForkControl/.test(
+        coreCommandDispatchForCompositor,
+      ) &&
+      /plan_runtime_thread_fork_control_response/.test(
+        coreCommandDispatchForCompositor,
+      ) &&
+      /command_error_from!\(RuntimeThreadForkCommandError\)/.test(
+        coreCommandDispatchForCompositor,
+      ) &&
+      /pub mod runtime_thread_fork_control;/.test(kernelModuleForCompositor) &&
+      /planRuntimeThreadForkControl/.test(runtimeContextPolicyRunner) &&
+      /RUNTIME_THREAD_FORK_CONTROL_REQUEST_SCHEMA_VERSION/.test(
+        runtimeContextPolicyRunner,
+      ) &&
+      /normalizeRuntimeThreadForkControlBridgeResult/.test(
+        runtimeContextPolicyRunner,
+      ) &&
+      /runtime thread-fork control runner sends Rust daemon-core request/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /threadForkRunner/.test(runtimeThreadForkState) &&
+      /planRuntimeThreadForkControl/.test(runtimeThreadForkState) &&
+      /store\.writeAgent\(agent,\s*planned\.operation_kind\)/.test(
+        runtimeThreadForkState,
+      ) &&
+      /store\.appendRuntimeEvent\(event\)/.test(runtimeThreadForkState) &&
+      /assertThreadForkProjection/.test(runtimeThreadForkState) &&
+      /runtime_thread_fork_control_rust_owned/.test(runtimeThreadForkState) &&
+      /runtime_thread_fork_event_rust_owned/.test(runtimeThreadForkState) &&
+      /runtime_thread_fork_js_facade_retired/.test(runtimeThreadForkState) &&
+      /agentgres_thread_fork_state_truth_required/.test(runtimeThreadForkState) &&
+      /thread fork uses Rust planning, Agentgres write, runtime-event admission, and Rust projection/.test(
+        runtimeThreadForkStateTest,
+      ) &&
+      /thread fork fails closed before source lookup when Rust planner is absent/.test(
+        runtimeThreadForkStateTest,
+      ) &&
+      !/store\.createAgent\(/.test(runtimeThreadForkState) &&
+      !/store\.runtimeEventStream\(/.test(runtimeThreadForkState) &&
+      !/rust_daemon_core_thread_fork_required/.test(runtimeThreadForkState) &&
+      /await store\.threadAuxiliarySurface\.forkThread\(store, threadId,/.test(
+        runtimeRouteHandlers,
+      ) &&
+      !/store\.forkThread\(threadId,/.test(runtimeRouteHandlers),
+    [
+      "crates/services/src/agentic/runtime/kernel/runtime_thread_fork_control.rs",
+      "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
+      "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
+      "crates/services/src/agentic/runtime/kernel/mod.rs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/threads/thread-fork-state.mjs",
+      "packages/runtime-daemon/src/threads/thread-fork-state.test.mjs",
+      "packages/runtime-daemon/src/runtime-thread-auxiliary-surface.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.mjs",
+    ],
+    "Runtime thread-fork control must be owned by Rust daemon-core planning with Rust-authored Agentgres state, event admission, and projection; JS may remain only as the protocol commit client",
   );
   assertCheck(
     result,
@@ -31110,29 +33447,252 @@ function runCompositor() {
     ],
     "Phase 10/11 is pending: workspace-trust warning and acknowledgement controls must be Rust-planned, Rust event-admitted, replay-bound, and guarded against the retired JS payload path",
   );
+  const runtimeDiagnosticsRepairControlRustOwned =
+    /runtime_diagnostics_repair_control_rust_core_required/.test(runtimeDiagnosticsRepairSurface) &&
+    /rust_core_boundary:\s*"runtime\.diagnostics_repair"/.test(
+      runtimeDiagnosticsRepairSurface,
+    ) &&
+    /diagnosticsRepairControlRunner/.test(runtimeDiagnosticsRepairSurface) &&
+    /planDiagnosticsRepairControlEvent/.test(runtimeDiagnosticsRepairSurface) &&
+    /appendPlannedDiagnosticsRepairControlEvent/.test(runtimeDiagnosticsRepairSurface) &&
+    /planRuntimeDiagnosticsRepairControl/.test(runtimeDiagnosticsRepairSurface) &&
+    /store\.appendRuntimeEvent\(event\)/.test(runtimeDiagnosticsRepairSurface) &&
+    /runtime_diagnostics_repair_decision_execution_rust_owned/.test(
+      runtimeDiagnosticsRepairSurface,
+    ) &&
+    /runtime_diagnostics_repair_decision_event_rust_owned/.test(
+      runtimeDiagnosticsRepairSurface,
+    ) &&
+    /runtime_diagnostics_repair_retry_event_rust_owned/.test(
+      runtimeDiagnosticsRepairSurface,
+    ) &&
+    /runtime_diagnostics_operator_override_event_rust_owned/.test(
+      runtimeDiagnosticsRepairSurface,
+    ) &&
+    /runtime_diagnostics_repair_control_event_rust_owned/.test(
+      runtimeDiagnosticsRepairSurface,
+    ) &&
+    /agentgres_runtime_thread_event_truth_required/.test(runtimeDiagnosticsRepairSurface) &&
+    /diagnostics_repair_retry_run_create_rust_owned/.test(
+      runtimeDiagnosticsRepairSurface,
+    ) &&
+    /runtime_run_create_js_facade_retired/.test(runtimeDiagnosticsRepairSurface) &&
+    /agentgres_run_create_state_truth_required/.test(runtimeDiagnosticsRepairSurface) &&
+    /agentRunLifecycleSurface/.test(runtimeDiagnosticsRepairSurface) &&
+    /runCreateSurface\.createRun\(store,\s*agentId,/.test(runtimeDiagnosticsRepairSurface) &&
+    /diagnosticsRepairRetryResultFromEvent/.test(runtimeDiagnosticsRepairSurface) &&
+    /diagnostics\.repair_retry\.created/.test(runtimeDiagnosticsRepairSurface) &&
+    /diagnostics\.operator_override\.event/.test(runtimeDiagnosticsRepairSurface) &&
+    /RuntimeDiagnosticsRepairControlCore/.test(runtimeDiagnosticsRepairControlCore) &&
+    /RUNTIME_DIAGNOSTICS_REPAIR_CONTROL_REQUEST_SCHEMA_VERSION/.test(
+      runtimeDiagnosticsRepairControlCore,
+    ) &&
+    /diagnostics\.repair_retry\.created/.test(runtimeDiagnosticsRepairControlCore) &&
+    /DiagnosticsRepair\.RetryCreated/.test(runtimeDiagnosticsRepairControlCore) &&
+    /diagnostics\.operator_override\.event/.test(runtimeDiagnosticsRepairControlCore) &&
+    /DiagnosticsRepair\.OperatorOverride/.test(runtimeDiagnosticsRepairControlCore) &&
+    /rust_plans_runtime_diagnostics_repair_decision_execution_control_event/.test(
+      runtimeDiagnosticsRepairControlCore,
+    ) &&
+    /rust_plans_runtime_diagnostics_repair_decision_executed_control_event/.test(
+      runtimeDiagnosticsRepairControlCore,
+    ) &&
+    /rust_plans_runtime_diagnostics_repair_retry_created_control_event/.test(
+      runtimeDiagnosticsRepairControlCore,
+    ) &&
+    /rust_plans_runtime_diagnostics_operator_override_control_event/.test(
+      runtimeDiagnosticsRepairControlCore,
+    ) &&
+    /rust_rejects_unowned_runtime_diagnostics_repair_control_kind/.test(
+      runtimeDiagnosticsRepairControlCore,
+    ) &&
+    /PlanRuntimeDiagnosticsRepairControl/.test(commandProtocolCoreForCompositor) &&
+    /"plan_runtime_diagnostics_repair_control"/.test(commandProtocolCoreForCompositor) &&
+    /plan_runtime_diagnostics_repair_control_response/.test(
+      coreCommandDispatchForCompositor,
+    ) &&
+    /pub mod runtime_diagnostics_repair_control;/.test(kernelModuleForCompositor) &&
+    /planRuntimeDiagnosticsRepairControl\(request = \{\}\)/.test(
+      runtimeContextPolicyRunner,
+    ) &&
+    /normalizeRuntimeDiagnosticsRepairControlBridgeResult/.test(
+      runtimeContextPolicyRunner,
+    ) &&
+    /runtime diagnostics repair control runner sends Rust daemon-core request/.test(
+      runtimeContextPolicyRunnerTest,
+    ) &&
+    /diagnosticsRepairRunner:\s*this\.contextPolicyRunner/.test(runtimeDaemonIndex) &&
+    /eventStreamIdForThread/.test(runtimeDaemonIndex) &&
+    /diagnostics repair decision execution uses Rust planning and runtime event admission/.test(
+      runtimeDiagnosticsRepairSurfaceTest,
+    ) &&
+    /diagnostics repair decision executed event uses Rust planning and runtime event admission/.test(
+      runtimeDiagnosticsRepairSurfaceTest,
+    ) &&
+    /diagnostics repair decision execution fails closed before event append without Rust planning/.test(
+      runtimeDiagnosticsRepairSurfaceTest,
+    ) &&
+    /diagnostics repair retry creates Rust-owned run and retry event admission/.test(
+      runtimeDiagnosticsRepairSurfaceTest,
+    ) &&
+    /diagnostics repair retry fails closed before JS lookup without Rust planning/.test(
+      runtimeDiagnosticsRepairSurfaceTest,
+    ) &&
+    /diagnostics repair retry event append uses Rust planning and runtime event admission/.test(
+      runtimeDiagnosticsRepairSurfaceTest,
+    ) &&
+    /diagnostics operator override event append uses Rust planning and runtime event admission/.test(
+      runtimeDiagnosticsRepairSurfaceTest,
+    ) &&
+    /diagnostics operator override event append fails closed before JS runtime event append without Rust planning/.test(
+      runtimeDiagnosticsRepairSurfaceTest,
+    ) &&
+    !/diagnostics repair decision execution uses Rust daemon-core admission-required planner when mounted/.test(
+      runtimeDiagnosticsRepairSurfaceTest,
+    ) &&
+    !/diagnostics_repair_decision_execution_js_facade_retired/.test(
+      runtimeDiagnosticsRepairSurface,
+    ) &&
+    !/diagnostics_repair_decision_event_js_append_retired/.test(
+      runtimeDiagnosticsRepairSurface,
+    ) &&
+    !/diagnostics_repair_retry_js_create_run_facade_retired/.test(
+      runtimeDiagnosticsRepairSurface,
+    ) &&
+    !/diagnostics_operator_override_event_js_append_retired/.test(
+      runtimeDiagnosticsRepairSurface,
+    );
+  const runtimeDiagnosticsRepairDecisionProjectionRustOwned =
+    /runtime_diagnostics_repair_decision_projection_rust_owned/.test(
+      runtimeDiagnosticsRepairSurface,
+    ) &&
+    /diagnosticsRepairProjectionRunner/.test(runtimeDiagnosticsRepairSurface) &&
+    /projectRuntimeDiagnosticsRepairProjection/.test(runtimeDiagnosticsRepairSurface) &&
+    /runtime_diagnostics_repair_decision_projection_invalid/.test(
+      runtimeDiagnosticsRepairSurface,
+    ) &&
+    /runtime_diagnostics_repair_decision_projection_not_found/.test(
+      runtimeDiagnosticsRepairSurface,
+    ) &&
+    !/diagnostics_repair_decision_resolution_js_projection_retired/.test(
+      runtimeDiagnosticsRepairSurface,
+    ) &&
+    /RuntimeDiagnosticsRepairProjectionCore/.test(
+      runtimeDiagnosticsRepairProjectionCore,
+    ) &&
+    /RUNTIME_DIAGNOSTICS_REPAIR_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
+      runtimeDiagnosticsRepairProjectionCore,
+    ) &&
+    /project_runtime_diagnostics_repair_projection_response/.test(
+      runtimeDiagnosticsRepairProjectionCore,
+    ) &&
+    /rust_projects_runtime_diagnostics_repair_decision_projection/.test(
+      runtimeDiagnosticsRepairProjectionCore,
+    ) &&
+    /rust_shapes_runtime_diagnostics_repair_projection_command_response/.test(
+      runtimeDiagnosticsRepairProjectionCore,
+    ) &&
+    /rust_rejects_runtime_diagnostics_repair_projection_without_decision_id/.test(
+      runtimeDiagnosticsRepairProjectionCore,
+    ) &&
+    /rust_rejects_unowned_runtime_diagnostics_repair_projection_kind/.test(
+      runtimeDiagnosticsRepairProjectionCore,
+    ) &&
+    /ProjectRuntimeDiagnosticsRepairProjection/.test(
+      commandProtocolCoreForCompositor,
+    ) &&
+    /"project_runtime_diagnostics_repair_projection"/.test(
+      commandProtocolCoreForCompositor,
+    ) &&
+    /project_runtime_diagnostics_repair_projection_response/.test(
+      coreCommandDispatchForCompositor,
+    ) &&
+    /pub mod runtime_diagnostics_repair_projection;/.test(
+      kernelModuleForCompositor,
+    ) &&
+    /projectRuntimeDiagnosticsRepairProjection\(request = \{\}\)/.test(
+      runtimeContextPolicyRunner,
+    ) &&
+    /RUNTIME_DIAGNOSTICS_REPAIR_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
+      runtimeContextPolicyRunner,
+    ) &&
+    /normalizeRuntimeDiagnosticsRepairProjectionBridgeResult/.test(
+      runtimeContextPolicyRunner,
+    ) &&
+    /runtime diagnostics repair projection runner sends Rust daemon-core request/.test(
+      runtimeContextPolicyRunnerTest,
+    ) &&
+    /diagnostics repair decision resolver uses Rust projection without JS projection reads/.test(
+      runtimeDiagnosticsRepairSurfaceTest,
+    ) &&
+    /diagnostics repair decision resolver fails closed before JS projection reads without Rust projection/.test(
+      runtimeDiagnosticsRepairSurfaceTest,
+    ) &&
+    !/diagnostics repair decision resolver facade fails closed before JS projection reads/.test(
+      runtimeDiagnosticsRepairSurfaceTest,
+    );
+  assertCheck(
+    result,
+    "runtime-diagnostics-repair-control-rust-owned",
+    runtimeDiagnosticsRepairControlRustOwned,
+    [
+      "crates/services/src/agentic/runtime/kernel/runtime_diagnostics_repair_control.rs",
+      "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
+      "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
+      "crates/services/src/agentic/runtime/kernel/mod.rs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs",
+      "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs",
+    ],
+    "Diagnostics repair decision execution, decision-event append, retry creation, and retry-event append must use Rust daemon-core planning plus Rust runtime-event admission without JS event or run-state fallback",
+  );
+  assertCheck(
+    result,
+    "runtime-diagnostics-repair-decision-projection-rust-owned",
+    runtimeDiagnosticsRepairDecisionProjectionRustOwned,
+    [
+      "crates/services/src/agentic/runtime/kernel/runtime_diagnostics_repair_projection.rs",
+      "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
+      "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
+      "crates/services/src/agentic/runtime/kernel/mod.rs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs",
+      "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs",
+    ],
+    "Diagnostics repair decision projection must be Rust-owned before the daemon surface can resolve accepted repair truth, and the old JS projection-retired facade must stay gone",
+  );
   assertCheck(
     result,
     "diagnostics-repair-control-js-facade-retired",
-    /function throwDiagnosticsRepairRustCoreRequired/.test(runtimeDiagnosticsRepairSurface) &&
+    runtimeDiagnosticsRepairControlRustOwned &&
+      runtimeDiagnosticsRepairDecisionProjectionRustOwned &&
+      /function throwDiagnosticsRepairRustCoreRequired/.test(runtimeDiagnosticsRepairSurface) &&
       /runtime_diagnostics_repair_rust_core_required/.test(runtimeDiagnosticsRepairSurface) &&
       /rust_core_boundary:\s*"runtime\.diagnostics_repair"/.test(
         runtimeDiagnosticsRepairSurface,
       ) &&
-      /diagnostics_repair_decision_execution_js_facade_retired/.test(
+      /diagnostics_operator_override_state_update_rust_owned/.test(
         runtimeDiagnosticsRepairSurface,
       ) &&
-      /diagnostics_operator_override_js_facade_retired/.test(
+      /store\.writeRun\(plannedRun, plannedOperationKind\)/.test(
         runtimeDiagnosticsRepairSurface,
       ) &&
-      /diagnostics_repair_retry_js_create_run_facade_retired/.test(
+      /diagnostics_repair_retry_run_create_rust_owned/.test(
         runtimeDiagnosticsRepairSurface,
       ) &&
-      /diagnostics_repair_decision_resolution_js_projection_retired/.test(
+      /runtime_diagnostics_operator_override_event_rust_owned/.test(
         runtimeDiagnosticsRepairSurface,
       ) &&
-      /diagnostics_repair_decision_event_js_append_retired/.test(
+      /runtime_run_create_js_facade_retired/.test(runtimeDiagnosticsRepairSurface) &&
+      /agentgres_run_create_state_truth_required/.test(runtimeDiagnosticsRepairSurface) &&
+      /runCreateSurface\.createRun\(store,\s*agentId,/.test(runtimeDiagnosticsRepairSurface) &&
+      /diagnosticsRepairRetryResultFromEvent/.test(runtimeDiagnosticsRepairSurface) &&
+      /runtime_diagnostics_repair_decision_projection_rust_owned/.test(
         runtimeDiagnosticsRepairSurface,
       ) &&
+      /projectRuntimeDiagnosticsRepairProjection/.test(runtimeDiagnosticsRepairSurface) &&
       /DiagnosticsRepairAdmissionRequiredCore/.test(policyCore) &&
       /DIAGNOSTICS_REPAIR_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION/.test(
         policyCore,
@@ -31150,28 +33710,56 @@ function runCompositor() {
         runtimeContextPolicyRunnerTest,
       ) &&
       /diagnosticsRepairRunner:\s*this\.contextPolicyRunner/.test(runtimeDaemonIndex) &&
-      !/store\.(?:agentForThread|getRun|createRun|appendRuntimeEvent|writeRun|runs\.set|resolveDiagnosticsRepairDecision|executeDiagnosticsOperatorOverride|createDiagnosticsRepairRetryTurn)\b/.test(
+      /diagnosticsRepairRetryResultFromEvent/.test(runtimeDaemonIndex) &&
+      !/store\.(?:createRun|runs\.set|resolveDiagnosticsRepairDecision|executeDiagnosticsOperatorOverride|createDiagnosticsRepairRetryTurn)\b/.test(
         runtimeDiagnosticsRepairSurface,
       ) &&
-      !/store\.appendDiagnosticsRepairDecisionExecutedEvent|store\.appendDiagnosticsOperatorOverrideEvent|store\.appendDiagnosticsRepairRetryTurnEvent/.test(
+      !/store\.appendDiagnosticsOperatorOverrideEvent|store\.appendDiagnosticsRepairRetryTurnEvent/.test(
         runtimeDiagnosticsRepairSurface,
       ) &&
-      /diagnostics repair decision execution facade fails closed before JS lookup, event append, or persistence/.test(
+      /diagnostics repair decision execution uses Rust planning and runtime event admission/.test(
         runtimeDiagnosticsRepairSurfaceTest,
       ) &&
-      /diagnostics repair decision execution uses Rust daemon-core admission-required planner when mounted/.test(
+      /diagnostics repair decision execution fails closed before event append without Rust planning/.test(
         runtimeDiagnosticsRepairSurfaceTest,
       ) &&
-      /diagnostics operator override facade fails closed before JS run writes/.test(
+      /diagnostics operator override uses Rust state update and run-state admission/.test(
         runtimeDiagnosticsRepairSurfaceTest,
       ) &&
-      /diagnostics repair retry facade fails closed before JS createRun or retry event append/.test(
+      /diagnostics operator override fails closed before run lookup without Rust state update/.test(
         runtimeDiagnosticsRepairSurfaceTest,
       ) &&
-      /diagnostics repair event append helpers fail closed before JS runtime event append/.test(
+      /diagnostics repair retry creates Rust-owned run and retry event admission/.test(
         runtimeDiagnosticsRepairSurfaceTest,
       ) &&
-      /diagnostics repair decision resolver facade fails closed before JS projection reads/.test(
+      /diagnostics repair retry fails closed before JS lookup without Rust planning/.test(
+        runtimeDiagnosticsRepairSurfaceTest,
+      ) &&
+      /diagnostics repair retry event append uses Rust planning and runtime event admission/.test(
+        runtimeDiagnosticsRepairSurfaceTest,
+      ) &&
+      /diagnostics operator override event append uses Rust planning and runtime event admission/.test(
+        runtimeDiagnosticsRepairSurfaceTest,
+      ) &&
+      /diagnostics operator override event append fails closed before JS runtime event append without Rust planning/.test(
+        runtimeDiagnosticsRepairSurfaceTest,
+      ) &&
+      !/diagnostics repair retry facade fails closed before JS createRun or retry event append/.test(
+        runtimeDiagnosticsRepairSurfaceTest,
+      ) &&
+      !/diagnostics_operator_override_event_js_append_retired/.test(
+        runtimeDiagnosticsRepairSurface,
+      ) &&
+      !/diagnostics_repair_decision_resolution_js_projection_retired/.test(
+        runtimeDiagnosticsRepairSurface,
+      ) &&
+      /diagnostics repair decision resolver uses Rust projection without JS projection reads/.test(
+        runtimeDiagnosticsRepairSurfaceTest,
+      ) &&
+      /diagnostics repair decision resolver fails closed before JS projection reads without Rust projection/.test(
+        runtimeDiagnosticsRepairSurfaceTest,
+      ) &&
+      !/diagnostics repair decision resolver facade fails closed before JS projection reads/.test(
         runtimeDiagnosticsRepairSurfaceTest,
       ) &&
       /store\.diagnosticsRepairSurface\.executeDiagnosticsRepairDecision\(\s*store,\s*threadId,\s*decodeURIComponent\(segments\[5\]\),\s*await readBody\(request\),\s*\)/m.test(
@@ -31195,7 +33783,7 @@ function runCompositor() {
       "crates/services/src/agentic/runtime/kernel/policy/admission_required.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
     ],
-    "Phase 10/11 is pending: diagnostics repair control must use the Rust daemon-core admission-required planner and fail closed before JS lookup, retry-run creation, event append, run mutation, or persistence",
+    "Diagnostics repair migrated controls must use Rust daemon-core planning/admission and must fail closed before JS lookup, event append, run mutation, or persistence where Rust ownership is still absent",
   );
   assertCheck(
     result,
@@ -31331,7 +33919,7 @@ function runCompositor() {
   );
   const diagnosticsRepairContextRecordBody =
     diagnosticsRepairPolicy.match(
-      /  function diagnosticsRepairContextRecord\(value\) \{[\s\S]*?(?=\n  function diagnosticsRollbackRepairPolicy)/,
+      /  function diagnosticsRepairContextRecord\(value\) \{[\s\S]*?(?=\n  return \{)/,
     )?.[0] ?? "";
   const diagnosticsRepairContextReadersBody =
     diagnosticsRepairPolicy.match(
@@ -31339,15 +33927,11 @@ function runCompositor() {
     )?.[0] ?? "";
   const diagnosticsRepairPolicyConfigBody =
     diagnosticsRepairPolicy.match(
-      /  function diagnosticsRepairPolicyConfig\(request = \{\}, input = \{\}\) \{[\s\S]*?(?=\n  function diagnosticsRepairPolicyConfigForContexts)/,
+      /  function diagnosticsRepairPolicyConfig\(request = \{\}, input = \{\}\) \{[\s\S]*?(?=\n  function diagnosticsRepairContextForToolPack)/,
     )?.[0] ?? "";
   const hasDiagnosticsRepairPolicyConfigBody =
     diagnosticsRepairPolicy.match(
       /  function hasDiagnosticsRepairPolicyConfig\(request = \{\}, input = \{\}\) \{[\s\S]*?(?=\n  function normalizeDiagnosticsMode)/,
-    )?.[0] ?? "";
-  const diagnosticsRollbackRepairPolicyBody =
-    diagnosticsRepairPolicy.match(
-      /  function diagnosticsRollbackRepairPolicy\(\{[\s\S]*?(?=\n  function diagnosticsRepairDefaultForDecisions)/,
     )?.[0] ?? "";
   assertCheck(
     result,
@@ -31399,52 +33983,81 @@ function runCompositor() {
   );
   assertCheck(
     result,
-    "diagnostics-repair-policy-output-aliases-retired",
-    /schema_version:\s*DIAGNOSTICS_ROLLBACK_REPAIR_POLICY_SCHEMA_VERSION/.test(
-      diagnosticsRollbackRepairPolicyBody,
+    "runtime-diagnostics-repair-policy-projection-rust-owned",
+    /RUNTIME_DIAGNOSTICS_REPAIR_POLICY_REQUEST_SCHEMA_VERSION/.test(
+      runtimeDiagnosticsRepairPolicyCore,
     ) &&
-      /policy_id:\s*policyId/.test(diagnosticsRollbackRepairPolicyBody) &&
-      /thread_id:\s*threadId/.test(diagnosticsRollbackRepairPolicyBody) &&
-      /injection_id:\s*injectionId/.test(diagnosticsRollbackRepairPolicyBody) &&
-      /diagnostic_status:\s*diagnosticStatus/.test(diagnosticsRollbackRepairPolicyBody) &&
-      /diagnostic_count:\s*diagnosticCount/.test(diagnosticsRollbackRepairPolicyBody) &&
-      /workspace_snapshot_refs:\s*workspaceSnapshotRefs/.test(diagnosticsRollbackRepairPolicyBody) &&
-      /rollback_refs:\s*rollbackRefs/.test(diagnosticsRollbackRepairPolicyBody) &&
-      /source_tool_call_ids:\s*sourceToolCallIds/.test(diagnosticsRollbackRepairPolicyBody) &&
-      /restore_policy:\s*normalizedRestorePolicy/.test(diagnosticsRollbackRepairPolicyBody) &&
-      /restore_conflict_policy:\s*normalizedRestoreConflictPolicy/.test(
-        diagnosticsRollbackRepairPolicyBody,
+      /RuntimeDiagnosticsRepairPolicyCore/.test(runtimeDiagnosticsRepairPolicyCore) &&
+      /project_runtime_diagnostics_repair_policy_response/.test(
+        runtimeDiagnosticsRepairPolicyCore,
       ) &&
-      /diagnostics_repair_default:\s*defaultDecision/.test(diagnosticsRollbackRepairPolicyBody) &&
-      /operator_override_requires_approval:\s*overrideRequiresApproval/.test(
-        diagnosticsRollbackRepairPolicyBody,
+      /ioi\.runtime_diagnostics_rollback_repair_policy/.test(
+        runtimeDiagnosticsRepairPolicyCore,
       ) &&
-      /default_decision:\s*defaultDecision/.test(diagnosticsRollbackRepairPolicyBody) &&
-      /decision_refs:\s*decisions\.map\(\(decision\) => decision\.decision_id\)/.test(
-        diagnosticsRollbackRepairPolicyBody,
+      /rust_projects_runtime_diagnostics_repair_policy/.test(
+        runtimeDiagnosticsRepairPolicyCore,
       ) &&
-      /decision_id:\s*`\$\{decisionBase\}_repair_retry`/.test(diagnosticsRollbackRepairPolicyBody) &&
-      /requires_approval:\s*false/.test(diagnosticsRollbackRepairPolicyBody) &&
-      /restore_conflict_policy:\s*normalizedRestoreConflictPolicy/.test(
-        diagnosticsRollbackRepairPolicyBody,
+      /rust_shapes_runtime_diagnostics_repair_policy_command_response/.test(
+        runtimeDiagnosticsRepairPolicyCore,
       ) &&
-      !/^\s*(?:schemaVersion|policyId|threadId|injectionId|diagnosticStatus|diagnosticCount|workspaceSnapshotRefs|rollbackRefs|sourceToolCallIds|restorePolicy|restoreConflictPolicy|diagnosticsRepairDefault|operatorOverrideRequiresApproval|defaultDecision|decisionRefs|decisionId|requiresApproval)\s*:/m.test(
-        diagnosticsRollbackRepairPolicyBody,
+      /rust_rejects_runtime_diagnostics_repair_policy_without_thread_id/.test(
+        runtimeDiagnosticsRepairPolicyCore,
       ) &&
-      /diagnostics rollback repair policy preserves decision defaults and refs/.test(
+      /ProjectRuntimeDiagnosticsRepairPolicy/.test(commandProtocolCoreForCompositor) &&
+      /"project_runtime_diagnostics_repair_policy"/.test(
+        commandProtocolCoreForCompositor,
+      ) &&
+      /project_runtime_diagnostics_repair_policy_response/.test(
+        coreCommandDispatchForCompositor,
+      ) &&
+      /pub mod runtime_diagnostics_repair_policy;/.test(kernelModuleForCompositor) &&
+      /RUNTIME_DIAGNOSTICS_REPAIR_POLICY_REQUEST_SCHEMA_VERSION/.test(
+        runtimeContextPolicyRunner,
+      ) &&
+      /projectRuntimeDiagnosticsRepairPolicy\(request = \{\}\)/.test(
+        runtimeContextPolicyRunner,
+      ) &&
+      /normalizeRuntimeDiagnosticsRepairPolicyBridgeResult/.test(
+        runtimeContextPolicyRunner,
+      ) &&
+      /runtime diagnostics repair policy runner sends Rust daemon-core request/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /diagnosticsRepairPolicyProjector:\s*this\.contextPolicyRunner/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /projectDiagnosticsRepairPolicy/.test(diagnosticsFeedback) &&
+      /projectRuntimeDiagnosticsRepairPolicy/.test(diagnosticsFeedback) &&
+      /runtime_diagnostics_repair_policy_projection_required/.test(
+        diagnosticsFeedback,
+      ) &&
+      /diagnostics repair policy projection requires Rust daemon-core ownership/i.test(
+        diagnosticsFeedback,
+      ) &&
+      /compact diagnostics feedback fails closed without Rust repair policy projection/.test(
+        diagnosticsFeedbackTest,
+      ) &&
+      /diagnostics rollback repair policy authoring is retired from JS helpers/.test(
         diagnosticsRepairPolicyTest,
       ) &&
-      /Object\.hasOwn\(policy,\s*field\),\s*false/.test(diagnosticsRepairPolicyTest) &&
-      /Object\.hasOwn\(decision,\s*field\),\s*false/.test(diagnosticsRepairPolicyTest) &&
-      /repairPolicyConfig\.restore_policy/.test(diagnosticsFeedbackTest) &&
-      /repair_policy\.restore_policy/.test(diagnosticsFeedbackTest),
+      !/function diagnosticsRollbackRepairPolicy/.test(diagnosticsRepairPolicy) &&
+      !/function diagnosticsRepairDefaultForDecisions/.test(diagnosticsRepairPolicy) &&
+      !/function diagnosticsRepairPolicyConfigForContexts/.test(diagnosticsRepairPolicy) &&
+      !/diagnosticsRollbackRepairPolicy\(/.test(diagnosticsFeedback),
     [
-      "packages/runtime-daemon/src/diagnostics-repair-policy.mjs",
+      "crates/services/src/agentic/runtime/kernel/runtime_diagnostics_repair_policy.rs",
+      "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
+      "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
+      "crates/services/src/agentic/runtime/kernel/mod.rs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
       "packages/runtime-daemon/src/diagnostics-repair-policy.test.mjs",
       "packages/runtime-daemon/src/diagnostics-feedback.mjs",
       "packages/runtime-daemon/src/diagnostics-feedback.test.mjs",
+      "packages/runtime-daemon/src/runtime-diagnostics-feedback-surface.mjs",
+      "packages/runtime-daemon/src/runtime-diagnostics-feedback-surface.test.mjs",
     ],
-    "Phase 10/11 is pending: diagnostics rollback repair policy output must expose canonical snake_case fields only while JS policy projection remains temporary migration scaffolding",
+    "Diagnostics rollback repair policy output must be projected by Rust daemon-core; JS may forward canonical diagnostics facts but must not author policy truth",
   );
 	  assertCheck(
 	    result,
@@ -31508,38 +34121,26 @@ function runCompositor() {
   assertCheck(
     result,
     "diagnostics-feedback-post-edit-config-aliases-retired",
-    /request\.tool_pack/.test(postEditDiagnosticsConfigBody) &&
-      /request\.options\?\.tool_pack/.test(postEditDiagnosticsConfigBody) &&
-      /request\.diagnostics_mode/.test(postEditDiagnosticsConfigBody) &&
-      /input\.diagnostics_mode/.test(postEditDiagnosticsConfigBody) &&
-      /request\.diagnostic_command_id/.test(postEditDiagnosticsConfigBody) &&
-      /input\.diagnostic_command_id/.test(postEditDiagnosticsConfigBody) &&
-      /request\.diagnostic_timeout_ms/.test(postEditDiagnosticsConfigBody) &&
-      /input\.diagnostic_timeout_ms/.test(postEditDiagnosticsConfigBody) &&
-      /request\.diagnostic_max_output_bytes/.test(postEditDiagnosticsConfigBody) &&
-      /input\.diagnostic_max_output_bytes/.test(postEditDiagnosticsConfigBody) &&
-      !/\b(?:request|input)\.(?:toolPack|diagnosticsMode|diagnosticCommandId|diagnosticTimeoutMs|diagnosticMaxOutputBytes)\b/.test(
-        postEditDiagnosticsConfigBody,
+    postEditDiagnosticsConfigBody === "" &&
+      !/postEditDiagnosticsConfig/.test(diagnosticsFeedback) &&
+      !/diagnosticsRepairPolicyConfig/.test(diagnosticsFeedback) &&
+      /planPostEditDiagnosticsFeedback\(request = \{\}\)/.test(
+        runtimeContextPolicyRunner,
       ) &&
-      !/\brequest\.options\?\.(?:toolPack|diagnosticsMode|diagnosticCommandId|diagnosticTimeoutMs|diagnosticMaxOutputBytes)\b/.test(
-        postEditDiagnosticsConfigBody,
+      /post-edit diagnostics feedback runner sends Rust daemon-core plan request/.test(
+        runtimeContextPolicyRunnerTest,
       ) &&
-      !/\bpack\.(?:diagnosticsMode|diagnosticMode|defaultDiagnosticCommandId|timeoutMs)\b/.test(
-        postEditDiagnosticsConfigBody,
-      ) &&
-      /post-edit diagnostics config ignores retired request and input aliases/.test(
-        diagnosticsFeedbackTest,
-      ) &&
-      /diagnosticsMode:\s*"fail"/.test(diagnosticsFeedbackTest) &&
-      /diagnosticCommandId:\s*"alias\.command"/.test(diagnosticsFeedbackTest) &&
-      /diagnosticTimeoutMs:\s*1/.test(diagnosticsFeedbackTest) &&
-      /diagnosticMaxOutputBytes:\s*2/.test(diagnosticsFeedbackTest) &&
-      /toolPack:\s*\{/.test(diagnosticsFeedbackTest),
+      /diagnostics feedback surface invokes lsp diagnostics with Rust-authored repair context/.test(
+        runtimeDiagnosticsFeedbackSurfaceTest,
+      ),
     [
       "packages/runtime-daemon/src/diagnostics-feedback.mjs",
       "packages/runtime-daemon/src/diagnostics-feedback.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-diagnostics-feedback-surface.test.mjs",
     ],
-    "Phase 10/11 is pending: post-edit diagnostics config must use canonical snake_case request, input, and tool_pack fields without retired camelCase fallbacks",
+    "Post-edit diagnostics config must remain Rust-planned; the old JS config normalizer must stay retired",
   );
 	  const diagnosticsRepairRetryFeedbackBody =
 	    diagnosticsFeedback.match(
@@ -31645,7 +34246,11 @@ function runCompositor() {
       /diagnostic_event_ids:\s*diagnosticEventIds/.test(compactDiagnosticsFeedbackBody) &&
       /diagnostic_event_id:\s*event\.event_id \?\? null/.test(compactDiagnosticFindingBody) &&
       !/\bdiagnosticEventId\s*:/.test(compactDiagnosticFindingBody) &&
-      /receipt_refs:\s*uniqueStrings\(receiptRefs\)/.test(compactDiagnosticsFeedbackBody) &&
+      /const projectedReceiptRefs = uniqueStrings/.test(compactDiagnosticsFeedbackBody) &&
+      /receipt_refs:\s*projectedReceiptRefs/.test(compactDiagnosticsFeedbackBody) &&
+      /policy_projection_hash:\s*policyProjection\.projection_hash/.test(
+        compactDiagnosticsFeedbackBody,
+      ) &&
       /rollbackRefs\.push\(\.\.\.normalizeArray\(repairContext\.rollback_refs\)\)/.test(
         compactDiagnosticsFeedbackBody,
       ) &&
@@ -32414,7 +35019,7 @@ function runCompositor() {
     result,
     "runtime-mcp-control-server-request-alias-retired",
     runtimeMcpControlFacadeRetired &&
-      /server_id: serverId \?\? request\.server_id \?\? null/.test(runtimeMcpControlSurface) &&
+      /server_id:\s*optionalStringDep\(serverId\) \?\? optionalStringDep\(request\.server_id\) \?\? null/.test(runtimeMcpControlSurface) &&
       /^\s*server_id\?: string;/m.test(runtimeMcpSdkServerControlInputBlock) &&
       !/request\.serverId\b/.test(runtimeMcpControlSurface) &&
       !/^\s*serverId\?:/m.test(runtimeMcpSdkServerControlInputBlock),
@@ -32665,11 +35270,39 @@ function runCompositor() {
       /workflowNodeId: "retired\.node"/.test(runtimeMcpServeSurfaceTest) &&
       /toolName: "git\.diff"/.test(runtimeMcpServeSurfaceTest) &&
       /args:\s*\{\s*includeStat:\s*"retired"\s*\}/.test(runtimeMcpServeSurfaceTest) &&
+      /mcpServeToolCallResult: mcpServeToolCallResultDep = mcpServeToolCallResult/.test(
+        runtimeMcpServeSurface,
+      ) &&
+      /store\?\.codingToolInvocationSurface\?\.invokeThreadTool/.test(runtimeMcpServeSurface) &&
+      /mcpServeToolInvocationRequest/.test(runtimeMcpServeSurface) &&
+      /source:\s*"mcp_serve"/.test(runtimeMcpServeSurface) &&
+      /workflow_graph_id:\s*optionalString\(request\.workflow_graph_id\)/.test(
+        runtimeMcpServeSurface,
+      ) &&
+      /workflow_node_id:\s*optionalString\(request\.workflow_node_id\)/.test(
+        runtimeMcpServeSurface,
+      ) &&
       /runtime_mcp_serve_tool_call_rust_core_required/.test(runtimeMcpServeSurface) &&
       /runtime_mcp_serve_tool_call_js_facade_retired/.test(runtimeMcpServeSurface) &&
       /rust_daemon_core_runtime_mcp_serve_tool_call_required/.test(runtimeMcpServeSurface) &&
       /agentgres_runtime_mcp_serve_tool_call_truth_required/.test(runtimeMcpServeSurface) &&
       /wallet_runtime_mcp_serve_authority_required/.test(runtimeMcpServeSurface) &&
+      /runtime MCP serve surface invokes Rust-owned coding-tool path for allowed tool calls/.test(
+        runtimeMcpServeSurfaceTest,
+      ) &&
+      /response\.result\.structuredContent\.event_id,\s*"event_mcp_serve_tool_call"/.test(
+        runtimeMcpServeSurfaceTest,
+      ) &&
+      /invocations\[0\]\.request\.source,\s*"mcp_serve"/.test(runtimeMcpServeSurfaceTest) &&
+      /Object\.hasOwn\(invocations\[0\]\.request,\s*"workflowGraphId"\),\s*false/.test(
+        runtimeMcpServeSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(retiredArgsInvocation\.request,\s*"args"\),\s*false/.test(
+        runtimeMcpServeSurfaceTest,
+      ) &&
+      /runtime MCP serve tool calls fail closed without Rust-owned coding-tool invocation surface/.test(
+        runtimeMcpServeSurfaceTest,
+      ) &&
       /response\.error\.data\.code,\s*"runtime_mcp_serve_tool_call_rust_core_required"/.test(
         runtimeMcpServeSurfaceTest,
       ) &&
@@ -32679,18 +35312,17 @@ function runCompositor() {
       /response\.error\.data\.details\.evidence_refs\.includes\("runtime_mcp_serve_tool_call_js_facade_retired"\)/.test(
         runtimeMcpServeSurfaceTest,
       ) &&
-      /assert\.deepEqual\(invocations,\s*\[\]\)/.test(runtimeMcpServeSurfaceTest) &&
       !/(?:options|request)\.threadId\b/.test(runtimeMcpServeSurface) &&
       !/request\.(?:workflowGraphId|workflowNodeId)\b/.test(runtimeMcpServeSurface) &&
       !/params\.toolName\b/.test(runtimeMcpServeSurface) &&
       !/params\.args\b/.test(runtimeMcpServeSurface) &&
       !/store\.agentForThread/.test(runtimeMcpServeSurface) &&
-      !/store\.invokeThreadToolAsync/.test(runtimeMcpServeSurface),
+      !/store\.invokeThreadTool(?:Async)?\(/.test(runtimeMcpServeSurface),
     [
       "packages/runtime-daemon/src/runtime-mcp-serve-surface.mjs",
       "packages/runtime-daemon/src/runtime-mcp-serve-surface.test.mjs",
     ],
-    "Phase 10/11 is pending: MCP serve tool-call requests must fail closed before JS thread lookup or JS tool invocation while using canonical thread_id context without retired camelCase aliases",
+    "Phase 10/11 is pending: MCP serve tool-call requests must route through the Rust-owned coding-tool invocation surface, fail closed when that boundary is missing, and ignore retired camelCase aliases",
   );
   assertCheck(
     result,
@@ -33132,7 +35764,9 @@ function runCompositor() {
     result,
     "runtime-mcp-control-mutation-output-aliases-retired",
     runtimeMcpControlFacadeRetired &&
-      /runtime MCP control mutations fail closed before JS state mutation/.test(runtimeMcpControlSurfaceTest) &&
+      /runtime MCP control mutations plan in Rust and commit agent state without JS state mutation/.test(runtimeMcpControlSurfaceTest) &&
+      /registry_hash/.test(runtimeMcpControlSurfaceTest) &&
+      /mutation_applied/.test(runtimeMcpControlSurfaceTest) &&
       !/serverId:\s*server\.id/.test(runtimeMcpControlSurface) &&
       !/removedCount\s*:/.test(runtimeMcpControlSurface) &&
       !/proposedServers\s*:/.test(runtimeMcpControlSurface) &&
@@ -33150,10 +35784,11 @@ function runCompositor() {
     result,
     "runtime-mcp-control-error-detail-aliases-retired",
     runtimeMcpControlFacadeRetired &&
-      /server_id: serverId \?\? request\.server_id \?\? null/.test(runtimeMcpControlSurface) &&
-      /tool_id: toolId \?\? request\.tool_id \?\? null/.test(runtimeMcpControlSurface) &&
+      /server_id:\s*optionalStringDep\(serverId\) \?\? optionalStringDep\(request\.server_id\) \?\? null/.test(runtimeMcpControlSurface) &&
+      /const requestedToolId = optionalStringDep\(toolId\) \?\? optionalStringDep\(request\.tool_id\)/.test(runtimeMcpControlSurface) &&
+      /tool_id: requestedToolId \?\? null/.test(runtimeMcpControlSurface) &&
       /operation_kind: operationKind/.test(runtimeMcpControlSurface) &&
-      /runtime MCP control mutations fail closed before JS state mutation/.test(runtimeMcpControlSurfaceTest) &&
+      /runtime MCP control planner absence fails closed before JS state mutation/.test(runtimeMcpControlSurfaceTest) &&
       /assertNoRetiredDetailAliases\(error\.details\)/.test(runtimeMcpControlSurfaceTest) &&
       !/details:\s*\{[^}\n]*\b(?:threadId|serverId|toolId|toolName|controlKind|operationKind|expectedOperationKind)\s*:/.test(
         runtimeMcpControlSurface,
@@ -33175,7 +35810,8 @@ function runCompositor() {
       /mcpTransportEvidenceRef\(\{ executionMode: "live_stdio" \}\), "mcp\.manager\.simulated_receipt"/.test(
         runtimeMcpHelpersTest,
       ) &&
-      /runtime MCP live exits fail closed before JS transport invocation/.test(runtimeMcpControlSurfaceTest) &&
+      /runtime MCP live exits use Rust control admission before JS transport invocation/.test(runtimeMcpControlSurfaceTest) &&
+      /runtime MCP live exits fail closed when Rust control planner is missing/.test(runtimeMcpControlSurfaceTest) &&
       !/^\s*(?:schemaVersion|toolCallId|threadId|agentId|serverId|toolName|inputHash|outputHash|sideEffectClass|requiresApproval|approvalMode|transportExecution|evidenceRefs)\s*:/m.test(
         runtimeMcpControlSurface,
       ) &&

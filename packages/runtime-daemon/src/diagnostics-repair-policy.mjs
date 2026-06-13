@@ -1,6 +1,5 @@
 import {
   DIAGNOSTICS_ROLLBACK_REPAIR_CONTEXT_SCHEMA_VERSION,
-  DIAGNOSTICS_ROLLBACK_REPAIR_POLICY_SCHEMA_VERSION,
 } from "./runtime-contract-constants.mjs";
 
 export function createDiagnosticsRepairPolicyHelpers({
@@ -44,23 +43,6 @@ export function createDiagnosticsRepairPolicyHelpers({
       diagnostics_repair_default: diagnosticsRepairDefault,
       operator_override_requires_approval: operatorOverrideRequiresApproval,
     };
-  }
-
-  function diagnosticsRepairPolicyConfigForContexts(contexts = []) {
-    const firstValue = (...keys) => {
-      for (const context of normalizeArray(contexts)) {
-        for (const key of keys) {
-          if (context?.[key] !== undefined && context?.[key] !== null) return context[key];
-        }
-      }
-      return undefined;
-    };
-    return diagnosticsRepairPolicyConfig({
-      restore_policy: firstValue("restore_policy"),
-      restore_conflict_policy: firstValue("restore_conflict_policy"),
-      diagnostics_repair_default: firstValue("diagnostics_repair_default"),
-      operator_override_requires_approval: firstValue("operator_override_requires_approval"),
-    });
   }
 
   function diagnosticsRepairContextForToolPack(request = {}, input = {}, toolName = null) {
@@ -173,129 +155,12 @@ export function createDiagnosticsRepairPolicyHelpers({
     };
   }
 
-  function diagnosticsRollbackRepairPolicy({
-    threadId,
-    injectionId,
-    mode,
-    diagnosticStatus,
-    diagnosticCount,
-    workspaceSnapshotRefs,
-    rollbackRefs,
-    sourceToolCallIds,
-    restorePolicy,
-    restoreConflictPolicy,
-    diagnosticsRepairDefault,
-    operatorOverrideRequiresApproval,
-  } = {}) {
-    const policyId = `policy_lsp_diagnostics_rollback_repair_${doctorHash(
-      `${threadId}:${injectionId}:${workspaceSnapshotRefs.join(",")}`,
-    ).slice(0, 16)}`;
-    const hasSnapshot = workspaceSnapshotRefs.length > 0;
-    const normalizedRestorePolicy = normalizeRestorePolicy(restorePolicy);
-    const normalizedRestoreConflictPolicy = normalizeRestoreConflictPolicy(restoreConflictPolicy);
-    const normalizedRepairDefault = normalizeDiagnosticsRepairDefault(diagnosticsRepairDefault);
-    const overrideRequiresApproval = normalizeBooleanOption(operatorOverrideRequiresApproval, true);
-    const restorePreviewStatus =
-      normalizedRestorePolicy === "disabled"
-        ? "unavailable"
-        : hasSnapshot
-          ? "available"
-          : "unavailable";
-    const restoreApplyStatus =
-      normalizedRestorePolicy === "apply_with_approval" && hasSnapshot
-        ? "requires_approval"
-        : "unavailable";
-    const decisionBase = `${policyId}_decision`;
-    const decisions = [
-      {
-        decision_id: `${decisionBase}_repair_retry`,
-        action: "repair_retry",
-        status: "available",
-        requires_approval: false,
-        summary: "Retry with diagnostics context and repair the reported findings.",
-      },
-      {
-        decision_id: `${decisionBase}_restore_preview`,
-        action: "restore_preview",
-        status: restorePreviewStatus,
-        requires_approval: false,
-        rollback_refs: rollbackRefs,
-        workspace_snapshot_refs: workspaceSnapshotRefs,
-        summary:
-          normalizedRestorePolicy === "disabled"
-            ? "Workflow restore policy disables snapshot restore preview."
-            : hasSnapshot
-              ? "Preview restoring the snapshot captured before the patch."
-              : "No content-backed workspace snapshot is available for restore preview.",
-      },
-      {
-        decision_id: `${decisionBase}_restore_apply`,
-        action: "restore_apply",
-        status: restoreApplyStatus,
-        requires_approval: normalizedRestorePolicy === "apply_with_approval",
-        rollback_refs: rollbackRefs,
-        workspace_snapshot_refs: workspaceSnapshotRefs,
-        restore_conflict_policy: normalizedRestoreConflictPolicy,
-        summary:
-          normalizedRestorePolicy === "disabled"
-            ? "Workflow restore policy disables snapshot restore apply."
-            : normalizedRestorePolicy === "preview_only"
-              ? "Workflow restore policy allows preview only; apply is unavailable."
-              : hasSnapshot
-                ? "Apply snapshot restore after explicit operator approval."
-                : "No content-backed workspace snapshot is available for restore apply.",
-      },
-      {
-        decision_id: `${decisionBase}_operator_override`,
-        action: "operator_override",
-        status: overrideRequiresApproval ? "requires_approval" : "available",
-        requires_approval: overrideRequiresApproval,
-        summary: overrideRequiresApproval
-          ? "Continue despite blocking diagnostics after explicit operator override."
-          : "Continue despite blocking diagnostics under workflow-configured operator override policy.",
-      },
-    ];
-    const defaultDecision = diagnosticsRepairDefaultForDecisions(decisions, normalizedRepairDefault);
-    return {
-      schema_version: DIAGNOSTICS_ROLLBACK_REPAIR_POLICY_SCHEMA_VERSION,
-      object: "ioi.runtime_diagnostics_rollback_repair_policy",
-      policy_id: policyId,
-      thread_id: threadId,
-      injection_id: injectionId,
-      mode,
-      diagnostic_status: diagnosticStatus,
-      diagnostic_count: diagnosticCount,
-      workspace_snapshot_refs: workspaceSnapshotRefs,
-      rollback_refs: rollbackRefs,
-      source_tool_call_ids: sourceToolCallIds,
-      restore_policy: normalizedRestorePolicy,
-      restore_conflict_policy: normalizedRestoreConflictPolicy,
-      diagnostics_repair_default: defaultDecision,
-      operator_override_requires_approval: overrideRequiresApproval,
-      default_decision: defaultDecision,
-      decisions,
-      decision_refs: decisions.map((decision) => decision.decision_id),
-    };
-  }
-
-  function diagnosticsRepairDefaultForDecisions(decisions = [], preferredAction = "repair_retry") {
-    const preferred = normalizeDiagnosticsRepairDefault(preferredAction);
-    const decision = normalizeArray(decisions).find((item) => item?.action === preferred);
-    if (decision && ["available", "requires_approval"].includes(decision.status)) {
-      return preferred;
-    }
-    return "repair_retry";
-  }
-
   return {
     diagnosticsRepairContextForPayload,
     diagnosticsRepairContextForRequest,
     diagnosticsRepairContextForToolPack,
     diagnosticsRepairContextRecord,
-    diagnosticsRepairDefaultForDecisions,
     diagnosticsRepairPolicyConfig,
-    diagnosticsRepairPolicyConfigForContexts,
-    diagnosticsRollbackRepairPolicy,
     hasDiagnosticsRepairPolicyConfig,
     normalizeDiagnosticsMode,
     normalizeDiagnosticsRepairDefault,

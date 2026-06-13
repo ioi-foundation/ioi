@@ -39,6 +39,7 @@ test("runtime identity helpers preserve session and fixture profile defaults", (
 
 test("runtime identity helpers normalize runtime and lifecycle statuses", () => {
   assert.equal(isRuntimeBackedAgent({ runtimeProfile: "runtime_service" }), true);
+  assert.equal(isRuntimeBackedAgent({ runtime_profile: "runtime_service" }), true);
   assert.equal(isRuntimeBackedAgent({ runtimeProfile: "deterministic_fixture" }), false);
   assert.equal(threadStatusForAgent("closed"), "archived");
   assert.equal(threadStatusForAgent("error"), "failed");

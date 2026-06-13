@@ -61,6 +61,13 @@ pub fn plan_model_mount_provider_lifecycle_response(
     let execution_backend = result.execution_backend.clone();
     let lifecycle_hash = result.lifecycle_hash.clone();
     let evidence_refs = result.evidence_refs.clone();
+    let operation_kind = result.operation_kind.clone();
+    let rust_core_boundary = result.rust_core_boundary.clone();
+    let record_dir = result.record_dir.clone();
+    let record_id = result.record_id.clone();
+    let record = result.record.clone();
+    let public_response = result.public_response.clone();
+    let receipt_refs = result.receipt_refs.clone();
     Ok(json!({
         "source": "rust_model_mount_provider_lifecycle_command",
         "backend": request.backend.unwrap_or_else(|| execution_backend.clone()),
@@ -71,6 +78,13 @@ pub fn plan_model_mount_provider_lifecycle_response(
         "driver": driver,
         "execution_backend": execution_backend,
         "lifecycle_hash": lifecycle_hash,
+        "operation_kind": operation_kind,
+        "rust_core_boundary": rust_core_boundary,
+        "record_dir": record_dir,
+        "record_id": record_id,
+        "record": record,
+        "public_response": public_response,
+        "receipt_refs": receipt_refs,
         "evidence_refs": evidence_refs,
     }))
 }
@@ -88,6 +102,12 @@ pub fn plan_model_mount_provider_inventory_response(
     let item_count = result.item_count;
     let inventory_hash = result.inventory_hash.clone();
     let evidence_refs = result.evidence_refs.clone();
+    let operation_kind = result.operation_kind.clone();
+    let rust_core_boundary = result.rust_core_boundary.clone();
+    let record_dir = result.record_dir.clone();
+    let record_id = result.record_id.clone();
+    let record = result.record.clone();
+    let receipt_refs = result.receipt_refs.clone();
     Ok(json!({
         "source": "rust_model_mount_provider_inventory_command",
         "backend": request.backend.unwrap_or_else(|| execution_backend.clone()),
@@ -100,6 +120,12 @@ pub fn plan_model_mount_provider_inventory_response(
         "item_refs": item_refs,
         "item_count": item_count,
         "inventory_hash": inventory_hash,
+        "operation_kind": operation_kind,
+        "rust_core_boundary": rust_core_boundary,
+        "record_dir": record_dir,
+        "record_id": record_id,
+        "record": record,
+        "receipt_refs": receipt_refs,
         "evidence_refs": evidence_refs,
     }))
 }
@@ -137,6 +163,7 @@ mod tests {
     use crate::agentic::runtime::kernel::model_mount::{
         MODEL_MOUNT_INSTANCE_LIFECYCLE_SCHEMA_VERSION,
         MODEL_MOUNT_PROVIDER_INVENTORY_SCHEMA_VERSION,
+        MODEL_MOUNT_PROVIDER_LIFECYCLE_PLAN_SCHEMA_VERSION,
         MODEL_MOUNT_PROVIDER_LIFECYCLE_SCHEMA_VERSION,
     };
 
@@ -195,6 +222,33 @@ mod tests {
             .expect("evidence refs")
             .iter()
             .any(|value| value == "rust_model_mount_native_local_lifecycle_backend"));
+        assert_eq!(response["operation_kind"], "model_mount.provider.start");
+        assert_eq!(
+            response["rust_core_boundary"],
+            "model_mount.provider_lifecycle"
+        );
+        assert_eq!(response["record_dir"], "model-provider-lifecycle-controls");
+        assert_eq!(
+            response["record"]["schema_version"],
+            MODEL_MOUNT_PROVIDER_LIFECYCLE_PLAN_SCHEMA_VERSION
+        );
+        assert_eq!(
+            response["record"]["object"],
+            "ioi.model_mount_provider_lifecycle"
+        );
+        assert_eq!(
+            response["record"]["rust_core_boundary"],
+            "model_mount.provider_lifecycle"
+        );
+        assert!(response["record"]["receipt_refs"]
+            .as_array()
+            .expect("record receipt refs")
+            .iter()
+            .any(|value| *value == response["lifecycle_hash"]));
+        assert_eq!(
+            response["public_response"]["js_provider_driver_call"],
+            false
+        );
     }
 
     #[test]
@@ -240,6 +294,24 @@ mod tests {
         );
         assert_eq!(response["driver"], "native_local");
         assert_eq!(response["item_count"], 1);
+        assert_eq!(
+            response["operation_kind"],
+            "model_mount.provider.inventory.list_loaded"
+        );
+        assert_eq!(
+            response["rust_core_boundary"],
+            "model_mount.provider_inventory"
+        );
+        assert_eq!(response["record_dir"], "model-provider-inventory");
+        assert!(response["record_id"]
+            .as_str()
+            .expect("record id")
+            .starts_with("provider_inventory_provider.autopilot.local_list_loaded_"));
+        assert_eq!(response["record"]["id"], response["record_id"]);
+        assert_eq!(
+            response["record"]["object"],
+            "ioi.model_mount_provider_inventory"
+        );
         assert!(response.get("backendId").is_none());
         assert!(response.get("providerBackend").is_none());
         assert!(response.get("itemRefs").is_none());

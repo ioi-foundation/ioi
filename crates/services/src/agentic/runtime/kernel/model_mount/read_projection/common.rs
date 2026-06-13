@@ -65,7 +65,9 @@ mod tests {
             receipt_id: None,
             engine_id: None,
             provider_id: None,
+            download_id: None,
             base_url: None,
+            state_dir: None,
             state: json!({}),
         }
     }

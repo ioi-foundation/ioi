@@ -1,8 +1,10 @@
 use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 
 use super::super::{
     push_unique_ref, require_non_empty, ModelMountError,
+    MODEL_MOUNT_PROVIDER_LIFECYCLE_PLAN_SCHEMA_VERSION,
     MODEL_MOUNT_PROVIDER_LIFECYCLE_SCHEMA_VERSION,
 };
 
@@ -27,6 +29,14 @@ pub struct ModelMountProviderLifecycleRequest {
     pub evidence_refs: Vec<String>,
     #[serde(default)]
     pub process_evidence_refs: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub operation_kind: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub generated_at: Option<String>,
+    #[serde(default)]
+    pub receipt_refs: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -44,6 +54,13 @@ pub struct ModelMountProviderLifecycleResult {
     pub execution_backend: String,
     pub evidence_refs: Vec<String>,
     pub lifecycle_hash: String,
+    pub operation_kind: String,
+    pub rust_core_boundary: String,
+    pub record_dir: String,
+    pub record_id: String,
+    pub record: Value,
+    pub public_response: Value,
+    pub receipt_refs: Vec<String>,
 }
 
 impl ModelMountProviderLifecycleRequest {
@@ -79,6 +96,8 @@ pub(super) fn plan_provider_lifecycle(
     request: &ModelMountProviderLifecycleRequest,
 ) -> Result<ModelMountProviderLifecycleResult, ModelMountError> {
     request.validate()?;
+    let operation_kind = provider_lifecycle_operation_kind(request);
+    let receipt_refs = non_empty_vec(&request.receipt_refs);
     let mut result = ModelMountProviderLifecycleResult {
         schema_version: MODEL_MOUNT_PROVIDER_LIFECYCLE_SCHEMA_VERSION.to_string(),
         provider_ref: request.provider_ref.clone(),
@@ -93,8 +112,18 @@ pub(super) fn plan_provider_lifecycle(
         execution_backend: request.execution_backend.clone(),
         evidence_refs: provider_lifecycle_evidence_refs(request),
         lifecycle_hash: String::new(),
+        operation_kind,
+        rust_core_boundary: "model_mount.provider_lifecycle".to_string(),
+        record_dir: "model-provider-lifecycle-controls".to_string(),
+        record_id: String::new(),
+        record: Value::Null,
+        public_response: Value::Null,
+        receipt_refs,
     };
     result.lifecycle_hash = provider_lifecycle_hash(&result)?;
+    result.record_id = provider_lifecycle_record_id(&result);
+    result.public_response = provider_lifecycle_public_response(&result);
+    result.record = provider_lifecycle_record(&result);
     Ok(result)
 }
 
@@ -182,7 +211,11 @@ fn provider_lifecycle_driver(request: &ModelMountProviderLifecycleRequest) -> St
 }
 
 fn provider_lifecycle_evidence_refs(request: &ModelMountProviderLifecycleRequest) -> Vec<String> {
-    let mut refs = vec!["rust_model_mount_provider_lifecycle".to_string()];
+    let mut refs = vec![
+        "public_provider_lifecycle_js_facade_retired".to_string(),
+        "rust_model_mount_provider_lifecycle".to_string(),
+        "agentgres_provider_lifecycle_truth_required".to_string(),
+    ];
     if is_native_local_provider_lifecycle_backend(request) {
         refs.push("rust_model_mount_native_local_lifecycle_backend".to_string());
         if matches!(request.action.trim(), "health" | "load") {
@@ -210,11 +243,141 @@ fn provider_lifecycle_evidence_refs(request: &ModelMountProviderLifecycleRequest
 fn provider_lifecycle_hash(
     result: &ModelMountProviderLifecycleResult,
 ) -> Result<String, ModelMountError> {
-    let mut canonical = result.clone();
-    canonical.lifecycle_hash.clear();
+    let canonical = json!({
+        "schema_version": &result.schema_version,
+        "provider_ref": &result.provider_ref,
+        "provider_kind": &result.provider_kind,
+        "endpoint_ref": &result.endpoint_ref,
+        "model_ref": &result.model_ref,
+        "action": &result.action,
+        "status": &result.status,
+        "backend": &result.backend,
+        "backend_id": &result.backend_id,
+        "driver": &result.driver,
+        "execution_backend": &result.execution_backend,
+        "operation_kind": &result.operation_kind,
+        "rust_core_boundary": &result.rust_core_boundary,
+        "evidence_refs": &result.evidence_refs,
+        "receipt_refs": &result.receipt_refs,
+    });
     let bytes = serde_json::to_vec(&canonical)
         .map_err(|error| ModelMountError::HashFailed(error.to_string()))?;
     Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
+}
+
+fn provider_lifecycle_operation_kind(request: &ModelMountProviderLifecycleRequest) -> String {
+    request
+        .operation_kind
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(|| match request.action.trim() {
+            "load" => "model_mount.provider.start".to_string(),
+            "unload" => "model_mount.provider.stop".to_string(),
+            _ => "model_mount.provider.health".to_string(),
+        })
+}
+
+fn provider_lifecycle_record_id(result: &ModelMountProviderLifecycleResult) -> String {
+    let provider = record_id_segment(&result.provider_ref, "provider");
+    let action = record_id_segment(&result.action, "lifecycle");
+    let hash = result
+        .lifecycle_hash
+        .strip_prefix("sha256:")
+        .unwrap_or(&result.lifecycle_hash)
+        .chars()
+        .take(16)
+        .collect::<String>();
+    format!("provider_lifecycle_{provider}_{action}_{hash}")
+}
+
+fn provider_lifecycle_public_response(result: &ModelMountProviderLifecycleResult) -> Value {
+    json!({
+        "object": "ioi.model_mount_provider_lifecycle",
+        "status": &result.status,
+        "provider_ref": &result.provider_ref,
+        "provider_kind": &result.provider_kind,
+        "endpoint_ref": &result.endpoint_ref,
+        "model_ref": &result.model_ref,
+        "action": &result.action,
+        "backend_id": &result.backend_id,
+        "provider_backend": &result.backend,
+        "driver": &result.driver,
+        "execution_backend": &result.execution_backend,
+        "operation_kind": &result.operation_kind,
+        "rust_core_boundary": &result.rust_core_boundary,
+        "lifecycle_hash": &result.lifecycle_hash,
+        "js_provider_driver_call": false,
+        "js_provider_map_write": false,
+        "js_lifecycle_receipt": false,
+        "js_projection_write": false,
+    })
+}
+
+fn provider_lifecycle_record(result: &ModelMountProviderLifecycleResult) -> Value {
+    let mut record_receipt_refs = result.receipt_refs.clone();
+    push_unique_ref(&mut record_receipt_refs, &result.lifecycle_hash);
+    json!({
+        "id": &result.record_id,
+        "record_id": &result.record_id,
+        "object": "ioi.model_mount_provider_lifecycle",
+        "schema_version": MODEL_MOUNT_PROVIDER_LIFECYCLE_PLAN_SCHEMA_VERSION,
+        "provider_ref": &result.provider_ref,
+        "provider_kind": &result.provider_kind,
+        "endpoint_ref": &result.endpoint_ref,
+        "model_ref": &result.model_ref,
+        "action": &result.action,
+        "operation_kind": &result.operation_kind,
+        "status": &result.status,
+        "backend": &result.backend,
+        "backend_id": &result.backend_id,
+        "driver": &result.driver,
+        "execution_backend": &result.execution_backend,
+        "lifecycle_hash": &result.lifecycle_hash,
+        "record_dir": &result.record_dir,
+        "receipt_refs": record_receipt_refs,
+        "rust_core_boundary": &result.rust_core_boundary,
+        "source": "rust_model_mount_provider_lifecycle_command",
+        "public_response": &result.public_response,
+        "evidence_refs": &result.evidence_refs,
+    })
+}
+
+fn record_id_segment(value: &str, fallback: &str) -> String {
+    let mut segment = value
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || matches!(ch, '.' | '_' | '-') {
+                ch
+            } else {
+                '_'
+            }
+        })
+        .collect::<String>();
+    while segment.contains("__") {
+        segment = segment.replace("__", "_");
+    }
+    let segment = segment.trim_matches('_');
+    if segment.is_empty() {
+        fallback.to_string()
+    } else {
+        segment.to_string()
+    }
+}
+
+fn non_empty_vec(values: &[String]) -> Vec<String> {
+    values
+        .iter()
+        .filter_map(|value| {
+            let trimmed = value.trim();
+            if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed.to_string())
+            }
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -236,6 +399,10 @@ mod tests {
             provider_status: Some("configured".to_string()),
             evidence_refs: vec!["daemon_model_load_request".to_string()],
             process_evidence_refs: vec!["autopilot_native_local_process_started".to_string()],
+            operation_kind: Some("model_mount.provider.start".to_string()),
+            source: Some("test".to_string()),
+            generated_at: Some("2026-06-13T00:00:00.000Z".to_string()),
+            receipt_refs: vec!["receipt://provider-lifecycle".to_string()],
         }
     }
 
@@ -254,6 +421,10 @@ mod tests {
             provider_status: Some("configured".to_string()),
             evidence_refs: vec!["daemon_fixture_health_request".to_string()],
             process_evidence_refs: vec![],
+            operation_kind: Some("model_mount.provider.health".to_string()),
+            source: Some("test".to_string()),
+            generated_at: Some("2026-06-13T00:00:00.000Z".to_string()),
+            receipt_refs: vec![],
         }
     }
 

@@ -9,33 +9,84 @@ function callMounted(method, state, ...args) {
 
 function fakeState() {
   const state = {
-    serverControlRequiredRequests: [],
-    serverControlRequired(operationKind, details = {}) {
-      return ModelMountingState.prototype.serverControlRequired.call(this, operationKind, details);
-    },
-  };
-  state.modelMountAdmissionRunner = {
-    planServerControlRequired(request) {
-      state.serverControlRequiredRequests.push(request);
+    serverControlPlans: [],
+    recordStateCommits: [],
+    nowIso: () => "2026-06-13T12:00:00.000Z",
+    planServerControl(request) {
+      state.serverControlPlans.push(request);
+      const hash = `sha256:${request.operation_kind.replaceAll(".", "_")}`;
+      const recordId = `server-control:${state.serverControlPlans.length}`;
       return {
-        status: "rust_core_required",
-        status_code: 501,
-        code: "model_mount_server_control_rust_core_required",
-        message: "Server-control facade requires Rust daemon-core model_mount server-control ownership.",
+        source: "rust_model_mount_server_control_command",
+        backend: "rust_model_mount_server_control",
+        schema_version: "ioi.model_mount.server_control_plan.v1",
+        object: "ioi.model_mount_server_control_plan",
+        status: "planned",
         rust_core_boundary: "model_mount.server_control",
         operation_kind: request.operation_kind,
-        evidence_refs: request.evidence_refs,
-        details: {
-          operation: request.operation,
-          ...request.details,
-          operation_kind: request.operation_kind,
+        source_request: request.source,
+        record_dir: "model-server-controls",
+        record_id: recordId,
+        record: {
+          id: recordId,
+          object: "ioi.model_mount_server_control_record",
           rust_core_boundary: "model_mount.server_control",
-          source: request.source,
-          evidence_refs: request.evidence_refs,
+          operation_kind: request.operation_kind,
+          public_response: {
+            object: "ioi.model_mount_server_control",
+            status: "planned",
+            operation_kind: request.operation_kind,
+            server_control_id: request.server_control_id,
+            logs: request.operation_kind.endsWith("logs_read") ? [] : undefined,
+            events: request.operation_kind.endsWith("events_read") ? [] : undefined,
+          },
+          evidence_refs: [
+            "public_server_control_js_facade_retired",
+            "rust_daemon_core_server_control",
+            "agentgres_server_control_truth_required",
+          ],
+        },
+        public_response: {
+          object: "ioi.model_mount_server_control",
+          status: "planned",
+          operation_kind: request.operation_kind,
+          server_control_id: request.server_control_id,
+          js_state_write: false,
+          js_log_write: false,
+          js_transport_execution: false,
+        },
+        receipt_refs: request.receipt_refs ?? [],
+        evidence_refs: [
+          "public_server_control_js_facade_retired",
+          "rust_daemon_core_server_control",
+          "agentgres_server_control_truth_required",
+        ],
+        control_hash: hash,
+      };
+    },
+    commitRuntimeModelMountRecordState(request) {
+      state.recordStateCommits.push(request);
+      return {
+        record_id: request.record_id,
+        object_ref: `model-server-controls/${request.record_id}`,
+        content_hash: "sha256:content",
+        admission_hash: "sha256:admission",
+        commit_hash: "sha256:commit",
+        written_record: request.record,
+        storage_record: {
+          object_ref: `model-server-controls/${request.record_id}`,
+          content_hash: "sha256:content",
+          admission: { admission_hash: "sha256:admission" },
         },
       };
     },
   };
+  return state;
+}
+
+function fakeStateWithoutPlanner() {
+  const state = fakeState();
+  delete state.planServerControl;
   return state;
 }
 
@@ -46,7 +97,7 @@ function assertServerControlRustCoreRequired(error, operationKind, details = {})
   assert.equal(error.details.rust_core_boundary, "model_mount.server_control");
   assert.deepEqual(error.details.evidence_refs, [
     "public_server_control_js_facade_retired",
-    "rust_daemon_core_server_control_required",
+    "rust_daemon_core_server_control",
     "agentgres_server_control_truth_required",
   ]);
   for (const [key, value] of Object.entries(details)) {
@@ -76,7 +127,7 @@ test("mounted server control state is volatile input only", () => {
   assert.equal(Object.hasOwn(controlState, "schema_version"), false);
 });
 
-test("mounted server control mutation/log facades fail closed before JS state or log writes", () => {
+test("mounted server control mutation/log facades commit Rust-authored records", () => {
   const state = fakeState();
   const cases = [
     [() => callMounted("serverStart", state, null), "model_mount.server_control.start"],
@@ -89,62 +140,62 @@ test("mounted server control mutation/log facades fail closed before JS state or
   ];
 
   for (const [run, operationKind] of cases) {
-    assert.throws(run, (error) => assertServerControlRustCoreRequired(error, operationKind));
+    const response = run();
+    assert.equal(response.operation_kind, operationKind);
+    assert.equal(response.rust_core_boundary, "model_mount.server_control");
+    assert.equal(response.evidence_refs.includes("rust_daemon_core_server_control"), true);
+    assert.equal(response.commit.record_id, response.record_id);
   }
 
-  assert.equal(state.serverControlRequiredRequests.length, cases.length);
+  assert.equal(state.serverControlPlans.length, cases.length);
+  assert.equal(state.recordStateCommits.length, cases.length);
   assert.equal(
-    state.serverControlRequiredRequests[0].schema_version,
-    "ioi.model_mount.server_control_required.v1",
+    state.serverControlPlans[0].schema_version,
+    "ioi.model_mount.server_control.v1",
   );
-  assert.equal(state.serverControlRequiredRequests[0].operation, "model_mount.server_control");
-  assert.equal(state.serverControlRequiredRequests[0].operation_kind, "model_mount.server_control.start");
+  assert.equal(state.serverControlPlans[0].operation_kind, "model_mount.server_control.start");
   assert.equal(
-    state.serverControlRequiredRequests.at(-1).operation_kind,
+    state.serverControlPlans.at(-1).operation_kind,
     "model_mount.server_control.log_append",
   );
-  assert.equal(Object.hasOwn(state.serverControlRequiredRequests[0], "operationKind"), false);
+  assert.equal(state.serverControlPlans.at(-1).body.authorization, undefined);
+  assert.equal(Object.hasOwn(state.serverControlPlans[0], "operationKind"), false);
 });
 
-test("mounted server control state writes and operation recording fail closed", () => {
+test("mounted server control state writes and operation recording commit Rust truth", () => {
   const state = fakeState();
 
-  assert.throws(
-    () =>
-      callMounted("writeServerControlState", state, {
-        schemaVersion: "schema.retired",
-        status: "stopped",
-        operation: "server_stop",
-        receiptId: "receipt.server_stop.1",
-      }),
-    (error) =>
-      assertServerControlRustCoreRequired(error, "model_mount.server_control.write", {
-        server_control_id: "server-control.default",
-        receipt_id: "receipt.server_stop.1",
-      }),
-  );
-  assert.equal(state.serverControlRequiredRequests[0].operation_kind, "model_mount.server_control.write");
-  assert.equal(state.serverControlRequiredRequests[0].details.server_control_id, "server-control.default");
-  assert.equal(state.serverControlRequiredRequests[0].details.receipt_id, "receipt.server_stop.1");
-  assert.equal(Object.hasOwn(state.serverControlRequiredRequests[0].details, "receiptId"), false);
+  const written = callMounted("writeServerControlState", state, {
+    schemaVersion: "schema.retired",
+    status: "stopped",
+    operation: "server_stop",
+    receiptId: "receipt.server_stop.1",
+  });
+  assert.equal(written.operation_kind, "model_mount.server_control.write");
+  assert.equal(state.serverControlPlans[0].server_control_id, "server-control.default");
+  assert.equal(state.serverControlPlans[0].receipt_refs[0], "receipt.server_stop.1");
+  assert.equal(Object.hasOwn(state.serverControlPlans[0].body, "receiptId"), false);
 
-  assert.throws(
-    () =>
-      callMounted("recordServerOperation", state, "server_stop", "blocked", "http://daemon.test", {
-        reason: "test",
-      }),
-    (error) =>
-      assertServerControlRustCoreRequired(error, "model_mount.server_control.record_operation", {
-        operation: "server_stop",
-        status: "blocked",
-        base_url: "http://daemon.test",
-        reason: "test",
-      }),
-  );
+  const recorded = callMounted("recordServerOperation", state, "server_stop", "blocked", "http://daemon.test", {
+    reason: "test",
+  });
+  assert.equal(recorded.operation_kind, "model_mount.server_control.record_operation");
   assert.equal(
-    state.serverControlRequiredRequests[1].operation_kind,
+    state.serverControlPlans[1].operation_kind,
     "model_mount.server_control.record_operation",
   );
-  assert.equal(state.serverControlRequiredRequests[1].details.base_url, "http://daemon.test");
-  assert.equal(Object.hasOwn(state.serverControlRequiredRequests[1].details, "baseUrl"), false);
+  assert.equal(state.serverControlPlans[1].body.base_url, "http://daemon.test");
+  assert.equal(Object.hasOwn(state.serverControlPlans[1].body, "baseUrl"), false);
+  assert.equal(state.recordStateCommits.length, 2);
+});
+
+test("mounted server control fails closed before JS writes when Rust planner is missing", () => {
+  const state = fakeStateWithoutPlanner();
+
+  assert.throws(
+    () => callMounted("serverStart", state, null),
+    (error) => assertServerControlRustCoreRequired(error, "model_mount.server_control.start"),
+  );
+  assert.equal(state.serverControlPlans.length, 0);
+  assert.equal(state.recordStateCommits.length, 0);
 });

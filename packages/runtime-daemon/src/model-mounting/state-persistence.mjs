@@ -1,7 +1,5 @@
 import path from "node:path";
 
-import { commitModelMountRecordState } from "./record-state-commits.mjs";
-
 export const MODEL_MOUNTING_STATE_MAPS = [
   ["model-providers", "providers"],
   ["model-backends", "backends"],
@@ -65,25 +63,14 @@ export function writeModelMountingMap(state, dir, map) {
 }
 
 export function writeModelMountingVaultRefs(state) {
-  const records = state.vault.metadataRecords();
-  for (const record of records) {
-    commitVaultRefRecordState(state, record, "model_mount.vault_ref.write", []);
-  }
-  state.vaultRefs = new Map(records.map((record) => [record.id, record]));
-}
-
-function commitVaultRefRecordState(state, record, operation_kind, receipt_refs) {
-  return commitModelMountRecordState(state, {
-    recordDir: "vault-refs",
-    record,
-    operation_kind,
-    receipt_refs,
-    unconfiguredCode: "model_mount_vault_ref_state_commit_unconfigured",
-    unconfiguredMessage:
-      "Vault ref metadata persistence requires Rust Agentgres record-state commit.",
-    unconfiguredDetails: {
-      vault_ref_id: record?.id ?? null,
-      vault_ref_hash: record?.vaultRefHash ?? null,
-    },
-  });
+  const error = new Error("Vault ref metadata persistence is Rust-owned; use plan_model_mount_vault_control.");
+  error.status = 500;
+  error.code = "model_mount_vault_ref_js_metadata_write_retired";
+  error.details = {
+    record_dir: "vault-refs",
+    rust_core_api: "plan_model_mount_vault_control",
+    canonical_persistence: "rust_agentgres_record_state_commit",
+    record_count: typeof state?.vaultRefs?.size === "number" ? state.vaultRefs.size : null,
+  };
+  throw error;
 }

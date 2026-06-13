@@ -3,6 +3,7 @@ import { notFound, policyError, runtimeError } from "./runtime-http-utils.mjs";
 import {
   doctorHash,
   normalizeArray,
+  objectRecord,
   operatorControlSource,
   optionalString,
   safeId,
@@ -25,7 +26,6 @@ import {
   codingToolInputForRequest,
   codingToolInputSummary,
   codingToolResultSummary,
-  codingToolSourceEventKind,
   codingToolSummary,
   retiredArtifactReadRangeAliases,
 } from "./coding-tools.mjs";
@@ -53,6 +53,7 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
     codingToolResultWithoutDrafts,
     diagnosticsRepairContextForRequest,
     diagnosticsRepairContextForToolPack,
+    codingToolResultEnvelopeForThread = requireRustCoreCodingToolResultEnvelopePlanning,
     codingToolResultEventAdmissionForThread = requireRustCoreCodingToolResultEventAdmission,
     stepModuleRunner = createStepModuleRunnerFromEnv(),
   } = deps;
@@ -284,6 +285,41 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
       ...normalizeArray(approvalGate?.receipt_refs),
     ]);
     const policyDecisionRefs = uniqueStrings(normalizeArray(approvalGate?.policy_decision_refs));
+    const resultEnvelopeBase = () => ({
+      event_stream_id: eventStreamIdForThread(threadId),
+      thread_id: threadId,
+      turn_id: turnId || null,
+      tool_id: normalizedToolId,
+      tool_call_id: toolCallId,
+      workspace_root: agent.cwd,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
+      idempotency_key: codingToolIdempotencyKey,
+      source: operatorControlSource(request.source),
+      receipt_id: receiptId,
+      diagnostics_repair_context: diagnosticsRepairContext ?? null,
+      approval_required: Boolean(approvalManifest),
+      approval_satisfied: Boolean(approvalGate?.satisfied),
+      approval_id: approvalGate?.approval_id ?? null,
+      approval_manifest: approvalManifest ?? null,
+      approval_decision_event_id: approvalGate?.decision_event_id ?? null,
+      approval_receipt_refs: normalizeArray(approvalGate?.receipt_refs),
+      approval_policy_decision_refs: policyDecisionRefs,
+    });
+    const stepModuleEnvelope = codingToolResultEnvelopeForThread(store, {
+      ...resultEnvelopeBase(),
+      phase: "step_module_context",
+      status: "completed",
+      receipt_refs: receiptRefs,
+      artifact_refs: artifactRefs,
+      rollback_refs: requestRollbackRefs,
+    });
+    const stepModuleContext = requireRustPlannedStepModuleContext(stepModuleEnvelope, {
+      thread_id: threadId,
+      tool_id: normalizedToolId,
+      tool_call_id: toolCallId,
+      phase: "step_module_context",
+    });
     let status = "completed";
     let result = null;
     let error = null;
@@ -291,33 +327,12 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
     let workspaceSnapshotEvent = null;
     let stepModuleProjection = null;
     let stepModuleError = null;
-    const stepModuleContext = ({ status, receipt_refs, artifact_refs, workflow_projection_status }) => ({
-      run_id: `run:${threadId}`,
-      task_id: `task:${turnId || threadId}`,
-      thread_id: threadId,
-      workflow_graph_id: workflowGraphId,
-      workflow_node_id: workflowNodeId,
-      action_proposal_ref: `action:coding-tool:${toolCallId}`,
-      gate_result_ref: `gate:coding-tool:${toolCallId}`,
-      approval_ref: approvalGate?.approval_id ? `approval:${approvalGate.approval_id}` : null,
-      idempotency_key: codingToolIdempotencyKey,
-      status: status === "failed" ? "failure" : "success",
-      workflow_projection_status,
-      receipt_refs,
-      artifact_refs,
-      workspace_root: agent.cwd,
-    });
     try {
       const rustLiveInput = rustLiveInputForCodingTool(store, threadId, normalizedToolId, input);
       stepModuleProjection = stepModuleRunner.runCodingTool({
         toolId: normalizedToolId,
         input: rustLiveInput,
-        context: stepModuleContext({
-          status,
-          receipt_refs: receiptRefs,
-          artifact_refs: artifactRefs,
-          workflow_projection_status: "live",
-        }),
+        context: stepModuleContext,
       });
       receiptRefs.push(
         ...normalizeArray(stepModuleProjection?.result?.receipt_refs),
@@ -380,41 +395,28 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
       ...(workspaceSnapshot ? [workspaceSnapshot.record.snapshot_id] : []),
       ...requestRollbackRefs,
     ]);
-    const payloadSummary = {
-      schema_version: CODING_TOOL_RESULT_SCHEMA_VERSION,
-      event_kind: "CodingToolResult",
-      tool_pack: CODING_TOOL_PACK_ID,
-      tool_name: normalizedToolId,
-      tool_call_id: toolCallId,
-      thread_id: threadId,
-      turn_id: turnId || null,
-      workspace_root: agent.cwd,
-      workflow_graph_id: workflowGraphId,
-      workflow_node_id: workflowNodeId,
+    const resultEnvelope = codingToolResultEnvelopeForThread(store, {
+      ...resultEnvelopeBase(),
+      phase: "result_event",
       status,
       summary,
-      shell_fallback_used: false,
       input_summary: codingToolInputSummary(normalizedToolId, input),
       result_summary: codingToolResultSummary(normalizedToolId, result),
       result,
       error,
       rollback_refs: rollbackRefs,
-      diagnostics_repair_context: diagnosticsRepairContext,
-      approval_required: Boolean(approvalManifest),
-      approval_satisfied: Boolean(approvalGate?.satisfied),
-      approval_id: approvalGate?.approval_id ?? null,
-      approval_manifest: approvalManifest ?? null,
-      approval_decision_event_id: approvalGate?.decision_event_id ?? null,
-      approval_receipt_refs: normalizeArray(approvalGate?.receipt_refs),
-      approval_policy_decision_refs: policyDecisionRefs,
-      receipt_id: receiptId,
-      receipt_count: receiptRefs.length,
-      artifact_count: artifactRefs.length,
+      receipt_refs: uniqueStrings(receiptRefs),
+      artifact_refs: uniqueStrings(artifactRefs),
       step_module_backend: stepModuleProjection?.backend ?? stepModuleRunner.backend,
-      step_module_invocation: stepModuleProjection?.invocation ?? null,
-      step_module_result: stepModuleProjection?.result ?? null,
+      step_module: stepModuleProjection,
       step_module_error: stepModuleError,
-    };
+    });
+    const resultEvent = requireRustPlannedResultEvent(resultEnvelope, {
+      thread_id: threadId,
+      tool_id: normalizedToolId,
+      tool_call_id: toolCallId,
+      phase: "result_event",
+    });
     const commandStreamEvents = store.codingToolArtifactSurface.admitCodingToolCommandStreamEvents(store, {
       agent,
       threadId,
@@ -430,28 +432,8 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
       artifactRefs,
     });
     const event = codingToolResultEventAdmissionForThread(store, {
-      event: {
-        event_stream_id: eventStreamIdForThread(threadId),
-        thread_id: threadId,
-        turn_id: turnId,
-        item_id: `${turnId || threadId}:item:coding-tool:${safeId(normalizedToolId)}:${doctorHash(toolCallId).slice(0, 12)}`,
-        idempotency_key: codingToolIdempotencyKey,
-        source: operatorControlSource(request.source),
-        source_event_kind: codingToolSourceEventKind(normalizedToolId),
-        event_kind: status === "failed" ? "tool.failed" : "tool.completed",
-        status,
-        actor: "runtime",
-        workspace_root: agent.cwd,
-        workflow_graph_id: workflowGraphId,
-        workflow_node_id: workflowNodeId,
-        component_kind: "coding_tool",
-        tool_call_id: toolCallId,
-        artifact_refs: artifactRefs,
-        receipt_refs: uniqueStrings(receiptRefs),
-        rollback_refs: rollbackRefs,
-        payload_schema_version: CODING_TOOL_RESULT_SCHEMA_VERSION,
-        payload_summary: payloadSummary,
-      },
+      event: resultEvent,
+      result_envelope: resultEnvelope.record ?? resultEnvelope,
     });
     const autoDiagnostics =
       status === "completed" && normalizedToolId === "file.apply_patch"
@@ -524,6 +506,86 @@ function requireRustCoreCodingToolResultEventAdmission(_store, input = {}) {
       ],
     },
   });
+}
+
+function requireRustCoreCodingToolResultEnvelopePlanning(_store, input = {}) {
+  throw runtimeError({
+    status: 501,
+    code: "runtime_coding_tool_result_envelope_rust_core_required",
+    message: "Runtime coding-tool result envelope planning requires direct Rust daemon-core context and event authorship.",
+    details: {
+      rust_core_boundary: "runtime.coding_tool_invocation",
+      operation: "coding_tool_result_envelope_planning",
+      operation_kind: "runtime.coding_tool.result_envelope",
+      phase: input.phase ?? null,
+      thread_id: input.thread_id ?? null,
+      turn_id: input.turn_id ?? null,
+      tool_name: input.tool_id ?? null,
+      tool_call_id: input.tool_call_id ?? null,
+      workflow_graph_id: input.workflow_graph_id ?? null,
+      workflow_node_id: input.workflow_node_id ?? null,
+      evidence_refs: [
+        "coding_tool_result_envelope_js_authoring_retired",
+        "rust_daemon_core_coding_tool_result_envelope_required",
+        "agentgres_coding_tool_result_event_admission_required",
+      ],
+    },
+  });
+}
+
+function requireRustPlannedStepModuleContext(plan = {}, details = {}) {
+  const context = objectRecord(plan.step_module_context);
+  if (
+    plan.operation_kind !== "runtime.coding_tool.result_envelope" ||
+    plan.phase !== "step_module_context" ||
+    !context ||
+    context.workflow_projection_status !== "live" ||
+    context.thread_id !== details.thread_id ||
+    context.workflow_node_id == null
+  ) {
+    throw runtimeError({
+      status: 502,
+      code: "runtime_coding_tool_result_envelope_invalid",
+      message: "Rust daemon-core coding-tool result envelope plan did not include a valid StepModule context.",
+      details: {
+        ...details,
+        operation: "plan_coding_tool_result_envelope",
+        operation_kind: plan.operation_kind ?? null,
+        planned_phase: plan.phase ?? null,
+        envelope_hash: plan.envelope_hash ?? null,
+      },
+    });
+  }
+  return context;
+}
+
+function requireRustPlannedResultEvent(plan = {}, details = {}) {
+  const event = objectRecord(plan.event);
+  const payloadSummary = objectRecord(event?.payload_summary);
+  if (
+    plan.operation_kind !== "runtime.coding_tool.result_envelope" ||
+    plan.phase !== "result_event" ||
+    !event ||
+    !payloadSummary ||
+    event.thread_id !== details.thread_id ||
+    event.tool_call_id !== details.tool_call_id ||
+    payloadSummary.tool_name !== details.tool_id ||
+    event.payload_schema_version !== CODING_TOOL_RESULT_SCHEMA_VERSION
+  ) {
+    throw runtimeError({
+      status: 502,
+      code: "runtime_coding_tool_result_envelope_invalid",
+      message: "Rust daemon-core coding-tool result envelope plan did not include a valid result event.",
+      details: {
+        ...details,
+        operation: "plan_coding_tool_result_envelope",
+        operation_kind: plan.operation_kind ?? null,
+        planned_phase: plan.phase ?? null,
+        envelope_hash: plan.envelope_hash ?? null,
+      },
+    });
+  }
+  return event;
 }
 
 function requireRustCoreCodingToolApprovalBlock(input = {}) {

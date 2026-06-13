@@ -35,25 +35,20 @@ export function validateContinuationSafety({
 
 export const MODEL_RECEIPT_GATE_RUST_CORE_REQUIRED_EVIDENCE_REFS = [
   "model_mount_receipt_gate_js_facade_retired",
-  "rust_daemon_core_model_receipt_gate_required",
+  "model_mount_receipt_gate_rust_owned",
+  "rust_receipt_binder_core",
   "agentgres_model_receipt_gate_truth_required",
 ];
 
-export function modelReceiptGateRustCoreRequiredError({ receiptId, receipt, requiredToolReceiptIds, failures }) {
+export function modelReceiptGateRustCoreRequiredError({ receiptId, requiredToolReceiptIds }) {
   const error = new Error("Receipt Gate validation requires Rust model_mount receipt-gate admission.");
   error.code = "model_mount_receipt_gate_rust_core_required";
   error.status = 409;
   error.details = {
-    boundary: "model_mount.receipt_gate",
+    rust_core_boundary: "model_mount.receipt_gate",
     operation_kind: "workflow_receipt_gate",
     evidence_refs: MODEL_RECEIPT_GATE_RUST_CORE_REQUIRED_EVIDENCE_REFS,
     receipt_id: receiptId,
-    gate_status: failures.length > 0 ? "blocked" : "passed",
-    failures,
-    route_id: receipt.details?.route_id ?? null,
-    selected_model: receipt.details?.selected_model ?? null,
-    endpoint_id: receipt.details?.endpoint_id ?? null,
-    backend_id: receipt.details?.backend_id ?? receipt.details?.selected_backend ?? null,
     required_tool_receipt_ids: requiredToolReceiptIds,
   };
   return error;
@@ -63,52 +58,67 @@ export function validateReceiptGate({
   body = {},
   getReceipt,
   normalizeScopes,
-  receipt: createReceipt,
+  persistRustAuthoredReceipt,
+  planReceiptGate,
   requiredString,
   runtimeError,
+  nowIso,
 } = {}) {
   const receiptId = requiredString(body.receipt_id, "receipt_id");
   const receipt = getReceipt(receiptId);
-  const requiredRedaction = body.redaction ?? body.redaction_class;
-  const requiredRouteId = body.route_id;
-  const requiredSelectedModel = body.selected_model;
-  const requiredSelectedEndpoint = body.selected_endpoint ?? body.endpoint_id;
-  const requiredSelectedBackend = body.selected_backend ?? body.backend_id;
   const requiredToolReceiptIds = normalizeScopes(
     body.required_tool_receipt_ids,
     [],
-  );
-  const failures = [];
-  if (requiredRedaction && receipt.redaction !== requiredRedaction) {
-    failures.push(`redaction:${receipt.redaction}`);
+  ).filter((value) => typeof value === "string" && value.trim()).map((value) => value.trim());
+  const toolReceipts = requiredToolReceiptIds.map((toolReceiptId) => getReceipt(toolReceiptId));
+  if (typeof planReceiptGate !== "function") {
+    throw modelReceiptGateRustCoreRequiredError({
+      receiptId,
+      requiredToolReceiptIds,
+    });
   }
-  if (requiredRouteId && receipt.details?.route_id !== requiredRouteId) {
-    failures.push(`route:${receipt.details?.route_id ?? "missing"}`);
+  if (typeof persistRustAuthoredReceipt !== "function") {
+    throw runtimeError({
+      status: 500,
+      code: "model_mount_receipt_gate_receipt_state_commit_unconfigured",
+      message: "Receipt Gate validation requires Rust-authored receipt-state persistence.",
+      details: {
+        receipt_id: receiptId,
+        rust_core_boundary: "model_mount.receipt_gate",
+      },
+    });
   }
-  if (requiredSelectedModel && receipt.details?.selected_model !== requiredSelectedModel) {
-    failures.push(`selected_model:${receipt.details?.selected_model ?? "missing"}`);
-  }
-  if (requiredSelectedEndpoint && receipt.details?.endpoint_id !== requiredSelectedEndpoint) {
-    failures.push(`endpoint:${receipt.details?.endpoint_id ?? "missing"}`);
-  }
-  if (requiredSelectedBackend && receipt.details?.backend_id !== requiredSelectedBackend && receipt.details?.selected_backend !== requiredSelectedBackend) {
-    failures.push(`backend:${receipt.details?.backend_id ?? receipt.details?.selected_backend ?? "missing"}`);
-  }
-  const linkedToolReceiptIds = new Set(normalizeScopes(receipt.details?.tool_receipt_ids, []));
-  for (const toolReceiptId of requiredToolReceiptIds) {
-    const toolReceipt = getReceipt(toolReceiptId);
-    if (toolReceipt.kind !== "mcp_tool_invocation") {
-      failures.push(`tool_receipt_kind:${toolReceiptId}`);
-    }
-    if (!linkedToolReceiptIds.has(toolReceiptId)) {
-      failures.push(`tool_receipt_link:${toolReceiptId}`);
-    }
-  }
-  void createReceipt;
-  throw modelReceiptGateRustCoreRequiredError({
-    receiptId,
+  const plan = planReceiptGate({
+    schema_version: "ioi.model_mount.receipt_gate.v1",
+    operation_kind: "workflow_receipt_gate",
+    receipt_id: receiptId,
     receipt,
-    requiredToolReceiptIds,
-    failures,
+    required_tool_receipt_ids: requiredToolReceiptIds,
+    tool_receipts: toolReceipts,
+    required_redaction: optionalString(body.redaction ?? body.redaction_class),
+    required_route_id: optionalString(body.route_id),
+    required_selected_model: optionalString(body.selected_model),
+    required_endpoint_id: optionalString(body.selected_endpoint ?? body.endpoint_id),
+    required_backend_id: optionalString(body.selected_backend ?? body.backend_id),
+    source: "runtime-daemon.model_mounting.receipt_gate",
+    generated_at: typeof nowIso === "function" ? nowIso() : null,
   });
+  const persistedReceipt = persistRustAuthoredReceipt(plan.receipt);
+  return {
+    ...(plan.public_response ?? {}),
+    status: plan.public_response?.status ?? plan.gate_status,
+    receipt_id: receiptId,
+    gate_status: plan.gate_status,
+    failures: Array.isArray(plan.plan?.failures) ? plan.plan.failures : [],
+    receipt: persistedReceipt,
+    plan,
+    receipt_refs: plan.receipt_refs ?? [],
+    evidence_refs: plan.evidence_refs ?? [],
+    gate_hash: plan.gate_hash ?? null,
+    rust_core_boundary: plan.rust_core_boundary ?? "model_mount.receipt_gate",
+  };
+}
+
+function optionalString(value) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
 }

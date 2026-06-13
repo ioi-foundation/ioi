@@ -1,10 +1,13 @@
-const conversationArtifactMutationFacadeRetirementEvidenceRefs = [
+import { commitRuntimeArtifactRecord } from "./runtime-artifact-state-commit.mjs";
+
+const conversationArtifactControlEvidenceRefs = [
+  "runtime_conversation_artifact_control_rust_owned",
+  "runtime_conversation_artifact_state_commit_rust_owned",
   "runtime_conversation_artifact_control_js_facade_retired",
   "conversation_artifact_create_js_facade_retired",
   "conversation_artifact_action_js_facade_retired",
   "conversation_artifact_export_js_facade_retired",
   "conversation_artifact_promote_js_facade_retired",
-  "rust_daemon_core_conversation_artifact_control_required",
   "agentgres_conversation_artifact_truth_required",
 ];
 
@@ -27,33 +30,63 @@ function validProjectedConversationArtifactRead(projectionKind, projection) {
   return false;
 }
 
+function objectRecord(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+}
+
 export function createRuntimeConversationArtifactSurface({
   contextPolicyRunner = null,
   runtimeError = ({ status = 500, code = "runtime_conversation_artifact_error", message, details }) =>
     Object.assign(new Error(message), { status, code, details }),
 } = {}) {
-  function throwConversationArtifactRustCoreRequired({
+  function throwConversationArtifactControlRequired({
     operation,
     operationKind,
     threadId = null,
     artifactId = null,
+    code = "runtime_conversation_artifact_control_rust_core_required",
+    source = "runtime.conversation_artifact_surface.control",
   }) {
     throw runtimeError({
       status: 501,
-      code: "runtime_conversation_artifact_control_rust_core_required",
+      code,
       message:
-        "Runtime conversation artifact lifecycle and projection facades require direct Rust daemon-core admission, persistence, and projection.",
+        "Runtime conversation artifact control requires direct Rust daemon-core planning and Agentgres artifact-state admission.",
       details: {
         rust_core_boundary: "runtime.conversation_artifact_control",
         operation,
         operation_kind: operationKind,
         ...(threadId ? { thread_id: threadId } : {}),
         ...(artifactId ? { artifact_id: artifactId } : {}),
+        source,
         evidence_refs: [
-          ...conversationArtifactMutationFacadeRetirementEvidenceRefs,
-          `${operation}_js_facade_retired`,
+          ...conversationArtifactControlEvidenceRefs,
+          `${operation}_rust_owned`,
         ],
       },
+    });
+  }
+
+  function conversationArtifactControlRunner(store, request = {}) {
+    const runner = store?.contextPolicyRunner ?? contextPolicyRunner;
+    if (runner?.planRuntimeConversationArtifactControl) return runner;
+    throwConversationArtifactControlRequired({
+      operation: request.operation ?? "conversation_artifact_control",
+      operationKind: request.operation_kind ?? "artifact.conversation.control",
+      threadId: request.thread_id ?? null,
+      artifactId: request.artifact_id ?? null,
+    });
+  }
+
+  function assertConversationArtifactCommitAvailable(store, request = {}) {
+    if (typeof store?.commitRuntimeArtifactState === "function") return;
+    throwConversationArtifactControlRequired({
+      operation: request.operation ?? "conversation_artifact_control",
+      operationKind: request.operation_kind ?? "artifact.conversation.control",
+      threadId: request.thread_id ?? null,
+      artifactId: request.artifact_id ?? null,
+      code: "runtime_conversation_artifact_agentgres_commit_required",
+      source: "runtime.conversation_artifact_surface.agentgres_commit",
     });
   }
 
@@ -93,6 +126,158 @@ export function createRuntimeConversationArtifactSurface({
       });
     }
     return list.call(store.conversationArtifacts, {});
+  }
+
+  function conversationArtifactControlRequestPayload(input = {}) {
+    const source = objectRecord(input) ?? {};
+    const request = {};
+    for (const key of [
+      "title",
+      "body",
+      "content",
+      "artifact_class",
+      "output_modality",
+      "state_label",
+      "source_refs",
+      "original_refs",
+      "projection_refs",
+      "preview_refs",
+      "trace_refs",
+      "policy_refs",
+      "receipt_refs",
+      "log_refs",
+      "rollback_refs",
+      "idempotency_key",
+      "created_at",
+      "updated_at",
+      "action_kind",
+      "export_format",
+      "promotion_target",
+      "requested_by",
+      "reason",
+    ]) {
+      if (source[key] !== undefined) request[key] = source[key];
+    }
+    return request;
+  }
+
+  function planConversationArtifactControl(store, {
+    operation,
+    operationKind,
+    threadId = null,
+    artifactId = null,
+    input = {},
+  }) {
+    const requestContext = {
+      operation,
+      operation_kind: operationKind,
+      thread_id: threadId,
+      artifact_id: artifactId,
+    };
+    const runner = conversationArtifactControlRunner(store, requestContext);
+    assertConversationArtifactCommitAvailable(store, requestContext);
+    const artifacts = candidateConversationArtifacts(store);
+    const artifact = artifactId
+      ? artifacts.find((record) => (
+          optionalString(record?.id) === artifactId ||
+          optionalString(record?.artifact_id) === artifactId
+        )) ?? null
+      : null;
+    const request = {
+      operation,
+      operation_kind: operationKind,
+      thread_id: threadId,
+      artifact_id: artifactId,
+      artifacts,
+      artifact,
+      request: conversationArtifactControlRequestPayload(input),
+      evidence_refs: [
+        ...conversationArtifactControlEvidenceRefs,
+        `${operation}_rust_owned`,
+      ],
+    };
+    const plan = runner.planRuntimeConversationArtifactControl(request);
+    return assertConversationArtifactControlPlan(plan, {
+      operation,
+      operationKind,
+      threadId,
+      artifactId,
+    });
+  }
+
+  function assertConversationArtifactControlPlan(plan, {
+    operation,
+    operationKind,
+    threadId = null,
+    artifactId = null,
+  }) {
+    const artifact = objectRecord(plan?.artifact);
+    const result = objectRecord(plan?.result);
+    const plannedArtifactId = optionalString(plan?.artifact_id ?? artifact?.id ?? artifact?.artifact_id);
+    if (
+      plan?.operation_kind !== operationKind ||
+      !artifact ||
+      !result ||
+      !plannedArtifactId ||
+      (artifactId && plannedArtifactId !== artifactId)
+    ) {
+      throw runtimeError({
+        status: 502,
+        code: "runtime_conversation_artifact_control_plan_invalid",
+        message:
+          "Rust conversation artifact control returned an invalid control plan.",
+        details: {
+          rust_core_boundary: "runtime.conversation_artifact_control",
+          operation,
+          operation_kind: operationKind,
+          ...(threadId ? { thread_id: threadId } : {}),
+          ...(artifactId ? { artifact_id: artifactId } : {}),
+          planned_operation_kind: plan?.operation_kind ?? null,
+          planned_artifact_id: plannedArtifactId,
+          source: "runtime.conversation_artifact_surface.control",
+        },
+      });
+    }
+    return {
+      ...plan,
+      artifact_id: plannedArtifactId,
+      artifact,
+      result,
+    };
+  }
+
+  function commitConversationArtifactControl(store, plan) {
+    try {
+      const commit = commitRuntimeArtifactRecord(store, plan.artifact, plan.operation_kind);
+      if (typeof store?.conversationArtifacts?.load === "function") {
+        store.conversationArtifacts.load();
+      }
+      return {
+        ...plan.result,
+        artifact_id: plan.artifact_id,
+        operation_kind: plan.operation_kind,
+        artifact: plan.artifact,
+        receipt_refs: plan.receipt_refs ?? [],
+        policy_decision_refs: plan.policy_decision_refs ?? [],
+        evidence_refs: plan.evidence_refs ?? [],
+        commit,
+      };
+    } catch (error) {
+      throw runtimeError({
+        status: 502,
+        code: "runtime_conversation_artifact_agentgres_commit_failed",
+        message:
+          "Rust Agentgres artifact-state admission rejected the conversation artifact control record.",
+        details: {
+          rust_core_boundary: "runtime.conversation_artifact_control",
+          operation_kind: plan?.operation_kind ?? null,
+          artifact_id: plan?.artifact_id ?? null,
+          cause: error?.message ?? String(error),
+          source: "runtime.conversation_artifact_surface.agentgres_commit",
+          evidence_refs: conversationArtifactControlEvidenceRefs,
+        },
+      });
+    }
   }
 
   function projectConversationArtifactRead(store, projectionKind, {
@@ -145,13 +330,13 @@ export function createRuntimeConversationArtifactSurface({
 
   return {
     createConversationArtifact(store, threadId, input = {}) {
-      void store;
-      void input;
-      throwConversationArtifactRustCoreRequired({
+      const plan = planConversationArtifactControl(store, {
         operation: "conversation_artifact_create",
         operationKind: "artifact.conversation.create",
         threadId,
+        input,
       });
+      return commitConversationArtifactControl(store, plan);
     },
     listConversationArtifacts(store, query = {}) {
       return projectConversationArtifactRead(store, "list", {
@@ -172,31 +357,31 @@ export function createRuntimeConversationArtifactSurface({
       });
     },
     performConversationArtifactAction(store, artifactId, input = {}) {
-      void store;
-      void input;
-      throwConversationArtifactRustCoreRequired({
+      const plan = planConversationArtifactControl(store, {
         operation: "conversation_artifact_action",
         operationKind: "artifact.conversation.action",
         artifactId,
+        input,
       });
+      return commitConversationArtifactControl(store, plan);
     },
     exportConversationArtifact(store, artifactId, input = {}) {
-      void store;
-      void input;
-      throwConversationArtifactRustCoreRequired({
+      const plan = planConversationArtifactControl(store, {
         operation: "conversation_artifact_export",
         operationKind: "artifact.conversation.export",
         artifactId,
+        input,
       });
+      return commitConversationArtifactControl(store, plan);
     },
     promoteConversationArtifact(store, artifactId, input = {}) {
-      void store;
-      void input;
-      throwConversationArtifactRustCoreRequired({
+      const plan = planConversationArtifactControl(store, {
         operation: "conversation_artifact_promote",
         operationKind: "artifact.conversation.promote",
         artifactId,
+        input,
       });
+      return commitConversationArtifactControl(store, plan);
     },
   };
 }

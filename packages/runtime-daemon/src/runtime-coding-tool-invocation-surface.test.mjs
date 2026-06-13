@@ -3,6 +3,129 @@ import test from "node:test";
 
 import { createRuntimeCodingToolInvocationSurface } from "./runtime-coding-tool-invocation-surface.mjs";
 
+function codingToolSourceEventKindForTest(toolId = "") {
+  return `CodingTool.${String(toolId)
+    .split(/[._-]/)
+    .filter(Boolean)
+    .map((part) => part.slice(0, 1).toUpperCase() + part.slice(1))
+    .join("")}`;
+}
+
+function planCodingToolResultEnvelopeForTest(_store, input = {}) {
+  const receiptRefs = Array.isArray(input.receipt_refs) ? input.receipt_refs : [];
+  const artifactRefs = Array.isArray(input.artifact_refs) ? input.artifact_refs : [];
+  const rollbackRefs = Array.isArray(input.rollback_refs) ? input.rollback_refs : [];
+  const turnOrThread = input.turn_id || input.thread_id;
+  const stepModuleContext = {
+    run_id: `run:${input.thread_id}`,
+    task_id: `task:${turnOrThread}`,
+    thread_id: input.thread_id,
+    workflow_graph_id: input.workflow_graph_id ?? null,
+    workflow_node_id: input.workflow_node_id,
+    action_proposal_ref: `action:coding-tool:${input.tool_call_id}`,
+    gate_result_ref: `gate:coding-tool:${input.tool_call_id}`,
+    approval_ref: input.approval_id ? `approval:${input.approval_id}` : null,
+    idempotency_key: input.idempotency_key,
+    status: input.status === "failed" ? "failure" : "success",
+    workflow_projection_status: "live",
+    receipt_refs: receiptRefs,
+    artifact_refs: artifactRefs,
+    workspace_root: input.workspace_root ?? null,
+  };
+  const base = {
+    source: "rust_coding_tool_result_envelope_plan_command",
+    backend: "rust_runtime_coding_tool_event",
+    planned: true,
+    operation_kind: "runtime.coding_tool.result_envelope",
+    phase: input.phase,
+    step_module_context: stepModuleContext,
+    receipt_refs: receiptRefs,
+    artifact_refs: artifactRefs,
+    rollback_refs: rollbackRefs,
+    envelope_hash: `sha256:envelope-${input.phase}-${input.tool_call_id}`,
+  };
+  if (input.phase === "step_module_context") {
+    return {
+      ...base,
+      event: null,
+      payload_summary: null,
+      record: {
+        ...base,
+        status: "planned",
+      },
+    };
+  }
+  const stepModule = input.step_module && typeof input.step_module === "object" ? input.step_module : {};
+  const payloadSummary = {
+    schema_version: "ioi.runtime.coding-tool-result.v1",
+    event_kind: "CodingToolResult",
+    tool_pack: "coding",
+    tool_name: input.tool_id,
+    tool_call_id: input.tool_call_id,
+    thread_id: input.thread_id,
+    turn_id: input.turn_id ?? null,
+    workspace_root: input.workspace_root ?? null,
+    workflow_graph_id: input.workflow_graph_id ?? null,
+    workflow_node_id: input.workflow_node_id,
+    status: input.status ?? "completed",
+    summary: input.summary ?? null,
+    shell_fallback_used: false,
+    input_summary: input.input_summary ?? null,
+    result_summary: input.result_summary ?? null,
+    result: input.result ?? null,
+    error: input.error ?? null,
+    rollback_refs: rollbackRefs,
+    diagnostics_repair_context: input.diagnostics_repair_context ?? null,
+    approval_required: Boolean(input.approval_required),
+    approval_satisfied: Boolean(input.approval_satisfied),
+    approval_id: input.approval_id ?? null,
+    approval_manifest: input.approval_manifest ?? null,
+    approval_decision_event_id: input.approval_decision_event_id ?? null,
+    approval_receipt_refs: input.approval_receipt_refs ?? [],
+    approval_policy_decision_refs: input.approval_policy_decision_refs ?? [],
+    receipt_id: input.receipt_id ?? null,
+    receipt_count: receiptRefs.length,
+    artifact_count: artifactRefs.length,
+    step_module_backend: input.step_module_backend ?? stepModule.backend ?? null,
+    step_module_invocation: stepModule.invocation ?? null,
+    step_module_result: stepModule.result ?? null,
+    step_module_error: input.step_module_error ?? null,
+  };
+  const event = {
+    event_stream_id: input.event_stream_id,
+    thread_id: input.thread_id,
+    turn_id: input.turn_id ?? null,
+    item_id: `${turnOrThread}:item:coding-tool:${input.tool_id}:${input.tool_call_id}`,
+    idempotency_key: input.idempotency_key,
+    source: input.source ?? "runtime_auto",
+    source_event_kind: codingToolSourceEventKindForTest(input.tool_id),
+    event_kind: input.status === "failed" ? "tool.failed" : "tool.completed",
+    status: input.status ?? "completed",
+    actor: "runtime",
+    workspace_root: input.workspace_root ?? null,
+    workflow_graph_id: input.workflow_graph_id ?? null,
+    workflow_node_id: input.workflow_node_id,
+    component_kind: "coding_tool",
+    tool_call_id: input.tool_call_id,
+    artifact_refs: artifactRefs,
+    receipt_refs: receiptRefs,
+    rollback_refs: rollbackRefs,
+    payload_schema_version: "ioi.runtime.coding-tool-result.v1",
+    payload_summary: payloadSummary,
+  };
+  return {
+    ...base,
+    event,
+    payload_summary: payloadSummary,
+    record: {
+      ...base,
+      status: "planned",
+      event,
+      payload_summary: payloadSummary,
+    },
+  };
+}
+
 function createSurface(overrides = {}) {
   return createRuntimeCodingToolInvocationSurface({
     codingToolApprovalBlockForThread(input) {
@@ -95,6 +218,7 @@ function createSurface(overrides = {}) {
     },
     diagnosticsRepairContextForRequest: (request = {}) => request.diagnosticsRepairContext ?? null,
     diagnosticsRepairContextForToolPack: (_request, _input, toolId) => ({ source: "tool_pack", toolId }),
+    codingToolResultEnvelopeForThread: planCodingToolResultEnvelopeForTest,
     codingToolResultEventAdmissionForThread(store, input = {}) {
       const event = input.event ?? input;
       store.calls.push({ name: "rustResultEventAdmission", input, event });
@@ -358,6 +482,56 @@ test("coding tool invocation surface rejects non-live coding-tool runners before
   assert.ok(!store.calls.some((call) => call.name === "prepareSnapshot"));
 });
 
+test("coding tool invocation surface fails closed before workload execution without Rust result envelope planning", () => {
+  let runnerCalled = false;
+  const liveRunner = {
+    backend: "rust_workload_live",
+    blocksDaemonJsExecution: true,
+    runCodingTool() {
+      runnerCalled = true;
+      throw new Error("runner must not be called without Rust envelope planning");
+    },
+  };
+  const surface = createRuntimeCodingToolInvocationSurface({
+    codingToolApprovalManifestForThread: () => null,
+    codingToolBudgetPolicyForRequest: () => ({ status: "allowed" }),
+    codingToolInvocationResultFromEvent: () => {
+      throw new Error("duplicate replay should not be used");
+    },
+    codingToolResultWithoutDrafts: (result = {}) => result,
+    diagnosticsRepairContextForRequest: () => null,
+    diagnosticsRepairContextForToolPack: () => null,
+    stepModuleRunner: liveRunner,
+  });
+  const store = createStore();
+
+  assert.throws(
+    () =>
+      surface.invokeThreadTool(store, "thread_alpha", "workspace.status", {
+        tool_call_id: "tool_status_envelope_required",
+        workflow_graph_id: "graph_alpha",
+        workflow_node_id: "node_status",
+        input: {},
+      }),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "runtime_coding_tool_result_envelope_rust_core_required");
+      assert.equal(error.details.rust_core_boundary, "runtime.coding_tool_invocation");
+      assert.equal(error.details.operation, "coding_tool_result_envelope_planning");
+      assert.equal(error.details.operation_kind, "runtime.coding_tool.result_envelope");
+      assert.equal(error.details.phase, "step_module_context");
+      assert.deepEqual(error.details.evidence_refs, [
+        "coding_tool_result_envelope_js_authoring_retired",
+        "rust_daemon_core_coding_tool_result_envelope_required",
+        "agentgres_coding_tool_result_event_admission_required",
+      ]);
+      return true;
+    },
+  );
+  assert.equal(runnerCalled, false);
+  assert.equal(store.events.length, 0);
+});
+
 test("coding tool invocation surface fails closed until Rust result-event admission is wired", () => {
   const liveRunner = {
     backend: "rust_workload_live",
@@ -413,6 +587,7 @@ test("coding tool invocation surface fails closed until Rust result-event admiss
     codingToolResultWithoutDrafts: (result = {}) => result,
     diagnosticsRepairContextForRequest: () => null,
     diagnosticsRepairContextForToolPack: () => null,
+    codingToolResultEnvelopeForThread: planCodingToolResultEnvelopeForTest,
     stepModuleRunner: liveRunner,
   });
   const store = createStore();

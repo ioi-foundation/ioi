@@ -12,6 +12,7 @@ import {
 import { RUNTIME_THREAD_SCHEMA_VERSION } from "./runtime-contract-constants.mjs";
 import {
   eventStreamIdForThread as defaultEventStreamIdForThread,
+  isRuntimeBackedAgent,
   threadIdForAgent as defaultThreadIdForAgent,
   threadStatusForAgent as defaultThreadStatusForAgent,
 } from "./runtime-identifiers.mjs";
@@ -60,6 +61,22 @@ export function createRuntimeAgentRunLifecycleSurface({
         threadModeForRunMode,
       });
     },
+    createRuntimeBridgeTurn(store, threadId, agent, request = {}) {
+      return createRuntimeBridgeTurnRun(store, threadId, agent, request, {
+        approvalModeForThreadMode,
+        buildRun,
+        ensureProviderAvailable,
+        lifecycleAdmissionRunner,
+        runtimeError,
+        threadModeForRunMode,
+      });
+    },
+    createRuntimeBridgeThreadControl(store, threadId, agent, request = {}) {
+      return createRuntimeBridgeThreadControl(store, threadId, agent, request, {
+        lifecycleAdmissionRunner,
+        runtimeError,
+      });
+    },
     createThread(store, request = {}) {
       return createThread(store, request, {
         ensureProviderAvailable,
@@ -89,18 +106,10 @@ export function createThread(store, request = {}, deps = {}) {
   const options = request.options ?? request;
   const runtimeProfile = runtimeProfileForRequest(request, options);
   if (isRuntimeServiceProfile(runtimeProfile)) {
-    throwRuntimeBridgeThreadRustCoreRequired({
-      runtimeError: deps.runtimeError,
-      operation: "runtime_bridge_thread_start",
-      operationKind: "thread.runtime_bridge.start",
-      details: {
-        runtime_profile: runtimeProfile,
-        evidence_refs: [
-          "runtime_bridge_thread_start_js_facade_retired",
-          "rust_daemon_core_runtime_bridge_thread_start_required",
-          "agentgres_runtime_bridge_thread_start_truth_required",
-        ],
-      },
+    return createRuntimeBridgeThread(store, request, {
+      ...deps,
+      options,
+      runtimeProfile,
     });
   }
   const threadCreateStateUpdateRunner = deps.threadCreateStateUpdateRunner ??
@@ -241,6 +250,149 @@ export function createThread(store, request = {}, deps = {}) {
         operation_kind: "thread.create",
         agent_id: optionalString(plannedAgent.id),
         expected_thread_id: optionalString(plannedThread.thread_id),
+        actual_thread_id: optionalString(threadProjection?.thread_id),
+      },
+    });
+  }
+  return threadProjection;
+}
+
+function createRuntimeBridgeThread(store, request = {}, deps = {}) {
+  const options = deps.options ?? request.options ?? request;
+  const runtimeProfile = deps.runtimeProfile ?? runtimeProfileForRequest(request, options);
+  const threadStartStateUpdateRunner = deps.runtimeBridgeThreadStartStateUpdateRunner ??
+    deps.lifecycleAdmissionRunner ??
+    store.contextPolicyRunner ??
+    null;
+  if (typeof threadStartStateUpdateRunner?.planRuntimeBridgeThreadStartAgentStateUpdate !== "function") {
+    throwRuntimeBridgeThreadRustCoreRequired({
+      runtimeError: deps.runtimeError,
+      operation: "runtime_bridge_thread_start",
+      operationKind: "thread.runtime_bridge.start",
+      details: {
+        runtime_profile: runtimeProfile,
+        evidence_refs: runtimeBridgeThreadStartEvidenceRefs(),
+      },
+    });
+  }
+  const agent = buildAgentCreateCandidate(store, options, deps);
+  const thread = buildThreadCreateCandidate(agent, deps);
+  const sessionId =
+    optionalString(options.runtime_session_id ?? request.runtime_session_id) ??
+    `session_${thread.thread_id}`;
+  const bridgeId =
+    optionalString(options.runtime_bridge_id ?? request.runtime_bridge_id) ??
+    `bridge_${thread.thread_id}`;
+  const source =
+    optionalString(options.runtime_bridge_source ?? request.runtime_bridge_source) ??
+    "rust_daemon_core";
+  const updatedAt = optionalString(agent.updatedAt) ?? new Date().toISOString();
+  const planned = threadStartStateUpdateRunner.planRuntimeBridgeThreadStartAgentStateUpdate({
+    thread_id: thread.thread_id,
+    agent,
+    runtime_profile: runtimeProfile,
+    session_id: sessionId,
+    bridge_id: bridgeId,
+    status: "active",
+    source,
+    updated_at: updatedAt,
+  });
+  const plannedAgent = objectRecord(planned?.agent);
+  const bridgeStart = objectRecord(planned?.bridge_start);
+  const plannedOperationKind = optionalString(planned?.operation_kind);
+  if (!plannedAgent) {
+    throwRuntimeLifecycleStateUpdateError({
+      runtimeError: deps.runtimeError,
+      status: 502,
+      code: "runtime_bridge_thread_start_agent_missing",
+      message: "Rust daemon-core runtime bridge thread start did not return an agent projection.",
+      details: {
+        rust_core_boundary: "runtime.bridge_thread",
+        operation: "runtime_bridge_thread_start",
+        operation_kind: "thread.runtime_bridge.start",
+        thread_id: thread.thread_id,
+      },
+    });
+  }
+  if (plannedOperationKind !== "thread.runtime_bridge.start") {
+    throwRuntimeLifecycleStateUpdateError({
+      runtimeError: deps.runtimeError,
+      status: 502,
+      code: "runtime_bridge_thread_start_operation_kind_mismatch",
+      message: "Rust daemon-core runtime bridge thread start returned the wrong operation kind.",
+      details: {
+        rust_core_boundary: "runtime.bridge_thread",
+        operation: "runtime_bridge_thread_start",
+        operation_kind: "thread.runtime_bridge.start",
+        expected_operation_kind: "thread.runtime_bridge.start",
+        actual_operation_kind: plannedOperationKind,
+        thread_id: thread.thread_id,
+        agent_id: optionalString(plannedAgent.id),
+      },
+    });
+  }
+  if (
+    optionalString(planned?.status) !== "planned" ||
+    optionalString(plannedAgent.id) !== optionalString(agent.id) ||
+    optionalString(plannedAgent.runtime_profile) !== runtimeProfile ||
+    optionalString(plannedAgent.runtime_session_id) !== sessionId ||
+    optionalString(plannedAgent.runtime_bridge_id) !== bridgeId ||
+    optionalString(plannedAgent.runtime_bridge_source) !== source ||
+    optionalString(bridgeStart?.runtime_profile) !== runtimeProfile ||
+    optionalString(bridgeStart?.session_id) !== sessionId ||
+    optionalString(bridgeStart?.bridge_id) !== bridgeId ||
+    optionalString(bridgeStart?.source) !== source
+  ) {
+    throwRuntimeLifecycleStateUpdateError({
+      runtimeError: deps.runtimeError,
+      status: 502,
+      code: "runtime_bridge_thread_start_projection_incomplete",
+      message: "Rust daemon-core runtime bridge thread start did not return canonical bridge identity.",
+      details: {
+        rust_core_boundary: "runtime.bridge_thread",
+        operation: "runtime_bridge_thread_start",
+        operation_kind: "thread.runtime_bridge.start",
+        thread_id: thread.thread_id,
+        agent_id: optionalString(plannedAgent.id),
+        runtime_profile: optionalString(plannedAgent.runtime_profile),
+        runtime_session_id: optionalString(plannedAgent.runtime_session_id),
+        runtime_bridge_id: optionalString(plannedAgent.runtime_bridge_id),
+        runtime_bridge_source: optionalString(plannedAgent.runtime_bridge_source),
+      },
+    });
+  }
+  store.writeAgent(plannedAgent, plannedOperationKind);
+  if (typeof store.ensureThreadStartedEvent === "function") {
+    store.ensureThreadStartedEvent(plannedAgent);
+  }
+  if (typeof store.threadForAgent !== "function") {
+    throwRuntimeLifecycleStateUpdateError({
+      runtimeError: deps.runtimeError,
+      status: 501,
+      code: "runtime_bridge_thread_start_projection_unavailable",
+      message: "Runtime bridge thread start requires Rust daemon-core thread projection.",
+      details: {
+        rust_core_boundary: "runtime.bridge_thread",
+        operation: "runtime_bridge_thread_start",
+        operation_kind: "thread.runtime_bridge.start",
+        agent_id: optionalString(plannedAgent.id),
+        thread_id: thread.thread_id,
+      },
+    });
+  }
+  const threadProjection = objectRecord(store.threadForAgent(plannedAgent));
+  if (!threadProjection || optionalString(threadProjection.thread_id) !== thread.thread_id) {
+    throwRuntimeLifecycleStateUpdateError({
+      runtimeError: deps.runtimeError,
+      status: 502,
+      code: "runtime_bridge_thread_start_projection_mismatch",
+      message: "Rust daemon-core runtime bridge thread start returned a mismatched thread projection.",
+      details: {
+        rust_core_boundary: "runtime.bridge_thread",
+        operation: "runtime_bridge_thread_start",
+        operation_kind: "thread.runtime_bridge.start",
+        agent_id: optionalString(plannedAgent.id),
+        expected_thread_id: thread.thread_id,
         actual_thread_id: optionalString(threadProjection?.thread_id),
       },
     });
@@ -454,37 +606,20 @@ export function createRun(store, agentId, request = {}, deps = {}) {
       },
     });
   }
-  ensureProviderAvailable(agentRecord.runtime, agentRecord.options);
-  const mode = optionalString(request.mode) ?? "send";
-  const threadMode =
-    optionalString(request.thread_mode) ??
-    threadModeForRunMode(mode, agentRecord.runtimeControls?.mode);
-  const approvalMode =
-    optionalString(request.approval_mode) ??
-    optionalString(agentRecord.runtimeControls?.approval_mode) ??
-    approvalModeForThreadMode(threadMode);
-  const prompt =
-    optionalString(request.prompt) ??
-    (mode === "learn"
-      ? `Learn governed task-family updates for ${request.options?.taskFamily ?? "runtime"}`
-      : "");
-  const modelRoute = store.resolveRunModelRoute(agentRecord, request);
-  const memory = store.resolveRunMemory(agentRecord, request, prompt);
-  const candidateRun = {
-    ...buildRun({
-      agent: agentRecord,
-      mode,
-      prompt,
-      request,
-      source: "local_daemon_agentgres",
-      modelRoute,
-      memory,
-      skillHookCatalog: null,
-      diagnosticsFeedback: request.diagnostics_feedback ?? null,
-    }),
-    thread_mode: threadMode,
-    approval_mode: approvalMode,
-  };
+  const candidateRun = buildRunCandidateForAgent(store, agentRecord, request, {
+    approvalModeForThreadMode,
+    buildRun,
+    ensureProviderAvailable,
+    runtimeError: deps.runtimeError,
+    threadModeForRunMode,
+    operation: "run_create",
+    operationKind: "run.create",
+    boundary: "runtime.run_create",
+    builderUnavailableCode: "runtime_run_create_builder_unavailable",
+    builderUnavailableMessage:
+      "Run creation requires mounted run candidate construction before Rust state planning.",
+    evidenceRefs: runCreateEvidenceRefs(),
+  });
   const planned = runCreateStateUpdateRunner.planRunCreateStateUpdate({ run: candidateRun });
   const plannedRun = objectRecord(planned?.run);
   const plannedOperationKind = optionalString(planned?.operation_kind);
@@ -542,6 +677,415 @@ export function createRun(store, agentId, request = {}, deps = {}) {
   }
   store.writeRun(plannedRun, plannedOperationKind);
   return plannedRun;
+}
+
+export function createRuntimeBridgeTurnRun(store, threadId, agent, request = {}, deps = {}) {
+  const agentRecord = objectRecord(agent);
+  const agentId = optionalString(agentRecord?.id);
+  const runtimeProfile = optionalString(agentRecord?.runtimeProfile ?? agentRecord?.runtime_profile);
+  const runtimeBridgeTurnRunStateUpdateRunner = deps.runtimeBridgeTurnRunStateUpdateRunner ??
+    deps.lifecycleAdmissionRunner ??
+    store.contextPolicyRunner ??
+    null;
+  if (typeof runtimeBridgeTurnRunStateUpdateRunner?.planRuntimeBridgeTurnRunStateUpdate !== "function") {
+    throwRuntimeBridgeThreadRustCoreRequired({
+      runtimeError: deps.runtimeError,
+      operation: "runtime_bridge_turn_submit",
+      operationKind: "turn.runtime_bridge.submit",
+      details: {
+        thread_id: threadId,
+        agent_id: agentId ?? null,
+        runtime_profile: runtimeProfile ?? null,
+        evidence_refs: runtimeBridgeTurnSubmitEvidenceRefs(),
+      },
+    });
+  }
+  if (!agentRecord || !agentId || !isRuntimeBackedAgent(agentRecord)) {
+    throwRuntimeLifecycleStateUpdateError({
+      runtimeError: deps.runtimeError,
+      status: 409,
+      code: "runtime_bridge_turn_submit_agent_mismatch",
+      message: "Runtime bridge turn submission requires a runtime_service agent.",
+      details: {
+        rust_core_boundary: "runtime.bridge_thread",
+        operation: "runtime_bridge_turn_submit",
+        operation_kind: "turn.runtime_bridge.submit",
+        thread_id: threadId,
+        agent_id: agentId ?? null,
+        runtime_profile: runtimeProfile ?? null,
+      },
+    });
+  }
+  if (typeof store.turnForRun !== "function") {
+    throwRuntimeLifecycleStateUpdateError({
+      runtimeError: deps.runtimeError,
+      status: 501,
+      code: "runtime_bridge_turn_submit_projection_unavailable",
+      message: "Runtime bridge turn submission requires Rust daemon-core turn projection.",
+      details: {
+        rust_core_boundary: "runtime.bridge_thread",
+        operation: "runtime_bridge_turn_submit",
+        operation_kind: "turn.runtime_bridge.submit",
+        thread_id: threadId,
+        agent_id: agentId,
+        runtime_profile: runtimeProfile ?? null,
+      },
+    });
+  }
+  const candidateRun = buildRunCandidateForAgent(store, agentRecord, request, {
+    approvalModeForThreadMode: deps.approvalModeForThreadMode,
+    buildRun: deps.buildRun,
+    ensureProviderAvailable: deps.ensureProviderAvailable,
+    runtimeError: deps.runtimeError,
+    threadModeForRunMode: deps.threadModeForRunMode,
+    operation: "runtime_bridge_turn_submit",
+    operationKind: "turn.runtime_bridge.submit",
+    boundary: "runtime.bridge_thread",
+    builderUnavailableCode: "runtime_bridge_turn_submit_builder_unavailable",
+    builderUnavailableMessage:
+      "Runtime bridge turn submission requires mounted run candidate construction before Rust state planning.",
+    evidenceRefs: runtimeBridgeTurnSubmitEvidenceRefs(),
+  });
+  const candidateProjection = objectRecord(store.turnForRun(candidateRun));
+  const candidateProjectionRunId = optionalString(candidateProjection?.run_id ?? candidateProjection?.request_id);
+  if (
+    !candidateProjection ||
+    optionalString(candidateProjection.thread_id) !== threadId ||
+    candidateProjectionRunId !== optionalString(candidateRun.id)
+  ) {
+    throwRuntimeLifecycleStateUpdateError({
+      runtimeError: deps.runtimeError,
+      status: 502,
+      code: "runtime_bridge_turn_submit_projection_mismatch",
+      message: "Rust daemon-core turn projection did not match the runtime bridge run candidate.",
+      details: {
+        rust_core_boundary: "runtime.bridge_thread",
+        operation: "runtime_bridge_turn_submit",
+        operation_kind: "turn.runtime_bridge.submit",
+        thread_id: threadId,
+        agent_id: agentId,
+        run_id: optionalString(candidateRun.id),
+        actual_thread_id: optionalString(candidateProjection?.thread_id),
+        actual_run_id: candidateProjectionRunId ?? null,
+      },
+    });
+  }
+  const planned = runtimeBridgeTurnRunStateUpdateRunner.planRuntimeBridgeTurnRunStateUpdate({
+    thread_id: threadId,
+    agent: agentRecord,
+    projection: candidateProjection,
+    run: candidateRun,
+  });
+  const plannedRun = objectRecord(planned?.run);
+  const plannedOperationKind = optionalString(planned?.operation_kind);
+  if (!plannedRun) {
+    throwRuntimeLifecycleStateUpdateError({
+      runtimeError: deps.runtimeError,
+      status: 502,
+      code: "runtime_bridge_turn_submit_run_missing",
+      message: "Rust daemon-core runtime bridge turn submit did not return a run projection.",
+      details: {
+        rust_core_boundary: "runtime.bridge_thread",
+        operation: "runtime_bridge_turn_submit",
+        operation_kind: "turn.runtime_bridge.submit",
+        thread_id: threadId,
+        agent_id: agentId,
+      },
+    });
+  }
+  if (plannedOperationKind !== "turn.runtime_bridge.submit") {
+    throwRuntimeLifecycleStateUpdateError({
+      runtimeError: deps.runtimeError,
+      status: 502,
+      code: "runtime_bridge_turn_submit_operation_kind_mismatch",
+      message: "Rust daemon-core runtime bridge turn submit returned the wrong operation kind.",
+      details: {
+        rust_core_boundary: "runtime.bridge_thread",
+        operation: "runtime_bridge_turn_submit",
+        operation_kind: "turn.runtime_bridge.submit",
+        expected_operation_kind: "turn.runtime_bridge.submit",
+        actual_operation_kind: plannedOperationKind,
+        thread_id: threadId,
+        agent_id: agentId,
+        run_id: optionalString(plannedRun.id),
+      },
+    });
+  }
+  if (
+    optionalString(planned?.status) !== "planned" ||
+    optionalString(plannedRun.id) !== optionalString(candidateRun.id) ||
+    optionalString(plannedRun.agentId) !== agentId ||
+    !optionalString(plannedRun.createdAt) ||
+    !optionalString(plannedRun.updatedAt)
+  ) {
+    throwRuntimeLifecycleStateUpdateError({
+      runtimeError: deps.runtimeError,
+      status: 502,
+      code: "runtime_bridge_turn_submit_projection_incomplete",
+      message: "Rust daemon-core runtime bridge turn submit did not return a complete planned run.",
+      details: {
+        rust_core_boundary: "runtime.bridge_thread",
+        operation: "runtime_bridge_turn_submit",
+        operation_kind: "turn.runtime_bridge.submit",
+        thread_id: threadId,
+        agent_id: agentId,
+        run_id: optionalString(plannedRun.id),
+      },
+    });
+  }
+  store.writeRun(plannedRun, plannedOperationKind);
+  const turnProjection = objectRecord(store.turnForRun(plannedRun));
+  const turnProjectionRunId = optionalString(turnProjection?.run_id ?? turnProjection?.request_id);
+  if (
+    !turnProjection ||
+    optionalString(turnProjection.thread_id) !== threadId ||
+    turnProjectionRunId !== optionalString(plannedRun.id)
+  ) {
+    throwRuntimeLifecycleStateUpdateError({
+      runtimeError: deps.runtimeError,
+      status: 502,
+      code: "runtime_bridge_turn_submit_committed_projection_mismatch",
+      message: "Rust daemon-core runtime bridge turn submit returned a mismatched turn projection.",
+      details: {
+        rust_core_boundary: "runtime.bridge_thread",
+        operation: "runtime_bridge_turn_submit",
+        operation_kind: "turn.runtime_bridge.submit",
+        thread_id: threadId,
+        agent_id: agentId,
+        run_id: optionalString(plannedRun.id),
+        actual_thread_id: optionalString(turnProjection?.thread_id),
+        actual_run_id: turnProjectionRunId ?? null,
+      },
+    });
+  }
+  return turnProjection;
+}
+
+export function createRuntimeBridgeThreadControl(store, threadId, agent, request = {}, deps = {}) {
+  const agentRecord = objectRecord(agent);
+  const agentId = optionalString(agentRecord?.id);
+  const runtimeProfile = optionalString(agentRecord?.runtimeProfile ?? agentRecord?.runtime_profile);
+  const action = optionalString(request.action ?? request.runtime_control_action) ?? "resume";
+  const bridgeThreadControlStateUpdateRunner = deps.runtimeBridgeThreadControlStateUpdateRunner ??
+    deps.lifecycleAdmissionRunner ??
+    store.contextPolicyRunner ??
+    null;
+  if (typeof bridgeThreadControlStateUpdateRunner?.planRuntimeBridgeThreadControlAgentStateUpdate !== "function") {
+    throwRuntimeBridgeThreadRustCoreRequired({
+      runtimeError: deps.runtimeError,
+      operation: "runtime_bridge_thread_control",
+      operationKind: "thread.runtime_bridge.control",
+      details: {
+        thread_id: threadId,
+        agent_id: agentId ?? null,
+        runtime_profile: runtimeProfile ?? null,
+        action,
+        evidence_refs: runtimeBridgeThreadControlEvidenceRefs(),
+      },
+    });
+  }
+  if (!agentRecord || !agentId || !isRuntimeBackedAgent(agentRecord)) {
+    throwRuntimeLifecycleStateUpdateError({
+      runtimeError: deps.runtimeError,
+      status: 409,
+      code: "runtime_bridge_thread_control_agent_mismatch",
+      message: "Runtime bridge thread control requires a runtime_service agent.",
+      details: {
+        rust_core_boundary: "runtime.bridge_thread",
+        operation: "runtime_bridge_thread_control",
+        operation_kind: "thread.runtime_bridge.control",
+        thread_id: threadId,
+        agent_id: agentId ?? null,
+        runtime_profile: runtimeProfile ?? null,
+        action,
+      },
+    });
+  }
+  if (typeof store.threadForAgent !== "function") {
+    throwRuntimeLifecycleStateUpdateError({
+      runtimeError: deps.runtimeError,
+      status: 501,
+      code: "runtime_bridge_thread_control_projection_unavailable",
+      message: "Runtime bridge thread control requires Rust daemon-core thread projection.",
+      details: {
+        rust_core_boundary: "runtime.bridge_thread",
+        operation: "runtime_bridge_thread_control",
+        operation_kind: "thread.runtime_bridge.control",
+        thread_id: threadId,
+        agent_id: agentId,
+        runtime_profile: runtimeProfile ?? null,
+        action,
+      },
+    });
+  }
+  const updatedAt = new Date().toISOString();
+  const planned = bridgeThreadControlStateUpdateRunner.planRuntimeBridgeThreadControlAgentStateUpdate({
+    thread_id: threadId,
+    agent: agentRecord,
+    action,
+    reason:
+      optionalString(request.reason ?? request.message ?? request.input) ??
+      "operator requested resume",
+    updated_at: updatedAt,
+    evidence_refs: runtimeBridgeThreadControlEvidenceRefs(),
+  });
+  const plannedAgent = objectRecord(planned?.agent);
+  const control = objectRecord(planned?.control);
+  const plannedOperationKind = optionalString(planned?.operation_kind);
+  if (!plannedAgent) {
+    throwRuntimeLifecycleStateUpdateError({
+      runtimeError: deps.runtimeError,
+      status: 502,
+      code: "runtime_bridge_thread_control_agent_missing",
+      message: "Rust daemon-core runtime bridge thread control did not return an agent projection.",
+      details: {
+        rust_core_boundary: "runtime.bridge_thread",
+        operation: "runtime_bridge_thread_control",
+        operation_kind: "thread.runtime_bridge.control",
+        thread_id: threadId,
+        agent_id: agentId,
+        action,
+      },
+    });
+  }
+  if (plannedOperationKind !== "thread.runtime_bridge.control") {
+    throwRuntimeLifecycleStateUpdateError({
+      runtimeError: deps.runtimeError,
+      status: 502,
+      code: "runtime_bridge_thread_control_operation_kind_mismatch",
+      message: "Rust daemon-core runtime bridge thread control returned the wrong operation kind.",
+      details: {
+        rust_core_boundary: "runtime.bridge_thread",
+        operation: "runtime_bridge_thread_control",
+        operation_kind: "thread.runtime_bridge.control",
+        expected_operation_kind: "thread.runtime_bridge.control",
+        actual_operation_kind: plannedOperationKind,
+        thread_id: threadId,
+        agent_id: agentId,
+        action,
+      },
+    });
+  }
+  if (
+    optionalString(planned?.status) !== "planned" ||
+    optionalString(plannedAgent.id) !== agentId ||
+    optionalString(control?.action) !== action ||
+    optionalString(control?.runtime_bridge_status) !== "active" ||
+    optionalString(plannedAgent.status) !== "active" ||
+    optionalString(plannedAgent.runtime_bridge_status) !== "active" ||
+    !optionalString(plannedAgent.updatedAt)
+  ) {
+    throwRuntimeLifecycleStateUpdateError({
+      runtimeError: deps.runtimeError,
+      status: 502,
+      code: "runtime_bridge_thread_control_projection_incomplete",
+      message: "Rust daemon-core runtime bridge thread control did not return canonical control state.",
+      details: {
+        rust_core_boundary: "runtime.bridge_thread",
+        operation: "runtime_bridge_thread_control",
+        operation_kind: "thread.runtime_bridge.control",
+        thread_id: threadId,
+        agent_id: agentId,
+        action,
+        runtime_bridge_status: optionalString(plannedAgent.runtime_bridge_status) ?? null,
+      },
+    });
+  }
+  store.writeAgent(plannedAgent, plannedOperationKind);
+  const threadProjection = objectRecord(store.threadForAgent(plannedAgent));
+  if (
+    !threadProjection ||
+    optionalString(threadProjection.thread_id) !== threadId ||
+    optionalString(threadProjection.agent_id) !== agentId
+  ) {
+    throwRuntimeLifecycleStateUpdateError({
+      runtimeError: deps.runtimeError,
+      status: 502,
+      code: "runtime_bridge_thread_control_thread_projection_mismatch",
+      message: "Rust daemon-core runtime bridge thread control returned a mismatched thread projection.",
+      details: {
+        rust_core_boundary: "runtime.bridge_thread",
+        operation: "runtime_bridge_thread_control",
+        operation_kind: "thread.runtime_bridge.control",
+        thread_id: threadId,
+        agent_id: agentId,
+        action,
+        actual_thread_id: optionalString(threadProjection?.thread_id) ?? null,
+        actual_agent_id: optionalString(threadProjection?.agent_id) ?? null,
+      },
+    });
+  }
+  return threadProjection;
+}
+
+function buildRunCandidateForAgent(store, agentRecord, request = {}, {
+  approvalModeForThreadMode,
+  buildRun,
+  ensureProviderAvailable,
+  runtimeError,
+  threadModeForRunMode,
+  operation,
+  operationKind,
+  boundary,
+  builderUnavailableCode,
+  builderUnavailableMessage,
+  evidenceRefs,
+} = {}) {
+  if (typeof buildRun !== "function") {
+    throwRuntimeLifecycleStateUpdateError({
+      runtimeError,
+      status: 501,
+      code: builderUnavailableCode,
+      message: builderUnavailableMessage,
+      details: {
+        rust_core_boundary: boundary,
+        operation,
+        operation_kind: operationKind,
+        agent_id: optionalString(agentRecord?.id) ?? null,
+        evidence_refs: evidenceRefs,
+      },
+    });
+  }
+  const ensureProvider = typeof ensureProviderAvailable === "function"
+    ? ensureProviderAvailable
+    : () => {};
+  const modeForThread = typeof threadModeForRunMode === "function"
+    ? threadModeForRunMode
+    : (_mode, fallback = "agent") => fallback ?? "agent";
+  const approvalModeForThread = typeof approvalModeForThreadMode === "function"
+    ? approvalModeForThreadMode
+    : () => "suggest";
+  ensureProvider(agentRecord.runtime, agentRecord.options);
+  const mode = optionalString(request.mode) ?? "send";
+  const threadMode =
+    optionalString(request.thread_mode) ??
+    modeForThread(mode, agentRecord.runtimeControls?.mode);
+  const approvalMode =
+    optionalString(request.approval_mode) ??
+    optionalString(agentRecord.runtimeControls?.approval_mode) ??
+    approvalModeForThread(threadMode);
+  const prompt =
+    optionalString(request.prompt) ??
+    (mode === "learn"
+      ? `Learn governed task-family updates for ${request.options?.taskFamily ?? "runtime"}`
+      : "");
+  const modelRoute = store.resolveRunModelRoute(agentRecord, request);
+  const memory = store.resolveRunMemory(agentRecord, request, prompt);
+  return {
+    ...buildRun({
+      agent: agentRecord,
+      mode,
+      prompt,
+      request,
+      source: "local_daemon_agentgres",
+      modelRoute,
+      memory,
+      skillHookCatalog: null,
+      diagnosticsFeedback: request.diagnostics_feedback ?? null,
+    }),
+    thread_mode: threadMode,
+    approval_mode: approvalMode,
+  };
 }
 
 function throwRuntimeLifecycleRustCoreRequired({
@@ -670,6 +1214,33 @@ function threadCreateEvidenceRefs() {
     "runtime_thread_create_js_facade_retired",
     "rust_daemon_core_thread_create_required",
     "agentgres_thread_create_state_truth_required",
+  ];
+}
+
+function runtimeBridgeThreadStartEvidenceRefs() {
+  return [
+    "runtime_bridge_thread_start_rust_owned",
+    "runtime_bridge_thread_start_js_facade_retired",
+    "rust_daemon_core_runtime_bridge_thread_start_required",
+    "agentgres_runtime_bridge_thread_start_truth_required",
+  ];
+}
+
+function runtimeBridgeThreadControlEvidenceRefs() {
+  return [
+    "runtime_bridge_thread_control_rust_owned",
+    "runtime_bridge_thread_control_js_facade_retired",
+    "rust_daemon_core_runtime_bridge_thread_control_required",
+    "agentgres_runtime_bridge_thread_control_truth_required",
+  ];
+}
+
+function runtimeBridgeTurnSubmitEvidenceRefs() {
+  return [
+    "runtime_bridge_turn_submit_rust_owned",
+    "runtime_bridge_turn_submit_js_facade_retired",
+    "rust_daemon_core_runtime_bridge_turn_required",
+    "agentgres_runtime_bridge_turn_truth_required",
   ];
 }
 

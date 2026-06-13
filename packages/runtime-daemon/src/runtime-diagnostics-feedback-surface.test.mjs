@@ -3,17 +3,40 @@ import test from "node:test";
 
 import { createRuntimeDiagnosticsFeedbackSurface } from "./runtime-diagnostics-feedback-surface.mjs";
 
-function createSurface({ diagnosticsFeedbackPlanner = null } = {}) {
+function createSurface({
+  diagnosticsFeedbackPlanner = null,
+  diagnosticsRepairPolicyProjector = {
+    projectRuntimeDiagnosticsRepairPolicy() {
+      return {
+        operation_kind: "runtime.diagnostics_repair_policy.projection",
+        repair_policy: {
+          object: "ioi.runtime_diagnostics_rollback_repair_policy",
+          decisions: [],
+          decision_refs: [],
+        },
+        repair_policy_config: {},
+      };
+    },
+  },
+} = {}) {
   return createRuntimeDiagnosticsFeedbackSurface({
-    compactDiagnosticsFeedback({ threadId, mode, diagnosticEvents }) {
+    compactDiagnosticsFeedback({
+      threadId,
+      mode,
+      diagnosticEvents,
+      diagnosticsRepairPolicyProjector: projector,
+    }) {
       return {
         threadId,
         mode,
         diagnosticCount: diagnosticEvents.length,
         eventIds: diagnosticEvents.map((event) => event.event_id),
+        rustPolicyProjectorMounted:
+          typeof projector?.projectRuntimeDiagnosticsRepairPolicy === "function",
       };
     },
     diagnosticsFeedbackPlanner,
+    diagnosticsRepairPolicyProjector,
     normalizeDiagnosticsMode(value) {
       if (value === "off" || value === "skip") return "skip";
       if (value === "fail" || value === "blocking") return "blocking";
@@ -400,10 +423,37 @@ test("diagnostics feedback surface returns pending diagnostics after last inject
 
   assert.equal(feedback.mode, "blocking");
   assert.equal(feedback.diagnosticCount, 2);
+  assert.equal(feedback.rustPolicyProjectorMounted, true);
   assert.deepEqual(feedback.eventIds, ["event_old", "event_diagnostics"]);
   assert.equal(
     surface.pendingDiagnosticsFeedbackForNextTurn(store, "thread_alpha", { diagnostics_mode: "skip" }),
     null,
+  );
+});
+
+test("diagnostics feedback surface fails closed without Rust repair policy projector", () => {
+  const surface = createSurface({ diagnosticsRepairPolicyProjector: null });
+  const store = createStore([
+    {
+      seq: 1,
+      event_id: "event_diagnostics",
+      event_kind: "tool.completed",
+      source: "runtime_auto",
+      payload_summary: { tool_name: "lsp.diagnostics" },
+    },
+  ]);
+
+  assert.throws(
+    () =>
+      surface.pendingDiagnosticsFeedbackForNextTurn(store, "thread_alpha", {
+        diagnostics_mode: "blocking",
+      }),
+    (error) =>
+      error.code === "runtime_diagnostics_feedback_rust_core_required" &&
+      error.details.operation === "runtime_diagnostics_repair_policy_projection" &&
+      error.details.evidence_refs.includes(
+        "runtime_diagnostics_repair_policy_projection_rust_owned",
+      ),
   );
 });
 

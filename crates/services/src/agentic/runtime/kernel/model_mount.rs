@@ -16,6 +16,21 @@ pub use backend_process::{
     ModelMountBackendProcessPlan, ModelMountBackendProcessPlanBridgeRequest,
     ModelMountBackendProcessPlanRequest,
 };
+mod backend_lifecycle;
+pub use backend_lifecycle::{
+    plan_model_mount_backend_lifecycle_response, ModelMountBackendLifecycleBridgeRequest,
+    ModelMountBackendLifecyclePlan, ModelMountBackendLifecycleRequest,
+};
+mod artifact_endpoint;
+pub use artifact_endpoint::{
+    plan_model_mount_artifact_endpoint_response, ModelMountArtifactEndpointBridgeRequest,
+    ModelMountArtifactEndpointPlan, ModelMountArtifactEndpointRequest,
+};
+mod storage_control;
+pub use storage_control::{
+    plan_model_mount_storage_control_response, ModelMountStorageControlBridgeRequest,
+    ModelMountStorageControlPlan, ModelMountStorageControlRequest,
+};
 mod common;
 pub(super) use common::{
     non_empty_string, option_trimmed, push_unique_ref, require_non_empty, sha256_hex,
@@ -24,22 +39,53 @@ pub(super) use common::{
 pub use common::{
     ModelMountError, MODEL_MOUNT_ACCEPTED_RECEIPT_HEAD_SCHEMA_VERSION,
     MODEL_MOUNT_ACCEPTED_RECEIPT_TRANSITION_SCHEMA_VERSION,
-    MODEL_MOUNT_BACKEND_LIFECYCLE_REQUIRED_REQUEST_SCHEMA_VERSION,
-    MODEL_MOUNT_BACKEND_LIFECYCLE_REQUIRED_RESULT_SCHEMA_VERSION,
-    MODEL_MOUNT_BACKEND_PROCESS_PLAN_SCHEMA_VERSION, MODEL_MOUNT_INSTANCE_LIFECYCLE_SCHEMA_VERSION,
+    MODEL_MOUNT_ARTIFACT_ENDPOINT_PLAN_SCHEMA_VERSION,
+    MODEL_MOUNT_ARTIFACT_ENDPOINT_SCHEMA_VERSION,
+    MODEL_MOUNT_BACKEND_LIFECYCLE_PLAN_SCHEMA_VERSION,
+    MODEL_MOUNT_BACKEND_LIFECYCLE_SCHEMA_VERSION, MODEL_MOUNT_BACKEND_PROCESS_PLAN_SCHEMA_VERSION,
+    MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_PLAN_SCHEMA_VERSION,
+    MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_SCHEMA_VERSION,
+    MODEL_MOUNT_CATALOG_PROVIDER_CONTROL_PLAN_SCHEMA_VERSION,
+    MODEL_MOUNT_CATALOG_PROVIDER_CONTROL_SCHEMA_VERSION,
+    MODEL_MOUNT_CONVERSATION_STATE_PLAN_SCHEMA_VERSION,
+    MODEL_MOUNT_CONVERSATION_STATE_SCHEMA_VERSION, MODEL_MOUNT_INSTANCE_LIFECYCLE_SCHEMA_VERSION,
     MODEL_MOUNT_INVOCATION_ADMISSION_SCHEMA_VERSION, MODEL_MOUNT_PROVIDER_EXECUTION_SCHEMA_VERSION,
     MODEL_MOUNT_PROVIDER_INVENTORY_SCHEMA_VERSION, MODEL_MOUNT_PROVIDER_INVOCATION_SCHEMA_VERSION,
+    MODEL_MOUNT_PROVIDER_LIFECYCLE_PLAN_SCHEMA_VERSION,
     MODEL_MOUNT_PROVIDER_LIFECYCLE_SCHEMA_VERSION, MODEL_MOUNT_PROVIDER_RESULT_SCHEMA_VERSION,
     MODEL_MOUNT_PROVIDER_STREAM_INVOCATION_SCHEMA_VERSION,
+    MODEL_MOUNT_RECEIPT_GATE_PLAN_SCHEMA_VERSION, MODEL_MOUNT_RECEIPT_GATE_SCHEMA_VERSION,
+    MODEL_MOUNT_ROUTE_CONTROL_PLAN_SCHEMA_VERSION,
     MODEL_MOUNT_ROUTE_CONTROL_REQUIRED_REQUEST_SCHEMA_VERSION,
     MODEL_MOUNT_ROUTE_CONTROL_REQUIRED_RESULT_SCHEMA_VERSION,
-    MODEL_MOUNT_ROUTE_DECISION_SCHEMA_VERSION,
-    MODEL_MOUNT_RUNTIME_ENGINE_REQUIRED_REQUEST_SCHEMA_VERSION,
-    MODEL_MOUNT_RUNTIME_ENGINE_REQUIRED_RESULT_SCHEMA_VERSION, MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
-    MODEL_MOUNT_SERVER_CONTROL_REQUIRED_REQUEST_SCHEMA_VERSION,
-    MODEL_MOUNT_SERVER_CONTROL_REQUIRED_RESULT_SCHEMA_VERSION,
+    MODEL_MOUNT_ROUTE_CONTROL_SCHEMA_VERSION, MODEL_MOUNT_ROUTE_DECISION_SCHEMA_VERSION,
+    MODEL_MOUNT_RUNTIME_ENGINE_PLAN_SCHEMA_VERSION, MODEL_MOUNT_RUNTIME_ENGINE_SCHEMA_VERSION,
+    MODEL_MOUNT_RUNTIME_SCHEMA_VERSION, MODEL_MOUNT_SERVER_CONTROL_PLAN_SCHEMA_VERSION,
+    MODEL_MOUNT_SERVER_CONTROL_SCHEMA_VERSION, MODEL_MOUNT_STORAGE_CONTROL_PLAN_SCHEMA_VERSION,
+    MODEL_MOUNT_STORAGE_CONTROL_SCHEMA_VERSION, MODEL_MOUNT_STREAM_COMPLETION_PLAN_SCHEMA_VERSION,
+    MODEL_MOUNT_STREAM_COMPLETION_SCHEMA_VERSION, MODEL_MOUNT_TOKENIZER_PLAN_SCHEMA_VERSION,
     MODEL_MOUNT_TOKENIZER_REQUIRED_REQUEST_SCHEMA_VERSION,
-    MODEL_MOUNT_TOKENIZER_REQUIRED_RESULT_SCHEMA_VERSION,
+    MODEL_MOUNT_TOKENIZER_REQUIRED_RESULT_SCHEMA_VERSION, MODEL_MOUNT_TOKENIZER_SCHEMA_VERSION,
+    MODEL_MOUNT_VAULT_CONTROL_PLAN_SCHEMA_VERSION, MODEL_MOUNT_VAULT_CONTROL_SCHEMA_VERSION,
+};
+mod capability_token_control;
+pub use capability_token_control::{
+    plan_model_mount_capability_token_control_response,
+    ModelMountCapabilityTokenControlBridgeRequest, ModelMountCapabilityTokenControlPlan,
+    ModelMountCapabilityTokenControlRequest,
+};
+mod catalog_provider_control;
+pub use catalog_provider_control::{
+    plan_model_mount_catalog_provider_control_response,
+    ModelMountCatalogProviderControlBridgeRequest, ModelMountCatalogProviderControlPlan,
+    ModelMountCatalogProviderControlRequest,
+};
+mod conversation;
+pub use conversation::{
+    plan_model_mount_conversation_state_response, plan_model_mount_stream_completion_response,
+    ModelMountConversationStateBridgeRequest, ModelMountConversationStatePlan,
+    ModelMountConversationStateRequest, ModelMountStreamCompletionBridgeRequest,
+    ModelMountStreamCompletionPlan, ModelMountStreamCompletionRequest,
 };
 mod lifecycle;
 pub use lifecycle::{
@@ -70,19 +116,41 @@ pub use read_projection::{
     plan_model_mount_read_projection_response, ModelMountReadProjectionBridgeRequest,
     ModelMountReadProjectionError, ModelMountReadProjectionPlan, ModelMountReadProjectionRequest,
 };
+mod route_control;
+pub use route_control::{
+    plan_model_mount_route_control_response, ModelMountRouteControlBridgeRequest,
+    ModelMountRouteControlPlan, ModelMountRouteControlRequest,
+};
+mod runtime_engine;
+pub use runtime_engine::{
+    plan_model_mount_runtime_engine_response, ModelMountRuntimeEngineBridgeRequest,
+    ModelMountRuntimeEnginePlan, ModelMountRuntimeEngineRequest,
+};
+mod server_control;
+pub use server_control::{
+    plan_model_mount_server_control_response, ModelMountServerControlBridgeRequest,
+    ModelMountServerControlPlan, ModelMountServerControlRequest,
+};
+mod tokenizer;
+pub use tokenizer::{
+    plan_model_mount_tokenizer_response, ModelMountTokenizerBridgeRequest, ModelMountTokenizerPlan,
+    ModelMountTokenizerRequest,
+};
+mod vault_control;
+pub use vault_control::{
+    plan_model_mount_vault_control_response, ModelMountVaultControlBridgeRequest,
+    ModelMountVaultControlPlan, ModelMountVaultControlRequest,
+};
+mod receipt_gate;
+pub use receipt_gate::{
+    plan_model_mount_receipt_gate_response, ModelMountReceiptGateBridgeRequest,
+    ModelMountReceiptGatePlan, ModelMountReceiptGateRequest,
+};
 mod required;
 pub use required::{
-    plan_model_mount_backend_lifecycle_required_response,
-    plan_model_mount_route_control_required_response,
-    plan_model_mount_runtime_engine_required_response,
-    plan_model_mount_server_control_required_response,
-    plan_model_mount_tokenizer_required_response, ModelMountBackendLifecycleRequiredBridgeRequest,
-    ModelMountBackendLifecycleRequiredRecord, ModelMountBackendLifecycleRequiredRequest,
+    plan_model_mount_route_control_required_response, plan_model_mount_tokenizer_required_response,
     ModelMountRouteControlRequiredBridgeRequest, ModelMountRouteControlRequiredRecord,
-    ModelMountRouteControlRequiredRequest, ModelMountRuntimeEngineRequiredBridgeRequest,
-    ModelMountRuntimeEngineRequiredRecord, ModelMountRuntimeEngineRequiredRequest,
-    ModelMountServerControlRequiredBridgeRequest, ModelMountServerControlRequiredRecord,
-    ModelMountServerControlRequiredRequest, ModelMountTokenizerRequiredBridgeRequest,
+    ModelMountRouteControlRequiredRequest, ModelMountTokenizerRequiredBridgeRequest,
     ModelMountTokenizerRequiredRecord, ModelMountTokenizerRequiredRequest,
 };
 
@@ -167,25 +235,25 @@ impl ModelMountCore {
         backend_process::plan_backend_process(request)
     }
 
-    pub fn plan_backend_lifecycle_required(
+    pub fn plan_backend_lifecycle(
         &self,
-        request: &ModelMountBackendLifecycleRequiredRequest,
-    ) -> Result<ModelMountBackendLifecycleRequiredRecord, ModelMountError> {
-        required::plan_backend_lifecycle_required(request)
+        request: &ModelMountBackendLifecycleRequest,
+    ) -> Result<ModelMountBackendLifecyclePlan, ModelMountError> {
+        backend_lifecycle::plan_backend_lifecycle(request)
     }
 
-    pub fn plan_server_control_required(
+    pub fn plan_artifact_endpoint(
         &self,
-        request: &ModelMountServerControlRequiredRequest,
-    ) -> Result<ModelMountServerControlRequiredRecord, ModelMountError> {
-        required::plan_server_control_required(request)
+        request: &ModelMountArtifactEndpointRequest,
+    ) -> Result<ModelMountArtifactEndpointPlan, ModelMountError> {
+        artifact_endpoint::plan_artifact_endpoint(request)
     }
 
-    pub fn plan_runtime_engine_required(
+    pub fn plan_storage_control(
         &self,
-        request: &ModelMountRuntimeEngineRequiredRequest,
-    ) -> Result<ModelMountRuntimeEngineRequiredRecord, ModelMountError> {
-        required::plan_runtime_engine_required(request)
+        request: &ModelMountStorageControlRequest,
+    ) -> Result<ModelMountStorageControlPlan, ModelMountError> {
+        storage_control::plan_storage_control(request)
     }
 
     pub fn plan_tokenizer_required(
@@ -200,6 +268,62 @@ impl ModelMountCore {
         request: &ModelMountRouteControlRequiredRequest,
     ) -> Result<ModelMountRouteControlRequiredRecord, ModelMountError> {
         required::plan_route_control_required(request)
+    }
+
+    pub fn plan_route_control(
+        &self,
+        request: &ModelMountRouteControlRequest,
+    ) -> Result<ModelMountRouteControlPlan, ModelMountError> {
+        route_control::plan_route_control(request)
+    }
+
+    pub fn plan_catalog_provider_control(
+        &self,
+        request: &ModelMountCatalogProviderControlRequest,
+    ) -> Result<ModelMountCatalogProviderControlPlan, ModelMountError> {
+        catalog_provider_control::plan_catalog_provider_control(request)
+    }
+
+    pub fn plan_capability_token_control(
+        &self,
+        request: &ModelMountCapabilityTokenControlRequest,
+    ) -> Result<ModelMountCapabilityTokenControlPlan, ModelMountError> {
+        capability_token_control::plan_capability_token_control(request)
+    }
+
+    pub fn plan_vault_control(
+        &self,
+        request: &ModelMountVaultControlRequest,
+    ) -> Result<ModelMountVaultControlPlan, ModelMountError> {
+        vault_control::plan_vault_control(request)
+    }
+
+    pub fn plan_receipt_gate(
+        &self,
+        request: &ModelMountReceiptGateRequest,
+    ) -> Result<ModelMountReceiptGatePlan, ModelMountError> {
+        receipt_gate::plan_receipt_gate(request)
+    }
+
+    pub fn plan_tokenizer(
+        &self,
+        request: &ModelMountTokenizerRequest,
+    ) -> Result<ModelMountTokenizerPlan, ModelMountError> {
+        tokenizer::plan_tokenizer(request)
+    }
+
+    pub fn plan_conversation_state(
+        &self,
+        request: &ModelMountConversationStateRequest,
+    ) -> Result<ModelMountConversationStatePlan, ModelMountError> {
+        conversation::plan_conversation_state(request)
+    }
+
+    pub fn plan_stream_completion(
+        &self,
+        request: &ModelMountStreamCompletionRequest,
+    ) -> Result<ModelMountStreamCompletionPlan, ModelMountError> {
+        conversation::plan_stream_completion(request)
     }
 
     pub fn plan_accepted_receipt_head(

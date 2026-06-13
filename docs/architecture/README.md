@@ -4,7 +4,7 @@ Status: canonical navigation and source-of-authority index.
 Canonical owner: this file for architecture navigation; see [`source-of-truth-map.md`](./_meta/source-of-truth-map.md) for subject ownership.
 Supersedes: ad hoc architecture navigation in plans/specs when links or ownership disagree.
 Superseded by: none.
-Last alignment pass: 2026-06-07.
+Last alignment pass: 2026-06-12.
 
 ## Purpose
 
@@ -104,8 +104,9 @@ Read the stack this way:
 - AIIP is the RPC-shaped, receipt-native interop protocol for bounded
   autonomous work across microharnesses, workers, services, marketplaces,
   enterprises, third-party autonomous systems, and AS-L1s;
-- wallet.network authorizes identity, secrets, approvals, payments, data use,
-  and decryption;
+- wallet.network authorizes identity, secrets, approvals, payments, exchanges,
+  data use, decryption, revocation, and protection actions; route sources
+  produce exchange candidates but do not become authority;
 - Agentgres artifact refs define payload meaning, lifecycle, policy, authority,
   receipts, replay/import metadata, archive/restore validity, and state-root
   validity;
@@ -189,7 +190,8 @@ distilled back into this architecture pack or into an accepted decision record.
 - [`hypervisor/fleet.md`](./components/hypervisor/fleet.md) — Hypervisor Fleet as the general infrastructure manager whose first-class workload is autonomous systems, spanning machines, VMs, containers, microVMs, WASM workloads, DePIN, cloud, local, edge, customer, and bare-metal nodes, with Fleet surfaces in Hypervisor IDE and console.ioi.ai.
 - [`daemon-runtime/private-workspace-ctee.md`](./components/daemon-runtime/private-workspace-ctee.md) — Private Workspace backed by cTEE for persistent rented GPU Hypervisor Nodes, Candidate-Lattice Private Decoding, private files/folders, private strategy execution, autonomy leases, declassification gates, and no-plaintext protected classes.
 - [`daemon-runtime/runtime-nodes-tee-depin.md`](./components/daemon-runtime/runtime-nodes-tee-depin.md) — local/hosted/DePIN/TEE execution modes.
-- [`wallet-network/doctrine.md`](./components/wallet-network/doctrine.md) — identity, secrets, authority scopes, approvals, payments.
+- [`wallet-network/doctrine.md`](./components/wallet-network/doctrine.md) — identity, secrets, authority scopes, approvals, payments, exchange authority.
+- [`wallet-network/product-exchange-risk.md`](./components/wallet-network/product-exchange-risk.md) — Wallet product doctrine, exchange authority, route-source boundaries, risk labels, asset exposure, protection actions, approval inbox, wallet receipts, and SDK events.
 - [`domains/aiagent/worker-marketplace.md`](./domains/aiagent/worker-marketplace.md) — worker marketplace, managed instances, and routing application domain.
 - [`domains/sas/service-marketplace.md`](./domains/sas/service-marketplace.md) — Service-as-Software outcome marketplace application domain.
 - [`domains/ioi-ai/control-plane.md`](./domains/ioi-ai/control-plane.md) — lightweight account, device, restore, publishing, and remote-runtime control plane.
@@ -208,7 +210,7 @@ distilled back into this architecture pack or into an accepted decision record.
 - [`daemon-runtime/api.md`](./components/daemon-runtime/api.md) — public daemon runtime API, event streaming, inspect, scorecard, replay.
 - [`agentgres/api-object-model.md`](./components/agentgres/api-object-model.md) — Agentgres APIs, object classes, operation log, runtime v0 state.
 - [`agentgres/projection-system-reference.md`](./components/agentgres/projection-system-reference.md) — CSPS taxonomy reference for projection-native state systems.
-- [`wallet-network/api-authority-scopes.md`](./components/wallet-network/api-authority-scopes.md) — wallet.network authority scopes, grants, approvals, brokerage, revocation.
+- [`wallet-network/api-authority-scopes.md`](./components/wallet-network/api-authority-scopes.md) — wallet.network authority scopes, grants, approvals, brokerage, exchange, exposure, protection, receipts, and revocation.
 - [`ioi-l1-contract-interfaces.md`](./foundations/ioi-l1-contract-interfaces.md) — IOI L1 contract interfaces.
 - [`daemon-runtime/task-capsule-protocol.md`](./components/daemon-runtime/task-capsule-protocol.md) — runtime assignment, task capsules, privacy modes, attestation.
 - [`agentgres/artifact-ref-plane.md`](./components/agentgres/artifact-ref-plane.md) — artifact/package refs, bundles, archive refs, verification, and restore validity.
@@ -257,7 +259,7 @@ supporting file.
 | Hypervisor IDE | IDE-grade operator console for autonomous systems; observes, requests, approves, interrupts, debugs, and explains daemon-governed work without owning runtime truth. |
 | Electron/VS Code Fork | Canonical Hypervisor app shell for IDE and local runtime surfaces. |
 | IOI Authority Gateway / Hypervisor Guard | Compatibility sidecar/adapters for existing IDEs, CLI agents, hosted agents, browser tools, and MCP ecosystems; routes proposed actions through daemon policy, authority, receipts, and replay without becoming a second runtime. |
-| wallet.network | Sovereign authority layer for identity, secrets, keys, authority scopes, approvals, payments, and revocation. |
+| wallet.network | Sovereign authority wallet for identity, secrets, keys, authority scopes, approvals, payments, exchange authority, risk disclosure, protection actions, and revocation. |
 | aiagent.xyz | Canonical Web4 marketplace for portable digital workers, benchmark profiles, Sparse Worker Categories, installs, and routing eligibility. |
 | sas.xyz | Canonical Web4 marketplace for autonomous service outcomes, including Worker Training as Service-as-Software. |
 | ioi.ai | Lightweight account/control plane for devices, restore routing, publishing, sync metadata, remote-runtime entitlement, and console.ioi.ai Fleet web/org surfaces. |

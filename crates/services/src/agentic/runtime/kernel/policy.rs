@@ -122,6 +122,7 @@ pub use thread_lifecycle::{
     plan_agent_create_state_update_response, plan_agent_delete_state_update_response,
     plan_agent_status_state_update_response, plan_lifecycle_admission_required_response,
     plan_run_create_state_update_response,
+    plan_runtime_bridge_thread_control_agent_state_update_response,
     plan_runtime_bridge_thread_start_agent_state_update_response,
     plan_runtime_bridge_turn_run_state_update_response, plan_subagent_record_state_update_response,
     plan_thread_control_agent_state_update_response, plan_thread_create_state_update_response,
@@ -135,6 +136,11 @@ pub use thread_lifecycle::{
     LifecycleAdmissionRequiredError, LifecycleAdmissionRequiredRecord,
     LifecycleAdmissionRequiredRequest, RunCreateStateUpdateBridgeRequest, RunCreateStateUpdateCore,
     RunCreateStateUpdateError, RunCreateStateUpdateRecord, RunCreateStateUpdateRequest,
+    RuntimeBridgeThreadControlAgentStateUpdateBridgeRequest,
+    RuntimeBridgeThreadControlAgentStateUpdateCore,
+    RuntimeBridgeThreadControlAgentStateUpdateError,
+    RuntimeBridgeThreadControlAgentStateUpdateRecord,
+    RuntimeBridgeThreadControlAgentStateUpdateRequest,
     RuntimeBridgeThreadStartAgentStateUpdateBridgeRequest,
     RuntimeBridgeThreadStartAgentStateUpdateCore, RuntimeBridgeThreadStartAgentStateUpdateError,
     RuntimeBridgeThreadStartAgentStateUpdateRecord,
@@ -293,6 +299,10 @@ pub const RUNTIME_BRIDGE_THREAD_START_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION:
     "ioi.runtime.runtime-bridge-thread-start-agent-state-update-request.v1";
 pub const RUNTIME_BRIDGE_THREAD_START_AGENT_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =
     "ioi.runtime.runtime-bridge-thread-start-agent-state-update.v1";
+pub const RUNTIME_BRIDGE_THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.runtime-bridge-thread-control-agent-state-update-request.v1";
+pub const RUNTIME_BRIDGE_THREAD_CONTROL_AGENT_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =
+    "ioi.runtime.runtime-bridge-thread-control-agent-state-update.v1";
 pub const RUNTIME_BRIDGE_TURN_RUN_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.runtime-bridge-turn-run-state-update-request.v1";
 pub const RUNTIME_BRIDGE_TURN_RUN_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =

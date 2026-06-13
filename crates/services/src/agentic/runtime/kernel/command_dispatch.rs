@@ -6,9 +6,13 @@ use super::{
     agentgres_command::*, approval::*, authority::*, coding_tool_event::*,
     coding_tool_step_module::*, command_protocol::CommandOperation, governed_admission::*,
     governed_receipt::*, model_mount::*, model_mount_receipt::*, policy::*, repository_workflow::*,
-    runtime_conversation_artifact_projection::*, runtime_lifecycle::*,
-    runtime_memory_projection::*, runtime_thread_event::*, runtime_tool_catalog::*,
-    skill_hook_registry::*, workspace_restore::*,
+    runtime_conversation_artifact_control::*, runtime_conversation_artifact_projection::*,
+    runtime_diagnostics_repair_control::*, runtime_diagnostics_repair_policy::*,
+    runtime_diagnostics_repair_projection::*, runtime_lifecycle::*,
+    runtime_managed_session_control::*, runtime_memory_control::*, runtime_memory_projection::*,
+    runtime_subagent_control::*, runtime_subagent_projection::*, runtime_thread_event::*,
+    runtime_thread_fork_control::*, runtime_tool_catalog::*, runtime_workflow_edit_control::*,
+    runtime_workspace_change_control::*, skill_hook_registry::*, workspace_restore::*,
 };
 
 #[derive(Debug, Clone)]
@@ -178,20 +182,25 @@ pub fn dispatch_command_operation_response(
                 model_mount_error("model_mount_backend_process_plan_rejected", error)
             })
         }
-        CommandOperation::PlanModelMountBackendLifecycleRequired => {
-            plan_model_mount_backend_lifecycle_required_response(decode(raw_request)?).map_err(
-                |error| model_mount_error("model_mount_backend_lifecycle_required_invalid", error),
-            )
+        CommandOperation::PlanModelMountBackendLifecycle => {
+            plan_model_mount_backend_lifecycle_response(decode(raw_request)?)
+                .map_err(|error| model_mount_error("model_mount_backend_lifecycle_invalid", error))
         }
-        CommandOperation::PlanModelMountServerControlRequired => {
-            plan_model_mount_server_control_required_response(decode(raw_request)?).map_err(
-                |error| model_mount_error("model_mount_server_control_required_invalid", error),
-            )
+        CommandOperation::PlanModelMountArtifactEndpoint => {
+            plan_model_mount_artifact_endpoint_response(decode(raw_request)?)
+                .map_err(|error| model_mount_error("model_mount_artifact_endpoint_invalid", error))
         }
-        CommandOperation::PlanModelMountRuntimeEngineRequired => {
-            plan_model_mount_runtime_engine_required_response(decode(raw_request)?).map_err(
-                |error| model_mount_error("model_mount_runtime_engine_required_invalid", error),
-            )
+        CommandOperation::PlanModelMountStorageControl => {
+            plan_model_mount_storage_control_response(decode(raw_request)?)
+                .map_err(|error| model_mount_error("model_mount_storage_control_invalid", error))
+        }
+        CommandOperation::PlanModelMountServerControl => {
+            plan_model_mount_server_control_response(decode(raw_request)?)
+                .map_err(|error| model_mount_error("model_mount_server_control_invalid", error))
+        }
+        CommandOperation::PlanModelMountRuntimeEngine => {
+            plan_model_mount_runtime_engine_response(decode(raw_request)?)
+                .map_err(|error| model_mount_error("model_mount_runtime_engine_invalid", error))
         }
         CommandOperation::PlanModelMountTokenizerRequired => {
             plan_model_mount_tokenizer_required_response(decode(raw_request)?)
@@ -201,6 +210,40 @@ pub fn dispatch_command_operation_response(
             plan_model_mount_route_control_required_response(decode(raw_request)?).map_err(
                 |error| model_mount_error("model_mount_route_control_required_invalid", error),
             )
+        }
+        CommandOperation::PlanModelMountRouteControl => {
+            plan_model_mount_route_control_response(decode(raw_request)?)
+                .map_err(|error| model_mount_error("model_mount_route_control_invalid", error))
+        }
+        CommandOperation::PlanModelMountCatalogProviderControl => {
+            plan_model_mount_catalog_provider_control_response(decode(raw_request)?).map_err(
+                |error| model_mount_error("model_mount_catalog_provider_control_invalid", error),
+            )
+        }
+        CommandOperation::PlanModelMountCapabilityTokenControl => {
+            plan_model_mount_capability_token_control_response(decode(raw_request)?).map_err(
+                |error| model_mount_error("model_mount_capability_token_control_invalid", error),
+            )
+        }
+        CommandOperation::PlanModelMountVaultControl => {
+            plan_model_mount_vault_control_response(decode(raw_request)?)
+                .map_err(|error| model_mount_error("model_mount_vault_control_invalid", error))
+        }
+        CommandOperation::PlanModelMountReceiptGate => {
+            plan_model_mount_receipt_gate_response(decode(raw_request)?)
+                .map_err(|error| model_mount_error("model_mount_receipt_gate_invalid", error))
+        }
+        CommandOperation::PlanModelMountTokenizer => {
+            plan_model_mount_tokenizer_response(decode(raw_request)?)
+                .map_err(|error| model_mount_error("model_mount_tokenizer_invalid", error))
+        }
+        CommandOperation::PlanModelMountConversationState => {
+            plan_model_mount_conversation_state_response(decode(raw_request)?)
+                .map_err(|error| model_mount_error("model_mount_conversation_state_invalid", error))
+        }
+        CommandOperation::PlanModelMountStreamCompletion => {
+            plan_model_mount_stream_completion_response(decode(raw_request)?)
+                .map_err(|error| model_mount_error("model_mount_stream_completion_invalid", error))
         }
         CommandOperation::PlanModelMountAcceptedReceiptHead => {
             plan_model_mount_accepted_receipt_head_response(decode(raw_request)?)
@@ -280,6 +323,14 @@ pub fn dispatch_command_operation_response(
             admit_coding_tool_result_event_response(decode(raw_request)?).map_err(|error| {
                 CommandDispatchError::new(
                     "coding_tool_result_event_admission_rejected",
+                    format!("{error:?}"),
+                )
+            })
+        }
+        CommandOperation::PlanCodingToolResultEnvelope => {
+            plan_coding_tool_result_envelope_response(decode(raw_request)?).map_err(|error| {
+                CommandDispatchError::new(
+                    "coding_tool_result_envelope_plan_rejected",
                     format!("{error:?}"),
                 )
             })
@@ -379,6 +430,18 @@ pub fn dispatch_command_operation_response(
             plan_diagnostics_repair_admission_required_response(decode(raw_request)?)
                 .map_err(Into::into)
         }
+        CommandOperation::PlanRuntimeDiagnosticsRepairControl => {
+            plan_runtime_diagnostics_repair_control_response(decode(raw_request)?)
+                .map_err(Into::into)
+        }
+        CommandOperation::ProjectRuntimeDiagnosticsRepairProjection => {
+            project_runtime_diagnostics_repair_projection_response(decode(raw_request)?)
+                .map_err(Into::into)
+        }
+        CommandOperation::ProjectRuntimeDiagnosticsRepairPolicy => {
+            project_runtime_diagnostics_repair_policy_response(decode(raw_request)?)
+                .map_err(Into::into)
+        }
         CommandOperation::PlanDiagnosticsOperatorOverrideStateUpdate => {
             plan_diagnostics_operator_override_state_update_response(decode(raw_request)?)
                 .map_err(Into::into)
@@ -425,9 +488,42 @@ pub fn dispatch_command_operation_response(
         CommandOperation::ProjectRuntimeMemoryProjection => {
             project_runtime_memory_projection_response(decode(raw_request)?).map_err(Into::into)
         }
+        CommandOperation::PlanRuntimeMemoryControl => {
+            plan_runtime_memory_control_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::PlanRuntimeWorkflowEditControl => {
+            plan_runtime_workflow_edit_control_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::ProjectRuntimeManagedSessionProjection => {
+            project_runtime_managed_session_projection_response(decode(raw_request)?)
+                .map_err(Into::into)
+        }
+        CommandOperation::PlanRuntimeManagedSessionControl => {
+            plan_runtime_managed_session_control_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::ProjectRuntimeWorkspaceChangeProjection => {
+            project_runtime_workspace_change_projection_response(decode(raw_request)?)
+                .map_err(Into::into)
+        }
+        CommandOperation::PlanRuntimeWorkspaceChangeControl => {
+            plan_runtime_workspace_change_control_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::PlanRuntimeThreadForkControl => {
+            plan_runtime_thread_fork_control_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::PlanRuntimeConversationArtifactControl => {
+            plan_runtime_conversation_artifact_control_response(decode(raw_request)?)
+                .map_err(Into::into)
+        }
         CommandOperation::ProjectRuntimeConversationArtifactProjection => {
             project_runtime_conversation_artifact_projection_response(decode(raw_request)?)
                 .map_err(Into::into)
+        }
+        CommandOperation::ProjectRuntimeSubagentProjection => {
+            project_runtime_subagent_projection_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::PlanRuntimeSubagentControl => {
+            plan_runtime_subagent_control_response(decode(raw_request)?).map_err(Into::into)
         }
         CommandOperation::PlanLifecycleAdmissionRequired => {
             plan_lifecycle_admission_required_response(decode(raw_request)?).map_err(Into::into)
@@ -478,6 +574,10 @@ pub fn dispatch_command_operation_response(
         }
         CommandOperation::PlanRuntimeBridgeThreadStartAgentStateUpdate => {
             plan_runtime_bridge_thread_start_agent_state_update_response(decode(raw_request)?)
+                .map_err(Into::into)
+        }
+        CommandOperation::PlanRuntimeBridgeThreadControlAgentStateUpdate => {
+            plan_runtime_bridge_thread_control_agent_state_update_response(decode(raw_request)?)
                 .map_err(Into::into)
         }
         CommandOperation::PlanRuntimeBridgeTurnRunStateUpdate => {
@@ -568,8 +668,19 @@ command_error_from!(RuntimeTaskJobProjectionCommandError);
 command_error_from!(SkillHookRegistryProjectionCommandError);
 command_error_from!(RepositoryWorkflowProjectionCommandError);
 command_error_from!(RuntimeLifecycleProjectionCommandError);
+command_error_from!(RuntimeDiagnosticsRepairControlCommandError);
+command_error_from!(RuntimeDiagnosticsRepairProjectionCommandError);
+command_error_from!(RuntimeDiagnosticsRepairPolicyCommandError);
+command_error_from!(RuntimeManagedSessionCommandError);
+command_error_from!(RuntimeMemoryControlCommandError);
 command_error_from!(RuntimeMemoryProjectionCommandError);
+command_error_from!(RuntimeWorkspaceChangeCommandError);
+command_error_from!(RuntimeThreadForkCommandError);
+command_error_from!(RuntimeConversationArtifactControlCommandError);
 command_error_from!(RuntimeConversationArtifactProjectionCommandError);
+command_error_from!(RuntimeSubagentControlCommandError);
+command_error_from!(RuntimeSubagentProjectionCommandError);
+command_error_from!(RuntimeWorkflowEditControlCommandError);
 command_error_from!(ThreadLifecycleCommandError);
 command_error_from!(WorkspaceTrustControlCommandError);
 command_error_from!(RuntimeToolCatalogProjectionCommandError);

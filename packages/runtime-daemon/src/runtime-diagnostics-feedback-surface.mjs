@@ -9,6 +9,7 @@ export function createRuntimeDiagnosticsFeedbackSurface(deps = {}) {
   const {
     compactDiagnosticsFeedback,
     diagnosticsFeedbackPlanner,
+    diagnosticsRepairPolicyProjector,
     normalizeDiagnosticsMode,
   } = deps;
 
@@ -102,7 +103,26 @@ export function createRuntimeDiagnosticsFeedbackSurface(deps = {}) {
       );
     });
     if (!diagnosticEvents.length) return null;
-    return compactDiagnosticsFeedback({ threadId, mode: injectionMode, diagnosticEvents });
+    if (
+      !diagnosticsRepairPolicyProjector ||
+      typeof diagnosticsRepairPolicyProjector.projectRuntimeDiagnosticsRepairPolicy !== "function"
+    ) {
+      throw runtimeDiagnosticsFeedbackRustCoreRequired({
+        operation: "runtime_diagnostics_repair_policy_projection",
+        operation_kind: "runtime.diagnostics_repair_policy.projection",
+        thread_id: threadId,
+        evidence_refs: [
+          "runtime_diagnostics_repair_policy_projection_rust_owned",
+          "rust_daemon_core_diagnostics_repair_policy_required",
+        ],
+      });
+    }
+    return compactDiagnosticsFeedback({
+      threadId,
+      mode: injectionMode,
+      diagnosticEvents,
+      diagnosticsRepairPolicyProjector,
+    });
   }
 
   return {

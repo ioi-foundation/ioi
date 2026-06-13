@@ -5,7 +5,8 @@ use super::common::{
     receipts_by_kind,
 };
 use super::{
-    adapter_boundary, health, receipt, route_decision, status, ModelMountReadProjectionRequest,
+    adapter_boundary, conversation, health, receipt, route_decision, status, topology,
+    ModelMountReadProjectionRequest,
 };
 
 pub(super) fn snapshot(request: &ModelMountReadProjectionRequest) -> Value {
@@ -13,25 +14,22 @@ pub(super) fn snapshot(request: &ModelMountReadProjectionRequest) -> Value {
     let receipts = array_field(state, "receipts");
     json!({
         "schemaVersion": model_mount_projection_schema_version(request),
-        "server": status::server_status(request),
-        "catalog": status::catalog_status(request),
+        "server": status::server_status_or_default(request),
+        "catalog": status::catalog_status_or_default(request),
         "oauthSessions": [],
         "oauthStates": [],
-        "artifacts": [],
-        "productArtifacts": [],
-        "backends": [],
+        "artifacts": topology::artifact_records(request),
+        "productArtifacts": topology::product_artifact_records(request),
+        "backends": topology::backend_records(request).unwrap_or_default(),
         "backendProcesses": [],
-        "endpoints": [],
-        "instances": [],
-        "providers": [],
-        "routes": [],
+        "endpoints": topology::endpoint_records(request),
+        "instances": topology::instance_records(request),
+        "providers": topology::provider_records(request),
+        "routes": topology::route_records(request),
         "modelCapabilities": [],
-        "runtimeModelCatalog": [],
-        "openAiModelList": {
-            "object": "list",
-            "data": [],
-        },
-        "downloads": [],
+        "runtimeModelCatalog": topology::runtime_model_catalog_records(request).unwrap_or_default(),
+        "openAiModelList": topology::open_ai_model_list_value(request),
+        "downloads": topology::download_records(request),
         "providerHealth": [],
         "runtimeEngines": [],
         "runtimeEngineProfiles": [],
@@ -40,7 +38,7 @@ pub(super) fn snapshot(request: &ModelMountReadProjectionRequest) -> Value {
         "tokens": array_field(state, "grants"),
         "vaultRefs": array_field(state, "vault_refs"),
         "mcpServers": [],
-        "conversationStates": [],
+        "conversationStates": conversation::conversation_state_records(request),
         "workflowNodes": adapter_boundary::workflow_bindings(),
         "receipts": receipts.into_iter().rev().take(25).collect::<Vec<_>>().into_iter().rev().collect::<Vec<_>>(),
         "projection": receipt::projection_summary(request),
@@ -56,24 +54,21 @@ pub(super) fn projection(request: &ModelMountReadProjectionRequest) -> Value {
         "source": "agentgres_model_mounting_projection",
         "generatedAt": model_mount_projection_generated_at(request),
         "watermark": receipts.len(),
-        "artifacts": [],
-        "productArtifacts": [],
-        "endpoints": [],
-        "instances": [],
-        "routes": [],
+        "artifacts": topology::artifact_records(request),
+        "productArtifacts": topology::product_artifact_records(request),
+        "endpoints": topology::endpoint_records(request),
+        "instances": topology::instance_records(request),
+        "routes": topology::route_records(request),
         "modelCapabilities": [],
-        "runtimeModelCatalog": [],
-        "openAiModelList": {
-            "object": "list",
-            "data": [],
-        },
-        "backends": [],
+        "runtimeModelCatalog": topology::runtime_model_catalog_records(request).unwrap_or_default(),
+        "openAiModelList": topology::open_ai_model_list_value(request),
+        "backends": topology::backend_records(request).unwrap_or_default(),
         "backendProcesses": [],
-        "providers": [],
-        "catalog": status::catalog_status(request),
+        "providers": topology::provider_records(request),
+        "catalog": status::catalog_status_or_default(request),
         "oauthSessions": [],
         "oauthStates": [],
-        "downloads": [],
+        "downloads": topology::download_records(request),
         "providerHealth": [],
         "runtimeEngines": [],
         "runtimeEngineProfiles": [],
@@ -82,12 +77,12 @@ pub(super) fn projection(request: &ModelMountReadProjectionRequest) -> Value {
         "grants": array_field(state, "grants"),
         "vaultRefs": array_field(state, "vault_refs"),
         "mcpServers": [],
-        "conversationStates": [],
+        "conversationStates": conversation::conversation_state_records(request),
         "workflowBindings": adapter_boundary::workflow_bindings(),
         "adapterBoundaries": adapter_boundary::adapter_boundaries(state),
         "lifecycleEvents": receipts_by_kind(&receipts, "model_lifecycle"),
         "routeReceipts": receipts_by_kind(&receipts, "model_route_selection"),
-        "routeDecisions": route_decision::route_decisions_from_receipts(&receipts),
+        "routeDecisions": route_decision::route_decision_records_or_empty(request),
         "providerHealthReceipts": receipts_by_kind(&receipts, "provider_health"),
         "runtimeSurveyReceipts": receipts_by_kind(&receipts, "runtime_survey"),
         "invocationReceipts": receipts_by_kind(&receipts, "model_invocation"),
@@ -109,7 +104,9 @@ mod tests {
             receipt_id: None,
             engine_id: None,
             provider_id: None,
+            download_id: None,
             base_url: Some("http://127.0.0.1:9444".to_string()),
+            state_dir: None,
             state,
         }
     }
@@ -144,10 +141,7 @@ mod tests {
         assert_eq!(projection["source"], "agentgres_model_mounting_projection");
         assert_eq!(projection["watermark"], 2);
         assert_eq!(projection["routeReceipts"].as_array().unwrap().len(), 1);
-        assert_eq!(
-            projection["routeDecisions"][0]["receipt_id"],
-            "receipt.route"
-        );
+        assert_eq!(projection["routeDecisions"], json!([]));
         assert_eq!(
             projection["providerHealthReceipts"][0]["id"],
             "receipt.health"

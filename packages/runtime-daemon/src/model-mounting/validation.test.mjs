@@ -140,7 +140,62 @@ test("model mounting validation fails closed on retired continuation fallback al
   }
 });
 
-test("model mounting validation matching receipt gate fails closed before JS receipt creation", () => {
+function receiptGatePlan(request, status = "passed", failures = []) {
+  const kind = status === "passed" ? "workflow_receipt_gate" : "workflow_receipt_gate_blocked";
+  return {
+    source: "rust_model_mount_receipt_gate_command",
+    backend: "rust_model_mount_receipt_gate",
+    operation_kind: request.operation_kind,
+    rust_core_boundary: "model_mount.receipt_gate",
+    gate_status: status,
+    gate_hash: `sha256:gate:${status}`,
+    receipt_refs: [request.receipt_id, ...request.required_tool_receipt_ids],
+    evidence_refs: [
+      "model_mount_receipt_gate_rust_owned",
+      "model_mount_receipt_gate_js_facade_retired",
+      "rust_receipt_binder_core",
+      "agentgres_model_receipt_gate_truth_required",
+    ],
+    public_response: {
+      object: "ioi.model_mount_receipt_gate_result",
+      status,
+      receipt_id: request.receipt_id,
+      gate_receipt_id: `receipt.${kind}.test`,
+      failures,
+    },
+    plan: {
+      failures,
+    },
+    receipt: {
+      id: `receipt.${kind}.test`,
+      kind,
+      redaction: "redacted",
+      evidenceRefs: [
+        "model_mount_receipt_gate_rust_owned",
+        "model_mount_receipt_gate_js_facade_retired",
+        "rust_receipt_binder_core",
+        "agentgres_model_receipt_gate_truth_required",
+      ],
+      details: {
+        boundary: "model_mount.receipt_gate",
+        operation_kind: request.operation_kind,
+        receipt_id: request.receipt_id,
+        gate_status: status,
+        failures,
+        route_id: request.receipt.details?.route_id ?? null,
+        selected_model: request.receipt.details?.selected_model ?? null,
+        endpoint_id: request.receipt.details?.endpoint_id ?? null,
+        backend_id: request.receipt.details?.backend_id ?? null,
+        required_tool_receipt_ids: request.required_tool_receipt_ids,
+        model_mount_receipt_gate_hash: `sha256:gate:${status}`,
+        model_mount_receipt_binding_ref: "sha256:receipt-binding",
+        model_mount_agentgres_operation_ref: "agentgres://model-mounting/receipt-gates/test",
+      },
+    },
+  };
+}
+
+test("model mounting validation commits Rust-planned matching receipt gate", () => {
   const receipts = new Map([
     ["receipt-route", {
       id: "receipt-route",
@@ -161,9 +216,10 @@ test("model mounting validation matching receipt gate fails closed before JS rec
       details: {},
     }],
   ]);
-  const calls = [];
+  const plans = [];
+  const persisted = [];
 
-  const error = captureError(() => validateReceiptGate({
+  const result = validateReceiptGate({
     body: {
       receipt_id: "receipt-route",
       redaction: "redacted",
@@ -175,37 +231,41 @@ test("model mounting validation matching receipt gate fails closed before JS rec
     },
     getReceipt: (id) => receipts.get(id),
     normalizeScopes,
-    receipt: (kind, payload) => {
-      calls.push({ kind, payload });
-      throw new Error("JS workflow_receipt_gate receipt should not be created");
+    persistRustAuthoredReceipt: (record) => {
+      persisted.push(record);
+      return { ...record, committed: true };
+    },
+    planReceiptGate: (request) => {
+      plans.push(request);
+      return receiptGatePlan(request);
     },
     requiredString,
     runtimeError,
-  }));
+    nowIso: () => "2026-06-13T12:00:00.000Z",
+  });
 
-  assert.equal(error.status, 409);
-  assert.equal(error.code, "model_mount_receipt_gate_rust_core_required");
-  assert.equal(error.details.boundary, "model_mount.receipt_gate");
-  assert.equal(error.details.operation_kind, "workflow_receipt_gate");
-  assert.deepEqual(error.details.evidence_refs, MODEL_RECEIPT_GATE_RUST_CORE_REQUIRED_EVIDENCE_REFS);
-  assert.equal(error.details.receipt_id, "receipt-route");
-  assert.equal(error.details.gate_status, "passed");
-  assert.deepEqual(error.details.failures, []);
-  assert.equal(error.details.route_id, "route.local-first");
-  assert.equal(error.details.selected_model, "model.local");
-  assert.equal(error.details.endpoint_id, "endpoint.local");
-  assert.equal(error.details.backend_id, "backend.local");
-  assert.deepEqual(error.details.required_tool_receipt_ids, ["receipt-tool"]);
-  assert.equal(Object.hasOwn(error.details, "receiptId"), false);
-  assert.equal(Object.hasOwn(error.details, "routeId"), false);
-  assert.equal(Object.hasOwn(error.details, "selectedModel"), false);
-  assert.equal(Object.hasOwn(error.details, "endpointId"), false);
-  assert.equal(Object.hasOwn(error.details, "backendId"), false);
-  assert.equal(Object.hasOwn(error.details, "requiredToolReceiptIds"), false);
-  assert.deepEqual(calls, []);
+  assert.equal(result.status, "passed");
+  assert.equal(result.gate_status, "passed");
+  assert.equal(result.receipt.kind, "workflow_receipt_gate");
+  assert.equal(result.receipt.committed, true);
+  assert.equal(result.gate_hash, "sha256:gate:passed");
+  assert.equal(plans.length, 1);
+  assert.equal(plans[0].schema_version, "ioi.model_mount.receipt_gate.v1");
+  assert.equal(plans[0].operation_kind, "workflow_receipt_gate");
+  assert.equal(plans[0].receipt_id, "receipt-route");
+  assert.equal(plans[0].required_redaction, "redacted");
+  assert.equal(plans[0].required_route_id, "route.local-first");
+  assert.equal(plans[0].required_selected_model, "model.local");
+  assert.equal(plans[0].required_endpoint_id, "endpoint.local");
+  assert.equal(plans[0].required_backend_id, "backend.local");
+  assert.deepEqual(plans[0].required_tool_receipt_ids, ["receipt-tool"]);
+  assert.equal(plans[0].tool_receipts[0].id, "receipt-tool");
+  assert.equal(plans[0].generated_at, "2026-06-13T12:00:00.000Z");
+  assert.equal(persisted.length, 1);
+  assert.equal(persisted[0].details.model_mount_receipt_binding_ref, "sha256:receipt-binding");
 });
 
-test("model mounting validation mismatch gate fails closed before JS blocked receipt creation", () => {
+test("model mounting validation commits Rust-planned blocked receipt gate", () => {
   const receipts = new Map([
     ["receipt-route", {
       id: "receipt-route",
@@ -226,9 +286,10 @@ test("model mounting validation mismatch gate fails closed before JS blocked rec
       details: {},
     }],
   ]);
-  const calls = [];
+  const plans = [];
+  const persisted = [];
 
-  const error = captureError(() => validateReceiptGate({
+  const result = validateReceiptGate({
     body: {
       receipt_id: "receipt-route",
       route_id: "route.other",
@@ -242,9 +303,60 @@ test("model mounting validation mismatch gate fails closed before JS blocked rec
       details: {},
     },
     normalizeScopes,
-    receipt: (kind, payload) => {
-      calls.push({ kind, payload });
-      throw new Error("JS workflow_receipt_gate_blocked receipt should not be created");
+    persistRustAuthoredReceipt: (record) => {
+      persisted.push(record);
+      return record;
+    },
+    planReceiptGate: (request) => {
+      plans.push(request);
+      return receiptGatePlan(request, "blocked", [
+        "route:route.local-first",
+        "backend:backend.local",
+        "tool_receipt_kind:receipt-tool",
+        "tool_receipt_link:receipt-missing-link",
+      ]);
+    },
+    requiredString,
+    runtimeError,
+  });
+
+  assert.equal(result.status, "blocked");
+  assert.equal(result.receipt.kind, "workflow_receipt_gate_blocked");
+  assert.deepEqual(result.failures, [
+    "route:route.local-first",
+    "backend:backend.local",
+    "tool_receipt_kind:receipt-tool",
+    "tool_receipt_link:receipt-missing-link",
+  ]);
+  assert.equal(plans.length, 1);
+  assert.deepEqual(plans[0].required_tool_receipt_ids, ["receipt-tool", "receipt-missing-link"]);
+  assert.equal(plans[0].tool_receipts.length, 2);
+  assert.equal(persisted.length, 1);
+  assert.equal(persisted[0].details.model_mount_agentgres_operation_ref, "agentgres://model-mounting/receipt-gates/test");
+});
+
+test("model mounting validation fails closed before JS gate decision when Rust planner is missing", () => {
+  const receipts = new Map([
+    ["receipt-route", {
+      id: "receipt-route",
+      kind: "model_invocation",
+      redaction: "redacted",
+      details: {
+        route_id: "route.local-first",
+        tool_receipt_ids: [],
+      },
+    }],
+  ]);
+
+  const error = captureError(() => validateReceiptGate({
+    body: {
+      receipt_id: "receipt-route",
+      route_id: "route.other",
+    },
+    getReceipt: (id) => receipts.get(id),
+    normalizeScopes,
+    persistRustAuthoredReceipt: () => {
+      throw new Error("receipt persistence should not run without Rust gate planning");
     },
     requiredString,
     runtimeError,
@@ -252,23 +364,10 @@ test("model mounting validation mismatch gate fails closed before JS blocked rec
 
   assert.equal(error.status, 409);
   assert.equal(error.code, "model_mount_receipt_gate_rust_core_required");
-  assert.equal(error.details.boundary, "model_mount.receipt_gate");
+  assert.equal(error.details.rust_core_boundary, "model_mount.receipt_gate");
   assert.equal(error.details.operation_kind, "workflow_receipt_gate");
+  assert.deepEqual(error.details.evidence_refs, MODEL_RECEIPT_GATE_RUST_CORE_REQUIRED_EVIDENCE_REFS);
   assert.equal(error.details.receipt_id, "receipt-route");
-  assert.equal(error.details.gate_status, "blocked");
-  assert.equal(error.details.route_id, "route.local-first");
-  assert.equal(error.details.backend_id, "backend.local");
-  assert.deepEqual(error.details.required_tool_receipt_ids, ["receipt-tool", "receipt-missing-link"]);
-  assert.equal(Object.hasOwn(error.details, "receiptId"), false);
-  assert.equal(Object.hasOwn(error.details, "gateReceiptId"), false);
-  assert.equal(Object.hasOwn(error.details, "routeId"), false);
-  assert.equal(Object.hasOwn(error.details, "backendId"), false);
-  assert.equal(Object.hasOwn(error.details, "requiredToolReceiptIds"), false);
-  assert.deepEqual(error.details.failures, [
-    "route:route.local-first",
-    "backend:backend.local",
-    "tool_receipt_kind:receipt-tool",
-    "tool_receipt_link:receipt-missing-link",
-  ]);
-  assert.deepEqual(calls, []);
+  assert.equal(Object.hasOwn(error.details, "failures"), false);
+  assert.equal(Object.hasOwn(error.details, "gateStatus"), false);
 });

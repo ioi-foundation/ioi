@@ -17,6 +17,8 @@ pub const WORKSPACE_SNAPSHOT_CAPTURE_RESULT_SCHEMA_VERSION: &str =
     "ioi.workspace_snapshot_capture_result.v1";
 pub const WORKSPACE_SNAPSHOT_RECORD_SCHEMA_VERSION: &str = "ioi.runtime.workspace-snapshot.v1";
 pub const WORKSPACE_SNAPSHOT_EVENT_SCHEMA_VERSION: &str = "ioi.runtime.workspace-snapshot.event.v1";
+pub const WORKSPACE_SNAPSHOT_ARTIFACT_SCHEMA_VERSION: &str =
+    "ioi.runtime.workspace_snapshot_artifact.v1";
 pub const WORKSPACE_SNAPSHOT_LIST_REQUEST_SCHEMA_VERSION: &str =
     "ioi.workspace_snapshot_list_request.v1";
 pub const WORKSPACE_SNAPSHOT_CONTENT_PACKAGE_REQUEST_SCHEMA_VERSION: &str =
@@ -32,6 +34,9 @@ pub const WORKSPACE_RESTORE_PREVIEW_RESULT_SCHEMA_VERSION: &str =
     "ioi.runtime.workspace_restore_preview.v1";
 pub const WORKSPACE_RESTORE_APPLY_RESULT_SCHEMA_VERSION: &str =
     "ioi.runtime.workspace_restore_apply.v1";
+pub const WORKSPACE_RESTORE_ARTIFACT_SCHEMA_VERSION: &str =
+    "ioi.runtime.workspace_restore_artifact.v1";
+pub const WORKSPACE_RESTORE_EVENT_SCHEMA_VERSION: &str = "ioi.runtime.workspace_restore.event.v1";
 pub const WORKSPACE_RESTORE_APPLY_POLICY_REQUEST_SCHEMA_VERSION: &str =
     "ioi.workspace_restore_apply_policy_request.v1";
 pub const WORKSPACE_RESTORE_APPLY_POLICY_PLAN_SCHEMA_VERSION: &str =
@@ -784,12 +789,15 @@ pub fn capture_workspace_snapshot_files_response(
             )
         })?;
     let snapshot_record = workspace_snapshot_capture_record(&request, &capture);
-    let snapshot_event = workspace_snapshot_capture_event(&request, &snapshot_record);
+    let snapshot_artifact = workspace_snapshot_capture_artifact(&request, &snapshot_record);
+    let snapshot_event =
+        workspace_snapshot_capture_event(&request, &snapshot_record, &snapshot_artifact);
     Ok(json!({
         "source": "rust_workspace_snapshot_capture_command",
         "backend": request.backend.unwrap_or_else(|| "rust_workspace_restore".to_string()),
         "capture": capture.clone(),
         "snapshot_record": snapshot_record,
+        "snapshot_artifact": snapshot_artifact,
         "snapshot_event": snapshot_event,
         "files": capture.files.clone(),
         "content_files": capture.content_files.clone(),
@@ -1877,9 +1885,72 @@ fn workspace_snapshot_capture_record(
     })
 }
 
+fn workspace_snapshot_capture_artifact(
+    request: &WorkspaceSnapshotCaptureBridgeRequest,
+    snapshot_record: &Value,
+) -> Value {
+    let thread_id = trim_optional_string(request.thread_id.as_deref());
+    let turn_id = trim_optional_string(request.turn_id.as_deref());
+    let workspace_root = trim_optional_string(request.workspace_root.as_deref());
+    let tool_call_id = trim_optional_string(request.tool_call_id.as_deref());
+    let workflow_graph_id = trim_optional_string(request.workflow_graph_id.as_deref());
+    let workflow_node_id = trim_optional_string(request.workflow_node_id.as_deref());
+    let snapshot_id = snapshot_record
+        .get("snapshot_id")
+        .and_then(Value::as_str)
+        .unwrap_or("workspace_snapshot_unknown");
+    let snapshot_hash = snapshot_record
+        .get("snapshot_hash")
+        .and_then(Value::as_str)
+        .unwrap_or("sha256:unknown");
+    let artifact_refs = string_array_from_value(snapshot_record.get("artifact_refs"));
+    let artifact_id = artifact_refs.first().cloned().unwrap_or_else(|| {
+        format!(
+            "artifact://runtime.workspace_snapshot/{}",
+            safe_id(snapshot_id)
+        )
+    });
+    let receipt_refs = string_array_from_value(snapshot_record.get("receipt_refs"));
+    let receipt_id = receipt_refs.first().cloned().unwrap_or_else(|| {
+        format!(
+            "receipt://runtime.workspace_snapshot/{}",
+            safe_id(snapshot_id)
+        )
+    });
+    let content = snapshot_record.clone();
+    let content_text = serde_json::to_string(&content).unwrap_or_else(|_| "{}".to_string());
+    json!({
+        "schema_version": WORKSPACE_SNAPSHOT_ARTIFACT_SCHEMA_VERSION,
+        "id": artifact_id,
+        "artifact_id": artifact_id,
+        "thread_id": thread_id,
+        "turn_id": turn_id,
+        "tool_name": "workspace.snapshot_capture",
+        "tool_call_id": tool_call_id,
+        "workspace_root": workspace_root,
+        "workflow_graph_id": workflow_graph_id,
+        "workflow_node_id": workflow_node_id,
+        "channel": "workspace-snapshot",
+        "name": format!("{snapshot_id}.json"),
+        "media_type": "application/json",
+        "redaction": "workspace_snapshot",
+        "snapshot_id": snapshot_id,
+        "snapshot_hash": snapshot_hash,
+        "snapshot_kind": snapshot_record.get("snapshot_kind").cloned().unwrap_or(Value::Null),
+        "receipt_id": receipt_id,
+        "receipt_refs": receipt_refs,
+        "artifact_refs": artifact_refs,
+        "content": content,
+        "content_bytes": content_text.as_bytes().len() as u64,
+        "content_hash": format!("sha256:{}", sha256_hex(&content_text)),
+        "evidence_refs": workspace_snapshot_capture_artifact_evidence_refs(),
+    })
+}
+
 fn workspace_snapshot_capture_event(
     request: &WorkspaceSnapshotCaptureBridgeRequest,
     snapshot_record: &Value,
+    snapshot_artifact: &Value,
 ) -> Value {
     let thread_id = trim_optional_string(request.thread_id.as_deref());
     let turn_id = trim_optional_string(request.turn_id.as_deref());
@@ -1923,7 +1994,18 @@ fn workspace_snapshot_capture_event(
         "restore": snapshot_record.get("restore").cloned().unwrap_or(Value::Null),
         "trigger": snapshot_record.get("trigger").cloned().unwrap_or(Value::Null),
         "summary": snapshot_record.get("summary").cloned().unwrap_or(Value::Null),
+        "receipt_refs": snapshot_record.get("receipt_refs").cloned().unwrap_or(json!([])),
+        "artifact_refs": snapshot_record.get("artifact_refs").cloned().unwrap_or(json!([])),
     });
+    let idempotency_key = format!(
+        "workspace_snapshot:capture:{}:{}",
+        safe_id(snapshot_id),
+        tool_call_id
+            .as_deref()
+            .map(safe_id)
+            .unwrap_or_else(|| "no_tool_call".to_string())
+    );
+    let payload_hash = json_value_hash(&payload_summary);
     json!({
         "schema_version": WORKSPACE_SNAPSHOT_EVENT_SCHEMA_VERSION,
         "event_id": event_id,
@@ -1935,6 +2017,12 @@ fn workspace_snapshot_capture_event(
         "status": "completed",
         "actor": "runtime",
         "component_kind": "workspace_snapshot",
+        "item_id": format!(
+            "thread:{}:workspace_snapshot:{}",
+            thread_id.as_deref().map(safe_id).unwrap_or_else(|| "unknown_thread".to_string()),
+            safe_id(snapshot_id)
+        ),
+        "idempotency_key": idempotency_key,
         "thread_id": thread_id,
         "turn_id": turn_id,
         "workspace_root": workspace_root,
@@ -1945,7 +2033,10 @@ fn workspace_snapshot_capture_event(
         "artifact_refs": snapshot_record.get("artifact_refs").cloned().unwrap_or(json!([])),
         "receipt_refs": snapshot_record.get("receipt_refs").cloned().unwrap_or(json!([])),
         "payload_schema_version": WORKSPACE_SNAPSHOT_RECORD_SCHEMA_VERSION,
+        "payload_hash": payload_hash,
         "payload_summary": payload_summary,
+        "snapshot_artifact": snapshot_artifact,
+        "evidence_refs": workspace_snapshot_capture_event_evidence_refs(),
     })
 }
 
@@ -2186,7 +2277,7 @@ fn workspace_restore_preview_result(
 ) -> Value {
     let counts = workspace_restore_operation_counts(operations);
     let preview_status = workspace_restore_preview_status(&counts);
-    json!({
+    let mut result = json!({
         "schema_version": WORKSPACE_RESTORE_PREVIEW_RESULT_SCHEMA_VERSION,
         "object": "ioi.runtime_workspace_restore_preview",
         "thread_id": request.thread_id.trim(),
@@ -2205,7 +2296,14 @@ fn workspace_restore_preview_result(
         "rollback_refs": vec![request.snapshot_id.trim().to_string()],
         "summary": workspace_restore_preview_summary(&request.snapshot_id, &preview_status, &counts),
         "evidence_refs": workspace_snapshot_restore_evidence_refs(),
-    })
+    });
+    let artifact = workspace_restore_artifact_record("preview", request, &result);
+    let event = workspace_restore_event_record("preview", request, &result, &artifact);
+    if let Some(object) = result.as_object_mut() {
+        object.insert("restore_preview_artifact".to_string(), artifact);
+        object.insert("restore_preview_event".to_string(), event);
+    }
+    result
 }
 
 fn workspace_restore_apply_result(
@@ -2216,7 +2314,7 @@ fn workspace_restore_apply_result(
 ) -> Value {
     let counts = workspace_restore_operation_counts(operations);
     let apply_status = workspace_restore_apply_status(&counts);
-    json!({
+    let mut result = json!({
         "schema_version": WORKSPACE_RESTORE_APPLY_RESULT_SCHEMA_VERSION,
         "object": "ioi.runtime_workspace_restore_apply",
         "thread_id": request.thread_id.trim(),
@@ -2246,7 +2344,14 @@ fn workspace_restore_apply_result(
             )
         }),
         "evidence_refs": workspace_snapshot_restore_evidence_refs(),
-    })
+    });
+    let artifact = workspace_restore_artifact_record("apply", request, &result);
+    let event = workspace_restore_event_record("apply", request, &result, &artifact);
+    if let Some(object) = result.as_object_mut() {
+        object.insert("restore_apply_artifact".to_string(), artifact);
+        object.insert("restore_apply_event".to_string(), event);
+    }
+    result
 }
 
 fn workspace_restore_apply_policy_request_from_restore(
@@ -2399,6 +2504,174 @@ fn workspace_restore_artifact_refs(kind: &str, snapshot_id: &str) -> Vec<String>
     )]
 }
 
+fn workspace_restore_artifact_record(
+    kind: &str,
+    request: &WorkspaceSnapshotRestoreRequest,
+    value: &Value,
+) -> Value {
+    let artifact_refs = string_array_from_value(value.get("artifact_refs"));
+    let artifact_id = artifact_refs.first().cloned().unwrap_or_else(|| {
+        format!(
+            "artifact://runtime.workspace_restore/{kind}/{}",
+            safe_id(&request.snapshot_id)
+        )
+    });
+    let receipt_refs = string_array_from_value(value.get("receipt_refs"));
+    let receipt_id = receipt_refs.first().cloned().unwrap_or_else(|| {
+        format!(
+            "receipt://runtime.workspace_restore/{kind}/{}",
+            safe_id(&request.snapshot_id)
+        )
+    });
+    let content =
+        serde_json::to_string(value).unwrap_or_else(|_| "{\"error\":\"hash_failed\"}".to_string());
+    let channel = format!("restore-{kind}");
+    json!({
+        "schema_version": WORKSPACE_RESTORE_ARTIFACT_SCHEMA_VERSION,
+        "id": artifact_id,
+        "artifact_id": artifact_id,
+        "thread_id": request.thread_id.trim(),
+        "tool_name": format!("workspace.restore_{kind}"),
+        "channel": channel,
+        "name": format!("workspace-restore-{kind}.json"),
+        "media_type": "application/json",
+        "redaction": format!("workspace_restore_{kind}"),
+        "snapshot_id": request.snapshot_id.trim(),
+        "workflow_graph_id": trim_optional_string(request.workflow_graph_id.as_deref()),
+        "workflow_node_id": trim_optional_string(request.workflow_node_id.as_deref()),
+        "receipt_id": receipt_id,
+        "receipt_refs": receipt_refs,
+        "artifact_refs": artifact_refs,
+        "rollback_refs": string_array_from_value(value.get("rollback_refs")),
+        "content": value,
+        "content_bytes": content.as_bytes().len() as u64,
+        "content_hash": json_value_hash(value),
+        "evidence_refs": workspace_snapshot_restore_artifact_evidence_refs(),
+    })
+}
+
+fn workspace_restore_event_record(
+    kind: &str,
+    request: &WorkspaceSnapshotRestoreRequest,
+    value: &Value,
+    artifact: &Value,
+) -> Value {
+    let status_field = if kind == "apply" {
+        "apply_status"
+    } else {
+        "preview_status"
+    };
+    let status = value
+        .get(status_field)
+        .and_then(Value::as_str)
+        .unwrap_or("planned");
+    let idempotency_key = trim_optional_string(request.idempotency_key.as_deref())
+        .unwrap_or_else(|| format!("workspace_restore:{kind}:{}", safe_id(&request.snapshot_id)));
+    let receipt_refs = string_array_from_value(value.get("receipt_refs"));
+    let artifact_refs = string_array_from_value(value.get("artifact_refs"));
+    let rollback_refs = string_array_from_value(value.get("rollback_refs"));
+    let payload_summary = workspace_restore_event_payload_summary(kind, value);
+    let payload_hash = json_value_hash(&payload_summary);
+    let event_id = format!(
+        "event_workspace_restore_{}_{}",
+        kind,
+        safe_id(&format!("{}:{idempotency_key}", request.snapshot_id))
+    );
+    json!({
+        "schema_version": WORKSPACE_RESTORE_EVENT_SCHEMA_VERSION,
+        "event_id": event_id,
+        "event_stream_id": format!("{}:events", request.thread_id.trim()),
+        "thread_id": request.thread_id.trim(),
+        "turn_id": Value::Null,
+        "item_id": format!(
+            "thread:{}:workspace_restore:{kind}:{}",
+            safe_id(&request.thread_id),
+            safe_id(&request.snapshot_id)
+        ),
+        "event_kind": format!("workspace_restore.{kind}"),
+        "status": status,
+        "actor": "daemon",
+        "component_kind": "workspace_restore",
+        "workflow_graph_id": trim_optional_string(request.workflow_graph_id.as_deref()),
+        "workflow_node_id": trim_optional_string(request.workflow_node_id.as_deref()),
+        "snapshot_id": request.snapshot_id.trim(),
+        "idempotency_key": idempotency_key,
+        "receipt_refs": receipt_refs,
+        "artifact_refs": artifact_refs,
+        "rollback_refs": rollback_refs,
+        "payload_schema_version": value.get("schema_version").cloned().unwrap_or(Value::Null),
+        "payload_hash": payload_hash,
+        "payload_summary": payload_summary,
+        "restore_artifact": artifact,
+        "evidence_refs": workspace_snapshot_restore_event_evidence_refs(),
+    })
+}
+
+fn workspace_restore_event_payload_summary(kind: &str, value: &Value) -> Value {
+    let mut summary = serde_json::Map::new();
+    summary.insert(
+        "operation_kind".to_string(),
+        json!(format!("workspace_restore.{kind}")),
+    );
+    for field in [
+        "thread_id",
+        "snapshot_id",
+        "preview_status",
+        "apply_status",
+        "file_count",
+        "ready_count",
+        "noop_count",
+        "conflict_count",
+        "blocked_count",
+        "applied_count",
+        "apply_noop_count",
+        "apply_blocked_count",
+        "failed_count",
+        "receipt_refs",
+        "artifact_refs",
+        "rollback_refs",
+        "policy_decision_refs",
+        "summary",
+    ] {
+        if let Some(field_value) = value.get(field) {
+            summary.insert(field.to_string(), field_value.clone());
+        }
+    }
+    Value::Object(summary)
+}
+
+fn workspace_snapshot_restore_artifact_evidence_refs() -> Vec<&'static str> {
+    vec![
+        "rust_daemon_core_workspace_restore_artifact",
+        "agentgres_workspace_restore_artifact_truth",
+        "workspace_restore_artifact_js_materializer_retired",
+    ]
+}
+
+fn workspace_snapshot_restore_event_evidence_refs() -> Vec<&'static str> {
+    vec![
+        "rust_daemon_core_workspace_restore_event",
+        "agentgres_workspace_restore_event_truth",
+        "workspace_restore_event_js_append_retired",
+    ]
+}
+
+fn workspace_snapshot_capture_artifact_evidence_refs() -> Vec<&'static str> {
+    vec![
+        "rust_daemon_core_workspace_snapshot_artifact",
+        "agentgres_workspace_snapshot_artifact_truth",
+        "workspace_snapshot_artifact_js_materializer_retired",
+    ]
+}
+
+fn workspace_snapshot_capture_event_evidence_refs() -> Vec<&'static str> {
+    vec![
+        "rust_daemon_core_workspace_snapshot_event",
+        "agentgres_workspace_snapshot_event_truth",
+        "workspace_snapshot_event_js_append_retired",
+    ]
+}
+
 fn workspace_snapshot_projection_evidence_refs() -> Vec<&'static str> {
     vec![
         "rust_daemon_core_workspace_snapshot_projection",
@@ -2465,6 +2738,11 @@ where
 
 fn sha256_hex(value: &str) -> String {
     hex::encode(Sha256::digest(value.as_bytes()))
+}
+
+fn json_value_hash(value: &Value) -> String {
+    let bytes = serde_json::to_vec(value).unwrap_or_default();
+    format!("sha256:{}", hex::encode(Sha256::digest(bytes)))
 }
 
 fn safe_id(value: &str) -> String {
@@ -2634,6 +2912,18 @@ mod tests {
             "content_captured"
         );
         assert_eq!(
+            response["snapshot_artifact"]["schema_version"],
+            WORKSPACE_SNAPSHOT_ARTIFACT_SCHEMA_VERSION
+        );
+        assert_eq!(
+            response["snapshot_artifact"]["id"],
+            response["snapshot_record"]["artifact_refs"][0]
+        );
+        assert_eq!(
+            response["snapshot_artifact"]["receipt_refs"],
+            response["snapshot_record"]["receipt_refs"]
+        );
+        assert_eq!(
             response["snapshot_event"]["schema_version"],
             WORKSPACE_SNAPSHOT_EVENT_SCHEMA_VERSION
         );
@@ -2643,12 +2933,35 @@ mod tests {
         );
         assert_eq!(response["snapshot_event"]["thread_id"], "thread_alpha");
         assert_eq!(
+            response["snapshot_event"]["idempotency_key"],
+            format!(
+                "workspace_snapshot:capture:{}:tool_call_alpha",
+                safe_id(
+                    response["snapshot_record"]["snapshot_id"]
+                        .as_str()
+                        .expect("snapshot id")
+                )
+            )
+        );
+        assert_eq!(
             response["snapshot_event"]["snapshot_id"],
             response["snapshot_record"]["snapshot_id"]
         );
         assert_eq!(
+            response["snapshot_event"]["receipt_refs"],
+            response["snapshot_record"]["receipt_refs"]
+        );
+        assert_eq!(
+            response["snapshot_event"]["artifact_refs"],
+            response["snapshot_record"]["artifact_refs"]
+        );
+        assert_eq!(
             response["snapshot_event"]["payload_summary"]["snapshot_id"],
             response["snapshot_record"]["snapshot_id"]
+        );
+        assert_eq!(
+            response["snapshot_event"]["snapshot_artifact"]["id"],
+            response["snapshot_artifact"]["id"]
         );
     }
 
@@ -3067,6 +3380,18 @@ mod tests {
             preview["restore_preview"]["operations"][0]["status"],
             "ready"
         );
+        assert_eq!(
+            preview["restore_preview"]["restore_preview_artifact"]["schema_version"],
+            WORKSPACE_RESTORE_ARTIFACT_SCHEMA_VERSION
+        );
+        assert_eq!(
+            preview["restore_preview"]["restore_preview_event"]["event_kind"],
+            "workspace_restore.preview"
+        );
+        assert_eq!(
+            preview["restore_preview"]["restore_preview_event"]["payload_summary"]["receipt_refs"],
+            preview["restore_preview"]["receipt_refs"]
+        );
 
         let blocked_apply =
             apply_workspace_snapshot_restore_response(WorkspaceSnapshotRestoreBridgeRequest {
@@ -3147,6 +3472,19 @@ mod tests {
         assert_eq!(applied["restore_apply"]["apply_status"], "applied");
         assert_eq!(applied["restore_apply"]["approval_satisfied"], true);
         assert_eq!(applied["restore_apply"]["applied_count"], 1);
+        assert_eq!(
+            applied["restore_apply"]["restore_apply_artifact"]["schema_version"],
+            WORKSPACE_RESTORE_ARTIFACT_SCHEMA_VERSION
+        );
+        assert_eq!(
+            applied["restore_apply"]["restore_apply_event"]["event_kind"],
+            "workspace_restore.apply"
+        );
+        assert_eq!(
+            applied["restore_apply"]["restore_apply_event"]["payload_summary"]
+                ["policy_decision_refs"],
+            applied["restore_apply"]["policy_decision_refs"]
+        );
         assert_eq!(fs::read_to_string(&file_path).expect("restored"), "old");
         let _ = fs::remove_dir_all(workspace);
     }

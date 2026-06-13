@@ -5,18 +5,24 @@ import {
   ModelMountingState,
 } from "../model-mounting.mjs";
 
+const CATALOG_PROVIDER_EVIDENCE_REFS = [
+  "rust_daemon_core_catalog_provider_control",
+  "wallet_network_catalog_provider_authority_required",
+  "ctee_catalog_provider_custody_enforced",
+  "agentgres_catalog_provider_control_truth_required",
+  "public_catalog_provider_control_js_facade_retired",
+];
+
 function fakeState() {
+  const calls = [];
+  const recordStateCommits = [];
   return {
+    calls,
+    recordStateCommits,
     catalogProviderConfigs: new Map(),
     catalogProviderRuntimeMaterials: new Map(),
     oauthSessions: new Map(),
     oauthStates: new Map(),
-    projections: 0,
-    receipts: [],
-    recordStateCommits: [],
-    writes: [],
-    vaultWrites: 0,
-    now: "2026-06-03T21:00:00.000Z",
     oauthCredentialProvider: {
       startAuthorization() {
         throw new Error("oauth start should not run in JS");
@@ -35,24 +41,23 @@ function fakeState() {
       },
     },
     catalogProviderPorts() {
-      return [{ id: "catalog.huggingface", status: "available" }];
+      throw new Error("catalog provider ports should not run in JS");
     },
-    catalogProviderRuntimeMaterial(providerId) {
-      return this.catalogProviderRuntimeMaterials.get(providerId) ?? null;
+    catalogProviderRuntimeMaterial() {
+      throw new Error("catalog runtime material should not resolve in JS");
     },
     nowIso() {
-      return this.now;
+      return "2026-06-13T12:00:00.000Z";
     },
-    receipt(kind, payload) {
-      const receipt = { id: `receipt.${kind}.${this.receipts.length + 1}`, kind, payload };
-      this.receipts.push(receipt);
-      return receipt;
+    planCatalogProviderControl(request) {
+      calls.push({ name: "planCatalogProviderControl", request });
+      return catalogProviderControlPlan(request);
     },
-    writeMap(name, map) {
-      this.writes.push([name, [...map.values()].map((record) => ({ ...record }))]);
+    writeMap() {
+      throw new Error("catalog OAuth map writes should not run in JS");
     },
     commitRuntimeModelMountRecordState(request) {
-      this.recordStateCommits.push(request);
+      recordStateCommits.push(request);
       return {
         record_id: request.record_id,
         object_ref: `agentgres://model-mounting/${request.record_dir}/${request.record_id}`,
@@ -60,95 +65,126 @@ function fakeState() {
         admission_hash: `sha256:admission:${request.operation_kind}:${request.record_id}`,
         commit_hash: `sha256:commit:${request.operation_kind}:${request.record_id}`,
         written_record: request.record,
+        storage_record: {
+          object_ref: `agentgres://model-mounting/${request.record_dir}/${request.record_id}`,
+          content_hash: `sha256:${request.operation_kind}:${request.record_id}`,
+          admission: {
+            admission_hash: `sha256:admission:${request.operation_kind}:${request.record_id}`,
+          },
+        },
       };
     },
     writeProjection() {
-      this.projections += 1;
+      throw new Error("catalog OAuth projections should not run in JS");
     },
     writeVaultRefs() {
-      this.vaultWrites += 1;
+      throw new Error("catalog OAuth vault metadata writes should not run in JS");
     },
   };
 }
 
-function assertNoCatalogOAuthMutation(state) {
-  assert.deepEqual(state.receipts, []);
-  assert.deepEqual(state.recordStateCommits, []);
-  assert.deepEqual(state.writes, []);
-  assert.equal(state.projections, 0);
-  assert.equal(state.vaultWrites, 0);
-  assert.equal(state.catalogProviderConfigs.size, 0);
-  assert.equal(state.oauthStates.size, 0);
-  assert.equal(state.oauthSessions.size, 0);
+function catalogProviderControlPlan(request) {
+  const recordId = `catalog_provider_control:${request.provider_id}:${request.operation_kind.split(".").at(-1)}`;
+  const record = {
+    id: recordId,
+    record_id: recordId,
+    object: "ioi.model_mount_catalog_provider_control",
+    status: "planned",
+    operation_kind: request.operation_kind,
+    provider_id: request.provider_id,
+    rust_core_boundary: "model_mount.catalog_provider_control",
+    plaintext_material_returned: false,
+    public_response: {
+      object: `ioi.${request.operation_kind.replaceAll(".", "_")}`,
+      provider_id: request.provider_id,
+      status: "accepted",
+      private_material_returned: false,
+      plaintext_material_returned: false,
+    },
+    evidence_refs: CATALOG_PROVIDER_EVIDENCE_REFS,
+    control_hash: `sha256:control:${recordId}`,
+  };
+  return {
+    source: "rust_model_mount_catalog_provider_control_command",
+    backend: "rust_model_mount_catalog_provider_control",
+    plan: { record },
+    record_dir: "model-catalog-provider-controls",
+    record_id: recordId,
+    record,
+    operation_kind: request.operation_kind,
+    rust_core_boundary: "model_mount.catalog_provider_control",
+    receipt_refs: request.receipt_refs,
+    authority_grant_refs: request.authority_grant_refs,
+    authority_receipt_refs: request.authority_receipt_refs,
+    evidence_refs: CATALOG_PROVIDER_EVIDENCE_REFS,
+    control_hash: `sha256:control:${recordId}`,
+    authority_hash: `sha256:authority:${recordId}`,
+  };
 }
 
-function assertRustCoreRequired(error, operationKind) {
-  assert.equal(error.status, 501);
-  assert.equal(error.code, "model_mount_catalog_provider_control_rust_core_required");
-  assert.equal(error.details.operation_kind, operationKind);
-  assert.equal(error.details.rust_core_boundary, "model_mount.catalog_provider_control");
-  assert.equal(error.details.provider_id, "catalog.huggingface");
-  assert.deepEqual(error.details.evidence_refs, [
-    "public_catalog_provider_control_js_facade_retired",
-    "rust_daemon_core_catalog_provider_control_required",
-    "rust_daemon_core_wallet_ctee_custody_required",
-  ]);
-  assert.equal(Object.hasOwn(error.details, "operationKind"), false);
-  assert.equal(Object.hasOwn(error.details, "providerId"), false);
-  return true;
+function assertRustCatalogProviderControlResponse(result, operationKind) {
+  assert.equal(result.status, "committed");
+  assert.equal(result.operation_kind, operationKind);
+  assert.equal(result.rust_core_boundary, "model_mount.catalog_provider_control");
+  assert.equal(result.record_dir, "model-catalog-provider-controls");
+  assert.equal(result.record.plaintext_material_returned, false);
+  assert.equal(result.evidence_refs.includes("ctee_catalog_provider_custody_enforced"), true);
 }
 
-test("catalog OAuth mutation facades fail closed until Rust core owns catalog provider control", async () => {
-  const startState = fakeState();
-  assert.throws(
-    () => ModelMountingState.prototype.startCatalogProviderOAuth.call(
-      startState,
-      "catalog.huggingface",
-      { auth_header_name: "authorization" },
-    ),
-    (error) => assertRustCoreRequired(error, "model_mount.catalog_provider_oauth.start"),
-  );
-  assertNoCatalogOAuthMutation(startState);
+test("catalog OAuth operations commit Rust catalog-provider-control records", async () => {
+  const state = fakeState();
 
-  const callbackState = fakeState();
-  await assert.rejects(
-    () => ModelMountingState.prototype.completeCatalogProviderOAuth.call(
-      callbackState,
-      "catalog.huggingface",
-      { state: "callback-state" },
-    ),
-    (error) => {
-      assertRustCoreRequired(error, "model_mount.catalog_provider_oauth.callback");
-      assert.equal(error.details.state_present, true);
-      return true;
+  const start = ModelMountingState.prototype.startCatalogProviderOAuth.call(
+    state,
+    "catalog.huggingface",
+    {
+      auth_header_name: "authorization",
+      authority_grant_refs: ["grant://wallet/provider-write"],
+      authority_receipt_refs: ["receipt://wallet/provider-write"],
+      custody_ref: "ctee://catalog-provider/huggingface",
     },
   );
-  assertNoCatalogOAuthMutation(callbackState);
-
-  const exchangeState = fakeState();
-  await assert.rejects(
-    () => ModelMountingState.prototype.exchangeCatalogProviderOAuth.call(
-      exchangeState,
-      "catalog.huggingface",
-      { code: "code-a" },
-    ),
-    (error) => assertRustCoreRequired(error, "model_mount.catalog_provider_oauth.exchange"),
+  const callback = await ModelMountingState.prototype.completeCatalogProviderOAuth.call(
+    state,
+    "catalog.huggingface",
+    { state: "callback-state" },
   );
-  assertNoCatalogOAuthMutation(exchangeState);
-
-  const refreshState = fakeState();
-  await assert.rejects(
-    () => ModelMountingState.prototype.refreshCatalogProviderOAuth.call(refreshState, "catalog.huggingface"),
-    (error) => assertRustCoreRequired(error, "model_mount.catalog_provider_oauth.refresh"),
+  const exchange = await ModelMountingState.prototype.exchangeCatalogProviderOAuth.call(
+    state,
+    "catalog.huggingface",
+    { code: "code-a" },
   );
-  assertNoCatalogOAuthMutation(refreshState);
-
-  const revokeState = fakeState();
-  assert.throws(
-    () => ModelMountingState.prototype.revokeCatalogProviderOAuth.call(revokeState, "catalog.huggingface"),
-    (error) => assertRustCoreRequired(error, "model_mount.catalog_provider_oauth.revoke"),
+  const refresh = await ModelMountingState.prototype.refreshCatalogProviderOAuth.call(
+    state,
+    "catalog.huggingface",
   );
-  assertNoCatalogOAuthMutation(revokeState);
+  const revoke = ModelMountingState.prototype.revokeCatalogProviderOAuth.call(
+    state,
+    "catalog.huggingface",
+  );
+
+  assertRustCatalogProviderControlResponse(start, "model_mount.catalog_provider_oauth.start");
+  assertRustCatalogProviderControlResponse(callback, "model_mount.catalog_provider_oauth.callback");
+  assertRustCatalogProviderControlResponse(exchange, "model_mount.catalog_provider_oauth.exchange");
+  assertRustCatalogProviderControlResponse(refresh, "model_mount.catalog_provider_oauth.refresh");
+  assertRustCatalogProviderControlResponse(revoke, "model_mount.catalog_provider_oauth.revoke");
+  assert.equal(state.calls.length, 5);
+  assert.equal(state.recordStateCommits.length, 5);
+  assert.deepEqual(
+    state.calls.map((call) => call.request.operation_kind),
+    [
+      "model_mount.catalog_provider_oauth.start",
+      "model_mount.catalog_provider_oauth.callback",
+      "model_mount.catalog_provider_oauth.exchange",
+      "model_mount.catalog_provider_oauth.refresh",
+      "model_mount.catalog_provider_oauth.revoke",
+    ],
+  );
+  assert.equal(state.calls[0].request.custody_ref, "ctee://catalog-provider/huggingface");
+  assert.deepEqual(state.calls[0].request.authority_grant_refs, ["grant://wallet/provider-write"]);
+  assert.deepEqual(state.calls[0].request.authority_receipt_refs, ["receipt://wallet/provider-write"]);
+  assert.deepEqual(state.oauthSessions, new Map());
+  assert.deepEqual(state.oauthStates, new Map());
 });
 
 test("catalog OAuth callback still validates required callback state before Rust boundary", async () => {
@@ -158,7 +194,8 @@ test("catalog OAuth callback still validates required callback state before Rust
     () => ModelMountingState.prototype.completeCatalogProviderOAuth.call(state, "catalog.huggingface", {}),
     /state is required/,
   );
-  assertNoCatalogOAuthMutation(state);
+  assert.equal(state.calls.length, 0);
+  assert.equal(state.recordStateCommits.length, 0);
 });
 
 test("catalog OAuth callback rejects retired OAuth state compatibility aliases", async () => {
@@ -171,16 +208,7 @@ test("catalog OAuth callback rejects retired OAuth state compatibility aliases",
       () => ModelMountingState.prototype.completeCatalogProviderOAuth.call(state, "catalog.huggingface", body),
       /state is required/,
     );
-    assertNoCatalogOAuthMutation(state);
+    assert.equal(state.calls.length, 0);
+    assert.equal(state.recordStateCommits.length, 0);
   }
-});
-
-test("catalog OAuth facades preserve configurable provider validation", () => {
-  const state = fakeState();
-
-  assert.throws(
-    () => ModelMountingState.prototype.startCatalogProviderOAuth.call(state, "catalog.fixture", {}),
-    /Catalog provider is not configurable: catalog.fixture/,
-  );
-  assertNoCatalogOAuthMutation(state);
 });

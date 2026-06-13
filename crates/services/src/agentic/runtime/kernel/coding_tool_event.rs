@@ -18,6 +18,10 @@ pub const CODING_TOOL_COMMAND_STREAM_ADMISSION_RESULT_SCHEMA_VERSION: &str =
 pub const CODING_TOOL_COMMAND_STREAM_PAYLOAD_SCHEMA_VERSION: &str =
     "ioi.runtime.coding-tool-command-stream.v1";
 pub const CODING_TOOL_RESULT_SCHEMA_VERSION: &str = "ioi.runtime.coding-tool-result.v1";
+pub const CODING_TOOL_RESULT_ENVELOPE_PLAN_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.coding-tool-result-envelope-plan-request.v1";
+pub const CODING_TOOL_RESULT_ENVELOPE_PLAN_RESULT_SCHEMA_VERSION: &str =
+    "ioi.runtime.coding-tool-result-envelope-plan.v1";
 pub const POST_EDIT_DIAGNOSTICS_FEEDBACK_PLAN_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.post-edit-diagnostics-feedback-plan-request.v1";
 pub const POST_EDIT_DIAGNOSTICS_FEEDBACK_PLAN_RESULT_SCHEMA_VERSION: &str =
@@ -47,6 +51,16 @@ pub enum CodingToolCommandStreamAdmissionError {
     MissingField(&'static str),
     MissingReceiptRefs,
     Agentgres(AgentgresAdmissionError),
+    HashFailed(String),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum CodingToolResultEnvelopePlanError {
+    InvalidSchemaVersion {
+        expected: &'static str,
+        actual: String,
+    },
+    MissingField(&'static str),
     HashFailed(String),
 }
 
@@ -178,6 +192,96 @@ pub struct CodingToolCommandStreamAdmissionRecord {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CodingToolResultEnvelopePlanRequest {
+    pub schema_version: String,
+    #[serde(default)]
+    pub phase: Option<String>,
+    pub event_stream_id: String,
+    pub thread_id: String,
+    #[serde(default)]
+    pub turn_id: Option<String>,
+    pub tool_id: String,
+    pub tool_call_id: String,
+    #[serde(default)]
+    pub workspace_root: Option<String>,
+    #[serde(default)]
+    pub workflow_graph_id: Option<String>,
+    pub workflow_node_id: String,
+    pub idempotency_key: String,
+    #[serde(default)]
+    pub source: Option<String>,
+    #[serde(default)]
+    pub status: Option<String>,
+    #[serde(default)]
+    pub summary: Option<String>,
+    #[serde(default)]
+    pub input_summary: Value,
+    #[serde(default)]
+    pub result_summary: Value,
+    #[serde(default)]
+    pub result: Value,
+    #[serde(default)]
+    pub error: Value,
+    #[serde(default)]
+    pub receipt_id: Option<String>,
+    #[serde(default)]
+    pub receipt_refs: Vec<String>,
+    #[serde(default)]
+    pub artifact_refs: Vec<String>,
+    #[serde(default)]
+    pub rollback_refs: Vec<String>,
+    #[serde(default)]
+    pub diagnostics_repair_context: Value,
+    #[serde(default)]
+    pub approval_required: Option<bool>,
+    #[serde(default)]
+    pub approval_satisfied: Option<bool>,
+    #[serde(default)]
+    pub approval_id: Option<String>,
+    #[serde(default)]
+    pub approval_manifest: Value,
+    #[serde(default)]
+    pub approval_decision_event_id: Option<String>,
+    #[serde(default)]
+    pub approval_receipt_refs: Vec<String>,
+    #[serde(default)]
+    pub approval_policy_decision_refs: Vec<String>,
+    #[serde(default)]
+    pub step_module_backend: Option<String>,
+    #[serde(default)]
+    pub step_module: Value,
+    #[serde(default)]
+    pub step_module_error: Value,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CodingToolResultEnvelopePlanRecord {
+    pub schema_version: String,
+    pub object: String,
+    pub status: String,
+    pub operation_kind: String,
+    pub phase: String,
+    pub event_stream_id: String,
+    pub thread_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub turn_id: Option<String>,
+    pub tool_id: String,
+    pub tool_call_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub workflow_graph_id: Option<String>,
+    pub workflow_node_id: String,
+    pub step_module_context: Value,
+    #[serde(default)]
+    pub payload_summary: Value,
+    #[serde(default)]
+    pub event: Value,
+    pub receipt_refs: Vec<String>,
+    pub artifact_refs: Vec<String>,
+    pub rollback_refs: Vec<String>,
+    pub envelope_hash: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PostEditDiagnosticsFeedbackPlanRequest {
     pub schema_version: String,
     pub thread_id: String,
@@ -238,6 +342,13 @@ pub struct CodingToolCommandStreamAdmissionBridgeRequest {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct CodingToolResultEnvelopePlanBridgeRequest {
+    #[serde(default)]
+    pub backend: Option<String>,
+    pub request: CodingToolResultEnvelopePlanRequest,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct PostEditDiagnosticsFeedbackPlanBridgeRequest {
     #[serde(default)]
     pub backend: Option<String>,
@@ -249,6 +360,9 @@ pub struct CodingToolResultEventAdmissionCore;
 
 #[derive(Debug, Default, Clone)]
 pub struct CodingToolCommandStreamAdmissionCore;
+
+#[derive(Debug, Default, Clone)]
+pub struct CodingToolResultEnvelopePlanCore;
 
 #[derive(Debug, Default, Clone)]
 pub struct PostEditDiagnosticsFeedbackPlanCore;
@@ -761,6 +875,230 @@ impl CodingToolCommandStreamAdmissionCore {
     }
 }
 
+impl CodingToolResultEnvelopePlanCore {
+    pub fn plan(
+        &self,
+        request: &CodingToolResultEnvelopePlanRequest,
+    ) -> Result<CodingToolResultEnvelopePlanRecord, CodingToolResultEnvelopePlanError> {
+        request.validate()?;
+        let event_stream_id = required_trimmed(
+            &request.event_stream_id,
+            "event_stream_id",
+            CodingToolResultEnvelopePlanError::MissingField,
+        )?;
+        let thread_id = required_trimmed(
+            &request.thread_id,
+            "thread_id",
+            CodingToolResultEnvelopePlanError::MissingField,
+        )?;
+        let tool_id = required_trimmed(
+            &request.tool_id,
+            "tool_id",
+            CodingToolResultEnvelopePlanError::MissingField,
+        )?;
+        let tool_call_id = required_trimmed(
+            &request.tool_call_id,
+            "tool_call_id",
+            CodingToolResultEnvelopePlanError::MissingField,
+        )?;
+        let workflow_node_id = required_trimmed(
+            &request.workflow_node_id,
+            "workflow_node_id",
+            CodingToolResultEnvelopePlanError::MissingField,
+        )?;
+        let idempotency_key = required_trimmed(
+            &request.idempotency_key,
+            "idempotency_key",
+            CodingToolResultEnvelopePlanError::MissingField,
+        )?;
+        let phase = request
+            .phase
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .unwrap_or("result_event")
+            .to_string();
+        let turn_id = request
+            .turn_id
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(ToOwned::to_owned);
+        let turn_or_thread = turn_id.as_deref().unwrap_or(thread_id.as_str());
+        let workspace_root = request
+            .workspace_root
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(ToOwned::to_owned);
+        let workflow_graph_id = request
+            .workflow_graph_id
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(ToOwned::to_owned);
+        let source = request
+            .source
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .unwrap_or("runtime_auto")
+            .to_string();
+        let status = request
+            .status
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .unwrap_or("completed")
+            .to_string();
+        let receipt_refs = unique_trimmed_strings(request.receipt_refs.clone());
+        let artifact_refs = unique_trimmed_strings(request.artifact_refs.clone());
+        let rollback_refs = unique_trimmed_strings(request.rollback_refs.clone());
+        let approval_ref = request
+            .approval_id
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(|value| format!("approval:{value}"));
+        let step_module_context = json!({
+            "run_id": format!("run:{thread_id}"),
+            "task_id": format!("task:{turn_or_thread}"),
+            "thread_id": thread_id,
+            "workflow_graph_id": workflow_graph_id,
+            "workflow_node_id": workflow_node_id,
+            "action_proposal_ref": format!("action:coding-tool:{tool_call_id}"),
+            "gate_result_ref": format!("gate:coding-tool:{tool_call_id}"),
+            "approval_ref": approval_ref,
+            "idempotency_key": idempotency_key,
+            "status": if status == "failed" { "failure" } else { "success" },
+            "workflow_projection_status": "live",
+            "receipt_refs": receipt_refs,
+            "artifact_refs": artifact_refs,
+            "workspace_root": workspace_root,
+        });
+        let mut payload_summary = Value::Null;
+        let mut event = Value::Null;
+        if phase == "result_event" {
+            let summary = request
+                .summary
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(ToOwned::to_owned)
+                .unwrap_or_else(|| format!("{tool_id} {status}."));
+            let step_module = request
+                .step_module
+                .as_object()
+                .cloned()
+                .unwrap_or_else(Map::new);
+            let step_module_backend = request
+                .step_module_backend
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(ToOwned::to_owned)
+                .or_else(|| optional_json_string_from_map(&step_module, "backend"));
+            let step_module_invocation = step_module
+                .get("invocation")
+                .cloned()
+                .unwrap_or(Value::Null);
+            let step_module_result = step_module.get("result").cloned().unwrap_or(Value::Null);
+            let approval_receipt_refs =
+                unique_trimmed_strings(request.approval_receipt_refs.clone());
+            let approval_policy_decision_refs =
+                unique_trimmed_strings(request.approval_policy_decision_refs.clone());
+            payload_summary = json!({
+                "schema_version": CODING_TOOL_RESULT_SCHEMA_VERSION,
+                "event_kind": "CodingToolResult",
+                "tool_pack": "coding",
+                "tool_name": tool_id,
+                "tool_call_id": tool_call_id,
+                "thread_id": thread_id,
+                "turn_id": turn_id,
+                "workspace_root": workspace_root,
+                "workflow_graph_id": workflow_graph_id,
+                "workflow_node_id": workflow_node_id,
+                "status": status,
+                "summary": summary,
+                "shell_fallback_used": false,
+                "input_summary": request.input_summary.clone(),
+                "result_summary": request.result_summary.clone(),
+                "result": request.result.clone(),
+                "error": request.error.clone(),
+                "rollback_refs": rollback_refs,
+                "diagnostics_repair_context": request.diagnostics_repair_context.clone(),
+                "approval_required": request.approval_required.unwrap_or(false),
+                "approval_satisfied": request.approval_satisfied.unwrap_or(false),
+                "approval_id": request.approval_id.clone(),
+                "approval_manifest": request.approval_manifest.clone(),
+                "approval_decision_event_id": request.approval_decision_event_id.clone(),
+                "approval_receipt_refs": approval_receipt_refs,
+                "approval_policy_decision_refs": approval_policy_decision_refs,
+                "receipt_id": request.receipt_id.clone(),
+                "receipt_count": receipt_refs.len(),
+                "artifact_count": artifact_refs.len(),
+                "step_module_backend": step_module_backend,
+                "step_module_invocation": step_module_invocation,
+                "step_module_result": step_module_result,
+                "step_module_error": request.step_module_error.clone(),
+            });
+            event = json!({
+                "event_stream_id": event_stream_id,
+                "thread_id": thread_id,
+                "turn_id": turn_id,
+                "item_id": format!(
+                    "{turn_or_thread}:item:coding-tool:{}:{}",
+                    safe_component(&tool_id),
+                    short_hash(&tool_call_id, 12)
+                ),
+                "idempotency_key": idempotency_key,
+                "source": source,
+                "source_event_kind": coding_tool_source_event_kind(&tool_id),
+                "event_kind": if status == "failed" { "tool.failed" } else { "tool.completed" },
+                "status": status,
+                "actor": "runtime",
+                "workspace_root": workspace_root,
+                "workflow_graph_id": workflow_graph_id,
+                "workflow_node_id": workflow_node_id,
+                "component_kind": "coding_tool",
+                "tool_call_id": tool_call_id,
+                "artifact_refs": artifact_refs,
+                "receipt_refs": receipt_refs,
+                "rollback_refs": rollback_refs,
+                "payload_schema_version": CODING_TOOL_RESULT_SCHEMA_VERSION,
+                "payload_summary": payload_summary,
+            });
+        }
+        let mut record = CodingToolResultEnvelopePlanRecord {
+            schema_version: CODING_TOOL_RESULT_ENVELOPE_PLAN_RESULT_SCHEMA_VERSION.to_string(),
+            object: "ioi.runtime_coding_tool_result_envelope_plan".to_string(),
+            status: "planned".to_string(),
+            operation_kind: "runtime.coding_tool.result_envelope".to_string(),
+            phase,
+            event_stream_id,
+            thread_id,
+            turn_id,
+            tool_id,
+            tool_call_id,
+            workflow_graph_id,
+            workflow_node_id,
+            step_module_context,
+            payload_summary,
+            event,
+            receipt_refs,
+            artifact_refs,
+            rollback_refs,
+            envelope_hash: String::new(),
+        };
+        record.envelope_hash = value_hash_for_coding_tool_result_envelope_plan(
+            &serde_json::to_value(&record).map_err(|error| {
+                CodingToolResultEnvelopePlanError::HashFailed(error.to_string())
+            })?,
+        )?;
+        Ok(record)
+    }
+}
+
 impl PostEditDiagnosticsFeedbackPlanCore {
     pub fn plan(
         &self,
@@ -963,6 +1301,27 @@ pub fn admit_coding_tool_command_stream_events_response(
     }))
 }
 
+pub fn plan_coding_tool_result_envelope_response(
+    request: CodingToolResultEnvelopePlanBridgeRequest,
+) -> Result<Value, CodingToolResultEnvelopePlanError> {
+    let record = CodingToolResultEnvelopePlanCore.plan(&request.request)?;
+    Ok(json!({
+        "source": "rust_coding_tool_result_envelope_plan_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_runtime_coding_tool_event".to_string()),
+        "planned": true,
+        "record": record.clone(),
+        "phase": record.phase.clone(),
+        "operation_kind": record.operation_kind.clone(),
+        "step_module_context": record.step_module_context.clone(),
+        "payload_summary": record.payload_summary.clone(),
+        "event": record.event.clone(),
+        "receipt_refs": record.receipt_refs.clone(),
+        "artifact_refs": record.artifact_refs.clone(),
+        "rollback_refs": record.rollback_refs.clone(),
+        "envelope_hash": record.envelope_hash.clone(),
+    }))
+}
+
 pub fn plan_post_edit_diagnostics_feedback_response(
     request: PostEditDiagnosticsFeedbackPlanBridgeRequest,
 ) -> Result<Value, PostEditDiagnosticsFeedbackPlanError> {
@@ -1048,6 +1407,48 @@ impl CodingToolCommandStreamAdmissionRequest {
             &self.tool_call_id,
             "tool_call_id",
             CodingToolCommandStreamAdmissionError::MissingField,
+        )?;
+        Ok(())
+    }
+}
+
+impl CodingToolResultEnvelopePlanRequest {
+    pub fn validate(&self) -> Result<(), CodingToolResultEnvelopePlanError> {
+        if self.schema_version != CODING_TOOL_RESULT_ENVELOPE_PLAN_REQUEST_SCHEMA_VERSION {
+            return Err(CodingToolResultEnvelopePlanError::InvalidSchemaVersion {
+                expected: CODING_TOOL_RESULT_ENVELOPE_PLAN_REQUEST_SCHEMA_VERSION,
+                actual: self.schema_version.clone(),
+            });
+        }
+        required_trimmed(
+            &self.event_stream_id,
+            "event_stream_id",
+            CodingToolResultEnvelopePlanError::MissingField,
+        )?;
+        required_trimmed(
+            &self.thread_id,
+            "thread_id",
+            CodingToolResultEnvelopePlanError::MissingField,
+        )?;
+        required_trimmed(
+            &self.tool_id,
+            "tool_id",
+            CodingToolResultEnvelopePlanError::MissingField,
+        )?;
+        required_trimmed(
+            &self.tool_call_id,
+            "tool_call_id",
+            CodingToolResultEnvelopePlanError::MissingField,
+        )?;
+        required_trimmed(
+            &self.workflow_node_id,
+            "workflow_node_id",
+            CodingToolResultEnvelopePlanError::MissingField,
+        )?;
+        required_trimmed(
+            &self.idempotency_key,
+            "idempotency_key",
+            CodingToolResultEnvelopePlanError::MissingField,
         )?;
         Ok(())
     }
@@ -1484,6 +1885,29 @@ fn value_hash_for_post_edit_diagnostics_plan(
         .map_err(|error| PostEditDiagnosticsFeedbackPlanError::HashFailed(error.to_string()))
 }
 
+fn value_hash_for_coding_tool_result_envelope_plan(
+    value: &Value,
+) -> Result<String, CodingToolResultEnvelopePlanError> {
+    serde_json::to_vec(value)
+        .map(|bytes| format!("sha256:{}", sha256_hex(&bytes)))
+        .map_err(|error| CodingToolResultEnvelopePlanError::HashFailed(error.to_string()))
+}
+
+fn coding_tool_source_event_kind(tool_id: &str) -> String {
+    let parts = tool_id
+        .split(['.', '_', '-'])
+        .filter(|part| !part.is_empty())
+        .map(|part| {
+            let mut chars = part.chars();
+            match chars.next() {
+                Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
+                None => String::new(),
+            }
+        })
+        .collect::<String>();
+    format!("CodingTool.{parts}")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1551,6 +1975,64 @@ mod tests {
             latest_seq: Some(3),
             expected_head: Some("agentgres://runtime-events/thread_1_events/head/3".to_string()),
             state_root_before: Some("sha256:before-stream".to_string()),
+        }
+    }
+
+    fn result_envelope_request(phase: &str) -> CodingToolResultEnvelopePlanRequest {
+        CodingToolResultEnvelopePlanRequest {
+            schema_version: CODING_TOOL_RESULT_ENVELOPE_PLAN_REQUEST_SCHEMA_VERSION.to_string(),
+            phase: Some(phase.to_string()),
+            event_stream_id: "thread_1:events".to_string(),
+            thread_id: "thread_1".to_string(),
+            turn_id: Some("turn_1".to_string()),
+            tool_id: "workspace.status".to_string(),
+            tool_call_id: "call_1".to_string(),
+            workspace_root: Some("/workspace/project".to_string()),
+            workflow_graph_id: Some("graph_1".to_string()),
+            workflow_node_id: "node_1".to_string(),
+            idempotency_key: "thread:thread_1:coding-tool:call_1".to_string(),
+            source: Some("runtime_auto".to_string()),
+            status: Some("completed".to_string()),
+            summary: Some("Workspace status inspected 0 changed file(s).".to_string()),
+            input_summary: json!({ "include_ignored": false }),
+            result_summary: json!({ "changed": 0, "git_available": true }),
+            result: json!({
+                "schema_version": CODING_TOOL_RESULT_SCHEMA_VERSION,
+                "tool_name": "workspace.status",
+                "status": "completed",
+                "rust_workload": true,
+                "git": { "available": true },
+                "changed_files": [],
+                "receipt_refs": ["receipt_step"]
+            }),
+            error: Value::Null,
+            receipt_id: Some("receipt_call_1".to_string()),
+            receipt_refs: vec!["receipt_call_1".to_string(), "receipt_step".to_string()],
+            artifact_refs: vec![],
+            rollback_refs: vec!["rollback_1".to_string()],
+            diagnostics_repair_context: Value::Null,
+            approval_required: Some(false),
+            approval_satisfied: Some(false),
+            approval_id: None,
+            approval_manifest: Value::Null,
+            approval_decision_event_id: None,
+            approval_receipt_refs: vec![],
+            approval_policy_decision_refs: vec![],
+            step_module_backend: Some("rust_workload_live".to_string()),
+            step_module: json!({
+                "backend": "rust_workload_live",
+                "invocation": {
+                    "schema_version": "ioi.step_module_invocation.v1",
+                    "invocation_id": "invocation://rust-live/workspace.status"
+                },
+                "result": {
+                    "schema_version": "ioi.step_module_result.v1",
+                    "status": "success",
+                    "receipt_refs": ["receipt_step"],
+                    "workflow_projection": { "status": "live" }
+                }
+            }),
+            step_module_error: Value::Null,
         }
     }
 
@@ -1673,6 +2155,93 @@ mod tests {
             .as_str()
             .expect("admission hash")
             .starts_with("sha256:"));
+    }
+
+    #[test]
+    fn rust_plans_coding_tool_result_step_module_context() {
+        let record = CodingToolResultEnvelopePlanCore
+            .plan(&result_envelope_request("step_module_context"))
+            .expect("result envelope context");
+
+        assert_eq!(record.operation_kind, "runtime.coding_tool.result_envelope");
+        assert_eq!(record.phase, "step_module_context");
+        assert_eq!(record.step_module_context["run_id"], "run:thread_1");
+        assert_eq!(record.step_module_context["task_id"], "task:turn_1");
+        assert_eq!(record.step_module_context["workflow_node_id"], "node_1");
+        assert_eq!(
+            record.step_module_context["workflow_projection_status"],
+            "live"
+        );
+        assert_eq!(
+            record.step_module_context["receipt_refs"][0],
+            "receipt_call_1"
+        );
+        assert!(record.event.is_null());
+        assert!(record.payload_summary.is_null());
+        assert!(record.envelope_hash.starts_with("sha256:"));
+    }
+
+    #[test]
+    fn rust_plans_coding_tool_result_event_envelope() {
+        let record = CodingToolResultEnvelopePlanCore
+            .plan(&result_envelope_request("result_event"))
+            .expect("result event envelope");
+
+        assert_eq!(record.operation_kind, "runtime.coding_tool.result_envelope");
+        assert_eq!(record.phase, "result_event");
+        assert_eq!(record.event["event_stream_id"], "thread_1:events");
+        assert_eq!(record.event["event_kind"], "tool.completed");
+        assert_eq!(
+            record.event["source_event_kind"],
+            "CodingTool.WorkspaceStatus"
+        );
+        assert_eq!(
+            record.event["payload_schema_version"],
+            CODING_TOOL_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(
+            record.event["payload_summary"]["tool_name"],
+            "workspace.status"
+        );
+        assert_eq!(
+            record.event["payload_summary"]["step_module_backend"],
+            "rust_workload_live"
+        );
+        assert_eq!(
+            record.event["payload_summary"]["step_module_invocation"]["invocation_id"],
+            "invocation://rust-live/workspace.status"
+        );
+        assert_eq!(record.event["receipt_refs"][0], "receipt_call_1");
+        assert_eq!(record.event["rollback_refs"][0], "rollback_1");
+        assert!(record.envelope_hash.starts_with("sha256:"));
+    }
+
+    #[test]
+    fn rust_shapes_coding_tool_result_envelope_command_response() {
+        let response =
+            plan_coding_tool_result_envelope_response(CodingToolResultEnvelopePlanBridgeRequest {
+                backend: Some("rust_runtime_coding_tool_event".to_string()),
+                request: result_envelope_request("result_event"),
+            })
+            .expect("result envelope command response");
+
+        assert_eq!(
+            response["source"],
+            "rust_coding_tool_result_envelope_plan_command"
+        );
+        assert_eq!(
+            response["operation_kind"],
+            "runtime.coding_tool.result_envelope"
+        );
+        assert_eq!(response["planned"], true);
+        assert_eq!(
+            response["event"]["payload_summary"]["tool_name"],
+            "workspace.status"
+        );
+        assert_eq!(
+            response["step_module_context"]["workflow_projection_status"],
+            "live"
+        );
     }
 
     #[test]

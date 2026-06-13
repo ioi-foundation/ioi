@@ -183,61 +183,14 @@ test("diagnostics repair contexts ignore retired context aliases", () => {
   assert.deepEqual(context.rollback_refs, []);
 });
 
-test("diagnostics rollback repair policy preserves decision defaults and refs", () => {
+test("diagnostics rollback repair policy authoring is retired from JS helpers", () => {
   const runtime = helpers();
-  const policy = runtime.diagnosticsRollbackRepairPolicy({
-    threadId: "thread-one",
-    injectionId: "injection-one",
-    mode: "blocking",
-    diagnosticStatus: "findings",
-    diagnosticCount: 2,
-    workspaceSnapshotRefs: ["snapshot-one"],
-    rollbackRefs: ["snapshot-one"],
-    sourceToolCallIds: ["tool-call-one"],
-    restorePolicy: "apply_with_approval",
-    restoreConflictPolicy: "allow_override",
-    diagnosticsRepairDefault: "restore_apply",
-    operatorOverrideRequiresApproval: false,
-  });
 
-  assert.equal(policy.object, "ioi.runtime_diagnostics_rollback_repair_policy");
-  assert.equal(policy.thread_id, "thread-one");
-  assert.equal(policy.restore_policy, "apply_with_approval");
-  assert.equal(policy.restore_conflict_policy, "allow_override");
-  assert.equal(policy.diagnostics_repair_default, "restore_apply");
-  assert.equal(policy.operator_override_requires_approval, false);
-  assert.deepEqual(policy.decision_refs, policy.decisions.map((decision) => decision.decision_id));
-  assert.equal(policy.decisions.find((decision) => decision.action === "restore_apply").status, "requires_approval");
-  assert.equal(runtime.diagnosticsRepairDefaultForDecisions(policy.decisions, "operator_override"), "operator_override");
-  assert.equal(runtime.diagnosticsRepairDefaultForDecisions([], "restore_apply"), "repair_retry");
   for (const field of [
-    "schemaVersion",
-    "policyId",
-    "threadId",
-    "injectionId",
-    "diagnosticStatus",
-    "diagnosticCount",
-    "workspaceSnapshotRefs",
-    "rollbackRefs",
-    "sourceToolCallIds",
-    "restorePolicy",
-    "restoreConflictPolicy",
-    "diagnosticsRepairDefault",
-    "operatorOverrideRequiresApproval",
-    "defaultDecision",
-    "decisionRefs",
+    "diagnosticsRollbackRepairPolicy",
+    "diagnosticsRepairDefaultForDecisions",
+    "diagnosticsRepairPolicyConfigForContexts",
   ]) {
-    assert.equal(Object.hasOwn(policy, field), false, `${field} alias must be absent`);
-  }
-  for (const decision of policy.decisions) {
-    for (const field of [
-      "decisionId",
-      "requiresApproval",
-      "rollbackRefs",
-      "workspaceSnapshotRefs",
-      "restoreConflictPolicy",
-    ]) {
-      assert.equal(Object.hasOwn(decision, field), false, `${field} decision alias must be absent`);
-    }
+    assert.equal(Object.hasOwn(runtime, field), false, `${field} JS policy author must be absent`);
   }
 });

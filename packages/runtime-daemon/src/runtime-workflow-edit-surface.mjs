@@ -1,73 +1,151 @@
 import { runtimeError } from "./runtime-http-utils.mjs";
-import { optionalString } from "./runtime-value-helpers.mjs";
+import { eventStreamIdForThread } from "./runtime-identifiers.mjs";
+import { normalizeArray, objectRecord, optionalString } from "./runtime-value-helpers.mjs";
+
+const WORKFLOW_EDIT_CONTROL_EVENT_EVIDENCE_REFS = [
+  "runtime_workflow_edit_control_event_rust_owned",
+  "agentgres_runtime_thread_event_truth_required",
+];
 
 export function createRuntimeWorkflowEditSurface(deps = {}) {
   const {
+    eventStreamIdForThread: eventStreamIdForThreadDep = eventStreamIdForThread,
     runtimeError: runtimeErrorDep = runtimeError,
     workflowEditRunner = null,
   } = deps;
 
-  function throwWorkflowEditRustCoreRequired(operation, operationKind, details = {}) {
-    if (workflowEditRunner?.planWorkflowEditAdmissionRequired) {
-      const record = workflowEditRunner.planWorkflowEditAdmissionRequired({
-        operation,
-        operation_kind: operationKind,
-        thread_id: details.thread_id,
-        turn_id: details.turn_id,
-        proposal_id: details.proposal_id,
-        edit_intent_id: details.edit_intent_id,
-        approval_id: details.approval_id,
-        workflow_graph_id: details.workflow_graph_id,
-        workflow_node_id: details.workflow_node_id,
-        workflow_path: details.workflow_path,
-        source: details.source,
-        evidence_refs: details.evidence_refs,
-      });
-      const planned = record?.record ?? record;
-      throw runtimeErrorDep({
-        status: Number(planned?.status_code ?? record?.status_code ?? 501),
-        code: optionalString(planned?.code ?? record?.code) ?? "runtime_workflow_edit_rust_core_required",
-        message:
-          optionalString(planned?.message ?? record?.message) ??
-          "Runtime workflow edit control requires direct Rust daemon-core admission and persistence.",
-        details: planned?.details ?? record?.details ?? {
-          rust_core_boundary: "runtime.workflow_edit",
-          operation,
-          operation_kind: operationKind,
-          ...details,
-        },
-      });
+  function workflowEditControlEvidenceRefs(operationKind) {
+    const refs = [...WORKFLOW_EDIT_CONTROL_EVENT_EVIDENCE_REFS];
+    if (operationKind === "workflow.edit.apply") {
+      refs.unshift("runtime_workflow_edit_apply_control_rust_owned");
+    } else {
+      refs.unshift("runtime_workflow_edit_proposal_control_rust_owned");
     }
+    return refs;
+  }
+
+  function throwWorkflowEditControlRustCoreRequired({ operation, operation_kind, thread_id, proposal_id = null }) {
     throw runtimeErrorDep({
       status: 501,
-      code: "runtime_workflow_edit_rust_core_required",
-      message: "Runtime workflow edit control requires direct Rust daemon-core admission and persistence.",
+      code: "runtime_workflow_edit_control_rust_core_required",
+      message: "Runtime workflow edit control requires Rust daemon-core planning and runtime-event admission.",
       details: {
         rust_core_boundary: "runtime.workflow_edit",
         operation,
-        operation_kind: operationKind,
-        ...details,
+        operation_kind,
+        thread_id: thread_id ?? null,
+        proposal_id: proposal_id ?? null,
+        evidence_refs: workflowEditControlEvidenceRefs(operation_kind),
       },
     });
   }
 
-  function proposeWorkflowEdit(store, threadId, request = {}) {
-    throwWorkflowEditRustCoreRequired("workflow_edit_proposal", "workflow.edit_proposed", {
-      thread_id: threadId,
-      turn_id: optionalString(request.turn_id) ?? null,
-      proposal_id: optionalString(request.proposal_id) ?? null,
-      edit_intent_id: optionalString(request.edit_intent_id) ?? null,
-      approval_id: optionalString(request.approval_id) ?? null,
-      workflow_graph_id: optionalString(request.workflow_graph_id) ?? null,
-      workflow_node_id: optionalString(request.workflow_node_id) ?? null,
-      workflow_path: optionalString(request.workflow_path) ?? null,
-      source: optionalString(request.source) ?? null,
-      evidence_refs: [
-        "workflow_edit_proposal_js_facade_retired",
-        "rust_daemon_core_workflow_edit_proposal_required",
-        "agentgres_workflow_edit_proposal_truth_required",
-      ],
+  function workflowEditControlRunner(store, request = {}) {
+    const runner = store?.contextPolicyRunner ?? workflowEditRunner;
+    if (
+      runner?.planRuntimeWorkflowEditControl &&
+      typeof store?.appendRuntimeEvent === "function"
+    ) {
+      return runner;
+    }
+    throwWorkflowEditControlRustCoreRequired({
+      operation: request.operation,
+      operation_kind: request.operation_kind,
+      thread_id: request.thread_id,
+      proposal_id: request.proposal_id,
     });
+  }
+
+  function workflowEditControlRequestPayload(request = {}) {
+    const payload = {};
+    for (const key of [
+      "source",
+      "status",
+      "event_id",
+      "turn_id",
+      "proposal_id",
+      "edit_intent_id",
+      "approval_id",
+      "workflow_graph_id",
+      "workflow_node_id",
+      "workflow_path",
+      "workspace_root",
+      "workflow_patch",
+      "code_diff",
+      "target_workflow_node_ids",
+      "bounded_targets",
+      "artifact_refs",
+      "rollback_refs",
+      "receipt_refs",
+      "policy_decision_refs",
+      "idempotency_key",
+    ]) {
+      if (Object.hasOwn(request, key)) payload[key] = request[key];
+    }
+    return payload;
+  }
+
+  function stringRefs(values) {
+    return normalizeArray(values).map((value) => String(value)).filter(Boolean);
+  }
+
+  function planWorkflowEditControlEvent(store, threadId, request = {}, {
+    operation,
+    operationKind,
+    proposal_id = null,
+  }) {
+    const normalizedRequest = objectRecord(request) ?? {};
+    const normalizedProposalId =
+      optionalString(proposal_id) ??
+      optionalString(normalizedRequest.proposal_id) ??
+      null;
+    const runner = workflowEditControlRunner(store, {
+      operation,
+      operation_kind: operationKind,
+      thread_id: threadId,
+      proposal_id: normalizedProposalId,
+    });
+    return runner.planRuntimeWorkflowEditControl({
+      operation,
+      operation_kind: operationKind,
+      thread_id: threadId,
+      event_stream_id: eventStreamIdForThreadDep(threadId),
+      turn_id: optionalString(normalizedRequest.turn_id) ?? null,
+      proposal_id: normalizedProposalId,
+      edit_intent_id: optionalString(normalizedRequest.edit_intent_id) ?? null,
+      approval_id: optionalString(normalizedRequest.approval_id) ?? null,
+      workflow_graph_id: optionalString(normalizedRequest.workflow_graph_id) ?? null,
+      workflow_node_id: optionalString(normalizedRequest.workflow_node_id) ?? null,
+      workflow_path: optionalString(normalizedRequest.workflow_path) ?? null,
+      workspace_root: optionalString(normalizedRequest.workspace_root) ?? null,
+      source: optionalString(normalizedRequest.source) ?? null,
+      status: optionalString(normalizedRequest.status) ?? null,
+      request: workflowEditControlRequestPayload(normalizedRequest),
+      receipt_refs: stringRefs(normalizedRequest.receipt_refs),
+      policy_decision_refs: stringRefs(normalizedRequest.policy_decision_refs),
+      evidence_refs: workflowEditControlEvidenceRefs(operationKind),
+    });
+  }
+
+  function appendPlannedWorkflowEditControlEvent(store, plannedControl) {
+    const event = objectRecord(plannedControl?.event);
+    if (!event) {
+      throw runtimeErrorDep({
+        status: 502,
+        code: "runtime_workflow_edit_control_event_missing",
+        message: "Rust workflow-edit control planning did not return a runtime event.",
+        details: { operation_kind: plannedControl?.operation_kind ?? null },
+      });
+    }
+    return store.appendRuntimeEvent(event);
+  }
+
+  function proposeWorkflowEdit(store, threadId, request = {}) {
+    const plannedControl = planWorkflowEditControlEvent(store, threadId, request, {
+      operation: "workflow_edit_proposal",
+      operationKind: "workflow.edit_proposed",
+    });
+    return appendPlannedWorkflowEditControlEvent(store, plannedControl);
   }
 
   function applyWorkflowEditProposal(store, threadId, proposalId, request = {}) {
@@ -80,19 +158,12 @@ export function createRuntimeWorkflowEditSurface(deps = {}) {
         details: { thread_id: threadId },
       });
     }
-    throwWorkflowEditRustCoreRequired("workflow_edit_apply", "workflow.edit.apply", {
-      thread_id: threadId,
+    const plannedControl = planWorkflowEditControlEvent(store, threadId, request, {
+      operation: "workflow_edit_apply",
+      operationKind: "workflow.edit.apply",
       proposal_id: normalizedProposalId,
-      approval_id: optionalString(request.approval_id) ?? null,
-      workflow_graph_id: optionalString(request.workflow_graph_id) ?? null,
-      workflow_node_id: optionalString(request.workflow_node_id) ?? null,
-      source: optionalString(request.source) ?? null,
-      evidence_refs: [
-        "workflow_edit_apply_js_facade_retired",
-        "rust_daemon_core_workflow_edit_apply_required",
-        "agentgres_workflow_edit_apply_truth_required",
-      ],
     });
+    return appendPlannedWorkflowEditControlEvent(store, plannedControl);
   }
 
   return {

@@ -120,6 +120,7 @@ export class AgentMemoryStore {
     const filters = memoryListFilters({ scope, memory_key, query, limit, redaction });
     const records = [...this.records.values()]
       .filter((record) => {
+        if (record.status === "deleted" || record.deleted_at) return false;
         if (includeGlobal && record.scope === "global") return true;
         if (threadId && record.thread_id === threadId) return true;
         if (agent?.id && record.agent_id === agent.id && record.scope !== "thread") return true;

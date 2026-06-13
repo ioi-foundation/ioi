@@ -115,6 +115,8 @@ pub struct McpControlAgentStateUpdateRequest {
     pub event_id: String,
     pub seq: u64,
     pub created_at: String,
+    #[serde(default)]
+    pub request: Value,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -800,15 +802,41 @@ impl McpControlAgentStateUpdateCore {
         let control_kind = optional_trimmed(Some(request.control_kind.as_str())).ok_or(
             McpControlAgentStateUpdateError::MissingField("control_kind"),
         )?;
+        let registry =
+            mcp_control_registry_update(&agent, control_kind.as_str(), &request.request)?;
         agent.insert(
             "updatedAt".to_string(),
             Value::String(request.created_at.clone()),
         );
+        agent.insert("mcpRegistry".to_string(), registry.registry.clone());
+        let tool_id = optional_json_string(&request.request, "tool_id");
+        let tool_name = optional_json_string(&request.request, "tool_name");
+        let live_transport = optional_json_string(&request.request, "live_transport");
+        let execution_mode = optional_json_string(&request.request, "execution_mode");
+        let timeout_ms = request.request.get("timeout_ms").and_then(Value::as_u64);
+        let transport_admission_required =
+            matches!(control_kind.as_str(), "mcp_invoke" | "mcp_live_discovery");
         let control = json!({
             "control_kind": control_kind,
             "event_id": request.event_id,
             "seq": request.seq,
             "created_at": request.created_at,
+            "server_id": registry.server_id,
+            "tool_id": tool_id,
+            "tool_name": tool_name,
+            "live_transport": live_transport,
+            "execution_mode": execution_mode,
+            "timeout_ms": timeout_ms,
+            "transport_admission_required": transport_admission_required,
+            "server_count": registry.server_count,
+            "enabled_server_count": registry.enabled_server_count,
+            "registry_hash": registry.registry_hash,
+            "mutation_applied": registry.mutation_applied,
+            "evidence_refs": [
+                "runtime_mcp_control_rust_owned",
+                "runtime_mcp_control_js_facade_retired",
+                "agentgres_runtime_agent_state_truth_required"
+            ],
         });
 
         Ok(McpControlAgentStateUpdateRecord {
@@ -824,6 +852,270 @@ impl McpControlAgentStateUpdateCore {
             generated_at: "rust_policy_core".to_string(),
         })
     }
+}
+
+struct McpControlRegistryUpdate {
+    registry: Value,
+    server_id: Option<String>,
+    server_count: usize,
+    enabled_server_count: usize,
+    registry_hash: String,
+    mutation_applied: bool,
+}
+
+fn mcp_control_registry_update(
+    agent: &serde_json::Map<String, Value>,
+    control_kind: &str,
+    request: &Value,
+) -> Result<McpControlRegistryUpdate, McpControlAgentStateUpdateError> {
+    let mut servers = mcp_control_agent_servers(agent);
+    let mut server_id = mcp_control_request_server_id(request);
+    let mut mutation_applied = false;
+
+    match control_kind {
+        "mcp_import" => {
+            servers = mcp_control_request_servers(request)?;
+            server_id = match servers.as_slice() {
+                [server] => json_string_value(server, "id"),
+                _ => server_id,
+            };
+            mutation_applied = true;
+        }
+        "mcp_add" => {
+            let server = mcp_control_request_server_record(request)?;
+            server_id = json_string_value(&server, "id");
+            mcp_control_upsert_server(&mut servers, server);
+            mutation_applied = true;
+        }
+        "mcp_remove" => {
+            let requested =
+                server_id
+                    .clone()
+                    .ok_or(McpControlAgentStateUpdateError::MissingField(
+                        "request.server_id",
+                    ))?;
+            servers.retain(|server| {
+                json_string_value(server, "id").as_deref() != Some(requested.as_str())
+            });
+            mutation_applied = true;
+        }
+        "mcp_enable" | "mcp_disable" => {
+            let requested =
+                server_id
+                    .clone()
+                    .ok_or(McpControlAgentStateUpdateError::MissingField(
+                        "request.server_id",
+                    ))?;
+            let enabled = control_kind == "mcp_enable";
+            let mut matched = false;
+            for server in servers.iter_mut() {
+                if json_string_value(server, "id").as_deref() == Some(requested.as_str()) {
+                    let mut object = object_value(server).unwrap_or_default();
+                    object.insert("enabled".to_string(), Value::Bool(enabled));
+                    object.insert(
+                        "status".to_string(),
+                        Value::String(if enabled { "configured" } else { "disabled" }.to_string()),
+                    );
+                    *server = Value::Object(object);
+                    matched = true;
+                }
+            }
+            if !matched {
+                return Err(McpControlAgentStateUpdateError::MissingField(
+                    "request.server_id.matching_server",
+                ));
+            }
+            mutation_applied = true;
+        }
+        _ => {}
+    }
+
+    let server_count = servers.len();
+    let enabled_server_count = servers
+        .iter()
+        .filter(|server| server.get("enabled").and_then(Value::as_bool) != Some(false))
+        .count();
+    let registry = json!({ "servers": servers });
+    let registry_hash = mcp_control_registry_hash(&registry);
+    Ok(McpControlRegistryUpdate {
+        registry,
+        server_id,
+        server_count,
+        enabled_server_count,
+        registry_hash,
+        mutation_applied,
+    })
+}
+
+fn mcp_control_agent_servers(agent: &serde_json::Map<String, Value>) -> Vec<Value> {
+    agent
+        .get("mcpRegistry")
+        .and_then(|registry| registry.get("servers"))
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default()
+        .into_iter()
+        .filter(Value::is_object)
+        .collect()
+}
+
+fn mcp_control_request_servers(
+    request: &Value,
+) -> Result<Vec<Value>, McpControlAgentStateUpdateError> {
+    request
+        .get("servers")
+        .and_then(Value::as_array)
+        .ok_or(McpControlAgentStateUpdateError::MissingField(
+            "request.servers",
+        ))?
+        .iter()
+        .map(mcp_control_canonical_server_record)
+        .collect()
+}
+
+fn mcp_control_request_server_record(
+    request: &Value,
+) -> Result<Value, McpControlAgentStateUpdateError> {
+    let server = request
+        .get("server")
+        .filter(|value| value.is_object())
+        .unwrap_or(request);
+    mcp_control_canonical_server_record(server)
+}
+
+fn mcp_control_request_server_id(request: &Value) -> Option<String> {
+    json_string_value(request, "server_id")
+        .or_else(|| json_string_value(request, "id"))
+        .or_else(|| {
+            request
+                .get("server")
+                .and_then(|server| json_string_value(server, "id"))
+        })
+}
+
+fn mcp_control_upsert_server(servers: &mut Vec<Value>, server: Value) {
+    let Some(server_id) = json_string_value(&server, "id") else {
+        return;
+    };
+    if let Some(existing) = servers
+        .iter_mut()
+        .find(|candidate| json_string_value(candidate, "id").as_deref() == Some(server_id.as_str()))
+    {
+        *existing = server;
+    } else {
+        servers.push(server);
+    }
+}
+
+fn mcp_control_canonical_server_record(
+    server: &Value,
+) -> Result<Value, McpControlAgentStateUpdateError> {
+    let id = json_string_value(server, "id").ok_or(
+        McpControlAgentStateUpdateError::MissingField("request.server.id"),
+    )?;
+    let label = json_string_value(server, "label")
+        .or_else(|| json_string_value(server, "name"))
+        .unwrap_or_else(|| id.clone());
+    let server_url = json_string_value(server, "server_url")
+        .or_else(|| json_string_value(server, "url"))
+        .or_else(|| json_string_value(server, "endpoint"));
+    let transport = normalize_mcp_transport(json_string_value(server, "transport").or_else(|| {
+        server_url.as_ref().map(|url| {
+            if url.contains("/sse") {
+                "sse".to_string()
+            } else {
+                "http".to_string()
+            }
+        })
+    }));
+    let enabled = server.get("enabled").and_then(Value::as_bool) != Some(false);
+    let tools = mcp_catalog_items(server.get("allowed_tools").or_else(|| server.get("tools")));
+    let resources = mcp_catalog_items(
+        server
+            .get("resources")
+            .or_else(|| server.get("allowed_resources")),
+    );
+    let prompts = mcp_catalog_items(
+        server
+            .get("prompts")
+            .or_else(|| server.get("allowed_prompts")),
+    );
+
+    let mut record = serde_json::Map::new();
+    record.insert("id".to_string(), Value::String(id));
+    record.insert("label".to_string(), Value::String(label.clone()));
+    record.insert("name".to_string(), Value::String(label));
+    record.insert("enabled".to_string(), Value::Bool(enabled));
+    record.insert(
+        "status".to_string(),
+        Value::String(json_string_value(server, "status").unwrap_or_else(|| {
+            if enabled {
+                "configured".to_string()
+            } else {
+                "disabled".to_string()
+            }
+        })),
+    );
+    record.insert("transport".to_string(), Value::String(transport));
+    record.insert("allowed_tools".to_string(), Value::Array(tools.clone()));
+    record.insert("tools".to_string(), Value::Array(tools));
+    record.insert("resources".to_string(), Value::Array(resources));
+    record.insert("prompts".to_string(), Value::Array(prompts));
+
+    for key in [
+        "command",
+        "server_url",
+        "endpoint",
+        "source",
+        "source_path",
+        "source_scope",
+        "config_compatibility",
+        "workspace_root",
+    ] {
+        if let Some(value) = json_string_value(server, key) {
+            record.insert(key.to_string(), Value::String(value));
+        }
+    }
+    if let Some(url) = server_url {
+        record
+            .entry("server_url".to_string())
+            .or_insert_with(|| Value::String(url.clone()));
+        record
+            .entry("endpoint".to_string())
+            .or_insert_with(|| Value::String(url));
+    }
+    for key in ["args"] {
+        if let Some(items) = server.get(key).and_then(Value::as_array) {
+            record.insert(
+                key.to_string(),
+                Value::Array(
+                    items
+                        .iter()
+                        .filter(|item| !item.is_null())
+                        .cloned()
+                        .collect(),
+                ),
+            );
+        }
+    }
+    for key in [
+        "env",
+        "headers",
+        "containment",
+        "secret_refs",
+        "vault_boundary",
+    ] {
+        if let Some(object) = server.get(key).and_then(Value::as_object) {
+            record.insert(key.to_string(), Value::Object(object.clone()));
+        }
+    }
+
+    Ok(Value::Object(record))
+}
+
+fn mcp_control_registry_hash(registry: &Value) -> String {
+    let bytes = serde_json::to_vec(registry).unwrap_or_else(|_| registry.to_string().into_bytes());
+    hex::encode(Sha256::digest(bytes))
 }
 
 #[derive(Debug, Default, Clone)]
@@ -2500,6 +2792,19 @@ mod tests {
             event_id: "event_mcp_add".to_string(),
             seq: 4,
             created_at: "2026-06-06T05:45:00.000Z".to_string(),
+            request: json!({
+                "server": {
+                    "id": "mcp.docs",
+                    "label": "Docs",
+                    "enabled": true,
+                    "transport": "stdio",
+                    "command": "npx",
+                    "args": ["@modelcontextprotocol/server-filesystem"],
+                    "tools": [{ "name": "search" }],
+                    "resources": [{ "uri": "docs://index" }],
+                    "prompts": [{ "name": "summarize" }]
+                }
+            }),
         }
     }
 
@@ -2586,11 +2891,179 @@ mod tests {
         assert_eq!(record.updated_at, "2026-06-06T05:45:00.000Z");
         assert_eq!(record.control["control_kind"], "mcp_add");
         assert_eq!(record.control["event_id"], "event_mcp_add");
+        assert_eq!(record.control["server_id"], "mcp.docs");
+        assert_eq!(record.control["server_count"], 1);
+        assert_eq!(record.control["enabled_server_count"], 1);
+        assert_eq!(record.control["mutation_applied"], true);
+        assert!(record.control["registry_hash"]
+            .as_str()
+            .is_some_and(|hash| !hash.is_empty()));
         assert!(record.control.get("controlKind").is_none());
         assert!(record.control.get("eventId").is_none());
         assert!(record.control.get("createdAt").is_none());
+        assert!(record.control.get("serverId").is_none());
         assert_eq!(record.agent["updatedAt"], "2026-06-06T05:45:00.000Z");
         assert_eq!(record.agent["mcpRegistry"]["servers"][0]["id"], "mcp.docs");
+        assert_eq!(
+            record.agent["mcpRegistry"]["servers"][0]["allowed_tools"][0]["name"],
+            "search"
+        );
+    }
+
+    #[test]
+    fn rust_policy_applies_mcp_control_agent_state_update_registry_mutations() {
+        let mut request = mcp_control_agent_state_update_request();
+        request.request = json!({
+            "server": {
+                "id": "mcp.git",
+                "label": "Git",
+                "enabled": true,
+                "transport": "stdio",
+                "command": "npx",
+                "tools": [{ "name": "diff" }]
+            }
+        });
+        let record = McpControlAgentStateUpdateCore
+            .plan(&request)
+            .expect("mcp add registry update");
+        assert_eq!(record.control["server_id"], "mcp.git");
+        assert_eq!(record.control["server_count"], 2);
+        assert_eq!(record.control["mutation_applied"], true);
+        assert_eq!(record.agent["mcpRegistry"]["servers"][1]["id"], "mcp.git");
+        assert_eq!(
+            record.agent["mcpRegistry"]["servers"][1]["allowed_tools"][0]["name"],
+            "diff"
+        );
+        assert!(record.agent["mcpRegistry"]["servers"][1]
+            .get("serverId")
+            .is_none());
+
+        let mut disable = mcp_control_agent_state_update_request();
+        disable.control_kind = "mcp_disable".to_string();
+        disable.event_id = "event_mcp_disable".to_string();
+        disable.request = json!({ "server_id": "mcp.docs" });
+        let disabled = McpControlAgentStateUpdateCore
+            .plan(&disable)
+            .expect("mcp disable registry update");
+        assert_eq!(disabled.control["server_id"], "mcp.docs");
+        assert_eq!(disabled.control["enabled_server_count"], 0);
+        assert_eq!(
+            disabled.agent["mcpRegistry"]["servers"][0]["enabled"],
+            false
+        );
+        assert_eq!(
+            disabled.agent["mcpRegistry"]["servers"][0]["status"],
+            "disabled"
+        );
+
+        let mut remove = mcp_control_agent_state_update_request();
+        remove.control_kind = "mcp_remove".to_string();
+        remove.event_id = "event_mcp_remove".to_string();
+        remove.request = json!({ "server_id": "mcp.docs" });
+        let removed = McpControlAgentStateUpdateCore
+            .plan(&remove)
+            .expect("mcp remove registry update");
+        assert_eq!(removed.control["server_id"], "mcp.docs");
+        assert_eq!(removed.control["server_count"], 0);
+        assert_eq!(
+            removed.agent["mcpRegistry"]["servers"]
+                .as_array()
+                .map(Vec::len),
+            Some(0)
+        );
+    }
+
+    #[test]
+    fn rust_policy_plans_mcp_live_transport_admission_controls() {
+        let mut request = mcp_control_agent_state_update_request();
+        request.control_kind = "mcp_invoke".to_string();
+        request.event_id = "event_mcp_invoke".to_string();
+        request.request = json!({
+            "server_id": "mcp.docs",
+            "tool_id": "mcp.docs.search",
+            "tool_name": "search",
+            "live_transport": "stdio",
+            "execution_mode": "live",
+            "timeout_ms": 2500,
+            "serverId": "retired",
+            "toolId": "retired"
+        });
+
+        let record = McpControlAgentStateUpdateCore
+            .plan(&request)
+            .expect("mcp invoke transport admission");
+
+        assert_eq!(record.operation_kind, "thread.mcp_invoke");
+        assert_eq!(record.control["server_id"], "mcp.docs");
+        assert_eq!(record.control["tool_id"], "mcp.docs.search");
+        assert_eq!(record.control["tool_name"], "search");
+        assert_eq!(record.control["live_transport"], "stdio");
+        assert_eq!(record.control["execution_mode"], "live");
+        assert_eq!(record.control["timeout_ms"], 2500);
+        assert_eq!(record.control["transport_admission_required"], true);
+        assert_eq!(record.control["mutation_applied"], false);
+        assert!(record.control.get("toolId").is_none());
+        assert_eq!(
+            record.agent["mcpRegistry"]["servers"]
+                .as_array()
+                .map(Vec::len),
+            Some(1)
+        );
+
+        let mut discovery = mcp_control_agent_state_update_request();
+        discovery.control_kind = "mcp_live_discovery".to_string();
+        discovery.event_id = "event_mcp_live_discovery".to_string();
+        discovery.request = json!({
+            "server_id": "mcp.docs",
+            "live_transport": "stdio",
+            "execution_mode": "discovery",
+            "timeout_ms": 1500
+        });
+
+        let discovery_record = McpControlAgentStateUpdateCore
+            .plan(&discovery)
+            .expect("mcp live discovery admission");
+
+        assert_eq!(discovery_record.operation_kind, "thread.mcp_live_discovery");
+        assert_eq!(
+            discovery_record.control["transport_admission_required"],
+            true
+        );
+        assert_eq!(discovery_record.control["server_id"], "mcp.docs");
+        assert_eq!(discovery_record.control["live_transport"], "stdio");
+        assert_eq!(discovery_record.control["timeout_ms"], 1500);
+        assert_eq!(discovery_record.control["mutation_applied"], false);
+    }
+
+    #[test]
+    fn rust_policy_ignores_retired_mcp_control_request_aliases() {
+        let mut request = mcp_control_agent_state_update_request();
+        request.request = json!({
+            "server": {
+                "id": "mcp.canonical",
+                "label": "Canonical",
+                "enabled": true,
+                "transport": "stdio",
+                "tools": [{ "name": "search" }],
+                "serverId": "mcp.retired"
+            },
+            "serverId": "mcp.retired.root",
+            "mcpServer": { "id": "mcp.retired.object" }
+        });
+        let record = McpControlAgentStateUpdateCore
+            .plan(&request)
+            .expect("mcp add ignores aliases");
+
+        assert_eq!(record.control["server_id"], "mcp.canonical");
+        assert!(record.control.get("serverId").is_none());
+        assert_eq!(
+            record.agent["mcpRegistry"]["servers"][1]["id"],
+            "mcp.canonical"
+        );
+        assert!(record.agent["mcpRegistry"]["servers"][1]
+            .get("serverId")
+            .is_none());
+        assert!(record.agent["mcpRegistry"].get("mcpServers").is_none());
     }
 
     #[test]
@@ -2611,9 +3084,15 @@ mod tests {
         assert_eq!(response["operation_kind"], "thread.mcp_add");
         assert_eq!(response["control"]["control_kind"], "mcp_add");
         assert_eq!(response["control"]["event_id"], "event_mcp_add");
+        assert_eq!(response["control"]["server_id"], "mcp.docs");
+        assert_eq!(response["control"]["server_count"], 1);
+        assert!(response["control"]["registry_hash"]
+            .as_str()
+            .is_some_and(|hash| !hash.is_empty()));
         assert!(response["control"].get("controlKind").is_none());
         assert!(response["control"].get("eventId").is_none());
         assert!(response["control"].get("createdAt").is_none());
+        assert!(response["control"].get("serverId").is_none());
         assert_eq!(response["agent"]["id"], "agent_1");
         assert_eq!(response["agent"]["updatedAt"], "2026-06-06T05:45:00.000Z");
         assert_eq!(

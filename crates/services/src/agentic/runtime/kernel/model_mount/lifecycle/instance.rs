@@ -19,6 +19,10 @@ pub struct ModelMountInstanceLifecycleRequest {
     pub backend_ref: String,
     pub driver: String,
     pub provider_lifecycle_hash: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub superseded_by: Option<String>,
     #[serde(default)]
     pub evidence_refs: Vec<String>,
 }
@@ -26,6 +30,10 @@ pub struct ModelMountInstanceLifecycleRequest {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ModelMountInstanceLifecycleResult {
     pub schema_version: String,
+    pub id: String,
+    pub endpoint_id: String,
+    pub model_id: String,
+    pub provider_id: String,
     pub instance_ref: String,
     pub endpoint_ref: String,
     pub model_ref: String,
@@ -36,6 +44,10 @@ pub struct ModelMountInstanceLifecycleResult {
     pub driver: String,
     pub execution_backend: String,
     pub provider_lifecycle_hash: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub superseded_by: Option<String>,
     pub evidence_refs: Vec<String>,
     pub instance_lifecycle_hash: String,
 }
@@ -61,6 +73,12 @@ impl ModelMountInstanceLifecycleRequest {
         if self.execution_backend.trim() != "rust_model_mount_instance_lifecycle" {
             return Err(ModelMountError::UnsupportedInstanceLifecycleBackend);
         }
+        if self.action.trim() == "supersede" {
+            require_non_empty(
+                "superseded_by",
+                self.superseded_by.as_deref().unwrap_or_default(),
+            )?;
+        }
         match self.action.trim() {
             "load" if self.target_status.trim() == "loaded" => Ok(()),
             "unload" if self.target_status.trim() == "unloaded" => Ok(()),
@@ -80,6 +98,10 @@ pub(super) fn plan_instance_lifecycle(
     request.validate()?;
     let mut result = ModelMountInstanceLifecycleResult {
         schema_version: MODEL_MOUNT_INSTANCE_LIFECYCLE_SCHEMA_VERSION.to_string(),
+        id: request.instance_ref.clone(),
+        endpoint_id: request.endpoint_ref.clone(),
+        model_id: request.model_ref.clone(),
+        provider_id: request.provider_ref.clone(),
         instance_ref: request.instance_ref.clone(),
         endpoint_ref: request.endpoint_ref.clone(),
         model_ref: request.model_ref.clone(),
@@ -90,6 +112,8 @@ pub(super) fn plan_instance_lifecycle(
         driver: request.driver.clone(),
         execution_backend: request.execution_backend.clone(),
         provider_lifecycle_hash: request.provider_lifecycle_hash.clone(),
+        reason: request.reason.clone(),
+        superseded_by: request.superseded_by.clone(),
         evidence_refs: instance_lifecycle_evidence_refs(request),
         instance_lifecycle_hash: String::new(),
     };
@@ -136,6 +160,8 @@ mod tests {
             backend_ref: "backend.autopilot.native-local.fixture".to_string(),
             driver: "native_local".to_string(),
             provider_lifecycle_hash: "sha256:provider-lifecycle".to_string(),
+            reason: None,
+            superseded_by: None,
             evidence_refs: vec!["rust_model_mount_provider_lifecycle".to_string()],
         }
     }
@@ -150,6 +176,10 @@ mod tests {
             MODEL_MOUNT_INSTANCE_LIFECYCLE_SCHEMA_VERSION
         );
         assert_eq!(result.action, "load");
+        assert_eq!(result.id, "model_instance://native/qwen3");
+        assert_eq!(result.endpoint_id, "endpoint://ioi-native-local/qwen3");
+        assert_eq!(result.model_id, "model://qwen/qwen3.5-9b");
+        assert_eq!(result.provider_id, "provider://ioi-native-local");
         assert_eq!(result.status, "loaded");
         assert_eq!(result.backend_id, "backend.autopilot.native-local.fixture");
         assert_eq!(result.driver, "native_local");
@@ -201,6 +231,7 @@ mod tests {
         let mut request = instance_lifecycle_request();
         request.action = "evict".to_string();
         request.target_status = "evicted".to_string();
+        request.reason = Some("idle_ttl".to_string());
         request.evidence_refs = vec!["model_idle_evict".to_string()];
 
         let result = plan_instance_lifecycle(&request)
@@ -208,6 +239,7 @@ mod tests {
 
         assert_eq!(result.action, "evict");
         assert_eq!(result.status, "evicted");
+        assert_eq!(result.reason.as_deref(), Some("idle_ttl"));
         assert!(result
             .evidence_refs
             .contains(&"model_idle_evict".to_string()));
@@ -215,6 +247,8 @@ mod tests {
         request = instance_lifecycle_request();
         request.action = "supersede".to_string();
         request.target_status = "superseded".to_string();
+        request.reason = Some("endpoint_reload".to_string());
+        request.superseded_by = Some("model_instance://native/qwen3-reload".to_string());
         request.evidence_refs = vec!["model_supersede".to_string()];
 
         let result = plan_instance_lifecycle(&request)
@@ -222,6 +256,11 @@ mod tests {
 
         assert_eq!(result.action, "supersede");
         assert_eq!(result.status, "superseded");
+        assert_eq!(result.reason.as_deref(), Some("endpoint_reload"));
+        assert_eq!(
+            result.superseded_by.as_deref(),
+            Some("model_instance://native/qwen3-reload")
+        );
         assert!(result
             .evidence_refs
             .contains(&"model_supersede".to_string()));
@@ -250,5 +289,13 @@ mod tests {
             .expect_err("instance lifecycle planner only supports canonical instance transitions");
 
         assert_eq!(error, ModelMountError::UnsupportedInstanceLifecycleAction);
+
+        request = instance_lifecycle_request();
+        request.action = "supersede".to_string();
+        request.target_status = "superseded".to_string();
+        let error = plan_instance_lifecycle(&request)
+            .expect_err("supersede action must bind its replacement instance");
+
+        assert_eq!(error, ModelMountError::MissingField("superseded_by"));
     }
 }

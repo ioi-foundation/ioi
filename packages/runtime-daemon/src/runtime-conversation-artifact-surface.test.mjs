@@ -13,6 +13,17 @@ function harness(options = {}) {
     contextPolicyRunner: options.contextPolicyRunner,
   });
   const store = {
+    commitRuntimeArtifactState(request) {
+      calls.push({ name: "commitRuntimeArtifactState", request });
+      return {
+        artifact_id: request.artifact_id,
+        object_ref: `artifact://${request.artifact_id}`,
+        content_hash: `sha256:${request.artifact_id}`,
+        admission_hash: `admission:${request.artifact_id}`,
+        commit_hash: `commit:${request.artifact_id}`,
+        written_record: request.artifact,
+      };
+    },
     conversationArtifacts: {
       action(artifactId, input) {
         calls.push({ name: "action", artifactId, input });
@@ -47,14 +58,15 @@ function harness(options = {}) {
   return { calls, store, surface };
 }
 
-function assertConversationArtifactRustCoreRequired(error, {
+function assertConversationArtifactControlRequired(error, {
   operation,
   operationKind,
   threadId = null,
   artifactId = null,
+  code = "runtime_conversation_artifact_control_rust_core_required",
 }) {
   assert.equal(error.status, 501);
-  assert.equal(error.code, "runtime_conversation_artifact_control_rust_core_required");
+  assert.equal(error.code, code);
   assert.equal(error.details.rust_core_boundary, "runtime.conversation_artifact_control");
   assert.equal(error.details.operation, operation);
   assert.equal(error.details.operation_kind, operationKind);
@@ -64,9 +76,8 @@ function assertConversationArtifactRustCoreRequired(error, {
     error.details.evidence_refs.includes("runtime_conversation_artifact_control_js_facade_retired"),
     true,
   );
-  assert.equal(error.details.evidence_refs.includes(`${operation}_js_facade_retired`), true);
   assert.equal(
-    error.details.evidence_refs.includes("rust_daemon_core_conversation_artifact_control_required"),
+    error.details.evidence_refs.includes("runtime_conversation_artifact_control_rust_owned"),
     true,
   );
   for (const key of [
@@ -117,47 +128,183 @@ function assertConversationArtifactProjectionMissing(error, {
   return true;
 }
 
-test("conversation artifact mutation facades fail closed before JS artifact mutation", () => {
+test("conversation artifact mutation plans in Rust and commits artifact truth without JS writers", () => {
+  const planCalls = [];
+  const { calls, store, surface } = harness({
+    contextPolicyRunner: {
+      planRuntimeConversationArtifactControl(request) {
+        planCalls.push(request);
+        const artifactId =
+          request.artifact_id ?? `artifact-${request.operation.replace("conversation_artifact_", "")}`;
+        const artifact = {
+          id: artifactId,
+          artifact_id: artifactId,
+          thread_id: request.thread_id ?? request.artifact?.thread_id ?? "thread-one",
+          title: request.request.title ?? request.artifact?.title ?? "Planned",
+          receipt_refs: [`receipt-${artifactId}`],
+          evidence_refs: ["runtime_conversation_artifact_control_rust_owned"],
+          revisions: [{ revision_id: `revision-${artifactId}` }],
+        };
+        return {
+          source: "rust_runtime_conversation_artifact_control_command",
+          backend: "rust_policy",
+          operation: request.operation,
+          operation_kind: request.operation_kind,
+          thread_id: artifact.thread_id,
+          artifact_id: artifactId,
+          artifact,
+          result: {
+            status: "planned",
+            operation_kind: request.operation_kind,
+            artifact_id: artifactId,
+            artifact,
+          },
+          receipt_refs: [`receipt-${artifactId}`],
+          policy_decision_refs: [`policy-${artifactId}`],
+          evidence_refs: ["runtime_conversation_artifact_control_rust_owned"],
+        };
+      },
+    },
+  });
+
+  assert.equal(
+    surface.createConversationArtifact(store, "thread-one", {
+      title: "Draft",
+      created_at: "2026-06-12T00:00:00.000Z",
+      idempotency_key: "canonical",
+      threadId: "retired-thread",
+      artifactId: "retired-artifact",
+      idempotencyKey: "retired-key",
+    }).commit.commit_hash,
+    "commit:artifact-create",
+  );
+  assert.equal(
+    surface.performConversationArtifactAction(store, "artifact-one", {
+      action_kind: "edit",
+      kind: "retired-kind",
+      artifactId: "retired-artifact",
+    }).commit.commit_hash,
+    "commit:artifact-one",
+  );
+  assert.equal(
+    surface.exportConversationArtifact(store, "artifact-one", {
+      export_format: "zip",
+      format: "retired-format",
+    }).commit.commit_hash,
+    "commit:artifact-one",
+  );
+  assert.equal(
+    surface.promoteConversationArtifact(store, "artifact-one", {
+      promotion_target: "canvas",
+      target: "retired-target",
+    }).commit.commit_hash,
+    "commit:artifact-one",
+  );
+
+  assert.equal(planCalls.length, 4);
+  assert.deepEqual(
+    planCalls.map(({ operation, operation_kind }) => ({ operation, operation_kind })),
+    [
+      { operation: "conversation_artifact_create", operation_kind: "artifact.conversation.create" },
+      { operation: "conversation_artifact_action", operation_kind: "artifact.conversation.action" },
+      { operation: "conversation_artifact_export", operation_kind: "artifact.conversation.export" },
+      { operation: "conversation_artifact_promote", operation_kind: "artifact.conversation.promote" },
+    ],
+  );
+  assert.equal(planCalls[0].thread_id, "thread-one");
+  assert.equal(planCalls[0].request.idempotency_key, "canonical");
+  for (const request of planCalls.map((call) => call.request)) {
+    for (const alias of ["threadId", "artifactId", "createdAt", "idempotencyKey", "kind", "format", "target"]) {
+      assert.equal(Object.hasOwn(request, alias), false, `retired request alias ${alias} must be absent`);
+    }
+  }
+  assert.deepEqual(
+    calls.map((call) => call.name),
+    [
+      "list",
+      "commitRuntimeArtifactState",
+      "list",
+      "commitRuntimeArtifactState",
+      "list",
+      "commitRuntimeArtifactState",
+      "list",
+      "commitRuntimeArtifactState",
+    ],
+  );
+  assert.equal(
+    calls.some((call) => ["create", "action", "exportArtifact", "promoteArtifact"].includes(call.name)),
+    false,
+  );
+  assert.equal(
+    calls[1].request.artifact.evidence_refs?.includes("runtime_conversation_artifact_control_rust_owned"),
+    true,
+  );
+});
+
+test("conversation artifact mutation fails before artifact lookup without Rust planner", () => {
   const { calls, store, surface } = harness();
 
   assert.throws(
     () => surface.createConversationArtifact(store, "thread-one", { title: "Draft" }),
     (error) =>
-      assertConversationArtifactRustCoreRequired(error, {
+      assertConversationArtifactControlRequired(error, {
         operation: "conversation_artifact_create",
         operationKind: "artifact.conversation.create",
         threadId: "thread-one",
       }),
   );
+
+  assert.deepEqual(calls, []);
+});
+
+test("conversation artifact mutation fails before artifact lookup without Agentgres commit", () => {
+  const planCalls = [];
+  const { calls, store, surface } = harness({
+    contextPolicyRunner: {
+      planRuntimeConversationArtifactControl(request) {
+        planCalls.push(request);
+        return {};
+      },
+    },
+  });
+  delete store.commitRuntimeArtifactState;
+
   assert.throws(
-    () => surface.performConversationArtifactAction(store, "artifact-one", { kind: "edit" }),
+    () => surface.performConversationArtifactAction(store, "artifact-one", { action_kind: "edit" }),
     (error) =>
-      assertConversationArtifactRustCoreRequired(error, {
+      assertConversationArtifactControlRequired(error, {
         operation: "conversation_artifact_action",
         operationKind: "artifact.conversation.action",
         artifactId: "artifact-one",
-      }),
-  );
-  assert.throws(
-    () => surface.exportConversationArtifact(store, "artifact-one", { format: "zip" }),
-    (error) =>
-      assertConversationArtifactRustCoreRequired(error, {
-        operation: "conversation_artifact_export",
-        operationKind: "artifact.conversation.export",
-        artifactId: "artifact-one",
-      }),
-  );
-  assert.throws(
-    () => surface.promoteConversationArtifact(store, "artifact-one", { target: "canvas" }),
-    (error) =>
-      assertConversationArtifactRustCoreRequired(error, {
-        operation: "conversation_artifact_promote",
-        operationKind: "artifact.conversation.promote",
-        artifactId: "artifact-one",
+        code: "runtime_conversation_artifact_agentgres_commit_required",
       }),
   );
 
   assert.deepEqual(calls, []);
+  assert.deepEqual(planCalls, []);
+});
+
+test("conversation artifact mutation rejects invalid Rust plans before commit", () => {
+  const { calls, store, surface } = harness({
+    contextPolicyRunner: {
+      planRuntimeConversationArtifactControl() {
+        return {
+          operation_kind: "artifact.conversation.action",
+          result: { status: "planned" },
+        };
+      },
+    },
+  });
+
+  assert.throws(
+    () => surface.performConversationArtifactAction(store, "artifact-one", { action_kind: "edit" }),
+    (error) =>
+      error.code === "runtime_conversation_artifact_control_plan_invalid" &&
+      error.status === 502 &&
+      error.details.rust_core_boundary === "runtime.conversation_artifact_control",
+  );
+
+  assert.deepEqual(calls, [{ name: "list", query: {} }]);
 });
 
 test("conversation artifact read projections fail closed before JS artifact reads without Rust", () => {

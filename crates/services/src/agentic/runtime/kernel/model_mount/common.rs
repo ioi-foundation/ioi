@@ -12,6 +12,8 @@ pub const MODEL_MOUNT_PROVIDER_STREAM_INVOCATION_SCHEMA_VERSION: &str =
     "ioi.model_mount.provider_stream_invocation.v1";
 pub const MODEL_MOUNT_PROVIDER_LIFECYCLE_SCHEMA_VERSION: &str =
     "ioi.model_mount.provider_lifecycle.v1";
+pub const MODEL_MOUNT_PROVIDER_LIFECYCLE_PLAN_SCHEMA_VERSION: &str =
+    "ioi.model_mount.provider_lifecycle_plan.v1";
 pub const MODEL_MOUNT_PROVIDER_INVENTORY_SCHEMA_VERSION: &str =
     "ioi.model_mount.provider_inventory.v1";
 pub const MODEL_MOUNT_INSTANCE_LIFECYCLE_SCHEMA_VERSION: &str =
@@ -19,30 +21,62 @@ pub const MODEL_MOUNT_INSTANCE_LIFECYCLE_SCHEMA_VERSION: &str =
 pub const MODEL_MOUNT_PROVIDER_RESULT_SCHEMA_VERSION: &str = "ioi.model_mount.provider_result.v1";
 pub const MODEL_MOUNT_BACKEND_PROCESS_PLAN_SCHEMA_VERSION: &str =
     "ioi.model_mount.backend_process_plan.v1";
-pub const MODEL_MOUNT_BACKEND_LIFECYCLE_REQUIRED_REQUEST_SCHEMA_VERSION: &str =
-    "ioi.model_mount.backend_lifecycle_required.v1";
-pub const MODEL_MOUNT_BACKEND_LIFECYCLE_REQUIRED_RESULT_SCHEMA_VERSION: &str =
-    "ioi.model_mount.backend_lifecycle_required_result.v1";
-pub const MODEL_MOUNT_SERVER_CONTROL_REQUIRED_REQUEST_SCHEMA_VERSION: &str =
-    "ioi.model_mount.server_control_required.v1";
-pub const MODEL_MOUNT_SERVER_CONTROL_REQUIRED_RESULT_SCHEMA_VERSION: &str =
-    "ioi.model_mount.server_control_required_result.v1";
-pub const MODEL_MOUNT_RUNTIME_ENGINE_REQUIRED_REQUEST_SCHEMA_VERSION: &str =
-    "ioi.model_mount.runtime_engine_required.v1";
-pub const MODEL_MOUNT_RUNTIME_ENGINE_REQUIRED_RESULT_SCHEMA_VERSION: &str =
-    "ioi.model_mount.runtime_engine_required_result.v1";
+pub const MODEL_MOUNT_BACKEND_LIFECYCLE_SCHEMA_VERSION: &str =
+    "ioi.model_mount.backend_lifecycle.v1";
+pub const MODEL_MOUNT_BACKEND_LIFECYCLE_PLAN_SCHEMA_VERSION: &str =
+    "ioi.model_mount.backend_lifecycle_plan.v1";
+pub const MODEL_MOUNT_SERVER_CONTROL_SCHEMA_VERSION: &str = "ioi.model_mount.server_control.v1";
+pub const MODEL_MOUNT_SERVER_CONTROL_PLAN_SCHEMA_VERSION: &str =
+    "ioi.model_mount.server_control_plan.v1";
+pub const MODEL_MOUNT_RUNTIME_ENGINE_SCHEMA_VERSION: &str = "ioi.model_mount.runtime_engine.v1";
+pub const MODEL_MOUNT_RUNTIME_ENGINE_PLAN_SCHEMA_VERSION: &str =
+    "ioi.model_mount.runtime_engine_plan.v1";
 pub const MODEL_MOUNT_TOKENIZER_REQUIRED_REQUEST_SCHEMA_VERSION: &str =
     "ioi.model_mount.tokenizer_required.v1";
 pub const MODEL_MOUNT_TOKENIZER_REQUIRED_RESULT_SCHEMA_VERSION: &str =
     "ioi.model_mount.tokenizer_required_result.v1";
+pub const MODEL_MOUNT_TOKENIZER_SCHEMA_VERSION: &str = "ioi.model_mount.tokenizer.v1";
+pub const MODEL_MOUNT_TOKENIZER_PLAN_SCHEMA_VERSION: &str = "ioi.model_mount.tokenizer_plan.v1";
 pub const MODEL_MOUNT_ROUTE_CONTROL_REQUIRED_REQUEST_SCHEMA_VERSION: &str =
     "ioi.model_mount.route_control_required.v1";
 pub const MODEL_MOUNT_ROUTE_CONTROL_REQUIRED_RESULT_SCHEMA_VERSION: &str =
     "ioi.model_mount.route_control_required_result.v1";
+pub const MODEL_MOUNT_ROUTE_CONTROL_SCHEMA_VERSION: &str = "ioi.model_mount.route_control.v1";
+pub const MODEL_MOUNT_ROUTE_CONTROL_PLAN_SCHEMA_VERSION: &str =
+    "ioi.model_mount.route_control_plan.v1";
 pub const MODEL_MOUNT_ACCEPTED_RECEIPT_HEAD_SCHEMA_VERSION: &str =
     "ioi.model_mount.accepted_receipt_head.v1";
 pub const MODEL_MOUNT_ACCEPTED_RECEIPT_TRANSITION_SCHEMA_VERSION: &str =
     "ioi.model_mount.accepted_receipt_transition.v1";
+pub const MODEL_MOUNT_CONVERSATION_STATE_SCHEMA_VERSION: &str =
+    "ioi.model_mount.conversation_state.v1";
+pub const MODEL_MOUNT_CONVERSATION_STATE_PLAN_SCHEMA_VERSION: &str =
+    "ioi.model_mount.conversation_state_plan.v1";
+pub const MODEL_MOUNT_STREAM_COMPLETION_SCHEMA_VERSION: &str =
+    "ioi.model_mount.stream_completion.v1";
+pub const MODEL_MOUNT_STREAM_COMPLETION_PLAN_SCHEMA_VERSION: &str =
+    "ioi.model_mount.stream_completion_plan.v1";
+pub const MODEL_MOUNT_CATALOG_PROVIDER_CONTROL_SCHEMA_VERSION: &str =
+    "ioi.model_mount.catalog_provider_control.v1";
+pub const MODEL_MOUNT_CATALOG_PROVIDER_CONTROL_PLAN_SCHEMA_VERSION: &str =
+    "ioi.model_mount.catalog_provider_control_plan.v1";
+pub const MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_SCHEMA_VERSION: &str =
+    "ioi.model_mount.capability_token_control.v1";
+pub const MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_PLAN_SCHEMA_VERSION: &str =
+    "ioi.model_mount.capability_token_control_plan.v1";
+pub const MODEL_MOUNT_VAULT_CONTROL_SCHEMA_VERSION: &str = "ioi.model_mount.vault_control.v1";
+pub const MODEL_MOUNT_VAULT_CONTROL_PLAN_SCHEMA_VERSION: &str =
+    "ioi.model_mount.vault_control_plan.v1";
+pub const MODEL_MOUNT_RECEIPT_GATE_SCHEMA_VERSION: &str = "ioi.model_mount.receipt_gate.v1";
+pub const MODEL_MOUNT_RECEIPT_GATE_PLAN_SCHEMA_VERSION: &str =
+    "ioi.model_mount.receipt_gate_plan.v1";
+pub const MODEL_MOUNT_ARTIFACT_ENDPOINT_SCHEMA_VERSION: &str =
+    "ioi.model_mount.artifact_endpoint.v1";
+pub const MODEL_MOUNT_ARTIFACT_ENDPOINT_PLAN_SCHEMA_VERSION: &str =
+    "ioi.model_mount.artifact_endpoint_plan.v1";
+pub const MODEL_MOUNT_STORAGE_CONTROL_SCHEMA_VERSION: &str = "ioi.model_mount.storage_control.v1";
+pub const MODEL_MOUNT_STORAGE_CONTROL_PLAN_SCHEMA_VERSION: &str =
+    "ioi.model_mount.storage_control_plan.v1";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ModelMountError {
@@ -68,6 +102,22 @@ pub enum ModelMountError {
     UnsupportedInstanceLifecycleAction,
     UnsupportedInstanceLifecycleBackend,
     UnsupportedBackendProcessKind,
+    UnsupportedBackendLifecycleOperation,
+    UnsupportedRouteControlKind,
+    UnsupportedTokenizerOperation,
+    UnsupportedConversationOperation,
+    UnsupportedCatalogProviderControlOperation,
+    UnsupportedCapabilityTokenControlOperation,
+    UnsupportedVaultControlOperation,
+    UnsupportedServerControlOperation,
+    UnsupportedRuntimeEngineOperation,
+    UnsupportedReceiptGateOperation,
+    UnsupportedArtifactEndpointOperation,
+    UnsupportedStorageControlOperation,
+    CatalogProviderNotConfigurable,
+    CapabilityTokenNotFound,
+    CapabilityTokenUnauthorized,
+    NoRouteCandidate,
     InstanceLifecycleStatusMismatch,
     InvalidAcceptedReceiptSequence,
     InvalidAcceptedReceiptTransitionHash,

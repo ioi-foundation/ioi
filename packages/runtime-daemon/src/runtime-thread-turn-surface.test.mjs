@@ -57,6 +57,38 @@ function createStore(overrides = {}) {
             });
             return { id: "run_alpha", agentId, request, rust_planned: true };
           },
+          createRuntimeBridgeTurn(surfaceStore, threadId, agentRecord, request) {
+            calls.push({
+              method: "agentRunLifecycleSurface.createRuntimeBridgeTurn",
+              surfaceStore,
+              threadId,
+              agentId: agentRecord.id,
+              request,
+            });
+            return {
+              turn_id: "turn_runtime",
+              thread_id: threadId,
+              request_id: "run_runtime",
+              run_id: "run_runtime",
+              agent_id: agentRecord.id,
+              rust_projected: true,
+            };
+          },
+          createRuntimeBridgeThreadControl(surfaceStore, threadId, agentRecord, request) {
+            calls.push({
+              method: "agentRunLifecycleSurface.createRuntimeBridgeThreadControl",
+              surfaceStore,
+              threadId,
+              agentId: agentRecord.id,
+              request,
+            });
+            return {
+              thread_id: threadId,
+              agent_id: agentRecord.id,
+              status: "active",
+              rust_projected: true,
+            };
+          },
         },
     pendingDiagnosticsFeedbackForNextTurn(threadId, request) {
       calls.push({ method: "pendingDiagnosticsFeedbackForNextTurn", threadId, request });
@@ -159,7 +191,7 @@ function createThreadTurnAdmissionRunner(calls) {
   };
 }
 
-test("thread turn surface fails closed for runtime thread resume before bridge control dispatch", async () => {
+test("thread turn surface controls runtime thread resume through Rust bridge-control state planning", async () => {
   const surface = createRuntimeThreadTurnSurface({
     diagnosticsFeedbackBlocksContinuation: () => false,
     isRuntimeBackedAgent: () => true,
@@ -167,6 +199,36 @@ test("thread turn surface fails closed for runtime thread resume before bridge c
   });
   const store = createStore({
     agent: { id: "agent_runtime", runtimeProfile: "runtime_service" },
+  });
+
+  const thread = await surface.resumeThread(store, "thread_alpha", { reason: "continue" });
+
+  assert.equal(thread.thread_id, "thread_alpha");
+  assert.equal(thread.agent_id, "agent_runtime");
+  assert.equal(thread.rust_projected, true);
+  assert.deepEqual(
+    store.calls.map((call) => call.method),
+    ["agentForThread", "agentRunLifecycleSurface.createRuntimeBridgeThreadControl"],
+  );
+  assert.equal(store.calls[1].surfaceStore, store);
+  assert.equal(store.calls[1].threadId, "thread_alpha");
+  assert.equal(store.calls[1].agentId, "agent_runtime");
+  assert.equal(store.calls[1].request.action, "resume");
+  assert.equal(store.calls[1].request.reason, "continue");
+
+  assert.equal(store.calls.some((call) => call.method === "updateAgent"), false);
+  assert.equal(store.calls.some((call) => call.method === "threadForAgent"), false);
+});
+
+test("thread turn surface fails closed for runtime thread resume when Rust bridge-control boundary is missing", async () => {
+  const surface = createRuntimeThreadTurnSurface({
+    diagnosticsFeedbackBlocksContinuation: () => false,
+    isRuntimeBackedAgent: () => true,
+    runtimeError,
+  });
+  const store = createStore({
+    agent: { id: "agent_runtime", runtimeProfile: "runtime_service" },
+    agentRunLifecycleSurface: null,
   });
 
   await assert.rejects(
@@ -175,7 +237,7 @@ test("thread turn surface fails closed for runtime thread resume before bridge c
       operation: "runtime_bridge_thread_control",
       operationKind: "thread.runtime_bridge.control",
       action: "resume",
-      evidenceRef: "runtime_bridge_thread_control_js_facade_retired",
+      evidenceRef: "runtime_bridge_thread_control_rust_owned",
     }),
   );
 
@@ -183,7 +245,7 @@ test("thread turn surface fails closed for runtime thread resume before bridge c
   assert.equal(store.calls.some((call) => call.method === "threadForAgent"), false);
 });
 
-test("thread turn surface fails closed for runtime turns before bridge submit dispatch", async () => {
+test("thread turn surface submits runtime turns through Rust bridge-turn state planning", async () => {
   const surface = createRuntimeThreadTurnSurface({
     diagnosticsFeedbackBlocksContinuation: () => false,
     isRuntimeBackedAgent: () => true,
@@ -191,6 +253,38 @@ test("thread turn surface fails closed for runtime turns before bridge submit di
   });
   const store = createStore({
     agent: { id: "agent_runtime", runtimeProfile: "runtime_service" },
+  });
+
+  const turn = await surface.createTurn(store, "thread_alpha", {
+    prompt: "ship it",
+    options: {},
+  });
+
+  assert.equal(turn.thread_id, "thread_alpha");
+  assert.equal(turn.request_id, "run_runtime");
+  assert.equal(turn.run_id, "run_runtime");
+  assert.deepEqual(
+    store.calls.map((call) => call.method),
+    ["agentForThread", "agentRunLifecycleSurface.createRuntimeBridgeTurn"],
+  );
+  assert.equal(store.calls[1].surfaceStore, store);
+  assert.equal(store.calls[1].threadId, "thread_alpha");
+  assert.equal(store.calls[1].agentId, "agent_runtime");
+  assert.equal(store.calls[1].request.prompt, "ship it");
+  assert.equal(store.calls.some((call) => call.method === "createRuntimeBridgeTurn"), false);
+  assert.equal(store.calls.some((call) => call.method === "createRun"), false);
+  assert.equal(store.calls.some((call) => call.method === "turnForRun"), false);
+});
+
+test("thread turn surface fails closed for runtime turns when Rust bridge-turn lifecycle boundary is missing", async () => {
+  const surface = createRuntimeThreadTurnSurface({
+    diagnosticsFeedbackBlocksContinuation: () => false,
+    isRuntimeBackedAgent: () => true,
+    runtimeError,
+  });
+  const store = createStore({
+    agent: { id: "agent_runtime", runtimeProfile: "runtime_service" },
+    agentRunLifecycleSurface: null,
   });
 
   await assert.rejects(
@@ -201,7 +295,7 @@ test("thread turn surface fails closed for runtime turns before bridge submit di
     (error) => assertRuntimeBridgeThreadRustCoreRequired(error, {
       operation: "runtime_bridge_turn_submit",
       operationKind: "turn.runtime_bridge.submit",
-      evidenceRef: "runtime_bridge_turn_submit_js_facade_retired",
+      evidenceRef: "runtime_bridge_turn_submit_rust_owned",
     }),
   );
 

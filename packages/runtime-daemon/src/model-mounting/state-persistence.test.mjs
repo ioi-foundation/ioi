@@ -150,32 +150,33 @@ test("writeModelMountingMap fails closed as a retired per-map persistence path",
   assert.deepEqual(state.writes, []);
 });
 
-test("writeModelMountingVaultRefs commits metadata through Rust Agentgres record-state", () => {
+test("writeModelMountingVaultRefs is retired before JS vault metadata can become truth", () => {
   const state = fakeState();
 
-  writeModelMountingVaultRefs(state);
-
+  assert.throws(
+    () => writeModelMountingVaultRefs(state),
+    (error) => {
+      assert.equal(error.code, "model_mount_vault_ref_js_metadata_write_retired");
+      assert.equal(error.details.record_dir, "vault-refs");
+      assert.equal(error.details.rust_core_api, "plan_model_mount_vault_control");
+      assert.equal(error.details.canonical_persistence, "rust_agentgres_record_state_commit");
+      return true;
+    },
+  );
   assert.deepEqual(state.writes, []);
-  assert.equal(state.vaultRefs.get("vault_a").configured, true);
-  assert.equal(state.recordStateCommits.length, 2);
-  assert.deepEqual(state.recordStateCommits.map((commit) => commit.record_dir), ["vault-refs", "vault-refs"]);
-  assert.deepEqual(state.recordStateCommits.map((commit) => commit.operation_kind), [
-    "model_mount.vault_ref.write",
-    "model_mount.vault_ref.write",
-  ]);
-  assert.deepEqual(state.recordStateCommits.map((commit) => commit.record_id), ["vault_a", "vault_b"]);
+  assert.equal(state.recordStateCommits.length, 0);
 });
 
-test("writeModelMountingVaultRefs fails closed without Rust Agentgres record-state commit", () => {
+test("writeModelMountingVaultRefs retirement does not depend on Rust Agentgres commit configuration", () => {
   const state = fakeState();
   delete state.commitRuntimeModelMountRecordState;
 
   assert.throws(
     () => writeModelMountingVaultRefs(state),
     (error) => {
-      assert.equal(error.code, "model_mount_vault_ref_state_commit_unconfigured");
+      assert.equal(error.code, "model_mount_vault_ref_js_metadata_write_retired");
       assert.equal(error.details.record_dir, "vault-refs");
-      assert.equal(error.details.vault_ref_id, "vault_a");
+      assert.equal(error.details.rust_core_api, "plan_model_mount_vault_control");
       return true;
     },
   );

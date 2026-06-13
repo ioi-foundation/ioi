@@ -4,6 +4,13 @@ import path from "node:path";
 
 import {
   createModelMountAdmissionRunnerFromEnv,
+  RUST_MODEL_MOUNT_CONVERSATION_STATE_BACKEND,
+  RUST_MODEL_MOUNT_FIXTURE_INVENTORY_BACKEND,
+  RUST_MODEL_MOUNT_FIXTURE_LIFECYCLE_BACKEND,
+  RUST_MODEL_MOUNT_INSTANCE_LIFECYCLE_BACKEND,
+  RUST_MODEL_MOUNT_NATIVE_LOCAL_INVENTORY_BACKEND,
+  RUST_MODEL_MOUNT_NATIVE_LOCAL_LIFECYCLE_BACKEND,
+  RUST_MODEL_MOUNT_STREAM_COMPLETION_BACKEND,
 } from "./model-mounting/model-mount-admission-runner.mjs";
 import { AgentgresModelMountingStore } from "./model-mounting/store.mjs";
 import { modelMountingRelationSchemas } from "./model-mounting/schema-relations.mjs";
@@ -52,10 +59,20 @@ import {
   providerSecretInput,
 } from "./model-mounting/provider-auth.mjs";
 import {
-  MODEL_CATALOG_CONFIGURABLE_PROVIDER_IDS,
-  assertConfigurableCatalogProvider,
-  throwCatalogProviderControlRustCoreRequired,
+  catalogProviderControlPlanForState,
+  catalogProviderControlResponse,
+  commitCatalogProviderControlPlan,
 } from "./model-mounting/catalog-provider-config.mjs";
+import {
+  capabilityTokenControlPlanForState,
+  capabilityTokenControlResponse,
+  commitCapabilityTokenControlPlan,
+} from "./model-mounting/capability-token-control.mjs";
+import {
+  commitVaultControlPlan,
+  vaultControlPlanForState,
+  vaultControlResponse,
+} from "./model-mounting/vault-control.mjs";
 import {
   findExecutable,
   hardwareSnapshot,
@@ -127,24 +144,31 @@ import {
   validateReceiptGate as validateReceiptGateRule,
 } from "./model-mounting/validation.mjs";
 import {
-  throwModelRouteControlRustCoreRequired,
+  commitRouteControlPlan as commitRouteControlPlanState,
   testRoute as testRouteState,
   upsertRoute as upsertRouteState,
 } from "./model-mounting/routes.mjs";
+import { commitModelMountRecordState } from "./model-mounting/record-state-commits.mjs";
+import {
+  commitTokenizerControlPlan as commitTokenizerControlPlanState,
+  tokenizerControlResponse,
+  tokenizerRequestForMountedState,
+} from "./model-mounting/tokenizer-control.mjs";
 
 const MODEL_MOUNT_SCHEMA_VERSION = "ioi.model-mounting.runtime.v1", SECRET_REDACTION = "[REDACTED]";
+const MODEL_MOUNT_ROUTE_CONTROL_SCHEMA_VERSION = "ioi.model_mount.route_control.v1";
+const MODEL_MOUNT_PROVIDER_LIFECYCLE_SCHEMA_VERSION = "ioi.model_mount.provider_lifecycle.v1";
+const MODEL_MOUNT_PROVIDER_INVENTORY_SCHEMA_VERSION = "ioi.model_mount.provider_inventory.v1";
+const MODEL_MOUNT_INSTANCE_LIFECYCLE_SCHEMA_VERSION = "ioi.model_mount.instance_lifecycle.v1";
+const MODEL_MOUNT_ARTIFACT_ENDPOINT_SCHEMA_VERSION = "ioi.model_mount.artifact_endpoint.v1";
+const MODEL_MOUNT_STORAGE_CONTROL_SCHEMA_VERSION = "ioi.model_mount.storage_control.v1";
+const MODEL_MOUNT_CONVERSATION_STATE_SCHEMA_VERSION = "ioi.model_mount.conversation_state.v1";
+const MODEL_MOUNT_STREAM_COMPLETION_SCHEMA_VERSION = "ioi.model_mount.stream_completion.v1";
 const SERVER_CONTROL_RECORD_ID = "server-control.default";
 const MODEL_LIFECYCLE_RECEIPT_RUST_CORE_REQUIRED_EVIDENCE_REFS = [
   "model_mount_lifecycle_receipt_js_facade_retired",
   "rust_daemon_core_model_lifecycle_receipt_required",
   "agentgres_model_lifecycle_receipt_truth_required",
-];
-const MODEL_CONVERSATION_RUST_CORE_REQUIRED_EVIDENCE_REFS = [
-  "model_mount_conversation_state_js_facade_retired",
-  "model_mount_stream_completion_js_facade_retired",
-  "rust_daemon_core_model_conversation_required",
-  "rust_daemon_core_model_stream_completion_required",
-  "agentgres_model_conversation_truth_required",
 ];
 const MCP_WORKFLOW_RUST_CORE_EVIDENCE_REFS = [
   "model_mount_mcp_workflow_js_facade_retired",
@@ -378,13 +402,6 @@ const RETIRED_MODEL_TOKENIZER_REQUEST_ALIASES = [
   "reserveOutputTokens",
   "reserve_output_tokens",
 ];
-const MODEL_TOKENIZER_RUST_CORE_REQUIRED_EVIDENCE_REFS = [
-  "model_mount_tokenizer_js_facade_retired",
-  "model_mount_context_fit_js_facade_retired",
-  "rust_daemon_core_model_tokenizer_required",
-  "rust_daemon_core_model_context_fit_required",
-  "agentgres_model_tokenizer_truth_required",
-];
 export class ModelMountingState {
   constructor({
     stateDir,
@@ -551,54 +568,62 @@ export class ModelMountingState {
       id: SERVER_CONTROL_RECORD_ID,
       ...controlState,
     };
-    throwServerControlRustCoreRequired(this.serverControlRequired("model_mount.server_control.write", {
+    return commitServerControlForState(this, "model_mount.server_control.write", {
       server_control_id: record.id,
       receipt_id: record.receiptId ?? null,
-    }));
+      body: serverControlBody(record),
+    });
   }
 
   serverStart(baseUrl) {
-    void baseUrl;
-    throwServerControlRustCoreRequired(this.serverControlRequired("model_mount.server_control.start"));
+    return commitServerControlForState(this, "model_mount.server_control.start", {
+      base_url: optionalString(baseUrl),
+    });
   }
 
   serverStop(baseUrl) {
-    void baseUrl;
-    throwServerControlRustCoreRequired(this.serverControlRequired("model_mount.server_control.stop"));
+    return commitServerControlForState(this, "model_mount.server_control.stop", {
+      base_url: optionalString(baseUrl),
+    });
   }
 
   serverRestart(baseUrl) {
-    void baseUrl;
-    throwServerControlRustCoreRequired(this.serverControlRequired("model_mount.server_control.restart"));
+    return commitServerControlForState(this, "model_mount.server_control.restart", {
+      base_url: optionalString(baseUrl),
+    });
   }
 
   recordServerOperation(operation, status, baseUrl, details = {}) {
-    throwServerControlRustCoreRequired(this.serverControlRequired("model_mount.server_control.record_operation", {
+    return commitServerControlForState(this, "model_mount.server_control.record_operation", {
       operation: operation ?? null,
       status: status ?? null,
       base_url: baseUrl ?? null,
       ...details,
-    }));
+    });
   }
 
   serverLogs(query = {}) {
-    void query;
-    throwServerControlRustCoreRequired(this.serverControlRequired("model_mount.server_control.logs_read"));
+    return commitServerControlForState(this, "model_mount.server_control.logs_read", {
+      body: serverControlBody(query),
+    });
   }
 
   serverEvents(query = {}) {
-    void query;
-    throwServerControlRustCoreRequired(this.serverControlRequired("model_mount.server_control.events_read"));
+    return commitServerControlForState(this, "model_mount.server_control.events_read", {
+      body: serverControlBody(query),
+    });
   }
 
   serverLogRecords({ limit = 80 } = {}) {
-    void limit;
-    throwServerControlRustCoreRequired(this.serverControlRequired("model_mount.server_control.log_projection"));
+    return commitServerControlForState(this, "model_mount.server_control.log_projection", {
+      body: serverControlBody({ limit }),
+    });
   }
 
   writeServerLog(event) {
-    void event;
-    throwServerControlRustCoreRequired(this.serverControlRequired("model_mount.server_control.log_append"));
+    return commitServerControlForState(this, "model_mount.server_control.log_append", {
+      body: serverControlBody(event),
+    });
   }
 
   runtimeModelCatalogList() {
@@ -694,6 +719,14 @@ export class ModelMountingState {
     return this.readProjectionFacade.modelRouteDecisions(this);
   }
 
+  providerInventoryRecords() {
+    return this.readProjectionFacade.providerInventoryRecords(this);
+  }
+
+  modelTokenizerRecords() {
+    return this.readProjectionFacade.modelTokenizerRecords(this);
+  }
+
   latestProviderHealth(providerId) {
     return this.readProjectionFacade.latestProviderHealth(this, providerId);
   }
@@ -722,118 +755,91 @@ export class ModelMountingState {
   }
 
   listCatalogProviderConfigs() {
-    throwCatalogProviderControlRustCoreRequired(
+    return planAndCommitCatalogProviderControl(
+      this,
       "model_mount.catalog_provider_configuration.list",
-      { configurable_provider_count: MODEL_CATALOG_CONFIGURABLE_PROVIDER_IDS.length },
     );
   }
 
   getCatalogProviderConfig(providerId) {
-    assertConfigurableCatalogProvider(providerId);
-    throwCatalogProviderControlRustCoreRequired(
+    return planAndCommitCatalogProviderControl(
+      this,
       "model_mount.catalog_provider_configuration.get",
-      { provider_id: providerId },
+      { providerId },
     );
   }
 
   configureCatalogProvider(providerId, body = {}) {
-    assertConfigurableCatalogProvider(providerId);
-    throwCatalogProviderControlRustCoreRequired(
+    return planAndCommitCatalogProviderControl(
+      this,
       "model_mount.catalog_provider_configuration.write",
-      { provider_id: providerId, request_field_count: Object.keys(body ?? {}).length },
+      { providerId, body, requiredScope: `provider.write:${providerId}` },
     );
   }
 
   startCatalogProviderOAuth(providerId, body = {}) {
-    assertConfigurableCatalogProvider(providerId);
-    throwCatalogProviderControlRustCoreRequired(
+    return planAndCommitCatalogProviderControl(
+      this,
       "model_mount.catalog_provider_oauth.start",
-      { provider_id: providerId, request_field_count: Object.keys(body ?? {}).length },
+      { providerId, body, requiredScope: `provider.write:${providerId}` },
     );
   }
 
   async completeCatalogProviderOAuth(providerId, body = {}) {
-    assertConfigurableCatalogProvider(providerId);
     requiredString(body.state, "state");
-    throwCatalogProviderControlRustCoreRequired(
+    return planAndCommitCatalogProviderControl(
+      this,
       "model_mount.catalog_provider_oauth.callback",
-      { provider_id: providerId, state_present: true },
+      { providerId, body, requiredScope: `provider.write:${providerId}` },
     );
   }
 
   async exchangeCatalogProviderOAuth(providerId, body = {}) {
-    assertConfigurableCatalogProvider(providerId);
-    throwCatalogProviderControlRustCoreRequired(
+    return planAndCommitCatalogProviderControl(
+      this,
       "model_mount.catalog_provider_oauth.exchange",
-      { provider_id: providerId, request_field_count: Object.keys(body ?? {}).length },
+      { providerId, body, requiredScope: `provider.write:${providerId}` },
     );
   }
 
   async refreshCatalogProviderOAuth(providerId) {
-    assertConfigurableCatalogProvider(providerId);
-    throwCatalogProviderControlRustCoreRequired(
+    return planAndCommitCatalogProviderControl(
+      this,
       "model_mount.catalog_provider_oauth.refresh",
-      { provider_id: providerId },
+      { providerId, requiredScope: `provider.write:${providerId}` },
     );
   }
 
   revokeCatalogProviderOAuth(providerId) {
-    assertConfigurableCatalogProvider(providerId);
-    throwCatalogProviderControlRustCoreRequired(
+    return planAndCommitCatalogProviderControl(
+      this,
       "model_mount.catalog_provider_oauth.revoke",
-      { provider_id: providerId },
+      { providerId, requiredScope: `provider.write:${providerId}` },
     );
   }
 
   catalogProviderConfig(providerId) {
-    throwCatalogProviderControlRustCoreRequired(
+    return planAndCommitCatalogProviderControl(
+      this,
       "model_mount.catalog_provider_configuration.read_private",
-      { provider_id: providerId },
+      { providerId },
     );
   }
 
   catalogProviderRuntimeMaterial(providerId) {
-    const existing = this.catalogProviderRuntimeMaterials.get(providerId) ?? null;
-    throwCatalogProviderControlRustCoreRequired(
+    return planAndCommitCatalogProviderControl(
+      this,
       "model_mount.catalog_provider_runtime_material.resolve",
-      {
-        provider_id: providerId,
-        material_vault_ref_hash: existing?.materialVaultRefHash ?? null,
-        material_configured: Boolean(
-          existing?.manifestPath ||
-            existing?.baseUrl ||
-            existing?.materialVaultRefHash,
-        ),
-        runtime_material_status: existing?.runtimeMaterialStatus ?? "rust_core_projection_required",
-      },
+      { providerId, requiredScope: `provider.read:${providerId}` },
     );
   }
 
   storageSummary() {
-    throwModelStorageRustCoreRequired(
-      "model_mount.storage.summary",
-      {
-        model_root_hash: stableHash(this.modelRoot),
-      },
-    );
+    return this.readProjectionFacade.storageSummary(this);
   }
 
   async catalogSearch(query = {}) {
-    throw runtimeError({
-      status: 501,
-      code: "model_catalog_search_js_orchestrator_retired",
-      message: "Model catalog search orchestration is retired in JS; use Rust daemon-core catalog search/projection.",
-      details: {
-        operation_kind: "model_catalog.search",
-        rust_core_boundary: "model_mount.catalog_provider_search",
-        request_field_count: Object.keys(query ?? {}).length,
-        evidence_refs: [
-          "model_catalog_search_js_orchestrator_retired",
-          "rust_daemon_core_catalog_search_required",
-          "agentgres_catalog_projection_required",
-        ],
-      },
-    });
+    return this.readProjectionFacade.catalogSearch(this, query);
   }
 
   enrichCatalogEntry(entry, options = {}) {
@@ -844,47 +850,47 @@ export class ModelMountingState {
 
   async catalogImportUrl(body = {}) {
     assertCanonicalCatalogImportUrlRequestBody(body);
-    const sourceUrl = requiredString(body.source_url ?? body.url, "source_url");
-    throwCatalogDownloadRustCoreRequired(
-      "model_mount.catalog.import_url",
-      {
-        source_url_hash: stableHash(sourceUrl),
-        ...(body.model_id ? { model_id: body.model_id } : {}),
-        ...(body.provider_id ? { provider_id: body.provider_id } : {}),
-      },
-    );
+    const sourceUrl = requiredString(body.source_url, "source_url");
+    return planAndCommitStorageControl(this, "model_mount.catalog.import_url", {
+      body: storageControlBody({ ...body, source_url: sourceUrl }),
+      requiredScope: body.model_id
+        ? `model.catalog.import_url:${body.model_id}`
+        : `model.catalog.import_url:${stableHash(sourceUrl)}`,
+    });
   }
 
   importModel(body = {}) {
     assertCanonicalModelImportRequestBody(body);
     const modelId = requiredString(body.model_id, "model_id");
-    throwArtifactEndpointRustCoreRequired("model_mount.artifact.import", { model_id: modelId });
+    return planAndCommitArtifactEndpoint(this, "model_mount.artifact.import", {
+      body: artifactEndpointBody({ ...body, model_id: modelId }),
+      requiredScope: `model.artifact.import:${modelId}`,
+    });
   }
 
   mountEndpoint(body = {}) {
     assertCanonicalEndpointMountRequestBody(body);
-    const modelId = body.model_id;
-    if (!modelId) {
-      throw runtimeError({
-        status: 400,
-        code: "model_id_required",
-        message: "Mounting a model endpoint requires an explicit model id.",
-      });
-    }
-    throwArtifactEndpointRustCoreRequired("model_mount.endpoint.mount", { model_id: modelId });
+    const modelId = requiredString(body.model_id, "model_id");
+    return planAndCommitArtifactEndpoint(this, "model_mount.endpoint.mount", {
+      body: artifactEndpointBody({ ...body, model_id: modelId }),
+      requiredScope: `model.endpoint.mount:${modelId}`,
+    });
   }
 
   unmountEndpoint(body = {}) {
     assertCanonicalEndpointUnmountRequestBody(body);
     const endpointId = requiredString(body.endpoint_id ?? body.id, "endpoint_id");
-    throwArtifactEndpointRustCoreRequired("model_mount.endpoint.unmount", { endpoint_id: endpointId });
+    return planAndCommitArtifactEndpoint(this, "model_mount.endpoint.unmount", {
+      body: artifactEndpointBody({ ...body, endpoint_id: endpointId }),
+      requiredScope: `model.endpoint.unmount:${endpointId}`,
+    });
   }
 
   async loadModel(body = {}) {
     assertCanonicalModelLoadingRequestBody(body);
     const endpoint = this.resolveEndpoint(body.endpoint_id, body.model_id);
-    const provider = this.provider(endpoint.providerId);
-    const loadPolicy = normalizeLoadPolicy(body.load_policy ?? endpoint.loadPolicy);
+    const provider = this.provider(endpoint.providerId ?? endpoint.provider_id);
+    const loadPolicy = normalizeLoadPolicy(body.load_policy ?? endpoint.load_policy);
     const runtimePreference = this.runtimePreferenceForEndpoint(endpoint);
     const requestLoadOptions = body.load_options ?? {};
     const runtimeDefaults = { ...this.runtimeDefaultLoadOptions(runtimePreference.selectedEngineId) };
@@ -896,23 +902,36 @@ export class ModelMountingState {
       loadPolicy,
     );
     if (loadOptions.ttlSeconds !== null) loadPolicy.idleTtlSeconds = loadOptions.ttlSeconds;
-    const backendId = endpoint.backendId ?? defaultBackendForProvider(provider);
+    const backendId = endpoint.backendId ?? endpoint.backend_id ?? defaultBackendForProvider(provider);
     if (loadOptions.estimateOnly) {
       throwModelLoadingRustCoreRequired("model_load_estimate", provider, {
         operation_kind: "model_mount.instance.estimate",
         endpoint_id: endpoint.id,
-        model_id: endpoint.modelId,
+        model_id: endpoint.modelId ?? endpoint.model_id,
         provider_kind: provider.kind,
         backend_id: backendId,
         runtime_engine_id: runtimePreference.selectedEngineId,
       });
     }
-    throwModelLoadingRustCoreRequired("model_load", provider, {
+    const providerLifecycle = planProviderLifecycle(this, provider, {
+      action: "load",
+      operation: "model_load",
       operation_kind: "model_mount.instance.load",
-      endpoint_id: endpoint.id,
-      model_id: endpoint.modelId,
-      provider_kind: provider.kind,
-      backend_id: backendId,
+      endpoint,
+    });
+    const lifecycle = planModelInstanceLifecycle(this, {
+      action: "load",
+      targetStatus: "loaded",
+      endpoint,
+      provider,
+      backendId,
+      instanceId: body.instance_id ?? body.id ?? defaultModelInstanceId(endpoint, loadOptions),
+      providerLifecycle,
+      evidenceRefs: ["model_mount_model_loading_rust_positive_api"],
+    });
+    return commitModelInstanceLifecycleRecordState(this, lifecycle, {
+      operation_kind: "model_mount.instance.load",
+      providerLifecycle,
     });
   }
 
@@ -922,14 +941,33 @@ export class ModelMountingState {
     const instance = instanceId
       ? this.instance(instanceId)
       : this.loadedInstanceForEndpoint(this.resolveEndpoint(body.endpoint_id, body.model_id).id);
-    const endpoint = this.endpoint(instance.endpointId);
-    const provider = this.provider(instance.providerId);
-    throwModelLoadingRustCoreRequired("model_unload", provider, {
+    const endpointId = instance.endpoint_id ?? instance.endpointId;
+    const providerId = instance.provider_id ?? instance.providerId;
+    const modelId = instance.model_id ?? instance.modelId;
+    const endpoint = this.endpoint(endpointId);
+    const provider = this.provider(providerId);
+    const backendId = instance.backend_id ?? instance.backendId ?? endpoint.backend_id ?? endpoint.backendId ?? defaultBackendForProvider(provider);
+    const providerLifecycle = planProviderLifecycle(this, provider, {
+      action: "unload",
+      operation: "model_unload",
       operation_kind: "model_mount.instance.unload",
-      instance_id: instance.id,
-      endpoint_id: endpoint.id,
-      model_id: instance.modelId,
-      backend_id: instance.backendId ?? endpoint.backendId ?? null,
+      endpoint,
+    });
+    const lifecycle = planModelInstanceLifecycle(this, {
+      action: "unload",
+      targetStatus: "unloaded",
+      endpoint,
+      provider,
+      instance,
+      backendId,
+      instanceId: instance.id,
+      modelId,
+      providerLifecycle,
+      evidenceRefs: ["model_mount_model_unloading_rust_positive_api"],
+    });
+    return commitModelInstanceLifecycleRecordState(this, lifecycle, {
+      operation_kind: "model_mount.instance.unload",
+      providerLifecycle,
     });
   }
 
@@ -938,110 +976,106 @@ export class ModelMountingState {
     assertCanonicalModelDownloadControlRequestBody(body);
     assertCanonicalModelDownloadMetadataRequestBody(body);
     const modelId = requiredString(body.model_id, "model_id");
-    throwCatalogDownloadRustCoreRequired(
-      "model_mount.download.queue",
-      {
-        model_id: modelId,
-        ...(body.provider_id ? { provider_id: body.provider_id } : {}),
-        ...(body.source_url ? { source_url_hash: stableHash(body.source_url) } : {}),
-      },
-    );
+    return planAndCommitStorageControl(this, "model_mount.download.queue", {
+      body: storageControlBody({ ...body, model_id: modelId }),
+      requiredScope: `model.download.queue:${modelId}`,
+    });
   }
 
   cancelDownload(jobId, body = {}) {
     assertCanonicalModelStorageRequestBody(body);
-    throwModelStorageRustCoreRequired("model_mount.download.cancel", { job_id: jobId });
+    const downloadId = requiredString(jobId ?? body.job_id, "job_id");
+    return planAndCommitStorageControl(this, "model_mount.download.cancel", {
+      body: storageControlBody({ ...body, job_id: downloadId }),
+      requiredScope: `model.download.cancel:${downloadId}`,
+    });
   }
 
   downloadStatus(jobId) {
-    const job = this.downloads.get(jobId);
-    if (!job) throw notFound(`Download job not found: ${jobId}`, { job_id: jobId });
-    return job;
+    return this.readProjectionFacade.downloadStatus(this, jobId);
   }
 
   deleteModelArtifact(id, body = {}) {
     assertCanonicalModelStorageRequestBody(body);
-    throwModelStorageRustCoreRequired("model_mount.artifact.delete", { artifact_id: id });
+    const artifactId = requiredString(id ?? body.artifact_id, "artifact_id");
+    return planAndCommitStorageControl(this, "model_mount.artifact.delete", {
+      body: storageControlBody({ ...body, artifact_id: artifactId }),
+      requiredScope: `model.artifact.delete:${artifactId}`,
+    });
   }
 
   cleanupModelStorage(body = {}) {
     assertCanonicalModelStorageRequestBody(body);
-    throwModelStorageRustCoreRequired("model_mount.storage.cleanup");
+    return planAndCommitStorageControl(this, "model_mount.storage.cleanup", {
+      body: storageControlBody(body),
+      requiredScope: "model.storage.cleanup",
+    });
   }
 
   bindVaultRef(body = {}) {
     assertCanonicalVaultOperationRequestBody(body);
     const vaultRef = requiredString(body.vault_ref, "vault_ref");
     const material = requiredString(body.material, "material");
-    throwVaultRustCoreRequired(
+    return planAndCommitVaultControl(
+      this,
       "model_mount.vault_ref.bind",
       {
-        vault_ref_hash_required: true,
-        purpose: body.purpose ?? "operator_provider_auth_binding",
-        label: body.label ?? null,
-        request_fields: ["vault_ref", "material"],
-        vault_ref_present: Boolean(vaultRef),
-        material: material ? "[redacted]" : null,
+        body,
+        vaultRef,
+        material,
       },
     );
   }
 
   listVaultRefs() {
-    throwVaultRustCoreRequired("model_mount.vault_ref.list");
+    return planAndCommitVaultControl(this, "model_mount.vault_ref.list");
   }
 
   vaultRefMetadata(body = {}) {
     assertCanonicalVaultOperationRequestBody(body);
     const vaultRef = requiredString(body.vault_ref, "vault_ref");
-    throwVaultRustCoreRequired(
+    return planAndCommitVaultControl(
+      this,
       "model_mount.vault_ref.metadata",
-      {
-        vault_ref_hash_required: true,
-        vault_ref_present: Boolean(vaultRef),
-      },
+      { body, vaultRef },
     );
   }
 
   vaultStatus() {
-    throwVaultRustCoreRequired("model_mount.vault.status");
+    return planAndCommitVaultControl(this, "model_mount.vault.status");
   }
 
   vaultHealth() {
-    throwVaultRustCoreRequired("model_mount.vault.health");
+    return planAndCommitVaultControl(this, "model_mount.vault.health");
   }
 
   removeVaultRef(body = {}) {
     assertCanonicalVaultOperationRequestBody(body);
     const vaultRef = requiredString(body.vault_ref, "vault_ref");
-    throwVaultRustCoreRequired(
+    return planAndCommitVaultControl(
+      this,
       "model_mount.vault_ref.remove",
-      {
-        vault_ref_hash_required: true,
-        purpose: body.purpose ?? "operator_provider_auth_remove",
-        vault_ref_present: Boolean(vaultRef),
-      },
+      { body, vaultRef },
     );
   }
 
   createToken(body = {}) {
-    throwCapabilityTokenRustCoreRequired(
+    return planAndCommitCapabilityTokenControl(
+      this,
       "model_mount.capability_token.create",
-      {
-        ...(body.audience ? { audience: body.audience } : {}),
-        ...(body.grant_id ? { grant_id: body.grant_id } : {}),
-      },
+      { body },
     );
   }
 
   listTokens() {
-    throwCapabilityTokenRustCoreRequired("model_mount.capability_token.list");
+    return planAndCommitCapabilityTokenControl(this, "model_mount.capability_token.list");
   }
 
   revokeToken(tokenId) {
-    if (!this.tokens.has(tokenId)) throw notFound(`Token not found: ${tokenId}`, { token_id: tokenId });
-    throwCapabilityTokenRustCoreRequired(
+    return planAndCommitCapabilityTokenControl(
+      this,
       "model_mount.capability_token.revoke",
-      { token_id: tokenId },
+      { tokenId: requiredString(tokenId, "token_id") },
     );
   }
 
@@ -1054,22 +1088,21 @@ export class ModelMountingState {
         details: { required_scope: requiredScope },
       });
     }
-    const tokenHash = hashToken(authorization.slice("Bearer ".length).trim());
-    const token = [...this.tokens.values()].find((candidate) => candidate.tokenHash === tokenHash);
+    const token = authorization.slice("Bearer ".length).trim();
     if (!token) {
       throw runtimeError({
         status: 401,
         code: "auth",
-        message: "Capability token was not recognized.",
+        message: "Bearer capability token is required for this model mounting operation.",
         details: { required_scope: requiredScope },
       });
     }
-    throwCapabilityTokenRustCoreRequired(
+    return planAndCommitCapabilityTokenControl(
+      this,
       "model_mount.capability_token.authorize",
       {
-        token_id: token.id,
-        grant_id: token.grantId ?? null,
-        required_scope: requiredScope,
+        tokenHash: hashToken(token),
+        requiredScope,
       },
     );
   }
@@ -1098,33 +1131,50 @@ export class ModelMountingState {
 
   async providerHealth(providerId) {
     const provider = this.provider(providerId);
-    throwModelMountProviderHealthRustCoreRequired(provider, "provider_health", {
+    return planProviderLifecycle(this, provider, {
+      action: "health",
+      operation: "provider_health",
       operation_kind: "model_mount.provider.health",
+      commitRecordState: true,
     });
   }
 
   async listProviderModels(providerId) {
     const provider = this.provider(providerId);
-    throwModelMountProviderInventoryRustCoreRequired(provider, "provider_models_list", {
+    return planProviderInventory(this, provider, {
+      action: "list_models",
+      operation: "provider_models_list",
       operation_kind: "model_mount.provider.inventory.list_models",
     });
   }
 
   async listProviderLoaded(providerId) {
     const provider = this.provider(providerId);
-    throwModelMountProviderInventoryRustCoreRequired(provider, "provider_loaded_list", {
+    return planProviderInventory(this, provider, {
+      action: "list_loaded",
+      operation: "provider_loaded_list",
       operation_kind: "model_mount.provider.inventory.list_loaded",
     });
   }
 
   async startProvider(providerId) {
     const provider = this.provider(providerId);
-    throw modelMountProviderControlRustCoreRequired(provider, "provider_start");
+    return planProviderLifecycle(this, provider, {
+      action: "load",
+      operation: "provider_start",
+      operation_kind: "model_mount.provider.start",
+      commitRecordState: true,
+    });
   }
 
   async stopProvider(providerId) {
     const provider = this.provider(providerId);
-    throw modelMountProviderControlRustCoreRequired(provider, "provider_stop");
+    return planProviderLifecycle(this, provider, {
+      action: "unload",
+      operation: "provider_stop",
+      operation_kind: "model_mount.provider.stop",
+      commitRecordState: true,
+    });
   }
 
   upsertRoute(body = {}) {
@@ -1171,8 +1221,16 @@ export class ModelMountingState {
     return this.modelMountAdmissionRunner.planProviderLifecycle(request);
   }
 
+  planProviderLifecycle(provider, options = {}) {
+    return planProviderLifecycle(this, provider, options);
+  }
+
   planModelMountProviderInventory(request) {
     return this.modelMountAdmissionRunner.planProviderInventory(request);
+  }
+
+  planModelMountInstanceLifecycle(request) {
+    return this.modelMountAdmissionRunner.planInstanceLifecycle(request);
   }
 
   admitModelMountProviderResult(request) {
@@ -1183,60 +1241,24 @@ export class ModelMountingState {
     return this.modelMountAdmissionRunner.bindInvocationReceipt(request);
   }
 
-  backendLifecycleRequired(operation_kind, backendId) {
-    return this.modelMountAdmissionRunner.planBackendLifecycleRequired({
-      schema_version: "ioi.model_mount.backend_lifecycle_required.v1",
-      operation: "model_mount.backend_lifecycle",
-      operation_kind,
-      backend_id: backendId ?? "",
-      backend_kind: null,
-      source: "runtime-daemon.model_mounting.backend_lifecycle",
-      evidence_refs: [
-        "public_backend_lifecycle_js_facade_retired",
-        "rust_daemon_core_lifecycle_required",
-        "agentgres_backend_lifecycle_truth_required",
-      ],
-    });
+  planBackendLifecycle(request) {
+    if (typeof this.modelMountAdmissionRunner?.planBackendLifecycle !== "function") {
+      throwBackendLifecycleRustCoreRequired({
+        operation_kind: request?.operation_kind ?? "model_mount.backend_lifecycle",
+        details: request?.body,
+      });
+    }
+    return this.modelMountAdmissionRunner.planBackendLifecycle(request);
   }
 
-  serverControlRequired(operation_kind, details = {}) {
-    return this.modelMountAdmissionRunner.planServerControlRequired({
-      schema_version: "ioi.model_mount.server_control_required.v1",
-      operation: "model_mount.server_control",
-      operation_kind,
-      source: "runtime-daemon.model_mounting.server_control",
-      evidence_refs: [
-        "public_server_control_js_facade_retired",
-        "rust_daemon_core_server_control_required",
-        "agentgres_server_control_truth_required",
-      ],
-      details,
-    });
-  }
-
-  runtimeEngineRequired(operation_kind, details = {}) {
-    return this.modelMountAdmissionRunner.planRuntimeEngineRequired({
-      schema_version: "ioi.model_mount.runtime_engine_required.v1",
-      operation: "model_mount.runtime_engine",
-      operation_kind,
-      source: "runtime-daemon.model_mounting.runtime_engine",
-      evidence_refs: [
-        "public_runtime_engine_js_facade_retired",
-        "rust_daemon_core_runtime_engine_required",
-        "agentgres_runtime_engine_truth_required",
-      ],
-      details,
-    });
-  }
-
-  tokenizerRequired(operation, details = {}) {
-    return this.modelMountAdmissionRunner.planTokenizerRequired({
-      schema_version: "ioi.model_mount.tokenizer_required.v1",
-      operation,
-      source: "runtime-daemon.model_mounting.tokenizer",
-      evidence_refs: MODEL_TOKENIZER_RUST_CORE_REQUIRED_EVIDENCE_REFS,
-      details,
-    });
+  planRuntimeEngine(request) {
+    if (typeof this.modelMountAdmissionRunner?.planRuntimeEngine !== "function") {
+      throwRuntimeEngineRustCoreRequired({
+        operation_kind: request?.operation_kind ?? "model_mount.runtime_engine",
+        details: request?.body,
+      });
+    }
+    return this.modelMountAdmissionRunner.planRuntimeEngine(request);
   }
 
   routeControlRequired(operation_kind, details = {}) {
@@ -1254,6 +1276,72 @@ export class ModelMountingState {
     });
   }
 
+  planRouteControl(request) {
+    return this.modelMountAdmissionRunner.planRouteControl(request);
+  }
+
+  planArtifactEndpoint(request) {
+    if (typeof this.modelMountAdmissionRunner?.planArtifactEndpoint !== "function") {
+      throwArtifactEndpointRustCoreRequired(
+        request?.operation_kind ?? "model_mount.artifact_endpoint",
+        {
+          rust_core_api: "plan_model_mount_artifact_endpoint",
+        },
+      );
+    }
+    return this.modelMountAdmissionRunner.planArtifactEndpoint(request);
+  }
+
+  planStorageControl(request) {
+    if (typeof this.modelMountAdmissionRunner?.planStorageControl !== "function") {
+      throwModelStorageRustCoreRequired(
+        request?.operation_kind ?? "model_mount.storage_control",
+        {
+          rust_core_api: "plan_model_mount_storage_control",
+        },
+      );
+    }
+    return this.modelMountAdmissionRunner.planStorageControl(request);
+  }
+
+  planCatalogProviderControl(request) {
+    return this.modelMountAdmissionRunner.planCatalogProviderControl(request);
+  }
+
+  planCapabilityTokenControl(request) {
+    return this.modelMountAdmissionRunner.planCapabilityTokenControl(request);
+  }
+
+  planVaultControl(request) {
+    return this.modelMountAdmissionRunner.planVaultControl(request);
+  }
+
+  planServerControl(request) {
+    if (typeof this.modelMountAdmissionRunner?.planServerControl !== "function") {
+      throwServerControlRustCoreRequired({
+        operation_kind: request?.operation_kind ?? "model_mount.server_control",
+        details: request?.body,
+      });
+    }
+    return this.modelMountAdmissionRunner.planServerControl(request);
+  }
+
+  planReceiptGate(request) {
+    return this.modelMountAdmissionRunner.planReceiptGate(request);
+  }
+
+  planTokenizer(request) {
+    return this.modelMountAdmissionRunner.planTokenizer(request);
+  }
+
+  planModelMountConversationState(request) {
+    return this.modelMountAdmissionRunner.planConversationState(request);
+  }
+
+  planModelMountStreamCompletion(request) {
+    return this.modelMountAdmissionRunner.planStreamCompletion(request);
+  }
+
   testRoute(routeId, body = {}) {
     return testRouteState(this, routeId, body);
   }
@@ -1265,13 +1353,22 @@ export class ModelMountingState {
   modelTokenizerUtility({ authorization, requiredScope, body = {}, operation }) {
     void authorization;
     assertCanonicalModelTokenizerRequestBody(body);
-    throw modelTokenizerRustCoreRequiredError(
-      this.tokenizerRequired(operation, {
-        model: body.model ?? null,
-        route_id: body.route_id ?? null,
-        requested_scope: requiredScope ?? null,
-      }),
-    );
+    const requestBody = body && typeof body === "object" && !Array.isArray(body) ? body : {};
+    const routeSelection = this.selectRoute({
+      modelId: requestBody.model ?? requestBody.model_id ?? null,
+      routeId: requestBody.route_id ?? "route.local-first",
+      capability: requestBody.capability ?? "chat",
+      policy: requestBody.model_policy,
+      body: requestBody,
+    });
+    const plan = this.planTokenizer(tokenizerRequestForMountedState(this, {
+      operation,
+      body: requestBody,
+      requiredScope,
+      routeSelection,
+    }));
+    const commit = commitTokenizerControlPlanState(this, plan);
+    return tokenizerControlResponse(plan, commit);
   }
 
   tokenizeModel({ authorization, requiredScope = "model.tokenize:*", body = {} }) {
@@ -1299,17 +1396,6 @@ export class ModelMountingState {
       body,
       operation: "context_fit",
     });
-  }
-
-  contextWindowForEndpoint(endpoint, body = {}) {
-    const explicit = Number(body.context_length);
-    if (Number.isFinite(explicit) && explicit > 0) return Math.floor(explicit);
-    const artifact =
-      (endpoint.artifactId ? this.artifacts.get(endpoint.artifactId) : null) ??
-      [...this.artifacts.values()].find((candidate) => candidate.modelId === endpoint.modelId);
-    const artifactContext = Number(artifact?.contextWindow ?? artifact?.metadata?.contextWindow ?? artifact?.metadata?.context);
-    if (Number.isFinite(artifactContext) && artifactContext > 0) return Math.floor(artifactContext);
-    return 4096;
   }
 
   nextResponseId(requested) {
@@ -1363,21 +1449,26 @@ export class ModelMountingState {
     status = "completed",
     continuationSafety = null,
   }) {
-    void input;
-    void outputText;
-    void selection;
-    void instance;
-    void tokenCount;
-    void continuationSafety;
-    throw modelConversationRustCoreRequiredError({
-      operation: "model_conversation_state_write",
-      response_id: responseId ?? null,
-      previous_response_id: previousState?.id ?? null,
-      receipt_id: receipt?.id ?? null,
-      route_receipt_id: routeReceipt?.id ?? null,
-      stream_receipt_id: streamReceiptId,
+    const plan = this.planModelMountConversationState(modelConversationStateRequestForMountedState(this, {
+      responseId,
+      previousState,
       kind,
+      input,
+      outputText,
+      selection,
+      instance,
+      receipt,
+      routeReceipt,
+      tokenCount,
+      streamReceiptId,
       status,
+      continuationSafety,
+    }));
+    return commitModelConversationPlanRecordState(this, plan, {
+      unconfiguredCode: "model_mount_conversation_state_record_state_commit_unconfigured",
+      unconfiguredMessage:
+        "Model conversation state writes require Rust Agentgres record-state commit before response truth can return.",
+      invalidCode: "model_mount_conversation_state_record_state_commit_invalid",
     });
   }
 
@@ -1395,19 +1486,39 @@ export class ModelMountingState {
     providerResult = {},
     providerStreamShapeSummary = null,
   }) {
-    void outputText;
-    void providerUsage;
-    throw modelConversationRustCoreRequiredError({
-      operation: "model_stream_completion",
-      stream_kind: streamKind,
-      invocation_receipt_id: invocation?.receipt?.id ?? null,
-      response_id: invocation?.responseId ?? null,
-      previous_response_id: invocation?.previousResponseId ?? null,
-      chunks_forwarded: chunksForwarded,
-      finish_reason: finishReason,
-      provider_response_kind: providerResult?.providerResponseKind ?? invocation?.providerResponseKind ?? null,
-      has_provider_stream_shape_summary: Boolean(providerStreamShapeSummary),
+    const currentHead = this.agentgresModelMountingHead();
+    const receiptId = this.nextReceiptId("model_invocation_stream_completed");
+    const plan = this.planModelMountStreamCompletion(modelStreamCompletionRequestForMountedState(this, {
+      invocation,
+      streamKind,
+      outputText,
+      providerUsage,
+      chunksForwarded,
+      finishReason,
+      providerResult,
+      providerStreamShapeSummary,
+      currentHead,
+      receiptId,
+    }));
+    const conversation = commitModelConversationPlanRecordState(this, plan, {
+      unconfiguredCode: "model_mount_stream_completion_record_state_commit_unconfigured",
+      unconfiguredMessage:
+        "Model stream completion requires Rust Agentgres conversation record-state commit before stream truth can return.",
+      invalidCode: "model_mount_stream_completion_record_state_commit_invalid",
     });
+    const receipt = this.persistRustAuthoredReceipt(plan.receipt);
+    if (invocation && typeof invocation === "object") {
+      invocation.conversationState = conversation.record;
+      invocation.streamCompletionReceipt = receipt;
+    }
+    return {
+      ...receipt,
+      conversation_state: conversation.record,
+      conversationState: conversation.record,
+      stream_completion_hash: plan.stream_completion_hash,
+      conversation_hash: plan.conversation_hash,
+      record_commit: conversation.commit,
+    };
   }
 
   compileEphemeralMcpIntegrations({ authorization, body = {}, input }) {
@@ -1479,9 +1590,7 @@ export class ModelMountingState {
   }
 
   listConversations() {
-    throw modelConversationRustCoreRequiredError({
-      operation: "model_conversation_state_list",
-    });
+    return this.readProjectionFacade.listConversations(this);
   }
 
   invokeMcpTool({ authorization, body = {} }) {
@@ -1508,7 +1617,9 @@ export class ModelMountingState {
       body,
       getReceipt: (receiptId) => this.getReceipt(receiptId),
       normalizeScopes,
+      nowIso: () => this.nowIso(),
       persistRustAuthoredReceipt: (record) => this.persistRustAuthoredReceipt(record),
+      planReceiptGate: (request) => this.planReceiptGate(request),
       requiredString,
       runtimeError,
     });
@@ -1571,23 +1682,80 @@ export class ModelMountingState {
   }
 
   endpointIdsForExplicitModel(route, modelId) {
-    throwModelRouteControlRustCoreRequired(
-      this.routeControlRequired("model_mount.route.explicit_model_endpoints", {
-        route_id: route?.id ?? null,
-        model_id: modelId ?? null,
-      }),
-    );
+    const plan = this.planRouteControl(routeControlRequestForMountedState(this, {
+      operation_kind: "model_mount.route.explicit_model_endpoints",
+      route_id: route?.id ?? "route.local-first",
+      body: { model_id: modelId ?? null },
+      current_route: route ?? null,
+    }));
+    const commit = commitRouteControlPlanState(this, plan, {
+      recordDir: plan.record_dir,
+      record: plan.record,
+      operation_kind: plan.operation_kind,
+      receipt_refs: plan.receipt_refs,
+      unconfiguredCode: "model_mount_route_endpoint_resolution_commit_unconfigured",
+      unconfiguredMessage:
+        "Model route explicit endpoint resolution requires Rust Agentgres record-state commit.",
+      invalidCode: "model_mount_route_endpoint_resolution_commit_invalid",
+    });
+    void commit;
+    return Array.isArray(plan.record?.endpoint_ids) ? plan.record.endpoint_ids : [];
   }
 
-  selectRoute({ modelId, routeId, capability, policy }) {
-    void policy;
-    throwModelRouteControlRustCoreRequired(
-      this.routeControlRequired("model_mount.route.select", {
-        model_id: modelId ?? null,
-        route_id: routeId ?? null,
-        capability: capability ?? "chat",
-      }),
-    );
+  selectRoute({ modelId, routeId, capability, policy, body = {} }) {
+    const requestBody = body && typeof body === "object" && !Array.isArray(body) ? body : {};
+    const selectedRouteId = routeId ?? requestBody.route_id ?? "route.local-first";
+    const currentRoute = this.routes.get(selectedRouteId) ?? null;
+    const selectedModel = modelId ?? requestBody.model ?? requestBody.model_id ?? null;
+    const selectedCapability = capability ?? requestBody.capability ?? "chat";
+    const selectedPolicy = policy && typeof policy === "object" && !Array.isArray(policy)
+      ? policy
+      : requestBody.model_policy;
+    const plan = this.planRouteControl(routeControlRequestForMountedState(this, {
+      operation_kind: "model_mount.route.select",
+      route_id: selectedRouteId,
+      body: {
+        ...requestBody,
+        model: selectedModel,
+        route_id: selectedRouteId,
+        capability: selectedCapability,
+        ...(selectedPolicy && typeof selectedPolicy === "object" && !Array.isArray(selectedPolicy)
+          ? { model_policy: selectedPolicy }
+          : {}),
+      },
+      current_route: currentRoute,
+    }));
+    const commit = commitRouteControlPlanState(this, plan, {
+      recordDir: plan.record_dir,
+      record: plan.record,
+      operation_kind: plan.operation_kind,
+      receipt_refs: plan.receipt_refs,
+      unconfiguredCode: "model_mount_route_selection_commit_unconfigured",
+      unconfiguredMessage:
+        "Model route selection requires Rust Agentgres record-state commit before route truth can return.",
+      invalidCode: "model_mount_route_selection_commit_invalid",
+    });
+    const routeReceipt = plan.record?.accepted_receipt_record ?? null;
+    const receiptCommit = routeReceipt && typeof this.persistRustAuthoredReceipt === "function"
+      ? this.persistRustAuthoredReceipt(routeReceipt)
+      : null;
+    return {
+      route: plan.record?.route ?? null,
+      endpoint: plan.record?.endpoint ?? null,
+      provider: plan.record?.provider ?? null,
+      route_decision: plan.record?.route_decision ?? null,
+      route_receipt: routeReceipt,
+      routeReceipt,
+      route_control: {
+        record_dir: plan.record_dir,
+        record_id: plan.record_id,
+        control_hash: plan.control_hash,
+        commit,
+        receipt_commit: receiptCommit,
+      },
+      rust_core_boundary: plan.rust_core_boundary,
+      evidence_refs: plan.evidence_refs,
+    };
   }
 
   async ensureLoaded(endpoint) {
@@ -1675,16 +1843,25 @@ export class ModelMountingState {
 
   selectRuntimeEngine(body = {}) {
     const engineId = requiredString(body.engine_id, "engine_id");
-    throwRuntimeEngineRustCoreRequired(this.runtimeEngineRequired("model_mount.runtime_preference.write", { engine_id: engineId }));
+    return commitRuntimeEngineForState(this, "model_mount.runtime_preference.write", {
+      engine_id: engineId,
+      body: runtimeEngineControlBody(body),
+    });
   }
 
   updateRuntimeEngine(engineId, body = {}) {
-    void body;
-    throwRuntimeEngineRustCoreRequired(this.runtimeEngineRequired("model_mount.runtime_engine_profile.write", { engine_id: engineId }));
+    const resolvedEngineId = requiredString(engineId, "engine_id");
+    return commitRuntimeEngineForState(this, "model_mount.runtime_engine_profile.write", {
+      engine_id: resolvedEngineId,
+      body: runtimeEngineControlBody({ ...body, engine_id: resolvedEngineId }),
+    });
   }
 
   removeRuntimeEngineOverride(engineId) {
-    throwRuntimeEngineRustCoreRequired(this.runtimeEngineRequired("model_mount.runtime_engine_profile.delete", { engine_id: engineId }));
+    const resolvedEngineId = requiredString(engineId, "engine_id");
+    return commitRuntimeEngineForState(this, "model_mount.runtime_engine_profile.delete", {
+      engine_id: resolvedEngineId,
+    });
   }
 
   listRuntimeEngines() {
@@ -1787,20 +1964,37 @@ export class ModelMountingState {
   }
 
   backendHealth(backendId) {
-    throwBackendLifecycleRustCoreRequired(this.backendLifecycleRequired("model_mount.backend.health", backendId));
+    const resolvedBackendId = requiredString(backendId, "backend_id");
+    return commitBackendLifecycleForState(this, "model_mount.backend.health", {
+      backend_id: resolvedBackendId,
+    });
   }
 
   startBackend(backendId, body = {}) {
-    void body;
-    throwBackendLifecycleRustCoreRequired(this.backendLifecycleRequired("model_mount.backend.start", backendId));
+    const resolvedBackendId = requiredString(backendId, "backend_id");
+    const source = body && typeof body === "object" && !Array.isArray(body) ? body : {};
+    return commitBackendLifecycleForState(this, "model_mount.backend.start", {
+      backend_id: resolvedBackendId,
+      body: backendLifecycleControlBody({
+        ...source,
+        backend_id: resolvedBackendId,
+        load_options: source.load_options ?? source.loadOptions,
+      }),
+    });
   }
 
   stopBackend(backendId) {
-    throwBackendLifecycleRustCoreRequired(this.backendLifecycleRequired("model_mount.backend.stop", backendId));
+    const resolvedBackendId = requiredString(backendId, "backend_id");
+    return commitBackendLifecycleForState(this, "model_mount.backend.stop", {
+      backend_id: resolvedBackendId,
+    });
   }
 
   backendLogs(backendId) {
-    throwBackendLifecycleRustCoreRequired(this.backendLifecycleRequired("model_mount.backend.logs_read", backendId));
+    const resolvedBackendId = requiredString(backendId, "backend_id");
+    return commitBackendLifecycleForState(this, "model_mount.backend.logs_read", {
+      backend_id: resolvedBackendId,
+    });
   }
 
   writeBackendLog(endpointId, event) {
@@ -1842,7 +2036,7 @@ function throwBackendLifecycleRustCoreRequired(record = {}) {
       ? record.evidence_refs
       : [
           "public_backend_lifecycle_js_facade_retired",
-          "rust_daemon_core_lifecycle_required",
+          "rust_daemon_core_backend_lifecycle",
           "agentgres_backend_lifecycle_truth_required",
         ];
   throw runtimeError({
@@ -1853,10 +2047,89 @@ function throwBackendLifecycleRustCoreRequired(record = {}) {
       "Backend lifecycle facade control requires Rust daemon-core model_mount lifecycle ownership.",
     details: {
       ...details,
+      operation_kind: details.operation_kind ?? record.operation_kind ?? "model_mount.backend_lifecycle",
       rust_core_boundary: details.rust_core_boundary ?? record.rust_core_boundary ?? "model_mount.backend_lifecycle",
       evidence_refs: evidenceRefs,
     },
   });
+}
+
+function commitBackendLifecycleForState(state, operation_kind, details = {}) {
+  if (typeof state.planBackendLifecycle !== "function") {
+    throwBackendLifecycleRustCoreRequired({
+      operation_kind,
+      details,
+    });
+  }
+  const body = backendLifecycleControlBody({
+    ...details,
+    ...(details.body && typeof details.body === "object" && !Array.isArray(details.body) ? details.body : {}),
+  });
+  const plan = state.planBackendLifecycle({
+    schema_version: "ioi.model_mount.backend_lifecycle.v1",
+    operation_kind,
+    backend_id: optionalString(details.backend_id) ?? optionalString(body.backend_id),
+    backend_kind: optionalString(details.backend_kind) ?? optionalString(body.backend_kind),
+    source: "runtime-daemon.model_mounting.backend_lifecycle",
+    generated_at: typeof state.nowIso === "function" ? state.nowIso() : null,
+    body,
+    receipt_refs: uniqueModelMountRefs([
+      details.receipt_id,
+      body.receipt_id,
+      ...(Array.isArray(body.receipt_refs) ? body.receipt_refs : []),
+    ]),
+  });
+  const commit = commitModelMountRecordState(state, {
+    recordDir: plan.record_dir,
+    record: plan.record,
+    operation_kind: plan.operation_kind,
+    receipt_refs: plan.receipt_refs,
+    unconfiguredCode: "model_mount_backend_lifecycle_record_state_commit_unconfigured",
+    unconfiguredMessage:
+      "Backend lifecycle requires Rust Agentgres record-state commit before backend lifecycle truth can return.",
+    unconfiguredDetails: {
+      rust_core_boundary: plan.rust_core_boundary ?? "model_mount.backend_lifecycle",
+      operation_kind: plan.operation_kind ?? operation_kind,
+    },
+    invalidCode: "model_mount_backend_lifecycle_record_state_commit_invalid",
+  });
+  const publicResponse =
+    plan.public_response && typeof plan.public_response === "object" && !Array.isArray(plan.public_response)
+      ? plan.public_response
+      : {};
+  return {
+    ...publicResponse,
+    status: publicResponse.status ?? plan.status ?? "planned",
+    operation_kind: plan.operation_kind,
+    rust_core_boundary: plan.rust_core_boundary,
+    record_dir: plan.record_dir,
+    record_id: plan.record_id,
+    record: plan.record,
+    commit,
+    receipt_refs: plan.receipt_refs,
+    evidence_refs: plan.evidence_refs,
+    control_hash: plan.control_hash,
+  };
+}
+
+function backendLifecycleControlBody(value = {}) {
+  const source = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const body = {};
+  for (const field of [
+    "backend_id",
+    "backend_kind",
+    "receipt_id",
+    "base_url",
+    "status",
+    "reason",
+    "limit",
+    "details",
+    "load_options",
+    "receipt_refs",
+  ]) {
+    if (Object.hasOwn(source, field) && source[field] !== undefined) body[field] = source[field];
+  }
+  return body;
 }
 
 function throwBackendProjectionRustCoreRequired(operation_kind) {
@@ -1886,7 +2159,7 @@ function throwServerControlRustCoreRequired(record = {}) {
       ? record.evidence_refs
       : [
           "public_server_control_js_facade_retired",
-          "rust_daemon_core_server_control_required",
+          "rust_daemon_core_server_control",
           "agentgres_server_control_truth_required",
         ];
   throw runtimeError({
@@ -1897,10 +2170,90 @@ function throwServerControlRustCoreRequired(record = {}) {
       "Server-control facade requires Rust daemon-core model_mount server-control ownership.",
     details: {
       ...details,
+      operation_kind: details.operation_kind ?? record.operation_kind ?? "model_mount.server_control",
       rust_core_boundary: details.rust_core_boundary ?? record.rust_core_boundary ?? "model_mount.server_control",
       evidence_refs: evidenceRefs,
     },
   });
+}
+
+function commitServerControlForState(state, operation_kind, details = {}) {
+  if (typeof state.planServerControl !== "function") {
+    throwServerControlRustCoreRequired({
+      operation_kind,
+      details,
+    });
+  }
+  const body = serverControlBody({
+    ...details,
+    ...(details.body && typeof details.body === "object" && !Array.isArray(details.body) ? details.body : {}),
+  });
+  const plan = state.planServerControl({
+    schema_version: "ioi.model_mount.server_control.v1",
+    operation_kind,
+    server_control_id: optionalString(details.server_control_id) ?? SERVER_CONTROL_RECORD_ID,
+    source: "runtime-daemon.model_mounting.server_control",
+    generated_at: typeof state.nowIso === "function" ? state.nowIso() : null,
+    body,
+    receipt_refs: uniqueModelMountRefs([
+      details.receipt_id,
+      body.receipt_id,
+      ...(Array.isArray(body.receipt_refs) ? body.receipt_refs : []),
+    ]),
+  });
+  const commit = commitModelMountRecordState(state, {
+    recordDir: plan.record_dir,
+    record: plan.record,
+    operation_kind: plan.operation_kind,
+    receipt_refs: plan.receipt_refs,
+    unconfiguredCode: "model_mount_server_control_record_state_commit_unconfigured",
+    unconfiguredMessage:
+      "Server control requires Rust Agentgres record-state commit before server-control truth can return.",
+    unconfiguredDetails: {
+      rust_core_boundary: plan.rust_core_boundary ?? "model_mount.server_control",
+      operation_kind: plan.operation_kind ?? operation_kind,
+    },
+    invalidCode: "model_mount_server_control_record_state_commit_invalid",
+  });
+  const publicResponse =
+    plan.public_response && typeof plan.public_response === "object" && !Array.isArray(plan.public_response)
+      ? plan.public_response
+      : {};
+  return {
+    ...publicResponse,
+    status: publicResponse.status ?? plan.status ?? "planned",
+    operation_kind: plan.operation_kind,
+    rust_core_boundary: plan.rust_core_boundary,
+    record_dir: plan.record_dir,
+    record_id: plan.record_id,
+    record: plan.record,
+    commit,
+    receipt_refs: plan.receipt_refs,
+    evidence_refs: plan.evidence_refs,
+    control_hash: plan.control_hash,
+  };
+}
+
+function serverControlBody(value = {}) {
+  const source = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const body = {};
+  for (const field of [
+    "server_control_id",
+    "receipt_id",
+    "base_url",
+    "operation",
+    "status",
+    "reason",
+    "limit",
+    "event",
+    "level",
+    "message",
+    "details",
+    "receipt_refs",
+  ]) {
+    if (Object.hasOwn(source, field) && source[field] !== undefined) body[field] = source[field];
+  }
+  return body;
 }
 
 function throwRuntimeEngineRustCoreRequired(record = {}) {
@@ -1913,7 +2266,7 @@ function throwRuntimeEngineRustCoreRequired(record = {}) {
       ? record.evidence_refs
       : [
           "public_runtime_engine_js_facade_retired",
-          "rust_daemon_core_runtime_engine_required",
+          "rust_daemon_core_runtime_engine",
           "agentgres_runtime_engine_truth_required",
         ];
   throw runtimeError({
@@ -1924,10 +2277,84 @@ function throwRuntimeEngineRustCoreRequired(record = {}) {
       "Runtime-engine mutation facade requires Rust daemon-core model_mount runtime-engine ownership.",
     details: {
       ...details,
+      operation_kind: details.operation_kind ?? record.operation_kind ?? "model_mount.runtime_engine",
       rust_core_boundary: details.rust_core_boundary ?? record.rust_core_boundary ?? "model_mount.runtime_engine",
       evidence_refs: evidenceRefs,
     },
   });
+}
+
+function commitRuntimeEngineForState(state, operation_kind, details = {}) {
+  if (typeof state.planRuntimeEngine !== "function") {
+    throwRuntimeEngineRustCoreRequired({
+      operation_kind,
+      details,
+    });
+  }
+  const body = runtimeEngineControlBody({
+    ...details,
+    ...(details.body && typeof details.body === "object" && !Array.isArray(details.body) ? details.body : {}),
+  });
+  const plan = state.planRuntimeEngine({
+    schema_version: "ioi.model_mount.runtime_engine.v1",
+    operation_kind,
+    engine_id: optionalString(details.engine_id) ?? optionalString(body.engine_id),
+    source: "runtime-daemon.model_mounting.runtime_engine",
+    generated_at: typeof state.nowIso === "function" ? state.nowIso() : null,
+    body,
+    receipt_refs: uniqueModelMountRefs([
+      details.receipt_id,
+      body.receipt_id,
+      ...(Array.isArray(body.receipt_refs) ? body.receipt_refs : []),
+    ]),
+  });
+  const commit = commitModelMountRecordState(state, {
+    recordDir: plan.record_dir,
+    record: plan.record,
+    operation_kind: plan.operation_kind,
+    receipt_refs: plan.receipt_refs,
+    unconfiguredCode: "model_mount_runtime_engine_record_state_commit_unconfigured",
+    unconfiguredMessage:
+      "Runtime engine requires Rust Agentgres record-state commit before runtime-engine truth can return.",
+    unconfiguredDetails: {
+      rust_core_boundary: plan.rust_core_boundary ?? "model_mount.runtime_engine",
+      operation_kind: plan.operation_kind ?? operation_kind,
+    },
+    invalidCode: "model_mount_runtime_engine_record_state_commit_invalid",
+  });
+  const publicResponse =
+    plan.public_response && typeof plan.public_response === "object" && !Array.isArray(plan.public_response)
+      ? plan.public_response
+      : {};
+  return {
+    ...publicResponse,
+    status: publicResponse.status ?? plan.status ?? "planned",
+    operation_kind: plan.operation_kind,
+    rust_core_boundary: plan.rust_core_boundary,
+    record_dir: plan.record_dir,
+    record_id: plan.record_id,
+    record: plan.record,
+    commit,
+    receipt_refs: plan.receipt_refs,
+    evidence_refs: plan.evidence_refs,
+    control_hash: plan.control_hash,
+  };
+}
+
+function runtimeEngineControlBody(value = {}) {
+  const source = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const body = {};
+  for (const field of [
+    "engine_id",
+    "receipt_id",
+    "default_load_options",
+    "operator_label",
+    "details",
+    "receipt_refs",
+  ]) {
+    if (Object.hasOwn(source, field) && source[field] !== undefined) body[field] = source[field];
+  }
+  return body;
 }
 
 function backendProcessSupervisorRetiredError(operation_kind, backend = {}, details = {}) {
@@ -2024,33 +2451,16 @@ function assertCanonicalModelStorageRequestBody(body = {}) {
 function throwModelStorageRustCoreRequired(operation_kind, details = {}) {
   throw runtimeError({
     status: 501,
-    code: "model_mount_storage_rust_core_required",
+    code: "model_mount_storage_control_rust_core_required",
     message:
-      "Model storage mutation facades require Rust daemon-core model_mount storage ownership.",
+      "Model storage/download control requires Rust daemon-core model_mount storage-control ownership.",
     details: {
       operation_kind,
-      rust_core_boundary: "model_mount.storage",
+      rust_core_boundary: "model_mount.storage_control",
       evidence_refs: [
         "public_model_storage_js_facade_retired",
-        "rust_daemon_core_model_storage_required",
-      ],
-      ...details,
-    },
-  });
-}
-
-function throwCapabilityTokenRustCoreRequired(operation_kind, details = {}) {
-  throw runtimeError({
-    status: 501,
-    code: "model_mount_capability_token_rust_core_required",
-    message:
-      "Capability token mutation and authorization facades require Rust daemon-core wallet authority ownership.",
-    details: {
-      operation_kind,
-      rust_core_boundary: "model_mount.capability_token",
-      evidence_refs: [
-        "public_capability_token_js_facade_retired",
-        "rust_daemon_core_wallet_authority_required",
+        "rust_daemon_core_model_storage",
+        "agentgres_model_storage_truth_required",
       ],
       ...details,
     },
@@ -2070,25 +2480,6 @@ function assertCanonicalVaultOperationRequestBody(body = {}) {
     canonical_fields: CANONICAL_VAULT_OPERATION_REQUEST_FIELDS,
   };
   throw error;
-}
-
-function throwVaultRustCoreRequired(operation_kind, details = {}) {
-  throw runtimeError({
-    status: 501,
-    code: "model_mount_vault_rust_core_required",
-    message:
-      "Vault mutation, health, and projection facades require Rust daemon-core wallet/cTEE custody ownership.",
-    details: {
-      operation_kind,
-      rust_core_boundary: "model_mount.vault",
-      evidence_refs: [
-        "public_vault_js_facade_retired",
-        "rust_daemon_core_wallet_vault_required",
-        "rust_daemon_core_ctee_custody_required",
-      ],
-      ...details,
-    },
-  });
 }
 
 function assertCanonicalModelImportRequestBody(body = {}) {
@@ -2203,11 +2594,210 @@ function throwArtifactEndpointRustCoreRequired(operation_kind, details = {}) {
       rust_core_boundary: "model_mount.artifact_endpoint",
       evidence_refs: [
         "public_artifact_endpoint_js_facade_retired",
-        "rust_daemon_core_artifact_endpoint_required",
+        "rust_daemon_core_artifact_endpoint",
+        "agentgres_artifact_endpoint_truth_required",
       ],
       ...details,
     },
   });
+}
+
+function planAndCommitArtifactEndpoint(state, operation_kind, options = {}) {
+  if (typeof state.planArtifactEndpoint !== "function") {
+    throwArtifactEndpointRustCoreRequired(operation_kind, {
+      rust_core_api: "plan_model_mount_artifact_endpoint",
+    });
+  }
+  const body = artifactEndpointBody(options.body);
+  const plan = state.planArtifactEndpoint({
+    schema_version: MODEL_MOUNT_ARTIFACT_ENDPOINT_SCHEMA_VERSION,
+    operation_kind,
+    source: "runtime-daemon.model_mounting.artifact_endpoint",
+    generated_at: typeof state.nowIso === "function" ? state.nowIso() : null,
+    body,
+    receipt_refs: uniqueModelMountRefs([
+      body.receipt_id,
+      ...(Array.isArray(body.receipt_refs) ? body.receipt_refs : []),
+    ]),
+    authority_grant_refs: uniqueModelMountRefs(
+      Array.isArray(body.authority_grant_refs) ? body.authority_grant_refs : [],
+    ),
+    authority_receipt_refs: uniqueModelMountRefs(
+      Array.isArray(body.authority_receipt_refs) ? body.authority_receipt_refs : [],
+    ),
+    custody_ref: optionalString(options.custodyRef) ?? optionalString(body.custody_ref),
+    required_scope: optionalString(options.requiredScope),
+  });
+  const commit = commitModelMountRecordState(state, {
+    recordDir: plan.record_dir,
+    record: plan.record,
+    operation_kind: plan.operation_kind,
+    receipt_refs: plan.receipt_refs,
+    unconfiguredCode: "model_mount_artifact_endpoint_record_state_commit_unconfigured",
+    unconfiguredMessage:
+      "Artifact and endpoint mutation requires Rust Agentgres record-state commit before public model-mount truth can return.",
+    unconfiguredDetails: {
+      rust_core_boundary: plan.rust_core_boundary ?? "model_mount.artifact_endpoint",
+      operation_kind: plan.operation_kind ?? operation_kind,
+    },
+    invalidCode: "model_mount_artifact_endpoint_record_state_commit_invalid",
+  });
+  const publicResponse =
+    plan.public_response && typeof plan.public_response === "object" && !Array.isArray(plan.public_response)
+      ? plan.public_response
+      : {};
+  return {
+    ...publicResponse,
+    status: publicResponse.status ?? "committed",
+    operation_kind: plan.operation_kind,
+    rust_core_boundary: plan.rust_core_boundary,
+    record_dir: plan.record_dir,
+    record_id: plan.record_id,
+    record: plan.record,
+    commit,
+    receipt_refs: plan.receipt_refs,
+    authority_grant_refs: plan.authority_grant_refs,
+    authority_receipt_refs: plan.authority_receipt_refs,
+    evidence_refs: plan.evidence_refs,
+    control_hash: plan.control_hash,
+    authority_hash: plan.authority_hash,
+  };
+}
+
+function artifactEndpointBody(value = {}) {
+  const source = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const body = {};
+  for (const field of [
+    "artifact_id",
+    "endpoint_id",
+    "model_id",
+    "source_path",
+    "local_path",
+    "import_mode",
+    "provider_id",
+    "provider_kind",
+    "display_name",
+    "family",
+    "quantization",
+    "size_bytes",
+    "context_window",
+    "capabilities",
+    "privacy_class",
+    "api_format",
+    "base_url",
+    "backend_id",
+    "driver",
+    "load_policy",
+    "receipt_id",
+    "receipt_refs",
+    "authority_grant_refs",
+    "authority_receipt_refs",
+    "custody_ref",
+  ]) {
+    if (Object.hasOwn(source, field) && source[field] !== undefined) body[field] = source[field];
+  }
+  return body;
+}
+
+function planAndCommitStorageControl(state, operation_kind, options = {}) {
+  if (typeof state.planStorageControl !== "function") {
+    throwModelStorageRustCoreRequired(operation_kind, {
+      rust_core_api: "plan_model_mount_storage_control",
+    });
+  }
+  const body = storageControlBody(options.body);
+  const plan = state.planStorageControl({
+    schema_version: MODEL_MOUNT_STORAGE_CONTROL_SCHEMA_VERSION,
+    operation_kind,
+    source: "runtime-daemon.model_mounting.storage_control",
+    generated_at: typeof state.nowIso === "function" ? state.nowIso() : null,
+    body,
+    receipt_refs: uniqueModelMountRefs([
+      body.receipt_id,
+      ...(Array.isArray(body.receipt_refs) ? body.receipt_refs : []),
+    ]),
+    authority_grant_refs: uniqueModelMountRefs(
+      Array.isArray(body.authority_grant_refs) ? body.authority_grant_refs : [],
+    ),
+    authority_receipt_refs: uniqueModelMountRefs(
+      Array.isArray(body.authority_receipt_refs) ? body.authority_receipt_refs : [],
+    ),
+    custody_ref: optionalString(options.custodyRef) ?? optionalString(body.custody_ref),
+    required_scope: optionalString(options.requiredScope),
+  });
+  const commit = commitModelMountRecordState(state, {
+    recordDir: plan.record_dir,
+    record: plan.record,
+    operation_kind: plan.operation_kind,
+    receipt_refs: plan.receipt_refs,
+    unconfiguredCode: "model_mount_storage_control_record_state_commit_unconfigured",
+    unconfiguredMessage:
+      "Model storage/download control requires Rust Agentgres record-state commit before public model-mount truth can return.",
+    unconfiguredDetails: {
+      rust_core_boundary: plan.rust_core_boundary ?? "model_mount.storage_control",
+      operation_kind: plan.operation_kind ?? operation_kind,
+    },
+    invalidCode: "model_mount_storage_control_record_state_commit_invalid",
+  });
+  const publicResponse =
+    plan.public_response && typeof plan.public_response === "object" && !Array.isArray(plan.public_response)
+      ? plan.public_response
+      : {};
+  return {
+    ...publicResponse,
+    status: publicResponse.status ?? "committed",
+    operation_kind: plan.operation_kind,
+    rust_core_boundary: plan.rust_core_boundary,
+    record_dir: plan.record_dir,
+    record_id: plan.record_id,
+    record: plan.record,
+    commit,
+    receipt_refs: plan.receipt_refs,
+    authority_grant_refs: plan.authority_grant_refs,
+    authority_receipt_refs: plan.authority_receipt_refs,
+    evidence_refs: plan.evidence_refs,
+    control_hash: plan.control_hash,
+    authority_hash: plan.authority_hash,
+  };
+}
+
+function storageControlBody(value = {}) {
+  const source = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const body = {};
+  for (const field of [
+    "import_id",
+    "download_id",
+    "job_id",
+    "artifact_id",
+    "model_id",
+    "provider_id",
+    "catalog_provider_id",
+    "source_url",
+    "source_label",
+    "file_name",
+    "fixture_content",
+    "transfer_approved",
+    "bytes_total",
+    "max_bytes",
+    "simulate_failure",
+    "failure_reason",
+    "queued_only",
+    "expected_checksum",
+    "display_name",
+    "context_window",
+    "privacy_class",
+    "cleanup_partial",
+    "dry_run",
+    "remove_orphans",
+    "receipt_id",
+    "receipt_refs",
+    "authority_grant_refs",
+    "authority_receipt_refs",
+    "custody_ref",
+  ]) {
+    if (Object.hasOwn(source, field) && source[field] !== undefined) body[field] = source[field];
+  }
+  return body;
 }
 
 function assertCanonicalCatalogImportUrlRequestBody(body = {}) {
@@ -2273,22 +2863,22 @@ function requestAliasError({ code, message, retiredAliases, canonicalFields }) {
   return error;
 }
 
-function throwCatalogDownloadRustCoreRequired(operation_kind, details = {}) {
-  throw runtimeError({
-    status: 501,
-    code: "model_mount_catalog_download_rust_core_required",
-    message:
-      "Catalog import and download mutation facades require Rust daemon-core model_mount catalog/download ownership.",
-    details: {
-      operation_kind,
-      rust_core_boundary: "model_mount.catalog_download",
-      evidence_refs: [
-        "public_catalog_download_js_facade_retired",
-        "rust_daemon_core_catalog_download_required",
-      ],
-      ...details,
-    },
-  });
+function planAndCommitCatalogProviderControl(state, operation_kind, options = {}) {
+  const plan = catalogProviderControlPlanForState(state, operation_kind, options);
+  const commit = commitCatalogProviderControlPlan(state, plan);
+  return catalogProviderControlResponse(plan, commit);
+}
+
+function planAndCommitCapabilityTokenControl(state, operation_kind, options = {}) {
+  const plan = capabilityTokenControlPlanForState(state, operation_kind, options);
+  const commit = commitCapabilityTokenControlPlan(state, plan);
+  return capabilityTokenControlResponse(plan, commit);
+}
+
+function planAndCommitVaultControl(state, operation_kind, options = {}) {
+  const plan = vaultControlPlanForState(state, operation_kind, options);
+  const commit = commitVaultControlPlan(state, plan);
+  return vaultControlResponse(plan, commit);
 }
 
 function throwCatalogVariantEnrichmentRetired() {
@@ -2323,29 +2913,6 @@ function assertCanonicalModelTokenizerRequestBody(body = {}) {
     canonical_fields: ["route_id", "model_policy", "context_length", "max_output_tokens"],
   };
   throw error;
-}
-
-function modelTokenizerRustCoreRequiredError(record = {}) {
-  const details = record.details && typeof record.details === "object" && !Array.isArray(record.details)
-    ? record.details
-    : {};
-  const evidenceRefs = Array.isArray(details.evidence_refs)
-    ? details.evidence_refs
-    : Array.isArray(record.evidence_refs)
-      ? record.evidence_refs
-      : MODEL_TOKENIZER_RUST_CORE_REQUIRED_EVIDENCE_REFS;
-  const error = new Error(
-    record.message ??
-      "Model tokenization and context-fit utilities require direct Rust daemon-core admission and projection.",
-  );
-  error.status = record.status_code ?? 501;
-  error.code = record.code ?? "model_mount_tokenizer_rust_core_required";
-  error.details = {
-    ...details,
-    rust_core_boundary: details.rust_core_boundary ?? record.rust_core_boundary ?? "model_mount.tokenizer",
-    evidence_refs: evidenceRefs,
-  };
-  return error;
 }
 
 function assertNoRetiredLifecycleSubjectAliases(details = {}) {
@@ -2406,18 +2973,272 @@ function modelLifecycleReceiptRustCoreRequiredError(details = {}) {
   return error;
 }
 
-function modelConversationRustCoreRequiredError(details = {}) {
-  const error = new Error(
-    "Model conversation state and stream completion finalization require direct Rust daemon-core admission and projection.",
-  );
-  error.status = 501;
-  error.code = "model_mount_conversation_rust_core_required";
-  error.details = {
-    rust_core_boundary: "model_mount.conversation",
-    ...details,
-    evidence_refs: MODEL_CONVERSATION_RUST_CORE_REQUIRED_EVIDENCE_REFS,
+function modelConversationStateRequestForMountedState(
+  state,
+  {
+    responseId,
+    previousState,
+    kind,
+    input,
+    outputText,
+    selection,
+    instance,
+    receipt,
+    routeReceipt,
+    tokenCount,
+    streamReceiptId = null,
+    status = "completed",
+    continuationSafety = null,
+  } = {},
+) {
+  return {
+    schema_version: MODEL_MOUNT_CONVERSATION_STATE_SCHEMA_VERSION,
+    operation: "model_conversation_state_write",
+    response_id: requiredModelConversationString("response_id", responseId),
+    previous_response_id: optionalString(previousState?.id),
+    root_response_id:
+      optionalString(previousState?.root_response_id) ??
+      optionalString(previousState?.id) ??
+      optionalString(responseId),
+    previous_message_count: normalizedMessageCount(previousState?.message_count),
+    kind: requiredModelConversationString("kind", kind),
+    status: requiredModelConversationString("status", status),
+    source: "runtime-daemon.model_mounting.conversation_state",
+    generated_at: state.nowIso(),
+    route_ref: requiredModelConversationString("route_ref", selection?.route?.id ?? previousState?.route_id),
+    endpoint_ref: requiredModelConversationString(
+      "endpoint_ref",
+      selection?.endpoint?.id ?? previousState?.endpoint_id,
+    ),
+    provider_ref: requiredModelConversationString(
+      "provider_ref",
+      selection?.provider?.id ??
+        selection?.endpoint?.provider_id ??
+        selection?.endpoint?.providerId ??
+        previousState?.provider_id,
+    ),
+    model_ref: requiredModelConversationString(
+      "model_ref",
+      selection?.endpoint?.model_id ??
+        selection?.endpoint?.modelId ??
+        previousState?.selected_model,
+    ),
+    instance_ref: optionalString(instance?.id ?? previousState?.instance_id),
+    route_decision_ref: optionalString(
+      routeReceipt?.details?.model_mount_route_decision_ref ??
+        selection?.route_decision?.route_decision_ref ??
+        previousState?.route_decision_ref,
+    ),
+    route_receipt_ref: modelMountReceiptRef(routeReceipt?.id),
+    invocation_receipt_ref: modelMountReceiptRef(receipt?.id),
+    stream_receipt_ref: modelMountReceiptRef(streamReceiptId),
+    input_text: modelConversationText(input),
+    output_text: modelConversationText(outputText),
+    token_count: tokenCount ?? null,
+    continuation_safety: continuationSafety ?? null,
+    receipt_refs: uniqueModelMountRefs([
+      modelMountReceiptRef(routeReceipt?.id),
+      modelMountReceiptRef(receipt?.id),
+      modelMountReceiptRef(streamReceiptId),
+    ]),
   };
-  return error;
+}
+
+function modelStreamCompletionRequestForMountedState(
+  state,
+  {
+    invocation,
+    streamKind,
+    outputText,
+    providerUsage,
+    chunksForwarded,
+    finishReason,
+    providerResult,
+    providerStreamShapeSummary,
+    currentHead,
+    receiptId,
+  } = {},
+) {
+  const routeReceipt = invocation?.routeReceipt;
+  const receipt = invocation?.receipt;
+  const endpoint = invocation?.endpoint ?? {};
+  const route = invocation?.route ?? {};
+  const previousState = invocation?.previousConversationState ?? null;
+  return {
+    schema_version: MODEL_MOUNT_STREAM_COMPLETION_SCHEMA_VERSION,
+    operation: "model_stream_completion",
+    response_id: requiredModelConversationString("response_id", invocation?.responseId),
+    previous_response_id: optionalString(invocation?.previousResponseId),
+    root_response_id:
+      optionalString(previousState?.root_response_id) ??
+      optionalString(previousState?.id) ??
+      optionalString(invocation?.responseId),
+    previous_message_count: normalizedMessageCount(previousState?.message_count),
+    kind: requiredModelConversationString("kind", invocation?.kind),
+    stream_kind: requiredModelConversationString("stream_kind", streamKind),
+    source: "runtime-daemon.model_mounting.stream_completion",
+    generated_at: state.nowIso(),
+    receipt_id: requiredModelConversationString("receipt_id", receiptId),
+    current_sequence: normalizeNonNegativeInteger(currentHead?.sequence, 0),
+    current_head_ref: requiredModelConversationString("current_head_ref", currentHead?.head_ref),
+    current_state_root: requiredModelConversationString("current_state_root", currentHead?.state_root),
+    invocation_receipt_ref: requiredModelConversationString(
+      "invocation_receipt_ref",
+      modelMountReceiptRef(receipt?.id),
+    ),
+    route_decision_ref: requiredModelConversationString(
+      "route_decision_ref",
+      routeReceipt?.details?.model_mount_route_decision_ref ??
+        receipt?.details?.model_mount_route_decision_ref,
+    ),
+    route_receipt_ref: modelMountReceiptRef(routeReceipt?.id),
+    route_ref: requiredModelConversationString("route_ref", route.id ?? receipt?.details?.route_id),
+    endpoint_ref: requiredModelConversationString("endpoint_ref", endpoint.id ?? receipt?.details?.endpoint_id),
+    provider_ref: requiredModelConversationString(
+      "provider_ref",
+      endpoint.provider_id ?? endpoint.providerId ?? receipt?.details?.provider_id,
+    ),
+    model_ref: requiredModelConversationString(
+      "model_ref",
+      endpoint.model_id ?? endpoint.modelId ?? invocation?.model ?? receipt?.details?.selected_model,
+    ),
+    instance_ref: optionalString(invocation?.instance?.id ?? receipt?.details?.instance_id),
+    input_text: modelConversationText(invocation?.input),
+    output_text: modelConversationText(outputText),
+    token_count: invocation?.tokenCount ?? null,
+    provider_usage: providerUsage ?? null,
+    provider_result: providerResult ?? {},
+    provider_stream_shape_summary: providerStreamShapeSummary ?? null,
+    chunks_forwarded: normalizeNonNegativeInteger(chunksForwarded, 0),
+    finish_reason: optionalString(finishReason),
+    provider_response_kind: optionalString(
+      providerResult?.provider_response_kind ??
+        providerResult?.providerResponseKind ??
+        invocation?.providerResponseKind,
+    ),
+    receipt_refs: uniqueModelMountRefs([
+      modelMountReceiptRef(routeReceipt?.id),
+      modelMountReceiptRef(receipt?.id),
+      ...(invocation?.toolReceiptIds ?? []).map(modelMountReceiptRef),
+      modelMountReceiptRef(receiptId),
+    ]),
+  };
+}
+
+function commitModelConversationPlanRecordState(
+  state,
+  plan,
+  {
+    unconfiguredCode,
+    unconfiguredMessage,
+    invalidCode,
+  } = {},
+) {
+  assertRustModelConversationPlan(plan);
+  const commit = commitModelMountRecordState(state, {
+    recordDir: plan.record_dir,
+    record: plan.record,
+    operation_kind: plan.operation_kind,
+    receipt_refs: plan.receipt_refs ?? [],
+    unconfiguredCode,
+    unconfiguredMessage,
+    invalidCode,
+  });
+  state.conversations?.set?.(plan.record_id, plan.record);
+  return {
+    ...plan.record,
+    object: plan.record.object ?? "ioi.model_mount_conversation_state",
+    record_dir: plan.record_dir,
+    record_id: plan.record_id,
+    record: plan.record,
+    commit,
+    receipt_refs: plan.receipt_refs,
+    evidence_refs: plan.evidence_refs,
+    conversation_hash: plan.conversation_hash,
+    stream_completion_hash: plan.stream_completion_hash ?? null,
+    rust_core_boundary: plan.rust_core_boundary,
+    source: plan.source,
+  };
+}
+
+function assertRustModelConversationPlan(plan = {}) {
+  const evidenceRefs = Array.isArray(plan.evidence_refs) ? plan.evidence_refs : [];
+  const missing = [];
+  if (plan.rust_core_boundary !== "model_mount.conversation") missing.push("rust_core_boundary");
+  if (plan.record_dir !== "model-conversations") missing.push("record_dir");
+  if (!plan.record_id) missing.push("record_id");
+  if (!plan.record || typeof plan.record !== "object") missing.push("record");
+  if (plan.record?.id !== plan.record_id) missing.push("record.id");
+  if (!plan.operation_kind) missing.push("operation_kind");
+  if (!plan.conversation_hash) missing.push("conversation_hash");
+  if (
+    !evidenceRefs.includes("model_mount_conversation_state_rust_owned") &&
+    !evidenceRefs.includes("model_mount_stream_completion_rust_owned")
+  ) {
+    missing.push("evidence_refs.model_mount_conversation_or_stream_rust_owned");
+  }
+  if (!evidenceRefs.includes("agentgres_model_conversation_truth_required")) {
+    missing.push("evidence_refs.agentgres_model_conversation_truth_required");
+  }
+  if (
+    evidenceRefs.includes("model_mount_conversation_state_rust_owned") &&
+    !evidenceRefs.includes("rust_daemon_core_model_conversation_state")
+  ) {
+    missing.push("evidence_refs.rust_daemon_core_model_conversation_state");
+  }
+  if (
+    evidenceRefs.includes("model_mount_stream_completion_rust_owned") &&
+    !evidenceRefs.includes("rust_daemon_core_model_stream_completion")
+  ) {
+    missing.push("evidence_refs.rust_daemon_core_model_stream_completion");
+  }
+  if (missing.length === 0) return;
+  throw runtimeError({
+    status: 502,
+    code: "model_mount_conversation_plan_invalid",
+    message: "Model conversation state requires a Rust-authored model_mount conversation plan.",
+    details: {
+      missing,
+      source: plan.source ?? null,
+      backend: plan.backend ?? null,
+    },
+  });
+}
+
+function requiredModelConversationString(field, value) {
+  const normalized = optionalString(value);
+  if (normalized) return normalized;
+  throw runtimeError({
+    status: 400,
+    code: "model_mount_conversation_request_invalid",
+    message: "Model conversation request is missing a required Rust-owned boundary field.",
+    details: { field },
+  });
+}
+
+function modelMountReceiptRef(value) {
+  const normalized = optionalString(value);
+  if (!normalized) return null;
+  return normalized.includes("://") ? normalized : `receipt://${normalized}`;
+}
+
+function modelConversationText(value) {
+  if (value == null) return "";
+  if (typeof value === "string") return value;
+  return JSON.stringify(value);
+}
+
+function normalizedMessageCount(value) {
+  return Number.isInteger(value) && value >= 0 ? value : null;
+}
+
+function uniqueModelMountRefs(values = []) {
+  const refs = [];
+  for (const value of values) {
+    const normalized = optionalString(value);
+    if (normalized && !refs.includes(normalized)) refs.push(normalized);
+  }
+  return refs;
 }
 
 function assertCanonicalEphemeralMcpIntegration(integration = {}) {
@@ -2556,6 +3377,563 @@ function assertCanonicalProviderUpsertRequestBody(body = {}) {
   });
 }
 
+function planProviderLifecycle(state, provider, options = {}) {
+  const request = modelMountProviderLifecycleRequest(state, provider, options);
+  if (typeof state.planModelMountProviderLifecycle !== "function") {
+    throwProviderLifecycleRustCoreRequired(provider, options.operation ?? "provider_lifecycle", {
+      operation_kind: options.operation_kind ?? "model_mount.provider.lifecycle",
+      rust_core_api: "plan_model_mount_provider_lifecycle",
+    });
+  }
+  const result = state.planModelMountProviderLifecycle(request);
+  assertRustAuthoredProviderLifecycleResult(result, options);
+  if (!options.commitRecordState) return result;
+  const commit = commitProviderLifecycleRecordState(state, result);
+  const publicResponse =
+    result.public_response && typeof result.public_response === "object" && !Array.isArray(result.public_response)
+      ? result.public_response
+      : {};
+  return {
+    ...publicResponse,
+    ...result,
+    status: result.status ?? publicResponse.status ?? result.result?.status ?? null,
+    commit,
+  };
+}
+
+function modelMountProviderLifecycleRequest(state, provider, options = {}) {
+  const operation = options.operation ?? "provider_lifecycle";
+  const action = options.action ?? "health";
+  const operation_kind = options.operation_kind ?? "model_mount.provider.lifecycle";
+  const executionBackend = providerLifecycleExecutionBackend(provider);
+  if (!executionBackend) {
+    throwProviderLifecycleRustCoreRequired(provider, operation, {
+      operation_kind,
+      unsupported_provider_lifecycle_backend: true,
+    });
+  }
+  const subject = providerLifecycleSubject(state, provider, { operation, operation_kind, endpoint: options.endpoint });
+  return {
+    schema_version: MODEL_MOUNT_PROVIDER_LIFECYCLE_SCHEMA_VERSION,
+    provider_ref: provider?.provider_ref ?? `provider://${provider?.id}`,
+    provider_kind: provider?.kind ?? "",
+    endpoint_ref: subject.endpoint_ref,
+    model_ref: subject.model_ref,
+    action,
+    execution_backend: executionBackend,
+    api_format: provider?.api_format ?? provider?.apiFormat ?? null,
+    driver: provider?.driver ?? null,
+    backend_ref: subject.backend_ref,
+    provider_status: provider?.status ?? null,
+    evidence_refs: providerLifecycleEvidenceRefs(provider, operation),
+    process_evidence_refs: [],
+    operation_kind,
+    source: "runtime-daemon.model_mounting.provider_lifecycle",
+    generated_at: typeof state.nowIso === "function" ? state.nowIso() : null,
+    receipt_refs: uniqueModelMountRefs(
+      Array.isArray(options.receipt_refs)
+        ? options.receipt_refs
+        : [options.receipt_refs],
+    ),
+  };
+}
+
+function providerLifecycleExecutionBackend(provider = {}) {
+  const providerKind = String(provider?.kind ?? "").trim();
+  const driver = String(provider?.driver ?? "").trim();
+  const apiFormat = String(provider?.api_format ?? provider?.apiFormat ?? "").trim();
+  if (providerKind === "ioi_native_local" || driver === "native_local" || apiFormat === "ioi_native") {
+    return RUST_MODEL_MOUNT_NATIVE_LOCAL_LIFECYCLE_BACKEND;
+  }
+  if (
+    providerKind === "local_folder" ||
+    driver === "fixture" ||
+    apiFormat === "ioi_fixture" ||
+    apiFormat === "fixture"
+  ) {
+    return RUST_MODEL_MOUNT_FIXTURE_LIFECYCLE_BACKEND;
+  }
+  return null;
+}
+
+function providerLifecycleSubject(state, provider, options = {}) {
+  const endpoint = options.endpoint ?? [...(state.endpoints?.values?.() ?? [])].find(
+    (candidate) =>
+      candidate?.providerId === provider?.id &&
+      candidate.status !== "unmounted",
+  );
+  const modelRef = endpoint?.model_ref ?? endpoint?.modelId ?? endpoint?.model_id ?? null;
+  if (!endpoint || !endpoint.id || !modelRef || String(modelRef).trim().toLowerCase() === "auto") {
+    throwProviderLifecycleRustCoreRequired(provider, options.operation ?? "provider_lifecycle", {
+      operation_kind: options.operation_kind ?? "model_mount.provider.lifecycle",
+      missing: [
+        ...(!endpoint || !endpoint.id ? ["endpoint_ref"] : []),
+        ...(!modelRef || String(modelRef).trim().toLowerCase() === "auto" ? ["model_ref"] : []),
+      ],
+    });
+  }
+  return {
+    endpoint_ref: endpoint.endpoint_ref ?? `endpoint://${endpoint.id}`,
+    model_ref: endpoint.model_ref ?? `model://${modelRef}`,
+    backend_ref: endpoint.backend_ref ?? endpoint.backendId ?? provider?.backend_ref ?? null,
+  };
+}
+
+function providerLifecycleEvidenceRefs(provider = {}, operation) {
+  return [
+    "public_provider_lifecycle_rust_facade",
+    ...(Array.isArray(provider?.discovery?.evidenceRefs) ? provider.discovery.evidenceRefs : []),
+    operation,
+  ].filter(Boolean);
+}
+
+function planProviderInventory(state, provider, options = {}) {
+  const request = modelMountProviderInventoryRequest(provider, options);
+  if (typeof state.planModelMountProviderInventory !== "function") {
+    throwModelMountProviderInventoryRustCoreRequired(provider, options.operation ?? "provider_inventory", {
+      operation_kind: options.operation_kind ?? "model_mount.provider.inventory",
+      rust_core_api: "plan_model_mount_provider_inventory",
+    });
+  }
+  const result = state.planModelMountProviderInventory(request);
+  assertRustAuthoredProviderInventoryResult(result, options);
+  const commit = commitProviderInventoryRecordState(state, result);
+  return {
+    ...result,
+    commit,
+  };
+}
+
+function modelMountProviderInventoryRequest(provider, options = {}) {
+  const operation = options.operation ?? "provider_inventory";
+  const action = options.action ?? "list_models";
+  const operation_kind = options.operation_kind ?? "model_mount.provider.inventory";
+  const executionBackend = providerInventoryExecutionBackend(provider);
+  if (!executionBackend) {
+    throwModelMountProviderInventoryRustCoreRequired(provider, operation, {
+      operation_kind,
+      unsupported_provider_inventory_backend: true,
+    });
+  }
+  return {
+    schema_version: MODEL_MOUNT_PROVIDER_INVENTORY_SCHEMA_VERSION,
+    provider_ref: provider?.provider_ref ?? `provider://${provider?.id}`,
+    provider_kind: provider?.kind ?? "",
+    action,
+    execution_backend: executionBackend,
+    api_format: provider?.api_format ?? provider?.apiFormat ?? null,
+    driver: provider?.driver ?? null,
+    backend_ref: provider?.backend_ref ?? provider?.backend_id ?? provider?.backendId ?? null,
+    provider_status: provider?.status ?? null,
+    item_refs: [],
+    evidence_refs: providerInventoryEvidenceRefs(provider, operation),
+  };
+}
+
+function providerInventoryExecutionBackend(provider = {}) {
+  const providerKind = String(provider?.kind ?? "").trim();
+  const driver = String(provider?.driver ?? "").trim();
+  const apiFormat = String(provider?.api_format ?? provider?.apiFormat ?? "").trim();
+  if (providerKind === "ioi_native_local" || driver === "native_local" || apiFormat === "ioi_native") {
+    return RUST_MODEL_MOUNT_NATIVE_LOCAL_INVENTORY_BACKEND;
+  }
+  if (
+    providerKind === "local_folder" ||
+    driver === "fixture" ||
+    apiFormat === "ioi_fixture" ||
+    apiFormat === "fixture"
+  ) {
+    return RUST_MODEL_MOUNT_FIXTURE_INVENTORY_BACKEND;
+  }
+  return null;
+}
+
+function providerInventoryEvidenceRefs(provider = {}, operation) {
+  return [
+    "public_provider_inventory_rust_facade",
+    ...(Array.isArray(provider?.discovery?.evidenceRefs) ? provider.discovery.evidenceRefs : []),
+    operation,
+  ].filter(Boolean);
+}
+
+function assertRustAuthoredProviderInventoryResult(result = {}, options = {}) {
+  const record = result.result && typeof result.result === "object" && !Array.isArray(result.result)
+    ? result.result
+    : {};
+  const inventoryRecord = result.record && typeof result.record === "object" && !Array.isArray(result.record)
+    ? result.record
+    : {};
+  const evidenceRefs = Array.isArray(result.evidence_refs)
+    ? result.evidence_refs
+    : Array.isArray(record.evidence_refs)
+      ? record.evidence_refs
+      : [];
+  const recordEvidenceRefs = Array.isArray(inventoryRecord.evidence_refs) ? inventoryRecord.evidence_refs : [];
+  const itemRefs = Array.isArray(result.itemRefs)
+    ? result.itemRefs
+    : Array.isArray(record.item_refs)
+      ? record.item_refs
+      : null;
+  const itemCount = result.itemCount ?? record.item_count;
+  const inventory_hash = result.inventory_hash ?? record.inventory_hash ?? inventoryRecord.inventory_hash;
+  const recordId = result.record_id ?? inventoryRecord.id ?? inventoryRecord.record_id;
+  const operationKind = result.operation_kind ?? record.operation_kind ?? inventoryRecord.operation_kind;
+  const rustCoreBoundary = result.rust_core_boundary ?? record.rust_core_boundary ?? inventoryRecord.rust_core_boundary;
+  const missing = [];
+  const mismatches = [];
+  if (!record.provider_ref) missing.push("result.provider_ref");
+  if (!record.provider_kind) missing.push("result.provider_kind");
+  if (!record.action) {
+    missing.push("result.action");
+  } else if (options.action && record.action !== options.action) {
+    mismatches.push("result.action");
+  }
+  if (!inventory_hash) missing.push("inventory_hash");
+  if (!result.executionBackend && !record.execution_backend) missing.push("execution_backend");
+  if (!result.status && !record.status) missing.push("status");
+  if (!Array.isArray(itemRefs)) missing.push("item_refs");
+  if (itemCount === null || itemCount === undefined) missing.push("item_count");
+  if (!operationKind) {
+    missing.push("operation_kind");
+  } else if (options.operation_kind && operationKind !== options.operation_kind) {
+    mismatches.push("operation_kind");
+  }
+  if (rustCoreBoundary !== "model_mount.provider_inventory") missing.push("rust_core_boundary");
+  if (result.record_dir !== "model-provider-inventory") missing.push("record_dir");
+  if (!recordId) missing.push("record_id");
+  if (!result.record || typeof result.record !== "object" || Array.isArray(result.record)) missing.push("record");
+  if (inventoryRecord.id !== recordId) mismatches.push("record.id");
+  if (inventoryRecord.record_id !== recordId) mismatches.push("record.record_id");
+  if (inventoryRecord.object !== "ioi.model_mount_provider_inventory") missing.push("record.object");
+  if (inventoryRecord.schema_version !== MODEL_MOUNT_PROVIDER_INVENTORY_SCHEMA_VERSION) missing.push("record.schema_version");
+  if (inventoryRecord.provider_ref !== record.provider_ref) mismatches.push("record.provider_ref");
+  if (inventoryRecord.action !== record.action) mismatches.push("record.action");
+  if (inventoryRecord.inventory_hash !== inventory_hash) mismatches.push("record.inventory_hash");
+  if (inventoryRecord.rust_core_boundary !== "model_mount.provider_inventory") {
+    missing.push("record.rust_core_boundary");
+  }
+  if (!Array.isArray(result.receipt_refs)) missing.push("receipt_refs");
+  if (!evidenceRefs.includes("rust_model_mount_provider_inventory")) {
+    missing.push("evidence_refs.rust_model_mount_provider_inventory");
+  }
+  if (!evidenceRefs.includes("agentgres_provider_inventory_truth_required")) {
+    missing.push("evidence_refs.agentgres_provider_inventory_truth_required");
+  }
+  if (!recordEvidenceRefs.includes("rust_model_mount_provider_inventory")) {
+    missing.push("record.evidence_refs.rust_model_mount_provider_inventory");
+  }
+  if (!recordEvidenceRefs.includes("agentgres_provider_inventory_truth_required")) {
+    missing.push("record.evidence_refs.agentgres_provider_inventory_truth_required");
+  }
+  if (missing.length === 0 && mismatches.length === 0) return;
+  throw runtimeError({
+    status: 502,
+    code: "model_mount_provider_inventory_rust_result_required",
+    message: "Provider inventory facade requires a Rust-authored model_mount provider inventory result.",
+    details: {
+      operation: options.operation ?? null,
+      action: options.action ?? null,
+      missing,
+      mismatches,
+    },
+  });
+}
+
+function commitProviderInventoryRecordState(state, plan = {}) {
+  return commitModelMountRecordState(state, {
+    recordDir: plan.record_dir,
+    record: plan.record,
+    operation_kind: plan.operation_kind,
+    receipt_refs: Array.isArray(plan.receipt_refs) ? plan.receipt_refs : [],
+    unconfiguredCode: "model_mount_provider_inventory_record_state_commit_unconfigured",
+    unconfiguredMessage:
+      "Provider inventory requires Rust Agentgres record-state commit before inventory truth can return.",
+    unconfiguredDetails: {
+      rust_core_boundary: plan.rust_core_boundary ?? "model_mount.provider_inventory",
+      operation_kind: plan.operation_kind ?? null,
+      inventory_hash: plan.inventory_hash ?? plan.result?.inventory_hash ?? null,
+    },
+    invalidCode: "model_mount_provider_inventory_record_state_commit_invalid",
+  });
+}
+
+function assertRustAuthoredProviderLifecycleResult(result = {}, options = {}) {
+  const record = result.result && typeof result.result === "object" && !Array.isArray(result.result)
+    ? result.result
+    : {};
+  const lifecycleRecord = result.record && typeof result.record === "object" && !Array.isArray(result.record)
+    ? result.record
+    : {};
+  const evidenceRefs = Array.isArray(result.evidence_refs)
+    ? result.evidence_refs
+    : Array.isArray(record.evidence_refs)
+      ? record.evidence_refs
+      : [];
+  const missing = [];
+  const mismatches = [];
+  if (!result.lifecycle_hash && !record.lifecycle_hash) missing.push("lifecycle_hash");
+  if (!evidenceRefs.includes("rust_model_mount_provider_lifecycle")) {
+    missing.push("evidence_refs.rust_model_mount_provider_lifecycle");
+  }
+  if (options.commitRecordState && !evidenceRefs.includes("agentgres_provider_lifecycle_truth_required")) {
+    missing.push("evidence_refs.agentgres_provider_lifecycle_truth_required");
+  }
+  if (!result.executionBackend && !record.execution_backend) missing.push("execution_backend");
+  if (!result.status && !record.status) missing.push("status");
+  if (!record.action) {
+    missing.push("result.action");
+  } else if (options.action && record.action !== options.action) {
+    mismatches.push("result.action");
+  }
+  if (options.commitRecordState) {
+    const lifecycleHash = result.lifecycle_hash ?? record.lifecycle_hash ?? lifecycleRecord.lifecycle_hash;
+    const operationKind = result.operation_kind ?? record.operation_kind ?? lifecycleRecord.operation_kind;
+    const rustCoreBoundary = result.rust_core_boundary ?? record.rust_core_boundary ?? lifecycleRecord.rust_core_boundary;
+    const recordDir = result.record_dir ?? record.record_dir ?? lifecycleRecord.record_dir;
+    const recordId = result.record_id ?? record.record_id ?? lifecycleRecord.record_id ?? lifecycleRecord.id;
+    const recordEvidenceRefs = Array.isArray(lifecycleRecord.evidence_refs) ? lifecycleRecord.evidence_refs : [];
+    if (!operationKind) {
+      missing.push("operation_kind");
+    } else if (options.operation_kind && operationKind !== options.operation_kind) {
+      mismatches.push("operation_kind");
+    }
+    if (rustCoreBoundary !== "model_mount.provider_lifecycle") missing.push("rust_core_boundary");
+    if (recordDir !== "model-provider-lifecycle-controls") missing.push("record_dir");
+    if (!recordId) missing.push("record_id");
+    if (!result.record || typeof result.record !== "object" || Array.isArray(result.record)) missing.push("record");
+    if (lifecycleRecord.id !== recordId) mismatches.push("record.id");
+    if (lifecycleRecord.record_id !== recordId) mismatches.push("record.record_id");
+    if (lifecycleRecord.object !== "ioi.model_mount_provider_lifecycle") missing.push("record.object");
+    if (lifecycleRecord.rust_core_boundary !== "model_mount.provider_lifecycle") {
+      missing.push("record.rust_core_boundary");
+    }
+    if (lifecycleRecord.lifecycle_hash !== lifecycleHash) mismatches.push("record.lifecycle_hash");
+    if (!Array.isArray(result.receipt_refs)) missing.push("receipt_refs");
+    if (!recordEvidenceRefs.includes("rust_model_mount_provider_lifecycle")) {
+      missing.push("record.evidence_refs.rust_model_mount_provider_lifecycle");
+    }
+    if (!recordEvidenceRefs.includes("agentgres_provider_lifecycle_truth_required")) {
+      missing.push("record.evidence_refs.agentgres_provider_lifecycle_truth_required");
+    }
+  }
+  if (missing.length === 0 && mismatches.length === 0) return;
+  throw runtimeError({
+    status: 502,
+    code: "model_mount_provider_lifecycle_rust_result_required",
+    message: "Provider lifecycle facade requires a Rust-authored model_mount provider lifecycle result.",
+    details: {
+      operation: options.operation ?? null,
+      action: options.action ?? null,
+      missing,
+      mismatches,
+    },
+  });
+}
+
+function commitProviderLifecycleRecordState(state, plan = {}) {
+  return commitModelMountRecordState(state, {
+    recordDir: plan.record_dir,
+    record: plan.record,
+    operation_kind: plan.operation_kind,
+    receipt_refs: Array.isArray(plan.receipt_refs) ? plan.receipt_refs : [],
+    unconfiguredCode: "model_mount_provider_lifecycle_record_state_commit_unconfigured",
+    unconfiguredMessage:
+      "Provider lifecycle requires Rust Agentgres record-state commit before provider lifecycle truth can return.",
+    unconfiguredDetails: {
+      rust_core_boundary: plan.rust_core_boundary ?? "model_mount.provider_lifecycle",
+      operation_kind: plan.operation_kind ?? null,
+      lifecycle_hash: plan.lifecycle_hash ?? plan.result?.lifecycle_hash ?? null,
+    },
+    invalidCode: "model_mount_provider_lifecycle_record_state_commit_invalid",
+  });
+}
+
+function planModelInstanceLifecycle(state, options = {}) {
+  const request = modelMountInstanceLifecycleRequest(options);
+  if (typeof state.planModelMountInstanceLifecycle !== "function") {
+    throwModelLoadingRustCoreRequired(
+      options.action === "unload" ? "model_unload" : "model_load",
+      options.provider,
+      {
+        operation_kind: `model_mount.instance.${options.action ?? "lifecycle"}`,
+        rust_core_api: "plan_model_mount_instance_lifecycle",
+        endpoint_id: options.endpoint?.id ?? options.endpoint?.endpoint_id ?? null,
+        model_id: options.modelId ?? options.endpoint?.modelId ?? options.endpoint?.model_id ?? null,
+        backend_id: options.backendId ?? null,
+      },
+    );
+  }
+  const result = state.planModelMountInstanceLifecycle(request);
+  assertRustAuthoredModelInstanceLifecycleResult(result, options);
+  return result;
+}
+
+function modelMountInstanceLifecycleRequest({
+  action,
+  targetStatus,
+  endpoint = {},
+  provider = {},
+  instance = null,
+  instanceId,
+  modelId,
+  backendId,
+  providerLifecycle,
+  evidenceRefs = [],
+} = {}) {
+  const endpointId = requiredString(endpoint.id ?? endpoint.endpoint_id ?? endpoint.endpointId, "endpoint_id");
+  const resolvedModelId = requiredString(
+    modelId ?? instance?.model_id ?? instance?.modelId ?? endpoint.model_id ?? endpoint.modelId,
+    "model_id",
+  );
+  const providerId = requiredString(
+    instance?.provider_id ?? instance?.providerId ?? provider.id ?? endpoint.provider_id ?? endpoint.providerId,
+    "provider_id",
+  );
+  const resolvedInstanceId = requiredString(instanceId ?? instance?.id, "instance_id");
+  const resolvedBackendId = requiredString(
+    backendId ?? instance?.backend_id ?? instance?.backendId ?? endpoint.backend_id ?? endpoint.backendId,
+    "backend_id",
+  );
+  const driver = requiredString(provider.driver ?? provider.driver_ref ?? endpoint.driver, "driver");
+  const provider_lifecycle_hash = requiredProviderLifecycleHash(providerLifecycle);
+  return {
+    schema_version: MODEL_MOUNT_INSTANCE_LIFECYCLE_SCHEMA_VERSION,
+    instance_ref: resolvedInstanceId,
+    endpoint_ref: endpointId,
+    model_ref: resolvedModelId,
+    provider_ref: providerId,
+    action,
+    target_status: targetStatus,
+    execution_backend: RUST_MODEL_MOUNT_INSTANCE_LIFECYCLE_BACKEND,
+    backend_ref: resolvedBackendId,
+    driver,
+    provider_lifecycle_hash,
+    evidence_refs: [
+      ...new Set([
+        "public_model_loading_rust_facade",
+        ...evidenceRefs,
+      ].filter(Boolean)),
+    ],
+  };
+}
+
+function requiredProviderLifecycleHash(providerLifecycle = {}) {
+  const record = providerLifecycle.result && typeof providerLifecycle.result === "object" && !Array.isArray(providerLifecycle.result)
+    ? providerLifecycle.result
+    : {};
+  const provider_lifecycle_hash = providerLifecycle.lifecycle_hash ?? record.lifecycle_hash;
+  if (provider_lifecycle_hash) return provider_lifecycle_hash;
+  throw runtimeError({
+    status: 502,
+    code: "model_mount_instance_lifecycle_provider_hash_required",
+    message: "Model instance lifecycle requires a Rust provider lifecycle hash.",
+    details: {
+      rust_core_boundary: "model_mount.instance_lifecycle",
+      provider_lifecycle_source: providerLifecycle.source ?? null,
+    },
+  });
+}
+
+function assertRustAuthoredModelInstanceLifecycleResult(result = {}, options = {}) {
+  const record = result.result && typeof result.result === "object" && !Array.isArray(result.result)
+    ? result.result
+    : {};
+  const evidenceRefs = Array.isArray(result.evidence_refs)
+    ? result.evidence_refs
+    : Array.isArray(record.evidence_refs)
+      ? record.evidence_refs
+      : [];
+  const missing = [];
+  const mismatches = [];
+  for (const field of ["id", "endpoint_id", "model_id", "provider_id", "instance_lifecycle_hash"]) {
+    if (!record[field]) missing.push(`result.${field}`);
+  }
+  if (!result.executionBackend && !record.execution_backend) missing.push("execution_backend");
+  if (!result.status && !record.status) missing.push("status");
+  if (!evidenceRefs.includes("rust_model_mount_instance_lifecycle")) {
+    missing.push("evidence_refs.rust_model_mount_instance_lifecycle");
+  }
+  if (options.action && record.action !== options.action) mismatches.push("result.action");
+  if (options.targetStatus && record.status !== options.targetStatus) mismatches.push("result.status");
+  if (missing.length === 0 && mismatches.length === 0) return;
+  throw runtimeError({
+    status: 502,
+    code: "model_mount_instance_lifecycle_rust_result_required",
+    message: "Model loading facade requires a Rust-authored model_mount instance lifecycle result.",
+    details: {
+      operation: options.action ?? null,
+      target_status: options.targetStatus ?? null,
+      missing,
+      mismatches,
+    },
+  });
+}
+
+function commitModelInstanceLifecycleRecordState(state, lifecycle, { operation_kind, providerLifecycle } = {}) {
+  const record = lifecycle.result;
+  const commit = commitModelMountRecordState(state, {
+    recordDir: "model-instances",
+    record,
+    operation_kind,
+    receipt_refs: [],
+    unconfiguredCode: "model_mount_instance_lifecycle_record_state_commit_unconfigured",
+    unconfiguredMessage:
+      "Model instance lifecycle requires Rust Agentgres record-state commit before public model-instance truth can return.",
+    invalidCode: "model_mount_instance_lifecycle_record_state_commit_invalid",
+  });
+  state.instances?.set?.(record.id, record);
+  return modelInstanceLifecycleResponse(lifecycle, commit, providerLifecycle);
+}
+
+function modelInstanceLifecycleResponse(lifecycle, commit, providerLifecycle = {}) {
+  const record = lifecycle.result;
+  return {
+    ...record,
+    object: "ioi.model_mount_instance",
+    record_dir: "model-instances",
+    record_id: record.id,
+    record,
+    commit,
+    provider_lifecycle: providerLifecycle.result ?? null,
+    provider_lifecycle_hash: lifecycle.provider_lifecycle_hash ?? record.provider_lifecycle_hash ?? null,
+    instance_lifecycle_hash: lifecycle.instance_lifecycle_hash ?? record.instance_lifecycle_hash ?? null,
+    evidence_refs: lifecycle.evidence_refs ?? record.evidence_refs ?? [],
+  };
+}
+
+function defaultModelInstanceId(endpoint = {}, loadOptions = {}) {
+  return `model_instance.${safeId(endpoint.id ?? "endpoint")}.${safeId(loadOptions.identifier ?? endpoint.modelId ?? endpoint.model_id ?? "model")}`;
+}
+
+function throwProviderLifecycleRustCoreRequired(provider, operation, details = {}) {
+  if (operation === "provider_health") {
+    throwModelMountProviderHealthRustCoreRequired(provider, operation, details);
+  }
+  throw modelMountProviderControlRustCoreRequired(provider, operation, details);
+}
+
+function routeControlRequestForMountedState(
+  state,
+  {
+    operation_kind,
+    route_id,
+    body = {},
+    current_route = null,
+  } = {},
+) {
+  return {
+    schema_version: MODEL_MOUNT_ROUTE_CONTROL_SCHEMA_VERSION,
+    operation_kind,
+    source: "runtime-daemon.model_mounting.route_control",
+    route_id,
+    generated_at: typeof state.nowIso === "function" ? state.nowIso() : null,
+    body,
+    current_route,
+    endpoints: [...(state.endpoints?.values?.() ?? [])],
+    providers: [...(state.providers?.values?.() ?? [])],
+  };
+}
+
 function modelMountProviderControlRustCoreRequired(provider, operation, details = {}) {
   const error = new Error("Provider control requires direct Rust daemon-core support.");
   error.status = 501;
@@ -2597,7 +3975,7 @@ function throwModelMountProviderHealthRustCoreRequired(provider, operation, deta
 }
 
 function throwModelMountProviderInventoryRustCoreRequired(provider, operation, details = {}) {
-  const error = new Error("Provider inventory reads require direct Rust daemon-core projection support.");
+  const error = new Error("Provider inventory reads require Rust daemon-core record truth and replay support.");
   error.status = 501;
   error.code = "model_mount_provider_inventory_rust_core_required";
   error.details = {
@@ -2611,7 +3989,8 @@ function throwModelMountProviderInventoryRustCoreRequired(provider, operation, d
     evidence_refs: [
       "model_mount_provider_inventory_js_facade_retired",
       "rust_daemon_core_provider_inventory_required",
-      "agentgres_provider_inventory_projection_required",
+      "agentgres_provider_inventory_truth_required",
+      "agentgres_provider_inventory_replay_required",
     ],
   };
   throw error;

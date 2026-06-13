@@ -368,7 +368,7 @@ pub fn admit_model_mount_invocation_response(
     }))
 }
 
-fn rust_authored_route_selection_receipt(
+pub(super) fn rust_authored_route_selection_receipt(
     record: &ModelMountRouteDecisionRecord,
 ) -> Result<Value, ModelMountError> {
     let receipt_ref = record

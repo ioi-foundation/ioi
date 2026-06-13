@@ -244,7 +244,7 @@ function fakeState(overrides = {}) {
     },
     selectRoute(payload) {
       this.selectRoutePayload = payload;
-      return selection();
+      return selectionWithRouteReceipt(this.routeSelection ?? selection());
     },
     validateContinuationSafety(payload) {
       this.continuationPayload = payload;
@@ -268,6 +268,10 @@ function fakeState(overrides = {}) {
           admission: { admission_hash: `admit:${request.record_id}` },
         },
       };
+    },
+    persistRustAuthoredReceipt(record) {
+      this.receipts.push(record);
+      return record;
     },
     appendOperation(kind, payload) {
       this.appendOperations.push({ kind, payload });
@@ -309,12 +313,32 @@ function selection(overrides = {}) {
   };
 }
 
+function selectionWithRouteReceipt(selected = selection()) {
+  return {
+    ...selected,
+    route_decision: {
+      route_decision_ref: "model_mount://route_decision/test",
+      route_decision_hash: "sha256:route-decision-test",
+    },
+    route_receipt: {
+      id: "receipt.route",
+      kind: "model_route_selection",
+      details: {
+        rust_daemon_core_receipt_author: "ModelMountCore.admit_route_decision",
+        model_mount_route_decision_ref: "model_mount://route_decision/test",
+        workflow_graph_id: "workflow.graph",
+        workflow_node_id: "workflow.node",
+      },
+      schemaVersion: "ioi.model-mounting.runtime.v1",
+    },
+  };
+}
+
 function deps(overrides = {}) {
   return {
     inputText: () => "user: hello",
     modelInvocationCoalesceKey: () => null,
     optionalString: (value) => (typeof value === "string" && value ? value : null),
-    providerRequestBodyForRoute: (body, endpoint) => ({ ...body, model: endpoint.model_id }),
     stableHash: (value) => `hash:${value}`,
     supportsResponseState: (kind) => kind === "responses",
     ...overrides,
@@ -556,103 +580,113 @@ test("model invocations reject retired authority request aliases before authoriz
   assert.deepEqual(state.authorizationCalls, []);
 });
 
-test("invokeModel public facade fails closed before JS route selection, provider execution, receipts, or projection mutation", async () => {
+test("invokeModel public facade executes migrated fixture through Rust model_mount admission, provider execution, and receipt binding", async () => {
   const state = fakeState();
 
-  await assert.rejects(
-    () =>
-      invokeModel(
-        state,
-        {
-          authorization: "Bearer token",
-          requiredScope: "model.chat:*",
-          kind: "responses",
-          body: { model: "model.local", response_id: "resp.custom", memory: { enabled: true } },
-        },
-        deps(),
-      ),
-    (error) => {
-      assert.equal(error.status, 501);
-      assert.equal(error.code, "model_mount_invocation_rust_core_required");
-      assert.equal(error.details.rust_core_boundary, "model_mount.invocation");
-      assert.equal(error.details.operation_kind, "model_mount.invocation.invoke");
-      assert.equal(error.details.kind, "responses");
-      assert.equal(error.details.model_id, "model.local");
-      assert.equal(error.details.route_id, null);
-      assert.equal(error.details.required_scope, "model.chat:*");
-      assert.equal(error.details.stream, false);
-      assert.deepEqual(error.details.evidence_refs, [
-        "model_mount_invocation_js_facade_retired",
-        "rust_daemon_core_model_invocation_required",
-        "agentgres_model_invocation_truth_required",
-      ]);
-      return true;
+  const invocation = await invokeModel(
+    state,
+    {
+      authorization: "Bearer token",
+      requiredScope: "model.chat:*",
+      kind: "responses",
+      body: { model: "model.local", response_id: "resp.custom", memory: { enabled: true } },
     },
+    deps(),
   );
 
+  assert.equal(invocation.outputText, "provider answer");
+  assert.equal(invocation.model, "model.local");
+  assert.equal(invocation.receipt.kind, "model_invocation");
+  assert.equal(invocation.receipt.schemaVersion, "ioi.model-mounting.runtime.v1");
+  assert.ok(invocation.receipt.evidenceRefs.includes("rust_model_mount_core"));
+  assert.ok(invocation.receipt.evidenceRefs.includes("model_mount_invocation_positive_rust_path"));
+  assert.equal(invocation.receipt.details.required_scope, "model.chat:*");
+  assert.equal(
+    invocation.receipt.details.rust_daemon_core_receipt_author,
+    "ModelMountCore.bind_model_mount_invocation_receipt",
+  );
+  assert.equal(
+    invocation.receipt.details.model_mount_route_decision_ref,
+    "model_mount://route_decision/test",
+  );
+  assert.equal(
+    invocation.receipt.details.model_mount_agentgres_operation_ref,
+    "agentgres://model-mounting/accepted-receipts/op_00000001_model_invocation",
+  );
+  assert.equal(invocation.receipt.details.model_mount_provider_execution_ref, "model_mount://provider_execution/1");
+  assert.equal(invocation.receipt.details.model_mount_provider_result_admission_ref, "model_mount://provider_result/1");
+  assert.equal(invocation.receipt.details.model_mount_invocation_admission_ref, "model_mount://invocation_admission/1");
+  assert.equal(invocation.receipt.details.model_mount_step_module_invocation.module_ref.kind, "model_mount");
+  assert.equal(
+    invocation.receipt.details.model_mount_step_module_result.resulting_head,
+    "agentgres://model-mounting/accepted-receipts/head/1",
+  );
   assert.deepEqual(state.authorizationCalls, []);
-  assert.equal(state.selectRoutePayload, undefined);
+  assert.equal(state.selectRoutePayload.capability, "responses");
   assert.equal(state.routeSelectionPayload, undefined);
-  assert.equal(state.loadedEndpointId, undefined);
-  assert.equal(state.providerExecutionRequests.length, 0);
-  assert.equal(state.providerInvocationRequests.length, 0);
-  assert.equal(state.providerResultRequests.length, 0);
-  assert.equal(state.receiptBindingRequests.length, 0);
-  assert.equal(state.transitionRequests.length, 0);
-  assert.equal(state.receipts.length, 0);
+  assert.equal(state.loadedEndpointId, "endpoint.local");
+  assert.equal(state.providerExecutionRequests.length, 1);
+  assert.equal(state.providerInvocationRequests.length, 1);
+  assert.equal(state.providerResultRequests.length, 1);
+  assert.equal(state.receiptBindingRequests.length, 1);
+  assert.equal(state.transitionRequests.length, 1);
+  assert.equal(state.receipts.length, 1);
   assert.deepEqual(state.recordedConversations, []);
   assert.deepEqual(state.recordStateCommits, []);
   assert.deepEqual(state.writes, []);
   assert.deepEqual(state.appendOperations, []);
 });
 
-test("startModelStream public facade fails closed before JS stream routing, provider execution, receipts, or fallback", async () => {
-  let streamCalls = 0;
+test("startModelStream public facade executes native-local stream through Rust model_mount without JS fallback", async () => {
   const state = fakeState({
-    driver: {
-      supportsStream: () => true,
-      async streamInvoke() {
-        streamCalls += 1;
-        return { provider_response_kind: "openai.responses.stream" };
+    routeSelection: selection({
+      route: { id: "route.native-local" },
+      endpoint: {
+        id: "endpoint.native-local",
+        model_id: "model.native",
+        provider_id: "provider.native",
+        api_format: "ioi_native",
+        driver: "native_local",
+        backend_id: "backend.native",
       },
-    },
+      provider: {
+        id: "provider.native",
+        kind: "ioi_native_local",
+        driver: "native_local",
+      },
+    }),
   });
 
-  await assert.rejects(
-    () =>
-      startModelStream(
-        state,
-        {
-          authorization: "Bearer token",
-          requiredScope: "model.responses:*",
-          kind: "responses",
-          body: { model: "model.local", route_id: "route.local-first", response_id: "resp.stream", stream: true },
-        },
-        deps(),
-      ),
-    (error) => {
-      assert.equal(error.status, 501);
-      assert.equal(error.code, "model_mount_invocation_rust_core_required");
-      assert.equal(error.details.rust_core_boundary, "model_mount.invocation");
-      assert.equal(error.details.operation_kind, "model_mount.invocation.stream_start");
-      assert.equal(error.details.kind, "responses");
-      assert.equal(error.details.model_id, "model.local");
-      assert.equal(error.details.route_id, "route.local-first");
-      assert.equal(error.details.required_scope, "model.responses:*");
-      assert.equal(error.details.stream, true);
-      return true;
+  const stream = await startModelStream(
+    state,
+    {
+      authorization: "Bearer token",
+      requiredScope: "model.responses:*",
+      kind: "responses",
+      body: { model: "model.native", route_id: "route.native-local", response_id: "resp.stream", stream: true },
     },
+    deps(),
   );
 
-  assert.equal(streamCalls, 0);
+  const streamText = await readReadableStreamText(stream.providerStream);
+  assert.equal(stream.native, true);
+  assert.equal(stream.invocation.outputText, "");
+  assert.equal(stream.invocation.model, "model.native");
+  assert.equal(stream.invocation.receipt.kind, "model_invocation");
+  assert.equal(stream.invocation.receipt.details.stream_status, "started");
+  assert.equal(stream.invocation.receipt.details.model_mount_provider_result_admission_ref, "model_mount://provider_result/1");
+  assert.equal(stream.providerResult.streamFormat, "ioi_jsonl");
+  assert.match(streamText, /done/);
   assert.deepEqual(state.authorizationCalls, []);
-  assert.equal(state.selectRoutePayload, undefined);
+  assert.equal(state.selectRoutePayload.routeId, "route.native-local");
   assert.equal(state.routeSelectionPayload, undefined);
-  assert.equal(state.providerExecutionRequests.length, 0);
-  assert.equal(state.providerStreamInvocationRequests.length, 0);
-  assert.equal(state.providerResultRequests.length, 0);
+  assert.equal(state.providerExecutionRequests.length, 1);
+  assert.equal(state.providerStreamInvocationRequests.length, 1);
+  assert.equal(state.providerResultRequests.length, 1);
   assert.equal(state.fallbackInvocationArgs, undefined);
-  assert.equal(state.receipts.length, 0);
+  assert.equal(state.receiptBindingRequests.length, 1);
+  assert.equal(state.transitionRequests.length, 1);
+  assert.equal(state.receipts.length, 1);
   assert.deepEqual(state.appendOperations, []);
 });
 

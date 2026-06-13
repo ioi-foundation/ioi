@@ -33,6 +33,14 @@ export function createModelMountingReadProjectionFacade({
     return rustReadProjection(state, "instances");
   }
 
+  function providerInventoryRecords(state) {
+    return rustReadProjection(state, "provider_inventory_records");
+  }
+
+  function modelTokenizerRecords(state) {
+    return rustReadProjection(state, "model_tokenizer_records");
+  }
+
   function listRoutes(state) {
     return rustReadProjection(state, "routes");
   }
@@ -43,6 +51,18 @@ export function createModelMountingReadProjectionFacade({
 
   function listDownloads(state) {
     return rustReadProjection(state, "downloads");
+  }
+
+  function downloadStatus(state, jobId) {
+    try {
+      return rustReadProjection(state, "download_status", { downloadId: jobId });
+    } catch (error) {
+      throw translateDownloadStatusError(error, jobId);
+    }
+  }
+
+  function storageSummary(state) {
+    return rustReadProjection(state, "storage_summary");
   }
 
   function listBackends(state) {
@@ -69,6 +89,10 @@ export function createModelMountingReadProjectionFacade({
     return rustReadProjection(state, "provider_health");
   }
 
+  function listConversations(state) {
+    return rustReadProjection(state, "model_conversation_states");
+  }
+
   function snapshot(state, baseUrl) {
     return rustReadProjection(state, "snapshot", { baseUrl });
   }
@@ -79,6 +103,12 @@ export function createModelMountingReadProjectionFacade({
 
   function catalogStatus(state) {
     return rustReadProjection(state, "catalog_status");
+  }
+
+  function catalogSearch(state, query = {}) {
+    return rustReadProjection(state, "catalog_search", {
+      catalogQuery: canonicalCatalogSearchQuery(query),
+    });
   }
 
   function authoritySnapshot(state, baseUrl) {
@@ -137,6 +167,10 @@ export function createModelMountingReadProjectionFacade({
     return rustReadProjection(state, "model_route_decisions");
   }
 
+  function modelRouteEndpointResolutions(state) {
+    return rustReadProjection(state, "model_route_endpoint_resolutions");
+  }
+
   function latestProviderHealth(state, providerId) {
     try {
       return rustReadProjection(state, "latest_provider_health", { providerId });
@@ -164,20 +198,29 @@ export function createModelMountingReadProjectionFacade({
   function rustReadProjection(
     state,
     projectionKind,
-    { baseUrl = null, engineId = null, endpoint = null, providerId = null, receiptId = null } = {},
+    { baseUrl = null, catalogQuery = null, downloadId = null, engineId = null, endpoint = null, providerId = null, receiptId = null } = {},
   ) {
-    const result = rustReadProjectionPlan(state, projectionKind, { baseUrl, engineId, endpoint, providerId, receiptId });
+    const result = rustReadProjectionPlan(state, projectionKind, {
+      baseUrl,
+      catalogQuery,
+      downloadId,
+      engineId,
+      endpoint,
+      providerId,
+      receiptId,
+    });
     return result.projection;
   }
 
   function rustReadProjectionPlan(
     state,
     projectionKind,
-    { baseUrl = null, engineId = null, endpoint = null, providerId = null, receiptId = null } = {},
+    { baseUrl = null, catalogQuery = null, downloadId = null, engineId = null, endpoint = null, providerId = null, receiptId = null } = {},
   ) {
     if (!readProjectionPlanner || typeof readProjectionPlanner.planReadProjection !== "function") {
       throwReadProjectionRustCoreRequired(projectionKind, {
         base_url: baseUrl,
+        download_id: downloadId,
         engine_id: engineId,
         provider_id: providerId,
         receipt_id: receiptId,
@@ -188,10 +231,12 @@ export function createModelMountingReadProjectionFacade({
       schema_version: modelMountSchemaVersion,
       generated_at: state.nowIso(),
       base_url: baseUrl,
+      download_id: downloadId,
       engine_id: engineId,
       provider_id: providerId,
       receipt_id: receiptId,
-      state: readProjectionInput(state, baseUrl, projectionKind, { engineId, endpoint }),
+      state_dir: readProjectionStateDir(state, projectionKind),
+      state: readProjectionInput(state, baseUrl, projectionKind, { catalogQuery, engineId, endpoint }),
     });
     if (!result || !Object.hasOwn(result, "projection")) {
       throwReadProjectionRustCoreRequired(projectionKind, {
@@ -201,6 +246,16 @@ export function createModelMountingReadProjectionFacade({
       });
     }
     return result;
+  }
+
+  function translateDownloadStatusError(error, jobId) {
+    if (
+      error?.code === "model_mount_download_not_found" ||
+      error?.code === "model_mount_download_id_required"
+    ) {
+      return notFoundDep(`Download job not found: ${jobId}`, { job_id: jobId });
+    }
+    throw error;
   }
 
   function translateLatestProviderHealthError(error, providerId) {
@@ -248,7 +303,23 @@ export function createModelMountingReadProjectionFacade({
     throw error;
   }
 
-  function readProjectionInput(state, baseUrl = null, projectionKind = "projection", { engineId = null, endpoint = null } = {}) {
+  function canonicalCatalogSearchQuery(query = {}) {
+    const input = query && typeof query === "object" ? query : {};
+    const canonical = {};
+    for (const field of ["query", "format", "quantization", "provider_ref"]) {
+      const value = input[field];
+      if (typeof value === "string" && value.trim().length > 0) {
+        canonical[field] = value.trim();
+      }
+    }
+    const limit = Number.parseInt(String(input.limit ?? ""), 10);
+    if (Number.isSafeInteger(limit) && limit > 0) {
+      canonical.limit = Math.min(limit, 100);
+    }
+    return canonical;
+  }
+
+  function readProjectionInput(state, baseUrl = null, projectionKind = "projection", { catalogQuery = null, engineId = null, endpoint = null } = {}) {
     if (projectionKind === "workflow_bindings") {
       return {};
     }
@@ -273,7 +344,17 @@ export function createModelMountingReadProjectionFacade({
     if (projectionKind === "adapter_boundaries") {
       return {};
     }
-    if (projectionKind === "model_route_decisions" || projectionKind === "projection_summary") {
+    if (
+      projectionKind === "provider_inventory_records" ||
+      projectionKind === "model_tokenizer_records" ||
+      projectionKind === "model_route_decisions" ||
+      projectionKind === "model_route_endpoint_resolutions" ||
+      projectionKind === "download_status" ||
+      projectionKind === "storage_summary"
+    ) {
+      return {};
+    }
+    if (projectionKind === "projection_summary") {
       return {
         receipts: state.listReceipts(),
       };
@@ -293,10 +374,18 @@ export function createModelMountingReadProjectionFacade({
         receipts: state.listReceipts(),
       };
     }
+    if (projectionKind === "model_conversation_states") {
+      return {};
+    }
     if (projectionKind === "server_status") {
       return {};
     }
     if (projectionKind === "catalog_status") return {};
+    if (projectionKind === "catalog_search") {
+      return {
+        catalog_search: catalogQuery ?? {},
+      };
+    }
     if (projectionKind === "receipt_replay") {
       return {
         receipts: state.listReceipts(),
@@ -307,9 +396,13 @@ export function createModelMountingReadProjectionFacade({
       projectionKind === "providers" ||
       projectionKind === "endpoints" ||
       projectionKind === "instances" ||
+      projectionKind === "provider_inventory_records" ||
+      projectionKind === "model_tokenizer_records" ||
       projectionKind === "routes" ||
       projectionKind === "model_capabilities" ||
       projectionKind === "downloads" ||
+      projectionKind === "download_status" ||
+      projectionKind === "storage_summary" ||
       projectionKind === "backends" ||
       projectionKind === "product_artifacts" ||
       projectionKind === "runtime_model_catalog" ||
@@ -329,6 +422,40 @@ export function createModelMountingReadProjectionFacade({
     return {
       receipts: state.listReceipts(),
     };
+  }
+
+  function readProjectionStateDir(state, projectionKind) {
+    if (
+      projectionKind !== "model_conversation_states" &&
+      projectionKind !== "instances" &&
+      projectionKind !== "provider_inventory_records" &&
+      projectionKind !== "catalog_search" &&
+      projectionKind !== "catalog_status" &&
+      projectionKind !== "model_tokenizer_records" &&
+      projectionKind !== "routes" &&
+      projectionKind !== "model_route_decisions" &&
+      projectionKind !== "model_route_endpoint_resolutions" &&
+      projectionKind !== "artifacts" &&
+      projectionKind !== "product_artifacts" &&
+      projectionKind !== "providers" &&
+      projectionKind !== "endpoints" &&
+      projectionKind !== "runtime_model_catalog" &&
+      projectionKind !== "open_ai_model_list" &&
+      projectionKind !== "downloads" &&
+      projectionKind !== "download_status" &&
+      projectionKind !== "storage_summary" &&
+      projectionKind !== "server_status" &&
+      projectionKind !== "backends" &&
+      projectionKind !== "runtime_engines" &&
+      projectionKind !== "runtime_engine_profiles" &&
+      projectionKind !== "runtime_preference" &&
+      projectionKind !== "runtime_preference_for_endpoint" &&
+      projectionKind !== "runtime_default_load_options" &&
+      projectionKind !== "runtime_engine_detail"
+    ) return null;
+    return typeof state?.stateDir === "string" && state.stateDir.trim().length > 0
+      ? state.stateDir
+      : null;
   }
 
   function throwReadProjectionRustCoreRequired(projectionKind, details = {}) {
@@ -352,12 +479,15 @@ export function createModelMountingReadProjectionFacade({
     adapterBoundaries,
     authoritySnapshot,
     canonicalProjectionWritePlan,
+    catalogSearch,
     catalogStatus,
+    downloadStatus,
     latestProviderHealth,
     latestRuntimeSurvey,
     latestVaultHealth,
     listArtifacts,
     listBackends,
+    listConversations,
     listDownloads,
     listEndpoints,
     listInstances,
@@ -369,11 +499,15 @@ export function createModelMountingReadProjectionFacade({
     listProviders,
     listRoutes,
     modelRouteDecisions,
+    modelRouteEndpointResolutions,
+    modelTokenizerRecords,
     openAiModelList,
+    providerInventoryRecords,
     projection,
     projectionSummary,
     receiptReplay,
     serverStatus,
+    storageSummary,
     runtimeDefaultLoadOptionsProjection,
     runtimeEngineList,
     runtimeEngineProfileList,

@@ -17,11 +17,21 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "plan_model_mount_instance_lifecycle",
     "admit_model_mount_provider_result",
     "plan_model_mount_backend_process",
-    "plan_model_mount_backend_lifecycle_required",
-    "plan_model_mount_server_control_required",
-    "plan_model_mount_runtime_engine_required",
+    "plan_model_mount_backend_lifecycle",
+    "plan_model_mount_artifact_endpoint",
+    "plan_model_mount_storage_control",
+    "plan_model_mount_server_control",
+    "plan_model_mount_runtime_engine",
     "plan_model_mount_tokenizer_required",
     "plan_model_mount_route_control_required",
+    "plan_model_mount_route_control",
+    "plan_model_mount_catalog_provider_control",
+    "plan_model_mount_capability_token_control",
+    "plan_model_mount_vault_control",
+    "plan_model_mount_receipt_gate",
+    "plan_model_mount_tokenizer",
+    "plan_model_mount_conversation_state",
+    "plan_model_mount_stream_completion",
     "plan_model_mount_accepted_receipt_head",
     "plan_model_mount_accepted_receipt_transition",
     "bind_model_mount_invocation_receipt",
@@ -35,6 +45,7 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "commit_runtime_model_mount_record_state",
     "commit_runtime_model_mount_receipt_state",
     "admit_coding_tool_result_event",
+    "plan_coding_tool_result_envelope",
     "admit_coding_tool_command_stream_events",
     "admit_runtime_thread_event",
     "project_runtime_thread_events",
@@ -72,6 +83,9 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "plan_coding_tool_budget_recovery_admission_required",
     "plan_workflow_edit_admission_required",
     "plan_diagnostics_repair_admission_required",
+    "plan_runtime_diagnostics_repair_control",
+    "project_runtime_diagnostics_repair_projection",
+    "project_runtime_diagnostics_repair_policy",
     "plan_diagnostics_operator_override_state_update",
     "plan_operator_turn_control_admission_required",
     "plan_operator_interrupt_state_update",
@@ -86,7 +100,17 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "project_runtime_tool_catalog",
     "project_runtime_lifecycle",
     "project_runtime_memory_projection",
+    "plan_runtime_memory_control",
+    "plan_runtime_workflow_edit_control",
+    "project_runtime_managed_session_projection",
+    "plan_runtime_managed_session_control",
+    "project_runtime_workspace_change_projection",
+    "plan_runtime_workspace_change_control",
+    "plan_runtime_thread_fork_control",
+    "plan_runtime_conversation_artifact_control",
     "project_runtime_conversation_artifact_projection",
+    "project_runtime_subagent_projection",
+    "plan_runtime_subagent_control",
     "plan_lifecycle_admission_required",
     "plan_thread_turn_admission_required",
     "plan_thread_control_agent_state_update",
@@ -102,6 +126,7 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "plan_mcp_manager_catalog_summary_projection",
     "plan_thread_memory_agent_state_update",
     "plan_runtime_bridge_thread_start_agent_state_update",
+    "plan_runtime_bridge_thread_control_agent_state_update",
     "plan_runtime_bridge_turn_run_state_update",
     "plan_subagent_record_state_update",
     "plan_thread_create_state_update",
@@ -125,11 +150,21 @@ pub enum CommandOperation {
     PlanModelMountInstanceLifecycle,
     AdmitModelMountProviderResult,
     PlanModelMountBackendProcess,
-    PlanModelMountBackendLifecycleRequired,
-    PlanModelMountServerControlRequired,
-    PlanModelMountRuntimeEngineRequired,
+    PlanModelMountBackendLifecycle,
+    PlanModelMountArtifactEndpoint,
+    PlanModelMountStorageControl,
+    PlanModelMountServerControl,
+    PlanModelMountRuntimeEngine,
     PlanModelMountTokenizerRequired,
     PlanModelMountRouteControlRequired,
+    PlanModelMountRouteControl,
+    PlanModelMountCatalogProviderControl,
+    PlanModelMountCapabilityTokenControl,
+    PlanModelMountVaultControl,
+    PlanModelMountReceiptGate,
+    PlanModelMountTokenizer,
+    PlanModelMountConversationState,
+    PlanModelMountStreamCompletion,
     PlanModelMountAcceptedReceiptHead,
     PlanModelMountAcceptedReceiptTransition,
     BindModelMountInvocationReceipt,
@@ -143,6 +178,7 @@ pub enum CommandOperation {
     CommitRuntimeModelMountRecordState,
     CommitRuntimeModelMountReceiptState,
     AdmitCodingToolResultEvent,
+    PlanCodingToolResultEnvelope,
     AdmitCodingToolCommandStreamEvents,
     AdmitRuntimeThreadEvent,
     ProjectRuntimeThreadEvents,
@@ -180,6 +216,9 @@ pub enum CommandOperation {
     PlanCodingToolBudgetRecoveryAdmissionRequired,
     PlanWorkflowEditAdmissionRequired,
     PlanDiagnosticsRepairAdmissionRequired,
+    PlanRuntimeDiagnosticsRepairControl,
+    ProjectRuntimeDiagnosticsRepairProjection,
+    ProjectRuntimeDiagnosticsRepairPolicy,
     PlanDiagnosticsOperatorOverrideStateUpdate,
     PlanOperatorTurnControlAdmissionRequired,
     PlanOperatorInterruptStateUpdate,
@@ -194,7 +233,17 @@ pub enum CommandOperation {
     ProjectRuntimeToolCatalog,
     ProjectRuntimeLifecycle,
     ProjectRuntimeMemoryProjection,
+    PlanRuntimeMemoryControl,
+    PlanRuntimeWorkflowEditControl,
+    ProjectRuntimeManagedSessionProjection,
+    PlanRuntimeManagedSessionControl,
+    ProjectRuntimeWorkspaceChangeProjection,
+    PlanRuntimeWorkspaceChangeControl,
+    PlanRuntimeThreadForkControl,
+    PlanRuntimeConversationArtifactControl,
     ProjectRuntimeConversationArtifactProjection,
+    ProjectRuntimeSubagentProjection,
+    PlanRuntimeSubagentControl,
     PlanLifecycleAdmissionRequired,
     PlanThreadTurnAdmissionRequired,
     PlanThreadControlAgentStateUpdate,
@@ -210,6 +259,7 @@ pub enum CommandOperation {
     PlanMcpManagerCatalogSummaryProjection,
     PlanThreadMemoryAgentStateUpdate,
     PlanRuntimeBridgeThreadStartAgentStateUpdate,
+    PlanRuntimeBridgeThreadControlAgentStateUpdate,
     PlanRuntimeBridgeTurnRunStateUpdate,
     PlanSubagentRecordStateUpdate,
     PlanThreadCreateStateUpdate,
@@ -236,13 +286,25 @@ impl CommandOperation {
             Self::PlanModelMountInstanceLifecycle => "plan_model_mount_instance_lifecycle",
             Self::AdmitModelMountProviderResult => "admit_model_mount_provider_result",
             Self::PlanModelMountBackendProcess => "plan_model_mount_backend_process",
-            Self::PlanModelMountBackendLifecycleRequired => {
-                "plan_model_mount_backend_lifecycle_required"
-            }
-            Self::PlanModelMountServerControlRequired => "plan_model_mount_server_control_required",
-            Self::PlanModelMountRuntimeEngineRequired => "plan_model_mount_runtime_engine_required",
+            Self::PlanModelMountBackendLifecycle => "plan_model_mount_backend_lifecycle",
+            Self::PlanModelMountArtifactEndpoint => "plan_model_mount_artifact_endpoint",
+            Self::PlanModelMountStorageControl => "plan_model_mount_storage_control",
+            Self::PlanModelMountServerControl => "plan_model_mount_server_control",
+            Self::PlanModelMountRuntimeEngine => "plan_model_mount_runtime_engine",
             Self::PlanModelMountTokenizerRequired => "plan_model_mount_tokenizer_required",
             Self::PlanModelMountRouteControlRequired => "plan_model_mount_route_control_required",
+            Self::PlanModelMountRouteControl => "plan_model_mount_route_control",
+            Self::PlanModelMountCatalogProviderControl => {
+                "plan_model_mount_catalog_provider_control"
+            }
+            Self::PlanModelMountCapabilityTokenControl => {
+                "plan_model_mount_capability_token_control"
+            }
+            Self::PlanModelMountVaultControl => "plan_model_mount_vault_control",
+            Self::PlanModelMountReceiptGate => "plan_model_mount_receipt_gate",
+            Self::PlanModelMountTokenizer => "plan_model_mount_tokenizer",
+            Self::PlanModelMountConversationState => "plan_model_mount_conversation_state",
+            Self::PlanModelMountStreamCompletion => "plan_model_mount_stream_completion",
             Self::PlanModelMountAcceptedReceiptHead => "plan_model_mount_accepted_receipt_head",
             Self::PlanModelMountAcceptedReceiptTransition => {
                 "plan_model_mount_accepted_receipt_transition"
@@ -258,6 +320,7 @@ impl CommandOperation {
             Self::CommitRuntimeModelMountRecordState => "commit_runtime_model_mount_record_state",
             Self::CommitRuntimeModelMountReceiptState => "commit_runtime_model_mount_receipt_state",
             Self::AdmitCodingToolResultEvent => "admit_coding_tool_result_event",
+            Self::PlanCodingToolResultEnvelope => "plan_coding_tool_result_envelope",
             Self::AdmitCodingToolCommandStreamEvents => "admit_coding_tool_command_stream_events",
             Self::AdmitRuntimeThreadEvent => "admit_runtime_thread_event",
             Self::ProjectRuntimeThreadEvents => "project_runtime_thread_events",
@@ -307,6 +370,13 @@ impl CommandOperation {
             Self::PlanDiagnosticsRepairAdmissionRequired => {
                 "plan_diagnostics_repair_admission_required"
             }
+            Self::PlanRuntimeDiagnosticsRepairControl => "plan_runtime_diagnostics_repair_control",
+            Self::ProjectRuntimeDiagnosticsRepairProjection => {
+                "project_runtime_diagnostics_repair_projection"
+            }
+            Self::ProjectRuntimeDiagnosticsRepairPolicy => {
+                "project_runtime_diagnostics_repair_policy"
+            }
             Self::PlanDiagnosticsOperatorOverrideStateUpdate => {
                 "plan_diagnostics_operator_override_state_update"
             }
@@ -329,9 +399,25 @@ impl CommandOperation {
             Self::ProjectRuntimeToolCatalog => "project_runtime_tool_catalog",
             Self::ProjectRuntimeLifecycle => "project_runtime_lifecycle",
             Self::ProjectRuntimeMemoryProjection => "project_runtime_memory_projection",
+            Self::PlanRuntimeMemoryControl => "plan_runtime_memory_control",
+            Self::PlanRuntimeWorkflowEditControl => "plan_runtime_workflow_edit_control",
+            Self::ProjectRuntimeManagedSessionProjection => {
+                "project_runtime_managed_session_projection"
+            }
+            Self::PlanRuntimeManagedSessionControl => "plan_runtime_managed_session_control",
+            Self::ProjectRuntimeWorkspaceChangeProjection => {
+                "project_runtime_workspace_change_projection"
+            }
+            Self::PlanRuntimeWorkspaceChangeControl => "plan_runtime_workspace_change_control",
+            Self::PlanRuntimeThreadForkControl => "plan_runtime_thread_fork_control",
+            Self::PlanRuntimeConversationArtifactControl => {
+                "plan_runtime_conversation_artifact_control"
+            }
             Self::ProjectRuntimeConversationArtifactProjection => {
                 "project_runtime_conversation_artifact_projection"
             }
+            Self::ProjectRuntimeSubagentProjection => "project_runtime_subagent_projection",
+            Self::PlanRuntimeSubagentControl => "plan_runtime_subagent_control",
             Self::PlanLifecycleAdmissionRequired => "plan_lifecycle_admission_required",
             Self::PlanThreadTurnAdmissionRequired => "plan_thread_turn_admission_required",
             Self::PlanThreadControlAgentStateUpdate => "plan_thread_control_agent_state_update",
@@ -354,6 +440,9 @@ impl CommandOperation {
             Self::PlanThreadMemoryAgentStateUpdate => "plan_thread_memory_agent_state_update",
             Self::PlanRuntimeBridgeThreadStartAgentStateUpdate => {
                 "plan_runtime_bridge_thread_start_agent_state_update"
+            }
+            Self::PlanRuntimeBridgeThreadControlAgentStateUpdate => {
+                "plan_runtime_bridge_thread_control_agent_state_update"
             }
             Self::PlanRuntimeBridgeTurnRunStateUpdate => {
                 "plan_runtime_bridge_turn_run_state_update"
@@ -448,20 +537,36 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
             Some(CommandOperation::AdmitModelMountProviderResult)
         }
         "plan_model_mount_backend_process" => Some(CommandOperation::PlanModelMountBackendProcess),
-        "plan_model_mount_backend_lifecycle_required" => {
-            Some(CommandOperation::PlanModelMountBackendLifecycleRequired)
+        "plan_model_mount_backend_lifecycle" => {
+            Some(CommandOperation::PlanModelMountBackendLifecycle)
         }
-        "plan_model_mount_server_control_required" => {
-            Some(CommandOperation::PlanModelMountServerControlRequired)
+        "plan_model_mount_artifact_endpoint" => {
+            Some(CommandOperation::PlanModelMountArtifactEndpoint)
         }
-        "plan_model_mount_runtime_engine_required" => {
-            Some(CommandOperation::PlanModelMountRuntimeEngineRequired)
-        }
+        "plan_model_mount_storage_control" => Some(CommandOperation::PlanModelMountStorageControl),
+        "plan_model_mount_server_control" => Some(CommandOperation::PlanModelMountServerControl),
+        "plan_model_mount_runtime_engine" => Some(CommandOperation::PlanModelMountRuntimeEngine),
         "plan_model_mount_tokenizer_required" => {
             Some(CommandOperation::PlanModelMountTokenizerRequired)
         }
         "plan_model_mount_route_control_required" => {
             Some(CommandOperation::PlanModelMountRouteControlRequired)
+        }
+        "plan_model_mount_route_control" => Some(CommandOperation::PlanModelMountRouteControl),
+        "plan_model_mount_catalog_provider_control" => {
+            Some(CommandOperation::PlanModelMountCatalogProviderControl)
+        }
+        "plan_model_mount_capability_token_control" => {
+            Some(CommandOperation::PlanModelMountCapabilityTokenControl)
+        }
+        "plan_model_mount_vault_control" => Some(CommandOperation::PlanModelMountVaultControl),
+        "plan_model_mount_receipt_gate" => Some(CommandOperation::PlanModelMountReceiptGate),
+        "plan_model_mount_tokenizer" => Some(CommandOperation::PlanModelMountTokenizer),
+        "plan_model_mount_conversation_state" => {
+            Some(CommandOperation::PlanModelMountConversationState)
+        }
+        "plan_model_mount_stream_completion" => {
+            Some(CommandOperation::PlanModelMountStreamCompletion)
         }
         "plan_model_mount_accepted_receipt_head" => {
             Some(CommandOperation::PlanModelMountAcceptedReceiptHead)
@@ -488,6 +593,7 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
             Some(CommandOperation::CommitRuntimeModelMountReceiptState)
         }
         "admit_coding_tool_result_event" => Some(CommandOperation::AdmitCodingToolResultEvent),
+        "plan_coding_tool_result_envelope" => Some(CommandOperation::PlanCodingToolResultEnvelope),
         "admit_coding_tool_command_stream_events" => {
             Some(CommandOperation::AdmitCodingToolCommandStreamEvents)
         }
@@ -573,6 +679,15 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
         "plan_diagnostics_repair_admission_required" => {
             Some(CommandOperation::PlanDiagnosticsRepairAdmissionRequired)
         }
+        "plan_runtime_diagnostics_repair_control" => {
+            Some(CommandOperation::PlanRuntimeDiagnosticsRepairControl)
+        }
+        "project_runtime_diagnostics_repair_projection" => {
+            Some(CommandOperation::ProjectRuntimeDiagnosticsRepairProjection)
+        }
+        "project_runtime_diagnostics_repair_policy" => {
+            Some(CommandOperation::ProjectRuntimeDiagnosticsRepairPolicy)
+        }
         "plan_diagnostics_operator_override_state_update" => {
             Some(CommandOperation::PlanDiagnosticsOperatorOverrideStateUpdate)
         }
@@ -603,9 +718,33 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
         "project_runtime_memory_projection" => {
             Some(CommandOperation::ProjectRuntimeMemoryProjection)
         }
+        "plan_runtime_memory_control" => Some(CommandOperation::PlanRuntimeMemoryControl),
+        "plan_runtime_workflow_edit_control" => {
+            Some(CommandOperation::PlanRuntimeWorkflowEditControl)
+        }
+        "project_runtime_managed_session_projection" => {
+            Some(CommandOperation::ProjectRuntimeManagedSessionProjection)
+        }
+        "plan_runtime_managed_session_control" => {
+            Some(CommandOperation::PlanRuntimeManagedSessionControl)
+        }
+        "project_runtime_workspace_change_projection" => {
+            Some(CommandOperation::ProjectRuntimeWorkspaceChangeProjection)
+        }
+        "plan_runtime_workspace_change_control" => {
+            Some(CommandOperation::PlanRuntimeWorkspaceChangeControl)
+        }
+        "plan_runtime_thread_fork_control" => Some(CommandOperation::PlanRuntimeThreadForkControl),
+        "plan_runtime_conversation_artifact_control" => {
+            Some(CommandOperation::PlanRuntimeConversationArtifactControl)
+        }
         "project_runtime_conversation_artifact_projection" => {
             Some(CommandOperation::ProjectRuntimeConversationArtifactProjection)
         }
+        "project_runtime_subagent_projection" => {
+            Some(CommandOperation::ProjectRuntimeSubagentProjection)
+        }
+        "plan_runtime_subagent_control" => Some(CommandOperation::PlanRuntimeSubagentControl),
         "plan_lifecycle_admission_required" => {
             Some(CommandOperation::PlanLifecycleAdmissionRequired)
         }
@@ -648,6 +787,9 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
         }
         "plan_runtime_bridge_thread_start_agent_state_update" => {
             Some(CommandOperation::PlanRuntimeBridgeThreadStartAgentStateUpdate)
+        }
+        "plan_runtime_bridge_thread_control_agent_state_update" => {
+            Some(CommandOperation::PlanRuntimeBridgeThreadControlAgentStateUpdate)
         }
         "plan_runtime_bridge_turn_run_state_update" => {
             Some(CommandOperation::PlanRuntimeBridgeTurnRunStateUpdate)
@@ -722,15 +864,18 @@ mod tests {
             "plan_mcp_manager_catalog_summary_projection",
             "commit_runtime_run_state",
             "admit_coding_tool_result_event",
+            "plan_coding_tool_result_envelope",
             "admit_coding_tool_command_stream_events",
             "admit_runtime_thread_event",
             "project_runtime_thread_events",
             "project_runtime_thread_event_replay",
             "project_runtime_thread_turn_projection",
             "plan_post_edit_diagnostics_feedback",
+            "project_runtime_diagnostics_repair_policy",
             "plan_lifecycle_admission_required",
             "plan_thread_turn_admission_required",
             "plan_thread_control_agent_state_update",
+            "plan_runtime_bridge_thread_control_agent_state_update",
             "plan_workspace_trust_control_state_update",
             "plan_thread_create_state_update",
             "plan_operator_turn_control_admission_required",
@@ -738,7 +883,24 @@ mod tests {
             "project_runtime_task_job_projection",
             "project_runtime_tool_catalog",
             "project_runtime_memory_projection",
+            "project_runtime_managed_session_projection",
+            "plan_runtime_managed_session_control",
+            "project_runtime_workspace_change_projection",
+            "plan_runtime_workspace_change_control",
+            "plan_runtime_thread_fork_control",
+            "plan_runtime_conversation_artifact_control",
+            "project_runtime_diagnostics_repair_projection",
             "project_runtime_conversation_artifact_projection",
+            "project_runtime_subagent_projection",
+            "plan_model_mount_server_control",
+            "plan_model_mount_artifact_endpoint",
+            "plan_model_mount_storage_control",
+            "plan_model_mount_catalog_provider_control",
+            "plan_model_mount_capability_token_control",
+            "plan_model_mount_vault_control",
+            "plan_model_mount_receipt_gate",
+            "plan_model_mount_conversation_state",
+            "plan_model_mount_stream_completion",
         ] {
             assert_eq!(
                 expected_command_schema_version(operation),

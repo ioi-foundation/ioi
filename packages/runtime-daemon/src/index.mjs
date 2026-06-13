@@ -493,10 +493,6 @@ const {
   diagnosticsRepairContextForPayload,
   diagnosticsRepairContextForRequest,
   diagnosticsRepairContextForToolPack,
-  diagnosticsRepairDefaultForDecisions,
-  diagnosticsRepairPolicyConfig,
-  diagnosticsRepairPolicyConfigForContexts,
-  diagnosticsRollbackRepairPolicy,
   normalizeDiagnosticsMode,
   normalizeDiagnosticsRepairDefault,
   normalizeRestoreConflictPolicy,
@@ -515,13 +511,9 @@ const {
   diagnosticsFeedbackBlocksContinuation,
   diagnosticsRepairRetryFeedback,
   insertRuntimeBridgeDiagnosticsInjectionEvent,
-  postEditDiagnosticsConfig,
   promptWithDiagnosticsFeedback,
 } = createDiagnosticsFeedbackHelpers({
   diagnosticsRepairContextForPayload,
-  diagnosticsRepairPolicyConfig,
-  diagnosticsRepairPolicyConfigForContexts,
-  diagnosticsRollbackRepairPolicy,
   doctorHash,
   eventStreamIdForThread,
   maxInjectedFindings: LSP_DIAGNOSTICS_MAX_INJECTED_FINDINGS,
@@ -773,6 +765,8 @@ export class AgentgresRuntimeStateStore {
       codingToolResultWithoutDrafts,
       diagnosticsRepairContextForRequest,
       diagnosticsRepairContextForToolPack,
+      codingToolResultEnvelopeForThread: (_store, request = {}) =>
+        this.contextPolicyRunner.planCodingToolResultEnvelope(request),
       codingToolResultEventAdmissionForThread: (store, request = {}) =>
         this.admitCodingToolResultEventForThread(store, request),
       stepModuleRunner: createStepModuleRunnerFromEnv(process.env, {
@@ -782,17 +776,21 @@ export class AgentgresRuntimeStateStore {
     this.workspaceSnapshotSurface = createRuntimeWorkspaceSnapshotSurface({
       notFound,
       runtimeError,
+      runtimeThreadEventAdmissionForThread: (store, request = {}) =>
+        this.admitRuntimeThreadEventForThread(store, request),
       writeJson,
       workspaceRestoreRunner: this.workspaceRestoreRunner,
     });
     this.diagnosticsFeedbackSurface = createRuntimeDiagnosticsFeedbackSurface({
       compactDiagnosticsFeedback,
       diagnosticsFeedbackPlanner: this.contextPolicyRunner,
+      diagnosticsRepairPolicyProjector: this.contextPolicyRunner,
       normalizeDiagnosticsMode,
     });
     this.diagnosticsRepairSurface = createRuntimeDiagnosticsRepairSurface({
       contextPolicyRunner: this.contextPolicyRunner,
       diagnosticsRepairRunner: this.contextPolicyRunner,
+      eventStreamIdForThread,
       diagnosticsOperatorOverrideApprovalForRequest,
       diagnosticsOperatorOverrideApprovalKey,
       diagnosticsOperatorOverrideResultFromEvent,
@@ -812,6 +810,7 @@ export class AgentgresRuntimeStateStore {
     });
     this.workflowEditSurface = createRuntimeWorkflowEditSurface({
       approvalReasonForDecisionEvent,
+      eventStreamIdForThread,
       notFound,
       policyError,
       runtimeError,
@@ -866,7 +865,9 @@ export class AgentgresRuntimeStateStore {
       diagnosticsFeedbackBlocksContinuation,
       runtimeError,
     });
-    this.subagentSurface = createRuntimeSubagentSurface();
+    this.subagentSurface = createRuntimeSubagentSurface({
+      contextPolicyRunner: this.contextPolicyRunner,
+    });
     this.threadTurnProjection = createThreadTurnProjection({
       eventStreamIdForThread,
       fixtureProfileForAgent,

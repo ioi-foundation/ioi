@@ -1,11 +1,251 @@
 import { runtimeError as defaultRuntimeError } from "./runtime-http-utils.mjs";
-import { optionalString } from "./runtime-value-helpers.mjs";
+import { eventStreamIdForThread } from "./runtime-identifiers.mjs";
+import {
+  DIAGNOSTICS_REPAIR_DECISION_EXECUTION_SCHEMA_VERSION,
+} from "./runtime-contract-constants.mjs";
+import { normalizeArray, objectRecord, optionalString } from "./runtime-value-helpers.mjs";
+
+const DIAGNOSTICS_REPAIR_CONTROL_EVENT_EVIDENCE_REFS = [
+  "runtime_diagnostics_repair_control_event_rust_owned",
+  "agentgres_runtime_thread_event_truth_required",
+];
+
+const DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_EVIDENCE_REFS = [
+  "diagnostics_operator_override_state_update_rust_owned",
+  "rust_daemon_core_operator_override_state_required",
+  "agentgres_operator_override_state_truth_required",
+  "rust_agentgres_runtime_run_state_commit",
+];
+
+const DIAGNOSTICS_REPAIR_DECISION_PROJECTION_EVIDENCE_REFS = [
+  "runtime_diagnostics_repair_decision_projection_rust_owned",
+  "rust_daemon_core_diagnostics_repair_projection_required",
+  "agentgres_diagnostics_repair_projection_truth_required",
+];
 
 export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
   const {
+    eventStreamIdForThread: eventStreamIdForThreadDep = eventStreamIdForThread,
     runtimeError = defaultRuntimeError,
     diagnosticsRepairRunner = deps.contextPolicyRunner ?? null,
+    diagnosticsRepairRetryResultFromEvent = null,
   } = deps;
+
+  function diagnosticsRepairControlEvidenceRefs(operationKind) {
+    const refs = [...DIAGNOSTICS_REPAIR_CONTROL_EVENT_EVIDENCE_REFS];
+    if (operationKind === "diagnostics.repair_retry.created") {
+      refs.unshift("runtime_diagnostics_repair_retry_event_rust_owned");
+    } else if (operationKind === "diagnostics.operator_override.event") {
+      refs.unshift("runtime_diagnostics_operator_override_event_rust_owned");
+    } else if (operationKind === "diagnostics.repair_decision.executed") {
+      refs.unshift("runtime_diagnostics_repair_decision_event_rust_owned");
+    } else {
+      refs.unshift("runtime_diagnostics_repair_decision_execution_rust_owned");
+    }
+    return refs;
+  }
+
+  function throwDiagnosticsRepairControlRustCoreRequired({
+    operation,
+    operation_kind,
+    thread_id,
+    decision_id = null,
+  }) {
+    throw runtimeError({
+      status: 501,
+      code: "runtime_diagnostics_repair_control_rust_core_required",
+      message:
+        "Runtime diagnostics repair control requires Rust daemon-core planning and runtime-event admission.",
+      details: {
+        rust_core_boundary: "runtime.diagnostics_repair",
+        operation,
+        operation_kind,
+        thread_id: thread_id ?? null,
+        decision_id: decision_id ?? null,
+        evidence_refs: diagnosticsRepairControlEvidenceRefs(operation_kind),
+      },
+    });
+  }
+
+  function diagnosticsRepairControlRunner(store, request = {}) {
+    const runner = store?.contextPolicyRunner ?? diagnosticsRepairRunner;
+    if (
+      runner?.planRuntimeDiagnosticsRepairControl &&
+      typeof store?.appendRuntimeEvent === "function"
+    ) {
+      return runner;
+    }
+    throwDiagnosticsRepairControlRustCoreRequired({
+      operation: request.operation,
+      operation_kind: request.operation_kind,
+      thread_id: request.thread_id,
+      decision_id: request.decision_id,
+    });
+  }
+
+  function diagnosticsRepairProjectionRunner(store, details = {}) {
+    const runner = store?.contextPolicyRunner ?? diagnosticsRepairRunner;
+    if (runner?.projectRuntimeDiagnosticsRepairProjection) {
+      return runner;
+    }
+    throwDiagnosticsRepairRustCoreRequired(
+      "diagnostics_repair_decision_projection",
+      "runtime.diagnostics_repair_projection.decision",
+      {
+        ...details,
+        evidence_refs: DIAGNOSTICS_REPAIR_DECISION_PROJECTION_EVIDENCE_REFS,
+      },
+    );
+  }
+
+  function diagnosticsRepairControlRequestPayload(request = {}) {
+    const payload = {};
+    for (const key of [
+      "source",
+      "status",
+      "event_id",
+      "turn_id",
+      "decision_id",
+      "gate_event_id",
+      "gate_id",
+      "snapshot_id",
+      "workspace_root",
+      "action",
+      "repair_action",
+      "approval_id",
+      "approval_required",
+      "approval_satisfied",
+      "approval_source",
+      "diagnostic_refs",
+      "target_paths",
+      "retry_turn_id",
+      "retry_request_id",
+      "retry_run_id",
+      "target_run_id",
+      "summary",
+      "artifact_refs",
+      "rollback_refs",
+      "receipt_refs",
+      "policy_decision_refs",
+      "idempotency_key",
+    ]) {
+      if (Object.hasOwn(request, key)) payload[key] = request[key];
+    }
+    return payload;
+  }
+
+  function diagnosticsRepairDecisionProjectionInput(request = {}) {
+    const projection = request.projection;
+    if (Array.isArray(projection) || objectRecord(projection)) {
+      return projection;
+    }
+    const input = {};
+    for (const key of ["decision", "decisions", "repair_decisions"]) {
+      if (Object.hasOwn(request, key)) input[key] = request[key];
+    }
+    return input;
+  }
+
+  function stringRefs(values) {
+    return normalizeArray(values).map((value) => String(value)).filter(Boolean);
+  }
+
+  function booleanOption(value, fallback = false) {
+    if (value === true || value === "true" || value === "1" || value === 1) return true;
+    if (value === false || value === "false" || value === "0" || value === 0) return false;
+    return fallback;
+  }
+
+  function positiveInteger(value) {
+    const number = Number(value);
+    return Number.isInteger(number) && number > 0 ? number : null;
+  }
+
+  function throwDiagnosticsOperatorOverrideStateUpdateError({
+    status = 502,
+    code,
+    message,
+    details,
+  }) {
+    throw runtimeError({
+      status,
+      code,
+      message,
+      details: {
+        rust_core_boundary: "runtime.diagnostics_repair.operator_override",
+        evidence_refs: DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_EVIDENCE_REFS,
+        ...details,
+      },
+    });
+  }
+
+  function diagnosticsOperatorOverrideStateUpdateRunner(store, details = {}) {
+    const runner = store?.contextPolicyRunner ?? diagnosticsRepairRunner;
+    if (
+      runner?.planDiagnosticsOperatorOverrideStateUpdate &&
+      typeof store?.getRun === "function" &&
+      typeof store?.writeRun === "function"
+    ) {
+      return runner;
+    }
+    throwDiagnosticsRepairRustCoreRequired(
+      "diagnostics_operator_override_execution",
+      "diagnostics.operator_override.execute",
+      {
+        ...details,
+        evidence_refs: DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_EVIDENCE_REFS,
+      },
+    );
+  }
+
+  function planDiagnosticsRepairControlEvent(store, threadId, request = {}, {
+    operation,
+    operationKind,
+    decision_id = null,
+  }) {
+    const normalizedRequest = objectRecord(request) ?? {};
+    const normalizedDecisionId =
+      optionalString(decision_id) ??
+      optionalString(normalizedRequest.decision_id) ??
+      null;
+    const runner = diagnosticsRepairControlRunner(store, {
+      operation,
+      operation_kind: operationKind,
+      thread_id: threadId,
+      decision_id: normalizedDecisionId,
+    });
+    return runner.planRuntimeDiagnosticsRepairControl({
+      operation,
+      operation_kind: operationKind,
+      thread_id: threadId,
+      event_stream_id: eventStreamIdForThreadDep(threadId),
+      turn_id: optionalString(normalizedRequest.turn_id) ?? null,
+      decision_id: normalizedDecisionId,
+      gate_event_id: optionalString(normalizedRequest.gate_event_id) ?? null,
+      gate_id: optionalString(normalizedRequest.gate_id) ?? null,
+      snapshot_id: optionalString(normalizedRequest.snapshot_id) ?? null,
+      workspace_root: optionalString(normalizedRequest.workspace_root) ?? null,
+      source: optionalString(normalizedRequest.source) ?? null,
+      status: optionalString(normalizedRequest.status) ?? null,
+      request: diagnosticsRepairControlRequestPayload(normalizedRequest),
+      receipt_refs: stringRefs(normalizedRequest.receipt_refs),
+      policy_decision_refs: stringRefs(normalizedRequest.policy_decision_refs),
+      evidence_refs: diagnosticsRepairControlEvidenceRefs(operationKind),
+    });
+  }
+
+  function appendPlannedDiagnosticsRepairControlEvent(store, plannedControl) {
+    const event = objectRecord(plannedControl?.event);
+    if (!event) {
+      throw runtimeError({
+        status: 502,
+        code: "runtime_diagnostics_repair_control_event_missing",
+        message: "Rust diagnostics repair control planning did not return a runtime event.",
+        details: { operation_kind: plannedControl?.operation_kind ?? null },
+      });
+    }
+    return store.appendRuntimeEvent(event);
+  }
 
   function throwDiagnosticsRepairRustCoreRequired(operation, operationKind, details = {}) {
     if (diagnosticsRepairRunner?.planDiagnosticsRepairAdmissionRequired) {
@@ -51,104 +291,379 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
 
   function executeDiagnosticsRepairDecision(store, threadId, decisionRef, request = {}) {
     const decisionId = optionalString(decisionRef ?? request.decision_id ?? request.action) ?? null;
-    throwDiagnosticsRepairRustCoreRequired("diagnostics_repair_decision_execution", "diagnostics.repair_decision.execute", {
-      thread_id: threadId,
+    const plannedControl = planDiagnosticsRepairControlEvent(store, threadId, request, {
+      operation: "diagnostics_repair_decision_execution",
+      operationKind: "diagnostics.repair_decision.execute",
       decision_id: decisionId,
-      evidence_refs: [
-        "diagnostics_repair_decision_execution_js_facade_retired",
-        "rust_daemon_core_diagnostics_repair_admission_required",
-        "agentgres_diagnostics_repair_state_truth_required",
-      ],
     });
+    return appendPlannedDiagnosticsRepairControlEvent(store, plannedControl);
   }
 
   function executeDiagnosticsOperatorOverride(store, threadId, { request = {}, gateEvent, decision, snapshotId = null } = {}) {
-    const decisionId = optionalString(decision?.decision_id ?? request.decision_id) ?? "operator_override";
-    throwDiagnosticsRepairRustCoreRequired("diagnostics_operator_override_execution", "diagnostics.operator_override.execute", {
+    const normalizedRequest = objectRecord(request) ?? {};
+    const decisionId =
+      optionalString(decision?.decision_id ?? normalizedRequest.decision_id) ??
+      "operator_override";
+    const gateEventId =
+      optionalString(gateEvent?.event_id ?? normalizedRequest.gate_event_id) ?? null;
+    const normalizedSnapshotId =
+      optionalString(snapshotId ?? normalizedRequest.snapshot_id) ?? null;
+    const details = {
       thread_id: threadId,
       decision_id: decisionId,
-      gate_event_id: optionalString(gateEvent?.event_id ?? request.gate_event_id) ?? null,
-      snapshot_id: optionalString(snapshotId ?? request.snapshot_id) ?? null,
-      evidence_refs: [
-        "diagnostics_operator_override_js_facade_retired",
-        "rust_daemon_core_operator_override_state_required",
-        "agentgres_operator_override_state_truth_required",
-      ],
+      gate_event_id: gateEventId,
+      snapshot_id: normalizedSnapshotId,
+    };
+    const runner = diagnosticsOperatorOverrideStateUpdateRunner(store, details);
+    const runId = optionalString(
+      normalizedRequest.run_id ??
+        normalizedRequest.target_run_id ??
+        gateEvent?.run_id ??
+        gateEvent?.target_run_id ??
+        gateEvent?.payload?.run_id ??
+        gateEvent?.payload?.target_run_id ??
+        decision?.run_id ??
+        decision?.target_run_id,
+    );
+    const eventId = optionalString(normalizedRequest.event_id);
+    const seq = positiveInteger(normalizedRequest.seq);
+    const createdAt = optionalString(normalizedRequest.created_at);
+    if (!runId || !eventId || !seq || !createdAt) {
+      throwDiagnosticsOperatorOverrideStateUpdateError({
+        status: 400,
+        code: "diagnostics_operator_override_state_update_input_required",
+        message:
+          "Diagnostics operator override requires canonical run_id, event_id, seq, and created_at inputs.",
+        details: {
+          ...details,
+          run_id: runId ?? null,
+          event_id: eventId ?? null,
+          seq: seq ?? null,
+          created_at: createdAt ?? null,
+        },
+      });
+    }
+    const run = store.getRun(runId);
+    if (!objectRecord(run)) {
+      throwDiagnosticsOperatorOverrideStateUpdateError({
+        status: 404,
+        code: "diagnostics_operator_override_run_not_found",
+        message: "Diagnostics operator override requires an admitted run record.",
+        details: { ...details, run_id: runId },
+      });
+    }
+    const planned = runner.planDiagnosticsOperatorOverrideStateUpdate({
+      thread_id: threadId,
+      run_id: runId,
+      run,
+      event_id: eventId,
+      seq,
+      created_at: createdAt,
+      decision_id: decisionId,
+      gate_event_id: gateEventId,
+      source: optionalString(normalizedRequest.source) ?? "agent_studio",
+      approval_required: booleanOption(normalizedRequest.approval_required, false),
+      approval_satisfied: booleanOption(normalizedRequest.approval_satisfied, false),
+      approval_source: optionalString(normalizedRequest.approval_source) ?? null,
+      snapshot_id: normalizedSnapshotId,
     });
+    const plannedRun = objectRecord(planned?.run);
+    const plannedOperationKind = optionalString(planned?.operation_kind);
+    const operatorControl = objectRecord(planned?.operator_control);
+    if (
+      optionalString(planned?.status) !== "planned" ||
+      plannedOperationKind !== "diagnostics.operator_override.event" ||
+      !plannedRun ||
+      optionalString(plannedRun.id) !== runId ||
+      !operatorControl ||
+      optionalString(operatorControl.control) !== "diagnostics_operator_override" ||
+      optionalString(operatorControl.decision_id) !== decisionId ||
+      !objectRecord(plannedRun.diagnosticsBlockingGate) ||
+      optionalString(plannedRun.diagnosticsBlockingGate.status) !== "overridden" ||
+      plannedRun.diagnosticsBlockingGate.continuation_allowed !== true
+    ) {
+      throwDiagnosticsOperatorOverrideStateUpdateError({
+        code: "diagnostics_operator_override_state_update_projection_incomplete",
+        message:
+          "Rust diagnostics operator override planning did not return a complete run projection.",
+        details: {
+          ...details,
+          run_id: runId,
+          expected_operation_kind: "diagnostics.operator_override.event",
+          actual_operation_kind: plannedOperationKind ?? null,
+          actual_status: optionalString(planned?.status) ?? null,
+        },
+      });
+    }
+    const commit = store.writeRun(plannedRun, plannedOperationKind);
+    return {
+      schema_version: DIAGNOSTICS_REPAIR_DECISION_EXECUTION_SCHEMA_VERSION,
+      object: "ioi.runtime_diagnostics_operator_override",
+      thread_id: threadId,
+      run_id: runId,
+      decision_id: decisionId,
+      status: "completed",
+      override_status: "overridden",
+      continuation_allowed: true,
+      operation_kind: plannedOperationKind,
+      operator_control: operatorControl,
+      run: plannedRun,
+      commit,
+      receipt_refs: stringRefs(commit?.receipt_refs),
+      policy_decision_refs: stringRefs(commit?.policy_decision_refs),
+      evidence_refs: DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_EVIDENCE_REFS,
+    };
   }
 
   function createDiagnosticsRepairRetryTurn(store, threadId, { request = {}, gateEvent, decision, snapshotId = null } = {}) {
-    const decisionId = optionalString(decision?.decision_id ?? request.decision_id) ?? "repair_retry";
-    throwDiagnosticsRepairRustCoreRequired("diagnostics_repair_retry_turn_creation", "diagnostics.repair_retry.create", {
+    const normalizedRequest = objectRecord(request) ?? {};
+    const decisionId =
+      optionalString(decision?.decision_id ?? normalizedRequest.decision_id) ?? "repair_retry";
+    const gateEventId =
+      optionalString(gateEvent?.event_id ?? normalizedRequest.gate_event_id) ?? null;
+    const normalizedSnapshotId =
+      optionalString(snapshotId ?? normalizedRequest.snapshot_id) ?? null;
+    const details = {
       thread_id: threadId,
       decision_id: decisionId,
-      gate_event_id: optionalString(gateEvent?.event_id ?? request.gate_event_id) ?? null,
-      snapshot_id: optionalString(snapshotId ?? request.snapshot_id) ?? null,
-      evidence_refs: [
-        "diagnostics_repair_retry_js_create_run_facade_retired",
-        "rust_daemon_core_repair_retry_run_admission_required",
-        "agentgres_repair_retry_state_truth_required",
-      ],
+      gate_event_id: gateEventId,
+      snapshot_id: normalizedSnapshotId,
+    };
+    diagnosticsRepairControlRunner(store, {
+      operation: "diagnostics_repair_retry_event_append",
+      operation_kind: "diagnostics.repair_retry.created",
+      thread_id: threadId,
+      decision_id: decisionId,
     });
+    const runCreateSurface = store?.agentRunLifecycleSurface;
+    if (
+      typeof runCreateSurface?.createRun !== "function" ||
+      typeof store?.agentForThread !== "function"
+    ) {
+      throwDiagnosticsRepairRustCoreRequired("diagnostics_repair_retry_turn_creation", "diagnostics.repair_retry.create", {
+        ...details,
+        evidence_refs: [
+          "diagnostics_repair_retry_run_create_rust_owned",
+          "runtime_run_create_js_facade_retired",
+          "agentgres_run_create_state_truth_required",
+        ],
+      });
+    }
+    const agent = objectRecord(store.agentForThread(threadId));
+    const agentId = optionalString(agent?.id ?? agent?.agent_id);
+    if (!agentId) {
+      throw runtimeError({
+        status: 404,
+        code: "diagnostics_repair_retry_agent_not_found",
+        message: "Diagnostics repair retry requires an admitted agent for the thread.",
+        details: {
+          rust_core_boundary: "runtime.diagnostics_repair.retry",
+          ...details,
+        },
+      });
+    }
+    const prompt =
+      optionalString(normalizedRequest.prompt ?? normalizedRequest.repair_prompt) ??
+      `Retry diagnostics repair for ${decisionId}.`;
+    const retryRun = runCreateSurface.createRun(store, agentId, {
+      mode: "send",
+      prompt,
+      options: {
+        ...(objectRecord(normalizedRequest.options) ?? {}),
+        diagnostics_repair: {
+          action: "repair_retry",
+          decision_id: decisionId,
+          gate_event_id: gateEventId,
+          snapshot_id: normalizedSnapshotId,
+        },
+      },
+      diagnostics_feedback: {
+        mode: "repair_retry",
+        decision_id: decisionId,
+        gate_event_id: gateEventId,
+        snapshot_id: normalizedSnapshotId,
+      },
+    });
+    const retryRunId = optionalString(retryRun?.id);
+    if (!retryRunId) {
+      throw runtimeError({
+        status: 502,
+        code: "diagnostics_repair_retry_run_create_invalid",
+        message: "Rust-owned diagnostics repair retry run creation did not return a run projection.",
+        details: {
+          rust_core_boundary: "runtime.diagnostics_repair.retry",
+          ...details,
+          agent_id: agentId,
+        },
+      });
+    }
+    const retryTurnId = optionalString(retryRun?.turn_id ?? retryRun?.turnId) ?? retryRunId;
+    const targetRunId =
+      optionalString(
+        normalizedRequest.target_run_id ??
+          gateEvent?.target_run_id ??
+          gateEvent?.payload?.target_run_id ??
+          decision?.target_run_id,
+      ) ?? null;
+    const summary =
+      optionalString(normalizedRequest.summary) ??
+      "Diagnostics repair retry turn created.";
+    const admittedEvent = appendPlannedDiagnosticsRepairControlEvent(
+      store,
+      planDiagnosticsRepairControlEvent(store, threadId, {
+        decision_id: decisionId,
+        gate_event_id: gateEventId,
+        snapshot_id: normalizedSnapshotId,
+        action: "repair_retry",
+        retry_turn_id: retryTurnId,
+        retry_request_id: retryRunId,
+        retry_run_id: retryRunId,
+        target_run_id: targetRunId,
+        summary,
+        receipt_refs: stringRefs(normalizedRequest.receipt_refs),
+        policy_decision_refs: stringRefs(normalizedRequest.policy_decision_refs),
+      }, {
+        operation: "diagnostics_repair_retry_event_append",
+        operationKind: "diagnostics.repair_retry.created",
+        decision_id: decisionId,
+      }),
+    );
+    if (typeof diagnosticsRepairRetryResultFromEvent === "function") {
+      return diagnosticsRepairRetryResultFromEvent({
+        threadId,
+        event: admittedEvent,
+        run: retryRun,
+      });
+    }
+    return {
+      schema_version: DIAGNOSTICS_REPAIR_DECISION_EXECUTION_SCHEMA_VERSION,
+      object: "ioi.runtime_diagnostics_repair_retry",
+      thread_id: threadId,
+      status: optionalString(admittedEvent?.status) ?? "created",
+      turn_id: retryTurnId,
+      request_id: retryRunId,
+      repair_turn: null,
+      event: admittedEvent,
+      repair_retry_event: admittedEvent,
+      receipt_refs: stringRefs(admittedEvent?.receipt_refs),
+      artifact_refs: stringRefs(admittedEvent?.artifact_refs),
+      policy_decision_refs: stringRefs(admittedEvent?.policy_decision_refs),
+      rollback_refs: stringRefs(admittedEvent?.rollback_refs),
+      summary,
+    };
   }
 
   function appendDiagnosticsOperatorOverrideEvent(store, { threadId, gateEvent, decision, snapshotId = null } = {}) {
     const decisionId = optionalString(decision?.decision_id) ?? "operator_override";
-    throwDiagnosticsRepairRustCoreRequired("diagnostics_operator_override_event_append", "diagnostics.operator_override.event", {
-      thread_id: threadId ?? null,
+    const plannedControl = planDiagnosticsRepairControlEvent(store, threadId, {
       decision_id: decisionId,
       gate_event_id: optionalString(gateEvent?.event_id) ?? null,
       snapshot_id: optionalString(snapshotId) ?? null,
-      evidence_refs: [
-        "diagnostics_operator_override_event_js_append_retired",
-        "rust_daemon_core_operator_override_receipt_required",
-        "agentgres_operator_override_expected_head_required",
-      ],
+      action: "operator_override",
+      approval_id: optionalString(decision?.approval_id ?? gateEvent?.payload?.approval_id) ?? null,
+      approval_required: decision?.approval_required ?? gateEvent?.payload?.approval_required ?? null,
+      approval_satisfied: decision?.approval_satisfied ?? gateEvent?.payload?.approval_satisfied ?? null,
+      approval_source: optionalString(decision?.approval_source ?? gateEvent?.payload?.approval_source) ?? null,
+    }, {
+      operation: "diagnostics_operator_override_event_append",
+      operationKind: "diagnostics.operator_override.event",
+      decision_id: decisionId,
     });
+    return appendPlannedDiagnosticsRepairControlEvent(store, plannedControl);
   }
 
   function appendDiagnosticsRepairRetryTurnEvent(store, { threadId, gateEvent, decision, snapshotId = null } = {}) {
     const decisionId = optionalString(decision?.decision_id) ?? "repair_retry";
-    throwDiagnosticsRepairRustCoreRequired("diagnostics_repair_retry_event_append", "diagnostics.repair_retry.created", {
-      thread_id: threadId ?? null,
+    const plannedControl = planDiagnosticsRepairControlEvent(store, threadId, {
       decision_id: decisionId,
       gate_event_id: optionalString(gateEvent?.event_id) ?? null,
       snapshot_id: optionalString(snapshotId) ?? null,
-      evidence_refs: [
-        "diagnostics_repair_retry_event_js_append_retired",
-        "rust_daemon_core_repair_retry_receipt_required",
-        "agentgres_repair_retry_expected_head_required",
-      ],
+      action: "repair_retry",
+    }, {
+      operation: "diagnostics_repair_retry_event_append",
+      operationKind: "diagnostics.repair_retry.created",
+      decision_id: decisionId,
     });
+    return appendPlannedDiagnosticsRepairControlEvent(store, plannedControl);
   }
 
   function appendDiagnosticsRepairDecisionExecutedEvent(store, { threadId, gateEvent, decision, action, snapshotId = null } = {}) {
     const decisionId = optionalString(decision?.decision_id ?? action) ?? null;
-    throwDiagnosticsRepairRustCoreRequired("diagnostics_repair_decision_event_append", "diagnostics.repair_decision.executed", {
-      thread_id: threadId ?? null,
+    const plannedControl = planDiagnosticsRepairControlEvent(store, threadId, {
       decision_id: decisionId,
       gate_event_id: optionalString(gateEvent?.event_id) ?? null,
       snapshot_id: optionalString(snapshotId) ?? null,
-      evidence_refs: [
-        "diagnostics_repair_decision_event_js_append_retired",
-        "rust_daemon_core_diagnostics_repair_receipt_required",
-        "agentgres_diagnostics_repair_expected_head_required",
-      ],
+      action: optionalString(action) ?? null,
+    }, {
+      operation: "diagnostics_repair_decision_event_append",
+      operationKind: "diagnostics.repair_decision.executed",
+      decision_id: decisionId,
     });
+    return appendPlannedDiagnosticsRepairControlEvent(store, plannedControl);
   }
 
   function resolveDiagnosticsRepairDecision(store, threadId, decisionRef, request = {}) {
-    const decisionId = optionalString(decisionRef ?? request.decision_id ?? request.action) ?? null;
-    throwDiagnosticsRepairRustCoreRequired("diagnostics_repair_decision_resolution", "diagnostics.repair_decision.resolve", {
+    const decisionId = optionalString(decisionRef ?? request.decision_id) ?? null;
+    const gateId = optionalString(request.gate_id) ?? null;
+    const details = {
       thread_id: threadId,
       decision_id: decisionId,
-      gate_id: optionalString(request.gate_id) ?? null,
-      evidence_refs: [
-        "diagnostics_repair_decision_resolution_js_projection_retired",
-        "rust_daemon_core_diagnostics_repair_projection_required",
-        "agentgres_diagnostics_repair_projection_truth_required",
-      ],
+      gate_id: gateId,
+    };
+    const runner = diagnosticsRepairProjectionRunner(store, details);
+    const projected = runner.projectRuntimeDiagnosticsRepairProjection({
+      operation: "runtime_diagnostics_repair_projection",
+      operation_kind: "runtime.diagnostics_repair_projection.decision",
+      projection_kind: "decision",
+      thread_id: threadId,
+      decision_id: decisionId,
+      gate_id: gateId,
+      projection: diagnosticsRepairDecisionProjectionInput(request),
+      evidence_refs: DIAGNOSTICS_REPAIR_DECISION_PROJECTION_EVIDENCE_REFS,
     });
+    const decision = objectRecord(projected?.projection);
+    if (
+      optionalString(projected?.status) !== "projected" ||
+      optionalString(projected?.projection_kind) !== "decision" ||
+      optionalString(projected?.thread_id) !== threadId ||
+      optionalString(projected?.decision_id) !== decisionId ||
+      !decision ||
+      optionalString(decision.decision_id) !== decisionId ||
+      optionalString(decision.thread_id) !== threadId ||
+      (gateId && optionalString(decision.gate_id) !== gateId)
+    ) {
+      throw runtimeError({
+        status: decision ? 502 : 404,
+        code: decision
+          ? "runtime_diagnostics_repair_decision_projection_invalid"
+          : "runtime_diagnostics_repair_decision_projection_not_found",
+        message: decision
+          ? "Rust diagnostics repair decision projection returned mismatched decision truth."
+          : "Rust diagnostics repair decision projection did not return an admitted decision.",
+        details: {
+          rust_core_boundary: "runtime.diagnostics_repair.projection",
+          operation: "diagnostics_repair_decision_projection",
+          operation_kind: "runtime.diagnostics_repair_projection.decision",
+          ...details,
+          actual_thread_id: optionalString(projected?.thread_id) ?? null,
+          actual_decision_id: optionalString(projected?.decision_id) ?? null,
+          actual_projection_kind: optionalString(projected?.projection_kind) ?? null,
+          evidence_refs: DIAGNOSTICS_REPAIR_DECISION_PROJECTION_EVIDENCE_REFS,
+        },
+      });
+    }
+    return {
+      schema_version: DIAGNOSTICS_REPAIR_DECISION_EXECUTION_SCHEMA_VERSION,
+      object: "ioi.runtime_diagnostics_repair_decision_resolution",
+      thread_id: threadId,
+      decision_id: decisionId,
+      gate_id: gateId,
+      status: "projected",
+      decision,
+      projection: projected,
+      receipt_refs: stringRefs(projected?.receipt_refs),
+      evidence_refs: stringRefs(projected?.evidence_refs),
+    };
   }
 
   function turnForOperatorOverrideEvent() {

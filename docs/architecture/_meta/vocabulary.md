@@ -4,7 +4,7 @@ Status: canonical vocabulary reference.
 Canonical owner: this file for runtime, audit, substrate, projection, and legacy naming vocabulary.
 Supersedes: overlapping runtime vocabulary in plans/specs when names conflict.
 Superseded by: none.
-Last alignment pass: 2026-06-07.
+Last alignment pass: 2026-06-12.
 
 The agent harness uses behavior-first names in runtime code and reserves
 compliance acronyms for hidden audit material.
@@ -231,6 +231,38 @@ compliance acronyms for hidden audit material.
 - `AutonomyLease`: a wallet.network authority lease that allows a persistent
   node to act while the user is away within bounded policy, without receiving
   durable raw secrets or unrestricted authority.
+- `WalletExchange`: the source-agnostic Wallet product surface for exchanges.
+  wallet.network owns exchange authority, risk disclosure, policy evaluation,
+  signing or denial, revocation, and receipts; route sources only produce
+  candidates.
+- `ExchangeIntent`: the semantic wallet object above raw transaction calldata.
+  It binds route, calldata commitments, slippage, simulation hash, policy hash,
+  grant/lease, revocation epoch, economics, risk labels, and exact `TxIntent`
+  records before any exchange can be approved or signed.
+- `RouteCandidate`: a proposed route from decentralized.exchange, direct pool
+  adapters, DEX routers, bridge routers, solvers, quote APIs, RFQ systems, or
+  user-specified paths. It is not authority and cannot execute until selected
+  into an approved `ExchangeIntent`.
+- `decentralized.exchange`: a preferred first-party route source and public
+  exchange surface. It may own its route proposals, adapter registry,
+  route-candidate receipts, and comparison views, but it does not own Wallet
+  exchange authority, liquidity, execution, exchange truth, or settlement.
+- `AssetExposureRecord`: a wallet.network risk record over an account or asset,
+  including cryptographic regime, public-key exposure, bridge/admin/oracle
+  dependencies, approval exposure, agent-access exposure, protection level,
+  risk labels, and recommended protection actions.
+- `ProtectionAction`: a wallet action that turns risk into a receipted change,
+  such as revoking approval, reducing allowance, moving assets to a fresh or
+  policy-stronger account, isolating agent execution funds, freezing grants, or
+  requiring step-up for exposed routes.
+- `ApprovalInboxItem`: a pending wallet authority decision. It must show
+  initiator, action, authority risk class, asset/route/security risk labels,
+  affected assets/secrets/data, destination, policy diff, simulation result,
+  expiry, and deny/edit/approve actions.
+- `WalletReceipt`: a user-facing and machine-verifiable receipt for wallet
+  actions such as sends, receives, exchanges, approvals, delegations,
+  revocations, agent actions, step-up, secret execution, risk events,
+  protection actions, and policy changes.
 - `AccessPointBinding`: a wallet.network binding for low-assurance access
   points such as SMS, email, chat apps, voice bridges, or webhooks. These
   channels may notify, wake, pause, steer, or initiate preapproved low-risk

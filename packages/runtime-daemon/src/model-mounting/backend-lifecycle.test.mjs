@@ -60,7 +60,8 @@ function fakeState() {
     receipts: [],
     writes: [],
     now: "2026-06-03T20:00:00.000Z",
-    lifecycleRequiredRequests: [],
+    backendLifecyclePlans: [],
+    recordStateCommits: [],
     backend(backendId) {
       return this.backends.get(backendId);
     },
@@ -69,9 +70,6 @@ function fakeState() {
     },
     backendSupportsSupervision(backend) {
       return ["native_local", "llama_cpp", "ollama", "vllm"].includes(backend.kind);
-    },
-    backendLifecycleRequired(operationKind, backendId) {
-      return ModelMountingState.prototype.backendLifecycleRequired.call(this, operationKind, backendId);
     },
     ensureBackendProcess(backendId, details) {
       return ensureBackendProcess(this, backendId, details);
@@ -83,6 +81,9 @@ function fakeState() {
     },
     nowIso() {
       return this.now;
+    },
+    planBackendLifecycle(request) {
+      return ModelMountingState.prototype.planBackendLifecycle.call(this, request);
     },
     reconciledBackendProcess(record) {
       return { stale: false, ...record };
@@ -102,27 +103,77 @@ function fakeState() {
     writeBackendLog(backendId, event) {
       this.logs.push({ backendId, ...event });
     },
+    commitRuntimeModelMountRecordState(request) {
+      this.recordStateCommits.push(request);
+      return {
+        record_id: request.record_id,
+        object_ref: `model_mount://${request.record_dir}/${request.record_id}`,
+        content_hash: "sha256:backend-lifecycle-content",
+        admission_hash: "sha256:backend-lifecycle-admission",
+        commit_hash: "sha256:backend-lifecycle-commit",
+        written_record: request.record,
+        storage_record: {
+          object_ref: `model_mount://${request.record_dir}/${request.record_id}`,
+        },
+      };
+    },
   };
   state.modelMountAdmissionRunner = {
-    planBackendLifecycleRequired(request) {
-      state.lifecycleRequiredRequests.push(request);
-      return {
-        status: "rust_core_required",
-        status_code: 501,
-        code: "model_mount_backend_lifecycle_rust_core_required",
-        message: "Backend lifecycle facade control requires Rust daemon-core model_mount lifecycle ownership.",
-        rust_core_boundary: "model_mount.backend_lifecycle",
+    planBackendLifecycle(request) {
+      state.backendLifecyclePlans.push(request);
+      const suffix = request.operation_kind.replace(/[^a-z0-9]+/gi, "-");
+      const recordId = `backend-lifecycle-control:${suffix}`;
+      const receiptRefs = Array.isArray(request.receipt_refs) ? request.receipt_refs : [];
+      const evidenceRefs = [
+        "public_backend_lifecycle_js_facade_retired",
+        "rust_daemon_core_backend_lifecycle",
+        "agentgres_backend_lifecycle_truth_required",
+      ];
+      const publicResponse = {
+        object: "ioi.model_mount_backend_lifecycle",
+        status: "planned",
+        backend_id: request.backend_id,
+        backend_kind: request.backend_kind ?? null,
         operation_kind: request.operation_kind,
-        evidence_refs: request.evidence_refs,
-        details: {
+        rust_core_boundary: "model_mount.backend_lifecycle",
+        js_backend_registry_read: false,
+        js_process_control: false,
+        js_log_read: false,
+        js_log_write: false,
+      };
+      if (request.operation_kind === "model_mount.backend.start") {
+        publicResponse.backend_status = "start_planned";
+        if (request.body?.load_options) publicResponse.load_options = request.body.load_options;
+      } else if (request.operation_kind === "model_mount.backend.health") {
+        publicResponse.backend_status = "health_planned";
+      } else if (request.operation_kind === "model_mount.backend.stop") {
+        publicResponse.backend_status = "stop_planned";
+      } else if (request.operation_kind === "model_mount.backend.logs_read") {
+        publicResponse.logs = [];
+        publicResponse.count = 0;
+      }
+      return {
+        source: "rust_model_mount_backend_lifecycle_command",
+        backend: "rust_model_mount_backend_lifecycle",
+        status: "planned",
+        rust_core_boundary: "model_mount.backend_lifecycle",
+        record_dir: "model-backend-lifecycle-controls",
+        record_id: recordId,
+        record: {
+          id: recordId,
+          object: "ioi.model_mount_backend_lifecycle_record",
           backend_id: request.backend_id,
           backend_kind: request.backend_kind ?? null,
-          operation: request.operation,
           operation_kind: request.operation_kind,
           rust_core_boundary: "model_mount.backend_lifecycle",
-          source: request.source,
-          evidence_refs: request.evidence_refs,
+          receipt_refs: [...receiptRefs, "sha256:backend-lifecycle-control"],
+          evidence_refs: evidenceRefs,
         },
+        public_response: publicResponse,
+        operation_kind: request.operation_kind,
+        receipt_refs: receiptRefs,
+        evidence_refs: evidenceRefs,
+        control_hash: "sha256:backend-lifecycle-control",
       };
     },
   };
@@ -216,69 +267,81 @@ test("backend process supervisor retired error uses canonical Rust-boundary meta
   );
 });
 
-test("public backend lifecycle facade fails closed until Rust core owns lifecycle control", () => {
+test("public backend lifecycle facades commit Rust-authored records", () => {
   const state = fakeState();
   state.backendRegistry = () => {
     throw new Error("public backend lifecycle must not read JS backend registry");
   };
 
+  const health = backendHealth(state, "backend.native");
+  const started = startBackend(state, "backend.native", { loadOptions: { contextLength: 1024 } });
+  const stopped = stopBackend(state, "backend.native");
+  const logs = backendLogs(state, "backend.native");
+
+  assert.deepEqual(state.backendLifecyclePlans.map((request) => request.operation_kind), [
+    "model_mount.backend.health",
+    "model_mount.backend.start",
+    "model_mount.backend.stop",
+    "model_mount.backend.logs_read",
+  ]);
+  assert.deepEqual(state.recordStateCommits.map((request) => request.operation_kind), [
+    "model_mount.backend.health",
+    "model_mount.backend.start",
+    "model_mount.backend.stop",
+    "model_mount.backend.logs_read",
+  ]);
+  assert.equal(state.backendLifecyclePlans[0].schema_version, "ioi.model_mount.backend_lifecycle.v1");
+  assert.equal(state.backendLifecyclePlans[0].backend_id, "backend.native");
+  assert.equal(state.backendLifecyclePlans[0].source, "runtime-daemon.model_mounting.backend_lifecycle");
+  assert.equal(state.backendLifecyclePlans[1].body.backend_id, "backend.native");
+  assert.deepEqual(state.backendLifecyclePlans[1].body.load_options, { contextLength: 1024 });
+  assert.equal(Object.hasOwn(state.backendLifecyclePlans[1].body, "loadOptions"), false);
+
+  for (const response of [health, started, stopped, logs]) {
+    assert.equal(response.status, "planned");
+    assert.equal(response.rust_core_boundary, "model_mount.backend_lifecycle");
+    assert.equal(response.js_backend_registry_read, false);
+    assert.equal(response.js_process_control, false);
+    assert.equal(response.commit.commit_hash, "sha256:backend-lifecycle-commit");
+    assert.ok(response.evidence_refs.includes("rust_daemon_core_backend_lifecycle"));
+    assert.ok(response.evidence_refs.includes("agentgres_backend_lifecycle_truth_required"));
+  }
+  assert.equal(health.backend_status, "health_planned");
+  assert.equal(started.backend_status, "start_planned");
+  assert.deepEqual(started.load_options, { contextLength: 1024 });
+  assert.equal(stopped.backend_status, "stop_planned");
+  assert.deepEqual(logs.logs, []);
+  assert.equal(logs.count, 0);
+
+  assert.deepEqual(state.receipts, []);
+  assert.deepEqual(state.logs, []);
+  assert.deepEqual(state.writes, []);
+});
+
+test("public backend lifecycle fails closed only when Rust positive planner is unavailable", () => {
+  const state = fakeState();
+  state.modelMountAdmissionRunner = {};
+
   assert.throws(
-    () => backendHealth(state, "backend.native", deps),
+    () => backendHealth(state, "backend.native"),
     (error) => {
       assert.equal(error.status, 501);
       assert.equal(error.code, "model_mount_backend_lifecycle_rust_core_required");
-      assert.equal(error.details.backend_id, "backend.native");
-      assert.equal(error.details.backend_kind, null);
       assert.equal(error.details.operation_kind, "model_mount.backend.health");
       assert.equal(error.details.rust_core_boundary, "model_mount.backend_lifecycle");
       assert.deepEqual(error.details.evidence_refs, [
         "public_backend_lifecycle_js_facade_retired",
-        "rust_daemon_core_lifecycle_required",
+        "rust_daemon_core_backend_lifecycle",
         "agentgres_backend_lifecycle_truth_required",
       ]);
-      assert.equal(Object.hasOwn(error.details, "backendId"), false);
-      assert.equal(Object.hasOwn(error.details, "backendKind"), false);
       assert.equal(Object.hasOwn(error.details, "operationKind"), false);
       assert.equal(Object.hasOwn(error.details, "rustCoreBoundary"), false);
       assert.equal(Object.hasOwn(error.details, "evidenceRefs"), false);
       return true;
     },
   );
-  assert.equal(state.lifecycleRequiredRequests.length, 1);
-  assert.equal(
-    state.lifecycleRequiredRequests[0].schema_version,
-    "ioi.model_mount.backend_lifecycle_required.v1",
-  );
-  assert.equal(state.lifecycleRequiredRequests[0].operation, "model_mount.backend_lifecycle");
-  assert.equal(state.lifecycleRequiredRequests[0].backend_id, "backend.native");
-  assert.equal(state.lifecycleRequiredRequests[0].backend_kind, null);
-  assert.equal(state.lifecycleRequiredRequests[0].operation_kind, "model_mount.backend.health");
-  assert.equal(Object.hasOwn(state.lifecycleRequiredRequests[0], "backendId"), false);
-  assert.equal(Object.hasOwn(state.lifecycleRequiredRequests[0], "operationKind"), false);
-
-  assert.throws(
-    () => startBackend(state, "backend.native", { loadOptions: { contextLength: 1024 } }, deps),
-    (error) => {
-      assert.equal(error.code, "model_mount_backend_lifecycle_rust_core_required");
-      assert.equal(error.details.operation_kind, "model_mount.backend.start");
-      return true;
-    },
-  );
-  assert.equal(state.lifecycleRequiredRequests[1].operation_kind, "model_mount.backend.start");
-
-  assert.throws(
-    () => stopBackend(state, "backend.native"),
-    (error) => {
-      assert.equal(error.code, "model_mount_backend_lifecycle_rust_core_required");
-      assert.equal(error.details.operation_kind, "model_mount.backend.stop");
-      return true;
-    },
-  );
-  assert.equal(state.lifecycleRequiredRequests[2].operation_kind, "model_mount.backend.stop");
-
-  assert.deepEqual(state.receipts, []);
-  assert.deepEqual(state.logs, []);
-  assert.deepEqual(state.writes, []);
+  assert.deepEqual(state.backendLifecyclePlans, []);
+  assert.deepEqual(state.recordStateCommits, []);
 });
 
 test("public backend list delegates to Rust projection without JS backend registry input", () => {
@@ -298,67 +361,52 @@ test("public backend list delegates to Rust projection without JS backend regist
   assert.equal(projectionRequests.length, 1);
 });
 
-test("blocked backend public lifecycle start still fails at Rust-core boundary before JS control", () => {
+test("blocked backend public lifecycle start still commits through Rust boundary before JS control", () => {
   const state = fakeState();
   state.backendRegistry = () => {
     throw new Error("public backend lifecycle must not read JS backend registry");
   };
 
-  assert.throws(
-    () => startBackend(state, "backend.blocked", {}, deps),
-    (error) => {
-      assert.equal(error.status, 501);
-      assert.equal(error.code, "model_mount_backend_lifecycle_rust_core_required");
-      assert.equal(error.details.backend_id, "backend.blocked");
-      assert.equal(error.details.backend_kind, null);
-      assert.equal(error.details.operation_kind, "model_mount.backend.start");
-      assert.equal(error.details.source, "runtime-daemon.model_mounting.backend_lifecycle");
-      assert.equal(Object.hasOwn(error.details, "backendId"), false);
-      assert.equal(Object.hasOwn(error.details, "backendKind"), false);
-      assert.equal(Object.hasOwn(error.details, "operationKind"), false);
-      assert.equal(Object.hasOwn(error.details, "evidenceRefs"), false);
-      return true;
-    },
-  );
-  assert.equal(state.lifecycleRequiredRequests.length, 1);
-  assert.equal(state.lifecycleRequiredRequests[0].backend_id, "backend.blocked");
-  assert.equal(state.lifecycleRequiredRequests[0].backend_kind, null);
+  const response = startBackend(state, "backend.blocked", {});
+
+  assert.equal(response.status, "planned");
+  assert.equal(response.backend_id, "backend.blocked");
+  assert.equal(response.rust_core_boundary, "model_mount.backend_lifecycle");
+  assert.equal(state.backendLifecyclePlans.length, 1);
+  assert.equal(state.backendLifecyclePlans[0].backend_id, "backend.blocked");
+  assert.equal(state.backendLifecyclePlans[0].backend_kind, null);
+  assert.equal(state.recordStateCommits.length, 1);
 });
 
-test("public backend logs facade fails closed before reading local logs or writing a receipt", () => {
+test("public backend logs facade commits Rust record before reading local logs or writing a receipt", () => {
   const state = fakeState();
   let listFilesCalled = false;
 
-  assert.throws(
-    () =>
-      backendLogs(state, "backend.native", {
-        listFiles() {
-          listFilesCalled = true;
-          return ["/state/backend-logs/backend.native.jsonl"];
-        },
-        parseJsonMaybe(line) {
-          return JSON.parse(line);
-        },
-        readLines(filePath) {
-          if (filePath.endsWith("other.jsonl")) {
-            return [JSON.stringify({ backendId: "other", createdAt: "2026-06-03T20:00:03.000Z" })];
-          }
-          return [
-            JSON.stringify({ backendId: "backend.native", createdAt: "2026-06-03T20:00:02.000Z", event: "second" }),
-            JSON.stringify({ backend: "backend.native", createdAt: "2026-06-03T20:00:01.000Z", event: "first" }),
-          ];
-        },
-        safeFileName: (value) => value,
-      }),
-    (error) => {
-      assert.equal(error.code, "model_mount_backend_lifecycle_rust_core_required");
-      assert.equal(error.details.operation_kind, "model_mount.backend.logs_read");
-      return true;
+  const response = backendLogs(state, "backend.native", {
+    listFiles() {
+      listFilesCalled = true;
+      return ["/state/backend-logs/backend.native.jsonl"];
     },
-  );
+    parseJsonMaybe(line) {
+      return JSON.parse(line);
+    },
+    readLines(filePath) {
+      if (filePath.endsWith("other.jsonl")) {
+        return [JSON.stringify({ backendId: "other", createdAt: "2026-06-03T20:00:03.000Z" })];
+      }
+      return [
+        JSON.stringify({ backendId: "backend.native", createdAt: "2026-06-03T20:00:02.000Z", event: "second" }),
+        JSON.stringify({ backend: "backend.native", createdAt: "2026-06-03T20:00:01.000Z", event: "first" }),
+      ];
+    },
+    safeFileName: (value) => value,
+  });
 
+  assert.equal(response.operation_kind, "model_mount.backend.logs_read");
+  assert.deepEqual(response.logs, []);
   assert.equal(listFilesCalled, false);
-  assert.equal(state.lifecycleRequiredRequests.length, 1);
-  assert.equal(state.lifecycleRequiredRequests[0].operation_kind, "model_mount.backend.logs_read");
+  assert.equal(state.backendLifecyclePlans.length, 1);
+  assert.equal(state.backendLifecyclePlans[0].operation_kind, "model_mount.backend.logs_read");
+  assert.equal(state.recordStateCommits.length, 1);
   assert.deepEqual(state.receipts, []);
 });

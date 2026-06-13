@@ -11,6 +11,8 @@ use super::{
     AGENT_STATUS_STATE_UPDATE_RESULT_SCHEMA_VERSION,
     LIFECYCLE_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
     LIFECYCLE_ADMISSION_REQUIRED_RESULT_SCHEMA_VERSION,
+    RUNTIME_BRIDGE_THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+    RUNTIME_BRIDGE_THREAD_CONTROL_AGENT_STATE_UPDATE_RESULT_SCHEMA_VERSION,
     RUNTIME_BRIDGE_THREAD_START_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
     RUNTIME_BRIDGE_THREAD_START_AGENT_STATE_UPDATE_RESULT_SCHEMA_VERSION,
     RUNTIME_BRIDGE_TURN_RUN_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
@@ -113,6 +115,16 @@ pub enum RuntimeBridgeThreadStartAgentStateUpdateError {
         actual: String,
     },
     MissingField(&'static str),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum RuntimeBridgeThreadControlAgentStateUpdateError {
+    InvalidSchemaVersion {
+        expected: &'static str,
+        actual: String,
+    },
+    MissingField(&'static str),
+    UnsupportedAction(String),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -380,6 +392,34 @@ pub struct RuntimeBridgeThreadStartAgentStateUpdateRecord {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RuntimeBridgeThreadControlAgentStateUpdateRequest {
+    pub schema_version: String,
+    pub thread_id: String,
+    pub agent: Value,
+    pub action: String,
+    #[serde(default)]
+    pub reason: Option<String>,
+    pub updated_at: String,
+    #[serde(default)]
+    pub evidence_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RuntimeBridgeThreadControlAgentStateUpdateRecord {
+    pub schema_version: String,
+    pub object: String,
+    pub status: String,
+    pub operation_kind: String,
+    pub thread_id: String,
+    pub agent_id: String,
+    pub action: String,
+    pub updated_at: String,
+    pub control: Value,
+    pub agent: Value,
+    pub generated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RuntimeBridgeTurnRunStateUpdateRequest {
     pub schema_version: String,
     pub thread_id: String,
@@ -482,6 +522,13 @@ pub struct RuntimeBridgeThreadStartAgentStateUpdateBridgeRequest {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct RuntimeBridgeThreadControlAgentStateUpdateBridgeRequest {
+    #[serde(default)]
+    backend: Option<String>,
+    request: RuntimeBridgeThreadControlAgentStateUpdateRequest,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct RuntimeBridgeTurnRunStateUpdateBridgeRequest {
     #[serde(default)]
     backend: Option<String>,
@@ -542,6 +589,29 @@ pub fn plan_runtime_bridge_thread_start_agent_state_update_response(
         "operation_kind": record.operation_kind.clone(),
         "updated_at": record.updated_at.clone(),
         "bridge_start": record.bridge_start.clone(),
+        "agent": record.agent.clone(),
+    }))
+}
+
+pub fn plan_runtime_bridge_thread_control_agent_state_update_response(
+    request: RuntimeBridgeThreadControlAgentStateUpdateBridgeRequest,
+) -> Result<Value, ThreadLifecycleCommandError> {
+    let record = RuntimeBridgeThreadControlAgentStateUpdateCore
+        .plan(&request.request)
+        .map_err(|error| {
+            ThreadLifecycleCommandError::from_debug(
+                "runtime_bridge_thread_control_agent_state_update_invalid",
+                error,
+            )
+        })?;
+    Ok(json!({
+        "source": "rust_runtime_bridge_thread_control_agent_state_update_command",
+        "backend": rust_policy_backend(request.backend),
+        "record": record.clone(),
+        "status": record.status.clone(),
+        "operation_kind": record.operation_kind.clone(),
+        "updated_at": record.updated_at.clone(),
+        "control": record.control.clone(),
         "agent": record.agent.clone(),
     }))
 }
@@ -1184,7 +1254,15 @@ impl RuntimeBridgeThreadStartAgentStateUpdateCore {
             Value::String(request.runtime_profile.clone()),
         );
         agent.insert(
+            "runtime_profile".to_string(),
+            Value::String(request.runtime_profile.clone()),
+        );
+        agent.insert(
             "runtimeSessionId".to_string(),
+            Value::String(request.session_id.clone()),
+        );
+        agent.insert(
+            "runtime_session_id".to_string(),
             Value::String(request.session_id.clone()),
         );
         agent.insert(
@@ -1192,11 +1270,23 @@ impl RuntimeBridgeThreadStartAgentStateUpdateCore {
             Value::String(request.bridge_id.clone()),
         );
         agent.insert(
+            "runtime_bridge_id".to_string(),
+            Value::String(request.bridge_id.clone()),
+        );
+        agent.insert(
             "runtimeBridgeStatus".to_string(),
             Value::String(request.status.clone()),
         );
         agent.insert(
+            "runtime_bridge_status".to_string(),
+            Value::String(request.status.clone()),
+        );
+        agent.insert(
             "runtimeBridgeSource".to_string(),
+            Value::String(request.source.clone()),
+        );
+        agent.insert(
+            "runtime_bridge_source".to_string(),
             Value::String(request.source.clone()),
         );
         agent.insert("fixtureProfile".to_string(), Value::Null);
@@ -1223,6 +1313,67 @@ impl RuntimeBridgeThreadStartAgentStateUpdateCore {
             agent_id,
             updated_at: request.updated_at.clone(),
             bridge_start,
+            agent: Value::Object(agent),
+            generated_at: "rust_policy_core".to_string(),
+        })
+    }
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct RuntimeBridgeThreadControlAgentStateUpdateCore;
+
+impl RuntimeBridgeThreadControlAgentStateUpdateCore {
+    pub fn plan(
+        &self,
+        request: &RuntimeBridgeThreadControlAgentStateUpdateRequest,
+    ) -> Result<
+        RuntimeBridgeThreadControlAgentStateUpdateRecord,
+        RuntimeBridgeThreadControlAgentStateUpdateError,
+    > {
+        request.validate()?;
+        let mut agent = object_value(&request.agent)
+            .ok_or(RuntimeBridgeThreadControlAgentStateUpdateError::MissingField("agent"))?;
+        let agent_id = optional_json_string(&Value::Object(agent.clone()), "id")
+            .ok_or(RuntimeBridgeThreadControlAgentStateUpdateError::MissingField("agent.id"))?;
+        let action = normalized_runtime_bridge_thread_control_action(request.action.as_str())?;
+        let bridge_status = runtime_bridge_thread_status_for_action(action.as_str());
+        agent.insert(
+            "status".to_string(),
+            Value::String(bridge_status.to_string()),
+        );
+        agent.insert(
+            "runtimeBridgeStatus".to_string(),
+            Value::String(bridge_status.to_string()),
+        );
+        agent.insert(
+            "runtime_bridge_status".to_string(),
+            Value::String(bridge_status.to_string()),
+        );
+        agent.insert(
+            "updatedAt".to_string(),
+            Value::String(request.updated_at.clone()),
+        );
+
+        let evidence_refs = unique_string_vec(request.evidence_refs.clone());
+        let control = json!({
+            "action": action,
+            "reason": optional_trimmed(request.reason.as_deref()),
+            "runtime_bridge_status": bridge_status,
+            "updated_at": request.updated_at,
+            "evidence_refs": evidence_refs,
+        });
+
+        Ok(RuntimeBridgeThreadControlAgentStateUpdateRecord {
+            schema_version: RUNTIME_BRIDGE_THREAD_CONTROL_AGENT_STATE_UPDATE_RESULT_SCHEMA_VERSION
+                .to_string(),
+            object: "ioi.runtime_bridge_thread_control_agent_state_update".to_string(),
+            status: "planned".to_string(),
+            operation_kind: "thread.runtime_bridge.control".to_string(),
+            thread_id: request.thread_id.clone(),
+            agent_id,
+            action,
+            updated_at: request.updated_at.clone(),
+            control,
             agent: Value::Object(agent),
             generated_at: "rust_policy_core".to_string(),
         })
@@ -1638,6 +1789,38 @@ impl RuntimeBridgeThreadStartAgentStateUpdateRequest {
     }
 }
 
+impl RuntimeBridgeThreadControlAgentStateUpdateRequest {
+    pub fn validate(&self) -> Result<(), RuntimeBridgeThreadControlAgentStateUpdateError> {
+        if self.schema_version
+            != RUNTIME_BRIDGE_THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION
+        {
+            return Err(
+                RuntimeBridgeThreadControlAgentStateUpdateError::InvalidSchemaVersion {
+                    expected:
+                        RUNTIME_BRIDGE_THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+                    actual: self.schema_version.clone(),
+                },
+            );
+        }
+        if optional_trimmed(Some(self.thread_id.as_str())).is_none() {
+            return Err(RuntimeBridgeThreadControlAgentStateUpdateError::MissingField("thread_id"));
+        }
+        let agent = object_value(&self.agent)
+            .ok_or(RuntimeBridgeThreadControlAgentStateUpdateError::MissingField("agent"))?;
+        let agent_value = Value::Object(agent);
+        if optional_json_string(&agent_value, "id").is_none() {
+            return Err(RuntimeBridgeThreadControlAgentStateUpdateError::MissingField("agent.id"));
+        }
+        normalized_runtime_bridge_thread_control_action(self.action.as_str())?;
+        if optional_trimmed(Some(self.updated_at.as_str())).is_none() {
+            return Err(
+                RuntimeBridgeThreadControlAgentStateUpdateError::MissingField("updated_at"),
+            );
+        }
+        Ok(())
+    }
+}
+
 impl RuntimeBridgeTurnRunStateUpdateRequest {
     pub fn validate(&self) -> Result<(), RuntimeBridgeTurnRunStateUpdateError> {
         if self.schema_version != RUNTIME_BRIDGE_TURN_RUN_STATE_UPDATE_REQUEST_SCHEMA_VERSION {
@@ -1712,6 +1895,7 @@ impl SubagentRecordStateUpdateRequest {
                 | "subagent.resume"
                 | "subagent.assign"
                 | "subagent.cancel"
+                | "subagent.cancel.propagate"
         ) {
             return Err(SubagentRecordStateUpdateError::MissingField(
                 "operation_kind",
@@ -1821,6 +2005,28 @@ fn normalized_thread_control_kind(
         other => Err(ThreadControlAgentStateUpdateError::UnsupportedControlKind(
             other.to_string(),
         )),
+    }
+}
+
+fn normalized_runtime_bridge_thread_control_action(
+    value: &str,
+) -> Result<String, RuntimeBridgeThreadControlAgentStateUpdateError> {
+    match optional_trimmed(Some(value))
+        .unwrap_or_default()
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "resume" => Ok("resume".to_string()),
+        other => Err(
+            RuntimeBridgeThreadControlAgentStateUpdateError::UnsupportedAction(other.to_string()),
+        ),
+    }
+}
+
+fn runtime_bridge_thread_status_for_action(action: &str) -> &'static str {
+    match action {
+        "resume" => "active",
+        _ => "active",
     }
 }
 
@@ -2137,6 +2343,31 @@ mod tests {
             status: "active".to_string(),
             source: "runtime_service".to_string(),
             updated_at: "2026-06-06T06:15:00.000Z".to_string(),
+        }
+    }
+
+    fn runtime_bridge_thread_control_agent_state_update_request(
+    ) -> RuntimeBridgeThreadControlAgentStateUpdateRequest {
+        RuntimeBridgeThreadControlAgentStateUpdateRequest {
+            schema_version: RUNTIME_BRIDGE_THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION
+                .to_string(),
+            thread_id: "thread_1".to_string(),
+            agent: json!({
+                "id": "agent_1",
+                "cwd": "/workspace",
+                "runtimeProfile": "runtime_service",
+                "runtime_profile": "runtime_service",
+                "runtimeBridgeStatus": "paused",
+                "runtime_bridge_status": "paused",
+                "updatedAt": "2026-06-06T06:15:00.000Z"
+            }),
+            action: "resume".to_string(),
+            reason: Some("operator requested resume".to_string()),
+            updated_at: "2026-06-06T06:20:00.000Z".to_string(),
+            evidence_refs: vec![
+                "runtime_bridge_thread_control_rust_owned".to_string(),
+                "agentgres_runtime_bridge_thread_control_truth_required".to_string(),
+            ],
         }
     }
 
@@ -2770,8 +3001,13 @@ mod tests {
             assert!(record.bridge_start.get(field).is_none());
         }
         assert_eq!(record.agent["runtimeProfile"], "runtime_service");
+        assert_eq!(record.agent["runtime_profile"], "runtime_service");
         assert_eq!(record.agent["runtimeSessionId"], "session_runtime");
+        assert_eq!(record.agent["runtime_session_id"], "session_runtime");
         assert_eq!(record.agent["runtimeBridgeId"], "bridge_runtime");
+        assert_eq!(record.agent["runtime_bridge_id"], "bridge_runtime");
+        assert_eq!(record.agent["runtimeBridgeSource"], "runtime_service");
+        assert_eq!(record.agent["runtime_bridge_source"], "runtime_service");
         assert_eq!(record.agent["fixtureProfile"], Value::Null);
     }
 
@@ -2798,8 +3034,72 @@ mod tests {
             assert!(response["bridge_start"].get(field).is_none());
         }
         assert_eq!(response["agent"]["runtimeSessionId"], "session_runtime");
+        assert_eq!(response["agent"]["runtime_session_id"], "session_runtime");
         assert_eq!(response["agent"]["runtimeBridgeId"], "bridge_runtime");
+        assert_eq!(response["agent"]["runtime_bridge_id"], "bridge_runtime");
+        assert_eq!(response["agent"]["runtimeBridgeSource"], "runtime_service");
+        assert_eq!(
+            response["agent"]["runtime_bridge_source"],
+            "runtime_service"
+        );
         assert_eq!(response["agent"]["fixtureProfile"], Value::Null);
+    }
+
+    #[test]
+    fn rust_policy_plans_runtime_bridge_thread_control_agent_state_update() {
+        let record = RuntimeBridgeThreadControlAgentStateUpdateCore
+            .plan(&runtime_bridge_thread_control_agent_state_update_request())
+            .expect("runtime bridge thread control agent state update");
+
+        assert_eq!(
+            record.schema_version,
+            RUNTIME_BRIDGE_THREAD_CONTROL_AGENT_STATE_UPDATE_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(record.status, "planned");
+        assert_eq!(record.operation_kind, "thread.runtime_bridge.control");
+        assert_eq!(record.thread_id, "thread_1");
+        assert_eq!(record.agent_id, "agent_1");
+        assert_eq!(record.action, "resume");
+        assert_eq!(record.updated_at, "2026-06-06T06:20:00.000Z");
+        assert_eq!(record.control["action"], "resume");
+        assert_eq!(record.control["reason"], "operator requested resume");
+        assert_eq!(record.control["runtime_bridge_status"], "active");
+        assert_eq!(
+            record.control["evidence_refs"],
+            json!([
+                "runtime_bridge_thread_control_rust_owned",
+                "agentgres_runtime_bridge_thread_control_truth_required"
+            ])
+        );
+        assert!(record.control.get("runtimeBridgeStatus").is_none());
+        assert_eq!(record.agent["status"], "active");
+        assert_eq!(record.agent["runtimeBridgeStatus"], "active");
+        assert_eq!(record.agent["runtime_bridge_status"], "active");
+        assert_eq!(record.agent["updatedAt"], "2026-06-06T06:20:00.000Z");
+    }
+
+    #[test]
+    fn rust_policy_shapes_runtime_bridge_thread_control_agent_state_update_command_response() {
+        let response = plan_runtime_bridge_thread_control_agent_state_update_response(
+            RuntimeBridgeThreadControlAgentStateUpdateBridgeRequest {
+                backend: Some("rust_policy".to_string()),
+                request: runtime_bridge_thread_control_agent_state_update_request(),
+            },
+        )
+        .expect("runtime bridge thread control agent state update command response");
+
+        assert_eq!(
+            response["source"],
+            "rust_runtime_bridge_thread_control_agent_state_update_command"
+        );
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "planned");
+        assert_eq!(response["operation_kind"], "thread.runtime_bridge.control");
+        assert_eq!(response["control"]["action"], "resume");
+        assert_eq!(response["control"]["runtime_bridge_status"], "active");
+        assert_eq!(response["agent"]["id"], "agent_1");
+        assert_eq!(response["agent"]["runtimeBridgeStatus"], "active");
+        assert_eq!(response["agent"]["runtime_bridge_status"], "active");
     }
 
     #[test]
@@ -2858,6 +3158,25 @@ mod tests {
         assert_eq!(record.subagent_id, "subagent_1");
         assert_eq!(record.updated_at, "2026-06-06T07:04:00.000Z");
         assert_eq!(record.subagent["subagent_id"], "subagent_1");
+    }
+
+    #[test]
+    fn rust_policy_plans_subagent_propagated_cancel_record_state_update() {
+        let mut request = subagent_record_state_update_request();
+        request.operation_kind = "subagent.cancel.propagate".to_string();
+        request.subagent["status"] = json!("canceled");
+        request.subagent["lifecycle_status"] = json!("canceled");
+        request.subagent["cancellation_inherited"] = json!(true);
+        request.subagent["propagated_from_thread_id"] = json!("thread_1");
+
+        let record = SubagentRecordStateUpdateCore
+            .plan(&request)
+            .expect("subagent propagated cancel record state update");
+
+        assert_eq!(record.operation_kind, "subagent.cancel.propagate");
+        assert_eq!(record.subagent["status"], "canceled");
+        assert_eq!(record.subagent["cancellation_inherited"], true);
+        assert_eq!(record.subagent["propagated_from_thread_id"], "thread_1");
     }
 
     #[test]
@@ -3075,6 +3394,24 @@ mod tests {
             RuntimeBridgeThreadStartAgentStateUpdateError::InvalidSchemaVersion {
                 expected: RUNTIME_BRIDGE_THREAD_START_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
                 actual: "legacy.runtime-bridge-start-state-update".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn rust_policy_rejects_invalid_runtime_bridge_thread_control_agent_state_update_schema() {
+        let mut request = runtime_bridge_thread_control_agent_state_update_request();
+        request.schema_version = "legacy.runtime-bridge-control-state-update".to_string();
+
+        let error = RuntimeBridgeThreadControlAgentStateUpdateCore
+            .plan(&request)
+            .expect_err("invalid schema should be rejected");
+
+        assert_eq!(
+            error,
+            RuntimeBridgeThreadControlAgentStateUpdateError::InvalidSchemaVersion {
+                expected: RUNTIME_BRIDGE_THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+                actual: "legacy.runtime-bridge-control-state-update".to_string(),
             }
         );
     }

@@ -198,7 +198,7 @@ test("writeBackendLog returns redacted telemetry without local backend log files
   assert.equal(record.persistenceStatus, "not_persisted");
   assert.deepEqual(record.evidenceRefs, [
     "model_mount_backend_log_js_writer_retired",
-    "rust_daemon_core_backend_lifecycle_required",
+    "rust_daemon_core_backend_lifecycle",
     "agentgres_backend_lifecycle_truth_required",
   ]);
   const endpointLog = path.join(state.stateDir, "backend-logs", "endpoint.local.jsonl");

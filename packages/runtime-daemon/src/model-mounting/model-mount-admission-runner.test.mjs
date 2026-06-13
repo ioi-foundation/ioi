@@ -4,11 +4,21 @@ import test from "node:test";
 import {
   MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
   ModelMountAdmissionRunnerError,
-  RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_REQUIRED_BACKEND,
+  RUST_MODEL_MOUNT_ARTIFACT_ENDPOINT_BACKEND,
+  RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_BACKEND,
+  RUST_MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_BACKEND,
+  RUST_MODEL_MOUNT_CATALOG_PROVIDER_CONTROL_BACKEND,
+  RUST_MODEL_MOUNT_CONVERSATION_STATE_BACKEND,
+  RUST_MODEL_MOUNT_RECEIPT_GATE_BACKEND,
+  RUST_MODEL_MOUNT_ROUTE_CONTROL_BACKEND,
   RUST_MODEL_MOUNT_ROUTE_CONTROL_REQUIRED_BACKEND,
-  RUST_MODEL_MOUNT_RUNTIME_ENGINE_REQUIRED_BACKEND,
-  RUST_MODEL_MOUNT_SERVER_CONTROL_REQUIRED_BACKEND,
+  RUST_MODEL_MOUNT_RUNTIME_ENGINE_BACKEND,
+  RUST_MODEL_MOUNT_SERVER_CONTROL_BACKEND,
+  RUST_MODEL_MOUNT_STORAGE_CONTROL_BACKEND,
+  RUST_MODEL_MOUNT_STREAM_COMPLETION_BACKEND,
+  RUST_MODEL_MOUNT_TOKENIZER_BACKEND,
   RUST_MODEL_MOUNT_TOKENIZER_REQUIRED_BACKEND,
+  RUST_MODEL_MOUNT_VAULT_CONTROL_BACKEND,
   createModelMountAdmissionRunnerFromEnv,
   RustModelMountAdmissionRunner,
 } from "./model-mount-admission-runner.mjs";
@@ -241,55 +251,49 @@ function backendProcessPlanRequest() {
   };
 }
 
-function backendLifecycleRequiredRequest() {
+function backendLifecycleRequest() {
   return {
-    schema_version: "ioi.model_mount.backend_lifecycle_required.v1",
-    operation: "model_mount.backend_lifecycle",
+    schema_version: "ioi.model_mount.backend_lifecycle.v1",
     operation_kind: "model_mount.backend.start",
     backend_id: "backend.llama_cpp",
-    backend_kind: null,
+    backend_kind: "llama_cpp",
     source: "runtime-daemon.model_mounting.backend_lifecycle",
-    evidence_refs: [
-      "public_backend_lifecycle_js_facade_retired",
-      "rust_daemon_core_lifecycle_required",
-      "agentgres_backend_lifecycle_truth_required",
-    ],
+    generated_at: "2026-06-13T12:00:00.000Z",
+    body: {
+      backend_id: "backend.llama_cpp",
+      backend_kind: "llama_cpp",
+      load_options: { context_length: 4096 },
+    },
+    receipt_refs: ["receipt://backend-lifecycle"],
   };
 }
 
-function serverControlRequiredRequest() {
+function serverControlRequest() {
   return {
-    schema_version: "ioi.model_mount.server_control_required.v1",
-    operation: "model_mount.server_control",
-    operation_kind: "model_mount.server_control.record_operation",
+    schema_version: "ioi.model_mount.server_control.v1",
+    operation_kind: "model_mount.server_control.start",
+    server_control_id: "server-control.default",
     source: "runtime-daemon.model_mounting.server_control",
-    evidence_refs: [
-      "public_server_control_js_facade_retired",
-      "rust_daemon_core_server_control_required",
-      "agentgres_server_control_truth_required",
-    ],
-    details: {
+    generated_at: "2026-06-13T12:00:00.000Z",
+    body: {
       base_url: "http://daemon.test",
-      reason: "test",
-      server_control_id: "server-control.default",
     },
+    receipt_refs: ["receipt://server-control"],
   };
 }
 
-function runtimeEngineRequiredRequest() {
+function runtimeEngineRequest() {
   return {
-    schema_version: "ioi.model_mount.runtime_engine_required.v1",
-    operation: "model_mount.runtime_engine",
+    schema_version: "ioi.model_mount.runtime_engine.v1",
     operation_kind: "model_mount.runtime_engine_profile.write",
+    engine_id: "backend.llama-cpp",
     source: "runtime-daemon.model_mounting.runtime_engine",
-    evidence_refs: [
-      "public_runtime_engine_js_facade_retired",
-      "rust_daemon_core_runtime_engine_required",
-      "agentgres_runtime_engine_truth_required",
-    ],
-    details: {
+    generated_at: "2026-06-13T12:00:00.000Z",
+    body: {
       engine_id: "backend.llama-cpp",
+      default_load_options: { gpu_layers: 4 },
     },
+    receipt_refs: ["receipt://runtime-engine"],
   };
 }
 
@@ -313,6 +317,44 @@ function tokenizerRequiredRequest() {
   };
 }
 
+function tokenizerRequest() {
+  return {
+    schema_version: "ioi.model_mount.tokenizer.v1",
+    operation: "tokenize",
+    source: "runtime-daemon.model_mounting.tokenizer",
+    required_scope: "model.tokenize:*",
+    body: {
+      model: "llama-test",
+      route_id: "route.local-first",
+      input: "one two three",
+    },
+    route_selection: {
+      route: { id: "route.local-first" },
+      endpoint: {
+        id: "endpoint.local.llama",
+        modelId: "llama-test",
+        providerId: "provider.local",
+      },
+      provider: { id: "provider.local" },
+      route_decision: {
+        route_ref: "route.local-first",
+        provider_ref: "provider.local",
+        endpoint_ref: "endpoint.local.llama",
+        model_ref: "llama-test",
+        route_decision_ref: "model_mount://route_decision/test",
+        route_decision_hash: "sha256:route-decision",
+        receipt_refs: ["receipt://route-selection/test"],
+      },
+      route_receipt: { id: "model-mount/route-control/model_mount.route.select/test" },
+      route_control: {
+        record_dir: "model-route-selections",
+        record_id: "route_selection:route.local-first:test",
+      },
+    },
+    artifacts: [],
+  };
+}
+
 function routeControlRequiredRequest() {
   return {
     schema_version: "ioi.model_mount.route_control_required.v1",
@@ -333,6 +375,239 @@ function routeControlRequiredRequest() {
   };
 }
 
+function routeControlRequest() {
+  return {
+    schema_version: "ioi.model_mount.route_control.v1",
+    operation_kind: "model_mount.route.write",
+    source: "runtime-daemon.model_mounting.route_control",
+    route_id: "route.review",
+    generated_at: "2026-06-13T00:00:00.000Z",
+    body: {
+      id: "route.review",
+      role: "Review",
+      fallback: ["endpoint.local"],
+      provider_eligibility: ["local_folder"],
+    },
+    current_route: null,
+  };
+}
+
+function receiptGateRequest() {
+  return {
+    schema_version: "ioi.model_mount.receipt_gate.v1",
+    operation_kind: "workflow_receipt_gate",
+    receipt_id: "receipt-route",
+    receipt: {
+      id: "receipt-route",
+      kind: "model_invocation",
+      redaction: "redacted",
+      details: {
+        route_id: "route.local-first",
+        selected_model: "model.local",
+        endpoint_id: "endpoint.local",
+        backend_id: "backend.local",
+        tool_receipt_ids: ["receipt-tool"],
+      },
+    },
+    required_tool_receipt_ids: ["receipt-tool"],
+    tool_receipts: [
+      {
+        id: "receipt-tool",
+        kind: "mcp_tool_invocation",
+        redaction: "redacted",
+        details: {},
+      },
+    ],
+    required_redaction: "redacted",
+    required_route_id: "route.local-first",
+    required_selected_model: "model.local",
+    required_endpoint_id: "endpoint.local",
+    required_backend_id: "backend.local",
+    source: "test",
+    generated_at: "2026-06-13T12:00:00.000Z",
+  };
+}
+
+function catalogProviderControlRequest() {
+  return {
+    schema_version: "ioi.model_mount.catalog_provider_control.v1",
+    operation_kind: "model_mount.catalog_provider_configuration.write",
+    provider_id: "catalog.huggingface",
+    source: "runtime-daemon.model_mounting.catalog_provider_control",
+    generated_at: "2026-06-13T00:00:00.000Z",
+    body: {
+      enabled: true,
+      authority_grant_refs: ["grant://wallet/provider-write"],
+      authority_receipt_refs: ["receipt://wallet/provider-write"],
+      custody_ref: "ctee://catalog-provider/huggingface",
+    },
+    receipt_refs: ["receipt://catalog-provider-control"],
+    authority_grant_refs: ["grant://wallet/provider-write"],
+    authority_receipt_refs: ["receipt://wallet/provider-write"],
+    custody_ref: "ctee://catalog-provider/huggingface",
+    required_scope: "provider.write:catalog.huggingface",
+  };
+}
+
+function artifactEndpointRequest() {
+  return {
+    schema_version: "ioi.model_mount.artifact_endpoint.v1",
+    operation_kind: "model_mount.endpoint.mount",
+    source: "runtime-daemon.model_mounting.artifact_endpoint",
+    generated_at: "2026-06-13T00:00:00.000Z",
+    body: {
+      model_id: "local:test",
+      provider_id: "provider.local.folder",
+      load_policy: { mode: "on_demand", idle_ttl_seconds: 900, auto_evict: true },
+      receipt_refs: ["receipt://artifact-endpoint"],
+      authority_grant_refs: ["grant://wallet/model-mount"],
+      authority_receipt_refs: ["receipt://wallet/model-mount"],
+      custody_ref: "ctee://workspace/private-models",
+    },
+    receipt_refs: ["receipt://artifact-endpoint"],
+    authority_grant_refs: ["grant://wallet/model-mount"],
+    authority_receipt_refs: ["receipt://wallet/model-mount"],
+    custody_ref: "ctee://workspace/private-models",
+    required_scope: "model.endpoint.mount:local:test",
+  };
+}
+
+function storageControlRequest() {
+  return {
+    schema_version: "ioi.model_mount.storage_control.v1",
+    operation_kind: "model_mount.download.queue",
+    source: "runtime-daemon.model_mounting.storage_control",
+    generated_at: "2026-06-13T00:00:00.000Z",
+    body: {
+      model_id: "local:test",
+      provider_id: "provider.local.folder",
+      source_url: "fixture://models/local-test",
+      queued_only: true,
+      receipt_refs: ["receipt://storage-control"],
+      authority_grant_refs: ["grant://wallet/storage"],
+      authority_receipt_refs: ["receipt://wallet/storage"],
+      custody_ref: "ctee://workspace/private-models",
+    },
+    receipt_refs: ["receipt://storage-control"],
+    authority_grant_refs: ["grant://wallet/storage"],
+    authority_receipt_refs: ["receipt://wallet/storage"],
+    custody_ref: "ctee://workspace/private-models",
+    required_scope: "model.download.queue:local:test",
+  };
+}
+
+function capabilityTokenControlRequest() {
+  return {
+    schema_version: "ioi.model_mount.capability_token_control.v1",
+    operation_kind: "model_mount.capability_token.create",
+    token_id: null,
+    token_hash: null,
+    required_scope: null,
+    source: "runtime-daemon.model_mounting.capability_token_control",
+    generated_at: "2026-06-13T00:00:00.000Z",
+    state_dir: "/tmp/ioi-model-mount-state",
+    body: {
+      audience: "agent-studio",
+      allowed: ["model.chat:*"],
+      denied: ["shell.exec"],
+      grant_id: "grant://wallet/capability",
+      authority_grant_refs: ["grant://wallet/capability"],
+      authority_receipt_refs: ["receipt://wallet/capability"],
+    },
+    receipt_refs: ["receipt://capability-token-control"],
+    authority_grant_refs: ["grant://wallet/capability"],
+    authority_receipt_refs: ["receipt://wallet/capability"],
+  };
+}
+
+function vaultControlRequest() {
+  return {
+    schema_version: "ioi.model_mount.vault_control.v1",
+    operation_kind: "model_mount.vault_ref.bind",
+    vault_ref: "vault://provider/custom/api-key",
+    material_hash: "sha256:vault-material",
+    custody_ref: "ctee://vault/custom",
+    source: "runtime-daemon.model_mounting.vault_control",
+    generated_at: "2026-06-13T00:00:00.000Z",
+    state_dir: "/tmp/ioi-model-mount-state",
+    body: {
+      label: "Custom auth",
+      purpose: "provider.auth:custom",
+      custody_ref: "ctee://vault/custom",
+      authority_grant_refs: ["grant://wallet/vault"],
+      authority_receipt_refs: ["receipt://wallet/vault"],
+    },
+    receipt_refs: ["receipt://vault-control"],
+    authority_grant_refs: ["grant://wallet/vault"],
+    authority_receipt_refs: ["receipt://wallet/vault"],
+  };
+}
+
+function conversationStateRequest() {
+  return {
+    schema_version: "ioi.model_mount.conversation_state.v1",
+    operation: "model_conversation_state_write",
+    response_id: "resp.current",
+    previous_response_id: "resp.previous",
+    root_response_id: "resp.root",
+    previous_message_count: 4,
+    kind: "responses",
+    status: "completed",
+    source: "runtime-daemon.model_mounting.conversation_state",
+    generated_at: "2026-06-13T00:00:00.000Z",
+    route_ref: "route.local-first",
+    endpoint_ref: "endpoint.local",
+    provider_ref: "provider.local",
+    model_ref: "llama-test",
+    instance_ref: "instance.local",
+    route_decision_ref: "model_mount://route_decision/test",
+    route_receipt_ref: "receipt://route",
+    invocation_receipt_ref: "receipt://invocation",
+    input_text: "hello",
+    output_text: "world",
+    token_count: { total_tokens: 2 },
+    continuation_safety: { status: "accepted" },
+    receipt_refs: ["receipt://route", "receipt://invocation"],
+  };
+}
+
+function streamCompletionRequest() {
+  return {
+    schema_version: "ioi.model_mount.stream_completion.v1",
+    operation: "model_stream_completion",
+    response_id: "resp.stream",
+    previous_response_id: null,
+    root_response_id: "resp.stream",
+    previous_message_count: null,
+    kind: "responses",
+    stream_kind: "responses",
+    source: "runtime-daemon.model_mounting.stream_completion",
+    generated_at: "2026-06-13T00:00:00.000Z",
+    receipt_id: "receipt.stream",
+    current_sequence: 2,
+    current_head_ref: "agentgres://model-mounting/accepted-receipts/head/2",
+    current_state_root: "sha256:state-2",
+    invocation_receipt_ref: "receipt://invocation",
+    route_decision_ref: "model_mount://route_decision/test",
+    route_receipt_ref: "receipt://route",
+    route_ref: "route.local-first",
+    endpoint_ref: "endpoint.local",
+    provider_ref: "provider.local",
+    model_ref: "llama-test",
+    instance_ref: "instance.local",
+    input_text: "hello",
+    output_text: "world",
+    token_count: { total_tokens: 3 },
+    provider_usage: { prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 },
+    provider_result: { provider_response_kind: "openai.responses" },
+    provider_stream_shape_summary: { frames_forwarded: 3 },
+    chunks_forwarded: 3,
+    finish_reason: "stop",
+    provider_response_kind: "openai.responses",
+    receipt_refs: ["receipt://route", "receipt://invocation"],
+  };
+}
+
 test("Rust model_mount runner does not synthesize Rust-owned receipt, required-boundary evidence, or process fields", () => {
   const sparseResultByOperation = new Map([
     ["admit_model_mount_route_decision", { record: {} }],
@@ -349,9 +624,6 @@ test("Rust model_mount runner does not synthesize Rust-owned receipt, required-b
     ["plan_model_mount_accepted_receipt_transition", { transition: {} }],
     ["bind_model_mount_invocation_receipt", {}],
     ["plan_model_mount_read_projection", {}],
-    ["plan_model_mount_backend_lifecycle_required", { record: { details: {} } }],
-    ["plan_model_mount_server_control_required", { record: { details: {} } }],
-    ["plan_model_mount_runtime_engine_required", { record: { details: {} } }],
     ["plan_model_mount_tokenizer_required", { record: { details: {} } }],
     ["plan_model_mount_route_control_required", { record: { details: {} } }],
   ]);
@@ -422,15 +694,6 @@ test("Rust model_mount runner does not synthesize Rust-owned receipt, required-b
 
   const projection = runner.planReadProjection({});
   assert.equal(projection.evidence_refs, null);
-
-  const backendLifecycleRequired = runner.planBackendLifecycleRequired(backendLifecycleRequiredRequest());
-  assert.equal(backendLifecycleRequired.evidence_refs, null);
-
-  const serverControlRequired = runner.planServerControlRequired(serverControlRequiredRequest());
-  assert.equal(serverControlRequired.evidence_refs, null);
-
-  const runtimeEngineRequired = runner.planRuntimeEngineRequired(runtimeEngineRequiredRequest());
-  assert.equal(runtimeEngineRequired.evidence_refs, null);
 
   const tokenizerRequired = runner.planTokenizerRequired(tokenizerRequiredRequest());
   assert.equal(tokenizerRequired.evidence_refs, null);
@@ -708,6 +971,31 @@ test("Rust model_mount admission runner sends local provider inventory through d
   const runner = new RustModelMountAdmissionRunner({
     daemonCoreInvoker(request) {
       calls.push({ request });
+      const record = {
+        id: "provider_inventory_native_list_loaded",
+        object: "ioi.model_mount_provider_inventory",
+        schema_version: request.request.schema_version,
+        provider_ref: request.request.provider_ref,
+        provider_kind: request.request.provider_kind,
+        action: "list_loaded",
+        operation_kind: "model_mount.provider.inventory.list_loaded",
+        status: "listed",
+        backend: "autopilot.native_local.fixture",
+        backend_id: "backend.autopilot.native-local.fixture",
+        driver: "native_local",
+        execution_backend: "rust_model_mount_native_local_inventory",
+        item_refs: ["model_instance://native/qwen3"],
+        item_count: 1,
+        inventory_hash: "sha256:inventory",
+        record_dir: "model-provider-inventory",
+        record_id: "provider_inventory_native_list_loaded",
+        receipt_refs: [],
+        rust_core_boundary: "model_mount.provider_inventory",
+        evidence_refs: [
+          "rust_model_mount_provider_inventory",
+          "agentgres_provider_inventory_truth_required",
+        ],
+      };
       return {
         ok: true,
         result: {
@@ -715,13 +1003,22 @@ test("Rust model_mount admission runner sends local provider inventory through d
             backend: "rust_model_mount_native_local_inventory",
             result: {
               ...request.request,
+              operation_kind: "model_mount.provider.inventory.list_loaded",
               status: "listed",
               backend: "autopilot.native_local.fixture",
               backend_id: "backend.autopilot.native-local.fixture",
               driver: "native_local",
               item_count: 1,
               inventory_hash: "sha256:inventory",
-              evidence_refs: ["rust_model_mount_provider_inventory"],
+              rust_core_boundary: "model_mount.provider_inventory",
+              record_dir: "model-provider-inventory",
+              record_id: "provider_inventory_native_list_loaded",
+              record,
+              receipt_refs: [],
+              evidence_refs: [
+                "rust_model_mount_provider_inventory",
+                "agentgres_provider_inventory_truth_required",
+              ],
             },
             status: "listed",
             backend_id: "backend.autopilot.native-local.fixture",
@@ -731,7 +1028,16 @@ test("Rust model_mount admission runner sends local provider inventory through d
             item_refs: ["model_instance://native/qwen3"],
             item_count: 1,
             inventory_hash: "sha256:inventory",
-            evidence_refs: ["rust_model_mount_provider_inventory"],
+            operation_kind: "model_mount.provider.inventory.list_loaded",
+            rust_core_boundary: "model_mount.provider_inventory",
+            record_dir: "model-provider-inventory",
+            record_id: "provider_inventory_native_list_loaded",
+            record,
+            receipt_refs: [],
+            evidence_refs: [
+              "rust_model_mount_provider_inventory",
+              "agentgres_provider_inventory_truth_required",
+            ],
           },
       };
     },
@@ -751,6 +1057,12 @@ test("Rust model_mount admission runner sends local provider inventory through d
   assert.deepEqual(result.itemRefs, ["model_instance://native/qwen3"]);
   assert.equal(result.itemCount, 1);
   assert.equal(result.inventory_hash, "sha256:inventory");
+  assert.equal(result.operation_kind, "model_mount.provider.inventory.list_loaded");
+  assert.equal(result.rust_core_boundary, "model_mount.provider_inventory");
+  assert.equal(result.record_dir, "model-provider-inventory");
+  assert.equal(result.record_id, "provider_inventory_native_list_loaded");
+  assert.equal(result.record.object, "ioi.model_mount_provider_inventory");
+  assert.deepEqual(result.receipt_refs, []);
   assert.equal(Object.hasOwn(result.result, "providerBackend"), false);
   assert.equal(Object.hasOwn(result.result, "backendId"), false);
   assert.equal(Object.hasOwn(result.result, "itemRefs"), false);
@@ -892,84 +1204,99 @@ test("Rust model_mount admission runner sends backend process plan request", () 
   assert.equal(Object.hasOwn(result, "publicArgs"), false);
 });
 
-test("Rust model_mount admission runner sends backend lifecycle required request", () => {
+test("Rust model_mount admission runner sends positive backend lifecycle request", () => {
   const calls = [];
   const runner = new RustModelMountAdmissionRunner({
     daemonCoreInvoker(request) {
       calls.push({ request });
+      const record = {
+        id: "backend-lifecycle-control:test",
+        object: "ioi.model_mount_backend_lifecycle_record",
+        backend_id: request.request.backend_id,
+        backend_kind: request.request.backend_kind,
+        operation_kind: request.request.operation_kind,
+        rust_core_boundary: "model_mount.backend_lifecycle",
+        receipt_refs: [...request.request.receipt_refs, "sha256:backend-lifecycle-control"],
+        evidence_refs: [
+          "public_backend_lifecycle_js_facade_retired",
+          "rust_daemon_core_backend_lifecycle",
+          "agentgres_backend_lifecycle_truth_required",
+        ],
+      };
+      const publicResponse = {
+        object: "ioi.model_mount_backend_lifecycle",
+        status: "planned",
+        backend_id: request.request.backend_id,
+        backend_kind: request.request.backend_kind,
+        operation_kind: request.request.operation_kind,
+        rust_core_boundary: "model_mount.backend_lifecycle",
+        backend_status: "start_planned",
+        load_options: request.request.body.load_options,
+        js_backend_registry_read: false,
+        js_process_control: false,
+        js_log_read: false,
+        js_log_write: false,
+      };
       return {
         ok: true,
         result: {
-            source: "rust_model_mount_backend_lifecycle_required_command",
-            backend: RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_REQUIRED_BACKEND,
-            record: {
-              schema_version: "ioi.model_mount.backend_lifecycle_required_result.v1",
-              object: "ioi.model_mount_backend_lifecycle_required",
-              status: "rust_core_required",
-              status_code: 501,
-              code: "model_mount_backend_lifecycle_rust_core_required",
-              message:
-                "Backend lifecycle facade control requires Rust daemon-core model_mount lifecycle ownership.",
-              rust_core_boundary: "model_mount.backend_lifecycle",
-              operation: request.request.operation,
-              operation_kind: request.request.operation_kind,
-              backend_id: request.request.backend_id,
-              backend_kind: request.request.backend_kind,
-              source: request.request.source,
-              evidence_refs: request.request.evidence_refs,
-              details: {
-                backend_id: request.request.backend_id,
-                backend_kind: request.request.backend_kind,
-                operation: request.request.operation,
-                operation_kind: request.request.operation_kind,
-                rust_core_boundary: "model_mount.backend_lifecycle",
-                source: request.request.source,
-                evidence_refs: request.request.evidence_refs,
-              },
-              generated_at: "rust_model_mount_core",
-            },
-            status: "rust_core_required",
-            status_code: 501,
-            code: "model_mount_backend_lifecycle_rust_core_required",
-            message:
-              "Backend lifecycle facade control requires Rust daemon-core model_mount lifecycle ownership.",
+          source: "rust_model_mount_backend_lifecycle_command",
+          backend: RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_BACKEND,
+          plan: {
+            schema_version: "ioi.model_mount.backend_lifecycle_plan.v1",
+            object: "ioi.model_mount_backend_lifecycle_plan",
+            status: "planned",
             rust_core_boundary: "model_mount.backend_lifecycle",
             operation_kind: request.request.operation_kind,
-            details: {
-              backend_id: request.request.backend_id,
-              backend_kind: request.request.backend_kind,
-              operation: request.request.operation,
-              operation_kind: request.request.operation_kind,
-              rust_core_boundary: "model_mount.backend_lifecycle",
-              source: request.request.source,
-              evidence_refs: request.request.evidence_refs,
-            },
+            source: request.request.source,
+            record_dir: "model-backend-lifecycle-controls",
+            record_id: "backend-lifecycle-control:test",
+            record,
+            public_response: publicResponse,
+            receipt_refs: request.request.receipt_refs,
+            evidence_refs: record.evidence_refs,
+            control_hash: "sha256:backend-lifecycle-control",
           },
+          record_dir: "model-backend-lifecycle-controls",
+          record_id: "backend-lifecycle-control:test",
+          record,
+          public_response: publicResponse,
+          operation_kind: request.request.operation_kind,
+          rust_core_boundary: "model_mount.backend_lifecycle",
+          receipt_refs: request.request.receipt_refs,
+          evidence_refs: record.evidence_refs,
+          control_hash: "sha256:backend-lifecycle-control",
+        },
       };
     },
   });
 
-  const result = runner.planBackendLifecycleRequired(backendLifecycleRequiredRequest());
+  const result = runner.planBackendLifecycle(backendLifecycleRequest());
 
   assert.equal(calls.length, 1);
   assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
-  assert.equal(calls[0].request.operation, "plan_model_mount_backend_lifecycle_required");
-  assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_REQUIRED_BACKEND);
-  assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.backend_lifecycle_required.v1");
+  assert.equal(calls[0].request.operation, "plan_model_mount_backend_lifecycle");
+  assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_BACKEND);
+  assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.backend_lifecycle.v1");
   assert.equal(calls[0].request.request.backend_id, "backend.llama_cpp");
-  assert.equal(calls[0].request.request.backend_kind, null);
+  assert.equal(calls[0].request.request.backend_kind, "llama_cpp");
   assert.equal(calls[0].request.request.operation_kind, "model_mount.backend.start");
-  assert.equal(result.status, "rust_core_required");
-  assert.equal(result.status_code, 501);
-  assert.equal(result.code, "model_mount_backend_lifecycle_rust_core_required");
-  assert.equal(result.details.backend_id, "backend.llama_cpp");
-  assert.equal(result.details.backend_kind, null);
-  assert.equal(result.details.operation_kind, "model_mount.backend.start");
-  assert.equal(Object.hasOwn(result.details, "backendId"), false);
-  assert.equal(Object.hasOwn(result.details, "operationKind"), false);
+  assert.equal(result.source, "rust_model_mount_backend_lifecycle_command");
+  assert.equal(result.backend, RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_BACKEND);
+  assert.equal(result.record_dir, "model-backend-lifecycle-controls");
+  assert.equal(result.record_id, "backend-lifecycle-control:test");
+  assert.equal(result.record.id, "backend-lifecycle-control:test");
+  assert.equal(result.public_response.backend_status, "start_planned");
+  assert.equal(result.public_response.js_process_control, false);
+  assert.equal(result.operation_kind, "model_mount.backend.start");
+  assert.equal(result.rust_core_boundary, "model_mount.backend_lifecycle");
+  assert.deepEqual(result.receipt_refs, ["receipt://backend-lifecycle"]);
+  assert.ok(result.evidence_refs.includes("rust_daemon_core_backend_lifecycle"));
+  assert.ok(result.evidence_refs.includes("agentgres_backend_lifecycle_truth_required"));
+  assert.equal(result.control_hash, "sha256:backend-lifecycle-control");
+  assert.equal(Object.hasOwn(result, "status_code"), false);
 });
-
-test("Rust model_mount admission runner sends server control required request", () => {
+test("Rust model_mount admission runner sends positive server-control request", () => {
   const calls = [];
   const runner = new RustModelMountAdmissionRunner({
     daemonCoreInvoker(request) {
@@ -977,71 +1304,80 @@ test("Rust model_mount admission runner sends server control required request", 
       return {
         ok: true,
         result: {
-            source: "rust_model_mount_server_control_required_command",
-            backend: RUST_MODEL_MOUNT_SERVER_CONTROL_REQUIRED_BACKEND,
-            record: {
-              schema_version: "ioi.model_mount.server_control_required_result.v1",
-              object: "ioi.model_mount_server_control_required",
-              status: "rust_core_required",
-              status_code: 501,
-              code: "model_mount_server_control_rust_core_required",
-              message:
-                "Server-control facade requires Rust daemon-core model_mount server-control ownership.",
-              rust_core_boundary: "model_mount.server_control",
-              operation: request.request.operation,
-              operation_kind: request.request.operation_kind,
-              source: request.request.source,
-              evidence_refs: request.request.evidence_refs,
-              details: {
-                ...request.request.details,
-                operation: request.request.operation,
-                operation_kind: request.request.operation_kind,
-                rust_core_boundary: "model_mount.server_control",
-                source: request.request.source,
-                evidence_refs: request.request.evidence_refs,
-              },
-              generated_at: "rust_model_mount_core",
-            },
-            status: "rust_core_required",
-            status_code: 501,
-            code: "model_mount_server_control_rust_core_required",
-            message:
-              "Server-control facade requires Rust daemon-core model_mount server-control ownership.",
+          source: "rust_model_mount_server_control_command",
+          backend: RUST_MODEL_MOUNT_SERVER_CONTROL_BACKEND,
+          plan: {
+            schema_version: "ioi.model_mount.server_control_plan.v1",
+            object: "ioi.model_mount_server_control_plan",
+            status: "planned",
             rust_core_boundary: "model_mount.server_control",
             operation_kind: request.request.operation_kind,
-            details: {
-              ...request.request.details,
-              operation: request.request.operation,
-              operation_kind: request.request.operation_kind,
+            source: request.request.source,
+            record_dir: "model-server-controls",
+            record_id: "server-control:positive",
+            record: {
+              id: "server-control:positive",
+              object: "ioi.model_mount_server_control_record",
               rust_core_boundary: "model_mount.server_control",
-              source: request.request.source,
-              evidence_refs: request.request.evidence_refs,
+              operation_kind: request.request.operation_kind,
             },
+            public_response: {
+              object: "ioi.model_mount_server_control",
+              status: "planned",
+              operation_kind: request.request.operation_kind,
+            },
+            receipt_refs: request.request.receipt_refs,
+            evidence_refs: [
+              "public_server_control_js_facade_retired",
+              "rust_daemon_core_server_control",
+              "agentgres_server_control_truth_required",
+            ],
+            control_hash: "sha256:server-control",
           },
+          record_dir: "model-server-controls",
+          record_id: "server-control:positive",
+          record: {
+            id: "server-control:positive",
+            object: "ioi.model_mount_server_control_record",
+            rust_core_boundary: "model_mount.server_control",
+            operation_kind: request.request.operation_kind,
+          },
+          public_response: {
+            object: "ioi.model_mount_server_control",
+            status: "planned",
+            operation_kind: request.request.operation_kind,
+          },
+          receipt_refs: request.request.receipt_refs,
+          evidence_refs: [
+            "public_server_control_js_facade_retired",
+            "rust_daemon_core_server_control",
+            "agentgres_server_control_truth_required",
+          ],
+          control_hash: "sha256:server-control",
+          operation_kind: request.request.operation_kind,
+          rust_core_boundary: "model_mount.server_control",
+        },
       };
     },
   });
 
-  const result = runner.planServerControlRequired(serverControlRequiredRequest());
+  const result = runner.planServerControl(serverControlRequest());
 
   assert.equal(calls.length, 1);
   assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
-  assert.equal(calls[0].request.operation, "plan_model_mount_server_control_required");
-  assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_SERVER_CONTROL_REQUIRED_BACKEND);
-  assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.server_control_required.v1");
-  assert.equal(calls[0].request.request.operation_kind, "model_mount.server_control.record_operation");
-  assert.equal(calls[0].request.request.details.server_control_id, "server-control.default");
-  assert.equal(result.status, "rust_core_required");
-  assert.equal(result.status_code, 501);
-  assert.equal(result.code, "model_mount_server_control_rust_core_required");
-  assert.equal(result.details.base_url, "http://daemon.test");
-  assert.equal(result.details.server_control_id, "server-control.default");
-  assert.equal(result.details.operation_kind, "model_mount.server_control.record_operation");
-  assert.equal(Object.hasOwn(result.details, "operationKind"), false);
-  assert.equal(Object.hasOwn(result.details, "serverControlId"), false);
+  assert.equal(calls[0].request.operation, "plan_model_mount_server_control");
+  assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_SERVER_CONTROL_BACKEND);
+  assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.server_control.v1");
+  assert.equal(calls[0].request.request.operation_kind, "model_mount.server_control.start");
+  assert.equal(calls[0].request.request.body.base_url, "http://daemon.test");
+  assert.equal(result.record_dir, "model-server-controls");
+  assert.equal(result.operation_kind, "model_mount.server_control.start");
+  assert.equal(result.rust_core_boundary, "model_mount.server_control");
+  assert.equal(result.evidence_refs.includes("rust_daemon_core_server_control"), true);
+  assert.equal(result.control_hash, "sha256:server-control");
 });
 
-test("Rust model_mount admission runner sends runtime engine required request", () => {
+test("Rust model_mount admission runner sends positive runtime-engine request", () => {
   const calls = [];
   const runner = new RustModelMountAdmissionRunner({
     daemonCoreInvoker(request) {
@@ -1049,67 +1385,82 @@ test("Rust model_mount admission runner sends runtime engine required request", 
       return {
         ok: true,
         result: {
-            source: "rust_model_mount_runtime_engine_required_command",
-            backend: RUST_MODEL_MOUNT_RUNTIME_ENGINE_REQUIRED_BACKEND,
-            record: {
-              schema_version: "ioi.model_mount.runtime_engine_required_result.v1",
-              object: "ioi.model_mount_runtime_engine_required",
-              status: "rust_core_required",
-              status_code: 501,
-              code: "model_mount_runtime_engine_rust_core_required",
-              message:
-                "Runtime-engine mutation facade requires Rust daemon-core model_mount runtime-engine ownership.",
-              rust_core_boundary: "model_mount.runtime_engine",
-              operation: request.request.operation,
-              operation_kind: request.request.operation_kind,
-              source: request.request.source,
-              evidence_refs: request.request.evidence_refs,
-              details: {
-                operation: request.request.operation,
-                ...request.request.details,
-                operation_kind: request.request.operation_kind,
-                rust_core_boundary: "model_mount.runtime_engine",
-                source: request.request.source,
-                evidence_refs: request.request.evidence_refs,
-              },
-              generated_at: "rust_model_mount_core",
-            },
-            status: "rust_core_required",
-            status_code: 501,
-            code: "model_mount_runtime_engine_rust_core_required",
-            message:
-              "Runtime-engine mutation facade requires Rust daemon-core model_mount runtime-engine ownership.",
+          source: "rust_model_mount_runtime_engine_command",
+          backend: RUST_MODEL_MOUNT_RUNTIME_ENGINE_BACKEND,
+          plan: {
+            schema_version: "ioi.model_mount.runtime_engine_plan.v1",
+            object: "ioi.model_mount_runtime_engine_plan",
+            status: "planned",
             rust_core_boundary: "model_mount.runtime_engine",
             operation_kind: request.request.operation_kind,
-            details: {
-              operation: request.request.operation,
-              ...request.request.details,
-              operation_kind: request.request.operation_kind,
+            source: request.request.source,
+            record_dir: "runtime-engine-controls",
+            record_id: "runtime-engine-control:positive",
+            record: {
+              id: "runtime-engine-control:positive",
+              object: "ioi.model_mount_runtime_engine_record",
+              engine_id: request.request.engine_id,
               rust_core_boundary: "model_mount.runtime_engine",
-              source: request.request.source,
-              evidence_refs: request.request.evidence_refs,
+              operation_kind: request.request.operation_kind,
             },
+            public_response: {
+              object: "ioi.model_mount_runtime_engine",
+              status: "planned",
+              engine_id: request.request.engine_id,
+              operation_kind: request.request.operation_kind,
+            },
+            receipt_refs: request.request.receipt_refs,
+            evidence_refs: [
+              "public_runtime_engine_js_facade_retired",
+              "rust_daemon_core_runtime_engine",
+              "agentgres_runtime_engine_truth_required",
+            ],
+            control_hash: "sha256:runtime-engine",
           },
+          record_dir: "runtime-engine-controls",
+          record_id: "runtime-engine-control:positive",
+          record: {
+            id: "runtime-engine-control:positive",
+            object: "ioi.model_mount_runtime_engine_record",
+            engine_id: request.request.engine_id,
+            rust_core_boundary: "model_mount.runtime_engine",
+            operation_kind: request.request.operation_kind,
+          },
+          public_response: {
+            object: "ioi.model_mount_runtime_engine",
+            status: "planned",
+            engine_id: request.request.engine_id,
+            operation_kind: request.request.operation_kind,
+          },
+          receipt_refs: request.request.receipt_refs,
+          evidence_refs: [
+            "public_runtime_engine_js_facade_retired",
+            "rust_daemon_core_runtime_engine",
+            "agentgres_runtime_engine_truth_required",
+          ],
+          control_hash: "sha256:runtime-engine",
+          operation_kind: request.request.operation_kind,
+          rust_core_boundary: "model_mount.runtime_engine",
+        },
       };
     },
   });
 
-  const result = runner.planRuntimeEngineRequired(runtimeEngineRequiredRequest());
+  const result = runner.planRuntimeEngine(runtimeEngineRequest());
 
   assert.equal(calls.length, 1);
   assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
-  assert.equal(calls[0].request.operation, "plan_model_mount_runtime_engine_required");
-  assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_RUNTIME_ENGINE_REQUIRED_BACKEND);
-  assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.runtime_engine_required.v1");
+  assert.equal(calls[0].request.operation, "plan_model_mount_runtime_engine");
+  assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_RUNTIME_ENGINE_BACKEND);
+  assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.runtime_engine.v1");
   assert.equal(calls[0].request.request.operation_kind, "model_mount.runtime_engine_profile.write");
-  assert.equal(calls[0].request.request.details.engine_id, "backend.llama-cpp");
-  assert.equal(result.status, "rust_core_required");
-  assert.equal(result.status_code, 501);
-  assert.equal(result.code, "model_mount_runtime_engine_rust_core_required");
-  assert.equal(result.details.engine_id, "backend.llama-cpp");
-  assert.equal(result.details.operation_kind, "model_mount.runtime_engine_profile.write");
-  assert.equal(Object.hasOwn(result.details, "engineId"), false);
-  assert.equal(Object.hasOwn(result.details, "operationKind"), false);
+  assert.equal(calls[0].request.request.engine_id, "backend.llama-cpp");
+  assert.equal(calls[0].request.request.body.default_load_options.gpu_layers, 4);
+  assert.equal(result.record_dir, "runtime-engine-controls");
+  assert.equal(result.operation_kind, "model_mount.runtime_engine_profile.write");
+  assert.equal(result.rust_core_boundary, "model_mount.runtime_engine");
+  assert.equal(result.evidence_refs.includes("rust_daemon_core_runtime_engine"), true);
+  assert.equal(result.control_hash, "sha256:runtime-engine");
 });
 
 test("Rust model_mount admission runner sends tokenizer required request", () => {
@@ -1253,6 +1604,883 @@ test("Rust model_mount admission runner sends route control required request", (
   assert.equal(Object.hasOwn(result.details, "routeId"), false);
   assert.equal(Object.hasOwn(result.details, "selectedModel"), false);
   assert.equal(Object.hasOwn(result.details, "receiptId"), false);
+});
+
+test("Rust model_mount admission runner sends positive tokenizer request", () => {
+  const calls = [];
+  const runner = new RustModelMountAdmissionRunner({
+    daemonCoreInvoker(request) {
+      calls.push({ request });
+      const record = {
+        id: "model_tokenizer:tokenize:test",
+        object: "ioi.model_mount_tokenizer_result",
+        status: "planned",
+        operation: request.request.operation,
+        route_id: "route.local-first",
+        model: "llama-test",
+        endpoint_id: "endpoint.local.llama",
+        provider_id: "provider.local",
+        token_count: 3,
+        tokens: ["one", "two", "three"],
+      };
+      return {
+        ok: true,
+        result: {
+          source: "rust_model_mount_tokenizer_command",
+          backend: RUST_MODEL_MOUNT_TOKENIZER_BACKEND,
+          plan: {
+            schema_version: "ioi.model_mount.tokenizer_plan.v1",
+            object: "ioi.model_mount_tokenizer_plan",
+            status: "planned",
+            rust_core_boundary: "model_mount.tokenizer",
+            operation: request.request.operation,
+            source: request.request.source,
+            record_dir: "model-tokenizer-utilities",
+            record_id: record.id,
+            record,
+            receipt_refs: ["receipt://route-selection/test"],
+            evidence_refs: ["model_mount_tokenizer_rust_owned"],
+            control_hash: "sha256:tokenizer-control",
+          },
+          record_dir: "model-tokenizer-utilities",
+          record_id: record.id,
+          record,
+          receipt_refs: ["receipt://route-selection/test"],
+          evidence_refs: ["model_mount_tokenizer_rust_owned"],
+          operation: request.request.operation,
+          rust_core_boundary: "model_mount.tokenizer",
+          control_hash: "sha256:tokenizer-control",
+        },
+      };
+    },
+  });
+
+  const result = runner.planTokenizer(tokenizerRequest());
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.operation, "plan_model_mount_tokenizer");
+  assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_TOKENIZER_BACKEND);
+  assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.tokenizer.v1");
+  assert.equal(calls[0].request.request.operation, "tokenize");
+  assert.equal(calls[0].request.request.route_selection.route_decision.route_decision_ref, "model_mount://route_decision/test");
+  assert.equal(result.record_dir, "model-tokenizer-utilities");
+  assert.equal(result.record_id, "model_tokenizer:tokenize:test");
+  assert.equal(result.record.token_count, 3);
+  assert.deepEqual(result.receipt_refs, ["receipt://route-selection/test"]);
+  assert.equal(result.rust_core_boundary, "model_mount.tokenizer");
+  assert.equal(result.evidence_refs.includes("model_mount_tokenizer_rust_owned"), true);
+});
+
+test("Rust model_mount admission runner sends positive route control request", () => {
+  const calls = [];
+  const runner = new RustModelMountAdmissionRunner({
+    daemonCoreInvoker(request) {
+      calls.push({ request });
+      const record = {
+        id: request.request.route_id,
+        role: request.request.body.role,
+        fallback: request.request.body.fallback,
+        providerEligibility: request.request.body.provider_eligibility,
+        receiptRefs: ["receipt://route-control/write"],
+      };
+      return {
+        ok: true,
+        result: {
+          source: "rust_model_mount_route_control_command",
+          backend: RUST_MODEL_MOUNT_ROUTE_CONTROL_BACKEND,
+          plan: {
+            schema_version: "ioi.model_mount.route_control_plan.v1",
+            object: "ioi.model_mount_route_control_plan",
+            status: "planned",
+            rust_core_boundary: "model_mount.route_control",
+            operation_kind: request.request.operation_kind,
+            source: request.request.source,
+            record_dir: "model-routes",
+            record_id: record.id,
+            record,
+            receipt_refs: ["receipt://route-control/write"],
+            evidence_refs: ["model_mount_route_control_rust_owned"],
+            control_hash: "sha256:route-control",
+          },
+          record_dir: "model-routes",
+          record_id: record.id,
+          record,
+          receipt_refs: ["receipt://route-control/write"],
+          evidence_refs: ["model_mount_route_control_rust_owned"],
+          operation_kind: request.request.operation_kind,
+          rust_core_boundary: "model_mount.route_control",
+          control_hash: "sha256:route-control",
+        },
+      };
+    },
+  });
+
+  const result = runner.planRouteControl(routeControlRequest());
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.operation, "plan_model_mount_route_control");
+  assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_ROUTE_CONTROL_BACKEND);
+  assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.route_control.v1");
+  assert.equal(calls[0].request.request.operation_kind, "model_mount.route.write");
+  assert.equal(result.record_dir, "model-routes");
+  assert.equal(result.record_id, "route.review");
+  assert.equal(result.record.id, "route.review");
+  assert.deepEqual(result.receipt_refs, ["receipt://route-control/write"]);
+  assert.equal(result.rust_core_boundary, "model_mount.route_control");
+  assert.equal(result.evidence_refs.includes("model_mount_route_control_rust_owned"), true);
+});
+
+test("Rust model_mount admission runner sends positive artifact-endpoint request", () => {
+  const calls = [];
+  const runner = new RustModelMountAdmissionRunner({
+    daemonCoreInvoker(request) {
+      calls.push({ request });
+      const record = {
+        id: "endpoint.provider.local.folder.local.test",
+        record_id: "endpoint.provider.local.folder.local.test",
+        object: "ioi.model_mount_endpoint",
+        status: "mounted",
+        operation_kind: request.request.operation_kind,
+        rust_core_boundary: "model_mount.artifact_endpoint",
+        model_id: request.request.body.model_id,
+        provider_id: request.request.body.provider_id,
+        public_response: {
+          object: "ioi.model_mount_endpoint",
+          status: "mounted",
+          id: "endpoint.provider.local.folder.local.test",
+          endpoint_id: "endpoint.provider.local.folder.local.test",
+          model_id: request.request.body.model_id,
+          provider_id: request.request.body.provider_id,
+          plaintext_transport_material_returned: false,
+        },
+        receipt_refs: ["receipt://artifact-endpoint"],
+        evidence_refs: [
+          "public_artifact_endpoint_js_facade_retired",
+          "rust_daemon_core_artifact_endpoint",
+          "agentgres_artifact_endpoint_truth_required",
+          "rust_daemon_core_model_endpoint_mount",
+        ],
+        control_hash: "sha256:artifact-endpoint-control",
+        authority_hash: "sha256:artifact-endpoint-authority",
+      };
+      return {
+        ok: true,
+        result: {
+          source: "rust_model_mount_artifact_endpoint_command",
+          backend: RUST_MODEL_MOUNT_ARTIFACT_ENDPOINT_BACKEND,
+          plan: {
+            schema_version: "ioi.model_mount.artifact_endpoint_plan.v1",
+            object: "ioi.model_mount_artifact_endpoint_plan",
+            status: "planned",
+            rust_core_boundary: "model_mount.artifact_endpoint",
+            operation_kind: request.request.operation_kind,
+            source: request.request.source,
+            record_dir: "model-endpoints",
+            record_id: record.id,
+            record,
+            public_response: record.public_response,
+            receipt_refs: ["receipt://artifact-endpoint"],
+            authority_grant_refs: ["grant://wallet/model-mount"],
+            authority_receipt_refs: ["receipt://wallet/model-mount"],
+            evidence_refs: record.evidence_refs,
+            control_hash: "sha256:artifact-endpoint-control",
+            authority_hash: "sha256:artifact-endpoint-authority",
+          },
+          record_dir: "model-endpoints",
+          record_id: record.id,
+          record,
+          public_response: record.public_response,
+          receipt_refs: ["receipt://artifact-endpoint"],
+          authority_grant_refs: ["grant://wallet/model-mount"],
+          authority_receipt_refs: ["receipt://wallet/model-mount"],
+          evidence_refs: record.evidence_refs,
+          operation_kind: request.request.operation_kind,
+          rust_core_boundary: "model_mount.artifact_endpoint",
+          control_hash: "sha256:artifact-endpoint-control",
+          authority_hash: "sha256:artifact-endpoint-authority",
+        },
+      };
+    },
+  });
+
+  const result = runner.planArtifactEndpoint(artifactEndpointRequest());
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.operation, "plan_model_mount_artifact_endpoint");
+  assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_ARTIFACT_ENDPOINT_BACKEND);
+  assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.artifact_endpoint.v1");
+  assert.equal(calls[0].request.request.operation_kind, "model_mount.endpoint.mount");
+  assert.equal(calls[0].request.request.body.model_id, "local:test");
+  assert.equal(calls[0].request.request.required_scope, "model.endpoint.mount:local:test");
+  assert.equal(result.record_dir, "model-endpoints");
+  assert.equal(result.record_id, "endpoint.provider.local.folder.local.test");
+  assert.equal(result.record.public_response.plaintext_transport_material_returned, false);
+  assert.deepEqual(result.authority_grant_refs, ["grant://wallet/model-mount"]);
+  assert.equal(result.authority_hash, "sha256:artifact-endpoint-authority");
+  assert.equal(result.rust_core_boundary, "model_mount.artifact_endpoint");
+  assert.equal(result.evidence_refs.includes("agentgres_artifact_endpoint_truth_required"), true);
+});
+
+test("Rust model_mount admission runner sends positive storage-control request", () => {
+  const calls = [];
+  const runner = new RustModelMountAdmissionRunner({
+    daemonCoreInvoker(request) {
+      calls.push({ request });
+      const record = {
+        id: "download.local.test",
+        record_id: "download.local.test",
+        object: "ioi.model_mount_download",
+        status: "queued",
+        operation_kind: request.request.operation_kind,
+        rust_core_boundary: "model_mount.storage_control",
+        details: {
+          model_id: request.request.body.model_id,
+          provider_id: request.request.body.provider_id,
+          network_transfer_executed: false,
+        },
+        public_response: {
+          object: "ioi.model_mount_download",
+          status: "queued",
+          id: "download.local.test",
+          record_id: "download.local.test",
+          record_dir: "model-downloads",
+          operation_kind: request.request.operation_kind,
+          rust_core_boundary: "model_mount.storage_control",
+          js_network_transfer_executed: false,
+          js_filesystem_mutation_executed: false,
+        },
+        receipt_refs: ["receipt://storage-control"],
+        evidence_refs: [
+          "public_model_storage_js_facade_retired",
+          "rust_daemon_core_model_storage",
+          "agentgres_model_storage_truth_required",
+          "public_catalog_download_js_facade_retired",
+          "rust_daemon_core_catalog_download",
+          "agentgres_catalog_download_truth_required",
+        ],
+        control_hash: "sha256:storage-control",
+        authority_hash: "sha256:storage-authority",
+      };
+      return {
+        ok: true,
+        result: {
+          source: "rust_model_mount_storage_control_command",
+          backend: RUST_MODEL_MOUNT_STORAGE_CONTROL_BACKEND,
+          plan: {
+            schema_version: "ioi.model_mount.storage_control_plan.v1",
+            object: "ioi.model_mount_storage_control_plan",
+            status: "planned",
+            rust_core_boundary: "model_mount.storage_control",
+            operation_kind: request.request.operation_kind,
+            source: request.request.source,
+            record_dir: "model-downloads",
+            record_id: record.id,
+            record,
+            public_response: record.public_response,
+            receipt_refs: ["receipt://storage-control"],
+            authority_grant_refs: ["grant://wallet/storage"],
+            authority_receipt_refs: ["receipt://wallet/storage"],
+            evidence_refs: record.evidence_refs,
+            control_hash: "sha256:storage-control",
+            authority_hash: "sha256:storage-authority",
+          },
+          record_dir: "model-downloads",
+          record_id: record.id,
+          record,
+          public_response: record.public_response,
+          receipt_refs: ["receipt://storage-control"],
+          authority_grant_refs: ["grant://wallet/storage"],
+          authority_receipt_refs: ["receipt://wallet/storage"],
+          evidence_refs: record.evidence_refs,
+          operation_kind: request.request.operation_kind,
+          rust_core_boundary: "model_mount.storage_control",
+          control_hash: "sha256:storage-control",
+          authority_hash: "sha256:storage-authority",
+        },
+      };
+    },
+  });
+
+  const result = runner.planStorageControl(storageControlRequest());
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.operation, "plan_model_mount_storage_control");
+  assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_STORAGE_CONTROL_BACKEND);
+  assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.storage_control.v1");
+  assert.equal(calls[0].request.request.operation_kind, "model_mount.download.queue");
+  assert.equal(calls[0].request.request.body.model_id, "local:test");
+  assert.equal(calls[0].request.request.required_scope, "model.download.queue:local:test");
+  assert.equal(result.record_dir, "model-downloads");
+  assert.equal(result.record_id, "download.local.test");
+  assert.equal(result.record.public_response.js_network_transfer_executed, false);
+  assert.deepEqual(result.authority_grant_refs, ["grant://wallet/storage"]);
+  assert.equal(result.authority_hash, "sha256:storage-authority");
+  assert.equal(result.rust_core_boundary, "model_mount.storage_control");
+  assert.equal(result.evidence_refs.includes("agentgres_model_storage_truth_required"), true);
+});
+
+test("Rust model_mount admission runner sends positive catalog-provider-control request", () => {
+  const calls = [];
+  const runner = new RustModelMountAdmissionRunner({
+    daemonCoreInvoker(request) {
+      calls.push({ request });
+      const record = {
+        id: "catalog_provider_control:catalog.huggingface:test",
+        object: "ioi.model_mount_catalog_provider_control",
+        status: "planned",
+        operation_kind: request.request.operation_kind,
+        provider_id: request.request.provider_id,
+        rust_core_boundary: "model_mount.catalog_provider_control",
+        plaintext_material_returned: false,
+        public_response: {
+          object: "ioi.model_catalog_provider_config_write",
+          provider_id: request.request.provider_id,
+          status: "accepted",
+          private_material_returned: false,
+        },
+      };
+      return {
+        ok: true,
+        result: {
+          source: "rust_model_mount_catalog_provider_control_command",
+          backend: RUST_MODEL_MOUNT_CATALOG_PROVIDER_CONTROL_BACKEND,
+          plan: {
+            schema_version: "ioi.model_mount.catalog_provider_control_plan.v1",
+            object: "ioi.model_mount_catalog_provider_control_plan",
+            status: "planned",
+            rust_core_boundary: "model_mount.catalog_provider_control",
+            operation_kind: request.request.operation_kind,
+            source: request.request.source,
+            record_dir: "model-catalog-provider-controls",
+            record_id: record.id,
+            record,
+            receipt_refs: ["receipt://catalog-provider-control"],
+            authority_grant_refs: ["grant://wallet/provider-write"],
+            authority_receipt_refs: ["receipt://wallet/provider-write"],
+            evidence_refs: [
+              "rust_daemon_core_catalog_provider_control",
+              "ctee_catalog_provider_custody_enforced",
+              "agentgres_catalog_provider_control_truth_required",
+            ],
+            control_hash: "sha256:catalog-provider-control",
+            authority_hash: "sha256:catalog-provider-authority",
+          },
+          record_dir: "model-catalog-provider-controls",
+          record_id: record.id,
+          record,
+          receipt_refs: ["receipt://catalog-provider-control"],
+          authority_grant_refs: ["grant://wallet/provider-write"],
+          authority_receipt_refs: ["receipt://wallet/provider-write"],
+          evidence_refs: [
+            "rust_daemon_core_catalog_provider_control",
+            "ctee_catalog_provider_custody_enforced",
+            "agentgres_catalog_provider_control_truth_required",
+          ],
+          operation_kind: request.request.operation_kind,
+          rust_core_boundary: "model_mount.catalog_provider_control",
+          control_hash: "sha256:catalog-provider-control",
+          authority_hash: "sha256:catalog-provider-authority",
+        },
+      };
+    },
+  });
+
+  const result = runner.planCatalogProviderControl(catalogProviderControlRequest());
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.operation, "plan_model_mount_catalog_provider_control");
+  assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_CATALOG_PROVIDER_CONTROL_BACKEND);
+  assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.catalog_provider_control.v1");
+  assert.equal(calls[0].request.request.operation_kind, "model_mount.catalog_provider_configuration.write");
+  assert.equal(calls[0].request.request.provider_id, "catalog.huggingface");
+  assert.equal(calls[0].request.request.custody_ref, "ctee://catalog-provider/huggingface");
+  assert.equal(result.record_dir, "model-catalog-provider-controls");
+  assert.equal(result.record_id, "catalog_provider_control:catalog.huggingface:test");
+  assert.equal(result.record.plaintext_material_returned, false);
+  assert.deepEqual(result.authority_grant_refs, ["grant://wallet/provider-write"]);
+  assert.deepEqual(result.authority_receipt_refs, ["receipt://wallet/provider-write"]);
+  assert.equal(result.authority_hash, "sha256:catalog-provider-authority");
+  assert.equal(result.rust_core_boundary, "model_mount.catalog_provider_control");
+  assert.equal(result.evidence_refs.includes("ctee_catalog_provider_custody_enforced"), true);
+});
+
+test("Rust model_mount admission runner sends positive capability-token-control request", () => {
+  const calls = [];
+  const runner = new RustModelMountAdmissionRunner({
+    daemonCoreInvoker(request) {
+      calls.push({ request });
+      const record = {
+        id: "capability_token_control:capability_token.test:create",
+        record_id: "capability_token_control:capability_token.test:create",
+        object: "ioi.model_mount_capability_token_control",
+        status: "planned",
+        operation_kind: request.request.operation_kind,
+        token_id: "capability_token:test",
+        token_hash: "sha256:capability-token",
+        rust_core_boundary: "model_mount.capability_token",
+        wallet_authority_boundary: "wallet.network.capability_token",
+        capability_token_authority: {
+          authority_hash: "sha256:capability-token-authority",
+          authority_grant_refs: request.request.authority_grant_refs,
+          authority_receipt_refs: request.request.authority_receipt_refs,
+        },
+        public_response: {
+          object: "ioi.model_mount_capability_token",
+          status: "issued",
+          token_id: "capability_token:test",
+          token_material_returned_once: true,
+          plaintext_material_persisted: false,
+          token_hash: "sha256:capability-token",
+        },
+        receipt_refs: ["receipt://capability-token-control"],
+        evidence_refs: [
+          "rust_daemon_core_capability_token_control",
+          "wallet_network_capability_token_authority_required",
+          "agentgres_capability_token_truth_required",
+          "public_capability_token_js_facade_retired",
+        ],
+        control_hash: "sha256:capability-token-control",
+      };
+      return {
+        ok: true,
+        result: {
+          source: "rust_model_mount_capability_token_control_command",
+          backend: RUST_MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_BACKEND,
+          plan: {
+            schema_version: "ioi.model_mount.capability_token_control_plan.v1",
+            object: "ioi.model_mount_capability_token_control_plan",
+            status: "planned",
+            rust_core_boundary: "model_mount.capability_token",
+            operation_kind: request.request.operation_kind,
+            source: request.request.source,
+            record_dir: "capability-tokens",
+            record_id: record.id,
+            record,
+            public_response: {
+              ...record.public_response,
+              token: "ioi_mnt_positive_token",
+            },
+            receipt_refs: ["receipt://capability-token-control"],
+            authority_grant_refs: ["grant://wallet/capability"],
+            authority_receipt_refs: ["receipt://wallet/capability"],
+            evidence_refs: record.evidence_refs,
+            control_hash: "sha256:capability-token-control",
+            authority_hash: "sha256:capability-token-authority",
+          },
+          record_dir: "capability-tokens",
+          record_id: record.id,
+          record,
+          public_response: {
+            ...record.public_response,
+            token: "ioi_mnt_positive_token",
+          },
+          receipt_refs: ["receipt://capability-token-control"],
+          authority_grant_refs: ["grant://wallet/capability"],
+          authority_receipt_refs: ["receipt://wallet/capability"],
+          evidence_refs: record.evidence_refs,
+          operation_kind: request.request.operation_kind,
+          rust_core_boundary: "model_mount.capability_token",
+          control_hash: "sha256:capability-token-control",
+          authority_hash: "sha256:capability-token-authority",
+        },
+      };
+    },
+  });
+
+  const result = runner.planCapabilityTokenControl(capabilityTokenControlRequest());
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.operation, "plan_model_mount_capability_token_control");
+  assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_BACKEND);
+  assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.capability_token_control.v1");
+  assert.equal(calls[0].request.request.operation_kind, "model_mount.capability_token.create");
+  assert.equal(calls[0].request.request.state_dir, "/tmp/ioi-model-mount-state");
+  assert.deepEqual(calls[0].request.request.body.allowed, ["model.chat:*"]);
+  assert.deepEqual(calls[0].request.request.authority_grant_refs, ["grant://wallet/capability"]);
+  assert.equal(result.record_dir, "capability-tokens");
+  assert.equal(result.record_id, "capability_token_control:capability_token.test:create");
+  assert.equal(result.record.public_response.token, undefined);
+  assert.equal(result.record.public_response.plaintext_material_persisted, false);
+  assert.equal(result.public_response.token, "ioi_mnt_positive_token");
+  assert.equal(result.authority_hash, "sha256:capability-token-authority");
+  assert.equal(result.rust_core_boundary, "model_mount.capability_token");
+  assert.equal(
+    result.evidence_refs.includes("wallet_network_capability_token_authority_required"),
+    true,
+  );
+});
+
+test("Rust model_mount admission runner sends positive vault-control request", () => {
+  const calls = [];
+  const runner = new RustModelMountAdmissionRunner({
+    daemonCoreInvoker(request) {
+      calls.push({ request });
+      const record = {
+        id: "vault_control:vault_ref.test:bind",
+        record_id: "vault_control:vault_ref.test:bind",
+        object: "ioi.model_mount_vault_control",
+        status: "planned",
+        operation_kind: request.request.operation_kind,
+        vault_ref_hash: "sha256:vault-ref",
+        material_hash: request.request.material_hash,
+        rust_core_boundary: "model_mount.vault",
+        wallet_authority_boundary: "wallet.network.vault",
+        ctee_custody_boundary: "ctee.vault_custody",
+        vault_authority: {
+          authority_hash: "sha256:vault-authority",
+          vault_ref_hash: "sha256:vault-ref",
+          material_hash: request.request.material_hash,
+          authority_grant_refs: request.request.authority_grant_refs,
+          authority_receipt_refs: request.request.authority_receipt_refs,
+        },
+        ctee_custody: {
+          custody_ref: "ctee://vault/custom",
+          plaintext_material_persisted: false,
+          plaintext_material_returned: false,
+          material_hash: request.request.material_hash,
+        },
+        public_response: {
+          object: "ioi.model_mount_vault_ref",
+          status: "bound",
+          id: "vault_ref.sha256:vault-ref",
+          vault_ref_hash: "sha256:vault-ref",
+          vault_ref: { redacted: true, hash: "sha256:vault-ref" },
+          label: "Custom auth",
+          purpose: "provider.auth:custom",
+          material_hash: request.request.material_hash,
+          custody_ref: "ctee://vault/custom",
+          configured: true,
+          material_bound: true,
+          plaintext_material_persisted: false,
+          plaintext_material_returned: false,
+        },
+        receipt_refs: ["receipt://vault-control"],
+        evidence_refs: [
+          "rust_daemon_core_vault_control",
+          "wallet_network_vault_authority_required",
+          "ctee_vault_custody_enforced",
+          "agentgres_vault_truth_required",
+          "public_vault_js_facade_retired",
+        ],
+        control_hash: "sha256:vault-control",
+      };
+      return {
+        ok: true,
+        result: {
+          source: "rust_model_mount_vault_control_command",
+          backend: RUST_MODEL_MOUNT_VAULT_CONTROL_BACKEND,
+          plan: {
+            schema_version: "ioi.model_mount.vault_control_plan.v1",
+            object: "ioi.model_mount_vault_control_plan",
+            status: "planned",
+            rust_core_boundary: "model_mount.vault",
+            operation_kind: request.request.operation_kind,
+            source: request.request.source,
+            record_dir: "vault-refs",
+            record_id: record.id,
+            record,
+            public_response: record.public_response,
+            receipt_refs: ["receipt://vault-control"],
+            authority_grant_refs: ["grant://wallet/vault"],
+            authority_receipt_refs: ["receipt://wallet/vault"],
+            evidence_refs: record.evidence_refs,
+            control_hash: "sha256:vault-control",
+            authority_hash: "sha256:vault-authority",
+          },
+          record_dir: "vault-refs",
+          record_id: record.id,
+          record,
+          public_response: record.public_response,
+          receipt_refs: ["receipt://vault-control"],
+          authority_grant_refs: ["grant://wallet/vault"],
+          authority_receipt_refs: ["receipt://wallet/vault"],
+          evidence_refs: record.evidence_refs,
+          operation_kind: request.request.operation_kind,
+          rust_core_boundary: "model_mount.vault",
+          control_hash: "sha256:vault-control",
+          authority_hash: "sha256:vault-authority",
+        },
+      };
+    },
+  });
+
+  const result = runner.planVaultControl(vaultControlRequest());
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.operation, "plan_model_mount_vault_control");
+  assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_VAULT_CONTROL_BACKEND);
+  assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.vault_control.v1");
+  assert.equal(calls[0].request.request.operation_kind, "model_mount.vault_ref.bind");
+  assert.equal(calls[0].request.request.state_dir, "/tmp/ioi-model-mount-state");
+  assert.equal(calls[0].request.request.material_hash, "sha256:vault-material");
+  assert.equal(Object.hasOwn(calls[0].request.request.body, "material"), false);
+  assert.deepEqual(calls[0].request.request.authority_grant_refs, ["grant://wallet/vault"]);
+  assert.equal(result.record_dir, "vault-refs");
+  assert.equal(result.record_id, "vault_control:vault_ref.test:bind");
+  assert.equal(result.record.public_response.material, undefined);
+  assert.equal(result.record.ctee_custody.plaintext_material_persisted, false);
+  assert.equal(result.record.ctee_custody.plaintext_material_returned, false);
+  assert.equal(result.public_response.status, "bound");
+  assert.equal(result.authority_hash, "sha256:vault-authority");
+  assert.equal(result.rust_core_boundary, "model_mount.vault");
+  assert.equal(result.evidence_refs.includes("ctee_vault_custody_enforced"), true);
+});
+
+test("Rust model_mount admission runner sends positive receipt-gate request", () => {
+  const calls = [];
+  const runner = new RustModelMountAdmissionRunner({
+    daemonCoreInvoker(request) {
+      calls.push({ request });
+      return {
+        ok: true,
+        result: {
+          source: "rust_model_mount_receipt_gate_command",
+          backend: RUST_MODEL_MOUNT_RECEIPT_GATE_BACKEND,
+          plan: {
+            schema_version: "ioi.model_mount.receipt_gate_plan.v1",
+            object: "ioi.model_mount_receipt_gate_plan",
+            status: "planned",
+            rust_core_boundary: "model_mount.receipt_gate",
+            operation_kind: request.request.operation_kind,
+            receipt_id: request.request.receipt_id,
+            gate_status: "passed",
+            failures: [],
+            receipt: {
+              id: "receipt.workflow_receipt_gate.test",
+              kind: "workflow_receipt_gate",
+              redaction: "redacted",
+              evidenceRefs: [
+                "model_mount_receipt_gate_rust_owned",
+                "model_mount_receipt_gate_js_facade_retired",
+                "rust_receipt_binder_core",
+                "agentgres_model_receipt_gate_truth_required",
+              ],
+              details: {
+                model_mount_receipt_gate_hash: "sha256:receipt-gate",
+                model_mount_receipt_binding_ref: "sha256:receipt-binding",
+                model_mount_agentgres_operation_ref:
+                  "agentgres://model-mounting/receipt-gates/receipt-gate",
+              },
+            },
+            public_response: {
+              object: "ioi.model_mount_receipt_gate_result",
+              status: "passed",
+              receipt_id: request.request.receipt_id,
+              gate_receipt_id: "receipt.workflow_receipt_gate.test",
+              failures: [],
+            },
+            receipt_refs: ["receipt-route", "receipt-tool"],
+            evidence_refs: [
+              "model_mount_receipt_gate_rust_owned",
+              "model_mount_receipt_gate_js_facade_retired",
+              "rust_receipt_binder_core",
+              "agentgres_model_receipt_gate_truth_required",
+            ],
+            gate_hash: "sha256:receipt-gate",
+          },
+          receipt: {
+            id: "receipt.workflow_receipt_gate.test",
+            kind: "workflow_receipt_gate",
+            redaction: "redacted",
+            evidenceRefs: [
+              "model_mount_receipt_gate_rust_owned",
+              "model_mount_receipt_gate_js_facade_retired",
+              "rust_receipt_binder_core",
+              "agentgres_model_receipt_gate_truth_required",
+            ],
+            details: {
+              model_mount_receipt_gate_hash: "sha256:receipt-gate",
+              model_mount_receipt_binding_ref: "sha256:receipt-binding",
+              model_mount_agentgres_operation_ref:
+                "agentgres://model-mounting/receipt-gates/receipt-gate",
+            },
+          },
+          public_response: {
+            object: "ioi.model_mount_receipt_gate_result",
+            status: "passed",
+            receipt_id: request.request.receipt_id,
+            gate_receipt_id: "receipt.workflow_receipt_gate.test",
+            failures: [],
+          },
+          receipt_refs: ["receipt-route", "receipt-tool"],
+          evidence_refs: [
+            "model_mount_receipt_gate_rust_owned",
+            "model_mount_receipt_gate_js_facade_retired",
+            "rust_receipt_binder_core",
+            "agentgres_model_receipt_gate_truth_required",
+          ],
+          operation_kind: request.request.operation_kind,
+          rust_core_boundary: "model_mount.receipt_gate",
+          gate_hash: "sha256:receipt-gate",
+        },
+      };
+    },
+  });
+
+  const result = runner.planReceiptGate(receiptGateRequest());
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.operation, "plan_model_mount_receipt_gate");
+  assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_RECEIPT_GATE_BACKEND);
+  assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.receipt_gate.v1");
+  assert.equal(calls[0].request.request.operation_kind, "workflow_receipt_gate");
+  assert.equal(calls[0].request.request.receipt_id, "receipt-route");
+  assert.equal(result.receipt.kind, "workflow_receipt_gate");
+  assert.equal(result.receipt.details.model_mount_receipt_binding_ref, "sha256:receipt-binding");
+  assert.equal(result.gate_hash, "sha256:receipt-gate");
+  assert.equal(result.rust_core_boundary, "model_mount.receipt_gate");
+});
+
+test("Rust model_mount admission runner sends positive conversation-state request", () => {
+  const calls = [];
+  const runner = new RustModelMountAdmissionRunner({
+    daemonCoreInvoker(request) {
+      calls.push({ request });
+      const record = {
+        id: request.request.response_id,
+        object: "ioi.model_mount_conversation_state",
+        response_id: request.request.response_id,
+        route_id: request.request.route_ref,
+        selected_model: request.request.model_ref,
+        conversation_hash: "sha256:conversation-state",
+      };
+      return {
+        ok: true,
+        result: {
+          source: "rust_model_mount_conversation_state_command",
+          backend: RUST_MODEL_MOUNT_CONVERSATION_STATE_BACKEND,
+          plan: {
+            schema_version: "ioi.model_mount.conversation_state_plan.v1",
+            object: "ioi.model_mount_conversation_state_plan",
+            status: "planned",
+            rust_core_boundary: "model_mount.conversation",
+            operation: request.request.operation,
+            operation_kind: "model_mount.conversation.state_write",
+            source: request.request.source,
+            record_dir: "model-conversations",
+            record_id: record.id,
+            record,
+            receipt_refs: request.request.receipt_refs,
+            evidence_refs: ["model_mount_conversation_state_rust_owned"],
+            conversation_hash: "sha256:conversation-state",
+          },
+          record_dir: "model-conversations",
+          record_id: record.id,
+          record,
+          receipt_refs: request.request.receipt_refs,
+          evidence_refs: ["model_mount_conversation_state_rust_owned"],
+          operation: request.request.operation,
+          operation_kind: "model_mount.conversation.state_write",
+          rust_core_boundary: "model_mount.conversation",
+          conversation_hash: "sha256:conversation-state",
+        },
+      };
+    },
+  });
+
+  const result = runner.planConversationState(conversationStateRequest());
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.operation, "plan_model_mount_conversation_state");
+  assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_CONVERSATION_STATE_BACKEND);
+  assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.conversation_state.v1");
+  assert.equal(calls[0].request.request.operation, "model_conversation_state_write");
+  assert.equal(result.record_dir, "model-conversations");
+  assert.equal(result.record_id, "resp.current");
+  assert.equal(result.record.selected_model, "llama-test");
+  assert.equal(result.rust_core_boundary, "model_mount.conversation");
+  assert.equal(result.evidence_refs.includes("model_mount_conversation_state_rust_owned"), true);
+});
+
+test("Rust model_mount admission runner sends positive stream-completion request", () => {
+  const calls = [];
+  const runner = new RustModelMountAdmissionRunner({
+    daemonCoreInvoker(request) {
+      calls.push({ request });
+      const record = {
+        id: request.request.response_id,
+        object: "ioi.model_mount_conversation_state",
+        response_id: request.request.response_id,
+        stream_receipt_ref: `receipt://${request.request.receipt_id}`,
+        conversation_hash: "sha256:conversation-stream",
+        stream_completion_hash: "sha256:stream-completion",
+      };
+      const receipt = {
+        id: request.request.receipt_id,
+        kind: "model_invocation_stream_completed",
+        evidenceRefs: ["rust_model_mount_core", "model_mount_stream_completion_rust_owned"],
+        createdAt: request.request.generated_at,
+        schemaVersion: "ioi.model-mounting.runtime.v1",
+        details: {
+          rust_daemon_core_receipt_author: "ModelMountCore.plan_model_mount_stream_completion",
+          model_mount_route_decision_ref: request.request.route_decision_ref,
+          model_mount_step_module_result: {
+            agentgres_operation_refs: ["agentgres://model-mounting/accepted-receipts/op_stream"],
+          },
+        },
+      };
+      return {
+        ok: true,
+        result: {
+          source: "rust_model_mount_stream_completion_command",
+          backend: RUST_MODEL_MOUNT_STREAM_COMPLETION_BACKEND,
+          plan: {
+            schema_version: "ioi.model_mount.stream_completion_plan.v1",
+            object: "ioi.model_mount_stream_completion_plan",
+            status: "planned",
+            rust_core_boundary: "model_mount.conversation",
+            operation: request.request.operation,
+            operation_kind: "model_mount.conversation.stream_completion",
+            source: request.request.source,
+            record_dir: "model-conversations",
+            record_id: record.id,
+            record,
+            receipt,
+            receipt_refs: request.request.receipt_refs,
+            evidence_refs: ["model_mount_stream_completion_rust_owned"],
+            stream_completion_hash: "sha256:stream-completion",
+            conversation_hash: "sha256:conversation-stream",
+          },
+          record_dir: "model-conversations",
+          record_id: record.id,
+          record,
+          receipt,
+          receipt_refs: request.request.receipt_refs,
+          evidence_refs: ["model_mount_stream_completion_rust_owned"],
+          operation: request.request.operation,
+          operation_kind: "model_mount.conversation.stream_completion",
+          rust_core_boundary: "model_mount.conversation",
+          stream_completion_hash: "sha256:stream-completion",
+          conversation_hash: "sha256:conversation-stream",
+        },
+      };
+    },
+  });
+
+  const result = runner.planStreamCompletion(streamCompletionRequest());
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.operation, "plan_model_mount_stream_completion");
+  assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_STREAM_COMPLETION_BACKEND);
+  assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.stream_completion.v1");
+  assert.equal(calls[0].request.request.operation, "model_stream_completion");
+  assert.equal(calls[0].request.request.route_decision_ref, "model_mount://route_decision/test");
+  assert.equal(result.record_dir, "model-conversations");
+  assert.equal(result.record_id, "resp.stream");
+  assert.equal(result.receipt.kind, "model_invocation_stream_completed");
+  assert.equal(result.stream_completion_hash, "sha256:stream-completion");
+  assert.equal(result.rust_core_boundary, "model_mount.conversation");
+  assert.equal(result.evidence_refs.includes("model_mount_stream_completion_rust_owned"), true);
 });
 
 test("Rust model_mount admission runner sends invocation receipt binding request", () => {

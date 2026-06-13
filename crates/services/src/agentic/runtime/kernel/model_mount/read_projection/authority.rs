@@ -44,7 +44,7 @@ pub(super) fn authority_snapshot(request: &ModelMountReadProjectionRequest) -> V
         "schemaVersion": "ioi.wallet-core-lite.authority.v1",
         "source": "agentgres_wallet_authority_projection",
         "generatedAt": model_mount_projection_generated_at(request),
-        "server": status::server_status(request),
+        "server": status::server_status_or_default(request),
         "wallet": wallet,
         "vault": object_or_null(state.get("vault")),
         "grants": grants,
@@ -80,7 +80,9 @@ mod tests {
             receipt_id: None,
             engine_id: None,
             provider_id: None,
+            download_id: None,
             base_url: Some("http://127.0.0.1:3200".to_string()),
+            state_dir: None,
             state: json!({
                 "wallet": {"remoteAdapter": {"configured": true}},
                 "vault": {"status": "ready"},

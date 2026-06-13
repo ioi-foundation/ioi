@@ -29,24 +29,50 @@ export function createRuntimeThreadTurnSurface(deps = {}) {
     async resumeThread(store, threadId, request = {}) {
       const agent = store.agentForThread(threadId);
       if (isRuntimeBackedAgentDep(agent)) {
-        return throwRuntimeBridgeThreadRustCoreRequired({
-          operation: "runtime_bridge_thread_control",
-          operationKind: "thread.runtime_bridge.control",
-          details: {
-            thread_id: threadId,
-            agent_id: agent?.id ?? null,
-            runtime_profile: agent?.runtimeProfile ?? null,
+        if (typeof store.agentRunLifecycleSurface?.createRuntimeBridgeThreadControl !== "function") {
+          return throwRuntimeBridgeThreadRustCoreRequired({
+            operation: "runtime_bridge_thread_control",
+            operationKind: "thread.runtime_bridge.control",
+            details: {
+              thread_id: threadId,
+              agent_id: agent?.id ?? null,
+              runtime_profile: agent?.runtimeProfile ?? agent?.runtime_profile ?? null,
+              action: "resume",
+              reason:
+                optionalStringDep(request.reason ?? request.message ?? request.input) ??
+                "operator requested resume",
+              evidence_refs: [
+                "runtime_bridge_thread_control_rust_owned",
+                "runtime_bridge_thread_control_js_facade_retired",
+                "rust_daemon_core_runtime_bridge_thread_control_required",
+                "agentgres_runtime_bridge_thread_control_truth_required",
+              ],
+            },
+          });
+        }
+        const threadProjection = await store.agentRunLifecycleSurface.createRuntimeBridgeThreadControl(
+          store,
+          threadId,
+          agent,
+          {
+            ...request,
             action: "resume",
-            reason:
-              optionalStringDep(request.reason ?? request.message ?? request.input) ??
-              "operator requested resume",
-            evidence_refs: [
-              "runtime_bridge_thread_control_js_facade_retired",
-              "rust_daemon_core_runtime_bridge_thread_control_required",
-              "agentgres_runtime_bridge_thread_control_truth_required",
-            ],
           },
-        });
+        );
+        if (
+          optionalStringDep(threadProjection?.thread_id) !== threadId ||
+          optionalStringDep(threadProjection?.agent_id) !== optionalStringDep(agent?.id)
+        ) {
+          throwThreadTurnProjectionMismatch({
+            operation: "runtime_bridge_thread_control",
+            operationKind: "thread.runtime_bridge.control",
+            threadId,
+            agentId: agent?.id ?? null,
+            actualThreadId: optionalStringDep(threadProjection?.thread_id) ?? null,
+            actualAgentId: optionalStringDep(threadProjection?.agent_id) ?? null,
+          });
+        }
+        return threadProjection;
       }
       if (
         typeof store.agentRunLifecycleSurface?.updateAgent !== "function" ||
@@ -92,20 +118,44 @@ export function createRuntimeThreadTurnSurface(deps = {}) {
       const agent = store.agentForThread(threadId);
       const controlledRequest = requestWithThreadRuntimeControlsDep(agent, request);
       if (isRuntimeBackedAgentDep(agent)) {
-        return throwRuntimeBridgeThreadRustCoreRequired({
-          operation: "runtime_bridge_turn_submit",
-          operationKind: "turn.runtime_bridge.submit",
-          details: {
-            thread_id: threadId,
-            agent_id: agent?.id ?? null,
-            runtime_profile: agent?.runtimeProfile ?? null,
-            evidence_refs: [
-              "runtime_bridge_turn_submit_js_facade_retired",
-              "rust_daemon_core_runtime_bridge_turn_required",
-              "agentgres_runtime_bridge_turn_truth_required",
-            ],
-          },
-        });
+        if (typeof store.agentRunLifecycleSurface?.createRuntimeBridgeTurn !== "function") {
+          return throwRuntimeBridgeThreadRustCoreRequired({
+            operation: "runtime_bridge_turn_submit",
+            operationKind: "turn.runtime_bridge.submit",
+            details: {
+              thread_id: threadId,
+              agent_id: agent?.id ?? null,
+              runtime_profile: agent?.runtimeProfile ?? agent?.runtime_profile ?? null,
+              evidence_refs: [
+                "runtime_bridge_turn_submit_rust_owned",
+                "runtime_bridge_turn_submit_js_facade_retired",
+                "rust_daemon_core_runtime_bridge_turn_required",
+                "agentgres_runtime_bridge_turn_truth_required",
+              ],
+            },
+          });
+        }
+        const turnProjection = await store.agentRunLifecycleSurface.createRuntimeBridgeTurn(
+          store,
+          threadId,
+          agent,
+          controlledRequest,
+        );
+        const projectionRunId = optionalStringDep(turnProjection?.run_id ?? turnProjection?.request_id);
+        if (
+          optionalStringDep(turnProjection?.thread_id) !== threadId ||
+          !projectionRunId
+        ) {
+          throwThreadTurnProjectionMismatch({
+            operation: "runtime_bridge_turn_submit",
+            operationKind: "turn.runtime_bridge.submit",
+            threadId,
+            agentId: agent?.id ?? null,
+            actualThreadId: optionalStringDep(turnProjection?.thread_id) ?? null,
+            actualRunId: projectionRunId ?? null,
+          });
+        }
+        return turnProjection;
       }
       const requestedRuntimeProfile = runtimeProfileForRequestDep(
         controlledRequest,

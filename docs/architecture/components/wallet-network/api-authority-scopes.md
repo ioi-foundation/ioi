@@ -1,14 +1,21 @@
 # wallet.network API and Authority Scopes
 
 Status: canonical low-level reference.
-Canonical owner: this file for wallet.network account, authority scope, grant, approval, secret brokerage, payment, and revocation APIs.
+Canonical owner: this file for wallet.network account, authority scope, grant,
+approval, secret brokerage, payment, exchange, exposure, protection, receipt,
+and revocation APIs.
 Supersedes: older wallet authority API wording when it conflicts with `scope:*` authority grants.
 Superseded by: none.
-Last alignment pass: 2026-05-14.
+Last alignment pass: 2026-06-12.
 
 ## Purpose
 
-wallet.network is the canonical Web4 authority layer. It owns identity, secrets, BYOK keys, connector credentials, authority scope grants, training-data permissions, decryption leases, approvals, payments, sealed archive restore authority, revocation, and emergency stops. Agents, workers, apps, and runtimes are authority clients, not raw secret custodians.
+wallet.network is the canonical Web4 authority layer. It owns identity,
+secrets, BYOK keys, connector credentials, authority scope grants,
+training-data permissions, decryption leases, approvals, payments, exchange
+authority, asset/route/security risk disclosure, sealed archive restore
+authority, revocation, and emergency stops. Agents, workers, apps, and
+runtimes are authority clients, not raw secret custodians.
 
 ## Account and Session API
 
@@ -305,6 +312,126 @@ POST /v1/escrows/{escrow_id}/dispute
 
 wallet.network abstracts whether the user pays in IOI, stablecoin, fiat, or credits.
 
+## Exchange and Route Authority API
+
+Exchange is a first-class Wallet action. Route sources provide candidates;
+wallet.network owns policy, approval, signing or denial, and receipts.
+
+```http
+POST /v1/exchange/route-candidates
+POST /v1/exchange/intents
+GET  /v1/exchange/intents/{intent_id}
+POST /v1/exchange/intents/{intent_id}/simulate
+POST /v1/exchange/intents/{intent_id}/approve
+POST /v1/exchange/intents/{intent_id}/deny
+POST /v1/exchange/intents/{intent_id}/execute
+GET  /v1/exchange/intents/{intent_id}/receipt
+```
+
+Route candidate request:
+
+```json
+{
+  "initiator_id": "user://123 | agent://trader",
+  "account_id": "wallet://account/main",
+  "from_asset": "asset://eth/mainnet/ETH",
+  "to_asset": "asset://eth/mainnet/USDC",
+  "amount_in": "1.0",
+  "execution_mode": "best_price | lowest_risk | most_decentralized | no_bridges | pq_preferred | user_specified",
+  "allowed_route_sources": [
+    "decentralized_exchange",
+    "direct_pool",
+    "dex_router",
+    "solver",
+    "quote_api",
+    "user_specified"
+  ],
+  "policy_hash": "sha256:...",
+  "grant_id": "grant://... | null",
+  "lease_id": "lease://... | null",
+  "revocation_epoch": 7
+}
+```
+
+Exchange intent:
+
+```json
+{
+  "intent_id": "exchange_intent://...",
+  "route": {
+    "route_id": "route://...",
+    "source": "decentralized.exchange | direct_pool | quote_api | user_specified",
+    "path": ["pool://...", "pool://..."],
+    "calldata_commitment": "sha256:..."
+  },
+  "from_asset": "asset://...",
+  "to_asset": "asset://...",
+  "amount_in": "1000.00",
+  "min_amount_out": "997.50",
+  "quote_expires_at": "2026-06-12T12:05:00Z",
+  "simulation_hash": "sha256:...",
+  "risk_labels": ["Bridge Exposure", "Oracle Risk"],
+  "economics": {
+    "expected_output": "998.10",
+    "minimum_output": "997.50",
+    "slippage_tolerance_bps": 25,
+    "pool_fee_bps": 5,
+    "protocol_fee": "0",
+    "wallet_fee": "0",
+    "gas_estimate": "0.003 ETH",
+    "price_impact_bps": 7
+  },
+  "tx_intents": ["tx_intent://..."]
+}
+```
+
+No route candidate is authority. Final execution requires an approved
+`ExchangeIntent` and exact `TxIntent` binding.
+
+## Asset Exposure and Protection API
+
+```http
+GET  /v1/assets/exposure
+GET  /v1/assets/{asset_id}/exposure
+GET  /v1/accounts/{account_id}/exposure
+GET  /v1/protection/recommendations
+POST /v1/protection/actions
+GET  /v1/protection/actions/{action_id}
+POST /v1/protection/actions/{action_id}/approve
+POST /v1/protection/actions/{action_id}/deny
+```
+
+Exposure records should describe cryptographic regime, public-key exposure,
+bridge dependency, admin-key dependency, oracle dependency, approval exposure,
+agent-access exposure, protection level, and recommended actions.
+
+## Wallet Receipt and Activity API
+
+```http
+GET /v1/activity
+GET /v1/receipts
+GET /v1/receipts/{receipt_id}
+```
+
+Receipt types include send, receive, exchange, approval, delegation,
+revocation, agent action, step-up, secret execution, risk event, protection,
+and policy change receipts.
+
+## Approval Inbox API
+
+```http
+GET  /v1/approval-inbox
+GET  /v1/approval-inbox/{approval_item_id}
+POST /v1/approval-inbox/{approval_item_id}/approve
+POST /v1/approval-inbox/{approval_item_id}/deny
+POST /v1/approval-inbox/{approval_item_id}/edit-and-approve
+```
+
+Approval inbox items should include initiator, requested action, authority risk
+class, asset/route/security risk labels, affected assets/secrets/data, budget
+or amount, destination, policy diff, simulation result, expiry, and available
+approve/edit/deny actions.
+
 ## Revocation and Emergency Stop
 
 ```http
@@ -325,3 +452,5 @@ Emergency stop must revoke active grants, pause pending runs, and notify relevan
 6. SMS, email, chat, voice, and webhook access points may carry step-up
    challenge pointers, but not grants, decryption keys, private workspace
    payloads, credentials, or durable authority.
+7. Exchange route sources are candidates only; they are not approval, signing
+   authority, receipt truth, or execution trust roots.

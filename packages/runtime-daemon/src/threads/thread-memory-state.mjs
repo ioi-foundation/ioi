@@ -2,6 +2,20 @@ const PUBLIC_MEMORY_PROJECTION_EVIDENCE_REFS = [
   "runtime_memory_public_projection_rust_owned",
   "agentgres_thread_memory_projection_truth_required",
 ];
+const MEMORY_CONTROL_EVIDENCE_REFS = [
+  "runtime_memory_control_rust_owned",
+  "runtime_memory_state_store_js_mutation_retired",
+  "agentgres_thread_memory_state_truth_required",
+];
+const MEMORY_CONTROL_EVENT_EVIDENCE_REFS = [
+  "runtime_memory_control_event_rust_owned",
+  "runtime_memory_status_validation_control_rust_owned",
+  "runtime_memory_status_validation_js_facade_retired",
+  "agentgres_runtime_thread_event_truth_required",
+];
+const RUNTIME_MEMORY_STATE_COMMIT_SCHEMA_VERSION =
+  "ioi.runtime_memory_state_commit.v1";
+const RUST_AGENTGRES_STORAGE_BACKEND = "rust_agentgres_storage";
 
 export function createThreadMemoryState({
   doctorHash,
@@ -30,6 +44,7 @@ export function createThreadMemoryState({
   threadIdForAgent,
   validateMemoryProjection,
   contextPolicyRunner,
+  nowIso = () => new Date().toISOString(),
 } = {}) {
   const memoryRuntimeError = runtimeError ?? (({ status = 500, code = "thread_memory_state_error", message, details }) =>
     Object.assign(new Error(message), { status, code, details }));
@@ -40,6 +55,14 @@ export function createThreadMemoryState({
     threadId = null,
     agentId = null,
     memoryId = null,
+    evidenceRefs = [
+      "runtime_thread_memory_control_js_facade_retired",
+      "runtime_thread_memory_write_js_facade_retired",
+      "runtime_thread_memory_policy_js_facade_retired",
+      "runtime_memory_state_store_js_mutation_retired",
+      "rust_daemon_core_thread_memory_control_required",
+      "agentgres_thread_memory_state_truth_required",
+    ],
   } = {}) {
     throw memoryRuntimeError({
       status: 501,
@@ -55,36 +78,32 @@ export function createThreadMemoryState({
         thread_id: threadId,
         agent_id: agentId,
         memory_id: memoryId,
-        evidence_refs: [
-          "runtime_thread_memory_control_js_facade_retired",
-          "runtime_thread_memory_write_js_facade_retired",
-          "runtime_thread_memory_policy_js_facade_retired",
-          "runtime_thread_memory_status_validation_js_facade_retired",
-          "runtime_memory_state_store_js_mutation_retired",
-          "rust_daemon_core_thread_memory_control_required",
-          "agentgres_thread_memory_state_truth_required",
-        ],
+        evidence_refs: evidenceRefs,
       },
     });
   }
 
   function rememberForAgent(store, agent, { text, threadId = threadIdForAgent(agent.id), scope = "thread", source = "operator_remember", workflow = {} } = {}) {
-    void store;
-    void text;
-    void scope;
-    void source;
-    void workflow;
-    throwThreadMemoryRustCoreRequired({
+    return commitMemoryControl(store, {
       operation: "write",
+      operationKind: "memory.write",
       threadId,
       agentId: agent?.id ?? null,
+      workspaceRoot: agent?.cwd ?? null,
+      request: { text, scope, source, ...workflow },
     });
   }
 
   function rememberForThread(store, threadId, body = {}) {
-    void store;
-    void body;
-    throwThreadMemoryRustCoreRequired({ operation: "write", threadId });
+    const agent = store.agentForThread(threadId);
+    return commitMemoryControl(store, {
+      operation: "write",
+      operationKind: "memory.write",
+      threadId,
+      agentId: agent?.id ?? null,
+      workspaceRoot: agent?.cwd ?? null,
+      request: body,
+    });
   }
 
   function listMemoryForThread(store, threadId, options = {}) {
@@ -103,9 +122,18 @@ export function createThreadMemoryState({
   }
 
   function setMemoryPolicyForThread(store, threadId, body = {}) {
-    void store;
-    void body;
-    throwThreadMemoryRustCoreRequired({ operation: "policy_update", threadId });
+    const agent = store.agentForThread(threadId);
+    return commitMemoryControl(store, {
+      operation: "policy",
+      operationKind: "memory.policy",
+      threadId,
+      agentId: agent?.id ?? null,
+      workspaceRoot: agent?.cwd ?? null,
+      targetType: "thread",
+      targetId: threadId,
+      request: body,
+      currentPolicy: memoryPolicyForThread(store, threadId),
+    });
   }
 
   function memoryPathForThread(store, threadId) {
@@ -114,21 +142,44 @@ export function createThreadMemoryState({
   }
 
   function updateMemoryForThread(store, threadId, memoryId, body = {}) {
-    void store;
-    void body;
-    throwThreadMemoryRustCoreRequired({ operation: "edit", threadId, memoryId });
+    const agent = store.agentForThread(threadId);
+    return commitMemoryControl(store, {
+      operation: "edit",
+      operationKind: "memory.edit",
+      threadId,
+      agentId: agent?.id ?? null,
+      memoryId,
+      workspaceRoot: agent?.cwd ?? null,
+      request: body,
+      currentRecord: memoryRecordForId(store, memoryId),
+    });
   }
 
   function deleteMemoryForThread(store, threadId, memoryId, body = {}) {
-    void store;
-    void body;
-    throwThreadMemoryRustCoreRequired({ operation: "delete", threadId, memoryId });
+    const agent = store.agentForThread(threadId);
+    return commitMemoryControl(store, {
+      operation: "delete",
+      operationKind: "memory.delete",
+      threadId,
+      agentId: agent?.id ?? null,
+      memoryId,
+      workspaceRoot: agent?.cwd ?? null,
+      request: body,
+      currentRecord: memoryRecordForId(store, memoryId),
+    });
   }
 
   function rememberForAgentId(store, agentId, body = {}) {
-    void store;
-    void body;
-    throwThreadMemoryRustCoreRequired({ operation: "write", agentId });
+    const agent = store.getAgent(agentId);
+    const threadId = optionalString(body.thread_id) ?? threadIdForAgent(agent.id);
+    return commitMemoryControl(store, {
+      operation: "write",
+      operationKind: "memory.write",
+      threadId,
+      agentId,
+      workspaceRoot: agent?.cwd ?? null,
+      request: body,
+    });
   }
 
   function listMemoryForAgent(store, agentId, options = {}) {
@@ -149,9 +200,19 @@ export function createThreadMemoryState({
   }
 
   function setMemoryPolicyForAgent(store, agentId, body = {}) {
-    void store;
-    void body;
-    throwThreadMemoryRustCoreRequired({ operation: "policy_update", agentId });
+    const agent = store.getAgent(agentId);
+    const threadId = optionalString(body.thread_id) ?? threadIdForAgent(agent.id);
+    return commitMemoryControl(store, {
+      operation: "policy",
+      operationKind: "memory.policy",
+      threadId,
+      agentId,
+      workspaceRoot: agent?.cwd ?? null,
+      targetType: optionalString(body.target_type) ?? "agent",
+      targetId: optionalString(body.target_id) ?? agentId,
+      request: body,
+      currentPolicy: memoryPolicyForAgent(store, agentId, { thread_id: threadId }),
+    });
   }
 
   function memoryPathForAgent(store, agentId, options = {}) {
@@ -161,27 +222,65 @@ export function createThreadMemoryState({
   }
 
   function updateMemoryForAgentId(store, agentId, memoryId, body = {}) {
-    void store;
-    void body;
-    throwThreadMemoryRustCoreRequired({ operation: "edit", agentId, memoryId });
+    const agent = store.getAgent(agentId);
+    const threadId = optionalString(body.thread_id) ?? threadIdForAgent(agent.id);
+    return commitMemoryControl(store, {
+      operation: "edit",
+      operationKind: "memory.edit",
+      threadId,
+      agentId,
+      memoryId,
+      workspaceRoot: agent?.cwd ?? null,
+      request: body,
+      currentRecord: memoryRecordForId(store, memoryId),
+    });
   }
 
   function deleteMemoryForAgentId(store, agentId, memoryId, body = {}) {
-    void store;
-    void body;
-    throwThreadMemoryRustCoreRequired({ operation: "delete", agentId, memoryId });
+    const agent = store.getAgent(agentId);
+    const threadId = optionalString(body.thread_id) ?? threadIdForAgent(agent.id);
+    return commitMemoryControl(store, {
+      operation: "delete",
+      operationKind: "memory.delete",
+      threadId,
+      agentId,
+      memoryId,
+      workspaceRoot: agent?.cwd ?? null,
+      request: body,
+      currentRecord: memoryRecordForId(store, memoryId),
+    });
   }
 
   function updateMemoryRecord(store, memoryId, body = {}) {
-    void store;
-    void body;
-    throwThreadMemoryRustCoreRequired({ operation: "edit", memoryId });
+    const currentRecord = memoryRecordForId(store, memoryId);
+    const threadId = optionalString(body.thread_id) ?? optionalString(currentRecord?.thread_id);
+    const agentId = optionalString(body.agent_id) ?? optionalString(currentRecord?.agent_id);
+    return commitMemoryControl(store, {
+      operation: "edit",
+      operationKind: "memory.edit",
+      threadId,
+      agentId,
+      memoryId,
+      workspaceRoot: optionalString(currentRecord?.workspace) ?? store.defaultCwd ?? null,
+      request: body,
+      currentRecord,
+    });
   }
 
   function deleteMemoryRecord(store, memoryId, body = {}) {
-    void store;
-    void body;
-    throwThreadMemoryRustCoreRequired({ operation: "delete", memoryId });
+    const currentRecord = memoryRecordForId(store, memoryId);
+    const threadId = optionalString(body.thread_id) ?? optionalString(currentRecord?.thread_id);
+    const agentId = optionalString(body.agent_id) ?? optionalString(currentRecord?.agent_id);
+    return commitMemoryControl(store, {
+      operation: "delete",
+      operationKind: "memory.delete",
+      threadId,
+      agentId,
+      memoryId,
+      workspaceRoot: optionalString(currentRecord?.workspace) ?? store.defaultCwd ?? null,
+      request: body,
+      currentRecord,
+    });
   }
 
   function publicMemoryProjectionRunner(store, request = {}) {
@@ -204,6 +303,255 @@ export function createThreadMemoryState({
         evidence_refs: PUBLIC_MEMORY_PROJECTION_EVIDENCE_REFS,
       },
     });
+  }
+
+  function memoryControlRunner(store, request = {}) {
+    const runner = store?.contextPolicyRunner ?? contextPolicyRunner;
+    if (
+      runner?.planRuntimeMemoryControl &&
+      runner?.projectRuntimeMemoryProjection &&
+      typeof store?.commitRuntimeMemoryState === "function"
+    ) {
+      return runner;
+    }
+    throwThreadMemoryRustCoreRequired({
+      operation: request.operation,
+      controlKind: request.operation_kind,
+      threadId: request.thread_id,
+      agentId: request.agent_id,
+      memoryId: request.memory_id,
+    });
+  }
+
+  function memoryControlEventRunner(store, request = {}) {
+    const runner = store?.contextPolicyRunner ?? contextPolicyRunner;
+    if (runner?.planRuntimeMemoryControl && typeof store?.appendRuntimeEvent === "function") {
+      return runner;
+    }
+    throwThreadMemoryRustCoreRequired({
+      operation: request.operation,
+      controlKind: request.operation_kind,
+      threadId: request.thread_id,
+      agentId: request.agent_id,
+      evidenceRefs: memoryControlEventEvidenceRefs(request.operation_kind),
+    });
+  }
+
+  function memoryControlEventEvidenceRefs(operationKind) {
+    const refs = [...MEMORY_CONTROL_EVENT_EVIDENCE_REFS];
+    if (operationKind === "memory.status") {
+      refs.unshift("runtime_memory_status_control_rust_owned");
+    } else if (operationKind === "memory.validate") {
+      refs.unshift("runtime_memory_validation_control_rust_owned");
+    }
+    return uniqueMemoryStrings(refs);
+  }
+
+  function memoryControlEventOperation({ operation, controlKind, eventKind } = {}) {
+    const fromEvent = optionalString(eventKind);
+    if (fromEvent?.startsWith("memory.")) {
+      const eventOperation = fromEvent.slice("memory.".length);
+      return eventOperation === "validation" ? "validate" : eventOperation;
+    }
+    const fromControl = optionalString(controlKind);
+    if (fromControl?.startsWith("memory_")) {
+      const controlOperation = fromControl.slice("memory_".length);
+      return controlOperation === "validation" ? "validate" : controlOperation;
+    }
+    return optionalString(operation) ?? "status";
+  }
+
+  function memoryControlEventOperationKind(operation) {
+    if (operation === "validation") return "memory.validate";
+    return `memory.${operation}`;
+  }
+
+  function memoryControlEventSourceKind(operation) {
+    if (operation === "validate") return "OperatorControl.MemoryValidate";
+    if (operation === "status") return "OperatorControl.MemoryStatus";
+    return memoryOperatorControlKind(operation);
+  }
+
+  function planMemoryControlEvent(store, {
+    threadId,
+    agent,
+    request = {},
+    operation,
+    controlKind,
+    sourceEventKind,
+    eventKind,
+    componentKind,
+    workflowNodeId,
+    payloadSchemaVersion,
+    status,
+    payload,
+    receiptRefs,
+    policyDecisionRefs,
+    policyDecisionKind = "read",
+  } = {}) {
+    const resolvedOperation = memoryControlEventOperation({ operation, controlKind, eventKind });
+    const operationKind = memoryControlEventOperationKind(resolvedOperation);
+    const resolvedAgent = agent ?? store.agentForThread(threadId);
+    const thread = resolvedAgent && typeof store.threadForAgent === "function"
+      ? store.threadForAgent(resolvedAgent)
+      : {};
+    const planRequest = {
+      operation: resolvedOperation,
+      operation_kind: operationKind,
+      thread_id: threadId ?? null,
+      agent_id: resolvedAgent?.id ?? null,
+      workspace_root: resolvedAgent?.cwd ?? null,
+      source: optionalString(request.source) ?? "agent_studio",
+      now: nowIso(),
+      request: {
+        ...request,
+        control_kind: controlKind ?? memoryControlKind(resolvedOperation),
+        event_stream_id: eventStreamIdForThread(threadId),
+        turn_id: optionalString(request.turn_id) ?? thread?.latest_turn_id ?? null,
+        source_event_kind:
+          sourceEventKind ?? memoryControlEventSourceKind(resolvedOperation),
+        event_kind: eventKind ?? operationKind,
+        component_kind: componentKind ?? "memory_manager",
+        workflow_node_id:
+          workflowNodeId ?? `runtime.memory-manager.${resolvedOperation}`,
+        payload_schema_version:
+          payloadSchemaVersion ?? `ioi.runtime.memory-${resolvedOperation}.v1`,
+        status: status ?? "completed",
+        payload: objectRecord(payload) ?? {},
+        receipt_refs: normalizeArray(receiptRefs),
+        policy_decision_refs: normalizeArray(policyDecisionRefs),
+        policy_decision_kind: policyDecisionKind,
+      },
+      evidence_refs: memoryControlEventEvidenceRefs(operationKind),
+    };
+    const runner = memoryControlEventRunner(store, planRequest);
+    return runner.planRuntimeMemoryControl(planRequest);
+  }
+
+  function appendPlannedMemoryControlEvent(store, plannedControl) {
+    const event = objectRecord(plannedControl?.payload);
+    if (!event) {
+      throw memoryRuntimeError({
+        status: 502,
+        code: "runtime_memory_control_event_planner_invalid",
+        message: "Rust memory control planning did not return a runtime event payload.",
+        details: {
+          operation_kind: plannedControl?.operation_kind ?? null,
+          memory_state_kind: plannedControl?.memory_state_kind ?? null,
+        },
+      });
+    }
+    return store.appendRuntimeEvent(event);
+  }
+
+  function commitMemoryControl(store, {
+    operation,
+    operationKind,
+    threadId = null,
+    agentId = null,
+    memoryId = null,
+    workspaceRoot = null,
+    targetType = null,
+    targetId = null,
+    request = {},
+    currentRecord = null,
+    currentPolicy = null,
+  } = {}) {
+    const planRequest = {
+      operation,
+      operation_kind: operationKind,
+      thread_id: threadId ?? null,
+      agent_id: agentId ?? null,
+      memory_id: memoryId ?? null,
+      workspace_root: workspaceRoot ?? null,
+      target_type: targetType ?? null,
+      target_id: targetId ?? null,
+      source: optionalString(request.source) ?? "agent_studio",
+      now: nowIso(),
+      request,
+      current_record: currentRecord ?? {},
+      current_policy: currentPolicy ?? {},
+      evidence_refs: MEMORY_CONTROL_EVIDENCE_REFS,
+    };
+    const runner = memoryControlRunner(store, planRequest);
+    const planned = runner.planRuntimeMemoryControl(planRequest);
+    const commit = store.commitRuntimeMemoryState({
+      schema_version: RUNTIME_MEMORY_STATE_COMMIT_SCHEMA_VERSION,
+      memory_state_kind: planned.memory_state_kind,
+      state_id: planned.state_id,
+      operation_kind: planned.operation_kind,
+      storage_backend_ref: RUST_AGENTGRES_STORAGE_BACKEND,
+      payload: planned.payload,
+      receipt_refs: planned.receipt_refs,
+    });
+    store.memory?.load?.();
+    const projection =
+      planned.memory_state_kind === "policy"
+        ? memoryControlPolicyProjection(store, planned)
+        : memoryControlRecordsProjection(store, planned);
+    return {
+      schema_version: "ioi.runtime.memory-control-result.v1",
+      object: "ioi.runtime_memory_control_result",
+      status: "committed",
+      operation: planned.operation,
+      operation_kind: planned.operation_kind,
+      memory_state_kind: planned.memory_state_kind,
+      state_id: planned.state_id,
+      memory_id: planned.memory_state_kind === "record" ? planned.state_id : null,
+      thread_id: planned.thread_id ?? null,
+      agent_id: planned.agent_id ?? null,
+      workspace_root: planned.workspace_root ?? null,
+      payload: planned.payload,
+      record: planned.memory_state_kind === "record" ? planned.payload : null,
+      policy: planned.memory_state_kind === "policy" ? planned.payload : null,
+      projection,
+      commit,
+      receipt_refs: uniqueMemoryStrings([
+        ...normalizeArray(planned.receipt_refs),
+        ...normalizeArray(commit?.receipt_refs),
+      ]),
+      evidence_refs: uniqueMemoryStrings([
+        ...normalizeArray(planned.evidence_refs),
+        ...normalizeArray(commit?.evidence_refs),
+      ]),
+    };
+  }
+
+  function memoryControlRecordsProjection(store, planned = {}) {
+    if (planned.thread_id) {
+      return publicListMemoryForThread(store, planned.thread_id, {});
+    }
+    if (planned.agent_id) {
+      return publicListMemoryForAgent(store, planned.agent_id, {
+        thread_id: planned.thread_id ?? undefined,
+      });
+    }
+    return publicMemoryProjectionForContext(store, {});
+  }
+
+  function memoryControlPolicyProjection(store, planned = {}) {
+    if (planned.thread_id) {
+      return publicMemoryPolicyForThread(store, planned.thread_id, {});
+    }
+    if (planned.agent_id) {
+      return publicMemoryPolicyForAgent(store, planned.agent_id, {
+        thread_id: planned.thread_id ?? undefined,
+      });
+    }
+    return publicMemoryPolicyForContext(store, {});
+  }
+
+  function memoryRecordForId(store, memoryId) {
+    return optionalString(memoryId) ? store.memory?.records?.get(memoryId) ?? null : null;
+  }
+
+  function uniqueMemoryStrings(values = []) {
+    const output = [];
+    for (const value of values) {
+      const text = optionalString(value);
+      if (text && !output.includes(text)) output.push(text);
+    }
+    return output;
   }
 
   function projectPublicMemory(store, projectionKind, projection = {}, context = {}) {
@@ -463,17 +811,45 @@ export function createThreadMemoryState({
   }
 
   function recordThreadMemoryStatus(store, threadId, request = {}, schemaVersion) {
-    void store;
-    void request;
-    void schemaVersion;
-    throwThreadMemoryRustCoreRequired({ operation: "status", controlKind: "memory_status", threadId });
+    const agent = store.agentForThread(threadId);
+    const payload = publicMemoryStatus(store, { thread_id: threadId });
+    return appendThreadMemoryControlEvent(store, {
+      threadId,
+      agent,
+      request,
+      operation: "status",
+      controlKind: "memory_status",
+      sourceEventKind: "OperatorControl.MemoryStatus",
+      eventKind: "memory.status",
+      componentKind: "memory_manager",
+      workflowNodeId: "runtime.memory-manager.status",
+      payloadSchemaVersion: schemaVersion,
+      status: "completed",
+      payload,
+      receiptRefs: payload.receipt_refs,
+      policyDecisionRefs: payload.policy_decision_refs,
+    });
   }
 
   function validateThreadMemory(store, threadId, request = {}, schemaVersion) {
-    void store;
-    void request;
-    void schemaVersion;
-    throwThreadMemoryRustCoreRequired({ operation: "validate", controlKind: "memory_validate", threadId });
+    const agent = store.agentForThread(threadId);
+    const payload = publicValidateMemory(store, { ...request, thread_id: threadId });
+    return appendThreadMemoryControlEvent(store, {
+      threadId,
+      agent,
+      request,
+      operation: "validate",
+      controlKind: "memory_validate",
+      sourceEventKind: "OperatorControl.MemoryValidate",
+      eventKind: "memory.validate",
+      componentKind: "memory_manager",
+      workflowNodeId: "runtime.memory-manager.validate",
+      payloadSchemaVersion: schemaVersion,
+      status: payload.ok === false ? "failed" : "completed",
+      payload,
+      receiptRefs: payload.receipt_refs,
+      policyDecisionRefs: payload.policy_decision_refs,
+    });
   }
 
   function recordThreadMemoryMutation(store, threadId, mutation = {}, request = {}, operation = "write", schemaVersion) {
@@ -500,20 +876,23 @@ export function createThreadMemoryState({
     policyDecisionRefs,
     policyDecisionKind = "read",
   }) {
-    void store;
-    void agent;
-    void request;
-    void sourceEventKind;
-    void eventKind;
-    void componentKind;
-    void workflowNodeId;
-    void payloadSchemaVersion;
-    void status;
-    void payload;
-    void receiptRefs;
-    void policyDecisionRefs;
-    void policyDecisionKind;
-    throwThreadMemoryRustCoreRequired({ operation: controlKind, controlKind, threadId });
+    const plannedControl = planMemoryControlEvent(store, {
+      threadId,
+      agent,
+      request,
+      controlKind,
+      sourceEventKind,
+      eventKind,
+      componentKind,
+      workflowNodeId,
+      payloadSchemaVersion,
+      status,
+      payload,
+      receiptRefs,
+      policyDecisionRefs,
+      policyDecisionKind,
+    });
+    return appendPlannedMemoryControlEvent(store, plannedControl);
   }
 
   return {

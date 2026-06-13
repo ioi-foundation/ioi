@@ -1,16 +1,17 @@
 # wallet.network Authority Layer Specification
 
 Status: canonical architecture authority.
-Canonical owner: this file for wallet.network authority doctrine; low-level scope APIs live in [`wallet-network-api-and-authority-scopes.md`](./api-authority-scopes.md).
+Canonical owner: this file for wallet.network authority doctrine; wallet product, exchange, route-source, exposure, protection, approval-inbox, and receipt doctrine lives in [`product-exchange-risk.md`](./product-exchange-risk.md); low-level scope APIs live in [`wallet-network-api-and-authority-scopes.md`](./api-authority-scopes.md).
 Supersedes: older generic capability-grant wording when it conflicts with `scope:*` authority grants.
 Superseded by: none.
-Last alignment pass: 2026-06-01.
+Last alignment pass: 2026-06-12.
 
 ## Canonical Definition
 
 **wallet.network is the canonical Web4 authority layer: the identity, secret,
-authority-scope, approval, payment, training-data permission, decryption-lease,
-and revocation control plane for autonomous software.**
+authority-scope, approval, payment, exchange-authority, training-data
+permission, decryption-lease, and revocation control plane for autonomous
+software.**
 
 It owns identity, secrets, authority scope grants, session authority, approvals,
 payments, revocation, and audit lineage. It is not merely a crypto wallet.
@@ -77,6 +78,10 @@ wallet.network owns:
 - policy envelopes;
 - revocation epochs;
 - payment authorization;
+- exchange authority and exact exchange-intent approval;
+- asset, route, and security risk disclosure for wallet actions;
+- protection-action authority such as approval revocation, spend limits,
+  account migration, and agent-fund isolation;
 - panic/emergency controls;
 - capability-exit signing and revocation for protected remote work;
 - audit lineage.
@@ -96,6 +101,8 @@ wallet.network does not own:
 - training, benchmark, or evaluation execution;
 - IOI L1 registry, settlement, or dispute state;
 - sealed state archive bytes.
+- liquidity, route proposals, quote truth, DEX/bridge execution mechanics, and
+  chain finality.
 
 ## Worker Training Authority
 
@@ -238,6 +245,33 @@ identity_change
 ```
 
 Higher classes require stronger approval or security tier.
+
+## Product, Exchange, and Risk Doctrine
+
+Wallet's product doctrine is canonical, but separate from this authority-layer
+doctrine to avoid turning the authority spec into a route router, exchange
+backend, or app database.
+
+See [`product-exchange-risk.md`](./product-exchange-risk.md) for:
+
+- Wallet product surface doctrine;
+- Exchange and Route Authority;
+- relationship to `decentralized.exchange`;
+- `ExchangeIntent`, `RouteCandidate`, `WalletReceipt`, and
+  `AssetExposureRecord`;
+- authority risk classes versus asset/route/security risk labels;
+- protection actions;
+- approval inbox;
+- exchange economics disclosure;
+- organization authority;
+- wallet SDK event protocol.
+
+Core invariant:
+
+> **wallet.network owns exchange authority. Route sources produce candidates.
+> Liquidity lives in pools and venues. Execution lives onchain or in the chosen
+> venue. Agentgres records receipts and evidence. No quote or route source is a
+> trust root.**
 
 ## Marketplace Role
 
@@ -499,6 +533,12 @@ the L1 settlement chain
 a place where agents receive raw root secrets
 a place that releases plaintext alpha or PII to a rented GPU because the node
 passed a boot measurement
+a centralized exchange
+a single liquidity router
+a mandatory dependency on decentralized.exchange
+a place where route candidates become approval
+a quote API trust root
+a blanket post-quantum safety wrapper for legacy chains
 a generic login provider with no autonomous-work semantics
 a blanket claim that legacy systems become post-quantum safe
 ```
@@ -515,6 +555,8 @@ IOI L1 settles public/economic commitments
 
 ## Related Canon
 
+- [`product-exchange-risk.md`](./product-exchange-risk.md): Wallet product,
+  exchange, route-source, risk, protection, approval-inbox, and receipt doctrine.
 - [`api-authority-scopes.md`](./api-authority-scopes.md): scope API and grant
   shapes.
 - [`../daemon-runtime/default-harness-profile.md`](../daemon-runtime/default-harness-profile.md):

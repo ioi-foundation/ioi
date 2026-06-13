@@ -4,7 +4,7 @@ Status: canonical documentation ownership map.
 Canonical owner: this file for where architecture subjects should be edited first.
 Supersedes: informal subject ownership scattered across plans/specs.
 Superseded by: none.
-Last alignment pass: 2026-06-07.
+Last alignment pass: 2026-06-12.
 
 ## Purpose
 
@@ -71,6 +71,13 @@ Conflict rule:
      Agentgres owns canonical refs and meaning, storage backends hold encrypted
      bytes, wallet.network controls viewing/decryption/mutation authority, and
      IOI L1 receives only selected public/economic/cross-domain commitments;
+   - wallet.network is the authority wallet for autonomous finance: it owns
+     exchange authority, risk disclosure, approval, signing/denial,
+     revocation, protection actions, and wallet receipts, while route sources
+     only produce candidates;
+   - `decentralized.exchange` is a preferred first-party route source and
+     public exchange surface, not a mandatory exchange backend, authority
+     layer, liquidity owner, execution owner, or trust root;
    - storage backends such as Filecoin/CAS, S3, local disk, and object stores
      hold payload bytes only;
    - Private Workspace backed by cTEE is the daemon-owned workspace/execution
@@ -171,6 +178,7 @@ Conflict rule:
 | SDK and ADK boundaries | [`ioi-daemon-runtime-api.md`](../components/daemon-runtime/api.md) | [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md), [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md) | agent-sdk package docs, future ADK docs, internal package-boundary docs |
 | SDK, CLI, GUI, harness, benchmark, compositor boundaries | [`ioi-daemon-runtime-api.md`](../components/daemon-runtime/api.md) | [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md), [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md) | Compatibility row for shared client-surface validation; use the split CLI/TUI and SDK/ADK rows above for ownership. |
 | wallet.network authority, low-assurance access points, SMS/challenge escalation, and step-up grants | [`wallet-network-authority-layer.md`](../components/wallet-network/doctrine.md) | [`wallet-network-api-and-authority-scopes.md`](../components/wallet-network/api-authority-scopes.md), [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md) | CIRC/CEC, access-point bindings, step-up challenges, guardian/auth surface boundary |
+| wallet.network product doctrine, exchange authority, route-source boundaries, `ExchangeIntent`, `RouteCandidate`, asset exposure, protection actions, approval inbox, wallet receipts, and wallet SDK events | [`wallet-network/product-exchange-risk.md`](../components/wallet-network/product-exchange-risk.md) | [`wallet-network-api-and-authority-scopes.md`](../components/wallet-network/api-authority-scopes.md), [`wallet-network-authority-layer.md`](../components/wallet-network/doctrine.md), [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md), [`agentgres-state-substrate.md`](../components/agentgres/doctrine.md), [`ioi-l1-mainnet.md`](../foundations/ioi-l1-mainnet.md) | decentralized.exchange as preferred route source, direct pools, DEX routers, solvers, quote APIs, bridge routers, route-risk disclosure, protection center, Activity receipts |
 | Capability and authority ontology | [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md) | [`conformance/CIRC.md`](../../conformance/agentic-runtime/CIRC.md), [`wallet-network-api-and-authority-scopes.md`](../components/wallet-network/api-authority-scopes.md) | agent tool vocabulary plan |
 | aiagent.xyz worker marketplace and managed instances | [`aiagent-xyz-worker-marketplace.md`](../domains/aiagent/worker-marketplace.md) | [`aiagent-xyz-worker-and-inter-agent-endpoints.md`](../domains/aiagent/worker-endpoints.md) | product context module inside canonical owner, marketplace neutrality doc |
 | sas.xyz service marketplace | [`sas-xyz-service-marketplace.md`](../domains/sas/service-marketplace.md) | [`sas-xyz-service-endpoints.md`](../domains/sas/service-endpoints.md) | product context module inside canonical owner, service settlement docs |

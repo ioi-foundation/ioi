@@ -4,7 +4,7 @@ Status: canonical reader entry point.
 Canonical owner: this file for first-read architecture orientation and role-based reading paths.
 Supersedes: ad hoc onboarding paths across architecture docs.
 Superseded by: none.
-Last alignment pass: 2026-06-07.
+Last alignment pass: 2026-06-12.
 
 ## Five-Minute Mental Model
 
@@ -36,7 +36,9 @@ Default Harness Profile
   orchestrates loop-native autonomous work inside the daemon
 
 wallet.network
-  authorizes identity, secrets, approvals, payments, scopes, and decryption
+  authorizes identity, secrets, approvals, payments, exchanges, scopes,
+  decryption, revocation, and protection actions; route sources produce
+  exchange candidates, but Wallet owns authority
 
 Agentgres
   admits and proves operational truth for app, user, agent, and run state
@@ -101,7 +103,7 @@ Hypervisor Daemon executes.
 HypervisorOS roots serious nodes.
 Hypervisor Fleet manages infrastructure for autonomous systems.
 Default Harness Profile orchestrates.
-wallet.network authorizes.
+wallet.network authorizes, risk-labels, approves/denies, revokes, protects, and receipts.
 Agentgres admits truth.
 Agent Wiki remembers.
 Artifact refs define payload meaning.
@@ -208,13 +210,16 @@ durable behavior-affecting memory.
 Start here:
 
 1. [`components/wallet-network/doctrine.md`](../components/wallet-network/doctrine.md)
-2. [`components/wallet-network/api-authority-scopes.md`](../components/wallet-network/api-authority-scopes.md)
-3. [`foundations/security-privacy-policy-invariants.md`](../foundations/security-privacy-policy-invariants.md)
-4. [`components/daemon-runtime/api.md#action-mediation--authority-gateway-api`](../components/daemon-runtime/api.md#action-mediation--authority-gateway-api)
+2. [`components/wallet-network/product-exchange-risk.md`](../components/wallet-network/product-exchange-risk.md)
+3. [`components/wallet-network/api-authority-scopes.md`](../components/wallet-network/api-authority-scopes.md)
+4. [`foundations/security-privacy-policy-invariants.md`](../foundations/security-privacy-policy-invariants.md)
+5. [`components/daemon-runtime/api.md#action-mediation--authority-gateway-api`](../components/daemon-runtime/api.md#action-mediation--authority-gateway-api)
 
 Build for: `scope:*` authority scopes, `prim:*` primitive capabilities,
 grants, approvals, exact request hashes, revocation epochs, decryption leases,
-and payment authority.
+payment authority, exchange authority, route-source boundaries, risk labels,
+asset exposure records, protection actions, approval inbox items, and wallet
+receipts.
 
 ### Implementing Marketplace Or Routing
 

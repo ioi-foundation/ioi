@@ -274,6 +274,24 @@ test("workspace restore runner sends snapshot capture through direct daemon-core
           artifact_refs: ["artifact_snapshot"],
           summary: "captured",
         },
+        snapshot_artifact: {
+          schema_version: "ioi.runtime.workspace_snapshot_artifact.v1",
+          id: "artifact_snapshot",
+          artifact_id: "artifact_snapshot",
+          thread_id: "thread_alpha",
+          turn_id: "turn_alpha",
+          tool_name: "workspace.snapshot_capture",
+          tool_call_id: "tool_call_alpha",
+          channel: "workspace-snapshot",
+          name: "workspace_snapshot_alpha.json",
+          media_type: "application/json",
+          redaction: "workspace_snapshot",
+          snapshot_id: "workspace_snapshot_alpha",
+          receipt_id: "receipt_snapshot",
+          receipt_refs: ["receipt_snapshot"],
+          artifact_refs: ["artifact_snapshot"],
+          content_hash: "sha256:snapshot",
+        },
         snapshot_event: {
           schema_version: "ioi.runtime.workspace-snapshot.event.v1",
           event_id: "event_snapshot",
@@ -282,6 +300,7 @@ test("workspace restore runner sends snapshot capture through direct daemon-core
           status: "completed",
           actor: "runtime",
           component_kind: "workspace_snapshot",
+          idempotency_key: "workspace_snapshot:capture:workspace_snapshot_alpha:tool_call_alpha",
           thread_id: "thread_alpha",
           turn_id: "turn_alpha",
           workspace_root: "/workspace",
@@ -400,7 +419,12 @@ test("workspace restore runner sends snapshot capture through direct daemon-core
   assert.equal(capture.snapshot_record.snapshot_id, "workspace_snapshot_alpha");
   assert.deepEqual(capture.snapshot_record.receipt_refs, ["receipt_snapshot"]);
   assert.deepEqual(capture.snapshot_record.artifact_refs, ["artifact_snapshot"]);
+  assert.equal(capture.snapshot_artifact.id, "artifact_snapshot");
   assert.equal(capture.snapshot_event.event_id, "event_snapshot");
+  assert.equal(
+    capture.snapshot_event.idempotency_key,
+    "workspace_snapshot:capture:workspace_snapshot_alpha:tool_call_alpha",
+  );
   for (const field of ["contentFiles", "capturedFileCount", "omittedFileCount", "contentCaptured"]) {
     assert.equal(Object.hasOwn(capture, field), false);
   }
@@ -620,6 +644,7 @@ test("workspace restore runner does not synthesize Rust-owned snapshot capture r
   assert.equal(capture.content_files[0].receipt_refs, null);
   assert.equal(capture.content_files[0].artifact_refs, null);
   assert.equal(capture.snapshot_record, null);
+  assert.equal(capture.snapshot_artifact, null);
   assert.equal(capture.snapshot_event, null);
 });
 

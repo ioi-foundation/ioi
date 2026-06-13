@@ -1,7 +1,14 @@
+import {
+  RUST_MODEL_MOUNT_INSTANCE_LIFECYCLE_BACKEND,
+} from "./model-mount-admission-runner.mjs";
+import { commitModelMountRecordState } from "./record-state-commits.mjs";
+
+const MODEL_MOUNT_INSTANCE_LIFECYCLE_SCHEMA_VERSION = "ioi.model_mount.instance_lifecycle.v1";
+
 export function loadedInstanceForEndpoint(state, endpointId, failIfMissing = true, deps = {}) {
   const { notFound } = deps;
   const instance = [...state.instances.values()].find(
-    (candidate) => candidate.endpointId === endpointId && candidate.status === "loaded",
+    (candidate) => (candidate.endpointId ?? candidate.endpoint_id) === endpointId && candidate.status === "loaded",
   );
   if (!instance && failIfMissing) {
     throw notFound(`No loaded model instance for endpoint: ${endpointId}`, { endpoint_id: endpointId });
@@ -11,50 +18,230 @@ export function loadedInstanceForEndpoint(state, endpointId, failIfMissing = tru
 
 export function evictExpiredInstances(state) {
   const nowMs = state.now().getTime();
+  let changed = false;
   for (const instance of state.instances.values()) {
     if (instance.status !== "loaded" || !instance.expiresAt || Date.parse(instance.expiresAt) > nowMs) {
       continue;
     }
-    throwInstanceMaintenanceRustCoreRequired("model_idle_evict", instance, {
+    commitInstanceMaintenanceTransition(state, instance, {
+      action: "evict",
+      targetStatus: "evicted",
+      operation: "model_idle_evict",
       operation_kind: "model_mount.instance.evict",
       reason: "idle_ttl",
+      evidenceRefs: ["model_mount_instance_eviction_rust_positive_api"],
     });
+    changed = true;
   }
-  return false;
+  return changed;
 }
 
 export function coalesceLoadedInstances(state) {
   const loadedByEndpoint = new Map();
   for (const instance of state.instances.values()) {
-    if (instance.status !== "loaded" || !instance.endpointId) continue;
-    const current = loadedByEndpoint.get(instance.endpointId);
+    const endpointId = instance.endpointId ?? instance.endpoint_id;
+    if (instance.status !== "loaded" || !endpointId) continue;
+    const current = loadedByEndpoint.get(endpointId);
     if (!current || String(instance.loadedAt ?? "") > String(current.loadedAt ?? "")) {
-      loadedByEndpoint.set(instance.endpointId, instance);
+      loadedByEndpoint.set(endpointId, instance);
     }
   }
+  let changed = false;
   for (const instance of state.instances.values()) {
-    if (instance.status !== "loaded" || !instance.endpointId) continue;
-    const keeper = loadedByEndpoint.get(instance.endpointId);
+    const endpointId = instance.endpointId ?? instance.endpoint_id;
+    if (instance.status !== "loaded" || !endpointId) continue;
+    const keeper = loadedByEndpoint.get(endpointId);
     if (!keeper || keeper.id === instance.id) continue;
-    throwInstanceMaintenanceRustCoreRequired("model_supersede", instance, {
+    commitInstanceMaintenanceTransition(state, instance, {
+      action: "supersede",
+      targetStatus: "superseded",
+      operation: "model_supersede",
       operation_kind: "model_mount.instance.supersede",
-      superseded_by: keeper.id,
       reason: "endpoint_reload",
+      superseded_by: keeper.id,
+      evidenceRefs: ["model_mount_instance_supersede_rust_positive_api"],
     });
+    changed = true;
   }
-  return false;
+  return changed;
 }
 
 export function supersedeLoadedInstances(state, endpointId, keepInstanceId) {
+  let changed = false;
   for (const instance of state.instances.values()) {
-    if (instance.id === keepInstanceId || instance.endpointId !== endpointId || instance.status !== "loaded") continue;
-    throwInstanceMaintenanceRustCoreRequired("model_supersede", instance, {
+    if (instance.id === keepInstanceId || (instance.endpointId ?? instance.endpoint_id) !== endpointId || instance.status !== "loaded") continue;
+    commitInstanceMaintenanceTransition(state, instance, {
+      action: "supersede",
+      targetStatus: "superseded",
+      operation: "model_supersede",
       operation_kind: "model_mount.instance.supersede",
-      superseded_by: keepInstanceId,
       reason: "endpoint_reload",
+      superseded_by: keepInstanceId,
+      evidenceRefs: ["model_mount_instance_supersede_rust_positive_api"],
+    });
+    changed = true;
+  }
+  return changed;
+}
+
+function commitInstanceMaintenanceTransition(state, instance, options = {}) {
+  const lifecycle = planInstanceMaintenanceLifecycle(state, instance, options);
+  const record = lifecycle.result;
+  const commit = commitModelMountRecordState(state, {
+    recordDir: "model-instances",
+    record,
+    operation_kind: options.operation_kind,
+    receipt_refs: [],
+    unconfiguredCode: "model_mount_instance_lifecycle_record_state_commit_unconfigured",
+    unconfiguredMessage:
+      "Model instance lifecycle maintenance requires Rust Agentgres record-state commit before instance truth can change.",
+    invalidCode: "model_mount_instance_lifecycle_record_state_commit_invalid",
+  });
+  state.instances?.set?.(record.id, record);
+  return {
+    ...record,
+    object: "ioi.model_mount_instance",
+    record_dir: "model-instances",
+    record_id: record.id,
+    record,
+    commit,
+    instance_lifecycle_hash: lifecycle.instance_lifecycle_hash ?? record.instance_lifecycle_hash ?? null,
+    evidence_refs: lifecycle.evidence_refs ?? record.evidence_refs ?? [],
+  };
+}
+
+function planInstanceMaintenanceLifecycle(state, instance, options = {}) {
+  const request = modelMountInstanceMaintenanceRequest(state, instance, options);
+  if (typeof state.planModelMountInstanceLifecycle !== "function") {
+    throwInstanceMaintenanceRustCoreRequired(options.operation, instance, {
+      operation_kind: options.operation_kind,
+      reason: options.reason ?? null,
+      superseded_by: options.superseded_by ?? null,
+      rust_core_api: "plan_model_mount_instance_lifecycle",
     });
   }
-  return false;
+  const result = state.planModelMountInstanceLifecycle(request);
+  assertRustAuthoredInstanceMaintenanceResult(result, options);
+  return result;
+}
+
+function modelMountInstanceMaintenanceRequest(state, instance = {}, options = {}) {
+  const endpointId = requiredMaintenanceString(
+    instance.endpoint_id ?? instance.endpointId,
+    "endpoint_id",
+    instance,
+    options,
+  );
+  const endpoint = mapGet(state.endpoints, endpointId) ?? {};
+  const providerId = requiredMaintenanceString(
+    instance.provider_id ?? instance.providerId ?? endpoint.provider_id ?? endpoint.providerId,
+    "provider_id",
+    instance,
+    options,
+  );
+  const provider = mapGet(state.providers, providerId) ?? {};
+  const modelId = requiredMaintenanceString(
+    instance.model_id ?? instance.modelId ?? endpoint.model_id ?? endpoint.modelId,
+    "model_id",
+    instance,
+    options,
+  );
+  const backendId = requiredMaintenanceString(
+    instance.backend_id ?? instance.backendId ?? endpoint.backend_id ?? endpoint.backendId ?? provider.backend_id ?? provider.backendId,
+    "backend_id",
+    instance,
+    options,
+  );
+  const driver = requiredMaintenanceString(
+    instance.driver ?? provider.driver ?? endpoint.driver,
+    "driver",
+    instance,
+    options,
+  );
+  const provider_lifecycle_hash = requiredMaintenanceString(
+    instance.provider_lifecycle_hash ?? instance.model_mount_provider_lifecycle_hash,
+    "provider_lifecycle_hash",
+    instance,
+    options,
+  );
+  const superseded_by = options.action === "supersede"
+    ? requiredMaintenanceString(options.superseded_by, "superseded_by", instance, options)
+    : null;
+  return {
+    schema_version: MODEL_MOUNT_INSTANCE_LIFECYCLE_SCHEMA_VERSION,
+    instance_ref: requiredMaintenanceString(instance.id, "instance_id", instance, options),
+    endpoint_ref: endpointId,
+    model_ref: modelId,
+    provider_ref: providerId,
+    action: options.action,
+    target_status: options.targetStatus,
+    execution_backend: RUST_MODEL_MOUNT_INSTANCE_LIFECYCLE_BACKEND,
+    backend_ref: backendId,
+    driver,
+    provider_lifecycle_hash: provider_lifecycle_hash,
+    reason: options.reason ?? null,
+    superseded_by: superseded_by,
+    evidence_refs: [
+      ...new Set([
+        "public_model_instance_maintenance_rust_facade",
+        options.operation,
+        ...(options.evidenceRefs ?? []),
+      ].filter(Boolean)),
+    ],
+  };
+}
+
+function assertRustAuthoredInstanceMaintenanceResult(result = {}, options = {}) {
+  const record = result.result && typeof result.result === "object" && !Array.isArray(result.result)
+    ? result.result
+    : {};
+  const evidenceRefs = Array.isArray(result.evidence_refs)
+    ? result.evidence_refs
+    : Array.isArray(record.evidence_refs)
+      ? record.evidence_refs
+      : [];
+  const missing = [];
+  const mismatches = [];
+  for (const field of ["id", "endpoint_id", "model_id", "provider_id", "instance_lifecycle_hash"]) {
+    if (!record[field]) missing.push(`result.${field}`);
+  }
+  if (!result.executionBackend && !record.execution_backend) missing.push("execution_backend");
+  if (!result.status && !record.status) missing.push("status");
+  if (!evidenceRefs.includes("rust_model_mount_instance_lifecycle")) {
+    missing.push("evidence_refs.rust_model_mount_instance_lifecycle");
+  }
+  if (options.action && record.action !== options.action) mismatches.push("result.action");
+  if (options.targetStatus && record.status !== options.targetStatus) mismatches.push("result.status");
+  if (options.action === "supersede" && record.superseded_by !== options.superseded_by) {
+    mismatches.push("result.superseded_by");
+  }
+  if (missing.length === 0 && mismatches.length === 0) return;
+  const error = new Error("Model instance lifecycle maintenance requires a Rust-authored transition record.");
+  error.status = 502;
+  error.code = "model_mount_instance_lifecycle_rust_result_required";
+  error.details = {
+    operation: options.operation ?? null,
+    operation_kind: options.operation_kind ?? null,
+    target_status: options.targetStatus ?? null,
+    missing,
+    mismatches,
+  };
+  throw error;
+}
+
+function requiredMaintenanceString(value, field, instance, options = {}) {
+  const normalized = value == null ? "" : String(value).trim();
+  if (normalized) return normalized;
+  throwInstanceMaintenanceRustCoreRequired(options.operation, instance, {
+    operation_kind: options.operation_kind,
+    reason: options.reason ?? null,
+    superseded_by: options.superseded_by ?? null,
+    missing: [field],
+  });
+}
+
+function mapGet(map, key) {
+  return map && typeof map.get === "function" ? map.get(key) : null;
 }
 
 function throwInstanceMaintenanceRustCoreRequired(operation, instance, details = {}) {
@@ -66,11 +253,11 @@ function throwInstanceMaintenanceRustCoreRequired(operation, instance, details =
     operation,
     ...details,
     instance_id: instance?.id ?? null,
-    endpoint_id: instance?.endpointId ?? null,
-    model_id: instance?.modelId ?? null,
-    provider_id: instance?.providerId ?? null,
+    endpoint_id: instance?.endpointId ?? instance?.endpoint_id ?? null,
+    model_id: instance?.modelId ?? instance?.model_id ?? null,
+    provider_id: instance?.providerId ?? instance?.provider_id ?? null,
     evidence_refs: [
-      "model_mount_instance_lifecycle_js_maintenance_retired",
+      "model_mount_instance_lifecycle_maintenance_positive_rust_api",
       "rust_daemon_core_instance_lifecycle_required",
       "agentgres_model_instance_record_truth_required",
     ],

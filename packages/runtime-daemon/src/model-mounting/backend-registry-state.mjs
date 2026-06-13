@@ -119,7 +119,7 @@ export function writeBackendLog(state, endpointId, event, deps = {}) {
     persistenceStatus: "not_persisted",
     evidenceRefs: [
       "model_mount_backend_log_js_writer_retired",
-      "rust_daemon_core_backend_lifecycle_required",
+      "rust_daemon_core_backend_lifecycle",
       "agentgres_backend_lifecycle_truth_required",
     ],
   };

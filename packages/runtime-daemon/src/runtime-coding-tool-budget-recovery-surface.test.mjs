@@ -67,7 +67,7 @@ function harness() {
   return { calls, store, surface };
 }
 
-test("coding-tool budget recovery control facade fails closed before JS approval, event append, or run persistence", () => {
+test("coding-tool budget recovery control fails closed before JS approval, event append, or run persistence without Rust planner", () => {
   const { calls, store, surface } = harness();
 
   assert.throws(
@@ -106,12 +106,13 @@ test("coding-tool budget recovery control facade fails closed before JS approval
   assert.deepEqual(calls, []);
 });
 
-test("coding-tool budget recovery control uses Rust daemon-core admission-required planner when mounted", () => {
+test("coding-tool budget recovery retry completion uses Rust planner and Agentgres run commit", () => {
   const calls = [];
+  const run = { id: "run_alpha", agentId: "agent_alpha", trace: {} };
   const store = {
     getRun(runId) {
       calls.push({ name: "getRun", runId });
-      throw new Error("Budget recovery facade must not look up runs in JS.");
+      return run;
     },
     appendRuntimeEvent(event) {
       calls.push({ name: "appendRuntimeEvent", event });
@@ -119,10 +120,119 @@ test("coding-tool budget recovery control uses Rust daemon-core admission-requir
     },
     writeRun(run, operationKind) {
       calls.push({ name: "writeRun", run, operationKind });
-      throw new Error("Budget recovery facade must not persist run state in JS.");
+      return {
+        source: "rust_agentgres_runtime_run_state_commit_command",
+        commit_hash: "sha256:commit",
+        receipt_refs: ["receipt_commit"],
+        policy_decision_refs: ["policy_commit"],
+      };
     },
   };
   const runnerCalls = [];
+  const surface = createRuntimeCodingToolBudgetRecoverySurface({
+    runtimeError,
+    codingToolBudgetRecoveryRunner: {
+      planCodingToolBudgetRecoveryStateUpdate(request) {
+        runnerCalls.push(request);
+        return {
+          source: "rust_coding_tool_budget_recovery_state_update_command",
+          backend: "rust_policy",
+          status: "planned",
+          operation_kind: "workflow.run.retry_completed",
+          operator_control: {
+            control: "coding_tool_budget_recovery",
+            action: "retry_approved",
+            approval_id: request.approval_id,
+            event_id: request.event_id,
+            seq: request.seq,
+            receipt_refs: request.receipt_refs,
+            policy_decision_refs: request.policy_decision_refs,
+            created_at: request.created_at,
+          },
+          run: {
+            ...request.run,
+            updatedAt: request.created_at,
+            trace: {
+              operatorControls: [{
+                control: "coding_tool_budget_recovery",
+                action: "retry_approved",
+                approval_id: request.approval_id,
+                event_id: request.event_id,
+              }],
+            },
+          },
+        };
+      },
+    },
+  });
+
+  const result = surface.codingToolBudgetRecoveryForRun(store, "run_alpha", {
+    thread_id: "thread_alpha",
+    action: "retry-approved",
+    approval_id: "approval_alpha",
+    source_event_id: "event_budget",
+    event_id: "event_retry",
+    seq: 12,
+    created_at: "2026-06-12T10:30:00.000Z",
+    source: "agent_studio",
+    receipt_refs: ["receipt_retry"],
+    policy_decision_refs: ["policy_retry"],
+  });
+
+  assert.deepEqual(runnerCalls, [{
+    thread_id: "thread_alpha",
+    run_id: "run_alpha",
+    run,
+    event_id: "event_retry",
+    seq: 12,
+    created_at: "2026-06-12T10:30:00.000Z",
+    approval_id: "approval_alpha",
+    source: "agent_studio",
+    receipt_refs: ["receipt_retry"],
+    policy_decision_refs: ["policy_retry"],
+  }]);
+  assert.equal(result.status, "completed");
+  assert.equal(result.operation_kind, "workflow.run.retry_completed");
+  assert.equal(result.action, "retry_approved");
+  assert.equal(result.run_id, "run_alpha");
+  assert.equal(result.operator_control.approval_id, "approval_alpha");
+  assert.deepEqual(result.receipt_refs, ["receipt_retry", "receipt_commit"]);
+  assert.deepEqual(result.policy_decision_refs, ["policy_retry", "policy_commit"]);
+  assert.deepEqual(result.evidence_refs, [
+    "coding_tool_budget_recovery_state_update_rust_owned",
+    "rust_daemon_core_budget_recovery_state_update",
+    "rust_agentgres_runtime_run_state_commit",
+  ]);
+  assert.deepEqual(calls, [
+    { name: "getRun", runId: "run_alpha" },
+    { name: "writeRun", run: result.run, operationKind: "workflow.run.retry_completed" },
+  ]);
+  for (const alias of [
+    "threadId",
+    "runId",
+    "approvalId",
+    "sourceEventId",
+    "receiptRefs",
+    "policyDecisionRefs",
+  ]) {
+    assert.equal(Object.hasOwn(result, alias), false, `${alias} output alias must be absent`);
+    assert.equal(Object.hasOwn(result.operator_control, alias), false, `${alias} operator alias must be absent`);
+  }
+});
+
+test("coding-tool budget recovery unsupported actions use Rust admission-required planner without JS truth lookup", () => {
+  const calls = [];
+  const runnerCalls = [];
+  const store = {
+    getRun(runId) {
+      calls.push({ name: "getRun", runId });
+      throw new Error("Budget recovery facade must not look up runs for unsupported actions.");
+    },
+    writeRun(run, operationKind) {
+      calls.push({ name: "writeRun", run, operationKind });
+      throw new Error("Budget recovery facade must not persist unsupported action truth.");
+    },
+  };
   const surface = createRuntimeCodingToolBudgetRecoverySurface({
     runtimeError,
     codingToolBudgetRecoveryRunner: {
@@ -157,7 +267,7 @@ test("coding-tool budget recovery control uses Rust daemon-core admission-requir
     () =>
       surface.codingToolBudgetRecoveryForRun(store, "run_alpha", {
         thread_id: "thread_alpha",
-        action: "retry_approved",
+        action: "request_approval",
         approval_id: "approval_alpha",
         source_event_id: "event_budget",
       }),
@@ -165,15 +275,7 @@ test("coding-tool budget recovery control uses Rust daemon-core admission-requir
       assert.equal(error.status, 501);
       assert.equal(error.code, "runtime_coding_tool_budget_recovery_rust_core_required");
       assert.equal(error.details.run_id, "run_alpha");
-      assert.equal(error.details.thread_id, "thread_alpha");
-      assert.equal(error.details.action, "retry_approved");
-      assert.equal(error.details.approval_id, "approval_alpha");
-      assert.equal(error.details.source_event_id, "event_budget");
-      assert.deepEqual(error.details.evidence_refs, [
-        "coding_tool_budget_recovery_js_facade_retired",
-        "rust_daemon_core_budget_recovery_admission_required",
-        "agentgres_budget_recovery_state_truth_required",
-      ]);
+      assert.equal(error.details.action, "request_approval");
       assertNoRetiredBudgetRecoveryDetailAliases(error.details);
       return true;
     },
@@ -184,7 +286,7 @@ test("coding-tool budget recovery control uses Rust daemon-core admission-requir
     operation_kind: "workflow.run.coding_tool_budget_recovery",
     run_id: "run_alpha",
     thread_id: "thread_alpha",
-    action: "retry_approved",
+    action: "request_approval",
     approval_id: "approval_alpha",
     source_event_id: "event_budget",
     source: undefined,
@@ -218,6 +320,49 @@ test("coding-tool budget recovery defaults action canonically while ignoring ret
       assert.equal(error.details.action, "request_approval");
       assert.equal(error.details.approval_id, null);
       assert.equal(error.details.source_event_id, null);
+      assertNoRetiredBudgetRecoveryDetailAliases(error.details);
+      return true;
+    },
+  );
+
+  assert.deepEqual(calls, []);
+});
+
+test("coding-tool budget recovery retry completion fails before JS lookup when canonical state-update inputs are missing", () => {
+  const calls = [];
+  const store = {
+    getRun(runId) {
+      calls.push({ name: "getRun", runId });
+      throw new Error("Budget recovery facade must not look up runs before canonical state inputs are present.");
+    },
+    writeRun(run, operationKind) {
+      calls.push({ name: "writeRun", run, operationKind });
+      throw new Error("Budget recovery facade must not persist before canonical state inputs are present.");
+    },
+  };
+  const surface = createRuntimeCodingToolBudgetRecoverySurface({
+    runtimeError,
+    codingToolBudgetRecoveryRunner: {
+      planCodingToolBudgetRecoveryStateUpdate() {
+        throw new Error("Rust planner must not run before required canonical inputs are present.");
+      },
+    },
+  });
+
+  assert.throws(
+    () =>
+      surface.codingToolBudgetRecoveryForRun(store, "run_alpha", {
+        thread_id: "thread_alpha",
+        action: "retry_approved",
+        approval_id: "approval_alpha",
+      }),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "runtime_coding_tool_budget_recovery_state_update_input_required");
+      assert.equal(error.details.run_id, "run_alpha");
+      assert.equal(error.details.event_id, null);
+      assert.equal(error.details.seq, null);
+      assert.equal(error.details.created_at, null);
       assertNoRetiredBudgetRecoveryDetailAliases(error.details);
       return true;
     },

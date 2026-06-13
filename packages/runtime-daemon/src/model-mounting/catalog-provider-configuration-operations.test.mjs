@@ -3,63 +3,47 @@ import test from "node:test";
 
 import { ModelMountingState } from "../model-mounting.mjs";
 
+const CATALOG_PROVIDER_EVIDENCE_REFS = [
+  "rust_daemon_core_catalog_provider_control",
+  "wallet_network_catalog_provider_authority_required",
+  "ctee_catalog_provider_custody_enforced",
+  "agentgres_catalog_provider_control_truth_required",
+  "public_catalog_provider_control_js_facade_retired",
+];
+
 function createState() {
   const calls = [];
-  const receipts = [];
   const recordStateCommits = [];
   const state = {
     calls,
-    receipts,
     recordStateCommits,
     catalogProviderConfigs: new Map(),
     catalogProviderRuntimeMaterials: new Map(),
-    catalogProviderRuntimeMaterialCalls: 0,
+    planCatalogProviderControl(request) {
+      calls.push({ name: "planCatalogProviderControl", request });
+      return catalogProviderControlPlan(request);
+    },
     catalogProviderPorts() {
-      calls.push({ name: "catalogProviderPorts" });
-      return [
-        {
-          id: "catalog.custom_http",
-          label: "Custom HTTP",
-          status: "configured",
-          formats: ["gguf"],
-        },
-      ];
+      throw new Error("catalog provider ports should not run in JS");
     },
     nowIso() {
-      return "2026-06-04T12:00:00.000Z";
-    },
-    receipt(kind, payload) {
-      const receipt = { id: `receipt-${receipts.length + 1}`, kind, ...payload };
-      receipts.push(receipt);
-      return receipt;
+      return "2026-06-13T12:00:00.000Z";
     },
     vault: {
-      bindVaultRef(record) {
-        calls.push({ name: "bindVaultRef", record });
-        return {
-          vaultRefHash: `hash:${record.vaultRef}`,
-          materialSource: "runtime_memory",
-          evidenceRefs: ["VaultPort.bindVaultRef"],
-        };
+      bindVaultRef() {
+        throw new Error("catalog provider vault binding should not run in JS");
       },
-      resolveVaultRef(vaultRef, purpose) {
-        calls.push({ name: "resolveVaultRef", vaultRef, purpose });
-        return {
-          resolvedMaterial: true,
-          material: "https://catalog.example.test",
-          materialSource: "vault_material_adapter",
-          vaultRefHash: `hash:${vaultRef}`,
-          evidenceRefs: ["VaultPort.resolveVaultRef"],
-        };
+      resolveVaultRef() {
+        throw new Error("catalog provider vault resolution should not run in JS");
       },
     },
     walletAuthority: {
-      resolveVaultRef(vaultRef) {
-        return { vaultRefHash: `hash:${vaultRef}` };
+      resolveVaultRef() {
+        throw new Error("catalog provider wallet vault resolution should not run in JS");
       },
     },
-    writeMap(name, map) {
-      calls.push({ name: "writeMap", mapName: name, size: map.size });
+    writeMap() {
+      throw new Error("catalog provider map writes should not run in JS");
     },
     commitRuntimeModelMountRecordState(request) {
       recordStateCommits.push(request);
@@ -80,218 +64,146 @@ function createState() {
       };
     },
     writeProjection() {
-      calls.push({ name: "writeProjection" });
+      throw new Error("catalog provider projections should not run in JS");
     },
     writeVaultRefs() {
-      calls.push({ name: "writeVaultRefs" });
+      throw new Error("catalog provider vault metadata writes should not run in JS");
     },
-  };
-  state.catalogProviderRuntimeMaterial = (providerId) => {
-    state.catalogProviderRuntimeMaterialCalls += 1;
-    return ModelMountingState.prototype.catalogProviderRuntimeMaterial.call(state, providerId);
   };
   return state;
 }
 
-test("catalog provider configuration list/get fail closed before JS public projection", () => {
-  const state = createState();
-
-  state.catalogProviderConfigs.set("catalog.custom_http", {
-    id: "catalog.custom_http",
-    enabled: true,
-    baseUrlHash: "hash:base-url",
-    updatedAt: state.nowIso(),
-  });
-  state.catalogProviderRuntimeMaterials.set("catalog.custom_http", {
-    baseUrl: "https://catalog.example.test",
-    runtimeMaterialStatus: "bound_runtime_session",
-  });
-
-  assert.throws(
-    () => ModelMountingState.prototype.listCatalogProviderConfigs.call(state),
-    (error) => {
-      assert.equal(error.status, 501);
-      assert.equal(error.code, "model_mount_catalog_provider_control_rust_core_required");
-      assert.equal(error.details.operation_kind, "model_mount.catalog_provider_configuration.list");
-      assert.equal(error.details.rust_core_boundary, "model_mount.catalog_provider_control");
-      assert.equal(error.details.configurable_provider_count, 3);
-      assert.deepEqual(error.details.evidence_refs, [
-        "public_catalog_provider_control_js_facade_retired",
-        "rust_daemon_core_catalog_provider_control_required",
-        "rust_daemon_core_wallet_ctee_custody_required",
-      ]);
-      assert.equal(Object.hasOwn(error.details, "configurableProviderCount"), false);
-      return true;
+function catalogProviderControlPlan(request) {
+  const providerSegment = request.provider_id ?? "all";
+  const recordId = `catalog_provider_control:${providerSegment}:${request.operation_kind.split(".").at(-1)}`;
+  const publicResponse = publicResponseForRequest(request);
+  const record = {
+    id: recordId,
+    record_id: recordId,
+    object: "ioi.model_mount_catalog_provider_control",
+    status: "planned",
+    operation_kind: request.operation_kind,
+    provider_id: request.provider_id ?? null,
+    rust_core_boundary: "model_mount.catalog_provider_control",
+    wallet_authority_boundary: "wallet.network.catalog_provider_control",
+    ctee_custody_boundary: "ctee.catalog_provider_material",
+    plaintext_material_returned: false,
+    public_response: publicResponse,
+    evidence_refs: CATALOG_PROVIDER_EVIDENCE_REFS,
+    control_hash: `sha256:control:${recordId}`,
+    authority: {
+      authority_hash: `sha256:authority:${recordId}`,
+      authority_grant_refs: request.authority_grant_refs,
+      authority_receipt_refs: request.authority_receipt_refs,
     },
-  );
-
-  assert.throws(
-    () => ModelMountingState.prototype.getCatalogProviderConfig.call(state, "catalog.custom_http"),
-    (error) => {
-      assert.equal(error.status, 501);
-      assert.equal(error.code, "model_mount_catalog_provider_control_rust_core_required");
-      assert.equal(error.details.operation_kind, "model_mount.catalog_provider_configuration.get");
-      assert.equal(error.details.provider_id, "catalog.custom_http");
-      assert.equal(error.details.rust_core_boundary, "model_mount.catalog_provider_control");
-      assert.equal(Object.hasOwn(error.details, "providerId"), false);
-      return true;
-    },
-  );
-
-  assert.throws(
-    () => ModelMountingState.prototype.getCatalogProviderConfig.call(state, "catalog.fixture"),
-    /not configurable/,
-  );
-  assert.equal(state.catalogProviderRuntimeMaterialCalls, 0);
-  assert.equal(state.calls.some((call) => call.name === "catalogProviderPorts"), false);
-  assert.equal(state.calls.some((call) => call.name === "writeMap"), false);
-  assert.equal(state.calls.some((call) => call.name === "writeProjection"), false);
-  assert.deepEqual(state.receipts, []);
-  assert.deepEqual(state.recordStateCommits, []);
-});
-
-test("catalog provider configuration mutation facade fails closed until Rust core owns catalog provider control", () => {
-  const state = createState();
-
-  assert.throws(
-    () =>
-      ModelMountingState.prototype.configureCatalogProvider.call(state, "catalog.custom_http", {
-        base_url: "https://catalog.example.test/",
-      }),
-    (error) => {
-      assert.equal(error.status, 501);
-      assert.equal(error.code, "model_mount_catalog_provider_control_rust_core_required");
-      assert.equal(error.details.operation_kind, "model_mount.catalog_provider_configuration.write");
-      assert.equal(error.details.rust_core_boundary, "model_mount.catalog_provider_control");
-      assert.equal(error.details.provider_id, "catalog.custom_http");
-      assert.deepEqual(error.details.evidence_refs, [
-        "public_catalog_provider_control_js_facade_retired",
-        "rust_daemon_core_catalog_provider_control_required",
-        "rust_daemon_core_wallet_ctee_custody_required",
-      ]);
-      assert.equal(Object.hasOwn(error.details, "providerId"), false);
-      return true;
-    },
-  );
-
-  assert.equal(state.catalogProviderConfigs.has("catalog.custom_http"), false);
-  assert.equal(state.catalogProviderRuntimeMaterials.has("catalog.custom_http"), false);
-  assert.equal(state.calls.some((call) => call.name === "writeMap"), false);
-  assert.equal(state.calls.some((call) => call.name === "writeProjection"), false);
-  assert.equal(state.calls.some((call) => call.name === "bindVaultRef"), false);
-  assert.deepEqual(state.receipts, []);
-  assert.deepEqual(state.recordStateCommits, []);
-});
-
-test("catalog provider runtime material fails closed before JS vault resolution", () => {
-  const state = createState();
-  const providerId = "catalog.custom_http";
-  let resolveCount = 0;
-  let sourceMaterialProbeCount = 0;
-  state.vault.resolveVaultRef = () => {
-    resolveCount += 1;
-    throw new Error("catalog source vault resolution should not run in JS");
   };
-  state.catalogProviderConfigs.set(providerId, {
-    id: providerId,
-    materialConfigured: true,
-    materialVaultRefHash: "known-material-hash",
-  });
+  return {
+    source: "rust_model_mount_catalog_provider_control_command",
+    backend: "rust_model_mount_catalog_provider_control",
+    plan: { record },
+    record_dir: "model-catalog-provider-controls",
+    record_id: recordId,
+    record,
+    operation_kind: request.operation_kind,
+    rust_core_boundary: "model_mount.catalog_provider_control",
+    receipt_refs: request.receipt_refs,
+    authority_grant_refs: request.authority_grant_refs,
+    authority_receipt_refs: request.authority_receipt_refs,
+    evidence_refs: CATALOG_PROVIDER_EVIDENCE_REFS,
+    control_hash: `sha256:control:${recordId}`,
+    authority_hash: `sha256:authority:${recordId}`,
+  };
+}
 
-  assert.throws(
-    () => ModelMountingState.prototype.catalogProviderRuntimeMaterial.call(state, providerId),
-    (error) => {
-      assert.equal(error.status, 501);
-      assert.equal(error.code, "model_mount_catalog_provider_control_rust_core_required");
-      assert.equal(error.details.operation_kind, "model_mount.catalog_provider_runtime_material.resolve");
-      assert.equal(error.details.provider_id, providerId);
-      assert.equal(error.details.material_vault_ref_hash, null);
-      assert.equal(error.details.material_configured, false);
-      assert.equal(error.details.runtime_material_status, "rust_core_projection_required");
-      assert.equal(error.details.rust_core_boundary, "model_mount.catalog_provider_control");
-      assert.deepEqual(error.details.evidence_refs, [
-        "public_catalog_provider_control_js_facade_retired",
-        "rust_daemon_core_catalog_provider_control_required",
-        "rust_daemon_core_wallet_ctee_custody_required",
-      ]);
-      assert.equal(Object.hasOwn(error.details, "providerId"), false);
-      assert.equal(Object.hasOwn(error.details, "materialVaultRefHash"), false);
-      return true;
-    },
-  );
-  assert.equal(resolveCount, 0);
-  assert.equal(sourceMaterialProbeCount, 0);
-  assert.equal(state.catalogProviderRuntimeMaterials.has(providerId), false);
-  assert.equal(state.calls.some((call) => call.name === "resolveVaultRef"), false);
-  assert.equal(state.calls.some((call) => call.name === "writeMap"), false);
-  assert.equal(state.calls.some((call) => call.name === "writeProjection"), false);
-  assert.equal(state.calls.some((call) => call.name === "writeVaultRefs"), false);
-  assert.deepEqual(state.receipts, []);
-  assert.deepEqual(state.recordStateCommits, []);
+function publicResponseForRequest(request) {
+  if (request.operation_kind === "model_mount.catalog_provider_configuration.list") {
+    return {
+      object: "ioi.model_catalog_provider_config_list",
+      providers: [
+        {
+          id: "catalog.huggingface",
+          provider_id: "catalog.huggingface",
+          status: "rust_controlled",
+          plaintext_material_returned: false,
+        },
+      ],
+    };
+  }
+  return {
+    object: request.operation_kind === "model_mount.catalog_provider_configuration.write"
+      ? "ioi.model_catalog_provider_config_write"
+      : "ioi.model_catalog_provider_config",
+    provider_id: request.provider_id,
+    status: "accepted",
+    private_material_returned: false,
+    plaintext_material_returned: false,
+    authority_hash: `sha256:authority:catalog_provider_control:${request.provider_id}:${request.operation_kind.split(".").at(-1)}`,
+  };
+}
 
-  state.catalogProviderRuntimeMaterials.set(providerId, {
-    baseUrl: "https://catalog.example.test",
+test("catalog provider config list/get/write commit Rust control records without JS projection", () => {
+  const state = createState();
+  state.catalogProviderConfigs.set("catalog.huggingface", { id: "catalog.huggingface", enabled: true });
+  state.catalogProviderRuntimeMaterials.set("catalog.huggingface", {
+    baseUrl: "https://huggingface.example.invalid",
     runtimeMaterialStatus: "bound_runtime_session",
-    materialVaultRefHash: "hash-materialized",
   });
-  assert.throws(
-    () =>
-      ModelMountingState.prototype.catalogProviderRuntimeMaterial.call(state, providerId),
-    (error) => {
-      assert.equal(error.code, "model_mount_catalog_provider_control_rust_core_required");
-      assert.equal(error.details.operation_kind, "model_mount.catalog_provider_runtime_material.resolve");
-      assert.equal(error.details.provider_id, providerId);
-      assert.equal(error.details.material_vault_ref_hash, "hash-materialized");
-      assert.equal(error.details.material_configured, true);
-      assert.equal(error.details.runtime_material_status, "bound_runtime_session");
-      return true;
-    },
-  );
-  assert.equal(sourceMaterialProbeCount, 0);
 
-  state.catalogProviderRuntimeMaterials.set(providerId, {
-    runtimeMaterialStatus: "missing_runtime_material",
+  const list = ModelMountingState.prototype.listCatalogProviderConfigs.call(state);
+  const get = ModelMountingState.prototype.getCatalogProviderConfig.call(state, "catalog.huggingface");
+  const write = ModelMountingState.prototype.configureCatalogProvider.call(state, "catalog.huggingface", {
+    enabled: true,
+    authority_grant_refs: ["grant://wallet/provider-write"],
+    authority_receipt_refs: ["receipt://wallet/provider-write"],
+    custody_ref: "ctee://catalog-provider/huggingface",
   });
-  assert.throws(
-    () => ModelMountingState.prototype.catalogProviderRuntimeMaterial.call(state, providerId),
-    (error) => {
-      assert.equal(error.code, "model_mount_catalog_provider_control_rust_core_required");
-      assert.equal(error.details.runtime_material_status, "missing_runtime_material");
-      return true;
-    },
+
+  assert.equal(list.status, "committed");
+  assert.equal(list.operation_kind, "model_mount.catalog_provider_configuration.list");
+  assert.equal(list.rust_core_boundary, "model_mount.catalog_provider_control");
+  assert.equal(list.providers[0].provider_id, "catalog.huggingface");
+  assert.equal(get.operation_kind, "model_mount.catalog_provider_configuration.get");
+  assert.equal(get.private_material_returned, false);
+  assert.equal(write.operation_kind, "model_mount.catalog_provider_configuration.write");
+  assert.equal(write.record.plaintext_material_returned, false);
+  assert.deepEqual(write.authority_grant_refs, ["grant://wallet/provider-write"]);
+  assert.deepEqual(write.authority_receipt_refs, ["receipt://wallet/provider-write"]);
+  assert.equal(state.calls.length, 3);
+  assert.equal(state.calls[2].request.provider_id, "catalog.huggingface");
+  assert.equal(state.calls[2].request.custody_ref, "ctee://catalog-provider/huggingface");
+  assert.equal(state.calls[2].request.body.enabled, true);
+  assert.equal(state.recordStateCommits.length, 3);
+  assert.deepEqual(
+    state.recordStateCommits.map((commit) => commit.record_dir),
+    [
+      "model-catalog-provider-controls",
+      "model-catalog-provider-controls",
+      "model-catalog-provider-controls",
+    ],
   );
-  assert.equal(resolveCount, 0);
+  assert.equal(state.recordStateCommits[2].operation_kind, "model_mount.catalog_provider_configuration.write");
+  assert.equal(state.catalogProviderConfigs.get("catalog.huggingface").enabled, true);
 });
 
-test("private catalog provider config readback fails closed before JS map projection", () => {
+test("private config and runtime material resolve through Rust cTEE control only", () => {
   const state = createState();
-  const providerId = "catalog.custom_http";
-  state.catalogProviderConfigs.set(providerId, {
-    id: providerId,
-    enabled: true,
-    materialConfigured: true,
+  state.catalogProviderConfigs.set("catalog.huggingface", {
+    id: "catalog.huggingface",
     authVaultRefHash: "hash:vault://catalog/auth",
   });
+  state.catalogProviderRuntimeMaterials.set("catalog.huggingface", {
+    materialVaultRefHash: "hash:vault://catalog/source",
+    runtimeMaterialStatus: "bound_runtime_session",
+  });
 
-  assert.throws(
-    () => ModelMountingState.prototype.catalogProviderConfig.call(state, providerId),
-    (error) => {
-      assert.equal(error.status, 501);
-      assert.equal(error.code, "model_mount_catalog_provider_control_rust_core_required");
-      assert.equal(error.details.operation_kind, "model_mount.catalog_provider_configuration.read_private");
-      assert.equal(error.details.provider_id, providerId);
-      assert.equal(error.details.rust_core_boundary, "model_mount.catalog_provider_control");
-      assert.deepEqual(error.details.evidence_refs, [
-        "public_catalog_provider_control_js_facade_retired",
-        "rust_daemon_core_catalog_provider_control_required",
-        "rust_daemon_core_wallet_ctee_custody_required",
-      ]);
-      assert.equal(Object.hasOwn(error.details, "providerId"), false);
-      return true;
-    },
-  );
-  assert.equal(state.calls.some((call) => call.name === "writeMap"), false);
-  assert.equal(state.calls.some((call) => call.name === "writeProjection"), false);
-  assert.deepEqual(state.receipts, []);
-  assert.deepEqual(state.recordStateCommits, []);
+  const privateConfig = ModelMountingState.prototype.catalogProviderConfig.call(state, "catalog.huggingface");
+  const runtimeMaterial = ModelMountingState.prototype.catalogProviderRuntimeMaterial.call(state, "catalog.huggingface");
+
+  assert.equal(privateConfig.operation_kind, "model_mount.catalog_provider_configuration.read_private");
+  assert.equal(runtimeMaterial.operation_kind, "model_mount.catalog_provider_runtime_material.resolve");
+  assert.equal(runtimeMaterial.record.plaintext_material_returned, false);
+  assert.equal(state.calls.length, 2);
+  assert.deepEqual(state.calls.map((call) => call.request.body), [{}, {}]);
+  assert.equal(state.recordStateCommits.length, 2);
+  assert.equal(state.recordStateCommits[1].operation_kind, "model_mount.catalog_provider_runtime_material.resolve");
 });

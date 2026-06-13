@@ -4,7 +4,8 @@ import {
 import {
   runtimeError as defaultRuntimeError,
 } from "./runtime-http-utils.mjs";
-import { normalizeArray, optionalString } from "./runtime-value-helpers.mjs";
+import { commitRuntimeArtifactRecord } from "./runtime-artifact-state-commit.mjs";
+import { normalizeArray, objectRecord, optionalString } from "./runtime-value-helpers.mjs";
 
 const RETIRED_WORKSPACE_RESTORE_REQUEST_ALIASES = [
   "workflowGraphId",
@@ -41,6 +42,7 @@ const CANONICAL_WORKSPACE_RESTORE_REQUEST_FIELDS = [
 export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
   const {
     runtimeError = defaultRuntimeError,
+    runtimeThreadEventAdmissionForThread = null,
     workspaceRestoreRunner = null,
   } = deps;
 
@@ -127,6 +129,27 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
         ],
       });
     }
+    const snapshotArtifactCommit = materializeWorkspaceSnapshotArtifact(_store, {
+      thread_id: threadId,
+      turn_id: turnId || null,
+      workspace_root: workspaceRoot,
+      tool_call_id: toolCallId ?? null,
+      workflow_graph_id: workflowGraphId ?? null,
+      workflow_node_id: workflowNodeId ?? null,
+      snapshot: record,
+      snapshot_artifact: objectRecord(capture?.snapshot_artifact),
+      artifact_id: artifactRefs[0],
+      receipt_id: receiptRefs[0],
+    });
+    const admittedEvent = appendWorkspaceSnapshotEvent(_store, {
+      thread_id: threadId,
+      turn_id: turnId || null,
+      workspace_root: workspaceRoot,
+      workflow_graph_id: workflowGraphId ?? null,
+      workflow_node_id: workflowNodeId ?? null,
+      snapshot: record,
+      snapshot_event: objectRecord(capture?.snapshot_event),
+    });
     return {
       capture,
       record: {
@@ -134,7 +157,8 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
         receipt_refs: receiptRefs,
         artifact_refs: artifactRefs,
       },
-      event: capture?.snapshot_event ?? null,
+      snapshot_artifact_commit: snapshotArtifactCommit,
+      event: admittedEvent,
     };
   }
 
@@ -169,43 +193,196 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
   }
 
   function materializeWorkspaceSnapshotArtifact(
-    _store,
-    { threadId, toolCallId, workspaceRoot, snapshot, artifactPayload, artifactId, receiptId } = {},
-  ) {
-    throwWorkspaceSnapshotRustCoreRequired("workspace_snapshot_artifact_materialization", "artifact.workspace_snapshot", {
+    store,
+    {
       thread_id: threadId,
-      tool_call_id: toolCallId,
+      turn_id: turnId,
       workspace_root: workspaceRoot,
-      snapshot_id: snapshot?.snapshot_id ?? artifactPayload?.snapshot_id ?? null,
-      artifact_id: artifactId ?? null,
+      tool_call_id: toolCallId,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
+      snapshot,
+      snapshot_artifact: snapshotArtifact,
+      artifact_id: artifactId,
       receipt_id: receiptId,
-      evidence_refs: [
-        "workspace_snapshot_artifact_js_materializer_retired",
-        "rust_daemon_core_workspace_snapshot_artifact_required",
-        "agentgres_workspace_snapshot_artifact_truth_required",
-      ],
+    } = {},
+  ) {
+    return commitWorkspaceSnapshotArtifact(store, {
+      thread_id: threadId,
+      turn_id: turnId,
+      workspace_root: workspaceRoot,
+      tool_call_id: toolCallId,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
+      snapshot_id: snapshot?.snapshot_id ?? null,
+      artifact_id: artifactId,
+      receipt_id: receiptId,
+      artifact: objectRecord(snapshotArtifact),
     });
   }
 
   function appendWorkspaceSnapshotEvent(
-    _store,
-    { threadId, turnId, workspaceRoot, workflowGraphId, snapshot, sourceToolEvent } = {},
+    store,
+    {
+      thread_id: threadId,
+      turn_id: turnId,
+      workspace_root: workspaceRoot,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
+      snapshot,
+      snapshot_event: snapshotEvent,
+    } = {},
   ) {
     if (!snapshot?.snapshot_id) return null;
-    throwWorkspaceSnapshotRustCoreRequired("workspace_snapshot_event_append", "workspace_snapshot.event", {
+    return admitWorkspaceSnapshotEvent(store, {
       thread_id: threadId,
-      turn_id: turnId || null,
+      turn_id: turnId,
       workspace_root: workspaceRoot,
-      workflow_graph_id: workflowGraphId ?? snapshot.trigger?.workflow_graph_id ?? null,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
       snapshot_id: snapshot.snapshot_id,
-      source_tool_call_id: sourceToolEvent?.tool_call_id ?? snapshot.trigger?.tool_call_id ?? null,
-      source_tool_event_id: sourceToolEvent?.event_id ?? null,
-      evidence_refs: [
-        "workspace_snapshot_event_js_append_retired",
-        "rust_daemon_core_workspace_snapshot_event_required",
-        "agentgres_workspace_snapshot_event_truth_required",
-      ],
+      event: objectRecord(snapshotEvent),
     });
+  }
+
+  function commitWorkspaceSnapshotArtifact(
+    store,
+    {
+      thread_id: threadId,
+      turn_id: turnId,
+      workspace_root: workspaceRoot,
+      tool_call_id: toolCallId,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
+      snapshot_id: snapshotId,
+      artifact_id: artifactId,
+      receipt_id: receiptId,
+      artifact,
+    } = {},
+  ) {
+    const plannedArtifactId = optionalString(artifact?.id ?? artifact?.artifact_id);
+    if (!artifact || !plannedArtifactId || (artifactId && plannedArtifactId !== artifactId)) {
+      throwWorkspaceSnapshotRustCoreRequired("workspace_snapshot_artifact_materialization", "artifact.workspace_snapshot", {
+        thread_id: threadId,
+        turn_id: turnId,
+        workspace_root: workspaceRoot,
+        tool_call_id: toolCallId,
+        workflow_graph_id: workflowGraphId,
+        workflow_node_id: workflowNodeId,
+        snapshot_id: snapshotId,
+        artifact_id: artifactId ?? null,
+        planned_artifact_id: plannedArtifactId ?? null,
+        receipt_id: receiptId,
+        evidence_refs: [
+          "rust_daemon_core_workspace_snapshot_artifact_required",
+          "agentgres_workspace_snapshot_artifact_truth_required",
+          "workspace_snapshot_artifact_js_materializer_retired",
+        ],
+      });
+    }
+    try {
+      return commitRuntimeArtifactRecord(store, artifact, "artifact.workspace_snapshot");
+    } catch (error) {
+      throw runtimeError({
+        status: 502,
+        code: "runtime_workspace_snapshot_artifact_admission_invalid",
+        message:
+          "Rust Agentgres artifact-state admission rejected the workspace snapshot artifact record.",
+        details: {
+          rust_core_boundary: "runtime.workspace_snapshot",
+          operation: "workspace_snapshot_artifact_materialization",
+          operation_kind: "artifact.workspace_snapshot",
+          thread_id: threadId,
+          turn_id: turnId,
+          workspace_root: workspaceRoot,
+          tool_call_id: toolCallId,
+          workflow_graph_id: workflowGraphId,
+          workflow_node_id: workflowNodeId,
+          snapshot_id: snapshotId,
+          artifact_id: plannedArtifactId,
+          receipt_id: receiptId,
+          cause: error?.message ?? String(error),
+          evidence_refs: [
+            "rust_daemon_core_workspace_snapshot_artifact_required",
+            "agentgres_workspace_snapshot_artifact_truth_required",
+            "workspace_snapshot_artifact_js_materializer_retired",
+          ],
+        },
+      });
+    }
+  }
+
+  function admitWorkspaceSnapshotEvent(
+    store,
+    {
+      thread_id: threadId,
+      turn_id: turnId,
+      workspace_root: workspaceRoot,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
+      snapshot_id: snapshotId,
+      event,
+    } = {},
+  ) {
+    if (!event?.event_stream_id || !event?.event_kind || !event?.idempotency_key) {
+      throwWorkspaceSnapshotRustCoreRequired("workspace_snapshot_event_append", "workspace_snapshot.event", {
+        thread_id: threadId,
+        turn_id: turnId || "",
+        workspace_root: workspaceRoot,
+        workflow_graph_id: workflowGraphId,
+        workflow_node_id: workflowNodeId,
+        snapshot_id: snapshotId,
+        planned_event_id: event?.event_id ?? null,
+        evidence_refs: [
+          "rust_daemon_core_workspace_snapshot_event_required",
+          "agentgres_workspace_snapshot_event_truth_required",
+          "workspace_snapshot_event_js_append_retired",
+        ],
+      });
+    }
+    const admit =
+      typeof runtimeThreadEventAdmissionForThread === "function"
+        ? runtimeThreadEventAdmissionForThread
+        : store?.admitRuntimeThreadEventForThread;
+    if (typeof admit !== "function") {
+      throwWorkspaceSnapshotRustCoreRequired("workspace_snapshot_event_append", "workspace_snapshot.event", {
+        thread_id: threadId,
+        turn_id: turnId || "",
+        workspace_root: workspaceRoot,
+        workflow_graph_id: workflowGraphId,
+        workflow_node_id: workflowNodeId,
+        snapshot_id: snapshotId,
+        planned_event_id: event.event_id ?? null,
+        evidence_refs: [
+          "rust_daemon_core_workspace_snapshot_event_required",
+          "agentgres_workspace_snapshot_event_truth_required",
+          "workspace_snapshot_event_js_append_retired",
+        ],
+      });
+    }
+    const admittedEvent = objectRecord(admit(store, { event }));
+    if (!admittedEvent?.event_id) {
+      throw runtimeError({
+        status: 502,
+        code: "runtime_workspace_snapshot_event_admission_invalid",
+        message:
+          "Rust Agentgres runtime-event admission did not return the workspace snapshot event record.",
+        details: {
+          rust_core_boundary: "runtime.workspace_snapshot",
+          operation: "workspace_snapshot_event_append",
+          operation_kind: "workspace_snapshot.event",
+          thread_id: threadId,
+          snapshot_id: snapshotId,
+          planned_event_id: event.event_id ?? null,
+          evidence_refs: [
+            "rust_daemon_core_workspace_snapshot_event_required",
+            "agentgres_workspace_snapshot_event_truth_required",
+            "workspace_snapshot_event_js_append_retired",
+          ],
+        },
+      });
+    }
+    return admittedEvent;
   }
 
   function listWorkspaceSnapshots(store, threadId) {
@@ -254,11 +431,18 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
         ],
       });
     }
-    return workspaceRestoreRunner.previewSnapshotRestore({
+    const preview = workspaceRestoreRunner.previewSnapshotRestore({
       ...canonicalWorkspaceRestoreRequest(request),
       thread_id: threadId,
       snapshot_id: normalizedSnapshotId,
       workspace_root: workspaceRootForThread(store, threadId),
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
+      idempotency_key: idempotencyKey ?? null,
+    });
+    return finalizeWorkspaceRestorePreview(store, preview, {
+      thread_id: threadId,
+      snapshot_id: normalizedSnapshotId,
       workflow_graph_id: workflowGraphId,
       workflow_node_id: workflowNodeId,
       idempotency_key: idempotencyKey ?? null,
@@ -294,11 +478,18 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
         ],
       });
     }
-    return workspaceRestoreRunner.applySnapshotRestore({
+    const apply = workspaceRestoreRunner.applySnapshotRestore({
       ...canonicalWorkspaceRestoreRequest(request),
       thread_id: threadId,
       snapshot_id: normalizedSnapshotId,
       workspace_root: workspaceRootForThread(store, threadId),
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
+      idempotency_key: idempotencyKey ?? null,
+    });
+    return finalizeWorkspaceRestoreApply(store, apply, {
+      thread_id: threadId,
+      snapshot_id: normalizedSnapshotId,
       workflow_graph_id: workflowGraphId,
       workflow_node_id: workflowNodeId,
       idempotency_key: idempotencyKey ?? null,
@@ -369,17 +560,16 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
       preview,
     } = {},
   ) {
-    return materializeWorkspaceRestoreArtifact(store, {
+    return commitWorkspaceRestoreArtifact(store, {
       thread_id: threadId,
       workspace_root: workspaceRoot,
       snapshot_id: snapshotId,
       artifact_id: artifactId,
       receipt_id: receiptId,
-      value: preview,
-      toolName: "workspace.restore_preview",
-      name: "workspace-restore-preview.json",
-      channel: "restore-preview",
-      redaction: "workspace_restore_preview",
+      artifact: objectRecord(preview?.restore_preview_artifact),
+      operation_kind: "artifact.workspace_restore_preview",
+      operation: "workspace_restore_artifact_materialization",
+      operation_kind_detail: "artifact.restore-preview",
     });
   }
 
@@ -394,56 +584,77 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
       apply,
     } = {},
   ) {
-    return materializeWorkspaceRestoreArtifact(store, {
+    return commitWorkspaceRestoreArtifact(store, {
       thread_id: threadId,
       workspace_root: workspaceRoot,
       snapshot_id: snapshotId,
       artifact_id: artifactId,
       receipt_id: receiptId,
-      value: apply,
-      toolName: "workspace.restore_apply",
-      name: "workspace-restore-apply.json",
-      channel: "restore-apply",
-      redaction: "workspace_restore_apply",
+      artifact: objectRecord(apply?.restore_apply_artifact),
+      operation_kind: "artifact.workspace_restore_apply",
+      operation: "workspace_restore_artifact_materialization",
+      operation_kind_detail: "artifact.restore-apply",
     });
   }
 
-  function materializeWorkspaceRestoreArtifact(
-    _store,
+  function commitWorkspaceRestoreArtifact(
+    store,
     {
       thread_id: threadId,
       workspace_root: workspaceRoot,
       snapshot_id: snapshotId,
       artifact_id: artifactId,
       receipt_id: receiptId,
-      value,
-      toolName,
-      name,
-      channel,
-      redaction,
+      artifact,
+      operation_kind: artifactOperationKind,
+      operation,
+      operation_kind_detail: operationKindDetail,
     },
   ) {
-    throwWorkspaceSnapshotRustCoreRequired("workspace_restore_artifact_materialization", `artifact.${channel}`, {
-      thread_id: threadId,
-      workspace_root: workspaceRoot,
-      snapshot_id: snapshotId,
-      artifact_id: artifactId,
-      receipt_id: receiptId,
-      tool_name: toolName ?? null,
-      artifact_name: name ?? null,
-      channel: channel ?? null,
-      redaction: redaction ?? null,
-      has_value: Boolean(value),
-      evidence_refs: [
-        "workspace_restore_artifact_js_materializer_retired",
-        "rust_daemon_core_workspace_restore_artifact_required",
-        "agentgres_workspace_restore_artifact_truth_required",
-      ],
-    });
+    const plannedArtifactId = optionalString(artifact?.id ?? artifact?.artifact_id);
+    if (!artifact || !plannedArtifactId || (artifactId && plannedArtifactId !== artifactId)) {
+      throwWorkspaceSnapshotRustCoreRequired(operation, operationKindDetail, {
+        thread_id: threadId,
+        workspace_root: workspaceRoot,
+        snapshot_id: snapshotId,
+        artifact_id: artifactId ?? null,
+        planned_artifact_id: plannedArtifactId ?? null,
+        receipt_id: receiptId,
+        evidence_refs: [
+          "rust_daemon_core_workspace_restore_artifact_required",
+          "agentgres_workspace_restore_artifact_truth_required",
+        ],
+      });
+    }
+    try {
+      return commitRuntimeArtifactRecord(store, artifact, artifactOperationKind);
+    } catch (error) {
+      throw runtimeError({
+        status: 502,
+        code: "runtime_workspace_restore_artifact_admission_invalid",
+        message:
+          "Rust Agentgres artifact-state admission rejected the workspace restore artifact record.",
+        details: {
+          rust_core_boundary: "runtime.workspace_snapshot",
+          operation,
+          operation_kind: operationKindDetail,
+          thread_id: threadId,
+          workspace_root: workspaceRoot,
+          snapshot_id: snapshotId,
+          artifact_id: plannedArtifactId,
+          receipt_id: receiptId,
+          cause: error?.message ?? String(error),
+          evidence_refs: [
+            "rust_daemon_core_workspace_restore_artifact_required",
+            "agentgres_workspace_restore_artifact_truth_required",
+          ],
+        },
+      });
+    }
   }
 
   function appendWorkspaceRestorePreviewEvent(
-    _store,
+    store,
     {
       thread_id: threadId,
       turn_id: turnId,
@@ -453,24 +664,22 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
       preview,
     } = {},
   ) {
-    throwWorkspaceSnapshotRustCoreRequired("workspace_restore_preview_event_append", "workspace_restore.preview.event", {
+    return admitWorkspaceRestoreEvent(store, {
       thread_id: threadId,
-      turn_id: turnId || "",
+      turn_id: turnId,
       workspace_root: workspaceRoot,
       workflow_graph_id: workflowGraphId,
       workflow_node_id: workflowNodeId,
       snapshot_id: preview?.snapshot_id ?? null,
-      preview_status: preview?.preview_status ?? null,
-      evidence_refs: [
-        "workspace_restore_preview_event_js_append_retired",
-        "rust_daemon_core_workspace_restore_preview_event_required",
-        "agentgres_workspace_restore_preview_event_truth_required",
-      ],
+      status: preview?.preview_status ?? null,
+      event: objectRecord(preview?.restore_preview_event),
+      operation: "workspace_restore_preview_event_append",
+      operation_kind: "workspace_restore.preview.event",
     });
   }
 
   function appendWorkspaceRestoreApplyEvent(
-    _store,
+    store,
     {
       thread_id: threadId,
       turn_id: turnId,
@@ -480,20 +689,135 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
       apply,
     } = {},
   ) {
-    throwWorkspaceSnapshotRustCoreRequired("workspace_restore_apply_event_append", "workspace_restore.apply.event", {
+    return admitWorkspaceRestoreEvent(store, {
       thread_id: threadId,
-      turn_id: turnId || "",
+      turn_id: turnId,
       workspace_root: workspaceRoot,
       workflow_graph_id: workflowGraphId,
       workflow_node_id: workflowNodeId,
       snapshot_id: apply?.snapshot_id ?? null,
-      apply_status: apply?.apply_status ?? null,
-      evidence_refs: [
-        "workspace_restore_apply_event_js_append_retired",
-        "rust_daemon_core_workspace_restore_apply_event_required",
-        "agentgres_workspace_restore_apply_event_truth_required",
-      ],
+      status: apply?.apply_status ?? null,
+      event: objectRecord(apply?.restore_apply_event),
+      operation: "workspace_restore_apply_event_append",
+      operation_kind: "workspace_restore.apply.event",
     });
+  }
+
+  function finalizeWorkspaceRestorePreview(store, preview, details = {}) {
+    const artifactCommit = materializeWorkspaceRestorePreviewArtifact(store, {
+      ...details,
+      workspace_root: workspaceRootForThread(store, details.thread_id),
+      artifact_id: preview?.restore_preview_artifact?.id ?? preview?.artifact_refs?.[0],
+      receipt_id: preview?.restore_preview_artifact?.receipt_id ?? preview?.receipt_refs?.[0],
+      preview,
+    });
+    const admittedEvent = appendWorkspaceRestorePreviewEvent(store, {
+      ...details,
+      workspace_root: workspaceRootForThread(store, details.thread_id),
+      preview,
+    });
+    return {
+      ...preview,
+      restore_preview_artifact_commit: artifactCommit,
+      restore_preview_event: admittedEvent,
+      event: admittedEvent,
+    };
+  }
+
+  function finalizeWorkspaceRestoreApply(store, apply, details = {}) {
+    const artifactCommit = materializeWorkspaceRestoreApplyArtifact(store, {
+      ...details,
+      workspace_root: workspaceRootForThread(store, details.thread_id),
+      artifact_id: apply?.restore_apply_artifact?.id ?? apply?.artifact_refs?.[0],
+      receipt_id: apply?.restore_apply_artifact?.receipt_id ?? apply?.receipt_refs?.[0],
+      apply,
+    });
+    const admittedEvent = appendWorkspaceRestoreApplyEvent(store, {
+      ...details,
+      workspace_root: workspaceRootForThread(store, details.thread_id),
+      apply,
+    });
+    return {
+      ...apply,
+      restore_apply_artifact_commit: artifactCommit,
+      restore_apply_event: admittedEvent,
+      event: admittedEvent,
+    };
+  }
+
+  function admitWorkspaceRestoreEvent(
+    store,
+    {
+      thread_id: threadId,
+      turn_id: turnId,
+      workspace_root: workspaceRoot,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
+      snapshot_id: snapshotId,
+      status,
+      event,
+      operation,
+      operation_kind: operationKind,
+    } = {},
+  ) {
+    if (!event?.event_id || !event?.event_stream_id || !event?.event_kind) {
+      throwWorkspaceSnapshotRustCoreRequired(operation, operationKind, {
+        thread_id: threadId,
+        turn_id: turnId || "",
+        workspace_root: workspaceRoot,
+        workflow_graph_id: workflowGraphId,
+        workflow_node_id: workflowNodeId,
+        snapshot_id: snapshotId,
+        status: status ?? null,
+        planned_event_id: event?.event_id ?? null,
+        evidence_refs: [
+          "rust_daemon_core_workspace_restore_event_required",
+          "agentgres_workspace_restore_event_truth_required",
+        ],
+      });
+    }
+    const admit =
+      typeof runtimeThreadEventAdmissionForThread === "function"
+        ? runtimeThreadEventAdmissionForThread
+        : store?.admitRuntimeThreadEventForThread;
+    if (typeof admit !== "function") {
+      throwWorkspaceSnapshotRustCoreRequired(operation, operationKind, {
+        thread_id: threadId,
+        turn_id: turnId || "",
+        workspace_root: workspaceRoot,
+        workflow_graph_id: workflowGraphId,
+        workflow_node_id: workflowNodeId,
+        snapshot_id: snapshotId,
+        status: status ?? null,
+        planned_event_id: event.event_id,
+        evidence_refs: [
+          "rust_daemon_core_workspace_restore_event_required",
+          "agentgres_workspace_restore_event_truth_required",
+        ],
+      });
+    }
+    const admittedEvent = objectRecord(admit(store, { event }));
+    if (!admittedEvent?.event_id) {
+      throw runtimeError({
+        status: 502,
+        code: "runtime_workspace_restore_event_admission_invalid",
+        message:
+          "Rust Agentgres runtime-event admission did not return the workspace restore event record.",
+        details: {
+          rust_core_boundary: "runtime.workspace_snapshot",
+          operation,
+          operation_kind: operationKind,
+          thread_id: threadId,
+          snapshot_id: snapshotId,
+          planned_event_id: event.event_id,
+          evidence_refs: [
+            "rust_daemon_core_workspace_restore_event_required",
+            "agentgres_workspace_restore_event_truth_required",
+          ],
+        },
+      });
+    }
+    return admittedEvent;
   }
 
   return {

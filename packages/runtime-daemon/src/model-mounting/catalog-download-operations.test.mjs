@@ -9,11 +9,79 @@ function fakeState() {
     downloads: new Map(),
     projections: 0,
     recordStateCommits: [],
+    planRequests: [],
     receipts: [],
     writes: [],
-    async downloadModel(body) {
-      this.downloadBody = body;
-      return { status: "queued", id: "download.queued" };
+    planStorageControl(request) {
+      this.planRequests.push(JSON.parse(JSON.stringify(request)));
+      const recordDir = request.operation_kind === "model_mount.catalog.import_url"
+        ? "model-catalog-imports"
+        : "model-downloads";
+      const recordId = request.operation_kind === "model_mount.catalog.import_url"
+        ? `catalog_import.${request.body.model_id ?? "source"}`
+        : `download.${request.body.model_id}`;
+      const status = request.operation_kind === "model_mount.catalog.import_url"
+        ? "planned"
+        : "queued";
+      const record = {
+        id: recordId,
+        record_id: recordId,
+        object: request.operation_kind === "model_mount.catalog.import_url"
+          ? "ioi.model_mount_catalog_import"
+          : "ioi.model_mount_download",
+        status,
+        operation_kind: request.operation_kind,
+        rust_core_boundary: "model_mount.storage_control",
+        details: {
+          model_id: request.body.model_id ?? null,
+          provider_id: request.body.provider_id ?? null,
+          source_url_hash: request.body.source_url ? `sha256:${request.body.source_url.length}` : null,
+          network_transfer_executed: false,
+        },
+        public_response: {
+          object: request.operation_kind === "model_mount.catalog.import_url"
+            ? "ioi.model_mount_catalog_import"
+            : "ioi.model_mount_download",
+          status,
+          id: recordId,
+          record_id: recordId,
+          record_dir: recordDir,
+          operation_kind: request.operation_kind,
+          rust_core_boundary: "model_mount.storage_control",
+          details: {
+            model_id: request.body.model_id ?? null,
+            provider_id: request.body.provider_id ?? null,
+            network_transfer_executed: false,
+          },
+          js_network_transfer_executed: false,
+          js_filesystem_mutation_executed: false,
+        },
+        receipt_refs: request.receipt_refs,
+        evidence_refs: [
+          "public_model_storage_js_facade_retired",
+          "rust_daemon_core_model_storage",
+          "agentgres_model_storage_truth_required",
+          "public_catalog_download_js_facade_retired",
+          "rust_daemon_core_catalog_download",
+          "agentgres_catalog_download_truth_required",
+        ],
+        control_hash: `sha256:storage-control:${request.operation_kind}:${recordId}`,
+        authority_hash: `sha256:storage-authority:${recordId}`,
+      };
+      return {
+        record_dir: recordDir,
+        record_id: recordId,
+        record,
+        public_response: record.public_response,
+        operation_kind: request.operation_kind,
+        rust_core_boundary: "model_mount.storage_control",
+        receipt_refs: request.receipt_refs,
+        authority_grant_refs: request.authority_grant_refs,
+        authority_receipt_refs: request.authority_receipt_refs,
+        evidence_refs: record.evidence_refs,
+        control_hash: record.control_hash,
+        authority_hash: record.authority_hash,
+      };
     },
     lifecycleReceipt(kind, details) {
       const receipt = { id: `receipt.${this.receipts.length + 1}.${kind}`, kind, details };
@@ -31,7 +99,11 @@ function fakeState() {
       this.recordStateCommits.push(JSON.parse(JSON.stringify(request)));
       return {
         record_id: request.record_id,
+        object_ref: `model_mount://${request.record_dir}/${request.record_id}`,
+        content_hash: `sha256:content:${request.operation_kind}:${request.record_id}`,
+        admission_hash: `sha256:admission:${request.operation_kind}:${request.record_id}`,
         commit_hash: `sha256:commit:${request.operation_kind}:${request.record_id}`,
+        written_record: request.record,
       };
     },
     writeProjection() {
@@ -43,85 +115,78 @@ function fakeState() {
 function assertNoCatalogDownloadMutation(state) {
   assert.deepEqual(state.receipts, []);
   assert.deepEqual(state.recordStateCommits, []);
+  assert.deepEqual(state.planRequests, []);
   assert.deepEqual(state.writes, []);
   assert.equal(state.projections, 0);
-  assert.equal(state.downloadBody, undefined);
   assert.equal(state.timestamped, undefined);
   assert.equal(state.artifacts.size, 0);
   assert.equal(state.downloads.size, 0);
 }
 
-test("catalog import and download mutation facades fail closed until Rust core owns them", async () => {
+function assertOnlyRustStorageControl(state, expectedCommitCount) {
+  assert.deepEqual(state.receipts, []);
+  assert.equal(state.recordStateCommits.length, expectedCommitCount);
+  assert.deepEqual(state.writes, []);
+  assert.equal(state.projections, 0);
+  assert.equal(state.artifacts.size, 0);
+  assert.equal(state.downloads.size, 0);
+}
+
+test("catalog import and download mutations commit Rust-authored storage-control records", async () => {
   const importState = fakeState();
 
-  await assert.rejects(
-    () =>
-      ModelMountingState.prototype.catalogImportUrl.call(
-        importState,
-        {
-          source_url: "fixture://qwen/q4",
-          model_id: "qwen-test",
-          provider_id: "provider.local",
-          file_name: "qwen.gguf",
-          fixture_content: "fixture bytes",
-          transfer_approved: true,
-        },
-      ),
-    (error) => {
-      assert.equal(error.status, 501);
-      assert.equal(error.code, "model_mount_catalog_download_rust_core_required");
-      assert.equal(error.details.operation_kind, "model_mount.catalog.import_url");
-      assert.equal(error.details.rust_core_boundary, "model_mount.catalog_download");
-      assert.deepEqual(error.details.evidence_refs, [
-        "public_catalog_download_js_facade_retired",
-        "rust_daemon_core_catalog_download_required",
-      ]);
-      assert.equal(typeof error.details.source_url_hash, "string");
-      assert.equal(error.details.model_id, "qwen-test");
-      assert.equal(error.details.provider_id, "provider.local");
-      assert.equal(Object.hasOwn(error.details, "operationKind"), false);
-      assert.equal(Object.hasOwn(error.details, "rustCoreBoundary"), false);
-      return true;
+  const imported = await ModelMountingState.prototype.catalogImportUrl.call(
+    importState,
+    {
+      source_url: "fixture://qwen/q4",
+      model_id: "qwen-test",
+      provider_id: "provider.local",
+      file_name: "qwen.gguf",
+      fixture_content: "fixture bytes",
+      transfer_approved: true,
+      authority_grant_refs: ["grant://wallet/download"],
+      authority_receipt_refs: ["receipt://wallet/download"],
     },
   );
-  assertNoCatalogDownloadMutation(importState);
+  assert.equal(imported.status, "planned");
+  assert.equal(imported.record_dir, "model-catalog-imports");
+  assert.equal(imported.rust_core_boundary, "model_mount.storage_control");
+  assert.equal(imported.js_network_transfer_executed, false);
+  assert.equal(importState.planRequests.length, 1);
+  assert.equal(importState.planRequests[0].operation_kind, "model_mount.catalog.import_url");
+  assert.equal(importState.planRequests[0].body.source_url, "fixture://qwen/q4");
+  assert.deepEqual(importState.planRequests[0].authority_grant_refs, ["grant://wallet/download"]);
+  assert.equal(importState.recordStateCommits[0].record_dir, "model-catalog-imports");
+  assertOnlyRustStorageControl(importState, 1);
 
   const downloadState = fakeState();
-  await assert.rejects(
-    () =>
-      ModelMountingState.prototype.downloadModel.call(
-        downloadState,
-        {
-          model_id: "qwen-test",
-          provider_id: "provider.local",
-          source_url: "fixture://qwen/q4",
-          source_label: "Fixture catalog",
-          catalog_provider_id: "catalog.fixture",
-          file_name: "qwen.gguf",
-          fixture_content: "fixture bytes",
-          bytes_total: 1024,
-          max_bytes: 2048,
-          queued_only: true,
-          expected_checksum: "sha256-test",
-          display_name: "Qwen Test",
-          context_window: 32768,
-          privacy_class: "local_private",
-        },
-      ),
-    (error) => {
-      assert.equal(error.status, 501);
-      assert.equal(error.code, "model_mount_catalog_download_rust_core_required");
-      assert.equal(error.details.operation_kind, "model_mount.download.queue");
-      assert.equal(error.details.rust_core_boundary, "model_mount.catalog_download");
-      assert.equal(error.details.model_id, "qwen-test");
-      assert.equal(error.details.provider_id, "provider.local");
-      assert.equal(typeof error.details.source_url_hash, "string");
-      assert.equal(Object.hasOwn(error.details, "operationKind"), false);
-      assert.equal(Object.hasOwn(error.details, "rustCoreBoundary"), false);
-      return true;
+  const queued = await ModelMountingState.prototype.downloadModel.call(
+    downloadState,
+    {
+      model_id: "qwen-test",
+      provider_id: "provider.local",
+      source_url: "fixture://qwen/q4",
+      source_label: "Fixture catalog",
+      catalog_provider_id: "catalog.fixture",
+      file_name: "qwen.gguf",
+      fixture_content: "fixture bytes",
+      bytes_total: 1024,
+      max_bytes: 2048,
+      queued_only: true,
+      expected_checksum: "sha256-test",
+      display_name: "Qwen Test",
+      context_window: 32768,
+      privacy_class: "local_private",
     },
   );
-  assertNoCatalogDownloadMutation(downloadState);
+  assert.equal(queued.status, "queued");
+  assert.equal(queued.record_dir, "model-downloads");
+  assert.equal(queued.js_network_transfer_executed, false);
+  assert.equal(downloadState.planRequests.length, 1);
+  assert.equal(downloadState.planRequests[0].operation_kind, "model_mount.download.queue");
+  assert.equal(downloadState.planRequests[0].body.model_id, "qwen-test");
+  assert.equal(downloadState.recordStateCommits[0].record_dir, "model-downloads");
+  assertOnlyRustStorageControl(downloadState, 1);
 });
 
 test("catalogImportUrl rejects retired request aliases before Rust-core boundary", async () => {

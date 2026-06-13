@@ -98,6 +98,79 @@ function createHarness(options = {}) {
                 agent: { ...request.agent, updatedAt: request.created_at },
               };
             },
+            planRuntimeMemoryControl(request = {}) {
+              calls.push({ type: "planRuntimeMemoryControl", input: request });
+              const isPolicy = request.operation_kind === "memory.policy";
+              const isEvent = ["memory.status", "memory.validate"].includes(request.operation_kind);
+              const stateId =
+                request.memory_id ??
+                (isEvent
+                  ? `event_${request.operation}`
+                  : isPolicy ? request.current_policy?.id ?? "memory_policy_thread_a" : "memory_new");
+              const payload = isEvent
+                ? {
+                    event_id: stateId,
+                    event_stream_id: request.request?.event_stream_id,
+                    thread_id: request.thread_id,
+                    agent_id: request.agent_id,
+                    turn_id: request.request?.turn_id ?? null,
+                    item_id: `turn_latest:item:memory:${request.operation}`,
+                    idempotency_key: `thread:${request.thread_id}:${request.operation_kind}:test`,
+                    source: request.source,
+                    source_event_kind: request.request?.source_event_kind,
+                    event_kind: request.request?.event_kind,
+                    status: request.request?.status,
+                    component_kind: request.request?.component_kind,
+                    workflow_node_id: request.request?.workflow_node_id,
+                    payload_schema_version: request.request?.payload_schema_version,
+                    payload: {
+                      ...(request.request?.payload ?? {}),
+                      operation: request.operation,
+                      control_kind: request.request?.control_kind,
+                    },
+                    receipt_refs: [`receipt_${stateId}`],
+                    policy_decision_refs: request.request?.policy_decision_refs ?? [],
+                    evidence_refs: request.evidence_refs,
+                  }
+                : isPolicy
+                  ? {
+                      schema_version: "ioi.agent-runtime.memory-policy.v1",
+                      object: "ioi.agent_memory_policy",
+                    id: stateId,
+                    target_type: request.target_type ?? "thread",
+                    target_id: request.target_id ?? request.thread_id,
+                    thread_id: request.thread_id,
+                    agent_id: request.agent_id,
+                    read_only: request.request?.policy?.read_only ?? request.request?.read_only ?? false,
+                    receipt_refs: [`receipt_${stateId}`],
+                  }
+                : {
+                    schema_version: "ioi.agent-runtime.memory.v1",
+                    object: "ioi.agent_memory_record",
+                    id: stateId,
+                    thread_id: request.thread_id,
+                    agent_id: request.agent_id,
+                    workspace: request.workspace_root,
+                    fact: request.request?.text ?? request.current_record?.fact ?? "",
+                    status: request.operation_kind === "memory.delete" ? "deleted" : "active",
+                    deleted_at: request.operation_kind === "memory.delete" ? request.now : null,
+                    receipt_refs: [`receipt_${stateId}`],
+                  };
+              return {
+                source: "rust_runtime_memory_control_command",
+                status: "planned",
+                operation: request.operation,
+                operation_kind: request.operation_kind,
+                memory_state_kind: isEvent ? "event" : isPolicy ? "policy" : "record",
+                state_id: stateId,
+                thread_id: request.thread_id,
+                agent_id: request.agent_id,
+                workspace_root: request.workspace_root,
+                payload,
+                receipt_refs: [`receipt_${stateId}`],
+                evidence_refs: ["runtime_memory_control_rust_owned"],
+              };
+            },
             projectRuntimeMemoryProjection(request = {}) {
               calls.push({ type: "projectRuntimeMemoryProjection", input: request });
               return {
@@ -144,6 +217,25 @@ function createHarness(options = {}) {
       calls.push({ type: "appendRuntimeEvent", event: record });
       return record;
     },
+    commitRuntimeMemoryState(request) {
+      calls.push({ type: "commitRuntimeMemoryState", input: request });
+      if (request.memory_state_kind === "record") {
+        this.memory.records.set(request.state_id, request.payload);
+      } else {
+        this.memory.policies.set(request.state_id, request.payload);
+      }
+      return {
+        source: "rust_agentgres_runtime_memory_state_commit_command",
+        memory_state_kind: request.memory_state_kind,
+        state_id: request.state_id,
+        operation_kind: request.operation_kind,
+        object_ref: `agentgres://runtime-state/memory/${request.memory_state_kind}/${request.state_id}`,
+        payload_refs: [`payload://runtime/memory/${request.memory_state_kind}/${request.state_id}`],
+        receipt_refs: request.receipt_refs,
+        commit_hash: `sha256:${request.state_id}`,
+        evidence_refs: ["rust_agentgres_runtime_memory_state_commit"],
+      };
+    },
     deleteMemoryRecord(memoryId, body = {}) {
       return state.deleteMemoryRecord(this, memoryId, body);
     },
@@ -165,6 +257,23 @@ function createHarness(options = {}) {
       agents.set(agent.id, agent);
     },
     memory: {
+      records: new Map([
+        [
+          "memory_1",
+          {
+            id: "memory_1",
+            thread_id: "thread_a",
+            agent_id: "agent_a",
+            workspace: "/workspace",
+            fact: "Remember deploy",
+            status: "active",
+          },
+        ],
+      ]),
+      policies: new Map(),
+      load() {
+        calls.push({ type: "memoryLoad" });
+      },
       effectivePolicy({ agent, threadId, workspace, overrides }) {
         calls.push({ type: "effectivePolicy", agentId: agent?.id, threadId, workspace, overrides });
         return { id: `policy_${threadId}`, overrides };
@@ -175,6 +284,12 @@ function createHarness(options = {}) {
       },
       projection({ agent, threadId, workspace, filters }) {
         calls.push({ type: "projection", agentId: agent?.id, threadId, workspace, filters });
+        const records = [...this.records.values()].filter(
+          (record) =>
+            record.status !== "deleted" &&
+            (!threadId || record.thread_id === threadId) &&
+            (!agent?.id || record.agent_id === agent.id),
+        ).map((record) => ({ id: record.id }));
         return {
           schema_version: "ioi.agent-runtime.memory.v1",
           object: "ioi.agent_memory_projection",
@@ -183,9 +298,9 @@ function createHarness(options = {}) {
           workspace,
           policy: { id: `policy_${threadId ?? "runtime"}`, injection_enabled: true },
           paths: { records_path: `${workspace}/${threadId ?? "runtime"}/memory` },
-          records: [{ id: "memory_1" }],
+          records,
           filters,
-          total_matches: 1,
+          total_matches: records.length,
         };
       },
       setPolicy(input) {
@@ -238,11 +353,10 @@ function assertThreadMemoryRustCoreRequired(error, expected = {}) {
   assert.equal(error.details.thread_id, expected.threadId ?? null);
   assert.equal(error.details.agent_id, expected.agentId ?? null);
   assert.equal(error.details.memory_id, expected.memoryId ?? null);
-  assert.deepEqual(error.details.evidence_refs, [
+  assert.deepEqual(error.details.evidence_refs, expected.evidenceRefs ?? [
     "runtime_thread_memory_control_js_facade_retired",
     "runtime_thread_memory_write_js_facade_retired",
     "runtime_thread_memory_policy_js_facade_retired",
-    "runtime_thread_memory_status_validation_js_facade_retired",
     "runtime_memory_state_store_js_mutation_retired",
     "rust_daemon_core_thread_memory_control_required",
     "agentgres_thread_memory_state_truth_required",
@@ -348,63 +462,141 @@ test("thread memory state handles policies, paths, status, and validation", () =
   );
 });
 
-test("thread memory mutation and policy facades fail closed before JS store mutation", () => {
+test("thread memory mutation and policy controls use Rust planning and Agentgres commits", () => {
   const { calls, state, store } = createHarness();
 
-  const cases = [
-    {
-      call: () => state.rememberForThread(store, "thread_a", { text: "Remember deploy" }),
-      expected: { operation: "write", controlKind: "memory_write", threadId: "thread_a" },
-    },
-    {
-      call: () => state.setMemoryPolicyForThread(store, "thread_a", { policy: { read_only: true } }),
-      expected: { operation: "policy_update", controlKind: "memory_policy_update", threadId: "thread_a" },
-    },
-    {
-      call: () => state.updateMemoryForThread(store, "thread_a", "memory_1", { text: "Edited" }),
-      expected: { operation: "edit", controlKind: "memory_edit", threadId: "thread_a", memoryId: "memory_1" },
-    },
-    {
-      call: () => state.deleteMemoryForThread(store, "thread_a", "memory_1", {}),
-      expected: { operation: "delete", controlKind: "memory_delete", threadId: "thread_a", memoryId: "memory_1" },
-    },
-    {
-      call: () => state.rememberForAgentId(store, "agent_a", { text: "Remember", thread_id: "thread_a" }),
-      expected: { operation: "write", controlKind: "memory_write", agentId: "agent_a" },
-    },
-    {
-      call: () => state.setMemoryPolicyForAgent(store, "agent_a", { thread_id: "thread_a" }),
-      expected: { operation: "policy_update", controlKind: "memory_policy_update", agentId: "agent_a" },
-    },
-    {
-      call: () => state.updateMemoryForAgentId(store, "agent_a", "memory_1", { thread_id: "thread_a" }),
-      expected: { operation: "edit", controlKind: "memory_edit", agentId: "agent_a", memoryId: "memory_1" },
-    },
-    {
-      call: () => state.deleteMemoryForAgentId(store, "agent_a", "memory_1", { thread_id: "thread_a" }),
-      expected: { operation: "delete", controlKind: "memory_delete", agentId: "agent_a", memoryId: "memory_1" },
-    },
-    {
-      call: () => state.updateMemoryRecord(store, "memory_1", { text: "Edited" }),
-      expected: { operation: "edit", controlKind: "memory_edit", memoryId: "memory_1" },
-    },
-    {
-      call: () => state.deleteMemoryRecord(store, "memory_1", {}),
-      expected: { operation: "delete", controlKind: "memory_delete", memoryId: "memory_1" },
-    },
-  ];
+  const write = state.rememberForThread(store, "thread_a", {
+    text: "Remember deploy",
+    source: "operator_remember",
+  });
+  const edit = state.updateMemoryForThread(store, "thread_a", "memory_new", {
+    text: "Edited deploy",
+  });
+  const policy = state.setMemoryPolicyForThread(store, "thread_a", {
+    policy: { read_only: true },
+  });
+  const deleted = state.deleteMemoryForThread(store, "thread_a", "memory_new", {
+    reason: "stale",
+  });
+  const agentWrite = state.rememberForAgentId(store, "agent_a", {
+    text: "Remember agent deploy",
+    thread_id: "thread_a",
+  });
+  const agentEdit = state.updateMemoryForAgentId(store, "agent_a", "memory_new", {
+    text: "Edited agent deploy",
+    thread_id: "thread_a",
+  });
+  const agentPolicy = state.setMemoryPolicyForAgent(store, "agent_a", {
+    thread_id: "thread_a",
+    target_type: "agent",
+    target_id: "agent_a",
+    policy: { read_only: false },
+  });
+  const agentDeleted = state.deleteMemoryForAgentId(store, "agent_a", "memory_new", {
+    thread_id: "thread_a",
+    reason: "stale_agent",
+  });
 
-  for (const { call, expected } of cases) {
-    assert.throws(
-      call,
-      (error) => {
-        assertThreadMemoryRustCoreRequired(error, expected);
-        return true;
+  assert.equal(write.status, "committed");
+  assert.equal(write.operation_kind, "memory.write");
+  assert.equal(write.record.id, "memory_new");
+  assert.equal(write.projection.records.some((record) => record.id === "memory_new"), true);
+  assert.equal(edit.operation_kind, "memory.edit");
+  assert.equal(edit.record.fact, "Edited deploy");
+  assert.equal(policy.operation_kind, "memory.policy");
+  assert.equal(policy.policy.read_only, true);
+  assert.equal(deleted.operation_kind, "memory.delete");
+  assert.equal(deleted.record.status, "deleted");
+  assert.equal(
+    deleted.projection.records.some((record) => record.id === "memory_new"),
+    false,
+  );
+  assert.equal(agentWrite.operation_kind, "memory.write");
+  assert.equal(agentWrite.agent_id, "agent_a");
+  assert.equal(agentEdit.operation_kind, "memory.edit");
+  assert.equal(agentEdit.record.fact, "Edited agent deploy");
+  assert.equal(agentPolicy.operation_kind, "memory.policy");
+  assert.equal(agentPolicy.policy.target_type, "agent");
+  assert.equal(agentDeleted.operation_kind, "memory.delete");
+  assert.equal(agentDeleted.record.status, "deleted");
+
+  assert.deepEqual(
+    calls
+      .filter((call) => call.type === "planRuntimeMemoryControl")
+      .map((call) => call.input.operation_kind),
+    [
+      "memory.write",
+      "memory.edit",
+      "memory.policy",
+      "memory.delete",
+      "memory.write",
+      "memory.edit",
+      "memory.policy",
+      "memory.delete",
+    ],
+  );
+  assert.deepEqual(
+    calls
+      .filter((call) => call.type === "commitRuntimeMemoryState")
+      .map((call) => call.input.operation_kind),
+    [
+      "memory.write",
+      "memory.edit",
+      "memory.policy",
+      "memory.delete",
+      "memory.write",
+      "memory.edit",
+      "memory.policy",
+      "memory.delete",
+    ],
+  );
+  assert.equal(
+    calls.some((call) =>
+      ["remember", "updateRecord", "deleteRecord", "setPolicy"].includes(call.type),
+    ),
+    false,
+  );
+  assert.ok(
+    calls
+      .filter((call) => call.type === "commitRuntimeMemoryState")
+      .every((call) => call.input.schema_version === "ioi.runtime_memory_state_commit.v1"),
+  );
+});
+
+test("thread memory mutation controls fail closed before JS store mutation without Rust planner", () => {
+  const { calls, state, store } = createHarness({
+    contextPolicyRunner: {
+      projectRuntimeMemoryProjection(request = {}) {
+        calls.push({ type: "projectRuntimeMemoryProjection", input: request });
+        return {
+          projection_kind: request.projection_kind,
+          operation_kind: request.operation_kind,
+          projection: publicMemoryProjectionForRequest(request),
+        };
       },
-    );
-  }
+    },
+  });
 
-  assert.deepEqual(calls, []);
+  assert.throws(
+    () => state.updateMemoryRecord(store, "memory_1", { text: "Edited" }),
+    (error) => {
+      assertThreadMemoryRustCoreRequired(error, {
+        operation: "edit",
+        controlKind: "memory.edit",
+        threadId: "thread_a",
+        agentId: "agent_a",
+        memoryId: "memory_1",
+      });
+      return true;
+    },
+  );
+
+  assert.equal(
+    calls.some((call) =>
+      ["remember", "updateRecord", "deleteRecord", "setPolicy", "commitRuntimeMemoryState"].includes(call.type),
+    ),
+    false,
+  );
 });
 
 test("route-facing memory read projections return Rust daemon-core projections", () => {
@@ -505,41 +697,53 @@ test("route-facing memory projections fail closed before JS readback when Rust p
     },
   );
 
-  assert.deepEqual(calls, []);
+  assert.equal(calls.some((call) => call.type === "appendRuntimeEvent"), false);
+  assert.equal(calls.some((call) => call.type === "planRuntimeMemoryControl"), false);
+  assert.equal(calls.some((call) => call.type === "commitRuntimeMemoryState"), false);
 });
 
-test("thread memory status and validation facades fail closed before event append or Rust planning", () => {
+test("thread memory status, validation, and direct control events use Rust planning and runtime event admission", () => {
   const { calls, state, store } = createHarness();
 
-  assert.throws(
-    () => state.recordThreadMemoryStatus(store, "thread_a", { source: "status_test" }, "memory.status.v1"),
-    (error) => {
-      assertThreadMemoryRustCoreRequired(error, {
-        operation: "status",
-        controlKind: "memory_status",
-        threadId: "thread_a",
-      });
-      return true;
-    },
-  );
+  const status = state.recordThreadMemoryStatus(store, "thread_a", { source: "status_test" }, "memory.status.v1");
+  const validation = state.validateThreadMemory(store, "thread_a", { source: "validate_test" }, "memory.validation.v1");
+  const direct = state.appendThreadMemoryControlEvent(store, {
+    threadId: "thread_a",
+    agent: { id: "agent_a", cwd: "/workspace" },
+    request: { source: "direct_status_test" },
+    controlKind: "memory_status",
+    sourceEventKind: "OperatorControl.MemoryStatus",
+    eventKind: "memory.status",
+    componentKind: "memory_manager",
+    workflowNodeId: "runtime.memory-manager.status",
+    payloadSchemaVersion: "memory.status.v1",
+    status: "completed",
+    payload: { status: "ready", record_count: 1 },
+  });
 
-  assert.throws(
-    () => state.validateThreadMemory(store, "thread_a", { source: "validate_test" }, "memory.validation.v1"),
-    (error) => {
-      assertThreadMemoryRustCoreRequired(error, {
-        operation: "validate",
-        controlKind: "memory_validate",
-        threadId: "thread_a",
-      });
-      return true;
-    },
+  assert.equal(status.event_kind, "memory.status");
+  assert.equal(status.payload.record_count, 1);
+  assert.equal(validation.event_kind, "memory.validate");
+  assert.equal(validation.payload.ok, true);
+  assert.equal(direct.event_kind, "memory.status");
+  assert.deepEqual(
+    calls
+      .filter((call) => call.type === "planRuntimeMemoryControl")
+      .map((call) => call.input.operation_kind),
+    ["memory.status", "memory.validate", "memory.status"],
   );
-
-  assert.deepEqual(calls, []);
+  assert.deepEqual(
+    calls
+      .filter((call) => call.type === "appendRuntimeEvent")
+      .map((call) => call.event.event_kind),
+    ["memory.status", "memory.validate", "memory.status"],
+  );
+  assert.equal(calls.some((call) => call.type === "commitRuntimeMemoryState"), false);
+  assert.equal(calls.some((call) => call.type === "writeAgent"), false);
 });
 
-test("thread memory direct control event facade fails closed before appendRuntimeEvent", () => {
-  const { calls, state, store } = createHarness();
+test("thread memory direct control event fails closed before appendRuntimeEvent without Rust planning", () => {
+  const { calls, state, store } = createHarness({ contextPolicyRunner: null });
 
   assert.throws(
     () => state.appendThreadMemoryControlEvent(store, {
@@ -557,13 +761,23 @@ test("thread memory direct control event facade fails closed before appendRuntim
     }),
     (error) => {
       assertThreadMemoryRustCoreRequired(error, {
-        operation: "memory_status",
-        controlKind: "memory_status",
+        operation: "status",
+        controlKind: "memory.status",
         threadId: "thread_a",
+        agentId: "agent_a",
+        evidenceRefs: [
+          "runtime_memory_status_control_rust_owned",
+          "runtime_memory_control_event_rust_owned",
+          "runtime_memory_status_validation_control_rust_owned",
+          "runtime_memory_status_validation_js_facade_retired",
+          "agentgres_runtime_thread_event_truth_required",
+        ],
       });
       return true;
     },
   );
 
-  assert.deepEqual(calls, []);
+  assert.equal(calls.some((call) => call.type === "appendRuntimeEvent"), false);
+  assert.equal(calls.some((call) => call.type === "planRuntimeMemoryControl"), false);
+  assert.equal(calls.some((call) => call.type === "commitRuntimeMemoryState"), false);
 });

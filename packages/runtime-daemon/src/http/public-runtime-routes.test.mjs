@@ -640,19 +640,9 @@ test("public runtime memory projection routes use Rust-projected thread memory s
   );
 });
 
-test("public conversation artifact routes use Rust-projected read surface and fail closed for mutation", async () => {
+test("public conversation artifact routes use mounted Rust-owned artifact surface", async () => {
   const { handleRequest } = routeHarness();
   const calls = [];
-  const rustCoreRequired = (details = {}) => {
-    const error = new Error("conversation artifact control requires Rust core");
-    error.status = 501;
-    error.code = "runtime_conversation_artifact_control_rust_core_required";
-    error.details = {
-      rust_core_boundary: "runtime.conversation_artifact_control",
-      ...details,
-    };
-    throw error;
-  };
   const store = {
     conversationArtifactSurface: {
       listConversationArtifacts(surfaceStore, query) {
@@ -661,7 +651,7 @@ test("public conversation artifact routes use Rust-projected read surface and fa
       },
       createConversationArtifact(surfaceStore, threadId, input) {
         calls.push({ method: "createConversationArtifact", surfaceStore, threadId, input });
-        rustCoreRequired({ operation: "conversation_artifact_create", thread_id: threadId });
+        return { artifact_id: "artifact_created", thread_id: threadId, input, commit_hash: "commit-created" };
       },
       getConversationArtifact(surfaceStore, artifactId) {
         calls.push({ method: "getConversationArtifact", surfaceStore, artifactId });
@@ -673,15 +663,15 @@ test("public conversation artifact routes use Rust-projected read surface and fa
       },
       performConversationArtifactAction(surfaceStore, artifactId, input) {
         calls.push({ method: "performConversationArtifactAction", surfaceStore, artifactId, input });
-        rustCoreRequired({ operation: "conversation_artifact_action", artifact_id: artifactId });
+        return { artifact_id: artifactId, action_kind: input.action_kind, commit_hash: "commit-action" };
       },
       exportConversationArtifact(surfaceStore, artifactId, input) {
         calls.push({ method: "exportConversationArtifact", surfaceStore, artifactId, input });
-        rustCoreRequired({ operation: "conversation_artifact_export", artifact_id: artifactId });
+        return { artifact_id: artifactId, export_format: input.export_format, commit_hash: "commit-export" };
       },
       promoteConversationArtifact(surfaceStore, artifactId, input) {
         calls.push({ method: "promoteConversationArtifact", surfaceStore, artifactId, input });
-        rustCoreRequired({ operation: "conversation_artifact_promote", artifact_id: artifactId });
+        return { artifact_id: artifactId, promotion_target: input.promotion_target, commit_hash: "commit-promote" };
       },
     },
     listConversationArtifacts: retiredRouteWrapper,
@@ -705,8 +695,8 @@ test("public conversation artifact routes use Rust-projected read surface and fa
       url: "/v1/conversation-artifacts",
       body: { thread_id: "thread_route", title: "Draft" },
       }),
-      status: 501,
-      code: "runtime_conversation_artifact_control_rust_core_required",
+      status: 201,
+      body: { artifact_id: "artifact_created", thread_id: "thread_route", input: { thread_id: "thread_route", title: "Draft" }, commit_hash: "commit-created" },
     },
     {
       req: request({ url: "/v1/conversation-artifacts/artifact_route" }),
@@ -722,40 +712,36 @@ test("public conversation artifact routes use Rust-projected read surface and fa
       req: request({
       method: "POST",
       url: "/v1/conversation-artifacts/artifact_route/actions",
-      body: { kind: "edit" },
+      body: { action_kind: "edit" },
       }),
-      status: 501,
-      code: "runtime_conversation_artifact_control_rust_core_required",
+      status: 200,
+      body: { artifact_id: "artifact_route", action_kind: "edit", commit_hash: "commit-action" },
     },
     {
       req: request({
       method: "POST",
       url: "/v1/conversation-artifacts/artifact_route/export",
-      body: { format: "zip" },
+      body: { export_format: "zip" },
       }),
-      status: 501,
-      code: "runtime_conversation_artifact_control_rust_core_required",
+      status: 200,
+      body: { artifact_id: "artifact_route", export_format: "zip", commit_hash: "commit-export" },
     },
     {
       req: request({
       method: "POST",
       url: "/v1/conversation-artifacts/artifact_route/promote",
-      body: { target: "canvas" },
+      body: { promotion_target: "canvas" },
       }),
-      status: 501,
-      code: "runtime_conversation_artifact_control_rust_core_required",
+      status: 200,
+      body: { artifact_id: "artifact_route", promotion_target: "canvas", commit_hash: "commit-promote" },
     },
   ];
 
-  for (const { req, status, body, code } of requests) {
+  for (const { req, status, body } of requests) {
     const response = responseRecorder();
     await handleRequest({ request: req, response, store });
     assert.equal(response.statusCode, status);
-    if (code) {
-      assert.equal(response.error.code, code);
-    } else {
-      assert.deepEqual(JSON.parse(response.body), body);
-    }
+    assert.deepEqual(JSON.parse(response.body), body);
   }
 
   assert.equal(calls.every((call) => call.surfaceStore === store), true);
@@ -801,21 +787,21 @@ test("public conversation artifact routes use Rust-projected read surface and fa
         query: undefined,
         threadId: undefined,
         artifactId: "artifact_route",
-        input: { kind: "edit" },
+        input: { action_kind: "edit" },
       },
       {
         method: "exportConversationArtifact",
         query: undefined,
         threadId: undefined,
         artifactId: "artifact_route",
-        input: { format: "zip" },
+        input: { export_format: "zip" },
       },
       {
         method: "promoteConversationArtifact",
         query: undefined,
         threadId: undefined,
         artifactId: "artifact_route",
-        input: { target: "canvas" },
+        input: { promotion_target: "canvas" },
       },
     ],
   );

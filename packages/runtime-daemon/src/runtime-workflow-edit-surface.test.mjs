@@ -19,23 +19,29 @@ function createStore() {
     calls,
     agentForThread(threadId) {
       calls.push({ name: "agentForThread", threadId });
-      throw new Error("agentForThread must not be called by the retired workflow-edit JS facade");
+      throw new Error("agentForThread must not be called by the Rust-owned workflow-edit surface");
     },
     listRuns(agentId) {
       calls.push({ name: "listRuns", agentId });
-      throw new Error("listRuns must not be called by the retired workflow-edit JS facade");
+      throw new Error("listRuns must not be called by the Rust-owned workflow-edit surface");
     },
     getRun(runId) {
       calls.push({ name: "getRun", runId });
-      throw new Error("getRun must not be called by the retired workflow-edit JS facade");
+      throw new Error("getRun must not be called by the Rust-owned workflow-edit surface");
     },
     appendRuntimeEvent(event) {
       calls.push({ name: "appendRuntimeEvent", event });
-      throw new Error(`appendRuntimeEvent must not be called by the retired workflow-edit JS facade: ${event?.event_kind}`);
+      const admitted = {
+        ...event,
+        admitted: true,
+        seq: events.length + 1,
+      };
+      events.push(admitted);
+      return admitted;
     },
     requestThreadApproval(threadId, request) {
       calls.push({ name: "requestThreadApproval", threadId, request });
-      throw new Error("requestThreadApproval must not be called by the retired workflow-edit JS facade");
+      throw new Error("requestThreadApproval must not be called by the Rust-owned workflow-edit surface");
     },
     latestApprovalRequestEvent(threadId, approvalId) {
       return events
@@ -53,9 +59,57 @@ function createStore() {
   };
 }
 
-function createSurface() {
+function createWorkflowEditRunner(calls = []) {
+  return {
+    planRuntimeWorkflowEditControl(request) {
+      calls.push({ name: "planRuntimeWorkflowEditControl", request });
+      const isApply = request.operation_kind === "workflow.edit.apply";
+      const proposalId = request.proposal_id ?? "proposal_planned";
+      return {
+        source: "rust_runtime_workflow_edit_control_command",
+        backend: "rust_policy",
+        object: "ioi.runtime_workflow_edit_control",
+        status: "planned",
+        operation: request.operation,
+        operation_kind: request.operation_kind,
+        thread_id: request.thread_id,
+        proposal_id: proposalId,
+        control_status: isApply ? "applied" : "pending_approval",
+        event: {
+          event_stream_id: request.event_stream_id,
+          thread_id: request.thread_id,
+          turn_id: request.turn_id ?? "",
+          item_id: `${request.thread_id}:item:workflow_edit:${proposalId}`,
+          idempotency_key: `thread:${request.thread_id}:${request.operation_kind}:${proposalId}`,
+          source: request.source ?? "agent_studio",
+          source_event_kind: isApply ? "WorkflowEdit.Apply" : "WorkflowEdit.Proposed",
+          event_kind: request.operation_kind,
+          status: isApply ? "applied" : "pending_approval",
+          component_kind: "workflow_edit",
+          workflow_graph_id: request.workflow_graph_id ?? null,
+          workflow_node_id: request.workflow_node_id ?? "runtime.workflow_edit",
+          payload_schema_version: "ioi.runtime.workflow-edit-control.v1",
+          payload: {
+            proposal_id: proposalId,
+            workflow_path: request.workflow_path ?? null,
+          },
+          receipt_refs: ["receipt_workflow_edit"],
+          policy_decision_refs: ["policy_workflow_edit"],
+          evidence_refs: request.evidence_refs,
+        },
+        receipt_refs: ["receipt_workflow_edit"],
+        policy_decision_refs: ["policy_workflow_edit"],
+        evidence_refs: request.evidence_refs,
+      };
+    },
+  };
+}
+
+function createSurface({ runnerCalls = [] } = {}) {
   return createRuntimeWorkflowEditSurface({
+    eventStreamIdForThread: (threadId) => `event_stream_${threadId}`,
     runtimeError,
+    workflowEditRunner: createWorkflowEditRunner(runnerCalls),
   });
 }
 
@@ -76,79 +130,76 @@ function assertNoRetiredWorkflowEditDetailAliases(details) {
   }
 }
 
-test("workflow-edit proposal facade fails closed before JS event append or approval persistence", () => {
-  const store = createStore();
-  const surface = createSurface();
-
-  assert.throws(
-    () => surface.proposeWorkflowEdit(store, "thread_alpha", {
-      source: "agent_studio",
-      turn_id: "turn_alpha",
-      proposal_id: "proposal_one",
-      edit_intent_id: "intent_one",
-      approval_id: "approval_one",
-      workflow_graph_id: "graph_one",
-      workflow_node_id: "node_one",
-      workflow_path: "workflows/demo.json",
-      workflow_patch: { nodes: [{ id: "node_1" }] },
-      target_workflow_node_ids: ["node_1"],
-      receipt_refs: ["receipt_request"],
-      policy_decision_refs: ["policy_request"],
-    }),
-    (error) => {
-      assert.equal(error.status, 501);
-      assert.equal(error.code, "runtime_workflow_edit_rust_core_required");
-      assert.equal(error.details.rust_core_boundary, "runtime.workflow_edit");
-      assert.equal(error.details.operation, "workflow_edit_proposal");
-      assert.equal(error.details.operation_kind, "workflow.edit_proposed");
-      assert.equal(error.details.thread_id, "thread_alpha");
-      assert.equal(error.details.turn_id, "turn_alpha");
-      assert.equal(error.details.proposal_id, "proposal_one");
-      assert.equal(error.details.edit_intent_id, "intent_one");
-      assert.equal(error.details.approval_id, "approval_one");
-      assert.equal(error.details.workflow_graph_id, "graph_one");
-      assert.equal(error.details.workflow_node_id, "node_one");
-      assert.equal(error.details.workflow_path, "workflows/demo.json");
-      assert.equal(error.details.source, "agent_studio");
-      assert.deepEqual(error.details.evidence_refs, [
-        "workflow_edit_proposal_js_facade_retired",
-        "rust_daemon_core_workflow_edit_proposal_required",
-        "agentgres_workflow_edit_proposal_truth_required",
-      ]);
-      assertNoRetiredWorkflowEditDetailAliases(error.details);
-      return true;
-    },
-  );
-  assert.deepEqual(store.calls, []);
-});
-
-test("workflow-edit proposal uses Rust daemon-core admission-required planner when mounted", () => {
+test("workflow-edit proposal uses Rust planning and runtime event admission", () => {
   const store = createStore();
   const runnerCalls = [];
+  const surface = createSurface({ runnerCalls });
+
+  const result = surface.proposeWorkflowEdit(store, "thread_alpha", {
+    source: "agent_studio",
+    turn_id: "turn_alpha",
+    proposal_id: "proposal_one",
+    edit_intent_id: "intent_one",
+    approval_id: "approval_one",
+    workflow_graph_id: "graph_one",
+    workflow_node_id: "node_one",
+    workflow_path: "workflows/demo.json",
+    workflow_patch: { nodes: [{ id: "node_1" }] },
+    target_workflow_node_ids: ["node_1"],
+    receipt_refs: ["receipt_request"],
+    policy_decision_refs: ["policy_request"],
+  });
+
+  assert.equal(result.admitted, true);
+  assert.equal(result.event_kind, "workflow.edit_proposed");
+  assert.equal(result.source_event_kind, "WorkflowEdit.Proposed");
+  assert.equal(runnerCalls.length, 1);
+  assert.equal(runnerCalls[0].request.operation, "workflow_edit_proposal");
+  assert.equal(runnerCalls[0].request.operation_kind, "workflow.edit_proposed");
+  assert.equal(runnerCalls[0].request.event_stream_id, "event_stream_thread_alpha");
+  assert.equal(runnerCalls[0].request.request.workflow_patch.nodes[0].id, "node_1");
+  assert.deepEqual(runnerCalls[0].request.evidence_refs, [
+    "runtime_workflow_edit_proposal_control_rust_owned",
+    "runtime_workflow_edit_control_event_rust_owned",
+    "agentgres_runtime_thread_event_truth_required",
+  ]);
+  assert.deepEqual(store.calls.map((call) => call.name), ["appendRuntimeEvent"]);
+  assert.equal(store.calls[0].event.event_kind, "workflow.edit_proposed");
+});
+
+test("workflow-edit apply uses Rust planning and runtime event admission", () => {
+  const store = createStore();
+  const runnerCalls = [];
+  const surface = createSurface({ runnerCalls });
+
+  const result = surface.applyWorkflowEditProposal(store, "thread_alpha", "proposal_one", {
+    source: "agent_studio",
+    approval_id: "approval_one",
+    workflow_graph_id: "graph_one",
+    workflow_node_id: "node_one",
+  });
+
+  assert.equal(result.admitted, true);
+  assert.equal(result.event_kind, "workflow.edit.apply");
+  assert.equal(result.source_event_kind, "WorkflowEdit.Apply");
+  assert.equal(runnerCalls.length, 1);
+  assert.equal(runnerCalls[0].request.operation, "workflow_edit_apply");
+  assert.equal(runnerCalls[0].request.operation_kind, "workflow.edit.apply");
+  assert.equal(runnerCalls[0].request.proposal_id, "proposal_one");
+  assert.deepEqual(runnerCalls[0].request.evidence_refs, [
+    "runtime_workflow_edit_apply_control_rust_owned",
+    "runtime_workflow_edit_control_event_rust_owned",
+    "agentgres_runtime_thread_event_truth_required",
+  ]);
+  assert.deepEqual(store.calls.map((call) => call.name), ["appendRuntimeEvent"]);
+  assert.equal(store.calls[0].event.event_kind, "workflow.edit.apply");
+});
+
+test("workflow-edit controls fail closed before event append without Rust planning", () => {
+  const store = createStore();
   const surface = createRuntimeWorkflowEditSurface({
+    eventStreamIdForThread: (threadId) => `event_stream_${threadId}`,
     runtimeError,
-    workflowEditRunner: {
-      planWorkflowEditAdmissionRequired(request) {
-        runnerCalls.push(request);
-        return {
-          source: "rust_workflow_edit_admission_required_command",
-          backend: "rust_policy",
-          record: {
-            status_code: 501,
-            code: "runtime_workflow_edit_rust_core_required",
-            message: "Runtime workflow edit control requires direct Rust daemon-core admission and persistence.",
-            details: {
-              rust_core_boundary: "runtime.workflow_edit",
-              operation: request.operation,
-              operation_kind: request.operation_kind,
-              thread_id: request.thread_id,
-              proposal_id: request.proposal_id,
-              evidence_refs: request.evidence_refs,
-            },
-          },
-        };
-      },
-    },
   });
 
   assert.throws(
@@ -157,68 +208,16 @@ test("workflow-edit proposal uses Rust daemon-core admission-required planner wh
     }),
     (error) => {
       assert.equal(error.status, 501);
-      assert.equal(error.code, "runtime_workflow_edit_rust_core_required");
-      assert.equal(error.details.thread_id, "thread_alpha");
-      assert.equal(error.details.proposal_id, "proposal_one");
-      assert.deepEqual(error.details.evidence_refs, [
-        "workflow_edit_proposal_js_facade_retired",
-        "rust_daemon_core_workflow_edit_proposal_required",
-        "agentgres_workflow_edit_proposal_truth_required",
-      ]);
-      assertNoRetiredWorkflowEditDetailAliases(error.details);
-      return true;
-    },
-  );
-  assert.deepEqual(runnerCalls, [
-    {
-      operation: "workflow_edit_proposal",
-      operation_kind: "workflow.edit_proposed",
-      thread_id: "thread_alpha",
-      turn_id: null,
-      proposal_id: "proposal_one",
-      edit_intent_id: null,
-      approval_id: null,
-      workflow_graph_id: null,
-      workflow_node_id: null,
-      workflow_path: null,
-      source: null,
-      evidence_refs: [
-        "workflow_edit_proposal_js_facade_retired",
-        "rust_daemon_core_workflow_edit_proposal_required",
-        "agentgres_workflow_edit_proposal_truth_required",
-      ],
-    },
-  ]);
-  assert.deepEqual(store.calls, []);
-});
-
-test("workflow-edit apply facade fails closed before JS proposal lookup or mutation replay", () => {
-  const store = createStore();
-  const surface = createSurface();
-
-  assert.throws(
-    () => surface.applyWorkflowEditProposal(store, "thread_alpha", "proposal_one", {
-      source: "agent_studio",
-      approval_id: "approval_one",
-      workflow_graph_id: "graph_one",
-      workflow_node_id: "node_one",
-    }),
-    (error) => {
-      assert.equal(error.status, 501);
-      assert.equal(error.code, "runtime_workflow_edit_rust_core_required");
+      assert.equal(error.code, "runtime_workflow_edit_control_rust_core_required");
       assert.equal(error.details.rust_core_boundary, "runtime.workflow_edit");
-      assert.equal(error.details.operation, "workflow_edit_apply");
-      assert.equal(error.details.operation_kind, "workflow.edit.apply");
+      assert.equal(error.details.operation, "workflow_edit_proposal");
+      assert.equal(error.details.operation_kind, "workflow.edit_proposed");
       assert.equal(error.details.thread_id, "thread_alpha");
       assert.equal(error.details.proposal_id, "proposal_one");
-      assert.equal(error.details.approval_id, "approval_one");
-      assert.equal(error.details.workflow_graph_id, "graph_one");
-      assert.equal(error.details.workflow_node_id, "node_one");
-      assert.equal(error.details.source, "agent_studio");
       assert.deepEqual(error.details.evidence_refs, [
-        "workflow_edit_apply_js_facade_retired",
-        "rust_daemon_core_workflow_edit_apply_required",
-        "agentgres_workflow_edit_apply_truth_required",
+        "runtime_workflow_edit_proposal_control_rust_owned",
+        "runtime_workflow_edit_control_event_rust_owned",
+        "agentgres_runtime_thread_event_truth_required",
       ]);
       assertNoRetiredWorkflowEditDetailAliases(error.details);
       return true;

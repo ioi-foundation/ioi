@@ -14,7 +14,7 @@ export function runtimeSessionIdForAgent(agent = {}) {
 }
 
 export function isRuntimeBackedAgent(agent = {}) {
-  return isRuntimeServiceProfile(agent.runtimeProfile);
+  return isRuntimeServiceProfile(agent.runtimeProfile ?? agent.runtime_profile);
 }
 
 export function fixtureProfileForAgent(agent = {}) {

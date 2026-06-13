@@ -8,10 +8,11 @@ import {
   mcpJsonRpcErrorCodeFor,
   mcpJsonRpcResult,
   mcpServeAllowedToolIds,
+  mcpServeToolCallResult,
   mcpServeToolDescriptor,
   mcpServeToolIdForName,
 } from "./runtime-mcp-helpers.mjs";
-import { optionalString } from "./runtime-value-helpers.mjs";
+import { doctorHash, objectRecord, optionalString, safeId } from "./runtime-value-helpers.mjs";
 
 export function createRuntimeMcpServeSurface({
   RUNTIME_MCP_SERVE_PROTOCOL_VERSION: protocolVersion = RUNTIME_MCP_SERVE_PROTOCOL_VERSION,
@@ -21,6 +22,7 @@ export function createRuntimeMcpServeSurface({
   mcpJsonRpcErrorCodeFor: mcpJsonRpcErrorCodeForDep = mcpJsonRpcErrorCodeFor,
   mcpJsonRpcResult: mcpJsonRpcResultDep = mcpJsonRpcResult,
   mcpServeAllowedToolIds: mcpServeAllowedToolIdsDep = mcpServeAllowedToolIds,
+  mcpServeToolCallResult: mcpServeToolCallResultDep = mcpServeToolCallResult,
   mcpServeToolDescriptor: mcpServeToolDescriptorDep = mcpServeToolDescriptor,
   mcpServeToolIdForName: mcpServeToolIdForNameDep = mcpServeToolIdForName,
   optionalString: optionalStringDep = optionalString,
@@ -129,18 +131,37 @@ export function createRuntimeMcpServeSurface({
         }
         if (method === "tools/call") {
           const params = message.params && typeof message.params === "object" ? message.params : {};
-          const toolName = optionalStringDep(params.name ?? params.tool_name);
+          const toolName = optionalStringDep(params.name);
           const toolId = mcpServeToolIdForNameDep(toolName, request);
           if (!toolId) {
             return mcpJsonRpcErrorDep(id, -32602, `MCP serve tool is not allowed: ${toolName ?? "missing"}.`, {
               allowed_tools: mcpServeAllowedToolIdsDep(request),
             });
           }
-          return mcpServeRustCoreRequiredError(id, {
+          const invokeRustCodingTool = store?.codingToolInvocationSurface?.invokeThreadTool;
+          if (typeof invokeRustCodingTool !== "function") {
+            return mcpServeRustCoreRequiredError(id, {
+              threadId,
+              toolId,
+              toolName,
+            });
+          }
+          const invocation = await invokeRustCodingTool.call(
+            store.codingToolInvocationSurface,
+            store,
             threadId,
             toolId,
-            toolName,
-          });
+            mcpServeToolInvocationRequest({
+              id,
+              params,
+              request,
+              schemaVersion,
+              threadId,
+              toolId,
+              toolName,
+            }),
+          );
+          return mcpJsonRpcResultDep(id, mcpServeToolCallResultDep(invocation));
         }
         return mcpJsonRpcErrorDep(id, -32601, `MCP method not found: ${method}.`, {
           supported_methods: [
@@ -159,6 +180,47 @@ export function createRuntimeMcpServeSurface({
           details: error?.details ?? null,
         });
       }
+    },
+  };
+}
+
+function mcpServeToolInvocationRequest({
+  id,
+  params = {},
+  request = {},
+  schemaVersion,
+  threadId,
+  toolId,
+  toolName,
+}) {
+  const input = objectRecord(params.arguments) ?? {};
+  const requestHash = doctorHash(JSON.stringify({
+    id: id ?? null,
+    input,
+    thread_id: threadId,
+    tool_id: toolId,
+  })).slice(0, 16);
+  const toolCallId =
+    optionalString(params.tool_call_id) ??
+    optionalString(request.tool_call_id) ??
+    `mcp_serve_${safeId(toolId)}_${requestHash}`;
+  return {
+    ...input,
+    source: "mcp_serve",
+    tool_call_id: toolCallId,
+    idempotency_key:
+      optionalString(params.idempotency_key) ??
+      optionalString(request.idempotency_key) ??
+      `thread:${threadId}:mcp-serve:${toolCallId}`,
+    workflow_graph_id: optionalString(request.workflow_graph_id) ?? "runtime.mcp_serve",
+    workflow_node_id: optionalString(request.workflow_node_id) ?? `runtime.mcp_serve.${safeId(toolId)}`,
+    mcp_serve_request: {
+      schema_version: schemaVersion,
+      jsonrpc_id: id ?? null,
+      method: "tools/call",
+      thread_id: threadId,
+      tool_id: toolId,
+      tool_name: toolName ?? null,
     },
   };
 }

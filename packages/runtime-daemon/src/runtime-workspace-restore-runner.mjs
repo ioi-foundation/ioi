@@ -250,6 +250,7 @@ export function normalizeWorkspaceSnapshotCaptureBridgeResult(value = {}) {
     source: result.source ?? "rust_workspace_snapshot_capture_command",
     backend: result.backend ?? RUST_WORKSPACE_RESTORE_BACKEND,
     snapshot_record: normalizeWorkspaceSnapshotRecord(result.snapshot_record),
+    snapshot_artifact: objectRecord(result.snapshot_artifact) ?? null,
     snapshot_event: normalizeWorkspaceSnapshotEvent(result.snapshot_event),
     files,
     content_files: contentFiles,
@@ -312,6 +313,7 @@ export function normalizeWorkspaceRestorePreviewBridgeResult(value = {}) {
     receipt_refs: stringArray(preview.receipt_refs),
     artifact_refs: stringArray(preview.artifact_refs),
     rollback_refs: stringArray(preview.rollback_refs),
+    restore_preview_artifact: objectRecord(preview.restore_preview_artifact) ?? null,
     event: objectRecord(preview.event) ?? null,
     restore_preview_event: objectRecord(preview.restore_preview_event) ?? null,
     summary: optionalString(preview.summary) ?? null,
@@ -342,6 +344,7 @@ export function normalizeWorkspaceRestoreApplyBridgeResult(value = {}) {
     receipt_refs: stringArray(apply.receipt_refs),
     artifact_refs: stringArray(apply.artifact_refs),
     rollback_refs: stringArray(apply.rollback_refs),
+    restore_apply_artifact: objectRecord(apply.restore_apply_artifact) ?? null,
     event: objectRecord(apply.event) ?? null,
     restore_apply_event: objectRecord(apply.restore_apply_event) ?? null,
     summary: optionalString(apply.summary) ?? null,
@@ -382,6 +385,8 @@ function normalizeWorkspaceSnapshotEvent(value) {
     status: optionalString(event.status) ?? null,
     actor: optionalString(event.actor) ?? null,
     component_kind: optionalString(event.component_kind) ?? null,
+    item_id: optionalString(event.item_id) ?? null,
+    idempotency_key: optionalString(event.idempotency_key) ?? null,
     thread_id: optionalString(event.thread_id) ?? null,
     turn_id: optionalString(event.turn_id) ?? null,
     workspace_root: optionalString(event.workspace_root) ?? null,
@@ -392,7 +397,10 @@ function normalizeWorkspaceSnapshotEvent(value) {
     artifact_refs: stringArray(event.artifact_refs),
     receipt_refs: stringArray(event.receipt_refs),
     payload_schema_version: optionalString(event.payload_schema_version) ?? null,
+    payload_hash: optionalString(event.payload_hash) ?? null,
     payload_summary: objectRecord(event.payload_summary) ?? null,
+    snapshot_artifact: objectRecord(event.snapshot_artifact) ?? null,
+    evidence_refs: stringArray(event.evidence_refs),
   };
 }
 

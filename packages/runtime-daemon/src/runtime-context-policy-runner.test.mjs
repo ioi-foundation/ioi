@@ -9,6 +9,7 @@ import {
   CODING_TOOL_BUDGET_POLICY_REQUEST_SCHEMA_VERSION,
   CODING_TOOL_BUDGET_RECOVERY_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
   CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  CODING_TOOL_RESULT_ENVELOPE_PLAN_REQUEST_SCHEMA_VERSION,
   COMPACTION_POLICY_REQUEST_SCHEMA_VERSION,
   CONTEXT_COMPACTION_PLAN_REQUEST_SCHEMA_VERSION,
   CONTEXT_COMPACTION_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
@@ -16,6 +17,9 @@ import {
   CONTEXT_POLICY_COMMAND_SCHEMA_VERSION,
   ContextPolicyRunnerError,
   DIAGNOSTICS_REPAIR_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
+  RUNTIME_DIAGNOSTICS_REPAIR_CONTROL_REQUEST_SCHEMA_VERSION,
+  RUNTIME_DIAGNOSTICS_REPAIR_PROJECTION_REQUEST_SCHEMA_VERSION,
+  RUNTIME_DIAGNOSTICS_REPAIR_POLICY_REQUEST_SCHEMA_VERSION,
   DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   LIFECYCLE_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
   MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
@@ -34,9 +38,20 @@ import {
   REPOSITORY_WORKFLOW_PROJECTION_REQUEST_SCHEMA_VERSION,
   RUNTIME_TOOL_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION,
   RUNTIME_LIFECYCLE_PROJECTION_REQUEST_SCHEMA_VERSION,
+  RUNTIME_MEMORY_CONTROL_REQUEST_SCHEMA_VERSION,
   RUNTIME_MEMORY_PROJECTION_REQUEST_SCHEMA_VERSION,
+  RUNTIME_WORKFLOW_EDIT_CONTROL_REQUEST_SCHEMA_VERSION,
+  RUNTIME_MANAGED_SESSION_CONTROL_REQUEST_SCHEMA_VERSION,
+  RUNTIME_MANAGED_SESSION_PROJECTION_REQUEST_SCHEMA_VERSION,
+  RUNTIME_WORKSPACE_CHANGE_CONTROL_REQUEST_SCHEMA_VERSION,
+  RUNTIME_WORKSPACE_CHANGE_PROJECTION_REQUEST_SCHEMA_VERSION,
+  RUNTIME_THREAD_FORK_CONTROL_REQUEST_SCHEMA_VERSION,
+  RUNTIME_CONVERSATION_ARTIFACT_CONTROL_REQUEST_SCHEMA_VERSION,
   RUNTIME_CONVERSATION_ARTIFACT_PROJECTION_REQUEST_SCHEMA_VERSION,
+  RUNTIME_SUBAGENT_CONTROL_REQUEST_SCHEMA_VERSION,
+  RUNTIME_SUBAGENT_PROJECTION_REQUEST_SCHEMA_VERSION,
   RUNTIME_BRIDGE_THREAD_START_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  RUNTIME_BRIDGE_THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   RUNTIME_BRIDGE_TURN_RUN_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   RUN_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   RUN_CANCEL_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
@@ -59,6 +74,7 @@ import {
   normalizeAgentStatusStateUpdateBridgeResult,
   normalizeCodingToolBudgetBlockBridgeResult,
   normalizeCodingToolBudgetRecoveryStateUpdateBridgeResult,
+  normalizeCodingToolResultEnvelopePlanBridgeResult,
   normalizeCompactionPolicyBridgeResult,
   normalizeContextBudgetPolicyBridgeResult,
   normalizeContextCompactionPlanBridgeResult,
@@ -80,12 +96,25 @@ import {
   normalizeRuntimeTaskJobProjectionBridgeResult,
   normalizeRuntimeToolCatalogProjectionBridgeResult,
   normalizeRuntimeLifecycleProjectionBridgeResult,
+  normalizeRuntimeMemoryControlBridgeResult,
   normalizeRuntimeMemoryProjectionBridgeResult,
+  normalizeRuntimeDiagnosticsRepairProjectionBridgeResult,
+  normalizeRuntimeDiagnosticsRepairPolicyBridgeResult,
+  normalizeRuntimeWorkflowEditControlBridgeResult,
+  normalizeRuntimeManagedSessionControlBridgeResult,
+  normalizeRuntimeManagedSessionProjectionBridgeResult,
+  normalizeRuntimeWorkspaceChangeControlBridgeResult,
+  normalizeRuntimeWorkspaceChangeProjectionBridgeResult,
+  normalizeRuntimeThreadForkControlBridgeResult,
+  normalizeRuntimeConversationArtifactControlBridgeResult,
   normalizeRuntimeConversationArtifactProjectionBridgeResult,
+  normalizeRuntimeSubagentControlBridgeResult,
+  normalizeRuntimeSubagentProjectionBridgeResult,
   normalizeRepositoryWorkflowProjectionBridgeResult,
   normalizeSkillHookRegistryProjectionBridgeResult,
   normalizeRunCreateStateUpdateBridgeResult,
   normalizeRuntimeBridgeThreadStartAgentStateUpdateBridgeResult,
+  normalizeRuntimeBridgeThreadControlAgentStateUpdateBridgeResult,
   normalizeRuntimeBridgeTurnRunStateUpdateBridgeResult,
   normalizeSubagentRecordStateUpdateBridgeResult,
   normalizeThreadCreateStateUpdateBridgeResult,
@@ -930,6 +959,257 @@ test("diagnostics repair admission-required runner sends Rust daemon-core reques
   assert.equal(Object.hasOwn(result.record.details, "gateEventId"), false);
 });
 
+test("runtime diagnostics repair control runner sends Rust daemon-core request", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    daemonCoreInvoker(request) {
+      captured = request;
+      return {
+        source: "rust_runtime_diagnostics_repair_control_command",
+        backend: "rust_policy",
+        record: {
+          schema_version: "ioi.runtime.diagnostics_repair_control.v1",
+          object: "ioi.runtime_diagnostics_repair_control",
+          status: "planned",
+          operation: "diagnostics_repair_decision_execution",
+          operation_kind: "diagnostics.repair_decision.execute",
+          thread_id: "thread_alpha",
+          decision_id: "decision_alpha",
+          control_status: "accepted",
+          event: {
+            event_id: "event_diagnostics_repair_decision_alpha",
+            event_kind: "diagnostics.repair_decision.execute",
+            thread_id: "thread_alpha",
+            payload: { decision_id: "decision_alpha" },
+          },
+          receipt_refs: ["receipt_diagnostics_repair_decision_alpha"],
+          policy_decision_refs: ["policy_diagnostics_repair_decision_alpha"],
+          evidence_refs: ["runtime_diagnostics_repair_decision_execution_rust_owned"],
+        },
+      };
+    },
+  });
+
+  const result = runner.planRuntimeDiagnosticsRepairControl({
+    operation: "diagnostics_repair_decision_execution",
+    operation_kind: "diagnostics.repair_decision.execute",
+    thread_id: "thread_alpha",
+    event_stream_id: "event_stream_thread_alpha",
+    decision_id: "decision_alpha",
+    gate_event_id: "event_gate",
+    snapshot_id: "snapshot_alpha",
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "plan_runtime_diagnostics_repair_control");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    RUNTIME_DIAGNOSTICS_REPAIR_CONTROL_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.operation, "diagnostics_repair_decision_execution");
+  assert.equal(
+    captured.request.operation_kind,
+    "diagnostics.repair_decision.execute",
+  );
+  assert.equal(result.source, "rust_runtime_diagnostics_repair_control_command");
+  assert.equal(result.operation_kind, "diagnostics.repair_decision.execute");
+  assert.equal(result.decision_id, "decision_alpha");
+  assert.equal(result.event.event_kind, "diagnostics.repair_decision.execute");
+  assert.deepEqual(result.receipt_refs, ["receipt_diagnostics_repair_decision_alpha"]);
+});
+
+test("runtime diagnostics repair projection runner sends Rust daemon-core request", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    daemonCoreInvoker(request) {
+      captured = request;
+      return {
+        source: "rust_runtime_diagnostics_repair_projection_command",
+        backend: "rust_policy",
+        record: {
+          schema_version: "ioi.runtime.diagnostics_repair_projection.v1",
+          object: "ioi.runtime_diagnostics_repair_projection",
+          status: "projected",
+          operation: "runtime_diagnostics_repair_projection",
+          operation_kind: "runtime.diagnostics_repair_projection.decision",
+          projection_kind: "decision",
+          thread_id: "thread_alpha",
+          decision_id: "decision_alpha",
+          gate_id: "gate_alpha",
+          projection: {
+            schema_version: "ioi.runtime.diagnostics_repair_decision.v1",
+            object: "ioi.runtime_diagnostics_repair_decision",
+            decision_id: "decision_alpha",
+            thread_id: "thread_alpha",
+            gate_id: "gate_alpha",
+            action: "restore_apply",
+            status: "accepted",
+          },
+          record_count: 1,
+          receipt_refs: ["receipt_runtime_diagnostics_repair_projection_decision"],
+          evidence_refs: ["runtime_diagnostics_repair_decision_projection_rust_owned"],
+        },
+      };
+    },
+  });
+
+  const projection = {
+    decisions: [{
+      decision_id: "decision_alpha",
+      thread_id: "thread_alpha",
+      gate_id: "gate_alpha",
+      action: "restore_apply",
+      status: "accepted",
+    }],
+  };
+  const result = runner.projectRuntimeDiagnosticsRepairProjection({
+    operation: "runtime_diagnostics_repair_projection",
+    operation_kind: "runtime.diagnostics_repair_projection.decision",
+    projection_kind: "decision",
+    thread_id: "thread_alpha",
+    decision_id: "decision_alpha",
+    gate_id: "gate_alpha",
+    projection,
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "project_runtime_diagnostics_repair_projection");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    RUNTIME_DIAGNOSTICS_REPAIR_PROJECTION_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.operation, "runtime_diagnostics_repair_projection");
+  assert.equal(
+    captured.request.operation_kind,
+    "runtime.diagnostics_repair_projection.decision",
+  );
+  assert.equal(captured.request.projection_kind, "decision");
+  assert.equal(captured.request.thread_id, "thread_alpha");
+  assert.equal(captured.request.decision_id, "decision_alpha");
+  assert.deepEqual(captured.request.projection, projection);
+  assert.equal(result.source, "rust_runtime_diagnostics_repair_projection_command");
+  assert.equal(result.projection_kind, "decision");
+  assert.equal(result.projection.decision_id, "decision_alpha");
+  assert.equal(result.record_count, 1);
+  assert.equal(Object.hasOwn(result, "projectionKind"), false);
+
+  assert.throws(
+    () =>
+      normalizeRuntimeDiagnosticsRepairProjectionBridgeResult({
+        record: {
+          operation_kind: "runtime.diagnostics_repair_projection.retired",
+          projection_kind: "decision",
+        },
+      }),
+    (error) => {
+      assert.equal(
+        error.code,
+        "runtime_diagnostics_repair_projection_operation_kind_mismatch",
+      );
+      assertNoRetiredOperationKindDetailAliases(error.details);
+      return true;
+    },
+  );
+});
+
+test("runtime diagnostics repair policy runner sends Rust daemon-core request", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    daemonCoreInvoker(request) {
+      captured = request;
+      return {
+        source: "rust_runtime_diagnostics_repair_policy_command",
+        backend: "rust_policy",
+        projected: true,
+        record: {
+          schema_version: "ioi.runtime.diagnostics_repair_policy_projection.v1",
+          object: "ioi.runtime_diagnostics_repair_policy_projection",
+          status: "projected",
+          operation: "project_runtime_diagnostics_repair_policy",
+          operation_kind: "runtime.diagnostics_repair_policy.projection",
+          thread_id: "thread_alpha",
+          injection_id: "injection_alpha",
+          mode: "blocking",
+          diagnostic_status: "findings",
+          diagnostic_count: 2,
+          repair_policy_config: {
+            restore_policy: "preview_only",
+            restore_conflict_policy: "require_approval",
+            diagnostics_repair_default: "restore_preview",
+            operator_override_requires_approval: false,
+          },
+          repair_policy: {
+            schema_version: "ioi.runtime.diagnostics-rollback-repair-policy.v1",
+            object: "ioi.runtime_diagnostics_rollback_repair_policy",
+            policy_id: "policy_alpha",
+            thread_id: "thread_alpha",
+            injection_id: "injection_alpha",
+            decisions: [{ decision_id: "decision_alpha", action: "repair_retry" }],
+            decision_refs: ["decision_alpha"],
+          },
+          receipt_refs: ["receipt_runtime_diagnostics_repair_policy_projection"],
+          evidence_refs: ["runtime_diagnostics_repair_policy_projection_rust_owned"],
+          projection_hash: "sha256:policy",
+        },
+      };
+    },
+  });
+
+  const diagnosticsRepairContexts = [{
+    restore_policy: "preview",
+    restore_conflict_policy: "approval",
+    default_repair_decision: "restore_preview",
+    operator_override_requires_approval: false,
+  }];
+  const result = runner.projectRuntimeDiagnosticsRepairPolicy({
+    thread_id: "thread_alpha",
+    injection_id: "injection_alpha",
+    mode: "blocking",
+    diagnostic_status: "findings",
+    diagnostic_count: 2,
+    workspace_snapshot_refs: ["snapshot_alpha"],
+    rollback_refs: ["rollback_alpha"],
+    source_tool_call_ids: ["tool_call_alpha"],
+    diagnostics_repair_contexts: diagnosticsRepairContexts,
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "project_runtime_diagnostics_repair_policy");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    RUNTIME_DIAGNOSTICS_REPAIR_POLICY_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.thread_id, "thread_alpha");
+  assert.equal(captured.request.injection_id, "injection_alpha");
+  assert.deepEqual(captured.request.diagnostics_repair_contexts, diagnosticsRepairContexts);
+  assert.equal(result.source, "rust_runtime_diagnostics_repair_policy_command");
+  assert.equal(result.operation_kind, "runtime.diagnostics_repair_policy.projection");
+  assert.equal(result.repair_policy.policy_id, "policy_alpha");
+  assert.equal(result.repair_policy_config.restore_policy, "preview_only");
+  assert.deepEqual(result.receipt_refs, ["receipt_runtime_diagnostics_repair_policy_projection"]);
+  assert.equal(Object.hasOwn(result, "repairPolicy"), false);
+
+  assert.throws(
+    () =>
+      normalizeRuntimeDiagnosticsRepairPolicyBridgeResult({
+        record: {
+          operation_kind: "runtime.diagnostics_repair_policy.retired",
+        },
+      }),
+    (error) => {
+      assert.equal(
+        error.code,
+        "runtime_diagnostics_repair_policy_operation_kind_mismatch",
+      );
+      assertNoRetiredOperationKindDetailAliases(error.details);
+      return true;
+    },
+  );
+});
+
 test("diagnostics operator override state update runner sends Rust state update through direct daemon-core invoker", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
@@ -1003,6 +1283,89 @@ test("diagnostics operator override state update runner sends Rust state update 
     assert.equal(Object.hasOwn(result.operator_control, field), false);
   }
   assert.equal(result.run.trace.operatorControls[0].event_id, "event_override");
+});
+
+test("coding-tool result envelope runner sends Rust daemon-core plan request", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    daemonCoreInvoker(request) {
+      captured = request;
+      return {
+        source: "rust_coding_tool_result_envelope_plan_command",
+        backend: "rust_runtime_coding_tool_event",
+        planned: true,
+        phase: "result_event",
+        operation_kind: "runtime.coding_tool.result_envelope",
+        step_module_context: {
+          thread_id: "thread_alpha",
+          workflow_node_id: "node_status",
+          workflow_projection_status: "live",
+        },
+        event: {
+          event_stream_id: "thread_alpha:events",
+          thread_id: "thread_alpha",
+          tool_call_id: "tool_status",
+          payload_schema_version: "ioi.runtime.coding-tool-result.v1",
+          payload_summary: {
+            schema_version: "ioi.runtime.coding-tool-result.v1",
+            tool_name: "workspace.status",
+          },
+        },
+        record: {
+          schema_version: "ioi.runtime.coding-tool-result-envelope-plan.v1",
+          object: "ioi.runtime_coding_tool_result_envelope_plan",
+          status: "planned",
+          operation_kind: "runtime.coding_tool.result_envelope",
+          phase: "result_event",
+        },
+        envelope_hash: "sha256:envelope",
+      };
+    },
+  });
+
+  const result = runner.planCodingToolResultEnvelope({
+    phase: "result_event",
+    event_stream_id: "thread_alpha:events",
+    thread_id: "thread_alpha",
+    tool_id: "workspace.status",
+    tool_call_id: "tool_status",
+    workflow_node_id: "node_status",
+    idempotency_key: "thread:thread_alpha:coding-tool:tool_status",
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "plan_coding_tool_result_envelope");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    CODING_TOOL_RESULT_ENVELOPE_PLAN_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.thread_id, "thread_alpha");
+  assert.equal(captured.request.tool_id, "workspace.status");
+  assert.equal(result.source, "rust_coding_tool_result_envelope_plan_command");
+  assert.equal(result.operation_kind, "runtime.coding_tool.result_envelope");
+  assert.equal(result.phase, "result_event");
+  assert.equal(result.planned, true);
+  assert.equal(result.step_module_context.workflow_projection_status, "live");
+  assert.equal(result.event.payload_summary.tool_name, "workspace.status");
+  assert.equal(result.envelope_hash, "sha256:envelope");
+});
+
+test("coding-tool result envelope normalizer rejects wrong operation kind", () => {
+  assert.throws(
+    () =>
+      normalizeCodingToolResultEnvelopePlanBridgeResult({
+        operation_kind: "runtime.coding_tool.result_event_compat",
+        record: {
+          operation_kind: "runtime.coding_tool.result_event_compat",
+        },
+      }),
+    (error) => {
+      assert.equal(error.code, "coding_tool_result_envelope_plan_operation_kind_mismatch");
+      assertNoRetiredOperationKindDetailAliases(error.details);
+      return true;
+    },
+  );
 });
 
 test("post-edit diagnostics feedback runner sends Rust daemon-core plan request", () => {
@@ -2021,6 +2384,536 @@ test("runtime memory projection runner sends Rust daemon-core request", () => {
   );
 });
 
+test("runtime memory control runner sends Rust daemon-core request", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    daemonCoreInvoker(request) {
+      captured = request;
+      return {
+        source: "rust_runtime_memory_control_command",
+        backend: "rust_policy",
+        record: {
+          object: "ioi.runtime_memory_control",
+          status: "planned",
+          operation: "write",
+          operation_kind: "memory.write",
+          memory_state_kind: "record",
+          state_id: "memory_123",
+          thread_id: "thread_123",
+          agent_id: "agent_123",
+          workspace_root: "/workspace/project",
+          payload: {
+            schema_version: "ioi.agent-runtime.memory.v1",
+            object: "ioi.agent_memory_record",
+            id: "memory_123",
+            thread_id: "thread_123",
+            agent_id: "agent_123",
+            fact: "Remember release window",
+            receipt_refs: ["receipt_memory_write"],
+          },
+          evidence_refs: ["runtime_memory_write_control_rust_owned"],
+          receipt_refs: ["receipt_memory_write"],
+        },
+      };
+    },
+  });
+
+  const result = runner.planRuntimeMemoryControl({
+    operation: "write",
+    operation_kind: "memory.write",
+    thread_id: "thread_123",
+    agent_id: "agent_123",
+    workspace_root: "/workspace/project",
+    request: { text: "Remember release window" },
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "plan_runtime_memory_control");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    RUNTIME_MEMORY_CONTROL_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.operation_kind, "memory.write");
+  assert.equal(captured.request.request.text, "Remember release window");
+  assert.equal(result.source, "rust_runtime_memory_control_command");
+  assert.equal(result.operation_kind, "memory.write");
+  assert.equal(result.memory_state_kind, "record");
+  assert.equal(result.payload.id, "memory_123");
+  assert.equal(result.receipt_refs[0], "receipt_memory_write");
+  assert.equal(Object.hasOwn(result, "operationKind"), false);
+
+  assert.throws(
+    () =>
+      normalizeRuntimeMemoryControlBridgeResult({
+        record: {
+          operation_kind: "memory.write",
+        },
+      }),
+    (error) => {
+      assert.equal(error.code, "runtime_memory_control_payload_missing");
+      assert.equal(error.details.operation_kind, "memory.write");
+      assertNoRetiredOperationKindDetailAliases(error.details);
+      return true;
+    },
+  );
+});
+
+test("runtime workflow-edit control runner sends Rust daemon-core request", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    daemonCoreInvoker(request) {
+      captured = request;
+      return {
+        source: "rust_runtime_workflow_edit_control_command",
+        backend: "rust_policy",
+        record: {
+          object: "ioi.runtime_workflow_edit_control",
+          status: "planned",
+          operation: "workflow_edit_proposal",
+          operation_kind: "workflow.edit_proposed",
+          thread_id: "thread_123",
+          proposal_id: "proposal_123",
+          control_status: "pending_approval",
+          event: {
+            event_stream_id: "thread_123:events",
+            thread_id: "thread_123",
+            turn_id: "turn_123",
+            event_kind: "workflow.edit_proposed",
+            source_event_kind: "WorkflowEdit.Proposed",
+            receipt_refs: ["receipt_workflow_edit"],
+          },
+          evidence_refs: ["runtime_workflow_edit_proposal_control_rust_owned"],
+          receipt_refs: ["receipt_workflow_edit"],
+          policy_decision_refs: ["policy_workflow_edit"],
+        },
+      };
+    },
+  });
+
+  const result = runner.planRuntimeWorkflowEditControl({
+    operation: "workflow_edit_proposal",
+    operation_kind: "workflow.edit_proposed",
+    thread_id: "thread_123",
+    event_stream_id: "thread_123:events",
+    turn_id: "turn_123",
+    proposal_id: "proposal_123",
+    request: {
+      workflow_patch: { nodes: [{ id: "node_123" }] },
+      receipt_refs: ["receipt_request"],
+    },
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "plan_runtime_workflow_edit_control");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    RUNTIME_WORKFLOW_EDIT_CONTROL_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.operation_kind, "workflow.edit_proposed");
+  assert.equal(captured.request.request.workflow_patch.nodes[0].id, "node_123");
+  assert.equal(result.source, "rust_runtime_workflow_edit_control_command");
+  assert.equal(result.operation_kind, "workflow.edit_proposed");
+  assert.equal(result.event.event_kind, "workflow.edit_proposed");
+  assert.equal(result.receipt_refs[0], "receipt_workflow_edit");
+  assert.equal(Object.hasOwn(result, "operationKind"), false);
+
+  assert.throws(
+    () =>
+      normalizeRuntimeWorkflowEditControlBridgeResult({
+        record: {
+          operation_kind: "workflow.edit_proposed",
+        },
+      }),
+    (error) => {
+      assert.equal(error.code, "runtime_workflow_edit_control_event_missing");
+      assert.equal(error.details.operation_kind, "workflow.edit_proposed");
+      assertNoRetiredOperationKindDetailAliases(error.details);
+      return true;
+    },
+  );
+});
+
+test("runtime managed-session projection runner sends Rust daemon-core request", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    daemonCoreInvoker(request) {
+      captured = request;
+      return {
+        source: "rust_runtime_managed_session_projection_command",
+        backend: "rust_policy",
+        record: {
+          object: "ioi.runtime_managed_session_projection",
+          status: "projected",
+          operation: "managed_session_inspection",
+          operation_kind: "managed_session.inspect",
+          projection_kind: "list",
+          thread_id: "thread_123",
+          projection: [{ managed_session_id: "sandbox_browser:1", thread_id: "thread_123" }],
+          record_count: 1,
+          evidence_refs: ["runtime_managed_session_projection_rust_owned"],
+          receipt_refs: ["receipt_runtime_managed_session_projection_list"],
+        },
+      };
+    },
+  });
+
+  const projection = {
+    sessions: [{ managed_session_id: "sandbox_browser:1", thread_id: "thread_123" }],
+  };
+  const result = runner.projectRuntimeManagedSessionProjection({
+    operation: "managed_session_inspection",
+    operation_kind: "managed_session.inspect",
+    projection_kind: "list",
+    thread_id: "thread_123",
+    projection,
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "project_runtime_managed_session_projection");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    RUNTIME_MANAGED_SESSION_PROJECTION_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.operation_kind, "managed_session.inspect");
+  assert.equal(captured.request.projection_kind, "list");
+  assert.equal(captured.request.thread_id, "thread_123");
+  assert.deepEqual(captured.request.projection, projection);
+  assert.equal(result.source, "rust_runtime_managed_session_projection_command");
+  assert.equal(result.operation_kind, "managed_session.inspect");
+  assert.equal(result.projection[0].managed_session_id, "sandbox_browser:1");
+  assert.equal(result.record_count, 1);
+  assert.equal(Object.hasOwn(result, "projectionKind"), false);
+
+  assert.throws(
+    () =>
+      normalizeRuntimeManagedSessionProjectionBridgeResult({
+        record: {
+          operation_kind: "managed_session.retired",
+          projection_kind: "list",
+        },
+      }),
+    (error) => {
+      assert.equal(
+        error.code,
+        "runtime_managed_session_projection_operation_kind_mismatch",
+      );
+      assertNoRetiredOperationKindDetailAliases(error.details);
+      return true;
+    },
+  );
+});
+
+test("runtime managed-session control runner sends Rust daemon-core request", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    daemonCoreInvoker(request) {
+      captured = request;
+      return {
+        source: "rust_runtime_managed_session_control_command",
+        backend: "rust_policy",
+        record: {
+          object: "ioi.runtime_managed_session_control",
+          status: "planned",
+          operation: "managed_session_control",
+          operation_kind: "managed_session.control",
+          thread_id: "thread_123",
+          managed_session_id: "sandbox_browser:1",
+          control_state: "take_over",
+          event: {
+            event_stream_id: "thread_123:events",
+            thread_id: "thread_123",
+            event_kind: "managed_session.controlled",
+            source_event_kind: "OperatorControl.ManagedSessionControl",
+            receipt_refs: ["receipt_managed_session_control"],
+          },
+          evidence_refs: ["runtime_managed_session_control_rust_owned"],
+          receipt_refs: ["receipt_managed_session_control"],
+          policy_decision_refs: ["policy_managed_session_control"],
+        },
+      };
+    },
+  });
+
+  const result = runner.planRuntimeManagedSessionControl({
+    operation: "managed_session_control",
+    operation_kind: "managed_session.control",
+    thread_id: "thread_123",
+    event_stream_id: "thread_123:events",
+    managed_session_id: "sandbox_browser:1",
+    control_state: "take_over",
+    managed_session: { managed_session_id: "sandbox_browser:1", control_state: "observe" },
+    request: { receipt_refs: ["receipt_request"] },
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "plan_runtime_managed_session_control");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    RUNTIME_MANAGED_SESSION_CONTROL_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.operation_kind, "managed_session.control");
+  assert.equal(captured.request.managed_session_id, "sandbox_browser:1");
+  assert.equal(captured.request.control_state, "take_over");
+  assert.equal(result.source, "rust_runtime_managed_session_control_command");
+  assert.equal(result.operation_kind, "managed_session.control");
+  assert.equal(result.event.event_kind, "managed_session.controlled");
+  assert.equal(result.receipt_refs[0], "receipt_managed_session_control");
+  assert.equal(Object.hasOwn(result, "operationKind"), false);
+
+  assert.throws(
+    () =>
+      normalizeRuntimeManagedSessionControlBridgeResult({
+        record: {
+          operation_kind: "managed_session.control",
+        },
+      }),
+    (error) => {
+      assert.equal(error.code, "runtime_managed_session_control_event_missing");
+      assert.equal(error.details.operation_kind, "managed_session.control");
+      assertNoRetiredOperationKindDetailAliases(error.details);
+      return true;
+    },
+  );
+});
+
+test("runtime workspace-change projection runner sends Rust daemon-core request", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    daemonCoreInvoker(request) {
+      captured = request;
+      return {
+        source: "rust_runtime_workspace_change_projection_command",
+        backend: "rust_policy",
+        record: {
+          object: "ioi.runtime_workspace_change_projection",
+          status: "projected",
+          operation: "workspace_change_inspection",
+          operation_kind: "workspace_change.inspect",
+          projection_kind: "list",
+          thread_id: "thread_123",
+          projection: [{ workspace_change_id: "workspace_change:file:1", thread_id: "thread_123" }],
+          record_count: 1,
+          evidence_refs: ["runtime_workspace_change_projection_rust_owned"],
+          receipt_refs: ["receipt_runtime_workspace_change_projection_list"],
+        },
+      };
+    },
+  });
+
+  const projection = {
+    changes: [{ workspace_change_id: "workspace_change:file:1", thread_id: "thread_123" }],
+  };
+  const result = runner.projectRuntimeWorkspaceChangeProjection({
+    operation: "workspace_change_inspection",
+    operation_kind: "workspace_change.inspect",
+    projection_kind: "list",
+    thread_id: "thread_123",
+    projection,
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "project_runtime_workspace_change_projection");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    RUNTIME_WORKSPACE_CHANGE_PROJECTION_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.operation_kind, "workspace_change.inspect");
+  assert.equal(captured.request.projection_kind, "list");
+  assert.equal(captured.request.thread_id, "thread_123");
+  assert.deepEqual(captured.request.projection, projection);
+  assert.equal(result.source, "rust_runtime_workspace_change_projection_command");
+  assert.equal(result.operation_kind, "workspace_change.inspect");
+  assert.equal(result.projection[0].workspace_change_id, "workspace_change:file:1");
+  assert.equal(result.record_count, 1);
+  assert.equal(Object.hasOwn(result, "projectionKind"), false);
+
+  assert.throws(
+    () =>
+      normalizeRuntimeWorkspaceChangeProjectionBridgeResult({
+        record: {
+          operation_kind: "workspace_change.retired",
+          projection_kind: "list",
+        },
+      }),
+    (error) => {
+      assert.equal(
+        error.code,
+        "runtime_workspace_change_projection_operation_kind_mismatch",
+      );
+      assertNoRetiredOperationKindDetailAliases(error.details);
+      return true;
+    },
+  );
+});
+
+test("runtime workspace-change control runner sends Rust daemon-core request", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    daemonCoreInvoker(request) {
+      captured = request;
+      return {
+        source: "rust_runtime_workspace_change_control_command",
+        backend: "rust_policy",
+        record: {
+          object: "ioi.runtime_workspace_change_control",
+          status: "planned",
+          operation: "workspace_change_control",
+          operation_kind: "workspace_change.control",
+          thread_id: "thread_123",
+          workspace_change_id: "workspace_change:file:1",
+          control_state: "accept",
+          event: {
+            event_stream_id: "thread_123:events",
+            thread_id: "thread_123",
+            event_kind: "workspace_change.controlled",
+            source_event_kind: "OperatorControl.WorkspaceChangeControl",
+            receipt_refs: ["receipt_workspace_change_control"],
+          },
+          evidence_refs: ["runtime_workspace_change_control_rust_owned"],
+          receipt_refs: ["receipt_workspace_change_control"],
+          policy_decision_refs: ["policy_workspace_change_control"],
+        },
+      };
+    },
+  });
+
+  const result = runner.planRuntimeWorkspaceChangeControl({
+    operation: "workspace_change_control",
+    operation_kind: "workspace_change.control",
+    thread_id: "thread_123",
+    event_stream_id: "thread_123:events",
+    workspace_change_id: "workspace_change:file:1",
+    control_state: "accept",
+    workspace_change: { workspace_change_id: "workspace_change:file:1", lifecycle: "proposed" },
+    request: { receipt_refs: ["receipt_request"] },
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "plan_runtime_workspace_change_control");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    RUNTIME_WORKSPACE_CHANGE_CONTROL_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.operation_kind, "workspace_change.control");
+  assert.equal(captured.request.workspace_change_id, "workspace_change:file:1");
+  assert.equal(captured.request.control_state, "accept");
+  assert.equal(result.source, "rust_runtime_workspace_change_control_command");
+  assert.equal(result.operation_kind, "workspace_change.control");
+  assert.equal(result.event.event_kind, "workspace_change.controlled");
+  assert.equal(result.receipt_refs[0], "receipt_workspace_change_control");
+  assert.equal(Object.hasOwn(result, "operationKind"), false);
+
+  assert.throws(
+    () =>
+      normalizeRuntimeWorkspaceChangeControlBridgeResult({
+        record: {
+          operation_kind: "workspace_change.control",
+        },
+      }),
+    (error) => {
+      assert.equal(error.code, "runtime_workspace_change_control_event_missing");
+      assert.equal(error.details.operation_kind, "workspace_change.control");
+      assertNoRetiredOperationKindDetailAliases(error.details);
+      return true;
+    },
+  );
+});
+
+test("runtime thread-fork control runner sends Rust daemon-core request", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    daemonCoreInvoker(request) {
+      captured = request;
+      return {
+        source: "rust_runtime_thread_fork_control_command",
+        backend: "rust_policy",
+        record: {
+          object: "ioi.runtime_thread_fork_control",
+          status: "planned",
+          operation: "thread_fork",
+          operation_kind: "thread.fork",
+          thread_id: "thread_123",
+          forked_thread_id: "thread_fork_123",
+          agent_id: "agent_fork_123",
+          source_agent_id: "agent_123",
+          agent: {
+            id: "agent_fork_123",
+            cwd: "/workspace",
+            forkedFromThreadId: "thread_123",
+          },
+          thread: {
+            thread_id: "thread_fork_123",
+            agent_id: "agent_fork_123",
+            event_stream_id: "thread_fork_123:events",
+          },
+          event: {
+            event_stream_id: "thread_123:events",
+            thread_id: "thread_123",
+            event_kind: "thread.forked",
+            source_event_kind: "OperatorControl.ThreadFork",
+            receipt_refs: ["receipt_thread_fork_control"],
+          },
+          evidence_refs: ["runtime_thread_fork_control_rust_owned"],
+          receipt_refs: ["receipt_thread_fork_control"],
+          policy_decision_refs: ["policy_thread_fork_control_allow"],
+        },
+      };
+    },
+  });
+
+  const result = runner.planRuntimeThreadForkControl({
+    operation: "thread_fork",
+    operation_kind: "thread.fork",
+    thread_id: "thread_123",
+    event_stream_id: "thread_123:events",
+    source_thread: { thread_id: "thread_123", agent_id: "agent_123" },
+    source_agent: { id: "agent_123", cwd: "/workspace" },
+    request: { idempotency_key: "fork-key" },
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "plan_runtime_thread_fork_control");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    RUNTIME_THREAD_FORK_CONTROL_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.operation_kind, "thread.fork");
+  assert.equal(captured.request.thread_id, "thread_123");
+  assert.equal(captured.request.source_agent.id, "agent_123");
+  assert.equal(captured.request.request.idempotency_key, "fork-key");
+  assert.equal(result.source, "rust_runtime_thread_fork_control_command");
+  assert.equal(result.operation_kind, "thread.fork");
+  assert.equal(result.agent.id, "agent_fork_123");
+  assert.equal(result.thread.thread_id, "thread_fork_123");
+  assert.equal(result.event.event_kind, "thread.forked");
+  assert.equal(result.receipt_refs[0], "receipt_thread_fork_control");
+  assert.equal(Object.hasOwn(result, "operationKind"), false);
+
+  assert.throws(
+    () =>
+      normalizeRuntimeThreadForkControlBridgeResult({
+        record: {
+          operation_kind: "thread.fork",
+          agent: { id: "agent_fork_123" },
+          thread: { thread_id: "thread_fork_123" },
+        },
+      }),
+    (error) => {
+      assert.equal(error.code, "runtime_thread_fork_control_event_missing");
+      assert.equal(error.details.operation_kind, "thread.fork");
+      assertNoRetiredOperationKindDetailAliases(error.details);
+      return true;
+    },
+  );
+});
+
 test("runtime conversation artifact projection runner sends Rust daemon-core request", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
@@ -2091,6 +2984,232 @@ test("runtime conversation artifact projection runner sends Rust daemon-core req
         error.code,
         "runtime_conversation_artifact_projection_operation_kind_mismatch",
       );
+      assertNoRetiredOperationKindDetailAliases(error.details);
+      return true;
+    },
+  );
+});
+
+test("runtime conversation artifact control runner sends Rust daemon-core request", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    daemonCoreInvoker(request) {
+      captured = request;
+      return {
+        source: "rust_runtime_conversation_artifact_control_command",
+        backend: "rust_policy",
+        record: {
+          object: "ioi.runtime_conversation_artifact_control",
+          status: "planned",
+          operation: "conversation_artifact_create",
+          operation_kind: "artifact.conversation.create",
+          thread_id: "thread_123",
+          artifact_id: "artifact_123",
+          artifact: {
+            id: "artifact_123",
+            artifact_id: "artifact_123",
+            thread_id: "thread_123",
+            title: "Draft",
+            receipt_refs: ["receipt_runtime_conversation_artifact_control"],
+          },
+          result: {
+            status: "created",
+            operation_kind: "artifact.conversation.create",
+            artifact_id: "artifact_123",
+          },
+          evidence_refs: ["runtime_conversation_artifact_control_rust_owned"],
+          receipt_refs: ["receipt_runtime_conversation_artifact_control"],
+          policy_decision_refs: ["policy_runtime_conversation_artifact_control_allow"],
+        },
+      };
+    },
+  });
+
+  const result = runner.planRuntimeConversationArtifactControl({
+    operation: "conversation_artifact_create",
+    operation_kind: "artifact.conversation.create",
+    thread_id: "thread_123",
+    request: {
+      title: "Draft",
+      idempotency_key: "artifact-key",
+    },
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "plan_runtime_conversation_artifact_control");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    RUNTIME_CONVERSATION_ARTIFACT_CONTROL_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.operation, "conversation_artifact_create");
+  assert.equal(captured.request.operation_kind, "artifact.conversation.create");
+  assert.equal(captured.request.thread_id, "thread_123");
+  assert.equal(captured.request.request.idempotency_key, "artifact-key");
+  assert.equal(result.source, "rust_runtime_conversation_artifact_control_command");
+  assert.equal(result.operation_kind, "artifact.conversation.create");
+  assert.equal(result.artifact.id, "artifact_123");
+  assert.equal(result.result.status, "created");
+  assert.equal(result.receipt_refs[0], "receipt_runtime_conversation_artifact_control");
+  assert.equal(Object.hasOwn(result, "operationKind"), false);
+
+  assert.throws(
+    () =>
+      normalizeRuntimeConversationArtifactControlBridgeResult({
+        record: {
+          operation_kind: "artifact.conversation.create",
+          result: { status: "created" },
+        },
+      }),
+    (error) => {
+      assert.equal(error.code, "runtime_conversation_artifact_control_artifact_missing");
+      assert.equal(error.details.operation_kind, "artifact.conversation.create");
+      assertNoRetiredOperationKindDetailAliases(error.details);
+      return true;
+    },
+  );
+});
+
+test("runtime subagent projection runner sends Rust daemon-core request", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    daemonCoreInvoker(request) {
+      captured = request;
+      return {
+        source: "rust_runtime_subagent_projection_command",
+        backend: "rust_policy",
+        record: {
+          object: "ioi.runtime_subagent_projection",
+          status: "projected",
+          operation: "runtime_subagent_projection",
+          operation_kind: "runtime.subagent_projection.list",
+          projection_kind: "list",
+          thread_id: "thread_123",
+          subagent_id: null,
+          role: "reviewer",
+          projection: [{ subagent_id: "subagent_123", parent_thread_id: "thread_123" }],
+          record_count: 1,
+          evidence_refs: ["runtime_subagent_read_projection_rust_owned"],
+          receipt_refs: ["receipt_runtime_subagent_projection_list"],
+        },
+      };
+    },
+  });
+
+  const projection = {
+    subagents: [{ subagent_id: "subagent_123", parent_thread_id: "thread_123" }],
+    runs: [],
+  };
+  const result = runner.projectRuntimeSubagentProjection({
+    operation: "runtime_subagent_projection",
+    operation_kind: "runtime.subagent_projection.list",
+    projection_kind: "list",
+    thread_id: "thread_123",
+    role: "reviewer",
+    projection,
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "project_runtime_subagent_projection");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    RUNTIME_SUBAGENT_PROJECTION_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.operation, "runtime_subagent_projection");
+  assert.equal(captured.request.operation_kind, "runtime.subagent_projection.list");
+  assert.equal(captured.request.projection_kind, "list");
+  assert.equal(captured.request.thread_id, "thread_123");
+  assert.equal(captured.request.role, "reviewer");
+  assert.deepEqual(captured.request.projection, projection);
+  assert.equal(result.source, "rust_runtime_subagent_projection_command");
+  assert.equal(result.projection_kind, "list");
+  assert.equal(result.projection[0].subagent_id, "subagent_123");
+  assert.equal(result.record_count, 1);
+  assert.equal(Object.hasOwn(result, "projectionKind"), false);
+
+  assert.throws(
+    () =>
+      normalizeRuntimeSubagentProjectionBridgeResult({
+        record: {
+          operation_kind: "runtime.subagent_projection.retired",
+          projection_kind: "list",
+        },
+      }),
+    (error) => {
+      assert.equal(error.code, "runtime_subagent_projection_operation_kind_mismatch");
+      assertNoRetiredOperationKindDetailAliases(error.details);
+      return true;
+    },
+  );
+});
+
+test("runtime subagent wait control runner sends Rust daemon-core request", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    daemonCoreInvoker(request) {
+      captured = request;
+      return {
+        source: "rust_runtime_subagent_control_command",
+        backend: "rust_policy",
+        record: {
+          object: "ioi.runtime_subagent_control",
+          status: "planned",
+          operation: "wait",
+          operation_kind: "subagent.wait",
+          thread_id: "thread_123",
+          subagent_id: "subagent_123",
+          control_status: "completed",
+          event: {
+            event_stream_id: "thread_123:events",
+            thread_id: "thread_123",
+            turn_id: "turn_123",
+            event_kind: "subagent.wait_completed",
+            source_event_kind: "OperatorControl.SubagentWait",
+            receipt_refs: ["receipt_wait"],
+          },
+          evidence_refs: ["runtime_subagent_wait_control_rust_owned"],
+          receipt_refs: ["receipt_wait"],
+          policy_decision_refs: ["policy_wait"],
+        },
+      };
+    },
+  });
+
+  const result = runner.planRuntimeSubagentControl({
+    operation: "wait",
+    operation_kind: "subagent.wait",
+    thread_id: "thread_123",
+    event_stream_id: "thread_123:events",
+    subagent: { subagent_id: "subagent_123", parent_thread_id: "thread_123" },
+    request: { receipt_refs: ["receipt_request"] },
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "plan_runtime_subagent_control");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    RUNTIME_SUBAGENT_CONTROL_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.operation_kind, "subagent.wait");
+  assert.equal(captured.request.subagent.subagent_id, "subagent_123");
+  assert.equal(result.source, "rust_runtime_subagent_control_command");
+  assert.equal(result.operation_kind, "subagent.wait");
+  assert.equal(result.event.event_kind, "subagent.wait_completed");
+  assert.equal(result.receipt_refs[0], "receipt_wait");
+  assert.equal(Object.hasOwn(result, "operationKind"), false);
+
+  assert.throws(
+    () =>
+      normalizeRuntimeSubagentControlBridgeResult({
+        record: {
+          operation_kind: "subagent.wait",
+        },
+      }),
+    (error) => {
+      assert.equal(error.code, "runtime_subagent_control_event_missing");
+      assert.equal(error.details.operation_kind, "subagent.wait");
       assertNoRetiredOperationKindDetailAliases(error.details);
       return true;
     },
@@ -2943,12 +4062,17 @@ test("runtime bridge thread start agent state update runner sends Rust state upd
               session_id: "session_runtime",
               bridge_id: "bridge_runtime",
               runtime_profile: "runtime_service",
+              source: "runtime_service",
               updated_at: "2026-06-06T06:15:00.000Z",
             },
             agent: {
               id: "agent_1",
               runtimeSessionId: "session_runtime",
+              runtime_session_id: "session_runtime",
               runtimeBridgeId: "bridge_runtime",
+              runtime_bridge_id: "bridge_runtime",
+              runtime_profile: "runtime_service",
+              runtime_bridge_source: "runtime_service",
               updatedAt: "2026-06-06T06:15:00.000Z",
             },
           };
@@ -2981,6 +4105,66 @@ test("runtime bridge thread start agent state update runner sends Rust state upd
     assert.equal(Object.hasOwn(result.bridge_start, field), false);
   }
   assert.equal(result.agent.runtimeSessionId, "session_runtime");
+  assert.equal(result.agent.runtime_session_id, "session_runtime");
+  assert.equal(result.agent.runtime_bridge_id, "bridge_runtime");
+  assert.equal(result.agent.runtime_profile, "runtime_service");
+  assert.equal(result.agent.runtime_bridge_source, "runtime_service");
+});
+
+test("runtime bridge thread control agent state update runner sends Rust state update through direct daemon-core invoker", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    daemonCoreInvoker(request) {
+      captured = request;
+      return {
+            source: "rust_runtime_bridge_thread_control_agent_state_update_command",
+            backend: "rust_policy",
+            status: "planned",
+            operation_kind: "thread.runtime_bridge.control",
+            updated_at: "2026-06-06T06:20:00.000Z",
+            control: {
+              action: "resume",
+              runtime_bridge_status: "active",
+              updated_at: "2026-06-06T06:20:00.000Z",
+              evidence_refs: ["runtime_bridge_thread_control_rust_owned"],
+            },
+            agent: {
+              id: "agent_1",
+              status: "active",
+              runtimeBridgeStatus: "active",
+              runtime_bridge_status: "active",
+              updatedAt: "2026-06-06T06:20:00.000Z",
+            },
+          };
+    },
+  });
+
+  const result = runner.planRuntimeBridgeThreadControlAgentStateUpdate({
+    thread_id: "thread_1",
+    agent: { id: "agent_1", cwd: "/workspace", runtime_profile: "runtime_service" },
+    action: "resume",
+    reason: "operator requested resume",
+    updated_at: "2026-06-06T06:20:00.000Z",
+    evidence_refs: ["runtime_bridge_thread_control_rust_owned"],
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "plan_runtime_bridge_thread_control_agent_state_update");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    RUNTIME_BRIDGE_THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.thread_id, "thread_1");
+  assert.equal(captured.request.action, "resume");
+  assert.equal(Object.hasOwn(captured.request, "threadId"), false);
+  assert.equal(result.source, "rust_runtime_bridge_thread_control_agent_state_update_command");
+  assert.equal(result.operation_kind, "thread.runtime_bridge.control");
+  assert.equal(result.control.action, "resume");
+  assert.equal(result.control.runtime_bridge_status, "active");
+  assert.equal(Object.hasOwn(result.control, "runtimeBridgeStatus"), false);
+  assert.equal(result.agent.status, "active");
+  assert.equal(result.agent.runtime_bridge_status, "active");
 });
 
 test("runtime bridge turn run state update runner sends Rust state update through direct daemon-core invoker", () => {

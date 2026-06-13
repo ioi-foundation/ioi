@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 
 use super::super::{
@@ -33,6 +34,7 @@ pub struct ModelMountProviderInventoryResult {
     pub provider_ref: String,
     pub provider_kind: String,
     pub action: String,
+    pub operation_kind: String,
     pub status: String,
     pub backend: String,
     pub backend_id: String,
@@ -42,6 +44,11 @@ pub struct ModelMountProviderInventoryResult {
     pub item_count: usize,
     pub evidence_refs: Vec<String>,
     pub inventory_hash: String,
+    pub rust_core_boundary: String,
+    pub record_dir: String,
+    pub record_id: String,
+    pub record: Value,
+    pub receipt_refs: Vec<String>,
 }
 
 impl ModelMountProviderInventoryRequest {
@@ -80,6 +87,7 @@ pub(super) fn plan_provider_inventory(
         provider_ref: request.provider_ref.clone(),
         provider_kind: request.provider_kind.clone(),
         action: request.action.clone(),
+        operation_kind: provider_inventory_operation_kind(request),
         status: "listed".to_string(),
         backend: provider_inventory_backend(request),
         backend_id: provider_inventory_backend_id(request),
@@ -89,9 +97,23 @@ pub(super) fn plan_provider_inventory(
         item_count: request.item_refs.len(),
         evidence_refs: provider_inventory_evidence_refs(request),
         inventory_hash: String::new(),
+        rust_core_boundary: "model_mount.provider_inventory".to_string(),
+        record_dir: "model-provider-inventory".to_string(),
+        record_id: String::new(),
+        record: Value::Null,
+        receipt_refs: vec![],
     };
     result.inventory_hash = provider_inventory_hash(&result)?;
+    result.record_id = provider_inventory_record_id(&result);
+    result.record = provider_inventory_record(&result);
     Ok(result)
+}
+
+fn provider_inventory_operation_kind(request: &ModelMountProviderInventoryRequest) -> String {
+    match request.action.trim() {
+        "list_loaded" => "model_mount.provider.inventory.list_loaded".to_string(),
+        _ => "model_mount.provider.inventory.list_models".to_string(),
+    }
 }
 
 fn is_native_local_provider_inventory_backend(
@@ -158,7 +180,10 @@ fn provider_inventory_driver(request: &ModelMountProviderInventoryRequest) -> St
 }
 
 fn provider_inventory_evidence_refs(request: &ModelMountProviderInventoryRequest) -> Vec<String> {
-    let mut refs = vec!["rust_model_mount_provider_inventory".to_string()];
+    let mut refs = vec![
+        "rust_model_mount_provider_inventory".to_string(),
+        "agentgres_provider_inventory_truth_required".to_string(),
+    ];
     if is_native_local_provider_inventory_backend(request) {
         refs.push("rust_model_mount_native_local_inventory_backend".to_string());
         refs.push("autopilot_native_local_backend_registry".to_string());
@@ -183,11 +208,86 @@ fn provider_inventory_evidence_refs(request: &ModelMountProviderInventoryRequest
 fn provider_inventory_hash(
     result: &ModelMountProviderInventoryResult,
 ) -> Result<String, ModelMountError> {
-    let mut canonical = result.clone();
-    canonical.inventory_hash.clear();
+    let canonical = json!({
+        "schema_version": &result.schema_version,
+        "provider_ref": &result.provider_ref,
+        "provider_kind": &result.provider_kind,
+        "action": &result.action,
+        "operation_kind": &result.operation_kind,
+        "status": &result.status,
+        "backend": &result.backend,
+        "backend_id": &result.backend_id,
+        "driver": &result.driver,
+        "execution_backend": &result.execution_backend,
+        "item_refs": &result.item_refs,
+        "item_count": result.item_count,
+        "evidence_refs": &result.evidence_refs,
+        "rust_core_boundary": &result.rust_core_boundary,
+    });
     let bytes = serde_json::to_vec(&canonical)
         .map_err(|error| ModelMountError::HashFailed(error.to_string()))?;
     Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
+}
+
+fn provider_inventory_record_id(result: &ModelMountProviderInventoryResult) -> String {
+    let provider = record_id_segment(&result.provider_ref, "provider");
+    let action = record_id_segment(&result.action, "inventory");
+    let hash = result
+        .inventory_hash
+        .strip_prefix("sha256:")
+        .unwrap_or(&result.inventory_hash)
+        .chars()
+        .take(16)
+        .collect::<String>();
+    format!("provider_inventory_{provider}_{action}_{hash}")
+}
+
+fn record_id_segment(value: &str, fallback: &str) -> String {
+    let mut segment = value
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || matches!(ch, '.' | '_' | '-') {
+                ch
+            } else {
+                '_'
+            }
+        })
+        .collect::<String>();
+    while segment.contains("__") {
+        segment = segment.replace("__", "_");
+    }
+    let segment = segment.trim_matches('_');
+    if segment.is_empty() {
+        fallback.to_string()
+    } else {
+        segment.to_string()
+    }
+}
+
+fn provider_inventory_record(result: &ModelMountProviderInventoryResult) -> Value {
+    json!({
+        "id": &result.record_id,
+        "object": "ioi.model_mount_provider_inventory",
+        "schema_version": &result.schema_version,
+        "provider_ref": &result.provider_ref,
+        "provider_kind": &result.provider_kind,
+        "action": &result.action,
+        "operation_kind": &result.operation_kind,
+        "status": &result.status,
+        "backend": &result.backend,
+        "backend_id": &result.backend_id,
+        "driver": &result.driver,
+        "execution_backend": &result.execution_backend,
+        "item_refs": &result.item_refs,
+        "item_count": result.item_count,
+        "inventory_hash": &result.inventory_hash,
+        "record_dir": &result.record_dir,
+        "record_id": &result.record_id,
+        "receipt_refs": &result.receipt_refs,
+        "rust_core_boundary": &result.rust_core_boundary,
+        "source": "rust_model_mount_provider_inventory_command",
+        "evidence_refs": &result.evidence_refs,
+    })
 }
 
 #[cfg(test)]
@@ -236,6 +336,10 @@ mod tests {
             MODEL_MOUNT_PROVIDER_INVENTORY_SCHEMA_VERSION
         );
         assert_eq!(result.action, "list_loaded");
+        assert_eq!(
+            result.operation_kind,
+            "model_mount.provider.inventory.list_loaded"
+        );
         assert_eq!(result.status, "listed");
         assert_eq!(result.backend, "autopilot.native_local.fixture");
         assert_eq!(result.backend_id, "backend.autopilot.native-local.fixture");
@@ -254,11 +358,27 @@ mod tests {
             .contains(&"rust_model_mount_provider_inventory".to_string()));
         assert!(result
             .evidence_refs
+            .contains(&"agentgres_provider_inventory_truth_required".to_string()));
+        assert!(result
+            .evidence_refs
             .contains(&"rust_model_mount_native_local_inventory_backend".to_string()));
         assert!(result
             .evidence_refs
             .contains(&"autopilot_native_local_process_supervisor".to_string()));
         assert!(result.inventory_hash.starts_with("sha256:"));
+        assert_eq!(result.rust_core_boundary, "model_mount.provider_inventory");
+        assert_eq!(result.record_dir, "model-provider-inventory");
+        assert!(result.record_id.starts_with("provider_inventory_provider_"));
+        assert_eq!(result.record["id"], result.record_id);
+        assert_eq!(
+            result.record["object"],
+            "ioi.model_mount_provider_inventory"
+        );
+        assert_eq!(
+            result.record["rust_core_boundary"],
+            "model_mount.provider_inventory"
+        );
+        assert_eq!(result.record["inventory_hash"], result.inventory_hash);
     }
 
     #[test]
@@ -282,6 +402,10 @@ mod tests {
             .expect("fixture provider model inventory planned in Rust");
 
         assert_eq!(result.action, "list_models");
+        assert_eq!(
+            result.operation_kind,
+            "model_mount.provider.inventory.list_models"
+        );
         assert_eq!(result.status, "listed");
         assert_eq!(result.backend, "ioi_fixture");
         assert_eq!(result.backend_id, "backend.fixture");

@@ -139,7 +139,9 @@ mod tests {
             receipt_id: None,
             engine_id: None,
             provider_id: Some("provider.local".to_string()),
+            download_id: None,
             base_url: None,
+            state_dir: None,
             state,
         }
     }

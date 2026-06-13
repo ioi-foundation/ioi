@@ -19,13 +19,6 @@ function harness() {
       return tools;
     },
     mcpServeAllowedToolIds: allowedToolIds,
-    mcpServeToolCallResult(invocation) {
-      return {
-        content: [{ type: "text", text: `${invocation.tool_name} ${invocation.status}` }],
-        structuredContent: invocation,
-        isError: invocation.status !== "completed",
-      };
-    },
     mcpServeToolDescriptor(tool) {
       return {
         name: tool.stable_tool_id,
@@ -42,9 +35,34 @@ function harness() {
     agentForThread() {
       throw new Error("MCP serve tool-call facade must not resolve thread agents in JS.");
     },
-    async invokeThreadTool(threadId, toolId, request) {
-      invocations.push({ threadId, toolId, request });
+    async invokeThreadTool() {
       throw new Error("MCP serve tool-call facade must not invoke JS thread tools.");
+    },
+    async invokeThreadToolAsync() {
+      throw new Error("MCP serve tool-call facade must not invoke retired async JS thread tools.");
+    },
+    codingToolInvocationSurface: {
+      invokeThreadTool(surfaceStore, threadId, toolId, request) {
+        invocations.push({ surfaceStore, threadId, toolId, request });
+        return {
+          schema_version: "ioi.runtime.coding-tool-result.v1",
+          object: "ioi.runtime_coding_tool_result",
+          status: "completed",
+          tool_name: toolId,
+          tool_call_id: request.tool_call_id,
+          thread_id: threadId,
+          workflow_graph_id: request.workflow_graph_id,
+          workflow_node_id: request.workflow_node_id,
+          receipt_refs: ["receipt_mcp_serve_tool_call"],
+          policy_decision_refs: ["policy_mcp_serve_tool_call"],
+          artifact_refs: ["artifact_mcp_serve_tool_call"],
+          event: {
+            event_id: "event_mcp_serve_tool_call",
+            payload_summary: { summary: `${toolId} completed through Rust coding-tool invocation.` },
+          },
+          result: { ok: true, input: request },
+        };
+      },
     },
   };
   return { invocations, store, surface };
@@ -119,7 +137,7 @@ test("runtime MCP serve surface handles JSON-RPC lifecycle and batch notificatio
   assert.deepEqual(invocations, []);
 });
 
-test("runtime MCP serve surface fails closed for allowed tool calls and rejects malformed requests", async () => {
+test("runtime MCP serve surface invokes Rust-owned coding-tool path for allowed tool calls", async () => {
   const { invocations, store, surface } = harness();
 
   const invalid = await surface.handleSingleMcpServeJsonRpc(store, "thread-one", []);
@@ -173,17 +191,24 @@ test("runtime MCP serve surface fails closed for allowed tool calls and rejects 
     },
   );
   assert.equal(response.id, 7);
-  assert.equal(response.error.code, -32000);
-  assert.equal(response.error.data.code, "runtime_mcp_serve_tool_call_rust_core_required");
-  assert.equal(response.error.data.details.rust_core_boundary, "runtime.mcp_serve");
-  assert.equal(response.error.data.details.operation_kind, "mcp.serve.tools.call");
-  assert.equal(response.error.data.details.thread_id, "thread-one");
-  assert.equal(response.error.data.details.tool_id, "git.diff");
-  assert.equal(response.error.data.details.tool_name, "git.diff");
-  assert.equal(
-    response.error.data.details.evidence_refs.includes("runtime_mcp_serve_tool_call_js_facade_retired"),
-    true,
-  );
+  assert.equal(response.result.structuredContent.status, "completed");
+  assert.equal(response.result.structuredContent.tool_name, "git.diff");
+  assert.equal(response.result.structuredContent.event_id, "event_mcp_serve_tool_call");
+  assert.deepEqual(response.result.structuredContent.receipt_refs, ["receipt_mcp_serve_tool_call"]);
+  assert.equal(response.result.content[0].text, "git.diff completed through Rust coding-tool invocation.");
+  assert.equal(invocations.length, 1);
+  assert.equal(invocations[0].surfaceStore, store);
+  assert.equal(invocations[0].threadId, "thread-one");
+  assert.equal(invocations[0].toolId, "git.diff");
+  assert.equal(invocations[0].request.includeStat, true);
+  assert.equal(invocations[0].request.source, "mcp_serve");
+  assert.equal(invocations[0].request.workflow_graph_id, "custom.graph");
+  assert.equal(invocations[0].request.workflow_node_id, "custom.node");
+  assert.equal(Object.hasOwn(invocations[0].request, "workflowGraphId"), false);
+  assert.equal(Object.hasOwn(invocations[0].request, "workflowNodeId"), false);
+  assert.equal(invocations[0].request.mcp_serve_request.method, "tools/call");
+  assert.equal(invocations[0].request.mcp_serve_request.tool_id, "git.diff");
+  assert.equal(Object.hasOwn(invocations[0].request.mcp_serve_request, "toolId"), false);
 
   const retiredOnlyResponse = await surface.handleSingleMcpServeJsonRpc(
     store,
@@ -200,8 +225,12 @@ test("runtime MCP serve surface fails closed for allowed tool calls and rejects 
       workflowNodeId: "retired.node",
     },
   );
-  assert.equal(retiredOnlyResponse.error.data.code, "runtime_mcp_serve_tool_call_rust_core_required");
-  assert.equal(retiredOnlyResponse.error.data.details.thread_id, "thread-one");
+  assert.equal(retiredOnlyResponse.result.structuredContent.status, "completed");
+  const retiredOnlyInvocation = invocations.at(-1);
+  assert.equal(retiredOnlyInvocation.request.workflow_graph_id, "runtime.mcp_serve");
+  assert.equal(retiredOnlyInvocation.request.workflow_node_id, "runtime.mcp_serve.git.diff");
+  assert.equal(Object.hasOwn(retiredOnlyInvocation.request, "workflowGraphId"), false);
+  assert.equal(Object.hasOwn(retiredOnlyInvocation.request, "workflowNodeId"), false);
 
   const retiredArgsResponse = await surface.handleSingleMcpServeJsonRpc(
     store,
@@ -214,6 +243,37 @@ test("runtime MCP serve surface fails closed for allowed tool calls and rejects 
     },
     { onlyDiff: true },
   );
-  assert.equal(retiredArgsResponse.error.data.code, "runtime_mcp_serve_tool_call_rust_core_required");
-  assert.deepEqual(invocations, []);
+  assert.equal(retiredArgsResponse.result.structuredContent.status, "completed");
+  const retiredArgsInvocation = invocations.at(-1);
+  assert.equal(Object.hasOwn(retiredArgsInvocation.request, "includeStat"), false);
+  assert.equal(Object.hasOwn(retiredArgsInvocation.request, "args"), false);
+});
+
+test("runtime MCP serve tool calls fail closed without Rust-owned coding-tool invocation surface", async () => {
+  const { store, surface } = harness();
+  delete store.codingToolInvocationSurface;
+
+  const response = await surface.handleSingleMcpServeJsonRpc(
+    store,
+    "thread-one",
+    {
+      jsonrpc: "2.0",
+      id: 7,
+      method: "tools/call",
+      params: { name: "git.diff", arguments: { includeStat: true } },
+    },
+    { onlyDiff: true },
+  );
+
+  assert.equal(response.error.code, -32000);
+  assert.equal(response.error.data.code, "runtime_mcp_serve_tool_call_rust_core_required");
+  assert.equal(response.error.data.details.rust_core_boundary, "runtime.mcp_serve");
+  assert.equal(response.error.data.details.operation_kind, "mcp.serve.tools.call");
+  assert.equal(response.error.data.details.thread_id, "thread-one");
+  assert.equal(response.error.data.details.tool_id, "git.diff");
+  assert.equal(response.error.data.details.tool_name, "git.diff");
+  assert.equal(
+    response.error.data.details.evidence_refs.includes("runtime_mcp_serve_tool_call_js_facade_retired"),
+    true,
+  );
 });

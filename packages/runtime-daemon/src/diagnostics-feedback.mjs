@@ -7,9 +7,6 @@ import {
 
 export function createDiagnosticsFeedbackHelpers({
   diagnosticsRepairContextForPayload,
-  diagnosticsRepairPolicyConfig,
-  diagnosticsRepairPolicyConfigForContexts,
-  diagnosticsRollbackRepairPolicy,
   doctorHash,
   eventStreamIdForThread,
   maxInjectedFindings,
@@ -19,38 +16,6 @@ export function createDiagnosticsFeedbackHelpers({
   optionalString,
   uniqueStrings,
 } = {}) {
-  function postEditDiagnosticsConfig(request = {}, input = {}) {
-    const packRoot = request.tool_pack ?? request.options?.tool_pack ?? {};
-    const pack = packRoot?.coding ?? packRoot;
-    const repairPolicyConfig = diagnosticsRepairPolicyConfig(request, input);
-    const mode = normalizeDiagnosticsMode(
-      request.diagnostics_mode ??
-        input.diagnostics_mode ??
-        pack.diagnostics_mode ??
-        pack.diagnostic_mode ??
-        "advisory",
-    );
-    return {
-      mode,
-      commandId: optionalString(
-        request.diagnostic_command_id ??
-          input.diagnostic_command_id ??
-          pack.default_diagnostic_command_id,
-      ) ?? "auto",
-      cwd: optionalString(input.cwd ?? request.cwd) ?? ".",
-      timeoutMs:
-        input.diagnostic_timeout_ms ??
-        request.diagnostic_timeout_ms ??
-        pack.timeout_ms ??
-        30000,
-      maxOutputBytes:
-        input.diagnostic_max_output_bytes ??
-        request.diagnostic_max_output_bytes ??
-        4096,
-      repairPolicyConfig,
-    };
-  }
-
   function diagnosticsRepairRetryFeedback({
     threadId,
     request = {},
@@ -110,7 +75,12 @@ export function createDiagnosticsFeedbackHelpers({
     };
   }
 
-  function compactDiagnosticsFeedback({ threadId, mode, diagnosticEvents }) {
+  function compactDiagnosticsFeedback({
+    threadId,
+    mode,
+    diagnosticEvents,
+    diagnosticsRepairPolicyProjector = null,
+  }) {
     const findings = [];
     const statuses = [];
     const diagnosticEventIds = [];
@@ -161,21 +131,27 @@ export function createDiagnosticsFeedbackHelpers({
         optionalString(context.source_tool_call_id),
       ),
     );
-    const repairPolicyConfig = diagnosticsRepairPolicyConfigForContexts(diagnosticsRepairContexts);
-    const repairPolicy = diagnosticsRollbackRepairPolicy({
-      threadId,
-      injectionId,
-      mode,
-      diagnosticStatus,
-      diagnosticCount: findings.length,
-      workspaceSnapshotRefs,
-      rollbackRefs: uniqueRollbackRefs,
-      sourceToolCallIds,
-      restorePolicy: repairPolicyConfig.restore_policy,
-      restoreConflictPolicy: repairPolicyConfig.restore_conflict_policy,
-      diagnosticsRepairDefault: repairPolicyConfig.diagnostics_repair_default,
-      operatorOverrideRequiresApproval: repairPolicyConfig.operator_override_requires_approval,
+    const policyProjection = projectDiagnosticsRepairPolicy({
+      diagnosticsRepairPolicyProjector,
+      request: {
+        thread_id: threadId,
+        injection_id: injectionId,
+        mode,
+        diagnostic_status: diagnosticStatus,
+        diagnostic_count: findings.length,
+        workspace_snapshot_refs: workspaceSnapshotRefs,
+        rollback_refs: uniqueRollbackRefs,
+        source_tool_call_ids: sourceToolCallIds,
+        diagnostics_repair_contexts: diagnosticsRepairContexts,
+        receipt_refs: uniqueStrings(receiptRefs),
+      },
     });
+    const repairPolicyConfig = policyProjection.repair_policy_config;
+    const repairPolicy = policyProjection.repair_policy;
+    const projectedReceiptRefs = uniqueStrings([
+      ...receiptRefs,
+      ...normalizeArray(policyProjection.receipt_refs),
+    ]);
     return {
       schema_version: LSP_DIAGNOSTICS_INJECTION_SCHEMA_VERSION,
       object: "ioi.runtime_lsp_diagnostics_injection",
@@ -195,8 +171,10 @@ export function createDiagnosticsFeedbackHelpers({
       diagnostics_repair_contexts: diagnosticsRepairContexts,
       repair_policy_config: repairPolicyConfig,
       repair_policy: repairPolicy,
-      receipt_refs: uniqueStrings(receiptRefs),
+      receipt_refs: projectedReceiptRefs,
       receipt_id: null,
+      policy_projection_hash: policyProjection.projection_hash,
+      policy_projection_evidence_refs: uniqueStrings(normalizeArray(policyProjection.evidence_refs)),
       summary,
       prompt_text: diagnosticsPromptText({ diagnosticStatus, mode, visibleFindings, omittedCount }),
     };
@@ -254,22 +232,19 @@ export function createDiagnosticsFeedbackHelpers({
     const gateId = `lsp_diagnostics_gate_${doctorHash(injectionId).slice(0, 16)}`;
     const diagnosticCount = Number(diagnosticsFeedback.diagnostic_count ?? 0) || 0;
     const injectedFindingCount = Number(diagnosticsFeedback.injected_finding_count ?? diagnosticCount) || 0;
-    const repairPolicy =
-      diagnosticsFeedback.repair_policy ??
-      diagnosticsRollbackRepairPolicy({
-        threadId: diagnosticsFeedback.thread_id ?? null,
-        injectionId,
-        mode: diagnosticsFeedback.mode ?? "blocking",
-        diagnosticStatus: diagnosticsFeedback.diagnostic_status,
-        diagnosticCount,
-        workspaceSnapshotRefs: uniqueStrings(normalizeArray(diagnosticsFeedback.workspace_snapshot_refs)),
-        rollbackRefs: uniqueStrings(normalizeArray(diagnosticsFeedback.rollback_refs)),
-        sourceToolCallIds: uniqueStrings(normalizeArray(diagnosticsFeedback.source_tool_call_ids)),
-        restorePolicy: diagnosticsFeedback.repair_policy_config?.restore_policy,
-        restoreConflictPolicy: diagnosticsFeedback.repair_policy_config?.restore_conflict_policy,
-        diagnosticsRepairDefault: diagnosticsFeedback.repair_policy_config?.diagnostics_repair_default,
-        operatorOverrideRequiresApproval: diagnosticsFeedback.repair_policy_config?.operator_override_requires_approval,
+    const repairPolicy = objectRecord(diagnosticsFeedback.repair_policy);
+    if (!repairPolicy) {
+      throwDiagnosticsRepairPolicyProjectionRequired({
+        operation: "diagnostics_blocking_gate",
+        operation_kind: "runtime.diagnostics_repair_policy.blocking_gate",
+        thread_id: diagnosticsFeedback.thread_id ?? null,
+        injection_id: injectionId,
+        evidence_refs: [
+          "runtime_diagnostics_repair_policy_projection_rust_owned",
+          "rust_daemon_core_diagnostics_repair_policy_required",
+        ],
       });
+    }
     const rollbackRefs = uniqueStrings(normalizeArray(repairPolicy.rollback_refs));
     const workspaceSnapshotRefs = uniqueStrings(normalizeArray(repairPolicy.workspace_snapshot_refs));
     const summary = `Blocking diagnostics gate paused model continuation after ${diagnosticCount} finding(s).`;
@@ -367,6 +342,71 @@ export function createDiagnosticsFeedbackHelpers({
     return [event, ...events];
   }
 
+  function projectDiagnosticsRepairPolicy({
+    diagnosticsRepairPolicyProjector,
+    request,
+  } = {}) {
+    if (
+      !diagnosticsRepairPolicyProjector ||
+      typeof diagnosticsRepairPolicyProjector.projectRuntimeDiagnosticsRepairPolicy !== "function"
+    ) {
+      throwDiagnosticsRepairPolicyProjectionRequired({
+        operation: "runtime_diagnostics_repair_policy_projection",
+        operation_kind: "runtime.diagnostics_repair_policy.projection",
+        thread_id: request?.thread_id ?? null,
+        injection_id: request?.injection_id ?? null,
+        evidence_refs: [
+          "runtime_diagnostics_repair_policy_projection_rust_owned",
+          "rust_daemon_core_diagnostics_repair_policy_required",
+        ],
+      });
+    }
+    const projected = diagnosticsRepairPolicyProjector.projectRuntimeDiagnosticsRepairPolicy(request);
+    const repairPolicy = objectRecord(projected?.repair_policy ?? projected?.policy);
+    const repairPolicyConfig = objectRecord(projected?.repair_policy_config);
+    if (
+      !repairPolicy ||
+      repairPolicy.object !== "ioi.runtime_diagnostics_rollback_repair_policy" ||
+      !Array.isArray(repairPolicy.decisions) ||
+      !Array.isArray(repairPolicy.decision_refs) ||
+      !repairPolicyConfig
+    ) {
+      throwDiagnosticsRepairPolicyProjectionRequired({
+        operation: "runtime_diagnostics_repair_policy_projection",
+        operation_kind: "runtime.diagnostics_repair_policy.projection",
+        thread_id: request?.thread_id ?? null,
+        injection_id: request?.injection_id ?? null,
+        evidence_refs: [
+          "runtime_diagnostics_repair_policy_projection_invalid",
+          "rust_daemon_core_diagnostics_repair_policy_required",
+        ],
+      });
+    }
+    return {
+      repair_policy: repairPolicy,
+      repair_policy_config: repairPolicyConfig,
+      receipt_refs: uniqueStrings(normalizeArray(projected?.receipt_refs)),
+      evidence_refs: uniqueStrings(normalizeArray(projected?.evidence_refs)),
+      projection_hash: optionalString(projected?.projection_hash) ?? null,
+    };
+  }
+
+  function objectRecord(value) {
+    return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+  }
+
+  function throwDiagnosticsRepairPolicyProjectionRequired(details = {}) {
+    const error = new Error(
+      "Diagnostics repair policy projection requires Rust daemon-core ownership.",
+    );
+    error.code = "runtime_diagnostics_repair_policy_projection_required";
+    error.details = {
+      rust_core_boundary: "runtime.diagnostics_repair_policy",
+      ...details,
+    };
+    throw error;
+  }
+
   return {
     compactDiagnosticFinding,
     compactDiagnosticsFeedback,
@@ -375,7 +415,6 @@ export function createDiagnosticsFeedbackHelpers({
     diagnosticsPromptText,
     diagnosticsRepairRetryFeedback,
     insertRuntimeBridgeDiagnosticsInjectionEvent,
-    postEditDiagnosticsConfig,
     promptWithDiagnosticsFeedback,
     requestWithDiagnosticsFeedback,
   };
