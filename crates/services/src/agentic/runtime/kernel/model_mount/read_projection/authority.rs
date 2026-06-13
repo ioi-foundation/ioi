@@ -3,13 +3,15 @@ use serde_json::{json, Value};
 use super::common::{
     array_field, json_string_field, model_mount_projection_generated_at, object_or_null,
 };
-use super::{status, ModelMountReadProjectionRequest};
+use super::{receipt, status, ModelMountReadProjectionError, ModelMountReadProjectionRequest};
 
-pub(super) fn authority_snapshot(request: &ModelMountReadProjectionRequest) -> Value {
+pub(super) fn authority_snapshot(
+    request: &ModelMountReadProjectionRequest,
+) -> Result<Value, ModelMountReadProjectionError> {
     let state = &request.state;
     let grants = array_field(state, "grants");
     let vault_refs = array_field(state, "vault_refs");
-    let authority_receipts = array_field(state, "receipts")
+    let authority_receipts = receipt::receipt_records(request)?
         .into_iter()
         .filter(|receipt| {
             matches!(
@@ -40,7 +42,7 @@ pub(super) fn authority_snapshot(request: &ModelMountReadProjectionRequest) -> V
         .and_then(|remote| remote.get("configured"))
         .and_then(Value::as_bool)
         .unwrap_or(false);
-    json!({
+    Ok(json!({
         "schemaVersion": "ioi.wallet-core-lite.authority.v1",
         "source": "agentgres_wallet_authority_projection",
         "generatedAt": model_mount_projection_generated_at(request),
@@ -64,15 +66,37 @@ pub(super) fn authority_snapshot(request: &ModelMountReadProjectionRequest) -> V
             "receiptCount": authority_receipt_count,
             "remoteWalletConfigured": remote_wallet_configured,
         },
-    })
+    }))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    fn write_receipts(state_dir: &std::path::Path, receipts: &[Value]) {
+        let receipt_dir = state_dir.join("receipts");
+        std::fs::create_dir_all(&receipt_dir).expect("receipt dir");
+        for receipt in receipts {
+            let receipt_id = json_string_field(receipt, "id").expect("receipt id");
+            std::fs::write(
+                receipt_dir.join(format!("{receipt_id}.json")),
+                serde_json::to_string_pretty(receipt).expect("receipt json"),
+            )
+            .expect("write receipt");
+        }
+    }
+
     #[test]
     fn authority_snapshot_is_planned_in_rust_model_mount_projection() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        write_receipts(
+            temp.path(),
+            &[
+                json!({"id": "receipt-route", "kind": "model_route_selection"}),
+                json!({"id": "receipt-token", "kind": "permission_token"}),
+                json!({"id": "receipt-vault", "kind": "vault_adapter_health"}),
+            ],
+        );
         let snapshot = authority_snapshot(&ModelMountReadProjectionRequest {
             projection_kind: "authority_snapshot".to_string(),
             schema_version: None,
@@ -82,7 +106,7 @@ mod tests {
             provider_id: None,
             download_id: None,
             base_url: Some("http://127.0.0.1:3200".to_string()),
-            state_dir: None,
+            state_dir: Some(temp.path().to_string_lossy().to_string()),
             state: json!({
                 "wallet": {"remoteAdapter": {"configured": true}},
                 "vault": {"status": "ready"},
@@ -91,13 +115,10 @@ mod tests {
                     {"id": "grant-revoked", "revokedAt": "2026-06-11T00:01:00.000Z"}
                 ],
                 "vault_refs": [{"id": "vault-ref"}],
-                "receipts": [
-                    {"id": "receipt-route", "kind": "model_route_selection"},
-                    {"id": "receipt-token", "kind": "permission_token"},
-                    {"id": "receipt-vault", "kind": "vault_adapter_health"}
-                ]
+                "receipts": [{"id": "receipt-js", "kind": "permission_token"}]
             }),
-        });
+        })
+        .expect("authority snapshot");
 
         assert_eq!(snapshot["source"], "agentgres_wallet_authority_projection");
         assert_eq!(snapshot["generatedAt"], "2026-06-11T00:00:00.000Z");
@@ -111,5 +132,26 @@ mod tests {
             "http://127.0.0.1:3200/api/v1"
         );
         assert_eq!(snapshot["receipts"].as_array().expect("receipts").len(), 2);
+    }
+
+    #[test]
+    fn authority_snapshot_rejects_js_receipt_transport_without_state_dir() {
+        let error = authority_snapshot(&ModelMountReadProjectionRequest {
+            projection_kind: "authority_snapshot".to_string(),
+            schema_version: None,
+            generated_at: Some("2026-06-11T00:00:00.000Z".to_string()),
+            receipt_id: None,
+            engine_id: None,
+            provider_id: None,
+            download_id: None,
+            base_url: None,
+            state_dir: None,
+            state: json!({
+                "receipts": [{"id": "receipt-token", "kind": "permission_token"}]
+            }),
+        })
+        .expect_err("state_dir is required");
+
+        assert_eq!(error.code, "model_mount_receipt_replay_state_dir_required");
     }
 }

@@ -1195,36 +1195,37 @@ broad read surfaces still need direct Rust daemon-core Agentgres projection APIs
 to replace remaining JS state materialization and command transport.
 
 Slice 807 slimmed additional Rust-authored model_mount read projections so they
-no longer require broad snapshot/projection state materialization.
-`projectionSummary()` and `modelRouteDecisions()` now send only admitted
-receipts into `plan_model_mount_read_projection`; `authoritySnapshot()` sends
-only server authority status, grants, vault refs, receipts, wallet status, and
-vault status; `latestProviderHealth()` sends only provider records,
-provider-health records, and receipts; and `latestVaultHealth()` sends only
-receipts. The Rust `projection_summary` planner now authors its summary
-directly from receipt truth instead of rebuilding the full projection object.
-This still does not claim terminal model_mount projection migration: full
-`projection`, `snapshot`, `receipt_replay`, runtime engine, and other broad
-read surfaces still need direct Rust daemon-core Agentgres projection APIs to
-replace remaining JS state materialization and command transport.
+no longer require broad snapshot/projection state materialization, and the later
+receipt-replay authority cut superseded the old receipt-list transport.
+`projectionSummary()`, `authoritySnapshot()`, `latestProviderHealth()`,
+`latestVaultHealth()`, `latestRuntimeSurvey()`, `receiptReplay()`, and broad
+`snapshot()`/`projection()` now send empty JS request state plus runtime
+`state_dir` into `plan_model_mount_read_projection`; Rust replays admitted
+`receipts/*.json` records through the shared receipt projection boundary and
+fails closed when `state_dir` is missing. `modelRouteDecisions()` remains on its
+own route-selection `state_dir` replay path, so JS receipt arrays cannot return
+as route-decision truth either. This still does not claim terminal model_mount
+projection migration: command transport, richer joins, and other broad read
+surfaces still need direct Rust daemon-core Agentgres projection APIs to replace
+remaining JS state materialization.
 
-Slice 808 slimmed public model_mount receipt replay. `receiptReplay()` now sends
-only admitted receipts plus route, endpoint, instance, and provider records into
-`plan_model_mount_read_projection`; it no longer requires broad
-snapshot/projection state input from the JS facade. The Rust `receipt_replay`
-planner now builds a replay lookup context directly from that slim state instead
-of rebuilding the full `model_mount` projection before locating the requested
-receipt. This still does not claim terminal model_mount projection migration:
-full `projection`, `snapshot`, runtime engine, and other broad read surfaces
-still need direct Rust daemon-core Agentgres projection APIs to replace
-remaining JS state materialization and command transport.
+Slice 808 slimmed public model_mount receipt replay, and the current
+receipt-replay authority cut now removes the remaining JS receipt/topology
+transport. `receiptReplay()` sends only empty request state, `receipt_id`, and
+runtime `state_dir` into `plan_model_mount_read_projection`; Rust builds the
+lookup context from admitted `receipts/*.json` records and ignores any caller
+`state.receipts` payload. Route, endpoint, instance, and provider enrichments
+remain null until direct Rust daemon-core Agentgres topology joins own them.
+This still does not claim terminal model_mount projection migration: command
+transport and richer projection joins still need direct Rust daemon-core APIs.
 
 Slice 809 retired the snapshot helper's internal full-projection rebuild.
 `snapshot()` still requests the Rust `snapshot` read-projection kind, but
 `model_mount_snapshot()` no longer calls `model_mount_projection(request)` just
 to recover adapter boundaries and projection summary. It now authors the nested
-summary from receipt truth through `model_mount_projection_summary(request)` and
-authors adapter boundaries directly through `model_mount_adapter_boundaries()`.
+summary through the Rust receipt projection boundary backed by runtime
+`state_dir` replay and authors adapter boundaries directly through
+`model_mount_adapter_boundaries()`.
 This still does not claim terminal model_mount projection migration: full
 `projection`, snapshot input materialization, runtime engine, and other broad
 read surfaces still need direct Rust daemon-core Agentgres projection APIs to
@@ -1616,8 +1617,9 @@ Slice 868 retired the remaining runtime-survey projection-input and LM Studio
 runtime placeholder helpers from JS. The runtime-daemon public `runtimeSurvey()`
 facade still fails closed before hardware probes, runtime-engine reads, LM Studio
 public-CLI execution, receipt creation, or projection writes. The latest
-runtime-survey readback already uses Rust `latest_runtime_survey` receipt-only
-projection, so `latestRuntimeSurveyProjectionInput()`,
+runtime-survey readback now uses Rust `latest_runtime_survey` with empty request
+state plus runtime `state_dir` receipt replay, so
+`latestRuntimeSurveyProjectionInput()`,
 `lmStudioRuntimeEngines()`, and `lmStudioRuntimeSurvey()` were deleted instead
 of being preserved as non-authoritative compatibility shims. This is still not
 terminal runtime-survey migration: direct Rust daemon-core runtime probing,
@@ -1805,7 +1807,8 @@ default model_mount read-projection input no longer sends
 and `projection` requests. Later Slice 1006 retired the remaining dedicated
 `server_status_input` transport: the dedicated `server_status` read projection
 now sends empty state and request-level `base_url`, while authority snapshot
-remains receipt-only. JS volatile server-control state can no longer become
+uses empty request state plus runtime `state_dir` receipt replay. JS volatile
+server-control state can no longer become
 public server truth through either the broad Rust projection envelope or the
 dedicated server-status readback.
 
@@ -1813,10 +1816,11 @@ Slice 857 retired dedicated authority and adapter-boundary JS read-projection
 input. The `adapter_boundaries` read projection now sends an empty state object
 and Rust authors wallet, vault, OAuth, and Agentgres boundary metadata directly
 instead of echoing JS `adapterStatus()` objects. The `authority_snapshot` read
-projection now sends only admitted receipts instead of JS
-`server_status_input`, grants, vault refs, wallet status, or vault status.
-Direct Rust daemon-core wallet/vault/Agentgres authority projection still needs
-to replace the remaining receipt-only/default authority envelope before
+projection now sends empty request state plus runtime `state_dir` receipt replay
+instead of JS `server_status_input`, grants, vault refs, wallet status, vault
+status, or caller-supplied receipt arrays. Direct Rust daemon-core
+wallet/vault/Agentgres authority projection still needs to replace the
+remaining state-dir-replayed/default authority envelope before
 terminal authority projection is complete.
 
 Slice 858 retired dedicated runtime-engine JS read-projection input. The
@@ -1833,11 +1837,13 @@ protocol APIs, and local runtime-engine materialization retirement still remain
 before this surface reaches the pure Rust substrate target.
 
 Slice 859 retired dedicated latest-runtime-survey JS primitive read-projection
-input. The `latest_runtime_survey` read projection now sends only admitted
-receipts from the runtime-daemon facade and no longer imports
-`latestRuntimeSurveyProjectionInput()`, reads JS runtime-engine preferences, or
-passes JS hardware/probe fallback data. Rust ignores `runtime_survey_input` for
-this projection: not-checked survey readback returns zero/null/default values,
+input, and the current receipt-replay authority cut removed the later JS receipt
+list transport as well. The `latest_runtime_survey` read projection now sends
+empty request state plus runtime `state_dir` and no longer imports
+`latestRuntimeSurveyProjectionInput()`, reads JS runtime-engine preferences,
+passes JS hardware/probe fallback data, or transports caller-supplied receipt
+arrays. Rust ignores `runtime_survey_input` and replays admitted
+`receipts/*.json`: not-checked survey readback returns zero/null/default values,
 and checked survey readback is derived only from admitted `runtime_survey`
 receipt details. Direct Rust daemon-core runtime probing, Agentgres-admitted
 survey capture, command-transport replacement, and local survey materialization
@@ -1849,9 +1855,10 @@ Slice 860 retired dedicated provider-health JS read-projection input. The
 the Rust default empty list; the Rust bridge `provider_health` arm also ignores
 caller-supplied provider-health records so direct bridge callers cannot promote
 local JS telemetry into projection truth. The `latest_provider_health` read
-projection now sends only admitted receipts and no longer reads JS provider
-records or local provider-health files. Rust derives the latest provider-health
-envelope only from admitted `provider_health` receipt details with canonical
+projection now sends empty request state plus runtime `state_dir` receipt replay
+and no longer reads JS provider records, local provider-health files, or
+caller-supplied receipt arrays. Rust derives the latest provider-health envelope
+only from admitted `provider_health` receipt details with canonical
 `provider_id`, and missing receipt truth fails closed with
 `model_mount_provider_health_not_found`. Direct Rust daemon-core provider
 health capture, Agentgres-admitted health writes, provider-control APIs,
@@ -1940,8 +1947,8 @@ command-transport replacement, and stable SDK/IDE catalog APIs still remain
 before this surface reaches the pure Rust substrate target.
 
 Slice 868 retired the runtime-survey projection-input and LM Studio runtime
-placeholder helpers from JS. Latest runtime-survey readback already uses Rust
-`latest_runtime_survey` receipt-only projection, so
+placeholder helpers from JS. Latest runtime-survey readback now uses Rust
+`latest_runtime_survey` empty-state plus `state_dir` receipt replay, so
 `latestRuntimeSurveyProjectionInput()`, `lmStudioRuntimeEngines()`, and
 `lmStudioRuntimeSurvey()` were deleted rather than preserved as
 non-authoritative compatibility shims. Direct Rust daemon-core runtime probing,
@@ -1962,7 +1969,7 @@ retirement still remain.
 
 Slice 870 retired the one-function JS `runtime-survey.mjs` helper module after
 runtime-survey capture had already failed closed and latest runtime-survey
-readback had moved to Rust receipt-only projection. The mounted public
+readback had moved to Rust state-dir receipt replay. The mounted public
 `ModelMountingState.runtimeSurvey()` method now owns the edge refusal directly,
 without importing a helper module or dependency-injecting JS probe helpers.
 The method still fails closed before hardware probes, runtime-engine reads,

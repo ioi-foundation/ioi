@@ -640,15 +640,15 @@ function runDocs() {
       /`adapterBoundaries\(\)` now requests\s+`adapter_boundaries` with only primitive `wallet`, `vault`, and\s+`agentgres_store` adapter status inputs/.test(guide) &&
       /legacy `rustProjectionField\(\)` and\s+`rustProjectionObjectField\(\)` helpers are retired from the facade/.test(guide) &&
       /Slice 807 slimmed additional Rust-authored model_mount read projections so they\s+no longer require broad snapshot\/projection state materialization/.test(guide) &&
-      /`projectionSummary\(\)` and `modelRouteDecisions\(\)` now send only admitted\s+receipts into `plan_model_mount_read_projection`/.test(guide) &&
-      /`latestProviderHealth\(\)` sends only provider records,\s+provider-health records, and receipts/.test(guide) &&
-      /Rust `projection_summary` planner now authors its summary\s+directly from receipt truth instead of rebuilding the full projection object/.test(guide) &&
+      /`projectionSummary\(\)`, `authoritySnapshot\(\)`, `latestProviderHealth\(\)`,\s+`latestVaultHealth\(\)`, `latestRuntimeSurvey\(\)`, `receiptReplay\(\)`, and broad\s+`snapshot\(\)`\/`projection\(\)` now send empty JS request state plus runtime\s+`state_dir` into `plan_model_mount_read_projection`/.test(guide) &&
+      /Rust replays admitted\s+`receipts\/\*\.json` records through the shared receipt projection boundary/.test(guide) &&
+      /fails closed when `state_dir` is missing/.test(guide) &&
       /Slice 808 slimmed public model_mount receipt replay/.test(guide) &&
-      /`receiptReplay\(\)` now sends\s+only admitted receipts plus route, endpoint, instance, and provider records into\s+`plan_model_mount_read_projection`/.test(guide) &&
-      /Rust `receipt_replay`\s+planner now builds a replay lookup context directly from that slim state instead\s+of rebuilding the full `model_mount` projection/.test(guide) &&
+      /`receiptReplay\(\)` sends only empty request state, `receipt_id`, and\s+runtime `state_dir` into `plan_model_mount_read_projection`/.test(guide) &&
+      /Rust builds the\s+lookup context from admitted `receipts\/\*\.json` records/.test(guide) &&
       /Slice 809 retired the snapshot helper's internal full-projection rebuild/.test(guide) &&
       /`model_mount_snapshot\(\)` no longer calls `model_mount_projection\(request\)` just\s+to recover adapter boundaries and projection summary/.test(guide) &&
-      /authors the nested\s+summary from receipt truth through `model_mount_projection_summary\(request\)`/.test(guide) &&
+      /authors the nested\s+summary through the Rust receipt projection boundary backed by runtime\s+`state_dir` replay/.test(guide) &&
       /Slice 810 moved public model_mount runtime-engine read surfaces through\s+dedicated Rust read-projection kinds/.test(guide) &&
       /`runtimePreference\(\)`,\s+`runtimePreferenceForEndpoint\(\)`, `runtimeEngineProfile\(\)`,\s+`listRuntimeEngineProfiles\(\)`, `runtimeDefaultLoadOptions\(\)`,\s+`runtimeEngine\(\)`, and `listRuntimeEngines\(\)`/.test(guide) &&
       /`runtime_preference`,\s+`runtime_preference_for_endpoint`,\s+`runtime_engine_profiles`, `runtime_default_load_options`,\s+`runtime_engine_detail`, and `runtime_engines`/.test(guide) &&
@@ -714,19 +714,19 @@ function runDocs() {
       /Slice 857 retired dedicated authority and adapter-boundary JS read-projection\s+input/.test(guide) &&
       /`adapter_boundaries` read projection now sends an empty state object/.test(guide) &&
       /Rust authors wallet, vault, OAuth, and Agentgres boundary metadata directly/.test(guide) &&
-      /`authority_snapshot` read\s+projection now sends only admitted receipts/.test(guide) &&
+      /`authority_snapshot` read\s+projection now sends empty request state plus runtime `state_dir` receipt replay/.test(guide) &&
       /Slice 858 retired dedicated runtime-engine JS read-projection\s+input/.test(guide) &&
       /`runtime_engines`, `runtime_engine_profiles`, `runtime_preference`,\s+`runtime_preference_for_endpoint`, `runtime_default_load_options`, and\s+`runtime_engine_detail` read projections now send empty state objects/.test(guide) &&
       /runtime `state_dir` for Agentgres replay/.test(guide) &&
       /Rust now\s+requires `state_dir`, reads admitted `runtime-engine-controls\/\*\.json` records,\s+filters out JS-authored controls/.test(guide) &&
       /fails closed with\s+`model_mount_runtime_engine_not_found` only when the requested engine has no\s+admitted runtime-engine control truth/.test(guide) &&
       /Slice 859 retired dedicated latest-runtime-survey JS primitive read-projection\s+input/.test(guide) &&
-      /`latest_runtime_survey` read projection now sends only admitted\s+receipts/.test(guide) &&
+      /`latest_runtime_survey` read projection now sends empty request state plus runtime\s+`state_dir`/.test(guide) &&
       /Rust ignores `runtime_survey_input` for\s+this projection/.test(guide) &&
       /Slice 860 retired dedicated provider-health JS read-projection\s+input/.test(guide) &&
       /`provider_health` read projection now sends an empty state object/.test(guide) &&
       /Rust bridge `provider_health` arm also ignores\s+caller-supplied provider-health records/.test(guide) &&
-      /`latest_provider_health` read\s+projection now\s+sends only admitted receipts/.test(guide) &&
+      /`latest_provider_health` read\s+projection now sends empty request state plus runtime `state_dir` receipt replay/.test(guide) &&
       /canonical\s+`provider_id`/.test(guide) &&
       /Slice 861 retired dedicated model-topology list JS read-projection\s+input/.test(guide) &&
       /`artifacts`, `providers`, `endpoints`, `instances`, `routes`,\s+`model_capabilities`, and `downloads` read projections now send empty state\s+objects/.test(guide) &&
@@ -1468,7 +1468,8 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 857/.test(matrix) &&
       /Slice 857 retired dedicated authority and adapter-boundary JS read-projection\s+input/.test(matrix) &&
       /`adapter_boundaries` read projection now sends `\{\}`/.test(matrix) &&
-      /`authority_snapshot` read\s+projection now sends only admitted receipts/.test(matrix) &&
+      /Model_mount receipt-replay read projection positive API/.test(matrix) &&
+      /`authoritySnapshot\(\)`, `latestProviderHealth\(\)`, `latestVaultHealth\(\)`, `latestRuntimeSurvey\(\)`, `snapshot\(\)`, and `projection\(\)` now call Rust model_mount read-projection kinds with empty request state plus runtime `state_dir`/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 857 is now satisfied/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 858/.test(matrix) &&
       /Slice 858 retired dedicated runtime-engine JS read-projection\s+input/.test(matrix) &&
@@ -1478,14 +1479,14 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 858 is now satisfied/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 859/.test(matrix) &&
       /Slice 859 retired dedicated latest-runtime-survey JS primitive read-projection\s+input/.test(matrix) &&
-      /`latest_runtime_survey` read projection now sends only admitted\s+receipts/.test(matrix) &&
+      /Rust replays admitted `receipts\/\*\.json` records through the shared receipt projection boundary/.test(matrix) &&
       /Rust ignores `runtime_survey_input` for\s+this projection/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 859 is now satisfied/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 860/.test(matrix) &&
       /Slice 860 retired dedicated provider-health JS read-projection\s+input/.test(matrix) &&
       /`provider_health` read projection now sends `\{\}`/.test(matrix) &&
       /Rust bridge `provider_health` arm also ignores caller-supplied\s+provider-health records/.test(matrix) &&
-      /`latest_provider_health` read\s+projection\s+now sends only\s+admitted receipts/.test(matrix) &&
+      /ignores caller-supplied `state\.receipts`/.test(matrix) &&
       /canonical `provider_id`/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 860 is now satisfied/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 861/.test(matrix) &&
@@ -1633,13 +1634,13 @@ function runDocs() {
       /broad snapshot\/projection requests also no longer send `provider_health: providerHealthList\(\.\.\.\)` or `runtime_survey_input: latestRuntimeSurveyProjectionInput\(\.\.\.\)`/.test(implementationMatrix) &&
       /dedicated `provider_health` now sends empty request state/.test(implementationMatrix) &&
       /Rust bridge `provider_health` arm ignores caller-supplied provider-health records/.test(implementationMatrix) &&
-      /dedicated `latestProviderHealth\(\)` sends only admitted receipts/.test(implementationMatrix) &&
+      /dedicated `latestProviderHealth\(\)` sends empty request state plus runtime state_dir/.test(implementationMatrix) &&
       /Rust ignores local provider-health records/.test(implementationMatrix) &&
-      /dedicated `latestRuntimeSurvey\(\)` also sends only admitted receipts/.test(implementationMatrix) &&
+      /dedicated `latestRuntimeSurvey\(\)` also sends empty request state plus runtime state_dir/.test(implementationMatrix) &&
       /Rust ignores local provider-health records plus `runtime_survey_input`, and the dead JS runtime-survey projection-input helper is deleted so JS telemetry fallback cannot become public provider-health or runtime-survey truth/.test(implementationMatrix) &&
       /the one-function JS `runtime-survey\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState\.runtimeSurvey\(\)` method now owns the edge refusal directly/.test(implementationMatrix) &&
-      /latest runtime-survey readback now routes through Rust `plan_model_mount_read_projection` kind `latest_runtime_survey` with receipt-only request state/.test(implementationMatrix) &&
+      /latest runtime-survey readback now routes through Rust `plan_model_mount_read_projection` kind `latest_runtime_survey` with empty request state plus runtime state_dir receipt replay/.test(implementationMatrix) &&
       /Rust now authors not-checked readback as zero\/null\/default and checked readback only from admitted `runtime_survey` receipt details/.test(implementationMatrix) &&
       /broad snapshot\/projection requests also no longer send `artifacts`, `endpoints`, `instances`, `providers`, `routes`, `downloads`, or `product_artifact_policy`/.test(implementationMatrix) &&
       /dedicated `artifacts`, `providers`, `endpoints`, `instances`, `routes`, `model_capabilities`, and `downloads` read projections now send empty request state; `instances` and `routes` also send runtime `state_dir`/.test(implementationMatrix) &&
@@ -1651,12 +1652,12 @@ function runDocs() {
       ) &&
       /broad Rust `snapshot` and `projection` envelopes now also return empty\/default topology, runtime-engine, MCP\/conversation, and product-catalog fields/.test(implementationMatrix) &&
       /dead Rust product-artifact\/runtime-catalog\/OpenAI-list\/fixture-filter\/model-capability helper tree plus the JS fixture mirror were deleted/.test(implementationMatrix) &&
-      /receipt-replay now sends only admitted receipts plus receipt_id/.test(implementationMatrix) &&
-      /Rust returns null route\/endpoint\/instance\/provider enrichments until direct Agentgres topology lookup/.test(implementationMatrix) &&
+      /receipt-replay now sends empty request state plus receipt_id and runtime state_dir, and Rust replays admitted receipts\/\*\.json records/.test(implementationMatrix) &&
+      /returns null route\/endpoint\/instance\/provider enrichments until direct Agentgres topology lookup/.test(implementationMatrix) &&
       /JS topology imports plus Rust projection_lookup helper are removed/.test(implementationMatrix) &&
       /broad snapshot\/projection requests also no longer send `server_status_input: serverStatusProjectionInput\(\.\.\.\)`/.test(implementationMatrix) &&
       /public `adapterBoundaries\(\)` now calls dedicated Rust read-projection kind `adapter_boundaries` with empty request state/.test(implementationMatrix) &&
-      /dedicated `authoritySnapshot\(\)` now sends only admitted receipts/.test(implementationMatrix) &&
+      /dedicated `authoritySnapshot\(\)` now sends empty request state plus runtime state_dir/.test(implementationMatrix) &&
       /`runtime-engines\.mjs` and `runtime-engines\.test\.mjs` are deleted/.test(implementationMatrix) &&
       /mounted `ModelMountingState` methods/.test(implementationMatrix) &&
       /list\/detail\/default-load\/preference\/profile reads now route through Rust `plan_model_mount_read_projection` runtime-engine projection kinds with empty JS request state plus runtime `state_dir`/.test(implementationMatrix) &&
@@ -14540,12 +14541,15 @@ function runBridge() {
       /projectionKind === "catalog_search"[\s\S]*?catalog_search:\s*catalogQuery/.test(modelMountingReadProjectionFacade) &&
       /modelTokenizerRecords\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"model_tokenizer_records"\)/.test(modelMountingReadProjectionFacade) &&
       /projectionKind === "provider_inventory_records" \|\|[\s\S]*?projectionKind === "model_route_decisions" \|\|[\s\S]*?projectionKind === "model_route_endpoint_resolutions"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
-      /projectionKind === "projection_summary"[\s\S]*?receipts:\s*state\.listReceipts\(\)/.test(modelMountingReadProjectionFacade) &&
+      /projectionKind === "projection_summary"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
+      !/projectionKind === "projection_summary"(?:(?!\n    if \(projectionKind|\n    return \{).)*state\.listReceipts\(\)/s.test(modelMountingReadProjectionFacade) &&
       !/projectionKind === "model_route_decisions" \|\| projectionKind === "projection_summary"[\s\S]*?receipts:\s*state\.listReceipts\(\)/.test(modelMountingReadProjectionFacade) &&
-      /projectionKind === "latest_vault_health"[\s\S]*?receipts:\s*state\.listReceipts\(\)/.test(modelMountingReadProjectionFacade) &&
+      /projectionKind === "latest_vault_health"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
+      !/projectionKind === "latest_vault_health"(?:(?!\n    if \(projectionKind|\n    return \{).)*state\.listReceipts\(\)/s.test(modelMountingReadProjectionFacade) &&
       !/latestRuntimeSurveyProjectionInput/.test(modelMountingReadProjectionFacade) &&
       !/latestRuntimeSurvey as latestRuntimeSurveyInput/.test(modelMountingReadProjectionFacade) &&
-      /projectionKind === "latest_runtime_survey"[\s\S]*?return \{\s*receipts:\s*state\.listReceipts\(\),\s*\};/.test(modelMountingReadProjectionFacade) &&
+      /projectionKind === "latest_runtime_survey"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
+      !/projectionKind === "latest_runtime_survey"(?:(?!\n    if \(projectionKind|\n    return \{).)*state\.listReceipts\(\)/s.test(modelMountingReadProjectionFacade) &&
       !/serverStatusProjectionInput/.test(modelMountingReadProjectionFacade) &&
       !/serverStatus as serverStatusInput/.test(modelMountingReadProjectionFacade) &&
       /projectionKind === "server_status"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
@@ -14567,16 +14571,19 @@ function runBridge() {
       !/providerHasVaultRef,\s*publicOAuthSession/.test(modelMountingState) &&
       !/publicProvider,\s*readJson/.test(modelMountingState) &&
       !/providerHealthList/.test(modelMountingReadProjectionFacade) &&
-      /projectionKind === "latest_provider_health"[\s\S]*?return \{\s*receipts:\s*state\.listReceipts\(\),\s*\};/.test(modelMountingReadProjectionFacade) &&
+      /projectionKind === "latest_provider_health"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
+      !/projectionKind === "latest_provider_health"(?:(?!\n    if \(projectionKind|\n    return \{).)*state\.listReceipts\(\)/s.test(modelMountingReadProjectionFacade) &&
       !/projectionKind === "latest_provider_health"(?:(?!\n\s+if \(projectionKind).)*providers:\s*providerList\(state\)/s.test(modelMountingReadProjectionFacade) &&
       !/projectionKind === "latest_provider_health"(?:(?!\n\s+if \(projectionKind).)*provider_health:\s*providerHealthList/s.test(modelMountingReadProjectionFacade) &&
-      /projectionKind === "authority_snapshot"[\s\S]*?return \{\s*receipts:\s*state\.listReceipts\(\),\s*\};/.test(modelMountingReadProjectionFacade) &&
+      /projectionKind === "authority_snapshot"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
+      !/projectionKind === "authority_snapshot"(?:(?!\n    if \(projectionKind|\n    return \{).)*state\.listReceipts\(\)/s.test(modelMountingReadProjectionFacade) &&
       !/projectionKind === "authority_snapshot"[\s\S]*?server_status_input:\s*serverStatusProjectionInput/.test(modelMountingReadProjectionFacade) &&
       !/projectionKind === "authority_snapshot"[\s\S]*?grants:\s*state\.listTokens\(\)/.test(modelMountingReadProjectionFacade) &&
       !/projectionKind === "authority_snapshot"[\s\S]*?vault_refs:\s*state\.listVaultRefs\(\)/.test(modelMountingReadProjectionFacade) &&
       !/projectionKind === "authority_snapshot"[\s\S]*?wallet:\s*state\.walletAuthority\.adapterStatus\(\)/.test(modelMountingReadProjectionFacade) &&
       !/projectionKind === "authority_snapshot"[\s\S]*?vault:\s*state\.vaultStatus\(\)/.test(modelMountingReadProjectionFacade) &&
-      /projectionKind === "receipt_replay"[\s\S]*?return \{\s*receipts:\s*state\.listReceipts\(\),\s*\};/.test(modelMountingReadProjectionFacade) &&
+      /projectionKind === "receipt_replay"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
+      !/projectionKind === "receipt_replay"(?:(?!\n    if \(projectionKind|\n    return \{).)*state\.listReceipts\(\)/s.test(modelMountingReadProjectionFacade) &&
       !/projectionKind === "receipt_replay"[\s\S]*?routes:\s*routeList\(state\)/.test(modelMountingReadProjectionFacade) &&
       !/projectionKind === "receipt_replay"[\s\S]*?endpoints:\s*endpointList\(state\)/.test(modelMountingReadProjectionFacade) &&
       !/projectionKind === "receipt_replay"[\s\S]*?instances:\s*instanceList\(state\)/.test(modelMountingReadProjectionFacade) &&
@@ -14590,10 +14597,12 @@ function runBridge() {
       !/conversation_states:\s*state\.listConversations\(\)/.test(modelMountingReadProjectionFacade) &&
       !/conversation_states:\s*conversationStateRecordsForProjection\(state\)/.test(modelMountingReadProjectionFacade) &&
       !/function conversationStateRecordsForProjection\(state\)/.test(modelMountingReadProjectionFacade) &&
+      /projectionKind === "snapshot" \|\| projectionKind === "projection"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
+      !/projectionKind === "snapshot" \|\| projectionKind === "projection"(?:(?!\n    return \{).)*state\.listReceipts\(\)/s.test(modelMountingReadProjectionFacade) &&
       /state_dir:\s*readProjectionStateDir\(state,\s*projectionKind\)/.test(modelMountingReadProjectionFacade) &&
       /projectionKind === "model_conversation_states"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
       /function readProjectionStateDir\(state,\s*projectionKind\)/.test(modelMountingReadProjectionFacade) &&
-      /projectionKind !== "server_status" &&\s*projectionKind !== "backends" &&\s*projectionKind !== "mcp_servers"/.test(
+      /projectionKind !== "server_status" &&\s*projectionKind !== "backends" &&\s*projectionKind !== "mcp_servers" &&\s*projectionKind !== "runtime_engines"/.test(
         modelMountingReadProjectionFacade,
       ) &&
       /projectionKind !== "model_conversation_states" &&\s*projectionKind !== "instances" &&\s*projectionKind !== "provider_inventory_records" &&\s*projectionKind !== "catalog_search" &&\s*projectionKind !== "catalog_status" &&\s*projectionKind !== "model_tokenizer_records" &&\s*projectionKind !== "routes" &&\s*projectionKind !== "model_route_decisions" &&\s*projectionKind !== "model_route_endpoint_resolutions" &&\s*projectionKind !== "artifacts" &&\s*projectionKind !== "product_artifacts" &&\s*projectionKind !== "providers" &&\s*projectionKind !== "endpoints" &&\s*projectionKind !== "runtime_model_catalog" &&\s*projectionKind !== "open_ai_model_list"/.test(
@@ -14733,8 +14742,10 @@ function runBridge() {
       /readProjectionRequests\[0\]\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
       /workflowRequest\.state,\s*\{\}/.test(modelMountingReadProjectionFacadeTest) &&
       /adapterRequest\.state,\s*\{\}/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.keys\(summaryRequest\.state\),\s*\["receipts"\]/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.keys\(replayRequest\.state\),\s*\["receipts"\]/.test(modelMountingReadProjectionFacadeTest) &&
+      /assert\.deepEqual\(summaryRequest\.state,\s*\{\}\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /summaryRequest\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
+      /assert\.deepEqual\(replayRequest\.state,\s*\{\}\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /replayRequest\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
       /replayRequest\.receipt_id,\s*"receipt-route"/.test(modelMountingReadProjectionFacadeTest) &&
       /assert\.equal\(replay\.route,\s*null\)/.test(modelMountingReadProjectionFacadeTest) &&
       /assert\.equal\(replay\.endpoint,\s*null\)/.test(modelMountingReadProjectionFacadeTest) &&
@@ -14751,7 +14762,8 @@ function runBridge() {
       /assert\.deepEqual\(endpointResolutionRequest\.state,\s*\{\}\)/.test(modelMountingReadProjectionFacadeTest) &&
       /endpointResolutionRequest\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(endpointResolutionRequest\.state,\s*"receipts"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.keys\(authorityRequest\.state\),\s*\["receipts"\]/.test(modelMountingReadProjectionFacadeTest) &&
+      /assert\.deepEqual\(authorityRequest\.state,\s*\{\}\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /authorityRequest\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(authorityRequest\.state,\s*"server_status_input"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(authorityRequest\.state,\s*"grants"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(authorityRequest\.state,\s*"vault_refs"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
@@ -14802,12 +14814,14 @@ function runBridge() {
         publicRuntimeRoutesTest,
       ) &&
       /topologyRequests\.every\(\(request\) => Object\.keys\(request\.state\)\.length === 0\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.keys\(readProjectionRequests\[0\]\.state\),\s*\["receipts"\]/.test(modelMountingReadProjectionFacadeTest) &&
+      /assert\.deepEqual\(readProjectionRequests\[0\]\.state,\s*\{\}\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /readProjectionRequests\[0\]\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(readProjectionRequests\[0\]\.state,\s*"provider_health"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(readProjectionRequests\[0\]\.state,\s*"providers"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /providerHealth\.health\.provider_id,\s*"provider\.local"/.test(modelMountingReadProjectionFacadeTest) &&
       /provider_id:\s*"provider\.local"/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.keys\(readProjectionRequests\[1\]\.state\),\s*\["receipts"\]/.test(modelMountingReadProjectionFacadeTest) &&
+      /assert\.deepEqual\(readProjectionRequests\[1\]\.state,\s*\{\}\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /readProjectionRequests\[1\]\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
       /assert\.deepEqual\(readProjectionRequests\[0\]\.state,\s*\{\}\)/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(readProjectionRequests\[0\]\.state,\s*"server_status_input"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /readProjectionRequests\[0\]\.base_url,\s*"http:\/\/127\.0\.0\.1:3200"/.test(modelMountingReadProjectionFacadeTest) &&
@@ -14872,7 +14886,8 @@ function runBridge() {
       /Object\.hasOwn\(projection,\s*"catalogProviderConfigs"\),\s*false/.test(
         modelMountingReadProjectionFacadeTest,
       ) &&
-      /Object\.keys\(readProjectionRequests\[0\]\.state\),\s*\["receipts"\]/.test(modelMountingReadProjectionFacadeTest) &&
+      /assert\.deepEqual\(readProjectionRequests\[0\]\.state,\s*\{\}\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /readProjectionRequests\[0\]\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(readProjectionRequests\[0\]\.state,\s*"runtime_survey_input"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /readProjectionRequests\.every\(\(request\) => !Object\.hasOwn\(request\.state,\s*"runtime_survey_input"\)\)/.test(modelMountingReadProjectionFacadeTest) &&
       /assert\.equal\(notChecked\.engineCount,\s*0\)/.test(modelMountingReadProjectionFacadeTest) &&
@@ -14927,8 +14942,8 @@ function runBridge() {
       /read_projection_is_planned_in_rust_model_mount_core/.test(modelMountCore) &&
       !/fn model_mount_read_projection\(/.test(modelMountCommandSurface) &&
       /mod aggregate;/.test(modelMountReadProjectionEvidence) &&
-      /"snapshot" => Ok\(aggregate::snapshot\(request\)\)/.test(modelMountReadProjectionEvidence) &&
-      /"projection" => Ok\(aggregate::projection\(request\)\)/.test(modelMountReadProjectionEvidence) &&
+      /"snapshot" => aggregate::snapshot\(request\)/.test(modelMountReadProjectionEvidence) &&
+      /"projection" => aggregate::projection\(request\)/.test(modelMountReadProjectionEvidence) &&
       /mod conversation;/.test(modelMountReadProjectionEvidence) &&
       /MODEL_MOUNT_CONVERSATION_PROJECTION_KIND => conversation::conversation_states\(request\)/.test(modelMountReadProjectionEvidence) &&
       /pub state_dir: Option<String>/.test(modelMountReadProjectionEvidence) &&
@@ -14948,11 +14963,11 @@ function runBridge() {
       /mod route_decision;/.test(modelMountReadProjectionEvidence) &&
       /mod health;/.test(modelMountReadProjectionEvidence) &&
       /mod status;/.test(modelMountReadProjectionEvidence) &&
-      /"projection_summary" => Ok\(receipt::projection_summary\(request\)\)/.test(modelMountReadProjectionEvidence) &&
+      /"projection_summary" => receipt::projection_summary\(request\)/.test(modelMountReadProjectionEvidence) &&
       /"receipt_replay" => receipt::receipt_replay\(request\)/.test(modelMountReadProjectionEvidence) &&
       /MODEL_MOUNT_ROUTE_DECISIONS_PROJECTION_KIND => route_decision::route_decisions\(request\)/.test(modelMountReadProjectionEvidence) &&
       /MODEL_MOUNT_ROUTE_ENDPOINT_RESOLUTIONS_PROJECTION_KIND => \{\s*route_decision::endpoint_resolutions\(request\)\s*\}/.test(modelMountReadProjectionEvidence) &&
-      /"authority_snapshot" => Ok\(authority::authority_snapshot\(request\)\)/.test(modelMountReadProjectionEvidence) &&
+      /"authority_snapshot" => authority::authority_snapshot\(request\)/.test(modelMountReadProjectionEvidence) &&
       /MODEL_MOUNT_SERVER_STATUS_PROJECTION_KIND => status::server_status\(request\)/.test(modelMountReadProjectionEvidence) &&
       /model_mount_server_control_replay_state_dir_required/.test(modelMountReadProjectionEvidence) &&
       /agentgres_server_control_replay_required/.test(modelMountReadProjectionEvidence) &&
@@ -14987,7 +15002,7 @@ function runBridge() {
       !/"catalog_status" => Err\(ModelMountReadProjectionError::new/.test(modelMountReadProjectionEvidence) &&
       /"latest_provider_health" => health::latest_provider_health\(request\)/.test(modelMountReadProjectionEvidence) &&
       /"latest_vault_health" => health::latest_vault_health\(request\)/.test(modelMountReadProjectionEvidence) &&
-      /"latest_runtime_survey" => Ok\(health::latest_runtime_survey\(request\)\)/.test(modelMountReadProjectionEvidence) &&
+      /"latest_runtime_survey" => health::latest_runtime_survey\(request\)/.test(modelMountReadProjectionEvidence) &&
       /mod topology;/.test(modelMountReadProjectionEvidence) &&
       /"artifacts" => topology::artifacts\(request\)/.test(modelMountReadProjectionEvidence) &&
       /"product_artifacts" => topology::product_artifacts\(request\)/.test(modelMountReadProjectionEvidence) &&
@@ -15108,9 +15123,14 @@ function runBridge() {
       /fn runtime_survey_not_checked/.test(modelMountReadProjectionEvidence) &&
       /projection_summary_is_planned_from_receipt_truth/.test(modelMountReadProjectionEvidence) &&
       /receipt_replay_is_planned_from_receipt_only_context/.test(modelMountReadProjectionEvidence) &&
+      /model_mount_receipt_replay_state_dir_required/.test(modelMountReadProjectionEvidence) &&
+      /receipt_projection_rejects_js_receipt_transport_without_state_dir/.test(modelMountReadProjectionEvidence) &&
       /route_decisions_replay_agentgres_selection_records_and_filter_js_truth/.test(modelMountReadProjectionEvidence) &&
       /latest_health_projections_have_dedicated_receipt_projection_owner/.test(modelMountReadProjectionEvidence) &&
+      /latest_health_rejects_js_receipt_transport_without_state_dir/.test(modelMountReadProjectionEvidence) &&
       /runtime_survey_has_dedicated_receipt_projection_owner/.test(modelMountReadProjectionEvidence) &&
+      /authority_snapshot_rejects_js_receipt_transport_without_state_dir/.test(modelMountReadProjectionEvidence) &&
+      /aggregate_projection_rejects_js_receipt_transport_without_state_dir/.test(modelMountReadProjectionEvidence) &&
       !/fn model_mount_projection_summary/.test(modelMountReadProjectionEvidence) &&
       !/fn model_mount_receipt_replay_context/.test(modelMountReadProjectionEvidence) &&
       !/fn model_mount_receipt_replay_projection/.test(modelMountReadProjectionEvidence) &&

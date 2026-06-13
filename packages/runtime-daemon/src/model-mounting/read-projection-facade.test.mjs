@@ -749,6 +749,7 @@ function createState() {
       },
     },
   ];
+  writeReceiptRecords(stateDir, receipts);
   const state = {
     stateDir,
     artifacts: new Map([
@@ -987,7 +988,7 @@ function assertOAuthReadProjectionRetired(readFn, operationKind) {
 
 function rustProjectionFixture(request) {
   const state = request.state;
-  const receipts = state.receipts ?? [];
+  const receipts = receiptRecordsFromAgentgresStateDir(request.state_dir);
   if (request.projection_kind === "artifacts") {
     return artifactRecordsFromAgentgresStateDir(request.state_dir, "ioi.model_mount_model_artifact");
   }
@@ -1067,7 +1068,7 @@ function rustProjectionFixture(request) {
   if (request.projection_kind === "runtime_engine_detail") {
     return runtimeEngineDetailFromAgentgresStateDir(request.state_dir, request.engine_id);
   }
-  if (request.projection_kind === "latest_runtime_survey") return latestRuntimeSurveyFromRustState(state);
+  if (request.projection_kind === "latest_runtime_survey") return latestRuntimeSurveyFromReceipts(receipts);
   if (request.projection_kind === "catalog_status") {
     return catalogStatusFromAgentgresStateDir(request.state_dir, request.schema_version, request.generated_at);
   }
@@ -1088,8 +1089,8 @@ function rustProjectionFixture(request) {
     artifacts: artifactRecordsFromAgentgresStateDir(request.state_dir, "ioi.model_mount_model_artifact"),
     productArtifacts: artifactRecordsFromAgentgresStateDir(request.state_dir, "ioi.product_model_artifact"),
     endpoints: endpointRecordsFromAgentgresStateDir(request.state_dir),
-    instances: [],
-    routes: [],
+    instances: instanceRecordsFromAgentgresStateDir(request.state_dir),
+    routes: routeRecordsFromAgentgresStateDir(request.state_dir),
     modelCapabilities: [],
     runtimeModelCatalog: runtimeModelCatalogFromAgentgresStateDir(request.state_dir),
     openAiModelList: openAiModelListFromAgentgresStateDir(request.state_dir),
@@ -1104,7 +1105,7 @@ function rustProjectionFixture(request) {
     runtimeEngines: [],
     runtimeEngineProfiles: [],
     runtimePreference: null,
-    runtimeSurvey: latestRuntimeSurveyFromRustState(state),
+    runtimeSurvey: latestRuntimeSurveyFromReceipts(receipts),
     grants: state.grants ?? [],
     vaultRefs: state.vault_refs ?? [],
     mcpServers: [],
@@ -1143,7 +1144,7 @@ function rustProjectionFixture(request) {
       runtimeEngines: [],
       runtimeEngineProfiles: [],
       runtimePreference: null,
-      runtimeSurvey: latestRuntimeSurveyFromRustState(state),
+      runtimeSurvey: latestRuntimeSurveyFromReceipts(receipts),
       tokens: state.grants ?? [],
       vaultRefs: state.vault_refs ?? [],
       mcpServers: [],
@@ -1266,8 +1267,8 @@ function rustProjectionFixture(request) {
   throw new Error(`unsupported projection fixture: ${request.projection_kind}`);
 }
 
-function latestRuntimeSurveyFromRustState(state) {
-  const receipt = [...(state.receipts ?? [])].reverse()
+function latestRuntimeSurveyFromReceipts(receipts = []) {
+  const receipt = [...receipts].reverse()
     .find((candidate) => candidate.kind === "runtime_survey");
   if (!receipt) {
     return {
@@ -1662,6 +1663,32 @@ function writeServerControlRecords(stateDir, records = []) {
       `${JSON.stringify(record, null, 2)}\n`,
     );
   }
+}
+
+function writeReceiptRecords(stateDir, records = []) {
+  const recordDir = path.join(stateDir, "receipts");
+  fs.mkdirSync(recordDir, { recursive: true });
+  for (const record of records) {
+    fs.writeFileSync(
+      path.join(recordDir, `${record.id}.json`),
+      `${JSON.stringify(record, null, 2)}\n`,
+    );
+  }
+}
+
+function receiptRecordsFromAgentgresStateDir(stateDir) {
+  if (typeof stateDir !== "string" || stateDir.length === 0) return [];
+  const recordDir = path.join(stateDir, "receipts");
+  if (!fs.existsSync(recordDir)) return [];
+  return fs.readdirSync(recordDir)
+    .filter((file) => file.endsWith(".json"))
+    .map((file) => JSON.parse(fs.readFileSync(path.join(recordDir, file), "utf8")))
+    .filter((record) => typeof record?.id === "string" && typeof record?.kind === "string")
+    .sort((left, right) =>
+      String(left.createdAt ?? left.created_at ?? left.generated_at ?? "").localeCompare(
+        String(right.createdAt ?? right.created_at ?? right.generated_at ?? ""),
+      ) ||
+      String(left.id ?? "").localeCompare(String(right.id ?? "")));
 }
 
 function storageRecordFixture({
@@ -2920,37 +2947,49 @@ test("read projection facade composes snapshots, projection, and receipt replay"
 
   const snapshot = facade.snapshot(state, "http://127.0.0.1:3200");
   assert.equal(snapshot.schemaVersion, "model.mount.schema");
-  assert.equal(snapshot.server.status, "stopped");
+  assert.equal(snapshot.server.status, "blocked");
   assert.equal(snapshot.catalog.adapterBoundary.port, "ModelCatalogProviderPort");
-  assert.equal(snapshot.catalog.lastSearch, null);
-  assert.equal(snapshot.catalog.storage, null);
-  assert.deepEqual(snapshot.catalog.providers, []);
-  assert.deepEqual(snapshot.catalog.results, []);
+  assert.equal(snapshot.catalog.lastSearch.result_count, 1);
+  assert.equal(snapshot.catalog.storage.record_count, 2);
+  assert.deepEqual(snapshot.catalog.providers.map((provider) => provider.provider_ref), [
+    "provider://fixture",
+    "provider://native",
+  ]);
+  assert.deepEqual(snapshot.catalog.results.map((result) => result.model_ref), ["model://fixture/qwen3"]);
   assert.equal(Object.hasOwn(snapshot, "catalogProviderConfigs"), false);
   assert.equal(snapshot.artifacts.length, 0);
   assert.equal(snapshot.endpoints.length, 0);
   assert.equal(snapshot.providers.length, 0);
   assert.equal(snapshot.routes.length, 0);
-  assert.equal(snapshot.downloads.length, 0);
+  assert.deepEqual(snapshot.downloads.map((download) => download.id), ["download.qwen3"]);
   assert.equal(snapshot.modelCapabilities.length, 0);
   assert.equal(snapshot.projection.source, "agentgres_model_mounting_projection");
   assert.equal(snapshot.adapterBoundaries.agentgres.port, "AgentgresStorePort");
 
   const projection = facade.projection(state);
   assert.equal(projection.schemaVersion, "model.mount.schema");
-  assert.equal(projection.artifacts.length, 0);
-  assert.equal(projection.endpoints.length, 0);
-  assert.equal(projection.providers.length, 0);
-  assert.equal(projection.routes.length, 0);
-  assert.equal(projection.downloads.length, 0);
+  assert.deepEqual(projection.artifacts.map((artifact) => artifact.model_ref), ["model://fixture/qwen3"]);
+  assert.deepEqual(projection.endpoints.map((endpoint) => endpoint.id), ["endpoint.local"]);
+  assert.deepEqual(projection.providers.map((provider) => provider.provider_ref), [
+    "provider://fixture",
+    "provider://native",
+  ]);
+  assert.deepEqual(projection.routes.map((route) => route.id), [
+    "route.local-first",
+    "route.research",
+  ]);
+  assert.deepEqual(projection.downloads.map((download) => download.id), ["download.qwen3"]);
   assert.equal(projection.modelCapabilities.length, 0);
   assert.equal(projection.routeReceipts.length, 1);
   assert.equal(projection.lifecycleEvents.length, 1);
   assert.equal(projection.catalog.adapterBoundary.port, "ModelCatalogProviderPort");
-  assert.equal(projection.catalog.lastSearch, null);
-  assert.equal(projection.catalog.storage, null);
-  assert.deepEqual(projection.catalog.providers, []);
-  assert.deepEqual(projection.catalog.results, []);
+  assert.equal(projection.catalog.lastSearch.result_count, 1);
+  assert.equal(projection.catalog.storage.record_count, 2);
+  assert.deepEqual(projection.catalog.providers.map((provider) => provider.provider_ref), [
+    "provider://fixture",
+    "provider://native",
+  ]);
+  assert.deepEqual(projection.catalog.results.map((result) => result.model_ref), ["model://fixture/qwen3"]);
   assert.equal(Object.hasOwn(projection, "catalogProviderConfigs"), false);
   assert.equal(projection.adapterBoundaries.agentgres.port, "AgentgresStorePort");
   assert.equal(projection.adapterBoundaries.oauth.plaintextPersistence, false);
@@ -3056,9 +3095,11 @@ test("read projection facade composes snapshots, projection, and receipt replay"
   assert.equal(Object.hasOwn(projectionRequest.state, "downloads"), false);
   assert.equal(Object.hasOwn(projectionRequest.state, "product_artifact_policy"), false);
   const summaryRequest = readProjectionRequests.find((request) => request.projection_kind === "projection_summary");
-  assert.deepEqual(Object.keys(summaryRequest.state), ["receipts"]);
+  assert.deepEqual(summaryRequest.state, {});
+  assert.equal(summaryRequest.state_dir, state.stateDir);
   const replayRequest = readProjectionRequests.find((request) => request.projection_kind === "receipt_replay");
-  assert.deepEqual(Object.keys(replayRequest.state), ["receipts"]);
+  assert.deepEqual(replayRequest.state, {});
+  assert.equal(replayRequest.state_dir, state.stateDir);
   assert.equal(replayRequest.receipt_id, "receipt-route");
   assert.equal(Object.hasOwn(replayRequest.state, "routes"), false);
   assert.equal(Object.hasOwn(replayRequest.state, "endpoints"), false);
@@ -3077,7 +3118,8 @@ test("read projection facade composes snapshots, projection, and receipt replay"
   assert.equal(endpointResolutionRequest.state_dir, state.stateDir);
   assert.equal(Object.hasOwn(endpointResolutionRequest.state, "receipts"), false);
   const authorityRequest = readProjectionRequests.at(-1);
-  assert.deepEqual(Object.keys(authorityRequest.state), ["receipts"]);
+  assert.deepEqual(authorityRequest.state, {});
+  assert.equal(authorityRequest.state_dir, state.stateDir);
   assert.equal(Object.hasOwn(authorityRequest.state, "providers"), false);
   assert.equal(Object.hasOwn(authorityRequest.state, "artifacts"), false);
   assert.equal(Object.hasOwn(authorityRequest.state, "server_status_input"), false);
@@ -3167,10 +3209,12 @@ test("read projection facade projects latest provider and vault health envelopes
     "latest_vault_health",
   ]);
   assert.equal(readProjectionRequests[0].provider_id, "provider.local");
-  assert.deepEqual(Object.keys(readProjectionRequests[0].state), ["receipts"]);
+  assert.deepEqual(readProjectionRequests[0].state, {});
+  assert.equal(readProjectionRequests[0].state_dir, state.stateDir);
   assert.equal(Object.hasOwn(readProjectionRequests[0].state, "provider_health"), false);
   assert.equal(Object.hasOwn(readProjectionRequests[0].state, "providers"), false);
-  assert.deepEqual(Object.keys(readProjectionRequests[1].state), ["receipts"]);
+  assert.deepEqual(readProjectionRequests[1].state, {});
+  assert.equal(readProjectionRequests[1].state_dir, state.stateDir);
   assert.equal(readProjectionRequests.every((request) => !Object.hasOwn(request.state, "server")), true);
   assert.equal(readProjectionRequests.every((request) => !Object.hasOwn(request.state, "artifacts")), true);
 });
@@ -3186,7 +3230,7 @@ test("read projection facade delegates latest runtime survey through Rust projec
   assert.equal(notChecked.hardware, null);
   assert.equal(notChecked.lmStudio.status, "not_checked");
 
-  state.listReceipts().push({
+  writeReceiptRecords(state.stateDir, [{
     id: "receipt-runtime-survey",
     kind: "runtime_survey",
     createdAt: "2026-06-03T00:01:00.000Z",
@@ -3198,7 +3242,7 @@ test("read projection facade delegates latest runtime survey through Rust projec
       hardware: { cpuCount: 16 },
       lm_studio: { status: "available" },
     },
-  });
+  }]);
   const checked = facade.latestRuntimeSurvey(state);
   assert.equal(checked.status, "checked");
   assert.equal(checked.receiptId, "receipt-runtime-survey");
@@ -3210,9 +3254,11 @@ test("read projection facade delegates latest runtime survey through Rust projec
     "latest_runtime_survey",
     "latest_runtime_survey",
   ]);
-  assert.deepEqual(Object.keys(readProjectionRequests[0].state), ["receipts"]);
+  assert.deepEqual(readProjectionRequests[0].state, {});
+  assert.equal(readProjectionRequests[0].state_dir, state.stateDir);
   assert.equal(Object.hasOwn(readProjectionRequests[0].state, "runtime_survey_input"), false);
-  assert.equal(readProjectionRequests[1].state.receipts.at(-1).id, "receipt-runtime-survey");
+  assert.deepEqual(readProjectionRequests[1].state, {});
+  assert.equal(readProjectionRequests[1].state_dir, state.stateDir);
   assert.equal(readProjectionRequests.every((request) => !Object.hasOwn(request.state, "server")), true);
   assert.equal(readProjectionRequests.every((request) => !Object.hasOwn(request.state, "runtime_survey")), true);
   assert.equal(readProjectionRequests.every((request) => !Object.hasOwn(request.state, "runtime_survey_input")), true);
@@ -3261,10 +3307,10 @@ test("read projection facade preserves latest health not-found errors", () => {
     "latest_vault_health",
   ]);
   assert.equal(readProjectionRequests[0].provider_id, "provider.local");
-  assert.deepEqual(Object.keys(readProjectionRequests[0].state).sort(), [
-    "receipts",
-  ]);
+  assert.deepEqual(readProjectionRequests[0].state, {});
+  assert.equal(readProjectionRequests[0].state_dir, state.stateDir);
   assert.equal(Object.hasOwn(readProjectionRequests[0].state, "provider_health"), false);
   assert.equal(Object.hasOwn(readProjectionRequests[0].state, "providers"), false);
-  assert.deepEqual(Object.keys(readProjectionRequests[1].state), ["receipts"]);
+  assert.deepEqual(readProjectionRequests[1].state, {});
+  assert.equal(readProjectionRequests[1].state_dir, state.stateDir);
 });

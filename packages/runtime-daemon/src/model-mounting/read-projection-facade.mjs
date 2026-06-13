@@ -359,24 +359,16 @@ export function createModelMountingReadProjectionFacade({
       return {};
     }
     if (projectionKind === "projection_summary") {
-      return {
-        receipts: state.listReceipts(),
-      };
+      return {};
     }
     if (projectionKind === "latest_vault_health") {
-      return {
-        receipts: state.listReceipts(),
-      };
+      return {};
     }
     if (projectionKind === "latest_runtime_survey") {
-      return {
-        receipts: state.listReceipts(),
-      };
+      return {};
     }
     if (projectionKind === "latest_provider_health") {
-      return {
-        receipts: state.listReceipts(),
-      };
+      return {};
     }
     if (projectionKind === "model_conversation_states") {
       return {};
@@ -391,9 +383,7 @@ export function createModelMountingReadProjectionFacade({
       };
     }
     if (projectionKind === "receipt_replay") {
-      return {
-        receipts: state.listReceipts(),
-      };
+      return {};
     }
     if (
       projectionKind === "artifacts" ||
@@ -420,9 +410,10 @@ export function createModelMountingReadProjectionFacade({
       return {};
     }
     if (projectionKind === "authority_snapshot") {
-      return {
-        receipts: state.listReceipts(),
-      };
+      return {};
+    }
+    if (projectionKind === "snapshot" || projectionKind === "projection") {
+      return {};
     }
     return {
       receipts: state.listReceipts(),
@@ -457,7 +448,15 @@ export function createModelMountingReadProjectionFacade({
       projectionKind !== "runtime_preference" &&
       projectionKind !== "runtime_preference_for_endpoint" &&
       projectionKind !== "runtime_default_load_options" &&
-      projectionKind !== "runtime_engine_detail"
+      projectionKind !== "runtime_engine_detail" &&
+      projectionKind !== "snapshot" &&
+      projectionKind !== "projection" &&
+      projectionKind !== "projection_summary" &&
+      projectionKind !== "receipt_replay" &&
+      projectionKind !== "authority_snapshot" &&
+      projectionKind !== "latest_provider_health" &&
+      projectionKind !== "latest_vault_health" &&
+      projectionKind !== "latest_runtime_survey"
     ) return null;
     return typeof state?.stateDir === "string" && state.stateDir.trim().length > 0
       ? state.stateDir

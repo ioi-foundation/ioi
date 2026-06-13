@@ -13,7 +13,7 @@ pub(super) fn latest_provider_health(
             "latest provider health projection requires provider_id",
         )
     })?;
-    let projection = receipt_replay_context(request);
+    let projection = receipt_replay_context(request)?;
     let receipt = projection
         .get("receipts")
         .and_then(Value::as_array)
@@ -50,7 +50,7 @@ pub(super) fn latest_provider_health(
 pub(super) fn latest_vault_health(
     request: &ModelMountReadProjectionRequest,
 ) -> Result<Value, ModelMountReadProjectionError> {
-    let projection = receipt_replay_context(request);
+    let projection = receipt_replay_context(request)?;
     let receipt = projection
         .get("receipts")
         .and_then(Value::as_array)
@@ -77,15 +77,18 @@ pub(super) fn latest_vault_health(
     }))
 }
 
-pub(super) fn latest_runtime_survey(request: &ModelMountReadProjectionRequest) -> Value {
-    let receipts = array_field(&request.state, "receipts");
+pub(super) fn latest_runtime_survey(
+    request: &ModelMountReadProjectionRequest,
+) -> Result<Value, ModelMountReadProjectionError> {
+    let projection = receipt_replay_context(request)?;
+    let receipts = array_field(&projection, "receipts");
     let Some(receipt) = receipts.iter().rev().find(|candidate| {
         json_string_field(candidate, "kind").as_deref() == Some("runtime_survey")
     }) else {
-        return runtime_survey_not_checked();
+        return Ok(runtime_survey_not_checked());
     };
     let details = receipt.get("details").unwrap_or(&Value::Null);
-    json!({
+    Ok(json!({
         "status": "checked",
         "receiptId": json_string_field(receipt, "id").unwrap_or_else(|| "none".to_string()),
         "checkedAt": details
@@ -107,7 +110,7 @@ pub(super) fn latest_runtime_survey(request: &ModelMountReadProjectionRequest) -
             .get("lm_studio")
             .cloned()
             .unwrap_or_else(|| json!({"status": "unknown"})),
-    })
+    }))
 }
 
 fn runtime_survey_not_checked() -> Value {
@@ -131,7 +134,7 @@ mod tests {
     use super::*;
     use crate::agentic::runtime::kernel::model_mount::MODEL_MOUNT_RUNTIME_SCHEMA_VERSION;
 
-    fn request(state: Value) -> ModelMountReadProjectionRequest {
+    fn request(state_dir: Option<String>, state: Value) -> ModelMountReadProjectionRequest {
         ModelMountReadProjectionRequest {
             projection_kind: "latest_provider_health".to_string(),
             schema_version: Some(MODEL_MOUNT_RUNTIME_SCHEMA_VERSION.to_string()),
@@ -141,29 +144,56 @@ mod tests {
             provider_id: Some("provider.local".to_string()),
             download_id: None,
             base_url: None,
-            state_dir: None,
+            state_dir,
             state,
+        }
+    }
+
+    fn write_receipts(state_dir: &std::path::Path, receipts: &[Value]) {
+        let receipt_dir = state_dir.join("receipts");
+        std::fs::create_dir_all(&receipt_dir).expect("receipt dir");
+        for receipt in receipts {
+            let receipt_id = json_string_field(receipt, "id").expect("receipt id");
+            std::fs::write(
+                receipt_dir.join(format!("{receipt_id}.json")),
+                serde_json::to_string_pretty(receipt).expect("receipt json"),
+            )
+            .expect("write receipt");
         }
     }
 
     #[test]
     fn latest_health_projections_have_dedicated_receipt_projection_owner() {
-        let request = request(json!({
-            "receipts": [
-                {
+        let temp = tempfile::tempdir().expect("tempdir");
+        write_receipts(
+            temp.path(),
+            &[
+                json!({
                     "id": "receipt-provider",
                     "kind": "provider_health",
                     "details": {"provider_id": "provider.local", "status": "available"}
-                },
-                {
+                }),
+                json!({
                     "id": "receipt-vault",
                     "kind": "vault_adapter_health",
                     "details": {"status": "ready"}
-                }
+                }),
             ],
-            "provider_health": [{"provider_id": "provider.js"}],
-            "providers": [{"id": "provider.js"}]
-        }));
+        );
+        let request = request(
+            Some(temp.path().to_string_lossy().to_string()),
+            json!({
+                "receipts": [
+                    {
+                        "id": "receipt-js-provider",
+                        "kind": "provider_health",
+                        "details": {"provider_id": "provider.local", "status": "js"}
+                    }
+                ],
+                "provider_health": [{"provider_id": "provider.js"}],
+                "providers": [{"id": "provider.js"}]
+            }),
+        );
 
         let provider = latest_provider_health(&request).expect("provider health");
         let vault = latest_vault_health(&request).expect("vault health");
@@ -178,13 +208,19 @@ mod tests {
 
     #[test]
     fn runtime_survey_has_dedicated_receipt_projection_owner() {
-        let not_checked = latest_runtime_survey(&request(json!({"receipts": []})));
+        let temp = tempfile::tempdir().expect("tempdir");
+        let not_checked = latest_runtime_survey(&request(
+            Some(temp.path().to_string_lossy().to_string()),
+            json!({"receipts": []}),
+        ))
+        .expect("not checked");
         assert_eq!(not_checked["engineCount"], 0);
         assert_eq!(not_checked["runtimePreference"], Value::Null);
         assert_eq!(not_checked["hardware"], Value::Null);
 
-        let checked = latest_runtime_survey(&request(json!({
-            "receipts": [{
+        write_receipts(
+            temp.path(),
+            &[json!({
                 "id": "receipt-runtime-survey",
                 "kind": "runtime_survey",
                 "details": {
@@ -195,8 +231,14 @@ mod tests {
                     "hardware": {"gpu": "available"},
                     "lm_studio": {"status": "unavailable"}
                 }
-            }]
-        })));
+            })],
+        );
+
+        let checked = latest_runtime_survey(&request(
+            Some(temp.path().to_string_lossy().to_string()),
+            json!({"receipts": []}),
+        ))
+        .expect("checked");
 
         assert_eq!(checked["receiptId"], "receipt-runtime-survey");
         assert_eq!(checked["engineCount"], 2);
@@ -210,5 +252,22 @@ mod tests {
         assert_eq!(checked["runtimePreference"]["routeId"], "route.local-first");
         assert_eq!(checked["hardware"]["gpu"], "available");
         assert_eq!(checked["lmStudio"]["status"], "unavailable");
+    }
+
+    #[test]
+    fn latest_health_rejects_js_receipt_transport_without_state_dir() {
+        let error = latest_provider_health(&request(
+            None,
+            json!({
+                "receipts": [{
+                    "id": "receipt-provider",
+                    "kind": "provider_health",
+                    "details": {"provider_id": "provider.local", "status": "healthy"}
+                }]
+            }),
+        ))
+        .expect_err("state_dir is required");
+
+        assert_eq!(error.code, "model_mount_receipt_replay_state_dir_required");
     }
 }

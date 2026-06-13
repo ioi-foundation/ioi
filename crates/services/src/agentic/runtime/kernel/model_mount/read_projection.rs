@@ -69,6 +69,16 @@ pub(super) const MODEL_MOUNT_STORAGE_SUMMARY_PROJECTION_KIND: &str = "storage_su
 pub(super) const MODEL_MOUNT_BACKENDS_PROJECTION_KIND: &str = "backends";
 pub(super) const MODEL_MOUNT_SERVER_STATUS_PROJECTION_KIND: &str = "server_status";
 pub(super) const MODEL_MOUNT_MCP_SERVERS_PROJECTION_KIND: &str = "mcp_servers";
+pub(super) const MODEL_MOUNT_RECEIPT_REPLAY_PROJECTION_KINDS: [&str; 8] = [
+    "snapshot",
+    "projection",
+    "projection_summary",
+    "receipt_replay",
+    "authority_snapshot",
+    "latest_provider_health",
+    "latest_vault_health",
+    "latest_runtime_survey",
+];
 pub(super) const MODEL_MOUNT_RUNTIME_ENGINE_PROJECTION_KINDS: [&str; 6] = [
     "runtime_engines",
     "runtime_engine_profiles",
@@ -243,6 +253,13 @@ pub(super) fn plan_read_projection(
             "model_mount_mcp_server_js_projection_retired".to_string(),
         ]);
     }
+    if MODEL_MOUNT_RECEIPT_REPLAY_PROJECTION_KINDS.contains(&request.projection_kind.as_str()) {
+        evidence_refs.extend([
+            "rust_daemon_core_model_mount_receipt_replay_projection".to_string(),
+            "agentgres_model_mount_receipt_replay_required".to_string(),
+            "model_mount_js_receipt_list_projection_transport_retired".to_string(),
+        ]);
+    }
     Ok(ModelMountReadProjectionPlan {
         projection_kind: request.projection_kind.clone(),
         projection,
@@ -254,16 +271,16 @@ pub(super) fn model_mount_read_projection(
     request: &ModelMountReadProjectionRequest,
 ) -> Result<Value, ModelMountReadProjectionError> {
     match request.projection_kind.as_str() {
-        "snapshot" => Ok(aggregate::snapshot(request)),
-        "projection" => Ok(aggregate::projection(request)),
-        "projection_summary" => Ok(receipt::projection_summary(request)),
+        "snapshot" => aggregate::snapshot(request),
+        "projection" => aggregate::projection(request),
+        "projection_summary" => receipt::projection_summary(request),
         "receipt_replay" => receipt::receipt_replay(request),
         MODEL_MOUNT_ROUTE_DECISIONS_PROJECTION_KIND => route_decision::route_decisions(request),
         MODEL_MOUNT_ROUTE_ENDPOINT_RESOLUTIONS_PROJECTION_KIND => {
             route_decision::endpoint_resolutions(request)
         }
         MODEL_MOUNT_CONVERSATION_PROJECTION_KIND => conversation::conversation_states(request),
-        "authority_snapshot" => Ok(authority::authority_snapshot(request)),
+        "authority_snapshot" => authority::authority_snapshot(request),
         MODEL_MOUNT_SERVER_STATUS_PROJECTION_KIND => status::server_status(request),
         "artifacts" => topology::artifacts(request),
         "product_artifacts" => topology::product_artifacts(request),
@@ -297,7 +314,7 @@ pub(super) fn model_mount_read_projection(
         "open_ai_model_list" => topology::open_ai_model_list(request),
         "latest_provider_health" => health::latest_provider_health(request),
         "latest_vault_health" => health::latest_vault_health(request),
-        "latest_runtime_survey" => Ok(health::latest_runtime_survey(request)),
+        "latest_runtime_survey" => health::latest_runtime_survey(request),
         MODEL_MOUNT_CATALOG_STATUS_PROJECTION_KIND => status::catalog_status(request),
         other => Err(ModelMountReadProjectionError::new(
             "model_mount_read_projection_kind_unsupported",
@@ -313,8 +330,29 @@ mod tests {
     use super::super::MODEL_MOUNT_RUNTIME_SCHEMA_VERSION;
     use super::*;
 
+    fn write_receipts(state_dir: &std::path::Path, receipts: &[Value]) {
+        let receipt_dir = state_dir.join("receipts");
+        std::fs::create_dir_all(&receipt_dir).expect("receipt dir");
+        for receipt in receipts {
+            let receipt_id = receipt
+                .get("id")
+                .and_then(Value::as_str)
+                .expect("receipt id");
+            std::fs::write(
+                receipt_dir.join(format!("{receipt_id}.json")),
+                serde_json::to_string_pretty(receipt).expect("receipt json"),
+            )
+            .expect("write receipt");
+        }
+    }
+
     #[test]
     fn read_projection_is_planned_in_rust_model_mount_core() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        write_receipts(
+            temp.path(),
+            &[json!({"id": "receipt_1", "kind": "model_route_selection", "details": {}})],
+        );
         let plan = plan_read_projection(&ModelMountReadProjectionRequest {
             projection_kind: "projection_summary".to_string(),
             schema_version: Some(MODEL_MOUNT_RUNTIME_SCHEMA_VERSION.to_string()),
@@ -324,10 +362,10 @@ mod tests {
             provider_id: None,
             download_id: None,
             base_url: None,
-            state_dir: None,
+            state_dir: Some(temp.path().to_string_lossy().to_string()),
             state: serde_json::json!({
                 "receipts": [
-                    {"id": "receipt_1", "kind": "model_route_selection", "details": {}}
+                    {"id": "receipt_js", "kind": "model_route_selection", "details": {}}
                 ]
             }),
         })
@@ -350,12 +388,35 @@ mod tests {
                 "rust_daemon_core_model_mount_projection",
                 "agentgres_model_mount_read_truth",
                 "model_mount_js_read_projection_authoring_retired",
+                "rust_daemon_core_model_mount_receipt_replay_projection",
+                "agentgres_model_mount_receipt_replay_required",
+                "model_mount_js_receipt_list_projection_transport_retired",
             ],
         );
     }
 
     #[test]
     fn rust_core_shapes_model_mount_read_projection_command_response() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let state_dir = temp.path().to_string_lossy().to_string();
+        write_receipts(
+            temp.path(),
+            &[json!({
+                "id": "receipt-route",
+                "kind": "model_route_selection",
+                "createdAt": "2026-06-08T00:00:00.000Z",
+                "details": {
+                    "model_route_decision": {
+                        "schema_version": "ioi.model-route-decision.v1",
+                        "route_id": "route.local-first",
+                        "selected_model": "model.local"
+                    },
+                    "route_id": "route.local-first",
+                    "endpoint_id": "endpoint.local",
+                    "provider_id": "provider.local"
+                }
+            })],
+        );
         let request: ModelMountReadProjectionBridgeRequest = serde_json::from_value(json!({
             "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
             "operation": "plan_model_mount_read_projection",
@@ -364,13 +425,13 @@ mod tests {
                 "projection_kind": "projection",
                 "schema_version": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
                 "generated_at": "2026-06-08T00:00:00.000Z",
-                "state_dir": null,
+                "state_dir": state_dir,
                 "state": {
                     "wallet": {"port": "WalletAuthorityPort"},
                     "vault": {"port": "VaultPort"},
                     "agentgres_store": {"port": "AgentgresStorePort"},
                     "receipts": [{
-                        "id": "receipt-route",
+                        "id": "receipt-js",
                         "kind": "model_route_selection",
                         "createdAt": "2026-06-08T00:00:00.000Z",
                         "details": {

@@ -1,20 +1,25 @@
+use std::{fs, path::Path};
+
 use serde_json::{json, Value};
 
 use super::common::{
-    array_field, json_string_field, model_mount_projection_generated_at,
-    model_mount_projection_schema_version,
+    json_string_field, model_mount_projection_generated_at, model_mount_projection_schema_version,
 };
 use super::{ModelMountReadProjectionError, ModelMountReadProjectionRequest};
 
-pub(super) fn projection_summary(request: &ModelMountReadProjectionRequest) -> Value {
-    let receipts = array_field(&request.state, "receipts");
-    json!({
+const RECEIPT_RECORD_DIR: &str = "receipts";
+
+pub(super) fn projection_summary(
+    request: &ModelMountReadProjectionRequest,
+) -> Result<Value, ModelMountReadProjectionError> {
+    let receipts = receipt_records(request)?;
+    Ok(json!({
         "schemaVersion": model_mount_projection_schema_version(request),
         "source": "agentgres_model_mounting_projection",
         "watermark": receipts.len(),
         "receiptCount": receipts.len(),
         "generatedAt": model_mount_projection_generated_at(request),
-    })
+    }))
 }
 
 pub(super) fn receipt_replay(
@@ -26,18 +31,98 @@ pub(super) fn receipt_replay(
             "model_mount receipt replay projection requires receipt_id",
         )
     })?;
-    let projection = receipt_replay_context(request);
+    let projection = receipt_replay_context(request)?;
     let receipt = find_receipt(&projection, receipt_id)?;
     Ok(receipt_replay_projection(request, &projection, &receipt))
 }
 
-pub(super) fn receipt_replay_context(request: &ModelMountReadProjectionRequest) -> Value {
-    let state = &request.state;
-    let receipts = array_field(state, "receipts");
-    json!({
+pub(super) fn receipt_replay_context(
+    request: &ModelMountReadProjectionRequest,
+) -> Result<Value, ModelMountReadProjectionError> {
+    let receipts = receipt_records(request)?;
+    Ok(json!({
         "watermark": receipts.len(),
         "receipts": receipts,
-    })
+    }))
+}
+
+pub(super) fn receipt_records(
+    request: &ModelMountReadProjectionRequest,
+) -> Result<Vec<Value>, ModelMountReadProjectionError> {
+    let state_dir = request
+        .state_dir
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| {
+            ModelMountReadProjectionError::new(
+                "model_mount_receipt_replay_state_dir_required",
+                "model_mount receipt projection requires Rust Agentgres state_dir replay",
+            )
+        })?;
+    let record_dir = Path::new(state_dir).join(RECEIPT_RECORD_DIR);
+    if !record_dir.exists() {
+        return Ok(vec![]);
+    }
+    let entries = fs::read_dir(&record_dir).map_err(|error| {
+        ModelMountReadProjectionError::new(
+            "model_mount_receipt_replay_read_failed",
+            format!("failed to read model_mount receipt records: {error}"),
+        )
+    })?;
+    let mut receipts = entries
+        .filter_map(|entry| entry.ok())
+        .map(|entry| entry.path())
+        .filter(|path| path.extension().and_then(|value| value.to_str()) == Some("json"))
+        .map(|path| {
+            fs::read_to_string(&path)
+                .map_err(|error| {
+                    ModelMountReadProjectionError::new(
+                        "model_mount_receipt_replay_read_failed",
+                        format!(
+                            "failed to read model_mount receipt record {}: {error}",
+                            path.display()
+                        ),
+                    )
+                })
+                .and_then(|contents| {
+                    serde_json::from_str::<Value>(&contents).map_err(|error| {
+                        ModelMountReadProjectionError::new(
+                            "model_mount_receipt_replay_invalid_record",
+                            format!(
+                                "failed to decode model_mount receipt record {}: {error}",
+                                path.display()
+                            ),
+                        )
+                    })
+                })
+        })
+        .collect::<Result<Vec<_>, _>>()?
+        .into_iter()
+        .filter(admitted_receipt_record)
+        .collect::<Vec<_>>();
+    receipts.sort_by(|left, right| {
+        receipt_sort_key(left)
+            .cmp(&receipt_sort_key(right))
+            .then_with(|| json_string_field(left, "id").cmp(&json_string_field(right, "id")))
+    });
+    Ok(receipts)
+}
+
+fn admitted_receipt_record(receipt: &Value) -> bool {
+    json_string_field(receipt, "id")
+        .map(|value| !value.is_empty())
+        .unwrap_or(false)
+        && json_string_field(receipt, "kind")
+            .map(|value| !value.is_empty())
+            .unwrap_or(false)
+}
+
+fn receipt_sort_key(receipt: &Value) -> String {
+    json_string_field(receipt, "createdAt")
+        .or_else(|| json_string_field(receipt, "created_at"))
+        .or_else(|| json_string_field(receipt, "generated_at"))
+        .unwrap_or_default()
 }
 
 fn find_receipt(
@@ -111,7 +196,7 @@ mod tests {
     use super::*;
     use crate::agentic::runtime::kernel::model_mount::MODEL_MOUNT_RUNTIME_SCHEMA_VERSION;
 
-    fn request(state: Value) -> ModelMountReadProjectionRequest {
+    fn request(state_dir: Option<String>, state: Value) -> ModelMountReadProjectionRequest {
         ModelMountReadProjectionRequest {
             projection_kind: "receipt_replay".to_string(),
             schema_version: Some(MODEL_MOUNT_RUNTIME_SCHEMA_VERSION.to_string()),
@@ -121,19 +206,39 @@ mod tests {
             provider_id: Some("provider.local".to_string()),
             download_id: None,
             base_url: None,
-            state_dir: None,
+            state_dir,
             state,
+        }
+    }
+
+    fn write_receipts(state_dir: &std::path::Path, receipts: &[Value]) {
+        let receipt_dir = state_dir.join(RECEIPT_RECORD_DIR);
+        std::fs::create_dir_all(&receipt_dir).expect("receipt dir");
+        for receipt in receipts {
+            let receipt_id = json_string_field(receipt, "id").expect("receipt id");
+            std::fs::write(
+                receipt_dir.join(format!("{receipt_id}.json")),
+                serde_json::to_string_pretty(receipt).expect("receipt json"),
+            )
+            .expect("write receipt");
         }
     }
 
     #[test]
     fn projection_summary_is_planned_from_receipt_truth() {
-        let summary = projection_summary(&request(json!({
-            "receipts": [
-                {"id": "receipt-one", "kind": "model_route_selection"},
-                {"id": "receipt-two", "kind": "provider_health"}
-            ]
-        })));
+        let temp = tempfile::tempdir().expect("tempdir");
+        write_receipts(
+            temp.path(),
+            &[
+                json!({"id": "receipt-one", "kind": "model_route_selection"}),
+                json!({"id": "receipt-two", "kind": "provider_health"}),
+            ],
+        );
+        let summary = projection_summary(&request(
+            Some(temp.path().to_string_lossy().to_string()),
+            json!({"receipts": [{"id": "receipt-js", "kind": "provider_health"}]}),
+        ))
+        .expect("projection summary");
 
         assert_eq!(summary["source"], "agentgres_model_mounting_projection");
         assert_eq!(summary["watermark"], 2);
@@ -143,22 +248,32 @@ mod tests {
 
     #[test]
     fn receipt_replay_is_planned_from_receipt_only_context() {
-        let _proof = "receipt replay projected from receipt-only Rust context";
-        let replay = receipt_replay(&request(json!({
-            "receipts": [
-                {"id": "tool-receipt", "kind": "mcp_tool_invocation"},
-                {
+        let temp = tempfile::tempdir().expect("tempdir");
+        write_receipts(
+            temp.path(),
+            &[
+                json!({"id": "tool-receipt", "kind": "mcp_tool_invocation"}),
+                json!({
                     "id": "receipt-route",
                     "kind": "model_route_selection",
                     "details": {
                         "tool_receipt_ids": ["tool-receipt"],
                         "model_route_decision": {"route_id": "route.local-first"}
                     }
-                }
+                }),
             ],
-            "routes": [{"id": "route.js"}],
-            "providers": [{"id": "provider.js"}]
-        })))
+        );
+        let _proof = "receipt replay projected from receipt-only Rust context";
+        let replay = receipt_replay(&request(
+            Some(temp.path().to_string_lossy().to_string()),
+            json!({
+                "receipts": [
+                    {"id": "receipt-js", "kind": "model_route_selection"}
+                ],
+                "routes": [{"id": "route.js"}],
+                "providers": [{"id": "provider.js"}]
+            }),
+        ))
         .expect("receipt replay planned from receipt truth");
 
         assert_eq!(
@@ -180,5 +295,16 @@ mod tests {
                 .len(),
             1
         );
+    }
+
+    #[test]
+    fn receipt_projection_rejects_js_receipt_transport_without_state_dir() {
+        let error = projection_summary(&request(
+            None,
+            json!({"receipts": [{"id": "receipt-js", "kind": "model_route_selection"}]}),
+        ))
+        .expect_err("state_dir is required");
+
+        assert_eq!(error.code, "model_mount_receipt_replay_state_dir_required");
     }
 }
