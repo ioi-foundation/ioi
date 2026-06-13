@@ -29,10 +29,11 @@ Current Wallet addition:
 > advanced and high-risk: perps, margin, leverage, and position lifecycle
 > require exact TradeIntent approval, risk labels, and position receipts.**
 
-Current decentralized resource-lane addition:
+Current Wallet/provider integration addition:
 
-> **decentralized.exchange routes liquidity, decentralized.trade routes
-> exposure, and the Hypervisor Cloud Resource Lane routes execution through
-> direct provider integrations. Lanes propose candidates; wallet.network
-> authorizes; Hypervisor executes or deploys; venues and providers perform;
-> Agentgres records; IOI L1 settles by trigger.**
+> **decentralized.exchange routes liquidity and decentralized.trade routes
+> exposure. Hypervisor has direct provider integrations for cloud compute,
+> storage, GPUs, confidential compute, DePIN, local machines, and customer
+> infrastructure. Candidates propose; wallet.network authorizes; Hypervisor
+> executes or deploys; venues and providers perform; Agentgres records; IOI L1
+> settles by trigger.**

@@ -79,7 +79,7 @@ DePIN compute
 cloud GPU endpoints
 Akash and similar compute markets
 Filecoin/CAS/S3/local storage posture
-Cloud Resource Lane route candidates
+CloudRoute candidates
 cTEE private workspaces
 Agentgres domains
 model mounts
@@ -140,15 +140,12 @@ These primitives are not separate from autonomous-system management. They are
 the substrate persistent agents, workers, services, model servers, private
 workspaces, and HypervisorOS nodes require.
 
-## Cloud Resource Lane
+## Direct Provider Integrations
 
-The **Cloud Resource Lane** is the source-agnostic infrastructure lane used by
-Hypervisor to run workloads across local machines, customer clouds,
-hyperscalers, DePIN compute markets, decentralized storage networks,
-confidential-compute providers, enterprise clusters, and user-specified
-provider routes.
+Hypervisor integrates directly with the providers that run and store autonomous
+work.
 
-Hypervisor may route directly to:
+Fleet may route workloads through:
 
 - local machines and homelabs;
 - user-owned or org-owned AWS, Google Cloud, Azure, and other cloud accounts;
@@ -182,8 +179,8 @@ It does not own:
 Correct product framing:
 
 ```text
-Cloud Resource Lane routes execution candidates.
-Direct provider mode routes through provider connectors or local inventory.
+Hypervisor has direct provider integrations for compute, storage, GPUs,
+confidential compute, DePIN, local machines, and customer infrastructure.
 Hypervisor Fleet compares and displays infrastructure posture.
 wallet.network authorizes spend, provider access, secret release, and policy.
 Hypervisor Daemon or provider connector deploys and runs.
@@ -195,7 +192,7 @@ Incorrect product framing:
 
 ```text
 cloud provider catalog = compute provider.
-cloud router = Hypervisor execution owner.
+provider catalog or cloud router = Hypervisor execution owner.
 future decentralized.cloud = mandatory gateway for cloud or DePIN.
 cheap DePIN GPU route = private route.
 ```
@@ -245,7 +242,7 @@ Fleet may own or coordinate:
 - GPU pool, model-server placement, and accelerator utilization visibility;
 - DePIN compute endpoint metadata;
 - cloud GPU and VM endpoint metadata;
-- Cloud Resource Lane route-candidate metadata;
+- CloudRoute candidate metadata;
 - storage-backend posture for local disk, S3/object stores, Filecoin, CAS/IPFS,
   provider blob stores, and customer VPC blob stores;
 - runtime assignment visibility and placement recommendations;
@@ -301,7 +298,7 @@ provider account or local node is registered
   -> Fleet updates observability and control projections
 ```
 
-Cloud routing lifecycle:
+Provider selection lifecycle:
 
 ```text
 agent, workflow, service, or operator requests infrastructure
@@ -585,9 +582,9 @@ Agentgres operations, receipt refs, artifact refs, and projection watermarks.
   the daemon/cTEE custody receipts support the claim.
 - Fleet cannot route private workspace plaintext to provider-rooted nodes
   unless policy explicitly allows plaintext custody.
-- Fleet cannot treat a Cloud Resource Lane candidate as authority, proof of
+- Fleet cannot treat a CloudRoute candidate as authority, proof of
   provider privacy, or permission to spend funds or release secrets.
-- Fleet cannot compare cloud routes on price alone when privacy posture,
+- Fleet cannot compare provider candidates on price alone when privacy posture,
   attestation, jurisdiction, persistence, storage locality, or cTEE posture
   materially affects the workload.
 - Fleet cannot make IOI L1 the default settlement path for ordinary runtime
@@ -627,7 +624,7 @@ Reject these:
 
 ## Related Canon
 
-- [`../../foundations/decentralized-resource-lanes.md`](../../foundations/decentralized-resource-lanes.md)
+- [`../../foundations/wallet-exchange-trade-provider-integrations.md`](../../foundations/wallet-exchange-trade-provider-integrations.md)
 - [`../daemon-runtime/doctrine.md`](../daemon-runtime/doctrine.md)
 - [`../daemon-runtime/private-workspace-ctee.md`](../daemon-runtime/private-workspace-ctee.md)
 - [`../daemon-runtime/runtime-nodes-tee-depin.md`](../daemon-runtime/runtime-nodes-tee-depin.md)

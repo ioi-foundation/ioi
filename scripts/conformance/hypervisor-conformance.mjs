@@ -2150,7 +2150,7 @@ function runDocs() {
       /JS-authored StepModule context, JS-authored result payload summary\/source-event kind\/result-event candidate/.test(
         matrix,
       ) &&
-      /Move diagnostics projection\/replay into the Rust-owned execution spine/.test(
+      /Move remaining diagnostics repair policy\/approval authority and broader diagnostics orchestration\/replay into the Rust-owned execution spine/.test(
         matrix,
       ) &&
       /Public workspace snapshot\/restore API Rust-owned/.test(matrix) &&
@@ -33840,10 +33840,28 @@ function runCompositor() {
     /project_runtime_diagnostics_repair_projection_response/.test(
       runtimeDiagnosticsRepairProjectionCore,
     ) &&
-    /rust_projects_runtime_diagnostics_repair_decision_projection/.test(
+    /pub state_dir: Option<String>/.test(
+      runtimeDiagnosticsRepairProjectionCore,
+    ) &&
+    /decision_candidates_from_event/.test(
+      runtimeDiagnosticsRepairProjectionCore,
+    ) &&
+    /runtime_diagnostics_repair_projection_candidate_transport_retired/.test(
+      runtimeDiagnosticsRepairProjectionCore,
+    ) &&
+    /runtime_diagnostics_repair_projection_state_dir_required/.test(
+      runtimeDiagnosticsRepairProjectionCore,
+    ) &&
+    /rust_replays_runtime_diagnostics_repair_decision_projection_from_state_dir/.test(
       runtimeDiagnosticsRepairProjectionCore,
     ) &&
     /rust_shapes_runtime_diagnostics_repair_projection_command_response/.test(
+      runtimeDiagnosticsRepairProjectionCore,
+    ) &&
+    /rust_rejects_runtime_diagnostics_repair_projection_candidate_transport/.test(
+      runtimeDiagnosticsRepairProjectionCore,
+    ) &&
+    /rust_rejects_runtime_diagnostics_repair_projection_without_state_dir/.test(
       runtimeDiagnosticsRepairProjectionCore,
     ) &&
     /rust_rejects_runtime_diagnostics_repair_projection_without_decision_id/.test(
@@ -33876,7 +33894,43 @@ function runCompositor() {
     /runtime diagnostics repair projection runner sends Rust daemon-core request/.test(
       runtimeContextPolicyRunnerTest,
     ) &&
-    /diagnostics repair decision resolver uses Rust projection without JS projection reads/.test(
+    /captured\.request\.state_dir,\s*"\/runtime-state"/.test(
+      runtimeContextPolicyRunnerTest,
+    ) &&
+    /Object\.hasOwn\(captured\.request,\s*"projection"\),\s*false/.test(
+      runtimeContextPolicyRunnerTest,
+    ) &&
+    /state_dir:\s*store\?\.stateDir \?\? null/.test(
+      runtimeDiagnosticsRepairSurface,
+    ) &&
+    /rejectDiagnosticsRepairProjectionCandidateTransport/.test(
+      runtimeDiagnosticsRepairSurface,
+    ) &&
+    /runtime_diagnostics_repair_projection_candidate_transport_retired/.test(
+      runtimeDiagnosticsRepairSurface,
+    ) &&
+    !/diagnosticsRepairDecisionProjectionInput/.test(
+      runtimeDiagnosticsRepairSurface,
+    ) &&
+    !/projection:\s*diagnosticsRepairDecisionProjectionInput/.test(
+      runtimeDiagnosticsRepairSurface,
+    ) &&
+    /rust_daemon_core_diagnostics_repair_replay_required/.test(
+      runtimeDiagnosticsRepairSurface,
+    ) &&
+    /diagnostics repair decision resolver uses Rust state replay projection without JS candidate transport/.test(
+      runtimeDiagnosticsRepairSurfaceTest,
+    ) &&
+    /runner\.requests\[0\]\.state_dir,\s*store\.stateDir/.test(
+      runtimeDiagnosticsRepairSurfaceTest,
+    ) &&
+    /Object\.hasOwn\(runner\.requests\[0\],\s*"projection"\),\s*false/.test(
+      runtimeDiagnosticsRepairSurfaceTest,
+    ) &&
+    /diagnostics repair decision resolver rejects retired JS candidate transport/.test(
+      runtimeDiagnosticsRepairSurfaceTest,
+    ) &&
+    /assert\.deepEqual\(runner\.requests,\s*\[\]\)/.test(
       runtimeDiagnosticsRepairSurfaceTest,
     ) &&
     /diagnostics repair decision resolver fails closed before JS projection reads without Rust projection/.test(
@@ -34007,7 +34061,7 @@ function runCompositor() {
       !/diagnostics_repair_decision_resolution_js_projection_retired/.test(
         runtimeDiagnosticsRepairSurface,
       ) &&
-      /diagnostics repair decision resolver uses Rust projection without JS projection reads/.test(
+      /diagnostics repair decision resolver uses Rust state replay projection without JS candidate transport/.test(
         runtimeDiagnosticsRepairSurfaceTest,
       ) &&
       /diagnostics repair decision resolver fails closed before JS projection reads without Rust projection/.test(

@@ -2488,7 +2488,11 @@ diagnostics repair decision-projection cut also supersedes the fail-closed JS
 resolver: decision resolution now requires Rust daemon-core
 `project_runtime_diagnostics_repair_projection`, validates the Rust projection
 kind and thread/decision/gate identity, and fails closed before JS
-accepted-truth resolution when Rust projection is missing or mismatched.
+accepted-truth resolution when Rust projection is missing or mismatched. The
+follow-on replay cut removes JS decision-candidate transport for this boundary:
+the daemon surface sends runtime `state_dir`, Rust replays admitted Agentgres
+runtime events for repair decisions, and retired
+`projection`/`decision`/`decisions`/`repair_decisions` inputs fail closed.
 The diagnostics operator override state-update cut supersedes the operator
 override execution refusal path: override execution now requires Rust
 `plan_diagnostics_operator_override_state_update` and commits only the
@@ -4850,8 +4854,9 @@ decision-event append call Rust `plan_runtime_diagnostics_repair_control` and
 admit only Rust-authored diagnostics repair events through Rust runtime-event
 Agentgres admission without JS event append, run-state mutation, or repair-truth
 persistence, and diagnostics repair decision resolution calls Rust
-`project_runtime_diagnostics_repair_projection` before accepted repair truth can
-return without JS projection readback; diagnostics operator override execution calls Rust
+`project_runtime_diagnostics_repair_projection` over runtime `state_dir`
+Agentgres event replay before accepted repair truth can return without JS
+projection readback or decision-candidate transport; diagnostics operator override execution calls Rust
 `plan_diagnostics_operator_override_state_update` and commits only the
 Rust-planned operator-control run projection through Rust Agentgres run-state
 admission without JS run-map mutation; direct operator-override event append
@@ -5079,8 +5084,8 @@ accepted control truth can return; diagnostics repair decision execution and
 direct decision-event append require Rust `plan_runtime_diagnostics_repair_control`
 and Rust runtime-event admission before accepted repair control truth can return,
 and diagnostics repair decision resolution requires Rust
-`project_runtime_diagnostics_repair_projection` before accepted repair projection
-truth can return;
+`project_runtime_diagnostics_repair_projection` over runtime `state_dir`
+Agentgres event replay before accepted repair projection truth can return;
 diagnostics operator override execution requires Rust
 `plan_diagnostics_operator_override_state_update` plus Rust Agentgres run-state
 admission before accepted override control truth can return;

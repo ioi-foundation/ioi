@@ -28,6 +28,7 @@ function assertNoRetiredDiagnosticsRepairDetailAliases(details) {
 function harness() {
   const calls = [];
   const store = {
+    stateDir: "/tmp/runtime-diagnostics-repair-state",
     agentForThread(threadId) {
       calls.push({ name: "agentForThread", threadId });
       throw new Error("Diagnostics repair facade must not look up agents in JS.");
@@ -116,6 +117,10 @@ function diagnosticsRepairProjectionRunner() {
   return {
     requests,
     projectRuntimeDiagnosticsRepairProjection(request) {
+      assert.equal(Object.hasOwn(request, "projection"), false);
+      assert.equal(Object.hasOwn(request, "decision"), false);
+      assert.equal(Object.hasOwn(request, "decisions"), false);
+      assert.equal(Object.hasOwn(request, "repair_decisions"), false);
       requests.push(request);
       return {
         source: "rust_runtime_diagnostics_repair_projection_command",
@@ -733,7 +738,7 @@ test("diagnostics operator override event append fails closed before JS runtime 
   assert.deepEqual(calls, []);
 });
 
-test("diagnostics repair decision resolver uses Rust projection without JS projection reads", () => {
+test("diagnostics repair decision resolver uses Rust state replay projection without JS candidate transport", () => {
   const runner = diagnosticsRepairProjectionRunner();
   const { calls, store } = harness();
   store.contextPolicyRunner = runner;
@@ -741,15 +746,6 @@ test("diagnostics repair decision resolver uses Rust projection without JS proje
 
   const result = surface.resolveDiagnosticsRepairDecision(store, "thread_alpha", "decision_alpha", {
     gate_id: "gate_alpha",
-    projection: {
-      decisions: [{
-        decision_id: "decision_alpha",
-        thread_id: "thread_alpha",
-        gate_id: "gate_alpha",
-        action: "restore_apply",
-        status: "accepted",
-      }],
-    },
   });
 
   assert.equal(result.object, "ioi.runtime_diagnostics_repair_decision_resolution");
@@ -760,6 +756,7 @@ test("diagnostics repair decision resolver uses Rust projection without JS proje
   assert.deepEqual(result.evidence_refs, [
     "runtime_diagnostics_repair_decision_projection_rust_owned",
     "rust_daemon_core_diagnostics_repair_projection_required",
+    "rust_daemon_core_diagnostics_repair_replay_required",
     "agentgres_diagnostics_repair_projection_truth_required",
   ]);
   assert.deepEqual(runner.requests, [{
@@ -769,21 +766,55 @@ test("diagnostics repair decision resolver uses Rust projection without JS proje
     thread_id: "thread_alpha",
     decision_id: "decision_alpha",
     gate_id: "gate_alpha",
-    projection: {
-      decisions: [{
-        decision_id: "decision_alpha",
-        thread_id: "thread_alpha",
-        gate_id: "gate_alpha",
-        action: "restore_apply",
-        status: "accepted",
-      }],
-    },
+    state_dir: store.stateDir,
     evidence_refs: [
       "runtime_diagnostics_repair_decision_projection_rust_owned",
       "rust_daemon_core_diagnostics_repair_projection_required",
+      "rust_daemon_core_diagnostics_repair_replay_required",
       "agentgres_diagnostics_repair_projection_truth_required",
     ],
   }]);
+  assert.equal(runner.requests[0].state_dir, store.stateDir);
+  assert.equal(Object.hasOwn(runner.requests[0], "projection"), false);
+  assert.deepEqual(calls, []);
+});
+
+test("diagnostics repair decision resolver rejects retired JS candidate transport", () => {
+  const runner = diagnosticsRepairProjectionRunner();
+  const { calls, store } = harness();
+  store.contextPolicyRunner = runner;
+  const surface = createRuntimeDiagnosticsRepairSurface({ runtimeError });
+
+  assert.throws(
+    () =>
+      surface.resolveDiagnosticsRepairDecision(store, "thread_alpha", "decision_alpha", {
+        gate_id: "gate_alpha",
+        projection: {
+          decisions: [{
+            decision_id: "decision_alpha",
+            thread_id: "thread_alpha",
+            gate_id: "gate_alpha",
+          }],
+        },
+      }),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(
+        error.code,
+        "runtime_diagnostics_repair_projection_candidate_transport_retired",
+      );
+      assert.deepEqual(error.details.retired_inputs, ["projection"]);
+      assert.deepEqual(error.details.evidence_refs, [
+        "runtime_diagnostics_repair_decision_projection_rust_owned",
+        "rust_daemon_core_diagnostics_repair_projection_required",
+        "rust_daemon_core_diagnostics_repair_replay_required",
+        "agentgres_diagnostics_repair_projection_truth_required",
+      ]);
+      return true;
+    },
+  );
+
+  assert.deepEqual(runner.requests, []);
   assert.deepEqual(calls, []);
 });
 
@@ -807,6 +838,7 @@ test("diagnostics repair decision resolver fails closed before JS projection rea
       assert.deepEqual(error.details.evidence_refs, [
         "runtime_diagnostics_repair_decision_projection_rust_owned",
         "rust_daemon_core_diagnostics_repair_projection_required",
+        "rust_daemon_core_diagnostics_repair_replay_required",
         "agentgres_diagnostics_repair_projection_truth_required",
       ]);
       assertNoRetiredDiagnosticsRepairDetailAliases(error.details);

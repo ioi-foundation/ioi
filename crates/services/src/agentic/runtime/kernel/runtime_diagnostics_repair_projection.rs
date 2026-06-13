@@ -1,5 +1,6 @@
 use serde::Deserialize;
 use serde_json::{json, Value};
+use std::{collections::BTreeMap, fs, path::Path};
 
 pub const RUNTIME_DIAGNOSTICS_REPAIR_PROJECTION_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.diagnostics-repair-projection-request.v1";
@@ -27,9 +28,11 @@ pub struct RuntimeDiagnosticsRepairProjectionRequest {
     #[serde(default)]
     pub source: Option<String>,
     #[serde(default)]
-    pub projection: Value,
+    pub state_dir: Option<String>,
     #[serde(default)]
     pub evidence_refs: Vec<String>,
+    #[serde(flatten)]
+    pub extra: BTreeMap<String, Value>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -102,6 +105,7 @@ impl RuntimeDiagnosticsRepairProjectionCore {
                 ));
             }
         }
+        reject_projection_candidate_transport(request)?;
 
         let projection_kind = normalized_projection_kind(request)?;
         let thread_id = optional_trimmed(request.thread_id.as_deref()).ok_or_else(|| {
@@ -133,6 +137,7 @@ impl RuntimeDiagnosticsRepairProjectionCore {
             vec![
                 "runtime_diagnostics_repair_decision_projection_rust_owned".to_string(),
                 "rust_daemon_core_diagnostics_repair_projection_required".to_string(),
+                "rust_daemon_core_diagnostics_repair_replay_required".to_string(),
                 "agentgres_diagnostics_repair_projection_truth_required".to_string(),
             ]
         } else {
@@ -191,7 +196,7 @@ fn projection_for_kind(
     decision_id: &str,
 ) -> Result<Value, RuntimeDiagnosticsRepairProjectionCommandError> {
     match projection_kind {
-        "decision" => Ok(decision_candidates(&request.projection)
+        "decision" => Ok(decision_candidates(request, thread_id)?
             .into_iter()
             .find(|record| {
                 matches_thread(record, thread_id)
@@ -205,6 +210,22 @@ fn projection_for_kind(
             format!("unsupported diagnostics repair projection kind {projection_kind}"),
         )),
     }
+}
+
+fn reject_projection_candidate_transport(
+    request: &RuntimeDiagnosticsRepairProjectionRequest,
+) -> Result<(), RuntimeDiagnosticsRepairProjectionCommandError> {
+    for key in ["projection", "decision", "decisions", "repair_decisions"] {
+        if request.extra.contains_key(key) {
+            return Err(RuntimeDiagnosticsRepairProjectionCommandError::new(
+                "runtime_diagnostics_repair_projection_candidate_transport_retired",
+                format!(
+                    "diagnostics repair projection rejects retired JS candidate transport {key}"
+                ),
+            ));
+        }
+    }
+    Ok(())
 }
 
 fn normalized_projection_kind(
@@ -232,22 +253,193 @@ fn normalized_projection_kind(
     }
 }
 
-fn decision_candidates(projection: &Value) -> Vec<Value> {
-    if let Some(records) = projection.as_array() {
-        return records.clone();
+fn decision_candidates(
+    request: &RuntimeDiagnosticsRepairProjectionRequest,
+    thread_id: &str,
+) -> Result<Vec<Value>, RuntimeDiagnosticsRepairProjectionCommandError> {
+    let state_dir = optional_trimmed(request.state_dir.as_deref()).ok_or_else(|| {
+        RuntimeDiagnosticsRepairProjectionCommandError::new(
+            "runtime_diagnostics_repair_projection_state_dir_required",
+            "diagnostics repair projection requires runtime state_dir for Agentgres event replay",
+        )
+    })?;
+    let events_dir = Path::new(&state_dir).join("events");
+    if !events_dir.exists() {
+        return Ok(Vec::new());
     }
-    if let Some(record) = projection.get("decision").filter(|value| value.is_object()) {
-        return vec![record.clone()];
-    }
-    for key in ["decisions", "repair_decisions"] {
-        if let Some(records) = projection.get(key).and_then(Value::as_array) {
-            return records.clone();
+    let entries = fs::read_dir(&events_dir).map_err(|error| {
+        RuntimeDiagnosticsRepairProjectionCommandError::new(
+            "runtime_diagnostics_repair_projection_replay_read_failed",
+            format!("diagnostics repair projection could not read Agentgres events: {error}"),
+        )
+    })?;
+    let mut paths = Vec::new();
+    for entry in entries {
+        let entry = entry.map_err(|error| {
+            RuntimeDiagnosticsRepairProjectionCommandError::new(
+                "runtime_diagnostics_repair_projection_replay_read_failed",
+                format!(
+                    "diagnostics repair projection could not inspect Agentgres event entry: {error}"
+                ),
+            )
+        })?;
+        let path = entry.path();
+        if path.is_file() && path.extension().and_then(|value| value.to_str()) == Some("jsonl") {
+            paths.push(path);
         }
     }
-    if projection.get("decision_id").is_some() || projection.get("id").is_some() {
-        return vec![projection.clone()];
+    paths.sort();
+
+    let mut candidates = Vec::new();
+    for path in paths {
+        let contents = fs::read_to_string(&path).map_err(|error| {
+            RuntimeDiagnosticsRepairProjectionCommandError::new(
+                "runtime_diagnostics_repair_projection_replay_read_failed",
+                format!(
+                    "diagnostics repair projection could not read Agentgres event record {}: {error}",
+                    path.display()
+                ),
+            )
+        })?;
+        for (index, line) in contents.lines().enumerate() {
+            let line = line.trim();
+            if line.is_empty() {
+                continue;
+            }
+            let event: Value = serde_json::from_str(line).map_err(|error| {
+                RuntimeDiagnosticsRepairProjectionCommandError::new(
+                    "runtime_diagnostics_repair_projection_replay_record_invalid",
+                    format!(
+                        "diagnostics repair projection found invalid Agentgres event record {}:{}: {error}",
+                        path.display(),
+                        index + 1
+                    ),
+                )
+            })?;
+            if event_thread_id(&event).as_deref() == Some(thread_id) {
+                candidates.extend(decision_candidates_from_event(&event, thread_id));
+            }
+        }
     }
-    Vec::new()
+    Ok(candidates)
+}
+
+fn decision_candidates_from_event(event: &Value, thread_id: &str) -> Vec<Value> {
+    let payload = event_payload(event);
+    let gate_id = string_field(&payload, "gate_id").or_else(|| string_field(event, "gate_id"));
+    let event_receipt_refs = unique_strings(
+        string_array_field(event, "receipt_refs")
+            .into_iter()
+            .chain(string_array_field(&payload, "receipt_refs"))
+            .collect(),
+    );
+    let event_policy_decision_refs = unique_strings(
+        string_array_field(event, "policy_decision_refs")
+            .into_iter()
+            .chain(string_array_field(&payload, "policy_decision_refs"))
+            .collect(),
+    );
+    let mut candidates = Vec::new();
+    for decision in repair_decision_values(&payload)
+        .into_iter()
+        .chain(repair_decision_values(event))
+    {
+        candidates.push(enrich_decision_candidate(
+            decision,
+            thread_id,
+            gate_id.clone(),
+            &event_receipt_refs,
+            &event_policy_decision_refs,
+        ));
+    }
+    if let Some(decision_id) = string_field(&payload, "decision_id") {
+        let action =
+            string_field(&payload, "action").or_else(|| string_field(&payload, "repair_action"));
+        candidates.push(enrich_decision_candidate(
+            json!({
+                "decision_id": decision_id,
+                "gate_id": gate_id,
+                "action": action,
+                "status": string_field(event, "status").unwrap_or_else(|| "accepted".to_string()),
+                "receipt_refs": event_receipt_refs,
+                "policy_decision_refs": event_policy_decision_refs,
+            }),
+            thread_id,
+            None,
+            &[],
+            &[],
+        ));
+    }
+    candidates
+}
+
+fn event_payload(event: &Value) -> Value {
+    event
+        .get("payload")
+        .filter(|value| value.is_object())
+        .or_else(|| {
+            event
+                .get("payload_summary")
+                .filter(|value| value.is_object())
+        })
+        .cloned()
+        .unwrap_or_else(|| json!({}))
+}
+
+fn event_thread_id(event: &Value) -> Option<String> {
+    string_field(event, "thread_id").or_else(|| string_field(&event_payload(event), "thread_id"))
+}
+
+fn repair_decision_values(value: &Value) -> Vec<Value> {
+    value
+        .get("repair_decisions")
+        .and_then(Value::as_array)
+        .map(|records| {
+            records
+                .iter()
+                .filter(|record| record.as_object().is_some())
+                .cloned()
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn enrich_decision_candidate(
+    mut decision: Value,
+    thread_id: &str,
+    gate_id: Option<String>,
+    receipt_refs: &[String],
+    policy_decision_refs: &[String],
+) -> Value {
+    if let Some(object) = decision.as_object_mut() {
+        object
+            .entry("thread_id".to_string())
+            .or_insert_with(|| Value::String(thread_id.to_string()));
+        if let Some(gate_id) = gate_id {
+            object
+                .entry("gate_id".to_string())
+                .or_insert_with(|| Value::String(gate_id));
+        }
+        if !receipt_refs.is_empty() && !object.contains_key("receipt_refs") {
+            object.insert(
+                "receipt_refs".to_string(),
+                Value::Array(receipt_refs.iter().cloned().map(Value::String).collect()),
+            );
+        }
+        if !policy_decision_refs.is_empty() && !object.contains_key("policy_decision_refs") {
+            object.insert(
+                "policy_decision_refs".to_string(),
+                Value::Array(
+                    policy_decision_refs
+                        .iter()
+                        .cloned()
+                        .map(Value::String)
+                        .collect(),
+                ),
+            );
+        }
+    }
+    decision
 }
 
 fn projected_decision_record(
@@ -364,32 +556,50 @@ fn optional_trimmed_lower(value: Option<&str>) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::{fs, path::Path};
 
-    fn projection_candidates() -> Value {
+    fn write_runtime_event(state_dir: &Path, event: Value) {
+        let event_dir = state_dir.join("events");
+        fs::create_dir_all(&event_dir).expect("event dir");
+        fs::write(
+            event_dir.join("thread_alpha.jsonl"),
+            format!("{}\n", serde_json::to_string(&event).expect("event json")),
+        )
+        .expect("write event");
+    }
+
+    fn blocking_gate_event() -> Value {
         json!({
-            "decisions": [
-                {
-                    "decision_id": "decision_other",
-                    "thread_id": "thread_other",
-                    "gate_id": "gate_alpha",
-                    "action": "repair_retry",
-                    "status": "accepted"
-                },
-                {
-                    "decision_id": "decision_alpha",
-                    "thread_id": "thread_alpha",
-                    "gate_id": "gate_alpha",
-                    "action": "restore_apply",
-                    "status": "accepted",
-                    "receipt_refs": ["receipt_decision_alpha"],
-                    "policy_decision_refs": ["policy_decision_alpha"]
-                }
-            ]
+            "event_id": "event_gate_alpha",
+            "event_stream_id": "thread_alpha:events",
+            "thread_id": "thread_alpha",
+            "event_kind": "LspDiagnosticsBlockingGate",
+            "component_kind": "lsp_diagnostics_gate",
+            "seq": 3,
+            "receipt_refs": ["receipt_gate_alpha"],
+            "policy_decision_refs": ["policy_decision_alpha"],
+            "payload": {
+                "gate_id": "gate_alpha",
+                "repair_decisions": [
+                    {
+                        "decision_id": "decision_alpha",
+                        "action": "restore_apply",
+                        "status": "accepted"
+                    },
+                    {
+                        "decision_id": "decision_retry",
+                        "action": "repair_retry",
+                        "status": "available"
+                    }
+                ]
+            }
         })
     }
 
     #[test]
-    fn rust_projects_runtime_diagnostics_repair_decision_projection() {
+    fn rust_replays_runtime_diagnostics_repair_decision_projection_from_state_dir() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        write_runtime_event(temp.path(), blocking_gate_event());
         let record = RuntimeDiagnosticsRepairProjectionCore
             .project(&RuntimeDiagnosticsRepairProjectionRequest {
                 schema_version: Some(
@@ -399,7 +609,7 @@ mod tests {
                 thread_id: Some("thread_alpha".to_string()),
                 decision_id: Some("decision_alpha".to_string()),
                 gate_id: Some("gate_alpha".to_string()),
-                projection: projection_candidates(),
+                state_dir: Some(temp.path().to_string_lossy().to_string()),
                 ..Default::default()
             })
             .expect("diagnostics repair decision projection");
@@ -418,7 +628,7 @@ mod tests {
         assert_eq!(
             record.receipt_refs,
             vec![
-                "receipt_decision_alpha".to_string(),
+                "receipt_gate_alpha".to_string(),
                 "receipt_runtime_diagnostics_repair_projection_decision".to_string()
             ]
         );
@@ -426,6 +636,8 @@ mod tests {
 
     #[test]
     fn rust_shapes_runtime_diagnostics_repair_projection_command_response() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        write_runtime_event(temp.path(), blocking_gate_event());
         let response = project_runtime_diagnostics_repair_projection_response(
             RuntimeDiagnosticsRepairProjectionRequest {
                 operation_kind: Some("runtime.diagnostics_repair_projection.decision".to_string()),
@@ -433,7 +645,7 @@ mod tests {
                 thread_id: Some("thread_alpha".to_string()),
                 decision_id: Some("decision_alpha".to_string()),
                 gate_id: Some("gate_alpha".to_string()),
-                projection: projection_candidates(),
+                state_dir: Some(temp.path().to_string_lossy().to_string()),
                 ..Default::default()
             },
         )
@@ -460,7 +672,7 @@ mod tests {
             .project(&RuntimeDiagnosticsRepairProjectionRequest {
                 projection_kind: Some("decision".to_string()),
                 thread_id: Some("thread_alpha".to_string()),
-                projection: projection_candidates(),
+                state_dir: Some("/tmp/runtime-state".to_string()),
                 ..Default::default()
             })
             .expect_err("missing decision_id must fail closed");
@@ -472,13 +684,50 @@ mod tests {
     }
 
     #[test]
+    fn rust_rejects_runtime_diagnostics_repair_projection_candidate_transport() {
+        let request: RuntimeDiagnosticsRepairProjectionRequest = serde_json::from_value(json!({
+            "projection_kind": "decision",
+            "thread_id": "thread_alpha",
+            "decision_id": "decision_alpha",
+            "projection": { "decisions": [] }
+        }))
+        .expect("request");
+
+        let error = RuntimeDiagnosticsRepairProjectionCore
+            .project(&request)
+            .expect_err("candidate transport should fail");
+
+        assert_eq!(
+            error.code(),
+            "runtime_diagnostics_repair_projection_candidate_transport_retired"
+        );
+    }
+
+    #[test]
+    fn rust_rejects_runtime_diagnostics_repair_projection_without_state_dir() {
+        let error = RuntimeDiagnosticsRepairProjectionCore
+            .project(&RuntimeDiagnosticsRepairProjectionRequest {
+                projection_kind: Some("decision".to_string()),
+                thread_id: Some("thread_alpha".to_string()),
+                decision_id: Some("decision_alpha".to_string()),
+                ..Default::default()
+            })
+            .expect_err("missing state_dir must fail closed");
+
+        assert_eq!(
+            error.code(),
+            "runtime_diagnostics_repair_projection_state_dir_required"
+        );
+    }
+
+    #[test]
     fn rust_rejects_unowned_runtime_diagnostics_repair_projection_kind() {
         let error = RuntimeDiagnosticsRepairProjectionCore
             .project(&RuntimeDiagnosticsRepairProjectionRequest {
                 projection_kind: Some("legacy".to_string()),
                 thread_id: Some("thread_alpha".to_string()),
                 decision_id: Some("decision_alpha".to_string()),
-                projection: projection_candidates(),
+                state_dir: Some("/tmp/runtime-state".to_string()),
                 ..Default::default()
             })
             .expect_err("unsupported projection kind must fail closed");

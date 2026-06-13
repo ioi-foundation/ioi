@@ -20,6 +20,7 @@ const DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_EVIDENCE_REFS = [
 const DIAGNOSTICS_REPAIR_DECISION_PROJECTION_EVIDENCE_REFS = [
   "runtime_diagnostics_repair_decision_projection_rust_owned",
   "rust_daemon_core_diagnostics_repair_projection_required",
+  "rust_daemon_core_diagnostics_repair_replay_required",
   "agentgres_diagnostics_repair_projection_truth_required",
 ];
 
@@ -134,16 +135,24 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
     return payload;
   }
 
-  function diagnosticsRepairDecisionProjectionInput(request = {}) {
-    const projection = request.projection;
-    if (Array.isArray(projection) || objectRecord(projection)) {
-      return projection;
-    }
-    const input = {};
-    for (const key of ["decision", "decisions", "repair_decisions"]) {
-      if (Object.hasOwn(request, key)) input[key] = request[key];
-    }
-    return input;
+  function rejectDiagnosticsRepairProjectionCandidateTransport(request = {}, details = {}) {
+    const retiredInputs = ["projection", "decision", "decisions", "repair_decisions"]
+      .filter((key) => Object.hasOwn(request, key));
+    if (retiredInputs.length === 0) return;
+    throw runtimeError({
+      status: 400,
+      code: "runtime_diagnostics_repair_projection_candidate_transport_retired",
+      message:
+        "Runtime diagnostics repair decision projection rejects retired JS decision candidate transport.",
+      details: {
+        rust_core_boundary: "runtime.diagnostics_repair.projection",
+        operation: "diagnostics_repair_decision_projection",
+        operation_kind: "runtime.diagnostics_repair_projection.decision",
+        ...details,
+        retired_inputs: retiredInputs,
+        evidence_refs: DIAGNOSTICS_REPAIR_DECISION_PROJECTION_EVIDENCE_REFS,
+      },
+    });
   }
 
   function stringRefs(values) {
@@ -610,17 +619,24 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
       decision_id: decisionId,
       gate_id: gateId,
     };
+    rejectDiagnosticsRepairProjectionCandidateTransport(request, details);
     const runner = diagnosticsRepairProjectionRunner(store, details);
-    const projected = runner.projectRuntimeDiagnosticsRepairProjection({
+    const projectionRequest = {
       operation: "runtime_diagnostics_repair_projection",
       operation_kind: "runtime.diagnostics_repair_projection.decision",
       projection_kind: "decision",
       thread_id: threadId,
       decision_id: decisionId,
       gate_id: gateId,
-      projection: diagnosticsRepairDecisionProjectionInput(request),
+      state_dir: store?.stateDir ?? null,
       evidence_refs: DIAGNOSTICS_REPAIR_DECISION_PROJECTION_EVIDENCE_REFS,
-    });
+    };
+    let projected;
+    try {
+      projected = runner.projectRuntimeDiagnosticsRepairProjection(projectionRequest);
+    } catch (error) {
+      throw mapDiagnosticsRepairProjectionError(error, projectionRequest);
+    }
     const decision = objectRecord(projected?.projection);
     if (
       optionalString(projected?.status) !== "projected" ||
@@ -664,6 +680,64 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
       receipt_refs: stringRefs(projected?.receipt_refs),
       evidence_refs: stringRefs(projected?.evidence_refs),
     };
+  }
+
+  function mapDiagnosticsRepairProjectionError(error, request = {}) {
+    if (error?.code === "runtime_diagnostics_repair_projection_candidate_transport_retired") {
+      throw runtimeError({
+        status: 400,
+        code: error.code,
+        message: error.message,
+        details: {
+          rust_core_boundary: "runtime.diagnostics_repair.projection",
+          operation: request.operation ?? null,
+          operation_kind: request.operation_kind ?? null,
+          thread_id: request.thread_id ?? null,
+          decision_id: request.decision_id ?? null,
+          gate_id: request.gate_id ?? null,
+          evidence_refs: DIAGNOSTICS_REPAIR_DECISION_PROJECTION_EVIDENCE_REFS,
+        },
+      });
+    }
+    if (error?.code === "runtime_diagnostics_repair_projection_state_dir_required") {
+      throw runtimeError({
+        status: 501,
+        code: error.code,
+        message: error.message,
+        details: {
+          rust_core_boundary: "runtime.diagnostics_repair.projection",
+          operation: request.operation ?? null,
+          operation_kind: request.operation_kind ?? null,
+          thread_id: request.thread_id ?? null,
+          decision_id: request.decision_id ?? null,
+          gate_id: request.gate_id ?? null,
+          evidence_refs: DIAGNOSTICS_REPAIR_DECISION_PROJECTION_EVIDENCE_REFS,
+        },
+      });
+    }
+    if (
+      [
+        "runtime_diagnostics_repair_projection_replay_read_failed",
+        "runtime_diagnostics_repair_projection_replay_record_invalid",
+      ].includes(error?.code)
+    ) {
+      throw runtimeError({
+        status: 502,
+        code: error.code,
+        message: error.message,
+        details: {
+          rust_core_boundary: "runtime.diagnostics_repair.projection",
+          operation: request.operation ?? null,
+          operation_kind: request.operation_kind ?? null,
+          thread_id: request.thread_id ?? null,
+          decision_id: request.decision_id ?? null,
+          gate_id: request.gate_id ?? null,
+          state_dir: request.state_dir ?? null,
+          evidence_refs: DIAGNOSTICS_REPAIR_DECISION_PROJECTION_EVIDENCE_REFS,
+        },
+      });
+    }
+    throw error;
   }
 
   function turnForOperatorOverrideEvent() {

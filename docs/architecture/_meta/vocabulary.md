@@ -103,13 +103,12 @@ compliance acronyms for hidden audit material.
   on risk, that records why a workload, private workspace, model mount, worker,
   service, or runtime assignment should land on a node/provider. It cannot
   bypass wallet.network, daemon execution, cTEE custody, or Agentgres admission.
-- `CloudResourceLane`: the source-agnostic Hypervisor/Fleet infrastructure lane
-  for routing workloads across local machines, customer clouds, hyperscalers,
-  DePIN compute markets, decentralized storage networks, confidential-compute
-  providers, enterprise clusters, cloud GPU providers, provider-specific
-  markets, and user-specified routes. It is the present-tense cloud/execution
-  routing canon; parked future cloud marketplaces must not become mandatory
-  gateways.
+- `HypervisorProviderIntegration`: a direct Hypervisor/Fleet integration with a
+  provider or inventory source that can run, store, network, attest, or host
+  autonomous work. Examples include local machines, customer clouds,
+  hyperscalers, DePIN compute markets, decentralized storage networks,
+  confidential-compute providers, enterprise clusters, cloud GPU providers,
+  provider-specific markets, and user-specified routes.
 - `CloudRoute`: the Hypervisor/Fleet object for routing a workload to compute,
   storage, GPU, network, confidential compute, DePIN, customer cloud, local, or
   provider infrastructure. It binds resource requirements, privacy posture,
@@ -272,12 +271,6 @@ compliance acronyms for hidden audit material.
   exchange surface. It may own its route proposals, adapter registry,
   route-candidate receipts, and comparison views, but it does not own Wallet
   exchange authority, liquidity, execution, exchange truth, or settlement.
-- `DecentralizedResourceLane`: the shared doctrine for decentralized.exchange,
-  decentralized.trade, and the Cloud Resource Lane. These lanes propose
-  candidate routes for liquidity, exposure, or execution; wallet.network
-  authorizes; Hypervisor deploys or executes when runtime work is involved;
-  venues and providers perform; Agentgres records; IOI L1 settles only by
-  trigger.
 - `decentralized.trade`: a preferred first-party trading route source and
   advanced exposure-management surface. It may own venue adapters,
   order-ticket normalization, market discovery, position/risk display, margin
@@ -288,7 +281,7 @@ compliance acronyms for hidden audit material.
   provider catalog, P2P/PQ-aware cloud routing layer, compute/storage receipt
   explorer, provider reputation surface, or infrastructure marketplace. It is
   not part of the present canon spine and must not be required for Hypervisor
-  Cloud Resource Lane routing.
+  provider integrations.
 - `TradeIntent`: the semantic wallet object above raw venue order or calldata.
   It binds venue, market, side, collateral, leverage, margin mode, order type,
   liquidation/funding assumptions, max-loss policy, simulation, risk labels,

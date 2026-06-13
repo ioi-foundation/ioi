@@ -1060,15 +1060,6 @@ test("runtime diagnostics repair projection runner sends Rust daemon-core reques
     },
   });
 
-  const projection = {
-    decisions: [{
-      decision_id: "decision_alpha",
-      thread_id: "thread_alpha",
-      gate_id: "gate_alpha",
-      action: "restore_apply",
-      status: "accepted",
-    }],
-  };
   const result = runner.projectRuntimeDiagnosticsRepairProjection({
     operation: "runtime_diagnostics_repair_projection",
     operation_kind: "runtime.diagnostics_repair_projection.decision",
@@ -1076,7 +1067,7 @@ test("runtime diagnostics repair projection runner sends Rust daemon-core reques
     thread_id: "thread_alpha",
     decision_id: "decision_alpha",
     gate_id: "gate_alpha",
-    projection,
+    state_dir: "/runtime-state",
   });
 
   assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
@@ -1094,7 +1085,8 @@ test("runtime diagnostics repair projection runner sends Rust daemon-core reques
   assert.equal(captured.request.projection_kind, "decision");
   assert.equal(captured.request.thread_id, "thread_alpha");
   assert.equal(captured.request.decision_id, "decision_alpha");
-  assert.deepEqual(captured.request.projection, projection);
+  assert.equal(captured.request.state_dir, "/runtime-state");
+  assert.equal(Object.hasOwn(captured.request, "projection"), false);
   assert.equal(result.source, "rust_runtime_diagnostics_repair_projection_command");
   assert.equal(result.projection_kind, "decision");
   assert.equal(result.projection.decision_id, "decision_alpha");

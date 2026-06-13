@@ -1,9 +1,9 @@
-# Resource Lanes
+# Wallet Exchange, Trade, and Provider Integrations
 
 Status: alpha canon architecture doctrine.
-Canonical owner: this file for the current `decentralized.*` Wallet-native
-resource-lane family, the Hypervisor Cloud Resource Lane, route-intelligence
-boundaries, and cross-lane ownership doctrine.
+Canonical owner: this file for current Wallet-native `decentralized.exchange`
+and `decentralized.trade` lanes, Hypervisor direct provider integrations, route
+candidate boundaries, and cross-lane ownership doctrine.
 Supersedes: product prose that treats `decentralized.exchange`,
 `decentralized.trade`, cloud provider catalogs, or cloud routers as mandatory
 middlemen, resource owners, custody owners, authority layers, or trust roots.
@@ -12,12 +12,11 @@ Last alignment pass: 2026-06-13.
 
 ## Canonical Definition
 
-**Resource Lanes are source-agnostic route-intelligence lanes for resources
-autonomous systems need.**
+**Wallet owns asset and exposure authority; Hypervisor integrates directly with
+the infrastructure providers that run and store autonomous work.**
 
-They help users, agents, Wallet, Hypervisor, and application domains discover,
-compare, normalize, score, and receipt candidate routes across liquidity,
-exposure, compute, storage, and execution venues.
+The present canon has two Wallet-native product lanes and one Hypervisor
+infrastructure capability:
 
 The present canon family is:
 
@@ -28,15 +27,16 @@ decentralized.exchange
 decentralized.trade
   route exposure / manage positions
 
-Cloud Resource Lane
-  route execution / source compute, storage, GPU, bandwidth,
-  confidential-compute, DePIN, hyperscaler, customer-cloud, and local lanes
+Hypervisor direct provider integrations
+  cloud compute, storage, GPUs, bandwidth, confidential compute, DePIN,
+  hyperscalers, customer cloud, enterprise clusters, local machines,
+  decentralized storage networks, and user-specified providers
 ```
 
-Resource lanes do not own the underlying resources.
+The route or provider candidate is never authority by itself.
 
 ```text
-Resource lanes propose.
+Candidates are proposed.
 wallet.network authorizes.
 Hypervisor deploys or executes.
 Venues and providers perform.
@@ -48,7 +48,7 @@ rights, reputation, or cross-domain commitments.
 
 ## Owns
 
-The `decentralized.*` lane family may own or coordinate:
+`decentralized.exchange` and `decentralized.trade` may own or coordinate:
 
 - source discovery;
 - adapter registries;
@@ -62,7 +62,7 @@ The `decentralized.*` lane family may own or coordinate:
 - proposal metadata that Wallet, Hypervisor, Agentgres, or domain apps may
   reference when a route becomes consequential.
 
-Lane-specific ownership:
+Wallet lane-specific ownership:
 
 ```text
 decentralized.exchange
@@ -74,17 +74,30 @@ decentralized.trade
   position/risk display, margin calculations, strategy templates,
   venue comparison, and trade-candidate receipts
 
-Hypervisor Cloud Resource Lane
-  direct provider connectors, local inventory, customer cloud connectors,
-  DePIN market connectors, storage-network connectors, hardware and GPU
-  availability, confidential-compute capability metadata, attestation
-  descriptors, deployment templates, price/latency/reliability comparison,
-  provider reputation, and cloud-route receipts
 ```
+
+Hypervisor provider integrations may own or coordinate:
+
+- direct provider connectors;
+- local inventory;
+- customer cloud connectors;
+- hyperscaler connectors;
+- cloud GPU provider connectors;
+- DePIN compute provider connectors;
+- decentralized storage network connectors;
+- enterprise cluster connectors;
+- user-specified provider routes;
+- hardware and GPU availability;
+- confidential-compute capability metadata;
+- attestation descriptors;
+- deployment templates;
+- price, latency, reliability, health, and region comparison;
+- provider reputation projections;
+- `CloudRoute`, `CloudCandidate`, and cloud-route receipts.
 
 ## Does Not Own
 
-Resource lanes do not own:
+Wallet lanes and Hypervisor provider integrations do not own:
 
 - user authority;
 - wallet keys;
@@ -108,13 +121,13 @@ Correct framing:
 
 ```text
 decentralized.exchange is not the liquidity.
-It is the liquidity route-intelligence lane.
+It is a liquidity route source and comparison surface.
 
 decentralized.trade is not the broker.
-It is the exposure route-intelligence lane.
+It is an exposure route source and trading interface.
 
-Cloud Resource Lane is not the cloud.
-It is the source-agnostic execution route-intelligence lane.
+Hypervisor provider integrations are not the cloud.
+They are direct integration paths to concrete providers.
 ```
 
 Incorrect framing:
@@ -209,28 +222,6 @@ agent, workflow, service, or operator requests infrastructure
 ```
 
 ## Minimal Implementation Objects
-
-### DecentralizedResourceLane
-
-```yaml
-DecentralizedResourceLane:
-  lane_id:
-    decentralized.exchange | decentralized.trade | cloud_resource_lane
-  resource_kind:
-    liquidity | exposure | execution
-  candidate_types:
-    - RouteCandidate
-    - TradeCandidate
-    - CloudCandidate
-  authority_owner:
-    wallet.network | Hypervisor + wallet.network
-  execution_owner:
-    venue | chain | provider | Hypervisor Daemon | provider_connector
-  truth_owner:
-    Agentgres
-  settlement_owner:
-    local_agentgres | IOI_L1_by_trigger | compatible_L1_by_trigger
-```
 
 ### RouteCandidate
 
@@ -428,10 +419,10 @@ Encrypted Archive Required
 
 ## Admission / Settlement Boundary
 
-Resource-lane proposals do not become operational truth by themselves.
+Route and provider proposals do not become operational truth by themselves.
 
 ```text
-lane candidate
+route or provider candidate
   -> wallet.network authority/policy evaluation where power, funds, secrets,
      private data, or declassification are involved
   -> Hypervisor Daemon or venue/provider execution boundary where work happens
@@ -446,7 +437,7 @@ declassification posture, or affect long-lived infrastructure.
 
 ## Events and Receipts
 
-Meaningful lane transitions should emit receipts:
+Meaningful route and provider transitions should emit receipts:
 
 ```text
 RouteCandidateReceipt
@@ -493,9 +484,9 @@ Receipts should bind:
 - Agent trading over perps or margin must be disabled by default or constrained
   by explicit paper/sandbox, max collateral, max leverage, isolated-margin,
   stop-loss, max daily loss, market whitelist, expiry, and step-up policies.
-- Cloud Resource Lane routing cannot treat a cheap provider as privacy-safe
+- Hypervisor provider integration cannot treat a cheap provider as privacy-safe
   merely because payload bytes are encrypted at rest.
-- Cloud routing cannot release secrets or protected plaintext without
+- Provider selection cannot release secrets or protected plaintext without
   wallet.network authority and the declared cTEE, TEE, local, customer-cloud,
   or provider-trust posture.
 - Storage availability cannot be treated as payload meaning, artifact truth, or

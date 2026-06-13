@@ -40,12 +40,14 @@ wallet.network
   decryption, revocation, and protection actions; route sources produce
   exchange candidates, but Wallet owns authority
 
-decentralized.* resource lanes
-  route liquidity, exposure, and execution without becoming authority or trust
-  roots: decentralized.exchange proposes exchange routes, decentralized.trade
-  proposes exposure/position routes, and the Cloud Resource Lane proposes
-  compute/storage/execution routes through direct provider connectors, local
-  inventory, customer clouds, DePIN markets, storage networks, and user routes
+decentralized.exchange / decentralized.trade
+  Wallet-native route intelligence for asset conversion and exposure
+  management; they propose candidates without becoming authority or trust roots
+
+Hypervisor provider integrations
+  direct integrations for cloud compute, storage, GPUs, confidential compute,
+  DePIN, local machines, customer cloud, enterprise clusters, decentralized
+  storage networks, and user-specified providers
 
 Agentgres
   admits and proves operational truth for app, user, agent, and run state
@@ -111,7 +113,8 @@ HypervisorOS roots serious nodes.
 Hypervisor Fleet manages infrastructure for autonomous systems.
 Default Harness Profile orchestrates.
 wallet.network authorizes, risk-labels, approves/denies, revokes, protects, and receipts.
-decentralized.* lanes propose liquidity and exposure routes; Cloud Resource Lane proposes execution routes.
+decentralized.exchange/trade propose liquidity and exposure routes.
+Hypervisor provider integrations propose execution routes.
 Agentgres admits truth.
 Agent Wiki remembers.
 Artifact refs define payload meaning.
@@ -151,7 +154,7 @@ Start here:
 3. [`components/daemon-runtime/runtime-nodes-tee-depin.md`](../components/daemon-runtime/runtime-nodes-tee-depin.md)
 4. [`components/daemon-runtime/hypervisoros.md`](../components/daemon-runtime/hypervisoros.md)
 5. [`components/hypervisor/fleet.md`](../components/hypervisor/fleet.md)
-6. [`foundations/decentralized-resource-lanes.md`](../foundations/decentralized-resource-lanes.md)
+6. [`foundations/wallet-exchange-trade-provider-integrations.md`](../foundations/wallet-exchange-trade-provider-integrations.md)
 7. [`components/daemon-runtime/doctrine.md`](../components/daemon-runtime/doctrine.md)
 8. [`components/daemon-runtime/api.md`](../components/daemon-runtime/api.md)
 9. [`components/daemon-runtime/events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md)
@@ -225,7 +228,7 @@ Start here:
 1. [`components/wallet-network/doctrine.md`](../components/wallet-network/doctrine.md)
 2. [`components/wallet-network/product-exchange-risk.md`](../components/wallet-network/product-exchange-risk.md)
 3. [`components/wallet-network/api-authority-scopes.md`](../components/wallet-network/api-authority-scopes.md)
-4. [`foundations/decentralized-resource-lanes.md`](../foundations/decentralized-resource-lanes.md)
+4. [`foundations/wallet-exchange-trade-provider-integrations.md`](../foundations/wallet-exchange-trade-provider-integrations.md)
 5. [`foundations/security-privacy-policy-invariants.md`](../foundations/security-privacy-policy-invariants.md)
 6. [`components/daemon-runtime/api.md#action-mediation--authority-gateway-api`](../components/daemon-runtime/api.md#action-mediation--authority-gateway-api)
 
@@ -330,7 +333,8 @@ storage backends hold bytes
 Private Workspace backed by cTEE forbids protected plaintext on rented nodes
 Plaintext-Free Runtime Mounting exposes only public/redacted refs and private handles
 wallet.network authorizes
-decentralized.* lanes propose liquidity/exposure routes; Cloud Resource Lane proposes execution routes
+decentralized.exchange/trade propose liquidity/exposure routes
+Hypervisor provider integrations propose execution routes
 AIIP moves bounded autonomous work
 L1 settles selected public/economic/cross-domain commitments
 ```
