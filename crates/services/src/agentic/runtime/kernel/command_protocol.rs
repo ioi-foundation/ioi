@@ -27,6 +27,7 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "plan_model_mount_route_control_required",
     "plan_model_mount_route_control",
     "plan_model_mount_catalog_provider_control",
+    "plan_model_mount_provider_control",
     "plan_model_mount_capability_token_control",
     "plan_model_mount_vault_control",
     "plan_model_mount_receipt_gate",
@@ -165,6 +166,7 @@ pub enum CommandOperation {
     PlanModelMountRouteControlRequired,
     PlanModelMountRouteControl,
     PlanModelMountCatalogProviderControl,
+    PlanModelMountProviderControl,
     PlanModelMountCapabilityTokenControl,
     PlanModelMountVaultControl,
     PlanModelMountReceiptGate,
@@ -308,6 +310,7 @@ impl CommandOperation {
             Self::PlanModelMountCatalogProviderControl => {
                 "plan_model_mount_catalog_provider_control"
             }
+            Self::PlanModelMountProviderControl => "plan_model_mount_provider_control",
             Self::PlanModelMountCapabilityTokenControl => {
                 "plan_model_mount_capability_token_control"
             }
@@ -573,6 +576,9 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
         "plan_model_mount_route_control" => Some(CommandOperation::PlanModelMountRouteControl),
         "plan_model_mount_catalog_provider_control" => {
             Some(CommandOperation::PlanModelMountCatalogProviderControl)
+        }
+        "plan_model_mount_provider_control" => {
+            Some(CommandOperation::PlanModelMountProviderControl)
         }
         "plan_model_mount_capability_token_control" => {
             Some(CommandOperation::PlanModelMountCapabilityTokenControl)
@@ -928,6 +934,7 @@ mod tests {
             "plan_model_mount_storage_control",
             "plan_model_mount_mcp_workflow",
             "plan_model_mount_catalog_provider_control",
+            "plan_model_mount_provider_control",
             "plan_model_mount_capability_token_control",
             "plan_model_mount_vault_control",
             "plan_model_mount_receipt_gate",

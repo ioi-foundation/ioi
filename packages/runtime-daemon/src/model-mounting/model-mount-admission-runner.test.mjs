@@ -10,6 +10,7 @@ import {
   RUST_MODEL_MOUNT_CATALOG_PROVIDER_CONTROL_BACKEND,
   RUST_MODEL_MOUNT_CONVERSATION_STATE_BACKEND,
   RUST_MODEL_MOUNT_MCP_WORKFLOW_BACKEND,
+  RUST_MODEL_MOUNT_PROVIDER_CONTROL_BACKEND,
   RUST_MODEL_MOUNT_RECEIPT_GATE_BACKEND,
   RUST_MODEL_MOUNT_ROUTE_CONTROL_BACKEND,
   RUST_MODEL_MOUNT_ROUTE_CONTROL_REQUIRED_BACKEND,
@@ -447,6 +448,33 @@ function catalogProviderControlRequest() {
     authority_receipt_refs: ["receipt://wallet/provider-write"],
     custody_ref: "ctee://catalog-provider/huggingface",
     required_scope: "provider.write:catalog.huggingface",
+  };
+}
+
+function providerControlRequest() {
+  return {
+    schema_version: "ioi.model_mount.provider_control.v1",
+    operation_kind: "model_mount.provider.write",
+    provider_id: "provider.openai",
+    source: "runtime-daemon.model_mounting.provider_control",
+    generated_at: "2026-06-13T00:00:00.000Z",
+    body: {
+      id: "provider.openai",
+      kind: "openai",
+      label: "OpenAI",
+      secret_ref: "vault://provider/openai",
+      auth_header_name: "authorization",
+      api_format: "openai",
+      base_url: "https://api.openai.example/v1",
+      privacy_class: "hosted_private",
+      capabilities: ["chat", "responses"],
+      evidence_refs: ["operator_provider_config"],
+    },
+    receipt_refs: ["receipt://provider-control"],
+    authority_grant_refs: ["grant://wallet/provider-write"],
+    authority_receipt_refs: ["receipt://wallet/provider-write"],
+    custody_ref: "ctee://provider/openai",
+    required_scope: "provider.write:provider.openai",
   };
 }
 
@@ -2101,6 +2129,94 @@ test("Rust model_mount admission runner sends positive catalog-provider-control 
   assert.equal(result.authority_hash, "sha256:catalog-provider-authority");
   assert.equal(result.rust_core_boundary, "model_mount.catalog_provider_control");
   assert.equal(result.evidence_refs.includes("ctee_catalog_provider_custody_enforced"), true);
+});
+
+test("Rust model_mount admission runner sends positive provider-control request", () => {
+  const calls = [];
+  const runner = new RustModelMountAdmissionRunner({
+    daemonCoreInvoker(request) {
+      calls.push({ request });
+      const record = {
+        id: "provider.openai",
+        record_id: "provider.openai",
+        object: "ioi.model_mount_provider",
+        schema_version: "ioi.model_mount.provider_control.v1",
+        status: "configured",
+        operation_kind: request.request.operation_kind,
+        provider_id: request.request.provider_id,
+        provider_ref: "provider://provider.openai",
+        rust_core_boundary: "model_mount.provider_control",
+        plaintext_material_returned: false,
+        public_response: {
+          object: "ioi.model_mount_provider",
+          provider_id: request.request.provider_id,
+          status: "configured",
+          private_material_returned: false,
+          plaintext_material_persisted: false,
+        },
+        evidence_refs: [
+          "rust_daemon_core_provider_control",
+          "ctee_provider_custody_enforced",
+          "agentgres_provider_control_truth_required",
+          "public_provider_control_js_facade_retired",
+        ],
+      };
+      return {
+        ok: true,
+        result: {
+          source: "rust_model_mount_provider_control_command",
+          backend: RUST_MODEL_MOUNT_PROVIDER_CONTROL_BACKEND,
+          plan: {
+            schema_version: "ioi.model_mount.provider_control_plan.v1",
+            object: "ioi.model_mount_provider_control_plan",
+            status: "planned",
+            rust_core_boundary: "model_mount.provider_control",
+            operation_kind: request.request.operation_kind,
+            source: request.request.source,
+            record_dir: "model-providers",
+            record_id: record.id,
+            record,
+            receipt_refs: ["receipt://provider-control"],
+            authority_grant_refs: ["grant://wallet/provider-write"],
+            authority_receipt_refs: ["receipt://wallet/provider-write"],
+            evidence_refs: record.evidence_refs,
+            control_hash: "sha256:provider-control",
+            authority_hash: "sha256:provider-authority",
+          },
+          record_dir: "model-providers",
+          record_id: record.id,
+          record,
+          receipt_refs: ["receipt://provider-control"],
+          authority_grant_refs: ["grant://wallet/provider-write"],
+          authority_receipt_refs: ["receipt://wallet/provider-write"],
+          evidence_refs: record.evidence_refs,
+          operation_kind: request.request.operation_kind,
+          rust_core_boundary: "model_mount.provider_control",
+          control_hash: "sha256:provider-control",
+          authority_hash: "sha256:provider-authority",
+        },
+      };
+    },
+  });
+
+  const result = runner.planProviderControl(providerControlRequest());
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.operation, "plan_model_mount_provider_control");
+  assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_PROVIDER_CONTROL_BACKEND);
+  assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.provider_control.v1");
+  assert.equal(calls[0].request.request.operation_kind, "model_mount.provider.write");
+  assert.equal(calls[0].request.request.provider_id, "provider.openai");
+  assert.equal(calls[0].request.request.custody_ref, "ctee://provider/openai");
+  assert.equal(result.record_dir, "model-providers");
+  assert.equal(result.record_id, "provider.openai");
+  assert.equal(result.record.plaintext_material_returned, false);
+  assert.deepEqual(result.authority_grant_refs, ["grant://wallet/provider-write"]);
+  assert.deepEqual(result.authority_receipt_refs, ["receipt://wallet/provider-write"]);
+  assert.equal(result.authority_hash, "sha256:provider-authority");
+  assert.equal(result.rust_core_boundary, "model_mount.provider_control");
+  assert.equal(result.evidence_refs.includes("ctee_provider_custody_enforced"), true);
 });
 
 test("Rust model_mount admission runner sends positive capability-token-control request", () => {

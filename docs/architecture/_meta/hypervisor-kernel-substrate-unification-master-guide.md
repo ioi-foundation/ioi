@@ -8654,7 +8654,20 @@ aggregation stay retired.
 Hosted/nonlocal provider transport execution and dynamic hosted catalog
 materialization remain non-terminal, but the public hosted inventory facade no
 longer fails closed or returns through JS driver execution. Public
-`listInstances()` now calls Rust read-projection kind
+provider upsert now moves through Rust daemon-core
+`plan_model_mount_provider_control`: the mounted daemon facade sends canonical
+provider facts, never resolves vault material, receives a Rust-authored
+`model-providers` record with provider-control and authority hashes,
+wallet.network/cTEE no-plaintext custody facts, and Agentgres provider-control
+truth evidence, then commits only that record through Rust Agentgres
+model_mount record-state admission before returning public provider truth. The
+old fail-closed provider-upsert JS facade, provider-map mutation,
+`writeMap("model-providers")`, JS vault resolution, plaintext material
+readback, and no-commit success remain retired. Provider-control replay for
+provider lookup, hosted/provider transports, hosted/provider endpoint
+discovery/materialization, command-transport retirement, and stable direct
+Rust/Agentgres APIs remain non-terminal.
+Public `listInstances()` now calls Rust read-projection kind
 `instances` with runtime `state_dir`; Rust replays persisted
 `model-instances/*.json` Agentgres records, filters to Rust-authored
 instance-lifecycle records with lifecycle hashes and Agentgres registry

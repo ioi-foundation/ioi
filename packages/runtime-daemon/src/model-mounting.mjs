@@ -11,6 +11,7 @@ import {
   RUST_MODEL_MOUNT_INSTANCE_LIFECYCLE_BACKEND,
   RUST_MODEL_MOUNT_NATIVE_LOCAL_INVENTORY_BACKEND,
   RUST_MODEL_MOUNT_NATIVE_LOCAL_LIFECYCLE_BACKEND,
+  RUST_MODEL_MOUNT_PROVIDER_CONTROL_BACKEND,
   RUST_MODEL_MOUNT_STREAM_COMPLETION_BACKEND,
 } from "./model-mounting/model-mount-admission-runner.mjs";
 import { AgentgresModelMountingStore } from "./model-mounting/store.mjs";
@@ -158,6 +159,7 @@ import {
 
 const MODEL_MOUNT_SCHEMA_VERSION = "ioi.model-mounting.runtime.v1", SECRET_REDACTION = "[REDACTED]";
 const MODEL_MOUNT_ROUTE_CONTROL_SCHEMA_VERSION = "ioi.model_mount.route_control.v1";
+const MODEL_MOUNT_PROVIDER_CONTROL_SCHEMA_VERSION = "ioi.model_mount.provider_control.v1";
 const MODEL_MOUNT_PROVIDER_LIFECYCLE_SCHEMA_VERSION = "ioi.model_mount.provider_lifecycle.v1";
 const MODEL_MOUNT_PROVIDER_INVENTORY_SCHEMA_VERSION = "ioi.model_mount.provider_inventory.v1";
 const MODEL_MOUNT_INSTANCE_LIFECYCLE_SCHEMA_VERSION = "ioi.model_mount.instance_lifecycle.v1";
@@ -1105,14 +1107,15 @@ export class ModelMountingState {
 
   upsertProvider(body = {}) {
     assertCanonicalProviderUpsertRequestBody(body);
-    const id = body.id ?? `provider.${safeId(body.kind ?? body.label ?? "custom")}`;
+    assertNoPlaintextProviderSecret(body);
+    const id = optionalString(body.id) ?? `provider.${safeId(body.kind ?? body.label ?? "custom")}`;
     const existing = this.providers.get(id) ?? {};
-    const kind = body.kind ?? existing.kind ?? "custom_http";
-    throw modelMountProviderControlRustCoreRequired({
-      id,
-      kind,
-    }, "provider_upsert", {
-      operation_kind: "model_mount.provider.write",
+    const kind = optionalString(body.kind) ?? optionalString(existing.kind) ?? "custom_http";
+    return planAndCommitProviderControl(this, "model_mount.provider.write", {
+      providerId: id,
+      body: providerControlBody(body, existing, { id, kind }),
+      custodyRef: optionalString(body.custody_ref) ?? optionalString(providerSecretInput(body)),
+      requiredScope: `provider.write:${id}`,
     });
   }
 
@@ -1215,6 +1218,10 @@ export class ModelMountingState {
 
   planModelMountProviderLifecycle(request) {
     return this.modelMountAdmissionRunner.planProviderLifecycle(request);
+  }
+
+  planModelMountProviderControl(request) {
+    return this.modelMountAdmissionRunner.planProviderControl(request);
   }
 
   planProviderLifecycle(provider, options = {}) {
@@ -2598,6 +2605,208 @@ function throwModelLoadingRustCoreRequired(operation, provider = {}, details = {
     ],
   };
   throw error;
+}
+
+function planAndCommitProviderControl(state, operation_kind, options = {}) {
+  if (typeof state.planModelMountProviderControl !== "function") {
+    throw modelMountProviderControlRustCoreRequired({
+      id: options.providerId ?? null,
+      kind: options.body?.kind ?? null,
+    }, "provider_upsert", {
+      operation_kind,
+      rust_core_api: "plan_model_mount_provider_control",
+    });
+  }
+  const body = providerControlCanonicalBody(options.body);
+  const plan = state.planModelMountProviderControl({
+    schema_version: MODEL_MOUNT_PROVIDER_CONTROL_SCHEMA_VERSION,
+    operation_kind,
+    provider_id: optionalString(options.providerId) ?? optionalString(body.id),
+    source: "runtime-daemon.model_mounting.provider_control",
+    generated_at: typeof state.nowIso === "function" ? state.nowIso() : null,
+    body,
+    receipt_refs: uniqueModelMountRefs([
+      body.receipt_id,
+      ...(Array.isArray(body.receipt_refs) ? body.receipt_refs : []),
+    ]),
+    authority_grant_refs: uniqueModelMountRefs(
+      Array.isArray(body.authority_grant_refs) ? body.authority_grant_refs : [],
+    ),
+    authority_receipt_refs: uniqueModelMountRefs(
+      Array.isArray(body.authority_receipt_refs) ? body.authority_receipt_refs : [],
+    ),
+    custody_ref: optionalString(options.custodyRef) ?? optionalString(body.custody_ref),
+    required_scope: optionalString(options.requiredScope),
+  });
+  assertRustAuthoredProviderControlPlan(plan, { operation_kind });
+  const commit = commitModelMountRecordState(state, {
+    recordDir: plan.record_dir,
+    record: plan.record,
+    operation_kind: plan.operation_kind,
+    receipt_refs: plan.receipt_refs,
+    unconfiguredCode: "model_mount_provider_control_record_state_commit_unconfigured",
+    unconfiguredMessage:
+      "Provider control requires Rust Agentgres record-state commit before public provider truth can return.",
+    unconfiguredDetails: {
+      rust_core_boundary: plan.rust_core_boundary ?? "model_mount.provider_control",
+      operation_kind: plan.operation_kind ?? operation_kind,
+      control_hash: plan.control_hash ?? null,
+    },
+    invalidCode: "model_mount_provider_control_record_state_commit_invalid",
+  });
+  return providerControlResponse(plan, commit);
+}
+
+function providerControlBody(body = {}, existing = {}, { id, kind } = {}) {
+  const secretInput = providerSecretInput(body);
+  const secretRef = secretInput === undefined
+    ? optionalString(existing.secret_ref ?? existing.secretRef)
+    : optionalString(secretInput);
+  const apiFormat = optionalString(body.api_format ?? existing.api_format ?? existing.apiFormat) ??
+    providerControlDefaultApiFormat(kind);
+  const canonical = providerControlCanonicalBody(body);
+  delete canonical.api_key_vault_ref;
+  delete canonical.auth_vault_ref;
+  return {
+    ...canonical,
+    id,
+    kind,
+    provider_ref: optionalString(body.provider_ref ?? existing.provider_ref) ?? `provider://${id}`,
+    label: optionalString(body.label ?? existing.label) ?? id,
+    status: optionalString(body.status ?? existing.status) ?? (secretRef ? "configured" : "available"),
+    api_format: apiFormat,
+    driver: optionalString(body.driver ?? existing.driver) ?? providerControlDefaultDriver(kind, apiFormat),
+    base_url: optionalString(body.base_url ?? existing.base_url ?? existing.baseUrl),
+    privacy_class: optionalString(body.privacy_class ?? existing.privacy_class ?? existing.privacyClass) ?? "workspace",
+    capabilities: Array.isArray(body.capabilities)
+      ? body.capabilities.filter((item) => typeof item === "string" && item.trim()).map((item) => item.trim())
+      : Array.isArray(existing.capabilities)
+        ? existing.capabilities.filter((item) => typeof item === "string" && item.trim()).map((item) => item.trim())
+        : [],
+    auth_scheme: optionalString(body.auth_scheme ?? existing.auth_scheme ?? existing.authScheme),
+    auth_header_name: optionalString(body.auth_header_name ?? existing.auth_header_name ?? existing.authHeaderName),
+    secret_ref: secretRef,
+    evidence_refs: normalizeScopes(body.evidence_refs, existing.discovery?.evidenceRefs ?? []),
+  };
+}
+
+function providerControlCanonicalBody(value = {}) {
+  const source = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const body = {};
+  for (const field of [
+    "id",
+    "provider_ref",
+    "kind",
+    "label",
+    "status",
+    "api_format",
+    "driver",
+    "base_url",
+    "privacy_class",
+    "capabilities",
+    "auth_scheme",
+    "auth_header_name",
+    "secret_ref",
+    "api_key_vault_ref",
+    "auth_vault_ref",
+    "evidence_refs",
+    "receipt_id",
+    "receipt_refs",
+    "authority_grant_refs",
+    "authority_receipt_refs",
+    "custody_ref",
+  ]) {
+    if (Object.hasOwn(source, field) && source[field] !== undefined) body[field] = source[field];
+  }
+  return body;
+}
+
+function providerControlDefaultApiFormat(kind) {
+  if (kind === "local_folder") return "ioi_fixture";
+  if (kind === "ioi_native_local") return "ioi_native";
+  return kind ?? "custom";
+}
+
+function providerControlDefaultDriver(kind, apiFormat) {
+  if (kind === "ioi_native_local" || apiFormat === "ioi_native") return "native_local";
+  if (kind === "local_folder" || apiFormat === "ioi_fixture" || apiFormat === "fixture") return "fixture";
+  if (["ollama", "vllm", "llama_cpp", "lm_studio"].includes(kind)) return kind;
+  return "hosted_provider";
+}
+
+function assertRustAuthoredProviderControlPlan(plan = {}, options = {}) {
+  const record = plan.record && typeof plan.record === "object" && !Array.isArray(plan.record)
+    ? plan.record
+    : {};
+  const publicResponse = record.public_response && typeof record.public_response === "object" && !Array.isArray(record.public_response)
+    ? record.public_response
+    : {};
+  const evidenceRefs = Array.isArray(plan.evidence_refs) ? plan.evidence_refs : [];
+  const recordEvidenceRefs = Array.isArray(record.evidence_refs) ? record.evidence_refs : [];
+  const missing = [];
+  const mismatches = [];
+  if (plan.record_dir !== "model-providers") missing.push("record_dir");
+  if (!plan.record_id) missing.push("record_id");
+  if (record.id !== plan.record_id) mismatches.push("record.id");
+  if (record.record_id !== plan.record_id) mismatches.push("record.record_id");
+  if (record.object !== "ioi.model_mount_provider") missing.push("record.object");
+  if (record.schema_version !== MODEL_MOUNT_PROVIDER_CONTROL_SCHEMA_VERSION) missing.push("record.schema_version");
+  if (plan.operation_kind !== options.operation_kind) mismatches.push("operation_kind");
+  if (plan.rust_core_boundary !== "model_mount.provider_control") missing.push("rust_core_boundary");
+  if (!plan.control_hash) missing.push("control_hash");
+  if (!plan.authority_hash) missing.push("authority_hash");
+  if (record.plaintext_material_returned !== false) missing.push("record.plaintext_material_returned_false");
+  if (publicResponse.private_material_returned !== false) missing.push("public_response.private_material_returned_false");
+  if (publicResponse.plaintext_material_persisted !== false) {
+    missing.push("public_response.plaintext_material_persisted_false");
+  }
+  for (const ref of [
+    "rust_daemon_core_provider_control",
+    "ctee_provider_custody_enforced",
+    "agentgres_provider_control_truth_required",
+  ]) {
+    if (!evidenceRefs.includes(ref)) missing.push(`evidence_refs.${ref}`);
+    if (!recordEvidenceRefs.includes(ref)) missing.push(`record.evidence_refs.${ref}`);
+  }
+  if (missing.length === 0 && mismatches.length === 0) return;
+  throw runtimeError({
+    status: 502,
+    code: "model_mount_provider_control_plan_invalid",
+    message: "Provider control facade requires a Rust-authored model_mount provider-control plan.",
+    details: {
+      operation_kind: options.operation_kind ?? null,
+      missing,
+      mismatches,
+    },
+  });
+}
+
+function providerControlResponse(plan, commit) {
+  const record = plan.record && typeof plan.record === "object" && !Array.isArray(plan.record)
+    ? plan.record
+    : {};
+  const publicResponse = record.public_response && typeof record.public_response === "object" && !Array.isArray(record.public_response)
+    ? record.public_response
+    : {};
+  return {
+    ...publicResponse,
+    status: publicResponse.status ?? "committed",
+    operation_kind: plan.operation_kind,
+    rust_core_boundary: plan.rust_core_boundary,
+    record_dir: plan.record_dir,
+    record_id: plan.record_id,
+    record,
+    commit,
+    receipt_refs: plan.receipt_refs,
+    authority_grant_refs: plan.authority_grant_refs,
+    authority_receipt_refs: plan.authority_receipt_refs,
+    evidence_refs: plan.evidence_refs,
+    control_hash: plan.control_hash,
+    authority_hash: plan.authority_hash,
+    js_provider_map_write: false,
+    js_vault_resolution: false,
+    js_write_map: false,
+  };
 }
 
 function throwArtifactEndpointRustCoreRequired(operation_kind, details = {}) {

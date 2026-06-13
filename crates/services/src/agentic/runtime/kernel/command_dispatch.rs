@@ -225,6 +225,10 @@ pub fn dispatch_command_operation_response(
                 |error| model_mount_error("model_mount_catalog_provider_control_invalid", error),
             )
         }
+        CommandOperation::PlanModelMountProviderControl => {
+            plan_model_mount_provider_control_response(decode(raw_request)?)
+                .map_err(|error| model_mount_error("model_mount_provider_control_invalid", error))
+        }
         CommandOperation::PlanModelMountCapabilityTokenControl => {
             plan_model_mount_capability_token_control_response(decode(raw_request)?).map_err(
                 |error| model_mount_error("model_mount_capability_token_control_invalid", error),

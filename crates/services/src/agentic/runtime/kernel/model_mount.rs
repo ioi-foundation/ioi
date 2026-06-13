@@ -55,7 +55,8 @@ pub use common::{
     MODEL_MOUNT_CONVERSATION_STATE_PLAN_SCHEMA_VERSION,
     MODEL_MOUNT_CONVERSATION_STATE_SCHEMA_VERSION, MODEL_MOUNT_INSTANCE_LIFECYCLE_SCHEMA_VERSION,
     MODEL_MOUNT_INVOCATION_ADMISSION_SCHEMA_VERSION, MODEL_MOUNT_MCP_WORKFLOW_PLAN_SCHEMA_VERSION,
-    MODEL_MOUNT_MCP_WORKFLOW_SCHEMA_VERSION, MODEL_MOUNT_PROVIDER_EXECUTION_SCHEMA_VERSION,
+    MODEL_MOUNT_MCP_WORKFLOW_SCHEMA_VERSION, MODEL_MOUNT_PROVIDER_CONTROL_PLAN_SCHEMA_VERSION,
+    MODEL_MOUNT_PROVIDER_CONTROL_SCHEMA_VERSION, MODEL_MOUNT_PROVIDER_EXECUTION_SCHEMA_VERSION,
     MODEL_MOUNT_PROVIDER_INVENTORY_SCHEMA_VERSION, MODEL_MOUNT_PROVIDER_INVOCATION_SCHEMA_VERSION,
     MODEL_MOUNT_PROVIDER_LIFECYCLE_PLAN_SCHEMA_VERSION,
     MODEL_MOUNT_PROVIDER_LIFECYCLE_SCHEMA_VERSION, MODEL_MOUNT_PROVIDER_RESULT_SCHEMA_VERSION,
@@ -85,6 +86,11 @@ pub use catalog_provider_control::{
     plan_model_mount_catalog_provider_control_response,
     ModelMountCatalogProviderControlBridgeRequest, ModelMountCatalogProviderControlPlan,
     ModelMountCatalogProviderControlRequest,
+};
+mod provider_control;
+pub use provider_control::{
+    plan_model_mount_provider_control_response, ModelMountProviderControlBridgeRequest,
+    ModelMountProviderControlPlan, ModelMountProviderControlRequest,
 };
 mod conversation;
 pub use conversation::{
@@ -295,6 +301,13 @@ impl ModelMountCore {
         request: &ModelMountCatalogProviderControlRequest,
     ) -> Result<ModelMountCatalogProviderControlPlan, ModelMountError> {
         catalog_provider_control::plan_catalog_provider_control(request)
+    }
+
+    pub fn plan_provider_control(
+        &self,
+        request: &ModelMountProviderControlRequest,
+    ) -> Result<ModelMountProviderControlPlan, ModelMountError> {
+        provider_control::plan_provider_control(request)
     }
 
     pub fn plan_capability_token_control(

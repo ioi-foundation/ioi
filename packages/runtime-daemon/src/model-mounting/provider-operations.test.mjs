@@ -12,6 +12,7 @@ function fakeState() {
     healthWrites: [],
     modelMountLifecycleRequests: [],
     modelMountInventoryRequests: [],
+    modelMountProviderControlRequests: [],
     recordStateCommits: [],
     projections: 0,
     receipts: [],
@@ -33,6 +34,116 @@ function fakeState() {
     },
     listInstances() {
       return [...this.instances.values()];
+    },
+    planModelMountProviderControl(request) {
+      this.modelMountProviderControlRequests.push(JSON.parse(JSON.stringify(request)));
+      const body = request.body ?? {};
+      const providerId = request.provider_id ?? body.id;
+      const recordId = providerId;
+      const evidenceRefs = [
+        "rust_daemon_core_provider_control",
+        "wallet_network_provider_control_authority_required",
+        "wallet_network_vault_authority_required",
+        "ctee_provider_custody_enforced",
+        "agentgres_provider_control_truth_required",
+        "public_provider_control_js_facade_retired",
+      ];
+      const publicResponse = {
+        object: "ioi.model_mount_provider",
+        id: providerId,
+        provider_id: providerId,
+        provider_ref: body.provider_ref ?? `provider://${providerId}`,
+        kind: body.kind,
+        label: body.label,
+        status: body.status,
+        api_format: body.api_format,
+        driver: body.driver,
+        base_url: body.base_url,
+        privacy_class: body.privacy_class,
+        capabilities: body.capabilities ?? [],
+        auth_scheme: body.auth_scheme,
+        auth_header_name: body.auth_header_name,
+        secret_ref: body.secret_ref,
+        auth_material_status: body.secret_ref ? "wallet_vault_ref_bound" : "not_required",
+        private_material_returned: false,
+        plaintext_material_persisted: false,
+        authority_hash: "sha256:provider-control-authority",
+        control_hash: "sha256:provider-control",
+      };
+      const record = {
+        id: recordId,
+        record_id: recordId,
+        schema_version: "ioi.model_mount.provider_control.v1",
+        object: "ioi.model_mount_provider",
+        status: body.status,
+        operation_kind: request.operation_kind,
+        source: "rust_model_mount_provider_control_command",
+        provider_id: providerId,
+        provider_ref: publicResponse.provider_ref,
+        kind: body.kind,
+        label: body.label,
+        api_format: body.api_format,
+        driver: body.driver,
+        base_url: body.base_url,
+        privacy_class: body.privacy_class,
+        capabilities: body.capabilities ?? [],
+        auth_scheme: body.auth_scheme,
+        auth_header_name: body.auth_header_name,
+        secret_ref: body.secret_ref,
+        rust_core_boundary: "model_mount.provider_control",
+        wallet_authority_boundary: "wallet.network.provider_control",
+        ctee_custody_boundary: "ctee.provider_material",
+        plaintext_material_returned: false,
+        custody_policy: {
+          no_plaintext_custody: true,
+          private_material_resolved_by: "rust_daemon_core_ctee",
+          js_private_material_readback_retired: true,
+          custody_ref: request.custody_ref,
+        },
+        authority: {
+          authority_hash: "sha256:provider-control-authority",
+          required_scope: request.required_scope,
+          authority_grant_refs: request.authority_grant_refs,
+          authority_receipt_refs: request.authority_receipt_refs,
+        },
+        public_response: publicResponse,
+        receipt_refs: request.receipt_refs,
+        evidence_refs: evidenceRefs,
+        control_hash: "provider-control",
+      };
+      return {
+        source: "rust_model_mount_provider_control_command",
+        backend: "rust_model_mount_provider_control",
+        plan: {
+          schema_version: "ioi.model_mount.provider_control_plan.v1",
+          object: "ioi.model_mount_provider_control_plan",
+          status: "planned",
+          rust_core_boundary: "model_mount.provider_control",
+          operation_kind: request.operation_kind,
+          source: "runtime-daemon.model_mounting.provider_control",
+          record_dir: "model-providers",
+          record_id: recordId,
+          record,
+          receipt_refs: request.receipt_refs,
+          authority_grant_refs: request.authority_grant_refs,
+          authority_receipt_refs: request.authority_receipt_refs,
+          evidence_refs: evidenceRefs,
+          control_hash: "provider-control",
+          authority_hash: "sha256:provider-control-authority",
+        },
+        record_dir: "model-providers",
+        record_id: recordId,
+        record,
+        public_response: publicResponse,
+        operation_kind: request.operation_kind,
+        rust_core_boundary: "model_mount.provider_control",
+        receipt_refs: request.receipt_refs,
+        authority_grant_refs: request.authority_grant_refs,
+        authority_receipt_refs: request.authority_receipt_refs,
+        evidence_refs: evidenceRefs,
+        control_hash: "provider-control",
+        authority_hash: "sha256:provider-control-authority",
+      };
     },
     planModelMountProviderLifecycle(request) {
       this.modelMountLifecycleRequests.push(JSON.parse(JSON.stringify(request)));
@@ -405,8 +516,58 @@ test("mounted provider driver factory fails closed before JS driver allocation",
   );
 });
 
-test("provider upsert fails closed before vault resolution, record-state commit, or provider mutation", () => {
+test("provider upsert commits Rust provider-control record without vault resolution or provider mutation", () => {
   const state = fakeState();
+
+  const result = upsertProvider(
+    state,
+    {
+      id: "provider.openai",
+      kind: "openai",
+      label: "OpenAI",
+      api_key_vault_ref: "vault://provider/openai",
+      auth_header_name: "X-API-Key",
+      api_format: "openai",
+      base_url: "https://api.openai.example/v1",
+      privacy_class: "hosted_private",
+      evidence_refs: ["operator_provider_config", "wallet.network.vault_ref_boundary"],
+      capabilities: ["chat", "responses"],
+    },
+    providerDeps(),
+  );
+
+  assert.equal(state.modelMountProviderControlRequests.length, 1);
+  assert.equal(state.modelMountProviderControlRequests[0].schema_version, "ioi.model_mount.provider_control.v1");
+  assert.equal(state.modelMountProviderControlRequests[0].operation_kind, "model_mount.provider.write");
+  assert.equal(state.modelMountProviderControlRequests[0].provider_id, "provider.openai");
+  assert.equal(state.modelMountProviderControlRequests[0].body.secret_ref, "vault://provider/openai");
+  assert.equal(Object.hasOwn(state.modelMountProviderControlRequests[0].body, "api_key_vault_ref"), false);
+  assert.equal(state.modelMountProviderControlRequests[0].body.auth_header_name, "X-API-Key");
+  assert.equal(state.modelMountProviderControlRequests[0].body.api_format, "openai");
+  assert.equal(state.recordStateCommits.length, 1);
+  assert.equal(state.recordStateCommits[0].record_dir, "model-providers");
+  assert.equal(state.recordStateCommits[0].record_id, "provider.openai");
+  assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.provider.write");
+  assert.equal(state.recordStateCommits[0].record.rust_core_boundary, "model_mount.provider_control");
+  assert.equal(state.recordStateCommits[0].record.plaintext_material_returned, false);
+  assert.equal(result.rust_core_boundary, "model_mount.provider_control");
+  assert.equal(result.record_dir, "model-providers");
+  assert.equal(result.record_id, "provider.openai");
+  assert.equal(result.private_material_returned, false);
+  assert.equal(result.plaintext_material_persisted, false);
+  assert.equal(result.js_provider_map_write, false);
+  assert.equal(result.js_vault_resolution, false);
+  assert.equal(result.js_write_map, false);
+  assert.equal(result.evidence_refs.includes("rust_daemon_core_provider_control"), true);
+  assert.equal(result.evidence_refs.includes("agentgres_provider_control_truth_required"), true);
+  assert.equal(state.providers.has("provider.openai"), false);
+  assert.deepEqual(state.resolvedVaultRefs, []);
+  assert.deepEqual(state.writes, []);
+});
+
+test("provider upsert fails closed without Rust Agentgres provider record-state commit", () => {
+  const state = fakeState();
+  delete state.commitRuntimeModelMountRecordState;
 
   assert.throws(
     () =>
@@ -417,33 +578,25 @@ test("provider upsert fails closed before vault resolution, record-state commit,
           kind: "openai",
           label: "OpenAI",
           api_key_vault_ref: "vault://provider/openai",
-          auth_header_name: "X-API-Key",
           api_format: "openai",
-          base_url: "https://api.openai.example/v1",
-          privacy_class: "hosted_private",
-          evidence_refs: ["operator_provider_config", "wallet.network.vault_ref_boundary"],
-          capabilities: ["chat", "responses"],
         },
         providerDeps(),
       ),
     (error) => {
-      assert.equal(error.status, 501);
-      assert.equal(error.code, "model_mount_provider_control_rust_core_required");
+      assert.equal(error.status, 500);
+      assert.equal(error.code, "model_mount_provider_control_record_state_commit_unconfigured");
+      assert.equal(error.details.record_dir, "model-providers");
+      assert.equal(error.details.record_id, "provider.openai");
       assert.equal(error.details.rust_core_boundary, "model_mount.provider_control");
-      assert.equal(error.details.operation, "provider_upsert");
       assert.equal(error.details.operation_kind, "model_mount.provider.write");
-      assert.equal(error.details.provider_id, "provider.openai");
-      assert.equal(error.details.provider_kind, "openai");
-      assert.equal(Object.hasOwn(error.details, "providerId"), false);
-      assert.equal(Object.hasOwn(error.details, "providerKind"), false);
       return true;
     },
   );
 
-  assert.equal(state.providers.has("provider.openai"), false);
+  assert.equal(state.modelMountProviderControlRequests.length, 1);
   assert.deepEqual(state.resolvedVaultRefs, []);
-  assert.deepEqual(state.recordStateCommits, []);
   assert.deepEqual(state.writes, []);
+  assert.equal(state.providers.has("provider.openai"), false);
 });
 
 test("provider upsert rejects retired request aliases before vault resolution or state write", () => {

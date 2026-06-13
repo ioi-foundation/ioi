@@ -18881,6 +18881,9 @@ function runReceipts() {
   const modelMountReceiptCore = exists("crates/services/src/agentic/runtime/kernel/model_mount_receipt.rs")
     ? read("crates/services/src/agentic/runtime/kernel/model_mount_receipt.rs")
     : "";
+  const coreCommandProtocol = exists("crates/services/src/agentic/runtime/kernel/command_protocol.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/command_protocol.rs")
+    : "";
   const projectionCommandBridgeExists = exists("crates/node/src/bin/ioi_step_module_bridge/projection_command.rs");
   const projectionCommandBridge = projectionCommandBridgeExists
     ? read("crates/node/src/bin/ioi_step_module_bridge/projection_command.rs")
@@ -22892,13 +22895,40 @@ function runReceipts() {
       /assertCanonicalProviderUpsertRequestBody\(body\);/.test(
         providerUpsertBlock,
       ) &&
-      /modelMountProviderControlRustCoreRequired/.test(providerUpsertBlock) &&
-      /model_mount_provider_control_rust_core_required/.test(providerOperations) &&
+      /assertNoPlaintextProviderSecret\(body\);/.test(providerUpsertBlock) &&
+      /planAndCommitProviderControl\(this,\s*"model_mount\.provider\.write"/.test(providerUpsertBlock) &&
+      /MODEL_MOUNT_PROVIDER_CONTROL_SCHEMA_VERSION/.test(providerOperations) &&
+      /RUST_MODEL_MOUNT_PROVIDER_CONTROL_BACKEND/.test(providerOperations) &&
+      /planModelMountProviderControl\(request\)\s*\{\s*return this\.modelMountAdmissionRunner\.planProviderControl\(request\);/.test(
+        providerOperations,
+      ) &&
+      /planProviderControl\(request\)/.test(modelMountAdmissionRunner) &&
+      /operation:\s*"plan_model_mount_provider_control"/.test(modelMountAdmissionRunner) &&
+      /normalizeProviderControlBridgeResult/.test(modelMountAdmissionRunner) &&
+      /model_mount_provider_control_plan_invalid/.test(modelMountAdmissionRunner) &&
+      /RUST_MODEL_MOUNT_PROVIDER_CONTROL_BACKEND/.test(modelMountAdmissionRunner) &&
+      /PlanModelMountProviderControl/.test(coreCommandProtocol) &&
+      /"plan_model_mount_provider_control"/.test(coreCommandProtocol) &&
+      /plan_model_mount_provider_control_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      /model_mount_provider_control_invalid/.test(coreCommandDispatch) &&
+      /mod provider_control;/.test(modelMountCore) &&
+      /plan_model_mount_provider_control_response/.test(modelMountCore) &&
+      /MODEL_MOUNT_PROVIDER_CONTROL_SCHEMA_VERSION/.test(modelMountCore) &&
+      /MODEL_MOUNT_PROVIDER_CONTROL_PLAN_SCHEMA_VERSION/.test(modelMountCore) &&
+      /rust_core_plans_provider_control_record/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_control.rs"),
+      ) &&
+      /ProviderControlPlaintextMaterial/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_control.rs"),
+      ) &&
       /rust_core_boundary:\s*"model_mount\.provider_control"/.test(providerOperations) &&
-      /model_mount_provider_control_js_facade_retired/.test(providerOperations) &&
-      /rust_daemon_core_provider_control_required/.test(providerOperations) &&
+      /public_provider_control_js_facade_retired/.test(modelMountAdmissionRunner) &&
+      /rust_daemon_core_provider_control/.test(modelMountAdmissionRunner) &&
+      /ctee_provider_custody_enforced/.test(modelMountAdmissionRunner) &&
+      /agentgres_provider_control_truth_required/.test(modelMountAdmissionRunner) &&
       /wallet_network_vault_authority_required/.test(providerOperations) &&
-      /operation_kind:\s*"model_mount\.provider\.write"/.test(providerUpsertBlock) &&
+      /"model_mount\.provider\.write"/.test(providerUpsertBlock) &&
+      !/modelMountProviderControlRustCoreRequired/.test(providerUpsertBlock) &&
       !/state\.normalizeProviderSecretRef/.test(
         providerUpsertBlock,
       ) &&
@@ -22921,16 +22951,27 @@ function runReceipts() {
       !/body\.(?:authScheme|authHeaderName|apiFormat|baseUrl|privacyClass|evidenceRefs)\b/.test(
         providerUpsertBlock,
       ) &&
-      /provider upsert fails closed before vault resolution, record-state commit, or provider mutation/.test(
+      /provider upsert commits Rust provider-control record without vault resolution or provider mutation/.test(
         providerOperationsTest,
       ) &&
-      !/provider upsert fails closed without Rust Agentgres provider record-state commit/.test(providerOperationsTest) &&
+      /provider upsert fails closed without Rust Agentgres provider record-state commit/.test(providerOperationsTest) &&
+      /Rust model_mount admission runner sends positive provider-control request/.test(modelMountAdmissionRunnerTest) &&
       /provider upsert rejects retired request aliases before vault resolution or state write/.test(
+        providerOperationsTest,
+      ) &&
+      /modelMountProviderControlRequests/.test(providerOperationsTest) &&
+      /assert\.equal\(state\.modelMountProviderControlRequests\.length,\s*1\)/.test(providerOperationsTest) &&
+      /assert\.equal\(state\.modelMountProviderControlRequests\[0\]\.body\.secret_ref,\s*"vault:\/\/provider\/openai"\)/.test(
+        providerOperationsTest,
+      ) &&
+      /Object\.hasOwn\(state\.modelMountProviderControlRequests\[0\]\.body,\s*"api_key_vault_ref"\),\s*false/.test(
         providerOperationsTest,
       ) &&
       /recordStateCommits/.test(providerOperationsTest) &&
       /model_mount\.provider\.write/.test(providerOperationsTest) &&
-      /assert\.deepEqual\(state\.recordStateCommits,\s*\[\]\)/.test(providerOperationsTest) &&
+      /assert\.equal\(state\.recordStateCommits\.length,\s*1\)/.test(providerOperationsTest) &&
+      /assert\.equal\(state\.recordStateCommits\[0\]\.record_dir,\s*"model-providers"\)/.test(providerOperationsTest) &&
+      /model_mount_provider_control_record_state_commit_unconfigured/.test(providerOperationsTest) &&
       /provider start and stop fail closed until direct Rust core control exists/.test(providerOperationsTest) &&
       /retired_aliases,\s*\[\s*"authScheme"\s*,\s*"authHeaderName"\s*,\s*"apiFormat"\s*,\s*"baseUrl"\s*,\s*"privacyClass"\s*,\s*"evidenceRefs"\s*,?\s*\]/.test(
         providerOperationsTest,
@@ -22944,9 +22985,15 @@ function runReceipts() {
       /auth_header_name:\s*"X-API-Key"/.test(providerOperationsTest),
     [
       "packages/runtime-daemon/src/model-mounting/provider-operations.mjs",
+      "crates/services/src/agentic/runtime/kernel/model_mount/provider_control.rs",
+      "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
+      "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs",
       "packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs",
     ],
-    "Phase 5/11 is pending: provider upsert request bodies must fail closed on retired metadata aliases before vault resolution or provider state writes",
+    "Phase 5/11 is pending: provider upsert must call Rust daemon-core provider-control planning and commit only Rust-authored provider truth through Agentgres",
   );
   assertCheck(
     result,

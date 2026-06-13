@@ -15,6 +15,7 @@ export const RUST_MODEL_MOUNT_TOKENIZER_REQUIRED_BACKEND = "rust_model_mount_tok
 export const RUST_MODEL_MOUNT_ROUTE_CONTROL_REQUIRED_BACKEND = "rust_model_mount_route_control_required";
 export const RUST_MODEL_MOUNT_ROUTE_CONTROL_BACKEND = "rust_model_mount_route_control";
 export const RUST_MODEL_MOUNT_CATALOG_PROVIDER_CONTROL_BACKEND = "rust_model_mount_catalog_provider_control";
+export const RUST_MODEL_MOUNT_PROVIDER_CONTROL_BACKEND = "rust_model_mount_provider_control";
 export const RUST_MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_BACKEND = "rust_model_mount_capability_token_control";
 export const RUST_MODEL_MOUNT_VAULT_CONTROL_BACKEND = "rust_model_mount_vault_control";
 export const RUST_MODEL_MOUNT_RECEIPT_GATE_BACKEND = "rust_model_mount_receipt_gate";
@@ -298,6 +299,16 @@ export class RustModelMountAdmissionRunner {
       request,
     };
     return normalizeCatalogProviderControlBridgeResult(this.invokeDaemonCore(bridgeRequest));
+  }
+
+  planProviderControl(request) {
+    const bridgeRequest = {
+      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      operation: "plan_model_mount_provider_control",
+      backend: RUST_MODEL_MOUNT_PROVIDER_CONTROL_BACKEND,
+      request,
+    };
+    return normalizeProviderControlBridgeResult(this.invokeDaemonCore(bridgeRequest));
   }
 
   planCapabilityTokenControl(request) {
@@ -1253,6 +1264,92 @@ function normalizeCatalogProviderControlBridgeResult(value = {}) {
     const error = new Error("Rust model_mount catalog-provider-control plan is incomplete.");
     error.status = 502;
     error.code = "model_mount_catalog_provider_control_plan_invalid";
+    error.details = {
+      missing,
+      source: normalized.source,
+      backend: normalized.backend,
+      operation_kind: normalized.operation_kind,
+    };
+    throw error;
+  }
+  return normalized;
+}
+
+function normalizeProviderControlBridgeResult(value = {}) {
+  const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const plan = result.plan && typeof result.plan === "object" && !Array.isArray(result.plan)
+    ? result.plan
+    : {};
+  const record = result.record && typeof result.record === "object" && !Array.isArray(result.record)
+    ? result.record
+    : plan.record && typeof plan.record === "object" && !Array.isArray(plan.record)
+      ? plan.record
+      : null;
+  const normalized = {
+    source: result.source ?? "rust_model_mount_provider_control_command",
+    backend: result.backend ?? RUST_MODEL_MOUNT_PROVIDER_CONTROL_BACKEND,
+    plan,
+    record_dir: result.record_dir ?? plan.record_dir ?? null,
+    record_id: result.record_id ?? plan.record_id ?? null,
+    record,
+    public_response: result.public_response ?? plan.public_response ?? record?.public_response ?? null,
+    operation_kind: result.operation_kind ?? plan.operation_kind ?? null,
+    rust_core_boundary: result.rust_core_boundary ?? plan.rust_core_boundary ?? null,
+    receipt_refs: arrayOrNull(result.receipt_refs) ?? arrayOrNull(plan.receipt_refs) ?? [],
+    authority_grant_refs: arrayOrNull(result.authority_grant_refs) ?? arrayOrNull(plan.authority_grant_refs) ?? [],
+    authority_receipt_refs:
+      arrayOrNull(result.authority_receipt_refs) ?? arrayOrNull(plan.authority_receipt_refs) ?? [],
+    evidence_refs: arrayOrNull(result.evidence_refs) ?? arrayOrNull(plan.evidence_refs),
+    control_hash: result.control_hash ?? plan.control_hash ?? null,
+    authority_hash: result.authority_hash ?? plan.authority_hash ?? null,
+  };
+  const missing = [];
+  for (const field of ["record_dir", "record_id", "record", "operation_kind", "control_hash", "authority_hash"]) {
+    if (!normalized[field]) missing.push(field);
+  }
+  if (normalized.rust_core_boundary !== "model_mount.provider_control") {
+    missing.push("rust_core_boundary");
+  }
+  if (
+    !Array.isArray(normalized.evidence_refs) ||
+    !normalized.evidence_refs.includes("rust_daemon_core_provider_control")
+  ) {
+    missing.push("evidence_refs.rust_daemon_core_provider_control");
+  }
+  if (
+    !Array.isArray(normalized.evidence_refs) ||
+    !normalized.evidence_refs.includes("ctee_provider_custody_enforced")
+  ) {
+    missing.push("evidence_refs.ctee_provider_custody_enforced");
+  }
+  if (
+    !Array.isArray(normalized.evidence_refs) ||
+    !normalized.evidence_refs.includes("agentgres_provider_control_truth_required")
+  ) {
+    missing.push("evidence_refs.agentgres_provider_control_truth_required");
+  }
+  if (
+    !Array.isArray(normalized.evidence_refs) ||
+    !normalized.evidence_refs.includes("public_provider_control_js_facade_retired")
+  ) {
+    missing.push("evidence_refs.public_provider_control_js_facade_retired");
+  }
+  if (record?.id !== normalized.record_id) {
+    missing.push("record.id");
+  }
+  if (record?.plaintext_material_returned !== false) {
+    missing.push("record.plaintext_material_returned_false");
+  }
+  if (record?.public_response?.private_material_returned !== false) {
+    missing.push("record.public_response.private_material_returned_false");
+  }
+  if (record?.public_response?.plaintext_material_persisted !== false) {
+    missing.push("record.public_response.plaintext_material_persisted_false");
+  }
+  if (missing.length > 0) {
+    const error = new Error("Rust model_mount provider-control plan is incomplete.");
+    error.status = 502;
+    error.code = "model_mount_provider_control_plan_invalid";
     error.details = {
       missing,
       source: normalized.source,
