@@ -25,6 +25,7 @@ function fakeState() {
     providers: new Map([["provider.local", { id: "provider.local", kind: "openai", capabilities: ["chat"], privacyClass: "hosted_metered" }]]),
     routes: new Map([["route.local-first", { id: "route.local-first" }]]),
     evictions: 0,
+    providerProjectionReads: 0,
     loadedLookups: [],
     loadCalls: [],
     mounted: [],
@@ -62,6 +63,23 @@ function fakeState() {
     loadModel(body) {
       this.loadCalls.push(body);
       return { id: "instance.loaded.new", endpointId: body.endpoint_id, status: "loaded" };
+    },
+    listProviders() {
+      this.providerProjectionReads += 1;
+      return [{
+        id: "provider.local",
+        provider_id: "provider.local",
+        provider_ref: "provider://local",
+        kind: "openai",
+        capabilities: ["chat"],
+        privacy_class: "hosted_metered",
+        provider_projection_boundary: "model_mount.provider_control_projection",
+        evidence_refs: [
+          "rust_daemon_core_provider_control_projection",
+          "agentgres_provider_control_truth_required",
+          "model_mount_provider_map_lookup_js_retired",
+        ],
+      }];
     },
     mountEndpoint(body) {
       const record = { id: `endpoint.mounted.${body.model_id}`, modelId: body.model_id, status: "mounted" };
@@ -114,6 +132,8 @@ test("state lookup accessors return records and fail closed", () => {
   const state = fakeState();
 
   assert.equal(provider(state, "provider.local", deps).id, "provider.local");
+  assert.equal(provider(state, "provider://local", deps).provider_id, "provider.local");
+  assert.equal(state.providerProjectionReads, 2);
   assert.equal(endpoint(state, "endpoint.active", deps).id, "endpoint.active");
   assert.equal(route(state, "route.local-first", deps).id, "route.local-first");
 
@@ -124,6 +144,7 @@ test("state lookup accessors return records and fail closed", () => {
     () => provider(state, "missing", deps),
     (error) => hasCanonicalNotFoundDetail(error, "provider_id", "missing", "providerId"),
   );
+  assert.equal(state.providerProjectionReads, 3);
   assert.throws(
     () => endpoint(state, "endpoint.unmounted", deps),
     (error) => hasCanonicalNotFoundDetail(error, "endpoint_id", "endpoint.unmounted", "endpointId"),
@@ -135,6 +156,20 @@ test("state lookup accessors return records and fail closed", () => {
   assert.throws(
     () => route(state, "missing", deps),
     (error) => hasCanonicalNotFoundDetail(error, "route_id", "missing", "routeId"),
+  );
+});
+
+test("provider accessor uses Rust provider projection rather than JS provider map", () => {
+  const state = fakeState();
+  state.providers.set("provider.map-only", {
+    id: "provider.map-only",
+    kind: "custom_http",
+  });
+
+  assert.equal(provider(state, "provider.local", deps).provider_projection_boundary, "model_mount.provider_control_projection");
+  assert.throws(
+    () => provider(state, "provider.map-only", deps),
+    (error) => hasCanonicalNotFoundDetail(error, "provider_id", "provider.map-only", "providerId"),
   );
 });
 

@@ -8664,9 +8664,12 @@ model_mount record-state admission before returning public provider truth. The
 old fail-closed provider-upsert JS facade, provider-map mutation,
 `writeMap("model-providers")`, JS vault resolution, plaintext material
 readback, and no-commit success remain retired. Provider-control replay for
-provider lookup, hosted/provider transports, hosted/provider endpoint
-discovery/materialization, command-transport retirement, and stable direct
-Rust/Agentgres APIs remain non-terminal.
+provider lookup now lives in the Rust `providers` read-projection kind: Rust
+replays admitted `model-providers/*.json` records, filters JS-authored provider
+truth, and the mounted provider accessor consumes that projection instead of
+`state.providers` map truth. Hosted/provider transports, hosted/provider
+endpoint discovery/materialization, command-transport retirement, and stable
+direct Rust/Agentgres APIs remain non-terminal.
 Public `listInstances()` now calls Rust read-projection kind
 `instances` with runtime `state_dir`; Rust replays persisted
 `model-instances/*.json` Agentgres records, filters to Rust-authored

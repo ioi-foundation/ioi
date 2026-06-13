@@ -1,8 +1,25 @@
 export function provider(state, providerId, deps = {}) {
   const { notFound } = deps;
-  const record = state.providers.get(providerId);
+  const record = providerProjectionRecord(state, providerId);
   if (!record) throw notFound(`Provider not found: ${providerId}`, { provider_id: providerId });
   return record;
+}
+
+export function optionalProvider(state, providerId) {
+  return providerProjectionRecord(state, providerId);
+}
+
+function providerProjectionRecord(state, providerId) {
+  const requested = String(providerId ?? "").trim();
+  if (!requested) return null;
+  const requestedRef = requested.startsWith("provider://") ? requested : `provider://${requested}`;
+  const records = typeof state?.listProviders === "function" ? state.listProviders() : [];
+  if (!Array.isArray(records)) return null;
+  return records.find((record) =>
+    record?.id === requested ||
+    record?.provider_id === requested ||
+    record?.provider_ref === requested ||
+    record?.provider_ref === requestedRef) ?? null;
 }
 
 export function endpoint(state, endpointId, deps = {}) {

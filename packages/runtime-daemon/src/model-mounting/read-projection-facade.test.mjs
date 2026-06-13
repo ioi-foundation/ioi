@@ -161,6 +161,64 @@ function createState() {
       ],
     },
   ]);
+  writeProviderControlRecords(stateDir, [
+    {
+      id: "legacy-js-provider",
+      record_id: "legacy-js-provider",
+      schema_version: "ioi.model_mount.provider_control.v1",
+      object: "ioi.model_mount_provider",
+      status: "configured",
+      operation_kind: "model_mount.provider.write",
+      source: "runtime-daemon.provider_js",
+      provider_id: "provider.legacy",
+      provider_ref: "provider://legacy",
+      kind: "openai",
+      rust_core_boundary: "daemon_js",
+      control_hash: "sha256:legacy",
+      plaintext_material_returned: false,
+      evidence_refs: ["legacy_js_provider_control"],
+    },
+    {
+      id: "provider.openai",
+      record_id: "provider.openai",
+      schema_version: "ioi.model_mount.provider_control.v1",
+      object: "ioi.model_mount_provider",
+      status: "configured",
+      operation_kind: "model_mount.provider.write",
+      source: "rust_model_mount_provider_control_command",
+      provider_id: "provider.openai",
+      provider_ref: "provider://openai",
+      kind: "openai",
+      label: "OpenAI",
+      api_format: "openai",
+      driver: "hosted_provider",
+      base_url: "https://api.openai.example/v1",
+      privacy_class: "hosted_private",
+      capabilities: ["chat", "responses"],
+      auth_scheme: "bearer",
+      auth_header_name: "Authorization",
+      secret_ref: "vault://provider/openai",
+      rust_core_boundary: "model_mount.provider_control",
+      wallet_authority_boundary: "wallet.network.provider_control",
+      ctee_custody_boundary: "ctee.provider_material",
+      plaintext_material_returned: false,
+      authority: {
+        authority_hash: "sha256:authority:provider.openai",
+        required_scope: "provider.write:provider.openai",
+        authority_grant_refs: ["wallet://grant/provider-control"],
+        authority_receipt_refs: ["receipt://wallet/provider-control"],
+      },
+      control_hash: "sha256:control:provider.openai",
+      evidence_refs: [
+        "rust_daemon_core_provider_control",
+        "wallet_network_provider_control_authority_required",
+        "wallet_network_vault_authority_required",
+        "ctee_provider_custody_enforced",
+        "agentgres_provider_control_truth_required",
+        "public_provider_control_js_facade_retired",
+      ],
+    },
+  ]);
   writeTokenizerRecords(stateDir, [
     {
       id: "legacy-js-tokenizer",
@@ -1601,6 +1659,17 @@ function writeProviderInventoryRecords(stateDir, records = []) {
   }
 }
 
+function writeProviderControlRecords(stateDir, records = []) {
+  const providerDir = path.join(stateDir, "model-providers");
+  fs.mkdirSync(providerDir, { recursive: true });
+  for (const record of records) {
+    fs.writeFileSync(
+      path.join(providerDir, `${record.id}.json`),
+      `${JSON.stringify(record, null, 2)}\n`,
+    );
+  }
+}
+
 function writeTokenizerRecords(stateDir, records = []) {
   const tokenizerDir = path.join(stateDir, "model-tokenizer-utilities");
   fs.mkdirSync(tokenizerDir, { recursive: true });
@@ -1823,6 +1892,69 @@ function providerInventoryRecordsFromAgentgresStateDir(stateDir) {
       String(left.id ?? "").localeCompare(String(right.id ?? "")));
 }
 
+function providerControlRecordsFromAgentgresStateDir(stateDir) {
+  if (!stateDir) return [];
+  const providerDir = path.join(stateDir, "model-providers");
+  if (!fs.existsSync(providerDir)) return [];
+  return fs.readdirSync(providerDir)
+    .filter((file) => file.endsWith(".json"))
+    .map((file) => JSON.parse(fs.readFileSync(path.join(providerDir, file), "utf8")))
+    .filter((record) =>
+      record?.deleted !== true &&
+      record?.object === "ioi.model_mount_provider" &&
+      record?.schema_version === "ioi.model_mount.provider_control.v1" &&
+      record?.operation_kind === "model_mount.provider.write" &&
+      record?.rust_core_boundary === "model_mount.provider_control" &&
+      typeof record?.id === "string" &&
+      record?.record_id === record.id &&
+      typeof record?.provider_id === "string" &&
+      typeof record?.provider_ref === "string" &&
+      typeof record?.kind === "string" &&
+      typeof record?.status === "string" &&
+      typeof record?.control_hash === "string" &&
+      record?.plaintext_material_returned === false &&
+      Array.isArray(record?.evidence_refs) &&
+      record.evidence_refs.includes("rust_daemon_core_provider_control") &&
+      record.evidence_refs.includes("agentgres_provider_control_truth_required") &&
+      record.evidence_refs.includes("public_provider_control_js_facade_retired"))
+    .sort((left, right) =>
+      String(left.provider_ref ?? "").localeCompare(String(right.provider_ref ?? "")) ||
+      String(left.record_id ?? "").localeCompare(String(right.record_id ?? "")));
+}
+
+function providerRecordFromProviderControl(record) {
+  return withoutNulls({
+    id: record.provider_id,
+    object: "ioi.model_mount_provider",
+    provider_id: record.provider_id,
+    provider_ref: record.provider_ref,
+    provider_kind: record.kind,
+    kind: record.kind,
+    label: record.label,
+    status: record.status,
+    api_format: record.api_format,
+    driver: record.driver,
+    base_url: record.base_url,
+    privacy_class: record.privacy_class,
+    capabilities: record.capabilities ?? [],
+    auth_scheme: record.auth_scheme,
+    auth_header_name: record.auth_header_name,
+    auth_material_status: record.secret_ref ? "wallet_vault_ref_bound" : "not_required",
+    private_material_returned: record.plaintext_material_returned,
+    plaintext_material_persisted: false,
+    record_dir: "model-providers",
+    record_id: record.record_id,
+    source: "agentgres_provider_control",
+    rust_core_boundary: "model_mount.provider_control",
+    provider_projection_boundary: "model_mount.provider_control_projection",
+    wallet_authority_boundary: record.wallet_authority_boundary,
+    ctee_custody_boundary: record.ctee_custody_boundary,
+    authority_hash: record.authority?.authority_hash,
+    control_hash: record.control_hash,
+    evidence_refs: providerControlProjectionEvidenceRefs(record),
+  });
+}
+
 function artifactRecordsFromAgentgresStateDir(stateDir, objectKind) {
   return providerInventoryRecordsFromAgentgresStateDir(stateDir)
     .filter((record) => record.action === "list_models")
@@ -1874,8 +2006,20 @@ function providerRecordsFromAgentgresStateDir(stateDir) {
       ],
     });
   }
+  for (const record of providerControlRecordsFromAgentgresStateDir(stateDir)) {
+    providers.set(record.provider_ref, providerRecordFromProviderControl(record));
+  }
   return [...providers.values()].sort((left, right) =>
     String(left.provider_ref ?? "").localeCompare(String(right.provider_ref ?? "")));
+}
+
+function providerControlProjectionEvidenceRefs(record) {
+  return [
+    ...(Array.isArray(record?.evidence_refs) ? record.evidence_refs : []),
+    "rust_daemon_core_provider_control_projection",
+    "agentgres_provider_control_truth_required",
+    "model_mount_provider_map_lookup_js_retired",
+  ].filter((value, index, array) => array.indexOf(value) === index);
 }
 
 function runtimeModelCatalogFromAgentgresStateDir(stateDir) {
@@ -2878,10 +3022,17 @@ test("read projection facade delegates product-safe lists and capabilities", () 
   assert.deepEqual(facade.listArtifacts(state).map((artifact) => artifact.model_ref), [
     "model://fixture/qwen3",
   ]);
-  assert.deepEqual(facade.listProviders(state).map((provider) => provider.provider_ref), [
+  const providers = facade.listProviders(state);
+  assert.deepEqual(providers.map((provider) => provider.provider_ref), [
     "provider://fixture",
     "provider://native",
+    "provider://openai",
   ]);
+  const providerControlProjection = providers.find((provider) => provider.provider_id === "provider.openai");
+  assert.equal(providerControlProjection.provider_projection_boundary, "model_mount.provider_control_projection");
+  assert.equal(providerControlProjection.record_dir, "model-providers");
+  assert.equal(providerControlProjection.private_material_returned, false);
+  assert.equal(providerControlProjection.evidence_refs.includes("model_mount_provider_map_lookup_js_retired"), true);
   const endpoints = facade.listEndpoints(state);
   assert.deepEqual(endpoints.map((endpoint) => endpoint.id), ["endpoint.local"]);
   assert.equal(endpoints[0].provider_id, "provider.local");
@@ -3221,6 +3372,7 @@ test("read projection facade composes snapshots, projection, and receipt replay"
   assert.deepEqual(projection.providers.map((provider) => provider.provider_ref), [
     "provider://fixture",
     "provider://native",
+    "provider://openai",
   ]);
   assert.deepEqual(projection.routes.map((route) => route.id), [
     "route.local-first",
@@ -3394,7 +3546,7 @@ test("read projection facade delegates server status through Rust projection", (
   assert.equal(status.openAiCompatibleBaseUrl, "http://127.0.0.1:3200/v1");
   assert.equal(status.loadedInstances, 2);
   assert.equal(status.mountedEndpoints, 1);
-  assert.deepEqual(status.providerStates, { available: 2, degraded: 0 });
+  assert.deepEqual(status.providerStates, { available: 3, degraded: 0 });
   assert.deepEqual(status.backendStates, { available: 1, degraded: 1 });
   assert.deepEqual(readProjectionRequests.map((request) => request.projection_kind), ["server_status"]);
   assert.deepEqual(readProjectionRequests[0].state, {});

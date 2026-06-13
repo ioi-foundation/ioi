@@ -36,6 +36,7 @@ import {
   getModel as getModelState,
   instance as instanceState,
   modelForProviderMount as modelForProviderMountState,
+  optionalProvider as optionalProviderState,
   provider as providerState,
   resolveEndpoint as resolveEndpointState,
   route as routeState,
@@ -1109,7 +1110,7 @@ export class ModelMountingState {
     assertCanonicalProviderUpsertRequestBody(body);
     assertNoPlaintextProviderSecret(body);
     const id = optionalString(body.id) ?? `provider.${safeId(body.kind ?? body.label ?? "custom")}`;
-    const existing = this.providers.get(id) ?? {};
+    const existing = optionalProviderState(this, id) ?? {};
     const kind = optionalString(body.kind) ?? optionalString(existing.kind) ?? "custom_http";
     return planAndCommitProviderControl(this, "model_mount.provider.write", {
       providerId: id,

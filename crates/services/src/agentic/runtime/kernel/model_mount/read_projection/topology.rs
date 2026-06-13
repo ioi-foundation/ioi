@@ -6,7 +6,9 @@ use std::{
 
 use serde_json::{json, Value};
 
-use crate::agentic::runtime::kernel::model_mount::MODEL_MOUNT_BACKEND_LIFECYCLE_PLAN_SCHEMA_VERSION;
+use crate::agentic::runtime::kernel::model_mount::{
+    MODEL_MOUNT_BACKEND_LIFECYCLE_PLAN_SCHEMA_VERSION, MODEL_MOUNT_PROVIDER_CONTROL_SCHEMA_VERSION,
+};
 
 use super::{route_decision, ModelMountReadProjectionError, ModelMountReadProjectionRequest};
 
@@ -41,13 +43,13 @@ pub(super) fn product_artifact_records(request: &ModelMountReadProjectionRequest
 pub(super) fn providers(
     request: &ModelMountReadProjectionRequest,
 ) -> Result<Value, ModelMountReadProjectionError> {
-    Ok(Value::Array(provider_records_from_provider_inventory(
+    Ok(Value::Array(provider_records_from_agentgres_replay(
         request,
     )?))
 }
 
 pub(super) fn provider_records(request: &ModelMountReadProjectionRequest) -> Vec<Value> {
-    provider_records_from_provider_inventory(request).unwrap_or_default()
+    provider_records_from_agentgres_replay(request).unwrap_or_default()
 }
 
 pub(super) fn endpoints(
@@ -471,6 +473,91 @@ pub(super) fn agentgres_provider_inventory_records(
     Ok(records)
 }
 
+pub(super) fn agentgres_provider_control_records(
+    request: &ModelMountReadProjectionRequest,
+) -> Result<Vec<Value>, ModelMountReadProjectionError> {
+    let state_dir = request
+        .state_dir
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| {
+            ModelMountReadProjectionError::new(
+                "model_mount_provider_control_replay_state_dir_required",
+                "provider-control projection requires Rust Agentgres state_dir replay",
+            )
+        })?;
+    let record_dir = Path::new(state_dir).join("model-providers");
+    if !record_dir.exists() {
+        return Ok(vec![]);
+    }
+    let entries = fs::read_dir(&record_dir).map_err(|error| {
+        ModelMountReadProjectionError::new(
+            "model_mount_provider_control_replay_read_failed",
+            format!("failed to read provider-control records: {error}"),
+        )
+    })?;
+    let mut records = entries
+        .filter_map(|entry| entry.ok())
+        .map(|entry| entry.path())
+        .filter(|path| path.extension().and_then(|value| value.to_str()) == Some("json"))
+        .map(|path| {
+            fs::read_to_string(&path)
+                .map_err(|error| {
+                    ModelMountReadProjectionError::new(
+                        "model_mount_provider_control_replay_read_failed",
+                        format!(
+                            "failed to read provider-control record {}: {error}",
+                            path.display()
+                        ),
+                    )
+                })
+                .and_then(|contents| {
+                    serde_json::from_str::<Value>(&contents).map_err(|error| {
+                        ModelMountReadProjectionError::new(
+                            "model_mount_provider_control_replay_invalid_record",
+                            format!(
+                                "failed to decode provider-control record {}: {error}",
+                                path.display()
+                            ),
+                        )
+                    })
+                })
+        })
+        .collect::<Result<Vec<_>, _>>()?
+        .into_iter()
+        .filter_map(admitted_provider_control_record)
+        .collect::<Vec<_>>();
+    records.sort_by(|left, right| {
+        string_field(left, "provider_ref")
+            .cmp(&string_field(right, "provider_ref"))
+            .then_with(|| string_field(left, "record_id").cmp(&string_field(right, "record_id")))
+    });
+    Ok(records)
+}
+
+fn provider_records_from_agentgres_replay(
+    request: &ModelMountReadProjectionRequest,
+) -> Result<Vec<Value>, ModelMountReadProjectionError> {
+    let mut providers_by_ref = BTreeMap::new();
+    for provider in provider_records_from_provider_inventory(request)? {
+        providers_by_ref.insert(string_field(&provider, "provider_ref"), provider);
+    }
+    for provider in provider_records_from_provider_control(request)? {
+        providers_by_ref.insert(string_field(&provider, "provider_ref"), provider);
+    }
+    Ok(providers_by_ref.into_values().collect())
+}
+
+fn provider_records_from_provider_control(
+    request: &ModelMountReadProjectionRequest,
+) -> Result<Vec<Value>, ModelMountReadProjectionError> {
+    Ok(agentgres_provider_control_records(request)?
+        .iter()
+        .map(projected_provider_control_record)
+        .collect())
+}
+
 fn provider_records_from_provider_inventory(
     request: &ModelMountReadProjectionRequest,
 ) -> Result<Vec<Value>, ModelMountReadProjectionError> {
@@ -504,6 +591,44 @@ fn provider_records_from_provider_inventory(
         string_field(left, "provider_ref").cmp(&string_field(right, "provider_ref"))
     });
     Ok(providers)
+}
+
+fn projected_provider_control_record(record: &Value) -> Value {
+    json_object_without_nulls(json!({
+        "id": string_field(record, "provider_id"),
+        "object": "ioi.model_mount_provider",
+        "provider_id": string_field(record, "provider_id"),
+        "provider_ref": string_field(record, "provider_ref"),
+        "provider_kind": string_field(record, "kind"),
+        "kind": string_field(record, "kind"),
+        "label": string_field(record, "label"),
+        "status": string_field(record, "status"),
+        "api_format": string_field(record, "api_format"),
+        "driver": string_field(record, "driver"),
+        "base_url": string_field(record, "base_url"),
+        "privacy_class": string_field(record, "privacy_class"),
+        "capabilities": string_array_field(record, "capabilities"),
+        "auth_scheme": string_field(record, "auth_scheme"),
+        "auth_header_name": string_field(record, "auth_header_name"),
+        "auth_material_status": if string_field(record, "secret_ref").is_empty() {
+            "not_required"
+        } else {
+            "wallet_vault_ref_bound"
+        },
+        "private_material_returned": bool_field(record, "plaintext_material_returned"),
+        "plaintext_material_persisted": false,
+        "record_dir": "model-providers",
+        "record_id": string_field(record, "record_id"),
+        "source": "agentgres_provider_control",
+        "rust_core_boundary": "model_mount.provider_control",
+        "provider_projection_boundary": "model_mount.provider_control_projection",
+        "wallet_authority_boundary": string_field(record, "wallet_authority_boundary"),
+        "ctee_custody_boundary": string_field(record, "ctee_custody_boundary"),
+        "authority_hash": string_field(record.get("authority").unwrap_or(&Value::Null), "authority_hash"),
+        "control_hash": string_field(record, "control_hash"),
+        "evidence_refs": provider_control_projection_evidence_refs(record),
+    }))
+    .unwrap_or(Value::Null)
 }
 
 fn artifact_records_from_provider_inventory(
@@ -1474,6 +1599,55 @@ fn admitted_provider_inventory_record(record: Value) -> Option<Value> {
     Some(record)
 }
 
+fn admitted_provider_control_record(record: Value) -> Option<Value> {
+    if bool_field(&record, "deleted") {
+        return None;
+    }
+    if string_field(&record, "object") != "ioi.model_mount_provider" {
+        return None;
+    }
+    if string_field(&record, "schema_version") != MODEL_MOUNT_PROVIDER_CONTROL_SCHEMA_VERSION {
+        return None;
+    }
+    if string_field(&record, "operation_kind") != "model_mount.provider.write" {
+        return None;
+    }
+    if string_field(&record, "rust_core_boundary") != "model_mount.provider_control" {
+        return None;
+    }
+    for field in [
+        "id",
+        "record_id",
+        "provider_id",
+        "provider_ref",
+        "kind",
+        "status",
+        "control_hash",
+        "source",
+    ] {
+        if string_field(&record, field).is_empty() {
+            return None;
+        }
+    }
+    if string_field(&record, "record_id") != string_field(&record, "id") {
+        return None;
+    }
+    if bool_field(&record, "plaintext_material_returned") {
+        return None;
+    }
+    let evidence_refs = evidence_refs(&record);
+    for required in [
+        "rust_daemon_core_provider_control",
+        "agentgres_provider_control_truth_required",
+        "public_provider_control_js_facade_retired",
+    ] {
+        if !evidence_refs.iter().any(|value| value == required) {
+            return None;
+        }
+    }
+    Some(record)
+}
+
 fn admitted_download_record(record: Value) -> Option<Value> {
     if !admitted_storage_control_record(
         &record,
@@ -2001,6 +2175,20 @@ fn evidence_refs(value: &Value) -> Vec<String> {
         .unwrap_or_default()
 }
 
+fn provider_control_projection_evidence_refs(record: &Value) -> Vec<String> {
+    let mut refs = evidence_refs(record);
+    for required in [
+        "rust_daemon_core_provider_control_projection",
+        "agentgres_provider_control_truth_required",
+        "model_mount_provider_map_lookup_js_retired",
+    ] {
+        if !refs.iter().any(|value| value == required) {
+            refs.push(required.to_string());
+        }
+    }
+    refs
+}
+
 fn string_array_field(value: &Value, key: &str) -> Vec<String> {
     value
         .get(key)
@@ -2140,6 +2328,75 @@ mod tests {
                 serde_json::to_string_pretty(&record).expect("record json"),
             )
             .expect("write provider inventory record");
+        }
+    }
+
+    fn write_provider_control_records(state_dir: &std::path::Path) {
+        let provider_dir = state_dir.join("model-providers");
+        fs::create_dir_all(&provider_dir).expect("provider control dir");
+        for record in [
+            json!({
+                "id": "legacy-js-provider",
+                "record_id": "legacy-js-provider",
+                "schema_version": MODEL_MOUNT_PROVIDER_CONTROL_SCHEMA_VERSION,
+                "object": "ioi.model_mount_provider",
+                "status": "configured",
+                "operation_kind": "model_mount.provider.write",
+                "source": "runtime-daemon.provider_js",
+                "provider_id": "provider.legacy",
+                "provider_ref": "provider://legacy",
+                "kind": "openai",
+                "rust_core_boundary": "daemon_js",
+                "control_hash": "sha256:legacy",
+                "plaintext_material_returned": false,
+                "evidence_refs": ["legacy_js_provider_control"]
+            }),
+            json!({
+                "id": "provider.openai",
+                "record_id": "provider.openai",
+                "schema_version": MODEL_MOUNT_PROVIDER_CONTROL_SCHEMA_VERSION,
+                "object": "ioi.model_mount_provider",
+                "status": "configured",
+                "operation_kind": "model_mount.provider.write",
+                "source": "rust_model_mount_provider_control_command",
+                "provider_id": "provider.openai",
+                "provider_ref": "provider://openai",
+                "kind": "openai",
+                "label": "OpenAI",
+                "api_format": "openai",
+                "driver": "hosted_provider",
+                "base_url": "https://api.openai.example/v1",
+                "privacy_class": "hosted_private",
+                "capabilities": ["chat", "responses"],
+                "auth_scheme": "bearer",
+                "auth_header_name": "Authorization",
+                "secret_ref": "vault://provider/openai",
+                "rust_core_boundary": "model_mount.provider_control",
+                "wallet_authority_boundary": "wallet.network.provider_control",
+                "ctee_custody_boundary": "ctee.provider_material",
+                "plaintext_material_returned": false,
+                "authority": {
+                    "authority_hash": "sha256:authority:provider.openai",
+                    "required_scope": "provider.write:provider.openai",
+                    "authority_grant_refs": ["wallet://grant/provider-control"],
+                    "authority_receipt_refs": ["receipt://wallet/provider-control"]
+                },
+                "control_hash": "sha256:control:provider.openai",
+                "evidence_refs": [
+                    "rust_daemon_core_provider_control",
+                    "wallet_network_provider_control_authority_required",
+                    "wallet_network_vault_authority_required",
+                    "ctee_provider_custody_enforced",
+                    "agentgres_provider_control_truth_required",
+                    "public_provider_control_js_facade_retired"
+                ]
+            }),
+        ] {
+            fs::write(
+                provider_dir.join(format!("{}.json", string_field(&record, "id"))),
+                serde_json::to_string_pretty(&record).expect("provider record json"),
+            )
+            .expect("write provider-control record");
         }
     }
 
@@ -2592,6 +2849,50 @@ mod tests {
         assert!(runtime_records
             .iter()
             .all(|record| record["provider_ref"] != "provider://native"));
+    }
+
+    #[test]
+    fn provider_control_projection_replays_model_provider_records_and_filters_js_truth() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        write_provider_inventory_materialization_records(temp.path());
+        write_provider_control_records(temp.path());
+        let state_dir = Some(temp.path().to_string_lossy().to_string());
+
+        let projection = providers(&request("providers", state_dir)).expect("provider projection");
+        let records = projection.as_array().expect("provider records");
+        let provider_refs = records
+            .iter()
+            .map(|record| string_field(record, "provider_ref"))
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            provider_refs,
+            vec![
+                "provider://fixture".to_string(),
+                "provider://native".to_string(),
+                "provider://openai".to_string(),
+            ]
+        );
+        let provider = records
+            .iter()
+            .find(|record| string_field(record, "provider_id") == "provider.openai")
+            .expect("provider-control projection");
+        assert_eq!(provider["id"], "provider.openai");
+        assert_eq!(provider["kind"], "openai");
+        assert_eq!(
+            provider["provider_projection_boundary"],
+            "model_mount.provider_control_projection"
+        );
+        assert_eq!(provider["record_dir"], "model-providers");
+        assert_eq!(provider["private_material_returned"], false);
+        assert!(provider["evidence_refs"]
+            .as_array()
+            .expect("evidence refs")
+            .iter()
+            .any(|value| value == "model_mount_provider_map_lookup_js_retired"));
+        assert!(records
+            .iter()
+            .all(|record| string_field(record, "provider_ref") != "provider://legacy"));
     }
 
     #[test]

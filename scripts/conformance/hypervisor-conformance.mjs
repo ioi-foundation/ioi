@@ -14790,7 +14790,7 @@ function runBridge() {
       /runtimeCatalog\.map\(\(entry\) => entry\.id\),\s*\["qwen3"\]/.test(modelMountingReadProjectionFacadeTest) &&
       /facade\.openAiModelList\(state\)\.data\.map\(\(entry\) => entry\.id\),\s*\["qwen3"\]/.test(modelMountingReadProjectionFacadeTest) &&
       /facade\.listProductArtifacts\(state\)\.map\(\(artifact\) => artifact\.model_ref\),\s*\[\s*"model:\/\/fixture\/qwen3"/.test(modelMountingReadProjectionFacadeTest) &&
-      /facade\.listProviders\(state\)\.map\(\(provider\) => provider\.provider_ref\),\s*\[\s*"provider:\/\/fixture",\s*"provider:\/\/native"/.test(modelMountingReadProjectionFacadeTest) &&
+      /const providers = facade\.listProviders\(state\);[\s\S]*providers\.map\(\(provider\) => provider\.provider_ref\),\s*\[\s*"provider:\/\/fixture",\s*"provider:\/\/native",\s*"provider:\/\/openai"/.test(modelMountingReadProjectionFacadeTest) &&
       /endpoints\.map\(\(endpoint\) => endpoint\.id\),\s*\["endpoint\.local"\]/.test(modelMountingReadProjectionFacadeTest) &&
       /endpoints\[0\]\.provider_id,\s*"provider\.local"/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(endpoints\[0\],\s*"providerId"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
@@ -15245,7 +15245,7 @@ function runBridge() {
       /runtimeCatalog\.map\(\(entry\) => entry\.id\),\s*\["qwen3"\]/.test(modelMountingReadProjectionFacadeTest) &&
       /facade\.openAiModelList\(state\)\.data\.map\(\(entry\) => entry\.id\),\s*\["qwen3"\]/.test(modelMountingReadProjectionFacadeTest) &&
       /facade\.listProductArtifacts\(state\)\.map\(\(artifact\) => artifact\.model_ref\),\s*\[\s*"model:\/\/fixture\/qwen3"/.test(modelMountingReadProjectionFacadeTest) &&
-      /facade\.listProviders\(state\)\.map\(\(provider\) => provider\.provider_ref\),\s*\[\s*"provider:\/\/fixture",\s*"provider:\/\/native"/.test(modelMountingReadProjectionFacadeTest) &&
+      /const providers = facade\.listProviders\(state\);[\s\S]*providers\.map\(\(provider\) => provider\.provider_ref\),\s*\[\s*"provider:\/\/fixture",\s*"provider:\/\/native",\s*"provider:\/\/openai"/.test(modelMountingReadProjectionFacadeTest) &&
       /materializationRequest\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
       /response\["projection"\]\["adapterBoundaries"\]\["agentgres"\]\["port"\]/.test(modelMountReadProjectionEvidence) &&
       /assert_eq!\(response\["projection"\]\["routeDecisions"\], json!\(\[\]\)\)/.test(modelMountReadProjectionEvidence) &&
@@ -18976,6 +18976,9 @@ function runReceipts() {
     : "";
   const matrix = exists("docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md")
     ? read("docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md")
+    : "";
+  const implementationMatrix = exists("docs/architecture/_meta/implementation-matrix.md")
+    ? read("docs/architecture/_meta/implementation-matrix.md")
     : "";
   const providerOperations = modelMountingRoot;
   const providerOperationsTest = exists("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs")
@@ -22997,6 +23000,53 @@ function runReceipts() {
   );
   assertCheck(
     result,
+    "model-mount-provider-control-replay-projection-owned",
+    /agentgres_provider_control_records/.test(modelMountReadProjectionEvidence) &&
+      /provider_records_from_provider_control/.test(modelMountReadProjectionEvidence) &&
+      /provider_records_from_agentgres_replay/.test(modelMountReadProjectionEvidence) &&
+      /model_mount_provider_control_replay_state_dir_required/.test(modelMountReadProjectionEvidence) &&
+      /model_mount_provider_map_lookup_js_retired/.test(modelMountReadProjectionEvidence) &&
+      /provider_control_projection_replays_model_provider_records_and_filters_js_truth/.test(
+        modelMountReadProjectionEvidence,
+      ) &&
+      /optionalProviderState\(this,\s*id\)/.test(providerUpsertBlock) &&
+      !/this\.providers\.get\(id\)/.test(providerUpsertBlock) &&
+      /export function optionalProvider/.test(stateAccessors) &&
+      /function providerProjectionRecord/.test(stateAccessors) &&
+      /state\.listProviders\(\)/.test(stateAccessors) &&
+      !/state\.providers\.get\(providerId\)/.test(stateAccessors) &&
+      /provider accessor uses Rust provider projection rather than JS provider map/.test(stateAccessorsTest) &&
+      /provider_projection_boundary:\s*"model_mount\.provider_control_projection"/.test(stateAccessorsTest) &&
+      /writeProviderControlRecords/.test(modelMountingReadProjectionFacadeTest) &&
+      /providerControlRecordsFromAgentgresStateDir/.test(modelMountingReadProjectionFacadeTest) &&
+      /providerRecordFromProviderControl/.test(modelMountingReadProjectionFacadeTest) &&
+      /providerControlProjection\.provider_projection_boundary,\s*"model_mount\.provider_control_projection"/.test(
+        modelMountingReadProjectionFacadeTest,
+      ) &&
+      /providerControlProjection\.evidence_refs\.includes\("model_mount_provider_map_lookup_js_retired"\),\s*true/.test(
+        modelMountingReadProjectionFacadeTest,
+      ) &&
+      /Rust read-projection kind `providers` now replays admitted `model-providers`\s+provider-control records/.test(
+        implementationMatrix,
+      ) &&
+      /Provider-control replay for\s+provider lookup now lives in the Rust `providers` read-projection kind/.test(
+        guide,
+      ) &&
+      /provider-map mutation\/lookup truth/.test(matrix),
+    [
+      "crates/services/src/agentic/runtime/kernel/model_mount/read_projection/topology.rs",
+      "packages/runtime-daemon/src/model-mounting/state-accessors.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
+      "packages/runtime-daemon/src/model-mounting/state-accessors.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs",
+      "docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md",
+      "docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md",
+      "docs/architecture/_meta/implementation-matrix.md",
+    ],
+    "Phase 5/11 is pending: provider-control records must replay through Rust provider projection and mounted provider lookup must not return through the JS provider map",
+  );
+  assertCheck(
+    result,
     "model-mount-provider-inventory-artifact-js-mutation-retired",
     !exists("packages/runtime-daemon/src/model-mounting/provider-operations.mjs") &&
       /MODEL_MOUNT_PROVIDER_MATERIALIZATION_PROJECTION_KINDS/.test(modelMountCore) &&
@@ -23019,7 +23069,7 @@ function runReceipts() {
       /facade\.listArtifacts\(state\)\.map\(\(artifact\) => artifact\.model_ref\),\s*\[\s*"model:\/\/fixture\/qwen3"/.test(
         modelMountingReadProjectionFacadeTest,
       ) &&
-      /facade\.listProviders\(state\)\.map\(\(provider\) => provider\.provider_ref\),\s*\[\s*"provider:\/\/fixture",\s*"provider:\/\/native"/.test(
+      /const providers = facade\.listProviders\(state\);[\s\S]*providers\.map\(\(provider\) => provider\.provider_ref\),\s*\[\s*"provider:\/\/fixture",\s*"provider:\/\/native",\s*"provider:\/\/openai"/.test(
         modelMountingReadProjectionFacadeTest,
       ) &&
       /materializationRequest\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
