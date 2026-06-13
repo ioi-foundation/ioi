@@ -298,10 +298,6 @@ pub(super) fn backend_records(
         .collect())
 }
 
-pub(super) fn provider_health() -> Value {
-    empty_list()
-}
-
 pub(super) fn runtime_model_catalog(
     request: &ModelMountReadProjectionRequest,
 ) -> Result<Value, ModelMountReadProjectionError> {
@@ -1848,7 +1844,6 @@ mod tests {
             .expect("backend projection"),
             json!([])
         );
-        assert_eq!(provider_health(), json!([]));
     }
 
     #[test]

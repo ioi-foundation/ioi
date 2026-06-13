@@ -1046,7 +1046,9 @@ function rustProjectionFixture(request) {
       code: "model_mount_oauth_read_projection_js_retired",
     });
   }
-  if (request.projection_kind === "provider_health") return [];
+  if (request.projection_kind === "provider_health") {
+    return providerHealthFromReceipts(request, receipts);
+  }
   if (request.projection_kind === "server_status") return serverStatusFromRustRequest(request);
   if (request.projection_kind === "workflow_bindings") return workflowBindingsFromRust();
   if (request.projection_kind === "adapter_boundaries") return adapterBoundariesFromState(state);
@@ -1265,6 +1267,26 @@ function rustProjectionFixture(request) {
     };
   }
   throw new Error(`unsupported projection fixture: ${request.projection_kind}`);
+}
+
+function providerHealthFromReceipts(request, receipts) {
+  const projectionWatermark = receipts.length;
+  return receipts
+    .filter((receipt) => receipt.kind === "provider_health")
+    .map((receipt) => ({
+      schemaVersion: request.schema_version,
+      source: "agentgres_provider_health",
+      providerId: receipt.details?.provider_id ?? null,
+      health: receipt.details ?? null,
+      receipt,
+      replay: {
+        schemaVersion: request.schema_version,
+        source: "agentgres_model_mounting_projection_replay",
+        receipt,
+        projectionWatermark,
+      },
+      projectionWatermark,
+    }));
 }
 
 function latestRuntimeSurveyFromReceipts(receipts = []) {
@@ -2725,7 +2747,15 @@ test("read projection facade delegates product-safe lists and capabilities", () 
     () => facade.listOAuthStates(state),
     "model_mount.catalog_provider_oauth.states",
   );
-  assert.deepEqual(facade.listProviderHealth(state), []);
+  const providerHealth = facade.listProviderHealth(state);
+  assert.equal(providerHealth.length, 1);
+  assert.equal(providerHealth[0].schemaVersion, "model.mount.schema");
+  assert.equal(providerHealth[0].source, "agentgres_provider_health");
+  assert.equal(providerHealth[0].providerId, "provider.local");
+  assert.equal(providerHealth[0].health.status, "healthy");
+  assert.equal(providerHealth[0].receipt.id, "receipt-provider-health");
+  assert.equal(providerHealth[0].replay.receipt.id, "receipt-provider-health");
+  assert.equal(providerHealth[0].projectionWatermark, 5);
   const workflowBindings = facade.workflowNodeBindings(state);
   assert.equal(workflowBindings.find((binding) => binding.node === "Embedding").capability, "embeddings");
   assert.equal(workflowBindings.find((binding) => binding.node === "Reranker").capability, "rerank");
@@ -2767,6 +2797,9 @@ test("read projection facade delegates product-safe lists and capabilities", () 
   assert.deepEqual(adapterRequest.state, {});
   const providerHealthRequest = readProjectionRequests.find((request) => request.projection_kind === "provider_health");
   assert.deepEqual(providerHealthRequest.state, {});
+  assert.equal(providerHealthRequest.state_dir, state.stateDir);
+  assert.equal(Object.hasOwn(providerHealthRequest.state, "provider_health"), false);
+  assert.equal(Object.hasOwn(providerHealthRequest.state, "receipts"), false);
   const conversationRequest = readProjectionRequests.find((request) => request.projection_kind === "model_conversation_states");
   assert.deepEqual(conversationRequest.state, {});
   assert.equal(conversationRequest.state_dir, state.stateDir);

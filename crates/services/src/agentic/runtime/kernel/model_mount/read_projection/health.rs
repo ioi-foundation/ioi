@@ -47,6 +47,39 @@ pub(super) fn latest_provider_health(
     }))
 }
 
+pub(super) fn provider_health(
+    request: &ModelMountReadProjectionRequest,
+) -> Result<Value, ModelMountReadProjectionError> {
+    let projection = receipt_replay_context(request)?;
+    let receipts = array_field(&projection, "receipts");
+    let watermark = projection.get("watermark").cloned().unwrap_or(Value::Null);
+    Ok(Value::Array(
+        receipts
+            .iter()
+            .filter(|candidate| {
+                json_string_field(candidate, "kind").as_deref() == Some("provider_health")
+            })
+            .map(|receipt| {
+                let health = receipt.get("details").cloned().unwrap_or(Value::Null);
+                let provider_id = health
+                    .get("provider_id")
+                    .and_then(Value::as_str)
+                    .map(|value| json!(value))
+                    .unwrap_or(Value::Null);
+                json!({
+                    "schemaVersion": model_mount_projection_schema_version(request),
+                    "source": "agentgres_provider_health",
+                    "providerId": provider_id,
+                    "health": health,
+                    "receipt": receipt,
+                    "replay": receipt_replay_projection(request, &projection, receipt),
+                    "projectionWatermark": watermark,
+                })
+            })
+            .collect::<Vec<_>>(),
+    ))
+}
+
 pub(super) fn latest_vault_health(
     request: &ModelMountReadProjectionRequest,
 ) -> Result<Value, ModelMountReadProjectionError> {
@@ -207,6 +240,71 @@ mod tests {
     }
 
     #[test]
+    fn provider_health_list_replays_admitted_receipts_and_ignores_js_state() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        write_receipts(
+            temp.path(),
+            &[
+                json!({
+                    "id": "receipt-provider-one",
+                    "kind": "provider_health",
+                    "createdAt": "2026-06-11T00:00:00.000Z",
+                    "details": {"provider_id": "provider.local", "status": "available"}
+                }),
+                json!({
+                    "id": "receipt-route",
+                    "kind": "model_route_selection",
+                    "createdAt": "2026-06-11T00:00:01.000Z"
+                }),
+                json!({
+                    "id": "receipt-provider-two",
+                    "kind": "provider_health",
+                    "createdAt": "2026-06-11T00:00:02.000Z",
+                    "details": {"provider_id": "provider.remote", "status": "degraded"}
+                }),
+            ],
+        );
+        let request = ModelMountReadProjectionRequest {
+            projection_kind: "provider_health".to_string(),
+            schema_version: Some(MODEL_MOUNT_RUNTIME_SCHEMA_VERSION.to_string()),
+            generated_at: Some("2026-06-11T00:00:00.000Z".to_string()),
+            receipt_id: None,
+            engine_id: None,
+            provider_id: None,
+            download_id: None,
+            base_url: None,
+            state_dir: Some(temp.path().to_string_lossy().to_string()),
+            state: json!({
+                "provider_health": [
+                    {"provider_id": "provider.js", "status": "healthy"}
+                ],
+                "receipts": [
+                    {
+                        "id": "receipt-js",
+                        "kind": "provider_health",
+                        "details": {"provider_id": "provider.js", "status": "healthy"}
+                    }
+                ]
+            }),
+        };
+
+        let health = provider_health(&request).expect("provider health");
+        let entries = health.as_array().expect("provider health entries");
+
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0]["source"], "agentgres_provider_health");
+        assert_eq!(entries[0]["providerId"], "provider.local");
+        assert_eq!(entries[0]["health"]["status"], "available");
+        assert_eq!(entries[0]["receipt"]["id"], "receipt-provider-one");
+        assert_eq!(
+            entries[0]["replay"]["receipt"]["id"],
+            "receipt-provider-one"
+        );
+        assert_eq!(entries[0]["projectionWatermark"], 3);
+        assert_eq!(entries[1]["providerId"], "provider.remote");
+    }
+
+    #[test]
     fn runtime_survey_has_dedicated_receipt_projection_owner() {
         let temp = tempfile::tempdir().expect("tempdir");
         let not_checked = latest_runtime_survey(&request(
@@ -266,6 +364,34 @@ mod tests {
                 }]
             }),
         ))
+        .expect_err("state_dir is required");
+
+        assert_eq!(error.code, "model_mount_receipt_replay_state_dir_required");
+    }
+
+    #[test]
+    fn provider_health_list_rejects_js_receipt_transport_without_state_dir() {
+        let error = provider_health(&ModelMountReadProjectionRequest {
+            projection_kind: "provider_health".to_string(),
+            schema_version: Some(MODEL_MOUNT_RUNTIME_SCHEMA_VERSION.to_string()),
+            generated_at: Some("2026-06-11T00:00:00.000Z".to_string()),
+            receipt_id: None,
+            engine_id: None,
+            provider_id: None,
+            download_id: None,
+            base_url: None,
+            state_dir: None,
+            state: json!({
+                "provider_health": [
+                    {"provider_id": "provider.js", "status": "healthy"}
+                ],
+                "receipts": [{
+                    "id": "receipt-provider",
+                    "kind": "provider_health",
+                    "details": {"provider_id": "provider.local", "status": "healthy"}
+                }]
+            }),
+        })
         .expect_err("state_dir is required");
 
         assert_eq!(error.code, "model_mount_receipt_replay_state_dir_required");

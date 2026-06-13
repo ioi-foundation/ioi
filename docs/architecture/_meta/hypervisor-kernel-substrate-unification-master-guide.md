@@ -1850,18 +1850,23 @@ survey capture, command-transport replacement, and local survey materialization
 retirement still remain before this surface reaches the pure Rust substrate
 target.
 
-Slice 860 retired dedicated provider-health JS read-projection input. The
-`provider_health` read projection now sends an empty state object and returns
-the Rust default empty list; the Rust bridge `provider_health` arm also ignores
-caller-supplied provider-health records so direct bridge callers cannot promote
-local JS telemetry into projection truth. The `latest_provider_health` read
-projection now sends empty request state plus runtime `state_dir` receipt replay
+Slice 860 retired dedicated provider-health JS read-projection input, and the
+later provider-health list cut moved the placeholder list onto receipt replay.
+The `provider_health` read projection now sends empty request state plus runtime
+`state_dir`; Rust replays admitted `provider_health` receipts into
+`agentgres_provider_health` list entries carrying the receipt replay envelope and
+projection watermark. The Rust bridge `provider_health` arm ignores
+caller-supplied provider-health records and no longer returns the default empty
+list, so direct bridge callers cannot promote local JS telemetry into projection
+truth or preserve a duplicate empty truth path. The `latest_provider_health`
+read projection sends empty request state plus runtime `state_dir` receipt replay
 and no longer reads JS provider records, local provider-health files, or
-caller-supplied receipt arrays. Rust derives the latest provider-health envelope
-only from admitted `provider_health` receipt details with canonical
-`provider_id`, and missing receipt truth fails closed with
-`model_mount_provider_health_not_found`. Direct Rust daemon-core provider
-health capture, Agentgres-admitted health writes, provider-control APIs,
+caller-supplied receipt arrays. Rust derives provider-health read envelopes only
+from admitted `provider_health` receipt details with canonical `provider_id`;
+missing `state_dir` fails closed at the shared receipt-replay boundary, and
+missing latest receipt truth fails closed with
+`model_mount_provider_health_not_found`. Direct Rust daemon-core provider health
+capture, Agentgres-admitted health writes, provider-control APIs,
 command-transport replacement, and local provider-health materialization
 retirement still remain before this surface reaches the pure Rust substrate
 target.

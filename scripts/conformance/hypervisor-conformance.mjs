@@ -724,8 +724,9 @@ function runDocs() {
       /`latest_runtime_survey` read projection now sends empty request state plus runtime\s+`state_dir`/.test(guide) &&
       /Rust ignores `runtime_survey_input` for\s+this projection/.test(guide) &&
       /Slice 860 retired dedicated provider-health JS read-projection\s+input/.test(guide) &&
-      /`provider_health` read projection now sends an empty state object/.test(guide) &&
-      /Rust bridge `provider_health` arm also ignores\s+caller-supplied provider-health records/.test(guide) &&
+      /`provider_health` read projection now sends empty request state plus runtime\s+`state_dir`/.test(guide) &&
+      /Rust replays admitted `provider_health` receipts into\s+`agentgres_provider_health` list entries/.test(guide) &&
+      /Rust bridge `provider_health` arm ignores\s+caller-supplied provider-health records and no longer returns the default empty\s+list/.test(guide) &&
       /`latest_provider_health` read\s+projection now sends empty request state plus runtime `state_dir` receipt replay/.test(guide) &&
       /canonical\s+`provider_id`/.test(guide) &&
       /Slice 861 retired dedicated model-topology list JS read-projection\s+input/.test(guide) &&
@@ -1484,9 +1485,9 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 859 is now satisfied/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 860/.test(matrix) &&
       /Slice 860 retired dedicated provider-health JS read-projection\s+input/.test(matrix) &&
-      /`provider_health` read projection now sends `\{\}`/.test(matrix) &&
-      /Rust bridge `provider_health` arm also ignores caller-supplied\s+provider-health records/.test(matrix) &&
-      /ignores caller-supplied `state\.receipts`/.test(matrix) &&
+      /`listProviderHealth\(\)`, `latestProviderHealth\(\)`/.test(matrix) &&
+      /emits `listProviderHealth\(\)` from admitted `provider_health` receipts instead of a default empty list/.test(matrix) &&
+      /ignores caller-supplied `state\.receipts` and `state\.provider_health`/.test(matrix) &&
       /canonical `provider_id`/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 860 is now satisfied/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 861/.test(matrix) &&
@@ -1632,8 +1633,9 @@ function runDocs() {
       /broad snapshot\/projection requests also no longer send `mcp_servers: state\.listMcpServers\(\)` or `conversation_states: state\.listConversations\(\)`/.test(implementationMatrix) &&
       /broad snapshot\/projection requests also no longer send `grants: state\.listTokens\(\)`, `vault_refs: state\.listVaultRefs\(\)`, `agentgres_store: state\.store\.adapterStatus\(\)`, `wallet: state\.walletAuthority\.adapterStatus\(\)`, or `vault: state\.vaultStatus\(\)`/.test(implementationMatrix) &&
       /broad snapshot\/projection requests also no longer send `provider_health: providerHealthList\(\.\.\.\)` or `runtime_survey_input: latestRuntimeSurveyProjectionInput\(\.\.\.\)`/.test(implementationMatrix) &&
-      /dedicated `provider_health` now sends empty request state/.test(implementationMatrix) &&
-      /Rust bridge `provider_health` arm ignores caller-supplied provider-health records/.test(implementationMatrix) &&
+      /dedicated `provider_health` now sends empty request state plus runtime state_dir/.test(implementationMatrix) &&
+      /Rust replays admitted `provider_health` receipts into `agentgres_provider_health` list entries/.test(implementationMatrix) &&
+      /Rust bridge `provider_health` arm ignores caller-supplied provider-health records and no longer returns a default empty list/.test(implementationMatrix) &&
       /dedicated `latestProviderHealth\(\)` sends empty request state plus runtime state_dir/.test(implementationMatrix) &&
       /Rust ignores local provider-health records/.test(implementationMatrix) &&
       /dedicated `latestRuntimeSurvey\(\)` also sends empty request state plus runtime state_dir/.test(implementationMatrix) &&
@@ -14683,6 +14685,7 @@ function runBridge() {
       /projectionKind === "runtime_engine_detail"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
       /projectionKind !== "runtime_engines" &&\s*projectionKind !== "runtime_engine_profiles" &&\s*projectionKind !== "runtime_preference" &&\s*projectionKind !== "runtime_preference_for_endpoint" &&\s*projectionKind !== "runtime_default_load_options" &&\s*projectionKind !== "runtime_engine_detail"/.test(modelMountingReadProjectionFacade) &&
       /projectionKind === "provider_health"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
+      /projectionKind !== "authority_snapshot" &&\s*projectionKind !== "provider_health" &&\s*projectionKind !== "latest_provider_health"/.test(modelMountingReadProjectionFacade) &&
       !/function runtimeEngineReadInput\(state,\s*engineId\)/.test(modelMountingReadProjectionFacade) &&
       !/runtime_engine:\s*runtimeEngineReadInput/.test(modelMountingReadProjectionFacade) &&
       !/listRuntimeEngineProfiles\(runtimeEngineProjectionState/.test(modelMountingReadProjectionFacade) &&
@@ -14769,8 +14772,14 @@ function runBridge() {
       /Object\.hasOwn\(authorityRequest\.state,\s*"vault_refs"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(authorityRequest\.state,\s*"wallet"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(authorityRequest\.state,\s*"vault"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /assert\.deepEqual\(facade\.listProviderHealth\(state\),\s*\[\]\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /const providerHealth = facade\.listProviderHealth\(state\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /providerHealth\[0\]\.source,\s*"agentgres_provider_health"/.test(modelMountingReadProjectionFacadeTest) &&
+      /providerHealth\[0\]\.receipt\.id,\s*"receipt-provider-health"/.test(modelMountingReadProjectionFacadeTest) &&
+      /providerHealth\[0\]\.projectionWatermark,\s*5/.test(modelMountingReadProjectionFacadeTest) &&
       /providerHealthRequest\.state,\s*\{\}/.test(modelMountingReadProjectionFacadeTest) &&
+      /providerHealthRequest\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.hasOwn\(providerHealthRequest\.state,\s*"provider_health"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.hasOwn\(providerHealthRequest\.state,\s*"receipts"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /facade\.listArtifacts\(state\)\.map\(\(artifact\) => artifact\.model_ref\),\s*\[\s*"model:\/\/fixture\/qwen3"/.test(modelMountingReadProjectionFacadeTest) &&
       /runtimeCatalog\.map\(\(entry\) => entry\.id\),\s*\["qwen3"\]/.test(modelMountingReadProjectionFacadeTest) &&
       /facade\.openAiModelList\(state\)\.data\.map\(\(entry\) => entry\.id\),\s*\["qwen3"\]/.test(modelMountingReadProjectionFacadeTest) &&
@@ -15028,7 +15037,14 @@ function runBridge() {
       /pub\(super\) fn states/.test(modelMountReadProjectionEvidence) &&
       /oauth_session_read_projection_fails_closed_in_rust_boundary/.test(modelMountReadProjectionEvidence) &&
       /oauth_state_read_projection_fails_closed_in_rust_boundary/.test(modelMountReadProjectionEvidence) &&
-      /"provider_health" => Ok\(topology::provider_health\(\)\)/.test(modelMountReadProjectionEvidence) &&
+      /MODEL_MOUNT_PROVIDER_HEALTH_PROJECTION_KIND => health::provider_health\(request\)/.test(modelMountReadProjectionEvidence) &&
+      /rust_daemon_core_provider_health_projection/.test(modelMountReadProjectionEvidence) &&
+      /agentgres_provider_health_replay_required/.test(modelMountReadProjectionEvidence) &&
+      /model_mount_provider_health_js_projection_retired/.test(modelMountReadProjectionEvidence) &&
+      /provider_health_list_replays_admitted_receipts_and_ignores_js_state/.test(modelMountReadProjectionEvidence) &&
+      /provider_health_list_rejects_js_receipt_transport_without_state_dir/.test(modelMountReadProjectionEvidence) &&
+      !/"provider_health" => Ok\(topology::provider_health\(\)\)/.test(modelMountReadProjectionEvidence) &&
+      !/pub\(super\) fn provider_health\(\) -> Value \{\s*empty_list\(\)\s*\}/.test(modelMountReadProjectionEvidence) &&
       /MODEL_MOUNT_BACKENDS_PROJECTION_KIND => topology::backends\(request\)/.test(modelMountReadProjectionEvidence) &&
       /model_mount_backend_lifecycle_replay_state_dir_required/.test(modelMountReadProjectionEvidence) &&
       /agentgres_backend_lifecycle_replay_required/.test(modelMountReadProjectionEvidence) &&

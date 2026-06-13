@@ -69,12 +69,14 @@ pub(super) const MODEL_MOUNT_STORAGE_SUMMARY_PROJECTION_KIND: &str = "storage_su
 pub(super) const MODEL_MOUNT_BACKENDS_PROJECTION_KIND: &str = "backends";
 pub(super) const MODEL_MOUNT_SERVER_STATUS_PROJECTION_KIND: &str = "server_status";
 pub(super) const MODEL_MOUNT_MCP_SERVERS_PROJECTION_KIND: &str = "mcp_servers";
-pub(super) const MODEL_MOUNT_RECEIPT_REPLAY_PROJECTION_KINDS: [&str; 8] = [
+pub(super) const MODEL_MOUNT_PROVIDER_HEALTH_PROJECTION_KIND: &str = "provider_health";
+pub(super) const MODEL_MOUNT_RECEIPT_REPLAY_PROJECTION_KINDS: [&str; 9] = [
     "snapshot",
     "projection",
     "projection_summary",
     "receipt_replay",
     "authority_snapshot",
+    MODEL_MOUNT_PROVIDER_HEALTH_PROJECTION_KIND,
     "latest_provider_health",
     "latest_vault_health",
     "latest_runtime_survey",
@@ -253,6 +255,13 @@ pub(super) fn plan_read_projection(
             "model_mount_mcp_server_js_projection_retired".to_string(),
         ]);
     }
+    if request.projection_kind == MODEL_MOUNT_PROVIDER_HEALTH_PROJECTION_KIND {
+        evidence_refs.extend([
+            "rust_daemon_core_provider_health_projection".to_string(),
+            "agentgres_provider_health_replay_required".to_string(),
+            "model_mount_provider_health_js_projection_retired".to_string(),
+        ]);
+    }
     if MODEL_MOUNT_RECEIPT_REPLAY_PROJECTION_KINDS.contains(&request.projection_kind.as_str()) {
         evidence_refs.extend([
             "rust_daemon_core_model_mount_receipt_replay_projection".to_string(),
@@ -301,7 +310,7 @@ pub(super) fn model_mount_read_projection(
         MODEL_MOUNT_MCP_SERVERS_PROJECTION_KIND => mcp::mcp_servers(request),
         "oauth_sessions" => oauth::sessions(),
         "oauth_states" => oauth::states(),
-        "provider_health" => Ok(topology::provider_health()),
+        MODEL_MOUNT_PROVIDER_HEALTH_PROJECTION_KIND => health::provider_health(request),
         "workflow_bindings" => Ok(adapter_boundary::workflow_bindings()),
         "adapter_boundaries" => Ok(adapter_boundary::adapter_boundaries(&request.state)),
         "runtime_engines" => runtime::engines(request),

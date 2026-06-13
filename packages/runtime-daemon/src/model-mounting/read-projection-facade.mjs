@@ -454,6 +454,7 @@ export function createModelMountingReadProjectionFacade({
       projectionKind !== "projection_summary" &&
       projectionKind !== "receipt_replay" &&
       projectionKind !== "authority_snapshot" &&
+      projectionKind !== "provider_health" &&
       projectionKind !== "latest_provider_health" &&
       projectionKind !== "latest_vault_health" &&
       projectionKind !== "latest_runtime_survey"
