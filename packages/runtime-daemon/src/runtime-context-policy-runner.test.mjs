@@ -1224,6 +1224,15 @@ test("diagnostics operator override state update runner sends Rust state update 
               control: "diagnostics_operator_override",
               decision_id: "decision_override",
               event_id: "event_override",
+              approval_required: true,
+              approval_satisfied: true,
+              authority_hash: "sha256:diagnostics-operator-override-authority",
+              wallet_network_grant_refs: [
+                "wallet.network://grant/diagnostics/operator-override",
+              ],
+              authority_receipt_refs: [
+                "receipt://wallet.network/diagnostics/operator-override",
+              ],
             },
             run: {
               id: "run_blocked",
@@ -1261,6 +1270,14 @@ test("diagnostics operator override state update runner sends Rust state update 
     repair_policy: {
       operator_override_requires_approval: true,
     },
+    authority_grant_refs: [
+      "wallet.network://grant/diagnostics/operator-override",
+    ],
+    authority_receipt_refs: [
+      "receipt://wallet.network/diagnostics/operator-override",
+    ],
+    policy_decision_refs: ["policy_diagnostics_operator_override"],
+    authority_context: {},
     snapshot_id: "snapshot_alpha",
   });
 
@@ -1275,12 +1292,20 @@ test("diagnostics operator override state update runner sends Rust state update 
   assert.equal(captured.request.operator_override_request.operator_override_approval, "override");
   assert.equal(captured.request.decision.requires_approval, true);
   assert.equal(captured.request.repair_policy.operator_override_requires_approval, true);
+  assert.deepEqual(captured.request.authority_grant_refs, [
+    "wallet.network://grant/diagnostics/operator-override",
+  ]);
+  assert.deepEqual(captured.request.authority_receipt_refs, [
+    "receipt://wallet.network/diagnostics/operator-override",
+  ]);
+  assert.deepEqual(captured.request.policy_decision_refs, ["policy_diagnostics_operator_override"]);
   for (const field of ["approval_required", "approval_satisfied", "approval_source"]) {
     assert.equal(Object.hasOwn(captured.request, field), false);
   }
   assert.equal(result.source, "rust_diagnostics_operator_override_state_update_command");
   assert.equal(result.operation_kind, "diagnostics.operator_override.event");
   assert.equal(result.operator_control.decision_id, "decision_override");
+  assert.equal(result.operator_control.authority_hash, "sha256:diagnostics-operator-override-authority");
   for (const field of [
     "decisionId",
     "gateEventId",

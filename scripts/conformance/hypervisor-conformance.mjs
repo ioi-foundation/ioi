@@ -10113,8 +10113,18 @@ function runBridge() {
       /diagnostics_operator_override_approval_for_request/.test(
         diagnosticsOperatorOverrideStateUpdateCoreBlock,
       ) &&
+      /diagnostics_operator_override_authority_for_request/.test(
+        diagnosticsOperatorOverrideStateUpdateCoreBlock,
+      ) &&
       /RetiredApprovalVerdictTransport/.test(policyOperatorControlCore) &&
+      /MissingWalletNetworkAuthority/.test(policyOperatorControlCore) &&
+      /MissingAuthorityReceipt/.test(policyOperatorControlCore) &&
+      /UnsatisfiedApprovalRequired/.test(policyOperatorControlCore) &&
+      /RetiredAuthorityTransport/.test(policyOperatorControlCore) &&
       /reject_retired_operator_override_approval_transport/.test(
+        diagnosticsOperatorOverrideStateUpdateCoreBlock,
+      ) &&
+      /reject_retired_operator_override_authority_transport/.test(
         diagnosticsOperatorOverrideStateUpdateCoreBlock,
       ) &&
       /operator_request\.get\("operator_override_requires_approval"\)/.test(
@@ -10141,6 +10151,21 @@ function runBridge() {
       /"approval_source": approval\.source/.test(
         diagnosticsOperatorOverrideStateUpdateCoreBlock,
       ) &&
+      /"authority": authority_value/.test(
+        diagnosticsOperatorOverrideStateUpdateCoreBlock,
+      ) &&
+      /"authority_hash": authority\.authority_hash/.test(
+        diagnosticsOperatorOverrideStateUpdateCoreBlock,
+      ) &&
+      /"wallet_network_grant_refs": authority\.wallet_network_grant_refs/.test(
+        diagnosticsOperatorOverrideStateUpdateCoreBlock,
+      ) &&
+      /"authority_receipt_refs": authority\.authority_receipt_refs/.test(
+        diagnosticsOperatorOverrideStateUpdateCoreBlock,
+      ) &&
+      /"direct_truth_write_allowed": authority\.direct_truth_write_allowed/.test(
+        diagnosticsOperatorOverrideStateUpdateCoreBlock,
+      ) &&
       /"snapshot_id": snapshot_id/.test(diagnosticsOperatorOverrideStateUpdateCoreBlock) &&
       /"event_id": request\.event_id/.test(diagnosticsOperatorOverrideStateUpdateCoreBlock) &&
       /"created_at": request\.created_at/.test(diagnosticsOperatorOverrideStateUpdateCoreBlock) &&
@@ -10160,6 +10185,15 @@ function runBridge() {
         policyOperatorControlCore,
       ) &&
       /rust_policy_rejects_diagnostics_operator_override_js_verdict_transport/.test(
+        policyOperatorControlCore,
+      ) &&
+      /rust_policy_requires_wallet_authority_for_diagnostics_operator_override/.test(
+        policyOperatorControlCore,
+      ) &&
+      /rust_policy_rejects_unsatisfied_diagnostics_operator_override_approval/.test(
+        policyOperatorControlCore,
+      ) &&
+      /rust_policy_rejects_diagnostics_operator_override_authority_alias_transport/.test(
         policyOperatorControlCore,
       ) &&
       !/plan_diagnostics_operator_override_state_update_response as plan_diagnostics_operator_override_state_update/.test(bridgeModule) &&
@@ -10188,6 +10222,15 @@ function runBridge() {
         runtimeContextPolicyRunnerTest,
       ) &&
       /captured\.request\.repair_policy\.operator_override_requires_approval/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /captured\.request\.authority_grant_refs/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /captured\.request\.authority_receipt_refs/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /result\.operator_control\.authority_hash/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
       /Object\.hasOwn\(captured\.request,\s*field\),\s*false/.test(
@@ -10223,6 +10266,21 @@ function runBridge() {
       ) &&
       /decision:\s*objectRecord\(decision\)/.test(runtimeDiagnosticsRepairSurface) &&
       /repair_policy:/.test(runtimeDiagnosticsRepairSurface) &&
+      /authority_grant_refs:\s*mergedStringRefs/.test(
+        runtimeDiagnosticsRepairSurface,
+      ) &&
+      /authority_receipt_refs:\s*mergedStringRefs/.test(
+        runtimeDiagnosticsRepairSurface,
+      ) &&
+      /operatorControl\.approval_required === true/.test(
+        runtimeDiagnosticsRepairSurface,
+      ) &&
+      /operatorControlWalletGrantRefs\.length === 0/.test(
+        runtimeDiagnosticsRepairSurface,
+      ) &&
+      /operatorControlAuthorityReceiptRefs\.length === 0/.test(
+        runtimeDiagnosticsRepairSurface,
+      ) &&
       !/approval_required:\s*booleanOption\(normalizedRequest\.approval_required/.test(
         runtimeDiagnosticsRepairSurface,
       ) &&
@@ -10233,6 +10291,9 @@ function runBridge() {
         runtimeDiagnosticsRepairSurface,
       ) &&
       /diagnostics operator override uses Rust state update and run-state admission/.test(
+        runtimeDiagnosticsRepairSurfaceTest,
+      ) &&
+      /wallet\.network:\/\/grant\/diagnostics\/operator-override/.test(
         runtimeDiagnosticsRepairSurfaceTest,
       ) &&
       /diagnostics operator override fails closed before run lookup without Rust state update/.test(
@@ -33804,6 +33865,30 @@ function runCompositor() {
     /DiagnosticsRepair\.RetryCreated/.test(runtimeDiagnosticsRepairControlCore) &&
     /diagnostics\.operator_override\.event/.test(runtimeDiagnosticsRepairControlCore) &&
     /DiagnosticsRepair\.OperatorOverride/.test(runtimeDiagnosticsRepairControlCore) &&
+    /diagnostics_operator_override_event_authority/.test(
+      runtimeDiagnosticsRepairControlCore,
+    ) &&
+    /runtime_diagnostics_operator_override_wallet_authority_required/.test(
+      runtimeDiagnosticsRepairControlCore,
+    ) &&
+    /runtime_diagnostics_operator_override_authority_receipt_required/.test(
+      runtimeDiagnosticsRepairControlCore,
+    ) &&
+    /runtime_diagnostics_operator_override_authority_transport_retired/.test(
+      runtimeDiagnosticsRepairControlCore,
+    ) &&
+    /rust_daemon_core_wallet_network_diagnostics_operator_override_authority/.test(
+      runtimeDiagnosticsRepairControlCore,
+    ) &&
+    /"authority": operator_override_authority\.clone\(\)/.test(
+      runtimeDiagnosticsRepairControlCore,
+    ) &&
+    /"wallet_network_grant_refs": string_array_field\(&operator_override_authority,\s*"wallet_network_grant_refs"\)/.test(
+      runtimeDiagnosticsRepairControlCore,
+    ) &&
+    /"direct_truth_write_allowed": operator_override_authority/.test(
+      runtimeDiagnosticsRepairControlCore,
+    ) &&
     /rust_plans_runtime_diagnostics_repair_decision_execution_control_event/.test(
       runtimeDiagnosticsRepairControlCore,
     ) &&
@@ -33814,6 +33899,12 @@ function runCompositor() {
       runtimeDiagnosticsRepairControlCore,
     ) &&
     /rust_plans_runtime_diagnostics_operator_override_control_event/.test(
+      runtimeDiagnosticsRepairControlCore,
+    ) &&
+    /rust_rejects_runtime_diagnostics_operator_override_control_without_wallet_authority/.test(
+      runtimeDiagnosticsRepairControlCore,
+    ) &&
+    /rust_rejects_runtime_diagnostics_operator_override_authority_alias_transport/.test(
       runtimeDiagnosticsRepairControlCore,
     ) &&
     /rust_rejects_unowned_runtime_diagnostics_repair_control_kind/.test(
@@ -33855,6 +33946,12 @@ function runCompositor() {
       runtimeDiagnosticsRepairSurfaceTest,
     ) &&
     /diagnostics operator override event append uses Rust planning and runtime event admission/.test(
+      runtimeDiagnosticsRepairSurfaceTest,
+    ) &&
+    /authority_grant_refs:\s*\["wallet\.network:\/\/grant\/diagnostics\/operator-override"\]/.test(
+      runtimeDiagnosticsRepairSurfaceTest,
+    ) &&
+    /authority_receipt_refs:\s*\["receipt:\/\/wallet\.network\/diagnostics\/operator-override"\]/.test(
       runtimeDiagnosticsRepairSurfaceTest,
     ) &&
     /diagnostics operator override event append fails closed before JS runtime event append without Rust planning/.test(

@@ -163,6 +163,12 @@ impl RuntimeDiagnosticsRepairControlCore {
         let policy_decision_refs =
             diagnostics_repair_policy_decision_refs(request, &operation, &event_hash);
         let evidence_refs = diagnostics_repair_evidence_refs(request, &operation_kind);
+        let operator_override_authority = diagnostics_operator_override_event_authority(
+            request,
+            &operation_kind,
+            &thread_id,
+            &decision_id,
+        )?;
         let event_id = string_field(&request.request, "event_id").unwrap_or_else(|| {
             format!(
                 "event_diagnostics_repair_{}_{}",
@@ -194,6 +200,7 @@ impl RuntimeDiagnosticsRepairControlCore {
                 gate_event_id,
                 gate_id,
                 snapshot_id,
+                operator_override_authority,
             ),
             "receipt_refs": receipt_refs,
             "policy_decision_refs": policy_decision_refs,
@@ -310,6 +317,7 @@ fn diagnostics_repair_payload(
     gate_event_id: Option<String>,
     gate_id: Option<String>,
     snapshot_id: Option<String>,
+    operator_override_authority: Value,
 ) -> Value {
     json!({
         "schema_version": "ioi.runtime.diagnostics-repair-control.payload.v1",
@@ -328,7 +336,116 @@ fn diagnostics_repair_payload(
         "retry_run_id": string_field(&request.request, "retry_run_id"),
         "target_run_id": string_field(&request.request, "target_run_id"),
         "summary": string_field(&request.request, "summary"),
+        "authority": operator_override_authority.clone(),
+        "authority_hash": string_field(&operator_override_authority, "authority_hash"),
+        "wallet_network_grant_refs": string_array_field(&operator_override_authority, "wallet_network_grant_refs"),
+        "authority_receipt_refs": string_array_field(&operator_override_authority, "authority_receipt_refs"),
+        "direct_truth_write_allowed": operator_override_authority
+            .get("direct_truth_write_allowed")
+            .and_then(Value::as_bool),
     })
+}
+
+fn diagnostics_operator_override_event_authority(
+    request: &RuntimeDiagnosticsRepairControlRequest,
+    operation_kind: &str,
+    thread_id: &str,
+    decision_id: &str,
+) -> Result<Value, RuntimeDiagnosticsRepairControlCommandError> {
+    if operation_kind != "diagnostics.operator_override.event" {
+        return Ok(Value::Null);
+    }
+    reject_retired_operator_override_authority_transport(&request.request)?;
+    let wallet_network_grant_refs = unique_strings(
+        string_array_field(&request.request, "authority_grant_refs")
+            .into_iter()
+            .filter(|grant_ref| is_wallet_network_grant_ref(grant_ref))
+            .collect(),
+    );
+    if wallet_network_grant_refs.is_empty() {
+        return Err(RuntimeDiagnosticsRepairControlCommandError::new(
+            "runtime_diagnostics_operator_override_wallet_authority_required",
+            "diagnostics operator override events require wallet.network authority grants",
+        ));
+    }
+    let authority_receipt_refs = unique_strings(string_array_field(
+        &request.request,
+        "authority_receipt_refs",
+    ));
+    if authority_receipt_refs.is_empty() {
+        return Err(RuntimeDiagnosticsRepairControlCommandError::new(
+            "runtime_diagnostics_operator_override_authority_receipt_required",
+            "diagnostics operator override events require wallet.network authority receipts",
+        ));
+    }
+    let policy_decision_refs = unique_strings(
+        request
+            .policy_decision_refs
+            .iter()
+            .cloned()
+            .chain(string_array_field(&request.request, "policy_decision_refs"))
+            .collect(),
+    );
+    let mut authority = json!({
+        "schema_version": "ioi.runtime.diagnostics-operator-override-authority.v1",
+        "object": "ioi.runtime_diagnostics_operator_override_authority",
+        "status": "authorized",
+        "operation_kind": "diagnostics.operator_override.authority",
+        "thread_id": thread_id,
+        "decision_id": decision_id,
+        "approval_id": string_field(&request.request, "approval_id"),
+        "wallet_network_grant_refs": wallet_network_grant_refs,
+        "authority_receipt_refs": authority_receipt_refs,
+        "policy_decision_refs": policy_decision_refs,
+        "direct_truth_write_allowed": false,
+        "authority_hash": "",
+        "projection_source": "rust_daemon_core_wallet_network_diagnostics_operator_override_authority",
+        "generated_at": "rust_policy_core",
+    });
+    let authority_hash = diagnostics_operator_override_authority_hash(&authority)?;
+    if let Some(object) = authority.as_object_mut() {
+        object.insert("authority_hash".to_string(), Value::String(authority_hash));
+    }
+    Ok(authority)
+}
+
+fn reject_retired_operator_override_authority_transport(
+    request: &Value,
+) -> Result<(), RuntimeDiagnosticsRepairControlCommandError> {
+    let Some(request) = request.as_object() else {
+        return Ok(());
+    };
+    let retired: Vec<String> = [
+        "walletNetworkGrantRefs",
+        "authorityGrantRefs",
+        "authorityReceiptRefs",
+        "policyDecisionRefs",
+        "authorityHash",
+    ]
+    .into_iter()
+    .filter(|field| request.contains_key(*field))
+    .map(str::to_string)
+    .collect();
+    if retired.is_empty() {
+        Ok(())
+    } else {
+        Err(RuntimeDiagnosticsRepairControlCommandError::new(
+            "runtime_diagnostics_operator_override_authority_transport_retired",
+            format!("retired diagnostics operator override authority transport: {retired:?}"),
+        ))
+    }
+}
+
+fn diagnostics_operator_override_authority_hash(
+    authority: &Value,
+) -> Result<String, RuntimeDiagnosticsRepairControlCommandError> {
+    let bytes = serde_json::to_vec(authority).map_err(|error| {
+        RuntimeDiagnosticsRepairControlCommandError::new(
+            "runtime_diagnostics_operator_override_authority_hash_failed",
+            error.to_string(),
+        )
+    })?;
+    Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
 }
 
 fn diagnostics_repair_receipt_refs(
@@ -342,6 +459,10 @@ fn diagnostics_repair_receipt_refs(
             .iter()
             .cloned()
             .chain(string_array_field(&request.request, "receipt_refs"))
+            .chain(string_array_field(
+                &request.request,
+                "authority_receipt_refs",
+            ))
             .chain(std::iter::once(format!(
                 "receipt_diagnostics_repair_{}_{event_hash}",
                 safe_id(operation)
@@ -427,6 +548,13 @@ fn unique_strings(values: Vec<String>) -> Vec<String> {
         }
     }
     unique
+}
+
+fn is_wallet_network_grant_ref(grant_ref: &str) -> bool {
+    let normalized = grant_ref.trim().to_ascii_lowercase();
+    normalized.starts_with("wallet.network://grant/")
+        || normalized.starts_with("grant://wallet.network/")
+        || normalized.starts_with("wallet-network://grant/")
 }
 
 fn safe_id(value: &str) -> String {
@@ -560,6 +688,8 @@ mod tests {
         request.request = json!({
             "action": "operator_override",
             "approval_id": "approval_override",
+            "authority_grant_refs": ["wallet.network://grant/diagnostics/operator-override"],
+            "authority_receipt_refs": ["receipt://wallet.network/diagnostics/operator-override"],
             "receipt_refs": ["receipt_request"],
             "policy_decision_refs": ["policy_request"]
         });
@@ -581,9 +711,78 @@ mod tests {
             record.event["payload"]["approval_id"],
             Value::String("approval_override".to_string())
         );
+        assert_eq!(
+            record.event["payload"]["authority"]["wallet_network_grant_refs"][0],
+            "wallet.network://grant/diagnostics/operator-override"
+        );
+        assert_eq!(
+            record.event["payload"]["authority"]["authority_receipt_refs"][0],
+            "receipt://wallet.network/diagnostics/operator-override"
+        );
+        assert_eq!(
+            record.event["payload"]["direct_truth_write_allowed"],
+            Value::Bool(false)
+        );
+        assert!(record.event["payload"]["authority_hash"]
+            .as_str()
+            .unwrap()
+            .starts_with("sha256:"));
+        assert!(record
+            .receipt_refs
+            .contains(&"receipt://wallet.network/diagnostics/operator-override".to_string()));
         assert!(record
             .evidence_refs
             .contains(&"runtime_diagnostics_operator_override_event_rust_owned".to_string()));
+    }
+
+    #[test]
+    fn rust_rejects_runtime_diagnostics_operator_override_control_without_wallet_authority() {
+        let mut request = base_request("diagnostics.operator_override.event");
+        request.request = json!({
+            "action": "operator_override",
+            "approval_id": "approval_override",
+            "authority_grant_refs": ["grant://local-debug"],
+            "authority_receipt_refs": ["receipt://wallet.network/diagnostics/operator-override"],
+        });
+
+        let error = RuntimeDiagnosticsRepairControlCore
+            .plan(&request)
+            .expect_err("operator override event requires wallet.network grant");
+        assert_eq!(
+            error.code(),
+            "runtime_diagnostics_operator_override_wallet_authority_required"
+        );
+
+        request.request = json!({
+            "action": "operator_override",
+            "approval_id": "approval_override",
+            "authority_grant_refs": ["wallet.network://grant/diagnostics/operator-override"],
+        });
+        let error = RuntimeDiagnosticsRepairControlCore
+            .plan(&request)
+            .expect_err("operator override event requires authority receipt");
+        assert_eq!(
+            error.code(),
+            "runtime_diagnostics_operator_override_authority_receipt_required"
+        );
+    }
+
+    #[test]
+    fn rust_rejects_runtime_diagnostics_operator_override_authority_alias_transport() {
+        let mut request = base_request("diagnostics.operator_override.event");
+        request.request = json!({
+            "action": "operator_override",
+            "walletNetworkGrantRefs": ["wallet.network://grant/diagnostics/operator-override"],
+            "authorityReceiptRefs": ["receipt://wallet.network/diagnostics/operator-override"],
+        });
+
+        let error = RuntimeDiagnosticsRepairControlCore
+            .plan(&request)
+            .expect_err("retired operator override authority transport");
+        assert_eq!(
+            error.code(),
+            "runtime_diagnostics_operator_override_authority_transport_retired"
+        );
     }
 
     #[test]

@@ -4858,14 +4858,16 @@ Agentgres admission without JS event append, run-state mutation, or repair-truth
 persistence, and diagnostics repair decision resolution calls Rust
 `project_runtime_diagnostics_repair_projection` over runtime `state_dir`
 Agentgres event replay before accepted repair truth can return without JS
-projection readback or decision-candidate transport; diagnostics operator override execution calls Rust
-`plan_diagnostics_operator_override_state_update`, sends raw operator request,
-decision, and repair-policy context instead of JS approval verdicts, lets Rust
-derive the override approval state and reject retired verdict transport, and
-commits only the Rust-planned operator-control run projection through Rust
-Agentgres run-state admission without JS run-map mutation; direct
-operator-override event append
-also calls Rust diagnostics repair control planning and admits only the
+projection readback or decision-candidate transport; diagnostics operator
+override execution calls Rust `plan_diagnostics_operator_override_state_update`,
+sends raw operator request, decision, repair-policy context, and canonical
+wallet authority refs instead of JS approval verdicts, lets Rust derive the
+override approval state, requires wallet.network grant and authority receipt
+refs for approval-required overrides, rejects retired verdict/authority
+transport, and commits only the Rust-planned operator-control run projection
+through Rust Agentgres run-state admission without JS run-map mutation; direct
+operator-override event append also calls Rust diagnostics repair control
+planning, applies the same wallet authority gate, and admits only the
 Rust-authored operator-override event through Rust runtime-event admission;
 diagnostics repair retry-turn creation composes with the Rust-owned run-create
 lifecycle surface and admits only a Rust-authored retry event through Rust
@@ -7506,12 +7508,13 @@ surface mounts the context-policy runner as the diagnostics repair policy
 projector and refuses pending feedback policy projection without that Rust
 boundary.
 
-This remains non-terminal because wallet-governed override issuance, broader
-diagnostics orchestration, expected-head/state-root binding, receipt/policy
-binding, command-transport retirement, and stable IDE/CLI/SDK protocol APIs are
-still pending beyond the Rust policy replay projection API. The target is no JS
-repair policy object or policy-input authoring as accepted truth, not
-preservation of JS diagnostics feedback helpers as a compatibility layer.
+This remains non-terminal because broader diagnostics orchestration,
+expected-head/state-root binding, receipt/policy binding, durable
+projection/replay, command-transport retirement, and stable IDE/CLI/SDK protocol
+APIs are still pending beyond the Rust policy replay projection API. The
+operator-override issuance edge is now wallet-gated by Rust for
+approval-required overrides, while the target remains no JS repair policy object
+or policy-input authoring as accepted truth.
 
 Slice 1166 retires JS-side artifact-read receipt synthesis from the temporary
 coding-tool artifact read/retrieve adapter. `runtime-coding-tool-results.mjs`
@@ -8476,15 +8479,18 @@ append, and decision resolution have moved to Rust-owned projection/event
 planning plus Rust runtime-event admission, and diagnostics operator override
 execution now uses Rust state-update planning plus Rust Agentgres run-state
 admission with Rust-derived operator override approval state instead of JS
-verdict transport; diagnostics repair retry-turn creation/direct retry-event
-append now use Rust run-create composition plus Rust diagnostics repair event
-planning/admission, and direct operator-override event append now uses Rust
-diagnostics repair event planning/admission. Diagnostics repair policy
-projection now replays admitted Agentgres runtime events from runtime `state_dir`
-instead of accepting JS policy-input candidates. The remaining diagnostics
-repair blockers are wallet-governed repair/override authority, broader
-orchestration, receipt/state-root binding, command-transport retirement, and
-stable protocol APIs.
+verdict transport. Approval-required diagnostics operator overrides now also
+require wallet.network grant and authority receipt refs in Rust, bind a
+Rust-authored override authority hash into the operator control projection, and
+reject retired JS authority transport; direct operator-override event append
+uses the same Rust wallet authority gate before runtime-event admission.
+Diagnostics repair retry-turn creation/direct retry-event append now use Rust
+run-create composition plus Rust diagnostics repair event planning/admission.
+Diagnostics repair policy projection now replays admitted Agentgres runtime
+events from runtime `state_dir` instead of accepting JS policy-input candidates.
+The remaining diagnostics repair blockers are broader orchestration, durable
+projection/replay, receipt/state-root binding, command-transport retirement,
+and stable protocol APIs.
 Run-level coding-tool budget recovery retry completion has moved from the
 fail-closed JS control facade to Rust `plan_coding_tool_budget_recovery_state_update`
 plus Agentgres-backed run-state commit. The public route now accepts the

@@ -180,6 +180,17 @@ function diagnosticsOperatorOverrideStateUpdateRunner() {
           : approvalSatisfied
             ? textApproval
             : "missing";
+      const walletGrantRefs = request.authority_grant_refs ?? [];
+      const authorityReceiptRefs = request.authority_receipt_refs ?? [];
+      const policyDecisionRefs = request.policy_decision_refs ?? [];
+      const authorityHash = walletGrantRefs.length > 0
+        ? "sha256:diagnostics-operator-override-authority"
+        : null;
+      if (approvalRequired && (!authorityHash || authorityReceiptRefs.length === 0)) {
+        const error = new Error("wallet.network diagnostics operator override authority required");
+        error.code = "diagnostics_operator_override_authority_required";
+        throw error;
+      }
       return {
         status: "planned",
         operation_kind: "diagnostics.operator_override.event",
@@ -190,6 +201,19 @@ function diagnosticsOperatorOverrideStateUpdateRunner() {
           approval_required: approvalRequired,
           approval_satisfied: approvalSatisfied,
           approval_source: approvalSource,
+          authority: {
+            object: "ioi.runtime_diagnostics_operator_override_authority",
+            wallet_network_grant_refs: walletGrantRefs,
+            authority_receipt_refs: authorityReceiptRefs,
+            policy_decision_refs: policyDecisionRefs,
+            authority_hash: authorityHash,
+            direct_truth_write_allowed: false,
+          },
+          authority_hash: authorityHash,
+          wallet_network_grant_refs: walletGrantRefs,
+          authority_receipt_refs: authorityReceiptRefs,
+          policy_decision_refs: policyDecisionRefs,
+          direct_truth_write_allowed: false,
         },
         run: {
           ...request.run,
@@ -201,6 +225,7 @@ function diagnosticsOperatorOverrideStateUpdateRunner() {
             continuation_allowed: true,
             approval_required: approvalRequired,
             approval_satisfied: approvalSatisfied,
+            authority_hash: authorityHash,
           },
           trace: {
             ...(request.run.trace ?? {}),
@@ -346,6 +371,9 @@ test("diagnostics operator override uses Rust state update and run-state admissi
       gate_event_id: "event_gate",
       snapshot_id: "snapshot_alpha",
       operator_override_approval: "override",
+      authority_grant_refs: ["wallet.network://grant/diagnostics/operator-override"],
+      authority_receipt_refs: ["receipt://wallet.network/diagnostics/operator-override"],
+      policy_decision_refs: ["policy_diagnostics_operator_override"],
       source: "agent_studio",
     },
     gateEvent: { event_id: "event_gate" },
@@ -386,10 +414,17 @@ test("diagnostics operator override uses Rust state update and run-state admissi
       gate_event_id: "event_gate",
       snapshot_id: "snapshot_alpha",
       operator_override_approval: "override",
+      authority_grant_refs: ["wallet.network://grant/diagnostics/operator-override"],
+      authority_receipt_refs: ["receipt://wallet.network/diagnostics/operator-override"],
+      policy_decision_refs: ["policy_diagnostics_operator_override"],
       source: "agent_studio",
     },
     decision: { decision_id: "decision_override", requires_approval: true },
     repair_policy: {},
+    authority_grant_refs: ["wallet.network://grant/diagnostics/operator-override"],
+    authority_receipt_refs: ["receipt://wallet.network/diagnostics/operator-override"],
+    policy_decision_refs: ["policy_diagnostics_operator_override"],
+    authority_context: {},
     snapshot_id: "snapshot_alpha",
   }]);
   assert.equal(calls[0].name, "getRun");
@@ -697,13 +732,15 @@ test("diagnostics operator override event append uses Rust planning and runtime 
     threadId: "thread_alpha",
     gateEvent: {
       event_id: "event_gate",
-      payload: { approval_id: "approval_override" },
+      payload: {
+        approval_id: "approval_override",
+        authority_grant_refs: ["wallet.network://grant/diagnostics/operator-override"],
+      },
     },
     decision: {
       decision_id: "decision_override",
-      approval_required: true,
-      approval_satisfied: true,
-      approval_source: "wallet.network",
+      authority_receipt_refs: ["receipt://wallet.network/diagnostics/operator-override"],
+      policy_decision_refs: ["policy_diagnostics_operator_override"],
     },
     snapshotId: "snapshot_alpha",
   });
@@ -731,9 +768,12 @@ test("diagnostics operator override event append uses Rust planning and runtime 
       snapshot_id: "snapshot_alpha",
       action: "operator_override",
       approval_id: "approval_override",
+      authority_grant_refs: ["wallet.network://grant/diagnostics/operator-override"],
+      authority_receipt_refs: ["receipt://wallet.network/diagnostics/operator-override"],
+      policy_decision_refs: ["policy_diagnostics_operator_override"],
     },
     receipt_refs: [],
-    policy_decision_refs: [],
+    policy_decision_refs: ["policy_diagnostics_operator_override"],
     evidence_refs: [
       "runtime_diagnostics_operator_override_event_rust_owned",
       "runtime_diagnostics_repair_control_event_rust_owned",

@@ -125,6 +125,8 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
       "rollback_refs",
       "receipt_refs",
       "policy_decision_refs",
+      "authority_grant_refs",
+      "authority_receipt_refs",
       "idempotency_key",
     ]) {
       if (Object.hasOwn(request, key)) payload[key] = request[key];
@@ -154,6 +156,16 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
 
   function stringRefs(values) {
     return normalizeArray(values).map((value) => String(value)).filter(Boolean);
+  }
+
+  function mergedStringRefs(...values) {
+    const refs = [];
+    for (const value of values) {
+      for (const ref of stringRefs(value)) {
+        if (!refs.includes(ref)) refs.push(ref);
+      }
+    }
+    return refs;
   }
 
   function positiveInteger(value) {
@@ -369,11 +381,29 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
         objectRecord(decision?.repair_policy) ??
         objectRecord(gateEvent?.payload?.repair_policy) ??
         {},
+      authority_grant_refs: mergedStringRefs(
+        normalizedRequest.authority_grant_refs,
+        decision?.authority_grant_refs,
+        gateEvent?.payload?.authority_grant_refs,
+      ),
+      authority_receipt_refs: mergedStringRefs(
+        normalizedRequest.authority_receipt_refs,
+        decision?.authority_receipt_refs,
+        gateEvent?.payload?.authority_receipt_refs,
+      ),
+      policy_decision_refs: mergedStringRefs(
+        normalizedRequest.policy_decision_refs,
+        decision?.policy_decision_refs,
+        gateEvent?.payload?.policy_decision_refs,
+      ),
+      authority_context: objectRecord(normalizedRequest.authority_context) ?? {},
       snapshot_id: normalizedSnapshotId,
     });
     const plannedRun = objectRecord(planned?.run);
     const plannedOperationKind = optionalString(planned?.operation_kind);
     const operatorControl = objectRecord(planned?.operator_control);
+    const operatorControlWalletGrantRefs = stringRefs(operatorControl?.wallet_network_grant_refs);
+    const operatorControlAuthorityReceiptRefs = stringRefs(operatorControl?.authority_receipt_refs);
     if (
       optionalString(planned?.status) !== "planned" ||
       plannedOperationKind !== "diagnostics.operator_override.event" ||
@@ -384,7 +414,15 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
       optionalString(operatorControl.decision_id) !== decisionId ||
       !objectRecord(plannedRun.diagnosticsBlockingGate) ||
       optionalString(plannedRun.diagnosticsBlockingGate.status) !== "overridden" ||
-      plannedRun.diagnosticsBlockingGate.continuation_allowed !== true
+      plannedRun.diagnosticsBlockingGate.continuation_allowed !== true ||
+      (
+        operatorControl.approval_required === true &&
+        (
+          !optionalString(operatorControl.authority_hash) ||
+          operatorControlWalletGrantRefs.length === 0 ||
+          operatorControlAuthorityReceiptRefs.length === 0
+        )
+      )
     ) {
       throwDiagnosticsOperatorOverrideStateUpdateError({
         code: "diagnostics_operator_override_state_update_projection_incomplete",
@@ -559,12 +597,27 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
 
   function appendDiagnosticsOperatorOverrideEvent(store, { threadId, gateEvent, decision, snapshotId = null } = {}) {
     const decisionId = optionalString(decision?.decision_id) ?? "operator_override";
+    const authorityGrantRefs = mergedStringRefs(
+      decision?.authority_grant_refs,
+      gateEvent?.payload?.authority_grant_refs,
+    );
+    const authorityReceiptRefs = mergedStringRefs(
+      decision?.authority_receipt_refs,
+      gateEvent?.payload?.authority_receipt_refs,
+    );
+    const policyDecisionRefs = mergedStringRefs(
+      decision?.policy_decision_refs,
+      gateEvent?.payload?.policy_decision_refs,
+    );
     const plannedControl = planDiagnosticsRepairControlEvent(store, threadId, {
       decision_id: decisionId,
       gate_event_id: optionalString(gateEvent?.event_id) ?? null,
       snapshot_id: optionalString(snapshotId) ?? null,
       action: "operator_override",
       approval_id: optionalString(decision?.approval_id ?? gateEvent?.payload?.approval_id) ?? null,
+      authority_grant_refs: authorityGrantRefs,
+      authority_receipt_refs: authorityReceiptRefs,
+      policy_decision_refs: policyDecisionRefs,
     }, {
       operation: "diagnostics_operator_override_event_append",
       operationKind: "diagnostics.operator_override.event",
