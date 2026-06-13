@@ -2670,6 +2670,9 @@ function runBridge() {
         exists("crates/services/src/agentic/runtime/kernel/model_mount/receipt_gate.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/receipt_gate.rs")
           : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/mcp_workflow.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/mcp_workflow.rs")
+          : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs")
           : "",
@@ -2690,6 +2693,9 @@ function runBridge() {
           : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/common.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/common.rs")
+          : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/mcp.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/mcp.rs")
           : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/catalog.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/catalog.rs")
@@ -14523,6 +14529,7 @@ function runBridge() {
       /serverStatus\(state,\s*baseUrl\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"server_status",\s*\{ baseUrl \}\)/.test(modelMountingReadProjectionFacade) &&
       /adapterBoundaries\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"adapter_boundaries"\)/.test(modelMountingReadProjectionFacade) &&
       /workflowNodeBindings\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"workflow_bindings"\)/.test(modelMountingReadProjectionFacade) &&
+      /mcpServers\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"mcp_servers"\)/.test(modelMountingReadProjectionFacade) &&
       /projectionKind === "workflow_bindings"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
       /projectionKind === "adapter_boundaries"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
       /modelRouteDecisions\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"model_route_decisions"\)/.test(modelMountingReadProjectionFacade) &&
@@ -14586,7 +14593,7 @@ function runBridge() {
       /state_dir:\s*readProjectionStateDir\(state,\s*projectionKind\)/.test(modelMountingReadProjectionFacade) &&
       /projectionKind === "model_conversation_states"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
       /function readProjectionStateDir\(state,\s*projectionKind\)/.test(modelMountingReadProjectionFacade) &&
-      /projectionKind !== "server_status" &&\s*projectionKind !== "backends"/.test(
+      /projectionKind !== "server_status" &&\s*projectionKind !== "backends" &&\s*projectionKind !== "mcp_servers"/.test(
         modelMountingReadProjectionFacade,
       ) &&
       /projectionKind !== "model_conversation_states" &&\s*projectionKind !== "instances" &&\s*projectionKind !== "provider_inventory_records" &&\s*projectionKind !== "catalog_search" &&\s*projectionKind !== "catalog_status" &&\s*projectionKind !== "model_tokenizer_records" &&\s*projectionKind !== "routes" &&\s*projectionKind !== "model_route_decisions" &&\s*projectionKind !== "model_route_endpoint_resolutions" &&\s*projectionKind !== "artifacts" &&\s*projectionKind !== "product_artifacts" &&\s*projectionKind !== "providers" &&\s*projectionKind !== "endpoints" &&\s*projectionKind !== "runtime_model_catalog" &&\s*projectionKind !== "open_ai_model_list"/.test(
@@ -14626,7 +14633,7 @@ function runBridge() {
       /model_mount_download_not_found/.test(modelMountingReadProjectionFacade) &&
       /download_id:\s*downloadId/.test(modelMountingReadProjectionFacade) &&
       /listBackends\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"backends"\)/.test(modelMountingReadProjectionFacade) &&
-      /projectionKind === "artifacts"[\s\S]*?projectionKind === "providers"[\s\S]*?projectionKind === "endpoints"[\s\S]*?projectionKind === "instances"[\s\S]*?projectionKind === "provider_inventory_records"[\s\S]*?projectionKind === "model_tokenizer_records"[\s\S]*?projectionKind === "routes"[\s\S]*?projectionKind === "model_capabilities"[\s\S]*?projectionKind === "downloads"[\s\S]*?projectionKind === "download_status"[\s\S]*?projectionKind === "storage_summary"[\s\S]*?projectionKind === "backends"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
+      /projectionKind === "artifacts"[\s\S]*?projectionKind === "providers"[\s\S]*?projectionKind === "endpoints"[\s\S]*?projectionKind === "instances"[\s\S]*?projectionKind === "provider_inventory_records"[\s\S]*?projectionKind === "model_tokenizer_records"[\s\S]*?projectionKind === "routes"[\s\S]*?projectionKind === "model_capabilities"[\s\S]*?projectionKind === "downloads"[\s\S]*?projectionKind === "download_status"[\s\S]*?projectionKind === "storage_summary"[\s\S]*?projectionKind === "backends"[\s\S]*?projectionKind === "mcp_servers"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
       /projectionKind === "product_artifacts"[\s\S]*?projectionKind === "runtime_model_catalog"[\s\S]*?projectionKind === "open_ai_model_list"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
       !/if \(projectionKind === "endpoints"\)[\s\S]*?return \{ endpoints \};/.test(modelMountingReadProjectionFacade) &&
       !/if \(projectionKind === "providers"\)[\s\S]*?return \{ providers \};/.test(modelMountingReadProjectionFacade) &&
@@ -15012,6 +15019,13 @@ function runBridge() {
       /agentgres_backend_lifecycle_replay_required/.test(modelMountReadProjectionEvidence) &&
       /model-backend-lifecycle-controls/.test(modelMountReadProjectionEvidence) &&
       /backend_projection_replays_agentgres_lifecycle_records_and_filters_js_truth/.test(modelMountReadProjectionEvidence) &&
+      /mod mcp;/.test(modelMountReadProjectionEvidence) &&
+      /MODEL_MOUNT_MCP_SERVERS_PROJECTION_KIND => mcp::mcp_servers\(request\)/.test(modelMountReadProjectionEvidence) &&
+      /model_mount_mcp_projection_state_dir_required/.test(modelMountReadProjectionEvidence) &&
+      /rust_daemon_core_model_mount_mcp_projection/.test(modelMountReadProjectionEvidence) &&
+      /agentgres_mcp_projection_truth_required/.test(modelMountReadProjectionEvidence) &&
+      /model_mount_mcp_server_js_projection_retired/.test(modelMountReadProjectionEvidence) &&
+      /rust_replays_only_mcp_servers_from_rust_authored_records/.test(modelMountReadProjectionEvidence) &&
       /pub\(super\) fn artifacts/.test(modelMountReadProjectionEvidence) &&
       /pub\(super\) fn product_artifacts/.test(modelMountReadProjectionEvidence) &&
       /pub\(super\) fn providers/.test(modelMountReadProjectionEvidence) &&
@@ -19276,6 +19290,9 @@ function runReceipts() {
         exists("crates/services/src/agentic/runtime/kernel/model_mount/receipt_gate.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/receipt_gate.rs")
           : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/mcp_workflow.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/mcp_workflow.rs")
+          : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs")
           : "",
@@ -19293,6 +19310,9 @@ function runReceipts() {
           : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/common.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/common.rs")
+          : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/mcp.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/mcp.rs")
           : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/catalog.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/catalog.rs")
@@ -19362,6 +19382,7 @@ function runReceipts() {
           : "",
       ].join("\n")
     : "";
+  const modelMountReadProjectionEvidence = [modelMountCommandSurface, modelMountCore].join("\n");
   const modelMountArtifactEndpointCore = exists(
     "crates/services/src/agentic/runtime/kernel/model_mount/artifact_endpoint.rs",
   )
@@ -20752,31 +20773,68 @@ function runReceipts() {
   );
   assertCheck(
     result,
-    "model-mount-mcp-receipt-detail-aliases-retired",
+    "model-mount-mcp-workflow-positive-api-rust-owned",
     !exists("packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/mcp-server-record-state.mjs") &&
-      /model_mount_mcp_workflow_rust_core_required/.test(mcpWorkflowOperations) &&
+      /"plan_model_mount_mcp_workflow"/.test(commandProtocolCore) &&
+      /PlanModelMountMcpWorkflow/.test(commandProtocolCore) &&
+      /CommandOperation::PlanModelMountMcpWorkflow/.test(coreCommandDispatch) &&
+      /plan_model_mount_mcp_workflow_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      /pub struct ModelMountMcpWorkflowRequest/.test(modelMountCore) &&
+      /pub struct ModelMountMcpWorkflowPlan/.test(modelMountCore) &&
+      /pub fn plan_model_mount_mcp_workflow_response/.test(modelMountCore) &&
+      /pub fn plan_mcp_workflow/.test(modelMountCore) &&
+      /pub fn plan_mcp_workflow\([\s\S]*?&self,[\s\S]*?request: &ModelMountMcpWorkflowRequest/.test(modelMountCore) &&
+      /UnsupportedMcpWorkflowOperation/.test(modelMountCore) &&
+      /model_mount\.mcp_server\.import/.test(modelMountCore) &&
+      /model_mount\.mcp_server\.ephemeral_register/.test(modelMountCore) &&
+      /model_mount\.mcp_tool\.invoke/.test(modelMountCore) &&
+      /model_mount\.workflow_node\.execute/.test(modelMountCore) &&
+      /rust_daemon_core_model_mount_mcp_workflow/.test(modelMountCore) &&
+      /agentgres_mcp_workflow_truth_required/.test(modelMountCore) &&
+      /model_mount_mcp_workflow_receipt_synthesis_js_retired/.test(modelMountCore) &&
+      /model_mount_mcp_workflow_record_state_js_retired/.test(modelMountCore) &&
+      /planModelMountMcpWorkflow\(request\)/.test(mcpWorkflowOperations) &&
+      /planMcpWorkflow\(request\)/.test(modelMountAdmissionRunner) &&
+      /operation:\s*"plan_model_mount_mcp_workflow"/.test(modelMountAdmissionRunner) &&
+      /normalizeMcpWorkflowBridgeResult/.test(modelMountAdmissionRunner) &&
+      /model_mount_mcp_workflow_plan_invalid/.test(modelMountAdmissionRunner) &&
       /rust_core_boundary:\s*"model_mount\.mcp_workflow"/.test(mcpWorkflowOperations) &&
       /model_mount_mcp_workflow_js_facade_retired/.test(mcpWorkflowOperations) &&
       /model_mount_mcp_import_js_facade_retired/.test(mcpWorkflowOperations) &&
       /model_mount_ephemeral_mcp_registration_js_facade_retired/.test(mcpWorkflowOperations) &&
       /model_mount_mcp_tool_invocation_js_facade_retired/.test(mcpWorkflowOperations) &&
       /model_mount_workflow_node_execution_js_facade_retired/.test(mcpWorkflowOperations) &&
-      /model_mount_mcp_workflow_receipt_synthesis_js_retired/.test(mcpWorkflowOperations) &&
-      /model_mount_mcp_workflow_record_state_js_retired/.test(mcpWorkflowOperations) &&
-      /rust_daemon_core_model_mount_mcp_workflow_required/.test(mcpWorkflowOperations) &&
       /agentgres_mcp_workflow_truth_required/.test(mcpWorkflowOperations) &&
-      /model_mount_mcp_projection_rust_core_required/.test(mcpWorkflowOperations) &&
-      /rust_core_boundary:\s*"model_mount\.mcp_projection"/.test(mcpWorkflowOperations) &&
-      /model_mount_mcp_server_js_projection_retired/.test(mcpWorkflowOperations) &&
-      /rust_daemon_core_model_mount_mcp_projection_required/.test(mcpWorkflowOperations) &&
-      /agentgres_mcp_projection_truth_required/.test(mcpWorkflowOperations) &&
-      /listMcpServers\(\)\s*\{[\s\S]*?throwMcpProjectionRustCoreRequired\("model_mount\.mcp_server\.list"\)/.test(
+      /planAndCommitMcpWorkflow\(state, operation_kind/.test(mcpWorkflowOperations) &&
+      /commitModelMountRecordState\(state,\s*\{[\s\S]*?recordDir:\s*plan\.record_dir/.test(
         mcpWorkflowOperations,
       ) &&
-      !/listMcpServers\(\)\s*\{[\s\S]*?return \[\.\.\.this\.mcpServers\.values\(\)\]/.test(
+      /unconfiguredCode:\s*"model_mount_mcp_workflow_record_state_commit_unconfigured"/.test(
         mcpWorkflowOperations,
       ) &&
+      /listMcpServers\(\)\s*\{[\s\S]*?readProjectionFacade\.mcpServers\(this\)/.test(
+        mcpWorkflowOperations,
+      ) &&
+      /mcpServers\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"mcp_servers"\)/.test(
+        modelMountingReadProjectionFacade,
+      ) &&
+      /MODEL_MOUNT_MCP_SERVERS_PROJECTION_KIND => mcp::mcp_servers\(request\)/.test(
+        modelMountReadProjectionEvidence,
+      ) &&
+      /mod mcp;/.test(modelMountReadProjectionEvidence) &&
+      /rust_replays_only_mcp_servers_from_rust_authored_records/.test(modelMountReadProjectionEvidence) &&
+      /model_mount_mcp_projection_state_dir_required/.test(modelMountReadProjectionEvidence) &&
+      /rust_daemon_core_model_mount_mcp_projection/.test(modelMountReadProjectionEvidence) &&
+      /agentgres_mcp_projection_truth_required/.test(modelMountReadProjectionEvidence) &&
+      /model_mount_mcp_server_js_projection_retired/.test(modelMountReadProjectionEvidence) &&
+      !/listMcpServers\(\)\s*\{[\s\S]*?throwMcpProjectionRustCoreRequired/.test(
+        mcpWorkflowOperations,
+      ) &&
+      !/model_mount_mcp_projection_rust_core_required/.test(mcpWorkflowOperations) &&
+      !/model_mount_mcp_projection_rust_core_required/.test(mcpWorkflowOperationsTest) &&
+      !/rust_daemon_core_model_mount_mcp_workflow_required/.test(mcpWorkflowOperations) &&
+      !/rust_daemon_core_model_mount_mcp_projection_required/.test(mcpWorkflowOperations) &&
       !/export function publicMcpServer/.test(modelMountIo) &&
       /model_mount\.mcp_server\.import/.test(mcpImportJsonBlock) &&
       /model_mount\.mcp_server\.ephemeral_register/.test(mcpCompileEphemeralBlock) &&
@@ -20794,29 +20852,39 @@ function runReceipts() {
       !/state\.testRoute/.test(mcpWorkflowOperations) &&
       !/state\.validateReceiptGate/.test(mcpWorkflowOperations) &&
       /assertMcpWorkflowRustCoreRequired/.test(mcpWorkflowOperationsTest) &&
-      /importMcpJson facade fails closed before JS receipts, record-state commits, or projections/.test(
+      /importMcpJson uses Rust MCP workflow planning, record-state commit, and Rust projection/.test(
         mcpWorkflowOperationsTest,
       ) &&
-      /invokeMcpTool facade fails closed before authorization, fixture execution, or receipt synthesis/.test(
+      /invokeMcpTool uses Rust MCP workflow planning and record-state commit before transport execution/.test(
         mcpWorkflowOperationsTest,
       ) &&
-      /compileEphemeralMcpIntegrations facade fails closed before registration, tool invocation, or receipts/.test(
+      /compileEphemeralMcpIntegrations uses Rust MCP workflow planning and record-state commit/.test(
         mcpWorkflowOperationsTest,
       ) &&
-      /executeWorkflowNode facade fails closed before route, MCP, receipt-gate, or model dispatch/.test(
+      /executeWorkflowNode uses Rust MCP workflow planning and record-state commit before dispatch/.test(
         mcpWorkflowOperationsTest,
+      ) &&
+      /Rust model_mount admission runner sends positive MCP workflow request/.test(
+        modelMountAdmissionRunnerTest,
       ) &&
       /assertNoMcpWorkflowMutation\(state\)/.test(mcpWorkflowOperationsTest) &&
-      /assert\.deepEqual\(state\.recordStateCommits,\s*\[\]\)/.test(mcpWorkflowOperationsTest) &&
       /assert\.deepEqual\(state\.receipts,\s*\[\]\)/.test(mcpWorkflowOperationsTest) &&
-      /model_mount_mcp_projection_rust_core_required/.test(mcpWorkflowOperationsTest) &&
-      /model_mount\.mcp_server\.list/.test(mcpWorkflowOperationsTest) &&
+      /assert\.deepEqual\(state\.readProjectionRequests,\s*\[\{ projection_kind: "mcp_servers" \}\]\)/.test(
+        mcpWorkflowOperationsTest,
+      ) &&
+      /assert\.equal\(state\.recordStateCommits\[0\]\.record_dir,\s*"mcp-servers"\)/.test(
+        mcpWorkflowOperationsTest,
+      ) &&
       /Object\.hasOwn\(error\.details,\s*"rustCoreBoundary"\),\s*false/.test(mcpWorkflowOperationsTest),
     [
-      "packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.mjs",
+      "crates/services/src/agentic/runtime/kernel/model_mount/mcp_workflow.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount/read_projection/mcp.rs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
+      "packages/runtime-daemon/src/model-mounting/read-projection-facade.mjs",
       "packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.test.mjs",
     ],
-    "Phase 9/11 is pending: MCP registration, import, tool invocation, and workflow-node execution must fail closed until Rust daemon-core owns receipts, record-state, authority, and Agentgres truth",
+    "Phase 9/11 is pending: MCP registration, import, tool invocation, workflow-node execution, and MCP server list projection must use Rust daemon-core planning/projection with Agentgres record-state truth and no JS fallback",
   );
   assertCheck(
     result,
@@ -20825,7 +20893,7 @@ function runReceipts() {
       /RETIRED_MCP_IMPORT_REQUEST_ALIASES/.test(mcpWorkflowOperations) &&
       /CANONICAL_MCP_IMPORT_REQUEST_FIELDS/.test(mcpWorkflowOperations) &&
       /assertCanonicalMcpImportRequestBody\(body\);/.test(mcpImportJsonBlock) &&
-      /throwMcpWorkflowRustCoreRequired\("model_mount\.mcp_server\.import"\)/.test(
+      /planAndCommitMcpWorkflow\(this,\s*"model_mount\.mcp_server\.import"/.test(
         mcpImportJsonBlock,
       ) &&
       /model_mount_mcp_import_request_aliases_retired/.test(mcpWorkflowOperations) &&
@@ -20855,10 +20923,10 @@ function runReceipts() {
       /RETIRED_EPHEMERAL_MCP_INTEGRATION_ALIASES/.test(mcpWorkflowOperations) &&
       /CANONICAL_EPHEMERAL_MCP_INTEGRATION_FIELDS/.test(mcpWorkflowOperations) &&
       /assertCanonicalEphemeralMcpIntegration\(integration\);/.test(mcpCompileEphemeralBlock) &&
-      /throwMcpWorkflowRustCoreRequired\("model_mount\.mcp_server\.ephemeral_register"/.test(
+      /planAndCommitMcpWorkflow\(this,\s*"model_mount\.mcp_server\.ephemeral_register"/.test(
         mcpCompileEphemeralBlock,
       ) &&
-      /integration_count:\s*ephemeral\.length/.test(mcpCompileEphemeralBlock) &&
+      /integrations:\s*ephemeral/.test(mcpCompileEphemeralBlock) &&
       /model_mount_ephemeral_mcp_integration_aliases_retired/.test(mcpWorkflowOperations) &&
       !/integration\.(?:serverLabel|serverUrl|allowedTools)\b/.test(mcpCompileEphemeralBlock) &&
       !/state\.receipt\("mcp_ephemeral_registration"/.test(mcpCompileEphemeralBlock) &&
@@ -20884,8 +20952,8 @@ function runReceipts() {
       /RETIRED_MCP_TOOL_INVOCATION_REQUEST_ALIASES/.test(mcpWorkflowOperations) &&
       /CANONICAL_MCP_TOOL_INVOCATION_REQUEST_FIELDS/.test(mcpWorkflowOperations) &&
       /assertCanonicalMcpToolInvocationRequestBody\(body\);/.test(mcpInvokeToolBlock) &&
-      /throwMcpWorkflowRustCoreRequired\("model_mount\.mcp_tool\.invoke"/.test(mcpInvokeToolBlock) &&
-      /server_id:\s*body\.server_id/.test(mcpInvokeToolBlock) &&
+      /planAndCommitMcpWorkflow\(this,\s*"model_mount\.mcp_tool\.invoke"/.test(mcpInvokeToolBlock) &&
+      /body\.server_id \?\? "unknown"/.test(mcpInvokeToolBlock) &&
       /model_mount_mcp_tool_invocation_request_aliases_retired/.test(mcpWorkflowOperations) &&
       !/body\.(?:serverId|server_label|serverLabel)\b/.test(mcpInvokeToolBlock) &&
       !/safeId\(body\.(?:server_label|serverLabel)/.test(mcpInvokeToolBlock) &&
@@ -20939,11 +21007,11 @@ function runReceipts() {
       /RETIRED_WORKFLOW_NODE_EXECUTION_REQUEST_ALIASES/.test(mcpWorkflowOperations) &&
       /model_mount_workflow_node_request_aliases_retired/.test(mcpWorkflowOperations) &&
       /assertCanonicalWorkflowNodeExecutionRequestBody\(body\);/.test(mcpWorkflowOperations) &&
-      /throwMcpWorkflowRustCoreRequired\("model_mount\.workflow_node\.execute"/.test(
+      /planAndCommitMcpWorkflow\(this,\s*"model_mount\.workflow_node\.execute"/.test(
         mcpWorkflowOperations,
       ) &&
-      /workflow_graph_id:\s*body\.workflow_graph_id/.test(mcpWorkflowOperations) &&
-      /workflow_node_id:\s*body\.workflow_node_id/.test(mcpWorkflowOperations) &&
+      /body,/.test(mcpWorkflowOperations) &&
+      /body\.workflow_node_id \?\? body\.node \?\? body\.node_type \?\? "unknown"/.test(mcpWorkflowOperations) &&
       !/body\.(?:nodeType|modelId|routeId|modelPolicy|maxTokens|workflowGraphId|workflowNodeId|nodeId|node_id|workflowNodeType)\b/.test(
         mcpWorkflowOperations,
       ) &&
@@ -20958,7 +21026,7 @@ function runReceipts() {
       /retired_aliases,\s*\[\s*"nodeType",\s*"modelId",\s*"routeId",\s*"modelPolicy",\s*"maxTokens",\s*"workflowGraphId",\s*"workflowNodeId",\s*"nodeId",\s*"node_id",\s*"workflowNodeType",\s*\]/.test(
         mcpWorkflowOperationsTest,
       ) &&
-      /executeWorkflowNode facade fails closed before route, MCP, receipt-gate, or model dispatch/.test(
+      /executeWorkflowNode uses Rust MCP workflow planning and record-state commit before dispatch/.test(
         mcpWorkflowOperationsTest,
       ) &&
       /assert\.deepEqual\(state\.modelInvocations,\s*\[\]\)/.test(mcpWorkflowOperationsTest),

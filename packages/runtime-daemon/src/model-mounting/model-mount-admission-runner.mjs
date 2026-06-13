@@ -7,6 +7,7 @@ export const RUST_MODEL_MOUNT_BACKEND_PROCESS_BACKEND = "rust_model_mount_backen
 export const RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_BACKEND = "rust_model_mount_backend_lifecycle";
 export const RUST_MODEL_MOUNT_ARTIFACT_ENDPOINT_BACKEND = "rust_model_mount_artifact_endpoint";
 export const RUST_MODEL_MOUNT_STORAGE_CONTROL_BACKEND = "rust_model_mount_storage_control";
+export const RUST_MODEL_MOUNT_MCP_WORKFLOW_BACKEND = "rust_model_mount_mcp_workflow";
 export const RUST_MODEL_MOUNT_SERVER_CONTROL_BACKEND = "rust_model_mount_server_control";
 export const RUST_MODEL_MOUNT_RUNTIME_ENGINE_BACKEND = "rust_model_mount_runtime_engine";
 export const RUST_MODEL_MOUNT_TOKENIZER_REQUIRED_BACKEND = "rust_model_mount_tokenizer_required";
@@ -196,6 +197,16 @@ export class RustModelMountAdmissionRunner {
       request,
     };
     return normalizeStorageControlBridgeResult(this.invokeDaemonCore(bridgeRequest));
+  }
+
+  planMcpWorkflow(request) {
+    const bridgeRequest = {
+      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      operation: "plan_model_mount_mcp_workflow",
+      backend: RUST_MODEL_MOUNT_MCP_WORKFLOW_BACKEND,
+      request,
+    };
+    return normalizeMcpWorkflowBridgeResult(this.invokeDaemonCore(bridgeRequest));
   }
 
   planServerControl(request) {
@@ -880,6 +891,71 @@ function normalizeStorageControlBridgeResult(value = {}) {
     const error = new Error("Rust model_mount storage-control plan is incomplete.");
     error.status = 502;
     error.code = "model_mount_storage_control_plan_invalid";
+    error.details = {
+      missing,
+      source: normalized.source,
+      backend: normalized.backend,
+      operation_kind: normalized.operation_kind,
+    };
+    throw error;
+  }
+  return normalized;
+}
+
+function normalizeMcpWorkflowBridgeResult(value = {}) {
+  const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const plan = result.plan && typeof result.plan === "object" && !Array.isArray(result.plan)
+    ? result.plan
+    : {};
+  const record = result.record && typeof result.record === "object" && !Array.isArray(result.record)
+    ? result.record
+    : plan.record && typeof plan.record === "object" && !Array.isArray(plan.record)
+      ? plan.record
+      : null;
+  const normalized = {
+    source: result.source ?? "rust_model_mount_mcp_workflow_command",
+    backend: result.backend ?? RUST_MODEL_MOUNT_MCP_WORKFLOW_BACKEND,
+    plan,
+    record_dir: result.record_dir ?? plan.record_dir ?? null,
+    record_id: result.record_id ?? plan.record_id ?? null,
+    record,
+    public_response: result.public_response ?? plan.public_response ?? null,
+    operation_kind: result.operation_kind ?? plan.operation_kind ?? null,
+    rust_core_boundary: result.rust_core_boundary ?? plan.rust_core_boundary ?? null,
+    receipt_refs: arrayOrNull(result.receipt_refs) ?? arrayOrNull(plan.receipt_refs) ?? [],
+    authority_grant_refs: arrayOrNull(result.authority_grant_refs) ?? arrayOrNull(plan.authority_grant_refs) ?? [],
+    authority_receipt_refs:
+      arrayOrNull(result.authority_receipt_refs) ?? arrayOrNull(plan.authority_receipt_refs) ?? [],
+    evidence_refs: arrayOrNull(result.evidence_refs) ?? arrayOrNull(plan.evidence_refs),
+    workflow_hash: result.workflow_hash ?? plan.workflow_hash ?? null,
+    authority_hash: result.authority_hash ?? plan.authority_hash ?? null,
+  };
+  const missing = [];
+  for (const field of ["record_dir", "record_id", "record", "operation_kind", "workflow_hash", "authority_hash"]) {
+    if (!normalized[field]) missing.push(field);
+  }
+  if (normalized.rust_core_boundary !== "model_mount.mcp_workflow") {
+    missing.push("rust_core_boundary");
+  }
+  if (
+    !Array.isArray(normalized.evidence_refs) ||
+    !normalized.evidence_refs.includes("rust_daemon_core_model_mount_mcp_workflow")
+  ) {
+    missing.push("evidence_refs.rust_daemon_core_model_mount_mcp_workflow");
+  }
+  if (
+    !Array.isArray(normalized.evidence_refs) ||
+    !normalized.evidence_refs.includes("agentgres_mcp_workflow_truth_required")
+  ) {
+    missing.push("evidence_refs.agentgres_mcp_workflow_truth_required");
+  }
+  if (record?.id !== normalized.record_id) {
+    missing.push("record.id");
+  }
+  if (missing.length > 0) {
+    const error = new Error("Rust model_mount MCP workflow plan is incomplete.");
+    error.status = 502;
+    error.code = "model_mount_mcp_workflow_plan_invalid";
     error.details = {
       missing,
       source: normalized.source,

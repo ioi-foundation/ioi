@@ -2267,16 +2267,23 @@ longer calls that JS registry read while creating the artifact/endpoint records.
 The records remain deterministic migration fixtures only; backend inventory,
 process state, and lifecycle projection must come from direct Rust daemon-core
 model_mount projection over Agentgres-admitted truth.
-Slice 945 retired model-mounting MCP server JS projection readback. Public
-`ModelMountingState.listMcpServers()` now fails closed at
-`model_mount.mcp_server.list` with
-`model_mount_mcp_projection_rust_core_required`, `publicMcpServer()` was deleted
-as an orphaned JS readback shaper, and the runtime MCP catalog no longer merges
-`store.modelMounting.listMcpServers()` into workspace/agent MCP catalog
-projection. Runtime MCP catalog status/list/search may still project
-workspace/agent MCP records through Rust planner commands; model-mounting MCP
-server projection remains pending until Rust daemon-core projection and
-Agentgres-backed MCP registry truth own that surface directly.
+Model-mounting MCP workflow import, ephemeral registration, tool invocation,
+workflow-node execution, and server list readback now use Rust daemon-core
+positive APIs. `plan_model_mount_mcp_workflow` authors the `mcp-servers` or
+`mcp-workflow-controls` records, evidence refs, receipt refs, workflow hashes,
+authority hashes, custody facts, and no-JS-execution flags before JS can commit
+record-state truth through Rust Agentgres admission. Public
+`ModelMountingState.listMcpServers()` now calls Rust read-projection kind
+`mcp_servers` with runtime `state_dir`; Rust replays persisted
+`mcp-servers/*.json`, filters to Rust-authored MCP workflow records, and returns
+redacted server projections. `publicMcpServer()`, direct JS MCP receipt
+synthesis, JS MCP server map mutation/readback, JS route tests, JS
+receipt-gate dispatch, JS model invocation, and the old projection-required
+refusal shim stay retired. Runtime MCP catalog status/list/search may still
+project workspace/agent MCP records through Rust planner commands; actual
+model-mounting MCP transport execution remains pending until Rust daemon-core
+transport custody, wallet/containment authority, content receipts, and stable
+protocol APIs exist.
 Slice 946's public capability-token projection retirement is now advanced by the
 positive Rust capability-token control path. Public `ModelMountingState`
 create/list/authorize/revoke calls Rust daemon-core
@@ -8466,6 +8473,14 @@ workflow ids, or `mcp_serve_request`, and the path fails closed instead of
 preserving a JS envelope facade. Actual MCP transport execution, wallet
 authority for external exits, transport containment, content receipts,
 replay/projection storage, and stable protocol APIs remain non-terminal.
+Model-mount MCP workflow control has a matching Rust positive boundary:
+`plan_model_mount_mcp_workflow` now owns import, ephemeral registration, MCP
+tool invocation, and workflow-node execution record planning, while Rust
+`mcp_servers` read projection replays admitted `mcp-servers` records for public
+server list readback. The JS surface remains only a canonical request client and
+record-state commit adapter; JS MCP receipt synthesis, server-map projection,
+route tests, receipt-gate dispatch, and model invocation stay retired for this
+family until Rust MCP transport execution replaces the temporary edge.
 Workflow-edit proposal/apply controls have also moved to Rust-owned event
 planning plus Rust runtime-event admission; the remaining workflow-edit blockers
 are wallet approval authority, workflow mutation custody, durable

@@ -121,13 +121,14 @@ use marketplace::{
 use model_mount::{
     ModelMountCore, ModelMountError, ModelMountInstanceLifecycleRequest,
     ModelMountInstanceLifecycleResult, ModelMountInvocationAdmissionRecord,
-    ModelMountInvocationAdmissionRequest, ModelMountProviderExecutionRecord,
-    ModelMountProviderExecutionRequest, ModelMountProviderInventoryRequest,
-    ModelMountProviderInventoryResult, ModelMountProviderInvocationRequest,
-    ModelMountProviderInvocationResult, ModelMountProviderLifecycleRequest,
-    ModelMountProviderLifecycleResult, ModelMountProviderResultAdmissionRecord,
-    ModelMountProviderResultAdmissionRequest, ModelMountProviderStreamInvocationResult,
-    ModelMountRouteDecisionRecord, ModelMountRouteDecisionRequest,
+    ModelMountInvocationAdmissionRequest, ModelMountMcpWorkflowPlan, ModelMountMcpWorkflowRequest,
+    ModelMountProviderExecutionRecord, ModelMountProviderExecutionRequest,
+    ModelMountProviderInventoryRequest, ModelMountProviderInventoryResult,
+    ModelMountProviderInvocationRequest, ModelMountProviderInvocationResult,
+    ModelMountProviderLifecycleRequest, ModelMountProviderLifecycleResult,
+    ModelMountProviderResultAdmissionRecord, ModelMountProviderResultAdmissionRequest,
+    ModelMountProviderStreamInvocationResult, ModelMountRouteDecisionRecord,
+    ModelMountRouteDecisionRequest,
 };
 use plan::{validate_plan, ExecutablePlan, PlanValidationError};
 use policy::{
@@ -803,6 +804,13 @@ impl RuntimeKernelService {
         request: &ModelMountProviderResultAdmissionRequest,
     ) -> Result<ModelMountProviderResultAdmissionRecord, ModelMountError> {
         ModelMountCore.admit_provider_result(request)
+    }
+
+    pub fn plan_model_mount_mcp_workflow(
+        &self,
+        request: &ModelMountMcpWorkflowRequest,
+    ) -> Result<ModelMountMcpWorkflowPlan, ModelMountError> {
+        ModelMountCore.plan_mcp_workflow(request)
     }
 
     pub fn validate_tool_invocation(

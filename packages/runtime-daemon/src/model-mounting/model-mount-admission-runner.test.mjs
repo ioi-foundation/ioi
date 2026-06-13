@@ -9,6 +9,7 @@ import {
   RUST_MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_BACKEND,
   RUST_MODEL_MOUNT_CATALOG_PROVIDER_CONTROL_BACKEND,
   RUST_MODEL_MOUNT_CONVERSATION_STATE_BACKEND,
+  RUST_MODEL_MOUNT_MCP_WORKFLOW_BACKEND,
   RUST_MODEL_MOUNT_RECEIPT_GATE_BACKEND,
   RUST_MODEL_MOUNT_ROUTE_CONTROL_BACKEND,
   RUST_MODEL_MOUNT_ROUTE_CONTROL_REQUIRED_BACKEND,
@@ -1921,6 +1922,99 @@ test("Rust model_mount admission runner sends positive storage-control request",
   assert.equal(result.authority_hash, "sha256:storage-authority");
   assert.equal(result.rust_core_boundary, "model_mount.storage_control");
   assert.equal(result.evidence_refs.includes("agentgres_model_storage_truth_required"), true);
+});
+
+test("Rust model_mount admission runner sends positive MCP workflow request", () => {
+  const calls = [];
+  const runner = new RustModelMountAdmissionRunner({
+    daemonCoreInvoker(request) {
+      calls.push({ request });
+      const record = {
+        id: "mcp_import.alpha",
+        object: "ioi.model_mount_mcp_workflow",
+        status: "committed",
+        operation_kind: request.request.operation_kind,
+        rust_core_boundary: "model_mount.mcp_workflow",
+        details: {
+          server_ids: ["mcp.docs"],
+          js_registry_mutation: false,
+        },
+        receipt_refs: ["receipt://mcp-import"],
+        evidence_refs: [
+          "rust_daemon_core_model_mount_mcp_workflow",
+          "agentgres_mcp_workflow_truth_required",
+        ],
+        workflow_hash: "sha256:mcp-workflow",
+        authority_hash: "sha256:mcp-authority",
+      };
+      return {
+        ok: true,
+        result: {
+          source: "rust_model_mount_mcp_workflow_command",
+          backend: request.backend,
+          plan: {
+            status: "committed",
+            rust_core_boundary: "model_mount.mcp_workflow",
+            operation_kind: request.request.operation_kind,
+            record_dir: "mcp-servers",
+            record_id: record.id,
+            record,
+            public_response: {
+              status: "committed",
+              operation_kind: request.request.operation_kind,
+              server_ids: ["mcp.docs"],
+            },
+            receipt_refs: ["receipt://mcp-import"],
+            authority_grant_refs: [],
+            authority_receipt_refs: [],
+            evidence_refs: record.evidence_refs,
+            workflow_hash: record.workflow_hash,
+            authority_hash: record.authority_hash,
+          },
+          record_dir: "mcp-servers",
+          record_id: record.id,
+          record,
+          public_response: {
+            status: "committed",
+            operation_kind: request.request.operation_kind,
+            server_ids: ["mcp.docs"],
+          },
+          receipt_refs: ["receipt://mcp-import"],
+          authority_grant_refs: [],
+          authority_receipt_refs: [],
+          evidence_refs: record.evidence_refs,
+          operation_kind: request.request.operation_kind,
+          rust_core_boundary: "model_mount.mcp_workflow",
+          workflow_hash: record.workflow_hash,
+          authority_hash: record.authority_hash,
+        },
+      };
+    },
+  });
+
+  const result = runner.planMcpWorkflow({
+    schema_version: "ioi.model_mount.mcp_workflow.v1",
+    operation_kind: "model_mount.mcp_server.import",
+    body: {
+      mcp_servers: {
+        Docs: { url: "https://example.test/mcp", allowed_tools: ["search"] },
+      },
+    },
+    required_scope: "model.mcp.import",
+  });
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.operation, "plan_model_mount_mcp_workflow");
+  assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_MCP_WORKFLOW_BACKEND);
+  assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.mcp_workflow.v1");
+  assert.equal(calls[0].request.request.operation_kind, "model_mount.mcp_server.import");
+  assert.equal(calls[0].request.request.body.mcp_servers.Docs.url, "https://example.test/mcp");
+  assert.equal(result.record_dir, "mcp-servers");
+  assert.equal(result.record_id, "mcp_import.alpha");
+  assert.equal(result.rust_core_boundary, "model_mount.mcp_workflow");
+  assert.equal(result.workflow_hash, "sha256:mcp-workflow");
+  assert.equal(result.evidence_refs.includes("agentgres_mcp_workflow_truth_required"), true);
 });
 
 test("Rust model_mount admission runner sends positive catalog-provider-control request", () => {

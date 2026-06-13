@@ -7,7 +7,9 @@ function fakeState() {
   return {
     authorizations: [],
     mcpServers: new Map(),
+    mcpWorkflowRequests: [],
     modelInvocations: [],
+    readProjectionRequests: [],
     recordStateCommits: [],
     receipts: [],
     routeTests: [],
@@ -46,6 +48,16 @@ function fakeState() {
       this.receipts.push(receipt);
       return receipt;
     },
+    planModelMountMcpWorkflow(request) {
+      this.mcpWorkflowRequests.push(JSON.parse(JSON.stringify(request)));
+      return mcpWorkflowPlan(request);
+    },
+    readProjectionFacade: {
+      mcpServers(state) {
+        state.readProjectionRequests.push({ projection_kind: "mcp_servers" });
+        return [{ id: "mcp.Projected", label: "Projected", status: "registered" }];
+      },
+    },
     testRoute(routeId, body) {
       this.routeTests.push([routeId, body]);
       return { routeId, selectedModel: body.model ?? null };
@@ -71,6 +83,87 @@ function fakeState() {
         },
       };
     },
+  };
+}
+
+function mcpWorkflowPlan(request) {
+  const operationKind = request.operation_kind;
+  const recordDir = operationKind === "model_mount.mcp_server.import" ||
+    operationKind === "model_mount.mcp_server.ephemeral_register"
+    ? "mcp-servers"
+    : "mcp-workflow-controls";
+  const recordId = `${operationKind.replace(/[^a-z0-9]+/gi, "_")}.alpha`;
+  const serverIds = operationKind === "model_mount.mcp_server.import"
+    ? Object.keys(request.body.mcp_servers ?? request.body.servers ?? {}).map((label) => `mcp.${label.toLowerCase()}`)
+    : operationKind === "model_mount.mcp_server.ephemeral_register"
+      ? ["mcp.search"]
+      : [];
+  const publicResponse = {
+    status: operationKind.includes("mcp_server") ? "committed" : "planned",
+    operation_kind: operationKind,
+    server_ids: serverIds,
+    tool_receipt_ids: [],
+    transport_execution_status: operationKind === "model_mount.mcp_tool.invoke" ? "rust_required" : undefined,
+    execution_status: operationKind === "model_mount.workflow_node.execute" ? "rust_required" : undefined,
+    server_id: request.body.server_id ?? null,
+    tool: request.body.tool ?? null,
+    workflow_node_id: request.body.workflow_node_id ?? null,
+  };
+  const record = {
+    id: recordId,
+    object: "ioi.model_mount_mcp_workflow",
+    operation_kind: operationKind,
+    rust_core_boundary: "model_mount.mcp_workflow",
+    details: {
+      server_ids: serverIds,
+      servers: serverIds.map((id) => ({ id, label: id, status: "registered" })),
+      js_registry_mutation: false,
+      js_transport_invocation: false,
+      js_route_test: false,
+      js_mcp_tool_invocation: false,
+      js_receipt_gate_dispatch: false,
+      js_model_invocation: false,
+    },
+    receipt_id: `receipt.${recordId}`,
+    receipt_refs: [`receipt.${recordId}`],
+    workflow_hash: `sha256:workflow:${recordId}`,
+    authority_hash: `sha256:authority:${recordId}`,
+    evidence_refs: [
+      "rust_daemon_core_model_mount_mcp_workflow",
+      "agentgres_mcp_workflow_truth_required",
+      "model_mount_mcp_workflow_js_facade_retired",
+    ],
+  };
+  return {
+    source: "rust_model_mount_mcp_workflow_command",
+    backend: "rust_model_mount_mcp_workflow",
+    plan: {
+      status: publicResponse.status,
+      rust_core_boundary: "model_mount.mcp_workflow",
+      operation_kind: operationKind,
+      record_dir: recordDir,
+      record_id: recordId,
+      record,
+      public_response: publicResponse,
+      receipt_refs: record.receipt_refs,
+      authority_grant_refs: [],
+      authority_receipt_refs: [],
+      evidence_refs: record.evidence_refs,
+      workflow_hash: record.workflow_hash,
+      authority_hash: record.authority_hash,
+    },
+    record_dir: recordDir,
+    record_id: recordId,
+    record,
+    public_response: publicResponse,
+    operation_kind: operationKind,
+    rust_core_boundary: "model_mount.mcp_workflow",
+    receipt_refs: record.receipt_refs,
+    authority_grant_refs: [],
+    authority_receipt_refs: [],
+    evidence_refs: record.evidence_refs,
+    workflow_hash: record.workflow_hash,
+    authority_hash: record.authority_hash,
   };
 }
 
@@ -191,7 +284,9 @@ test("normalizeMcpServer rejects retired config aliases before vault resolution"
 function assertNoMcpWorkflowMutation(state) {
   assert.equal(state.mcpServers.size, 0);
   assert.deepEqual(state.authorizations, []);
+  assert.deepEqual(state.mcpWorkflowRequests, []);
   assert.deepEqual(state.modelInvocations, []);
+  assert.deepEqual(state.readProjectionRequests, []);
   assert.deepEqual(state.recordStateCommits, []);
   assert.deepEqual(state.receipts, []);
   assert.deepEqual(state.routeTests, []);
@@ -207,6 +302,8 @@ function assertMcpWorkflowRustCoreRequired(error, operationKind, details = {}) {
     assert.deepEqual(error.details[key], value);
   }
   assert.deepEqual(error.details.evidence_refs, [
+    "rust_daemon_core_model_mount_mcp_workflow",
+    "agentgres_mcp_workflow_truth_required",
     "model_mount_mcp_workflow_js_facade_retired",
     "model_mount_mcp_import_js_facade_retired",
     "model_mount_ephemeral_mcp_registration_js_facade_retired",
@@ -214,49 +311,40 @@ function assertMcpWorkflowRustCoreRequired(error, operationKind, details = {}) {
     "model_mount_workflow_node_execution_js_facade_retired",
     "model_mount_mcp_workflow_receipt_synthesis_js_retired",
     "model_mount_mcp_workflow_record_state_js_retired",
-    "rust_daemon_core_model_mount_mcp_workflow_required",
-    "agentgres_mcp_workflow_truth_required",
   ]);
   assert.equal(Object.hasOwn(error.details, "rustCoreBoundary"), false);
   assert.equal(Object.hasOwn(error.details, "operationKind"), false);
   return true;
 }
 
-test("importMcpJson facade fails closed before JS receipts, record-state commits, or projections", () => {
+test("importMcpJson uses Rust MCP workflow planning, record-state commit, and Rust projection", () => {
   const state = fakeState();
 
-  assert.throws(
-    () =>
-      importMcpJson(state, {
-        mcp_servers: {
-          Local: { command: "node", args: ["server.mjs"], allowed_tools: ["run"] },
-          Remote: { url: "https://example.test/mcp", allowed_tools: ["search"] },
-        },
-      }),
-    (error) => assertMcpWorkflowRustCoreRequired(error, "model_mount.mcp_server.import"),
-  );
-
-  assertNoMcpWorkflowMutation(state);
-  state.mcpServers.set("mcp.Projected", { id: "mcp.Projected", label: "Projected", status: "registered" });
-  assert.throws(
-    () => listMcpServers(state),
-    (error) => {
-      assert.equal(error.status, 501);
-      assert.equal(error.code, "model_mount_mcp_projection_rust_core_required");
-      assert.equal(error.details.rust_core_boundary, "model_mount.mcp_projection");
-      assert.equal(error.details.operation_kind, "model_mount.mcp_server.list");
-      assert.deepEqual(error.details.evidence_refs, [
-        "model_mount_mcp_server_js_projection_retired",
-        "model_mount_mcp_workflow_record_state_js_retired",
-        "rust_daemon_core_model_mount_mcp_projection_required",
-        "agentgres_mcp_projection_truth_required",
-      ]);
-      assert.equal(Object.hasOwn(error.details, "rustCoreBoundary"), false);
-      assert.equal(Object.hasOwn(error.details, "operationKind"), false);
-      assert.equal(Object.hasOwn(error.details, "evidenceRefs"), false);
-      return true;
+  const result = importMcpJson(state, {
+    mcp_servers: {
+      Local: { command: "node", args: ["server.mjs"], allowed_tools: ["run"] },
+      Remote: { url: "https://example.test/mcp", allowed_tools: ["search"] },
     },
-  );
+  });
+
+  assert.equal(result.operation_kind, "model_mount.mcp_server.import");
+  assert.equal(result.rust_core_boundary, "model_mount.mcp_workflow");
+  assert.deepEqual(result.server_ids, ["mcp.local", "mcp.remote"]);
+  assert.equal(state.mcpWorkflowRequests.length, 1);
+  assert.equal(state.mcpWorkflowRequests[0].schema_version, "ioi.model_mount.mcp_workflow.v1");
+  assert.equal(state.mcpWorkflowRequests[0].operation_kind, "model_mount.mcp_server.import");
+  assert.deepEqual(Object.keys(state.mcpWorkflowRequests[0].body.mcp_servers), ["Local", "Remote"]);
+  assert.equal(state.recordStateCommits.length, 1);
+  assert.equal(state.recordStateCommits[0].record_dir, "mcp-servers");
+  assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.mcp_server.import");
+  assert.deepEqual(state.receipts, []);
+  assert.deepEqual(state.writes, []);
+
+  state.mcpServers.set("mcp.Projected", { id: "mcp.Projected", label: "Projected", status: "registered" });
+  assert.deepEqual(listMcpServers(state), [
+    { id: "mcp.Projected", label: "Projected", status: "registered" },
+  ]);
+  assert.deepEqual(state.readProjectionRequests, [{ projection_kind: "mcp_servers" }]);
 });
 
 test("importMcpJson rejects retired request aliases before state mutation", () => {
@@ -306,7 +394,7 @@ test("importMcpJson rejects retired request aliases before state mutation", () =
   assert.deepEqual(state.writes, []);
 });
 
-test("invokeMcpTool facade fails closed before authorization, fixture execution, or receipt synthesis", () => {
+test("invokeMcpTool uses Rust MCP workflow planning and record-state commit before transport execution", () => {
   const state = fakeState();
   state.mcpServers.set("mcp.Local", {
     id: "mcp.Local",
@@ -314,22 +402,21 @@ test("invokeMcpTool facade fails closed before authorization, fixture execution,
     allowedTools: ["run"],
   });
 
-  assert.throws(
-    () =>
-      invokeMcpTool(
-        state,
-        { authorization: "auth", body: { server_id: "mcp.Local", tool: "run", input: { prompt: "hello" } } },
-      ),
-    (error) =>
-      assertMcpWorkflowRustCoreRequired(error, "model_mount.mcp_tool.invoke", {
-        server_id: "mcp.Local",
-        tool: "run",
-      }),
+  const result = invokeMcpTool(
+    state,
+    { authorization: "auth", body: { server_id: "mcp.Local", tool: "run", input: { prompt: "hello" } } },
   );
 
+  assert.equal(result.operation_kind, "model_mount.mcp_tool.invoke");
+  assert.equal(result.transport_execution_status, "rust_required");
+  assert.equal(state.mcpWorkflowRequests.length, 1);
+  assert.equal(state.mcpWorkflowRequests[0].body.server_id, "mcp.Local");
+  assert.equal(state.mcpWorkflowRequests[0].body.tool, "run");
+  assert.equal(state.recordStateCommits.length, 1);
+  assert.equal(state.recordStateCommits[0].record_dir, "mcp-workflow-controls");
+  assert.equal(state.recordStateCommits[0].record.details.js_transport_invocation, false);
   assert.deepEqual(state.authorizations, []);
   assert.deepEqual(state.receipts, []);
-  assert.deepEqual(state.recordStateCommits, []);
 });
 
 test("invokeMcpTool rejects retired request aliases before authorization", () => {
@@ -384,37 +471,36 @@ test("compileEphemeralMcpIntegrations returns empty projection for no ephemeral 
   assertNoMcpWorkflowMutation(state);
 });
 
-test("compileEphemeralMcpIntegrations facade fails closed before registration, tool invocation, or receipts", () => {
+test("compileEphemeralMcpIntegrations uses Rust MCP workflow planning and record-state commit", () => {
   const state = fakeState();
 
-  assert.throws(
-    () =>
-      compileEphemeralMcpIntegrations(
-        state,
-        {
-          authorization: "auth",
-          input: "question",
-          body: {
-            integrations: [
-              {
-                type: "ephemeral_mcp",
-                server_label: "Search",
-                server_url: "https://example.test/mcp",
-                allowed_tools: ["search"],
-              },
-            ],
+  const result = compileEphemeralMcpIntegrations(
+    state,
+    {
+      authorization: "auth",
+      input: "question",
+      body: {
+        integrations: [
+          {
+            type: "ephemeral_mcp",
+            server_label: "Search",
+            server_url: "https://example.test/mcp",
+            allowed_tools: ["search"],
           },
-        },
-      ),
-    (error) => {
-      assertMcpWorkflowRustCoreRequired(error, "model_mount.mcp_server.ephemeral_register", {
-        integration_count: 1,
-      });
-      return true;
+        ],
+      },
     },
   );
 
-  assertNoMcpWorkflowMutation(state);
+  assert.deepEqual(result.serverIds, ["mcp.search"]);
+  assert.deepEqual(result.toolReceiptIds, []);
+  assert.equal(state.mcpWorkflowRequests.length, 1);
+  assert.equal(state.mcpWorkflowRequests[0].operation_kind, "model_mount.mcp_server.ephemeral_register");
+  assert.equal(state.mcpWorkflowRequests[0].body.integrations[0].server_label, "Search");
+  assert.equal(state.recordStateCommits.length, 1);
+  assert.equal(state.recordStateCommits[0].record_dir, "mcp-servers");
+  assert.deepEqual(state.authorizations, []);
+  assert.deepEqual(state.receipts, []);
 });
 
 test("compileEphemeralMcpIntegrations rejects retired integration aliases before mutation", () => {
@@ -453,7 +539,7 @@ test("compileEphemeralMcpIntegrations rejects retired integration aliases before
   assert.deepEqual(state.authorizations, []);
 });
 
-test("executeWorkflowNode facade fails closed before route, MCP, receipt-gate, or model dispatch", async () => {
+test("executeWorkflowNode uses Rust MCP workflow planning and record-state commit before dispatch", async () => {
   const state = fakeState();
   state.mcpServers.set("mcp.Local", {
     id: "mcp.Local",
@@ -461,31 +547,41 @@ test("executeWorkflowNode facade fails closed before route, MCP, receipt-gate, o
     allowedTools: ["run"],
   });
 
-  await assert.rejects(
-    () =>
-      executeWorkflowNode(
-        state,
-        {
-          authorization: "auth",
-          body: {
-            node: "Embed",
-            model_id: "embedding.local",
-            route_id: "route.local-first",
-            input: "hello",
-            max_tokens: 32,
-            workflow_graph_id: "graph.workflow",
-            workflow_node_id: "node.embed",
-            workflow_node_type: "Embedding",
-          },
-        },
-      ),
-    (error) =>
-      assertMcpWorkflowRustCoreRequired(error, "model_mount.workflow_node.execute", {
+  const result = await executeWorkflowNode(
+    state,
+    {
+      authorization: "auth",
+      body: {
         node: "Embed",
+        model_id: "embedding.local",
+        route_id: "route.local-first",
+        input: "hello",
+        max_tokens: 32,
         workflow_graph_id: "graph.workflow",
         workflow_node_id: "node.embed",
-      }),
+        workflow_node_type: "Embedding",
+      },
+    },
   );
+
+  assert.equal(result.operation_kind, "model_mount.workflow_node.execute");
+  assert.equal(result.execution_status, "rust_required");
+  assert.equal(state.mcpWorkflowRequests.length, 1);
+  assert.deepEqual(
+    {
+      node: state.mcpWorkflowRequests[0].body.node,
+      workflow_graph_id: state.mcpWorkflowRequests[0].body.workflow_graph_id,
+      workflow_node_id: state.mcpWorkflowRequests[0].body.workflow_node_id,
+    },
+    {
+      node: "Embed",
+      workflow_graph_id: "graph.workflow",
+      workflow_node_id: "node.embed",
+    },
+  );
+  assert.equal(state.recordStateCommits.length, 1);
+  assert.equal(state.recordStateCommits[0].record_dir, "mcp-workflow-controls");
+  assert.equal(state.recordStateCommits[0].record.details.js_model_invocation, false);
   assert.equal(state.mcpServers.size, 1);
   assert.deepEqual(state.authorizations, []);
   assert.deepEqual(state.routeTests, []);

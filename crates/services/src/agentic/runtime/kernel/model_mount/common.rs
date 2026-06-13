@@ -77,6 +77,9 @@ pub const MODEL_MOUNT_ARTIFACT_ENDPOINT_PLAN_SCHEMA_VERSION: &str =
 pub const MODEL_MOUNT_STORAGE_CONTROL_SCHEMA_VERSION: &str = "ioi.model_mount.storage_control.v1";
 pub const MODEL_MOUNT_STORAGE_CONTROL_PLAN_SCHEMA_VERSION: &str =
     "ioi.model_mount.storage_control_plan.v1";
+pub const MODEL_MOUNT_MCP_WORKFLOW_SCHEMA_VERSION: &str = "ioi.model_mount.mcp_workflow.v1";
+pub const MODEL_MOUNT_MCP_WORKFLOW_PLAN_SCHEMA_VERSION: &str =
+    "ioi.model_mount.mcp_workflow_plan.v1";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ModelMountError {
@@ -114,6 +117,7 @@ pub enum ModelMountError {
     UnsupportedReceiptGateOperation,
     UnsupportedArtifactEndpointOperation,
     UnsupportedStorageControlOperation,
+    UnsupportedMcpWorkflowOperation,
     CatalogProviderNotConfigurable,
     CapabilityTokenNotFound,
     CapabilityTokenUnauthorized,

@@ -31,6 +31,11 @@ pub use storage_control::{
     plan_model_mount_storage_control_response, ModelMountStorageControlBridgeRequest,
     ModelMountStorageControlPlan, ModelMountStorageControlRequest,
 };
+mod mcp_workflow;
+pub use mcp_workflow::{
+    plan_model_mount_mcp_workflow_response, ModelMountMcpWorkflowBridgeRequest,
+    ModelMountMcpWorkflowPlan, ModelMountMcpWorkflowRequest,
+};
 mod common;
 pub(super) use common::{
     non_empty_string, option_trimmed, push_unique_ref, require_non_empty, sha256_hex,
@@ -49,7 +54,8 @@ pub use common::{
     MODEL_MOUNT_CATALOG_PROVIDER_CONTROL_SCHEMA_VERSION,
     MODEL_MOUNT_CONVERSATION_STATE_PLAN_SCHEMA_VERSION,
     MODEL_MOUNT_CONVERSATION_STATE_SCHEMA_VERSION, MODEL_MOUNT_INSTANCE_LIFECYCLE_SCHEMA_VERSION,
-    MODEL_MOUNT_INVOCATION_ADMISSION_SCHEMA_VERSION, MODEL_MOUNT_PROVIDER_EXECUTION_SCHEMA_VERSION,
+    MODEL_MOUNT_INVOCATION_ADMISSION_SCHEMA_VERSION, MODEL_MOUNT_MCP_WORKFLOW_PLAN_SCHEMA_VERSION,
+    MODEL_MOUNT_MCP_WORKFLOW_SCHEMA_VERSION, MODEL_MOUNT_PROVIDER_EXECUTION_SCHEMA_VERSION,
     MODEL_MOUNT_PROVIDER_INVENTORY_SCHEMA_VERSION, MODEL_MOUNT_PROVIDER_INVOCATION_SCHEMA_VERSION,
     MODEL_MOUNT_PROVIDER_LIFECYCLE_PLAN_SCHEMA_VERSION,
     MODEL_MOUNT_PROVIDER_LIFECYCLE_SCHEMA_VERSION, MODEL_MOUNT_PROVIDER_RESULT_SCHEMA_VERSION,
@@ -254,6 +260,13 @@ impl ModelMountCore {
         request: &ModelMountStorageControlRequest,
     ) -> Result<ModelMountStorageControlPlan, ModelMountError> {
         storage_control::plan_storage_control(request)
+    }
+
+    pub fn plan_mcp_workflow(
+        &self,
+        request: &ModelMountMcpWorkflowRequest,
+    ) -> Result<ModelMountMcpWorkflowPlan, ModelMountError> {
+        mcp_workflow::plan_mcp_workflow(request)
     }
 
     pub fn plan_tokenizer_required(

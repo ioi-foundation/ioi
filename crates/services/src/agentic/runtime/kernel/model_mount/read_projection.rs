@@ -7,6 +7,7 @@ mod authority;
 mod common;
 mod conversation;
 mod health;
+mod mcp;
 mod oauth;
 mod receipt;
 mod route_decision;
@@ -67,6 +68,7 @@ pub(super) const MODEL_MOUNT_DOWNLOAD_STATUS_PROJECTION_KIND: &str = "download_s
 pub(super) const MODEL_MOUNT_STORAGE_SUMMARY_PROJECTION_KIND: &str = "storage_summary";
 pub(super) const MODEL_MOUNT_BACKENDS_PROJECTION_KIND: &str = "backends";
 pub(super) const MODEL_MOUNT_SERVER_STATUS_PROJECTION_KIND: &str = "server_status";
+pub(super) const MODEL_MOUNT_MCP_SERVERS_PROJECTION_KIND: &str = "mcp_servers";
 pub(super) const MODEL_MOUNT_RUNTIME_ENGINE_PROJECTION_KINDS: [&str; 6] = [
     "runtime_engines",
     "runtime_engine_profiles",
@@ -234,6 +236,13 @@ pub(super) fn plan_read_projection(
             "model_mount_server_status_js_projection_retired".to_string(),
         ]);
     }
+    if request.projection_kind == MODEL_MOUNT_MCP_SERVERS_PROJECTION_KIND {
+        evidence_refs.extend([
+            "rust_daemon_core_model_mount_mcp_projection".to_string(),
+            "agentgres_mcp_projection_truth_required".to_string(),
+            "model_mount_mcp_server_js_projection_retired".to_string(),
+        ]);
+    }
     Ok(ModelMountReadProjectionPlan {
         projection_kind: request.projection_kind.clone(),
         projection,
@@ -272,6 +281,7 @@ pub(super) fn model_mount_read_projection(
         MODEL_MOUNT_DOWNLOAD_STATUS_PROJECTION_KIND => topology::download_status(request),
         MODEL_MOUNT_STORAGE_SUMMARY_PROJECTION_KIND => topology::storage_summary(request),
         MODEL_MOUNT_BACKENDS_PROJECTION_KIND => topology::backends(request),
+        MODEL_MOUNT_MCP_SERVERS_PROJECTION_KIND => mcp::mcp_servers(request),
         "oauth_sessions" => oauth::sessions(),
         "oauth_states" => oauth::states(),
         "provider_health" => Ok(topology::provider_health()),

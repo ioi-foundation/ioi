@@ -195,6 +195,10 @@ export function createModelMountingReadProjectionFacade({
     return rustReadProjection(state, "workflow_bindings");
   }
 
+  function mcpServers(state) {
+    return rustReadProjection(state, "mcp_servers");
+  }
+
   function rustReadProjection(
     state,
     projectionKind,
@@ -404,6 +408,7 @@ export function createModelMountingReadProjectionFacade({
       projectionKind === "download_status" ||
       projectionKind === "storage_summary" ||
       projectionKind === "backends" ||
+      projectionKind === "mcp_servers" ||
       projectionKind === "product_artifacts" ||
       projectionKind === "runtime_model_catalog" ||
       projectionKind === "open_ai_model_list"
@@ -446,6 +451,7 @@ export function createModelMountingReadProjectionFacade({
       projectionKind !== "storage_summary" &&
       projectionKind !== "server_status" &&
       projectionKind !== "backends" &&
+      projectionKind !== "mcp_servers" &&
       projectionKind !== "runtime_engines" &&
       projectionKind !== "runtime_engine_profiles" &&
       projectionKind !== "runtime_preference" &&
@@ -501,6 +507,7 @@ export function createModelMountingReadProjectionFacade({
     modelRouteDecisions,
     modelRouteEndpointResolutions,
     modelTokenizerRecords,
+    mcpServers,
     openAiModelList,
     providerInventoryRecords,
     projection,

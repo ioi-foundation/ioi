@@ -20,6 +20,7 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "plan_model_mount_backend_lifecycle",
     "plan_model_mount_artifact_endpoint",
     "plan_model_mount_storage_control",
+    "plan_model_mount_mcp_workflow",
     "plan_model_mount_server_control",
     "plan_model_mount_runtime_engine",
     "plan_model_mount_tokenizer_required",
@@ -157,6 +158,7 @@ pub enum CommandOperation {
     PlanModelMountBackendLifecycle,
     PlanModelMountArtifactEndpoint,
     PlanModelMountStorageControl,
+    PlanModelMountMcpWorkflow,
     PlanModelMountServerControl,
     PlanModelMountRuntimeEngine,
     PlanModelMountTokenizerRequired,
@@ -297,6 +299,7 @@ impl CommandOperation {
             Self::PlanModelMountBackendLifecycle => "plan_model_mount_backend_lifecycle",
             Self::PlanModelMountArtifactEndpoint => "plan_model_mount_artifact_endpoint",
             Self::PlanModelMountStorageControl => "plan_model_mount_storage_control",
+            Self::PlanModelMountMcpWorkflow => "plan_model_mount_mcp_workflow",
             Self::PlanModelMountServerControl => "plan_model_mount_server_control",
             Self::PlanModelMountRuntimeEngine => "plan_model_mount_runtime_engine",
             Self::PlanModelMountTokenizerRequired => "plan_model_mount_tokenizer_required",
@@ -558,6 +561,7 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
             Some(CommandOperation::PlanModelMountArtifactEndpoint)
         }
         "plan_model_mount_storage_control" => Some(CommandOperation::PlanModelMountStorageControl),
+        "plan_model_mount_mcp_workflow" => Some(CommandOperation::PlanModelMountMcpWorkflow),
         "plan_model_mount_server_control" => Some(CommandOperation::PlanModelMountServerControl),
         "plan_model_mount_runtime_engine" => Some(CommandOperation::PlanModelMountRuntimeEngine),
         "plan_model_mount_tokenizer_required" => {
@@ -922,6 +926,7 @@ mod tests {
             "plan_model_mount_server_control",
             "plan_model_mount_artifact_endpoint",
             "plan_model_mount_storage_control",
+            "plan_model_mount_mcp_workflow",
             "plan_model_mount_catalog_provider_control",
             "plan_model_mount_capability_token_control",
             "plan_model_mount_vault_control",

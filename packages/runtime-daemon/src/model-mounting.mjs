@@ -162,6 +162,7 @@ const MODEL_MOUNT_PROVIDER_INVENTORY_SCHEMA_VERSION = "ioi.model_mount.provider_
 const MODEL_MOUNT_INSTANCE_LIFECYCLE_SCHEMA_VERSION = "ioi.model_mount.instance_lifecycle.v1";
 const MODEL_MOUNT_ARTIFACT_ENDPOINT_SCHEMA_VERSION = "ioi.model_mount.artifact_endpoint.v1";
 const MODEL_MOUNT_STORAGE_CONTROL_SCHEMA_VERSION = "ioi.model_mount.storage_control.v1";
+const MODEL_MOUNT_MCP_WORKFLOW_SCHEMA_VERSION = "ioi.model_mount.mcp_workflow.v1";
 const MODEL_MOUNT_CONVERSATION_STATE_SCHEMA_VERSION = "ioi.model_mount.conversation_state.v1";
 const MODEL_MOUNT_STREAM_COMPLETION_SCHEMA_VERSION = "ioi.model_mount.stream_completion.v1";
 const SERVER_CONTROL_RECORD_ID = "server-control.default";
@@ -171,6 +172,8 @@ const MODEL_LIFECYCLE_RECEIPT_RUST_CORE_REQUIRED_EVIDENCE_REFS = [
   "agentgres_model_lifecycle_receipt_truth_required",
 ];
 const MCP_WORKFLOW_RUST_CORE_EVIDENCE_REFS = [
+  "rust_daemon_core_model_mount_mcp_workflow",
+  "agentgres_mcp_workflow_truth_required",
   "model_mount_mcp_workflow_js_facade_retired",
   "model_mount_mcp_import_js_facade_retired",
   "model_mount_ephemeral_mcp_registration_js_facade_retired",
@@ -178,14 +181,6 @@ const MCP_WORKFLOW_RUST_CORE_EVIDENCE_REFS = [
   "model_mount_workflow_node_execution_js_facade_retired",
   "model_mount_mcp_workflow_receipt_synthesis_js_retired",
   "model_mount_mcp_workflow_record_state_js_retired",
-  "rust_daemon_core_model_mount_mcp_workflow_required",
-  "agentgres_mcp_workflow_truth_required",
-];
-const MCP_PROJECTION_RUST_CORE_EVIDENCE_REFS = [
-  "model_mount_mcp_server_js_projection_retired",
-  "model_mount_mcp_workflow_record_state_js_retired",
-  "rust_daemon_core_model_mount_mcp_projection_required",
-  "agentgres_mcp_projection_truth_required",
 ];
 const RETIRED_WORKFLOW_NODE_EXECUTION_REQUEST_ALIASES = [
   "nodeType",
@@ -1304,6 +1299,15 @@ export class ModelMountingState {
     return this.modelMountAdmissionRunner.planStorageControl(request);
   }
 
+  planModelMountMcpWorkflow(request) {
+    if (typeof this.modelMountAdmissionRunner?.planMcpWorkflow !== "function") {
+      throwMcpWorkflowRustCoreRequired(request?.operation_kind ?? "model_mount.mcp_workflow", {
+        rust_core_api: "plan_model_mount_mcp_workflow",
+      });
+    }
+    return this.modelMountAdmissionRunner.planMcpWorkflow(request);
+  }
+
   planCatalogProviderControl(request) {
     return this.modelMountAdmissionRunner.planCatalogProviderControl(request);
   }
@@ -1523,23 +1527,36 @@ export class ModelMountingState {
 
   compileEphemeralMcpIntegrations({ authorization, body = {}, input }) {
     void authorization;
-    void input;
     const integrations = Array.isArray(body.integrations) ? body.integrations : [];
     const ephemeral = integrations.filter((integration) => integration?.type === "ephemeral_mcp");
     for (const integration of ephemeral) {
       assertCanonicalEphemeralMcpIntegration(integration);
     }
     if (ephemeral.length > 0) {
-      throwMcpWorkflowRustCoreRequired("model_mount.mcp_server.ephemeral_register", {
-        integration_count: ephemeral.length,
+      const result = planAndCommitMcpWorkflow(this, "model_mount.mcp_server.ephemeral_register", {
+        body: {
+          integrations: ephemeral,
+          input,
+        },
+        requiredScope: "model.mcp.ephemeral_register",
       });
+      return {
+        toolReceiptIds: Array.isArray(result.tool_receipt_ids) ? result.tool_receipt_ids : [],
+        serverIds: Array.isArray(result.server_ids) ? result.server_ids : [],
+        evidenceRefs: result.evidence_refs ?? [],
+        commit: result.commit,
+        record: result.record,
+      };
     }
     return { toolReceiptIds: [], serverIds: [], evidenceRefs: [] };
   }
 
   importMcpJson(body = {}) {
     assertCanonicalMcpImportRequestBody(body);
-    throwMcpWorkflowRustCoreRequired("model_mount.mcp_server.import");
+    return planAndCommitMcpWorkflow(this, "model_mount.mcp_server.import", {
+      body,
+      requiredScope: "model.mcp.import",
+    });
   }
 
   normalizeMcpServer(label, config = {}) {
@@ -1586,7 +1603,7 @@ export class ModelMountingState {
   }
 
   listMcpServers() {
-    throwMcpProjectionRustCoreRequired("model_mount.mcp_server.list");
+    return this.readProjectionFacade.mcpServers(this);
   }
 
   listConversations() {
@@ -1596,19 +1613,18 @@ export class ModelMountingState {
   invokeMcpTool({ authorization, body = {} }) {
     void authorization;
     assertCanonicalMcpToolInvocationRequestBody(body);
-    throwMcpWorkflowRustCoreRequired("model_mount.mcp_tool.invoke", {
-      server_id: body.server_id ?? null,
-      tool: body.tool ?? null,
+    return planAndCommitMcpWorkflow(this, "model_mount.mcp_tool.invoke", {
+      body,
+      requiredScope: `model.mcp.tool.invoke:${body.server_id ?? "unknown"}:${body.tool ?? "unknown"}`,
     });
   }
 
   async executeWorkflowNode({ authorization, body = {} }) {
     void authorization;
     assertCanonicalWorkflowNodeExecutionRequestBody(body);
-    throwMcpWorkflowRustCoreRequired("model_mount.workflow_node.execute", {
-      node: body.node ?? body.node_type ?? null,
-      workflow_graph_id: body.workflow_graph_id ?? null,
-      workflow_node_id: body.workflow_node_id ?? null,
+    return planAndCommitMcpWorkflow(this, "model_mount.workflow_node.execute", {
+      body,
+      requiredScope: `model.workflow_node.execute:${body.workflow_node_id ?? body.node ?? body.node_type ?? "unknown"}`,
     });
   }
 
@@ -2761,6 +2777,100 @@ function planAndCommitStorageControl(state, operation_kind, options = {}) {
   };
 }
 
+function planAndCommitMcpWorkflow(state, operation_kind, options = {}) {
+  if (typeof state.planModelMountMcpWorkflow !== "function") {
+    throwMcpWorkflowRustCoreRequired(operation_kind, {
+      rust_core_api: "plan_model_mount_mcp_workflow",
+    });
+  }
+  const body = mcpWorkflowBody(options.body);
+  const plan = state.planModelMountMcpWorkflow({
+    schema_version: MODEL_MOUNT_MCP_WORKFLOW_SCHEMA_VERSION,
+    operation_kind,
+    source: "runtime-daemon.model_mounting.mcp_workflow",
+    generated_at: typeof state.nowIso === "function" ? state.nowIso() : null,
+    body,
+    receipt_refs: uniqueModelMountRefs([
+      body.receipt_id,
+      ...(Array.isArray(body.receipt_refs) ? body.receipt_refs : []),
+    ]),
+    authority_grant_refs: uniqueModelMountRefs(
+      Array.isArray(body.authority_grant_refs) ? body.authority_grant_refs : [],
+    ),
+    authority_receipt_refs: uniqueModelMountRefs(
+      Array.isArray(body.authority_receipt_refs) ? body.authority_receipt_refs : [],
+    ),
+    custody_ref: optionalString(options.custodyRef) ?? optionalString(body.custody_ref),
+    required_scope: optionalString(options.requiredScope),
+  });
+  const commit = commitModelMountRecordState(state, {
+    recordDir: plan.record_dir,
+    record: plan.record,
+    operation_kind: plan.operation_kind,
+    receipt_refs: plan.receipt_refs,
+    unconfiguredCode: "model_mount_mcp_workflow_record_state_commit_unconfigured",
+    unconfiguredMessage:
+      "Model-mount MCP workflow requires Rust Agentgres record-state commit before MCP truth can return.",
+    unconfiguredDetails: {
+      rust_core_boundary: plan.rust_core_boundary ?? "model_mount.mcp_workflow",
+      operation_kind: plan.operation_kind ?? operation_kind,
+    },
+    invalidCode: "model_mount_mcp_workflow_record_state_commit_invalid",
+  });
+  const publicResponse =
+    plan.public_response && typeof plan.public_response === "object" && !Array.isArray(plan.public_response)
+      ? plan.public_response
+      : {};
+  return {
+    ...publicResponse,
+    status: publicResponse.status ?? plan.status ?? "committed",
+    operation_kind: plan.operation_kind,
+    rust_core_boundary: plan.rust_core_boundary,
+    record_dir: plan.record_dir,
+    record_id: plan.record_id,
+    record: plan.record,
+    commit,
+    receipt_refs: plan.receipt_refs,
+    authority_grant_refs: plan.authority_grant_refs,
+    authority_receipt_refs: plan.authority_receipt_refs,
+    evidence_refs: plan.evidence_refs,
+    workflow_hash: plan.workflow_hash,
+    authority_hash: plan.authority_hash,
+  };
+}
+
+function mcpWorkflowBody(value = {}) {
+  const source = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const body = {};
+  for (const field of [
+    "mcp_json",
+    "mcp_servers",
+    "servers",
+    "integrations",
+    "input",
+    "server_id",
+    "tool",
+    "node",
+    "node_type",
+    "model",
+    "model_id",
+    "route_id",
+    "model_policy",
+    "max_tokens",
+    "workflow_graph_id",
+    "workflow_node_id",
+    "workflow_node_type",
+    "receipt_id",
+    "receipt_refs",
+    "authority_grant_refs",
+    "authority_receipt_refs",
+    "custody_ref",
+  ]) {
+    if (Object.hasOwn(source, field) && source[field] !== undefined) body[field] = source[field];
+  }
+  return body;
+}
+
 function storageControlBody(value = {}) {
   const source = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   const body = {};
@@ -3343,20 +3453,6 @@ function throwMcpWorkflowRustCoreRequired(operation_kind, details = {}) {
       operation_kind,
       ...details,
       evidence_refs: MCP_WORKFLOW_RUST_CORE_EVIDENCE_REFS,
-    },
-  });
-}
-
-function throwMcpProjectionRustCoreRequired(operation_kind, details = {}) {
-  throw runtimeError({
-    status: 501,
-    code: "model_mount_mcp_projection_rust_core_required",
-    message: "Model-mount MCP projection readback requires Rust daemon-core projection ownership.",
-    details: {
-      rust_core_boundary: "model_mount.mcp_projection",
-      operation_kind,
-      ...details,
-      evidence_refs: MCP_PROJECTION_RUST_CORE_EVIDENCE_REFS,
     },
   });
 }
