@@ -11,6 +11,7 @@ import {
   CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   CODING_TOOL_RESULT_ENVELOPE_PLAN_REQUEST_SCHEMA_VERSION,
   RUNTIME_CODING_TOOL_ARTIFACT_DRAFT_PLAN_REQUEST_SCHEMA_VERSION,
+  RUNTIME_CODING_TOOL_ARTIFACT_READ_PROJECTION_REQUEST_SCHEMA_VERSION,
   COMPACTION_POLICY_REQUEST_SCHEMA_VERSION,
   CONTEXT_COMPACTION_PLAN_REQUEST_SCHEMA_VERSION,
   CONTEXT_COMPACTION_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
@@ -78,6 +79,7 @@ import {
   normalizeCodingToolBudgetRecoveryStateUpdateBridgeResult,
   normalizeCodingToolResultEnvelopePlanBridgeResult,
   normalizeRuntimeCodingToolArtifactDraftPlanBridgeResult,
+  normalizeRuntimeCodingToolArtifactReadProjectionBridgeResult,
   normalizeCompactionPolicyBridgeResult,
   normalizeContextBudgetPolicyBridgeResult,
   normalizeContextCompactionPlanBridgeResult,
@@ -1434,6 +1436,85 @@ test("coding-tool artifact draft normalizer rejects missing Rust records", () =>
       }),
     (error) => {
       assert.equal(error.code, "runtime_coding_tool_artifact_draft_plan_records_missing");
+      assertNoRetiredOperationKindDetailAliases(error.details);
+      return true;
+    },
+  );
+});
+
+test("coding-tool artifact read projection runner sends Rust daemon-core request", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    daemonCoreInvoker(request) {
+      captured = request;
+      return {
+        source: "rust_runtime_coding_tool_artifact_read_projection_command",
+        backend: "rust_policy",
+        record: {
+          object: "ioi.runtime_coding_tool_artifact_read_projection",
+          status: "projected",
+          operation: "artifact.read",
+          operation_kind: "artifact.read_projection",
+          thread_id: "thread_alpha",
+          query: {
+            artifact_id: "artifact_rust",
+            range: { offset_bytes: 0, length_bytes: 64 },
+          },
+          result: {
+            schema_version: "ioi.runtime.coding-tool-artifact.v1",
+            artifact_id: "artifact_rust",
+            artifact_refs: ["artifact_rust"],
+            content: "hello",
+            receipt_refs: ["receipt_alpha"],
+            shell_fallback_used: false,
+          },
+          artifact_refs: ["artifact_rust"],
+          receipt_refs: ["receipt_alpha"],
+          evidence_refs: ["coding_tool_artifact_read_projection_rust_owned"],
+          projection_hash: "sha256:artifact-read-projection",
+        },
+      };
+    },
+  });
+
+  const result = runner.projectRuntimeCodingToolArtifactRead({
+    operation: "artifact.read",
+    operation_kind: "artifact.read_projection",
+    thread_id: "thread_alpha",
+    artifact_id: "artifact_rust",
+    range: { offset_bytes: 0, length_bytes: 64 },
+    artifact_records: [{ id: "artifact_rust", thread_id: "thread_alpha", content: "hello" }],
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "project_runtime_coding_tool_artifact_read");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    RUNTIME_CODING_TOOL_ARTIFACT_READ_PROJECTION_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.thread_id, "thread_alpha");
+  assert.equal(captured.request.artifact_id, "artifact_rust");
+  assert.equal(captured.request.artifact_records[0].id, "artifact_rust");
+  assert.equal(result.source, "rust_runtime_coding_tool_artifact_read_projection_command");
+  assert.equal(result.operation_kind, "artifact.read_projection");
+  assert.equal(result.result.content, "hello");
+  assert.deepEqual(result.artifact_refs, ["artifact_rust"]);
+  assert.equal(result.projection_hash, "sha256:artifact-read-projection");
+  assert.equal(Object.hasOwn(result, "operationKind"), false);
+});
+
+test("coding-tool artifact read projection normalizer rejects missing Rust result", () => {
+  assert.throws(
+    () =>
+      normalizeRuntimeCodingToolArtifactReadProjectionBridgeResult({
+        record: {
+          operation_kind: "artifact.read_projection",
+          artifact_refs: ["artifact_rust"],
+        },
+      }),
+    (error) => {
+      assert.equal(error.code, "runtime_coding_tool_artifact_read_projection_result_missing");
       assertNoRetiredOperationKindDetailAliases(error.details);
       return true;
     },

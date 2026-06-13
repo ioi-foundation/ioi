@@ -340,6 +340,10 @@ pub fn dispatch_command_operation_response(
             plan_runtime_coding_tool_artifact_drafts_response(decode(raw_request)?)
                 .map_err(Into::into)
         }
+        CommandOperation::ProjectRuntimeCodingToolArtifactRead => {
+            project_runtime_coding_tool_artifact_read_response(decode(raw_request)?)
+                .map_err(Into::into)
+        }
         CommandOperation::AdmitCodingToolCommandStreamEvents => {
             admit_coding_tool_command_stream_events_response(decode(raw_request)?).map_err(
                 |error| {
@@ -665,6 +669,7 @@ command_error_from!(CodingToolStepModuleCommandError);
 command_error_from!(GovernedAdmissionError);
 command_error_from!(GovernedReceiptError);
 command_error_from!(RuntimeCodingToolArtifactDraftPlanCommandError);
+command_error_from!(RuntimeCodingToolArtifactReadProjectionCommandError);
 command_error_from!(ModelMountReceiptError);
 command_error_from!(AdmissionRequiredCommandError);
 command_error_from!(ContextPolicyCommandError);

@@ -13,6 +13,8 @@ export const CODING_TOOL_RESULT_ENVELOPE_PLAN_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.coding-tool-result-envelope-plan-request.v1";
 export const RUNTIME_CODING_TOOL_ARTIFACT_DRAFT_PLAN_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.coding-tool-artifact-draft-plan-request.v1";
+export const RUNTIME_CODING_TOOL_ARTIFACT_READ_PROJECTION_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.coding-tool-artifact-read-projection-request.v1";
 export const WORKFLOW_EDIT_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.workflow-edit-admission-required-request.v1";
 export const DIAGNOSTICS_REPAIR_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION =
@@ -243,6 +245,14 @@ export class RustContextPolicyRunner {
     return normalizeRuntimeCodingToolArtifactDraftPlanBridgeResult(this.evaluateRawPolicy({
       operation: "plan_runtime_coding_tool_artifact_drafts",
       schemaVersion: RUNTIME_CODING_TOOL_ARTIFACT_DRAFT_PLAN_REQUEST_SCHEMA_VERSION,
+      request,
+    }));
+  }
+
+  projectRuntimeCodingToolArtifactRead(request = {}) {
+    return normalizeRuntimeCodingToolArtifactReadProjectionBridgeResult(this.evaluateRawPolicy({
+      operation: "project_runtime_coding_tool_artifact_read",
+      schemaVersion: RUNTIME_CODING_TOOL_ARTIFACT_READ_PROJECTION_REQUEST_SCHEMA_VERSION,
       request,
     }));
   }
@@ -1064,6 +1074,42 @@ export function normalizeRuntimeCodingToolArtifactDraftPlanBridgeResult(value = 
     receipt_refs: stringArray(result.receipt_refs ?? record.receipt_refs),
     evidence_refs: stringArray(result.evidence_refs ?? record.evidence_refs),
     plan_hash: optionalString(result.plan_hash ?? record.plan_hash) ?? null,
+  };
+}
+
+export function normalizeRuntimeCodingToolArtifactReadProjectionBridgeResult(value = {}) {
+  const result = objectRecord(value) ?? {};
+  const record = objectRecord(result.record) ?? result;
+  const projectedResult = objectRecord(result.result ?? record.result);
+  if (!projectedResult) {
+    throw new ContextPolicyRunnerError(
+      "Rust coding-tool artifact read projection did not return a result.",
+      "runtime_coding_tool_artifact_read_projection_result_missing",
+      { operation_kind: optionalString(result.operation_kind ?? record.operation_kind) },
+    );
+  }
+  return {
+    ...record,
+    source:
+      result.source ??
+      record.source ??
+      "rust_runtime_coding_tool_artifact_read_projection_command",
+    backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
+    record,
+    object: optionalString(result.object ?? record.object) ?? null,
+    status: optionalString(result.status ?? record.status) ?? null,
+    operation: optionalString(result.operation ?? record.operation) ?? null,
+    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+      codePrefix: "runtime_coding_tool_artifact_read_projection",
+      expectedOperationKinds: ["artifact.read_projection", "tool.retrieve_result_projection"],
+    }),
+    thread_id: optionalString(result.thread_id ?? record.thread_id) ?? null,
+    query: objectRecord(result.query) ?? objectRecord(record.query) ?? null,
+    result: projectedResult,
+    artifact_refs: stringArray(result.artifact_refs ?? record.artifact_refs),
+    receipt_refs: stringArray(result.receipt_refs ?? record.receipt_refs),
+    evidence_refs: stringArray(result.evidence_refs ?? record.evidence_refs),
+    projection_hash: optionalString(result.projection_hash ?? record.projection_hash) ?? null,
   };
 }
 

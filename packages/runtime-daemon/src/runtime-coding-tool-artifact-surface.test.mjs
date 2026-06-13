@@ -97,6 +97,129 @@ function fakeArtifactStateCommit(request) {
   };
 }
 
+function rustProjectionError(code, message) {
+  const error = new Error(message);
+  error.code = code;
+  throw error;
+}
+
+function createArtifactReadProjector(calls = []) {
+  return {
+    projectRuntimeCodingToolArtifactRead(request) {
+      calls.push(request);
+      assertNoRetiredReadProjectionAliases(request);
+      if (request.operation === "artifact.read") {
+        const artifactId = request.artifact_id ?? request.artifact_ref;
+        if (!artifactId) rustProjectionError("artifact_read_id_required", "artifact.read requires artifact_id or artifact_ref.");
+        const artifact = request.artifact_records.find((record) => record.id === artifactId || record.artifact_id === artifactId);
+        if (!artifact) rustProjectionError("runtime_coding_tool_artifact_read_not_found", `Artifact not found: ${artifactId}`);
+        if (artifact.thread_id && artifact.thread_id !== request.thread_id) {
+          rustProjectionError("runtime_coding_tool_artifact_read_cross_thread_blocked", "Artifact read blocked outside owning runtime thread.");
+        }
+        const result = fakeArtifactReadResult(artifact, request.range);
+        return fakeProjection(request, result);
+      }
+      if (request.operation === "tool.retrieve_result") {
+        const artifactId = request.query?.artifact_id ?? request.query?.artifact_ref;
+        if (artifactId) {
+          const artifact = request.artifact_records.find((record) => record.id === artifactId || record.artifact_id === artifactId);
+          if (!artifact) rustProjectionError("runtime_coding_tool_artifact_read_not_found", `Artifact not found: ${artifactId}`);
+          if (artifact.thread_id && artifact.thread_id !== request.thread_id) {
+            rustProjectionError("runtime_coding_tool_artifact_read_cross_thread_blocked", "Artifact read blocked outside owning runtime thread.");
+          }
+          return fakeProjection(request, fakeArtifactReadResult(artifact, request.query?.range));
+        }
+        const toolCallId = request.query?.tool_call_id;
+        if (!toolCallId) rustProjectionError("tool_retrieve_result_target_required", "tool.retrieve_result requires tool_call_id or artifact_id.");
+        const artifacts = request.artifact_records
+          .filter((record) => record.thread_id === request.thread_id && record.tool_call_id === toolCallId)
+          .sort((left, right) => String(left.channel ?? "").localeCompare(String(right.channel ?? "")));
+        if (!artifacts.length) rustProjectionError("runtime_coding_tool_result_artifact_not_found", `Tool result artifact not found: ${toolCallId}`);
+        const channel = request.query?.channel;
+        const artifact = artifacts.find((record) => record.channel === channel) ?? artifacts[0];
+        const result = {
+          ...fakeArtifactReadResult(artifact, request.query?.range),
+          tool_call_id: toolCallId,
+          available_artifacts: artifacts.map(fakeArtifactMetadata),
+        };
+        return fakeProjection(request, result);
+      }
+      rustProjectionError("runtime_coding_tool_artifact_read_projection_operation_invalid", "unsupported operation");
+    },
+  };
+}
+
+function assertNoRetiredReadProjectionAliases(request) {
+  for (const value of [request, request.query, request.range, request.query?.range]) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) continue;
+    for (const alias of ["artifactId", "artifactRef", "toolCallId"]) {
+      if (Object.hasOwn(value, alias)) {
+        rustProjectionError("runtime_coding_tool_artifact_read_target_alias_retired", `retired alias ${alias}`);
+      }
+    }
+    for (const alias of ["offsetBytes", "lengthBytes", "maxBytes"]) {
+      if (Object.hasOwn(value, alias)) {
+        rustProjectionError("artifact_read_range_aliases_retired", `retired alias ${alias}`);
+      }
+    }
+  }
+}
+
+function fakeProjection(request, result) {
+  return {
+    source: "rust_runtime_coding_tool_artifact_read_projection_command",
+    backend: "rust_policy",
+    operation: request.operation,
+    operation_kind: request.operation_kind,
+    thread_id: request.thread_id,
+    result,
+    artifact_refs: result.artifact_refs ?? [],
+    receipt_refs: result.receipt_refs ?? [],
+    evidence_refs: ["coding_tool_artifact_read_projection_rust_owned"],
+    projection_hash: "sha256:artifact-read-projection",
+  };
+}
+
+function fakeArtifactMetadata(artifactRecord = {}) {
+  return {
+    schema_version: "ioi.runtime.coding-tool-artifact.v1",
+    artifact_id: artifactRecord.id,
+    thread_id: artifactRecord.thread_id ?? null,
+    tool_name: artifactRecord.tool_name ?? null,
+    tool_call_id: artifactRecord.tool_call_id ?? null,
+    name: artifactRecord.name ?? null,
+    channel: artifactRecord.channel ?? null,
+    media_type: artifactRecord.media_type ?? "text/plain",
+    content_bytes: Number(artifactRecord.content_bytes ?? 0),
+    content_hash: artifactRecord.content_hash ?? null,
+    receipt_id: artifactRecord.receipt_id ?? null,
+    redaction: artifactRecord.redaction ?? "none",
+    created_at: artifactRecord.created_at ?? null,
+  };
+}
+
+function fakeArtifactReadResult(artifactRecord = {}, range = {}) {
+  const content = String(artifactRecord.content ?? "");
+  const buffer = Buffer.from(content, "utf8");
+  const offsetBytes = Math.max(0, Math.min(buffer.byteLength, Number(range?.offset_bytes ?? 0) || 0));
+  const lengthLimit = Math.max(1, Number(range?.length_bytes ?? range?.max_bytes ?? 64 * 1024) || 64 * 1024);
+  const chunk = buffer.subarray(offsetBytes, Math.min(buffer.byteLength, offsetBytes + lengthLimit));
+  const text = chunk.toString("utf8");
+  return {
+    ...fakeArtifactMetadata(artifactRecord),
+    artifact_refs: [artifactRecord.id].filter(Boolean),
+    offset_bytes: offsetBytes,
+    length_bytes: chunk.byteLength,
+    total_bytes: buffer.byteLength,
+    content: text,
+    content_hash: "sha256:chunk",
+    full_content_hash: artifactRecord.content_hash ?? null,
+    truncated: offsetBytes + chunk.byteLength < buffer.byteLength,
+    receipt_refs: artifactRecord.receipt_refs ?? [],
+    shell_fallback_used: false,
+  };
+}
+
 const retiredArtifactErrorDetailAliasKeys = [
   "threadId",
   "artifactId",
@@ -277,8 +400,32 @@ test("coding-tool artifact surface commits Rust-planned artifact drafts through 
   assert.equal(writes.length, 0);
 });
 
-test("coding-tool artifact surface reads artifacts inside the owning thread", () => {
+test("coding-tool artifact surface fails closed without Rust artifact read projector", () => {
   const { surface } = createSurface();
+  const store = createStore();
+  store.codingArtifacts.set("artifact_alpha", {
+    id: "artifact_alpha",
+    thread_id: "thread_alpha",
+    content: "abcdef",
+  });
+
+  assert.throws(
+    () => surface.readCodingToolArtifact(store, "thread_alpha", "artifact_alpha"),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "runtime_coding_tool_artifact_rust_core_required");
+      assert.equal(error.details.operation, "artifact.read");
+      assert.equal(error.details.operation_kind, "artifact.read_projection");
+      assert.ok(error.details.evidence_refs.includes("coding_tool_artifact_read_projection_rust_owned"));
+      assert.ok(error.details.evidence_refs.includes("rust_daemon_core_artifact_read_projection_required"));
+      return true;
+    },
+  );
+});
+
+test("coding-tool artifact surface reads artifacts inside the owning thread", () => {
+  const projectionCalls = [];
+  const { surface } = createSurface({ contextPolicyRunner: createArtifactReadProjector(projectionCalls) });
   const store = createStore();
   store.codingArtifacts.set("artifact_alpha", {
     id: "artifact_alpha",
@@ -303,6 +450,10 @@ test("coding-tool artifact surface reads artifacts inside the owning thread", ()
   assert.equal(result.truncated, true);
   assert.deepEqual(result.artifact_refs, ["artifact_alpha"]);
   assert.deepEqual(result.receipt_refs, ["receipt://artifact/admitted"]);
+  assert.equal(projectionCalls.length, 1);
+  assert.equal(projectionCalls[0].operation, "artifact.read");
+  assert.equal(projectionCalls[0].operation_kind, "artifact.read_projection");
+  assert.equal(projectionCalls[0].artifact_records.length, 1);
   for (const field of ["schemaVersion", "totalBytes", "artifactRefs", "shellFallbackUsed"]) {
     assert.equal(Object.hasOwn(result, field), false);
   }
@@ -327,7 +478,7 @@ test("coding-tool artifact surface reads artifacts inside the owning thread", ()
 });
 
 test("coding-tool artifact surface blocks cross-thread reads", () => {
-  const { surface } = createSurface();
+  const { surface } = createSurface({ contextPolicyRunner: createArtifactReadProjector() });
   const store = createStore();
   store.codingArtifacts.set("artifact_alpha", {
     id: "artifact_alpha",
@@ -349,7 +500,8 @@ test("coding-tool artifact surface blocks cross-thread reads", () => {
 });
 
 test("coding-tool artifact surface retrieves tool results by channel or artifact id", () => {
-  const { surface } = createSurface();
+  const projectionCalls = [];
+  const { surface } = createSurface({ contextPolicyRunner: createArtifactReadProjector(projectionCalls) });
   const store = createStore();
   store.codingArtifacts.set("artifact_b", {
     id: "artifact_b",
@@ -373,6 +525,9 @@ test("coding-tool artifact surface retrieves tool results by channel or artifact
   assert.equal(byChannel.artifact_id, "artifact_b");
   assert.equal(byChannel.content, "err");
   assert.deepEqual(byChannel.available_artifacts.map((artifact) => artifact.artifact_id), ["artifact_b", "artifact_a"]);
+  assert.equal(projectionCalls[0].operation, "tool.retrieve_result");
+  assert.equal(projectionCalls[0].operation_kind, "tool.retrieve_result_projection");
+  assert.equal(projectionCalls[0].artifact_records.length, 2);
 
   const byArtifact = surface.retrieveCodingToolResult(store, "thread_alpha", {
     artifact_id: "artifact_a",
@@ -389,7 +544,7 @@ test("coding-tool artifact surface retrieves tool results by channel or artifact
     () => surface.retrieveCodingToolResult(store, "thread_alpha", { toolCallId: "tool_call_alpha" }),
     (error) => {
       assert.equal(error.status, 400);
-      assert.equal(error.code, "tool_retrieve_result_target_required");
+      assert.equal(error.code, "runtime_coding_tool_artifact_read_target_alias_retired");
       assert.equal(error.details.thread_id, "thread_alpha");
       assertNoRetiredArtifactErrorDetailAliases(error.details);
       return true;
@@ -399,7 +554,7 @@ test("coding-tool artifact surface retrieves tool results by channel or artifact
     () => surface.retrieveCodingToolResult(store, "thread_alpha", { artifactId: "artifact_a" }),
     (error) => {
       assert.equal(error.status, 400);
-      assert.equal(error.code, "tool_retrieve_result_target_required");
+      assert.equal(error.code, "runtime_coding_tool_artifact_read_target_alias_retired");
       assert.equal(error.details.thread_id, "thread_alpha");
       assertNoRetiredArtifactErrorDetailAliases(error.details);
       return true;
@@ -419,7 +574,7 @@ test("coding-tool artifact surface retrieves tool results by channel or artifact
 });
 
 test("coding-tool artifact surface requires retrieve targets", () => {
-  const { surface } = createSurface();
+  const { surface } = createSurface({ contextPolicyRunner: createArtifactReadProjector() });
   const store = createStore();
 
   assert.throws(

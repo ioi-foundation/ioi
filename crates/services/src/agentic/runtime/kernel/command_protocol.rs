@@ -47,6 +47,7 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "admit_coding_tool_result_event",
     "plan_coding_tool_result_envelope",
     "plan_runtime_coding_tool_artifact_drafts",
+    "project_runtime_coding_tool_artifact_read",
     "admit_coding_tool_command_stream_events",
     "admit_runtime_thread_event",
     "project_runtime_thread_events",
@@ -182,6 +183,7 @@ pub enum CommandOperation {
     AdmitCodingToolResultEvent,
     PlanCodingToolResultEnvelope,
     PlanRuntimeCodingToolArtifactDrafts,
+    ProjectRuntimeCodingToolArtifactRead,
     AdmitCodingToolCommandStreamEvents,
     AdmitRuntimeThreadEvent,
     ProjectRuntimeThreadEvents,
@@ -326,6 +328,9 @@ impl CommandOperation {
             Self::AdmitCodingToolResultEvent => "admit_coding_tool_result_event",
             Self::PlanCodingToolResultEnvelope => "plan_coding_tool_result_envelope",
             Self::PlanRuntimeCodingToolArtifactDrafts => "plan_runtime_coding_tool_artifact_drafts",
+            Self::ProjectRuntimeCodingToolArtifactRead => {
+                "project_runtime_coding_tool_artifact_read"
+            }
             Self::AdmitCodingToolCommandStreamEvents => "admit_coding_tool_command_stream_events",
             Self::AdmitRuntimeThreadEvent => "admit_runtime_thread_event",
             Self::ProjectRuntimeThreadEvents => "project_runtime_thread_events",
@@ -603,6 +608,9 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
         "plan_runtime_coding_tool_artifact_drafts" => {
             Some(CommandOperation::PlanRuntimeCodingToolArtifactDrafts)
         }
+        "project_runtime_coding_tool_artifact_read" => {
+            Some(CommandOperation::ProjectRuntimeCodingToolArtifactRead)
+        }
         "admit_coding_tool_command_stream_events" => {
             Some(CommandOperation::AdmitCodingToolCommandStreamEvents)
         }
@@ -876,6 +884,7 @@ mod tests {
             "admit_coding_tool_result_event",
             "plan_coding_tool_result_envelope",
             "plan_runtime_coding_tool_artifact_drafts",
+            "project_runtime_coding_tool_artifact_read",
             "admit_coding_tool_command_stream_events",
             "admit_runtime_thread_event",
             "project_runtime_thread_events",
