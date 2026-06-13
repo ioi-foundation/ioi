@@ -3,12 +3,14 @@ import {
   runtimeProfileForRequest,
 } from "./runtime-api-bridge.mjs";
 import {
+  eventStreamIdForThread,
   isRuntimeBackedAgent,
 } from "./runtime-identifiers.mjs";
 import {
   requestWithThreadRuntimeControls,
 } from "./threads/thread-runtime-controls.mjs";
 import {
+  objectRecord,
   optionalString,
 } from "./runtime-value-helpers.mjs";
 import { runtimeError } from "./runtime-http-utils.mjs";
@@ -228,27 +230,158 @@ export function createRuntimeThreadTurnSurface(deps = {}) {
     },
 
     async interruptTurn(store, threadId, turnId, request = {}) {
-      void store;
-      throwOperatorTurnControlRustCoreRequired({
+      return applyOperatorTurnControl(store, threadId, turnId, request, {
         operation: "operator_interrupt",
         operationKind: "turn.interrupt",
-        threadId,
-        turnId,
-        requestedAction: request.runtime_control_action ?? request.control_action ?? null,
+        plannerMethod: "planOperatorInterruptStateUpdate",
+        controlKind: "interrupt",
+        controlRequest: {
+          reason:
+            optionalStringDep(request.reason ?? request.runtime_control_action ?? request.control_action ?? request.message) ??
+            "operator requested interrupt",
+        },
       });
     },
 
     steerTurn(store, threadId, turnId, request = {}) {
-      void store;
-      void request;
-      throwOperatorTurnControlRustCoreRequired({
+      return applyOperatorTurnControl(store, threadId, turnId, request, {
         operation: "operator_steer",
         operationKind: "turn.steer",
-        threadId,
-        turnId,
+        plannerMethod: "planOperatorSteerStateUpdate",
+        controlKind: "steer",
+        controlRequest: {
+          guidance:
+            optionalStringDep(request.guidance ?? request.message ?? request.input) ??
+            "operator provided steering guidance",
+        },
       });
     },
   };
+
+  function applyOperatorTurnControl(
+    store,
+    threadId,
+    turnId,
+    request,
+    { operation, operationKind, plannerMethod, controlKind, controlRequest = {} },
+  ) {
+    const planner = operatorTurnControlAdmissionRunner?.[plannerMethod];
+    const requestedAction =
+      operation === "operator_interrupt"
+        ? request.runtime_control_action ?? request.control_action ?? null
+        : null;
+    if (typeof planner !== "function") {
+      throwOperatorTurnControlRustCoreRequired({
+        operation,
+        operationKind,
+        threadId,
+        turnId,
+        requestedAction,
+      });
+    }
+    if (
+      typeof store?.agentForThread !== "function" ||
+      typeof store?.resolveRunForThreadTurn !== "function" ||
+      typeof store?.writeRun !== "function"
+    ) {
+      throwOperatorTurnControlStateUpdateError({
+        code: "runtime_operator_turn_control_state_store_unavailable",
+        message: "Operator turn control requires Rust-owned run resolution and Agentgres run persistence.",
+        details: {
+          operation,
+          operation_kind: operationKind,
+          thread_id: threadId,
+          turn_id: turnId,
+          evidence_refs: operatorTurnControlEvidenceRefs(operation),
+        },
+      });
+    }
+    const agent = objectRecord(store.agentForThread(threadId));
+    const resolved = store.resolveRunForThreadTurn(agent, threadId, turnId);
+    const run = objectRecord(resolved?.run);
+    const runId = optionalStringDep(resolved?.runId ?? run?.id);
+    if (!agent || !run || !runId) {
+      throwOperatorTurnControlStateUpdateError({
+        code: "runtime_operator_turn_control_run_unavailable",
+        message: "Operator turn control requires a persisted run for the requested turn.",
+        details: {
+          operation,
+          operation_kind: operationKind,
+          thread_id: threadId,
+          turn_id: turnId,
+          run_id: runId ?? null,
+          evidence_refs: operatorTurnControlEvidenceRefs(operation),
+        },
+      });
+    }
+    const streamId = eventStreamIdForThread(threadId);
+    const latestSeq = typeof store.latestRuntimeEventSeq === "function"
+      ? Number(store.latestRuntimeEventSeq(streamId) ?? 0)
+      : 0;
+    const seq = Number.isFinite(latestSeq) ? latestSeq + 1 : 1;
+    const createdAt = optionalStringDep(request.created_at ?? request.createdAt) ?? new Date().toISOString();
+    const eventId =
+      optionalStringDep(request.event_id ?? request.eventId) ??
+      operatorTurnControlEventId(operation, threadId, turnId, seq);
+    const plan = planner.call(operatorTurnControlAdmissionRunner, {
+      thread_id: threadId,
+      turn_id: turnId,
+      run_id: runId,
+      run,
+      event_id: eventId,
+      seq,
+      created_at: createdAt,
+      source: optionalStringDep(request.source) ?? "hypervisor_daemon",
+      ...controlRequest,
+    });
+    const plannedRun = objectRecord(plan?.run);
+    const plannedOperationKind = optionalStringDep(plan?.operation_kind);
+    const operatorControl = objectRecord(plan?.operator_control);
+    if (
+      optionalStringDep(plan?.status) !== "planned" ||
+      plannedOperationKind !== operationKind ||
+      !plannedRun ||
+      optionalStringDep(plannedRun.id) !== runId ||
+      !operatorControl ||
+      optionalStringDep(operatorControl.control) !== controlKind ||
+      optionalStringDep(operatorControl.event_id) !== eventId
+    ) {
+      throwOperatorTurnControlStateUpdateError({
+        code: "runtime_operator_turn_control_projection_incomplete",
+        message: "Rust daemon-core operator turn control did not return a complete run projection.",
+        details: {
+          operation,
+          operation_kind: operationKind,
+          thread_id: threadId,
+          turn_id: turnId,
+          run_id: runId,
+          expected_operation_kind: operationKind,
+          actual_operation_kind: plannedOperationKind ?? null,
+          actual_status: optionalStringDep(plan?.status) ?? null,
+        },
+      });
+    }
+    const commit = store.writeRun(plannedRun, plannedOperationKind);
+    return {
+      schema_version: "ioi.runtime.operator_turn_control.v1",
+      object: "ioi.runtime_operator_turn_control",
+      status: "completed",
+      operation,
+      operation_kind: plannedOperationKind,
+      thread_id: threadId,
+      turn_id: turnId,
+      run_id: runId,
+      event_id: eventId,
+      seq,
+      operator_control: operatorControl,
+      stop_condition: objectRecord(plan?.stop_condition) ?? null,
+      run: plannedRun,
+      commit,
+      receipt_refs: stringRefs(commit?.receipt_refs),
+      policy_decision_refs: stringRefs(commit?.policy_decision_refs),
+      evidence_refs: operatorTurnControlPositiveEvidenceRefs(operation),
+    };
+  }
 
   function throwThreadTurnProjectionMismatch({
     operation,
@@ -343,6 +476,52 @@ export function createRuntimeThreadTurnSurface(deps = {}) {
           "rust_daemon_core_operator_steer_required",
           "agentgres_operator_steer_state_truth_required",
         ];
+  }
+
+  function operatorTurnControlPositiveEvidenceRefs(operation) {
+    return operation === "operator_interrupt"
+      ? [
+          "operator_interrupt_js_facade_retired",
+          "rust_daemon_core_operator_interrupt_state_update",
+          "agentgres_operator_interrupt_state_truth_required",
+        ]
+      : [
+          "operator_steer_js_facade_retired",
+          "rust_daemon_core_operator_steer_state_update",
+          "agentgres_operator_steer_state_truth_required",
+        ];
+  }
+
+  function operatorTurnControlEventId(operation, threadId, turnId, seq) {
+    return [
+      "event",
+      operation,
+      safeRuntimeEventIdSegment(threadId),
+      safeRuntimeEventIdSegment(turnId),
+      String(seq).padStart(8, "0"),
+    ].join("_");
+  }
+
+  function safeRuntimeEventIdSegment(value) {
+    return optionalStringDep(value)?.replace(/[^a-zA-Z0-9_.:-]/g, "_") ?? "unknown";
+  }
+
+  function stringRefs(value) {
+    return Array.isArray(value)
+      ? value.filter((item) => typeof item === "string" && item.length > 0)
+      : [];
+  }
+
+  function throwOperatorTurnControlStateUpdateError({ code, message, details = {} }) {
+    throw runtimeErrorDep({
+      status: code.endsWith("_unavailable") ? 404 : 502,
+      code,
+      message,
+      details: {
+        rust_core_boundary: "runtime.operator_turn_control",
+        ...details,
+      },
+    });
   }
 
   function throwThreadTurnRustCoreRequired({

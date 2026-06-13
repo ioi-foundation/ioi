@@ -5913,25 +5913,28 @@ fail-closed or fixed transport scaffolding until direct Rust daemon-core
 admission, execution dispatch, persistence, replay, projection, wallet/cTEE
 policy, and Agentgres expected-head/state-root binding own the surface.
 
-Slice 1083 moves the public operator turn-control admission-required refusal
-contract into the Rust policy core. The Rust
-`OperatorTurnControlAdmissionRequiredCore` now owns the canonical
-`runtime_operator_turn_control_rust_core_required` record and the daemon-core
-command protocol exposes it as
-`plan_operator_turn_control_admission_required`. The JS
-`RuntimeThreadTurn` surface mounts the context-policy runner and consumes this
-Rust-authored record for interrupt/steer refusals, while still failing closed
-before event append, runtime bridge control, run mutation, or JS state-update
-planning.
+Slice 1083 moved the public operator turn-control admission-required refusal
+contract into the Rust policy core. That intermediate fail-closed public
+facade is now retired for normal interrupt/steer execution: public operator
+interrupt calls Rust `plan_operator_interrupt_state_update`, public operator
+steer calls Rust `plan_operator_steer_state_update`, the JS surface validates
+the Rust-planned operator-control envelope and run projection, resolves the
+current run through the mounted run resolver, and persists only the Rust-planned
+run through Agentgres-backed `writeRun` before returning route truth. The Rust
+`OperatorTurnControlAdmissionRequiredCore` still owns the canonical
+`runtime_operator_turn_control_rust_core_required` record for missing Rust
+state-update planning, so absence of the Rust boundary fails closed before any
+JS runtime bridge control, event append, or local run mutation can execute.
 
 Conformance now fails if the operator turn-control required-boundary envelope
-is authored only in JS, if the new daemon-core command operation is removed
-from Rust typed command dispatch, if public interrupt/steer calls invoke the
-older Rust state-update planner directly, or if camelCase detail aliases return
-on the refusal details. This remains non-terminal: direct Rust daemon-core
-operator control admission, runtime control, Agentgres expected-head/state-root
-commit, replay, and projection must still replace the temporary command
-transport.
+is authored only in JS, if the Rust state-update command operations are removed
+from typed command dispatch, if public interrupt/steer stop invoking the Rust
+state-update planners before Agentgres run persistence, if direct runtime
+bridge control/event append returns, or if camelCase detail aliases return on
+the missing-boundary refusal details. This remains non-terminal: command
+transport, wallet/runtime-control authority, Agentgres expected-head/state-root
+commit depth, replay/projection storage, and stable protocol APIs must still
+become direct Rust daemon-core surfaces.
 
 Slice 1084 moves the public non-runtime thread-turn admission-required refusal
 contract into the Rust thread-lifecycle policy core. The Rust

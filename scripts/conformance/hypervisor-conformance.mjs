@@ -10192,15 +10192,29 @@ function runBridge() {
       /operatorTurnControlAdmissionRunner/.test(runtimeThreadTurnSurface) &&
       /rust_core_boundary:\s*"runtime\.operator_turn_control"/.test(runtimeThreadTurnSurface) &&
       /operator_interrupt_js_facade_retired/.test(runtimeThreadTurnSurface) &&
-      /rust_daemon_core_operator_interrupt_required/.test(runtimeThreadTurnSurface) &&
+      /rust_daemon_core_operator_interrupt_state_update/.test(runtimeThreadTurnSurface) &&
       /agentgres_operator_interrupt_state_truth_required/.test(runtimeThreadTurnSurface) &&
-      !/this\.contextPolicyRunner\.planOperatorInterruptStateUpdate/.test(operatorInterruptTurnBody) &&
+      /applyOperatorTurnControl\(store,\s*threadId,\s*turnId,\s*request/.test(
+        operatorInterruptTurnBody,
+      ) &&
+      /plannerMethod:\s*"planOperatorInterruptStateUpdate"/.test(operatorInterruptTurnBody) &&
+      /controlKind:\s*"interrupt"/.test(operatorInterruptTurnBody) &&
+      /store\.resolveRunForThreadTurn\(agent,\s*threadId,\s*turnId\)/.test(
+        runtimeThreadTurnSurface,
+      ) &&
+      /store\.writeRun\(plannedRun,\s*plannedOperationKind\)/.test(runtimeThreadTurnSurface) &&
+      /optionalStringDep\(plan\?\.status\)\s*!==\s*"planned"/.test(runtimeThreadTurnSurface) &&
+      /optionalStringDep\(operatorControl\.control\)\s*!==\s*controlKind/.test(
+        runtimeThreadTurnSurface,
+      ) &&
       !/plannedOperatorControlRunRecord/.test(runtimeDaemonIndex) &&
       !/requiredOperatorControlOperationKind/.test(runtimeDaemonIndex) &&
       !/this\.runs\.set|this\.writeRun|this\.appendRuntimeEvent|controlRuntimeBridgeThreadState/.test(
         operatorInterruptTurnBody,
       ) &&
-      !/control:\s*"interrupt"/.test(runtimeThreadTurnSurface) &&
+      !/runtimeBridge\.controlThread|controlRuntimeBridgeThreadState/.test(
+        runtimeThreadTurnSurface,
+      ) &&
       !/stateUpdate\.run\s*\?\?\s*run/.test(runtimeThreadTurnSurface) &&
       !/stateUpdate\.operation_kind\s*\?\?\s*"turn\.interrupt"/.test(runtimeThreadTurnSurface) &&
       !/request\.(?:workflowGraphId|workflowNodeId|idempotencyKey)\b/.test(
@@ -10209,18 +10223,23 @@ function runBridge() {
       !/approval_mode:\s*agent\.runtimeControls\?\.approvalMode \?\? "suggest"/.test(
         operatorInterruptTurnBody,
       ) &&
-      /interruptTurn facade uses Rust admission-required planner before runtime bridge, event append, state update planning, or JS persistence/.test(
+      /interruptTurn facade uses Rust state-update planning before Agentgres run persistence/.test(
         runtimeOperatorTurnControlFacadeTest,
       ) &&
-      /admissionRequiredCalls\.length,\s*1/.test(runtimeOperatorTurnControlFacadeTest) &&
-      /operation:\s*"operator_interrupt"/.test(runtimeOperatorTurnControlFacadeTest) &&
+      /result\.operation,\s*"operator_interrupt"/.test(runtimeOperatorTurnControlFacadeTest) &&
+      /plannerCalls\.length,\s*2/.test(runtimeOperatorTurnControlFacadeTest) &&
+      /plannerCalls\[0\]\.method,\s*"planOperatorInterruptStateUpdate"/.test(
+        runtimeOperatorTurnControlFacadeTest,
+      ) &&
+      /plannerCalls\[1\]\.method,\s*"writeRun"/.test(runtimeOperatorTurnControlFacadeTest) &&
+      /plannerCalls\[1\]\.operationKind,\s*"turn\.interrupt"/.test(
+        runtimeOperatorTurnControlFacadeTest,
+      ) &&
+      /assert\.deepEqual\(runtimeBridgeCalls,\s*\[\]\)/.test(runtimeOperatorTurnControlFacadeTest) &&
+      /typeof store\.interruptTurn,\s*"undefined"/.test(runtimeOperatorTurnControlFacadeTest) &&
       /runtime_control_action:\s*"cancel"/.test(runtimeOperatorTurnControlFacadeTest) &&
       /controlAction:\s*"cancel"/.test(runtimeOperatorTurnControlFacadeTest) &&
       /workflowGraphId:\s*"graph_retired"/.test(runtimeOperatorTurnControlFacadeTest) &&
-      /assert\.equal\(store\.runtimeEventStreams\.size,\s*0\)/.test(
-        runtimeOperatorTurnControlFacadeTest,
-      ) &&
-      /assert\.equal\(store\.runs\.size,\s*0\)/.test(runtimeOperatorTurnControlFacadeTest) &&
       !/request\.(?:workflowGraphId|workflowNodeId|idempotencyKey|requestedBy|runtimeControlAction|controlAction)\b/.test(
         operatorInterruptTurnBody,
       ) &&
@@ -10236,7 +10255,7 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-thread-turn-surface.mjs",
       "packages/runtime-daemon/src/runtime-operator-turn-control-facade.test.mjs",
     ],
-    "Phase 9/10 is pending: public operator interrupt must fail closed until Rust daemon-core owns event admission, runtime control, and run-state persistence; bridge planner remains migration plumbing only",
+    "Public operator interrupt must use Rust daemon-core state-update planning and Agentgres run-state persistence, with the old JS runtime-bridge/event-append facade retired",
   );
   assertCheck(
     result,
@@ -10289,31 +10308,51 @@ function runBridge() {
       /runtime_operator_turn_control_rust_core_required/.test(runtimeThreadTurnSurface) &&
       /planOperatorTurnControlAdmissionRequired/.test(runtimeThreadTurnSurface) &&
       /operator_steer_js_facade_retired/.test(runtimeThreadTurnSurface) &&
-      /rust_daemon_core_operator_steer_required/.test(runtimeThreadTurnSurface) &&
+      /rust_daemon_core_operator_steer_state_update/.test(runtimeThreadTurnSurface) &&
       /agentgres_operator_steer_state_truth_required/.test(runtimeThreadTurnSurface) &&
-      !/this\.contextPolicyRunner\.planOperatorSteerStateUpdate/.test(operatorSteerTurnBody) &&
+      /applyOperatorTurnControl\(store,\s*threadId,\s*turnId,\s*request/.test(
+        operatorSteerTurnBody,
+      ) &&
+      /plannerMethod:\s*"planOperatorSteerStateUpdate"/.test(operatorSteerTurnBody) &&
+      /controlKind:\s*"steer"/.test(operatorSteerTurnBody) &&
+      /store\.resolveRunForThreadTurn\(agent,\s*threadId,\s*turnId\)/.test(
+        runtimeThreadTurnSurface,
+      ) &&
+      /store\.writeRun\(plannedRun,\s*plannedOperationKind\)/.test(runtimeThreadTurnSurface) &&
+      /optionalStringDep\(plan\?\.status\)\s*!==\s*"planned"/.test(runtimeThreadTurnSurface) &&
+      /optionalStringDep\(operatorControl\.control\)\s*!==\s*controlKind/.test(
+        runtimeThreadTurnSurface,
+      ) &&
       !/plannedOperatorControlRunRecord/.test(runtimeDaemonIndex) &&
       !/requiredOperatorControlOperationKind/.test(runtimeDaemonIndex) &&
       !/this\.runs\.set|this\.writeRun|this\.appendRuntimeEvent|this\.agentForThread|this\.getRun/.test(
         operatorSteerTurnBody,
       ) &&
-      !/control:\s*"steer"|appendOperatorControl/.test(runtimeThreadTurnSurface) &&
+      !/runtimeBridge\.controlThread|controlRuntimeBridgeThreadState|appendOperatorControl/.test(
+        runtimeThreadTurnSurface,
+      ) &&
       !/stateUpdate\.run\s*\?\?\s*run/.test(runtimeThreadTurnSurface) &&
       !/stateUpdate\.operation_kind\s*\?\?\s*"turn\.steer"/.test(runtimeThreadTurnSurface) &&
       !/request\.(?:workflowGraphId|workflowNodeId|idempotencyKey)\b/.test(
         operatorSteerTurnBody,
       ) &&
-      /steerTurn facade uses Rust admission-required planner before agent\/run lookup, event append, state update planning, or JS persistence/.test(
+      /steerTurn facade uses Rust state-update planning before Agentgres run persistence/.test(
         runtimeOperatorTurnControlFacadeTest,
       ) &&
-      /operation:\s*"operator_steer"/.test(runtimeOperatorTurnControlFacadeTest) &&
+      /result\.operation,\s*"operator_steer"/.test(runtimeOperatorTurnControlFacadeTest) &&
+      /plannerCalls\.length,\s*2/.test(runtimeOperatorTurnControlFacadeTest) &&
+      /plannerCalls\[0\]\.method,\s*"planOperatorSteerStateUpdate"/.test(
+        runtimeOperatorTurnControlFacadeTest,
+      ) &&
+      /plannerCalls\[1\]\.method,\s*"writeRun"/.test(runtimeOperatorTurnControlFacadeTest) &&
+      /plannerCalls\[1\]\.operationKind,\s*"turn\.steer"/.test(
+        runtimeOperatorTurnControlFacadeTest,
+      ) &&
+      /assert\.deepEqual\(runtimeBridgeCalls,\s*\[\]\)/.test(runtimeOperatorTurnControlFacadeTest) &&
+      /typeof store\.steerTurn,\s*"undefined"/.test(runtimeOperatorTurnControlFacadeTest) &&
       /idempotencyKey:\s*"operator_steer_idempotency_retired"/.test(
         runtimeOperatorTurnControlFacadeTest,
       ) &&
-      /assert\.equal\(store\.runtimeEventStreams\.size,\s*0\)/.test(
-        runtimeOperatorTurnControlFacadeTest,
-      ) &&
-      /assert\.equal\(store\.runs\.size,\s*0\)/.test(runtimeOperatorTurnControlFacadeTest) &&
       !/request\.(?:workflowGraphId|workflowNodeId|idempotencyKey|requestedBy)\b/.test(
         operatorSteerTurnBody,
       ),
@@ -10326,7 +10365,7 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-thread-turn-surface.mjs",
       "packages/runtime-daemon/src/runtime-operator-turn-control-facade.test.mjs",
     ],
-    "Phase 9/10 is pending: public operator steer must fail closed until Rust daemon-core owns event admission and run-state persistence; bridge planner remains migration plumbing only",
+    "Public operator steer must use Rust daemon-core state-update planning and Agentgres run-state persistence, with the old JS event-append facade retired",
   );
   assertCheck(
     result,
@@ -10432,13 +10471,15 @@ function runBridge() {
       /operation_kind:\s*operationKind/.test(runtimeThreadTurnSurface) &&
       /operationKind:\s*"turn\.interrupt"/.test(runtimeThreadTurnSurface) &&
       /operationKind:\s*"turn\.steer"/.test(runtimeThreadTurnSurface) &&
-      /thread turn surface fails closed for operator turn controls/.test(runtimeThreadTurnSurfaceTest) &&
-      /assertNoRetiredOperatorTurnControlDetailAliases\(error\.details\)/.test(
-        runtimeOperatorTurnControlFacadeTest,
+      /thread turn surface fails closed for operator turn controls without state-update planner/.test(
+        runtimeThreadTurnSurfaceTest,
       ) &&
-      /error\.details\.thread_id/.test(runtimeOperatorTurnControlFacadeTest) &&
-      /error\.details\.turn_id/.test(runtimeOperatorTurnControlFacadeTest) &&
-      /error\.details\.operation_kind/.test(runtimeOperatorTurnControlFacadeTest) &&
+      /assertNoRetiredOperatorTurnControlDetailAliases\(error\.details\)/.test(
+        runtimeThreadTurnSurfaceTest,
+      ) &&
+      /error\.details\.thread_id/.test(runtimeThreadTurnSurfaceTest) &&
+      /error\.details\.turn_id/.test(runtimeThreadTurnSurfaceTest) &&
+      /error\.details\.operation_kind/.test(runtimeThreadTurnSurfaceTest) &&
       /store\.threadTurnSurface\.interruptTurn\(store,\s*"thread_one",\s*"turn_one"/.test(
         runtimeOperatorTurnControlFacadeTest,
       ) &&
@@ -10449,6 +10490,9 @@ function runBridge() {
       /typeof store\.steerTurn,\s*"undefined"/.test(runtimeOperatorTurnControlFacadeTest) &&
       !/details:\s*\{[^}\n]*\b(?:threadId|turnId|runId|operationKind|expectedOperationKind|requestedAction)\s*:/.test(
         runtimeThreadTurnSurface,
+      ) &&
+      !/error\.details\.(?:threadId|turnId|runId|operationKind|expectedOperationKind|requestedAction)\b/.test(
+        runtimeThreadTurnSurfaceTest,
       ) &&
       !/error\.details\.(?:threadId|turnId|runId|operationKind|expectedOperationKind|requestedAction)\b/.test(
         runtimeOperatorTurnControlFacadeTest,

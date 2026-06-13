@@ -11,14 +11,37 @@ function runtimeError({ status, code, message, details }) {
   throw error;
 }
 
+function assertNoRetiredOperatorTurnControlDetailAliases(details) {
+  for (const key of [
+    "rustCoreBoundary",
+    "operationKind",
+    "threadId",
+    "turnId",
+    "requestedAction",
+    "evidenceRefs",
+  ]) {
+    assert.equal(Object.hasOwn(details ?? {}, key), false, `${key} detail alias must be absent`);
+  }
+}
+
 function createStore(overrides = {}) {
   const calls = [];
   const agent = overrides.agent ?? {
     id: "agent_alpha",
     runtimeProfile: "fixture",
   };
+  const run = overrides.run ?? {
+    id: "run_alpha",
+    agentId: agent.id,
+    status: "running",
+    turnStatus: "running",
+    createdAt: "2026-06-13T12:00:00.000Z",
+    updatedAt: "2026-06-13T12:01:00.000Z",
+    trace: {},
+  };
   return {
     calls,
+    runs: new Map([[run.id, run]]),
     agentForThread(threadId) {
       calls.push({ method: "agentForThread", threadId });
       return agent;
@@ -112,6 +135,28 @@ function createStore(overrides = {}) {
       calls.push({ method: "createRuntimeBridgeTurn", request });
       return { turn_id: "turn_runtime", runtime_bridge: request };
     },
+    latestRuntimeEventSeq(eventStreamId) {
+      calls.push({ method: "latestRuntimeEventSeq", eventStreamId });
+      return overrides.latestSeq ?? 7;
+    },
+    resolveRunForThreadTurn(resolvedAgent, threadId, turnId) {
+      calls.push({ method: "resolveRunForThreadTurn", agentId: resolvedAgent?.id, threadId, turnId });
+      return {
+        run,
+        runId: run.id,
+        turnId,
+        inFlight: null,
+      };
+    },
+    writeRun(plannedRun, operationKind) {
+      calls.push({ method: "writeRun", plannedRun, operationKind });
+      this.runs.set(plannedRun.id, plannedRun);
+      return {
+        operation_kind: operationKind,
+        receipt_refs: [`receipt://${operationKind}/${plannedRun.id}`],
+        policy_decision_refs: [`policy://${operationKind}/${plannedRun.id}`],
+      };
+    },
   };
 }
 
@@ -184,6 +229,74 @@ function createThreadTurnAdmissionRunner(calls) {
             agent_id: request.agent_id,
             runtime_profile: request.runtime_profile,
             evidence_refs: request.evidence_refs,
+          },
+        },
+      };
+    },
+  };
+}
+
+function createOperatorTurnControlRunner(calls) {
+  return {
+    planOperatorInterruptStateUpdate(request) {
+      calls.push({ method: "planOperatorInterruptStateUpdate", request });
+      return {
+        source: "rust_operator_interrupt_state_update_command",
+        backend: "rust_policy",
+        status: "planned",
+        operation_kind: "turn.interrupt",
+        updated_at: request.created_at,
+        operator_control: {
+          control: "interrupt",
+          source: request.source,
+          reason: request.reason,
+          event_id: request.event_id,
+          seq: request.seq,
+          created_at: request.created_at,
+        },
+        stop_condition: {
+          reason: "operator_interrupt",
+        },
+        run: {
+          ...request.run,
+          status: "canceled",
+          turnStatus: "interrupted",
+          updatedAt: request.created_at,
+          trace: {
+            ...(request.run.trace ?? {}),
+            operatorControls: [{
+              control: "interrupt",
+              event_id: request.event_id,
+            }],
+          },
+        },
+      };
+    },
+    planOperatorSteerStateUpdate(request) {
+      calls.push({ method: "planOperatorSteerStateUpdate", request });
+      return {
+        source: "rust_operator_steer_state_update_command",
+        backend: "rust_policy",
+        status: "planned",
+        operation_kind: "turn.steer",
+        updated_at: request.created_at,
+        operator_control: {
+          control: "steer",
+          source: request.source,
+          guidance: request.guidance,
+          event_id: request.event_id,
+          seq: request.seq,
+          created_at: request.created_at,
+        },
+        run: {
+          ...request.run,
+          updatedAt: request.created_at,
+          trace: {
+            ...(request.run.trace ?? {}),
+            operatorControls: [{
+              control: "steer",
+              event_id: request.event_id,
+            }],
           },
         },
       };
@@ -469,7 +582,58 @@ test("thread turn surface fails closed for diagnostics-blocked turns before Rust
   assert.equal(store.calls.some((call) => call.method === "turnForRun"), false);
 });
 
-test("thread turn surface fails closed for operator turn controls", async () => {
+test("thread turn surface plans operator interrupt and steer through Rust before run persistence", async () => {
+  const operatorCalls = [];
+  const surface = createRuntimeThreadTurnSurface({
+    contextPolicyRunner: createOperatorTurnControlRunner(operatorCalls),
+    diagnosticsFeedbackBlocksContinuation: () => false,
+    runtimeError,
+  });
+  const store = createStore();
+
+  const interrupt = await surface.interruptTurn(store, "thread_alpha", "turn_alpha", {
+    runtime_control_action: "stop",
+    created_at: "2026-06-13T12:02:00.000Z",
+  });
+  assert.equal(interrupt.status, "completed");
+  assert.equal(interrupt.operation, "operator_interrupt");
+  assert.equal(interrupt.operation_kind, "turn.interrupt");
+  assert.equal(interrupt.thread_id, "thread_alpha");
+  assert.equal(interrupt.turn_id, "turn_alpha");
+  assert.equal(interrupt.run_id, "run_alpha");
+  assert.equal(interrupt.seq, 8);
+  assert.equal(interrupt.operator_control.control, "interrupt");
+  assert.equal(interrupt.operator_control.reason, "stop");
+  assert.equal(interrupt.run.turnStatus, "interrupted");
+  assert.equal(interrupt.stop_condition.reason, "operator_interrupt");
+  assert.equal(interrupt.receipt_refs[0], "receipt://turn.interrupt/run_alpha");
+  assert.equal(interrupt.evidence_refs.includes("rust_daemon_core_operator_interrupt_state_update"), true);
+
+  const steer = surface.steerTurn(store, "thread_alpha", "turn_alpha", {
+    guidance: "focus on Rust-owned state",
+    createdAt: "2026-06-13T12:03:00.000Z",
+  });
+  assert.equal(steer.status, "completed");
+  assert.equal(steer.operation, "operator_steer");
+  assert.equal(steer.operation_kind, "turn.steer");
+  assert.equal(steer.operator_control.control, "steer");
+  assert.equal(steer.operator_control.guidance, "focus on Rust-owned state");
+  assert.equal(steer.receipt_refs[0], "receipt://turn.steer/run_alpha");
+  assert.equal(steer.evidence_refs.includes("rust_daemon_core_operator_steer_state_update"), true);
+
+  assert.deepEqual(operatorCalls.map((call) => call.method), [
+    "planOperatorInterruptStateUpdate",
+    "planOperatorSteerStateUpdate",
+  ]);
+  assert.equal(operatorCalls[0].request.run_id, "run_alpha");
+  assert.equal(operatorCalls[0].request.reason, "stop");
+  assert.equal(operatorCalls[0].request.event_id, "event_operator_interrupt_thread_alpha_turn_alpha_00000008");
+  assert.equal(operatorCalls[1].request.guidance, "focus on Rust-owned state");
+  assert.equal(store.calls.filter((call) => call.method === "writeRun").length, 2);
+  assert.equal(store.calls.some((call) => call.method === "createRun"), false);
+});
+
+test("thread turn surface fails closed for operator turn controls without state-update planner", async () => {
   const surface = createRuntimeThreadTurnSurface({
     diagnosticsFeedbackBlocksContinuation: () => false,
     runtimeError,
@@ -478,27 +642,29 @@ test("thread turn surface fails closed for operator turn controls", async () => 
 
   await assert.rejects(
     () => surface.interruptTurn(store, "thread_alpha", "turn_alpha", { runtime_control_action: "stop" }),
-    (error) =>
-      error.code === "runtime_operator_turn_control_rust_core_required" &&
-      error.details.operation === "operator_interrupt" &&
-      error.details.operation_kind === "turn.interrupt" &&
-      error.details.thread_id === "thread_alpha" &&
-      error.details.turn_id === "turn_alpha" &&
-      error.details.requested_action === "stop" &&
-      !Object.hasOwn(error.details, "threadId") &&
-      !Object.hasOwn(error.details, "turnId"),
+    (error) => {
+      assert.equal(error.code, "runtime_operator_turn_control_rust_core_required");
+      assert.equal(error.details.operation, "operator_interrupt");
+      assert.equal(error.details.operation_kind, "turn.interrupt");
+      assert.equal(error.details.thread_id, "thread_alpha");
+      assert.equal(error.details.turn_id, "turn_alpha");
+      assert.equal(error.details.requested_action, "stop");
+      assertNoRetiredOperatorTurnControlDetailAliases(error.details);
+      return true;
+    },
   );
 
   assert.throws(
     () => surface.steerTurn(store, "thread_alpha", "turn_alpha", { guidance: "focus" }),
-    (error) =>
-      error.code === "runtime_operator_turn_control_rust_core_required" &&
-      error.details.operation === "operator_steer" &&
-      error.details.operation_kind === "turn.steer" &&
-      error.details.thread_id === "thread_alpha" &&
-      error.details.turn_id === "turn_alpha" &&
-      error.details.requested_action === null &&
-      !Object.hasOwn(error.details, "threadId") &&
-      !Object.hasOwn(error.details, "turnId"),
+    (error) => {
+      assert.equal(error.code, "runtime_operator_turn_control_rust_core_required");
+      assert.equal(error.details.operation, "operator_steer");
+      assert.equal(error.details.operation_kind, "turn.steer");
+      assert.equal(error.details.thread_id, "thread_alpha");
+      assert.equal(error.details.turn_id, "turn_alpha");
+      assert.equal(error.details.requested_action, null);
+      assertNoRetiredOperatorTurnControlDetailAliases(error.details);
+      return true;
+    },
   );
 });
