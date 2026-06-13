@@ -5809,18 +5809,50 @@ function runBridge() {
   assertCheck(
     result,
     "coding-tool-artifact-record-storage-aliases-retired",
-    /runtime_coding_tool_artifact_rust_core_required/.test(runtimeCodingToolArtifactSurface) &&
+    /RUNTIME_CODING_TOOL_ARTIFACT_DRAFT_PLAN_REQUEST_SCHEMA_VERSION/.test(codingToolArtifactCore) &&
+      /RuntimeCodingToolArtifactDraftPlanRequest/.test(codingToolArtifactCore) &&
+      /plan_runtime_coding_tool_artifact_drafts_response/.test(codingToolArtifactCore) &&
+      /artifact_draft_planner_authors_rust_artifact_records/.test(codingToolArtifactCore) &&
+      /artifact_draft_planner_rejects_retired_artifact_drafts_alias/.test(codingToolArtifactCore) &&
+      /plan_runtime_coding_tool_artifact_drafts/.test(commandProtocolCore) &&
+      /CommandOperation::PlanRuntimeCodingToolArtifactDrafts/.test(commandProtocolCore) &&
+      /plan_runtime_coding_tool_artifact_drafts_response/.test(coreCommandDispatch) &&
+      /RuntimeCodingToolArtifactDraftPlanCommandError/.test(coreCommandDispatch) &&
+      /RUNTIME_CODING_TOOL_ARTIFACT_DRAFT_PLAN_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyRunner) &&
+      /planRuntimeCodingToolArtifactDrafts/.test(runtimeContextPolicyRunner) &&
+      /normalizeRuntimeCodingToolArtifactDraftPlanBridgeResult/.test(runtimeContextPolicyRunner) &&
+      /plan_runtime_coding_tool_artifact_drafts/.test(runtimeContextPolicyRunner) &&
+      /coding-tool artifact draft runner sends Rust daemon-core plan request/.test(runtimeContextPolicyRunnerTest) &&
+      /coding-tool artifact draft normalizer rejects missing Rust records/.test(runtimeContextPolicyRunnerTest) &&
+      /runtime_coding_tool_artifact_rust_core_required/.test(runtimeCodingToolArtifactSurface) &&
       /rust_core_boundary:\s*"runtime\.coding_tool_artifact"/.test(runtimeCodingToolArtifactSurface) &&
       /operation_kind:\s*operationKind/.test(runtimeCodingToolArtifactSurface) &&
+      /codingToolArtifactDraftPlanner/.test(runtimeCodingToolArtifactSurface) &&
+      /assertArtifactStateCommitAvailable/.test(runtimeCodingToolArtifactSurface) &&
+      /planRuntimeCodingToolArtifactDrafts/.test(codingToolArtifactDraftMaterializerBlock) &&
       /coding_tool_artifact_draft_materialization/.test(codingToolArtifactDraftMaterializerBlock) &&
       /artifact\.coding_tool_draft/.test(codingToolArtifactDraftMaterializerBlock) &&
+      /coding_tool_artifact_draft_rust_owned/.test(codingToolArtifactDraftMaterializerBlock) &&
       /coding_tool_artifact_draft_js_materializer_retired/.test(codingToolArtifactDraftMaterializerBlock) &&
-      /rust_daemon_core_artifact_admission_required/.test(codingToolArtifactDraftMaterializerBlock) &&
+      /rust_daemon_core_artifact_draft_plan_required/.test(codingToolArtifactDraftMaterializerBlock) &&
       /agentgres_artifact_state_truth_required/.test(codingToolArtifactDraftMaterializerBlock) &&
+      /commitRuntimeArtifactRecord\(store,\s*artifactRecord,\s*plan\.operation_kind\)/.test(
+        codingToolArtifactDraftMaterializerBlock,
+      ) &&
+      /artifact_state_commit_hash:\s*commit\.commit_hash/.test(codingToolArtifactDraftMaterializerBlock) &&
+      /store\.codingArtifacts\.set\(committedArtifact\.id,\s*committedArtifact\)/.test(
+        codingToolArtifactDraftMaterializerBlock,
+      ) &&
       /const liveArtifactDrafts = normalizeArray\(result\?\.artifact_drafts\);/.test(
         runtimeCodingToolInvocationSurface,
       ) &&
-      /fails closed before JS artifact draft materialization/.test(
+      /fails closed without Rust artifact draft planner/.test(
+        runtimeCodingToolArtifactSurfaceTest,
+      ) &&
+      /fails closed before cache mutation without Agentgres commit/.test(
+        runtimeCodingToolArtifactSurfaceTest,
+      ) &&
+      /commits Rust-planned artifact drafts through Agentgres/.test(
         runtimeCodingToolArtifactSurfaceTest,
       ) &&
       /assert\.equal\(error\.details\.operation_kind,\s*"artifact\.coding_tool_draft"\)/.test(
@@ -5831,8 +5863,6 @@ function runBridge() {
       !/result\?\.artifactDrafts/.test(runtimeCodingToolArtifactSurface) &&
       !/result\?\.artifactDrafts/.test(runtimeCodingToolInvocationSurface) &&
       !/draft\.mediaType/.test(runtimeCodingToolArtifactSurface) &&
-      !/store\.codingArtifacts\.set/.test(codingToolArtifactDraftMaterializerBlock) &&
-      !/commitRuntimeArtifactRecord/.test(codingToolArtifactDraftMaterializerBlock) &&
       !/^\s*(?:schemaVersion|threadId|toolName|toolCallId|workspaceRoot|mediaType|receiptId|contentBytes|contentHash|createdAt|sourcePathHash|sourcePathIncluded)\s*[:,]/m.test(
         codingToolArtifactRecordBlocks,
       ),
@@ -23325,10 +23355,20 @@ function runReceipts() {
       /store\.codingArtifacts\.has\("artifact_retired"\), false/.test(
         read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
       ) &&
-	      /runtime_coding_tool_artifact_rust_core_required/.test(runtimeCodingToolArtifactSurface) &&
-	      /coding_tool_artifact_draft_js_materializer_retired/.test(runtimeCodingToolArtifactSurface) &&
-	      /visual_observation_artifact_js_materializer_retired/.test(runtimeCodingToolArtifactSurface) &&
-	      !/commitRuntimeArtifactRecord/.test(runtimeCodingToolArtifactSurface) &&
+      /runtime_coding_tool_artifact_rust_core_required/.test(runtimeCodingToolArtifactSurface) &&
+      /codingToolArtifactDraftPlanner/.test(runtimeCodingToolArtifactSurface) &&
+      /assertArtifactStateCommitAvailable/.test(runtimeCodingToolArtifactSurface) &&
+      /planRuntimeCodingToolArtifactDrafts/.test(runtimeCodingToolArtifactSurface) &&
+      /coding_tool_artifact_draft_js_materializer_retired/.test(runtimeCodingToolArtifactSurface) &&
+      /coding_tool_artifact_draft_rust_owned/.test(runtimeCodingToolArtifactSurface) &&
+      /agentgres_artifact_state_truth_required/.test(runtimeCodingToolArtifactSurface) &&
+      /commitRuntimeArtifactRecord\(store,\s*artifactRecord,\s*plan\.operation_kind\)/.test(
+        runtimeCodingToolArtifactSurface,
+      ) &&
+      /store\.codingArtifacts\.set\(committedArtifact\.id,\s*committedArtifact\)/.test(
+        runtimeCodingToolArtifactSurface,
+      ) &&
+      /visual_observation_artifact_js_materializer_retired/.test(runtimeCodingToolArtifactSurface) &&
 	      /runtime_workspace_snapshot_rust_core_required/.test(runtimeWorkspaceSnapshotSurface) &&
 	      /workspace_snapshot_artifact_js_materializer_retired/.test(
 	        runtimeWorkspaceSnapshotSurface,
@@ -23346,8 +23386,15 @@ function runReceipts() {
 	      ) &&
 	      !/writeJson\(store\.pathFor\("artifacts"/.test(runtimeCodingToolArtifactSurface) &&
 	      !/writeJson\(store\.pathFor\("artifacts"/.test(runtimeWorkspaceSnapshotSurface) &&
-	      /assert\.equal\(writes\.length, 0\)/.test(runtimeCodingToolArtifactSurfaceTest) &&
-	      /assert\.equal\(store\.artifactCommits\.length,\s*0\)/.test(runtimeCodingToolArtifactSurfaceTest) &&
+      /fails closed without Rust artifact draft planner/.test(runtimeCodingToolArtifactSurfaceTest) &&
+      /fails closed before cache mutation without Agentgres commit/.test(runtimeCodingToolArtifactSurfaceTest) &&
+      /commits Rust-planned artifact drafts through Agentgres/.test(runtimeCodingToolArtifactSurfaceTest) &&
+      /assert\.equal\(writes\.length, 0\)/.test(runtimeCodingToolArtifactSurfaceTest) &&
+      /assert\.equal\(store\.artifactCommits\.length,\s*0\)/.test(runtimeCodingToolArtifactSurfaceTest) &&
+      /assert\.equal\(store\.artifactCommits\.length,\s*1\)/.test(runtimeCodingToolArtifactSurfaceTest) &&
+      /assert\.equal\(store\.artifactCommits\[0\]\.operation_kind,\s*"artifact\.coding_tool_draft"\)/.test(
+        runtimeCodingToolArtifactSurfaceTest,
+      ) &&
 	      /store\.artifactCommits\.map\(\(request\) => request\.operation_kind\)/.test(
 	        runtimeWorkspaceSnapshotSurfaceTest,
 	      ) &&

@@ -3,17 +3,17 @@ use serde_json::{json, Value};
 use std::io::{self, Read};
 
 use super::{
-    agentgres_command::*, approval::*, authority::*, coding_tool_event::*,
+    agentgres_command::*, approval::*, authority::*, coding_tool_artifact::*, coding_tool_event::*,
     coding_tool_step_module::*, command_protocol::CommandOperation, governed_admission::*,
     governed_receipt::*, model_mount::*, model_mount_receipt::*, policy::*, repository_workflow::*,
     runtime_conversation_artifact_control::*, runtime_conversation_artifact_projection::*,
     runtime_diagnostics_repair_control::*, runtime_diagnostics_repair_policy::*,
     runtime_diagnostics_repair_projection::*, runtime_lifecycle::*,
-    runtime_managed_session_control::*, runtime_memory_control::*, runtime_memory_projection::*,
-    runtime_mcp_serve::*, runtime_subagent_control::*, runtime_subagent_projection::*,
+    runtime_managed_session_control::*, runtime_mcp_serve::*, runtime_memory_control::*,
+    runtime_memory_projection::*, runtime_subagent_control::*, runtime_subagent_projection::*,
     runtime_thread_event::*, runtime_thread_fork_control::*, runtime_tool_catalog::*,
-    runtime_workflow_edit_control::*,
-    runtime_workspace_change_control::*, skill_hook_registry::*, workspace_restore::*,
+    runtime_workflow_edit_control::*, runtime_workspace_change_control::*, skill_hook_registry::*,
+    workspace_restore::*,
 };
 
 #[derive(Debug, Clone)]
@@ -335,6 +335,10 @@ pub fn dispatch_command_operation_response(
                     format!("{error:?}"),
                 )
             })
+        }
+        CommandOperation::PlanRuntimeCodingToolArtifactDrafts => {
+            plan_runtime_coding_tool_artifact_drafts_response(decode(raw_request)?)
+                .map_err(Into::into)
         }
         CommandOperation::AdmitCodingToolCommandStreamEvents => {
             admit_coding_tool_command_stream_events_response(decode(raw_request)?).map_err(
@@ -660,6 +664,7 @@ command_error_from!(AuthorityCommandError);
 command_error_from!(CodingToolStepModuleCommandError);
 command_error_from!(GovernedAdmissionError);
 command_error_from!(GovernedReceiptError);
+command_error_from!(RuntimeCodingToolArtifactDraftPlanCommandError);
 command_error_from!(ModelMountReceiptError);
 command_error_from!(AdmissionRequiredCommandError);
 command_error_from!(ContextPolicyCommandError);

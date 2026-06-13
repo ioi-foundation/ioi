@@ -110,7 +110,7 @@ function assertNoRetiredArtifactErrorDetailAliases(details) {
   }
 }
 
-test("coding-tool artifact surface fails closed before JS artifact draft materialization", () => {
+test("coding-tool artifact surface fails closed without Rust artifact draft planner", () => {
   const { surface, writes } = createSurface();
   const store = createStore();
 
@@ -143,12 +143,138 @@ test("coding-tool artifact surface fails closed before JS artifact draft materia
       assert.equal(error.details.tool_call_id, "tool_call_alpha");
       assert.equal(error.details.artifact_draft_count, 1);
       assert.ok(error.details.evidence_refs.includes("coding_tool_artifact_draft_js_materializer_retired"));
+      assert.ok(error.details.evidence_refs.includes("rust_daemon_core_artifact_draft_plan_required"));
       return true;
     },
   );
   assert.equal(store.codingArtifacts.size, 0);
   assert.equal(writes.length, 0);
   assert.equal(store.artifactCommits.length, 0);
+});
+
+test("coding-tool artifact surface fails closed before cache mutation without Agentgres commit", () => {
+  const plannerCalls = [];
+  const { surface } = createSurface({
+    contextPolicyRunner: {
+      planRuntimeCodingToolArtifactDrafts(request) {
+        plannerCalls.push(request);
+        return {
+          operation_kind: "artifact.coding_tool_draft",
+          artifact_records: [
+            {
+              schema_version: "ioi.runtime.coding-tool-artifact.v1",
+              id: "artifact_rust_planned",
+              thread_id: "thread_alpha",
+              tool_name: "git.diff",
+              tool_call_id: "tool_call_alpha",
+              channel: "stdout",
+              content: "hello",
+              content_hash: "sha256:artifact-content",
+              receipt_refs: ["receipt_alpha"],
+              evidence_refs: ["coding_tool_artifact_draft_rust_owned"],
+            },
+          ],
+        };
+      },
+    },
+  });
+  const store = createStore();
+  delete store.commitRuntimeArtifactState;
+
+  assert.throws(
+    () =>
+      surface.materializeCodingToolArtifactDrafts(store, {
+        threadId: "thread_alpha",
+        toolId: "git.diff",
+        toolCallId: "tool_call_alpha",
+        workspaceRoot: "/workspace",
+        receiptId: "receipt_alpha",
+        result: {
+          artifact_drafts: [{ channel: "stdout", content: "hello" }],
+        },
+      }),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "runtime_coding_tool_artifact_rust_core_required");
+      assert.equal(error.details.source, "runtime.coding_tool_artifact_surface.agentgres_commit");
+      return true;
+    },
+  );
+  assert.equal(plannerCalls.length, 0);
+  assert.equal(store.codingArtifacts.size, 0);
+});
+
+test("coding-tool artifact surface commits Rust-planned artifact drafts through Agentgres", () => {
+  const plannerCalls = [];
+  const { surface, writes } = createSurface({
+    contextPolicyRunner: {
+      planRuntimeCodingToolArtifactDrafts(request) {
+        plannerCalls.push(request);
+        return {
+          source: "rust_runtime_coding_tool_artifact_draft_plan_command",
+          backend: "rust_policy",
+          operation_kind: "artifact.coding_tool_draft",
+          artifact_records: [
+            {
+              schema_version: "ioi.runtime.coding-tool-artifact.v1",
+              id: "artifact_rust_planned",
+              artifact_id: "artifact_rust_planned",
+              source: "rust_runtime_coding_tool_artifact_draft_plan",
+              thread_id: "thread_alpha",
+              tool_name: "git.diff",
+              tool_call_id: "tool_call_alpha",
+              workspace_root: "/workspace",
+              channel: "stdout",
+              name: "stdout.txt",
+              media_type: "text/plain",
+              content: "hello from rust",
+              content_bytes: 15,
+              content_hash: "sha256:artifact-content",
+              receipt_id: "receipt_alpha",
+              receipt_refs: ["receipt_alpha"],
+              evidence_refs: [
+                "coding_tool_artifact_draft_rust_owned",
+                "agentgres_artifact_state_truth_required",
+              ],
+            },
+          ],
+          artifact_refs: ["artifact_rust_planned"],
+          receipt_refs: ["receipt_alpha"],
+          evidence_refs: ["coding_tool_artifact_draft_rust_owned"],
+        };
+      },
+    },
+  });
+  const store = createStore();
+
+  const artifacts = surface.materializeCodingToolArtifactDrafts(store, {
+    threadId: "thread_alpha",
+    toolId: "git.diff",
+    toolCallId: "tool_call_alpha",
+    workspaceRoot: "/workspace",
+    receiptId: "receipt_alpha",
+    result: {
+      artifactDrafts: [{ channel: "retired", content: "retired" }],
+      artifact_drafts: [{ channel: "stdout", content: "hello from rust" }],
+      receipt_refs: ["receipt_result_alpha"],
+    },
+  });
+
+  assert.equal(plannerCalls.length, 1);
+  assert.equal(plannerCalls[0].operation, "coding_tool_artifact_draft_materialization");
+  assert.equal(plannerCalls[0].operation_kind, "artifact.coding_tool_draft");
+  assert.equal(plannerCalls[0].thread_id, "thread_alpha");
+  assert.equal(Object.hasOwn(plannerCalls[0].result, "artifactDrafts"), false);
+  assert.equal(plannerCalls[0].artifact_drafts[0].content, "hello from rust");
+  assert.equal(artifacts.length, 1);
+  assert.equal(artifacts[0].id, "artifact_rust_planned");
+  assert.equal(artifacts[0].artifact_state_commit_hash, "sha256:artifact-commit");
+  assert.equal(store.codingArtifacts.get("artifact_rust_planned").content, "hello from rust");
+  assert.equal(store.artifactCommits.length, 1);
+  assert.equal(store.artifactCommits[0].operation_kind, "artifact.coding_tool_draft");
+  assert.equal(store.artifactCommits[0].artifact.source, "rust_runtime_coding_tool_artifact_draft_plan");
+  assert.deepEqual(store.artifactCommits[0].receipt_refs, ["receipt_alpha"]);
+  assert.equal(writes.length, 0);
 });
 
 test("coding-tool artifact surface reads artifacts inside the owning thread", () => {

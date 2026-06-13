@@ -46,6 +46,7 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "commit_runtime_model_mount_receipt_state",
     "admit_coding_tool_result_event",
     "plan_coding_tool_result_envelope",
+    "plan_runtime_coding_tool_artifact_drafts",
     "admit_coding_tool_command_stream_events",
     "admit_runtime_thread_event",
     "project_runtime_thread_events",
@@ -180,6 +181,7 @@ pub enum CommandOperation {
     CommitRuntimeModelMountReceiptState,
     AdmitCodingToolResultEvent,
     PlanCodingToolResultEnvelope,
+    PlanRuntimeCodingToolArtifactDrafts,
     AdmitCodingToolCommandStreamEvents,
     AdmitRuntimeThreadEvent,
     ProjectRuntimeThreadEvents,
@@ -323,6 +325,7 @@ impl CommandOperation {
             Self::CommitRuntimeModelMountReceiptState => "commit_runtime_model_mount_receipt_state",
             Self::AdmitCodingToolResultEvent => "admit_coding_tool_result_event",
             Self::PlanCodingToolResultEnvelope => "plan_coding_tool_result_envelope",
+            Self::PlanRuntimeCodingToolArtifactDrafts => "plan_runtime_coding_tool_artifact_drafts",
             Self::AdmitCodingToolCommandStreamEvents => "admit_coding_tool_command_stream_events",
             Self::AdmitRuntimeThreadEvent => "admit_runtime_thread_event",
             Self::ProjectRuntimeThreadEvents => "project_runtime_thread_events",
@@ -597,6 +600,9 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
         }
         "admit_coding_tool_result_event" => Some(CommandOperation::AdmitCodingToolResultEvent),
         "plan_coding_tool_result_envelope" => Some(CommandOperation::PlanCodingToolResultEnvelope),
+        "plan_runtime_coding_tool_artifact_drafts" => {
+            Some(CommandOperation::PlanRuntimeCodingToolArtifactDrafts)
+        }
         "admit_coding_tool_command_stream_events" => {
             Some(CommandOperation::AdmitCodingToolCommandStreamEvents)
         }
@@ -722,9 +728,7 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
             Some(CommandOperation::ProjectRuntimeMemoryProjection)
         }
         "plan_runtime_memory_control" => Some(CommandOperation::PlanRuntimeMemoryControl),
-        "plan_runtime_mcp_serve_tool_call" => {
-            Some(CommandOperation::PlanRuntimeMcpServeToolCall)
-        }
+        "plan_runtime_mcp_serve_tool_call" => Some(CommandOperation::PlanRuntimeMcpServeToolCall),
         "plan_runtime_workflow_edit_control" => {
             Some(CommandOperation::PlanRuntimeWorkflowEditControl)
         }
@@ -871,6 +875,7 @@ mod tests {
             "commit_runtime_run_state",
             "admit_coding_tool_result_event",
             "plan_coding_tool_result_envelope",
+            "plan_runtime_coding_tool_artifact_drafts",
             "admit_coding_tool_command_stream_events",
             "admit_runtime_thread_event",
             "project_runtime_thread_events",

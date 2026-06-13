@@ -1,4 +1,5 @@
 import { CODING_TOOL_RESULT_SCHEMA_VERSION, retiredArtifactReadRangeAliases } from "./coding-tools.mjs";
+import { commitRuntimeArtifactRecord } from "./runtime-artifact-state-commit.mjs";
 import { eventStreamIdForThread } from "./runtime-identifiers.mjs";
 import {
   CODING_TOOL_ARTIFACT_SCHEMA_VERSION,
@@ -34,6 +35,7 @@ const {
 export function createRuntimeCodingToolArtifactSurface(deps = {}) {
   const {
     codingToolCommandStreamAdmissionForThread = null,
+    contextPolicyRunner = null,
     notFound = defaultNotFound,
     policyError = defaultPolicyError,
     runtimeError = defaultRuntimeError,
@@ -53,23 +55,128 @@ export function createRuntimeCodingToolArtifactSurface(deps = {}) {
     });
   }
 
+  function codingToolArtifactDraftPlanner(store, request = {}) {
+    const runner = store?.contextPolicyRunner ?? contextPolicyRunner;
+    if (typeof runner?.planRuntimeCodingToolArtifactDrafts === "function") return runner;
+    throwCodingToolArtifactRustCoreRequired("coding_tool_artifact_draft_materialization", "artifact.coding_tool_draft", {
+      ...request,
+      evidence_refs: [
+        "coding_tool_artifact_draft_js_materializer_retired",
+        "rust_daemon_core_artifact_draft_plan_required",
+        "agentgres_artifact_state_truth_required",
+      ],
+    });
+  }
+
+  function assertArtifactStateCommitAvailable(store, request = {}) {
+    if (typeof store?.commitRuntimeArtifactState === "function") return;
+    throwCodingToolArtifactRustCoreRequired("coding_tool_artifact_draft_materialization", "artifact.coding_tool_draft", {
+      ...request,
+      source: "runtime.coding_tool_artifact_surface.agentgres_commit",
+      evidence_refs: [
+        "coding_tool_artifact_draft_js_materializer_retired",
+        "rust_daemon_core_artifact_draft_plan_required",
+        "agentgres_artifact_state_truth_required",
+      ],
+    });
+  }
+
   function materializeCodingToolArtifactDrafts(
-    _store,
+    store,
     { threadId, toolId, toolCallId, workspaceRoot, result, receiptId },
   ) {
-    throwCodingToolArtifactRustCoreRequired("coding_tool_artifact_draft_materialization", "artifact.coding_tool_draft", {
+    const artifactDrafts = normalizeArray(result?.artifact_drafts);
+    if (!artifactDrafts.length) return [];
+    const requestContext = {
       thread_id: threadId ?? null,
       tool_name: toolId ?? null,
       tool_call_id: toolCallId ?? null,
       workspace_root: workspaceRoot ?? null,
       receipt_id: receiptId ?? null,
-      artifact_draft_count: normalizeArray(result?.artifact_drafts).length,
+      artifact_draft_count: artifactDrafts.length,
+    };
+    const runner = codingToolArtifactDraftPlanner(store, requestContext);
+    assertArtifactStateCommitAvailable(store, requestContext);
+    const canonicalResult = {
+      ...(objectRecord(result) ?? {}),
+      artifact_drafts: artifactDrafts,
+    };
+    delete canonicalResult.artifactDrafts;
+    delete canonicalResult.artifactRefs;
+    const plan = runner.planRuntimeCodingToolArtifactDrafts({
+      operation: "coding_tool_artifact_draft_materialization",
+      operation_kind: "artifact.coding_tool_draft",
+      thread_id: threadId ?? null,
+      tool_id: toolId ?? null,
+      tool_call_id: toolCallId ?? null,
+      workspace_root: workspaceRoot ?? null,
+      receipt_id: receiptId ?? null,
+      receipt_refs: uniqueStrings([...normalizeArray(result?.receipt_refs), receiptId].filter(Boolean)),
+      result: canonicalResult,
+      artifact_drafts: artifactDrafts,
       evidence_refs: [
+        "coding_tool_artifact_draft_rust_owned",
         "coding_tool_artifact_draft_js_materializer_retired",
-        "rust_daemon_core_artifact_admission_required",
+        "rust_daemon_core_artifact_draft_plan_required",
         "agentgres_artifact_state_truth_required",
       ],
     });
+    const artifactRecords = normalizeArray(plan?.artifact_records);
+    if (
+      plan?.operation_kind !== "artifact.coding_tool_draft" ||
+      artifactRecords.length !== artifactDrafts.length ||
+      artifactRecords.some((record) => !record?.id || !normalizeArray(record?.receipt_refs).length)
+    ) {
+      throw runtimeError({
+        status: 502,
+        code: "runtime_coding_tool_artifact_draft_plan_invalid",
+        message: "Rust daemon-core coding-tool artifact draft plan did not return valid artifact records.",
+        details: {
+          rust_core_boundary: "runtime.coding_tool_artifact",
+          operation: "coding_tool_artifact_draft_materialization",
+          operation_kind: "artifact.coding_tool_draft",
+          thread_id: threadId ?? null,
+          tool_name: toolId ?? null,
+          tool_call_id: toolCallId ?? null,
+          planned_operation_kind: plan?.operation_kind ?? null,
+          planned_artifact_count: artifactRecords.length,
+          expected_artifact_count: artifactDrafts.length,
+        },
+      });
+    }
+    const committedArtifacts = [];
+    for (const artifactRecord of artifactRecords) {
+      try {
+        const commit = commitRuntimeArtifactRecord(store, artifactRecord, plan.operation_kind);
+        const committedArtifact = {
+          ...artifactRecord,
+          artifact_state_commit: commit,
+          artifact_state_commit_hash: commit.commit_hash,
+          artifact_state_object_ref: commit.object_ref,
+        };
+        store.codingArtifacts.set(committedArtifact.id, committedArtifact);
+        committedArtifacts.push(committedArtifact);
+      } catch (error) {
+        throw runtimeError({
+          status: 502,
+          code: "runtime_coding_tool_artifact_agentgres_commit_failed",
+          message: "Rust Agentgres artifact-state admission rejected the coding-tool artifact record.",
+          details: {
+            rust_core_boundary: "runtime.coding_tool_artifact",
+            operation: "coding_tool_artifact_draft_materialization",
+            operation_kind: "artifact.coding_tool_draft",
+            artifact_id: artifactRecord?.id ?? null,
+            cause: error?.message ?? String(error),
+            evidence_refs: [
+              "coding_tool_artifact_draft_rust_owned",
+              "rust_daemon_core_artifact_draft_plan_required",
+              "agentgres_artifact_state_truth_required",
+            ],
+          },
+        });
+      }
+    }
+    return committedArtifacts;
   }
 
   function readCodingToolArtifact(store, threadId, artifactId, range = {}) {
@@ -134,6 +241,10 @@ export function createRuntimeCodingToolArtifactSurface(deps = {}) {
         retired_aliases: retiredAliases,
       },
     });
+  }
+
+  function objectRecord(value) {
+    return value && typeof value === "object" && !Array.isArray(value) ? value : null;
   }
 
   function admitCodingToolCommandStreamEvents(

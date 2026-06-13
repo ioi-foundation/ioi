@@ -10,6 +10,7 @@ import {
   CODING_TOOL_BUDGET_RECOVERY_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
   CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   CODING_TOOL_RESULT_ENVELOPE_PLAN_REQUEST_SCHEMA_VERSION,
+  RUNTIME_CODING_TOOL_ARTIFACT_DRAFT_PLAN_REQUEST_SCHEMA_VERSION,
   COMPACTION_POLICY_REQUEST_SCHEMA_VERSION,
   CONTEXT_COMPACTION_PLAN_REQUEST_SCHEMA_VERSION,
   CONTEXT_COMPACTION_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
@@ -76,6 +77,7 @@ import {
   normalizeCodingToolBudgetBlockBridgeResult,
   normalizeCodingToolBudgetRecoveryStateUpdateBridgeResult,
   normalizeCodingToolResultEnvelopePlanBridgeResult,
+  normalizeRuntimeCodingToolArtifactDraftPlanBridgeResult,
   normalizeCompactionPolicyBridgeResult,
   normalizeContextBudgetPolicyBridgeResult,
   normalizeContextCompactionPlanBridgeResult,
@@ -1351,6 +1353,91 @@ test("coding-tool result envelope runner sends Rust daemon-core plan request", (
   assert.equal(result.step_module_context.workflow_projection_status, "live");
   assert.equal(result.event.payload_summary.tool_name, "workspace.status");
   assert.equal(result.envelope_hash, "sha256:envelope");
+});
+
+test("coding-tool artifact draft runner sends Rust daemon-core plan request", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    daemonCoreInvoker(request) {
+      captured = request;
+      return {
+        source: "rust_runtime_coding_tool_artifact_draft_plan_command",
+        backend: "rust_policy",
+        record: {
+          object: "ioi.runtime_coding_tool_artifact_draft_plan",
+          status: "planned",
+          operation: "coding_tool_artifact_draft_materialization",
+          operation_kind: "artifact.coding_tool_draft",
+          thread_id: "thread_alpha",
+          tool_name: "git.diff",
+          tool_call_id: "tool_diff",
+          workspace_root: "/workspace",
+          receipt_id: "receipt_alpha",
+          artifact_records: [
+            {
+              schema_version: "ioi.runtime.coding-tool-artifact.v1",
+              id: "artifact_rust_planned",
+              thread_id: "thread_alpha",
+              tool_name: "git.diff",
+              tool_call_id: "tool_diff",
+              channel: "stdout",
+              content: "diff body",
+              receipt_refs: ["receipt_alpha"],
+            },
+          ],
+          artifact_refs: ["artifact_rust_planned"],
+          receipt_refs: ["receipt_alpha"],
+          evidence_refs: ["coding_tool_artifact_draft_rust_owned"],
+          plan_hash: "sha256:artifact-plan",
+        },
+      };
+    },
+  });
+
+  const result = runner.planRuntimeCodingToolArtifactDrafts({
+    operation: "coding_tool_artifact_draft_materialization",
+    operation_kind: "artifact.coding_tool_draft",
+    thread_id: "thread_alpha",
+    tool_id: "git.diff",
+    tool_call_id: "tool_diff",
+    workspace_root: "/workspace",
+    receipt_id: "receipt_alpha",
+    artifact_drafts: [{ channel: "stdout", content: "diff body" }],
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "plan_runtime_coding_tool_artifact_drafts");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    RUNTIME_CODING_TOOL_ARTIFACT_DRAFT_PLAN_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.thread_id, "thread_alpha");
+  assert.equal(captured.request.tool_id, "git.diff");
+  assert.equal(captured.request.artifact_drafts[0].content, "diff body");
+  assert.equal(result.source, "rust_runtime_coding_tool_artifact_draft_plan_command");
+  assert.equal(result.operation_kind, "artifact.coding_tool_draft");
+  assert.equal(result.artifact_records[0].id, "artifact_rust_planned");
+  assert.deepEqual(result.artifact_refs, ["artifact_rust_planned"]);
+  assert.equal(result.plan_hash, "sha256:artifact-plan");
+  assert.equal(Object.hasOwn(result, "operationKind"), false);
+});
+
+test("coding-tool artifact draft normalizer rejects missing Rust records", () => {
+  assert.throws(
+    () =>
+      normalizeRuntimeCodingToolArtifactDraftPlanBridgeResult({
+        record: {
+          operation_kind: "artifact.coding_tool_draft",
+          artifact_records: [],
+        },
+      }),
+    (error) => {
+      assert.equal(error.code, "runtime_coding_tool_artifact_draft_plan_records_missing");
+      assertNoRetiredOperationKindDetailAliases(error.details);
+      return true;
+    },
+  );
 });
 
 test("coding-tool result envelope normalizer rejects wrong operation kind", () => {

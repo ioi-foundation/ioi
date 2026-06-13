@@ -751,6 +751,7 @@ export class AgentgresRuntimeStateStore {
     this.codingToolArtifactSurface = createRuntimeCodingToolArtifactSurface({
       codingToolCommandStreamAdmissionForThread: (store, request = {}) =>
         this.admitCodingToolCommandStreamEventsForThread(store, request),
+      contextPolicyRunner: this.contextPolicyRunner,
       notFound,
       policyError,
       runtimeError,

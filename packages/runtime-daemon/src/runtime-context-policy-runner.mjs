@@ -11,6 +11,8 @@ export const CODING_TOOL_BUDGET_RECOVERY_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSI
   "ioi.runtime.coding-tool-budget-recovery-admission-required-request.v1";
 export const CODING_TOOL_RESULT_ENVELOPE_PLAN_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.coding-tool-result-envelope-plan-request.v1";
+export const RUNTIME_CODING_TOOL_ARTIFACT_DRAFT_PLAN_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.coding-tool-artifact-draft-plan-request.v1";
 export const WORKFLOW_EDIT_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.workflow-edit-admission-required-request.v1";
 export const DIAGNOSTICS_REPAIR_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION =
@@ -233,6 +235,14 @@ export class RustContextPolicyRunner {
     return normalizeCodingToolResultEnvelopePlanBridgeResult(this.evaluateRawPolicy({
       operation: "plan_coding_tool_result_envelope",
       schemaVersion: CODING_TOOL_RESULT_ENVELOPE_PLAN_REQUEST_SCHEMA_VERSION,
+      request,
+    }));
+  }
+
+  planRuntimeCodingToolArtifactDrafts(request = {}) {
+    return normalizeRuntimeCodingToolArtifactDraftPlanBridgeResult(this.evaluateRawPolicy({
+      operation: "plan_runtime_coding_tool_artifact_drafts",
+      schemaVersion: RUNTIME_CODING_TOOL_ARTIFACT_DRAFT_PLAN_REQUEST_SCHEMA_VERSION,
       request,
     }));
   }
@@ -1014,6 +1024,46 @@ export function normalizeCodingToolResultEnvelopePlanBridgeResult(value = {}) {
     rollback_refs: stringArray(result.rollback_refs ?? record.rollback_refs),
     envelope_hash:
       optionalString(result.envelope_hash ?? record.envelope_hash) ?? null,
+  };
+}
+
+export function normalizeRuntimeCodingToolArtifactDraftPlanBridgeResult(value = {}) {
+  const result = objectRecord(value) ?? {};
+  const record = objectRecord(result.record) ?? result;
+  const artifactRecords = arrayValue(result.artifact_records ?? record.artifact_records)
+    .filter((item) => objectRecord(item));
+  if (artifactRecords.length === 0) {
+    throw new ContextPolicyRunnerError(
+      "Rust coding-tool artifact draft planner did not return artifact records.",
+      "runtime_coding_tool_artifact_draft_plan_records_missing",
+      { operation_kind: optionalString(result.operation_kind ?? record.operation_kind) },
+    );
+  }
+  return {
+    ...record,
+    source:
+      result.source ??
+      record.source ??
+      "rust_runtime_coding_tool_artifact_draft_plan_command",
+    backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
+    record,
+    object: optionalString(result.object ?? record.object) ?? null,
+    status: optionalString(result.status ?? record.status) ?? null,
+    operation: optionalString(result.operation ?? record.operation) ?? null,
+    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+      codePrefix: "runtime_coding_tool_artifact_draft_plan",
+      expectedOperationKind: "artifact.coding_tool_draft",
+    }),
+    thread_id: optionalString(result.thread_id ?? record.thread_id) ?? null,
+    tool_name: optionalString(result.tool_name ?? record.tool_name) ?? null,
+    tool_call_id: optionalString(result.tool_call_id ?? record.tool_call_id) ?? null,
+    workspace_root: optionalString(result.workspace_root ?? record.workspace_root) ?? null,
+    receipt_id: optionalString(result.receipt_id ?? record.receipt_id) ?? null,
+    artifact_records: artifactRecords,
+    artifact_refs: stringArray(result.artifact_refs ?? record.artifact_refs),
+    receipt_refs: stringArray(result.receipt_refs ?? record.receipt_refs),
+    evidence_refs: stringArray(result.evidence_refs ?? record.evidence_refs),
+    plan_hash: optionalString(result.plan_hash ?? record.plan_hash) ?? null,
   };
 }
 

@@ -8397,12 +8397,17 @@ output fields over admitted replay events while JS only supplies canonical
 agent/run/event facts. The runner/cache transport remains non-terminal
 scaffolding until stable Rust projection/replay APIs replace it.
 
-This is still not terminal coding-tool migration. JS still coordinates
-temporary artifact/snapshot materialization, diagnostics orchestration, runner
-transport, and projection adapters around Rust-owned plans. Diagnostics
-projection/replay, temporary runner transport, approval request/grant issuance
-semantics, and authority projection/replay still need direct Rust daemon-core
-ownership.
+This is still not terminal coding-tool migration. Coding-tool artifact draft
+materialization now calls Rust `plan_runtime_coding_tool_artifact_drafts`,
+receives Rust-authored artifact records, and commits them through Rust
+Agentgres artifact-state admission before the daemon updates its temporary read
+cache; the old JS artifact draft record materializer remains retired. JS still
+coordinates temporary artifact read/retrieve cache projection, snapshot
+materialization, diagnostics orchestration, runner transport, and projection
+adapters around Rust-owned plans. Artifact read/retrieve replay/projection,
+diagnostics projection/replay, temporary runner transport, approval
+request/grant issuance semantics, and authority projection/replay still need
+direct Rust daemon-core ownership.
 
 This is still not terminal migration. These runner, gate, coding-tool,
 thread-control, run-cancel, task/job create/control/projection,
