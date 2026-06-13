@@ -25,7 +25,9 @@ Current Wallet addition:
 > Exchange is source-agnostic: route sources such as decentralized.exchange,
 > direct pools, routers, solvers, and quote APIs produce candidates, but
 > wallet.network owns exchange authority, risk disclosure, approval, signing or
-> denial, revocation, protection actions, and receipts.**
+> denial, revocation, protection actions, and receipts. Wallet Trade is
+> advanced and high-risk: perps, margin, leverage, and position lifecycle
+> require exact TradeIntent approval, risk labels, and position receipts.**
 
 Current decentralized resource-lane addition:
 

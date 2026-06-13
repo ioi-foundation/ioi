@@ -246,6 +246,12 @@ compliance acronyms for hidden audit material.
   wallet.network owns exchange authority, risk disclosure, policy evaluation,
   signing or denial, revocation, and receipts; route sources only produce
   candidates.
+- `WalletTrade`: the advanced Wallet product surface for exposure management,
+  including spot orders, perps, leverage, collateral, margin, liquidation,
+  funding, and position lifecycle. wallet.network owns trade authority, risk
+  disclosure, policy evaluation, signing or denial, revocation, and receipts;
+  trading route sources and venues only produce candidates or execute approved
+  intents.
 - `ExchangeIntent`: the semantic wallet object above raw transaction calldata.
   It binds route, calldata commitments, slippage, simulation hash, policy hash,
   grant/lease, revocation epoch, economics, risk labels, and exact `TxIntent`

@@ -72,9 +72,9 @@ Conflict rule:
      bytes, wallet.network controls viewing/decryption/mutation authority, and
      IOI L1 receives only selected public/economic/cross-domain commitments;
    - wallet.network is the authority wallet for autonomous finance: it owns
-     exchange authority, risk disclosure, approval, signing/denial,
-     revocation, protection actions, and wallet receipts, while route sources
-     only produce candidates;
+     exchange authority, trade authority, risk disclosure, approval,
+     signing/denial, revocation, protection actions, and wallet receipts,
+     while route sources only produce candidates;
    - `decentralized.exchange` is a preferred first-party route source and
      public exchange surface, not a mandatory exchange backend, authority
      layer, liquidity owner, execution owner, or trust root;
