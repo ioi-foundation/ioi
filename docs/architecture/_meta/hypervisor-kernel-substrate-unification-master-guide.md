@@ -2495,8 +2495,10 @@ runtime events for repair decisions, and retired
 `projection`/`decision`/`decisions`/`repair_decisions` inputs fail closed.
 The diagnostics operator override state-update cut supersedes the operator
 override execution refusal path: override execution now requires Rust
-`plan_diagnostics_operator_override_state_update` and commits only the
-Rust-planned run projection through Rust Agentgres run-state admission.
+`plan_diagnostics_operator_override_state_update`, forwards raw canonical
+operator request/decision/repair-policy context instead of JS approval verdicts,
+derives approval state in Rust, and commits only the Rust-planned run projection
+through Rust Agentgres run-state admission.
 The diagnostics operator override direct-event cut supersedes the direct
 operator-override event refusal path: direct append now requires Rust
 `plan_runtime_diagnostics_repair_control` to author
@@ -4857,9 +4859,12 @@ persistence, and diagnostics repair decision resolution calls Rust
 `project_runtime_diagnostics_repair_projection` over runtime `state_dir`
 Agentgres event replay before accepted repair truth can return without JS
 projection readback or decision-candidate transport; diagnostics operator override execution calls Rust
-`plan_diagnostics_operator_override_state_update` and commits only the
-Rust-planned operator-control run projection through Rust Agentgres run-state
-admission without JS run-map mutation; direct operator-override event append
+`plan_diagnostics_operator_override_state_update`, sends raw operator request,
+decision, and repair-policy context instead of JS approval verdicts, lets Rust
+derive the override approval state and reject retired verdict transport, and
+commits only the Rust-planned operator-control run projection through Rust
+Agentgres run-state admission without JS run-map mutation; direct
+operator-override event append
 also calls Rust diagnostics repair control planning and admits only the
 Rust-authored operator-override event through Rust runtime-event admission;
 diagnostics repair retry-turn creation composes with the Rust-owned run-create
@@ -5087,8 +5092,9 @@ and diagnostics repair decision resolution requires Rust
 `project_runtime_diagnostics_repair_projection` over runtime `state_dir`
 Agentgres event replay before accepted repair projection truth can return;
 diagnostics operator override execution requires Rust
-`plan_diagnostics_operator_override_state_update` plus Rust Agentgres run-state
-admission before accepted override control truth can return;
+`plan_diagnostics_operator_override_state_update` to derive the override
+approval state from canonical request/decision/policy context plus Rust
+Agentgres run-state admission before accepted override control truth can return;
 thread fork now calls Rust daemon-core `plan_runtime_thread_fork_control`,
 commits only the Rust-authored forked agent through Agentgres-backed
 `writeAgent`, validates the forked-thread projection, and admits only the
@@ -7500,7 +7506,7 @@ surface mounts the context-policy runner as the diagnostics repair policy
 projector and refuses pending feedback policy projection without that Rust
 boundary.
 
-This remains non-terminal because wallet-governed override authority, broader
+This remains non-terminal because wallet-governed override issuance, broader
 diagnostics orchestration, expected-head/state-root binding, receipt/policy
 binding, command-transport retirement, and stable IDE/CLI/SDK protocol APIs are
 still pending beyond the Rust policy replay projection API. The target is no JS
@@ -8469,8 +8475,9 @@ Diagnostics repair policy projection, decision execution, direct decision-event
 append, and decision resolution have moved to Rust-owned projection/event
 planning plus Rust runtime-event admission, and diagnostics operator override
 execution now uses Rust state-update planning plus Rust Agentgres run-state
-admission; diagnostics repair retry-turn creation/direct retry-event append now
-use Rust run-create composition plus Rust diagnostics repair event
+admission with Rust-derived operator override approval state instead of JS
+verdict transport; diagnostics repair retry-turn creation/direct retry-event
+append now use Rust run-create composition plus Rust diagnostics repair event
 planning/admission, and direct operator-override event append now uses Rust
 diagnostics repair event planning/admission. Diagnostics repair policy
 projection now replays admitted Agentgres runtime events from runtime `state_dir`

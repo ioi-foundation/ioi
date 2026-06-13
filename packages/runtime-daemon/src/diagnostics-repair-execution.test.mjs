@@ -73,51 +73,14 @@ test("workspace restore apply helpers enforce approval and conflict policy", () 
   assert.equal(runtime.diagnosticsRepairExecutionStatus({ previewStatus: "blocked" }), "completed");
 });
 
-test("operator override approval ignores retired request, decision, and policy aliases", () => {
+test("operator override approval derivation is retired from JS helpers", () => {
   const runtime = helpers();
 
-  assert.deepEqual(
-    runtime.diagnosticsOperatorOverrideApprovalForRequest({
-      operator_override_requires_approval: "false",
-    }),
-    {
-      required: false,
-      satisfied: true,
-      source: "workflow_policy",
-    },
-  );
-  assert.deepEqual(
-    runtime.diagnosticsOperatorOverrideApprovalForRequest({
-      operator_override_approval: "override",
-    }),
-    {
-      required: true,
-      satisfied: true,
-      source: "override",
-    },
-  );
   assert.equal(
-    runtime.diagnosticsOperatorOverrideApprovalForRequest({
-      operator_override_approved: true,
-    }).satisfied,
-    true,
+    Object.hasOwn(runtime, "diagnosticsOperatorOverrideApprovalForRequest"),
+    false,
   );
-
-  const aliasOnlyApproval = runtime.diagnosticsOperatorOverrideApprovalForRequest({
-    operatorOverrideRequiresApproval: "false",
-    operatorOverrideApproval: "override",
-    approvalDecision: "approved",
-    policyDecision: "approved",
-    operatorOverrideApproved: true,
-    overrideApproved: true,
-    approvalGranted: true,
-  }, {
-    decision: { requiresApproval: false },
-    repairPolicy: { operatorOverrideRequiresApproval: false },
-  });
-  assert.equal(aliasOnlyApproval.required, true);
-  assert.equal(aliasOnlyApproval.satisfied, false);
-  assert.equal(aliasOnlyApproval.source, "missing");
+  assert.equal(Object.hasOwn(runtime, "diagnosticsOperatorOverrideApprovalKey"), false);
 });
 
 test("diagnostics repair execution projections preserve public envelopes", () => {

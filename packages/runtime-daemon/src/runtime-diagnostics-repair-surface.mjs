@@ -114,9 +114,6 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
       "action",
       "repair_action",
       "approval_id",
-      "approval_required",
-      "approval_satisfied",
-      "approval_source",
       "diagnostic_refs",
       "target_paths",
       "retry_turn_id",
@@ -157,12 +154,6 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
 
   function stringRefs(values) {
     return normalizeArray(values).map((value) => String(value)).filter(Boolean);
-  }
-
-  function booleanOption(value, fallback = false) {
-    if (value === true || value === "true" || value === "1" || value === 1) return true;
-    if (value === false || value === "false" || value === "0" || value === 0) return false;
-    return fallback;
   }
 
   function positiveInteger(value) {
@@ -371,9 +362,13 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
       decision_id: decisionId,
       gate_event_id: gateEventId,
       source: optionalString(normalizedRequest.source) ?? "agent_studio",
-      approval_required: booleanOption(normalizedRequest.approval_required, false),
-      approval_satisfied: booleanOption(normalizedRequest.approval_satisfied, false),
-      approval_source: optionalString(normalizedRequest.approval_source) ?? null,
+      operator_override_request: normalizedRequest,
+      decision: objectRecord(decision) ?? {},
+      repair_policy:
+        objectRecord(normalizedRequest.repair_policy) ??
+        objectRecord(decision?.repair_policy) ??
+        objectRecord(gateEvent?.payload?.repair_policy) ??
+        {},
       snapshot_id: normalizedSnapshotId,
     });
     const plannedRun = objectRecord(planned?.run);
@@ -570,9 +565,6 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
       snapshot_id: optionalString(snapshotId) ?? null,
       action: "operator_override",
       approval_id: optionalString(decision?.approval_id ?? gateEvent?.payload?.approval_id) ?? null,
-      approval_required: decision?.approval_required ?? gateEvent?.payload?.approval_required ?? null,
-      approval_satisfied: decision?.approval_satisfied ?? gateEvent?.payload?.approval_satisfied ?? null,
-      approval_source: optionalString(decision?.approval_source ?? gateEvent?.payload?.approval_source) ?? null,
     }, {
       operation: "diagnostics_operator_override_event_append",
       operationKind: "diagnostics.operator_override.event",

@@ -10110,13 +10110,41 @@ function runBridge() {
       /rust_policy_plans_diagnostics_operator_override_state_update/.test(policyCore) &&
       /"decision_id": decision_id/.test(diagnosticsOperatorOverrideStateUpdateCoreBlock) &&
       /"gate_event_id": gate_event_id/.test(diagnosticsOperatorOverrideStateUpdateCoreBlock) &&
-      /"approval_required": request\.approval_required/.test(diagnosticsOperatorOverrideStateUpdateCoreBlock) &&
-      /"approval_satisfied": request\.approval_satisfied/.test(diagnosticsOperatorOverrideStateUpdateCoreBlock) &&
-      /"approval_source": approval_source/.test(diagnosticsOperatorOverrideStateUpdateCoreBlock) &&
+      /diagnostics_operator_override_approval_for_request/.test(
+        diagnosticsOperatorOverrideStateUpdateCoreBlock,
+      ) &&
+      /RetiredApprovalVerdictTransport/.test(policyOperatorControlCore) &&
+      /reject_retired_operator_override_approval_transport/.test(
+        diagnosticsOperatorOverrideStateUpdateCoreBlock,
+      ) &&
+      /operator_request\.get\("operator_override_requires_approval"\)/.test(
+        diagnosticsOperatorOverrideStateUpdateCoreBlock,
+      ) &&
+      /decision\.get\("requires_approval"\)/.test(
+        diagnosticsOperatorOverrideStateUpdateCoreBlock,
+      ) &&
+      /repair_policy\.get\("operator_override_requires_approval"\)/.test(
+        diagnosticsOperatorOverrideStateUpdateCoreBlock,
+      ) &&
+      /operator_request\.get\("operator_override_approval"\)/.test(
+        diagnosticsOperatorOverrideStateUpdateCoreBlock,
+      ) &&
+      /operator_request\.get\("operator_override_approved"\)/.test(
+        diagnosticsOperatorOverrideStateUpdateCoreBlock,
+      ) &&
+      /"approval_required": approval\.required/.test(
+        diagnosticsOperatorOverrideStateUpdateCoreBlock,
+      ) &&
+      /"approval_satisfied": approval\.satisfied/.test(
+        diagnosticsOperatorOverrideStateUpdateCoreBlock,
+      ) &&
+      /"approval_source": approval\.source/.test(
+        diagnosticsOperatorOverrideStateUpdateCoreBlock,
+      ) &&
       /"snapshot_id": snapshot_id/.test(diagnosticsOperatorOverrideStateUpdateCoreBlock) &&
       /"event_id": request\.event_id/.test(diagnosticsOperatorOverrideStateUpdateCoreBlock) &&
       /"created_at": request\.created_at/.test(diagnosticsOperatorOverrideStateUpdateCoreBlock) &&
-      !/"decisionId": decision_id|"gateEventId": gate_event_id|"approvalRequired": request\.approval_required|"approvalSatisfied": request\.approval_satisfied|"approvalSource": approval_source|"snapshotId": snapshot_id|"eventId": request\.event_id|"createdAt": request\.created_at/.test(
+      !/"decisionId": decision_id|"gateEventId": gate_event_id|"approvalRequired": approval\.required|"approvalSatisfied": approval\.satisfied|"approvalSource": approval\.source|"snapshotId": snapshot_id|"eventId": request\.event_id|"createdAt": request\.created_at/.test(
         diagnosticsOperatorOverrideStateUpdateCoreBlock,
       ) &&
       /pub fn plan_diagnostics_operator_override_state_update_response/.test(
@@ -10126,6 +10154,12 @@ function runBridge() {
         policyOperatorControlCore,
       ) &&
       /rust_policy_shapes_diagnostics_operator_override_state_update_command_response/.test(
+        policyOperatorControlCore,
+      ) &&
+      /rust_policy_derives_diagnostics_operator_override_approval_from_request_context/.test(
+        policyOperatorControlCore,
+      ) &&
+      /rust_policy_rejects_diagnostics_operator_override_js_verdict_transport/.test(
         policyOperatorControlCore,
       ) &&
       !/plan_diagnostics_operator_override_state_update_response as plan_diagnostics_operator_override_state_update/.test(bridgeModule) &&
@@ -10147,6 +10181,18 @@ function runBridge() {
         runtimeContextPolicyRunnerTest,
       ) &&
       /result\.operator_control\.decision_id/.test(runtimeContextPolicyRunnerTest) &&
+      /captured\.request\.operator_override_request\.operator_override_approval/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /captured\.request\.decision\.requires_approval/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /captured\.request\.repair_policy\.operator_override_requires_approval/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /Object\.hasOwn\(captured\.request,\s*field\),\s*false/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
       /Object\.hasOwn\(result\.operator_control,\s*field\),\s*false/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
@@ -10170,6 +10216,20 @@ function runBridge() {
         runtimeDiagnosticsRepairSurface,
       ) &&
       /store\.writeRun\(plannedRun, plannedOperationKind\)/.test(
+        runtimeDiagnosticsRepairSurface,
+      ) &&
+      /operator_override_request:\s*normalizedRequest/.test(
+        runtimeDiagnosticsRepairSurface,
+      ) &&
+      /decision:\s*objectRecord\(decision\)/.test(runtimeDiagnosticsRepairSurface) &&
+      /repair_policy:/.test(runtimeDiagnosticsRepairSurface) &&
+      !/approval_required:\s*booleanOption\(normalizedRequest\.approval_required/.test(
+        runtimeDiagnosticsRepairSurface,
+      ) &&
+      !/approval_satisfied:\s*booleanOption\(normalizedRequest\.approval_satisfied/.test(
+        runtimeDiagnosticsRepairSurface,
+      ) &&
+      !/approval_source:\s*optionalString\(normalizedRequest\.approval_source/.test(
         runtimeDiagnosticsRepairSurface,
       ) &&
       /diagnostics operator override uses Rust state update and run-state admission/.test(
@@ -25482,6 +25542,11 @@ function runCompositor() {
     ? read("crates/services/src/agentic/runtime/kernel/coding_tool_step_module.rs")
     : "";
   const policyCore = readRustPolicyCore();
+  const policyOperatorControlCore = exists(
+    "crates/services/src/agentic/runtime/kernel/policy/operator_control.rs",
+  )
+    ? read("crates/services/src/agentic/runtime/kernel/policy/operator_control.rs")
+    : "";
   const policyThreadLifecycleCore = exists(
     "crates/services/src/agentic/runtime/kernel/policy/thread_lifecycle.rs",
   )
@@ -32785,39 +32850,33 @@ function runCompositor() {
   assertCheck(
     result,
     "diagnostics-operator-override-approval-aliases-retired",
-    /request\.operator_override_requires_approval/.test(diagnosticsOperatorOverrideApprovalHelper) &&
-      /request\.operator_override_approval/.test(diagnosticsOperatorOverrideApprovalHelper) &&
-      /request\.approval_decision/.test(diagnosticsOperatorOverrideApprovalHelper) &&
-      /request\.policy_decision/.test(diagnosticsOperatorOverrideApprovalHelper) &&
-      /request\.operator_override_approved/.test(diagnosticsOperatorOverrideApprovalHelper) &&
-      /request\.override_approved/.test(diagnosticsOperatorOverrideApprovalHelper) &&
-      /request\.approval_granted/.test(diagnosticsOperatorOverrideApprovalHelper) &&
-      /decision\.requires_approval/.test(diagnosticsOperatorOverrideApprovalHelper) &&
-      /repairPolicy\.operator_override_requires_approval/.test(
-        diagnosticsOperatorOverrideApprovalHelper,
-      ) &&
-      !/\brequest\.(?:operatorOverrideRequiresApproval|operatorOverrideApproval|approvalDecision|policyDecision|operatorOverrideApproved|overrideApproved|approvalGranted)\b/.test(
-        diagnosticsOperatorOverrideApprovalHelper,
-      ) &&
-      !/\bdecision\.requiresApproval\b/.test(diagnosticsOperatorOverrideApprovalHelper) &&
-      !/\brepairPolicy\.operatorOverrideRequiresApproval\b/.test(
-        diagnosticsOperatorOverrideApprovalHelper,
-      ) &&
-      /operator override approval ignores retired request, decision, and policy aliases/.test(
+    diagnosticsOperatorOverrideApprovalHelper === "" &&
+      !/diagnosticsOperatorOverrideApprovalForRequest/.test(diagnosticsRepairExecution) &&
+      !/diagnosticsOperatorOverrideApprovalKey/.test(diagnosticsRepairExecution) &&
+      /operator override approval derivation is retired from JS helpers/.test(
         diagnosticsRepairExecutionTest,
       ) &&
-      /operatorOverrideRequiresApproval:\s*"false"/.test(diagnosticsRepairExecutionTest) &&
-      /operatorOverrideApproval:\s*"override"/.test(diagnosticsRepairExecutionTest) &&
-      /approvalDecision:\s*"approved"/.test(diagnosticsRepairExecutionTest) &&
-      /policyDecision:\s*"approved"/.test(diagnosticsRepairExecutionTest) &&
-      /operatorOverrideApproved:\s*true/.test(diagnosticsRepairExecutionTest) &&
-      /overrideApproved:\s*true/.test(diagnosticsRepairExecutionTest) &&
-      /approvalGranted:\s*true/.test(diagnosticsRepairExecutionTest),
+      /Object\.hasOwn\(runtime,\s*"diagnosticsOperatorOverrideApprovalForRequest"\),\s*false/.test(
+        diagnosticsRepairExecutionTest,
+      ) &&
+      /Object\.hasOwn\(runtime,\s*"diagnosticsOperatorOverrideApprovalKey"\),\s*false/.test(
+        diagnosticsRepairExecutionTest,
+      ) &&
+      /diagnostics_operator_override_approval_for_request/.test(
+        policyOperatorControlCore,
+      ) &&
+      /rust_policy_derives_diagnostics_operator_override_approval_from_request_context/.test(
+        policyOperatorControlCore,
+      ) &&
+      /rust_policy_rejects_diagnostics_operator_override_js_verdict_transport/.test(
+        policyOperatorControlCore,
+      ),
     [
+      "crates/services/src/agentic/runtime/kernel/policy/operator_control.rs",
       "packages/runtime-daemon/src/diagnostics-repair-execution.mjs",
       "packages/runtime-daemon/src/diagnostics-repair-execution.test.mjs",
     ],
-    "Phase 10/11 is pending: diagnostics operator override approval must use canonical snake_case authority fields without retired camelCase fallbacks",
+    "Diagnostics operator override approval authority must be derived by Rust daemon-core; the JS helper and verdict transport must stay retired",
   );
   assertCheck(
     result,

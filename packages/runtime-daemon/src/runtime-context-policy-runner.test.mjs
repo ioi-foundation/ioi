@@ -1252,9 +1252,15 @@ test("diagnostics operator override state update runner sends Rust state update 
     decision_id: "decision_override",
     gate_event_id: "event_gate",
     source: "runtime_auto",
-    approval_required: true,
-    approval_satisfied: true,
-    approval_source: "boolean_confirmation",
+    operator_override_request: {
+      operator_override_approval: "override",
+    },
+    decision: {
+      requires_approval: true,
+    },
+    repair_policy: {
+      operator_override_requires_approval: true,
+    },
     snapshot_id: "snapshot_alpha",
   });
 
@@ -1266,6 +1272,12 @@ test("diagnostics operator override state update runner sends Rust state update 
     DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   );
   assert.equal(captured.request.decision_id, "decision_override");
+  assert.equal(captured.request.operator_override_request.operator_override_approval, "override");
+  assert.equal(captured.request.decision.requires_approval, true);
+  assert.equal(captured.request.repair_policy.operator_override_requires_approval, true);
+  for (const field of ["approval_required", "approval_satisfied", "approval_source"]) {
+    assert.equal(Object.hasOwn(captured.request, field), false);
+  }
   assert.equal(result.source, "rust_diagnostics_operator_override_state_update_command");
   assert.equal(result.operation_kind, "diagnostics.operator_override.event");
   assert.equal(result.operator_control.decision_id, "decision_override");

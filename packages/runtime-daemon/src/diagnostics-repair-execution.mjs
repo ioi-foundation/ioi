@@ -33,59 +33,6 @@ export function createDiagnosticsRepairExecutionHelpers({
     };
   }
 
-  function diagnosticsOperatorOverrideApprovalForRequest(request = {}, { decision = {}, repairPolicy = {} } = {}) {
-    const required = normalizeBooleanOption(
-      request.operator_override_requires_approval ??
-        decision.requires_approval ??
-        repairPolicy.operator_override_requires_approval,
-      true,
-    );
-    const text = optionalString(
-      request.operator_override_approval ??
-        request.approval ??
-        request.approval_decision ??
-        request.policy_decision ??
-        request.decision ??
-        request.status,
-    )?.toLowerCase();
-    const approvedText = [
-      "approve",
-      "approved",
-      "allow",
-      "allowed",
-      "accept",
-      "accepted",
-      "confirm",
-      "confirmed",
-      "override",
-    ];
-    const approvedBoolean = [
-      request.operator_override_approved,
-      request.override_approved,
-      request.confirm,
-      request.confirmed,
-      request.approval_granted,
-      request.approved,
-    ].some((value) => value === true || value === "true");
-    const satisfied = !required || approvedBoolean || approvedText.includes(text);
-    return {
-      required,
-      satisfied,
-      source: !required
-        ? "workflow_policy"
-        : approvedBoolean
-          ? "boolean_confirmation"
-          : approvedText.includes(text)
-            ? text
-            : "missing",
-    };
-  }
-
-  function diagnosticsOperatorOverrideApprovalKey(approval = {}) {
-    if (!approval.required) return "approval_not_required";
-    return approval.satisfied ? `approval_${safeId(approval.source)}` : "approval_required";
-  }
-
   function diagnosticsRepairApplyApprovalKey(request = {}) {
     const approval = workspaceRestoreApplyApprovalForRequest(request);
     return approval.satisfied ? `approval_${safeId(approval.source)}` : "approval_required";
@@ -220,8 +167,6 @@ export function createDiagnosticsRepairExecutionHelpers({
   }
 
   return {
-    diagnosticsOperatorOverrideApprovalForRequest,
-    diagnosticsOperatorOverrideApprovalKey,
     diagnosticsOperatorOverrideResultFromEvent,
     diagnosticsRepairApplyApprovalKey,
     diagnosticsRepairExecutionStatus,

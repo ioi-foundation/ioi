@@ -258,8 +258,6 @@ const {
   optionalString,
 });
 const {
-  diagnosticsOperatorOverrideApprovalForRequest,
-  diagnosticsOperatorOverrideApprovalKey,
   diagnosticsOperatorOverrideResultFromEvent,
   diagnosticsRepairApplyApprovalKey,
   diagnosticsRepairExecutionStatus,
@@ -791,8 +789,6 @@ export class AgentgresRuntimeStateStore {
       contextPolicyRunner: this.contextPolicyRunner,
       diagnosticsRepairRunner: this.contextPolicyRunner,
       eventStreamIdForThread,
-      diagnosticsOperatorOverrideApprovalForRequest,
-      diagnosticsOperatorOverrideApprovalKey,
       diagnosticsOperatorOverrideResultFromEvent,
       diagnosticsRepairApplyApprovalKey,
       diagnosticsRepairExecutionStatus,

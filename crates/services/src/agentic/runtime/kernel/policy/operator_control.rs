@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{json, Map, Value};
 
 use super::{
     DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
@@ -19,6 +19,7 @@ pub enum DiagnosticsOperatorOverrideStateUpdateError {
         actual: String,
     },
     MissingField(&'static str),
+    RetiredApprovalVerdictTransport(Vec<String>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -65,13 +66,15 @@ pub struct DiagnosticsOperatorOverrideStateUpdateRequest {
     pub gate_event_id: Option<String>,
     pub source: String,
     #[serde(default)]
-    pub approval_required: bool,
+    pub operator_override_request: Value,
     #[serde(default)]
-    pub approval_satisfied: bool,
+    pub decision: Value,
     #[serde(default)]
-    pub approval_source: Option<String>,
+    pub repair_policy: Value,
     #[serde(default)]
     pub snapshot_id: Option<String>,
+    #[serde(default, flatten)]
+    pub extra: Map<String, Value>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -356,23 +359,16 @@ impl DiagnosticsOperatorOverrideStateUpdateCore {
         let decision_id = optional_trimmed(Some(request.decision_id.as_str())).unwrap();
         let source = operator_control_source(Some(request.source.as_str()));
         let gate_event_id = optional_trimmed(request.gate_event_id.as_deref());
-        let approval_source =
-            optional_trimmed(request.approval_source.as_deref()).unwrap_or_else(|| {
-                if request.approval_satisfied {
-                    "satisfied".to_string()
-                } else {
-                    "missing".to_string()
-                }
-            });
+        let approval = diagnostics_operator_override_approval_for_request(request)?;
         let snapshot_id = optional_trimmed(request.snapshot_id.as_deref());
         let operator_control = json!({
             "control": "diagnostics_operator_override",
             "source": source,
             "decision_id": decision_id,
             "gate_event_id": gate_event_id,
-            "approval_required": request.approval_required,
-            "approval_satisfied": request.approval_satisfied,
-            "approval_source": approval_source,
+            "approval_required": approval.required,
+            "approval_satisfied": approval.satisfied,
+            "approval_source": approval.source,
             "snapshot_id": snapshot_id,
             "event_id": request.event_id,
             "seq": request.seq,
@@ -397,19 +393,19 @@ impl DiagnosticsOperatorOverrideStateUpdateCore {
                 gate.insert("continuation_allowed".to_string(), Value::Bool(true));
                 gate.insert(
                     "approvalRequired".to_string(),
-                    Value::Bool(request.approval_required),
+                    Value::Bool(approval.required),
                 );
                 gate.insert(
                     "approval_required".to_string(),
-                    Value::Bool(request.approval_required),
+                    Value::Bool(approval.required),
                 );
                 gate.insert(
                     "approvalSatisfied".to_string(),
-                    Value::Bool(request.approval_satisfied),
+                    Value::Bool(approval.satisfied),
                 );
                 gate.insert(
                     "approval_satisfied".to_string(),
-                    Value::Bool(request.approval_satisfied),
+                    Value::Bool(approval.satisfied),
                 );
                 gate.insert(
                     "operatorOverrideEventId".to_string(),
@@ -477,6 +473,131 @@ impl DiagnosticsOperatorOverrideStateUpdateCore {
             run: Value::Object(run),
             generated_at: "rust_policy_core".to_string(),
         })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct DiagnosticsOperatorOverrideApproval {
+    required: bool,
+    satisfied: bool,
+    source: String,
+}
+
+fn diagnostics_operator_override_approval_for_request(
+    request: &DiagnosticsOperatorOverrideStateUpdateRequest,
+) -> Result<DiagnosticsOperatorOverrideApproval, DiagnosticsOperatorOverrideStateUpdateError> {
+    reject_retired_operator_override_approval_transport(request)?;
+    let operator_request = object_value(&request.operator_override_request).unwrap_or_default();
+    let decision = object_value(&request.decision).unwrap_or_default();
+    let repair_policy = object_value(&request.repair_policy).unwrap_or_default();
+    let required = first_json_bool([
+        operator_request.get("operator_override_requires_approval"),
+        decision.get("requires_approval"),
+        repair_policy.get("operator_override_requires_approval"),
+    ])
+    .unwrap_or(true);
+    let approval_text = first_json_string([
+        operator_request.get("operator_override_approval"),
+        operator_request.get("approval"),
+        operator_request.get("approval_decision"),
+        operator_request.get("policy_decision"),
+        operator_request.get("decision"),
+        operator_request.get("status"),
+    ])
+    .map(|value| value.to_ascii_lowercase());
+    let approved_text = matches!(
+        approval_text.as_deref(),
+        Some(
+            "approve"
+                | "approved"
+                | "allow"
+                | "allowed"
+                | "accept"
+                | "accepted"
+                | "confirm"
+                | "confirmed"
+                | "override"
+        )
+    );
+    let approved_boolean = [
+        operator_request.get("operator_override_approved"),
+        operator_request.get("override_approved"),
+        operator_request.get("confirm"),
+        operator_request.get("confirmed"),
+        operator_request.get("approval_granted"),
+        operator_request.get("approved"),
+    ]
+    .into_iter()
+    .flatten()
+    .any(|value| json_bool(value) == Some(true));
+    let satisfied = !required || approved_boolean || approved_text;
+    let source = if !required {
+        "workflow_policy".to_string()
+    } else if approved_boolean {
+        "boolean_confirmation".to_string()
+    } else if approved_text {
+        approval_text.unwrap_or_else(|| "approval".to_string())
+    } else {
+        "missing".to_string()
+    };
+    Ok(DiagnosticsOperatorOverrideApproval {
+        required,
+        satisfied,
+        source,
+    })
+}
+
+fn reject_retired_operator_override_approval_transport(
+    request: &DiagnosticsOperatorOverrideStateUpdateRequest,
+) -> Result<(), DiagnosticsOperatorOverrideStateUpdateError> {
+    let mut retired = Vec::new();
+    let top_level_fields = [
+        "approval_required",
+        "approval_satisfied",
+        "approval_source",
+        "approvalRequired",
+        "approvalSatisfied",
+        "approvalSource",
+    ];
+    for field in top_level_fields {
+        if request.extra.contains_key(field) {
+            retired.push(field.to_string());
+        }
+    }
+    if let Some(operator_request) = object_value_ref(&request.operator_override_request) {
+        for field in top_level_fields {
+            if operator_request.contains_key(field) {
+                retired.push(format!("operator_override_request.{field}"));
+            }
+        }
+        for field in [
+            "operatorOverrideRequiresApproval",
+            "operatorOverrideApproval",
+            "approvalDecision",
+            "policyDecision",
+            "operatorOverrideApproved",
+            "overrideApproved",
+            "approvalGranted",
+        ] {
+            if operator_request.contains_key(field) {
+                retired.push(format!("operator_override_request.{field}"));
+            }
+        }
+    }
+    if let Some(decision) = object_value_ref(&request.decision) {
+        if decision.contains_key("requiresApproval") {
+            retired.push("decision.requiresApproval".to_string());
+        }
+    }
+    if let Some(repair_policy) = object_value_ref(&request.repair_policy) {
+        if repair_policy.contains_key("operatorOverrideRequiresApproval") {
+            retired.push("repair_policy.operatorOverrideRequiresApproval".to_string());
+        }
+    }
+    if retired.is_empty() {
+        Ok(())
+    } else {
+        Err(DiagnosticsOperatorOverrideStateUpdateError::RetiredApprovalVerdictTransport(retired))
     }
 }
 
@@ -821,6 +942,34 @@ fn object_value(value: &Value) -> Option<serde_json::Map<String, Value>> {
     value.as_object().cloned()
 }
 
+fn object_value_ref(value: &Value) -> Option<&Map<String, Value>> {
+    value.as_object()
+}
+
+fn first_json_bool<'a>(values: impl IntoIterator<Item = Option<&'a Value>>) -> Option<bool> {
+    values.into_iter().flatten().find_map(json_bool)
+}
+
+fn json_bool(value: &Value) -> Option<bool> {
+    match value {
+        Value::Bool(value) => Some(*value),
+        Value::String(value) => match value.trim().to_ascii_lowercase().as_str() {
+            "true" | "1" | "yes" | "approved" | "approve" => Some(true),
+            "false" | "0" | "no" | "denied" | "deny" => Some(false),
+            _ => None,
+        },
+        Value::Number(value) => value.as_i64().map(|value| value != 0),
+        _ => None,
+    }
+}
+
+fn first_json_string<'a>(values: impl IntoIterator<Item = Option<&'a Value>>) -> Option<String> {
+    values
+        .into_iter()
+        .flatten()
+        .find_map(|value| optional_trimmed(value.as_str()))
+}
+
 fn append_operator_control(existing: Option<&Value>, control: &Value) -> Value {
     let mut controls = existing
         .and_then(Value::as_array)
@@ -878,10 +1027,17 @@ mod tests {
             decision_id: "decision_override".to_string(),
             gate_event_id: Some("event_gate".to_string()),
             source: "runtime_auto".to_string(),
-            approval_required: true,
-            approval_satisfied: true,
-            approval_source: Some("boolean_confirmation".to_string()),
+            operator_override_request: json!({
+                "operator_override_approval": "override"
+            }),
+            decision: json!({
+                "requires_approval": true
+            }),
+            repair_policy: json!({
+                "operator_override_requires_approval": true
+            }),
             snapshot_id: Some("snapshot_alpha".to_string()),
+            extra: Map::new(),
         }
     }
 
@@ -993,6 +1149,56 @@ mod tests {
         assert_eq!(
             record.run["trace"]["operatorControls"][0]["event_id"],
             "event_override"
+        );
+        assert_eq!(
+            record.run["trace"]["operatorControls"][0]["approval_source"],
+            "override"
+        );
+        assert_eq!(
+            record.run["diagnosticsBlockingGate"]["approval_satisfied"],
+            true
+        );
+    }
+
+    #[test]
+    fn rust_policy_derives_diagnostics_operator_override_approval_from_request_context() {
+        let mut request = diagnostics_operator_override_state_update_request();
+        request.operator_override_request = json!({
+            "operator_override_requires_approval": false
+        });
+        request.decision = Value::Null;
+        request.repair_policy = Value::Null;
+        let record = DiagnosticsOperatorOverrideStateUpdateCore
+            .plan(&request)
+            .expect("diagnostics operator override approval derivation");
+
+        assert_eq!(record.operator_control["approval_required"], false);
+        assert_eq!(record.operator_control["approval_satisfied"], true);
+        assert_eq!(
+            record.operator_control["approval_source"],
+            "workflow_policy"
+        );
+    }
+
+    #[test]
+    fn rust_policy_rejects_diagnostics_operator_override_js_verdict_transport() {
+        let mut request = diagnostics_operator_override_state_update_request();
+        request
+            .extra
+            .insert("approval_satisfied".to_string(), Value::Bool(true));
+        request.operator_override_request = json!({
+            "approvalRequired": true
+        });
+        let error = DiagnosticsOperatorOverrideStateUpdateCore
+            .plan(&request)
+            .expect_err("retired diagnostics operator override verdict transport");
+
+        assert_eq!(
+            error,
+            DiagnosticsOperatorOverrideStateUpdateError::RetiredApprovalVerdictTransport(vec![
+                "approval_satisfied".to_string(),
+                "operator_override_request.approvalRequired".to_string(),
+            ])
         );
     }
 

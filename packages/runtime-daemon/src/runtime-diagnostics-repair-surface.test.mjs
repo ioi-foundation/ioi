@@ -155,6 +155,31 @@ function diagnosticsOperatorOverrideStateUpdateRunner() {
     requests,
     planDiagnosticsOperatorOverrideStateUpdate(request) {
       requests.push(request);
+      const operatorRequest = request.operator_override_request ?? {};
+      const approvalRequired =
+        operatorRequest.operator_override_requires_approval ??
+        request.decision?.requires_approval ??
+        request.repair_policy?.operator_override_requires_approval ??
+        true;
+      const textApproval = String(
+        operatorRequest.operator_override_approval ??
+          operatorRequest.approval ??
+          operatorRequest.approval_decision ??
+          operatorRequest.policy_decision ??
+          "",
+      ).toLowerCase();
+      const booleanApproval = operatorRequest.operator_override_approved === true;
+      const approvalSatisfied =
+        !approvalRequired ||
+        booleanApproval ||
+        ["approve", "approved", "allow", "allowed", "accept", "accepted", "confirm", "confirmed", "override"].includes(textApproval);
+      const approvalSource = !approvalRequired
+        ? "workflow_policy"
+        : booleanApproval
+          ? "boolean_confirmation"
+          : approvalSatisfied
+            ? textApproval
+            : "missing";
       return {
         status: "planned",
         operation_kind: "diagnostics.operator_override.event",
@@ -162,9 +187,9 @@ function diagnosticsOperatorOverrideStateUpdateRunner() {
           control: "diagnostics_operator_override",
           decision_id: request.decision_id,
           event_id: request.event_id,
-          approval_required: request.approval_required,
-          approval_satisfied: request.approval_satisfied,
-          approval_source: request.approval_source,
+          approval_required: approvalRequired,
+          approval_satisfied: approvalSatisfied,
+          approval_source: approvalSource,
         },
         run: {
           ...request.run,
@@ -174,6 +199,8 @@ function diagnosticsOperatorOverrideStateUpdateRunner() {
             ...(request.run.diagnosticsBlockingGate ?? {}),
             status: "overridden",
             continuation_allowed: true,
+            approval_required: approvalRequired,
+            approval_satisfied: approvalSatisfied,
           },
           trace: {
             ...(request.run.trace ?? {}),
@@ -181,6 +208,9 @@ function diagnosticsOperatorOverrideStateUpdateRunner() {
               control: "diagnostics_operator_override",
               decision_id: request.decision_id,
               event_id: request.event_id,
+              approval_required: approvalRequired,
+              approval_satisfied: approvalSatisfied,
+              approval_source: approvalSource,
             }],
           },
         },
@@ -315,13 +345,11 @@ test("diagnostics operator override uses Rust state update and run-state admissi
       decision_id: "decision_override",
       gate_event_id: "event_gate",
       snapshot_id: "snapshot_alpha",
-      approval_required: true,
-      approval_satisfied: true,
-      approval_source: "boolean_confirmation",
+      operator_override_approval: "override",
       source: "agent_studio",
     },
     gateEvent: { event_id: "event_gate" },
-    decision: { decision_id: "decision_override" },
+    decision: { decision_id: "decision_override", requires_approval: true },
     snapshotId: "snapshot_alpha",
   });
 
@@ -349,9 +377,19 @@ test("diagnostics operator override uses Rust state update and run-state admissi
     decision_id: "decision_override",
     gate_event_id: "event_gate",
     source: "agent_studio",
-    approval_required: true,
-    approval_satisfied: true,
-    approval_source: "boolean_confirmation",
+    operator_override_request: {
+      run_id: "run_blocked",
+      event_id: "event_override",
+      seq: 12,
+      created_at: "2026-06-12T15:30:00.000Z",
+      decision_id: "decision_override",
+      gate_event_id: "event_gate",
+      snapshot_id: "snapshot_alpha",
+      operator_override_approval: "override",
+      source: "agent_studio",
+    },
+    decision: { decision_id: "decision_override", requires_approval: true },
+    repair_policy: {},
     snapshot_id: "snapshot_alpha",
   }]);
   assert.equal(calls[0].name, "getRun");
@@ -693,9 +731,6 @@ test("diagnostics operator override event append uses Rust planning and runtime 
       snapshot_id: "snapshot_alpha",
       action: "operator_override",
       approval_id: "approval_override",
-      approval_required: true,
-      approval_satisfied: true,
-      approval_source: "wallet.network",
     },
     receipt_refs: [],
     policy_decision_refs: [],
