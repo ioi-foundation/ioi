@@ -3,8 +3,8 @@ import {
   CODING_TOOL_APPROVAL_REQUEST_SCHEMA_VERSION,
   CODING_TOOL_APPROVAL_SATISFACTION_PROJECTION_REQUEST_SCHEMA_VERSION,
   CODING_TOOL_APPROVAL_SATISFACTION_REQUEST_SCHEMA_VERSION,
-  createCodingToolApprovalRunnerFromEnv,
-} from "./runtime-coding-tool-approval-runner.mjs";
+  createRuntimeCodingToolApprovalCore,
+} from "./runtime-coding-tool-approval-core.mjs";
 
 function defaultOptionalString(value) {
   if (typeof value !== "string") return null;
@@ -21,9 +21,9 @@ function objectRecord(value) {
 }
 
 export function createCodingToolApprovalPolicy(deps = {}) {
-  const approvalRunner =
-    deps.approvalRunner ??
-    createCodingToolApprovalRunnerFromEnv(deps.env ?? process.env, {
+  const approvalCore =
+    deps.approvalCore ??
+    createRuntimeCodingToolApprovalCore({
       daemonCoreInvoker: deps.daemonCoreInvoker,
     });
   const approvalModeForThreadMode = deps.approvalModeForThreadMode || (() => "suggest");
@@ -108,7 +108,7 @@ export function createCodingToolApprovalPolicy(deps = {}) {
     const scopeRequirements = uniqueStrings(
       normalizeArray(toolContract?.authorityScopeRequirements ?? toolContract?.authority_scope_requirements),
     );
-    const plan = approvalRunner.planApprovalManifest({
+    const plan = approvalCore.planApprovalManifest({
       schema_version: CODING_TOOL_APPROVAL_REQUEST_SCHEMA_VERSION,
       thread_id: threadId,
       turn_id: turnId || null,
@@ -146,7 +146,7 @@ export function createCodingToolApprovalPolicy(deps = {}) {
   }) {
     const approvalId = optionalString(request.approval_id);
     if (!approvalId) {
-      return approvalRunner.planApprovalSatisfaction({
+      return approvalCore.planApprovalSatisfaction({
         schema_version: CODING_TOOL_APPROVAL_SATISFACTION_REQUEST_SCHEMA_VERSION,
         thread_id: threadId,
         approval_id: null,
@@ -154,7 +154,7 @@ export function createCodingToolApprovalPolicy(deps = {}) {
       });
     }
     const projectionContext = approvalProjectionContextForThread(store, threadId, request);
-    const projection = approvalRunner.projectApprovalSatisfaction({
+    const projection = approvalCore.projectApprovalSatisfaction({
       schema_version: CODING_TOOL_APPROVAL_SATISFACTION_PROJECTION_REQUEST_SCHEMA_VERSION,
       thread_id: threadId,
       approval_id: approvalId,
@@ -168,7 +168,7 @@ export function createCodingToolApprovalPolicy(deps = {}) {
       workflow_graph_id: workflowGraphId,
       workflow_node_id: workflowNodeId,
     });
-    return approvalRunner.planApprovalSatisfaction({
+    return approvalCore.planApprovalSatisfaction({
       schema_version: CODING_TOOL_APPROVAL_SATISFACTION_REQUEST_SCHEMA_VERSION,
       thread_id: threadId,
       approval_id: approvalId,
@@ -217,7 +217,7 @@ export function createCodingToolApprovalPolicy(deps = {}) {
     receiptId,
     idempotencyKey,
   }) {
-    return approvalRunner.planApprovalBlock({
+    return approvalCore.planApprovalBlock({
       schema_version: CODING_TOOL_APPROVAL_BLOCK_REQUEST_SCHEMA_VERSION,
       thread_id: threadId,
       turn_id: turnId || null,

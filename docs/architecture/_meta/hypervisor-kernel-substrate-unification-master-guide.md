@@ -8246,10 +8246,11 @@ shared JS command invoker once every live surface has a direct Rust daemon-core
 API.
 
 Recent direct-invoker macro cut:
-coding-tool approval, approval-state, context-policy/state-update,
-model_mount admission, and StepModule runners are direct-invoker-only at the
-daemon runner layer. They no longer import the shared JS daemon-core command
-invoker, accept constructor command selection, accept constructor args, or treat
+approval-state, coding-tool approval, runtime Agentgres admission, workspace
+restore, context-policy/state-update, model_mount admission, and StepModule
+surfaces are direct-invoker-only or mounted core surfaces at the daemon layer.
+They no longer import the shared JS daemon-core command invoker, accept
+constructor command selection, accept constructor args, or treat
 `IOI_RUNTIME_DAEMON_CORE_COMMAND`, `IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS`, or
 surface-specific command envs as fallback transport. The shared
 `runtime-daemon-core-command-runner.mjs` helper and its test are deleted and
@@ -8420,8 +8421,21 @@ synthesis. The workspace-snapshot surface now requires Rust `projection`,
 artifact or runtime-event truth. Conformance now requires the core mount,
 Rust-envelope passthrough, and old runner paths to stay absent.
 
+Slice 1209 retires the coding-tool approval runner facade. The daemon store now
+mounts `codingToolApprovalCore` directly; `runtime-coding-tool-approval-runner.mjs`
+and its tests are deleted, command/env fallback and spawn hooks are gone, and
+approval manifest planning, approval satisfaction projection, approval
+satisfaction planning, and approval block planning all call the mounted core.
+The core builds canonical Rust daemon-core approval requests, requires
+`daemonCoreInvoker`, rejects retired compatibility options and request aliases,
+and returns Rust `approval.rs` envelopes without JS normalization or fallback
+truth synthesis. The coding-tool approval policy remains a Rust-client adapter
+over that core, while the JS event/lease satisfaction gate, manifest matcher,
+and approval-block facade stay retired. Conformance now requires the core
+mount, Rust-envelope passthrough, and old runner paths to stay absent.
+
 Coding-tool approval satisfaction projection is now Rust-owned. The daemon
-approval runner exposes `project_coding_tool_approval_satisfaction`; Rust
+approval core exposes `project_coding_tool_approval_satisfaction`; Rust
 `approval.rs` derives the approval request, latest decision or revoke, lease
 state, expected head, and state root from the current run/agent projection
 before `plan_coding_tool_approval_satisfaction` evaluates the manifest. The

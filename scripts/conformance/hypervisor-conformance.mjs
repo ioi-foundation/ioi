@@ -3293,11 +3293,14 @@ function runBridge() {
   const runtimeCodingToolApprovalTest = exists("packages/runtime-daemon/src/runtime-coding-tool-approval.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-coding-tool-approval.test.mjs")
     : "";
-  const runtimeCodingToolApprovalRunner = exists("packages/runtime-daemon/src/runtime-coding-tool-approval-runner.mjs")
-    ? read("packages/runtime-daemon/src/runtime-coding-tool-approval-runner.mjs")
+  const runtimeCodingToolApprovalCore = exists("packages/runtime-daemon/src/runtime-coding-tool-approval-core.mjs")
+    ? read("packages/runtime-daemon/src/runtime-coding-tool-approval-core.mjs")
     : "";
-  const runtimeCodingToolApprovalRunnerTest = exists("packages/runtime-daemon/src/runtime-coding-tool-approval-runner.test.mjs")
-    ? read("packages/runtime-daemon/src/runtime-coding-tool-approval-runner.test.mjs")
+  const runtimeCodingToolApprovalCoreTest = exists("packages/runtime-daemon/src/runtime-coding-tool-approval-core.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-coding-tool-approval-core.test.mjs")
+    : "";
+  const runtimeCodingToolApprovalCoreStoreTest = exists("packages/runtime-daemon/src/runtime-coding-tool-approval-core-store.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-coding-tool-approval-core-store.test.mjs")
     : "";
   const runtimeApprovalSurface = exists("packages/runtime-daemon/src/runtime-approval-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-approval-surface.mjs")
@@ -3988,7 +3991,7 @@ function runBridge() {
   const retiredRouteDecisionEnvPattern = new RegExp("MODEL_MOUNT_" + "ROUTE_DECISION_COMMAND_ENV");
   const daemonCoreDirectInvokerRunners = [
     stepModuleRunner,
-    runtimeCodingToolApprovalRunner,
+    runtimeCodingToolApprovalCore,
     runtimeContextPolicyRunner,
     workspaceRestoreCore,
     modelMountAdmissionRunner,
@@ -4137,7 +4140,7 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-daemon-core-direct-invoker-service.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
       "packages/runtime-daemon/src/step-module-runner.mjs",
-      "packages/runtime-daemon/src/runtime-coding-tool-approval-runner.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-approval-core.mjs",
       "packages/runtime-daemon/src/runtime-worker-service-package-core.mjs",
       "packages/runtime-daemon/src/runtime-ctee-private-workspace-core.mjs",
       "packages/runtime-daemon/src/runtime-l1-settlement-core.mjs",
@@ -7356,77 +7359,76 @@ function runBridge() {
       !/bridge_plans_coding_tool_approval_manifest_through_rust_core/.test(bridgeModule) &&
       !/fn plan_coding_tool_approval_manifest/.test(bridgeModule) &&
       !/struct CodingToolApprovalBridgeRequest/.test(bridgeModule) &&
-      /createCodingToolApprovalRunnerFromEnv/.test(runtimeCodingToolApprovalRunner) &&
-      /RustCodingToolApprovalRunner/.test(runtimeCodingToolApprovalRunner) &&
-      /assertNoCodingToolApprovalCommandSelection\(\s*options\.command\s*\?\?\s*env\.IOI_RUNTIME_DAEMON_CORE_COMMAND/.test(
-        runtimeCodingToolApprovalRunner,
+      !exists("packages/runtime-daemon/src/runtime-coding-tool-approval-runner.mjs") &&
+      !exists("packages/runtime-daemon/src/runtime-coding-tool-approval-runner.test.mjs") &&
+      /RuntimeCodingToolApprovalCore/.test(runtimeCodingToolApprovalCore) &&
+      /createRuntimeCodingToolApprovalCore/.test(runtimeCodingToolApprovalCore) &&
+      /ioi\.runtime\.daemon_core\.command\.v1/.test(runtimeCodingToolApprovalCore) &&
+      /operation:\s*"plan_coding_tool_approval_manifest"/.test(runtimeCodingToolApprovalCore) &&
+      /operation:\s*"project_coding_tool_approval_satisfaction"/.test(
+        runtimeCodingToolApprovalCore,
       ) &&
-      /ioi\.runtime\.daemon_core\.command\.v1/.test(runtimeCodingToolApprovalRunner) &&
-      !/IOI_STEP_MODULE_COMMAND/.test(runtimeCodingToolApprovalRunner) &&
-      !/CODING_TOOL_APPROVAL_COMMAND_ARGS_ENV/.test(runtimeCodingToolApprovalRunner) &&
-      !/parseCommandArgs/.test(runtimeCodingToolApprovalRunner) &&
-      !/normalizeArgs/.test(runtimeCodingToolApprovalRunner) &&
-      !/this\.args/.test(runtimeCodingToolApprovalRunner) &&
-      !/argsEnv/.test(runtimeCodingToolApprovalRunner) &&
-      /assertNoCodingToolApprovalCommandArgs/.test(runtimeCodingToolApprovalRunner) &&
-      /assertNoCodingToolApprovalCommandSelection/.test(runtimeCodingToolApprovalRunner) &&
-      /planApprovalManifest/.test(runtimeCodingToolApprovalRunner) &&
-      /coding_tool_approval_command_args_retired/.test(runtimeCodingToolApprovalRunner) &&
-      /coding_tool_approval_command_selection_retired/.test(runtimeCodingToolApprovalRunner) &&
-      /coding_tool_approval_direct_invoker_unconfigured/.test(runtimeCodingToolApprovalRunner) &&
-      !/createDaemonCoreCommandInvoker/.test(runtimeCodingToolApprovalRunner) &&
-      !/spawnSyncImpl/.test(runtimeCodingToolApprovalRunner) &&
-      !/from "node:child_process"/.test(runtimeCodingToolApprovalRunner) &&
-      /coding tool approval runner env uses daemon-level direct invoker/.test(
-        runtimeCodingToolApprovalRunnerTest,
+      /operation:\s*"plan_coding_tool_approval_satisfaction"/.test(runtimeCodingToolApprovalCore) &&
+      /operation:\s*"plan_coding_tool_approval_block"/.test(runtimeCodingToolApprovalCore) &&
+      /coding_tool_approval_core_direct_invoker_unconfigured/.test(runtimeCodingToolApprovalCore) &&
+      /coding_tool_approval_core_compatibility_option_retired/.test(runtimeCodingToolApprovalCore) &&
+      /coding_tool_approval_core_request_aliases_retired/.test(runtimeCodingToolApprovalCore) &&
+      !/process\.env|createCodingToolApprovalRunnerFromEnv|RustCodingToolApprovalRunner|CodingToolApprovalRunner|normalizeCodingToolApproval.*BridgeResult|arrayOfStrings|from "node:child_process"|spawnSyncImpl|createDaemonCoreCommandInvoker/.test(
+        runtimeCodingToolApprovalCore,
       ) &&
-      /coding tool approval runner rejects retired daemon-core command env/.test(
-        runtimeCodingToolApprovalRunnerTest,
+      /coding tool approval core calls direct Rust daemon-core approval APIs/.test(
+        runtimeCodingToolApprovalCoreTest,
       ) &&
-      /coding tool approval runner command args env fails closed/.test(
-        runtimeCodingToolApprovalRunnerTest,
+      /coding tool approval core returns the Rust envelope without JS normalization/.test(
+        runtimeCodingToolApprovalCoreTest,
       ) &&
-      /coding tool approval runner command args constructor option fails closed/.test(
-        runtimeCodingToolApprovalRunnerTest,
+      /Object\.hasOwn\(result,\s*"source"\),\s*false/.test(runtimeCodingToolApprovalCoreTest) &&
+      /Object\.hasOwn\(result,\s*"backend"\),\s*false/.test(runtimeCodingToolApprovalCoreTest) &&
+      /coding tool approval core rejects retired compatibility options/.test(
+        runtimeCodingToolApprovalCoreTest,
       ) &&
-      /coding tool approval runner command constructor option fails closed/.test(
-        runtimeCodingToolApprovalRunnerTest,
+      /coding tool approval core rejects retired request aliases before Rust invocation/.test(
+        runtimeCodingToolApprovalCoreTest,
       ) &&
-      /coding tool approval runner sends Rust authority request through direct daemon-core invoker/.test(
-        runtimeCodingToolApprovalRunnerTest,
+      /coding tool approval core fails closed without direct daemon-core API/.test(
+        runtimeCodingToolApprovalCoreTest,
       ) &&
-      /coding tool approval runner unwraps direct invoker ok result/.test(
-        runtimeCodingToolApprovalRunnerTest,
+      /coding tool approval core surfaces Rust rejection/.test(runtimeCodingToolApprovalCoreTest) &&
+      /runtime store mounts coding tool approval core from options/.test(
+        runtimeCodingToolApprovalCoreStoreTest,
       ) &&
-      /coding tool approval runner fails closed without direct invoker/.test(
-        runtimeCodingToolApprovalRunnerTest,
+      /Object\.hasOwn\(store,\s*"codingToolApprovalRunner"\),\s*false/.test(
+        runtimeCodingToolApprovalCoreStoreTest,
       ) &&
-      /createCodingToolApprovalRunnerFromEnv\(deps\.env \?\? process\.env,\s*\{\s*daemonCoreInvoker: deps\.daemonCoreInvoker,\s*\}\)/.test(
-        runtimeCodingToolApproval,
-      ) &&
-      /const codingToolApprovalPolicy = createCodingToolApprovalPolicy\(\{[\s\S]*approvalRunner: options\.codingToolApprovalRunner[\s\S]*daemonCoreInvoker: this\.daemonCoreInvoker/.test(
+      /createRuntimeCodingToolApprovalCore\(\{[\s\S]*daemonCoreInvoker: this\.daemonCoreInvoker/.test(
         runtimeDaemonIndex,
       ) &&
+      /this\.codingToolApprovalCore/.test(runtimeDaemonIndex) &&
+      !/this\.codingToolApprovalRunner/.test(runtimeDaemonIndex) &&
+      /approvalCore: this\.codingToolApprovalCore/.test(runtimeDaemonIndex) &&
       /codingToolApprovalManifestForThread: codingToolApprovalPolicy\.codingToolApprovalManifestForThread/.test(
         runtimeDaemonIndex,
       ) &&
       !/const \{\s*codingToolApprovalBlockForThread,\s*codingToolApprovalManifestForThread,\s*codingToolApprovalSatisfactionForThread,\s*\} = createCodingToolApprovalPolicy/.test(
         runtimeDaemonIndex,
       ) &&
-      /approvalRunner\.planApprovalManifest/.test(runtimeCodingToolApproval) &&
+      /approvalCore\.planApprovalManifest/.test(runtimeCodingToolApproval) &&
+      !/approvalRunner/.test(runtimeCodingToolApproval) &&
+      !/process\.env/.test(runtimeCodingToolApproval) &&
       !/codingToolEffectRequiresApproval/.test(runtimeCodingToolApproval) &&
       !/codingToolWorkflowApprovalPolicy/.test(runtimeCodingToolApproval) &&
       !/codingToolEffectRequiresApproval/.test(runtimeDaemonIndex) &&
       !/codingToolWorkflowApprovalPolicy/.test(runtimeDaemonIndex) &&
       !/const modeRequiresApproval/.test(runtimeCodingToolApproval) &&
-      /coding tool approval manifest is planned by Rust authority runner/.test(
+      /coding tool approval manifest is planned by Rust authority core/.test(
         runtimeCodingToolApprovalTest,
       ),
     [
       "crates/services/src/agentic/runtime/kernel/approval.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "packages/runtime-daemon/src/runtime-coding-tool-approval-runner.mjs",
-      "packages/runtime-daemon/src/runtime-coding-tool-approval-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-approval-core.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-approval-core.test.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-approval-core-store.test.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-approval.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-approval.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
@@ -8802,33 +8804,33 @@ function runBridge() {
       /CommandOperation::PlanCodingToolApprovalSatisfaction/.test(commandProtocolCore) &&
       /project_coding_tool_approval_satisfaction_response/.test(coreCommandDispatch) &&
       /plan_coding_tool_approval_satisfaction_response/.test(coreCommandDispatch) &&
-      /projectApprovalSatisfaction/.test(runtimeCodingToolApprovalRunner) &&
+      /projectApprovalSatisfaction/.test(runtimeCodingToolApprovalCore) &&
       /CODING_TOOL_APPROVAL_SATISFACTION_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
-        runtimeCodingToolApprovalRunner,
+        runtimeCodingToolApprovalCore,
       ) &&
-      /project_coding_tool_approval_satisfaction/.test(runtimeCodingToolApprovalRunner) &&
-      /normalizeCodingToolApprovalSatisfactionProjectionBridgeResult/.test(
-        runtimeCodingToolApprovalRunner,
+      /project_coding_tool_approval_satisfaction/.test(runtimeCodingToolApprovalCore) &&
+      !/normalizeCodingToolApprovalSatisfactionProjectionBridgeResult/.test(
+        runtimeCodingToolApprovalCore,
       ) &&
-      /planApprovalSatisfaction/.test(runtimeCodingToolApprovalRunner) &&
-      /CODING_TOOL_APPROVAL_SATISFACTION_REQUEST_SCHEMA_VERSION/.test(runtimeCodingToolApprovalRunner) &&
-      /plan_coding_tool_approval_satisfaction/.test(runtimeCodingToolApprovalRunner) &&
-      /normalizeCodingToolApprovalSatisfactionBridgeResult/.test(runtimeCodingToolApprovalRunner) &&
-      /coding tool approval runner sends Rust satisfaction projection request through direct daemon-core invoker/.test(
-        runtimeCodingToolApprovalRunnerTest,
+      /planApprovalSatisfaction/.test(runtimeCodingToolApprovalCore) &&
+      /CODING_TOOL_APPROVAL_SATISFACTION_REQUEST_SCHEMA_VERSION/.test(runtimeCodingToolApprovalCore) &&
+      /plan_coding_tool_approval_satisfaction/.test(runtimeCodingToolApprovalCore) &&
+      !/normalizeCodingToolApprovalSatisfactionBridgeResult/.test(runtimeCodingToolApprovalCore) &&
+      /coding tool approval core calls direct Rust daemon-core approval APIs/.test(
+        runtimeCodingToolApprovalCoreTest,
       ) &&
-      /coding tool approval runner sends Rust satisfaction request through direct daemon-core invoker/.test(
-        runtimeCodingToolApprovalRunnerTest,
+      /coding tool approval core returns the Rust envelope without JS normalization/.test(
+        runtimeCodingToolApprovalCoreTest,
       ) &&
       /codingToolApprovalSatisfactionForThread/.test(runtimeCodingToolApproval) &&
-      /approvalRunner\.projectApprovalSatisfaction/.test(runtimeCodingToolApproval) &&
+      /approvalCore\.projectApprovalSatisfaction/.test(runtimeCodingToolApproval) &&
       !/store\.codingToolApprovalSatisfactionProjection/.test(runtimeCodingToolApproval) &&
       !/function codingToolApprovalManifestsMatch/.test(runtimeCodingToolApproval) &&
       /planApprovalSatisfaction/.test(runtimeCodingToolApproval) &&
       /JS approval satisfaction projection must not be used/.test(runtimeCodingToolApprovalTest) &&
       /coding tool approval retry match JS helper is retired/.test(runtimeCodingToolApprovalTest) &&
       /JS approval request readback must not be used/.test(runtimeCodingToolApprovalTest) &&
-      /coding tool approval satisfaction is planned by Rust authority runner/.test(
+      /coding tool approval satisfaction is planned by Rust authority core/.test(
         runtimeCodingToolApprovalTest,
       ) &&
       /codingToolApprovalSatisfactionForThread/.test(runtimeCodingToolInvocationSurface) &&
@@ -8864,8 +8866,8 @@ function runBridge() {
       "crates/services/src/agentic/runtime/kernel/approval.rs",
       "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
       "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
-      "packages/runtime-daemon/src/runtime-coding-tool-approval-runner.mjs",
-      "packages/runtime-daemon/src/runtime-coding-tool-approval-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-approval-core.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-approval-core.test.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-approval.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-approval.test.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-governance-surface.mjs",
@@ -8890,15 +8892,15 @@ function runBridge() {
       /plan_coding_tool_approval_block/.test(commandProtocolCore) &&
       /CommandOperation::PlanCodingToolApprovalBlock/.test(commandProtocolCore) &&
       /plan_coding_tool_approval_block_response/.test(coreCommandDispatch) &&
-      /planApprovalBlock/.test(runtimeCodingToolApprovalRunner) &&
-      /CODING_TOOL_APPROVAL_BLOCK_REQUEST_SCHEMA_VERSION/.test(runtimeCodingToolApprovalRunner) &&
-      /normalizeCodingToolApprovalBlockBridgeResult/.test(runtimeCodingToolApprovalRunner) &&
-      /coding tool approval runner sends Rust approval block request through direct daemon-core invoker/.test(
-        runtimeCodingToolApprovalRunnerTest,
+      /planApprovalBlock/.test(runtimeCodingToolApprovalCore) &&
+      /CODING_TOOL_APPROVAL_BLOCK_REQUEST_SCHEMA_VERSION/.test(runtimeCodingToolApprovalCore) &&
+      !/normalizeCodingToolApprovalBlockBridgeResult/.test(runtimeCodingToolApprovalCore) &&
+      /coding tool approval core calls direct Rust daemon-core approval APIs/.test(
+        runtimeCodingToolApprovalCoreTest,
       ) &&
       /codingToolApprovalBlockForThread/.test(runtimeCodingToolApproval) &&
       /planApprovalBlock/.test(runtimeCodingToolApproval) &&
-      /coding tool approval block is planned by Rust authority runner/.test(
+      /coding tool approval block is planned by Rust authority core/.test(
         runtimeCodingToolApprovalTest,
       ) &&
       /codingToolApprovalBlockForThread/.test(runtimeDaemonIndex) &&
@@ -8969,8 +8971,8 @@ function runBridge() {
       "crates/services/src/agentic/runtime/kernel/approval.rs",
       "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
       "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
-      "packages/runtime-daemon/src/runtime-coding-tool-approval-runner.mjs",
-      "packages/runtime-daemon/src/runtime-coding-tool-approval-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-approval-core.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-approval-core.test.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-approval.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-approval.test.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-governance-surface.mjs",

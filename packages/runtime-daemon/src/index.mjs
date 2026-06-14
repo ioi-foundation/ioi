@@ -88,6 +88,7 @@ import { createRuntimeEventEnvelopeHelpers } from "./runtime-event-envelopes.mjs
 import { createRuntimeEventPayloadHelpers } from "./runtime-event-payloads.mjs";
 import { createRuntimeCodingToolResultHelpers } from "./runtime-coding-tool-results.mjs";
 import { createRuntimeDoctorReport } from "./runtime-doctor-report.mjs";
+import { createRuntimeCodingToolApprovalCore } from "./runtime-coding-tool-approval-core.mjs";
 import { createRuntimeCodingToolArtifactSurface } from "./runtime-coding-tool-artifact-surface.mjs";
 import { createRuntimeCodingToolInvocationSurface } from "./runtime-coding-tool-invocation-surface.mjs";
 import { createStepModuleRunnerFromEnv } from "./step-module-runner.mjs";
@@ -604,6 +605,11 @@ export class AgentgresRuntimeStateStore {
       createContextPolicyRunnerFromEnv(process.env, {
         daemonCoreInvoker: this.daemonCoreInvoker,
       });
+    this.codingToolApprovalCore =
+      options.codingToolApprovalCore ??
+      createRuntimeCodingToolApprovalCore({
+        daemonCoreInvoker: this.daemonCoreInvoker,
+      });
     this.approvalStateCore =
       options.approvalStateCore ??
       createRuntimeApprovalStateCore({
@@ -731,10 +737,9 @@ export class AgentgresRuntimeStateStore {
       runtimeError,
     });
     const codingToolApprovalPolicy = createCodingToolApprovalPolicy({
-      approvalRunner: options.codingToolApprovalRunner,
+      approvalCore: this.codingToolApprovalCore,
       approvalModeForThreadMode,
       codingToolInputSummary,
-      daemonCoreInvoker: this.daemonCoreInvoker,
       doctorHash,
       normalizeArray,
       normalizeThreadApprovalMode,

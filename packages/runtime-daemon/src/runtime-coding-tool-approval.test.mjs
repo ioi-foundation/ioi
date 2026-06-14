@@ -5,7 +5,7 @@ import { createCodingToolApprovalPolicy } from "./runtime-coding-tool-approval.m
 
 function createPolicy(options = {}) {
   return createCodingToolApprovalPolicy({
-    approvalRunner: options.approvalRunner ?? approvalRunnerMock(),
+    approvalCore: options.approvalCore ?? approvalCoreMock(),
     approvalModeForThreadMode: (mode) => mode === "review" ? "human_required" : "suggest",
     codingToolInputSummary: (toolId, input) => ({ toolId, keys: Object.keys(input || {}).sort() }),
     normalizeArray: (value) => Array.isArray(value) ? value : [],
@@ -21,7 +21,7 @@ function createPolicy(options = {}) {
   });
 }
 
-function approvalRunnerMock({ capture = null } = {}) {
+function approvalCoreMock({ capture = null } = {}) {
   return {
     planApprovalManifest(request) {
       capture?.(request);
@@ -215,10 +215,10 @@ test("coding tool approval manifest is omitted for Rust-planned local reads", ()
   }), null);
 });
 
-test("coding tool approval manifest is planned by Rust authority runner", () => {
+test("coding tool approval manifest is planned by Rust authority core", () => {
   let capturedRequest = null;
   const policy = createPolicy({
-    approvalRunner: approvalRunnerMock({
+    approvalCore: approvalCoreMock({
       capture: (request) => {
         capturedRequest = request;
       },
@@ -271,7 +271,7 @@ test("coding tool approval manifest is planned by Rust authority runner", () => 
 test("coding tool approval manifest ignores retired workflow policy aliases", () => {
   const capturedRequests = [];
   const policy = createPolicy({
-    approvalRunner: approvalRunnerMock({
+    approvalCore: approvalCoreMock({
       capture: (request) => {
         capturedRequests.push(request);
       },
@@ -316,7 +316,7 @@ test("coding tool approval manifest ignores retired workflow policy aliases", ()
 test("coding tool approval manifest ignores retired UI override aliases", () => {
   const capturedRequests = [];
   const policy = createPolicy({
-    approvalRunner: approvalRunnerMock({
+    approvalCore: approvalCoreMock({
       capture: (request) => {
         capturedRequests.push(request);
       },
@@ -339,11 +339,11 @@ test("coding tool approval manifest ignores retired UI override aliases", () => 
   assert.deepEqual(capturedRequests.map((request) => request.ui_override_requested), [false, false]);
 });
 
-test("coding tool approval satisfaction is planned by Rust authority runner", () => {
+test("coding tool approval satisfaction is planned by Rust authority core", () => {
   const capturedProjectionRequests = [];
   const capturedSatisfactionRequests = [];
   const policy = createPolicy({
-    approvalRunner: approvalRunnerMock({
+    approvalCore: approvalCoreMock({
       capture: (request) => {
         if (request.schema_version === "ioi.runtime.coding-tool-approval-satisfaction-projection-request.v1") {
           capturedProjectionRequests.push(request);
@@ -421,10 +421,10 @@ test("coding tool approval satisfaction is planned by Rust authority runner", ()
   assert.deepEqual(result.receipt_refs, ["receipt_approval"]);
 });
 
-test("coding tool approval block is planned by Rust authority runner", () => {
+test("coding tool approval block is planned by Rust authority core", () => {
   let capturedRequest = null;
   const policy = createPolicy({
-    approvalRunner: approvalRunnerMock({
+    approvalCore: approvalCoreMock({
       capture: (request) => {
         if (request.schema_version === "ioi.runtime.coding-tool-approval-block-request.v1") {
           capturedRequest = request;
