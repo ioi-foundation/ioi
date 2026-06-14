@@ -4117,13 +4117,25 @@ function runBridge() {
       /this\.daemonCoreContextLifecycleApi = options\.daemonCoreContextLifecycleApi/.test(
         runtimeDaemonIndex,
       ) &&
-      /createRuntimeContextPolicyCore\(\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*daemonCoreContextLifecycleApi: this\.daemonCoreContextLifecycleApi,\s*\}\)/.test(
+      /this\.daemonCoreRuntimeControlApi = options\.daemonCoreRuntimeControlApi/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /createRuntimeContextPolicyCore\(\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*daemonCoreContextLifecycleApi: this\.daemonCoreContextLifecycleApi,\s*daemonCoreRuntimeControlApi: this\.daemonCoreRuntimeControlApi,\s*\}\)/.test(
         runtimeDaemonIndex,
       ) &&
       /daemonCoreContextLifecycleApi:\s*\{[\s\S]*?evaluateContextBudgetPolicy\(request\)/.test(
         daemonCoreDirectInvokerServiceTest,
       ) &&
       /Object\.hasOwn\(contextLifecycleCalls\[0\]\.request,\s*"operation"\),\s*false/.test(
+        daemonCoreDirectInvokerServiceTest,
+      ) &&
+      /daemonCoreRuntimeControlApi:\s*\{[\s\S]*?planRunCancelStateUpdate\(request\)/.test(
+        daemonCoreDirectInvokerServiceTest,
+      ) &&
+      /Object\.hasOwn\(runtimeControlCalls\[0\]\.request,\s*"operation"\),\s*false/.test(
+        daemonCoreDirectInvokerServiceTest,
+      ) &&
+      /Object\.hasOwn\(runtimeControlCalls\[0\]\.request,\s*"backend"\),\s*false/.test(
         daemonCoreDirectInvokerServiceTest,
       ) &&
       /this\.daemonCoreAuthorityApi = options\.daemonCoreAuthorityApi/.test(runtimeDaemonIndex) &&
@@ -8207,6 +8219,7 @@ function runBridge() {
       ) &&
       !runtimeControlCommandBridgeExists &&
       !/mod runtime_control_command;/.test(bridgeModule) &&
+      /runtime_control_command_transport_is_retired/.test(commandProtocolCore) &&
       !/plan_coding_tool_budget_recovery_state_update_response as plan_coding_tool_budget_recovery_state_update/.test(
         bridgeModule,
       ) &&
@@ -10445,6 +10458,19 @@ function runBridge() {
       ) &&
       !/fn plan_coding_tool_budget_recovery_state_update/.test(bridgeModule) &&
       !/struct CodingToolBudgetRecoveryStateUpdateBridgeRequest/.test(bridgeModule) &&
+      /RUNTIME_CONTROL_CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_API_METHOD =\s*"planCodingToolBudgetRecoveryStateUpdate"/.test(
+        runtimeContextPolicyCore,
+      ) &&
+      /invokeRuntimeControlApi/.test(runtimeContextPolicyCore) &&
+      /daemonCoreRuntimeControlApi\.\$\{method\}/.test(runtimeContextPolicyCore) &&
+      !/operation:\s*"plan_coding_tool_budget_recovery_state_update"/.test(
+        runtimeContextPolicyCore,
+      ) &&
+      !/CommandOperation::PlanCodingToolBudgetRecoveryStateUpdate/.test(commandProtocolCore) &&
+      !/"plan_coding_tool_budget_recovery_state_update"\s*=>/.test(commandProtocolCore) &&
+      !/plan_coding_tool_budget_recovery_state_update_response\(decode\(raw_request\)\?\)/.test(
+        coreCommandDispatch,
+      ) &&
       /response\["operator_control"\]\["approval_id"\]/.test(
         policyCodingToolBudgetRecoveryCore,
       ) &&
@@ -10455,7 +10481,10 @@ function runBridge() {
       /CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
         runtimeContextPolicyCore,
       ) &&
-      /coding tool budget recovery state update core sends Rust state update through typed Rust daemon-core Agentgres API/.test(
+      /coding tool budget recovery state update core sends Rust state update through direct runtime-control API/.test(
+        runtimeContextPolicyCoreTest,
+      ) &&
+      /Object\.hasOwn\(calls\[0\]\.request,\s*"backend"\),\s*false/.test(
         runtimeContextPolicyCoreTest,
       ) &&
       /result\.operator_control\.approval_id/.test(runtimeContextPolicyCoreTest) &&
@@ -10631,10 +10660,21 @@ function runBridge() {
 	      ) &&
 	      !/fn plan_coding_tool_budget_recovery_control/.test(bridgeModule) &&
 	      !/struct CodingToolBudgetRecoveryControlBridgeRequest/.test(bridgeModule) &&
+	      /RUNTIME_CONTROL_CODING_TOOL_BUDGET_RECOVERY_CONTROL_API_METHOD =\s*"planCodingToolBudgetRecoveryControl"/.test(
+	        runtimeContextPolicyCore,
+	      ) &&
+	      !/operation:\s*"plan_coding_tool_budget_recovery_control"/.test(
+	        runtimeContextPolicyCore,
+	      ) &&
+	      !/CommandOperation::PlanCodingToolBudgetRecoveryControl/.test(commandProtocolCore) &&
+	      !/"plan_coding_tool_budget_recovery_control"\s*=>/.test(commandProtocolCore) &&
+	      !/plan_coding_tool_budget_recovery_control_response\(decode\(raw_request\)\?\)/.test(
+	        coreCommandDispatch,
+	      ) &&
 	      /planCodingToolBudgetRecoveryControl\(request = \{\}\)/.test(
 	        runtimeContextPolicyCore,
 	      ) &&
-	      /coding-tool budget recovery control core sends Rust daemon-core request/.test(
+	      /coding-tool budget recovery control core sends Rust request through direct runtime-control API/.test(
 	        runtimeContextPolicyCoreTest,
 	      ) &&
       /codingToolBudgetRecoveryRunner:\s*this\.contextPolicyCore/.test(
@@ -10829,6 +10869,19 @@ function runBridge() {
       ) &&
       !/fn plan_diagnostics_operator_override_state_update/.test(bridgeModule) &&
       !/struct DiagnosticsOperatorOverrideStateUpdateBridgeRequest/.test(bridgeModule) &&
+      /RUNTIME_CONTROL_DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_API_METHOD =\s*"planDiagnosticsOperatorOverrideStateUpdate"/.test(
+        runtimeContextPolicyCore,
+      ) &&
+      !/operation:\s*"plan_diagnostics_operator_override_state_update"/.test(
+        runtimeContextPolicyCore,
+      ) &&
+      !/CommandOperation::PlanDiagnosticsOperatorOverrideStateUpdate/.test(
+        commandProtocolCore,
+      ) &&
+      !/"plan_diagnostics_operator_override_state_update"\s*=>/.test(commandProtocolCore) &&
+      !/plan_diagnostics_operator_override_state_update_response\(decode\(raw_request\)\?\)/.test(
+        coreCommandDispatch,
+      ) &&
       /response\["operator_control"\]\["decision_id"\]/.test(policyOperatorControlCore) &&
       /"decisionId"[\s\S]*"createdAt"[\s\S]*response\["operator_control"\]\.get\(field\)\.is_none\(\)/.test(
         policyOperatorControlCore,
@@ -10837,29 +10890,29 @@ function runBridge() {
       /DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
         runtimeContextPolicyCore,
       ) &&
-      /diagnostics operator override state update core sends Rust state update through typed Rust daemon-core Agentgres API/.test(
+      /diagnostics operator override state update core sends Rust state update through direct runtime-control API/.test(
         runtimeContextPolicyCoreTest,
       ) &&
       /result\.operator_control\.decision_id/.test(runtimeContextPolicyCoreTest) &&
-      /captured\.request\.operator_override_request\.operator_override_approval/.test(
+      /calls\[0\]\.request\.operator_override_request\.operator_override_approval/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /captured\.request\.decision\.requires_approval/.test(
+      /calls\[0\]\.request\.decision\.requires_approval/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /captured\.request\.repair_policy\.operator_override_requires_approval/.test(
+      /calls\[0\]\.request\.repair_policy\.operator_override_requires_approval/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /captured\.request\.authority_grant_refs/.test(
+      /calls\[0\]\.request\.authority_grant_refs/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /captured\.request\.authority_receipt_refs/.test(
+      /calls\[0\]\.request\.authority_receipt_refs/.test(
         runtimeContextPolicyCoreTest,
       ) &&
       /result\.operator_control\.authority_hash/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /Object\.hasOwn\(captured\.request,\s*field\),\s*false/.test(
+      /Object\.hasOwn\(calls\[0\]\.request,\s*field\),\s*false/.test(
         runtimeContextPolicyCoreTest,
       ) &&
       /Object\.hasOwn\(result\.operator_control,\s*field\),\s*false/.test(
@@ -11005,18 +11058,27 @@ function runBridge() {
       ) &&
       !/fn plan_operator_turn_control_admission_required/.test(bridgeModule) &&
       !/struct OperatorTurnControlAdmissionRequiredBridgeRequest/.test(bridgeModule) &&
-      /plan_operator_turn_control_admission_required/.test(commandProtocolCore) &&
-      /CommandOperation::PlanOperatorTurnControlAdmissionRequired/.test(commandProtocolCore) &&
+      /RUNTIME_CONTROL_OPERATOR_TURN_CONTROL_ADMISSION_REQUIRED_API_METHOD =\s*"planOperatorTurnControlAdmissionRequired"/.test(
+        runtimeContextPolicyCore,
+      ) &&
+      !/operation:\s*"plan_operator_turn_control_admission_required"/.test(
+        runtimeContextPolicyCore,
+      ) &&
+      !/CommandOperation::PlanOperatorTurnControlAdmissionRequired/.test(commandProtocolCore) &&
+      !/"plan_operator_turn_control_admission_required"\s*=>/.test(commandProtocolCore) &&
+      !/plan_operator_turn_control_admission_required_response\(decode\(raw_request\)\?\)/.test(
+        coreCommandDispatch,
+      ) &&
       /response\["details"\]\["thread_id"\]/.test(policyOperatorControlCore) &&
       /response\["details"\]\.get\(field\)\.is_none\(\)/.test(policyOperatorControlCore) &&
       /planOperatorTurnControlAdmissionRequired/.test(runtimeContextPolicyCore) &&
       /OPERATOR_TURN_CONTROL_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION/.test(
         runtimeContextPolicyCore,
       ) &&
-      /operator turn control admission-required core sends Rust daemon-core request/.test(
+      /operator turn control admission-required core sends Rust request through direct runtime-control API/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /captured\.operation,\s*"plan_operator_turn_control_admission_required"/.test(
+      /calls\[0\]\.method,\s*RUNTIME_CONTROL_OPERATOR_TURN_CONTROL_ADMISSION_REQUIRED_API_METHOD/.test(
         runtimeContextPolicyCoreTest,
       ) &&
       /result\.record\.code,\s*"runtime_operator_turn_control_rust_core_required"/.test(
@@ -11026,7 +11088,16 @@ function runBridge() {
       /OPERATOR_INTERRUPT_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
         runtimeContextPolicyCore,
       ) &&
-      /operator interrupt state update core sends Rust state update through typed Rust daemon-core Agentgres API/.test(
+      /RUNTIME_CONTROL_OPERATOR_INTERRUPT_STATE_UPDATE_API_METHOD =\s*"planOperatorInterruptStateUpdate"/.test(
+        runtimeContextPolicyCore,
+      ) &&
+      !/operation:\s*"plan_operator_interrupt_state_update"/.test(runtimeContextPolicyCore) &&
+      !/CommandOperation::PlanOperatorInterruptStateUpdate/.test(commandProtocolCore) &&
+      !/"plan_operator_interrupt_state_update"\s*=>/.test(commandProtocolCore) &&
+      !/plan_operator_interrupt_state_update_response\(decode\(raw_request\)\?\)/.test(
+        coreCommandDispatch,
+      ) &&
+      /operator interrupt state update core sends Rust state update through direct runtime-control API/.test(
         runtimeContextPolicyCoreTest,
       ) &&
       /result\.operator_control\.event_id/.test(runtimeContextPolicyCoreTest) &&
@@ -11142,7 +11213,16 @@ function runBridge() {
       ) &&
       /planOperatorSteerStateUpdate/.test(runtimeContextPolicyCore) &&
       /OPERATOR_STEER_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyCore) &&
-      /operator steer state update core sends Rust state update through typed Rust daemon-core Agentgres API/.test(
+      /RUNTIME_CONTROL_OPERATOR_STEER_STATE_UPDATE_API_METHOD =\s*"planOperatorSteerStateUpdate"/.test(
+        runtimeContextPolicyCore,
+      ) &&
+      !/operation:\s*"plan_operator_steer_state_update"/.test(runtimeContextPolicyCore) &&
+      !/CommandOperation::PlanOperatorSteerStateUpdate/.test(commandProtocolCore) &&
+      !/"plan_operator_steer_state_update"\s*=>/.test(commandProtocolCore) &&
+      !/plan_operator_steer_state_update_response\(decode\(raw_request\)\?\)/.test(
+        coreCommandDispatch,
+      ) &&
+      /operator steer state update core sends Rust state update through direct runtime-control API/.test(
         runtimeContextPolicyCoreTest,
       ) &&
       /result\.operator_control\.event_id/.test(runtimeContextPolicyCoreTest) &&
@@ -11153,7 +11233,7 @@ function runBridge() {
         runtimeContextPolicyCoreTest,
       ) &&
       /planOperatorTurnControlAdmissionRequired/.test(runtimeContextPolicyCore) &&
-      /operator turn control admission-required core sends Rust daemon-core request/.test(
+      /operator turn control admission-required core sends Rust request through direct runtime-control API/.test(
         runtimeContextPolicyCoreTest,
       ) &&
       /runtime_operator_turn_control_rust_core_required/.test(runtimeThreadTurnSurface) &&
@@ -11504,9 +11584,18 @@ function runBridge() {
       !/bridge_plans_run_cancel_state_update_through_rust_core/.test(bridgeModule) &&
       !/fn plan_run_cancel_state_update/.test(bridgeModule) &&
       !/struct RunCancelStateUpdateBridgeRequest/.test(bridgeModule) &&
+      /RUNTIME_CONTROL_RUN_CANCEL_STATE_UPDATE_API_METHOD =\s*"planRunCancelStateUpdate"/.test(
+        runtimeContextPolicyCore,
+      ) &&
+      !/operation:\s*"plan_run_cancel_state_update"/.test(runtimeContextPolicyCore) &&
+      !/CommandOperation::PlanRunCancelStateUpdate/.test(commandProtocolCore) &&
+      !/"plan_run_cancel_state_update"\s*=>/.test(commandProtocolCore) &&
+      !/plan_run_cancel_state_update_response\(decode\(raw_request\)\?\)/.test(
+        coreCommandDispatch,
+      ) &&
       /planRunCancelStateUpdate/.test(runtimeContextPolicyCore) &&
       /RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyCore) &&
-      /run cancel state update core sends Rust state update through typed Rust daemon-core Agentgres API/.test(
+      /run cancel state update core sends Rust state update through direct runtime-control API/.test(
         runtimeContextPolicyCoreTest,
       ) &&
       /RunCancelAdmissionRequiredCore/.test(policyCore) &&
@@ -11524,10 +11613,19 @@ function runBridge() {
       !/bridge_plans_run_cancel_admission_required_through_rust_core/.test(bridgeModule) &&
       !/fn plan_run_cancel_admission_required/.test(bridgeModule) &&
       !/struct RunCancelAdmissionRequiredBridgeRequest/.test(bridgeModule) &&
+      /RUNTIME_CONTROL_RUN_CANCEL_ADMISSION_REQUIRED_API_METHOD =\s*"planRunCancelAdmissionRequired"/.test(
+        runtimeContextPolicyCore,
+      ) &&
+      !/operation:\s*"plan_run_cancel_admission_required"/.test(runtimeContextPolicyCore) &&
+      !/CommandOperation::PlanRunCancelAdmissionRequired/.test(commandProtocolCore) &&
+      !/"plan_run_cancel_admission_required"\s*=>/.test(commandProtocolCore) &&
+      !/plan_run_cancel_admission_required_response\(decode\(raw_request\)\?\)/.test(
+        coreCommandDispatch,
+      ) &&
       /planRunCancelAdmissionRequired\(request = \{\}\)/.test(
         runtimeContextPolicyCore,
       ) &&
-      /run cancel admission-required core sends Rust daemon-core request/.test(
+      /run cancel admission-required core sends Rust request through direct runtime-control API/.test(
         runtimeContextPolicyCoreTest,
       ) &&
       /runtime_run_cancel_rust_core_required/.test(runtimeRunCancellation) &&

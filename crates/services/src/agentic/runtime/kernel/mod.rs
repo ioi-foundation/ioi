@@ -170,6 +170,8 @@ use policy::{
     OperatorInterruptStateUpdateError, OperatorInterruptStateUpdateRecord,
     OperatorInterruptStateUpdateRequest, OperatorSteerStateUpdateCore,
     OperatorSteerStateUpdateError, OperatorSteerStateUpdateRecord, OperatorSteerStateUpdateRequest,
+    OperatorTurnControlAdmissionRequiredCore, OperatorTurnControlAdmissionRequiredError,
+    OperatorTurnControlAdmissionRequiredRecord, OperatorTurnControlAdmissionRequiredRequest,
     RunCancelAdmissionRequiredCore, RunCancelAdmissionRequiredError,
     RunCancelAdmissionRequiredRecord, RunCancelAdmissionRequiredRequest, RunCancelStateUpdateCore,
     RunCancelStateUpdateError, RunCancelStateUpdateRecord, RunCancelStateUpdateRequest,
@@ -497,6 +499,14 @@ impl RuntimeKernelService {
         request: &OperatorSteerStateUpdateRequest,
     ) -> Result<OperatorSteerStateUpdateRecord, OperatorSteerStateUpdateError> {
         OperatorSteerStateUpdateCore.plan(request)
+    }
+
+    pub fn plan_operator_turn_control_admission_required(
+        &self,
+        request: &OperatorTurnControlAdmissionRequiredRequest,
+    ) -> Result<OperatorTurnControlAdmissionRequiredRecord, OperatorTurnControlAdmissionRequiredError>
+    {
+        OperatorTurnControlAdmissionRequiredCore.plan(request)
     }
 
     pub fn plan_run_cancel_state_update(

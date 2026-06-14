@@ -16,6 +16,14 @@ import {
   CONTEXT_LIFECYCLE_CONTEXT_BUDGET_POLICY_API_METHOD,
   CONTEXT_LIFECYCLE_CONTEXT_COMPACTION_PLAN_API_METHOD,
   CONTEXT_LIFECYCLE_CONTEXT_COMPACTION_STATE_UPDATE_API_METHOD,
+  RUNTIME_CONTROL_CODING_TOOL_BUDGET_RECOVERY_CONTROL_API_METHOD,
+  RUNTIME_CONTROL_CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_API_METHOD,
+  RUNTIME_CONTROL_DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_API_METHOD,
+  RUNTIME_CONTROL_OPERATOR_INTERRUPT_STATE_UPDATE_API_METHOD,
+  RUNTIME_CONTROL_OPERATOR_STEER_STATE_UPDATE_API_METHOD,
+  RUNTIME_CONTROL_OPERATOR_TURN_CONTROL_ADMISSION_REQUIRED_API_METHOD,
+  RUNTIME_CONTROL_RUN_CANCEL_ADMISSION_REQUIRED_API_METHOD,
+  RUNTIME_CONTROL_RUN_CANCEL_STATE_UPDATE_API_METHOD,
   RUNTIME_CODING_TOOL_ARTIFACT_DRAFT_PLAN_REQUEST_SCHEMA_VERSION,
   RUNTIME_CODING_TOOL_ARTIFACT_READ_PROJECTION_REQUEST_SCHEMA_VERSION,
   COMPACTION_POLICY_REQUEST_SCHEMA_VERSION,
@@ -156,6 +164,22 @@ function createContextLifecycleDirectCore(method, handler) {
       throw new Error(`retired generic invoker reached for ${request?.operation}`);
     },
     daemonCoreContextLifecycleApi: {
+      [method](request) {
+        calls.push({ method, request });
+        return handler(request);
+      },
+    },
+  });
+  return { calls, runner };
+}
+
+function createRuntimeControlDirectCore(method, handler) {
+  const calls = [];
+  const runner = new RuntimeContextPolicyCore({
+    daemonCoreInvoker(request) {
+      throw new Error(`retired generic invoker reached for ${request?.operation}`);
+    },
+    daemonCoreRuntimeControlApi: {
       [method](request) {
         calls.push({ method, request });
         return handler(request);
@@ -679,12 +703,10 @@ test("runtime state-update core does not synthesize Rust-owned envelopes", () =>
   }
 });
 
-test("coding tool budget recovery state update core sends Rust state update through direct daemon-core invoker", () => {
-  let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
-      captured = request;
-      return {
+test("coding tool budget recovery state update core sends Rust state update through direct runtime-control API", () => {
+  const { calls, runner } = createRuntimeControlDirectCore(
+    RUNTIME_CONTROL_CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_API_METHOD,
+    () => ({
             source: "rust_coding_tool_budget_recovery_state_update_command",
             backend: "rust_policy",
             status: "planned",
@@ -707,9 +729,8 @@ test("coding tool budget recovery state update core sends Rust state update thro
                 ],
               },
             },
-          };
-    },
-  });
+          }),
+  );
 
   const result = runner.planCodingToolBudgetRecoveryStateUpdate({
     thread_id: "thread_budget",
@@ -724,14 +745,15 @@ test("coding tool budget recovery state update core sends Rust state update thro
     policy_decision_refs: ["policy_retry"],
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "plan_coding_tool_budget_recovery_state_update");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, RUNTIME_CONTROL_CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    calls[0].request.schema_version,
     CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.approval_id, "approval_budget");
+  assert.equal(calls[0].request.approval_id, "approval_budget");
+  assert.equal(Object.hasOwn(calls[0].request, "operation"), false);
+  assert.equal(Object.hasOwn(calls[0].request, "backend"), false);
   assert.equal(result.source, "rust_coding_tool_budget_recovery_state_update_command");
   assert.equal(result.operation_kind, "workflow.run.retry_completed");
   assert.equal(result.operator_control.approval_id, "approval_budget");
@@ -817,12 +839,10 @@ test("coding tool budget block core sends Rust block request through direct cont
   assert.equal(Object.hasOwn(result.event.payload_summary, "receiptRefs"), false);
 });
 
-test("coding-tool budget recovery control core sends Rust daemon-core request", () => {
-  let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
-      captured = request;
-      return {
+test("coding-tool budget recovery control core sends Rust request through direct runtime-control API", () => {
+  const { calls, runner } = createRuntimeControlDirectCore(
+    RUNTIME_CONTROL_CODING_TOOL_BUDGET_RECOVERY_CONTROL_API_METHOD,
+    () => ({
         source: "rust_coding_tool_budget_recovery_control_command",
         backend: "rust_policy",
         status: "planned",
@@ -838,9 +858,8 @@ test("coding-tool budget recovery control core sends Rust daemon-core request", 
           authority_receipt_refs: ["receipt://wallet.network/coding-tool-budget-recovery"],
         },
         run: { id: "run_alpha" },
-      };
-    },
-  });
+      }),
+  );
 
   const result = runner.planCodingToolBudgetRecoveryControl({
     operation: "coding_tool_budget_recovery_control",
@@ -858,22 +877,22 @@ test("coding-tool budget recovery control core sends Rust daemon-core request", 
     evidence_refs: ["coding_tool_budget_recovery_control_rust_owned"],
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "plan_coding_tool_budget_recovery_control");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, RUNTIME_CONTROL_CODING_TOOL_BUDGET_RECOVERY_CONTROL_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    calls[0].request.schema_version,
     CODING_TOOL_BUDGET_RECOVERY_CONTROL_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.operation, "coding_tool_budget_recovery_control");
+  assert.equal(calls[0].request.operation, "coding_tool_budget_recovery_control");
   assert.equal(
-    captured.request.operation_kind,
+    calls[0].request.operation_kind,
     "workflow.run.coding_tool_budget_recovery",
   );
-  assert.equal(captured.request.action, "approve_override");
-  assert.deepEqual(captured.request.authority_grant_refs, [
+  assert.equal(calls[0].request.action, "approve_override");
+  assert.deepEqual(calls[0].request.authority_grant_refs, [
     "wallet.network://grant/coding-tool-budget-recovery",
   ]);
+  assert.equal(Object.hasOwn(calls[0].request, "backend"), false);
   assert.equal(result.source, "rust_coding_tool_budget_recovery_control_command");
   assert.equal(result.status, "planned");
   assert.equal(result.operator_control.authority_hash, "sha256:budget-authority");
@@ -1304,12 +1323,10 @@ test("runtime diagnostics repair policy core sends Rust daemon-core request", ()
   );
 });
 
-test("diagnostics operator override state update core sends Rust state update through direct daemon-core invoker", () => {
-  let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
-      captured = request;
-      return {
+test("diagnostics operator override state update core sends Rust state update through direct runtime-control API", () => {
+  const { calls, runner } = createRuntimeControlDirectCore(
+    RUNTIME_CONTROL_DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_API_METHOD,
+    () => ({
             source: "rust_diagnostics_operator_override_state_update_command",
             backend: "rust_policy",
             status: "planned",
@@ -1342,9 +1359,8 @@ test("diagnostics operator override state update core sends Rust state update th
                 ],
               },
             },
-          };
-    },
-  });
+          }),
+  );
 
   const result = runner.planDiagnosticsOperatorOverrideStateUpdate({
     thread_id: "thread_budget",
@@ -1376,27 +1392,28 @@ test("diagnostics operator override state update core sends Rust state update th
     snapshot_id: "snapshot_alpha",
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "plan_diagnostics_operator_override_state_update");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, RUNTIME_CONTROL_DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    calls[0].request.schema_version,
     DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.decision_id, "decision_override");
-  assert.equal(captured.request.operator_override_request.operator_override_approval, "override");
-  assert.equal(captured.request.decision.requires_approval, true);
-  assert.equal(captured.request.repair_policy.operator_override_requires_approval, true);
-  assert.deepEqual(captured.request.authority_grant_refs, [
+  assert.equal(calls[0].request.decision_id, "decision_override");
+  assert.equal(calls[0].request.operator_override_request.operator_override_approval, "override");
+  assert.equal(calls[0].request.decision.requires_approval, true);
+  assert.equal(calls[0].request.repair_policy.operator_override_requires_approval, true);
+  assert.deepEqual(calls[0].request.authority_grant_refs, [
     "wallet.network://grant/diagnostics/operator-override",
   ]);
-  assert.deepEqual(captured.request.authority_receipt_refs, [
+  assert.deepEqual(calls[0].request.authority_receipt_refs, [
     "receipt://wallet.network/diagnostics/operator-override",
   ]);
-  assert.deepEqual(captured.request.policy_decision_refs, ["policy_diagnostics_operator_override"]);
+  assert.deepEqual(calls[0].request.policy_decision_refs, ["policy_diagnostics_operator_override"]);
   for (const field of ["approval_required", "approval_satisfied", "approval_source"]) {
-    assert.equal(Object.hasOwn(captured.request, field), false);
+    assert.equal(Object.hasOwn(calls[0].request, field), false);
   }
+  assert.equal(Object.hasOwn(calls[0].request, "operation"), false);
+  assert.equal(Object.hasOwn(calls[0].request, "backend"), false);
   assert.equal(result.source, "rust_diagnostics_operator_override_state_update_command");
   assert.equal(result.operation_kind, "diagnostics.operator_override.event");
   assert.equal(result.operator_control.decision_id, "decision_override");
@@ -1744,12 +1761,10 @@ test("post-edit diagnostics feedback plan normalizer preserves Rust-owned reques
   assert.deepEqual(result.rollback_refs, ["snapshot_alpha"]);
 });
 
-test("operator turn control admission-required core sends Rust daemon-core request", () => {
-  let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
-      captured = request;
-      return {
+test("operator turn control admission-required core sends Rust request through direct runtime-control API", () => {
+  const { calls, runner } = createRuntimeControlDirectCore(
+    RUNTIME_CONTROL_OPERATOR_TURN_CONTROL_ADMISSION_REQUIRED_API_METHOD,
+    () => ({
             source: "rust_operator_turn_control_admission_required_command",
             backend: "rust_policy",
             record: {
@@ -1768,9 +1783,8 @@ test("operator turn control admission-required core sends Rust daemon-core reque
                 evidence_refs: ["operator_interrupt_js_facade_retired"],
               },
             },
-          };
-    },
-  });
+          }),
+  );
 
   const result = runner.planOperatorTurnControlAdmissionRequired({
     operation: "operator_interrupt",
@@ -1781,14 +1795,14 @@ test("operator turn control admission-required core sends Rust daemon-core reque
     evidence_refs: ["operator_interrupt_js_facade_retired"],
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "plan_operator_turn_control_admission_required");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, RUNTIME_CONTROL_OPERATOR_TURN_CONTROL_ADMISSION_REQUIRED_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    calls[0].request.schema_version,
     OPERATOR_TURN_CONTROL_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.operation_kind, "turn.interrupt");
+  assert.equal(calls[0].request.operation_kind, "turn.interrupt");
+  assert.equal(Object.hasOwn(calls[0].request, "backend"), false);
   assert.equal(result.source, "rust_operator_turn_control_admission_required_command");
   assert.equal(result.record.code, "runtime_operator_turn_control_rust_core_required");
   assert.equal(result.record.details.thread_id, "thread_budget");
@@ -1797,12 +1811,10 @@ test("operator turn control admission-required core sends Rust daemon-core reque
   assert.equal(Object.hasOwn(result.record.details, "requestedAction"), false);
 });
 
-test("operator interrupt state update core sends Rust state update through direct daemon-core invoker", () => {
-  let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
-      captured = request;
-      return {
+test("operator interrupt state update core sends Rust state update through direct runtime-control API", () => {
+  const { calls, runner } = createRuntimeControlDirectCore(
+    RUNTIME_CONTROL_OPERATOR_INTERRUPT_STATE_UPDATE_API_METHOD,
+    () => ({
             source: "rust_operator_interrupt_state_update_command",
             backend: "rust_policy",
             status: "planned",
@@ -1829,9 +1841,8 @@ test("operator interrupt state update core sends Rust state update through direc
                 ],
               },
             },
-          };
-    },
-  });
+          }),
+  );
 
   const result = runner.planOperatorInterruptStateUpdate({
     thread_id: "thread_budget",
@@ -1845,14 +1856,15 @@ test("operator interrupt state update core sends Rust state update through direc
     reason: "operator_stop",
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "plan_operator_interrupt_state_update");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, RUNTIME_CONTROL_OPERATOR_INTERRUPT_STATE_UPDATE_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    calls[0].request.schema_version,
     OPERATOR_INTERRUPT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.reason, "operator_stop");
+  assert.equal(calls[0].request.reason, "operator_stop");
+  assert.equal(Object.hasOwn(calls[0].request, "operation"), false);
+  assert.equal(Object.hasOwn(calls[0].request, "backend"), false);
   assert.equal(result.source, "rust_operator_interrupt_state_update_command");
   assert.equal(result.operation_kind, "turn.interrupt");
   assert.equal(result.operator_control.reason, "operator_stop");
@@ -1864,12 +1876,10 @@ test("operator interrupt state update core sends Rust state update through direc
   assert.equal(result.run.trace.operatorControls[0].event_id, "event_interrupt");
 });
 
-test("operator steer state update core sends Rust state update through direct daemon-core invoker", () => {
-  let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
-      captured = request;
-      return {
+test("operator steer state update core sends Rust state update through direct runtime-control API", () => {
+  const { calls, runner } = createRuntimeControlDirectCore(
+    RUNTIME_CONTROL_OPERATOR_STEER_STATE_UPDATE_API_METHOD,
+    () => ({
             source: "rust_operator_steer_state_update_command",
             backend: "rust_policy",
             status: "planned",
@@ -1893,9 +1903,8 @@ test("operator steer state update core sends Rust state update through direct da
                 ],
               },
             },
-          };
-    },
-  });
+          }),
+  );
 
   const result = runner.planOperatorSteerStateUpdate({
     thread_id: "thread_budget",
@@ -1909,14 +1918,15 @@ test("operator steer state update core sends Rust state update through direct da
     guidance: "focus on the failing bridge assertion",
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "plan_operator_steer_state_update");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, RUNTIME_CONTROL_OPERATOR_STEER_STATE_UPDATE_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    calls[0].request.schema_version,
     OPERATOR_STEER_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.guidance, "focus on the failing bridge assertion");
+  assert.equal(calls[0].request.guidance, "focus on the failing bridge assertion");
+  assert.equal(Object.hasOwn(calls[0].request, "operation"), false);
+  assert.equal(Object.hasOwn(calls[0].request, "backend"), false);
   assert.equal(result.source, "rust_operator_steer_state_update_command");
   assert.equal(result.operation_kind, "turn.steer");
   assert.equal(result.operator_control.guidance, "focus on the failing bridge assertion");
@@ -1926,12 +1936,10 @@ test("operator steer state update core sends Rust state update through direct da
   assert.equal(result.run.trace.operatorControls[0].event_id, "event_steer");
 });
 
-test("run cancel state update core sends Rust state update through direct daemon-core invoker", () => {
-  let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
-      captured = request;
-      return {
+test("run cancel state update core sends Rust state update through direct runtime-control API", () => {
+  const { calls, runner } = createRuntimeControlDirectCore(
+    RUNTIME_CONTROL_RUN_CANCEL_STATE_UPDATE_API_METHOD,
+    () => ({
             source: "rust_run_cancel_state_update_command",
             backend: "rust_policy",
             status: "planned",
@@ -1963,9 +1971,8 @@ test("run cancel state update core sends Rust state update through direct daemon
                 { type: "canceled" },
               ],
             },
-          };
-    },
-  });
+          }),
+  );
 
   const result = runner.planRunCancelStateUpdate({
     run_id: "run_cancel_one",
@@ -1973,26 +1980,25 @@ test("run cancel state update core sends Rust state update through direct daemon
     canceled_at: "2026-06-06T04:45:00.000Z",
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "plan_run_cancel_state_update");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, RUNTIME_CONTROL_RUN_CANCEL_STATE_UPDATE_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    calls[0].request.schema_version,
     RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.canceled_at, "2026-06-06T04:45:00.000Z");
+  assert.equal(calls[0].request.canceled_at, "2026-06-06T04:45:00.000Z");
+  assert.equal(Object.hasOwn(calls[0].request, "operation"), false);
+  assert.equal(Object.hasOwn(calls[0].request, "backend"), false);
   assert.equal(result.source, "rust_run_cancel_state_update_command");
   assert.equal(result.operation_kind, "run.cancel");
   assert.equal(result.runtime_job.status, "canceled");
   assert.equal(result.run.events.at(-1).type, "canceled");
 });
 
-test("run cancel admission-required core sends Rust daemon-core request", () => {
-  let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
-      captured = request;
-      return {
+test("run cancel admission-required core sends Rust request through direct runtime-control API", () => {
+  const { calls, runner } = createRuntimeControlDirectCore(
+    RUNTIME_CONTROL_RUN_CANCEL_ADMISSION_REQUIRED_API_METHOD,
+    () => ({
             source: "rust_run_cancel_admission_required_command",
             backend: "rust_policy",
             record: {
@@ -2009,9 +2015,8 @@ test("run cancel admission-required core sends Rust daemon-core request", () => 
                 evidence_refs: ["runtime_run_cancel_js_facade_retired"],
               },
             },
-          };
-    },
-  });
+          }),
+  );
 
   const result = runner.planRunCancelAdmissionRequired({
     operation: "run_cancel",
@@ -2021,15 +2026,15 @@ test("run cancel admission-required core sends Rust daemon-core request", () => 
     evidence_refs: ["runtime_run_cancel_js_facade_retired"],
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "plan_run_cancel_admission_required");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, RUNTIME_CONTROL_RUN_CANCEL_ADMISSION_REQUIRED_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    calls[0].request.schema_version,
     RUN_CANCEL_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.operation, "run_cancel");
-  assert.equal(captured.request.operation_kind, "run.cancel");
+  assert.equal(calls[0].request.operation, "run_cancel");
+  assert.equal(calls[0].request.operation_kind, "run.cancel");
+  assert.equal(Object.hasOwn(calls[0].request, "backend"), false);
   assert.equal(result.source, "rust_run_cancel_admission_required_command");
   assert.equal(result.record.status_code, 501);
   assert.equal(result.record.details.run_id, "run_cancel_one");

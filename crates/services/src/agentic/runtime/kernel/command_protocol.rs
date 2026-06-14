@@ -43,20 +43,12 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "plan_runtime_coding_tool_artifact_drafts",
     "project_runtime_coding_tool_artifact_read",
     "plan_post_edit_diagnostics_feedback",
-    "plan_coding_tool_budget_recovery_state_update",
-    "plan_coding_tool_budget_recovery_control",
     "plan_workflow_edit_admission_required",
     "plan_diagnostics_repair_admission_required",
     "plan_runtime_diagnostics_repair_control",
     "plan_runtime_diagnostics_repair_retry_run",
     "project_runtime_diagnostics_repair_projection",
     "project_runtime_diagnostics_repair_policy",
-    "plan_diagnostics_operator_override_state_update",
-    "plan_operator_turn_control_admission_required",
-    "plan_operator_interrupt_state_update",
-    "plan_operator_steer_state_update",
-    "plan_run_cancel_state_update",
-    "plan_run_cancel_admission_required",
     "plan_runtime_task_job_cancel_state_update",
     "plan_runtime_task_job_create_state_update",
     "project_runtime_task_job_projection",
@@ -146,20 +138,12 @@ pub enum CommandOperation {
     PlanRuntimeCodingToolArtifactDrafts,
     ProjectRuntimeCodingToolArtifactRead,
     PlanPostEditDiagnosticsFeedback,
-    PlanCodingToolBudgetRecoveryStateUpdate,
-    PlanCodingToolBudgetRecoveryControl,
     PlanWorkflowEditAdmissionRequired,
     PlanDiagnosticsRepairAdmissionRequired,
     PlanRuntimeDiagnosticsRepairControl,
     PlanRuntimeDiagnosticsRepairRetryRun,
     ProjectRuntimeDiagnosticsRepairProjection,
     ProjectRuntimeDiagnosticsRepairPolicy,
-    PlanDiagnosticsOperatorOverrideStateUpdate,
-    PlanOperatorTurnControlAdmissionRequired,
-    PlanOperatorInterruptStateUpdate,
-    PlanOperatorSteerStateUpdate,
-    PlanRunCancelStateUpdate,
-    PlanRunCancelAdmissionRequired,
     PlanRuntimeTaskJobCancelStateUpdate,
     PlanRuntimeTaskJobCreateStateUpdate,
     ProjectRuntimeTaskJobProjection,
@@ -260,10 +244,6 @@ impl CommandOperation {
                 "project_runtime_coding_tool_artifact_read"
             }
             Self::PlanPostEditDiagnosticsFeedback => "plan_post_edit_diagnostics_feedback",
-            Self::PlanCodingToolBudgetRecoveryStateUpdate => {
-                "plan_coding_tool_budget_recovery_state_update"
-            }
-            Self::PlanCodingToolBudgetRecoveryControl => "plan_coding_tool_budget_recovery_control",
             Self::PlanWorkflowEditAdmissionRequired => "plan_workflow_edit_admission_required",
             Self::PlanDiagnosticsRepairAdmissionRequired => {
                 "plan_diagnostics_repair_admission_required"
@@ -278,16 +258,6 @@ impl CommandOperation {
             Self::ProjectRuntimeDiagnosticsRepairPolicy => {
                 "project_runtime_diagnostics_repair_policy"
             }
-            Self::PlanDiagnosticsOperatorOverrideStateUpdate => {
-                "plan_diagnostics_operator_override_state_update"
-            }
-            Self::PlanOperatorTurnControlAdmissionRequired => {
-                "plan_operator_turn_control_admission_required"
-            }
-            Self::PlanOperatorInterruptStateUpdate => "plan_operator_interrupt_state_update",
-            Self::PlanOperatorSteerStateUpdate => "plan_operator_steer_state_update",
-            Self::PlanRunCancelStateUpdate => "plan_run_cancel_state_update",
-            Self::PlanRunCancelAdmissionRequired => "plan_run_cancel_admission_required",
             Self::PlanRuntimeTaskJobCancelStateUpdate => {
                 "plan_runtime_task_job_cancel_state_update"
             }
@@ -499,12 +469,6 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
         "plan_post_edit_diagnostics_feedback" => {
             Some(CommandOperation::PlanPostEditDiagnosticsFeedback)
         }
-        "plan_coding_tool_budget_recovery_state_update" => {
-            Some(CommandOperation::PlanCodingToolBudgetRecoveryStateUpdate)
-        }
-        "plan_coding_tool_budget_recovery_control" => {
-            Some(CommandOperation::PlanCodingToolBudgetRecoveryControl)
-        }
         "plan_workflow_edit_admission_required" => {
             Some(CommandOperation::PlanWorkflowEditAdmissionRequired)
         }
@@ -522,20 +486,6 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
         }
         "project_runtime_diagnostics_repair_policy" => {
             Some(CommandOperation::ProjectRuntimeDiagnosticsRepairPolicy)
-        }
-        "plan_diagnostics_operator_override_state_update" => {
-            Some(CommandOperation::PlanDiagnosticsOperatorOverrideStateUpdate)
-        }
-        "plan_operator_turn_control_admission_required" => {
-            Some(CommandOperation::PlanOperatorTurnControlAdmissionRequired)
-        }
-        "plan_operator_interrupt_state_update" => {
-            Some(CommandOperation::PlanOperatorInterruptStateUpdate)
-        }
-        "plan_operator_steer_state_update" => Some(CommandOperation::PlanOperatorSteerStateUpdate),
-        "plan_run_cancel_state_update" => Some(CommandOperation::PlanRunCancelStateUpdate),
-        "plan_run_cancel_admission_required" => {
-            Some(CommandOperation::PlanRunCancelAdmissionRequired)
         }
         "plan_runtime_task_job_cancel_state_update" => {
             Some(CommandOperation::PlanRuntimeTaskJobCancelStateUpdate)
@@ -720,7 +670,6 @@ mod tests {
             "project_mcp_live_result_replay",
             "project_mcp_tool_search_projection",
             "project_mcp_tool_fetch_projection",
-            "plan_operator_turn_control_admission_required",
             "plan_runtime_task_job_create_state_update",
             "project_runtime_task_job_projection",
             "project_runtime_tool_catalog",
@@ -776,6 +725,23 @@ mod tests {
             "evaluate_compaction_policy",
             "plan_context_compaction",
             "plan_context_compaction_state_update",
+        ] {
+            assert_eq!(command_operation(operation), None);
+            assert_eq!(expected_command_schema_version(operation), None);
+        }
+    }
+
+    #[test]
+    fn runtime_control_command_transport_is_retired() {
+        for operation in [
+            "plan_coding_tool_budget_recovery_state_update",
+            "plan_coding_tool_budget_recovery_control",
+            "plan_diagnostics_operator_override_state_update",
+            "plan_operator_turn_control_admission_required",
+            "plan_operator_interrupt_state_update",
+            "plan_operator_steer_state_update",
+            "plan_run_cancel_state_update",
+            "plan_run_cancel_admission_required",
         ] {
             assert_eq!(command_operation(operation), None);
             assert_eq!(expected_command_schema_version(operation), None);

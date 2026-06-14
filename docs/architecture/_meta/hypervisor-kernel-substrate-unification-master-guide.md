@@ -7859,12 +7859,21 @@ tests. Bridge conformance now requires those owner tests and proves the old
 bridge-named runtime-control tests, request-type imports, and response-function
 aliases stay absent from `ioi_step_module_bridge/proof_tests.rs`.
 
-This remains non-terminal because runtime-control policy decisions still cross
-temporary command transport. The target is direct Rust daemon-core
-runtime-control API ownership where coding-tool recovery, diagnostics override,
-operator interrupt/steer, and run-cancel admission/state transitions,
-Agentgres truth, replay, and conformance no longer depend on Node bridge
-endpoint proof scaffolding.
+The runtime-control transport cut after Slice 1179 replaces that temporary
+command path with typed `daemonCoreRuntimeControlApi` methods for coding-tool
+budget recovery state/control planning, diagnostics operator override
+state-update planning, operator turn-control admission-required planning,
+operator interrupt/steer state-update planning, and run-cancel
+state/admission planning. The JS runtime context-policy core now sends
+canonical request bodies to that typed API without generic command
+`operation`/`backend` envelopes, the Rust kernel exposes the corresponding
+positive daemon-core methods, and `command_protocol.rs`/`command_dispatch.rs`
+reject the old runtime-control command operations. This does not claim
+terminal runtime-control migration: durable replay/projection, richer
+runtime-control receipts/state roots, wallet/runtime-control authority, stable
+IDE/CLI/SDK APIs, and the remaining thread-lifecycle, MCP/memory,
+runtime-bridge, subagent, and lifecycle state-update families still need
+direct Rust ownership.
 
 Slice 1180 moves the thread-lifecycle and MCP/memory command-response proof
 clusters out of the temporary bridge proof surface and relies on the Rust

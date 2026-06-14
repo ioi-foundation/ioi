@@ -154,6 +154,22 @@ export const CONTEXT_LIFECYCLE_CONTEXT_COMPACTION_PLAN_API_METHOD =
   "planContextCompaction";
 export const CONTEXT_LIFECYCLE_CONTEXT_COMPACTION_STATE_UPDATE_API_METHOD =
   "planContextCompactionStateUpdate";
+export const RUNTIME_CONTROL_CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_API_METHOD =
+  "planCodingToolBudgetRecoveryStateUpdate";
+export const RUNTIME_CONTROL_CODING_TOOL_BUDGET_RECOVERY_CONTROL_API_METHOD =
+  "planCodingToolBudgetRecoveryControl";
+export const RUNTIME_CONTROL_DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_API_METHOD =
+  "planDiagnosticsOperatorOverrideStateUpdate";
+export const RUNTIME_CONTROL_OPERATOR_TURN_CONTROL_ADMISSION_REQUIRED_API_METHOD =
+  "planOperatorTurnControlAdmissionRequired";
+export const RUNTIME_CONTROL_OPERATOR_INTERRUPT_STATE_UPDATE_API_METHOD =
+  "planOperatorInterruptStateUpdate";
+export const RUNTIME_CONTROL_OPERATOR_STEER_STATE_UPDATE_API_METHOD =
+  "planOperatorSteerStateUpdate";
+export const RUNTIME_CONTROL_RUN_CANCEL_STATE_UPDATE_API_METHOD =
+  "planRunCancelStateUpdate";
+export const RUNTIME_CONTROL_RUN_CANCEL_ADMISSION_REQUIRED_API_METHOD =
+  "planRunCancelAdmissionRequired";
 
 export function createRuntimeContextPolicyCore(options = {}) {
   return new RuntimeContextPolicyCore(options);
@@ -182,6 +198,11 @@ export class RuntimeContextPolicyCore {
         options.daemonCoreApi?.context_lifecycle ??
         options.daemonCoreApi?.contextPolicy ??
         options.daemonCoreApi?.context_policy,
+    );
+    this.daemonCoreRuntimeControlApi = runtimeControlApi(
+      options.daemonCoreRuntimeControlApi ??
+        options.daemonCoreApi?.runtimeControl ??
+        options.daemonCoreApi?.runtime_control,
     );
   }
 
@@ -234,19 +255,19 @@ export class RuntimeContextPolicyCore {
   }
 
   planCodingToolBudgetRecoveryStateUpdate(request = {}) {
-    return normalizeCodingToolBudgetRecoveryStateUpdateBridgeResult(this.evaluateRawPolicy({
-      operation: "plan_coding_tool_budget_recovery_state_update",
-      schemaVersion: CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+    return normalizeCodingToolBudgetRecoveryStateUpdateBridgeResult(this.invokeRuntimeControlApi(
+      RUNTIME_CONTROL_CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_API_METHOD,
+      CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   planCodingToolBudgetRecoveryControl(request = {}) {
-    return this.evaluateRawPolicy({
-      operation: "plan_coding_tool_budget_recovery_control",
-      schemaVersion: CODING_TOOL_BUDGET_RECOVERY_CONTROL_REQUEST_SCHEMA_VERSION,
+    return this.invokeRuntimeControlApi(
+      RUNTIME_CONTROL_CODING_TOOL_BUDGET_RECOVERY_CONTROL_API_METHOD,
+      CODING_TOOL_BUDGET_RECOVERY_CONTROL_REQUEST_SCHEMA_VERSION,
       request,
-    });
+    );
   }
 
   planCodingToolResultEnvelope(request = {}) {
@@ -322,11 +343,11 @@ export class RuntimeContextPolicyCore {
   }
 
   planDiagnosticsOperatorOverrideStateUpdate(request = {}) {
-    return normalizeDiagnosticsOperatorOverrideStateUpdateBridgeResult(this.evaluateRawPolicy({
-      operation: "plan_diagnostics_operator_override_state_update",
-      schemaVersion: DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+    return normalizeDiagnosticsOperatorOverrideStateUpdateBridgeResult(this.invokeRuntimeControlApi(
+      RUNTIME_CONTROL_DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_API_METHOD,
+      DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   planPostEditDiagnosticsFeedback(request = {}) {
@@ -338,43 +359,43 @@ export class RuntimeContextPolicyCore {
   }
 
   planOperatorTurnControlAdmissionRequired(request = {}) {
-    return this.evaluateRawPolicy({
-      operation: "plan_operator_turn_control_admission_required",
-      schemaVersion: OPERATOR_TURN_CONTROL_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
+    return this.invokeRuntimeControlApi(
+      RUNTIME_CONTROL_OPERATOR_TURN_CONTROL_ADMISSION_REQUIRED_API_METHOD,
+      OPERATOR_TURN_CONTROL_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
       request,
-    });
+    );
   }
 
   planOperatorInterruptStateUpdate(request = {}) {
-    return normalizeOperatorInterruptStateUpdateBridgeResult(this.evaluateRawPolicy({
-      operation: "plan_operator_interrupt_state_update",
-      schemaVersion: OPERATOR_INTERRUPT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+    return normalizeOperatorInterruptStateUpdateBridgeResult(this.invokeRuntimeControlApi(
+      RUNTIME_CONTROL_OPERATOR_INTERRUPT_STATE_UPDATE_API_METHOD,
+      OPERATOR_INTERRUPT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   planOperatorSteerStateUpdate(request = {}) {
-    return normalizeOperatorSteerStateUpdateBridgeResult(this.evaluateRawPolicy({
-      operation: "plan_operator_steer_state_update",
-      schemaVersion: OPERATOR_STEER_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+    return normalizeOperatorSteerStateUpdateBridgeResult(this.invokeRuntimeControlApi(
+      RUNTIME_CONTROL_OPERATOR_STEER_STATE_UPDATE_API_METHOD,
+      OPERATOR_STEER_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   planRunCancelStateUpdate(request = {}) {
-    return normalizeRunCancelStateUpdateBridgeResult(this.evaluateRawPolicy({
-      operation: "plan_run_cancel_state_update",
-      schemaVersion: RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+    return normalizeRunCancelStateUpdateBridgeResult(this.invokeRuntimeControlApi(
+      RUNTIME_CONTROL_RUN_CANCEL_STATE_UPDATE_API_METHOD,
+      RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   planRunCancelAdmissionRequired(request = {}) {
-    return this.evaluateRawPolicy({
-      operation: "plan_run_cancel_admission_required",
-      schemaVersion: RUN_CANCEL_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
+    return this.invokeRuntimeControlApi(
+      RUNTIME_CONTROL_RUN_CANCEL_ADMISSION_REQUIRED_API_METHOD,
+      RUN_CANCEL_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
       request,
-    });
+    );
   }
 
   planRuntimeTaskJobCancelStateUpdate(request = {}) {
@@ -787,6 +808,33 @@ export class RuntimeContextPolicyCore {
       throw new RuntimeContextPolicyCoreError(
         responseError.message ?? "Rust context lifecycle policy rejected the request.",
         responseError.code ?? "context_lifecycle_direct_api_rejected",
+        { error: responseError },
+      );
+    }
+    return response?.ok === true ? response.result : response;
+  }
+
+  invokeRuntimeControlApi(method, schemaVersion, request = {}) {
+    const invoke = this.daemonCoreRuntimeControlApi?.[method];
+    if (typeof invoke !== "function") {
+      throw new RuntimeContextPolicyCoreError(
+        `Runtime control policy requires daemonCoreRuntimeControlApi.${method} for direct Rust daemon-core policy evaluation.`,
+        "runtime_context_policy_core_direct_runtime_control_api_unconfigured",
+        {
+          boundary: `daemonCoreRuntimeControlApi.${method}`,
+          backend: RUST_CONTEXT_POLICY_BACKEND,
+        },
+      );
+    }
+    const response = invoke.call(this.daemonCoreRuntimeControlApi, {
+      ...(objectRecord(request) ?? {}),
+      schema_version: schemaVersion,
+    });
+    const responseError = objectRecord(response?.error);
+    if (response?.ok === false && responseError) {
+      throw new RuntimeContextPolicyCoreError(
+        responseError.message ?? "Rust runtime control policy rejected the request.",
+        responseError.code ?? "runtime_control_direct_api_rejected",
         { error: responseError },
       );
     }
@@ -2941,6 +2989,10 @@ function optionalFunction(value) {
 }
 
 function contextLifecycleApi(value) {
+  return objectRecord(value);
+}
+
+function runtimeControlApi(value) {
   return objectRecord(value);
 }
 

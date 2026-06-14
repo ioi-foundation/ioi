@@ -10,6 +10,7 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-daemon-core-direct-"));
   const calls = [];
   const contextLifecycleCalls = [];
+  const runtimeControlCalls = [];
   const agentgresCalls = [];
   const approvalCalls = [];
   const governedAdmissionCalls = [];
@@ -49,6 +50,23 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
           usage_telemetry: request.usage_telemetry,
           usage_summary: request.usage_telemetry,
           policy_decision_refs: ["policy://direct-context-budget"],
+        };
+      },
+    },
+    daemonCoreRuntimeControlApi: {
+      planRunCancelStateUpdate(request) {
+        runtimeControlCalls.push({ method: "planRunCancelStateUpdate", request });
+        return {
+          source: "direct_runtime_control_api",
+          backend: "rust_policy",
+          status: "planned",
+          operation_kind: "run.cancel",
+          updated_at: request.canceled_at,
+          run: {
+            id: request.run_id,
+            status: "canceled",
+            events: [{ type: "canceled" }],
+          },
         };
       },
     },
@@ -124,6 +142,19 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
   assert.equal(Object.hasOwn(contextLifecycleCalls[0].request, "backend"), false);
   assert.equal(contextBudget.source, "direct_context_lifecycle_api");
   assert.deepEqual(contextBudget.policy_decision_refs, ["policy://direct-context-budget"]);
+  const cancelPlan = store.contextPolicyCore.planRunCancelStateUpdate({
+    run_id: "run_direct",
+    run: { id: "run_direct", status: "running" },
+    canceled_at: "2026-06-14T18:30:00.000Z",
+  });
+  assert.equal(calls.length, 0);
+  assert.equal(runtimeControlCalls.length, 1);
+  assert.equal(runtimeControlCalls[0].method, "planRunCancelStateUpdate");
+  assert.equal(runtimeControlCalls[0].request.schema_version, "ioi.runtime.run-cancel-state-update-request.v1");
+  assert.equal(Object.hasOwn(runtimeControlCalls[0].request, "operation"), false);
+  assert.equal(Object.hasOwn(runtimeControlCalls[0].request, "backend"), false);
+  assert.equal(cancelPlan.source, "direct_runtime_control_api");
+  assert.equal(cancelPlan.run.status, "canceled");
   const queue = store.approvalStateCore.projectApprovalQueue({
     thread_id: "thread_direct",
     state_dir: stateDir,

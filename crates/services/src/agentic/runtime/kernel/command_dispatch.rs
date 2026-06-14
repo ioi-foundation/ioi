@@ -299,14 +299,6 @@ pub fn dispatch_command_operation_response(
                 )
             })
         }
-        CommandOperation::PlanCodingToolBudgetRecoveryStateUpdate => {
-            plan_coding_tool_budget_recovery_state_update_response(decode(raw_request)?)
-                .map_err(Into::into)
-        }
-        CommandOperation::PlanCodingToolBudgetRecoveryControl => {
-            plan_coding_tool_budget_recovery_control_response(decode(raw_request)?)
-                .map_err(Into::into)
-        }
         CommandOperation::PlanWorkflowEditAdmissionRequired => {
             plan_workflow_edit_admission_required_response(decode(raw_request)?).map_err(Into::into)
         }
@@ -329,26 +321,6 @@ pub fn dispatch_command_operation_response(
         CommandOperation::ProjectRuntimeDiagnosticsRepairPolicy => {
             project_runtime_diagnostics_repair_policy_response(decode(raw_request)?)
                 .map_err(Into::into)
-        }
-        CommandOperation::PlanDiagnosticsOperatorOverrideStateUpdate => {
-            plan_diagnostics_operator_override_state_update_response(decode(raw_request)?)
-                .map_err(Into::into)
-        }
-        CommandOperation::PlanOperatorTurnControlAdmissionRequired => {
-            plan_operator_turn_control_admission_required_response(decode(raw_request)?)
-                .map_err(Into::into)
-        }
-        CommandOperation::PlanOperatorInterruptStateUpdate => {
-            plan_operator_interrupt_state_update_response(decode(raw_request)?).map_err(Into::into)
-        }
-        CommandOperation::PlanOperatorSteerStateUpdate => {
-            plan_operator_steer_state_update_response(decode(raw_request)?).map_err(Into::into)
-        }
-        CommandOperation::PlanRunCancelStateUpdate => {
-            plan_run_cancel_state_update_response(decode(raw_request)?).map_err(Into::into)
-        }
-        CommandOperation::PlanRunCancelAdmissionRequired => {
-            plan_run_cancel_admission_required_response(decode(raw_request)?).map_err(Into::into)
         }
         CommandOperation::PlanRuntimeTaskJobCancelStateUpdate => {
             plan_runtime_task_job_cancel_state_update_response(decode(raw_request)?)
