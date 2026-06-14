@@ -4109,7 +4109,8 @@ function runBridge() {
       /createRuntimeContextPolicyCore\(\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
         runtimeDaemonIndex,
       ) &&
-      /createRuntimeExternalCapabilityAuthorityCore\(\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
+      /this\.daemonCoreAuthorityApi = options\.daemonCoreAuthorityApi/.test(runtimeDaemonIndex) &&
+      /createRuntimeExternalCapabilityAuthorityCore\(\{\s*daemonCoreAuthorityApi: this\.daemonCoreAuthorityApi,\s*\}\)/.test(
         runtimeDaemonIndex,
       ) &&
       /this\.externalCapabilityAuthorityCore/.test(runtimeDaemonIndex) &&
@@ -4117,10 +4118,19 @@ function runBridge() {
       !exists("packages/runtime-daemon/src/runtime-external-capability-authority-runner.mjs") &&
       !exists("packages/runtime-daemon/src/runtime-external-capability-authority-runner.test.mjs") &&
       /RuntimeExternalCapabilityAuthorityCore/.test(externalCapabilityAuthorityCore) &&
-      /this\.daemonCoreInvoker = optionalFunction\(options\.daemonCoreInvoker\)/.test(
+      /EXTERNAL_CAPABILITY_AUTHORITY_CORE_API_METHOD = "authorizeExternalCapabilityExit"/.test(
         externalCapabilityAuthorityCore,
       ) &&
-      /operation:\s*"authorize_external_capability_exit"/.test(externalCapabilityAuthorityCore) &&
+      /this\.daemonCoreAuthorityApi = authorityApi/.test(externalCapabilityAuthorityCore) &&
+      /assertNoRetiredExternalCapabilityAuthorityCoreOption\("daemonCoreInvoker", options\.daemonCoreInvoker\)/.test(
+        externalCapabilityAuthorityCore,
+      ) &&
+      /external_capability_authority_core_direct_authority_api_unconfigured/.test(
+        externalCapabilityAuthorityCore,
+      ) &&
+      !/operation:\s*"authorize_external_capability_exit"|ioi\.runtime\.daemon_core\.command\.v1|this\.daemonCoreInvoker = optionalFunction\(options\.daemonCoreInvoker\)/.test(
+        externalCapabilityAuthorityCore,
+      ) &&
       !/process\.env|IOI_RUNTIME_DAEMON_CORE_COMMAND|IOI_EXTERNAL_CAPABILITY_AUTHORITY_COMMAND|normalizeExternalCapabilityAuthorityBridgeResult|stringArray|createExternalCapabilityAuthorityRunnerFromEnv|RustExternalCapabilityAuthorityRunner|ExternalCapabilityAuthorityRunner/.test(
         externalCapabilityAuthorityCore,
       ) &&
@@ -7533,12 +7543,13 @@ function runBridge() {
     "external-capability-exit-authority-live-bridge",
     /WalletAuthorityCore/.test(authorityCore) &&
       /ExternalCapabilityExitRequest/.test(authorityCore) &&
-      /pub struct ExternalCapabilityExitAuthorityBridgeRequest/.test(authorityCore) &&
-      /pub fn authorize_external_capability_exit_response/.test(authorityCore) &&
+      /pub struct ExternalCapabilityExitAuthorityProtocolRequest/.test(authorityCore) &&
+      /pub fn authorize_external_capability_exit_protocol_response/.test(authorityCore) &&
       /EXTERNAL_CAPABILITY_EXIT_AUTHORITY_SCHEMA_VERSION/.test(authorityCore) &&
       /MissingWalletNetworkAuthority/.test(authorityCore) &&
-      /rust_core_shapes_external_capability_authority_response/.test(authorityCore) &&
+      /rust_core_shapes_external_capability_authority_protocol_response/.test(authorityCore) &&
       /external_capability_exit_without_wallet_network_authority_fails/.test(authorityCore) &&
+      /external_capability_authority_command_transport_is_retired/.test(commandProtocolCore) &&
       !/mod authority_command;/.test(bridgeModule) &&
       !authorityCommandBridgeExists &&
       !/authorize_external_capability_exit_response as authorize_external_capability_exit/.test(bridgeModule) &&
@@ -7546,7 +7557,7 @@ function runBridge() {
       !/struct ExternalCapabilityExitAuthorityBridgeRequest/.test(bridgeModule) &&
       !/fn authorize_external_capability_exit/.test(bridgeModule) &&
       /WalletAuthorityCore/.test(authorityCore) &&
-      /rust_external_capability_exit_authority_command/.test(authorityCore) &&
+      /rust_external_capability_exit_authority_protocol/.test(authorityCore) &&
       /"schema_version":\s*"ioi\.runtime\.external_capability_authority\.v1"/.test(
         authorityCore,
       ) &&
@@ -7589,7 +7600,7 @@ function runBridge() {
         bridgeModule,
       ) &&
       !authorityCommandBridgeExists &&
-      /rust_core_shapes_external_capability_authority_response/.test(authorityCore) &&
+      /rust_core_shapes_external_capability_authority_protocol_response/.test(authorityCore) &&
       !/authorize_external_capability_exit_response as authorize_external_capability_exit/.test(bridgeModule) &&
       !policyCommandBridgeExists &&
       !projectionCommandBridgeExists &&
@@ -8638,14 +8649,24 @@ function runBridge() {
     !exists("packages/runtime-daemon/src/runtime-external-capability-authority-runner.mjs") &&
       !exists("packages/runtime-daemon/src/runtime-external-capability-authority-runner.test.mjs") &&
       !exists("packages/runtime-daemon/src/runtime-external-capability-authority-store.test.mjs") &&
-      /ioi\.runtime\.daemon_core\.command\.v1/.test(externalCapabilityAuthorityCore) &&
       /RuntimeExternalCapabilityAuthorityCore/.test(externalCapabilityAuthorityCore) &&
       /createRuntimeExternalCapabilityAuthorityCore/.test(externalCapabilityAuthorityCore) &&
       /createRuntimeExternalCapabilityAuthorityCore/.test(runtimeDaemonIndex) &&
+      /this\.daemonCoreAuthorityApi = options\.daemonCoreAuthorityApi/.test(runtimeDaemonIndex) &&
+      /daemonCoreAuthorityApi: this\.daemonCoreAuthorityApi/.test(runtimeDaemonIndex) &&
       /this\.externalCapabilityAuthorityCore/.test(runtimeDaemonIndex) &&
       !/this\.externalCapabilityAuthorityRunner/.test(runtimeDaemonIndex) &&
       /authorizeExit/.test(externalCapabilityAuthorityCore) &&
-      /operation:\s*"authorize_external_capability_exit"/.test(externalCapabilityAuthorityCore) &&
+      /EXTERNAL_CAPABILITY_AUTHORITY_CORE_API_METHOD = "authorizeExternalCapabilityExit"/.test(
+        externalCapabilityAuthorityCore,
+      ) &&
+      /this\.daemonCoreAuthorityApi = authorityApi/.test(externalCapabilityAuthorityCore) &&
+      /assertNoRetiredExternalCapabilityAuthorityCoreOption\("daemonCoreInvoker", options\.daemonCoreInvoker\)/.test(
+        externalCapabilityAuthorityCore,
+      ) &&
+      !/operation:\s*"authorize_external_capability_exit"|ioi\.runtime\.daemon_core\.command\.v1|this\.daemonCoreInvoker = optionalFunction\(options\.daemonCoreInvoker\)/.test(
+        externalCapabilityAuthorityCore,
+      ) &&
       /rust_authority/.test(externalCapabilityAuthorityCore) &&
       /thread_id:\s*optionalString\(context\.thread_id\)/.test(externalCapabilityAuthorityCore) &&
       /agent_id:\s*optionalString\(context\.agent_id\)/.test(externalCapabilityAuthorityCore) &&
@@ -8658,10 +8679,7 @@ function runBridge() {
       /RETIRED_EXTERNAL_CAPABILITY_AUTHORITY_CORE_TRUTH_FIELDS/.test(
         externalCapabilityAuthorityCore,
       ) &&
-      /this\.daemonCoreInvoker = optionalFunction\(options\.daemonCoreInvoker\)/.test(
-        externalCapabilityAuthorityCore,
-      ) &&
-      /external_capability_authority_core_direct_invoker_unconfigured/.test(
+      /external_capability_authority_core_direct_authority_api_unconfigured/.test(
         externalCapabilityAuthorityCore,
       ) &&
       /external_capability_authority_core_compatibility_option_retired/.test(
@@ -8673,7 +8691,7 @@ function runBridge() {
       !/process\.env|IOI_RUNTIME_DAEMON_CORE_COMMAND|IOI_EXTERNAL_CAPABILITY_AUTHORITY_COMMAND|IOI_STEP_MODULE_COMMAND|EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_ARGS_ENV|parseCommandArgs|normalizeArgs|this\.args|argsEnv|createDaemonCoreCommandInvoker|normalizeExternalCapabilityAuthorityBridgeResult|stringArray|RustExternalCapabilityAuthorityRunner|ExternalCapabilityAuthorityRunner/.test(
         externalCapabilityAuthorityCore,
       ) &&
-      /external capability authority core calls direct Rust daemon-core wallet\.network API/.test(
+      /external capability authority core calls typed Rust daemon-core wallet\.network API/.test(
         externalCapabilityAuthorityCoreTest,
       ) &&
       /external capability authority core returns the Rust envelope without JS normalization/.test(
@@ -8685,13 +8703,16 @@ function runBridge() {
       /external capability authority core rejects retired request aliases before Rust invocation/.test(
         externalCapabilityAuthorityCoreTest,
       ) &&
-      /external capability authority core fails closed without direct daemon-core API/.test(
+      /external capability authority core fails closed without typed daemon-core authority API/.test(
         externalCapabilityAuthorityCoreTest,
       ) &&
       /external capability authority core surfaces Rust wallet\.network rejection/.test(
         externalCapabilityAuthorityCoreTest,
       ) &&
       /runtime store mounts external capability authority core from options/.test(
+        externalCapabilityAuthorityCoreStoreTest,
+      ) &&
+      /runtime store wires external capability authority to typed Rust authority API/.test(
         externalCapabilityAuthorityCoreStoreTest,
       ) &&
       /Object\.hasOwn\(store,\s*"externalCapabilityAuthorityRunner"\),\s*false/.test(

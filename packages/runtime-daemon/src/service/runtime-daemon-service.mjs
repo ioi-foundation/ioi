@@ -24,6 +24,7 @@ export async function startRuntimeDaemonServiceWithStore({
     workspaceRestoreCore: options.workspaceRestoreCore,
     runtimeBridge: options.runtimeBridge,
     daemonCoreInvoker: options.daemonCoreInvoker,
+    daemonCoreAuthorityApi: options.daemonCoreAuthorityApi,
   });
   const server = http.createServer((request, response) => {
     handleRequest({ request, response, store }).catch((error) => {

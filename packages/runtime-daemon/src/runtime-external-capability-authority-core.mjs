@@ -1,5 +1,5 @@
-export const EXTERNAL_CAPABILITY_AUTHORITY_CORE_SCHEMA_VERSION = "ioi.runtime.daemon_core.command.v1";
 export const RUNTIME_EXTERNAL_CAPABILITY_AUTHORITY_BACKEND = "rust_authority";
+export const EXTERNAL_CAPABILITY_AUTHORITY_CORE_API_METHOD = "authorizeExternalCapabilityExit";
 
 const RETIRED_EXTERNAL_CAPABILITY_AUTHORITY_CORE_REQUEST_ALIASES = [
   "request",
@@ -44,31 +44,36 @@ export class RuntimeExternalCapabilityAuthorityCore {
   constructor(options = {}) {
     assertNoRetiredExternalCapabilityAuthorityCoreOption("command", options.command);
     assertNoRetiredExternalCapabilityAuthorityCoreOption("args", options.args);
-    this.daemonCoreInvoker = optionalFunction(options.daemonCoreInvoker);
+    assertNoRetiredExternalCapabilityAuthorityCoreOption("daemonCoreInvoker", options.daemonCoreInvoker);
+    this.daemonCoreAuthorityApi = authorityApi(
+      options.daemonCoreAuthorityApi ?? options.daemonCoreApi?.authority ?? options.daemonCoreApi,
+    );
   }
 
   authorizeExit(request, context = {}) {
     assertCanonicalExternalCapabilityAuthorityCoreRequest(request);
-    const daemonCoreRequest = {
-      schema_version: EXTERNAL_CAPABILITY_AUTHORITY_CORE_SCHEMA_VERSION,
-      operation: "authorize_external_capability_exit",
-      backend: RUNTIME_EXTERNAL_CAPABILITY_AUTHORITY_BACKEND,
+    const routeContext = {
       thread_id: optionalString(context.thread_id),
       agent_id: optionalString(context.agent_id),
-      request,
     };
-    return this.invokeDaemonCore(daemonCoreRequest);
+    return this.invokeRustAuthorityApi(request, routeContext);
   }
 
-  invokeDaemonCore(request) {
-    if (!this.daemonCoreInvoker) {
+  invokeRustAuthorityApi(request, context = {}) {
+    if (!this.daemonCoreAuthorityApi) {
       throw new RuntimeExternalCapabilityAuthorityCoreError(
-        "External capability exits require daemonCoreInvoker for direct Rust daemon-core wallet.network authority.",
-        "external_capability_authority_core_direct_invoker_unconfigured",
-        { boundary: "daemonCoreInvoker" },
+        "External capability exits require daemonCoreAuthorityApi.authorizeExternalCapabilityExit for Rust daemon-core wallet.network authority.",
+        "external_capability_authority_core_direct_authority_api_unconfigured",
+        {
+          boundary: "daemonCoreAuthorityApi.authorizeExternalCapabilityExit",
+          backend: RUNTIME_EXTERNAL_CAPABILITY_AUTHORITY_BACKEND,
+        },
       );
     }
-    const response = this.daemonCoreInvoker(request);
+    const response = this.daemonCoreAuthorityApi[EXTERNAL_CAPABILITY_AUTHORITY_CORE_API_METHOD](
+      request,
+      context,
+    );
     if (response?.ok === false) {
       const error = objectRecord(response.error) ?? {};
       throw new RuntimeExternalCapabilityAuthorityCoreError(
@@ -117,7 +122,7 @@ function assertNoRetiredExternalCapabilityAuthorityCoreOption(field, value) {
   if (typeof value === "string" && value.trim().length === 0) return;
   if (value == null) return;
   throw new RuntimeExternalCapabilityAuthorityCoreError(
-    "External capability authority command compatibility options are retired; use daemonCoreInvoker for direct Rust daemon-core wallet.network authority.",
+    "External capability authority command compatibility options are retired; use daemonCoreAuthorityApi.authorizeExternalCapabilityExit for Rust daemon-core wallet.network authority.",
     "external_capability_authority_core_compatibility_option_retired",
     { retired_option: field, retired_value: value },
   );
@@ -145,6 +150,9 @@ function optionalString(value) {
   return trimmed ? trimmed : null;
 }
 
-function optionalFunction(value) {
-  return typeof value === "function" ? value : null;
+function authorityApi(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return typeof value[EXTERNAL_CAPABILITY_AUTHORITY_CORE_API_METHOD] === "function"
+    ? value
+    : null;
 }

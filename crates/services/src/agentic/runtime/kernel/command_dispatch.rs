@@ -3,7 +3,7 @@ use serde_json::{json, Value};
 use std::io::{self, Read};
 
 use super::{
-    agentgres_command::*, approval::*, authority::*, coding_tool_artifact::*, coding_tool_event::*,
+    agentgres_command::*, approval::*, coding_tool_artifact::*, coding_tool_event::*,
     coding_tool_step_module::*, command_protocol::CommandOperation, governed_admission::*,
     governed_receipt::*, model_mount::*, model_mount_receipt::*, policy::*, repository_workflow::*,
     runtime_conversation_artifact_control::*, runtime_conversation_artifact_projection::*,
@@ -419,9 +419,6 @@ pub fn dispatch_command_operation_response(
         CommandOperation::PlanApprovalRevokeStateUpdate => {
             plan_approval_revoke_state_update_response(decode(raw_request)?).map_err(Into::into)
         }
-        CommandOperation::AuthorizeExternalCapabilityExit => {
-            authorize_external_capability_exit_response(decode(raw_request)?).map_err(Into::into)
-        }
         CommandOperation::EvaluateContextBudgetPolicy => {
             evaluate_context_budget_policy_response(decode(raw_request)?).map_err(Into::into)
         }
@@ -702,7 +699,6 @@ macro_rules! command_error_from {
 
 command_error_from!(AgentgresCommandError);
 command_error_from!(ApprovalCommandError);
-command_error_from!(AuthorityCommandError);
 command_error_from!(CodingToolStepModuleCommandError);
 command_error_from!(GovernedAdmissionError);
 command_error_from!(GovernedReceiptError);

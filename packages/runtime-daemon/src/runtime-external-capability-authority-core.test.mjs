@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  EXTERNAL_CAPABILITY_AUTHORITY_CORE_SCHEMA_VERSION,
   RUNTIME_EXTERNAL_CAPABILITY_AUTHORITY_BACKEND,
   RuntimeExternalCapabilityAuthorityCore,
   RuntimeExternalCapabilityAuthorityCoreError,
@@ -26,34 +25,36 @@ function externalCapabilityExitRequest() {
   };
 }
 
-function authorizedResult(request) {
+function authorizedResult(request, context) {
   return {
-    source: "rust_external_capability_exit_authority_command",
+    source: "rust_external_capability_exit_authority_protocol",
     backend: RUNTIME_EXTERNAL_CAPABILITY_AUTHORITY_BACKEND,
     schema_version: "ioi.runtime.external_capability_authority.v1",
     object: "ioi.runtime_external_capability_authority",
     status: "authorized",
     exit_authorized: true,
     direct_truth_write_allowed: false,
-    thread_id: request.thread_id,
-    agent_id: request.agent_id,
+    thread_id: context.thread_id,
+    agent_id: context.agent_id,
     authority: {
-      ...request.request,
-      wallet_network_grant_refs: request.request.authority_grant_refs,
+      ...request,
+      wallet_network_grant_refs: request.authority_grant_refs,
       authority_hash: "sha256:external-capability-authority",
     },
-    wallet_network_grant_refs: request.request.authority_grant_refs,
-    authority_receipt_refs: request.request.authority_receipt_refs,
+    wallet_network_grant_refs: request.authority_grant_refs,
+    authority_receipt_refs: request.authority_receipt_refs,
     authority_hash: "sha256:external-capability-authority",
   };
 }
 
-test("external capability authority core calls direct Rust daemon-core wallet.network API", () => {
+test("external capability authority core calls typed Rust daemon-core wallet.network API", () => {
   const calls = [];
   const core = createRuntimeExternalCapabilityAuthorityCore({
-    daemonCoreInvoker(request) {
-      calls.push(request);
-      return authorizedResult(request);
+    daemonCoreAuthorityApi: {
+      authorizeExternalCapabilityExit(request, context) {
+        calls.push({ request, context });
+        return authorizedResult(request, context);
+      },
     },
   });
 
@@ -63,14 +64,15 @@ test("external capability authority core calls direct Rust daemon-core wallet.ne
   });
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].schema_version, EXTERNAL_CAPABILITY_AUTHORITY_CORE_SCHEMA_VERSION);
-  assert.equal(calls[0].operation, "authorize_external_capability_exit");
-  assert.equal(calls[0].backend, RUNTIME_EXTERNAL_CAPABILITY_AUTHORITY_BACKEND);
-  assert.equal(calls[0].thread_id, "thread_external_capability_core");
-  assert.equal(calls[0].agent_id, "agent_external_capability_core");
   assert.equal(calls[0].request.exit_ref, "exit://aiip/slack-post-message");
   assert.equal(Object.hasOwn(calls[0].request, "exitRef"), false);
   assert.equal(Object.hasOwn(calls[0].request, "wallet_network_grant_refs"), false);
+  assert.deepEqual(calls[0].context, {
+    thread_id: "thread_external_capability_core",
+    agent_id: "agent_external_capability_core",
+  });
+  assert.equal(Object.hasOwn(calls[0], "operation"), false);
+  assert.equal(Object.hasOwn(calls[0], "schema_version"), false);
   assert.equal(result.schema_version, "ioi.runtime.external_capability_authority.v1");
   assert.equal(result.object, "ioi.runtime_external_capability_authority");
   assert.equal(result.status, "authorized");
@@ -78,7 +80,7 @@ test("external capability authority core calls direct Rust daemon-core wallet.ne
   assert.equal(result.direct_truth_write_allowed, false);
   assert.equal(result.thread_id, "thread_external_capability_core");
   assert.equal(result.agent_id, "agent_external_capability_core");
-  assert.equal(result.source, "rust_external_capability_exit_authority_command");
+  assert.equal(result.source, "rust_external_capability_exit_authority_protocol");
   assert.equal(result.backend, RUNTIME_EXTERNAL_CAPABILITY_AUTHORITY_BACKEND);
   assert.deepEqual(result.wallet_network_grant_refs, [
     "wallet.network://grant/external-capability/slack-post-message",
@@ -97,8 +99,10 @@ test("external capability authority core returns the Rust envelope without JS no
     },
   };
   const core = createRuntimeExternalCapabilityAuthorityCore({
-    daemonCoreInvoker() {
-      return rustEnvelope;
+    daemonCoreAuthorityApi: {
+      authorizeExternalCapabilityExit() {
+        return rustEnvelope;
+      },
     },
   });
 
@@ -125,14 +129,23 @@ test("external capability authority core rejects retired compatibility options",
       error instanceof RuntimeExternalCapabilityAuthorityCoreError &&
       error.code === "external_capability_authority_core_compatibility_option_retired",
   );
+  assert.throws(
+    () => new RuntimeExternalCapabilityAuthorityCore({ daemonCoreInvoker() {} }),
+    (error) =>
+      error instanceof RuntimeExternalCapabilityAuthorityCoreError &&
+      error.code === "external_capability_authority_core_compatibility_option_retired" &&
+      error.details.retired_option === "daemonCoreInvoker",
+  );
 });
 
 test("external capability authority core rejects retired request aliases before Rust invocation", () => {
   const calls = [];
   const core = createRuntimeExternalCapabilityAuthorityCore({
-    daemonCoreInvoker() {
-      calls.push("invoked");
-      return {};
+    daemonCoreAuthorityApi: {
+      authorizeExternalCapabilityExit() {
+        calls.push("invoked");
+        return {};
+      },
     },
   });
   const request = externalCapabilityExitRequest();
@@ -161,25 +174,27 @@ test("external capability authority core rejects retired request aliases before 
   assert.deepEqual(calls, []);
 });
 
-test("external capability authority core fails closed without direct daemon-core API", () => {
+test("external capability authority core fails closed without typed daemon-core authority API", () => {
   const core = createRuntimeExternalCapabilityAuthorityCore({});
 
   assert.throws(
     () => core.authorizeExit(externalCapabilityExitRequest()),
-    (error) => error.code === "external_capability_authority_core_direct_invoker_unconfigured",
+    (error) => error.code === "external_capability_authority_core_direct_authority_api_unconfigured",
   );
 });
 
 test("external capability authority core surfaces Rust wallet.network rejection", () => {
   const core = createRuntimeExternalCapabilityAuthorityCore({
-    daemonCoreInvoker() {
-      return {
-        ok: false,
-        error: {
-          code: "external_capability_exit_authority_invalid",
-          message: "MissingWalletNetworkAuthority",
-        },
-      };
+    daemonCoreAuthorityApi: {
+      authorizeExternalCapabilityExit() {
+        return {
+          ok: false,
+          error: {
+            code: "external_capability_exit_authority_invalid",
+            message: "MissingWalletNetworkAuthority",
+          },
+        };
+      },
     },
   });
 

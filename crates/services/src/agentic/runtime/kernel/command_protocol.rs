@@ -60,7 +60,6 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "project_runtime_thread_event_replay",
     "project_runtime_thread_turn_projection",
     "plan_post_edit_diagnostics_feedback",
-    "authorize_external_capability_exit",
     "execute_private_workspace_ctee_action",
     "admit_l1_settlement_attempt",
     "admit_governed_runtime_improvement_proposal",
@@ -207,7 +206,6 @@ pub enum CommandOperation {
     ProjectRuntimeThreadEventReplay,
     ProjectRuntimeThreadTurnProjection,
     PlanPostEditDiagnosticsFeedback,
-    AuthorizeExternalCapabilityExit,
     ExecutePrivateWorkspaceCteeAction,
     AdmitL1SettlementAttempt,
     AdmitGovernedRuntimeImprovementProposal,
@@ -365,7 +363,6 @@ impl CommandOperation {
             Self::ProjectRuntimeThreadEventReplay => "project_runtime_thread_event_replay",
             Self::ProjectRuntimeThreadTurnProjection => "project_runtime_thread_turn_projection",
             Self::PlanPostEditDiagnosticsFeedback => "plan_post_edit_diagnostics_feedback",
-            Self::AuthorizeExternalCapabilityExit => "authorize_external_capability_exit",
             Self::ExecutePrivateWorkspaceCteeAction => "execute_private_workspace_ctee_action",
             Self::AdmitL1SettlementAttempt => "admit_l1_settlement_attempt",
             Self::AdmitGovernedRuntimeImprovementProposal => {
@@ -668,9 +665,6 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
         "plan_post_edit_diagnostics_feedback" => {
             Some(CommandOperation::PlanPostEditDiagnosticsFeedback)
         }
-        "authorize_external_capability_exit" => {
-            Some(CommandOperation::AuthorizeExternalCapabilityExit)
-        }
         "execute_private_workspace_ctee_action" => {
             Some(CommandOperation::ExecutePrivateWorkspaceCteeAction)
         }
@@ -931,7 +925,6 @@ mod tests {
     fn daemon_core_operations_use_daemon_core_command_schema() {
         for operation in [
             "admit_model_mount_route_decision",
-            "authorize_external_capability_exit",
             "execute_private_workspace_ctee_action",
             "plan_workflow_edit_admission_required",
             "validate_mcp_servers",
@@ -1001,6 +994,18 @@ mod tests {
                 .unwrap_err()
                 .code(),
             "operation_unknown"
+        );
+    }
+
+    #[test]
+    fn external_capability_authority_command_transport_is_retired() {
+        assert_eq!(
+            command_operation("authorize_external_capability_exit"),
+            None
+        );
+        assert_eq!(
+            expected_command_schema_version("authorize_external_capability_exit"),
+            None
         );
     }
 

@@ -44,7 +44,7 @@ function store() {
           direct_truth_write_allowed: false,
           thread_id: context.thread_id,
           agent_id: context.agent_id,
-          source: "rust_external_capability_exit_authority_command",
+          source: "rust_external_capability_exit_authority_protocol",
           backend: "rust_authority",
           authority: {
             ...input,

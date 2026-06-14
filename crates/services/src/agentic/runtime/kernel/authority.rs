@@ -20,12 +20,12 @@ pub enum WalletAuthorityError {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct AuthorityCommandError {
+pub struct AuthorityProtocolError {
     code: &'static str,
     message: String,
 }
 
-impl AuthorityCommandError {
+impl AuthorityProtocolError {
     fn new(code: &'static str, message: String) -> Self {
         Self { code, message }
     }
@@ -67,9 +67,7 @@ pub struct ExternalCapabilityExitAuthorityRecord {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct ExternalCapabilityExitAuthorityBridgeRequest {
-    #[serde(default)]
-    pub backend: Option<String>,
+pub struct ExternalCapabilityExitAuthorityProtocolRequest {
     #[serde(default)]
     pub thread_id: Option<String>,
     #[serde(default)]
@@ -113,13 +111,13 @@ impl WalletAuthorityCore {
     }
 }
 
-pub fn authorize_external_capability_exit_response(
-    request: ExternalCapabilityExitAuthorityBridgeRequest,
-) -> Result<Value, AuthorityCommandError> {
+pub fn authorize_external_capability_exit_protocol_response(
+    request: ExternalCapabilityExitAuthorityProtocolRequest,
+) -> Result<Value, AuthorityProtocolError> {
     let record = WalletAuthorityCore
         .authorize_external_capability_exit(&request.request)
         .map_err(|error| {
-            AuthorityCommandError::new(
+            AuthorityProtocolError::new(
                 "external_capability_exit_authority_invalid",
                 format!("{error:?}"),
             )
@@ -132,8 +130,8 @@ pub fn authorize_external_capability_exit_response(
         "direct_truth_write_allowed": false,
         "thread_id": request.thread_id,
         "agent_id": request.agent_id,
-        "source": "rust_external_capability_exit_authority_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_authority".to_string()),
+        "source": "rust_external_capability_exit_authority_protocol",
+        "backend": "rust_authority",
         "authority": record.clone(),
         "exit_ref": record.exit_ref.clone(),
         "capability_ref": record.capability_ref.clone(),
@@ -255,10 +253,9 @@ mod tests {
     }
 
     #[test]
-    fn rust_core_shapes_external_capability_authority_response() {
-        let response = authorize_external_capability_exit_response(
-            ExternalCapabilityExitAuthorityBridgeRequest {
-                backend: Some("rust_authority".to_string()),
+    fn rust_core_shapes_external_capability_authority_protocol_response() {
+        let response = authorize_external_capability_exit_protocol_response(
+            ExternalCapabilityExitAuthorityProtocolRequest {
                 thread_id: Some("thread_authority".to_string()),
                 agent_id: Some("agent_authority".to_string()),
                 request: request(),
@@ -281,7 +278,7 @@ mod tests {
         assert_eq!(response["agent_id"], "agent_authority");
         assert_eq!(
             response["source"],
-            "rust_external_capability_exit_authority_command"
+            "rust_external_capability_exit_authority_protocol"
         );
         assert_eq!(response["backend"], "rust_authority");
         assert_eq!(response["exit_ref"], "exit://aiip/send-message");

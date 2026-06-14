@@ -6761,13 +6761,13 @@ receipt/state-root truth where
 applicable, replay, projection, wallet.network authority where applicable, and
 stable IDE/CLI/SDK surfaces end to end.
 
-Slice 1121 moves external capability exit authority command response shaping
-out of the temporary Node authority command bridge and into Rust `authority.rs`
-under the kernel service crate. Rust core now owns the bridge request struct,
-wallet.network authority wrapping, canonical
-`rust_external_capability_exit_authority_command` response envelope, authority
-grant/receipt/hash projection fields, and bridge-facing error code for rejected
-external exits.
+Slice 1121 moved external capability exit authority response shaping out of the
+temporary Node authority command bridge and into Rust `authority.rs` under the
+kernel service crate. That path is now superseded by the direct authority API
+cut: Rust core owns the protocol request struct, wallet.network authority
+wrapping, canonical `rust_external_capability_exit_authority_protocol` response
+envelope, authority grant/receipt/hash projection fields, and protocol-facing
+error code for rejected external exits.
 
 This remains non-terminal because the Node bridge, command dispatch table,
 shared daemon-core command runner, JS command caller, and external capability
@@ -7302,9 +7302,9 @@ retirement for the remaining JS product/readback surfaces.
 
 Slice 1147 moves external capability exit authority product-route response
 envelope authorship out of the JS surface and into Rust `authority.rs`. The
-Rust `ExternalCapabilityExitAuthorityBridgeRequest` now accepts thread/agent
-route context and `authorize_external_capability_exit_response()` emits the
-canonical `ioi.runtime.external_capability_authority.v1` route envelope,
+Rust `ExternalCapabilityExitAuthorityProtocolRequest` now accepts thread/agent
+route context and `authorize_external_capability_exit_protocol_response()` emits
+the canonical `ioi.runtime.external_capability_authority.v1` route envelope,
 including `status`, `exit_authorized`, `direct_truth_write_allowed`,
 `thread_id`, `agent_id`, authority refs, grant refs, receipt refs, and the
 authority hash. The JS external-capability authority surface now only extracts
@@ -8184,18 +8184,26 @@ transport.
 Slice 1205 retires the daemon external capability authority runner outright.
 The daemon store now mounts `externalCapabilityAuthorityCore`; the JS runner
 facade, store runner option, command/env fallback, and response normalizer are
-deleted. The core builds only the canonical Rust daemon-core
-`authorize_external_capability_exit` request, fails closed without the
-daemon-level `daemonCoreInvoker`, rejects retired request aliases/truth
-fields/options, and returns the Rust `authority.rs` wallet.network authority
-envelope as-is.
+deleted.
+
+The current external capability authority transport cut retires the remaining
+generic command-envelope request builder for this family. The core now requires
+typed `daemonCoreAuthorityApi.authorizeExternalCapabilityExit`, rejects the
+retired `daemonCoreInvoker` command-transport option plus request aliases/truth
+fields before Rust invocation, and returns the Rust `authority.rs`
+wallet.network authority protocol envelope as-is. Rust `command_protocol.rs`
+also rejects `authorize_external_capability_exit` as an absent command operation,
+so this migrated authority path cannot return through the temporary command
+dispatcher.
 
 This removes JS envelope truth for the external capability path:
 authorization booleans, wallet.network grant refs, authority receipt refs,
 authority hashes, route context, source, and backend truth must arrive from
 Rust daemon-core output or remain absent at the JS edge. It is still not
-terminal because the mounted core builds a temporary command-envelope request
-and other command runners still carry temporary command transport.
+terminal because richer authority projection/replay records, Agentgres
+receipt/state-root binding, and stable IDE/CLI/SDK authority read APIs still
+need direct Rust ownership, and other route families still carry temporary
+command transport.
 
 Slice 1197 retired the temporary binary-spawn fallback for the daemon external
 capability authority runner. That direct-invoker-only migration edge is now

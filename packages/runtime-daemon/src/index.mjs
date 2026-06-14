@@ -595,6 +595,7 @@ export class AgentgresRuntimeStateStore {
     this.conversationArtifacts = new ConversationArtifactStore(this.stateDir);
     this.runtimeBridge = createRuntimeApiBridge(options.runtimeBridge);
     this.daemonCoreInvoker = options.daemonCoreInvoker;
+    this.daemonCoreAuthorityApi = options.daemonCoreAuthorityApi;
     if (Object.hasOwn(options, "contextPolicyRunner")) {
       throw new Error("contextPolicyRunner is retired; pass contextPolicyCore for the Rust daemon-core policy boundary.");
     }
@@ -626,7 +627,7 @@ export class AgentgresRuntimeStateStore {
     this.externalCapabilityAuthorityCore =
       options.externalCapabilityAuthorityCore ??
       createRuntimeExternalCapabilityAuthorityCore({
-        daemonCoreInvoker: this.daemonCoreInvoker,
+        daemonCoreAuthorityApi: this.daemonCoreAuthorityApi,
       });
     this.workerServicePackageCore =
       options.workerServicePackageCore ??
