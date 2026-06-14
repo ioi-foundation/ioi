@@ -115,8 +115,8 @@ impl RuntimeMcpServeToolCallPlanCore {
                 format!("{operation_kind} is not an MCP serve tools/call operation"),
             ));
         }
-        let method = optional_trimmed(request.method.as_deref())
-            .unwrap_or_else(|| "tools/call".to_string());
+        let method =
+            optional_trimmed(request.method.as_deref()).unwrap_or_else(|| "tools/call".to_string());
         if method != "tools/call" {
             return Err(RuntimeMcpServeCommandError::new(
                 "runtime_mcp_serve_tool_call_method_unsupported",
@@ -176,8 +176,9 @@ impl RuntimeMcpServeToolCallPlanCore {
             .and_then(Value::as_str)
             .and_then(trimmed_str)
             .unwrap_or_else(|| format!("runtime.mcp_serve.{safe_tool_id}"));
-        let mcp_serve_schema_version = optional_trimmed(request.mcp_serve_schema_version.as_deref())
-            .unwrap_or_else(|| "ioi.runtime.mcp-serve.v1".to_string());
+        let mcp_serve_schema_version =
+            optional_trimmed(request.mcp_serve_schema_version.as_deref())
+                .unwrap_or_else(|| "ioi.runtime.mcp-serve.v1".to_string());
 
         let mut invocation_request = input;
         invocation_request.insert("source".to_string(), json!("mcp_serve"));
@@ -292,7 +293,10 @@ fn request_hash(
 }
 
 fn optional_trimmed(value: Option<&str>) -> Option<String> {
-    value.map(str::trim).filter(|value| !value.is_empty()).map(str::to_string)
+    value
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
 }
 
 fn trimmed_str(value: &str) -> Option<String> {
@@ -319,7 +323,9 @@ mod tests {
 
     fn request() -> RuntimeMcpServeToolCallPlanRequest {
         RuntimeMcpServeToolCallPlanRequest {
-            schema_version: Some(RUNTIME_MCP_SERVE_TOOL_CALL_PLAN_REQUEST_SCHEMA_VERSION.to_string()),
+            schema_version: Some(
+                RUNTIME_MCP_SERVE_TOOL_CALL_PLAN_REQUEST_SCHEMA_VERSION.to_string(),
+            ),
             operation: None,
             operation_kind: None,
             thread_id: Some("thread_one".to_string()),

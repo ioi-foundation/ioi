@@ -1939,17 +1939,17 @@ from admitted Agentgres runtime-engine control truth. This keeps
 bridge callers from reintroducing
 JS runtime-engine maps as projection truth.
 
-Slice 866 moved public OAuth session/state readback refusal onto the Rust
-read-projection boundary. Public `listOAuthSessions()` and `listOAuthStates()`
-now call `plan_model_mount_read_projection` kinds `oauth_sessions` and
-`oauth_states` with empty request state, translate only the Rust refusal at the
-JS edge, and no longer import the dead `oauthSessionList()`/`oauthStateList()`
-helpers. The Rust bridge direct arms for `oauth_sessions` and `oauth_states`
-fail closed with `model_mount_oauth_read_projection_js_retired` even when direct
-callers provide OAuth session/state arrays, and broad `snapshot`/`projection`
-OAuth fields remain schema-stable empty arrays. Direct Rust daemon-core
-wallet/cTEE OAuth projection APIs still need to replace this refusal before
-OAuth public readback can be live.
+Current OAuth read-projection cut supersedes the Slice 866 refusal. Public
+`listOAuthSessions()` and `listOAuthStates()` now call
+`plan_model_mount_read_projection` kinds `oauth_sessions` and `oauth_states`
+with empty request state plus runtime `state_dir`; Rust
+`model_mount/read_projection/oauth.rs` replays admitted
+`model-catalog-provider-controls/*.json` records, filters out legacy JS OAuth
+truth, returns redacted wallet/cTEE custody rows for OAuth sessions and states,
+and keeps broad `snapshot`/`projection` OAuth fields schema-stable empty arrays.
+The JS edge no longer translates the Rust refusal or reads local OAuth maps.
+Command transport and richer wallet/cTEE OAuth execution/projection remain
+non-terminal, but public OAuth readback is no longer fail-closed scaffolding.
 
 Slice 867 moved public catalog-status readback refusal onto the Rust
 read-projection boundary. The current macro cut replaces the empty/default
@@ -5017,9 +5017,11 @@ model-mount public catalog-status readback now returns the Rust-authored
 `catalog_status` projection from `model_mount/read_projection/status.rs` with
 empty request state plus runtime `state_dir`, replaying admitted
 `model-provider-inventory/*.json` Agentgres records into provider status,
-storage status, last-search summary, and result rows, while OAuth session/state readback refusal remains in the
-dedicated Rust `model_mount/read_projection/oauth.rs` module until direct
-wallet/cTEE projection APIs own Agentgres-backed OAuth truth;
+storage status, last-search summary, and result rows; model-mount public OAuth
+session/state readback now returns Rust-authored redacted rows from
+`model_mount/read_projection/oauth.rs` by replaying admitted
+`model-catalog-provider-controls/*.json` records with wallet/cTEE custody facts
+and filtering legacy JS OAuth truth;
 model-mount read-projection shared helpers now live in the dedicated Rust
 `model_mount/read_projection/common.rs` module, with module-local Rust proof
 that schema/generation defaults, array/object extraction, and receipt-kind

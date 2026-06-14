@@ -74,6 +74,8 @@ pub(super) const MODEL_MOUNT_SERVER_LOGS_PROJECTION_KIND: &str = "server_logs";
 pub(super) const MODEL_MOUNT_SERVER_EVENTS_PROJECTION_KIND: &str = "server_events";
 pub(super) const MODEL_MOUNT_SERVER_LOG_RECORDS_PROJECTION_KIND: &str = "server_log_records";
 pub(super) const MODEL_MOUNT_MCP_SERVERS_PROJECTION_KIND: &str = "mcp_servers";
+pub(super) const MODEL_MOUNT_OAUTH_SESSIONS_PROJECTION_KIND: &str = "oauth_sessions";
+pub(super) const MODEL_MOUNT_OAUTH_STATES_PROJECTION_KIND: &str = "oauth_states";
 pub(super) const MODEL_MOUNT_PROVIDER_HEALTH_PROJECTION_KIND: &str = "provider_health";
 pub(super) const MODEL_MOUNT_RECEIPT_REPLAY_PROJECTION_KINDS: [&str; 9] = [
     "snapshot",
@@ -286,6 +288,17 @@ pub(super) fn plan_read_projection(
             "model_mount_mcp_server_js_projection_retired".to_string(),
         ]);
     }
+    if matches!(
+        request.projection_kind.as_str(),
+        MODEL_MOUNT_OAUTH_SESSIONS_PROJECTION_KIND | MODEL_MOUNT_OAUTH_STATES_PROJECTION_KIND
+    ) {
+        evidence_refs.extend([
+            "rust_daemon_core_catalog_provider_oauth_projection".to_string(),
+            "agentgres_catalog_provider_control_replay_required".to_string(),
+            "rust_daemon_core_wallet_ctee_custody_required".to_string(),
+            "model_mount_oauth_read_projection_js_facade_retired".to_string(),
+        ]);
+    }
     if request.projection_kind == MODEL_MOUNT_PROVIDER_HEALTH_PROJECTION_KIND {
         evidence_refs.extend([
             "rust_daemon_core_provider_health_projection".to_string(),
@@ -343,8 +356,8 @@ pub(super) fn model_mount_read_projection(
         MODEL_MOUNT_BACKENDS_PROJECTION_KIND => topology::backends(request),
         MODEL_MOUNT_BACKEND_LOGS_PROJECTION_KIND => topology::backend_logs(request),
         MODEL_MOUNT_MCP_SERVERS_PROJECTION_KIND => mcp::mcp_servers(request),
-        "oauth_sessions" => oauth::sessions(),
-        "oauth_states" => oauth::states(),
+        MODEL_MOUNT_OAUTH_SESSIONS_PROJECTION_KIND => oauth::sessions(request),
+        MODEL_MOUNT_OAUTH_STATES_PROJECTION_KIND => oauth::states(request),
         MODEL_MOUNT_PROVIDER_HEALTH_PROJECTION_KIND => health::provider_health(request),
         "workflow_bindings" => Ok(adapter_boundary::workflow_bindings()),
         "adapter_boundaries" => Ok(adapter_boundary::adapter_boundaries(&request.state)),

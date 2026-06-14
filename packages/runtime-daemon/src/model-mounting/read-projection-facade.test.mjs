@@ -1054,25 +1054,6 @@ function createState() {
   return { facade, state, readProjectionPlanner, readProjectionRequests };
 }
 
-function assertOAuthReadProjectionRetired(readFn, operationKind) {
-  assert.throws(
-    readFn,
-    (error) => {
-      assert.equal(error.status, 501);
-      assert.equal(error.code, "model_mount_oauth_read_projection_js_retired");
-      assert.equal(error.details.operation_kind, operationKind);
-      assert.equal(error.details.rust_core_boundary, "model_mount.catalog_provider_oauth_projection");
-      assert.equal(error.details.evidence_refs.includes("model_mount_oauth_read_projection_js_retired"), true);
-      assert.equal(error.details.evidence_refs.includes("rust_daemon_core_catalog_provider_oauth_projection_required"), true);
-      assert.equal(error.details.evidence_refs.includes("rust_daemon_core_wallet_ctee_custody_required"), true);
-      assert.equal(Object.hasOwn(error.details, "operationKind"), false);
-      assert.equal(Object.hasOwn(error.details, "rustCoreBoundary"), false);
-      assert.equal(Object.hasOwn(error.details, "evidenceRefs"), false);
-      return true;
-    },
-  );
-}
-
 function rustProjectionFixture(request) {
   const state = request.state;
   const receipts = receiptRecordsFromAgentgresStateDir(request.state_dir);
@@ -1131,11 +1112,7 @@ function rustProjectionFixture(request) {
   }
   if (request.projection_kind === "backends") return backendRecordsFromAgentgresStateDir(request.state_dir);
   if (request.projection_kind === "backend_logs") return backendLogsFromRustRequest(request);
-  if (request.projection_kind === "oauth_sessions" || request.projection_kind === "oauth_states") {
-    throw Object.assign(new Error("OAuth session/state read projection is retired"), {
-      code: "model_mount_oauth_read_projection_js_retired",
-    });
-  }
+  if (request.projection_kind === "oauth_sessions" || request.projection_kind === "oauth_states") return [];
   if (request.projection_kind === "provider_health") {
     return providerHealthFromReceipts(request, receipts);
   }
@@ -1193,8 +1170,8 @@ function rustProjectionFixture(request) {
     backendProcesses: [],
     providers: providerRecordsFromAgentgresStateDir(request.state_dir),
     catalog: catalogStatusFromAgentgresStateDir(request.state_dir, request.schema_version, request.generated_at),
-    oauthSessions: state.oauth_sessions,
-    oauthStates: state.oauth_states,
+    oauthSessions: [],
+    oauthStates: [],
     downloads: downloadRecordsFromAgentgresStateDir(request.state_dir),
     providerHealth: [],
     runtimeEngines: [],
@@ -1221,8 +1198,8 @@ function rustProjectionFixture(request) {
       schemaVersion: request.schema_version,
       server: serverStatusFromRustRequest(request),
       catalog: catalogStatusFromAgentgresStateDir(request.state_dir, request.schema_version, request.generated_at),
-      oauthSessions: state.oauth_sessions,
-      oauthStates: state.oauth_states,
+      oauthSessions: [],
+      oauthStates: [],
       artifacts: [],
       productArtifacts: [],
       backends: [],
@@ -3283,14 +3260,8 @@ test("read projection facade delegates product-safe lists and capabilities", () 
     "resp-stream",
     "resp-state",
   ]);
-  assertOAuthReadProjectionRetired(
-    () => facade.listOAuthSessions(state),
-    "model_mount.catalog_provider_oauth.sessions",
-  );
-  assertOAuthReadProjectionRetired(
-    () => facade.listOAuthStates(state),
-    "model_mount.catalog_provider_oauth.states",
-  );
+  assert.deepEqual(facade.listOAuthSessions(state), []);
+  assert.deepEqual(facade.listOAuthStates(state), []);
   const providerHealth = facade.listProviderHealth(state);
   assert.equal(providerHealth.length, 1);
   assert.equal(providerHealth[0].schemaVersion, "model.mount.schema");
@@ -3333,6 +3304,8 @@ test("read projection facade delegates product-safe lists and capabilities", () 
     && Object.keys(readProjectionRequests.find((request) => request.projection_kind === "oauth_sessions").state).length, 0);
   assert.equal(readProjectionRequests.find((request) => request.projection_kind === "oauth_states").state
     && Object.keys(readProjectionRequests.find((request) => request.projection_kind === "oauth_states").state).length, 0);
+  assert.equal(readProjectionRequests.find((request) => request.projection_kind === "oauth_sessions").state_dir, state.stateDir);
+  assert.equal(readProjectionRequests.find((request) => request.projection_kind === "oauth_states").state_dir, state.stateDir);
   assert.equal(readProjectionRequests.filter((request) => request.projection_kind !== "projection")
     .every((request) => !Object.hasOwn(request.state, "server")), true);
   const workflowRequest = readProjectionRequests.find((request) => request.projection_kind === "workflow_bindings");

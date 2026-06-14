@@ -660,11 +660,13 @@ function runDocs() {
       /`serverStatus\(\)` now requests `server_status` from\s+`plan_model_mount_read_projection`/.test(guide) &&
       /Server-control start\/stop\/restart\/log\/event mutations\s+still fail closed/.test(guide) &&
       /Slice 840 retired JS-authored OAuth session\/state read projection/.test(guide) &&
-      /`model_mount_oauth_read_projection_js_retired`/.test(guide) &&
       /Broad snapshot\/projection transport no longer\s+sends `oauth_sessions` or\s+`oauth_states`/.test(guide) &&
-      /Slice 866 moved public OAuth session\/state readback refusal onto the Rust\s+read-projection boundary/.test(guide) &&
+      /Current OAuth read-projection cut supersedes the Slice 866 refusal/.test(guide) &&
       /`listOAuthSessions\(\)` and `listOAuthStates\(\)`\s+now call `plan_model_mount_read_projection` kinds `oauth_sessions` and\s+`oauth_states`/.test(guide) &&
-      /no longer import the dead `oauthSessionList\(\)`\/`oauthStateList\(\)`\s+helpers/.test(guide) &&
+      /empty request state plus runtime `state_dir`/.test(guide) &&
+      /`model_mount\/read_projection\/oauth\.rs` replays admitted\s+`model-catalog-provider-controls\/\*\.json` records/.test(guide) &&
+      /filters out legacy JS OAuth\s+truth/.test(guide) &&
+      /The JS edge no longer translates the Rust refusal or reads local OAuth maps/.test(guide) &&
       /Slice 841 retired stale catalog-provider OAuth compatibility helper injection/.test(guide) &&
       /`publicCatalogProviderConfig\(\)`, `catalogProviderStatus\(\)`,\s+`oauthBoundaryForSession\(\)`, `publicOAuthSession\(\)`, or `stableHash\(\)`/.test(guide) &&
       /Slice 842 retired stale public catalog-search orchestration helper injection/.test(guide) &&
@@ -747,8 +749,10 @@ function runDocs() {
       /Slice 865 retired direct runtime-engine projection input from the Rust bridge/.test(guide) &&
       /direct `runtime_engines`, `runtime_engine_profiles`, `runtime_preference`,\s+`runtime_preference_for_endpoint`, `runtime_default_load_options`, and\s+`runtime_engine_detail` read-projection arms now ignore caller-supplied\s+runtime-engine arrays, profiles, preferences, default-load options, and detail\s+objects/.test(guide) &&
       /temporary command transport/.test(guide) &&
-      /Slice 866 moved public OAuth session\/state readback refusal onto the Rust\s+read-projection boundary/.test(guide) &&
-      /Rust bridge direct arms for `oauth_sessions` and `oauth_states`\s+fail closed with `model_mount_oauth_read_projection_js_retired`/.test(guide) &&
+      /Current OAuth read-projection cut supersedes the Slice 866 refusal/.test(guide) &&
+      /`model_mount\/read_projection\/oauth\.rs` replays admitted\s+`model-catalog-provider-controls\/\*\.json` records/.test(guide) &&
+      /returns redacted wallet\/cTEE custody rows for OAuth sessions and states/.test(guide) &&
+      /public OAuth readback is no longer fail-closed scaffolding/.test(guide) &&
       /Slice 813 retired the JS-authored public server-status envelope from the\s+model_mount read-projection path/.test(guide) &&
       /Slice 1006 later retired that intermediate\s+`server_status_input` transport/.test(guide) &&
       /Rust authors the public\s+`server_status` projection from empty request state plus request-level\s+`base_url`/.test(guide) &&
@@ -1160,6 +1164,10 @@ function runDocs() {
       /public `catalogStatus\(\)` now calls Rust read-projection kind `catalog_status` with runtime `state_dir`/.test(matrix) &&
       /Model_mount catalog-status projection positive API/.test(matrix) &&
       /Rust replays admitted `model-provider-inventory\/\*\.json` Agentgres records/.test(matrix) &&
+      /public catalog-provider OAuth session\/state Rust\s+read-projection replay cut/.test(matrix) &&
+      /public `listOAuthSessions\(\)` and `listOAuthStates\(\)` now call Rust read-projection kinds `oauth_sessions` and `oauth_states` with empty request state plus runtime `state_dir`/.test(matrix) &&
+      /replay admitted `model-catalog-provider-controls\/\*\.json` records in Rust/.test(matrix) &&
+      /catalog-provider OAuth session\/state replay/.test(matrix) &&
       /Implementation Slice Evidence: 868/.test(matrix) &&
       /Slice 868 retired the remaining runtime-survey projection-input and LM Studio\s+runtime placeholder helpers from JS/.test(matrix) &&
       /`latestRuntimeSurveyProjectionInput\(\)`, `lmStudioRuntimeEngines\(\)`, and\s+`lmStudioRuntimeSurvey\(\)` were deleted/.test(matrix) &&
@@ -14624,7 +14632,7 @@ function runBridge() {
       /state_dir:\s*readProjectionStateDir\(state,\s*projectionKind\)/.test(modelMountingReadProjectionFacade) &&
       /projectionKind === "model_conversation_states"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
       /function readProjectionStateDir\(state,\s*projectionKind\)/.test(modelMountingReadProjectionFacade) &&
-      /projectionKind !== "server_status" &&\s*projectionKind !== "server_logs" &&\s*projectionKind !== "server_events" &&\s*projectionKind !== "server_log_records" &&\s*projectionKind !== "backends" &&\s*projectionKind !== "mcp_servers" &&\s*projectionKind !== "runtime_engines"/.test(
+      /projectionKind !== "server_status" &&\s*projectionKind !== "server_logs" &&\s*projectionKind !== "server_events" &&\s*projectionKind !== "server_log_records" &&\s*projectionKind !== "backends" &&\s*projectionKind !== "mcp_servers" &&\s*projectionKind !== "oauth_sessions" &&\s*projectionKind !== "oauth_states" &&\s*projectionKind !== "runtime_engines"/.test(
         modelMountingReadProjectionFacade,
       ) &&
       /projectionKind !== "model_conversation_states" &&\s*projectionKind !== "instances" &&\s*projectionKind !== "provider_inventory_records" &&\s*projectionKind !== "catalog_search" &&\s*projectionKind !== "catalog_status" &&\s*projectionKind !== "model_tokenizer_records" &&\s*projectionKind !== "routes" &&\s*projectionKind !== "model_capabilities" &&\s*projectionKind !== "model_route_decisions" &&\s*projectionKind !== "model_route_endpoint_resolutions" &&\s*projectionKind !== "artifacts" &&\s*projectionKind !== "product_artifacts" &&\s*projectionKind !== "providers" &&\s*projectionKind !== "endpoints" &&\s*projectionKind !== "runtime_model_catalog" &&\s*projectionKind !== "open_ai_model_list"/.test(
@@ -14671,7 +14679,7 @@ function runBridge() {
       !/if \(projectionKind === "model_capabilities"\)[\s\S]*?return \{\s*artifacts,\s*endpoints,\s*instances,\s*providers,\s*routes,\s*\};/.test(modelMountingReadProjectionFacade) &&
       /listOAuthSessions\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"oauth_sessions"\)/.test(modelMountingReadProjectionFacade) &&
       /listOAuthStates\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"oauth_states"\)/.test(modelMountingReadProjectionFacade) &&
-      /translateOAuthReadProjectionError/.test(modelMountingReadProjectionFacade) &&
+      !/translateOAuthReadProjectionError/.test(modelMountingReadProjectionFacade) &&
       /projectionKind === "oauth_sessions" \|\| projectionKind === "oauth_states"\) return \{\};/.test(modelMountingReadProjectionFacade) &&
       !/publicOAuthSession/.test(modelMountingReadProjectionFacade) &&
       !/publicOAuthState/.test(modelMountingReadProjectionFacade) &&
@@ -14947,12 +14955,17 @@ function runBridge() {
       /Object\.keys\(request\.state\)\.length === 0/.test(modelMountingReadProjectionFacadeTest) &&
       /"runtime_model_catalog"[\s\S]*"open_ai_model_list"[\s\S]*"product_artifacts"/.test(modelMountingReadProjectionFacadeTest) &&
       /"artifacts"[\s\S]*"providers"[\s\S]*"endpoints"[\s\S]*"instances"[\s\S]*"routes"[\s\S]*"model_capabilities"[\s\S]*"downloads"[\s\S]*"provider_health"/.test(modelMountingReadProjectionFacadeTest) &&
-      /assertOAuthReadProjectionRetired/.test(modelMountingReadProjectionFacadeTest) &&
-      /model_mount\.catalog_provider_oauth\.sessions/.test(modelMountingReadProjectionFacadeTest) &&
-      /model_mount\.catalog_provider_oauth\.states/.test(modelMountingReadProjectionFacadeTest) &&
+      !/assertOAuthReadProjectionRetired/.test(modelMountingReadProjectionFacadeTest) &&
+      !/model_mount\.catalog_provider_oauth\.sessions/.test(modelMountingReadProjectionFacadeTest) &&
+      !/model_mount\.catalog_provider_oauth\.states/.test(modelMountingReadProjectionFacadeTest) &&
+      /assert\.deepEqual\(facade\.listOAuthSessions\(state\),\s*\[\]\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /assert\.deepEqual\(facade\.listOAuthStates\(state\),\s*\[\]\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /request\.projection_kind === "oauth_sessions" \|\| request\.projection_kind === "oauth_states"\) return \[\]/.test(modelMountingReadProjectionFacadeTest) &&
       /"oauth_sessions"[\s\S]*"oauth_states"[\s\S]*"provider_health"/.test(modelMountingReadProjectionFacadeTest) &&
       /request\.projection_kind === "oauth_sessions"[\s\S]*Object\.keys/.test(modelMountingReadProjectionFacadeTest) &&
       /request\.projection_kind === "oauth_states"[\s\S]*Object\.keys/.test(modelMountingReadProjectionFacadeTest) &&
+      /request\.projection_kind === "oauth_sessions"\)\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
+      /request\.projection_kind === "oauth_states"\)\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(snapshotRequest\.state,\s*"oauth_sessions"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(projectionRequest\.state,\s*"oauth_states"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /"workflow_bindings"[\s\S]*"adapter_boundaries"/.test(modelMountingReadProjectionFacadeTest) &&
@@ -15053,6 +15066,8 @@ function runBridge() {
       !/direct_catalog_status_readback_fails_closed_in_rust_boundary/.test(modelMountReadProjectionEvidence) &&
       !/model_catalog_status_js_readback_retired/.test(modelMountingReadProjectionFacade) &&
       !/"catalog_status" => Err\(ModelMountReadProjectionError::new/.test(modelMountReadProjectionEvidence) &&
+      !/translateOAuthReadProjectionError/.test(modelMountingReadProjectionFacade) &&
+      !/model_mount_oauth_read_projection_js_retired/.test(modelMountingReadProjectionFacade) &&
       /"latest_provider_health" => health::latest_provider_health\(request\)/.test(modelMountReadProjectionEvidence) &&
       /"latest_vault_health" => health::latest_vault_health\(request\)/.test(modelMountReadProjectionEvidence) &&
       /"latest_runtime_survey" => health::latest_runtime_survey\(request\)/.test(modelMountReadProjectionEvidence) &&
@@ -15079,12 +15094,20 @@ function runBridge() {
       /model_mount_download_not_found/.test(modelMountReadProjectionEvidence) &&
       /storage_download_projections_replay_agentgres_storage_control_records_and_filter_js_truth/.test(modelMountReadProjectionEvidence) &&
       /mod oauth;/.test(modelMountReadProjectionEvidence) &&
-      /"oauth_sessions" => oauth::sessions\(\)/.test(modelMountReadProjectionEvidence) &&
-      /"oauth_states" => oauth::states\(\)/.test(modelMountReadProjectionEvidence) &&
+      /MODEL_MOUNT_OAUTH_SESSIONS_PROJECTION_KIND => oauth::sessions\(request\)/.test(modelMountReadProjectionEvidence) &&
+      /MODEL_MOUNT_OAUTH_STATES_PROJECTION_KIND => oauth::states\(request\)/.test(modelMountReadProjectionEvidence) &&
       /pub\(super\) fn sessions/.test(modelMountReadProjectionEvidence) &&
       /pub\(super\) fn states/.test(modelMountReadProjectionEvidence) &&
-      /oauth_session_read_projection_fails_closed_in_rust_boundary/.test(modelMountReadProjectionEvidence) &&
-      /oauth_state_read_projection_fails_closed_in_rust_boundary/.test(modelMountReadProjectionEvidence) &&
+      /model-catalog-provider-controls/.test(modelMountReadProjectionEvidence) &&
+      /rust_daemon_core_catalog_provider_oauth_projection/.test(modelMountReadProjectionEvidence) &&
+      /agentgres_catalog_provider_control_replay_required/.test(modelMountReadProjectionEvidence) &&
+      /model_mount_oauth_projection_state_dir_required/.test(modelMountReadProjectionEvidence) &&
+      /oauth_session_projection_replays_catalog_provider_control_and_filters_js_truth/.test(modelMountReadProjectionEvidence) &&
+      /oauth_state_projection_replays_catalog_provider_control_and_filters_sessions/.test(modelMountReadProjectionEvidence) &&
+      /oauth_projection_fails_closed_without_agentgres_state_dir/.test(modelMountReadProjectionEvidence) &&
+      !/oauth_session_read_projection_fails_closed_in_rust_boundary/.test(modelMountReadProjectionEvidence) &&
+      !/oauth_state_read_projection_fails_closed_in_rust_boundary/.test(modelMountReadProjectionEvidence) &&
+      !/model_mount_oauth_read_projection_js_retired/.test(modelMountReadProjectionEvidence) &&
       /MODEL_MOUNT_PROVIDER_HEALTH_PROJECTION_KIND => health::provider_health\(request\)/.test(modelMountReadProjectionEvidence) &&
       /rust_daemon_core_provider_health_projection/.test(modelMountReadProjectionEvidence) &&
       /agentgres_provider_health_replay_required/.test(modelMountReadProjectionEvidence) &&

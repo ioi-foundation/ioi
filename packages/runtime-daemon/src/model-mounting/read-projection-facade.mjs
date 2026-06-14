@@ -76,19 +76,11 @@ export function createModelMountingReadProjectionFacade({
   }
 
   function listOAuthSessions(state) {
-    try {
-      return rustReadProjection(state, "oauth_sessions");
-    } catch (error) {
-      throw translateOAuthReadProjectionError(error, "model_mount.catalog_provider_oauth.sessions");
-    }
+    return rustReadProjection(state, "oauth_sessions");
   }
 
   function listOAuthStates(state) {
-    try {
-      return rustReadProjection(state, "oauth_states");
-    } catch (error) {
-      throw translateOAuthReadProjectionError(error, "model_mount.catalog_provider_oauth.states");
-    }
+    return rustReadProjection(state, "oauth_states");
   }
 
   function listProviderHealth(state) {
@@ -314,25 +306,6 @@ export function createModelMountingReadProjectionFacade({
     throw error;
   }
 
-  function translateOAuthReadProjectionError(error, operationKind) {
-    if (error?.code === "model_mount_oauth_read_projection_js_retired") {
-      throw Object.assign(new Error("OAuth session/state read projection is retired in JS; use Rust daemon-core wallet/cTEE projection."), {
-        status: 501,
-        code: "model_mount_oauth_read_projection_js_retired",
-        details: {
-          operation_kind: operationKind,
-          rust_core_boundary: "model_mount.catalog_provider_oauth_projection",
-          evidence_refs: [
-            "model_mount_oauth_read_projection_js_retired",
-            "rust_daemon_core_catalog_provider_oauth_projection_required",
-            "rust_daemon_core_wallet_ctee_custody_required",
-          ],
-        },
-      });
-    }
-    throw error;
-  }
-
   function canonicalCatalogSearchQuery(query = {}) {
     const input = query && typeof query === "object" ? query : {};
     const canonical = {};
@@ -511,6 +484,8 @@ export function createModelMountingReadProjectionFacade({
       projectionKind !== "server_log_records" &&
       projectionKind !== "backends" &&
       projectionKind !== "mcp_servers" &&
+      projectionKind !== "oauth_sessions" &&
+      projectionKind !== "oauth_states" &&
       projectionKind !== "runtime_engines" &&
       projectionKind !== "runtime_engine_profiles" &&
       projectionKind !== "runtime_preference" &&
