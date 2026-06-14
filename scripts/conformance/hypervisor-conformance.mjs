@@ -2708,6 +2708,9 @@ function runBridge() {
         exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs")
           : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/conversation.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/conversation.rs")
+          : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/aggregate.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/aggregate.rs")
           : "",
@@ -14902,14 +14905,16 @@ function runBridge() {
       /providerHealthRequest\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(providerHealthRequest\.state,\s*"provider_health"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(providerHealthRequest\.state,\s*"receipts"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /facade\.listArtifacts\(state\)\.map\(\(artifact\) => artifact\.model_ref\),\s*\[\s*"model:\/\/fixture\/qwen3"/.test(modelMountingReadProjectionFacadeTest) &&
+      /const artifacts = facade\.listArtifacts\(state\);[\s\S]*artifacts\.map\(\(artifact\) => artifact\.model_ref\),\s*\[\s*"model:\/\/fixture\/qwen3",\s*"model:\/\/operator\/qwen3-direct"/.test(modelMountingReadProjectionFacadeTest) &&
+      /directArtifact\.evidence_refs\.includes\("agentgres_artifact_endpoint_replay_required"\),\s*true/.test(modelMountingReadProjectionFacadeTest) &&
       /runtimeCatalog\.map\(\(entry\) => entry\.id\),\s*\["qwen3"\]/.test(modelMountingReadProjectionFacadeTest) &&
       /facade\.openAiModelList\(state\)\.data\.map\(\(entry\) => entry\.id\),\s*\["qwen3"\]/.test(modelMountingReadProjectionFacadeTest) &&
       /facade\.listProductArtifacts\(state\)\.map\(\(artifact\) => artifact\.model_ref\),\s*\[\s*"model:\/\/fixture\/qwen3"/.test(modelMountingReadProjectionFacadeTest) &&
       /const providers = facade\.listProviders\(state\);[\s\S]*providers\.map\(\(provider\) => provider\.provider_ref\),\s*\[\s*"provider:\/\/fixture",\s*"provider:\/\/native",\s*"provider:\/\/openai"/.test(modelMountingReadProjectionFacadeTest) &&
-      /endpoints\.map\(\(endpoint\) => endpoint\.id\),\s*\["endpoint\.local"\]/.test(modelMountingReadProjectionFacadeTest) &&
-      /endpoints\[0\]\.provider_id,\s*"provider\.local"/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(endpoints\[0\],\s*"providerId"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
+      /endpoints\.map\(\(endpoint\) => endpoint\.id\),\s*\["endpoint\.direct",\s*"endpoint\.local"\]/.test(modelMountingReadProjectionFacadeTest) &&
+      /directEndpoint\.evidence_refs\.includes\("agentgres_artifact_endpoint_replay_required"\),\s*true/.test(modelMountingReadProjectionFacadeTest) &&
+      /routeEndpoint\.provider_id,\s*"provider\.local"/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.hasOwn\(routeEndpoint,\s*"providerId"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /endpointRequests\.every\(\(request\) => request\.state_dir === state\.stateDir\)/.test(modelMountingReadProjectionFacadeTest) &&
       /facade\.listInstances\(state\)\.map\(\(instance\) => instance\.id\)[\s\S]*"instance\.loaded"[\s\S]*"instance\.old"/.test(
         modelMountingReadProjectionFacadeTest,
@@ -19533,6 +19538,9 @@ function runReceipts() {
         exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs")
           : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/conversation.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/conversation.rs")
+          : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/aggregate.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/aggregate.rs")
           : "",
@@ -20781,6 +20789,15 @@ function runReceipts() {
       /pub\(super\) fn plan_artifact_endpoint/.test(modelMountArtifactEndpointEvidence) &&
       /"model-artifacts"/.test(modelMountArtifactEndpointEvidence) &&
       /"model-endpoints"/.test(modelMountArtifactEndpointEvidence) &&
+      /artifact_records_from_agentgres_replay/.test(modelMountCore) &&
+      /endpoint_records_from_agentgres_replay/.test(modelMountCore) &&
+      /projected_artifact_endpoint_artifact_record/.test(modelMountCore) &&
+      /projected_artifact_endpoint_endpoint_record/.test(modelMountCore) &&
+      /model_mount_artifact_endpoint_replay_state_dir_required/.test(modelMountCore) &&
+      /agentgres_artifact_endpoint_replay_required/.test(modelMountCore) &&
+      /model_mount_artifact_list_js_facade_retired/.test(modelMountCore) &&
+      /artifact_endpoint_projection_boundary/.test(modelMountCore) &&
+      /agentgres_artifact_endpoint_record/.test(modelMountCore) &&
       !/state\.lifecycleReceipt\("model_(?:import|mount|unmount)/.test(modelMountingState) &&
       !/commitModelArtifactRecordState/.test(modelMountingState) &&
       !/commitModelEndpointRecordState/.test(modelMountingState) &&
@@ -20807,6 +20824,21 @@ function runReceipts() {
       /public_artifact_endpoint_js_facade_retired/.test(artifactEndpointOperationsTest) &&
       /rust_daemon_core_artifact_endpoint/.test(artifactEndpointOperationsTest) &&
       /agentgres_artifact_endpoint_truth_required/.test(artifactEndpointOperationsTest) &&
+      /artifact_endpoint_projection_replays_admitted_records_and_filters_js_truth/.test(
+        modelMountCore,
+      ) &&
+      /artifactEndpointArtifactRecordsFromAgentgresStateDir/.test(
+        modelMountingReadProjectionFacadeTest,
+      ) &&
+      /artifactEndpointEndpointRecordsFromAgentgresStateDir/.test(
+        modelMountingReadProjectionFacadeTest,
+      ) &&
+      /directArtifact\.artifact_endpoint_projection_boundary,\s*"model_mount\.artifact_endpoint_projection"/.test(
+        modelMountingReadProjectionFacadeTest,
+      ) &&
+      /directEndpoint\.artifact_endpoint_projection_boundary,\s*"model_mount\.artifact_endpoint_projection"/.test(
+        modelMountingReadProjectionFacadeTest,
+      ) &&
       /assert\.equal\(state\.recordStateCommits\.length,\s*1\)/.test(
         artifactEndpointOperationsTest,
       ) &&
@@ -23385,7 +23417,10 @@ function runReceipts() {
       /runtimeCatalog\.map\(\(entry\) => entry\.id\),\s*\["qwen3"\]/.test(
         modelMountingReadProjectionFacadeTest,
       ) &&
-      /facade\.listArtifacts\(state\)\.map\(\(artifact\) => artifact\.model_ref\),\s*\[\s*"model:\/\/fixture\/qwen3"/.test(
+      /const artifacts = facade\.listArtifacts\(state\);[\s\S]*artifacts\.map\(\(artifact\) => artifact\.model_ref\),\s*\[\s*"model:\/\/fixture\/qwen3",\s*"model:\/\/operator\/qwen3-direct"/.test(
+        modelMountingReadProjectionFacadeTest,
+      ) &&
+      /directArtifact\.evidence_refs\.includes\("agentgres_artifact_endpoint_replay_required"\),\s*true/.test(
         modelMountingReadProjectionFacadeTest,
       ) &&
       /const providers = facade\.listProviders\(state\);[\s\S]*providers\.map\(\(provider\) => provider\.provider_ref\),\s*\[\s*"provider:\/\/fixture",\s*"provider:\/\/native",\s*"provider:\/\/openai"/.test(

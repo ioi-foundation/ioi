@@ -7,6 +7,7 @@ use std::{
 use serde_json::{json, Value};
 
 use crate::agentic::runtime::kernel::model_mount::{
+    MODEL_MOUNT_ARTIFACT_ENDPOINT_SCHEMA_VERSION,
     MODEL_MOUNT_BACKEND_LIFECYCLE_PLAN_SCHEMA_VERSION, MODEL_MOUNT_PROVIDER_CONTROL_SCHEMA_VERSION,
 };
 
@@ -15,14 +16,14 @@ use super::{route_decision, ModelMountReadProjectionError, ModelMountReadProject
 pub(super) fn artifacts(
     request: &ModelMountReadProjectionRequest,
 ) -> Result<Value, ModelMountReadProjectionError> {
-    Ok(Value::Array(artifact_records_from_provider_inventory(
+    Ok(Value::Array(artifact_records_from_agentgres_replay(
         request,
         "ioi.model_mount_model_artifact",
     )?))
 }
 
 pub(super) fn artifact_records(request: &ModelMountReadProjectionRequest) -> Vec<Value> {
-    artifact_records_from_provider_inventory(request, "ioi.model_mount_model_artifact")
+    artifact_records_from_agentgres_replay(request, "ioi.model_mount_model_artifact")
         .unwrap_or_default()
 }
 
@@ -55,11 +56,13 @@ pub(super) fn provider_records(request: &ModelMountReadProjectionRequest) -> Vec
 pub(super) fn endpoints(
     request: &ModelMountReadProjectionRequest,
 ) -> Result<Value, ModelMountReadProjectionError> {
-    Ok(Value::Array(endpoint_records_from_route_control(request)?))
+    Ok(Value::Array(endpoint_records_from_agentgres_replay(
+        request,
+    )?))
 }
 
 pub(super) fn endpoint_records(request: &ModelMountReadProjectionRequest) -> Vec<Value> {
-    endpoint_records_from_route_control(request).unwrap_or_default()
+    endpoint_records_from_agentgres_replay(request).unwrap_or_default()
 }
 
 pub(super) fn instances(
@@ -701,6 +704,88 @@ fn artifact_records_from_provider_inventory(
     Ok(records)
 }
 
+fn artifact_records_from_agentgres_replay(
+    request: &ModelMountReadProjectionRequest,
+    object_kind: &str,
+) -> Result<Vec<Value>, ModelMountReadProjectionError> {
+    let mut records_by_id = BTreeMap::new();
+    for record in artifact_records_from_provider_inventory(request, object_kind)? {
+        records_by_id.insert(string_field(&record, "id"), record);
+    }
+    if object_kind == "ioi.model_mount_model_artifact" {
+        for record in agentgres_artifact_endpoint_artifact_records(request)? {
+            let projection = projected_artifact_endpoint_artifact_record(&record);
+            records_by_id.insert(string_field(&projection, "id"), projection);
+        }
+    }
+    let mut records = records_by_id.into_values().collect::<Vec<_>>();
+    records.sort_by(|left, right| {
+        string_field(left, "model_ref")
+            .cmp(&string_field(right, "model_ref"))
+            .then_with(|| {
+                string_field(left, "provider_ref").cmp(&string_field(right, "provider_ref"))
+            })
+            .then_with(|| string_field(left, "id").cmp(&string_field(right, "id")))
+    });
+    Ok(records)
+}
+
+fn agentgres_artifact_endpoint_artifact_records(
+    request: &ModelMountReadProjectionRequest,
+) -> Result<Vec<Value>, ModelMountReadProjectionError> {
+    let mut records = artifact_endpoint_records_from_dir(
+        request,
+        "model-artifacts",
+        "artifact endpoint artifact",
+        admitted_artifact_endpoint_artifact_record,
+    )?;
+    records.sort_by(|left, right| {
+        artifact_endpoint_record_time(left)
+            .cmp(&artifact_endpoint_record_time(right))
+            .then_with(|| string_field(left, "id").cmp(&string_field(right, "id")))
+    });
+    Ok(records)
+}
+
+fn projected_artifact_endpoint_artifact_record(record: &Value) -> Value {
+    json_object_without_nulls(json!({
+        "id": string_field(record, "id"),
+        "object": "ioi.model_mount_model_artifact",
+        "artifact_id": string_field_any(record, &["artifact_id", "id"]),
+        "model_ref": artifact_endpoint_model_ref(record),
+        "model_id": string_field(record, "model_id"),
+        "provider_id": string_field(record, "provider_id"),
+        "provider_ref": string_field(record, "provider_id"),
+        "display_name": string_field(record, "display_name"),
+        "family": string_field(record, "family"),
+        "quantization": string_field(record, "quantization"),
+        "size_bytes": record.get("size_bytes").cloned(),
+        "context_window": record.get("context_window").cloned(),
+        "capabilities": record.get("capabilities").cloned().unwrap_or_else(|| json!([])),
+        "privacy_class": string_field(record, "privacy_class"),
+        "source_path_hash": string_field(record, "source_path_hash"),
+        "plaintext_source_path_returned": false,
+        "record_dir": "model-artifacts",
+        "record_id": string_field(record, "record_id"),
+        "operation_kind": string_field(record, "operation_kind"),
+        "source": "agentgres_artifact_endpoint_record",
+        "rust_core_boundary": "model_mount.artifact_endpoint",
+        "artifact_endpoint_projection_boundary": "model_mount.artifact_endpoint_projection",
+        "public_response": record.get("public_response").cloned().unwrap_or_else(|| json!({})),
+        "authority": record.get("authority").cloned().unwrap_or_else(|| json!({})),
+        "receipt_refs": record.get("receipt_refs").cloned().unwrap_or_else(|| json!([])),
+        "evidence_refs": artifact_endpoint_projection_evidence_refs(
+            record,
+            "rust_daemon_core_model_artifact_projection",
+            "model_mount_artifact_list_js_facade_retired",
+        ),
+        "control_hash": string_field(record, "control_hash"),
+        "authority_hash": string_field(record, "authority_hash"),
+        "imported_at": string_field(record, "imported_at"),
+    }))
+    .unwrap_or(Value::Null)
+}
+
 fn open_ai_model_records(
     request: &ModelMountReadProjectionRequest,
 ) -> Result<Vec<Value>, ModelMountReadProjectionError> {
@@ -742,7 +827,7 @@ fn model_capability_records(
     }
 
     let mut endpoint_by_id = BTreeMap::new();
-    for endpoint in endpoint_records_from_route_control(request)? {
+    for endpoint in endpoint_records_from_agentgres_replay(request)? {
         endpoint_by_id.insert(string_field(&endpoint, "id"), endpoint);
     }
 
@@ -760,7 +845,7 @@ fn model_capability_records(
 
     let mut artifact_by_model_id = BTreeMap::new();
     for artifact in
-        artifact_records_from_provider_inventory(request, "ioi.model_mount_model_artifact")?
+        artifact_records_from_agentgres_replay(request, "ioi.model_mount_model_artifact")?
     {
         artifact_by_model_id.insert(string_field(&artifact, "model_id"), artifact);
     }
@@ -1187,6 +1272,99 @@ fn endpoint_records_from_route_control(
     Ok(records)
 }
 
+fn endpoint_records_from_agentgres_replay(
+    request: &ModelMountReadProjectionRequest,
+) -> Result<Vec<Value>, ModelMountReadProjectionError> {
+    let mut records_by_key = BTreeMap::new();
+    for record in endpoint_records_from_route_control(request)? {
+        let key = format!(
+            "route:{}:{}:{}",
+            string_field(&record, "endpoint_id"),
+            string_field(&record, "route_id"),
+            string_field(&record, "model_id")
+        );
+        records_by_key.insert(key, record);
+    }
+    for record in agentgres_artifact_endpoint_endpoint_records(request)? {
+        let endpoint_id = string_field(&record, "endpoint_id");
+        records_by_key.retain(|_, existing| {
+            string_field(existing, "endpoint_id") != endpoint_id
+                && string_field(existing, "id") != endpoint_id
+        });
+        if string_field(&record, "status") == "unmounted" {
+            continue;
+        }
+        records_by_key.insert(
+            format!("artifact_endpoint:{endpoint_id}"),
+            projected_artifact_endpoint_endpoint_record(&record),
+        );
+    }
+    let mut records = records_by_key.into_values().collect::<Vec<_>>();
+    records.sort_by(|left, right| {
+        string_field(left, "id")
+            .cmp(&string_field(right, "id"))
+            .then_with(|| string_field(left, "route_id").cmp(&string_field(right, "route_id")))
+            .then_with(|| string_field(left, "model_id").cmp(&string_field(right, "model_id")))
+    });
+    Ok(records)
+}
+
+fn agentgres_artifact_endpoint_endpoint_records(
+    request: &ModelMountReadProjectionRequest,
+) -> Result<Vec<Value>, ModelMountReadProjectionError> {
+    let mut records = artifact_endpoint_records_from_dir(
+        request,
+        "model-endpoints",
+        "artifact endpoint endpoint",
+        admitted_artifact_endpoint_endpoint_record,
+    )?;
+    records.sort_by(|left, right| {
+        artifact_endpoint_record_time(left)
+            .cmp(&artifact_endpoint_record_time(right))
+            .then_with(|| string_field(left, "id").cmp(&string_field(right, "id")))
+            .then_with(|| string_field(left, "status").cmp(&string_field(right, "status")))
+    });
+    Ok(records)
+}
+
+fn projected_artifact_endpoint_endpoint_record(record: &Value) -> Value {
+    json_object_without_nulls(json!({
+        "id": string_field(record, "endpoint_id"),
+        "object": "ioi.model_mount_endpoint",
+        "endpoint_id": string_field(record, "endpoint_id"),
+        "model_id": string_field(record, "model_id"),
+        "provider_id": string_field(record, "provider_id"),
+        "provider_kind": string_field(record, "provider_kind"),
+        "status": string_field(record, "status"),
+        "api_format": string_field(record, "api_format"),
+        "driver": string_field(record, "driver"),
+        "backend_id": string_field(record, "backend_id"),
+        "base_url_hash": string_field(record, "base_url_hash"),
+        "plaintext_transport_material_returned": false,
+        "capabilities": record.get("capabilities").cloned().unwrap_or_else(|| json!([])),
+        "privacy_class": string_field(record, "privacy_class"),
+        "load_policy": record.get("load_policy").cloned().unwrap_or_else(|| json!({})),
+        "record_dir": "model-endpoints",
+        "record_id": string_field(record, "record_id"),
+        "operation_kind": string_field(record, "operation_kind"),
+        "source": "agentgres_artifact_endpoint_record",
+        "rust_core_boundary": "model_mount.artifact_endpoint",
+        "artifact_endpoint_projection_boundary": "model_mount.artifact_endpoint_projection",
+        "public_response": record.get("public_response").cloned().unwrap_or_else(|| json!({})),
+        "authority": record.get("authority").cloned().unwrap_or_else(|| json!({})),
+        "receipt_refs": record.get("receipt_refs").cloned().unwrap_or_else(|| json!([])),
+        "evidence_refs": artifact_endpoint_projection_evidence_refs(
+            record,
+            "rust_daemon_core_model_endpoint_projection",
+            "model_mount_endpoint_list_js_facade_retired",
+        ),
+        "control_hash": string_field(record, "control_hash"),
+        "authority_hash": string_field(record, "authority_hash"),
+        "mounted_at": string_field(record, "mounted_at"),
+    }))
+    .unwrap_or(Value::Null)
+}
+
 fn endpoint_record_for_resolution(resolution: &Value, endpoint: &Value) -> Option<Value> {
     let endpoint_id = string_field(endpoint, "id");
     if endpoint_id.is_empty() {
@@ -1509,7 +1687,7 @@ where
             format!("failed to read {label} records: {error}"),
         )
     })?;
-    entries
+    let records = entries
         .filter_map(|entry| entry.ok())
         .map(|entry| entry.path())
         .filter(|path| path.extension().and_then(|value| value.to_str()) == Some("json"))
@@ -1536,8 +1714,208 @@ where
         .collect::<Result<Vec<_>, _>>()?
         .into_iter()
         .filter_map(|record| admit_record(record))
-        .map(|record| Ok(projected_storage_record(record, record_dir_name)))
-        .collect()
+        .map(|record| projected_storage_record(record, record_dir_name))
+        .collect::<Vec<_>>();
+    Ok(records)
+}
+
+fn artifact_endpoint_records_from_dir<F>(
+    request: &ModelMountReadProjectionRequest,
+    record_dir_name: &'static str,
+    label: &'static str,
+    mut admit_record: F,
+) -> Result<Vec<Value>, ModelMountReadProjectionError>
+where
+    F: FnMut(Value) -> Option<Value>,
+{
+    let state_dir = request
+        .state_dir
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| {
+            ModelMountReadProjectionError::new(
+                "model_mount_artifact_endpoint_replay_state_dir_required",
+                "artifact/endpoint projection requires Rust Agentgres state_dir replay",
+            )
+        })?;
+    let record_dir = Path::new(state_dir).join(record_dir_name);
+    if !record_dir.exists() {
+        return Ok(vec![]);
+    }
+    let entries = fs::read_dir(&record_dir).map_err(|error| {
+        ModelMountReadProjectionError::new(
+            "model_mount_artifact_endpoint_replay_read_failed",
+            format!("failed to read {label} records: {error}"),
+        )
+    })?;
+    let records = entries
+        .filter_map(|entry| entry.ok())
+        .map(|entry| entry.path())
+        .filter(|path| path.extension().and_then(|value| value.to_str()) == Some("json"))
+        .map(|path| {
+            fs::read_to_string(&path)
+                .map_err(|error| {
+                    ModelMountReadProjectionError::new(
+                        "model_mount_artifact_endpoint_replay_read_failed",
+                        format!("failed to read {label} record {}: {error}", path.display()),
+                    )
+                })
+                .and_then(|contents| {
+                    serde_json::from_str::<Value>(&contents).map_err(|error| {
+                        ModelMountReadProjectionError::new(
+                            "model_mount_artifact_endpoint_replay_invalid_record",
+                            format!(
+                                "failed to decode {label} record {}: {error}",
+                                path.display()
+                            ),
+                        )
+                    })
+                })
+        })
+        .collect::<Result<Vec<_>, _>>()?
+        .into_iter()
+        .filter_map(|record| admit_record(record))
+        .collect::<Vec<_>>();
+    Ok(records)
+}
+
+fn admitted_artifact_endpoint_artifact_record(record: Value) -> Option<Value> {
+    if !admitted_artifact_endpoint_common(
+        &record,
+        "ioi.model_mount_model_artifact",
+        "model_mount.artifact.import",
+        "model-artifacts",
+        "rust_daemon_core_model_artifact_import",
+    ) {
+        return None;
+    }
+    if string_field(&record, "status") != "imported" {
+        return None;
+    }
+    for field in [
+        "model_id",
+        "provider_id",
+        "display_name",
+        "family",
+        "quantization",
+        "privacy_class",
+        "imported_at",
+    ] {
+        if string_field(&record, field).is_empty() {
+            return None;
+        }
+    }
+    if record
+        .get("plaintext_source_path_returned")
+        .and_then(Value::as_bool)
+        != Some(false)
+    {
+        return None;
+    }
+    Some(record)
+}
+
+fn admitted_artifact_endpoint_endpoint_record(record: Value) -> Option<Value> {
+    let operation_kind = string_field(&record, "operation_kind");
+    let required_evidence = match operation_kind.as_str() {
+        "model_mount.endpoint.mount" => "rust_daemon_core_model_endpoint_mount",
+        "model_mount.endpoint.unmount" => "rust_daemon_core_model_endpoint_unmount",
+        _ => return None,
+    };
+    if !admitted_artifact_endpoint_common(
+        &record,
+        "ioi.model_mount_endpoint",
+        operation_kind.as_str(),
+        "model-endpoints",
+        required_evidence,
+    ) {
+        return None;
+    }
+    let status = string_field(&record, "status");
+    if !matches!(status.as_str(), "mounted" | "unmounted") {
+        return None;
+    }
+    if string_field(&record, "endpoint_id").is_empty() {
+        return None;
+    }
+    if record
+        .get("plaintext_transport_material_returned")
+        .and_then(Value::as_bool)
+        != Some(false)
+    {
+        return None;
+    }
+    if status == "mounted" {
+        for field in [
+            "model_id",
+            "provider_id",
+            "provider_kind",
+            "api_format",
+            "driver",
+            "backend_id",
+            "privacy_class",
+            "mounted_at",
+        ] {
+            if string_field(&record, field).is_empty() {
+                return None;
+            }
+        }
+    } else if string_field(&record, "unmounted_at").is_empty() {
+        return None;
+    }
+    Some(record)
+}
+
+fn admitted_artifact_endpoint_common(
+    record: &Value,
+    object: &str,
+    operation_kind: &str,
+    record_dir: &str,
+    required_evidence: &str,
+) -> bool {
+    if bool_field(record, "deleted") {
+        return false;
+    }
+    if string_field(record, "schema_version") != MODEL_MOUNT_ARTIFACT_ENDPOINT_SCHEMA_VERSION {
+        return false;
+    }
+    if string_field(record, "object") != object {
+        return false;
+    }
+    if string_field(record, "operation_kind") != operation_kind {
+        return false;
+    }
+    if string_field(record, "rust_core_boundary") != "model_mount.artifact_endpoint" {
+        return false;
+    }
+    for field in [
+        "id",
+        "record_id",
+        "status",
+        "source",
+        "control_hash",
+        "authority_hash",
+    ] {
+        if string_field(record, field).is_empty() {
+            return false;
+        }
+    }
+    if string_field(record, "record_id") != string_field(record, "id") {
+        return false;
+    }
+    let evidence_refs = evidence_refs(record);
+    for required in [
+        "public_artifact_endpoint_js_facade_retired",
+        "rust_daemon_core_artifact_endpoint",
+        "agentgres_artifact_endpoint_truth_required",
+        required_evidence,
+    ] {
+        if !evidence_refs.iter().any(|value| value == required) {
+            return false;
+        }
+    }
+    record_dir == "model-artifacts" || record_dir == "model-endpoints"
 }
 
 fn admitted_instance_record(record: Value) -> Option<Value> {
@@ -2219,6 +2597,27 @@ fn model_id_from_item_ref(item_ref: &str) -> String {
         .to_string()
 }
 
+fn artifact_endpoint_model_ref(record: &Value) -> String {
+    let model_ref = string_field(record, "model_ref");
+    if !model_ref.is_empty() {
+        return model_ref;
+    }
+    let model_id = string_field(record, "model_id");
+    if model_id.starts_with("model://") {
+        model_id
+    } else {
+        format!("model://artifact/{model_id}")
+    }
+}
+
+fn artifact_endpoint_record_time(record: &Value) -> String {
+    string_field_any(
+        record,
+        &["mounted_at", "unmounted_at", "imported_at", "generated_at"],
+    )
+    .unwrap_or_default()
+}
+
 fn record_id_segment(value: &str, fallback: &str) -> String {
     let mut segment = value
         .chars()
@@ -2293,6 +2692,24 @@ fn provider_control_projection_evidence_refs(record: &Value) -> Vec<String> {
     refs
 }
 
+fn artifact_endpoint_projection_evidence_refs(
+    record: &Value,
+    projection_evidence: &str,
+    js_retired_evidence: &str,
+) -> Vec<String> {
+    let mut refs = evidence_refs(record);
+    for required in [
+        projection_evidence,
+        "agentgres_artifact_endpoint_replay_required",
+        js_retired_evidence,
+    ] {
+        if !refs.iter().any(|value| value == required) {
+            refs.push(required.to_string());
+        }
+    }
+    refs
+}
+
 fn string_array_field(value: &Value, key: &str) -> Vec<String> {
     value
         .get(key)
@@ -2311,6 +2728,7 @@ fn string_array_field(value: &Value, key: &str) -> Vec<String> {
 mod tests {
     use super::*;
     use crate::agentic::runtime::kernel::model_mount::{
+        MODEL_MOUNT_ARTIFACT_ENDPOINT_SCHEMA_VERSION,
         MODEL_MOUNT_BACKEND_LIFECYCLE_PLAN_SCHEMA_VERSION,
         MODEL_MOUNT_INSTANCE_LIFECYCLE_SCHEMA_VERSION,
         MODEL_MOUNT_PROVIDER_INVENTORY_SCHEMA_VERSION, MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
@@ -2502,6 +2920,34 @@ mod tests {
             )
             .expect("write provider-control record");
         }
+    }
+
+    fn write_artifact_endpoint_records(
+        state_dir: &std::path::Path,
+        record_dir_name: &str,
+        records: &[Value],
+    ) {
+        let record_dir = state_dir.join(record_dir_name);
+        fs::create_dir_all(&record_dir).expect("artifact endpoint record dir");
+        for record in records {
+            fs::write(
+                record_dir.join(format!("{}.json", string_field(record, "id"))),
+                serde_json::to_string_pretty(record).expect("artifact endpoint record json"),
+            )
+            .expect("write artifact endpoint record");
+        }
+    }
+
+    fn artifact_endpoint_authority(id: &str) -> Value {
+        json!({
+            "authority_hash": format!("sha256:authority:{id}"),
+            "required_scope": format!("model-mount:{id}"),
+            "authority_grant_refs": ["wallet://grant/model-mount"],
+            "authority_receipt_refs": ["receipt://wallet/model-mount"],
+            "wallet_authority_boundary": "wallet.network.model_mount_artifact_endpoint",
+            "ctee_custody_boundary": "ctee.model_mount_artifact_endpoint",
+            "plaintext_material_returned": false
+        })
     }
 
     fn write_storage_records(
@@ -3038,6 +3484,237 @@ mod tests {
         );
         assert!(records[0].get("providerId").is_none());
         assert!(records.iter().all(|record| record["id"] != "endpoint.js"));
+    }
+
+    #[test]
+    fn artifact_endpoint_projection_replays_admitted_records_and_filters_js_truth() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        write_provider_inventory_materialization_records(temp.path());
+        write_artifact_endpoint_records(
+            temp.path(),
+            "model-artifacts",
+            &[
+                json!({
+                    "id": "artifact.legacy",
+                    "record_id": "artifact.legacy",
+                    "schema_version": MODEL_MOUNT_ARTIFACT_ENDPOINT_SCHEMA_VERSION,
+                    "object": "ioi.model_mount_model_artifact",
+                    "status": "imported",
+                    "operation_kind": "model_mount.artifact.import",
+                    "source": "runtime-daemon.artifact_js",
+                    "rust_core_boundary": "daemon_js",
+                    "model_id": "legacy",
+                    "provider_id": "provider.legacy",
+                    "display_name": "Legacy JS",
+                    "family": "legacy",
+                    "quantization": "unknown",
+                    "privacy_class": "local_private",
+                    "plaintext_source_path_returned": false,
+                    "control_hash": "sha256:legacy",
+                    "authority_hash": "sha256:legacy",
+                    "imported_at": "2026-06-13T00:01:00.000Z",
+                    "evidence_refs": ["legacy_js_artifact_truth"]
+                }),
+                json!({
+                    "id": "artifact.direct-qwen3",
+                    "record_id": "artifact.direct-qwen3",
+                    "schema_version": MODEL_MOUNT_ARTIFACT_ENDPOINT_SCHEMA_VERSION,
+                    "object": "ioi.model_mount_model_artifact",
+                    "status": "imported",
+                    "state": "installed",
+                    "operation_kind": "model_mount.artifact.import",
+                    "source": "runtime-daemon.model_mounting.artifact_endpoint",
+                    "rust_core_boundary": "model_mount.artifact_endpoint",
+                    "model_id": "qwen3-direct",
+                    "provider_id": "provider.direct",
+                    "display_name": "Qwen3 Direct",
+                    "family": "qwen",
+                    "quantization": "q4_k_m",
+                    "size_bytes": 42,
+                    "context_window": 32768,
+                    "capabilities": ["chat", "responses"],
+                    "privacy_class": "local_private",
+                    "source_path_hash": "sha256:source-path",
+                    "plaintext_source_path_returned": false,
+                    "authority": artifact_endpoint_authority("artifact.direct-qwen3"),
+                    "public_response": {
+                        "object": "ioi.model_mount_model_artifact",
+                        "status": "imported",
+                        "id": "artifact.direct-qwen3",
+                        "artifact_id": "artifact.direct-qwen3",
+                        "model_id": "qwen3-direct",
+                        "provider_id": "provider.direct",
+                        "plaintext_source_path_returned": false
+                    },
+                    "receipt_refs": ["receipt://artifact/direct"],
+                    "evidence_refs": [
+                        "public_artifact_endpoint_js_facade_retired",
+                        "rust_daemon_core_artifact_endpoint",
+                        "agentgres_artifact_endpoint_truth_required",
+                        "rust_daemon_core_model_artifact_import"
+                    ],
+                    "control_hash": "sha256:control:artifact.direct-qwen3",
+                    "authority_hash": "sha256:authority:artifact.direct-qwen3",
+                    "imported_at": "2026-06-13T00:02:00.000Z"
+                }),
+            ],
+        );
+        write_artifact_endpoint_records(
+            temp.path(),
+            "model-endpoints",
+            &[
+                json!({
+                    "id": "endpoint.legacy",
+                    "record_id": "endpoint.legacy",
+                    "schema_version": MODEL_MOUNT_ARTIFACT_ENDPOINT_SCHEMA_VERSION,
+                    "object": "ioi.model_mount_endpoint",
+                    "status": "mounted",
+                    "operation_kind": "model_mount.endpoint.mount",
+                    "source": "runtime-daemon.endpoint_js",
+                    "rust_core_boundary": "daemon_js",
+                    "endpoint_id": "endpoint.legacy",
+                    "model_id": "legacy",
+                    "provider_id": "provider.legacy",
+                    "plaintext_transport_material_returned": false,
+                    "control_hash": "sha256:legacy",
+                    "authority_hash": "sha256:legacy",
+                    "mounted_at": "2026-06-13T00:01:00.000Z",
+                    "evidence_refs": ["legacy_js_endpoint_truth"]
+                }),
+                json!({
+                    "id": "endpoint.direct",
+                    "record_id": "endpoint.direct",
+                    "schema_version": MODEL_MOUNT_ARTIFACT_ENDPOINT_SCHEMA_VERSION,
+                    "object": "ioi.model_mount_endpoint",
+                    "status": "mounted",
+                    "operation_kind": "model_mount.endpoint.mount",
+                    "source": "runtime-daemon.model_mounting.artifact_endpoint",
+                    "rust_core_boundary": "model_mount.artifact_endpoint",
+                    "endpoint_id": "endpoint.direct",
+                    "model_id": "qwen3-direct",
+                    "provider_id": "provider.direct",
+                    "provider_kind": "local_folder",
+                    "api_format": "ioi_fixture",
+                    "driver": "fixture",
+                    "backend_id": "backend.fixture",
+                    "base_url_hash": "sha256:base-url",
+                    "plaintext_transport_material_returned": false,
+                    "capabilities": ["chat"],
+                    "privacy_class": "local_private",
+                    "load_policy": {"auto_load": true},
+                    "authority": artifact_endpoint_authority("endpoint.direct"),
+                    "public_response": {
+                        "object": "ioi.model_mount_endpoint",
+                        "status": "mounted",
+                        "id": "endpoint.direct",
+                        "endpoint_id": "endpoint.direct",
+                        "model_id": "qwen3-direct",
+                        "provider_id": "provider.direct",
+                        "plaintext_transport_material_returned": false
+                    },
+                    "receipt_refs": ["receipt://endpoint/direct"],
+                    "evidence_refs": [
+                        "public_artifact_endpoint_js_facade_retired",
+                        "rust_daemon_core_artifact_endpoint",
+                        "agentgres_artifact_endpoint_truth_required",
+                        "rust_daemon_core_model_endpoint_mount"
+                    ],
+                    "control_hash": "sha256:control:endpoint.direct",
+                    "authority_hash": "sha256:authority:endpoint.direct",
+                    "mounted_at": "2026-06-13T00:03:00.000Z"
+                }),
+                json!({
+                    "id": "endpoint.retired",
+                    "record_id": "endpoint.retired",
+                    "schema_version": MODEL_MOUNT_ARTIFACT_ENDPOINT_SCHEMA_VERSION,
+                    "object": "ioi.model_mount_endpoint",
+                    "status": "unmounted",
+                    "operation_kind": "model_mount.endpoint.unmount",
+                    "source": "runtime-daemon.model_mounting.artifact_endpoint",
+                    "rust_core_boundary": "model_mount.artifact_endpoint",
+                    "endpoint_id": "endpoint.retired",
+                    "plaintext_transport_material_returned": false,
+                    "authority": artifact_endpoint_authority("endpoint.retired"),
+                    "public_response": {
+                        "object": "ioi.model_mount_endpoint",
+                        "status": "unmounted",
+                        "id": "endpoint.retired",
+                        "endpoint_id": "endpoint.retired",
+                        "plaintext_transport_material_returned": false
+                    },
+                    "receipt_refs": ["receipt://endpoint/retired"],
+                    "evidence_refs": [
+                        "public_artifact_endpoint_js_facade_retired",
+                        "rust_daemon_core_artifact_endpoint",
+                        "agentgres_artifact_endpoint_truth_required",
+                        "rust_daemon_core_model_endpoint_unmount"
+                    ],
+                    "control_hash": "sha256:control:endpoint.retired",
+                    "authority_hash": "sha256:authority:endpoint.retired",
+                    "unmounted_at": "2026-06-13T00:04:00.000Z"
+                }),
+            ],
+        );
+
+        let state_dir = Some(temp.path().to_string_lossy().to_string());
+        let artifact_projection =
+            artifacts(&request("artifacts", state_dir.clone())).expect("artifact projection");
+        let artifact_records = artifact_projection.as_array().expect("artifact records");
+        assert_eq!(artifact_records.len(), 2);
+        let direct_artifact = artifact_records
+            .iter()
+            .find(|record| string_field(record, "id") == "artifact.direct-qwen3")
+            .expect("direct artifact projection");
+        assert_eq!(
+            direct_artifact["model_ref"],
+            "model://artifact/qwen3-direct"
+        );
+        assert_eq!(
+            direct_artifact["artifact_endpoint_projection_boundary"],
+            "model_mount.artifact_endpoint_projection"
+        );
+        assert_eq!(
+            direct_artifact["source"],
+            "agentgres_artifact_endpoint_record"
+        );
+        assert_eq!(direct_artifact["plaintext_source_path_returned"], false);
+        assert!(direct_artifact["evidence_refs"]
+            .as_array()
+            .expect("artifact evidence")
+            .iter()
+            .any(|value| value == "agentgres_artifact_endpoint_replay_required"));
+        assert!(artifact_records
+            .iter()
+            .all(|record| string_field(record, "id") != "artifact.legacy"));
+
+        let endpoint_projection =
+            endpoints(&request("endpoints", state_dir)).expect("endpoint projection");
+        let endpoint_records = endpoint_projection.as_array().expect("endpoint records");
+        assert_eq!(endpoint_records.len(), 1);
+        assert_eq!(endpoint_records[0]["id"], "endpoint.direct");
+        assert_eq!(
+            endpoint_records[0]["artifact_endpoint_projection_boundary"],
+            "model_mount.artifact_endpoint_projection"
+        );
+        assert_eq!(
+            endpoint_records[0]["source"],
+            "agentgres_artifact_endpoint_record"
+        );
+        assert_eq!(
+            endpoint_records[0]["plaintext_transport_material_returned"],
+            false
+        );
+        assert!(endpoint_records[0]["evidence_refs"]
+            .as_array()
+            .expect("endpoint evidence")
+            .iter()
+            .any(|value| value == "agentgres_artifact_endpoint_replay_required"));
+        assert!(endpoint_records
+            .iter()
+            .all(|record| string_field(record, "id") != "endpoint.legacy"));
+        assert!(endpoint_records
+            .iter()
+            .all(|record| string_field(record, "id") != "endpoint.retired"));
     }
 
     #[test]

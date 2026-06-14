@@ -8667,8 +8667,13 @@ require Rust commit before returning public truth. They no longer preserve JS
 artifact/endpoint map mutation, JS lifecycle receipt synthesis,
 `writeMap("model-artifacts")`, `writeMap("model-endpoints")`, local
 materialization, or no-commit planner success as compatibility paths. This
-remains non-terminal because hosted/provider endpoint discovery/materialization,
-artifact/endpoint replay and read projection over admitted records, deeper
+has since advanced on the read side: public `listArtifacts()` and
+`listEndpoints()` now call Rust read-projection kinds over runtime `state_dir`;
+Rust replays admitted `model-artifacts/*.json` and `model-endpoints/*.json`
+artifact-endpoint records, merges them with provider-inventory and route
+endpoint-resolution materializations, applies Rust unmount records as endpoint
+removal, and filters JS-authored artifact/endpoint truth. This remains
+non-terminal because hosted/provider endpoint discovery/materialization, deeper
 receipt/state-root binding, command-transport retirement, and stable protocol
 APIs still need direct Rust ownership.
 Public model storage and catalog/download mutations have moved from fail-closed

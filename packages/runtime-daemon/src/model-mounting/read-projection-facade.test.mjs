@@ -423,6 +423,163 @@ function createState() {
       resolved_at: "2026-06-03T00:00:03.000Z",
     },
   ]);
+  writeArtifactEndpointRecords(stateDir, "model-artifacts", [
+    {
+      id: "artifact.legacy",
+      record_id: "artifact.legacy",
+      schema_version: "ioi.model_mount.artifact_endpoint.v1",
+      object: "ioi.model_mount_model_artifact",
+      status: "imported",
+      operation_kind: "model_mount.artifact.import",
+      source: "runtime-daemon.artifact_js",
+      rust_core_boundary: "daemon_js",
+      model_id: "legacy",
+      provider_id: "provider.legacy",
+      display_name: "Legacy JS",
+      family: "legacy",
+      quantization: "unknown",
+      privacy_class: "local_private",
+      plaintext_source_path_returned: false,
+      control_hash: "sha256:legacy",
+      authority_hash: "sha256:legacy",
+      imported_at: "2026-06-03T00:00:01.000Z",
+      evidence_refs: ["legacy_js_artifact_truth"],
+    },
+    {
+      id: "artifact.direct-qwen3",
+      record_id: "artifact.direct-qwen3",
+      schema_version: "ioi.model_mount.artifact_endpoint.v1",
+      object: "ioi.model_mount_model_artifact",
+      status: "imported",
+      state: "installed",
+      operation_kind: "model_mount.artifact.import",
+      source: "runtime-daemon.model_mounting.artifact_endpoint",
+      rust_core_boundary: "model_mount.artifact_endpoint",
+      model_id: "model://operator/qwen3-direct",
+      provider_id: "provider://fixture",
+      display_name: "Qwen3 Direct",
+      family: "qwen",
+      quantization: "q4_k_m",
+      size_bytes: 42,
+      context_window: 32768,
+      capabilities: ["chat", "responses"],
+      privacy_class: "local_private",
+      source_path_hash: "sha256:source-path",
+      plaintext_source_path_returned: false,
+      authority: artifactEndpointAuthority("artifact.direct-qwen3"),
+      public_response: {
+        object: "ioi.model_mount_model_artifact",
+        status: "imported",
+        id: "artifact.direct-qwen3",
+        artifact_id: "artifact.direct-qwen3",
+        model_id: "model://operator/qwen3-direct",
+        provider_id: "provider://fixture",
+        plaintext_source_path_returned: false,
+      },
+      receipt_refs: ["receipt://artifact/direct"],
+      evidence_refs: [
+        "public_artifact_endpoint_js_facade_retired",
+        "rust_daemon_core_artifact_endpoint",
+        "agentgres_artifact_endpoint_truth_required",
+        "rust_daemon_core_model_artifact_import",
+      ],
+      control_hash: "sha256:control:artifact.direct-qwen3",
+      authority_hash: "sha256:authority:artifact.direct-qwen3",
+      imported_at: "2026-06-03T00:00:02.000Z",
+    },
+  ]);
+  writeArtifactEndpointRecords(stateDir, "model-endpoints", [
+    {
+      id: "endpoint.legacy",
+      record_id: "endpoint.legacy",
+      schema_version: "ioi.model_mount.artifact_endpoint.v1",
+      object: "ioi.model_mount_endpoint",
+      status: "mounted",
+      operation_kind: "model_mount.endpoint.mount",
+      source: "runtime-daemon.endpoint_js",
+      rust_core_boundary: "daemon_js",
+      endpoint_id: "endpoint.legacy",
+      model_id: "legacy",
+      provider_id: "provider.legacy",
+      plaintext_transport_material_returned: false,
+      control_hash: "sha256:legacy",
+      authority_hash: "sha256:legacy",
+      mounted_at: "2026-06-03T00:00:01.000Z",
+      evidence_refs: ["legacy_js_endpoint_truth"],
+    },
+    {
+      id: "endpoint.direct",
+      record_id: "endpoint.direct",
+      schema_version: "ioi.model_mount.artifact_endpoint.v1",
+      object: "ioi.model_mount_endpoint",
+      status: "mounted",
+      operation_kind: "model_mount.endpoint.mount",
+      source: "runtime-daemon.model_mounting.artifact_endpoint",
+      rust_core_boundary: "model_mount.artifact_endpoint",
+      endpoint_id: "endpoint.direct",
+      model_id: "model://operator/qwen3-direct",
+      provider_id: "provider://fixture",
+      provider_kind: "local_folder",
+      api_format: "ioi_fixture",
+      driver: "fixture",
+      backend_id: "backend.fixture",
+      base_url_hash: "sha256:base-url",
+      plaintext_transport_material_returned: false,
+      capabilities: ["chat"],
+      privacy_class: "local_private",
+      load_policy: { auto_load: true },
+      authority: artifactEndpointAuthority("endpoint.direct"),
+      public_response: {
+        object: "ioi.model_mount_endpoint",
+        status: "mounted",
+        id: "endpoint.direct",
+        endpoint_id: "endpoint.direct",
+        model_id: "model://operator/qwen3-direct",
+        provider_id: "provider://fixture",
+        plaintext_transport_material_returned: false,
+      },
+      receipt_refs: ["receipt://endpoint/direct"],
+      evidence_refs: [
+        "public_artifact_endpoint_js_facade_retired",
+        "rust_daemon_core_artifact_endpoint",
+        "agentgres_artifact_endpoint_truth_required",
+        "rust_daemon_core_model_endpoint_mount",
+      ],
+      control_hash: "sha256:control:endpoint.direct",
+      authority_hash: "sha256:authority:endpoint.direct",
+      mounted_at: "2026-06-03T00:00:02.000Z",
+    },
+    {
+      id: "endpoint.retired",
+      record_id: "endpoint.retired",
+      schema_version: "ioi.model_mount.artifact_endpoint.v1",
+      object: "ioi.model_mount_endpoint",
+      status: "unmounted",
+      operation_kind: "model_mount.endpoint.unmount",
+      source: "runtime-daemon.model_mounting.artifact_endpoint",
+      rust_core_boundary: "model_mount.artifact_endpoint",
+      endpoint_id: "endpoint.retired",
+      plaintext_transport_material_returned: false,
+      authority: artifactEndpointAuthority("endpoint.retired"),
+      public_response: {
+        object: "ioi.model_mount_endpoint",
+        status: "unmounted",
+        id: "endpoint.retired",
+        endpoint_id: "endpoint.retired",
+        plaintext_transport_material_returned: false,
+      },
+      receipt_refs: ["receipt://endpoint/retired"],
+      evidence_refs: [
+        "public_artifact_endpoint_js_facade_retired",
+        "rust_daemon_core_artifact_endpoint",
+        "agentgres_artifact_endpoint_truth_required",
+        "rust_daemon_core_model_endpoint_unmount",
+      ],
+      control_hash: "sha256:control:endpoint.retired",
+      authority_hash: "sha256:authority:endpoint.retired",
+      unmounted_at: "2026-06-03T00:00:03.000Z",
+    },
+  ]);
   writeStorageRecords(stateDir, "model-downloads", [
     {
       id: "legacy-js-download",
@@ -1832,6 +1989,17 @@ function writeProviderControlRecords(stateDir, records = []) {
   }
 }
 
+function writeArtifactEndpointRecords(stateDir, recordDirName, records = []) {
+  const recordDir = path.join(stateDir, recordDirName);
+  fs.mkdirSync(recordDir, { recursive: true });
+  for (const record of records) {
+    fs.writeFileSync(
+      path.join(recordDir, `${record.id}.json`),
+      `${JSON.stringify(record, null, 2)}\n`,
+    );
+  }
+}
+
 function writeTokenizerRecords(stateDir, records = []) {
   const tokenizerDir = path.join(stateDir, "model-tokenizer-utilities");
   fs.mkdirSync(tokenizerDir, { recursive: true });
@@ -1994,6 +2162,18 @@ function storageRecordFixture({
   };
 }
 
+function artifactEndpointAuthority(id) {
+  return {
+    authority_hash: `sha256:authority:${id}`,
+    required_scope: `model-mount:${id}`,
+    authority_grant_refs: ["wallet://grant/model-mount"],
+    authority_receipt_refs: ["receipt://wallet/model-mount"],
+    wallet_authority_boundary: "wallet.network.model_mount_artifact_endpoint",
+    ctee_custody_boundary: "ctee.model_mount_artifact_endpoint",
+    plaintext_material_returned: false,
+  };
+}
+
 function instanceRecordsFromAgentgresStateDir(stateDir) {
   if (!stateDir) return [];
   const instanceDir = path.join(stateDir, "model-instances");
@@ -2151,7 +2331,7 @@ function providerRecordFromProviderControl(record) {
 }
 
 function artifactRecordsFromAgentgresStateDir(stateDir, objectKind) {
-  return providerInventoryRecordsFromAgentgresStateDir(stateDir)
+  const records = new Map(providerInventoryRecordsFromAgentgresStateDir(stateDir)
     .filter((record) => record.action === "list_models")
     .flatMap((record) => (record.item_refs ?? []).map((itemRef) => ({
       id: `artifact_${recordIdSegment(record.record_id, "record")}_${recordIdSegment(itemRef, "model")}`,
@@ -2173,9 +2353,128 @@ function artifactRecordsFromAgentgresStateDir(stateDir, objectKind) {
         "model_mount_topology_js_materialization_retired",
       ],
     })))
+    .map((record) => [record.id, record]));
+  if (objectKind === "ioi.model_mount_model_artifact") {
+    for (const record of artifactEndpointArtifactRecordsFromAgentgresStateDir(stateDir)) {
+      const projection = artifactRecordFromArtifactEndpoint(record);
+      records.set(projection.id, projection);
+    }
+  }
+  return [...records.values()]
     .sort((left, right) =>
       String(left.model_ref ?? "").localeCompare(String(right.model_ref ?? "")) ||
-      String(left.provider_ref ?? "").localeCompare(String(right.provider_ref ?? "")));
+      String(left.provider_ref ?? "").localeCompare(String(right.provider_ref ?? "")) ||
+      String(left.id ?? "").localeCompare(String(right.id ?? "")));
+}
+
+function artifactEndpointArtifactRecordsFromAgentgresStateDir(stateDir) {
+  return artifactEndpointRecordsFromAgentgresStateDir(stateDir, "model-artifacts")
+    .filter((record) =>
+      artifactEndpointCommonAdmitted(
+        record,
+        "ioi.model_mount_model_artifact",
+        "model_mount.artifact.import",
+        "rust_daemon_core_model_artifact_import",
+      ) &&
+      record.status === "imported" &&
+      typeof record.model_id === "string" &&
+      typeof record.provider_id === "string" &&
+      typeof record.display_name === "string" &&
+      typeof record.family === "string" &&
+      typeof record.quantization === "string" &&
+      typeof record.privacy_class === "string" &&
+      typeof record.imported_at === "string" &&
+      record.plaintext_source_path_returned === false)
+    .sort((left, right) =>
+      String(artifactEndpointRecordTime(left)).localeCompare(String(artifactEndpointRecordTime(right))) ||
+      String(left.id ?? "").localeCompare(String(right.id ?? "")));
+}
+
+function artifactRecordFromArtifactEndpoint(record) {
+  return withoutNulls({
+    id: record.id,
+    object: "ioi.model_mount_model_artifact",
+    artifact_id: record.artifact_id ?? record.id,
+    model_ref: artifactEndpointModelRef(record),
+    model_id: record.model_id,
+    provider_id: record.provider_id,
+    provider_ref: record.provider_id,
+    display_name: record.display_name,
+    family: record.family,
+    quantization: record.quantization,
+    size_bytes: record.size_bytes,
+    context_window: record.context_window,
+    capabilities: record.capabilities ?? [],
+    privacy_class: record.privacy_class,
+    source_path_hash: record.source_path_hash,
+    plaintext_source_path_returned: false,
+    record_dir: "model-artifacts",
+    record_id: record.record_id,
+    operation_kind: record.operation_kind,
+    source: "agentgres_artifact_endpoint_record",
+    rust_core_boundary: "model_mount.artifact_endpoint",
+    artifact_endpoint_projection_boundary: "model_mount.artifact_endpoint_projection",
+    public_response: record.public_response ?? {},
+    authority: record.authority ?? {},
+    receipt_refs: record.receipt_refs ?? [],
+    evidence_refs: artifactEndpointProjectionEvidenceRefs(
+      record,
+      "rust_daemon_core_model_artifact_projection",
+      "model_mount_artifact_list_js_facade_retired",
+    ),
+    control_hash: record.control_hash,
+    authority_hash: record.authority_hash,
+    imported_at: record.imported_at,
+  });
+}
+
+function artifactEndpointRecordsFromAgentgresStateDir(stateDir, recordDirName) {
+  if (!stateDir) return [];
+  const recordDir = path.join(stateDir, recordDirName);
+  if (!fs.existsSync(recordDir)) return [];
+  return fs.readdirSync(recordDir)
+    .filter((file) => file.endsWith(".json"))
+    .map((file) => JSON.parse(fs.readFileSync(path.join(recordDir, file), "utf8")));
+}
+
+function artifactEndpointCommonAdmitted(record, object, operationKind, requiredEvidence) {
+  return record?.deleted !== true &&
+    record?.schema_version === "ioi.model_mount.artifact_endpoint.v1" &&
+    record?.object === object &&
+    record?.operation_kind === operationKind &&
+    record?.rust_core_boundary === "model_mount.artifact_endpoint" &&
+    typeof record?.id === "string" &&
+    record?.record_id === record.id &&
+    typeof record?.status === "string" &&
+    typeof record?.source === "string" &&
+    typeof record?.control_hash === "string" &&
+    typeof record?.authority_hash === "string" &&
+    Array.isArray(record?.evidence_refs) &&
+    record.evidence_refs.includes("public_artifact_endpoint_js_facade_retired") &&
+    record.evidence_refs.includes("rust_daemon_core_artifact_endpoint") &&
+    record.evidence_refs.includes("agentgres_artifact_endpoint_truth_required") &&
+    record.evidence_refs.includes(requiredEvidence);
+}
+
+function artifactEndpointModelRef(record) {
+  if (typeof record?.model_ref === "string" && record.model_ref.length > 0) {
+    return record.model_ref;
+  }
+  const modelId = String(record?.model_id ?? "");
+  return modelId.startsWith("model://") ? modelId : `model://artifact/${modelId}`;
+}
+
+function artifactEndpointRecordTime(record) {
+  return record?.mounted_at ?? record?.unmounted_at ?? record?.imported_at ?? record?.generated_at ?? "";
+}
+
+function artifactEndpointProjectionEvidenceRefs(record, projectionEvidence, jsRetiredEvidence) {
+  return [
+    ...(Array.isArray(record?.evidence_refs) ? record.evidence_refs : []),
+    projectionEvidence,
+    "agentgres_artifact_endpoint_replay_required",
+    jsRetiredEvidence,
+  ].filter((value, index, array) => array.indexOf(value) === index);
 }
 
 function providerRecordsFromAgentgresStateDir(stateDir) {
@@ -2674,7 +2973,7 @@ function routeEndpointResolutionsFromAgentgresStateDir(stateDir) {
 }
 
 function endpointRecordsFromAgentgresStateDir(stateDir) {
-  const records = [];
+  const records = new Map();
   const seen = new Set();
   for (const resolution of routeEndpointResolutionsFromAgentgresStateDir(stateDir)) {
     const endpoints = Array.isArray(resolution.endpoints) && resolution.endpoints.length > 0
@@ -2704,7 +3003,7 @@ function endpointRecordsFromAgentgresStateDir(stateDir) {
         "agentgres_model_route_endpoint_resolution_replay_required",
         "model_mount_endpoint_list_js_facade_retired",
       ].filter((value, index, array) => array.indexOf(value) === index);
-      records.push({
+      records.set(`route:${key}`, {
         id: endpointId,
         object: "ioi.model_mount_endpoint",
         endpoint_id: endpointId,
@@ -2724,10 +3023,92 @@ function endpointRecordsFromAgentgresStateDir(stateDir) {
       });
     }
   }
-  return records.sort((left, right) =>
+  for (const record of artifactEndpointEndpointRecordsFromAgentgresStateDir(stateDir)) {
+    for (const [key, existing] of records) {
+      if (existing.id === record.endpoint_id || existing.endpoint_id === record.endpoint_id) {
+        records.delete(key);
+      }
+    }
+    if (record.status === "unmounted") continue;
+    records.set(`artifact_endpoint:${record.endpoint_id}`, endpointRecordFromArtifactEndpoint(record));
+  }
+  return [...records.values()].sort((left, right) =>
     String(left.id ?? "").localeCompare(String(right.id ?? "")) ||
     String(left.route_id ?? "").localeCompare(String(right.route_id ?? "")) ||
     String(left.model_id ?? "").localeCompare(String(right.model_id ?? "")));
+}
+
+function artifactEndpointEndpointRecordsFromAgentgresStateDir(stateDir) {
+  return artifactEndpointRecordsFromAgentgresStateDir(stateDir, "model-endpoints")
+    .filter((record) => {
+      const requiredEvidence = record.operation_kind === "model_mount.endpoint.mount"
+        ? "rust_daemon_core_model_endpoint_mount"
+        : record.operation_kind === "model_mount.endpoint.unmount"
+          ? "rust_daemon_core_model_endpoint_unmount"
+          : null;
+      if (!requiredEvidence) return false;
+      if (!artifactEndpointCommonAdmitted(
+        record,
+        "ioi.model_mount_endpoint",
+        record.operation_kind,
+        requiredEvidence,
+      )) return false;
+      if (!["mounted", "unmounted"].includes(record.status)) return false;
+      if (typeof record.endpoint_id !== "string") return false;
+      if (record.plaintext_transport_material_returned !== false) return false;
+      if (record.status === "mounted") {
+        return typeof record.model_id === "string" &&
+          typeof record.provider_id === "string" &&
+          typeof record.provider_kind === "string" &&
+          typeof record.api_format === "string" &&
+          typeof record.driver === "string" &&
+          typeof record.backend_id === "string" &&
+          typeof record.privacy_class === "string" &&
+          typeof record.mounted_at === "string";
+      }
+      return typeof record.unmounted_at === "string";
+    })
+    .sort((left, right) =>
+      String(artifactEndpointRecordTime(left)).localeCompare(String(artifactEndpointRecordTime(right))) ||
+      String(left.id ?? "").localeCompare(String(right.id ?? "")) ||
+      String(left.status ?? "").localeCompare(String(right.status ?? "")));
+}
+
+function endpointRecordFromArtifactEndpoint(record) {
+  return withoutNulls({
+    id: record.endpoint_id,
+    object: "ioi.model_mount_endpoint",
+    endpoint_id: record.endpoint_id,
+    model_id: record.model_id,
+    provider_id: record.provider_id,
+    provider_kind: record.provider_kind,
+    status: record.status,
+    api_format: record.api_format,
+    driver: record.driver,
+    backend_id: record.backend_id,
+    base_url_hash: record.base_url_hash,
+    plaintext_transport_material_returned: false,
+    capabilities: record.capabilities ?? [],
+    privacy_class: record.privacy_class,
+    load_policy: record.load_policy ?? {},
+    record_dir: "model-endpoints",
+    record_id: record.record_id,
+    operation_kind: record.operation_kind,
+    source: "agentgres_artifact_endpoint_record",
+    rust_core_boundary: "model_mount.artifact_endpoint",
+    artifact_endpoint_projection_boundary: "model_mount.artifact_endpoint_projection",
+    public_response: record.public_response ?? {},
+    authority: record.authority ?? {},
+    receipt_refs: record.receipt_refs ?? [],
+    evidence_refs: artifactEndpointProjectionEvidenceRefs(
+      record,
+      "rust_daemon_core_model_endpoint_projection",
+      "model_mount_endpoint_list_js_facade_retired",
+    ),
+    control_hash: record.control_hash,
+    authority_hash: record.authority_hash,
+    mounted_at: record.mounted_at,
+  });
 }
 
 function downloadRecordsFromAgentgresStateDir(stateDir) {
@@ -3267,9 +3648,15 @@ test("read projection facade delegates product-safe lists and capabilities", () 
   assert.deepEqual(facade.listProductArtifacts(state).map((artifact) => artifact.model_ref), [
     "model://fixture/qwen3",
   ]);
-  assert.deepEqual(facade.listArtifacts(state).map((artifact) => artifact.model_ref), [
+  const artifacts = facade.listArtifacts(state);
+  assert.deepEqual(artifacts.map((artifact) => artifact.model_ref), [
     "model://fixture/qwen3",
+    "model://operator/qwen3-direct",
   ]);
+  const directArtifact = artifacts.find((artifact) => artifact.id === "artifact.direct-qwen3");
+  assert.equal(directArtifact.artifact_endpoint_projection_boundary, "model_mount.artifact_endpoint_projection");
+  assert.equal(directArtifact.source, "agentgres_artifact_endpoint_record");
+  assert.equal(directArtifact.evidence_refs.includes("agentgres_artifact_endpoint_replay_required"), true);
   const providers = facade.listProviders(state);
   assert.deepEqual(providers.map((provider) => provider.provider_ref), [
     "provider://fixture",
@@ -3282,9 +3669,15 @@ test("read projection facade delegates product-safe lists and capabilities", () 
   assert.equal(providerControlProjection.private_material_returned, false);
   assert.equal(providerControlProjection.evidence_refs.includes("model_mount_provider_map_lookup_js_retired"), true);
   const endpoints = facade.listEndpoints(state);
-  assert.deepEqual(endpoints.map((endpoint) => endpoint.id), ["endpoint.local"]);
-  assert.equal(endpoints[0].provider_id, "provider.local");
-  assert.equal(Object.hasOwn(endpoints[0], "providerId"), false);
+  assert.deepEqual(endpoints.map((endpoint) => endpoint.id), ["endpoint.direct", "endpoint.local"]);
+  const directEndpoint = endpoints.find((endpoint) => endpoint.id === "endpoint.direct");
+  assert.equal(directEndpoint.provider_id, "provider://fixture");
+  assert.equal(directEndpoint.artifact_endpoint_projection_boundary, "model_mount.artifact_endpoint_projection");
+  assert.equal(directEndpoint.source, "agentgres_artifact_endpoint_record");
+  assert.equal(directEndpoint.evidence_refs.includes("agentgres_artifact_endpoint_replay_required"), true);
+  const routeEndpoint = endpoints.find((endpoint) => endpoint.id === "endpoint.local");
+  assert.equal(routeEndpoint.provider_id, "provider.local");
+  assert.equal(Object.hasOwn(routeEndpoint, "providerId"), false);
   assert.deepEqual(facade.listInstances(state).map((instance) => instance.id), [
     "instance.loaded",
     "instance.old",
@@ -3646,8 +4039,11 @@ test("read projection facade composes snapshots, projection, and receipt replay"
 
   const projection = facade.projection(state);
   assert.equal(projection.schemaVersion, "model.mount.schema");
-  assert.deepEqual(projection.artifacts.map((artifact) => artifact.model_ref), ["model://fixture/qwen3"]);
-  assert.deepEqual(projection.endpoints.map((endpoint) => endpoint.id), ["endpoint.local"]);
+  assert.deepEqual(projection.artifacts.map((artifact) => artifact.model_ref), [
+    "model://fixture/qwen3",
+    "model://operator/qwen3-direct",
+  ]);
+  assert.deepEqual(projection.endpoints.map((endpoint) => endpoint.id), ["endpoint.direct", "endpoint.local"]);
   assert.deepEqual(projection.providers.map((provider) => provider.provider_ref), [
     "provider://fixture",
     "provider://native",
@@ -3824,7 +4220,7 @@ test("read projection facade delegates server status through Rust projection", (
   assert.equal(status.nativeBaseUrl, "http://127.0.0.1:3200/api/v1");
   assert.equal(status.openAiCompatibleBaseUrl, "http://127.0.0.1:3200/v1");
   assert.equal(status.loadedInstances, 2);
-  assert.equal(status.mountedEndpoints, 1);
+  assert.equal(status.mountedEndpoints, 2);
   assert.deepEqual(status.providerStates, { available: 3, degraded: 0 });
   assert.deepEqual(status.backendStates, { available: 1, degraded: 1 });
   assert.deepEqual(readProjectionRequests.map((request) => request.projection_kind), ["server_status"]);
