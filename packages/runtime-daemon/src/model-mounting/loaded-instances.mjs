@@ -19,7 +19,7 @@ export function loadedInstanceForEndpoint(state, endpointId, failIfMissing = tru
 export function evictExpiredInstances(state) {
   const nowMs = state.now().getTime();
   let changed = false;
-  for (const instance of state.instances.values()) {
+  for (const instance of projectionRecords(state, "listInstances")) {
     if (instance.status !== "loaded" || !instance.expiresAt || Date.parse(instance.expiresAt) > nowMs) {
       continue;
     }
@@ -37,8 +37,9 @@ export function evictExpiredInstances(state) {
 }
 
 export function coalesceLoadedInstances(state) {
+  const instances = projectionRecords(state, "listInstances");
   const loadedByEndpoint = new Map();
-  for (const instance of state.instances.values()) {
+  for (const instance of instances) {
     const endpointId = instance.endpointId ?? instance.endpoint_id;
     if (instance.status !== "loaded" || !endpointId) continue;
     const current = loadedByEndpoint.get(endpointId);
@@ -47,7 +48,7 @@ export function coalesceLoadedInstances(state) {
     }
   }
   let changed = false;
-  for (const instance of state.instances.values()) {
+  for (const instance of instances) {
     const endpointId = instance.endpointId ?? instance.endpoint_id;
     if (instance.status !== "loaded" || !endpointId) continue;
     const keeper = loadedByEndpoint.get(endpointId);
@@ -68,7 +69,7 @@ export function coalesceLoadedInstances(state) {
 
 export function supersedeLoadedInstances(state, endpointId, keepInstanceId) {
   let changed = false;
-  for (const instance of state.instances.values()) {
+  for (const instance of projectionRecords(state, "listInstances")) {
     if (instance.id === keepInstanceId || (instance.endpointId ?? instance.endpoint_id) !== endpointId || instance.status !== "loaded") continue;
     commitInstanceMaintenanceTransition(state, instance, {
       action: "supersede",
@@ -97,7 +98,6 @@ function commitInstanceMaintenanceTransition(state, instance, options = {}) {
       "Model instance lifecycle maintenance requires Rust Agentgres record-state commit before instance truth can change.",
     invalidCode: "model_mount_instance_lifecycle_record_state_commit_invalid",
   });
-  state.instances?.set?.(record.id, record);
   return {
     ...record,
     object: "ioi.model_mount_instance",
@@ -132,14 +132,14 @@ function modelMountInstanceMaintenanceRequest(state, instance = {}, options = {}
     instance,
     options,
   );
-  const endpoint = mapGet(state.endpoints, endpointId) ?? {};
+  const endpoint = endpointProjectionRecord(state, endpointId) ?? {};
   const providerId = requiredMaintenanceString(
     instance.provider_id ?? instance.providerId ?? endpoint.provider_id ?? endpoint.providerId,
     "provider_id",
     instance,
     options,
   );
-  const provider = mapGet(state.providers, providerId) ?? {};
+  const provider = providerProjectionRecord(state, providerId) ?? {};
   const modelId = requiredMaintenanceString(
     instance.model_id ?? instance.modelId ?? endpoint.model_id ?? endpoint.modelId,
     "model_id",
@@ -240,15 +240,43 @@ function requiredMaintenanceString(value, field, instance, options = {}) {
   });
 }
 
-function mapGet(map, key) {
-  return map && typeof map.get === "function" ? map.get(key) : null;
-}
-
 function projectionRecords(state, methodName) {
   const reader = state?.[methodName];
   if (typeof reader !== "function") return [];
   const records = reader.call(state);
   return Array.isArray(records) ? records : [];
+}
+
+function endpointProjectionRecord(state, endpointId) {
+  const requested = String(endpointId ?? "").trim();
+  if (!requested) return null;
+  return projectionRecords(state, "listEndpoints").find(
+    (record) =>
+      record?.id === requested ||
+      record?.endpoint_id === requested ||
+      record?.endpoint_ref === requested,
+  ) ?? null;
+}
+
+function providerProjectionRecord(state, providerId) {
+  const refs = providerRefs(providerId);
+  if (refs.size === 0) return null;
+  return projectionRecords(state, "listProviders").find(
+    (record) =>
+      refs.has(record?.id) ||
+      refs.has(record?.provider_id) ||
+      refs.has(record?.provider_ref),
+  ) ?? null;
+}
+
+function providerRefs(providerId) {
+  const requested = String(providerId ?? "").trim();
+  const values = new Set();
+  if (!requested) return values;
+  values.add(requested);
+  if (requested.startsWith("provider://")) values.add(requested.slice("provider://".length));
+  else values.add(`provider://${requested}`);
+  return values;
 }
 
 function throwInstanceMaintenanceRustCoreRequired(operation, instance, details = {}) {

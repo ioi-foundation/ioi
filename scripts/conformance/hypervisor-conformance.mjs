@@ -17167,7 +17167,7 @@ function runBridge() {
       /model_mount_model_load_estimate_rust_positive_api/.test(modelLoadingOperations) &&
       /canonicalLoadEstimateOptions/.test(modelMountingState) &&
       /defaultModelLoadEstimateId/.test(modelMountingState) &&
-      /updateInstanceCache:\s*false/.test(modelLoadingOperations) &&
+      !/updateInstanceCache/.test(modelLoadingOperations) &&
       /model_instance_load_estimate_is_planned_in_rust_without_provider_lifecycle/.test(modelMountCore) &&
       /rust_model_mount_load_estimate/.test(modelMountCore) &&
       /agentgres_model_instance_estimate_truth_required/.test(modelMountCore) &&
@@ -17180,22 +17180,23 @@ function runBridge() {
       !/state\.driverForProvider\(provider\)\.(?:load|unload)/.test(modelLoadingOperations) &&
       !/state\.lifecycleReceipt\("model_(?:load|unload)"/.test(modelLoadingOperations) &&
       !/state\.instances\.set/.test(modelLoadingOperations) &&
-      /state\.instances\?\.set\?\./.test(modelMountingState) &&
+      !/state\.instances\?\.\s*set\?\./.test(modelMountingState) &&
       !/state\.supersedeLoadedInstances/.test(modelLoadingOperations) &&
       /model_mount_model_loading_rust_positive_api/.test(modelLoadingOperations) &&
       /model_mount_model_unloading_rust_positive_api/.test(modelLoadingOperations) &&
       !/commitModelInstanceRecordState/.test(loadedInstances) &&
       !/state\.lifecycleReceipt\("model_(?:idle_evict|supersede)"/.test(loadedInstances) &&
       !/state\.instances\.set/.test(loadedInstances) &&
+      !/state\.instances\?\.\s*set\?\./.test(loadedInstances) &&
       !/providerLifecycleHash/.test(modelLoadingOperations) &&
       !/modelMountInstanceLifecycle(?:Action|Status|Hash|EvidenceRefs)/.test(modelLoadingOperations) &&
-      /idle TTL eviction commits Rust-planned instance lifecycle before mutating instance truth/.test(
+      /idle TTL eviction commits Rust-planned instance lifecycle without mutating JS instance cache/.test(
         read("packages/runtime-daemon/src/model-mounting/loaded-instances.test.mjs"),
       ) &&
       /explicit supersede commits Rust supersede transition before returning/.test(
         read("packages/runtime-daemon/src/model-mounting/loaded-instances.test.mjs"),
       ) &&
-      /loadModel commits Rust-planned instance lifecycle before returning public instance truth/.test(
+      /loadModel commits Rust-planned instance lifecycle without mutating JS instance cache/.test(
         read("packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs"),
       ) &&
       /loadModel estimate-only commits Rust estimate record before returning public estimate truth/.test(
@@ -17207,7 +17208,7 @@ function runBridge() {
       !/loadModel estimate-only facade fails closed before JS sizing, driver, receipt, or instance write/.test(
         read("packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs"),
       ) &&
-      /unloadModel commits Rust-planned instance lifecycle before returning public instance truth/.test(
+      /unloadModel commits Rust-planned instance lifecycle without mutating JS instance cache/.test(
         read("packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs"),
       ),
     [
@@ -20435,7 +20436,7 @@ function runReceipts() {
       /model_mount_model_load_estimate_rust_positive_api/.test(modelLoadingOperations) &&
       /canonicalLoadEstimateOptions/.test(modelMountingState) &&
       /defaultModelLoadEstimateId/.test(modelMountingState) &&
-      /updateInstanceCache:\s*false/.test(modelLoadingOperations) &&
+      !/updateInstanceCache/.test(modelLoadingOperations) &&
       /model_instance_load_estimate_is_planned_in_rust_without_provider_lifecycle/.test(modelMountCore) &&
       /rust_model_mount_load_estimate/.test(modelMountCore) &&
       /agentgres_model_instance_estimate_truth_required/.test(modelMountCore) &&
@@ -20448,7 +20449,7 @@ function runReceipts() {
       !/state\.lifecycleReceipt\("model_load"/.test(modelLoadingOperations) &&
       !/state\.lifecycleReceipt\("model_unload"/.test(modelLoadingOperations) &&
       !/state\.instances\.set/.test(modelLoadingOperations) &&
-      /state\.instances\?\.set\?\./.test(modelMountingState) &&
+      !/state\.instances\?\.\s*set\?\./.test(modelMountingState) &&
       !/state\.supersedeLoadedInstances/.test(modelLoadingOperations) &&
       /model_mount_model_loading_rust_positive_api/.test(modelLoadingOperations) &&
       /model_mount_model_unloading_rust_positive_api/.test(modelLoadingOperations) &&
@@ -20465,11 +20466,12 @@ function runReceipts() {
       !/state\.lifecycleReceipt\("model_idle_evict"/.test(loadedInstances) &&
       !/state\.lifecycleReceipt\("model_supersede"/.test(loadedInstances) &&
       !/state\.instances\.set/.test(loadedInstances) &&
+      !/state\.instances\?\.\s*set\?\./.test(loadedInstances) &&
       !/state\.writeMap\("model-instances"/.test(modelLoadingOperations) &&
       !/state\.writeMap\("model-instances"/.test(loadedInstances) &&
       /recordStateCommits/.test(modelLoadingOperationsTest) &&
       /recordStateCommits/.test(loadedInstancesTest) &&
-      /loadModel commits Rust-planned instance lifecycle before returning public instance truth/.test(
+      /loadModel commits Rust-planned instance lifecycle without mutating JS instance cache/.test(
         modelLoadingOperationsTest,
       ) &&
       /loadModel estimate-only commits Rust estimate record before returning public estimate truth/.test(
@@ -20481,7 +20483,7 @@ function runReceipts() {
       !/loadModel estimate-only facade fails closed before JS sizing, driver, receipt, or instance write/.test(
         modelLoadingOperationsTest,
       ) &&
-      /unloadModel commits Rust-planned instance lifecycle before returning public instance truth/.test(
+      /unloadModel commits Rust-planned instance lifecycle without mutating JS instance cache/.test(
         modelLoadingOperationsTest,
       ) &&
       !/loadEstimate derives native resource estimate/.test(modelLoadingOperationsTest) &&
@@ -20500,7 +20502,7 @@ function runReceipts() {
         modelLoadingOperationsTest,
       ) &&
       /assert\.deepEqual\(state\.driverCalls,\s*\[\]\)/.test(modelLoadingOperationsTest) &&
-      /idle TTL eviction commits Rust-planned instance lifecycle before mutating instance truth/.test(
+      /idle TTL eviction commits Rust-planned instance lifecycle without mutating JS instance cache/.test(
         loadedInstancesTest,
       ) &&
       /coalescing duplicate loaded instances commits Rust supersede transition/.test(
@@ -22642,6 +22644,38 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/loaded-instances.test.mjs",
     ],
     "Model-mount endpoint, route, instance, artifact, and loaded-instance accessors must use Rust read projections and reject JS map-only topology truth",
+  );
+  assertCheck(
+    result,
+    "model-mount-instance-maintenance-rust-projection-selection",
+    /for \(const instance of projectionRecords\(state,\s*"listInstances"\)\)/.test(loadedInstances) &&
+      /const instances = projectionRecords\(state,\s*"listInstances"\)/.test(loadedInstances) &&
+      /const endpoint = endpointProjectionRecord\(state,\s*endpointId\) \?\? \{\}/.test(loadedInstances) &&
+      /const provider = providerProjectionRecord\(state,\s*providerId\) \?\? \{\}/.test(loadedInstances) &&
+      /function endpointProjectionRecord\(state,\s*endpointId\)/.test(loadedInstances) &&
+      /function providerProjectionRecord\(state,\s*providerId\)/.test(loadedInstances) &&
+      !/state\.instances\.values\(\)/.test(loadedInstances) &&
+      !/state\.instances\.set/.test(loadedInstances) &&
+      !/state\.instances\?\.\s*set\?\./.test(loadedInstances) &&
+      !/mapGet\(state\.endpoints/.test(loadedInstances) &&
+      !/mapGet\(state\.providers/.test(loadedInstances) &&
+      !/state\.endpoints\.get/.test(loadedInstances) &&
+      !/state\.providers\.get/.test(loadedInstances) &&
+      /instance maintenance derives candidate and enrichment truth from Rust projections/.test(loadedInstancesTest) &&
+      /idle TTL eviction commits Rust-planned instance lifecycle without mutating JS instance cache/.test(
+        loadedInstancesTest,
+      ) &&
+      /instance_map_only_expired/.test(loadedInstancesTest) &&
+      /instance_projection_only/.test(loadedInstancesTest) &&
+      /model\.projected/.test(loadedInstancesTest) &&
+      /backend\.projected/.test(loadedInstancesTest) &&
+      /instance_map_only_duplicate/.test(loadedInstancesTest) &&
+      /instance_map_only_old/.test(loadedInstancesTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/loaded-instances.mjs",
+      "packages/runtime-daemon/src/model-mounting/loaded-instances.test.mjs",
+    ],
+    "Model-mount idle eviction, loaded-instance coalescing, and explicit supersede must select and enrich maintenance candidates from Rust projections, not JS instance/endpoint/provider maps",
   );
   assertCheck(
     result,

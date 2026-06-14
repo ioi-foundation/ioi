@@ -2194,14 +2194,15 @@ methods now reject canonical load request aliases at the edge, ask Rust
 `plan_model_mount_provider_lifecycle` for the provider lifecycle hash, ask Rust
 `plan_model_mount_instance_lifecycle` for the model-instance transition record,
 commit that Rust-authored record through Rust Agentgres
-`commit_runtime_model_mount_record_state`, and only then update the local
-projection cache. JS still does not call provider drivers, create lifecycle
-receipts, write `model-instances` maps, or run a standalone model-loading
-helper. The later maintenance cut moved loaded-instance idle eviction,
+`commit_runtime_model_mount_record_state`, and only then return the committed
+Rust record. JS still does not call provider drivers, create lifecycle
+receipts, write `model-instances` maps, refresh `state.instances`, or run a
+standalone model-loading helper. The later maintenance cut moved loaded-instance idle eviction,
 duplicate coalescing, and explicit supersede onto the same Rust
 `plan_model_mount_instance_lifecycle` plus Rust Agentgres model-instance
 record-state commit path, including Rust-authored `reason` and `superseded_by`
-metadata for maintenance transitions. This does not claim terminal instance
+metadata for maintenance transitions, while leaving the JS `state.instances`
+cache unchanged after commit. This does not claim terminal instance
 lifecycle migration: direct Rust projection/replay, deeper receipt/state-root
 binding, command-transport retirement, and stable protocol APIs remain
 required.
@@ -3091,7 +3092,7 @@ temporary positive Rust client over
 not an authority-bearing JS planner. Direct instance lifecycle planning belongs
 to Rust `model_mount` through `plan_model_mount_instance_lifecycle`; JS may only
 assemble canonical request facts, commit the Rust-authored transition record
-through Agentgres, update projection cache after commit, or validate already
+through Agentgres, return committed Rust lifecycle records, or validate already
 admitted lifecycle receipts before store persistence. Direct Rust daemon-core
 Agentgres-backed projection/replay, stable protocol APIs, and
 command-transport retirement remain required before instance lifecycle reaches
@@ -8848,6 +8849,11 @@ accepted truth. Map-only endpoint, route, instance, or artifact cache rows now
 fail not-found at the accessor boundary, while provider-direct artifact
 creation still fails closed before JS mutation and load fallback enters the
 Rust-planned mount/load surfaces.
+Loaded-instance maintenance selection now follows the same boundary: idle
+eviction, duplicate coalescing, and explicit supersede enumerate Rust
+`instances` projection rows, enrich missing endpoint/provider facts from Rust
+`endpoints` and `providers` projections, and leave map-only JS instance,
+endpoint, or provider cache rows unable to trigger or shape lifecycle planning.
 Public catalog-provider configuration, private runtime material, and OAuth
 control now move through Rust daemon-core `plan_model_mount_catalog_provider_control`.
 `listCatalogProviderConfigs()`, `getCatalogProviderConfig()`,

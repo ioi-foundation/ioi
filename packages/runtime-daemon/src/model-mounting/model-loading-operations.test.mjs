@@ -418,7 +418,7 @@ test("loadModel estimate-only commits Rust estimate record before returning publ
   assert.equal(state.recordStateCommits[0].record.load_estimate.js_sizing_execution, false);
 });
 
-test("loadModel commits Rust-planned instance lifecycle before returning public instance truth", async () => {
+test("loadModel commits Rust-planned instance lifecycle without mutating JS instance cache", async () => {
   const state = fakeState();
 
   const loaded = await loadModel(
@@ -437,7 +437,7 @@ test("loadModel commits Rust-planned instance lifecycle before returning public 
   assert.equal(loaded.backend_id, "backend.autopilot.native-local.fixture");
   assert.equal(loaded.provider_lifecycle_hash, "sha256:provider:provider://provider.local:load");
   assert.equal(loaded.instance_lifecycle_hash, "sha256:instance:instance.explicit:load");
-  assert.equal(state.instances.get("instance.explicit"), loaded.record);
+  assert.equal(state.instances.has("instance.explicit"), false);
   assert.equal(state.providerLifecycleRequests.length, 1);
   assert.equal(state.providerLifecycleRequests[0].action, "load");
   assert.equal(state.providerLifecycleRequests[0].execution_backend, "rust_model_mount_native_local_lifecycle");
@@ -453,6 +453,8 @@ test("loadModel commits Rust-planned instance lifecycle before returning public 
   assert.equal(state.recordStateCommits[0].record_dir, "model-instances");
   assert.equal(state.recordStateCommits[0].record_id, "instance.explicit");
   assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.instance.load");
+  assert.equal(state.recordStateCommits[0].record.status, "loaded");
+  assert.equal(state.recordStateCommits[0].record.action, "load");
   assert.deepEqual(state.recordStateCommits[0].receipt_refs, []);
   assert.deepEqual(state.superseded, []);
   assert.deepEqual(state.writes, []);
@@ -540,7 +542,7 @@ test("unloadModel fails closed for non-migrated provider before JS driver execut
   assert.deepEqual(state.instanceLifecycleRequests, []);
 });
 
-test("unloadModel commits Rust-planned instance lifecycle before returning public instance truth", async () => {
+test("unloadModel commits Rust-planned instance lifecycle without mutating JS instance cache", async () => {
   const state = fakeState();
   const loaded = {
     id: "instance.loaded",
@@ -564,7 +566,7 @@ test("unloadModel commits Rust-planned instance lifecycle before returning publi
   assert.equal(unloaded.backend_id, "backend.autopilot.native-local.fixture");
   assert.equal(unloaded.provider_lifecycle_hash, "sha256:provider:provider://provider.local:unload");
   assert.equal(unloaded.instance_lifecycle_hash, "sha256:instance:instance.loaded:unload");
-  assert.equal(state.instances.get("instance.loaded"), unloaded.record);
+  assert.deepEqual(state.instances.get("instance.loaded"), loaded);
   assert.equal(state.providerLifecycleRequests.length, 1);
   assert.equal(state.providerLifecycleRequests[0].action, "unload");
   assert.equal(state.instanceLifecycleRequests.length, 1);
@@ -574,6 +576,8 @@ test("unloadModel commits Rust-planned instance lifecycle before returning publi
   assert.equal(state.recordStateCommits[0].record_dir, "model-instances");
   assert.equal(state.recordStateCommits[0].record_id, "instance.loaded");
   assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.instance.unload");
+  assert.equal(state.recordStateCommits[0].record.status, "unloaded");
+  assert.equal(state.recordStateCommits[0].record.action, "unload");
   assert.deepEqual(state.receipts, []);
   assert.deepEqual(state.writes, []);
   assert.deepEqual(state.transitionRequests, []);

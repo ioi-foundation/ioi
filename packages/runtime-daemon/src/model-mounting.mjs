@@ -911,7 +911,6 @@ export class ModelMountingState {
       });
       return commitModelInstanceLifecycleRecordState(this, lifecycle, {
         operation_kind: "model_mount.instance.estimate",
-        updateInstanceCache: false,
       });
     }
     const providerLifecycle = planProviderLifecycle(this, provider, {
@@ -4517,7 +4516,7 @@ function canonicalLoadEstimateOptions(load_options = {}) {
 function commitModelInstanceLifecycleRecordState(
   state,
   lifecycle,
-  { operation_kind, providerLifecycle, updateInstanceCache = true } = {},
+  { operation_kind, providerLifecycle } = {},
 ) {
   const record = lifecycle.result;
   const commit = commitModelMountRecordState(state, {
@@ -4530,7 +4529,6 @@ function commitModelInstanceLifecycleRecordState(
       "Model instance lifecycle requires Rust Agentgres record-state commit before public model-instance truth can return.",
     invalidCode: "model_mount_instance_lifecycle_record_state_commit_invalid",
   });
-  if (updateInstanceCache) state.instances?.set?.(record.id, record);
   return modelInstanceLifecycleResponse(lifecycle, commit, providerLifecycle);
 }
 

@@ -13,6 +13,40 @@ function fakeState({ now = "2026-06-03T12:00:00.000Z", instances = [] } = {}) {
     instances: new Map(instances.map((instance) => [instance.id, { ...instance }])),
     instanceProjectionRows: instances.map((instance) => ({ ...instance })),
     instanceProjectionReads: 0,
+    endpointProjectionRows: [
+      {
+        id: "endpoint_a",
+        endpoint_id: "endpoint_a",
+        model_id: "model_a",
+        provider_id: "provider_a",
+        backend_id: "backend.native",
+        driver: "native_local",
+      },
+      {
+        id: "endpoint_b",
+        endpoint_id: "endpoint_b",
+        model_id: "model_b",
+        provider_id: "provider_b",
+        backend_id: "backend.native",
+        driver: "native_local",
+      },
+    ],
+    providerProjectionRows: [
+      {
+        id: "provider_a",
+        provider_id: "provider_a",
+        provider_ref: "provider://a",
+        kind: "ioi_native_local",
+        driver: "native_local",
+      },
+      {
+        id: "provider_b",
+        provider_id: "provider_b",
+        provider_ref: "provider://b",
+        kind: "ioi_native_local",
+        driver: "native_local",
+      },
+    ],
     endpoints: new Map([
       ["endpoint_a", { id: "endpoint_a", modelId: "model_a", backendId: "backend.native", providerId: "provider_a" }],
       ["endpoint_b", { id: "endpoint_b", modelId: "model_b", backendId: "backend.native", providerId: "provider_b" }],
@@ -42,6 +76,12 @@ function fakeState({ now = "2026-06-03T12:00:00.000Z", instances = [] } = {}) {
     listInstances() {
       this.instanceProjectionReads += 1;
       return this.instanceProjectionRows.map((instance) => ({ ...instance }));
+    },
+    listEndpoints() {
+      return this.endpointProjectionRows.map((endpoint) => ({ ...endpoint }));
+    },
+    listProviders() {
+      return this.providerProjectionRows.map((provider) => ({ ...provider }));
     },
     planModelMountInstanceLifecycle(request) {
       this.transitionRequests.push(JSON.parse(JSON.stringify(request)));
@@ -148,7 +188,7 @@ test("loaded instance lookup preserves fail and nullable modes", () => {
   );
 });
 
-test("idle TTL eviction commits Rust-planned instance lifecycle before mutating instance truth", () => {
+test("idle TTL eviction commits Rust-planned instance lifecycle without mutating JS instance cache", () => {
   const state = fakeState({
     instances: [
       loadedFixtureInstance("instance_old", { expiresAt: "2026-06-03T11:59:59.000Z" }),
@@ -160,15 +200,15 @@ test("idle TTL eviction commits Rust-planned instance lifecycle before mutating 
       }),
     ],
   });
+  state.instances.set("instance_map_only_expired", loadedFixtureInstance("instance_map_only_expired", {
+    expiresAt: "2026-06-03T11:59:59.000Z",
+  }));
 
   assert.equal(evictExpiredInstances(state), true);
 
-  const evicted = state.instances.get("instance_old");
-  assert.equal(evicted.status, "evicted");
-  assert.equal(evicted.action, "evict");
-  assert.equal(evicted.reason, "idle_ttl");
-  assert.equal(evicted.instance_lifecycle_hash, "sha256:instance:instance_old:evict:");
+  assert.equal(state.instances.get("instance_old").status, "loaded");
   assert.equal(state.instances.get("instance_fresh").status, "loaded");
+  assert.equal(state.instances.get("instance_map_only_expired").status, "loaded");
   assert.equal(state.transitionRequests.length, 1);
   assert.equal(state.transitionRequests[0].action, "evict");
   assert.equal(state.transitionRequests[0].target_status, "evicted");
@@ -179,9 +219,60 @@ test("idle TTL eviction commits Rust-planned instance lifecycle before mutating 
   assert.equal(state.recordStateCommits[0].record_dir, "model-instances");
   assert.equal(state.recordStateCommits[0].record_id, "instance_old");
   assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.instance.evict");
+  assert.equal(state.recordStateCommits[0].record.status, "evicted");
+  assert.equal(state.recordStateCommits[0].record.action, "evict");
+  assert.equal(state.recordStateCommits[0].record.reason, "idle_ttl");
+  assert.equal(state.recordStateCommits[0].record.instance_lifecycle_hash, "sha256:instance:instance_old:evict:");
   assert.deepEqual(state.recordStateCommits[0].receipt_refs, []);
   assert.deepEqual(state.receipts, []);
   assert.deepEqual(state.writes, []);
+});
+
+test("instance maintenance derives candidate and enrichment truth from Rust projections", () => {
+  const state = fakeState();
+  state.instances.set("instance_map_only_expired", loadedFixtureInstance("instance_map_only_expired", {
+    expiresAt: "2026-06-03T11:59:59.000Z",
+  }));
+  state.endpoints.set("endpoint_projection", {
+    id: "endpoint_projection",
+    modelId: "model.map",
+    providerId: "provider_map",
+    backendId: "backend.map",
+    driver: "map_driver",
+  });
+  state.providers.set("provider_projected", {
+    id: "provider_projected",
+    driver: "map_driver",
+  });
+  state.endpointProjectionRows.push({
+    endpoint_id: "endpoint_projection",
+    model_id: "model.projected",
+    provider_id: "provider_projected",
+    backend_id: "backend.projected",
+    driver: "native_local",
+  });
+  state.instanceProjectionRows.push({
+    id: "instance_projection_only",
+    endpoint_id: "endpoint_projection",
+    status: "loaded",
+    expiresAt: "2026-06-03T11:59:59.000Z",
+    provider_lifecycle_hash: "sha256:provider-projected",
+  });
+
+  assert.equal(evictExpiredInstances(state), true);
+
+  assert.equal(state.instances.get("instance_map_only_expired").status, "loaded");
+  assert.equal(state.instances.has("instance_projection_only"), false);
+  assert.equal(state.transitionRequests.length, 1);
+  assert.equal(state.transitionRequests[0].instance_ref, "instance_projection_only");
+  assert.equal(state.transitionRequests[0].endpoint_ref, "endpoint_projection");
+  assert.equal(state.transitionRequests[0].model_ref, "model.projected");
+  assert.equal(state.transitionRequests[0].provider_ref, "provider_projected");
+  assert.equal(state.transitionRequests[0].backend_ref, "backend.projected");
+  assert.equal(state.transitionRequests[0].driver, "native_local");
+  assert.equal(state.transitionRequests[0].provider_lifecycle_hash, "sha256:provider-projected");
+  assert.equal(state.recordStateCommits[0].record.status, "evicted");
+  assert.equal(state.recordStateCommits[0].record.id, "instance_projection_only");
 });
 
 test("idle TTL eviction fails closed before mutation when Rust lifecycle planner is unavailable", () => {
@@ -240,22 +331,26 @@ test("coalescing duplicate loaded instances commits Rust supersede transition", 
       }),
     ],
   });
+  state.instances.set("instance_map_only_duplicate", loadedFixtureInstance("instance_map_only_duplicate", {
+    loadedAt: "2026-06-03T10:30:00.000Z",
+  }));
 
   assert.equal(coalesceLoadedInstances(state), true);
 
-  const superseded = state.instances.get("instance_old");
-  assert.equal(superseded.status, "superseded");
-  assert.equal(superseded.action, "supersede");
-  assert.equal(superseded.reason, "endpoint_reload");
-  assert.equal(superseded.superseded_by, "instance_new");
+  assert.equal(state.instances.get("instance_old").status, "loaded");
   assert.equal(state.instances.get("instance_new").status, "loaded");
   assert.equal(state.instances.get("instance_other").status, "loaded");
+  assert.equal(state.instances.get("instance_map_only_duplicate").status, "loaded");
   assert.equal(state.transitionRequests.length, 1);
   assert.equal(state.transitionRequests[0].action, "supersede");
   assert.equal(state.transitionRequests[0].target_status, "superseded");
   assert.equal(state.transitionRequests[0].superseded_by, "instance_new");
   assert.equal(state.recordStateCommits.length, 1);
   assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.instance.supersede");
+  assert.equal(state.recordStateCommits[0].record.status, "superseded");
+  assert.equal(state.recordStateCommits[0].record.action, "supersede");
+  assert.equal(state.recordStateCommits[0].record.reason, "endpoint_reload");
+  assert.equal(state.recordStateCommits[0].record.superseded_by, "instance_new");
   assert.deepEqual(state.receipts, []);
   assert.deepEqual(state.writes, []);
 });
@@ -272,17 +367,19 @@ test("explicit supersede commits Rust supersede transition before returning", ()
       }),
     ],
   });
+  state.instances.set("instance_map_only_old", loadedFixtureInstance("instance_map_only_old"));
 
   assert.equal(supersedeLoadedInstances(state, "endpoint_a", "instance_keep"), true);
 
-  const superseded = state.instances.get("instance_old");
-  assert.equal(superseded.status, "superseded");
-  assert.equal(superseded.superseded_by, "instance_keep");
+  assert.equal(state.instances.get("instance_old").status, "loaded");
   assert.equal(state.instances.get("instance_other").status, "loaded");
+  assert.equal(state.instances.get("instance_map_only_old").status, "loaded");
   assert.equal(state.transitionRequests.length, 1);
   assert.equal(state.transitionRequests[0].superseded_by, "instance_keep");
   assert.equal(state.recordStateCommits.length, 1);
   assert.equal(state.recordStateCommits[0].record_id, "instance_old");
+  assert.equal(state.recordStateCommits[0].record.status, "superseded");
+  assert.equal(state.recordStateCommits[0].record.superseded_by, "instance_keep");
   assert.equal(supersedeLoadedInstances(state, "endpoint_missing", "none"), false);
   assert.deepEqual(state.receipts, []);
   assert.deepEqual(state.writes, []);
