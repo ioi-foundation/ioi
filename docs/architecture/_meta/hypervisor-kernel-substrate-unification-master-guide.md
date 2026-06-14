@@ -7764,11 +7764,14 @@ requires those Rust owner tests and proves the old bridge-named approval tests,
 request-type imports, and response-function aliases stay absent from
 `ioi_step_module_bridge/proof_tests.rs`.
 
-This remains non-terminal because approval command shaping is still reachable
-through temporary command transport. The target is direct Rust daemon-core
-authority/approval protocol/API ownership where approval admission, event
-materialization, state updates, and conformance no longer depend on Node bridge
-endpoint proof scaffolding.
+This was non-terminal at that cut because approval command shaping was still
+reachable through temporary command transport. Subsequent approval API cuts move
+coding-tool approval and public approval-state control/read to typed
+`daemonCoreApprovalApi` methods and retire the old Rust approval command
+operations. The target remains richer Rust daemon-core authority/approval
+projection and replay ownership where approval admission, event materialization,
+state updates, and conformance no longer depend on Node bridge endpoint proof
+scaffolding.
 
 Slice 1176 moves the governed authority/admission/receipt command-response
 proof cluster out of the temporary bridge proof surface and relies on the Rust
@@ -8373,15 +8376,16 @@ shared JS command invoker once every live surface has a direct Rust daemon-core
 API.
 
 Recent direct-invoker macro cut:
-approval-state, coding-tool approval, runtime Agentgres admission, workspace
-restore, model_mount, context-policy/state-update, and StepModule
-surfaces are direct-invoker-only or mounted core surfaces at the daemon layer.
-They no longer import the shared JS daemon-core command invoker, accept
-constructor command selection, accept constructor args, or treat
-`IOI_RUNTIME_DAEMON_CORE_COMMAND`, `IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS`, or
-surface-specific command envs as fallback transport. The shared
-`runtime-daemon-core-command-runner.mjs` helper and its test are deleted and
-must not be recreated.
+runtime Agentgres admission, workspace restore, model_mount,
+context-policy/state-update, and StepModule surfaces are direct-invoker-only or
+mounted core surfaces at the daemon layer. Approval-state and coding-tool
+approval subsequently moved off the generic direct invoker to typed
+`daemonCoreApprovalApi` methods. The migrated surfaces no longer import the
+shared JS daemon-core command invoker, accept constructor command selection,
+accept constructor args, or treat `IOI_RUNTIME_DAEMON_CORE_COMMAND`,
+`IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS`, or surface-specific command envs as
+fallback transport. The shared `runtime-daemon-core-command-runner.mjs` helper
+and its test are deleted and must not be recreated.
 
 This macro cut also retires the coding-tool approval-satisfaction JS gate. The
 mounted coding-tool governance surface no longer exports
@@ -8389,11 +8393,11 @@ mounted coding-tool governance surface no longer exports
 approval decision event streams, or lease-state helpers, and the daemon
 composition no longer injects the approval lease, approval reason, or manifest
 match helpers into that surface. Approval-required coding-tool execution now
-asks the Rust daemon-core `plan_coding_tool_approval_satisfaction` operation
-before entering the StepModule path. Only a Rust satisfied record can carry the
+asks the Rust daemon-core `planCodingToolApprovalSatisfaction` approval API
+method before entering the StepModule path. Only a Rust satisfied record can carry the
 approval id, decision event, receipt refs, and policy-decision refs into the
 execution context; otherwise the path calls the Rust daemon-core
-`plan_coding_tool_approval_block` operation and returns the Rust-shaped blocked
+`planCodingToolApprovalBlock` approval API method and returns the Rust-shaped blocked
 coding-tool result/event envelope. The stale JS `latestApprovalRequestEvent()`
 readback facade and `blockCodingToolForApproval()` approval-block facade are
 retired and must not be recreated.
@@ -8494,8 +8498,9 @@ approval request/decision readback, JS target lookup, runtime-event append, and
 camelCase request aliases stay retired.
 
 Public approval decision/revoke authority is now wallet.network-bound at the
-Rust daemon-core command boundary. Rust `approval.rs` exposes
-`authorize_approval_decision`; the public decision/revoke surface calls it before
+typed Rust daemon-core approval API boundary. Rust `approval.rs` exposes
+`authorize_approval_decision`; the public decision/revoke surface calls the typed
+approval API before
 state planning, it requires wallet.network grant refs plus authority receipts,
 emits a Rust authority record/hash, and the Rust decision/revoke state planners
 fail closed without that authority binding before any Agentgres-gated JS commit
@@ -8503,10 +8508,10 @@ can persist. The JS surface no longer treats caller-provided `receipt_refs` as
 approval authority truth; it forwards only the Rust authority receipts/hash into
 the state update. Approval request/grant issuance semantics, approval authority
 projection/replay, and stable direct Rust approval protocol/API bindings remain
-non-terminal beyond the temporary command-envelope request builder.
+non-terminal beyond the thin JS protocol-client scaffolding.
 
 Public approval queue/read projection is now Rust-owned at the daemon-core
-command boundary. Rust `approval.rs` exposes `project_approval_queue`, derives
+approval API boundary. Rust `approval.rs` exposes `project_approval_queue`, derives
 pending/resolved approval queue records by replaying admitted `agents/*.json`
 and `runs/*.json` Agentgres projections from runtime `state_dir`, filters
 resolved records unless explicitly requested, rejects JS-supplied
@@ -8522,8 +8527,9 @@ mounts `approvalStateCore` directly; `runtime-approval-state-runner.mjs` and its
 tests are deleted, `index.mjs` no longer reads command/env fallback for
 approval-state, and the public approval surface consumes the mounted core for
 request, decision, revoke, and queue projection. The core builds only canonical
-Rust daemon-core approval requests, rejects retired aliases/options, validates
-only the Rust `operation_kind`, and returns the Rust `approval.rs` envelope
+Rust daemon-core approval API requests, requires typed `daemonCoreApprovalApi`,
+rejects generic `daemonCoreInvoker` plus retired aliases/options, validates only
+the Rust `operation_kind`, and returns the Rust `approval.rs` envelope
 without JS synthesis of source, backend, queue counts, authority refs, or state
 defaults. Conformance now requires the core mount and the old runner paths to
 stay absent, and also requires queue reads to replay via `state_dir` instead of
@@ -8561,13 +8567,15 @@ mounts `codingToolApprovalCore` directly; `runtime-coding-tool-approval-runner.m
 and its tests are deleted, command/env fallback and spawn hooks are gone, and
 approval manifest planning, approval satisfaction projection, approval
 satisfaction planning, and approval block planning all call the mounted core.
-The core builds canonical Rust daemon-core approval requests, requires
-`daemonCoreInvoker`, rejects retired compatibility options and request aliases,
-and returns Rust `approval.rs` envelopes without JS normalization or fallback
-truth synthesis. The coding-tool approval policy remains a Rust-client adapter
-over that core, while the JS event/lease satisfaction gate, manifest matcher,
-and approval-block facade stay retired. Conformance now requires the core
-mount, Rust-envelope passthrough, and old runner paths to stay absent.
+The core builds canonical Rust daemon-core approval API requests, requires typed
+`daemonCoreApprovalApi`, rejects generic `daemonCoreInvoker` plus retired
+compatibility options and request aliases, and returns Rust `approval.rs`
+envelopes without JS normalization or fallback truth synthesis. The old Rust
+approval command operations are retired. The coding-tool approval policy remains
+a Rust-client adapter over that core, while the JS event/lease satisfaction gate,
+manifest matcher, and approval-block facade stay retired. Conformance now
+requires the core mount, Rust-envelope passthrough, and old runner paths to stay
+absent.
 
 Slice 1210 retires the model_mount admission runner facade. `ModelMountingState`
 now mounts `modelMountCore` directly; `model-mount-admission-runner.mjs` and its

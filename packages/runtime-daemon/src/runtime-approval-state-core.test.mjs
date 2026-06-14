@@ -2,12 +2,16 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  APPROVAL_DECISION_AUTHORITY_API_METHOD,
   APPROVAL_DECISION_AUTHORITY_REQUEST_SCHEMA_VERSION,
+  APPROVAL_DECISION_STATE_UPDATE_API_METHOD,
   APPROVAL_DECISION_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  APPROVAL_QUEUE_PROJECTION_API_METHOD,
   APPROVAL_QUEUE_PROJECTION_REQUEST_SCHEMA_VERSION,
+  APPROVAL_REQUEST_STATE_UPDATE_API_METHOD,
   APPROVAL_REQUEST_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  APPROVAL_REVOKE_STATE_UPDATE_API_METHOD,
   APPROVAL_REVOKE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
-  APPROVAL_STATE_CORE_SCHEMA_VERSION,
   RUNTIME_APPROVAL_STATE_BACKEND,
   RuntimeApprovalStateCore,
   RuntimeApprovalStateCoreError,
@@ -32,7 +36,7 @@ function approvalRequest() {
 
 function approvalRequestResult(request) {
   return {
-    source: "rust_approval_request_state_update_command",
+    source: "rust_approval_request_state_update_protocol",
     backend: RUNTIME_APPROVAL_STATE_BACKEND,
     status: "planned",
     operation_kind: "approval.required",
@@ -86,7 +90,7 @@ function approvalDecisionAuthorityResult(request) {
   return {
     schema_version: "ioi.runtime.approval-decision-authority.v1",
     object: "ioi.runtime_approval_decision_authority",
-    source: "rust_approval_decision_authority_command",
+    source: "rust_approval_decision_authority_protocol",
     backend: RUNTIME_APPROVAL_STATE_BACKEND,
     status: "authorized",
     operation_kind: "approval.decision.authority",
@@ -146,7 +150,7 @@ function approvalDecisionRequest() {
 
 function approvalDecisionResult(request) {
   return {
-    source: "rust_approval_decision_state_update_command",
+    source: "rust_approval_decision_state_update_protocol",
     backend: RUNTIME_APPROVAL_STATE_BACKEND,
     status: "planned",
     operation_kind: "approval.approve",
@@ -197,7 +201,7 @@ function approvalRevokeRequest() {
 
 function approvalRevokeResult(request) {
   return {
-    source: "rust_approval_revoke_state_update_command",
+    source: "rust_approval_revoke_state_update_protocol",
     backend: RUNTIME_APPROVAL_STATE_BACKEND,
     status: "planned",
     operation_kind: "approval.revoke",
@@ -238,7 +242,7 @@ function approvalQueueRequest() {
 
 function approvalQueueResult(request) {
   return {
-    source: "rust_approval_queue_projection_command",
+    source: "rust_approval_queue_projection_protocol",
     backend: RUNTIME_APPROVAL_STATE_BACKEND,
     status: "projected",
     operation_kind: "approval.queue_projection",
@@ -260,110 +264,118 @@ function approvalQueueResult(request) {
   };
 }
 
-test("approval state core calls direct Rust daemon-core approval request API", () => {
+test("approval state core calls typed Rust daemon-core approval request API", () => {
   let captured = null;
   const core = createRuntimeApprovalStateCore({
-    daemonCoreInvoker(request) {
+    daemonCoreApprovalApi: {
+      [APPROVAL_REQUEST_STATE_UPDATE_API_METHOD](request) {
       captured = request;
-      return approvalRequestResult(request.request);
+        return approvalRequestResult(request);
+      },
     },
   });
 
   const result = core.planApprovalRequestStateUpdate(approvalRequest());
 
-  assert.equal(captured.schema_version, APPROVAL_STATE_CORE_SCHEMA_VERSION);
-  assert.equal(captured.operation, "plan_approval_request_state_update");
-  assert.equal(captured.backend, RUNTIME_APPROVAL_STATE_BACKEND);
-  assert.equal(captured.request.schema_version, APPROVAL_REQUEST_STATE_UPDATE_REQUEST_SCHEMA_VERSION);
-  assert.equal(captured.request.approval_id, "approval_alpha");
-  assert.equal(Object.hasOwn(captured.request, "approvalId"), false);
+  assert.equal(captured.schema_version, APPROVAL_REQUEST_STATE_UPDATE_REQUEST_SCHEMA_VERSION);
+  assert.equal(captured.approval_id, "approval_alpha");
+  assert.equal(Object.hasOwn(captured, "approvalId"), false);
+  assert.equal(Object.hasOwn(captured, "operation"), false);
+  assert.equal(Object.hasOwn(captured, "backend"), false);
   assert.equal(result.operation_kind, "approval.required");
   assert.equal(result.operator_control.approval_id, "approval_alpha");
 });
 
-test("approval state core calls direct Rust daemon-core wallet.network decision authority API", () => {
+test("approval state core calls typed Rust daemon-core wallet.network decision authority API", () => {
   let captured = null;
   const core = createRuntimeApprovalStateCore({
-    daemonCoreInvoker(request) {
+    daemonCoreApprovalApi: {
+      [APPROVAL_DECISION_AUTHORITY_API_METHOD](request) {
       captured = request;
-      return approvalDecisionAuthorityResult(request.request);
+        return approvalDecisionAuthorityResult(request);
+      },
     },
   });
 
   const result = core.authorizeApprovalDecision(approvalDecisionAuthorityRequest());
 
-  assert.equal(captured.schema_version, APPROVAL_STATE_CORE_SCHEMA_VERSION);
-  assert.equal(captured.operation, "authorize_approval_decision");
-  assert.equal(captured.backend, RUNTIME_APPROVAL_STATE_BACKEND);
-  assert.equal(captured.request.schema_version, APPROVAL_DECISION_AUTHORITY_REQUEST_SCHEMA_VERSION);
-  assert.equal(captured.request.approval_id, "approval_alpha");
-  assert.deepEqual(captured.request.authority_grant_refs, [
+  assert.equal(captured.schema_version, APPROVAL_DECISION_AUTHORITY_REQUEST_SCHEMA_VERSION);
+  assert.equal(captured.approval_id, "approval_alpha");
+  assert.deepEqual(captured.authority_grant_refs, [
     "wallet.network://grant/approval/approval_alpha",
   ]);
+  assert.equal(Object.hasOwn(captured, "operation"), false);
+  assert.equal(Object.hasOwn(captured, "backend"), false);
   assert.equal(result.operation_kind, "approval.decision.authority");
   assert.equal(result.authority_hash, "sha256:approval-authority");
 });
 
-test("approval state core calls direct Rust daemon-core approval decision state API", () => {
+test("approval state core calls typed Rust daemon-core approval decision state API", () => {
   let captured = null;
   const core = createRuntimeApprovalStateCore({
-    daemonCoreInvoker(request) {
+    daemonCoreApprovalApi: {
+      [APPROVAL_DECISION_STATE_UPDATE_API_METHOD](request) {
       captured = request;
-      return approvalDecisionResult(request.request);
+        return approvalDecisionResult(request);
+      },
     },
   });
 
   const result = core.planApprovalDecisionStateUpdate(approvalDecisionRequest());
 
-  assert.equal(captured.operation, "plan_approval_decision_state_update");
-  assert.equal(captured.backend, RUNTIME_APPROVAL_STATE_BACKEND);
-  assert.equal(captured.request.schema_version, APPROVAL_DECISION_STATE_UPDATE_REQUEST_SCHEMA_VERSION);
-  assert.equal(captured.request.decision, "approve");
-  assert.equal(captured.request.authority_hash, "sha256:approval-authority");
+  assert.equal(captured.schema_version, APPROVAL_DECISION_STATE_UPDATE_REQUEST_SCHEMA_VERSION);
+  assert.equal(captured.decision, "approve");
+  assert.equal(captured.authority_hash, "sha256:approval-authority");
+  assert.equal(Object.hasOwn(captured, "operation"), false);
+  assert.equal(Object.hasOwn(captured, "backend"), false);
   assert.equal(result.operation_kind, "approval.approve");
   assert.equal(result.operator_control.lease_id, "lease_alpha");
 });
 
-test("approval state core calls direct Rust daemon-core approval revoke state API", () => {
+test("approval state core calls typed Rust daemon-core approval revoke state API", () => {
   let captured = null;
   const core = createRuntimeApprovalStateCore({
-    daemonCoreInvoker(request) {
+    daemonCoreApprovalApi: {
+      [APPROVAL_REVOKE_STATE_UPDATE_API_METHOD](request) {
       captured = request;
-      return approvalRevokeResult(request.request);
+        return approvalRevokeResult(request);
+      },
     },
   });
 
   const result = core.planApprovalRevokeStateUpdate(approvalRevokeRequest());
 
-  assert.equal(captured.operation, "plan_approval_revoke_state_update");
-  assert.equal(captured.backend, RUNTIME_APPROVAL_STATE_BACKEND);
-  assert.equal(captured.request.schema_version, APPROVAL_REVOKE_STATE_UPDATE_REQUEST_SCHEMA_VERSION);
-  assert.equal(captured.request.approval_id, "approval_alpha");
-  assert.equal(captured.request.authority_hash, "sha256:approval-authority");
+  assert.equal(captured.schema_version, APPROVAL_REVOKE_STATE_UPDATE_REQUEST_SCHEMA_VERSION);
+  assert.equal(captured.approval_id, "approval_alpha");
+  assert.equal(captured.authority_hash, "sha256:approval-authority");
+  assert.equal(Object.hasOwn(captured, "operation"), false);
+  assert.equal(Object.hasOwn(captured, "backend"), false);
   assert.equal(result.operation_kind, "approval.revoke");
   assert.equal(result.operator_control.lease_status, "revoked");
 });
 
-test("approval state core calls direct Rust daemon-core approval queue projection API", () => {
+test("approval state core calls typed Rust daemon-core approval queue projection API", () => {
   let captured = null;
   const core = createRuntimeApprovalStateCore({
-    daemonCoreInvoker(request) {
+    daemonCoreApprovalApi: {
+      [APPROVAL_QUEUE_PROJECTION_API_METHOD](request) {
       captured = request;
-      return approvalQueueResult(request.request);
+        return approvalQueueResult(request);
+      },
     },
   });
 
   const result = core.projectApprovalQueue(approvalQueueRequest());
 
-  assert.equal(captured.operation, "project_approval_queue");
-  assert.equal(captured.backend, RUNTIME_APPROVAL_STATE_BACKEND);
-  assert.equal(captured.request.schema_version, APPROVAL_QUEUE_PROJECTION_REQUEST_SCHEMA_VERSION);
-  assert.equal(captured.request.thread_id, "thread_alpha");
-  assert.equal(captured.request.state_dir, "/runtime-state");
-  assert.equal(Object.hasOwn(captured.request, "agent"), false);
-  assert.equal(Object.hasOwn(captured.request, "run"), false);
-  assert.equal(Object.hasOwn(captured.request, "runs"), false);
-  assert.equal(captured.request.include_resolved, false);
+  assert.equal(captured.schema_version, APPROVAL_QUEUE_PROJECTION_REQUEST_SCHEMA_VERSION);
+  assert.equal(captured.thread_id, "thread_alpha");
+  assert.equal(captured.state_dir, "/runtime-state");
+  assert.equal(Object.hasOwn(captured, "agent"), false);
+  assert.equal(Object.hasOwn(captured, "run"), false);
+  assert.equal(Object.hasOwn(captured, "runs"), false);
+  assert.equal(Object.hasOwn(captured, "operation"), false);
+  assert.equal(Object.hasOwn(captured, "backend"), false);
+  assert.equal(captured.include_resolved, false);
   assert.equal(result.operation_kind, "approval.queue_projection");
   assert.equal(result.pending_count, 1);
 });
@@ -376,8 +388,10 @@ test("approval state core returns the Rust envelope without JS normalization", (
     },
   };
   const core = createRuntimeApprovalStateCore({
-    daemonCoreInvoker() {
-      return rustEnvelope;
+    daemonCoreApprovalApi: {
+      [APPROVAL_QUEUE_PROJECTION_API_METHOD]() {
+        return rustEnvelope;
+      },
     },
   });
 
@@ -404,14 +418,22 @@ test("approval state core rejects retired compatibility options", () => {
       error instanceof RuntimeApprovalStateCoreError &&
       error.code === "approval_state_core_compatibility_option_retired",
   );
+  assert.throws(
+    () => new RuntimeApprovalStateCore({ daemonCoreInvoker() {} }),
+    (error) =>
+      error instanceof RuntimeApprovalStateCoreError &&
+      error.code === "approval_state_core_compatibility_option_retired",
+  );
 });
 
 test("approval state core rejects retired request aliases before Rust invocation", () => {
   const calls = [];
   const core = createRuntimeApprovalStateCore({
-    daemonCoreInvoker() {
-      calls.push("invoked");
-      return {};
+    daemonCoreApprovalApi: {
+      [APPROVAL_REQUEST_STATE_UPDATE_API_METHOD]() {
+        calls.push("invoked");
+        return {};
+      },
     },
   });
 
@@ -450,14 +472,16 @@ test("approval state core fails closed without direct daemon-core API", () => {
     () => core.planApprovalRequestStateUpdate(approvalRequest()),
     (error) =>
       error instanceof RuntimeApprovalStateCoreError &&
-      error.code === "approval_state_core_direct_invoker_unconfigured",
+      error.code === "approval_state_core_direct_approval_api_unconfigured",
   );
 });
 
 test("approval state core fails closed without Rust-planned operation kinds", () => {
   const core = createRuntimeApprovalStateCore({
-    daemonCoreInvoker() {
-      return { status: "planned" };
+    daemonCoreApprovalApi: {
+      [APPROVAL_REQUEST_STATE_UPDATE_API_METHOD]() {
+        return { status: "planned" };
+      },
     },
   });
 
@@ -473,8 +497,10 @@ test("approval state core fails closed without Rust-planned operation kinds", ()
 
 test("approval state core fails closed on mismatched Rust operation kind", () => {
   const core = createRuntimeApprovalStateCore({
-    daemonCoreInvoker() {
-      return { operation_kind: "approval.required" };
+    daemonCoreApprovalApi: {
+      [APPROVAL_DECISION_STATE_UPDATE_API_METHOD]() {
+        return { operation_kind: "approval.required" };
+      },
     },
   });
 
@@ -492,14 +518,16 @@ test("approval state core fails closed on mismatched Rust operation kind", () =>
 
 test("approval state core surfaces Rust wallet.network rejection", () => {
   const core = createRuntimeApprovalStateCore({
-    daemonCoreInvoker() {
-      return {
-        ok: false,
-        error: {
-          code: "approval_decision_authority_invalid",
-          message: "MissingWalletNetworkAuthority",
-        },
-      };
+    daemonCoreApprovalApi: {
+      [APPROVAL_DECISION_AUTHORITY_API_METHOD]() {
+        return {
+          ok: false,
+          error: {
+            code: "approval_decision_authority_invalid",
+            message: "MissingWalletNetworkAuthority",
+          },
+        };
+      },
     },
   });
 

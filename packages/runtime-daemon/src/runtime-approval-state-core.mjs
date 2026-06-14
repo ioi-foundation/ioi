@@ -1,4 +1,3 @@
-export const APPROVAL_STATE_CORE_SCHEMA_VERSION = "ioi.runtime.daemon_core.command.v1";
 export const APPROVAL_REQUEST_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.approval-request-state-update-request.v1";
 export const APPROVAL_DECISION_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
@@ -10,6 +9,11 @@ export const APPROVAL_QUEUE_PROJECTION_REQUEST_SCHEMA_VERSION =
 export const APPROVAL_DECISION_AUTHORITY_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.approval-decision-authority-request.v1";
 export const RUNTIME_APPROVAL_STATE_BACKEND = "rust_authority";
+export const APPROVAL_REQUEST_STATE_UPDATE_API_METHOD = "planApprovalRequestStateUpdate";
+export const APPROVAL_DECISION_STATE_UPDATE_API_METHOD = "planApprovalDecisionStateUpdate";
+export const APPROVAL_REVOKE_STATE_UPDATE_API_METHOD = "planApprovalRevokeStateUpdate";
+export const APPROVAL_QUEUE_PROJECTION_API_METHOD = "projectApprovalQueue";
+export const APPROVAL_DECISION_AUTHORITY_API_METHOD = "authorizeApprovalDecision";
 
 const RETIRED_APPROVAL_STATE_CORE_REQUEST_ALIASES = [
   "request",
@@ -64,88 +68,86 @@ export class RuntimeApprovalStateCore {
   constructor(options = {}) {
     assertNoRetiredApprovalStateCoreOption("command", options.command);
     assertNoRetiredApprovalStateCoreOption("args", options.args);
-    this.daemonCoreInvoker = optionalFunction(options.daemonCoreInvoker);
+    assertNoRetiredApprovalStateCoreOption("daemonCoreInvoker", options.daemonCoreInvoker);
+    this.daemonCoreApprovalApi = approvalApi(
+      options.daemonCoreApprovalApi ??
+        options.daemonCoreApi?.approval ??
+        options.daemonCoreApi?.approval_state ??
+        options.daemonCoreApi?.approvalState ??
+        options.daemonCoreApi,
+    );
   }
 
   planApprovalRequestStateUpdate(request = {}) {
     assertCanonicalApprovalStateCoreRequest(request);
-    return assertApprovalStateCoreOperationKind(this.invokeDaemonCore({
-      schema_version: APPROVAL_STATE_CORE_SCHEMA_VERSION,
-      operation: "plan_approval_request_state_update",
-      backend: RUNTIME_APPROVAL_STATE_BACKEND,
-      request: {
+    return assertApprovalStateCoreOperationKind(this.invokeRustApprovalApi(
+      APPROVAL_REQUEST_STATE_UPDATE_API_METHOD,
+      {
         ...(objectRecord(request) ?? {}),
         schema_version: APPROVAL_REQUEST_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       },
-    }), "approval.required", "approval_request_state_update");
+    ), "approval.required", "approval_request_state_update");
   }
 
   planApprovalDecisionStateUpdate(request = {}) {
     assertCanonicalApprovalStateCoreRequest(request);
-    return assertApprovalStateCoreOperationKind(this.invokeDaemonCore({
-      schema_version: APPROVAL_STATE_CORE_SCHEMA_VERSION,
-      operation: "plan_approval_decision_state_update",
-      backend: RUNTIME_APPROVAL_STATE_BACKEND,
-      request: {
+    return assertApprovalStateCoreOperationKind(this.invokeRustApprovalApi(
+      APPROVAL_DECISION_STATE_UPDATE_API_METHOD,
+      {
         ...(objectRecord(request) ?? {}),
         schema_version: APPROVAL_DECISION_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       },
-    }), ["approval.approve", "approval.reject"], "approval_decision_state_update");
+    ), ["approval.approve", "approval.reject"], "approval_decision_state_update");
   }
 
   planApprovalRevokeStateUpdate(request = {}) {
     assertCanonicalApprovalStateCoreRequest(request);
-    return assertApprovalStateCoreOperationKind(this.invokeDaemonCore({
-      schema_version: APPROVAL_STATE_CORE_SCHEMA_VERSION,
-      operation: "plan_approval_revoke_state_update",
-      backend: RUNTIME_APPROVAL_STATE_BACKEND,
-      request: {
+    return assertApprovalStateCoreOperationKind(this.invokeRustApprovalApi(
+      APPROVAL_REVOKE_STATE_UPDATE_API_METHOD,
+      {
         ...(objectRecord(request) ?? {}),
         schema_version: APPROVAL_REVOKE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       },
-    }), "approval.revoke", "approval_revoke_state_update");
+    ), "approval.revoke", "approval_revoke_state_update");
   }
 
   projectApprovalQueue(request = {}) {
     assertCanonicalApprovalStateCoreRequest(request);
-    return assertApprovalStateCoreOperationKind(this.invokeDaemonCore({
-      schema_version: APPROVAL_STATE_CORE_SCHEMA_VERSION,
-      operation: "project_approval_queue",
-      backend: RUNTIME_APPROVAL_STATE_BACKEND,
-      request: {
+    return assertApprovalStateCoreOperationKind(this.invokeRustApprovalApi(
+      APPROVAL_QUEUE_PROJECTION_API_METHOD,
+      {
         ...(objectRecord(request) ?? {}),
         schema_version: APPROVAL_QUEUE_PROJECTION_REQUEST_SCHEMA_VERSION,
       },
-    }), "approval.queue_projection", "approval_queue_projection");
+    ), "approval.queue_projection", "approval_queue_projection");
   }
 
   authorizeApprovalDecision(request = {}) {
     assertCanonicalApprovalStateCoreRequest(request);
-    return assertApprovalStateCoreOperationKind(this.invokeDaemonCore({
-      schema_version: APPROVAL_STATE_CORE_SCHEMA_VERSION,
-      operation: "authorize_approval_decision",
-      backend: RUNTIME_APPROVAL_STATE_BACKEND,
-      request: {
+    return assertApprovalStateCoreOperationKind(this.invokeRustApprovalApi(
+      APPROVAL_DECISION_AUTHORITY_API_METHOD,
+      {
         ...(objectRecord(request) ?? {}),
         schema_version: APPROVAL_DECISION_AUTHORITY_REQUEST_SCHEMA_VERSION,
       },
-    }), "approval.decision.authority", "approval_decision_authority");
+    ), "approval.decision.authority", "approval_decision_authority");
   }
 
-  invokeDaemonCore(request) {
-    if (!this.daemonCoreInvoker) {
+  invokeRustApprovalApi(method, request) {
+    const invoke = this.daemonCoreApprovalApi?.[method];
+    if (typeof invoke !== "function") {
       throw new RuntimeApprovalStateCoreError(
-        "Approval state control requires daemonCoreInvoker for direct Rust daemon-core wallet.network authority, Agentgres state updates, and approval queue projection.",
-        "approval_state_core_direct_invoker_unconfigured",
-        { boundary: "daemonCoreInvoker" },
+        `Approval state control requires daemonCoreApprovalApi.${method} for Rust daemon-core wallet.network authority, Agentgres state updates, and approval queue projection.`,
+        "approval_state_core_direct_approval_api_unconfigured",
+        { boundary: `daemonCoreApprovalApi.${method}`, backend: RUNTIME_APPROVAL_STATE_BACKEND },
       );
     }
-    const response = this.daemonCoreInvoker(request);
+    const response = invoke.call(this.daemonCoreApprovalApi, request);
     if (response?.ok === false) {
       const error = objectRecord(response.error) ?? {};
       throw new RuntimeApprovalStateCoreError(
         error.message ?? "Rust approval state core rejected the request.",
-        error.code ?? "approval_state_core_direct_invoker_rejected",
+        error.code ?? "approval_state_core_direct_approval_api_rejected",
         { error },
       );
     }
@@ -234,7 +236,7 @@ function assertNoRetiredApprovalStateCoreOption(field, value) {
   if (typeof value === "string" && value.trim().length === 0) return;
   if (value == null) return;
   throw new RuntimeApprovalStateCoreError(
-    "Approval state command compatibility options are retired; use daemonCoreInvoker for direct Rust daemon-core approval authority and projection.",
+    "Approval state command compatibility options are retired; use daemonCoreApprovalApi for direct Rust daemon-core approval authority and projection.",
     "approval_state_core_compatibility_option_retired",
     { retired_option: field, retired_value: value },
   );
@@ -256,8 +258,9 @@ function optionalString(value) {
   return trimmed || null;
 }
 
-function optionalFunction(value) {
-  return typeof value === "function" ? value : null;
+function approvalApi(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value;
 }
 
 function objectRecord(value) {

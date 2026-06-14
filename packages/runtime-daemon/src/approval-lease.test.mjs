@@ -142,7 +142,7 @@ function runtimeAgentgresAdmissionCoreForApprovalLeaseTest() {
   };
 }
 
-function daemonCoreInvokerForApprovalLeaseTest() {
+function daemonCoreFixtureForApprovalLeaseTest() {
   const approvalLeases = new Map();
 
   function approvalIdFor(request = {}) {
@@ -171,6 +171,7 @@ function daemonCoreInvokerForApprovalLeaseTest() {
     const approvalId = approvalIdFor(request);
     const lease = leaseForApproval(approvalId);
     const decision = request.decision ?? "approve";
+    const runId = request.run_id ?? request.approval_request?.run_id ?? "run_approval_lease_expiry";
     return {
       source: "rust_approval_control_api",
       backend: "rust_authority",
@@ -180,7 +181,7 @@ function daemonCoreInvokerForApprovalLeaseTest() {
         operation_kind: operationKind,
         target_kind: request.target_kind ?? "run",
         thread_id: request.thread_id,
-        run_id: request.run_id,
+        run_id: runId,
         approval_id: approvalId,
         decision,
         lease_id: lease.lease_id,
@@ -200,6 +201,7 @@ function daemonCoreInvokerForApprovalLeaseTest() {
           created_at: request.created_at,
         },
         run: {
+          id: runId,
           ...(request.run ?? {}),
           trace: {
             ...(request.run?.trace ?? {}),
@@ -217,13 +219,11 @@ function daemonCoreInvokerForApprovalLeaseTest() {
     };
   }
 
-  return function daemonCoreInvoker(envelope = {}) {
-    const request = envelope.request ?? {};
-    switch (envelope.operation) {
-      case "plan_coding_tool_approval_manifest": {
+  const daemonCoreApprovalApi = {
+    planCodingToolApprovalManifest(request = {}) {
         const approvalId = approvalIdFor(request);
         return {
-          source: "rust_coding_tool_approval_command",
+          source: "rust_coding_tool_approval_protocol",
           backend: "rust_authority",
           approval_required: true,
           manifest: {
@@ -240,13 +240,13 @@ function daemonCoreInvokerForApprovalLeaseTest() {
             workflow_policy: request.workflow_policy ?? null,
           },
         };
-      }
-      case "project_coding_tool_approval_satisfaction": {
+    },
+    projectCodingToolApprovalSatisfaction(request = {}) {
         const approvalId = approvalIdFor(request);
         const lease = approvalLeases.get(approvalId) ?? null;
         const expired = lease ? Date.parse(lease.expires_at) <= Date.now() : false;
         return {
-          source: "rust_coding_tool_approval_satisfaction_projection_command",
+          source: "rust_coding_tool_approval_satisfaction_projection_protocol",
           backend: "rust_authority",
           operation_kind: "coding_tool.approval.satisfaction_projection",
           thread_id: request.thread_id,
@@ -272,14 +272,14 @@ function daemonCoreInvokerForApprovalLeaseTest() {
               }
             : null,
         };
-      }
-      case "plan_coding_tool_approval_satisfaction": {
+    },
+    planCodingToolApprovalSatisfaction(request = {}) {
         const approvalId = approvalIdFor(request);
         const lease = approvalLeases.get(approvalId) ?? null;
         const expired = lease ? Date.parse(lease.expires_at) <= Date.now() : false;
         const satisfied = Boolean(lease && !expired);
         return {
-          source: "rust_coding_tool_approval_satisfaction_command",
+          source: "rust_coding_tool_approval_satisfaction_protocol",
           backend: "rust_authority",
           operation_kind: "coding_tool.approval.satisfaction",
           status: satisfied ? "satisfied" : "blocked",
@@ -304,8 +304,8 @@ function daemonCoreInvokerForApprovalLeaseTest() {
               : null,
           },
         };
-      }
-      case "plan_coding_tool_approval_block": {
+    },
+    planCodingToolApprovalBlock(request = {}) {
         const approvalId = approvalIdFor(request);
         leaseForApproval(approvalId);
         const error = {
@@ -313,7 +313,7 @@ function daemonCoreInvokerForApprovalLeaseTest() {
           message: "Coding tool approval is required.",
         };
         return {
-          source: "rust_coding_tool_approval_block_command",
+          source: "rust_coding_tool_approval_block_protocol",
           backend: "rust_authority",
           status: "blocked",
           operation_kind: "coding_tool.approval.block",
@@ -365,11 +365,11 @@ function daemonCoreInvokerForApprovalLeaseTest() {
             approval_id: approvalId,
           },
         };
-      }
-      case "authorize_approval_decision": {
+    },
+    authorizeApprovalDecision(request = {}) {
         const approvalId = approvalIdFor(request);
         return {
-          source: "rust_approval_decision_authority_command",
+          source: "rust_approval_decision_authority_protocol",
           backend: "rust_authority",
           status: "authorized",
           operation_kind: "approval.decision.authority",
@@ -388,14 +388,16 @@ function daemonCoreInvokerForApprovalLeaseTest() {
             approval_id: approvalId,
           },
         };
-      }
-      case "plan_approval_decision_state_update":
-        return approvalStateRecord(`approval.${request.decision ?? "approve"}`, request);
-      case "plan_approval_request_state_update":
-        return approvalStateRecord("approval.required", request);
-      case "project_approval_queue":
+    },
+    planApprovalDecisionStateUpdate(request = {}) {
+      return approvalStateRecord(`approval.${request.decision ?? "approve"}`, request);
+    },
+    planApprovalRequestStateUpdate(request = {}) {
+      return approvalStateRecord("approval.required", request);
+    },
+    projectApprovalQueue(request = {}) {
         return {
-          source: "rust_approval_queue_projection_command",
+          source: "rust_approval_queue_projection_protocol",
           backend: "rust_authority",
           operation_kind: "approval.queue_projection",
           thread_id: request.thread_id,
@@ -403,6 +405,12 @@ function daemonCoreInvokerForApprovalLeaseTest() {
           pending_count: 0,
           resolved_count: 0,
         };
+    },
+  };
+
+  function daemonCoreInvoker(envelope = {}) {
+    const request = envelope.request ?? {};
+    switch (envelope.operation) {
       case "plan_coding_tool_result_envelope":
         return codingToolResultEnvelopeForApprovalLease(request);
       case "run_coding_tool_step_module":
@@ -424,7 +432,9 @@ function daemonCoreInvokerForApprovalLeaseTest() {
           },
         };
     }
-  };
+  }
+
+  return { daemonCoreInvoker, daemonCoreApprovalApi };
 }
 
 function codingToolResultEnvelopeForApprovalLease(request = {}) {
@@ -545,10 +555,12 @@ test("coding tool approval leases stop satisfying retries after expiry", async (
   let daemon;
 
   try {
+    const { daemonCoreInvoker, daemonCoreApprovalApi } = daemonCoreFixtureForApprovalLeaseTest();
     daemon = await startRuntimeDaemonService({
       cwd,
       stateDir,
-      daemonCoreInvoker: daemonCoreInvokerForApprovalLeaseTest(),
+      daemonCoreInvoker,
+      daemonCoreApprovalApi,
       modelMountCore: modelMountCoreForApprovalLeaseTest(),
       runtimeAgentgresAdmissionCore: runtimeAgentgresAdmissionCoreForApprovalLeaseTest(),
     });

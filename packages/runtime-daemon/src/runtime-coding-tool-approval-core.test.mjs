@@ -2,26 +2,51 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  CODING_TOOL_APPROVAL_BLOCK_API_METHOD,
   CODING_TOOL_APPROVAL_BLOCK_REQUEST_SCHEMA_VERSION,
-  CODING_TOOL_APPROVAL_CORE_SCHEMA_VERSION,
+  CODING_TOOL_APPROVAL_MANIFEST_API_METHOD,
   CODING_TOOL_APPROVAL_REQUEST_SCHEMA_VERSION,
+  CODING_TOOL_APPROVAL_SATISFACTION_API_METHOD,
+  CODING_TOOL_APPROVAL_SATISFACTION_PROJECTION_API_METHOD,
   CODING_TOOL_APPROVAL_SATISFACTION_PROJECTION_REQUEST_SCHEMA_VERSION,
   CODING_TOOL_APPROVAL_SATISFACTION_REQUEST_SCHEMA_VERSION,
-  RUST_CODING_TOOL_APPROVAL_BACKEND,
   RuntimeCodingToolApprovalCore,
   RuntimeCodingToolApprovalCoreError,
   createRuntimeCodingToolApprovalCore,
 } from "./runtime-coding-tool-approval-core.mjs";
 
-test("coding tool approval core calls direct Rust daemon-core approval APIs", () => {
+test("coding tool approval core calls typed Rust daemon-core approval APIs", () => {
   const calls = [];
   const core = createRuntimeCodingToolApprovalCore({
-    daemonCoreInvoker(request) {
-      calls.push(request);
-      return {
-        schema_version: "rust.approval.envelope.v1",
-        operation: request.operation,
-      };
+    daemonCoreApprovalApi: {
+      [CODING_TOOL_APPROVAL_MANIFEST_API_METHOD](request) {
+        calls.push({ method: CODING_TOOL_APPROVAL_MANIFEST_API_METHOD, request });
+        return {
+          schema_version: "rust.approval.envelope.v1",
+          method: CODING_TOOL_APPROVAL_MANIFEST_API_METHOD,
+        };
+      },
+      [CODING_TOOL_APPROVAL_SATISFACTION_PROJECTION_API_METHOD](request) {
+        calls.push({ method: CODING_TOOL_APPROVAL_SATISFACTION_PROJECTION_API_METHOD, request });
+        return {
+          schema_version: "rust.approval.envelope.v1",
+          method: CODING_TOOL_APPROVAL_SATISFACTION_PROJECTION_API_METHOD,
+        };
+      },
+      [CODING_TOOL_APPROVAL_SATISFACTION_API_METHOD](request) {
+        calls.push({ method: CODING_TOOL_APPROVAL_SATISFACTION_API_METHOD, request });
+        return {
+          schema_version: "rust.approval.envelope.v1",
+          method: CODING_TOOL_APPROVAL_SATISFACTION_API_METHOD,
+        };
+      },
+      [CODING_TOOL_APPROVAL_BLOCK_API_METHOD](request) {
+        calls.push({ method: CODING_TOOL_APPROVAL_BLOCK_API_METHOD, request });
+        return {
+          schema_version: "rust.approval.envelope.v1",
+          method: CODING_TOOL_APPROVAL_BLOCK_API_METHOD,
+        };
+      },
     },
   });
 
@@ -49,17 +74,17 @@ test("coding tool approval core calls direct Rust daemon-core approval APIs", ()
   });
 
   assert.deepEqual(
-    calls.map((call) => call.operation),
+    calls.map((call) => call.method),
     [
-      "plan_coding_tool_approval_manifest",
-      "project_coding_tool_approval_satisfaction",
-      "plan_coding_tool_approval_satisfaction",
-      "plan_coding_tool_approval_block",
+      CODING_TOOL_APPROVAL_MANIFEST_API_METHOD,
+      CODING_TOOL_APPROVAL_SATISFACTION_PROJECTION_API_METHOD,
+      CODING_TOOL_APPROVAL_SATISFACTION_API_METHOD,
+      CODING_TOOL_APPROVAL_BLOCK_API_METHOD,
     ],
   );
   for (const call of calls) {
-    assert.equal(call.schema_version, CODING_TOOL_APPROVAL_CORE_SCHEMA_VERSION);
-    assert.equal(call.backend, RUST_CODING_TOOL_APPROVAL_BACKEND);
+    assert.equal(Object.hasOwn(call.request, "operation"), false);
+    assert.equal(Object.hasOwn(call.request, "backend"), false);
   }
   assert.equal(calls[0].request.schema_version, CODING_TOOL_APPROVAL_REQUEST_SCHEMA_VERSION);
   assert.equal(
@@ -83,8 +108,10 @@ test("coding tool approval core returns the Rust envelope without JS normalizati
     },
   };
   const core = createRuntimeCodingToolApprovalCore({
-    daemonCoreInvoker() {
-      return rustEnvelope;
+    daemonCoreApprovalApi: {
+      [CODING_TOOL_APPROVAL_MANIFEST_API_METHOD]() {
+        return rustEnvelope;
+      },
     },
   });
 
@@ -106,6 +133,7 @@ test("coding tool approval core rejects retired compatibility options", () => {
     { command: "ioi-runtime-daemon-core" },
     { args: ["--approval"] },
     { env: { IOI_RUNTIME_DAEMON_CORE_COMMAND: "retired" } },
+    { daemonCoreInvoker() {} },
   ]) {
     assert.throws(
       () => new RuntimeCodingToolApprovalCore(options),
@@ -119,9 +147,11 @@ test("coding tool approval core rejects retired compatibility options", () => {
 test("coding tool approval core rejects retired request aliases before Rust invocation", () => {
   const calls = [];
   const core = createRuntimeCodingToolApprovalCore({
-    daemonCoreInvoker() {
-      calls.push("invoked");
-      return {};
+    daemonCoreApprovalApi: {
+      [CODING_TOOL_APPROVAL_MANIFEST_API_METHOD]() {
+        calls.push("invoked");
+        return {};
+      },
     },
   });
 
@@ -147,20 +177,22 @@ test("coding tool approval core fails closed without direct daemon-core API", ()
 
   assert.throws(
     () => core.planApprovalManifest({ thread_id: "thread_1", tool_id: "file.apply_patch" }),
-    (error) => error.code === "coding_tool_approval_core_direct_invoker_unconfigured",
+    (error) => error.code === "coding_tool_approval_core_direct_approval_api_unconfigured",
   );
 });
 
 test("coding tool approval core surfaces Rust rejection", () => {
   const core = createRuntimeCodingToolApprovalCore({
-    daemonCoreInvoker() {
-      return {
-        ok: false,
-        error: {
-          code: "coding_tool_approval_manifest_invalid",
-          message: "InvalidApprovalManifest",
-        },
-      };
+    daemonCoreApprovalApi: {
+      [CODING_TOOL_APPROVAL_MANIFEST_API_METHOD]() {
+        return {
+          ok: false,
+          error: {
+            code: "coding_tool_approval_manifest_invalid",
+            message: "InvalidApprovalManifest",
+          },
+        };
+      },
     },
   });
 

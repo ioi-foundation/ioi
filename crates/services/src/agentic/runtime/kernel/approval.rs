@@ -787,65 +787,47 @@ pub struct ApprovalRevokeStateUpdateRecord {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct CodingToolApprovalBridgeRequest {
-    #[serde(default)]
-    pub backend: Option<String>,
+pub struct CodingToolApprovalProtocolRequest {
     pub request: CodingToolApprovalRequest,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct CodingToolApprovalSatisfactionBridgeRequest {
-    #[serde(default)]
-    pub backend: Option<String>,
+pub struct CodingToolApprovalSatisfactionProtocolRequest {
     pub request: CodingToolApprovalSatisfactionRequest,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct CodingToolApprovalSatisfactionProjectionBridgeRequest {
-    #[serde(default)]
-    pub backend: Option<String>,
+pub struct CodingToolApprovalSatisfactionProjectionProtocolRequest {
     pub request: CodingToolApprovalSatisfactionProjectionRequest,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct ApprovalQueueProjectionBridgeRequest {
-    #[serde(default)]
-    pub backend: Option<String>,
+pub struct ApprovalQueueProjectionProtocolRequest {
     pub request: ApprovalQueueProjectionRequest,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct ApprovalDecisionAuthorityBridgeRequest {
-    #[serde(default)]
-    pub backend: Option<String>,
+pub struct ApprovalDecisionAuthorityProtocolRequest {
     pub request: ApprovalDecisionAuthorityRequest,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct CodingToolApprovalBlockBridgeRequest {
-    #[serde(default)]
-    pub backend: Option<String>,
+pub struct CodingToolApprovalBlockProtocolRequest {
     pub request: CodingToolApprovalBlockRequest,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct ApprovalRequestStateUpdateBridgeRequest {
-    #[serde(default)]
-    pub backend: Option<String>,
+pub struct ApprovalRequestStateUpdateProtocolRequest {
     pub request: ApprovalRequestStateUpdateRequest,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct ApprovalDecisionStateUpdateBridgeRequest {
-    #[serde(default)]
-    pub backend: Option<String>,
+pub struct ApprovalDecisionStateUpdateProtocolRequest {
     pub request: ApprovalDecisionStateUpdateRequest,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct ApprovalRevokeStateUpdateBridgeRequest {
-    #[serde(default)]
-    pub backend: Option<String>,
+pub struct ApprovalRevokeStateUpdateProtocolRequest {
     pub request: ApprovalRevokeStateUpdateRequest,
 }
 
@@ -1934,8 +1916,8 @@ impl CodingToolApprovalBlockCore {
     }
 }
 
-pub fn plan_coding_tool_approval_manifest_response(
-    request: CodingToolApprovalBridgeRequest,
+pub fn plan_coding_tool_approval_manifest_protocol_response(
+    request: CodingToolApprovalProtocolRequest,
 ) -> Result<Value, ApprovalCommandError> {
     let plan = CodingToolApprovalCore
         .plan_manifest(&request.request)
@@ -1946,8 +1928,8 @@ pub fn plan_coding_tool_approval_manifest_response(
             )
         })?;
     Ok(json!({
-        "source": "rust_coding_tool_approval_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_authority".to_string()),
+        "source": "rust_coding_tool_approval_protocol",
+        "backend": "rust_authority",
         "plan": plan.clone(),
         "approval_required": plan.approval_required,
         "workflow_policy": plan.workflow_policy.clone(),
@@ -1956,8 +1938,8 @@ pub fn plan_coding_tool_approval_manifest_response(
     }))
 }
 
-pub fn plan_coding_tool_approval_satisfaction_response(
-    request: CodingToolApprovalSatisfactionBridgeRequest,
+pub fn plan_coding_tool_approval_satisfaction_protocol_response(
+    request: CodingToolApprovalSatisfactionProtocolRequest,
 ) -> Result<Value, ApprovalCommandError> {
     let record = CodingToolApprovalSatisfactionCore
         .plan(&request.request)
@@ -1969,8 +1951,8 @@ pub fn plan_coding_tool_approval_satisfaction_response(
         })?;
     let record_value = serde_json::to_value(record.clone()).unwrap_or(Value::Null);
     Ok(json!({
-        "source": "rust_coding_tool_approval_satisfaction_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_authority".to_string()),
+        "source": "rust_coding_tool_approval_satisfaction_protocol",
+        "backend": "rust_authority",
         "record": record_value,
         "status": record.status,
         "operation_kind": record.operation_kind,
@@ -1988,8 +1970,8 @@ pub fn plan_coding_tool_approval_satisfaction_response(
     }))
 }
 
-pub fn project_coding_tool_approval_satisfaction_response(
-    request: CodingToolApprovalSatisfactionProjectionBridgeRequest,
+pub fn project_coding_tool_approval_satisfaction_protocol_response(
+    request: CodingToolApprovalSatisfactionProjectionProtocolRequest,
 ) -> Result<Value, ApprovalCommandError> {
     let record = CodingToolApprovalSatisfactionProjectionCore
         .project(&request.request)
@@ -2001,8 +1983,8 @@ pub fn project_coding_tool_approval_satisfaction_response(
         })?;
     let record_value = serde_json::to_value(record.clone()).unwrap_or(Value::Null);
     Ok(json!({
-        "source": "rust_coding_tool_approval_satisfaction_projection_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_authority".to_string()),
+        "source": "rust_coding_tool_approval_satisfaction_projection_protocol",
+        "backend": "rust_authority",
         "record": record_value,
         "status": record.status,
         "operation_kind": record.operation_kind,
@@ -2016,8 +1998,8 @@ pub fn project_coding_tool_approval_satisfaction_response(
     }))
 }
 
-pub fn project_approval_queue_response(
-    request: ApprovalQueueProjectionBridgeRequest,
+pub fn project_approval_queue_protocol_response(
+    request: ApprovalQueueProjectionProtocolRequest,
 ) -> Result<Value, ApprovalCommandError> {
     let record = ApprovalQueueProjectionCore
         .project(&request.request)
@@ -2026,8 +2008,8 @@ pub fn project_approval_queue_response(
         })?;
     let record_value = serde_json::to_value(record.clone()).unwrap_or(Value::Null);
     Ok(json!({
-        "source": "rust_approval_queue_projection_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_authority".to_string()),
+        "source": "rust_approval_queue_projection_protocol",
+        "backend": "rust_authority",
         "record": record_value,
         "status": record.status,
         "operation_kind": record.operation_kind,
@@ -2040,8 +2022,8 @@ pub fn project_approval_queue_response(
     }))
 }
 
-pub fn authorize_approval_decision_response(
-    request: ApprovalDecisionAuthorityBridgeRequest,
+pub fn authorize_approval_decision_protocol_response(
+    request: ApprovalDecisionAuthorityProtocolRequest,
 ) -> Result<Value, ApprovalCommandError> {
     let record = ApprovalDecisionAuthorityCore
         .authorize(&request.request)
@@ -2054,8 +2036,8 @@ pub fn authorize_approval_decision_response(
         "object": "ioi.runtime_approval_decision_authority",
         "status": record.status,
         "operation_kind": record.operation_kind,
-        "source": "rust_approval_decision_authority_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_authority".to_string()),
+        "source": "rust_approval_decision_authority_protocol",
+        "backend": "rust_authority",
         "record": record_value,
         "authority": record.clone(),
         "thread_id": record.thread_id,
@@ -2073,8 +2055,8 @@ pub fn authorize_approval_decision_response(
     }))
 }
 
-pub fn plan_coding_tool_approval_block_response(
-    request: CodingToolApprovalBlockBridgeRequest,
+pub fn plan_coding_tool_approval_block_protocol_response(
+    request: CodingToolApprovalBlockProtocolRequest,
 ) -> Result<Value, ApprovalCommandError> {
     let record = CodingToolApprovalBlockCore
         .plan(&request.request)
@@ -2083,8 +2065,8 @@ pub fn plan_coding_tool_approval_block_response(
         })?;
     let record_value = serde_json::to_value(record.clone()).unwrap_or(Value::Null);
     Ok(json!({
-        "source": "rust_coding_tool_approval_block_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_authority".to_string()),
+        "source": "rust_coding_tool_approval_block_protocol",
+        "backend": "rust_authority",
         "record": record_value,
         "status": record.status,
         "operation_kind": record.operation_kind,
@@ -2105,8 +2087,8 @@ pub fn plan_coding_tool_approval_block_response(
     }))
 }
 
-pub fn plan_approval_request_state_update_response(
-    request: ApprovalRequestStateUpdateBridgeRequest,
+pub fn plan_approval_request_state_update_protocol_response(
+    request: ApprovalRequestStateUpdateProtocolRequest,
 ) -> Result<Value, ApprovalCommandError> {
     let record = ApprovalRequestStateUpdateCore
         .plan(&request.request)
@@ -2117,14 +2099,13 @@ pub fn plan_approval_request_state_update_response(
             )
         })?;
     Ok(state_update_response(
-        "rust_approval_request_state_update_command",
-        request.backend,
+        "rust_approval_request_state_update_protocol",
         record,
     ))
 }
 
-pub fn plan_approval_decision_state_update_response(
-    request: ApprovalDecisionStateUpdateBridgeRequest,
+pub fn plan_approval_decision_state_update_protocol_response(
+    request: ApprovalDecisionStateUpdateProtocolRequest,
 ) -> Result<Value, ApprovalCommandError> {
     let record = ApprovalDecisionStateUpdateCore
         .plan(&request.request)
@@ -2135,14 +2116,13 @@ pub fn plan_approval_decision_state_update_response(
             )
         })?;
     Ok(state_update_response(
-        "rust_approval_decision_state_update_command",
-        request.backend,
+        "rust_approval_decision_state_update_protocol",
         record,
     ))
 }
 
-pub fn plan_approval_revoke_state_update_response(
-    request: ApprovalRevokeStateUpdateBridgeRequest,
+pub fn plan_approval_revoke_state_update_protocol_response(
+    request: ApprovalRevokeStateUpdateProtocolRequest,
 ) -> Result<Value, ApprovalCommandError> {
     let record = ApprovalRevokeStateUpdateCore
         .plan(&request.request)
@@ -2150,20 +2130,19 @@ pub fn plan_approval_revoke_state_update_response(
             ApprovalCommandError::new("approval_revoke_state_update_invalid", format!("{error:?}"))
         })?;
     Ok(state_update_response(
-        "rust_approval_revoke_state_update_command",
-        request.backend,
+        "rust_approval_revoke_state_update_protocol",
         record,
     ))
 }
 
-fn state_update_response<T>(source: &'static str, backend: Option<String>, record: T) -> Value
+fn state_update_response<T>(source: &'static str, record: T) -> Value
 where
     T: Serialize + Clone,
 {
     let record_value = serde_json::to_value(record.clone()).unwrap_or(Value::Null);
     json!({
         "source": source,
-        "backend": backend.unwrap_or_else(|| "rust_authority".to_string()),
+        "backend": "rust_authority",
         "record": record_value.clone(),
         "status": record_value.get("status").cloned().unwrap_or(Value::Null),
         "operation_kind": record_value.get("operation_kind").cloned().unwrap_or(Value::Null),
@@ -4158,15 +4137,15 @@ mod tests {
     }
 
     #[test]
-    fn rust_core_shapes_coding_tool_approval_command_response() {
-        let response =
-            plan_coding_tool_approval_manifest_response(CodingToolApprovalBridgeRequest {
-                backend: Some("rust_authority".to_string()),
+    fn rust_core_shapes_coding_tool_approval_protocol_response() {
+        let response = plan_coding_tool_approval_manifest_protocol_response(
+            CodingToolApprovalProtocolRequest {
                 request: coding_tool_request("workspace_write"),
-            })
-            .expect("approval command response");
+            },
+        )
+        .expect("approval protocol response");
 
-        assert_eq!(response["source"], "rust_coding_tool_approval_command");
+        assert_eq!(response["source"], "rust_coding_tool_approval_protocol");
         assert_eq!(response["backend"], "rust_authority");
         assert_eq!(response["approval_required"], true);
         assert_eq!(
@@ -4256,18 +4235,17 @@ mod tests {
     }
 
     #[test]
-    fn rust_core_shapes_coding_tool_approval_satisfaction_command_response() {
-        let response = plan_coding_tool_approval_satisfaction_response(
-            CodingToolApprovalSatisfactionBridgeRequest {
-                backend: Some("rust_authority".to_string()),
+    fn rust_core_shapes_coding_tool_approval_satisfaction_protocol_response() {
+        let response = plan_coding_tool_approval_satisfaction_protocol_response(
+            CodingToolApprovalSatisfactionProtocolRequest {
                 request: approval_satisfaction_request(),
             },
         )
-        .expect("approval satisfaction command response");
+        .expect("approval satisfaction protocol response");
 
         assert_eq!(
             response["source"],
-            "rust_coding_tool_approval_satisfaction_command"
+            "rust_coding_tool_approval_satisfaction_protocol"
         );
         assert_eq!(response["backend"], "rust_authority");
         assert_eq!(response["satisfied"], true);
@@ -4382,18 +4360,17 @@ mod tests {
     }
 
     #[test]
-    fn rust_core_shapes_coding_tool_approval_satisfaction_projection_command_response() {
-        let response = project_coding_tool_approval_satisfaction_response(
-            CodingToolApprovalSatisfactionProjectionBridgeRequest {
-                backend: Some("rust_authority".to_string()),
+    fn rust_core_shapes_coding_tool_approval_satisfaction_projection_protocol_response() {
+        let response = project_coding_tool_approval_satisfaction_protocol_response(
+            CodingToolApprovalSatisfactionProjectionProtocolRequest {
                 request: approval_satisfaction_projection_request(),
             },
         )
-        .expect("approval satisfaction projection command response");
+        .expect("approval satisfaction projection protocol response");
 
         assert_eq!(
             response["source"],
-            "rust_coding_tool_approval_satisfaction_projection_command"
+            "rust_coding_tool_approval_satisfaction_projection_protocol"
         );
         assert_eq!(response["backend"], "rust_authority");
         assert_eq!(response["status"], "projected");
@@ -4533,14 +4510,17 @@ mod tests {
     }
 
     #[test]
-    fn rust_core_shapes_public_approval_queue_command_response() {
-        let response = project_approval_queue_response(ApprovalQueueProjectionBridgeRequest {
-            backend: Some("rust_authority".to_string()),
-            request: approval_queue_projection_request(false),
-        })
-        .expect("approval queue command response");
+    fn rust_core_shapes_public_approval_queue_protocol_response() {
+        let response =
+            project_approval_queue_protocol_response(ApprovalQueueProjectionProtocolRequest {
+                request: approval_queue_projection_request(false),
+            })
+            .expect("approval queue protocol response");
 
-        assert_eq!(response["source"], "rust_approval_queue_projection_command");
+        assert_eq!(
+            response["source"],
+            "rust_approval_queue_projection_protocol"
+        );
         assert_eq!(response["backend"], "rust_authority");
         assert_eq!(response["status"], "projected");
         assert_eq!(response["operation_kind"], "approval.queue_projection");
@@ -4595,13 +4575,13 @@ mod tests {
     }
 
     #[test]
-    fn rust_core_shapes_approval_decision_authority_command_response() {
-        let response =
-            authorize_approval_decision_response(ApprovalDecisionAuthorityBridgeRequest {
-                backend: Some("rust_authority".to_string()),
+    fn rust_core_shapes_approval_decision_authority_protocol_response() {
+        let response = authorize_approval_decision_protocol_response(
+            ApprovalDecisionAuthorityProtocolRequest {
                 request: approval_decision_authority_request("revoke"),
-            })
-            .expect("approval decision authority command response");
+            },
+        )
+        .expect("approval decision authority protocol response");
 
         assert_eq!(
             response["schema_version"],
@@ -4609,7 +4589,7 @@ mod tests {
         );
         assert_eq!(
             response["source"],
-            "rust_approval_decision_authority_command"
+            "rust_approval_decision_authority_protocol"
         );
         assert_eq!(response["backend"], "rust_authority");
         assert_eq!(response["status"], "authorized");
@@ -4676,17 +4656,17 @@ mod tests {
     }
 
     #[test]
-    fn rust_core_shapes_coding_tool_approval_block_command_response() {
-        let response =
-            plan_coding_tool_approval_block_response(CodingToolApprovalBlockBridgeRequest {
-                backend: Some("rust_authority".to_string()),
+    fn rust_core_shapes_coding_tool_approval_block_protocol_response() {
+        let response = plan_coding_tool_approval_block_protocol_response(
+            CodingToolApprovalBlockProtocolRequest {
                 request: approval_block_request(),
-            })
-            .expect("approval block command response");
+            },
+        )
+        .expect("approval block protocol response");
 
         assert_eq!(
             response["source"],
-            "rust_coding_tool_approval_block_command"
+            "rust_coding_tool_approval_block_protocol"
         );
         assert_eq!(response["backend"], "rust_authority");
         assert_eq!(response["status"], "blocked");
@@ -4853,17 +4833,17 @@ mod tests {
     }
 
     #[test]
-    fn rust_core_shapes_approval_request_state_update_command_response() {
-        let response =
-            plan_approval_request_state_update_response(ApprovalRequestStateUpdateBridgeRequest {
-                backend: Some("rust_authority".to_string()),
+    fn rust_core_shapes_approval_request_state_update_protocol_response() {
+        let response = plan_approval_request_state_update_protocol_response(
+            ApprovalRequestStateUpdateProtocolRequest {
                 request: approval_request_state_update_request(),
-            })
-            .expect("approval request command response");
+            },
+        )
+        .expect("approval request protocol response");
 
         assert_eq!(
             response["source"],
-            "rust_approval_request_state_update_command"
+            "rust_approval_request_state_update_protocol"
         );
         assert_eq!(response["backend"], "rust_authority");
         assert_eq!(response["status"], "planned");
@@ -5039,18 +5019,17 @@ mod tests {
     }
 
     #[test]
-    fn rust_core_shapes_approval_decision_state_update_command_response() {
-        let response = plan_approval_decision_state_update_response(
-            ApprovalDecisionStateUpdateBridgeRequest {
-                backend: Some("rust_authority".to_string()),
+    fn rust_core_shapes_approval_decision_state_update_protocol_response() {
+        let response = plan_approval_decision_state_update_protocol_response(
+            ApprovalDecisionStateUpdateProtocolRequest {
                 request: approval_decision_state_update_request(),
             },
         )
-        .expect("approval decision command response");
+        .expect("approval decision protocol response");
 
         assert_eq!(
             response["source"],
-            "rust_approval_decision_state_update_command"
+            "rust_approval_decision_state_update_protocol"
         );
         assert_eq!(response["backend"], "rust_authority");
         assert_eq!(response["status"], "planned");
@@ -5210,17 +5189,17 @@ mod tests {
     }
 
     #[test]
-    fn rust_core_shapes_approval_revoke_state_update_command_response() {
-        let response =
-            plan_approval_revoke_state_update_response(ApprovalRevokeStateUpdateBridgeRequest {
-                backend: Some("rust_authority".to_string()),
+    fn rust_core_shapes_approval_revoke_state_update_protocol_response() {
+        let response = plan_approval_revoke_state_update_protocol_response(
+            ApprovalRevokeStateUpdateProtocolRequest {
                 request: approval_revoke_state_update_request(),
-            })
-            .expect("approval revoke command response");
+            },
+        )
+        .expect("approval revoke protocol response");
 
         assert_eq!(
             response["source"],
-            "rust_approval_revoke_state_update_command"
+            "rust_approval_revoke_state_update_protocol"
         );
         assert_eq!(response["backend"], "rust_authority");
         assert_eq!(response["status"], "planned");

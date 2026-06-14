@@ -131,7 +131,7 @@ function createSurface(overrides = {}) {
     codingToolApprovalBlockForThread(input) {
       input.store?.calls?.push({ name: "rustApprovalBlock", input });
       return {
-        source: "rust_coding_tool_approval_block_command",
+        source: "rust_coding_tool_approval_block_protocol",
         backend: "rust_authority",
         status: "blocked",
         operation_kind: "coding_tool.approval.block",
@@ -2066,7 +2066,7 @@ test("coding tool invocation surface executes approval-required tools only after
         approval_manifest: manifest,
       });
       return {
-        source: "rust_coding_tool_approval_satisfaction_command",
+        source: "rust_coding_tool_approval_satisfaction_protocol",
         satisfied: true,
         approval_id: "approval_alpha",
         decision_event_id: "event_decision",

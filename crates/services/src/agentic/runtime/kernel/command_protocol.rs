@@ -67,15 +67,6 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "project_workspace_snapshot_content_package",
     "preview_workspace_snapshot_restore",
     "apply_workspace_snapshot_restore",
-    "plan_coding_tool_approval_manifest",
-    "project_coding_tool_approval_satisfaction",
-    "plan_coding_tool_approval_satisfaction",
-    "plan_coding_tool_approval_block",
-    "project_approval_queue",
-    "authorize_approval_decision",
-    "plan_approval_request_state_update",
-    "plan_approval_decision_state_update",
-    "plan_approval_revoke_state_update",
     "evaluate_context_budget_policy",
     "evaluate_coding_tool_budget_policy",
     "plan_coding_tool_budget_block",
@@ -209,15 +200,6 @@ pub enum CommandOperation {
     ProjectWorkspaceSnapshotContentPackage,
     PreviewWorkspaceSnapshotRestore,
     ApplyWorkspaceSnapshotRestore,
-    PlanCodingToolApprovalManifest,
-    ProjectCodingToolApprovalSatisfaction,
-    PlanCodingToolApprovalSatisfaction,
-    PlanCodingToolApprovalBlock,
-    ProjectApprovalQueue,
-    AuthorizeApprovalDecision,
-    PlanApprovalRequestStateUpdate,
-    PlanApprovalDecisionStateUpdate,
-    PlanApprovalRevokeStateUpdate,
     EvaluateContextBudgetPolicy,
     EvaluateCodingToolBudgetPolicy,
     PlanCodingToolBudgetBlock,
@@ -364,17 +346,6 @@ impl CommandOperation {
             }
             Self::PreviewWorkspaceSnapshotRestore => "preview_workspace_snapshot_restore",
             Self::ApplyWorkspaceSnapshotRestore => "apply_workspace_snapshot_restore",
-            Self::PlanCodingToolApprovalManifest => "plan_coding_tool_approval_manifest",
-            Self::ProjectCodingToolApprovalSatisfaction => {
-                "project_coding_tool_approval_satisfaction"
-            }
-            Self::PlanCodingToolApprovalSatisfaction => "plan_coding_tool_approval_satisfaction",
-            Self::PlanCodingToolApprovalBlock => "plan_coding_tool_approval_block",
-            Self::ProjectApprovalQueue => "project_approval_queue",
-            Self::AuthorizeApprovalDecision => "authorize_approval_decision",
-            Self::PlanApprovalRequestStateUpdate => "plan_approval_request_state_update",
-            Self::PlanApprovalDecisionStateUpdate => "plan_approval_decision_state_update",
-            Self::PlanApprovalRevokeStateUpdate => "plan_approval_revoke_state_update",
             Self::EvaluateContextBudgetPolicy => "evaluate_context_budget_policy",
             Self::EvaluateCodingToolBudgetPolicy => "evaluate_coding_tool_budget_policy",
             Self::PlanCodingToolBudgetBlock => "plan_coding_tool_budget_block",
@@ -666,27 +637,6 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
             Some(CommandOperation::PreviewWorkspaceSnapshotRestore)
         }
         "apply_workspace_snapshot_restore" => Some(CommandOperation::ApplyWorkspaceSnapshotRestore),
-        "plan_coding_tool_approval_manifest" => {
-            Some(CommandOperation::PlanCodingToolApprovalManifest)
-        }
-        "project_coding_tool_approval_satisfaction" => {
-            Some(CommandOperation::ProjectCodingToolApprovalSatisfaction)
-        }
-        "plan_coding_tool_approval_satisfaction" => {
-            Some(CommandOperation::PlanCodingToolApprovalSatisfaction)
-        }
-        "plan_coding_tool_approval_block" => Some(CommandOperation::PlanCodingToolApprovalBlock),
-        "project_approval_queue" => Some(CommandOperation::ProjectApprovalQueue),
-        "authorize_approval_decision" => Some(CommandOperation::AuthorizeApprovalDecision),
-        "plan_approval_request_state_update" => {
-            Some(CommandOperation::PlanApprovalRequestStateUpdate)
-        }
-        "plan_approval_decision_state_update" => {
-            Some(CommandOperation::PlanApprovalDecisionStateUpdate)
-        }
-        "plan_approval_revoke_state_update" => {
-            Some(CommandOperation::PlanApprovalRevokeStateUpdate)
-        }
         "evaluate_context_budget_policy" => Some(CommandOperation::EvaluateContextBudgetPolicy),
         "evaluate_coding_tool_budget_policy" => {
             Some(CommandOperation::EvaluateCodingToolBudgetPolicy)
@@ -1013,6 +963,24 @@ mod tests {
         for operation in [
             "admit_l1_settlement_attempt",
             "admit_governed_runtime_improvement_proposal",
+        ] {
+            assert_eq!(command_operation(operation), None);
+            assert_eq!(expected_command_schema_version(operation), None);
+        }
+    }
+
+    #[test]
+    fn approval_command_transport_is_retired() {
+        for operation in [
+            "plan_coding_tool_approval_manifest",
+            "project_coding_tool_approval_satisfaction",
+            "plan_coding_tool_approval_satisfaction",
+            "plan_coding_tool_approval_block",
+            "project_approval_queue",
+            "authorize_approval_decision",
+            "plan_approval_request_state_update",
+            "plan_approval_decision_state_update",
+            "plan_approval_revoke_state_update",
         ] {
             assert_eq!(command_operation(operation), None);
             assert_eq!(expected_command_schema_version(operation), None);

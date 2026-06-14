@@ -9,6 +9,7 @@ import { AgentgresRuntimeStateStore } from "./index.mjs";
 test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-daemon-core-direct-"));
   const calls = [];
+  const approvalCalls = [];
   const governedAdmissionCalls = [];
   const store = new AgentgresRuntimeStateStore(stateDir, {
     cwd: stateDir,
@@ -33,9 +34,22 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
     },
     daemonCoreInvoker(request) {
       calls.push(request);
-      throw new Error(
-        `generic command invoker must not run migrated L1 settlement: ${request?.operation}`,
-      );
+      throw new Error(`generic command invoker must not run migrated typed APIs: ${request?.operation}`);
+    },
+    daemonCoreApprovalApi: {
+      projectApprovalQueue(request) {
+        approvalCalls.push({ method: "projectApprovalQueue", request });
+        return {
+          source: "direct_approval_api",
+          backend: "rust_authority",
+          status: "projected",
+          operation_kind: "approval.queue_projection",
+          thread_id: request.thread_id,
+          approvals: [],
+          pending_count: 0,
+          resolved_count: 0,
+        };
+      },
     },
     daemonCoreGovernedAdmissionApi: {
       admitL1SettlementAttempt(attempt, context) {
@@ -68,6 +82,18 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
   );
 
   assert.equal(calls.length, 0);
+  const queue = store.approvalStateCore.projectApprovalQueue({
+    thread_id: "thread_direct",
+    state_dir: stateDir,
+  });
+  assert.equal(calls.length, 0);
+  assert.equal(approvalCalls.length, 1);
+  assert.equal(approvalCalls[0].request.thread_id, "thread_direct");
+  assert.equal(Object.hasOwn(approvalCalls[0].request, "operation"), false);
+  assert.equal(Object.hasOwn(approvalCalls[0].request, "backend"), false);
+  assert.equal(queue.source, "direct_approval_api");
+  assert.equal(queue.operation_kind, "approval.queue_projection");
+
   assert.equal(governedAdmissionCalls.length, 1);
   assert.deepEqual(governedAdmissionCalls[0].context, {
     thread_id: "thread_direct",

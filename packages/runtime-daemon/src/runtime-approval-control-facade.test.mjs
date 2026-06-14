@@ -152,7 +152,7 @@ function rustRunRecord(operationKind, request, control = {}) {
 
 function approvalAuthorityResult(decision = "approve") {
   return {
-    source: "rust_approval_decision_authority_command",
+    source: "rust_approval_decision_authority_protocol",
     backend: "rust_authority",
     status: "authorized",
     operation_kind: "approval.decision.authority",
@@ -389,7 +389,7 @@ test("listThreadApprovals public read calls Rust approval queue projection", () 
       projectApprovalQueue(request) {
         calls.push({ method: "projectApprovalQueue", request });
         return {
-          source: "rust_approval_queue_projection_command",
+          source: "rust_approval_queue_projection_protocol",
           backend: "rust_authority",
           status: "projected",
           operation_kind: "approval.queue_projection",

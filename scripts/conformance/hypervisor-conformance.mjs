@@ -2268,14 +2268,14 @@ function runDocs() {
         matrix,
       ) &&
       /Coding-tool approval satisfaction positive API/.test(matrix) &&
-      /`project_coding_tool_approval_satisfaction` and `plan_coding_tool_approval_satisfaction` are Rust daemon-core operations/.test(
+      /`projectCodingToolApprovalSatisfaction` and `planCodingToolApprovalSatisfaction` are typed Rust daemon-core approval API methods/.test(
         matrix,
       ) &&
-      /The JS store projection callback, projection-context run\/agent helper, and exported JS manifest matcher are retired/.test(
+      /The JS store projection callback, projection-context run\/agent helper,[\s\S]*exported JS manifest matcher,[\s\S]*generic command invoker/.test(
         matrix,
       ) &&
       /Coding-tool approval block positive API/.test(matrix) &&
-      /`plan_coding_tool_approval_block` is a Rust daemon-core operation/.test(
+      /`planCodingToolApprovalBlock` is a typed Rust daemon-core approval API method/.test(
         matrix,
       ) &&
       /Coding-tool result envelope\/context planning positive API/.test(
@@ -4084,7 +4084,6 @@ function runBridge() {
   const retiredRouteDecisionEnvPattern = new RegExp("MODEL_MOUNT_" + "ROUTE_DECISION_COMMAND_ENV");
   const daemonCoreDirectInvokerRunners = [
     stepModuleRunner,
-    runtimeCodingToolApprovalCore,
     runtimeContextPolicyCore,
     workspaceRestoreCore,
     modelMountCore,
@@ -4241,21 +4240,63 @@ function runBridge() {
       ) &&
       !exists("packages/runtime-daemon/src/runtime-approval-state-runner.mjs") &&
       !exists("packages/runtime-daemon/src/runtime-approval-state-runner.test.mjs") &&
-      /createRuntimeApprovalStateCore\(\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
+      /this\.daemonCoreApprovalApi = options\.daemonCoreApprovalApi/.test(runtimeDaemonIndex) &&
+      /createRuntimeCodingToolApprovalCore\(\{\s*daemonCoreApprovalApi: this\.daemonCoreApprovalApi,\s*\}\)/.test(
         runtimeDaemonIndex,
+      ) &&
+      /createRuntimeApprovalStateCore\(\{\s*daemonCoreApprovalApi: this\.daemonCoreApprovalApi,\s*\}\)/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /RuntimeCodingToolApprovalCore/.test(runtimeCodingToolApprovalCore) &&
+      /CODING_TOOL_APPROVAL_MANIFEST_API_METHOD = "planCodingToolApprovalManifest"/.test(
+        runtimeCodingToolApprovalCore,
+      ) &&
+      /CODING_TOOL_APPROVAL_SATISFACTION_PROJECTION_API_METHOD =\s*"projectCodingToolApprovalSatisfaction"/.test(
+        runtimeCodingToolApprovalCore,
+      ) &&
+      /CODING_TOOL_APPROVAL_SATISFACTION_API_METHOD =\s*"planCodingToolApprovalSatisfaction"/.test(
+        runtimeCodingToolApprovalCore,
+      ) &&
+      /CODING_TOOL_APPROVAL_BLOCK_API_METHOD = "planCodingToolApprovalBlock"/.test(
+        runtimeCodingToolApprovalCore,
+      ) &&
+      /this\.daemonCoreApprovalApi = approvalApi/.test(runtimeCodingToolApprovalCore) &&
+      /assertNoRetiredCodingToolApprovalCoreOption\("daemonCoreInvoker", options\.daemonCoreInvoker\)/.test(
+        runtimeCodingToolApprovalCore,
+      ) &&
+      /coding_tool_approval_core_direct_approval_api_unconfigured/.test(
+        runtimeCodingToolApprovalCore,
+      ) &&
+      !/operation:\s*"plan_coding_tool_approval_manifest"|operation:\s*"project_coding_tool_approval_satisfaction"|operation:\s*"plan_coding_tool_approval_satisfaction"|operation:\s*"plan_coding_tool_approval_block"|ioi\.runtime\.daemon_core\.command\.v1|this\.daemonCoreInvoker = optionalFunction\(options\.daemonCoreInvoker\)/.test(
+        runtimeCodingToolApprovalCore,
       ) &&
       /this\.approvalStateCore/.test(runtimeDaemonIndex) &&
       !/this\.approvalStateRunner/.test(runtimeDaemonIndex) &&
       /approvalStateCore: this\.approvalStateCore/.test(runtimeDaemonIndex) &&
       /RuntimeApprovalStateCore/.test(runtimeApprovalStateCore) &&
-      /this\.daemonCoreInvoker = optionalFunction\(options\.daemonCoreInvoker\)/.test(
+      /APPROVAL_REQUEST_STATE_UPDATE_API_METHOD = "planApprovalRequestStateUpdate"/.test(
         runtimeApprovalStateCore,
       ) &&
-      /operation:\s*"plan_approval_request_state_update"/.test(runtimeApprovalStateCore) &&
-      /operation:\s*"authorize_approval_decision"/.test(runtimeApprovalStateCore) &&
-      /operation:\s*"plan_approval_decision_state_update"/.test(runtimeApprovalStateCore) &&
-      /operation:\s*"plan_approval_revoke_state_update"/.test(runtimeApprovalStateCore) &&
-      /operation:\s*"project_approval_queue"/.test(runtimeApprovalStateCore) &&
+      /APPROVAL_DECISION_STATE_UPDATE_API_METHOD = "planApprovalDecisionStateUpdate"/.test(
+        runtimeApprovalStateCore,
+      ) &&
+      /APPROVAL_REVOKE_STATE_UPDATE_API_METHOD = "planApprovalRevokeStateUpdate"/.test(
+        runtimeApprovalStateCore,
+      ) &&
+      /APPROVAL_QUEUE_PROJECTION_API_METHOD = "projectApprovalQueue"/.test(
+        runtimeApprovalStateCore,
+      ) &&
+      /APPROVAL_DECISION_AUTHORITY_API_METHOD = "authorizeApprovalDecision"/.test(
+        runtimeApprovalStateCore,
+      ) &&
+      /this\.daemonCoreApprovalApi = approvalApi/.test(runtimeApprovalStateCore) &&
+      /assertNoRetiredApprovalStateCoreOption\("daemonCoreInvoker", options\.daemonCoreInvoker\)/.test(
+        runtimeApprovalStateCore,
+      ) &&
+      /approval_state_core_direct_approval_api_unconfigured/.test(runtimeApprovalStateCore) &&
+      !/operation:\s*"plan_approval_request_state_update"|operation:\s*"authorize_approval_decision"|operation:\s*"plan_approval_decision_state_update"|operation:\s*"plan_approval_revoke_state_update"|operation:\s*"project_approval_queue"|ioi\.runtime\.daemon_core\.command\.v1|this\.daemonCoreInvoker = optionalFunction\(options\.daemonCoreInvoker\)/.test(
+        runtimeApprovalStateCore,
+      ) &&
       /approval_state_core_request_fields_retired/.test(runtimeApprovalStateCore) &&
       /approval state core returns the Rust envelope without JS normalization/.test(
         runtimeApprovalStateCoreTest,
@@ -7490,37 +7531,58 @@ function runBridge() {
       /CODING_TOOL_APPROVAL_REQUEST_SCHEMA_VERSION/.test(approvalCore) &&
       /CODING_TOOL_APPROVAL_MANIFEST_SCHEMA_VERSION/.test(approvalCore) &&
       /rust_authority_plans_coding_tool_approval_manifest/.test(approvalCore) &&
-      /pub struct CodingToolApprovalBridgeRequest/.test(approvalCore) &&
-      /pub fn plan_coding_tool_approval_manifest_response/.test(approvalCore) &&
-      /rust_coding_tool_approval_command/.test(approvalCore) &&
+      /pub struct CodingToolApprovalProtocolRequest/.test(approvalCore) &&
+      /pub fn plan_coding_tool_approval_manifest_protocol_response/.test(approvalCore) &&
+      /rust_coding_tool_approval_protocol/.test(approvalCore) &&
       /coding_tool_approval_manifest_invalid/.test(approvalCore) &&
-      /rust_core_shapes_coding_tool_approval_command_response/.test(approvalCore) &&
+      /rust_core_shapes_coding_tool_approval_protocol_response/.test(approvalCore) &&
       !/mod approval_command;/.test(bridgeModule) &&
       !approvalCommandBridgeExists &&
-      !/plan_coding_tool_approval_manifest_response as plan_coding_tool_approval_manifest/.test(bridgeModule) &&
-      !/CodingToolApprovalBridgeRequest/.test(bridgeModule) &&
+      !/plan_coding_tool_approval_manifest_protocol_response as plan_coding_tool_approval_manifest/.test(bridgeModule) &&
+      !/CodingToolApprovalProtocolRequest/.test(bridgeModule) &&
       !/approval_authority_rejects_step_module_command_schema/.test(bridgeModule) &&
       !/bridge_plans_coding_tool_approval_manifest_through_rust_core/.test(bridgeModule) &&
       !/fn plan_coding_tool_approval_manifest/.test(bridgeModule) &&
-      !/struct CodingToolApprovalBridgeRequest/.test(bridgeModule) &&
+      !/struct CodingToolApprovalProtocolRequest/.test(bridgeModule) &&
       !exists("packages/runtime-daemon/src/runtime-coding-tool-approval-runner.mjs") &&
       !exists("packages/runtime-daemon/src/runtime-coding-tool-approval-runner.test.mjs") &&
       /RuntimeCodingToolApprovalCore/.test(runtimeCodingToolApprovalCore) &&
       /createRuntimeCodingToolApprovalCore/.test(runtimeCodingToolApprovalCore) &&
-      /ioi\.runtime\.daemon_core\.command\.v1/.test(runtimeCodingToolApprovalCore) &&
-      /operation:\s*"plan_coding_tool_approval_manifest"/.test(runtimeCodingToolApprovalCore) &&
-      /operation:\s*"project_coding_tool_approval_satisfaction"/.test(
+      /CODING_TOOL_APPROVAL_MANIFEST_API_METHOD = "planCodingToolApprovalManifest"/.test(
         runtimeCodingToolApprovalCore,
       ) &&
-      /operation:\s*"plan_coding_tool_approval_satisfaction"/.test(runtimeCodingToolApprovalCore) &&
-      /operation:\s*"plan_coding_tool_approval_block"/.test(runtimeCodingToolApprovalCore) &&
-      /coding_tool_approval_core_direct_invoker_unconfigured/.test(runtimeCodingToolApprovalCore) &&
+      /CODING_TOOL_APPROVAL_SATISFACTION_PROJECTION_API_METHOD =\s*"projectCodingToolApprovalSatisfaction"/.test(
+        runtimeCodingToolApprovalCore,
+      ) &&
+      /CODING_TOOL_APPROVAL_SATISFACTION_API_METHOD =\s*"planCodingToolApprovalSatisfaction"/.test(
+        runtimeCodingToolApprovalCore,
+      ) &&
+      /CODING_TOOL_APPROVAL_BLOCK_API_METHOD = "planCodingToolApprovalBlock"/.test(
+        runtimeCodingToolApprovalCore,
+      ) &&
+      /this\.daemonCoreApprovalApi = approvalApi/.test(runtimeCodingToolApprovalCore) &&
+      /assertNoRetiredCodingToolApprovalCoreOption\("daemonCoreInvoker", options\.daemonCoreInvoker\)/.test(
+        runtimeCodingToolApprovalCore,
+      ) &&
+      /coding_tool_approval_core_direct_approval_api_unconfigured/.test(
+        runtimeCodingToolApprovalCore,
+      ) &&
       /coding_tool_approval_core_compatibility_option_retired/.test(runtimeCodingToolApprovalCore) &&
       /coding_tool_approval_core_request_aliases_retired/.test(runtimeCodingToolApprovalCore) &&
+      /approval_command_transport_is_retired/.test(commandProtocolCore) &&
+      !/CommandOperation::PlanCodingToolApprovalManifest|CommandOperation::ProjectCodingToolApprovalSatisfaction|CommandOperation::PlanCodingToolApprovalSatisfaction|CommandOperation::PlanCodingToolApprovalBlock/.test(
+        commandProtocolCore,
+      ) &&
+      !/"plan_coding_tool_approval_manifest"\s*=>|"project_coding_tool_approval_satisfaction"\s*=>|"plan_coding_tool_approval_satisfaction"\s*=>|"plan_coding_tool_approval_block"\s*=>/.test(
+        commandProtocolCore,
+      ) &&
+      !/plan_coding_tool_approval_manifest_protocol_response\(decode\(raw_request\)\?\)|project_coding_tool_approval_satisfaction_protocol_response\(decode\(raw_request\)\?\)|plan_coding_tool_approval_satisfaction_protocol_response\(decode\(raw_request\)\?\)|plan_coding_tool_approval_block_protocol_response\(decode\(raw_request\)\?\)/.test(
+        coreCommandDispatch,
+      ) &&
       !/process\.env|createCodingToolApprovalRunnerFromEnv|RustCodingToolApprovalRunner|CodingToolApprovalRunner|normalizeCodingToolApproval.*BridgeResult|arrayOfStrings|from "node:child_process"|spawnSyncImpl|createDaemonCoreCommandInvoker/.test(
         runtimeCodingToolApprovalCore,
       ) &&
-      /coding tool approval core calls direct Rust daemon-core approval APIs/.test(
+      /coding tool approval core calls typed Rust daemon-core approval APIs/.test(
         runtimeCodingToolApprovalCoreTest,
       ) &&
       /coding tool approval core returns the Rust envelope without JS normalization/.test(
@@ -7541,10 +7603,13 @@ function runBridge() {
       /runtime store mounts coding tool approval core from options/.test(
         runtimeCodingToolApprovalCoreStoreTest,
       ) &&
+      /runtime store wires approval cores to typed Rust approval API/.test(
+        runtimeCodingToolApprovalCoreStoreTest,
+      ) &&
       /Object\.hasOwn\(store,\s*"codingToolApprovalRunner"\),\s*false/.test(
         runtimeCodingToolApprovalCoreStoreTest,
       ) &&
-      /createRuntimeCodingToolApprovalCore\(\{[\s\S]*daemonCoreInvoker: this\.daemonCoreInvoker/.test(
+      /createRuntimeCodingToolApprovalCore\(\{[\s\S]*daemonCoreApprovalApi: this\.daemonCoreApprovalApi/.test(
         runtimeDaemonIndex,
       ) &&
       /this\.codingToolApprovalCore/.test(runtimeDaemonIndex) &&
@@ -7577,7 +7642,7 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-coding-tool-approval.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
     ],
-    "Phase 9/10 is pending: coding-tool approval manifests must be planned by Rust authority core through the direct daemon-core invoker",
+    "Phase 9/10 is pending: coding-tool approval manifests must be planned by Rust authority core through the typed daemon-core approval API",
   );
   assertCheck(
     result,
@@ -7768,14 +7833,14 @@ function runBridge() {
       ) &&
       !approvalCommandBridgeExists &&
       !workspaceRestoreCommandBridgeExists &&
-      /rust_core_shapes_coding_tool_approval_command_response/.test(approvalCore) &&
-      /rust_core_shapes_approval_request_state_update_command_response/.test(approvalCore) &&
-      /rust_core_shapes_approval_decision_state_update_command_response/.test(approvalCore) &&
-      /rust_core_shapes_approval_revoke_state_update_command_response/.test(approvalCore) &&
-      !/plan_coding_tool_approval_manifest_response as plan_coding_tool_approval_manifest/.test(bridgeModule) &&
-      !/plan_approval_request_state_update_response as plan_approval_request_state_update/.test(bridgeModule) &&
-      !/plan_approval_decision_state_update_response as plan_approval_decision_state_update/.test(bridgeModule) &&
-      !/plan_approval_revoke_state_update_response as plan_approval_revoke_state_update/.test(bridgeModule) &&
+      /rust_core_shapes_coding_tool_approval_protocol_response/.test(approvalCore) &&
+      /rust_core_shapes_approval_request_state_update_protocol_response/.test(approvalCore) &&
+      /rust_core_shapes_approval_decision_state_update_protocol_response/.test(approvalCore) &&
+      /rust_core_shapes_approval_revoke_state_update_protocol_response/.test(approvalCore) &&
+      !/plan_coding_tool_approval_manifest_protocol_response as plan_coding_tool_approval_manifest/.test(bridgeModule) &&
+      !/plan_approval_request_state_update_protocol_response as plan_approval_request_state_update/.test(bridgeModule) &&
+      !/plan_approval_decision_state_update_protocol_response as plan_approval_decision_state_update/.test(bridgeModule) &&
+      !/plan_approval_revoke_state_update_protocol_response as plan_approval_revoke_state_update/.test(bridgeModule) &&
       /rust_core_shapes_workspace_restore_apply_policy_command_response/.test(workspaceRestoreKernel) &&
       /rust_core_shapes_workspace_restore_apply_operations_command_response/.test(workspaceRestoreKernel) &&
       /rust_core_shapes_workspace_snapshot_capture_command_response/.test(workspaceRestoreKernel) &&
@@ -8959,14 +9024,14 @@ function runBridge() {
       /CODING_TOOL_APPROVAL_SATISFACTION_PROJECTION_RESULT_SCHEMA_VERSION/.test(
         approvalCore,
       ) &&
-      /pub fn project_coding_tool_approval_satisfaction_response/.test(approvalCore) &&
-      /pub fn plan_coding_tool_approval_satisfaction_response/.test(approvalCore) &&
+      /pub fn project_coding_tool_approval_satisfaction_protocol_response/.test(approvalCore) &&
+      /pub fn plan_coding_tool_approval_satisfaction_protocol_response/.test(approvalCore) &&
       /rust_authority_plans_coding_tool_approval_satisfaction/.test(approvalCore) &&
       /rust_authority_projects_coding_tool_approval_satisfaction_from_state_dir_replay/.test(
         approvalCore,
       ) &&
       /rust_authority_projects_revoked_approval_as_latest_decision/.test(approvalCore) &&
-      /rust_core_shapes_coding_tool_approval_satisfaction_projection_command_response/.test(
+      /rust_core_shapes_coding_tool_approval_satisfaction_projection_protocol_response/.test(
         approvalCore,
       ) &&
       /rust_approval_satisfaction_projection_requires_state_dir/.test(approvalCore) &&
@@ -8978,26 +9043,30 @@ function runBridge() {
       /approval_satisfaction_state_dir_records/.test(approvalCore) &&
       /rust_authority_blocks_coding_tool_approval_satisfaction_mismatch/.test(approvalCore) &&
       /rust_authority_blocks_expired_coding_tool_approval_lease/.test(approvalCore) &&
-      /rust_core_shapes_coding_tool_approval_satisfaction_command_response/.test(approvalCore) &&
-      /project_coding_tool_approval_satisfaction/.test(commandProtocolCore) &&
-      /CommandOperation::ProjectCodingToolApprovalSatisfaction/.test(commandProtocolCore) &&
-      /plan_coding_tool_approval_satisfaction/.test(commandProtocolCore) &&
-      /CommandOperation::PlanCodingToolApprovalSatisfaction/.test(commandProtocolCore) &&
-      /project_coding_tool_approval_satisfaction_response/.test(coreCommandDispatch) &&
-      /plan_coding_tool_approval_satisfaction_response/.test(coreCommandDispatch) &&
+      /rust_core_shapes_coding_tool_approval_satisfaction_protocol_response/.test(approvalCore) &&
+      /approval_command_transport_is_retired/.test(commandProtocolCore) &&
+      !/CommandOperation::ProjectCodingToolApprovalSatisfaction|CommandOperation::PlanCodingToolApprovalSatisfaction/.test(
+        commandProtocolCore,
+      ) &&
+      !/"project_coding_tool_approval_satisfaction"\s*=>|"plan_coding_tool_approval_satisfaction"\s*=>/.test(
+        commandProtocolCore,
+      ) &&
+      !/project_coding_tool_approval_satisfaction_protocol_response\(decode\(raw_request\)\?\)|plan_coding_tool_approval_satisfaction_protocol_response\(decode\(raw_request\)\?\)/.test(
+        coreCommandDispatch,
+      ) &&
       /projectApprovalSatisfaction/.test(runtimeCodingToolApprovalCore) &&
       /CODING_TOOL_APPROVAL_SATISFACTION_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
         runtimeCodingToolApprovalCore,
       ) &&
-      /project_coding_tool_approval_satisfaction/.test(runtimeCodingToolApprovalCore) &&
+      /CODING_TOOL_APPROVAL_SATISFACTION_PROJECTION_API_METHOD/.test(runtimeCodingToolApprovalCore) &&
       !/normalizeCodingToolApprovalSatisfactionProjectionBridgeResult/.test(
         runtimeCodingToolApprovalCore,
       ) &&
       /planApprovalSatisfaction/.test(runtimeCodingToolApprovalCore) &&
       /CODING_TOOL_APPROVAL_SATISFACTION_REQUEST_SCHEMA_VERSION/.test(runtimeCodingToolApprovalCore) &&
-      /plan_coding_tool_approval_satisfaction/.test(runtimeCodingToolApprovalCore) &&
+      /CODING_TOOL_APPROVAL_SATISFACTION_API_METHOD/.test(runtimeCodingToolApprovalCore) &&
       !/normalizeCodingToolApprovalSatisfactionBridgeResult/.test(runtimeCodingToolApprovalCore) &&
-      /coding tool approval core calls direct Rust daemon-core approval APIs/.test(
+      /coding tool approval core calls typed Rust daemon-core approval APIs/.test(
         runtimeCodingToolApprovalCoreTest,
       ) &&
       /assert\.equal\(calls\[1\]\.request\.state_dir,\s*"\/runtime-state"\)/.test(
@@ -9093,16 +9162,19 @@ function runBridge() {
       /CodingToolApprovalBlockRecord/.test(approvalCore) &&
       /CODING_TOOL_APPROVAL_BLOCK_REQUEST_SCHEMA_VERSION/.test(approvalCore) &&
       /CODING_TOOL_APPROVAL_BLOCK_RESULT_SCHEMA_VERSION/.test(approvalCore) &&
-      /pub fn plan_coding_tool_approval_block_response/.test(approvalCore) &&
+      /pub fn plan_coding_tool_approval_block_protocol_response/.test(approvalCore) &&
       /rust_authority_plans_coding_tool_approval_block_result_event/.test(approvalCore) &&
-      /rust_core_shapes_coding_tool_approval_block_command_response/.test(approvalCore) &&
-      /plan_coding_tool_approval_block/.test(commandProtocolCore) &&
-      /CommandOperation::PlanCodingToolApprovalBlock/.test(commandProtocolCore) &&
-      /plan_coding_tool_approval_block_response/.test(coreCommandDispatch) &&
+      /rust_core_shapes_coding_tool_approval_block_protocol_response/.test(approvalCore) &&
+      /approval_command_transport_is_retired/.test(commandProtocolCore) &&
+      !/CommandOperation::PlanCodingToolApprovalBlock/.test(commandProtocolCore) &&
+      !/"plan_coding_tool_approval_block"\s*=>/.test(commandProtocolCore) &&
+      !/plan_coding_tool_approval_block_protocol_response\(decode\(raw_request\)\?\)/.test(
+        coreCommandDispatch,
+      ) &&
       /planApprovalBlock/.test(runtimeCodingToolApprovalCore) &&
       /CODING_TOOL_APPROVAL_BLOCK_REQUEST_SCHEMA_VERSION/.test(runtimeCodingToolApprovalCore) &&
       !/normalizeCodingToolApprovalBlockBridgeResult/.test(runtimeCodingToolApprovalCore) &&
-      /coding tool approval core calls direct Rust daemon-core approval APIs/.test(
+      /coding tool approval core calls typed Rust daemon-core approval APIs/.test(
         runtimeCodingToolApprovalCoreTest,
       ) &&
       /codingToolApprovalBlockForThread/.test(runtimeCodingToolApproval) &&
@@ -9198,7 +9270,7 @@ function runBridge() {
       /APPROVAL_QUEUE_PROJECTION_REQUEST_SCHEMA_VERSION/.test(approvalCore) &&
       /APPROVAL_QUEUE_PROJECTION_RESULT_SCHEMA_VERSION/.test(approvalCore) &&
       /pub state_dir: Option<String>/.test(approvalCore) &&
-      /pub fn project_approval_queue_response/.test(approvalCore) &&
+      /pub fn project_approval_queue_protocol_response/.test(approvalCore) &&
       /rust_authority_projects_public_approval_queue_pending_only/.test(approvalCore) &&
       /rust_authority_projects_public_approval_queue_with_resolved_records/.test(
         approvalCore,
@@ -9209,24 +9281,27 @@ function runBridge() {
       /ApprovalQueueProjectionError::RetiredCandidateTransport/.test(approvalCore) &&
       /approval_queue_projection_sources_from_state_dir/.test(approvalCore) &&
       /approval_queue_state_dir_records/.test(approvalCore) &&
-      /rust_core_shapes_public_approval_queue_command_response/.test(approvalCore) &&
+      /rust_core_shapes_public_approval_queue_protocol_response/.test(approvalCore) &&
       /approval_projection_candidates_from_sources/.test(approvalCore) &&
       /append_approval_projection_source_from_replay/.test(approvalCore) &&
       /latest_approval_queue_decision/.test(approvalCore) &&
       /approval_queue_entry/.test(approvalCore) &&
-      /project_approval_queue/.test(commandProtocolCore) &&
-      /CommandOperation::ProjectApprovalQueue/.test(commandProtocolCore) &&
-      /project_approval_queue_response/.test(coreCommandDispatch) &&
+      /approval_command_transport_is_retired/.test(commandProtocolCore) &&
+      !/CommandOperation::ProjectApprovalQueue/.test(commandProtocolCore) &&
+      !/"project_approval_queue"\s*=>/.test(commandProtocolCore) &&
+      !/project_approval_queue_protocol_response\(decode\(raw_request\)\?\)/.test(
+        coreCommandDispatch,
+      ) &&
       /projectApprovalQueue/.test(runtimeApprovalStateCore) &&
       /APPROVAL_QUEUE_PROJECTION_REQUEST_SCHEMA_VERSION/.test(runtimeApprovalStateCore) &&
       !/normalizeApprovalQueueProjectionBridgeResult/.test(runtimeApprovalStateCore) &&
-      /approval state core calls direct Rust daemon-core approval queue projection API/.test(
+      /approval state core calls typed Rust daemon-core approval queue projection API/.test(
         runtimeApprovalStateCoreTest,
       ) &&
-      /captured\.request\.state_dir,\s*"\/runtime-state"/.test(runtimeApprovalStateCoreTest) &&
-      /Object\.hasOwn\(captured\.request,\s*"agent"\),\s*false/.test(runtimeApprovalStateCoreTest) &&
-      /Object\.hasOwn\(captured\.request,\s*"run"\),\s*false/.test(runtimeApprovalStateCoreTest) &&
-      /Object\.hasOwn\(captured\.request,\s*"runs"\),\s*false/.test(runtimeApprovalStateCoreTest) &&
+      /captured\.state_dir,\s*"\/runtime-state"/.test(runtimeApprovalStateCoreTest) &&
+      /Object\.hasOwn\(captured,\s*"agent"\),\s*false/.test(runtimeApprovalStateCoreTest) &&
+      /Object\.hasOwn\(captured,\s*"run"\),\s*false/.test(runtimeApprovalStateCoreTest) &&
+      /Object\.hasOwn\(captured,\s*"runs"\),\s*false/.test(runtimeApprovalStateCoreTest) &&
       /approval state core fails closed without Rust-planned operation kinds/.test(
         runtimeApprovalStateCoreTest,
       ) &&
@@ -9318,32 +9393,41 @@ function runBridge() {
       /"receipt_refs": request\.receipt_refs\.clone\(\)/.test(approvalCore) &&
       /"policy_decision_refs": request\.policy_decision_refs\.clone\(\)/.test(approvalCore) &&
       /"created_at": request\.created_at/.test(approvalCore) &&
-      /pub struct ApprovalRequestStateUpdateBridgeRequest/.test(approvalCore) &&
-      /pub fn plan_approval_request_state_update_response/.test(approvalCore) &&
-      /rust_approval_request_state_update_command/.test(approvalCore) &&
+      /pub struct ApprovalRequestStateUpdateProtocolRequest/.test(approvalCore) &&
+      /pub fn plan_approval_request_state_update_protocol_response/.test(approvalCore) &&
+      /rust_approval_request_state_update_protocol/.test(approvalCore) &&
       /approval_request_state_update_invalid/.test(approvalCore) &&
-      /rust_core_shapes_approval_request_state_update_command_response/.test(approvalCore) &&
+      /rust_core_shapes_approval_request_state_update_protocol_response/.test(approvalCore) &&
       /response\["operator_control"\]\["approval_id"\]/.test(approvalCore) &&
       /record\.operator_control\.get\("approvalId"\)\.is_none\(\)/.test(approvalCore) &&
       !/"approvalId": approval_id|"eventId": request\.event_id|"receiptRefs": request\.receipt_refs|"policyDecisionRefs": request\.policy_decision_refs|"createdAt": request\.created_at/.test(
         approvalCore,
       ) &&
       !approvalCommandBridgeExists &&
-      !/plan_approval_request_state_update_response as plan_approval_request_state_update/.test(bridgeModule) &&
-      !/ApprovalRequestStateUpdateBridgeRequest/.test(bridgeModule) &&
+      !/plan_approval_request_state_update_protocol_response as plan_approval_request_state_update/.test(bridgeModule) &&
+      !/ApprovalRequestStateUpdateProtocolRequest/.test(bridgeModule) &&
       !/approval_state_rejects_step_module_command_schema/.test(bridgeModule) &&
       !/bridge_plans_approval_request_state_update_through_rust_core/.test(bridgeModule) &&
       !/bridge_plans_approval_request_agent_state_update_through_rust_core/.test(
         bridgeModule,
       ) &&
       !/fn plan_approval_request_state_update/.test(bridgeModule) &&
-      !/struct ApprovalRequestStateUpdateBridgeRequest/.test(bridgeModule) &&
+      !/struct ApprovalRequestStateUpdateProtocolRequest/.test(bridgeModule) &&
       /createRuntimeApprovalStateCore/.test(runtimeApprovalStateCore) &&
       /RuntimeApprovalStateCore/.test(runtimeApprovalStateCore) &&
       /assertNoRetiredApprovalStateCoreOption\("command",\s*options\.command\)/.test(
         runtimeApprovalStateCore,
       ) &&
-      /ioi\.runtime\.daemon_core\.command\.v1/.test(runtimeApprovalStateCore) &&
+      /APPROVAL_REQUEST_STATE_UPDATE_API_METHOD = "planApprovalRequestStateUpdate"/.test(
+        runtimeApprovalStateCore,
+      ) &&
+      /this\.daemonCoreApprovalApi = approvalApi/.test(runtimeApprovalStateCore) &&
+      /assertNoRetiredApprovalStateCoreOption\("daemonCoreInvoker", options\.daemonCoreInvoker\)/.test(
+        runtimeApprovalStateCore,
+      ) &&
+      !/ioi\.runtime\.daemon_core\.command\.v1|operation:\s*"plan_approval_request_state_update"/.test(
+        runtimeApprovalStateCore,
+      ) &&
       !/IOI_STEP_MODULE_COMMAND/.test(runtimeApprovalStateCore) &&
       !/APPROVAL_STATE_COMMAND_ARGS_ENV/.test(runtimeApprovalStateCore) &&
       !/parseCommandArgs/.test(runtimeApprovalStateCore) &&
@@ -9354,7 +9438,7 @@ function runBridge() {
       /assertCanonicalApprovalStateCoreRequest/.test(runtimeApprovalStateCore) &&
       /approval_state_core_compatibility_option_retired/.test(runtimeApprovalStateCore) &&
       /approval_state_core_request_fields_retired/.test(runtimeApprovalStateCore) &&
-      /approval_state_core_direct_invoker_unconfigured/.test(runtimeApprovalStateCore) &&
+      /approval_state_core_direct_approval_api_unconfigured/.test(runtimeApprovalStateCore) &&
       !/createDaemonCoreCommandInvoker/.test(runtimeApprovalStateCore) &&
       !/spawnSyncImpl/.test(runtimeApprovalStateCore) &&
       !/from "node:child_process"/.test(runtimeApprovalStateCore) &&
@@ -9363,11 +9447,11 @@ function runBridge() {
         runtimeApprovalStateCoreTest,
       ) &&
       /planApprovalRequestStateUpdate/.test(runtimeApprovalStateCore) &&
-      /approval state core calls direct Rust daemon-core approval request API/.test(
+      /approval state core calls typed Rust daemon-core approval request API/.test(
         runtimeApprovalStateCoreTest,
       ) &&
       /result\.operator_control\.approval_id/.test(runtimeApprovalStateCoreTest) &&
-      /Object\.hasOwn\(captured\.request,\s*"approvalId"\),\s*false/.test(
+      /Object\.hasOwn\(captured,\s*"approvalId"\),\s*false/.test(
         runtimeApprovalStateCoreTest,
       ) &&
       /approval state core fails closed without direct daemon-core API/.test(
@@ -9466,10 +9550,10 @@ function runBridge() {
       /is_wallet_network_grant_ref/.test(approvalCore) &&
       /approval_decision_authority_hash/.test(approvalCore) &&
       /approval_authority_state_binding_present/.test(approvalCore) &&
-      /pub fn authorize_approval_decision_response/.test(approvalCore) &&
+      /pub fn authorize_approval_decision_protocol_response/.test(approvalCore) &&
       /rust_authority_authorizes_approval_decision_with_wallet_network_grant/.test(approvalCore) &&
       /rust_authority_rejects_approval_decision_without_wallet_network_grant/.test(approvalCore) &&
-      /rust_core_shapes_approval_decision_authority_command_response/.test(approvalCore) &&
+      /rust_core_shapes_approval_decision_authority_protocol_response/.test(approvalCore) &&
       /rust_authority_plans_approval_decision_state_update/.test(approvalCore) &&
       /rust_authority_plans_approval_decision_agent_state_update/.test(approvalCore) &&
       /rust_approval_decision_state_update_requires_state_dir/.test(approvalCore) &&
@@ -9489,25 +9573,32 @@ function runBridge() {
       /"authority_hash": authority_hash/.test(approvalCore) &&
       /"authority_grant_refs": authority_grant_refs/.test(approvalCore) &&
       /"authority_receipt_refs": authority_receipt_refs/.test(approvalCore) &&
-      /pub struct ApprovalDecisionStateUpdateBridgeRequest/.test(approvalCore) &&
-      /pub fn plan_approval_decision_state_update_response/.test(approvalCore) &&
-      /rust_approval_decision_state_update_command/.test(approvalCore) &&
+      /pub struct ApprovalDecisionStateUpdateProtocolRequest/.test(approvalCore) &&
+      /pub fn plan_approval_decision_state_update_protocol_response/.test(approvalCore) &&
+      /rust_approval_decision_state_update_protocol/.test(approvalCore) &&
       /approval_decision_state_update_invalid/.test(approvalCore) &&
-      /rust_core_shapes_approval_decision_state_update_command_response/.test(approvalCore) &&
+      /rust_core_shapes_approval_decision_state_update_protocol_response/.test(approvalCore) &&
       /response\["operator_control"\]\["lease_id"\]/.test(approvalCore) &&
       /record\.operator_control\.get\("leaseId"\)\.is_none\(\)/.test(approvalCore) &&
       !/"approvalId": approval_id|"leaseId": lease_id|"leaseStatus": lease_status/.test(
         approvalCore,
       ) &&
       !approvalCommandBridgeExists &&
-      !/plan_approval_decision_state_update_response as plan_approval_decision_state_update/.test(bridgeModule) &&
-      !/ApprovalDecisionStateUpdateBridgeRequest/.test(bridgeModule) &&
+      !/plan_approval_decision_state_update_protocol_response as plan_approval_decision_state_update/.test(bridgeModule) &&
+      !/ApprovalDecisionStateUpdateProtocolRequest/.test(bridgeModule) &&
       !/bridge_plans_approval_decision_state_update_through_rust_core/.test(bridgeModule) &&
       !/fn plan_approval_decision_state_update/.test(bridgeModule) &&
-      !/struct ApprovalDecisionStateUpdateBridgeRequest/.test(bridgeModule) &&
-      /authorize_approval_decision/.test(commandProtocolCore) &&
-      /CommandOperation::AuthorizeApprovalDecision/.test(commandProtocolCore) &&
-      /authorize_approval_decision_response/.test(coreCommandDispatch) &&
+      !/struct ApprovalDecisionStateUpdateProtocolRequest/.test(bridgeModule) &&
+      /approval_command_transport_is_retired/.test(commandProtocolCore) &&
+      !/CommandOperation::AuthorizeApprovalDecision|CommandOperation::PlanApprovalDecisionStateUpdate/.test(
+        commandProtocolCore,
+      ) &&
+      !/"authorize_approval_decision"\s*=>|"plan_approval_decision_state_update"\s*=>/.test(
+        commandProtocolCore,
+      ) &&
+      !/authorize_approval_decision_protocol_response\(decode\(raw_request\)\?\)|plan_approval_decision_state_update_protocol_response\(decode\(raw_request\)\?\)/.test(
+        coreCommandDispatch,
+      ) &&
       /authorizeApprovalDecision/.test(runtimeApprovalStateCore) &&
       /APPROVAL_DECISION_AUTHORITY_REQUEST_SCHEMA_VERSION/.test(runtimeApprovalStateCore) &&
       !/normalizeApprovalDecisionAuthorityBridgeResult/.test(runtimeApprovalStateCore) &&
@@ -9515,10 +9606,10 @@ function runBridge() {
       /APPROVAL_DECISION_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
         runtimeApprovalStateCore,
       ) &&
-      /approval state core calls direct Rust daemon-core wallet\.network decision authority API/.test(
+      /approval state core calls typed Rust daemon-core wallet\.network decision authority API/.test(
         runtimeApprovalStateCoreTest,
       ) &&
-      /approval state core calls direct Rust daemon-core approval decision state API/.test(
+      /approval state core calls typed Rust daemon-core approval decision state API/.test(
         runtimeApprovalStateCoreTest,
       ) &&
       /authority_record:\s*authority\.authority/.test(
@@ -9652,27 +9743,27 @@ function runBridge() {
       /"approval_id": approval_id/.test(approvalCore) &&
       /"lease_id": lease_id/.test(approvalCore) &&
       /"lease_status": "revoked"/.test(approvalCore) &&
-      /pub struct ApprovalRevokeStateUpdateBridgeRequest/.test(approvalCore) &&
-      /pub fn plan_approval_revoke_state_update_response/.test(approvalCore) &&
-      /rust_approval_revoke_state_update_command/.test(approvalCore) &&
+      /pub struct ApprovalRevokeStateUpdateProtocolRequest/.test(approvalCore) &&
+      /pub fn plan_approval_revoke_state_update_protocol_response/.test(approvalCore) &&
+      /rust_approval_revoke_state_update_protocol/.test(approvalCore) &&
       /approval_revoke_state_update_invalid/.test(approvalCore) &&
-      /rust_core_shapes_approval_revoke_state_update_command_response/.test(approvalCore) &&
+      /rust_core_shapes_approval_revoke_state_update_protocol_response/.test(approvalCore) &&
       /response\["operator_control"\]\["lease_status"\]/.test(approvalCore) &&
       /record\.operator_control\.get\("leaseStatus"\)\.is_none\(\)/.test(approvalCore) &&
       !/"approvalId": approval_id|"leaseId": lease_id|"leaseStatus": "revoked"/.test(
         approvalCore,
       ) &&
       !approvalCommandBridgeExists &&
-      !/plan_approval_revoke_state_update_response as plan_approval_revoke_state_update/.test(bridgeModule) &&
-      !/ApprovalRevokeStateUpdateBridgeRequest/.test(bridgeModule) &&
+      !/plan_approval_revoke_state_update_protocol_response as plan_approval_revoke_state_update/.test(bridgeModule) &&
+      !/ApprovalRevokeStateUpdateProtocolRequest/.test(bridgeModule) &&
       !/bridge_plans_approval_revoke_state_update_through_rust_core/.test(bridgeModule) &&
       !/fn plan_approval_revoke_state_update/.test(bridgeModule) &&
-      !/struct ApprovalRevokeStateUpdateBridgeRequest/.test(bridgeModule) &&
+      !/struct ApprovalRevokeStateUpdateProtocolRequest/.test(bridgeModule) &&
       /planApprovalRevokeStateUpdate/.test(runtimeApprovalStateCore) &&
       /APPROVAL_REVOKE_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
         runtimeApprovalStateCore,
       ) &&
-      /approval state core calls direct Rust daemon-core approval revoke state API/.test(
+      /approval state core calls typed Rust daemon-core approval revoke state API/.test(
         runtimeApprovalStateCoreTest,
       ) &&
       /result\.operator_control\.lease_status/.test(runtimeApprovalStateCoreTest) &&

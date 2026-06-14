@@ -302,26 +302,6 @@ pub fn dispatch_command_operation_response(
         CommandOperation::ApplyWorkspaceSnapshotRestore => {
             apply_workspace_snapshot_restore_response(decode(raw_request)?).map_err(Into::into)
         }
-        CommandOperation::PlanCodingToolApprovalManifest => {
-            plan_coding_tool_approval_manifest_response(decode(raw_request)?).map_err(Into::into)
-        }
-        CommandOperation::ProjectCodingToolApprovalSatisfaction => {
-            project_coding_tool_approval_satisfaction_response(decode(raw_request)?)
-                .map_err(Into::into)
-        }
-        CommandOperation::PlanCodingToolApprovalSatisfaction => {
-            plan_coding_tool_approval_satisfaction_response(decode(raw_request)?)
-                .map_err(Into::into)
-        }
-        CommandOperation::PlanCodingToolApprovalBlock => {
-            plan_coding_tool_approval_block_response(decode(raw_request)?).map_err(Into::into)
-        }
-        CommandOperation::ProjectApprovalQueue => {
-            project_approval_queue_response(decode(raw_request)?).map_err(Into::into)
-        }
-        CommandOperation::AuthorizeApprovalDecision => {
-            authorize_approval_decision_response(decode(raw_request)?).map_err(Into::into)
-        }
         CommandOperation::AdmitCodingToolResultEvent => {
             admit_coding_tool_result_event_response(decode(raw_request)?).map_err(|error| {
                 CommandDispatchError::new(
@@ -395,15 +375,6 @@ pub fn dispatch_command_operation_response(
                     format!("{error:?}"),
                 )
             })
-        }
-        CommandOperation::PlanApprovalRequestStateUpdate => {
-            plan_approval_request_state_update_response(decode(raw_request)?).map_err(Into::into)
-        }
-        CommandOperation::PlanApprovalDecisionStateUpdate => {
-            plan_approval_decision_state_update_response(decode(raw_request)?).map_err(Into::into)
-        }
-        CommandOperation::PlanApprovalRevokeStateUpdate => {
-            plan_approval_revoke_state_update_response(decode(raw_request)?).map_err(Into::into)
         }
         CommandOperation::EvaluateContextBudgetPolicy => {
             evaluate_context_budget_policy_response(decode(raw_request)?).map_err(Into::into)

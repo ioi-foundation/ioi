@@ -596,6 +596,7 @@ export class AgentgresRuntimeStateStore {
     this.runtimeBridge = createRuntimeApiBridge(options.runtimeBridge);
     this.daemonCoreInvoker = options.daemonCoreInvoker;
     this.daemonCoreAuthorityApi = options.daemonCoreAuthorityApi;
+    this.daemonCoreApprovalApi = options.daemonCoreApprovalApi;
     this.daemonCoreCteeApi = options.daemonCoreCteeApi;
     this.daemonCoreWorkerServiceApi = options.daemonCoreWorkerServiceApi;
     this.daemonCoreGovernedAdmissionApi = options.daemonCoreGovernedAdmissionApi;
@@ -615,12 +616,12 @@ export class AgentgresRuntimeStateStore {
     this.codingToolApprovalCore =
       options.codingToolApprovalCore ??
       createRuntimeCodingToolApprovalCore({
-        daemonCoreInvoker: this.daemonCoreInvoker,
+        daemonCoreApprovalApi: this.daemonCoreApprovalApi,
       });
     this.approvalStateCore =
       options.approvalStateCore ??
       createRuntimeApprovalStateCore({
-        daemonCoreInvoker: this.daemonCoreInvoker,
+        daemonCoreApprovalApi: this.daemonCoreApprovalApi,
       });
     this.governedImprovementCore =
       options.governedImprovementCore ??

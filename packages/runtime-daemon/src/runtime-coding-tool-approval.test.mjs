@@ -115,7 +115,7 @@ function approvalCoreMock({ capture = null } = {}) {
     projectApprovalSatisfaction(request) {
       capture?.(request);
       return {
-        source: "rust_coding_tool_approval_satisfaction_projection_command",
+        source: "rust_coding_tool_approval_satisfaction_projection_protocol",
         backend: "rust_authority",
         status: "projected",
         operation_kind: "coding_tool.approval.satisfaction_projection",
@@ -150,7 +150,7 @@ function approvalCoreMock({ capture = null } = {}) {
     planApprovalSatisfaction(request) {
       capture?.(request);
       return {
-        source: "rust_coding_tool_approval_satisfaction_command",
+        source: "rust_coding_tool_approval_satisfaction_protocol",
         backend: "rust_authority",
         status: "satisfied",
         operation_kind: "coding_tool.approval.satisfaction",
@@ -168,7 +168,7 @@ function approvalCoreMock({ capture = null } = {}) {
     planApprovalBlock(request) {
       capture?.(request);
       return {
-        source: "rust_coding_tool_approval_block_command",
+        source: "rust_coding_tool_approval_block_protocol",
         backend: "rust_authority",
         status: "blocked",
         operation_kind: "coding_tool.approval.block",
