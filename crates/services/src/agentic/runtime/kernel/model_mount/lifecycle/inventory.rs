@@ -341,7 +341,7 @@ fn provider_inventory_record(result: &ModelMountProviderInventoryResult) -> Valu
         "record_id": &result.record_id,
         "receipt_refs": &result.receipt_refs,
         "rust_core_boundary": &result.rust_core_boundary,
-        "source": "rust_model_mount_provider_inventory_command",
+        "source": "rust_model_mount_provider_inventory_api",
         "evidence_refs": &result.evidence_refs,
     })
 }

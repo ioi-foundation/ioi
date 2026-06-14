@@ -32,6 +32,14 @@ export const RUST_MODEL_MOUNT_NATIVE_LOCAL_BACKEND = "rust_model_mount_native_lo
 export const RUST_MODEL_MOUNT_NATIVE_LOCAL_INVENTORY_BACKEND = "rust_model_mount_native_local_inventory";
 export const RUST_MODEL_MOUNT_NATIVE_LOCAL_LIFECYCLE_BACKEND = "rust_model_mount_native_local_lifecycle";
 export const MODEL_MOUNT_ROUTE_DECISION_API_METHOD = "admitModelMountRouteDecision";
+export const MODEL_MOUNT_INVOCATION_API_METHOD = "admitModelMountInvocation";
+export const MODEL_MOUNT_PROVIDER_EXECUTION_API_METHOD = "admitModelMountProviderExecution";
+export const MODEL_MOUNT_PROVIDER_INVOCATION_API_METHOD = "executeModelMountProviderInvocation";
+export const MODEL_MOUNT_PROVIDER_STREAM_INVOCATION_API_METHOD = "executeModelMountProviderStreamInvocation";
+export const MODEL_MOUNT_PROVIDER_LIFECYCLE_API_METHOD = "planModelMountProviderLifecycle";
+export const MODEL_MOUNT_PROVIDER_INVENTORY_API_METHOD = "planModelMountProviderInventory";
+export const MODEL_MOUNT_INSTANCE_LIFECYCLE_API_METHOD = "planModelMountInstanceLifecycle";
+export const MODEL_MOUNT_PROVIDER_RESULT_API_METHOD = "admitModelMountProviderResult";
 export const MODEL_MOUNT_STORAGE_CONTROL_API_METHOD = "planModelMountStorageControl";
 
 export function createModelMountCore(options = {}) {
@@ -66,83 +74,51 @@ export class ModelMountCore {
   }
 
   admitInvocation(request) {
-    const bridgeRequest = {
-      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
-      operation: "admit_model_mount_invocation",
-      backend: RUST_MODEL_MOUNT_ADMISSION_BACKEND,
-      request,
-    };
-    return normalizeInvocationBridgeResult(this.invokeDaemonCore(bridgeRequest));
+    return normalizeInvocationApiResult(
+      this.invokeModelMountApi(MODEL_MOUNT_INVOCATION_API_METHOD, request),
+    );
   }
 
   admitProviderExecution(request) {
-    const bridgeRequest = {
-      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
-      operation: "admit_model_mount_provider_execution",
-      backend: RUST_MODEL_MOUNT_ADMISSION_BACKEND,
-      request,
-    };
-    return normalizeProviderExecutionBridgeResult(this.invokeDaemonCore(bridgeRequest));
+    return normalizeProviderExecutionApiResult(
+      this.invokeModelMountApi(MODEL_MOUNT_PROVIDER_EXECUTION_API_METHOD, request),
+    );
   }
 
   executeProviderInvocation(request) {
-    const bridgeRequest = {
-      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
-      operation: "execute_model_mount_provider_invocation",
-      backend: request?.execution_backend ?? RUST_MODEL_MOUNT_FIXTURE_BACKEND,
-      request,
-    };
-    return normalizeProviderInvocationBridgeResult(this.invokeDaemonCore(bridgeRequest));
+    return normalizeProviderInvocationApiResult(
+      this.invokeModelMountApi(MODEL_MOUNT_PROVIDER_INVOCATION_API_METHOD, request),
+    );
   }
 
   executeProviderStreamInvocation(request) {
-    const bridgeRequest = {
-      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
-      operation: "execute_model_mount_provider_stream_invocation",
-      backend: request?.execution_backend ?? RUST_MODEL_MOUNT_NATIVE_LOCAL_BACKEND,
-      request,
-    };
-    return normalizeProviderStreamInvocationBridgeResult(this.invokeDaemonCore(bridgeRequest));
+    return normalizeProviderStreamInvocationApiResult(
+      this.invokeModelMountApi(MODEL_MOUNT_PROVIDER_STREAM_INVOCATION_API_METHOD, request),
+    );
   }
 
   planProviderLifecycle(request) {
-    const bridgeRequest = {
-      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
-      operation: "plan_model_mount_provider_lifecycle",
-      backend: request?.execution_backend ?? RUST_MODEL_MOUNT_NATIVE_LOCAL_LIFECYCLE_BACKEND,
-      request,
-    };
-    return normalizeProviderLifecycleBridgeResult(this.invokeDaemonCore(bridgeRequest));
+    return normalizeProviderLifecycleApiResult(
+      this.invokeModelMountApi(MODEL_MOUNT_PROVIDER_LIFECYCLE_API_METHOD, request),
+    );
   }
 
   planProviderInventory(request) {
-    const bridgeRequest = {
-      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
-      operation: "plan_model_mount_provider_inventory",
-      backend: request?.execution_backend ?? RUST_MODEL_MOUNT_NATIVE_LOCAL_INVENTORY_BACKEND,
-      request,
-    };
-    return normalizeProviderInventoryBridgeResult(this.invokeDaemonCore(bridgeRequest));
+    return normalizeProviderInventoryApiResult(
+      this.invokeModelMountApi(MODEL_MOUNT_PROVIDER_INVENTORY_API_METHOD, request),
+    );
   }
 
   planInstanceLifecycle(request) {
-    const bridgeRequest = {
-      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
-      operation: "plan_model_mount_instance_lifecycle",
-      backend: request?.execution_backend ?? RUST_MODEL_MOUNT_INSTANCE_LIFECYCLE_BACKEND,
-      request,
-    };
-    return normalizeInstanceLifecycleBridgeResult(this.invokeDaemonCore(bridgeRequest));
+    return normalizeInstanceLifecycleApiResult(
+      this.invokeModelMountApi(MODEL_MOUNT_INSTANCE_LIFECYCLE_API_METHOD, request),
+    );
   }
 
   admitProviderResult(request) {
-    const bridgeRequest = {
-      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
-      operation: "admit_model_mount_provider_result",
-      backend: RUST_MODEL_MOUNT_ADMISSION_BACKEND,
-      request,
-    };
-    return normalizeProviderResultBridgeResult(this.invokeDaemonCore(bridgeRequest));
+    return normalizeProviderResultApiResult(
+      this.invokeModelMountApi(MODEL_MOUNT_PROVIDER_RESULT_API_METHOD, request),
+    );
   }
 
   planBackendProcess(request) {
@@ -468,11 +444,11 @@ function normalizeRouteDecisionApiResult(value = {}) {
   };
 }
 
-function normalizeInvocationBridgeResult(value = {}) {
+function normalizeInvocationApiResult(value = {}) {
   const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
-  const record = result.record && typeof result.record === "object" ? result.record : {};
+  const record = result.record && typeof result.record === "object" ? result.record : result;
   return {
-    source: result.source ?? "rust_model_mount_invocation_command",
+    source: result.source ?? "rust_model_mount_invocation_api",
     backend: result.backend ?? RUST_MODEL_MOUNT_ADMISSION_BACKEND,
     record,
     invocation_admission_ref: result.invocation_admission_ref ?? record.invocation_admission_ref ?? null,
@@ -486,11 +462,11 @@ function normalizeInvocationBridgeResult(value = {}) {
   };
 }
 
-function normalizeProviderExecutionBridgeResult(value = {}) {
+function normalizeProviderExecutionApiResult(value = {}) {
   const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
-  const record = result.record && typeof result.record === "object" ? result.record : {};
+  const record = result.record && typeof result.record === "object" ? result.record : result;
   return {
-    source: result.source ?? "rust_model_mount_provider_execution_command",
+    source: result.source ?? "rust_model_mount_provider_execution_api",
     backend: result.backend ?? RUST_MODEL_MOUNT_ADMISSION_BACKEND,
     record,
     provider_execution_ref: result.provider_execution_ref ?? record.provider_execution_ref ?? null,
@@ -504,11 +480,11 @@ function normalizeProviderExecutionBridgeResult(value = {}) {
   };
 }
 
-function normalizeProviderInvocationBridgeResult(value = {}) {
+function normalizeProviderInvocationApiResult(value = {}) {
   const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
-  const record = result.result && typeof result.result === "object" ? result.result : {};
+  const record = result.result && typeof result.result === "object" ? result.result : result;
   return {
-    source: result.source ?? "rust_model_mount_provider_invocation_command",
+    source: result.source ?? "rust_model_mount_provider_invocation_api",
     backend: result.backend ?? record.execution_backend ?? RUST_MODEL_MOUNT_FIXTURE_BACKEND,
     result: record,
     outputText: result.outputText ?? result.output_text ?? record.output_text ?? "",
@@ -534,9 +510,9 @@ function normalizeProviderInvocationBridgeResult(value = {}) {
   };
 }
 
-function normalizeProviderStreamInvocationBridgeResult(value = {}) {
+function normalizeProviderStreamInvocationApiResult(value = {}) {
   const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
-  const record = result.result && typeof result.result === "object" ? result.result : {};
+  const record = result.result && typeof result.result === "object" ? result.result : result;
   const streamChunks = Array.isArray(result.streamChunks)
     ? result.streamChunks
     : Array.isArray(result.stream_chunks)
@@ -545,7 +521,7 @@ function normalizeProviderStreamInvocationBridgeResult(value = {}) {
         ? record.stream_chunks
         : [];
   return {
-    source: result.source ?? "rust_model_mount_provider_stream_invocation_command",
+    source: result.source ?? "rust_model_mount_provider_stream_invocation_api",
     backend: result.backend ?? record.execution_backend ?? RUST_MODEL_MOUNT_NATIVE_LOCAL_BACKEND,
     result: record,
     outputText: result.outputText ?? result.output_text ?? record.output_text ?? "",
@@ -574,16 +550,16 @@ function normalizeProviderStreamInvocationBridgeResult(value = {}) {
   };
 }
 
-function normalizeProviderLifecycleBridgeResult(value = {}) {
+function normalizeProviderLifecycleApiResult(value = {}) {
   const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
-  const record = result.result && typeof result.result === "object" ? result.result : {};
+  const record = result.result && typeof result.result === "object" ? result.result : result;
   const lifecycleRecord = result.record && typeof result.record === "object" && !Array.isArray(result.record)
     ? result.record
     : record.record && typeof record.record === "object" && !Array.isArray(record.record)
       ? record.record
       : null;
   return {
-    source: result.source ?? "rust_model_mount_provider_lifecycle_command",
+    source: result.source ?? "rust_model_mount_provider_lifecycle_api",
     backend: result.backend ?? record.execution_backend ?? RUST_MODEL_MOUNT_NATIVE_LOCAL_LIFECYCLE_BACKEND,
     result: record,
     status: result.status ?? record.status ?? null,
@@ -620,16 +596,16 @@ function normalizeProviderLifecycleBridgeResult(value = {}) {
   };
 }
 
-function normalizeProviderInventoryBridgeResult(value = {}) {
+function normalizeProviderInventoryApiResult(value = {}) {
   const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
-  const record = result.result && typeof result.result === "object" ? result.result : {};
+  const record = result.result && typeof result.result === "object" ? result.result : result;
   const itemRefs = Array.isArray(result.item_refs)
       ? result.item_refs
       : Array.isArray(record.item_refs)
         ? record.item_refs
         : null;
   return {
-    source: result.source ?? "rust_model_mount_provider_inventory_command",
+    source: result.source ?? "rust_model_mount_provider_inventory_api",
     backend: result.backend ?? record.execution_backend ?? RUST_MODEL_MOUNT_NATIVE_LOCAL_INVENTORY_BACKEND,
     result: record,
     status: result.status ?? record.status ?? null,
@@ -667,11 +643,11 @@ function normalizeProviderInventoryBridgeResult(value = {}) {
   };
 }
 
-function normalizeInstanceLifecycleBridgeResult(value = {}) {
+function normalizeInstanceLifecycleApiResult(value = {}) {
   const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
-  const record = result.result && typeof result.result === "object" ? result.result : {};
+  const record = result.result && typeof result.result === "object" ? result.result : result;
   return {
-    source: result.source ?? "rust_model_mount_instance_lifecycle_command",
+    source: result.source ?? "rust_model_mount_instance_lifecycle_api",
     backend: result.backend ?? record.execution_backend ?? RUST_MODEL_MOUNT_INSTANCE_LIFECYCLE_BACKEND,
     result: record,
     action: result.action ?? record.action ?? null,
@@ -694,11 +670,11 @@ function normalizeInstanceLifecycleBridgeResult(value = {}) {
   };
 }
 
-function normalizeProviderResultBridgeResult(value = {}) {
+function normalizeProviderResultApiResult(value = {}) {
   const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
-  const record = result.record && typeof result.record === "object" ? result.record : {};
+  const record = result.record && typeof result.record === "object" ? result.record : result;
   return {
-    source: result.source ?? "rust_model_mount_provider_result_command",
+    source: result.source ?? "rust_model_mount_provider_result_api",
     backend: result.backend ?? RUST_MODEL_MOUNT_ADMISSION_BACKEND,
     record,
     provider_result_ref:

@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 
 use super::{
@@ -75,13 +74,6 @@ pub struct ModelMountProviderResultAdmissionRecord {
     pub backend_evidence_refs: Vec<String>,
     pub evidence_refs: Vec<String>,
     pub provider_result_hash: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct ModelMountProviderResultAdmissionBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: ModelMountProviderResultAdmissionRequest,
 }
 
 impl ModelMountProviderResultAdmissionRequest {
@@ -186,26 +178,6 @@ pub(super) fn admit_provider_result(
     Ok(record)
 }
 
-pub fn admit_model_mount_provider_result_response(
-    request: ModelMountProviderResultAdmissionBridgeRequest,
-) -> Result<Value, ModelMountError> {
-    let record = admit_provider_result(&request.request)?;
-    let provider_result_ref = record.provider_result_ref.clone();
-    let provider_result_hash = record.provider_result_hash.clone();
-    let receipt_refs = record.receipt_refs.clone();
-    let evidence_refs = record.evidence_refs.clone();
-
-    Ok(json!({
-        "source": "rust_model_mount_provider_result_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_model_mount_live".to_string()),
-        "record": record,
-        "provider_result_ref": provider_result_ref,
-        "provider_result_hash": provider_result_hash,
-        "receipt_refs": receipt_refs,
-        "evidence_refs": evidence_refs,
-    }))
-}
-
 fn is_rust_provider_result_backend(request: &ModelMountProviderResultAdmissionRequest) -> bool {
     match request.execution_backend.trim() {
         "rust_model_mount_fixture" => {
@@ -261,7 +233,6 @@ fn provider_result_hash(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::agentic::runtime::kernel::command_protocol::DAEMON_CORE_COMMAND_SCHEMA_VERSION;
     use crate::agentic::runtime::kernel::model_mount::provider_execution::{
         admit_provider_execution, ModelMountProviderExecutionRequest,
     };
@@ -373,64 +344,31 @@ mod tests {
     }
 
     #[test]
-    fn rust_core_shapes_model_mount_provider_result_command_response() {
-        let request: ModelMountProviderResultAdmissionBridgeRequest =
-            serde_json::from_value(json!({
-                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
-                "operation": "admit_model_mount_provider_result",
-                "backend": "rust_model_mount_live",
-                "request": provider_result_admission_request()
-            }))
-            .expect("provider result command request");
+    fn rust_core_admits_model_mount_provider_result_direct_api() {
+        let record =
+            admit_provider_result(&provider_result_admission_request()).expect("result admitted");
 
-        let response =
-            admit_model_mount_provider_result_response(request).expect("result admitted");
-
-        assert_eq!(
-            response["source"],
-            "rust_model_mount_provider_result_command"
-        );
-        assert_eq!(response["backend"], "rust_model_mount_live");
-        assert_eq!(
-            response["record"]["execution_backend"],
-            "rust_model_mount_fixture"
-        );
-        assert!(response["record"]["evidence_refs"]
-            .as_array()
-            .expect("evidence refs")
-            .iter()
-            .any(|value| value == "rust_model_mount_provider_result_backend_bound"));
-        assert!(!response["record"]["evidence_refs"]
-            .as_array()
-            .expect("evidence refs")
+        assert_eq!(record.execution_backend, "rust_model_mount_fixture");
+        assert!(record
+            .evidence_refs
+            .contains(&"rust_model_mount_provider_result_backend_bound".to_string()));
+        assert!(!record
+            .evidence_refs
             .iter()
             .any(|value| value == "js_provider_driver_observation_bound"));
-        assert!(response["provider_result_ref"]
-            .as_str()
-            .expect("provider result ref")
+        assert!(record
+            .provider_result_ref
             .starts_with("model_mount://provider_result/"));
-        assert!(response["provider_result_hash"]
-            .as_str()
-            .expect("provider result hash")
-            .starts_with("sha256:"));
+        assert!(record.provider_result_hash.starts_with("sha256:"));
     }
 
     #[test]
-    fn rust_core_rejects_retired_js_provider_result_command_response() {
+    fn rust_core_rejects_retired_js_provider_result_direct_api() {
         let mut retired_observation_request = provider_result_admission_request();
         retired_observation_request.execution_backend =
             "js_provider_driver_observation".to_string();
 
-        let request: ModelMountProviderResultAdmissionBridgeRequest =
-            serde_json::from_value(json!({
-                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
-                "operation": "admit_model_mount_provider_result",
-                "backend": "rust_model_mount_live",
-                "request": retired_observation_request
-            }))
-            .expect("retired provider result command request");
-
-        let error = admit_model_mount_provider_result_response(request)
+        let error = admit_provider_result(&retired_observation_request)
             .expect_err("retired JS provider result observations fail in Rust core");
 
         assert_eq!(error, ModelMountError::UnsupportedProviderResultBackend);

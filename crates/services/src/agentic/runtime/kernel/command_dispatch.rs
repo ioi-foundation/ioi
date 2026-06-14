@@ -112,62 +112,6 @@ pub fn dispatch_command_operation_response(
         CommandOperation::RunCodingToolStepModule => {
             run_coding_tool_step_module_response(decode(raw_request)?).map_err(Into::into)
         }
-        CommandOperation::AdmitModelMountInvocation => {
-            admit_model_mount_invocation_response(decode(raw_request)?).map_err(|error| {
-                CommandDispatchError::new("model_mount_invocation_rejected", format!("{error:?}"))
-            })
-        }
-        CommandOperation::AdmitModelMountProviderExecution => {
-            admit_model_mount_provider_execution_response(decode(raw_request)?).map_err(|error| {
-                CommandDispatchError::new(
-                    "model_mount_provider_execution_rejected",
-                    format!("{error:?}"),
-                )
-            })
-        }
-        CommandOperation::ExecuteModelMountProviderInvocation => {
-            execute_model_mount_provider_invocation_response(decode(raw_request)?).map_err(
-                |error| {
-                    CommandDispatchError::new(
-                        "model_mount_provider_invocation_rejected",
-                        format!("{error:?}"),
-                    )
-                },
-            )
-        }
-        CommandOperation::ExecuteModelMountProviderStreamInvocation => {
-            execute_model_mount_provider_stream_invocation_response(decode(raw_request)?).map_err(
-                |error| {
-                    CommandDispatchError::new(
-                        "model_mount_provider_stream_invocation_rejected",
-                        format!("{error:?}"),
-                    )
-                },
-            )
-        }
-        CommandOperation::PlanModelMountProviderLifecycle => {
-            plan_model_mount_provider_lifecycle_response(decode(raw_request)?).map_err(|error| {
-                model_mount_error("model_mount_provider_lifecycle_rejected", error)
-            })
-        }
-        CommandOperation::PlanModelMountProviderInventory => {
-            plan_model_mount_provider_inventory_response(decode(raw_request)?).map_err(|error| {
-                model_mount_error("model_mount_provider_inventory_rejected", error)
-            })
-        }
-        CommandOperation::PlanModelMountInstanceLifecycle => {
-            plan_model_mount_instance_lifecycle_response(decode(raw_request)?).map_err(|error| {
-                model_mount_error("model_mount_instance_lifecycle_rejected", error)
-            })
-        }
-        CommandOperation::AdmitModelMountProviderResult => {
-            admit_model_mount_provider_result_response(decode(raw_request)?).map_err(|error| {
-                CommandDispatchError::new(
-                    "model_mount_provider_result_rejected",
-                    format!("{error:?}"),
-                )
-            })
-        }
         CommandOperation::PlanModelMountBackendProcess => {
             plan_model_mount_backend_process_response(decode(raw_request)?).map_err(|error| {
                 model_mount_error("model_mount_backend_process_plan_rejected", error)

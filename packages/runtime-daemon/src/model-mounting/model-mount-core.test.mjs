@@ -3,6 +3,14 @@ import test from "node:test";
 
 import {
   MODEL_MOUNT_CORE_SCHEMA_VERSION,
+  MODEL_MOUNT_INSTANCE_LIFECYCLE_API_METHOD,
+  MODEL_MOUNT_INVOCATION_API_METHOD,
+  MODEL_MOUNT_PROVIDER_EXECUTION_API_METHOD,
+  MODEL_MOUNT_PROVIDER_INVENTORY_API_METHOD,
+  MODEL_MOUNT_PROVIDER_INVOCATION_API_METHOD,
+  MODEL_MOUNT_PROVIDER_LIFECYCLE_API_METHOD,
+  MODEL_MOUNT_PROVIDER_RESULT_API_METHOD,
+  MODEL_MOUNT_PROVIDER_STREAM_INVOCATION_API_METHOD,
   MODEL_MOUNT_ROUTE_DECISION_API_METHOD,
   MODEL_MOUNT_STORAGE_CONTROL_API_METHOD,
   ModelMountCoreError,
@@ -27,6 +35,22 @@ import {
   createModelMountCore,
   ModelMountCore,
 } from "./model-mount-core.mjs";
+
+function rejectMigratedModelMountCommandInvoker(calls = []) {
+  return (request) => {
+    calls.push({ method: "daemonCoreInvoker", request });
+    throw new Error(
+      `generic command invoker must not run migrated model_mount typed APIs: ${request?.operation}`,
+    );
+  };
+}
+
+function assertDirectModelMountApiCall(call, method, schemaVersion) {
+  assert.equal(call.method, method);
+  assert.equal(call.request.schema_version, schemaVersion);
+  assert.equal(Object.hasOwn(call.request, "operation"), false);
+  assert.equal(Object.hasOwn(call.request, "backend"), false);
+}
 
 function routeRequest() {
   return {
@@ -691,14 +715,6 @@ function streamCancelRequest() {
 
 test("Rust model_mount core does not synthesize Rust-owned receipt, required-boundary evidence, or process fields", () => {
   const sparseResultByOperation = new Map([
-    ["admit_model_mount_invocation", { record: {} }],
-    ["admit_model_mount_provider_execution", { record: {} }],
-    ["execute_model_mount_provider_invocation", { result: {} }],
-    ["execute_model_mount_provider_stream_invocation", { result: {} }],
-    ["plan_model_mount_provider_lifecycle", { result: {} }],
-    ["plan_model_mount_provider_inventory", { result: {} }],
-    ["plan_model_mount_instance_lifecycle", { result: {} }],
-    ["admit_model_mount_provider_result", { record: {} }],
     ["plan_model_mount_backend_process", { result: {} }],
     ["plan_model_mount_accepted_receipt_head", { head: {} }],
     ["plan_model_mount_accepted_receipt_transition", { transition: {} }],
@@ -710,6 +726,30 @@ test("Rust model_mount core does not synthesize Rust-owned receipt, required-bou
   const runner = new ModelMountCore({
     daemonCoreModelMountApi: {
       admitModelMountRouteDecision() {
+        return { ok: true, result: { record: {} } };
+      },
+      admitModelMountInvocation() {
+        return { ok: true, result: { record: {} } };
+      },
+      admitModelMountProviderExecution() {
+        return { ok: true, result: { record: {} } };
+      },
+      executeModelMountProviderInvocation() {
+        return { ok: true, result: {} };
+      },
+      executeModelMountProviderStreamInvocation() {
+        return { ok: true, result: {} };
+      },
+      planModelMountProviderLifecycle() {
+        return { ok: true, result: {} };
+      },
+      planModelMountProviderInventory() {
+        return { ok: true, result: {} };
+      },
+      planModelMountInstanceLifecycle() {
+        return { ok: true, result: {} };
+      },
+      admitModelMountProviderResult() {
         return { ok: true, result: { record: {} } };
       },
     },
@@ -846,86 +886,99 @@ test("Rust model_mount core rejects command-shaped route-decision fallback", () 
   );
 });
 
-test("Rust model_mount core sends invocation through direct daemon-core invoker", () => {
+test("Rust model_mount core sends invocation through typed daemon-core API", () => {
   const calls = [];
   const runner = new ModelMountCore({
-    daemonCoreInvoker(request) {
-      calls.push({ request });
-      return {
-        ok: true,
-        result: {
-            source: "rust_model_mount_invocation_command",
+    daemonCoreModelMountApi: {
+      admitModelMountInvocation(request) {
+        calls.push({ method: MODEL_MOUNT_INVOCATION_API_METHOD, request });
+        return {
+          ok: true,
+          result: {
+            source: "rust_model_mount_invocation_api",
             backend: "rust_model_mount_live",
             record: {
-              ...request.request,
+              ...request,
               invocation_admission_ref: "model_mount://invocation_admission/test",
               invocation_admission_hash: "sha256:invocation-test",
             },
             invocation_admission_ref: "model_mount://invocation_admission/test",
             invocation_admission_hash: "sha256:invocation-test",
-            receipt_refs: request.request.receipt_refs,
+            receipt_refs: request.receipt_refs,
             evidence_refs: ["rust_model_mount_core"],
           },
-      };
+        };
+      },
     },
+    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(calls),
   });
 
   const result = runner.admitInvocation(invocationRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
-  assert.equal(calls[0].request.operation, "admit_model_mount_invocation");
-  assert.equal(calls[0].request.request.route_decision_ref, "model_mount://route_decision/test");
+  assertDirectModelMountApiCall(
+    calls[0],
+    MODEL_MOUNT_INVOCATION_API_METHOD,
+    "ioi.model_mount.invocation_admission.v1",
+  );
+  assert.equal(calls[0].request.route_decision_ref, "model_mount://route_decision/test");
   assert.equal(result.invocation_admission_ref, "model_mount://invocation_admission/test");
   assert.equal(result.record.invocation_admission_hash, "sha256:invocation-test");
 });
 
-test("Rust model_mount core sends provider execution through direct daemon-core invoker", () => {
+test("Rust model_mount core sends provider execution through typed daemon-core API", () => {
   const calls = [];
   const runner = new ModelMountCore({
-    daemonCoreInvoker(request) {
-      calls.push({ request });
-      return {
-        ok: true,
-        result: {
-            source: "rust_model_mount_provider_execution_command",
+    daemonCoreModelMountApi: {
+      admitModelMountProviderExecution(request) {
+        calls.push({ method: MODEL_MOUNT_PROVIDER_EXECUTION_API_METHOD, request });
+        return {
+          ok: true,
+          result: {
+            source: "rust_model_mount_provider_execution_api",
             backend: "rust_model_mount_live",
             record: {
-              ...request.request,
+              ...request,
               provider_execution_ref: "model_mount://provider_execution/test",
               provider_execution_hash: "sha256:provider-execution-test",
             },
             provider_execution_ref: "model_mount://provider_execution/test",
             provider_execution_hash: "sha256:provider-execution-test",
-            receipt_refs: request.request.receipt_refs,
+            receipt_refs: request.receipt_refs,
             evidence_refs: ["rust_model_mount_core"],
           },
-      };
+        };
+      },
     },
+    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(calls),
   });
 
   const result = runner.admitProviderExecution(providerExecutionRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
-  assert.equal(calls[0].request.operation, "admit_model_mount_provider_execution");
-  assert.equal(calls[0].request.request.request_hash, "sha256:request");
+  assertDirectModelMountApiCall(
+    calls[0],
+    MODEL_MOUNT_PROVIDER_EXECUTION_API_METHOD,
+    "ioi.model_mount.provider_execution.v1",
+  );
+  assert.equal(calls[0].request.request_hash, "sha256:request");
   assert.equal(result.provider_execution_ref, "model_mount://provider_execution/test");
   assert.equal(result.record.provider_execution_hash, "sha256:provider-execution-test");
 });
 
-test("Rust model_mount core sends provider invocation through direct daemon-core invoker", () => {
+test("Rust model_mount core sends provider invocation through typed daemon-core API", () => {
   const calls = [];
   const runner = new ModelMountCore({
-    daemonCoreInvoker(request) {
-      calls.push({ request });
-      return {
-        ok: true,
-        result: {
-            source: "rust_model_mount_provider_invocation_command",
+    daemonCoreModelMountApi: {
+      executeModelMountProviderInvocation(request) {
+        calls.push({ method: MODEL_MOUNT_PROVIDER_INVOCATION_API_METHOD, request });
+        return {
+          ok: true,
+          result: {
+            source: "rust_model_mount_provider_invocation_api",
             backend: "rust_model_mount_fixture",
             result: {
-              ...request.request,
+              ...request,
               output_text: "IOI model router fixture response from model.local. input_hash=abc123",
               token_count: { prompt_tokens: 3, completion_tokens: 8, total_tokens: 11 },
               provider_response_kind: "rust_model_mount.fixture",
@@ -945,35 +998,40 @@ test("Rust model_mount core sends provider invocation through direct daemon-core
             invocation_hash: "sha256:invocation",
             evidence_refs: ["rust_model_mount_provider_invocation"],
           },
-      };
+        };
+      },
     },
+    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(calls),
   });
 
   const result = runner.executeProviderInvocation(providerInvocationRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
-  assert.equal(calls[0].request.operation, "execute_model_mount_provider_invocation");
-  assert.equal(calls[0].request.backend, "rust_model_mount_fixture");
-  assert.equal(calls[0].request.request.provider_execution_ref, "model_mount://provider_execution/test");
+  assertDirectModelMountApiCall(
+    calls[0],
+    MODEL_MOUNT_PROVIDER_INVOCATION_API_METHOD,
+    "ioi.model_mount.provider_invocation.v1",
+  );
+  assert.equal(calls[0].request.provider_execution_ref, "model_mount://provider_execution/test");
   assert.equal(result.outputText.startsWith("IOI model router fixture response"), true);
   assert.equal(result.executionBackend, "rust_model_mount_fixture");
   assert.equal(result.backendId, "backend.fixture");
   assert.equal(result.invocation_hash, "sha256:invocation");
 });
 
-test("Rust model_mount core sends native-local provider stream invocation through direct daemon-core invoker", () => {
+test("Rust model_mount core sends native-local provider stream invocation through typed daemon-core API", () => {
   const calls = [];
   const runner = new ModelMountCore({
-    daemonCoreInvoker(request) {
-      calls.push({ request });
-      return {
-        ok: true,
-        result: {
-            source: "rust_model_mount_provider_stream_invocation_command",
+    daemonCoreModelMountApi: {
+      executeModelMountProviderStreamInvocation(request) {
+        calls.push({ method: MODEL_MOUNT_PROVIDER_STREAM_INVOCATION_API_METHOD, request });
+        return {
+          ok: true,
+          result: {
+            source: "rust_model_mount_provider_stream_invocation_api",
             backend: "rust_model_mount_native_local_stream",
             result: {
-              ...request.request,
+              ...request,
               schema_version: "ioi.model_mount.provider_stream_invocation.v1",
               output_text: "Autopilot native local stream response",
               token_count: { prompt_tokens: 3, completion_tokens: 8, total_tokens: 11 },
@@ -1006,18 +1064,22 @@ test("Rust model_mount core sends native-local provider stream invocation throug
             invocation_hash: "sha256:stream-invocation",
             evidence_refs: ["rust_model_mount_provider_stream_invocation"],
           },
-      };
+        };
+      },
     },
+    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(calls),
   });
 
   const result = runner.executeProviderStreamInvocation(providerStreamInvocationRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
-  assert.equal(calls[0].request.operation, "execute_model_mount_provider_stream_invocation");
-  assert.equal(calls[0].request.backend, "rust_model_mount_native_local_stream");
-  assert.equal(calls[0].request.request.provider_kind, "ioi_native_local");
-  assert.equal(calls[0].request.request.stream_status, "started");
+  assertDirectModelMountApiCall(
+    calls[0],
+    MODEL_MOUNT_PROVIDER_STREAM_INVOCATION_API_METHOD,
+    "ioi.model_mount.provider_invocation.v1",
+  );
+  assert.equal(calls[0].request.provider_kind, "ioi_native_local");
+  assert.equal(calls[0].request.stream_status, "started");
   assert.equal(result.outputText, "Autopilot native local stream response");
   assert.equal(result.providerResponseKind, "rust_model_mount.native_local.stream");
   assert.equal(result.executionBackend, "rust_model_mount_native_local_stream");
@@ -1028,18 +1090,19 @@ test("Rust model_mount core sends native-local provider stream invocation throug
   assert.equal(result.invocation_hash, "sha256:stream-invocation");
 });
 
-test("Rust model_mount core sends native-local provider lifecycle through direct daemon-core invoker", () => {
+test("Rust model_mount core sends native-local provider lifecycle through typed daemon-core API", () => {
   const calls = [];
   const runner = new ModelMountCore({
-    daemonCoreInvoker(request) {
-      calls.push({ request });
-      return {
-        ok: true,
-        result: {
-            source: "rust_model_mount_provider_lifecycle_command",
+    daemonCoreModelMountApi: {
+      planModelMountProviderLifecycle(request) {
+        calls.push({ method: MODEL_MOUNT_PROVIDER_LIFECYCLE_API_METHOD, request });
+        return {
+          ok: true,
+          result: {
+            source: "rust_model_mount_provider_lifecycle_api",
             backend: "rust_model_mount_native_local_lifecycle",
             result: {
-              ...request.request,
+              ...request,
               status: "loaded",
               backend: "autopilot.native_local.fixture",
               backend_id: "backend.autopilot.native-local.fixture",
@@ -1055,17 +1118,21 @@ test("Rust model_mount core sends native-local provider lifecycle through direct
             lifecycle_hash: "sha256:lifecycle",
             evidence_refs: ["rust_model_mount_provider_lifecycle"],
           },
-      };
+        };
+      },
     },
+    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(calls),
   });
 
   const result = runner.planProviderLifecycle(providerLifecycleRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
-  assert.equal(calls[0].request.operation, "plan_model_mount_provider_lifecycle");
-  assert.equal(calls[0].request.backend, "rust_model_mount_native_local_lifecycle");
-  assert.equal(calls[0].request.request.action, "load");
+  assertDirectModelMountApiCall(
+    calls[0],
+    MODEL_MOUNT_PROVIDER_LIFECYCLE_API_METHOD,
+    "ioi.model_mount.provider_lifecycle.v1",
+  );
+  assert.equal(calls[0].request.action, "load");
   assert.equal(result.status, "loaded");
   assert.equal(result.providerBackend, "autopilot.native_local.fixture");
   assert.equal(result.backendId, "backend.autopilot.native-local.fixture");
@@ -1075,18 +1142,19 @@ test("Rust model_mount core sends native-local provider lifecycle through direct
   assert.equal(Object.hasOwn(result.result, "backendId"), false);
 });
 
-test("Rust model_mount core sends hosted provider lifecycle through direct daemon-core invoker", () => {
+test("Rust model_mount core sends hosted provider lifecycle through typed daemon-core API", () => {
   const calls = [];
   const runner = new ModelMountCore({
-    daemonCoreInvoker(request) {
-      calls.push({ request });
-      return {
-        ok: true,
-        result: {
-          source: "rust_model_mount_provider_lifecycle_command",
+    daemonCoreModelMountApi: {
+      planModelMountProviderLifecycle(request) {
+        calls.push({ method: MODEL_MOUNT_PROVIDER_LIFECYCLE_API_METHOD, request });
+        return {
+          ok: true,
+          result: {
+          source: "rust_model_mount_provider_lifecycle_api",
           backend: "rust_model_mount_hosted_provider_lifecycle",
           result: {
-            ...request.request,
+            ...request,
             status: "available",
             backend: "openai_compatible",
             backend_id: "backend.hosted.custom_http",
@@ -1110,8 +1178,10 @@ test("Rust model_mount core sends hosted provider lifecycle through direct daemo
             "hosted_provider_transport_not_executed",
           ],
         },
-      };
+        };
+      },
     },
+    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(calls),
   });
 
   const result = runner.planProviderLifecycle({
@@ -1128,9 +1198,12 @@ test("Rust model_mount core sends hosted provider lifecycle through direct daemo
   });
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.operation, "plan_model_mount_provider_lifecycle");
-  assert.equal(calls[0].request.backend, "rust_model_mount_hosted_provider_lifecycle");
-  assert.equal(calls[0].request.request.provider_kind, "custom_http");
+  assertDirectModelMountApiCall(
+    calls[0],
+    MODEL_MOUNT_PROVIDER_LIFECYCLE_API_METHOD,
+    "ioi.model_mount.provider_lifecycle.v1",
+  );
+  assert.equal(calls[0].request.provider_kind, "custom_http");
   assert.equal(result.status, "available");
   assert.equal(result.providerBackend, "openai_compatible");
   assert.equal(result.driver, "hosted_provider_metadata");
@@ -1138,17 +1211,18 @@ test("Rust model_mount core sends hosted provider lifecycle through direct daemo
   assert.equal(result.evidence_refs.includes("hosted_provider_transport_not_executed"), true);
 });
 
-test("Rust model_mount core sends local provider inventory through direct daemon-core invoker", () => {
+test("Rust model_mount core sends local provider inventory through typed daemon-core API", () => {
   const calls = [];
   const runner = new ModelMountCore({
-    daemonCoreInvoker(request) {
-      calls.push({ request });
+    daemonCoreModelMountApi: {
+      planModelMountProviderInventory(request) {
+      calls.push({ method: MODEL_MOUNT_PROVIDER_INVENTORY_API_METHOD, request });
       const record = {
         id: "provider_inventory_native_list_loaded",
         object: "ioi.model_mount_provider_inventory",
-        schema_version: request.request.schema_version,
-        provider_ref: request.request.provider_ref,
-        provider_kind: request.request.provider_kind,
+        schema_version: request.schema_version,
+        provider_ref: request.provider_ref,
+        provider_kind: request.provider_kind,
         action: "list_loaded",
         operation_kind: "model_mount.provider.inventory.list_loaded",
         status: "listed",
@@ -1171,10 +1245,10 @@ test("Rust model_mount core sends local provider inventory through direct daemon
       return {
         ok: true,
         result: {
-            source: "rust_model_mount_provider_inventory_command",
+            source: "rust_model_mount_provider_inventory_api",
             backend: "rust_model_mount_native_local_inventory",
             result: {
-              ...request.request,
+              ...request,
               operation_kind: "model_mount.provider.inventory.list_loaded",
               status: "listed",
               backend: "autopilot.native_local.fixture",
@@ -1212,16 +1286,20 @@ test("Rust model_mount core sends local provider inventory through direct daemon
             ],
           },
       };
+      },
     },
+    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(calls),
   });
 
   const result = runner.planProviderInventory(providerInventoryRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
-  assert.equal(calls[0].request.operation, "plan_model_mount_provider_inventory");
-  assert.equal(calls[0].request.backend, "rust_model_mount_native_local_inventory");
-  assert.equal(calls[0].request.request.action, "list_loaded");
+  assertDirectModelMountApiCall(
+    calls[0],
+    MODEL_MOUNT_PROVIDER_INVENTORY_API_METHOD,
+    "ioi.model_mount.provider_inventory.v1",
+  );
+  assert.equal(calls[0].request.action, "list_loaded");
   assert.equal(result.status, "listed");
   assert.equal(result.providerBackend, "autopilot.native_local.fixture");
   assert.equal(result.backendId, "backend.autopilot.native-local.fixture");
@@ -1241,18 +1319,19 @@ test("Rust model_mount core sends local provider inventory through direct daemon
   assert.equal(Object.hasOwn(result.result, "itemCount"), false);
 });
 
-test("Rust model_mount core sends model instance lifecycle through direct daemon-core invoker", () => {
+test("Rust model_mount core sends model instance lifecycle through typed daemon-core API", () => {
   const calls = [];
   const runner = new ModelMountCore({
-    daemonCoreInvoker(request) {
-      calls.push({ request });
-      return {
-        ok: true,
-        result: {
-            source: "rust_model_mount_instance_lifecycle_command",
+    daemonCoreModelMountApi: {
+      planModelMountInstanceLifecycle(request) {
+        calls.push({ method: MODEL_MOUNT_INSTANCE_LIFECYCLE_API_METHOD, request });
+        return {
+          ok: true,
+          result: {
+            source: "rust_model_mount_instance_lifecycle_api",
             backend: "rust_model_mount_instance_lifecycle",
             result: {
-              ...request.request,
+              ...request,
               status: "loaded",
               backend_id: "backend.autopilot.native-local.fixture",
               instance_lifecycle_hash: "sha256:instance-lifecycle",
@@ -1266,17 +1345,21 @@ test("Rust model_mount core sends model instance lifecycle through direct daemon
             instance_lifecycle_hash: "sha256:instance-lifecycle",
             evidence_refs: ["rust_model_mount_instance_lifecycle"],
           },
-      };
+        };
+      },
     },
+    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(calls),
   });
 
   const result = runner.planInstanceLifecycle(instanceLifecycleRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
-  assert.equal(calls[0].request.operation, "plan_model_mount_instance_lifecycle");
-  assert.equal(calls[0].request.backend, "rust_model_mount_instance_lifecycle");
-  assert.equal(calls[0].request.request.action, "load");
+  assertDirectModelMountApiCall(
+    calls[0],
+    MODEL_MOUNT_INSTANCE_LIFECYCLE_API_METHOD,
+    "ioi.model_mount.instance_lifecycle.v1",
+  );
+  assert.equal(calls[0].request.action, "load");
   assert.equal(result.status, "loaded");
   assert.equal(result.backendId, "backend.autopilot.native-local.fixture");
   assert.equal(result.executionBackend, "rust_model_mount_instance_lifecycle");
@@ -1285,37 +1368,42 @@ test("Rust model_mount core sends model instance lifecycle through direct daemon
   assert.equal(result.instance_lifecycle_hash, "sha256:instance-lifecycle");
 });
 
-test("Rust model_mount core sends provider result admission through direct daemon-core invoker", () => {
+test("Rust model_mount core sends provider result admission through typed daemon-core API", () => {
   const calls = [];
   const runner = new ModelMountCore({
-    daemonCoreInvoker(request) {
-      calls.push({ request });
-      return {
-        ok: true,
-        result: {
-            source: "rust_model_mount_provider_result_command",
+    daemonCoreModelMountApi: {
+      admitModelMountProviderResult(request) {
+        calls.push({ method: MODEL_MOUNT_PROVIDER_RESULT_API_METHOD, request });
+        return {
+          ok: true,
+          result: {
+            source: "rust_model_mount_provider_result_api",
             backend: "rust_model_mount_live",
             record: {
-              ...request.request,
+              ...request,
               provider_result_ref: "model_mount://provider_result/test",
               provider_result_hash: "sha256:provider-result-test",
             },
             provider_result_ref: "model_mount://provider_result/test",
             provider_result_hash: "sha256:provider-result-test",
-            receipt_refs: request.request.receipt_refs,
+            receipt_refs: request.receipt_refs,
             evidence_refs: ["rust_model_mount_provider_result_admission"],
           },
-      };
+        };
+      },
     },
+    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(calls),
   });
 
   const result = runner.admitProviderResult(providerResultRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
-  assert.equal(calls[0].request.operation, "admit_model_mount_provider_result");
-  assert.equal(calls[0].request.backend, "rust_model_mount_live");
-  assert.equal(calls[0].request.request.execution_backend, "rust_model_mount_native_local_stream");
+  assertDirectModelMountApiCall(
+    calls[0],
+    MODEL_MOUNT_PROVIDER_RESULT_API_METHOD,
+    "ioi.model_mount.provider_result.v1",
+  );
+  assert.equal(calls[0].request.execution_backend, "rust_model_mount_native_local_stream");
   assert.equal(result.provider_result_ref, "model_mount://provider_result/test");
   assert.equal(result.provider_result_hash, "sha256:provider-result-test");
   assert.equal(Object.hasOwn(result, "providerResultRef"), false);

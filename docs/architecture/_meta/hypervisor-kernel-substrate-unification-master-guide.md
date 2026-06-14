@@ -8638,17 +8638,24 @@ now mounts `modelMountCore` directly; `model-mount-admission-runner.mjs` and its
 tests are deleted, the daemon store/service pass only `modelMountCore`, and the
 old command/env factory path is gone. Route decision, invocation admission,
 provider execution, provider invocation/stream execution, lifecycle/inventory,
-backend process/lifecycle, required-control, provider-result, accepted-receipt
-head/transition, read-projection, and invocation receipt-binding requests all
-enter Rust through the mounted core. The core requires `daemonCoreInvoker`,
-rejects retired `command`, `args`, and `env` compatibility options, and keeps
-Rust-owned receipt refs, evidence refs, process fields, inventory fields,
-expected heads, binding records, and projection evidence absent instead of
-synthesizing JS fallback truth. The old JS in-flight model invocation coalescing
-map is also deleted; migrated invocation calls stay on the Rust provider path
-instead of minting a JS `model_invocation_coalesced` receipt. Conformance now
-requires the old runner paths and symbols to stay absent and the mounted
-core/fail-closed compatibility-option guard to remain in place.
+instance lifecycle, and provider-result admission now call typed
+`daemonCoreModelMountApi` methods instead of command envelopes. Rust rejects the
+retired command operations, dispatch arms, and bridge request/response wrappers
+for that family. Backend process/lifecycle, remaining required-control,
+accepted-receipt head/transition, read-projection, invocation receipt-binding,
+MCP workflow, server-control, runtime-engine/survey, tokenizer/route-control,
+catalog/provider/vault/receipt-gate, conversation/stream, and projection helpers
+still enter Rust through remaining migration transport. The core requires typed
+`daemonCoreModelMountApi` for migrated model_mount APIs, uses
+`daemonCoreInvoker` only for remaining temporary operations, rejects retired
+`command`, `args`, and `env` compatibility options, and keeps Rust-owned receipt
+refs, evidence refs, process fields, inventory fields, expected heads, binding
+records, and projection evidence absent instead of synthesizing JS fallback
+truth. The old JS in-flight model invocation coalescing map is also deleted;
+migrated invocation calls stay on the Rust provider path instead of minting a JS
+`model_invocation_coalesced` receipt. Conformance now requires the old runner
+paths and symbols to stay absent, typed API calls to omit `operation`/`backend`,
+and the retired command transport to stay rejected.
 
 Slice 1211 moves MCP external-exit wallet, cTEE custody, and containment
 authority into Rust daemon-core
@@ -9308,8 +9315,14 @@ no route-decision arm, and the route-decision bridge request/response helper is
 deleted from `model_mount/admission.rs`. The mounted JS model-mount core fails
 closed without the typed API and no longer sends `operation` or `backend` fields
 for route-decision admission. This retires the route-decision command transport
-cut only; remaining model_mount invocation/provider/lifecycle/read-projection
-command transports still need direct Rust daemon-core protocol/API ownership.
+cut only; the later model_mount typed API cut also retires command transport for
+invocation admission, provider-execution admission, provider invocation/stream
+execution, provider lifecycle/inventory, instance lifecycle, and provider-result
+admission. Remaining model_mount backend-process/lifecycle, required-control,
+read-projection, receipt-binding, MCP workflow, server-control,
+runtime-engine/survey, tokenizer/route-control, catalog/provider/vault/
+receipt-gate, conversation/stream, and projection migration transports still
+need direct Rust daemon-core protocol/API ownership.
 
 Model-mount backend registry lookup now consumes Rust read-projection kind
 `backends` through `ModelMountingState.backendRegistry()` and the internal

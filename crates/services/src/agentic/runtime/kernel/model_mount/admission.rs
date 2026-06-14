@@ -152,13 +152,6 @@ pub struct ModelMountInvocationAdmissionRecord {
     pub invocation_admission_hash: String,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct ModelMountInvocationAdmissionBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: ModelMountInvocationAdmissionRequest,
-}
-
 impl ModelMountRouteDecisionRequest {
     pub fn validate(&self) -> Result<(), ModelMountError> {
         if self.schema_version != MODEL_MOUNT_ROUTE_DECISION_SCHEMA_VERSION {
@@ -315,28 +308,6 @@ pub(super) fn admit_invocation(
     Ok(record)
 }
 
-pub fn admit_model_mount_invocation_response(
-    request: ModelMountInvocationAdmissionBridgeRequest,
-) -> Result<Value, ModelMountError> {
-    let record = admit_invocation(&request.request)?;
-    let invocation_admission_ref = record.invocation_admission_ref.clone();
-    let invocation_admission_hash = record.invocation_admission_hash.clone();
-    let receipt_refs = record.receipt_refs.clone();
-
-    Ok(json!({
-        "source": "rust_model_mount_invocation_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_model_mount_live".to_string()),
-        "record": record,
-        "invocation_admission_ref": invocation_admission_ref,
-        "invocation_admission_hash": invocation_admission_hash,
-        "receipt_refs": receipt_refs,
-        "evidence_refs": [
-            "rust_model_mount_core",
-            invocation_admission_ref,
-        ],
-    }))
-}
-
 pub(super) fn rust_authored_route_selection_receipt(
     record: &ModelMountRouteDecisionRecord,
 ) -> Result<Value, ModelMountError> {
@@ -456,7 +427,7 @@ fn invocation_admission_hash(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::agentic::runtime::kernel::command_protocol::DAEMON_CORE_COMMAND_SCHEMA_VERSION;
+    use serde_json::json;
 
     fn route_decision_request() -> ModelMountRouteDecisionRequest {
         ModelMountRouteDecisionRequest {
@@ -609,55 +580,45 @@ mod tests {
     }
 
     #[test]
-    fn rust_core_shapes_model_mount_invocation_admission_command_response() {
-        let request: ModelMountInvocationAdmissionBridgeRequest = serde_json::from_value(json!({
-            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
-            "operation": "admit_model_mount_invocation",
-            "backend": "rust_model_mount_live",
-            "request": {
-                "schema_version": MODEL_MOUNT_INVOCATION_ADMISSION_SCHEMA_VERSION,
-                "invocation_ref": "model-invocation://response/test",
-                "route_decision_ref": "model_mount://route_decision/test",
-                "route_receipt_ref": "receipt://route/test",
-                "invocation_receipt_ref": "receipt://invocation/test",
-                "route_ref": "route.local-first",
-                "provider_ref": "provider.local",
-                "endpoint_ref": "endpoint.local",
-                "model_ref": "model.local",
-                "capability": "chat",
-                "invocation_kind": "responses",
-                "policy_hash": "sha256:policy",
-                "input_hash": "sha256:input",
-                "output_hash": "sha256:output",
-                "idempotency_key": "model_invocation:test",
-                "receipt_refs": ["receipt://route/test", "receipt://invocation/test"],
-                "authority_grant_refs": ["grant://wallet/model-chat"],
-                "authority_receipt_refs": ["receipt://wallet/model-chat"],
-                "provider_auth_evidence_refs": [],
-                "backend_evidence_refs": [],
-                "tool_receipt_refs": [],
-                "privacy_profile": "local_private",
-                "node_plaintext_allowed": false
-            }
+    fn rust_core_admits_model_mount_invocation_direct_api() {
+        let request: ModelMountInvocationAdmissionRequest = serde_json::from_value(json!({
+            "schema_version": MODEL_MOUNT_INVOCATION_ADMISSION_SCHEMA_VERSION,
+            "invocation_ref": "model-invocation://response/test",
+            "route_decision_ref": "model_mount://route_decision/test",
+            "route_receipt_ref": "receipt://route/test",
+            "invocation_receipt_ref": "receipt://invocation/test",
+            "route_ref": "route.local-first",
+            "provider_ref": "provider.local",
+            "endpoint_ref": "endpoint.local",
+            "model_ref": "model.local",
+            "capability": "chat",
+            "invocation_kind": "responses",
+            "policy_hash": "sha256:policy",
+            "input_hash": "sha256:input",
+            "output_hash": "sha256:output",
+            "idempotency_key": "model_invocation:test",
+            "receipt_refs": ["receipt://route/test", "receipt://invocation/test"],
+            "authority_grant_refs": ["grant://wallet/model-chat"],
+            "authority_receipt_refs": ["receipt://wallet/model-chat"],
+            "provider_auth_evidence_refs": [],
+            "backend_evidence_refs": [],
+            "tool_receipt_refs": [],
+            "privacy_profile": "local_private",
+            "node_plaintext_allowed": false
         }))
-        .expect("bridge request");
+        .expect("direct invocation admission request");
 
-        let response = admit_model_mount_invocation_response(request).expect("admitted");
+        let record = admit_invocation(&request).expect("admitted");
 
-        assert_eq!(response["source"], "rust_model_mount_invocation_command");
-        assert_eq!(response["backend"], "rust_model_mount_live");
-        assert_eq!(response["record"]["model_ref"], "model.local");
+        assert_eq!(record.model_ref, "model.local");
+        assert_eq!(record.route_receipt_ref, "receipt://route/test");
+        assert_eq!(record.invocation_receipt_ref, "receipt://invocation/test");
         assert_eq!(
-            response["record"]["route_receipt_ref"],
-            "receipt://route/test"
+            record.authority_grant_refs,
+            vec!["grant://wallet/model-chat".to_string()]
         );
-        assert_eq!(
-            response["record"]["invocation_receipt_ref"],
-            "receipt://invocation/test"
-        );
-        assert!(response["invocation_admission_ref"]
-            .as_str()
-            .expect("invocation admission ref")
+        assert!(record
+            .invocation_admission_ref
             .starts_with("model_mount://invocation_admission/"));
     }
 

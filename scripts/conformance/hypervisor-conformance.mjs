@@ -51,8 +51,136 @@ function bridgeProofSurfaceForConformance() {
       : "",
     exists("crates/node/src/bin/ioi_step_module_bridge/proof_tests.rs")
       ? read("crates/node/src/bin/ioi_step_module_bridge/proof_tests.rs")
-      : "",
+    : "",
   ].join("\n");
+}
+
+const RETIRED_MODEL_MOUNT_INVOCATION_LIFECYCLE_DISPATCH_FUNCTIONS = [
+  "admit_model_mount_invocation_response",
+  "admit_model_mount_provider_execution_response",
+  "execute_model_mount_provider_invocation_response",
+  "execute_model_mount_provider_stream_invocation_response",
+  "plan_model_mount_provider_lifecycle_response",
+  "plan_model_mount_provider_inventory_response",
+  "plan_model_mount_instance_lifecycle_response",
+  "admit_model_mount_provider_result_response",
+];
+const RETIRED_MODEL_MOUNT_INVOCATION_LIFECYCLE_BRIDGE_TYPES = [
+  "ModelMountInvocationAdmissionBridgeRequest",
+  "ModelMountProviderExecutionBridgeRequest",
+  "ModelMountProviderInvocationBridgeRequest",
+  "ModelMountProviderLifecycleBridgeRequest",
+  "ModelMountProviderInventoryBridgeRequest",
+  "ModelMountInstanceLifecycleBridgeRequest",
+  "ModelMountProviderResultAdmissionBridgeRequest",
+];
+const RETIRED_MODEL_MOUNT_INVOCATION_LIFECYCLE_COMMAND_VARIANTS = [
+  "AdmitModelMountInvocation",
+  "AdmitModelMountProviderExecution",
+  "ExecuteModelMountProviderInvocation",
+  "ExecuteModelMountProviderStreamInvocation",
+  "PlanModelMountProviderLifecycle",
+  "PlanModelMountProviderInventory",
+  "PlanModelMountInstanceLifecycle",
+  "AdmitModelMountProviderResult",
+];
+const RETIRED_MODEL_MOUNT_INVOCATION_LIFECYCLE_OPERATION_PATTERN =
+  /operation:\s*"(admit_model_mount_invocation|admit_model_mount_provider_execution|execute_model_mount_provider_invocation|execute_model_mount_provider_stream_invocation|plan_model_mount_provider_lifecycle|plan_model_mount_provider_inventory|plan_model_mount_instance_lifecycle|admit_model_mount_provider_result)"/;
+const RETIRED_MODEL_MOUNT_INVOCATION_LIFECYCLE_SOURCE_PATTERN =
+  /rust_model_mount_(invocation|provider_execution|provider_invocation|provider_stream_invocation|provider_lifecycle|provider_inventory|instance_lifecycle|provider_result)_command/;
+
+function isModelMountInvocationLifecycleCommandTransportRetired({
+  coreCommandDispatch = "",
+  rustModelMountCore = "",
+  modelMountCommandSurface = "",
+  commandProtocolCore = "",
+  modelMountDaemonCore = "",
+  modelMountCoreTest = "",
+}) {
+  return (
+    RETIRED_MODEL_MOUNT_INVOCATION_LIFECYCLE_DISPATCH_FUNCTIONS.every(
+      (name) => !new RegExp(String.raw`\b${name}\b`).test(coreCommandDispatch),
+    ) &&
+    RETIRED_MODEL_MOUNT_INVOCATION_LIFECYCLE_DISPATCH_FUNCTIONS.every(
+      (name) => !new RegExp(String.raw`\b${name}\b`).test(rustModelMountCore),
+    ) &&
+    RETIRED_MODEL_MOUNT_INVOCATION_LIFECYCLE_BRIDGE_TYPES.every(
+      (name) => !new RegExp(String.raw`\b${name}\b`).test(rustModelMountCore),
+    ) &&
+    RETIRED_MODEL_MOUNT_INVOCATION_LIFECYCLE_BRIDGE_TYPES.every(
+      (name) => !new RegExp(String.raw`\b${name}\b`).test(modelMountCommandSurface),
+    ) &&
+    RETIRED_MODEL_MOUNT_INVOCATION_LIFECYCLE_COMMAND_VARIANTS.every(
+      (name) => !new RegExp(String.raw`\b${name}\b`).test(commandProtocolCore),
+    ) &&
+    RETIRED_MODEL_MOUNT_INVOCATION_LIFECYCLE_COMMAND_VARIANTS.every(
+      (name) => !new RegExp(String.raw`\b${name}\b`).test(coreCommandDispatch),
+    ) &&
+    /model_mount_invocation_lifecycle_command_transport_is_retired/.test(commandProtocolCore) &&
+    !RETIRED_MODEL_MOUNT_INVOCATION_LIFECYCLE_OPERATION_PATTERN.test(modelMountDaemonCore) &&
+    !RETIRED_MODEL_MOUNT_INVOCATION_LIFECYCLE_OPERATION_PATTERN.test(modelMountCoreTest) &&
+    !RETIRED_MODEL_MOUNT_INVOCATION_LIFECYCLE_SOURCE_PATTERN.test(modelMountDaemonCore) &&
+    !RETIRED_MODEL_MOUNT_INVOCATION_LIFECYCLE_SOURCE_PATTERN.test(modelMountCoreTest)
+  );
+}
+
+function isModelMountInvocationLifecycleTypedApiOwned(sources) {
+  const {
+    modelMountDaemonCore = "",
+    modelMountCoreTest = "",
+    rustModelMountCore = "",
+  } = sources;
+  const daemonCoreDirectInvokerServiceTest =
+    sources.daemonCoreDirectInvokerServiceTest ??
+    (exists("packages/runtime-daemon/src/runtime-daemon-core-direct-invoker-service.test.mjs")
+      ? read("packages/runtime-daemon/src/runtime-daemon-core-direct-invoker-service.test.mjs")
+      : "");
+  return (
+    isModelMountInvocationLifecycleCommandTransportRetired(sources) &&
+    /MODEL_MOUNT_INVOCATION_API_METHOD = "admitModelMountInvocation"/.test(modelMountDaemonCore) &&
+    /MODEL_MOUNT_PROVIDER_EXECUTION_API_METHOD = "admitModelMountProviderExecution"/.test(modelMountDaemonCore) &&
+    /MODEL_MOUNT_PROVIDER_INVOCATION_API_METHOD = "executeModelMountProviderInvocation"/.test(modelMountDaemonCore) &&
+    /MODEL_MOUNT_PROVIDER_STREAM_INVOCATION_API_METHOD = "executeModelMountProviderStreamInvocation"/.test(
+      modelMountDaemonCore,
+    ) &&
+    /MODEL_MOUNT_PROVIDER_LIFECYCLE_API_METHOD = "planModelMountProviderLifecycle"/.test(modelMountDaemonCore) &&
+    /MODEL_MOUNT_PROVIDER_INVENTORY_API_METHOD = "planModelMountProviderInventory"/.test(modelMountDaemonCore) &&
+    /MODEL_MOUNT_INSTANCE_LIFECYCLE_API_METHOD = "planModelMountInstanceLifecycle"/.test(modelMountDaemonCore) &&
+    /MODEL_MOUNT_PROVIDER_RESULT_API_METHOD = "admitModelMountProviderResult"/.test(modelMountDaemonCore) &&
+    /invokeModelMountApi\(MODEL_MOUNT_INVOCATION_API_METHOD, request\)/.test(modelMountDaemonCore) &&
+    /invokeModelMountApi\(MODEL_MOUNT_PROVIDER_EXECUTION_API_METHOD, request\)/.test(modelMountDaemonCore) &&
+    /invokeModelMountApi\(MODEL_MOUNT_PROVIDER_INVOCATION_API_METHOD, request\)/.test(modelMountDaemonCore) &&
+    /invokeModelMountApi\(MODEL_MOUNT_PROVIDER_STREAM_INVOCATION_API_METHOD, request\)/.test(modelMountDaemonCore) &&
+    /invokeModelMountApi\(MODEL_MOUNT_PROVIDER_LIFECYCLE_API_METHOD, request\)/.test(modelMountDaemonCore) &&
+    /invokeModelMountApi\(MODEL_MOUNT_PROVIDER_INVENTORY_API_METHOD, request\)/.test(modelMountDaemonCore) &&
+    /invokeModelMountApi\(MODEL_MOUNT_INSTANCE_LIFECYCLE_API_METHOD, request\)/.test(modelMountDaemonCore) &&
+    /invokeModelMountApi\(MODEL_MOUNT_PROVIDER_RESULT_API_METHOD, request\)/.test(modelMountDaemonCore) &&
+    /Rust model_mount core sends invocation through typed daemon-core API/.test(modelMountCoreTest) &&
+    /Rust model_mount core sends provider execution through typed daemon-core API/.test(modelMountCoreTest) &&
+    /Rust model_mount core sends provider invocation through typed daemon-core API/.test(modelMountCoreTest) &&
+    /Rust model_mount core sends native-local provider stream invocation through typed daemon-core API/.test(modelMountCoreTest) &&
+    /Rust model_mount core sends native-local provider lifecycle through typed daemon-core API/.test(modelMountCoreTest) &&
+    /Rust model_mount core sends local provider inventory through typed daemon-core API/.test(modelMountCoreTest) &&
+    /Rust model_mount core sends model instance lifecycle through typed daemon-core API/.test(modelMountCoreTest) &&
+    /Rust model_mount core sends provider result admission through typed daemon-core API/.test(modelMountCoreTest) &&
+    /rust_core_admits_model_mount_invocation_direct_api/.test(rustModelMountCore) &&
+    /rust_core_admits_model_mount_provider_execution_direct_api/.test(rustModelMountCore) &&
+    /rust_core_executes_model_mount_provider_invocation_direct_api/.test(rustModelMountCore) &&
+    /rust_core_executes_native_local_model_mount_provider_stream_direct_api/.test(rustModelMountCore) &&
+    /rust_core_plans_model_mount_provider_lifecycle_direct_api/.test(rustModelMountCore) &&
+    /rust_core_plans_model_mount_provider_inventory_direct_api/.test(rustModelMountCore) &&
+    /rust_core_plans_model_mount_instance_lifecycle_direct_api/.test(rustModelMountCore) &&
+    /rust_core_admits_model_mount_provider_result_direct_api/.test(rustModelMountCore) &&
+    /assertModelMountDirectApiCall/.test(daemonCoreDirectInvokerServiceTest) &&
+    /admitModelMountInvocation/.test(daemonCoreDirectInvokerServiceTest) &&
+    /admitModelMountProviderExecution/.test(daemonCoreDirectInvokerServiceTest) &&
+    /executeModelMountProviderInvocation/.test(daemonCoreDirectInvokerServiceTest) &&
+    /executeModelMountProviderStreamInvocation/.test(daemonCoreDirectInvokerServiceTest) &&
+    /planModelMountProviderLifecycle/.test(daemonCoreDirectInvokerServiceTest) &&
+    /planModelMountProviderInventory/.test(daemonCoreDirectInvokerServiceTest) &&
+    /planModelMountInstanceLifecycle/.test(daemonCoreDirectInvokerServiceTest) &&
+    /admitModelMountProviderResult/.test(daemonCoreDirectInvokerServiceTest)
+  );
 }
 
 function readRustPolicyCore() {
@@ -4082,6 +4210,19 @@ function runBridge() {
     ? read("packages/runtime-daemon/src/openai-compat-routes.test.mjs")
     : "";
   const retiredRouteDecisionEnvPattern = new RegExp("MODEL_MOUNT_" + "ROUTE_DECISION_COMMAND_ENV");
+  const modelMountInvocationLifecycleSources = {
+    coreCommandDispatch,
+    rustModelMountCore,
+    modelMountCommandSurface,
+    commandProtocolCore,
+    modelMountDaemonCore,
+    modelMountCoreTest,
+    daemonCoreDirectInvokerServiceTest,
+  };
+  const modelMountInvocationLifecycleCommandTransportRetired =
+    isModelMountInvocationLifecycleCommandTransportRetired(modelMountInvocationLifecycleSources);
+  const modelMountInvocationLifecycleTypedApiOwned =
+    isModelMountInvocationLifecycleTypedApiOwned(modelMountInvocationLifecycleSources);
   const daemonCoreDirectInvokerRunners = [
     stepModuleRunner,
     runtimeContextPolicyCore,
@@ -8402,55 +8543,8 @@ function runBridge() {
       ) &&
       !/admit_model_mount_route_decision_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
       /model_mount_route_decision_command_transport_is_retired/.test(commandProtocolCore) &&
-      /admit_model_mount_invocation_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
-      /admit_model_mount_provider_execution_response\(decode\(raw_request\)\?\)/.test(
-        coreCommandDispatch,
-      ) &&
-      /execute_model_mount_provider_invocation_response\(decode\(raw_request\)\?\)/.test(
-        coreCommandDispatch,
-      ) &&
-      /execute_model_mount_provider_stream_invocation_response\(decode\(raw_request\)\?\)/.test(
-        coreCommandDispatch,
-      ) &&
+      modelMountInvocationLifecycleTypedApiOwned &&
       !/admit_model_mount_route_decision_response as admit_model_mount_route_decision/.test(bridgeModule) &&
-      !/admit_model_mount_invocation_response as admit_model_mount_invocation/.test(bridgeModule) &&
-      !/admit_model_mount_provider_execution_response as admit_model_mount_provider_execution/.test(
-        bridgeModule,
-      ) &&
-      !/execute_model_mount_provider_invocation_response as execute_model_mount_provider_invocation/.test(
-        bridgeModule,
-      ) &&
-      !/execute_model_mount_provider_stream_invocation_response as execute_model_mount_provider_stream_invocation/.test(
-        bridgeModule,
-      ) &&
-      !/plan_model_mount_provider_lifecycle_response as plan_model_mount_provider_lifecycle/.test(
-        bridgeModule,
-      ) &&
-      !/plan_model_mount_provider_inventory_response as plan_model_mount_provider_inventory/.test(
-        bridgeModule,
-      ) &&
-      !/plan_model_mount_instance_lifecycle_response as plan_model_mount_instance_lifecycle/.test(
-        bridgeModule,
-      ) &&
-      /plan_model_mount_provider_lifecycle_response\(decode\(raw_request\)\?\)/.test(
-        coreCommandDispatch,
-      ) &&
-      /plan_model_mount_provider_inventory_response\(decode\(raw_request\)\?\)/.test(
-        coreCommandDispatch,
-      ) &&
-      /plan_model_mount_instance_lifecycle_response\(decode\(raw_request\)\?\)/.test(
-        coreCommandDispatch,
-      ) &&
-      /rust_core_shapes_model_mount_provider_lifecycle_command_response/.test(modelMountCore) &&
-      /rust_core_shapes_model_mount_provider_inventory_command_response/.test(modelMountCore) &&
-      /rust_core_shapes_model_mount_instance_lifecycle_command_response/.test(modelMountCore) &&
-      !/admit_model_mount_provider_result_response as admit_model_mount_provider_result/.test(
-        bridgeModule,
-      ) &&
-      /admit_model_mount_provider_result_response\(decode\(raw_request\)\?\)/.test(
-        coreCommandDispatch,
-      ) &&
-      /rust_core_shapes_model_mount_provider_result_command_response/.test(modelMountCore) &&
       !/plan_model_mount_backend_process_response as plan_model_mount_backend_process/.test(
         bridgeModule,
       ) &&
@@ -8610,21 +8704,22 @@ function runBridge() {
   );
   assertCheck(
     result,
-    "model-mount-admission-command-envelopes-owned-by-rust-core",
+    "model-mount-admission-typed-api-owned-by-rust-core",
     !/pub struct ModelMountRouteDecisionBridgeRequest/.test(modelMountCore) &&
       !/pub fn admit_model_mount_route_decision_response/.test(modelMountCore) &&
       /rust_authored_route_selection_receipt/.test(modelMountCore) &&
       /rust_daemon_core_model_route_selection_receipt/.test(modelMountCore) &&
-      /pub struct ModelMountInvocationAdmissionBridgeRequest/.test(modelMountCore) &&
-      /pub fn admit_model_mount_invocation_response/.test(modelMountCore) &&
-      /rust_model_mount_invocation_command/.test(modelMountCore) &&
+      !/pub struct ModelMountInvocationAdmissionBridgeRequest/.test(modelMountCore) &&
+      !/pub fn admit_model_mount_invocation_response/.test(modelMountCore) &&
+      !/rust_model_mount_invocation_command/.test(modelMountCore) &&
       !modelMountCommandBridgeExists &&
       !/rust_core_shapes_model_mount_route_decision_command_response/.test(modelMountCore) &&
       /model_mount_route_decision_command_transport_is_retired/.test(commandProtocolCore) &&
+      modelMountInvocationLifecycleTypedApiOwned &&
       /pub fn admit_model_mount_route_decision/.test(read("crates/services/src/agentic/runtime/kernel/mod.rs")) &&
-      /rust_core_shapes_model_mount_invocation_admission_command_response/.test(modelMountCore) &&
+      /rust_core_admits_model_mount_invocation_direct_api/.test(modelMountCore) &&
       !/admit_model_mount_route_decision_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
-      /admit_model_mount_invocation_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      !/admit_model_mount_invocation_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
       !/admit_model_mount_route_decision_response as admit_model_mount_route_decision/.test(bridgeModule) &&
       !/admit_model_mount_invocation_response as admit_model_mount_invocation/.test(bridgeModule) &&
       !/ModelMountRouteDecisionBridgeRequest/.test(bridgeModule) &&
@@ -8645,53 +8740,36 @@ function runBridge() {
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "scripts/conformance/hypervisor-conformance.mjs",
     ],
-    "Phase 10/11 migration guard: model-mount route-decision command transport is retired behind the positive Rust daemon-core API while invocation-admission command envelope remains Rust-owned temporary transport; child Node delegates stay retired",
+    "Phase 10/11 migration guard: model-mount route-decision and invocation-admission command transport stay retired behind positive Rust daemon-core typed APIs; child Node delegates stay retired",
   );
   assertCheck(
     result,
-    "model-mount-provider-command-envelopes-owned-by-rust-core",
-    /pub struct ModelMountProviderExecutionBridgeRequest/.test(modelMountCore) &&
-      /pub fn admit_model_mount_provider_execution_response/.test(modelMountCore) &&
-      /pub struct ModelMountProviderInvocationBridgeRequest/.test(modelMountCore) &&
-      /pub fn execute_model_mount_provider_invocation_response/.test(modelMountCore) &&
-      /pub fn execute_model_mount_provider_stream_invocation_response/.test(modelMountCore) &&
-      /pub struct ModelMountProviderResultAdmissionBridgeRequest/.test(modelMountCore) &&
-      /pub fn admit_model_mount_provider_result_response/.test(modelMountCore) &&
-      /rust_model_mount_provider_execution_command/.test(modelMountCore) &&
-      /rust_model_mount_provider_invocation_command/.test(modelMountCore) &&
-      /rust_model_mount_provider_stream_invocation_command/.test(modelMountCore) &&
-      /rust_model_mount_provider_result_command/.test(modelMountCore) &&
+    "model-mount-provider-typed-api-owned-by-rust-core",
+    modelMountInvocationLifecycleTypedApiOwned &&
       !modelMountCommandBridgeExists &&
-      /rust_core_shapes_model_mount_provider_execution_command_response/.test(modelMountCore) &&
-      /rust_core_shapes_model_mount_provider_invocation_command_response/.test(modelMountCore) &&
-      /rust_core_shapes_native_local_model_mount_provider_invocation_command_response/.test(modelMountCore) &&
-      /rust_core_shapes_native_local_model_mount_provider_stream_command_response/.test(modelMountCore) &&
-      /admit_model_mount_provider_execution_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
-      /execute_model_mount_provider_invocation_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
-      /execute_model_mount_provider_stream_invocation_response\(decode\(raw_request\)\?\)/.test(
+      !/admit_model_mount_provider_execution_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      !/execute_model_mount_provider_invocation_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      !/execute_model_mount_provider_stream_invocation_response\(decode\(raw_request\)\?\)/.test(
         coreCommandDispatch,
       ) &&
-      !/admit_model_mount_provider_execution_response as admit_model_mount_provider_execution/.test(bridgeModule) &&
-      !/execute_model_mount_provider_invocation_response as execute_model_mount_provider_invocation/.test(bridgeModule) &&
-      !/execute_model_mount_provider_stream_invocation_response as execute_model_mount_provider_stream_invocation/.test(
-        bridgeModule,
-      ) &&
-      /admit_model_mount_provider_result_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
-      /rust_core_shapes_model_mount_provider_result_command_response/.test(modelMountCore) &&
-      !/admit_model_mount_provider_result_response as admit_model_mount_provider_result/.test(bridgeModule) &&
-      !/struct ModelMountProviderExecutionBridgeRequest/.test(modelMountCommandBridge) &&
-      !/struct ModelMountProviderInvocationBridgeRequest/.test(modelMountCommandBridge) &&
-      !/struct ModelMountProviderResultAdmissionBridgeRequest/.test(modelMountCommandBridge) &&
-      !/ModelMountProviderExecutionRequest/.test(modelMountCommandBridge) &&
-      !/ModelMountProviderInvocationRequest/.test(modelMountCommandBridge) &&
-      !/ModelMountProviderResultAdmissionRequest/.test(modelMountCommandBridge) &&
-      !/rust_model_mount_provider_execution_command/.test(modelMountCommandBridge) &&
-      !/rust_model_mount_provider_invocation_command/.test(modelMountCommandBridge) &&
-      !/rust_model_mount_provider_stream_invocation_command/.test(modelMountCommandBridge) &&
-      !/rust_model_mount_provider_result_command/.test(modelMountCommandBridge) &&
-      !/outputText/.test(modelMountCommandBridge) &&
-      !/tokenCount/.test(modelMountCommandBridge) &&
-      !/streamChunks/.test(modelMountCommandBridge),
+      !/admit_model_mount_provider_result_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      /rust_core_admits_model_mount_provider_execution_direct_api/.test(modelMountCore) &&
+      /rust_core_executes_model_mount_provider_invocation_direct_api/.test(modelMountCore) &&
+      /rust_core_executes_native_local_model_mount_provider_invocation_direct_api/.test(modelMountCore) &&
+      /rust_core_executes_native_local_model_mount_provider_stream_direct_api/.test(modelMountCore) &&
+      /rust_core_admits_model_mount_provider_result_direct_api/.test(modelMountCore) &&
+      /rust_core_rejects_retired_js_provider_result_direct_api/.test(modelMountCore) &&
+      !/pub struct ModelMountProviderExecutionBridgeRequest/.test(modelMountCore) &&
+      !/pub struct ModelMountProviderInvocationBridgeRequest/.test(modelMountCore) &&
+      !/pub struct ModelMountProviderResultAdmissionBridgeRequest/.test(modelMountCore) &&
+      !/pub fn admit_model_mount_provider_execution_response/.test(modelMountCore) &&
+      !/pub fn execute_model_mount_provider_invocation_response/.test(modelMountCore) &&
+      !/pub fn execute_model_mount_provider_stream_invocation_response/.test(modelMountCore) &&
+      !/pub fn admit_model_mount_provider_result_response/.test(modelMountCore) &&
+      !/rust_model_mount_provider_execution_command/.test(modelMountCore) &&
+      !/rust_model_mount_provider_invocation_command/.test(modelMountCore) &&
+      !/rust_model_mount_provider_stream_invocation_command/.test(modelMountCore) &&
+      !/rust_model_mount_provider_result_command/.test(modelMountCore),
     [
       "crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs",
       "crates/services/src/agentic/runtime/kernel/model_mount/provider_result.rs",
@@ -8699,7 +8777,7 @@ function runBridge() {
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "scripts/conformance/hypervisor-conformance.mjs",
     ],
-    "Phase 10/11 migration guard: model-mount provider execution, invocation, stream invocation, and provider-result command envelopes live in Rust model_mount provider modules; the child Node delegate is retired while the broad bridge remains temporary transport only",
+    "Phase 10/11 migration guard: model-mount provider execution, invocation, stream invocation, and provider-result command transport stay retired behind positive Rust daemon-core typed APIs",
   );
   assertCheck(
     result,
@@ -8839,45 +8917,31 @@ function runBridge() {
   );
   assertCheck(
     result,
-    "model-mount-lifecycle-command-envelopes-owned-by-rust-core",
-    /pub struct ModelMountProviderLifecycleBridgeRequest/.test(modelMountCore) &&
-      /pub fn plan_model_mount_provider_lifecycle_response/.test(modelMountCore) &&
-      /pub struct ModelMountProviderInventoryBridgeRequest/.test(modelMountCore) &&
-      /pub fn plan_model_mount_provider_inventory_response/.test(modelMountCore) &&
-      /pub struct ModelMountInstanceLifecycleBridgeRequest/.test(modelMountCore) &&
-      /pub fn plan_model_mount_instance_lifecycle_response/.test(modelMountCore) &&
-      /rust_model_mount_provider_lifecycle_command/.test(modelMountCore) &&
-      /rust_model_mount_provider_inventory_command/.test(modelMountCore) &&
-      /rust_model_mount_instance_lifecycle_command/.test(modelMountCore) &&
+    "model-mount-lifecycle-typed-api-owned-by-rust-core",
+    modelMountInvocationLifecycleTypedApiOwned &&
       !modelMountCommandBridgeExists &&
-      /rust_core_shapes_model_mount_provider_lifecycle_command_response/.test(modelMountCore) &&
-      /rust_core_shapes_model_mount_provider_inventory_command_response/.test(modelMountCore) &&
-      /rust_core_shapes_model_mount_instance_lifecycle_command_response/.test(modelMountCore) &&
-      /plan_model_mount_provider_lifecycle_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
-      /plan_model_mount_provider_inventory_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
-      /plan_model_mount_instance_lifecycle_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
-      !/plan_model_mount_provider_lifecycle_response as plan_model_mount_provider_lifecycle/.test(bridgeModule) &&
-      !/plan_model_mount_provider_inventory_response as plan_model_mount_provider_inventory/.test(bridgeModule) &&
-      !/plan_model_mount_instance_lifecycle_response as plan_model_mount_instance_lifecycle/.test(bridgeModule) &&
-      !/bridge_plans_native_local_model_mount_provider_lifecycle_through_rust_core/.test(bridgeModule) &&
-      !/bridge_plans_local_model_mount_provider_inventory_through_rust_core/.test(bridgeModule) &&
-      !/bridge_plans_model_mount_instance_lifecycle_through_rust_core/.test(bridgeModule) &&
-      !/struct ModelMountProviderLifecycleBridgeRequest/.test(modelMountCommandBridge) &&
-      !/struct ModelMountProviderInventoryBridgeRequest/.test(modelMountCommandBridge) &&
-      !/struct ModelMountInstanceLifecycleBridgeRequest/.test(modelMountCommandBridge) &&
-      !/ModelMountProviderLifecycleRequest/.test(modelMountCommandBridge) &&
-      !/ModelMountProviderInventoryRequest/.test(modelMountCommandBridge) &&
-      !/ModelMountInstanceLifecycleRequest/.test(modelMountCommandBridge) &&
-      !/rust_model_mount_provider_lifecycle_command/.test(modelMountCommandBridge) &&
-      !/rust_model_mount_provider_inventory_command/.test(modelMountCommandBridge) &&
-      !/rust_model_mount_instance_lifecycle_command/.test(modelMountCommandBridge),
+      !/plan_model_mount_provider_lifecycle_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      !/plan_model_mount_provider_inventory_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      !/plan_model_mount_instance_lifecycle_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      /rust_core_plans_model_mount_provider_lifecycle_direct_api/.test(modelMountCore) &&
+      /rust_core_plans_model_mount_provider_inventory_direct_api/.test(modelMountCore) &&
+      /rust_core_plans_model_mount_instance_lifecycle_direct_api/.test(modelMountCore) &&
+      !/pub struct ModelMountProviderLifecycleBridgeRequest/.test(modelMountCore) &&
+      !/pub struct ModelMountProviderInventoryBridgeRequest/.test(modelMountCore) &&
+      !/pub struct ModelMountInstanceLifecycleBridgeRequest/.test(modelMountCore) &&
+      !/pub fn plan_model_mount_provider_lifecycle_response/.test(modelMountCore) &&
+      !/pub fn plan_model_mount_provider_inventory_response/.test(modelMountCore) &&
+      !/pub fn plan_model_mount_instance_lifecycle_response/.test(modelMountCore) &&
+      !/rust_model_mount_provider_lifecycle_command/.test(modelMountCore) &&
+      !/rust_model_mount_provider_inventory_command/.test(modelMountCore) &&
+      !/rust_model_mount_instance_lifecycle_command/.test(modelMountCore),
     [
       "crates/services/src/agentic/runtime/kernel/model_mount/lifecycle.rs",
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "scripts/conformance/hypervisor-conformance.mjs",
     ],
-    "Phase 10/11 migration guard: model-mount provider lifecycle, provider inventory, and instance lifecycle command request/response envelopes live in Rust model_mount lifecycle core; the child Node delegate is retired while the broad bridge remains temporary transport only",
+    "Phase 10/11 migration guard: model-mount provider lifecycle, provider inventory, and instance lifecycle command transport stay retired behind positive Rust daemon-core typed APIs",
   );
   assertCheck(
     result,
@@ -17530,19 +17594,19 @@ function runBridge() {
   );
   assertCheck(
     result,
-    "model-mount-invocation-admission-live-bridge",
-    /admit_model_mount_invocation_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
-      /pub struct ModelMountInvocationAdmissionBridgeRequest/.test(modelMountCore) &&
-      /pub fn admit_model_mount_invocation_response/.test(modelMountCore) &&
+    "model-mount-invocation-admission-typed-api",
+    modelMountInvocationLifecycleTypedApiOwned &&
+      !/admit_model_mount_invocation_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      !/pub struct ModelMountInvocationAdmissionBridgeRequest/.test(modelMountCore) &&
+      !/pub fn admit_model_mount_invocation_response/.test(modelMountCore) &&
       /ModelMountInvocationAdmissionRequest/.test(modelMountCore) &&
-      /admit_model_mount_invocation_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
       !/admit_model_mount_invocation_response as admit_model_mount_invocation/.test(modelMountCommandSurface) &&
       !/struct ModelMountInvocationAdmissionBridgeRequest/.test(modelMountCommandBridge) &&
       !/ModelMountInvocationAdmissionRequest/.test(modelMountCommandBridge) &&
-      /rust_core_shapes_model_mount_invocation_admission_command_response/.test(modelMountCore) &&
+      /rust_core_admits_model_mount_invocation_direct_api/.test(modelMountCore) &&
       !/bridge_admits_model_mount_invocation_through_rust_core/.test(modelMountCommandSurface) &&
       /admitInvocation/.test(modelMountCore) &&
-      /rust_model_mount_invocation_command/.test(modelMountCore) &&
+      /MODEL_MOUNT_INVOCATION_API_METHOD/.test(modelMountCore) &&
       /admitModelMountInvocation/.test(modelMountingState) &&
       /modelMountInvocationAdmissionRequestForReceipt/.test(modelInvocationOps) &&
       /model_mount_invocation_admission_ref/.test(modelInvocationOps) &&
@@ -17555,23 +17619,23 @@ function runBridge() {
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
     ],
-    "Phase 4/9 is pending: model invocation receipts must be admitted by Rust model_mount core before JS persistence",
+    "Phase 4/9 guard: model invocation receipts must be admitted through the Rust daemon-core typed model_mount API before JS persistence",
   );
   assertCheck(
     result,
-    "model-mount-provider-execution-live-bridge",
-    /admit_model_mount_provider_execution_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+    "model-mount-provider-execution-typed-api",
+    modelMountInvocationLifecycleTypedApiOwned &&
+      !/admit_model_mount_provider_execution_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
       /ModelMountProviderExecutionRequest/.test(modelMountCore) &&
-      /ModelMountProviderExecutionBridgeRequest/.test(modelMountCore) &&
-      /pub fn admit_model_mount_provider_execution_response/.test(modelMountCore) &&
-      /admit_model_mount_provider_execution_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      !/ModelMountProviderExecutionBridgeRequest/.test(modelMountCore) &&
+      !/pub fn admit_model_mount_provider_execution_response/.test(modelMountCore) &&
       !/admit_model_mount_provider_execution_response as admit_model_mount_provider_execution/.test(modelMountCommandSurface) &&
       !/struct ModelMountProviderExecutionBridgeRequest/.test(modelMountCommandBridge) &&
       !/ModelMountProviderExecutionRequest/.test(modelMountCommandBridge) &&
-      /rust_core_shapes_model_mount_provider_execution_command_response/.test(modelMountCore) &&
+      /rust_core_admits_model_mount_provider_execution_direct_api/.test(modelMountCore) &&
       !/bridge_admits_model_mount_provider_execution_through_rust_core/.test(modelMountCommandSurface) &&
       /admitProviderExecution/.test(modelMountCore) &&
-      /rust_model_mount_provider_execution_command/.test(modelMountCore) &&
+      /MODEL_MOUNT_PROVIDER_EXECUTION_API_METHOD/.test(modelMountCore) &&
       /admitModelMountProviderExecution/.test(modelMountingState) &&
       /modelMountProviderExecutionRequestForInvocation/.test(modelInvocationOps) &&
       /model_mount_provider_execution_ref/.test(modelInvocationOps) &&
@@ -17584,7 +17648,7 @@ function runBridge() {
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
     ],
-    "Phase 9/10 is pending: provider execution must be admitted by Rust model_mount core before JS provider driver calls",
+    "Phase 9/10 guard: provider execution must be admitted through the Rust daemon-core typed model_mount API before provider driver calls",
   );
   assertCheck(
     result,
@@ -17720,21 +17784,21 @@ function runBridge() {
   );
   assertCheck(
     result,
-    "model-mount-local-provider-invocation-live-bridge",
-    /execute_model_mount_provider_invocation_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+    "model-mount-local-provider-invocation-typed-api",
+    modelMountInvocationLifecycleTypedApiOwned &&
+      !/execute_model_mount_provider_invocation_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
       /ModelMountProviderInvocationRequest/.test(modelMountCore) &&
-      /ModelMountProviderInvocationBridgeRequest/.test(modelMountCore) &&
-      /pub fn execute_model_mount_provider_invocation_response/.test(modelMountCore) &&
-      /execute_model_mount_provider_invocation_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      !/ModelMountProviderInvocationBridgeRequest/.test(modelMountCore) &&
+      !/pub fn execute_model_mount_provider_invocation_response/.test(modelMountCore) &&
       !/execute_model_mount_provider_invocation_response as execute_model_mount_provider_invocation/.test(modelMountCommandSurface) &&
       !/struct ModelMountProviderInvocationBridgeRequest/.test(modelMountCommandBridge) &&
       !/ModelMountProviderInvocationRequest/.test(modelMountCommandBridge) &&
-      /rust_core_shapes_model_mount_provider_invocation_command_response/.test(modelMountCore) &&
-      /rust_core_shapes_native_local_model_mount_provider_invocation_command_response/.test(modelMountCore) &&
+      /rust_core_executes_model_mount_provider_invocation_direct_api/.test(modelMountCore) &&
+      /rust_core_executes_native_local_model_mount_provider_invocation_direct_api/.test(modelMountCore) &&
       !/bridge_executes_model_mount_provider_invocation_through_rust_core/.test(modelMountCommandSurface) &&
       !/bridge_executes_native_local_model_mount_provider_invocation_through_rust_core/.test(modelMountCommandSurface) &&
       /executeProviderInvocation/.test(modelMountCore) &&
-      /rust_model_mount_provider_invocation_command/.test(modelMountCore) &&
+      /MODEL_MOUNT_PROVIDER_INVOCATION_API_METHOD/.test(modelMountCore) &&
       /executeModelMountProviderInvocation/.test(modelMountingState) &&
       /modelMountProviderInvocationRequestForExecution/.test(modelInvocationOps) &&
       /modelMountProviderInvocationRequiresRust/.test(modelInvocationOps) &&
@@ -17752,23 +17816,24 @@ function runBridge() {
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
     ],
-    "Phase 9/10 is pending: migrated local provider backends must execute through Rust model_mount instead of the JS provider driver",
+    "Phase 9/10 guard: migrated local provider backends must execute through the Rust daemon-core typed model_mount API instead of JS provider drivers",
   );
   assertCheck(
     result,
-    "model-mount-native-local-stream-invocation-live-bridge",
-      /execute_model_mount_provider_stream_invocation_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
-      /pub fn execute_model_mount_provider_stream_invocation_response/.test(modelMountCore) &&
-      /execute_model_mount_provider_stream_invocation_response\(decode\(raw_request\)\?\)/.test(
+    "model-mount-native-local-stream-invocation-typed-api",
+      modelMountInvocationLifecycleTypedApiOwned &&
+      !/execute_model_mount_provider_stream_invocation_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      !/pub fn execute_model_mount_provider_stream_invocation_response/.test(modelMountCore) &&
+      !/execute_model_mount_provider_stream_invocation_response\(decode\(raw_request\)\?\)/.test(
         coreCommandDispatch,
       ) &&
       !/execute_model_mount_provider_stream_invocation_response as execute_model_mount_provider_stream_invocation/.test(
         modelMountCommandSurface,
       ) &&
-      /rust_core_shapes_native_local_model_mount_provider_stream_command_response/.test(modelMountCore) &&
+      /rust_core_executes_native_local_model_mount_provider_stream_direct_api/.test(modelMountCore) &&
       !/bridge_executes_native_local_model_mount_provider_stream_through_rust_core/.test(modelMountCommandSurface) &&
       /executeProviderStreamInvocation/.test(modelMountCore) &&
-      /rust_model_mount_provider_stream_invocation_command/.test(modelMountCore) &&
+      /MODEL_MOUNT_PROVIDER_STREAM_INVOCATION_API_METHOD/.test(modelMountCore) &&
       /executeModelMountProviderStreamInvocation/.test(modelMountingState) &&
       /modelMountProviderStreamInvocationRequestForExecution/.test(modelInvocationOps) &&
       /modelMountProviderStreamInvocationRequiresRust/.test(modelInvocationOps) &&
@@ -17800,30 +17865,22 @@ function runBridge() {
       "packages/runtime-daemon/src/model-mounting/native-local-fixture.mjs",
       ...retiredNativeFixtureResponseFiles,
     ],
-    "Phase 9/10 is pending: native-local stream frame planning must execute through Rust model_mount while JS only adapts returned chunks to protocol streams",
+    "Phase 9/10 guard: native-local stream frame planning must execute through the Rust daemon-core typed model_mount API while JS only adapts returned chunks to protocol streams",
   );
   assertCheck(
     result,
-    "model-mount-native-local-lifecycle-rust-owner",
+    "model-mount-native-local-lifecycle-typed-api-rust-owner",
     (() => {
-      const providerLifecycleCoreBlock =
-        modelMountCore.match(/pub fn plan_model_mount_provider_lifecycle_response[\s\S]*?(?=\n\npub fn plan_model_mount_provider_inventory_response)/)?.[0] ?? "";
       const providerLifecycleRunnerBlock =
-        modelMountCore.match(/function normalizeProviderLifecycleBridgeResult[\s\S]*?(?=\n\nfunction normalizeProviderInventoryBridgeResult)/)?.[0] ?? "";
-      return /pub struct ModelMountProviderLifecycleBridgeRequest/.test(modelMountCore) &&
-      /pub fn plan_model_mount_provider_lifecycle_response/.test(modelMountCore) &&
-      /rust_core_shapes_model_mount_provider_lifecycle_command_response/.test(modelMountCore) &&
-      /plan_model_mount_provider_lifecycle_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+        modelMountCore.match(/function normalizeProviderLifecycleApiResult[\s\S]*?(?=\n\nfunction normalizeProviderInventoryApiResult)/)?.[0] ?? "";
+      return modelMountInvocationLifecycleTypedApiOwned &&
+      !/pub struct ModelMountProviderLifecycleBridgeRequest/.test(modelMountCore) &&
+      !/pub fn plan_model_mount_provider_lifecycle_response/.test(modelMountCore) &&
+      !/rust_core_shapes_model_mount_provider_lifecycle_command_response/.test(modelMountCore) &&
+      !/plan_model_mount_provider_lifecycle_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
       !/plan_model_mount_provider_lifecycle_response as plan_model_mount_provider_lifecycle/.test(modelMountCommandSurface) &&
       !/bridge_plans_native_local_model_mount_provider_lifecycle_through_rust_core/.test(modelMountCommandSurface) &&
-	      /"backend_id":\s*backend_id/.test(modelMountCore) &&
-	      /"provider_backend":\s*backend/.test(modelMountCore) &&
-	      /"record_dir":\s*record_dir/.test(providerLifecycleCoreBlock) &&
-	      /"record_id":\s*record_id/.test(providerLifecycleCoreBlock) &&
-	      /"record":\s*record/.test(providerLifecycleCoreBlock) &&
-	      /"public_response":\s*public_response/.test(providerLifecycleCoreBlock) &&
-	      /"rust_core_boundary":\s*rust_core_boundary/.test(providerLifecycleCoreBlock) &&
-	      !/"(?:backendId|providerBackend)":/.test(providerLifecycleCoreBlock) &&
+	      /rust_core_plans_model_mount_provider_lifecycle_direct_api/.test(modelMountCore) &&
 	      /backendId:\s*result\.backend_id \?\? record\.backend_id \?\? null/.test(
 	        providerLifecycleRunnerBlock,
 	      ) &&
@@ -17840,7 +17897,7 @@ function runBridge() {
 	      /receipt_refs:\s*Array\.isArray\(result\.receipt_refs\)/.test(providerLifecycleRunnerBlock) &&
 	      !/result\.(?:backendId|providerBackend)\b/.test(providerLifecycleRunnerBlock) &&
 	      /planProviderLifecycle/.test(modelMountCore) &&
-      /rust_model_mount_provider_lifecycle_command/.test(modelMountCore) &&
+      /MODEL_MOUNT_PROVIDER_LIFECYCLE_API_METHOD/.test(modelMountCore) &&
       /RUST_MODEL_MOUNT_FIXTURE_LIFECYCLE_BACKEND/.test(modelMountCore) &&
       /planModelMountProviderLifecycle/.test(modelMountingState) &&
       !exists("packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs") &&
@@ -17854,7 +17911,7 @@ function runBridge() {
       "packages/runtime-daemon/src/model-mounting/model-mount-core.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
     ],
-    "Phase 9/10 is pending: native-local health/load/unload lifecycle envelopes must be planned by Rust model_mount while lower-level JS provider driver adapters remain deleted",
+    "Phase 9/10 guard: native-local health/load/unload lifecycle must be planned through the Rust daemon-core typed model_mount API while lower-level JS provider driver adapters remain deleted",
   );
   assertCheck(
     result,
@@ -18013,23 +18070,18 @@ function runBridge() {
   );
   assertCheck(
     result,
-    "model-mount-local-provider-inventory-rust-owner",
+    "model-mount-local-provider-inventory-typed-api-rust-owner",
     (() => {
-      const providerInventoryCoreBlock =
-        modelMountCore.match(/pub fn plan_model_mount_provider_inventory_response[\s\S]*?(?=\n\npub fn plan_model_mount_instance_lifecycle_response)/)?.[0] ?? "";
       const providerInventoryRunnerBlock =
-        modelMountCore.match(/function normalizeProviderInventoryBridgeResult[\s\S]*?(?=\n\nfunction normalizeInstanceLifecycleBridgeResult)/)?.[0] ?? "";
-      return /pub struct ModelMountProviderInventoryBridgeRequest/.test(modelMountCore) &&
-      /pub fn plan_model_mount_provider_inventory_response/.test(modelMountCore) &&
-      /rust_core_shapes_model_mount_provider_inventory_command_response/.test(modelMountCore) &&
-      /plan_model_mount_provider_inventory_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+        modelMountCore.match(/function normalizeProviderInventoryApiResult[\s\S]*?(?=\n\nfunction normalizeInstanceLifecycleApiResult)/)?.[0] ?? "";
+      return modelMountInvocationLifecycleTypedApiOwned &&
+      !/pub struct ModelMountProviderInventoryBridgeRequest/.test(modelMountCore) &&
+      !/pub fn plan_model_mount_provider_inventory_response/.test(modelMountCore) &&
+      !/rust_core_shapes_model_mount_provider_inventory_command_response/.test(modelMountCore) &&
+      !/plan_model_mount_provider_inventory_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
       !/plan_model_mount_provider_inventory_response as plan_model_mount_provider_inventory/.test(modelMountCommandSurface) &&
       !/bridge_plans_local_model_mount_provider_inventory_through_rust_core/.test(modelMountCommandSurface) &&
-      /"backend_id":\s*backend_id/.test(modelMountCore) &&
-      /"provider_backend":\s*backend/.test(modelMountCore) &&
-      /"item_refs":\s*item_refs/.test(modelMountCore) &&
-      /"item_count":\s*item_count/.test(modelMountCore) &&
-      !/"(?:backendId|providerBackend|itemRefs|itemCount)":/.test(providerInventoryCoreBlock) &&
+      /rust_core_plans_model_mount_provider_inventory_direct_api/.test(modelMountCore) &&
       /const itemRefs = Array\.isArray\(result\.item_refs\)/.test(
         providerInventoryRunnerBlock,
       ) &&
@@ -18044,7 +18096,7 @@ function runBridge() {
       ) &&
       !/result\.(?:backendId|providerBackend|itemRefs|itemCount)\b/.test(providerInventoryRunnerBlock) &&
       /planProviderInventory/.test(modelMountCore) &&
-      /rust_model_mount_provider_inventory_command/.test(modelMountCore) &&
+      /MODEL_MOUNT_PROVIDER_INVENTORY_API_METHOD/.test(modelMountCore) &&
       /RUST_MODEL_MOUNT_FIXTURE_INVENTORY_BACKEND/.test(modelMountCore) &&
       /RUST_MODEL_MOUNT_HOSTED_PROVIDER_INVENTORY_BACKEND/.test(modelMountCore) &&
       /planModelMountProviderInventory/.test(modelMountingState) &&
@@ -18062,24 +18114,26 @@ function runBridge() {
       "packages/runtime-daemon/src/model-mounting/model-mount-core.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
     ],
-    "Phase 9/10 is pending: local provider model/list-loaded inventory envelopes must be planned and hash-bound by Rust model_mount while lower-level JS provider driver adapters remain deleted",
+    "Phase 9/10 guard: local provider model/list-loaded inventory must be planned and hash-bound through the Rust daemon-core typed model_mount API while lower-level JS provider driver adapters remain deleted",
   );
   assertCheck(
     result,
-    "model-mount-instance-lifecycle-js-facade-retired",
-    /pub struct ModelMountInstanceLifecycleBridgeRequest/.test(modelMountCore) &&
-      /pub fn plan_model_mount_instance_lifecycle_response/.test(modelMountCore) &&
-      /rust_core_shapes_model_mount_instance_lifecycle_command_response/.test(modelMountCore) &&
-      /plan_model_mount_instance_lifecycle_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+    "model-mount-instance-lifecycle-typed-api-facade-retired",
+    modelMountInvocationLifecycleTypedApiOwned &&
+      !/pub struct ModelMountInstanceLifecycleBridgeRequest/.test(modelMountCore) &&
+      !/pub fn plan_model_mount_instance_lifecycle_response/.test(modelMountCore) &&
+      !/rust_core_shapes_model_mount_instance_lifecycle_command_response/.test(modelMountCore) &&
+      !/plan_model_mount_instance_lifecycle_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
       !/plan_model_mount_instance_lifecycle_response as plan_model_mount_instance_lifecycle/.test(modelMountCommandSurface) &&
       !/bridge_plans_model_mount_instance_lifecycle_through_rust_core/.test(modelMountCommandSurface) &&
+      /rust_core_plans_model_mount_instance_lifecycle_direct_api/.test(modelMountCore) &&
       /planInstanceLifecycle/.test(modelMountCore) &&
-      /rust_model_mount_instance_lifecycle_command/.test(modelMountCore) &&
+      /MODEL_MOUNT_INSTANCE_LIFECYCLE_API_METHOD/.test(modelMountCore) &&
       /RUST_MODEL_MOUNT_INSTANCE_LIFECYCLE_BACKEND/.test(modelMountCore) &&
       /provider_lifecycle_hash/.test(modelMountCore) &&
       !/providerLifecycleHash/.test(modelMountDaemonCore) &&
       /provider_lifecycle_hash/.test(modelMountCore) &&
-      /response\.get\("providerLifecycleHash"\)\.is_none/.test(modelMountCore) &&
+      /assert\.equal\(result\.providerLifecycleHash,\s*undefined\)/.test(modelMountCoreTest) &&
       /planModelMountInstanceLifecycle\(request\)/.test(modelMountingState) &&
       /modelMountCore\.planInstanceLifecycle\(request\)/.test(modelMountingState) &&
       /function planModelInstanceLifecycle/.test(modelMountingState) &&
@@ -18183,7 +18237,7 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-route-handlers.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
     ],
-    "Phase 9/10 is pending: migrated local provider model load/unload must be Rust-planned and Agentgres-committed while evict/supersede JS mutation facades stay retired",
+    "Phase 9/10 guard: migrated local provider model load/unload must be Rust-planned through typed model_mount APIs and Agentgres-committed while evict/supersede JS mutation facades stay retired",
   );
   assertCheck(
     result,
@@ -18200,20 +18254,21 @@ function runBridge() {
   );
   assertCheck(
     result,
-    "model-mount-provider-js-invocation-retired",
-    /ModelMountProviderResultAdmissionRequest/.test(modelMountCore) &&
-      /ModelMountProviderResultAdmissionBridgeRequest/.test(modelMountCore) &&
-      /pub fn admit_model_mount_provider_result_response/.test(modelMountCore) &&
-      /admit_model_mount_provider_result_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
-      /rust_core_shapes_model_mount_provider_result_command_response/.test(modelMountCore) &&
-      /rust_core_rejects_retired_js_provider_result_command_response/.test(modelMountCore) &&
+    "model-mount-provider-result-typed-api-js-invocation-retired",
+    modelMountInvocationLifecycleTypedApiOwned &&
+      /ModelMountProviderResultAdmissionRequest/.test(modelMountCore) &&
+      !/ModelMountProviderResultAdmissionBridgeRequest/.test(modelMountCore) &&
+      !/pub fn admit_model_mount_provider_result_response/.test(modelMountCore) &&
+      !/admit_model_mount_provider_result_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      /rust_core_admits_model_mount_provider_result_direct_api/.test(modelMountCore) &&
+      /rust_core_rejects_retired_js_provider_result_direct_api/.test(modelMountCore) &&
       !/admit_model_mount_provider_result_response as admit_model_mount_provider_result/.test(modelMountCommandSurface) &&
       !/struct ModelMountProviderResultAdmissionBridgeRequest/.test(modelMountCommandBridge) &&
       !/ModelMountProviderResultAdmissionRequest/.test(modelMountCommandBridge) &&
       !/ModelMountProviderResultAdmissionBridgeRequest/.test(modelMountCommandSurface) &&
       !/bridge_admits_model_mount_provider_result_through_rust_core/.test(modelMountCommandSurface) &&
       /admitProviderResult/.test(modelMountCore) &&
-      /rust_model_mount_provider_result_command/.test(modelMountCore) &&
+      /MODEL_MOUNT_PROVIDER_RESULT_API_METHOD/.test(modelMountCore) &&
       /admitModelMountProviderResult/.test(modelMountingState) &&
       /modelMountProviderResultAdmissionRequestForExecution/.test(modelInvocationOps) &&
       /model_mount_invocation_positive_rust_path/.test(modelInvocationOps) &&
@@ -18287,7 +18342,7 @@ function runBridge() {
       "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs",
     ],
-    "Phase 9/10 is pending: non-migrated provider execution must fail closed until a Rust model_mount backend owns the provider invocation",
+    "Phase 9/10 guard: non-migrated provider execution must fail closed while migrated provider results are admitted through the Rust daemon-core typed model_mount API",
   );
   assertCheck(
     result,
@@ -20724,6 +20779,18 @@ function runReceipts() {
       ].join("\n")
     : "";
   const modelMountCore = [modelMountDaemonCore, rustModelMountCore].join("\n");
+  const modelMountInvocationLifecycleSources = {
+    coreCommandDispatch,
+    rustModelMountCore,
+    modelMountCommandSurface,
+    commandProtocolCore,
+    modelMountDaemonCore,
+    modelMountCoreTest,
+  };
+  const modelMountInvocationLifecycleCommandTransportRetired =
+    isModelMountInvocationLifecycleCommandTransportRetired(modelMountInvocationLifecycleSources);
+  const modelMountInvocationLifecycleTypedApiOwned =
+    isModelMountInvocationLifecycleTypedApiOwned(modelMountInvocationLifecycleSources);
   const modelMountReadProjectionEvidence = [modelMountCommandSurface, modelMountCore].join("\n");
   const modelMountArtifactEndpointCore = exists(
     "crates/services/src/agentic/runtime/kernel/model_mount/artifact_endpoint.rs",
@@ -23411,11 +23478,20 @@ function runReceipts() {
       /admit_model_mount_provider_result/.test(
         read("crates/services/src/agentic/runtime/kernel/mod.rs"),
       ) &&
-      /pub fn admit_model_mount_provider_result_response/.test(modelMountCore) &&
-      /"provider_result_ref":\s*provider_result_ref/.test(modelMountCore) &&
-      /"provider_result_hash":\s*provider_result_hash/.test(modelMountCore) &&
-      /admit_model_mount_provider_result_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
-      /rust_core_shapes_model_mount_provider_result_command_response/.test(modelMountCore) &&
+      modelMountInvocationLifecycleTypedApiOwned &&
+      !/pub fn admit_model_mount_provider_result_response/.test(modelMountCore) &&
+      /provider_result_ref:\s*[\r\n\s]*result\.provider_result_ref \?\? record\.provider_result_ref \?\? null/.test(
+        modelMountDaemonCore,
+      ) &&
+      /provider_result_hash:\s*[\r\n\s]*result\.provider_result_hash \?\? record\.provider_result_hash \?\? null/.test(
+        modelMountDaemonCore,
+      ) &&
+      /pub provider_result_ref: String/.test(modelMountCore) &&
+      /pub provider_result_hash: String/.test(modelMountCore) &&
+      /record\.provider_result_hash = provider_result_hash\(&record\)\?;/.test(modelMountCore) &&
+      /record\.provider_result_ref = format!\(/.test(modelMountCore) &&
+      !/admit_model_mount_provider_result_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      /rust_core_admits_model_mount_provider_result_direct_api/.test(modelMountCore) &&
       !/admit_model_mount_provider_result_response as admit_model_mount_provider_result/.test(modelMountCommandSurface) &&
       !/providerResultRef|providerResultHash/.test(modelMountCommandBridge) &&
       !/"provider_result_ref":\s*provider_result_ref/.test(modelMountCommandBridge) &&

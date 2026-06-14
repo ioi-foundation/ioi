@@ -402,7 +402,7 @@ fn provider_lifecycle_record(result: &ModelMountProviderLifecycleResult) -> Valu
         "record_dir": &result.record_dir,
         "receipt_refs": record_receipt_refs,
         "rust_core_boundary": &result.rust_core_boundary,
-        "source": "rust_model_mount_provider_lifecycle_command",
+        "source": "rust_model_mount_provider_lifecycle_api",
         "public_response": &result.public_response,
         "evidence_refs": &result.evidence_refs,
     })

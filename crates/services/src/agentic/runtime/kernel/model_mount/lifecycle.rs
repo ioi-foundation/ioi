@@ -2,35 +2,11 @@ mod instance;
 mod inventory;
 mod provider;
 
-use serde::Deserialize;
-use serde_json::{json, Value};
-
 pub use instance::{ModelMountInstanceLifecycleRequest, ModelMountInstanceLifecycleResult};
 pub use inventory::{ModelMountProviderInventoryRequest, ModelMountProviderInventoryResult};
 pub use provider::{ModelMountProviderLifecycleRequest, ModelMountProviderLifecycleResult};
 
 use super::ModelMountError;
-
-#[derive(Debug, Deserialize)]
-pub struct ModelMountProviderLifecycleBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: ModelMountProviderLifecycleRequest,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct ModelMountProviderInventoryBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: ModelMountProviderInventoryRequest,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct ModelMountInstanceLifecycleBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: ModelMountInstanceLifecycleRequest,
-}
 
 pub(super) fn plan_provider_lifecycle(
     request: &ModelMountProviderLifecycleRequest,
@@ -50,333 +26,159 @@ pub(super) fn plan_instance_lifecycle(
     instance::plan_instance_lifecycle(request)
 }
 
-pub fn plan_model_mount_provider_lifecycle_response(
-    request: ModelMountProviderLifecycleBridgeRequest,
-) -> Result<Value, ModelMountError> {
-    let result = plan_provider_lifecycle(&request.request)?;
-    let status = result.status.clone();
-    let backend = result.backend.clone();
-    let backend_id = result.backend_id.clone();
-    let driver = result.driver.clone();
-    let execution_backend = result.execution_backend.clone();
-    let lifecycle_hash = result.lifecycle_hash.clone();
-    let evidence_refs = result.evidence_refs.clone();
-    let operation_kind = result.operation_kind.clone();
-    let rust_core_boundary = result.rust_core_boundary.clone();
-    let record_dir = result.record_dir.clone();
-    let record_id = result.record_id.clone();
-    let record = result.record.clone();
-    let public_response = result.public_response.clone();
-    let receipt_refs = result.receipt_refs.clone();
-    Ok(json!({
-        "source": "rust_model_mount_provider_lifecycle_command",
-        "backend": request.backend.unwrap_or_else(|| execution_backend.clone()),
-        "result": result,
-        "status": status,
-        "backend_id": backend_id,
-        "provider_backend": backend,
-        "driver": driver,
-        "execution_backend": execution_backend,
-        "lifecycle_hash": lifecycle_hash,
-        "operation_kind": operation_kind,
-        "rust_core_boundary": rust_core_boundary,
-        "record_dir": record_dir,
-        "record_id": record_id,
-        "record": record,
-        "public_response": public_response,
-        "receipt_refs": receipt_refs,
-        "evidence_refs": evidence_refs,
-    }))
-}
-
-pub fn plan_model_mount_provider_inventory_response(
-    request: ModelMountProviderInventoryBridgeRequest,
-) -> Result<Value, ModelMountError> {
-    let result = plan_provider_inventory(&request.request)?;
-    let status = result.status.clone();
-    let backend = result.backend.clone();
-    let backend_id = result.backend_id.clone();
-    let driver = result.driver.clone();
-    let execution_backend = result.execution_backend.clone();
-    let item_refs = result.item_refs.clone();
-    let item_count = result.item_count;
-    let inventory_hash = result.inventory_hash.clone();
-    let evidence_refs = result.evidence_refs.clone();
-    let operation_kind = result.operation_kind.clone();
-    let rust_core_boundary = result.rust_core_boundary.clone();
-    let record_dir = result.record_dir.clone();
-    let record_id = result.record_id.clone();
-    let record = result.record.clone();
-    let receipt_refs = result.receipt_refs.clone();
-    Ok(json!({
-        "source": "rust_model_mount_provider_inventory_command",
-        "backend": request.backend.unwrap_or_else(|| execution_backend.clone()),
-        "result": result,
-        "status": status,
-        "backend_id": backend_id,
-        "provider_backend": backend,
-        "driver": driver,
-        "execution_backend": execution_backend,
-        "item_refs": item_refs,
-        "item_count": item_count,
-        "inventory_hash": inventory_hash,
-        "operation_kind": operation_kind,
-        "rust_core_boundary": rust_core_boundary,
-        "record_dir": record_dir,
-        "record_id": record_id,
-        "record": record,
-        "receipt_refs": receipt_refs,
-        "evidence_refs": evidence_refs,
-    }))
-}
-
-pub fn plan_model_mount_instance_lifecycle_response(
-    request: ModelMountInstanceLifecycleBridgeRequest,
-) -> Result<Value, ModelMountError> {
-    let result = plan_instance_lifecycle(&request.request)?;
-    let status = result.status.clone();
-    let backend_id = result.backend_id.clone();
-    let driver = result.driver.clone();
-    let execution_backend = result.execution_backend.clone();
-    let provider_lifecycle_hash = result.provider_lifecycle_hash.clone();
-    let instance_lifecycle_hash = result.instance_lifecycle_hash.clone();
-    let evidence_refs = result.evidence_refs.clone();
-    Ok(json!({
-        "source": "rust_model_mount_instance_lifecycle_command",
-        "backend": request.backend.unwrap_or_else(|| execution_backend.clone()),
-        "result": result,
-        "status": status,
-        "backendId": backend_id.clone(),
-        "backend_id": backend_id,
-        "driver": driver,
-        "execution_backend": execution_backend,
-        "provider_lifecycle_hash": provider_lifecycle_hash,
-        "instance_lifecycle_hash": instance_lifecycle_hash,
-        "evidence_refs": evidence_refs,
-    }))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::agentic::runtime::kernel::command_protocol::DAEMON_CORE_COMMAND_SCHEMA_VERSION;
     use crate::agentic::runtime::kernel::model_mount::{
         MODEL_MOUNT_INSTANCE_LIFECYCLE_SCHEMA_VERSION,
         MODEL_MOUNT_PROVIDER_INVENTORY_SCHEMA_VERSION,
         MODEL_MOUNT_PROVIDER_LIFECYCLE_PLAN_SCHEMA_VERSION,
         MODEL_MOUNT_PROVIDER_LIFECYCLE_SCHEMA_VERSION,
     };
+    use serde_json::json;
 
     #[test]
-    fn rust_core_shapes_model_mount_provider_lifecycle_command_response() {
-        let request: ModelMountProviderLifecycleBridgeRequest = serde_json::from_value(json!({
-            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
-            "operation": "plan_model_mount_provider_lifecycle",
-            "backend": "rust_model_mount_native_local_lifecycle",
-            "request": {
-                "schema_version": MODEL_MOUNT_PROVIDER_LIFECYCLE_SCHEMA_VERSION,
-                "provider_ref": "provider.autopilot.local",
-                "provider_kind": "ioi_native_local",
-                "endpoint_ref": "endpoint.native-local",
-                "model_ref": "model://qwen/qwen3.5-9b",
-                "action": "load",
-                "execution_backend": "rust_model_mount_native_local_lifecycle",
-                "api_format": "ioi_native",
-                "driver": "native_local",
-                "backend_ref": "backend.autopilot.native-local.fixture",
-                "evidence_refs": ["daemon_model_load_request"],
-                "process_evidence_refs": ["autopilot_native_local_process_started"]
-            }
+    fn rust_core_plans_model_mount_provider_lifecycle_direct_api() {
+        let request: ModelMountProviderLifecycleRequest = serde_json::from_value(json!({
+            "schema_version": MODEL_MOUNT_PROVIDER_LIFECYCLE_SCHEMA_VERSION,
+            "provider_ref": "provider.autopilot.local",
+            "provider_kind": "ioi_native_local",
+            "endpoint_ref": "endpoint.native-local",
+            "model_ref": "model://qwen/qwen3.5-9b",
+            "action": "load",
+            "execution_backend": "rust_model_mount_native_local_lifecycle",
+            "api_format": "ioi_native",
+            "driver": "native_local",
+            "backend_ref": "backend.autopilot.native-local.fixture",
+            "evidence_refs": ["daemon_model_load_request"],
+            "process_evidence_refs": ["autopilot_native_local_process_started"]
         }))
-        .expect("native-local lifecycle command request");
+        .expect("native-local lifecycle request");
 
-        let response =
-            plan_model_mount_provider_lifecycle_response(request).expect("lifecycle planned");
+        let response = plan_provider_lifecycle(&request).expect("lifecycle planned");
 
+        assert_eq!(response.status, "loaded");
         assert_eq!(
-            response["source"],
-            "rust_model_mount_provider_lifecycle_command"
-        );
-        assert_eq!(
-            response["backend"],
-            "rust_model_mount_native_local_lifecycle"
-        );
-        assert_eq!(response["status"], "loaded");
-        assert_eq!(
-            response["backend_id"],
+            response.backend_id,
             "backend.autopilot.native-local.fixture"
         );
+        assert_eq!(response.backend, "autopilot.native_local.fixture");
+        assert_eq!(response.driver, "native_local");
+        assert!(response.lifecycle_hash.starts_with("sha256:"));
+        assert!(response
+            .evidence_refs
+            .contains(&"rust_model_mount_native_local_lifecycle_backend".to_string()));
+        assert_eq!(response.operation_kind, "model_mount.provider.start");
         assert_eq!(
-            response["provider_backend"],
-            "autopilot.native_local.fixture"
-        );
-        assert_eq!(response["driver"], "native_local");
-        assert!(response.get("backendId").is_none());
-        assert!(response.get("providerBackend").is_none());
-        assert!(response["lifecycle_hash"]
-            .as_str()
-            .expect("lifecycle hash")
-            .starts_with("sha256:"));
-        assert!(response["evidence_refs"]
-            .as_array()
-            .expect("evidence refs")
-            .iter()
-            .any(|value| value == "rust_model_mount_native_local_lifecycle_backend"));
-        assert_eq!(response["operation_kind"], "model_mount.provider.start");
-        assert_eq!(
-            response["rust_core_boundary"],
+            response.rust_core_boundary,
             "model_mount.provider_lifecycle"
         );
-        assert_eq!(response["record_dir"], "model-provider-lifecycle-controls");
+        assert_eq!(response.record_dir, "model-provider-lifecycle-controls");
         assert_eq!(
-            response["record"]["schema_version"],
+            response.record["schema_version"],
             MODEL_MOUNT_PROVIDER_LIFECYCLE_PLAN_SCHEMA_VERSION
         );
         assert_eq!(
-            response["record"]["object"],
+            response.record["object"],
             "ioi.model_mount_provider_lifecycle"
         );
         assert_eq!(
-            response["record"]["rust_core_boundary"],
+            response.record["rust_core_boundary"],
             "model_mount.provider_lifecycle"
         );
-        assert!(response["record"]["receipt_refs"]
+        assert!(response.record["receipt_refs"]
             .as_array()
             .expect("record receipt refs")
             .iter()
-            .any(|value| *value == response["lifecycle_hash"]));
-        assert_eq!(
-            response["public_response"]["js_provider_driver_call"],
-            false
-        );
+            .any(|value| value.as_str() == Some(response.lifecycle_hash.as_str())));
+        assert_eq!(response.public_response["js_provider_driver_call"], false);
     }
 
     #[test]
-    fn rust_core_shapes_model_mount_provider_inventory_command_response() {
-        let request: ModelMountProviderInventoryBridgeRequest = serde_json::from_value(json!({
-            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
-            "operation": "plan_model_mount_provider_inventory",
-            "backend": "rust_model_mount_native_local_inventory",
-            "request": {
-                "schema_version": MODEL_MOUNT_PROVIDER_INVENTORY_SCHEMA_VERSION,
-                "provider_ref": "provider.autopilot.local",
-                "provider_kind": "ioi_native_local",
-                "action": "list_loaded",
-                "execution_backend": "rust_model_mount_native_local_inventory",
-                "api_format": "ioi_native",
-                "driver": "native_local",
-                "backend_ref": "backend.autopilot.native-local.fixture",
-                "item_refs": ["model_instance://native/qwen3"],
-                "evidence_refs": ["daemon_native_local_list_loaded_request"]
-            }
+    fn rust_core_plans_model_mount_provider_inventory_direct_api() {
+        let request: ModelMountProviderInventoryRequest = serde_json::from_value(json!({
+            "schema_version": MODEL_MOUNT_PROVIDER_INVENTORY_SCHEMA_VERSION,
+            "provider_ref": "provider.autopilot.local",
+            "provider_kind": "ioi_native_local",
+            "action": "list_loaded",
+            "execution_backend": "rust_model_mount_native_local_inventory",
+            "api_format": "ioi_native",
+            "driver": "native_local",
+            "backend_ref": "backend.autopilot.native-local.fixture",
+            "item_refs": ["model_instance://native/qwen3"],
+            "evidence_refs": ["daemon_native_local_list_loaded_request"]
         }))
-        .expect("native-local inventory command request");
+        .expect("native-local inventory request");
 
-        let response =
-            plan_model_mount_provider_inventory_response(request).expect("inventory planned");
+        let response = plan_provider_inventory(&request).expect("inventory planned");
 
+        assert_eq!(response.status, "listed");
         assert_eq!(
-            response["source"],
-            "rust_model_mount_provider_inventory_command"
-        );
-        assert_eq!(
-            response["backend"],
-            "rust_model_mount_native_local_inventory"
-        );
-        assert_eq!(response["status"], "listed");
-        assert_eq!(
-            response["backend_id"],
+            response.backend_id,
             "backend.autopilot.native-local.fixture"
         );
+        assert_eq!(response.backend, "autopilot.native_local.fixture");
+        assert_eq!(response.driver, "native_local");
+        assert_eq!(response.item_count, 1);
         assert_eq!(
-            response["provider_backend"],
-            "autopilot.native_local.fixture"
-        );
-        assert_eq!(response["driver"], "native_local");
-        assert_eq!(response["item_count"], 1);
-        assert_eq!(
-            response["operation_kind"],
+            response.operation_kind,
             "model_mount.provider.inventory.list_loaded"
         );
         assert_eq!(
-            response["rust_core_boundary"],
+            response.rust_core_boundary,
             "model_mount.provider_inventory"
         );
-        assert_eq!(response["record_dir"], "model-provider-inventory");
-        assert!(response["record_id"]
-            .as_str()
-            .expect("record id")
+        assert_eq!(response.record_dir, "model-provider-inventory");
+        assert!(response
+            .record_id
             .starts_with("provider_inventory_provider.autopilot.local_list_loaded_"));
-        assert_eq!(response["record"]["id"], response["record_id"]);
         assert_eq!(
-            response["record"]["object"],
+            response.record["id"].as_str(),
+            Some(response.record_id.as_str())
+        );
+        assert_eq!(
+            response.record["object"],
             "ioi.model_mount_provider_inventory"
         );
-        assert!(response.get("backendId").is_none());
-        assert!(response.get("providerBackend").is_none());
-        assert!(response.get("itemRefs").is_none());
-        assert!(response.get("itemCount").is_none());
-        assert!(response["inventory_hash"]
-            .as_str()
-            .expect("inventory hash")
-            .starts_with("sha256:"));
-        assert!(response["evidence_refs"]
-            .as_array()
-            .expect("evidence refs")
-            .iter()
-            .any(|value| value == "rust_model_mount_native_local_inventory_backend"));
+        assert!(response.inventory_hash.starts_with("sha256:"));
+        assert!(response
+            .evidence_refs
+            .contains(&"rust_model_mount_native_local_inventory_backend".to_string()));
     }
 
     #[test]
-    fn rust_core_shapes_model_mount_instance_lifecycle_command_response() {
-        let request: ModelMountInstanceLifecycleBridgeRequest = serde_json::from_value(json!({
-            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
-            "operation": "plan_model_mount_instance_lifecycle",
-            "backend": "rust_model_mount_instance_lifecycle",
-            "request": {
-                "schema_version": MODEL_MOUNT_INSTANCE_LIFECYCLE_SCHEMA_VERSION,
-                "instance_ref": "model_instance://native/qwen3",
-                "endpoint_ref": "endpoint.native-local",
-                "model_ref": "model://qwen/qwen3.5-9b",
-                "provider_ref": "provider.autopilot.local",
-                "action": "load",
-                "target_status": "loaded",
-                "execution_backend": "rust_model_mount_instance_lifecycle",
-                "backend_ref": "backend.autopilot.native-local.fixture",
-                "driver": "native_local",
-                "provider_lifecycle_hash": "sha256:provider-lifecycle",
-                "evidence_refs": ["rust_model_mount_provider_lifecycle"]
-            }
+    fn rust_core_plans_model_mount_instance_lifecycle_direct_api() {
+        let request: ModelMountInstanceLifecycleRequest = serde_json::from_value(json!({
+            "schema_version": MODEL_MOUNT_INSTANCE_LIFECYCLE_SCHEMA_VERSION,
+            "instance_ref": "model_instance://native/qwen3",
+            "endpoint_ref": "endpoint.native-local",
+            "model_ref": "model://qwen/qwen3.5-9b",
+            "provider_ref": "provider.autopilot.local",
+            "action": "load",
+            "target_status": "loaded",
+            "execution_backend": "rust_model_mount_instance_lifecycle",
+            "backend_ref": "backend.autopilot.native-local.fixture",
+            "driver": "native_local",
+            "provider_lifecycle_hash": "sha256:provider-lifecycle",
+            "evidence_refs": ["rust_model_mount_provider_lifecycle"]
         }))
-        .expect("instance lifecycle command request");
+        .expect("instance lifecycle request");
 
-        let response =
-            plan_model_mount_instance_lifecycle_response(request).expect("instance planned");
+        let response = plan_instance_lifecycle(&request).expect("instance planned");
 
+        assert_eq!(response.status, "loaded");
         assert_eq!(
-            response["source"],
-            "rust_model_mount_instance_lifecycle_command"
-        );
-        assert_eq!(response["backend"], "rust_model_mount_instance_lifecycle");
-        assert_eq!(response["status"], "loaded");
-        assert_eq!(
-            response["backendId"],
+            response.backend_id,
             "backend.autopilot.native-local.fixture"
         );
-        assert_eq!(response["driver"], "native_local");
+        assert_eq!(response.driver, "native_local");
         assert_eq!(
-            response["provider_lifecycle_hash"],
+            response.provider_lifecycle_hash,
             "sha256:provider-lifecycle"
         );
-        assert!(response.get("providerLifecycleHash").is_none());
-        assert!(response["instance_lifecycle_hash"]
-            .as_str()
-            .expect("instance lifecycle hash")
-            .starts_with("sha256:"));
-        assert!(response["evidence_refs"]
-            .as_array()
-            .expect("evidence refs")
-            .iter()
-            .any(|value| value == "rust_model_mount_instance_lifecycle"));
+        assert!(response.instance_lifecycle_hash.starts_with("sha256:"));
+        assert!(response
+            .evidence_refs
+            .contains(&"rust_model_mount_instance_lifecycle".to_string()));
     }
 }

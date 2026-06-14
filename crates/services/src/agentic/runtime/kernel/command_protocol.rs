@@ -6,14 +6,6 @@ pub const COMMAND_SCHEMA_VERSION: &str = DAEMON_CORE_COMMAND_SCHEMA_VERSION;
 
 pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "run_coding_tool_step_module",
-    "admit_model_mount_invocation",
-    "admit_model_mount_provider_execution",
-    "execute_model_mount_provider_invocation",
-    "execute_model_mount_provider_stream_invocation",
-    "plan_model_mount_provider_lifecycle",
-    "plan_model_mount_provider_inventory",
-    "plan_model_mount_instance_lifecycle",
-    "admit_model_mount_provider_result",
     "plan_model_mount_backend_process",
     "plan_model_mount_backend_lifecycle",
     "plan_model_mount_artifact_endpoint",
@@ -73,14 +65,6 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CommandOperation {
     RunCodingToolStepModule,
-    AdmitModelMountInvocation,
-    AdmitModelMountProviderExecution,
-    ExecuteModelMountProviderInvocation,
-    ExecuteModelMountProviderStreamInvocation,
-    PlanModelMountProviderLifecycle,
-    PlanModelMountProviderInventory,
-    PlanModelMountInstanceLifecycle,
-    AdmitModelMountProviderResult,
     PlanModelMountBackendProcess,
     PlanModelMountBackendLifecycle,
     PlanModelMountArtifactEndpoint,
@@ -141,16 +125,6 @@ impl CommandOperation {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::RunCodingToolStepModule => "run_coding_tool_step_module",
-            Self::AdmitModelMountInvocation => "admit_model_mount_invocation",
-            Self::AdmitModelMountProviderExecution => "admit_model_mount_provider_execution",
-            Self::ExecuteModelMountProviderInvocation => "execute_model_mount_provider_invocation",
-            Self::ExecuteModelMountProviderStreamInvocation => {
-                "execute_model_mount_provider_stream_invocation"
-            }
-            Self::PlanModelMountProviderLifecycle => "plan_model_mount_provider_lifecycle",
-            Self::PlanModelMountProviderInventory => "plan_model_mount_provider_inventory",
-            Self::PlanModelMountInstanceLifecycle => "plan_model_mount_instance_lifecycle",
-            Self::AdmitModelMountProviderResult => "admit_model_mount_provider_result",
             Self::PlanModelMountBackendProcess => "plan_model_mount_backend_process",
             Self::PlanModelMountBackendLifecycle => "plan_model_mount_backend_lifecycle",
             Self::PlanModelMountArtifactEndpoint => "plan_model_mount_artifact_endpoint",
@@ -292,28 +266,6 @@ impl CommandProtocolError {
 pub fn command_operation(operation: &str) -> Option<CommandOperation> {
     match operation {
         "run_coding_tool_step_module" => Some(CommandOperation::RunCodingToolStepModule),
-        "admit_model_mount_invocation" => Some(CommandOperation::AdmitModelMountInvocation),
-        "admit_model_mount_provider_execution" => {
-            Some(CommandOperation::AdmitModelMountProviderExecution)
-        }
-        "execute_model_mount_provider_invocation" => {
-            Some(CommandOperation::ExecuteModelMountProviderInvocation)
-        }
-        "execute_model_mount_provider_stream_invocation" => {
-            Some(CommandOperation::ExecuteModelMountProviderStreamInvocation)
-        }
-        "plan_model_mount_provider_lifecycle" => {
-            Some(CommandOperation::PlanModelMountProviderLifecycle)
-        }
-        "plan_model_mount_provider_inventory" => {
-            Some(CommandOperation::PlanModelMountProviderInventory)
-        }
-        "plan_model_mount_instance_lifecycle" => {
-            Some(CommandOperation::PlanModelMountInstanceLifecycle)
-        }
-        "admit_model_mount_provider_result" => {
-            Some(CommandOperation::AdmitModelMountProviderResult)
-        }
         "plan_model_mount_backend_process" => Some(CommandOperation::PlanModelMountBackendProcess),
         "plan_model_mount_backend_lifecycle" => {
             Some(CommandOperation::PlanModelMountBackendLifecycle)
@@ -595,6 +547,29 @@ mod tests {
     }
 
     #[test]
+    fn model_mount_invocation_lifecycle_command_transport_is_retired() {
+        for operation in [
+            "admit_model_mount_invocation",
+            "admit_model_mount_provider_execution",
+            "execute_model_mount_provider_invocation",
+            "execute_model_mount_provider_stream_invocation",
+            "plan_model_mount_provider_lifecycle",
+            "plan_model_mount_provider_inventory",
+            "plan_model_mount_instance_lifecycle",
+            "admit_model_mount_provider_result",
+        ] {
+            assert_eq!(command_operation(operation), None);
+            assert_eq!(expected_command_schema_version(operation), None);
+            assert_eq!(
+                validate_command_envelope(operation, DAEMON_CORE_COMMAND_SCHEMA_VERSION)
+                    .unwrap_err()
+                    .code(),
+                "operation_unknown"
+            );
+        }
+    }
+
+    #[test]
     fn unknown_operation_has_no_command_schema() {
         assert_eq!(expected_command_schema_version("unknown_operation"), None);
         assert_eq!(
@@ -808,7 +783,7 @@ mod tests {
     #[test]
     fn daemon_core_operation_rejects_step_module_command_schema() {
         let error = validate_command_envelope(
-            "admit_model_mount_invocation",
+            "plan_model_mount_backend_process",
             STEP_MODULE_COMMAND_SCHEMA_VERSION,
         )
         .expect_err("schema mismatch should fail closed");
@@ -874,14 +849,14 @@ mod tests {
         );
 
         let daemon_core = validate_command_envelope(
-            "admit_model_mount_invocation",
+            "plan_model_mount_backend_process",
             DAEMON_CORE_COMMAND_SCHEMA_VERSION,
         )
         .expect("daemon-core command envelope");
-        assert_eq!(daemon_core.operation, "admit_model_mount_invocation");
+        assert_eq!(daemon_core.operation, "plan_model_mount_backend_process");
         assert_eq!(
             daemon_core.command_operation,
-            CommandOperation::AdmitModelMountInvocation
+            CommandOperation::PlanModelMountBackendProcess
         );
         assert_eq!(
             daemon_core.schema_version,
@@ -918,7 +893,7 @@ mod tests {
     #[test]
     fn validate_command_envelope_rejects_schema_mismatch() {
         let error = validate_command_envelope(
-            "admit_model_mount_invocation",
+            "plan_model_mount_backend_process",
             STEP_MODULE_COMMAND_SCHEMA_VERSION,
         )
         .expect_err("schema mismatch should fail closed");

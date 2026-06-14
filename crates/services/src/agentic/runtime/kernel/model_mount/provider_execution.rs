@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 
 use super::{
@@ -12,20 +11,6 @@ mod invocation;
 mod stream;
 
 pub use admission::{ModelMountProviderExecutionRecord, ModelMountProviderExecutionRequest};
-
-#[derive(Debug, Deserialize)]
-pub struct ModelMountProviderExecutionBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: ModelMountProviderExecutionRequest,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct ModelMountProviderInvocationBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: ModelMountProviderInvocationRequest,
-}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ModelMountProviderInvocationRequest {
@@ -163,119 +148,16 @@ pub(super) fn admit_provider_execution(
     admission::admit_provider_execution(request)
 }
 
-pub fn admit_model_mount_provider_execution_response(
-    request: ModelMountProviderExecutionBridgeRequest,
-) -> Result<Value, ModelMountError> {
-    let record = admit_provider_execution(&request.request)?;
-    let provider_execution_ref = record.provider_execution_ref.clone();
-    let provider_execution_hash = record.provider_execution_hash.clone();
-    let receipt_refs = record.receipt_refs.clone();
-
-    Ok(json!({
-        "source": "rust_model_mount_provider_execution_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_model_mount_live".to_string()),
-        "record": record,
-        "provider_execution_ref": provider_execution_ref,
-        "provider_execution_hash": provider_execution_hash,
-        "receipt_refs": receipt_refs,
-        "evidence_refs": [
-            "rust_model_mount_core",
-            provider_execution_ref,
-        ],
-    }))
-}
-
 pub(super) fn invoke_provider(
     request: &ModelMountProviderInvocationRequest,
 ) -> Result<ModelMountProviderInvocationResult, ModelMountError> {
     invocation::invoke_provider(request)
 }
 
-pub fn execute_model_mount_provider_invocation_response(
-    request: ModelMountProviderInvocationBridgeRequest,
-) -> Result<Value, ModelMountError> {
-    let result = invoke_provider(&request.request)?;
-    let output_text = result.output_text.clone();
-    let token_count = result.token_count.clone();
-    let provider_response_kind = result.provider_response_kind.clone();
-    let execution_backend = result.execution_backend.clone();
-    let backend_id = result.backend_id.clone();
-    let provider_execution_ref = result.provider_execution_ref.clone();
-    let provider_execution_hash = result.provider_execution_hash.clone();
-    let invocation_hash = result.invocation_hash.clone();
-    let evidence_refs = result.evidence_refs.clone();
-
-    Ok(json!({
-        "source": "rust_model_mount_provider_invocation_command",
-        "backend": request.backend.unwrap_or_else(|| execution_backend.clone()),
-        "result": result,
-        "outputText": output_text.clone(),
-        "output_text": output_text,
-        "tokenCount": token_count.clone(),
-        "token_count": token_count,
-        "providerResponse": null,
-        "provider_response": null,
-        "providerResponseKind": provider_response_kind.clone(),
-        "provider_response_kind": provider_response_kind,
-        "execution_backend": execution_backend,
-        "backendId": backend_id.clone(),
-        "backend_id": backend_id,
-        "provider_execution_ref": provider_execution_ref,
-        "provider_execution_hash": provider_execution_hash,
-        "invocation_hash": invocation_hash,
-        "evidence_refs": evidence_refs,
-    }))
-}
-
 pub(super) fn invoke_provider_stream(
     request: &ModelMountProviderInvocationRequest,
 ) -> Result<ModelMountProviderStreamInvocationResult, ModelMountError> {
     stream::invoke_provider_stream(request)
-}
-
-pub fn execute_model_mount_provider_stream_invocation_response(
-    request: ModelMountProviderInvocationBridgeRequest,
-) -> Result<Value, ModelMountError> {
-    let result = invoke_provider_stream(&request.request)?;
-    let output_text = result.output_text.clone();
-    let token_count = result.token_count.clone();
-    let provider_response_kind = result.provider_response_kind.clone();
-    let execution_backend = result.execution_backend.clone();
-    let backend_id = result.backend_id.clone();
-    let stream_format = result.stream_format.clone();
-    let stream_kind = result.stream_kind.clone();
-    let stream_chunks = result.stream_chunks.clone();
-    let provider_execution_ref = result.provider_execution_ref.clone();
-    let provider_execution_hash = result.provider_execution_hash.clone();
-    let invocation_hash = result.invocation_hash.clone();
-    let evidence_refs = result.evidence_refs.clone();
-
-    Ok(json!({
-        "source": "rust_model_mount_provider_stream_invocation_command",
-        "backend": request.backend.unwrap_or_else(|| execution_backend.clone()),
-        "result": result,
-        "outputText": output_text.clone(),
-        "output_text": output_text,
-        "tokenCount": token_count.clone(),
-        "token_count": token_count,
-        "providerResponse": null,
-        "provider_response": null,
-        "providerResponseKind": provider_response_kind.clone(),
-        "provider_response_kind": provider_response_kind,
-        "execution_backend": execution_backend,
-        "backendId": backend_id.clone(),
-        "backend_id": backend_id,
-        "streamFormat": stream_format.clone(),
-        "stream_format": stream_format,
-        "streamKind": stream_kind.clone(),
-        "stream_kind": stream_kind,
-        "streamChunks": stream_chunks.clone(),
-        "stream_chunks": stream_chunks,
-        "provider_execution_ref": provider_execution_ref,
-        "provider_execution_hash": provider_execution_hash,
-        "invocation_hash": invocation_hash,
-        "evidence_refs": evidence_refs,
-    }))
 }
 
 fn validate_provider_invocation_common(
@@ -649,60 +531,32 @@ mod tests {
     }
 
     #[test]
-    fn rust_core_shapes_model_mount_provider_execution_command_response() {
-        let response = admit_model_mount_provider_execution_response(
-            ModelMountProviderExecutionBridgeRequest {
-                backend: Some("rust_model_mount_live".to_string()),
-                request: provider_execution_request(),
-            },
-        )
-        .expect("provider execution admitted");
+    fn rust_core_admits_model_mount_provider_execution_direct_api() {
+        let record = admit_provider_execution(&provider_execution_request())
+            .expect("provider execution admitted");
 
-        assert_eq!(
-            response["source"],
-            "rust_model_mount_provider_execution_command"
-        );
-        assert_eq!(response["backend"], "rust_model_mount_live");
-        assert_eq!(response["record"]["request_hash"], "sha256:request");
-        assert_eq!(
-            response["record"]["route_receipt_ref"],
-            "receipt://route/test"
-        );
-        assert!(response["provider_execution_ref"]
-            .as_str()
-            .expect("provider execution ref")
+        assert_eq!(record.request_hash, "sha256:request");
+        assert_eq!(record.route_receipt_ref, "receipt://route/test");
+        assert!(record
+            .provider_execution_ref
             .starts_with("model_mount://provider_execution/"));
+        assert!(record.provider_execution_hash.starts_with("sha256:"));
     }
 
     #[test]
-    fn rust_core_shapes_model_mount_provider_invocation_command_response() {
-        let response = execute_model_mount_provider_invocation_response(
-            ModelMountProviderInvocationBridgeRequest {
-                backend: Some("rust_model_mount_fixture".to_string()),
-                request: provider_invocation_request(),
-            },
-        )
-        .expect("provider invocation executed");
+    fn rust_core_executes_model_mount_provider_invocation_direct_api() {
+        let response =
+            invoke_provider(&provider_invocation_request()).expect("provider invocation executed");
 
-        assert_eq!(
-            response["source"],
-            "rust_model_mount_provider_invocation_command"
-        );
-        assert_eq!(response["backend"], "rust_model_mount_fixture");
-        assert!(response["outputText"]
-            .as_str()
-            .expect("output text")
+        assert_eq!(response.execution_backend, "rust_model_mount_fixture");
+        assert!(response
+            .output_text
             .starts_with("IOI model router fixture response"));
-        assert_eq!(response["execution_backend"], "rust_model_mount_fixture");
-        assert_eq!(response["backend_id"], "backend.fixture");
-        assert!(response["provider_execution_ref"]
-            .as_str()
-            .expect("provider execution ref")
+        assert_eq!(response.backend_id, "backend.fixture");
+        assert!(response
+            .provider_execution_ref
             .starts_with("model_mount://provider_execution/"));
-        assert!(response["invocation_hash"]
-            .as_str()
-            .expect("invocation hash")
-            .starts_with("sha256:"));
+        assert!(response.invocation_hash.starts_with("sha256:"));
     }
 
     #[test]
@@ -748,7 +602,7 @@ mod tests {
     }
 
     #[test]
-    fn rust_core_shapes_native_local_model_mount_provider_invocation_command_response() {
+    fn rust_core_executes_native_local_model_mount_provider_invocation_direct_api() {
         let mut request = provider_invocation_request();
         request.execution_backend = "rust_model_mount_native_local".to_string();
         request.provider_kind = "ioi_native_local".to_string();
@@ -768,40 +622,24 @@ mod tests {
                 .expect("admission")
         });
 
-        let response = execute_model_mount_provider_invocation_response(
-            ModelMountProviderInvocationBridgeRequest {
-                backend: Some("rust_model_mount_native_local".to_string()),
-                request,
-            },
-        )
-        .expect("native-local provider invocation executed");
+        let response =
+            invoke_provider(&request).expect("native-local provider invocation executed");
 
+        assert_eq!(response.execution_backend, "rust_model_mount_native_local");
         assert_eq!(
-            response["source"],
-            "rust_model_mount_provider_invocation_command"
-        );
-        assert_eq!(response["backend"], "rust_model_mount_native_local");
-        assert_eq!(
-            response["execution_backend"],
-            "rust_model_mount_native_local"
-        );
-        assert_eq!(
-            response["backend_id"],
+            response.backend_id,
             "backend.autopilot.native-local.fixture"
         );
         assert_eq!(
-            response["provider_response_kind"],
-            "rust_model_mount.native_local"
+            response.provider_response_kind.as_deref(),
+            Some("rust_model_mount.native_local")
         );
-        assert!(response["output_text"]
-            .as_str()
-            .expect("output text")
+        assert!(response
+            .output_text
             .starts_with("Autopilot native local model response"));
-        assert!(response["evidence_refs"]
-            .as_array()
-            .expect("evidence refs")
-            .iter()
-            .any(|value| value == "rust_model_mount_native_local_backend"));
+        assert!(response
+            .evidence_refs
+            .contains(&"rust_model_mount_native_local_backend".to_string()));
     }
 
     #[test]
@@ -846,42 +684,24 @@ mod tests {
     }
 
     #[test]
-    fn rust_core_shapes_native_local_model_mount_provider_stream_command_response() {
-        let response = execute_model_mount_provider_stream_invocation_response(
-            ModelMountProviderInvocationBridgeRequest {
-                backend: Some("rust_model_mount_native_local_stream".to_string()),
-                request: provider_stream_invocation_request(),
-            },
-        )
-        .expect("native-local provider stream executed");
+    fn rust_core_executes_native_local_model_mount_provider_stream_direct_api() {
+        let response = invoke_provider_stream(&provider_stream_invocation_request())
+            .expect("native-local provider stream executed");
 
         assert_eq!(
-            response["source"],
-            "rust_model_mount_provider_stream_invocation_command"
-        );
-        assert_eq!(response["backend"], "rust_model_mount_native_local_stream");
-        assert_eq!(
-            response["execution_backend"],
+            response.execution_backend,
             "rust_model_mount_native_local_stream"
         );
-        assert_eq!(response["stream_format"], "ioi_jsonl");
-        assert_eq!(response["stream_kind"], "openai_responses_native_local");
+        assert_eq!(response.stream_format, "ioi_jsonl");
+        assert_eq!(response.stream_kind, "openai_responses_native_local");
         assert_eq!(
-            response["provider_response_kind"],
+            response.provider_response_kind,
             "rust_model_mount.native_local.stream"
         );
-        assert!(
-            response["stream_chunks"]
-                .as_array()
-                .expect("stream chunks")
-                .len()
-                >= 2
-        );
-        assert!(response["evidence_refs"]
-            .as_array()
-            .expect("evidence refs")
-            .iter()
-            .any(|value| value == "rust_model_mount_native_local_stream_backend"));
+        assert!(response.stream_chunks.len() >= 2);
+        assert!(response
+            .evidence_refs
+            .contains(&"rust_model_mount_native_local_stream_backend".to_string()));
     }
 
     #[test]

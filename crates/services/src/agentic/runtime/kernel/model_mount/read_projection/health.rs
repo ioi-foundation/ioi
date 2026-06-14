@@ -422,7 +422,7 @@ mod tests {
             "record_dir": PROVIDER_LIFECYCLE_RECORD_DIR,
             "receipt_refs": [format!("sha256:{id}")],
             "rust_core_boundary": "model_mount.provider_lifecycle",
-            "source": "rust_model_mount_provider_lifecycle_command",
+            "source": "rust_model_mount_provider_lifecycle_api",
             "public_response": {
                 "object": "ioi.model_mount_provider_lifecycle",
                 "status": status,

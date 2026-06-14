@@ -24,7 +24,182 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
     calls.push(request);
     throw new Error(`generic command invoker must not run migrated typed APIs: ${request?.operation}`);
   };
+  const assertModelMountDirectApiCall = (call, method, schemaVersion) => {
+    assert.equal(call.method, method);
+    assert.equal(call.request.schema_version, schemaVersion);
+    assert.equal(Object.hasOwn(call.request, "operation"), false);
+    assert.equal(Object.hasOwn(call.request, "backend"), false);
+  };
   const daemonCoreModelMountApi = {
+    admitModelMountInvocation(request) {
+      modelMountCalls.push({ method: "admitModelMountInvocation", request });
+      return {
+        source: "direct_model_mount_api",
+        backend: "rust_model_mount_live",
+        record: {
+          ...request,
+          invocation_admission_ref: "model_mount://invocation_admission/direct",
+          invocation_admission_hash: "sha256:direct-invocation",
+        },
+        invocation_admission_ref: "model_mount://invocation_admission/direct",
+        invocation_admission_hash: "sha256:direct-invocation",
+        receipt_refs: request.receipt_refs ?? [],
+        evidence_refs: ["rust_daemon_core_model_mount_invocation"],
+      };
+    },
+    admitModelMountProviderExecution(request) {
+      modelMountCalls.push({ method: "admitModelMountProviderExecution", request });
+      return {
+        source: "direct_model_mount_api",
+        backend: "rust_model_mount_live",
+        record: {
+          ...request,
+          provider_execution_ref: "model_mount://provider_execution/direct",
+          provider_execution_hash: "sha256:direct-provider-execution",
+        },
+        provider_execution_ref: "model_mount://provider_execution/direct",
+        provider_execution_hash: "sha256:direct-provider-execution",
+        receipt_refs: request.receipt_refs ?? [],
+        evidence_refs: ["rust_daemon_core_model_mount_provider_execution"],
+      };
+    },
+    executeModelMountProviderInvocation(request) {
+      modelMountCalls.push({ method: "executeModelMountProviderInvocation", request });
+      return {
+        source: "direct_model_mount_api",
+        backend: request.execution_backend,
+        result: {
+          ...request,
+          output_text: "direct provider invocation",
+          token_count: { total_tokens: 1 },
+          provider_response_kind: "rust_model_mount.fixture",
+          backend_id: request.backend_ref,
+          invocation_hash: "sha256:direct-provider-invocation",
+          evidence_refs: ["rust_daemon_core_model_mount_provider_invocation"],
+        },
+        outputText: "direct provider invocation",
+        tokenCount: { total_tokens: 1 },
+        providerResponseKind: "rust_model_mount.fixture",
+        execution_backend: request.execution_backend,
+        backendId: request.backend_ref,
+        invocation_hash: "sha256:direct-provider-invocation",
+        evidence_refs: ["rust_daemon_core_model_mount_provider_invocation"],
+      };
+    },
+    executeModelMountProviderStreamInvocation(request) {
+      modelMountCalls.push({ method: "executeModelMountProviderStreamInvocation", request });
+      return {
+        source: "direct_model_mount_api",
+        backend: request.execution_backend,
+        result: {
+          ...request,
+          output_text: "direct provider stream",
+          token_count: { total_tokens: 1 },
+          provider_response_kind: "rust_model_mount.native_local.stream",
+          backend_id: request.backend_ref,
+          stream_format: "ioi_jsonl",
+          stream_kind: "openai_responses_native_local",
+          stream_chunks: ["{\"delta\":\"direct\",\"done\":false}\n", "{\"delta\":\"\",\"done\":true}\n"],
+          invocation_hash: "sha256:direct-provider-stream",
+          evidence_refs: ["rust_daemon_core_model_mount_provider_stream_invocation"],
+        },
+        outputText: "direct provider stream",
+        tokenCount: { total_tokens: 1 },
+        providerResponseKind: "rust_model_mount.native_local.stream",
+        execution_backend: request.execution_backend,
+        backendId: request.backend_ref,
+        streamFormat: "ioi_jsonl",
+        streamKind: "openai_responses_native_local",
+        streamChunks: ["{\"delta\":\"direct\",\"done\":false}\n", "{\"delta\":\"\",\"done\":true}\n"],
+        invocation_hash: "sha256:direct-provider-stream",
+        evidence_refs: ["rust_daemon_core_model_mount_provider_stream_invocation"],
+      };
+    },
+    planModelMountProviderLifecycle(request) {
+      modelMountCalls.push({ method: "planModelMountProviderLifecycle", request });
+      return {
+        source: "direct_model_mount_api",
+        backend: request.execution_backend,
+        result: {
+          ...request,
+          status: "loaded",
+          backend: "autopilot.native_local.fixture",
+          backend_id: request.backend_ref,
+          lifecycle_hash: "sha256:direct-provider-lifecycle",
+          evidence_refs: ["rust_daemon_core_model_mount_provider_lifecycle"],
+        },
+        status: "loaded",
+        backend_id: request.backend_ref,
+        provider_backend: "autopilot.native_local.fixture",
+        driver: request.driver,
+        execution_backend: request.execution_backend,
+        lifecycle_hash: "sha256:direct-provider-lifecycle",
+        evidence_refs: ["rust_daemon_core_model_mount_provider_lifecycle"],
+      };
+    },
+    planModelMountProviderInventory(request) {
+      modelMountCalls.push({ method: "planModelMountProviderInventory", request });
+      return {
+        source: "direct_model_mount_api",
+        backend: request.execution_backend,
+        result: {
+          ...request,
+          status: "listed",
+          backend: "autopilot.native_local.fixture",
+          backend_id: request.backend_ref,
+          item_refs: ["model_instance://native/direct"],
+          item_count: 1,
+          inventory_hash: "sha256:direct-provider-inventory",
+          evidence_refs: ["rust_daemon_core_model_mount_provider_inventory"],
+        },
+        status: "listed",
+        backend_id: request.backend_ref,
+        provider_backend: "autopilot.native_local.fixture",
+        driver: request.driver,
+        execution_backend: request.execution_backend,
+        item_refs: ["model_instance://native/direct"],
+        item_count: 1,
+        inventory_hash: "sha256:direct-provider-inventory",
+        evidence_refs: ["rust_daemon_core_model_mount_provider_inventory"],
+      };
+    },
+    planModelMountInstanceLifecycle(request) {
+      modelMountCalls.push({ method: "planModelMountInstanceLifecycle", request });
+      return {
+        source: "direct_model_mount_api",
+        backend: request.execution_backend,
+        result: {
+          ...request,
+          status: "loaded",
+          backend_id: request.backend_ref,
+          instance_lifecycle_hash: "sha256:direct-instance-lifecycle",
+          evidence_refs: ["rust_daemon_core_model_mount_instance_lifecycle"],
+        },
+        status: "loaded",
+        backendId: request.backend_ref,
+        driver: request.driver,
+        execution_backend: request.execution_backend,
+        provider_lifecycle_hash: request.provider_lifecycle_hash,
+        instance_lifecycle_hash: "sha256:direct-instance-lifecycle",
+        evidence_refs: ["rust_daemon_core_model_mount_instance_lifecycle"],
+      };
+    },
+    admitModelMountProviderResult(request) {
+      modelMountCalls.push({ method: "admitModelMountProviderResult", request });
+      return {
+        source: "direct_model_mount_api",
+        backend: "rust_model_mount_live",
+        record: {
+          ...request,
+          provider_result_ref: "model_mount://provider_result/direct",
+          provider_result_hash: "sha256:direct-provider-result",
+        },
+        provider_result_ref: "model_mount://provider_result/direct",
+        provider_result_hash: "sha256:direct-provider-result",
+        receipt_refs: request.receipt_refs ?? [],
+        evidence_refs: ["rust_daemon_core_model_mount_provider_result"],
+      };
+    },
     planModelMountStorageControl(request) {
       modelMountCalls.push({ method: "planModelMountStorageControl", request });
       const record = {
@@ -100,6 +275,30 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
   const store = new AgentgresRuntimeStateStore(stateDir, {
     cwd: stateDir,
     modelMountCore: {
+      admitInvocation(request) {
+        return directModelMountCore.admitInvocation(request);
+      },
+      admitProviderExecution(request) {
+        return directModelMountCore.admitProviderExecution(request);
+      },
+      executeProviderInvocation(request) {
+        return directModelMountCore.executeProviderInvocation(request);
+      },
+      executeProviderStreamInvocation(request) {
+        return directModelMountCore.executeProviderStreamInvocation(request);
+      },
+      planProviderLifecycle(request) {
+        return directModelMountCore.planProviderLifecycle(request);
+      },
+      planProviderInventory(request) {
+        return directModelMountCore.planProviderInventory(request);
+      },
+      planInstanceLifecycle(request) {
+        return directModelMountCore.planInstanceLifecycle(request);
+      },
+      admitProviderResult(request) {
+        return directModelMountCore.admitProviderResult(request);
+      },
       planReadProjection(request) {
         const projection = {
           schemaVersion: request.schema_version,
@@ -382,6 +581,136 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
   assert.equal(Object.hasOwn(mcpCalls[0].request, "backend"), false);
   assert.equal(mcpStatus.source, "direct_mcp_api");
   assert.equal(mcpStatus.server_count, 1);
+  const invocationAdmission = store.modelMounting.admitModelMountInvocation({
+    schema_version: "ioi.model_mount.invocation_admission.v1",
+    invocation_ref: "model-invocation://direct",
+    route_decision_ref: "model_mount://route_decision/direct",
+    route_receipt_ref: "receipt://route/direct",
+    invocation_receipt_ref: "receipt://invocation/direct",
+    receipt_refs: ["receipt://route/direct", "receipt://invocation/direct"],
+  });
+  assert.equal(calls.length, 0);
+  assertModelMountDirectApiCall(
+    modelMountCalls.at(-1),
+    "admitModelMountInvocation",
+    "ioi.model_mount.invocation_admission.v1",
+  );
+  assert.equal(invocationAdmission.source, "direct_model_mount_api");
+  assert.equal(invocationAdmission.invocation_admission_hash, "sha256:direct-invocation");
+  const providerExecution = store.modelMounting.admitModelMountProviderExecution({
+    schema_version: "ioi.model_mount.provider_execution.v1",
+    invocation_ref: "model-provider-execution://direct",
+    route_decision_ref: "model_mount://route_decision/direct",
+    route_receipt_ref: "receipt://route/direct",
+    request_hash: "sha256:direct-request",
+    receipt_refs: ["receipt://route/direct"],
+  });
+  assert.equal(calls.length, 0);
+  assertModelMountDirectApiCall(
+    modelMountCalls.at(-1),
+    "admitModelMountProviderExecution",
+    "ioi.model_mount.provider_execution.v1",
+  );
+  assert.equal(providerExecution.provider_execution_hash, "sha256:direct-provider-execution");
+  const providerInvocation = store.modelMounting.executeModelMountProviderInvocation({
+    schema_version: "ioi.model_mount.provider_invocation.v1",
+    provider_execution_ref: providerExecution.provider_execution_ref,
+    provider_execution_hash: providerExecution.provider_execution_hash,
+    provider_ref: "provider.local",
+    provider_kind: "local_folder",
+    execution_backend: "rust_model_mount_fixture",
+    backend_ref: "backend.fixture",
+    input: "hello",
+  });
+  assert.equal(calls.length, 0);
+  assertModelMountDirectApiCall(
+    modelMountCalls.at(-1),
+    "executeModelMountProviderInvocation",
+    "ioi.model_mount.provider_invocation.v1",
+  );
+  assert.equal(providerInvocation.outputText, "direct provider invocation");
+  const providerStream = store.modelMounting.executeModelMountProviderStreamInvocation({
+    schema_version: "ioi.model_mount.provider_invocation.v1",
+    provider_execution_ref: providerExecution.provider_execution_ref,
+    provider_execution_hash: providerExecution.provider_execution_hash,
+    provider_ref: "provider.autopilot.local",
+    provider_kind: "ioi_native_local",
+    execution_backend: "rust_model_mount_native_local_stream",
+    backend_ref: "backend.autopilot.native-local.fixture",
+    stream_status: "started",
+  });
+  assert.equal(calls.length, 0);
+  assertModelMountDirectApiCall(
+    modelMountCalls.at(-1),
+    "executeModelMountProviderStreamInvocation",
+    "ioi.model_mount.provider_invocation.v1",
+  );
+  assert.equal(providerStream.streamKind, "openai_responses_native_local");
+  const providerLifecycle = store.modelMounting.planModelMountProviderLifecycle({
+    schema_version: "ioi.model_mount.provider_lifecycle.v1",
+    provider_ref: "provider.autopilot.local",
+    provider_kind: "ioi_native_local",
+    action: "load",
+    execution_backend: "rust_model_mount_native_local_lifecycle",
+    driver: "native_local",
+    backend_ref: "backend.autopilot.native-local.fixture",
+  });
+  assert.equal(calls.length, 0);
+  assertModelMountDirectApiCall(
+    modelMountCalls.at(-1),
+    "planModelMountProviderLifecycle",
+    "ioi.model_mount.provider_lifecycle.v1",
+  );
+  assert.equal(providerLifecycle.lifecycle_hash, "sha256:direct-provider-lifecycle");
+  const providerInventory = store.modelMounting.planModelMountProviderInventory({
+    schema_version: "ioi.model_mount.provider_inventory.v1",
+    provider_ref: "provider.autopilot.local",
+    provider_kind: "ioi_native_local",
+    action: "list_loaded",
+    execution_backend: "rust_model_mount_native_local_inventory",
+    driver: "native_local",
+    backend_ref: "backend.autopilot.native-local.fixture",
+  });
+  assert.equal(calls.length, 0);
+  assertModelMountDirectApiCall(
+    modelMountCalls.at(-1),
+    "planModelMountProviderInventory",
+    "ioi.model_mount.provider_inventory.v1",
+  );
+  assert.deepEqual(providerInventory.itemRefs, ["model_instance://native/direct"]);
+  const instanceLifecycle = store.modelMounting.planModelMountInstanceLifecycle({
+    schema_version: "ioi.model_mount.instance_lifecycle.v1",
+    instance_ref: "model_instance://native/direct",
+    provider_ref: "provider.autopilot.local",
+    action: "load",
+    execution_backend: "rust_model_mount_instance_lifecycle",
+    driver: "native_local",
+    backend_ref: "backend.autopilot.native-local.fixture",
+    provider_lifecycle_hash: providerLifecycle.lifecycle_hash,
+  });
+  assert.equal(calls.length, 0);
+  assertModelMountDirectApiCall(
+    modelMountCalls.at(-1),
+    "planModelMountInstanceLifecycle",
+    "ioi.model_mount.instance_lifecycle.v1",
+  );
+  assert.equal(instanceLifecycle.instance_lifecycle_hash, "sha256:direct-instance-lifecycle");
+  const providerResult = store.modelMounting.admitModelMountProviderResult({
+    schema_version: "ioi.model_mount.provider_result.v1",
+    provider_execution_ref: providerExecution.provider_execution_ref,
+    provider_execution_hash: providerExecution.provider_execution_hash,
+    invocation_hash: providerStream.invocation_hash,
+    execution_backend: "rust_model_mount_native_local_stream",
+    output_hash: "sha256:direct-output",
+    receipt_refs: ["receipt://invocation/direct"],
+  });
+  assert.equal(calls.length, 0);
+  assertModelMountDirectApiCall(
+    modelMountCalls.at(-1),
+    "admitModelMountProviderResult",
+    "ioi.model_mount.provider_result.v1",
+  );
+  assert.equal(providerResult.provider_result_hash, "sha256:direct-provider-result");
   const storagePlan = store.modelMounting.planStorageControl({
     schema_version: "ioi.model_mount.storage_control.v1",
     operation_kind: "model_mount.download.queue",
@@ -396,11 +725,11 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
     required_scope: "model.download.queue:local:direct",
   });
   assert.equal(calls.length, 0);
-  assert.equal(modelMountCalls.length, 1);
-  assert.equal(modelMountCalls[0].method, "planModelMountStorageControl");
-  assert.equal(modelMountCalls[0].request.schema_version, "ioi.model_mount.storage_control.v1");
-  assert.equal(Object.hasOwn(modelMountCalls[0].request, "operation"), false);
-  assert.equal(Object.hasOwn(modelMountCalls[0].request, "backend"), false);
+  assertModelMountDirectApiCall(
+    modelMountCalls.at(-1),
+    "planModelMountStorageControl",
+    "ioi.model_mount.storage_control.v1",
+  );
   assert.equal(storagePlan.source, "direct_model_mount_api");
   assert.equal(storagePlan.record_id, "download.direct");
   assert.equal(storagePlan.rust_core_boundary, "model_mount.storage_control");

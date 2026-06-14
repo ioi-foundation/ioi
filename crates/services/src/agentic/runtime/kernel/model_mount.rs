@@ -1,6 +1,5 @@
 mod admission;
 pub use admission::{
-    admit_model_mount_invocation_response, ModelMountInvocationAdmissionBridgeRequest,
     ModelMountInvocationAdmissionRecord, ModelMountInvocationAdmissionRequest,
     ModelMountRouteDecisionRecord, ModelMountRouteDecisionRequest,
 };
@@ -101,26 +100,18 @@ pub use conversation::{
 };
 mod lifecycle;
 pub use lifecycle::{
-    plan_model_mount_instance_lifecycle_response, plan_model_mount_provider_inventory_response,
-    plan_model_mount_provider_lifecycle_response, ModelMountInstanceLifecycleBridgeRequest,
     ModelMountInstanceLifecycleRequest, ModelMountInstanceLifecycleResult,
-    ModelMountProviderInventoryBridgeRequest, ModelMountProviderInventoryRequest,
-    ModelMountProviderInventoryResult, ModelMountProviderLifecycleBridgeRequest,
+    ModelMountProviderInventoryRequest, ModelMountProviderInventoryResult,
     ModelMountProviderLifecycleRequest, ModelMountProviderLifecycleResult,
 };
 mod provider_execution;
 pub use provider_execution::{
-    admit_model_mount_provider_execution_response,
-    execute_model_mount_provider_invocation_response,
-    execute_model_mount_provider_stream_invocation_response,
-    ModelMountProviderExecutionBridgeRequest, ModelMountProviderExecutionRecord,
-    ModelMountProviderExecutionRequest, ModelMountProviderInvocationBridgeRequest,
+    ModelMountProviderExecutionRecord, ModelMountProviderExecutionRequest,
     ModelMountProviderInvocationRequest, ModelMountProviderInvocationResult,
     ModelMountProviderStreamInvocationResult, ModelMountTokenCount,
 };
 mod provider_result;
 pub use provider_result::{
-    admit_model_mount_provider_result_response, ModelMountProviderResultAdmissionBridgeRequest,
     ModelMountProviderResultAdmissionRecord, ModelMountProviderResultAdmissionRequest,
 };
 mod read_projection;

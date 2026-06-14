@@ -2810,7 +2810,7 @@ mod tests {
                 "record_id": "provider_inventory_fixture_list_models",
                 "receipt_refs": [],
                 "rust_core_boundary": "model_mount.provider_inventory",
-                "source": "rust_model_mount_provider_inventory_command",
+                "source": "rust_model_mount_provider_inventory_api",
                 "evidence_refs": [
                     "rust_model_mount_provider_inventory",
                     "agentgres_provider_inventory_truth_required",
@@ -2837,7 +2837,7 @@ mod tests {
                 "record_id": "provider_inventory_native_list_loaded",
                 "receipt_refs": [],
                 "rust_core_boundary": "model_mount.provider_inventory",
-                "source": "rust_model_mount_provider_inventory_command",
+                "source": "rust_model_mount_provider_inventory_api",
                 "evidence_refs": [
                     "rust_model_mount_provider_inventory",
                     "agentgres_provider_inventory_truth_required",
@@ -4122,7 +4122,7 @@ mod tests {
                 "record_id": "provider_inventory_fixture_list_models",
                 "receipt_refs": [],
                 "rust_core_boundary": "model_mount.provider_inventory",
-                "source": "rust_model_mount_provider_inventory_command",
+                "source": "rust_model_mount_provider_inventory_api",
                 "evidence_refs": [
                     "rust_model_mount_provider_inventory",
                     "agentgres_provider_inventory_truth_required",
@@ -4149,7 +4149,7 @@ mod tests {
                 "record_id": "provider_inventory_native_list_loaded",
                 "receipt_refs": [],
                 "rust_core_boundary": "model_mount.provider_inventory",
-                "source": "rust_model_mount_provider_inventory_command",
+                "source": "rust_model_mount_provider_inventory_api",
                 "evidence_refs": [
                     "rust_model_mount_provider_inventory",
                     "agentgres_provider_inventory_truth_required",
@@ -4237,7 +4237,7 @@ mod tests {
                 "record_id": "provider_inventory_fixture_list_models",
                 "receipt_refs": [],
                 "rust_core_boundary": "model_mount.provider_inventory",
-                "source": "rust_model_mount_provider_inventory_command",
+                "source": "rust_model_mount_provider_inventory_api",
                 "evidence_refs": [
                     "rust_model_mount_provider_inventory",
                     "agentgres_provider_inventory_truth_required",
@@ -4264,7 +4264,7 @@ mod tests {
                 "record_id": "provider_inventory_native_list_loaded",
                 "receipt_refs": [],
                 "rust_core_boundary": "model_mount.provider_inventory",
-                "source": "rust_model_mount_provider_inventory_command",
+                "source": "rust_model_mount_provider_inventory_api",
                 "evidence_refs": [
                     "rust_model_mount_provider_inventory",
                     "agentgres_provider_inventory_truth_required",
