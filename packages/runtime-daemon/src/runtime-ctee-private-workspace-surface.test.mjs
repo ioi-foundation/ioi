@@ -47,7 +47,7 @@ function store() {
       calls.push({ name: "agentForThread", threadId });
       return { id: "agent_surface" };
     },
-    cteePrivateWorkspaceRunner: {
+    cteePrivateWorkspaceCore: {
       executeAction(input, context) {
         calls.push({ name: "executeAction", input, context });
         return {
@@ -127,7 +127,7 @@ const CTEE_PRIVATE_WORKSPACE_ADMISSION_CAMEL_ALIASES = [
   "evidenceRefs",
 ];
 
-test("cTEE private workspace surface executes nested action through Rust runner", () => {
+test("cTEE private workspace surface executes nested action through Rust core", () => {
   const runtimeStore = store();
   const surface = createRuntimeCteePrivateWorkspaceSurface();
 
@@ -159,7 +159,7 @@ test("cTEE private workspace surface executes nested action through Rust runner"
   });
 });
 
-test("cTEE private workspace surface rejects retired request aliases before agent lookup or Rust runner", () => {
+test("cTEE private workspace surface rejects retired request aliases before agent lookup or Rust core", () => {
   const runtimeStore = store();
   const surface = createRuntimeCteePrivateWorkspaceSurface();
 
@@ -180,7 +180,7 @@ test("cTEE private workspace surface rejects retired request aliases before agen
   assert.deepEqual(runtimeStore.calls, []);
 });
 
-test("cTEE private workspace surface rejects client supplied Agentgres truth before Rust runner", () => {
+test("cTEE private workspace surface rejects client supplied Agentgres truth before Rust core", () => {
   const runtimeStore = store();
   const surface = createRuntimeCteePrivateWorkspaceSurface();
 
@@ -205,7 +205,7 @@ test("cTEE private workspace surface rejects client supplied Agentgres truth bef
 
 test("cTEE private workspace surface ignores retired nested invocation identity alias", () => {
   const runtimeStore = store();
-  runtimeStore.cteePrivateWorkspaceRunner.executeAction = (input) => {
+  runtimeStore.cteePrivateWorkspaceCore.executeAction = (input) => {
     runtimeStore.calls.push({ name: "executeAction", input });
     return {
       schema_version: CTEE_PRIVATE_WORKSPACE_ADMISSION_RESPONSE_SCHEMA_VERSION,

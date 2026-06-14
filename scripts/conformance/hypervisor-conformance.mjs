@@ -3917,8 +3917,8 @@ function runBridge() {
   const runtimeAgentgresRunnerTest = exists("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs")
     : "";
-  const cteePrivateWorkspaceRunner = exists("packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.mjs")
-    ? read("packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.mjs")
+  const cteePrivateWorkspaceCore = exists("packages/runtime-daemon/src/runtime-ctee-private-workspace-core.mjs")
+    ? read("packages/runtime-daemon/src/runtime-ctee-private-workspace-core.mjs")
     : "";
   const cliMain = exists("crates/cli/src/main.rs") ? read("crates/cli/src/main.rs") : "";
   const cliRuntime = exists("crates/cli/src/commands/runtime.rs")
@@ -3995,7 +3995,6 @@ function runBridge() {
     externalCapabilityAuthorityRunner,
     modelMountAdmissionRunner,
     runtimeAgentgresRunner,
-    cteePrivateWorkspaceRunner,
   ];
   assertCheck(
     result,
@@ -4024,8 +4023,20 @@ function runBridge() {
       /createWorkerServicePackageRunnerFromEnv\(process\.env,\s*\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
         runtimeDaemonIndex,
       ) &&
-      /createCteePrivateWorkspaceRunnerFromEnv\(process\.env,\s*\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
+      !exists("packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.mjs") &&
+      !exists("packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.test.mjs") &&
+      /createRuntimeCteePrivateWorkspaceCore\(\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
         runtimeDaemonIndex,
+      ) &&
+      /this\.cteePrivateWorkspaceCore/.test(runtimeDaemonIndex) &&
+      !/this\.cteePrivateWorkspaceRunner/.test(runtimeDaemonIndex) &&
+      /RuntimeCteePrivateWorkspaceCore/.test(cteePrivateWorkspaceCore) &&
+      /this\.daemonCoreInvoker = optionalFunction\(options\.daemonCoreInvoker\)/.test(
+        cteePrivateWorkspaceCore,
+      ) &&
+      /operation:\s*"execute_private_workspace_ctee_action"/.test(cteePrivateWorkspaceCore) &&
+      !/process\.env|IOI_RUNTIME_DAEMON_CORE_COMMAND|IOI_CTEE_PRIVATE_WORKSPACE_COMMAND|normalizeCteePrivateWorkspaceBridgeResult|stringArray|createCteePrivateWorkspaceRunnerFromEnv/.test(
+        cteePrivateWorkspaceCore,
       ) &&
       /createL1SettlementRunnerFromEnv\(process\.env,\s*\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
         runtimeDaemonIndex,
@@ -4045,7 +4056,7 @@ function runBridge() {
       "packages/runtime-daemon/src/index.mjs",
       "packages/runtime-daemon/src/step-module-runner.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-approval-runner.mjs",
-      "packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.mjs",
+      "packages/runtime-daemon/src/runtime-ctee-private-workspace-core.mjs",
       "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
     ],
     "Rust daemon-core migration must use the direct-invoker seam and keep the retired JS command-spawn helper absent from daemon hot paths",
@@ -25655,14 +25666,14 @@ function runCtee() {
   const runtimeDaemonIndex = exists("packages/runtime-daemon/src/index.mjs")
     ? read("packages/runtime-daemon/src/index.mjs")
     : "";
-  const cteePrivateWorkspaceRunner = exists("packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.mjs")
-    ? read("packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.mjs")
+  const cteePrivateWorkspaceCore = exists("packages/runtime-daemon/src/runtime-ctee-private-workspace-core.mjs")
+    ? read("packages/runtime-daemon/src/runtime-ctee-private-workspace-core.mjs")
     : "";
-  const cteePrivateWorkspaceRunnerTest = exists("packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.test.mjs")
-    ? read("packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.test.mjs")
+  const cteePrivateWorkspaceCoreTest = exists("packages/runtime-daemon/src/runtime-ctee-private-workspace-core.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-ctee-private-workspace-core.test.mjs")
     : "";
-  const cteePrivateWorkspaceStoreTest = exists("packages/runtime-daemon/src/runtime-ctee-private-workspace-store.test.mjs")
-    ? read("packages/runtime-daemon/src/runtime-ctee-private-workspace-store.test.mjs")
+  const cteePrivateWorkspaceCoreStoreTest = exists("packages/runtime-daemon/src/runtime-ctee-private-workspace-core-store.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-ctee-private-workspace-core-store.test.mjs")
     : "";
   const cteePrivateWorkspaceSurface = exists("packages/runtime-daemon/src/runtime-ctee-private-workspace-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-ctee-private-workspace-surface.mjs")
@@ -25804,83 +25815,82 @@ function runCtee() {
   );
   assertCheck(
     result,
-    "ctee-daemon-runner",
-    !/CTEE_PRIVATE_WORKSPACE_COMMAND_ENV/.test(cteePrivateWorkspaceRunner) &&
-      /assertNoCteePrivateWorkspaceCommandSelection\(\s*options\.command \?\? env\.IOI_RUNTIME_DAEMON_CORE_COMMAND \?\? env\.IOI_CTEE_PRIVATE_WORKSPACE_COMMAND,\s*\)/.test(
-        cteePrivateWorkspaceRunner,
-      ) &&
-      /ioi\.runtime\.daemon_core\.command\.v1/.test(cteePrivateWorkspaceRunner) &&
-      !/IOI_STEP_MODULE_COMMAND/.test(cteePrivateWorkspaceRunner) &&
-      !/CTEE_PRIVATE_WORKSPACE_COMMAND_ARGS_ENV/.test(cteePrivateWorkspaceRunner) &&
-      !/parseCommandArgs/.test(cteePrivateWorkspaceRunner) &&
-      !/normalizeArgs/.test(cteePrivateWorkspaceRunner) &&
-      !/this\.args/.test(cteePrivateWorkspaceRunner) &&
-      !/argsEnv/.test(cteePrivateWorkspaceRunner) &&
-      /RustCteePrivateWorkspaceRunner/.test(cteePrivateWorkspaceRunner) &&
-      /assertNoCteePrivateWorkspaceCommandArgs/.test(cteePrivateWorkspaceRunner) &&
-      /assertNoCteePrivateWorkspaceCommandSelection/.test(cteePrivateWorkspaceRunner) &&
-      /createCteePrivateWorkspaceRunnerFromEnv/.test(cteePrivateWorkspaceRunner) &&
-      /createCteePrivateWorkspaceRunnerFromEnv/.test(runtimeDaemonIndex) &&
-      /this\.cteePrivateWorkspaceRunner/.test(runtimeDaemonIndex) &&
-      /executeAction/.test(cteePrivateWorkspaceRunner) &&
-      /execute_private_workspace_ctee_action/.test(cteePrivateWorkspaceRunner) &&
-      /thread_id:\s*optionalString\(context\.thread_id\)/.test(cteePrivateWorkspaceRunner) &&
-      /agent_id:\s*optionalString\(context\.agent_id\)/.test(cteePrivateWorkspaceRunner) &&
-      /ctee_operator/.test(cteePrivateWorkspaceRunner) &&
-      /daemonCoreInvoker: options\.daemonCoreInvoker/.test(cteePrivateWorkspaceRunner) &&
+    "ctee-daemon-core-api",
+    !exists("packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.mjs") &&
+      !exists("packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.test.mjs") &&
+      !exists("packages/runtime-daemon/src/runtime-ctee-private-workspace-store.test.mjs") &&
+      /ioi\.runtime\.daemon_core\.command\.v1/.test(cteePrivateWorkspaceCore) &&
+      /RuntimeCteePrivateWorkspaceCore/.test(cteePrivateWorkspaceCore) &&
+      /createRuntimeCteePrivateWorkspaceCore/.test(cteePrivateWorkspaceCore) &&
+      /executeAction/.test(cteePrivateWorkspaceCore) &&
+      /execute_private_workspace_ctee_action/.test(cteePrivateWorkspaceCore) &&
+      /thread_id:\s*optionalString\(context\.thread_id\)/.test(cteePrivateWorkspaceCore) &&
+      /agent_id:\s*optionalString\(context\.agent_id\)/.test(cteePrivateWorkspaceCore) &&
+      /ctee_operator/.test(cteePrivateWorkspaceCore) &&
       /this\.daemonCoreInvoker = optionalFunction\(options\.daemonCoreInvoker\)/.test(
-        cteePrivateWorkspaceRunner,
+        cteePrivateWorkspaceCore,
       ) &&
-      /ctee_private_workspace_direct_invoker_unconfigured/.test(cteePrivateWorkspaceRunner) &&
-      /ctee_private_workspace_command_args_retired/.test(cteePrivateWorkspaceRunner) &&
-      /ctee_private_workspace_command_selection_retired/.test(cteePrivateWorkspaceRunner) &&
-      !/createDaemonCoreCommandInvoker/.test(cteePrivateWorkspaceRunner) &&
-      !/from "node:child_process"/.test(cteePrivateWorkspaceRunner) &&
-      /cTEE private workspace runner sends execution request through direct daemon-core invoker/.test(cteePrivateWorkspaceRunnerTest) &&
-      /cTEE private workspace runner does not synthesize Rust-owned receipt or evidence refs/.test(
-        cteePrivateWorkspaceRunnerTest,
+      /ctee_private_workspace_core_direct_invoker_unconfigured/.test(cteePrivateWorkspaceCore) &&
+      /ctee_private_workspace_core_compatibility_option_retired/.test(
+        cteePrivateWorkspaceCore,
       ) &&
-      /receipt_refs:\s*stringArray\(result\.receipt_refs\)\s*\?\?\s*stringArray\(record\.result\?\.receipt_refs\)\s*\?\?\s*null/.test(
-        cteePrivateWorkspaceRunner,
+      /ctee_private_workspace_core_request_aliases_retired/.test(
+        cteePrivateWorkspaceCore,
       ) &&
-      /evidence_refs:\s*stringArray\(result\.evidence_refs\)\s*\?\?\s*stringArray\(record\.projection\?\.evidence_refs\)\s*\?\?\s*null/.test(
-        cteePrivateWorkspaceRunner,
+      !/process\.env/.test(cteePrivateWorkspaceCore) &&
+      !/IOI_RUNTIME_DAEMON_CORE_COMMAND|IOI_CTEE_PRIVATE_WORKSPACE_COMMAND|IOI_STEP_MODULE_COMMAND/.test(
+        cteePrivateWorkspaceCore,
       ) &&
-      !/receipt_refs:\s*stringArray\(result\.receipt_refs\)\s*\?\?\s*stringArray\(record\.result\?\.receipt_refs\)\s*\?\?\s*\[\]/.test(
-        cteePrivateWorkspaceRunner,
+      !/createCteePrivateWorkspaceRunnerFromEnv|RustCteePrivateWorkspaceRunner|CteePrivateWorkspaceRunner/.test(
+        cteePrivateWorkspaceCore,
       ) &&
-      !/evidence_refs:\s*stringArray\(result\.evidence_refs\)\s*\?\?\s*stringArray\(record\.projection\?\.evidence_refs\)\s*\?\?\s*\[\]/.test(
-        cteePrivateWorkspaceRunner,
+      !/normalizeCteePrivateWorkspaceBridgeResult|stringArray|receipt_refs:\s*stringArray|evidence_refs:\s*stringArray/.test(
+        cteePrivateWorkspaceCore,
       ) &&
-      !/assert\.deepEqual\(calls\[0\]\.args,\s*\[\]\)/.test(cteePrivateWorkspaceRunnerTest) &&
-      /assert\.equal\(calls\[0\]\.thread_id,\s*"thread:ctee-runner"\)/.test(
-        cteePrivateWorkspaceRunnerTest,
+      !/createDaemonCoreCommandInvoker/.test(cteePrivateWorkspaceCore) &&
+      !/from "node:child_process"/.test(cteePrivateWorkspaceCore) &&
+      /createRuntimeCteePrivateWorkspaceCore\(\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
+        runtimeDaemonIndex,
       ) &&
-      /assert\.equal\(calls\[0\]\.agent_id,\s*"agent:ctee-runner"\)/.test(
-        cteePrivateWorkspaceRunnerTest,
+      /this\.cteePrivateWorkspaceCore/.test(runtimeDaemonIndex) &&
+      !/this\.cteePrivateWorkspaceRunner/.test(runtimeDaemonIndex) &&
+      /cTEE private workspace core calls direct Rust daemon-core custody API/.test(
+        cteePrivateWorkspaceCoreTest,
       ) &&
-      /cTEE private workspace runner env uses daemon-level direct invoker/.test(cteePrivateWorkspaceRunnerTest) &&
-      /cTEE private workspace runner rejects retired binary command env/.test(cteePrivateWorkspaceRunnerTest) &&
-      /cTEE private workspace runner rejects retired cTEE command env/.test(cteePrivateWorkspaceRunnerTest) &&
-      /cTEE private workspace runner command args env fails closed/.test(cteePrivateWorkspaceRunnerTest) &&
-      /cTEE private workspace runner command constructor option fails closed/.test(
-        cteePrivateWorkspaceRunnerTest,
+      /cTEE private workspace core returns the Rust envelope without JS normalization/.test(
+        cteePrivateWorkspaceCoreTest,
       ) &&
-      /cTEE private workspace runner command args constructor option fails closed/.test(
-        cteePrivateWorkspaceRunnerTest,
+      /Object\.hasOwn\(result,\s*"receipt_refs"\),\s*false/.test(
+        cteePrivateWorkspaceCoreTest,
       ) &&
-      /cTEE private workspace runner fails closed without direct invoker/.test(cteePrivateWorkspaceRunnerTest) &&
-      /cTEE private workspace runner surfaces Rust execution rejection/.test(cteePrivateWorkspaceRunnerTest) &&
-      /runtime store mounts cTEE private workspace runner from options/.test(
-        cteePrivateWorkspaceStoreTest,
+      /Object\.hasOwn\(result,\s*"evidence_refs"\),\s*false/.test(
+        cteePrivateWorkspaceCoreTest,
+      ) &&
+      /cTEE private workspace core rejects retired compatibility options/.test(
+        cteePrivateWorkspaceCoreTest,
+      ) &&
+      /cTEE private workspace core rejects retired bridge request aliases before Rust invocation/.test(
+        cteePrivateWorkspaceCoreTest,
+      ) &&
+      /cTEE private workspace core fails closed without direct daemon-core API/.test(
+        cteePrivateWorkspaceCoreTest,
+      ) &&
+      /cTEE private workspace core surfaces Rust execution rejection/.test(
+        cteePrivateWorkspaceCoreTest,
+      ) &&
+      /runtime store mounts cTEE private workspace core from options/.test(
+        cteePrivateWorkspaceCoreStoreTest,
+      ) &&
+      /Object\.hasOwn\(store,\s*"cteePrivateWorkspaceRunner"\),\s*false/.test(
+        cteePrivateWorkspaceCoreStoreTest,
       ),
     [
-      "packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.mjs",
-      "packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.test.mjs",
-      "packages/runtime-daemon/src/runtime-ctee-private-workspace-store.test.mjs",
+      "packages/runtime-daemon/src/runtime-ctee-private-workspace-core.mjs",
+      "packages/runtime-daemon/src/runtime-ctee-private-workspace-core.test.mjs",
+      "packages/runtime-daemon/src/runtime-ctee-private-workspace-core-store.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
     ],
-    "Phase 7 is pending: daemon cTEE Private Workspace facade must call Rust cTEE custody admission through a direct daemon-core invoker and fail closed when unconfigured",
+    "Phase 7 is pending: daemon cTEE Private Workspace core API must call Rust cTEE custody admission directly and keep the retired JS runner/env fallback absent",
   );
   assertCheck(
     result,
@@ -25898,7 +25908,7 @@ function runCtee() {
       ) &&
       /RETIRED_CTEE_PRIVATE_WORKSPACE_TRUTH_FIELDS/.test(cteePrivateWorkspaceSurface) &&
       /ctee_private_workspace_agentgres_truth_fields_retired/.test(cteePrivateWorkspaceSurface) &&
-      /return store\.cteePrivateWorkspaceRunner\.executeAction\(action,\s*\{\s*thread_id:\s*threadId,\s*agent_id:\s*agent\.id,\s*\}\)/.test(
+      /return store\.cteePrivateWorkspaceCore\.executeAction\(action,\s*\{\s*thread_id:\s*threadId,\s*agent_id:\s*agent\.id,\s*\}\)/.test(
         cteePrivateWorkspaceSurface,
       ) &&
       /ctee-private-workspace-actions/.test(runtimeRouteHandlers) &&
@@ -25914,7 +25924,7 @@ function runCtee() {
       /thread route does not expose cTEE private workspace apply shortcut/.test(
         runtimeRouteHandlersTest,
       ) &&
-      /cTEE private workspace surface executes nested action through Rust runner/.test(
+      /cTEE private workspace surface executes nested action through Rust core/.test(
         cteePrivateWorkspaceSurfaceTest,
       ) &&
       /assert\.deepEqual\(runtimeStore\.calls\.at\(-1\)\.context,\s*\{\s*thread_id:\s*"thread_surface",\s*agent_id:\s*"agent_surface",\s*\}\)/.test(
@@ -25923,7 +25933,7 @@ function runCtee() {
       /cTEE private workspace surface fails closed without action payload/.test(
         cteePrivateWorkspaceSurfaceTest,
       ) &&
-      /cTEE private workspace surface rejects client supplied Agentgres truth before Rust runner/.test(
+      /cTEE private workspace surface rejects client supplied Agentgres truth before Rust core/.test(
         cteePrivateWorkspaceSurfaceTest,
       ),
     [
@@ -25972,7 +25982,7 @@ function runCtee() {
         cteePrivateWorkspaceSurface,
       ) &&
       !/body\.(?:cteeAction|ctee_action)\b/.test(cteePrivateWorkspaceSurface) &&
-      /cTEE private workspace surface rejects retired request aliases before agent lookup or Rust runner/.test(
+      /cTEE private workspace surface rejects retired request aliases before agent lookup or Rust core/.test(
         cteePrivateWorkspaceSurfaceTest,
       ) &&
       /cTEE private workspace surface ignores retired nested invocation identity alias/.test(
@@ -26015,26 +26025,26 @@ function runCtee() {
   );
   assertCheck(
     result,
-    "ctee-runner-request-aliases-retired",
-    /RETIRED_CTEE_PRIVATE_WORKSPACE_RUNNER_ALIASES/.test(cteePrivateWorkspaceRunner) &&
-      /ctee_private_workspace_runner_request_aliases_retired/.test(cteePrivateWorkspaceRunner) &&
-      /assertCanonicalCteePrivateWorkspaceRunnerRequest\(request\);/.test(
-        cteePrivateWorkspaceRunner,
+    "ctee-core-request-aliases-retired",
+    /RETIRED_CTEE_PRIVATE_WORKSPACE_CORE_REQUEST_ALIASES/.test(cteePrivateWorkspaceCore) &&
+      /ctee_private_workspace_core_request_aliases_retired/.test(cteePrivateWorkspaceCore) &&
+      /assertCanonicalCteePrivateWorkspaceCoreRequest\(request\);/.test(
+        cteePrivateWorkspaceCore,
       ) &&
-      /node_trust:\s*request\.node_trust/.test(cteePrivateWorkspaceRunner) &&
-      !/expected_heads:\s*request\.expected_heads/.test(cteePrivateWorkspaceRunner) &&
-      !/request\.nodeTrust/.test(cteePrivateWorkspaceRunner) &&
-      !/request\.expectedHeads/.test(cteePrivateWorkspaceRunner) &&
-      !/request\.expected_heads/.test(cteePrivateWorkspaceRunner) &&
-      /cTEE private workspace runner rejects retired bridge request aliases before command invocation/.test(
-        cteePrivateWorkspaceRunnerTest,
+      /node_trust:\s*request\.node_trust/.test(cteePrivateWorkspaceCore) &&
+      !/expected_heads:\s*request\.expected_heads/.test(cteePrivateWorkspaceCore) &&
+      !/request\.nodeTrust/.test(cteePrivateWorkspaceCore) &&
+      !/request\.expectedHeads/.test(cteePrivateWorkspaceCore) &&
+      !/request\.expected_heads/.test(cteePrivateWorkspaceCore) &&
+      /cTEE private workspace core rejects retired bridge request aliases before Rust invocation/.test(
+        cteePrivateWorkspaceCoreTest,
       ) &&
-      /assert\.deepEqual\(calls,\s*\[\]\)/.test(cteePrivateWorkspaceRunnerTest),
+      /assert\.deepEqual\(calls,\s*\[\]\)/.test(cteePrivateWorkspaceCoreTest),
     [
-      "packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.mjs",
-      "packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-ctee-private-workspace-core.mjs",
+      "packages/runtime-daemon/src/runtime-ctee-private-workspace-core.test.mjs",
     ],
-    "Phase 7/11 is pending: cTEE Private Workspace runner must fail closed on retired bridge aliases before invoking the Rust command",
+    "Phase 7/11 is pending: cTEE Private Workspace core API must fail closed on retired bridge aliases before invoking Rust daemon-core custody admission",
   );
   assertCheck(
     result,

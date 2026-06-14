@@ -7361,20 +7361,18 @@ over admission, receipt/state-root binding, Agentgres truth, projection,
 replay, and stable IDE/CLI/SDK protocol surfaces, not preservation of JS
 normalizers as compatibility shims.
 
-Slice 1153 retires JS-side receipt/evidence ref fallback synthesis from the
-cTEE Private Workspace runner. Rust `governed_receipt.rs` already owns the
-receipt-bearing cTEE execution/admission/projection response behind the
-temporary daemon-core command path, so
-`runtime-ctee-private-workspace-runner.mjs` now preserves omitted
-Rust-authored `receipt_refs` and `evidence_refs` as `null` instead of
-inventing empty arrays as compatibility truth.
+Slice 1153 first retired JS-side receipt/evidence ref fallback synthesis from
+the cTEE Private Workspace migration edge. That runner has since been removed:
+the daemon now mounts `cteePrivateWorkspaceCore`, which builds only the
+canonical Rust daemon-core `execute_private_workspace_ctee_action` request and
+returns the Rust `governed_receipt.rs` admission envelope as-is instead of
+inventing receipt/evidence refs, source, or backend compatibility truth.
 
-This remains non-terminal because the JS cTEE runner, shared daemon-core
-command runner, and Node bridge transport still carry requests to Rust. The
-target is direct Rust daemon-core cTEE protocol/API ownership over custody
-admission, receipt/state-root binding, Agentgres truth, projection, replay,
-and stable IDE/CLI/SDK protocol surfaces, not preservation of JS normalizers as
-compatibility shims.
+This remains non-terminal only because the mounted core still builds a
+temporary command-envelope request. The target is stable direct Rust
+daemon-core cTEE protocol/API ownership over custody admission,
+receipt/state-root binding, Agentgres truth, projection, replay, and stable
+IDE/CLI/SDK protocol surfaces.
 
 Slice 1154 retires JS-side ref fallback synthesis from the worker/service
 package runner. Rust `governed_receipt.rs` already owns the receipt-bearing
@@ -8169,23 +8167,17 @@ temporary command transport. Resume by cutting the remaining admission and
 receipt-bearing runners the same way, then deleting the shared JS command
 invoker once no live surface depends on it.
 
-Slice 1199 retires the temporary binary-spawn fallback for the daemon cTEE
-Private Workspace runner. `runtime-ctee-private-workspace-runner.mjs` no longer
-imports the shared JS daemon-core command invoker, no longer exposes or reads a
-live `CTEE_PRIVATE_WORKSPACE_COMMAND_ENV`, and no longer accepts constructor
-command selection or spawn hooks. Private Workspace cTEE execution now requires
-the daemon-level `daemonCoreInvoker` direct Rust-core seam and fails closed
-when it is absent. `IOI_RUNTIME_DAEMON_CORE_COMMAND` and retired
-`IOI_CTEE_PRIVATE_WORKSPACE_COMMAND` values are treated only as forbidden
-command selection input for this surface, not as fallback transport.
+Slice 1199 retired the temporary binary-spawn fallback for the daemon cTEE
+Private Workspace migration edge. The follow-on cTEE macro cut removes the
+runner facade entirely: Private Workspace cTEE execution now reaches Rust
+through mounted `cteePrivateWorkspaceCore`, command/env selection is not read,
+and receipt-bearing cTEE execution, custody proof refs, receipt binding,
+accepted receipt append, Agentgres admission, projection records, receipt refs,
+and evidence refs must arrive from Rust daemon-core output.
 
-This is the first cTEE custody surface with binary-spawn fallback retired at
-the daemon runner. Receipt-bearing cTEE execution, custody proof refs,
-receipt binding, accepted receipt append, Agentgres admission, projection
-records, receipt refs, and evidence refs must arrive from Rust daemon-core
-output or remain absent at the JS edge. It is still not terminal because the JS
-product surface remains a request extractor and other command runners still
-carry temporary command transport. Resume by cutting the next receipt-bearing
+This is still not terminal because the JS product surface remains a canonical
+request extractor and the cTEE core still builds a temporary daemon-core command
+envelope. Resume by cutting the next receipt-bearing
 runner, then delete the shared JS command invoker once every live surface has a
 direct Rust daemon-core API.
 

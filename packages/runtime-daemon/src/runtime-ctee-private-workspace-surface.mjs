@@ -71,7 +71,7 @@ export function createRuntimeCteePrivateWorkspaceSurface(deps = {}) {
   function executeCteePrivateWorkspaceAction(store, threadId, request = {}) {
     const action = actionForRequest(request);
     const agent = store.agentForThread(threadId);
-    return store.cteePrivateWorkspaceRunner.executeAction(action, {
+    return store.cteePrivateWorkspaceCore.executeAction(action, {
       thread_id: threadId,
       agent_id: agent.id,
     });
