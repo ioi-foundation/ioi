@@ -11,6 +11,8 @@ import {
 function fakeState({ now = "2026-06-03T12:00:00.000Z", instances = [] } = {}) {
   return {
     instances: new Map(instances.map((instance) => [instance.id, { ...instance }])),
+    instanceProjectionRows: instances.map((instance) => ({ ...instance })),
+    instanceProjectionReads: 0,
     endpoints: new Map([
       ["endpoint_a", { id: "endpoint_a", modelId: "model_a", backendId: "backend.native", providerId: "provider_a" }],
       ["endpoint_b", { id: "endpoint_b", modelId: "model_b", backendId: "backend.native", providerId: "provider_b" }],
@@ -36,6 +38,10 @@ function fakeState({ now = "2026-06-03T12:00:00.000Z", instances = [] } = {}) {
     },
     writeMap(dir, map) {
       this.writes.push([dir, [...map.values()].map((instance) => ({ ...instance }))]);
+    },
+    listInstances() {
+      this.instanceProjectionReads += 1;
+      return this.instanceProjectionRows.map((instance) => ({ ...instance }));
     },
     planModelMountInstanceLifecycle(request) {
       this.transitionRequests.push(JSON.parse(JSON.stringify(request)));
@@ -128,6 +134,9 @@ test("loaded instance lookup preserves fail and nullable modes", () => {
 
   assert.equal(loadedInstanceForEndpoint(state, "endpoint_a", true, { notFound }).id, "instance_a");
   assert.equal(loadedInstanceForEndpoint(state, "endpoint_b", false, { notFound }), null);
+  state.instances.set("instance_map_only", { id: "instance_map_only", endpointId: "endpoint_map", status: "loaded" });
+  assert.equal(loadedInstanceForEndpoint(state, "endpoint_map", false, { notFound }), null);
+  assert.equal(state.instanceProjectionReads, 3);
   assert.throws(
     () => loadedInstanceForEndpoint(state, "endpoint_missing", true, { notFound }),
     (error) => {

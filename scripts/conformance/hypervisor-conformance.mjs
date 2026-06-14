@@ -22613,6 +22613,38 @@ function runReceipts() {
   );
   assertCheck(
     result,
+    "model-mount-state-accessor-rust-projection-lookup",
+    /projectionRecords\(state,\s*"listEndpoints"\)\.find/.test(stateAccessors) &&
+      /projectionRecords\(state,\s*"listRoutes"\)\.find/.test(stateAccessors) &&
+      /projectionRecords\(state,\s*"listInstances"\)\.find/.test(stateAccessors) &&
+      /projectionRecords\(state,\s*"listArtifacts"\)\.find/.test(stateAccessors) &&
+      /projectionRecords\(state,\s*"listInstances"\)\.find/.test(loadedInstances) &&
+      !/state\.endpoints\.get/.test(stateAccessors) &&
+      !/state\.routes\.get/.test(stateAccessors) &&
+      !/state\.instances\.get/.test(stateAccessors) &&
+      !/\[\.\.\.state\.artifacts\.values\(\)\]/.test(stateAccessors) &&
+      !/\[\.\.\.state\.endpoints\.values\(\)\]/.test(stateAccessors) &&
+      !/\[\.\.\.state\.instances\.values\(\)\]\.find/.test(loadedInstances) &&
+      /topology accessors use Rust read projections rather than JS topology maps/.test(stateAccessorsTest) &&
+      /endpoint\.map-only/.test(stateAccessorsTest) &&
+      /route\.map-only/.test(stateAccessorsTest) &&
+      /instance\.map-only/.test(stateAccessorsTest) &&
+      /artifact\.map-only/.test(stateAccessorsTest) &&
+      /loaded instance lookup preserves fail and nullable modes/.test(loadedInstancesTest) &&
+      /instance_map_only/.test(loadedInstancesTest) &&
+      /assert\.equal\(loadedInstanceForEndpoint\(state,\s*"endpoint_map",\s*false,\s*\{ notFound \}\),\s*null\)/.test(
+        loadedInstancesTest,
+      ),
+    [
+      "packages/runtime-daemon/src/model-mounting/state-accessors.mjs",
+      "packages/runtime-daemon/src/model-mounting/state-accessors.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/loaded-instances.mjs",
+      "packages/runtime-daemon/src/model-mounting/loaded-instances.test.mjs",
+    ],
+    "Model-mount endpoint, route, instance, artifact, and loaded-instance accessors must use Rust read projections and reject JS map-only topology truth",
+  );
+  assertCheck(
+    result,
     "model-mount-live-catalog-provider-search-surface-retired",
     !exists("packages/runtime-daemon/src/model-mounting/huggingface-catalog-search.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/huggingface-catalog-search.test.mjs") &&

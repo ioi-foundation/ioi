@@ -8839,6 +8839,15 @@ Command-transport retirement, deeper receipt/state-root binding, hosted/provider
 transports, hosted/provider endpoint discovery/materialization, richer hosted
 catalog materialization, stable route/instance APIs, and stable protocol APIs
 remain required.
+The mounted model_mount topology accessors now consume those Rust read
+projections on the daemon hot path: `endpoint()`, `route()`, `instance()`,
+`getModel()`, provider-direct mount lookup, model-id endpoint resolution, and
+loaded-instance reuse call the Rust-owned `endpoints`, `routes`, `instances`,
+and `artifacts` projection lists instead of reading JS topology maps as
+accepted truth. Map-only endpoint, route, instance, or artifact cache rows now
+fail not-found at the accessor boundary, while provider-direct artifact
+creation still fails closed before JS mutation and load fallback enters the
+Rust-planned mount/load surfaces.
 Public catalog-provider configuration, private runtime material, and OAuth
 control now move through Rust daemon-core `plan_model_mount_catalog_provider_control`.
 `listCatalogProviderConfigs()`, `getCatalogProviderConfig()`,

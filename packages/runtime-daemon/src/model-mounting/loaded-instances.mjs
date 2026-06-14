@@ -7,7 +7,7 @@ const MODEL_MOUNT_INSTANCE_LIFECYCLE_SCHEMA_VERSION = "ioi.model_mount.instance_
 
 export function loadedInstanceForEndpoint(state, endpointId, failIfMissing = true, deps = {}) {
   const { notFound } = deps;
-  const instance = [...state.instances.values()].find(
+  const instance = projectionRecords(state, "listInstances").find(
     (candidate) => (candidate.endpointId ?? candidate.endpoint_id) === endpointId && candidate.status === "loaded",
   );
   if (!instance && failIfMissing) {
@@ -242,6 +242,13 @@ function requiredMaintenanceString(value, field, instance, options = {}) {
 
 function mapGet(map, key) {
   return map && typeof map.get === "function" ? map.get(key) : null;
+}
+
+function projectionRecords(state, methodName) {
+  const reader = state?.[methodName];
+  if (typeof reader !== "function") return [];
+  const records = reader.call(state);
+  return Array.isArray(records) ? records : [];
 }
 
 function throwInstanceMaintenanceRustCoreRequired(operation, instance, details = {}) {

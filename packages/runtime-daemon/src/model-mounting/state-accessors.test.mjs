@@ -24,8 +24,46 @@ function fakeState() {
     instances: new Map(),
     providers: new Map([["provider.local", { id: "provider.local", kind: "openai", capabilities: ["chat"], privacyClass: "hosted_metered" }]]),
     routes: new Map([["route.local-first", { id: "route.local-first" }]]),
+    artifactProjectionRows: [
+      {
+        id: "artifact.local",
+        artifact_id: "artifact.local",
+        model_id: "model.local",
+        provider_id: "provider.local",
+        artifact_endpoint_projection_boundary: "model_mount.artifact_endpoint_projection",
+      },
+    ],
+    endpointProjectionRows: [
+      {
+        id: "endpoint.active",
+        endpoint_id: "endpoint.active",
+        model_id: "llama-test",
+        status: "mounted",
+        load_policy: { mode: "on_demand" },
+        artifact_endpoint_projection_boundary: "model_mount.artifact_endpoint_projection",
+      },
+      {
+        id: "endpoint.unmounted",
+        endpoint_id: "endpoint.unmounted",
+        model_id: "gone",
+        status: "unmounted",
+        artifact_endpoint_projection_boundary: "model_mount.artifact_endpoint_projection",
+      },
+    ],
+    instanceProjectionRows: [],
+    routeProjectionRows: [
+      {
+        id: "route.local-first",
+        route_id: "route.local-first",
+        route_projection_boundary: "model_mount.route_control_projection",
+      },
+    ],
     evictions: 0,
+    artifactProjectionReads: 0,
+    endpointProjectionReads: 0,
+    instanceProjectionReads: 0,
     providerProjectionReads: 0,
+    routeProjectionReads: 0,
     loadedLookups: [],
     loadCalls: [],
     mounted: [],
@@ -58,11 +96,25 @@ function fakeState() {
     },
     loadedInstanceForEndpoint(endpointId, failIfMissing) {
       this.loadedLookups.push([endpointId, failIfMissing]);
-      return [...this.instances.values()].find((candidate) => candidate.endpointId === endpointId && candidate.status === "loaded") ?? null;
+      return this.listInstances().find(
+        (candidate) => (candidate.endpointId ?? candidate.endpoint_id) === endpointId && candidate.status === "loaded",
+      ) ?? null;
     },
     loadModel(body) {
       this.loadCalls.push(body);
       return { id: "instance.loaded.new", endpointId: body.endpoint_id, status: "loaded" };
+    },
+    listArtifacts() {
+      this.artifactProjectionReads += 1;
+      return this.artifactProjectionRows.map((record) => ({ ...record }));
+    },
+    listEndpoints() {
+      this.endpointProjectionReads += 1;
+      return this.endpointProjectionRows.map((record) => ({ ...record }));
+    },
+    listInstances() {
+      this.instanceProjectionReads += 1;
+      return this.instanceProjectionRows.map((record) => ({ ...record }));
     },
     listProviders() {
       this.providerProjectionReads += 1;
@@ -80,6 +132,10 @@ function fakeState() {
           "model_mount_provider_map_lookup_js_retired",
         ],
       }];
+    },
+    listRoutes() {
+      this.routeProjectionReads += 1;
+      return this.routeProjectionRows.map((record) => ({ ...record }));
     },
     mountEndpoint(body) {
       const record = { id: `endpoint.mounted.${body.model_id}`, modelId: body.model_id, status: "mounted" };
@@ -137,7 +193,7 @@ test("state lookup accessors return records and fail closed", () => {
   assert.equal(endpoint(state, "endpoint.active", deps).id, "endpoint.active");
   assert.equal(route(state, "route.local-first", deps).id, "route.local-first");
 
-  state.instances.set("instance.1", { id: "instance.1" });
+  state.instanceProjectionRows.push({ id: "instance.1", status: "loaded" });
   assert.equal(instance(state, "instance.1", deps).id, "instance.1");
 
   assert.throws(
@@ -173,6 +229,38 @@ test("provider accessor uses Rust provider projection rather than JS provider ma
   );
 });
 
+test("topology accessors use Rust read projections rather than JS topology maps", () => {
+  const state = fakeState();
+  state.endpoints.set("endpoint.map-only", {
+    id: "endpoint.map-only",
+    modelId: "map-only",
+    status: "mounted",
+  });
+  state.routes.set("route.map-only", { id: "route.map-only" });
+  state.instances.set("instance.map-only", { id: "instance.map-only", status: "loaded" });
+  state.artifacts.set("artifact.map-only", { id: "artifact.map-only", modelId: "map-only" });
+
+  assert.equal(endpoint(state, "endpoint.active", deps).artifact_endpoint_projection_boundary, "model_mount.artifact_endpoint_projection");
+  assert.equal(route(state, "route.local-first", deps).route_projection_boundary, "model_mount.route_control_projection");
+  assert.equal(getModel(state, "artifact.local", deps).artifact_endpoint_projection_boundary, "model_mount.artifact_endpoint_projection");
+  assert.throws(
+    () => endpoint(state, "endpoint.map-only", deps),
+    (error) => hasCanonicalNotFoundDetail(error, "endpoint_id", "endpoint.map-only", "endpointId"),
+  );
+  assert.throws(
+    () => route(state, "route.map-only", deps),
+    (error) => hasCanonicalNotFoundDetail(error, "route_id", "route.map-only", "routeId"),
+  );
+  assert.throws(
+    () => instance(state, "instance.map-only", deps),
+    (error) => hasCanonicalNotFoundDetail(error, "instance_id", "instance.map-only", "instanceId"),
+  );
+  assert.throws(
+    () => getModel(state, "artifact.map-only", deps),
+    (error) => hasCanonicalNotFoundDetail(error, "model_id", "artifact.map-only", "modelId"),
+  );
+});
+
 test("resolveEndpoint prefers explicit endpoint, existing model endpoint, mount fallback, and unavailable error", () => {
   const state = fakeState();
 
@@ -191,7 +279,7 @@ test("resolveEndpoint prefers explicit endpoint, existing model endpoint, mount 
 
 test("model accessors find artifacts and fail closed before provider-direct artifact mutation", () => {
   const state = fakeState();
-  const providerRecord = state.providers.get("provider.local");
+  const providerRecord = provider(state, "provider.local", deps);
 
   assert.equal(getModel(state, "artifact.local", deps).id, "artifact.local");
   assert.equal(getModel(state, "model.local", deps).id, "artifact.local");
@@ -201,6 +289,16 @@ test("model accessors find artifacts and fail closed before provider-direct arti
   );
 
   assert.equal(modelForProviderMount(state, "model.local", providerRecord, {}, state.now, deps).id, "artifact.local");
+  state.artifactProjectionRows.push({
+    artifact_id: "artifact.provider-ref-only",
+    model_id: "model.provider-ref-only",
+    provider_ref: "provider://local",
+    artifact_endpoint_projection_boundary: "model_mount.artifact_endpoint_projection",
+  });
+  assert.equal(
+    modelForProviderMount(state, "model.provider-ref-only", providerRecord, {}, state.now, deps).artifact_id,
+    "artifact.provider-ref-only",
+  );
 
   assert.throws(
     () =>
@@ -241,21 +339,22 @@ test("model accessors find artifacts and fail closed before provider-direct arti
 
 test("ensureLoaded reuses existing instance without JS touch mutation", async () => {
   const state = fakeState();
-  state.instances.set("instance.loaded", {
+  delete state.endpointProjectionRows[0].id;
+  state.instanceProjectionRows.push({
     id: "instance.loaded",
-    endpointId: "endpoint.active",
+    endpoint_id: "endpoint.active",
     status: "loaded",
     load_policy: { mode: "on_demand" },
     lastUsedAt: "old",
   });
 
-  const updated = await ensureLoaded(state, state.endpoints.get("endpoint.active"), deps);
+  const updated = await ensureLoaded(state, endpoint(state, "endpoint.active", deps), deps);
 
   assert.equal(state.evictions, 0);
   assert.equal(updated.id, "instance.loaded");
   assert.equal(updated.lastUsedAt, "old");
   assert.equal(updated.expiresAt, undefined);
-  assert.equal(state.instances.get("instance.loaded"), updated);
+  assert.equal(state.instances.has("instance.loaded"), false);
   assert.deepEqual(state.writes, []);
   assert.deepEqual(state.recordStateCommits, []);
   assert.deepEqual(state.loadedLookups, [["endpoint.active", false]]);
@@ -263,19 +362,20 @@ test("ensureLoaded reuses existing instance without JS touch mutation", async ()
 
 test("ensureLoaded existing instance reuse does not require JS record-state commit", async () => {
   const state = fakeState();
-  state.instances.set("instance.loaded", {
+  delete state.endpointProjectionRows[0].id;
+  state.instanceProjectionRows.push({
     id: "instance.loaded",
-    endpointId: "endpoint.active",
+    endpoint_id: "endpoint.active",
     status: "loaded",
     load_policy: { mode: "on_demand" },
     lastUsedAt: "old",
   });
   delete state.commitRuntimeModelMountRecordState;
 
-  const loaded = await ensureLoaded(state, state.endpoints.get("endpoint.active"), deps);
+  const loaded = await ensureLoaded(state, endpoint(state, "endpoint.active", deps), deps);
 
   assert.equal(loaded.id, "instance.loaded");
-  assert.equal(state.instances.get("instance.loaded").lastUsedAt, "old");
+  assert.equal(state.instances.has("instance.loaded"), false);
   assert.deepEqual(state.recordStateCommits, []);
   assert.deepEqual(state.writes, []);
 });
@@ -283,7 +383,7 @@ test("ensureLoaded existing instance reuse does not require JS record-state comm
 test("ensureLoaded calls loadModel when no active instance exists", async () => {
   const state = fakeState();
 
-  const loaded = await ensureLoaded(state, state.endpoints.get("endpoint.active"), deps);
+  const loaded = await ensureLoaded(state, endpoint(state, "endpoint.active", deps), deps);
 
   assert.equal(loaded.id, "instance.loaded.new");
   assert.deepEqual(state.loadCalls, [{ endpoint_id: "endpoint.active", load_policy: { mode: "on_demand" } }]);
