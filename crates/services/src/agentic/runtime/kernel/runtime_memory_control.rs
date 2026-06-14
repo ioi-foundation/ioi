@@ -1,6 +1,7 @@
 use serde::Deserialize;
 use serde_json::{json, Map, Value};
 use sha2::{Digest, Sha256};
+use std::{fs, path::PathBuf};
 
 pub const RUNTIME_MEMORY_CONTROL_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.memory-control-request.v1";
@@ -24,6 +25,8 @@ pub struct RuntimeMemoryControlRequest {
     pub memory_id: Option<String>,
     #[serde(default)]
     pub workspace_root: Option<String>,
+    #[serde(default)]
+    pub state_dir: Option<String>,
     #[serde(default)]
     pub target_type: Option<String>,
     #[serde(default)]
@@ -109,10 +112,26 @@ impl RuntimeMemoryControlCore {
             }
         }
         let operation_kind = normalized_operation_kind(request)?;
+        reject_control_candidate_transport(request)?;
         let operation = operation_for_kind(&operation_kind).to_string();
-        let thread_id = optional_trimmed(request.thread_id.as_deref());
-        let agent_id = optional_trimmed(request.agent_id.as_deref());
-        let workspace_root = optional_trimmed(request.workspace_root.as_deref());
+        let requested_memory_id = optional_trimmed(request.memory_id.as_deref());
+        let current_record = if matches!(operation_kind.as_str(), "memory.edit" | "memory.delete") {
+            let memory_id = requested_memory_id.as_deref().ok_or_else(|| {
+                RuntimeMemoryControlCommandError::new(
+                    "runtime_memory_control_memory_id_required",
+                    "memory edit/delete requires memory_id",
+                )
+            })?;
+            memory_control_record_from_state_dir(request.state_dir.as_deref(), memory_id)?
+        } else {
+            Value::Null
+        };
+        let thread_id = optional_trimmed(request.thread_id.as_deref())
+            .or_else(|| string_field(&current_record, "thread_id"));
+        let agent_id = optional_trimmed(request.agent_id.as_deref())
+            .or_else(|| string_field(&current_record, "agent_id"));
+        let workspace_root = optional_trimmed(request.workspace_root.as_deref())
+            .or_else(|| string_field(&current_record, "workspace"));
         if thread_id.is_none()
             && agent_id.is_none()
             && !matches!(operation_kind.as_str(), "memory.edit" | "memory.delete")
@@ -122,6 +141,23 @@ impl RuntimeMemoryControlCore {
                 "memory control requires thread_id or agent_id",
             ));
         }
+        let current_policy = if operation_kind == "memory.policy" {
+            memory_control_policy_from_state_dir(
+                request.state_dir.as_deref(),
+                request,
+                thread_id.as_deref(),
+                agent_id.as_deref(),
+                workspace_root.as_deref(),
+            )?
+        } else {
+            Value::Null
+        };
+        let mut effective_request = request.clone();
+        effective_request.current_record = current_record;
+        effective_request.current_policy = current_policy;
+        effective_request.thread_id = thread_id.clone();
+        effective_request.agent_id = agent_id.clone();
+        effective_request.workspace_root = workspace_root.clone();
         let now = optional_trimmed(request.now.as_deref())
             .or_else(|| string_field(&request.request, "created_at"))
             .or_else(|| string_field(&request.request, "updated_at"))
@@ -153,26 +189,21 @@ impl RuntimeMemoryControlCore {
                 )
             })
         } else if operation_kind == "memory.policy" {
-            policy_id(request, thread_id.as_deref(), agent_id.as_deref())
+            policy_id(
+                &effective_request,
+                thread_id.as_deref(),
+                agent_id.as_deref(),
+            )
         } else {
-            optional_trimmed(request.memory_id.as_deref())
-                .or_else(|| string_field(&request.current_record, "id"))
+            requested_memory_id
+                .or_else(|| string_field(&effective_request.current_record, "id"))
                 .unwrap_or(generated_memory_id)
         };
-        if matches!(operation_kind.as_str(), "memory.edit" | "memory.delete")
-            && optional_trimmed(request.memory_id.as_deref()).is_none()
-            && string_field(&request.current_record, "id").is_none()
-        {
-            return Err(RuntimeMemoryControlCommandError::new(
-                "runtime_memory_control_memory_id_required",
-                "memory edit/delete requires memory_id",
-            ));
-        }
-        let receipt_refs = memory_receipt_refs(request, &operation, &state_id);
-        let evidence_refs = memory_evidence_refs(request, &operation_kind);
+        let receipt_refs = memory_receipt_refs(&effective_request, &operation, &state_id);
+        let evidence_refs = memory_evidence_refs(&effective_request, &operation_kind);
         let payload = if is_event_operation(&operation_kind) {
             event_payload(
-                request,
+                &effective_request,
                 &operation_kind,
                 &state_id,
                 thread_id.as_deref(),
@@ -184,7 +215,7 @@ impl RuntimeMemoryControlCore {
             )
         } else if operation_kind == "memory.policy" {
             policy_payload(
-                request,
+                &effective_request,
                 &state_id,
                 thread_id.as_deref(),
                 agent_id.as_deref(),
@@ -195,7 +226,7 @@ impl RuntimeMemoryControlCore {
             )
         } else {
             record_payload(
-                request,
+                &effective_request,
                 &operation_kind,
                 &state_id,
                 thread_id.as_deref(),
@@ -239,6 +270,203 @@ impl RuntimeMemoryControlRecord {
             "evidence_refs": self.evidence_refs,
         })
     }
+}
+
+fn reject_control_candidate_transport(
+    request: &RuntimeMemoryControlRequest,
+) -> Result<(), RuntimeMemoryControlCommandError> {
+    if has_candidate_transport(&request.current_record) {
+        return Err(RuntimeMemoryControlCommandError::new(
+            "runtime_memory_control_current_record_transport_retired",
+            "runtime memory control rejects JS-supplied current records; provide state_dir for Agentgres memory replay",
+        ));
+    }
+    if has_candidate_transport(&request.current_policy) {
+        return Err(RuntimeMemoryControlCommandError::new(
+            "runtime_memory_control_current_policy_transport_retired",
+            "runtime memory control rejects JS-supplied current policies; provide state_dir for Agentgres memory replay",
+        ));
+    }
+    Ok(())
+}
+
+fn has_candidate_transport(value: &Value) -> bool {
+    match value {
+        Value::Null => false,
+        Value::Object(object) => !object.is_empty(),
+        Value::Array(items) => !items.is_empty(),
+        _ => true,
+    }
+}
+
+fn memory_control_record_from_state_dir(
+    state_dir: Option<&str>,
+    memory_id: &str,
+) -> Result<Value, RuntimeMemoryControlCommandError> {
+    let state_root = memory_control_state_root(state_dir)?;
+    load_memory_state_dir_records(state_root.join("memory-records"), "memory records")?
+        .into_iter()
+        .filter(canonical_memory_record)
+        .find(|record| string_field(record, "id").as_deref() == Some(memory_id))
+        .ok_or_else(|| {
+            RuntimeMemoryControlCommandError::new(
+                "runtime_memory_control_record_required",
+                format!("memory control requires admitted memory record {memory_id} in state_dir"),
+            )
+        })
+}
+
+fn memory_control_policy_from_state_dir(
+    state_dir: Option<&str>,
+    request: &RuntimeMemoryControlRequest,
+    thread_id: Option<&str>,
+    agent_id: Option<&str>,
+    workspace_root: Option<&str>,
+) -> Result<Value, RuntimeMemoryControlCommandError> {
+    let state_root = memory_control_state_root(state_dir)?;
+    let policies =
+        load_memory_state_dir_records(state_root.join("memory-policies"), "memory policies")?
+            .into_iter()
+            .filter(canonical_memory_policy)
+            .collect::<Vec<_>>();
+    let target_type = optional_trimmed(request.target_type.as_deref()).unwrap_or_else(|| {
+        if thread_id.is_some() {
+            "thread"
+        } else {
+            "agent"
+        }
+        .to_string()
+    });
+    let target_id = optional_trimmed(request.target_id.as_deref())
+        .unwrap_or_else(|| thread_id.or(agent_id).unwrap_or("runtime").to_string());
+    let target_policy_id = memory_policy_id(&target_type, &target_id);
+    if let Some(policy) = policies
+        .iter()
+        .find(|policy| string_field(policy, "id").as_deref() == Some(target_policy_id.as_str()))
+    {
+        return Ok(policy.clone());
+    }
+    let mut policy = default_memory_policy(thread_id, agent_id, workspace_root);
+    if let Some(object) = policy.as_object_mut() {
+        object.insert("target_type".to_string(), json!(target_type));
+        object.insert("target_id".to_string(), json!(target_id));
+        object.insert("id".to_string(), json!(target_policy_id));
+    }
+    Ok(policy)
+}
+
+fn memory_control_state_root(
+    state_dir: Option<&str>,
+) -> Result<PathBuf, RuntimeMemoryControlCommandError> {
+    optional_trimmed(state_dir)
+        .map(PathBuf::from)
+        .ok_or_else(|| {
+            RuntimeMemoryControlCommandError::new(
+                "runtime_memory_control_state_dir_required",
+                "runtime memory control requires runtime state_dir for Agentgres memory replay",
+            )
+        })
+}
+
+fn load_memory_state_dir_records(
+    dir: PathBuf,
+    label: &str,
+) -> Result<Vec<Value>, RuntimeMemoryControlCommandError> {
+    if !dir.exists() {
+        return Ok(Vec::new());
+    }
+    let entries = fs::read_dir(&dir).map_err(|error| {
+        RuntimeMemoryControlCommandError::new(
+            "runtime_memory_control_replay_read_failed",
+            format!("runtime memory control could not read Agentgres {label}: {error}"),
+        )
+    })?;
+    let mut paths = Vec::new();
+    for entry in entries {
+        let entry = entry.map_err(|error| {
+            RuntimeMemoryControlCommandError::new(
+                "runtime_memory_control_replay_read_failed",
+                format!(
+                    "runtime memory control could not inspect Agentgres {label} entry: {error}"
+                ),
+            )
+        })?;
+        let path = entry.path();
+        if path.is_file() && path.extension().and_then(|value| value.to_str()) == Some("json") {
+            paths.push(path);
+        }
+    }
+    paths.sort();
+
+    let mut records = Vec::new();
+    for path in paths.into_iter().take(1000) {
+        let contents = fs::read_to_string(&path).map_err(|error| {
+            RuntimeMemoryControlCommandError::new(
+                "runtime_memory_control_replay_read_failed",
+                format!(
+                    "runtime memory control could not read Agentgres {label} record {}: {error}",
+                    path.display()
+                ),
+            )
+        })?;
+        let record = serde_json::from_str(&contents).map_err(|error| {
+            RuntimeMemoryControlCommandError::new(
+                "runtime_memory_control_replay_record_invalid",
+                format!(
+                    "runtime memory control found invalid Agentgres {label} record {}: {error}",
+                    path.display()
+                ),
+            )
+        })?;
+        records.push(record);
+    }
+    Ok(records)
+}
+
+fn canonical_memory_record(record: &Value) -> bool {
+    record.as_object().is_some()
+        && string_field(record, "schema_version").as_deref() == Some(AGENT_MEMORY_SCHEMA_VERSION)
+        && string_field(record, "object").as_deref() == Some("ioi.agent_memory_record")
+        && string_field(record, "id").is_some()
+}
+
+fn canonical_memory_policy(record: &Value) -> bool {
+    record.as_object().is_some()
+        && string_field(record, "schema_version").as_deref()
+            == Some(AGENT_MEMORY_POLICY_SCHEMA_VERSION)
+        && string_field(record, "object").as_deref() == Some("ioi.agent_memory_policy")
+        && string_field(record, "id").is_some()
+}
+
+fn default_memory_policy(
+    thread_id: Option<&str>,
+    agent_id: Option<&str>,
+    workspace_root: Option<&str>,
+) -> Value {
+    let target_id = thread_id.or(agent_id).unwrap_or("runtime");
+    json!({
+        "schema_version": AGENT_MEMORY_POLICY_SCHEMA_VERSION,
+        "object": "ioi.agent_memory_policy",
+        "id": memory_policy_id("thread", target_id),
+        "target_type": "thread",
+        "target_id": target_id,
+        "agent_id": agent_id,
+        "thread_id": thread_id,
+        "workspace": workspace_root,
+        "disabled": false,
+        "injection_enabled": true,
+        "read_only": false,
+        "write_requires_approval": false,
+        "retention": "persistent",
+        "redaction": "none",
+        "subagent_inheritance": "explicit",
+        "scope": "thread",
+        "source": "rust_runtime_memory_control_default_policy",
+        "evidence_refs": [
+            "runtime_memory_control_state_dir_replay",
+            "agentgres_thread_memory_state_truth_required"
+        ],
+    })
 }
 
 fn record_payload(
@@ -533,10 +761,14 @@ fn policy_id(
     });
     let target_id = optional_trimmed(request.target_id.as_deref())
         .unwrap_or_else(|| thread_id.or(agent_id).unwrap_or("runtime").to_string());
+    memory_policy_id(&target_type, &target_id)
+}
+
+fn memory_policy_id(target_type: &str, target_id: &str) -> String {
     format!(
         "memory_policy_{}_{}",
-        safe_id(&target_type),
-        safe_id(&target_id)
+        safe_id(target_type),
+        safe_id(target_id)
     )
 }
 
@@ -674,8 +906,79 @@ fn unique_strings(values: Vec<String>) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::{
+        env,
+        path::Path,
+        time::{SystemTime, UNIX_EPOCH},
+    };
 
-    fn memory_control_request() -> RuntimeMemoryControlRequest {
+    fn temp_state_dir(label: &str) -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock is available")
+            .as_nanos();
+        let dir = env::temp_dir().join(format!(
+            "ioi-runtime-memory-control-{label}-{nanos}-{}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&dir).expect("create temp state dir");
+        dir
+    }
+
+    fn write_state_record(state_dir: &Path, dir: &str, id: &str, record: Value) {
+        let target_dir = state_dir.join(dir);
+        fs::create_dir_all(&target_dir).expect("create memory state dir");
+        fs::write(
+            target_dir.join(format!("{id}.json")),
+            serde_json::to_vec_pretty(&record).expect("serialize memory state record"),
+        )
+        .expect("write memory state record");
+    }
+
+    fn seed_memory_state(state_dir: &Path) {
+        write_state_record(
+            state_dir,
+            "memory-records",
+            "memory_1",
+            json!({
+                "schema_version": AGENT_MEMORY_SCHEMA_VERSION,
+                "object": "ioi.agent_memory_record",
+                "id": "memory_1",
+                "thread_id": "thread_1",
+                "agent_id": "agent_1",
+                "workspace": "/workspace",
+                "fact": "Remember deployment window",
+                "scope": "thread",
+                "memory_key": "deploy.window",
+                "source": "operator_remember",
+                "created_at": "2026-06-11T10:00:00.000Z",
+                "status": "active",
+                "receipt_refs": ["receipt_memory_write_seed"]
+            }),
+        );
+        write_state_record(
+            state_dir,
+            "memory-policies",
+            "memory_policy_thread_thread_1",
+            json!({
+                "schema_version": AGENT_MEMORY_POLICY_SCHEMA_VERSION,
+                "object": "ioi.agent_memory_policy",
+                "id": "memory_policy_thread_thread_1",
+                "target_type": "thread",
+                "target_id": "thread_1",
+                "thread_id": "thread_1",
+                "agent_id": "agent_1",
+                "workspace": "/workspace",
+                "read_only": false,
+                "write_requires_approval": false,
+                "retention": "persistent",
+                "created_at": "2026-06-11T10:00:00.000Z",
+                "receipt_refs": ["receipt_memory_policy_seed"]
+            }),
+        );
+    }
+
+    fn memory_control_request(state_dir: &Path) -> RuntimeMemoryControlRequest {
         RuntimeMemoryControlRequest {
             schema_version: Some(RUNTIME_MEMORY_CONTROL_REQUEST_SCHEMA_VERSION.to_string()),
             operation: Some("write".to_string()),
@@ -683,6 +986,7 @@ mod tests {
             thread_id: Some("thread_1".to_string()),
             agent_id: Some("agent_1".to_string()),
             workspace_root: Some("/workspace".to_string()),
+            state_dir: Some(state_dir.to_string_lossy().to_string()),
             now: Some("2026-06-12T10:00:00.000Z".to_string()),
             request: json!({
                 "text": "Remember deployment window",
@@ -695,8 +999,9 @@ mod tests {
 
     #[test]
     fn rust_plans_runtime_memory_write_control() {
+        let state_dir = temp_state_dir("write");
         let record = RuntimeMemoryControlCore
-            .plan(&memory_control_request())
+            .plan(&memory_control_request(&state_dir))
             .expect("memory write planned");
 
         assert_eq!(record.operation_kind, "memory.write");
@@ -719,7 +1024,9 @@ mod tests {
 
     #[test]
     fn rust_plans_runtime_memory_policy_control() {
-        let mut request = memory_control_request();
+        let state_dir = temp_state_dir("policy");
+        seed_memory_state(&state_dir);
+        let mut request = memory_control_request(&state_dir);
         request.operation = Some("policy".to_string());
         request.operation_kind = Some("memory.policy".to_string());
         request.request = json!({
@@ -743,6 +1050,7 @@ mod tests {
         assert_eq!(record.payload["target_id"], "thread_1");
         assert_eq!(record.payload["read_only"], true);
         assert_eq!(record.payload["write_requires_approval"], true);
+        assert_eq!(record.payload["created_at"], "2026-06-11T10:00:00.000Z");
         assert!(record
             .evidence_refs
             .contains(&"runtime_memory_policy_control_rust_owned".to_string()));
@@ -750,7 +1058,8 @@ mod tests {
 
     #[test]
     fn rust_plans_runtime_memory_status_control_event() {
-        let mut request = memory_control_request();
+        let state_dir = temp_state_dir("status");
+        let mut request = memory_control_request(&state_dir);
         request.operation = Some("status".to_string());
         request.operation_kind = Some("memory.status".to_string());
         request.request = json!({
@@ -790,7 +1099,8 @@ mod tests {
 
     #[test]
     fn rust_plans_runtime_memory_validation_control_event() {
-        let mut request = memory_control_request();
+        let state_dir = temp_state_dir("validation");
+        let mut request = memory_control_request(&state_dir);
         request.operation = Some("validate".to_string());
         request.operation_kind = Some("memory.validate".to_string());
         request.request = json!({
@@ -824,7 +1134,8 @@ mod tests {
 
     #[test]
     fn rust_rejects_unowned_runtime_memory_control_kind() {
-        let mut request = memory_control_request();
+        let state_dir = temp_state_dir("unsupported");
+        let mut request = memory_control_request(&state_dir);
         request.operation_kind = Some("memory.audit".to_string());
 
         let error = RuntimeMemoryControlCore
@@ -834,6 +1145,102 @@ mod tests {
         assert_eq!(
             error.code(),
             "runtime_memory_control_operation_kind_unsupported"
+        );
+    }
+
+    #[test]
+    fn rust_replays_current_record_for_memory_edit_control() {
+        let state_dir = temp_state_dir("edit-replay");
+        seed_memory_state(&state_dir);
+        let mut request = memory_control_request(&state_dir);
+        request.operation = Some("edit".to_string());
+        request.operation_kind = Some("memory.edit".to_string());
+        request.thread_id = None;
+        request.agent_id = None;
+        request.workspace_root = None;
+        request.memory_id = Some("memory_1".to_string());
+        request.request = json!({ "text": "Edited deployment window" });
+
+        let record = RuntimeMemoryControlCore
+            .plan(&request)
+            .expect("memory edit planned from replayed current record");
+
+        assert_eq!(record.operation_kind, "memory.edit");
+        assert_eq!(record.state_id, "memory_1");
+        assert_eq!(record.thread_id.as_deref(), Some("thread_1"));
+        assert_eq!(record.agent_id.as_deref(), Some("agent_1"));
+        assert_eq!(record.workspace_root.as_deref(), Some("/workspace"));
+        assert_eq!(record.payload["fact"], "Edited deployment window");
+        assert_eq!(record.payload["memory_key"], "deploy.window");
+        assert_eq!(record.payload["created_at"], "2026-06-11T10:00:00.000Z");
+        assert_eq!(record.payload["status"], "active");
+    }
+
+    #[test]
+    fn rust_requires_state_dir_for_memory_edit_control() {
+        let state_dir = temp_state_dir("edit-missing-state-dir");
+        let mut request = memory_control_request(&state_dir);
+        request.operation = Some("edit".to_string());
+        request.operation_kind = Some("memory.edit".to_string());
+        request.memory_id = Some("memory_1".to_string());
+        request.state_dir = None;
+
+        let error = RuntimeMemoryControlCore
+            .plan(&request)
+            .expect_err("missing state_dir should fail");
+
+        assert_eq!(error.code(), "runtime_memory_control_state_dir_required");
+    }
+
+    #[test]
+    fn rust_requires_replayed_record_for_memory_edit_control() {
+        let state_dir = temp_state_dir("edit-missing-record");
+        let mut request = memory_control_request(&state_dir);
+        request.operation = Some("edit".to_string());
+        request.operation_kind = Some("memory.edit".to_string());
+        request.memory_id = Some("memory_missing".to_string());
+
+        let error = RuntimeMemoryControlCore
+            .plan(&request)
+            .expect_err("missing replayed record should fail");
+
+        assert_eq!(error.code(), "runtime_memory_control_record_required");
+    }
+
+    #[test]
+    fn rust_rejects_memory_control_current_record_transport() {
+        let state_dir = temp_state_dir("current-record-transport");
+        let mut request = memory_control_request(&state_dir);
+        request.operation = Some("edit".to_string());
+        request.operation_kind = Some("memory.edit".to_string());
+        request.memory_id = Some("memory_1".to_string());
+        request.current_record = json!({ "id": "memory_1" });
+
+        let error = RuntimeMemoryControlCore
+            .plan(&request)
+            .expect_err("current record transport should fail");
+
+        assert_eq!(
+            error.code(),
+            "runtime_memory_control_current_record_transport_retired"
+        );
+    }
+
+    #[test]
+    fn rust_rejects_memory_control_current_policy_transport() {
+        let state_dir = temp_state_dir("current-policy-transport");
+        let mut request = memory_control_request(&state_dir);
+        request.operation = Some("policy".to_string());
+        request.operation_kind = Some("memory.policy".to_string());
+        request.current_policy = json!({ "id": "memory_policy_thread_thread_1" });
+
+        let error = RuntimeMemoryControlCore
+            .plan(&request)
+            .expect_err("current policy transport should fail");
+
+        assert_eq!(
+            error.code(),
+            "runtime_memory_control_current_policy_transport_retired"
         );
     }
 }

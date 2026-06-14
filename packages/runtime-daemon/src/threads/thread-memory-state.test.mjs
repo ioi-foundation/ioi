@@ -134,7 +134,7 @@ function createHarness(options = {}) {
                 request.memory_id ??
                 (isEvent
                   ? `event_${request.operation}`
-                  : isPolicy ? request.current_policy?.id ?? "memory_policy_thread_a" : "memory_new");
+                  : isPolicy ? "memory_policy_thread_a" : "memory_new");
               const payload = isEvent
                 ? {
                     event_id: stateId,
@@ -179,7 +179,7 @@ function createHarness(options = {}) {
                     thread_id: request.thread_id,
                     agent_id: request.agent_id,
                     workspace: request.workspace_root,
-                    fact: request.request?.text ?? request.current_record?.fact ?? "",
+                    fact: request.request?.text ?? "",
                     status: request.operation_kind === "memory.delete" ? "deleted" : "active",
                     deleted_at: request.operation_kind === "memory.delete" ? request.now : null,
                     receipt_refs: [`receipt_${stateId}`],
@@ -548,10 +548,9 @@ test("thread memory mutation and policy controls use Rust planning and Agentgres
   assert.equal(agentDeleted.operation_kind, "memory.delete");
   assert.equal(agentDeleted.record.status, "deleted");
 
+  const planCalls = calls.filter((call) => call.type === "planRuntimeMemoryControl");
   assert.deepEqual(
-    calls
-      .filter((call) => call.type === "planRuntimeMemoryControl")
-      .map((call) => call.input.operation_kind),
+    planCalls.map((call) => call.input.operation_kind),
     [
       "memory.write",
       "memory.edit",
@@ -563,6 +562,9 @@ test("thread memory mutation and policy controls use Rust planning and Agentgres
       "memory.delete",
     ],
   );
+  assert.ok(planCalls.every((call) => call.input.state_dir === "/runtime-state"));
+  assert.ok(planCalls.every((call) => Object.hasOwn(call.input, "current_record") === false));
+  assert.ok(planCalls.every((call) => Object.hasOwn(call.input, "current_policy") === false));
   assert.deepEqual(
     calls
       .filter((call) => call.type === "commitRuntimeMemoryState")
@@ -611,8 +613,8 @@ test("thread memory mutation controls fail closed before JS store mutation witho
       assertThreadMemoryRustCoreRequired(error, {
         operation: "edit",
         controlKind: "memory.edit",
-        threadId: "thread_a",
-        agentId: "agent_a",
+        threadId: null,
+        agentId: null,
         memoryId: "memory_1",
       });
       return true;

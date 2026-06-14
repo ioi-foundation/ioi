@@ -132,7 +132,6 @@ export function createThreadMemoryState({
       targetType: "thread",
       targetId: threadId,
       request: body,
-      currentPolicy: memoryPolicyForThread(store, threadId),
     });
   }
 
@@ -151,7 +150,6 @@ export function createThreadMemoryState({
       memoryId,
       workspaceRoot: agent?.cwd ?? null,
       request: body,
-      currentRecord: memoryRecordForId(store, memoryId),
     });
   }
 
@@ -165,7 +163,6 @@ export function createThreadMemoryState({
       memoryId,
       workspaceRoot: agent?.cwd ?? null,
       request: body,
-      currentRecord: memoryRecordForId(store, memoryId),
     });
   }
 
@@ -211,7 +208,6 @@ export function createThreadMemoryState({
       targetType: optionalString(body.target_type) ?? "agent",
       targetId: optionalString(body.target_id) ?? agentId,
       request: body,
-      currentPolicy: memoryPolicyForAgent(store, agentId, { thread_id: threadId }),
     });
   }
 
@@ -232,7 +228,6 @@ export function createThreadMemoryState({
       memoryId,
       workspaceRoot: agent?.cwd ?? null,
       request: body,
-      currentRecord: memoryRecordForId(store, memoryId),
     });
   }
 
@@ -247,39 +242,34 @@ export function createThreadMemoryState({
       memoryId,
       workspaceRoot: agent?.cwd ?? null,
       request: body,
-      currentRecord: memoryRecordForId(store, memoryId),
     });
   }
 
   function updateMemoryRecord(store, memoryId, body = {}) {
-    const currentRecord = memoryRecordForId(store, memoryId);
-    const threadId = optionalString(body.thread_id) ?? optionalString(currentRecord?.thread_id);
-    const agentId = optionalString(body.agent_id) ?? optionalString(currentRecord?.agent_id);
+    const threadId = optionalString(body.thread_id);
+    const agentId = optionalString(body.agent_id);
     return commitMemoryControl(store, {
       operation: "edit",
       operationKind: "memory.edit",
       threadId,
       agentId,
       memoryId,
-      workspaceRoot: optionalString(currentRecord?.workspace) ?? store.defaultCwd ?? null,
+      workspaceRoot: optionalString(body.workspace_root) ?? null,
       request: body,
-      currentRecord,
     });
   }
 
   function deleteMemoryRecord(store, memoryId, body = {}) {
-    const currentRecord = memoryRecordForId(store, memoryId);
-    const threadId = optionalString(body.thread_id) ?? optionalString(currentRecord?.thread_id);
-    const agentId = optionalString(body.agent_id) ?? optionalString(currentRecord?.agent_id);
+    const threadId = optionalString(body.thread_id);
+    const agentId = optionalString(body.agent_id);
     return commitMemoryControl(store, {
       operation: "delete",
       operationKind: "memory.delete",
       threadId,
       agentId,
       memoryId,
-      workspaceRoot: optionalString(currentRecord?.workspace) ?? store.defaultCwd ?? null,
+      workspaceRoot: optionalString(body.workspace_root) ?? null,
       request: body,
-      currentRecord,
     });
   }
 
@@ -454,8 +444,6 @@ export function createThreadMemoryState({
     targetType = null,
     targetId = null,
     request = {},
-    currentRecord = null,
-    currentPolicy = null,
   } = {}) {
     const planRequest = {
       operation,
@@ -464,13 +452,12 @@ export function createThreadMemoryState({
       agent_id: agentId ?? null,
       memory_id: memoryId ?? null,
       workspace_root: workspaceRoot ?? null,
+      state_dir: memoryProjectionStateDir(store),
       target_type: targetType ?? null,
       target_id: targetId ?? null,
       source: optionalString(request.source) ?? "agent_studio",
       now: nowIso(),
       request,
-      current_record: currentRecord ?? {},
-      current_policy: currentPolicy ?? {},
       evidence_refs: MEMORY_CONTROL_EVIDENCE_REFS,
     };
     const runner = memoryControlRunner(store, planRequest);
@@ -539,10 +526,6 @@ export function createThreadMemoryState({
       });
     }
     return publicMemoryPolicyForContext(store, {});
-  }
-
-  function memoryRecordForId(store, memoryId) {
-    return optionalString(memoryId) ? store.memory?.records?.get(memoryId) ?? null : null;
   }
 
   function uniqueMemoryStrings(values = []) {

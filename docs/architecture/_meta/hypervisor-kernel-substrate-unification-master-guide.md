@@ -855,10 +855,11 @@ memory list, policy, path, status, and validation now call Rust
 JS supplies only canonical context, filters, and runtime `state_dir`; Rust
 replays admitted `memory-records/*.json` and `memory-policies/*.json`, rejects
 retired projection candidate transport, and fails closed when the Rust projector
-is absent or returns a mismatched projection kind. Memory mutation current-record
-and policy adapters, wallet authority, direct admission/storage APIs,
-command-transport retirement, stable protocol APIs, and cTEE-coupled private
-workspace custody remain non-terminal.
+is absent or returns a mismatched projection kind. Public memory mutation now
+sends runtime `state_dir`; Rust replays admitted current record/policy truth and
+rejects JS `current_record`/`current_policy` transport. Wallet authority, direct
+admission/storage APIs, command-transport retirement, stable protocol APIs, and
+cTEE-coupled private workspace custody remain non-terminal.
 The current conversation-artifact read/control macro cut replaces the
 fail-closed public read facade and the mutation-only refusal facade with Rust
 daemon-core projection and control planning. Public and thread-scoped
@@ -8594,17 +8595,20 @@ fail-closed protocol scaffolding. Resume with a macro authority cut that
 replaces one fail-closed facade family with a positive Rust daemon-core API and
 then deletes or demotes the JS facade in the same reviewable move. Public
 memory write/edit/delete/policy controls have moved to Rust-owned planning plus
-Agentgres memory-state commits, and status/validation/direct control-event
-append now uses Rust memory-control event planning plus Rust runtime-event
+Agentgres memory-state commits. Mutation controls now send runtime `state_dir`;
+Rust replays admitted `memory-records/*.json` for edit/delete current-record
+truth and `memory-policies/*.json` for policy current truth, and rejects
+JS-supplied `current_record`/`current_policy` transport. Status/validation/direct
+control-event append now uses Rust memory-control event planning plus Rust runtime-event
 admission. Public memory list/policy/path/status/validation routes now send
 only canonical context, filters, and runtime `state_dir` to Rust
 `project_runtime_memory_projection`; Rust replays admitted
 `memory-records/*.json` and `memory-policies/*.json`, filters active canonical
 records, synthesizes effective policy/path/status/validation truth, and rejects
 retired JS projection candidate transport before public read truth can return.
-The remaining memory blockers are mutation current-record/policy adapters,
-wallet/policy authority, cTEE private-memory custody, direct memory
-admission/storage APIs, command-transport retirement, and stable protocol APIs.
+The remaining memory blockers are wallet/policy authority, cTEE private-memory
+custody, direct memory admission/storage APIs, command-transport retirement, and
+stable protocol APIs.
 Runtime MCP registry/control state has moved from the fail-closed JS mutation
 facade into Rust-owned `plan_mcp_control_agent_state_update` planning plus
 Agentgres-backed `writeAgent` commits. Import/add/remove/enable/disable,

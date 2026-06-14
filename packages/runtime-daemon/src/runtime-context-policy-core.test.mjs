@@ -2701,6 +2701,7 @@ test("runtime memory control core sends Rust daemon-core request", () => {
     thread_id: "thread_123",
     agent_id: "agent_123",
     workspace_root: "/workspace/project",
+    state_dir: "/runtime-state",
     request: { text: "Remember release window" },
   });
 
@@ -2712,7 +2713,10 @@ test("runtime memory control core sends Rust daemon-core request", () => {
     RUNTIME_MEMORY_CONTROL_REQUEST_SCHEMA_VERSION,
   );
   assert.equal(captured.request.operation_kind, "memory.write");
+  assert.equal(captured.request.state_dir, "/runtime-state");
   assert.equal(captured.request.request.text, "Remember release window");
+  assert.equal(Object.hasOwn(captured.request, "current_record"), false);
+  assert.equal(Object.hasOwn(captured.request, "current_policy"), false);
   assert.equal(result.source, "rust_runtime_memory_control_command");
   assert.equal(result.operation_kind, "memory.write");
   assert.equal(result.memory_state_kind, "record");

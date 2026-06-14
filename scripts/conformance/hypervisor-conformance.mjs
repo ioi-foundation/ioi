@@ -12125,6 +12125,10 @@ function runBridge() {
     /memoryControlRunner/.test(runtimeThreadMemoryState) &&
     /commitMemoryControl/.test(runtimeThreadMemoryState) &&
     /planRuntimeMemoryControl/.test(runtimeThreadMemoryState) &&
+    /state_dir:\s*memoryProjectionStateDir\(store\)/.test(runtimeThreadMemoryState) &&
+    !/currentRecord|currentPolicy|memoryRecordForId|current_record:\s*|current_policy:\s*/.test(
+      runtimeThreadMemoryState,
+    ) &&
     /store\.commitRuntimeMemoryState\(/.test(runtimeThreadMemoryState) &&
     /RUNTIME_MEMORY_STATE_COMMIT_SCHEMA_VERSION/.test(runtimeThreadMemoryState) &&
     /RUST_AGENTGRES_STORAGE_BACKEND/.test(runtimeThreadMemoryState) &&
@@ -12140,16 +12144,53 @@ function runBridge() {
     /runtime memory control core sends Rust daemon-core request/.test(
       runtimeContextPolicyCoreTest,
     ) &&
+    /captured\.request\.state_dir/.test(runtimeContextPolicyCoreTest) &&
+    /Object\.hasOwn\(captured\.request,\s*"current_record"\),\s*false/.test(
+      runtimeContextPolicyCoreTest,
+    ) &&
+    /Object\.hasOwn\(captured\.request,\s*"current_policy"\),\s*false/.test(
+      runtimeContextPolicyCoreTest,
+    ) &&
     /pub struct RuntimeMemoryControlCore;/.test(runtimeMemoryControlCore) &&
+    /pub state_dir: Option<String>/.test(runtimeMemoryControlCore) &&
     /pub fn plan_runtime_memory_control_response/.test(runtimeMemoryControlCore) &&
+    /memory_control_record_from_state_dir/.test(runtimeMemoryControlCore) &&
+    /memory_control_policy_from_state_dir/.test(runtimeMemoryControlCore) &&
+    /runtime_memory_control_current_record_transport_retired/.test(
+      runtimeMemoryControlCore,
+    ) &&
+    /runtime_memory_control_current_policy_transport_retired/.test(
+      runtimeMemoryControlCore,
+    ) &&
+    /runtime_memory_control_state_dir_required/.test(runtimeMemoryControlCore) &&
+    /runtime_memory_control_record_required/.test(runtimeMemoryControlCore) &&
     /rust_plans_runtime_memory_write_control/.test(runtimeMemoryControlCore) &&
     /rust_plans_runtime_memory_policy_control/.test(runtimeMemoryControlCore) &&
+    /rust_replays_current_record_for_memory_edit_control/.test(
+      runtimeMemoryControlCore,
+    ) &&
+    /rust_requires_state_dir_for_memory_edit_control/.test(runtimeMemoryControlCore) &&
+    /rust_requires_replayed_record_for_memory_edit_control/.test(
+      runtimeMemoryControlCore,
+    ) &&
+    /rust_rejects_memory_control_current_record_transport/.test(
+      runtimeMemoryControlCore,
+    ) &&
+    /rust_rejects_memory_control_current_policy_transport/.test(
+      runtimeMemoryControlCore,
+    ) &&
     /rust_rejects_unowned_runtime_memory_control_kind/.test(runtimeMemoryControlCore) &&
     /PlanRuntimeMemoryControl/.test(commandProtocolCore) &&
     /"plan_runtime_memory_control"/.test(commandProtocolCore) &&
     /plan_runtime_memory_control_response/.test(coreCommandDispatch) &&
     /pub mod runtime_memory_control;/.test(kernelModuleForBridgeChecks) &&
     /thread memory mutation and policy controls use Rust planning and Agentgres commits/.test(
+      runtimeThreadMemoryStateTest,
+    ) &&
+    /Object\.hasOwn\(call\.input,\s*"current_record"\) === false/.test(
+      runtimeThreadMemoryStateTest,
+    ) &&
+    /Object\.hasOwn\(call\.input,\s*"current_policy"\) === false/.test(
       runtimeThreadMemoryStateTest,
     ) &&
     /thread memory mutation controls fail closed before JS store mutation without Rust planner/.test(
