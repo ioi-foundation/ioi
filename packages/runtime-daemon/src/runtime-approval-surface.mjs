@@ -47,7 +47,7 @@ export function createRuntimeApprovalSurface(deps = {}) {
 
   function requestThreadApproval(store, threadId, request = {}) {
     const approvalId = requiredApprovalId(request.approval_id, threadId, "Approval requests");
-    const target = approvalTarget(store, threadId, request);
+    const target = approvalControlTargetFacts(request);
     const record = requireApprovalStateCore(
       "planApprovalRequestStateUpdate",
       "approval_request",
@@ -58,8 +58,7 @@ export function createRuntimeApprovalSurface(deps = {}) {
       target_kind: target.target_kind,
       thread_id: threadId,
       run_id: target.run_id,
-      run: target.run,
-      agent: target.agent,
+      state_dir: store?.stateDir ?? null,
       event_id: approvalEventId(request, approvalId, "request"),
       seq: approvalSeq(request),
       created_at: approvalCreatedAt(request),
@@ -79,7 +78,7 @@ export function createRuntimeApprovalSurface(deps = {}) {
         throw approvalRequiredError(runtimeError, threadId);
       })();
     const decision = approvalDecisionForRequest(request.decision);
-    const target = approvalTarget(store, threadId, request);
+    const target = approvalControlTargetFacts(request);
     const eventId = approvalEventId(request, normalizedApprovalId, decision);
     const seq = approvalSeq(request);
     const createdAt = approvalCreatedAt(request);
@@ -111,8 +110,7 @@ export function createRuntimeApprovalSurface(deps = {}) {
       target_kind: target.target_kind,
       thread_id: threadId,
       run_id: target.run_id,
-      run: target.run,
-      agent: target.agent,
+      state_dir: store?.stateDir ?? null,
       event_id: eventId,
       seq,
       created_at: createdAt,
@@ -139,7 +137,7 @@ export function createRuntimeApprovalSurface(deps = {}) {
       (() => {
         throw approvalRevokeRequiredError(runtimeError, threadId);
       })();
-    const target = approvalTarget(store, threadId, request);
+    const target = approvalControlTargetFacts(request);
     const eventId = approvalEventId(request, normalizedApprovalId, "revoke");
     const seq = approvalSeq(request);
     const createdAt = approvalCreatedAt(request);
@@ -171,8 +169,7 @@ export function createRuntimeApprovalSurface(deps = {}) {
       target_kind: target.target_kind,
       thread_id: threadId,
       run_id: target.run_id,
-      run: target.run,
-      agent: target.agent,
+      state_dir: store?.stateDir ?? null,
       event_id: eventId,
       seq,
       created_at: createdAt,
@@ -223,41 +220,17 @@ export function createRuntimeApprovalSurface(deps = {}) {
     });
   }
 
-  function approvalTarget(store, threadId, request = {}) {
+  function approvalControlTargetFacts(request = {}) {
     const targetKind = optionalString(request.target_kind) === "agent" ? "agent" : "run";
     if (targetKind === "agent") {
-      const agent = objectRecord(request.agent) ?? store.agentForThread?.(threadId) ?? null;
-      if (!agent) {
-        throw runtimeError({
-          status: 404,
-          code: "approval_agent_not_found",
-          message: "Approval control requires an agent for the requested thread.",
-          details: { thread_id: threadId },
-        });
-      }
       return {
         target_kind: "agent",
         run_id: null,
-        run: null,
-        agent,
       };
-    }
-    const runId = optionalString(request.run_id ?? request.run?.id);
-    const run = objectRecord(request.run) ??
-      (runId ? runForId(store, runId) : latestRunForThread(store, threadId));
-    if (!run) {
-      throw runtimeError({
-        status: 404,
-        code: "approval_run_not_found",
-        message: "Approval control requires a canonical run for Rust authority planning.",
-        details: { thread_id: threadId, run_id: runId ?? null },
-      });
     }
     return {
       target_kind: "run",
-      run_id: optionalString(run.id) ?? runId ?? null,
-      run,
-      agent: null,
+      run_id: optionalString(request.run_id) ?? null,
     };
   }
 
@@ -300,22 +273,6 @@ export function createRuntimeApprovalSurface(deps = {}) {
       });
     }
     return store.writeAgent(agent, operationKind);
-  }
-
-  function runForId(store, runId) {
-    if (!runId) return null;
-    try {
-      return store.getRun?.(runId) ?? store.runs?.get?.(runId) ?? null;
-    } catch {
-      return store.runs?.get?.(runId) ?? null;
-    }
-  }
-
-  function latestRunForThread(store, threadId) {
-    const agent = store.agentForThread?.(threadId) ?? null;
-    if (!agent?.id) return null;
-    const runs = store.listRuns?.(agent.id) ?? [];
-    return runs.at(-1) ?? null;
   }
 
   function requiredApprovalId(value, threadId, label) {

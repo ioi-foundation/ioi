@@ -206,6 +206,11 @@ pub enum ApprovalRequestStateUpdateError {
         actual: String,
     },
     MissingField(&'static str),
+    RetiredCandidateTransport(&'static str),
+    StateDirRequired,
+    ReplayReadFailed(String),
+    ReplayRecordInvalid(String),
+    TargetNotFound(&'static str),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -215,6 +220,11 @@ pub enum ApprovalDecisionStateUpdateError {
         actual: String,
     },
     MissingField(&'static str),
+    RetiredCandidateTransport(&'static str),
+    StateDirRequired,
+    ReplayReadFailed(String),
+    ReplayRecordInvalid(String),
+    TargetNotFound(&'static str),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -224,6 +234,11 @@ pub enum ApprovalRevokeStateUpdateError {
         actual: String,
     },
     MissingField(&'static str),
+    RetiredCandidateTransport(&'static str),
+    StateDirRequired,
+    ReplayReadFailed(String),
+    ReplayRecordInvalid(String),
+    TargetNotFound(&'static str),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -618,7 +633,10 @@ pub struct ApprovalRequestStateUpdateRequest {
     #[serde(default)]
     pub run_id: Option<String>,
     #[serde(default)]
+    pub state_dir: Option<String>,
+    #[serde(default)]
     pub agent: Value,
+    #[serde(default)]
     pub run: Value,
     pub event_id: String,
     pub seq: u64,
@@ -661,7 +679,10 @@ pub struct ApprovalDecisionStateUpdateRequest {
     #[serde(default)]
     pub run_id: Option<String>,
     #[serde(default)]
+    pub state_dir: Option<String>,
+    #[serde(default)]
     pub agent: Value,
+    #[serde(default)]
     pub run: Value,
     pub event_id: String,
     pub seq: u64,
@@ -718,7 +739,10 @@ pub struct ApprovalRevokeStateUpdateRequest {
     #[serde(default)]
     pub run_id: Option<String>,
     #[serde(default)]
+    pub state_dir: Option<String>,
+    #[serde(default)]
     pub agent: Value,
+    #[serde(default)]
     pub run: Value,
     pub event_id: String,
     pub seq: u64,
@@ -858,10 +882,17 @@ impl ApprovalRequestStateUpdateCore {
         request: &ApprovalRequestStateUpdateRequest,
     ) -> Result<ApprovalRequestStateUpdateRecord, ApprovalRequestStateUpdateError> {
         request.validate()?;
-        let target_kind =
-            approval_state_update_target_kind(request.target_kind.as_deref(), &request.run);
+        let target_kind = approval_state_update_target_kind(request.target_kind.as_deref());
         let thread_id = optional_trimmed(request.thread_id.as_deref());
-        let run_id = optional_trimmed(request.run_id.as_deref());
+        let requested_run_id = optional_trimmed(request.run_id.as_deref());
+        let target = approval_state_update_target_from_state_dir(
+            request.state_dir.as_deref(),
+            &target_kind,
+            thread_id.as_deref(),
+            requested_run_id.as_deref(),
+        )
+        .map_err(approval_request_state_update_replay_error)?;
+        let run_id = target.run_id.clone();
         let source = optional_trimmed(Some(request.source.as_str()))
             .unwrap_or_else(|| "sdk_client".to_string());
         let reason = optional_trimmed(Some(request.reason.as_str()))
@@ -880,7 +911,7 @@ impl ApprovalRequestStateUpdateCore {
             "created_at": request.created_at,
         });
         let (run, agent) = if target_kind == "run" {
-            let mut run = object_value(&request.run)
+            let mut run = object_value(&target.run)
                 .ok_or(ApprovalRequestStateUpdateError::MissingField("run"))?;
             let prior_status = run
                 .get("status")
@@ -918,7 +949,10 @@ impl ApprovalRequestStateUpdateCore {
             );
             (Value::Object(run), None)
         } else {
-            let mut agent = object_value(&request.agent)
+            let mut agent = target
+                .agent
+                .as_ref()
+                .and_then(object_value)
                 .ok_or(ApprovalRequestStateUpdateError::MissingField("agent"))?;
             agent.insert(
                 "updatedAt".to_string(),
@@ -950,10 +984,17 @@ impl ApprovalDecisionStateUpdateCore {
         request: &ApprovalDecisionStateUpdateRequest,
     ) -> Result<ApprovalDecisionStateUpdateRecord, ApprovalDecisionStateUpdateError> {
         request.validate()?;
-        let target_kind =
-            approval_state_update_target_kind(request.target_kind.as_deref(), &request.run);
+        let target_kind = approval_state_update_target_kind(request.target_kind.as_deref());
         let thread_id = optional_trimmed(request.thread_id.as_deref());
-        let run_id = optional_trimmed(request.run_id.as_deref());
+        let requested_run_id = optional_trimmed(request.run_id.as_deref());
+        let target = approval_state_update_target_from_state_dir(
+            request.state_dir.as_deref(),
+            &target_kind,
+            thread_id.as_deref(),
+            requested_run_id.as_deref(),
+        )
+        .map_err(approval_decision_state_update_replay_error)?;
+        let run_id = target.run_id.clone();
         let source = optional_trimmed(Some(request.source.as_str()))
             .unwrap_or_else(|| "sdk_client".to_string());
         let approval_id = optional_trimmed(Some(request.approval_id.as_str())).unwrap();
@@ -1002,7 +1043,7 @@ impl ApprovalDecisionStateUpdateCore {
             "created_at": request.created_at,
         });
         let (run, agent) = if target_kind == "run" {
-            let mut run = object_value(&request.run)
+            let mut run = object_value(&target.run)
                 .ok_or(ApprovalDecisionStateUpdateError::MissingField("run"))?;
             run.insert(
                 "updatedAt".to_string(),
@@ -1034,7 +1075,10 @@ impl ApprovalDecisionStateUpdateCore {
             );
             (Value::Object(run), None)
         } else {
-            let mut agent = object_value(&request.agent)
+            let mut agent = target
+                .agent
+                .as_ref()
+                .and_then(object_value)
                 .ok_or(ApprovalDecisionStateUpdateError::MissingField("agent"))?;
             agent.insert(
                 "updatedAt".to_string(),
@@ -1066,10 +1110,17 @@ impl ApprovalRevokeStateUpdateCore {
         request: &ApprovalRevokeStateUpdateRequest,
     ) -> Result<ApprovalRevokeStateUpdateRecord, ApprovalRevokeStateUpdateError> {
         request.validate()?;
-        let target_kind =
-            approval_state_update_target_kind(request.target_kind.as_deref(), &request.run);
+        let target_kind = approval_state_update_target_kind(request.target_kind.as_deref());
         let thread_id = optional_trimmed(request.thread_id.as_deref());
-        let run_id = optional_trimmed(request.run_id.as_deref());
+        let requested_run_id = optional_trimmed(request.run_id.as_deref());
+        let target = approval_state_update_target_from_state_dir(
+            request.state_dir.as_deref(),
+            &target_kind,
+            thread_id.as_deref(),
+            requested_run_id.as_deref(),
+        )
+        .map_err(approval_revoke_state_update_replay_error)?;
+        let run_id = target.run_id.clone();
         let source = optional_trimmed(Some(request.source.as_str()))
             .unwrap_or_else(|| "sdk_client".to_string());
         let approval_id = optional_trimmed(Some(request.approval_id.as_str())).unwrap();
@@ -1115,7 +1166,7 @@ impl ApprovalRevokeStateUpdateCore {
             "created_at": request.created_at,
         });
         let (run, agent) = if target_kind == "run" {
-            let mut run = object_value(&request.run)
+            let mut run = object_value(&target.run)
                 .ok_or(ApprovalRevokeStateUpdateError::MissingField("run"))?;
             run.insert(
                 "updatedAt".to_string(),
@@ -1153,7 +1204,10 @@ impl ApprovalRevokeStateUpdateCore {
             );
             (Value::Object(run), None)
         } else {
-            let mut agent = object_value(&request.agent)
+            let mut agent = target
+                .agent
+                .as_ref()
+                .and_then(object_value)
                 .ok_or(ApprovalRevokeStateUpdateError::MissingField("agent"))?;
             agent.insert(
                 "updatedAt".to_string(),
@@ -2269,12 +2323,18 @@ impl ApprovalRequestStateUpdateRequest {
                 actual: self.schema_version.clone(),
             });
         }
-        let target_kind = approval_state_update_target_kind(self.target_kind.as_deref(), &self.run);
-        if target_kind == "run" && !self.run.is_object() {
-            return Err(ApprovalRequestStateUpdateError::MissingField("run"));
+        if !self.run.is_null() {
+            return Err(ApprovalRequestStateUpdateError::RetiredCandidateTransport(
+                "run",
+            ));
         }
-        if target_kind == "agent" && !self.agent.is_object() {
-            return Err(ApprovalRequestStateUpdateError::MissingField("agent"));
+        if !self.agent.is_null() {
+            return Err(ApprovalRequestStateUpdateError::RetiredCandidateTransport(
+                "agent",
+            ));
+        }
+        if optional_trimmed(self.state_dir.as_deref()).is_none() {
+            return Err(ApprovalRequestStateUpdateError::StateDirRequired);
         }
         if optional_trimmed(Some(self.event_id.as_str())).is_none() {
             return Err(ApprovalRequestStateUpdateError::MissingField("event_id"));
@@ -2300,12 +2360,18 @@ impl ApprovalDecisionStateUpdateRequest {
                 actual: self.schema_version.clone(),
             });
         }
-        let target_kind = approval_state_update_target_kind(self.target_kind.as_deref(), &self.run);
-        if target_kind == "run" && !self.run.is_object() {
-            return Err(ApprovalDecisionStateUpdateError::MissingField("run"));
+        if !self.run.is_null() {
+            return Err(ApprovalDecisionStateUpdateError::RetiredCandidateTransport(
+                "run",
+            ));
         }
-        if target_kind == "agent" && !self.agent.is_object() {
-            return Err(ApprovalDecisionStateUpdateError::MissingField("agent"));
+        if !self.agent.is_null() {
+            return Err(ApprovalDecisionStateUpdateError::RetiredCandidateTransport(
+                "agent",
+            ));
+        }
+        if optional_trimmed(self.state_dir.as_deref()).is_none() {
+            return Err(ApprovalDecisionStateUpdateError::StateDirRequired);
         }
         if optional_trimmed(Some(self.event_id.as_str())).is_none() {
             return Err(ApprovalDecisionStateUpdateError::MissingField("event_id"));
@@ -2354,12 +2420,18 @@ impl ApprovalRevokeStateUpdateRequest {
                 actual: self.schema_version.clone(),
             });
         }
-        let target_kind = approval_state_update_target_kind(self.target_kind.as_deref(), &self.run);
-        if target_kind == "run" && !self.run.is_object() {
-            return Err(ApprovalRevokeStateUpdateError::MissingField("run"));
+        if !self.run.is_null() {
+            return Err(ApprovalRevokeStateUpdateError::RetiredCandidateTransport(
+                "run",
+            ));
         }
-        if target_kind == "agent" && !self.agent.is_object() {
-            return Err(ApprovalRevokeStateUpdateError::MissingField("agent"));
+        if !self.agent.is_null() {
+            return Err(ApprovalRevokeStateUpdateError::RetiredCandidateTransport(
+                "agent",
+            ));
+        }
+        if optional_trimmed(self.state_dir.as_deref()).is_none() {
+            return Err(ApprovalRevokeStateUpdateError::StateDirRequired);
         }
         if optional_trimmed(Some(self.event_id.as_str())).is_none() {
             return Err(ApprovalRevokeStateUpdateError::MissingField("event_id"));
@@ -2648,12 +2720,11 @@ fn approval_authority_state_binding_present(
         && !approval_authority_receipt_refs(authority_receipt_refs, authority_record).is_empty()
 }
 
-fn approval_state_update_target_kind(value: Option<&str>, run: &Value) -> String {
+fn approval_state_update_target_kind(value: Option<&str>) -> String {
     match optional_trimmed(value).as_deref() {
         Some("agent") => "agent".to_string(),
         Some("run") => "run".to_string(),
-        _ if run.is_object() => "run".to_string(),
-        _ => "agent".to_string(),
+        _ => "run".to_string(),
     }
 }
 
@@ -2966,6 +3037,152 @@ enum ApprovalProjectionReplayError {
     RecordInvalid(String),
 }
 
+enum ApprovalStateUpdateReplayError {
+    StateDirRequired,
+    ReadFailed(String),
+    RecordInvalid(String),
+    TargetNotFound(&'static str),
+}
+
+struct ApprovalStateUpdateTarget {
+    run: Value,
+    agent: Option<Value>,
+    run_id: Option<String>,
+}
+
+fn approval_request_state_update_replay_error(
+    error: ApprovalStateUpdateReplayError,
+) -> ApprovalRequestStateUpdateError {
+    match error {
+        ApprovalStateUpdateReplayError::StateDirRequired => {
+            ApprovalRequestStateUpdateError::StateDirRequired
+        }
+        ApprovalStateUpdateReplayError::ReadFailed(message) => {
+            ApprovalRequestStateUpdateError::ReplayReadFailed(message)
+        }
+        ApprovalStateUpdateReplayError::RecordInvalid(message) => {
+            ApprovalRequestStateUpdateError::ReplayRecordInvalid(message)
+        }
+        ApprovalStateUpdateReplayError::TargetNotFound(kind) => {
+            ApprovalRequestStateUpdateError::TargetNotFound(kind)
+        }
+    }
+}
+
+fn approval_decision_state_update_replay_error(
+    error: ApprovalStateUpdateReplayError,
+) -> ApprovalDecisionStateUpdateError {
+    match error {
+        ApprovalStateUpdateReplayError::StateDirRequired => {
+            ApprovalDecisionStateUpdateError::StateDirRequired
+        }
+        ApprovalStateUpdateReplayError::ReadFailed(message) => {
+            ApprovalDecisionStateUpdateError::ReplayReadFailed(message)
+        }
+        ApprovalStateUpdateReplayError::RecordInvalid(message) => {
+            ApprovalDecisionStateUpdateError::ReplayRecordInvalid(message)
+        }
+        ApprovalStateUpdateReplayError::TargetNotFound(kind) => {
+            ApprovalDecisionStateUpdateError::TargetNotFound(kind)
+        }
+    }
+}
+
+fn approval_revoke_state_update_replay_error(
+    error: ApprovalStateUpdateReplayError,
+) -> ApprovalRevokeStateUpdateError {
+    match error {
+        ApprovalStateUpdateReplayError::StateDirRequired => {
+            ApprovalRevokeStateUpdateError::StateDirRequired
+        }
+        ApprovalStateUpdateReplayError::ReadFailed(message) => {
+            ApprovalRevokeStateUpdateError::ReplayReadFailed(message)
+        }
+        ApprovalStateUpdateReplayError::RecordInvalid(message) => {
+            ApprovalRevokeStateUpdateError::ReplayRecordInvalid(message)
+        }
+        ApprovalStateUpdateReplayError::TargetNotFound(kind) => {
+            ApprovalRevokeStateUpdateError::TargetNotFound(kind)
+        }
+    }
+}
+
+fn approval_state_update_target_from_state_dir(
+    state_dir: Option<&str>,
+    target_kind: &str,
+    thread_id: Option<&str>,
+    run_id: Option<&str>,
+) -> Result<ApprovalStateUpdateTarget, ApprovalStateUpdateReplayError> {
+    let sources = approval_state_update_sources_from_state_dir(state_dir)?;
+    if target_kind == "agent" {
+        let thread_id = thread_id.ok_or(ApprovalStateUpdateReplayError::TargetNotFound("agent"))?;
+        let agent = sources
+            .agents
+            .into_iter()
+            .find(|agent| approval_state_update_agent_matches_thread(agent, thread_id))
+            .ok_or(ApprovalStateUpdateReplayError::TargetNotFound("agent"))?;
+        return Ok(ApprovalStateUpdateTarget {
+            run: Value::Null,
+            agent: Some(agent),
+            run_id: None,
+        });
+    }
+    let run = if let Some(run_id) = run_id {
+        sources.runs.into_iter().find(|run| {
+            approval_state_update_run_id(run).as_deref() == Some(run_id)
+                && thread_id
+                    .map(|thread_id| approval_state_update_run_matches_thread(run, thread_id))
+                    .unwrap_or(true)
+        })
+    } else {
+        let thread_id = thread_id.ok_or(ApprovalStateUpdateReplayError::TargetNotFound("run"))?;
+        sources
+            .runs
+            .into_iter()
+            .filter(|run| approval_state_update_run_matches_thread(run, thread_id))
+            .enumerate()
+            .max_by(|(left_index, left), (right_index, right)| {
+                approval_state_update_run_sort_key(left)
+                    .cmp(&approval_state_update_run_sort_key(right))
+                    .then_with(|| left_index.cmp(right_index))
+            })
+            .map(|(_, run)| run)
+    }
+    .ok_or(ApprovalStateUpdateReplayError::TargetNotFound("run"))?;
+    let run_id = approval_state_update_run_id(&run);
+    Ok(ApprovalStateUpdateTarget {
+        run,
+        agent: None,
+        run_id,
+    })
+}
+
+fn approval_state_update_sources_from_state_dir(
+    state_dir: Option<&str>,
+) -> Result<ApprovalProjectionSources, ApprovalStateUpdateReplayError> {
+    let state_root = optional_trimmed(state_dir)
+        .map(PathBuf::from)
+        .ok_or(ApprovalStateUpdateReplayError::StateDirRequired)?;
+    Ok(ApprovalProjectionSources {
+        agents: approval_state_update_records(state_root.join("agents"), "agents")?,
+        runs: approval_state_update_records(state_root.join("runs"), "runs")?,
+    })
+}
+
+fn approval_state_update_records(
+    dir: PathBuf,
+    label: &'static str,
+) -> Result<Vec<Value>, ApprovalStateUpdateReplayError> {
+    approval_state_dir_records(dir, label, "approval state update").map_err(|error| match error {
+        ApprovalProjectionReplayError::ReadFailed(message) => {
+            ApprovalStateUpdateReplayError::ReadFailed(message)
+        }
+        ApprovalProjectionReplayError::RecordInvalid(message) => {
+            ApprovalStateUpdateReplayError::RecordInvalid(message)
+        }
+    })
+}
+
 fn approval_state_dir_records(
     dir: PathBuf,
     label: &'static str,
@@ -3071,6 +3288,54 @@ fn append_approval_projection_source_from_replay(
 
 fn approval_projection_source_run_id(source: &Value) -> Option<String> {
     value_string(source, "id").or_else(|| value_string(source, "run_id"))
+}
+
+fn approval_state_update_run_id(source: &Value) -> Option<String> {
+    value_string(source, "id").or_else(|| value_string(source, "run_id"))
+}
+
+fn approval_state_update_run_matches_thread(run: &Value, thread_id: &str) -> bool {
+    value_string(run, "thread_id")
+        .or_else(|| value_string(run, "threadId"))
+        .map(|candidate| candidate == thread_id)
+        .unwrap_or_else(|| {
+            value_string(run, "agentId")
+                .or_else(|| value_string(run, "agent_id"))
+                .map(|agent_id| {
+                    approval_state_update_thread_id_for_agent_id(&agent_id) == thread_id
+                })
+                .unwrap_or(false)
+        })
+}
+
+fn approval_state_update_agent_matches_thread(agent: &Value, thread_id: &str) -> bool {
+    value_string(agent, "thread_id")
+        .or_else(|| value_string(agent, "threadId"))
+        .map(|candidate| candidate == thread_id)
+        .unwrap_or_else(|| {
+            value_string(agent, "id")
+                .or_else(|| value_string(agent, "agent_id"))
+                .map(|agent_id| {
+                    approval_state_update_thread_id_for_agent_id(&agent_id) == thread_id
+                })
+                .unwrap_or(false)
+        })
+}
+
+fn approval_state_update_thread_id_for_agent_id(agent_id: &str) -> String {
+    agent_id
+        .strip_prefix("agent_")
+        .map(|suffix| format!("thread_{suffix}"))
+        .unwrap_or_else(|| agent_id.to_string())
+}
+
+fn approval_state_update_run_sort_key(run: &Value) -> String {
+    value_string(run, "createdAt")
+        .or_else(|| value_string(run, "created_at"))
+        .or_else(|| value_string(run, "updatedAt"))
+        .or_else(|| value_string(run, "updated_at"))
+        .or_else(|| approval_state_update_run_id(run))
+        .unwrap_or_default()
 }
 
 fn approval_replay_projection_value(
@@ -3480,19 +3745,24 @@ mod tests {
     }
 
     fn approval_request_state_update_request() -> ApprovalRequestStateUpdateRequest {
+        let state_dir = temp_state_dir("request-state-update");
+        let run = json!({
+            "id": "run_alpha",
+            "agentId": "agent_alpha",
+            "createdAt": "2026-06-06T04:00:00.000Z",
+            "status": "running",
+            "turnStatus": "running",
+            "trace": {},
+        });
+        write_state_record(&state_dir, "runs", "run_alpha", run);
         ApprovalRequestStateUpdateRequest {
             schema_version: APPROVAL_REQUEST_STATE_UPDATE_REQUEST_SCHEMA_VERSION.to_string(),
             target_kind: None,
             thread_id: Some("thread_alpha".to_string()),
             run_id: Some("run_alpha".to_string()),
+            state_dir: Some(state_dir.to_string_lossy().to_string()),
             agent: Value::Null,
-            run: json!({
-                "id": "run_alpha",
-                "agentId": "agent_alpha",
-                "status": "running",
-                "turnStatus": "running",
-                "trace": {},
-            }),
+            run: Value::Null,
             event_id: "event_approval".to_string(),
             seq: 3,
             created_at: "2026-06-06T04:30:00.000Z".to_string(),
@@ -3505,19 +3775,24 @@ mod tests {
     }
 
     fn approval_decision_state_update_request() -> ApprovalDecisionStateUpdateRequest {
+        let state_dir = temp_state_dir("decision-state-update");
+        let run = json!({
+            "id": "run_alpha",
+            "agentId": "agent_alpha",
+            "createdAt": "2026-06-06T04:00:00.000Z",
+            "status": "blocked",
+            "turnStatus": "waiting_for_approval",
+            "trace": {},
+        });
+        write_state_record(&state_dir, "runs", "run_alpha", run);
         ApprovalDecisionStateUpdateRequest {
             schema_version: APPROVAL_DECISION_STATE_UPDATE_REQUEST_SCHEMA_VERSION.to_string(),
             target_kind: None,
             thread_id: Some("thread_alpha".to_string()),
             run_id: Some("run_alpha".to_string()),
+            state_dir: Some(state_dir.to_string_lossy().to_string()),
             agent: Value::Null,
-            run: json!({
-                "id": "run_alpha",
-                "agentId": "agent_alpha",
-                "status": "blocked",
-                "turnStatus": "waiting_for_approval",
-                "trace": {},
-            }),
+            run: Value::Null,
             event_id: "event_decision".to_string(),
             seq: 4,
             created_at: "2026-06-06T04:35:00.000Z".to_string(),
@@ -3551,19 +3826,24 @@ mod tests {
     }
 
     fn approval_revoke_state_update_request() -> ApprovalRevokeStateUpdateRequest {
+        let state_dir = temp_state_dir("revoke-state-update");
+        let run = json!({
+            "id": "run_alpha",
+            "agentId": "agent_alpha",
+            "createdAt": "2026-06-06T04:00:00.000Z",
+            "status": "blocked",
+            "turnStatus": "waiting_for_approval",
+            "trace": {},
+        });
+        write_state_record(&state_dir, "runs", "run_alpha", run);
         ApprovalRevokeStateUpdateRequest {
             schema_version: APPROVAL_REVOKE_STATE_UPDATE_REQUEST_SCHEMA_VERSION.to_string(),
             target_kind: None,
             thread_id: Some("thread_alpha".to_string()),
             run_id: Some("run_alpha".to_string()),
+            state_dir: Some(state_dir.to_string_lossy().to_string()),
             agent: Value::Null,
-            run: json!({
-                "id": "run_alpha",
-                "agentId": "agent_alpha",
-                "status": "blocked",
-                "turnStatus": "waiting_for_approval",
-                "trace": {},
-            }),
+            run: Value::Null,
             event_id: "event_revoke".to_string(),
             seq: 5,
             created_at: "2026-06-06T04:40:00.000Z".to_string(),
@@ -3680,8 +3960,10 @@ mod tests {
         let request_record = ApprovalRequestStateUpdateCore
             .plan(&approval_request_state_update_request())
             .expect("approval request state");
-        let mut decision_request = approval_decision_state_update_request();
-        decision_request.run = request_record.run;
+        let decision_request = approval_decision_state_update_request();
+        let decision_state_dir =
+            PathBuf::from(decision_request.state_dir.as_deref().expect("state_dir"));
+        write_state_record(&decision_state_dir, "runs", "run_alpha", request_record.run);
         let decision_record = ApprovalDecisionStateUpdateCore
             .plan(&decision_request)
             .expect("approval decision state");
@@ -3740,7 +4022,9 @@ mod tests {
             .plan(&first_request)
             .expect("first approval request state");
         let mut decision_request = approval_decision_state_update_request();
-        decision_request.run = first_record.run;
+        let decision_state_dir =
+            PathBuf::from(decision_request.state_dir.as_deref().expect("state_dir"));
+        write_state_record(&decision_state_dir, "runs", "run_alpha", first_record.run);
         decision_request.approval_id = "approval_alpha".to_string();
         decision_request.event_id = "event_decision_alpha".to_string();
         decision_request.seq = 4;
@@ -3749,7 +4033,9 @@ mod tests {
             .plan(&decision_request)
             .expect("approval decision state");
         let mut second_request = approval_request_state_update_request();
-        second_request.run = decision_record.run;
+        let second_state_dir =
+            PathBuf::from(second_request.state_dir.as_deref().expect("state_dir"));
+        write_state_record(&second_state_dir, "runs", "run_alpha", decision_record.run);
         second_request.approval_id = "approval_beta".to_string();
         second_request.event_id = "event_approval_beta".to_string();
         second_request.seq = 5;
@@ -4049,13 +4335,17 @@ mod tests {
         let request_record = ApprovalRequestStateUpdateCore
             .plan(&approval_request_state_update_request())
             .expect("approval request state");
-        let mut decision_request = approval_decision_state_update_request();
-        decision_request.run = request_record.run;
+        let decision_request = approval_decision_state_update_request();
+        let decision_state_dir =
+            PathBuf::from(decision_request.state_dir.as_deref().expect("state_dir"));
+        write_state_record(&decision_state_dir, "runs", "run_alpha", request_record.run);
         let decision_record = ApprovalDecisionStateUpdateCore
             .plan(&decision_request)
             .expect("approval decision state");
-        let mut revoke_request = approval_revoke_state_update_request();
-        revoke_request.run = decision_record.run;
+        let revoke_request = approval_revoke_state_update_request();
+        let revoke_state_dir =
+            PathBuf::from(revoke_request.state_dir.as_deref().expect("state_dir"));
+        write_state_record(&revoke_state_dir, "runs", "run_alpha", decision_record.run);
         let revoke_record = ApprovalRevokeStateUpdateCore
             .plan(&revoke_request)
             .expect("approval revoke state");
@@ -4447,12 +4737,18 @@ mod tests {
         let mut request = approval_request_state_update_request();
         request.target_kind = Some("agent".to_string());
         request.run_id = None;
-        request.run = Value::Null;
-        request.agent = json!({
-            "id": "agent_alpha",
-            "cwd": "/workspace",
-            "updatedAt": "2026-06-06T04:00:00.000Z"
-        });
+        let state_dir = PathBuf::from(request.state_dir.as_deref().expect("state_dir"));
+        write_state_record(
+            &state_dir,
+            "agents",
+            "agent_alpha",
+            json!({
+                "id": "agent_alpha",
+                "thread_id": "thread_alpha",
+                "cwd": "/workspace",
+                "updatedAt": "2026-06-06T04:00:00.000Z"
+            }),
+        );
 
         let record = ApprovalRequestStateUpdateCore
             .plan(&request)
@@ -4465,6 +4761,77 @@ mod tests {
             "2026-06-06T04:30:00.000Z"
         );
         assert_eq!(record.operation_kind, "approval.required");
+    }
+
+    #[test]
+    fn rust_authority_plans_approval_request_state_update_from_state_dir_without_run_id() {
+        let mut request = approval_request_state_update_request();
+        request.run_id = None;
+
+        let record = ApprovalRequestStateUpdateCore
+            .plan(&request)
+            .expect("approval request state update from state_dir replay");
+
+        assert_eq!(record.target_kind, "run");
+        assert_eq!(record.run_id.as_deref(), Some("run_alpha"));
+        assert_eq!(record.run["id"], "run_alpha");
+        assert_eq!(record.run["status"], "blocked");
+    }
+
+    #[test]
+    fn rust_approval_request_state_update_rejects_cross_thread_run_id_replay() {
+        let mut request = approval_request_state_update_request();
+        request.run_id = Some("run_foreign".to_string());
+        let state_dir = PathBuf::from(request.state_dir.as_deref().expect("state_dir"));
+        write_state_record(
+            &state_dir,
+            "runs",
+            "run_foreign",
+            json!({
+                "id": "run_foreign",
+                "thread_id": "thread_other",
+                "createdAt": "2026-06-06T04:05:00.000Z",
+                "status": "running",
+                "turnStatus": "running",
+                "trace": {},
+            }),
+        );
+
+        let error = ApprovalRequestStateUpdateCore
+            .plan(&request)
+            .expect_err("cross-thread run replay should fail");
+
+        assert_eq!(
+            error,
+            ApprovalRequestStateUpdateError::TargetNotFound("run")
+        );
+    }
+
+    #[test]
+    fn rust_approval_request_state_update_requires_state_dir() {
+        let mut request = approval_request_state_update_request();
+        request.state_dir = None;
+
+        let error = ApprovalRequestStateUpdateCore
+            .plan(&request)
+            .expect_err("approval request state update without state_dir should fail");
+
+        assert_eq!(error, ApprovalRequestStateUpdateError::StateDirRequired);
+    }
+
+    #[test]
+    fn rust_approval_request_state_update_rejects_js_candidate_transport() {
+        let mut request = approval_request_state_update_request();
+        request.run = json!({ "id": "run_retired", "trace": {} });
+
+        let error = ApprovalRequestStateUpdateCore
+            .plan(&request)
+            .expect_err("approval request JS run candidate should fail");
+
+        assert_eq!(
+            error,
+            ApprovalRequestStateUpdateError::RetiredCandidateTransport("run")
+        );
     }
 
     #[test]
@@ -4565,12 +4932,18 @@ mod tests {
         let mut request = approval_decision_state_update_request();
         request.target_kind = Some("agent".to_string());
         request.run_id = None;
-        request.run = Value::Null;
-        request.agent = json!({
-            "id": "agent_alpha",
-            "cwd": "/workspace",
-            "updatedAt": "2026-06-06T04:00:00.000Z"
-        });
+        let state_dir = PathBuf::from(request.state_dir.as_deref().expect("state_dir"));
+        write_state_record(
+            &state_dir,
+            "agents",
+            "agent_alpha",
+            json!({
+                "id": "agent_alpha",
+                "thread_id": "thread_alpha",
+                "cwd": "/workspace",
+                "updatedAt": "2026-06-06T04:00:00.000Z"
+            }),
+        );
 
         let record = ApprovalDecisionStateUpdateCore
             .plan(&request)
@@ -4583,6 +4956,33 @@ mod tests {
             "2026-06-06T04:35:00.000Z"
         );
         assert_eq!(record.operation_kind, "approval.approve");
+    }
+
+    #[test]
+    fn rust_approval_decision_state_update_requires_state_dir() {
+        let mut request = approval_decision_state_update_request();
+        request.state_dir = None;
+
+        let error = ApprovalDecisionStateUpdateCore
+            .plan(&request)
+            .expect_err("approval decision state update without state_dir should fail");
+
+        assert_eq!(error, ApprovalDecisionStateUpdateError::StateDirRequired);
+    }
+
+    #[test]
+    fn rust_approval_decision_state_update_rejects_js_candidate_transport() {
+        let mut request = approval_decision_state_update_request();
+        request.agent = json!({ "id": "agent_retired" });
+
+        let error = ApprovalDecisionStateUpdateCore
+            .plan(&request)
+            .expect_err("approval decision JS agent candidate should fail");
+
+        assert_eq!(
+            error,
+            ApprovalDecisionStateUpdateError::RetiredCandidateTransport("agent")
+        );
     }
 
     #[test]
@@ -4720,12 +5120,18 @@ mod tests {
         let mut request = approval_revoke_state_update_request();
         request.target_kind = Some("agent".to_string());
         request.run_id = None;
-        request.run = Value::Null;
-        request.agent = json!({
-            "id": "agent_alpha",
-            "cwd": "/workspace",
-            "updatedAt": "2026-06-06T04:00:00.000Z"
-        });
+        let state_dir = PathBuf::from(request.state_dir.as_deref().expect("state_dir"));
+        write_state_record(
+            &state_dir,
+            "agents",
+            "agent_alpha",
+            json!({
+                "id": "agent_alpha",
+                "thread_id": "thread_alpha",
+                "cwd": "/workspace",
+                "updatedAt": "2026-06-06T04:00:00.000Z"
+            }),
+        );
 
         let record = ApprovalRevokeStateUpdateCore
             .plan(&request)
@@ -4738,6 +5144,33 @@ mod tests {
             "2026-06-06T04:40:00.000Z"
         );
         assert_eq!(record.operation_kind, "approval.revoke");
+    }
+
+    #[test]
+    fn rust_approval_revoke_state_update_requires_state_dir() {
+        let mut request = approval_revoke_state_update_request();
+        request.state_dir = None;
+
+        let error = ApprovalRevokeStateUpdateCore
+            .plan(&request)
+            .expect_err("approval revoke state update without state_dir should fail");
+
+        assert_eq!(error, ApprovalRevokeStateUpdateError::StateDirRequired);
+    }
+
+    #[test]
+    fn rust_approval_revoke_state_update_rejects_js_candidate_transport() {
+        let mut request = approval_revoke_state_update_request();
+        request.run = json!({ "id": "run_retired", "trace": {} });
+
+        let error = ApprovalRevokeStateUpdateCore
+            .plan(&request)
+            .expect_err("approval revoke JS run candidate should fail");
+
+        assert_eq!(
+            error,
+            ApprovalRevokeStateUpdateError::RetiredCandidateTransport("run")
+        );
     }
 
     #[test]

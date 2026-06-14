@@ -8390,9 +8390,13 @@ Public approval request, decision, and revoke controls are now positive Rust
 authority calls instead of fail-closed JS facades. The daemon approval surface
 uses mounted `approvalStateCore` for all three public control operations and
 commits only the Rust-authored run/agent projection through the Agentgres-gated
-state persistence hooks. The approval-state JS runner facade, command/env
-fallback, response normalizer, JS approval request/decision readback,
-runtime-event append, and camelCase request aliases stay retired.
+state persistence hooks. State-update planning now sends runtime `state_dir`;
+Rust replays the target run/agent from admitted Agentgres projections, can
+resolve the latest run without JS supplying a run id, and rejects retired
+`run`/`agent` candidate transport before public control truth can return. The
+approval-state JS runner facade, command/env fallback, response normalizer, JS
+approval request/decision readback, JS target lookup, runtime-event append, and
+camelCase request aliases stay retired.
 
 Public approval decision/revoke authority is now wallet.network-bound at the
 Rust daemon-core command boundary. Rust `approval.rs` exposes
@@ -8618,10 +8622,14 @@ stable protocol APIs.
 Public approval queue/read projection now sends runtime `state_dir`; Rust
 replays admitted `agents/*.json` and `runs/*.json` Agentgres projections and
 rejects JS `agent`/`run`/`runs` queue candidate transport before queue truth can
-return. Coding-tool approval satisfaction projection now uses the same runtime
-`state_dir` replay source and rejects JS `agent`/`run` candidate transport
-before request/decision/lease truth can return. The remaining approval blockers
-are richer approval authority projection/replay storage, request/grant issuance
+return. Public approval request/decision/revoke state updates now use the same
+runtime `state_dir` replay source and reject JS `agent`/`run` candidate
+transport before target truth can return; the public JS surface no longer reads
+`agentForThread`, `getRun`, `listRuns`, or `runs.get` for approval control.
+Coding-tool approval satisfaction projection also uses runtime `state_dir`
+replay and rejects JS `agent`/`run` candidate transport before
+request/decision/lease truth can return. The remaining approval blockers are
+richer approval authority projection/replay storage, request/grant issuance
 semantics, command-transport retirement, and stable protocol APIs.
 Runtime MCP registry/control state has moved from the fail-closed JS mutation
 facade into Rust-owned `plan_mcp_control_agent_state_update` planning plus

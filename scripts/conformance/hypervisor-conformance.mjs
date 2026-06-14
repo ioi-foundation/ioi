@@ -9130,9 +9130,26 @@ function runBridge() {
     "approval-request-state-update-live-bridge",
     /ApprovalRequestStateUpdateCore/.test(approvalCore) &&
       /ApprovalRequestStateUpdateRequest/.test(approvalCore) &&
+      /pub struct ApprovalRequestStateUpdateRequest \{[\s\S]*pub state_dir: Option<String>[\s\S]*pub agent: Value[\s\S]*pub run: Value/.test(
+        approvalCore,
+      ) &&
       /APPROVAL_REQUEST_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(approvalCore) &&
       /rust_authority_plans_approval_request_state_update/.test(approvalCore) &&
       /rust_authority_plans_approval_request_agent_state_update/.test(approvalCore) &&
+      /rust_authority_plans_approval_request_state_update_from_state_dir_without_run_id/.test(
+        approvalCore,
+      ) &&
+      /rust_approval_request_state_update_rejects_cross_thread_run_id_replay/.test(
+        approvalCore,
+      ) &&
+      /rust_approval_request_state_update_requires_state_dir/.test(approvalCore) &&
+      /rust_approval_request_state_update_rejects_js_candidate_transport/.test(
+        approvalCore,
+      ) &&
+      /ApprovalRequestStateUpdateError::StateDirRequired/.test(approvalCore) &&
+      /ApprovalRequestStateUpdateError::RetiredCandidateTransport/.test(approvalCore) &&
+      /approval_state_update_target_from_state_dir/.test(approvalCore) &&
+      /approval_state_update_sources_from_state_dir/.test(approvalCore) &&
       /"approval_id": approval_id/.test(approvalCore) &&
       /"event_id": request\.event_id/.test(approvalCore) &&
       /"receipt_refs": request\.receipt_refs\.clone\(\)/.test(approvalCore) &&
@@ -9201,9 +9218,15 @@ function runBridge() {
       ) &&
       /approvalStateCore/.test(runtimeApprovalSurface) &&
       /planApprovalRequestStateUpdate/.test(approvalRequestFacadeBody) &&
+      /state_dir:\s*store\?\.stateDir \?\? null/.test(approvalRequestFacadeBody) &&
       /applyRustApprovalStateUpdate/.test(approvalRequestFacadeBody) &&
       /persistRustApprovalRunUpdate/.test(runtimeApprovalSurface) &&
       /store\.writeRun\(run,\s*operationKind\)/.test(runtimeApprovalSurface) &&
+      !/run:\s*target\.run|agent:\s*target\.agent/.test(approvalRequestFacadeBody) &&
+      !/request\.(?:run|agent)\b/.test(runtimeApprovalSurface) &&
+      !/function approvalTarget|function runForId|function latestRunForThread|store\.agentForThread|store\.getRun|store\.listRuns|store\.runs\?\.get/.test(
+        runtimeApprovalSurface,
+      ) &&
       /createRuntimeApprovalStateCore/.test(runtimeDaemonIndex) &&
       /approvalStateCore: this\.approvalStateCore/.test(runtimeDaemonIndex) &&
       /runtime_approval_control_rust_core_required/.test(runtimeApprovalSurface) &&
@@ -9215,6 +9238,18 @@ function runBridge() {
         approvalRequestFacadeBody,
       ) &&
       /requestThreadApproval public surface calls Rust approval authority and commits Rust run projection/.test(
+        runtimeApprovalControlFacadeTest,
+      ) &&
+      /assertRustReplayStateUpdateRequest\(calls\[0\]\.request\)/.test(
+        runtimeApprovalControlFacadeTest,
+      ) &&
+      /assert\.equal\(calls\[0\]\.request\.run_id,\s*null\)/.test(
+        runtimeApprovalControlFacadeTest,
+      ) &&
+      /approval control must not read JS agent truth/.test(
+        runtimeApprovalControlFacadeTest,
+      ) &&
+      /approval control must not list JS run truth/.test(
         runtimeApprovalControlFacadeTest,
       ) &&
       /approval control surface remains fail-closed without Rust approval authority core/.test(
@@ -9254,6 +9289,9 @@ function runBridge() {
     "approval-decision-state-update-live-bridge",
     /ApprovalDecisionStateUpdateCore/.test(approvalCore) &&
       /ApprovalDecisionStateUpdateRequest/.test(approvalCore) &&
+      /pub struct ApprovalDecisionStateUpdateRequest \{[\s\S]*pub state_dir: Option<String>[\s\S]*pub agent: Value[\s\S]*pub run: Value/.test(
+        approvalCore,
+      ) &&
       /APPROVAL_DECISION_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(approvalCore) &&
       /ApprovalDecisionAuthorityCore/.test(approvalCore) &&
       /ApprovalDecisionAuthorityRequest/.test(approvalCore) &&
@@ -9271,6 +9309,14 @@ function runBridge() {
       /rust_core_shapes_approval_decision_authority_command_response/.test(approvalCore) &&
       /rust_authority_plans_approval_decision_state_update/.test(approvalCore) &&
       /rust_authority_plans_approval_decision_agent_state_update/.test(approvalCore) &&
+      /rust_approval_decision_state_update_requires_state_dir/.test(approvalCore) &&
+      /rust_approval_decision_state_update_rejects_js_candidate_transport/.test(
+        approvalCore,
+      ) &&
+      /ApprovalDecisionStateUpdateError::StateDirRequired/.test(approvalCore) &&
+      /ApprovalDecisionStateUpdateError::RetiredCandidateTransport/.test(approvalCore) &&
+      /approval_state_update_target_from_state_dir/.test(approvalCore) &&
+      /approval_state_update_sources_from_state_dir/.test(approvalCore) &&
       /rust_authority_rejects_approval_decision_state_update_without_wallet_authority/.test(
         approvalCore,
       ) &&
@@ -9325,6 +9371,7 @@ function runBridge() {
       /approvalStateCore/.test(runtimeApprovalSurface) &&
       /authorizeApprovalDecision/.test(approvalDecisionFacadeBody) &&
       /planApprovalDecisionStateUpdate/.test(approvalDecisionFacadeBody) &&
+      /state_dir:\s*store\?\.stateDir \?\? null/.test(approvalDecisionFacadeBody) &&
       /approvalDecisionAuthorityRequest/.test(runtimeApprovalSurface) &&
       /approval_decision_wallet_network_authority_required/.test(runtimeApprovalSurface) &&
       /rust_daemon_core_approval_decision_authority_required/.test(runtimeApprovalSurface) &&
@@ -9343,6 +9390,7 @@ function runBridge() {
       /applyRustApprovalStateUpdate/.test(approvalDecisionFacadeBody) &&
       /persistRustApprovalRunUpdate/.test(runtimeApprovalSurface) &&
       /store\.writeRun\(run,\s*operationKind\)/.test(runtimeApprovalSurface) &&
+      !/run:\s*target\.run|agent:\s*target\.agent/.test(approvalDecisionFacadeBody) &&
       /runtime_approval_control_rust_core_required/.test(runtimeApprovalSurface) &&
       /approval_decision_js_facade_retired/.test(runtimeApprovalSurface) &&
       /rust_daemon_core_approval_decision_required/.test(runtimeApprovalSurface) &&
@@ -9373,6 +9421,15 @@ function runBridge() {
         runtimeApprovalControlFacadeTest,
       ) &&
       /assert\.equal\(calls\[1\]\.request\.authority_hash,\s*"sha256:approval-authority-approve"\)/.test(
+        runtimeApprovalControlFacadeTest,
+      ) &&
+      /assertRustReplayStateUpdateRequest\(calls\[1\]\.request\)/.test(
+        runtimeApprovalControlFacadeTest,
+      ) &&
+      /assert\.equal\(calls\[1\]\.request\.run_id,\s*null\)/.test(
+        runtimeApprovalControlFacadeTest,
+      ) &&
+      /Object\.hasOwn\(calls\[0\]\.request,\s*"run"\),\s*false/.test(
         runtimeApprovalControlFacadeTest,
       ) &&
       /store\.approvalSurface\.decideThreadApproval\(\s*store,\s*threadId,\s*decodeURIComponent\(segments\[4\]\),\s*await readBody\(request\),\s*\)/m.test(
@@ -9412,9 +9469,20 @@ function runBridge() {
     "approval-revoke-state-update-live-bridge",
     /ApprovalRevokeStateUpdateCore/.test(approvalCore) &&
       /ApprovalRevokeStateUpdateRequest/.test(approvalCore) &&
+      /pub struct ApprovalRevokeStateUpdateRequest \{[\s\S]*pub state_dir: Option<String>[\s\S]*pub agent: Value[\s\S]*pub run: Value/.test(
+        approvalCore,
+      ) &&
       /APPROVAL_REVOKE_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(approvalCore) &&
       /rust_authority_plans_approval_revoke_state_update/.test(approvalCore) &&
       /rust_authority_plans_approval_revoke_agent_state_update/.test(approvalCore) &&
+      /rust_approval_revoke_state_update_requires_state_dir/.test(approvalCore) &&
+      /rust_approval_revoke_state_update_rejects_js_candidate_transport/.test(
+        approvalCore,
+      ) &&
+      /ApprovalRevokeStateUpdateError::StateDirRequired/.test(approvalCore) &&
+      /ApprovalRevokeStateUpdateError::RetiredCandidateTransport/.test(approvalCore) &&
+      /approval_state_update_target_from_state_dir/.test(approvalCore) &&
+      /approval_state_update_sources_from_state_dir/.test(approvalCore) &&
       /rust_authority_rejects_approval_revoke_state_update_without_wallet_authority/.test(
         approvalCore,
       ) &&
@@ -9454,6 +9522,7 @@ function runBridge() {
       /approvalStateCore/.test(runtimeApprovalSurface) &&
       /authorizeApprovalDecision/.test(approvalRevokeFacadeBody) &&
       /planApprovalRevokeStateUpdate/.test(approvalRevokeFacadeBody) &&
+      /state_dir:\s*store\?\.stateDir \?\? null/.test(approvalRevokeFacadeBody) &&
       /receipt_refs:\s*normalizeArray\(authority\.authority_receipt_refs\)/.test(
         approvalRevokeFacadeBody,
       ) &&
@@ -9469,6 +9538,7 @@ function runBridge() {
       /applyRustApprovalStateUpdate/.test(approvalRevokeFacadeBody) &&
       /persistRustApprovalRunUpdate/.test(runtimeApprovalSurface) &&
       /store\.writeRun\(run,\s*operationKind\)/.test(runtimeApprovalSurface) &&
+      !/run:\s*target\.run|agent:\s*target\.agent/.test(approvalRevokeFacadeBody) &&
       /runtime_approval_control_rust_core_required/.test(runtimeApprovalSurface) &&
       /approval_revoke_js_facade_retired/.test(runtimeApprovalSurface) &&
       /rust_daemon_core_approval_revoke_required/.test(runtimeApprovalSurface) &&
@@ -9480,6 +9550,15 @@ function runBridge() {
         runtimeApprovalControlFacadeTest,
       ) &&
       /assert\.equal\(calls\[1\]\.request\.authority_hash,\s*"sha256:approval-authority-revoke"\)/.test(
+        runtimeApprovalControlFacadeTest,
+      ) &&
+      /assertRustReplayStateUpdateRequest\(calls\[1\]\.request\)/.test(
+        runtimeApprovalControlFacadeTest,
+      ) &&
+      /assert\.equal\(calls\[1\]\.request\.run_id,\s*null\)/.test(
+        runtimeApprovalControlFacadeTest,
+      ) &&
+      /Object\.hasOwn\(calls\[0\]\.request,\s*"agent"\),\s*false/.test(
         runtimeApprovalControlFacadeTest,
       ) &&
       /store\.approvalSurface\.revokeThreadApproval\(\s*store,\s*threadId,\s*decodeURIComponent\(segments\[4\]\),\s*await readBody\(request\),\s*\)/m.test(

@@ -25,6 +25,12 @@ function assertNoRetiredApprovalControlAliases(value) {
   }
 }
 
+function assertRustReplayStateUpdateRequest(value) {
+  assert.equal(value.state_dir, "/runtime-state");
+  assert.equal(Object.hasOwn(value ?? {}, "run"), false);
+  assert.equal(Object.hasOwn(value ?? {}, "agent"), false);
+}
+
 function createStore({ approvalStateCore = null } = {}) {
   const run = {
     id: "run_alpha",
@@ -45,13 +51,14 @@ function createStore({ approvalStateCore = null } = {}) {
     runtimeEventStreams: new Map(),
     agents: new Map([["agent_alpha", agent]]),
     runs: new Map([["run_alpha", run]]),
-    agentForThread(threadId) {
-      assert.equal(threadId, "thread_alpha");
-      return agent;
+    agentForThread() {
+      throw new Error("approval control must not read JS agent truth");
     },
-    listRuns(agentId) {
-      assert.equal(agentId, "agent_alpha");
-      return [run];
+    getRun() {
+      throw new Error("approval control must not read JS run truth");
+    },
+    listRuns() {
+      throw new Error("approval control must not list JS run truth");
     },
     writeRun(updated, operationKind) {
       writes.push({ type: "run", operationKind, updated });
@@ -93,6 +100,14 @@ function createStore({ approvalStateCore = null } = {}) {
 }
 
 function rustRunRecord(operationKind, request, control = {}) {
+  const run = {
+    id: request.run_id ?? "run_alpha",
+    agentId: "agent_alpha",
+    createdAt: "2026-06-06T04:00:00.000Z",
+    status: "running",
+    turnStatus: "running",
+    trace: {},
+  };
   return {
     source: "rust_approval_control_api",
     backend: "rust_authority",
@@ -102,7 +117,7 @@ function rustRunRecord(operationKind, request, control = {}) {
       operation_kind: operationKind,
       target_kind: "run",
       thread_id: request.thread_id,
-      run_id: request.run_id,
+      run_id: request.run_id ?? run.id,
       updated_at: request.created_at,
       operator_control: {
         control: control.control,
@@ -118,11 +133,11 @@ function rustRunRecord(operationKind, request, control = {}) {
         created_at: request.created_at,
       },
       run: {
-        ...request.run,
-        status: control.run_status ?? request.run.status,
-        turnStatus: control.turn_status ?? request.run.turnStatus,
+        ...run,
+        status: control.run_status ?? run.status,
+        turnStatus: control.turn_status ?? run.turnStatus,
         trace: {
-          ...(request.run.trace ?? {}),
+          ...run.trace,
           [control.trace_key]: [
             {
               approval_id: request.approval_id,
@@ -200,7 +215,9 @@ test("requestThreadApproval public surface calls Rust approval authority and com
   assert.equal(calls.length, 1);
   assert.equal(calls[0].method, "planApprovalRequestStateUpdate");
   assert.equal(calls[0].request.thread_id, "thread_alpha");
-  assert.equal(calls[0].request.run_id, "run_alpha");
+  assert.equal(calls[0].request.run_id, null);
+  assert.equal(calls[0].request.target_kind, "run");
+  assertRustReplayStateUpdateRequest(calls[0].request);
   assert.equal(calls[0].request.approval_id, "approval_alpha");
   assert.deepEqual(calls[0].request.receipt_refs, ["receipt_approval"]);
   assertNoRetiredApprovalControlAliases(calls[0].request);
@@ -247,6 +264,8 @@ test("decideThreadApproval public surface calls Rust authority with canonical de
   assert.equal(calls.length, 2);
   assert.equal(calls[0].method, "authorizeApprovalDecision");
   assert.equal(calls[0].request.decision, "approve");
+  assert.equal(Object.hasOwn(calls[0].request, "run"), false);
+  assert.equal(Object.hasOwn(calls[0].request, "agent"), false);
   assert.deepEqual(calls[0].request.authority_grant_refs, [
     "wallet.network://grant/approval/approval_alpha",
   ]);
@@ -258,6 +277,8 @@ test("decideThreadApproval public surface calls Rust authority with canonical de
   assert.equal(calls[1].request.status, "approved");
   assert.equal(calls[1].request.lease_status, "active");
   assert.equal(calls[1].request.lease_id, "lease_alpha");
+  assert.equal(calls[1].request.run_id, null);
+  assertRustReplayStateUpdateRequest(calls[1].request);
   assert.deepEqual(calls[1].request.receipt_refs, [
     "receipt://wallet.network/approval/approval_alpha",
   ]);
@@ -341,9 +362,13 @@ test("revokeThreadApproval public surface calls Rust authority and commits Rust 
   assert.equal(calls.length, 2);
   assert.equal(calls[0].method, "authorizeApprovalDecision");
   assert.equal(calls[0].request.decision, "revoke");
+  assert.equal(Object.hasOwn(calls[0].request, "run"), false);
+  assert.equal(Object.hasOwn(calls[0].request, "agent"), false);
   assert.equal(calls[1].method, "planApprovalRevokeStateUpdate");
   assert.equal(calls[1].request.approval_id, "approval_alpha");
   assert.equal(calls[1].request.lease_id, "lease_alpha");
+  assert.equal(calls[1].request.run_id, null);
+  assertRustReplayStateUpdateRequest(calls[1].request);
   assert.deepEqual(calls[1].request.receipt_refs, [
     "receipt://wallet.network/approval/approval_alpha",
   ]);
