@@ -69,16 +69,6 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "plan_runtime_subagent_control",
     "plan_lifecycle_admission_required",
     "plan_thread_turn_admission_required",
-    "plan_mcp_control_agent_state_update",
-    "project_mcp_live_result_replay",
-    "validate_mcp_servers",
-    "project_mcp_server_validation_input",
-    "plan_mcp_manager_status_projection",
-    "plan_mcp_manager_validation_projection",
-    "plan_mcp_manager_catalog_projection",
-    "plan_mcp_manager_catalog_summary_projection",
-    "project_mcp_tool_search_projection",
-    "project_mcp_tool_fetch_projection",
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -147,16 +137,6 @@ pub enum CommandOperation {
     PlanRuntimeSubagentControl,
     PlanLifecycleAdmissionRequired,
     PlanThreadTurnAdmissionRequired,
-    PlanMcpControlAgentStateUpdate,
-    ProjectMcpLiveResultReplay,
-    ValidateMcpServers,
-    ProjectMcpServerValidationInput,
-    PlanMcpManagerStatusProjection,
-    PlanMcpManagerValidationProjection,
-    PlanMcpManagerCatalogProjection,
-    PlanMcpManagerCatalogSummaryProjection,
-    ProjectMcpToolSearchProjection,
-    ProjectMcpToolFetchProjection,
 }
 
 impl CommandOperation {
@@ -256,18 +236,6 @@ impl CommandOperation {
             Self::PlanRuntimeSubagentControl => "plan_runtime_subagent_control",
             Self::PlanLifecycleAdmissionRequired => "plan_lifecycle_admission_required",
             Self::PlanThreadTurnAdmissionRequired => "plan_thread_turn_admission_required",
-            Self::PlanMcpControlAgentStateUpdate => "plan_mcp_control_agent_state_update",
-            Self::ProjectMcpLiveResultReplay => "project_mcp_live_result_replay",
-            Self::ValidateMcpServers => "validate_mcp_servers",
-            Self::ProjectMcpServerValidationInput => "project_mcp_server_validation_input",
-            Self::PlanMcpManagerStatusProjection => "plan_mcp_manager_status_projection",
-            Self::PlanMcpManagerValidationProjection => "plan_mcp_manager_validation_projection",
-            Self::PlanMcpManagerCatalogProjection => "plan_mcp_manager_catalog_projection",
-            Self::PlanMcpManagerCatalogSummaryProjection => {
-                "plan_mcp_manager_catalog_summary_projection"
-            }
-            Self::ProjectMcpToolSearchProjection => "project_mcp_tool_search_projection",
-            Self::ProjectMcpToolFetchProjection => "project_mcp_tool_fetch_projection",
         }
     }
 
@@ -474,32 +442,6 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
         "plan_thread_turn_admission_required" => {
             Some(CommandOperation::PlanThreadTurnAdmissionRequired)
         }
-        "plan_mcp_control_agent_state_update" => {
-            Some(CommandOperation::PlanMcpControlAgentStateUpdate)
-        }
-        "project_mcp_live_result_replay" => Some(CommandOperation::ProjectMcpLiveResultReplay),
-        "validate_mcp_servers" => Some(CommandOperation::ValidateMcpServers),
-        "project_mcp_server_validation_input" => {
-            Some(CommandOperation::ProjectMcpServerValidationInput)
-        }
-        "plan_mcp_manager_status_projection" => {
-            Some(CommandOperation::PlanMcpManagerStatusProjection)
-        }
-        "plan_mcp_manager_validation_projection" => {
-            Some(CommandOperation::PlanMcpManagerValidationProjection)
-        }
-        "plan_mcp_manager_catalog_projection" => {
-            Some(CommandOperation::PlanMcpManagerCatalogProjection)
-        }
-        "plan_mcp_manager_catalog_summary_projection" => {
-            Some(CommandOperation::PlanMcpManagerCatalogSummaryProjection)
-        }
-        "project_mcp_tool_search_projection" => {
-            Some(CommandOperation::ProjectMcpToolSearchProjection)
-        }
-        "project_mcp_tool_fetch_projection" => {
-            Some(CommandOperation::ProjectMcpToolFetchProjection)
-        }
         _ => None,
     }
 }
@@ -555,8 +497,6 @@ mod tests {
     fn daemon_core_operations_use_daemon_core_command_schema() {
         for operation in [
             "plan_workflow_edit_admission_required",
-            "validate_mcp_servers",
-            "plan_mcp_manager_catalog_summary_projection",
             "plan_coding_tool_result_envelope",
             "plan_runtime_coding_tool_artifact_drafts",
             "project_runtime_coding_tool_artifact_read",
@@ -564,9 +504,6 @@ mod tests {
             "project_runtime_diagnostics_repair_policy",
             "plan_lifecycle_admission_required",
             "plan_thread_turn_admission_required",
-            "project_mcp_live_result_replay",
-            "project_mcp_tool_search_projection",
-            "project_mcp_tool_fetch_projection",
             "plan_runtime_task_job_create_state_update",
             "project_runtime_task_job_projection",
             "project_runtime_tool_catalog",
@@ -597,6 +534,31 @@ mod tests {
             assert_eq!(
                 expected_command_schema_version(operation),
                 Some(DAEMON_CORE_COMMAND_SCHEMA_VERSION)
+            );
+        }
+    }
+
+    #[test]
+    fn mcp_control_catalog_command_transport_is_retired() {
+        for operation in [
+            "plan_mcp_control_agent_state_update",
+            "project_mcp_live_result_replay",
+            "validate_mcp_servers",
+            "project_mcp_server_validation_input",
+            "plan_mcp_manager_status_projection",
+            "plan_mcp_manager_validation_projection",
+            "plan_mcp_manager_catalog_projection",
+            "plan_mcp_manager_catalog_summary_projection",
+            "project_mcp_tool_search_projection",
+            "project_mcp_tool_fetch_projection",
+        ] {
+            assert_eq!(command_operation(operation), None);
+            assert_eq!(expected_command_schema_version(operation), None);
+            assert_eq!(
+                validate_command_envelope(operation, DAEMON_CORE_COMMAND_SCHEMA_VERSION)
+                    .unwrap_err()
+                    .code(),
+                "operation_unknown"
             );
         }
     }

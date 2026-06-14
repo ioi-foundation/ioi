@@ -271,7 +271,7 @@ export function createRuntimeMcpControlSurface({
       result_replay: resultReplay?.projection ?? null,
       result_projection: resultReplay?.projection ?? null,
       result_state_replay: resultReplay?.projection ?? null,
-      source: stateUpdate?.source ?? record.source ?? "rust_mcp_control_agent_state_update_command",
+      source: stateUpdate?.source ?? record.source ?? "rust_mcp_control_agent_state_update_api",
       backend: stateUpdate?.backend ?? record.backend ?? "rust_policy",
     };
   }

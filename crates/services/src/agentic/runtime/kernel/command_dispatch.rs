@@ -383,38 +383,6 @@ pub fn dispatch_command_operation_response(
         CommandOperation::PlanThreadTurnAdmissionRequired => {
             plan_thread_turn_admission_required_response(decode(raw_request)?).map_err(Into::into)
         }
-        CommandOperation::PlanMcpControlAgentStateUpdate => {
-            plan_mcp_control_agent_state_update_response(decode(raw_request)?).map_err(Into::into)
-        }
-        CommandOperation::ProjectMcpLiveResultReplay => {
-            project_mcp_live_result_replay_response(decode(raw_request)?).map_err(Into::into)
-        }
-        CommandOperation::ValidateMcpServers => {
-            validate_mcp_servers_response(decode(raw_request)?).map_err(Into::into)
-        }
-        CommandOperation::ProjectMcpServerValidationInput => {
-            project_mcp_server_validation_input_response(decode(raw_request)?).map_err(Into::into)
-        }
-        CommandOperation::PlanMcpManagerStatusProjection => {
-            plan_mcp_manager_status_projection_response(decode(raw_request)?).map_err(Into::into)
-        }
-        CommandOperation::PlanMcpManagerValidationProjection => {
-            plan_mcp_manager_validation_projection_response(decode(raw_request)?)
-                .map_err(Into::into)
-        }
-        CommandOperation::PlanMcpManagerCatalogProjection => {
-            plan_mcp_manager_catalog_projection_response(decode(raw_request)?).map_err(Into::into)
-        }
-        CommandOperation::PlanMcpManagerCatalogSummaryProjection => {
-            plan_mcp_manager_catalog_summary_projection_response(decode(raw_request)?)
-                .map_err(Into::into)
-        }
-        CommandOperation::ProjectMcpToolSearchProjection => {
-            project_mcp_tool_search_projection_response(decode(raw_request)?).map_err(Into::into)
-        }
-        CommandOperation::ProjectMcpToolFetchProjection => {
-            project_mcp_tool_fetch_projection_response(decode(raw_request)?).map_err(Into::into)
-        }
     }
 }
 

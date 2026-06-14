@@ -250,15 +250,16 @@ compliance acronyms for hidden audit material.
   node to act while the user is away within bounded policy, without receiving
   durable raw secrets or unrestricted authority.
 - `WalletExchange`: the source-agnostic Wallet product surface for exchanges.
-  wallet.network owns exchange authority, risk disclosure, policy evaluation,
-  signing or denial, revocation, and receipts; route sources only produce
-  candidates.
+  wallet.network is the user-facing cockpit and owns exchange authority, risk
+  disclosure, policy evaluation, signing or denial, revocation, and receipts;
+  route sources only produce candidates.
 - `WalletTrade`: the advanced Wallet product surface for exposure management,
   including spot orders, perps, prediction markets, event contracts, leverage,
   collateral, margin, liquidation, funding, resolution, and position lifecycle.
-  wallet.network owns trade authority, risk disclosure, policy evaluation,
-  signing or denial, revocation, and receipts; trading route sources and venues
-  only produce candidates or execute approved intents.
+  wallet.network is the user-facing cockpit and owns trade authority, risk
+  disclosure, policy evaluation, signing or denial, revocation, and receipts;
+  trading route sources and venues only produce candidates or execute approved
+  intents.
 - `ExchangeIntent`: the semantic wallet object above raw transaction calldata.
   It binds route, calldata commitments, slippage, simulation hash, policy hash,
   grant/lease, revocation epoch, economics, risk labels, and exact `TxIntent`
@@ -267,17 +268,19 @@ compliance acronyms for hidden audit material.
   adapters, DEX routers, bridge routers, solvers, quote APIs, RFQ systems, or
   user-specified paths. It is not authority and cannot execute until selected
   into an approved `ExchangeIntent`.
-- `decentralized.exchange`: a preferred first-party route source and public
-  exchange surface. It may own its route proposals, adapter registry,
-  route-candidate receipts, and comparison views, but it does not own Wallet
-  exchange authority, liquidity, execution, exchange truth, or settlement.
-- `decentralized.trade`: a preferred first-party trading route source and
-  advanced exposure-management surface. It may own venue adapters,
-  order-ticket normalization, market discovery, prediction-market discovery,
-  event-market and resolution-rule display, position/risk display, margin
-  calculations, strategy templates, venue comparison, and trade-candidate
-  receipts, but it does not own user authority, custody, final approval, venue
-  execution, market resolution, user positions, policy, or settlement truth.
+- `decentralized.exchange`: a preferred first-party route-intelligence engine
+  for asset conversion. Wallet and other clients consume it through API/RPC/SDK
+  boundaries for route candidates, adapter registry data, route-candidate
+  receipts, and comparison views; it does not own Wallet exchange authority,
+  liquidity, execution, exchange truth, or settlement.
+- `decentralized.trade`: a preferred first-party venue, market, and
+  exposure-intelligence engine. Wallet and other clients consume it through
+  API/RPC/SDK boundaries for venue adapters, order-ticket normalization, market
+  discovery, prediction-market discovery, event-market and resolution-rule
+  display, position/risk display, margin calculations, strategy templates,
+  paper venues, venue comparison, and trade-candidate receipts; it does not own
+  user authority, custody, final approval, venue execution, market resolution,
+  user positions, policy, or settlement truth.
 - `FutureDecentralizedCloud`: parked future product space for a possible public
   provider catalog, P2P/PQ-aware cloud routing layer, compute/storage receipt
   explorer, provider reputation surface, or infrastructure marketplace. It is

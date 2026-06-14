@@ -12,8 +12,8 @@ Last alignment pass: 2026-06-14.
 
 ## Canonical Definition
 
-`decentralized.trade` is a preferred first-party trading route source and
-advanced exposure-management surface.
+`decentralized.trade` is a preferred first-party venue, market, and
+exposure-intelligence engine for advanced trade candidates.
 
 It answers:
 
@@ -24,7 +24,8 @@ or strategy candidates are available?
 ```
 
 It may feel like an aggregator for perps, spot order venues, prediction
-markets, event contracts, and position management, but it is not a broker,
+markets, event contracts, and position management, but it is primarily an
+API/RPC/SDK service consumed by Wallet and other clients. It is not a broker,
 custodian, venue, resolution oracle, or Wallet authority layer.
 
 ```text
@@ -35,10 +36,17 @@ event markets under venue or oracle rules.
 Wallet and Agentgres make authority, receipts, and risk state accountable.
 ```
 
+Wallet is the cockpit. A Wallet user may see Trade inside wallet.network while
+Wallet calls `decentralized.trade` for venue, market, position, and event
+candidates behind the authority surface. `decentralized.trade` may still expose
+docs, market explorers, adapter registries, paper venues, or a standalone
+terminal later, but that is not the canonical approval path.
+
 ## Owns
 
 `decentralized.trade` may own or coordinate:
 
+- API/RPC/SDK endpoints for trade, position, venue, and prediction candidates;
 - trading venue adapters;
 - order-ticket normalization;
 - market discovery;
@@ -72,7 +80,8 @@ Correct framing:
 
 ```text
 Wallet owns trade authority.
-decentralized.trade proposes exposure routes and venue actions.
+decentralized.trade is a preferred exposure-intelligence engine that proposes
+routes, markets, and venue actions.
 Venues execute, resolve event markets, and maintain venue-native position state.
 ```
 
@@ -84,6 +93,7 @@ Perps are just another exchange route.
 Prediction markets are just swaps.
 Agents may trade leveraged products by default.
 Agents may place live event bets by default.
+Users must leave Wallet and use decentralized.trade directly to trade.
 ```
 
 ## Lifecycle
@@ -387,6 +397,8 @@ Reject these:
    manipulation risk.
 8. Letting agents place live event bets without explicit max-loss, category,
    jurisdiction, and market-integrity policy.
+9. Requiring the canonical Wallet user to visit `decentralized.trade` before
+   Wallet can review, approve, execute, monitor, and receipt exposure.
 
 ## Related Canon
 

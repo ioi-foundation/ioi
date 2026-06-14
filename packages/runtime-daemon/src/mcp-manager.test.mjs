@@ -45,7 +45,7 @@ function rustMcpCore(calls = []) {
         },
       );
       return {
-        source: "rust_mcp_server_validation_input_command",
+        source: "rust_mcp_server_validation_input_api",
         backend: "rust_policy",
         status: "projected",
         workspace_root: request.workspace_root,
@@ -64,7 +64,7 @@ function rustMcpCore(calls = []) {
           server_id: server.id,
           server_label: server.label,
           tool_name: tool,
-          source: "rust_mcp_manager_catalog_projection_command",
+          source: "rust_mcp_manager_catalog_projection_api",
         })),
       );
       const resources = servers.flatMap((server) =>
@@ -72,7 +72,7 @@ function rustMcpCore(calls = []) {
           stable_resource_id: `rust.projected.${server.id}.resource.${resource.uri}`,
           server_id: server.id,
           uri: resource.uri,
-          source: "rust_mcp_manager_catalog_projection_command",
+          source: "rust_mcp_manager_catalog_projection_api",
         })),
       );
       const prompts = servers.flatMap((server) =>
@@ -80,11 +80,11 @@ function rustMcpCore(calls = []) {
           stable_prompt_id: `rust.projected.${server.id}.prompt.${prompt.name}`,
           server_id: server.id,
           name: prompt.name,
-          source: "rust_mcp_manager_catalog_projection_command",
+          source: "rust_mcp_manager_catalog_projection_api",
         })),
       );
       return {
-        source: "rust_mcp_manager_catalog_projection_command",
+        source: "rust_mcp_manager_catalog_projection_api",
         backend: "rust_policy",
         status: "projected",
         servers,
@@ -214,7 +214,7 @@ test("MCP manager registry fails closed without Rust daemon-core projection", ()
       },
     }),
     (error) =>
-      error.code === "runtime_context_policy_core_direct_invoker_unconfigured" &&
-      error.details.boundary === "daemonCoreInvoker",
+      error.code === "runtime_context_policy_core_direct_mcp_api_unconfigured" &&
+      error.details.boundary === "daemonCoreMcpApi.projectMcpServerValidationInput",
   );
 });

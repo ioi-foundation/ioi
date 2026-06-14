@@ -8973,8 +8973,17 @@ refs, and `isError` state before JSON-RPC wrapping. JS no longer derives served
 tool-call ids, idempotency keys, workflow ids, `mcp_serve_request`, result text,
 event refs, or result error state; the old `mcpServeToolCallResult` helper is
 retired and the path fails closed instead of preserving a JS envelope/result
-facade. Actual MCP transport execution, runtime containment sandboxing, real
-result payload materialization into the persisted live-result records, command
+facade. The runtime MCP control/catalog direct API cut then removes temporary
+command transport for MCP control state-update, live-result replay, server
+validation, validation-input projection, manager validation/status/catalog/
+catalog-summary projection, and tool search/fetch projection:
+`RuntimeContextPolicyCore` now requires typed `daemonCoreMcpApi` methods,
+`mcp-manager.mjs` no longer passes a generic command invoker or
+`daemonCoreApi.mcp` compatibility mount, `policy/mcp_memory.rs` no longer
+exports MCP command-response wrappers or bridge request structs, and Rust
+`command_protocol.rs` rejects the retired MCP command operations. Actual MCP
+transport execution, runtime containment sandboxing, real result payload
+materialization into the persisted live-result records, MCP serve command
 transport retirement, and stable protocol APIs over Rust replay records remain
 non-terminal.
 Model-mount MCP workflow control has a matching Rust positive boundary:

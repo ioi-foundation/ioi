@@ -47,7 +47,7 @@ function harness() {
           ? [{ code: "invalid", server_id: "mcp.invalid" }]
           : [];
         return {
-          source: "rust_mcp_server_validation_command",
+          source: "rust_mcp_server_validation_api",
           backend: "rust_policy",
           ok: issues.length === 0,
           status: issues.length === 0 ? "pass" : "blocked",
@@ -77,7 +77,7 @@ function harness() {
         const resources = servers.flatMap((item) => item.resources ?? []);
         const prompts = servers.flatMap((item) => item.prompts ?? []);
         return {
-          source: "rust_mcp_manager_catalog_projection_command",
+          source: "rust_mcp_manager_catalog_projection_api",
           backend: "rust_policy",
           status: "projected",
           server_count: servers.length,
@@ -96,7 +96,7 @@ function harness() {
         calls.push({ name: "planMcpManagerCatalogSummaryProjection", request });
         const toolNames = request.tools.map((tool) => tool.tool_name).filter(Boolean).sort();
         return {
-          source: "rust_mcp_manager_catalog_summary_projection_command",
+          source: "rust_mcp_manager_catalog_summary_projection_api",
           backend: "rust_policy",
           schema_version: "ioi.runtime.mcp-manager-catalog-summary.v1",
           object: "ioi.runtime_mcp_catalog_summary",
@@ -162,7 +162,7 @@ function harness() {
           });
         });
         return {
-          source: "rust_mcp_tool_search_projection_command",
+          source: "rust_mcp_tool_search_projection_api",
           backend: "rust_policy",
           schema_version: "ioi.runtime.mcp-tool-search.v1",
           object: "ioi.runtime_mcp_tool_search",
@@ -200,7 +200,7 @@ function harness() {
         });
         const tool = search.tools.find((item) => item.stable_tool_id === request.tool_id) ?? null;
         return {
-          source: "rust_mcp_tool_fetch_projection_command",
+          source: "rust_mcp_tool_fetch_projection_api",
           backend: "rust_policy",
           schema_version: "ioi.runtime.mcp-tool-fetch.v1",
           object: "ioi.runtime_mcp_tool_fetch",
@@ -220,7 +220,7 @@ function harness() {
       planMcpManagerValidationProjection(request) {
         calls.push({ name: "planMcpManagerValidationProjection", request });
         return {
-          source: "rust_mcp_manager_validation_projection_command",
+          source: "rust_mcp_manager_validation_projection_api",
           backend: "rust_policy",
           schema_version: request.validation_schema_version,
           object: "ioi.runtime_mcp_manager_validation",
@@ -254,7 +254,7 @@ function harness() {
           prompts: request.prompts,
         };
         return {
-          source: "rust_mcp_manager_status_projection_command",
+          source: "rust_mcp_manager_status_projection_api",
           backend: "rust_policy",
           schema_version: request.status_schema_version,
           object: "ioi.runtime_mcp_manager_status",
@@ -358,8 +358,8 @@ test("runtime MCP catalog surface projects status and validation envelopes", () 
   assert.equal(status.resource_count, 2);
   assert.equal(status.prompt_count, 2);
   assert.equal(status.enabled_server_count, 2);
-  assert.equal(status.source, "rust_mcp_manager_status_projection_command");
-  assert.equal(status.validation.source, "rust_mcp_server_validation_command");
+  assert.equal(status.source, "rust_mcp_manager_status_projection_api");
+  assert.equal(status.validation.source, "rust_mcp_server_validation_api");
   assert.equal(status.validation.server_count, 2);
   assert.equal(
     calls.find((call) => call.name === "planMcpManagerCatalogProjection")?.request.state_dir,
@@ -387,7 +387,7 @@ test("runtime MCP catalog surface projects status and validation envelopes", () 
   assert.equal(validation.issue_count, 1);
   assert.equal(validation.issues[0].server_id, "mcp.invalid");
   assert.equal(validation.tools.length, 2);
-  assert.equal(validation.source, "rust_mcp_manager_validation_projection_command");
+  assert.equal(validation.source, "rust_mcp_manager_validation_projection_api");
   assert.equal(Object.hasOwn(validation, "schemaVersion"), false);
   assert.equal(Object.hasOwn(validation, "serverCount"), false);
   assert.equal(Object.hasOwn(validation, "issueCount"), false);
@@ -448,13 +448,13 @@ test("runtime MCP catalog surface searches and fetches tools through global and 
   });
   assert.equal(globalSearch.schema_version, "ioi.runtime.mcp-tool-search.v1");
   assert.equal(globalSearch.status, "completed");
-  assert.equal(globalSearch.source, "rust_mcp_tool_search_projection_command");
+  assert.equal(globalSearch.source, "rust_mcp_tool_search_projection_api");
   assert.equal(globalSearch.server_count, 2);
   assert.deepEqual(globalSearch.tools.map((tool) => tool.stable_tool_id), ["mcp.agent.git.diff"]);
   assert.equal(globalSearch.routes.get_tool, "/v1/mcp/tools/{tool_id}");
   assert.equal(
     globalSearch.catalog_summaries[0].source,
-    "rust_mcp_manager_catalog_summary_projection_command",
+    "rust_mcp_manager_catalog_summary_projection_api",
   );
   assert.equal(Object.hasOwn(globalSearch, "schemaVersion"), false);
   assert.equal(Object.hasOwn(globalSearch, "liveDiscovery"), false);
@@ -511,7 +511,7 @@ test("runtime MCP catalog surface searches and fetches tools through global and 
   assert.equal(fetched.server_id, "mcp.agent.git");
   assert.equal(fetched.tool_name, "diff");
   assert.equal(fetched.returned_count, 1);
-  assert.equal(fetched.source, "rust_mcp_tool_fetch_projection_command");
+  assert.equal(fetched.source, "rust_mcp_tool_fetch_projection_api");
   assert.equal(Object.hasOwn(fetched, "toolId"), false);
   assert.equal(Object.hasOwn(fetched, "serverId"), false);
   assert.equal(Object.hasOwn(fetched, "toolName"), false);

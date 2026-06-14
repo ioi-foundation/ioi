@@ -17,7 +17,7 @@ export function mcpRegistryForWorkspace(cwd, options = {}) {
   const contextPolicyCore =
     options.contextPolicyCore ??
     createRuntimeContextPolicyCore({
-      daemonCoreInvoker: options.daemonCoreInvoker,
+      daemonCoreMcpApi: options.daemonCoreMcpApi,
     });
   const sources = [];
   if (sourceMode !== "workspace") {
@@ -92,7 +92,10 @@ function mcpValidationInputForSource(source = {}) {
 
 export function mcpServerRecordsFromValidationInput(input = {}, workspaceRoot, options = {}) {
   const contextPolicyCore =
-    options.contextPolicyCore ?? createRuntimeContextPolicyCore();
+    options.contextPolicyCore ??
+    createRuntimeContextPolicyCore({
+      daemonCoreMcpApi: options.daemonCoreMcpApi,
+    });
   const projection = contextPolicyCore.projectMcpServerValidationInput({
     input,
     workspace_root: workspaceRoot,

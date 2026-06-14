@@ -21,7 +21,7 @@ Current Fleet addition:
 
 Current Wallet addition:
 
-> **wallet.network is the authority wallet for autonomous finance. Wallet
+> **wallet.network is the authority wallet and cockpit for autonomous finance. Wallet
 > Exchange is source-agnostic: route sources such as decentralized.exchange,
 > direct pools, routers, solvers, and quote APIs produce candidates, but
 > wallet.network owns exchange authority, risk disclosure, approval, signing or
@@ -32,9 +32,10 @@ Current Wallet addition:
 
 Current Wallet/provider integration addition:
 
-> **decentralized.exchange routes liquidity and decentralized.trade routes
-> exposure, including event markets. Hypervisor has direct provider integrations for cloud compute,
-> storage, GPUs, confidential compute, DePIN, local machines, and customer
+> **decentralized.exchange is a route-intelligence engine for liquidity and
+> decentralized.trade is a venue/market-intelligence engine for exposure,
+> including event markets. Hypervisor has direct provider integrations for cloud
+> compute, storage, GPUs, confidential compute, DePIN, local machines, and customer
 > infrastructure. Candidates propose; wallet.network authorizes; Hypervisor
 > executes or deploys; venues and providers perform; Agentgres records; IOI L1
 > settles by trigger.**

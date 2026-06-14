@@ -12,8 +12,8 @@ Last alignment pass: 2026-06-14.
 
 ## Canonical Definition
 
-`decentralized.exchange` is a preferred first-party route source and public
-exchange surface for asset conversion.
+`decentralized.exchange` is a preferred first-party route-intelligence engine
+for asset conversion.
 
 It answers:
 
@@ -24,7 +24,8 @@ What source-agnostic route candidates are available?
 ```
 
 It is analogous to a RocketX/Rango/aggregator-style route surface in product
-shape, but the IOI canon adds a stricter authority boundary:
+shape, but the IOI canon makes it primarily an API/RPC/SDK service consumed by
+Wallet and other clients, with a stricter authority boundary:
 
 ```text
 decentralized.exchange proposes.
@@ -33,10 +34,17 @@ Pools, bridges, solvers, venues, and chains execute.
 Agentgres records receipts and evidence when operational truth is affected.
 ```
 
+Wallet is the cockpit. A Wallet user may see Exchange inside wallet.network
+while Wallet calls `decentralized.exchange` for route candidates behind the
+authority surface. `decentralized.exchange` may still expose docs, a route
+explorer, adapter registry, or lightweight standalone swap view, but that is not
+the canonical user path.
+
 ## Owns
 
 `decentralized.exchange` may own or coordinate:
 
+- API/RPC/SDK endpoints for route candidates;
 - spot route-source discovery;
 - pool, bridge, router, solver, RFQ, and quote-source adapters;
 - pool and route metadata normalization;
@@ -62,8 +70,8 @@ Agentgres records receipts and evidence when operational truth is affected.
 Correct framing:
 
 ```text
-Wallet Exchange is source-agnostic.
-decentralized.exchange is a preferred decentralized route source.
+Wallet Exchange is the authority cockpit.
+decentralized.exchange is a preferred decentralized route-intelligence engine.
 ```
 
 Incorrect framing:
@@ -72,6 +80,7 @@ Incorrect framing:
 decentralized.exchange is the exchange backend for Wallet.
 decentralized.exchange owns liquidity.
 decentralized.exchange approval is enough to swap.
+Users must leave Wallet and use decentralized.exchange directly to exchange.
 ```
 
 ## Lifecycle
@@ -173,6 +182,8 @@ Reject these:
 4. Hiding route dependencies from Wallet, users, agents, or receipts.
 5. Recording exchange history only in app-local state instead of receipt-backed
    truth when operational state is affected.
+6. Requiring the canonical Wallet user to visit `decentralized.exchange` before
+   Wallet can review, approve, execute, and receipt an exchange.
 
 ## Related Canon
 

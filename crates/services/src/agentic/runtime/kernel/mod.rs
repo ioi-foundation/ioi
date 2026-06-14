@@ -153,7 +153,8 @@ use policy::{
     DiagnosticsRepairAdmissionRequiredError, DiagnosticsRepairAdmissionRequiredRecord,
     DiagnosticsRepairAdmissionRequiredRequest, McpControlAgentStateUpdateCore,
     McpControlAgentStateUpdateError, McpControlAgentStateUpdateRecord,
-    McpControlAgentStateUpdateRequest, McpManagerCatalogProjectionCore,
+    McpControlAgentStateUpdateRequest, McpLiveResultReplayCore, McpLiveResultReplayError,
+    McpLiveResultReplayRecord, McpLiveResultReplayRequest, McpManagerCatalogProjectionCore,
     McpManagerCatalogProjectionError, McpManagerCatalogProjectionRecord,
     McpManagerCatalogProjectionRequest, McpManagerCatalogSummaryProjectionCore,
     McpManagerCatalogSummaryProjectionError, McpManagerCatalogSummaryProjectionRecord,
@@ -162,7 +163,11 @@ use policy::{
     McpManagerStatusProjectionRequest, McpManagerValidationProjectionCore,
     McpManagerValidationProjectionError, McpManagerValidationProjectionRecord,
     McpManagerValidationProjectionRequest, McpServerValidationCore, McpServerValidationError,
-    McpServerValidationRecord, McpServerValidationRequest, MemoryManagerStatusProjectionCore,
+    McpServerValidationInputCore, McpServerValidationInputError, McpServerValidationInputRecord,
+    McpServerValidationInputRequest, McpServerValidationRecord, McpServerValidationRequest,
+    McpToolFetchProjectionCore, McpToolFetchProjectionRecord, McpToolFetchProjectionRequest,
+    McpToolProjectionError, McpToolSearchProjectionCore, McpToolSearchProjectionRecord,
+    McpToolSearchProjectionRequest, MemoryManagerStatusProjectionCore,
     MemoryManagerStatusProjectionError, MemoryManagerStatusProjectionRecord,
     MemoryManagerStatusProjectionRequest, MemoryManagerValidationProjectionCore,
     MemoryManagerValidationProjectionError, MemoryManagerValidationProjectionRecord,
@@ -637,11 +642,25 @@ impl RuntimeKernelService {
         McpControlAgentStateUpdateCore.plan(request)
     }
 
+    pub fn project_mcp_live_result_replay(
+        &self,
+        request: &McpLiveResultReplayRequest,
+    ) -> Result<McpLiveResultReplayRecord, McpLiveResultReplayError> {
+        McpLiveResultReplayCore.project(request)
+    }
+
     pub fn validate_mcp_servers(
         &self,
         request: &McpServerValidationRequest,
     ) -> Result<McpServerValidationRecord, McpServerValidationError> {
         McpServerValidationCore.validate(request)
+    }
+
+    pub fn project_mcp_server_validation_input(
+        &self,
+        request: &McpServerValidationInputRequest,
+    ) -> Result<McpServerValidationInputRecord, McpServerValidationInputError> {
+        McpServerValidationInputCore.project(request)
     }
 
     pub fn plan_mcp_manager_validation_projection(
@@ -686,6 +705,20 @@ impl RuntimeKernelService {
     ) -> Result<McpManagerCatalogSummaryProjectionRecord, McpManagerCatalogSummaryProjectionError>
     {
         McpManagerCatalogSummaryProjectionCore.project(request)
+    }
+
+    pub fn project_mcp_tool_search_projection(
+        &self,
+        request: &McpToolSearchProjectionRequest,
+    ) -> Result<McpToolSearchProjectionRecord, McpToolProjectionError> {
+        McpToolSearchProjectionCore.project(request)
+    }
+
+    pub fn project_mcp_tool_fetch_projection(
+        &self,
+        request: &McpToolFetchProjectionRequest,
+    ) -> Result<McpToolFetchProjectionRecord, McpToolProjectionError> {
+        McpToolFetchProjectionCore.project(request)
     }
 
     pub fn plan_thread_memory_agent_state_update(

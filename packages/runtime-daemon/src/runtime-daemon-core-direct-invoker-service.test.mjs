@@ -13,6 +13,7 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
   const runtimeControlCalls = [];
   const threadLifecycleCalls = [];
   const workspaceTrustCalls = [];
+  const mcpCalls = [];
   const threadMemoryCalls = [];
   const agentgresCalls = [];
   const approvalCalls = [];
@@ -106,6 +107,28 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
             event_kind: "workspace.trust_warning",
             receipt_refs: ["receipt://workspace-trust/direct"],
           },
+        };
+      },
+    },
+    daemonCoreMcpApi: {
+      planMcpManagerStatusProjection(request) {
+        mcpCalls.push({ method: "planMcpManagerStatusProjection", request });
+        return {
+          source: "direct_mcp_api",
+          backend: "rust_policy",
+          status: "ready",
+          server_count: request.servers?.length ?? 0,
+          tool_count: request.tools?.length ?? 0,
+          resource_count: request.resources?.length ?? 0,
+          prompt_count: request.prompts?.length ?? 0,
+          enabled_server_count: request.servers?.filter((server) => server?.enabled !== false).length ?? 0,
+          enabled_tool_count: request.enabled_tools?.length ?? 0,
+          servers: request.servers ?? [],
+          tools: request.tools ?? [],
+          resources: request.resources ?? [],
+          prompts: request.prompts ?? [],
+          validation: request.validation ?? {},
+          routes: request.routes ?? {},
         };
       },
     },
@@ -261,6 +284,24 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
   assert.equal(Object.hasOwn(workspaceTrustCalls[0].request, "backend"), false);
   assert.equal(workspaceTrustPlan.source, "direct_workspace_trust_api");
   assert.equal(workspaceTrustPlan.event.event_kind, "workspace.trust_warning");
+  const mcpStatus = store.contextPolicyCore.planMcpManagerStatusProjection({
+    servers: [{ id: "mcp.docs", enabled: true }],
+    tools: [{ stable_tool_id: "mcp.docs.search" }],
+    resources: [],
+    prompts: [],
+    enabled_tools: [{ stable_tool_id: "mcp.docs.search" }],
+  });
+  assert.equal(calls.length, 0);
+  assert.equal(mcpCalls.length, 1);
+  assert.equal(mcpCalls[0].method, "planMcpManagerStatusProjection");
+  assert.equal(
+    mcpCalls[0].request.schema_version,
+    "ioi.runtime.mcp-manager-status-projection-request.v1",
+  );
+  assert.equal(Object.hasOwn(mcpCalls[0].request, "operation"), false);
+  assert.equal(Object.hasOwn(mcpCalls[0].request, "backend"), false);
+  assert.equal(mcpStatus.source, "direct_mcp_api");
+  assert.equal(mcpStatus.server_count, 1);
   const memoryPlan = store.contextPolicyCore.planRuntimeMemoryControl({
     operation: "write",
     operation_kind: "memory.write",

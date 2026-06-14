@@ -173,6 +173,17 @@ export const RUNTIME_CONTROL_RUN_CANCEL_ADMISSION_REQUIRED_API_METHOD =
 export const THREAD_LIFECYCLE_THREAD_CONTROL_AGENT_STATE_UPDATE_API_METHOD =
   "planThreadControlAgentStateUpdate";
 export const WORKSPACE_TRUST_CONTROL_STATE_UPDATE_API_METHOD = "planWorkspaceTrustControlStateUpdate";
+export const MCP_CONTROL_AGENT_STATE_UPDATE_API_METHOD = "planMcpControlAgentStateUpdate";
+export const MCP_LIVE_RESULT_REPLAY_API_METHOD = "projectMcpLiveResultReplay";
+export const MCP_SERVER_VALIDATION_API_METHOD = "validateMcpServers";
+export const MCP_SERVER_VALIDATION_INPUT_API_METHOD = "projectMcpServerValidationInput";
+export const MCP_MANAGER_VALIDATION_PROJECTION_API_METHOD = "planMcpManagerValidationProjection";
+export const MCP_MANAGER_STATUS_PROJECTION_API_METHOD = "planMcpManagerStatusProjection";
+export const MCP_MANAGER_CATALOG_PROJECTION_API_METHOD = "planMcpManagerCatalogProjection";
+export const MCP_MANAGER_CATALOG_SUMMARY_PROJECTION_API_METHOD =
+  "planMcpManagerCatalogSummaryProjection";
+export const MCP_TOOL_SEARCH_PROJECTION_API_METHOD = "projectMcpToolSearchProjection";
+export const MCP_TOOL_FETCH_PROJECTION_API_METHOD = "projectMcpToolFetchProjection";
 export const THREAD_MEMORY_RUNTIME_MEMORY_PROJECTION_API_METHOD =
   "projectRuntimeMemoryProjection";
 export const THREAD_MEMORY_RUNTIME_MEMORY_CONTROL_API_METHOD =
@@ -245,6 +256,7 @@ export class RuntimeContextPolicyCore {
         options.daemonCoreApi?.workspaceTrust ??
         options.daemonCoreApi?.workspace_trust,
     );
+    this.daemonCoreMcpApi = mcpApi(options.daemonCoreMcpApi);
     this.daemonCoreThreadMemoryApi = threadMemoryApi(
       options.daemonCoreThreadMemoryApi ??
         options.daemonCoreApi?.threadMemory ??
@@ -646,83 +658,83 @@ export class RuntimeContextPolicyCore {
   }
 
   planMcpControlAgentStateUpdate(request = {}) {
-    return normalizeMcpControlAgentStateUpdateBridgeResult(this.evaluateRawPolicy({
-      operation: "plan_mcp_control_agent_state_update",
-      schemaVersion: MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+    return normalizeMcpControlAgentStateUpdateApiResult(this.invokeMcpApi(
+      MCP_CONTROL_AGENT_STATE_UPDATE_API_METHOD,
+      MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   projectMcpLiveResultReplay(request = {}) {
-    return normalizeMcpLiveResultReplayBridgeResult(this.evaluateRawPolicy({
-      operation: "project_mcp_live_result_replay",
-      schemaVersion: MCP_LIVE_RESULT_REPLAY_REQUEST_SCHEMA_VERSION,
+    return normalizeMcpLiveResultReplayApiResult(this.invokeMcpApi(
+      MCP_LIVE_RESULT_REPLAY_API_METHOD,
+      MCP_LIVE_RESULT_REPLAY_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   validateMcpServers(request = {}) {
-    return normalizeMcpServerValidationBridgeResult(this.evaluateRawPolicy({
-      operation: "validate_mcp_servers",
-      schemaVersion: MCP_SERVER_VALIDATION_REQUEST_SCHEMA_VERSION,
+    return normalizeMcpServerValidationApiResult(this.invokeMcpApi(
+      MCP_SERVER_VALIDATION_API_METHOD,
+      MCP_SERVER_VALIDATION_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   projectMcpServerValidationInput(request = {}) {
-    return normalizeMcpServerValidationInputBridgeResult(this.evaluateRawPolicy({
-      operation: "project_mcp_server_validation_input",
-      schemaVersion: MCP_SERVER_VALIDATION_INPUT_REQUEST_SCHEMA_VERSION,
+    return normalizeMcpServerValidationInputApiResult(this.invokeMcpApi(
+      MCP_SERVER_VALIDATION_INPUT_API_METHOD,
+      MCP_SERVER_VALIDATION_INPUT_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   planMcpManagerValidationProjection(request = {}) {
-    return normalizeMcpManagerValidationProjectionBridgeResult(this.evaluateRawPolicy({
-      operation: "plan_mcp_manager_validation_projection",
-      schemaVersion: MCP_MANAGER_VALIDATION_PROJECTION_REQUEST_SCHEMA_VERSION,
+    return normalizeMcpManagerValidationProjectionApiResult(this.invokeMcpApi(
+      MCP_MANAGER_VALIDATION_PROJECTION_API_METHOD,
+      MCP_MANAGER_VALIDATION_PROJECTION_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   planMcpManagerStatusProjection(request = {}) {
-    return normalizeMcpManagerStatusProjectionBridgeResult(this.evaluateRawPolicy({
-      operation: "plan_mcp_manager_status_projection",
-      schemaVersion: MCP_MANAGER_STATUS_PROJECTION_REQUEST_SCHEMA_VERSION,
+    return normalizeMcpManagerStatusProjectionApiResult(this.invokeMcpApi(
+      MCP_MANAGER_STATUS_PROJECTION_API_METHOD,
+      MCP_MANAGER_STATUS_PROJECTION_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   planMcpManagerCatalogProjection(request = {}) {
-    return normalizeMcpManagerCatalogProjectionBridgeResult(this.evaluateRawPolicy({
-      operation: "plan_mcp_manager_catalog_projection",
-      schemaVersion: MCP_MANAGER_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION,
+    return normalizeMcpManagerCatalogProjectionApiResult(this.invokeMcpApi(
+      MCP_MANAGER_CATALOG_PROJECTION_API_METHOD,
+      MCP_MANAGER_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   planMcpManagerCatalogSummaryProjection(request = {}) {
-    return normalizeMcpManagerCatalogSummaryProjectionBridgeResult(this.evaluateRawPolicy({
-      operation: "plan_mcp_manager_catalog_summary_projection",
-      schemaVersion: MCP_MANAGER_CATALOG_SUMMARY_PROJECTION_REQUEST_SCHEMA_VERSION,
+    return normalizeMcpManagerCatalogSummaryProjectionApiResult(this.invokeMcpApi(
+      MCP_MANAGER_CATALOG_SUMMARY_PROJECTION_API_METHOD,
+      MCP_MANAGER_CATALOG_SUMMARY_PROJECTION_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   projectMcpToolSearchProjection(request = {}) {
-    return normalizeMcpToolSearchProjectionBridgeResult(this.evaluateRawPolicy({
-      operation: "project_mcp_tool_search_projection",
-      schemaVersion: MCP_TOOL_SEARCH_PROJECTION_REQUEST_SCHEMA_VERSION,
+    return normalizeMcpToolSearchProjectionApiResult(this.invokeMcpApi(
+      MCP_TOOL_SEARCH_PROJECTION_API_METHOD,
+      MCP_TOOL_SEARCH_PROJECTION_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   projectMcpToolFetchProjection(request = {}) {
-    return normalizeMcpToolFetchProjectionBridgeResult(this.evaluateRawPolicy({
-      operation: "project_mcp_tool_fetch_projection",
-      schemaVersion: MCP_TOOL_FETCH_PROJECTION_REQUEST_SCHEMA_VERSION,
+    return normalizeMcpToolFetchProjectionApiResult(this.invokeMcpApi(
+      MCP_TOOL_FETCH_PROJECTION_API_METHOD,
+      MCP_TOOL_FETCH_PROJECTION_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   planMemoryManagerValidationProjection(request = {}) {
@@ -936,6 +948,33 @@ export class RuntimeContextPolicyCore {
       throw new RuntimeContextPolicyCoreError(
         responseError.message ?? "Rust workspace trust policy rejected the request.",
         responseError.code ?? "workspace_trust_direct_api_rejected",
+        { error: responseError },
+      );
+    }
+    return response?.ok === true ? response.result : response;
+  }
+
+  invokeMcpApi(method, schemaVersion, request = {}) {
+    const invoke = this.daemonCoreMcpApi?.[method];
+    if (typeof invoke !== "function") {
+      throw new RuntimeContextPolicyCoreError(
+        `Runtime MCP policy requires daemonCoreMcpApi.${method} for direct Rust daemon-core MCP evaluation.`,
+        "runtime_context_policy_core_direct_mcp_api_unconfigured",
+        {
+          boundary: `daemonCoreMcpApi.${method}`,
+          backend: RUST_CONTEXT_POLICY_BACKEND,
+        },
+      );
+    }
+    const response = invoke.call(this.daemonCoreMcpApi, {
+      ...(objectRecord(request) ?? {}),
+      schema_version: schemaVersion,
+    });
+    const responseError = objectRecord(response?.error);
+    if (response?.ok === false && responseError) {
+      throw new RuntimeContextPolicyCoreError(
+        responseError.message ?? "Rust MCP policy rejected the request.",
+        responseError.code ?? "mcp_direct_api_rejected",
         { error: responseError },
       );
     }
@@ -2548,7 +2587,7 @@ export function normalizeWorkspaceTrustControlStateUpdateBridgeResult(value = {}
   };
 }
 
-export function normalizeMcpControlAgentStateUpdateBridgeResult(value = {}) {
+export function normalizeMcpControlAgentStateUpdateApiResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   return {
@@ -2556,7 +2595,7 @@ export function normalizeMcpControlAgentStateUpdateBridgeResult(value = {}) {
     source:
       result.source ??
       record.source ??
-      "rust_mcp_control_agent_state_update_command",
+      "rust_mcp_control_agent_state_update_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
@@ -2571,7 +2610,7 @@ export function normalizeMcpControlAgentStateUpdateBridgeResult(value = {}) {
   };
 }
 
-export function normalizeMcpLiveResultReplayBridgeResult(value = {}) {
+export function normalizeMcpLiveResultReplayApiResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   const latestResult = objectRecord(result.latest_result ?? record.latest_result);
@@ -2585,7 +2624,7 @@ export function normalizeMcpLiveResultReplayBridgeResult(value = {}) {
   const results = arrayValue(result.results ?? record.results);
   return {
     ...record,
-    source: result.source ?? record.source ?? "rust_mcp_live_result_replay_command",
+    source: result.source ?? record.source ?? "rust_mcp_live_result_replay_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     schema_version: optionalString(result.schema_version ?? record.schema_version) ?? null,
     object: optionalString(result.object ?? record.object) ?? null,
@@ -2598,7 +2637,7 @@ export function normalizeMcpLiveResultReplayBridgeResult(value = {}) {
   };
 }
 
-export function normalizeMcpServerValidationBridgeResult(value = {}) {
+export function normalizeMcpServerValidationApiResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   const issues = arrayValue(result.issues ?? record.issues);
@@ -2606,7 +2645,7 @@ export function normalizeMcpServerValidationBridgeResult(value = {}) {
   const ok = Boolean(result.ok ?? record.ok);
   return {
     ...record,
-    source: result.source ?? record.source ?? "rust_mcp_server_validation_command",
+    source: result.source ?? record.source ?? "rust_mcp_server_validation_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     status:
       optionalString(result.status ?? record.status) ??
@@ -2620,13 +2659,13 @@ export function normalizeMcpServerValidationBridgeResult(value = {}) {
   };
 }
 
-export function normalizeMcpServerValidationInputBridgeResult(value = {}) {
+export function normalizeMcpServerValidationInputApiResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   const servers = arrayValue(result.servers ?? record.servers);
   return {
     ...record,
-    source: result.source ?? record.source ?? "rust_mcp_server_validation_input_command",
+    source: result.source ?? record.source ?? "rust_mcp_server_validation_input_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     status: optionalString(result.status ?? record.status) ?? "projected",
     workspace_root: optionalString(result.workspace_root ?? record.workspace_root) ?? null,
@@ -2635,13 +2674,13 @@ export function normalizeMcpServerValidationInputBridgeResult(value = {}) {
   };
 }
 
-export function normalizeMcpManagerStatusProjectionBridgeResult(value = {}) {
+export function normalizeMcpManagerStatusProjectionApiResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   const enabledToolCount = numberValue(result.enabled_tool_count ?? record.enabled_tool_count);
   return {
     ...record,
-    source: result.source ?? record.source ?? "rust_mcp_manager_status_projection_command",
+    source: result.source ?? record.source ?? "rust_mcp_manager_status_projection_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     schema_version: optionalString(result.schema_version ?? record.schema_version) ?? null,
     object: optionalString(result.object ?? record.object) ?? null,
@@ -2662,7 +2701,7 @@ export function normalizeMcpManagerStatusProjectionBridgeResult(value = {}) {
   };
 }
 
-export function normalizeMcpManagerValidationProjectionBridgeResult(value = {}) {
+export function normalizeMcpManagerValidationProjectionApiResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   const issues = arrayValue(result.issues ?? record.issues);
@@ -2673,7 +2712,7 @@ export function normalizeMcpManagerValidationProjectionBridgeResult(value = {}) 
     source:
       result.source ??
       record.source ??
-      "rust_mcp_manager_validation_projection_command",
+      "rust_mcp_manager_validation_projection_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     schema_version: optionalString(result.schema_version ?? record.schema_version) ?? null,
     object: optionalString(result.object ?? record.object) ?? null,
@@ -2761,7 +2800,7 @@ export function normalizeMemoryManagerValidationProjectionBridgeResult(value = {
   };
 }
 
-export function normalizeMcpManagerCatalogProjectionBridgeResult(value = {}) {
+export function normalizeMcpManagerCatalogProjectionApiResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   const tools = arrayValue(result.tools ?? record.tools);
@@ -2770,7 +2809,7 @@ export function normalizeMcpManagerCatalogProjectionBridgeResult(value = {}) {
   const enabledTools = arrayValue(result.enabled_tools ?? record.enabled_tools);
   return {
     ...record,
-    source: result.source ?? record.source ?? "rust_mcp_manager_catalog_projection_command",
+    source: result.source ?? record.source ?? "rust_mcp_manager_catalog_projection_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     schema_version: optionalString(result.schema_version ?? record.schema_version) ?? null,
     object: optionalString(result.object ?? record.object) ?? null,
@@ -2790,7 +2829,7 @@ export function normalizeMcpManagerCatalogProjectionBridgeResult(value = {}) {
   };
 }
 
-export function normalizeMcpManagerCatalogSummaryProjectionBridgeResult(value = {}) {
+export function normalizeMcpManagerCatalogSummaryProjectionApiResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   const namespaces = arrayValue(result.namespaces ?? record.namespaces);
@@ -2801,7 +2840,7 @@ export function normalizeMcpManagerCatalogSummaryProjectionBridgeResult(value = 
     source:
       result.source ??
       record.source ??
-      "rust_mcp_manager_catalog_summary_projection_command",
+      "rust_mcp_manager_catalog_summary_projection_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     schema_version: optionalString(result.schema_version ?? record.schema_version) ?? null,
     object: optionalString(result.object ?? record.object) ?? null,
@@ -2827,14 +2866,14 @@ export function normalizeMcpManagerCatalogSummaryProjectionBridgeResult(value = 
   };
 }
 
-export function normalizeMcpToolSearchProjectionBridgeResult(value = {}) {
+export function normalizeMcpToolSearchProjectionApiResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   const tools = arrayValue(result.tools ?? record.tools);
   const catalogSummaries = arrayValue(result.catalog_summaries ?? record.catalog_summaries);
   return {
     ...record,
-    source: result.source ?? record.source ?? "rust_mcp_tool_search_projection_command",
+    source: result.source ?? record.source ?? "rust_mcp_tool_search_projection_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     schema_version: optionalString(result.schema_version ?? record.schema_version) ?? null,
     object: optionalString(result.object ?? record.object) ?? null,
@@ -2859,13 +2898,13 @@ export function normalizeMcpToolSearchProjectionBridgeResult(value = {}) {
   };
 }
 
-export function normalizeMcpToolFetchProjectionBridgeResult(value = {}) {
+export function normalizeMcpToolFetchProjectionApiResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   const tool = objectRecord(result.tool ?? record.tool);
   return {
     ...record,
-    source: result.source ?? record.source ?? "rust_mcp_tool_fetch_projection_command",
+    source: result.source ?? record.source ?? "rust_mcp_tool_fetch_projection_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     schema_version: optionalString(result.schema_version ?? record.schema_version) ?? null,
     object: optionalString(result.object ?? record.object) ?? null,
@@ -3129,6 +3168,10 @@ function threadLifecycleApi(value) {
 }
 
 function workspaceTrustApi(value) {
+  return objectRecord(value);
+}
+
+function mcpApi(value) {
   return objectRecord(value);
 }
 

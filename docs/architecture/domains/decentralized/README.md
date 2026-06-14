@@ -12,7 +12,8 @@ Last alignment pass: 2026-06-14.
 
 ## Canonical Definition
 
-The active `decentralized.*` canon has two Wallet-native route surfaces:
+The active `decentralized.*` canon has two Wallet-consumed
+route-intelligence engines:
 
 ```text
 decentralized.exchange
@@ -22,8 +23,14 @@ decentralized.trade
   route exposure / manage positions and event markets
 ```
 
-They are not wallets, brokers, custodians, chains, liquidity owners, or
-settlement layers. They propose candidates.
+They are not wallets, brokers, custodians, chains, liquidity owners, settlement
+layers, or required destination UIs. They expose API/RPC/SDK candidate
+services that Wallet, Hypervisor, agents, and third-party clients may consume.
+
+Wallet is the user-facing authority cockpit. `decentralized.exchange` and
+`decentralized.trade` may have docs, explorers, adapter registries, or
+lightweight standalone surfaces, but the canonical Wallet user does not need to
+leave Wallet to exchange or trade.
 
 ```text
 Candidates are proposed.
@@ -60,9 +67,11 @@ This directory owns:
 - the meaning of the `decentralized.*` names;
 - active versus parked status for `decentralized.exchange`,
   `decentralized.trade`, and `decentralized.cloud`;
+- the route-intelligence / venue-intelligence engine boundary;
 - cross-lane proposal/authority/execution/truth/settlement boundaries;
 - route-source and venue-adapter non-ownership doctrine;
-- anti-patterns for treating route surfaces as authority or custody.
+- anti-patterns for treating route/venue intelligence engines as authority,
+  custody, or required user destinations.
 
 ## Does Not Own
 
@@ -80,13 +89,14 @@ This directory does not own:
 
 ```text
 decentralized.exchange
-  proposes asset-conversion candidates
+  exposes route-intelligence and proposes asset-conversion candidates
 
 decentralized.trade
-  proposes exposure, event-market, and venue-action candidates
+  exposes venue/market intelligence and proposes exposure, event-market,
+  and venue-action candidates
 
 wallet.network
-  authorizes or denies exact intents
+  presents the user-facing cockpit and authorizes or denies exact intents
 
 Hypervisor
   executes autonomous work and provider-backed workloads
@@ -105,6 +115,9 @@ IOI L1
 - No route or trade candidate can execute until selected into a
   wallet.network-approved intent where funds, authority, secrets, private data,
   or consequential work are involved.
+- Wallet app UI must be able to consume `decentralized.exchange` and
+  `decentralized.trade` as route/venue intelligence services without requiring
+  the user to visit those domains first.
 - No `decentralized.*` surface can claim to own liquidity, user positions,
   venue execution, provider resources, storage truth, or settlement truth.
 - Prediction markets and event contracts belong under `decentralized.trade` as

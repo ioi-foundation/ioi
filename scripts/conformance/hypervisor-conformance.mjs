@@ -2153,9 +2153,9 @@ function runDocs() {
         implementationMatrix,
       ) &&
       /MCP manager\/catalog\/helper source-mode, source metadata, config-compatibility,\s+server tool-exposure, resource\/prompt catalog, transport\/containment, and validation secret-ref handoffs now use canonical snake_case fields/.test(implementationMatrix) &&
-      /public MCP validation input projection now routes raw canonical `mcp_json`\/`mcp_servers`\s+input through Rust daemon-core `McpServerValidationInputCore`\/`project_mcp_server_validation_input` migration transport/.test(implementationMatrix) &&
-      /public MCP validation decisions now send Rust-projected canonical server records through Rust\s+daemon-core `McpServerValidationCore`\/`validate_mcp_servers` migration transport/.test(implementationMatrix) &&
-      /public MCP validation envelopes now route through Rust daemon-core\s+`McpManagerValidationProjectionCore`\/`plan_mcp_manager_validation_projection`/.test(implementationMatrix) &&
+      /MCP validation input projection, server validation, validation\/status\/catalog\/catalog-summary envelopes, live-result replay, and tool search\/fetch now call typed `daemonCoreMcpApi` methods/.test(implementationMatrix) &&
+      /old MCP command-response wrappers, bridge request structs, command-protocol operations, command-dispatch arms, generic `daemonCoreApi\.mcp` compatibility mount, and `mcp-manager\.mjs` generic invoker handoff are retired/.test(implementationMatrix) &&
+      /MCP validation, catalog\/status projection, catalog summary, MCP control state-update, and live-result replay core semantics live in `policy\/mcp_memory\.rs`/.test(implementationMatrix) &&
       /public MCP status plus agent-scoped `mcpStatusForAgent` catalog row inputs now\s+route through Rust daemon-core `McpManagerCatalogProjectionCore`\/`plan_mcp_manager_catalog_projection`/.test(implementationMatrix) &&
       /public MCP list\/search\/fetch catalog row inputs now route through Rust daemon-core\s+`McpManagerCatalogProjectionCore`\/`plan_mcp_manager_catalog_projection` instead of JS\s+`mcpToolsForServers`\/`mcpResourcesForServers`\/`mcpPromptsForServers` builders/.test(implementationMatrix) &&
 	      /contextual catalog projection now sends runtime `state_dir`, `thread_id`, and `agent_id`\s+so Rust replays admitted `agents\/\*\.json` before returning contextual server rows/.test(implementationMatrix) &&
@@ -4126,10 +4126,13 @@ function runBridge() {
       /this\.daemonCoreWorkspaceTrustApi = options\.daemonCoreWorkspaceTrustApi/.test(
         runtimeDaemonIndex,
       ) &&
+      /this\.daemonCoreMcpApi = options\.daemonCoreMcpApi/.test(
+        runtimeDaemonIndex,
+      ) &&
       /this\.daemonCoreThreadMemoryApi = options\.daemonCoreThreadMemoryApi/.test(
         runtimeDaemonIndex,
       ) &&
-      /createRuntimeContextPolicyCore\(\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*daemonCoreContextLifecycleApi: this\.daemonCoreContextLifecycleApi,\s*daemonCoreRuntimeControlApi: this\.daemonCoreRuntimeControlApi,\s*daemonCoreThreadLifecycleApi: this\.daemonCoreThreadLifecycleApi,\s*daemonCoreWorkspaceTrustApi: this\.daemonCoreWorkspaceTrustApi,\s*daemonCoreThreadMemoryApi: this\.daemonCoreThreadMemoryApi,\s*\}\)/.test(
+      /createRuntimeContextPolicyCore\(\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*daemonCoreContextLifecycleApi: this\.daemonCoreContextLifecycleApi,\s*daemonCoreRuntimeControlApi: this\.daemonCoreRuntimeControlApi,\s*daemonCoreThreadLifecycleApi: this\.daemonCoreThreadLifecycleApi,\s*daemonCoreWorkspaceTrustApi: this\.daemonCoreWorkspaceTrustApi,\s*daemonCoreMcpApi: this\.daemonCoreMcpApi,\s*daemonCoreThreadMemoryApi: this\.daemonCoreThreadMemoryApi,\s*\}\)/.test(
         runtimeDaemonIndex,
       ) &&
       /daemonCoreContextLifecycleApi:\s*\{[\s\S]*?evaluateContextBudgetPolicy\(request\)/.test(
@@ -8100,40 +8103,68 @@ function runBridge() {
     result,
     "mcp-memory-command-envelope-owned-by-rust-core",
       /pub struct McpMemoryCommandError/.test(policyMcpMemoryCore) &&
-      /pub fn plan_mcp_control_agent_state_update_response/.test(policyMcpMemoryCore) &&
-      /pub fn project_mcp_live_result_replay_response/.test(policyMcpMemoryCore) &&
-      /pub fn validate_mcp_servers_response/.test(policyMcpMemoryCore) &&
-      /pub fn project_mcp_server_validation_input_response/.test(policyMcpMemoryCore) &&
-      /pub fn plan_mcp_manager_status_projection_response/.test(policyMcpMemoryCore) &&
-      /pub fn plan_mcp_manager_catalog_projection_response/.test(policyMcpMemoryCore) &&
-      /pub fn plan_mcp_manager_catalog_summary_projection_response/.test(
+      !/pub fn plan_mcp_control_agent_state_update_response/.test(policyMcpMemoryCore) &&
+      !/pub fn project_mcp_live_result_replay_response/.test(policyMcpMemoryCore) &&
+      !/pub fn validate_mcp_servers_response/.test(policyMcpMemoryCore) &&
+      !/pub fn project_mcp_server_validation_input_response/.test(policyMcpMemoryCore) &&
+      !/pub fn plan_mcp_manager_status_projection_response/.test(policyMcpMemoryCore) &&
+      !/pub fn plan_mcp_manager_catalog_projection_response/.test(policyMcpMemoryCore) &&
+      !/pub fn plan_mcp_manager_catalog_summary_projection_response/.test(
         policyMcpMemoryCore,
       ) &&
-      /pub fn plan_mcp_manager_validation_projection_response/.test(policyMcpMemoryCore) &&
+      !/pub fn plan_mcp_manager_validation_projection_response/.test(policyMcpMemoryCore) &&
+      !/pub fn project_mcp_tool_search_projection_response/.test(policyMcpMemoryCore) &&
+      !/pub fn project_mcp_tool_fetch_projection_response/.test(policyMcpMemoryCore) &&
+      !/McpControlAgentStateUpdateBridgeRequest/.test(policyMcpMemoryCore) &&
+      !/McpLiveResultReplayBridgeRequest/.test(policyMcpMemoryCore) &&
+      !/McpServerValidationBridgeRequest/.test(policyMcpMemoryCore) &&
+      !/McpServerValidationInputBridgeRequest/.test(policyMcpMemoryCore) &&
+      !/McpManagerStatusProjectionBridgeRequest/.test(policyMcpMemoryCore) &&
+      !/McpManagerCatalogProjectionBridgeRequest/.test(policyMcpMemoryCore) &&
+      !/McpManagerCatalogSummaryProjectionBridgeRequest/.test(policyMcpMemoryCore) &&
+      !/McpManagerValidationProjectionBridgeRequest/.test(policyMcpMemoryCore) &&
+      !/McpToolSearchProjectionBridgeRequest/.test(policyMcpMemoryCore) &&
+      !/McpToolFetchProjectionBridgeRequest/.test(policyMcpMemoryCore) &&
+      /McpControlAgentStateUpdateCore/.test(policyMcpMemoryCore) &&
+      /McpLiveResultReplayCore/.test(policyMcpMemoryCore) &&
+      /McpServerValidationCore/.test(policyMcpMemoryCore) &&
+      /McpServerValidationInputCore/.test(policyMcpMemoryCore) &&
+      /McpManagerStatusProjectionCore/.test(policyMcpMemoryCore) &&
+      /McpManagerCatalogProjectionCore/.test(policyMcpMemoryCore) &&
+      /McpManagerCatalogSummaryProjectionCore/.test(policyMcpMemoryCore) &&
+      /McpManagerValidationProjectionCore/.test(policyMcpMemoryCore) &&
+      /McpToolSearchProjectionCore/.test(policyMcpMemoryCore) &&
+      /McpToolFetchProjectionCore/.test(policyMcpMemoryCore) &&
+      /pub fn plan_mcp_control_agent_state_update/.test(kernelModuleForBridgeChecks) &&
+      /pub fn project_mcp_live_result_replay/.test(kernelModuleForBridgeChecks) &&
+      /pub fn validate_mcp_servers/.test(kernelModuleForBridgeChecks) &&
+      /pub fn project_mcp_server_validation_input/.test(kernelModuleForBridgeChecks) &&
+      /pub fn plan_mcp_manager_status_projection/.test(kernelModuleForBridgeChecks) &&
+      /pub fn plan_mcp_manager_catalog_projection/.test(kernelModuleForBridgeChecks) &&
+      /pub fn plan_mcp_manager_catalog_summary_projection/.test(kernelModuleForBridgeChecks) &&
+      /pub fn plan_mcp_manager_validation_projection/.test(kernelModuleForBridgeChecks) &&
+      /pub fn project_mcp_tool_search_projection/.test(kernelModuleForBridgeChecks) &&
+      /pub fn project_mcp_tool_fetch_projection/.test(kernelModuleForBridgeChecks) &&
+      /mcp_control_catalog_command_transport_is_retired/.test(commandProtocolCore) &&
+      !/CommandOperation::(?:PlanMcpControlAgentStateUpdate|ProjectMcpLiveResultReplay|ValidateMcpServers|ProjectMcpServerValidationInput|PlanMcpManagerStatusProjection|PlanMcpManagerCatalogProjection|PlanMcpManagerCatalogSummaryProjection|PlanMcpManagerValidationProjection|ProjectMcpToolSearchProjection|ProjectMcpToolFetchProjection)/.test(commandProtocolCore) &&
       /pub fn plan_memory_manager_status_projection_response/.test(policyMcpMemoryCore) &&
       /pub fn plan_memory_manager_validation_projection_response/.test(
         policyMcpMemoryCore,
       ) &&
       /pub fn plan_thread_memory_agent_state_update_response/.test(policyMcpMemoryCore) &&
-      /rust_mcp_control_agent_state_update_command/.test(policyMcpMemoryCore) &&
-      /rust_mcp_live_result_replay_command/.test(policyMcpMemoryCore) &&
-      /rust_mcp_server_validation_command/.test(policyMcpMemoryCore) &&
-      /rust_mcp_server_validation_input_command/.test(policyMcpMemoryCore) &&
-      /rust_mcp_manager_status_projection_command/.test(policyMcpMemoryCore) &&
-      /rust_mcp_manager_catalog_projection_command/.test(policyMcpMemoryCore) &&
-      /rust_mcp_manager_catalog_summary_projection_command/.test(policyMcpMemoryCore) &&
-      /rust_mcp_manager_validation_projection_command/.test(policyMcpMemoryCore) &&
+      !/rust_mcp_control_agent_state_update_api/.test(policyMcpMemoryCore) &&
+      !/rust_mcp_live_result_replay_api/.test(policyMcpMemoryCore) &&
+      !/rust_mcp_server_validation_api/.test(policyMcpMemoryCore) &&
+      !/rust_mcp_server_validation_input_api/.test(policyMcpMemoryCore) &&
+      !/rust_mcp_manager_status_projection_api/.test(policyMcpMemoryCore) &&
+      !/rust_mcp_manager_catalog_projection_api/.test(policyMcpMemoryCore) &&
+      !/rust_mcp_manager_catalog_summary_projection_api/.test(policyMcpMemoryCore) &&
+      !/rust_mcp_manager_validation_projection_api/.test(policyMcpMemoryCore) &&
+      !/rust_mcp_tool_search_projection_api/.test(policyMcpMemoryCore) &&
+      !/rust_mcp_tool_fetch_projection_api/.test(policyMcpMemoryCore) &&
       /rust_memory_manager_status_projection_command/.test(policyMcpMemoryCore) &&
       /rust_memory_manager_validation_projection_command/.test(policyMcpMemoryCore) &&
       /rust_thread_memory_agent_state_update_command/.test(policyMcpMemoryCore) &&
-      /rust_policy_shapes_mcp_control_agent_state_update_command_response/.test(policyMcpMemoryCore) &&
-      /rust_policy_shapes_mcp_live_result_replay_command_response/.test(policyMcpMemoryCore) &&
-      /rust_policy_shapes_mcp_server_validation_command_response/.test(policyMcpMemoryCore) &&
-      /rust_policy_shapes_mcp_server_validation_input_command_response/.test(policyMcpMemoryCore) &&
-      /rust_policy_shapes_mcp_manager_status_command_response/.test(policyMcpMemoryCore) &&
-      /rust_policy_shapes_mcp_manager_catalog_command_response/.test(policyMcpMemoryCore) &&
-      /rust_policy_shapes_mcp_manager_catalog_summary_command_response/.test(policyMcpMemoryCore) &&
-      /rust_policy_shapes_mcp_manager_validation_command_response/.test(policyMcpMemoryCore) &&
       /rust_policy_shapes_memory_manager_status_command_response/.test(policyMcpMemoryCore) &&
       /rust_policy_shapes_memory_manager_validation_command_response/.test(policyMcpMemoryCore) &&
       /rust_policy_shapes_thread_memory_agent_state_update_command_response/.test(policyMcpMemoryCore) &&
@@ -12386,69 +12417,66 @@ function runBridge() {
         mcpControlAgentStateUpdateCoreBlock,
       ) &&
       !mcpMemoryCommandBridgeExists && !/mod mcp_memory_command;/.test(bridgeModule) &&
-      /pub fn plan_mcp_control_agent_state_update_response/.test(policyMcpMemoryCore) &&
-      /pub fn project_mcp_live_result_replay_response/.test(policyMcpMemoryCore) &&
-      /rust_mcp_control_agent_state_update_command/.test(policyMcpMemoryCore) &&
-      /rust_mcp_live_result_replay_command/.test(policyMcpMemoryCore) &&
-      /rust_policy_shapes_mcp_control_agent_state_update_command_response/.test(policyMcpMemoryCore) &&
-      /rust_policy_shapes_mcp_live_result_replay_command_response/.test(policyMcpMemoryCore) &&
+      !/pub fn plan_mcp_control_agent_state_update_response/.test(policyMcpMemoryCore) &&
+      !/pub fn project_mcp_live_result_replay_response/.test(policyMcpMemoryCore) &&
+      !/rust_mcp_control_agent_state_update_command/.test(policyMcpMemoryCore) &&
+      !/rust_mcp_live_result_replay_command/.test(policyMcpMemoryCore) &&
+      !/rust_policy_shapes_mcp_control_agent_state_update_command_response/.test(policyMcpMemoryCore) &&
+      !/rust_policy_shapes_mcp_live_result_replay_command_response/.test(policyMcpMemoryCore) &&
       !/plan_mcp_control_agent_state_update_response as plan_mcp_control_agent_state_update/.test(bridgeModule) &&
       !/project_mcp_live_result_replay_response as project_mcp_live_result_replay/.test(bridgeModule) &&
       !/McpControlAgentStateUpdateBridgeRequest/.test(bridgeModule) &&
       !/McpLiveResultReplayBridgeRequest/.test(bridgeModule) &&
       !/bridge_plans_mcp_control_agent_state_update_through_rust_core/.test(bridgeModule) &&
-      /pub fn validate_mcp_servers_response/.test(policyMcpMemoryCore) &&
-      /rust_mcp_server_validation_command/.test(policyMcpMemoryCore) &&
-      /rust_policy_shapes_mcp_server_validation_command_response/.test(policyMcpMemoryCore) &&
+      !/pub fn validate_mcp_servers_response/.test(policyMcpMemoryCore) &&
+      !/rust_mcp_server_validation_command/.test(policyMcpMemoryCore) &&
+      !/rust_policy_shapes_mcp_server_validation_command_response/.test(policyMcpMemoryCore) &&
       !/validate_mcp_servers_response as validate_mcp_servers/.test(bridgeModule) &&
       !/McpServerValidationBridgeRequest/.test(bridgeModule) &&
       !/bridge_validates_mcp_servers_through_rust_core/.test(bridgeModule) &&
-      /pub fn project_mcp_server_validation_input_response/.test(policyMcpMemoryCore) &&
-      /rust_mcp_server_validation_input_command/.test(policyMcpMemoryCore) &&
-      /rust_policy_shapes_mcp_server_validation_input_command_response/.test(policyMcpMemoryCore) &&
+      !/pub fn project_mcp_server_validation_input_response/.test(policyMcpMemoryCore) &&
+      !/rust_mcp_server_validation_input_command/.test(policyMcpMemoryCore) &&
+      !/rust_policy_shapes_mcp_server_validation_input_command_response/.test(policyMcpMemoryCore) &&
       !/project_mcp_server_validation_input_response as project_mcp_server_validation_input/.test(bridgeModule) &&
       !/McpServerValidationInputBridgeRequest/.test(bridgeModule) &&
       !/bridge_projects_mcp_server_validation_input_through_rust_core/.test(bridgeModule) &&
-      /pub fn plan_mcp_manager_status_projection_response/.test(policyMcpMemoryCore) &&
-      /rust_mcp_manager_status_projection_command/.test(policyMcpMemoryCore) &&
-      /rust_policy_shapes_mcp_manager_status_command_response/.test(policyMcpMemoryCore) &&
+      !/pub fn plan_mcp_manager_status_projection_response/.test(policyMcpMemoryCore) &&
+      !/rust_mcp_manager_status_projection_command/.test(policyMcpMemoryCore) &&
+      !/rust_policy_shapes_mcp_manager_status_command_response/.test(policyMcpMemoryCore) &&
       !/plan_mcp_manager_status_projection_response as plan_mcp_manager_status_projection/.test(bridgeModule) &&
       !/McpManagerStatusProjectionBridgeRequest/.test(bridgeModule) &&
       !/bridge_projects_mcp_manager_status_through_rust_core/.test(bridgeModule) &&
-      /pub fn plan_mcp_manager_catalog_projection_response/.test(policyMcpMemoryCore) &&
-      /rust_mcp_manager_catalog_projection_command/.test(policyMcpMemoryCore) &&
-      /rust_policy_shapes_mcp_manager_catalog_command_response/.test(policyMcpMemoryCore) &&
+      !/pub fn plan_mcp_manager_catalog_projection_response/.test(policyMcpMemoryCore) &&
+      !/rust_mcp_manager_catalog_projection_command/.test(policyMcpMemoryCore) &&
+      !/rust_policy_shapes_mcp_manager_catalog_command_response/.test(policyMcpMemoryCore) &&
       !/plan_mcp_manager_catalog_projection_response as plan_mcp_manager_catalog_projection/.test(bridgeModule) &&
       !/McpManagerCatalogProjectionBridgeRequest/.test(bridgeModule) &&
       !/bridge_projects_mcp_manager_catalog_through_rust_core/.test(bridgeModule) &&
-	      /pub fn plan_mcp_manager_catalog_summary_projection_response/.test(
+	      !/pub fn plan_mcp_manager_catalog_summary_projection_response/.test(
 	        policyMcpMemoryCore,
 	      ) &&
-	      /rust_mcp_manager_catalog_summary_projection_command/.test(policyMcpMemoryCore) &&
-	      /rust_policy_shapes_mcp_manager_catalog_summary_command_response/.test(policyMcpMemoryCore) &&
+	      !/rust_mcp_manager_catalog_summary_projection_command/.test(policyMcpMemoryCore) &&
+	      !/rust_policy_shapes_mcp_manager_catalog_summary_command_response/.test(policyMcpMemoryCore) &&
 	      /McpToolSearchProjectionCore/.test(policyMcpMemoryCore) &&
 	      /McpToolFetchProjectionCore/.test(policyMcpMemoryCore) &&
 	      /McpToolSearchProjectionRequest/.test(policyMcpMemoryCore) &&
 	      /McpToolFetchProjectionRequest/.test(policyMcpMemoryCore) &&
 	      /MCP_TOOL_SEARCH_PROJECTION_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
 	      /MCP_TOOL_FETCH_PROJECTION_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
-	      /pub fn project_mcp_tool_search_projection_response/.test(policyMcpMemoryCore) &&
-	      /pub fn project_mcp_tool_fetch_projection_response/.test(policyMcpMemoryCore) &&
-	      /rust_mcp_tool_search_projection_command/.test(policyMcpMemoryCore) &&
-	      /rust_mcp_tool_fetch_projection_command/.test(policyMcpMemoryCore) &&
+	      !/pub fn project_mcp_tool_search_projection_response/.test(policyMcpMemoryCore) &&
+	      !/pub fn project_mcp_tool_fetch_projection_response/.test(policyMcpMemoryCore) &&
+	      !/rust_mcp_tool_search_projection_command/.test(policyMcpMemoryCore) &&
+	      !/rust_mcp_tool_fetch_projection_command/.test(policyMcpMemoryCore) &&
 	      /runtime_mcp_tool_search_rust_projection/.test(policyMcpMemoryCore) &&
 	      /runtime_mcp_tool_fetch_rust_projection/.test(policyMcpMemoryCore) &&
 	      /runtime_mcp_catalog_js_search_filter_retired/.test(policyMcpMemoryCore) &&
 	      /runtime_mcp_catalog_fetch_js_shape_retired/.test(policyMcpMemoryCore) &&
 	      /rust_policy_projects_mcp_tool_search_without_js_filtering/.test(policyMcpMemoryCore) &&
 	      /rust_policy_projects_mcp_tool_fetch_and_not_found_status/.test(policyMcpMemoryCore) &&
-	      /rust_policy_shapes_mcp_tool_search_and_fetch_command_responses/.test(policyMcpMemoryCore) &&
-	      /"project_mcp_tool_search_projection"/.test(commandProtocolCore) &&
-	      /"project_mcp_tool_fetch_projection"/.test(commandProtocolCore) &&
-	      /ProjectMcpToolSearchProjection/.test(commandProtocolCore) &&
-	      /ProjectMcpToolFetchProjection/.test(commandProtocolCore) &&
-	      /CommandOperation::ProjectMcpToolSearchProjection/.test(coreCommandDispatch) &&
-	      /CommandOperation::ProjectMcpToolFetchProjection/.test(coreCommandDispatch) &&
+	      !/rust_policy_shapes_mcp_tool_search_and_fetch_command_responses/.test(policyMcpMemoryCore) &&
+	      /mcp_control_catalog_command_transport_is_retired/.test(commandProtocolCore) &&
+	      !/CommandOperation::ProjectMcpToolSearchProjection/.test(coreCommandDispatch) &&
+	      !/CommandOperation::ProjectMcpToolFetchProjection/.test(coreCommandDispatch) &&
 	      !/plan_mcp_manager_catalog_summary_projection_response as plan_mcp_manager_catalog_summary_projection/.test(bridgeModule) &&
 	      !/McpManagerCatalogSummaryProjectionBridgeRequest/.test(bridgeModule) &&
 	      !/bridge_projects_mcp_manager_catalog_summary_through_rust_core/.test(bridgeModule) &&
@@ -12456,9 +12484,9 @@ function runBridge() {
 	      !/project_mcp_tool_fetch_projection_response as project_mcp_tool_fetch_projection/.test(bridgeModule) &&
 	      !/McpToolSearchProjectionBridgeRequest/.test(bridgeModule) &&
 	      !/McpToolFetchProjectionBridgeRequest/.test(bridgeModule) &&
-      /pub fn plan_mcp_manager_validation_projection_response/.test(policyMcpMemoryCore) &&
-      /rust_mcp_manager_validation_projection_command/.test(policyMcpMemoryCore) &&
-      /rust_policy_shapes_mcp_manager_validation_command_response/.test(policyMcpMemoryCore) &&
+      !/pub fn plan_mcp_manager_validation_projection_response/.test(policyMcpMemoryCore) &&
+      !/rust_mcp_manager_validation_projection_command/.test(policyMcpMemoryCore) &&
+      !/rust_policy_shapes_mcp_manager_validation_command_response/.test(policyMcpMemoryCore) &&
       !/plan_mcp_manager_validation_projection_response as plan_mcp_manager_validation_projection/.test(bridgeModule) &&
       !/McpManagerValidationProjectionBridgeRequest/.test(bridgeModule) &&
       !/bridge_projects_mcp_manager_validation_through_rust_core/.test(bridgeModule) &&
@@ -12480,18 +12508,20 @@ function runBridge() {
       /"secretRefs":/.test(policyCore) &&
       /server\.get\("secret_refs"\)/.test(mcpServerValidationCoreBlock) &&
       !/server\.get\("secretRefs"\)/.test(mcpServerValidationCoreBlock) &&
-      /response\["control"\]\["control_kind"\]/.test(policyMcpMemoryCore) &&
-      /response\["control"\]\["event_id"\]/.test(policyMcpMemoryCore) &&
-      /response\["control"\]\.get\("controlKind"\)\.is_none\(\)/.test(
-        policyMcpMemoryCore,
+      /result\.control\.control_kind/.test(runtimeContextPolicyCoreTest) &&
+      /result\.control\.event_id/.test(runtimeContextPolicyCoreTest) &&
+      /Object\.hasOwn\(result\.control,\s*"controlKind"\),\s*false/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
-      /response\["control"\]\.get\("eventId"\)\.is_none\(\)/.test(policyMcpMemoryCore) &&
-      /response\["control"\]\.get\("createdAt"\)\.is_none\(\)/.test(
-        policyMcpMemoryCore,
+      /Object\.hasOwn\(result\.control,\s*"eventId"\),\s*false/.test(
+        runtimeContextPolicyCoreTest,
+      ) &&
+      /Object\.hasOwn\(result\.control,\s*"createdAt"\),\s*false/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
       /planMcpControlAgentStateUpdate/.test(runtimeContextPolicyCore) &&
       /projectMcpLiveResultReplay/.test(runtimeContextPolicyCore) &&
-      /normalizeMcpLiveResultReplayBridgeResult/.test(runtimeContextPolicyCore) &&
+      /normalizeMcpLiveResultReplayApiResult/.test(runtimeContextPolicyCore) &&
       /validateMcpServers/.test(runtimeContextPolicyCore) &&
       /planMcpManagerStatusProjection/.test(runtimeContextPolicyCore) &&
       /planMcpManagerCatalogProjection/.test(runtimeContextPolicyCore) &&
@@ -12576,88 +12606,88 @@ function runBridge() {
 	      /MCP_MANAGER_VALIDATION_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
 	        runtimeContextPolicyCore,
 	      ) &&
-      /mcp control agent state update core sends Rust state update through typed Rust daemon-core Agentgres API/.test(
+      /mcp control agent state update core sends Rust state update through typed Rust daemon-core MCP API/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /MCP live-result replay sends Rust daemon-core state replay request/.test(
+      /MCP live-result replay sends typed Rust daemon-core MCP state replay request/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /captured\.operation,\s*"project_mcp_live_result_replay"/.test(
+      /Object\.hasOwn\(captured,\s*"operation"\),\s*false/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /result\.source,\s*"rust_mcp_live_result_replay_command"/.test(
+      /result\.source,\s*"rust_mcp_live_result_replay_api"/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /MCP server validation core sends Rust daemon-core validation request/.test(
+      /MCP server validation core sends typed Rust daemon-core MCP validation request/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /MCP server validation input core sends Rust daemon-core projection request/.test(
+      /MCP server validation input core sends typed Rust daemon-core MCP projection request/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /MCP manager status projection core sends Rust daemon-core projection request/.test(
+      /MCP manager status projection core sends typed Rust daemon-core MCP projection request/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /MCP manager catalog projection core sends Rust daemon-core projection request/.test(
+      /MCP manager catalog projection core sends typed Rust daemon-core MCP projection request/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-	      /MCP manager catalog summary projection core sends Rust daemon-core projection request/.test(
+	      /MCP manager catalog summary projection core sends typed Rust daemon-core MCP projection request/.test(
 	        runtimeContextPolicyCoreTest,
 	      ) &&
-	      /MCP tool search projection sends Rust daemon-core catalog search request/.test(
+	      /MCP tool search projection sends typed Rust daemon-core MCP catalog search request/.test(
 	        runtimeContextPolicyCoreTest,
 	      ) &&
-	      /MCP tool fetch projection sends Rust daemon-core fetch request/.test(
+	      /MCP tool fetch projection sends typed Rust daemon-core MCP fetch request/.test(
 	        runtimeContextPolicyCoreTest,
 	      ) &&
-	      /captured\.operation,\s*"project_mcp_tool_search_projection"/.test(
+	      /Object\.hasOwn\(captured,\s*"backend"\),\s*false/.test(
 	        runtimeContextPolicyCoreTest,
 	      ) &&
-	      /captured\.operation,\s*"project_mcp_tool_fetch_projection"/.test(
+	      /Object\.hasOwn\(captured,\s*"operation"\),\s*false/.test(
 	        runtimeContextPolicyCoreTest,
 	      ) &&
-	      /result\.source,\s*"rust_mcp_tool_search_projection_command"/.test(
+	      /result\.source,\s*"rust_mcp_tool_search_projection_api"/.test(
 	        runtimeContextPolicyCoreTest,
 	      ) &&
-	      /result\.source,\s*"rust_mcp_tool_fetch_projection_command"/.test(
+	      /result\.source,\s*"rust_mcp_tool_fetch_projection_api"/.test(
 	        runtimeContextPolicyCoreTest,
 	      ) &&
-	      /MCP manager validation projection core sends Rust daemon-core projection request/.test(
+	      /MCP manager validation projection core sends typed Rust daemon-core MCP projection request/.test(
 	        runtimeContextPolicyCoreTest,
 	      ) &&
-      /captured\.operation,\s*"validate_mcp_servers"/.test(
+      /Object\.hasOwn\(captured,\s*"backend"\),\s*false/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /result\.source,\s*"rust_mcp_server_validation_command"/.test(
+      /result\.source,\s*"rust_mcp_server_validation_api"/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /captured\.operation,\s*"project_mcp_server_validation_input"/.test(
+      /Object\.hasOwn\(captured,\s*"operation"\),\s*false/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /result\.source,\s*"rust_mcp_server_validation_input_command"/.test(
+      /result\.source,\s*"rust_mcp_server_validation_input_api"/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /captured\.operation,\s*"plan_mcp_manager_status_projection"/.test(
+      /Object\.hasOwn\(captured,\s*"backend"\),\s*false/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /result\.source,\s*"rust_mcp_manager_status_projection_command"/.test(
+      /result\.source,\s*"rust_mcp_manager_status_projection_api"/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /captured\.operation,\s*"plan_mcp_manager_catalog_projection"/.test(
+      /Object\.hasOwn\(captured,\s*"operation"\),\s*false/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /result\.source,\s*"rust_mcp_manager_catalog_projection_command"/.test(
+      /result\.source,\s*"rust_mcp_manager_catalog_projection_api"/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /captured\.operation,\s*"plan_mcp_manager_catalog_summary_projection"/.test(
+      /Object\.hasOwn\(captured,\s*"backend"\),\s*false/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /result\.source,\s*"rust_mcp_manager_catalog_summary_projection_command"/.test(
+      /result\.source,\s*"rust_mcp_manager_catalog_summary_projection_api"/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /captured\.operation,\s*"plan_mcp_manager_validation_projection"/.test(
+      /Object\.hasOwn\(captured,\s*"operation"\),\s*false/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /result\.source,\s*"rust_mcp_manager_validation_projection_command"/.test(
+      /result\.source,\s*"rust_mcp_manager_validation_projection_api"/.test(
         runtimeContextPolicyCoreTest,
       ) &&
       /MCP and memory manager projection core does not synthesize Rust-owned projection envelopes/.test(
@@ -12713,10 +12743,10 @@ function runBridge() {
 	      !/mcpToolsForServers|mcpResourcesForServers|mcpPromptsForServers/.test(
         runtimeMcpCatalogSurface,
       ) &&
-      /status\.source,\s*"rust_mcp_manager_status_projection_command"/.test(
+      /status\.source,\s*"rust_mcp_manager_status_projection_api"/.test(
         runtimeMcpCatalogSurfaceTest,
       ) &&
-      /status\.validation\.source,\s*"rust_mcp_server_validation_command"/.test(
+      /status\.validation\.source,\s*"rust_mcp_server_validation_api"/.test(
         runtimeMcpCatalogSurfaceTest,
       ) &&
       /planMcpManagerStatusProjection\(request\)/.test(runtimeMcpCatalogSurfaceTest) &&
@@ -12735,15 +12765,15 @@ function runBridge() {
 	      !/mcpToolsForServers|mcpResourcesForServers|mcpPromptsForServers/.test(
 	        runtimeMcpCatalogSurfaceTest,
 	      ) &&
-	      /rust_mcp_manager_status_projection_command/.test(runtimeMcpCatalogSurfaceTest) &&
-	      /rust_mcp_manager_catalog_projection_command/.test(runtimeMcpCatalogSurfaceTest) &&
-	      /rust_mcp_manager_catalog_summary_projection_command/.test(
+	      /rust_mcp_manager_status_projection_api/.test(runtimeMcpCatalogSurfaceTest) &&
+	      /rust_mcp_manager_catalog_projection_api/.test(runtimeMcpCatalogSurfaceTest) &&
+	      /rust_mcp_manager_catalog_summary_projection_api/.test(
 	        runtimeMcpCatalogSurfaceTest,
 	      ) &&
-	      /rust_mcp_tool_search_projection_command/.test(runtimeMcpCatalogSurfaceTest) &&
-	      /rust_mcp_tool_fetch_projection_command/.test(runtimeMcpCatalogSurfaceTest) &&
-      /rust_mcp_manager_validation_projection_command/.test(runtimeMcpCatalogSurfaceTest) &&
-      /rust_mcp_server_validation_command/.test(runtimeMcpCatalogSurfaceTest) &&
+	      /rust_mcp_tool_search_projection_api/.test(runtimeMcpCatalogSurfaceTest) &&
+	      /rust_mcp_tool_fetch_projection_api/.test(runtimeMcpCatalogSurfaceTest) &&
+      /rust_mcp_manager_validation_projection_api/.test(runtimeMcpCatalogSurfaceTest) &&
+      /rust_mcp_server_validation_api/.test(runtimeMcpCatalogSurfaceTest) &&
       /result\.control\.control_kind/.test(runtimeContextPolicyCoreTest) &&
       /result\.control\.event_id/.test(runtimeContextPolicyCoreTest) &&
       /Object\.hasOwn\(result\.control,\s*"controlKind"\),\s*false/.test(
@@ -12766,15 +12796,15 @@ function runBridge() {
         runtimeMcpControlSurface,
       ) &&
       !/validateMcpServerRecords/.test(runtimeMcpControlSurface) &&
-      /status\.source,\s*"rust_mcp_manager_status_projection_command"/.test(
+      /status\.source,\s*"rust_mcp_manager_status_projection_api"/.test(
         runtimeMcpControlSurfaceTest,
       ) &&
-      /status\.validation\.source,\s*"rust_mcp_server_validation_command"/.test(
+      /status\.validation\.source,\s*"rust_mcp_server_validation_api"/.test(
         runtimeMcpControlSurfaceTest,
       ) &&
       /planMcpManagerStatusProjection/.test(runtimeMcpControlSurfaceTest) &&
       /planMcpManagerCatalogProjection/.test(runtimeMcpControlSurfaceTest) &&
-      /rust_mcp_manager_catalog_projection_command/.test(runtimeMcpControlSurfaceTest) &&
+      /rust_mcp_manager_catalog_projection_api/.test(runtimeMcpControlSurfaceTest) &&
       /throwMcpControlRustCoreRequired/.test(runtimeMcpControlSurface) &&
       /mcp_control_rust_core_required/.test(runtimeMcpControlSurface) &&
       /boundary:\s*"runtime\.mcp_control"/.test(runtimeMcpControlSurface) &&
@@ -12823,8 +12853,8 @@ function runBridge() {
 		      /rust_policy_replays_runtime_mcp_live_results_from_agentgres_state/.test(policyMcpMemoryCore) &&
 		      /rust_policy_filters_js_authored_mcp_live_result_candidates/.test(policyMcpMemoryCore) &&
 		      /rust_policy_rejects_mcp_live_result_replay_without_state_dir/.test(policyMcpMemoryCore) &&
-		      /"project_mcp_live_result_replay"/.test(commandProtocolCore) &&
-		      /ProjectMcpLiveResultReplay/.test(commandProtocolCore) &&
+		      /mcp_control_catalog_command_transport_is_retired/.test(commandProtocolCore) &&
+		      !/CommandOperation::ProjectMcpLiveResultReplay/.test(commandProtocolCore) &&
 		      /commits_runtime_receipt_state_with_storage_admission/.test(agentgresAdmissionCoreForBridge) &&
 	      /commits_runtime_mcp_live_result_state_with_storage_admission/.test(agentgresAdmissionCoreForBridge) &&
 	      /commitRuntimeReceiptState\(stateDir, request\)/.test(runtimeAgentgresCore) &&
@@ -28568,25 +28598,27 @@ function runCompositor() {
 		    /mcp_control_live_exit_receipt\(/.test(policyMcpMemoryCore) &&
 		    /mcp_control_live_exit_result\(/.test(policyMcpMemoryCore) &&
 		    /McpLiveResultReplayCore/.test(policyMcpMemoryCore) &&
-		    /project_mcp_live_result_replay_response/.test(policyMcpMemoryCore) &&
+		    /project_mcp_live_result_replay/.test(kernelModuleForCompositor) &&
+		    !/project_mcp_live_result_replay_response/.test(policyMcpMemoryCore) &&
 		    /ioi\.runtime\.mcp-live-exit-receipt\.v1/.test(policyMcpMemoryCore) &&
 		    /ioi\.runtime\.mcp-live-result\.v1/.test(policyMcpMemoryCore) &&
 		    /MCP_LIVE_RESULT_REPLAY_RESULT_SCHEMA_VERSION/.test(policyMcpMemoryCore) &&
 		    /McpToolSearchProjectionCore/.test(policyMcpMemoryCore) &&
 		    /McpToolFetchProjectionCore/.test(policyMcpMemoryCore) &&
-		    /project_mcp_tool_search_projection_response/.test(policyMcpMemoryCore) &&
-		    /project_mcp_tool_fetch_projection_response/.test(policyMcpMemoryCore) &&
-		    /rust_mcp_tool_search_projection_command/.test(policyMcpMemoryCore) &&
-		    /rust_mcp_tool_fetch_projection_command/.test(policyMcpMemoryCore) &&
+		    /project_mcp_tool_search_projection/.test(kernelModuleForCompositor) &&
+		    /project_mcp_tool_fetch_projection/.test(kernelModuleForCompositor) &&
+		    !/project_mcp_tool_search_projection_response/.test(policyMcpMemoryCore) &&
+		    !/project_mcp_tool_fetch_projection_response/.test(policyMcpMemoryCore) &&
+		    !/rust_mcp_tool_search_projection_command/.test(policyMcpMemoryCore) &&
+		    !/rust_mcp_tool_fetch_projection_command/.test(policyMcpMemoryCore) &&
 		    /runtime_mcp_catalog_js_search_filter_retired/.test(policyMcpMemoryCore) &&
 		    /runtime_mcp_catalog_fetch_js_shape_retired/.test(policyMcpMemoryCore) &&
 		    /rust_policy_projects_mcp_tool_search_without_js_filtering/.test(policyMcpMemoryCore) &&
 		    /rust_policy_projects_mcp_tool_fetch_and_not_found_status/.test(policyMcpMemoryCore) &&
-		    /rust_policy_shapes_mcp_tool_search_and_fetch_command_responses/.test(policyMcpMemoryCore) &&
-		    /"project_mcp_tool_search_projection"/.test(commandProtocolCoreForCompositor) &&
-		    /"project_mcp_tool_fetch_projection"/.test(commandProtocolCoreForCompositor) &&
-		    /ProjectMcpToolSearchProjection/.test(commandProtocolCoreForCompositor) &&
-		    /ProjectMcpToolFetchProjection/.test(commandProtocolCoreForCompositor) &&
+		    !/rust_policy_shapes_mcp_tool_search_and_fetch_command_responses/.test(policyMcpMemoryCore) &&
+		    /mcp_control_catalog_command_transport_is_retired/.test(commandProtocolCoreForCompositor) &&
+		    !/CommandOperation::ProjectMcpToolSearchProjection/.test(commandProtocolCoreForCompositor) &&
+		    !/CommandOperation::ProjectMcpToolFetchProjection/.test(commandProtocolCoreForCompositor) &&
 	    /runtime_mcp_live_exit_rust_receipt/.test(policyMcpMemoryCore) &&
 	    /agentgres_runtime_mcp_live_receipt_truth_required/.test(policyMcpMemoryCore) &&
 	    /runtime_mcp_live_result_rust_projection/.test(policyMcpMemoryCore) &&
@@ -38268,7 +38300,10 @@ function runCompositor() {
       /workspace_root:\s*workspaceRoot/.test(runtimeMcpManagerRegistryBlock) &&
       /server_count:\s*normalizedServers\.length/.test(runtimeMcpManagerRegistryBlock) &&
       /tool_count:\s*tools\.length/.test(runtimeMcpManagerRegistryBlock) &&
-      /createRuntimeContextPolicyCore\(\{\s*daemonCoreInvoker: options\.daemonCoreInvoker,\s*\}\)/.test(runtimeMcpManagerRegistryBlock) &&
+      /createRuntimeContextPolicyCore\(\{\s*daemonCoreMcpApi: options\.daemonCoreMcpApi,\s*\}\)/.test(runtimeMcpManagerRegistryBlock) &&
+      !/daemonCoreInvoker: options\.daemonCoreInvoker|daemonCoreApi: options\.daemonCoreApi/.test(
+        runtimeMcpManagerRegistryBlock,
+      ) &&
       /mcpServerRecordsFromValidationInput\(\s*mcpValidationInputForSource\(source\),\s*workspaceRoot,\s*\{ contextPolicyCore \},\s*\)/.test(runtimeMcpManagerRegistryBlock) &&
       /contextPolicyCore\.planMcpManagerCatalogProjection\(\{\s*servers: \[\.\.\.byId\.values\(\)\],\s*\}\)/.test(runtimeMcpManagerRegistryBlock) &&
       /const tools = normalizeArray\(projected\.tools\)/.test(runtimeMcpManagerRegistryBlock) &&
@@ -38302,7 +38337,7 @@ function runCompositor() {
       /planMcpManagerCatalogProjection/.test(runtimeMcpManagerTest) &&
       /rust\.projected\.mcp\.docs\.search/.test(runtimeMcpManagerTest) &&
       /MCP manager registry fails closed without Rust daemon-core projection/.test(runtimeMcpManagerTest) &&
-      /runtime_context_policy_core_direct_invoker_unconfigured/.test(runtimeMcpManagerTest) &&
+      /runtime_context_policy_core_direct_mcp_api_unconfigured/.test(runtimeMcpManagerTest) &&
       /allowedTools:\s*\["retired\.invoke"\]/.test(runtimeMcpManagerTest) &&
       /MCP manager registry ignores retired top-level MCP config aliases/.test(runtimeMcpManagerTest) &&
       /const sourceScope = optionalString\(server\.source_scope\) \?\? "workspace";/.test(
@@ -38478,14 +38513,14 @@ function runCompositor() {
 	      /throw notFoundDep\("MCP tool not found\."/.test(runtimeMcpGetToolFromCatalogBlock) &&
 	      /return result;/.test(runtimeMcpGetToolFromCatalogBlock) &&
 	      /Object\.hasOwn\(status,\s*"schemaVersion"\),\s*false/.test(runtimeMcpCatalogSurfaceTest) &&
-	      /validation\.source,\s*"rust_mcp_manager_validation_projection_command"/.test(runtimeMcpCatalogSurfaceTest) &&
+	      /validation\.source,\s*"rust_mcp_manager_validation_projection_api"/.test(runtimeMcpCatalogSurfaceTest) &&
 	      /planMcpManagerValidationProjection/.test(runtimeMcpCatalogSurfaceTest) &&
 	      /Object\.hasOwn\(validation,\s*"issueCount"\),\s*false/.test(runtimeMcpCatalogSurfaceTest) &&
-	      /globalSearch\.source,\s*"rust_mcp_tool_search_projection_command"/.test(runtimeMcpCatalogSurfaceTest) &&
+	      /globalSearch\.source,\s*"rust_mcp_tool_search_projection_api"/.test(runtimeMcpCatalogSurfaceTest) &&
 	      /Object\.hasOwn\(globalSearch,\s*"catalogSummaries"\),\s*false/.test(runtimeMcpCatalogSurfaceTest) &&
-	      /globalSearch\.catalog_summaries\[0\]\.source,\s+"rust_mcp_manager_catalog_summary_projection_command"/.test(runtimeMcpCatalogSurfaceTest) &&
+	      /globalSearch\.catalog_summaries\[0\]\.source,\s+"rust_mcp_manager_catalog_summary_projection_api"/.test(runtimeMcpCatalogSurfaceTest) &&
 	      /Object\.hasOwn\(fetched,\s*"toolId"\),\s*false/.test(runtimeMcpCatalogSurfaceTest) &&
-	      /fetched\.source,\s*"rust_mcp_tool_fetch_projection_command"/.test(runtimeMcpCatalogSurfaceTest) &&
+	      /fetched\.source,\s*"rust_mcp_tool_fetch_projection_api"/.test(runtimeMcpCatalogSurfaceTest) &&
       /stable_tool_id:\s*`\$\{item\.id\}\.\$\{tool\.name\}`/.test(runtimeMcpCatalogSurfaceTest) &&
       !/mcpToolsForServers|mcpResourcesForServers|mcpPromptsForServers/.test(runtimeMcpCatalogSurfaceTest) &&
       !/mcpCatalogSummaryForServer/.test(runtimeMcpCatalogSurfaceTest) &&
@@ -38537,14 +38572,14 @@ function runCompositor() {
       /resources:\s*catalog\.resources/.test(runtimeMcpControlStatusForAgentBlock) &&
       /prompts:\s*catalog\.prompts/.test(runtimeMcpControlStatusForAgentBlock) &&
       runtimeMcpControlFacadeRetired &&
-      /status\.source,\s*"rust_mcp_manager_status_projection_command"/.test(
+      /status\.source,\s*"rust_mcp_manager_status_projection_api"/.test(
         runtimeMcpControlSurfaceTest,
       ) &&
-      /status\.validation\.source,\s*"rust_mcp_server_validation_command"/.test(
+      /status\.validation\.source,\s*"rust_mcp_server_validation_api"/.test(
         runtimeMcpControlSurfaceTest,
       ) &&
       /planMcpManagerCatalogProjection/.test(runtimeMcpControlSurfaceTest) &&
-      /rust_mcp_manager_catalog_projection_command/.test(runtimeMcpControlSurfaceTest) &&
+      /rust_mcp_manager_catalog_projection_api/.test(runtimeMcpControlSurfaceTest) &&
       /Object\.hasOwn\(status,\s*"schemaVersion"\),\s*false/.test(runtimeMcpControlSurfaceTest) &&
       /Object\.hasOwn\(status\.resources\[0\],\s*"serverId"\),\s*false/.test(runtimeMcpControlSurfaceTest) &&
       !/^\s*(?:schemaVersion|serverCount|enabledServerCount|toolCount|enabledToolCount|resourceCount|promptCount)\s*:/m.test(

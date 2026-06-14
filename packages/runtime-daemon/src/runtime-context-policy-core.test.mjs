@@ -54,15 +54,25 @@ import {
   RUNTIME_DIAGNOSTICS_REPAIR_POLICY_REQUEST_SCHEMA_VERSION,
   DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   LIFECYCLE_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
+  MCP_CONTROL_AGENT_STATE_UPDATE_API_METHOD,
   MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  MCP_LIVE_RESULT_REPLAY_API_METHOD,
   MCP_LIVE_RESULT_REPLAY_REQUEST_SCHEMA_VERSION,
+  MCP_MANAGER_CATALOG_PROJECTION_API_METHOD,
   MCP_MANAGER_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION,
+  MCP_MANAGER_CATALOG_SUMMARY_PROJECTION_API_METHOD,
   MCP_MANAGER_CATALOG_SUMMARY_PROJECTION_REQUEST_SCHEMA_VERSION,
+  MCP_TOOL_FETCH_PROJECTION_API_METHOD,
   MCP_TOOL_FETCH_PROJECTION_REQUEST_SCHEMA_VERSION,
+  MCP_TOOL_SEARCH_PROJECTION_API_METHOD,
   MCP_TOOL_SEARCH_PROJECTION_REQUEST_SCHEMA_VERSION,
+  MCP_MANAGER_VALIDATION_PROJECTION_API_METHOD,
   MCP_MANAGER_VALIDATION_PROJECTION_REQUEST_SCHEMA_VERSION,
+  MCP_MANAGER_STATUS_PROJECTION_API_METHOD,
   MCP_MANAGER_STATUS_PROJECTION_REQUEST_SCHEMA_VERSION,
+  MCP_SERVER_VALIDATION_INPUT_API_METHOD,
   MCP_SERVER_VALIDATION_INPUT_REQUEST_SCHEMA_VERSION,
+  MCP_SERVER_VALIDATION_API_METHOD,
   MCP_SERVER_VALIDATION_REQUEST_SCHEMA_VERSION,
   MEMORY_MANAGER_STATUS_PROJECTION_REQUEST_SCHEMA_VERSION,
   MEMORY_MANAGER_VALIDATION_PROJECTION_REQUEST_SCHEMA_VERSION,
@@ -120,13 +130,13 @@ import {
   normalizeContextCompactionPlanBridgeResult,
   normalizeContextCompactionStateUpdateBridgeResult,
   normalizeDiagnosticsOperatorOverrideStateUpdateBridgeResult,
-  normalizeMcpControlAgentStateUpdateBridgeResult,
-  normalizeMcpManagerCatalogProjectionBridgeResult,
-  normalizeMcpManagerCatalogSummaryProjectionBridgeResult,
-  normalizeMcpManagerStatusProjectionBridgeResult,
-  normalizeMcpManagerValidationProjectionBridgeResult,
-  normalizeMcpToolFetchProjectionBridgeResult,
-  normalizeMcpToolSearchProjectionBridgeResult,
+  normalizeMcpControlAgentStateUpdateApiResult,
+  normalizeMcpManagerCatalogProjectionApiResult,
+  normalizeMcpManagerCatalogSummaryProjectionApiResult,
+  normalizeMcpManagerStatusProjectionApiResult,
+  normalizeMcpManagerValidationProjectionApiResult,
+  normalizeMcpToolFetchProjectionApiResult,
+  normalizeMcpToolSearchProjectionApiResult,
   normalizeMemoryManagerStatusProjectionBridgeResult,
   normalizeMemoryManagerValidationProjectionBridgeResult,
   normalizeOperatorInterruptStateUpdateBridgeResult,
@@ -228,6 +238,22 @@ function createWorkspaceTrustDirectCore(method, handler) {
       throw new Error(`retired generic invoker reached for ${request?.operation}`);
     },
     daemonCoreWorkspaceTrustApi: {
+      [method](request) {
+        calls.push({ method, request });
+        return handler(request);
+      },
+    },
+  });
+  return { calls, runner };
+}
+
+function createMcpDirectCore(method, handler) {
+  const calls = [];
+  const runner = new RuntimeContextPolicyCore({
+    daemonCoreInvoker(request) {
+      throw new Error(`retired generic invoker reached for ${request?.operation}`);
+    },
+    daemonCoreMcpApi: {
       [method](request) {
         calls.push({ method, request });
         return handler(request);
@@ -695,9 +721,9 @@ test("runtime state-update core does not synthesize Rust-owned envelopes", () =>
       },
     ],
     [
-      normalizeMcpControlAgentStateUpdateBridgeResult,
+      normalizeMcpControlAgentStateUpdateApiResult,
       {
-        source: "rust_mcp_control_agent_state_update_command",
+        source: "rust_mcp_control_agent_state_update_api",
         operation_kind: "thread.mcp_import",
       },
     ],
@@ -3838,13 +3864,14 @@ test("lifecycle admission-required core sends Rust daemon-core request", () => {
   assert.equal(Object.hasOwn(result.record.details, "requestedStatus"), false);
 });
 
-test("mcp control agent state update core sends Rust state update through direct daemon-core invoker", () => {
+test("mcp control agent state update core sends Rust state update through typed Rust daemon-core MCP API", () => {
   let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
+  const { calls, runner } = createMcpDirectCore(
+    MCP_CONTROL_AGENT_STATE_UPDATE_API_METHOD,
+    (request) => {
       captured = request;
       return {
-            source: "rust_mcp_control_agent_state_update_command",
+            source: "rust_mcp_control_agent_state_update_api",
             backend: "rust_policy",
             status: "planned",
             operation_kind: "thread.mcp_add",
@@ -3862,7 +3889,7 @@ test("mcp control agent state update core sends Rust state update through direct
             },
           };
     },
-  });
+  );
 
   const result = runner.planMcpControlAgentStateUpdate({
     thread_id: "thread_1",
@@ -3874,18 +3901,19 @@ test("mcp control agent state update core sends Rust state update through direct
     created_at: "2026-06-06T05:45:00.000Z",
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "plan_mcp_control_agent_state_update");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, MCP_CONTROL_AGENT_STATE_UPDATE_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    captured.schema_version,
     MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.control_kind, "mcp_add");
-  assert.equal(captured.request.agent_id, "agent_1");
-  assert.equal(captured.request.state_dir, "/runtime-state");
-  assert.equal(Object.hasOwn(captured.request, "agent"), false);
-  assert.equal(result.source, "rust_mcp_control_agent_state_update_command");
+  assert.equal(Object.hasOwn(captured, "operation"), false);
+  assert.equal(Object.hasOwn(captured, "backend"), false);
+  assert.equal(captured.control_kind, "mcp_add");
+  assert.equal(captured.agent_id, "agent_1");
+  assert.equal(captured.state_dir, "/runtime-state");
+  assert.equal(Object.hasOwn(captured, "agent"), false);
+  assert.equal(result.source, "rust_mcp_control_agent_state_update_api");
   assert.equal(result.operation_kind, "thread.mcp_add");
   assert.equal(result.control.control_kind, "mcp_add");
   assert.equal(result.control.event_id, "event_mcp_add");
@@ -3895,13 +3923,14 @@ test("mcp control agent state update core sends Rust state update through direct
   assert.equal(result.agent.mcpRegistry.servers[0].id, "mcp.docs");
 });
 
-test("MCP live-result replay sends Rust daemon-core state replay request", () => {
+test("MCP live-result replay sends typed Rust daemon-core MCP state replay request", () => {
   let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
+  const { calls, runner } = createMcpDirectCore(
+    MCP_LIVE_RESULT_REPLAY_API_METHOD,
+    (request) => {
       captured = request;
       return {
-        source: "rust_mcp_live_result_replay_command",
+        source: "rust_mcp_live_result_replay_api",
         backend: "rust_policy",
         schema_version: "ioi.runtime.mcp-live-result-replay.v1",
         object: "ioi.runtime_mcp_live_result_replay",
@@ -3925,7 +3954,7 @@ test("MCP live-result replay sends Rust daemon-core state replay request", () =>
         replay_hash: "sha256:replay",
       };
     },
-  });
+  );
 
   const result = runner.projectMcpLiveResultReplay({
     state_dir: "/runtime-state",
@@ -3936,28 +3965,30 @@ test("MCP live-result replay sends Rust daemon-core state replay request", () =>
     control_kind: "mcp_invoke",
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "project_mcp_live_result_replay");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, MCP_LIVE_RESULT_REPLAY_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    captured.schema_version,
     MCP_LIVE_RESULT_REPLAY_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.state_dir, "/runtime-state");
-  assert.equal(captured.request.result_id, "result_runtime_mcp_live_exit");
-  assert.equal(captured.request.receipt_id, "receipt_runtime_mcp_live_exit");
-  assert.equal(result.source, "rust_mcp_live_result_replay_command");
+  assert.equal(Object.hasOwn(captured, "operation"), false);
+  assert.equal(Object.hasOwn(captured, "backend"), false);
+  assert.equal(captured.state_dir, "/runtime-state");
+  assert.equal(captured.result_id, "result_runtime_mcp_live_exit");
+  assert.equal(captured.receipt_id, "receipt_runtime_mcp_live_exit");
+  assert.equal(result.source, "rust_mcp_live_result_replay_api");
   assert.equal(result.latest_result.id, "result_runtime_mcp_live_exit");
   assert.equal(result.replay_hash, "sha256:replay");
 });
 
-test("MCP tool search projection sends Rust daemon-core catalog search request", () => {
+test("MCP tool search projection sends typed Rust daemon-core MCP catalog search request", () => {
   let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
+  const { calls, runner } = createMcpDirectCore(
+    MCP_TOOL_SEARCH_PROJECTION_API_METHOD,
+    (request) => {
       captured = request;
       return {
-        source: "rust_mcp_tool_search_projection_command",
+        source: "rust_mcp_tool_search_projection_api",
         backend: "rust_policy",
         schema_version: "ioi.runtime.mcp-tool-search.v1",
         object: "ioi.runtime_mcp_tool_search",
@@ -3979,7 +4010,7 @@ test("MCP tool search projection sends Rust daemon-core catalog search request",
         evidence_refs: ["runtime_mcp_tool_search_rust_projection"],
       };
     },
-  });
+  );
 
   const result = runner.projectMcpToolSearchProjection({
     state_dir: "/runtime-state",
@@ -3990,29 +4021,32 @@ test("MCP tool search projection sends Rust daemon-core catalog search request",
     live_discovery: false,
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "project_mcp_tool_search_projection");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, MCP_TOOL_SEARCH_PROJECTION_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    captured.schema_version,
     MCP_TOOL_SEARCH_PROJECTION_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.thread_id, "thread_1");
-  assert.equal(captured.request.server_id, "mcp.agent.git");
-  assert.equal(captured.request.query, "diff");
-  assert.equal(Object.hasOwn(captured.request, "threadId"), false);
-  assert.equal(Object.hasOwn(captured.request, "serverId"), false);
-  assert.equal(result.source, "rust_mcp_tool_search_projection_command");
+  assert.equal(Object.hasOwn(captured, "operation"), false);
+  assert.equal(Object.hasOwn(captured, "backend"), false);
+  assert.equal(captured.thread_id, "thread_1");
+  assert.equal(captured.server_id, "mcp.agent.git");
+  assert.equal(captured.query, "diff");
+  assert.equal(Object.hasOwn(captured, "threadId"), false);
+  assert.equal(Object.hasOwn(captured, "serverId"), false);
+  assert.equal(result.source, "rust_mcp_tool_search_projection_api");
   assert.equal(result.tools[0].stable_tool_id, "mcp.agent.git.diff");
   assert.equal(result.returned_count, 1);
 });
 
-test("MCP tool fetch projection sends Rust daemon-core fetch request", () => {
+test("MCP tool fetch projection sends typed Rust daemon-core MCP fetch request", () => {
   let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
+  const { calls, runner } = createMcpDirectCore(
+    MCP_TOOL_FETCH_PROJECTION_API_METHOD,
+    (request) => {
       captured = request;
       return {
-        source: "rust_mcp_tool_fetch_projection_command",
+        source: "rust_mcp_tool_fetch_projection_api",
         backend: "rust_policy",
         schema_version: "ioi.runtime.mcp-tool-fetch.v1",
         object: "ioi.runtime_mcp_tool_fetch",
@@ -4029,7 +4063,7 @@ test("MCP tool fetch projection sends Rust daemon-core fetch request", () => {
         evidence_refs: ["runtime_mcp_tool_fetch_rust_projection"],
       };
     },
-  });
+  );
 
   const result = runner.projectMcpToolFetchProjection({
     state_dir: "/runtime-state",
@@ -4038,27 +4072,30 @@ test("MCP tool fetch projection sends Rust daemon-core fetch request", () => {
     tool_id: "mcp.agent.git.diff",
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "project_mcp_tool_fetch_projection");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, MCP_TOOL_FETCH_PROJECTION_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    captured.schema_version,
     MCP_TOOL_FETCH_PROJECTION_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.tool_id, "mcp.agent.git.diff");
-  assert.equal(captured.request.server_id, "mcp.agent.git");
-  assert.equal(Object.hasOwn(captured.request, "toolId"), false);
-  assert.equal(result.source, "rust_mcp_tool_fetch_projection_command");
+  assert.equal(Object.hasOwn(captured, "operation"), false);
+  assert.equal(Object.hasOwn(captured, "backend"), false);
+  assert.equal(captured.tool_id, "mcp.agent.git.diff");
+  assert.equal(captured.server_id, "mcp.agent.git");
+  assert.equal(Object.hasOwn(captured, "toolId"), false);
+  assert.equal(result.source, "rust_mcp_tool_fetch_projection_api");
   assert.equal(result.tool.stable_tool_id, "mcp.agent.git.diff");
   assert.equal(result.returned_count, 1);
 });
 
-test("MCP server validation core sends Rust daemon-core validation request", () => {
+test("MCP server validation core sends typed Rust daemon-core MCP validation request", () => {
   let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
+  const { calls, runner } = createMcpDirectCore(
+    MCP_SERVER_VALIDATION_API_METHOD,
+    (request) => {
       captured = request;
       return {
-            source: "rust_mcp_server_validation_command",
+            source: "rust_mcp_server_validation_api",
             backend: "rust_policy",
             status: "blocked",
             ok: false,
@@ -4076,7 +4113,7 @@ test("MCP server validation core sends Rust daemon-core validation request", () 
             warnings: [],
           };
     },
-  });
+  );
 
   const result = runner.validateMcpServers({
     servers: [
@@ -4091,15 +4128,16 @@ test("MCP server validation core sends Rust daemon-core validation request", () 
     ],
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "validate_mcp_servers");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, MCP_SERVER_VALIDATION_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    captured.schema_version,
     MCP_SERVER_VALIDATION_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.servers[0].secret_refs.Authorization.invalidVaultRef, true);
-  assert.equal(result.source, "rust_mcp_server_validation_command");
+  assert.equal(Object.hasOwn(captured, "operation"), false);
+  assert.equal(Object.hasOwn(captured, "backend"), false);
+  assert.equal(captured.servers[0].secret_refs.Authorization.invalidVaultRef, true);
+  assert.equal(result.source, "rust_mcp_server_validation_api");
   assert.equal(result.status, "blocked");
   assert.equal(result.ok, false);
   assert.equal(result.issue_count, 1);
@@ -4107,13 +4145,14 @@ test("MCP server validation core sends Rust daemon-core validation request", () 
   assert.equal(Object.hasOwn(result.issues[0], "serverId"), false);
 });
 
-test("MCP server validation input core sends Rust daemon-core projection request", () => {
+test("MCP server validation input core sends typed Rust daemon-core MCP projection request", () => {
   let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
+  const { calls, runner } = createMcpDirectCore(
+    MCP_SERVER_VALIDATION_INPUT_API_METHOD,
+    (request) => {
       captured = request;
       return {
-            source: "rust_mcp_server_validation_input_command",
+            source: "rust_mcp_server_validation_input_api",
             backend: "rust_policy",
             status: "projected",
             workspace_root: "/workspace",
@@ -4128,7 +4167,7 @@ test("MCP server validation input core sends Rust daemon-core projection request
             ],
           };
     },
-  });
+  );
 
   const result = runner.projectMcpServerValidationInput({
     input: {
@@ -4141,16 +4180,17 @@ test("MCP server validation input core sends Rust daemon-core projection request
     workspace_root: "/workspace",
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "project_mcp_server_validation_input");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, MCP_SERVER_VALIDATION_INPUT_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    captured.schema_version,
     MCP_SERVER_VALIDATION_INPUT_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.workspace_root, "/workspace");
-  assert.equal(captured.request.input.mcp_json.mcp_servers.docs.command, "npx");
-  assert.equal(result.source, "rust_mcp_server_validation_input_command");
+  assert.equal(Object.hasOwn(captured, "operation"), false);
+  assert.equal(Object.hasOwn(captured, "backend"), false);
+  assert.equal(captured.workspace_root, "/workspace");
+  assert.equal(captured.input.mcp_json.mcp_servers.docs.command, "npx");
+  assert.equal(result.source, "rust_mcp_server_validation_input_api");
   assert.equal(result.status, "projected");
   assert.equal(result.server_count, 1);
   assert.equal(result.servers[0].source_scope, "validation");
@@ -4317,13 +4357,14 @@ test("runtime MCP serve tool-result projector rejects missing Rust result envelo
   );
 });
 
-test("MCP manager status projection core sends Rust daemon-core projection request", () => {
+test("MCP manager status projection core sends typed Rust daemon-core MCP projection request", () => {
   let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
+  const { calls, runner } = createMcpDirectCore(
+    MCP_MANAGER_STATUS_PROJECTION_API_METHOD,
+    (request) => {
       captured = request;
       return {
-            source: "rust_mcp_manager_status_projection_command",
+            source: "rust_mcp_manager_status_projection_api",
             backend: "rust_policy",
             schema_version: "ioi.runtime.mcp-manager-status.v1",
             object: "ioi.runtime_mcp_manager_status",
@@ -4344,7 +4385,7 @@ test("MCP manager status projection core sends Rust daemon-core projection reque
             },
           };
     },
-  });
+  );
 
   const result = runner.planMcpManagerStatusProjection({
     status_schema_version: "ioi.runtime.mcp-manager-status.v1",
@@ -4356,15 +4397,16 @@ test("MCP manager status projection core sends Rust daemon-core projection reque
     routes: { search_tools: "/v1/mcp/tools/search" },
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "plan_mcp_manager_status_projection");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, MCP_MANAGER_STATUS_PROJECTION_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    captured.schema_version,
     MCP_MANAGER_STATUS_PROJECTION_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.servers.length, 2);
-  assert.equal(result.source, "rust_mcp_manager_status_projection_command");
+  assert.equal(Object.hasOwn(captured, "operation"), false);
+  assert.equal(Object.hasOwn(captured, "backend"), false);
+  assert.equal(captured.servers.length, 2);
+  assert.equal(result.source, "rust_mcp_manager_status_projection_api");
   assert.equal(result.status, "ready");
   assert.equal(result.server_count, 2);
   assert.equal(result.enabled_server_count, 1);
@@ -4482,13 +4524,14 @@ test("memory manager validation projection core sends Rust projection through ty
   assert.equal(Object.hasOwn(result, "recordCount"), false);
 });
 
-test("MCP manager catalog projection core sends Rust daemon-core projection request", () => {
+test("MCP manager catalog projection core sends typed Rust daemon-core MCP projection request", () => {
   let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
+  const { calls, runner } = createMcpDirectCore(
+    MCP_MANAGER_CATALOG_PROJECTION_API_METHOD,
+    (request) => {
       captured = request;
       return {
-            source: "rust_mcp_manager_catalog_projection_command",
+            source: "rust_mcp_manager_catalog_projection_api",
             backend: "rust_policy",
             schema_version: "ioi.runtime.mcp-manager-catalog-projection.v1",
             object: "ioi.runtime_mcp_manager_catalog_projection",
@@ -4504,21 +4547,22 @@ test("MCP manager catalog projection core sends Rust daemon-core projection requ
             enabled_tools: [{ stable_tool_id: "mcp.docs.search" }],
           };
     },
-  });
+  );
 
   const result = runner.planMcpManagerCatalogProjection({
     servers: [{ id: "mcp.docs", enabled: true, allowed_tools: ["search"] }],
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "plan_mcp_manager_catalog_projection");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, MCP_MANAGER_CATALOG_PROJECTION_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    captured.schema_version,
     MCP_MANAGER_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.servers.length, 1);
-  assert.equal(result.source, "rust_mcp_manager_catalog_projection_command");
+  assert.equal(Object.hasOwn(captured, "operation"), false);
+  assert.equal(Object.hasOwn(captured, "backend"), false);
+  assert.equal(captured.servers.length, 1);
+  assert.equal(result.source, "rust_mcp_manager_catalog_projection_api");
   assert.equal(result.status, "projected");
   assert.equal(result.tool_count, 1);
   assert.equal(result.enabled_tool_count, 1);
@@ -4529,13 +4573,14 @@ test("MCP manager catalog projection core sends Rust daemon-core projection requ
   assert.equal(Object.hasOwn(result.tools[0], "stableToolId"), false);
 });
 
-test("MCP manager catalog summary projection core sends Rust daemon-core projection request", () => {
+test("MCP manager catalog summary projection core sends typed Rust daemon-core MCP projection request", () => {
   let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
+  const { calls, runner } = createMcpDirectCore(
+    MCP_MANAGER_CATALOG_SUMMARY_PROJECTION_API_METHOD,
+    (request) => {
       captured = request;
       return {
-            source: "rust_mcp_manager_catalog_summary_projection_command",
+            source: "rust_mcp_manager_catalog_summary_projection_api",
             backend: "rust_policy",
             schema_version: "ioi.runtime.mcp-catalog-summary.v1",
             object: "ioi.runtime_mcp_catalog_summary",
@@ -4557,7 +4602,7 @@ test("MCP manager catalog summary projection core sends Rust daemon-core project
             fetch_route: "/v1/mcp/tools/{tool_id}",
           };
     },
-  });
+  );
 
   const result = runner.planMcpManagerCatalogSummaryProjection({
     server: { id: "mcp.docs", label: "Docs" },
@@ -4565,13 +4610,15 @@ test("MCP manager catalog summary projection core sends Rust daemon-core project
     live_mode: "declared_catalog",
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "plan_mcp_manager_catalog_summary_projection");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, MCP_MANAGER_CATALOG_SUMMARY_PROJECTION_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    captured.schema_version,
     MCP_MANAGER_CATALOG_SUMMARY_PROJECTION_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(result.source, "rust_mcp_manager_catalog_summary_projection_command");
+  assert.equal(Object.hasOwn(captured, "operation"), false);
+  assert.equal(Object.hasOwn(captured, "backend"), false);
+  assert.equal(result.source, "rust_mcp_manager_catalog_summary_projection_api");
   assert.equal(result.object, "ioi.runtime_mcp_catalog_summary");
   assert.equal(result.tool_count, 1);
   assert.equal(result.namespaces[0], "search");
@@ -4580,13 +4627,14 @@ test("MCP manager catalog summary projection core sends Rust daemon-core project
   assert.equal(Object.hasOwn(result, "catalogHash"), false);
 });
 
-test("MCP manager validation projection core sends Rust daemon-core projection request", () => {
+test("MCP manager validation projection core sends typed Rust daemon-core MCP projection request", () => {
   let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
+  const { calls, runner } = createMcpDirectCore(
+    MCP_MANAGER_VALIDATION_PROJECTION_API_METHOD,
+    (request) => {
       captured = request;
       return {
-            source: "rust_mcp_manager_validation_projection_command",
+            source: "rust_mcp_manager_validation_projection_api",
             backend: "rust_policy",
             schema_version: "ioi.runtime.mcp-manager-validation.v1",
             object: "ioi.runtime_mcp_manager_validation",
@@ -4606,7 +4654,7 @@ test("MCP manager validation projection core sends Rust daemon-core projection r
             prompts: [{ name: "summarize" }],
           };
     },
-  });
+  );
 
   const result = runner.planMcpManagerValidationProjection({
     validation_schema_version: "ioi.runtime.mcp-manager-validation.v1",
@@ -4617,14 +4665,16 @@ test("MCP manager validation projection core sends Rust daemon-core projection r
     prompts: [{ name: "summarize" }],
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "plan_mcp_manager_validation_projection");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, MCP_MANAGER_VALIDATION_PROJECTION_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    captured.schema_version,
     MCP_MANAGER_VALIDATION_PROJECTION_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(result.source, "rust_mcp_manager_validation_projection_command");
+  assert.equal(Object.hasOwn(captured, "operation"), false);
+  assert.equal(Object.hasOwn(captured, "backend"), false);
+  assert.equal(captured.validation.ok, false);
+  assert.equal(result.source, "rust_mcp_manager_validation_projection_api");
   assert.equal(result.status, "blocked");
   assert.equal(result.ok, false);
   assert.equal(result.server_count, 1);
@@ -4637,7 +4687,7 @@ test("MCP manager validation projection core sends Rust daemon-core projection r
 });
 
 test("MCP and memory manager projection core does not synthesize Rust-owned projection envelopes", () => {
-  const mcpStatus = normalizeMcpManagerStatusProjectionBridgeResult({
+  const mcpStatus = normalizeMcpManagerStatusProjectionApiResult({
     source: "legacy_mcp_status_projection_fixture",
     servers: [{ id: "mcp.docs" }],
     tools: [{ stable_tool_id: "mcp.docs.search" }],
@@ -4647,7 +4697,7 @@ test("MCP and memory manager projection core does not synthesize Rust-owned proj
   assert.equal(mcpStatus.server_count, null);
   assert.equal(mcpStatus.tool_count, null);
 
-  const mcpValidation = normalizeMcpManagerValidationProjectionBridgeResult({
+  const mcpValidation = normalizeMcpManagerValidationProjectionApiResult({
     source: "legacy_mcp_validation_projection_fixture",
     ok: true,
     issues: [],
@@ -4678,7 +4728,7 @@ test("MCP and memory manager projection core does not synthesize Rust-owned proj
   assert.equal(memoryValidation.issue_count, null);
   assert.equal(memoryValidation.record_count, null);
 
-  const mcpCatalog = normalizeMcpManagerCatalogProjectionBridgeResult({
+  const mcpCatalog = normalizeMcpManagerCatalogProjectionApiResult({
     source: "legacy_mcp_catalog_projection_fixture",
     tools: [{ stable_tool_id: "mcp.docs.search" }],
     enabled_tools: [{ stable_tool_id: "mcp.docs.search" }],
@@ -4688,7 +4738,7 @@ test("MCP and memory manager projection core does not synthesize Rust-owned proj
   assert.equal(mcpCatalog.tool_count, null);
   assert.equal(mcpCatalog.enabled_tool_count, null);
 
-  const mcpSummary = normalizeMcpManagerCatalogSummaryProjectionBridgeResult({
+  const mcpSummary = normalizeMcpManagerCatalogSummaryProjectionApiResult({
     source: "legacy_mcp_summary_projection_fixture",
     namespaces: ["search"],
   });
@@ -4699,7 +4749,7 @@ test("MCP and memory manager projection core does not synthesize Rust-owned proj
   assert.equal(mcpSummary.search_route, null);
   assert.equal(mcpSummary.fetch_route, null);
 
-  const mcpToolSearch = normalizeMcpToolSearchProjectionBridgeResult({
+  const mcpToolSearch = normalizeMcpToolSearchProjectionApiResult({
     source: "legacy_mcp_tool_search_fixture",
     tools: [{ stable_tool_id: "mcp.docs.search" }],
   });
@@ -4708,7 +4758,7 @@ test("MCP and memory manager projection core does not synthesize Rust-owned proj
   assert.equal(mcpToolSearch.tool_count, null);
   assert.equal(mcpToolSearch.returned_count, null);
 
-  const mcpToolFetch = normalizeMcpToolFetchProjectionBridgeResult({
+  const mcpToolFetch = normalizeMcpToolFetchProjectionApiResult({
     source: "legacy_mcp_tool_fetch_fixture",
     tools: [{ stable_tool_id: "mcp.docs.search" }],
   });

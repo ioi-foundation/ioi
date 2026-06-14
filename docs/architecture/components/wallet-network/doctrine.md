@@ -276,6 +276,76 @@ Core invariant:
 > venue. Agentgres records receipts and evidence. No quote or route source is a
 > trust root.**
 
+## Repository and Contract Boundary
+
+The wallet.network product may live in its own application repository. That is
+the preferred product boundary for rapid UI, website, design-system, mobile,
+extension, and marketing iteration.
+
+The wallet.network authority contracts must remain anchored in the IOI protocol
+repository and generated outward. Product repositories consume the contracts;
+they do not define authority truth.
+
+```text
+IOI protocol monorepo
+  owns:
+    Rust wallet.network types
+    wallet.network service transition logic
+    authority scope and receipt API doctrine
+    generated protocol package targets
+    generated SDK package targets
+    OpenAPI / JSON Schema artifacts when generated
+    receipt fixtures and conformance tests
+
+wallet-network product repo
+  owns:
+    Wallet app UI
+    website/product surfaces
+    design system
+    screenshots and product prototypes
+    app-specific frontend state
+    fixture data only when clearly marked as non-authoritative
+```
+
+Current implementation anchors:
+
+```text
+crates/types/src/app/wallet_network/
+  Rust authority/session/connector/secret/receipt object types.
+
+crates/services/src/wallet_network/
+  Native wallet.network service transition logic and validation.
+
+crates/services/src/wallet_network/tests/
+  Service-level wallet authority, lease, connector, receipt, and replay tests.
+
+crates/cli/tests/wallet_network_session_channel_e2e/
+  End-to-end session channel, lease, approval, secret injection, and mail
+  capability tests.
+
+scripts/conformance/hypervisor-conformance.mjs
+  Cross-runtime conformance hooks for wallet.network authority boundaries.
+```
+
+Target generated artifacts:
+
+```text
+@ioi/wallet-protocol
+  Versioned generated protocol objects, schemas, OpenAPI/JSON Schema, receipt
+  fixtures, and canonical examples derived from IOI-owned contracts.
+
+@ioi/wallet-sdk
+  Typed client helpers over wallet.network APIs, receipts, grants, leases,
+  exchange/trade intents, capability exits, and revocation.
+```
+
+Until those packages exist, the Rust `ioi_types::app::wallet_network` module,
+the wallet.network service tests, this architecture canon, and the low-level
+API reference are the authoritative contract surfaces. The product app may mock
+Wallet flows, but it must not become the source of truth for scopes, grants,
+leases, receipts, exchange/trade intents, secret-release semantics, or
+capability-use policy.
+
 ## Marketplace Role
 
 wallet.network authorizes:

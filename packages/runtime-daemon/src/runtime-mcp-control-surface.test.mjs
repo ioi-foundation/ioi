@@ -260,7 +260,7 @@ function planMcpControlAgentStateUpdate(request, currentAgent) {
     ),
   };
   return {
-    source: "rust_mcp_control_agent_state_update_command",
+    source: "rust_mcp_control_agent_state_update_api",
     backend: "rust_policy",
     schema_version: "ioi.runtime.mcp-control-agent-state-update.v1",
     object: "ioi.runtime_mcp_control_agent_state_update",
@@ -314,7 +314,7 @@ function harness(options = {}) {
       calls.push({ name: "validateMcpServers", request });
       const issues = request.servers.some((item) => item.invalid) ? [{ code: "invalid_server" }] : [];
       return {
-        source: "rust_mcp_server_validation_command",
+        source: "rust_mcp_server_validation_api",
         ok: issues.length === 0,
         status: issues.length === 0 ? "pass" : "blocked",
         issues,
@@ -334,7 +334,7 @@ function harness(options = {}) {
       const resources = request.servers.flatMap((item) => item.resources ?? []);
       const prompts = request.servers.flatMap((item) => item.prompts ?? []);
       return {
-        source: "rust_mcp_manager_catalog_projection_command",
+        source: "rust_mcp_manager_catalog_projection_api",
         schema_version: "catalog.schema",
         object: "ioi.runtime_mcp_manager_catalog_projection",
         status: "projected",
@@ -353,7 +353,7 @@ function harness(options = {}) {
     planMcpManagerStatusProjection(request) {
       calls.push({ name: "planMcpManagerStatusProjection", request });
       return {
-        source: "rust_mcp_manager_status_projection_command",
+        source: "rust_mcp_manager_status_projection_api",
         schema_version: request.status_schema_version,
         object: "ioi.runtime_mcp_manager_status",
         status: request.validation.ok ? "ready" : "needs_review",
@@ -387,7 +387,7 @@ function harness(options = {}) {
         .find((call) => call.name === "commitRuntimeMcpLiveResultState" && call.request.result_id === request.result_id);
       const result = commitCall?.request?.result;
       return {
-        source: "rust_mcp_live_result_replay_command",
+        source: "rust_mcp_live_result_replay_api",
         backend: "rust_policy",
         schema_version: "ioi.runtime.mcp-live-result-replay.v1",
         object: "ioi.runtime_mcp_live_result_replay",
@@ -496,8 +496,8 @@ test("runtime MCP control surface keeps read-only status projection canonical", 
   assert.equal(status.enabled_tool_count, 2);
   assert.equal(status.resource_count, 1);
   assert.equal(status.prompt_count, 1);
-  assert.equal(status.source, "rust_mcp_manager_status_projection_command");
-  assert.equal(status.validation.source, "rust_mcp_server_validation_command");
+  assert.equal(status.source, "rust_mcp_manager_status_projection_api");
+  assert.equal(status.validation.source, "rust_mcp_server_validation_api");
   assert.equal(
     calls.find((call) => call.name === "planMcpManagerCatalogProjection")?.request.servers[0].id,
     "mcp.docs",
@@ -582,7 +582,7 @@ test("runtime MCP control mutations plan in Rust and commit agent state without 
   });
   const removed = surface.removeMcpServer(store, "mcp.git", { thread_id: "thread-agent-one" });
 
-  assert.equal(imported.source, "rust_mcp_control_agent_state_update_command");
+  assert.equal(imported.source, "rust_mcp_control_agent_state_update_api");
   assert.equal(added.operation_kind, "thread.mcp_add");
   assert.equal(disabled.control.enabled_server_count, 1);
   assert.equal(status.operation_kind, "thread.mcp_status");
@@ -746,7 +746,7 @@ test("runtime MCP live exits use Rust control admission before JS transport invo
   assert.equal(invoked.result.details.js_transport_invocation, false);
   assert.equal(invoked.result.details.command_transport_fallback, false);
   assert.equal(invoked.result_commit.commit_hash, `result.commit.${invoked.result.id}`);
-  assert.equal(invoked.result_replay.source, "rust_mcp_live_result_replay_command");
+  assert.equal(invoked.result_replay.source, "rust_mcp_live_result_replay_api");
   assert.equal(invoked.result_replay.latest_result.id, invoked.result.id);
   assert.equal(invoked.result_projection.replay_hash, `replay.${invoked.result.id}`);
   assert.equal(discovered.receipt.id, discovered.control.content_receipt_id);

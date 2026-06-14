@@ -17,6 +17,43 @@ authority, asset/route/security risk disclosure, sealed archive restore
 authority, revocation, and emergency stops. Agents, workers, apps, and
 runtimes are authority clients, not raw secret custodians.
 
+## Contract Packaging Boundary
+
+This file is the low-level API doctrine. The durable implementation contract
+lives in IOI-owned protocol surfaces, not in the Wallet product UI.
+
+Current concrete anchors:
+
+```text
+crates/types/src/app/wallet_network/
+  Rust authority/session/connector/secret/receipt object types.
+
+crates/services/src/wallet_network/
+  wallet.network service transitions, validation, and receipt writes.
+
+crates/services/src/wallet_network/tests/
+crates/cli/tests/wallet_network_session_channel_e2e/
+  receipt, lease, approval, secret-injection, connector, replay, and
+  session-channel conformance evidence.
+```
+
+Target generated package shape:
+
+```text
+@ioi/wallet-protocol
+  generated protocol objects, OpenAPI / JSON Schema, receipt fixtures,
+  canonical examples, and versioned compatibility metadata
+
+@ioi/wallet-sdk
+  typed client helpers for wallet.network apps, Hypervisor, agents, services,
+  and third-party clients
+```
+
+Product repos such as `wallet-network` consume these generated artifacts. They
+may contain UI fixtures and prototypes, but they must not define canonical
+scopes, grants, leases, secret-release policy, receipt schemas, exchange/trade
+intent semantics, or revocation behavior.
+
 ## Account and Session API
 
 ```http
@@ -317,6 +354,11 @@ wallet.network abstracts whether the user pays in IOI, stablecoin, fiat, or cred
 Exchange is a first-class Wallet action. Route sources provide candidates;
 wallet.network owns policy, approval, signing or denial, and receipts.
 
+Wallet exchange APIs are authority APIs. In production, wallet-exchange may call
+`decentralized.exchange` or other route-intelligence engines for candidates, but
+Wallet must treat every returned route as untrusted input until policy,
+simulation, risk labels, and approval bind it into an `ExchangeIntent`.
+
 ```http
 POST /v1/exchange/route-candidates
 POST /v1/exchange/intents
@@ -393,6 +435,12 @@ No route candidate is authority. Final execution requires an approved
 Advanced trading is a high-risk wallet action. Perps, margin, leverage,
 prediction markets, event contracts, strategy execution, and ongoing position
 management are not ordinary Exchange routes.
+
+Wallet trade APIs are authority APIs. In production, wallet-trade may call
+`decentralized.trade` or other venue/market-intelligence engines for candidates,
+but Wallet must treat every returned venue, order, position, or prediction
+candidate as untrusted input until policy, risk, simulation, eligibility, and
+approval bind it into a `TradeIntent` or `PredictionIntent`.
 
 ```http
 POST /v1/trade/candidates

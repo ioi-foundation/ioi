@@ -38,11 +38,12 @@ Default Harness Profile
 wallet.network
   authorizes identity, secrets, approvals, payments, exchanges, scopes,
   decryption, revocation, and protection actions; route sources produce
-  exchange candidates, but Wallet owns authority
+  exchange candidates, but Wallet owns authority and the user-facing cockpit
 
 decentralized.exchange / decentralized.trade
-  Wallet-native route intelligence for asset conversion and exposure
-  management; they propose candidates without becoming authority or trust roots
+  Wallet-consumed route/venue intelligence engines for asset conversion and
+  exposure management; they propose candidates without becoming authority,
+  required UIs, or trust roots
 
 Hypervisor provider integrations
   direct integrations for cloud compute, storage, GPUs, confidential compute,
@@ -113,7 +114,7 @@ HypervisorOS roots serious nodes.
 Hypervisor Fleet manages infrastructure for autonomous systems.
 Default Harness Profile orchestrates.
 wallet.network authorizes, risk-labels, approves/denies, revokes, protects, and receipts.
-decentralized.exchange/trade propose liquidity, exposure, and event-market routes.
+decentralized.exchange/trade expose route/venue intelligence for liquidity, exposure, and event markets.
 Hypervisor provider integrations propose execution routes.
 Agentgres admits truth.
 Agent Wiki remembers.
@@ -305,6 +306,7 @@ Hypervisor IDE = runtime truth
 Hypervisor Fleet = execution runtime or authority plane
 decentralized.exchange = exchange backend or liquidity owner
 decentralized.trade = broker, custodian, or ordinary swap route
+decentralized.exchange/trade = mandatory UIs users must visit before Wallet
 parked future decentralized.cloud = present cloud gateway or privacy proof
 Persistent rented GPU node = trusted private machine
 Agentgres = all memory or all payload bytes
@@ -333,7 +335,7 @@ storage backends hold bytes
 Private Workspace backed by cTEE forbids protected plaintext on rented nodes
 Plaintext-Free Runtime Mounting exposes only public/redacted refs and private handles
 wallet.network authorizes
-decentralized.exchange/trade propose liquidity/exposure/event-market routes
+decentralized.exchange/trade expose route/venue intelligence and propose candidates
 Hypervisor provider integrations propose execution routes
 AIIP moves bounded autonomous work
 L1 settles selected public/economic/cross-domain commitments

@@ -13,7 +13,8 @@ Last alignment pass: 2026-06-12.
 
 ## Canonical Definition
 
-**wallet.network is the user-facing authority wallet for autonomous finance.**
+**wallet.network is the user-facing authority wallet and cockpit for autonomous
+finance.**
 
 It is not merely a crypto wallet and not merely an IAM service. It lets users
 and organizations hold assets, exchange assets, delegate bounded financial
@@ -124,6 +125,11 @@ protect
 The product surface may vary by app, mobile, extension, web, CLI, or enterprise
 profile, but the action grammar and receipt semantics must remain stable.
 
+Wallet is the canonical user-facing cockpit for Exchange and Trade. The user
+should be able to review, approve, deny, execute, monitor, and receipt exchange
+or trade actions inside Wallet without first visiting `decentralized.exchange`
+or `decentralized.trade`.
+
 ## Exchange and Route Authority
 
 Exchange is a first-class Wallet action.
@@ -163,10 +169,11 @@ Canonical invariant:
 
 ## Relationship to decentralized.exchange
 
-`decentralized.exchange` is a preferred first-party route source and public
-exchange surface. It may own its own route proposals, adapter registry,
-pool-metadata normalization, route scoring, route-candidate receipts, and
-decentralized-first comparison views.
+`decentralized.exchange` is a preferred first-party route-intelligence engine
+consumed by Wallet through API/RPC/SDK boundaries. It may own its own route
+proposals, adapter registry, pool-metadata normalization, route scoring,
+route-candidate receipts, route explorer, and decentralized-first comparison
+views.
 
 It does not own:
 
@@ -180,22 +187,25 @@ It does not own:
 Correct product framing:
 
 ```text
-Wallet Exchange is source-agnostic.
-decentralized.exchange is the preferred decentralized route source.
+Wallet Exchange is the user-facing authority cockpit.
+decentralized.exchange is a preferred decentralized route-intelligence engine.
 ```
 
 Incorrect product framing:
 
 ```text
 decentralized.exchange is the exchange backend for Wallet.
+Users must leave Wallet and use decentralized.exchange directly to exchange.
 ```
 
 ## Relationship to decentralized.trade
 
-`decentralized.trade` is a source-agnostic trading interface and adapter lane.
+`decentralized.trade` is a source-agnostic venue, market, and
+exposure-intelligence engine consumed by Wallet through API/RPC/SDK boundaries.
 It may own venue adapters, order-ticket normalization, market discovery,
+prediction-market discovery, event-market and resolution-rule display,
 position/risk display, margin calculations, strategy templates, venue
-comparison, and trade-candidate receipts.
+comparison, paper venues, and trade-candidate receipts.
 
 It does not own:
 
@@ -214,7 +224,8 @@ Correct product framing:
 
 ```text
 Wallet owns trade authority.
-decentralized.trade proposes exposure routes and venue actions.
+decentralized.trade proposes exposure, event-market, and venue-action
+candidates.
 Venues execute and maintain venue-native position state.
 Wallet and Agentgres make authority, receipts, and risk state accountable.
 ```
@@ -225,6 +236,7 @@ Incorrect product framing:
 decentralized.trade owns the user's positions.
 Perps are just another exchange route.
 Agents may trade leveraged products by default.
+Users must leave Wallet and use decentralized.trade directly to trade.
 ```
 
 ## Trade, Prediction, and Position Authority
