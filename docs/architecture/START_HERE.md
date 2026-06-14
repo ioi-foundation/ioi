@@ -26,13 +26,14 @@ Current Wallet addition:
 > direct pools, routers, solvers, and quote APIs produce candidates, but
 > wallet.network owns exchange authority, risk disclosure, approval, signing or
 > denial, revocation, protection actions, and receipts. Wallet Trade is
-> advanced and high-risk: perps, margin, leverage, and position lifecycle
-> require exact TradeIntent approval, risk labels, and position receipts.**
+> advanced and high-risk: perps, margin, leverage, prediction markets, event
+> contracts, and position lifecycle require exact TradeIntent or
+> PredictionIntent approval, risk labels, and position or prediction receipts.**
 
 Current Wallet/provider integration addition:
 
 > **decentralized.exchange routes liquidity and decentralized.trade routes
-> exposure. Hypervisor has direct provider integrations for cloud compute,
+> exposure, including event markets. Hypervisor has direct provider integrations for cloud compute,
 > storage, GPUs, confidential compute, DePIN, local machines, and customer
 > infrastructure. Candidates propose; wallet.network authorizes; Hypervisor
 > executes or deploys; venues and providers perform; Agentgres records; IOI L1

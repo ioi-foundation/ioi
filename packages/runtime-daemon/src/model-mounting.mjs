@@ -412,6 +412,7 @@ export class ModelMountingState {
     vaultSecrets = {},
     modelMountCore = null,
     daemonCoreInvoker = null,
+    daemonCoreModelMountApi = null,
     commitRuntimeModelMountRecordState = null,
     commitRuntimeModelMountReceiptState = null,
   }) {
@@ -425,6 +426,7 @@ export class ModelMountingState {
       modelMountCore ??
       createModelMountCore({
         daemonCoreInvoker,
+        daemonCoreModelMountApi,
       });
     this.commitRuntimeModelMountRecordState = commitRuntimeModelMountRecordState;
     this.store = new AgentgresModelMountingStore({

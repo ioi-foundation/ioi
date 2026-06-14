@@ -31,6 +31,7 @@ export const RUST_MODEL_MOUNT_INSTANCE_LIFECYCLE_BACKEND = "rust_model_mount_ins
 export const RUST_MODEL_MOUNT_NATIVE_LOCAL_BACKEND = "rust_model_mount_native_local";
 export const RUST_MODEL_MOUNT_NATIVE_LOCAL_INVENTORY_BACKEND = "rust_model_mount_native_local_inventory";
 export const RUST_MODEL_MOUNT_NATIVE_LOCAL_LIFECYCLE_BACKEND = "rust_model_mount_native_local_lifecycle";
+export const MODEL_MOUNT_ROUTE_DECISION_API_METHOD = "admitModelMountRouteDecision";
 
 export function createModelMountCore(options = {}) {
   return new ModelMountCore(options);
@@ -41,7 +42,7 @@ export function assertNoRetiredModelMountCoreOption(field, value) {
   if (typeof value === "string" && value.trim().length === 0) return;
   if (value == null) return;
   throw new ModelMountCoreError(
-    "Model-mount command compatibility options are retired; use daemonCoreInvoker for direct Rust daemon-core model_mount APIs.",
+    "Model-mount command compatibility options are retired; use daemonCoreModelMountApi for migrated Rust daemon-core model_mount APIs.",
     "model_mount_core_compatibility_option_retired",
     { retired_option: field, retired_value: value },
   );
@@ -53,16 +54,18 @@ export class ModelMountCore {
     assertNoRetiredModelMountCoreOption("args", options.args);
     assertNoRetiredModelMountCoreOption("env", options.env);
     this.daemonCoreInvoker = optionalFunction(options.daemonCoreInvoker);
+    this.daemonCoreModelMountApi = modelMountApi(
+      options.daemonCoreModelMountApi ??
+        options.daemonCoreApi?.model_mount ??
+        options.daemonCoreApi?.modelMount ??
+        options.daemonCoreApi,
+    );
   }
 
   admitRouteDecision(request) {
-    const bridgeRequest = {
-      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
-      operation: "admit_model_mount_route_decision",
-      backend: RUST_MODEL_MOUNT_ADMISSION_BACKEND,
-      request,
-    };
-    return normalizeRouteDecisionBridgeResult(this.invokeDaemonCore(bridgeRequest));
+    return normalizeRouteDecisionApiResult(
+      this.invokeModelMountApi(MODEL_MOUNT_ROUTE_DECISION_API_METHOD, request),
+    );
   }
 
   admitInvocation(request) {
@@ -420,6 +423,27 @@ export class ModelMountCore {
     }
     return response?.ok === true ? response.result : response;
   }
+
+  invokeModelMountApi(method, request) {
+    const invoke = this.daemonCoreModelMountApi?.[method];
+    if (typeof invoke !== "function") {
+      throw new ModelMountCoreError(
+        `Model mount requires daemonCoreModelMountApi.${method} for direct Rust daemon-core model_mount APIs.`,
+        "model_mount_core_direct_model_mount_api_unconfigured",
+        { boundary: `daemonCoreModelMountApi.${method}` },
+      );
+    }
+    const response = invoke.call(this.daemonCoreModelMountApi, request);
+    const responseError = objectRecord(response?.error);
+    if (response?.ok === false && responseError) {
+      throw new ModelMountCoreError(
+        responseError.message ?? "Rust model_mount core rejected the direct API request.",
+        responseError.code ?? "model_mount_core_direct_model_mount_api_rejected",
+        { error: responseError },
+      );
+    }
+    return response?.ok === true ? response.result : response;
+  }
 }
 
 export class ModelMountCoreError extends Error {
@@ -432,7 +456,7 @@ export class ModelMountCoreError extends Error {
   }
 }
 
-function normalizeRouteDecisionBridgeResult(value = {}) {
+function normalizeRouteDecisionApiResult(value = {}) {
   const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   const record = result.record && typeof result.record === "object" ? result.record : {};
   return {
@@ -2137,6 +2161,13 @@ function normalizeReadProjectionBridgeResult(value = {}) {
 
 function optionalFunction(value) {
   return typeof value === "function" ? value : null;
+}
+
+function modelMountApi(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return typeof value[MODEL_MOUNT_ROUTE_DECISION_API_METHOD] === "function"
+    ? value
+    : null;
 }
 
 function objectRecord(value) {

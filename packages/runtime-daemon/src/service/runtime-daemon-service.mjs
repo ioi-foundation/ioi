@@ -25,6 +25,7 @@ export async function startRuntimeDaemonServiceWithStore({
     runtimeBridge: options.runtimeBridge,
     daemonCoreInvoker: options.daemonCoreInvoker,
     daemonCoreAgentgresApi: options.daemonCoreAgentgresApi,
+    daemonCoreModelMountApi: options.daemonCoreModelMountApi,
     daemonCoreAuthorityApi: options.daemonCoreAuthorityApi,
     daemonCoreApprovalApi: options.daemonCoreApprovalApi,
     daemonCoreCteeApi: options.daemonCoreCteeApi,

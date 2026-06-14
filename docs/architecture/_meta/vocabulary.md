@@ -254,11 +254,11 @@ compliance acronyms for hidden audit material.
   signing or denial, revocation, and receipts; route sources only produce
   candidates.
 - `WalletTrade`: the advanced Wallet product surface for exposure management,
-  including spot orders, perps, leverage, collateral, margin, liquidation,
-  funding, and position lifecycle. wallet.network owns trade authority, risk
-  disclosure, policy evaluation, signing or denial, revocation, and receipts;
-  trading route sources and venues only produce candidates or execute approved
-  intents.
+  including spot orders, perps, prediction markets, event contracts, leverage,
+  collateral, margin, liquidation, funding, resolution, and position lifecycle.
+  wallet.network owns trade authority, risk disclosure, policy evaluation,
+  signing or denial, revocation, and receipts; trading route sources and venues
+  only produce candidates or execute approved intents.
 - `ExchangeIntent`: the semantic wallet object above raw transaction calldata.
   It binds route, calldata commitments, slippage, simulation hash, policy hash,
   grant/lease, revocation epoch, economics, risk labels, and exact `TxIntent`
@@ -273,10 +273,11 @@ compliance acronyms for hidden audit material.
   exchange authority, liquidity, execution, exchange truth, or settlement.
 - `decentralized.trade`: a preferred first-party trading route source and
   advanced exposure-management surface. It may own venue adapters,
-  order-ticket normalization, market discovery, position/risk display, margin
+  order-ticket normalization, market discovery, prediction-market discovery,
+  event-market and resolution-rule display, position/risk display, margin
   calculations, strategy templates, venue comparison, and trade-candidate
   receipts, but it does not own user authority, custody, final approval, venue
-  execution, user positions, policy, or settlement truth.
+  execution, market resolution, user positions, policy, or settlement truth.
 - `FutureDecentralizedCloud`: parked future product space for a possible public
   provider catalog, P2P/PQ-aware cloud routing layer, compute/storage receipt
   explorer, provider reputation surface, or infrastructure marketplace. It is
@@ -291,6 +292,14 @@ compliance acronyms for hidden audit material.
   policy status at meaningful transitions or checkpoints, including venue,
   market, side, size, collateral, leverage, margin mode, entry/mark/liquidation
   prices, funding, PnL, close conditions, and policy status.
+- `PredictionIntent`: the semantic wallet object for prediction markets and
+  event contracts. It binds venue, market question, outcome, side, price limit,
+  shares, max loss, max payout, resolution source, market rules, liquidity,
+  policy hash, grants/leases, revocation epoch, and risk labels before event
+  exposure can be approved or signed.
+- `PredictionReceipt`: the wallet receipt that records event-market order,
+  risk, policy, resolution source, market rules, max loss/payout, execution,
+  settlement, dispute, or resolution transitions.
 - `AssetExposureRecord`: a wallet.network risk record over an account or asset,
   including cryptographic regime, public-key exposure, bridge/admin/oracle
   dependencies, approval exposure, agent-access exposure, protection level,

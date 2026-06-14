@@ -113,7 +113,7 @@ HypervisorOS roots serious nodes.
 Hypervisor Fleet manages infrastructure for autonomous systems.
 Default Harness Profile orchestrates.
 wallet.network authorizes, risk-labels, approves/denies, revokes, protects, and receipts.
-decentralized.exchange/trade propose liquidity and exposure routes.
+decentralized.exchange/trade propose liquidity, exposure, and event-market routes.
 Hypervisor provider integrations propose execution routes.
 Agentgres admits truth.
 Agent Wiki remembers.
@@ -333,7 +333,7 @@ storage backends hold bytes
 Private Workspace backed by cTEE forbids protected plaintext on rented nodes
 Plaintext-Free Runtime Mounting exposes only public/redacted refs and private handles
 wallet.network authorizes
-decentralized.exchange/trade propose liquidity/exposure routes
+decentralized.exchange/trade propose liquidity/exposure/event-market routes
 Hypervisor provider integrations propose execution routes
 AIIP moves bounded autonomous work
 L1 settles selected public/economic/cross-domain commitments

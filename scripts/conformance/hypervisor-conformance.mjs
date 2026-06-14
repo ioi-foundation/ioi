@@ -2673,7 +2673,7 @@ function runBridge() {
       /pub struct CommandDispatchError/.test(coreCommandDispatch) &&
       /match command_operation/.test(coreCommandDispatch) &&
       /CommandOperation::RunCodingToolStepModule/.test(coreCommandDispatch) &&
-      /CommandOperation::AdmitModelMountRouteDecision/.test(coreCommandDispatch) &&
+      !/CommandOperation::AdmitModelMountRouteDecision/.test(coreCommandDispatch) &&
       !/match \(command_family, operation\)/.test(bridgeCommandDispatch) &&
       !/\(CommandFamily::StepModule, "run_coding_tool_step_module"\)/.test(bridgeCommandDispatch) &&
       !/\(CommandFamily::DaemonCore, "admit_model_mount_route_decision"\)/.test(bridgeCommandDispatch) &&
@@ -8369,7 +8369,8 @@ function runBridge() {
       !/assert_model_mount_command_rejects_step_module_schema\(\s*"plan_model_mount_read_projection",?\s*\)/.test(
         bridgeModule,
       ) &&
-      /admit_model_mount_route_decision_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      !/admit_model_mount_route_decision_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      /model_mount_route_decision_command_transport_is_retired/.test(commandProtocolCore) &&
       /admit_model_mount_invocation_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
       /admit_model_mount_provider_execution_response\(decode\(raw_request\)\?\)/.test(
         coreCommandDispatch,
@@ -8547,7 +8548,7 @@ function runBridge() {
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "scripts/conformance/hypervisor-conformance.mjs",
     ],
-    "Phase 3/5/10/11 remains non-terminal: model-mount child wrappers are retired and must not regain local command-envelope identity while the next Rust-core extraction/facade-retirement slice replaces the temporary Node bridge with direct daemon-core model_mount protocol APIs",
+    "Phase 3/5/10/11 remains non-terminal: model-mount child wrappers are retired and route-decision command transport must stay absent while the next Rust-core extraction/facade-retirement slices replace the remaining temporary model_mount protocol transport",
   );
   assertCheck(
     result,
@@ -8579,17 +8580,19 @@ function runBridge() {
   assertCheck(
     result,
     "model-mount-admission-command-envelopes-owned-by-rust-core",
-    /pub struct ModelMountRouteDecisionBridgeRequest/.test(modelMountCore) &&
-      /pub fn admit_model_mount_route_decision_response/.test(modelMountCore) &&
+    !/pub struct ModelMountRouteDecisionBridgeRequest/.test(modelMountCore) &&
+      !/pub fn admit_model_mount_route_decision_response/.test(modelMountCore) &&
       /rust_authored_route_selection_receipt/.test(modelMountCore) &&
       /rust_daemon_core_model_route_selection_receipt/.test(modelMountCore) &&
       /pub struct ModelMountInvocationAdmissionBridgeRequest/.test(modelMountCore) &&
       /pub fn admit_model_mount_invocation_response/.test(modelMountCore) &&
       /rust_model_mount_invocation_command/.test(modelMountCore) &&
       !modelMountCommandBridgeExists &&
-      /rust_core_shapes_model_mount_route_decision_command_response/.test(modelMountCore) &&
+      !/rust_core_shapes_model_mount_route_decision_command_response/.test(modelMountCore) &&
+      /model_mount_route_decision_command_transport_is_retired/.test(commandProtocolCore) &&
+      /pub fn admit_model_mount_route_decision/.test(read("crates/services/src/agentic/runtime/kernel/mod.rs")) &&
       /rust_core_shapes_model_mount_invocation_admission_command_response/.test(modelMountCore) &&
-      /admit_model_mount_route_decision_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      !/admit_model_mount_route_decision_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
       /admit_model_mount_invocation_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
       !/admit_model_mount_route_decision_response as admit_model_mount_route_decision/.test(bridgeModule) &&
       !/admit_model_mount_invocation_response as admit_model_mount_invocation/.test(bridgeModule) &&
@@ -8611,7 +8614,7 @@ function runBridge() {
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "scripts/conformance/hypervisor-conformance.mjs",
     ],
-    "Phase 10/11 migration guard: model-mount route-decision and invocation-admission command envelopes, including Rust-authored route-selection receipt details, live in Rust model_mount core; the child Node delegate is retired while the broad bridge remains temporary transport only",
+    "Phase 10/11 migration guard: model-mount route-decision command transport is retired behind the positive Rust daemon-core API while invocation-admission command envelope remains Rust-owned temporary transport; child Node delegates stay retired",
   );
   assertCheck(
     result,
@@ -15004,21 +15007,28 @@ function runBridge() {
       !/mod model_mount_command;/.test(bridgeModule) &&
       !/struct ModelMountRouteDecisionBridgeRequest/.test(bridgeModule) &&
       !/fn admit_model_mount_route_decision/.test(bridgeModule) &&
-      /pub struct ModelMountRouteDecisionBridgeRequest/.test(modelMountCore) &&
-      /pub fn admit_model_mount_route_decision_response/.test(modelMountCore) &&
-      /admit_model_mount_route_decision_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      !/pub struct ModelMountRouteDecisionBridgeRequest/.test(modelMountCore) &&
+      !/pub fn admit_model_mount_route_decision_response/.test(modelMountCore) &&
+      !/admit_model_mount_route_decision_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
       !/admit_model_mount_route_decision_response as admit_model_mount_route_decision/.test(bridgeModule) &&
       !/ModelMountRouteDecisionBridgeRequest/.test(bridgeModule) &&
       !/struct ModelMountRouteDecisionBridgeRequest/.test(modelMountCommandBridge) &&
-      /admit_model_mount_route_decision_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      /model_mount_route_decision_command_transport_is_retired/.test(commandProtocolCore) &&
+      /pub fn admit_model_mount_route_decision/.test(read("crates/services/src/agentic/runtime/kernel/mod.rs")) &&
       /ModelMountRouteDecisionRequest/.test(modelMountCore) &&
-      /rust_core_shapes_model_mount_route_decision_command_response/.test(modelMountCore) &&
+      !/rust_core_shapes_model_mount_route_decision_command_response/.test(modelMountCore) &&
       !/bridge_admits_model_mount_route_decision_through_rust_core/.test(modelMountCommandSurface) &&
       !/model_mount_route_decision_rejects_step_module_command_schema/.test(modelMountCommandSurface) &&
       /ModelMountCore/.test(modelMountCore) &&
       /createModelMountCore\(options = \{\}\)/.test(modelMountCore) &&
       /assertNoRetiredModelMountCoreOption/.test(modelMountCore) &&
       /model_mount_core_compatibility_option_retired/.test(modelMountCore) &&
+      /MODEL_MOUNT_ROUTE_DECISION_API_METHOD = "admitModelMountRouteDecision"/.test(modelMountCore) &&
+      /this\.daemonCoreModelMountApi = modelMountApi/.test(modelMountCore) &&
+      /invokeModelMountApi\(MODEL_MOUNT_ROUTE_DECISION_API_METHOD, request\)/.test(modelMountCore) &&
+      /model_mount_core_direct_model_mount_api_unconfigured/.test(modelMountCore) &&
+      /daemonCoreModelMountApi: this\.daemonCoreModelMountApi/.test(runtimeDaemonIndex) &&
+      /daemonCoreModelMountApi,/.test(modelMountingState) &&
       /model_mount_core_direct_invoker_unconfigured/.test(modelMountCore) &&
       !exists("packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs") &&
@@ -15033,6 +15043,7 @@ function runBridge() {
       ) &&
       !/MODEL_MOUNT_ADMISSION_COMMAND_ENV/.test(modelMountCore) &&
       /ioi\.runtime\.daemon_core\.command\.v1/.test(modelMountCore) &&
+      !/operation:\s*"admit_model_mount_route_decision"/.test(modelMountCore) &&
       !/MODEL_MOUNT_ADMISSION_COMMAND_ARGS_ENV/.test(modelMountCore) &&
       !/parseCommandArgs/.test(modelMountCore) &&
       !/normalizeArgs/.test(modelMountCore) &&
@@ -15044,7 +15055,10 @@ function runBridge() {
       !/IOI_STEP_MODULE_COMMAND/.test(modelMountCore) &&
       !retiredRouteDecisionEnvPattern.test(modelMountCore) &&
       !/model_mount_admission_bridge_unconfigured/.test(modelMountCore) &&
-      /Rust model_mount core factory uses daemon-level direct invoker/.test(
+      /Rust model_mount core factory uses daemon-level typed model_mount API/.test(
+        modelMountCoreTest,
+      ) &&
+      /Rust model_mount core rejects command-shaped route-decision fallback/.test(
         modelMountCoreTest,
       ) &&
       /Rust model_mount core rejects retired compatibility options/.test(modelMountCoreTest) &&
@@ -15057,7 +15071,7 @@ function runBridge() {
       /Rust model_mount core command constructor option fails closed/.test(
         modelMountCoreTest,
       ) &&
-      /Rust model_mount core fails closed without direct invoker/.test(
+      /Rust model_mount core fails closed without typed route-decision API/.test(
         modelMountCoreTest,
       ) &&
       !/spawnSyncImpl/.test(modelMountCoreTest) &&

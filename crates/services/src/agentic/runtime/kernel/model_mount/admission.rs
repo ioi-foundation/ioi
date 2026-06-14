@@ -153,13 +153,6 @@ pub struct ModelMountInvocationAdmissionRecord {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct ModelMountRouteDecisionBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: ModelMountRouteDecisionRequest,
-}
-
-#[derive(Debug, Deserialize)]
 pub struct ModelMountInvocationAdmissionBridgeRequest {
     #[serde(default)]
     backend: Option<String>,
@@ -270,30 +263,6 @@ pub(super) fn admit_route_decision(
             .collect::<String>()
     );
     Ok(record)
-}
-
-pub fn admit_model_mount_route_decision_response(
-    request: ModelMountRouteDecisionBridgeRequest,
-) -> Result<Value, ModelMountError> {
-    let record = admit_route_decision(&request.request)?;
-    let accepted_receipt_record = rust_authored_route_selection_receipt(&record)?;
-    let route_decision_ref = record.route_decision_ref.clone();
-    let route_decision_hash = record.route_decision_hash.clone();
-    let receipt_refs = record.receipt_refs.clone();
-
-    Ok(json!({
-        "source": "rust_model_mount_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_model_mount_live".to_string()),
-        "record": record,
-        "route_decision_ref": route_decision_ref,
-        "route_decision_hash": route_decision_hash,
-        "receipt_refs": receipt_refs,
-        "accepted_receipt_record": accepted_receipt_record,
-        "evidence_refs": [
-            "rust_model_mount_core",
-            route_decision_ref,
-        ],
-    }))
 }
 
 pub(super) fn admit_invocation(
@@ -561,42 +530,6 @@ mod tests {
         assert!(record.route_decision_hash.starts_with("sha256:"));
         assert!(record
             .route_decision_ref
-            .starts_with("model_mount://route_decision/"));
-    }
-
-    #[test]
-    fn rust_core_shapes_model_mount_route_decision_command_response() {
-        let request: ModelMountRouteDecisionBridgeRequest = serde_json::from_value(json!({
-            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
-            "operation": "admit_model_mount_route_decision",
-            "backend": "rust_model_mount_live",
-            "request": {
-                "schema_version": MODEL_MOUNT_ROUTE_DECISION_SCHEMA_VERSION,
-                "route_ref": "route.local-first",
-                "provider_ref": "provider.local",
-                "endpoint_ref": "endpoint.local",
-                "model_ref": "model.local",
-                "capability": "chat",
-                "policy_hash": "sha256:policy",
-                "idempotency_key": "model_route_decision:test",
-                "receipt_refs": ["receipt://route"],
-                "authority_grant_refs": [],
-                "authority_receipt_refs": [],
-                "privacy_profile": "local_private",
-                "node_plaintext_allowed": false
-            }
-        }))
-        .expect("bridge request");
-
-        let response = admit_model_mount_route_decision_response(request).expect("admitted");
-
-        assert_eq!(response["source"], "rust_model_mount_command");
-        assert_eq!(response["backend"], "rust_model_mount_live");
-        assert_eq!(response["record"]["model_ref"], "model.local");
-        assert_eq!(response["record"]["receipt_refs"][0], "receipt://route");
-        assert!(response["route_decision_ref"]
-            .as_str()
-            .expect("route decision ref")
             .starts_with("model_mount://route_decision/"));
     }
 

@@ -39,7 +39,7 @@ Hypervisor IDE = IDE-grade operator console
 Electron/VS Code fork = canonical app shell
 IOI Authority Gateway = compatibility adapter profile for existing IDEs/agents
 Private Workspace backed by cTEE = user-facing private workspace for persistent untrusted GPU nodes; Plaintext-Free Runtime Mounting is the daemon boundary; CLPD is the default protected-agency strategy
-decentralized.exchange/trade = Wallet-native liquidity and exposure routing
+decentralized.exchange/trade = Wallet-native liquidity, exposure, and event-market routing
 Hypervisor provider integrations = direct cloud, storage, GPU, confidential, DePIN, local, and customer infrastructure integrations
 Workers/models/tools/connectors = guest workloads/capabilities
 Policy/receipts/replay = trust and audit substrate
@@ -110,7 +110,7 @@ Read the stack this way:
   data use, decryption, revocation, and protection actions; route sources
   produce exchange candidates but do not become authority;
 - decentralized.exchange and decentralized.trade provide Wallet-native route
-  intelligence for liquidity and exposure; Hypervisor has direct provider
+  intelligence for liquidity, exposure, and event markets; Hypervisor has direct provider
   integrations for cloud compute, storage, GPUs, confidential compute, DePIN,
   local machines, customer cloud, enterprise clusters, decentralized storage,
   and user-specified providers; candidates propose, while Wallet authorizes,
@@ -260,7 +260,7 @@ supporting file.
 | Hypervisor Daemon / Runtime Node | Hypervisor/control plane for autonomous execution across workflows, workers, tools, models, connectors, computer-use leases, artifacts, policy, receipts, and replay. |
 | HypervisorOS | Bare-metal Hypervisor node profile where the daemon is the node root; owns measured node boot, daemon-rooted workload launch, node integrity receipts, and bare-metal conformance without replacing cTEE privacy or wallet.network authority. |
 | Hypervisor Fleet | General infrastructure manager whose first-class workload is autonomous systems; manages nodes, providers, VMs, containers, microVMs, WASM workloads, images, volumes, networks, GPU pools, DePIN/cloud/local/bare-metal runtime inventory, CloudRoute candidates, placement, health, cost, storage posture, cTEE posture, receipts, replay projections, and policy visibility; surfaces inside Hypervisor IDE and console.ioi.ai without owning execution, authority, truth, or bytes. |
-| Wallet Lanes / Provider Integrations | decentralized.exchange routes liquidity, decentralized.trade routes exposure, and Hypervisor integrates directly with compute, storage, GPU, confidential, DePIN, local, customer-cloud, and enterprise providers. Candidates propose; wallet.network authorizes; Hypervisor executes or deploys; venues/providers perform; Agentgres records; IOI L1 settles by trigger. |
+| Wallet Lanes / Provider Integrations | decentralized.exchange routes liquidity, decentralized.trade routes exposure including prediction markets/event contracts, and Hypervisor integrates directly with compute, storage, GPU, confidential, DePIN, local, customer-cloud, and enterprise providers. Candidates propose; wallet.network authorizes; Hypervisor executes or deploys; venues/providers perform; Agentgres records; IOI L1 settles by trigger. |
 | Private Workspace backed by cTEE | User-facing private workspace and daemon execution profile for persistent rented GPU nodes that run useful compute without receiving protected plaintext by default; Plaintext-Free Runtime Mounting is the daemon boundary, CLPD is the default protected-agency strategy, Candidate Coverage Profile estimates proposal redundancy, Counterfactual Lattice Execution trades extra public token volume for lower online private-choice leakage, the Cryptographic Operator Plane handles protected private operators internally, External Model API Boundary distinguishes private-native/redacted-API/provider-trust/unsafe paths, and deterrence/detection receipts support canaries, watermarks, and disputes. |
 | IOI CLI/TUI | Human terminal and TUI operator client over daemon/public runtime APIs. |
 | IOI SDK | Low-level protocol/client library over daemon, Agentgres, wallet.network, AIIP, and IOI L1 contracts; never the canonical execution owner. |

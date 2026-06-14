@@ -1,8 +1,7 @@
 mod admission;
 pub use admission::{
-    admit_model_mount_invocation_response, admit_model_mount_route_decision_response,
-    ModelMountInvocationAdmissionBridgeRequest, ModelMountInvocationAdmissionRecord,
-    ModelMountInvocationAdmissionRequest, ModelMountRouteDecisionBridgeRequest,
+    admit_model_mount_invocation_response, ModelMountInvocationAdmissionBridgeRequest,
+    ModelMountInvocationAdmissionRecord, ModelMountInvocationAdmissionRequest,
     ModelMountRouteDecisionRecord, ModelMountRouteDecisionRequest,
 };
 mod accepted_receipt;

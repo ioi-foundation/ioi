@@ -601,6 +601,7 @@ export class AgentgresRuntimeStateStore {
     this.daemonCoreWorkspaceTrustApi = options.daemonCoreWorkspaceTrustApi;
     this.daemonCoreThreadMemoryApi = options.daemonCoreThreadMemoryApi;
     this.daemonCoreAgentgresApi = options.daemonCoreAgentgresApi;
+    this.daemonCoreModelMountApi = options.daemonCoreModelMountApi;
     this.daemonCoreAuthorityApi = options.daemonCoreAuthorityApi;
     this.daemonCoreApprovalApi = options.daemonCoreApprovalApi;
     this.daemonCoreCteeApi = options.daemonCoreCteeApi;
@@ -674,6 +675,7 @@ export class AgentgresRuntimeStateStore {
       vaultSecrets: options.vaultSecrets,
       modelMountCore: options.modelMountCore,
       daemonCoreInvoker: this.daemonCoreInvoker,
+      daemonCoreModelMountApi: this.daemonCoreModelMountApi,
       commitRuntimeModelMountRecordState: (request) => this.commitRuntimeModelMountRecordState(request),
       commitRuntimeModelMountReceiptState: (request) => this.commitRuntimeModelMountReceiptState(request),
     });

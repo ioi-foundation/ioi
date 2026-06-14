@@ -2803,8 +2803,9 @@ explicit-endpoint operations, commit only Rust-authored model_mount records, and
 return Rust-selected endpoint truth before endpoint mounting, JS policy
 evaluation, or JS candidate scoring can run. The remaining route-selection
 helpers are limited to Rust admission request assembly, Rust-authored receipt
-persistence, and migration transport around `admit_model_mount_route_decision`;
-they are not a terminal bridge architecture. This still does not claim terminal
+persistence, and the typed `daemonCoreModelMountApi.admitModelMountRouteDecision`
+call into Rust `admit_model_mount_route_decision`; the old command transport for
+that route-decision admission is retired. This still does not claim terminal
 model_route migration: direct Rust daemon-core route projection APIs over
 Agentgres-backed state, stable protocol APIs, replay, and command-transport
 retirement remain required before model route control reaches the pure Rust
@@ -9284,6 +9285,17 @@ old fail-closed JS list facade and public-list `conversation_states` request
 input are deleted. This remains non-terminal because hosted stream parity,
 command-transport retirement, deeper wallet/cTEE conversation authority, and
 stable IDE/CLI/SDK APIs still need direct Rust ownership.
+
+Model-mount route-decision admission now uses the typed Rust daemon-core
+`daemonCoreModelMountApi.admitModelMountRouteDecision` surface instead of the
+generic command-envelope transport. Rust `command_protocol.rs` rejects the old
+`admit_model_mount_route_decision` command operation, `command_dispatch.rs` has
+no route-decision arm, and the route-decision bridge request/response helper is
+deleted from `model_mount/admission.rs`. The mounted JS model-mount core fails
+closed without the typed API and no longer sends `operation` or `backend` fields
+for route-decision admission. This retires the route-decision command transport
+cut only; remaining model_mount invocation/provider/lifecycle/read-projection
+command transports still need direct Rust daemon-core protocol/API ownership.
 
 Model-mount backend registry lookup now consumes Rust read-projection kind
 `backends` through `ModelMountingState.backendRegistry()` and the internal

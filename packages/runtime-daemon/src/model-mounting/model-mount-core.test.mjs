@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   MODEL_MOUNT_CORE_SCHEMA_VERSION,
+  MODEL_MOUNT_ROUTE_DECISION_API_METHOD,
   ModelMountCoreError,
   RUST_MODEL_MOUNT_ARTIFACT_ENDPOINT_BACKEND,
   RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_BACKEND,
@@ -690,7 +691,6 @@ function streamCancelRequest() {
 
 test("Rust model_mount core does not synthesize Rust-owned receipt, required-boundary evidence, or process fields", () => {
   const sparseResultByOperation = new Map([
-    ["admit_model_mount_route_decision", { record: {} }],
     ["admit_model_mount_invocation", { record: {} }],
     ["admit_model_mount_provider_execution", { record: {} }],
     ["execute_model_mount_provider_invocation", { result: {} }],
@@ -708,6 +708,11 @@ test("Rust model_mount core does not synthesize Rust-owned receipt, required-bou
     ["plan_model_mount_route_control_required", { record: { details: {} } }],
   ]);
   const runner = new ModelMountCore({
+    daemonCoreModelMountApi: {
+      admitModelMountRouteDecision() {
+        return { ok: true, result: { record: {} } };
+      },
+    },
     daemonCoreInvoker(request) {
       return {
         ok: true,
@@ -782,39 +787,63 @@ test("Rust model_mount core does not synthesize Rust-owned receipt, required-bou
   assert.equal(routeControlRequired.evidence_refs, null);
 });
 
-test("Rust model_mount core sends route-decision through direct daemon-core invoker", () => {
+test("Rust model_mount core sends route-decision through typed Rust daemon-core Agentgres API", () => {
   const calls = [];
   const runner = new ModelMountCore({
-    daemonCoreInvoker(request) {
-      calls.push({ request });
-      return {
-        ok: true,
-        result: {
-            source: "rust_model_mount_command",
+    daemonCoreModelMountApi: {
+      admitModelMountRouteDecision(request) {
+        calls.push({ method: MODEL_MOUNT_ROUTE_DECISION_API_METHOD, request });
+        return {
+          ok: true,
+          result: {
+            source: "direct_model_mount_api",
             backend: "rust_model_mount_live",
             record: {
-              ...request.request,
+              ...request,
               route_decision_ref: "model_mount://route_decision/test",
               route_decision_hash: "sha256:test",
             },
             route_decision_ref: "model_mount://route_decision/test",
             route_decision_hash: "sha256:test",
-            receipt_refs: request.request.receipt_refs,
+            receipt_refs: request.receipt_refs,
             evidence_refs: ["rust_model_mount_core"],
           },
-      };
+        };
+      },
+    },
+    daemonCoreInvoker(request) {
+      calls.push({ method: "daemonCoreInvoker", request });
+      throw new Error(`generic command invoker must not run route decisions: ${request?.operation}`);
     },
   });
 
   const result = runner.admitRouteDecision(routeRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
-  assert.equal(calls[0].request.operation, "admit_model_mount_route_decision");
-  assert.equal(calls[0].request.backend, "rust_model_mount_live");
-  assert.equal(calls[0].request.request.model_ref, "model.local");
+  assert.equal(calls[0].method, MODEL_MOUNT_ROUTE_DECISION_API_METHOD);
+  assert.equal(calls[0].request.schema_version, "ioi.model_mount.route_decision.v1");
+  assert.equal(Object.hasOwn(calls[0].request, "operation"), false);
+  assert.equal(Object.hasOwn(calls[0].request, "backend"), false);
+  assert.equal(calls[0].request.model_ref, "model.local");
+  assert.equal(result.source, "direct_model_mount_api");
   assert.equal(result.route_decision_ref, "model_mount://route_decision/test");
   assert.equal(result.record.route_decision_hash, "sha256:test");
+});
+
+test("Rust model_mount core rejects command-shaped route-decision fallback", () => {
+  const runner = new ModelMountCore({
+    daemonCoreInvoker(request) {
+      throw new Error(`generic command invoker must not run route decisions: ${request?.operation}`);
+    },
+  });
+
+  assert.throws(
+    () => runner.admitRouteDecision(routeRequest()),
+    (error) =>
+      error instanceof ModelMountCoreError &&
+      error.code === "model_mount_core_direct_model_mount_api_unconfigured" &&
+      error.details.boundary === "daemonCoreModelMountApi.admitModelMountRouteDecision",
+  );
 });
 
 test("Rust model_mount core sends invocation through direct daemon-core invoker", () => {
@@ -3509,26 +3538,33 @@ test("Rust model_mount core sends read projection plan request", () => {
   assert.equal(result.evidence_refs.includes("model_mount_js_read_projection_authoring_retired"), true);
 });
 
-test("Rust model_mount core factory uses daemon-level direct invoker", () => {
+test("Rust model_mount core factory uses daemon-level typed model_mount API", () => {
   const calls = [];
   const core = createModelMountCore({
+    daemonCoreModelMountApi: {
+      admitModelMountRouteDecision(request) {
+        calls.push({ method: MODEL_MOUNT_ROUTE_DECISION_API_METHOD, request });
+        return {
+          source: "direct_daemon_core_api",
+          backend: "rust_model_mount_live",
+          record: {
+            route_decision_ref: "model_mount://route_decision/direct",
+            route_decision_hash: "sha256:direct",
+          },
+        };
+      },
+    },
     daemonCoreInvoker(request) {
-      calls.push(request);
-      return {
-        source: "direct_daemon_core_api",
-        backend: "rust_model_mount_live",
-        record: {
-          route_decision_ref: "model_mount://route_decision/direct",
-          route_decision_hash: "sha256:direct",
-        },
-      };
+      calls.push({ method: "daemonCoreInvoker", request });
+      return { source: "generic_daemon_core_api" };
     },
   });
 
   const result = core.admitRouteDecision(routeRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].operation, "admit_model_mount_route_decision");
+  assert.equal(calls[0].method, MODEL_MOUNT_ROUTE_DECISION_API_METHOD);
+  assert.equal(Object.hasOwn(calls[0].request, "operation"), false);
   assert.equal(result.source, "direct_daemon_core_api");
   assert.equal(result.route_decision_ref, "model_mount://route_decision/direct");
 });
@@ -3596,13 +3632,14 @@ test("Rust model_mount core command constructor option fails closed", () => {
   );
 });
 
-test("Rust model_mount core fails closed without direct invoker", () => {
+test("Rust model_mount core fails closed without typed route-decision API", () => {
   const core = new ModelMountCore();
 
   assert.throws(
     () => core.admitRouteDecision(routeRequest()),
     (error) =>
       error instanceof ModelMountCoreError &&
-      error.code === "model_mount_core_direct_invoker_unconfigured",
+      error.code === "model_mount_core_direct_model_mount_api_unconfigured" &&
+      error.details.boundary === "daemonCoreModelMountApi.admitModelMountRouteDecision",
   );
 });

@@ -6,7 +6,6 @@ pub const COMMAND_SCHEMA_VERSION: &str = DAEMON_CORE_COMMAND_SCHEMA_VERSION;
 
 pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "run_coding_tool_step_module",
-    "admit_model_mount_route_decision",
     "admit_model_mount_invocation",
     "admit_model_mount_provider_execution",
     "execute_model_mount_provider_invocation",
@@ -85,7 +84,6 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CommandOperation {
     RunCodingToolStepModule,
-    AdmitModelMountRouteDecision,
     AdmitModelMountInvocation,
     AdmitModelMountProviderExecution,
     ExecuteModelMountProviderInvocation,
@@ -165,7 +163,6 @@ impl CommandOperation {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::RunCodingToolStepModule => "run_coding_tool_step_module",
-            Self::AdmitModelMountRouteDecision => "admit_model_mount_route_decision",
             Self::AdmitModelMountInvocation => "admit_model_mount_invocation",
             Self::AdmitModelMountProviderExecution => "admit_model_mount_provider_execution",
             Self::ExecuteModelMountProviderInvocation => "execute_model_mount_provider_invocation",
@@ -330,7 +327,6 @@ impl CommandProtocolError {
 pub fn command_operation(operation: &str) -> Option<CommandOperation> {
     match operation {
         "run_coding_tool_step_module" => Some(CommandOperation::RunCodingToolStepModule),
-        "admit_model_mount_route_decision" => Some(CommandOperation::AdmitModelMountRouteDecision),
         "admit_model_mount_invocation" => Some(CommandOperation::AdmitModelMountInvocation),
         "admit_model_mount_provider_execution" => {
             Some(CommandOperation::AdmitModelMountProviderExecution)
@@ -558,7 +554,6 @@ mod tests {
     #[test]
     fn daemon_core_operations_use_daemon_core_command_schema() {
         for operation in [
-            "admit_model_mount_route_decision",
             "plan_workflow_edit_admission_required",
             "validate_mcp_servers",
             "plan_mcp_manager_catalog_summary_projection",
@@ -604,6 +599,24 @@ mod tests {
                 Some(DAEMON_CORE_COMMAND_SCHEMA_VERSION)
             );
         }
+    }
+
+    #[test]
+    fn model_mount_route_decision_command_transport_is_retired() {
+        assert_eq!(command_operation("admit_model_mount_route_decision"), None);
+        assert_eq!(
+            expected_command_schema_version("admit_model_mount_route_decision"),
+            None
+        );
+        assert_eq!(
+            validate_command_envelope(
+                "admit_model_mount_route_decision",
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+            )
+            .unwrap_err()
+            .code(),
+            "operation_unknown"
+        );
     }
 
     #[test]
@@ -820,7 +833,7 @@ mod tests {
     #[test]
     fn daemon_core_operation_rejects_step_module_command_schema() {
         let error = validate_command_envelope(
-            "admit_model_mount_route_decision",
+            "admit_model_mount_invocation",
             STEP_MODULE_COMMAND_SCHEMA_VERSION,
         )
         .expect_err("schema mismatch should fail closed");
@@ -886,14 +899,14 @@ mod tests {
         );
 
         let daemon_core = validate_command_envelope(
-            "admit_model_mount_route_decision",
+            "admit_model_mount_invocation",
             DAEMON_CORE_COMMAND_SCHEMA_VERSION,
         )
         .expect("daemon-core command envelope");
-        assert_eq!(daemon_core.operation, "admit_model_mount_route_decision");
+        assert_eq!(daemon_core.operation, "admit_model_mount_invocation");
         assert_eq!(
             daemon_core.command_operation,
-            CommandOperation::AdmitModelMountRouteDecision
+            CommandOperation::AdmitModelMountInvocation
         );
         assert_eq!(
             daemon_core.schema_version,
@@ -930,7 +943,7 @@ mod tests {
     #[test]
     fn validate_command_envelope_rejects_schema_mismatch() {
         let error = validate_command_envelope(
-            "admit_model_mount_route_decision",
+            "admit_model_mount_invocation",
             STEP_MODULE_COMMAND_SCHEMA_VERSION,
         )
         .expect_err("schema mismatch should fail closed");

@@ -112,14 +112,6 @@ pub fn dispatch_command_operation_response(
         CommandOperation::RunCodingToolStepModule => {
             run_coding_tool_step_module_response(decode(raw_request)?).map_err(Into::into)
         }
-        CommandOperation::AdmitModelMountRouteDecision => {
-            admit_model_mount_route_decision_response(decode(raw_request)?).map_err(|error| {
-                CommandDispatchError::new(
-                    "model_mount_route_decision_rejected",
-                    format!("{error:?}"),
-                )
-            })
-        }
         CommandOperation::AdmitModelMountInvocation => {
             admit_model_mount_invocation_response(decode(raw_request)?).map_err(|error| {
                 CommandDispatchError::new("model_mount_invocation_rejected", format!("{error:?}"))

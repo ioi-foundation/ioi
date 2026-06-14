@@ -19,7 +19,7 @@ decentralized.exchange
   route liquidity / convert assets
 
 decentralized.trade
-  route exposure / manage positions
+  route exposure / manage positions and event markets
 ```
 
 They are not wallets, brokers, custodians, chains, liquidity owners, or
@@ -46,8 +46,9 @@ clusters, decentralized storage networks, and user-specified providers.
   route sources, `RouteCandidate`, exchange receipts, and exchange
   anti-patterns.
 - [`trade.md`](./trade.md): `decentralized.trade`, spot orders, perps,
-  leverage, margin, position lifecycle, `TradeIntent`, `PositionReceipt`, and
-  agent-trading restrictions.
+  leverage, margin, prediction markets, event contracts, position lifecycle,
+  `TradeIntent`, `PredictionIntent`, `PositionReceipt`, `PredictionReceipt`,
+  and agent-trading restrictions.
 - [`cloud-parked-future.md`](./cloud-parked-future.md): parked future
   `decentralized.cloud` posture and the current Hypervisor direct-provider
   integration boundary.
@@ -82,7 +83,7 @@ decentralized.exchange
   proposes asset-conversion candidates
 
 decentralized.trade
-  proposes exposure and venue-action candidates
+  proposes exposure, event-market, and venue-action candidates
 
 wallet.network
   authorizes or denies exact intents
@@ -106,6 +107,8 @@ IOI L1
   or consequential work are involved.
 - No `decentralized.*` surface can claim to own liquidity, user positions,
   venue execution, provider resources, storage truth, or settlement truth.
+- Prediction markets and event contracts belong under `decentralized.trade` as
+  event exposure, not under `decentralized.exchange` as asset conversion.
 - `decentralized.cloud` must remain parked future product space until a later
   canon document promotes it explicitly.
 - Hypervisor must support direct provider integrations without routing through

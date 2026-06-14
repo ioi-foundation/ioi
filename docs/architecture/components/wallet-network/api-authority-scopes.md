@@ -388,11 +388,11 @@ Exchange intent:
 No route candidate is authority. Final execution requires an approved
 `ExchangeIntent` and exact `TxIntent` binding.
 
-## Trade and Position Authority API
+## Trade, Prediction, and Position Authority API
 
 Advanced trading is a high-risk wallet action. Perps, margin, leverage,
-strategy execution, and ongoing position management are not ordinary Exchange
-routes.
+prediction markets, event contracts, strategy execution, and ongoing position
+management are not ordinary Exchange routes.
 
 ```http
 POST /v1/trade/candidates
@@ -400,9 +400,16 @@ POST /v1/trade/intents
 POST /v1/trade/intents/{intent_id}/simulate
 POST /v1/trade/intents/{intent_id}/approve
 POST /v1/trade/intents/{intent_id}/deny
+POST /v1/trade/prediction-candidates
+POST /v1/trade/prediction-intents
+POST /v1/trade/prediction-intents/{intent_id}/simulate
+POST /v1/trade/prediction-intents/{intent_id}/approve
+POST /v1/trade/prediction-intents/{intent_id}/deny
 GET  /v1/trade/positions
 GET  /v1/trade/positions/{position_id}
 GET  /v1/trade/positions/{position_id}/receipts
+GET  /v1/trade/predictions
+GET  /v1/trade/predictions/{prediction_id}/receipts
 POST /v1/trade/positions/{position_id}/close
 POST /v1/trade/positions/{position_id}/reduce-risk
 ```
@@ -449,9 +456,44 @@ Trade intent:
 }
 ```
 
+Prediction intent:
+
+```json
+{
+  "intent_id": "prediction_intent://...",
+  "initiator_id": "user://123 | agent://analyst",
+  "account_id": "wallet://account/main",
+  "venue_candidate_id": "venue_candidate://...",
+  "market_id": "market://event/...",
+  "question": "Will X happen by DATE?",
+  "outcome": "yes | no | outcome://...",
+  "side": "buy | sell",
+  "price_limit": "0.63",
+  "shares": "100",
+  "max_loss": "63.00",
+  "max_payout": "100.00",
+  "resolution_source": "resolution_source://...",
+  "resolution_time": "2026-12-31T23:59:59Z",
+  "market_rules_hash": "sha256:...",
+  "liquidity_snapshot": "liquidity_snapshot://...",
+  "policy_hash": "sha256:...",
+  "grant_id": "grant://... | null",
+  "lease_id": "lease://... | null",
+  "revocation_epoch": 7,
+  "simulation_hash": "sha256:... | null",
+  "risk_labels": [
+    "Resolution Risk",
+    "Insider Information Risk",
+    "Jurisdiction Restricted",
+    "Agent Trading Limited"
+  ]
+}
+```
+
 Agent live trading must be denied by default or constrained by explicit policy:
-paper mode, max collateral, max leverage, isolated margin, market allowlist,
-required stop loss, max daily loss, no collateral add without step-up, lease
+paper mode, max collateral or max loss, max leverage where applicable, isolated
+margin, market/category allowlist, required stop loss where applicable, max
+daily loss, no collateral add or new live event market without step-up, lease
 expiry, and immediate revocation.
 
 ## Asset Exposure and Protection API

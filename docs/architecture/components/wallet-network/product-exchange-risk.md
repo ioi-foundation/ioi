@@ -87,7 +87,8 @@ Exchange
 
 Trade
   advanced, eligibility-gated exposure management for spot orders, perps,
-  leverage, collateral, margin, liquidation, funding, and position receipts
+  prediction markets, event contracts, leverage, collateral, margin,
+  liquidation, funding, resolution, and position receipts
 
 Authority
   apps, agents, grants, policies, leases, revocation, emergency stop
@@ -226,7 +227,7 @@ Perps are just another exchange route.
 Agents may trade leveraged products by default.
 ```
 
-## Trade and Position Authority
+## Trade, Prediction, and Position Authority
 
 Trade is a first-class but high-risk Wallet action. It is not the same product
 surface as simple exchange.
@@ -240,12 +241,17 @@ Trade
   "I want exposure to price movement under defined risk."
   Venue, market, side, collateral, leverage, margin mode, liquidation,
   funding, stop-loss, take-profit, position lifecycle, and eligibility.
+
+Prediction
+  "I want exposure to an event outcome under defined risk."
+  Venue, market question, outcome, price, shares, max loss, max payout,
+  resolution source, market rules, liquidity, and eligibility.
 ```
 
 Spot swaps can be ordinary Wallet actions when policy allows. Perps, margin,
-leveraged trading, strategy execution, and ongoing position management must be
-quarantined as advanced actions with separate risk labels, disclosures,
-receipts, and policy gates.
+leveraged trading, prediction markets, event contracts, strategy execution, and
+ongoing position management must be quarantined as advanced actions with
+separate risk labels, disclosures, receipts, and policy gates.
 
 Canonical invariant:
 
@@ -253,11 +259,15 @@ Canonical invariant:
 > as an exact TradeIntent with venue, market, collateral, leverage, margin mode,
 > liquidation/funding assumptions, risk labels, policy, and receipt binding.**
 
-Agent trading over perps or margin is exceptional:
+> **A prediction is not a swap. Event exposure must be approved as an exact
+> PredictionIntent with venue, market, outcome, max loss, max payout,
+> resolution source, market rules, risk labels, policy, and receipt binding.**
+
+Agent trading over perps, margin, or prediction markets is exceptional:
 
 ```text
 default:
-  agent may not trade perps or margin
+  agent may not trade perps, margin, or live prediction markets
 
 paper/sandbox:
   agent may propose or simulate only
@@ -271,6 +281,9 @@ restricted live:
   max daily realized loss
   no adding collateral without step-up
   no new market without step-up
+  no live event market without category allowlist and max-loss cap
+  no restricted politics, elections, sports, employer-related, or
+  insider-risk event markets unless policy explicitly allows them
   lease expiry
   immediate revocation path
 ```
@@ -445,6 +458,77 @@ struct PositionReceipt {
 }
 ```
 
+### PredictionIntent
+
+`PredictionIntent` is the semantic wallet object for prediction markets and
+event contracts. It is a specialized trade authority object, not a swap.
+
+```rust
+struct PredictionIntent {
+    intent_id: Hash,
+    initiator_id: PrincipalId,
+    account_id: AccountId,
+
+    venue_candidate_id: Hash,
+    market_id: MarketRef,
+    question: String,
+    outcome: OutcomeRef,
+    side: TradeSide,              // buy | sell
+    price_limit: Decimal,
+    shares: Decimal,
+    max_loss: Money,
+    max_payout: Money,
+
+    resolution_source: ResolutionSourceRef,
+    resolution_time: Timestamp,
+    market_rules_hash: Hash,
+
+    liquidity_snapshot: LiquiditySnapshot,
+    risk_labels: Vec<PredictionRiskLabel>,
+
+    policy_hash: Hash,
+    grant_id: Option<Hash>,
+    lease_id: Option<Hash>,
+    revocation_epoch: u64,
+
+    simulation_hash: Option<Hash>
+}
+```
+
+### PredictionReceipt
+
+`PredictionReceipt` is the user-facing and machine-verifiable record of an
+event-market order, position, or resolution transition.
+
+```rust
+struct PredictionReceipt {
+    receipt_id: ReceiptId,
+    prediction_intent_id: Hash,
+
+    venue: VenueRef,
+    market: MarketRef,
+    outcome: OutcomeRef,
+
+    side: TradeSide,
+    price: Decimal,
+    shares: Decimal,
+    max_loss: Money,
+    max_payout: Money,
+
+    resolution_source: ResolutionSourceRef,
+    market_rules_hash: Hash,
+    resolution_ref: Option<ResolutionRef>,
+
+    policy_checks: Vec<PolicyCheck>,
+    risk_labels: Vec<PredictionRiskLabel>,
+
+    execution_ref: ExecutionRef,
+    result: ReceiptResult,
+
+    agentgres_ref: Option<AgentgresRef>
+}
+```
+
 ### TxIntent
 
 `TxIntent` remains the low-level chain-execution object. `ExchangeIntent`
@@ -494,6 +578,10 @@ User-facing receipt types include:
 - `OrderReceipt`;
 - `PositionReceipt`;
 - `PositionRiskReceipt`;
+- `PredictionIntentReceipt`;
+- `PredictionReceipt`;
+- `PredictionRiskReceipt`;
+- `EventResolutionReceipt`;
 - `ApprovalReceipt`;
 - `DelegationReceipt`;
 - `RevocationReceipt`;
@@ -556,8 +644,8 @@ cryptographic limits.
 
 ### Trade / Position Risk Labels
 
-Trade risk labels describe the risk assumptions behind a market exposure or
-position lifecycle:
+Trade risk labels describe the risk assumptions behind a market exposure,
+event exposure, or position lifecycle:
 
 ```text
 Leverage Risk
@@ -575,9 +663,30 @@ Agent Trading Limited
 Paper Mode Only
 ```
 
+Event and prediction-market labels:
+
+```text
+Resolution Risk
+Oracle / Source Risk
+Ambiguous Criteria Risk
+Manipulation Risk
+Insider Information Risk
+Low Liquidity
+Wide Spread
+Event Cancellation Risk
+Jurisdiction Restricted
+Venue Risk
+Settlement Delay Risk
+Correlated Outcome Risk
+Agent Trading Disabled
+Agent Trading Limited
+Paper Only
+```
+
 Trade labels must be actionable. If a user sees liquidation, cross-margin,
-funding, venue, or jurisdiction risk, Wallet should also show the policy status
-and available protection, reduction, close, revoke, or step-up actions.
+funding, resolution, venue, manipulation, insider-information, or jurisdiction
+risk, Wallet should also show the policy status and available protection,
+reduction, close, revoke, report, or step-up actions.
 
 ## Asset Exposure Model
 
@@ -811,13 +920,22 @@ A conforming Wallet Trade path must prove:
 
 - trade source is not treated as authority;
 - final approval binds an exact `TradeIntent`;
+- final approval binds an exact `PredictionIntent` for prediction markets or
+  event contracts;
 - venue, market, side, collateral, leverage, margin mode, order type,
   liquidation/funding assumptions, stop-loss, max-loss policy, and simulation
   are bound into approval and receipts where applicable;
-- perps, leverage, margin, and position management are high-risk actions;
+- venue, market question, outcome, price, shares, max loss, max payout,
+  resolution source, market rules, liquidity, and simulation are bound into
+  prediction approval and receipts where applicable;
+- perps, leverage, margin, prediction markets, event contracts, and position
+  management are high-risk actions;
 - agent live trading is denied by default or constrained by explicit policy;
 - position state changes emit `OrderReceipt`, `PositionReceipt`, or
   `PositionRiskReceipt` when they affect user risk;
+- prediction-market state changes emit `PredictionReceipt`,
+  `PredictionRiskReceipt`, or `EventResolutionReceipt` when they affect user
+  risk, settlement, or dispute posture;
 - compliance, eligibility, and jurisdiction policy checks are represented as
   policy outcomes, not buried in UI text;
 - Agentgres receives trade receipt/evidence refs when the trade affects
@@ -837,7 +955,9 @@ a product that hides route dependencies from users
 a quote API trust root
 a bridge-risk laundering layer
 a perps broker hidden behind "swap"
+an event-betting surface hidden behind "swap"
 an agent-leverage machine with open-ended authority
+an agent-prediction machine with open-ended authority
 a blanket post-quantum safety wrapper for legacy chains
 a receipt UI without machine-verifiable receipt binding
 an app database for exchange history outside Agentgres-backed truth
@@ -853,6 +973,8 @@ Wallet Trade evaluates exposure candidates.
 decentralized.trade is a preferred, non-exclusive trading route source.
 Liquidity lives in pools and venues.
 Positions and execution live in chains or selected venues.
+Prediction markets and event contracts live in selected venues and resolution
+rules.
 Agentgres records receipts and evidence.
 IOI L1 anchors only selected public/economic commitments.
 ```
@@ -865,7 +987,8 @@ IOI L1 anchors only selected public/economic commitments.
 - [`../../domains/decentralized/exchange.md`](../../domains/decentralized/exchange.md):
   route-source and spot/cross-chain exchange doctrine.
 - [`../../domains/decentralized/trade.md`](../../domains/decentralized/trade.md):
-  advanced trading, exposure, perps, and position lifecycle doctrine.
+  advanced trading, exposure, perps, prediction markets, event contracts, and
+  position lifecycle doctrine.
 - [`doctrine.md`](./doctrine.md): wallet.network authority doctrine.
 - [`api-authority-scopes.md`](./api-authority-scopes.md): low-level account,
   scope, approval, payment, exchange, exposure, receipt, and revocation APIs.
