@@ -1,5 +1,5 @@
-export const L1_SETTLEMENT_CORE_SCHEMA_VERSION = "ioi.runtime.daemon_core.command.v1";
 export const RUNTIME_L1_SETTLEMENT_BACKEND = "l1_settlement_guard";
+export const L1_SETTLEMENT_CORE_API_METHOD = "admitL1SettlementAttempt";
 
 const RETIRED_L1_SETTLEMENT_CORE_REQUEST_ALIASES = [
   "settlementAttempt",
@@ -16,36 +16,45 @@ export class RuntimeL1SettlementCore {
   constructor(options = {}) {
     assertNoRetiredL1SettlementCoreOption("command", options.command);
     assertNoRetiredL1SettlementCoreOption("args", options.args);
-    this.daemonCoreInvoker = optionalFunction(options.daemonCoreInvoker);
+    assertNoRetiredL1SettlementCoreOption("daemonCoreInvoker", options.daemonCoreInvoker);
+    this.daemonCoreGovernedAdmissionApi = governedAdmissionApi(
+      options.daemonCoreGovernedAdmissionApi ??
+        options.daemonCoreApi?.governed_admission ??
+        options.daemonCoreApi?.governedAdmission ??
+        options.daemonCoreApi,
+      L1_SETTLEMENT_CORE_API_METHOD,
+    );
   }
 
   admitAttempt(attempt, context = {}) {
     assertCanonicalL1SettlementCoreRequest(attempt);
-    const daemonCoreRequest = {
-      schema_version: L1_SETTLEMENT_CORE_SCHEMA_VERSION,
-      operation: "admit_l1_settlement_attempt",
-      backend: RUNTIME_L1_SETTLEMENT_BACKEND,
+    const routeContext = {
       thread_id: optionalString(context.thread_id),
       agent_id: optionalString(context.agent_id),
-      attempt,
     };
-    return this.invokeDaemonCore(daemonCoreRequest);
+    return this.invokeRustGovernedAdmissionApi(attempt, routeContext);
   }
 
-  invokeDaemonCore(request) {
-    if (!this.daemonCoreInvoker) {
+  invokeRustGovernedAdmissionApi(attempt, context = {}) {
+    if (!this.daemonCoreGovernedAdmissionApi) {
       throw new RuntimeL1SettlementCoreError(
-        "L1 settlement admission requires daemonCoreInvoker for direct Rust daemon-core trigger admission.",
-        "l1_settlement_core_direct_invoker_unconfigured",
-        { boundary: "daemonCoreInvoker" },
+        "L1 settlement admission requires daemonCoreGovernedAdmissionApi.admitL1SettlementAttempt for Rust daemon-core trigger admission.",
+        "l1_settlement_core_direct_governed_admission_api_unconfigured",
+        {
+          boundary: "daemonCoreGovernedAdmissionApi.admitL1SettlementAttempt",
+          backend: RUNTIME_L1_SETTLEMENT_BACKEND,
+        },
       );
     }
-    const response = this.daemonCoreInvoker(request);
+    const response = this.daemonCoreGovernedAdmissionApi[L1_SETTLEMENT_CORE_API_METHOD](
+      attempt,
+      context,
+    );
     if (response?.ok === false) {
       const error = objectRecord(response.error) ?? {};
       throw new RuntimeL1SettlementCoreError(
         error.message ?? "Rust L1 settlement core rejected the attempt.",
-        error.code ?? "l1_settlement_core_direct_invoker_rejected",
+        error.code ?? "l1_settlement_core_direct_governed_admission_api_rejected",
         { error },
       );
     }
@@ -76,7 +85,7 @@ function assertNoRetiredL1SettlementCoreOption(field, value) {
   if (typeof value === "string" && value.trim().length === 0) return;
   if (value == null) return;
   throw new RuntimeL1SettlementCoreError(
-    "L1 settlement command compatibility options are retired; use daemonCoreInvoker for direct Rust daemon-core trigger admission.",
+    "L1 settlement command compatibility options are retired; use daemonCoreGovernedAdmissionApi.admitL1SettlementAttempt for Rust daemon-core trigger admission.",
     "l1_settlement_core_compatibility_option_retired",
     { retired_option: field, retired_value: value },
   );
@@ -104,6 +113,7 @@ function optionalString(value) {
   return trimmed ? trimmed : null;
 }
 
-function optionalFunction(value) {
-  return typeof value === "function" ? value : null;
+function governedAdmissionApi(value, method) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return typeof value[method] === "function" ? value : null;
 }

@@ -40,7 +40,7 @@ function store() {
           status: "admitted",
           proposal_admitted: true,
           mutation_executed: false,
-          source: "rust_governed_meta_improvement_command",
+          source: "rust_governed_meta_improvement_protocol",
           backend: "rust_governed_evolution",
           thread_id: context.thread_id,
           agent_id: context.agent_id,

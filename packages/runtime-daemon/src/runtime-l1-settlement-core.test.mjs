@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  L1_SETTLEMENT_CORE_SCHEMA_VERSION,
   RUNTIME_L1_SETTLEMENT_BACKEND,
   RuntimeL1SettlementCore,
   RuntimeL1SettlementCoreError,
@@ -19,35 +18,37 @@ function settlementAttempt() {
   };
 }
 
-function admittedResult(coreRequest) {
+function admittedResult(attempt, context) {
   return {
-    source: "rust_l1_settlement_guard_command",
+    source: "rust_l1_settlement_guard_protocol",
     backend: RUNTIME_L1_SETTLEMENT_BACKEND,
     schema_version: "ioi.runtime.l1_settlement_admission.v1",
     object: "ioi.runtime_l1_settlement_admission",
     status: "admitted",
     settlement_admitted: true,
-    thread_id: coreRequest.thread_id,
-    agent_id: coreRequest.agent_id,
+    thread_id: context.thread_id,
+    agent_id: context.agent_id,
     record: {
-      ...coreRequest.attempt,
+      ...attempt,
       admission_hash: [1, 2, 3],
     },
-    settlement_ref: coreRequest.attempt.settlement_ref,
-    domain_ref: coreRequest.attempt.domain_ref,
+    settlement_ref: attempt.settlement_ref,
+    domain_ref: attempt.domain_ref,
     state_root_ref: "sha256:rust-derived-l1-state-root",
-    trigger_refs: coreRequest.attempt.trigger_refs,
-    receipt_refs: coreRequest.attempt.receipt_refs,
+    trigger_refs: attempt.trigger_refs,
+    receipt_refs: attempt.receipt_refs,
     admission_hash: [1, 2, 3],
   };
 }
 
-test("L1 settlement core calls direct Rust daemon-core trigger API", () => {
+test("L1 settlement core calls typed Rust daemon-core trigger API", () => {
   const calls = [];
   const core = createRuntimeL1SettlementCore({
-    daemonCoreInvoker(coreRequest) {
-      calls.push(coreRequest);
-      return admittedResult(coreRequest);
+    daemonCoreGovernedAdmissionApi: {
+      admitL1SettlementAttempt(attempt, context) {
+        calls.push({ attempt, context });
+        return admittedResult(attempt, context);
+      },
     },
   });
 
@@ -56,18 +57,19 @@ test("L1 settlement core calls direct Rust daemon-core trigger API", () => {
     agent_id: "agent:l1-core",
   });
 
-  assert.equal(calls[0].schema_version, L1_SETTLEMENT_CORE_SCHEMA_VERSION);
-  assert.equal(calls[0].operation, "admit_l1_settlement_attempt");
-  assert.equal(calls[0].backend, RUNTIME_L1_SETTLEMENT_BACKEND);
-  assert.equal(calls[0].thread_id, "thread:l1-core");
-  assert.equal(calls[0].agent_id, "agent:l1-core");
   assert.equal(calls[0].attempt.settlement_ref, "l1://settlement/marketplace-transaction");
   assert.equal(Object.hasOwn(calls[0].attempt, "state_root_ref"), false);
   assert.deepEqual(calls[0].attempt.trigger_refs, [
     "l1-trigger://service-contract/payment",
   ]);
   assert.equal(Object.hasOwn(calls[0].attempt, "settlementAttempt"), false);
-  assert.equal(result.source, "rust_l1_settlement_guard_command");
+  assert.deepEqual(calls[0].context, {
+    thread_id: "thread:l1-core",
+    agent_id: "agent:l1-core",
+  });
+  assert.equal(Object.hasOwn(calls[0], "operation"), false);
+  assert.equal(Object.hasOwn(calls[0], "schema_version"), false);
+  assert.equal(result.source, "rust_l1_settlement_guard_protocol");
   assert.equal(result.schema_version, "ioi.runtime.l1_settlement_admission.v1");
   assert.equal(result.object, "ioi.runtime_l1_settlement_admission");
   assert.equal(result.status, "admitted");
@@ -85,8 +87,10 @@ test("L1 settlement core returns the Rust envelope without JS normalization", ()
     record: {},
   };
   const core = createRuntimeL1SettlementCore({
-    daemonCoreInvoker() {
-      return rustEnvelope;
+    daemonCoreGovernedAdmissionApi: {
+      admitL1SettlementAttempt() {
+        return rustEnvelope;
+      },
     },
   });
 
@@ -112,14 +116,23 @@ test("L1 settlement core rejects retired compatibility options", () => {
       error instanceof RuntimeL1SettlementCoreError &&
       error.code === "l1_settlement_core_compatibility_option_retired",
   );
+  assert.throws(
+    () => new RuntimeL1SettlementCore({ daemonCoreInvoker() {} }),
+    (error) =>
+      error instanceof RuntimeL1SettlementCoreError &&
+      error.code === "l1_settlement_core_compatibility_option_retired" &&
+      error.details.retired_option === "daemonCoreInvoker",
+  );
 });
 
 test("L1 settlement core rejects retired bridge request aliases before Rust invocation", () => {
   const calls = [];
   const core = createRuntimeL1SettlementCore({
-    daemonCoreInvoker() {
-      calls.push("invoked");
-      return {};
+    daemonCoreGovernedAdmissionApi: {
+      admitL1SettlementAttempt() {
+        calls.push("invoked");
+        return {};
+      },
     },
   });
   const attempt = settlementAttempt();
@@ -145,25 +158,28 @@ test("L1 settlement core rejects retired bridge request aliases before Rust invo
   assert.deepEqual(calls, []);
 });
 
-test("L1 settlement core fails closed without direct daemon-core API", () => {
+test("L1 settlement core fails closed without typed daemon-core governed admission API", () => {
   const core = createRuntimeL1SettlementCore({});
 
   assert.throws(
     () => core.admitAttempt(settlementAttempt()),
-    (error) => error.code === "l1_settlement_core_direct_invoker_unconfigured",
+    (error) =>
+      error.code === "l1_settlement_core_direct_governed_admission_api_unconfigured",
   );
 });
 
 test("L1 settlement core surfaces Rust settlement rejection", () => {
   const core = createRuntimeL1SettlementCore({
-    daemonCoreInvoker() {
-      return {
-        ok: false,
-        error: {
-          code: "l1_settlement_admission_invalid",
-          message: "MissingSettlementTrigger",
-        },
-      };
+    daemonCoreGovernedAdmissionApi: {
+      admitL1SettlementAttempt() {
+        return {
+          ok: false,
+          error: {
+            code: "l1_settlement_admission_invalid",
+            message: "MissingSettlementTrigger",
+          },
+        };
+      },
     },
   });
 

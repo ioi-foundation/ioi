@@ -4186,31 +4186,54 @@ function runBridge() {
       ) &&
       !exists("packages/runtime-daemon/src/runtime-l1-settlement-runner.mjs") &&
       !exists("packages/runtime-daemon/src/runtime-l1-settlement-runner.test.mjs") &&
-      /createRuntimeL1SettlementCore\(\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
+      /this\.daemonCoreGovernedAdmissionApi = options\.daemonCoreGovernedAdmissionApi/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /createRuntimeL1SettlementCore\(\{\s*daemonCoreGovernedAdmissionApi: this\.daemonCoreGovernedAdmissionApi,\s*\}\)/.test(
         runtimeDaemonIndex,
       ) &&
       /this\.l1SettlementCore/.test(runtimeDaemonIndex) &&
       !/this\.l1SettlementRunner/.test(runtimeDaemonIndex) &&
       /RuntimeL1SettlementCore/.test(l1SettlementCore) &&
-      /this\.daemonCoreInvoker = optionalFunction\(options\.daemonCoreInvoker\)/.test(
+      /L1_SETTLEMENT_CORE_API_METHOD = "admitL1SettlementAttempt"/.test(
         l1SettlementCore,
       ) &&
-      /operation:\s*"admit_l1_settlement_attempt"/.test(l1SettlementCore) &&
+      /this\.daemonCoreGovernedAdmissionApi = governedAdmissionApi/.test(
+        l1SettlementCore,
+      ) &&
+      /assertNoRetiredL1SettlementCoreOption\("daemonCoreInvoker", options\.daemonCoreInvoker\)/.test(
+        l1SettlementCore,
+      ) &&
+      /l1_settlement_core_direct_governed_admission_api_unconfigured/.test(
+        l1SettlementCore,
+      ) &&
+      !/operation:\s*"admit_l1_settlement_attempt"|ioi\.runtime\.daemon_core\.command\.v1|this\.daemonCoreInvoker = optionalFunction\(options\.daemonCoreInvoker\)/.test(
+        l1SettlementCore,
+      ) &&
       !/process\.env|IOI_RUNTIME_DAEMON_CORE_COMMAND|IOI_L1_SETTLEMENT_COMMAND|normalizeL1SettlementBridgeResult|stringArray|createL1SettlementRunnerFromEnv/.test(
         l1SettlementCore,
       ) &&
       !exists("packages/runtime-daemon/src/runtime-governed-improvement-runner.mjs") &&
       !exists("packages/runtime-daemon/src/runtime-governed-improvement-runner.test.mjs") &&
-      /createRuntimeGovernedImprovementCore\(\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
+      /createRuntimeGovernedImprovementCore\(\{\s*daemonCoreGovernedAdmissionApi: this\.daemonCoreGovernedAdmissionApi,\s*\}\)/.test(
         runtimeDaemonIndex,
       ) &&
       /this\.governedImprovementCore/.test(runtimeDaemonIndex) &&
       !/this\.governedImprovementRunner/.test(runtimeDaemonIndex) &&
       /RuntimeGovernedImprovementCore/.test(governedImprovementCore) &&
-      /this\.daemonCoreInvoker = optionalFunction\(options\.daemonCoreInvoker\)/.test(
+      /GOVERNED_IMPROVEMENT_CORE_API_METHOD =\s*"admitGovernedRuntimeImprovementProposal"/.test(
         governedImprovementCore,
       ) &&
-      /operation:\s*"admit_governed_runtime_improvement_proposal"/.test(
+      /this\.daemonCoreGovernedAdmissionApi = governedAdmissionApi/.test(
+        governedImprovementCore,
+      ) &&
+      /assertNoRetiredGovernedImprovementCoreOption\(\s*"daemonCoreInvoker",\s*options\.daemonCoreInvoker,\s*\)/.test(
+        governedImprovementCore,
+      ) &&
+      /governed_improvement_core_direct_governed_admission_api_unconfigured/.test(
+        governedImprovementCore,
+      ) &&
+      !/operation:\s*"admit_governed_runtime_improvement_proposal"|ioi\.runtime\.daemon_core\.command\.v1|this\.daemonCoreInvoker = optionalFunction\(options\.daemonCoreInvoker\)/.test(
         governedImprovementCore,
       ) &&
       !/process\.env|IOI_RUNTIME_DAEMON_CORE_COMMAND|IOI_GOVERNED_IMPROVEMENT_COMMAND|normalizeGovernedImprovementBridgeResult|stringArray|createGovernedImprovementRunnerFromEnv/.test(
@@ -4252,7 +4275,7 @@ function runBridge() {
       /createStepModuleRunnerFromEnv\(process\.env,\s*\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
         runtimeDaemonIndex,
       ) &&
-      /daemon-level direct invoker feeds default daemon-core surfaces/.test(
+      /daemon-level typed APIs feed migrated daemon-core surfaces/.test(
         daemonCoreDirectInvokerServiceTest,
       ),
     [
@@ -7695,14 +7718,21 @@ function runBridge() {
       !/pub\(super\) fn admit_worker_service_package_invocation/.test(
         governedAdmissionCommandBridge,
       ) &&
-      /rust_core_shapes_l1_settlement_response/.test(governedAdmissionCore) &&
-      /rust_core_shapes_governed_improvement_response/.test(governedAdmissionCore) &&
+      /rust_core_shapes_l1_settlement_protocol_response/.test(governedAdmissionCore) &&
+      /rust_core_shapes_governed_improvement_protocol_response/.test(governedAdmissionCore) &&
       !/admit_l1_settlement_attempt_response as admit_l1_settlement_attempt/.test(bridgeModule) &&
       !/admit_governed_runtime_improvement_proposal_response as admit_governed_runtime_improvement_proposal/.test(bridgeModule) &&
       /pub mod governed_admission;/.test(kernelModuleForBridgeChecks) &&
-      /pub fn admit_l1_settlement_attempt_response/.test(governedAdmissionCore) &&
-      /pub fn admit_governed_runtime_improvement_proposal_response/.test(
+      /pub fn admit_l1_settlement_attempt_protocol_response/.test(governedAdmissionCore) &&
+      /pub fn admit_governed_runtime_improvement_proposal_protocol_response/.test(
         governedAdmissionCore,
+      ) &&
+      /governed_admission_command_transport_is_retired/.test(commandProtocolCore) &&
+      !/AdmitL1SettlementAttempt|AdmitGovernedRuntimeImprovementProposal/.test(
+        commandProtocolCore,
+      ) &&
+      !/"admit_l1_settlement_attempt"\s*=>|"admit_governed_runtime_improvement_proposal"\s*=>/.test(
+        commandProtocolCore,
       ) &&
       /L1SettlementTriggerGuard/.test(governedAdmissionCore) &&
       /GovernedEvolutionCore/.test(governedAdmissionCore),
@@ -18824,11 +18854,15 @@ function runBridge() {
       !/L1SettlementAdmissionBridgeRequest/.test(bridgeModule) &&
       !/struct L1SettlementAdmissionBridgeRequest/.test(bridgeModule) &&
       !/fn admit_l1_settlement_attempt/.test(bridgeModule) &&
-      /pub struct L1SettlementAdmissionBridgeRequest/.test(governedAdmissionCore) &&
+      !/L1SettlementAdmissionBridgeRequest/.test(governedAdmissionCore) &&
+      /pub struct L1SettlementAdmissionProtocolRequest/.test(governedAdmissionCore) &&
 
-      /rust_core_shapes_l1_settlement_response/.test(governedAdmissionCore) &&
+      /rust_core_shapes_l1_settlement_protocol_response/.test(governedAdmissionCore) &&
       /L1SettlementTriggerGuard/.test(governedAdmissionCore) &&
-      /rust_l1_settlement_guard_command/.test(governedAdmissionCore) &&
+      /rust_l1_settlement_guard_protocol/.test(governedAdmissionCore) &&
+      /governed_admission_command_transport_is_retired/.test(commandProtocolCore) &&
+      !/AdmitL1SettlementAttempt/.test(commandProtocolCore) &&
+      !/"admit_l1_settlement_attempt"\s*=>/.test(commandProtocolCore) &&
       /"schema_version":\s*"ioi\.runtime\.l1_settlement_admission\.v1"/.test(governedAdmissionCore) &&
       /"object":\s*"ioi\.runtime_l1_settlement_admission"/.test(governedAdmissionCore) &&
       /"settlement_admitted":\s*true/.test(governedAdmissionCore) &&
@@ -18850,25 +18884,32 @@ function runBridge() {
   assertCheck(
     result,
     "l1-settlement-daemon-core-api",
-    !exists("packages/runtime-daemon/src/runtime-l1-settlement-runner.mjs") &&
+      !exists("packages/runtime-daemon/src/runtime-l1-settlement-runner.mjs") &&
       !exists("packages/runtime-daemon/src/runtime-l1-settlement-runner.test.mjs") &&
       !exists("packages/runtime-daemon/src/runtime-l1-settlement-store.test.mjs") &&
-      /ioi\.runtime\.daemon_core\.command\.v1/.test(l1SettlementCore) &&
       /RuntimeL1SettlementCore/.test(l1SettlementCore) &&
+      /L1_SETTLEMENT_CORE_API_METHOD = "admitL1SettlementAttempt"/.test(
+        l1SettlementCore,
+      ) &&
       /createRuntimeL1SettlementCore/.test(l1SettlementCore) &&
       /admitAttempt/.test(l1SettlementCore) &&
-      /admit_l1_settlement_attempt/.test(l1SettlementCore) &&
+      /this\.daemonCoreGovernedAdmissionApi = governedAdmissionApi/.test(
+        l1SettlementCore,
+      ) &&
       /thread_id:\s*optionalString\(context\.thread_id\)/.test(l1SettlementCore) &&
       /agent_id:\s*optionalString\(context\.agent_id\)/.test(l1SettlementCore) &&
       /l1_settlement_guard/.test(l1SettlementCore) &&
-      /this\.daemonCoreInvoker\s*=\s*optionalFunction\(options\.daemonCoreInvoker\)/.test(
+      /assertNoRetiredL1SettlementCoreOption\("daemonCoreInvoker", options\.daemonCoreInvoker\)/.test(
         l1SettlementCore,
       ) &&
-      /l1_settlement_core_direct_invoker_unconfigured/.test(l1SettlementCore) &&
+      /l1_settlement_core_direct_governed_admission_api_unconfigured/.test(l1SettlementCore) &&
       /l1_settlement_core_compatibility_option_retired/.test(l1SettlementCore) &&
       /l1_settlement_core_request_aliases_retired/.test(l1SettlementCore) &&
       /derived_fields:\s*\["state_root_ref"\]/.test(l1SettlementCore) &&
       !/process\.env/.test(l1SettlementCore) &&
+      !/ioi\.runtime\.daemon_core\.command\.v1|operation:\s*"admit_l1_settlement_attempt"|this\.daemonCoreInvoker\s*=\s*optionalFunction\(options\.daemonCoreInvoker\)/.test(
+        l1SettlementCore,
+      ) &&
       !/IOI_RUNTIME_DAEMON_CORE_COMMAND|IOI_L1_SETTLEMENT_COMMAND|IOI_STEP_MODULE_COMMAND/.test(
         l1SettlementCore,
       ) &&
@@ -18880,12 +18921,15 @@ function runBridge() {
       ) &&
       !/createDaemonCoreCommandInvoker/.test(l1SettlementCore) &&
       !/from "node:child_process"/.test(l1SettlementCore) &&
-      /createRuntimeL1SettlementCore\(\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
+      /createRuntimeL1SettlementCore\(\{\s*daemonCoreGovernedAdmissionApi: this\.daemonCoreGovernedAdmissionApi,\s*\}\)/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /this\.daemonCoreGovernedAdmissionApi = options\.daemonCoreGovernedAdmissionApi/.test(
         runtimeDaemonIndex,
       ) &&
       /this\.l1SettlementCore/.test(runtimeDaemonIndex) &&
       !/this\.l1SettlementRunner/.test(runtimeDaemonIndex) &&
-      /L1 settlement core calls direct Rust daemon-core trigger API/.test(
+      /L1 settlement core calls typed Rust daemon-core trigger API/.test(
         l1SettlementCoreTest,
       ) &&
       /L1 settlement core returns the Rust envelope without JS normalization/.test(
@@ -18905,11 +18949,17 @@ function runBridge() {
       /L1 settlement core rejects retired bridge request aliases before Rust invocation/.test(
         l1SettlementCoreTest,
       ) &&
-      /L1 settlement core fails closed without direct daemon-core API/.test(
+      /L1 settlement core fails closed without typed daemon-core governed admission API/.test(
+        l1SettlementCoreTest,
+      ) &&
+      /new RuntimeL1SettlementCore\(\{ daemonCoreInvoker\(\) \{\} \}\)/.test(
         l1SettlementCoreTest,
       ) &&
       /L1 settlement core surfaces Rust settlement rejection/.test(l1SettlementCoreTest) &&
       /runtime store mounts L1 settlement core from options/.test(
+        l1SettlementCoreStoreTest,
+      ) &&
+      /runtime store wires L1 settlement to typed Rust governed-admission API/.test(
         l1SettlementCoreStoreTest,
       ) &&
       /Object\.hasOwn\(store,\s*"l1SettlementRunner"\),\s*false/.test(
@@ -19192,12 +19242,16 @@ function runBridge() {
       !/GovernedRuntimeImprovementBridgeRequest/.test(bridgeModule) &&
       !/struct GovernedRuntimeImprovementBridgeRequest/.test(bridgeModule) &&
       !/fn admit_governed_runtime_improvement_proposal/.test(bridgeModule) &&
-      /pub struct GovernedRuntimeImprovementBridgeRequest/.test(governedAdmissionCore) &&
+      !/GovernedRuntimeImprovementBridgeRequest/.test(governedAdmissionCore) &&
+      /pub struct GovernedRuntimeImprovementProtocolRequest/.test(governedAdmissionCore) &&
 
-      /rust_core_shapes_governed_improvement_response/.test(governedAdmissionCore) &&
+      /rust_core_shapes_governed_improvement_protocol_response/.test(governedAdmissionCore) &&
       /GovernedRuntimeImprovementProposal/.test(governedAdmissionCore) &&
       /GovernedEvolutionCore/.test(governedAdmissionCore) &&
-      /rust_governed_meta_improvement_command/.test(governedAdmissionCore) &&
+      /rust_governed_meta_improvement_protocol/.test(governedAdmissionCore) &&
+      /governed_admission_command_transport_is_retired/.test(commandProtocolCore) &&
+      !/AdmitGovernedRuntimeImprovementProposal/.test(commandProtocolCore) &&
+      !/"admit_governed_runtime_improvement_proposal"\s*=>/.test(commandProtocolCore) &&
       /"schema_version":\s*"ioi\.runtime\.governed_improvement_admission\.v1"/.test(governedAdmissionCore) &&
       /"object":\s*"ioi\.runtime_governed_improvement_admission"/.test(governedAdmissionCore) &&
       /"proposal_admitted":\s*true/.test(governedAdmissionCore) &&
@@ -19217,24 +19271,31 @@ function runBridge() {
   assertCheck(
     result,
     "governed-meta-improvement-daemon-core-api",
-    !exists("packages/runtime-daemon/src/runtime-governed-improvement-runner.mjs") &&
+      !exists("packages/runtime-daemon/src/runtime-governed-improvement-runner.mjs") &&
       !exists("packages/runtime-daemon/src/runtime-governed-improvement-runner.test.mjs") &&
       !exists("packages/runtime-daemon/src/runtime-governed-improvement-store.test.mjs") &&
-      /ioi\.runtime\.daemon_core\.command\.v1/.test(governedImprovementCore) &&
       /RuntimeGovernedImprovementCore/.test(governedImprovementCore) &&
+      /GOVERNED_IMPROVEMENT_CORE_API_METHOD =\s*"admitGovernedRuntimeImprovementProposal"/.test(
+        governedImprovementCore,
+      ) &&
       /createRuntimeGovernedImprovementCore/.test(governedImprovementCore) &&
       /admitProposal/.test(governedImprovementCore) &&
-      /admit_governed_runtime_improvement_proposal/.test(governedImprovementCore) &&
+      /this\.daemonCoreGovernedAdmissionApi = governedAdmissionApi/.test(
+        governedImprovementCore,
+      ) &&
       /thread_id:\s*optionalString\(context\.thread_id\)/.test(governedImprovementCore) &&
       /agent_id:\s*optionalString\(context\.agent_id\)/.test(governedImprovementCore) &&
       /rust_governed_evolution/.test(governedImprovementCore) &&
-      /this\.daemonCoreInvoker = optionalFunction\(options\.daemonCoreInvoker\)/.test(
+      /assertNoRetiredGovernedImprovementCoreOption\(\s*"daemonCoreInvoker",\s*options\.daemonCoreInvoker,\s*\)/.test(
         governedImprovementCore,
       ) &&
-      /governed_improvement_core_direct_invoker_unconfigured/.test(governedImprovementCore) &&
+      /governed_improvement_core_direct_governed_admission_api_unconfigured/.test(governedImprovementCore) &&
       /governed_improvement_core_compatibility_option_retired/.test(governedImprovementCore) &&
       /governed_improvement_core_proposal_fields_retired/.test(governedImprovementCore) &&
       !/process\.env/.test(governedImprovementCore) &&
+      !/ioi\.runtime\.daemon_core\.command\.v1|operation:\s*"admit_governed_runtime_improvement_proposal"|this\.daemonCoreInvoker = optionalFunction\(options\.daemonCoreInvoker\)/.test(
+        governedImprovementCore,
+      ) &&
       !/IOI_RUNTIME_DAEMON_CORE_COMMAND|IOI_GOVERNED_IMPROVEMENT_COMMAND|IOI_STEP_MODULE_COMMAND/.test(
         governedImprovementCore,
       ) &&
@@ -19246,12 +19307,15 @@ function runBridge() {
       ) &&
       !/createDaemonCoreCommandInvoker/.test(governedImprovementCore) &&
       !/from "node:child_process"/.test(governedImprovementCore) &&
-      /createRuntimeGovernedImprovementCore\(\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
+      /createRuntimeGovernedImprovementCore\(\{\s*daemonCoreGovernedAdmissionApi: this\.daemonCoreGovernedAdmissionApi,\s*\}\)/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /this\.daemonCoreGovernedAdmissionApi = options\.daemonCoreGovernedAdmissionApi/.test(
         runtimeDaemonIndex,
       ) &&
       /this\.governedImprovementCore/.test(runtimeDaemonIndex) &&
       !/this\.governedImprovementRunner/.test(runtimeDaemonIndex) &&
-      /governed improvement core calls direct Rust daemon-core proposal API/.test(
+      /governed improvement core calls typed Rust daemon-core proposal API/.test(
         governedImprovementCoreTest,
       ) &&
       /governed improvement core returns the Rust envelope without JS normalization/.test(
@@ -19278,13 +19342,19 @@ function runBridge() {
       /governed improvement core rejects retired proposal fields before Rust invocation/.test(
         governedImprovementCoreTest,
       ) &&
-      /governed improvement core fails closed without direct daemon-core API/.test(
+      /governed improvement core fails closed without typed daemon-core governed admission API/.test(
+        governedImprovementCoreTest,
+      ) &&
+      /new RuntimeGovernedImprovementCore\(\{ daemonCoreInvoker\(\) \{\} \}\)/.test(
         governedImprovementCoreTest,
       ) &&
       /governed improvement core surfaces Rust proposal rejection/.test(
         governedImprovementCoreTest,
       ) &&
       /runtime store mounts governed improvement core from options/.test(
+        governedImprovementCoreStoreTest,
+      ) &&
+      /runtime store wires governed improvement to typed Rust governed-admission API/.test(
         governedImprovementCoreStoreTest,
       ) &&
       /Object\.hasOwn\(store,\s*"governedImprovementRunner"\),\s*false/.test(

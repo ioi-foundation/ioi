@@ -59,8 +59,6 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "project_runtime_thread_event_replay",
     "project_runtime_thread_turn_projection",
     "plan_post_edit_diagnostics_feedback",
-    "admit_l1_settlement_attempt",
-    "admit_governed_runtime_improvement_proposal",
     "plan_workspace_restore_apply_policy",
     "preview_workspace_restore_operations",
     "apply_workspace_restore_operations",
@@ -203,8 +201,6 @@ pub enum CommandOperation {
     ProjectRuntimeThreadEventReplay,
     ProjectRuntimeThreadTurnProjection,
     PlanPostEditDiagnosticsFeedback,
-    AdmitL1SettlementAttempt,
-    AdmitGovernedRuntimeImprovementProposal,
     PlanWorkspaceRestoreApplyPolicy,
     PreviewWorkspaceRestoreOperations,
     ApplyWorkspaceRestoreOperations,
@@ -358,10 +354,6 @@ impl CommandOperation {
             Self::ProjectRuntimeThreadEventReplay => "project_runtime_thread_event_replay",
             Self::ProjectRuntimeThreadTurnProjection => "project_runtime_thread_turn_projection",
             Self::PlanPostEditDiagnosticsFeedback => "plan_post_edit_diagnostics_feedback",
-            Self::AdmitL1SettlementAttempt => "admit_l1_settlement_attempt",
-            Self::AdmitGovernedRuntimeImprovementProposal => {
-                "admit_governed_runtime_improvement_proposal"
-            }
             Self::PlanWorkspaceRestoreApplyPolicy => "plan_workspace_restore_apply_policy",
             Self::PreviewWorkspaceRestoreOperations => "preview_workspace_restore_operations",
             Self::ApplyWorkspaceRestoreOperations => "apply_workspace_restore_operations",
@@ -655,10 +647,6 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
         }
         "plan_post_edit_diagnostics_feedback" => {
             Some(CommandOperation::PlanPostEditDiagnosticsFeedback)
-        }
-        "admit_l1_settlement_attempt" => Some(CommandOperation::AdmitL1SettlementAttempt),
-        "admit_governed_runtime_improvement_proposal" => {
-            Some(CommandOperation::AdmitGovernedRuntimeImprovementProposal)
         }
         "plan_workspace_restore_apply_policy" => {
             Some(CommandOperation::PlanWorkspaceRestoreApplyPolicy)
@@ -1018,6 +1006,17 @@ mod tests {
             expected_command_schema_version("admit_worker_service_package_invocation"),
             None
         );
+    }
+
+    #[test]
+    fn governed_admission_command_transport_is_retired() {
+        for operation in [
+            "admit_l1_settlement_attempt",
+            "admit_governed_runtime_improvement_proposal",
+        ] {
+            assert_eq!(command_operation(operation), None);
+            assert_eq!(expected_command_schema_version(operation), None);
+        }
     }
 
     #[test]

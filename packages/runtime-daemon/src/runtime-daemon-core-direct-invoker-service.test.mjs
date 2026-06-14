@@ -6,9 +6,10 @@ import test from "node:test";
 
 import { AgentgresRuntimeStateStore } from "./index.mjs";
 
-test("daemon-level direct invoker feeds default daemon-core surfaces", () => {
+test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-daemon-core-direct-"));
   const calls = [];
+  const governedAdmissionCalls = [];
   const store = new AgentgresRuntimeStateStore(stateDir, {
     cwd: stateDir,
     modelMountCore: {
@@ -32,16 +33,26 @@ test("daemon-level direct invoker feeds default daemon-core surfaces", () => {
     },
     daemonCoreInvoker(request) {
       calls.push(request);
-      return {
-        source: "direct_daemon_core_api",
-        backend: request.backend,
-        settlement_admitted: true,
-        record: {
-          settlement_ref: "settlement://direct",
-          trigger_refs: ["trigger://direct"],
-          receipt_refs: ["receipt://direct"],
-        },
-      };
+      throw new Error(
+        `generic command invoker must not run migrated L1 settlement: ${request?.operation}`,
+      );
+    },
+    daemonCoreGovernedAdmissionApi: {
+      admitL1SettlementAttempt(attempt, context) {
+        governedAdmissionCalls.push({ attempt, context });
+        return {
+          source: "direct_governed_admission_api",
+          backend: "l1_settlement_guard",
+          thread_id: context.thread_id,
+          agent_id: context.agent_id,
+          settlement_admitted: true,
+          record: {
+            settlement_ref: attempt.settlement_ref,
+            trigger_refs: attempt.trigger_refs,
+            receipt_refs: attempt.receipt_refs,
+          },
+        };
+      },
     },
   });
 
@@ -56,11 +67,14 @@ test("daemon-level direct invoker feeds default daemon-core surfaces", () => {
     },
   );
 
-  assert.equal(calls.length, 1);
-  assert.equal(calls[0].operation, "admit_l1_settlement_attempt");
-  assert.equal(calls[0].schema_version, "ioi.runtime.daemon_core.command.v1");
-  assert.equal(calls[0].thread_id, "thread_direct");
-  assert.equal(result.source, "direct_daemon_core_api");
+  assert.equal(calls.length, 0);
+  assert.equal(governedAdmissionCalls.length, 1);
+  assert.deepEqual(governedAdmissionCalls[0].context, {
+    thread_id: "thread_direct",
+    agent_id: "agent_direct",
+  });
+  assert.equal(Object.hasOwn(governedAdmissionCalls[0], "operation"), false);
+  assert.equal(result.source, "direct_governed_admission_api");
   assert.equal(result.settlement_admitted, true);
   assert.equal(Object.hasOwn(result, "settlement_ref"), false);
   assert.equal(result.record.settlement_ref, "settlement://direct");

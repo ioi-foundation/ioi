@@ -287,9 +287,10 @@ daemon-core API that replaces this transport must keep that selector retired.
 Slice 925 applies the same fixed-argv rule to the worker/service package, L1
 settlement, cTEE private workspace, external capability authority, and governed
 meta-improvement daemon-core runners by retiring `IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS`
-and constructor-`args` for those surfaces. This is still not the terminal
-transport shape: direct Rust daemon-core APIs must replace the command transport
-after the relevant admission/control APIs are verified.
+and constructor-`args` for those surfaces. Later authority cuts replace those
+families with typed Rust daemon-core APIs and retire their generic command
+operation entries, while other route families still need the same transport
+retirement.
 Slice 926 extends the fixed-argv rule to coding-tool approval, approval-state,
 context-policy/state-update, runtime Agentgres admission, and workspace-restore
 daemon-core runners. The remaining command-transport shape is still migration
@@ -5501,11 +5502,12 @@ The Rust owners remain `ctee`, `marketplace`, `settlement`, `evolution`,
 fixed migration transport that translates those Rust-owned records at the
 process boundary. The conformance guard now proves these governed
 admission/action command wrappers stay out of the broad bridge module. This is
-not terminal cTEE, worker/service package, L1 settlement, or meta-improvement
-migration. Resume by replacing this command transport with direct Rust
-daemon-core APIs for custody, package invocation, settlement trigger guards,
-governed proposal admission, receipt/state-root binding, Agentgres admission,
-replay, projection, and stable IDE/CLI/SDK protocol surfaces.
+not terminal for the broader governed authority/admission/receipt migration.
+Subsequent cuts replace external capability authority, cTEE, worker/service
+package invocation, L1 settlement, and governed proposal admission with typed
+Rust daemon-core APIs; the remaining work is richer receipt/state-root binding,
+Agentgres admission, replay, projection, stable IDE/CLI/SDK protocol surfaces,
+and the same transport retirement for other route families.
 
 Slice 1052 moves the Agentgres storage-write admission and runtime state commit
 daemon-core command wrappers out of the monolithic Rust
@@ -6744,10 +6746,10 @@ where applicable, and stable IDE/CLI/SDK surfaces end to end.
 Slice 1120 moves L1 settlement and governed runtime-improvement command
 response shaping out of the temporary Node governed-admission command bridge
 and into Rust `governed_admission.rs` under the kernel service crate. Rust core
-now owns the governed admission bridge request structs, L1 trigger-guard
+now owns the governed admission protocol request structs, L1 trigger-guard
 wrapping, governed-evolution proposal admission wrapping, canonical
-`rust_l1_settlement_guard_command` and
-`rust_governed_meta_improvement_command` response envelopes, and the error
+`rust_l1_settlement_guard_protocol` and
+`rust_governed_meta_improvement_protocol` response envelopes, and the error
 codes returned to the bridge boundary.
 
 This was non-terminal because the Node bridge, command dispatch table, shared
@@ -7220,15 +7222,18 @@ without preserving compatibility behavior.
 
 Slice 1143 moves L1 settlement product-route admission envelope authorship out
 of the JS surface and into Rust `governed_admission.rs`. The Rust
-`L1SettlementAdmissionBridgeRequest` now accepts thread/agent route context and
-`admit_l1_settlement_attempt_response()` emits the canonical
+`L1SettlementAdmissionProtocolRequest` now accepts thread/agent route context and
+`admit_l1_settlement_attempt_protocol_response()` emits the canonical
 `ioi.runtime.l1_settlement_admission.v1` route envelope, including
 `settlement_admitted`, `thread_id`, `agent_id`, settlement refs, trigger refs,
 receipt refs, Rust-derived state-root refs, and admission hash. The JS L1
 settlement surface now only extracts the canonical `attempt` request body,
 rejects retired request aliases and caller-supplied state-root truth, looks up
-the thread agent, and forwards context to the Rust-backed runner; it no longer
-mints the public settlement-admission response locally.
+the thread agent, and forwards context to the mounted core; it no longer mints
+the public settlement-admission response locally. The mounted core now requires
+typed `daemonCoreGovernedAdmissionApi.admitL1SettlementAttempt`, rejects generic
+`daemonCoreInvoker`, and the old Rust `admit_l1_settlement_attempt` command
+operation is retired.
 
 This remains non-terminal because the route still reaches Rust through the
 shared JS daemon-core command runner and Node bridge stdin/JSON transport. The
@@ -7285,16 +7290,19 @@ for the remaining JS product/readback surfaces.
 
 Slice 1146 moves governed runtime-improvement product-route admission envelope
 authorship out of the JS surface and into Rust `governed_admission.rs`. The
-Rust `GovernedRuntimeImprovementBridgeRequest` now accepts thread/agent route
-context and `admit_governed_runtime_improvement_proposal_response()` emits the
+Rust `GovernedRuntimeImprovementProtocolRequest` now accepts thread/agent route
+context and `admit_governed_runtime_improvement_proposal_protocol_response()` emits the
 canonical `ioi.runtime.governed_improvement_admission.v1` route envelope,
 including `proposal_admitted`, `mutation_executed`, `thread_id`, `agent_id`,
 proposal refs, admission hash, Agentgres operation/state roots, resulting
 head, approval ref, and rollback ref. The JS governed-improvement surface now
 only extracts the canonical `proposal` body, rejects retired request/truth
 fields, looks up the thread agent, and forwards context to the Rust-backed
-runner; it no longer mints the public governed-improvement admission response
-locally.
+core; it no longer mints the public governed-improvement admission response
+locally. The mounted core now requires typed
+`daemonCoreGovernedAdmissionApi.admitGovernedRuntimeImprovementProposal`,
+rejects generic `daemonCoreInvoker`, and the old Rust
+`admit_governed_runtime_improvement_proposal` command operation is retired.
 
 This remains non-terminal because the route still reaches Rust through the
 shared JS daemon-core command runner and Node bridge stdin/JSON transport. The
@@ -7451,20 +7459,25 @@ daemon-core command path, so omitted Rust-authored `trigger_refs` and
 
 That fallback-retirement slice is now superseded by the L1 settlement core API
 cut: the JS runner and normalizer are deleted, and the product route reaches
-Rust-owned settlement admission through mounted `l1SettlementCore`. The target
-remains direct Rust daemon-core settlement protocol/API ownership over trigger
-admission, wallet authority where applicable, receipt/state-root binding,
-Agentgres truth, projection, replay, and stable IDE/CLI/SDK protocol surfaces.
+Rust-owned settlement admission through mounted `l1SettlementCore`. The current
+transport cut then moves that core to typed
+`daemonCoreGovernedAdmissionApi.admitL1SettlementAttempt` and retires the old
+Rust command operation. The remaining target is richer Rust daemon-core
+settlement projection/replay over wallet authority where applicable,
+receipt/state-root binding, Agentgres truth, and stable IDE/CLI/SDK protocol
+surfaces.
 
 Slice 1156 retired JS-side Agentgres head and receipt-ref fallback synthesis
 from the then-temporary governed-improvement runner. That fallback-retirement
 slice is now superseded by the governed-improvement core API cut: the JS runner
 and normalizer are deleted, the daemon store mounts `governedImprovementCore`,
 and the product route reaches Rust-owned proposal admission through that mounted
-core. The target remains direct Rust daemon-core governed-improvement
-protocol/API ownership over Agentgres admission, receipt/state-root binding,
-wallet approval, projection, replay, rollback metadata, and stable IDE/CLI/SDK
-protocol surfaces.
+core. The current transport cut then moves that core to typed
+`daemonCoreGovernedAdmissionApi.admitGovernedRuntimeImprovementProposal` and
+retires the old Rust command operation. The remaining target is richer Rust
+daemon-core governed-improvement execution/projection/replay over Agentgres
+admission, receipt/state-root binding, wallet approval, rollback metadata, and
+stable IDE/CLI/SDK protocol surfaces.
 
 Slice 1157 retired JS-side runtime Agentgres ref/evidence fallback synthesis
 from the then-live Agentgres admission runner. Rust `agentgres_admission.rs`
@@ -7769,9 +7782,12 @@ as Rust owner tests. Bridge conformance now requires those owner tests and
 proves the old bridge-named tests, request-type imports, and response-function
 aliases stay absent from `ioi_step_module_bridge/proof_tests.rs`.
 
-This remains non-terminal because these operations still cross temporary command
-transport. The target is direct Rust daemon-core governed authority/admission
-protocol/API ownership where wallet authority, cTEE custody, settlement
+This was non-terminal at that cut because these operations still crossed
+temporary command transport. Subsequent macro cuts retire that command transport
+for external capability authority, cTEE, worker/service package invocation, L1
+settlement, and governed-improvement proposal admission. The target remains
+direct Rust daemon-core governed authority/admission protocol/API ownership
+where wallet authority, cTEE custody, settlement
 triggering, receipt binding, Agentgres admission, projection, replay, and
 conformance no longer depend on Node bridge endpoint proof scaffolding.
 
@@ -8154,11 +8170,16 @@ JS command invoker are deleted.
 
 Slice 1203 retires the daemon L1 settlement runner outright. The daemon store
 now mounts `l1SettlementCore`; the JS runner facade, store runner option,
-command/env fallback, and response normalizer are deleted. The core builds only
-the canonical Rust daemon-core `admit_l1_settlement_attempt` request, fails
-closed without the daemon-level `daemonCoreInvoker`, rejects retired request
-aliases/options, and returns the Rust `governed_admission.rs` admission
-envelope as-is.
+command/env fallback, and response normalizer are deleted.
+
+The governed-admission transport cut supersedes that direct-invoker-only edge:
+the L1 settlement core now requires typed
+`daemonCoreGovernedAdmissionApi.admitL1SettlementAttempt`, rejects generic
+`daemonCoreInvoker`, calls Rust with the canonical attempt plus thread/agent
+route context, and returns the Rust `governed_admission.rs` admission protocol
+envelope as-is. Rust `command_protocol.rs` rejects
+`admit_l1_settlement_attempt` as a daemon-core command operation, so the old
+command-envelope path cannot be selected for this migrated family.
 
 This removes JS envelope truth for the settlement path: trigger admission,
 settlement refs, trigger refs, receipt refs, state-root refs, admission hashes,
@@ -8168,25 +8189,32 @@ absent at the JS edge. A later state-root authority cut also removes
 `settlement.rs` derives admitted `state_root_ref` from canonical
 settlement/domain/trigger/receipt facts and direct L1 attempts reject unknown
 state-root input at the Rust schema boundary. It is still not terminal because
-the mounted core builds a temporary command-envelope request and other command
-runners still carry temporary command transport.
+richer L1 settlement projection/replay records, deeper Agentgres
+receipt/state-root binding, stable IDE/CLI/SDK settlement read APIs, and other
+route-family command transports remain non-terminal.
 
 Slice 1204 retires the daemon governed-improvement runner outright. The daemon
 store now mounts `governedImprovementCore`; the JS runner facade, store runner
-option, command/env fallback, and response normalizer are deleted. The core
-builds only the canonical Rust daemon-core
-`admit_governed_runtime_improvement_proposal` request, fails closed without the
-daemon-level `daemonCoreInvoker`, rejects retired proposal alias/truth
-fields/options, and returns the Rust `governed_admission.rs` admission envelope
-as-is.
+option, command/env fallback, and response normalizer are deleted.
+
+The governed-admission transport cut supersedes that direct-invoker-only edge:
+the governed-improvement core now requires typed
+`daemonCoreGovernedAdmissionApi.admitGovernedRuntimeImprovementProposal`,
+rejects generic `daemonCoreInvoker`, calls Rust with the canonical proposal plus
+thread/agent route context, and returns the Rust `governed_admission.rs`
+admission protocol envelope as-is. Rust `command_protocol.rs` rejects
+`admit_governed_runtime_improvement_proposal` as a daemon-core command
+operation, so the old command-envelope path cannot be selected for this
+migrated family.
 
 This removes JS envelope truth for the governed-improvement path: expected
 heads, eval/verifier receipt refs, proposal refs, admission hashes, Agentgres
 operation refs, state roots, approval refs, rollback refs, source, and backend
 truth must arrive from Rust daemon-core output or remain absent at the JS edge.
-It is still not terminal because the mounted core builds a temporary
-command-envelope request and other command runners still carry temporary command
-transport.
+It is still not terminal because richer governed-improvement execution,
+projection, and replay records, deeper Agentgres receipt/state-root binding,
+stable IDE/CLI/SDK governed-improvement read APIs, and other route-family
+command transports remain non-terminal.
 
 Slice 1205 retires the daemon external capability authority runner outright.
 The daemon store now mounts `externalCapabilityAuthorityCore`; the JS runner

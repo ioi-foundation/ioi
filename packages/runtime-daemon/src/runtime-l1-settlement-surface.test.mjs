@@ -34,7 +34,7 @@ function store() {
           settlement_admitted: true,
           thread_id: "thread_surface",
           agent_id: "agent_surface",
-          source: "rust_l1_settlement_guard_command",
+          source: "rust_l1_settlement_guard_protocol",
           backend: "l1_settlement_guard",
           record: {
             ...input,

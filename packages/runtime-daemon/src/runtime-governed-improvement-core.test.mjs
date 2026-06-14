@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  GOVERNED_IMPROVEMENT_CORE_SCHEMA_VERSION,
   RUNTIME_GOVERNED_IMPROVEMENT_BACKEND,
   RuntimeGovernedImprovementCore,
   RuntimeGovernedImprovementCoreError,
@@ -24,19 +23,19 @@ function governedProposal() {
   };
 }
 
-function admittedResult(request) {
+function admittedResult(proposal, context) {
   return {
     schema_version: "ioi.runtime.governed_improvement_admission.v1",
     object: "ioi.runtime_governed_improvement_admission",
     status: "admitted",
     proposal_admitted: true,
     mutation_executed: false,
-    source: "rust_governed_meta_improvement_command",
+    source: "rust_governed_meta_improvement_protocol",
     backend: RUNTIME_GOVERNED_IMPROVEMENT_BACKEND,
-    thread_id: request.thread_id,
-    agent_id: request.agent_id,
+    thread_id: context.thread_id,
+    agent_id: context.agent_id,
     record: {
-      ...request.proposal,
+      ...proposal,
       admission_hash: "sha256:governed-improvement-admission",
       agentgres_operation_ref: "agentgres://runtime-improvement/operations/rust-derived",
       expected_heads: ["agentgres://runtime-improvement/head/current"],
@@ -50,19 +49,21 @@ function admittedResult(request) {
     state_root_before: "sha256:rust-derived-before",
     state_root_after: "sha256:rust-derived-after",
     resulting_head: "agentgres://runtime-improvement/head/rust-derived",
-    eval_receipt_refs: request.proposal.eval_receipt_refs,
-    verifier_receipt_refs: request.proposal.verifier_receipt_refs,
-    approval_ref: request.proposal.approval_ref,
-    rollback_ref: request.proposal.rollback_ref,
+    eval_receipt_refs: proposal.eval_receipt_refs,
+    verifier_receipt_refs: proposal.verifier_receipt_refs,
+    approval_ref: proposal.approval_ref,
+    rollback_ref: proposal.rollback_ref,
   };
 }
 
-test("governed improvement core calls direct Rust daemon-core proposal API", () => {
+test("governed improvement core calls typed Rust daemon-core proposal API", () => {
   const calls = [];
   const core = createRuntimeGovernedImprovementCore({
-    daemonCoreInvoker(request) {
-      calls.push(request);
-      return admittedResult(request);
+    daemonCoreGovernedAdmissionApi: {
+      admitGovernedRuntimeImprovementProposal(proposal, context) {
+        calls.push({ proposal, context });
+        return admittedResult(proposal, context);
+      },
     },
   });
 
@@ -72,14 +73,15 @@ test("governed improvement core calls direct Rust daemon-core proposal API", () 
   });
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].schema_version, GOVERNED_IMPROVEMENT_CORE_SCHEMA_VERSION);
-  assert.equal(calls[0].operation, "admit_governed_runtime_improvement_proposal");
-  assert.equal(calls[0].backend, RUNTIME_GOVERNED_IMPROVEMENT_BACKEND);
-  assert.equal(calls[0].thread_id, "thread:governed-core");
-  assert.equal(calls[0].agent_id, "agent:governed-core");
   assert.equal(calls[0].proposal.proposal_id, "proposal://runtime-improvement/daemon-core");
   assert.equal(Object.hasOwn(calls[0].proposal, "proposalId"), false);
   assert.equal(Object.hasOwn(calls[0].proposal, "agentgres_operation_ref"), false);
+  assert.deepEqual(calls[0].context, {
+    thread_id: "thread:governed-core",
+    agent_id: "agent:governed-core",
+  });
+  assert.equal(Object.hasOwn(calls[0], "operation"), false);
+  assert.equal(Object.hasOwn(calls[0], "schema_version"), false);
   assert.equal(result.schema_version, "ioi.runtime.governed_improvement_admission.v1");
   assert.equal(result.object, "ioi.runtime_governed_improvement_admission");
   assert.equal(result.status, "admitted");
@@ -101,8 +103,10 @@ test("governed improvement core returns the Rust envelope without JS normalizati
     record: {},
   };
   const core = createRuntimeGovernedImprovementCore({
-    daemonCoreInvoker() {
-      return rustEnvelope;
+    daemonCoreGovernedAdmissionApi: {
+      admitGovernedRuntimeImprovementProposal() {
+        return rustEnvelope;
+      },
     },
   });
 
@@ -129,14 +133,23 @@ test("governed improvement core rejects retired compatibility options", () => {
       error instanceof RuntimeGovernedImprovementCoreError &&
       error.code === "governed_improvement_core_compatibility_option_retired",
   );
+  assert.throws(
+    () => new RuntimeGovernedImprovementCore({ daemonCoreInvoker() {} }),
+    (error) =>
+      error instanceof RuntimeGovernedImprovementCoreError &&
+      error.code === "governed_improvement_core_compatibility_option_retired" &&
+      error.details.retired_option === "daemonCoreInvoker",
+  );
 });
 
 test("governed improvement core rejects retired proposal fields before Rust invocation", () => {
   const calls = [];
   const core = createRuntimeGovernedImprovementCore({
-    daemonCoreInvoker() {
-      calls.push("invoked");
-      return {};
+    daemonCoreGovernedAdmissionApi: {
+      admitGovernedRuntimeImprovementProposal() {
+        calls.push("invoked");
+        return {};
+      },
     },
   });
   const proposal = governedProposal();
@@ -161,25 +174,29 @@ test("governed improvement core rejects retired proposal fields before Rust invo
   assert.deepEqual(calls, []);
 });
 
-test("governed improvement core fails closed without direct daemon-core API", () => {
+test("governed improvement core fails closed without typed daemon-core governed admission API", () => {
   const core = createRuntimeGovernedImprovementCore({});
 
   assert.throws(
     () => core.admitProposal(governedProposal()),
-    (error) => error.code === "governed_improvement_core_direct_invoker_unconfigured",
+    (error) =>
+      error.code ===
+      "governed_improvement_core_direct_governed_admission_api_unconfigured",
   );
 });
 
 test("governed improvement core surfaces Rust proposal rejection", () => {
   const core = createRuntimeGovernedImprovementCore({
-    daemonCoreInvoker() {
-      return {
-        ok: false,
-        error: {
-          code: "governed_runtime_improvement_invalid",
-          message: "missing approval_ref",
-        },
-      };
+    daemonCoreGovernedAdmissionApi: {
+      admitGovernedRuntimeImprovementProposal() {
+        return {
+          ok: false,
+          error: {
+            code: "governed_runtime_improvement_invalid",
+            message: "missing approval_ref",
+          },
+        };
+      },
     },
   });
 

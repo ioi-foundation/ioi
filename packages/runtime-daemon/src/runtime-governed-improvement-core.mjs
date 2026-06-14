@@ -1,5 +1,6 @@
-export const GOVERNED_IMPROVEMENT_CORE_SCHEMA_VERSION = "ioi.runtime.daemon_core.command.v1";
 export const RUNTIME_GOVERNED_IMPROVEMENT_BACKEND = "rust_governed_evolution";
+export const GOVERNED_IMPROVEMENT_CORE_API_METHOD =
+  "admitGovernedRuntimeImprovementProposal";
 
 const RETIRED_GOVERNED_IMPROVEMENT_CORE_PROPOSAL_ALIASES = [
   "schemaVersion",
@@ -34,36 +35,48 @@ export class RuntimeGovernedImprovementCore {
   constructor(options = {}) {
     assertNoRetiredGovernedImprovementCoreOption("command", options.command);
     assertNoRetiredGovernedImprovementCoreOption("args", options.args);
-    this.daemonCoreInvoker = optionalFunction(options.daemonCoreInvoker);
+    assertNoRetiredGovernedImprovementCoreOption(
+      "daemonCoreInvoker",
+      options.daemonCoreInvoker,
+    );
+    this.daemonCoreGovernedAdmissionApi = governedAdmissionApi(
+      options.daemonCoreGovernedAdmissionApi ??
+        options.daemonCoreApi?.governed_admission ??
+        options.daemonCoreApi?.governedAdmission ??
+        options.daemonCoreApi,
+      GOVERNED_IMPROVEMENT_CORE_API_METHOD,
+    );
   }
 
   admitProposal(proposal, context = {}) {
     assertCanonicalGovernedImprovementCoreProposal(proposal);
-    const daemonCoreRequest = {
-      schema_version: GOVERNED_IMPROVEMENT_CORE_SCHEMA_VERSION,
-      operation: "admit_governed_runtime_improvement_proposal",
-      backend: RUNTIME_GOVERNED_IMPROVEMENT_BACKEND,
+    const routeContext = {
       thread_id: optionalString(context.thread_id),
       agent_id: optionalString(context.agent_id),
-      proposal,
     };
-    return this.invokeDaemonCore(daemonCoreRequest);
+    return this.invokeRustGovernedAdmissionApi(proposal, routeContext);
   }
 
-  invokeDaemonCore(request) {
-    if (!this.daemonCoreInvoker) {
+  invokeRustGovernedAdmissionApi(proposal, context = {}) {
+    if (!this.daemonCoreGovernedAdmissionApi) {
       throw new RuntimeGovernedImprovementCoreError(
-        "Governed improvement admission requires daemonCoreInvoker for direct Rust daemon-core proposal admission.",
-        "governed_improvement_core_direct_invoker_unconfigured",
-        { boundary: "daemonCoreInvoker" },
+        "Governed improvement admission requires daemonCoreGovernedAdmissionApi.admitGovernedRuntimeImprovementProposal for Rust daemon-core proposal admission.",
+        "governed_improvement_core_direct_governed_admission_api_unconfigured",
+        {
+          boundary:
+            "daemonCoreGovernedAdmissionApi.admitGovernedRuntimeImprovementProposal",
+          backend: RUNTIME_GOVERNED_IMPROVEMENT_BACKEND,
+        },
       );
     }
-    const response = this.daemonCoreInvoker(request);
+    const response = this.daemonCoreGovernedAdmissionApi[
+      GOVERNED_IMPROVEMENT_CORE_API_METHOD
+    ](proposal, context);
     if (response?.ok === false) {
       const error = objectRecord(response.error) ?? {};
       throw new RuntimeGovernedImprovementCoreError(
         error.message ?? "Rust governed improvement core rejected the proposal.",
-        error.code ?? "governed_improvement_core_direct_invoker_rejected",
+        error.code ?? "governed_improvement_core_direct_governed_admission_api_rejected",
         { error },
       );
     }
@@ -98,7 +111,7 @@ function assertNoRetiredGovernedImprovementCoreOption(field, value) {
   if (typeof value === "string" && value.trim().length === 0) return;
   if (value == null) return;
   throw new RuntimeGovernedImprovementCoreError(
-    "Governed improvement command compatibility options are retired; use daemonCoreInvoker for direct Rust daemon-core proposal admission.",
+    "Governed improvement command compatibility options are retired; use daemonCoreGovernedAdmissionApi.admitGovernedRuntimeImprovementProposal for Rust daemon-core proposal admission.",
     "governed_improvement_core_compatibility_option_retired",
     { retired_option: field, retired_value: value },
   );
@@ -126,6 +139,7 @@ function optionalString(value) {
   return trimmed ? trimmed : null;
 }
 
-function optionalFunction(value) {
-  return typeof value === "function" ? value : null;
+function governedAdmissionApi(value, method) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return typeof value[method] === "function" ? value : null;
 }

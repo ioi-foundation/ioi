@@ -26,9 +26,7 @@ impl GovernedAdmissionError {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct L1SettlementAdmissionBridgeRequest {
-    #[serde(default)]
-    pub backend: Option<String>,
+pub struct L1SettlementAdmissionProtocolRequest {
     #[serde(default)]
     pub thread_id: Option<String>,
     #[serde(default)]
@@ -37,9 +35,7 @@ pub struct L1SettlementAdmissionBridgeRequest {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct GovernedRuntimeImprovementBridgeRequest {
-    #[serde(default)]
-    pub backend: Option<String>,
+pub struct GovernedRuntimeImprovementProtocolRequest {
     #[serde(default)]
     pub thread_id: Option<String>,
     #[serde(default)]
@@ -47,8 +43,8 @@ pub struct GovernedRuntimeImprovementBridgeRequest {
     pub proposal: GovernedRuntimeImprovementProposal,
 }
 
-pub fn admit_l1_settlement_attempt_response(
-    request: L1SettlementAdmissionBridgeRequest,
+pub fn admit_l1_settlement_attempt_protocol_response(
+    request: L1SettlementAdmissionProtocolRequest,
 ) -> Result<Value, GovernedAdmissionError> {
     let record = L1SettlementTriggerGuard
         .admit(&request.attempt)
@@ -60,8 +56,8 @@ pub fn admit_l1_settlement_attempt_response(
         "object": "ioi.runtime_l1_settlement_admission",
         "status": "admitted",
         "settlement_admitted": true,
-        "source": "rust_l1_settlement_guard_command",
-        "backend": request.backend.unwrap_or_else(|| "l1_settlement_guard".to_string()),
+        "source": "rust_l1_settlement_guard_protocol",
+        "backend": "l1_settlement_guard",
         "thread_id": request.thread_id,
         "agent_id": request.agent_id,
         "record": record.clone(),
@@ -74,8 +70,8 @@ pub fn admit_l1_settlement_attempt_response(
     }))
 }
 
-pub fn admit_governed_runtime_improvement_proposal_response(
-    request: GovernedRuntimeImprovementBridgeRequest,
+pub fn admit_governed_runtime_improvement_proposal_protocol_response(
+    request: GovernedRuntimeImprovementProtocolRequest,
 ) -> Result<Value, GovernedAdmissionError> {
     let record = GovernedEvolutionCore
         .admit_proposal(&request.proposal)
@@ -91,8 +87,8 @@ pub fn admit_governed_runtime_improvement_proposal_response(
         "status": "admitted",
         "proposal_admitted": true,
         "mutation_executed": false,
-        "source": "rust_governed_meta_improvement_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_governed_evolution".to_string()),
+        "source": "rust_governed_meta_improvement_protocol",
+        "backend": "rust_governed_evolution",
         "thread_id": request.thread_id,
         "agent_id": request.agent_id,
         "record": record.clone(),
@@ -121,22 +117,22 @@ mod tests {
     use crate::agentic::runtime::kernel::settlement::L1_SETTLEMENT_ADMISSION_SCHEMA_VERSION;
 
     #[test]
-    fn rust_core_shapes_l1_settlement_response() {
-        let response = admit_l1_settlement_attempt_response(L1SettlementAdmissionBridgeRequest {
-            backend: Some("l1_settlement_guard".to_string()),
-            thread_id: Some("thread:l1".to_string()),
-            agent_id: Some("agent:l1".to_string()),
-            attempt: L1SettlementAttempt {
-                schema_version: L1_SETTLEMENT_ADMISSION_SCHEMA_VERSION.to_string(),
-                settlement_ref: "l1://settlement/marketplace-transaction".to_string(),
-                domain_ref: "domain://marketplace/services".to_string(),
-                trigger_refs: vec!["l1-trigger://service-contract/payment".to_string()],
-                receipt_refs: vec!["receipt://local-settlement/payment".to_string()],
-            },
-        })
-        .expect("L1 settlement response");
+    fn rust_core_shapes_l1_settlement_protocol_response() {
+        let response =
+            admit_l1_settlement_attempt_protocol_response(L1SettlementAdmissionProtocolRequest {
+                thread_id: Some("thread:l1".to_string()),
+                agent_id: Some("agent:l1".to_string()),
+                attempt: L1SettlementAttempt {
+                    schema_version: L1_SETTLEMENT_ADMISSION_SCHEMA_VERSION.to_string(),
+                    settlement_ref: "l1://settlement/marketplace-transaction".to_string(),
+                    domain_ref: "domain://marketplace/services".to_string(),
+                    trigger_refs: vec!["l1-trigger://service-contract/payment".to_string()],
+                    receipt_refs: vec!["receipt://local-settlement/payment".to_string()],
+                },
+            })
+            .expect("L1 settlement response");
 
-        assert_eq!(response["source"], "rust_l1_settlement_guard_command");
+        assert_eq!(response["source"], "rust_l1_settlement_guard_protocol");
         assert_eq!(response["backend"], "l1_settlement_guard");
         assert_eq!(
             response["schema_version"],
@@ -162,10 +158,9 @@ mod tests {
     }
 
     #[test]
-    fn rust_core_shapes_governed_improvement_response() {
-        let response = admit_governed_runtime_improvement_proposal_response(
-            GovernedRuntimeImprovementBridgeRequest {
-                backend: Some("rust_governed_evolution".to_string()),
+    fn rust_core_shapes_governed_improvement_protocol_response() {
+        let response = admit_governed_runtime_improvement_proposal_protocol_response(
+            GovernedRuntimeImprovementProtocolRequest {
                 thread_id: Some("thread:governed".to_string()),
                 agent_id: Some("agent:governed".to_string()),
                 proposal: GovernedRuntimeImprovementProposal {
@@ -191,7 +186,10 @@ mod tests {
         )
         .expect("governed improvement response");
 
-        assert_eq!(response["source"], "rust_governed_meta_improvement_command");
+        assert_eq!(
+            response["source"],
+            "rust_governed_meta_improvement_protocol"
+        );
         assert_eq!(response["backend"], "rust_governed_evolution");
         assert_eq!(
             response["schema_version"],
