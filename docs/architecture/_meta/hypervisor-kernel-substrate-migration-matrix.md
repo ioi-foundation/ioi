@@ -65,7 +65,8 @@ storage/download control positive API cut, the model_mount receipt-replay
 read-projection state_dir authority cut, the public backend log read Rust
 read-projection positive API cut, the public runtime-survey capture Rust
 positive API cut, the public catalog-provider OAuth session/state Rust
-read-projection replay cut, and the OpenAI-compatible stream cancellation Rust
+read-projection replay cut, the OpenAI-compatible stream cancellation Rust
+positive API cut, and the public computer-use request-lease Rust StepModule
 positive API cut.
 
 ## Purpose
@@ -133,6 +134,7 @@ authority-boundary cuts that should guide future work.
 | Macro cut | Current proof | Still temporary |
 | --- | --- | --- |
 | Rust-live coding-tool StepModule path | Migrated coding tools execute through Rust workload/StepModule contracts, explicit `daemon_js`/shadow/gated/backend selection fails closed, and Rust daemon-core constructs the coding-tool `StepModuleInvocation` envelope before workload dispatch/admission. | JS invocation surface still coordinates temporary runner transport plus fail-closed governance/artifact/snapshot surfaces. |
+| Public computer-use request-lease positive API | Public `ioi.computer_use.*` invocation methods now map browser discovery, control, native-browser, visual GUI, sandboxed-hosted, and visual GUI observe calls to canonical `computer_use.request_lease` input and invoke the Rust-live coding-tool StepModule path. Rust `coding_tool_computer_use.rs` authors the lease request, provider registry selection, wallet.network authority boundary, fail-closed provider availability, receipt refs, and canonical result fields; the old guard-only public JS facade is gone and direct computer-use event append remains fail-closed. | Concrete provider execution, direct Rust daemon-core computer-use event materialization, cTEE private-workspace custody, durable Agentgres expected-head/state-root binding, replay/projection, command-transport retirement, and stable IDE/CLI/SDK APIs remain non-terminal. |
 | Coding-tool artifact draft Rust planning | `plan_runtime_coding_tool_artifact_drafts` authors canonical artifact records in Rust, rejects retired `artifactDrafts` aliases, requires receipt refs, and the daemon artifact surface commits only those Rust-authored records through Rust Agentgres artifact-state admission before updating its temporary read cache. | Runner transport retirement and stable IDE/CLI/SDK APIs remain non-terminal. |
 | Coding-tool artifact read/retrieve projection Rust-owned | `project_runtime_coding_tool_artifact_read` now requires runtime `state_dir`, replays committed `artifacts/*.json` Agentgres records in Rust, filters canonical Rust-authored coding-tool artifacts, enforces thread ownership and retired target/range/candidate-transport alias rejection, shapes byte ranges, result metadata, receipt refs, and available-artifact projection, and the daemon artifact surface fails closed without the Rust projector or `state_dir` instead of selecting/slicing/transporting records in JS. | Diagnostics projection/replay, runner transport retirement, and stable IDE/CLI/SDK APIs remain non-terminal. |
 | Rust command-envelope and bridge contraction | Rust owns canonical command-envelope parsing, typed operation identity, and many child command response families; deleted bridge delegates must not return. | `ioi-step-module-bridge` remains migration transport, not terminal API. |

@@ -6,14 +6,14 @@ import test from "node:test";
 
 import { AgentgresRuntimeStateStore } from "./index.mjs";
 
-function withStore(fn) {
+async function withStore(fn) {
   const stateDir = mkdtempSync(join(tmpdir(), "ioi-computer-use-invocation-store-"));
   const store = new AgentgresRuntimeStateStore(stateDir, {
     cwd: stateDir,
     modelMountAdmissionRunner: modelMountAdmissionRunnerForComputerUseTest(),
   });
   try {
-    return fn(store);
+    return await fn(store);
   } finally {
     store.close();
     rmSync(stateDir, { recursive: true, force: true });
@@ -40,128 +40,199 @@ function modelMountAdmissionRunnerForComputerUseTest() {
 
 function poisonJsComputerUseTruthPaths(store) {
   store.agentForThread = () => {
-    throw new Error("agentForThread must not be called by retired computer-use JS facade");
+    throw new Error("agentForThread must not be called by computer-use public Rust lease adapter");
   };
   store.runtimeEventStream = () => {
-    throw new Error("runtimeEventStream must not be read by retired computer-use JS facade");
+    throw new Error("runtimeEventStream must not be read by computer-use public Rust lease adapter");
   };
   store.admitComputerUseRuntimeEvent = () => {
-    throw new Error("admitComputerUseRuntimeEvent must not be reached by retired computer-use JS facade");
+    throw new Error("admitComputerUseRuntimeEvent must not be reached by computer-use public Rust lease adapter");
   };
 }
 
-function assertComputerUseRustCoreRequired(error, operationKind) {
-  assert.equal(error.status, 501);
-  assert.equal(error.code, "runtime_computer_use_invocation_rust_core_required");
-  assert.equal(error.details.rust_core_boundary, "runtime.computer_use_invocation");
-  assert.equal(error.details.operation, "computer_use_invocation_admission");
-  assert.equal(error.details.operation_kind, operationKind);
-  assert.equal(error.details.thread_id, "thread_alpha");
-  assert.equal(error.details.tool_name, `ioi.${operationKind}`);
-  assert.equal(error.details.tool_call_id, "tool_alpha");
-  assert.equal(error.details.workflow_graph_id, "graph_alpha");
-  assert.equal(error.details.workflow_node_id, "node_alpha");
-  assert.deepEqual(error.details.evidence_refs, [
-    "computer_use_invocation_js_facade_retired",
-    "rust_daemon_core_computer_use_invocation_required",
-    "wallet_network_computer_use_authority_required",
-    "agentgres_computer_use_expected_head_required",
-  ]);
-  for (const key of ["threadId", "toolName", "toolCallId", "workflowGraphId", "workflowNodeId"]) {
-    assert.equal(Object.hasOwn(error.details, key), false, `${key} detail alias must be absent`);
-  }
-  return true;
+function mountRustLeaseRequestSurface(store) {
+  const calls = [];
+  store.codingToolInvocationSurface = {
+    invokeThreadTool(surfaceStore, threadId, toolId, request) {
+      calls.push({ surfaceStore, threadId, toolId, request });
+      return {
+        schema_version: "ioi.runtime.coding-tool-result.v1",
+        object: "ioi.runtime_coding_tool_result",
+        tool_name: toolId,
+        status: "completed",
+        receipt_refs: ["receipt://rust/computer-use-lease"],
+        result: {
+          rust_workload: true,
+          request_ref: "computer_use_lease_request_test",
+          lease_request: {
+            lane: request.input?.lane ?? null,
+            session_mode: request.input?.session_mode ?? null,
+            action_kind: request.input?.action_kind ?? null,
+            sandbox_provider: request.input?.sandbox_provider ?? null,
+          },
+          thread_tool: {
+            tool_pack: "computer_use",
+            tool_name: request.computer_use_public_tool_id,
+            input: request.input,
+          },
+          wallet_network_authority_boundary: {
+            authority_layer: "wallet.network",
+            required_before_execution: true,
+            grant_refs: [],
+            receipt_refs: [],
+          },
+          evidence_refs: [
+            "rust_daemon_core_computer_use_request_lease",
+            "wallet.network.authority_boundary",
+          ],
+          receipt_refs: ["receipt://rust/computer-use-lease"],
+          shell_fallback_used: false,
+        },
+      };
+    },
+  };
+  return calls;
 }
 
-test("computer-use browser discovery JS facade fails closed before JS truth lookup", () => {
-  withStore((store) => {
-    poisonJsComputerUseTruthPaths(store);
-    assert.throws(
-      () =>
-        store.invokeComputerUseBrowserDiscoveryTool("thread_alpha", "ioi.computer_use.browser_discovery", {
-          tool_call_id: "tool_alpha",
-          workflow_graph_id: "graph_alpha",
-          workflow_node_id: "node_alpha",
-        }),
-      (error) => assertComputerUseRustCoreRequired(error, "computer_use.browser_discovery"),
-    );
-  });
-});
-
-test("computer-use control JS facade fails closed before JS truth lookup", () => {
-  withStore((store) => {
-    poisonJsComputerUseTruthPaths(store);
-    assert.throws(
-      () =>
-        store.invokeComputerUseControlTool("thread_alpha", "ioi.computer_use.control", {
-          tool_call_id: "tool_alpha",
-          workflow_graph_id: "graph_alpha",
-          workflow_node_id: "node_alpha",
-        }),
-      (error) => assertComputerUseRustCoreRequired(error, "computer_use.control"),
-    );
-  });
-});
-
-test("computer-use native browser JS facade fails closed before JS truth lookup", async () => {
+test("computer-use public invocation facades route to Rust request-lease StepModule", async () => {
   await withStore(async (store) => {
     poisonJsComputerUseTruthPaths(store);
-    await assert.rejects(
-      () =>
-        store.invokeComputerUseNativeBrowserTool("thread_alpha", "ioi.computer_use.native_browser", {
-          tool_call_id: "tool_alpha",
-          workflow_graph_id: "graph_alpha",
-          workflow_node_id: "node_alpha",
-        }),
-      (error) => assertComputerUseRustCoreRequired(error, "computer_use.native_browser"),
-    );
-  });
-});
-
-test("computer-use visual GUI JS facade fails closed before JS truth lookup", async () => {
-  await withStore(async (store) => {
-    poisonJsComputerUseTruthPaths(store);
-    await assert.rejects(
-      () =>
-        store.invokeComputerUseVisualGuiTool("thread_alpha", "ioi.computer_use.visual_gui", {
-          tool_call_id: "tool_alpha",
-          workflow_graph_id: "graph_alpha",
-          workflow_node_id: "node_alpha",
-        }),
-      (error) => assertComputerUseRustCoreRequired(error, "computer_use.visual_gui"),
-    );
-  });
-});
-
-test("computer-use sandboxed hosted JS facade fails closed before JS truth lookup", async () => {
-  await withStore(async (store) => {
-    poisonJsComputerUseTruthPaths(store);
-    await assert.rejects(
-      () =>
-        store.invokeComputerUseSandboxedHostedTool("thread_alpha", "ioi.computer_use.sandboxed_hosted", {
-          tool_call_id: "tool_alpha",
-          workflow_graph_id: "graph_alpha",
-          workflow_node_id: "node_alpha",
-        }),
-      (error) => assertComputerUseRustCoreRequired(error, "computer_use.sandboxed_hosted"),
-    );
-  });
-});
-
-test("computer-use visual GUI observe JS facade fails closed before local capture or JS truth lookup", async () => {
-  await withStore(async (store) => {
-    poisonJsComputerUseTruthPaths(store);
+    const calls = mountRustLeaseRequestSurface(store);
     store.pathFor = () => {
-      throw new Error("pathFor must not be called by retired visual GUI observe facade");
+      throw new Error("pathFor must not be called by computer-use public Rust lease adapter");
     };
-    await assert.rejects(
-      () =>
-        store.invokeComputerUseVisualGuiObserveTool("thread_alpha", "ioi.computer_use.visual_gui.observe", {
-          tool_call_id: "tool_alpha",
-          workflow_graph_id: "graph_alpha",
-          workflow_node_id: "node_alpha",
-        }),
-      (error) => assertComputerUseRustCoreRequired(error, "computer_use.visual_gui.observe"),
+
+    const request = {
+      tool_call_id: "tool_alpha",
+      workflow_graph_id: "graph_alpha",
+    };
+    const results = [
+      store.invokeComputerUseBrowserDiscoveryTool(
+        "thread_alpha",
+        "ioi.computer_use.browser_discovery",
+        request,
+      ),
+      store.invokeComputerUseControlTool("thread_alpha", "ioi.computer_use.control", request),
+      await store.invokeComputerUseNativeBrowserTool(
+        "thread_alpha",
+        "ioi.computer_use.native_browser",
+        request,
+      ),
+      await store.invokeComputerUseVisualGuiTool("thread_alpha", "ioi.computer_use.visual_gui", request),
+      await store.invokeComputerUseSandboxedHostedTool(
+        "thread_alpha",
+        "ioi.computer_use.sandboxed_hosted",
+        request,
+      ),
+      await store.invokeComputerUseVisualGuiObserveTool(
+        "thread_alpha",
+        "ioi.computer_use.visual_gui.observe",
+        request,
+      ),
+    ];
+
+    assert.equal(calls.length, 6);
+    assert.deepEqual(
+      calls.map((call) => call.toolId),
+      Array(6).fill("computer_use.request_lease"),
     );
+    assert.deepEqual(
+      calls.map((call) => call.request.computer_use_operation_kind),
+      [
+        "computer_use.browser_discovery",
+        "computer_use.control",
+        "computer_use.native_browser",
+        "computer_use.visual_gui",
+        "computer_use.sandboxed_hosted",
+        "computer_use.visual_gui.observe",
+      ],
+    );
+    assert.ok(calls.every((call) => call.surfaceStore === store));
+    assert.ok(calls.every((call) => call.threadId === "thread_alpha"));
+    assert.ok(results.every((result) => result.status === "completed"));
+    assert.ok(results.every((result) => result.result.rust_workload === true));
+    assert.ok(
+      results.every((result) =>
+        result.result.receipt_refs.includes("receipt://rust/computer-use-lease"),
+      ),
+    );
+    assert.ok(
+      results.every(
+        (result) => result.result.wallet_network_authority_boundary.authority_layer === "wallet.network",
+      ),
+    );
+  });
+});
+
+test("computer-use public invocation adapter preserves canonical lease request fields", async () => {
+  await withStore(async (store) => {
+    const calls = mountRustLeaseRequestSurface(store);
+
+    await store.invokeComputerUseNativeBrowserTool("thread_alpha", "ioi.computer_use.native_browser", {
+      tool_call_id: "tool_alpha",
+      workflow_graph_id: "graph_alpha",
+      workflow_node_id: "node_alpha",
+      input: {
+        prompt: "Click the sign-in button.",
+        lane: "native_browser",
+        session_mode: "attached_browser",
+        action_kind: "click",
+        url: "https://example.test",
+        target_ref: "target_alpha",
+        selector: "#sign-in",
+      },
+    });
+    await store.invokeComputerUseVisualGuiTool("thread_alpha", "ioi.computer_use.visual_gui", {
+      input: {},
+    });
+    await store.invokeComputerUseSandboxedHostedTool("thread_alpha", "ioi.computer_use.sandboxed_hosted", {
+      input: {},
+    });
+    store.invokeComputerUseBrowserDiscoveryTool("thread_alpha", "ioi.computer_use.browser_discovery", {
+      prompt: "List governed browser sessions.",
+      lane: "native_browser",
+      action_kind: "inspect",
+      url: "https://example.test/start",
+    });
+
+    assert.equal(calls[0].request.tool_call_id, "tool_alpha");
+    assert.equal(calls[0].request.workflow_graph_id, "graph_alpha");
+    assert.equal(calls[0].request.workflow_node_id, "node_alpha");
+    assert.deepEqual(calls[0].request.input, {
+      prompt: "Click the sign-in button.",
+      lane: "native_browser",
+      session_mode: "attached_browser",
+      action_kind: "click",
+      url: "https://example.test",
+      target_ref: "target_alpha",
+      selector: "#sign-in",
+    });
+    assert.equal(calls[1].request.input.lane, "visual_gui");
+    assert.equal(calls[1].request.input.session_mode, "visual_fallback");
+    assert.equal(calls[1].request.input.action_kind, "inspect");
+    assert.equal(calls[2].request.input.lane, "sandboxed_hosted");
+    assert.equal(calls[2].request.input.session_mode, "local_sandbox");
+    assert.equal(calls[2].request.input.action_kind, "inspect");
+    assert.equal(calls[2].request.input.sandbox_provider, "local_fixture");
+    assert.deepEqual(calls[3].request.input, {
+      prompt: "List governed browser sessions.",
+      lane: "native_browser",
+      action_kind: "inspect",
+      url: "https://example.test/start",
+    });
+    for (const call of calls) {
+      for (const key of [
+        "toolCallId",
+        "workflowGraphId",
+        "workflowNodeId",
+        "computerUseLane",
+        "computerUseSessionMode",
+        "actionKind",
+        "sandboxProvider",
+      ]) {
+        assert.equal(Object.hasOwn(call.request, key), false, `${key} request alias must be absent`);
+        assert.equal(Object.hasOwn(call.request.input, key), false, `${key} input alias must be absent`);
+      }
+    }
   });
 });

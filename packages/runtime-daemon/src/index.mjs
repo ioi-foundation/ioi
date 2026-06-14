@@ -1412,30 +1412,6 @@ export class AgentgresRuntimeStateStore {
     return this.runReadSurface.canonicalProjection(this, runId);
   }
 
-  requireComputerUseInvocationRustCore(threadId, toolId, request = {}, operationKind = "computer_use.invocation") {
-    throw runtimeError({
-      status: 501,
-      code: "runtime_computer_use_invocation_rust_core_required",
-      message: "Runtime computer-use invocation requires direct Rust daemon-core admission and event materialization.",
-      details: {
-        rust_core_boundary: "runtime.computer_use_invocation",
-        operation: "computer_use_invocation_admission",
-        operation_kind: operationKind,
-        thread_id: threadId ?? null,
-        tool_name: toolId ?? null,
-        tool_call_id: optionalString(request?.tool_call_id) ?? null,
-        workflow_graph_id: optionalString(request?.workflow_graph_id) ?? null,
-        workflow_node_id: optionalString(request?.workflow_node_id) ?? null,
-        evidence_refs: [
-          "computer_use_invocation_js_facade_retired",
-          "rust_daemon_core_computer_use_invocation_required",
-          "wallet_network_computer_use_authority_required",
-          "agentgres_computer_use_expected_head_required",
-        ],
-      },
-    });
-  }
-
   admitComputerUseRuntimeEvent(event = {}) {
     throw runtimeError({
       status: 501,
@@ -1462,57 +1438,109 @@ export class AgentgresRuntimeStateStore {
     });
   }
 
+  invokeComputerUseLeaseRequestRustCore(threadId, toolId, request = {}, defaults = {}) {
+    return this.codingToolInvocationSurface.invokeThreadTool(
+      this,
+      threadId,
+      "computer_use.request_lease",
+      computerUseLeaseRequestEnvelope(request, {
+        ...defaults,
+        tool_id: toolId,
+      }),
+    );
+  }
+
   invokeComputerUseBrowserDiscoveryTool(threadId, toolId, request = {}) {
-    return this.requireComputerUseInvocationRustCore(
+    return this.invokeComputerUseLeaseRequestRustCore(
       threadId,
       toolId,
       request,
-      "computer_use.browser_discovery",
+      {
+        operation_kind: "computer_use.browser_discovery",
+        lane: "native_browser",
+        action_kind: "inspect",
+        workflow_node_id: "runtime.computer-use.browser-discovery",
+        prompt: "Discover available governed computer-use browser contexts.",
+      },
     );
   }
 
   invokeComputerUseControlTool(threadId, toolId, request = {}) {
-    return this.requireComputerUseInvocationRustCore(
+    return this.invokeComputerUseLeaseRequestRustCore(
       threadId,
       toolId,
       request,
-      "computer_use.control",
+      {
+        operation_kind: "computer_use.control",
+        lane: "native_browser",
+        action_kind: "inspect",
+        workflow_node_id: "runtime.computer-use.control",
+        prompt: "Request governed computer-use control through Rust lease admission.",
+      },
     );
   }
 
   async invokeComputerUseNativeBrowserTool(threadId, toolId, request = {}) {
-    return this.requireComputerUseInvocationRustCore(
+    return this.invokeComputerUseLeaseRequestRustCore(
       threadId,
       toolId,
       request,
-      "computer_use.native_browser",
+      {
+        operation_kind: "computer_use.native_browser",
+        lane: "native_browser",
+        action_kind: "inspect",
+        workflow_node_id: "runtime.computer-use.native-browser",
+        prompt: "Request governed native-browser computer-use execution.",
+      },
     );
   }
 
   async invokeComputerUseVisualGuiTool(threadId, toolId, request = {}) {
-    return this.requireComputerUseInvocationRustCore(
+    return this.invokeComputerUseLeaseRequestRustCore(
       threadId,
       toolId,
       request,
-      "computer_use.visual_gui",
+      {
+        operation_kind: "computer_use.visual_gui",
+        lane: "visual_gui",
+        session_mode: "visual_fallback",
+        action_kind: "inspect",
+        workflow_node_id: "runtime.computer-use.visual-gui",
+        prompt: "Request governed visual GUI computer-use execution.",
+      },
     );
   }
 
   async invokeComputerUseSandboxedHostedTool(threadId, toolId, request = {}) {
-    return this.requireComputerUseInvocationRustCore(
+    return this.invokeComputerUseLeaseRequestRustCore(
       threadId,
       toolId,
       request,
-      "computer_use.sandboxed_hosted",
+      {
+        operation_kind: "computer_use.sandboxed_hosted",
+        lane: "sandboxed_hosted",
+        session_mode: "local_sandbox",
+        action_kind: "inspect",
+        sandbox_provider: "local_fixture",
+        workflow_node_id: "runtime.computer-use.sandboxed-hosted",
+        prompt: "Request governed sandboxed-hosted computer-use execution.",
+      },
     );
   }
 
   async invokeComputerUseVisualGuiObserveTool(threadId, toolId, request = {}) {
-    return this.requireComputerUseInvocationRustCore(
+    return this.invokeComputerUseLeaseRequestRustCore(
       threadId,
       toolId,
       request,
-      "computer_use.visual_gui.observe",
+      {
+        operation_kind: "computer_use.visual_gui.observe",
+        lane: "visual_gui",
+        session_mode: "visual_fallback",
+        action_kind: "inspect",
+        workflow_node_id: "runtime.computer-use.visual-gui.observe",
+        prompt: "Request governed visual GUI observation.",
+      },
     );
   }
 
@@ -1588,6 +1616,64 @@ export class AgentgresRuntimeStateStore {
   removeQuiet(filePath) {
     return removeQuietFile(filePath);
   }
+}
+
+function computerUseLeaseRequestEnvelope(request = {}, defaults = {}) {
+  const source = objectRecord(request) ?? {};
+  const input = computerUseLeaseInputForRequest(source);
+  const prompt = optionalString(input.prompt) ?? optionalString(input.goal) ?? optionalString(input.objective);
+  if (!prompt) {
+    const defaultPrompt = optionalString(defaults.prompt);
+    if (defaultPrompt) input.prompt = defaultPrompt;
+  }
+  const lane = optionalString(input.lane) ?? optionalString(defaults.lane);
+  if (lane) input.lane = lane;
+  const sessionMode = optionalString(input.session_mode) ?? optionalString(defaults.session_mode);
+  if (sessionMode) input.session_mode = sessionMode;
+  const actionKind = optionalString(input.action_kind) ?? optionalString(defaults.action_kind);
+  if (actionKind) input.action_kind = actionKind;
+  const sandboxProvider = optionalString(input.sandbox_provider) ?? optionalString(defaults.sandbox_provider);
+  if (sandboxProvider) input.sandbox_provider = sandboxProvider;
+  return {
+    ...source,
+    input,
+    source: operatorControlSource(source.source),
+    workflow_node_id:
+      optionalString(request?.workflow_node_id) ??
+      optionalString(defaults.workflow_node_id) ??
+      "runtime.computer-use.request-lease",
+    computer_use_operation_kind: optionalString(defaults.operation_kind) ?? "computer_use.invocation",
+    computer_use_public_tool_id: optionalString(defaults.tool_id) ?? null,
+    tool_call_id: optionalString(request?.tool_call_id) ?? null,
+    workflow_graph_id: optionalString(request?.workflow_graph_id) ?? null,
+  };
+}
+
+const COMPUTER_USE_LEASE_INPUT_FIELDS = [
+  "prompt",
+  "goal",
+  "objective",
+  "lane",
+  "session_mode",
+  "action_kind",
+  "approval_ref",
+  "provider_id",
+  "provider_kind",
+  "sandbox_provider",
+  "url",
+  "target_ref",
+  "selector",
+  "observation_retention_mode",
+];
+
+function computerUseLeaseInputForRequest(source = {}) {
+  const explicitInput = objectRecord(source.input);
+  if (explicitInput) return { ...explicitInput };
+  const input = {};
+  for (const field of COMPUTER_USE_LEASE_INPUT_FIELDS) {
+    if (Object.hasOwn(source, field)) input[field] = source[field];
+  }
+  return input;
 }
 
 function runtimeThreadProjectionAgent(agent, { threadId } = {}) {

@@ -6267,6 +6267,22 @@ computer-use admission, wallet.network authority, cTEE custody policy where
 applicable, Agentgres expected-head/state-root binding, event materialization,
 replay, and projection own the positive path.
 
+A later public computer-use request-lease cut supersedes that guard-only public
+facade. Browser discovery, control, native-browser, visual GUI,
+sandboxed-hosted, and visual GUI observe daemon methods now map their public
+tool identity to canonical `computer_use.request_lease` input and invoke the
+Rust-live coding-tool StepModule path. Rust `coding_tool_computer_use.rs` owns
+lease request construction, provider registry selection, wallet.network
+authority boundaries, provider-unavailable fail-closed semantics, receipt refs,
+and canonical result fields. The JS edge remains only a narrow protocol
+adapter; it still must not restore local browser discovery sync, CDP execution,
+controlled native-browser launch, visual GUI capture/execution, local sandbox
+execution, JS event projection construction, runtime-event append, or direct
+computer-use event admission. Concrete provider execution, direct Rust
+computer-use event materialization, cTEE custody, durable Agentgres
+expected-head/state-root binding, replay, projection, and stable IDE/CLI/SDK
+APIs remain non-terminal.
+
 Slice 1096 retires the unused approval decision JS readback facade. The mounted
 approval control surface no longer exports `latestApprovalDecisionEvent()`, and
 the daemon store no longer exposes a pass-through method for approval decision

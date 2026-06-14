@@ -3544,7 +3544,8 @@ function runBridge() {
   ];
   const computerUseInvocationBodiesGuardOnly =
     computerUseToolIdentityBodies.every((body) =>
-      /return this\.requireComputerUseInvocationRustCore\(/.test(body) &&
+      /return this\.invokeComputerUseLeaseRequestRustCore\(/.test(body) &&
+      !/return this\.requireComputerUseInvocationRustCore\(/.test(body) &&
       !/(?:payloadSummary|appendRuntimeEvent|runtimeEventStream|agentForThread|admitComputerUseRuntimeEvent|computerUseProjectionForRun|captureLocalVisualGuiObservation|executeLocalVisualGuiAction|executeNativeBrowserCdpAction|launchControlledNativeBrowser|discoverComputerUseBrowsersSync)/.test(body)
     );
   const runtimeRunCancellation = exists("packages/runtime-daemon/src/runtime-run-cancellation.mjs")
@@ -5486,58 +5487,59 @@ function runBridge() {
   );
   assertCheck(
     result,
-    "computer-use-invocation-js-facades-retired",
-    /runtime_computer_use_invocation_rust_core_required/.test(runtimeDaemonIndex) &&
+    "computer-use-public-invocation-rust-lease-api",
+    /invokeComputerUseLeaseRequestRustCore\(threadId, toolId, request = \{\}, defaults = \{\}\)/.test(
+      runtimeDaemonIndex,
+    ) &&
+      /codingToolInvocationSurface\.invokeThreadTool\([\s\S]*"computer_use\.request_lease"/.test(
+        runtimeDaemonIndex,
+      ) &&
+      !/requireComputerUseInvocationRustCore/.test(runtimeDaemonIndex) &&
+      !/computer_use_invocation_js_facade_retired/.test(runtimeDaemonIndex) &&
+      /runtime_computer_use_invocation_rust_core_required/.test(runtimeDaemonIndex) &&
       /rust_core_boundary:\s*"runtime\.computer_use_invocation"/.test(runtimeDaemonIndex) &&
-      /operation:\s*"computer_use_invocation_admission"/.test(runtimeDaemonIndex) &&
-      /computer_use_invocation_js_facade_retired/.test(runtimeDaemonIndex) &&
-      /rust_daemon_core_computer_use_invocation_required/.test(runtimeDaemonIndex) &&
-      /wallet_network_computer_use_authority_required/.test(runtimeDaemonIndex) &&
-      /agentgres_computer_use_expected_head_required/.test(runtimeDaemonIndex) &&
       /operation_kind:\s*event\.event_kind \?\? "computer_use\.event"/.test(runtimeDaemonIndex) &&
       /computer_use_event_js_append_retired/.test(runtimeDaemonIndex) &&
       computerUseToolIdentityBodies.every((body) =>
-        /return this\.requireComputerUseInvocationRustCore\(/.test(body) &&
+        /return this\.invokeComputerUseLeaseRequestRustCore\(/.test(body) &&
+        !/return this\.requireComputerUseInvocationRustCore\(/.test(body) &&
         !/this\.appendRuntimeEvent\(|this\.runtimeEventStream\(|this\.agentForThread\(|this\.admitComputerUseRuntimeEvent\(|computerUseProjectionForRun\(|captureLocalVisualGuiObservation\(|executeLocalVisualGuiAction\(|executeNativeBrowserCdpAction\(|launchControlledNativeBrowser\(|discoverComputerUseBrowsersSync\(/.test(body),
       ) &&
       !/discoverComputerUseBrowsersSync|computerUseControlActionForInput|computerUseObservationRetentionModeForInput|computerUseWorkflowNodeIdsForInput|nativeBrowserActionKindForInput|nativeBrowserActionShouldUseCdpExecutor|nativeBrowserApprovalRefForInput|nativeBrowserCdpTimeoutMs|nativeBrowserControlledRelaunchApprovalRefForInput|nativeBrowserExecutionUnavailableFromControlledRelaunchLaunch|nativeBrowserHasExplicitCdpEndpoint|nativeBrowserSessionModeForInput|sandboxedHostedSessionModeForInput|visualGuiObservationMetadataForInput|visualGuiSessionModeForInput|captureLocalVisualGuiObservation|visualGuiLocalCaptureRequested|visualGuiLocalCaptureUnavailablePatch|executeLocalVisualGuiAction|visualGuiLocalExecutorRequested|launchControlledNativeBrowser|executeNativeBrowserCdpAction/.test(
         runtimeDaemonIndex,
       ) &&
-      /agentForThread must not be called by retired computer-use JS facade/.test(
+      /computer-use public invocation facades route to Rust request-lease StepModule/.test(
         runtimeComputerUseInvocationStoreTest,
       ) &&
-      /runtimeEventStream must not be read by retired computer-use JS facade/.test(
+      /computer-use public invocation adapter preserves canonical lease request fields/.test(
         runtimeComputerUseInvocationStoreTest,
       ) &&
-      /admitComputerUseRuntimeEvent must not be reached by retired computer-use JS facade/.test(
+      /agentForThread must not be called by computer-use public Rust lease adapter/.test(
         runtimeComputerUseInvocationStoreTest,
       ) &&
-      /assertComputerUseRustCoreRequired\(error, "computer_use\.browser_discovery"\)/.test(
+      /runtimeEventStream must not be read by computer-use public Rust lease adapter/.test(
         runtimeComputerUseInvocationStoreTest,
       ) &&
-      /assertComputerUseRustCoreRequired\(error, "computer_use\.control"\)/.test(
+      /admitComputerUseRuntimeEvent must not be reached by computer-use public Rust lease adapter/.test(
         runtimeComputerUseInvocationStoreTest,
       ) &&
-      /assertComputerUseRustCoreRequired\(error, "computer_use\.native_browser"\)/.test(
+      /pathFor must not be called by computer-use public Rust lease adapter/.test(
         runtimeComputerUseInvocationStoreTest,
       ) &&
-      /assertComputerUseRustCoreRequired\(error, "computer_use\.visual_gui"\)/.test(
+      /computer_use\.request_lease/.test(runtimeComputerUseInvocationStoreTest) &&
+      /receipt:\/\/rust\/computer-use-lease/.test(runtimeComputerUseInvocationStoreTest) &&
+      /wallet\.network/.test(runtimeComputerUseInvocationStoreTest) &&
+      !/assertComputerUseRustCoreRequired/.test(
         runtimeComputerUseInvocationStoreTest,
       ) &&
-      /assertComputerUseRustCoreRequired\(error, "computer_use\.sandboxed_hosted"\)/.test(
-        runtimeComputerUseInvocationStoreTest,
-      ) &&
-      /pathFor must not be called by retired visual GUI observe facade/.test(
-        runtimeComputerUseInvocationStoreTest,
-      ) &&
-      /assertComputerUseRustCoreRequired\(error, "computer_use\.visual_gui\.observe"\)/.test(
+      !/runtime_computer_use_invocation_rust_core_required/.test(
         runtimeComputerUseInvocationStoreTest,
       ),
     [
       "packages/runtime-daemon/src/index.mjs",
       "packages/runtime-daemon/src/runtime-computer-use-invocation-store.test.mjs",
     ],
-    "Phase 10/11 is pending: computer-use invocation facades must stay guard-only and fail closed before JS event/projection truth, local capture/execution, or direct append",
+    "Phase 10/11 is pending: computer-use public invocation facades must route to the Rust-owned computer_use.request_lease StepModule without JS event/projection truth, local capture/execution, or direct append",
   );
   assertCheck(
     result,
@@ -6876,7 +6878,7 @@ function runBridge() {
     [
       "packages/runtime-daemon/src/index.mjs",
     ],
-    "Phase 10/11 is pending: retired computer-use control JS facade must stay guard-only without lease/handoff/cleanup request alias handling",
+    "Phase 10/11 is pending: computer-use control must route through the Rust lease adapter without restoring lease/handoff/cleanup request alias handling",
   );
   assertCheck(
     result,
@@ -6896,7 +6898,7 @@ function runBridge() {
     [
       "packages/runtime-daemon/src/index.mjs",
     ],
-    "Phase 10/11 is pending: retired computer-use JS facades must stay guard-only while Rust-core-required errors expose canonical identity details without retired camelCase aliases",
+    "Phase 10/11 is pending: computer-use public invocation adapters must preserve canonical identity fields without retired camelCase aliases",
   );
   assertCheck(
     result,
