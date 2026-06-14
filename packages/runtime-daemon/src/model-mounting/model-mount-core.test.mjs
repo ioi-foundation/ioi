@@ -13,6 +13,7 @@ import {
   MODEL_MOUNT_PROVIDER_RESULT_API_METHOD,
   MODEL_MOUNT_PROVIDER_STREAM_INVOCATION_API_METHOD,
   MODEL_MOUNT_ROUTE_DECISION_API_METHOD,
+  MODEL_MOUNT_SERVER_CONTROL_API_METHOD,
   MODEL_MOUNT_STORAGE_CONTROL_API_METHOD,
   ModelMountCoreError,
   RUST_MODEL_MOUNT_ARTIFACT_ENDPOINT_BACKEND,
@@ -26,7 +27,6 @@ import {
   RUST_MODEL_MOUNT_ROUTE_CONTROL_REQUIRED_BACKEND,
   RUST_MODEL_MOUNT_RUNTIME_ENGINE_BACKEND,
   RUST_MODEL_MOUNT_RUNTIME_SURVEY_BACKEND,
-  RUST_MODEL_MOUNT_SERVER_CONTROL_BACKEND,
   RUST_MODEL_MOUNT_STREAM_CANCEL_BACKEND,
   RUST_MODEL_MOUNT_STREAM_COMPLETION_BACKEND,
   RUST_MODEL_MOUNT_TOKENIZER_BACKEND,
@@ -1559,77 +1559,48 @@ test("Rust model_mount core sends positive backend lifecycle request", () => {
 test("Rust model_mount core sends positive server-control request", () => {
   const calls = [];
   const runner = new ModelMountCore({
-    daemonCoreInvoker(request) {
-      calls.push({ request });
-      return {
-        ok: true,
-        result: {
-          source: "rust_model_mount_server_control_command",
-          backend: RUST_MODEL_MOUNT_SERVER_CONTROL_BACKEND,
-          plan: {
-            schema_version: "ioi.model_mount.server_control_plan.v1",
-            object: "ioi.model_mount_server_control_plan",
-            status: "planned",
-            rust_core_boundary: "model_mount.server_control",
-            operation_kind: request.request.operation_kind,
-            source: request.request.source,
-            record_dir: "model-server-controls",
-            record_id: "server-control:positive",
-            record: {
-              id: "server-control:positive",
-              object: "ioi.model_mount_server_control_record",
-              rust_core_boundary: "model_mount.server_control",
-              operation_kind: request.request.operation_kind,
-            },
-            public_response: {
-              object: "ioi.model_mount_server_control",
-              status: "planned",
-              operation_kind: request.request.operation_kind,
-            },
-            receipt_refs: request.request.receipt_refs,
-            evidence_refs: [
-              "public_server_control_js_facade_retired",
-              "rust_daemon_core_server_control",
-              "agentgres_server_control_truth_required",
-            ],
-            control_hash: "sha256:server-control",
-          },
+    daemonCoreModelMountApi: {
+      planModelMountServerControl(request) {
+        calls.push({ method: MODEL_MOUNT_SERVER_CONTROL_API_METHOD, request });
+        return {
+          source: "rust_daemon_core.model_mount.server_control",
+          schema_version: "ioi.model_mount.server_control_plan.v1",
+          object: "ioi.model_mount_server_control_plan",
+          status: "planned",
+          rust_core_boundary: "model_mount.server_control",
+          operation_kind: request.operation_kind,
           record_dir: "model-server-controls",
           record_id: "server-control:positive",
           record: {
             id: "server-control:positive",
             object: "ioi.model_mount_server_control_record",
             rust_core_boundary: "model_mount.server_control",
-            operation_kind: request.request.operation_kind,
+            operation_kind: request.operation_kind,
           },
           public_response: {
             object: "ioi.model_mount_server_control",
             status: "planned",
-            operation_kind: request.request.operation_kind,
+            operation_kind: request.operation_kind,
           },
-          receipt_refs: request.request.receipt_refs,
+          receipt_refs: request.receipt_refs,
           evidence_refs: [
             "public_server_control_js_facade_retired",
             "rust_daemon_core_server_control",
             "agentgres_server_control_truth_required",
           ],
           control_hash: "sha256:server-control",
-          operation_kind: request.request.operation_kind,
-          rust_core_boundary: "model_mount.server_control",
-        },
-      };
+        };
+      },
     },
+    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(calls),
   });
 
   const result = runner.planServerControl(serverControlRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
-  assert.equal(calls[0].request.operation, "plan_model_mount_server_control");
-  assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_SERVER_CONTROL_BACKEND);
-  assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.server_control.v1");
-  assert.equal(calls[0].request.request.operation_kind, "model_mount.server_control.start");
-  assert.equal(calls[0].request.request.body.base_url, "http://daemon.test");
+  assertDirectModelMountApiCall(calls[0], MODEL_MOUNT_SERVER_CONTROL_API_METHOD, "ioi.model_mount.server_control.v1");
+  assert.equal(calls[0].request.operation_kind, "model_mount.server_control.start");
+  assert.equal(calls[0].request.body.base_url, "http://daemon.test");
   assert.equal(result.record_dir, "model-server-controls");
   assert.equal(result.operation_kind, "model_mount.server_control.start");
   assert.equal(result.rust_core_boundary, "model_mount.server_control");

@@ -308,6 +308,43 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
         authority_hash: record.authority_hash,
       };
     },
+    planModelMountServerControl(request) {
+      modelMountCalls.push({ method: "planModelMountServerControl", request });
+      const record = {
+        id: "server-control.direct",
+        object: "ioi.model_mount_server_control_record",
+        status: "planned",
+        operation_kind: request.operation_kind,
+        rust_core_boundary: "model_mount.server_control",
+        public_response: {
+          object: "ioi.model_mount_server_control",
+          status: "planned",
+          operation_kind: request.operation_kind,
+          server_status: "start_planned",
+          js_transport_execution: false,
+        },
+        receipt_refs: request.receipt_refs ?? [],
+        evidence_refs: [
+          "public_server_control_js_facade_retired",
+          "rust_daemon_core_server_control",
+          "agentgres_server_control_truth_required",
+        ],
+        control_hash: "sha256:direct-server-control",
+      };
+      return {
+        source: "direct_model_mount_api",
+        status: "planned",
+        rust_core_boundary: "model_mount.server_control",
+        operation_kind: request.operation_kind,
+        record_dir: "model-server-controls",
+        record_id: record.id,
+        record,
+        public_response: record.public_response,
+        receipt_refs: request.receipt_refs ?? [],
+        evidence_refs: record.evidence_refs,
+        control_hash: record.control_hash,
+      };
+    },
   };
   const directModelMountCore = createModelMountCore({
     daemonCoreInvoker: failCommandInvoker,
@@ -362,6 +399,9 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
       },
       planMcpWorkflow(request) {
         return directModelMountCore.planMcpWorkflow(request);
+      },
+      planServerControl(request) {
+        return directModelMountCore.planServerControl(request);
       },
     },
     daemonCoreInvoker: failCommandInvoker,
@@ -800,6 +840,25 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
   assert.equal(mcpPlan.source, "direct_model_mount_api");
   assert.equal(mcpPlan.record_id, "mcp_import.direct");
   assert.equal(mcpPlan.rust_core_boundary, "model_mount.mcp_workflow");
+  const serverPlan = store.modelMounting.planServerControl({
+    schema_version: "ioi.model_mount.server_control.v1",
+    operation_kind: "model_mount.server_control.start",
+    source: "runtime-daemon.model_mounting.server_control",
+    server_control_id: "server-control.direct",
+    body: {
+      base_url: "http://daemon.direct",
+    },
+    receipt_refs: ["receipt://server-control/direct"],
+  });
+  assert.equal(calls.length, 0);
+  assertModelMountDirectApiCall(
+    modelMountCalls.at(-1),
+    "planModelMountServerControl",
+    "ioi.model_mount.server_control.v1",
+  );
+  assert.equal(serverPlan.source, "direct_model_mount_api");
+  assert.equal(serverPlan.record_id, "server-control.direct");
+  assert.equal(serverPlan.rust_core_boundary, "model_mount.server_control");
   const memoryPlan = store.contextPolicyCore.planRuntimeMemoryControl({
     operation: "write",
     operation_kind: "memory.write",

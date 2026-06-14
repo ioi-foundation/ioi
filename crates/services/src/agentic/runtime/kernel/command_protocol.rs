@@ -9,7 +9,6 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "plan_model_mount_backend_process",
     "plan_model_mount_backend_lifecycle",
     "plan_model_mount_artifact_endpoint",
-    "plan_model_mount_server_control",
     "plan_model_mount_runtime_engine",
     "plan_model_mount_runtime_survey",
     "plan_model_mount_tokenizer_required",
@@ -67,7 +66,6 @@ pub enum CommandOperation {
     PlanModelMountBackendProcess,
     PlanModelMountBackendLifecycle,
     PlanModelMountArtifactEndpoint,
-    PlanModelMountServerControl,
     PlanModelMountRuntimeEngine,
     PlanModelMountRuntimeSurvey,
     PlanModelMountTokenizerRequired,
@@ -126,7 +124,6 @@ impl CommandOperation {
             Self::PlanModelMountBackendProcess => "plan_model_mount_backend_process",
             Self::PlanModelMountBackendLifecycle => "plan_model_mount_backend_lifecycle",
             Self::PlanModelMountArtifactEndpoint => "plan_model_mount_artifact_endpoint",
-            Self::PlanModelMountServerControl => "plan_model_mount_server_control",
             Self::PlanModelMountRuntimeEngine => "plan_model_mount_runtime_engine",
             Self::PlanModelMountRuntimeSurvey => "plan_model_mount_runtime_survey",
             Self::PlanModelMountTokenizerRequired => "plan_model_mount_tokenizer_required",
@@ -270,7 +267,6 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
         "plan_model_mount_artifact_endpoint" => {
             Some(CommandOperation::PlanModelMountArtifactEndpoint)
         }
-        "plan_model_mount_server_control" => Some(CommandOperation::PlanModelMountServerControl),
         "plan_model_mount_runtime_engine" => Some(CommandOperation::PlanModelMountRuntimeEngine),
         "plan_model_mount_runtime_survey" => Some(CommandOperation::PlanModelMountRuntimeSurvey),
         "plan_model_mount_tokenizer_required" => {
@@ -462,7 +458,6 @@ mod tests {
             "project_runtime_diagnostics_repair_projection",
             "project_runtime_conversation_artifact_projection",
             "project_runtime_subagent_projection",
-            "plan_model_mount_server_control",
             "plan_model_mount_runtime_survey",
             "plan_model_mount_artifact_endpoint",
             "plan_model_mount_catalog_provider_control",
@@ -574,6 +569,24 @@ mod tests {
         assert_eq!(
             validate_command_envelope(
                 "plan_model_mount_mcp_workflow",
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+            )
+            .unwrap_err()
+            .code(),
+            "operation_unknown"
+        );
+    }
+
+    #[test]
+    fn model_mount_server_control_command_transport_is_retired() {
+        assert_eq!(command_operation("plan_model_mount_server_control"), None);
+        assert_eq!(
+            expected_command_schema_version("plan_model_mount_server_control"),
+            None
+        );
+        assert_eq!(
+            validate_command_envelope(
+                "plan_model_mount_server_control",
                 DAEMON_CORE_COMMAND_SCHEMA_VERSION,
             )
             .unwrap_err()

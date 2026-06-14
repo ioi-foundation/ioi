@@ -9,7 +9,6 @@ export const RUST_MODEL_MOUNT_BACKEND_PROCESS_BACKEND = "rust_model_mount_backen
 export const RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_BACKEND = "rust_model_mount_backend_lifecycle";
 export const RUST_MODEL_MOUNT_ARTIFACT_ENDPOINT_BACKEND = "rust_model_mount_artifact_endpoint";
 export const RUST_MODEL_MOUNT_STORAGE_CONTROL_BACKEND = "rust_model_mount_storage_control";
-export const RUST_MODEL_MOUNT_SERVER_CONTROL_BACKEND = "rust_model_mount_server_control";
 export const RUST_MODEL_MOUNT_RUNTIME_ENGINE_BACKEND = "rust_model_mount_runtime_engine";
 export const RUST_MODEL_MOUNT_RUNTIME_SURVEY_BACKEND = "rust_model_mount_runtime_survey";
 export const RUST_MODEL_MOUNT_TOKENIZER_REQUIRED_BACKEND = "rust_model_mount_tokenizer_required";
@@ -41,6 +40,7 @@ export const MODEL_MOUNT_INSTANCE_LIFECYCLE_API_METHOD = "planModelMountInstance
 export const MODEL_MOUNT_PROVIDER_RESULT_API_METHOD = "admitModelMountProviderResult";
 export const MODEL_MOUNT_STORAGE_CONTROL_API_METHOD = "planModelMountStorageControl";
 export const MODEL_MOUNT_MCP_WORKFLOW_API_METHOD = "planModelMountMcpWorkflow";
+export const MODEL_MOUNT_SERVER_CONTROL_API_METHOD = "planModelMountServerControl";
 
 export function createModelMountCore(options = {}) {
   return new ModelMountCore(options);
@@ -164,13 +164,9 @@ export class ModelMountCore {
   }
 
   planServerControl(request) {
-    const bridgeRequest = {
-      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
-      operation: "plan_model_mount_server_control",
-      backend: RUST_MODEL_MOUNT_SERVER_CONTROL_BACKEND,
-      request,
-    };
-    return normalizeServerControlBridgeResult(this.invokeDaemonCore(bridgeRequest));
+    return normalizeServerControlApiResult(
+      this.invokeModelMountApi(MODEL_MOUNT_SERVER_CONTROL_API_METHOD, request),
+    );
   }
 
   planRuntimeEngine(request) {
@@ -1067,29 +1063,24 @@ function normalizeMcpWorkflowApiResult(value = {}) {
   return normalized;
 }
 
-function normalizeServerControlBridgeResult(value = {}) {
+function normalizeServerControlApiResult(value = {}) {
   const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
-  const plan = result.plan && typeof result.plan === "object" && !Array.isArray(result.plan)
-    ? result.plan
-    : {};
+  const plan = result;
   const record = result.record && typeof result.record === "object" && !Array.isArray(result.record)
     ? result.record
-    : plan.record && typeof plan.record === "object" && !Array.isArray(plan.record)
-      ? plan.record
-      : null;
+    : null;
   const normalized = {
-    source: result.source ?? "rust_model_mount_server_control_command",
-    backend: result.backend ?? RUST_MODEL_MOUNT_SERVER_CONTROL_BACKEND,
+    source: result.source ?? "rust_daemon_core.model_mount.server_control",
     plan,
-    record_dir: result.record_dir ?? plan.record_dir ?? null,
-    record_id: result.record_id ?? plan.record_id ?? null,
+    record_dir: result.record_dir ?? null,
+    record_id: result.record_id ?? null,
     record,
-    public_response: result.public_response ?? plan.public_response ?? null,
-    operation_kind: result.operation_kind ?? plan.operation_kind ?? null,
-    rust_core_boundary: result.rust_core_boundary ?? plan.rust_core_boundary ?? null,
-    receipt_refs: arrayOrNull(result.receipt_refs) ?? arrayOrNull(plan.receipt_refs) ?? [],
-    evidence_refs: arrayOrNull(result.evidence_refs) ?? arrayOrNull(plan.evidence_refs),
-    control_hash: result.control_hash ?? plan.control_hash ?? null,
+    public_response: result.public_response ?? null,
+    operation_kind: result.operation_kind ?? null,
+    rust_core_boundary: result.rust_core_boundary ?? null,
+    receipt_refs: arrayOrNull(result.receipt_refs) ?? [],
+    evidence_refs: arrayOrNull(result.evidence_refs),
+    control_hash: result.control_hash ?? null,
   };
   const missing = [];
   for (const field of ["record_dir", "record_id", "record", "operation_kind", "control_hash"]) {
@@ -1116,7 +1107,6 @@ function normalizeServerControlBridgeResult(value = {}) {
     error.details = {
       missing,
       source: normalized.source,
-      backend: normalized.backend,
       operation_kind: normalized.operation_kind,
     };
     throw error;

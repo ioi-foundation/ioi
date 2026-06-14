@@ -40,13 +40,6 @@ pub struct ModelMountServerControlPlan {
     pub control_hash: String,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct ModelMountServerControlBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: ModelMountServerControlRequest,
-}
-
 impl ModelMountServerControlRequest {
     pub fn validate(&self) -> Result<(), ModelMountError> {
         if self.schema_version != MODEL_MOUNT_SERVER_CONTROL_SCHEMA_VERSION {
@@ -66,35 +59,6 @@ impl ModelMountServerControlRequest {
     }
 }
 
-pub fn plan_model_mount_server_control_response(
-    request: ModelMountServerControlBridgeRequest,
-) -> Result<Value, ModelMountError> {
-    let plan = plan_server_control(&request.request)?;
-    let record_dir = plan.record_dir.clone();
-    let record_id = plan.record_id.clone();
-    let record = plan.record.clone();
-    let public_response = plan.public_response.clone();
-    let receipt_refs = plan.receipt_refs.clone();
-    let evidence_refs = plan.evidence_refs.clone();
-    let control_hash = plan.control_hash.clone();
-    let operation_kind = plan.operation_kind.clone();
-    let rust_core_boundary = plan.rust_core_boundary.clone();
-    Ok(json!({
-        "source": "rust_model_mount_server_control_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_model_mount_server_control".to_string()),
-        "plan": plan,
-        "record_dir": record_dir,
-        "record_id": record_id,
-        "record": record,
-        "public_response": public_response,
-        "receipt_refs": receipt_refs,
-        "evidence_refs": evidence_refs,
-        "control_hash": control_hash,
-        "operation_kind": operation_kind,
-        "rust_core_boundary": rust_core_boundary,
-    }))
-}
-
 pub(super) fn plan_server_control(
     request: &ModelMountServerControlRequest,
 ) -> Result<ModelMountServerControlPlan, ModelMountError> {
@@ -105,7 +69,7 @@ pub(super) fn plan_server_control(
         .source
         .as_ref()
         .and_then(|value| non_empty_string(value))
-        .unwrap_or_else(|| "rust_model_mount_core".to_string());
+        .unwrap_or_else(|| "rust_daemon_core.model_mount.server_control".to_string());
     let generated_at = request
         .generated_at
         .as_ref()
@@ -356,30 +320,19 @@ mod tests {
     }
 
     #[test]
-    fn rust_core_shapes_model_mount_server_control_command_response() {
-        let response =
-            plan_model_mount_server_control_response(ModelMountServerControlBridgeRequest {
-                backend: Some("rust_model_mount_server_control".to_string()),
-                request: request("model_mount.server_control.record_operation"),
-            })
-            .expect("server control command response");
+    fn rust_core_plans_model_mount_server_control_direct_api() {
+        let mut request = request("model_mount.server_control.record_operation");
+        request.source = None;
+        let plan = plan_server_control(&request).expect("server control direct api plan");
 
+        assert_eq!(plan.source, "rust_daemon_core.model_mount.server_control");
         assert_eq!(
-            response["source"],
-            "rust_model_mount_server_control_command"
-        );
-        assert_eq!(response["backend"], "rust_model_mount_server_control");
-        assert_eq!(
-            response["operation_kind"],
+            plan.operation_kind,
             "model_mount.server_control.record_operation"
         );
-        assert_eq!(response["rust_core_boundary"], "model_mount.server_control");
-        assert_eq!(
-            response["record"]["public_response"]["operation_recorded"],
-            true
-        );
-        assert!(response["control_hash"]
-            .as_str()
-            .is_some_and(|hash| hash.starts_with("sha256:")));
+        assert_eq!(plan.record_dir, "model-server-controls");
+        assert_eq!(plan.rust_core_boundary, "model_mount.server_control");
+        assert_eq!(plan.record["public_response"]["operation_recorded"], true);
+        assert!(plan.control_hash.starts_with("sha256:"));
     }
 }

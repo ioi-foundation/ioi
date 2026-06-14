@@ -5131,12 +5131,13 @@ Agentgres model_mount record-state admission, and return Rust public responses
 before any JS backend registry lookup, derived backend projection, local backend
 kind inference, receipt creation, process control, or log read/write can run;
 public model-mount server-control start/stop/restart/write, operation
-recording, log/event reads, log projection, and log append now call Rust
-`plan_model_mount_server_control` through the daemon-core command bridge,
-receive Rust-authored `model-server-controls` records with server-control
-evidence, commit only those records through Rust Agentgres model_mount
-record-state admission, and return Rust public responses before any JS state
-write, log write, or transport execution can run;
+recording, and log append now call typed
+`daemonCoreModelMountApi.planModelMountServerControl`, backed by Rust
+`RuntimeKernel::plan_model_mount_server_control`, receive Rust-authored
+`model-server-controls` records with server-control evidence, commit only
+those records through Rust Agentgres model_mount record-state admission, and
+return Rust public responses before any JS state write, log write, command
+envelope, bridge backend tag, or transport execution can run;
 public runtime-engine selection/profile/remove mutations now call Rust
 `plan_model_mount_runtime_engine` through the daemon-core command bridge,
 receive Rust-authored `runtime-engine-controls` records with runtime-engine
@@ -8641,12 +8642,12 @@ now mounts `modelMountCore` directly; `model-mount-admission-runner.mjs` and its
 tests are deleted, the daemon store/service pass only `modelMountCore`, and the
 old command/env factory path is gone. Route decision, invocation admission,
 provider execution, provider invocation/stream execution, lifecycle/inventory,
-instance lifecycle, provider-result admission, and MCP workflow planning now call typed
+instance lifecycle, provider-result admission, MCP workflow planning, and server-control planning now call typed
 `daemonCoreModelMountApi` methods instead of command envelopes. Rust rejects the
 retired command operations, dispatch arms, and bridge request/response wrappers
 for that family. Backend process/lifecycle, remaining required-control,
 accepted-receipt head/transition, read-projection, invocation receipt-binding,
-server-control, runtime-engine/survey, tokenizer/route-control,
+runtime-engine/survey, tokenizer/route-control,
 catalog/provider/vault/receipt-gate, conversation/stream, and projection helpers
 still enter Rust through remaining migration transport. The core requires typed
 `daemonCoreModelMountApi` for migrated model_mount APIs, uses
@@ -9147,8 +9148,12 @@ receipts, local artifact/instance fallback reads, artifact or instance map
 mutation, or no-commit planner success.
 Public model-mount server-control start/stop/restart/write, operation
 recording, and log append have moved from the fail-closed required-record facade
-to Rust `plan_model_mount_server_control` planning plus Rust Agentgres
-model_mount record-state admission. Migrated server-control mutation methods
+to typed `daemonCoreModelMountApi.planModelMountServerControl`, backed by Rust
+`RuntimeKernel::plan_model_mount_server_control`, plus Rust Agentgres
+model_mount record-state admission. The old
+`plan_model_mount_server_control` command operation, command-dispatch arm,
+bridge request/response wrapper, backend marker, and JS command-envelope builder
+are retired and guarded by conformance. Migrated server-control mutation methods
 receive Rust-authored `model-server-controls` records, commit only those
 records, and return Rust public responses with JS state writes, JS log writes,
 and JS transport execution marked false. Dedicated `serverStatus()` now calls
@@ -9163,8 +9168,8 @@ Rust replays admitted `model-server-controls/*.json`, filters JS-authored
 controls and retired read-as-mutation `logs_read`/`events_read`/`log_projection`
 records, and returns redacted log/event projections without committing
 server-control truth for reads. This remains non-terminal because actual
-process supervision, transport execution, command-transport retirement, and
-stable server-control protocol APIs still need direct Rust ownership.
+process supervision, transport execution, and stable server-control protocol
+APIs still need direct Rust ownership.
 Provider-inventory topology and catalog materialization now replays that same
 admitted Agentgres truth in Rust. `listArtifacts()`, `listProductArtifacts()`,
 `listProviders()`, `runtimeModelCatalogList()`, and `openAiModelList()` call
@@ -9325,8 +9330,7 @@ cut only; the later model_mount typed API cut also retires command transport for
 invocation admission, provider-execution admission, provider invocation/stream
 execution, provider lifecycle/inventory, instance lifecycle, and provider-result
 admission. Remaining model_mount backend-process/lifecycle, required-control,
-read-projection, receipt-binding, server-control,
-runtime-engine/survey, tokenizer/route-control, catalog/provider/vault/
+read-projection, receipt-binding, runtime-engine/survey, tokenizer/route-control, catalog/provider/vault/
 receipt-gate, conversation/stream, and projection migration transports still
 need direct Rust daemon-core protocol/API ownership.
 

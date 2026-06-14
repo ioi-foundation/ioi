@@ -2320,7 +2320,7 @@ function runDocs() {
       /visual GUI local fixture capture\/execution no longer reads `IOI_RUNTIME_ENABLE_VISUAL_CAPTURE_FIXTURE` or `IOI_RUNTIME_ENABLE_VISUAL_EXECUTOR_FIXTURE`/.test(
         implementationMatrix,
       ) &&
-      /actual process supervision\/transport execution,\s+command-transport retirement, and stable SDK\/IDE server-control APIs remain non-terminal/.test(
+      /actual process supervision\/transport execution and stable SDK\/IDE server-control APIs remain non-terminal/.test(
         implementationMatrix,
       ) &&
       /OAuth callback preflight now accepts only `state`, not retired\s+`oauth_state`\/`oauthState` aliases/.test(implementationMatrix) &&
@@ -8576,10 +8576,10 @@ function runBridge() {
         coreCommandDispatch,
       ) &&
       !/plan_model_mount_backend_lifecycle_required_response/.test(coreCommandDispatch) &&
-      /plan_model_mount_server_control_response\(decode\(raw_request\)\?\)/.test(
+      !/plan_model_mount_server_control_response\(decode\(raw_request\)\?\)/.test(
         coreCommandDispatch,
       ) &&
-      !/plan_model_mount_server_control_required_response/.test(coreCommandDispatch) &&
+      /model_mount_server_control_command_transport_is_retired/.test(commandProtocolCore) &&
       /plan_model_mount_runtime_engine_response\(decode\(raw_request\)\?\)/.test(
         coreCommandDispatch,
       ) &&
@@ -8597,7 +8597,8 @@ function runBridge() {
       !/rust_core_shapes_model_mount_backend_lifecycle_required_command_response/.test(
         modelMountCore,
       ) &&
-      /rust_core_shapes_model_mount_server_control_command_response/.test(
+      /rust_core_plans_model_mount_server_control_direct_api/.test(modelMountCore) &&
+      !/rust_core_shapes_model_mount_server_control_command_response/.test(
         modelMountCore,
       ) &&
       !/rust_core_shapes_model_mount_server_control_required_command_response/.test(
@@ -8788,8 +8789,8 @@ function runBridge() {
       /pub fn plan_model_mount_backend_lifecycle_response/.test(modelMountCore) &&
       !/ModelMountBackendLifecycleRequiredBridgeRequest/.test(modelMountCore) &&
       !/plan_model_mount_backend_lifecycle_required_response/.test(modelMountCore) &&
-      /pub struct ModelMountServerControlBridgeRequest/.test(modelMountCore) &&
-      /pub fn plan_model_mount_server_control_response/.test(modelMountCore) &&
+      !/pub struct ModelMountServerControlBridgeRequest/.test(modelMountCore) &&
+      !/pub fn plan_model_mount_server_control_response/.test(modelMountCore) &&
       !/ModelMountServerControlRequiredBridgeRequest/.test(modelMountCore) &&
       !/plan_model_mount_server_control_required_response/.test(modelMountCore) &&
       /pub struct ModelMountRuntimeEngineBridgeRequest/.test(modelMountCore) &&
@@ -8803,7 +8804,7 @@ function runBridge() {
       /rust_model_mount_backend_process_command/.test(modelMountCore) &&
       /rust_model_mount_backend_lifecycle_command/.test(modelMountCore) &&
       !/rust_model_mount_backend_lifecycle_required_command/.test(modelMountCore) &&
-      /rust_model_mount_server_control_command/.test(modelMountCore) &&
+      !/rust_model_mount_server_control_command/.test(modelMountCore) &&
       !/rust_model_mount_server_control_required_command/.test(modelMountCore) &&
       /rust_model_mount_runtime_engine_command/.test(modelMountCore) &&
       !/rust_model_mount_runtime_engine_required_command/.test(modelMountCore) &&
@@ -8817,7 +8818,8 @@ function runBridge() {
       !/rust_core_shapes_model_mount_backend_lifecycle_required_command_response/.test(
         modelMountCore,
       ) &&
-      /rust_core_shapes_model_mount_server_control_command_response/.test(
+      /rust_core_plans_model_mount_server_control_direct_api/.test(modelMountCore) &&
+      !/rust_core_shapes_model_mount_server_control_command_response/.test(
         modelMountCore,
       ) &&
       /rust_core_shapes_model_mount_runtime_engine_command_response/.test(
@@ -8835,10 +8837,10 @@ function runBridge() {
         coreCommandDispatch,
       ) &&
       !/plan_model_mount_backend_lifecycle_required_response/.test(coreCommandDispatch) &&
-      /plan_model_mount_server_control_response\(decode\(raw_request\)\?\)/.test(
+      !/plan_model_mount_server_control_response\(decode\(raw_request\)\?\)/.test(
         coreCommandDispatch,
       ) &&
-      !/plan_model_mount_server_control_required_response/.test(coreCommandDispatch) &&
+      /model_mount_server_control_command_transport_is_retired/.test(commandProtocolCore) &&
       /plan_model_mount_runtime_engine_response\(decode\(raw_request\)\?\)/.test(
         coreCommandDispatch,
       ) &&
@@ -23134,17 +23136,20 @@ function runReceipts() {
       /commitServerControlForState\(this,\s*"model_mount\.server_control\.write"/.test(modelMountingState) &&
       /commitServerControlForState\(this,\s*"model_mount\.server_control\.record_operation"/.test(modelMountingState) &&
       /planServerControl\(request\)/.test(modelMountCore) &&
-      /operation:\s*"plan_model_mount_server_control"/.test(modelMountCore) &&
-      /RUST_MODEL_MOUNT_SERVER_CONTROL_BACKEND/.test(modelMountCore) &&
-      /normalizeServerControlBridgeResult/.test(modelMountCore) &&
+      /MODEL_MOUNT_SERVER_CONTROL_API_METHOD = "planModelMountServerControl"/.test(modelMountCore) &&
+      /invokeModelMountApi\(MODEL_MOUNT_SERVER_CONTROL_API_METHOD, request\)/.test(modelMountCore) &&
+      /normalizeServerControlApiResult/.test(modelMountCore) &&
+      !/operation:\s*"plan_model_mount_server_control"/.test(modelMountCore) &&
+      !/RUST_MODEL_MOUNT_SERVER_CONTROL_BACKEND/.test(modelMountCore) &&
+      !/normalizeServerControlBridgeResult/.test(modelMountCore) &&
       !/planServerControlRequired\(request\)/.test(modelMountCore) &&
       !/plan_model_mount_server_control_required/.test(modelMountCore) &&
       !/RUST_MODEL_MOUNT_SERVER_CONTROL_REQUIRED_BACKEND/.test(modelMountCore) &&
       /mod server_control;/.test(modelMountCore) &&
       /ModelMountServerControlRequest/.test(modelMountCore) &&
-      /ModelMountServerControlBridgeRequest/.test(modelMountCore) &&
+      !/ModelMountServerControlBridgeRequest/.test(modelMountCore) &&
       /ModelMountServerControlPlan/.test(modelMountCore) &&
-      /pub fn plan_model_mount_server_control_response/.test(modelMountServerControlCore) &&
+      !/pub fn plan_model_mount_server_control_response/.test(modelMountServerControlCore) &&
       /MODEL_MOUNT_SERVER_CONTROL_SCHEMA_VERSION/.test(modelMountServerControlCore) &&
       /MODEL_MOUNT_SERVER_CONTROL_PLAN_SCHEMA_VERSION/.test(modelMountServerControlCore) &&
       /server_control_operation_supported/.test(modelMountServerControlCore) &&
@@ -23155,10 +23160,12 @@ function runReceipts() {
       /public_server_control_js_facade_retired/.test(modelMountServerControlCore) &&
       /rust_daemon_core_server_control/.test(modelMountServerControlCore) &&
       /agentgres_server_control_truth_required/.test(modelMountServerControlCore) &&
-      /rust_core_shapes_model_mount_server_control_command_response/.test(modelMountServerControlCore) &&
+      /rust_core_plans_model_mount_server_control_direct_api/.test(modelMountServerControlCore) &&
+      !/rust_core_shapes_model_mount_server_control_command_response/.test(modelMountServerControlCore) &&
       !/ModelMountServerControlRequired/.test(modelMountCore) &&
       !exists("crates/services/src/agentic/runtime/kernel/model_mount/required/server_control.rs") &&
-      /plan_model_mount_server_control_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      !/plan_model_mount_server_control_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      /model_mount_server_control_command_transport_is_retired/.test(commandProtocolCore) &&
       !/plan_model_mount_server_control_required/.test(coreCommandDispatch) &&
       !/plan_model_mount_server_control_required_response as plan_model_mount_server_control_required/.test(bridgeModule) &&
       !/bridge_plans_model_mount_server_control_required_through_rust_core/.test(bridgeModule) &&
@@ -23211,6 +23218,10 @@ function runReceipts() {
       /Rust model_mount core sends positive server-control request/.test(
         modelMountCoreTest,
       ) &&
+      /assertDirectModelMountApiCall\([\s\S]*?MODEL_MOUNT_SERVER_CONTROL_API_METHOD/.test(
+        modelMountCoreTest,
+      ) &&
+      /planModelMountServerControl/.test(daemonCoreDirectInvokerServiceTest) &&
       !/Rust model_mount core sends server control required request/.test(
         modelMountCoreTest,
       ) &&

@@ -32,8 +32,7 @@ function fakeState() {
       const hash = `sha256:${request.operation_kind.replaceAll(".", "_")}`;
       const recordId = `server-control:${state.serverControlPlans.length}`;
       return {
-        source: "rust_model_mount_server_control_command",
-        backend: "rust_model_mount_server_control",
+        source: "rust_daemon_core.model_mount.server_control",
         schema_version: "ioi.model_mount.server_control_plan.v1",
         object: "ioi.model_mount_server_control_plan",
         status: "planned",
