@@ -4120,7 +4120,10 @@ function runBridge() {
       /this\.daemonCoreRuntimeControlApi = options\.daemonCoreRuntimeControlApi/.test(
         runtimeDaemonIndex,
       ) &&
-      /createRuntimeContextPolicyCore\(\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*daemonCoreContextLifecycleApi: this\.daemonCoreContextLifecycleApi,\s*daemonCoreRuntimeControlApi: this\.daemonCoreRuntimeControlApi,\s*\}\)/.test(
+      /this\.daemonCoreThreadLifecycleApi = options\.daemonCoreThreadLifecycleApi/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /createRuntimeContextPolicyCore\(\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*daemonCoreContextLifecycleApi: this\.daemonCoreContextLifecycleApi,\s*daemonCoreRuntimeControlApi: this\.daemonCoreRuntimeControlApi,\s*daemonCoreThreadLifecycleApi: this\.daemonCoreThreadLifecycleApi,\s*\}\)/.test(
         runtimeDaemonIndex,
       ) &&
       /daemonCoreContextLifecycleApi:\s*\{[\s\S]*?evaluateContextBudgetPolicy\(request\)/.test(
@@ -4136,6 +4139,15 @@ function runBridge() {
         daemonCoreDirectInvokerServiceTest,
       ) &&
       /Object\.hasOwn\(runtimeControlCalls\[0\]\.request,\s*"backend"\),\s*false/.test(
+        daemonCoreDirectInvokerServiceTest,
+      ) &&
+      /daemonCoreThreadLifecycleApi:\s*\{[\s\S]*?planAgentCreateStateUpdate\(request\)/.test(
+        daemonCoreDirectInvokerServiceTest,
+      ) &&
+      /Object\.hasOwn\(threadLifecycleCalls\[0\]\.request,\s*"operation"\),\s*false/.test(
+        daemonCoreDirectInvokerServiceTest,
+      ) &&
+      /Object\.hasOwn\(threadLifecycleCalls\[0\]\.request,\s*"backend"\),\s*false/.test(
         daemonCoreDirectInvokerServiceTest,
       ) &&
       /this\.daemonCoreAuthorityApi = options\.daemonCoreAuthorityApi/.test(runtimeDaemonIndex) &&
@@ -7982,10 +7994,10 @@ function runBridge() {
       /rust_policy_shapes_run_create_state_update_command_response/.test(
         policyThreadLifecycleCore,
       ) &&
-      /plan_thread_create_state_update/.test(commandProtocolCore) &&
-      /CommandOperation::PlanThreadCreateStateUpdate/.test(commandProtocolCore) &&
-      /plan_agent_delete_state_update/.test(commandProtocolCore) &&
-      /CommandOperation::PlanAgentDeleteStateUpdate/.test(commandProtocolCore) &&
+      /thread_lifecycle_state_update_command_transport_is_retired/.test(commandProtocolCore) &&
+      !/CommandOperation::(?:PlanThreadControlAgentStateUpdate|PlanRuntimeBridgeThreadStartAgentStateUpdate|PlanRuntimeBridgeThreadControlAgentStateUpdate|PlanRuntimeBridgeTurnRunStateUpdate|PlanSubagentRecordStateUpdate|PlanThreadCreateStateUpdate|PlanAgentCreateStateUpdate|PlanAgentStatusStateUpdate|PlanAgentDeleteStateUpdate|PlanRunCreateStateUpdate)/.test(commandProtocolCore) &&
+      !/"(?:plan_thread_control_agent_state_update|plan_runtime_bridge_thread_start_agent_state_update|plan_runtime_bridge_thread_control_agent_state_update|plan_runtime_bridge_turn_run_state_update|plan_subagent_record_state_update|plan_thread_create_state_update|plan_agent_create_state_update|plan_agent_status_state_update|plan_agent_delete_state_update|plan_run_create_state_update)"\s*=>/.test(commandProtocolCore) &&
+      !/CommandOperation::(?:PlanThreadControlAgentStateUpdate|PlanRuntimeBridgeThreadStartAgentStateUpdate|PlanRuntimeBridgeThreadControlAgentStateUpdate|PlanRuntimeBridgeTurnRunStateUpdate|PlanSubagentRecordStateUpdate|PlanThreadCreateStateUpdate|PlanAgentCreateStateUpdate|PlanAgentStatusStateUpdate|PlanAgentDeleteStateUpdate|PlanRunCreateStateUpdate)/.test(coreCommandDispatch) &&
       !threadLifecycleCommandBridgeExists &&
       !/mod thread_lifecycle_command;/.test(bridgeModule) &&
       !/plan_runtime_bridge_thread_start_agent_state_update_response as plan_runtime_bridge_thread_start_agent_state_update/.test(
@@ -12039,13 +12051,13 @@ function runBridge() {
       /THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
         runtimeContextPolicyCore,
       ) &&
-      /thread control agent state update core sends Rust state update through typed Rust daemon-core Agentgres API/.test(
+      /thread control agent state update core sends Rust state update through typed thread-lifecycle API/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /captured\.request\.model_route\.selected_model/.test(
+      /captured\.model_route\.selected_model/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /Object\.hasOwn\(captured\.request\.model_route,\s*field\),\s*false/.test(
+      /Object\.hasOwn\(captured\.model_route,\s*field\),\s*false/.test(
         runtimeContextPolicyCoreTest,
       ) &&
       /result\.control\.control_kind/.test(runtimeContextPolicyCoreTest) &&
@@ -13408,12 +13420,17 @@ function runBridge() {
       runtimeBridgeThreadControlAgentStateUpdateCoreBlock,
     ) &&
     /"thread\.runtime_bridge\.control"/.test(policyThreadLifecycleCore) &&
-    /PlanRuntimeBridgeThreadControlAgentStateUpdate/.test(commandProtocolCore) &&
-    /"plan_runtime_bridge_thread_control_agent_state_update"/.test(commandProtocolCore) &&
-    /CommandOperation::PlanRuntimeBridgeThreadControlAgentStateUpdate/.test(
+    /thread_lifecycle_state_update_command_transport_is_retired/.test(commandProtocolCore) &&
+    !/CommandOperation::PlanRuntimeBridgeThreadControlAgentStateUpdate/.test(
+      commandProtocolCore,
+    ) &&
+    !/"plan_runtime_bridge_thread_control_agent_state_update"\s*=>/.test(
+      commandProtocolCore,
+    ) &&
+    !/CommandOperation::PlanRuntimeBridgeThreadControlAgentStateUpdate/.test(
       coreCommandDispatch,
     ) &&
-    /plan_runtime_bridge_thread_control_agent_state_update_response\(decode\(raw_request\)\?\)/.test(
+    !/plan_runtime_bridge_thread_control_agent_state_update_response\(decode\(raw_request\)\?\)/.test(
       coreCommandDispatch,
     ) &&
     !/plan_runtime_bridge_thread_control_agent_state_update_response as plan_runtime_bridge_thread_control_agent_state_update/.test(
@@ -13427,13 +13444,13 @@ function runBridge() {
     /normalizeRuntimeBridgeThreadControlAgentStateUpdateBridgeResult/.test(
       runtimeContextPolicyCore,
     ) &&
-    /runtime bridge thread control agent state update core sends Rust state update through typed Rust daemon-core Agentgres API/.test(
+    /runtime bridge thread control agent state update core sends Rust state update through typed thread-lifecycle API/.test(
       runtimeContextPolicyCoreTest,
     ) &&
-    /captured\.operation, "plan_runtime_bridge_thread_control_agent_state_update"/.test(
+    /Object\.hasOwn\(captured,\s*"operation"\),\s*false/.test(
       runtimeContextPolicyCoreTest,
     ) &&
-    /Object\.hasOwn\(captured\.request,\s*"threadId"\),\s*false/.test(
+    /Object\.hasOwn\(captured,\s*"threadId"\),\s*false/.test(
       runtimeContextPolicyCoreTest,
     ) &&
     /result\.control\.runtime_bridge_status, "active"/.test(
@@ -13599,10 +13616,10 @@ function runBridge() {
       /RUNTIME_BRIDGE_TURN_RUN_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
         runtimeContextPolicyCore,
       ) &&
-      /runtime bridge thread start agent state update core sends Rust state update through typed Rust daemon-core Agentgres API/.test(
+      /runtime bridge thread start agent state update core sends Rust state update through typed thread-lifecycle API/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /runtime bridge turn run state update core sends Rust state update through typed Rust daemon-core Agentgres API/.test(
+      /runtime bridge turn run state update core sends Rust state update through typed thread-lifecycle API/.test(
         runtimeContextPolicyCoreTest,
       ) &&
       /result\.bridge_start\.bridge_id/.test(runtimeContextPolicyCoreTest) &&
@@ -13612,8 +13629,8 @@ function runBridge() {
       /projection:\s*\{\s*run_id:\s*"run_runtime"\s*\}/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /captured\.request\.projection\.run_id/.test(runtimeContextPolicyCoreTest) &&
-      /Object\.hasOwn\(captured\.request\.projection,\s*"runId"\),\s*false/.test(
+      /captured\.projection\.run_id/.test(runtimeContextPolicyCoreTest) &&
+      /Object\.hasOwn\(captured\.projection,\s*"runId"\),\s*false/.test(
         runtimeContextPolicyCoreTest,
       ) &&
       !exists("packages/runtime-daemon/src/threads/runtime-bridge-thread.mjs") &&
@@ -13794,7 +13811,7 @@ function runBridge() {
       ) &&
       /plan_runtime_bridge_turn_run_state_update_response/.test(policyThreadLifecycleCore) &&
       /planRuntimeBridgeTurnRunStateUpdate/.test(runtimeContextPolicyCore) &&
-      /runtime bridge turn run state update core sends Rust state update through typed Rust daemon-core Agentgres API/.test(
+      /runtime bridge turn run state update core sends Rust state update through typed thread-lifecycle API/.test(
         runtimeContextPolicyCoreTest,
       ) &&
       /createRuntimeBridgeTurnRun/.test(runtimeAgentRunLifecycle) &&
@@ -13962,9 +13979,10 @@ function runBridge() {
       /LifecycleAdmissionRequiredRequest/.test(policyCore) &&
       /rust_policy_plans_lifecycle_admission_required/.test(policyThreadLifecycleCore) &&
       /plan_lifecycle_admission_required/.test(commandProtocolCore) &&
-      /plan_thread_create_state_update/.test(commandProtocolCore) &&
       /CommandOperation::PlanLifecycleAdmissionRequired/.test(commandProtocolCore) &&
-      /CommandOperation::PlanThreadCreateStateUpdate/.test(commandProtocolCore) &&
+      /thread_lifecycle_state_update_command_transport_is_retired/.test(commandProtocolCore) &&
+      !/CommandOperation::(?:PlanThreadCreateStateUpdate|PlanAgentCreateStateUpdate|PlanAgentStatusStateUpdate|PlanAgentDeleteStateUpdate|PlanRunCreateStateUpdate)/.test(commandProtocolCore) &&
+      !/"(?:plan_thread_create_state_update|plan_agent_create_state_update|plan_agent_status_state_update|plan_agent_delete_state_update|plan_run_create_state_update)"\s*=>/.test(commandProtocolCore) &&
       /pub fn plan_lifecycle_admission_required_response/.test(policyThreadLifecycleCore) &&
       /rust_lifecycle_admission_required_command/.test(policyThreadLifecycleCore) &&
       /rust_policy_shapes_lifecycle_admission_required_command_response/.test(
@@ -13977,19 +13995,19 @@ function runBridge() {
       !/bridge_plans_lifecycle_admission_required_through_rust_core/.test(bridgeModule) &&
       !/fn plan_lifecycle_admission_required/.test(bridgeModule) &&
       !/struct LifecycleAdmissionRequiredBridgeRequest/.test(bridgeModule) &&
-      /agent create state update core sends Rust state update through typed Rust daemon-core Agentgres API/.test(
+      /agent create state update core sends Rust state update through typed thread-lifecycle API/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /run create state update core sends Rust state update through typed Rust daemon-core Agentgres API/.test(
+      /run create state update core sends Rust state update through typed thread-lifecycle API/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /thread create state update core sends Rust state update through typed Rust daemon-core Agentgres API/.test(
+      /thread create state update core sends Rust state update through typed thread-lifecycle API/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /agent status state update core sends Rust state update through typed Rust daemon-core Agentgres API/.test(
+      /agent status state update core sends Rust state update through typed thread-lifecycle API/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /agent delete state update core sends Rust tombstone through typed Rust daemon-core Agentgres API/.test(
+      /agent delete state update core sends Rust tombstone through typed thread-lifecycle API/.test(
         runtimeContextPolicyCoreTest,
       ) &&
       /lifecycle admission-required core sends Rust daemon-core request/.test(
@@ -32651,7 +32669,7 @@ function runCompositor() {
       /SUBAGENT_RECORD_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
         runtimeContextPolicyCore,
       ) &&
-      /subagent record state update core sends Rust state update through typed Rust daemon-core Agentgres API/.test(
+      /subagent record state update core sends Rust state update through typed thread-lifecycle API/.test(
         runtimeContextPolicyCoreTest,
       ) &&
       /runner\.planSubagentRecordStateUpdate/.test(

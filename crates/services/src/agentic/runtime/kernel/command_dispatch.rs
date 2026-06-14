@@ -397,10 +397,6 @@ pub fn dispatch_command_operation_response(
         CommandOperation::PlanThreadTurnAdmissionRequired => {
             plan_thread_turn_admission_required_response(decode(raw_request)?).map_err(Into::into)
         }
-        CommandOperation::PlanThreadControlAgentStateUpdate => {
-            plan_thread_control_agent_state_update_response(decode(raw_request)?)
-                .map_err(Into::into)
-        }
         CommandOperation::PlanWorkspaceTrustControlStateUpdate => {
             plan_workspace_trust_control_state_update_response(decode(raw_request)?)
                 .map_err(Into::into)
@@ -446,36 +442,6 @@ pub fn dispatch_command_operation_response(
         }
         CommandOperation::PlanThreadMemoryAgentStateUpdate => {
             plan_thread_memory_agent_state_update_response(decode(raw_request)?).map_err(Into::into)
-        }
-        CommandOperation::PlanRuntimeBridgeThreadStartAgentStateUpdate => {
-            plan_runtime_bridge_thread_start_agent_state_update_response(decode(raw_request)?)
-                .map_err(Into::into)
-        }
-        CommandOperation::PlanRuntimeBridgeThreadControlAgentStateUpdate => {
-            plan_runtime_bridge_thread_control_agent_state_update_response(decode(raw_request)?)
-                .map_err(Into::into)
-        }
-        CommandOperation::PlanRuntimeBridgeTurnRunStateUpdate => {
-            plan_runtime_bridge_turn_run_state_update_response(decode(raw_request)?)
-                .map_err(Into::into)
-        }
-        CommandOperation::PlanSubagentRecordStateUpdate => {
-            plan_subagent_record_state_update_response(decode(raw_request)?).map_err(Into::into)
-        }
-        CommandOperation::PlanThreadCreateStateUpdate => {
-            plan_thread_create_state_update_response(decode(raw_request)?).map_err(Into::into)
-        }
-        CommandOperation::PlanAgentCreateStateUpdate => {
-            plan_agent_create_state_update_response(decode(raw_request)?).map_err(Into::into)
-        }
-        CommandOperation::PlanAgentStatusStateUpdate => {
-            plan_agent_status_state_update_response(decode(raw_request)?).map_err(Into::into)
-        }
-        CommandOperation::PlanAgentDeleteStateUpdate => {
-            plan_agent_delete_state_update_response(decode(raw_request)?).map_err(Into::into)
-        }
-        CommandOperation::PlanRunCreateStateUpdate => {
-            plan_run_create_state_update_response(decode(raw_request)?).map_err(Into::into)
         }
     }
 }

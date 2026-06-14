@@ -72,7 +72,6 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "plan_runtime_subagent_control",
     "plan_lifecycle_admission_required",
     "plan_thread_turn_admission_required",
-    "plan_thread_control_agent_state_update",
     "plan_workspace_trust_control_state_update",
     "plan_mcp_control_agent_state_update",
     "project_mcp_live_result_replay",
@@ -87,15 +86,6 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "project_mcp_tool_search_projection",
     "project_mcp_tool_fetch_projection",
     "plan_thread_memory_agent_state_update",
-    "plan_runtime_bridge_thread_start_agent_state_update",
-    "plan_runtime_bridge_thread_control_agent_state_update",
-    "plan_runtime_bridge_turn_run_state_update",
-    "plan_subagent_record_state_update",
-    "plan_thread_create_state_update",
-    "plan_agent_create_state_update",
-    "plan_agent_status_state_update",
-    "plan_agent_delete_state_update",
-    "plan_run_create_state_update",
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -167,7 +157,6 @@ pub enum CommandOperation {
     PlanRuntimeSubagentControl,
     PlanLifecycleAdmissionRequired,
     PlanThreadTurnAdmissionRequired,
-    PlanThreadControlAgentStateUpdate,
     PlanWorkspaceTrustControlStateUpdate,
     PlanMcpControlAgentStateUpdate,
     ProjectMcpLiveResultReplay,
@@ -182,15 +171,6 @@ pub enum CommandOperation {
     ProjectMcpToolSearchProjection,
     ProjectMcpToolFetchProjection,
     PlanThreadMemoryAgentStateUpdate,
-    PlanRuntimeBridgeThreadStartAgentStateUpdate,
-    PlanRuntimeBridgeThreadControlAgentStateUpdate,
-    PlanRuntimeBridgeTurnRunStateUpdate,
-    PlanSubagentRecordStateUpdate,
-    PlanThreadCreateStateUpdate,
-    PlanAgentCreateStateUpdate,
-    PlanAgentStatusStateUpdate,
-    PlanAgentDeleteStateUpdate,
-    PlanRunCreateStateUpdate,
 }
 
 impl CommandOperation {
@@ -293,7 +273,6 @@ impl CommandOperation {
             Self::PlanRuntimeSubagentControl => "plan_runtime_subagent_control",
             Self::PlanLifecycleAdmissionRequired => "plan_lifecycle_admission_required",
             Self::PlanThreadTurnAdmissionRequired => "plan_thread_turn_admission_required",
-            Self::PlanThreadControlAgentStateUpdate => "plan_thread_control_agent_state_update",
             Self::PlanWorkspaceTrustControlStateUpdate => {
                 "plan_workspace_trust_control_state_update"
             }
@@ -314,21 +293,6 @@ impl CommandOperation {
             Self::ProjectMcpToolSearchProjection => "project_mcp_tool_search_projection",
             Self::ProjectMcpToolFetchProjection => "project_mcp_tool_fetch_projection",
             Self::PlanThreadMemoryAgentStateUpdate => "plan_thread_memory_agent_state_update",
-            Self::PlanRuntimeBridgeThreadStartAgentStateUpdate => {
-                "plan_runtime_bridge_thread_start_agent_state_update"
-            }
-            Self::PlanRuntimeBridgeThreadControlAgentStateUpdate => {
-                "plan_runtime_bridge_thread_control_agent_state_update"
-            }
-            Self::PlanRuntimeBridgeTurnRunStateUpdate => {
-                "plan_runtime_bridge_turn_run_state_update"
-            }
-            Self::PlanSubagentRecordStateUpdate => "plan_subagent_record_state_update",
-            Self::PlanThreadCreateStateUpdate => "plan_thread_create_state_update",
-            Self::PlanAgentCreateStateUpdate => "plan_agent_create_state_update",
-            Self::PlanAgentStatusStateUpdate => "plan_agent_status_state_update",
-            Self::PlanAgentDeleteStateUpdate => "plan_agent_delete_state_update",
-            Self::PlanRunCreateStateUpdate => "plan_run_create_state_update",
         }
     }
 
@@ -540,9 +504,6 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
         "plan_thread_turn_admission_required" => {
             Some(CommandOperation::PlanThreadTurnAdmissionRequired)
         }
-        "plan_thread_control_agent_state_update" => {
-            Some(CommandOperation::PlanThreadControlAgentStateUpdate)
-        }
         "plan_workspace_trust_control_state_update" => {
             Some(CommandOperation::PlanWorkspaceTrustControlStateUpdate)
         }
@@ -581,23 +542,6 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
         "plan_thread_memory_agent_state_update" => {
             Some(CommandOperation::PlanThreadMemoryAgentStateUpdate)
         }
-        "plan_runtime_bridge_thread_start_agent_state_update" => {
-            Some(CommandOperation::PlanRuntimeBridgeThreadStartAgentStateUpdate)
-        }
-        "plan_runtime_bridge_thread_control_agent_state_update" => {
-            Some(CommandOperation::PlanRuntimeBridgeThreadControlAgentStateUpdate)
-        }
-        "plan_runtime_bridge_turn_run_state_update" => {
-            Some(CommandOperation::PlanRuntimeBridgeTurnRunStateUpdate)
-        }
-        "plan_subagent_record_state_update" => {
-            Some(CommandOperation::PlanSubagentRecordStateUpdate)
-        }
-        "plan_thread_create_state_update" => Some(CommandOperation::PlanThreadCreateStateUpdate),
-        "plan_agent_create_state_update" => Some(CommandOperation::PlanAgentCreateStateUpdate),
-        "plan_agent_status_state_update" => Some(CommandOperation::PlanAgentStatusStateUpdate),
-        "plan_agent_delete_state_update" => Some(CommandOperation::PlanAgentDeleteStateUpdate),
-        "plan_run_create_state_update" => Some(CommandOperation::PlanRunCreateStateUpdate),
         _ => None,
     }
 }
@@ -663,10 +607,7 @@ mod tests {
             "project_runtime_diagnostics_repair_policy",
             "plan_lifecycle_admission_required",
             "plan_thread_turn_admission_required",
-            "plan_thread_control_agent_state_update",
-            "plan_runtime_bridge_thread_control_agent_state_update",
             "plan_workspace_trust_control_state_update",
-            "plan_thread_create_state_update",
             "project_mcp_live_result_replay",
             "project_mcp_tool_search_projection",
             "project_mcp_tool_fetch_projection",
@@ -742,6 +683,25 @@ mod tests {
             "plan_operator_steer_state_update",
             "plan_run_cancel_state_update",
             "plan_run_cancel_admission_required",
+        ] {
+            assert_eq!(command_operation(operation), None);
+            assert_eq!(expected_command_schema_version(operation), None);
+        }
+    }
+
+    #[test]
+    fn thread_lifecycle_state_update_command_transport_is_retired() {
+        for operation in [
+            "plan_thread_control_agent_state_update",
+            "plan_runtime_bridge_thread_start_agent_state_update",
+            "plan_runtime_bridge_thread_control_agent_state_update",
+            "plan_runtime_bridge_turn_run_state_update",
+            "plan_subagent_record_state_update",
+            "plan_thread_create_state_update",
+            "plan_agent_create_state_update",
+            "plan_agent_status_state_update",
+            "plan_agent_delete_state_update",
+            "plan_run_create_state_update",
         ] {
             assert_eq!(command_operation(operation), None);
             assert_eq!(expected_command_schema_version(operation), None);

@@ -11,6 +11,7 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
   const calls = [];
   const contextLifecycleCalls = [];
   const runtimeControlCalls = [];
+  const threadLifecycleCalls = [];
   const agentgresCalls = [];
   const approvalCalls = [];
   const governedAdmissionCalls = [];
@@ -66,6 +67,23 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
             id: request.run_id,
             status: "canceled",
             events: [{ type: "canceled" }],
+          },
+        };
+      },
+    },
+    daemonCoreThreadLifecycleApi: {
+      planAgentCreateStateUpdate(request) {
+        threadLifecycleCalls.push({ method: "planAgentCreateStateUpdate", request });
+        return {
+          source: "direct_thread_lifecycle_api",
+          backend: "rust_policy",
+          status: "planned",
+          operation_kind: "agent.create",
+          created_at: request.agent?.createdAt,
+          updated_at: request.agent?.updatedAt,
+          agent: {
+            id: request.agent?.id,
+            status: request.agent?.status ?? "active",
           },
         };
       },
@@ -155,6 +173,26 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
   assert.equal(Object.hasOwn(runtimeControlCalls[0].request, "backend"), false);
   assert.equal(cancelPlan.source, "direct_runtime_control_api");
   assert.equal(cancelPlan.run.status, "canceled");
+  const agentPlan = store.contextPolicyCore.planAgentCreateStateUpdate({
+    agent: {
+      id: "agent_direct",
+      status: "active",
+      createdAt: "2026-06-14T18:35:00.000Z",
+      updatedAt: "2026-06-14T18:35:00.000Z",
+    },
+  });
+  assert.equal(calls.length, 0);
+  assert.equal(threadLifecycleCalls.length, 1);
+  assert.equal(threadLifecycleCalls[0].method, "planAgentCreateStateUpdate");
+  assert.equal(
+    threadLifecycleCalls[0].request.schema_version,
+    "ioi.runtime.agent-create-state-update-request.v1",
+  );
+  assert.equal(Object.hasOwn(threadLifecycleCalls[0].request, "operation"), false);
+  assert.equal(Object.hasOwn(threadLifecycleCalls[0].request, "backend"), false);
+  assert.equal(agentPlan.source, "direct_thread_lifecycle_api");
+  assert.equal(agentPlan.operation_kind, "agent.create");
+  assert.equal(agentPlan.agent.id, "agent_direct");
   const queue = store.approvalStateCore.projectApprovalQueue({
     thread_id: "thread_direct",
     state_dir: stateDir,

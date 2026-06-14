@@ -176,8 +176,12 @@ use policy::{
     RunCancelAdmissionRequiredRecord, RunCancelAdmissionRequiredRequest, RunCancelStateUpdateCore,
     RunCancelStateUpdateError, RunCancelStateUpdateRecord, RunCancelStateUpdateRequest,
     RunCreateStateUpdateCore, RunCreateStateUpdateError, RunCreateStateUpdateRecord,
-    RunCreateStateUpdateRequest, RuntimeBridgeThreadStartAgentStateUpdateCore,
-    RuntimeBridgeThreadStartAgentStateUpdateError, RuntimeBridgeThreadStartAgentStateUpdateRecord,
+    RunCreateStateUpdateRequest, RuntimeBridgeThreadControlAgentStateUpdateCore,
+    RuntimeBridgeThreadControlAgentStateUpdateError,
+    RuntimeBridgeThreadControlAgentStateUpdateRecord,
+    RuntimeBridgeThreadControlAgentStateUpdateRequest,
+    RuntimeBridgeThreadStartAgentStateUpdateCore, RuntimeBridgeThreadStartAgentStateUpdateError,
+    RuntimeBridgeThreadStartAgentStateUpdateRecord,
     RuntimeBridgeThreadStartAgentStateUpdateRequest, RuntimeBridgeTurnRunStateUpdateCore,
     RuntimeBridgeTurnRunStateUpdateError, RuntimeBridgeTurnRunStateUpdateRecord,
     RuntimeBridgeTurnRunStateUpdateRequest, RuntimeTaskJobCancelStateUpdateCore,
@@ -189,11 +193,12 @@ use policy::{
     SubagentRecordStateUpdateCore, SubagentRecordStateUpdateError, SubagentRecordStateUpdateRecord,
     SubagentRecordStateUpdateRequest, ThreadControlAgentStateUpdateCore,
     ThreadControlAgentStateUpdateError, ThreadControlAgentStateUpdateRecord,
-    ThreadControlAgentStateUpdateRequest, ThreadMemoryAgentStateUpdateCore,
-    ThreadMemoryAgentStateUpdateError, ThreadMemoryAgentStateUpdateRecord,
-    ThreadMemoryAgentStateUpdateRequest, WorkflowEditAdmissionRequiredCore,
-    WorkflowEditAdmissionRequiredError, WorkflowEditAdmissionRequiredRecord,
-    WorkflowEditAdmissionRequiredRequest,
+    ThreadControlAgentStateUpdateRequest, ThreadCreateStateUpdateCore,
+    ThreadCreateStateUpdateError, ThreadCreateStateUpdateRecord, ThreadCreateStateUpdateRequest,
+    ThreadMemoryAgentStateUpdateCore, ThreadMemoryAgentStateUpdateError,
+    ThreadMemoryAgentStateUpdateRecord, ThreadMemoryAgentStateUpdateRequest,
+    WorkflowEditAdmissionRequiredCore, WorkflowEditAdmissionRequiredError,
+    WorkflowEditAdmissionRequiredRecord, WorkflowEditAdmissionRequiredRequest,
 };
 use profile::{RuntimeProfileConfig, RuntimeProfileValidator, RuntimeProfileViolation};
 use projection::{ProjectionError, RustProjectionCore, StepModuleProjectionRecord};
@@ -691,6 +696,16 @@ impl RuntimeKernelService {
         RuntimeBridgeThreadStartAgentStateUpdateCore.plan(request)
     }
 
+    pub fn plan_runtime_bridge_thread_control_agent_state_update(
+        &self,
+        request: &RuntimeBridgeThreadControlAgentStateUpdateRequest,
+    ) -> Result<
+        RuntimeBridgeThreadControlAgentStateUpdateRecord,
+        RuntimeBridgeThreadControlAgentStateUpdateError,
+    > {
+        RuntimeBridgeThreadControlAgentStateUpdateCore.plan(request)
+    }
+
     pub fn plan_runtime_bridge_turn_run_state_update(
         &self,
         request: &RuntimeBridgeTurnRunStateUpdateRequest,
@@ -703,6 +718,13 @@ impl RuntimeKernelService {
         request: &SubagentRecordStateUpdateRequest,
     ) -> Result<SubagentRecordStateUpdateRecord, SubagentRecordStateUpdateError> {
         SubagentRecordStateUpdateCore.plan(request)
+    }
+
+    pub fn plan_thread_create_state_update(
+        &self,
+        request: &ThreadCreateStateUpdateRequest,
+    ) -> Result<ThreadCreateStateUpdateRecord, ThreadCreateStateUpdateError> {
+        ThreadCreateStateUpdateCore.plan(request)
     }
 
     pub fn plan_agent_create_state_update(

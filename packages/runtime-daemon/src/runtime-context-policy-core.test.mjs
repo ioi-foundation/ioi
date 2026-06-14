@@ -24,6 +24,16 @@ import {
   RUNTIME_CONTROL_OPERATOR_TURN_CONTROL_ADMISSION_REQUIRED_API_METHOD,
   RUNTIME_CONTROL_RUN_CANCEL_ADMISSION_REQUIRED_API_METHOD,
   RUNTIME_CONTROL_RUN_CANCEL_STATE_UPDATE_API_METHOD,
+  THREAD_LIFECYCLE_AGENT_CREATE_STATE_UPDATE_API_METHOD,
+  THREAD_LIFECYCLE_AGENT_DELETE_STATE_UPDATE_API_METHOD,
+  THREAD_LIFECYCLE_AGENT_STATUS_STATE_UPDATE_API_METHOD,
+  THREAD_LIFECYCLE_RUN_CREATE_STATE_UPDATE_API_METHOD,
+  THREAD_LIFECYCLE_RUNTIME_BRIDGE_THREAD_CONTROL_AGENT_STATE_UPDATE_API_METHOD,
+  THREAD_LIFECYCLE_RUNTIME_BRIDGE_THREAD_START_AGENT_STATE_UPDATE_API_METHOD,
+  THREAD_LIFECYCLE_RUNTIME_BRIDGE_TURN_RUN_STATE_UPDATE_API_METHOD,
+  THREAD_LIFECYCLE_SUBAGENT_RECORD_STATE_UPDATE_API_METHOD,
+  THREAD_LIFECYCLE_THREAD_CONTROL_AGENT_STATE_UPDATE_API_METHOD,
+  THREAD_LIFECYCLE_THREAD_CREATE_STATE_UPDATE_API_METHOD,
   RUNTIME_CODING_TOOL_ARTIFACT_DRAFT_PLAN_REQUEST_SCHEMA_VERSION,
   RUNTIME_CODING_TOOL_ARTIFACT_READ_PROJECTION_REQUEST_SCHEMA_VERSION,
   COMPACTION_POLICY_REQUEST_SCHEMA_VERSION,
@@ -180,6 +190,22 @@ function createRuntimeControlDirectCore(method, handler) {
       throw new Error(`retired generic invoker reached for ${request?.operation}`);
     },
     daemonCoreRuntimeControlApi: {
+      [method](request) {
+        calls.push({ method, request });
+        return handler(request);
+      },
+    },
+  });
+  return { calls, runner };
+}
+
+function createThreadLifecycleDirectCore(method, handler) {
+  const calls = [];
+  const runner = new RuntimeContextPolicyCore({
+    daemonCoreInvoker(request) {
+      throw new Error(`retired generic invoker reached for ${request?.operation}`);
+    },
+    daemonCoreThreadLifecycleApi: {
       [method](request) {
         calls.push({ method, request });
         return handler(request);
@@ -3519,10 +3545,11 @@ test("runtime subagent wait control core sends Rust daemon-core request", () => 
   );
 });
 
-test("thread control agent state update core sends Rust state update through direct daemon-core invoker", () => {
+test("thread control agent state update core sends Rust state update through typed thread-lifecycle API", () => {
   let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
+  const { calls, runner } = createThreadLifecycleDirectCore(
+    THREAD_LIFECYCLE_THREAD_CONTROL_AGENT_STATE_UPDATE_API_METHOD,
+    (request) => {
       captured = request;
       return {
             source: "rust_thread_control_agent_state_update_command",
@@ -3548,7 +3575,7 @@ test("thread control agent state update core sends Rust state update through dir
             },
           };
     },
-  });
+  );
 
   const result = runner.planThreadControlAgentStateUpdate({
     thread_id: "thread_1",
@@ -3565,18 +3592,19 @@ test("thread control agent state update core sends Rust state update through dir
     },
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "plan_thread_control_agent_state_update");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, THREAD_LIFECYCLE_THREAD_CONTROL_AGENT_STATE_UPDATE_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    captured.schema_version,
     THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.control_kind, "thinking");
-  assert.equal(captured.request.model_route.selected_model, "local-model");
-  assert.equal(captured.request.model_route.route_id, "route.local-first");
+  assert.equal(Object.hasOwn(captured, "operation"), false);
+  assert.equal(Object.hasOwn(captured, "backend"), false);
+  assert.equal(captured.control_kind, "thinking");
+  assert.equal(captured.model_route.selected_model, "local-model");
+  assert.equal(captured.model_route.route_id, "route.local-first");
   for (const field of ["selectedModel", "requestedModelId", "routeId"]) {
-    assert.equal(Object.hasOwn(captured.request.model_route, field), false);
+    assert.equal(Object.hasOwn(captured.model_route, field), false);
   }
   assert.equal(result.source, "rust_thread_control_agent_state_update_command");
   assert.equal(result.operation_kind, "thread.thinking");
@@ -4688,10 +4716,11 @@ test("thread memory agent state update core sends Rust state update through dire
   assert.equal(result.agent.updatedAt, "2026-06-06T06:05:00.000Z");
 });
 
-test("runtime bridge thread start agent state update core sends Rust state update through direct daemon-core invoker", () => {
+test("runtime bridge thread start agent state update core sends Rust state update through typed thread-lifecycle API", () => {
   let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
+  const { calls, runner } = createThreadLifecycleDirectCore(
+    THREAD_LIFECYCLE_RUNTIME_BRIDGE_THREAD_START_AGENT_STATE_UPDATE_API_METHOD,
+    (request) => {
       captured = request;
       return {
             source: "rust_runtime_bridge_thread_start_agent_state_update_command",
@@ -4718,7 +4747,7 @@ test("runtime bridge thread start agent state update core sends Rust state updat
             },
           };
     },
-  });
+  );
 
   const result = runner.planRuntimeBridgeThreadStartAgentStateUpdate({
     thread_id: "thread_1",
@@ -4731,14 +4760,18 @@ test("runtime bridge thread start agent state update core sends Rust state updat
     updated_at: "2026-06-06T06:15:00.000Z",
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "plan_runtime_bridge_thread_start_agent_state_update");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
   assert.equal(
-    captured.request.schema_version,
+    calls[0].method,
+    THREAD_LIFECYCLE_RUNTIME_BRIDGE_THREAD_START_AGENT_STATE_UPDATE_API_METHOD,
+  );
+  assert.equal(
+    captured.schema_version,
     RUNTIME_BRIDGE_THREAD_START_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.session_id, "session_runtime");
+  assert.equal(Object.hasOwn(captured, "operation"), false);
+  assert.equal(Object.hasOwn(captured, "backend"), false);
+  assert.equal(captured.session_id, "session_runtime");
   assert.equal(result.source, "rust_runtime_bridge_thread_start_agent_state_update_command");
   assert.equal(result.operation_kind, "thread.runtime_bridge.start");
   assert.equal(result.bridge_start.bridge_id, "bridge_runtime");
@@ -4752,10 +4785,11 @@ test("runtime bridge thread start agent state update core sends Rust state updat
   assert.equal(result.agent.runtime_bridge_source, "runtime_service");
 });
 
-test("runtime bridge thread control agent state update core sends Rust state update through direct daemon-core invoker", () => {
+test("runtime bridge thread control agent state update core sends Rust state update through typed thread-lifecycle API", () => {
   let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
+  const { calls, runner } = createThreadLifecycleDirectCore(
+    THREAD_LIFECYCLE_RUNTIME_BRIDGE_THREAD_CONTROL_AGENT_STATE_UPDATE_API_METHOD,
+    (request) => {
       captured = request;
       return {
             source: "rust_runtime_bridge_thread_control_agent_state_update_command",
@@ -4778,7 +4812,7 @@ test("runtime bridge thread control agent state update core sends Rust state upd
             },
           };
     },
-  });
+  );
 
   const result = runner.planRuntimeBridgeThreadControlAgentStateUpdate({
     thread_id: "thread_1",
@@ -4789,16 +4823,20 @@ test("runtime bridge thread control agent state update core sends Rust state upd
     evidence_refs: ["runtime_bridge_thread_control_rust_owned"],
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "plan_runtime_bridge_thread_control_agent_state_update");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
   assert.equal(
-    captured.request.schema_version,
+    calls[0].method,
+    THREAD_LIFECYCLE_RUNTIME_BRIDGE_THREAD_CONTROL_AGENT_STATE_UPDATE_API_METHOD,
+  );
+  assert.equal(
+    captured.schema_version,
     RUNTIME_BRIDGE_THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.thread_id, "thread_1");
-  assert.equal(captured.request.action, "resume");
-  assert.equal(Object.hasOwn(captured.request, "threadId"), false);
+  assert.equal(Object.hasOwn(captured, "operation"), false);
+  assert.equal(Object.hasOwn(captured, "backend"), false);
+  assert.equal(captured.thread_id, "thread_1");
+  assert.equal(captured.action, "resume");
+  assert.equal(Object.hasOwn(captured, "threadId"), false);
   assert.equal(result.source, "rust_runtime_bridge_thread_control_agent_state_update_command");
   assert.equal(result.operation_kind, "thread.runtime_bridge.control");
   assert.equal(result.control.action, "resume");
@@ -4808,10 +4846,11 @@ test("runtime bridge thread control agent state update core sends Rust state upd
   assert.equal(result.agent.runtime_bridge_status, "active");
 });
 
-test("runtime bridge turn run state update core sends Rust state update through direct daemon-core invoker", () => {
+test("runtime bridge turn run state update core sends Rust state update through typed thread-lifecycle API", () => {
   let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
+  const { calls, runner } = createThreadLifecycleDirectCore(
+    THREAD_LIFECYCLE_RUNTIME_BRIDGE_TURN_RUN_STATE_UPDATE_API_METHOD,
+    (request) => {
       captured = request;
       return {
             source: "rust_runtime_bridge_turn_run_state_update_command",
@@ -4827,7 +4866,7 @@ test("runtime bridge turn run state update core sends Rust state update through 
             },
           };
     },
-  });
+  );
 
   const result = runner.planRuntimeBridgeTurnRunStateUpdate({
     thread_id: "thread_1",
@@ -4843,24 +4882,26 @@ test("runtime bridge turn run state update core sends Rust state update through 
     },
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "plan_runtime_bridge_turn_run_state_update");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, THREAD_LIFECYCLE_RUNTIME_BRIDGE_TURN_RUN_STATE_UPDATE_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    captured.schema_version,
     RUNTIME_BRIDGE_TURN_RUN_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.projection.run_id, "run_runtime");
-  assert.equal(Object.hasOwn(captured.request.projection, "runId"), false);
+  assert.equal(Object.hasOwn(captured, "operation"), false);
+  assert.equal(Object.hasOwn(captured, "backend"), false);
+  assert.equal(captured.projection.run_id, "run_runtime");
+  assert.equal(Object.hasOwn(captured.projection, "runId"), false);
   assert.equal(result.source, "rust_runtime_bridge_turn_run_state_update_command");
   assert.equal(result.operation_kind, "turn.runtime_bridge.submit");
   assert.equal(result.run.id, "run_runtime");
 });
 
-test("subagent record state update core sends Rust state update through direct daemon-core invoker", () => {
+test("subagent record state update core sends Rust state update through typed thread-lifecycle API", () => {
   let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
+  const { calls, runner } = createThreadLifecycleDirectCore(
+    THREAD_LIFECYCLE_SUBAGENT_RECORD_STATE_UPDATE_API_METHOD,
+    (request) => {
       captured = request;
       return {
             source: "rust_subagent_record_state_update_command",
@@ -4876,7 +4917,7 @@ test("subagent record state update core sends Rust state update through direct d
             },
           };
     },
-  });
+  );
 
   const result = runner.planSubagentRecordStateUpdate({
     operation_kind: "subagent.wait",
@@ -4889,24 +4930,26 @@ test("subagent record state update core sends Rust state update through direct d
     },
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "plan_subagent_record_state_update");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, THREAD_LIFECYCLE_SUBAGENT_RECORD_STATE_UPDATE_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    captured.schema_version,
     SUBAGENT_RECORD_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.operation_kind, "subagent.wait");
-  assert.equal(captured.request.subagent.subagent_id, "subagent_1");
+  assert.equal(Object.hasOwn(captured, "operation"), false);
+  assert.equal(Object.hasOwn(captured, "backend"), false);
+  assert.equal(captured.operation_kind, "subagent.wait");
+  assert.equal(captured.subagent.subagent_id, "subagent_1");
   assert.equal(result.source, "rust_subagent_record_state_update_command");
   assert.equal(result.operation_kind, "subagent.wait");
   assert.equal(result.subagent.subagent_id, "subagent_1");
 });
 
-test("agent create state update core sends Rust state update through direct daemon-core invoker", () => {
+test("agent create state update core sends Rust state update through typed thread-lifecycle API", () => {
   let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
+  const { calls, runner } = createThreadLifecycleDirectCore(
+    THREAD_LIFECYCLE_AGENT_CREATE_STATE_UPDATE_API_METHOD,
+    (request) => {
       captured = request;
       return {
             source: "rust_agent_create_state_update_command",
@@ -4921,7 +4964,7 @@ test("agent create state update core sends Rust state update through direct daem
             },
           };
     },
-  });
+  );
 
   const result = runner.planAgentCreateStateUpdate({
     agent: {
@@ -4932,23 +4975,25 @@ test("agent create state update core sends Rust state update through direct daem
     },
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "plan_agent_create_state_update");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, THREAD_LIFECYCLE_AGENT_CREATE_STATE_UPDATE_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    captured.schema_version,
     AGENT_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.agent.id, "agent_create_one");
+  assert.equal(Object.hasOwn(captured, "operation"), false);
+  assert.equal(Object.hasOwn(captured, "backend"), false);
+  assert.equal(captured.agent.id, "agent_create_one");
   assert.equal(result.source, "rust_agent_create_state_update_command");
   assert.equal(result.operation_kind, "agent.create");
   assert.equal(result.agent.id, "agent_create_one");
 });
 
-test("thread create state update core sends Rust state update through direct daemon-core invoker", () => {
+test("thread create state update core sends Rust state update through typed thread-lifecycle API", () => {
   let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
+  const { calls, runner } = createThreadLifecycleDirectCore(
+    THREAD_LIFECYCLE_THREAD_CREATE_STATE_UPDATE_API_METHOD,
+    (request) => {
       captured = request;
       return {
             source: "rust_thread_create_state_update_command",
@@ -4970,7 +5015,7 @@ test("thread create state update core sends Rust state update through direct dae
             },
           };
     },
-  });
+  );
 
   const result = runner.planThreadCreateStateUpdate({
     agent: {
@@ -4992,25 +5037,27 @@ test("thread create state update core sends Rust state update through direct dae
     },
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "plan_thread_create_state_update");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, THREAD_LIFECYCLE_THREAD_CREATE_STATE_UPDATE_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    captured.schema_version,
     THREAD_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.agent.id, "agent_create_one");
-  assert.equal(captured.request.thread.thread_id, "thread_create_one");
+  assert.equal(Object.hasOwn(captured, "operation"), false);
+  assert.equal(Object.hasOwn(captured, "backend"), false);
+  assert.equal(captured.agent.id, "agent_create_one");
+  assert.equal(captured.thread.thread_id, "thread_create_one");
   assert.equal(result.source, "rust_thread_create_state_update_command");
   assert.equal(result.operation_kind, "thread.create");
   assert.equal(result.thread.thread_id, "thread_create_one");
   assert.equal(result.agent.id, "agent_create_one");
 });
 
-test("agent status state update core sends Rust state update through direct daemon-core invoker", () => {
+test("agent status state update core sends Rust state update through typed thread-lifecycle API", () => {
   let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
+  const { calls, runner } = createThreadLifecycleDirectCore(
+    THREAD_LIFECYCLE_AGENT_STATUS_STATE_UPDATE_API_METHOD,
+    (request) => {
       captured = request;
       return {
             source: "rust_agent_status_state_update_command",
@@ -5025,7 +5072,7 @@ test("agent status state update core sends Rust state update through direct daem
             },
           };
     },
-  });
+  );
 
   const result = runner.planAgentStatusStateUpdate({
     agent: { id: "agent_1", status: "active" },
@@ -5034,23 +5081,25 @@ test("agent status state update core sends Rust state update through direct daem
     updated_at: "2026-06-06T06:25:00.000Z",
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "plan_agent_status_state_update");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, THREAD_LIFECYCLE_AGENT_STATUS_STATE_UPDATE_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    captured.schema_version,
     AGENT_STATUS_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.status, "archived");
+  assert.equal(Object.hasOwn(captured, "operation"), false);
+  assert.equal(Object.hasOwn(captured, "backend"), false);
+  assert.equal(captured.status, "archived");
   assert.equal(result.source, "rust_agent_status_state_update_command");
   assert.equal(result.operation_kind, "agent.archive");
   assert.equal(result.agent.status, "archived");
 });
 
-test("agent delete state update core sends Rust tombstone through direct daemon-core invoker", () => {
+test("agent delete state update core sends Rust tombstone through typed thread-lifecycle API", () => {
   let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
+  const { calls, runner } = createThreadLifecycleDirectCore(
+    THREAD_LIFECYCLE_AGENT_DELETE_STATE_UPDATE_API_METHOD,
+    (request) => {
       captured = request;
       return {
             source: "rust_agent_delete_state_update_command",
@@ -5067,7 +5116,7 @@ test("agent delete state update core sends Rust tombstone through direct daemon-
             },
           };
     },
-  });
+  );
 
   const result = runner.planAgentDeleteStateUpdate({
     agent: { id: "agent_1", status: "active" },
@@ -5075,24 +5124,26 @@ test("agent delete state update core sends Rust tombstone through direct daemon-
     deleted_at: "2026-06-06T06:40:00.000Z",
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "plan_agent_delete_state_update");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, THREAD_LIFECYCLE_AGENT_DELETE_STATE_UPDATE_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    captured.schema_version,
     AGENT_DELETE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.operation_kind, "agent.delete");
+  assert.equal(Object.hasOwn(captured, "operation"), false);
+  assert.equal(Object.hasOwn(captured, "backend"), false);
+  assert.equal(captured.operation_kind, "agent.delete");
   assert.equal(result.source, "rust_agent_delete_state_update_command");
   assert.equal(result.operation_kind, "agent.delete");
   assert.equal(result.agent.status, "deleted");
   assert.equal(result.agent.deletedAt, "2026-06-06T06:40:00.000Z");
 });
 
-test("run create state update core sends Rust state update through direct daemon-core invoker", () => {
+test("run create state update core sends Rust state update through typed thread-lifecycle API", () => {
   let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
+  const { calls, runner } = createThreadLifecycleDirectCore(
+    THREAD_LIFECYCLE_RUN_CREATE_STATE_UPDATE_API_METHOD,
+    (request) => {
       captured = request;
       return {
             source: "rust_run_create_state_update_command",
@@ -5108,7 +5159,7 @@ test("run create state update core sends Rust state update through direct daemon
             },
           };
     },
-  });
+  );
 
   const result = runner.planRunCreateStateUpdate({
     run: {
@@ -5124,14 +5175,15 @@ test("run create state update core sends Rust state update through direct daemon
     },
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "plan_run_create_state_update");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, THREAD_LIFECYCLE_RUN_CREATE_STATE_UPDATE_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    captured.schema_version,
     RUN_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.run.id, "run_create_one");
+  assert.equal(Object.hasOwn(captured, "operation"), false);
+  assert.equal(Object.hasOwn(captured, "backend"), false);
+  assert.equal(captured.run.id, "run_create_one");
   assert.equal(result.source, "rust_run_create_state_update_command");
   assert.equal(result.operation_kind, "run.create");
   assert.equal(result.run.usage_telemetry.total_tokens, 7);

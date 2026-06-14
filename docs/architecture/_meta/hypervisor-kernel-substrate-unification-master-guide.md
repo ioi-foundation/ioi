@@ -7871,9 +7871,25 @@ positive daemon-core methods, and `command_protocol.rs`/`command_dispatch.rs`
 reject the old runtime-control command operations. This does not claim
 terminal runtime-control migration: durable replay/projection, richer
 runtime-control receipts/state roots, wallet/runtime-control authority, stable
-IDE/CLI/SDK APIs, and the remaining thread-lifecycle, MCP/memory,
-runtime-bridge, subagent, and lifecycle state-update families still need
-direct Rust ownership.
+IDE/CLI/SDK APIs, and the remaining MCP/memory plus admission-required
+families still need direct Rust ownership.
+
+The thread-lifecycle state-update transport cut after Slice 1180 replaces the
+temporary command path with typed `daemonCoreThreadLifecycleApi` methods for
+thread-control agent state updates, runtime-bridge thread start/control state
+updates, runtime-bridge turn run state updates, subagent record state updates,
+agent/thread/run creation state updates, and agent status/delete state updates.
+The JS runtime context-policy core now sends canonical request bodies to that
+typed API without generic command `operation`/`backend` envelopes, the Rust
+kernel exposes the corresponding positive daemon-core methods, and
+`command_protocol.rs`/`command_dispatch.rs` reject the old thread-lifecycle
+state-update command operations. This retires the command transport for the
+runtime-bridge thread-control/start/turn-submit, agent-run-create, thread
+control, and subagent-wait state-update hot paths guarded by bridge and
+compositor conformance. This does not claim terminal lifecycle migration:
+thread-turn and lifecycle admission-required refusals, durable replay/projection,
+wallet/cTEE lifecycle authority, stable IDE/CLI/SDK APIs, and MCP/memory
+policy/control transport remain non-terminal.
 
 Slice 1180 moves the thread-lifecycle and MCP/memory command-response proof
 clusters out of the temporary bridge proof surface and relies on the Rust
@@ -7890,11 +7906,11 @@ proves the old bridge-named thread/MCP/memory tests, request-type imports, and
 response-function aliases stay absent from
 `ioi_step_module_bridge/proof_tests.rs`.
 
-This remains non-terminal because thread lifecycle and MCP/memory policy
-decisions still cross temporary command transport. The target is direct Rust
-daemon-core lifecycle, MCP, and memory API ownership where admission,
-projection, Agentgres truth, replay, and conformance no longer depend on Node
-bridge endpoint proof scaffolding.
+This remains non-terminal because thread-turn/lifecycle admission-required and
+MCP/memory policy decisions still cross temporary command transport. The target
+is direct Rust daemon-core lifecycle, MCP, and memory API ownership where
+admission, projection, Agentgres truth, replay, and conformance no longer depend
+on Node bridge endpoint proof scaffolding.
 
 Slice 1181 moved the workspace-restore command-response proof cluster out of
 the temporary bridge proof surface and into the Rust workspace owner at

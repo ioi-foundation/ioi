@@ -170,6 +170,26 @@ export const RUNTIME_CONTROL_RUN_CANCEL_STATE_UPDATE_API_METHOD =
   "planRunCancelStateUpdate";
 export const RUNTIME_CONTROL_RUN_CANCEL_ADMISSION_REQUIRED_API_METHOD =
   "planRunCancelAdmissionRequired";
+export const THREAD_LIFECYCLE_THREAD_CONTROL_AGENT_STATE_UPDATE_API_METHOD =
+  "planThreadControlAgentStateUpdate";
+export const THREAD_LIFECYCLE_RUNTIME_BRIDGE_THREAD_START_AGENT_STATE_UPDATE_API_METHOD =
+  "planRuntimeBridgeThreadStartAgentStateUpdate";
+export const THREAD_LIFECYCLE_RUNTIME_BRIDGE_THREAD_CONTROL_AGENT_STATE_UPDATE_API_METHOD =
+  "planRuntimeBridgeThreadControlAgentStateUpdate";
+export const THREAD_LIFECYCLE_RUNTIME_BRIDGE_TURN_RUN_STATE_UPDATE_API_METHOD =
+  "planRuntimeBridgeTurnRunStateUpdate";
+export const THREAD_LIFECYCLE_SUBAGENT_RECORD_STATE_UPDATE_API_METHOD =
+  "planSubagentRecordStateUpdate";
+export const THREAD_LIFECYCLE_THREAD_CREATE_STATE_UPDATE_API_METHOD =
+  "planThreadCreateStateUpdate";
+export const THREAD_LIFECYCLE_AGENT_CREATE_STATE_UPDATE_API_METHOD =
+  "planAgentCreateStateUpdate";
+export const THREAD_LIFECYCLE_AGENT_STATUS_STATE_UPDATE_API_METHOD =
+  "planAgentStatusStateUpdate";
+export const THREAD_LIFECYCLE_AGENT_DELETE_STATE_UPDATE_API_METHOD =
+  "planAgentDeleteStateUpdate";
+export const THREAD_LIFECYCLE_RUN_CREATE_STATE_UPDATE_API_METHOD =
+  "planRunCreateStateUpdate";
 
 export function createRuntimeContextPolicyCore(options = {}) {
   return new RuntimeContextPolicyCore(options);
@@ -203,6 +223,11 @@ export class RuntimeContextPolicyCore {
       options.daemonCoreRuntimeControlApi ??
         options.daemonCoreApi?.runtimeControl ??
         options.daemonCoreApi?.runtime_control,
+    );
+    this.daemonCoreThreadLifecycleApi = threadLifecycleApi(
+      options.daemonCoreThreadLifecycleApi ??
+        options.daemonCoreApi?.threadLifecycle ??
+        options.daemonCoreApi?.thread_lifecycle,
     );
   }
 
@@ -567,11 +592,11 @@ export class RuntimeContextPolicyCore {
   }
 
   planThreadControlAgentStateUpdate(request = {}) {
-    return normalizeThreadControlAgentStateUpdateBridgeResult(this.evaluateRawPolicy({
-      operation: "plan_thread_control_agent_state_update",
-      schemaVersion: THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+    return normalizeThreadControlAgentStateUpdateBridgeResult(this.invokeThreadLifecycleApi(
+      THREAD_LIFECYCLE_THREAD_CONTROL_AGENT_STATE_UPDATE_API_METHOD,
+      THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   planWorkspaceTrustControlStateUpdate(request = {}) {
@@ -703,75 +728,75 @@ export class RuntimeContextPolicyCore {
   }
 
   planRuntimeBridgeThreadStartAgentStateUpdate(request = {}) {
-    return normalizeRuntimeBridgeThreadStartAgentStateUpdateBridgeResult(this.evaluateRawPolicy({
-      operation: "plan_runtime_bridge_thread_start_agent_state_update",
-      schemaVersion: RUNTIME_BRIDGE_THREAD_START_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+    return normalizeRuntimeBridgeThreadStartAgentStateUpdateBridgeResult(this.invokeThreadLifecycleApi(
+      THREAD_LIFECYCLE_RUNTIME_BRIDGE_THREAD_START_AGENT_STATE_UPDATE_API_METHOD,
+      RUNTIME_BRIDGE_THREAD_START_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   planRuntimeBridgeThreadControlAgentStateUpdate(request = {}) {
-    return normalizeRuntimeBridgeThreadControlAgentStateUpdateBridgeResult(this.evaluateRawPolicy({
-      operation: "plan_runtime_bridge_thread_control_agent_state_update",
-      schemaVersion: RUNTIME_BRIDGE_THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+    return normalizeRuntimeBridgeThreadControlAgentStateUpdateBridgeResult(this.invokeThreadLifecycleApi(
+      THREAD_LIFECYCLE_RUNTIME_BRIDGE_THREAD_CONTROL_AGENT_STATE_UPDATE_API_METHOD,
+      RUNTIME_BRIDGE_THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   planRuntimeBridgeTurnRunStateUpdate(request = {}) {
-    return normalizeRuntimeBridgeTurnRunStateUpdateBridgeResult(this.evaluateRawPolicy({
-      operation: "plan_runtime_bridge_turn_run_state_update",
-      schemaVersion: RUNTIME_BRIDGE_TURN_RUN_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+    return normalizeRuntimeBridgeTurnRunStateUpdateBridgeResult(this.invokeThreadLifecycleApi(
+      THREAD_LIFECYCLE_RUNTIME_BRIDGE_TURN_RUN_STATE_UPDATE_API_METHOD,
+      RUNTIME_BRIDGE_TURN_RUN_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   planSubagentRecordStateUpdate(request = {}) {
-    return normalizeSubagentRecordStateUpdateBridgeResult(this.evaluateRawPolicy({
-      operation: "plan_subagent_record_state_update",
-      schemaVersion: SUBAGENT_RECORD_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+    return normalizeSubagentRecordStateUpdateBridgeResult(this.invokeThreadLifecycleApi(
+      THREAD_LIFECYCLE_SUBAGENT_RECORD_STATE_UPDATE_API_METHOD,
+      SUBAGENT_RECORD_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   planThreadCreateStateUpdate(request = {}) {
-    return normalizeThreadCreateStateUpdateBridgeResult(this.evaluateRawPolicy({
-      operation: "plan_thread_create_state_update",
-      schemaVersion: THREAD_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+    return normalizeThreadCreateStateUpdateBridgeResult(this.invokeThreadLifecycleApi(
+      THREAD_LIFECYCLE_THREAD_CREATE_STATE_UPDATE_API_METHOD,
+      THREAD_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   planAgentCreateStateUpdate(request = {}) {
-    return normalizeAgentCreateStateUpdateBridgeResult(this.evaluateRawPolicy({
-      operation: "plan_agent_create_state_update",
-      schemaVersion: AGENT_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+    return normalizeAgentCreateStateUpdateBridgeResult(this.invokeThreadLifecycleApi(
+      THREAD_LIFECYCLE_AGENT_CREATE_STATE_UPDATE_API_METHOD,
+      AGENT_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   planRunCreateStateUpdate(request = {}) {
-    return normalizeRunCreateStateUpdateBridgeResult(this.evaluateRawPolicy({
-      operation: "plan_run_create_state_update",
-      schemaVersion: RUN_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+    return normalizeRunCreateStateUpdateBridgeResult(this.invokeThreadLifecycleApi(
+      THREAD_LIFECYCLE_RUN_CREATE_STATE_UPDATE_API_METHOD,
+      RUN_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   planAgentStatusStateUpdate(request = {}) {
-    return normalizeAgentStatusStateUpdateBridgeResult(this.evaluateRawPolicy({
-      operation: "plan_agent_status_state_update",
-      schemaVersion: AGENT_STATUS_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+    return normalizeAgentStatusStateUpdateBridgeResult(this.invokeThreadLifecycleApi(
+      THREAD_LIFECYCLE_AGENT_STATUS_STATE_UPDATE_API_METHOD,
+      AGENT_STATUS_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   planAgentDeleteStateUpdate(request = {}) {
-    return normalizeAgentDeleteStateUpdateBridgeResult(this.evaluateRawPolicy({
-      operation: "plan_agent_delete_state_update",
-      schemaVersion: AGENT_DELETE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+    return normalizeAgentDeleteStateUpdateBridgeResult(this.invokeThreadLifecycleApi(
+      THREAD_LIFECYCLE_AGENT_DELETE_STATE_UPDATE_API_METHOD,
+      AGENT_DELETE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   evaluateRawPolicy({ operation, schemaVersion, request }) {
@@ -835,6 +860,33 @@ export class RuntimeContextPolicyCore {
       throw new RuntimeContextPolicyCoreError(
         responseError.message ?? "Rust runtime control policy rejected the request.",
         responseError.code ?? "runtime_control_direct_api_rejected",
+        { error: responseError },
+      );
+    }
+    return response?.ok === true ? response.result : response;
+  }
+
+  invokeThreadLifecycleApi(method, schemaVersion, request = {}) {
+    const invoke = this.daemonCoreThreadLifecycleApi?.[method];
+    if (typeof invoke !== "function") {
+      throw new RuntimeContextPolicyCoreError(
+        `Thread lifecycle policy requires daemonCoreThreadLifecycleApi.${method} for direct Rust daemon-core policy evaluation.`,
+        "runtime_context_policy_core_direct_thread_lifecycle_api_unconfigured",
+        {
+          boundary: `daemonCoreThreadLifecycleApi.${method}`,
+          backend: RUST_CONTEXT_POLICY_BACKEND,
+        },
+      );
+    }
+    const response = invoke.call(this.daemonCoreThreadLifecycleApi, {
+      ...(objectRecord(request) ?? {}),
+      schema_version: schemaVersion,
+    });
+    const responseError = objectRecord(response?.error);
+    if (response?.ok === false && responseError) {
+      throw new RuntimeContextPolicyCoreError(
+        responseError.message ?? "Rust thread lifecycle policy rejected the request.",
+        responseError.code ?? "thread_lifecycle_direct_api_rejected",
         { error: responseError },
       );
     }
@@ -2993,6 +3045,10 @@ function contextLifecycleApi(value) {
 }
 
 function runtimeControlApi(value) {
+  return objectRecord(value);
+}
+
+function threadLifecycleApi(value) {
   return objectRecord(value);
 }
 
