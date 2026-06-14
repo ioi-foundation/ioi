@@ -5581,15 +5581,13 @@ and retiring JS command facades, readback adapters, and compatibility wrappers
 once Rust admission, Agentgres truth, receipt/state-root binding, replay,
 projection, wallet.network authority, and cTEE custody are verified.
 
-Slice 1060 extends the same temporary helper to runtime Agentgres admission and
-workspace restore. `runtime-agentgres-admission-runner.mjs` and
-`runtime-workspace-restore-runner.mjs` now delegate fixed empty-argv command
-spawn, mock handling, JSON parsing, process failure mapping, and Rust rejection
-mapping to `runtime-daemon-core-command-runner.mjs` instead of importing
-`node:child_process` directly. This reduces duplicated JS command transport on
-the Agentgres truth path and restore planning/execution path, but it remains
-migration scaffolding. Resume by collapsing the remaining large context-policy,
-model-mount admission, and StepModule command surfaces where helpful, then
+Slice 1060 extended the same temporary helper to the then-live runtime
+Agentgres admission runner and workspace restore. That historical cut reduced
+duplicated JS command transport on the Agentgres truth path and restore
+planning/execution path, but the Agentgres runner side is now superseded by the
+later mounted-core cut; do not recreate that shared command helper or runner
+path. Resume by collapsing the remaining large context-policy, model-mount
+admission, and StepModule command surfaces where helpful, then
 replace the shared helper and Node command bridge with direct Rust daemon-core
 protocol/API ownership.
 
@@ -6682,15 +6680,14 @@ agent/memory/subagent/artifact/model-mount record/model-mount receipt state
 commit response envelopes, and the per-record persistence helper that writes
 through `AgentgresAdmissionCore` after storage admission.
 
-This remains non-terminal because the Node bridge, command dispatch table,
-shared daemon-core command runner, JS command callers, runtime Agentgres
-runner, and JS persistence callers still exist. The remaining
-`ioi_step_module_bridge/agentgres_command.rs` file is a temporary delegate to
-Rust core, not a durable Agentgres command boundary. The long-term target
-remains direct Rust daemon-core Agentgres protocol APIs over admitted
-receipt/state-root truth, replay, projection, wallet.network authority where
-applicable, cTEE custody where applicable, and stable IDE/CLI/SDK surfaces end
-to end.
+This was non-terminal at that cut because the Node bridge, command dispatch
+table, shared daemon-core command runner, JS command callers, runtime Agentgres
+runner, and JS persistence callers still existed. The runtime Agentgres runner
+and shared-command-helper path are now superseded by the mounted
+`runtimeAgentgresAdmissionCore` cut; the remaining target is direct Rust
+daemon-core Agentgres protocol APIs over admitted receipt/state-root truth,
+replay, projection, wallet.network authority where applicable, cTEE custody
+where applicable, and stable IDE/CLI/SDK surfaces end to end.
 
 Slice 1120 moves L1 settlement and governed runtime-improvement command
 response shaping out of the temporary Node governed-admission command bridge
@@ -7409,21 +7406,19 @@ protocol/API ownership over Agentgres admission, receipt/state-root binding,
 wallet approval, projection, replay, rollback metadata, and stable IDE/CLI/SDK
 protocol surfaces.
 
-Slice 1157 retires JS-side runtime Agentgres ref/evidence fallback synthesis
-from the Agentgres admission runner. Rust `agentgres_admission.rs` and
-`agentgres_command.rs` already own storage-write admission and runtime
+Slice 1157 retired JS-side runtime Agentgres ref/evidence fallback synthesis
+from the then-live Agentgres admission runner. Rust `agentgres_admission.rs`
+and `agentgres_command.rs` already owned storage-write admission and runtime
 state-commit response shaping behind the temporary daemon-core command path, so
-`runtime-agentgres-admission-runner.mjs` now preserves omitted Rust-authored
-`artifact_refs`, `payload_refs`, `receipt_refs`, and `evidence_refs` as `null`
-instead of inventing empty arrays at the JS edge.
+the JS edge stopped inventing empty `artifact_refs`, `payload_refs`,
+`receipt_refs`, or `evidence_refs`.
 
-This remains non-terminal because the JS runtime Agentgres runner, shared
-daemon-core command runner, and Node bridge transport still carry Agentgres
-admission and state-commit requests to Rust. The target is direct Rust
-daemon-core Agentgres protocol/API ownership over expected-head checks,
-state-root binding, storage admission, durable write materialization,
-projection, replay, and stable IDE/CLI/SDK protocol surfaces, not preservation
-of JS normalizers as compatibility shims.
+That runner-normalizer cleanup is now superseded by the mounted
+`runtimeAgentgresAdmissionCore` cut: the JS runner and normalizers are deleted,
+and the core returns Rust daemon-core Agentgres envelopes as-is. The remaining
+target is direct Rust daemon-core Agentgres protocol/API ownership over
+expected-head checks, state-root binding, storage admission, durable write
+materialization, projection, replay, and stable IDE/CLI/SDK protocol surfaces.
 
 Slice 1158 retires JS-side workspace snapshot capture ref fallback synthesis
 from the workspace restore runner. Rust `workspace_restore.rs` already owns
@@ -7441,24 +7436,21 @@ policy/approval, receipt/state-root binding, Agentgres ArtifactRef/PayloadRef
 admission, projection, replay, and stable IDE/CLI/SDK protocol surfaces, not
 preservation of JS normalizers as compatibility shims.
 
-Slice 1159 retires JS-side run-state materialization fallback synthesis from
-the runtime Agentgres admission runner. Rust `agentgres_command.rs` already
-owns the single `commit_runtime_run_state` response that derives the
+Slice 1159 retired JS-side run-state materialization fallback synthesis from
+the then-live runtime Agentgres admission runner. Rust `agentgres_command.rs`
+already owned the single `commit_runtime_run_state` response that derives the
 transition, storage write-set, persisted records, and written record proof
-behind the temporary daemon-core command path, so
-`runtime-agentgres-admission-runner.mjs` now preserves omitted Rust-authored
-`records` and `written_records` as `null` instead of inventing empty arrays at
-the JS edge. `thread-persistence.mjs` now carries that absence into its
-fail-closed proof check instead of normalizing omitted `written_records` to an
-empty list before rejecting the commit.
+behind the temporary daemon-core command path, so the JS edge stopped inventing
+empty `records` and `written_records`. `thread-persistence.mjs` carried that
+absence into its fail-closed proof check instead of normalizing omitted
+`written_records` before rejecting the commit.
 
-This remains non-terminal because the JS runtime Agentgres runner, thread
-persistence facade, shared daemon-core command runner, and Node bridge
-transport still carry Agentgres commit requests to Rust. The target is direct
-Rust daemon-core Agentgres protocol/API ownership over expected-head checks,
-state-root binding, storage admission, durable write materialization,
-projection, replay, and stable IDE/CLI/SDK protocol surfaces, not preservation
-of JS normalizers as compatibility shims.
+That interim cleanup is now superseded by the mounted
+`runtimeAgentgresAdmissionCore` cut: the JS runner, normalizer, command/env
+fallback, and shared command helper path are gone for runtime Agentgres, while
+the remaining direct Rust Agentgres protocol/API work is to remove the
+command-envelope request builder, local replay cache, and thread persistence
+scaffolding.
 
 Slice 1160 retires JS-side required-boundary evidence fallback synthesis from
 the model_mount admission runner. Rust model_mount required-boundary planners
@@ -8229,17 +8221,18 @@ Resume by cutting the remaining command-transport runners, then delete the
 shared JS command invoker once every live surface has a direct Rust daemon-core
 API.
 
-Slice 1202 retires the temporary binary-spawn fallback for the daemon runtime
-Agentgres admission runner. `runtime-agentgres-admission-runner.mjs` no longer
-imports the shared JS daemon-core command invoker, no longer exposes or reads a
-live `RUNTIME_AGENTGRES_COMMAND_ENV`, and no longer accepts constructor command
+Slice 1202 retired the temporary binary-spawn fallback for daemon runtime
+Agentgres admission. `runtime-agentgres-admission-core.mjs` no longer imports
+the shared JS daemon-core command invoker, no longer exposes or reads a live
+`RUNTIME_AGENTGRES_COMMAND_ENV`, and no longer accepts constructor command
 selection or spawn hooks. Storage-backend write admission, runtime run-state
 commits, agent-state commits, memory-state commits, subagent-state commits,
-artifact-state commits, and model_mount record/receipt state commits now
-require the daemon-level `daemonCoreInvoker` direct Rust-core seam and fail
-closed when it is absent. `IOI_RUNTIME_DAEMON_CORE_COMMAND` and retired
+artifact-state commits, and model_mount record/receipt state commits require
+the daemon-level `daemonCoreInvoker` direct Rust-core seam and fail closed when
+it is absent. `IOI_RUNTIME_DAEMON_CORE_COMMAND` and retired
 `IOI_RUNTIME_AGENTGRES_COMMAND` values are treated only as forbidden command
-selection input for this surface, not as fallback transport.
+selection input for this surface, not as fallback transport. Slice 1207 then
+deletes the JS runner facade and normalizers outright.
 
 This makes the runtime Agentgres truth-path runner direct-invoker-only:
 storage admission, expected-head/state-root derivation, transition hashes,
@@ -8399,6 +8392,19 @@ only the Rust `operation_kind`, and returns the Rust `approval.rs` envelope
 without JS synthesis of source, backend, queue counts, authority refs, or state
 defaults. Conformance now requires the core mount and the old runner paths to
 stay absent.
+
+Slice 1207 retires the runtime Agentgres admission runner facade. The daemon
+store now mounts `runtimeAgentgresAdmissionCore` directly;
+`runtime-agentgres-admission-runner.mjs` and its tests are deleted, command/env
+fallback and spawn hooks are gone, and runtime event admission, projection,
+replay, thread/turn projection, storage-write admission, and runtime
+run/agent/memory/subagent/artifact/model_mount state commits all call the
+mounted core. The core builds canonical Rust daemon-core Agentgres requests,
+requires `daemonCoreInvoker`, rejects retired compatibility options, and
+returns Rust `agentgres_admission.rs`, `agentgres_command.rs`,
+`runtime_thread_event.rs`, and `coding_tool_event.rs` envelopes without JS
+normalization or fallback truth synthesis. Conformance now requires the core
+mount, Rust-envelope passthrough, and old runner paths to stay absent.
 
 Coding-tool approval satisfaction projection is now Rust-owned. The daemon
 approval runner exposes `project_coding_tool_approval_satisfaction`; Rust

@@ -48,7 +48,7 @@ function modelMountAdmissionRunnerForApprovalLeaseTest() {
   };
 }
 
-function runtimeAgentgresAdmissionRunnerForApprovalLeaseTest() {
+function runtimeAgentgresAdmissionCoreForApprovalLeaseTest() {
   function writeCommittedRecord(stateDir, recordPath, value) {
     const targetPath = path.join(stateDir, recordPath);
     fs.mkdirSync(path.dirname(targetPath), { recursive: true });
@@ -56,6 +56,58 @@ function runtimeAgentgresAdmissionRunnerForApprovalLeaseTest() {
   }
 
   return {
+    projectRuntimeThreadEvents(request) {
+      return {
+        source: "rust_runtime_thread_event_projection_command",
+        backend: "rust_runtime_agentgres",
+        projected: true,
+        projection_kind: request.projection_kind,
+        events: [],
+        admissions: [],
+        event_count: 0,
+        skipped_count: 0,
+        projection_hash: "sha256:approval-lease-thread-projection",
+      };
+    },
+    projectRuntimeThreadTurnProjection(request) {
+      return {
+        source: "rust_runtime_thread_turn_projection_command",
+        backend: "rust_runtime_agentgres",
+        projected: true,
+        record: {
+          thread_id: request.thread_id,
+          turn_id: request.turn_id,
+          status: "projected",
+        },
+        projection_hash: "sha256:approval-lease-turn-projection",
+      };
+    },
+    admitRuntimeThreadEvent(request) {
+      return {
+        source: "rust_runtime_thread_event_admission_command",
+        backend: "rust_runtime_agentgres",
+        admitted: true,
+        event: {
+          ...(request.event ?? {}),
+          event_id: request.event?.event_id ?? `event_${Date.now()}`,
+          seq: request.latest_seq + 1,
+        },
+        admission_hash: "sha256:approval-lease-thread-event-admission",
+      };
+    },
+    admitCodingToolResultEvent(request) {
+      return {
+        source: "rust_coding_tool_result_event_admission_command",
+        backend: "rust_runtime_agentgres",
+        admitted: true,
+        event: {
+          ...(request.event ?? {}),
+          event_id: request.event?.event_id ?? `event_${Date.now()}`,
+          seq: request.latest_seq + 1,
+        },
+        admission_hash: "sha256:approval-lease-coding-tool-event-admission",
+      };
+    },
     commitRuntimeAgentState(stateDir, request) {
       const recordPath = `agents/${request.agent_id}.json`;
       writeCommittedRecord(stateDir, recordPath, request.agent ?? request);
@@ -90,6 +142,399 @@ function runtimeAgentgresAdmissionRunnerForApprovalLeaseTest() {
   };
 }
 
+function daemonCoreInvokerForApprovalLeaseTest() {
+  const approvalLeases = new Map();
+
+  function approvalIdFor(request = {}) {
+    return (
+      optionalString(request.approval_id) ??
+      optionalString(request.approval_manifest?.approval_id) ??
+      `approval_${safeId(request.tool_call_id ?? "coding_tool")}`
+    );
+  }
+
+  function leaseForApproval(approvalId) {
+    const existing = approvalLeases.get(approvalId);
+    if (existing) return existing;
+    const lease = {
+      schema_version: "ioi.runtime.approval-lease.v1",
+      lease_id: `approval_lease_${safeId(approvalId)}`,
+      approval_id: approvalId,
+      status: "active",
+      expires_at: new Date(Date.now() + 1200).toISOString(),
+    };
+    approvalLeases.set(approvalId, lease);
+    return lease;
+  }
+
+  function approvalStateRecord(operationKind, request = {}) {
+    const approvalId = approvalIdFor(request);
+    const lease = leaseForApproval(approvalId);
+    const decision = request.decision ?? "approve";
+    return {
+      source: "rust_approval_control_api",
+      backend: "rust_authority",
+      record: {
+        object: "ioi.runtime_approval_control",
+        status: decision === "approve" ? "approved" : "rejected",
+        operation_kind: operationKind,
+        target_kind: request.target_kind ?? "run",
+        thread_id: request.thread_id,
+        run_id: request.run_id,
+        approval_id: approvalId,
+        decision,
+        lease_id: lease.lease_id,
+        lease_status: decision === "approve" ? "active" : "denied",
+        approval_lease: lease,
+        operator_control: {
+          control: "approval_decision",
+          approval_id: approvalId,
+          event_id: request.event_id,
+          seq: request.seq,
+          lease_id: lease.lease_id,
+          lease_status: decision === "approve" ? "active" : "denied",
+          approval_lease: lease,
+          authority_hash: request.authority_hash ?? null,
+          authority_grant_refs: request.authority_grant_refs ?? [],
+          authority_receipt_refs: request.authority_receipt_refs ?? [],
+          created_at: request.created_at,
+        },
+        run: {
+          ...(request.run ?? {}),
+          trace: {
+            ...(request.run?.trace ?? {}),
+            approvalDecisions: [
+              {
+                approval_id: approvalId,
+                event_id: request.event_id,
+                decision,
+                approval_lease: lease,
+              },
+            ],
+          },
+        },
+      },
+    };
+  }
+
+  return function daemonCoreInvoker(envelope = {}) {
+    const request = envelope.request ?? {};
+    switch (envelope.operation) {
+      case "plan_coding_tool_approval_manifest": {
+        const approvalId = approvalIdFor(request);
+        return {
+          source: "rust_coding_tool_approval_command",
+          backend: "rust_authority",
+          approval_required: true,
+          manifest: {
+            schema_version: "ioi.runtime.coding-tool-approval-manifest.v1",
+            approval_id: approvalId,
+            thread_id: request.thread_id,
+            turn_id: request.turn_id ?? null,
+            tool_id: request.tool_id,
+            tool_call_id: request.tool_call_id,
+            effect_class: request.effect_class,
+            workflow_graph_id: request.workflow_graph_id,
+            workflow_node_id: request.workflow_node_id,
+            input_hash: `sha256:${safeId(request.tool_call_id ?? "approval")}`,
+            workflow_policy: request.workflow_policy ?? null,
+          },
+        };
+      }
+      case "project_coding_tool_approval_satisfaction": {
+        const approvalId = approvalIdFor(request);
+        const lease = approvalLeases.get(approvalId) ?? null;
+        const expired = lease ? Date.parse(lease.expires_at) <= Date.now() : false;
+        return {
+          source: "rust_coding_tool_approval_satisfaction_projection_command",
+          backend: "rust_authority",
+          operation_kind: "coding_tool.approval.satisfaction_projection",
+          thread_id: request.thread_id,
+          approval_id: approvalId,
+          approval_request: lease
+            ? {
+                approval_id: approvalId,
+                approval_lease: lease,
+              }
+            : null,
+          latest_decision: lease
+            ? {
+                approval_id: approvalId,
+                event_kind: "approval.approved",
+                payload_summary: { approval_lease: lease },
+              }
+            : null,
+          lease_state: lease
+            ? {
+                ...lease,
+                expired,
+                status: expired ? "expired" : "active",
+              }
+            : null,
+        };
+      }
+      case "plan_coding_tool_approval_satisfaction": {
+        const approvalId = approvalIdFor(request);
+        const lease = approvalLeases.get(approvalId) ?? null;
+        const expired = lease ? Date.parse(lease.expires_at) <= Date.now() : false;
+        const satisfied = Boolean(lease && !expired);
+        return {
+          source: "rust_coding_tool_approval_satisfaction_command",
+          backend: "rust_authority",
+          operation_kind: "coding_tool.approval.satisfaction",
+          status: satisfied ? "satisfied" : "blocked",
+          satisfied,
+          approval_id: approvalId,
+          lease_id: lease?.lease_id ?? null,
+          expires_at: lease?.expires_at ?? null,
+          reason: satisfied ? "approval_approved" : "approval_required",
+          receipt_refs: satisfied ? [`receipt_${safeId(approvalId)}_approved`] : [],
+          policy_decision_refs: satisfied ? ["policy_approval_lease_active"] : ["policy_approval_required"],
+          record: {
+            operation_kind: "coding_tool.approval.satisfaction",
+            status: satisfied ? "satisfied" : "blocked",
+            satisfied,
+            approval_id: approvalId,
+            lease_state: lease
+              ? {
+                  ...lease,
+                  expired,
+                  status: expired ? "expired" : "active",
+                }
+              : null,
+          },
+        };
+      }
+      case "plan_coding_tool_approval_block": {
+        const approvalId = approvalIdFor(request);
+        leaseForApproval(approvalId);
+        const error = {
+          code: "coding_tool_approval_required",
+          message: "Coding tool approval is required.",
+        };
+        return {
+          source: "rust_coding_tool_approval_block_command",
+          backend: "rust_authority",
+          status: "blocked",
+          operation_kind: "coding_tool.approval.block",
+          thread_id: request.thread_id,
+          turn_id: request.turn_id ?? null,
+          tool_id: request.tool_id,
+          tool_call_id: request.tool_call_id,
+          workflow_graph_id: request.workflow_graph_id,
+          workflow_node_id: request.workflow_node_id,
+          approval_id: approvalId,
+          reason: "approval_required",
+          receipt_refs: [`receipt_${safeId(approvalId)}_block`],
+          policy_decision_refs: ["policy_approval_required"],
+          result: {
+            schema_version: "ioi.runtime.coding-tool-result.v1",
+            status: "blocked",
+            approval_required: true,
+            approval_satisfied: false,
+            approval_id: approvalId,
+            error,
+          },
+          event: {
+            event_stream_id: `${request.thread_id}:events`,
+            thread_id: request.thread_id,
+            turn_id: request.turn_id ?? null,
+            tool_call_id: request.tool_call_id,
+            event_kind: "tool.blocked",
+            status: "blocked",
+            payload_schema_version: "ioi.runtime.coding-tool-result.v1",
+            payload_summary: {
+              schema_version: "ioi.runtime.coding-tool-result.v1",
+              event_kind: "CodingToolResult",
+              tool_name: request.tool_id,
+              tool_call_id: request.tool_call_id,
+              status: "blocked",
+              approval_required: true,
+              approval_satisfied: false,
+              approval_id: approvalId,
+              error,
+            },
+            receipt_refs: [`receipt_${safeId(approvalId)}_block`],
+            artifact_refs: [],
+            rollback_refs: [],
+          },
+          record: {
+            schema_version: "ioi.runtime.coding-tool-approval-block-result.v1",
+            status: "blocked",
+            operation_kind: "coding_tool.approval.block",
+            approval_id: approvalId,
+          },
+        };
+      }
+      case "authorize_approval_decision": {
+        const approvalId = approvalIdFor(request);
+        return {
+          source: "rust_approval_decision_authority_command",
+          backend: "rust_authority",
+          status: "authorized",
+          operation_kind: "approval.decision.authority",
+          thread_id: request.thread_id,
+          approval_id: approvalId,
+          decision: request.decision,
+          wallet_network_grant_refs: [`wallet.network://grant/approval/${approvalId}`],
+          authority_receipt_refs: [`receipt://wallet.network/approval/${approvalId}`],
+          policy_decision_refs: ["policy_wallet_approval"],
+          direct_truth_write_allowed: false,
+          authority_hash: `sha256:${safeId(approvalId)}_authority`,
+          authority: {
+            schema_version: "ioi.runtime.approval-decision-authority.v1",
+            status: "authorized",
+            operation_kind: "approval.decision.authority",
+            approval_id: approvalId,
+          },
+        };
+      }
+      case "plan_approval_decision_state_update":
+        return approvalStateRecord(`approval.${request.decision ?? "approve"}`, request);
+      case "plan_approval_request_state_update":
+        return approvalStateRecord("approval.required", request);
+      case "project_approval_queue":
+        return {
+          source: "rust_approval_queue_projection_command",
+          backend: "rust_authority",
+          operation_kind: "approval.queue_projection",
+          thread_id: request.thread_id,
+          approvals: [],
+          pending_count: 0,
+          resolved_count: 0,
+        };
+      case "plan_coding_tool_result_envelope":
+        return codingToolResultEnvelopeForApprovalLease(request);
+      case "run_coding_tool_step_module":
+        return codingToolStepModuleResultForApprovalLease(envelope);
+      case "plan_post_edit_diagnostics_feedback":
+        return {
+          source: "rust_post_edit_diagnostics_feedback_plan_command",
+          backend: "rust_runtime_diagnostics_feedback",
+          operation_kind: "runtime.post_edit_diagnostics_feedback",
+          status: "skipped",
+          skipped: true,
+        };
+      default:
+        return {
+          ok: false,
+          error: {
+            code: "approval_lease_daemon_core_fixture_operation_unhandled",
+            message: `Unhandled approval lease daemon-core fixture operation: ${envelope.operation}`,
+          },
+        };
+    }
+  };
+}
+
+function codingToolResultEnvelopeForApprovalLease(request = {}) {
+  if (request.phase === "step_module_context") {
+    return {
+      source: "rust_coding_tool_result_envelope_plan_command",
+      backend: "rust_runtime_coding_tool_event",
+      operation_kind: "runtime.coding_tool.result_envelope",
+      status: "planned",
+      phase: "step_module_context",
+      step_module_context: {
+        workflow_projection_status: "live",
+        thread_id: request.thread_id,
+        turn_id: request.turn_id ?? null,
+        tool_id: request.tool_id,
+        tool_call_id: request.tool_call_id,
+        workspace_root: request.workspace_root,
+        workflow_graph_id: request.workflow_graph_id,
+        workflow_node_id: request.workflow_node_id,
+        approval_ref: request.approval_id ?? null,
+        receipt_refs: request.receipt_refs ?? [],
+        artifact_refs: request.artifact_refs ?? [],
+      },
+      envelope_hash: `sha256:${safeId(request.tool_call_id ?? "step_module_context")}`,
+    };
+  }
+  const status = request.status ?? "completed";
+  return {
+    source: "rust_coding_tool_result_envelope_plan_command",
+    backend: "rust_runtime_coding_tool_event",
+    operation_kind: "runtime.coding_tool.result_envelope",
+    status: "planned",
+    phase: "result_event",
+    event: {
+      event_stream_id: request.event_stream_id,
+      thread_id: request.thread_id,
+      turn_id: request.turn_id ?? null,
+      tool_call_id: request.tool_call_id,
+      event_kind: status === "completed" ? "tool.completed" : "tool.failed",
+      status,
+      payload_schema_version: "ioi.runtime.coding-tool-result.v1",
+      payload_summary: {
+        schema_version: "ioi.runtime.coding-tool-result.v1",
+        event_kind: "CodingToolResult",
+        tool_name: request.tool_id,
+        tool_call_id: request.tool_call_id,
+        status,
+        approval_required: request.approval_required,
+        approval_satisfied: request.approval_satisfied,
+        approval_id: request.approval_id,
+        error: request.error ?? null,
+      },
+      receipt_refs: request.receipt_refs ?? [],
+      artifact_refs: request.artifact_refs ?? [],
+      rollback_refs: request.rollback_refs ?? [],
+    },
+    envelope_hash: `sha256:${safeId(request.tool_call_id ?? "result_event")}`,
+  };
+}
+
+function codingToolStepModuleResultForApprovalLease(envelope = {}) {
+  return {
+    source: "rust_workload_command",
+    invocation: {
+      schema_version: "ioi.step_module_invocation.v1",
+      invocation_id: `invocation://approval-lease/${safeId(envelope.tool_id)}`,
+      module_ref: {
+        kind: "workload_job",
+        id: envelope.tool_id,
+        version: "ioi.runtime.coding-tool-pack.v1",
+      },
+      execution: { backend: "workload_grpc" },
+    },
+    result: {
+      schema_version: "ioi.step_module_result.v1",
+      status: "success",
+      execution_result_ref: `result://approval-lease/${safeId(envelope.tool_id)}`,
+      normalized_observation_ref: `observation://approval-lease/${safeId(envelope.tool_id)}`,
+      receipt_refs: [`receipt_${safeId(envelope.tool_id)}_step_module`],
+      artifact_refs: [],
+      payload_refs: [],
+    },
+    workload_observation: {
+      tool_id: envelope.tool_id,
+      result: {
+        schema_version: "ioi.runtime.coding-tool-result.v1",
+        tool_name: envelope.tool_id,
+        status: "completed",
+        applied: false,
+        dry_run: true,
+        changed_files: [],
+        receipt_refs: [`receipt_${safeId(envelope.tool_id)}_step_module`],
+        artifact_refs: [],
+      },
+    },
+    receipt_refs: [`receipt_${safeId(envelope.tool_id)}_step_module`],
+    evidence_refs: ["rust_workload_step_module_fixture"],
+  };
+}
+
+function optionalString(value) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed || null;
+}
+
+function safeId(value) {
+  return String(value ?? "runtime").replace(/[^a-zA-Z0-9_.-]+/g, "_");
+}
+
 test("coding tool approval leases stop satisfying retries after expiry", async () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-approval-lease-expiry-workspace-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-approval-lease-expiry-state-"));
@@ -103,8 +548,9 @@ test("coding tool approval leases stop satisfying retries after expiry", async (
     daemon = await startRuntimeDaemonService({
       cwd,
       stateDir,
+      daemonCoreInvoker: daemonCoreInvokerForApprovalLeaseTest(),
       modelMountAdmissionRunner: modelMountAdmissionRunnerForApprovalLeaseTest(),
-      runtimeAgentgresAdmissionRunner: runtimeAgentgresAdmissionRunnerForApprovalLeaseTest(),
+      runtimeAgentgresAdmissionCore: runtimeAgentgresAdmissionCoreForApprovalLeaseTest(),
     });
     const now = new Date().toISOString();
     const agent = {
@@ -132,31 +578,47 @@ test("coding tool approval leases stop satisfying retries after expiry", async (
     daemon.store.agents.set(agent.id, agent);
     daemon.store.writeAgent(agent, "agent.create.approval-lease-expiry-test");
     const thread = daemon.store.threadForAgent(agent);
+    const run = {
+      id: "run_approval_lease_expiry",
+      agentId: agent.id,
+      status: "running",
+      mode: "send",
+      objective: "Approval lease expiry probe",
+      createdAt: now,
+      updatedAt: now,
+      trace: {},
+      events: [],
+      receipts: [],
+      artifacts: [],
+      runtimeTurnId: "turn_approval_lease_expiry",
+    };
+    daemon.store.runs.set(run.id, run);
+    daemon.store.writeRun(run, "run.create.approval-lease-expiry-test");
     const toolEndpoint = `${daemon.endpoint}/v1/threads/${thread.thread_id}/tools/file.apply_patch/invoke`;
     const ttlMs = 1200;
     const request = {
       source: "react_flow",
-      workflowGraphId: "workflow.runtime-daemon.approval-lease-expiry",
-      workflowNodeId: "workflow.approval-lease.file.apply-patch",
-      toolCallId: "coding_tool_approval_lease_expiry_probe",
-      ttlMs,
-      requiresApproval: true,
-      approvalMode: "human_required",
-      nodeApprovalOverride: "require_approval",
-      trustProfile: "review_required",
-      toolPack: {
+      workflow_graph_id: "workflow.runtime-daemon.approval-lease-expiry",
+      workflow_node_id: "workflow.approval-lease.file.apply-patch",
+      tool_call_id: "coding_tool_approval_lease_expiry_probe",
+      ttl_ms: ttlMs,
+      requires_approval: true,
+      approval_mode: "human_required",
+      node_approval_override: "require_approval",
+      trust_profile: "review_required",
+      tool_pack: {
         coding: {
-          requiresApproval: true,
-          approvalMode: "human_required",
-          nodeApprovalOverride: "require_approval",
-          trustProfile: "review_required",
+          requires_approval: true,
+          approval_mode: "human_required",
+          node_approval_override: "require_approval",
+          trust_profile: "review_required",
         },
       },
       input: {
         path: "lease.txt",
-        oldText: "lease before",
-        newText: "lease after",
-        dryRun: true,
+        old_text: "lease before",
+        new_text: "lease after",
+        dry_run: true,
       },
     };
 
@@ -164,7 +626,7 @@ test("coding tool approval leases stop satisfying retries after expiry", async (
       method: "POST",
       body: JSON.stringify({
         ...request,
-        idempotencyKey: "approval-lease-expiry-blocked",
+        idempotency_key: "approval-lease-expiry-blocked",
       }),
     });
     assert.equal(blocked.status, "blocked");
@@ -190,8 +652,8 @@ test("coding tool approval leases stop satisfying retries after expiry", async (
       method: "POST",
       body: JSON.stringify({
         ...request,
-        idempotencyKey: "approval-lease-expiry-before",
-        approvalId: blocked.approval_id,
+        idempotency_key: "approval-lease-expiry-before",
+        approval_id: blocked.approval_id,
       }),
     });
     assert.equal(executedBeforeExpiry.status, "completed");
@@ -206,8 +668,8 @@ test("coding tool approval leases stop satisfying retries after expiry", async (
       method: "POST",
       body: JSON.stringify({
         ...request,
-        idempotencyKey: "approval-lease-expiry-after",
-        approvalId: blocked.approval_id,
+        idempotency_key: "approval-lease-expiry-after",
+        approval_id: blocked.approval_id,
       }),
     });
     assert.equal(blockedAfterExpiry.status, "blocked");

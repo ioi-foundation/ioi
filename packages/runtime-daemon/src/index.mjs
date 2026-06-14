@@ -129,7 +129,7 @@ import {
   uniqueStrings,
 } from "./runtime-value-helpers.mjs";
 import { createRuntimeAgentOptionsHelpers } from "./runtime-agent-options.mjs";
-import { createRuntimeAgentgresAdmissionRunnerFromEnv } from "./runtime-agentgres-admission-runner.mjs";
+import { createRuntimeAgentgresAdmissionCore } from "./runtime-agentgres-admission-core.mjs";
 import { createRuntimeGovernedImprovementCore } from "./runtime-governed-improvement-core.mjs";
 import { createRuntimeExternalCapabilityAuthorityCore } from "./runtime-external-capability-authority-core.mjs";
 import { createRuntimeExternalCapabilityAuthoritySurface } from "./runtime-external-capability-authority-surface.mjs";
@@ -386,21 +386,6 @@ const {
   uniqueStrings,
 });
 const {
-  codingToolApprovalBlockForThread,
-  codingToolApprovalManifestForThread,
-  codingToolApprovalSatisfactionForThread,
-} = createCodingToolApprovalPolicy({
-  approvalModeForThreadMode,
-  codingToolInputSummary,
-  doctorHash,
-  normalizeArray,
-  normalizeThreadApprovalMode,
-  normalizeThreadInteractionMode,
-  normalizedAgentRuntimeControls,
-  optionalString,
-  uniqueStrings,
-});
-const {
   codingToolInvocationResultFromEvent,
   computerUseBrowserDiscoveryInvocationResultFromEvent,
   computerUseControlInvocationResultFromEvent,
@@ -609,9 +594,9 @@ export class AgentgresRuntimeStateStore {
     this.conversationArtifacts = new ConversationArtifactStore(this.stateDir);
     this.runtimeBridge = createRuntimeApiBridge(options.runtimeBridge);
     this.daemonCoreInvoker = options.daemonCoreInvoker;
-    this.runtimeAgentgresAdmissionRunner =
-      options.runtimeAgentgresAdmissionRunner ??
-      createRuntimeAgentgresAdmissionRunnerFromEnv(process.env, {
+    this.runtimeAgentgresAdmissionCore =
+      options.runtimeAgentgresAdmissionCore ??
+      createRuntimeAgentgresAdmissionCore({
         daemonCoreInvoker: this.daemonCoreInvoker,
       });
     this.contextPolicyRunner =
@@ -745,6 +730,19 @@ export class AgentgresRuntimeStateStore {
       notFound,
       runtimeError,
     });
+    const codingToolApprovalPolicy = createCodingToolApprovalPolicy({
+      approvalRunner: options.codingToolApprovalRunner,
+      approvalModeForThreadMode,
+      codingToolInputSummary,
+      daemonCoreInvoker: this.daemonCoreInvoker,
+      doctorHash,
+      normalizeArray,
+      normalizeThreadApprovalMode,
+      normalizeThreadInteractionMode,
+      normalizedAgentRuntimeControls,
+      optionalString,
+      uniqueStrings,
+    });
     this.codingToolArtifactSurface = createRuntimeCodingToolArtifactSurface({
       codingToolCommandStreamAdmissionForThread: (store, request = {}) =>
         this.admitCodingToolCommandStreamEventsForThread(store, request),
@@ -755,9 +753,9 @@ export class AgentgresRuntimeStateStore {
       writeJson,
     });
     this.codingToolInvocationSurface = createRuntimeCodingToolInvocationSurface({
-      codingToolApprovalManifestForThread,
-      codingToolApprovalBlockForThread,
-      codingToolApprovalSatisfactionForThread,
+      codingToolApprovalManifestForThread: codingToolApprovalPolicy.codingToolApprovalManifestForThread,
+      codingToolApprovalBlockForThread: codingToolApprovalPolicy.codingToolApprovalBlockForThread,
+      codingToolApprovalSatisfactionForThread: codingToolApprovalPolicy.codingToolApprovalSatisfactionForThread,
       codingToolBudgetPolicyForRequest,
       codingToolInvocationResultFromEvent,
       codingToolResultWithoutDrafts,
@@ -1173,7 +1171,7 @@ export class AgentgresRuntimeStateStore {
     }
     const stream = store.runtimeEventStream(eventStreamId);
     const latestSeq = store.latestRuntimeEventSeq(eventStreamId);
-    const projection = this.runtimeAgentgresAdmissionRunner.projectRuntimeThreadEvents({
+    const projection = this.runtimeAgentgresAdmissionCore.projectRuntimeThreadEvents({
       projection_kind: optionalString(request.projection_kind) ?? "thread",
       thread_id: threadId,
       event_stream_id: eventStreamId,
@@ -1205,7 +1203,7 @@ export class AgentgresRuntimeStateStore {
       replayKind,
       eventStreamId,
     });
-    const replay = this.runtimeAgentgresAdmissionRunner.projectRuntimeThreadEventReplay({
+    const replay = this.runtimeAgentgresAdmissionCore.projectRuntimeThreadEventReplay({
       replay_kind: replayKind,
       event_stream_id: eventStreamId,
       turn_id: turnId,
@@ -1235,7 +1233,7 @@ export class AgentgresRuntimeStateStore {
 
   projectRuntimeThreadTurnProjectionForThread(store, request = {}) {
     void store;
-    const projection = this.runtimeAgentgresAdmissionRunner.projectRuntimeThreadTurnProjection(request);
+    const projection = this.runtimeAgentgresAdmissionCore.projectRuntimeThreadTurnProjection(request);
     const record = objectRecord(projection?.record);
     if (projection?.projected !== true || !record) {
       throw runtimeError({
@@ -1261,7 +1259,7 @@ export class AgentgresRuntimeStateStore {
     const event = objectRecord(request.event);
     const eventStreamId = optionalString(event?.event_stream_id);
     const latestSeq = eventStreamId ? store.latestRuntimeEventSeq(eventStreamId) : undefined;
-    const admission = this.runtimeAgentgresAdmissionRunner.admitRuntimeThreadEvent({
+    const admission = this.runtimeAgentgresAdmissionCore.admitRuntimeThreadEvent({
       event,
       latest_seq: latestSeq,
       expected_head: eventStreamId
@@ -1290,7 +1288,7 @@ export class AgentgresRuntimeStateStore {
     const event = objectRecord(request.event);
     const eventStreamId = optionalString(event?.event_stream_id);
     const latestSeq = eventStreamId ? store.latestRuntimeEventSeq(eventStreamId) : undefined;
-    const admission = this.runtimeAgentgresAdmissionRunner.admitCodingToolResultEvent({
+    const admission = this.runtimeAgentgresAdmissionCore.admitCodingToolResultEvent({
       event,
       latest_seq: latestSeq,
       expected_head: eventStreamId
@@ -1318,7 +1316,7 @@ export class AgentgresRuntimeStateStore {
   admitCodingToolCommandStreamEventsForThread(store, request = {}) {
     const eventStreamId = optionalString(request.event_stream_id);
     const latestSeq = eventStreamId ? store.latestRuntimeEventSeq(eventStreamId) : undefined;
-    const admission = this.runtimeAgentgresAdmissionRunner.admitCodingToolCommandStreamEvents({
+    const admission = this.runtimeAgentgresAdmissionCore.admitCodingToolCommandStreamEvents({
       ...request,
       latest_seq: latestSeq,
       expected_head: eventStreamId
@@ -1575,31 +1573,31 @@ export class AgentgresRuntimeStateStore {
   }
 
   commitRuntimeRunState(request) {
-    return this.runtimeAgentgresAdmissionRunner.commitRuntimeRunState(this.stateDir, request);
+    return this.runtimeAgentgresAdmissionCore.commitRuntimeRunState(this.stateDir, request);
   }
 
   commitRuntimeAgentState(request) {
-    return this.runtimeAgentgresAdmissionRunner.commitRuntimeAgentState(this.stateDir, request);
+    return this.runtimeAgentgresAdmissionCore.commitRuntimeAgentState(this.stateDir, request);
   }
 
   commitRuntimeMemoryState(request) {
-    return this.runtimeAgentgresAdmissionRunner.commitRuntimeMemoryState(this.stateDir, request);
+    return this.runtimeAgentgresAdmissionCore.commitRuntimeMemoryState(this.stateDir, request);
   }
 
   commitRuntimeSubagentState(request) {
-    return this.runtimeAgentgresAdmissionRunner.commitRuntimeSubagentState(this.stateDir, request);
+    return this.runtimeAgentgresAdmissionCore.commitRuntimeSubagentState(this.stateDir, request);
   }
 
   commitRuntimeArtifactState(request) {
-    return this.runtimeAgentgresAdmissionRunner.commitRuntimeArtifactState(this.stateDir, request);
+    return this.runtimeAgentgresAdmissionCore.commitRuntimeArtifactState(this.stateDir, request);
   }
 
   commitRuntimeModelMountRecordState(request) {
-    return this.runtimeAgentgresAdmissionRunner.commitRuntimeModelMountRecordState(this.stateDir, request);
+    return this.runtimeAgentgresAdmissionCore.commitRuntimeModelMountRecordState(this.stateDir, request);
   }
 
   commitRuntimeModelMountReceiptState(request) {
-    return this.runtimeAgentgresAdmissionRunner.commitRuntimeModelMountReceiptState(this.stateDir, request);
+    return this.runtimeAgentgresAdmissionCore.commitRuntimeModelMountReceiptState(this.stateDir, request);
   }
 
   writeSubagent(subagent, operationKind) {

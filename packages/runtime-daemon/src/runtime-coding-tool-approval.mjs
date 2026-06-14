@@ -21,7 +21,11 @@ function objectRecord(value) {
 }
 
 export function createCodingToolApprovalPolicy(deps = {}) {
-  const approvalRunner = deps.approvalRunner ?? createCodingToolApprovalRunnerFromEnv(deps.env ?? process.env);
+  const approvalRunner =
+    deps.approvalRunner ??
+    createCodingToolApprovalRunnerFromEnv(deps.env ?? process.env, {
+      daemonCoreInvoker: deps.daemonCoreInvoker,
+    });
   const approvalModeForThreadMode = deps.approvalModeForThreadMode || (() => "suggest");
   const codingToolInputSummary = deps.codingToolInputSummary || (() => ({}));
   const normalizeArray = deps.normalizeArray || defaultNormalizeArray;

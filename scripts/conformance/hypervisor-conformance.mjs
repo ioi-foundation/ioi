@@ -3911,11 +3911,11 @@ function runBridge() {
     l1SettlementControlNodes.match(
       /export interface RuntimeL1SettlementWorkflowNodeOptions[\s\S]*?\n}\n/,
     )?.[0] ?? "";
-  const runtimeAgentgresRunner = exists("packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs")
-    ? read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs")
+  const runtimeAgentgresCore = exists("packages/runtime-daemon/src/runtime-agentgres-admission-core.mjs")
+    ? read("packages/runtime-daemon/src/runtime-agentgres-admission-core.mjs")
     : "";
-  const runtimeAgentgresRunnerTest = exists("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs")
-    ? read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs")
+  const runtimeAgentgresCoreTest = exists("packages/runtime-daemon/src/runtime-agentgres-admission-core.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-agentgres-admission-core.test.mjs")
     : "";
   const cteePrivateWorkspaceCore = exists("packages/runtime-daemon/src/runtime-ctee-private-workspace-core.mjs")
     ? read("packages/runtime-daemon/src/runtime-ctee-private-workspace-core.mjs")
@@ -3989,21 +3989,22 @@ function runBridge() {
     runtimeContextPolicyRunner,
     workspaceRestoreRunner,
     modelMountAdmissionRunner,
-    runtimeAgentgresRunner,
+    runtimeAgentgresCore,
   ];
   assertCheck(
     result,
     "daemon-core-direct-invoker-mock-fallback-retired",
-    !exists("packages/runtime-daemon/src/runtime-daemon-core-command-runner.mjs") &&
+      !exists("packages/runtime-daemon/src/runtime-daemon-core-command-runner.mjs") &&
       !exists("packages/runtime-daemon/src/runtime-daemon-core-command-runner.test.mjs") &&
+      !exists("packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs") &&
+      !exists("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs") &&
       daemonCoreDirectInvokerRunners.every(
         (runner) =>
-          /daemonCoreInvoker: options\.daemonCoreInvoker/.test(runner) &&
           /this\.daemonCoreInvoker = optionalFunction\(options\.daemonCoreInvoker\)/.test(runner) &&
           !/mockResult|mockSource|defaultBackend|createDaemonCoreCommandInvoker|spawnSyncImpl/.test(runner),
       ) &&
       /this\.daemonCoreInvoker = options\.daemonCoreInvoker/.test(runtimeDaemonIndex) &&
-      /createRuntimeAgentgresAdmissionRunnerFromEnv\(process\.env,\s*\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
+      /createRuntimeAgentgresAdmissionCore\(\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
         runtimeDaemonIndex,
       ) &&
       /createContextPolicyRunnerFromEnv\(process\.env,\s*\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
@@ -4825,13 +4826,13 @@ function runBridge() {
         runtimeContextPolicyRunnerTest,
       ) &&
       /CODING_TOOL_RESULT_EVENT_ADMISSION_REQUEST_SCHEMA_VERSION/.test(
-        runtimeAgentgresRunner,
+        runtimeAgentgresCore,
       ) &&
-      /admitCodingToolResultEvent\(request = \{\}\)/.test(runtimeAgentgresRunner) &&
-      /operation:\s*"admit_coding_tool_result_event"/.test(runtimeAgentgresRunner) &&
-      /normalizeCodingToolResultEventAdmissionBridgeResult/.test(runtimeAgentgresRunner) &&
-      /runtime Agentgres runner admits coding-tool result events through direct daemon-core invoker/.test(
-        runtimeAgentgresRunnerTest,
+      /admitCodingToolResultEvent\(request = \{\}\)/.test(runtimeAgentgresCore) &&
+      /operation:\s*"admit_coding_tool_result_event"/.test(runtimeAgentgresCore) &&
+      !/normalizeCodingToolResultEventAdmissionBridgeResult/.test(runtimeAgentgresCore) &&
+      /runtime Agentgres core admits coding-tool result events through direct daemon-core invoker/.test(
+        runtimeAgentgresCoreTest,
       ) &&
       /codingToolResultEventAdmissionForThread = requireRustCoreCodingToolResultEventAdmission/.test(
         runtimeCodingToolInvocationSurface,
@@ -4861,7 +4862,7 @@ function runBridge() {
       ) &&
       /admitCodingToolResultEventForThread/.test(runtimeDaemonIndex) &&
       /contextPolicyRunner\.planCodingToolResultEnvelope/.test(runtimeDaemonIndex) &&
-      /runtimeAgentgresAdmissionRunner\.admitCodingToolResultEvent/.test(runtimeDaemonIndex) &&
+      /runtimeAgentgresAdmissionCore\.admitCodingToolResultEvent/.test(runtimeDaemonIndex) &&
       /store\.registerRuntimeEvent\(admittedEvent\)/.test(runtimeDaemonIndex) &&
       /runtime_coding_tool_result_envelope_rust_core_required/.test(
         runtimeCodingToolInvocationSurface,
@@ -4910,8 +4911,8 @@ function runBridge() {
       "crates/services/src/agentic/runtime/kernel/mod.rs",
       "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
       "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
-      "packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs",
-      "packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-agentgres-admission-core.mjs",
+      "packages/runtime-daemon/src/runtime-agentgres-admission-core.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs",
@@ -4963,50 +4964,44 @@ function runBridge() {
       /admit_runtime_thread_event_response/.test(coreCommandDispatch) &&
       /project_runtime_thread_events_response/.test(coreCommandDispatch) &&
       /project_runtime_thread_event_replay_response/.test(coreCommandDispatch) &&
-      /RUNTIME_THREAD_EVENT_ADMISSION_REQUEST_SCHEMA_VERSION/.test(runtimeAgentgresRunner) &&
-      /RUNTIME_THREAD_EVENT_PROJECTION_REQUEST_SCHEMA_VERSION/.test(runtimeAgentgresRunner) &&
-      /RUNTIME_THREAD_EVENT_REPLAY_REQUEST_SCHEMA_VERSION/.test(runtimeAgentgresRunner) &&
-      /admitRuntimeThreadEvent\(request = \{\}\)/.test(runtimeAgentgresRunner) &&
-      /operation:\s*"admit_runtime_thread_event"/.test(runtimeAgentgresRunner) &&
-      /normalizeRuntimeThreadEventAdmissionBridgeResult/.test(runtimeAgentgresRunner) &&
-      /projectRuntimeThreadEvents\(request = \{\}\)/.test(runtimeAgentgresRunner) &&
-      /operation:\s*"project_runtime_thread_events"/.test(runtimeAgentgresRunner) &&
-      /normalizeRuntimeThreadEventProjectionBridgeResult/.test(runtimeAgentgresRunner) &&
-      /projectRuntimeThreadEventReplay\(request = \{\}\)/.test(runtimeAgentgresRunner) &&
-      /operation:\s*"project_runtime_thread_event_replay"/.test(runtimeAgentgresRunner) &&
-      /normalizeRuntimeThreadEventReplayBridgeResult/.test(runtimeAgentgresRunner) &&
-      /runtime Agentgres runner admits runtime thread events through direct daemon-core invoker/.test(
-        runtimeAgentgresRunnerTest,
+      /RUNTIME_THREAD_EVENT_ADMISSION_REQUEST_SCHEMA_VERSION/.test(runtimeAgentgresCore) &&
+      /RUNTIME_THREAD_EVENT_PROJECTION_REQUEST_SCHEMA_VERSION/.test(runtimeAgentgresCore) &&
+      /RUNTIME_THREAD_EVENT_REPLAY_REQUEST_SCHEMA_VERSION/.test(runtimeAgentgresCore) &&
+      /admitRuntimeThreadEvent\(request = \{\}\)/.test(runtimeAgentgresCore) &&
+      /operation:\s*"admit_runtime_thread_event"/.test(runtimeAgentgresCore) &&
+      !/normalizeRuntimeThreadEventAdmissionBridgeResult/.test(runtimeAgentgresCore) &&
+      /projectRuntimeThreadEvents\(request = \{\}\)/.test(runtimeAgentgresCore) &&
+      /operation:\s*"project_runtime_thread_events"/.test(runtimeAgentgresCore) &&
+      !/normalizeRuntimeThreadEventProjectionBridgeResult/.test(runtimeAgentgresCore) &&
+      /projectRuntimeThreadEventReplay\(request = \{\}\)/.test(runtimeAgentgresCore) &&
+      /operation:\s*"project_runtime_thread_event_replay"/.test(runtimeAgentgresCore) &&
+      !/normalizeRuntimeThreadEventReplayBridgeResult/.test(runtimeAgentgresCore) &&
+      /runtime Agentgres core admits runtime thread events through direct daemon-core invoker/.test(
+        runtimeAgentgresCoreTest,
       ) &&
-      /runtime Agentgres runner projects runtime thread events through direct daemon-core invoker/.test(
-        runtimeAgentgresRunnerTest,
+      /runtime Agentgres core projects runtime thread events through direct daemon-core invoker/.test(
+        runtimeAgentgresCoreTest,
       ) &&
-      /runtime Agentgres runner replays runtime thread events through direct daemon-core invoker/.test(
-        runtimeAgentgresRunnerTest,
+      /runtime Agentgres core replays runtime thread events through direct daemon-core invoker/.test(
+        runtimeAgentgresCoreTest,
       ) &&
-      /runtime thread event admission normalizer exposes only Rust-returned event truth/.test(
-        runtimeAgentgresRunnerTest,
-      ) &&
-      /runtime thread event projection normalizer exposes only Rust-returned projection truth/.test(
-        runtimeAgentgresRunnerTest,
-      ) &&
-      /runtime thread event replay normalizer exposes only Rust-returned event truth/.test(
-        runtimeAgentgresRunnerTest,
-      ) &&
+      /runtime Agentgres core returns Rust envelopes without JS normalization/.test(runtimeAgentgresCoreTest) &&
+      /runtime Agentgres core returns Rust envelopes without JS normalization/.test(runtimeAgentgresCoreTest) &&
+      /runtime Agentgres core returns Rust envelopes without JS normalization/.test(runtimeAgentgresCoreTest) &&
       /projectRuntimeThreadEventsForThread/.test(runtimeDaemonIndex) &&
-      /runtimeAgentgresAdmissionRunner\.projectRuntimeThreadEvents/.test(runtimeDaemonIndex) &&
+      /runtimeAgentgresAdmissionCore\.projectRuntimeThreadEvents/.test(runtimeDaemonIndex) &&
       /projectRuntimeThreadEventReplayForThread/.test(runtimeDaemonIndex) &&
-      /runtimeAgentgresAdmissionRunner\.projectRuntimeThreadEventReplay/.test(runtimeDaemonIndex) &&
+      /runtimeAgentgresAdmissionCore\.projectRuntimeThreadEventReplay/.test(runtimeDaemonIndex) &&
       /admitRuntimeThreadEventForThread/.test(runtimeDaemonIndex) &&
-      /runtimeAgentgresAdmissionRunner\.admitRuntimeThreadEvent/.test(runtimeDaemonIndex) &&
+      /runtimeAgentgresAdmissionCore\.admitRuntimeThreadEvent/.test(runtimeDaemonIndex) &&
       /store\.registerRuntimeEvent\(admittedEvent\)/.test(runtimeDaemonIndex),
     [
       "crates/services/src/agentic/runtime/kernel/runtime_thread_event.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
       "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
       "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
-      "packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs",
-      "packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-agentgres-admission-core.mjs",
+      "packages/runtime-daemon/src/runtime-agentgres-admission-core.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
     ],
     "Phase 10/11 is pending: generic runtime thread events and projection must be admitted by Rust daemon-core Agentgres/projection before JS replay registration",
@@ -6074,13 +6069,13 @@ function runBridge() {
       /CommandOperation::AdmitCodingToolCommandStreamEvents/.test(commandProtocolCore) &&
       /admit_coding_tool_command_stream_events_response/.test(coreCommandDispatch) &&
       /CODING_TOOL_COMMAND_STREAM_ADMISSION_REQUEST_SCHEMA_VERSION/.test(
-        runtimeAgentgresRunner,
+        runtimeAgentgresCore,
       ) &&
-      /admitCodingToolCommandStreamEvents\(request = \{\}\)/.test(runtimeAgentgresRunner) &&
-      /operation:\s*"admit_coding_tool_command_stream_events"/.test(runtimeAgentgresRunner) &&
-      /normalizeCodingToolCommandStreamAdmissionBridgeResult/.test(runtimeAgentgresRunner) &&
-      /runtime Agentgres runner admits coding-tool command-stream events through direct daemon-core invoker/.test(
-        runtimeAgentgresRunnerTest,
+      /admitCodingToolCommandStreamEvents\(request = \{\}\)/.test(runtimeAgentgresCore) &&
+      /operation:\s*"admit_coding_tool_command_stream_events"/.test(runtimeAgentgresCore) &&
+      !/normalizeCodingToolCommandStreamAdmissionBridgeResult/.test(runtimeAgentgresCore) &&
+      /runtime Agentgres core admits coding-tool command-stream events through direct daemon-core invoker/.test(
+        runtimeAgentgresCoreTest,
       ) &&
       /function admitCodingToolCommandStreamEvents/.test(codingToolCommandStreamBlock) &&
       /codingToolCommandStreamAdmissionForThread/.test(codingToolCommandStreamBlock) &&
@@ -6092,7 +6087,7 @@ function runBridge() {
       /if \(!codingToolCommandStreamRequested\(request\)\) return \[\];/.test(codingToolCommandStreamBlock) &&
       /codingToolCommandStreamAdmissionForThread\(store,/.test(codingToolCommandStreamBlock) &&
       /admitCodingToolCommandStreamEventsForThread/.test(runtimeDaemonIndex) &&
-      /runtimeAgentgresAdmissionRunner\.admitCodingToolCommandStreamEvents/.test(
+      /runtimeAgentgresAdmissionCore\.admitCodingToolCommandStreamEvents/.test(
         runtimeDaemonIndex,
       ) &&
       /store\.registerRuntimeEvent\(event\)/.test(runtimeDaemonIndex) &&
@@ -6115,8 +6110,8 @@ function runBridge() {
       "crates/services/src/agentic/runtime/kernel/coding_tool_event.rs",
       "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
       "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
-      "packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs",
-      "packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-agentgres-admission-core.mjs",
+      "packages/runtime-daemon/src/runtime-agentgres-admission-core.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.test.mjs",
@@ -7398,6 +7393,18 @@ function runBridge() {
       /coding tool approval runner fails closed without direct invoker/.test(
         runtimeCodingToolApprovalRunnerTest,
       ) &&
+      /createCodingToolApprovalRunnerFromEnv\(deps\.env \?\? process\.env,\s*\{\s*daemonCoreInvoker: deps\.daemonCoreInvoker,\s*\}\)/.test(
+        runtimeCodingToolApproval,
+      ) &&
+      /const codingToolApprovalPolicy = createCodingToolApprovalPolicy\(\{[\s\S]*approvalRunner: options\.codingToolApprovalRunner[\s\S]*daemonCoreInvoker: this\.daemonCoreInvoker/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /codingToolApprovalManifestForThread: codingToolApprovalPolicy\.codingToolApprovalManifestForThread/.test(
+        runtimeDaemonIndex,
+      ) &&
+      !/const \{\s*codingToolApprovalBlockForThread,\s*codingToolApprovalManifestForThread,\s*codingToolApprovalSatisfactionForThread,\s*\} = createCodingToolApprovalPolicy/.test(
+        runtimeDaemonIndex,
+      ) &&
       /approvalRunner\.planApprovalManifest/.test(runtimeCodingToolApproval) &&
       !/codingToolEffectRequiresApproval/.test(runtimeCodingToolApproval) &&
       !/codingToolWorkflowApprovalPolicy/.test(runtimeCodingToolApproval) &&
@@ -7414,6 +7421,7 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-coding-tool-approval-runner.test.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-approval.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-approval.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
     ],
     "Phase 9/10 is pending: coding-tool approval manifests must be planned by Rust authority core through the direct daemon-core invoker",
   );
@@ -19510,8 +19518,8 @@ function runReceipts() {
   const runtimeDaemonIndex = exists("packages/runtime-daemon/src/index.mjs")
     ? read("packages/runtime-daemon/src/index.mjs")
     : "";
-  const runtimeAgentgresRunner = exists("packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs")
-    ? read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs")
+  const runtimeAgentgresCore = exists("packages/runtime-daemon/src/runtime-agentgres-admission-core.mjs")
+    ? read("packages/runtime-daemon/src/runtime-agentgres-admission-core.mjs")
     : "";
   const runtimeCodingToolArtifactSurface = exists("packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.mjs")
@@ -23808,50 +23816,36 @@ function runReceipts() {
       ) &&
       /agentgres_command_commits_runtime_model_mount_receipt_state_through_rust_core/.test(agentgresCommandCore) &&
       !/bridge_commits_runtime_model_mount_receipt_state_through_rust_core/.test(bridgeModule) &&
-      /commitRuntimeModelMountReceiptState/.test(runtimeAgentgresRunner) &&
-      /normalizeRuntimeModelMountReceiptStateCommitBridgeResult/.test(runtimeAgentgresRunner) &&
-      !/RUNTIME_AGENTGRES_COMMAND_ARGS_ENV/.test(runtimeAgentgresRunner) &&
-      !/parseCommandArgs/.test(runtimeAgentgresRunner) &&
-      !/normalizeArgs/.test(runtimeAgentgresRunner) &&
-      !/this\.args/.test(runtimeAgentgresRunner) &&
-      !/argsEnv/.test(runtimeAgentgresRunner) &&
-      /assertNoRuntimeAgentgresCommandArgs/.test(runtimeAgentgresRunner) &&
-      /assertNoRuntimeAgentgresCommandSelection\(\s*options\.command\s*\?\?\s*env\.IOI_RUNTIME_DAEMON_CORE_COMMAND\s*\?\?\s*env\.IOI_RUNTIME_AGENTGRES_COMMAND/.test(
-        runtimeAgentgresRunner,
-      ) &&
+      /commitRuntimeModelMountReceiptState/.test(runtimeAgentgresCore) &&
+      !/normalizeRuntimeModelMountReceiptStateCommitBridgeResult/.test(runtimeAgentgresCore) &&
+      !/RUNTIME_AGENTGRES_COMMAND_ARGS_ENV/.test(runtimeAgentgresCore) &&
+      !/parseCommandArgs/.test(runtimeAgentgresCore) &&
+      !/normalizeArgs/.test(runtimeAgentgresCore) &&
+      !/this\.args/.test(runtimeAgentgresCore) &&
+      !/argsEnv/.test(runtimeAgentgresCore) &&
+      /assertNoRetiredRuntimeAgentgresCoreOption/.test(runtimeAgentgresCore) &&
       /this\.daemonCoreInvoker\s*=\s*optionalFunction\(options\.daemonCoreInvoker\)/.test(
-        runtimeAgentgresRunner,
+        runtimeAgentgresCore,
       ) &&
-      /daemonCoreInvoker:\s*options\.daemonCoreInvoker/.test(runtimeAgentgresRunner) &&
-      /runtime_agentgres_command_args_retired/.test(runtimeAgentgresRunner) &&
-      /runtime_agentgres_command_selection_retired/.test(runtimeAgentgresRunner) &&
-      /runtime_agentgres_admission_direct_invoker_unconfigured/.test(runtimeAgentgresRunner) &&
-      !/createDaemonCoreCommandInvoker/.test(runtimeAgentgresRunner) &&
-      !/spawnSyncImpl/.test(runtimeAgentgresRunner) &&
-      !/from "node:child_process"/.test(runtimeAgentgresRunner) &&
-      /runtime Agentgres runner command args env fails closed/.test(
-        read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
+      /runtime_agentgres_admission_core_compatibility_option_retired/.test(runtimeAgentgresCore) &&
+      /runtime_agentgres_admission_core_direct_invoker_unconfigured/.test(runtimeAgentgresCore) &&
+      !/process\.env|IOI_RUNTIME_DAEMON_CORE_COMMAND|IOI_RUNTIME_AGENTGRES_COMMAND|createRuntimeAgentgresAdmissionRunnerFromEnv|RuntimeAgentgresAdmissionRunner|RustRuntimeAgentgresAdmissionRunner/.test(
+        runtimeAgentgresCore,
       ) &&
-      /runtime Agentgres runner command args constructor option fails closed/.test(
-        read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
+      !/createDaemonCoreCommandInvoker/.test(runtimeAgentgresCore) &&
+      !/spawnSyncImpl/.test(runtimeAgentgresCore) &&
+      !/from "node:child_process"/.test(runtimeAgentgresCore) &&
+      /runtime Agentgres core rejects retired compatibility options/.test(
+        read("packages/runtime-daemon/src/runtime-agentgres-admission-core.test.mjs"),
       ) &&
-      /runtime Agentgres runner command constructor option fails closed/.test(
-        read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
-      ) &&
-      /runtime Agentgres runner rejects retired daemon-core command env/.test(
-        read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
-      ) &&
-      /runtime Agentgres runner rejects retired Agentgres command env/.test(
-        read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
-      ) &&
-      /runtime Agentgres runner sends runtime model-mount receipt-state commit through direct daemon-core invoker/.test(
-        read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
+      /runtime Agentgres core sends runtime model-mount receipt-state commit through direct daemon-core invoker/.test(
+        read("packages/runtime-daemon/src/runtime-agentgres-admission-core.test.mjs"),
       ) &&
       /agentgres:\/\/model-mounting\/accepted-receipts\/op_1/.test(
-        read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
+        read("packages/runtime-daemon/src/runtime-agentgres-admission-core.test.mjs"),
       ) &&
       !/agentgres:\/\/model-mounting\/operation-log\/op_1/.test(
-        read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
+        read("packages/runtime-daemon/src/runtime-agentgres-admission-core.test.mjs"),
       ) &&
       /commitRuntimeModelMountReceiptState\(request\)/.test(runtimeDaemonIndex) &&
       /commitRuntimeModelMountReceiptState:\s*\(request\) => this\.commitRuntimeModelMountReceiptState\(request\)/.test(
@@ -23890,8 +23884,8 @@ function runReceipts() {
       "crates/services/src/agentic/runtime/kernel/agentgres_admission.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs",
-      "packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-agentgres-admission-core.mjs",
+      "packages/runtime-daemon/src/runtime-agentgres-admission-core.test.mjs",
       "packages/runtime-daemon/src/model-mounting/store.mjs",
       "packages/runtime-daemon/src/model-mounting/store.test.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
@@ -24032,10 +24026,10 @@ function runReceipts() {
       /rust_agentgres_runtime_memory_state_commit_command/.test(agentgresCommandCore) &&
       /agentgres_command_commits_runtime_memory_state_through_rust_core/.test(agentgresCommandCore) &&
       !/bridge_commits_runtime_memory_state_through_rust_core/.test(bridgeModule) &&
-      /commitRuntimeMemoryState/.test(runtimeAgentgresRunner) &&
-      /normalizeRuntimeMemoryStateCommitBridgeResult/.test(runtimeAgentgresRunner) &&
-      /runtime Agentgres runner sends runtime memory-state commit through direct daemon-core invoker/.test(
-        read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
+      /commitRuntimeMemoryState/.test(runtimeAgentgresCore) &&
+      !/normalizeRuntimeMemoryStateCommitBridgeResult/.test(runtimeAgentgresCore) &&
+      /runtime Agentgres core sends runtime memory-state commit through direct daemon-core invoker/.test(
+        read("packages/runtime-daemon/src/runtime-agentgres-admission-core.test.mjs"),
       ) &&
       /commitRuntimeMemoryState\(request\)/.test(runtimeDaemonIndex) &&
       /this\.memory = new AgentMemoryStore\(this\.stateDir\);/.test(runtimeDaemonIndex) &&
@@ -24057,8 +24051,8 @@ function runReceipts() {
       "crates/services/src/agentic/runtime/kernel/agentgres_admission.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs",
-      "packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-agentgres-admission-core.mjs",
+      "packages/runtime-daemon/src/runtime-agentgres-admission-core.test.mjs",
       "packages/runtime-daemon/src/memory-store.mjs",
       "packages/runtime-daemon/src/memory-store.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
@@ -24094,10 +24088,10 @@ function runReceipts() {
       /rust_agentgres_runtime_artifact_state_commit_command/.test(agentgresCommandCore) &&
       /agentgres_command_commits_runtime_artifact_state_through_rust_core/.test(agentgresCommandCore) &&
       !/bridge_commits_runtime_artifact_state_through_rust_core/.test(bridgeModule) &&
-      /commitRuntimeArtifactState/.test(runtimeAgentgresRunner) &&
-      /normalizeRuntimeArtifactStateCommitBridgeResult/.test(runtimeAgentgresRunner) &&
-      /runtime Agentgres runner sends runtime artifact-state commit through direct daemon-core invoker/.test(
-        read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
+      /commitRuntimeArtifactState/.test(runtimeAgentgresCore) &&
+      !/normalizeRuntimeArtifactStateCommitBridgeResult/.test(runtimeAgentgresCore) &&
+      /runtime Agentgres core sends runtime artifact-state commit through direct daemon-core invoker/.test(
+        read("packages/runtime-daemon/src/runtime-agentgres-admission-core.test.mjs"),
       ) &&
       /commitRuntimeArtifactState\(request\)/.test(runtimeDaemonIndex) &&
       /commitRuntimeArtifactRecord/.test(
@@ -24174,8 +24168,8 @@ function runReceipts() {
       "crates/services/src/agentic/runtime/kernel/agentgres_admission.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs",
-      "packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-agentgres-admission-core.mjs",
+      "packages/runtime-daemon/src/runtime-agentgres-admission-core.test.mjs",
       "packages/runtime-daemon/src/runtime-artifact-state-commit.mjs",
       "packages/runtime-daemon/src/runtime-artifact-state-commit.test.mjs",
       "packages/runtime-daemon/src/threads/thread-persistence.mjs",
@@ -24874,19 +24868,19 @@ function runReceipts() {
       !/rust_runtime_agentgres_transition_command/.test(bridgeModule) &&
       /agentgres_command_commits_runtime_run_state_through_rust_core/.test(agentgresCommandCore) &&
       !/bridge_commits_runtime_run_state_through_rust_core/.test(bridgeModule) &&
-      /RustRuntimeAgentgresAdmissionRunner/.test(runtimeAgentgresRunner) &&
-      /ioi\.runtime\.daemon_core\.command\.v1/.test(runtimeAgentgresRunner) &&
-      !/IOI_STEP_MODULE_COMMAND/.test(runtimeAgentgresRunner) &&
-      /commitRuntimeRunState/.test(runtimeAgentgresRunner) &&
-      !/planRunStateTransition/.test(runtimeAgentgresRunner) &&
-      !/persistRuntimeStateRecords/.test(runtimeAgentgresRunner) &&
-      /runtime_agentgres_admission_direct_invoker_unconfigured/.test(runtimeAgentgresRunner) &&
-      !/RUNTIME_AGENTGRES_FALLBACK/.test(runtimeAgentgresRunner) &&
-      !/IOI_ENABLE_INTERNAL_FIXTURE_MODELS/.test(runtimeAgentgresRunner) &&
-      !/mockRuntimeAgentgresResponse/.test(runtimeAgentgresRunner) &&
-      !/fs\.writeFileSync/.test(runtimeAgentgresRunner) &&
-      !/mkdirSync/.test(runtimeAgentgresRunner) &&
-      /createRuntimeAgentgresAdmissionRunnerFromEnv/.test(runtimeDaemonIndex) &&
+      /RuntimeAgentgresAdmissionCore/.test(runtimeAgentgresCore) &&
+      /ioi\.runtime\.daemon_core\.command\.v1/.test(runtimeAgentgresCore) &&
+      !/IOI_STEP_MODULE_COMMAND/.test(runtimeAgentgresCore) &&
+      /commitRuntimeRunState/.test(runtimeAgentgresCore) &&
+      !/planRunStateTransition/.test(runtimeAgentgresCore) &&
+      !/persistRuntimeStateRecords/.test(runtimeAgentgresCore) &&
+      /runtime_agentgres_admission_core_direct_invoker_unconfigured/.test(runtimeAgentgresCore) &&
+      !/RUNTIME_AGENTGRES_FALLBACK/.test(runtimeAgentgresCore) &&
+      !/IOI_ENABLE_INTERNAL_FIXTURE_MODELS/.test(runtimeAgentgresCore) &&
+      !/mockRuntimeAgentgresResponse/.test(runtimeAgentgresCore) &&
+      !/fs\.writeFileSync/.test(runtimeAgentgresCore) &&
+      !/mkdirSync/.test(runtimeAgentgresCore) &&
+      /createRuntimeAgentgresAdmissionCore/.test(runtimeDaemonIndex) &&
       /commitRuntimeRunState\(request\)/.test(runtimeDaemonIndex) &&
       !/currentRunStateTransition/.test(runtimeDaemonIndex) &&
       !/planRunStateTransition\(request\)/.test(runtimeDaemonIndex) &&
@@ -24915,20 +24909,20 @@ function runReceipts() {
       /thread persistence leaves previous run-state transition lookup to Rust commit/.test(
         read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
       ) &&
-      /runtime Agentgres runner sends runtime run-state commit through direct daemon-core invoker/.test(
-        read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
+      /runtime Agentgres core sends runtime run-state commit through direct daemon-core invoker/.test(
+        read("packages/runtime-daemon/src/runtime-agentgres-admission-core.test.mjs"),
       ) &&
       /calls\[0\]\.request\.request\.agent\.id, "agent_1"/.test(
-        read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
+        read("packages/runtime-daemon/src/runtime-agentgres-admission-core.test.mjs"),
       ) &&
-      /runtime Agentgres runner env uses daemon-level direct invoker/.test(
-        read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
+      /runtime Agentgres core uses daemon-level direct invoker/.test(
+        read("packages/runtime-daemon/src/runtime-agentgres-admission-core.test.mjs"),
       ),
     [
       "crates/services/src/agentic/runtime/kernel/agentgres_admission.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs",
-      "packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-agentgres-admission-core.mjs",
+      "packages/runtime-daemon/src/runtime-agentgres-admission-core.test.mjs",
       "packages/runtime-daemon/src/threads/thread-persistence.mjs",
       "packages/runtime-daemon/src/threads/thread-persistence.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
@@ -25012,74 +25006,56 @@ function runReceipts() {
       !/bridge_plans_runtime_state_storage_writes_through_rust_core/.test(bridgeModule) &&
       !/bridge_persists_runtime_state_records_through_rust_core/.test(bridgeModule) &&
       !/bridge_plans_runtime_run_state_transition_through_rust_core/.test(bridgeModule) &&
-      /admitStorageBackendWrite/.test(runtimeAgentgresRunner) &&
-      /commitRuntimeRunState/.test(runtimeAgentgresRunner) &&
-      !/IOI_ENABLE_INTERNAL_FIXTURE_MODELS/.test(runtimeAgentgresRunner) &&
-      !/mockRuntimeAgentgresResponse/.test(runtimeAgentgresRunner) &&
-      !/fs\.writeFileSync/.test(runtimeAgentgresRunner) &&
-      !/mkdirSync/.test(runtimeAgentgresRunner) &&
-      !/persistRuntimeStateRecords/.test(runtimeAgentgresRunner) &&
-      !/materializeRuntimeStateRecords/.test(runtimeAgentgresRunner) &&
-      !/planRuntimeStateStorageWrites/.test(runtimeAgentgresRunner) &&
-      !/normalizeRuntimeStateRecordMaterializationBridgeResult/.test(runtimeAgentgresRunner) &&
-      !/normalizeRuntimeStateStorageWriteSetBridgeResult/.test(runtimeAgentgresRunner) &&
-      /RUST_AGENTGRES_STORAGE_BACKEND/.test(runtimeAgentgresRunner) &&
-      /runtime Agentgres runner sends storage write admission through direct daemon-core invoker/.test(
-        read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
+      /admitStorageBackendWrite/.test(runtimeAgentgresCore) &&
+      /commitRuntimeRunState/.test(runtimeAgentgresCore) &&
+      !/IOI_ENABLE_INTERNAL_FIXTURE_MODELS/.test(runtimeAgentgresCore) &&
+      !/mockRuntimeAgentgresResponse/.test(runtimeAgentgresCore) &&
+      !/fs\.writeFileSync/.test(runtimeAgentgresCore) &&
+      !/mkdirSync/.test(runtimeAgentgresCore) &&
+      !/persistRuntimeStateRecords/.test(runtimeAgentgresCore) &&
+      !/materializeRuntimeStateRecords/.test(runtimeAgentgresCore) &&
+      !/planRuntimeStateStorageWrites/.test(runtimeAgentgresCore) &&
+      !/normalizeRuntimeStateRecordMaterializationBridgeResult/.test(runtimeAgentgresCore) &&
+      !/normalizeRuntimeStateStorageWriteSetBridgeResult/.test(runtimeAgentgresCore) &&
+      /RUST_AGENTGRES_STORAGE_BACKEND/.test(runtimeAgentgresCore) &&
+      /runtime Agentgres core sends storage write admission through direct daemon-core invoker/.test(
+        read("packages/runtime-daemon/src/runtime-agentgres-admission-core.test.mjs"),
       ) &&
-      /runtime Agentgres runner does not synthesize Rust-owned refs or evidence/.test(
-        read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
+      /runtime Agentgres core returns Rust envelopes without JS normalization/.test(
+        read("packages/runtime-daemon/src/runtime-agentgres-admission-core.test.mjs"),
       ) &&
-      /assert\.equal\(runtimeRun\.records,\s*null\)/.test(
-        read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
+      /Object\.hasOwn\(core\.admitStorageBackendWrite\(\{\}\), "source"\), false/.test(
+        read("packages/runtime-daemon/src/runtime-agentgres-admission-core.test.mjs"),
       ) &&
-      /assert\.equal\(runtimeRun\.written_records,\s*null\)/.test(
-        read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
-      ) &&
-      /artifact_refs:\s*Array\.isArray\(result\.artifact_refs\)\s*\?\s*result\.artifact_refs\s*:\s*record\.artifact_refs\s*\?\?\s*null/.test(
-        runtimeAgentgresRunner,
-      ) &&
-      /payload_refs:\s*Array\.isArray\(result\.payload_refs\)\s*\?\s*result\.payload_refs\s*:\s*(?:record|storageRecord)\.payload_refs\s*\?\?\s*null/.test(
-        runtimeAgentgresRunner,
-      ) &&
-      /receipt_refs:\s*Array\.isArray\(result\.receipt_refs\)\s*\?\s*result\.receipt_refs\s*:\s*(?:record|storageRecord)\.receipt_refs\s*\?\?\s*null/.test(
-        runtimeAgentgresRunner,
-      ) &&
-      /evidence_refs:\s*Array\.isArray\(result\.evidence_refs\)\s*\?\s*result\.evidence_refs\s*:\s*null/.test(
-        runtimeAgentgresRunner,
+      !/normalizeStorageBackendWriteBridgeResult|normalizeRuntimeRunStateCommitBridgeResult|normalizeRuntimeAgentStateCommitBridgeResult|normalizeRuntimeMemoryStateCommitBridgeResult|normalizeRuntimeSubagentStateCommitBridgeResult|normalizeRuntimeArtifactStateCommitBridgeResult/.test(
+        runtimeAgentgresCore,
       ) &&
       !/artifact_refs:\s*Array\.isArray\(result\.artifact_refs\)\s*\?\s*result\.artifact_refs\s*:\s*record\.artifact_refs\s*\?\?\s*\[\]/.test(
-        runtimeAgentgresRunner,
+        runtimeAgentgresCore,
       ) &&
       !/payload_refs:\s*Array\.isArray\(result\.payload_refs\)\s*\?\s*result\.payload_refs\s*:\s*(?:record|storageRecord)\.payload_refs\s*\?\?\s*\[\]/.test(
-        runtimeAgentgresRunner,
+        runtimeAgentgresCore,
       ) &&
       !/receipt_refs:\s*Array\.isArray\(result\.receipt_refs\)\s*\?\s*result\.receipt_refs\s*:\s*(?:record|storageRecord)\.receipt_refs\s*\?\?\s*\[\]/.test(
-        runtimeAgentgresRunner,
+        runtimeAgentgresCore,
       ) &&
       !/evidence_refs:\s*Array\.isArray\(result\.evidence_refs\)\s*\?\s*result\.evidence_refs\s*:\s*\[\]/.test(
-        runtimeAgentgresRunner,
-      ) &&
-      /records:\s*arrayOrNull\(result\.records\)\s*\?\?\s*arrayOrNull\(storageWriteSet\.records\)/.test(
-        runtimeAgentgresRunner,
-      ) &&
-      /written_records:\s*Array\.isArray\(result\.written_records\)\s*\?\s*result\.written_records\s*:\s*null/.test(
-        runtimeAgentgresRunner,
+        runtimeAgentgresCore,
       ) &&
       !/records:\s*Array\.isArray\(result\.records\)\s*\?\s*result\.records\s*:\s*storageWriteSet\.records\s*\?\?\s*\[\]/.test(
-        runtimeAgentgresRunner,
+        runtimeAgentgresCore,
       ) &&
       !/written_records:\s*Array\.isArray\(result\.written_records\)\s*\?\s*result\.written_records\s*:\s*\[\]/.test(
-        runtimeAgentgresRunner,
+        runtimeAgentgresCore,
       ) &&
-      !/runtime Agentgres runner sends runtime-state record materialization bridge request/.test(
-        read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
+      !/runtime Agentgres core sends runtime-state record materialization bridge request/.test(
+        read("packages/runtime-daemon/src/runtime-agentgres-admission-core.test.mjs"),
       ) &&
-      !/runtime Agentgres runner sends runtime-state storage write-set bridge request/.test(
-        read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
+      !/runtime Agentgres core sends runtime-state storage write-set bridge request/.test(
+        read("packages/runtime-daemon/src/runtime-agentgres-admission-core.test.mjs"),
       ) &&
-      /runtime Agentgres runner sends runtime run-state commit through direct daemon-core invoker/.test(
-        read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
+      /runtime Agentgres core sends runtime run-state commit through direct daemon-core invoker/.test(
+        read("packages/runtime-daemon/src/runtime-agentgres-admission-core.test.mjs"),
       ) &&
       /commitRuntimeRunState\(request\)/.test(runtimeDaemonIndex) &&
       !/persistRuntimeStateRecords\(request\)/.test(runtimeDaemonIndex) &&
@@ -25132,8 +25108,8 @@ function runReceipts() {
       "crates/services/src/agentic/runtime/kernel/agentgres_admission.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs",
-      "packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-agentgres-admission-core.mjs",
+      "packages/runtime-daemon/src/runtime-agentgres-admission-core.test.mjs",
       "packages/runtime-daemon/src/threads/thread-persistence.mjs",
       "packages/runtime-daemon/src/threads/thread-persistence.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
@@ -25237,10 +25213,10 @@ function runReceipts() {
       /rust_agentgres_runtime_agent_state_commit_command/.test(agentgresCommandCore) &&
       /agentgres_command_commits_runtime_agent_state_through_rust_core/.test(agentgresCommandCore) &&
       !/bridge_commits_runtime_agent_state_through_rust_core/.test(bridgeModule) &&
-      /commitRuntimeAgentState/.test(runtimeAgentgresRunner) &&
-      /normalizeRuntimeAgentStateCommitBridgeResult/.test(runtimeAgentgresRunner) &&
-      /runtime Agentgres runner sends runtime agent-state commit through direct daemon-core invoker/.test(
-        read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
+      /commitRuntimeAgentState/.test(runtimeAgentgresCore) &&
+      !/normalizeRuntimeAgentStateCommitBridgeResult/.test(runtimeAgentgresCore) &&
+      /runtime Agentgres core sends runtime agent-state commit through direct daemon-core invoker/.test(
+        read("packages/runtime-daemon/src/runtime-agentgres-admission-core.test.mjs"),
       ) &&
       /commitRuntimeAgentState\(request\)/.test(runtimeDaemonIndex) &&
       /commitAgentState\(store, agent/.test(threadPersistence) &&
@@ -25274,8 +25250,8 @@ function runReceipts() {
       "crates/services/src/agentic/runtime/kernel/agentgres_admission.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs",
-      "packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-agentgres-admission-core.mjs",
+      "packages/runtime-daemon/src/runtime-agentgres-admission-core.test.mjs",
       "packages/runtime-daemon/src/threads/thread-persistence.mjs",
       "packages/runtime-daemon/src/threads/thread-persistence.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
@@ -25311,10 +25287,10 @@ function runReceipts() {
       /rust_agentgres_runtime_subagent_state_commit_command/.test(agentgresCommandCore) &&
       /agentgres_command_commits_runtime_subagent_state_through_rust_core/.test(agentgresCommandCore) &&
       !/bridge_commits_runtime_subagent_state_through_rust_core/.test(bridgeModule) &&
-      /commitRuntimeSubagentState/.test(runtimeAgentgresRunner) &&
-      /normalizeRuntimeSubagentStateCommitBridgeResult/.test(runtimeAgentgresRunner) &&
-      /runtime Agentgres runner sends runtime subagent-state commit through direct daemon-core invoker/.test(
-        read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
+      /commitRuntimeSubagentState/.test(runtimeAgentgresCore) &&
+      !/normalizeRuntimeSubagentStateCommitBridgeResult/.test(runtimeAgentgresCore) &&
+      /runtime Agentgres core sends runtime subagent-state commit through direct daemon-core invoker/.test(
+        read("packages/runtime-daemon/src/runtime-agentgres-admission-core.test.mjs"),
       ) &&
       /commitRuntimeSubagentState\(request\)/.test(runtimeDaemonIndex) &&
       /commitSubagentState\(store, subagent/.test(threadPersistence) &&
@@ -25353,8 +25329,8 @@ function runReceipts() {
       "crates/services/src/agentic/runtime/kernel/agentgres_admission.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs",
-      "packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-agentgres-admission-core.mjs",
+      "packages/runtime-daemon/src/runtime-agentgres-admission-core.test.mjs",
       "packages/runtime-daemon/src/threads/thread-persistence.mjs",
       "packages/runtime-daemon/src/threads/thread-persistence.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
@@ -27093,11 +27069,11 @@ function runCompositor() {
   )
     ? read("crates/services/src/agentic/runtime/kernel/runtime_conversation_artifact_control.rs")
     : "";
-  const runtimeAgentgresRunnerForThreadEvents = exists("packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs")
-    ? read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs")
+  const runtimeAgentgresCoreForThreadEvents = exists("packages/runtime-daemon/src/runtime-agentgres-admission-core.mjs")
+    ? read("packages/runtime-daemon/src/runtime-agentgres-admission-core.mjs")
     : "";
-  const runtimeAgentgresRunnerTestForThreadEvents = exists("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs")
-    ? read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs")
+  const runtimeAgentgresCoreTestForThreadEvents = exists("packages/runtime-daemon/src/runtime-agentgres-admission-core.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-agentgres-admission-core.test.mjs")
     : "";
   const runtimeThreadEventSurface = exists(
     "packages/runtime-daemon/src/runtime-thread-event-surface.mjs",
@@ -35826,9 +35802,9 @@ function runCompositor() {
       /rust_projection_skips_existing_runtime_thread_event_idempotency/.test(
         runtimeThreadEventCoreForCompositor,
       ) &&
-      /runtimeAgentgresAdmissionRunner\.admitRuntimeThreadEvent/.test(runtimeDaemonIndex) &&
-      /runtimeAgentgresAdmissionRunner\.projectRuntimeThreadEvents/.test(runtimeDaemonIndex) &&
-      /runtimeAgentgresAdmissionRunner\.projectRuntimeThreadEventReplay/.test(runtimeDaemonIndex) &&
+      /runtimeAgentgresAdmissionCore\.admitRuntimeThreadEvent/.test(runtimeDaemonIndex) &&
+      /runtimeAgentgresAdmissionCore\.projectRuntimeThreadEvents/.test(runtimeDaemonIndex) &&
+      /runtimeAgentgresAdmissionCore\.projectRuntimeThreadEventReplay/.test(runtimeDaemonIndex) &&
       /admitRuntimeThreadEventForThread/.test(runtimeDaemonIndex) &&
       /projectRuntimeThreadEventsForThread/.test(runtimeDaemonIndex) &&
       /projectRuntimeThreadEventReplayForThread/.test(runtimeDaemonIndex) &&
@@ -35839,31 +35815,25 @@ function runCompositor() {
       /store\.registerRuntimeEvent\(admittedEvent\)/.test(runtimeDaemonIndex) &&
       /store\.registerRuntimeEvent\(event\)/.test(runtimeDaemonIndex) &&
       /admitRuntimeThreadEvent\(request = \{\}\)/.test(
-        runtimeAgentgresRunnerForThreadEvents,
+        runtimeAgentgresCoreForThreadEvents,
       ) &&
       /projectRuntimeThreadEvents\(request = \{\}\)/.test(
-        runtimeAgentgresRunnerForThreadEvents,
+        runtimeAgentgresCoreForThreadEvents,
       ) &&
       /projectRuntimeThreadEventReplay\(request = \{\}\)/.test(
-        runtimeAgentgresRunnerForThreadEvents,
+        runtimeAgentgresCoreForThreadEvents,
       ) &&
-      /normalizeRuntimeThreadEventAdmissionBridgeResult/.test(
-        runtimeAgentgresRunnerForThreadEvents,
+      !/normalizeRuntimeThreadEventAdmissionBridgeResult/.test(runtimeAgentgresCoreForThreadEvents) &&
+      !/normalizeRuntimeThreadEventProjectionBridgeResult/.test(runtimeAgentgresCoreForThreadEvents) &&
+      !/normalizeRuntimeThreadEventReplayBridgeResult/.test(runtimeAgentgresCoreForThreadEvents) &&
+      /runtime Agentgres core admits runtime thread events through direct daemon-core invoker/.test(
+        runtimeAgentgresCoreTestForThreadEvents,
       ) &&
-      /normalizeRuntimeThreadEventProjectionBridgeResult/.test(
-        runtimeAgentgresRunnerForThreadEvents,
+      /runtime Agentgres core projects runtime thread events through direct daemon-core invoker/.test(
+        runtimeAgentgresCoreTestForThreadEvents,
       ) &&
-      /normalizeRuntimeThreadEventReplayBridgeResult/.test(
-        runtimeAgentgresRunnerForThreadEvents,
-      ) &&
-      /runtime Agentgres runner admits runtime thread events through direct daemon-core invoker/.test(
-        runtimeAgentgresRunnerTestForThreadEvents,
-      ) &&
-      /runtime Agentgres runner projects runtime thread events through direct daemon-core invoker/.test(
-        runtimeAgentgresRunnerTestForThreadEvents,
-      ) &&
-      /runtime Agentgres runner replays runtime thread events through direct daemon-core invoker/.test(
-        runtimeAgentgresRunnerTestForThreadEvents,
+      /runtime Agentgres core replays runtime thread events through direct daemon-core invoker/.test(
+        runtimeAgentgresCoreTestForThreadEvents,
       ) &&
       /runtime_thread_event_rust_core_required/.test(threadReplay) &&
       /rust_core_boundary:\s*"runtime\.thread_event"/.test(threadReplay) &&
@@ -35937,8 +35907,8 @@ function runCompositor() {
       "crates/services/src/agentic/runtime/kernel/runtime_thread_event.rs",
       "packages/runtime-daemon/src/threads/thread-replay.mjs",
       "packages/runtime-daemon/src/threads/thread-replay.test.mjs",
-      "packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs",
-      "packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-agentgres-admission-core.mjs",
+      "packages/runtime-daemon/src/runtime-agentgres-admission-core.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
       "packages/runtime-daemon/src/runtime-thread-event-surface.mjs",
       "packages/runtime-daemon/src/runtime-thread-event-surface.test.mjs",
@@ -35976,25 +35946,21 @@ function runCompositor() {
         coreCommandDispatchForCompositor,
       ) &&
       /RUNTIME_THREAD_TURN_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
-        runtimeAgentgresRunnerForThreadEvents,
+        runtimeAgentgresCoreForThreadEvents,
       ) &&
       /projectRuntimeThreadTurnProjection\(request = \{\}\)/.test(
-        runtimeAgentgresRunnerForThreadEvents,
+        runtimeAgentgresCoreForThreadEvents,
       ) &&
       /operation:\s*"project_runtime_thread_turn_projection"/.test(
-        runtimeAgentgresRunnerForThreadEvents,
+        runtimeAgentgresCoreForThreadEvents,
       ) &&
-      /normalizeRuntimeThreadTurnProjectionBridgeResult/.test(
-        runtimeAgentgresRunnerForThreadEvents,
+      !/normalizeRuntimeThreadTurnProjectionBridgeResult/.test(runtimeAgentgresCoreForThreadEvents) &&
+      /runtime Agentgres core projects runtime thread and turn records through direct daemon-core invoker/.test(
+        runtimeAgentgresCoreTestForThreadEvents,
       ) &&
-      /runtime Agentgres runner projects runtime thread and turn records through direct daemon-core invoker/.test(
-        runtimeAgentgresRunnerTestForThreadEvents,
-      ) &&
-      /runtime thread and turn projection normalizer exposes only Rust-returned record truth/.test(
-        runtimeAgentgresRunnerTestForThreadEvents,
-      ) &&
+      /runtime Agentgres core returns Rust envelopes without JS normalization/.test(runtimeAgentgresCoreTestForThreadEvents) &&
       /projectRuntimeThreadTurnProjectionForThread/.test(runtimeDaemonIndex) &&
-      /runtimeAgentgresAdmissionRunner\.projectRuntimeThreadTurnProjection/.test(
+      /runtimeAgentgresAdmissionCore\.projectRuntimeThreadTurnProjection/.test(
         runtimeDaemonIndex,
       ) &&
       /projectRustThreadTurnProjection/.test(threadTurnProjection) &&
@@ -36018,8 +35984,8 @@ function runCompositor() {
       "crates/services/src/agentic/runtime/kernel/runtime_thread_event.rs",
       "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
       "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
-      "packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs",
-      "packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-agentgres-admission-core.mjs",
+      "packages/runtime-daemon/src/runtime-agentgres-admission-core.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
       "packages/runtime-daemon/src/threads/thread-turn-projection.mjs",
       "packages/runtime-daemon/src/threads/thread-turn-projection.test.mjs",
