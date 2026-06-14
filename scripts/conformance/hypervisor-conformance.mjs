@@ -4136,16 +4136,26 @@ function runBridge() {
       ) &&
       !exists("packages/runtime-daemon/src/runtime-worker-service-package-runner.mjs") &&
       !exists("packages/runtime-daemon/src/runtime-worker-service-package-runner.test.mjs") &&
-      /createRuntimeWorkerServicePackageCore\(\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
+      /this\.daemonCoreWorkerServiceApi = options\.daemonCoreWorkerServiceApi/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /createRuntimeWorkerServicePackageCore\(\{\s*daemonCoreWorkerServiceApi: this\.daemonCoreWorkerServiceApi,\s*\}\)/.test(
         runtimeDaemonIndex,
       ) &&
       /this\.workerServicePackageCore/.test(runtimeDaemonIndex) &&
       !/this\.workerServicePackageRunner/.test(runtimeDaemonIndex) &&
       /RuntimeWorkerServicePackageCore/.test(workerServicePackageCore) &&
-      /this\.daemonCoreInvoker = optionalFunction\(options\.daemonCoreInvoker\)/.test(
+      /WORKER_SERVICE_PACKAGE_CORE_API_METHOD = "admitWorkerServicePackageInvocation"/.test(
         workerServicePackageCore,
       ) &&
-      /operation:\s*"admit_worker_service_package_invocation"/.test(
+      /this\.daemonCoreWorkerServiceApi = workerServiceApi/.test(workerServicePackageCore) &&
+      /assertNoRetiredWorkerServicePackageCoreOption\("daemonCoreInvoker", options\.daemonCoreInvoker\)/.test(
+        workerServicePackageCore,
+      ) &&
+      /worker_service_package_core_direct_worker_service_api_unconfigured/.test(
+        workerServicePackageCore,
+      ) &&
+      !/operation:\s*"admit_worker_service_package_invocation"|ioi\.runtime\.daemon_core\.command\.v1|this\.daemonCoreInvoker = optionalFunction\(options\.daemonCoreInvoker\)/.test(
         workerServicePackageCore,
       ) &&
       !/process\.env|IOI_RUNTIME_DAEMON_CORE_COMMAND|IOI_WORKER_SERVICE_PACKAGE_COMMAND|normalizeWorkerServicePackageBridgeResult|stringArray|createWorkerServicePackageRunnerFromEnv/.test(
@@ -7664,16 +7674,19 @@ function runBridge() {
       !/L1SettlementTriggerGuard/.test(governedAdmissionCommandBridge) &&
       !/GovernedEvolutionCore/.test(governedAdmissionCommandBridge) &&
       /rust_core_shapes_ctee_receipt_protocol_response/.test(governedReceiptCore) &&
-      /rust_core_shapes_worker_service_package_receipt_response/.test(governedReceiptCore) &&
+      /rust_core_shapes_worker_service_package_receipt_protocol_response/.test(governedReceiptCore) &&
       !/execute_private_workspace_ctee_action_response as execute_private_workspace_ctee_action/.test(bridgeModule) &&
       !/admit_worker_service_package_invocation_response as admit_worker_service_package_invocation/.test(bridgeModule) &&
       /pub mod governed_receipt;/.test(kernelModuleForBridgeChecks) &&
       /pub fn execute_private_workspace_ctee_action_protocol_response/.test(
         governedReceiptCore,
       ) &&
-      /pub fn admit_worker_service_package_invocation_response/.test(
+      /pub fn admit_worker_service_package_invocation_protocol_response/.test(
         governedReceiptCore,
       ) &&
+      /worker_service_package_command_transport_is_retired/.test(commandProtocolCore) &&
+      !/AdmitWorkerServicePackageInvocation/.test(commandProtocolCore) &&
+      !/"admit_worker_service_package_invocation",/.test(commandProtocolCore) &&
       /ReceiptBinder/.test(governedReceiptCore) &&
       /accepted_receipt_append/.test(governedReceiptCore) &&
       !/pub\(super\) fn execute_private_workspace_ctee_action/.test(
@@ -18072,15 +18085,18 @@ function runBridge() {
       ) &&
       !governedReceiptCommandBridgeExists &&
       !/WorkerServicePackageInvocationBridgeRequest/.test(bridgeModule) &&
-      /pub struct WorkerServicePackageInvocationBridgeRequest/.test(
+      /pub struct WorkerServicePackageInvocationProtocolRequest/.test(
         governedReceiptCore,
       ) &&
-      /rust_core_shapes_worker_service_package_receipt_response/.test(governedReceiptCore) &&
+      /rust_core_shapes_worker_service_package_receipt_protocol_response/.test(governedReceiptCore) &&
       !/admit_worker_service_package_invocation_response as admit_worker_service_package_invocation/.test(bridgeModule) &&
       /WorkerServicePackageInvocationCore/.test(governedReceiptCore) &&
-      /rust_worker_service_package_invocation_command/.test(
+      /rust_worker_service_package_invocation_protocol/.test(
         governedReceiptCore,
       ) &&
+      /worker_service_package_command_transport_is_retired/.test(commandProtocolCore) &&
+      !/AdmitWorkerServicePackageInvocation/.test(commandProtocolCore) &&
+      !/"admit_worker_service_package_invocation",/.test(commandProtocolCore) &&
       /"schema_version":\s*"ioi\.runtime\.worker_service_package_admission\.v1"/.test(
         governedReceiptCore,
       ) &&
@@ -18107,18 +18123,23 @@ function runBridge() {
     !exists("packages/runtime-daemon/src/runtime-worker-service-package-runner.mjs") &&
       !exists("packages/runtime-daemon/src/runtime-worker-service-package-runner.test.mjs") &&
       !exists("packages/runtime-daemon/src/runtime-worker-service-package-store.test.mjs") &&
-      /ioi\.runtime\.daemon_core\.command\.v1/.test(workerServicePackageCore) &&
       /RuntimeWorkerServicePackageCore/.test(workerServicePackageCore) &&
+      /WORKER_SERVICE_PACKAGE_CORE_API_METHOD = "admitWorkerServicePackageInvocation"/.test(
+        workerServicePackageCore,
+      ) &&
       /createRuntimeWorkerServicePackageCore/.test(workerServicePackageCore) &&
       /admitInvocation/.test(workerServicePackageCore) &&
-      /admit_worker_service_package_invocation/.test(workerServicePackageCore) &&
+      /this\.daemonCoreWorkerServiceApi = workerServiceApi/.test(workerServicePackageCore) &&
       /thread_id:\s*optionalString\(context\.thread_id\)/.test(workerServicePackageCore) &&
       /agent_id:\s*optionalString\(context\.agent_id\)/.test(workerServicePackageCore) &&
       /rust_package_invocation/.test(workerServicePackageCore) &&
-      /this\.daemonCoreInvoker\s*=\s*optionalFunction\(options\.daemonCoreInvoker\)/.test(
+      /assertNoRetiredWorkerServicePackageCoreOption\("daemonCoreInvoker", options\.daemonCoreInvoker\)/.test(
         workerServicePackageCore,
       ) &&
-      /worker_service_package_core_direct_invoker_unconfigured/.test(
+      /worker_service_package_core_direct_worker_service_api_unconfigured/.test(
+        workerServicePackageCore,
+      ) &&
+      !/ioi\.runtime\.daemon_core\.command\.v1|operation:\s*"admit_worker_service_package_invocation"|this\.daemonCoreInvoker = optionalFunction\(options\.daemonCoreInvoker\)/.test(
         workerServicePackageCore,
       ) &&
       /worker_service_package_core_compatibility_option_retired/.test(
@@ -18139,12 +18160,15 @@ function runBridge() {
       ) &&
       !/createDaemonCoreCommandInvoker/.test(workerServicePackageCore) &&
       !/from "node:child_process"/.test(workerServicePackageCore) &&
-      /createRuntimeWorkerServicePackageCore\(\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
+      /createRuntimeWorkerServicePackageCore\(\{\s*daemonCoreWorkerServiceApi: this\.daemonCoreWorkerServiceApi,\s*\}\)/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /this\.daemonCoreWorkerServiceApi = options\.daemonCoreWorkerServiceApi/.test(
         runtimeDaemonIndex,
       ) &&
       /this\.workerServicePackageCore/.test(runtimeDaemonIndex) &&
       !/this\.workerServicePackageRunner/.test(runtimeDaemonIndex) &&
-      /worker\/service package core calls direct Rust daemon-core package API/.test(
+      /worker\/service package core calls typed Rust daemon-core package API/.test(
         workerServicePackageCoreTest,
       ) &&
       /worker\/service package core returns the Rust envelope without JS normalization/.test(
@@ -18168,13 +18192,19 @@ function runBridge() {
       /worker\/service package core rejects retired bridge request aliases before Rust invocation/.test(
         workerServicePackageCoreTest,
       ) &&
-      /worker\/service package core fails closed without direct daemon-core API/.test(
+      /worker\/service package core fails closed without typed daemon-core package API/.test(
+        workerServicePackageCoreTest,
+      ) &&
+      /new RuntimeWorkerServicePackageCore\(\{ daemonCoreInvoker\(\) \{\} \}\)/.test(
         workerServicePackageCoreTest,
       ) &&
       /worker\/service package core surfaces Rust invocation rejection/.test(
         workerServicePackageCoreTest,
       ) &&
       /runtime store mounts worker\/service package core from options/.test(
+        workerServicePackageCoreStoreTest,
+      ) &&
+      /runtime store wires worker\/service package to typed Rust package API/.test(
         workerServicePackageCoreStoreTest,
       ) &&
       /Object\.hasOwn\(store,\s*"workerServicePackageRunner"\),\s*false/.test(

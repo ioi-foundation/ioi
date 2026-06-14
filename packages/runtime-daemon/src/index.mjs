@@ -597,6 +597,7 @@ export class AgentgresRuntimeStateStore {
     this.daemonCoreInvoker = options.daemonCoreInvoker;
     this.daemonCoreAuthorityApi = options.daemonCoreAuthorityApi;
     this.daemonCoreCteeApi = options.daemonCoreCteeApi;
+    this.daemonCoreWorkerServiceApi = options.daemonCoreWorkerServiceApi;
     if (Object.hasOwn(options, "contextPolicyRunner")) {
       throw new Error("contextPolicyRunner is retired; pass contextPolicyCore for the Rust daemon-core policy boundary.");
     }
@@ -633,7 +634,7 @@ export class AgentgresRuntimeStateStore {
     this.workerServicePackageCore =
       options.workerServicePackageCore ??
       createRuntimeWorkerServicePackageCore({
-        daemonCoreInvoker: this.daemonCoreInvoker,
+        daemonCoreWorkerServiceApi: this.daemonCoreWorkerServiceApi,
       });
     this.cteePrivateWorkspaceCore =
       options.cteePrivateWorkspaceCore ??

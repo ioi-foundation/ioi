@@ -40,7 +40,6 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "plan_model_mount_accepted_receipt_transition",
     "bind_model_mount_invocation_receipt",
     "plan_model_mount_read_projection",
-    "admit_worker_service_package_invocation",
     "commit_runtime_run_state",
     "commit_runtime_agent_state",
     "commit_runtime_memory_state",
@@ -185,7 +184,6 @@ pub enum CommandOperation {
     PlanModelMountAcceptedReceiptTransition,
     BindModelMountInvocationReceipt,
     PlanModelMountReadProjection,
-    AdmitWorkerServicePackageInvocation,
     CommitRuntimeRunState,
     CommitRuntimeAgentState,
     CommitRuntimeMemoryState,
@@ -339,7 +337,6 @@ impl CommandOperation {
             }
             Self::BindModelMountInvocationReceipt => "bind_model_mount_invocation_receipt",
             Self::PlanModelMountReadProjection => "plan_model_mount_read_projection",
-            Self::AdmitWorkerServicePackageInvocation => "admit_worker_service_package_invocation",
             Self::CommitRuntimeRunState => "commit_runtime_run_state",
             Self::CommitRuntimeAgentState => "commit_runtime_agent_state",
             Self::CommitRuntimeMemoryState => "commit_runtime_memory_state",
@@ -622,9 +619,6 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
             Some(CommandOperation::BindModelMountInvocationReceipt)
         }
         "plan_model_mount_read_projection" => Some(CommandOperation::PlanModelMountReadProjection),
-        "admit_worker_service_package_invocation" => {
-            Some(CommandOperation::AdmitWorkerServicePackageInvocation)
-        }
         "commit_runtime_run_state" => Some(CommandOperation::CommitRuntimeRunState),
         "commit_runtime_agent_state" => Some(CommandOperation::CommitRuntimeAgentState),
         "commit_runtime_memory_state" => Some(CommandOperation::CommitRuntimeMemoryState),
@@ -1010,6 +1004,18 @@ mod tests {
         );
         assert_eq!(
             expected_command_schema_version("execute_private_workspace_ctee_action"),
+            None
+        );
+    }
+
+    #[test]
+    fn worker_service_package_command_transport_is_retired() {
+        assert_eq!(
+            command_operation("admit_worker_service_package_invocation"),
+            None
+        );
+        assert_eq!(
+            expected_command_schema_version("admit_worker_service_package_invocation"),
             None
         );
     }

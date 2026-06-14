@@ -6713,7 +6713,7 @@ cTEE StepModule kind/backend guard, caller-supplied expected-head rejection,
 private-workspace cTEE execution/admission wrapping, worker/service package
 invocation admission wrapping, accepted-receipt append through `ReceiptBinder`,
 and the canonical `rust_ctee_private_workspace_protocol` and
-`rust_worker_service_package_invocation_command` response envelopes.
+`rust_worker_service_package_invocation_protocol` response envelopes.
 
 This was non-terminal because the Node bridge, command dispatch table, shared
 daemon-core command runner, JS command callers, and receipt-bearing JS runners
@@ -7240,20 +7240,24 @@ and broad bridge transport with direct Rust daemon-core protocol APIs.
 
 Slice 1144 moves worker/service package product-route admission envelope
 authorship out of the JS surface and into Rust `governed_receipt.rs`. The Rust
-`WorkerServicePackageInvocationBridgeRequest` now accepts thread/agent route
-context and `admit_worker_service_package_invocation_response()` emits the
-canonical `ioi.runtime.worker_service_package_admission.v1` route envelope,
+`WorkerServicePackageInvocationProtocolRequest` now accepts thread/agent route
+context and `admit_worker_service_package_invocation_protocol_response()` emits
+the canonical `ioi.runtime.worker_service_package_admission.v1` route envelope,
 including `invocation_admitted`, `thread_id`, `agent_id`, package refs,
 StepModuleRouter admission, receipt binding, accepted-receipt append,
 Agentgres admission, projection record, receipt refs, artifact refs, payload
 refs, and authority grant refs. The JS worker/service package surface now only
 extracts the canonical `invocation` body, rejects retired request/truth fields,
-looks up the thread agent, and forwards context to the Rust-backed runner; it
-no longer mints the public package-admission response locally.
+looks up the thread agent, and forwards context to the mounted core; it no
+longer mints the public package-admission response locally. The mounted core now
+requires typed `daemonCoreWorkerServiceApi.admitWorkerServicePackageInvocation`,
+rejects generic `daemonCoreInvoker`, and the old Rust
+`admit_worker_service_package_invocation` command operation is retired.
 
-This remains non-terminal because the route still reaches Rust through the
-shared JS daemon-core command runner and Node bridge stdin/JSON transport. The
-deleted JS-side worker/service package response-envelope authorship must not be
+This remains non-terminal because richer package projection/replay records,
+Agentgres receipt/state-root binding, and stable IDE/CLI/SDK package admission
+read APIs still need direct Rust ownership. The deleted JS-side worker/service
+package response-envelope authorship and command-envelope operation must not be
 recreated or treated as canonical. The next larger cuts should continue
 removing JS product-route envelope authorship where Rust already owns the
 admission/receipt context, then replace the shared command runner/caller path
@@ -8274,19 +8278,25 @@ direct Rust ownership.
 
 Slice 1202 retires the daemon worker/service package runner outright. The
 daemon store now mounts `workerServicePackageCore`; the JS runner facade, store
-runner option, command/env fallback, and response normalizer are deleted. The
-core builds only the canonical Rust daemon-core
-`admit_worker_service_package_invocation` request, fails closed without the
-daemon-level `daemonCoreInvoker`, rejects retired request aliases/options, and
-returns the Rust `governed_receipt.rs` admission envelope as-is.
+runner option, command/env fallback, and response normalizer are deleted.
+
+The follow-on transport cut supersedes that direct-invoker-only edge: the
+worker/service package core now requires typed
+`daemonCoreWorkerServiceApi.admitWorkerServicePackageInvocation`, rejects
+generic `daemonCoreInvoker`, calls Rust with the canonical invocation plus
+thread/agent route context, and returns the Rust `governed_receipt.rs`
+admission protocol envelope as-is. Rust `command_protocol.rs` rejects
+`admit_worker_service_package_invocation` as a daemon-core command operation, so
+the old command-envelope path cannot be selected for this migrated family.
 
 This removes JS envelope truth for the receipt-bearing worker/service package
 path: package admission, router admission, receipt binding, accepted receipt
 append, Agentgres admission, projection records, receipt refs, artifact refs,
 payload refs, authority grant refs, source, and backend truth must arrive from
 Rust daemon-core output or remain absent at the JS edge. It is still not
-terminal because the mounted core builds a temporary command-envelope request
-and other command runners still carry temporary command transport.
+terminal because richer package projection/replay records, deeper Agentgres
+receipt/state-root binding, stable IDE/CLI/SDK package admission read APIs, and
+other route-family command transports remain non-terminal.
 
 Slice 1201 retires the temporary binary-spawn fallback for the daemon workspace
 restore runner. `runtime-workspace-restore-runner.mjs` no longer imports the

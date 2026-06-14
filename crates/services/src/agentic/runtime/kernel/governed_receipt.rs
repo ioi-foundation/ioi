@@ -44,9 +44,7 @@ pub struct CteePrivateWorkspaceProtocolRequest {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct WorkerServicePackageInvocationBridgeRequest {
-    #[serde(default)]
-    pub backend: Option<String>,
+pub struct WorkerServicePackageInvocationProtocolRequest {
     #[serde(default)]
     pub thread_id: Option<String>,
     #[serde(default)]
@@ -118,8 +116,8 @@ pub fn execute_private_workspace_ctee_action_protocol_response(
     }))
 }
 
-pub fn admit_worker_service_package_invocation_response(
-    request: WorkerServicePackageInvocationBridgeRequest,
+pub fn admit_worker_service_package_invocation_protocol_response(
+    request: WorkerServicePackageInvocationProtocolRequest,
 ) -> Result<Value, GovernedReceiptError> {
     let record = WorkerServicePackageInvocationCore
         .admit_invocation(&request.request)
@@ -157,8 +155,8 @@ pub fn admit_worker_service_package_invocation_response(
         "object": "ioi.runtime_worker_service_package_admission",
         "status": "admitted",
         "invocation_admitted": true,
-        "source": "rust_worker_service_package_invocation_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_package_invocation".to_string()),
+        "source": "rust_worker_service_package_invocation_protocol",
+        "backend": "rust_package_invocation",
         "thread_id": request.thread_id,
         "agent_id": request.agent_id,
         "record": record.clone(),
@@ -384,10 +382,9 @@ mod tests {
     }
 
     #[test]
-    fn rust_core_shapes_worker_service_package_receipt_response() {
-        let response = admit_worker_service_package_invocation_response(
-            WorkerServicePackageInvocationBridgeRequest {
-                backend: Some("rust_package_invocation".to_string()),
+    fn rust_core_shapes_worker_service_package_receipt_protocol_response() {
+        let response = admit_worker_service_package_invocation_protocol_response(
+            WorkerServicePackageInvocationProtocolRequest {
                 thread_id: Some("thread:worker".to_string()),
                 agent_id: Some("agent:worker".to_string()),
                 request: WorkerServicePackageInvocationRequest {
@@ -405,7 +402,7 @@ mod tests {
 
         assert_eq!(
             response["source"],
-            "rust_worker_service_package_invocation_command"
+            "rust_worker_service_package_invocation_protocol"
         );
         assert_eq!(
             response["schema_version"],

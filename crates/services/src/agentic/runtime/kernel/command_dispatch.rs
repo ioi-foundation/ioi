@@ -5,7 +5,7 @@ use std::io::{self, Read};
 use super::{
     agentgres_command::*, approval::*, coding_tool_artifact::*, coding_tool_event::*,
     coding_tool_step_module::*, command_protocol::CommandOperation, governed_admission::*,
-    governed_receipt::*, model_mount::*, model_mount_receipt::*, policy::*, repository_workflow::*,
+    model_mount::*, model_mount_receipt::*, policy::*, repository_workflow::*,
     runtime_conversation_artifact_control::*, runtime_conversation_artifact_projection::*,
     runtime_diagnostics_repair_control::*, runtime_diagnostics_repair_policy::*,
     runtime_diagnostics_repair_projection::*, runtime_lifecycle::*,
@@ -276,10 +276,6 @@ pub fn dispatch_command_operation_response(
         CommandOperation::PlanModelMountReadProjection => {
             plan_model_mount_read_projection_response(decode(raw_request)?)
                 .map_err(CommandDispatchError::from)
-        }
-        CommandOperation::AdmitWorkerServicePackageInvocation => {
-            admit_worker_service_package_invocation_response(decode(raw_request)?)
-                .map_err(Into::into)
         }
         CommandOperation::AdmitL1SettlementAttempt => {
             admit_l1_settlement_attempt_response(decode(raw_request)?).map_err(Into::into)
@@ -698,7 +694,6 @@ command_error_from!(AgentgresCommandError);
 command_error_from!(ApprovalCommandError);
 command_error_from!(CodingToolStepModuleCommandError);
 command_error_from!(GovernedAdmissionError);
-command_error_from!(GovernedReceiptError);
 command_error_from!(RuntimeCodingToolArtifactDraftPlanCommandError);
 command_error_from!(RuntimeCodingToolArtifactReadProjectionCommandError);
 command_error_from!(ModelMountReceiptError);

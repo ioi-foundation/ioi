@@ -5,7 +5,6 @@ import {
   RUNTIME_WORKER_SERVICE_PACKAGE_BACKEND,
   RuntimeWorkerServicePackageCore,
   RuntimeWorkerServicePackageCoreError,
-  WORKER_SERVICE_PACKAGE_CORE_SCHEMA_VERSION,
   createRuntimeWorkerServicePackageCore,
 } from "./runtime-worker-service-package-core.mjs";
 
@@ -88,31 +87,31 @@ function packageInvocationRequest() {
   };
 }
 
-function admittedResult(coreRequest) {
+function admittedResult(request, context) {
   return {
     schema_version: "ioi.runtime.worker_service_package_admission.v1",
     object: "ioi.runtime_worker_service_package_admission",
     status: "admitted",
     invocation_admitted: true,
-    source: "rust_worker_service_package_invocation_command",
+    source: "rust_worker_service_package_invocation_protocol",
     backend: RUNTIME_WORKER_SERVICE_PACKAGE_BACKEND,
-    thread_id: coreRequest.thread_id,
-    agent_id: coreRequest.agent_id,
+    thread_id: context.thread_id,
+    agent_id: context.agent_id,
     record: {
-      package_kind: coreRequest.request.package_kind,
-      package_ref: coreRequest.request.package_ref,
-      manifest_ref: coreRequest.request.manifest_ref,
-      invocation_id: coreRequest.request.invocation.invocation_id,
+      package_kind: request.package_kind,
+      package_ref: request.package_ref,
+      manifest_ref: request.manifest_ref,
+      invocation_id: request.invocation.invocation_id,
       authority_grant_refs:
-        coreRequest.request.invocation.authority.authority_grant_refs,
-      receipt_refs: coreRequest.request.result.receipt_refs,
-      artifact_refs: coreRequest.request.result.artifact_refs,
-      payload_refs: coreRequest.request.result.payload_refs,
+        request.invocation.authority.authority_grant_refs,
+      receipt_refs: request.result.receipt_refs,
+      artifact_refs: request.result.artifact_refs,
+      payload_refs: request.result.payload_refs,
     },
-    package_kind: coreRequest.request.package_kind,
-    package_ref: coreRequest.request.package_ref,
-    manifest_ref: coreRequest.request.manifest_ref,
-    invocation_id: coreRequest.request.invocation.invocation_id,
+    package_kind: request.package_kind,
+    package_ref: request.package_ref,
+    manifest_ref: request.manifest_ref,
+    invocation_id: request.invocation.invocation_id,
     router_admission: {
       backend: "workload_grpc",
       admission_ref: "admission://worker-package",
@@ -130,20 +129,22 @@ function admittedResult(coreRequest) {
       workflow_node_id: "node.worker-package",
       status: "live",
     },
-    receipt_refs: coreRequest.request.result.receipt_refs,
-    artifact_refs: coreRequest.request.result.artifact_refs,
-    payload_refs: coreRequest.request.result.payload_refs,
+    receipt_refs: request.result.receipt_refs,
+    artifact_refs: request.result.artifact_refs,
+    payload_refs: request.result.payload_refs,
     authority_grant_refs:
-      coreRequest.request.invocation.authority.authority_grant_refs,
+      request.invocation.authority.authority_grant_refs,
   };
 }
 
-test("worker/service package core calls direct Rust daemon-core package API", () => {
+test("worker/service package core calls typed Rust daemon-core package API", () => {
   const calls = [];
   const core = createRuntimeWorkerServicePackageCore({
-    daemonCoreInvoker(coreRequest) {
-      calls.push(coreRequest);
-      return admittedResult(coreRequest);
+    daemonCoreWorkerServiceApi: {
+      admitWorkerServicePackageInvocation(request, context) {
+        calls.push({ request, context });
+        return admittedResult(request, context);
+      },
     },
   });
 
@@ -153,20 +154,21 @@ test("worker/service package core calls direct Rust daemon-core package API", ()
   });
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].schema_version, WORKER_SERVICE_PACKAGE_CORE_SCHEMA_VERSION);
-  assert.equal(calls[0].operation, "admit_worker_service_package_invocation");
-  assert.equal(calls[0].backend, RUNTIME_WORKER_SERVICE_PACKAGE_BACKEND);
-  assert.equal(calls[0].thread_id, "thread:worker-core");
-  assert.equal(calls[0].agent_id, "agent:worker-core");
   assert.equal(calls[0].request.package_ref, "worker://runtime-auditor");
   assert.equal(Object.hasOwn(calls[0].request, "expected_heads"), false);
+  assert.deepEqual(calls[0].context, {
+    thread_id: "thread:worker-core",
+    agent_id: "agent:worker-core",
+  });
+  assert.equal(Object.hasOwn(calls[0], "operation"), false);
+  assert.equal(Object.hasOwn(calls[0], "schema_version"), false);
   assert.equal(result.schema_version, "ioi.runtime.worker_service_package_admission.v1");
   assert.equal(result.object, "ioi.runtime_worker_service_package_admission");
   assert.equal(result.status, "admitted");
   assert.equal(result.invocation_admitted, true);
   assert.equal(result.thread_id, "thread:worker-core");
   assert.equal(result.agent_id, "agent:worker-core");
-  assert.equal(result.source, "rust_worker_service_package_invocation_command");
+  assert.equal(result.source, "rust_worker_service_package_invocation_protocol");
   assert.equal(result.backend, RUNTIME_WORKER_SERVICE_PACKAGE_BACKEND);
   assert.equal(result.package_ref, "worker://runtime-auditor");
   assert.equal(result.invocation_id, "invocation://worker-package/daemon-core");
@@ -184,8 +186,10 @@ test("worker/service package core returns the Rust envelope without JS normaliza
     record: {},
   };
   const core = createRuntimeWorkerServicePackageCore({
-    daemonCoreInvoker() {
-      return rustEnvelope;
+    daemonCoreWorkerServiceApi: {
+      admitWorkerServicePackageInvocation() {
+        return rustEnvelope;
+      },
     },
   });
 
@@ -213,14 +217,23 @@ test("worker/service package core rejects retired compatibility options", () => 
       error instanceof RuntimeWorkerServicePackageCoreError &&
       error.code === "worker_service_package_core_compatibility_option_retired",
   );
+  assert.throws(
+    () => new RuntimeWorkerServicePackageCore({ daemonCoreInvoker() {} }),
+    (error) =>
+      error instanceof RuntimeWorkerServicePackageCoreError &&
+      error.code === "worker_service_package_core_compatibility_option_retired" &&
+      error.details.retired_option === "daemonCoreInvoker",
+  );
 });
 
 test("worker/service package core rejects retired bridge request aliases before Rust invocation", () => {
   const calls = [];
   const core = createRuntimeWorkerServicePackageCore({
-    daemonCoreInvoker() {
-      calls.push("invoked");
-      return {};
+    daemonCoreWorkerServiceApi: {
+      admitWorkerServicePackageInvocation() {
+        calls.push("invoked");
+        return {};
+      },
     },
   });
   const request = packageInvocationRequest();
@@ -247,25 +260,27 @@ test("worker/service package core rejects retired bridge request aliases before 
   assert.deepEqual(calls, []);
 });
 
-test("worker/service package core fails closed without direct daemon-core API", () => {
+test("worker/service package core fails closed without typed daemon-core package API", () => {
   const core = createRuntimeWorkerServicePackageCore({});
 
   assert.throws(
     () => core.admitInvocation(packageInvocationRequest()),
-    (error) => error.code === "worker_service_package_core_direct_invoker_unconfigured",
+    (error) => error.code === "worker_service_package_core_direct_worker_service_api_unconfigured",
   );
 });
 
 test("worker/service package core surfaces Rust invocation rejection", () => {
   const core = createRuntimeWorkerServicePackageCore({
-    daemonCoreInvoker() {
-      return {
-        ok: false,
-        error: {
-          code: "worker_service_package_invocation_invalid",
-          message: "missing authority grant",
-        },
-      };
+    daemonCoreWorkerServiceApi: {
+      admitWorkerServicePackageInvocation() {
+        return {
+          ok: false,
+          error: {
+            code: "worker_service_package_invocation_invalid",
+            message: "missing authority grant",
+          },
+        };
+      },
     },
   });
 

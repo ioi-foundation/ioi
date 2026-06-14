@@ -1,5 +1,5 @@
-export const WORKER_SERVICE_PACKAGE_CORE_SCHEMA_VERSION = "ioi.runtime.daemon_core.command.v1";
 export const RUNTIME_WORKER_SERVICE_PACKAGE_BACKEND = "rust_package_invocation";
+export const WORKER_SERVICE_PACKAGE_CORE_API_METHOD = "admitWorkerServicePackageInvocation";
 
 const RETIRED_WORKER_SERVICE_PACKAGE_CORE_REQUEST_ALIASES = [
   "packageInvocation",
@@ -16,36 +16,44 @@ export class RuntimeWorkerServicePackageCore {
   constructor(options = {}) {
     assertNoRetiredWorkerServicePackageCoreOption("command", options.command);
     assertNoRetiredWorkerServicePackageCoreOption("args", options.args);
-    this.daemonCoreInvoker = optionalFunction(options.daemonCoreInvoker);
+    assertNoRetiredWorkerServicePackageCoreOption("daemonCoreInvoker", options.daemonCoreInvoker);
+    this.daemonCoreWorkerServiceApi = workerServiceApi(
+      options.daemonCoreWorkerServiceApi ??
+        options.daemonCoreApi?.worker_service ??
+        options.daemonCoreApi?.workerService ??
+        options.daemonCoreApi,
+    );
   }
 
   admitInvocation(request, context = {}) {
     assertCanonicalWorkerServicePackageCoreRequest(request);
-    const daemonCoreRequest = {
-      schema_version: WORKER_SERVICE_PACKAGE_CORE_SCHEMA_VERSION,
-      operation: "admit_worker_service_package_invocation",
-      backend: RUNTIME_WORKER_SERVICE_PACKAGE_BACKEND,
+    const routeContext = {
       thread_id: optionalString(context.thread_id),
       agent_id: optionalString(context.agent_id),
-      request,
     };
-    return this.invokeDaemonCore(daemonCoreRequest);
+    return this.invokeRustWorkerServiceApi(request, routeContext);
   }
 
-  invokeDaemonCore(request) {
-    if (!this.daemonCoreInvoker) {
+  invokeRustWorkerServiceApi(request, context = {}) {
+    if (!this.daemonCoreWorkerServiceApi) {
       throw new RuntimeWorkerServicePackageCoreError(
-        "Worker/service package invocation admission requires daemonCoreInvoker for direct Rust daemon-core package admission.",
-        "worker_service_package_core_direct_invoker_unconfigured",
-        { boundary: "daemonCoreInvoker" },
+        "Worker/service package invocation admission requires daemonCoreWorkerServiceApi.admitWorkerServicePackageInvocation for Rust daemon-core package admission.",
+        "worker_service_package_core_direct_worker_service_api_unconfigured",
+        {
+          boundary: "daemonCoreWorkerServiceApi.admitWorkerServicePackageInvocation",
+          backend: RUNTIME_WORKER_SERVICE_PACKAGE_BACKEND,
+        },
       );
     }
-    const response = this.daemonCoreInvoker(request);
+    const response = this.daemonCoreWorkerServiceApi[WORKER_SERVICE_PACKAGE_CORE_API_METHOD](
+      request,
+      context,
+    );
     if (response?.ok === false) {
       const error = objectRecord(response.error) ?? {};
       throw new RuntimeWorkerServicePackageCoreError(
         error.message ?? "Rust worker/service package core rejected the invocation.",
-        error.code ?? "worker_service_package_core_direct_invoker_rejected",
+        error.code ?? "worker_service_package_core_direct_worker_service_api_rejected",
         { error },
       );
     }
@@ -75,7 +83,7 @@ function assertNoRetiredWorkerServicePackageCoreOption(field, value) {
   if (typeof value === "string" && value.trim().length === 0) return;
   if (value == null) return;
   throw new RuntimeWorkerServicePackageCoreError(
-    "Worker/service package command compatibility options are retired; use daemonCoreInvoker for direct Rust daemon-core package admission.",
+    "Worker/service package command compatibility options are retired; use daemonCoreWorkerServiceApi.admitWorkerServicePackageInvocation for Rust daemon-core package admission.",
     "worker_service_package_core_compatibility_option_retired",
     { retired_option: field, retired_value: value },
   );
@@ -103,6 +111,9 @@ function optionalString(value) {
   return trimmed ? trimmed : null;
 }
 
-function optionalFunction(value) {
-  return typeof value === "function" ? value : null;
+function workerServiceApi(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return typeof value[WORKER_SERVICE_PACKAGE_CORE_API_METHOD] === "function"
+    ? value
+    : null;
 }

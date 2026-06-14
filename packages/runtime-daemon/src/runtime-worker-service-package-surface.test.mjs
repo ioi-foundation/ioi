@@ -88,7 +88,7 @@ function store() {
           object: "ioi.runtime_worker_service_package_admission",
           status: "admitted",
           invocation_admitted: true,
-          source: "rust_worker_service_package_invocation_command",
+          source: "rust_worker_service_package_invocation_protocol",
           backend: "rust_package_invocation",
           thread_id: context.thread_id,
           agent_id: context.agent_id,
