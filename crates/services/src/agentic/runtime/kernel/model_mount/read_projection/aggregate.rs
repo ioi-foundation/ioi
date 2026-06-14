@@ -1,19 +1,19 @@
 use serde_json::{json, Value};
 
 use super::common::{
-    array_field, model_mount_projection_generated_at, model_mount_projection_schema_version,
-    receipts_by_kind,
+    model_mount_projection_generated_at, model_mount_projection_schema_version, receipts_by_kind,
 };
 use super::{
-    adapter_boundary, conversation, health, receipt, route_decision, status, topology,
+    adapter_boundary, conversation, custody, health, receipt, route_decision, status, topology,
     ModelMountReadProjectionError, ModelMountReadProjectionRequest,
 };
 
 pub(super) fn snapshot(
     request: &ModelMountReadProjectionRequest,
 ) -> Result<Value, ModelMountReadProjectionError> {
-    let state = &request.state;
     let receipts = receipt::receipt_records(request)?;
+    let tokens = custody::capability_token_records(request)?;
+    let vault_refs = custody::vault_ref_records(request)?;
     Ok(json!({
         "schemaVersion": model_mount_projection_schema_version(request),
         "server": status::server_status_or_default(request),
@@ -37,22 +37,23 @@ pub(super) fn snapshot(
         "runtimeEngineProfiles": [],
         "runtimePreference": Value::Null,
         "runtimeSurvey": health::latest_runtime_survey(request)?,
-        "tokens": array_field(state, "grants"),
-        "vaultRefs": array_field(state, "vault_refs"),
+        "tokens": tokens,
+        "vaultRefs": vault_refs,
         "mcpServers": [],
         "conversationStates": conversation::conversation_state_records(request),
         "workflowNodes": adapter_boundary::workflow_bindings(),
         "receipts": receipts.into_iter().rev().take(25).collect::<Vec<_>>().into_iter().rev().collect::<Vec<_>>(),
         "projection": receipt::projection_summary(request)?,
-        "adapterBoundaries": adapter_boundary::adapter_boundaries(state),
+        "adapterBoundaries": adapter_boundary::adapter_boundaries(&request.state),
     }))
 }
 
 pub(super) fn projection(
     request: &ModelMountReadProjectionRequest,
 ) -> Result<Value, ModelMountReadProjectionError> {
-    let state = &request.state;
     let receipts = receipt::receipt_records(request)?;
+    let tokens = custody::capability_token_records(request)?;
+    let vault_refs = custody::vault_ref_records(request)?;
     Ok(json!({
         "schemaVersion": model_mount_projection_schema_version(request),
         "source": "agentgres_model_mounting_projection",
@@ -78,12 +79,12 @@ pub(super) fn projection(
         "runtimeEngineProfiles": [],
         "runtimePreference": Value::Null,
         "runtimeSurvey": health::latest_runtime_survey(request)?,
-        "grants": array_field(state, "grants"),
-        "vaultRefs": array_field(state, "vault_refs"),
+        "grants": tokens,
+        "vaultRefs": vault_refs,
         "mcpServers": [],
         "conversationStates": conversation::conversation_state_records(request),
         "workflowBindings": adapter_boundary::workflow_bindings(),
-        "adapterBoundaries": adapter_boundary::adapter_boundaries(state),
+        "adapterBoundaries": adapter_boundary::adapter_boundaries(&request.state),
         "lifecycleEvents": receipts_by_kind(&receipts, "model_lifecycle"),
         "routeReceipts": receipts_by_kind(&receipts, "model_route_selection"),
         "routeDecisions": route_decision::route_decision_records_or_empty(request),
@@ -147,6 +148,19 @@ mod tests {
         }
     }
 
+    fn write_records(state_dir: &std::path::Path, record_dir: &str, records: &[Value]) {
+        let dir = state_dir.join(record_dir);
+        std::fs::create_dir_all(&dir).expect("record dir");
+        for record in records {
+            let record_id = record.get("id").and_then(Value::as_str).expect("record id");
+            std::fs::write(
+                dir.join(format!("{record_id}.json")),
+                serde_json::to_string_pretty(record).expect("record json"),
+            )
+            .expect("write record");
+        }
+    }
+
     #[test]
     fn aggregate_projection_is_planned_from_admitted_receipts() {
         let temp = tempfile::tempdir().expect("tempdir");
@@ -199,6 +213,67 @@ mod tests {
                 ]
             })],
         );
+        write_records(
+            temp.path(),
+            "capability-tokens",
+            &[json!({
+                "id": "token-create",
+                "record_id": "token-create",
+                "object": "ioi.model_mount_capability_token_control",
+                "operation_kind": "model_mount.capability_token.create",
+                "token_id": "capability_token:aggregate",
+                "token_hash": "sha256:aggregate",
+                "rust_core_boundary": "model_mount.capability_token",
+                "wallet_authority_boundary": "wallet.network.capability_token",
+                "capability_token_authority": {
+                    "authority_hash": "sha256:token-authority",
+                    "audience": "agent-studio",
+                    "grant_id": "grant://wallet/capability",
+                    "allowed_scopes": ["model.chat:*"],
+                    "denied_scopes": []
+                },
+                "public_response": {"token": "ioi_mnt_secret"},
+                "evidence_refs": [
+                    "rust_daemon_core_capability_token_control",
+                    "agentgres_capability_token_truth_required",
+                    "public_capability_token_js_facade_retired"
+                ],
+                "planned_at": "2026-06-11T00:00:02.000Z"
+            })],
+        );
+        write_records(
+            temp.path(),
+            "vault-refs",
+            &[json!({
+                "id": "vault-bind",
+                "record_id": "vault-bind",
+                "object": "ioi.model_mount_vault_control",
+                "operation_kind": "model_mount.vault_ref.bind",
+                "vault_ref_hash": "vault-hash",
+                "material_hash": "sha256:material",
+                "rust_core_boundary": "model_mount.vault",
+                "wallet_authority_boundary": "wallet.network.vault",
+                "ctee_custody_boundary": "ctee.vault_custody",
+                "vault_authority": {"authority_hash": "sha256:vault-authority"},
+                "ctee_custody": {
+                    "custody_ref": "ctee://vault/hash",
+                    "plaintext_material_persisted": false,
+                    "plaintext_material_returned": false
+                },
+                "public_response": {
+                    "vault_ref_hash": "vault-hash",
+                    "vault_ref": {"redacted": true, "hash": "vault-hash"},
+                    "label": "Provider key",
+                    "purpose": "provider.auth"
+                },
+                "evidence_refs": [
+                    "rust_daemon_core_vault_control",
+                    "agentgres_vault_truth_required",
+                    "public_vault_js_facade_retired"
+                ],
+                "planned_at": "2026-06-11T00:00:03.000Z"
+            })],
+        );
         let projection = projection(&request(
             Some(temp.path().to_string_lossy().to_string()),
             json!({
@@ -223,6 +298,14 @@ mod tests {
             projection["providerLifecycleRecords"][0]["id"],
             "provider-lifecycle-health"
         );
+        assert_eq!(projection["grants"].as_array().unwrap().len(), 1);
+        assert_eq!(
+            projection["grants"][0]["token_id"],
+            "capability_token:aggregate"
+        );
+        assert_eq!(projection["grants"][0].get("token"), None);
+        assert_eq!(projection["vaultRefs"].as_array().unwrap().len(), 1);
+        assert_eq!(projection["vaultRefs"][0]["vault_ref_hash"], "vault-hash");
         assert_eq!(projection.get("providerHealthReceipts"), None);
         assert_eq!(projection["routes"], json!([]));
         assert_eq!(projection["providers"], json!([]));
@@ -242,6 +325,37 @@ mod tests {
             })
             .collect::<Vec<_>>();
         write_receipts(temp.path(), &receipts);
+        write_records(
+            temp.path(),
+            "capability-tokens",
+            &[json!({
+                "id": "snapshot-token",
+                "record_id": "snapshot-token",
+                "object": "ioi.model_mount_capability_token_control",
+                "operation_kind": "model_mount.capability_token.create",
+                "token_id": "capability_token:snapshot",
+                "token_hash": "sha256:snapshot",
+                "rust_core_boundary": "model_mount.capability_token",
+                "capability_token_authority": {"allowed_scopes": ["model.chat:*"], "denied_scopes": []},
+                "evidence_refs": ["agentgres_capability_token_truth_required"],
+                "planned_at": "2026-06-11T00:00:31.000Z"
+            })],
+        );
+        write_records(
+            temp.path(),
+            "vault-refs",
+            &[json!({
+                "id": "snapshot-vault",
+                "record_id": "snapshot-vault",
+                "object": "ioi.model_mount_vault_control",
+                "operation_kind": "model_mount.vault_ref.bind",
+                "vault_ref_hash": "vault-snapshot",
+                "rust_core_boundary": "model_mount.vault",
+                "public_response": {"vault_ref_hash": "vault-snapshot"},
+                "evidence_refs": ["agentgres_vault_truth_required"],
+                "planned_at": "2026-06-11T00:00:32.000Z"
+            })],
+        );
         let snapshot = snapshot(&request(
             Some(temp.path().to_string_lossy().to_string()),
             json!({
@@ -259,6 +373,13 @@ mod tests {
         assert_eq!(snapshot["projection"]["watermark"], 30);
         assert_eq!(snapshot["receipts"].as_array().unwrap().len(), 25);
         assert_eq!(snapshot["receipts"][0]["id"], "receipt.5");
+        assert_eq!(snapshot["tokens"].as_array().unwrap().len(), 1);
+        assert_eq!(
+            snapshot["tokens"][0]["token_id"],
+            "capability_token:snapshot"
+        );
+        assert_eq!(snapshot["vaultRefs"].as_array().unwrap().len(), 1);
+        assert_eq!(snapshot["vaultRefs"][0]["vault_ref_hash"], "vault-snapshot");
         assert_eq!(snapshot["workflowNodes"].as_array().unwrap().len(), 10);
         assert_eq!(snapshot["runtimeModelCatalog"], json!([]));
         assert_eq!(snapshot["openAiModelList"]["data"], json!([]));

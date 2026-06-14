@@ -986,6 +986,139 @@ function createState() {
       ],
     },
   ]);
+  writeCustodyControlRecords(stateDir, "capability-tokens", [
+    {
+      id: "legacy-js-capability-token",
+      object: "ioi.model_mount_capability_token_control",
+      operation_kind: "model_mount.capability_token.create",
+      token_id: "capability_token:legacy-js",
+      token_hash: "sha256:legacy-js-token",
+      rust_core_boundary: "daemon_js",
+      evidence_refs: ["legacy_js_capability_token_truth"],
+      planned_at: "2026-06-03T00:00:00.000Z",
+    },
+    {
+      id: "capability-token:studio",
+      record_id: "capability-token:studio",
+      object: "ioi.model_mount_capability_token_control",
+      operation_kind: "model_mount.capability_token.create",
+      token_id: "capability_token:studio",
+      token_hash: "sha256:capability-token-studio",
+      rust_core_boundary: "model_mount.capability_token",
+      wallet_authority_boundary: "wallet.network.capability_token",
+      capability_token_authority: {
+        authority_hash: "sha256:capability-authority-studio",
+        audience: "agent-studio",
+        grant_id: "grant://wallet/capability/studio",
+        allowed_scopes: ["model.chat:*"],
+        denied_scopes: ["shell.exec"],
+      },
+      public_response: {
+        object: "ioi.model_mount_capability_token",
+        status: "issued",
+        token_id: "capability_token:studio",
+        token: "ioi_mnt_secret",
+      },
+      receipt_refs: ["receipt://capability-token/studio", "sha256:capability-token-studio"],
+      evidence_refs: [
+        "rust_daemon_core_capability_token_control",
+        "wallet_network_capability_token_authority_required",
+        "agentgres_capability_token_truth_required",
+        "public_capability_token_js_facade_retired",
+      ],
+      control_hash: "sha256:capability-token-studio-control",
+      planned_at: "2026-06-03T00:00:05.000Z",
+    },
+    {
+      id: "capability-token:revoked-create",
+      record_id: "capability-token:revoked-create",
+      object: "ioi.model_mount_capability_token_control",
+      operation_kind: "model_mount.capability_token.create",
+      token_id: "capability_token:revoked",
+      token_hash: "sha256:capability-token-revoked",
+      rust_core_boundary: "model_mount.capability_token",
+      evidence_refs: ["agentgres_capability_token_truth_required"],
+      planned_at: "2026-06-03T00:00:06.000Z",
+    },
+    {
+      id: "capability-token:revoked",
+      record_id: "capability-token:revoked",
+      object: "ioi.model_mount_capability_token_control",
+      operation_kind: "model_mount.capability_token.revoke",
+      token_id: "capability_token:revoked",
+      rust_core_boundary: "model_mount.capability_token",
+      evidence_refs: ["agentgres_capability_token_truth_required"],
+      planned_at: "2026-06-03T00:00:07.000Z",
+    },
+  ]);
+  writeCustodyControlRecords(stateDir, "vault-refs", [
+    {
+      id: "legacy-js-vault-ref",
+      object: "ioi.model_mount_vault_control",
+      operation_kind: "model_mount.vault_ref.bind",
+      vault_ref_hash: "vault-hash-legacy-js",
+      rust_core_boundary: "daemon_js",
+      evidence_refs: ["legacy_js_vault_ref_truth"],
+      planned_at: "2026-06-03T00:00:00.000Z",
+    },
+    {
+      id: "vault-ref:openai",
+      record_id: "vault-ref:openai",
+      object: "ioi.model_mount_vault_control",
+      operation_kind: "model_mount.vault_ref.bind",
+      vault_ref_hash: "vault-hash-openai",
+      material_hash: "sha256:vault-openai-material",
+      rust_core_boundary: "model_mount.vault",
+      wallet_authority_boundary: "wallet.network.vault",
+      ctee_custody_boundary: "ctee.vault_custody",
+      vault_authority: { authority_hash: "sha256:vault-authority-openai" },
+      ctee_custody: {
+        custody_ref: "ctee://vault/openai",
+        plaintext_material_persisted: false,
+        plaintext_material_returned: false,
+      },
+      public_response: {
+        vault_ref_hash: "vault-hash-openai",
+        vault_ref: { redacted: true, hash: "vault-hash-openai" },
+        label: "OpenAI key",
+        purpose: "provider.auth",
+      },
+      receipt_refs: ["receipt://vault/openai", "sha256:vault-openai-control"],
+      evidence_refs: [
+        "rust_daemon_core_vault_control",
+        "wallet_network_vault_authority_required",
+        "ctee_vault_custody_enforced",
+        "agentgres_vault_truth_required",
+        "public_vault_js_facade_retired",
+      ],
+      control_hash: "sha256:vault-openai-control",
+      planned_at: "2026-06-03T00:00:08.000Z",
+    },
+    {
+      id: "vault-ref:removed-bind",
+      record_id: "vault-ref:removed-bind",
+      object: "ioi.model_mount_vault_control",
+      operation_kind: "model_mount.vault_ref.bind",
+      vault_ref_hash: "vault-hash-removed",
+      rust_core_boundary: "model_mount.vault",
+      public_response: {
+        vault_ref_hash: "vault-hash-removed",
+        vault_ref: { redacted: true, hash: "vault-hash-removed" },
+      },
+      evidence_refs: ["agentgres_vault_truth_required"],
+      planned_at: "2026-06-03T00:00:09.000Z",
+    },
+    {
+      id: "vault-ref:removed",
+      record_id: "vault-ref:removed",
+      object: "ioi.model_mount_vault_control",
+      operation_kind: "model_mount.vault_ref.remove",
+      vault_ref_hash: "vault-hash-removed",
+      rust_core_boundary: "model_mount.vault",
+      evidence_refs: ["agentgres_vault_truth_required"],
+      planned_at: "2026-06-03T00:00:10.000Z",
+    },
+  ]);
   const receipts = [
     {
       id: "receipt-route",
@@ -1230,6 +1363,8 @@ function createState() {
 function rustProjectionFixture(request) {
   const state = request.state;
   const receipts = receiptRecordsFromAgentgresStateDir(request.state_dir);
+  const grants = capabilityTokenRecordsFromAgentgresStateDir(request.state_dir);
+  const vaultRefs = vaultRefRecordsFromAgentgresStateDir(request.state_dir);
   if (request.projection_kind === "artifacts") {
     return artifactRecordsFromAgentgresStateDir(request.state_dir, "ioi.model_mount_model_artifact");
   }
@@ -1351,8 +1486,8 @@ function rustProjectionFixture(request) {
     runtimeEngineProfiles: [],
     runtimePreference: null,
     runtimeSurvey: latestRuntimeSurveyFromReceipts(receipts),
-    grants: state.grants ?? [],
-    vaultRefs: state.vault_refs ?? [],
+    grants,
+    vaultRefs,
     mcpServers: [],
     conversationStates: [],
     workflowBindings: workflowBindingsFromRust(),
@@ -1390,8 +1525,8 @@ function rustProjectionFixture(request) {
       runtimeEngineProfiles: [],
       runtimePreference: null,
       runtimeSurvey: latestRuntimeSurveyFromReceipts(receipts),
-      tokens: state.grants ?? [],
-      vaultRefs: state.vault_refs ?? [],
+      tokens: grants,
+      vaultRefs,
       mcpServers: [],
       conversationStates: [],
       workflowNodes: workflowBindingsFromRust(),
@@ -1434,8 +1569,8 @@ function rustProjectionFixture(request) {
       server: serverStatusFromRustRequest(request),
       wallet: state.wallet ?? null,
       vault: state.vault ?? null,
-      grants: state.grants ?? [],
-      vaultRefs: state.vault_refs ?? [],
+      grants,
+      vaultRefs,
       approvals: [],
       approvalQueue: {
         status: "not_configured",
@@ -1444,9 +1579,9 @@ function rustProjectionFixture(request) {
       },
       receipts: authorityReceipts,
       summary: {
-        activeGrants: 0,
+        activeGrants: grants.length,
         revokedGrants: 0,
-        vaultRefs: (state.vault_refs ?? []).length,
+        vaultRefs: vaultRefs.length,
         pendingApprovals: 0,
         receiptCount: authorityReceipts.length,
         remoteWalletConfigured: false,
@@ -2088,6 +2223,17 @@ function writeServerControlRecords(stateDir, records = []) {
   }
 }
 
+function writeCustodyControlRecords(stateDir, recordDirName, records = []) {
+  const recordDir = path.join(stateDir, recordDirName);
+  fs.mkdirSync(recordDir, { recursive: true });
+  for (const record of records) {
+    fs.writeFileSync(
+      path.join(recordDir, `${record.id}.json`),
+      `${JSON.stringify(record, null, 2)}\n`,
+    );
+  }
+}
+
 function writeReceiptRecords(stateDir, records = []) {
   const recordDir = path.join(stateDir, "receipts");
   fs.mkdirSync(recordDir, { recursive: true });
@@ -2328,6 +2474,155 @@ function providerRecordFromProviderControl(record) {
     control_hash: record.control_hash,
     evidence_refs: providerControlProjectionEvidenceRefs(record),
   });
+}
+
+function capabilityTokenRecordsFromAgentgresStateDir(stateDir) {
+  const activeTokens = new Map();
+  const revokedTokens = new Set();
+  for (const record of custodyControlRecordsFromAgentgresStateDir(stateDir, "capability-tokens")) {
+    if (
+      record?.object !== "ioi.model_mount_capability_token_control" ||
+      record?.rust_core_boundary !== "model_mount.capability_token" ||
+      !record.evidence_refs?.includes("agentgres_capability_token_truth_required") ||
+      typeof record?.token_id !== "string" ||
+      record.token_id.length === 0
+    ) {
+      continue;
+    }
+    if (record.operation_kind === "model_mount.capability_token.revoke") {
+      revokedTokens.add(record.token_id);
+      continue;
+    }
+    if (record.operation_kind !== "model_mount.capability_token.create") continue;
+    activeTokens.set(record.token_id, capabilityTokenRecordFromControl(record));
+  }
+  for (const tokenId of revokedTokens) activeTokens.delete(tokenId);
+  return [...activeTokens.values()].sort((left, right) =>
+    String(left.token_id ?? "").localeCompare(String(right.token_id ?? "")));
+}
+
+function capabilityTokenRecordFromControl(record) {
+  const authority = record.capability_token_authority ?? {};
+  const publicResponse = record.public_response ?? {};
+  return withoutNulls({
+    id: record.token_id,
+    token_id: record.token_id,
+    object: "ioi.model_mount_capability_token",
+    status: "active",
+    audience: authority.audience ?? publicResponse.audience,
+    grant_id: authority.grant_id ?? publicResponse.grant_id,
+    created_at: record.planned_at,
+    allowed_scopes: Array.isArray(authority.allowed_scopes) ? authority.allowed_scopes : [],
+    denied_scopes: Array.isArray(authority.denied_scopes) ? authority.denied_scopes : [],
+    token_hash: record.token_hash,
+    token_material_returned_once: true,
+    plaintext_material_persisted: false,
+    record_dir: "capability-tokens",
+    record_id: record.record_id ?? record.id,
+    operation_kind: record.operation_kind,
+    source: "agentgres_capability_token_control_record",
+    rust_core_boundary: "model_mount.capability_token_projection",
+    capability_token_projection_boundary: "model_mount.capability_token_projection",
+    wallet_authority_boundary: record.wallet_authority_boundary,
+    authority_hash: authority.authority_hash,
+    control_hash: record.control_hash,
+    receipt_refs: Array.isArray(record.receipt_refs) ? record.receipt_refs : [],
+    evidence_refs: custodyProjectionEvidenceRefs(
+      record,
+      "rust_daemon_core_capability_token_projection",
+      "agentgres_capability_token_replay_required",
+      "model_mount_capability_token_js_projection_retired",
+    ),
+  });
+}
+
+function vaultRefRecordsFromAgentgresStateDir(stateDir) {
+  const activeRefs = new Map();
+  const removedRefs = new Set();
+  for (const record of custodyControlRecordsFromAgentgresStateDir(stateDir, "vault-refs")) {
+    if (
+      record?.object !== "ioi.model_mount_vault_control" ||
+      record?.rust_core_boundary !== "model_mount.vault" ||
+      !record.evidence_refs?.includes("agentgres_vault_truth_required") ||
+      typeof record?.vault_ref_hash !== "string" ||
+      record.vault_ref_hash.length === 0
+    ) {
+      continue;
+    }
+    if (record.operation_kind === "model_mount.vault_ref.remove") {
+      removedRefs.add(record.vault_ref_hash);
+      continue;
+    }
+    if (record.operation_kind !== "model_mount.vault_ref.bind") continue;
+    activeRefs.set(record.vault_ref_hash, vaultRefRecordFromControl(record));
+  }
+  for (const vaultRefHash of removedRefs) activeRefs.delete(vaultRefHash);
+  return [...activeRefs.values()].sort((left, right) =>
+    String(left.vault_ref_hash ?? "").localeCompare(String(right.vault_ref_hash ?? "")));
+}
+
+function vaultRefRecordFromControl(record) {
+  const publicResponse = record.public_response ?? {};
+  const cteeCustody = record.ctee_custody ?? {};
+  const vaultAuthority = record.vault_authority ?? {};
+  const vaultRefHash = record.vault_ref_hash;
+  return withoutNulls({
+    id: `vault_ref.${vaultRefHash}`,
+    object: "ioi.model_mount_vault_ref",
+    status: "active",
+    vault_ref_hash: vaultRefHash,
+    vault_ref: publicResponse.vault_ref ?? { redacted: true, hash: vaultRefHash },
+    label: publicResponse.label,
+    purpose: publicResponse.purpose,
+    material_hash: record.material_hash,
+    custody_ref: cteeCustody.custody_ref ?? publicResponse.custody_ref,
+    configured: true,
+    material_bound: true,
+    resolved_material: false,
+    requires_rebind: false,
+    plaintext_material_persisted: false,
+    plaintext_material_returned: false,
+    record_dir: "vault-refs",
+    record_id: record.record_id ?? record.id,
+    operation_kind: record.operation_kind,
+    source: "agentgres_vault_control_record",
+    rust_core_boundary: "model_mount.vault_projection",
+    vault_projection_boundary: "model_mount.vault_projection",
+    wallet_authority_boundary: record.wallet_authority_boundary,
+    ctee_custody_boundary: record.ctee_custody_boundary,
+    authority_hash: vaultAuthority.authority_hash,
+    control_hash: record.control_hash,
+    created_at: record.planned_at,
+    updated_at: record.planned_at,
+    receipt_refs: Array.isArray(record.receipt_refs) ? record.receipt_refs : [],
+    evidence_refs: custodyProjectionEvidenceRefs(
+      record,
+      "rust_daemon_core_vault_ref_projection",
+      "agentgres_vault_ref_replay_required",
+      "model_mount_vault_ref_js_projection_retired",
+    ),
+  });
+}
+
+function custodyControlRecordsFromAgentgresStateDir(stateDir, recordDirName) {
+  if (!stateDir) return [];
+  const recordDir = path.join(stateDir, recordDirName);
+  if (!fs.existsSync(recordDir)) return [];
+  return fs.readdirSync(recordDir)
+    .filter((file) => file.endsWith(".json"))
+    .map((file) => JSON.parse(fs.readFileSync(path.join(recordDir, file), "utf8")))
+    .sort((left, right) =>
+      String(left.planned_at ?? "").localeCompare(String(right.planned_at ?? "")) ||
+      String(left.record_id ?? "").localeCompare(String(right.record_id ?? "")) ||
+      String(left.id ?? "").localeCompare(String(right.id ?? "")));
+}
+
+function custodyProjectionEvidenceRefs(record, projectionEvidence, replayEvidence, retiredEvidence) {
+  const evidenceRefs = Array.isArray(record.evidence_refs) ? [...record.evidence_refs] : [];
+  for (const required of [projectionEvidence, replayEvidence, retiredEvidence]) {
+    if (!evidenceRefs.includes(required)) evidenceRefs.push(required);
+  }
+  return evidenceRefs;
 }
 
 function artifactRecordsFromAgentgresStateDir(stateDir, objectKind) {
@@ -4036,6 +4331,15 @@ test("read projection facade composes snapshots, projection, and receipt replay"
   assert.equal(snapshot.modelCapabilities.length, 0);
   assert.equal(snapshot.projection.source, "agentgres_model_mounting_projection");
   assert.equal(snapshot.adapterBoundaries.agentgres.port, "AgentgresStorePort");
+  assert.deepEqual(snapshot.tokens.map((token) => token.token_id), ["capability_token:studio"]);
+  assert.equal(snapshot.tokens[0].token, undefined);
+  assert.equal(
+    snapshot.tokens[0].capability_token_projection_boundary,
+    "model_mount.capability_token_projection",
+  );
+  assert.deepEqual(snapshot.vaultRefs.map((vaultRef) => vaultRef.vault_ref_hash), ["vault-hash-openai"]);
+  assert.equal(snapshot.vaultRefs[0].vault_projection_boundary, "model_mount.vault_projection");
+  assert.equal(snapshot.vaultRefs[0].plaintext_material_returned, false);
 
   const projection = facade.projection(state);
   assert.equal(projection.schemaVersion, "model.mount.schema");
@@ -4068,6 +4372,14 @@ test("read projection facade composes snapshots, projection, and receipt replay"
   assert.equal(Object.hasOwn(projection, "catalogProviderConfigs"), false);
   assert.equal(projection.adapterBoundaries.agentgres.port, "AgentgresStorePort");
   assert.equal(projection.adapterBoundaries.oauth.plaintextPersistence, false);
+  assert.deepEqual(projection.grants.map((token) => token.token_id), ["capability_token:studio"]);
+  assert.equal(projection.grants[0].token, undefined);
+  assert.equal(
+    projection.grants[0].capability_token_projection_boundary,
+    "model_mount.capability_token_projection",
+  );
+  assert.deepEqual(projection.vaultRefs.map((vaultRef) => vaultRef.vault_ref_hash), ["vault-hash-openai"]);
+  assert.equal(projection.vaultRefs[0].vault_projection_boundary, "model_mount.vault_projection");
 
   const projectionWritePlan = facade.canonicalProjectionWritePlan(state);
   assert.equal(projectionWritePlan.source, "rust_model_mount_read_projection_command");
@@ -4101,8 +4413,18 @@ test("read projection facade composes snapshots, projection, and receipt replay"
   const authority = facade.authoritySnapshot(state, "http://127.0.0.1:3200");
   assert.equal(authority.schemaVersion, "ioi.wallet-core-lite.authority.v1");
   assert.equal(authority.wallet, null);
-  assert.deepEqual(authority.grants, []);
-  assert.deepEqual(authority.vaultRefs, []);
+  assert.equal(authority.summary.activeGrants, 1);
+  assert.equal(authority.summary.revokedGrants, 0);
+  assert.equal(authority.summary.vaultRefs, 1);
+  assert.deepEqual(authority.grants.map((token) => token.token_id), ["capability_token:studio"]);
+  assert.equal(authority.grants[0].token, undefined);
+  assert.equal(
+    authority.grants[0].capability_token_projection_boundary,
+    "model_mount.capability_token_projection",
+  );
+  assert.deepEqual(authority.vaultRefs.map((vaultRef) => vaultRef.vault_ref_hash), ["vault-hash-openai"]);
+  assert.equal(authority.vaultRefs[0].vault_projection_boundary, "model_mount.vault_projection");
+  assert.equal(authority.vaultRefs[0].plaintext_material_persisted, false);
   assert.deepEqual(readProjectionRequests.map((request) => request.projection_kind), [
     "snapshot",
     "projection",

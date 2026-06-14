@@ -2726,6 +2726,9 @@ function runBridge() {
         exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/authority.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/authority.rs")
           : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/custody.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/custody.rs")
+          : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/common.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/common.rs")
           : "",
@@ -14703,6 +14706,12 @@ function runBridge() {
       !/projectionKind === "authority_snapshot"[\s\S]*?vault_refs:\s*state\.listVaultRefs\(\)/.test(modelMountingReadProjectionFacade) &&
       !/projectionKind === "authority_snapshot"[\s\S]*?wallet:\s*state\.walletAuthority\.adapterStatus\(\)/.test(modelMountingReadProjectionFacade) &&
       !/projectionKind === "authority_snapshot"[\s\S]*?vault:\s*state\.vaultStatus\(\)/.test(modelMountingReadProjectionFacade) &&
+      /mod custody;/.test(modelMountCore) &&
+      /custody::capability_token_records\(request\)\?/.test(modelMountCore) &&
+      /custody::vault_ref_records\(request\)\?/.test(modelMountCore) &&
+      /agentgres_capability_token_replay_required/.test(modelMountCore) &&
+      /agentgres_vault_ref_replay_required/.test(modelMountCore) &&
+      /model_mount_wallet_custody_js_projection_retired/.test(modelMountCore) &&
       /projectionKind === "receipt_replay"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
       !/projectionKind === "receipt_replay"(?:(?!\n    if \(projectionKind|\n    return \{).)*state\.listReceipts\(\)/s.test(modelMountingReadProjectionFacade) &&
       !/projectionKind === "receipt_replay"[\s\S]*?routes:\s*routeList\(state\)/.test(modelMountingReadProjectionFacade) &&
@@ -14891,6 +14900,25 @@ function runBridge() {
       /Object\.hasOwn\(endpointResolutionRequest\.state,\s*"receipts"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /assert\.deepEqual\(authorityRequest\.state,\s*\{\}\)/.test(modelMountingReadProjectionFacadeTest) &&
       /authorityRequest\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
+      /const grants = capabilityTokenRecordsFromAgentgresStateDir\(request\.state_dir\)/.test(
+        modelMountingReadProjectionFacadeTest,
+      ) &&
+      /const vaultRefs = vaultRefRecordsFromAgentgresStateDir\(request\.state_dir\)/.test(
+        modelMountingReadProjectionFacadeTest,
+      ) &&
+      /snapshot\.tokens\.map\(\(token\) => token\.token_id\),\s*\["capability_token:studio"\]/.test(
+        modelMountingReadProjectionFacadeTest,
+      ) &&
+      /projection\.grants\.map\(\(token\) => token\.token_id\),\s*\["capability_token:studio"\]/.test(
+        modelMountingReadProjectionFacadeTest,
+      ) &&
+      /authority\.summary\.activeGrants,\s*1/.test(modelMountingReadProjectionFacadeTest) &&
+      /authority\.grants\[0\]\.capability_token_projection_boundary[\s\S]*"model_mount\.capability_token_projection"/.test(
+        modelMountingReadProjectionFacadeTest,
+      ) &&
+      /authority\.vaultRefs\[0\]\.vault_projection_boundary,\s*"model_mount\.vault_projection"/.test(
+        modelMountingReadProjectionFacadeTest,
+      ) &&
       /Object\.hasOwn\(authorityRequest\.state,\s*"server_status_input"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(authorityRequest\.state,\s*"grants"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(authorityRequest\.state,\s*"vault_refs"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
@@ -15119,6 +15147,12 @@ function runBridge() {
       /model-route-endpoint-resolutions/.test(modelMountReadProjectionEvidence) &&
       /fs::read_dir/.test(modelMountReadProjectionEvidence) &&
       /mod authority;/.test(modelMountReadProjectionEvidence) &&
+      /mod custody;/.test(modelMountReadProjectionEvidence) &&
+      /pub\(super\) fn capability_token_records/.test(modelMountReadProjectionEvidence) &&
+      /pub\(super\) fn vault_ref_records/.test(modelMountReadProjectionEvidence) &&
+      /model_mount_wallet_custody_replay_state_dir_required/.test(modelMountReadProjectionEvidence) &&
+      /agentgres_capability_token_replay_required/.test(modelMountReadProjectionEvidence) &&
+      /agentgres_vault_ref_replay_required/.test(modelMountReadProjectionEvidence) &&
       /mod receipt;/.test(modelMountReadProjectionEvidence) &&
       /mod route_decision;/.test(modelMountReadProjectionEvidence) &&
       /mod health;/.test(modelMountReadProjectionEvidence) &&
@@ -15289,7 +15323,7 @@ function runBridge() {
       !/fn model_mount_model_capabilities/.test(modelMountReadProjectionEvidence) &&
       !/MODEL_CAPABILITY_SCHEMA_VERSION/.test(modelMountReadProjectionEvidence) &&
       /"conversationStates": conversation::conversation_state_records\(request\)/.test(modelMountReadProjectionEvidence) &&
-      /"adapterBoundaries": adapter_boundary::adapter_boundaries\(state\)/.test(modelMountReadProjectionEvidence) &&
+      /"adapterBoundaries": adapter_boundary::adapter_boundaries\(&request\.state\)/.test(modelMountReadProjectionEvidence) &&
       /pub\(super\) fn projection_summary/.test(modelMountReadProjectionEvidence) &&
       !/"catalogProviderConfigs"/.test(modelMountReadProjectionEvidence) &&
       !/"catalog_provider_configs"/.test(modelMountReadProjectionEvidence) &&
@@ -15315,7 +15349,7 @@ function runBridge() {
       /latest_provider_health_replays_lifecycle_records_and_ignores_receipts/.test(modelMountReadProjectionEvidence) &&
       /latest_health_rejects_js_receipt_transport_without_state_dir/.test(modelMountReadProjectionEvidence) &&
       /runtime_survey_has_dedicated_receipt_projection_owner/.test(modelMountReadProjectionEvidence) &&
-      /authority_snapshot_rejects_js_receipt_transport_without_state_dir/.test(modelMountReadProjectionEvidence) &&
+      /authority_snapshot_rejects_missing_custody_replay_state_dir/.test(modelMountReadProjectionEvidence) &&
       /aggregate_projection_rejects_js_receipt_transport_without_state_dir/.test(modelMountReadProjectionEvidence) &&
       !/fn model_mount_projection_summary/.test(modelMountReadProjectionEvidence) &&
       !/fn model_mount_receipt_replay_context/.test(modelMountReadProjectionEvidence) &&
@@ -19552,6 +19586,9 @@ function runReceipts() {
           : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/authority.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/authority.rs")
+          : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/custody.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/custody.rs")
           : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/common.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/common.rs")

@@ -6,6 +6,7 @@ mod aggregate;
 mod authority;
 mod common;
 mod conversation;
+mod custody;
 mod health;
 mod mcp;
 mod oauth;
@@ -312,6 +313,16 @@ pub(super) fn plan_read_projection(
             "rust_daemon_core_model_mount_receipt_replay_projection".to_string(),
             "agentgres_model_mount_receipt_replay_required".to_string(),
             "model_mount_js_receipt_list_projection_transport_retired".to_string(),
+        ]);
+    }
+    if matches!(
+        request.projection_kind.as_str(),
+        "snapshot" | "projection" | "authority_snapshot"
+    ) {
+        evidence_refs.extend([
+            "rust_daemon_core_wallet_custody_projection".to_string(),
+            "agentgres_wallet_custody_replay_required".to_string(),
+            "model_mount_wallet_custody_js_projection_retired".to_string(),
         ]);
     }
     Ok(ModelMountReadProjectionPlan {

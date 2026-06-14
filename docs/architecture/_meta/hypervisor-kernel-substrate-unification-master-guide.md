@@ -1785,10 +1785,13 @@ from JS. The default model_mount read-projection input no longer sends
 `agentgres_store: state.store.adapterStatus()`,
 `wallet: state.walletAuthority.adapterStatus()`, or
 `vault: state.vaultStatus()` for broad `snapshot` and `projection` requests.
-Dedicated `authority_snapshot` and `adapter_boundaries` read projections still
-use narrow Rust-planned inputs, but local JS wallet/vault/Agentgres adapter
-state can no longer become public authority or adapter-boundary truth through
-the broad Rust projection envelope.
+Rust now replays admitted `capability-tokens/*.json` and `vault-refs/*.json`
+records into broad `projection` grants, broad `snapshot` tokens/vault refs, and
+dedicated `authority_snapshot` grants/vault refs through the daemon-core
+custody projection boundary, while `adapter_boundaries` still uses a narrow
+Rust-planned input. Local JS wallet/vault/Agentgres adapter state can no longer
+become public authority, custody, or adapter-boundary truth through the broad
+Rust projection envelope.
 
 Slice 854 retired broad snapshot/projection provider-health and runtime-survey
 telemetry input from JS. The default model_mount read-projection input no
@@ -1825,12 +1828,13 @@ Slice 857 retired dedicated authority and adapter-boundary JS read-projection
 input. The `adapter_boundaries` read projection now sends an empty state object
 and Rust authors wallet, vault, OAuth, and Agentgres boundary metadata directly
 instead of echoing JS `adapterStatus()` objects. The `authority_snapshot` read
-projection now sends empty request state plus runtime `state_dir` receipt replay
-instead of JS `server_status_input`, grants, vault refs, wallet status, vault
-status, or caller-supplied receipt arrays. Direct Rust daemon-core
-wallet/vault/Agentgres authority projection still needs to replace the
-remaining state-dir-replayed/default authority envelope before
-terminal authority projection is complete.
+projection now sends empty request state plus runtime `state_dir` replay instead
+of JS `server_status_input`, grants, vault refs, wallet status, vault status, or
+caller-supplied receipt arrays. Rust replays admitted capability-token and
+vault-control records into public grants/vault refs with token material and
+plaintext vault material redacted. Direct Rust daemon-core wallet/vault/Agentgres
+authority projection still needs to replace the remaining default authority
+envelope before terminal authority projection is complete.
 
 Slice 858 retired dedicated runtime-engine JS read-projection input. The
 `runtime_engines`, `runtime_engine_profiles`, `runtime_preference`,
@@ -2037,7 +2041,10 @@ persist token hashes and authority facts without plaintext token material, while
 one-time token material is returned outside the persisted record. The old
 `capability-token-operations.mjs` helper, `publicToken()` formatter, JS token
 maps, JS walletAuthority grant helpers, JS permission-token receipts, and direct
-token-map projection remain retired. Bearer-shape preflight may stay at the JS
+token-map projection remain retired. Broad Rust `projection`, `snapshot`, and
+`authority_snapshot` now replay the same admitted capability-token control
+records for public grants/tokens instead of returning caller-supplied JS token
+arrays. Bearer-shape preflight may stay at the JS
 protocol edge, but wallet authority, scope authorization, revocation, replay,
 and projection truth now belong to Rust daemon core over Agentgres records.
 
@@ -2048,8 +2055,11 @@ with wallet.network authority and cTEE custody evidence, commit only those
 records through Rust Agentgres model_mount record-state admission, and return
 committed Rust response envelopes. Rust replays admitted
 `vault-refs/*.json` bind/remove records for list/metadata/status/health, while
-committed records persist vault_ref_hash, material_hash, custody facts, and
-authority facts without plaintext material. The old `vault-operations.mjs`
+broad Rust `projection`, `snapshot`, and `authority_snapshot` now replay the
+same admitted vault-control records into redacted public vault refs instead of
+returning caller-supplied JS vault arrays. Committed records persist
+vault_ref_hash, material_hash, custody facts, and authority facts without
+plaintext material. The old `vault-operations.mjs`
 helper, `publicVaultRefs()` formatter, JS vault metadata writer, direct public
 vault-port mutation, JS vault receipts, and JS metadata/status readbacks remain
 retired. The mounted public `ModelMountingState` vault methods now only own
@@ -2320,7 +2330,9 @@ positive Rust capability-token control path. Public `ModelMountingState`
 create/list/authorize/revoke calls Rust daemon-core
 `plan_model_mount_capability_token_control`; list and authorization replay
 admitted `capability-tokens/*.json` records instead of JS token maps, and
-committed records preserve only hashes plus wallet authority facts. `/api/v1/tokens`
+committed records preserve only hashes plus wallet authority facts. Broad
+model-mount read projections now use the same Rust custody replay for public
+grants/tokens. `/api/v1/tokens`
 remains a mounted protocol edge over Rust-owned capability-token records, not a
 JS projection/readback owner.
 Slice 947's public vault projection retirement is now advanced by the positive
@@ -2328,7 +2340,8 @@ Rust vault-control path. Public `ModelMountingState.listVaultRefs()`,
 `vaultRefMetadata()`, and `vaultStatus()` call
 `plan_model_mount_vault_control`; Rust replays admitted `vault-refs/*.json`
 bind/remove records and returns Rust-authored projection envelopes without
-plaintext material. `/api/v1/vault/refs`, `/api/v1/vault/refs/meta`, and
+plaintext material. Broad model-mount read projections now use the same Rust
+custody replay for redacted vault refs. `/api/v1/vault/refs`, `/api/v1/vault/refs/meta`, and
 `/api/v1/vault/status` are mounted protocol edges over Rust-owned vault records,
 not JS metadata/status projection owners.
 Slice 948 retired model-mount conversation-state JS list readback, and the

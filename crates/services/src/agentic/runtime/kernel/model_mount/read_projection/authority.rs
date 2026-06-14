@@ -1,16 +1,16 @@
 use serde_json::{json, Value};
 
-use super::common::{
-    array_field, json_string_field, model_mount_projection_generated_at, object_or_null,
+use super::common::{json_string_field, model_mount_projection_generated_at, object_or_null};
+use super::{
+    custody, receipt, status, ModelMountReadProjectionError, ModelMountReadProjectionRequest,
 };
-use super::{receipt, status, ModelMountReadProjectionError, ModelMountReadProjectionRequest};
 
 pub(super) fn authority_snapshot(
     request: &ModelMountReadProjectionRequest,
 ) -> Result<Value, ModelMountReadProjectionError> {
     let state = &request.state;
-    let grants = array_field(state, "grants");
-    let vault_refs = array_field(state, "vault_refs");
+    let grants = custody::capability_token_records(request)?;
+    let vault_refs = custody::vault_ref_records(request)?;
     let authority_receipts = receipt::receipt_records(request)?
         .into_iter()
         .filter(|receipt| {
@@ -30,10 +30,7 @@ pub(super) fn authority_snapshot(
         .rev()
         .collect::<Vec<_>>();
     let wallet = object_or_null(state.get("wallet"));
-    let active_grants = grants
-        .iter()
-        .filter(|grant| grant.get("revokedAt").is_none())
-        .count();
+    let active_grants = grants.len();
     let revoked_grants = grants.len().saturating_sub(active_grants);
     let vault_ref_count = vault_refs.len();
     let authority_receipt_count = authority_receipts.len();
@@ -86,6 +83,19 @@ mod tests {
         }
     }
 
+    fn write_records(state_dir: &std::path::Path, record_dir: &str, records: &[Value]) {
+        let dir = state_dir.join(record_dir);
+        std::fs::create_dir_all(&dir).expect("record dir");
+        for record in records {
+            let record_id = json_string_field(record, "id").expect("record id");
+            std::fs::write(
+                dir.join(format!("{record_id}.json")),
+                serde_json::to_string_pretty(record).expect("record json"),
+            )
+            .expect("write record");
+        }
+    }
+
     #[test]
     fn authority_snapshot_is_planned_in_rust_model_mount_projection() {
         let temp = tempfile::tempdir().expect("tempdir");
@@ -96,6 +106,69 @@ mod tests {
                 json!({"id": "receipt-token", "kind": "permission_token"}),
                 json!({"id": "receipt-vault", "kind": "vault_adapter_health"}),
             ],
+        );
+        write_records(
+            temp.path(),
+            "capability-tokens",
+            &[json!({
+                "id": "token-create",
+                "record_id": "token-create",
+                "object": "ioi.model_mount_capability_token_control",
+                "operation_kind": "model_mount.capability_token.create",
+                "token_id": "capability_token:rust",
+                "token_hash": "sha256:token",
+                "rust_core_boundary": "model_mount.capability_token",
+                "wallet_authority_boundary": "wallet.network.capability_token",
+                "capability_token_authority": {
+                    "authority_hash": "sha256:authority",
+                    "audience": "agent-studio",
+                    "grant_id": "grant://wallet/capability",
+                    "allowed_scopes": ["model.chat:*"],
+                    "denied_scopes": ["shell.exec"]
+                },
+                "public_response": {
+                    "token": "ioi_mnt_secret"
+                },
+                "evidence_refs": [
+                    "rust_daemon_core_capability_token_control",
+                    "agentgres_capability_token_truth_required",
+                    "public_capability_token_js_facade_retired"
+                ],
+                "planned_at": "2026-06-11T00:00:00.000Z"
+            })],
+        );
+        write_records(
+            temp.path(),
+            "vault-refs",
+            &[json!({
+                "id": "vault-bind",
+                "record_id": "vault-bind",
+                "object": "ioi.model_mount_vault_control",
+                "operation_kind": "model_mount.vault_ref.bind",
+                "vault_ref_hash": "vault-hash",
+                "material_hash": "sha256:material",
+                "rust_core_boundary": "model_mount.vault",
+                "wallet_authority_boundary": "wallet.network.vault",
+                "ctee_custody_boundary": "ctee.vault_custody",
+                "vault_authority": {"authority_hash": "sha256:vault-authority"},
+                "ctee_custody": {
+                    "custody_ref": "ctee://vault/hash",
+                    "plaintext_material_persisted": false,
+                    "plaintext_material_returned": false
+                },
+                "public_response": {
+                    "vault_ref_hash": "vault-hash",
+                    "vault_ref": {"redacted": true, "hash": "vault-hash"},
+                    "label": "Provider key",
+                    "purpose": "provider.auth"
+                },
+                "evidence_refs": [
+                    "rust_daemon_core_vault_control",
+                    "agentgres_vault_truth_required",
+                    "public_vault_js_facade_retired"
+                ],
+                "planned_at": "2026-06-11T00:00:00.000Z"
+            })],
         );
         let snapshot = authority_snapshot(&ModelMountReadProjectionRequest {
             projection_kind: "authority_snapshot".to_string(),
@@ -123,10 +196,26 @@ mod tests {
         assert_eq!(snapshot["source"], "agentgres_wallet_authority_projection");
         assert_eq!(snapshot["generatedAt"], "2026-06-11T00:00:00.000Z");
         assert_eq!(snapshot["summary"]["activeGrants"], 1);
-        assert_eq!(snapshot["summary"]["revokedGrants"], 1);
+        assert_eq!(snapshot["summary"]["revokedGrants"], 0);
         assert_eq!(snapshot["summary"]["vaultRefs"], 1);
         assert_eq!(snapshot["summary"]["receiptCount"], 2);
         assert_eq!(snapshot["summary"]["remoteWalletConfigured"], true);
+        assert_eq!(snapshot["grants"].as_array().expect("grants").len(), 1);
+        assert_eq!(snapshot["grants"][0]["token_id"], "capability_token:rust");
+        assert_eq!(snapshot["grants"][0].get("token"), None);
+        assert_eq!(
+            snapshot["grants"][0]["capability_token_projection_boundary"],
+            "model_mount.capability_token_projection"
+        );
+        assert_eq!(
+            snapshot["vaultRefs"].as_array().expect("vault refs").len(),
+            1
+        );
+        assert_eq!(snapshot["vaultRefs"][0]["vault_ref_hash"], "vault-hash");
+        assert_eq!(
+            snapshot["vaultRefs"][0]["vault_projection_boundary"],
+            "model_mount.vault_projection"
+        );
         assert_eq!(
             snapshot["server"]["nativeBaseUrl"],
             "http://127.0.0.1:3200/api/v1"
@@ -135,7 +224,7 @@ mod tests {
     }
 
     #[test]
-    fn authority_snapshot_rejects_js_receipt_transport_without_state_dir() {
+    fn authority_snapshot_rejects_missing_custody_replay_state_dir() {
         let error = authority_snapshot(&ModelMountReadProjectionRequest {
             projection_kind: "authority_snapshot".to_string(),
             schema_version: None,
@@ -152,6 +241,9 @@ mod tests {
         })
         .expect_err("state_dir is required");
 
-        assert_eq!(error.code, "model_mount_receipt_replay_state_dir_required");
+        assert_eq!(
+            error.code,
+            "model_mount_wallet_custody_replay_state_dir_required"
+        );
     }
 }
