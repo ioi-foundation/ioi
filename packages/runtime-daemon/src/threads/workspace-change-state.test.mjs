@@ -10,6 +10,7 @@ function fakeStore({ changes = [], contextPolicyCore = {}, appendRuntimeEvent = 
   const calls = [];
   return {
     calls,
+    stateDir: "/runtime-state",
     contextPolicyCore,
     workspaceChangesForThread(thread_id) {
       calls.push({ operation: "workspace_changes_for_thread", thread_id });
@@ -95,7 +96,8 @@ test("workspace change inspection returns Rust daemon-core projection without JS
   assert.equal(captured.operation_kind, "workspace_change.inspect");
   assert.equal(captured.projection_kind, "list");
   assert.equal(captured.thread_id, "thread_runtime");
-  assert.equal(captured.projection.changes[0].workspace_change_id, "workspace_change:file:1");
+  assert.equal(captured.state_dir, "/runtime-state");
+  assert.equal(Object.hasOwn(captured, "projection"), false);
   assert.deepEqual(captured.evidence_refs, [
     "runtime_workspace_change_projection_rust_owned",
     "workspace_change_inspection_js_facade_retired",
@@ -103,9 +105,7 @@ test("workspace change inspection returns Rust daemon-core projection without JS
   ]);
   assert.equal(result.operation_kind, "workspace_change.inspect");
   assert.equal(result.projection[0].workspace_change_id, "workspace_change:file:1");
-  assert.deepEqual(store.calls, [
-    { operation: "workspace_changes_for_thread", thread_id: "thread_runtime" },
-  ]);
+  assert.deepEqual(store.calls, []);
 });
 
 test("workspace change inspection fails closed before JS fallback projection when Rust projector is missing", async () => {

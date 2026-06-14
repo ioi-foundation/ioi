@@ -101,6 +101,10 @@ async function managedSessionCandidatesForThread(store, threadId) {
     }));
 }
 
+function managedSessionProjectionStateDir(store) {
+  return optionalString(store?.stateDir) ?? optionalString(store?.managedSessions?.stateDir);
+}
+
 function managedSessionControlRequestPayload(request = {}) {
   const payload = {};
   for (const key of [
@@ -215,14 +219,13 @@ export async function inspectManagedSessionsForThread(store, threadId, request =
     projection_kind: projectionKind,
     thread_id: threadId,
   }, deps);
-  const sessions = await managedSessionCandidatesForThread(store, threadId);
   const result = await runner.projectRuntimeManagedSessionProjection({
     operation: "managed_session_inspection",
     operation_kind: "managed_session.inspect",
     projection_kind: projectionKind,
     thread_id: threadId,
+    state_dir: managedSessionProjectionStateDir(store),
     source: "runtime.managed_session_state",
-    projection: { sessions },
     evidence_refs: MANAGED_SESSION_INSPECTION_EVIDENCE_REFS,
   });
   return assertManagedSessionProjectionResult(result, { threadId, projectionKind });

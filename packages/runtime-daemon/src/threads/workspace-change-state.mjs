@@ -101,6 +101,10 @@ async function workspaceChangeCandidatesForThread(store, threadId) {
     }));
 }
 
+function workspaceChangeProjectionStateDir(store) {
+  return optionalString(store?.stateDir) ?? optionalString(store?.workspaceChanges?.stateDir);
+}
+
 function workspaceChangeControlRequestPayload(request = {}) {
   const payload = {};
   for (const key of [
@@ -218,14 +222,13 @@ export async function inspectWorkspaceChangeReviewsForThread(store, threadId, re
     projection_kind: projectionKind,
     thread_id: threadId,
   }, deps);
-  const changes = await workspaceChangeCandidatesForThread(store, threadId);
   const result = await runner.projectRuntimeWorkspaceChangeProjection({
     operation: "workspace_change_inspection",
     operation_kind: "workspace_change.inspect",
     projection_kind: projectionKind,
     thread_id: threadId,
+    state_dir: workspaceChangeProjectionStateDir(store),
     source: "runtime.workspace_change_state",
-    projection: { changes },
     evidence_refs: WORKSPACE_CHANGE_INSPECTION_EVIDENCE_REFS,
   });
   return assertWorkspaceChangeProjectionResult(result, { threadId, projectionKind });

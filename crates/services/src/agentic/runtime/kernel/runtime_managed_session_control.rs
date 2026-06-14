@@ -1,6 +1,7 @@
 use serde::Deserialize;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
+use std::{collections::BTreeMap, fs, path::Path};
 
 pub const RUNTIME_MANAGED_SESSION_PROJECTION_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.managed-session-projection-request.v1";
@@ -23,6 +24,8 @@ pub struct RuntimeManagedSessionProjectionRequest {
     pub projection_kind: Option<String>,
     #[serde(default)]
     pub thread_id: Option<String>,
+    #[serde(default)]
+    pub state_dir: Option<String>,
     #[serde(default)]
     pub source: Option<String>,
     #[serde(default)]
@@ -162,8 +165,12 @@ impl RuntimeManagedSessionProjectionCore {
                 "managed session projection requires thread_id",
             )
         })?;
+        reject_projection_candidate_transport(request)?;
         let projection_kind = normalized_projection_kind(request)?;
-        let sessions = projected_sessions(&request.projection, &thread_id);
+        let sessions = projected_sessions(
+            managed_session_candidates_from_state_dir(request, &thread_id)?,
+            &thread_id,
+        );
         let projection = match projection_kind.as_str() {
             "inspect" | "list" => Value::Array(sessions.clone()),
             "summary" => managed_session_summary(&sessions),
@@ -416,8 +423,26 @@ fn normalized_projection_kind(
     }
 }
 
-fn projected_sessions(projection: &Value, thread_id: &str) -> Vec<Value> {
-    let mut sessions: Vec<Value> = managed_session_candidates(projection)
+fn reject_projection_candidate_transport(
+    request: &RuntimeManagedSessionProjectionRequest,
+) -> Result<(), RuntimeManagedSessionCommandError> {
+    let has_candidate_projection = match &request.projection {
+        Value::Null => false,
+        Value::Object(object) => !object.is_empty(),
+        Value::Array(items) => !items.is_empty(),
+        _ => true,
+    };
+    if has_candidate_projection {
+        return Err(RuntimeManagedSessionCommandError::new(
+            "runtime_managed_session_projection_candidate_transport_retired",
+            "managed session projection rejects JS-supplied session candidates; provide state_dir for Agentgres event replay",
+        ));
+    }
+    Ok(())
+}
+
+fn projected_sessions(candidates: Vec<Value>, thread_id: &str) -> Vec<Value> {
+    let mut sessions: Vec<Value> = candidates
         .into_iter()
         .filter(|record| matches_thread(record, thread_id))
         .filter_map(|record| projected_session_record(&record, thread_id))
@@ -426,16 +451,234 @@ fn projected_sessions(projection: &Value, thread_id: &str) -> Vec<Value> {
     sessions
 }
 
-fn managed_session_candidates(projection: &Value) -> Vec<Value> {
-    if let Some(values) = projection.as_array() {
-        return values.clone();
+fn managed_session_candidates_from_state_dir(
+    request: &RuntimeManagedSessionProjectionRequest,
+    thread_id: &str,
+) -> Result<Vec<Value>, RuntimeManagedSessionCommandError> {
+    let state_dir = optional_trimmed(request.state_dir.as_deref()).ok_or_else(|| {
+        RuntimeManagedSessionCommandError::new(
+            "runtime_managed_session_projection_state_dir_required",
+            "managed session projection requires runtime state_dir for Agentgres event replay",
+        )
+    })?;
+    let events_dir = Path::new(&state_dir).join("events");
+    if !events_dir.exists() {
+        return Ok(Vec::new());
     }
-    for field in ["sessions", "managed_sessions", "records"] {
-        if let Some(values) = projection.get(field).and_then(Value::as_array) {
-            return values.clone();
+    let entries = fs::read_dir(&events_dir).map_err(|error| {
+        RuntimeManagedSessionCommandError::new(
+            "runtime_managed_session_projection_replay_read_failed",
+            format!("managed session projection could not read Agentgres events: {error}"),
+        )
+    })?;
+    let mut paths = Vec::new();
+    for entry in entries {
+        let entry = entry.map_err(|error| {
+            RuntimeManagedSessionCommandError::new(
+                "runtime_managed_session_projection_replay_read_failed",
+                format!(
+                    "managed session projection could not inspect Agentgres event entry: {error}"
+                ),
+            )
+        })?;
+        let path = entry.path();
+        if path.is_file() && path.extension().and_then(|value| value.to_str()) == Some("jsonl") {
+            paths.push(path);
         }
     }
-    Vec::new()
+    paths.sort();
+
+    let mut candidates = BTreeMap::new();
+    for path in paths {
+        let contents = fs::read_to_string(&path).map_err(|error| {
+            RuntimeManagedSessionCommandError::new(
+                "runtime_managed_session_projection_replay_read_failed",
+                format!(
+                    "managed session projection could not read Agentgres event record {}: {error}",
+                    path.display()
+                ),
+            )
+        })?;
+        for (index, line) in contents.lines().enumerate() {
+            let line = line.trim();
+            if line.is_empty() {
+                continue;
+            }
+            let event: Value = serde_json::from_str(line).map_err(|error| {
+                RuntimeManagedSessionCommandError::new(
+                    "runtime_managed_session_projection_replay_record_invalid",
+                    format!(
+                        "managed session projection found invalid Agentgres event record {}:{}: {error}",
+                        path.display(),
+                        index + 1
+                    ),
+                )
+            })?;
+            if event_thread_id(&event).as_deref() != Some(thread_id) {
+                continue;
+            }
+            for candidate in managed_session_candidates_from_event(&event, thread_id) {
+                if let Some(id) = string_field(&candidate, "managed_session_id")
+                    .or_else(|| string_field(&candidate, "id"))
+                {
+                    candidates.insert(id, candidate);
+                }
+            }
+        }
+    }
+    Ok(candidates.into_values().collect())
+}
+
+fn managed_session_candidates_from_event(event: &Value, thread_id: &str) -> Vec<Value> {
+    let payload = event_payload(event);
+    let event_receipt_refs = unique_strings(
+        string_array_field(event, "receipt_refs")
+            .into_iter()
+            .chain(string_array_field(&payload, "receipt_refs"))
+            .collect(),
+    );
+    let event_policy_decision_refs = unique_strings(
+        string_array_field(event, "policy_decision_refs")
+            .into_iter()
+            .chain(string_array_field(&payload, "policy_decision_refs"))
+            .collect(),
+    );
+    let mut candidates = Vec::new();
+    for record in managed_session_record_values(&payload)
+        .into_iter()
+        .chain(managed_session_record_values(event))
+    {
+        candidates.push(enrich_managed_session_candidate(
+            record,
+            event,
+            thread_id,
+            &event_receipt_refs,
+            &event_policy_decision_refs,
+        ));
+    }
+    if string_field(&payload, "managed_session_id")
+        .or_else(|| string_field(event, "managed_session_id"))
+        .is_some()
+    {
+        candidates.push(enrich_managed_session_candidate(
+            payload,
+            event,
+            thread_id,
+            &event_receipt_refs,
+            &event_policy_decision_refs,
+        ));
+    }
+    candidates
+}
+
+fn managed_session_record_values(value: &Value) -> Vec<Value> {
+    let mut records = Vec::new();
+    for field in ["sessions", "managed_sessions", "records"] {
+        if let Some(values) = value.get(field).and_then(Value::as_array) {
+            records.extend(
+                values
+                    .iter()
+                    .filter(|record| record.as_object().is_some())
+                    .cloned(),
+            );
+        }
+    }
+    for field in ["session", "managed_session"] {
+        if let Some(record) = value.get(field).filter(|record| record.is_object()) {
+            records.push(record.clone());
+        }
+    }
+    records
+}
+
+fn enrich_managed_session_candidate(
+    mut record: Value,
+    event: &Value,
+    thread_id: &str,
+    receipt_refs: &[String],
+    policy_decision_refs: &[String],
+) -> Value {
+    if !record.is_object() {
+        record = json!({});
+    }
+    let payload = event_payload(event);
+    let record_id = string_field(&record, "id");
+    if let Some(object) = record.as_object_mut() {
+        if !object.contains_key("managed_session_id") {
+            if let Some(id) = string_field(&payload, "managed_session_id")
+                .or_else(|| string_field(event, "managed_session_id"))
+                .or_else(|| record_id.clone())
+            {
+                object.insert("managed_session_id".to_string(), Value::String(id));
+            }
+        }
+        object
+            .entry("thread_id".to_string())
+            .or_insert_with(|| Value::String(thread_id.to_string()));
+        if !object.contains_key("status") {
+            if let Some(status) =
+                string_field(event, "status").or_else(|| string_field(&payload, "status"))
+            {
+                object.insert("status".to_string(), Value::String(status));
+            }
+        }
+        if !object.contains_key("control_state") {
+            if let Some(control_state) = string_field(&payload, "control_state")
+                .or_else(|| string_field(event, "control_state"))
+                .or_else(|| string_field(event, "status"))
+            {
+                object.insert("control_state".to_string(), Value::String(control_state));
+            }
+        }
+        if !object.contains_key("updated_at") {
+            if let Some(updated_at) = event_updated_at(event) {
+                object.insert("updated_at".to_string(), Value::String(updated_at));
+            }
+        }
+        if !receipt_refs.is_empty() && !object.contains_key("receipt_refs") {
+            object.insert(
+                "receipt_refs".to_string(),
+                Value::Array(receipt_refs.iter().cloned().map(Value::String).collect()),
+            );
+        }
+        if !policy_decision_refs.is_empty() && !object.contains_key("policy_decision_refs") {
+            object.insert(
+                "policy_decision_refs".to_string(),
+                Value::Array(
+                    policy_decision_refs
+                        .iter()
+                        .cloned()
+                        .map(Value::String)
+                        .collect(),
+                ),
+            );
+        }
+    }
+    record
+}
+
+fn event_payload(event: &Value) -> Value {
+    event
+        .get("payload")
+        .filter(|value| value.is_object())
+        .or_else(|| {
+            event
+                .get("payload_summary")
+                .filter(|value| value.is_object())
+        })
+        .cloned()
+        .unwrap_or_else(|| json!({}))
+}
+
+fn event_thread_id(event: &Value) -> Option<String> {
+    string_field(event, "thread_id").or_else(|| string_field(&event_payload(event), "thread_id"))
+}
+
+fn event_updated_at(event: &Value) -> Option<String> {
+    string_field(event, "updated_at")
+        .or_else(|| string_field(event, "created_at"))
+        .or_else(|| string_field(event, "timestamp"))
+        .or_else(|| string_field(event, "event_id"))
 }
 
 fn projected_session_record(record: &Value, thread_id: &str) -> Option<Value> {
@@ -625,8 +868,9 @@ fn unique_strings(values: Vec<String>) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::{fs, path::Path};
 
-    fn projection_request() -> RuntimeManagedSessionProjectionRequest {
+    fn projection_request(state_dir: &Path) -> RuntimeManagedSessionProjectionRequest {
         RuntimeManagedSessionProjectionRequest {
             schema_version: Some(
                 RUNTIME_MANAGED_SESSION_PROJECTION_REQUEST_SCHEMA_VERSION.to_string(),
@@ -635,9 +879,36 @@ mod tests {
             operation_kind: Some("managed_session.inspect".to_string()),
             projection_kind: Some("list".to_string()),
             thread_id: Some("thread_1".to_string()),
+            state_dir: Some(state_dir.to_string_lossy().to_string()),
             source: Some("runtime.managed_session_state".to_string()),
-            projection: json!({
-                "sessions": [{
+            projection: Value::Null,
+            evidence_refs: vec![],
+        }
+    }
+
+    fn write_runtime_event(state_dir: &Path, file_name: &str, event: Value) {
+        let event_dir = state_dir.join("events");
+        fs::create_dir_all(&event_dir).expect("event dir");
+        fs::write(
+            event_dir.join(file_name),
+            format!("{}\n", serde_json::to_string(&event).expect("event json")),
+        )
+        .expect("write event");
+    }
+
+    fn seed_managed_session_events(state_dir: &Path) {
+        write_runtime_event(
+            state_dir,
+            "thread_1.jsonl",
+            json!({
+                "event_id": "event_session_waiting",
+                "event_stream_id": "thread_1:events",
+                "thread_id": "thread_1",
+                "event_kind": "managed_session.projected",
+                "status": "waiting_for_user",
+                "receipt_refs": ["receipt_session"],
+                "payload": {
+                    "sessions": [{
                     "id": "sandbox_browser:1",
                     "thread_id": "thread_1",
                     "kind": "sandbox_browser",
@@ -645,15 +916,14 @@ mod tests {
                     "control_state": "observe",
                     "waiting_for_user": true,
                     "replay_ready": true,
-                    "updated_at": "2026-06-12T12:00:00.000Z",
-                    "receipt_refs": ["receipt_session"]
+                    "updated_at": "2026-06-12T12:00:00.000Z"
                 }, {
                     "id": "sandbox_browser:2",
                     "thread_id": "thread_other"
-                }],
+                    }]
+                }
             }),
-            evidence_refs: vec![],
-        }
+        );
     }
 
     fn control_request() -> RuntimeManagedSessionControlRequest {
@@ -689,8 +959,10 @@ mod tests {
 
     #[test]
     fn rust_projects_managed_session_inspection() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        seed_managed_session_events(temp.path());
         let record = RuntimeManagedSessionProjectionCore
-            .project(&projection_request())
+            .project(&projection_request(temp.path()))
             .expect("projection should be planned");
 
         assert_eq!(record.operation_kind, "managed_session.inspect");
@@ -705,8 +977,11 @@ mod tests {
 
     #[test]
     fn rust_shapes_managed_session_projection_command_response() {
-        let response = project_runtime_managed_session_projection_response(projection_request())
-            .expect("response should shape");
+        let temp = tempfile::tempdir().expect("tempdir");
+        seed_managed_session_events(temp.path());
+        let response =
+            project_runtime_managed_session_projection_response(projection_request(temp.path()))
+                .expect("response should shape");
 
         assert_eq!(
             response["source"],
@@ -796,7 +1071,9 @@ mod tests {
 
     #[test]
     fn rust_rejects_invalid_managed_session_projection_schema() {
-        let mut request = projection_request();
+        let temp = tempfile::tempdir().expect("tempdir");
+        seed_managed_session_events(temp.path());
+        let mut request = projection_request(temp.path());
         request.schema_version = Some("legacy.managed-session-projection".to_string());
         let error = RuntimeManagedSessionProjectionCore
             .project(&request)
@@ -804,6 +1081,36 @@ mod tests {
         assert_eq!(
             error.code(),
             "runtime_managed_session_projection_schema_version_invalid"
+        );
+    }
+
+    #[test]
+    fn rust_rejects_managed_session_projection_candidate_transport() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        seed_managed_session_events(temp.path());
+        let mut request = projection_request(temp.path());
+        request.projection = json!({"sessions": [{"managed_session_id": "js_session"}]});
+        let error = RuntimeManagedSessionProjectionCore
+            .project(&request)
+            .expect_err("candidate transport should fail");
+        assert_eq!(
+            error.code(),
+            "runtime_managed_session_projection_candidate_transport_retired"
+        );
+    }
+
+    #[test]
+    fn rust_requires_state_dir_for_managed_session_projection() {
+        let error = RuntimeManagedSessionProjectionCore
+            .project(&RuntimeManagedSessionProjectionRequest {
+                projection_kind: Some("list".to_string()),
+                thread_id: Some("thread_1".to_string()),
+                ..Default::default()
+            })
+            .expect_err("missing state_dir should fail");
+        assert_eq!(
+            error.code(),
+            "runtime_managed_session_projection_state_dir_required"
         );
     }
 }

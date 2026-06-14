@@ -1,6 +1,7 @@
 use serde::Deserialize;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
+use std::{collections::BTreeMap, fs, path::Path};
 
 pub const RUNTIME_WORKSPACE_CHANGE_PROJECTION_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.workspace-change-projection-request.v1";
@@ -23,6 +24,8 @@ pub struct RuntimeWorkspaceChangeProjectionRequest {
     pub projection_kind: Option<String>,
     #[serde(default)]
     pub thread_id: Option<String>,
+    #[serde(default)]
+    pub state_dir: Option<String>,
     #[serde(default)]
     pub source: Option<String>,
     #[serde(default)]
@@ -162,8 +165,12 @@ impl RuntimeWorkspaceChangeProjectionCore {
                 "workspace change projection requires thread_id",
             )
         })?;
+        reject_projection_candidate_transport(request)?;
         let projection_kind = normalized_projection_kind(request)?;
-        let changes = projected_workspace_changes(&request.projection, &thread_id);
+        let changes = projected_workspace_changes(
+            workspace_change_candidates_from_state_dir(request, &thread_id)?,
+            &thread_id,
+        );
         let projection = match projection_kind.as_str() {
             "inspect" | "list" => Value::Array(changes.clone()),
             "summary" => workspace_change_summary(&changes),
@@ -425,8 +432,26 @@ fn normalized_projection_kind(
     }
 }
 
-fn projected_workspace_changes(projection: &Value, thread_id: &str) -> Vec<Value> {
-    let mut changes: Vec<Value> = workspace_change_candidates(projection)
+fn reject_projection_candidate_transport(
+    request: &RuntimeWorkspaceChangeProjectionRequest,
+) -> Result<(), RuntimeWorkspaceChangeCommandError> {
+    let has_candidate_projection = match &request.projection {
+        Value::Null => false,
+        Value::Object(object) => !object.is_empty(),
+        Value::Array(items) => !items.is_empty(),
+        _ => true,
+    };
+    if has_candidate_projection {
+        return Err(RuntimeWorkspaceChangeCommandError::new(
+            "runtime_workspace_change_projection_candidate_transport_retired",
+            "workspace change projection rejects JS-supplied change candidates; provide state_dir for Agentgres event replay",
+        ));
+    }
+    Ok(())
+}
+
+fn projected_workspace_changes(candidates: Vec<Value>, thread_id: &str) -> Vec<Value> {
+    let mut changes: Vec<Value> = candidates
         .into_iter()
         .filter(|record| matches_thread(record, thread_id))
         .filter_map(|record| projected_workspace_change_record(&record, thread_id))
@@ -439,16 +464,239 @@ fn projected_workspace_changes(projection: &Value, thread_id: &str) -> Vec<Value
     changes
 }
 
-fn workspace_change_candidates(projection: &Value) -> Vec<Value> {
-    if let Some(values) = projection.as_array() {
-        return values.clone();
+fn workspace_change_candidates_from_state_dir(
+    request: &RuntimeWorkspaceChangeProjectionRequest,
+    thread_id: &str,
+) -> Result<Vec<Value>, RuntimeWorkspaceChangeCommandError> {
+    let state_dir = optional_trimmed(request.state_dir.as_deref()).ok_or_else(|| {
+        RuntimeWorkspaceChangeCommandError::new(
+            "runtime_workspace_change_projection_state_dir_required",
+            "workspace change projection requires runtime state_dir for Agentgres event replay",
+        )
+    })?;
+    let events_dir = Path::new(&state_dir).join("events");
+    if !events_dir.exists() {
+        return Ok(Vec::new());
     }
-    for field in ["changes", "workspace_changes", "records"] {
-        if let Some(values) = projection.get(field).and_then(Value::as_array) {
-            return values.clone();
+    let entries = fs::read_dir(&events_dir).map_err(|error| {
+        RuntimeWorkspaceChangeCommandError::new(
+            "runtime_workspace_change_projection_replay_read_failed",
+            format!("workspace change projection could not read Agentgres events: {error}"),
+        )
+    })?;
+    let mut paths = Vec::new();
+    for entry in entries {
+        let entry = entry.map_err(|error| {
+            RuntimeWorkspaceChangeCommandError::new(
+                "runtime_workspace_change_projection_replay_read_failed",
+                format!(
+                    "workspace change projection could not inspect Agentgres event entry: {error}"
+                ),
+            )
+        })?;
+        let path = entry.path();
+        if path.is_file() && path.extension().and_then(|value| value.to_str()) == Some("jsonl") {
+            paths.push(path);
         }
     }
-    Vec::new()
+    paths.sort();
+
+    let mut candidates = BTreeMap::new();
+    for path in paths {
+        let contents = fs::read_to_string(&path).map_err(|error| {
+            RuntimeWorkspaceChangeCommandError::new(
+                "runtime_workspace_change_projection_replay_read_failed",
+                format!(
+                    "workspace change projection could not read Agentgres event record {}: {error}",
+                    path.display()
+                ),
+            )
+        })?;
+        for (index, line) in contents.lines().enumerate() {
+            let line = line.trim();
+            if line.is_empty() {
+                continue;
+            }
+            let event: Value = serde_json::from_str(line).map_err(|error| {
+                RuntimeWorkspaceChangeCommandError::new(
+                    "runtime_workspace_change_projection_replay_record_invalid",
+                    format!(
+                        "workspace change projection found invalid Agentgres event record {}:{}: {error}",
+                        path.display(),
+                        index + 1
+                    ),
+                )
+            })?;
+            if event_thread_id(&event).as_deref() != Some(thread_id) {
+                continue;
+            }
+            for candidate in workspace_change_candidates_from_event(&event, thread_id) {
+                if let Some(id) = workspace_change_id(&candidate) {
+                    candidates.insert(id, candidate);
+                }
+            }
+        }
+    }
+    Ok(candidates.into_values().collect())
+}
+
+fn workspace_change_candidates_from_event(event: &Value, thread_id: &str) -> Vec<Value> {
+    let payload = event_payload(event);
+    let event_receipt_refs = unique_strings(
+        string_array_field(event, "receipt_refs")
+            .into_iter()
+            .chain(string_array_field(&payload, "receipt_refs"))
+            .chain(string_field(&payload, "receipt_ref"))
+            .collect(),
+    );
+    let event_policy_decision_refs = unique_strings(
+        string_array_field(event, "policy_decision_refs")
+            .into_iter()
+            .chain(string_array_field(&payload, "policy_decision_refs"))
+            .collect(),
+    );
+    let mut candidates = Vec::new();
+    for record in workspace_change_record_values(&payload)
+        .into_iter()
+        .chain(workspace_change_record_values(event))
+    {
+        candidates.push(enrich_workspace_change_candidate(
+            record,
+            event,
+            thread_id,
+            &event_receipt_refs,
+            &event_policy_decision_refs,
+        ));
+    }
+    if string_field(&payload, "workspace_change_id")
+        .or_else(|| string_field(&payload, "change_id"))
+        .or_else(|| string_field(event, "workspace_change_id"))
+        .or_else(|| string_field(event, "change_id"))
+        .is_some()
+    {
+        candidates.push(enrich_workspace_change_candidate(
+            payload,
+            event,
+            thread_id,
+            &event_receipt_refs,
+            &event_policy_decision_refs,
+        ));
+    }
+    candidates
+}
+
+fn workspace_change_record_values(value: &Value) -> Vec<Value> {
+    let mut records = Vec::new();
+    for field in ["changes", "workspace_changes", "records"] {
+        if let Some(values) = value.get(field).and_then(Value::as_array) {
+            records.extend(
+                values
+                    .iter()
+                    .filter(|record| record.as_object().is_some())
+                    .cloned(),
+            );
+        }
+    }
+    for field in ["change", "workspace_change"] {
+        if let Some(record) = value.get(field).filter(|record| record.is_object()) {
+            records.push(record.clone());
+        }
+    }
+    records
+}
+
+fn enrich_workspace_change_candidate(
+    mut record: Value,
+    event: &Value,
+    thread_id: &str,
+    receipt_refs: &[String],
+    policy_decision_refs: &[String],
+) -> Value {
+    if !record.is_object() {
+        record = json!({});
+    }
+    let payload = event_payload(event);
+    let record_id = workspace_change_id(&record);
+    if let Some(object) = record.as_object_mut() {
+        if !object.contains_key("workspace_change_id") {
+            if let Some(id) = string_field(&payload, "workspace_change_id")
+                .or_else(|| string_field(&payload, "change_id"))
+                .or_else(|| string_field(event, "workspace_change_id"))
+                .or_else(|| string_field(event, "change_id"))
+                .or_else(|| record_id.clone())
+            {
+                object.insert("workspace_change_id".to_string(), Value::String(id));
+            }
+        }
+        object
+            .entry("thread_id".to_string())
+            .or_insert_with(|| Value::String(thread_id.to_string()));
+        if !object.contains_key("lifecycle") {
+            if let Some(lifecycle) = string_field(&payload, "next_lifecycle")
+                .or_else(|| string_field(&payload, "lifecycle"))
+                .or_else(|| string_field(event, "status"))
+            {
+                object.insert("lifecycle".to_string(), Value::String(lifecycle));
+            }
+        }
+        for field in ["path", "tool_name", "expected_head_ref", "state_root_ref"] {
+            if !object.contains_key(field) {
+                if let Some(value) =
+                    string_field(&payload, field).or_else(|| string_field(event, field))
+                {
+                    object.insert(field.to_string(), Value::String(value));
+                }
+            }
+        }
+        if !object.contains_key("updated_at") {
+            if let Some(updated_at) = event_updated_at(event) {
+                object.insert("updated_at".to_string(), Value::String(updated_at));
+            }
+        }
+        if !receipt_refs.is_empty() && !object.contains_key("receipt_refs") {
+            object.insert(
+                "receipt_refs".to_string(),
+                Value::Array(receipt_refs.iter().cloned().map(Value::String).collect()),
+            );
+        }
+        if !policy_decision_refs.is_empty() && !object.contains_key("policy_decision_refs") {
+            object.insert(
+                "policy_decision_refs".to_string(),
+                Value::Array(
+                    policy_decision_refs
+                        .iter()
+                        .cloned()
+                        .map(Value::String)
+                        .collect(),
+                ),
+            );
+        }
+    }
+    record
+}
+
+fn event_payload(event: &Value) -> Value {
+    event
+        .get("payload")
+        .filter(|value| value.is_object())
+        .or_else(|| {
+            event
+                .get("payload_summary")
+                .filter(|value| value.is_object())
+        })
+        .cloned()
+        .unwrap_or_else(|| json!({}))
+}
+
+fn event_thread_id(event: &Value) -> Option<String> {
+    string_field(event, "thread_id").or_else(|| string_field(&event_payload(event), "thread_id"))
+}
+
+fn event_updated_at(event: &Value) -> Option<String> {
+    string_field(event, "updated_at")
+        .or_else(|| string_field(event, "created_at"))
+        .or_else(|| string_field(event, "timestamp"))
+        .or_else(|| string_field(event, "event_id"))
 }
 
 fn projected_workspace_change_record(record: &Value, thread_id: &str) -> Option<Value> {
@@ -733,8 +981,9 @@ fn unique_strings(values: Vec<String>) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::{fs, path::Path};
 
-    fn projection_request() -> RuntimeWorkspaceChangeProjectionRequest {
+    fn projection_request(state_dir: &Path) -> RuntimeWorkspaceChangeProjectionRequest {
         RuntimeWorkspaceChangeProjectionRequest {
             schema_version: Some(
                 RUNTIME_WORKSPACE_CHANGE_PROJECTION_REQUEST_SCHEMA_VERSION.to_string(),
@@ -743,33 +992,60 @@ mod tests {
             operation_kind: Some("workspace_change.inspect".to_string()),
             projection_kind: Some("list".to_string()),
             thread_id: Some("thread_1".to_string()),
+            state_dir: Some(state_dir.to_string_lossy().to_string()),
             source: Some("runtime.workspace_change_state".to_string()),
-            projection: json!({
-                "changes": [{
-                    "change_id": "workspace_change:file:1",
-                    "thread_id": "thread_1",
-                    "tool_name": "file__edit",
-                    "path": "src/lib.rs",
-                    "lifecycle": "proposed",
-                    "edit_count": 1,
-                    "hunks": [{
-                        "hunk_index": 0,
-                        "kind": "replace",
-                        "line_start": 10,
-                        "line_end": 12,
-                        "search_hash": "hash_search",
-                        "replace_hash": "hash_replace"
-                    }],
-                    "receipt_ref": "receipt_workspace_change_proposed",
-                    "updated_at": "2026-06-12T12:00:00.000Z"
-                }, {
-                    "change_id": "workspace_change:file:other",
-                    "thread_id": "thread_other",
-                    "lifecycle": "proposed"
-                }],
-            }),
+            projection: Value::Null,
             evidence_refs: vec![],
         }
+    }
+
+    fn write_runtime_event(state_dir: &Path, file_name: &str, event: Value) {
+        let event_dir = state_dir.join("events");
+        fs::create_dir_all(&event_dir).expect("event dir");
+        fs::write(
+            event_dir.join(file_name),
+            format!("{}\n", serde_json::to_string(&event).expect("event json")),
+        )
+        .expect("write event");
+    }
+
+    fn seed_workspace_change_events(state_dir: &Path) {
+        write_runtime_event(
+            state_dir,
+            "thread_1.jsonl",
+            json!({
+                "event_id": "event_workspace_change_pending",
+                "event_stream_id": "thread_1:events",
+                "thread_id": "thread_1",
+                "event_kind": "workspace_change.projected",
+                "status": "proposed",
+                "receipt_refs": ["receipt_workspace_change_proposed"],
+                "payload": {
+                    "changes": [{
+                        "change_id": "workspace_change:file:1",
+                        "thread_id": "thread_1",
+                        "tool_name": "file__edit",
+                        "path": "src/lib.rs",
+                        "lifecycle": "proposed",
+                        "edit_count": 1,
+                        "hunks": [{
+                            "hunk_index": 0,
+                            "kind": "replace",
+                            "line_start": 10,
+                            "line_end": 12,
+                            "search_hash": "hash_search",
+                            "replace_hash": "hash_replace"
+                        }],
+                        "receipt_ref": "receipt_workspace_change_proposed",
+                        "updated_at": "2026-06-12T12:00:00.000Z"
+                    }, {
+                        "change_id": "workspace_change:file:other",
+                        "thread_id": "thread_other",
+                        "lifecycle": "proposed"
+                    }]
+                }
+            }),
+        );
     }
 
     fn control_request() -> RuntimeWorkspaceChangeControlRequest {
@@ -810,8 +1086,10 @@ mod tests {
 
     #[test]
     fn rust_projects_workspace_change_inspection() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        seed_workspace_change_events(temp.path());
         let record = RuntimeWorkspaceChangeProjectionCore
-            .project(&projection_request())
+            .project(&projection_request(temp.path()))
             .expect("projection should be planned");
 
         assert_eq!(record.operation_kind, "workspace_change.inspect");
@@ -827,8 +1105,11 @@ mod tests {
 
     #[test]
     fn rust_shapes_workspace_change_projection_command_response() {
-        let response = project_runtime_workspace_change_projection_response(projection_request())
-            .expect("response should shape");
+        let temp = tempfile::tempdir().expect("tempdir");
+        seed_workspace_change_events(temp.path());
+        let response =
+            project_runtime_workspace_change_projection_response(projection_request(temp.path()))
+                .expect("response should shape");
 
         assert_eq!(
             response["source"],
@@ -924,7 +1205,9 @@ mod tests {
 
     #[test]
     fn rust_rejects_invalid_workspace_change_projection_schema() {
-        let mut request = projection_request();
+        let temp = tempfile::tempdir().expect("tempdir");
+        seed_workspace_change_events(temp.path());
+        let mut request = projection_request(temp.path());
         request.schema_version = Some("legacy.workspace-change-projection".to_string());
         let error = RuntimeWorkspaceChangeProjectionCore
             .project(&request)
@@ -945,6 +1228,36 @@ mod tests {
         assert_eq!(
             error.code(),
             "runtime_workspace_change_control_transition_unsupported"
+        );
+    }
+
+    #[test]
+    fn rust_rejects_workspace_change_projection_candidate_transport() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        seed_workspace_change_events(temp.path());
+        let mut request = projection_request(temp.path());
+        request.projection = json!({"changes": [{"workspace_change_id": "js_change"}]});
+        let error = RuntimeWorkspaceChangeProjectionCore
+            .project(&request)
+            .expect_err("candidate transport should fail");
+        assert_eq!(
+            error.code(),
+            "runtime_workspace_change_projection_candidate_transport_retired"
+        );
+    }
+
+    #[test]
+    fn rust_requires_state_dir_for_workspace_change_projection() {
+        let error = RuntimeWorkspaceChangeProjectionCore
+            .project(&RuntimeWorkspaceChangeProjectionRequest {
+                projection_kind: Some("list".to_string()),
+                thread_id: Some("thread_1".to_string()),
+                ..Default::default()
+            })
+            .expect_err("missing state_dir should fail");
+        assert_eq!(
+            error.code(),
+            "runtime_workspace_change_projection_state_dir_required"
         );
     }
 }

@@ -2643,21 +2643,24 @@ daemon-core workspace-change and managed-session projection over
 Agentgres-admitted truth remains required before terminal conformance.
 A later managed-session positive API cut supersedes the managed-session half of
 that fail-closed boundary: public managed-session inspection calls
-`project_runtime_managed_session_projection`, public managed-session control
-calls `plan_runtime_managed_session_control`, and the route admits only the
-Rust-authored `managed_session.controlled` runtime event. JS remains a temporary
-canonical request/candidate edge for this route family; durable Agentgres-backed
-managed-session storage/replay/projection, wallet/cTEE session authority, command
-transport retirement, and stable protocol APIs remain non-terminal.
+`project_runtime_managed_session_projection` with runtime `state_dir`, Rust
+derives session cards from admitted `events/*.jsonl`, public managed-session
+control calls `plan_runtime_managed_session_control`, and the route admits only
+the Rust-authored `managed_session.controlled` runtime event. JS remains a
+temporary current-session/request edge only for control planning; durable
+managed-session record storage beyond runtime-event replay, wallet/cTEE session
+authority, command transport retirement, and stable protocol APIs remain
+non-terminal.
 A later workspace-change positive API cut supersedes the workspace-change half
 of that fail-closed boundary: public workspace-change inspection calls
-`project_runtime_workspace_change_projection`, public workspace-change
+`project_runtime_workspace_change_projection` with runtime `state_dir`, Rust
+derives review cards from admitted `events/*.jsonl`, public workspace-change
 accept/reject/rollback control calls `plan_runtime_workspace_change_control`,
 and the route admits only the Rust-authored `workspace_change.controlled`
-runtime event. JS remains a temporary canonical request/candidate edge for this
-route family; durable Agentgres-backed workspace-change storage/replay/projection,
-wallet/workspace rollback authority, command transport retirement, and stable
-protocol APIs remain non-terminal.
+runtime event. JS remains a temporary current-change/request edge only for
+control planning; durable workspace-change record storage beyond runtime-event
+replay, wallet/workspace rollback authority, command transport retirement, and
+stable protocol APIs remain non-terminal.
 Slice 954 retired the remaining runtime bridge thread-control JS dispatch path;
 the later Rust-control cut replaced the fail-closed resume boundary with
 `plan_runtime_bridge_thread_control_agent_state_update`. Runtime-service resume
@@ -8664,13 +8667,17 @@ retry-event materialization, durable replay/projection, command-transport
 retirement, and stable SDK/IDE/CLI APIs still need direct Rust ownership.
 Managed-session inspection/control has moved from a fail-closed public facade to
 Rust daemon-core projection/control planning plus Rust-authored runtime-event
-admission. The remaining managed-session blockers are durable Agentgres-backed
-session storage/replay/projection, wallet/cTEE session authority,
-command-transport retirement, and stable protocol APIs.
+admission. Inspection now sends runtime `state_dir`, and Rust replays admitted
+`events/*.jsonl` records instead of accepting JS projection candidates. The
+remaining managed-session blockers are durable session record storage beyond
+runtime-event replay, wallet/cTEE session authority, command-transport
+retirement, and stable protocol APIs.
 Workspace-change inspection/control has moved from a fail-closed public facade
 to Rust daemon-core projection/control planning plus Rust-authored runtime-event
-admission. The remaining workspace-change blockers are durable Agentgres-backed
-workspace-change storage/replay/projection, wallet/workspace rollback authority,
+admission. Inspection now sends runtime `state_dir`, and Rust replays admitted
+`events/*.jsonl` records instead of accepting JS projection candidates. The
+remaining workspace-change blockers are durable workspace-change record storage
+beyond runtime-event replay, wallet/workspace rollback authority,
 command-transport retirement, and stable protocol APIs.
 Model-mount provider lifecycle has moved from fail-closed JS public
 health/start/stop facades to Rust `plan_model_mount_provider_lifecycle` plus

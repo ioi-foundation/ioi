@@ -10,6 +10,7 @@ function fakeStore({ sessions = [], contextPolicyCore = {}, appendRuntimeEvent =
   const calls = [];
   return {
     calls,
+    stateDir: "/runtime-state",
     contextPolicyCore,
     managedSessionsForThread(thread_id) {
       calls.push({ operation: "managed_sessions_for_thread", thread_id });
@@ -94,7 +95,8 @@ test("managed session inspection returns Rust daemon-core projection without JS 
   assert.equal(captured.operation_kind, "managed_session.inspect");
   assert.equal(captured.projection_kind, "list");
   assert.equal(captured.thread_id, "thread_runtime");
-  assert.equal(captured.projection.sessions[0].managed_session_id, "sandbox_browser:1");
+  assert.equal(captured.state_dir, "/runtime-state");
+  assert.equal(Object.hasOwn(captured, "projection"), false);
   assert.deepEqual(captured.evidence_refs, [
     "runtime_managed_session_projection_rust_owned",
     "managed_session_inspection_js_facade_retired",
@@ -102,9 +104,7 @@ test("managed session inspection returns Rust daemon-core projection without JS 
   ]);
   assert.equal(result.operation_kind, "managed_session.inspect");
   assert.equal(result.projection[0].managed_session_id, "sandbox_browser:1");
-  assert.deepEqual(store.calls, [
-    { operation: "managed_sessions_for_thread", thread_id: "thread_runtime" },
-  ]);
+  assert.deepEqual(store.calls, []);
 });
 
 test("managed session inspection fails closed before JS fallback projection when Rust projector is missing", async () => {

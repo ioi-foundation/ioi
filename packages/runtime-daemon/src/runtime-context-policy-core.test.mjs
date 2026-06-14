@@ -2836,15 +2836,12 @@ test("runtime managed-session projection core sends Rust daemon-core request", (
     },
   });
 
-  const projection = {
-    sessions: [{ managed_session_id: "sandbox_browser:1", thread_id: "thread_123" }],
-  };
   const result = runner.projectRuntimeManagedSessionProjection({
     operation: "managed_session_inspection",
     operation_kind: "managed_session.inspect",
     projection_kind: "list",
     thread_id: "thread_123",
-    projection,
+    state_dir: "/runtime-state",
   });
 
   assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
@@ -2857,7 +2854,8 @@ test("runtime managed-session projection core sends Rust daemon-core request", (
   assert.equal(captured.request.operation_kind, "managed_session.inspect");
   assert.equal(captured.request.projection_kind, "list");
   assert.equal(captured.request.thread_id, "thread_123");
-  assert.deepEqual(captured.request.projection, projection);
+  assert.equal(captured.request.state_dir, "/runtime-state");
+  assert.equal(Object.hasOwn(captured.request, "projection"), false);
   assert.equal(result.source, "rust_runtime_managed_session_projection_command");
   assert.equal(result.operation_kind, "managed_session.inspect");
   assert.equal(result.projection[0].managed_session_id, "sandbox_browser:1");
@@ -2981,15 +2979,12 @@ test("runtime workspace-change projection core sends Rust daemon-core request", 
     },
   });
 
-  const projection = {
-    changes: [{ workspace_change_id: "workspace_change:file:1", thread_id: "thread_123" }],
-  };
   const result = runner.projectRuntimeWorkspaceChangeProjection({
     operation: "workspace_change_inspection",
     operation_kind: "workspace_change.inspect",
     projection_kind: "list",
     thread_id: "thread_123",
-    projection,
+    state_dir: "/runtime-state",
   });
 
   assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
@@ -3002,7 +2997,8 @@ test("runtime workspace-change projection core sends Rust daemon-core request", 
   assert.equal(captured.request.operation_kind, "workspace_change.inspect");
   assert.equal(captured.request.projection_kind, "list");
   assert.equal(captured.request.thread_id, "thread_123");
-  assert.deepEqual(captured.request.projection, projection);
+  assert.equal(captured.request.state_dir, "/runtime-state");
+  assert.equal(Object.hasOwn(captured.request, "projection"), false);
   assert.equal(result.source, "rust_runtime_workspace_change_projection_command");
   assert.equal(result.operation_kind, "workspace_change.inspect");
   assert.equal(result.projection[0].workspace_change_id, "workspace_change:file:1");

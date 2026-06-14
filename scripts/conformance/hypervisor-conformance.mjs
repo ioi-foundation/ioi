@@ -34038,6 +34038,11 @@ function runCompositor() {
       /managedSessionControlRunner/.test(managedSessionState) &&
       /managedSessionCandidatesForThread/.test(managedSessionState) &&
       /projectRuntimeManagedSessionProjection/.test(managedSessionState) &&
+      /managedSessionProjectionStateDir/.test(managedSessionState) &&
+      /state_dir:\s*managedSessionProjectionStateDir\(store\)/.test(
+        managedSessionState,
+      ) &&
+      !/projection:\s*\{\s*sessions\s*:/.test(managedSessionState) &&
       /planRuntimeManagedSessionControl/.test(managedSessionState) &&
       /store\.appendRuntimeEvent\(event\)/.test(managedSessionState) &&
       /assertManagedSessionProjectionResult/.test(managedSessionState) &&
@@ -34063,6 +34068,10 @@ function runCompositor() {
       /runtime managed-session projection core sends Rust daemon-core request/.test(
         runtimeContextPolicyCoreTest,
       ) &&
+      /captured\.request\.state_dir/.test(runtimeContextPolicyCoreTest) &&
+      /Object\.hasOwn\(captured\.request,\s*"projection"\),\s*false/.test(
+        runtimeContextPolicyCoreTest,
+      ) &&
       /runtime managed-session control core sends Rust daemon-core request/.test(
         runtimeContextPolicyCoreTest,
       ) &&
@@ -34079,6 +34088,22 @@ function runCompositor() {
         runtimeManagedSessionControlCore,
       ) &&
       /rust_projects_managed_session_inspection/.test(
+        runtimeManagedSessionControlCore,
+      ) &&
+      /pub state_dir: Option<String>/.test(runtimeManagedSessionControlCore) &&
+      /managed_session_candidates_from_state_dir/.test(
+        runtimeManagedSessionControlCore,
+      ) &&
+      /runtime_managed_session_projection_state_dir_required/.test(
+        runtimeManagedSessionControlCore,
+      ) &&
+      /runtime_managed_session_projection_candidate_transport_retired/.test(
+        runtimeManagedSessionControlCore,
+      ) &&
+      /rust_rejects_managed_session_projection_candidate_transport/.test(
+        runtimeManagedSessionControlCore,
+      ) &&
+      /rust_requires_state_dir_for_managed_session_projection/.test(
         runtimeManagedSessionControlCore,
       ) &&
       /rust_plans_managed_session_control_event/.test(
@@ -34117,6 +34142,15 @@ function runCompositor() {
       !exists("packages/runtime-daemon/src/managed-session-inspection.mjs") &&
       !exists("packages/runtime-daemon/src/managed-session-inspection.test.mjs") &&
       /managed session inspection returns Rust daemon-core projection without JS bridge readback/.test(
+        managedSessionStateTest,
+      ) &&
+      /assert\.equal\(captured\.state_dir,\s*"\/runtime-state"\)/.test(
+        managedSessionStateTest,
+      ) &&
+      /Object\.hasOwn\(captured,\s*"projection"\),\s*false/.test(
+        managedSessionStateTest,
+      ) &&
+      /assert\.deepEqual\(store\.calls,\s*\[\]\)/.test(
         managedSessionStateTest,
       ) &&
       /managed session inspection fails closed before JS fallback projection when Rust projector is missing/.test(
@@ -34225,6 +34259,22 @@ function runCompositor() {
         runtimeWorkspaceChangeControlCore,
       ) &&
       /rust_projects_workspace_change_inspection/.test(runtimeWorkspaceChangeControlCore) &&
+      /pub state_dir: Option<String>/.test(runtimeWorkspaceChangeControlCore) &&
+      /workspace_change_candidates_from_state_dir/.test(
+        runtimeWorkspaceChangeControlCore,
+      ) &&
+      /runtime_workspace_change_projection_state_dir_required/.test(
+        runtimeWorkspaceChangeControlCore,
+      ) &&
+      /runtime_workspace_change_projection_candidate_transport_retired/.test(
+        runtimeWorkspaceChangeControlCore,
+      ) &&
+      /rust_rejects_workspace_change_projection_candidate_transport/.test(
+        runtimeWorkspaceChangeControlCore,
+      ) &&
+      /rust_requires_state_dir_for_workspace_change_projection/.test(
+        runtimeWorkspaceChangeControlCore,
+      ) &&
       /rust_plans_workspace_change_control_event/.test(runtimeWorkspaceChangeControlCore) &&
       /rust_rejects_retired_workspace_change_control_action_alias/.test(
         runtimeWorkspaceChangeControlCore,
@@ -34275,6 +34325,10 @@ function runCompositor() {
       /runtime workspace-change projection core sends Rust daemon-core request/.test(
         runtimeContextPolicyCoreTest,
       ) &&
+      /captured\.request\.state_dir/.test(runtimeContextPolicyCoreTest) &&
+      /Object\.hasOwn\(captured\.request,\s*"projection"\),\s*false/.test(
+        runtimeContextPolicyCoreTest,
+      ) &&
       /runtime workspace-change control core sends Rust daemon-core request/.test(
         runtimeContextPolicyCoreTest,
       ) &&
@@ -34285,6 +34339,11 @@ function runCompositor() {
         workspaceChangeState,
       ) &&
       /projectRuntimeWorkspaceChangeProjection/.test(workspaceChangeState) &&
+      /workspaceChangeProjectionStateDir/.test(workspaceChangeState) &&
+      /state_dir:\s*workspaceChangeProjectionStateDir\(store\)/.test(
+        workspaceChangeState,
+      ) &&
+      !/projection:\s*\{\s*changes\s*:/.test(workspaceChangeState) &&
       /planRuntimeWorkspaceChangeControl/.test(workspaceChangeState) &&
       /store\.appendRuntimeEvent\(event\)/.test(workspaceChangeState) &&
       /workspace_change_inspection_js_facade_retired/.test(workspaceChangeState) &&
@@ -34304,6 +34363,12 @@ function runCompositor() {
       !exists("packages/runtime-daemon/src/workspace-change-inspection.mjs") &&
       !exists("packages/runtime-daemon/src/workspace-change-inspection.test.mjs") &&
       /workspace change inspection returns Rust daemon-core projection without JS bridge readback/.test(
+        workspaceChangeStateTest,
+      ) &&
+      /assert\.equal\(captured\.state_dir,\s*"\/runtime-state"\)/.test(
+        workspaceChangeStateTest,
+      ) &&
+      /Object\.hasOwn\(captured,\s*"projection"\),\s*false/.test(
         workspaceChangeStateTest,
       ) &&
       /workspace change inspection fails closed before JS fallback projection when Rust projector is missing/.test(
