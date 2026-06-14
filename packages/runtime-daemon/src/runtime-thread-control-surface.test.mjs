@@ -69,7 +69,7 @@ function createStore() {
       this.writes.push({ record, operationKind });
       this.agents.set(record.id, record);
       return {
-        source: "rust_agentgres_runtime_agent_state_commit_command",
+        source: "rust_agentgres_runtime_agent_state_commit_protocol",
         agent_id: record.id,
         operation_kind: operationKind,
         commit_hash: `commit_${operationKind}`,

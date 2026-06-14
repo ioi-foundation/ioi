@@ -1966,7 +1966,7 @@ export class ModelMountingState {
       receiptId: receipt.id,
       receiptCommitHash: commit.commit_hash,
       receiptStateCommit: {
-        source: commit.source ?? "rust_agentgres_runtime_model_mount_receipt_state_commit_command",
+        source: commit.source ?? "rust_agentgres_runtime_model_mount_receipt_state_commit_protocol",
         objectRef: commit.object_ref,
         contentHash: commit.content_hash,
         admissionHash: commit.admission_hash,

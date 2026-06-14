@@ -4,7 +4,7 @@
 //! plugin language. Legacy surface names are treated as compatibility debt.
 
 pub mod agentgres_admission;
-pub mod agentgres_command;
+pub mod agentgres_protocol;
 pub mod approval;
 pub mod authority;
 pub mod capability;

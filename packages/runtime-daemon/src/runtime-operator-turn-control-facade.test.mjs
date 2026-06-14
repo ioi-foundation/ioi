@@ -134,7 +134,7 @@ function createStore() {
     plannerCalls.push({ method: "writeRun", run, operationKind });
     store.runs.set(run.id, run);
     return {
-      source: "rust_agentgres_runtime_run_state_commit_command",
+      source: "rust_agentgres_runtime_run_state_commit_protocol",
       operation_kind: operationKind,
       receipt_refs: [`receipt://${operationKind}/${run.id}`],
       policy_decision_refs: [`policy://${operationKind}/${run.id}`],

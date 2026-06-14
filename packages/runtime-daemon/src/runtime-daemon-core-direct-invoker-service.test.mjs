@@ -9,6 +9,7 @@ import { AgentgresRuntimeStateStore } from "./index.mjs";
 test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-daemon-core-direct-"));
   const calls = [];
+  const agentgresCalls = [];
   const approvalCalls = [];
   const governedAdmissionCalls = [];
   const store = new AgentgresRuntimeStateStore(stateDir, {
@@ -35,6 +36,19 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
     daemonCoreInvoker(request) {
       calls.push(request);
       throw new Error(`generic command invoker must not run migrated typed APIs: ${request?.operation}`);
+    },
+    daemonCoreAgentgresApi: {
+      commitRuntimeRunState(request) {
+        agentgresCalls.push({ method: "commitRuntimeRunState", request });
+        return {
+          source: "direct_agentgres_api",
+          backend: "rust_agentgres_storage",
+          commit_hash: "sha256:direct-agentgres-commit",
+          record: {
+            run_id: request.request.run_id,
+          },
+        };
+      },
     },
     daemonCoreApprovalApi: {
       projectApprovalQueue(request) {
@@ -93,6 +107,20 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
   assert.equal(Object.hasOwn(approvalCalls[0].request, "backend"), false);
   assert.equal(queue.source, "direct_approval_api");
   assert.equal(queue.operation_kind, "approval.queue_projection");
+
+  const commit = store.commitRuntimeRunState({
+    schema_version: "ioi.runtime_run_state_commit.v1",
+    run_id: "run_direct",
+  });
+  assert.equal(calls.length, 0);
+  assert.equal(agentgresCalls.length, 1);
+  assert.equal(agentgresCalls[0].method, "commitRuntimeRunState");
+  assert.equal(agentgresCalls[0].request.state_dir, stateDir);
+  assert.equal(agentgresCalls[0].request.request.run_id, "run_direct");
+  assert.equal(Object.hasOwn(agentgresCalls[0].request, "operation"), false);
+  assert.equal(Object.hasOwn(agentgresCalls[0].request, "backend"), false);
+  assert.equal(commit.source, "direct_agentgres_api");
+  assert.equal(commit.commit_hash, "sha256:direct-agentgres-commit");
 
   assert.equal(governedAdmissionCalls.length, 1);
   assert.deepEqual(governedAdmissionCalls[0].context, {

@@ -27,7 +27,7 @@ function fakeReceiptCommitter(stateDir, commits) {
     fs.mkdirSync(path.dirname(targetPath), { recursive: true });
     fs.writeFileSync(targetPath, `${JSON.stringify(request.receipt, null, 2)}\n`);
     return {
-      source: "rust_agentgres_runtime_model_mount_receipt_state_commit_command",
+      source: "rust_agentgres_runtime_model_mount_receipt_state_commit_protocol",
       backend: "rust_agentgres_storage",
       record: {
         schema_version: "ioi.runtime_model_mount_receipt_state_commit.v1",

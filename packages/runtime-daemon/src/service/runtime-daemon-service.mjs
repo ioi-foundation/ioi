@@ -24,6 +24,7 @@ export async function startRuntimeDaemonServiceWithStore({
     workspaceRestoreCore: options.workspaceRestoreCore,
     runtimeBridge: options.runtimeBridge,
     daemonCoreInvoker: options.daemonCoreInvoker,
+    daemonCoreAgentgresApi: options.daemonCoreAgentgresApi,
     daemonCoreAuthorityApi: options.daemonCoreAuthorityApi,
     daemonCoreApprovalApi: options.daemonCoreApprovalApi,
     daemonCoreCteeApi: options.daemonCoreCteeApi,

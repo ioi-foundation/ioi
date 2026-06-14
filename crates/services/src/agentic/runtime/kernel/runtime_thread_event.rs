@@ -98,9 +98,8 @@ pub struct RuntimeThreadEventAdmissionRecord {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct RuntimeThreadEventAdmissionBridgeRequest {
-    #[serde(default)]
-    pub backend: Option<String>,
+#[serde(deny_unknown_fields)]
+pub struct RuntimeThreadEventAdmissionProtocolRequest {
     pub request: RuntimeThreadEventAdmissionRequest,
 }
 
@@ -154,9 +153,8 @@ pub struct RuntimeThreadEventProjectionRecord {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct RuntimeThreadEventProjectionBridgeRequest {
-    #[serde(default)]
-    pub backend: Option<String>,
+#[serde(deny_unknown_fields)]
+pub struct RuntimeThreadEventProjectionProtocolRequest {
     pub request: RuntimeThreadEventProjectionRequest,
 }
 
@@ -202,9 +200,8 @@ pub struct RuntimeThreadEventReplayRecord {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct RuntimeThreadEventReplayBridgeRequest {
-    #[serde(default)]
-    pub backend: Option<String>,
+#[serde(deny_unknown_fields)]
+pub struct RuntimeThreadEventReplayProtocolRequest {
     pub request: RuntimeThreadEventReplayRequest,
 }
 
@@ -282,9 +279,8 @@ pub struct RuntimeThreadTurnProjectionRecord {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct RuntimeThreadTurnProjectionBridgeRequest {
-    #[serde(default)]
-    pub backend: Option<String>,
+#[serde(deny_unknown_fields)]
+pub struct RuntimeThreadTurnProjectionProtocolRequest {
     pub request: RuntimeThreadTurnProjectionRequest,
 }
 
@@ -787,12 +783,12 @@ impl RuntimeThreadEventAdmissionCore {
 }
 
 pub fn admit_runtime_thread_event_response(
-    request: RuntimeThreadEventAdmissionBridgeRequest,
+    request: RuntimeThreadEventAdmissionProtocolRequest,
 ) -> Result<Value, RuntimeThreadEventAdmissionError> {
     let record = RuntimeThreadEventAdmissionCore.admit(&request.request)?;
     Ok(json!({
-        "source": "rust_runtime_thread_event_admission_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_runtime_agentgres".to_string()),
+        "source": "rust_runtime_thread_event_admission_protocol",
+        "backend": "rust_runtime_agentgres",
         "admitted": true,
         "record": record,
         "event": record.event,
@@ -814,12 +810,12 @@ pub fn admit_runtime_thread_event_response(
 }
 
 pub fn project_runtime_thread_events_response(
-    request: RuntimeThreadEventProjectionBridgeRequest,
+    request: RuntimeThreadEventProjectionProtocolRequest,
 ) -> Result<Value, RuntimeThreadEventAdmissionError> {
     let record = RuntimeThreadEventAdmissionCore.project(&request.request)?;
     Ok(json!({
-        "source": "rust_runtime_thread_event_projection_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_runtime_agentgres".to_string()),
+        "source": "rust_runtime_thread_event_projection_protocol",
+        "backend": "rust_runtime_agentgres",
         "projected": true,
         "record": record,
         "events": record.events,
@@ -840,12 +836,12 @@ pub fn project_runtime_thread_events_response(
 }
 
 pub fn project_runtime_thread_event_replay_response(
-    request: RuntimeThreadEventReplayBridgeRequest,
+    request: RuntimeThreadEventReplayProtocolRequest,
 ) -> Result<Value, RuntimeThreadEventAdmissionError> {
     let record = RuntimeThreadEventAdmissionCore.replay(&request.request)?;
     Ok(json!({
-        "source": "rust_runtime_thread_event_replay_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_runtime_agentgres".to_string()),
+        "source": "rust_runtime_thread_event_replay_protocol",
+        "backend": "rust_runtime_agentgres",
         "projected": true,
         "record": record,
         "events": record.events,
@@ -866,12 +862,12 @@ pub fn project_runtime_thread_event_replay_response(
 }
 
 pub fn project_runtime_thread_turn_projection_response(
-    request: RuntimeThreadTurnProjectionBridgeRequest,
+    request: RuntimeThreadTurnProjectionProtocolRequest,
 ) -> Result<Value, RuntimeThreadEventAdmissionError> {
     let record = RuntimeThreadEventAdmissionCore.project_thread_turn(&request.request)?;
     Ok(json!({
-        "source": "rust_runtime_thread_turn_projection_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_runtime_agentgres".to_string()),
+        "source": "rust_runtime_thread_turn_projection_protocol",
+        "backend": "rust_runtime_agentgres",
         "projected": true,
         "record": record.record,
         "projection": record,
@@ -2084,17 +2080,16 @@ mod tests {
     }
 
     #[test]
-    fn rust_core_shapes_runtime_thread_event_admission_command_response() {
+    fn rust_core_shapes_runtime_thread_event_admission_protocol_response() {
         let response =
-            admit_runtime_thread_event_response(RuntimeThreadEventAdmissionBridgeRequest {
-                backend: None,
+            admit_runtime_thread_event_response(RuntimeThreadEventAdmissionProtocolRequest {
                 request: admission_request(),
             })
-            .expect("runtime thread event command response shaped");
+            .expect("runtime thread event protocol response shaped");
 
         assert_eq!(
             response["source"],
-            "rust_runtime_thread_event_admission_command"
+            "rust_runtime_thread_event_admission_protocol"
         );
         assert_eq!(response["backend"], "rust_runtime_agentgres");
         assert_eq!(response["admitted"], true);
@@ -2178,17 +2173,16 @@ mod tests {
     }
 
     #[test]
-    fn rust_core_shapes_runtime_thread_event_projection_command_response() {
+    fn rust_core_shapes_runtime_thread_event_projection_protocol_response() {
         let response =
-            project_runtime_thread_events_response(RuntimeThreadEventProjectionBridgeRequest {
-                backend: None,
+            project_runtime_thread_events_response(RuntimeThreadEventProjectionProtocolRequest {
                 request: projection_request(),
             })
             .expect("runtime thread event projection response shaped");
 
         assert_eq!(
             response["source"],
-            "rust_runtime_thread_event_projection_command"
+            "rust_runtime_thread_event_projection_protocol"
         );
         assert_eq!(response["backend"], "rust_runtime_agentgres");
         assert_eq!(response["projected"], true);
@@ -2289,17 +2283,16 @@ mod tests {
     }
 
     #[test]
-    fn rust_core_shapes_runtime_thread_event_replay_command_response() {
+    fn rust_core_shapes_runtime_thread_event_replay_protocol_response() {
         let response =
-            project_runtime_thread_event_replay_response(RuntimeThreadEventReplayBridgeRequest {
-                backend: None,
+            project_runtime_thread_event_replay_response(RuntimeThreadEventReplayProtocolRequest {
                 request: replay_request(),
             })
             .expect("runtime thread event replay response shaped");
 
         assert_eq!(
             response["source"],
-            "rust_runtime_thread_event_replay_command"
+            "rust_runtime_thread_event_replay_protocol"
         );
         assert_eq!(response["backend"], "rust_runtime_agentgres");
         assert_eq!(response["projected"], true);
@@ -2383,10 +2376,9 @@ mod tests {
     }
 
     #[test]
-    fn rust_core_shapes_runtime_thread_turn_projection_command_response() {
+    fn rust_core_shapes_runtime_thread_turn_projection_protocol_response() {
         let response = project_runtime_thread_turn_projection_response(
-            RuntimeThreadTurnProjectionBridgeRequest {
-                backend: None,
+            RuntimeThreadTurnProjectionProtocolRequest {
                 request: thread_turn_projection_request("thread"),
             },
         )
@@ -2394,7 +2386,7 @@ mod tests {
 
         assert_eq!(
             response["source"],
-            "rust_runtime_thread_turn_projection_command"
+            "rust_runtime_thread_turn_projection_protocol"
         );
         assert_eq!(response["backend"], "rust_runtime_agentgres");
         assert_eq!(response["projected"], true);

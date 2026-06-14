@@ -152,7 +152,7 @@ function fakeStore() {
         persistence_hash: `sha256:persistence-${this.persistenceRequests.length}`,
       };
       return {
-        source: "rust_agentgres_runtime_run_state_commit_command",
+        source: "rust_agentgres_runtime_run_state_commit_protocol",
         record: {
           schema_version: "ioi.runtime_run_state_commit.v1",
           run_id: request.run_id,
@@ -203,7 +203,7 @@ function fakeStore() {
       this.persistenceEvents.push({ type: "rust_write_json", filePath });
       this.rustWrites.push({ filePath, objectRef });
       return {
-        source: "rust_agentgres_runtime_agent_state_commit_command",
+        source: "rust_agentgres_runtime_agent_state_commit_protocol",
         record: {
           schema_version: "ioi.runtime_agent_state_commit.v1",
           agent_id: request.agent_id,
@@ -257,7 +257,7 @@ function fakeStore() {
       this.persistenceEvents.push({ type: "rust_write_json", filePath });
       this.rustWrites.push({ filePath, objectRef });
       return {
-        source: "rust_agentgres_runtime_subagent_state_commit_command",
+        source: "rust_agentgres_runtime_subagent_state_commit_protocol",
         record: {
           schema_version: "ioi.runtime_subagent_state_commit.v1",
           subagent_id: request.subagent_id,
@@ -746,7 +746,7 @@ test("thread persistence fails closed when Rust omits written run-state records"
   store.commitRuntimeRunState = function commitRuntimeRunState(request) {
     this.commitRequests.push(request);
     return {
-      source: "rust_agentgres_runtime_run_state_commit_command",
+      source: "rust_agentgres_runtime_run_state_commit_protocol",
       record: {
         commit_hash: "sha256:commit",
         transition: {

@@ -172,7 +172,7 @@ function createStore(cwd = "/workspace") {
     commitRuntimeArtifactState(request) {
       artifactCommits.push(request);
       return {
-        source: "rust_agentgres_runtime_artifact_state_commit_command",
+        source: "rust_agentgres_runtime_artifact_state_commit_protocol",
         artifact_id: request.artifact_id,
         operation_kind: request.operation_kind,
         object_ref: `agentgres://runtime-state/artifacts/${request.artifact_id}`,

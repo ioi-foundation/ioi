@@ -400,7 +400,7 @@ function fakeState() {
     commitRuntimeModelMountRecordState(request) {
       this.recordStateCommits.push(JSON.parse(JSON.stringify(request)));
       return {
-        source: "rust_agentgres_runtime_model_mount_record_state_commit_command",
+        source: "rust_agentgres_runtime_model_mount_record_state_commit_protocol",
         backend: "rust_agentgres_storage",
         record: {
           schema_version: "ioi.runtime_model_mount_record_state_commit.v1",

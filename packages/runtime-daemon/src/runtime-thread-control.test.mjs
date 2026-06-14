@@ -106,7 +106,7 @@ function runtimeControlStore(stateDir, calls) {
         const input = request.request ?? {};
         const agentId = input.agent_id ?? input.agent?.id ?? "agent_runtime";
         return {
-          source: "rust_agentgres_runtime_agent_state_commit_command",
+          source: "rust_agentgres_runtime_agent_state_commit_protocol",
           backend: "runtime-agentgres",
           record: {
             schema_version: "ioi.runtime_agent_state_commit.v1",
@@ -138,7 +138,7 @@ function runtimeControlStore(stateDir, calls) {
       if (request.operation === "commit_runtime_model_mount_record_state") {
         const input = request.request ?? {};
         return {
-          source: "rust_agentgres_runtime_model_mount_record_state_commit_command",
+          source: "rust_agentgres_runtime_model_mount_record_state_commit_protocol",
           backend: "runtime-agentgres",
           record: {
             schema_version: "ioi.runtime_model_mount_record_state_commit.v1",

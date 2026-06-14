@@ -115,7 +115,7 @@ function fakeState({ withRunner = true } = {}) {
       writeReceipt(receipt) {
         this.commits.push(receipt);
         return {
-          source: "rust_agentgres_runtime_model_mount_receipt_state_commit_command",
+          source: "rust_agentgres_runtime_model_mount_receipt_state_commit_protocol",
           receipt_id: receipt.id,
           object_ref:
             `agentgres://model-mounting/receipts/${receipt.id}/records/receipts/${receipt.id}.json`,

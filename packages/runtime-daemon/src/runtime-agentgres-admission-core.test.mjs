@@ -2,9 +2,24 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  AGENTGRES_CODING_TOOL_COMMAND_STREAM_API_METHOD,
+  AGENTGRES_CODING_TOOL_RESULT_EVENT_API_METHOD,
+  AGENTGRES_RUNTIME_AGENT_STATE_COMMIT_API_METHOD,
+  AGENTGRES_RUNTIME_ARTIFACT_STATE_COMMIT_API_METHOD,
+  AGENTGRES_RUNTIME_MCP_LIVE_RESULT_STATE_COMMIT_API_METHOD,
+  AGENTGRES_RUNTIME_MEMORY_STATE_COMMIT_API_METHOD,
+  AGENTGRES_RUNTIME_MODEL_MOUNT_RECEIPT_STATE_COMMIT_API_METHOD,
+  AGENTGRES_RUNTIME_MODEL_MOUNT_RECORD_STATE_COMMIT_API_METHOD,
+  AGENTGRES_RUNTIME_RECEIPT_STATE_COMMIT_API_METHOD,
+  AGENTGRES_RUNTIME_RUN_STATE_COMMIT_API_METHOD,
+  AGENTGRES_RUNTIME_SUBAGENT_STATE_COMMIT_API_METHOD,
+  AGENTGRES_RUNTIME_THREAD_EVENT_API_METHOD,
+  AGENTGRES_RUNTIME_THREAD_EVENT_REPLAY_API_METHOD,
+  AGENTGRES_RUNTIME_THREAD_EVENTS_PROJECTION_API_METHOD,
+  AGENTGRES_RUNTIME_THREAD_TURN_PROJECTION_API_METHOD,
+  AGENTGRES_STORAGE_BACKEND_WRITE_API_METHOD,
   CODING_TOOL_COMMAND_STREAM_ADMISSION_REQUEST_SCHEMA_VERSION,
   CODING_TOOL_RESULT_EVENT_ADMISSION_REQUEST_SCHEMA_VERSION,
-  RUNTIME_AGENTGRES_CORE_SCHEMA_VERSION,
   RUNTIME_THREAD_EVENT_ADMISSION_REQUEST_SCHEMA_VERSION,
   RUNTIME_THREAD_EVENT_PROJECTION_REQUEST_SCHEMA_VERSION,
   RUNTIME_THREAD_EVENT_REPLAY_REQUEST_SCHEMA_VERSION,
@@ -341,24 +356,46 @@ function runtimeThreadTurnProjectionRequest() {
 }
 
 function createCore(calls, responseForRequest) {
-  return new RuntimeAgentgresAdmissionCore({
-    daemonCoreInvoker(request) {
-      calls.push({ request });
-      return responseForRequest(request);
-    },
-  });
+  const daemonCoreAgentgresApi = Object.fromEntries(
+    [
+      AGENTGRES_STORAGE_BACKEND_WRITE_API_METHOD,
+      AGENTGRES_CODING_TOOL_RESULT_EVENT_API_METHOD,
+      AGENTGRES_CODING_TOOL_COMMAND_STREAM_API_METHOD,
+      AGENTGRES_RUNTIME_THREAD_EVENT_API_METHOD,
+      AGENTGRES_RUNTIME_THREAD_EVENTS_PROJECTION_API_METHOD,
+      AGENTGRES_RUNTIME_THREAD_EVENT_REPLAY_API_METHOD,
+      AGENTGRES_RUNTIME_THREAD_TURN_PROJECTION_API_METHOD,
+      AGENTGRES_RUNTIME_RUN_STATE_COMMIT_API_METHOD,
+      AGENTGRES_RUNTIME_AGENT_STATE_COMMIT_API_METHOD,
+      AGENTGRES_RUNTIME_MEMORY_STATE_COMMIT_API_METHOD,
+      AGENTGRES_RUNTIME_SUBAGENT_STATE_COMMIT_API_METHOD,
+      AGENTGRES_RUNTIME_ARTIFACT_STATE_COMMIT_API_METHOD,
+      AGENTGRES_RUNTIME_RECEIPT_STATE_COMMIT_API_METHOD,
+      AGENTGRES_RUNTIME_MCP_LIVE_RESULT_STATE_COMMIT_API_METHOD,
+      AGENTGRES_RUNTIME_MODEL_MOUNT_RECORD_STATE_COMMIT_API_METHOD,
+      AGENTGRES_RUNTIME_MODEL_MOUNT_RECEIPT_STATE_COMMIT_API_METHOD,
+    ].map((method) => [
+      method,
+      (request) => {
+        calls.push({ method, request });
+        return responseForRequest(request, method);
+      },
+    ]),
+  );
+  return new RuntimeAgentgresAdmissionCore({ daemonCoreAgentgresApi });
 }
 
-function assertCommandEnvelope(request, operation, backend) {
-  assert.equal(request.schema_version, RUNTIME_AGENTGRES_CORE_SCHEMA_VERSION);
-  assert.equal(request.operation, operation);
-  assert.equal(request.backend, backend);
+function assertTypedAgentgresRequest(call, method) {
+  assert.equal(call.method, method);
+  assert.equal(Object.hasOwn(call.request, "schema_version"), false);
+  assert.equal(Object.hasOwn(call.request, "operation"), false);
+  assert.equal(Object.hasOwn(call.request, "backend"), false);
 }
 
-test("runtime Agentgres core admits coding-tool result events through direct daemon-core invoker", () => {
+test("runtime Agentgres core admits coding-tool result events through typed Rust daemon-core Agentgres API", () => {
   const calls = [];
   const core = createCore(calls, () => ({
-    source: "rust_coding_tool_result_event_admission_command",
+    source: "rust_coding_tool_result_event_admission_protocol",
     backend: RUST_RUNTIME_AGENTGRES_BACKEND,
     admitted: true,
     event: { event_id: "event_coding_tool_1", seq: 5 },
@@ -368,7 +405,7 @@ test("runtime Agentgres core admits coding-tool result events through direct dae
 
   const result = core.admitCodingToolResultEvent(codingToolResultEventAdmissionRequest());
 
-  assertCommandEnvelope(calls[0].request, "admit_coding_tool_result_event", RUST_RUNTIME_AGENTGRES_BACKEND);
+  assertTypedAgentgresRequest(calls[0], AGENTGRES_CODING_TOOL_RESULT_EVENT_API_METHOD);
   assert.equal(
     calls[0].request.request.schema_version,
     CODING_TOOL_RESULT_EVENT_ADMISSION_REQUEST_SCHEMA_VERSION,
@@ -376,10 +413,10 @@ test("runtime Agentgres core admits coding-tool result events through direct dae
   assert.equal(result.event.event_id, "event_coding_tool_1");
 });
 
-test("runtime Agentgres core admits runtime thread events through direct daemon-core invoker", () => {
+test("runtime Agentgres core admits runtime thread events through typed Rust daemon-core Agentgres API", () => {
   const calls = [];
   const core = createCore(calls, () => ({
-    source: "rust_runtime_thread_event_admission_command",
+    source: "rust_runtime_thread_event_admission_protocol",
     backend: RUST_RUNTIME_AGENTGRES_BACKEND,
     admitted: true,
     event: { event_id: "event_runtime_thread_1", seq: 5 },
@@ -389,15 +426,15 @@ test("runtime Agentgres core admits runtime thread events through direct daemon-
 
   const result = core.admitRuntimeThreadEvent(runtimeThreadEventAdmissionRequest());
 
-  assertCommandEnvelope(calls[0].request, "admit_runtime_thread_event", RUST_RUNTIME_AGENTGRES_BACKEND);
+  assertTypedAgentgresRequest(calls[0], AGENTGRES_RUNTIME_THREAD_EVENT_API_METHOD);
   assert.equal(calls[0].request.request.schema_version, RUNTIME_THREAD_EVENT_ADMISSION_REQUEST_SCHEMA_VERSION);
   assert.equal(result.event.event_id, "event_runtime_thread_1");
 });
 
-test("runtime Agentgres core projects runtime thread events through direct daemon-core invoker", () => {
+test("runtime Agentgres core projects runtime thread events through typed Rust daemon-core Agentgres API", () => {
   const calls = [];
   const core = createCore(calls, () => ({
-    source: "rust_runtime_thread_event_projection_command",
+    source: "rust_runtime_thread_event_projection_protocol",
     backend: RUST_RUNTIME_AGENTGRES_BACKEND,
     projected: true,
     events: [{ event_id: "event_projected_1", seq: 5 }],
@@ -408,15 +445,15 @@ test("runtime Agentgres core projects runtime thread events through direct daemo
 
   const result = core.projectRuntimeThreadEvents(runtimeThreadEventProjectionRequest());
 
-  assertCommandEnvelope(calls[0].request, "project_runtime_thread_events", RUST_RUNTIME_AGENTGRES_BACKEND);
+  assertTypedAgentgresRequest(calls[0], AGENTGRES_RUNTIME_THREAD_EVENTS_PROJECTION_API_METHOD);
   assert.equal(calls[0].request.request.schema_version, RUNTIME_THREAD_EVENT_PROJECTION_REQUEST_SCHEMA_VERSION);
   assert.equal(result.events[0].event_id, "event_projected_1");
 });
 
-test("runtime Agentgres core replays runtime thread events through direct daemon-core invoker", () => {
+test("runtime Agentgres core replays runtime thread events through typed Rust daemon-core Agentgres API", () => {
   const calls = [];
   const core = createCore(calls, () => ({
-    source: "rust_runtime_thread_event_replay_command",
+    source: "rust_runtime_thread_event_replay_protocol",
     backend: RUST_RUNTIME_AGENTGRES_BACKEND,
     projected: true,
     events: [{ event_id: "event_projected_1", seq: 5 }],
@@ -426,15 +463,15 @@ test("runtime Agentgres core replays runtime thread events through direct daemon
 
   const result = core.projectRuntimeThreadEventReplay(runtimeThreadEventReplayRequest());
 
-  assertCommandEnvelope(calls[0].request, "project_runtime_thread_event_replay", RUST_RUNTIME_AGENTGRES_BACKEND);
+  assertTypedAgentgresRequest(calls[0], AGENTGRES_RUNTIME_THREAD_EVENT_REPLAY_API_METHOD);
   assert.equal(calls[0].request.request.schema_version, RUNTIME_THREAD_EVENT_REPLAY_REQUEST_SCHEMA_VERSION);
   assert.equal(result.events[0].event_id, "event_projected_1");
 });
 
-test("runtime Agentgres core projects runtime thread and turn records through direct daemon-core invoker", () => {
+test("runtime Agentgres core projects runtime thread and turn records through typed Rust daemon-core Agentgres API", () => {
   const calls = [];
   const core = createCore(calls, () => ({
-    source: "rust_runtime_thread_turn_projection_command",
+    source: "rust_runtime_thread_turn_projection_protocol",
     backend: RUST_RUNTIME_AGENTGRES_BACKEND,
     projected: true,
     record: { thread_id: "thread_1", turn_id: "turn_1" },
@@ -443,15 +480,15 @@ test("runtime Agentgres core projects runtime thread and turn records through di
 
   const result = core.projectRuntimeThreadTurnProjection(runtimeThreadTurnProjectionRequest());
 
-  assertCommandEnvelope(calls[0].request, "project_runtime_thread_turn_projection", RUST_RUNTIME_AGENTGRES_BACKEND);
+  assertTypedAgentgresRequest(calls[0], AGENTGRES_RUNTIME_THREAD_TURN_PROJECTION_API_METHOD);
   assert.equal(calls[0].request.request.schema_version, RUNTIME_THREAD_TURN_PROJECTION_REQUEST_SCHEMA_VERSION);
   assert.equal(result.record.turn_id, "turn_1");
 });
 
-test("runtime Agentgres core admits coding-tool command-stream events through direct daemon-core invoker", () => {
+test("runtime Agentgres core admits coding-tool command-stream events through typed Rust daemon-core Agentgres API", () => {
   const calls = [];
   const core = createCore(calls, () => ({
-    source: "rust_coding_tool_command_stream_admission_command",
+    source: "rust_coding_tool_command_stream_admission_protocol",
     backend: RUST_RUNTIME_AGENTGRES_BACKEND,
     admitted: true,
     events: [{ event_id: "event_stream_1" }, { event_id: "event_stream_2" }],
@@ -461,7 +498,7 @@ test("runtime Agentgres core admits coding-tool command-stream events through di
 
   const result = core.admitCodingToolCommandStreamEvents(codingToolCommandStreamAdmissionRequest());
 
-  assertCommandEnvelope(calls[0].request, "admit_coding_tool_command_stream_events", RUST_RUNTIME_AGENTGRES_BACKEND);
+  assertTypedAgentgresRequest(calls[0], AGENTGRES_CODING_TOOL_COMMAND_STREAM_API_METHOD);
   assert.equal(
     calls[0].request.request.schema_version,
     CODING_TOOL_COMMAND_STREAM_ADMISSION_REQUEST_SCHEMA_VERSION,
@@ -469,10 +506,10 @@ test("runtime Agentgres core admits coding-tool command-stream events through di
   assert.equal(result.events[0].event_id, "event_stream_1");
 });
 
-test("runtime Agentgres core sends runtime run-state commit through direct daemon-core invoker", () => {
+test("runtime Agentgres core sends runtime run-state commit through typed Rust daemon-core Agentgres API", () => {
   const calls = [];
   const core = createCore(calls, () => ({
-    source: "rust_agentgres_runtime_run_state_commit_command",
+    source: "rust_agentgres_runtime_run_state_commit_protocol",
     backend: RUST_AGENTGRES_STORAGE_BACKEND,
     operation_ref: "agentgres://runtime-state/runs/run_1/operations/run.create",
     commit_hash: "sha256:commit",
@@ -481,31 +518,31 @@ test("runtime Agentgres core sends runtime run-state commit through direct daemo
 
   const result = core.commitRuntimeRunState("/tmp/ioi-state", commitRequest());
 
-  assertCommandEnvelope(calls[0].request, "commit_runtime_run_state", RUST_AGENTGRES_STORAGE_BACKEND);
+  assertTypedAgentgresRequest(calls[0], AGENTGRES_RUNTIME_RUN_STATE_COMMIT_API_METHOD);
   assert.equal(calls[0].request.state_dir, "/tmp/ioi-state");
   assert.equal(calls[0].request.request.agent.id, "agent_1");
   assert.equal(result.commit_hash, "sha256:commit");
 });
 
-test("runtime Agentgres core sends storage write admission through direct daemon-core invoker", () => {
+test("runtime Agentgres core sends storage write admission through typed Rust daemon-core Agentgres API", () => {
   const calls = [];
   const core = createCore(calls, () => ({
-    source: "rust_agentgres_storage_write_admission_command",
+    source: "rust_agentgres_storage_write_admission_protocol",
     backend: RUST_AGENTGRES_STORAGE_BACKEND,
     admission_hash: "sha256:storage-admission",
   }));
 
   const result = core.admitStorageBackendWrite(storageWriteRequest());
 
-  assertCommandEnvelope(calls[0].request, "admit_storage_backend_write", RUST_AGENTGRES_STORAGE_BACKEND);
+  assertTypedAgentgresRequest(calls[0], AGENTGRES_STORAGE_BACKEND_WRITE_API_METHOD);
   assert.equal(calls[0].request.request.object_ref, storageWriteRequest().object_ref);
   assert.equal(result.admission_hash, "sha256:storage-admission");
 });
 
-test("runtime Agentgres core sends runtime agent-state commit through direct daemon-core invoker", () => {
+test("runtime Agentgres core sends runtime agent-state commit through typed Rust daemon-core Agentgres API", () => {
   const calls = [];
   const core = createCore(calls, () => ({
-    source: "rust_agentgres_runtime_agent_state_commit_command",
+    source: "rust_agentgres_runtime_agent_state_commit_protocol",
     backend: RUST_AGENTGRES_STORAGE_BACKEND,
     agent_id: "agent_1",
     commit_hash: "sha256:agent-commit",
@@ -514,45 +551,45 @@ test("runtime Agentgres core sends runtime agent-state commit through direct dae
 
   const result = core.commitRuntimeAgentState("/tmp/ioi-state", agentCommitRequest());
 
-  assertCommandEnvelope(calls[0].request, "commit_runtime_agent_state", RUST_AGENTGRES_STORAGE_BACKEND);
+  assertTypedAgentgresRequest(calls[0], AGENTGRES_RUNTIME_AGENT_STATE_COMMIT_API_METHOD);
   assert.equal(calls[0].request.request.agent_id, "agent_1");
   assert.equal(result.written_record.record_path, "agents/agent_1.json");
 });
 
-test("runtime Agentgres core sends runtime memory-state commit through direct daemon-core invoker", () => {
+test("runtime Agentgres core sends runtime memory-state commit through typed Rust daemon-core Agentgres API", () => {
   const calls = [];
   const core = createCore(calls, () => ({ state_id: "memory_1", commit_hash: "sha256:memory-commit" }));
 
   const result = core.commitRuntimeMemoryState("/tmp/ioi-state", memoryCommitRequest());
 
-  assertCommandEnvelope(calls[0].request, "commit_runtime_memory_state", RUST_AGENTGRES_STORAGE_BACKEND);
+  assertTypedAgentgresRequest(calls[0], AGENTGRES_RUNTIME_MEMORY_STATE_COMMIT_API_METHOD);
   assert.equal(calls[0].request.request.state_id, "memory_1");
   assert.equal(result.commit_hash, "sha256:memory-commit");
 });
 
-test("runtime Agentgres core sends runtime subagent-state commit through direct daemon-core invoker", () => {
+test("runtime Agentgres core sends runtime subagent-state commit through typed Rust daemon-core Agentgres API", () => {
   const calls = [];
   const core = createCore(calls, () => ({ subagent_id: "subagent_1", commit_hash: "sha256:subagent-commit" }));
 
   const result = core.commitRuntimeSubagentState("/tmp/ioi-state", subagentCommitRequest());
 
-  assertCommandEnvelope(calls[0].request, "commit_runtime_subagent_state", RUST_AGENTGRES_STORAGE_BACKEND);
+  assertTypedAgentgresRequest(calls[0], AGENTGRES_RUNTIME_SUBAGENT_STATE_COMMIT_API_METHOD);
   assert.equal(calls[0].request.request.subagent_id, "subagent_1");
   assert.equal(result.commit_hash, "sha256:subagent-commit");
 });
 
-test("runtime Agentgres core sends runtime artifact-state commit through direct daemon-core invoker", () => {
+test("runtime Agentgres core sends runtime artifact-state commit through typed Rust daemon-core Agentgres API", () => {
   const calls = [];
   const core = createCore(calls, () => ({ artifact_id: "artifact_1", commit_hash: "sha256:artifact-commit" }));
 
   const result = core.commitRuntimeArtifactState("/tmp/ioi-state", artifactCommitRequest());
 
-  assertCommandEnvelope(calls[0].request, "commit_runtime_artifact_state", RUST_AGENTGRES_STORAGE_BACKEND);
+  assertTypedAgentgresRequest(calls[0], AGENTGRES_RUNTIME_ARTIFACT_STATE_COMMIT_API_METHOD);
   assert.equal(calls[0].request.request.artifact_id, "artifact_1");
   assert.equal(result.commit_hash, "sha256:artifact-commit");
 });
 
-test("runtime Agentgres core sends runtime receipt-state commit through direct daemon-core invoker", () => {
+test("runtime Agentgres core sends runtime receipt-state commit through typed Rust daemon-core Agentgres API", () => {
   const calls = [];
   const core = createCore(calls, () => ({
     receipt_id: "receipt_runtime_mcp_live_exit",
@@ -561,13 +598,13 @@ test("runtime Agentgres core sends runtime receipt-state commit through direct d
 
   const result = core.commitRuntimeReceiptState("/tmp/ioi-state", receiptCommitRequest());
 
-  assertCommandEnvelope(calls[0].request, "commit_runtime_receipt_state", RUST_AGENTGRES_STORAGE_BACKEND);
+  assertTypedAgentgresRequest(calls[0], AGENTGRES_RUNTIME_RECEIPT_STATE_COMMIT_API_METHOD);
   assert.equal(calls[0].request.request.receipt_id, "receipt_runtime_mcp_live_exit");
   assert.equal(calls[0].request.request.receipt.details.rust_daemon_core_receipt_author, "runtime.mcp_control");
   assert.equal(result.receipt_id, "receipt_runtime_mcp_live_exit");
 });
 
-test("runtime Agentgres core sends runtime MCP live-result state commit through direct daemon-core invoker", () => {
+test("runtime Agentgres core sends runtime MCP live-result state commit through typed Rust daemon-core Agentgres API", () => {
   const calls = [];
   const core = createCore(calls, () => ({
     result_id: "result_runtime_mcp_live_exit",
@@ -576,13 +613,13 @@ test("runtime Agentgres core sends runtime MCP live-result state commit through 
 
   const result = core.commitRuntimeMcpLiveResultState("/tmp/ioi-state", liveResultCommitRequest());
 
-  assertCommandEnvelope(calls[0].request, "commit_runtime_mcp_live_result_state", RUST_AGENTGRES_STORAGE_BACKEND);
+  assertTypedAgentgresRequest(calls[0], AGENTGRES_RUNTIME_MCP_LIVE_RESULT_STATE_COMMIT_API_METHOD);
   assert.equal(calls[0].request.request.result_id, "result_runtime_mcp_live_exit");
   assert.equal(calls[0].request.request.result.details.rust_daemon_core_result_author, "runtime.mcp_control");
   assert.equal(result.result_id, "result_runtime_mcp_live_exit");
 });
 
-test("runtime Agentgres core sends runtime model-mount record-state commit through direct daemon-core invoker", () => {
+test("runtime Agentgres core sends runtime model-mount record-state commit through typed Rust daemon-core Agentgres API", () => {
   const calls = [];
   const core = createCore(calls, () => ({
     record_dir: "provider-health",
@@ -592,12 +629,12 @@ test("runtime Agentgres core sends runtime model-mount record-state commit throu
 
   const result = core.commitRuntimeModelMountRecordState("/tmp/ioi-state", modelMountRecordCommitRequest());
 
-  assertCommandEnvelope(calls[0].request, "commit_runtime_model_mount_record_state", RUST_AGENTGRES_STORAGE_BACKEND);
+  assertTypedAgentgresRequest(calls[0], AGENTGRES_RUNTIME_MODEL_MOUNT_RECORD_STATE_COMMIT_API_METHOD);
   assert.equal(calls[0].request.request.record_dir, "provider-health");
   assert.equal(result.record_id, "health.provider_openai");
 });
 
-test("runtime Agentgres core sends runtime model-mount receipt-state commit through direct daemon-core invoker", () => {
+test("runtime Agentgres core sends runtime model-mount receipt-state commit through typed Rust daemon-core Agentgres API", () => {
   const calls = [];
   const core = createCore(calls, () => ({
     receipt_id: "receipt_model_invocation",
@@ -606,7 +643,7 @@ test("runtime Agentgres core sends runtime model-mount receipt-state commit thro
 
   const result = core.commitRuntimeModelMountReceiptState("/tmp/ioi-state", modelMountReceiptCommitRequest());
 
-  assertCommandEnvelope(calls[0].request, "commit_runtime_model_mount_receipt_state", RUST_AGENTGRES_STORAGE_BACKEND);
+  assertTypedAgentgresRequest(calls[0], AGENTGRES_RUNTIME_MODEL_MOUNT_RECEIPT_STATE_COMMIT_API_METHOD);
   assert.equal(calls[0].request.request.receipt_id, "receipt_model_invocation");
   assert.equal(result.receipt_id, "receipt_model_invocation");
 });
@@ -624,19 +661,29 @@ test("runtime Agentgres core returns Rust envelopes without JS normalization", (
   assert.equal(Object.hasOwn(core.admitStorageBackendWrite({}), "written_records"), false);
 });
 
-test("runtime Agentgres core uses daemon-level direct invoker", () => {
+test("runtime Agentgres core uses daemon-level typed Agentgres API", () => {
   const calls = [];
   const core = createRuntimeAgentgresAdmissionCore({
-    daemonCoreInvoker(request) {
-      calls.push(request);
-      return { ok: true, result: { admitted: true, request_operation: request.operation } };
+    daemonCoreAgentgresApi: {
+      admitStorageBackendWrite(request) {
+        calls.push(request);
+        return {
+          ok: true,
+          result: {
+            admitted: true,
+            request_object_ref: request.request.object_ref,
+          },
+        };
+      },
     },
   });
 
   const result = core.admitStorageBackendWrite(storageWriteRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(result.request_operation, "admit_storage_backend_write");
+  assert.equal(Object.hasOwn(calls[0], "operation"), false);
+  assert.equal(Object.hasOwn(calls[0], "backend"), false);
+  assert.equal(result.request_object_ref, storageWriteRequest().object_ref);
 });
 
 test("runtime Agentgres core rejects retired compatibility options", () => {
@@ -644,6 +691,7 @@ test("runtime Agentgres core rejects retired compatibility options", () => {
     { command: "ioi-runtime-daemon-core" },
     { args: ["--json"] },
     { env: { IOI_RUNTIME_AGENTGRES_COMMAND: "ioi-runtime-daemon-core" } },
+    { daemonCoreInvoker() {} },
   ]) {
     assert.throws(
       () => createRuntimeAgentgresAdmissionCore(options),
@@ -654,26 +702,28 @@ test("runtime Agentgres core rejects retired compatibility options", () => {
   }
 });
 
-test("runtime Agentgres core fails closed without direct invoker", () => {
+test("runtime Agentgres core fails closed without typed Agentgres API", () => {
   const core = createRuntimeAgentgresAdmissionCore();
   assert.throws(
     () => core.admitStorageBackendWrite(storageWriteRequest()),
     (error) =>
       error instanceof RuntimeAgentgresAdmissionCoreError &&
-      error.code === "runtime_agentgres_admission_core_direct_invoker_unconfigured",
+      error.code === "runtime_agentgres_admission_core_direct_agentgres_api_unconfigured",
   );
 });
 
 test("runtime Agentgres core surfaces Rust daemon-core rejection", () => {
   const core = createRuntimeAgentgresAdmissionCore({
-    daemonCoreInvoker() {
-      return {
-        ok: false,
-        error: {
-          code: "agentgres_expected_head_required",
-          message: "expected head is required",
-        },
-      };
+    daemonCoreAgentgresApi: {
+      commitRuntimeRunState() {
+        return {
+          ok: false,
+          error: {
+            code: "agentgres_expected_head_required",
+            message: "expected head is required",
+          },
+        };
+      },
     },
   });
 

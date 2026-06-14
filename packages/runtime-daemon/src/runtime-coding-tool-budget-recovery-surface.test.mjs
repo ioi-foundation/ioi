@@ -121,7 +121,7 @@ test("coding-tool budget recovery retry completion uses Rust planner and Agentgr
     writeRun(run, operationKind) {
       calls.push({ name: "writeRun", run, operationKind });
       return {
-        source: "rust_agentgres_runtime_run_state_commit_command",
+        source: "rust_agentgres_runtime_run_state_commit_protocol",
         commit_hash: "sha256:commit",
         receipt_refs: ["receipt_commit"],
         policy_decision_refs: ["policy_commit"],
@@ -232,7 +232,7 @@ test("coding-tool budget recovery request approval uses Rust control planner and
     writeRun(run, operationKind) {
       calls.push({ name: "writeRun", run, operationKind });
       return {
-        source: "rust_agentgres_runtime_run_state_commit_command",
+        source: "rust_agentgres_runtime_run_state_commit_protocol",
         receipt_refs: ["receipt_commit"],
         policy_decision_refs: ["policy_commit"],
       };

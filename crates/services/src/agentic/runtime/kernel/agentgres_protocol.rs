@@ -10,12 +10,12 @@ use super::agentgres_admission::{
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct AgentgresCommandError {
+pub struct AgentgresProtocolError {
     code: &'static str,
     message: String,
 }
 
-impl AgentgresCommandError {
+impl AgentgresProtocolError {
     fn new(code: &'static str, message: String) -> Self {
         Self { code, message }
     }
@@ -30,98 +30,88 @@ impl AgentgresCommandError {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct StorageBackendWriteBridgeRequest {
-    #[serde(default)]
-    pub backend: Option<String>,
+#[serde(deny_unknown_fields)]
+pub struct StorageBackendWriteProtocolRequest {
     pub request: StorageBackendWriteProposal,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct RuntimeRunStateCommitBridgeRequest {
-    #[serde(default)]
-    pub backend: Option<String>,
+#[serde(deny_unknown_fields)]
+pub struct RuntimeRunStateCommitProtocolRequest {
     pub state_dir: String,
     pub request: RuntimeRunStateCommitRequest,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct RuntimeAgentStateCommitBridgeRequest {
-    #[serde(default)]
-    pub backend: Option<String>,
+#[serde(deny_unknown_fields)]
+pub struct RuntimeAgentStateCommitProtocolRequest {
     pub state_dir: String,
     pub request: RuntimeAgentStateCommitRequest,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct RuntimeMemoryStateCommitBridgeRequest {
-    #[serde(default)]
-    pub backend: Option<String>,
+#[serde(deny_unknown_fields)]
+pub struct RuntimeMemoryStateCommitProtocolRequest {
     pub state_dir: String,
     pub request: RuntimeMemoryStateCommitRequest,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct RuntimeSubagentStateCommitBridgeRequest {
-    #[serde(default)]
-    pub backend: Option<String>,
+#[serde(deny_unknown_fields)]
+pub struct RuntimeSubagentStateCommitProtocolRequest {
     pub state_dir: String,
     pub request: RuntimeSubagentStateCommitRequest,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct RuntimeArtifactStateCommitBridgeRequest {
-    #[serde(default)]
-    pub backend: Option<String>,
+#[serde(deny_unknown_fields)]
+pub struct RuntimeArtifactStateCommitProtocolRequest {
     pub state_dir: String,
     pub request: RuntimeArtifactStateCommitRequest,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct RuntimeReceiptStateCommitBridgeRequest {
-    #[serde(default)]
-    pub backend: Option<String>,
+#[serde(deny_unknown_fields)]
+pub struct RuntimeReceiptStateCommitProtocolRequest {
     pub state_dir: String,
     pub request: RuntimeReceiptStateCommitRequest,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct RuntimeMcpLiveResultStateCommitBridgeRequest {
-    #[serde(default)]
-    pub backend: Option<String>,
+#[serde(deny_unknown_fields)]
+pub struct RuntimeMcpLiveResultStateCommitProtocolRequest {
     pub state_dir: String,
     pub request: RuntimeMcpLiveResultStateCommitRequest,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct RuntimeModelMountRecordStateCommitBridgeRequest {
-    #[serde(default)]
-    pub backend: Option<String>,
+#[serde(deny_unknown_fields)]
+pub struct RuntimeModelMountRecordStateCommitProtocolRequest {
     pub state_dir: String,
     pub request: RuntimeModelMountRecordStateCommitRequest,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct RuntimeModelMountReceiptStateCommitBridgeRequest {
-    #[serde(default)]
-    pub backend: Option<String>,
+#[serde(deny_unknown_fields)]
+pub struct RuntimeModelMountReceiptStateCommitProtocolRequest {
     pub state_dir: String,
     pub request: RuntimeModelMountReceiptStateCommitRequest,
 }
 
 pub fn admit_storage_backend_write_response(
-    request: StorageBackendWriteBridgeRequest,
-) -> Result<Value, AgentgresCommandError> {
+    request: StorageBackendWriteProtocolRequest,
+) -> Result<Value, AgentgresProtocolError> {
     let record = AgentgresAdmissionCore
         .admit_storage_backend_write(&request.request)
         .map_err(|error| {
-            AgentgresCommandError::new(
+            AgentgresProtocolError::new(
                 "storage_backend_write_admission_invalid",
                 format!("{error:?}"),
             )
         })?;
     Ok(json!({
-        "source": "rust_agentgres_storage_write_admission_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_agentgres_storage".to_string()),
+        "source": "rust_agentgres_storage_write_admission_protocol",
+        "backend": "rust_agentgres_storage",
         "record": record.clone(),
         "admission_hash": record.admission_hash.clone(),
         "storage_backend_ref": record.storage_backend_ref.clone(),
@@ -138,17 +128,17 @@ pub fn admit_storage_backend_write_response(
 }
 
 pub fn commit_runtime_run_state_response(
-    request: RuntimeRunStateCommitBridgeRequest,
-) -> Result<Value, AgentgresCommandError> {
+    request: RuntimeRunStateCommitProtocolRequest,
+) -> Result<Value, AgentgresProtocolError> {
     let persisted = AgentgresAdmissionCore
         .commit_runtime_run_state_to_dir(&request.state_dir, &request.request)
         .map_err(|error| {
-            AgentgresCommandError::new("runtime_run_state_commit_invalid", format!("{error:?}"))
+            AgentgresProtocolError::new("runtime_run_state_commit_invalid", format!("{error:?}"))
         })?;
     let record = persisted.commit;
     Ok(json!({
-        "source": "rust_agentgres_runtime_run_state_commit_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_agentgres_storage".to_string()),
+        "source": "rust_agentgres_runtime_run_state_commit_protocol",
+        "backend": "rust_agentgres_storage",
         "record": record.clone(),
         "transition": record.transition.clone(),
         "persistence": record.persistence.clone(),
@@ -170,12 +160,12 @@ pub fn commit_runtime_run_state_response(
 }
 
 pub fn commit_runtime_agent_state_response(
-    request: RuntimeAgentStateCommitBridgeRequest,
-) -> Result<Value, AgentgresCommandError> {
+    request: RuntimeAgentStateCommitProtocolRequest,
+) -> Result<Value, AgentgresProtocolError> {
     let record = AgentgresAdmissionCore
         .commit_runtime_agent_state(&request.request)
         .map_err(|error| {
-            AgentgresCommandError::new("runtime_agent_state_commit_invalid", format!("{error:?}"))
+            AgentgresProtocolError::new("runtime_agent_state_commit_invalid", format!("{error:?}"))
         })?;
     let written_record = persist_runtime_state_storage_record(
         &request.state_dir,
@@ -184,8 +174,8 @@ pub fn commit_runtime_agent_state_response(
         "runtime_agent_state_commit_invalid",
     )?;
     Ok(json!({
-        "source": "rust_agentgres_runtime_agent_state_commit_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_agentgres_storage".to_string()),
+        "source": "rust_agentgres_runtime_agent_state_commit_protocol",
+        "backend": "rust_agentgres_storage",
         "record": record.clone(),
         "storage_record": record.record.clone(),
         "agent_id": record.agent_id.clone(),
@@ -206,12 +196,12 @@ pub fn commit_runtime_agent_state_response(
 }
 
 pub fn commit_runtime_memory_state_response(
-    request: RuntimeMemoryStateCommitBridgeRequest,
-) -> Result<Value, AgentgresCommandError> {
+    request: RuntimeMemoryStateCommitProtocolRequest,
+) -> Result<Value, AgentgresProtocolError> {
     let record = AgentgresAdmissionCore
         .commit_runtime_memory_state(&request.request)
         .map_err(|error| {
-            AgentgresCommandError::new("runtime_memory_state_commit_invalid", format!("{error:?}"))
+            AgentgresProtocolError::new("runtime_memory_state_commit_invalid", format!("{error:?}"))
         })?;
     let written_record = persist_runtime_state_storage_record(
         &request.state_dir,
@@ -220,8 +210,8 @@ pub fn commit_runtime_memory_state_response(
         "runtime_memory_state_commit_invalid",
     )?;
     Ok(json!({
-        "source": "rust_agentgres_runtime_memory_state_commit_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_agentgres_storage".to_string()),
+        "source": "rust_agentgres_runtime_memory_state_commit_protocol",
+        "backend": "rust_agentgres_storage",
         "record": record.clone(),
         "storage_record": record.record.clone(),
         "memory_state_kind": record.memory_state_kind.clone(),
@@ -243,12 +233,12 @@ pub fn commit_runtime_memory_state_response(
 }
 
 pub fn commit_runtime_subagent_state_response(
-    request: RuntimeSubagentStateCommitBridgeRequest,
-) -> Result<Value, AgentgresCommandError> {
+    request: RuntimeSubagentStateCommitProtocolRequest,
+) -> Result<Value, AgentgresProtocolError> {
     let record = AgentgresAdmissionCore
         .commit_runtime_subagent_state(&request.request)
         .map_err(|error| {
-            AgentgresCommandError::new(
+            AgentgresProtocolError::new(
                 "runtime_subagent_state_commit_invalid",
                 format!("{error:?}"),
             )
@@ -260,8 +250,8 @@ pub fn commit_runtime_subagent_state_response(
         "runtime_subagent_state_commit_invalid",
     )?;
     Ok(json!({
-        "source": "rust_agentgres_runtime_subagent_state_commit_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_agentgres_storage".to_string()),
+        "source": "rust_agentgres_runtime_subagent_state_commit_protocol",
+        "backend": "rust_agentgres_storage",
         "record": record.clone(),
         "storage_record": record.record.clone(),
         "subagent_id": record.subagent_id.clone(),
@@ -282,12 +272,12 @@ pub fn commit_runtime_subagent_state_response(
 }
 
 pub fn commit_runtime_artifact_state_response(
-    request: RuntimeArtifactStateCommitBridgeRequest,
-) -> Result<Value, AgentgresCommandError> {
+    request: RuntimeArtifactStateCommitProtocolRequest,
+) -> Result<Value, AgentgresProtocolError> {
     let record = AgentgresAdmissionCore
         .commit_runtime_artifact_state(&request.request)
         .map_err(|error| {
-            AgentgresCommandError::new(
+            AgentgresProtocolError::new(
                 "runtime_artifact_state_commit_invalid",
                 format!("{error:?}"),
             )
@@ -299,8 +289,8 @@ pub fn commit_runtime_artifact_state_response(
         "runtime_artifact_state_commit_invalid",
     )?;
     Ok(json!({
-        "source": "rust_agentgres_runtime_artifact_state_commit_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_agentgres_storage".to_string()),
+        "source": "rust_agentgres_runtime_artifact_state_commit_protocol",
+        "backend": "rust_agentgres_storage",
         "record": record.clone(),
         "storage_record": record.record.clone(),
         "artifact_id": record.artifact_id.clone(),
@@ -321,12 +311,15 @@ pub fn commit_runtime_artifact_state_response(
 }
 
 pub fn commit_runtime_receipt_state_response(
-    request: RuntimeReceiptStateCommitBridgeRequest,
-) -> Result<Value, AgentgresCommandError> {
+    request: RuntimeReceiptStateCommitProtocolRequest,
+) -> Result<Value, AgentgresProtocolError> {
     let record = AgentgresAdmissionCore
         .commit_runtime_receipt_state(&request.request)
         .map_err(|error| {
-            AgentgresCommandError::new("runtime_receipt_state_commit_invalid", format!("{error:?}"))
+            AgentgresProtocolError::new(
+                "runtime_receipt_state_commit_invalid",
+                format!("{error:?}"),
+            )
         })?;
     let written_record = persist_runtime_state_storage_record(
         &request.state_dir,
@@ -335,8 +328,8 @@ pub fn commit_runtime_receipt_state_response(
         "runtime_receipt_state_commit_invalid",
     )?;
     Ok(json!({
-        "source": "rust_agentgres_runtime_receipt_state_commit_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_agentgres_storage".to_string()),
+        "source": "rust_agentgres_runtime_receipt_state_commit_protocol",
+        "backend": "rust_agentgres_storage",
         "record": record.clone(),
         "storage_record": record.record.clone(),
         "receipt_id": record.receipt_id.clone(),
@@ -357,12 +350,12 @@ pub fn commit_runtime_receipt_state_response(
 }
 
 pub fn commit_runtime_mcp_live_result_state_response(
-    request: RuntimeMcpLiveResultStateCommitBridgeRequest,
-) -> Result<Value, AgentgresCommandError> {
+    request: RuntimeMcpLiveResultStateCommitProtocolRequest,
+) -> Result<Value, AgentgresProtocolError> {
     let record = AgentgresAdmissionCore
         .commit_runtime_mcp_live_result_state(&request.request)
         .map_err(|error| {
-            AgentgresCommandError::new(
+            AgentgresProtocolError::new(
                 "runtime_mcp_live_result_state_commit_invalid",
                 format!("{error:?}"),
             )
@@ -374,8 +367,8 @@ pub fn commit_runtime_mcp_live_result_state_response(
         "runtime_mcp_live_result_state_commit_invalid",
     )?;
     Ok(json!({
-        "source": "rust_agentgres_runtime_mcp_live_result_state_commit_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_agentgres_storage".to_string()),
+        "source": "rust_agentgres_runtime_mcp_live_result_state_commit_protocol",
+        "backend": "rust_agentgres_storage",
         "record": record.clone(),
         "storage_record": record.record.clone(),
         "result_id": record.result_id.clone(),
@@ -396,12 +389,12 @@ pub fn commit_runtime_mcp_live_result_state_response(
 }
 
 pub fn commit_runtime_model_mount_record_state_response(
-    request: RuntimeModelMountRecordStateCommitBridgeRequest,
-) -> Result<Value, AgentgresCommandError> {
+    request: RuntimeModelMountRecordStateCommitProtocolRequest,
+) -> Result<Value, AgentgresProtocolError> {
     let record = AgentgresAdmissionCore
         .commit_runtime_model_mount_record_state(&request.request)
         .map_err(|error| {
-            AgentgresCommandError::new(
+            AgentgresProtocolError::new(
                 "runtime_model_mount_record_state_commit_invalid",
                 format!("{error:?}"),
             )
@@ -413,8 +406,8 @@ pub fn commit_runtime_model_mount_record_state_response(
         "runtime_model_mount_record_state_commit_invalid",
     )?;
     Ok(json!({
-        "source": "rust_agentgres_runtime_model_mount_record_state_commit_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_agentgres_storage".to_string()),
+        "source": "rust_agentgres_runtime_model_mount_record_state_commit_protocol",
+        "backend": "rust_agentgres_storage",
         "record": record.clone(),
         "storage_record": record.record.clone(),
         "record_dir": record.record_dir.clone(),
@@ -436,12 +429,12 @@ pub fn commit_runtime_model_mount_record_state_response(
 }
 
 pub fn commit_runtime_model_mount_receipt_state_response(
-    request: RuntimeModelMountReceiptStateCommitBridgeRequest,
-) -> Result<Value, AgentgresCommandError> {
+    request: RuntimeModelMountReceiptStateCommitProtocolRequest,
+) -> Result<Value, AgentgresProtocolError> {
     let record = AgentgresAdmissionCore
         .commit_runtime_model_mount_receipt_state(&request.request)
         .map_err(|error| {
-            AgentgresCommandError::new(
+            AgentgresProtocolError::new(
                 "runtime_model_mount_receipt_state_commit_invalid",
                 format!("{error:?}"),
             )
@@ -453,8 +446,8 @@ pub fn commit_runtime_model_mount_receipt_state_response(
         "runtime_model_mount_receipt_state_commit_invalid",
     )?;
     Ok(json!({
-        "source": "rust_agentgres_runtime_model_mount_receipt_state_commit_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_agentgres_storage".to_string()),
+        "source": "rust_agentgres_runtime_model_mount_receipt_state_commit_protocol",
+        "backend": "rust_agentgres_storage",
         "record": record.clone(),
         "storage_record": record.record.clone(),
         "receipt_id": record.receipt_id.clone(),
@@ -479,13 +472,13 @@ fn persist_runtime_state_storage_record(
     record: &RuntimeStateStorageWriteRecord,
     payload: &Value,
     error_code: &'static str,
-) -> Result<RuntimeStateWrittenRecord, AgentgresCommandError> {
+) -> Result<RuntimeStateWrittenRecord, AgentgresProtocolError> {
     let state_root = AgentgresAdmissionCore
         .ensure_runtime_state_dir(state_dir)
-        .map_err(|error| AgentgresCommandError::new(error_code, format!("{error:?}")))?;
+        .map_err(|error| AgentgresProtocolError::new(error_code, format!("{error:?}")))?;
     AgentgresAdmissionCore
         .persist_runtime_state_storage_record(&state_root, record, payload)
-        .map_err(|error| AgentgresCommandError::new(error_code, format!("{error:?}")))
+        .map_err(|error| AgentgresProtocolError::new(error_code, format!("{error:?}")))
 }
 
 #[cfg(test)]
@@ -495,11 +488,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn agentgres_command_admits_storage_backend_write_through_rust_core() {
-        let request: StorageBackendWriteBridgeRequest = serde_json::from_value(json!({
-            "schema_version": "ioi.runtime.daemon_core.command.v1",
-            "operation": "admit_storage_backend_write",
-            "backend": "rust_agentgres_storage",
+    fn agentgres_protocol_admits_storage_backend_write_through_rust_core() {
+        let request: StorageBackendWriteProtocolRequest = serde_json::from_value(json!({
             "request": {
                 "schema_version": "ioi.storage_backend_write_admission.v1",
                 "storage_backend_ref": "storage://runtime-agentgres/local-json",
@@ -510,14 +500,14 @@ mod tests {
                 "receipt_refs": ["receipt_policy"]
             }
         }))
-        .expect("storage write bridge request");
+        .expect("storage write protocol request");
 
         let response =
             admit_storage_backend_write_response(request).expect("storage write admitted");
 
         assert_eq!(
             response["source"],
-            "rust_agentgres_storage_write_admission_command"
+            "rust_agentgres_storage_write_admission_protocol"
         );
         assert_eq!(response["backend"], "rust_agentgres_storage");
         assert_eq!(
@@ -540,7 +530,7 @@ mod tests {
     }
 
     #[test]
-    fn agentgres_command_commits_runtime_run_state_through_rust_core() {
+    fn agentgres_protocol_commits_runtime_run_state_through_rust_core() {
         let temp = tempfile::tempdir().expect("tempdir");
         let state_dir = temp.path().join("runtime-state");
         fs::create_dir_all(state_dir.join("tasks")).expect("tasks dir");
@@ -556,10 +546,7 @@ mod tests {
             .expect("previous transition"),
         )
         .expect("previous transition file");
-        let request: RuntimeRunStateCommitBridgeRequest = serde_json::from_value(json!({
-            "schema_version": "ioi.runtime.daemon_core.command.v1",
-            "operation": "commit_runtime_run_state",
-            "backend": "rust_agentgres_storage",
+        let request: RuntimeRunStateCommitProtocolRequest = serde_json::from_value(json!({
             "state_dir": state_dir,
             "request": {
                 "schema_version": "ioi.runtime_run_state_commit.v1",
@@ -617,13 +604,13 @@ mod tests {
                 }
             }
         }))
-        .expect("runtime run-state commit bridge request");
+        .expect("runtime run-state commit protocol request");
 
         let response = commit_runtime_run_state_response(request).expect("run state committed");
 
         assert_eq!(
             response["source"],
-            "rust_agentgres_runtime_run_state_commit_command"
+            "rust_agentgres_runtime_run_state_commit_protocol"
         );
         assert_eq!(
             response["transition"]["expected_heads"][0],
@@ -653,13 +640,10 @@ mod tests {
     }
 
     #[test]
-    fn agentgres_command_commits_runtime_agent_state_through_rust_core() {
+    fn agentgres_protocol_commits_runtime_agent_state_through_rust_core() {
         let temp = tempfile::tempdir().expect("tempdir");
         let state_dir = temp.path().join("runtime-state");
-        let request: RuntimeAgentStateCommitBridgeRequest = serde_json::from_value(json!({
-            "schema_version": "ioi.runtime.daemon_core.command.v1",
-            "operation": "commit_runtime_agent_state",
-            "backend": "rust_agentgres_storage",
+        let request: RuntimeAgentStateCommitProtocolRequest = serde_json::from_value(json!({
             "state_dir": state_dir,
             "request": {
                 "schema_version": "ioi.runtime_agent_state_commit.v1",
@@ -675,13 +659,13 @@ mod tests {
                 }
             }
         }))
-        .expect("runtime agent-state commit bridge request");
+        .expect("runtime agent-state commit protocol request");
 
         let response = commit_runtime_agent_state_response(request).expect("agent state committed");
 
         assert_eq!(
             response["source"],
-            "rust_agentgres_runtime_agent_state_commit_command"
+            "rust_agentgres_runtime_agent_state_commit_protocol"
         );
         assert_eq!(response["agent_id"], "agent_1");
         assert_eq!(response["operation_kind"], "agent.create");
@@ -705,13 +689,10 @@ mod tests {
     }
 
     #[test]
-    fn agentgres_command_commits_runtime_memory_state_through_rust_core() {
+    fn agentgres_protocol_commits_runtime_memory_state_through_rust_core() {
         let temp = tempfile::tempdir().expect("tempdir");
         let state_dir = temp.path().join("runtime-state");
-        let request: RuntimeMemoryStateCommitBridgeRequest = serde_json::from_value(json!({
-            "schema_version": "ioi.runtime.daemon_core.command.v1",
-            "operation": "commit_runtime_memory_state",
-            "backend": "rust_agentgres_storage",
+        let request: RuntimeMemoryStateCommitProtocolRequest = serde_json::from_value(json!({
             "state_dir": state_dir,
             "request": {
                 "schema_version": "ioi.runtime_memory_state_commit.v1",
@@ -730,14 +711,14 @@ mod tests {
                 }
             }
         }))
-        .expect("runtime memory-state commit bridge request");
+        .expect("runtime memory-state commit protocol request");
 
         let response =
             commit_runtime_memory_state_response(request).expect("memory state committed");
 
         assert_eq!(
             response["source"],
-            "rust_agentgres_runtime_memory_state_commit_command"
+            "rust_agentgres_runtime_memory_state_commit_protocol"
         );
         assert_eq!(response["memory_state_kind"], "record");
         assert_eq!(response["state_id"], "memory_1");
@@ -762,13 +743,10 @@ mod tests {
     }
 
     #[test]
-    fn agentgres_command_commits_runtime_subagent_state_through_rust_core() {
+    fn agentgres_protocol_commits_runtime_subagent_state_through_rust_core() {
         let temp = tempfile::tempdir().expect("tempdir");
         let state_dir = temp.path().join("runtime-state");
-        let request: RuntimeSubagentStateCommitBridgeRequest = serde_json::from_value(json!({
-            "schema_version": "ioi.runtime.daemon_core.command.v1",
-            "operation": "commit_runtime_subagent_state",
-            "backend": "rust_agentgres_storage",
+        let request: RuntimeSubagentStateCommitProtocolRequest = serde_json::from_value(json!({
             "state_dir": state_dir,
             "request": {
                 "schema_version": "ioi.runtime_subagent_state_commit.v1",
@@ -786,14 +764,14 @@ mod tests {
                 }
             }
         }))
-        .expect("runtime subagent-state commit bridge request");
+        .expect("runtime subagent-state commit protocol request");
 
         let response =
             commit_runtime_subagent_state_response(request).expect("subagent state committed");
 
         assert_eq!(
             response["source"],
-            "rust_agentgres_runtime_subagent_state_commit_command"
+            "rust_agentgres_runtime_subagent_state_commit_protocol"
         );
         assert_eq!(response["subagent_id"], "subagent_1");
         assert_eq!(response["operation_kind"], "subagent.wait");
@@ -817,13 +795,10 @@ mod tests {
     }
 
     #[test]
-    fn agentgres_command_commits_runtime_artifact_state_through_rust_core() {
+    fn agentgres_protocol_commits_runtime_artifact_state_through_rust_core() {
         let temp = tempfile::tempdir().expect("tempdir");
         let state_dir = temp.path().join("runtime-state");
-        let request: RuntimeArtifactStateCommitBridgeRequest = serde_json::from_value(json!({
-            "schema_version": "ioi.runtime.daemon_core.command.v1",
-            "operation": "commit_runtime_artifact_state",
-            "backend": "rust_agentgres_storage",
+        let request: RuntimeArtifactStateCommitProtocolRequest = serde_json::from_value(json!({
             "state_dir": state_dir,
             "request": {
                 "schema_version": "ioi.runtime_artifact_state_commit.v1",
@@ -845,14 +820,14 @@ mod tests {
                 }
             }
         }))
-        .expect("runtime artifact-state commit bridge request");
+        .expect("runtime artifact-state commit protocol request");
 
         let response =
             commit_runtime_artifact_state_response(request).expect("artifact state committed");
 
         assert_eq!(
             response["source"],
-            "rust_agentgres_runtime_artifact_state_commit_command"
+            "rust_agentgres_runtime_artifact_state_commit_protocol"
         );
         assert_eq!(response["artifact_id"], "artifact_1");
         assert_eq!(response["operation_kind"], "artifact.coding_tool_draft");
@@ -876,13 +851,10 @@ mod tests {
     }
 
     #[test]
-    fn agentgres_command_commits_runtime_receipt_state_through_rust_core() {
+    fn agentgres_protocol_commits_runtime_receipt_state_through_rust_core() {
         let temp = tempfile::tempdir().expect("tempdir");
         let state_dir = temp.path().join("runtime-state");
-        let request: RuntimeReceiptStateCommitBridgeRequest = serde_json::from_value(json!({
-            "schema_version": "ioi.runtime.daemon_core.command.v1",
-            "operation": "commit_runtime_receipt_state",
-            "backend": "rust_agentgres_storage",
+        let request: RuntimeReceiptStateCommitProtocolRequest = serde_json::from_value(json!({
             "state_dir": state_dir,
             "request": {
                 "schema_version": "ioi.runtime_receipt_state_commit.v1",
@@ -908,14 +880,14 @@ mod tests {
                 }
             }
         }))
-        .expect("runtime receipt-state commit bridge request");
+        .expect("runtime receipt-state commit protocol request");
 
         let response =
             commit_runtime_receipt_state_response(request).expect("runtime receipt committed");
 
         assert_eq!(
             response["source"],
-            "rust_agentgres_runtime_receipt_state_commit_command"
+            "rust_agentgres_runtime_receipt_state_commit_protocol"
         );
         assert_eq!(response["receipt_id"], "receipt_runtime_mcp_live_exit");
         assert_eq!(
@@ -945,13 +917,10 @@ mod tests {
     }
 
     #[test]
-    fn agentgres_command_commits_runtime_mcp_live_result_state_through_rust_core() {
+    fn agentgres_protocol_commits_runtime_mcp_live_result_state_through_rust_core() {
         let temp = tempfile::tempdir().expect("tempdir");
         let state_dir = temp.path().join("runtime-state");
-        let request: RuntimeMcpLiveResultStateCommitBridgeRequest = serde_json::from_value(json!({
-            "schema_version": "ioi.runtime.daemon_core.command.v1",
-            "operation": "commit_runtime_mcp_live_result_state",
-            "backend": "rust_agentgres_storage",
+        let request: RuntimeMcpLiveResultStateCommitProtocolRequest = serde_json::from_value(json!({
             "state_dir": state_dir,
             "request": {
                 "schema_version": "ioi.runtime_mcp_live_result_state_commit.v1",
@@ -983,14 +952,14 @@ mod tests {
                 }
             }
         }))
-        .expect("runtime MCP live-result state commit bridge request");
+        .expect("runtime MCP live-result state commit protocol request");
 
         let response = commit_runtime_mcp_live_result_state_response(request)
             .expect("runtime MCP live result committed");
 
         assert_eq!(
             response["source"],
-            "rust_agentgres_runtime_mcp_live_result_state_commit_command"
+            "rust_agentgres_runtime_mcp_live_result_state_commit_protocol"
         );
         assert_eq!(response["result_id"], "result_runtime_mcp_live_exit");
         assert_eq!(
@@ -1021,14 +990,11 @@ mod tests {
     }
 
     #[test]
-    fn agentgres_command_commits_runtime_model_mount_record_state_through_rust_core() {
+    fn agentgres_protocol_commits_runtime_model_mount_record_state_through_rust_core() {
         let temp = tempfile::tempdir().expect("tempdir");
         let state_dir = temp.path().join("runtime-state");
-        let request: RuntimeModelMountRecordStateCommitBridgeRequest =
+        let request: RuntimeModelMountRecordStateCommitProtocolRequest =
             serde_json::from_value(json!({
-                "schema_version": "ioi.runtime.daemon_core.command.v1",
-                "operation": "commit_runtime_model_mount_record_state",
-                "backend": "rust_agentgres_storage",
                 "state_dir": state_dir,
                 "request": {
                     "schema_version": "ioi.runtime_model_mount_record_state_commit.v1",
@@ -1046,14 +1012,14 @@ mod tests {
                     }
                 }
             }))
-            .expect("runtime model-mount record-state commit bridge request");
+            .expect("runtime model-mount record-state commit protocol request");
 
         let response = commit_runtime_model_mount_record_state_response(request)
             .expect("model-mount record committed");
 
         assert_eq!(
             response["source"],
-            "rust_agentgres_runtime_model_mount_record_state_commit_command"
+            "rust_agentgres_runtime_model_mount_record_state_commit_protocol"
         );
         assert_eq!(response["record_dir"], "provider-health");
         assert_eq!(response["record_id"], "health.provider_openai");
@@ -1084,14 +1050,11 @@ mod tests {
     }
 
     #[test]
-    fn agentgres_command_commits_runtime_model_mount_receipt_state_through_rust_core() {
+    fn agentgres_protocol_commits_runtime_model_mount_receipt_state_through_rust_core() {
         let temp = tempfile::tempdir().expect("tempdir");
         let state_dir = temp.path().join("runtime-state");
-        let request: RuntimeModelMountReceiptStateCommitBridgeRequest =
+        let request: RuntimeModelMountReceiptStateCommitProtocolRequest =
             serde_json::from_value(json!({
-                "schema_version": "ioi.runtime.daemon_core.command.v1",
-                "operation": "commit_runtime_model_mount_receipt_state",
-                "backend": "rust_agentgres_storage",
                 "state_dir": state_dir,
                 "request": {
                     "schema_version": "ioi.runtime_model_mount_receipt_state_commit.v1",
@@ -1112,14 +1075,14 @@ mod tests {
                     }
                 }
             }))
-            .expect("runtime model-mount receipt-state commit bridge request");
+            .expect("runtime model-mount receipt-state commit protocol request");
 
         let response = commit_runtime_model_mount_receipt_state_response(request)
             .expect("model-mount receipt committed");
 
         assert_eq!(
             response["source"],
-            "rust_agentgres_runtime_model_mount_receipt_state_commit_command"
+            "rust_agentgres_runtime_model_mount_receipt_state_commit_protocol"
         );
         assert_eq!(response["receipt_id"], "receipt_model_invocation");
         assert_eq!(response["operation_kind"], "model_mount.receipt.write");

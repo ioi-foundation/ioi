@@ -64,7 +64,7 @@ function createStore({ approvalStateCore = null } = {}) {
       writes.push({ type: "run", operationKind, updated });
       this.runs.set(updated.id, updated);
       return {
-        source: "rust_agentgres_runtime_run_state_commit_command",
+        source: "rust_agentgres_runtime_run_state_commit_protocol",
         commit_hash: `commit_${operationKind}`,
       };
     },
@@ -72,7 +72,7 @@ function createStore({ approvalStateCore = null } = {}) {
       writes.push({ type: "agent", operationKind, updated });
       this.agents.set(updated.id, updated);
       return {
-        source: "rust_agentgres_runtime_agent_state_commit_command",
+        source: "rust_agentgres_runtime_agent_state_commit_protocol",
         commit_hash: `commit_${operationKind}`,
       };
     },
@@ -224,7 +224,7 @@ test("requestThreadApproval public surface calls Rust approval authority and com
   assert.equal(result.operation_kind, "approval.required");
   assert.equal(result.run.status, "blocked");
   assert.equal(result.run.trace.approvalRequests[0].event_id, "event_approval");
-  assert.equal(result.commit.source, "rust_agentgres_runtime_run_state_commit_command");
+  assert.equal(result.commit.source, "rust_agentgres_runtime_run_state_commit_protocol");
   assert.deepEqual(writes.map((write) => write.operationKind), ["approval.required"]);
   assert.equal(store.runtimeEventStreams.size, 0);
 });

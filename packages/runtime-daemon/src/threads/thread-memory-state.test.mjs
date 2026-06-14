@@ -253,7 +253,7 @@ function createHarness(options = {}) {
         this.memory.policies.set(request.state_id, request.payload);
       }
       return {
-        source: "rust_agentgres_runtime_memory_state_commit_command",
+        source: "rust_agentgres_runtime_memory_state_commit_protocol",
         memory_state_kind: request.memory_state_kind,
         state_id: request.state_id,
         operation_kind: request.operation_kind,

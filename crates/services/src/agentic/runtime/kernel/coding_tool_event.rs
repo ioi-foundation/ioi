@@ -328,16 +328,14 @@ pub struct PostEditDiagnosticsFeedbackPlanRecord {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct CodingToolResultEventAdmissionBridgeRequest {
-    #[serde(default)]
-    pub backend: Option<String>,
+#[serde(deny_unknown_fields)]
+pub struct CodingToolResultEventAdmissionProtocolRequest {
     pub request: CodingToolResultEventAdmissionRequest,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct CodingToolCommandStreamAdmissionBridgeRequest {
-    #[serde(default)]
-    pub backend: Option<String>,
+#[serde(deny_unknown_fields)]
+pub struct CodingToolCommandStreamAdmissionProtocolRequest {
     pub request: CodingToolCommandStreamAdmissionRequest,
 }
 
@@ -1251,12 +1249,12 @@ impl PostEditDiagnosticsFeedbackPlanCore {
 }
 
 pub fn admit_coding_tool_result_event_response(
-    request: CodingToolResultEventAdmissionBridgeRequest,
+    request: CodingToolResultEventAdmissionProtocolRequest,
 ) -> Result<Value, CodingToolResultEventAdmissionError> {
     let record = CodingToolResultEventAdmissionCore.admit(&request.request)?;
     Ok(json!({
-        "source": "rust_coding_tool_result_event_admission_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_runtime_agentgres".to_string()),
+        "source": "rust_coding_tool_result_event_admission_protocol",
+        "backend": "rust_runtime_agentgres",
         "admitted": true,
         "record": record,
         "event": record.event,
@@ -1278,12 +1276,12 @@ pub fn admit_coding_tool_result_event_response(
 }
 
 pub fn admit_coding_tool_command_stream_events_response(
-    request: CodingToolCommandStreamAdmissionBridgeRequest,
+    request: CodingToolCommandStreamAdmissionProtocolRequest,
 ) -> Result<Value, CodingToolCommandStreamAdmissionError> {
     let record = CodingToolCommandStreamAdmissionCore.admit(&request.request)?;
     Ok(json!({
-        "source": "rust_coding_tool_command_stream_admission_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_runtime_agentgres".to_string()),
+        "source": "rust_coding_tool_command_stream_admission_protocol",
+        "backend": "rust_runtime_agentgres",
         "admitted": record.status == "admitted",
         "record": record,
         "events": record.events,
@@ -2132,17 +2130,17 @@ mod tests {
     }
 
     #[test]
-    fn rust_core_shapes_coding_tool_result_event_admission_command_response() {
-        let response =
-            admit_coding_tool_result_event_response(CodingToolResultEventAdmissionBridgeRequest {
-                backend: Some("rust_runtime_agentgres".to_string()),
+    fn rust_core_shapes_coding_tool_result_event_admission_protocol_response() {
+        let response = admit_coding_tool_result_event_response(
+            CodingToolResultEventAdmissionProtocolRequest {
                 request: admission_request(),
-            })
-            .expect("admission response");
+            },
+        )
+        .expect("admission response");
 
         assert_eq!(
             response["source"],
-            "rust_coding_tool_result_event_admission_command"
+            "rust_coding_tool_result_event_admission_protocol"
         );
         assert_eq!(response["backend"], "rust_runtime_agentgres");
         assert_eq!(response["admitted"], true);
@@ -2314,10 +2312,9 @@ mod tests {
     }
 
     #[test]
-    fn rust_core_shapes_coding_tool_command_stream_admission_command_response() {
+    fn rust_core_shapes_coding_tool_command_stream_admission_protocol_response() {
         let response = admit_coding_tool_command_stream_events_response(
-            CodingToolCommandStreamAdmissionBridgeRequest {
-                backend: Some("rust_runtime_agentgres".to_string()),
+            CodingToolCommandStreamAdmissionProtocolRequest {
                 request: command_stream_request(),
             },
         )
@@ -2325,7 +2322,7 @@ mod tests {
 
         assert_eq!(
             response["source"],
-            "rust_coding_tool_command_stream_admission_command"
+            "rust_coding_tool_command_stream_admission_protocol"
         );
         assert_eq!(response["backend"], "rust_runtime_agentgres");
         assert_eq!(response["admitted"], true);

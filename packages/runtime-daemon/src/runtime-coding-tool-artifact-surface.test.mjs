@@ -64,7 +64,7 @@ function createStore() {
 
 function fakeArtifactStateCommit(request) {
   return {
-    source: "rust_agentgres_runtime_artifact_state_commit_command",
+    source: "rust_agentgres_runtime_artifact_state_commit_protocol",
     backend: "rust_agentgres_storage",
     record: {
       schema_version: "ioi.runtime_artifact_state_commit.v1",
@@ -646,7 +646,7 @@ test("coding-tool artifact surface admits command-stream events through Rust cor
     codingToolCommandStreamAdmissionForThread(store, request) {
       calls.push({ store, request });
       return {
-        source: "rust_coding_tool_command_stream_admission_command",
+        source: "rust_coding_tool_command_stream_admission_protocol",
         events: [
           {
             event_stream_id: request.event_stream_id,

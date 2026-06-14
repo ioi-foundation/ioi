@@ -397,7 +397,7 @@ test("diagnostics operator override uses Rust state update and run-state admissi
     writeRun(run, operationKind) {
       calls.push({ name: "writeRun", run, operationKind });
       return {
-        source: "rust_agentgres_runtime_run_state_commit_command",
+        source: "rust_agentgres_runtime_run_state_commit_protocol",
         operation_kind: operationKind,
         receipt_refs: ["receipt_run_state"],
         policy_decision_refs: ["policy_operator_override"],
@@ -435,7 +435,7 @@ test("diagnostics operator override uses Rust state update and run-state admissi
   assert.equal(result.run.status, "completed");
   assert.equal(result.run.diagnosticsBlockingGate.status, "overridden");
   assert.equal(result.continuation_allowed, true);
-  assert.equal(result.commit.source, "rust_agentgres_runtime_run_state_commit_command");
+  assert.equal(result.commit.source, "rust_agentgres_runtime_run_state_commit_protocol");
   assert.deepEqual(result.receipt_refs, ["receipt_run_state"]);
   assert.deepEqual(runner.requests, [{
     thread_id: "thread_alpha",

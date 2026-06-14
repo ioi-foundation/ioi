@@ -158,7 +158,7 @@ function normalizeRunStateCommit(commit) {
   const storageWriteSet = persistence?.storage_write_set;
   const writtenRecords = Array.isArray(commit?.written_records) ? commit.written_records : null;
   const normalized = {
-    source: normalizeTransitionRef(commit?.source) ?? "rust_agentgres_runtime_run_state_commit_command",
+    source: normalizeTransitionRef(commit?.source) ?? "rust_agentgres_runtime_run_state_commit_protocol",
     operation_ref:
       normalizeTransitionRef(commit?.operation_ref) ??
       normalizeTransitionRef(transition?.operation_ref),
@@ -231,7 +231,7 @@ function normalizeAgentStateCommit(commit) {
     ? commit.storage_record
     : record?.record;
   const normalized = {
-    source: normalizeTransitionRef(commit?.source) ?? "rust_agentgres_runtime_agent_state_commit_command",
+    source: normalizeTransitionRef(commit?.source) ?? "rust_agentgres_runtime_agent_state_commit_protocol",
     agent_id:
       normalizeTransitionRef(commit?.agent_id) ??
       normalizeTransitionRef(record?.agent_id),
@@ -287,7 +287,7 @@ function normalizeSubagentStateCommit(commit) {
     ? commit.storage_record
     : record?.record;
   const normalized = {
-    source: normalizeTransitionRef(commit?.source) ?? "rust_agentgres_runtime_subagent_state_commit_command",
+    source: normalizeTransitionRef(commit?.source) ?? "rust_agentgres_runtime_subagent_state_commit_protocol",
     subagent_id:
       normalizeTransitionRef(commit?.subagent_id) ??
       normalizeTransitionRef(record?.subagent_id),

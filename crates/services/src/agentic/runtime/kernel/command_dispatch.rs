@@ -3,15 +3,14 @@ use serde_json::{json, Value};
 use std::io::{self, Read};
 
 use super::{
-    agentgres_command::*, approval::*, coding_tool_artifact::*, coding_tool_event::*,
-    coding_tool_step_module::*, command_protocol::CommandOperation, model_mount::*,
-    model_mount_receipt::*, policy::*, repository_workflow::*,
-    runtime_conversation_artifact_control::*, runtime_conversation_artifact_projection::*,
-    runtime_diagnostics_repair_control::*, runtime_diagnostics_repair_policy::*,
-    runtime_diagnostics_repair_projection::*, runtime_lifecycle::*,
-    runtime_managed_session_control::*, runtime_mcp_serve::*, runtime_memory_control::*,
-    runtime_memory_projection::*, runtime_subagent_control::*, runtime_subagent_projection::*,
-    runtime_thread_event::*, runtime_thread_fork_control::*, runtime_tool_catalog::*,
+    approval::*, coding_tool_artifact::*, coding_tool_event::*, coding_tool_step_module::*,
+    command_protocol::CommandOperation, model_mount::*, model_mount_receipt::*, policy::*,
+    repository_workflow::*, runtime_conversation_artifact_control::*,
+    runtime_conversation_artifact_projection::*, runtime_diagnostics_repair_control::*,
+    runtime_diagnostics_repair_policy::*, runtime_diagnostics_repair_projection::*,
+    runtime_lifecycle::*, runtime_managed_session_control::*, runtime_mcp_serve::*,
+    runtime_memory_control::*, runtime_memory_projection::*, runtime_subagent_control::*,
+    runtime_subagent_projection::*, runtime_thread_fork_control::*, runtime_tool_catalog::*,
     runtime_workflow_edit_control::*, runtime_workspace_change_control::*, skill_hook_registry::*,
 };
 
@@ -276,14 +275,6 @@ pub fn dispatch_command_operation_response(
             plan_model_mount_read_projection_response(decode(raw_request)?)
                 .map_err(CommandDispatchError::from)
         }
-        CommandOperation::AdmitCodingToolResultEvent => {
-            admit_coding_tool_result_event_response(decode(raw_request)?).map_err(|error| {
-                CommandDispatchError::new(
-                    "coding_tool_result_event_admission_rejected",
-                    format!("{error:?}"),
-                )
-            })
-        }
         CommandOperation::PlanCodingToolResultEnvelope => {
             plan_coding_tool_result_envelope_response(decode(raw_request)?).map_err(|error| {
                 CommandDispatchError::new(
@@ -299,48 +290,6 @@ pub fn dispatch_command_operation_response(
         CommandOperation::ProjectRuntimeCodingToolArtifactRead => {
             project_runtime_coding_tool_artifact_read_response(decode(raw_request)?)
                 .map_err(Into::into)
-        }
-        CommandOperation::AdmitCodingToolCommandStreamEvents => {
-            admit_coding_tool_command_stream_events_response(decode(raw_request)?).map_err(
-                |error| {
-                    CommandDispatchError::new(
-                        "coding_tool_command_stream_admission_rejected",
-                        format!("{error:?}"),
-                    )
-                },
-            )
-        }
-        CommandOperation::AdmitRuntimeThreadEvent => {
-            admit_runtime_thread_event_response(decode(raw_request)?).map_err(|error| {
-                CommandDispatchError::new(
-                    "runtime_thread_event_admission_rejected",
-                    format!("{error:?}"),
-                )
-            })
-        }
-        CommandOperation::ProjectRuntimeThreadEvents => {
-            project_runtime_thread_events_response(decode(raw_request)?).map_err(|error| {
-                CommandDispatchError::new(
-                    "runtime_thread_event_projection_rejected",
-                    format!("{error:?}"),
-                )
-            })
-        }
-        CommandOperation::ProjectRuntimeThreadEventReplay => {
-            project_runtime_thread_event_replay_response(decode(raw_request)?).map_err(|error| {
-                CommandDispatchError::new(
-                    "runtime_thread_event_replay_rejected",
-                    format!("{error:?}"),
-                )
-            })
-        }
-        CommandOperation::ProjectRuntimeThreadTurnProjection => {
-            project_runtime_thread_turn_projection_response(decode(raw_request)?).map_err(|error| {
-                CommandDispatchError::new(
-                    "runtime_thread_turn_projection_rejected",
-                    format!("{error:?}"),
-                )
-            })
         }
         CommandOperation::PlanPostEditDiagnosticsFeedback => {
             plan_post_edit_diagnostics_feedback_response(decode(raw_request)?).map_err(|error| {
@@ -574,38 +523,6 @@ pub fn dispatch_command_operation_response(
         CommandOperation::PlanRunCreateStateUpdate => {
             plan_run_create_state_update_response(decode(raw_request)?).map_err(Into::into)
         }
-        CommandOperation::AdmitStorageBackendWrite => {
-            admit_storage_backend_write_response(decode(raw_request)?).map_err(Into::into)
-        }
-        CommandOperation::CommitRuntimeRunState => {
-            commit_runtime_run_state_response(decode(raw_request)?).map_err(Into::into)
-        }
-        CommandOperation::CommitRuntimeAgentState => {
-            commit_runtime_agent_state_response(decode(raw_request)?).map_err(Into::into)
-        }
-        CommandOperation::CommitRuntimeMemoryState => {
-            commit_runtime_memory_state_response(decode(raw_request)?).map_err(Into::into)
-        }
-        CommandOperation::CommitRuntimeSubagentState => {
-            commit_runtime_subagent_state_response(decode(raw_request)?).map_err(Into::into)
-        }
-        CommandOperation::CommitRuntimeArtifactState => {
-            commit_runtime_artifact_state_response(decode(raw_request)?).map_err(Into::into)
-        }
-        CommandOperation::CommitRuntimeReceiptState => {
-            commit_runtime_receipt_state_response(decode(raw_request)?).map_err(Into::into)
-        }
-        CommandOperation::CommitRuntimeMcpLiveResultState => {
-            commit_runtime_mcp_live_result_state_response(decode(raw_request)?).map_err(Into::into)
-        }
-        CommandOperation::CommitRuntimeModelMountRecordState => {
-            commit_runtime_model_mount_record_state_response(decode(raw_request)?)
-                .map_err(Into::into)
-        }
-        CommandOperation::CommitRuntimeModelMountReceiptState => {
-            commit_runtime_model_mount_receipt_state_response(decode(raw_request)?)
-                .map_err(Into::into)
-        }
     }
 }
 
@@ -628,7 +545,6 @@ macro_rules! command_error_from {
     };
 }
 
-command_error_from!(AgentgresCommandError);
 command_error_from!(ApprovalCommandError);
 command_error_from!(CodingToolStepModuleCommandError);
 command_error_from!(RuntimeCodingToolArtifactDraftPlanCommandError);

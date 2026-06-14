@@ -6,7 +6,6 @@ pub const COMMAND_SCHEMA_VERSION: &str = DAEMON_CORE_COMMAND_SCHEMA_VERSION;
 
 pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "run_coding_tool_step_module",
-    "admit_storage_backend_write",
     "admit_model_mount_route_decision",
     "admit_model_mount_invocation",
     "admit_model_mount_provider_execution",
@@ -40,24 +39,9 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "plan_model_mount_accepted_receipt_transition",
     "bind_model_mount_invocation_receipt",
     "plan_model_mount_read_projection",
-    "commit_runtime_run_state",
-    "commit_runtime_agent_state",
-    "commit_runtime_memory_state",
-    "commit_runtime_subagent_state",
-    "commit_runtime_artifact_state",
-    "commit_runtime_receipt_state",
-    "commit_runtime_mcp_live_result_state",
-    "commit_runtime_model_mount_record_state",
-    "commit_runtime_model_mount_receipt_state",
-    "admit_coding_tool_result_event",
     "plan_coding_tool_result_envelope",
     "plan_runtime_coding_tool_artifact_drafts",
     "project_runtime_coding_tool_artifact_read",
-    "admit_coding_tool_command_stream_events",
-    "admit_runtime_thread_event",
-    "project_runtime_thread_events",
-    "project_runtime_thread_event_replay",
-    "project_runtime_thread_turn_projection",
     "plan_post_edit_diagnostics_feedback",
     "evaluate_context_budget_policy",
     "evaluate_coding_tool_budget_policy",
@@ -131,7 +115,6 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CommandOperation {
     RunCodingToolStepModule,
-    AdmitStorageBackendWrite,
     AdmitModelMountRouteDecision,
     AdmitModelMountInvocation,
     AdmitModelMountProviderExecution,
@@ -165,24 +148,9 @@ pub enum CommandOperation {
     PlanModelMountAcceptedReceiptTransition,
     BindModelMountInvocationReceipt,
     PlanModelMountReadProjection,
-    CommitRuntimeRunState,
-    CommitRuntimeAgentState,
-    CommitRuntimeMemoryState,
-    CommitRuntimeSubagentState,
-    CommitRuntimeArtifactState,
-    CommitRuntimeReceiptState,
-    CommitRuntimeMcpLiveResultState,
-    CommitRuntimeModelMountRecordState,
-    CommitRuntimeModelMountReceiptState,
-    AdmitCodingToolResultEvent,
     PlanCodingToolResultEnvelope,
     PlanRuntimeCodingToolArtifactDrafts,
     ProjectRuntimeCodingToolArtifactRead,
-    AdmitCodingToolCommandStreamEvents,
-    AdmitRuntimeThreadEvent,
-    ProjectRuntimeThreadEvents,
-    ProjectRuntimeThreadEventReplay,
-    ProjectRuntimeThreadTurnProjection,
     PlanPostEditDiagnosticsFeedback,
     EvaluateContextBudgetPolicy,
     EvaluateCodingToolBudgetPolicy,
@@ -257,7 +225,6 @@ impl CommandOperation {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::RunCodingToolStepModule => "run_coding_tool_step_module",
-            Self::AdmitStorageBackendWrite => "admit_storage_backend_write",
             Self::AdmitModelMountRouteDecision => "admit_model_mount_route_decision",
             Self::AdmitModelMountInvocation => "admit_model_mount_invocation",
             Self::AdmitModelMountProviderExecution => "admit_model_mount_provider_execution",
@@ -299,26 +266,11 @@ impl CommandOperation {
             }
             Self::BindModelMountInvocationReceipt => "bind_model_mount_invocation_receipt",
             Self::PlanModelMountReadProjection => "plan_model_mount_read_projection",
-            Self::CommitRuntimeRunState => "commit_runtime_run_state",
-            Self::CommitRuntimeAgentState => "commit_runtime_agent_state",
-            Self::CommitRuntimeMemoryState => "commit_runtime_memory_state",
-            Self::CommitRuntimeSubagentState => "commit_runtime_subagent_state",
-            Self::CommitRuntimeArtifactState => "commit_runtime_artifact_state",
-            Self::CommitRuntimeReceiptState => "commit_runtime_receipt_state",
-            Self::CommitRuntimeMcpLiveResultState => "commit_runtime_mcp_live_result_state",
-            Self::CommitRuntimeModelMountRecordState => "commit_runtime_model_mount_record_state",
-            Self::CommitRuntimeModelMountReceiptState => "commit_runtime_model_mount_receipt_state",
-            Self::AdmitCodingToolResultEvent => "admit_coding_tool_result_event",
             Self::PlanCodingToolResultEnvelope => "plan_coding_tool_result_envelope",
             Self::PlanRuntimeCodingToolArtifactDrafts => "plan_runtime_coding_tool_artifact_drafts",
             Self::ProjectRuntimeCodingToolArtifactRead => {
                 "project_runtime_coding_tool_artifact_read"
             }
-            Self::AdmitCodingToolCommandStreamEvents => "admit_coding_tool_command_stream_events",
-            Self::AdmitRuntimeThreadEvent => "admit_runtime_thread_event",
-            Self::ProjectRuntimeThreadEvents => "project_runtime_thread_events",
-            Self::ProjectRuntimeThreadEventReplay => "project_runtime_thread_event_replay",
-            Self::ProjectRuntimeThreadTurnProjection => "project_runtime_thread_turn_projection",
             Self::PlanPostEditDiagnosticsFeedback => "plan_post_edit_diagnostics_feedback",
             Self::EvaluateContextBudgetPolicy => "evaluate_context_budget_policy",
             Self::EvaluateCodingToolBudgetPolicy => "evaluate_coding_tool_budget_policy",
@@ -484,7 +436,6 @@ impl CommandProtocolError {
 pub fn command_operation(operation: &str) -> Option<CommandOperation> {
     match operation {
         "run_coding_tool_step_module" => Some(CommandOperation::RunCodingToolStepModule),
-        "admit_storage_backend_write" => Some(CommandOperation::AdmitStorageBackendWrite),
         "admit_model_mount_route_decision" => Some(CommandOperation::AdmitModelMountRouteDecision),
         "admit_model_mount_invocation" => Some(CommandOperation::AdmitModelMountInvocation),
         "admit_model_mount_provider_execution" => {
@@ -556,39 +507,12 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
             Some(CommandOperation::BindModelMountInvocationReceipt)
         }
         "plan_model_mount_read_projection" => Some(CommandOperation::PlanModelMountReadProjection),
-        "commit_runtime_run_state" => Some(CommandOperation::CommitRuntimeRunState),
-        "commit_runtime_agent_state" => Some(CommandOperation::CommitRuntimeAgentState),
-        "commit_runtime_memory_state" => Some(CommandOperation::CommitRuntimeMemoryState),
-        "commit_runtime_subagent_state" => Some(CommandOperation::CommitRuntimeSubagentState),
-        "commit_runtime_artifact_state" => Some(CommandOperation::CommitRuntimeArtifactState),
-        "commit_runtime_receipt_state" => Some(CommandOperation::CommitRuntimeReceiptState),
-        "commit_runtime_mcp_live_result_state" => {
-            Some(CommandOperation::CommitRuntimeMcpLiveResultState)
-        }
-        "commit_runtime_model_mount_record_state" => {
-            Some(CommandOperation::CommitRuntimeModelMountRecordState)
-        }
-        "commit_runtime_model_mount_receipt_state" => {
-            Some(CommandOperation::CommitRuntimeModelMountReceiptState)
-        }
-        "admit_coding_tool_result_event" => Some(CommandOperation::AdmitCodingToolResultEvent),
         "plan_coding_tool_result_envelope" => Some(CommandOperation::PlanCodingToolResultEnvelope),
         "plan_runtime_coding_tool_artifact_drafts" => {
             Some(CommandOperation::PlanRuntimeCodingToolArtifactDrafts)
         }
         "project_runtime_coding_tool_artifact_read" => {
             Some(CommandOperation::ProjectRuntimeCodingToolArtifactRead)
-        }
-        "admit_coding_tool_command_stream_events" => {
-            Some(CommandOperation::AdmitCodingToolCommandStreamEvents)
-        }
-        "admit_runtime_thread_event" => Some(CommandOperation::AdmitRuntimeThreadEvent),
-        "project_runtime_thread_events" => Some(CommandOperation::ProjectRuntimeThreadEvents),
-        "project_runtime_thread_event_replay" => {
-            Some(CommandOperation::ProjectRuntimeThreadEventReplay)
-        }
-        "project_runtime_thread_turn_projection" => {
-            Some(CommandOperation::ProjectRuntimeThreadTurnProjection)
         }
         "plan_post_edit_diagnostics_feedback" => {
             Some(CommandOperation::PlanPostEditDiagnosticsFeedback)
@@ -810,16 +734,9 @@ mod tests {
             "plan_workflow_edit_admission_required",
             "validate_mcp_servers",
             "plan_mcp_manager_catalog_summary_projection",
-            "commit_runtime_run_state",
-            "admit_coding_tool_result_event",
             "plan_coding_tool_result_envelope",
             "plan_runtime_coding_tool_artifact_drafts",
             "project_runtime_coding_tool_artifact_read",
-            "admit_coding_tool_command_stream_events",
-            "admit_runtime_thread_event",
-            "project_runtime_thread_events",
-            "project_runtime_thread_event_replay",
-            "project_runtime_thread_turn_projection",
             "plan_post_edit_diagnostics_feedback",
             "project_runtime_diagnostics_repair_policy",
             "plan_lifecycle_admission_required",
@@ -954,6 +871,31 @@ mod tests {
             "project_workspace_snapshot_content_package",
             "preview_workspace_snapshot_restore",
             "apply_workspace_snapshot_restore",
+        ] {
+            assert_eq!(command_operation(operation), None);
+            assert_eq!(expected_command_schema_version(operation), None);
+        }
+    }
+
+    #[test]
+    fn runtime_agentgres_command_transport_is_retired() {
+        for operation in [
+            "admit_storage_backend_write",
+            "admit_coding_tool_result_event",
+            "admit_coding_tool_command_stream_events",
+            "admit_runtime_thread_event",
+            "project_runtime_thread_events",
+            "project_runtime_thread_event_replay",
+            "project_runtime_thread_turn_projection",
+            "commit_runtime_run_state",
+            "commit_runtime_agent_state",
+            "commit_runtime_memory_state",
+            "commit_runtime_subagent_state",
+            "commit_runtime_artifact_state",
+            "commit_runtime_receipt_state",
+            "commit_runtime_mcp_live_result_state",
+            "commit_runtime_model_mount_record_state",
+            "commit_runtime_model_mount_receipt_state",
         ] {
             assert_eq!(command_operation(operation), None);
             assert_eq!(expected_command_schema_version(operation), None);

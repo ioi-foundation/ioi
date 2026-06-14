@@ -58,7 +58,7 @@ function runtimeAgentgresAdmissionCoreForApprovalLeaseTest() {
   return {
     projectRuntimeThreadEvents(request) {
       return {
-        source: "rust_runtime_thread_event_projection_command",
+        source: "rust_runtime_thread_event_projection_protocol",
         backend: "rust_runtime_agentgres",
         projected: true,
         projection_kind: request.projection_kind,
@@ -71,7 +71,7 @@ function runtimeAgentgresAdmissionCoreForApprovalLeaseTest() {
     },
     projectRuntimeThreadTurnProjection(request) {
       return {
-        source: "rust_runtime_thread_turn_projection_command",
+        source: "rust_runtime_thread_turn_projection_protocol",
         backend: "rust_runtime_agentgres",
         projected: true,
         record: {
@@ -84,7 +84,7 @@ function runtimeAgentgresAdmissionCoreForApprovalLeaseTest() {
     },
     admitRuntimeThreadEvent(request) {
       return {
-        source: "rust_runtime_thread_event_admission_command",
+        source: "rust_runtime_thread_event_admission_protocol",
         backend: "rust_runtime_agentgres",
         admitted: true,
         event: {
@@ -97,7 +97,7 @@ function runtimeAgentgresAdmissionCoreForApprovalLeaseTest() {
     },
     admitCodingToolResultEvent(request) {
       return {
-        source: "rust_coding_tool_result_event_admission_command",
+        source: "rust_coding_tool_result_event_admission_protocol",
         backend: "rust_runtime_agentgres",
         admitted: true,
         event: {
@@ -112,7 +112,7 @@ function runtimeAgentgresAdmissionCoreForApprovalLeaseTest() {
       const recordPath = `agents/${request.agent_id}.json`;
       writeCommittedRecord(stateDir, recordPath, request.agent ?? request);
       return {
-        source: "rust_agentgres_runtime_agent_state_commit_command",
+        source: "rust_agentgres_runtime_agent_state_commit_protocol",
         agent_id: request.agent_id,
         object_ref: `agentgres://runtime-state/agents/${request.agent_id}/records/${recordPath}`,
         content_hash: "sha256:approval-lease-agent-content",
@@ -126,7 +126,7 @@ function runtimeAgentgresAdmissionCoreForApprovalLeaseTest() {
       const recordPath = `runs/${request.run_id}.json`;
       writeCommittedRecord(stateDir, recordPath, request.run ?? request);
       return {
-        source: "rust_agentgres_runtime_run_state_commit_command",
+        source: "rust_agentgres_runtime_run_state_commit_protocol",
         operation_ref: `agentgres://runtime-state/runs/${request.run_id}/operations/${request.operation_kind}_approval_lease_test`,
         state_root_after: "sha256:approval-lease-state-root-after",
         resulting_head: `agentgres://runtime-state/runs/${request.run_id}/head/approval-lease-test`,
