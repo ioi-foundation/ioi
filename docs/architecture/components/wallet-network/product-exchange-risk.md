@@ -9,7 +9,7 @@ Supersedes: wallet product, swap, trade, risk-center, and route-authority
 language embedded only in prototypes or supporting product notes when it
 conflicts with this file.
 Superseded by: none.
-Last alignment pass: 2026-06-12.
+Last alignment pass: 2026-06-14.
 
 ## Canonical Definition
 
@@ -49,6 +49,10 @@ actions:
 - approval, denial, step-up, revocation, and emergency stop;
 - exact intent binding for sends, exchanges, advanced trades, position changes,
   delegations, protection actions, capability exits, and agent actions;
+- approval-mode selection for one-shot, session, batch, silent-within-policy,
+  after-the-fact receipt, and step-up flows;
+- reusable authority presentation profiles for embedded apps, Wallet surfaces,
+  mobile approvals, CLI approvals, and advanced consoles;
 - signing or denial of executable intents;
 - user-facing and machine-verifiable wallet receipts;
 - asset exposure records and protection recommendations;
@@ -70,6 +74,7 @@ wallet.network does not own:
 - Agentgres operational truth;
 - IOI L1 settlement state;
 - app-domain databases;
+- the full user interface for every Web3/Web4 app;
 - worker/service marketplace state.
 
 ## Wallet Product Surface Doctrine
@@ -129,6 +134,219 @@ Wallet is the canonical user-facing cockpit for Exchange and Trade. The user
 should be able to review, approve, deny, execute, monitor, and receipt exchange
 or trade actions inside Wallet without first visiting `decentralized.exchange`
 or `decentralized.trade`.
+
+## Wallet Authority UX Model
+
+Wallet's authority model generalizes beyond the Wallet console. The full Wallet
+application is the high-trust financial and operator cockpit; it is not the
+mandatory UI for every Web3/Web4 application.
+
+Reusable model:
+
+```text
+Intent
+  -> simulation
+  -> risk and eligibility labels
+  -> policy explanation
+  -> approval mode
+  -> execution handoff
+  -> typed receipt
+  -> revocation path
+```
+
+Generic object grammar:
+
+```text
+Subject
+  user | account | agent | app | org | service
+
+Capability
+  what may be done
+
+Object
+  asset | credential | data | vote | message | position | workload | secret
+
+Policy
+  when, where, how much, by whom, for how long, and under which risk posture
+
+Receipt
+  what actually happened, under which policy, with which evidence
+```
+
+This keeps Wallet Web4-ready. Some apps have no assets at all; they may request
+identity, credentials, posting rights, data-sharing rights, storage, compute,
+votes, connector actions, or agent capabilities. Those apps should still use the
+same authority grammar without inheriting the full finance console.
+
+### Presentation Profiles
+
+Wallet authority should be presented through three canonical profiles:
+
+```text
+Lite Approval Card
+  Compact embedded or mobile-first review for games, social apps, consumer
+  apps, and low-risk dapp sessions. It exposes approve, deny, revoke, and view
+  receipt without pulling in the full Wallet console.
+
+Standard Wallet Review
+  The normal Wallet approval surface for sends, receives, swaps, delegations,
+  revocations, protection actions, moderate-risk sessions, and agent
+  permissions.
+
+Advanced Authority Console
+  Dense operator/developer/treasury/infra surface for trading, agents,
+  Hypervisor, raw receipts, policy JSON, route candidates, adapter evidence,
+  eligibility, traces, and org approvals.
+```
+
+Canonical invariant:
+
+> **The Wallet authority pipeline is reusable infrastructure. The Wallet
+> console is one presentation of that pipeline, not the universal dapp UI.**
+
+### Approval Modes
+
+Review-per-action does not scale. Wallet must support approval modes that
+preserve authority while reducing modal fatigue:
+
+```text
+one_shot_review
+  Approve or deny exactly one consequential action.
+
+session_envelope
+  Allow repeated actions inside explicit caps, resources, TTL, and revocation
+  epoch.
+
+batch_review
+  Approve or deny many similar actions under one policy result and receipt
+  bundle.
+
+silent_within_policy
+  Execute low-risk pre-authorized actions without interrupting the user, while
+  still producing receipts.
+
+after_the_fact_receipt
+  Surface receipt after an action already allowed by an active session envelope.
+
+step_up_review
+  Require stronger authentication or human approval when an action exceeds the
+  envelope, widens policy, touches secrets, exports data, moves funds, trades,
+  or declassifies private workspace state.
+
+denied
+  Refuse execution and emit denial reason plus safer alternatives where known.
+```
+
+Approval modes must be policy-derived. Apps may request a mode, but
+wallet.network decides whether that mode is allowed.
+
+### Risk Coverage and Eligibility
+
+Risk labels, eligibility labels, and authority risk are separate dimensions.
+
+```text
+Authority risk
+  What kind of power is requested?
+
+Technical / financial / operational risk
+  What can go wrong?
+
+Eligibility
+  Is this user, account, jurisdiction, venue, app, or agent allowed?
+
+Coverage state
+  How well has this risk or eligibility claim been assessed?
+```
+
+Coverage states:
+
+```text
+Assessed
+Unknown
+Unassessed
+Stale
+Partially Covered
+Conflicting Sources
+```
+
+Canonical invariant:
+
+> **Absence of a risk label is never safety. Unknown, unassessed, stale, and
+> conflicting-source states are explicit caution states.**
+
+Every risk or eligibility label should carry:
+
+```text
+label
+level
+source
+coverage_state
+confidence
+as_of
+expires_at
+evidence_refs
+```
+
+### Policy Explanations
+
+Wallet policy must be explainable enough that users and developers know what to
+change. Approval, denial, and step-up responses should include:
+
+```text
+decision
+blocking_reasons
+policy_refs
+requested_action_summary
+affected_assets_or_objects
+risk_labels
+eligibility_labels
+required_changes
+safer_alternatives
+receipt_or_denial_ref
+```
+
+Example:
+
+```text
+Blocked because:
+  agent live perps disabled
+  requested leverage exceeds policy cap
+  stop loss missing
+
+To proceed:
+  switch to paper mode
+  lower leverage
+  add stop loss
+  request policy change through step-up
+```
+
+### Candidate Evidence and Adapter Trust
+
+Route, venue, market, provider, connector, and app adapters are evidence
+sources, not trust roots. They may return candidates and claims, but Wallet must
+bind final approval to evidence it can inspect, simulate, or reject.
+
+Candidate claims should include:
+
+```text
+source
+adapter_id
+timestamp
+expiry
+contracts_or_venues
+calldata_or_action_template
+simulation_ref
+risk_labels
+eligibility_labels
+evidence_refs
+confidence
+failure_conditions
+```
+
+Canonical invariant:
+
+> **Adapters propose. Wallet verifies, explains, approves or denies, executes
+> only through authorized paths, and receipts what happened.**
 
 ## Exchange and Route Authority
 

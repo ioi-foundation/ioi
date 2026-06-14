@@ -4,7 +4,7 @@ Status: canonical vocabulary reference.
 Canonical owner: this file for runtime, audit, substrate, projection, and legacy naming vocabulary.
 Supersedes: overlapping runtime vocabulary in plans/specs when names conflict.
 Superseded by: none.
-Last alignment pass: 2026-06-12.
+Last alignment pass: 2026-06-14.
 
 The agent harness uses behavior-first names in runtime code and reserves
 compliance acronyms for hidden audit material.
@@ -249,6 +249,27 @@ compliance acronyms for hidden audit material.
 - `AutonomyLease`: a wallet.network authority lease that allows a persistent
   node to act while the user is away within bounded policy, without receiving
   durable raw secrets or unrestricted authority.
+- `WalletAuthorityCore`: the reusable wallet.network authority pipeline behind
+  Wallet, embedded dapp approvals, agents, Hypervisor, CLI prompts, and advanced
+  consoles. It evaluates intent, simulation, risk, eligibility, policy,
+  approval mode, execution handoff, receipt, and revocation. It is not the full
+  Wallet application UI.
+- `WalletPresentationProfile`: a UI profile over the same `WalletAuthorityCore`
+  review contract. Canonical profiles are `lite_approval_card`,
+  `standard_wallet_review`, `advanced_authority_console`, `cli_prompt`, and
+  `mobile_approval_sheet`.
+- `ApprovalMode`: the policy-derived execution approval posture for an
+  authority review. Values include `one_shot_review`, `session_envelope`,
+  `batch_review`, `silent_within_policy`, `after_the_fact_receipt`,
+  `step_up_review`, and `denied`.
+- `RiskCoverageState`: the assessment coverage state attached to a risk or
+  eligibility label. Values include `Assessed`, `Unknown`, `Unassessed`,
+  `Stale`, `Partially Covered`, and `Conflicting Sources`. Absence of a risk
+  label is never safety.
+- `CapabilityLease`: a scoped, expiring wallet.network lease that lets an app,
+  agent, service, or runtime exercise a capability such as `scope:gmail.send`,
+  `scope:broker.place_order`, or `scope:cloud.deploy` without receiving
+  long-lived credentials or root authority by default.
 - `WalletExchange`: the source-agnostic Wallet product surface for exchanges.
   wallet.network is the user-facing cockpit and owns exchange authority, risk
   disclosure, policy evaluation, signing or denial, revocation, and receipts;
@@ -312,9 +333,10 @@ compliance acronyms for hidden audit material.
   policy-stronger account, isolating agent execution funds, freezing grants, or
   requiring step-up for exposed routes.
 - `ApprovalInboxItem`: a pending wallet authority decision. It must show
-  initiator, action, authority risk class, asset/route/security risk labels,
-  affected assets/secrets/data, destination, policy diff, simulation result,
-  expiry, and deny/edit/approve actions.
+  initiator, action, authority risk class, risk labels, eligibility labels,
+  coverage states, affected assets/secrets/data/workloads, destination, policy
+  diff, policy explanation, simulation result, candidate evidence, expiry,
+  allowed approval modes, presentation profile, and deny/edit/approve actions.
 - `WalletReceipt`: a user-facing and machine-verifiable receipt for wallet
   actions such as sends, receives, exchanges, approvals, delegations,
   revocations, agent actions, step-up, secret execution, risk events,

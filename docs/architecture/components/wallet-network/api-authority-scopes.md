@@ -6,7 +6,7 @@ approval, secret brokerage, payment, exchange, exposure, protection, receipt,
 and revocation APIs.
 Supersedes: older wallet authority API wording when it conflicts with `scope:*` authority grants.
 Superseded by: none.
-Last alignment pass: 2026-06-12.
+Last alignment pass: 2026-06-14.
 
 ## Purpose
 
@@ -178,6 +178,10 @@ POST /v1/authority/scope-requests/{request_id}/deny
 GET  /v1/authority/grants
 GET  /v1/authority/grants/{grant_id}
 POST /v1/authority/grants/{grant_id}/revoke
+GET  /v1/authority/capabilities
+POST /v1/authority/capability-leases
+GET  /v1/authority/capability-leases/{lease_id}
+POST /v1/authority/capability-leases/{lease_id}/revoke
 ```
 
 ### Authority Scope Request
@@ -245,6 +249,40 @@ environment, and expiry.
   "status": "active"
 }
 ```
+
+### Capability Lease
+
+Agents, apps, and runtimes act through leased capabilities, not durable
+plaintext secrets or root accounts.
+
+```json
+{
+  "lease_id": "lease://capability/gmail-send/abc",
+  "grant_id": "grant_123",
+  "issuer_id": "wallet://user_123",
+  "subject_id": "agent://assistant",
+  "capability": "scope:gmail.send",
+  "object_scope": {
+    "resources": ["gmail://account/user@example.com"],
+    "max_calls": 25,
+    "ttl_seconds": 3600
+  },
+  "secret_release_policy": {
+    "mode": "brokered_execution",
+    "can_view_secret": false,
+    "can_use_secret": true,
+    "step_up_required_for": ["new_recipient", "attachment", "external_domain"]
+  },
+  "approval_mode": "session_envelope",
+  "revocation_epoch": 7,
+  "receipt_policy": "per_use | aggregate_with_after_the_fact_receipts",
+  "status": "active"
+}
+```
+
+Capability leases are the Wallet-native answer to credential orchestration:
+the agent receives a scoped, expiring right to ask Wallet or a provider to use a
+capability. It does not receive long-lived credentials by default.
 
 ## Secret and BYOK API
 
@@ -319,6 +357,9 @@ GET  /v1/approvals/{approval_id}
 POST /v1/approvals/{approval_id}/approve
 POST /v1/approvals/{approval_id}/deny
 POST /v1/approvals/{approval_id}/edit-and-approve
+POST /v1/authority/reviews
+GET  /v1/authority/reviews/{review_id}
+POST /v1/authority/reviews/{review_id}/render-profile
 ```
 
 Approval grant:
@@ -336,6 +377,80 @@ Approval grant:
   "single_use": true
 }
 ```
+
+### Authority Review
+
+`AuthorityReview` is the reusable Wallet authority surface behind the full
+Wallet app, embedded approval cards, mobile sheets, CLI prompts, and advanced
+operator consoles.
+
+```json
+{
+  "review_id": "review://wallet/abc",
+  "intent_ref": "intent://...",
+  "subject_id": "agent://trader | app://game | user://123",
+  "object_refs": ["asset://...", "credential://...", "workload://..."],
+  "capabilities_requested": ["scope:broker.place_order"],
+  "simulation_ref": "simulation://...",
+  "risk_labels": [
+    {
+      "label": "Venue Risk",
+      "level": "medium",
+      "source": "adapter://decentralized.trade/hyperliquid",
+      "coverage_state": "Assessed",
+      "confidence": 0.82,
+      "as_of": "2026-06-14T12:00:00Z",
+      "expires_at": "2026-06-14T12:05:00Z",
+      "evidence_refs": ["artifact://..."]
+    }
+  ],
+  "eligibility_labels": [
+    {
+      "label": "Jurisdiction Restricted",
+      "level": "high",
+      "coverage_state": "Unknown",
+      "source": "policy://venue-eligibility"
+    }
+  ],
+  "policy_result": {
+    "decision": "approve | deny | requires_step_up | edit_required",
+    "blocking_reasons": ["requested leverage exceeds policy cap"],
+    "required_changes": ["lower leverage", "add stop loss"],
+    "safer_alternatives": ["paper mode"]
+  },
+  "allowed_approval_modes": [
+    "one_shot_review",
+    "step_up_review"
+  ],
+  "recommended_presentation_profile": "standard_wallet_review"
+}
+```
+
+Presentation profiles:
+
+```text
+lite_approval_card
+standard_wallet_review
+advanced_authority_console
+cli_prompt
+mobile_approval_sheet
+```
+
+Approval modes:
+
+```text
+one_shot_review
+session_envelope
+batch_review
+silent_within_policy
+after_the_fact_receipt
+step_up_review
+denied
+```
+
+Apps may request a presentation profile and approval mode, but Wallet must derive
+the allowed mode from policy, risk, eligibility, account posture, and active
+session state.
 
 ## Payment and Escrow API
 
@@ -570,8 +685,8 @@ GET /v1/receipts/{receipt_id}
 ```
 
 Receipt types include send, receive, exchange, approval, delegation,
-revocation, agent action, step-up, secret execution, risk event, protection,
-and policy change receipts.
+revocation, agent action, capability use, step-up, secret execution, risk event,
+protection, cloud execution, and policy change receipts.
 
 ## Approval Inbox API
 
@@ -584,9 +699,11 @@ POST /v1/approval-inbox/{approval_item_id}/edit-and-approve
 ```
 
 Approval inbox items should include initiator, requested action, authority risk
-class, asset/route/security risk labels, affected assets/secrets/data, budget
-or amount, destination, policy diff, simulation result, expiry, and available
-approve/edit/deny actions.
+class, risk labels, eligibility labels, coverage states, affected
+assets/secrets/data/workloads, budget or amount, destination, policy diff,
+policy explanation, simulation result, candidate evidence, expiry, allowed
+approval modes, recommended presentation profile, and available approve/edit/deny
+actions.
 
 ## Revocation and Emergency Stop
 
@@ -610,3 +727,7 @@ Emergency stop must revoke active grants, pause pending runs, and notify relevan
    payloads, credentials, or durable authority.
 7. Exchange route sources are candidates only; they are not approval, signing
    authority, receipt truth, or execution trust roots.
+8. Presentation shells are UI profiles over the same authority review contract;
+   the full Wallet console is not required for every Web3/Web4 app.
+9. Unknown, unassessed, stale, and conflicting-source risk or eligibility states
+   must be surfaced as caution states, not hidden as absent warnings.
