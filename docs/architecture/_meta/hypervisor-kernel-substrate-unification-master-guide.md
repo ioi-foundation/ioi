@@ -6701,15 +6701,15 @@ wrapping, governed-evolution proposal admission wrapping, canonical
 `rust_governed_meta_improvement_command` response envelopes, and the error
 codes returned to the bridge boundary.
 
-This remains non-terminal because the Node bridge, command dispatch table,
-shared daemon-core command runner, JS command callers, L1 settlement runner,
-and governed-improvement runner still exist. The remaining
-`ioi_step_module_bridge/governed_admission_command.rs` file is a temporary
-delegate to Rust core, not a durable governed-admission boundary. The long-term
-target remains direct Rust daemon-core governed-admission protocol APIs over
-settlement trigger guards, governed proposal admission, Agentgres-backed
-receipt/state-root truth where applicable, replay, projection, wallet.network
-authority where applicable, and stable IDE/CLI/SDK surfaces end to end.
+This was non-terminal because the Node bridge, command dispatch table, shared
+daemon-core command runner, JS command callers, L1 settlement runner, and
+governed-improvement runner still existed at that cut. The L1 runner has now
+been retired behind mounted `l1SettlementCore`; governed-improvement still
+needs the same treatment. The long-term target remains direct Rust daemon-core
+governed-admission protocol APIs over settlement trigger guards, governed
+proposal admission, Agentgres-backed receipt/state-root truth where
+applicable, replay, projection, wallet.network authority where applicable, and
+stable IDE/CLI/SDK surfaces end to end.
 
 Slice 1121 moves external capability exit authority command response shaping
 out of the temporary Node authority command bridge and into Rust `authority.rs`
@@ -7387,20 +7387,18 @@ ownership over StepModuleRouter admission, wallet authority, receipt/state-root
 binding, Agentgres truth, projection, replay, and stable IDE/CLI/SDK protocol
 surfaces.
 
-Slice 1155 retires JS-side trigger/receipt ref fallback synthesis from the L1
-settlement runner. Rust `governed_admission.rs` already owns L1 settlement
-trigger admission and response shaping behind the temporary daemon-core command
-path, so `runtime-l1-settlement-runner.mjs` now preserves omitted
-Rust-authored `trigger_refs` and `receipt_refs` as `null` instead of inventing
-empty arrays at the JS edge.
+Slice 1155 retired JS-side trigger/receipt ref fallback synthesis from the
+temporary L1 settlement runner. Rust `governed_admission.rs` already owned L1
+settlement trigger admission and response shaping behind the temporary
+daemon-core command path, so omitted Rust-authored `trigger_refs` and
+`receipt_refs` stopped becoming invented empty arrays at the JS edge.
 
-This remains non-terminal because the JS L1 settlement runner, shared
-daemon-core command runner, and Node bridge transport still carry settlement
-admission requests to Rust. The target is direct Rust daemon-core settlement
-protocol/API ownership over trigger admission, wallet authority where
-applicable, receipt/state-root binding, Agentgres truth, projection, replay,
-and stable IDE/CLI/SDK protocol surfaces, not preservation of JS normalizers as
-compatibility shims.
+That fallback-retirement slice is now superseded by the L1 settlement core API
+cut: the JS runner and normalizer are deleted, and the product route reaches
+Rust-owned settlement admission through mounted `l1SettlementCore`. The target
+remains direct Rust daemon-core settlement protocol/API ownership over trigger
+admission, wallet authority where applicable, receipt/state-root binding,
+Agentgres truth, projection, replay, and stable IDE/CLI/SDK protocol surfaces.
 
 Slice 1156 retires JS-side Agentgres head and receipt-ref fallback synthesis
 from the governed-improvement runner. Rust `governed_admission.rs` already
@@ -8109,23 +8107,20 @@ API can now be injected at the daemon boundary and exercised across default
 hot-path runners before the `IOI_RUNTIME_DAEMON_CORE_COMMAND` spawn fallback and
 JS command invoker are deleted.
 
-Slice 1196 retires the temporary binary-spawn fallback for the daemon L1
-settlement runner. `runtime-l1-settlement-runner.mjs` no longer imports the
-shared JS daemon-core command invoker, no longer exposes or reads a live
-`L1_SETTLEMENT_COMMAND_ENV`, and no longer accepts constructor command
-selection or spawn hooks. L1 settlement admission now requires the
-daemon-level `daemonCoreInvoker` direct Rust-core seam and fails closed when it
-is absent. `IOI_RUNTIME_DAEMON_CORE_COMMAND` and retired
-`IOI_L1_SETTLEMENT_COMMAND` values are treated only as forbidden command
-selection input for this surface, not as fallback transport.
+Slice 1203 retires the daemon L1 settlement runner outright. The daemon store
+now mounts `l1SettlementCore`; the JS runner facade, store runner option,
+command/env fallback, and response normalizer are deleted. The core builds only
+the canonical Rust daemon-core `admit_l1_settlement_attempt` request, fails
+closed without the daemon-level `daemonCoreInvoker`, rejects retired request
+aliases/options, and returns the Rust `governed_admission.rs` admission
+envelope as-is.
 
-This is a first surface-level binary-spawn retirement, not terminal Rust API
-ownership for the whole daemon. The remaining daemon-core command runners still
-carry temporary command transport until their direct Rust daemon-core APIs are
-clear enough to own each path. Resume by repeating this pattern on the next
-reviewable hot-path surface: require the daemon-level direct invoker, reject
-command/env compatibility selection, update conformance, and then delete the
-shared JS command invoker once no surface still depends on it.
+This removes JS envelope truth for the settlement path: trigger admission,
+settlement refs, trigger refs, receipt refs, admission hashes, source, and
+backend truth must arrive from Rust daemon-core output or remain absent at the
+JS edge. It is still not terminal because the mounted core builds a temporary
+command-envelope request and other command runners still carry temporary
+command transport.
 
 Slice 1197 retires the temporary binary-spawn fallback for the daemon external
 capability authority runner. `runtime-external-capability-authority-runner.mjs`

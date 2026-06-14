@@ -49,7 +49,7 @@ export function createRuntimeL1SettlementSurface(deps = {}) {
   function admitL1SettlementAttempt(store, threadId, request = {}) {
     const attempt = attemptForRequest(request);
     const agent = store.agentForThread(threadId);
-    return store.l1SettlementRunner.admitAttempt(attempt, {
+    return store.l1SettlementCore.admitAttempt(attempt, {
       thread_id: threadId,
       agent_id: agent.id,
     });

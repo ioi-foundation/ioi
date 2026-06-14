@@ -25,7 +25,7 @@ function store() {
       calls.push({ name: "agentForThread", threadId });
       return { id: "agent_surface" };
     },
-    l1SettlementRunner: {
+    l1SettlementCore: {
       admitAttempt(input, context) {
         calls.push({ name: "admitAttempt", input, context });
         return {
@@ -66,7 +66,7 @@ const L1_SETTLEMENT_ADMISSION_CAMEL_ALIASES = [
   "admissionHash",
 ];
 
-test("L1 settlement surface admits nested attempt through Rust runner", () => {
+test("L1 settlement surface admits nested attempt through Rust core", () => {
   const runtimeStore = store();
   const surface = createRuntimeL1SettlementSurface();
 
@@ -96,7 +96,7 @@ test("L1 settlement surface admits nested attempt through Rust runner", () => {
   assert.deepEqual(runtimeStore.calls.map((call) => call.name), ["agentForThread", "admitAttempt"]);
 });
 
-test("L1 settlement surface rejects retired request aliases before agent lookup or Rust runner", () => {
+test("L1 settlement surface rejects retired request aliases before agent lookup or Rust core", () => {
   const runtimeStore = store();
   const surface = createRuntimeL1SettlementSurface();
 

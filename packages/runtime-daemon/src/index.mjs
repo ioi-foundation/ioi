@@ -135,7 +135,7 @@ import { createExternalCapabilityAuthorityRunnerFromEnv } from "./runtime-extern
 import { createRuntimeExternalCapabilityAuthoritySurface } from "./runtime-external-capability-authority-surface.mjs";
 import { createRuntimeWorkerServicePackageCore } from "./runtime-worker-service-package-core.mjs";
 import { createRuntimeCteePrivateWorkspaceCore } from "./runtime-ctee-private-workspace-core.mjs";
-import { createL1SettlementRunnerFromEnv } from "./runtime-l1-settlement-runner.mjs";
+import { createRuntimeL1SettlementCore } from "./runtime-l1-settlement-core.mjs";
 import { createWorkspaceRestoreRunnerFromEnv } from "./runtime-workspace-restore-runner.mjs";
 import { createRuntimeAgentRunLifecycleSurface } from "./runtime-agent-run-lifecycle.mjs";
 import { createRuntimeRepositorySurface } from "./runtime-repository-surface.mjs";
@@ -644,9 +644,9 @@ export class AgentgresRuntimeStateStore {
       createRuntimeCteePrivateWorkspaceCore({
         daemonCoreInvoker: this.daemonCoreInvoker,
       });
-    this.l1SettlementRunner =
-      options.l1SettlementRunner ??
-      createL1SettlementRunnerFromEnv(process.env, {
+    this.l1SettlementCore =
+      options.l1SettlementCore ??
+      createRuntimeL1SettlementCore({
         daemonCoreInvoker: this.daemonCoreInvoker,
       });
     this.workspaceRestoreRunner =

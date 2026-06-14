@@ -3878,14 +3878,14 @@ function runBridge() {
     workerServicePackageControlNodes.match(
       /export interface RuntimeWorkerServicePackageWorkflowNodeOptions[\s\S]*?\n}\n/,
     )?.[0] ?? "";
-  const l1SettlementRunner = exists("packages/runtime-daemon/src/runtime-l1-settlement-runner.mjs")
-    ? read("packages/runtime-daemon/src/runtime-l1-settlement-runner.mjs")
+  const l1SettlementCore = exists("packages/runtime-daemon/src/runtime-l1-settlement-core.mjs")
+    ? read("packages/runtime-daemon/src/runtime-l1-settlement-core.mjs")
     : "";
-  const l1SettlementRunnerTest = exists("packages/runtime-daemon/src/runtime-l1-settlement-runner.test.mjs")
-    ? read("packages/runtime-daemon/src/runtime-l1-settlement-runner.test.mjs")
+  const l1SettlementCoreTest = exists("packages/runtime-daemon/src/runtime-l1-settlement-core.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-l1-settlement-core.test.mjs")
     : "";
-  const l1SettlementStoreTest = exists("packages/runtime-daemon/src/runtime-l1-settlement-store.test.mjs")
-    ? read("packages/runtime-daemon/src/runtime-l1-settlement-store.test.mjs")
+  const l1SettlementCoreStoreTest = exists("packages/runtime-daemon/src/runtime-l1-settlement-core-store.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-l1-settlement-core-store.test.mjs")
     : "";
   const l1SettlementSurface = exists("packages/runtime-daemon/src/runtime-l1-settlement-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-l1-settlement-surface.mjs")
@@ -3990,7 +3990,6 @@ function runBridge() {
     runtimeContextPolicyRunner,
     governedImprovementRunner,
     workspaceRestoreRunner,
-    l1SettlementRunner,
     externalCapabilityAuthorityRunner,
     modelMountAdmissionRunner,
     runtimeAgentgresRunner,
@@ -4051,8 +4050,20 @@ function runBridge() {
       !/process\.env|IOI_RUNTIME_DAEMON_CORE_COMMAND|IOI_CTEE_PRIVATE_WORKSPACE_COMMAND|normalizeCteePrivateWorkspaceBridgeResult|stringArray|createCteePrivateWorkspaceRunnerFromEnv/.test(
         cteePrivateWorkspaceCore,
       ) &&
-      /createL1SettlementRunnerFromEnv\(process\.env,\s*\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
+      !exists("packages/runtime-daemon/src/runtime-l1-settlement-runner.mjs") &&
+      !exists("packages/runtime-daemon/src/runtime-l1-settlement-runner.test.mjs") &&
+      /createRuntimeL1SettlementCore\(\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
         runtimeDaemonIndex,
+      ) &&
+      /this\.l1SettlementCore/.test(runtimeDaemonIndex) &&
+      !/this\.l1SettlementRunner/.test(runtimeDaemonIndex) &&
+      /RuntimeL1SettlementCore/.test(l1SettlementCore) &&
+      /this\.daemonCoreInvoker = optionalFunction\(options\.daemonCoreInvoker\)/.test(
+        l1SettlementCore,
+      ) &&
+      /operation:\s*"admit_l1_settlement_attempt"/.test(l1SettlementCore) &&
+      !/process\.env|IOI_RUNTIME_DAEMON_CORE_COMMAND|IOI_L1_SETTLEMENT_COMMAND|normalizeL1SettlementBridgeResult|stringArray|createL1SettlementRunnerFromEnv/.test(
+        l1SettlementCore,
       ) &&
       /createWorkspaceRestoreRunnerFromEnv\(process\.env,\s*\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
         runtimeDaemonIndex,
@@ -4061,7 +4072,9 @@ function runBridge() {
       /createStepModuleRunnerFromEnv\(process\.env,\s*\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
         runtimeDaemonIndex,
       ) &&
-      /daemon-level direct invoker feeds default daemon-core runners/.test(daemonCoreDirectInvokerServiceTest),
+      /daemon-level direct invoker feeds default daemon-core surfaces/.test(
+        daemonCoreDirectInvokerServiceTest,
+      ),
     [
       "packages/runtime-daemon/src/runtime-daemon-core-command-runner.mjs",
       "packages/runtime-daemon/src/runtime-daemon-core-command-runner.test.mjs",
@@ -4071,6 +4084,7 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-coding-tool-approval-runner.mjs",
       "packages/runtime-daemon/src/runtime-worker-service-package-core.mjs",
       "packages/runtime-daemon/src/runtime-ctee-private-workspace-core.mjs",
+      "packages/runtime-daemon/src/runtime-l1-settlement-core.mjs",
       "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
     ],
     "Rust daemon-core migration must use the direct-invoker seam and keep the retired JS command-spawn helper absent from daemon hot paths",
@@ -18247,67 +18261,78 @@ function runBridge() {
   );
   assertCheck(
     result,
-    "l1-settlement-daemon-runner",
-    !/L1_SETTLEMENT_COMMAND_ENV/.test(l1SettlementRunner) &&
-      /assertNoL1SettlementCommandSelection\(\s*options\.command \?\? env\.IOI_RUNTIME_DAEMON_CORE_COMMAND \?\? env\.IOI_L1_SETTLEMENT_COMMAND,\s*\)/.test(
-        l1SettlementRunner,
+    "l1-settlement-daemon-core-api",
+    !exists("packages/runtime-daemon/src/runtime-l1-settlement-runner.mjs") &&
+      !exists("packages/runtime-daemon/src/runtime-l1-settlement-runner.test.mjs") &&
+      !exists("packages/runtime-daemon/src/runtime-l1-settlement-store.test.mjs") &&
+      /ioi\.runtime\.daemon_core\.command\.v1/.test(l1SettlementCore) &&
+      /RuntimeL1SettlementCore/.test(l1SettlementCore) &&
+      /createRuntimeL1SettlementCore/.test(l1SettlementCore) &&
+      /admitAttempt/.test(l1SettlementCore) &&
+      /admit_l1_settlement_attempt/.test(l1SettlementCore) &&
+      /thread_id:\s*optionalString\(context\.thread_id\)/.test(l1SettlementCore) &&
+      /agent_id:\s*optionalString\(context\.agent_id\)/.test(l1SettlementCore) &&
+      /l1_settlement_guard/.test(l1SettlementCore) &&
+      /this\.daemonCoreInvoker\s*=\s*optionalFunction\(options\.daemonCoreInvoker\)/.test(
+        l1SettlementCore,
       ) &&
-      /ioi\.runtime\.daemon_core\.command\.v1/.test(l1SettlementRunner) &&
-      !/IOI_STEP_MODULE_COMMAND/.test(l1SettlementRunner) &&
-      !/L1_SETTLEMENT_COMMAND_ARGS_ENV/.test(l1SettlementRunner) &&
-      !/parseCommandArgs/.test(l1SettlementRunner) &&
-      !/normalizeArgs/.test(l1SettlementRunner) &&
-      !/this\.args/.test(l1SettlementRunner) &&
-      !/argsEnv/.test(l1SettlementRunner) &&
-      /RustL1SettlementRunner/.test(l1SettlementRunner) &&
-      /assertNoL1SettlementCommandArgs/.test(l1SettlementRunner) &&
-      /assertNoL1SettlementCommandSelection/.test(l1SettlementRunner) &&
-      /createL1SettlementRunnerFromEnv/.test(l1SettlementRunner) &&
-      /createL1SettlementRunnerFromEnv/.test(runtimeDaemonIndex) &&
-      /this\.l1SettlementRunner/.test(runtimeDaemonIndex) &&
-      /admitAttempt/.test(l1SettlementRunner) &&
-      /admit_l1_settlement_attempt/.test(l1SettlementRunner) &&
-      /l1_settlement_guard/.test(l1SettlementRunner) &&
-      /daemonCoreInvoker: options\.daemonCoreInvoker/.test(l1SettlementRunner) &&
-      /this\.daemonCoreInvoker = optionalFunction\(options\.daemonCoreInvoker\)/.test(l1SettlementRunner) &&
-      /l1_settlement_direct_invoker_unconfigured/.test(l1SettlementRunner) &&
-      /l1_settlement_command_args_retired/.test(l1SettlementRunner) &&
-      /l1_settlement_command_selection_retired/.test(l1SettlementRunner) &&
-      !/createDaemonCoreCommandInvoker/.test(l1SettlementRunner) &&
-      !/from "node:child_process"/.test(l1SettlementRunner) &&
-      /L1 settlement runner sends admission request through direct daemon-core invoker/.test(l1SettlementRunnerTest) &&
-      /L1 settlement runner does not synthesize Rust-owned trigger or receipt refs/.test(
-        l1SettlementRunnerTest,
+      /l1_settlement_core_direct_invoker_unconfigured/.test(l1SettlementCore) &&
+      /l1_settlement_core_compatibility_option_retired/.test(l1SettlementCore) &&
+      /l1_settlement_core_request_aliases_retired/.test(l1SettlementCore) &&
+      !/process\.env/.test(l1SettlementCore) &&
+      !/IOI_RUNTIME_DAEMON_CORE_COMMAND|IOI_L1_SETTLEMENT_COMMAND|IOI_STEP_MODULE_COMMAND/.test(
+        l1SettlementCore,
       ) &&
-      /trigger_refs:\s*stringArray\(result\.trigger_refs\)\s*\?\?\s*stringArray\(record\.trigger_refs\)\s*\?\?\s*null/.test(
-        l1SettlementRunner,
+      !/createL1SettlementRunnerFromEnv|RustL1SettlementRunner|L1SettlementRunner/.test(
+        l1SettlementCore,
       ) &&
-      /receipt_refs:\s*stringArray\(result\.receipt_refs\)\s*\?\?\s*stringArray\(record\.receipt_refs\)\s*\?\?\s*null/.test(
-        l1SettlementRunner,
+      !/normalizeL1SettlementBridgeResult|stringArray|trigger_refs:\s*stringArray|receipt_refs:\s*stringArray/.test(
+        l1SettlementCore,
       ) &&
-      !/trigger_refs:\s*stringArray\(result\.trigger_refs\)\s*\?\?\s*stringArray\(record\.trigger_refs\)\s*\?\?\s*\[\]/.test(
-        l1SettlementRunner,
+      !/createDaemonCoreCommandInvoker/.test(l1SettlementCore) &&
+      !/from "node:child_process"/.test(l1SettlementCore) &&
+      /createRuntimeL1SettlementCore\(\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
+        runtimeDaemonIndex,
       ) &&
-      !/receipt_refs:\s*stringArray\(result\.receipt_refs\)\s*\?\?\s*stringArray\(record\.receipt_refs\)\s*\?\?\s*\[\]/.test(
-        l1SettlementRunner,
+      /this\.l1SettlementCore/.test(runtimeDaemonIndex) &&
+      !/this\.l1SettlementRunner/.test(runtimeDaemonIndex) &&
+      /L1 settlement core calls direct Rust daemon-core trigger API/.test(
+        l1SettlementCoreTest,
       ) &&
-      !/assert\.deepEqual\(calls\[0\]\.args,\s*\[\]\)/.test(l1SettlementRunnerTest) &&
-      /L1 settlement runner env uses daemon-level direct invoker/.test(l1SettlementRunnerTest) &&
-      /L1 settlement runner rejects retired binary command env/.test(l1SettlementRunnerTest) &&
-      /L1 settlement runner rejects retired L1 command env/.test(l1SettlementRunnerTest) &&
-      /L1 settlement runner command args env fails closed/.test(l1SettlementRunnerTest) &&
-      /L1 settlement runner command constructor option fails closed/.test(l1SettlementRunnerTest) &&
-      /L1 settlement runner command args constructor option fails closed/.test(l1SettlementRunnerTest) &&
-      /L1 settlement runner fails closed without direct invoker/.test(l1SettlementRunnerTest) &&
-      /L1 settlement runner surfaces Rust settlement rejection/.test(l1SettlementRunnerTest) &&
-      /runtime store mounts L1 settlement runner from options/.test(l1SettlementStoreTest),
+      /L1 settlement core returns the Rust envelope without JS normalization/.test(
+        l1SettlementCoreTest,
+      ) &&
+      /Object\.hasOwn\(result,\s*"trigger_refs"\),\s*false/.test(
+        l1SettlementCoreTest,
+      ) &&
+      /Object\.hasOwn\(result,\s*"receipt_refs"\),\s*false/.test(
+        l1SettlementCoreTest,
+      ) &&
+      /Object\.hasOwn\(result,\s*"source"\),\s*false/.test(l1SettlementCoreTest) &&
+      /Object\.hasOwn\(result,\s*"backend"\),\s*false/.test(l1SettlementCoreTest) &&
+      /L1 settlement core rejects retired compatibility options/.test(
+        l1SettlementCoreTest,
+      ) &&
+      /L1 settlement core rejects retired bridge request aliases before Rust invocation/.test(
+        l1SettlementCoreTest,
+      ) &&
+      /L1 settlement core fails closed without direct daemon-core API/.test(
+        l1SettlementCoreTest,
+      ) &&
+      /L1 settlement core surfaces Rust settlement rejection/.test(l1SettlementCoreTest) &&
+      /runtime store mounts L1 settlement core from options/.test(
+        l1SettlementCoreStoreTest,
+      ) &&
+      /Object\.hasOwn\(store,\s*"l1SettlementRunner"\),\s*false/.test(
+        l1SettlementCoreStoreTest,
+      ),
     [
-      "packages/runtime-daemon/src/runtime-l1-settlement-runner.mjs",
-      "packages/runtime-daemon/src/runtime-l1-settlement-runner.test.mjs",
-      "packages/runtime-daemon/src/runtime-l1-settlement-store.test.mjs",
+      "packages/runtime-daemon/src/runtime-l1-settlement-core.mjs",
+      "packages/runtime-daemon/src/runtime-l1-settlement-core.test.mjs",
+      "packages/runtime-daemon/src/runtime-l1-settlement-core-store.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
     ],
-    "Phase 8/11 is pending: daemon L1 settlement facade must call the Rust trigger guard through a direct daemon-core invoker and fail closed when unconfigured",
+    "Phase 8/11 is pending: daemon L1 settlement core API must call Rust trigger admission directly and keep the retired JS runner/env fallback absent",
   );
   assertCheck(
     result,
@@ -18319,7 +18344,7 @@ function runBridge() {
       !/settlement_admitted:\s*true/.test(l1SettlementSurface) &&
       !/settlement_ref:\s*admission\.settlement_ref/.test(l1SettlementSurface) &&
       !/admission_hash:\s*admission\.admission_hash/.test(l1SettlementSurface) &&
-      /return store\.l1SettlementRunner\.admitAttempt\(attempt,\s*\{\s*thread_id:\s*threadId,\s*agent_id:\s*agent\.id,\s*\}\)/.test(
+      /return store\.l1SettlementCore\.admitAttempt\(attempt,\s*\{\s*thread_id:\s*threadId,\s*agent_id:\s*agent\.id,\s*\}\)/.test(
         l1SettlementSurface,
       ) &&
       /l1-settlement-attempts/.test(runtimeRouteHandlers) &&
@@ -18328,7 +18353,7 @@ function runBridge() {
       ) &&
       /thread route sends admission controls through mounted admission surfaces/.test(runtimeRouteHandlersTest) &&
       /thread route does not expose L1 settlement apply shortcut/.test(runtimeRouteHandlersTest) &&
-      /L1 settlement surface admits nested attempt through Rust runner/.test(l1SettlementSurfaceTest) &&
+      /L1 settlement surface admits nested attempt through Rust core/.test(l1SettlementSurfaceTest) &&
       /context:\s*\{\s*thread_id:\s*"thread_surface",\s*agent_id:\s*"agent_surface",\s*\}/.test(
         l1SettlementSurfaceTest,
       ) &&
@@ -18369,7 +18394,7 @@ function runBridge() {
         l1SettlementSurface,
       ) &&
       !/body\.(?:settlementAttempt|settlement_attempt)\b/.test(l1SettlementSurface) &&
-      /L1 settlement surface rejects retired request aliases before agent lookup or Rust runner/.test(
+      /L1 settlement surface rejects retired request aliases before agent lookup or Rust core/.test(
         l1SettlementSurfaceTest,
       ) &&
       /assert\.deepEqual\(runtimeStore\.calls,\s*\[\]\)/.test(l1SettlementSurfaceTest) &&
@@ -18392,6 +18417,25 @@ function runBridge() {
       "packages/agent-ide/src/runtime/workflow-runtime-l1-settlement-control-nodes.test.ts",
     ],
     "Phase 8/11 is pending: L1 settlement admission requests must fail closed on retired attempt wrapper aliases and IDE clients must emit canonical request bodies",
+  );
+  assertCheck(
+    result,
+    "l1-settlement-core-request-aliases-retired",
+    /RETIRED_L1_SETTLEMENT_CORE_REQUEST_ALIASES/.test(l1SettlementCore) &&
+      /l1_settlement_core_request_aliases_retired/.test(l1SettlementCore) &&
+      /assertCanonicalL1SettlementCoreRequest\(attempt\);/.test(l1SettlementCore) &&
+      /attempt,/.test(l1SettlementCore) &&
+      !/attempt\.settlementAttempt/.test(l1SettlementCore) &&
+      !/attempt\.settlement_attempt/.test(l1SettlementCore) &&
+      /L1 settlement core rejects retired bridge request aliases before Rust invocation/.test(
+        l1SettlementCoreTest,
+      ) &&
+      /assert\.deepEqual\(calls,\s*\[\]\)/.test(l1SettlementCoreTest),
+    [
+      "packages/runtime-daemon/src/runtime-l1-settlement-core.mjs",
+      "packages/runtime-daemon/src/runtime-l1-settlement-core.test.mjs",
+    ],
+    "Phase 8/11 is pending: L1 settlement core API must fail closed on retired bridge aliases before invoking Rust daemon-core settlement admission",
   );
   assertCheck(
     result,

@@ -6,7 +6,7 @@ import test from "node:test";
 
 import { AgentgresRuntimeStateStore } from "./index.mjs";
 
-test("daemon-level direct invoker feeds default daemon-core runners", () => {
+test("daemon-level direct invoker feeds default daemon-core surfaces", () => {
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-daemon-core-direct-"));
   const calls = [];
   const store = new AgentgresRuntimeStateStore(stateDir, {
@@ -45,7 +45,7 @@ test("daemon-level direct invoker feeds default daemon-core runners", () => {
     },
   });
 
-  const result = store.l1SettlementRunner.admitAttempt(
+  const result = store.l1SettlementCore.admitAttempt(
     {
       settlement_ref: "settlement://direct",
       trigger_refs: ["trigger://direct"],
@@ -62,5 +62,6 @@ test("daemon-level direct invoker feeds default daemon-core runners", () => {
   assert.equal(calls[0].thread_id, "thread_direct");
   assert.equal(result.source, "direct_daemon_core_api");
   assert.equal(result.settlement_admitted, true);
-  assert.equal(result.settlement_ref, "settlement://direct");
+  assert.equal(Object.hasOwn(result, "settlement_ref"), false);
+  assert.equal(result.record.settlement_ref, "settlement://direct");
 });
