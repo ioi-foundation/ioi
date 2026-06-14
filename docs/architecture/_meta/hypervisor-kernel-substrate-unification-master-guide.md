@@ -7493,20 +7493,20 @@ target is direct Rust daemon-core Agentgres protocol/API ownership over
 expected-head checks, state-root binding, storage admission, durable write
 materialization, projection, replay, and stable IDE/CLI/SDK protocol surfaces.
 
-Slice 1158 retires JS-side workspace snapshot capture ref fallback synthesis
-from the workspace restore runner. Rust `workspace_restore.rs` already owns
-workspace restore apply-policy, preview/apply operation, and snapshot capture
-response shaping behind the temporary daemon-core command path, so
-`runtime-workspace-restore-runner.mjs` now preserves omitted Rust-authored
-per-file `receipt_refs` and `artifact_refs` as `null` instead of inventing
-empty arrays at the JS edge.
+Slice 1158 retired JS-side workspace snapshot capture ref fallback synthesis
+from the then-live workspace restore runner. Rust `workspace_restore.rs` already
+owned workspace restore apply-policy, preview/apply operation, and snapshot
+capture response shaping, so `runtime-workspace-restore-runner.mjs` preserved
+omitted Rust-authored per-file `receipt_refs` and `artifact_refs` as `null`
+instead of inventing empty arrays at the JS edge.
 
-This remains non-terminal because the JS workspace restore runner, shared
-daemon-core command runner, and Node bridge transport still carry workspace
-restore/snapshot requests to Rust. The target is direct Rust daemon-core
-workspace snapshot/restore protocol/API ownership over capture, preview/apply,
-policy/approval, receipt/state-root binding, Agentgres ArtifactRef/PayloadRef
-admission, projection, replay, and stable IDE/CLI/SDK protocol surfaces, not
+That runner-normalizer cleanup is now superseded by the typed workspace restore
+API cut: the JS runner, generic command invoker, Rust workspace restore command
+operations, shared daemon-core command runner, and Node bridge transport no
+longer carry workspace restore/snapshot requests to Rust. The remaining target
+is richer Rust daemon-core workspace snapshot/restore projection and replay
+ownership over durable storage, receipt/state-root binding, Agentgres
+ArtifactRef/PayloadRef admission, and stable IDE/CLI/SDK protocol surfaces, not
 preservation of JS normalizers as compatibility shims.
 
 Slice 1159 retired JS-side run-state materialization fallback synthesis from
@@ -7876,21 +7876,18 @@ daemon-core lifecycle, MCP, and memory API ownership where admission,
 projection, Agentgres truth, replay, and conformance no longer depend on Node
 bridge endpoint proof scaffolding.
 
-Slice 1181 moves the workspace-restore command-response proof cluster out of
-the temporary bridge proof surface and relies on the Rust workspace owner at
-`crates/services/src/agentic/runtime/kernel/workspace_restore.rs`. Workspace
-restore apply-policy planning, restore operation preview/apply response
-shaping, and workspace snapshot capture response shaping now run as Rust owner
-tests. Bridge conformance now requires those owner tests and proves the old
-bridge-named workspace-restore tests, request-type imports, and
-response-function aliases stay absent from
-`ioi_step_module_bridge/proof_tests.rs`.
-
-This remains non-terminal because workspace snapshot and restore decisions
-still cross temporary command transport. The target is direct Rust daemon-core
-workspace snapshot/restore API ownership where snapshot capture, restore
-policy, restore application, Agentgres truth, replay, and stable IDE/CLI/SDK
-surfaces no longer depend on Node bridge endpoint proof scaffolding.
+Slice 1181 moved the workspace-restore command-response proof cluster out of
+the temporary bridge proof surface and into the Rust workspace owner at
+`crates/services/src/agentic/runtime/kernel/workspace_restore.rs`. That
+proof move is now superseded by the typed workspace restore API cut: workspace
+restore apply-policy planning, restore operation preview/apply, workspace
+snapshot capture, snapshot projection, content-package projection, and restore
+preview/apply all enter Rust through `daemonCoreWorkspaceRestoreApi`, and the
+old workspace restore command catalog/dispatch operations are retired. The
+remaining target is richer durable Rust daemon-core workspace snapshot/restore
+projection and replay ownership where Agentgres truth, receipt/state-root
+binding, and stable IDE/CLI/SDK surfaces no longer depend on thin JS protocol
+client scaffolding.
 
 Slice 1182 moves the first model-mount admission/execution command-response
 proof cluster out of the temporary bridge proof surface and relies on the Rust
@@ -8376,16 +8373,17 @@ shared JS command invoker once every live surface has a direct Rust daemon-core
 API.
 
 Recent direct-invoker macro cut:
-runtime Agentgres admission, workspace restore, model_mount,
-context-policy/state-update, and StepModule surfaces are direct-invoker-only or
-mounted core surfaces at the daemon layer. Approval-state and coding-tool
-approval subsequently moved off the generic direct invoker to typed
-`daemonCoreApprovalApi` methods. The migrated surfaces no longer import the
-shared JS daemon-core command invoker, accept constructor command selection,
-accept constructor args, or treat `IOI_RUNTIME_DAEMON_CORE_COMMAND`,
-`IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS`, or surface-specific command envs as
-fallback transport. The shared `runtime-daemon-core-command-runner.mjs` helper
-and its test are deleted and must not be recreated.
+runtime Agentgres admission, model_mount, context-policy/state-update, and
+StepModule surfaces are direct-invoker-only or mounted core surfaces at the
+daemon layer. Approval-state and coding-tool approval subsequently moved off the
+generic direct invoker to typed `daemonCoreApprovalApi` methods, and workspace
+restore moved to typed `daemonCoreWorkspaceRestoreApi` methods. The migrated
+surfaces no longer import the shared JS daemon-core command invoker, accept
+constructor command selection, accept constructor args, or treat
+`IOI_RUNTIME_DAEMON_CORE_COMMAND`, `IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS`, or
+surface-specific command envs as fallback transport. The shared
+`runtime-daemon-core-command-runner.mjs` helper and its test are deleted and
+must not be recreated.
 
 This macro cut also retires the coding-tool approval-satisfaction JS gate. The
 mounted coding-tool governance surface no longer exports
@@ -8473,13 +8471,14 @@ forwards the Rust-authored request to the mounted coding-tool invocation
 surface.
 
 Public workspace snapshot and restore read/control APIs are now Rust-owned at
-the daemon-core command boundary. `project_workspace_snapshot_list`,
-`project_workspace_snapshot_content_package`,
-`preview_workspace_snapshot_restore`, and `apply_workspace_snapshot_restore`
-live in Rust `workspace_restore.rs`; the daemon workspace-snapshot surface calls
-the mounted `workspaceRestoreCore` for list/content-package and restore
-preview/apply instead of deriving projection truth from JS runtime
-events or `codingArtifacts`. Restore preview/apply responses now also carry
+the typed daemon-core workspace restore API boundary.
+`projectWorkspaceSnapshotList`, `projectWorkspaceSnapshotContentPackage`,
+`previewWorkspaceSnapshotRestore`, and `applyWorkspaceSnapshotRestore` are
+typed `daemonCoreWorkspaceRestoreApi` methods backed by Rust
+`workspace_restore.rs`; the daemon workspace-snapshot surface calls the mounted
+`workspaceRestoreCore` for list/content-package and restore preview/apply
+instead of deriving projection truth from JS runtime events or
+`codingArtifacts`. Restore preview/apply responses now also carry
 Rust-authored restore artifact records and restore runtime-event records; the
 JS facade commits only those Rust artifact records through Rust Agentgres
 artifact-state admission and admits only those Rust events through Rust
@@ -8554,13 +8553,15 @@ and its tests are deleted, command/env fallback and spawn hooks are gone, and
 workspace restore apply-policy planning, preview/apply operation planning,
 snapshot capture, snapshot list/content-package projection, and restore
 preview/apply all call the mounted core. The core builds canonical Rust
-daemon-core workspace restore requests, requires `daemonCoreInvoker`, rejects
+daemon-core workspace restore protocol requests, requires typed
+`daemonCoreWorkspaceRestoreApi`, rejects generic `daemonCoreInvoker` plus
 retired compatibility options and request aliases, and returns Rust
 `workspace_restore.rs` envelopes without JS normalization or fallback truth
-synthesis. The workspace-snapshot surface now requires Rust `projection`,
-`restore_preview`, and `restore_apply` envelopes before committing/admitting
-artifact or runtime-event truth. Conformance now requires the core mount,
-Rust-envelope passthrough, and old runner paths to stay absent.
+synthesis. The old Rust workspace restore command operations are retired. The
+workspace-snapshot surface now requires Rust `projection`, `restore_preview`,
+and `restore_apply` envelopes before committing/admitting artifact or
+runtime-event truth. Conformance now requires the core mount, Rust-envelope
+passthrough, and old runner paths to stay absent.
 
 Slice 1209 retires the coding-tool approval runner facade. The daemon store now
 mounts `codingToolApprovalCore` directly; `runtime-coding-tool-approval-runner.mjs`

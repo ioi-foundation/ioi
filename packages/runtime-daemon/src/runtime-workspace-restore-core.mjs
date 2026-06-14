@@ -1,4 +1,3 @@
-export const WORKSPACE_RESTORE_CORE_SCHEMA_VERSION = "ioi.runtime.daemon_core.command.v1";
 export const WORKSPACE_RESTORE_PREVIEW_OPERATIONS_REQUEST_SCHEMA_VERSION =
   "ioi.workspace_restore_preview_operations_request.v1";
 export const WORKSPACE_RESTORE_APPLY_OPERATIONS_REQUEST_SCHEMA_VERSION =
@@ -16,6 +15,16 @@ export const WORKSPACE_SNAPSHOT_RESTORE_PREVIEW_REQUEST_SCHEMA_VERSION =
 export const WORKSPACE_SNAPSHOT_RESTORE_APPLY_REQUEST_SCHEMA_VERSION =
   "ioi.workspace_snapshot_restore_apply_request.v1";
 export const RUST_WORKSPACE_RESTORE_BACKEND = "rust_workspace_restore";
+export const WORKSPACE_RESTORE_APPLY_POLICY_API_METHOD = "planWorkspaceRestoreApplyPolicy";
+export const WORKSPACE_RESTORE_PREVIEW_OPERATIONS_API_METHOD =
+  "previewWorkspaceRestoreOperations";
+export const WORKSPACE_RESTORE_APPLY_OPERATIONS_API_METHOD = "applyWorkspaceRestoreOperations";
+export const WORKSPACE_SNAPSHOT_CAPTURE_API_METHOD = "captureWorkspaceSnapshotFiles";
+export const WORKSPACE_SNAPSHOT_LIST_API_METHOD = "projectWorkspaceSnapshotList";
+export const WORKSPACE_SNAPSHOT_CONTENT_PACKAGE_API_METHOD =
+  "projectWorkspaceSnapshotContentPackage";
+export const WORKSPACE_SNAPSHOT_RESTORE_PREVIEW_API_METHOD = "previewWorkspaceSnapshotRestore";
+export const WORKSPACE_SNAPSHOT_RESTORE_APPLY_API_METHOD = "applyWorkspaceSnapshotRestore";
 
 const RETIRED_WORKSPACE_RESTORE_CORE_REQUEST_FIELDS = [
   "changedFiles",
@@ -46,15 +55,18 @@ export class RuntimeWorkspaceRestoreCore {
     assertNoRetiredWorkspaceRestoreCoreOption("command", options.command);
     assertNoRetiredWorkspaceRestoreCoreOption("args", options.args);
     assertNoRetiredWorkspaceRestoreCoreOption("env", options.env);
-    this.daemonCoreInvoker = optionalFunction(options.daemonCoreInvoker);
+    assertNoRetiredWorkspaceRestoreCoreOption("daemonCoreInvoker", options.daemonCoreInvoker);
+    this.daemonCoreWorkspaceRestoreApi = workspaceRestoreApi(
+      options.daemonCoreWorkspaceRestoreApi ??
+        options.daemonCoreApi?.workspace_restore ??
+        options.daemonCoreApi?.workspaceRestore ??
+        options.daemonCoreApi,
+    );
   }
 
   planApplyPolicy(request = {}) {
     assertCanonicalWorkspaceRestoreCoreRequest(request);
-    return this.invokeDaemonCore({
-      schema_version: WORKSPACE_RESTORE_CORE_SCHEMA_VERSION,
-      operation: "plan_workspace_restore_apply_policy",
-      backend: RUST_WORKSPACE_RESTORE_BACKEND,
+    return this.invokeRustWorkspaceRestoreApi(WORKSPACE_RESTORE_APPLY_POLICY_API_METHOD, {
       request: {
         ...(objectRecord(request) ?? {}),
         schema_version: WORKSPACE_RESTORE_APPLY_POLICY_REQUEST_SCHEMA_VERSION,
@@ -64,10 +76,7 @@ export class RuntimeWorkspaceRestoreCore {
 
   previewOperations(request = {}) {
     assertCanonicalWorkspaceRestoreCoreRequest(request);
-    return this.invokeDaemonCore({
-      schema_version: WORKSPACE_RESTORE_CORE_SCHEMA_VERSION,
-      operation: "preview_workspace_restore_operations",
-      backend: RUST_WORKSPACE_RESTORE_BACKEND,
+    return this.invokeRustWorkspaceRestoreApi(WORKSPACE_RESTORE_PREVIEW_OPERATIONS_API_METHOD, {
       request: {
         ...(objectRecord(request) ?? {}),
         schema_version: WORKSPACE_RESTORE_PREVIEW_OPERATIONS_REQUEST_SCHEMA_VERSION,
@@ -78,10 +87,7 @@ export class RuntimeWorkspaceRestoreCore {
 
   applyOperations(request = {}) {
     assertCanonicalWorkspaceRestoreCoreRequest(request);
-    return this.invokeDaemonCore({
-      schema_version: WORKSPACE_RESTORE_CORE_SCHEMA_VERSION,
-      operation: "apply_workspace_restore_operations",
-      backend: RUST_WORKSPACE_RESTORE_BACKEND,
+    return this.invokeRustWorkspaceRestoreApi(WORKSPACE_RESTORE_APPLY_OPERATIONS_API_METHOD, {
       request: {
         ...(objectRecord(request) ?? {}),
         schema_version: WORKSPACE_RESTORE_APPLY_OPERATIONS_REQUEST_SCHEMA_VERSION,
@@ -92,10 +98,7 @@ export class RuntimeWorkspaceRestoreCore {
 
   captureSnapshotFiles(request = {}) {
     assertCanonicalWorkspaceRestoreCoreRequest(request);
-    return this.invokeDaemonCore({
-      schema_version: WORKSPACE_RESTORE_CORE_SCHEMA_VERSION,
-      operation: "capture_workspace_snapshot_files",
-      backend: RUST_WORKSPACE_RESTORE_BACKEND,
+    return this.invokeRustWorkspaceRestoreApi(WORKSPACE_SNAPSHOT_CAPTURE_API_METHOD, {
       thread_id: optionalString(request?.thread_id),
       turn_id: optionalString(request?.turn_id),
       workspace_root: optionalString(request?.workspace_root),
@@ -113,10 +116,7 @@ export class RuntimeWorkspaceRestoreCore {
 
   projectWorkspaceSnapshotList(request = {}) {
     assertCanonicalWorkspaceRestoreCoreRequest(request);
-    return this.invokeDaemonCore({
-      schema_version: WORKSPACE_RESTORE_CORE_SCHEMA_VERSION,
-      operation: "project_workspace_snapshot_list",
-      backend: RUST_WORKSPACE_RESTORE_BACKEND,
+    return this.invokeRustWorkspaceRestoreApi(WORKSPACE_SNAPSHOT_LIST_API_METHOD, {
       request: {
         ...(objectRecord(request) ?? {}),
         schema_version: WORKSPACE_SNAPSHOT_LIST_REQUEST_SCHEMA_VERSION,
@@ -126,10 +126,7 @@ export class RuntimeWorkspaceRestoreCore {
 
   projectWorkspaceSnapshotContentPackage(request = {}) {
     assertCanonicalWorkspaceRestoreCoreRequest(request);
-    return this.invokeDaemonCore({
-      schema_version: WORKSPACE_RESTORE_CORE_SCHEMA_VERSION,
-      operation: "project_workspace_snapshot_content_package",
-      backend: RUST_WORKSPACE_RESTORE_BACKEND,
+    return this.invokeRustWorkspaceRestoreApi(WORKSPACE_SNAPSHOT_CONTENT_PACKAGE_API_METHOD, {
       request: {
         ...(objectRecord(request) ?? {}),
         schema_version: WORKSPACE_SNAPSHOT_CONTENT_PACKAGE_REQUEST_SCHEMA_VERSION,
@@ -139,10 +136,7 @@ export class RuntimeWorkspaceRestoreCore {
 
   previewSnapshotRestore(request = {}) {
     assertCanonicalWorkspaceRestoreCoreRequest(request);
-    return this.invokeDaemonCore({
-      schema_version: WORKSPACE_RESTORE_CORE_SCHEMA_VERSION,
-      operation: "preview_workspace_snapshot_restore",
-      backend: RUST_WORKSPACE_RESTORE_BACKEND,
+    return this.invokeRustWorkspaceRestoreApi(WORKSPACE_SNAPSHOT_RESTORE_PREVIEW_API_METHOD, {
       request: {
         ...(objectRecord(request) ?? {}),
         schema_version: WORKSPACE_SNAPSHOT_RESTORE_PREVIEW_REQUEST_SCHEMA_VERSION,
@@ -152,10 +146,7 @@ export class RuntimeWorkspaceRestoreCore {
 
   applySnapshotRestore(request = {}) {
     assertCanonicalWorkspaceRestoreCoreRequest(request);
-    return this.invokeDaemonCore({
-      schema_version: WORKSPACE_RESTORE_CORE_SCHEMA_VERSION,
-      operation: "apply_workspace_snapshot_restore",
-      backend: RUST_WORKSPACE_RESTORE_BACKEND,
+    return this.invokeRustWorkspaceRestoreApi(WORKSPACE_SNAPSHOT_RESTORE_APPLY_API_METHOD, {
       request: {
         ...(objectRecord(request) ?? {}),
         schema_version: WORKSPACE_SNAPSHOT_RESTORE_APPLY_REQUEST_SCHEMA_VERSION,
@@ -163,20 +154,24 @@ export class RuntimeWorkspaceRestoreCore {
     });
   }
 
-  invokeDaemonCore(request) {
-    if (!this.daemonCoreInvoker) {
+  invokeRustWorkspaceRestoreApi(method, request) {
+    const invoke = this.daemonCoreWorkspaceRestoreApi?.[method];
+    if (typeof invoke !== "function") {
       throw new RuntimeWorkspaceRestoreCoreError(
-        "Workspace restore requires daemonCoreInvoker for direct Rust daemon-core snapshot, restore, admission, and projection.",
-        "workspace_restore_core_direct_invoker_unconfigured",
-        { boundary: "daemonCoreInvoker" },
+        `Workspace restore requires daemonCoreWorkspaceRestoreApi.${method} for Rust daemon-core snapshot, restore, admission, and projection.`,
+        "workspace_restore_core_direct_workspace_restore_api_unconfigured",
+        {
+          boundary: `daemonCoreWorkspaceRestoreApi.${method}`,
+          backend: RUST_WORKSPACE_RESTORE_BACKEND,
+        },
       );
     }
-    const response = this.daemonCoreInvoker(request);
+    const response = invoke.call(this.daemonCoreWorkspaceRestoreApi, request);
     if (response?.ok === false) {
       const error = objectRecord(response.error) ?? {};
       throw new RuntimeWorkspaceRestoreCoreError(
         error.message ?? "Rust workspace restore core rejected the request.",
-        error.code ?? "workspace_restore_core_direct_invoker_rejected",
+        error.code ?? "workspace_restore_core_direct_workspace_restore_api_rejected",
         { error },
       );
     }
@@ -223,7 +218,7 @@ function assertNoRetiredWorkspaceRestoreCoreOption(field, value) {
   if (typeof value === "string" && value.trim().length === 0) return;
   if (value == null) return;
   throw new RuntimeWorkspaceRestoreCoreError(
-    "Workspace restore command compatibility options are retired; use daemonCoreInvoker for direct Rust daemon-core workspace restore APIs.",
+    "Workspace restore command compatibility options are retired; use daemonCoreWorkspaceRestoreApi for direct Rust daemon-core workspace restore APIs.",
     "workspace_restore_core_compatibility_option_retired",
     { retired_option: field, retired_value: value },
   );
@@ -300,6 +295,7 @@ function optionalString(value) {
   return trimmed ? trimmed : null;
 }
 
-function optionalFunction(value) {
-  return typeof value === "function" ? value : null;
+function workspaceRestoreApi(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value;
 }

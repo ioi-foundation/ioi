@@ -246,15 +246,17 @@ use step_router::{
     StepModuleExecutionAdmissionRecord, StepModuleRouterCore, StepModuleRouterError,
 };
 use workspace_restore::{
-    apply_workspace_snapshot_restore_response, preview_workspace_snapshot_restore_response,
-    project_workspace_snapshot_content_package_response, project_workspace_snapshot_list_response,
-    WorkspaceRestoreApplyPolicyCore, WorkspaceRestoreApplyPolicyError,
-    WorkspaceRestoreApplyPolicyPlan, WorkspaceRestoreApplyPolicyRequest,
-    WorkspaceRestoreOperationError, WorkspaceRestoreOperationRecord,
-    WorkspaceRestoreOperationsCore, WorkspaceRestoreOperationsRequest,
-    WorkspaceSnapshotCaptureCore, WorkspaceSnapshotCaptureRequest, WorkspaceSnapshotCaptureResult,
-    WorkspaceSnapshotContentPackageBridgeRequest, WorkspaceSnapshotListBridgeRequest,
-    WorkspaceSnapshotRestoreBridgeRequest,
+    apply_workspace_snapshot_restore_protocol_response,
+    preview_workspace_snapshot_restore_protocol_response,
+    project_workspace_snapshot_content_package_protocol_response,
+    project_workspace_snapshot_list_protocol_response, WorkspaceRestoreApplyPolicyCore,
+    WorkspaceRestoreApplyPolicyError, WorkspaceRestoreApplyPolicyPlan,
+    WorkspaceRestoreApplyPolicyRequest, WorkspaceRestoreOperationError,
+    WorkspaceRestoreOperationRecord, WorkspaceRestoreOperationsCore,
+    WorkspaceRestoreOperationsRequest, WorkspaceSnapshotCaptureCore,
+    WorkspaceSnapshotCaptureRequest, WorkspaceSnapshotCaptureResult,
+    WorkspaceSnapshotContentPackageProtocolRequest, WorkspaceSnapshotListProtocolRequest,
+    WorkspaceSnapshotRestoreProtocolRequest,
 };
 
 use ioi_types::app::ApprovalAuthority;
@@ -1090,29 +1092,29 @@ impl RuntimeKernelService {
 
     pub fn project_workspace_snapshot_list(
         &self,
-        request: WorkspaceSnapshotListBridgeRequest,
-    ) -> Result<serde_json::Value, workspace_restore::WorkspaceRestoreCommandError> {
-        project_workspace_snapshot_list_response(request)
+        request: WorkspaceSnapshotListProtocolRequest,
+    ) -> Result<serde_json::Value, workspace_restore::WorkspaceRestoreProtocolError> {
+        project_workspace_snapshot_list_protocol_response(request)
     }
 
     pub fn project_workspace_snapshot_content_package(
         &self,
-        request: WorkspaceSnapshotContentPackageBridgeRequest,
-    ) -> Result<serde_json::Value, workspace_restore::WorkspaceRestoreCommandError> {
-        project_workspace_snapshot_content_package_response(request)
+        request: WorkspaceSnapshotContentPackageProtocolRequest,
+    ) -> Result<serde_json::Value, workspace_restore::WorkspaceRestoreProtocolError> {
+        project_workspace_snapshot_content_package_protocol_response(request)
     }
 
     pub fn preview_workspace_snapshot_restore(
         &self,
-        request: WorkspaceSnapshotRestoreBridgeRequest,
-    ) -> Result<serde_json::Value, workspace_restore::WorkspaceRestoreCommandError> {
-        preview_workspace_snapshot_restore_response(request)
+        request: WorkspaceSnapshotRestoreProtocolRequest,
+    ) -> Result<serde_json::Value, workspace_restore::WorkspaceRestoreProtocolError> {
+        preview_workspace_snapshot_restore_protocol_response(request)
     }
 
     pub fn apply_workspace_snapshot_restore(
         &self,
-        request: WorkspaceSnapshotRestoreBridgeRequest,
-    ) -> Result<serde_json::Value, workspace_restore::WorkspaceRestoreCommandError> {
-        apply_workspace_snapshot_restore_response(request)
+        request: WorkspaceSnapshotRestoreProtocolRequest,
+    ) -> Result<serde_json::Value, workspace_restore::WorkspaceRestoreProtocolError> {
+        apply_workspace_snapshot_restore_protocol_response(request)
     }
 }

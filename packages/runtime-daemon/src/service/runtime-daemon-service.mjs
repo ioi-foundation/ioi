@@ -29,6 +29,7 @@ export async function startRuntimeDaemonServiceWithStore({
     daemonCoreCteeApi: options.daemonCoreCteeApi,
     daemonCoreWorkerServiceApi: options.daemonCoreWorkerServiceApi,
     daemonCoreGovernedAdmissionApi: options.daemonCoreGovernedAdmissionApi,
+    daemonCoreWorkspaceRestoreApi: options.daemonCoreWorkspaceRestoreApi,
   });
   const server = http.createServer((request, response) => {
     handleRequest({ request, response, store }).catch((error) => {

@@ -337,7 +337,7 @@ test("workspace snapshot surface calls Rust list projection and rejects missing 
       projectWorkspaceSnapshotList(request) {
         coreCalls.push(request);
         return {
-          source: "rust_workspace_snapshot_projection_command",
+          source: "rust_workspace_snapshot_projection_protocol",
           backend: "rust_workspace_restore",
           projection_kind: "workspace_snapshot.list",
           projection: {
@@ -399,7 +399,7 @@ test("workspace snapshot content package projection calls Rust core before JS ar
       projectWorkspaceSnapshotContentPackage(request) {
         calls.push({ name: "core.projectWorkspaceSnapshotContentPackage", request });
         return {
-          source: "rust_workspace_snapshot_projection_command",
+          source: "rust_workspace_snapshot_projection_protocol",
           backend: "rust_workspace_restore",
           projection_kind: "workspace_snapshot.content_package",
           projection: {
@@ -519,7 +519,7 @@ test("workspace snapshot surface routes restore preview/apply through Rust core"
         coreCalls.push({ name: "previewSnapshotRestore", request });
         const artifact = restoreArtifact("preview", request.snapshot_id);
         return {
-          source: "rust_workspace_snapshot_restore_command",
+          source: "rust_workspace_snapshot_restore_protocol",
           backend: "rust_workspace_restore",
           projection_kind: "workspace_restore.preview",
           restore_preview: {
@@ -541,7 +541,7 @@ test("workspace snapshot surface routes restore preview/apply through Rust core"
         coreCalls.push({ name: "applySnapshotRestore", request });
         const artifact = restoreArtifact("apply", request.snapshot_id);
         return {
-          source: "rust_workspace_snapshot_restore_command",
+          source: "rust_workspace_snapshot_restore_protocol",
           backend: "rust_workspace_restore",
           projection_kind: "workspace_restore.apply",
           restore_apply: {
@@ -656,7 +656,7 @@ test("workspace restore public facade calls Rust public restore API instead of o
         calls.push(request);
         const artifact = restoreArtifact("apply", request.snapshot_id);
         return {
-          source: "rust_workspace_snapshot_restore_command",
+          source: "rust_workspace_snapshot_restore_protocol",
           backend: "rust_workspace_restore",
           projection_kind: "workspace_restore.apply",
           restore_apply: {

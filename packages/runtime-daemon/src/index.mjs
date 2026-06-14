@@ -600,6 +600,7 @@ export class AgentgresRuntimeStateStore {
     this.daemonCoreCteeApi = options.daemonCoreCteeApi;
     this.daemonCoreWorkerServiceApi = options.daemonCoreWorkerServiceApi;
     this.daemonCoreGovernedAdmissionApi = options.daemonCoreGovernedAdmissionApi;
+    this.daemonCoreWorkspaceRestoreApi = options.daemonCoreWorkspaceRestoreApi;
     if (Object.hasOwn(options, "contextPolicyRunner")) {
       throw new Error("contextPolicyRunner is retired; pass contextPolicyCore for the Rust daemon-core policy boundary.");
     }
@@ -651,7 +652,7 @@ export class AgentgresRuntimeStateStore {
     this.workspaceRestoreCore =
       options.workspaceRestoreCore ??
       createRuntimeWorkspaceRestoreCore({
-        daemonCoreInvoker: this.daemonCoreInvoker,
+        daemonCoreWorkspaceRestoreApi: this.daemonCoreWorkspaceRestoreApi,
       });
     this.schemaVersion = "ioi.agentgres.runtime.v0";
     this.ensureDirs();

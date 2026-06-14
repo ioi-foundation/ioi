@@ -59,14 +59,6 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "project_runtime_thread_event_replay",
     "project_runtime_thread_turn_projection",
     "plan_post_edit_diagnostics_feedback",
-    "plan_workspace_restore_apply_policy",
-    "preview_workspace_restore_operations",
-    "apply_workspace_restore_operations",
-    "capture_workspace_snapshot_files",
-    "project_workspace_snapshot_list",
-    "project_workspace_snapshot_content_package",
-    "preview_workspace_snapshot_restore",
-    "apply_workspace_snapshot_restore",
     "evaluate_context_budget_policy",
     "evaluate_coding_tool_budget_policy",
     "plan_coding_tool_budget_block",
@@ -192,14 +184,6 @@ pub enum CommandOperation {
     ProjectRuntimeThreadEventReplay,
     ProjectRuntimeThreadTurnProjection,
     PlanPostEditDiagnosticsFeedback,
-    PlanWorkspaceRestoreApplyPolicy,
-    PreviewWorkspaceRestoreOperations,
-    ApplyWorkspaceRestoreOperations,
-    CaptureWorkspaceSnapshotFiles,
-    ProjectWorkspaceSnapshotList,
-    ProjectWorkspaceSnapshotContentPackage,
-    PreviewWorkspaceSnapshotRestore,
-    ApplyWorkspaceSnapshotRestore,
     EvaluateContextBudgetPolicy,
     EvaluateCodingToolBudgetPolicy,
     PlanCodingToolBudgetBlock,
@@ -336,16 +320,6 @@ impl CommandOperation {
             Self::ProjectRuntimeThreadEventReplay => "project_runtime_thread_event_replay",
             Self::ProjectRuntimeThreadTurnProjection => "project_runtime_thread_turn_projection",
             Self::PlanPostEditDiagnosticsFeedback => "plan_post_edit_diagnostics_feedback",
-            Self::PlanWorkspaceRestoreApplyPolicy => "plan_workspace_restore_apply_policy",
-            Self::PreviewWorkspaceRestoreOperations => "preview_workspace_restore_operations",
-            Self::ApplyWorkspaceRestoreOperations => "apply_workspace_restore_operations",
-            Self::CaptureWorkspaceSnapshotFiles => "capture_workspace_snapshot_files",
-            Self::ProjectWorkspaceSnapshotList => "project_workspace_snapshot_list",
-            Self::ProjectWorkspaceSnapshotContentPackage => {
-                "project_workspace_snapshot_content_package"
-            }
-            Self::PreviewWorkspaceSnapshotRestore => "preview_workspace_snapshot_restore",
-            Self::ApplyWorkspaceSnapshotRestore => "apply_workspace_snapshot_restore",
             Self::EvaluateContextBudgetPolicy => "evaluate_context_budget_policy",
             Self::EvaluateCodingToolBudgetPolicy => "evaluate_coding_tool_budget_policy",
             Self::PlanCodingToolBudgetBlock => "plan_coding_tool_budget_block",
@@ -619,24 +593,6 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
         "plan_post_edit_diagnostics_feedback" => {
             Some(CommandOperation::PlanPostEditDiagnosticsFeedback)
         }
-        "plan_workspace_restore_apply_policy" => {
-            Some(CommandOperation::PlanWorkspaceRestoreApplyPolicy)
-        }
-        "preview_workspace_restore_operations" => {
-            Some(CommandOperation::PreviewWorkspaceRestoreOperations)
-        }
-        "apply_workspace_restore_operations" => {
-            Some(CommandOperation::ApplyWorkspaceRestoreOperations)
-        }
-        "capture_workspace_snapshot_files" => Some(CommandOperation::CaptureWorkspaceSnapshotFiles),
-        "project_workspace_snapshot_list" => Some(CommandOperation::ProjectWorkspaceSnapshotList),
-        "project_workspace_snapshot_content_package" => {
-            Some(CommandOperation::ProjectWorkspaceSnapshotContentPackage)
-        }
-        "preview_workspace_snapshot_restore" => {
-            Some(CommandOperation::PreviewWorkspaceSnapshotRestore)
-        }
-        "apply_workspace_snapshot_restore" => Some(CommandOperation::ApplyWorkspaceSnapshotRestore),
         "evaluate_context_budget_policy" => Some(CommandOperation::EvaluateContextBudgetPolicy),
         "evaluate_coding_tool_budget_policy" => {
             Some(CommandOperation::EvaluateCodingToolBudgetPolicy)
@@ -981,6 +937,23 @@ mod tests {
             "plan_approval_request_state_update",
             "plan_approval_decision_state_update",
             "plan_approval_revoke_state_update",
+        ] {
+            assert_eq!(command_operation(operation), None);
+            assert_eq!(expected_command_schema_version(operation), None);
+        }
+    }
+
+    #[test]
+    fn workspace_restore_command_transport_is_retired() {
+        for operation in [
+            "plan_workspace_restore_apply_policy",
+            "preview_workspace_restore_operations",
+            "apply_workspace_restore_operations",
+            "capture_workspace_snapshot_files",
+            "project_workspace_snapshot_list",
+            "project_workspace_snapshot_content_package",
+            "preview_workspace_snapshot_restore",
+            "apply_workspace_snapshot_restore",
         ] {
             assert_eq!(command_operation(operation), None);
             assert_eq!(expected_command_schema_version(operation), None);

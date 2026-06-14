@@ -2264,7 +2264,7 @@ function runDocs() {
         matrix,
       ) &&
       /Public workspace snapshot\/restore API Rust-owned/.test(matrix) &&
-      /`project_workspace_snapshot_list`, `project_workspace_snapshot_content_package`, `preview_workspace_snapshot_restore`, and `apply_workspace_snapshot_restore` are Rust daemon-core command responses/.test(
+      /`projectWorkspaceSnapshotList`, `projectWorkspaceSnapshotContentPackage`, `previewWorkspaceSnapshotRestore`, and `applyWorkspaceSnapshotRestore` are typed Rust daemon-core workspace restore API methods/.test(
         matrix,
       ) &&
       /Coding-tool approval satisfaction positive API/.test(matrix) &&
@@ -4085,7 +4085,6 @@ function runBridge() {
   const daemonCoreDirectInvokerRunners = [
     stepModuleRunner,
     runtimeContextPolicyCore,
-    workspaceRestoreCore,
     modelMountCore,
     runtimeAgentgresCore,
   ];
@@ -4306,13 +4305,15 @@ function runBridge() {
       ) &&
       !exists("packages/runtime-daemon/src/runtime-workspace-restore-runner.mjs") &&
       !exists("packages/runtime-daemon/src/runtime-workspace-restore-runner.test.mjs") &&
-      /createRuntimeWorkspaceRestoreCore\(\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
+      /this\.daemonCoreWorkspaceRestoreApi = options\.daemonCoreWorkspaceRestoreApi/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /createRuntimeWorkspaceRestoreCore\(\{\s*daemonCoreWorkspaceRestoreApi: this\.daemonCoreWorkspaceRestoreApi,\s*\}\)/.test(
         runtimeDaemonIndex,
       ) &&
       /this\.workspaceRestoreCore/.test(runtimeDaemonIndex) &&
       !/this\.workspaceRestoreRunner/.test(runtimeDaemonIndex) &&
       /workspaceRestoreCore: this\.workspaceRestoreCore/.test(runtimeDaemonIndex) &&
-      /daemonCoreInvoker: this\.daemonCoreInvoker/.test(runtimeDaemonIndex) &&
       /createStepModuleRunnerFromEnv\(process\.env,\s*\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
         runtimeDaemonIndex,
       ) &&
@@ -7841,9 +7842,9 @@ function runBridge() {
       !/plan_approval_request_state_update_protocol_response as plan_approval_request_state_update/.test(bridgeModule) &&
       !/plan_approval_decision_state_update_protocol_response as plan_approval_decision_state_update/.test(bridgeModule) &&
       !/plan_approval_revoke_state_update_protocol_response as plan_approval_revoke_state_update/.test(bridgeModule) &&
-      /rust_core_shapes_workspace_restore_apply_policy_command_response/.test(workspaceRestoreKernel) &&
-      /rust_core_shapes_workspace_restore_apply_operations_command_response/.test(workspaceRestoreKernel) &&
-      /rust_core_shapes_workspace_snapshot_capture_command_response/.test(workspaceRestoreKernel) &&
+      /rust_core_shapes_workspace_restore_apply_policy_protocol_response/.test(workspaceRestoreKernel) &&
+      /rust_core_shapes_workspace_restore_apply_operations_protocol_response/.test(workspaceRestoreKernel) &&
+      /rust_core_shapes_workspace_snapshot_capture_protocol_response/.test(workspaceRestoreKernel) &&
       /WORKSPACE_SNAPSHOT_RECORD_SCHEMA_VERSION/.test(workspaceRestoreKernel) &&
       /WORKSPACE_SNAPSHOT_EVENT_SCHEMA_VERSION/.test(workspaceRestoreKernel) &&
       /workspace_snapshot_capture_record/.test(workspaceRestoreKernel) &&
@@ -7851,7 +7852,15 @@ function runBridge() {
       /"snapshot_record":\s*snapshot_record/.test(workspaceRestoreKernel) &&
       /"snapshot_event":\s*snapshot_event/.test(workspaceRestoreKernel) &&
       !/plan_workspace_restore_apply_policy_response as plan_workspace_restore_apply_policy/.test(bridgeModule) &&
-      /preview_workspace_restore_operations_response/.test(coreCommandDispatch) &&
+      /workspace_restore_command_transport_is_retired/.test(commandProtocolCore) &&
+      !/CommandOperation::(?:PlanWorkspaceRestoreApplyPolicy|PreviewWorkspaceRestoreOperations|ApplyWorkspaceRestoreOperations|CaptureWorkspaceSnapshotFiles|ProjectWorkspaceSnapshotList|ProjectWorkspaceSnapshotContentPackage|PreviewWorkspaceSnapshotRestore|ApplyWorkspaceSnapshotRestore)/.test(commandProtocolCore) &&
+      !/preview_workspace_restore_operations_protocol_response/.test(coreCommandDispatch) &&
+      !/apply_workspace_restore_operations_protocol_response/.test(coreCommandDispatch) &&
+      !/capture_workspace_snapshot_files_protocol_response/.test(coreCommandDispatch) &&
+      !/project_workspace_snapshot_list_protocol_response/.test(coreCommandDispatch) &&
+      !/project_workspace_snapshot_content_package_protocol_response/.test(coreCommandDispatch) &&
+      !/preview_workspace_snapshot_restore_protocol_response/.test(coreCommandDispatch) &&
+      !/apply_workspace_snapshot_restore_protocol_response/.test(coreCommandDispatch) &&
       !/pub\(super\) fn preview_workspace_restore_operations/.test(
         workspaceRestoreCommandBridge,
       ) &&
@@ -18348,12 +18357,12 @@ function runBridge() {
       /operation_apply_blocked_reason/.test(workspaceRestoreKernel) &&
       !/mod workspace_restore_command;/.test(bridgeModule) &&
       !workspaceRestoreCommandBridgeExists &&
-      /pub struct WorkspaceRestoreApplyPolicyBridgeRequest/.test(workspaceRestoreKernel) &&
-      /pub struct WorkspaceRestoreCommandError/.test(workspaceRestoreKernel) &&
-      /pub fn plan_workspace_restore_apply_policy_response/.test(workspaceRestoreKernel) &&
-      /rust_workspace_restore_policy_command/.test(workspaceRestoreKernel) &&
+      /pub struct WorkspaceRestoreApplyPolicyProtocolRequest/.test(workspaceRestoreKernel) &&
+      /pub struct WorkspaceRestoreProtocolError/.test(workspaceRestoreKernel) &&
+      /pub fn plan_workspace_restore_apply_policy_protocol_response/.test(workspaceRestoreKernel) &&
+      /rust_workspace_restore_policy_protocol/.test(workspaceRestoreKernel) &&
       /workspace_restore_apply_policy_invalid/.test(workspaceRestoreKernel) &&
-      /rust_core_shapes_workspace_restore_apply_policy_command_response/.test(workspaceRestoreKernel) &&
+      /rust_core_shapes_workspace_restore_apply_policy_protocol_response/.test(workspaceRestoreKernel) &&
       !/plan_workspace_restore_apply_policy_response as plan_workspace_restore_apply_policy/.test(bridgeModule) &&
       !/struct WorkspaceRestoreApplyPolicyBridgeRequest/.test(bridgeModule) &&
       !/fn plan_workspace_restore_apply_policy/.test(bridgeModule) &&
@@ -18362,7 +18371,7 @@ function runBridge() {
       "crates/services/src/agentic/runtime/kernel/workspace_restore.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
     ],
-    "Phase 10 is pending: workspace restore apply policy must be planned by the Rust daemon core and exposed through the command bridge",
+    "Phase 10 is pending: workspace restore apply policy must be planned by the Rust daemon core through the typed workspace restore API",
   );
   assertCheck(
     result,
@@ -18372,15 +18381,14 @@ function runBridge() {
       /apply_operations/.test(workspaceRestoreKernel) &&
       /WORKSPACE_RESTORE_PREVIEW_OPERATIONS_REQUEST_SCHEMA_VERSION/.test(workspaceRestoreKernel) &&
       /WORKSPACE_RESTORE_APPLY_OPERATIONS_REQUEST_SCHEMA_VERSION/.test(workspaceRestoreKernel) &&
-      /pub struct WorkspaceRestoreOperationsBridgeRequest/.test(workspaceRestoreKernel) &&
-      /pub fn preview_workspace_restore_operations_response/.test(workspaceRestoreKernel) &&
-      /pub fn apply_workspace_restore_operations_response/.test(workspaceRestoreKernel) &&
-      /rust_workspace_restore_operations_command/.test(workspaceRestoreKernel) &&
+      /pub struct WorkspaceRestoreOperationsProtocolRequest/.test(workspaceRestoreKernel) &&
+      /pub fn preview_workspace_restore_operations_protocol_response/.test(workspaceRestoreKernel) &&
+      /pub fn apply_workspace_restore_operations_protocol_response/.test(workspaceRestoreKernel) &&
+      /rust_workspace_restore_operations_protocol/.test(workspaceRestoreKernel) &&
       /workspace_restore_operations_invalid/.test(workspaceRestoreKernel) &&
-      /preview_workspace_restore_operations_response/.test(coreCommandDispatch) &&
-      /rust_core_shapes_workspace_restore_apply_operations_command_response/.test(workspaceRestoreKernel) &&
+      !/preview_workspace_restore_operations_protocol_response/.test(coreCommandDispatch) &&
+      /rust_core_shapes_workspace_restore_apply_operations_protocol_response/.test(workspaceRestoreKernel) &&
       !/apply_workspace_restore_operations_response as apply_workspace_restore_operations/.test(bridgeModule) &&
-      /preview_workspace_restore_operations_response/.test(coreCommandDispatch) &&
       !/struct WorkspaceRestoreOperationsBridgeRequest/.test(bridgeModule) &&
       !/fn preview_workspace_restore_operations/.test(bridgeModule) &&
       !/fn apply_workspace_restore_operations/.test(bridgeModule) &&
@@ -18390,7 +18398,7 @@ function runBridge() {
       "crates/services/src/agentic/runtime/kernel/workspace_restore.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
     ],
-    "Phase 10 is pending: workspace restore preview/apply operations must be executed by the Rust daemon core and exposed through the command bridge",
+    "Phase 10 is pending: workspace restore preview/apply operations must be executed by the Rust daemon core through the typed workspace restore API",
   );
   assertCheck(
     result,
@@ -18399,17 +18407,17 @@ function runBridge() {
       /capture_files/.test(workspaceRestoreKernel) &&
       /WORKSPACE_SNAPSHOT_CAPTURE_REQUEST_SCHEMA_VERSION/.test(workspaceRestoreKernel) &&
       /WORKSPACE_SNAPSHOT_CAPTURE_RESULT_SCHEMA_VERSION/.test(workspaceRestoreKernel) &&
-      /pub struct WorkspaceSnapshotCaptureBridgeRequest/.test(workspaceRestoreKernel) &&
-      /pub fn capture_workspace_snapshot_files_response/.test(workspaceRestoreKernel) &&
+      /pub struct WorkspaceSnapshotCaptureProtocolRequest/.test(workspaceRestoreKernel) &&
+      /pub fn capture_workspace_snapshot_files_protocol_response/.test(workspaceRestoreKernel) &&
       /WORKSPACE_SNAPSHOT_RECORD_SCHEMA_VERSION/.test(workspaceRestoreKernel) &&
       /WORKSPACE_SNAPSHOT_EVENT_SCHEMA_VERSION/.test(workspaceRestoreKernel) &&
       /workspace_snapshot_capture_record/.test(workspaceRestoreKernel) &&
       /workspace_snapshot_capture_event/.test(workspaceRestoreKernel) &&
       /"snapshot_record":\s*snapshot_record/.test(workspaceRestoreKernel) &&
       /"snapshot_event":\s*snapshot_event/.test(workspaceRestoreKernel) &&
-      /rust_workspace_snapshot_capture_command/.test(workspaceRestoreKernel) &&
+      /rust_workspace_snapshot_capture_protocol/.test(workspaceRestoreKernel) &&
       /workspace_snapshot_capture_invalid/.test(workspaceRestoreKernel) &&
-      /rust_core_shapes_workspace_snapshot_capture_command_response/.test(workspaceRestoreKernel) &&
+      /rust_core_shapes_workspace_snapshot_capture_protocol_response/.test(workspaceRestoreKernel) &&
       /response\["snapshot_record"\]\["schema_version"\]/.test(workspaceRestoreKernel) &&
       /response\["snapshot_event"\]\["event_kind"\]/.test(workspaceRestoreKernel) &&
       !/capture_workspace_snapshot_files_response as capture_workspace_snapshot_files/.test(bridgeModule) &&
@@ -18420,19 +18428,30 @@ function runBridge() {
       "crates/services/src/agentic/runtime/kernel/workspace_restore.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
     ],
-    "Phase 10 is pending: workspace snapshot capture must be produced by the Rust daemon core and exposed through the command bridge",
+    "Phase 10 is pending: workspace snapshot capture must be produced by the Rust daemon core through the typed workspace restore API",
   );
   assertCheck(
     result,
     "workspace-restore-daemon-core-api",
     !exists("packages/runtime-daemon/src/runtime-workspace-restore-runner.mjs") &&
       !exists("packages/runtime-daemon/src/runtime-workspace-restore-runner.test.mjs") &&
-      /ioi\.runtime\.daemon_core\.command\.v1/.test(workspaceRestoreCore) &&
+      !/ioi\.runtime\.daemon_core\.command\.v1/.test(workspaceRestoreCore) &&
       /RuntimeWorkspaceRestoreCore/.test(workspaceRestoreCore) &&
       /createRuntimeWorkspaceRestoreCore/.test(workspaceRestoreCore) &&
-      /this\.daemonCoreInvoker\s*=\s*optionalFunction\(options\.daemonCoreInvoker\)/.test(
+      /assertNoRetiredWorkspaceRestoreCoreOption\("daemonCoreInvoker", options\.daemonCoreInvoker\)/.test(
         workspaceRestoreCore,
       ) &&
+      /this\.daemonCoreWorkspaceRestoreApi\s*=\s*workspaceRestoreApi/.test(
+        workspaceRestoreCore,
+      ) &&
+      /WORKSPACE_RESTORE_APPLY_POLICY_API_METHOD = "planWorkspaceRestoreApplyPolicy"/.test(workspaceRestoreCore) &&
+      /WORKSPACE_RESTORE_PREVIEW_OPERATIONS_API_METHOD =\s*"previewWorkspaceRestoreOperations"/.test(workspaceRestoreCore) &&
+      /WORKSPACE_RESTORE_APPLY_OPERATIONS_API_METHOD = "applyWorkspaceRestoreOperations"/.test(workspaceRestoreCore) &&
+      /WORKSPACE_SNAPSHOT_CAPTURE_API_METHOD = "captureWorkspaceSnapshotFiles"/.test(workspaceRestoreCore) &&
+      /WORKSPACE_SNAPSHOT_LIST_API_METHOD = "projectWorkspaceSnapshotList"/.test(workspaceRestoreCore) &&
+      /WORKSPACE_SNAPSHOT_CONTENT_PACKAGE_API_METHOD =\s*"projectWorkspaceSnapshotContentPackage"/.test(workspaceRestoreCore) &&
+      /WORKSPACE_SNAPSHOT_RESTORE_PREVIEW_API_METHOD = "previewWorkspaceSnapshotRestore"/.test(workspaceRestoreCore) &&
+      /WORKSPACE_SNAPSHOT_RESTORE_APPLY_API_METHOD = "applyWorkspaceSnapshotRestore"/.test(workspaceRestoreCore) &&
       /planApplyPolicy/.test(workspaceRestoreCore) &&
       /previewOperations/.test(workspaceRestoreCore) &&
       /applyOperations/.test(workspaceRestoreCore) &&
@@ -18441,16 +18460,16 @@ function runBridge() {
       /projectWorkspaceSnapshotContentPackage/.test(workspaceRestoreCore) &&
       /previewSnapshotRestore/.test(workspaceRestoreCore) &&
       /applySnapshotRestore/.test(workspaceRestoreCore) &&
-      /operation:\s*"plan_workspace_restore_apply_policy"/.test(workspaceRestoreCore) &&
-      /operation:\s*"preview_workspace_restore_operations"/.test(workspaceRestoreCore) &&
-      /operation:\s*"apply_workspace_restore_operations"/.test(workspaceRestoreCore) &&
-      /operation:\s*"capture_workspace_snapshot_files"/.test(workspaceRestoreCore) &&
-      /operation:\s*"project_workspace_snapshot_list"/.test(workspaceRestoreCore) &&
-      /operation:\s*"project_workspace_snapshot_content_package"/.test(workspaceRestoreCore) &&
-      /operation:\s*"preview_workspace_snapshot_restore"/.test(workspaceRestoreCore) &&
-      /operation:\s*"apply_workspace_snapshot_restore"/.test(workspaceRestoreCore) &&
+      !/operation:\s*"plan_workspace_restore_apply_policy"/.test(workspaceRestoreCore) &&
+      !/operation:\s*"preview_workspace_restore_operations"/.test(workspaceRestoreCore) &&
+      !/operation:\s*"apply_workspace_restore_operations"/.test(workspaceRestoreCore) &&
+      !/operation:\s*"capture_workspace_snapshot_files"/.test(workspaceRestoreCore) &&
+      !/operation:\s*"project_workspace_snapshot_list"/.test(workspaceRestoreCore) &&
+      !/operation:\s*"project_workspace_snapshot_content_package"/.test(workspaceRestoreCore) &&
+      !/operation:\s*"preview_workspace_snapshot_restore"/.test(workspaceRestoreCore) &&
+      !/operation:\s*"apply_workspace_snapshot_restore"/.test(workspaceRestoreCore) &&
       /rust_workspace_restore/.test(workspaceRestoreCore) &&
-      /workspace_restore_core_direct_invoker_unconfigured/.test(workspaceRestoreCore) &&
+      /workspace_restore_core_direct_workspace_restore_api_unconfigured/.test(workspaceRestoreCore) &&
       /workspace_restore_core_compatibility_option_retired/.test(workspaceRestoreCore) &&
       /workspace_restore_core_request_aliases_retired/.test(workspaceRestoreCore) &&
       !/process\.env|IOI_RUNTIME_DAEMON_CORE_COMMAND|IOI_WORKSPACE_RESTORE_COMMAND|IOI_STEP_MODULE_COMMAND/.test(
@@ -18465,13 +18484,16 @@ function runBridge() {
       !/createDaemonCoreCommandInvoker|spawnSyncImpl|from "node:child_process"/.test(
         workspaceRestoreCore,
       ) &&
-      /createRuntimeWorkspaceRestoreCore\(\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
+      /this\.daemonCoreWorkspaceRestoreApi = options\.daemonCoreWorkspaceRestoreApi/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /createRuntimeWorkspaceRestoreCore\(\{\s*daemonCoreWorkspaceRestoreApi: this\.daemonCoreWorkspaceRestoreApi,\s*\}\)/.test(
         runtimeDaemonIndex,
       ) &&
       /this\.workspaceRestoreCore/.test(runtimeDaemonIndex) &&
       !/this\.workspaceRestoreRunner/.test(runtimeDaemonIndex) &&
       /workspaceRestoreCore: this\.workspaceRestoreCore/.test(runtimeDaemonIndex) &&
-      /workspace restore core calls direct Rust daemon-core workspace APIs/.test(
+      /workspace restore core calls typed Rust daemon-core workspace APIs/.test(
         workspaceRestoreCoreTest,
       ) &&
       /workspace restore core returns the Rust envelope without JS normalization/.test(
@@ -18483,11 +18505,14 @@ function runBridge() {
       /workspace restore core rejects retired request aliases before Rust invocation/.test(
         workspaceRestoreCoreTest,
       ) &&
-      /workspace restore core fails closed without direct daemon-core API/.test(
+      /workspace restore core fails closed without typed workspace restore API/.test(
         workspaceRestoreCoreTest,
       ) &&
       /workspace restore core surfaces Rust rejection/.test(workspaceRestoreCoreTest) &&
       /runtime store mounts workspace restore core from options/.test(workspaceRestoreCoreStoreTest) &&
+      /runtime store wires workspace restore core to typed Rust workspace API/.test(
+        workspaceRestoreCoreStoreTest,
+      ) &&
       /Object\.hasOwn\(store,\s*"workspaceRestoreRunner"\),\s*false/.test(
         workspaceRestoreCoreStoreTest,
       ) &&
@@ -34676,8 +34701,8 @@ function runCompositor() {
       /coreCalls,\s*\[\{\s*thread_id:\s*"thread_alpha"\s*\}\]/.test(
         runtimeWorkspaceSnapshotSurfaceTest,
       ) &&
-      /project_workspace_snapshot_list/.test(workspaceRestoreCore) &&
-      /rust_workspace_snapshot_projection_command/.test(workspaceRestoreKernel) &&
+      /WORKSPACE_SNAPSHOT_LIST_API_METHOD = "projectWorkspaceSnapshotList"/.test(workspaceRestoreCore) &&
+      /rust_workspace_snapshot_projection_protocol/.test(workspaceRestoreKernel) &&
       /rust_core_shapes_workspace_snapshot_public_projection_responses/.test(
         workspaceRestoreKernel,
       ) &&
@@ -34892,8 +34917,8 @@ function runCompositor() {
 	      /restore_preview_artifact_commit/.test(runtimeWorkspaceSnapshotSurface) &&
 	      /restore_apply_artifact_commit/.test(runtimeWorkspaceSnapshotSurface) &&
 	      /runtimeThreadEventAdmissionForThread:\s*\(store,\s*request = \{\}\) =>/.test(runtimeDaemonIndex) &&
-	      /preview_workspace_snapshot_restore/.test(workspaceRestoreCore) &&
-	      /apply_workspace_snapshot_restore/.test(workspaceRestoreCore) &&
+      /WORKSPACE_SNAPSHOT_RESTORE_PREVIEW_API_METHOD = "previewWorkspaceSnapshotRestore"/.test(workspaceRestoreCore) &&
+      /WORKSPACE_SNAPSHOT_RESTORE_APPLY_API_METHOD = "applyWorkspaceSnapshotRestore"/.test(workspaceRestoreCore) &&
 	      !workspaceRestoreResultAliasPattern.test(previewWorkspaceSnapshotRestoreBody) &&
 	      !workspaceRestoreResultAliasPattern.test(applyWorkspaceSnapshotRestoreBody) &&
 	      !/\brestorePreviewEvent:\s*event\b/.test(previewWorkspaceSnapshotRestoreBody) &&
@@ -34930,8 +34955,8 @@ function runCompositor() {
 	    result,
 	    "workspace-snapshot-content-package-js-projection-retired",
 	    /workspaceRestoreCore\.projectWorkspaceSnapshotContentPackage\(\{/.test(runtimeWorkspaceSnapshotSurface) &&
-	      /project_workspace_snapshot_content_package/.test(workspaceRestoreCore) &&
-	      /rust_workspace_snapshot_projection_command/.test(workspaceRestoreKernel) &&
+      /WORKSPACE_SNAPSHOT_CONTENT_PACKAGE_API_METHOD =\s*"projectWorkspaceSnapshotContentPackage"/.test(workspaceRestoreCore) &&
+	      /rust_workspace_snapshot_projection_protocol/.test(workspaceRestoreKernel) &&
 	      /workspace snapshot content package projection calls Rust core before JS artifact reads/.test(
 	        runtimeWorkspaceSnapshotSurfaceTest,
 	      ) &&

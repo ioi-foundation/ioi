@@ -45,12 +45,12 @@ pub const WORKSPACE_SNAPSHOT_MAX_CAPTURE_BYTES: u64 = 256 * 1024;
 pub const WORKSPACE_RESTORE_PREVIEW_DIFF_MAX_BYTES: u64 = 32 * 1024;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct WorkspaceRestoreCommandError {
+pub struct WorkspaceRestoreProtocolError {
     code: &'static str,
     message: String,
 }
 
-impl WorkspaceRestoreCommandError {
+impl WorkspaceRestoreProtocolError {
     fn new(code: &'static str, message: String) -> Self {
         Self { code, message }
     }
@@ -494,23 +494,17 @@ pub struct WorkspaceRestoreApplyCounts {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct WorkspaceRestoreApplyPolicyBridgeRequest {
-    #[serde(default)]
-    pub backend: Option<String>,
+pub struct WorkspaceRestoreApplyPolicyProtocolRequest {
     pub request: WorkspaceRestoreApplyPolicyRequest,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct WorkspaceRestoreOperationsBridgeRequest {
-    #[serde(default)]
-    pub backend: Option<String>,
+pub struct WorkspaceRestoreOperationsProtocolRequest {
     pub request: WorkspaceRestoreOperationsRequest,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct WorkspaceSnapshotCaptureBridgeRequest {
-    #[serde(default)]
-    pub backend: Option<String>,
+pub struct WorkspaceSnapshotCaptureProtocolRequest {
     pub request: WorkspaceSnapshotCaptureRequest,
     #[serde(default)]
     pub thread_id: Option<String>,
@@ -600,23 +594,17 @@ pub struct WorkspaceSnapshotRestoreRequest {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct WorkspaceSnapshotListBridgeRequest {
-    #[serde(default)]
-    pub backend: Option<String>,
+pub struct WorkspaceSnapshotListProtocolRequest {
     pub request: WorkspaceSnapshotListRequest,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct WorkspaceSnapshotContentPackageBridgeRequest {
-    #[serde(default)]
-    pub backend: Option<String>,
+pub struct WorkspaceSnapshotContentPackageProtocolRequest {
     pub request: WorkspaceSnapshotContentPackageRequest,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct WorkspaceSnapshotRestoreBridgeRequest {
-    #[serde(default)]
-    pub backend: Option<String>,
+pub struct WorkspaceSnapshotRestoreProtocolRequest {
     pub request: WorkspaceSnapshotRestoreRequest,
 }
 
@@ -711,20 +699,20 @@ impl WorkspaceRestoreApplyPolicyCore {
     }
 }
 
-pub fn plan_workspace_restore_apply_policy_response(
-    request: WorkspaceRestoreApplyPolicyBridgeRequest,
-) -> Result<Value, WorkspaceRestoreCommandError> {
+pub fn plan_workspace_restore_apply_policy_protocol_response(
+    request: WorkspaceRestoreApplyPolicyProtocolRequest,
+) -> Result<Value, WorkspaceRestoreProtocolError> {
     let plan = WorkspaceRestoreApplyPolicyCore
         .plan_apply_policy(&request.request)
         .map_err(|error| {
-            WorkspaceRestoreCommandError::new(
+            WorkspaceRestoreProtocolError::new(
                 "workspace_restore_apply_policy_invalid",
                 format!("{error:?}"),
             )
         })?;
     Ok(json!({
-        "source": "rust_workspace_restore_policy_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_workspace_restore".to_string()),
+        "source": "rust_workspace_restore_policy_protocol",
+        "backend": "rust_workspace_restore",
         "plan": plan.clone(),
         "approval": plan.approval.clone(),
         "allow_conflicts": plan.allow_conflicts,
@@ -739,51 +727,51 @@ pub fn plan_workspace_restore_apply_policy_response(
     }))
 }
 
-pub fn preview_workspace_restore_operations_response(
-    request: WorkspaceRestoreOperationsBridgeRequest,
-) -> Result<Value, WorkspaceRestoreCommandError> {
+pub fn preview_workspace_restore_operations_protocol_response(
+    request: WorkspaceRestoreOperationsProtocolRequest,
+) -> Result<Value, WorkspaceRestoreProtocolError> {
     let operations = WorkspaceRestoreOperationsCore
         .preview_operations(&request.request)
         .map_err(|error| {
-            WorkspaceRestoreCommandError::new(
+            WorkspaceRestoreProtocolError::new(
                 "workspace_restore_operations_invalid",
                 format!("{error:?}"),
             )
         })?;
     Ok(json!({
-        "source": "rust_workspace_restore_operations_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_workspace_restore".to_string()),
+        "source": "rust_workspace_restore_operations_protocol",
+        "backend": "rust_workspace_restore",
         "operation": "preview_workspace_restore_operations",
         "operations": operations,
     }))
 }
 
-pub fn apply_workspace_restore_operations_response(
-    request: WorkspaceRestoreOperationsBridgeRequest,
-) -> Result<Value, WorkspaceRestoreCommandError> {
+pub fn apply_workspace_restore_operations_protocol_response(
+    request: WorkspaceRestoreOperationsProtocolRequest,
+) -> Result<Value, WorkspaceRestoreProtocolError> {
     let operations = WorkspaceRestoreOperationsCore
         .apply_operations(&request.request)
         .map_err(|error| {
-            WorkspaceRestoreCommandError::new(
+            WorkspaceRestoreProtocolError::new(
                 "workspace_restore_operations_invalid",
                 format!("{error:?}"),
             )
         })?;
     Ok(json!({
-        "source": "rust_workspace_restore_operations_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_workspace_restore".to_string()),
+        "source": "rust_workspace_restore_operations_protocol",
+        "backend": "rust_workspace_restore",
         "operation": "apply_workspace_restore_operations",
         "operations": operations,
     }))
 }
 
-pub fn capture_workspace_snapshot_files_response(
-    request: WorkspaceSnapshotCaptureBridgeRequest,
-) -> Result<Value, WorkspaceRestoreCommandError> {
+pub fn capture_workspace_snapshot_files_protocol_response(
+    request: WorkspaceSnapshotCaptureProtocolRequest,
+) -> Result<Value, WorkspaceRestoreProtocolError> {
     let capture = WorkspaceSnapshotCaptureCore
         .capture_files(&request.request)
         .map_err(|error| {
-            WorkspaceRestoreCommandError::new(
+            WorkspaceRestoreProtocolError::new(
                 "workspace_snapshot_capture_invalid",
                 format!("{error:?}"),
             )
@@ -793,8 +781,8 @@ pub fn capture_workspace_snapshot_files_response(
     let snapshot_event =
         workspace_snapshot_capture_event(&request, &snapshot_record, &snapshot_artifact);
     Ok(json!({
-        "source": "rust_workspace_snapshot_capture_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_workspace_restore".to_string()),
+        "source": "rust_workspace_snapshot_capture_protocol",
+        "backend": "rust_workspace_restore",
         "capture": capture.clone(),
         "snapshot_record": snapshot_record,
         "snapshot_artifact": snapshot_artifact,
@@ -807,37 +795,37 @@ pub fn capture_workspace_snapshot_files_response(
     }))
 }
 
-pub fn project_workspace_snapshot_list_response(
-    request: WorkspaceSnapshotListBridgeRequest,
-) -> Result<Value, WorkspaceRestoreCommandError> {
+pub fn project_workspace_snapshot_list_protocol_response(
+    request: WorkspaceSnapshotListProtocolRequest,
+) -> Result<Value, WorkspaceRestoreProtocolError> {
     validate_workspace_snapshot_list_request(&request.request)?;
     let projection = workspace_snapshot_list_projection(&request.request);
     Ok(json!({
-        "source": "rust_workspace_snapshot_projection_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_workspace_restore".to_string()),
+        "source": "rust_workspace_snapshot_projection_protocol",
+        "backend": "rust_workspace_restore",
         "projection_kind": "workspace_snapshot.list",
         "projection": projection,
         "evidence_refs": workspace_snapshot_projection_evidence_refs(),
     }))
 }
 
-pub fn project_workspace_snapshot_content_package_response(
-    request: WorkspaceSnapshotContentPackageBridgeRequest,
-) -> Result<Value, WorkspaceRestoreCommandError> {
+pub fn project_workspace_snapshot_content_package_protocol_response(
+    request: WorkspaceSnapshotContentPackageProtocolRequest,
+) -> Result<Value, WorkspaceRestoreProtocolError> {
     validate_workspace_snapshot_content_package_request(&request.request)?;
     let projection = workspace_snapshot_content_package_projection(&request.request)?;
     Ok(json!({
-        "source": "rust_workspace_snapshot_projection_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_workspace_restore".to_string()),
+        "source": "rust_workspace_snapshot_projection_protocol",
+        "backend": "rust_workspace_restore",
         "projection_kind": "workspace_snapshot.content_package",
         "projection": projection,
         "evidence_refs": workspace_snapshot_projection_evidence_refs(),
     }))
 }
 
-pub fn preview_workspace_snapshot_restore_response(
-    request: WorkspaceSnapshotRestoreBridgeRequest,
-) -> Result<Value, WorkspaceRestoreCommandError> {
+pub fn preview_workspace_snapshot_restore_protocol_response(
+    request: WorkspaceSnapshotRestoreProtocolRequest,
+) -> Result<Value, WorkspaceRestoreProtocolError> {
     validate_workspace_snapshot_restore_request(
         &request.request,
         WORKSPACE_SNAPSHOT_RESTORE_PREVIEW_REQUEST_SCHEMA_VERSION,
@@ -856,24 +844,24 @@ pub fn preview_workspace_snapshot_restore_response(
     let operations = WorkspaceRestoreOperationsCore
         .preview_operations(&operations_request)
         .map_err(|error| {
-            WorkspaceRestoreCommandError::new(
+            WorkspaceRestoreProtocolError::new(
                 "workspace_snapshot_restore_invalid",
                 format!("{error:?}"),
             )
         })?;
     let result = workspace_restore_preview_result(&request.request, &operations);
     Ok(json!({
-        "source": "rust_workspace_snapshot_restore_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_workspace_restore".to_string()),
+        "source": "rust_workspace_snapshot_restore_protocol",
+        "backend": "rust_workspace_restore",
         "projection_kind": "workspace_restore.preview",
         "restore_preview": result,
         "evidence_refs": workspace_snapshot_restore_evidence_refs(),
     }))
 }
 
-pub fn apply_workspace_snapshot_restore_response(
-    request: WorkspaceSnapshotRestoreBridgeRequest,
-) -> Result<Value, WorkspaceRestoreCommandError> {
+pub fn apply_workspace_snapshot_restore_protocol_response(
+    request: WorkspaceSnapshotRestoreProtocolRequest,
+) -> Result<Value, WorkspaceRestoreProtocolError> {
     validate_workspace_snapshot_restore_request(
         &request.request,
         WORKSPACE_SNAPSHOT_RESTORE_APPLY_REQUEST_SCHEMA_VERSION,
@@ -892,7 +880,7 @@ pub fn apply_workspace_snapshot_restore_response(
     let preview_operations = WorkspaceRestoreOperationsCore
         .preview_operations(&preview_request)
         .map_err(|error| {
-            WorkspaceRestoreCommandError::new(
+            WorkspaceRestoreProtocolError::new(
                 "workspace_snapshot_restore_invalid",
                 format!("{error:?}"),
             )
@@ -922,7 +910,7 @@ pub fn apply_workspace_snapshot_restore_response(
     let policy = WorkspaceRestoreApplyPolicyCore
         .plan_apply_policy(&policy_request)
         .map_err(|error| {
-            WorkspaceRestoreCommandError::new(
+            WorkspaceRestoreProtocolError::new(
                 "workspace_snapshot_restore_invalid",
                 format!("{error:?}"),
             )
@@ -938,7 +926,7 @@ pub fn apply_workspace_snapshot_restore_response(
         WorkspaceRestoreOperationsCore
             .apply_operations(&apply_request)
             .map_err(|error| {
-                WorkspaceRestoreCommandError::new(
+                WorkspaceRestoreProtocolError::new(
                     "workspace_snapshot_restore_invalid",
                     format!("{error:?}"),
                 )
@@ -949,8 +937,8 @@ pub fn apply_workspace_snapshot_restore_response(
     let result =
         workspace_restore_apply_result(&request.request, &preview_status, &operations, &policy);
     Ok(json!({
-        "source": "rust_workspace_snapshot_restore_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_workspace_restore".to_string()),
+        "source": "rust_workspace_snapshot_restore_protocol",
+        "backend": "rust_workspace_restore",
         "projection_kind": "workspace_restore.apply",
         "restore_apply": result,
         "evidence_refs": workspace_snapshot_restore_evidence_refs(),
@@ -1806,7 +1794,7 @@ fn apply_summary(
 }
 
 fn workspace_snapshot_capture_record(
-    request: &WorkspaceSnapshotCaptureBridgeRequest,
+    request: &WorkspaceSnapshotCaptureProtocolRequest,
     capture: &WorkspaceSnapshotCaptureResult,
 ) -> Value {
     let thread_id = trim_optional_string(request.thread_id.as_deref());
@@ -1886,7 +1874,7 @@ fn workspace_snapshot_capture_record(
 }
 
 fn workspace_snapshot_capture_artifact(
-    request: &WorkspaceSnapshotCaptureBridgeRequest,
+    request: &WorkspaceSnapshotCaptureProtocolRequest,
     snapshot_record: &Value,
 ) -> Value {
     let thread_id = trim_optional_string(request.thread_id.as_deref());
@@ -1948,7 +1936,7 @@ fn workspace_snapshot_capture_artifact(
 }
 
 fn workspace_snapshot_capture_event(
-    request: &WorkspaceSnapshotCaptureBridgeRequest,
+    request: &WorkspaceSnapshotCaptureProtocolRequest,
     snapshot_record: &Value,
     snapshot_artifact: &Value,
 ) -> Value {
@@ -2042,9 +2030,9 @@ fn workspace_snapshot_capture_event(
 
 fn validate_workspace_snapshot_list_request(
     request: &WorkspaceSnapshotListRequest,
-) -> Result<(), WorkspaceRestoreCommandError> {
+) -> Result<(), WorkspaceRestoreProtocolError> {
     if request.schema_version != WORKSPACE_SNAPSHOT_LIST_REQUEST_SCHEMA_VERSION {
-        return Err(WorkspaceRestoreCommandError::new(
+        return Err(WorkspaceRestoreProtocolError::new(
             "workspace_snapshot_list_invalid",
             format!(
                 "workspace snapshot list schema is invalid: expected {}, received {}",
@@ -2053,7 +2041,7 @@ fn validate_workspace_snapshot_list_request(
         ));
     }
     if request.thread_id.trim().is_empty() {
-        return Err(WorkspaceRestoreCommandError::new(
+        return Err(WorkspaceRestoreProtocolError::new(
             "workspace_snapshot_list_invalid",
             "workspace snapshot list requires thread_id".to_string(),
         ));
@@ -2063,9 +2051,9 @@ fn validate_workspace_snapshot_list_request(
 
 fn validate_workspace_snapshot_content_package_request(
     request: &WorkspaceSnapshotContentPackageRequest,
-) -> Result<(), WorkspaceRestoreCommandError> {
+) -> Result<(), WorkspaceRestoreProtocolError> {
     if request.schema_version != WORKSPACE_SNAPSHOT_CONTENT_PACKAGE_REQUEST_SCHEMA_VERSION {
-        return Err(WorkspaceRestoreCommandError::new(
+        return Err(WorkspaceRestoreProtocolError::new(
             "workspace_snapshot_content_package_invalid",
             format!(
                 "workspace snapshot content package schema is invalid: expected {}, received {}",
@@ -2074,7 +2062,7 @@ fn validate_workspace_snapshot_content_package_request(
         ));
     }
     if request.thread_id.trim().is_empty() || request.snapshot_id.trim().is_empty() {
-        return Err(WorkspaceRestoreCommandError::new(
+        return Err(WorkspaceRestoreProtocolError::new(
             "workspace_snapshot_content_package_invalid",
             "workspace snapshot content package requires thread_id and snapshot_id".to_string(),
         ));
@@ -2085,9 +2073,9 @@ fn validate_workspace_snapshot_content_package_request(
 fn validate_workspace_snapshot_restore_request(
     request: &WorkspaceSnapshotRestoreRequest,
     expected_schema: &'static str,
-) -> Result<(), WorkspaceRestoreCommandError> {
+) -> Result<(), WorkspaceRestoreProtocolError> {
     if request.schema_version != expected_schema {
-        return Err(WorkspaceRestoreCommandError::new(
+        return Err(WorkspaceRestoreProtocolError::new(
             "workspace_snapshot_restore_invalid",
             format!(
                 "workspace snapshot restore schema is invalid: expected {}, received {}",
@@ -2099,7 +2087,7 @@ fn validate_workspace_snapshot_restore_request(
         || request.snapshot_id.trim().is_empty()
         || request.workspace_root.trim().is_empty()
     {
-        return Err(WorkspaceRestoreCommandError::new(
+        return Err(WorkspaceRestoreProtocolError::new(
             "workspace_snapshot_restore_invalid",
             "workspace snapshot restore requires thread_id, snapshot_id, and workspace_root"
                 .to_string(),
@@ -2126,9 +2114,9 @@ fn workspace_snapshot_list_projection(request: &WorkspaceSnapshotListRequest) ->
 
 fn workspace_snapshot_content_package_projection(
     request: &WorkspaceSnapshotContentPackageRequest,
-) -> Result<Value, WorkspaceRestoreCommandError> {
+) -> Result<Value, WorkspaceRestoreProtocolError> {
     let content_package = request.content_package.as_ref().ok_or_else(|| {
-        WorkspaceRestoreCommandError::new(
+        WorkspaceRestoreProtocolError::new(
             "workspace_snapshot_content_package_required",
             format!(
                 "workspace snapshot {} requires Rust-owned content package projection input",
@@ -2219,9 +2207,9 @@ fn normalize_workspace_snapshot_projection_record(value: &Value) -> Option<Value
 fn workspace_restore_files_from_content_package(
     content_package: Option<&Value>,
     snapshot_id: &str,
-) -> Result<Vec<WorkspaceRestoreFile>, WorkspaceRestoreCommandError> {
+) -> Result<Vec<WorkspaceRestoreFile>, WorkspaceRestoreProtocolError> {
     let content_package = content_package.ok_or_else(|| {
-        WorkspaceRestoreCommandError::new(
+        WorkspaceRestoreProtocolError::new(
             "workspace_snapshot_content_package_required",
             format!(
                 "workspace restore for {snapshot_id} requires Rust-owned content package projection input"
@@ -2230,7 +2218,7 @@ fn workspace_restore_files_from_content_package(
     })?;
     let content_files = workspace_snapshot_content_files_from_package(content_package)?;
     if content_files.is_empty() {
-        return Err(WorkspaceRestoreCommandError::new(
+        return Err(WorkspaceRestoreProtocolError::new(
             "workspace_snapshot_content_package_empty",
             format!("workspace snapshot {snapshot_id} has no content files to restore"),
         ));
@@ -2255,7 +2243,7 @@ fn workspace_restore_files_from_content_package(
 
 fn workspace_snapshot_content_files_from_package(
     content_package: &Value,
-) -> Result<Vec<WorkspaceSnapshotCapturedFile>, WorkspaceRestoreCommandError> {
+) -> Result<Vec<WorkspaceSnapshotCapturedFile>, WorkspaceRestoreProtocolError> {
     let files_value = content_package
         .get("content_files")
         .or_else(|| content_package.get("files"))
@@ -2263,7 +2251,7 @@ fn workspace_snapshot_content_files_from_package(
         .unwrap_or_else(|| json!([]));
     let files: Vec<WorkspaceSnapshotCapturedFile> =
         serde_json::from_value(files_value).map_err(|error| {
-            WorkspaceRestoreCommandError::new(
+            WorkspaceRestoreProtocolError::new(
                 "workspace_snapshot_content_package_invalid",
                 format!("workspace snapshot content package files are invalid: {error}"),
             )
@@ -2846,12 +2834,11 @@ mod tests {
     }
 
     #[test]
-    fn rust_core_shapes_workspace_snapshot_capture_command_response() {
+    fn rust_core_shapes_workspace_snapshot_capture_protocol_response() {
         let old_hash = sha256_hex("old");
         let new_hash = sha256_hex("new");
-        let response =
-            capture_workspace_snapshot_files_response(WorkspaceSnapshotCaptureBridgeRequest {
-                backend: Some("rust_workspace_restore".to_string()),
+        let response = capture_workspace_snapshot_files_protocol_response(
+            WorkspaceSnapshotCaptureProtocolRequest {
                 thread_id: Some("thread_alpha".to_string()),
                 turn_id: Some("turn_alpha".to_string()),
                 workspace_root: Some("/workspace".to_string()),
@@ -2880,12 +2867,13 @@ mod tests {
                         encoding: None,
                     }],
                 },
-            })
-            .expect("workspace snapshot capture command response");
+            },
+        )
+        .expect("workspace snapshot capture protocol response");
 
         assert_eq!(
             response["source"],
-            "rust_workspace_snapshot_capture_command"
+            "rust_workspace_snapshot_capture_protocol"
         );
         assert_eq!(response["backend"], "rust_workspace_restore");
         assert_eq!(response["captured_file_count"], 1);
@@ -3021,14 +3009,13 @@ mod tests {
     }
 
     #[test]
-    fn rust_core_shapes_workspace_restore_apply_operations_command_response() {
+    fn rust_core_shapes_workspace_restore_apply_operations_protocol_response() {
         let workspace = temp_workspace("apply-response");
         let target = workspace.join("src/app.js");
         fs::create_dir_all(target.parent().expect("parent")).expect("mkdir");
         fs::write(&target, "new").expect("write current");
-        let response =
-            apply_workspace_restore_operations_response(WorkspaceRestoreOperationsBridgeRequest {
-                backend: Some("rust_workspace_restore".to_string()),
+        let response = apply_workspace_restore_operations_protocol_response(
+            WorkspaceRestoreOperationsProtocolRequest {
                 request: WorkspaceRestoreOperationsRequest {
                     schema_version: WORKSPACE_RESTORE_APPLY_OPERATIONS_REQUEST_SCHEMA_VERSION
                         .to_string(),
@@ -3037,12 +3024,13 @@ mod tests {
                     max_diff_bytes: Some(4096),
                     allow_conflicts: Some(false),
                 },
-            })
-            .expect("workspace restore apply operations command response");
+            },
+        )
+        .expect("workspace restore apply operations protocol response");
 
         assert_eq!(
             response["source"],
-            "rust_workspace_restore_operations_command"
+            "rust_workspace_restore_operations_protocol"
         );
         assert_eq!(response["backend"], "rust_workspace_restore");
         assert_eq!(response["operation"], "apply_workspace_restore_operations");
@@ -3145,10 +3133,9 @@ mod tests {
     }
 
     #[test]
-    fn rust_core_shapes_workspace_restore_apply_policy_command_response() {
-        let response = plan_workspace_restore_apply_policy_response(
-            WorkspaceRestoreApplyPolicyBridgeRequest {
-                backend: Some("rust_workspace_restore".to_string()),
+    fn rust_core_shapes_workspace_restore_apply_policy_protocol_response() {
+        let response = plan_workspace_restore_apply_policy_protocol_response(
+            WorkspaceRestoreApplyPolicyProtocolRequest {
                 request: WorkspaceRestoreApplyPolicyRequest {
                     schema_version: WORKSPACE_RESTORE_APPLY_POLICY_REQUEST_SCHEMA_VERSION
                         .to_string(),
@@ -3186,9 +3173,9 @@ mod tests {
                 },
             },
         )
-        .expect("workspace restore apply policy command response");
+        .expect("workspace restore apply policy protocol response");
 
-        assert_eq!(response["source"], "rust_workspace_restore_policy_command");
+        assert_eq!(response["source"], "rust_workspace_restore_policy_protocol");
         assert_eq!(response["backend"], "rust_workspace_restore");
         assert_eq!(response["approval"]["satisfied"], true);
         assert_eq!(response["allow_conflicts"], true);
@@ -3207,9 +3194,8 @@ mod tests {
     fn snapshot_record_and_content_package() -> (Value, Value) {
         let old_hash = sha256_hex("old");
         let new_hash = sha256_hex("new");
-        let response =
-            capture_workspace_snapshot_files_response(WorkspaceSnapshotCaptureBridgeRequest {
-                backend: Some("rust_workspace_restore".to_string()),
+        let response = capture_workspace_snapshot_files_protocol_response(
+            WorkspaceSnapshotCaptureProtocolRequest {
                 thread_id: Some("thread_alpha".to_string()),
                 turn_id: Some("turn_alpha".to_string()),
                 workspace_root: Some("/workspace".to_string()),
@@ -3238,8 +3224,9 @@ mod tests {
                         encoding: None,
                     }],
                 },
-            })
-            .expect("snapshot capture response");
+            },
+        )
+        .expect("snapshot capture response");
         let snapshot_record = response["snapshot_record"].clone();
         let content_package = json!({
             "schema_version": WORKSPACE_SNAPSHOT_CONTENT_PACKAGE_SCHEMA_VERSION,
@@ -3259,17 +3246,21 @@ mod tests {
             .as_str()
             .expect("snapshot id")
             .to_string();
-        let list = project_workspace_snapshot_list_response(WorkspaceSnapshotListBridgeRequest {
-            backend: Some("rust_workspace_restore".to_string()),
-            request: WorkspaceSnapshotListRequest {
-                schema_version: WORKSPACE_SNAPSHOT_LIST_REQUEST_SCHEMA_VERSION.to_string(),
-                thread_id: "thread_alpha".to_string(),
-                snapshots: vec![snapshot_record.clone()],
+        let list = project_workspace_snapshot_list_protocol_response(
+            WorkspaceSnapshotListProtocolRequest {
+                request: WorkspaceSnapshotListRequest {
+                    schema_version: WORKSPACE_SNAPSHOT_LIST_REQUEST_SCHEMA_VERSION.to_string(),
+                    thread_id: "thread_alpha".to_string(),
+                    snapshots: vec![snapshot_record.clone()],
+                },
             },
-        })
+        )
         .expect("snapshot list response");
 
-        assert_eq!(list["source"], "rust_workspace_snapshot_projection_command");
+        assert_eq!(
+            list["source"],
+            "rust_workspace_snapshot_projection_protocol"
+        );
         assert_eq!(
             list["projection"]["schema_version"],
             WORKSPACE_SNAPSHOT_LIST_RESULT_SCHEMA_VERSION
@@ -3290,9 +3281,8 @@ mod tests {
             .iter()
             .any(|value| value == "rust_daemon_core_workspace_snapshot_projection"));
 
-        let package = project_workspace_snapshot_content_package_response(
-            WorkspaceSnapshotContentPackageBridgeRequest {
-                backend: Some("rust_workspace_restore".to_string()),
+        let package = project_workspace_snapshot_content_package_protocol_response(
+            WorkspaceSnapshotContentPackageProtocolRequest {
                 request: WorkspaceSnapshotContentPackageRequest {
                     schema_version: WORKSPACE_SNAPSHOT_CONTENT_PACKAGE_REQUEST_SCHEMA_VERSION
                         .to_string(),
@@ -3307,7 +3297,7 @@ mod tests {
 
         assert_eq!(
             package["source"],
-            "rust_workspace_snapshot_projection_command"
+            "rust_workspace_snapshot_projection_protocol"
         );
         assert_eq!(
             package["projection"]["schema_version"],
@@ -3333,9 +3323,8 @@ mod tests {
             .expect("snapshot id")
             .to_string();
 
-        let preview =
-            preview_workspace_snapshot_restore_response(WorkspaceSnapshotRestoreBridgeRequest {
-                backend: Some("rust_workspace_restore".to_string()),
+        let preview = preview_workspace_snapshot_restore_protocol_response(
+            WorkspaceSnapshotRestoreProtocolRequest {
                 request: WorkspaceSnapshotRestoreRequest {
                     schema_version: WORKSPACE_SNAPSHOT_RESTORE_PREVIEW_REQUEST_SCHEMA_VERSION
                         .to_string(),
@@ -3366,10 +3355,14 @@ mod tests {
                     allow_conflicts: None,
                     override_conflicts: None,
                 },
-            })
-            .expect("restore preview response");
+            },
+        )
+        .expect("restore preview response");
 
-        assert_eq!(preview["source"], "rust_workspace_snapshot_restore_command");
+        assert_eq!(
+            preview["source"],
+            "rust_workspace_snapshot_restore_protocol"
+        );
         assert_eq!(
             preview["restore_preview"]["schema_version"],
             WORKSPACE_RESTORE_PREVIEW_RESULT_SCHEMA_VERSION
@@ -3393,9 +3386,8 @@ mod tests {
             preview["restore_preview"]["receipt_refs"]
         );
 
-        let blocked_apply =
-            apply_workspace_snapshot_restore_response(WorkspaceSnapshotRestoreBridgeRequest {
-                backend: Some("rust_workspace_restore".to_string()),
+        let blocked_apply = apply_workspace_snapshot_restore_protocol_response(
+            WorkspaceSnapshotRestoreProtocolRequest {
                 request: WorkspaceSnapshotRestoreRequest {
                     schema_version: WORKSPACE_SNAPSHOT_RESTORE_APPLY_REQUEST_SCHEMA_VERSION
                         .to_string(),
@@ -3426,16 +3418,16 @@ mod tests {
                     allow_conflicts: None,
                     override_conflicts: None,
                 },
-            })
-            .expect("blocked restore apply response");
+            },
+        )
+        .expect("blocked restore apply response");
 
         assert_eq!(blocked_apply["restore_apply"]["apply_status"], "blocked");
         assert_eq!(blocked_apply["restore_apply"]["approval_satisfied"], false);
         assert_eq!(fs::read_to_string(&file_path).expect("current"), "new");
 
-        let applied =
-            apply_workspace_snapshot_restore_response(WorkspaceSnapshotRestoreBridgeRequest {
-                backend: Some("rust_workspace_restore".to_string()),
+        let applied = apply_workspace_snapshot_restore_protocol_response(
+            WorkspaceSnapshotRestoreProtocolRequest {
                 request: WorkspaceSnapshotRestoreRequest {
                     schema_version: WORKSPACE_SNAPSHOT_RESTORE_APPLY_REQUEST_SCHEMA_VERSION
                         .to_string(),
@@ -3466,8 +3458,9 @@ mod tests {
                     allow_conflicts: None,
                     override_conflicts: None,
                 },
-            })
-            .expect("approved restore apply response");
+            },
+        )
+        .expect("approved restore apply response");
 
         assert_eq!(applied["restore_apply"]["apply_status"], "applied");
         assert_eq!(applied["restore_apply"]["approval_satisfied"], true);

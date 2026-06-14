@@ -13,7 +13,6 @@ use super::{
     runtime_memory_projection::*, runtime_subagent_control::*, runtime_subagent_projection::*,
     runtime_thread_event::*, runtime_thread_fork_control::*, runtime_tool_catalog::*,
     runtime_workflow_edit_control::*, runtime_workspace_change_control::*, skill_hook_registry::*,
-    workspace_restore::*,
 };
 
 #[derive(Debug, Clone)]
@@ -276,31 +275,6 @@ pub fn dispatch_command_operation_response(
         CommandOperation::PlanModelMountReadProjection => {
             plan_model_mount_read_projection_response(decode(raw_request)?)
                 .map_err(CommandDispatchError::from)
-        }
-        CommandOperation::PlanWorkspaceRestoreApplyPolicy => {
-            plan_workspace_restore_apply_policy_response(decode(raw_request)?).map_err(Into::into)
-        }
-        CommandOperation::PreviewWorkspaceRestoreOperations => {
-            preview_workspace_restore_operations_response(decode(raw_request)?).map_err(Into::into)
-        }
-        CommandOperation::ApplyWorkspaceRestoreOperations => {
-            apply_workspace_restore_operations_response(decode(raw_request)?).map_err(Into::into)
-        }
-        CommandOperation::CaptureWorkspaceSnapshotFiles => {
-            capture_workspace_snapshot_files_response(decode(raw_request)?).map_err(Into::into)
-        }
-        CommandOperation::ProjectWorkspaceSnapshotList => {
-            project_workspace_snapshot_list_response(decode(raw_request)?).map_err(Into::into)
-        }
-        CommandOperation::ProjectWorkspaceSnapshotContentPackage => {
-            project_workspace_snapshot_content_package_response(decode(raw_request)?)
-                .map_err(Into::into)
-        }
-        CommandOperation::PreviewWorkspaceSnapshotRestore => {
-            preview_workspace_snapshot_restore_response(decode(raw_request)?).map_err(Into::into)
-        }
-        CommandOperation::ApplyWorkspaceSnapshotRestore => {
-            apply_workspace_snapshot_restore_response(decode(raw_request)?).map_err(Into::into)
         }
         CommandOperation::AdmitCodingToolResultEvent => {
             admit_coding_tool_result_event_response(decode(raw_request)?).map_err(|error| {
@@ -689,8 +663,6 @@ command_error_from!(ThreadLifecycleCommandError);
 command_error_from!(WorkspaceTrustControlCommandError);
 command_error_from!(RuntimeToolCatalogProjectionCommandError);
 command_error_from!(McpMemoryCommandError);
-command_error_from!(WorkspaceRestoreCommandError);
-
 impl From<ModelMountReadProjectionError> for CommandDispatchError {
     fn from(error: ModelMountReadProjectionError) -> Self {
         Self::new(error.code, error.message)

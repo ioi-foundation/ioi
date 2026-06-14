@@ -50,3 +50,44 @@ test("runtime store mounts workspace restore core from options", () => {
     rmSync(stateDir, { recursive: true, force: true });
   }
 });
+
+test("runtime store wires workspace restore core to typed Rust workspace API", () => {
+  const stateDir = mkdtempSync(join(tmpdir(), "ioi-workspace-restore-core-typed-store-"));
+  const calls = [];
+
+  try {
+    const store = new AgentgresRuntimeStateStore(stateDir, {
+      cwd: stateDir,
+      modelMountCore: modelMountCore(),
+      daemonCoreInvoker() {
+        throw new Error("generic daemonCoreInvoker must not run workspace restore typed APIs");
+      },
+      daemonCoreWorkspaceRestoreApi: {
+        projectWorkspaceSnapshotList(request) {
+          calls.push(request);
+          return {
+            source: "rust_workspace_snapshot_projection_protocol",
+            backend: "rust_workspace_restore",
+            projection_kind: "workspace_snapshot.list",
+            projection: { snapshots: [] },
+          };
+        },
+      },
+    });
+    try {
+      const result = store.workspaceRestoreCore.projectWorkspaceSnapshotList({
+        thread_id: "thread_alpha",
+      });
+
+      assert.equal(result.source, "rust_workspace_snapshot_projection_protocol");
+      assert.equal(calls.length, 1);
+      assert.equal(calls[0].request.thread_id, "thread_alpha");
+      assert.equal(Object.hasOwn(calls[0], "operation"), false);
+      assert.equal(Object.hasOwn(calls[0], "backend"), false);
+    } finally {
+      store.close();
+    }
+  } finally {
+    rmSync(stateDir, { recursive: true, force: true });
+  }
+});

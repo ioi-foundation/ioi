@@ -2,17 +2,23 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  RUST_WORKSPACE_RESTORE_BACKEND,
   RuntimeWorkspaceRestoreCore,
   RuntimeWorkspaceRestoreCoreError,
   WORKSPACE_RESTORE_APPLY_OPERATIONS_REQUEST_SCHEMA_VERSION,
   WORKSPACE_RESTORE_APPLY_POLICY_REQUEST_SCHEMA_VERSION,
-  WORKSPACE_RESTORE_CORE_SCHEMA_VERSION,
+  WORKSPACE_RESTORE_APPLY_OPERATIONS_API_METHOD,
+  WORKSPACE_RESTORE_APPLY_POLICY_API_METHOD,
+  WORKSPACE_RESTORE_PREVIEW_OPERATIONS_API_METHOD,
   WORKSPACE_RESTORE_PREVIEW_OPERATIONS_REQUEST_SCHEMA_VERSION,
+  WORKSPACE_SNAPSHOT_CAPTURE_API_METHOD,
   WORKSPACE_SNAPSHOT_CAPTURE_REQUEST_SCHEMA_VERSION,
+  WORKSPACE_SNAPSHOT_CONTENT_PACKAGE_API_METHOD,
   WORKSPACE_SNAPSHOT_CONTENT_PACKAGE_REQUEST_SCHEMA_VERSION,
+  WORKSPACE_SNAPSHOT_LIST_API_METHOD,
   WORKSPACE_SNAPSHOT_LIST_REQUEST_SCHEMA_VERSION,
+  WORKSPACE_SNAPSHOT_RESTORE_APPLY_API_METHOD,
   WORKSPACE_SNAPSHOT_RESTORE_APPLY_REQUEST_SCHEMA_VERSION,
+  WORKSPACE_SNAPSHOT_RESTORE_PREVIEW_API_METHOD,
   WORKSPACE_SNAPSHOT_RESTORE_PREVIEW_REQUEST_SCHEMA_VERSION,
   createRuntimeWorkspaceRestoreCore,
 } from "./runtime-workspace-restore-core.mjs";
@@ -38,16 +44,31 @@ function operationsRequest() {
   };
 }
 
-test("workspace restore core calls direct Rust daemon-core workspace APIs", () => {
+test("workspace restore core calls typed Rust daemon-core workspace APIs", () => {
   const calls = [];
+  const daemonCoreWorkspaceRestoreApi = Object.fromEntries(
+    [
+      WORKSPACE_RESTORE_APPLY_POLICY_API_METHOD,
+      WORKSPACE_RESTORE_PREVIEW_OPERATIONS_API_METHOD,
+      WORKSPACE_RESTORE_APPLY_OPERATIONS_API_METHOD,
+      WORKSPACE_SNAPSHOT_CAPTURE_API_METHOD,
+      WORKSPACE_SNAPSHOT_LIST_API_METHOD,
+      WORKSPACE_SNAPSHOT_CONTENT_PACKAGE_API_METHOD,
+      WORKSPACE_SNAPSHOT_RESTORE_PREVIEW_API_METHOD,
+      WORKSPACE_SNAPSHOT_RESTORE_APPLY_API_METHOD,
+    ].map((method) => [
+      method,
+      (request) => {
+        calls.push({ method, request });
+        return {
+          schema_version: "rust.envelope.v1",
+          method,
+        };
+      },
+    ]),
+  );
   const core = createRuntimeWorkspaceRestoreCore({
-    daemonCoreInvoker(coreRequest) {
-      calls.push(coreRequest);
-      return {
-        schema_version: "rust.envelope.v1",
-        operation: coreRequest.operation,
-      };
-    },
+    daemonCoreWorkspaceRestoreApi,
   });
 
   core.planApplyPolicy({ snapshot_id: "workspace_snapshot_alpha" });
@@ -89,34 +110,35 @@ test("workspace restore core calls direct Rust daemon-core workspace APIs", () =
   });
 
   assert.deepEqual(
-    calls.map((call) => call.operation),
+    calls.map((call) => call.method),
     [
-      "plan_workspace_restore_apply_policy",
-      "preview_workspace_restore_operations",
-      "apply_workspace_restore_operations",
-      "capture_workspace_snapshot_files",
-      "project_workspace_snapshot_list",
-      "project_workspace_snapshot_content_package",
-      "preview_workspace_snapshot_restore",
-      "apply_workspace_snapshot_restore",
+      WORKSPACE_RESTORE_APPLY_POLICY_API_METHOD,
+      WORKSPACE_RESTORE_PREVIEW_OPERATIONS_API_METHOD,
+      WORKSPACE_RESTORE_APPLY_OPERATIONS_API_METHOD,
+      WORKSPACE_SNAPSHOT_CAPTURE_API_METHOD,
+      WORKSPACE_SNAPSHOT_LIST_API_METHOD,
+      WORKSPACE_SNAPSHOT_CONTENT_PACKAGE_API_METHOD,
+      WORKSPACE_SNAPSHOT_RESTORE_PREVIEW_API_METHOD,
+      WORKSPACE_SNAPSHOT_RESTORE_APPLY_API_METHOD,
     ],
   );
   for (const call of calls) {
-    assert.equal(call.schema_version, WORKSPACE_RESTORE_CORE_SCHEMA_VERSION);
-    assert.equal(call.backend, RUST_WORKSPACE_RESTORE_BACKEND);
+    assert.equal(Object.hasOwn(call.request, "operation"), false);
+    assert.equal(Object.hasOwn(call.request, "backend"), false);
+    assert.equal(Object.hasOwn(call.request, "schema_version"), false);
   }
-  assert.equal(calls[0].request.schema_version, WORKSPACE_RESTORE_APPLY_POLICY_REQUEST_SCHEMA_VERSION);
-  assert.equal(calls[1].request.schema_version, WORKSPACE_RESTORE_PREVIEW_OPERATIONS_REQUEST_SCHEMA_VERSION);
-  assert.equal(calls[1].request.files[0].before.content_hash, "sha256-old");
-  assert.equal(calls[2].request.schema_version, WORKSPACE_RESTORE_APPLY_OPERATIONS_REQUEST_SCHEMA_VERSION);
-  assert.equal(calls[3].request.schema_version, WORKSPACE_SNAPSHOT_CAPTURE_REQUEST_SCHEMA_VERSION);
-  assert.equal(calls[3].thread_id, "thread_alpha");
-  assert.equal(calls[3].request.changed_files[0].before_hash, "sha256-old");
-  assert.equal(calls[3].request.content_drafts[0].before_content, "old");
-  assert.equal(calls[4].request.schema_version, WORKSPACE_SNAPSHOT_LIST_REQUEST_SCHEMA_VERSION);
-  assert.equal(calls[5].request.schema_version, WORKSPACE_SNAPSHOT_CONTENT_PACKAGE_REQUEST_SCHEMA_VERSION);
-  assert.equal(calls[6].request.schema_version, WORKSPACE_SNAPSHOT_RESTORE_PREVIEW_REQUEST_SCHEMA_VERSION);
-  assert.equal(calls[7].request.schema_version, WORKSPACE_SNAPSHOT_RESTORE_APPLY_REQUEST_SCHEMA_VERSION);
+  assert.equal(calls[0].request.request.schema_version, WORKSPACE_RESTORE_APPLY_POLICY_REQUEST_SCHEMA_VERSION);
+  assert.equal(calls[1].request.request.schema_version, WORKSPACE_RESTORE_PREVIEW_OPERATIONS_REQUEST_SCHEMA_VERSION);
+  assert.equal(calls[1].request.request.files[0].before.content_hash, "sha256-old");
+  assert.equal(calls[2].request.request.schema_version, WORKSPACE_RESTORE_APPLY_OPERATIONS_REQUEST_SCHEMA_VERSION);
+  assert.equal(calls[3].request.request.schema_version, WORKSPACE_SNAPSHOT_CAPTURE_REQUEST_SCHEMA_VERSION);
+  assert.equal(calls[3].request.thread_id, "thread_alpha");
+  assert.equal(calls[3].request.request.changed_files[0].before_hash, "sha256-old");
+  assert.equal(calls[3].request.request.content_drafts[0].before_content, "old");
+  assert.equal(calls[4].request.request.schema_version, WORKSPACE_SNAPSHOT_LIST_REQUEST_SCHEMA_VERSION);
+  assert.equal(calls[5].request.request.schema_version, WORKSPACE_SNAPSHOT_CONTENT_PACKAGE_REQUEST_SCHEMA_VERSION);
+  assert.equal(calls[6].request.request.schema_version, WORKSPACE_SNAPSHOT_RESTORE_PREVIEW_REQUEST_SCHEMA_VERSION);
+  assert.equal(calls[7].request.request.schema_version, WORKSPACE_SNAPSHOT_RESTORE_APPLY_REQUEST_SCHEMA_VERSION);
 });
 
 test("workspace restore core returns the Rust envelope without JS normalization", () => {
@@ -127,8 +149,10 @@ test("workspace restore core returns the Rust envelope without JS normalization"
     },
   };
   const core = createRuntimeWorkspaceRestoreCore({
-    daemonCoreInvoker() {
+    daemonCoreWorkspaceRestoreApi: {
+      previewWorkspaceSnapshotRestore() {
       return rustEnvelope;
+    },
     },
   });
 
@@ -150,6 +174,7 @@ test("workspace restore core rejects retired compatibility options", () => {
     { command: "ioi-runtime-daemon-core" },
     { args: ["--restore"] },
     { env: { IOI_WORKSPACE_RESTORE_COMMAND: "retired" } },
+    { daemonCoreInvoker() {} },
   ]) {
     assert.throws(
       () => new RuntimeWorkspaceRestoreCore(options),
@@ -163,9 +188,15 @@ test("workspace restore core rejects retired compatibility options", () => {
 test("workspace restore core rejects retired request aliases before Rust invocation", () => {
   const calls = [];
   const core = createRuntimeWorkspaceRestoreCore({
-    daemonCoreInvoker() {
+    daemonCoreWorkspaceRestoreApi: {
+      captureWorkspaceSnapshotFiles() {
       calls.push("invoked");
       return {};
+    },
+      applyWorkspaceRestoreOperations() {
+        calls.push("invoked");
+        return {};
+      },
     },
   });
 
@@ -196,18 +227,19 @@ test("workspace restore core rejects retired request aliases before Rust invocat
   assert.deepEqual(calls, []);
 });
 
-test("workspace restore core fails closed without direct daemon-core API", () => {
+test("workspace restore core fails closed without typed workspace restore API", () => {
   const core = createRuntimeWorkspaceRestoreCore({});
 
   assert.throws(
     () => core.planApplyPolicy({ snapshot_id: "workspace_snapshot_alpha" }),
-    (error) => error.code === "workspace_restore_core_direct_invoker_unconfigured",
+    (error) => error.code === "workspace_restore_core_direct_workspace_restore_api_unconfigured",
   );
 });
 
 test("workspace restore core surfaces Rust rejection", () => {
   const core = createRuntimeWorkspaceRestoreCore({
-    daemonCoreInvoker() {
+    daemonCoreWorkspaceRestoreApi: {
+      applyWorkspaceSnapshotRestore() {
       return {
         ok: false,
         error: {
@@ -215,6 +247,7 @@ test("workspace restore core surfaces Rust rejection", () => {
           message: "MissingSnapshotId",
         },
       };
+    },
     },
   });
 
