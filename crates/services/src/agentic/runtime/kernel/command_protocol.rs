@@ -43,12 +43,6 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "plan_runtime_coding_tool_artifact_drafts",
     "project_runtime_coding_tool_artifact_read",
     "plan_post_edit_diagnostics_feedback",
-    "evaluate_context_budget_policy",
-    "evaluate_coding_tool_budget_policy",
-    "plan_coding_tool_budget_block",
-    "evaluate_compaction_policy",
-    "plan_context_compaction",
-    "plan_context_compaction_state_update",
     "plan_coding_tool_budget_recovery_state_update",
     "plan_coding_tool_budget_recovery_control",
     "plan_workflow_edit_admission_required",
@@ -152,12 +146,6 @@ pub enum CommandOperation {
     PlanRuntimeCodingToolArtifactDrafts,
     ProjectRuntimeCodingToolArtifactRead,
     PlanPostEditDiagnosticsFeedback,
-    EvaluateContextBudgetPolicy,
-    EvaluateCodingToolBudgetPolicy,
-    PlanCodingToolBudgetBlock,
-    EvaluateCompactionPolicy,
-    PlanContextCompaction,
-    PlanContextCompactionStateUpdate,
     PlanCodingToolBudgetRecoveryStateUpdate,
     PlanCodingToolBudgetRecoveryControl,
     PlanWorkflowEditAdmissionRequired,
@@ -272,12 +260,6 @@ impl CommandOperation {
                 "project_runtime_coding_tool_artifact_read"
             }
             Self::PlanPostEditDiagnosticsFeedback => "plan_post_edit_diagnostics_feedback",
-            Self::EvaluateContextBudgetPolicy => "evaluate_context_budget_policy",
-            Self::EvaluateCodingToolBudgetPolicy => "evaluate_coding_tool_budget_policy",
-            Self::PlanCodingToolBudgetBlock => "plan_coding_tool_budget_block",
-            Self::EvaluateCompactionPolicy => "evaluate_compaction_policy",
-            Self::PlanContextCompaction => "plan_context_compaction",
-            Self::PlanContextCompactionStateUpdate => "plan_context_compaction_state_update",
             Self::PlanCodingToolBudgetRecoveryStateUpdate => {
                 "plan_coding_tool_budget_recovery_state_update"
             }
@@ -516,16 +498,6 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
         }
         "plan_post_edit_diagnostics_feedback" => {
             Some(CommandOperation::PlanPostEditDiagnosticsFeedback)
-        }
-        "evaluate_context_budget_policy" => Some(CommandOperation::EvaluateContextBudgetPolicy),
-        "evaluate_coding_tool_budget_policy" => {
-            Some(CommandOperation::EvaluateCodingToolBudgetPolicy)
-        }
-        "plan_coding_tool_budget_block" => Some(CommandOperation::PlanCodingToolBudgetBlock),
-        "evaluate_compaction_policy" => Some(CommandOperation::EvaluateCompactionPolicy),
-        "plan_context_compaction" => Some(CommandOperation::PlanContextCompaction),
-        "plan_context_compaction_state_update" => {
-            Some(CommandOperation::PlanContextCompactionStateUpdate)
         }
         "plan_coding_tool_budget_recovery_state_update" => {
             Some(CommandOperation::PlanCodingToolBudgetRecoveryStateUpdate)
@@ -793,6 +765,21 @@ mod tests {
                 .code(),
             "operation_unknown"
         );
+    }
+
+    #[test]
+    fn context_lifecycle_command_transport_is_retired() {
+        for operation in [
+            "evaluate_context_budget_policy",
+            "evaluate_coding_tool_budget_policy",
+            "plan_coding_tool_budget_block",
+            "evaluate_compaction_policy",
+            "plan_context_compaction",
+            "plan_context_compaction_state_update",
+        ] {
+            assert_eq!(command_operation(operation), None);
+            assert_eq!(expected_command_schema_version(operation), None);
+        }
     }
 
     #[test]

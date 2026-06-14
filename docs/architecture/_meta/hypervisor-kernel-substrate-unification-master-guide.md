@@ -7820,11 +7820,9 @@ and proves the old bridge-named context lifecycle tests, request-type imports,
 and response-function aliases stay absent from
 `ioi_step_module_bridge/proof_tests.rs`.
 
-This remains non-terminal because context lifecycle policy decisions still cross
-temporary command transport. The target is direct Rust daemon-core context
-lifecycle policy/projection API ownership where context-budget admission,
-compaction policy, Agentgres truth, replay, and conformance no longer depend on
-Node bridge endpoint proof scaffolding. Public context compaction is no longer a
+This remains non-terminal because durable context lifecycle replay/projection,
+richer policy receipts/state roots, wallet/cTEE authority, and stable
+IDE/CLI/SDK APIs still need direct Rust ownership. Public context compaction is no longer a
 fail-closed JS facade: `compactThread()` now uses Rust event planning, Rust
 runtime-event admission, Rust state-update planning bound to the admitted event
 id/seq, and Agentgres-backed run/agent persistence. Thread/run context-budget and
@@ -7834,6 +7832,19 @@ the Rust-owned compaction API. Schedule the next
 matrix-compaction pass only after the next direct Rust-core API extraction or
 facade-retirement seam makes it clear which temporary transport rows can be
 collapsed without canonizing the bridge.
+
+The context lifecycle transport cut after Slice 1178 replaces the temporary
+context lifecycle command path with typed `daemonCoreContextLifecycleApi`
+methods for context-budget policy, coding-tool budget policy, coding-tool
+budget-block planning, compaction-policy, context-compaction planning, and
+context-compaction state-update planning. The JS runtime context-policy core now
+sends canonical request bodies to that typed API without generic command
+`operation`/`backend` envelopes, and Rust `command_protocol.rs`/
+`command_dispatch.rs` reject the old context lifecycle command operations. This
+does not claim terminal context-policy migration: durable replay/projection,
+richer policy receipts/state roots, wallet/cTEE authority, stable IDE/CLI/SDK
+APIs, and the remaining non-context lifecycle state-update families still need
+direct Rust ownership.
 
 Slice 1179 moves the runtime-control command-response proof cluster out of the
 temporary bridge proof surface and relies on the Rust policy owners at

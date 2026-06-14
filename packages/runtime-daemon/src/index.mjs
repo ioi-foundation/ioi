@@ -595,6 +595,7 @@ export class AgentgresRuntimeStateStore {
     this.conversationArtifacts = new ConversationArtifactStore(this.stateDir);
     this.runtimeBridge = createRuntimeApiBridge(options.runtimeBridge);
     this.daemonCoreInvoker = options.daemonCoreInvoker;
+    this.daemonCoreContextLifecycleApi = options.daemonCoreContextLifecycleApi;
     this.daemonCoreAgentgresApi = options.daemonCoreAgentgresApi;
     this.daemonCoreAuthorityApi = options.daemonCoreAuthorityApi;
     this.daemonCoreApprovalApi = options.daemonCoreApprovalApi;
@@ -614,6 +615,7 @@ export class AgentgresRuntimeStateStore {
       options.contextPolicyCore ??
       createRuntimeContextPolicyCore({
         daemonCoreInvoker: this.daemonCoreInvoker,
+        daemonCoreContextLifecycleApi: this.daemonCoreContextLifecycleApi,
       });
     this.codingToolApprovalCore =
       options.codingToolApprovalCore ??

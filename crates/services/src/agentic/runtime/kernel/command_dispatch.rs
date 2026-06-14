@@ -299,24 +299,6 @@ pub fn dispatch_command_operation_response(
                 )
             })
         }
-        CommandOperation::EvaluateContextBudgetPolicy => {
-            evaluate_context_budget_policy_response(decode(raw_request)?).map_err(Into::into)
-        }
-        CommandOperation::EvaluateCodingToolBudgetPolicy => {
-            evaluate_coding_tool_budget_policy_response(decode(raw_request)?).map_err(Into::into)
-        }
-        CommandOperation::PlanCodingToolBudgetBlock => {
-            plan_coding_tool_budget_block_response(decode(raw_request)?).map_err(Into::into)
-        }
-        CommandOperation::EvaluateCompactionPolicy => {
-            evaluate_compaction_policy_response(decode(raw_request)?).map_err(Into::into)
-        }
-        CommandOperation::PlanContextCompaction => {
-            plan_context_compaction_response(decode(raw_request)?).map_err(Into::into)
-        }
-        CommandOperation::PlanContextCompactionStateUpdate => {
-            plan_context_compaction_state_update_response(decode(raw_request)?).map_err(Into::into)
-        }
         CommandOperation::PlanCodingToolBudgetRecoveryStateUpdate => {
             plan_coding_tool_budget_recovery_state_update_response(decode(raw_request)?)
                 .map_err(Into::into)

@@ -9,6 +9,7 @@ import { AgentgresRuntimeStateStore } from "./index.mjs";
 test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-daemon-core-direct-"));
   const calls = [];
+  const contextLifecycleCalls = [];
   const agentgresCalls = [];
   const approvalCalls = [];
   const governedAdmissionCalls = [];
@@ -36,6 +37,20 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
     daemonCoreInvoker(request) {
       calls.push(request);
       throw new Error(`generic command invoker must not run migrated typed APIs: ${request?.operation}`);
+    },
+    daemonCoreContextLifecycleApi: {
+      evaluateContextBudgetPolicy(request) {
+        contextLifecycleCalls.push({ method: "evaluateContextBudgetPolicy", request });
+        return {
+          source: "direct_context_lifecycle_api",
+          backend: "rust_policy",
+          status: "allowed",
+          mode: "monitor",
+          usage_telemetry: request.usage_telemetry,
+          usage_summary: request.usage_telemetry,
+          policy_decision_refs: ["policy://direct-context-budget"],
+        };
+      },
     },
     daemonCoreAgentgresApi: {
       commitRuntimeRunState(request) {
@@ -96,6 +111,19 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
   );
 
   assert.equal(calls.length, 0);
+  const contextBudget = store.contextPolicyCore.evaluateContextBudgetPolicy({
+    usage_telemetry: { total_tokens: 12 },
+    mode: "monitor",
+    thread_id: "thread_direct",
+  });
+  assert.equal(calls.length, 0);
+  assert.equal(contextLifecycleCalls.length, 1);
+  assert.equal(contextLifecycleCalls[0].method, "evaluateContextBudgetPolicy");
+  assert.equal(contextLifecycleCalls[0].request.schema_version, "ioi.runtime.context-budget-policy-request.v1");
+  assert.equal(Object.hasOwn(contextLifecycleCalls[0].request, "operation"), false);
+  assert.equal(Object.hasOwn(contextLifecycleCalls[0].request, "backend"), false);
+  assert.equal(contextBudget.source, "direct_context_lifecycle_api");
+  assert.deepEqual(contextBudget.policy_decision_refs, ["policy://direct-context-budget"]);
   const queue = store.approvalStateCore.projectApprovalQueue({
     thread_id: "thread_direct",
     state_dir: stateDir,

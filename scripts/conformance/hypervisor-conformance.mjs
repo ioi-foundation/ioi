@@ -4114,8 +4114,17 @@ function runBridge() {
       !/this\.daemonCoreInvoker = optionalFunction\(options\.daemonCoreInvoker\)|ioi\.runtime\.daemon_core\.command\.v1|operation:\s*"admit_storage_backend_write"/.test(
         runtimeAgentgresCore,
       ) &&
-      /createRuntimeContextPolicyCore\(\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
+      /this\.daemonCoreContextLifecycleApi = options\.daemonCoreContextLifecycleApi/.test(
         runtimeDaemonIndex,
+      ) &&
+      /createRuntimeContextPolicyCore\(\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*daemonCoreContextLifecycleApi: this\.daemonCoreContextLifecycleApi,\s*\}\)/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /daemonCoreContextLifecycleApi:\s*\{[\s\S]*?evaluateContextBudgetPolicy\(request\)/.test(
+        daemonCoreDirectInvokerServiceTest,
+      ) &&
+      /Object\.hasOwn\(contextLifecycleCalls\[0\]\.request,\s*"operation"\),\s*false/.test(
+        daemonCoreDirectInvokerServiceTest,
       ) &&
       /this\.daemonCoreAuthorityApi = options\.daemonCoreAuthorityApi/.test(runtimeDaemonIndex) &&
       /createRuntimeExternalCapabilityAuthorityCore\(\{\s*daemonCoreAuthorityApi: this\.daemonCoreAuthorityApi,\s*\}\)/.test(
@@ -7465,13 +7474,15 @@ function runBridge() {
       /pub fn plan_coding_tool_budget_block_response/.test(policyContextLifecycleCore) &&
       /rust_policy_plans_coding_tool_budget_block_result_event/.test(policyContextLifecycleCore) &&
       /rust_core_shapes_coding_tool_budget_block_command_response/.test(policyContextLifecycleCore) &&
-      /plan_coding_tool_budget_block/.test(commandProtocolCore) &&
-      /CommandOperation::PlanCodingToolBudgetBlock/.test(commandProtocolCore) &&
-      /plan_coding_tool_budget_block_response/.test(coreCommandDispatch) &&
+      !/CommandOperation::PlanCodingToolBudgetBlock/.test(commandProtocolCore) &&
+      !/"plan_coding_tool_budget_block"\s*=>/.test(commandProtocolCore) &&
+      !/plan_coding_tool_budget_block_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      /CONTEXT_LIFECYCLE_CODING_TOOL_BUDGET_BLOCK_API_METHOD =\s*"planCodingToolBudgetBlock"/.test(runtimeContextPolicyCore) &&
+      /daemonCoreContextLifecycleApi/.test(runtimeContextPolicyCore) &&
       /planCodingToolBudgetBlock/.test(runtimeContextPolicyCore) &&
       /CODING_TOOL_BUDGET_BLOCK_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyCore) &&
       /normalizeCodingToolBudgetBlockBridgeResult/.test(runtimeContextPolicyCore) &&
-      /coding tool budget block core sends Rust block request through typed Rust daemon-core Agentgres API/.test(
+      /coding tool budget block core sends Rust block request through direct context lifecycle API/.test(
         runtimeContextPolicyCoreTest,
       ) &&
       /codingToolBudgetBlockPlanner/.test(runtimeCodingToolGovernanceSurface) &&
@@ -9958,9 +9969,9 @@ function runBridge() {
     /ContextBudgetPolicyCore/.test(policyCore) &&
       /ContextBudgetPolicyRequest/.test(policyCore) &&
       /CONTEXT_BUDGET_POLICY_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
-      /rust_policy_blocks_context_budget_excess/.test(policyCore) &&
-      /runtime_event_item_id/.test(policyCore) &&
-      /runtime_event_idempotency_key/.test(policyCore) &&
+      /rust_policy_blocks_context_budget_excess/.test(policyContextLifecycleCore) &&
+      /runtime_event_item_id/.test(policyContextLifecycleCore) &&
+      /runtime_event_idempotency_key/.test(policyContextLifecycleCore) &&
       !/mod context_policy_command;/.test(bridgeModule) &&
       !contextPolicyCommandBridgeExists &&
       /fn evaluate_context_budget_policy_response/.test(policyContextLifecycleCore) &&
@@ -9991,7 +10002,12 @@ function runBridge() {
       /assertNoRuntimeContextPolicyCoreOption\("env",\s*options\.env\)/.test(
         runtimeContextPolicyCore,
       ) &&
-      /ioi\.runtime\.daemon_core\.command\.v1/.test(runtimeContextPolicyCore) &&
+      /CONTEXT_LIFECYCLE_CONTEXT_BUDGET_POLICY_API_METHOD =\s*"evaluateContextBudgetPolicy"/.test(
+        runtimeContextPolicyCore,
+      ) &&
+      /this\.daemonCoreContextLifecycleApi = contextLifecycleApi/.test(runtimeContextPolicyCore) &&
+      /invokeContextLifecycleApi/.test(runtimeContextPolicyCore) &&
+      /daemonCoreContextLifecycleApi\.\$\{method\}/.test(runtimeContextPolicyCore) &&
       !/IOI_STEP_MODULE_COMMAND/.test(runtimeContextPolicyCore) &&
       !/CONTEXT_POLICY_COMMAND_ARGS_ENV/.test(runtimeContextPolicyCore) &&
       !/parseCommandArgs/.test(runtimeContextPolicyCore) &&
@@ -10001,12 +10017,20 @@ function runBridge() {
       /assertNoRuntimeContextPolicyCoreOption/.test(runtimeContextPolicyCore) &&
       /evaluateContextBudgetPolicy/.test(runtimeContextPolicyCore) &&
       /runtime_context_policy_core_\$\{option\}_retired/.test(runtimeContextPolicyCore) &&
-      /runtime_context_policy_core_direct_invoker_unconfigured/.test(runtimeContextPolicyCore) &&
+      /runtime_context_policy_core_direct_context_lifecycle_api_unconfigured/.test(
+        runtimeContextPolicyCore,
+      ) &&
       !/createDaemonCoreCommandInvoker/.test(runtimeContextPolicyCore) &&
       !/spawnSyncImpl/.test(runtimeContextPolicyCore) &&
       !/from "node:child_process"/.test(runtimeContextPolicyCore) &&
       /runtime_event_item_id/.test(runtimeContextPolicyCore) &&
-      /runtime context policy core uses daemon-level direct invoker/.test(
+      !/operation:\s*"evaluate_context_budget_policy"/.test(runtimeContextPolicyCore) &&
+      !/CommandOperation::EvaluateContextBudgetPolicy/.test(commandProtocolCore) &&
+      !/"evaluate_context_budget_policy"\s*=>/.test(commandProtocolCore) &&
+      !/evaluate_context_budget_policy_response\(decode\(raw_request\)\?\)/.test(
+        coreCommandDispatch,
+      ) &&
+      /runtime context policy core uses daemon-level context lifecycle API/.test(
         runtimeContextPolicyCoreTest,
       ) &&
       /runtime context policy core rejects retired daemon-core command option/.test(
@@ -10021,7 +10045,10 @@ function runBridge() {
         runtimeContextPolicyCoreTest,
       ) &&
       /runtime_context_policy_core_command_retired/.test(runtimeContextPolicyCoreTest) &&
-      /context budget policy core sends generic Rust policy through typed Rust daemon-core Agentgres API/.test(
+      /context budget policy core sends Rust policy through direct context lifecycle API/.test(
+        runtimeContextPolicyCoreTest,
+      ) &&
+      /Object\.hasOwn\(calls\[0\]\.request,\s*"operation"\),\s*false/.test(
         runtimeContextPolicyCoreTest,
       ) &&
       /runtime_context_policy_rust_core_required/.test(runtimeContextPolicySurface) &&
@@ -10070,7 +10097,7 @@ function runBridge() {
       !/(?:\.|\b)(?:agentForThread|getRun|writeRun|writeAgent)\s*\(/.test(
         runtimeContextBudgetEvaluationBlock,
       ) &&
-      /runtime context policy core fails closed without direct invoker/.test(
+      /runtime context lifecycle core fails closed without direct context lifecycle API/.test(
         runtimeContextPolicyCoreTest,
       ) &&
       !/\brequest\.(?:workflowNodeId|workflowGraphId|threadId|runId|turnId|eventKind)\b/.test(
@@ -10137,8 +10164,17 @@ function runBridge() {
       !/fn evaluate_coding_tool_budget_policy/.test(bridgeModule) &&
       /createRuntimeContextPolicyCore/.test(runtimeContextPolicyCore) &&
       /RuntimeContextPolicyCore/.test(runtimeContextPolicyCore) &&
+      /CONTEXT_LIFECYCLE_CODING_TOOL_BUDGET_POLICY_API_METHOD =\s*"evaluateCodingToolBudgetPolicy"/.test(
+        runtimeContextPolicyCore,
+      ) &&
+      !/operation:\s*"evaluate_coding_tool_budget_policy"/.test(runtimeContextPolicyCore) &&
+      !/CommandOperation::EvaluateCodingToolBudgetPolicy/.test(commandProtocolCore) &&
+      !/"evaluate_coding_tool_budget_policy"\s*=>/.test(commandProtocolCore) &&
+      !/evaluate_coding_tool_budget_policy_response\(decode\(raw_request\)\?\)/.test(
+        coreCommandDispatch,
+      ) &&
       /evaluateCodingToolBudgetPolicy/.test(runtimeContextPolicyCore) &&
-      /coding tool budget core sends Rust policy through typed Rust daemon-core Agentgres API/.test(
+      /coding tool budget core sends Rust policy through direct context lifecycle API/.test(
         runtimeContextPolicyCoreTest,
       ) &&
       /budgetRunner\.evaluateCodingToolBudgetPolicy/.test(codingToolBudgetPolicySurface) &&
@@ -10152,19 +10188,19 @@ function runBridge() {
         codingToolBudgetPolicySurfaceTest,
       ),
     [
-	      "crates/services/src/agentic/runtime/kernel/policy.rs",
-	      "crates/services/src/agentic/runtime/kernel/policy/mcp_memory.rs",
-	      "crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs",
-	      "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
-	      "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
-	      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "crates/services/src/agentic/runtime/kernel/policy.rs",
+      "crates/services/src/agentic/runtime/kernel/policy/mcp_memory.rs",
+      "crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs",
+      "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
+      "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs",
       "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
       "packages/runtime-daemon/src/threads/context-budget-policy.mjs",
       "packages/runtime-daemon/src/threads/context-budget-policy.test.mjs",
     ],
-    "Phase 9/10 is pending: coding-tool budget preflight must be evaluated by Rust policy core through the command bridge",
+    "Phase 9/10 is pending: coding-tool budget preflight must be evaluated by Rust daemon-core policy through the typed context lifecycle API",
   );
   assertCheck(
     result,
@@ -14201,9 +14237,18 @@ function runBridge() {
       !/struct CompactionPolicyBridgeRequest/.test(bridgeModule) &&
       /createRuntimeContextPolicyCore/.test(runtimeContextPolicyCore) &&
       /RuntimeContextPolicyCore/.test(runtimeContextPolicyCore) &&
+      /CONTEXT_LIFECYCLE_COMPACTION_POLICY_API_METHOD =\s*"evaluateCompactionPolicy"/.test(
+        runtimeContextPolicyCore,
+      ) &&
+      !/operation:\s*"evaluate_compaction_policy"/.test(runtimeContextPolicyCore) &&
+      !/CommandOperation::EvaluateCompactionPolicy/.test(commandProtocolCore) &&
+      !/"evaluate_compaction_policy"\s*=>/.test(commandProtocolCore) &&
+      !/evaluate_compaction_policy_response\(decode\(raw_request\)\?\)/.test(
+        coreCommandDispatch,
+      ) &&
       /evaluateCompactionPolicy/.test(runtimeContextPolicyCore) &&
       /runtime_event_item_id/.test(runtimeContextPolicyCore) &&
-      /compaction policy core sends Rust policy through typed Rust daemon-core Agentgres API/.test(
+      /compaction policy core sends Rust policy through direct context lifecycle API/.test(
         runtimeContextPolicyCoreTest,
       ) &&
       /runtime_context_policy_rust_core_required/.test(runtimeContextPolicySurface) &&
@@ -14581,9 +14626,18 @@ function runBridge() {
       !/bridge_plans_context_compaction_through_rust_core/.test(bridgeModule) &&
       !/fn plan_context_compaction/.test(bridgeModule) &&
       !/struct ContextCompactionPlanBridgeRequest/.test(bridgeModule) &&
+      /CONTEXT_LIFECYCLE_CONTEXT_COMPACTION_PLAN_API_METHOD =\s*"planContextCompaction"/.test(
+        runtimeContextPolicyCore,
+      ) &&
+      !/operation:\s*"plan_context_compaction"/.test(runtimeContextPolicyCore) &&
+      !/CommandOperation::PlanContextCompaction/.test(commandProtocolCore) &&
+      !/"plan_context_compaction"\s*=>/.test(commandProtocolCore) &&
+      !/plan_context_compaction_response\(decode\(raw_request\)\?\)/.test(
+        coreCommandDispatch,
+      ) &&
       /planContextCompaction/.test(runtimeContextPolicyCore) &&
       /CONTEXT_COMPACTION_PLAN_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyCore) &&
-      /context compaction core sends Rust plan through typed Rust daemon-core Agentgres API/.test(
+      /context compaction core sends Rust plan through direct context lifecycle API/.test(
         runtimeContextPolicyCoreTest,
       ) &&
       /runtime_context_policy_rust_core_required/.test(runtimeContextPolicySurface) &&
@@ -14670,11 +14724,20 @@ function runBridge() {
       ) &&
       !/fn plan_context_compaction_state_update/.test(bridgeModule) &&
       !/struct ContextCompactionStateUpdateBridgeRequest/.test(bridgeModule) &&
+      /CONTEXT_LIFECYCLE_CONTEXT_COMPACTION_STATE_UPDATE_API_METHOD =\s*"planContextCompactionStateUpdate"/.test(
+        runtimeContextPolicyCore,
+      ) &&
+      !/operation:\s*"plan_context_compaction_state_update"/.test(runtimeContextPolicyCore) &&
+      !/CommandOperation::PlanContextCompactionStateUpdate/.test(commandProtocolCore) &&
+      !/"plan_context_compaction_state_update"\s*=>/.test(commandProtocolCore) &&
+      !/plan_context_compaction_state_update_response\(decode\(raw_request\)\?\)/.test(
+        coreCommandDispatch,
+      ) &&
       /planContextCompactionStateUpdate/.test(runtimeContextPolicyCore) &&
       /CONTEXT_COMPACTION_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
         runtimeContextPolicyCore,
       ) &&
-      /context compaction state update core sends Rust state update through typed Rust daemon-core Agentgres API/.test(
+      /context compaction state update core sends Rust state update through direct context lifecycle API/.test(
         runtimeContextPolicyCoreTest,
       ) &&
       /result\.operator_control\.event_id/.test(runtimeContextPolicyCoreTest) &&

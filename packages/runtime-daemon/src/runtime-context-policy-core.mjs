@@ -142,6 +142,18 @@ export const CONTEXT_COMPACTION_PLAN_REQUEST_SCHEMA_VERSION =
 export const CONTEXT_COMPACTION_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.context-compaction-state-update-request.v1";
 export const RUST_CONTEXT_POLICY_BACKEND = "rust_policy";
+export const CONTEXT_LIFECYCLE_CONTEXT_BUDGET_POLICY_API_METHOD =
+  "evaluateContextBudgetPolicy";
+export const CONTEXT_LIFECYCLE_CODING_TOOL_BUDGET_POLICY_API_METHOD =
+  "evaluateCodingToolBudgetPolicy";
+export const CONTEXT_LIFECYCLE_CODING_TOOL_BUDGET_BLOCK_API_METHOD =
+  "planCodingToolBudgetBlock";
+export const CONTEXT_LIFECYCLE_COMPACTION_POLICY_API_METHOD =
+  "evaluateCompactionPolicy";
+export const CONTEXT_LIFECYCLE_CONTEXT_COMPACTION_PLAN_API_METHOD =
+  "planContextCompaction";
+export const CONTEXT_LIFECYCLE_CONTEXT_COMPACTION_STATE_UPDATE_API_METHOD =
+  "planContextCompactionStateUpdate";
 
 export function createRuntimeContextPolicyCore(options = {}) {
   return new RuntimeContextPolicyCore(options);
@@ -152,7 +164,7 @@ export function assertNoRuntimeContextPolicyCoreOption(option, value) {
   if (typeof value === "string" && value.trim().length === 0) return;
   if (value == null) return;
   throw new RuntimeContextPolicyCoreError(
-    `Runtime context policy core ${option} selection is retired; use daemonCoreInvoker for direct Rust daemon-core policy evaluation.`,
+    `Runtime context policy core ${option} selection is retired; use typed daemonCore APIs for direct Rust daemon-core policy evaluation.`,
     `runtime_context_policy_core_${option}_retired`,
     { [`retired_${option}`]: value },
   );
@@ -164,54 +176,61 @@ export class RuntimeContextPolicyCore {
     assertNoRuntimeContextPolicyCoreOption("args", options.args);
     assertNoRuntimeContextPolicyCoreOption("env", options.env);
     this.daemonCoreInvoker = optionalFunction(options.daemonCoreInvoker);
+    this.daemonCoreContextLifecycleApi = contextLifecycleApi(
+      options.daemonCoreContextLifecycleApi ??
+        options.daemonCoreApi?.contextLifecycle ??
+        options.daemonCoreApi?.context_lifecycle ??
+        options.daemonCoreApi?.contextPolicy ??
+        options.daemonCoreApi?.context_policy,
+    );
   }
 
   evaluateContextBudgetPolicy(request = {}) {
-    return this.evaluatePolicy({
-      operation: "evaluate_context_budget_policy",
-      schemaVersion: CONTEXT_BUDGET_POLICY_REQUEST_SCHEMA_VERSION,
+    return normalizeContextBudgetPolicyBridgeResult(this.invokeContextLifecycleApi(
+      CONTEXT_LIFECYCLE_CONTEXT_BUDGET_POLICY_API_METHOD,
+      CONTEXT_BUDGET_POLICY_REQUEST_SCHEMA_VERSION,
       request,
-    });
+    ));
   }
 
   evaluateCodingToolBudgetPolicy(request = {}) {
-    return this.evaluatePolicy({
-      operation: "evaluate_coding_tool_budget_policy",
-      schemaVersion: CODING_TOOL_BUDGET_POLICY_REQUEST_SCHEMA_VERSION,
+    return normalizeContextBudgetPolicyBridgeResult(this.invokeContextLifecycleApi(
+      CONTEXT_LIFECYCLE_CODING_TOOL_BUDGET_POLICY_API_METHOD,
+      CODING_TOOL_BUDGET_POLICY_REQUEST_SCHEMA_VERSION,
       request,
-    });
+    ));
   }
 
   planCodingToolBudgetBlock(request = {}) {
-    return normalizeCodingToolBudgetBlockBridgeResult(this.evaluateRawPolicy({
-      operation: "plan_coding_tool_budget_block",
-      schemaVersion: CODING_TOOL_BUDGET_BLOCK_REQUEST_SCHEMA_VERSION,
+    return normalizeCodingToolBudgetBlockBridgeResult(this.invokeContextLifecycleApi(
+      CONTEXT_LIFECYCLE_CODING_TOOL_BUDGET_BLOCK_API_METHOD,
+      CODING_TOOL_BUDGET_BLOCK_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   evaluateCompactionPolicy(request = {}) {
-    return normalizeCompactionPolicyBridgeResult(this.evaluateRawPolicy({
-      operation: "evaluate_compaction_policy",
-      schemaVersion: COMPACTION_POLICY_REQUEST_SCHEMA_VERSION,
+    return normalizeCompactionPolicyBridgeResult(this.invokeContextLifecycleApi(
+      CONTEXT_LIFECYCLE_COMPACTION_POLICY_API_METHOD,
+      COMPACTION_POLICY_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   planContextCompaction(request = {}) {
-    return normalizeContextCompactionPlanBridgeResult(this.evaluateRawPolicy({
-      operation: "plan_context_compaction",
-      schemaVersion: CONTEXT_COMPACTION_PLAN_REQUEST_SCHEMA_VERSION,
+    return normalizeContextCompactionPlanBridgeResult(this.invokeContextLifecycleApi(
+      CONTEXT_LIFECYCLE_CONTEXT_COMPACTION_PLAN_API_METHOD,
+      CONTEXT_COMPACTION_PLAN_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   planContextCompactionStateUpdate(request = {}) {
-    return normalizeContextCompactionStateUpdateBridgeResult(this.evaluateRawPolicy({
-      operation: "plan_context_compaction_state_update",
-      schemaVersion: CONTEXT_COMPACTION_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+    return normalizeContextCompactionStateUpdateBridgeResult(this.invokeContextLifecycleApi(
+      CONTEXT_LIFECYCLE_CONTEXT_COMPACTION_STATE_UPDATE_API_METHOD,
+      CONTEXT_COMPACTION_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   planCodingToolBudgetRecoveryStateUpdate(request = {}) {
@@ -734,14 +753,6 @@ export class RuntimeContextPolicyCore {
     }));
   }
 
-  evaluatePolicy({ operation, schemaVersion, request }) {
-    return normalizeContextBudgetPolicyBridgeResult(this.evaluateRawPolicy({
-      operation,
-      schemaVersion,
-      request,
-    }));
-  }
-
   evaluateRawPolicy({ operation, schemaVersion, request }) {
     const bridgeRequest = {
       schema_version: CONTEXT_POLICY_COMMAND_SCHEMA_VERSION,
@@ -753,6 +764,33 @@ export class RuntimeContextPolicyCore {
       },
     };
     return this.invokeDaemonCore(bridgeRequest);
+  }
+
+  invokeContextLifecycleApi(method, schemaVersion, request = {}) {
+    const invoke = this.daemonCoreContextLifecycleApi?.[method];
+    if (typeof invoke !== "function") {
+      throw new RuntimeContextPolicyCoreError(
+        `Context lifecycle policy requires daemonCoreContextLifecycleApi.${method} for direct Rust daemon-core policy evaluation.`,
+        "runtime_context_policy_core_direct_context_lifecycle_api_unconfigured",
+        {
+          boundary: `daemonCoreContextLifecycleApi.${method}`,
+          backend: RUST_CONTEXT_POLICY_BACKEND,
+        },
+      );
+    }
+    const response = invoke.call(this.daemonCoreContextLifecycleApi, {
+      ...(objectRecord(request) ?? {}),
+      schema_version: schemaVersion,
+    });
+    const responseError = objectRecord(response?.error);
+    if (response?.ok === false && responseError) {
+      throw new RuntimeContextPolicyCoreError(
+        responseError.message ?? "Rust context lifecycle policy rejected the request.",
+        responseError.code ?? "context_lifecycle_direct_api_rejected",
+        { error: responseError },
+      );
+    }
+    return response?.ok === true ? response.result : response;
   }
 
   invokeDaemonCore(request) {
@@ -2900,6 +2938,10 @@ function optionalString(value) {
 
 function optionalFunction(value) {
   return typeof value === "function" ? value : null;
+}
+
+function contextLifecycleApi(value) {
+  return objectRecord(value);
 }
 
 function objectRecord(value) {

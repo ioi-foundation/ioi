@@ -10,6 +10,12 @@ import {
   CODING_TOOL_BUDGET_RECOVERY_CONTROL_REQUEST_SCHEMA_VERSION,
   CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   CODING_TOOL_RESULT_ENVELOPE_PLAN_REQUEST_SCHEMA_VERSION,
+  CONTEXT_LIFECYCLE_CODING_TOOL_BUDGET_BLOCK_API_METHOD,
+  CONTEXT_LIFECYCLE_CODING_TOOL_BUDGET_POLICY_API_METHOD,
+  CONTEXT_LIFECYCLE_COMPACTION_POLICY_API_METHOD,
+  CONTEXT_LIFECYCLE_CONTEXT_BUDGET_POLICY_API_METHOD,
+  CONTEXT_LIFECYCLE_CONTEXT_COMPACTION_PLAN_API_METHOD,
+  CONTEXT_LIFECYCLE_CONTEXT_COMPACTION_STATE_UPDATE_API_METHOD,
   RUNTIME_CODING_TOOL_ARTIFACT_DRAFT_PLAN_REQUEST_SCHEMA_VERSION,
   RUNTIME_CODING_TOOL_ARTIFACT_READ_PROJECTION_REQUEST_SCHEMA_VERSION,
   COMPACTION_POLICY_REQUEST_SCHEMA_VERSION,
@@ -143,29 +149,45 @@ function assertNoRetiredOperationKindDetailAliases(details) {
   }
 }
 
-test("runtime context policy core uses daemon-level direct invoker", () => {
+function createContextLifecycleDirectCore(method, handler) {
   const calls = [];
-  const runner = createRuntimeContextPolicyCore({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
-      calls.push(request);
-      return {
-        source: "direct_daemon_core_api",
-        backend: "rust_policy",
-        status: "allowed",
-        mode: "monitor",
-        policy_decision_id: "policy_context_direct",
-        policy_decision_refs: ["policy_context_direct"],
-      };
+      throw new Error(`retired generic invoker reached for ${request?.operation}`);
+    },
+    daemonCoreContextLifecycleApi: {
+      [method](request) {
+        calls.push({ method, request });
+        return handler(request);
+      },
     },
   });
+  return { calls, runner };
+}
+
+test("runtime context policy core uses daemon-level context lifecycle API", () => {
+  const { calls, runner } = createContextLifecycleDirectCore(
+    CONTEXT_LIFECYCLE_CONTEXT_BUDGET_POLICY_API_METHOD,
+    () => ({
+      source: "direct_context_lifecycle_api",
+      backend: "rust_policy",
+      status: "allowed",
+      mode: "monitor",
+      policy_decision_id: "policy_context_direct",
+      policy_decision_refs: ["policy_context_direct"],
+    }),
+  );
 
   const result = runner.evaluateContextBudgetPolicy({
     usage_telemetry: { total_tokens: 1 },
   });
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].operation, "evaluate_context_budget_policy");
-  assert.equal(result.source, "direct_daemon_core_api");
+  assert.equal(calls[0].method, CONTEXT_LIFECYCLE_CONTEXT_BUDGET_POLICY_API_METHOD);
+  assert.equal(calls[0].request.schema_version, CONTEXT_BUDGET_POLICY_REQUEST_SCHEMA_VERSION);
+  assert.equal(Object.hasOwn(calls[0].request, "operation"), false);
+  assert.equal(Object.hasOwn(calls[0].request, "backend"), false);
+  assert.equal(result.source, "direct_context_lifecycle_api");
 });
 
 test("runtime context policy core rejects retired daemon-core command option", () => {
@@ -213,12 +235,10 @@ test("runtime context policy core command constructor option fails closed", () =
   );
 });
 
-test("context budget policy core sends generic Rust policy through direct daemon-core invoker", () => {
-  let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
-      captured = request;
-      return {
+test("context budget policy core sends Rust policy through direct context lifecycle API", () => {
+  const { calls, runner } = createContextLifecycleDirectCore(
+    CONTEXT_LIFECYCLE_CONTEXT_BUDGET_POLICY_API_METHOD,
+    () => ({
             source: "rust_context_budget_policy_command",
             backend: "rust_policy",
             status: "blocked",
@@ -238,9 +258,8 @@ test("context budget policy core sends generic Rust policy through direct daemon
             runtime_event_idempotency_key:
               "thread:thread_1:context-budget:policy_context_budget_thread_test_blocked",
             summary: "Context budget blocked: total tokens exceeded.",
-          };
-    },
-  });
+          }),
+  );
 
   const result = runner.evaluateContextBudgetPolicy({
     usage_telemetry: { total_tokens: 120 },
@@ -250,11 +269,12 @@ test("context budget policy core sends generic Rust policy through direct daemon
     turn_id: "turn_1",
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "evaluate_context_budget_policy");
-  assert.equal(captured.backend, "rust_policy");
-  assert.equal(captured.request.schema_version, CONTEXT_BUDGET_POLICY_REQUEST_SCHEMA_VERSION);
-  assert.equal(captured.request.usage_telemetry.total_tokens, 120);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, CONTEXT_LIFECYCLE_CONTEXT_BUDGET_POLICY_API_METHOD);
+  assert.equal(calls[0].request.schema_version, CONTEXT_BUDGET_POLICY_REQUEST_SCHEMA_VERSION);
+  assert.equal(calls[0].request.usage_telemetry.total_tokens, 120);
+  assert.equal(Object.hasOwn(calls[0].request, "operation"), false);
+  assert.equal(Object.hasOwn(calls[0].request, "backend"), false);
   assert.equal(result.source, "rust_context_budget_policy_command");
   assert.equal(result.status, "blocked");
   assert.equal(result.runtime_event_kind, "policy.blocked");
@@ -266,12 +286,10 @@ test("context budget policy core sends generic Rust policy through direct daemon
   assert.deepEqual(result.policy_decision_refs, ["policy_context_budget_thread_test_blocked"]);
 });
 
-test("coding tool budget core sends Rust policy through direct daemon-core invoker", () => {
-  let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
-      captured = request;
-      return {
+test("coding tool budget core sends Rust policy through direct context lifecycle API", () => {
+  const { calls, runner } = createContextLifecycleDirectCore(
+    CONTEXT_LIFECYCLE_CODING_TOOL_BUDGET_POLICY_API_METHOD,
+    () => ({
             source: "rust_coding_tool_budget_policy_command",
             backend: "rust_policy",
             status: "blocked",
@@ -286,9 +304,8 @@ test("coding tool budget core sends Rust policy through direct daemon-core invok
             warnings: [],
             would_block: true,
             summary: "Context budget blocked: total tokens exceeded.",
-          };
-    },
-  });
+          }),
+  );
 
   const result = runner.evaluateCodingToolBudgetPolicy({
     usage_telemetry: { total_tokens: 120 },
@@ -297,22 +314,21 @@ test("coding tool budget core sends Rust policy through direct daemon-core invok
     thread_id: "thread_1",
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "evaluate_coding_tool_budget_policy");
-  assert.equal(captured.backend, "rust_policy");
-  assert.equal(captured.request.schema_version, CODING_TOOL_BUDGET_POLICY_REQUEST_SCHEMA_VERSION);
-  assert.equal(captured.request.usage_telemetry.total_tokens, 120);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, CONTEXT_LIFECYCLE_CODING_TOOL_BUDGET_POLICY_API_METHOD);
+  assert.equal(calls[0].request.schema_version, CODING_TOOL_BUDGET_POLICY_REQUEST_SCHEMA_VERSION);
+  assert.equal(calls[0].request.usage_telemetry.total_tokens, 120);
+  assert.equal(Object.hasOwn(calls[0].request, "operation"), false);
+  assert.equal(Object.hasOwn(calls[0].request, "backend"), false);
   assert.equal(result.source, "rust_coding_tool_budget_policy_command");
   assert.equal(result.status, "blocked");
   assert.deepEqual(result.policy_decision_refs, ["policy_context_budget_thread_test_blocked"]);
 });
 
-test("compaction policy core sends Rust policy through direct daemon-core invoker", () => {
-  let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
-      captured = request;
-      return {
+test("compaction policy core sends Rust policy through direct context lifecycle API", () => {
+  const { calls, runner } = createContextLifecycleDirectCore(
+    CONTEXT_LIFECYCLE_COMPACTION_POLICY_API_METHOD,
+    () => ({
             source: "rust_compaction_policy_command",
             backend: "rust_policy",
             status: "waiting",
@@ -340,9 +356,8 @@ test("compaction policy core sends Rust policy through direct daemon-core invoke
             compact_workflow_node_id: "runtime.context-compact",
             continuation_allowed: true,
             summary: "Compaction policy requires operator approval before compacting.",
-          };
-    },
-  });
+          }),
+  );
 
   const result = runner.evaluateCompactionPolicy({
     thread_id: "thread_1",
@@ -351,11 +366,12 @@ test("compaction policy core sends Rust policy through direct daemon-core invoke
     approval: { approval_required: true, approval_granted: false },
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "evaluate_compaction_policy");
-  assert.equal(captured.backend, "rust_policy");
-  assert.equal(captured.request.schema_version, COMPACTION_POLICY_REQUEST_SCHEMA_VERSION);
-  assert.equal(captured.request.context_budget.status, "blocked");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, CONTEXT_LIFECYCLE_COMPACTION_POLICY_API_METHOD);
+  assert.equal(calls[0].request.schema_version, COMPACTION_POLICY_REQUEST_SCHEMA_VERSION);
+  assert.equal(calls[0].request.context_budget.status, "blocked");
+  assert.equal(Object.hasOwn(calls[0].request, "operation"), false);
+  assert.equal(Object.hasOwn(calls[0].request, "backend"), false);
   assert.equal(result.source, "rust_compaction_policy_command");
   assert.equal(result.action, "approval_required");
   assert.equal(result.approval_required, true);
@@ -367,12 +383,10 @@ test("compaction policy core sends Rust policy through direct daemon-core invoke
   );
 });
 
-test("context compaction core sends Rust plan through direct daemon-core invoker", () => {
-  let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
-      captured = request;
-      return {
+test("context compaction core sends Rust plan through direct context lifecycle API", () => {
+  const { calls, runner } = createContextLifecycleDirectCore(
+    CONTEXT_LIFECYCLE_CONTEXT_COMPACTION_PLAN_API_METHOD,
+    () => ({
             source: "rust_context_compaction_plan_command",
             backend: "rust_policy",
             status: "planned",
@@ -397,9 +411,8 @@ test("context compaction core sends Rust plan through direct daemon-core invoker
             scope: "thread",
             requested_by: "operator_one",
             previous_latest_seq: 7,
-          };
-    },
-  });
+          }),
+  );
 
   const result = runner.planContextCompaction({
     thread_id: "thread_1",
@@ -409,23 +422,22 @@ test("context compaction core sends Rust plan through direct daemon-core invoker
     previous_latest_seq: 7,
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "plan_context_compaction");
-  assert.equal(captured.backend, "rust_policy");
-  assert.equal(captured.request.schema_version, CONTEXT_COMPACTION_PLAN_REQUEST_SCHEMA_VERSION);
-  assert.equal(captured.request.thread_id, "thread_1");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, CONTEXT_LIFECYCLE_CONTEXT_COMPACTION_PLAN_API_METHOD);
+  assert.equal(calls[0].request.schema_version, CONTEXT_COMPACTION_PLAN_REQUEST_SCHEMA_VERSION);
+  assert.equal(calls[0].request.thread_id, "thread_1");
+  assert.equal(Object.hasOwn(calls[0].request, "operation"), false);
+  assert.equal(Object.hasOwn(calls[0].request, "backend"), false);
   assert.equal(result.source, "rust_context_compaction_plan_command");
   assert.equal(result.event_kind, "context.compacted");
   assert.equal(result.item_id, "turn_1:item:context-compact:hash_one");
   assert.deepEqual(result.receipt_refs, ["receipt_run_1_context_compaction_hash_one"]);
 });
 
-test("context compaction state update core sends Rust state update through direct daemon-core invoker", () => {
-  let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
-      captured = request;
-      return {
+test("context compaction state update core sends Rust state update through direct context lifecycle API", () => {
+  const { calls, runner } = createContextLifecycleDirectCore(
+    CONTEXT_LIFECYCLE_CONTEXT_COMPACTION_STATE_UPDATE_API_METHOD,
+    () => ({
             source: "rust_context_compaction_state_update_command",
             backend: "rust_policy",
             status: "planned",
@@ -451,9 +463,8 @@ test("context compaction state update core sends Rust state update through direc
                 },
               },
             },
-          };
-    },
-  });
+          }),
+  );
 
   const result = runner.planContextCompactionStateUpdate({
     thread_id: "thread_1",
@@ -470,15 +481,16 @@ test("context compaction state update core sends Rust state update through direc
     scope: "thread",
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "plan_context_compaction_state_update");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, CONTEXT_LIFECYCLE_CONTEXT_COMPACTION_STATE_UPDATE_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    calls[0].request.schema_version,
     CONTEXT_COMPACTION_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.thread_id, "thread_1");
-  assert.equal(captured.request.event_id, "event_1");
+  assert.equal(calls[0].request.thread_id, "thread_1");
+  assert.equal(calls[0].request.event_id, "event_1");
+  assert.equal(Object.hasOwn(calls[0].request, "operation"), false);
+  assert.equal(Object.hasOwn(calls[0].request, "backend"), false);
   assert.equal(result.source, "rust_context_compaction_state_update_command");
   assert.equal(result.target_kind, "run");
   assert.equal(result.operation_kind, "thread.compact");
@@ -729,12 +741,10 @@ test("coding tool budget recovery state update core sends Rust state update thro
   assert.equal(result.run.trace.operatorControls[0].event_id, "event_retry");
 });
 
-test("coding tool budget block core sends Rust block request through direct daemon-core invoker", () => {
-  let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
-      captured = request;
-      return {
+test("coding tool budget block core sends Rust block request through direct context lifecycle API", () => {
+  const { calls, runner } = createContextLifecycleDirectCore(
+    CONTEXT_LIFECYCLE_CODING_TOOL_BUDGET_BLOCK_API_METHOD,
+    () => ({
         source: "rust_coding_tool_budget_block_command",
         backend: "rust_policy",
         status: "blocked",
@@ -768,9 +778,8 @@ test("coding tool budget block core sends Rust block request through direct daem
           status: "blocked",
           operation_kind: "coding_tool.budget.block",
         },
-      };
-    },
-  });
+      }),
+  );
 
   const result = runner.planCodingToolBudgetBlock({
     thread_id: "thread_budget",
@@ -786,15 +795,16 @@ test("coding tool budget block core sends Rust block request through direct daem
     rollback_refs: ["rollback_budget"],
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "plan_coding_tool_budget_block");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, CONTEXT_LIFECYCLE_CODING_TOOL_BUDGET_BLOCK_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    calls[0].request.schema_version,
     CODING_TOOL_BUDGET_BLOCK_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.tool_id, "file.inspect");
-  assert.equal(captured.request.budget_policy.status, "blocked");
+  assert.equal(calls[0].request.tool_id, "file.inspect");
+  assert.equal(calls[0].request.budget_policy.status, "blocked");
+  assert.equal(Object.hasOwn(calls[0].request, "operation"), false);
+  assert.equal(Object.hasOwn(calls[0].request, "backend"), false);
   assert.equal(result.source, "rust_coding_tool_budget_block_command");
   assert.equal(result.operation_kind, "coding_tool.budget.block");
   assert.equal(result.reason, "coding_tool_budget_exceeded");
@@ -5122,14 +5132,23 @@ test("run create state update core sends Rust state update through direct daemon
   assert.equal(result.run.usage_telemetry.total_tokens, 7);
 });
 
-test("runtime context policy core fails closed without direct invoker", () => {
+test("runtime context lifecycle core fails closed without direct context lifecycle API", () => {
   const runner = new RuntimeContextPolicyCore();
 
   assert.throws(
     () => runner.evaluateContextBudgetPolicy({ usage_telemetry: { total_tokens: 1 } }),
-    (error) =>
-      error instanceof RuntimeContextPolicyCoreError &&
-      error.code === "runtime_context_policy_core_direct_invoker_unconfigured",
+    (error) => {
+      assert.equal(error instanceof RuntimeContextPolicyCoreError, true);
+      assert.equal(
+        error.code,
+        "runtime_context_policy_core_direct_context_lifecycle_api_unconfigured",
+      );
+      assert.equal(
+        error.details.boundary,
+        "daemonCoreContextLifecycleApi.evaluateContextBudgetPolicy",
+      );
+      return true;
+    },
   );
 });
 
