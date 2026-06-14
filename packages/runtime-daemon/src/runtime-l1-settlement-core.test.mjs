@@ -14,7 +14,6 @@ function settlementAttempt() {
     schema_version: "ioi.l1_settlement_admission.v1",
     settlement_ref: "l1://settlement/marketplace-transaction",
     domain_ref: "domain://marketplace/services",
-    state_root_ref: "state-root://agentgres/marketplace/after",
     trigger_refs: ["l1-trigger://service-contract/payment"],
     receipt_refs: ["receipt://local-settlement/payment"],
   };
@@ -36,7 +35,7 @@ function admittedResult(coreRequest) {
     },
     settlement_ref: coreRequest.attempt.settlement_ref,
     domain_ref: coreRequest.attempt.domain_ref,
-    state_root_ref: coreRequest.attempt.state_root_ref,
+    state_root_ref: "sha256:rust-derived-l1-state-root",
     trigger_refs: coreRequest.attempt.trigger_refs,
     receipt_refs: coreRequest.attempt.receipt_refs,
     admission_hash: [1, 2, 3],
@@ -63,6 +62,7 @@ test("L1 settlement core calls direct Rust daemon-core trigger API", () => {
   assert.equal(calls[0].thread_id, "thread:l1-core");
   assert.equal(calls[0].agent_id, "agent:l1-core");
   assert.equal(calls[0].attempt.settlement_ref, "l1://settlement/marketplace-transaction");
+  assert.equal(Object.hasOwn(calls[0].attempt, "state_root_ref"), false);
   assert.deepEqual(calls[0].attempt.trigger_refs, [
     "l1-trigger://service-contract/payment",
   ]);
@@ -130,12 +130,16 @@ test("L1 settlement core rejects retired bridge request aliases before Rust invo
         ...attempt,
         settlementAttempt: attempt,
         settlement_attempt: attempt,
+        stateRootRef: "state-root://retired",
+        state_root_ref: "state-root://retired",
       }),
     (error) =>
       error.code === "l1_settlement_core_request_aliases_retired" &&
       error.details.status === 400 &&
       error.details.retired_aliases.includes("settlementAttempt") &&
       error.details.retired_aliases.includes("settlement_attempt") &&
+      error.details.retired_aliases.includes("stateRootRef") &&
+      error.details.retired_aliases.includes("state_root_ref") &&
       Object.hasOwn(error.details, "settlementAttempt") === false,
   );
   assert.deepEqual(calls, []);

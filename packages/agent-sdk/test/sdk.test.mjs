@@ -421,7 +421,6 @@ test("SDK admits L1 settlement attempts through the thread route", async () => {
     schema_version: "ioi.l1_settlement_admission.v1",
     settlement_ref: "l1://settlement/sdk-marketplace-payment",
     domain_ref: "domain://marketplace/services",
-    state_root_ref: "state-root://agentgres/marketplace/after",
     trigger_refs: ["l1-trigger://service-contract/payment"],
     receipt_refs: ["receipt://local-settlement/payment"],
   };
@@ -440,6 +439,8 @@ test("SDK admits L1 settlement attempts through the thread route", async () => {
       assert.equal(Object.hasOwn(body, "workflowGraphId"), false);
       assert.equal(Object.hasOwn(body, "workflowNodeId"), false);
       assert.equal(body.attempt.settlement_ref, "l1://settlement/sdk-marketplace-payment");
+      assert.equal(Object.hasOwn(body.attempt, "state_root_ref"), false);
+      assert.equal(Object.hasOwn(body.attempt, "stateRootRef"), false);
       assert.deepEqual(body.attempt.trigger_refs, ["l1-trigger://service-contract/payment"]);
       response.statusCode = 201;
       response.end(JSON.stringify({
@@ -451,7 +452,7 @@ test("SDK admits L1 settlement attempts through the thread route", async () => {
         agent_id: "agent_sdk",
         settlement_ref: attempt.settlement_ref,
         domain_ref: attempt.domain_ref,
-        state_root_ref: attempt.state_root_ref,
+        state_root_ref: "sha256:rust-derived-l1-state-root",
         trigger_refs: attempt.trigger_refs,
         receipt_refs: attempt.receipt_refs,
         admission_hash: "sha256:l1-settlement-sdk-admission",
@@ -476,6 +477,7 @@ test("SDK admits L1 settlement attempts through the thread route", async () => {
     assert.equal(result.status, "admitted");
     assert.equal(result.settlement_admitted, true);
     assert.equal(result.settlement_ref, "l1://settlement/sdk-marketplace-payment");
+    assert.equal(result.state_root_ref, "sha256:rust-derived-l1-state-root");
     assert.deepEqual(result.trigger_refs, ["l1-trigger://service-contract/payment"]);
     assert.equal(result.admission_hash, "sha256:l1-settlement-sdk-admission");
     assert.ok(requests.includes("POST /v1/threads/thread_sdk/l1-settlement-attempts"));
@@ -494,6 +496,7 @@ test("SDK L1 settlement admission rejects retired request aliases before transpo
         schema_version: "ioi.l1_settlement_admission.v1",
         settlement_ref: "l1://settlement/retired-alias",
         domain_ref: "domain://marketplace/services",
+        stateRootRef: "state-root://agentgres/marketplace/after",
         state_root_ref: "state-root://agentgres/marketplace/after",
         trigger_refs: ["l1-trigger://service-contract/payment"],
         receipt_refs: ["receipt://local-settlement/payment"],
@@ -504,7 +507,9 @@ test("SDK L1 settlement admission rejects retired request aliases before transpo
       error.code === "config" &&
       error.details?.code === "l1_settlement_sdk_request_aliases_retired" &&
       error.details?.retired_aliases?.includes("workflowGraphId") &&
-      error.details?.retired_aliases?.includes("workflowNodeId"),
+      error.details?.retired_aliases?.includes("workflowNodeId") &&
+      error.details?.retired_truth_fields?.includes("stateRootRef") &&
+      error.details?.retired_truth_fields?.includes("state_root_ref"),
   );
 });
 

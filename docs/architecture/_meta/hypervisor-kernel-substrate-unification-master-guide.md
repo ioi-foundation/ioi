@@ -7204,10 +7204,11 @@ of the JS surface and into Rust `governed_admission.rs`. The Rust
 `admit_l1_settlement_attempt_response()` emits the canonical
 `ioi.runtime.l1_settlement_admission.v1` route envelope, including
 `settlement_admitted`, `thread_id`, `agent_id`, settlement refs, trigger refs,
-receipt refs, and admission hash. The JS L1 settlement surface now only
-extracts the canonical `attempt` request body, rejects retired request aliases,
-looks up the thread agent, and forwards context to the Rust-backed runner; it
-no longer mints the public settlement-admission response locally.
+receipt refs, Rust-derived state-root refs, and admission hash. The JS L1
+settlement surface now only extracts the canonical `attempt` request body,
+rejects retired request aliases and caller-supplied state-root truth, looks up
+the thread agent, and forwards context to the Rust-backed runner; it no longer
+mints the public settlement-admission response locally.
 
 This remains non-terminal because the route still reaches Rust through the
 shared JS daemon-core command runner and Node bridge stdin/JSON transport. The
@@ -8133,11 +8134,15 @@ aliases/options, and returns the Rust `governed_admission.rs` admission
 envelope as-is.
 
 This removes JS envelope truth for the settlement path: trigger admission,
-settlement refs, trigger refs, receipt refs, admission hashes, source, and
-backend truth must arrive from Rust daemon-core output or remain absent at the
-JS edge. It is still not terminal because the mounted core builds a temporary
-command-envelope request and other command runners still carry temporary
-command transport.
+settlement refs, trigger refs, receipt refs, state-root refs, admission hashes,
+source, and backend truth must arrive from Rust daemon-core output or remain
+absent at the JS edge. A later state-root authority cut also removes
+`state_root_ref` from daemon, SDK, IDE, and CLI request clients; Rust
+`settlement.rs` derives admitted `state_root_ref` from canonical
+settlement/domain/trigger/receipt facts and direct L1 attempts reject unknown
+state-root input at the Rust schema boundary. It is still not terminal because
+the mounted core builds a temporary command-envelope request and other command
+runners still carry temporary command transport.
 
 Slice 1204 retires the daemon governed-improvement runner outright. The daemon
 store now mounts `governedImprovementCore`; the JS runner facade, store runner

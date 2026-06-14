@@ -106,11 +106,11 @@ pub struct SettlementReceiptBundleV2Input {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct L1SettlementAttempt {
     pub schema_version: String,
     pub settlement_ref: String,
     pub domain_ref: String,
-    pub state_root_ref: String,
     #[serde(default)]
     pub trigger_refs: Vec<String>,
     #[serde(default)]
@@ -128,6 +128,15 @@ pub struct L1SettlementAdmissionRecord {
     pub admission_hash: [u8; 32],
 }
 
+#[derive(Debug, Serialize)]
+struct L1SettlementStateRootMaterial<'a> {
+    schema_version: &'static str,
+    settlement_ref: &'a str,
+    domain_ref: &'a str,
+    trigger_refs: &'a [String],
+    receipt_refs: &'a [String],
+}
+
 #[derive(Debug, Default, Clone)]
 pub struct L1SettlementTriggerGuard;
 
@@ -142,7 +151,7 @@ impl L1SettlementTriggerGuard {
             schema_version: L1_SETTLEMENT_ADMISSION_SCHEMA_VERSION.to_string(),
             settlement_ref: attempt.settlement_ref.clone(),
             domain_ref: attempt.domain_ref.clone(),
-            state_root_ref: attempt.state_root_ref.clone(),
+            state_root_ref: l1_settlement_state_root_ref(attempt)?,
             trigger_refs: attempt.trigger_refs.clone(),
             receipt_refs: attempt.receipt_refs.clone(),
             admission_hash: [0u8; 32],
@@ -162,7 +171,6 @@ impl L1SettlementAttempt {
         }
         require_non_empty("settlement_ref", &self.settlement_ref)?;
         require_non_empty("domain_ref", &self.domain_ref)?;
-        require_non_empty("state_root_ref", &self.state_root_ref)?;
         if self.trigger_refs.is_empty() {
             return Err(L1SettlementAdmissionError::MissingSettlementTrigger);
         }
@@ -259,6 +267,20 @@ fn require_non_empty(field: &'static str, value: &str) -> Result<(), L1Settlemen
     }
 }
 
+fn l1_settlement_state_root_ref(
+    attempt: &L1SettlementAttempt,
+) -> Result<String, L1SettlementAdmissionError> {
+    let material = L1SettlementStateRootMaterial {
+        schema_version: "ioi.agentgres.l1_settlement_state_root.v1",
+        settlement_ref: &attempt.settlement_ref,
+        domain_ref: &attempt.domain_ref,
+        trigger_refs: &attempt.trigger_refs,
+        receipt_refs: &attempt.receipt_refs,
+    };
+    let hash = canonical_hash(&material)?;
+    Ok(format!("sha256:{}", hex::encode(hash)))
+}
+
 fn canonical_hash<T>(value: &T) -> Result<[u8; 32], String>
 where
     T: Serialize,
@@ -282,7 +304,6 @@ mod tests {
             schema_version: L1_SETTLEMENT_ADMISSION_SCHEMA_VERSION.to_string(),
             settlement_ref: "l1://settlement/marketplace-transaction".to_string(),
             domain_ref: "agentgres://domain/service-marketplace".to_string(),
-            state_root_ref: "sha256:domain-state-root".to_string(),
             trigger_refs: vec!["l1-trigger://service-contract/payment".to_string()],
             receipt_refs: vec!["receipt://local-settlement/payment".to_string()],
         }
@@ -302,7 +323,19 @@ mod tests {
             record.trigger_refs,
             vec!["l1-trigger://service-contract/payment"]
         );
+        assert!(record.state_root_ref.starts_with("sha256:"));
         assert_ne!(record.admission_hash, [0u8; 32]);
+    }
+
+    #[test]
+    fn l1_settlement_state_root_is_derived_from_rust_admission_material() {
+        let record = L1SettlementTriggerGuard
+            .admit(&attempt())
+            .expect("L1 trigger admission");
+
+        assert!(record.state_root_ref.starts_with("sha256:"));
+        assert_eq!(record.state_root_ref.len(), "sha256:".len() + 64);
+        assert_ne!(record.state_root_ref, "sha256:domain-state-root");
     }
 
     #[test]

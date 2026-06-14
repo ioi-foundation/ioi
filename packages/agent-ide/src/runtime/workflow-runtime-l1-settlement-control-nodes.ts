@@ -15,13 +15,14 @@ export const RUNTIME_L1_SETTLEMENT_WORKFLOW_NODE_ID =
 const RETIRED_L1_SETTLEMENT_CONTROL_INPUT_FIELDS = [
   "workflowGraphId",
   "workflowNodeId",
+  "stateRootRef",
+  "state_root_ref",
 ] as const;
 
 export interface RuntimeL1SettlementAttempt extends Record<string, unknown> {
   schema_version: typeof RUNTIME_L1_SETTLEMENT_ATTEMPT_SCHEMA_VERSION | string;
   settlement_ref: string;
   domain_ref: string;
-  state_root_ref: string;
   trigger_refs: string[];
   receipt_refs: string[];
 }
@@ -36,7 +37,6 @@ export interface RuntimeL1SettlementControlRequestBody {
   workflow_node_id: string;
   settlement_ref: string;
   domain_ref: string;
-  state_root_ref: string;
   trigger_refs: string[];
   receipt_refs: string[];
   admission_only: true;
@@ -67,7 +67,6 @@ export interface RuntimeL1SettlementControlRequestInput {
   attemptField?: string | null;
   settlementRef?: string | null;
   domainRef?: string | null;
-  stateRootRef?: string | null;
   triggerRefs?: string[] | null;
   receiptRefs?: string[] | null;
   workflow_graph_id?: string | null;
@@ -97,6 +96,7 @@ export function createRuntimeL1SettlementControlRequest(
     objectAtPath(params.input, params.attemptField ?? "attempt") ??
     objectAtPath(params.input, "settlement_attempt") ??
     {};
+  assertNoClientSuppliedL1SettlementStateRoot(params, attemptSeed);
   const schemaVersion =
     cleanString(attemptSeed.schema_version) ??
     RUNTIME_L1_SETTLEMENT_ATTEMPT_SCHEMA_VERSION;
@@ -113,13 +113,6 @@ export function createRuntimeL1SettlementControlRequest(
       stringAtPath(params.input, "domain_ref") ??
       null,
     "domain_ref",
-  );
-  const stateRootRef = requiredString(
-    cleanString(params.stateRootRef) ??
-      stringField(attemptSeed, "state_root_ref") ??
-      stringAtPath(params.input, "state_root_ref") ??
-      null,
-    "state_root_ref",
   );
   const triggerRefs = requiredStringArray(
     params.triggerRefs ??
@@ -144,7 +137,6 @@ export function createRuntimeL1SettlementControlRequest(
     schema_version: schemaVersion,
     settlement_ref: settlementRef,
     domain_ref: domainRef,
-    state_root_ref: stateRootRef,
     trigger_refs: triggerRefs,
     receipt_refs: receiptRefs,
   };
@@ -167,7 +159,6 @@ export function createRuntimeL1SettlementControlRequest(
       workflow_node_id: workflowNodeId,
       settlement_ref: settlementRef,
       domain_ref: domainRef,
-      state_root_ref: stateRootRef,
       trigger_refs: triggerRefs,
       receipt_refs: receiptRefs,
       admission_only: true,
@@ -231,6 +222,22 @@ function assertNoRetiredL1SettlementControlInputAliases(
   if (retiredAliases.length === 0) return;
   throw new Error(
     `L1 settlement controls no longer accept retired control input aliases: ${retiredAliases.join(", ")}`,
+  );
+}
+
+function assertNoClientSuppliedL1SettlementStateRoot(
+  input: RuntimeL1SettlementControlRequestInput,
+  attemptSeed: Record<string, unknown>,
+): void {
+  const inputRecord = input as Record<string, unknown>;
+  const retiredFields = ["stateRootRef", "state_root_ref"].filter(
+    (field) =>
+      Object.prototype.hasOwnProperty.call(inputRecord, field) ||
+      Object.prototype.hasOwnProperty.call(attemptSeed, field),
+  );
+  if (retiredFields.length === 0) return;
+  throw new Error(
+    `L1 settlement controls cannot supply retired state-root truth fields: ${retiredFields.join(", ")}`,
   );
 }
 

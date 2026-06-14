@@ -1141,11 +1141,10 @@ export interface RuntimeWorkerServicePackageInvocationAdmissionResult extends Re
   record?: Record<string, unknown>;
 }
 
-export interface RuntimeL1SettlementAttempt extends Record<string, unknown> {
+export interface RuntimeL1SettlementAttempt {
   schema_version: "ioi.l1_settlement_admission.v1" | string;
   settlement_ref: string;
   domain_ref: string;
-  state_root_ref: string;
   trigger_refs: string[];
   receipt_refs: string[];
 }
@@ -2972,16 +2971,27 @@ function assertNoRetiredL1SettlementAdmissionAliases(input: RuntimeL1SettlementA
   const retiredAliases = ["workflowGraphId", "workflowNodeId"].filter((field) =>
     Object.prototype.hasOwnProperty.call(record, field),
   );
-  if (retiredAliases.length === 0) return;
+  const attempt = objectRecord(record.attempt);
+  const retiredTruthFields = ["stateRootRef", "state_root_ref"].filter((field) =>
+    Object.prototype.hasOwnProperty.call(attempt, field),
+  );
+  if (retiredAliases.length === 0 && retiredTruthFields.length === 0) return;
   throw new IoiAgentError({
     code: "config",
     message:
-      "L1 settlement admission request aliases are retired; use workflow_graph_id and workflow_node_id.",
+      "L1 settlement admission request aliases and state-root truth fields are retired; use workflow_graph_id/workflow_node_id and let Rust derive state_root_ref.",
     details: {
       code: "l1_settlement_sdk_request_aliases_retired",
       retired_aliases: retiredAliases,
+      retired_truth_fields: retiredTruthFields,
     },
   });
+}
+
+function objectRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
 }
 
 function assertNoRetiredExternalCapabilityExitAuthorityAliases(

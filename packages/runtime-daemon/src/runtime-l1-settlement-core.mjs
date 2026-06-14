@@ -4,6 +4,8 @@ export const RUNTIME_L1_SETTLEMENT_BACKEND = "l1_settlement_guard";
 const RETIRED_L1_SETTLEMENT_CORE_REQUEST_ALIASES = [
   "settlementAttempt",
   "settlement_attempt",
+  "stateRootRef",
+  "state_root_ref",
 ];
 
 export function createRuntimeL1SettlementCore(options = {}) {
@@ -58,12 +60,13 @@ function assertCanonicalL1SettlementCoreRequest(attempt = {}) {
   );
   if (retiredAliases.length === 0) return;
   throw new RuntimeL1SettlementCoreError(
-    "L1 settlement core request aliases are retired; use canonical snake_case Rust daemon-core fields.",
+    "L1 settlement core request aliases and state-root truth fields are retired; use canonical snake_case Rust daemon-core fields and Rust-derived state roots.",
     "l1_settlement_core_request_aliases_retired",
     {
       status: 400,
       retired_aliases: retiredAliases,
       canonical_fields: ["attempt"],
+      derived_fields: ["state_root_ref"],
     },
   );
 }

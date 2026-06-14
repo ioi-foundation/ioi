@@ -272,7 +272,7 @@ pub async fn run(args: RuntimeArgs) -> Result<()> {
                     token,
                     Method::POST,
                     &l1_settlement_attempts_route(&admit_args.thread_id),
-                    Some(l1_settlement_admission_body(attempt)),
+                    Some(l1_settlement_admission_body(attempt)?),
                 )
                 .await?
             }
@@ -431,11 +431,16 @@ fn governed_improvement_proposal_admission_body(proposal: Value) -> Value {
     })
 }
 
-fn l1_settlement_admission_body(attempt: Value) -> Value {
-    json!({
+fn l1_settlement_admission_body(attempt: Value) -> Result<Value> {
+    if attempt.get("state_root_ref").is_some() || attempt.get("stateRootRef").is_some() {
+        return Err(anyhow!(
+            "L1 settlement state_root_ref is Rust-derived and cannot be supplied by CLI clients"
+        ));
+    }
+    Ok(json!({
         "source": "cli_client",
         "attempt": attempt,
-    })
+    }))
 }
 
 fn external_capability_authority_body(request: Value) -> Value {
@@ -660,7 +665,7 @@ mod tests {
             "trigger_refs": ["l1-trigger://operator"],
             "receipt_refs": ["receipt://local-settlement/cli"]
         });
-        let body = l1_settlement_admission_body(attempt);
+        let body = l1_settlement_admission_body(attempt)?;
 
         assert_eq!(
             body.get("source"),
@@ -670,6 +675,20 @@ mod tests {
         assert!(body.get("settlement_admitted").is_none());
         assert!(body.get("accepted_receipt_append").is_none());
         Ok(())
+    }
+
+    #[test]
+    fn l1_settlement_body_rejects_client_state_root_truth() {
+        let attempt = serde_json::json!({
+            "schema_version": "ioi.l1_settlement_admission.v1",
+            "settlement_ref": "l1://settlement/cli",
+            "state_root_ref": "state-root://client",
+            "trigger_refs": ["l1-trigger://operator"],
+            "receipt_refs": ["receipt://local-settlement/cli"]
+        });
+
+        let error = l1_settlement_admission_body(attempt).expect_err("state root is Rust-derived");
+        assert!(error.to_string().contains("Rust-derived"));
     }
 
     #[test]

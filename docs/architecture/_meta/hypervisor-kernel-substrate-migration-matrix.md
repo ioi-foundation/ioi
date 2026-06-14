@@ -67,8 +67,9 @@ read-projection state_dir authority cut, the public backend log read Rust
 read-projection positive API cut, the public runtime-survey capture Rust
 positive API cut, the public catalog-provider OAuth session/state Rust
 read-projection replay cut, the OpenAI-compatible stream cancellation Rust
-positive API cut, and the public computer-use request-lease Rust StepModule
-positive API cut.
+positive API cut, the public computer-use request-lease Rust StepModule
+positive API cut, and the L1 settlement state-root Rust derivation/client-truth
+retirement cut.
 
 ## Purpose
 
@@ -144,7 +145,7 @@ authority-boundary cuts that should guide future work.
 | Rust command-envelope and bridge contraction | Rust owns canonical command-envelope parsing, typed operation identity, and many child command response families; deleted bridge delegates must not return. | `ioi-step-module-bridge` remains migration transport, not terminal API. |
 | cTEE Private Workspace core API | Product-route admission now reaches Rust-owned cTEE custody through mounted `cteePrivateWorkspaceCore`; the JS runner facade is deleted, no command/env selection is read, and the core returns Rust `governed_receipt.rs` admission envelopes without synthesizing receipt/evidence refs or source/backend defaults. | The core still builds a temporary daemon-core command envelope until stable direct Rust cTEE protocol/API bindings replace that request-building JS edge. |
 | Worker/service package core API | Product-route admission now reaches Rust-owned package invocation admission through mounted `workerServicePackageCore`; the JS runner facade is deleted, no command/env selection is read, and the core returns Rust `governed_receipt.rs` admission envelopes without synthesizing receipt refs, artifact refs, payload refs, authority refs, source, or backend truth. | The core still builds a temporary daemon-core command envelope until stable direct Rust worker/service package protocol/API bindings replace that request-building JS edge. |
-| L1 settlement core API | Product-route admission now reaches Rust-owned settlement trigger admission through mounted `l1SettlementCore`; the JS runner facade is deleted, no command/env selection is read, and the core returns Rust `governed_admission.rs` admission envelopes without synthesizing trigger refs, receipt refs, source, backend, settlement refs, or admission hashes. | The core still builds a temporary daemon-core command envelope until stable direct Rust settlement protocol/API bindings replace that request-building JS edge. |
+| L1 settlement core API | Product-route admission now reaches Rust-owned settlement trigger admission through mounted `l1SettlementCore`; Rust `settlement.rs` derives admitted `state_root_ref` from canonical settlement/domain/trigger/receipt facts, and daemon/SDK/IDE/CLI clients fail closed on retired `state_root_ref`/`stateRootRef` request truth before transport or Rust invocation. The JS runner facade is deleted, no command/env selection is read, and the core returns Rust `governed_admission.rs` admission envelopes without synthesizing trigger refs, receipt refs, source, backend, settlement refs, state-root refs, or admission hashes. | The core still builds a temporary daemon-core command envelope until stable direct Rust settlement protocol/API bindings replace that request-building JS edge; L1 settlement projection/replay records remain non-terminal beyond the admitted response. |
 | Governed-improvement core API | Product-route admission now reaches Rust-owned governed proposal admission through mounted `governedImprovementCore`; the JS runner facade is deleted, no command/env selection is read, retired proposal payload aliases fail closed, and the core returns Rust `governed_admission.rs` admission envelopes without synthesizing expected heads, eval/verifier receipt refs, source, backend, proposal refs, admission hashes, state roots, approval refs, or rollback refs. | The core still builds a temporary daemon-core command envelope until stable direct Rust governed-improvement protocol/API bindings replace that request-building JS edge. |
 | External capability authority core API | Product-route authorization now reaches Rust-owned wallet.network authority through mounted `externalCapabilityAuthorityCore`; the JS runner facade is deleted, no command/env selection is read, retired request aliases/truth fields fail closed, and the core returns Rust `authority.rs` authorization envelopes without synthesizing authorization booleans, wallet grant refs, authority receipts, authority hashes, source, or backend truth. | The core still builds a temporary daemon-core command envelope until stable direct Rust authority protocol/API bindings replace that request-building JS edge. |
 | Direct-invoker-only daemon cores | External capability authority, approval-state, coding-tool approval, cTEE private workspace, worker/service package, L1 settlement, governed-improvement, runtime Agentgres admission, workspace restore, model_mount, and context-policy/state-update now mount daemon-core APIs directly; the old runtime context-policy runner module/test, `createContextPolicyRunnerFromEnv`, store/service `contextPolicyRunner` option, command/env compatibility, and JS response facade identity are retired. StepModule execution remains the only runner-shaped direct-invoker transport here. All mounted cores reject command/env compatibility and require `daemonCoreInvoker`. | Remaining request-envelope builders and the StepModule runner layer are temporary JS protocol scaffolding until direct Rust daemon-core APIs replace them. |
@@ -321,8 +322,10 @@ authority-boundary cuts that should guide future work.
   custody still include or need fail-closed Rust-owned boundaries.
 - cTEE private workspace, worker/service package, L1 settlement,
   governed-improvement, and external capability authority now use mounted core
-  APIs instead of JS runners; each still needs stable direct Rust daemon-core
-  protocol/API bindings beyond the temporary command-envelope request builders.
+  APIs instead of JS runners. L1 settlement state-root truth is Rust-derived and
+  retired from daemon/SDK/IDE/CLI request clients, but these families still need
+  stable direct Rust daemon-core protocol/API bindings beyond the temporary
+  command-envelope request builders.
 - IDE/CLI/SDK surfaces still need stable protocol APIs over Rust projection and
   replay records instead of depending on route-family JS adapter behavior.
 - The temporary command transport must not become the terminal substrate.

@@ -12,7 +12,6 @@ function settlementAttempt() {
     schema_version: "ioi.l1_settlement_admission.v1",
     settlement_ref: "l1://settlement/marketplace-payment",
     domain_ref: "domain://marketplace/services",
-    state_root_ref: "state-root://agentgres/marketplace/after",
     trigger_refs: ["l1-trigger://service-contract/payment"],
     receipt_refs: ["receipt://local-settlement/payment"],
   };
@@ -27,6 +26,7 @@ const retiredL1SettlementRequestAliases = [
   "settlementRef",
   "domainRef",
   "stateRootRef",
+  "state_root_ref",
   "triggerRefs",
   "receiptRefs",
   "admissionOnly",
@@ -41,6 +41,8 @@ const retiredL1SettlementRequestAliases = [
 const retiredL1SettlementControlInputAliases = [
   "workflowGraphId",
   "workflowNodeId",
+  "stateRootRef",
+  "state_root_ref",
 ];
 
 test("builds L1 settlement controls for daemon admission", () => {
@@ -60,7 +62,6 @@ test("builds L1 settlement controls for daemon admission", () => {
   assert.equal(request.body.source, "react_flow");
   assert.equal(request.body.settlement_ref, "l1://settlement/marketplace-payment");
   assert.equal(request.body.domain_ref, "domain://marketplace/services");
-  assert.equal(request.body.state_root_ref, "state-root://agentgres/marketplace/after");
   assert.deepEqual(request.body.trigger_refs, ["l1-trigger://service-contract/payment"]);
   assert.deepEqual(request.body.receipt_refs, ["receipt://local-settlement/payment"]);
   assert.equal(request.body.admission_only, true);
@@ -185,7 +186,7 @@ test("L1 settlement controls ignore retired attempt aliases", () => {
         threadId: "thread-ide",
         attempt: aliasOnlyAttempt as any,
       }),
-    /settlement_ref/,
+    /retired state-root truth fields/,
   );
 
   assert.throws(
@@ -197,6 +198,30 @@ test("L1 settlement controls ignore retired attempt aliases", () => {
         },
       }),
     /settlement_ref/,
+  );
+});
+
+test("L1 settlement controls reject caller supplied state-root truth", () => {
+  assert.throws(
+    () =>
+      createRuntimeL1SettlementControlRequest({
+        threadId: "thread-ide",
+        attempt: {
+          ...settlementAttempt(),
+          state_root_ref: "state-root://client",
+        },
+      } as any),
+    /retired state-root truth fields/,
+  );
+
+  assert.throws(
+    () =>
+      createRuntimeL1SettlementControlRequest({
+        threadId: "thread-ide",
+        stateRootRef: "state-root://client",
+        attempt: settlementAttempt(),
+      } as any),
+    /retired control input aliases/,
   );
 });
 

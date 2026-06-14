@@ -3740,6 +3740,10 @@ function runBridge() {
     agentSdkSubstrateClient.match(
       /export interface RuntimeL1SettlementAttemptAdmissionResult[\s\S]*?\n}\n/,
     )?.[0] ?? "";
+  const l1SettlementAttemptType =
+    agentSdkSubstrateClient.match(
+      /export interface RuntimeL1SettlementAttempt[\s\S]*?\n}\n/,
+    )?.[0] ?? "";
   const l1SettlementAdmissionInputType =
     agentSdkSubstrateClient.match(
       /export interface RuntimeL1SettlementAttemptAdmissionInput[\s\S]*?\n}\n/,
@@ -18463,6 +18467,8 @@ function runBridge() {
       /"settlement_admitted":\s*true/.test(governedAdmissionCore) &&
       /"thread_id":\s*request\.thread_id/.test(governedAdmissionCore) &&
       /"agent_id":\s*request\.agent_id/.test(governedAdmissionCore) &&
+      /"state_root_ref":\s*record\.state_root_ref/.test(governedAdmissionCore) &&
+      /Rust-derived state root/.test(governedAdmissionCore) &&
       /l1_settlement_guard/.test(governedAdmissionCore) &&
       /l1_settlement_admission_invalid/.test(governedAdmissionCore) &&
       !/l1_settlement_rejects_step_module_command_schema/.test(bridgeModule) &&
@@ -18494,6 +18500,7 @@ function runBridge() {
       /l1_settlement_core_direct_invoker_unconfigured/.test(l1SettlementCore) &&
       /l1_settlement_core_compatibility_option_retired/.test(l1SettlementCore) &&
       /l1_settlement_core_request_aliases_retired/.test(l1SettlementCore) &&
+      /derived_fields:\s*\["state_root_ref"\]/.test(l1SettlementCore) &&
       !/process\.env/.test(l1SettlementCore) &&
       !/IOI_RUNTIME_DAEMON_CORE_COMMAND|IOI_L1_SETTLEMENT_COMMAND|IOI_STEP_MODULE_COMMAND/.test(
         l1SettlementCore,
@@ -18559,6 +18566,8 @@ function runBridge() {
       !/settlement_admitted:\s*true/.test(l1SettlementSurface) &&
       !/settlement_ref:\s*admission\.settlement_ref/.test(l1SettlementSurface) &&
       !/admission_hash:\s*admission\.admission_hash/.test(l1SettlementSurface) &&
+      /RETIRED_L1_SETTLEMENT_TRUTH_FIELDS/.test(l1SettlementSurface) &&
+      /l1_settlement_state_root_truth_fields_retired/.test(l1SettlementSurface) &&
       /return store\.l1SettlementCore\.admitAttempt\(attempt,\s*\{\s*thread_id:\s*threadId,\s*agent_id:\s*agent\.id,\s*\}\)/.test(
         l1SettlementSurface,
       ) &&
@@ -18569,6 +18578,9 @@ function runBridge() {
       /thread route sends admission controls through mounted admission surfaces/.test(runtimeRouteHandlersTest) &&
       /thread route does not expose L1 settlement apply shortcut/.test(runtimeRouteHandlersTest) &&
       /L1 settlement surface admits nested attempt through Rust core/.test(l1SettlementSurfaceTest) &&
+      /L1 settlement surface rejects client supplied state-root truth before Rust core/.test(
+        l1SettlementSurfaceTest,
+      ) &&
       /context:\s*\{\s*thread_id:\s*"thread_surface",\s*agent_id:\s*"agent_surface",\s*\}/.test(
         l1SettlementSurfaceTest,
       ) &&
@@ -18602,9 +18614,10 @@ function runBridge() {
   assertCheck(
     result,
     "l1-settlement-admission-request-aliases-retired",
-    /RETIRED_L1_SETTLEMENT_REQUEST_ALIASES/.test(l1SettlementSurface) &&
+      /RETIRED_L1_SETTLEMENT_REQUEST_ALIASES/.test(l1SettlementSurface) &&
       /CANONICAL_L1_SETTLEMENT_REQUEST_FIELDS/.test(l1SettlementSurface) &&
       /l1_settlement_attempt_request_aliases_retired/.test(l1SettlementSurface) &&
+      /assertNoClientSuppliedL1SettlementTruth\(attempt\);/.test(l1SettlementSurface) &&
       /assertCanonicalL1SettlementRequestBody\(body\);[\s\S]*objectRecord\(body\.attempt\)/.test(
         l1SettlementSurface,
       ) &&
@@ -18640,6 +18653,8 @@ function runBridge() {
       /l1_settlement_core_request_aliases_retired/.test(l1SettlementCore) &&
       /assertCanonicalL1SettlementCoreRequest\(attempt\);/.test(l1SettlementCore) &&
       /attempt,/.test(l1SettlementCore) &&
+      /stateRootRef/.test(l1SettlementCore) &&
+      /state_root_ref/.test(l1SettlementCore) &&
       !/attempt\.settlementAttempt/.test(l1SettlementCore) &&
       !/attempt\.settlement_attempt/.test(l1SettlementCore) &&
       /L1 settlement core rejects retired bridge request aliases before Rust invocation/.test(
@@ -18658,6 +18673,7 @@ function runBridge() {
     /admitL1SettlementAttempt/.test(agentSdkSubstrateClient) &&
       /RuntimeL1SettlementAttemptAdmissionInput/.test(agentSdkSubstrateClient) &&
       /l1-settlement-attempts/.test(agentSdkSubstrateClient) &&
+      !/state_root_ref:\s*string/.test(l1SettlementAttemptType) &&
       !/extends Record<string, unknown>/.test(l1SettlementAdmissionInputType) &&
       !/^\s*(?:workflowGraphId|workflowNodeId)\?:/m.test(
         l1SettlementAdmissionInputType,
@@ -18665,6 +18681,7 @@ function runBridge() {
       /assertNoRetiredL1SettlementAdmissionAliases\(input\);/.test(
         agentSdkSubstrateClient,
       ) &&
+      /retired_truth_fields/.test(agentSdkSubstrateClient) &&
       /l1_settlement_sdk_request_aliases_retired/.test(agentSdkSubstrateClient) &&
       /SDK admits L1 settlement attempts through the thread route/.test(agentSdkTest) &&
       /SDK L1 settlement admission rejects retired request aliases before transport/.test(
@@ -18672,9 +18689,13 @@ function runBridge() {
       ) &&
       /Object\.hasOwn\(body,\s*"workflowGraphId"\),\s*false/.test(agentSdkTest) &&
       /Object\.hasOwn\(body,\s*"workflowNodeId"\),\s*false/.test(agentSdkTest) &&
+      /Object\.hasOwn\(body\.attempt,\s*"state_root_ref"\),\s*false/.test(agentSdkTest) &&
       /WORKFLOW_RUNTIME_L1_SETTLEMENT_CONTROL_SCHEMA_VERSION/.test(l1SettlementControlNodes) &&
       /RETIRED_L1_SETTLEMENT_CONTROL_INPUT_FIELDS/.test(l1SettlementControlNodes) &&
       /assertNoRetiredL1SettlementControlInputAliases\(params\);/.test(
+        l1SettlementControlNodes,
+      ) &&
+      /assertNoClientSuppliedL1SettlementStateRoot\(params,\s*attemptSeed\);/.test(
         l1SettlementControlNodes,
       ) &&
       /assertNoRetiredL1SettlementWorkflowNodeOptionAliases\(options\);/.test(
@@ -18683,6 +18704,7 @@ function runBridge() {
       !/^\s*(?:workflowGraphId|workflowNodeId)\?:/m.test(
         l1SettlementControlRequestInputType,
       ) &&
+      !/^\s*stateRootRef\?:/m.test(l1SettlementControlRequestInputType) &&
       !/^\s*workflowGraphId\?:/m.test(l1SettlementWorkflowNodeOptionsType) &&
       /^\s*workflow_graph_id\?:/m.test(l1SettlementControlRequestInputType) &&
       /^\s*workflow_node_id\?:/m.test(l1SettlementControlRequestInputType) &&
@@ -18696,6 +18718,9 @@ function runBridge() {
       !/\/apply/.test(l1SettlementControlNodes) &&
       /builds L1 settlement controls for daemon admission/.test(l1SettlementControlNodesTest) &&
       /L1 settlement controls reject retired control input aliases/.test(
+        l1SettlementControlNodesTest,
+      ) &&
+      /L1 settlement controls reject caller supplied state-root truth/.test(
         l1SettlementControlNodesTest,
       ) &&
       /L1 settlement workflow node options reject retired workflow graph input alias/.test(
@@ -18718,7 +18743,9 @@ function runBridge() {
       !/objectField\(logic,\s*"settlementAttempt"\)/.test(l1SettlementControlNodes) &&
       /stringField\(attemptSeed,\s*"settlement_ref"\)/.test(l1SettlementControlNodes) &&
       /stringField\(attemptSeed,\s*"domain_ref"\)/.test(l1SettlementControlNodes) &&
-      /stringField\(attemptSeed,\s*"state_root_ref"\)/.test(l1SettlementControlNodes) &&
+      !/stringField\(attemptSeed,\s*"state_root_ref"\)/.test(l1SettlementControlNodes) &&
+      !/stringAtPath\(params\.input,\s*"state_root_ref"\)/.test(l1SettlementControlNodes) &&
+      !/state_root_ref:\s*stateRootRef/.test(l1SettlementControlNodes) &&
       /stringArrayField\(attemptSeed,\s*"trigger_refs"\)/.test(
         l1SettlementControlNodes,
       ) &&
@@ -18759,6 +18786,7 @@ function runBridge() {
       /"attempt":\s*attempt/.test(cliRuntime) &&
       /l1_settlement_route_encodes_thread_id/.test(cliRuntime) &&
       /l1_settlement_body_is_cli_admission_only/.test(cliRuntime) &&
+      /l1_settlement_body_rejects_client_state_root_truth/.test(cliRuntime) &&
       !/settlement_admitted:\s*true/.test(cliRuntime),
     [
       "crates/cli/src/main.rs",

@@ -130,7 +130,6 @@ mod tests {
                 schema_version: L1_SETTLEMENT_ADMISSION_SCHEMA_VERSION.to_string(),
                 settlement_ref: "l1://settlement/marketplace-transaction".to_string(),
                 domain_ref: "domain://marketplace/services".to_string(),
-                state_root_ref: "state-root://agentgres/marketplace/after".to_string(),
                 trigger_refs: vec!["l1-trigger://service-contract/payment".to_string()],
                 receipt_refs: vec!["receipt://local-settlement/payment".to_string()],
             },
@@ -156,6 +155,10 @@ mod tests {
             response["record"]["receipt_refs"][0],
             "receipt://local-settlement/payment"
         );
+        assert!(response["state_root_ref"]
+            .as_str()
+            .expect("Rust-derived state root")
+            .starts_with("sha256:"));
     }
 
     #[test]
