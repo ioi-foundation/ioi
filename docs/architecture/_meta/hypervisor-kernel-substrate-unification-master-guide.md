@@ -6704,10 +6704,11 @@ codes returned to the bridge boundary.
 This was non-terminal because the Node bridge, command dispatch table, shared
 daemon-core command runner, JS command callers, L1 settlement runner, and
 governed-improvement runner still existed at that cut. The L1 runner has now
-been retired behind mounted `l1SettlementCore`; governed-improvement still
-needs the same treatment. The long-term target remains direct Rust daemon-core
-governed-admission protocol APIs over settlement trigger guards, governed
-proposal admission, Agentgres-backed receipt/state-root truth where
+been retired behind mounted `l1SettlementCore`, and governed-improvement has
+now been retired behind mounted `governedImprovementCore`. The long-term target
+remains direct Rust daemon-core governed-admission protocol APIs over settlement
+trigger guards, governed proposal admission, Agentgres-backed
+receipt/state-root truth where
 applicable, replay, projection, wallet.network authority where applicable, and
 stable IDE/CLI/SDK surfaces end to end.
 
@@ -7400,21 +7401,15 @@ remains direct Rust daemon-core settlement protocol/API ownership over trigger
 admission, wallet authority where applicable, receipt/state-root binding,
 Agentgres truth, projection, replay, and stable IDE/CLI/SDK protocol surfaces.
 
-Slice 1156 retires JS-side Agentgres head and receipt-ref fallback synthesis
-from the governed-improvement runner. Rust `governed_admission.rs` already
-owns governed runtime-improvement proposal admission and response shaping behind
-the temporary daemon-core command path, so
-`runtime-governed-improvement-runner.mjs` now preserves omitted Rust-authored
-`expected_heads`, `eval_receipt_refs`, and `verifier_receipt_refs` as `null`
-instead of inventing empty arrays at the JS edge.
-
-This remains non-terminal because the JS governed-improvement runner, shared
-daemon-core command runner, and Node bridge transport still carry improvement
-proposal admission requests to Rust. The target is direct Rust daemon-core
-governed-improvement protocol/API ownership over Agentgres admission,
-receipt/state-root binding, wallet approval, projection, replay, rollback
-metadata, and stable IDE/CLI/SDK protocol surfaces, not preservation of JS
-normalizers as compatibility shims.
+Slice 1156 retired JS-side Agentgres head and receipt-ref fallback synthesis
+from the then-temporary governed-improvement runner. That fallback-retirement
+slice is now superseded by the governed-improvement core API cut: the JS runner
+and normalizer are deleted, the daemon store mounts `governedImprovementCore`,
+and the product route reaches Rust-owned proposal admission through that mounted
+core. The target remains direct Rust daemon-core governed-improvement
+protocol/API ownership over Agentgres admission, receipt/state-root binding,
+wallet approval, projection, replay, rollback metadata, and stable IDE/CLI/SDK
+protocol surfaces.
 
 Slice 1157 retires JS-side runtime Agentgres ref/evidence fallback synthesis
 from the Agentgres admission runner. Rust `agentgres_admission.rs` and
@@ -8122,6 +8117,23 @@ JS edge. It is still not terminal because the mounted core builds a temporary
 command-envelope request and other command runners still carry temporary
 command transport.
 
+Slice 1204 retires the daemon governed-improvement runner outright. The daemon
+store now mounts `governedImprovementCore`; the JS runner facade, store runner
+option, command/env fallback, and response normalizer are deleted. The core
+builds only the canonical Rust daemon-core
+`admit_governed_runtime_improvement_proposal` request, fails closed without the
+daemon-level `daemonCoreInvoker`, rejects retired proposal alias/truth
+fields/options, and returns the Rust `governed_admission.rs` admission envelope
+as-is.
+
+This removes JS envelope truth for the governed-improvement path: expected
+heads, eval/verifier receipt refs, proposal refs, admission hashes, Agentgres
+operation refs, state roots, approval refs, rollback refs, source, and backend
+truth must arrive from Rust daemon-core output or remain absent at the JS edge.
+It is still not terminal because the mounted core builds a temporary
+command-envelope request and other command runners still carry temporary command
+transport.
+
 Slice 1197 retires the temporary binary-spawn fallback for the daemon external
 capability authority runner. `runtime-external-capability-authority-runner.mjs`
 no longer imports the shared JS daemon-core command invoker, no longer exposes
@@ -8141,24 +8153,19 @@ cutting the next authority/admission runner to the same direct-invoker-only
 shape, and keep conformance proving that command-env compatibility cannot
 authorize external effects.
 
-Slice 1198 retires the temporary binary-spawn fallback for the daemon governed
-improvement runner. `runtime-governed-improvement-runner.mjs` no longer imports
-the shared JS daemon-core command invoker, no longer exposes or reads a live
-`GOVERNED_IMPROVEMENT_COMMAND_ENV`, and no longer accepts constructor command
-selection or spawn hooks. Governed runtime-improvement proposal admission now
-requires the daemon-level `daemonCoreInvoker` direct Rust-core seam and fails
-closed when it is absent. `IOI_RUNTIME_DAEMON_CORE_COMMAND` and retired
-`IOI_GOVERNED_IMPROVEMENT_COMMAND` values are treated only as forbidden command
-selection input for this surface, not as fallback transport.
+Slice 1198 retired the temporary binary-spawn fallback for the daemon governed
+improvement runner. That direct-invoker-only migration edge is now superseded by
+the Slice 1204 core cut: `runtime-governed-improvement-runner.mjs` is deleted,
+`governedImprovementCore` is mounted on the daemon store, and proposal
+admission no longer has a command/env fallback or JS response normalizer.
 
-This makes another admitted-truth path direct-invoker-only: proposal admission,
-expected-head/state-root binding fields, evaluation receipts, verifier
-receipts, approval refs, and rollback refs must arrive from Rust daemon-core
-admission output or stay absent at the JS edge. It is still not terminal
-daemon-wide Rust API ownership because other command runners remain on
-temporary command transport. Resume by cutting the remaining admission and
-receipt-bearing runners the same way, then deleting the shared JS command
-invoker once no live surface depends on it.
+This makes the admitted-truth path a mounted core API instead of a runner
+facade: proposal admission, expected-head/state-root binding fields,
+evaluation receipts, verifier receipts, approval refs, and rollback refs must
+arrive from Rust daemon-core admission output or stay absent at the JS edge. It
+is still not terminal daemon-wide Rust API ownership because other command
+runners remain on temporary command transport. Resume by cutting the remaining
+admission and receipt-bearing runners the same way.
 
 Slice 1199 retired the temporary binary-spawn fallback for the daemon cTEE
 Private Workspace migration edge. The follow-on cTEE macro cut removes the

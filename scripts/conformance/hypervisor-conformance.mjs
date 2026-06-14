@@ -3386,14 +3386,14 @@ function runBridge() {
   )
     ? read("packages/runtime-daemon/src/runtime-daemon-core-direct-invoker-service.test.mjs")
     : "";
-  const governedImprovementRunner = exists("packages/runtime-daemon/src/runtime-governed-improvement-runner.mjs")
-    ? read("packages/runtime-daemon/src/runtime-governed-improvement-runner.mjs")
+  const governedImprovementCore = exists("packages/runtime-daemon/src/runtime-governed-improvement-core.mjs")
+    ? read("packages/runtime-daemon/src/runtime-governed-improvement-core.mjs")
     : "";
-  const governedImprovementRunnerTest = exists("packages/runtime-daemon/src/runtime-governed-improvement-runner.test.mjs")
-    ? read("packages/runtime-daemon/src/runtime-governed-improvement-runner.test.mjs")
+  const governedImprovementCoreTest = exists("packages/runtime-daemon/src/runtime-governed-improvement-core.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-governed-improvement-core.test.mjs")
     : "";
-  const governedImprovementStoreTest = exists("packages/runtime-daemon/src/runtime-governed-improvement-store.test.mjs")
-    ? read("packages/runtime-daemon/src/runtime-governed-improvement-store.test.mjs")
+  const governedImprovementCoreStoreTest = exists("packages/runtime-daemon/src/runtime-governed-improvement-core-store.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-governed-improvement-core-store.test.mjs")
     : "";
   const externalCapabilityAuthorityRunner = exists(
     "packages/runtime-daemon/src/runtime-external-capability-authority-runner.mjs",
@@ -3988,7 +3988,6 @@ function runBridge() {
     runtimeCodingToolApprovalRunner,
     runtimeApprovalStateRunner,
     runtimeContextPolicyRunner,
-    governedImprovementRunner,
     workspaceRestoreRunner,
     externalCapabilityAuthorityRunner,
     modelMountAdmissionRunner,
@@ -4010,9 +4009,6 @@ function runBridge() {
         runtimeDaemonIndex,
       ) &&
       /createContextPolicyRunnerFromEnv\(process\.env,\s*\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
-        runtimeDaemonIndex,
-      ) &&
-      /createGovernedImprovementRunnerFromEnv\(process\.env,\s*\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
         runtimeDaemonIndex,
       ) &&
       /createExternalCapabilityAuthorityRunnerFromEnv\(process\.env,\s*\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
@@ -4065,6 +4061,23 @@ function runBridge() {
       !/process\.env|IOI_RUNTIME_DAEMON_CORE_COMMAND|IOI_L1_SETTLEMENT_COMMAND|normalizeL1SettlementBridgeResult|stringArray|createL1SettlementRunnerFromEnv/.test(
         l1SettlementCore,
       ) &&
+      !exists("packages/runtime-daemon/src/runtime-governed-improvement-runner.mjs") &&
+      !exists("packages/runtime-daemon/src/runtime-governed-improvement-runner.test.mjs") &&
+      /createRuntimeGovernedImprovementCore\(\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /this\.governedImprovementCore/.test(runtimeDaemonIndex) &&
+      !/this\.governedImprovementRunner/.test(runtimeDaemonIndex) &&
+      /RuntimeGovernedImprovementCore/.test(governedImprovementCore) &&
+      /this\.daemonCoreInvoker = optionalFunction\(options\.daemonCoreInvoker\)/.test(
+        governedImprovementCore,
+      ) &&
+      /operation:\s*"admit_governed_runtime_improvement_proposal"/.test(
+        governedImprovementCore,
+      ) &&
+      !/process\.env|IOI_RUNTIME_DAEMON_CORE_COMMAND|IOI_GOVERNED_IMPROVEMENT_COMMAND|normalizeGovernedImprovementBridgeResult|stringArray|createGovernedImprovementRunnerFromEnv/.test(
+        governedImprovementCore,
+      ) &&
       /createWorkspaceRestoreRunnerFromEnv\(process\.env,\s*\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
         runtimeDaemonIndex,
       ) &&
@@ -4085,6 +4098,7 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-worker-service-package-core.mjs",
       "packages/runtime-daemon/src/runtime-ctee-private-workspace-core.mjs",
       "packages/runtime-daemon/src/runtime-l1-settlement-core.mjs",
+      "packages/runtime-daemon/src/runtime-governed-improvement-core.mjs",
       "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
     ],
     "Rust daemon-core migration must use the direct-invoker seam and keep the retired JS command-spawn helper absent from daemon hot paths",
@@ -18606,83 +18620,87 @@ function runBridge() {
   );
   assertCheck(
     result,
-    "governed-meta-improvement-daemon-runner",
-    !/GOVERNED_IMPROVEMENT_COMMAND_ENV/.test(governedImprovementRunner) &&
-      /assertNoGovernedImprovementCommandSelection\(\s*options\.command \?\? env\.IOI_RUNTIME_DAEMON_CORE_COMMAND \?\? env\.IOI_GOVERNED_IMPROVEMENT_COMMAND,\s*\)/.test(
-        governedImprovementRunner,
-      ) &&
-      /ioi\.runtime\.daemon_core\.command\.v1/.test(governedImprovementRunner) &&
-      !/IOI_STEP_MODULE_COMMAND/.test(governedImprovementRunner) &&
-      !/GOVERNED_IMPROVEMENT_COMMAND_ARGS_ENV/.test(governedImprovementRunner) &&
-      !/parseCommandArgs/.test(governedImprovementRunner) &&
-      !/normalizeArgs/.test(governedImprovementRunner) &&
-      !/this\.args/.test(governedImprovementRunner) &&
-      !/argsEnv/.test(governedImprovementRunner) &&
-      /RustGovernedImprovementRunner/.test(governedImprovementRunner) &&
-      /assertNoGovernedImprovementCommandArgs/.test(governedImprovementRunner) &&
-      /assertNoGovernedImprovementCommandSelection/.test(governedImprovementRunner) &&
-      /createGovernedImprovementRunnerFromEnv/.test(governedImprovementRunner) &&
-      /createGovernedImprovementRunnerFromEnv/.test(runtimeDaemonIndex) &&
-      /this\.governedImprovementRunner/.test(runtimeDaemonIndex) &&
-      /admitProposal/.test(governedImprovementRunner) &&
-      /admit_governed_runtime_improvement_proposal/.test(governedImprovementRunner) &&
-      /thread_id:\s*optionalString\(context\.thread_id\)/.test(governedImprovementRunner) &&
-      /agent_id:\s*optionalString\(context\.agent_id\)/.test(governedImprovementRunner) &&
-      /rust_governed_evolution/.test(governedImprovementRunner) &&
-      /daemonCoreInvoker: options\.daemonCoreInvoker/.test(governedImprovementRunner) &&
+    "governed-meta-improvement-daemon-core-api",
+    !exists("packages/runtime-daemon/src/runtime-governed-improvement-runner.mjs") &&
+      !exists("packages/runtime-daemon/src/runtime-governed-improvement-runner.test.mjs") &&
+      !exists("packages/runtime-daemon/src/runtime-governed-improvement-store.test.mjs") &&
+      /ioi\.runtime\.daemon_core\.command\.v1/.test(governedImprovementCore) &&
+      /RuntimeGovernedImprovementCore/.test(governedImprovementCore) &&
+      /createRuntimeGovernedImprovementCore/.test(governedImprovementCore) &&
+      /admitProposal/.test(governedImprovementCore) &&
+      /admit_governed_runtime_improvement_proposal/.test(governedImprovementCore) &&
+      /thread_id:\s*optionalString\(context\.thread_id\)/.test(governedImprovementCore) &&
+      /agent_id:\s*optionalString\(context\.agent_id\)/.test(governedImprovementCore) &&
+      /rust_governed_evolution/.test(governedImprovementCore) &&
       /this\.daemonCoreInvoker = optionalFunction\(options\.daemonCoreInvoker\)/.test(
-        governedImprovementRunner,
+        governedImprovementCore,
       ) &&
-      /governed_improvement_direct_invoker_unconfigured/.test(governedImprovementRunner) &&
-      /governed_improvement_command_args_retired/.test(governedImprovementRunner) &&
-      /governed_improvement_command_selection_retired/.test(governedImprovementRunner) &&
-      !/createDaemonCoreCommandInvoker/.test(governedImprovementRunner) &&
-      !/from "node:child_process"/.test(governedImprovementRunner) &&
-      /governed improvement runner sends proposal admission request through direct daemon-core invoker/.test(governedImprovementRunnerTest) &&
-      /governed improvement runner does not synthesize Rust-owned heads or receipt refs/.test(
-        governedImprovementRunnerTest,
+      /governed_improvement_core_direct_invoker_unconfigured/.test(governedImprovementCore) &&
+      /governed_improvement_core_compatibility_option_retired/.test(governedImprovementCore) &&
+      /governed_improvement_core_proposal_fields_retired/.test(governedImprovementCore) &&
+      !/process\.env/.test(governedImprovementCore) &&
+      !/IOI_RUNTIME_DAEMON_CORE_COMMAND|IOI_GOVERNED_IMPROVEMENT_COMMAND|IOI_STEP_MODULE_COMMAND/.test(
+        governedImprovementCore,
       ) &&
-      /expected_heads:\s*Array\.isArray\(result\.expected_heads\)\s*\?\s*result\.expected_heads\s*:\s*record\.expected_heads\s*\?\?\s*null/.test(
-        governedImprovementRunner,
+      !/createGovernedImprovementRunnerFromEnv|RustGovernedImprovementRunner|GovernedImprovementRunner/.test(
+        governedImprovementCore,
       ) &&
-      /eval_receipt_refs:\s*Array\.isArray\(result\.eval_receipt_refs\)\s*\?\s*result\.eval_receipt_refs\s*:\s*record\.eval_receipt_refs\s*\?\?\s*null/.test(
-        governedImprovementRunner,
+      !/normalizeGovernedImprovementBridgeResult|expected_heads:\s*Array\.isArray|eval_receipt_refs:\s*Array\.isArray|verifier_receipt_refs:\s*Array\.isArray/.test(
+        governedImprovementCore,
       ) &&
-      /verifier_receipt_refs:\s*Array\.isArray\(result\.verifier_receipt_refs\)[\s\S]*?:\s*record\.verifier_receipt_refs\s*\?\?\s*null/.test(
-        governedImprovementRunner,
+      !/createDaemonCoreCommandInvoker/.test(governedImprovementCore) &&
+      !/from "node:child_process"/.test(governedImprovementCore) &&
+      /createRuntimeGovernedImprovementCore\(\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
+        runtimeDaemonIndex,
       ) &&
-      !/expected_heads:\s*Array\.isArray\(result\.expected_heads\)\s*\?\s*result\.expected_heads\s*:\s*record\.expected_heads\s*\?\?\s*\[\]/.test(
-        governedImprovementRunner,
+      /this\.governedImprovementCore/.test(runtimeDaemonIndex) &&
+      !/this\.governedImprovementRunner/.test(runtimeDaemonIndex) &&
+      /governed improvement core calls direct Rust daemon-core proposal API/.test(
+        governedImprovementCoreTest,
       ) &&
-      !/eval_receipt_refs:\s*Array\.isArray\(result\.eval_receipt_refs\)\s*\?\s*result\.eval_receipt_refs\s*:\s*record\.eval_receipt_refs\s*\?\?\s*\[\]/.test(
-        governedImprovementRunner,
+      /governed improvement core returns the Rust envelope without JS normalization/.test(
+        governedImprovementCoreTest,
       ) &&
-      !/verifier_receipt_refs:\s*Array\.isArray\(result\.verifier_receipt_refs\)[\s\S]*?:\s*record\.verifier_receipt_refs\s*\?\?\s*\[\]/.test(
-        governedImprovementRunner,
+      /Object\.hasOwn\(result,\s*"expected_heads"\),\s*false/.test(
+        governedImprovementCoreTest,
       ) &&
-      !/assert\.deepEqual\(calls\[0\]\.args,\s*\[\]\)/.test(governedImprovementRunnerTest) &&
-      /assert\.equal\(calls\[0\]\.thread_id,\s*"thread:governed-runner"\)/.test(
-        governedImprovementRunnerTest,
+      /Object\.hasOwn\(result,\s*"eval_receipt_refs"\),\s*false/.test(
+        governedImprovementCoreTest,
       ) &&
-      /assert\.equal\(calls\[0\]\.agent_id,\s*"agent:governed-runner"\)/.test(
-        governedImprovementRunnerTest,
+      /Object\.hasOwn\(result,\s*"verifier_receipt_refs"\),\s*false/.test(
+        governedImprovementCoreTest,
       ) &&
-      /governed improvement runner env uses daemon-level direct invoker/.test(governedImprovementRunnerTest) &&
-      /governed improvement runner rejects retired binary command env/.test(governedImprovementRunnerTest) &&
-      /governed improvement runner rejects retired governed command env/.test(governedImprovementRunnerTest) &&
-      /governed improvement runner command args env fails closed/.test(governedImprovementRunnerTest) &&
-      /governed improvement runner command constructor option fails closed/.test(governedImprovementRunnerTest) &&
-      /governed improvement runner command args constructor option fails closed/.test(governedImprovementRunnerTest) &&
-      /governed improvement runner fails closed without direct invoker/.test(governedImprovementRunnerTest) &&
-      /governed improvement runner surfaces Rust proposal rejection/.test(governedImprovementRunnerTest) &&
-      /runtime store mounts governed improvement runner from options/.test(governedImprovementStoreTest),
+      /Object\.hasOwn\(result,\s*"source"\),\s*false/.test(
+        governedImprovementCoreTest,
+      ) &&
+      /Object\.hasOwn\(result,\s*"backend"\),\s*false/.test(
+        governedImprovementCoreTest,
+      ) &&
+      /governed improvement core rejects retired compatibility options/.test(
+        governedImprovementCoreTest,
+      ) &&
+      /governed improvement core rejects retired proposal fields before Rust invocation/.test(
+        governedImprovementCoreTest,
+      ) &&
+      /governed improvement core fails closed without direct daemon-core API/.test(
+        governedImprovementCoreTest,
+      ) &&
+      /governed improvement core surfaces Rust proposal rejection/.test(
+        governedImprovementCoreTest,
+      ) &&
+      /runtime store mounts governed improvement core from options/.test(
+        governedImprovementCoreStoreTest,
+      ) &&
+      /Object\.hasOwn\(store,\s*"governedImprovementRunner"\),\s*false/.test(
+        governedImprovementCoreStoreTest,
+      ),
     [
-      "packages/runtime-daemon/src/runtime-governed-improvement-runner.mjs",
-      "packages/runtime-daemon/src/runtime-governed-improvement-runner.test.mjs",
-      "packages/runtime-daemon/src/runtime-governed-improvement-store.test.mjs",
+      "packages/runtime-daemon/src/runtime-governed-improvement-core.mjs",
+      "packages/runtime-daemon/src/runtime-governed-improvement-core.test.mjs",
+      "packages/runtime-daemon/src/runtime-governed-improvement-core-store.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
     ],
-    "Phase 9 is pending: daemon meta-improvement facade must call Rust governed proposal admission through a direct daemon-core invoker and fail closed when unconfigured",
+    "Phase 9 is pending: daemon meta-improvement core API must call Rust governed proposal admission directly and keep the retired JS runner/env fallback absent",
   );
   assertCheck(
     result,
@@ -18699,7 +18717,7 @@ function runBridge() {
       !/state_root_after:\s*admission\.state_root_after/.test(governedImprovementSurface) &&
       /RETIRED_GOVERNED_IMPROVEMENT_TRUTH_FIELDS/.test(governedImprovementSurface) &&
       /governed_improvement_agentgres_truth_fields_retired/.test(governedImprovementSurface) &&
-      /return store\.governedImprovementRunner\.admitProposal\(proposal,\s*\{\s*thread_id:\s*threadId,\s*agent_id:\s*agent\.id,\s*\}\)/.test(
+      /return store\.governedImprovementCore\.admitProposal\(proposal,\s*\{\s*thread_id:\s*threadId,\s*agent_id:\s*agent\.id,\s*\}\)/.test(
         governedImprovementSurface,
       ) &&
       /governed-improvement-proposals/.test(runtimeRouteHandlers) &&
@@ -18708,14 +18726,18 @@ function runBridge() {
       ) &&
       /thread route sends admission controls through mounted admission surfaces/.test(runtimeRouteHandlersTest) &&
       /thread route does not expose governed improvement apply shortcut/.test(runtimeRouteHandlersTest) &&
-      /governed improvement surface admits nested proposal through Rust runner/.test(governedImprovementSurfaceTest) &&
+      /governed improvement surface admits nested proposal through Rust core/.test(governedImprovementSurfaceTest) &&
       /assert\.deepEqual\(runtimeStore\.calls\.at\(-1\)\.context,\s*\{\s*thread_id:\s*"thread_surface",\s*agent_id:\s*"agent_surface",\s*\}\)/.test(
         governedImprovementSurfaceTest,
       ) &&
-      /governed improvement surface rejects client supplied Agentgres truth before Rust runner/.test(
+      /governed improvement surface rejects client supplied Agentgres truth before Rust core/.test(
         governedImprovementSurfaceTest,
       ) &&
-      /governed improvement surface does not derive proposal id from retired proposal alias/.test(
+      /RETIRED_GOVERNED_IMPROVEMENT_PROPOSAL_ALIASES/.test(governedImprovementSurface) &&
+      /governed_improvement_proposal_payload_aliases_retired/.test(
+        governedImprovementSurface,
+      ) &&
+      /governed improvement surface rejects retired proposal payload aliases before agent lookup or Rust core/.test(
         governedImprovementSurfaceTest,
       ) &&
       !/proposal\.proposalId/.test(governedImprovementSurface),
@@ -18761,7 +18783,7 @@ function runBridge() {
         governedImprovementSurface,
       ) &&
       !/body\.(?:proposalPayload|proposal_payload)\b/.test(governedImprovementSurface) &&
-      /governed improvement surface rejects retired request aliases before agent lookup or Rust runner/.test(
+      /governed improvement surface rejects retired request aliases before agent lookup or Rust core/.test(
         governedImprovementSurfaceTest,
       ) &&
       /assert\.deepEqual\(runtimeStore\.calls,\s*\[\]\)/.test(

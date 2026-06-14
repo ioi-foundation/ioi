@@ -31,7 +31,7 @@ function store() {
       calls.push({ name: "agentForThread", threadId });
       return { id: "agent_surface" };
     },
-    governedImprovementRunner: {
+    governedImprovementCore: {
       admitProposal(input, context) {
         calls.push({ name: "admitProposal", input, context });
         return {
@@ -45,23 +45,23 @@ function store() {
           thread_id: context.thread_id,
           agent_id: context.agent_id,
           record: {
-          ...input,
+            ...input,
+            admission_hash: "sha256:surface-admission",
+            agentgres_operation_ref: "agentgres://runtime-improvement/operations/rust-derived",
+            expected_heads: ["agentgres://runtime-improvement/head/current"],
+            state_root_before: "sha256:rust-derived-before",
+            state_root_after: "sha256:rust-derived-after",
+            resulting_head: "agentgres://runtime-improvement/head/rust-derived",
+          },
+          proposal_id: input.proposal_id,
           admission_hash: "sha256:surface-admission",
           agentgres_operation_ref: "agentgres://runtime-improvement/operations/rust-derived",
-          expected_heads: ["agentgres://runtime-improvement/head/current"],
           state_root_before: "sha256:rust-derived-before",
           state_root_after: "sha256:rust-derived-after",
           resulting_head: "agentgres://runtime-improvement/head/rust-derived",
-        },
-        proposal_id: input.proposal_id,
-        admission_hash: "sha256:surface-admission",
-        agentgres_operation_ref: "agentgres://runtime-improvement/operations/rust-derived",
-        state_root_before: "sha256:rust-derived-before",
-        state_root_after: "sha256:rust-derived-after",
-        resulting_head: "agentgres://runtime-improvement/head/rust-derived",
-        approval_ref: input.approval_ref,
-        rollback_ref: input.rollback_ref,
-      };
+          approval_ref: input.approval_ref,
+          rollback_ref: input.rollback_ref,
+        };
       },
     },
   };
@@ -83,7 +83,7 @@ const GOVERNED_IMPROVEMENT_ADMISSION_CAMEL_ALIASES = [
   "rollbackRef",
 ];
 
-test("governed improvement surface rejects retired request aliases before agent lookup or Rust runner", () => {
+test("governed improvement surface rejects retired request aliases before agent lookup or Rust core", () => {
   const runtimeStore = store();
   const surface = createRuntimeGovernedImprovementSurface();
 
@@ -104,7 +104,7 @@ test("governed improvement surface rejects retired request aliases before agent 
   assert.deepEqual(runtimeStore.calls, []);
 });
 
-test("governed improvement surface rejects client supplied Agentgres truth before Rust runner", () => {
+test("governed improvement surface rejects client supplied Agentgres truth before Rust core", () => {
   const runtimeStore = store();
   const surface = createRuntimeGovernedImprovementSurface();
 
@@ -137,7 +137,7 @@ test("governed improvement surface rejects client supplied Agentgres truth befor
   assert.deepEqual(runtimeStore.calls, []);
 });
 
-test("governed improvement surface admits nested proposal through Rust runner", () => {
+test("governed improvement surface admits nested proposal through Rust core", () => {
   const runtimeStore = store();
   const surface = createRuntimeGovernedImprovementSurface();
 
@@ -178,49 +178,34 @@ test("governed improvement surface exposes only canonical snake_case admission f
   }
 });
 
-test("governed improvement surface does not derive proposal id from retired proposal alias", () => {
-  const calls = [];
-  const runtimeStore = {
-    calls,
-    agentForThread(threadId) {
-      calls.push({ name: "agentForThread", threadId });
-      return { id: "agent_surface" };
-    },
-    governedImprovementRunner: {
-      admitProposal(input) {
-        calls.push({ name: "admitProposal", input });
-        return {
-          schema_version: GOVERNED_IMPROVEMENT_ADMISSION_RESPONSE_SCHEMA_VERSION,
-          object: "ioi.runtime_governed_improvement_admission",
-          status: "admitted",
-          proposal_admitted: true,
-          mutation_executed: false,
-          proposal_id: null,
-          source: "rust_governed_meta_improvement_command",
-          backend: "rust_governed_evolution",
-          record: {
-            admission_hash: "sha256:surface-admission",
-          },
-          admission_hash: "sha256:surface-admission",
-        };
-      },
-    },
-  };
+test("governed improvement surface rejects retired proposal payload aliases before agent lookup or Rust core", () => {
+  const runtimeStore = store();
 
-  const result = createRuntimeGovernedImprovementSurface().admitGovernedImprovementProposal(
-    runtimeStore,
-    "thread_surface",
-    {
-      proposal: {
-        ...proposal(),
-        proposal_id: undefined,
-        proposalId: "proposal://retired/alias",
-      },
+  assert.throws(
+    () =>
+      createRuntimeGovernedImprovementSurface().admitGovernedImprovementProposal(
+        runtimeStore,
+        "thread_surface",
+        {
+          proposal: {
+            ...proposal(),
+            proposalId: "proposal://retired/alias",
+            sourceTraceRef: "trace://runtime-improvement/retired-alias",
+          },
+        },
+      ),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "governed_improvement_proposal_payload_aliases_retired");
+      assert.deepEqual(error.details.retired_aliases, [
+        "proposalId",
+        "sourceTraceRef",
+      ]);
+      assert.deepEqual(error.details.canonical_fields, ["proposal"]);
+      return true;
     },
   );
-
-  assert.equal(result.proposal_id, null);
-  assert.equal(runtimeStore.calls[1].input.proposalId, "proposal://retired/alias");
+  assert.deepEqual(runtimeStore.calls, []);
 });
 
 test("governed improvement surface fails closed without proposal payload", () => {

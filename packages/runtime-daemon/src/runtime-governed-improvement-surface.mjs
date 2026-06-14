@@ -14,6 +14,23 @@ const RETIRED_GOVERNED_IMPROVEMENT_TRUTH_FIELDS = [
   "resulting_head",
 ];
 
+const RETIRED_GOVERNED_IMPROVEMENT_PROPOSAL_ALIASES = [
+  "schemaVersion",
+  "proposalId",
+  "targetRef",
+  "candidateRef",
+  "sourceTraceRef",
+  "evalReceiptRefs",
+  "verifierReceiptRefs",
+  "approvalRef",
+  "rollbackRef",
+  "agentgresOperationRef",
+  "expectedHeads",
+  "stateRootBefore",
+  "stateRootAfter",
+  "resultingHead",
+];
+
 const CANONICAL_GOVERNED_IMPROVEMENT_REQUEST_FIELDS = [
   "proposal",
 ];
@@ -35,6 +52,7 @@ export function createRuntimeGovernedImprovementSurface(deps = {}) {
         message: "Governed improvement admission requires a proposal payload.",
       });
     }
+    assertCanonicalGovernedImprovementProposalPayload(proposal);
     assertNoClientSuppliedGovernedImprovementTruth(proposal);
     return proposal;
   }
@@ -51,6 +69,22 @@ export function createRuntimeGovernedImprovementSurface(deps = {}) {
       details: {
         retired_aliases: retiredAliases,
         canonical_fields: CANONICAL_GOVERNED_IMPROVEMENT_REQUEST_FIELDS,
+      },
+    });
+  }
+
+  function assertCanonicalGovernedImprovementProposalPayload(proposal = {}) {
+    const retiredAliases = RETIRED_GOVERNED_IMPROVEMENT_PROPOSAL_ALIASES.filter((field) =>
+      Object.hasOwn(proposal, field),
+    );
+    if (retiredAliases.length === 0) return;
+    throw runtimeErrorDep({
+      status: 400,
+      code: "governed_improvement_proposal_payload_aliases_retired",
+      message: "Governed improvement proposal payload aliases are retired; use canonical snake_case proposal fields.",
+      details: {
+        retired_aliases: retiredAliases,
+        canonical_fields: ["proposal"],
       },
     });
   }
@@ -74,7 +108,7 @@ export function createRuntimeGovernedImprovementSurface(deps = {}) {
   function admitGovernedImprovementProposal(store, threadId, request = {}) {
     const proposal = proposalForRequest(request);
     const agent = store.agentForThread(threadId);
-    return store.governedImprovementRunner.admitProposal(proposal, {
+    return store.governedImprovementCore.admitProposal(proposal, {
       thread_id: threadId,
       agent_id: agent.id,
     });

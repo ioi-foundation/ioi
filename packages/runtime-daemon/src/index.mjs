@@ -130,7 +130,7 @@ import {
 } from "./runtime-value-helpers.mjs";
 import { createRuntimeAgentOptionsHelpers } from "./runtime-agent-options.mjs";
 import { createRuntimeAgentgresAdmissionRunnerFromEnv } from "./runtime-agentgres-admission-runner.mjs";
-import { createGovernedImprovementRunnerFromEnv } from "./runtime-governed-improvement-runner.mjs";
+import { createRuntimeGovernedImprovementCore } from "./runtime-governed-improvement-core.mjs";
 import { createExternalCapabilityAuthorityRunnerFromEnv } from "./runtime-external-capability-authority-runner.mjs";
 import { createRuntimeExternalCapabilityAuthoritySurface } from "./runtime-external-capability-authority-surface.mjs";
 import { createRuntimeWorkerServicePackageCore } from "./runtime-worker-service-package-core.mjs";
@@ -624,9 +624,9 @@ export class AgentgresRuntimeStateStore {
       createRuntimeApprovalStateRunnerFromEnv(process.env, {
         daemonCoreInvoker: this.daemonCoreInvoker,
       });
-    this.governedImprovementRunner =
-      options.governedImprovementRunner ??
-      createGovernedImprovementRunnerFromEnv(process.env, {
+    this.governedImprovementCore =
+      options.governedImprovementCore ??
+      createRuntimeGovernedImprovementCore({
         daemonCoreInvoker: this.daemonCoreInvoker,
       });
     this.externalCapabilityAuthorityRunner =
