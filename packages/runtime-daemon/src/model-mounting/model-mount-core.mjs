@@ -7,7 +7,6 @@ export const RUST_MODEL_MOUNT_HOSTED_PROVIDER_INVENTORY_BACKEND = "rust_model_mo
 export const RUST_MODEL_MOUNT_HOSTED_PROVIDER_LIFECYCLE_BACKEND = "rust_model_mount_hosted_provider_lifecycle";
 export const RUST_MODEL_MOUNT_BACKEND_PROCESS_BACKEND = "rust_model_mount_backend_process";
 export const RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_BACKEND = "rust_model_mount_backend_lifecycle";
-export const RUST_MODEL_MOUNT_ARTIFACT_ENDPOINT_BACKEND = "rust_model_mount_artifact_endpoint";
 export const RUST_MODEL_MOUNT_STORAGE_CONTROL_BACKEND = "rust_model_mount_storage_control";
 export const RUST_MODEL_MOUNT_RUNTIME_ENGINE_BACKEND = "rust_model_mount_runtime_engine";
 export const RUST_MODEL_MOUNT_RUNTIME_SURVEY_BACKEND = "rust_model_mount_runtime_survey";
@@ -38,6 +37,7 @@ export const MODEL_MOUNT_PROVIDER_LIFECYCLE_API_METHOD = "planModelMountProvider
 export const MODEL_MOUNT_PROVIDER_INVENTORY_API_METHOD = "planModelMountProviderInventory";
 export const MODEL_MOUNT_INSTANCE_LIFECYCLE_API_METHOD = "planModelMountInstanceLifecycle";
 export const MODEL_MOUNT_PROVIDER_RESULT_API_METHOD = "admitModelMountProviderResult";
+export const MODEL_MOUNT_ARTIFACT_ENDPOINT_API_METHOD = "planModelMountArtifactEndpoint";
 export const MODEL_MOUNT_STORAGE_CONTROL_API_METHOD = "planModelMountStorageControl";
 export const MODEL_MOUNT_MCP_WORKFLOW_API_METHOD = "planModelMountMcpWorkflow";
 export const MODEL_MOUNT_SERVER_CONTROL_API_METHOD = "planModelMountServerControl";
@@ -142,13 +142,9 @@ export class ModelMountCore {
   }
 
   planArtifactEndpoint(request) {
-    const bridgeRequest = {
-      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
-      operation: "plan_model_mount_artifact_endpoint",
-      backend: RUST_MODEL_MOUNT_ARTIFACT_ENDPOINT_BACKEND,
-      request,
-    };
-    return normalizeArtifactEndpointBridgeResult(this.invokeDaemonCore(bridgeRequest));
+    return normalizeArtifactEndpointApiResult(
+      this.invokeModelMountApi(MODEL_MOUNT_ARTIFACT_ENDPOINT_API_METHOD, request),
+    );
   }
 
   planStorageControl(request) {
@@ -773,19 +769,18 @@ function normalizeBackendLifecycleBridgeResult(value = {}) {
   return normalized;
 }
 
-function normalizeArtifactEndpointBridgeResult(value = {}) {
+function normalizeArtifactEndpointApiResult(value = {}) {
   const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   const plan = result.plan && typeof result.plan === "object" && !Array.isArray(result.plan)
     ? result.plan
-    : {};
+    : result;
   const record = result.record && typeof result.record === "object" && !Array.isArray(result.record)
     ? result.record
     : plan.record && typeof plan.record === "object" && !Array.isArray(plan.record)
       ? plan.record
       : null;
   const normalized = {
-    source: result.source ?? "rust_model_mount_artifact_endpoint_command",
-    backend: result.backend ?? RUST_MODEL_MOUNT_ARTIFACT_ENDPOINT_BACKEND,
+    source: result.source ?? plan.source ?? "rust_daemon_core.model_mount.artifact_endpoint",
     plan,
     record_dir: result.record_dir ?? plan.record_dir ?? null,
     record_id: result.record_id ?? plan.record_id ?? null,
@@ -830,7 +825,6 @@ function normalizeArtifactEndpointBridgeResult(value = {}) {
     error.details = {
       missing,
       source: normalized.source,
-      backend: normalized.backend,
       operation_kind: normalized.operation_kind,
     };
     throw error;

@@ -9092,25 +9092,28 @@ provider-health list/latest projections now replay admitted
 because actual hosted/provider transports, deeper receipt/state-root binding,
 command-transport retirement, and stable protocol APIs remain open.
 Public model artifact import and endpoint mount/unmount have moved from the
-fail-closed artifact/endpoint JS facade to Rust
-`plan_model_mount_artifact_endpoint` plus Rust Agentgres model_mount
-record-state commit. `importModel()`, `mountEndpoint()`, and
-`unmountEndpoint()` now receive Rust-authored `model-artifacts` or
+fail-closed artifact/endpoint JS facade to typed
+`daemonCoreModelMountApi.planModelMountArtifactEndpoint`, backed by Rust
+`RuntimeKernelService::plan_model_mount_artifact_endpoint`, plus Rust
+Agentgres model_mount record-state commit. `importModel()`, `mountEndpoint()`,
+and `unmountEndpoint()` now receive Rust-authored `model-artifacts` or
 `model-endpoints` records with artifact/endpoint hashes, authority hashes,
 wallet/cTEE boundary facts, and Agentgres artifact/endpoint truth evidence, then
-require Rust commit before returning public truth. They no longer preserve JS
-artifact/endpoint map mutation, JS lifecycle receipt synthesis,
-`writeMap("model-artifacts")`, `writeMap("model-endpoints")`, local
-materialization, or no-commit planner success as compatibility paths. This
-has since advanced on the read side: public `listArtifacts()` and
-`listEndpoints()` now call Rust read-projection kinds over runtime `state_dir`;
-Rust replays admitted `model-artifacts/*.json` and `model-endpoints/*.json`
-artifact-endpoint records, merges them with provider-inventory and route
-endpoint-resolution materializations, applies Rust unmount records as endpoint
-removal, and filters JS-authored artifact/endpoint truth. This remains
-non-terminal because hosted/provider endpoint discovery/materialization, deeper
-receipt/state-root binding, command-transport retirement, and stable protocol
-APIs still need direct Rust ownership.
+require Rust commit before returning public truth. The old
+`plan_model_mount_artifact_endpoint` command operation, command-dispatch arm,
+bridge request/response wrapper, backend marker, and JS command-envelope builder
+are retired. They no longer preserve JS artifact/endpoint map mutation, JS
+lifecycle receipt synthesis, `writeMap("model-artifacts")`,
+`writeMap("model-endpoints")`, local materialization, or no-commit planner
+success as compatibility paths. This has since advanced on the read side: public
+`listArtifacts()` and `listEndpoints()` now call Rust read-projection kinds over
+runtime `state_dir`; Rust replays admitted `model-artifacts/*.json` and
+`model-endpoints/*.json` artifact-endpoint records, merges them with
+provider-inventory and route endpoint-resolution materializations, applies Rust
+unmount records as endpoint removal, and filters JS-authored artifact/endpoint
+truth. This remains non-terminal because hosted/provider endpoint
+discovery/materialization, deeper receipt/state-root binding, and stable
+protocol APIs still need direct Rust ownership.
 Public model storage and catalog/download mutations have moved from fail-closed
 JS facades to typed `daemonCoreModelMountApi.planModelMountStorageControl`,
 backed by Rust `RuntimeKernel::plan_model_mount_storage_control`, plus Rust
@@ -9328,8 +9331,8 @@ closed without the typed API and no longer sends `operation` or `backend` fields
 for route-decision admission. This retires the route-decision command transport
 cut only; the later model_mount typed API cut also retires command transport for
 invocation admission, provider-execution admission, provider invocation/stream
-execution, provider lifecycle/inventory, instance lifecycle, and provider-result
-admission. Remaining model_mount backend-process/lifecycle, required-control,
+execution, provider lifecycle/inventory, instance lifecycle, provider-result
+admission, and artifact-endpoint planning. Remaining model_mount backend-process/lifecycle, required-control,
 read-projection, receipt-binding, runtime-engine/survey, tokenizer/route-control, catalog/provider/vault/
 receipt-gate, conversation/stream, and projection migration transports still
 need direct Rust daemon-core protocol/API ownership.

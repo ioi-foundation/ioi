@@ -222,7 +222,10 @@ test("artifact and endpoint mutation require Rust planner and record-state commi
       assert.equal(error.status, 501);
       assert.equal(error.code, "model_mount_artifact_endpoint_rust_core_required");
       assert.equal(error.details.rust_core_boundary, "model_mount.artifact_endpoint");
-      assert.equal(error.details.rust_core_api, "plan_model_mount_artifact_endpoint");
+      assert.equal(
+        error.details.rust_core_api,
+        "daemonCoreModelMountApi.planModelMountArtifactEndpoint",
+      );
       assert.deepEqual(error.details.evidence_refs, [
         "public_artifact_endpoint_js_facade_retired",
         "rust_daemon_core_artifact_endpoint",

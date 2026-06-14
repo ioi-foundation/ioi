@@ -49,13 +49,6 @@ pub struct ModelMountArtifactEndpointPlan {
     pub authority_hash: String,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct ModelMountArtifactEndpointBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: ModelMountArtifactEndpointRequest,
-}
-
 impl ModelMountArtifactEndpointRequest {
     pub fn validate(&self) -> Result<(), ModelMountError> {
         if self.schema_version != MODEL_MOUNT_ARTIFACT_ENDPOINT_SCHEMA_VERSION {
@@ -84,41 +77,6 @@ impl ModelMountArtifactEndpointRequest {
         }
         Ok(())
     }
-}
-
-pub fn plan_model_mount_artifact_endpoint_response(
-    request: ModelMountArtifactEndpointBridgeRequest,
-) -> Result<Value, ModelMountError> {
-    let plan = plan_artifact_endpoint(&request.request)?;
-    let record_dir = plan.record_dir.clone();
-    let record_id = plan.record_id.clone();
-    let record = plan.record.clone();
-    let public_response = plan.public_response.clone();
-    let receipt_refs = plan.receipt_refs.clone();
-    let authority_grant_refs = plan.authority_grant_refs.clone();
-    let authority_receipt_refs = plan.authority_receipt_refs.clone();
-    let evidence_refs = plan.evidence_refs.clone();
-    let control_hash = plan.control_hash.clone();
-    let authority_hash = plan.authority_hash.clone();
-    let operation_kind = plan.operation_kind.clone();
-    let rust_core_boundary = plan.rust_core_boundary.clone();
-    Ok(json!({
-        "source": "rust_model_mount_artifact_endpoint_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_model_mount_artifact_endpoint".to_string()),
-        "plan": plan,
-        "record_dir": record_dir,
-        "record_id": record_id,
-        "record": record,
-        "public_response": public_response,
-        "receipt_refs": receipt_refs,
-        "authority_grant_refs": authority_grant_refs,
-        "authority_receipt_refs": authority_receipt_refs,
-        "evidence_refs": evidence_refs,
-        "control_hash": control_hash,
-        "authority_hash": authority_hash,
-        "operation_kind": operation_kind,
-        "rust_core_boundary": rust_core_boundary,
-    }))
 }
 
 pub(super) fn plan_artifact_endpoint(
@@ -514,7 +472,7 @@ fn source_for(request: &ModelMountArtifactEndpointRequest) -> String {
         .source
         .as_ref()
         .and_then(|value| non_empty_string(value))
-        .unwrap_or_else(|| "rust_model_mount_core".to_string())
+        .unwrap_or_else(|| "rust_daemon_core.model_mount.artifact_endpoint".to_string())
 }
 
 fn generated_at_for(request: &ModelMountArtifactEndpointRequest) -> String {
@@ -675,5 +633,32 @@ mod tests {
         let error = plan_artifact_endpoint(&request("model_mount.endpoint.mount", json!({})))
             .expect_err("missing model id");
         assert_eq!(error, ModelMountError::MissingField("model_id"));
+    }
+
+    #[test]
+    fn rust_core_plans_model_mount_artifact_endpoint_direct_api() {
+        let mut request = request(
+            "model_mount.endpoint.mount",
+            json!({
+                "model_id": "local:test",
+                "provider_id": "provider.local.folder",
+            }),
+        );
+        request.source = None;
+        let plan = plan_artifact_endpoint(&request).expect("artifact endpoint direct api plan");
+
+        assert_eq!(
+            plan.source,
+            "rust_daemon_core.model_mount.artifact_endpoint"
+        );
+        assert_eq!(plan.operation_kind, "model_mount.endpoint.mount");
+        assert_eq!(plan.record_dir, "model-endpoints");
+        assert_eq!(plan.rust_core_boundary, "model_mount.artifact_endpoint");
+        assert_eq!(
+            plan.public_response["plaintext_transport_material_returned"],
+            false
+        );
+        assert_eq!(plan.control_hash.len(), 64);
+        assert!(plan.authority_hash.starts_with("sha256:"));
     }
 }

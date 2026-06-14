@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   MODEL_MOUNT_CORE_SCHEMA_VERSION,
+  MODEL_MOUNT_ARTIFACT_ENDPOINT_API_METHOD,
   MODEL_MOUNT_INSTANCE_LIFECYCLE_API_METHOD,
   MODEL_MOUNT_INVOCATION_API_METHOD,
   MODEL_MOUNT_MCP_WORKFLOW_API_METHOD,
@@ -16,7 +17,6 @@ import {
   MODEL_MOUNT_SERVER_CONTROL_API_METHOD,
   MODEL_MOUNT_STORAGE_CONTROL_API_METHOD,
   ModelMountCoreError,
-  RUST_MODEL_MOUNT_ARTIFACT_ENDPOINT_BACKEND,
   RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_BACKEND,
   RUST_MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_BACKEND,
   RUST_MODEL_MOUNT_CATALOG_PROVIDER_CONTROL_BACKEND,
@@ -2088,59 +2088,44 @@ test("Rust model_mount core sends positive route control request", () => {
 test("Rust model_mount core sends positive artifact-endpoint request", () => {
   const calls = [];
   const runner = new ModelMountCore({
-    daemonCoreInvoker(request) {
-      calls.push({ request });
-      const record = {
-        id: "endpoint.provider.local.folder.local.test",
-        record_id: "endpoint.provider.local.folder.local.test",
-        object: "ioi.model_mount_endpoint",
-        status: "mounted",
-        operation_kind: request.request.operation_kind,
-        rust_core_boundary: "model_mount.artifact_endpoint",
-        model_id: request.request.body.model_id,
-        provider_id: request.request.body.provider_id,
-        public_response: {
+    daemonCoreModelMountApi: {
+      planModelMountArtifactEndpoint(request) {
+        calls.push({ method: MODEL_MOUNT_ARTIFACT_ENDPOINT_API_METHOD, request });
+        const record = {
+          id: "endpoint.provider.local.folder.local.test",
+          record_id: "endpoint.provider.local.folder.local.test",
           object: "ioi.model_mount_endpoint",
           status: "mounted",
-          id: "endpoint.provider.local.folder.local.test",
-          endpoint_id: "endpoint.provider.local.folder.local.test",
-          model_id: request.request.body.model_id,
-          provider_id: request.request.body.provider_id,
-          plaintext_transport_material_returned: false,
-        },
-        receipt_refs: ["receipt://artifact-endpoint"],
-        evidence_refs: [
-          "public_artifact_endpoint_js_facade_retired",
-          "rust_daemon_core_artifact_endpoint",
-          "agentgres_artifact_endpoint_truth_required",
-          "rust_daemon_core_model_endpoint_mount",
-        ],
-        control_hash: "sha256:artifact-endpoint-control",
-        authority_hash: "sha256:artifact-endpoint-authority",
-      };
-      return {
-        ok: true,
-        result: {
-          source: "rust_model_mount_artifact_endpoint_command",
-          backend: RUST_MODEL_MOUNT_ARTIFACT_ENDPOINT_BACKEND,
-          plan: {
-            schema_version: "ioi.model_mount.artifact_endpoint_plan.v1",
-            object: "ioi.model_mount_artifact_endpoint_plan",
-            status: "planned",
-            rust_core_boundary: "model_mount.artifact_endpoint",
-            operation_kind: request.request.operation_kind,
-            source: request.request.source,
-            record_dir: "model-endpoints",
-            record_id: record.id,
-            record,
-            public_response: record.public_response,
-            receipt_refs: ["receipt://artifact-endpoint"],
-            authority_grant_refs: ["grant://wallet/model-mount"],
-            authority_receipt_refs: ["receipt://wallet/model-mount"],
-            evidence_refs: record.evidence_refs,
-            control_hash: "sha256:artifact-endpoint-control",
-            authority_hash: "sha256:artifact-endpoint-authority",
+          operation_kind: request.operation_kind,
+          rust_core_boundary: "model_mount.artifact_endpoint",
+          model_id: request.body.model_id,
+          provider_id: request.body.provider_id,
+          public_response: {
+            object: "ioi.model_mount_endpoint",
+            status: "mounted",
+            id: "endpoint.provider.local.folder.local.test",
+            endpoint_id: "endpoint.provider.local.folder.local.test",
+            model_id: request.body.model_id,
+            provider_id: request.body.provider_id,
+            plaintext_transport_material_returned: false,
           },
+          receipt_refs: ["receipt://artifact-endpoint"],
+          evidence_refs: [
+            "public_artifact_endpoint_js_facade_retired",
+            "rust_daemon_core_artifact_endpoint",
+            "agentgres_artifact_endpoint_truth_required",
+            "rust_daemon_core_model_endpoint_mount",
+          ],
+          control_hash: "sha256:artifact-endpoint-control",
+          authority_hash: "sha256:artifact-endpoint-authority",
+        };
+        return {
+          source: "rust_daemon_core.model_mount.artifact_endpoint",
+          schema_version: "ioi.model_mount.artifact_endpoint_plan.v1",
+          object: "ioi.model_mount_artifact_endpoint_plan",
+          status: "planned",
+          rust_core_boundary: "model_mount.artifact_endpoint",
+          operation_kind: request.operation_kind,
           record_dir: "model-endpoints",
           record_id: record.id,
           record,
@@ -2149,25 +2134,25 @@ test("Rust model_mount core sends positive artifact-endpoint request", () => {
           authority_grant_refs: ["grant://wallet/model-mount"],
           authority_receipt_refs: ["receipt://wallet/model-mount"],
           evidence_refs: record.evidence_refs,
-          operation_kind: request.request.operation_kind,
-          rust_core_boundary: "model_mount.artifact_endpoint",
           control_hash: "sha256:artifact-endpoint-control",
           authority_hash: "sha256:artifact-endpoint-authority",
-        },
-      };
+        };
+      },
     },
+    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(calls),
   });
 
   const result = runner.planArtifactEndpoint(artifactEndpointRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
-  assert.equal(calls[0].request.operation, "plan_model_mount_artifact_endpoint");
-  assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_ARTIFACT_ENDPOINT_BACKEND);
-  assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.artifact_endpoint.v1");
-  assert.equal(calls[0].request.request.operation_kind, "model_mount.endpoint.mount");
-  assert.equal(calls[0].request.request.body.model_id, "local:test");
-  assert.equal(calls[0].request.request.required_scope, "model.endpoint.mount:local:test");
+  assertDirectModelMountApiCall(
+    calls[0],
+    MODEL_MOUNT_ARTIFACT_ENDPOINT_API_METHOD,
+    "ioi.model_mount.artifact_endpoint.v1",
+  );
+  assert.equal(calls[0].request.operation_kind, "model_mount.endpoint.mount");
+  assert.equal(calls[0].request.body.model_id, "local:test");
+  assert.equal(calls[0].request.required_scope, "model.endpoint.mount:local:test");
   assert.equal(result.record_dir, "model-endpoints");
   assert.equal(result.record_id, "endpoint.provider.local.folder.local.test");
   assert.equal(result.record.public_response.plaintext_transport_material_returned, false);
@@ -2175,6 +2160,22 @@ test("Rust model_mount core sends positive artifact-endpoint request", () => {
   assert.equal(result.authority_hash, "sha256:artifact-endpoint-authority");
   assert.equal(result.rust_core_boundary, "model_mount.artifact_endpoint");
   assert.equal(result.evidence_refs.includes("agentgres_artifact_endpoint_truth_required"), true);
+});
+
+test("Rust model_mount core rejects command-shaped artifact-endpoint fallback", () => {
+  const runner = new ModelMountCore({
+    daemonCoreInvoker(request) {
+      throw new Error(`generic command invoker must not run artifact endpoint: ${request?.operation}`);
+    },
+  });
+
+  assert.throws(
+    () => runner.planArtifactEndpoint(artifactEndpointRequest()),
+    (error) =>
+      error instanceof ModelMountCoreError &&
+      error.code === "model_mount_core_direct_model_mount_api_unconfigured" &&
+      error.details.boundary === "daemonCoreModelMountApi.planModelMountArtifactEndpoint",
+  );
 });
 
 test("Rust model_mount core sends positive storage-control request", () => {

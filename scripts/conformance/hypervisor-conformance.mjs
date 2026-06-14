@@ -8554,6 +8554,9 @@ function runBridge() {
       !/plan_model_mount_backend_lifecycle_required_response as plan_model_mount_backend_lifecycle_required/.test(
         bridgeModule,
       ) &&
+      !/plan_model_mount_artifact_endpoint_response as plan_model_mount_artifact_endpoint/.test(
+        bridgeModule,
+      ) &&
       !/plan_model_mount_server_control_response as plan_model_mount_server_control/.test(
         bridgeModule,
       ) &&
@@ -8576,6 +8579,10 @@ function runBridge() {
         coreCommandDispatch,
       ) &&
       !/plan_model_mount_backend_lifecycle_required_response/.test(coreCommandDispatch) &&
+      !/plan_model_mount_artifact_endpoint_response\(decode\(raw_request\)\?\)/.test(
+        coreCommandDispatch,
+      ) &&
+      /model_mount_artifact_endpoint_command_transport_is_retired/.test(commandProtocolCore) &&
       !/plan_model_mount_server_control_response\(decode\(raw_request\)\?\)/.test(
         coreCommandDispatch,
       ) &&
@@ -8596,6 +8603,12 @@ function runBridge() {
       ) &&
       !/rust_core_shapes_model_mount_backend_lifecycle_required_command_response/.test(
         modelMountCore,
+      ) &&
+      /rust_core_plans_model_mount_artifact_endpoint_direct_api/.test(
+        modelMountArtifactEndpointEvidence,
+      ) &&
+      !/rust_core_shapes_model_mount_artifact_endpoint_command_response/.test(
+        modelMountArtifactEndpointEvidence,
       ) &&
       /rust_core_plans_model_mount_server_control_direct_api/.test(modelMountCore) &&
       !/rust_core_shapes_model_mount_server_control_command_response/.test(
@@ -8789,6 +8802,8 @@ function runBridge() {
       /pub fn plan_model_mount_backend_lifecycle_response/.test(modelMountCore) &&
       !/ModelMountBackendLifecycleRequiredBridgeRequest/.test(modelMountCore) &&
       !/plan_model_mount_backend_lifecycle_required_response/.test(modelMountCore) &&
+      !/ModelMountArtifactEndpointBridgeRequest/.test(modelMountArtifactEndpointEvidence) &&
+      !/plan_model_mount_artifact_endpoint_response/.test(modelMountArtifactEndpointEvidence) &&
       !/pub struct ModelMountServerControlBridgeRequest/.test(modelMountCore) &&
       !/pub fn plan_model_mount_server_control_response/.test(modelMountCore) &&
       !/ModelMountServerControlRequiredBridgeRequest/.test(modelMountCore) &&
@@ -8804,6 +8819,7 @@ function runBridge() {
       /rust_model_mount_backend_process_command/.test(modelMountCore) &&
       /rust_model_mount_backend_lifecycle_command/.test(modelMountCore) &&
       !/rust_model_mount_backend_lifecycle_required_command/.test(modelMountCore) &&
+      !/rust_model_mount_artifact_endpoint_command/.test(modelMountArtifactEndpointEvidence) &&
       !/rust_model_mount_server_control_command/.test(modelMountCore) &&
       !/rust_model_mount_server_control_required_command/.test(modelMountCore) &&
       /rust_model_mount_runtime_engine_command/.test(modelMountCore) &&
@@ -8817,6 +8833,12 @@ function runBridge() {
       ) &&
       !/rust_core_shapes_model_mount_backend_lifecycle_required_command_response/.test(
         modelMountCore,
+      ) &&
+      /rust_core_plans_model_mount_artifact_endpoint_direct_api/.test(
+        modelMountArtifactEndpointEvidence,
+      ) &&
+      !/rust_core_shapes_model_mount_artifact_endpoint_command_response/.test(
+        modelMountArtifactEndpointEvidence,
       ) &&
       /rust_core_plans_model_mount_server_control_direct_api/.test(modelMountCore) &&
       !/rust_core_shapes_model_mount_server_control_command_response/.test(
@@ -8837,6 +8859,10 @@ function runBridge() {
         coreCommandDispatch,
       ) &&
       !/plan_model_mount_backend_lifecycle_required_response/.test(coreCommandDispatch) &&
+      !/plan_model_mount_artifact_endpoint_response\(decode\(raw_request\)\?\)/.test(
+        coreCommandDispatch,
+      ) &&
+      /model_mount_artifact_endpoint_command_transport_is_retired/.test(commandProtocolCore) &&
       !/plan_model_mount_server_control_response\(decode\(raw_request\)\?\)/.test(
         coreCommandDispatch,
       ) &&
@@ -8856,6 +8882,9 @@ function runBridge() {
         bridgeModule,
       ) &&
       !/plan_model_mount_backend_lifecycle_required_response as plan_model_mount_backend_lifecycle_required/.test(
+        bridgeModule,
+      ) &&
+      !/plan_model_mount_artifact_endpoint_response as plan_model_mount_artifact_endpoint/.test(
         bridgeModule,
       ) &&
       !/plan_model_mount_server_control_response as plan_model_mount_server_control/.test(
@@ -21938,12 +21967,22 @@ function runReceipts() {
       /planAndCommitArtifactEndpoint\(this,\s*"model_mount\.endpoint\.unmount"/.test(
         artifactEndpointUnmountBlock,
       ) &&
-      /planArtifactEndpoint\(request\)\s*\{[\s\S]*?plan_model_mount_artifact_endpoint/.test(
+      /rust_core_api:\s*"daemonCoreModelMountApi\.planModelMountArtifactEndpoint"/.test(
         modelMountingState,
       ) &&
       /commitModelMountRecordState\(state,\s*\{[\s\S]*?model_mount_artifact_endpoint_record_state_commit_unconfigured/.test(
         modelMountingState,
       ) &&
+      /MODEL_MOUNT_ARTIFACT_ENDPOINT_API_METHOD = "planModelMountArtifactEndpoint"/.test(
+        modelMountCore,
+      ) &&
+      /invokeModelMountApi\(MODEL_MOUNT_ARTIFACT_ENDPOINT_API_METHOD, request\)/.test(
+        modelMountCore,
+      ) &&
+      /normalizeArtifactEndpointApiResult/.test(modelMountCore) &&
+      !/RUST_MODEL_MOUNT_ARTIFACT_ENDPOINT_BACKEND/.test(modelMountCore) &&
+      !/operation:\s*"plan_model_mount_artifact_endpoint"/.test(modelMountCore) &&
+      !/normalizeArtifactEndpointBridgeResult/.test(modelMountCore) &&
       /artifactEndpointBody/.test(modelMountingState) &&
       /throwArtifactEndpointRustCoreRequired/.test(modelMountingState) &&
       /model_mount_artifact_endpoint_rust_core_required/.test(modelMountingState) &&
@@ -21951,15 +21990,29 @@ function runReceipts() {
       /public_artifact_endpoint_js_facade_retired/.test(modelMountingState) &&
       /rust_daemon_core_artifact_endpoint/.test(modelMountingState) &&
       /agentgres_artifact_endpoint_truth_required/.test(modelMountingState) &&
-      /RUST_MODEL_MOUNT_ARTIFACT_ENDPOINT_BACKEND/.test(modelMountCore) &&
-      /operation:\s*"plan_model_mount_artifact_endpoint"/.test(modelMountCore) &&
-      /normalizeArtifactEndpointBridgeResult/.test(modelMountCore) &&
       /model_mount_artifact_endpoint_plan_invalid/.test(modelMountCore) &&
-      /plan_model_mount_artifact_endpoint_response/.test(modelMountArtifactEndpointEvidence) &&
+      !/ModelMountArtifactEndpointBridgeRequest/.test(modelMountArtifactEndpointEvidence) &&
+      !/plan_model_mount_artifact_endpoint_response/.test(modelMountArtifactEndpointEvidence) &&
+      /rust_core_plans_model_mount_artifact_endpoint_direct_api/.test(
+        modelMountArtifactEndpointEvidence,
+      ) &&
       /MODEL_MOUNT_ARTIFACT_ENDPOINT_PLAN_SCHEMA_VERSION/.test(modelMountArtifactEndpointEvidence) &&
       /pub\(super\) fn plan_artifact_endpoint/.test(modelMountArtifactEndpointEvidence) &&
       /"model-artifacts"/.test(modelMountArtifactEndpointEvidence) &&
       /"model-endpoints"/.test(modelMountArtifactEndpointEvidence) &&
+      !/plan_model_mount_artifact_endpoint_response\(decode\(raw_request\)\?\)/.test(
+        coreCommandDispatch,
+      ) &&
+      /model_mount_artifact_endpoint_command_transport_is_retired/.test(commandProtocolCore) &&
+      /Rust model_mount core sends positive artifact-endpoint request/.test(modelMountCoreTest) &&
+      /MODEL_MOUNT_ARTIFACT_ENDPOINT_API_METHOD/.test(modelMountCoreTest) &&
+      /assertDirectModelMountApiCall\([\s\S]*?MODEL_MOUNT_ARTIFACT_ENDPOINT_API_METHOD/.test(
+        modelMountCoreTest,
+      ) &&
+      /Rust model_mount core rejects command-shaped artifact-endpoint fallback/.test(
+        modelMountCoreTest,
+      ) &&
+      /planModelMountArtifactEndpoint/.test(daemonCoreDirectInvokerServiceTest) &&
       /artifact_records_from_agentgres_replay/.test(modelMountCore) &&
       /endpoint_records_from_agentgres_replay/.test(modelMountCore) &&
       /projected_artifact_endpoint_artifact_record/.test(modelMountCore) &&

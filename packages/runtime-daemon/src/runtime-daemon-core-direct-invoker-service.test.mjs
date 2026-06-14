@@ -200,6 +200,53 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
         evidence_refs: ["rust_daemon_core_model_mount_provider_result"],
       };
     },
+    planModelMountArtifactEndpoint(request) {
+      modelMountCalls.push({ method: "planModelMountArtifactEndpoint", request });
+      const record = {
+        id: "endpoint.direct",
+        object: "ioi.model_mount_endpoint",
+        status: "mounted",
+        operation_kind: request.operation_kind,
+        rust_core_boundary: "model_mount.artifact_endpoint",
+        model_id: request.body?.model_id ?? null,
+        provider_id: request.body?.provider_id ?? null,
+        public_response: {
+          object: "ioi.model_mount_endpoint",
+          id: "endpoint.direct",
+          endpoint_id: "endpoint.direct",
+          model_id: request.body?.model_id ?? null,
+          provider_id: request.body?.provider_id ?? null,
+          status: "mounted",
+          plaintext_transport_material_returned: false,
+        },
+        receipt_refs: request.receipt_refs ?? [],
+        evidence_refs: [
+          "public_artifact_endpoint_js_facade_retired",
+          "rust_daemon_core_artifact_endpoint",
+          "agentgres_artifact_endpoint_truth_required",
+        ],
+        control_hash: "sha256:direct-artifact-endpoint-control",
+        authority_hash: "sha256:direct-artifact-endpoint-authority",
+      };
+      return {
+        source: "direct_model_mount_api",
+        schema_version: "ioi.model_mount.artifact_endpoint_plan.v1",
+        object: "ioi.model_mount_artifact_endpoint_plan",
+        status: "planned",
+        rust_core_boundary: "model_mount.artifact_endpoint",
+        operation_kind: request.operation_kind,
+        record_dir: "model-endpoints",
+        record_id: record.id,
+        record,
+        public_response: record.public_response,
+        receipt_refs: request.receipt_refs ?? [],
+        authority_grant_refs: request.authority_grant_refs ?? [],
+        authority_receipt_refs: request.authority_receipt_refs ?? [],
+        evidence_refs: record.evidence_refs,
+        control_hash: record.control_hash,
+        authority_hash: record.authority_hash,
+      };
+    },
     planModelMountStorageControl(request) {
       modelMountCalls.push({ method: "planModelMountStorageControl", request });
       const record = {
@@ -376,6 +423,9 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
       },
       admitProviderResult(request) {
         return directModelMountCore.admitProviderResult(request);
+      },
+      planArtifactEndpoint(request) {
+        return directModelMountCore.planArtifactEndpoint(request);
       },
       planReadProjection(request) {
         const projection = {
@@ -795,6 +845,29 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
     "ioi.model_mount.provider_result.v1",
   );
   assert.equal(providerResult.provider_result_hash, "sha256:direct-provider-result");
+  const artifactEndpointPlan = store.modelMounting.planArtifactEndpoint({
+    schema_version: "ioi.model_mount.artifact_endpoint.v1",
+    operation_kind: "model_mount.endpoint.mount",
+    source: "runtime-daemon.model_mounting.artifact_endpoint",
+    body: {
+      model_id: "model.direct",
+      provider_id: "provider.direct",
+    },
+    receipt_refs: ["receipt://artifact-endpoint/direct"],
+    authority_grant_refs: ["grant://wallet/artifact-endpoint-direct"],
+    authority_receipt_refs: ["receipt://wallet/artifact-endpoint-direct"],
+    custody_ref: "ctee://custody/artifact-endpoint-direct",
+    required_scope: "model.endpoint.mount:model.direct",
+  });
+  assert.equal(calls.length, 0);
+  assertModelMountDirectApiCall(
+    modelMountCalls.at(-1),
+    "planModelMountArtifactEndpoint",
+    "ioi.model_mount.artifact_endpoint.v1",
+  );
+  assert.equal(artifactEndpointPlan.source, "direct_model_mount_api");
+  assert.equal(artifactEndpointPlan.record_id, "endpoint.direct");
+  assert.equal(artifactEndpointPlan.rust_core_boundary, "model_mount.artifact_endpoint");
   const storagePlan = store.modelMounting.planStorageControl({
     schema_version: "ioi.model_mount.storage_control.v1",
     operation_kind: "model_mount.download.queue",

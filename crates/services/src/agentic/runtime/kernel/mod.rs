@@ -119,16 +119,17 @@ use marketplace::{
     WorkerServicePackageInvocationRecord, WorkerServicePackageInvocationRequest,
 };
 use model_mount::{
-    ModelMountCore, ModelMountError, ModelMountInstanceLifecycleRequest,
-    ModelMountInstanceLifecycleResult, ModelMountInvocationAdmissionRecord,
-    ModelMountInvocationAdmissionRequest, ModelMountMcpWorkflowPlan, ModelMountMcpWorkflowRequest,
-    ModelMountProviderExecutionRecord, ModelMountProviderExecutionRequest,
-    ModelMountProviderInventoryRequest, ModelMountProviderInventoryResult,
-    ModelMountProviderInvocationRequest, ModelMountProviderInvocationResult,
-    ModelMountProviderLifecycleRequest, ModelMountProviderLifecycleResult,
-    ModelMountProviderResultAdmissionRecord, ModelMountProviderResultAdmissionRequest,
-    ModelMountProviderStreamInvocationResult, ModelMountRouteDecisionRecord,
-    ModelMountRouteDecisionRequest, ModelMountStorageControlPlan, ModelMountStorageControlRequest,
+    ModelMountArtifactEndpointPlan, ModelMountArtifactEndpointRequest, ModelMountCore,
+    ModelMountError, ModelMountInstanceLifecycleRequest, ModelMountInstanceLifecycleResult,
+    ModelMountInvocationAdmissionRecord, ModelMountInvocationAdmissionRequest,
+    ModelMountMcpWorkflowPlan, ModelMountMcpWorkflowRequest, ModelMountProviderExecutionRecord,
+    ModelMountProviderExecutionRequest, ModelMountProviderInventoryRequest,
+    ModelMountProviderInventoryResult, ModelMountProviderInvocationRequest,
+    ModelMountProviderInvocationResult, ModelMountProviderLifecycleRequest,
+    ModelMountProviderLifecycleResult, ModelMountProviderResultAdmissionRecord,
+    ModelMountProviderResultAdmissionRequest, ModelMountProviderStreamInvocationResult,
+    ModelMountRouteDecisionRecord, ModelMountRouteDecisionRequest, ModelMountStorageControlPlan,
+    ModelMountStorageControlRequest,
 };
 use plan::{validate_plan, ExecutablePlan, PlanValidationError};
 use policy::{
@@ -880,6 +881,13 @@ impl RuntimeKernelService {
         request: &ModelMountProviderResultAdmissionRequest,
     ) -> Result<ModelMountProviderResultAdmissionRecord, ModelMountError> {
         ModelMountCore.admit_provider_result(request)
+    }
+
+    pub fn plan_model_mount_artifact_endpoint(
+        &self,
+        request: &ModelMountArtifactEndpointRequest,
+    ) -> Result<ModelMountArtifactEndpointPlan, ModelMountError> {
+        ModelMountCore.plan_artifact_endpoint(request)
     }
 
     pub fn plan_model_mount_mcp_workflow(

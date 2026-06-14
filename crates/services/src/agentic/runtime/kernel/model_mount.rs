@@ -20,10 +20,7 @@ pub use backend_lifecycle::{
     ModelMountBackendLifecyclePlan, ModelMountBackendLifecycleRequest,
 };
 mod artifact_endpoint;
-pub use artifact_endpoint::{
-    plan_model_mount_artifact_endpoint_response, ModelMountArtifactEndpointBridgeRequest,
-    ModelMountArtifactEndpointPlan, ModelMountArtifactEndpointRequest,
-};
+pub use artifact_endpoint::{ModelMountArtifactEndpointPlan, ModelMountArtifactEndpointRequest};
 mod storage_control;
 pub use storage_control::{ModelMountStorageControlPlan, ModelMountStorageControlRequest};
 mod mcp_workflow;

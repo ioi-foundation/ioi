@@ -1292,7 +1292,7 @@ export class ModelMountingState {
       throwArtifactEndpointRustCoreRequired(
         request?.operation_kind ?? "model_mount.artifact_endpoint",
         {
-          rust_core_api: "plan_model_mount_artifact_endpoint",
+          rust_core_api: "daemonCoreModelMountApi.planModelMountArtifactEndpoint",
         },
       );
     }
@@ -3000,7 +3000,7 @@ function throwArtifactEndpointRustCoreRequired(operation_kind, details = {}) {
 function planAndCommitArtifactEndpoint(state, operation_kind, options = {}) {
   if (typeof state.planArtifactEndpoint !== "function") {
     throwArtifactEndpointRustCoreRequired(operation_kind, {
-      rust_core_api: "plan_model_mount_artifact_endpoint",
+      rust_core_api: "daemonCoreModelMountApi.planModelMountArtifactEndpoint",
     });
   }
   const body = artifactEndpointBody(options.body);

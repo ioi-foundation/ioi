@@ -121,10 +121,6 @@ pub fn dispatch_command_operation_response(
             plan_model_mount_backend_lifecycle_response(decode(raw_request)?)
                 .map_err(|error| model_mount_error("model_mount_backend_lifecycle_invalid", error))
         }
-        CommandOperation::PlanModelMountArtifactEndpoint => {
-            plan_model_mount_artifact_endpoint_response(decode(raw_request)?)
-                .map_err(|error| model_mount_error("model_mount_artifact_endpoint_invalid", error))
-        }
         CommandOperation::PlanModelMountRuntimeEngine => {
             plan_model_mount_runtime_engine_response(decode(raw_request)?)
                 .map_err(|error| model_mount_error("model_mount_runtime_engine_invalid", error))
