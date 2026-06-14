@@ -44,7 +44,6 @@ import {
 } from "./model-mounting/state-accessors.mjs";
 import {
   backendProcessForBackend as backendProcessForBackendState,
-  backendRegistry as backendRegistryState,
   deriveBackendRegistry as deriveBackendRegistryState,
   listBackendProcesses as listBackendProcessesState,
   reconciledBackendProcess as reconciledBackendProcessState,
@@ -1864,7 +1863,7 @@ export class ModelMountingState {
   }
 
   backendRegistry() {
-    return backendRegistryState(this);
+    return this.readProjectionFacade.listBackends(this);
   }
 
   deriveBackendRegistry(checkedAt) {

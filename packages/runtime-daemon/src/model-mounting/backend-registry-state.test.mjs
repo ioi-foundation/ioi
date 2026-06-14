@@ -6,7 +6,6 @@ import test from "node:test";
 
 import {
   backendProcessForBackend,
-  backendRegistry,
   deriveBackendRegistry,
   listBackendProcesses,
   reconciledBackendProcess,
@@ -132,33 +131,6 @@ test("seedBackends fails closed before JS backend map mutation", () => {
   assert.deepEqual([...state.backends.entries()], [
     ["backend.llama_cpp", { id: "backend.llama_cpp", status: "custom" }],
   ]);
-});
-
-test("backendRegistry overlays stored records, process snapshots, and sorted output", () => {
-  const state = fakeState();
-  state.backends.set("backend.llama_cpp", {
-    id: "backend.llama_cpp",
-    processStatus: "configured",
-    evidenceRefs: ["stored"],
-  });
-  state.backendProcesses.set("process.1", {
-    id: "process.1",
-    backendId: "backend.llama_cpp",
-    status: "started",
-    processStatus: "started",
-    pidHash: "pid.hash",
-    argsRedacted: ["llama-server"],
-    startedAt: "2026-06-04T05:00:00.000Z",
-    lastReceiptId: "receipt.backend",
-  });
-
-  const registry = backendRegistry(state);
-
-  assert.deepEqual(registry.map((backend) => backend.id), ["backend.llama_cpp", "backend.ollama", "backend.vllm"]);
-  const llama = registry[0];
-  assert.equal(llama.processStatus, "started");
-  assert.equal(llama.process.pidHash, "pid.hash");
-  assert.deepEqual(llama.evidenceRefs, ["stored"]);
 });
 
 test("listBackendProcesses reconciles stale boot records and backendProcessForBackend returns newest", () => {

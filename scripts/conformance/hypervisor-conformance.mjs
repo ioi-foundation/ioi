@@ -19151,6 +19151,8 @@ function runReceipts() {
     : "";
   const backendLifecycle = [
     modelMountingState.match(/\n\s+planBackendLifecycle\(request\) \{[\s\S]*?\n\s+testRoute\(routeId, body = \{\}\) \{/)?.[0] ?? "",
+    modelMountingState.match(/\n\s+backendRegistry\(\) \{[\s\S]*?\n\s+\}/)?.[0] ?? "",
+    modelMountingState.match(/\n\s+backend\(backendId\) \{[\s\S]*?\n\s+\}/)?.[0] ?? "",
     modelMountingState.match(/\n\s+listBackends\(\) \{[\s\S]*?\n\s+\}/)?.[0] ?? "",
     modelMountingState.match(/\n\s+ensureBackendProcess\(backendId,[\s\S]*?\n\s+writeBackendLog\(endpointId, event\) \{/)?.[0] ?? "",
     modelMountingState.match(/function throwBackendLifecycleRustCoreRequired\(record = \{\}\) \{[\s\S]*?\n\}\n\nfunction commitBackendLifecycleForState\(state, operation_kind, details = \{\}\) \{[\s\S]*?\n\}\n\nfunction backendLifecycleControlBody\(value = \{\}\) \{[\s\S]*?\n\}\n\nfunction throwBackendProjectionRustCoreRequired\(operation_kind\) \{[\s\S]*?\n\}\n\nfunction backendProcessSupervisorRetiredError\(operation_kind, backend = \{\}, details = \{\}\) \{[\s\S]*?\n\}\n\nfunction throwBackendProcessSupervisorRetired\(operation_kind, backend, details = \{\}\) \{[\s\S]*?\n\}/)?.[0] ?? "",
@@ -22928,10 +22930,19 @@ function runReceipts() {
       !/from "node:fs"|from "node:path"|appendFileSync|backend-logs/.test(backendRegistryState) &&
       !/providers:\s*state\.providers/.test(backendRegistryState) &&
       !/state\.backends\.set/.test(backendRegistryState) &&
+      !/export function backendRegistry/.test(backendRegistryState) &&
+      !/state\.backends\.entries/.test(backendRegistryState) &&
+      !/state\.backendProcessForBackend\(backend\.id\)/.test(backendRegistryState) &&
       !/state\.seedBackends\(checkedAt\)/.test(stateSeeding) &&
       !/providers\.get\("provider\.(?:lmstudio|openai-compatible|ollama|vllm)"\)/.test(defaultRecords) &&
       /backend_registry_provider_map_readback_retired/.test(defaultRecords) &&
       /rust_daemon_core_backend_projection_required/.test(defaultRecords) &&
+      /backendRegistry\(\)\s*\{[\s\S]*?return this\.readProjectionFacade\.listBackends\(this\)/.test(
+        backendLifecycle,
+      ) &&
+      /backend\(backendId\)\s*\{[\s\S]*?this\.backendRegistry\(\)\.find/.test(
+        backendLifecycle,
+      ) &&
       /listBackends\(\)\s*\{[\s\S]*?return this\.readProjectionFacade\.listBackends\(this\)/.test(
         backendLifecycle,
       ) &&
@@ -22995,6 +23006,11 @@ function runReceipts() {
         backendLifecycleTest,
       ) &&
       /Rust backend list projection must not read JS backend registry/.test(backendLifecycleTest) &&
+      /mounted backend registry delegates to Rust projection without JS registry derivation/.test(
+        backendLifecycleTest,
+      ) &&
+      /backendRegistry must not derive JS backend truth/.test(backendLifecycleTest) &&
+      /backendRegistry must not join JS process snapshots/.test(backendLifecycleTest) &&
       /blocked backend public lifecycle start still commits through Rust boundary before JS control/.test(
         backendLifecycleTest,
       ) &&

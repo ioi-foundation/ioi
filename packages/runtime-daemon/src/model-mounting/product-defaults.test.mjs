@@ -12,7 +12,8 @@ function projectionForKind(projectionKind) {
     projectionKind === "artifacts" ||
     projectionKind === "product_artifacts" ||
     projectionKind === "endpoints" ||
-    projectionKind === "runtime_model_catalog"
+    projectionKind === "runtime_model_catalog" ||
+    projectionKind === "backends"
   ) {
     return [];
   }

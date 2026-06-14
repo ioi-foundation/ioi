@@ -9,47 +9,6 @@ export function seedBackends(state, checkedAt) {
   });
 }
 
-export function backendRegistry(state) {
-  const derived = new Map(state.deriveBackendRegistry(state.nowIso()).map((backend) => [backend.id, backend]));
-  for (const [id, backend] of state.backends.entries()) {
-    derived.set(id, {
-      ...derived.get(id),
-      ...backend,
-      hardware: backend.hardware ?? derived.get(id)?.hardware,
-      evidenceRefs: backend.evidenceRefs ?? derived.get(id)?.evidenceRefs ?? [],
-    });
-  }
-  return [...derived.values()]
-    .map((backend) => {
-      const processRecord = state.backendProcessForBackend(backend.id);
-      return {
-        ...backend,
-        processStatus: processRecord?.processStatus ?? processRecord?.status ?? backend.processStatus,
-        process: processRecord
-          ? {
-              id: processRecord.id,
-              status: processRecord.status,
-              processStatus: processRecord.processStatus ?? processRecord.status,
-              pidHash: processRecord.pidHash ?? null,
-              supervisorKind: processRecord.supervisorKind ?? null,
-              spawned: Boolean(processRecord.spawned),
-              spawnStatus: processRecord.spawnStatus ?? null,
-              startedAt: processRecord.startedAt ?? null,
-              stoppedAt: processRecord.stoppedAt ?? null,
-              lastHealthAt: processRecord.lastHealthAt ?? null,
-              argsHash: processRecord.argsHash ?? null,
-              argsRedacted: processRecord.argsRedacted ?? [],
-              startupTimeoutMs: processRecord.startupTimeoutMs ?? null,
-              stale: Boolean(processRecord.stale),
-              staleReason: processRecord.staleReason ?? null,
-              receiptId: processRecord.lastReceiptId ?? null,
-            }
-          : null,
-      };
-    })
-    .sort((left, right) => left.id.localeCompare(right.id));
-}
-
 export function deriveBackendRegistry(state, checkedAt, deps = {}) {
   const {
     backendRegistryRecords,

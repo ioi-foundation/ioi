@@ -11,6 +11,10 @@ function backendLogs(state, backendId, query = {}) {
   return ModelMountingState.prototype.backendLogs.call(state, backendId, query);
 }
 
+function backendRegistry(state) {
+  return ModelMountingState.prototype.backendRegistry.call(state);
+}
+
 function listBackends(state) {
   return ModelMountingState.prototype.listBackends.call(state);
 }
@@ -378,6 +382,39 @@ test("public backend list delegates to Rust projection without JS backend regist
 
   assert.deepEqual(listBackends(state), []);
   assert.equal(projectionRequests.length, 1);
+});
+
+test("mounted backend registry delegates to Rust projection without JS registry derivation", () => {
+  const state = fakeState();
+  const rustBackends = [
+    {
+      id: "backend.native",
+      kind: "native_local",
+      status: "start_planned",
+      rust_core_boundary: "model_mount.backend_lifecycle_projection",
+    },
+  ];
+  const projectionRequests = [];
+  state.readProjectionFacade = {
+    ...state.readProjectionFacade,
+    listBackends(projectionState) {
+      projectionRequests.push(projectionState);
+      return rustBackends;
+    },
+  };
+  state.deriveBackendRegistry = () => {
+    throw new Error("backendRegistry must not derive JS backend truth");
+  };
+  state.backendProcessForBackend = () => {
+    throw new Error("backendRegistry must not join JS process snapshots");
+  };
+  state.backends.set("backend.js-only", {
+    id: "backend.js-only",
+    status: "configured",
+  });
+
+  assert.deepEqual(backendRegistry(state), rustBackends);
+  assert.deepEqual(projectionRequests, [state]);
 });
 
 test("blocked backend public lifecycle start still commits through Rust boundary before JS control", () => {

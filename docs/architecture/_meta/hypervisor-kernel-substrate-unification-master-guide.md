@@ -8795,6 +8795,16 @@ input are deleted. This remains non-terminal because hosted stream parity,
 command-transport retirement, deeper wallet/cTEE conversation authority, and
 stable IDE/CLI/SDK APIs still need direct Rust ownership.
 
+Model-mount backend registry lookup now consumes Rust read-projection kind
+`backends` through `ModelMountingState.backendRegistry()` and the internal
+`backend()` accessor. The old JS backend-registry overlay export that merged
+derived backend defaults, `state.backends`, and process snapshots is deleted, so
+public APIs and internal process-planning preflight no longer have a duplicate
+JS backend truth path. This remains non-terminal because actual backend process
+supervision/transport execution, richer backend process-state materialization,
+command-transport retirement, and stable SDK/IDE/CLI APIs still need direct
+Rust ownership.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The
