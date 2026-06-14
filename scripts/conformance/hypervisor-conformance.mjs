@@ -26398,6 +26398,10 @@ function runCompositor() {
     "listConversationArtifactRevisions(store",
     "performConversationArtifactAction(store",
   );
+  const runtimeConversationArtifactProjectReadBlock =
+    runtimeConversationArtifactSurface.match(
+      /function projectConversationArtifactRead\(store, projectionKind, \{[\s\S]*?\n  \}\n\n  return \{/,
+    )?.[0] ?? "";
   const publicRuntimeRoutes = exists("packages/runtime-daemon/src/http/public-runtime-routes.mjs")
     ? read("packages/runtime-daemon/src/http/public-runtime-routes.mjs")
     : "";
@@ -28779,7 +28783,10 @@ function runCompositor() {
       runtimeConversationArtifactSurface,
     ) &&
     /conversationArtifactProjectionRunner/.test(runtimeConversationArtifactSurface) &&
-    /candidateConversationArtifacts/.test(runtimeConversationArtifactSurface) &&
+    /state_dir:\s*conversationArtifactProjectionStateDir\(store\)/.test(
+      runtimeConversationArtifactProjectReadBlock,
+    ) &&
+    !/^\s*projection\s*:/m.test(runtimeConversationArtifactProjectReadBlock) &&
     /projectRuntimeConversationArtifactProjection\(request\)/.test(
       runtimeConversationArtifactSurface,
     ) &&
@@ -28814,13 +28821,34 @@ function runCompositor() {
     /runtime conversation artifact projection core sends Rust daemon-core request/.test(
       runtimeContextPolicyCoreTest,
     ) &&
+    /captured\.request\.state_dir,\s*"\/runtime-state"/.test(
+      runtimeContextPolicyCoreTest,
+    ) &&
+    /Object\.hasOwn\(captured\.request,\s*"projection"\),\s*false/.test(
+      runtimeContextPolicyCoreTest,
+    ) &&
     /pub struct RuntimeConversationArtifactProjectionCore;/.test(
       runtimeConversationArtifactProjectionCore,
     ) &&
+    /pub state_dir: Option<String>/.test(runtimeConversationArtifactProjectionCore) &&
+    /runtime_conversation_artifact_projection_state_dir_required/.test(
+      runtimeConversationArtifactProjectionCore,
+    ) &&
+    /runtime_conversation_artifact_projection_candidate_transport_retired/.test(
+      runtimeConversationArtifactProjectionCore,
+    ) &&
+    /conversation_artifacts_from_state_dir/.test(runtimeConversationArtifactProjectionCore) &&
+    /load_conversation_artifact_records/.test(runtimeConversationArtifactProjectionCore) &&
     /pub fn project_runtime_conversation_artifact_projection_response/.test(
       runtimeConversationArtifactProjectionCore,
     ) &&
     /rust_projects_conversation_artifact_list_get_and_revisions/.test(
+      runtimeConversationArtifactProjectionCore,
+    ) &&
+    /rust_rejects_conversation_artifact_projection_candidate_transport/.test(
+      runtimeConversationArtifactProjectionCore,
+    ) &&
+    /rust_requires_state_dir_for_conversation_artifact_projection/.test(
       runtimeConversationArtifactProjectionCore,
     ) &&
     /rust_shapes_conversation_artifact_projection_command_response/.test(
@@ -28846,6 +28874,10 @@ function runCompositor() {
     /conversation artifact read projections return Rust daemon-core projections/.test(
       runtimeConversationArtifactSurfaceTest,
     ) &&
+    /Object\.hasOwn\(request,\s*"projection"\) === false/.test(
+      runtimeConversationArtifactSurfaceTest,
+    ) &&
+    /assert\.deepEqual\(calls,\s*\[\]\)/.test(runtimeConversationArtifactSurfaceTest) &&
     /conversation artifact read projections fail closed before JS artifact reads without Rust/.test(
       runtimeConversationArtifactSurfaceTest,
     ) &&

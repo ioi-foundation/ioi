@@ -3216,15 +3216,12 @@ test("runtime conversation artifact projection core sends Rust daemon-core reque
     },
   });
 
-  const projection = {
-    artifacts: [{ id: "artifact_123", thread_id: "thread_123" }],
-  };
   const result = runner.projectRuntimeConversationArtifactProjection({
     operation: "runtime_conversation_artifact_projection",
     operation_kind: "runtime.conversation_artifact_projection.list",
     projection_kind: "list",
     thread_id: "thread_123",
-    projection,
+    state_dir: "/runtime-state",
   });
 
   assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
@@ -3241,7 +3238,8 @@ test("runtime conversation artifact projection core sends Rust daemon-core reque
   );
   assert.equal(captured.request.projection_kind, "list");
   assert.equal(captured.request.thread_id, "thread_123");
-  assert.deepEqual(captured.request.projection, projection);
+  assert.equal(captured.request.state_dir, "/runtime-state");
+  assert.equal(Object.hasOwn(captured.request, "projection"), false);
   assert.equal(result.source, "rust_runtime_conversation_artifact_projection_command");
   assert.equal(result.projection_kind, "list");
   assert.equal(result.projection[0].id, "artifact_123");

@@ -867,9 +867,12 @@ conversation-artifact list, get, and revision-list routes call
 conversation-artifact surface, while create/action/export/promote call
 `plan_runtime_conversation_artifact_control` and commit only the Rust-authored
 artifact through Rust Agentgres artifact-state admission. JS supplies temporary
-artifact candidates and canonical request fields, and fails closed when Rust
-projection, planning, or commit is absent or mismatched. Durable
-ArtifactRef/PayloadRef truth, richer Agentgres replay/projection storage,
+artifact candidates only for control planning; read projection sends canonical
+request fields plus runtime `state_dir`, Rust replays admitted `artifacts/*.json`
+conversation-artifact records, and rejects retired JS artifact candidate
+transport. The route family fails closed when Rust projection, planning, or
+commit is absent or mismatched. Durable ArtifactRef/PayloadRef truth, richer
+Agentgres mutation replay/projection storage,
 wallet/cTEE authority where needed, receipt/state-root binding, and direct
 protocol APIs remain non-terminal.
 The current subagent read macro cut replaces the fail-closed public subagent
@@ -2612,9 +2615,12 @@ Rust daemon-core `project_runtime_conversation_artifact_projection`; public
 `exportConversationArtifact()`, and `promoteConversationArtifact()` now call
 Rust daemon-core `plan_runtime_conversation_artifact_control` and commit the
 returned artifact through Rust Agentgres artifact-state admission. JS supplies
-only temporary artifact candidates and canonical request fields. Durable
-ArtifactRef/PayloadRef custody, richer Agentgres storage/replay, and direct
-protocol APIs remain required before terminal conformance.
+only temporary artifact candidates for control planning; read projection sends
+canonical request fields plus runtime `state_dir`, replays admitted
+`artifacts/*.json` records in Rust, and rejects retired JS artifact candidate
+transport. Durable ArtifactRef/PayloadRef custody, richer mutation
+storage/replay, and direct protocol APIs remain required before terminal
+conformance.
 Slice 952 retired runtime workspace-snapshot public JS readback. Public
 `RuntimeWorkspaceSnapshotRestoreControl.listWorkspaceSnapshots()` and
 `workspaceSnapshotContentPackage()` now fail closed at `workspace_snapshot.list`
@@ -4891,9 +4897,10 @@ now calls Rust `project_runtime_memory_projection` for public memory
 list/policy/path/status/validation before JS `AgentMemoryStore` readback;
 conversation-artifact list/get/revision routes call Rust
 `project_runtime_conversation_artifact_projection` through the mounted artifact
-surface before JS artifact-store readback, while artifact create/action/export/promote
-call Rust `plan_runtime_conversation_artifact_control` and Rust Agentgres
-artifact-state commit before route truth returns; subagent list/get/result routes call Rust
+surface with runtime `state_dir` and reject JS artifact candidate transport,
+while artifact create/action/export/promote call Rust
+`plan_runtime_conversation_artifact_control` and Rust Agentgres artifact-state
+commit before route truth returns; subagent list/get/result routes call Rust
 `project_runtime_subagent_projection` through the mounted subagent surface
 before JS subagent/run map readback, while subagent wait control uses Rust
 `plan_runtime_subagent_control`, Rust runtime-event Agentgres admission, Rust
@@ -6395,11 +6402,12 @@ no longer exposes `executeDiagnosticsOperatorOverride()`,
 
 Conformance now fails if those store-level delegates return. The mounted JS
 surfaces remain migration scaffolding only: conversation-artifact read projection
-and create/action/export/promote control now have positive Rust daemon-core APIs,
-while future direct positive APIs must still retire the remaining temporary
-protocol-edge scaffolding with richer Rust daemon-core diagnostics repair
-admission/projection, ArtifactRef/PayloadRef admission, Agentgres expected-head
-and state-root binding, receipt_binder, replay, and stable projection APIs.
+now has a Rust replay API over runtime `state_dir`, create/action/export/promote
+control now has a positive Rust daemon-core API, and future direct positive APIs
+must still retire the remaining temporary protocol-edge scaffolding with richer
+Rust daemon-core diagnostics repair admission/projection,
+ArtifactRef/PayloadRef admission, Agentgres expected-head and state-root
+binding, receipt_binder, replay, and stable projection APIs.
 
 Slice 1101 retires the unused workflow-edit target/context JS helper facades
 instead of preserving them as fail-closed compatibility surface area. No live

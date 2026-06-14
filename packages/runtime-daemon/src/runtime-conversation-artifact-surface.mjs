@@ -128,6 +128,10 @@ export function createRuntimeConversationArtifactSurface({
     return list.call(store.conversationArtifacts, {});
   }
 
+  function conversationArtifactProjectionStateDir(store) {
+    return optionalString(store?.stateDir) ?? optionalString(store?.conversationArtifacts?.stateDir);
+  }
+
   function conversationArtifactControlRequestPayload(input = {}) {
     const source = objectRecord(input) ?? {};
     const request = {};
@@ -294,15 +298,14 @@ export function createRuntimeConversationArtifactSurface({
       artifact_id: artifactId,
     };
     const runner = conversationArtifactProjectionRunner(store, requestContext);
-    const artifacts = candidateConversationArtifacts(store);
     const request = {
       operation: "runtime_conversation_artifact_projection",
       operation_kind: operationKind,
       projection_kind: projectionKind,
       thread_id: threadId,
       artifact_id: artifactId,
+      state_dir: conversationArtifactProjectionStateDir(store),
       source: "runtime.conversation_artifact_surface.read_projection",
-      projection: { artifacts },
       evidence_refs: conversationArtifactReadProjectionEvidenceRefs,
     };
     const result = runner.projectRuntimeConversationArtifactProjection(request);

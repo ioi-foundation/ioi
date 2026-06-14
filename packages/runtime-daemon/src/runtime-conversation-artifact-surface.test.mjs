@@ -13,6 +13,7 @@ function harness(options = {}) {
     contextPolicyCore: options.contextPolicyCore,
   });
   const store = {
+    stateDir: "/runtime-state",
     commitRuntimeArtifactState(request) {
       calls.push({ name: "commitRuntimeArtifactState", request });
       return {
@@ -345,27 +346,30 @@ test("conversation artifact read projections fail closed before JS artifact read
 
 test("conversation artifact read projections return Rust daemon-core projections", () => {
   const projectionCalls = [];
+  const rustArtifacts = [
+    { id: "artifact-one", thread_id: "thread-one", title: "One", revisions: [{ revision_id: "rev-one" }] },
+    { id: "artifact-two", thread_id: "thread-two", title: "Two", revisions: [{ revision_id: "rev-two" }] },
+  ];
   const { calls, store, surface } = harness({
     contextPolicyCore: {
       projectRuntimeConversationArtifactProjection(request) {
         projectionCalls.push(request);
-        const artifacts = request.projection.artifacts;
         if (request.projection_kind === "list") {
           return {
             projection_kind: "list",
-            projection: artifacts.filter((record) => record.thread_id === request.thread_id),
+            projection: rustArtifacts.filter((record) => record.thread_id === request.thread_id),
           };
         }
         if (request.projection_kind === "get") {
           return {
             projection_kind: "get",
-            projection: artifacts.find((record) => record.id === request.artifact_id) ?? null,
+            projection: rustArtifacts.find((record) => record.id === request.artifact_id) ?? null,
           };
         }
         return {
           projection_kind: "revisions",
           projection:
-            artifacts.find((record) => record.id === request.artifact_id)?.revisions ?? [],
+            rustArtifacts.find((record) => record.id === request.artifact_id)?.revisions ?? [],
         };
       },
     },
@@ -384,11 +388,7 @@ test("conversation artifact read projections return Rust daemon-core projections
     { revision_id: "rev-one" },
   ]);
 
-  assert.deepEqual(calls, [
-    { name: "list", query: {} },
-    { name: "list", query: {} },
-    { name: "list", query: {} },
-  ]);
+  assert.deepEqual(calls, []);
   assert.equal(projectionCalls.length, 3);
   assert.deepEqual(
     projectionCalls.map((request) => request.operation),
@@ -404,6 +404,12 @@ test("conversation artifact read projections return Rust daemon-core projections
   );
   assert.equal(projectionCalls[0].thread_id, "thread-one");
   assert.equal(projectionCalls[1].artifact_id, "artifact-two");
+  assert.equal(projectionCalls[0].state_dir, "/runtime-state");
+  assert.equal(projectionCalls.every((request) => request.state_dir === "/runtime-state"), true);
+  assert.equal(
+    projectionCalls.every((request) => Object.hasOwn(request, "projection") === false),
+    true,
+  );
   assert.equal(
     projectionCalls[0].evidence_refs.includes("conversation_artifact_read_projection_js_facade_retired"),
     true,
