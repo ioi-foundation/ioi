@@ -26,10 +26,7 @@ pub use artifact_endpoint::{
     ModelMountArtifactEndpointPlan, ModelMountArtifactEndpointRequest,
 };
 mod storage_control;
-pub use storage_control::{
-    plan_model_mount_storage_control_response, ModelMountStorageControlBridgeRequest,
-    ModelMountStorageControlPlan, ModelMountStorageControlRequest,
-};
+pub use storage_control::{ModelMountStorageControlPlan, ModelMountStorageControlRequest};
 mod mcp_workflow;
 pub use mcp_workflow::{
     plan_model_mount_mcp_workflow_response, ModelMountMcpWorkflowBridgeRequest,

@@ -2042,21 +2042,23 @@ never execute the JS OAuth credential provider, mutate OAuth/session maps, write
 vault refs, or return plaintext material. OAuth state/session projection and
 command-transport retirement remain non-terminal.
 
-The storage helper-retirement cut has been superseded by a positive Rust
-storage-control path. Public download-cancel, artifact-delete, and
-storage-cleanup mutations now call Rust daemon-core
-`plan_model_mount_storage_control`, receive Rust-authored `model-downloads` or
-`model-storage-controls` records, and require Agentgres model_mount record-state
-commit before public truth returns. The mounted public `ModelMountingState`
+The storage helper-retirement cut has been superseded by a typed Rust
+storage-control API. Public download-cancel, artifact-delete, and
+storage-cleanup mutations now call
+`daemonCoreModelMountApi.planModelMountStorageControl`, backed by Rust
+`RuntimeKernel::plan_model_mount_storage_control`, receive Rust-authored
+`model-downloads` or `model-storage-controls` records, and require Agentgres
+model_mount record-state commit before public truth returns. The mounted public `ModelMountingState`
 storage methods still own canonical storage request alias rejection, while
 `storageSummary()`, `listDownloads()`, and `downloadStatus()` now call Rust
 model_mount read-projection kinds over runtime `state_dir`, replay admitted
 storage-control records, and filter out JS-authored storage/download truth. JS
-no longer preserves lifecycle receipts, direct download/artifact map mutation,
-download-status map readback, filesystem scanning/mutation, or no-commit planner
-success. This remains non-terminal: richer filesystem custody, richer
-catalog/download materialization, command transport retirement, and stable
-protocol APIs remain required.
+no longer preserves the storage-control command-envelope builder/operation,
+bridge response wrapper, lifecycle receipts, direct download/artifact map
+mutation, download-status map readback, filesystem scanning/mutation, or
+no-commit planner success. This remains non-terminal: richer filesystem custody,
+richer catalog/download materialization, and stable protocol APIs remain
+required.
 
 The capability-token cut now supersedes the earlier fail-closed helper
 retirement. Public capability-token create/list/authorize/revoke call Rust
@@ -2123,9 +2125,10 @@ receipt/state-root binding, Agentgres truth, replay, command-transport
 retirement, and stable protocol APIs remain required.
 
 The catalog/download helper-retirement cut has also been superseded by the
-positive Rust storage-control path. Public catalog-import URL and direct
-model-download mutations now call Rust daemon-core
-`plan_model_mount_storage_control`, receive Rust-authored
+typed Rust storage-control API. Public catalog-import URL and direct
+model-download mutations now call
+`daemonCoreModelMountApi.planModelMountStorageControl`, backed by Rust
+`RuntimeKernel::plan_model_mount_storage_control`, receive Rust-authored
 `model-catalog-imports` or `model-downloads` records, and require Agentgres
 model_mount record-state commit before public truth returns. The mounted public
 `ModelMountingState` catalog/download methods still own canonical catalog import
@@ -2134,7 +2137,7 @@ rejection, but do not preserve JS transfer, fixture/live materialization,
 filesystem, artifact/download record-state, or receipt helpers as fallback
 truth. This remains non-terminal: richer catalog/download replay/projection,
 filesystem custody, receipt/state-root binding beyond record-state commit,
-command-transport retirement, and stable protocol APIs remain required.
+and stable protocol APIs remain required.
 
 Slice 878 retired the fail-closed
 `catalog-provider-configuration-operations.mjs` helper module after public
@@ -9095,22 +9098,24 @@ non-terminal because hosted/provider endpoint discovery/materialization, deeper
 receipt/state-root binding, command-transport retirement, and stable protocol
 APIs still need direct Rust ownership.
 Public model storage and catalog/download mutations have moved from fail-closed
-JS facades to Rust `plan_model_mount_storage_control` plus Rust Agentgres
-model_mount record-state commit. `catalogImportUrl()`, `downloadModel()`,
-`cancelDownload()`, `deleteModelArtifact()`, and `cleanupModelStorage()` now
-receive Rust-authored `model-catalog-imports`, `model-downloads`, or
-`model-storage-controls` records with storage/download evidence, authority
-hashes, wallet/cTEE boundary facts, and Agentgres truth evidence, then require
-Rust commit before returning public truth. They no longer preserve JS
-catalog/download/storage lifecycle receipts, JS download/artifact map mutation,
-`writeMap()` storage truth, fixture/live network materialization, filesystem
-mutation, or no-commit planner success as compatibility paths. `storageSummary()`,
-`listDownloads()`, and `downloadStatus()` now call Rust model_mount read
-projection over runtime `state_dir`, replay admitted storage-control records
-from `model-catalog-imports`, `model-downloads`, and `model-storage-controls`,
-and filter out JS-authored storage/download truth. Richer filesystem custody,
-richer catalog/download materialization, command-transport retirement, and
-stable protocol APIs remain non-terminal.
+JS facades to typed `daemonCoreModelMountApi.planModelMountStorageControl`,
+backed by Rust `RuntimeKernel::plan_model_mount_storage_control`, plus Rust
+Agentgres model_mount record-state commit. `catalogImportUrl()`,
+`downloadModel()`, `cancelDownload()`, `deleteModelArtifact()`, and
+`cleanupModelStorage()` now receive Rust-authored `model-catalog-imports`,
+`model-downloads`, or `model-storage-controls` records with storage/download
+evidence, authority hashes, wallet/cTEE boundary facts, and Agentgres truth
+evidence, then require Rust commit before returning public truth. They no longer
+preserve the storage-control command-envelope builder/operation, bridge response
+wrapper, `daemonCoreApi` compatibility mount, JS catalog/download/storage
+lifecycle receipts, JS download/artifact map mutation, `writeMap()` storage
+truth, fixture/live network materialization, filesystem mutation, or no-commit
+planner success as compatibility paths. `storageSummary()`, `listDownloads()`,
+and `downloadStatus()` now call Rust model_mount read projection over runtime
+`state_dir`, replay admitted storage-control records from `model-catalog-imports`,
+`model-downloads`, and `model-storage-controls`, and filter out JS-authored
+storage/download truth. Richer filesystem custody, richer catalog/download
+materialization, and stable protocol APIs remain non-terminal.
 Public provider inventory for migrated fixture/local-folder, native-local, and
 hosted metadata providers has moved from fail-closed JS list facades to the Rust
 `plan_model_mount_provider_inventory` planner. `listProviderModels()` and

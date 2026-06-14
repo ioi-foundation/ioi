@@ -15052,7 +15052,13 @@ function runBridge() {
       /ModelMountCore/.test(modelMountCore) &&
       /createModelMountCore\(options = \{\}\)/.test(modelMountCore) &&
       /assertNoRetiredModelMountCoreOption/.test(modelMountCore) &&
+      /assertNoRetiredModelMountCoreOption\("daemonCoreApi", options\.daemonCoreApi\)/.test(
+        modelMountCore,
+      ) &&
       /model_mount_core_compatibility_option_retired/.test(modelMountCore) &&
+      !/options\.daemonCoreApi\?\.model_mount|options\.daemonCoreApi\?\.modelMount|modelMountApi\(options\.daemonCoreApi\)/.test(
+        modelMountCore,
+      ) &&
       /MODEL_MOUNT_ROUTE_DECISION_API_METHOD = "admitModelMountRouteDecision"/.test(modelMountCore) &&
       /this\.daemonCoreModelMountApi = modelMountApi/.test(modelMountCore) &&
       /invokeModelMountApi\(MODEL_MOUNT_ROUTE_DECISION_API_METHOD, request\)/.test(modelMountCore) &&
@@ -22047,9 +22053,7 @@ function runReceipts() {
       !exists("packages/runtime-daemon/src/model-mounting/model-endpoint-record-state.mjs") &&
       !/cancelDownloadState|downloadStatusState|deleteModelArtifactState|cleanupModelStorageState/.test(modelMountingState) &&
       /MODEL_MOUNT_STORAGE_CONTROL_SCHEMA_VERSION/.test(modelMountingState) &&
-      /planStorageControl\(request\)\s*\{[\s\S]*?plan_model_mount_storage_control/.test(
-        modelMountingState,
-      ) &&
+      /rust_core_api:\s*"plan_model_mount_storage_control"/.test(modelMountingState) &&
       /planAndCommitStorageControl\(this,\s*"model_mount\.download\.cancel"/.test(
         cancelDownloadBlock,
       ) &&
@@ -22069,11 +22073,22 @@ function runReceipts() {
       /public_model_storage_js_facade_retired/.test(modelMountingState) &&
       /rust_daemon_core_model_storage/.test(modelMountingState) &&
       /agentgres_model_storage_truth_required/.test(modelMountingState) &&
-      /RUST_MODEL_MOUNT_STORAGE_CONTROL_BACKEND/.test(modelMountCore) &&
-      /operation:\s*"plan_model_mount_storage_control"/.test(modelMountCore) &&
-      /normalizeStorageControlBridgeResult/.test(modelMountCore) &&
+      /MODEL_MOUNT_STORAGE_CONTROL_API_METHOD = "planModelMountStorageControl"/.test(
+        modelMountCore,
+      ) &&
+      /invokeModelMountApi\(MODEL_MOUNT_STORAGE_CONTROL_API_METHOD, request\)/.test(
+        modelMountCore,
+      ) &&
+      /normalizeStorageControlApiResult/.test(modelMountCore) &&
+      !/operation:\s*"plan_model_mount_storage_control"/.test(modelMountCore) &&
+      !/normalizeStorageControlBridgeResult/.test(modelMountCore) &&
       /model_mount_storage_control_plan_invalid/.test(modelMountCore) &&
-      /plan_model_mount_storage_control_response/.test(modelMountStorageControlEvidence) &&
+      !/plan_model_mount_storage_control_response/.test(modelMountStorageControlEvidence) &&
+      !/ModelMountStorageControlBridgeRequest/.test(modelMountStorageControlEvidence) &&
+      /model_mount_storage_control_command_transport_is_retired/.test(commandProtocolCore) &&
+      /pub fn plan_model_mount_storage_control/.test(
+        read("crates/services/src/agentic/runtime/kernel/mod.rs"),
+      ) &&
       /MODEL_MOUNT_STORAGE_CONTROL_PLAN_SCHEMA_VERSION/.test(modelMountStorageControlEvidence) &&
       /pub\(super\) fn plan_storage_control/.test(modelMountStorageControlEvidence) &&
       /"model-downloads"/.test(modelMountStorageControlEvidence) &&
@@ -22624,9 +22639,7 @@ function runReceipts() {
       !/model_mount_catalog_download_rust_core_required/.test(modelMountingState) &&
       !/rust_core_boundary:\s*"model_mount\.catalog_download"/.test(modelMountingState) &&
       /MODEL_MOUNT_STORAGE_CONTROL_SCHEMA_VERSION/.test(modelMountingState) &&
-      /planStorageControl\(request\)\s*\{[\s\S]*?plan_model_mount_storage_control/.test(
-        modelMountingState,
-      ) &&
+      /rust_core_api:\s*"plan_model_mount_storage_control"/.test(modelMountingState) &&
       /public_catalog_download_js_facade_retired/.test(modelMountStorageControlEvidence) &&
       /rust_daemon_core_catalog_download/.test(modelMountStorageControlEvidence) &&
       /agentgres_catalog_download_truth_required/.test(modelMountStorageControlEvidence) &&
@@ -22640,11 +22653,22 @@ function runReceipts() {
         modelMountingState,
       ) &&
       /storageControlBody/.test(modelMountingState) &&
-      /RUST_MODEL_MOUNT_STORAGE_CONTROL_BACKEND/.test(modelMountCore) &&
-      /operation:\s*"plan_model_mount_storage_control"/.test(modelMountCore) &&
-      /normalizeStorageControlBridgeResult/.test(modelMountCore) &&
+      /MODEL_MOUNT_STORAGE_CONTROL_API_METHOD = "planModelMountStorageControl"/.test(
+        modelMountCore,
+      ) &&
+      /invokeModelMountApi\(MODEL_MOUNT_STORAGE_CONTROL_API_METHOD, request\)/.test(
+        modelMountCore,
+      ) &&
+      /normalizeStorageControlApiResult/.test(modelMountCore) &&
+      !/operation:\s*"plan_model_mount_storage_control"/.test(modelMountCore) &&
+      !/normalizeStorageControlBridgeResult/.test(modelMountCore) &&
       /model_mount_storage_control_plan_invalid/.test(modelMountCore) &&
-      /plan_model_mount_storage_control_response/.test(modelMountStorageControlEvidence) &&
+      !/plan_model_mount_storage_control_response/.test(modelMountStorageControlEvidence) &&
+      !/ModelMountStorageControlBridgeRequest/.test(modelMountStorageControlEvidence) &&
+      /model_mount_storage_control_command_transport_is_retired/.test(commandProtocolCore) &&
+      /pub fn plan_model_mount_storage_control/.test(
+        read("crates/services/src/agentic/runtime/kernel/mod.rs"),
+      ) &&
       /MODEL_MOUNT_STORAGE_CONTROL_PLAN_SCHEMA_VERSION/.test(modelMountStorageControlEvidence) &&
       /pub\(super\) fn plan_storage_control/.test(modelMountStorageControlEvidence) &&
       /"model-catalog-imports"/.test(modelMountStorageControlEvidence) &&

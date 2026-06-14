@@ -32,6 +32,7 @@ export const RUST_MODEL_MOUNT_NATIVE_LOCAL_BACKEND = "rust_model_mount_native_lo
 export const RUST_MODEL_MOUNT_NATIVE_LOCAL_INVENTORY_BACKEND = "rust_model_mount_native_local_inventory";
 export const RUST_MODEL_MOUNT_NATIVE_LOCAL_LIFECYCLE_BACKEND = "rust_model_mount_native_local_lifecycle";
 export const MODEL_MOUNT_ROUTE_DECISION_API_METHOD = "admitModelMountRouteDecision";
+export const MODEL_MOUNT_STORAGE_CONTROL_API_METHOD = "planModelMountStorageControl";
 
 export function createModelMountCore(options = {}) {
   return new ModelMountCore(options);
@@ -53,13 +54,9 @@ export class ModelMountCore {
     assertNoRetiredModelMountCoreOption("command", options.command);
     assertNoRetiredModelMountCoreOption("args", options.args);
     assertNoRetiredModelMountCoreOption("env", options.env);
+    assertNoRetiredModelMountCoreOption("daemonCoreApi", options.daemonCoreApi);
     this.daemonCoreInvoker = optionalFunction(options.daemonCoreInvoker);
-    this.daemonCoreModelMountApi = modelMountApi(
-      options.daemonCoreModelMountApi ??
-        options.daemonCoreApi?.model_mount ??
-        options.daemonCoreApi?.modelMount ??
-        options.daemonCoreApi,
-    );
+    this.daemonCoreModelMountApi = modelMountApi(options.daemonCoreModelMountApi);
   }
 
   admitRouteDecision(request) {
@@ -179,13 +176,9 @@ export class ModelMountCore {
   }
 
   planStorageControl(request) {
-    const bridgeRequest = {
-      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
-      operation: "plan_model_mount_storage_control",
-      backend: RUST_MODEL_MOUNT_STORAGE_CONTROL_BACKEND,
-      request,
-    };
-    return normalizeStorageControlBridgeResult(this.invokeDaemonCore(bridgeRequest));
+    return normalizeStorageControlApiResult(
+      this.invokeModelMountApi(MODEL_MOUNT_STORAGE_CONTROL_API_METHOD, request),
+    );
   }
 
   planMcpWorkflow(request) {
@@ -877,7 +870,7 @@ function normalizeArtifactEndpointBridgeResult(value = {}) {
   return normalized;
 }
 
-function normalizeStorageControlBridgeResult(value = {}) {
+function normalizeStorageControlApiResult(value = {}) {
   const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   const plan = result.plan && typeof result.plan === "object" && !Array.isArray(result.plan)
     ? result.plan
@@ -888,7 +881,7 @@ function normalizeStorageControlBridgeResult(value = {}) {
       ? plan.record
       : null;
   const normalized = {
-    source: result.source ?? "rust_model_mount_storage_control_command",
+    source: result.source ?? "rust_model_mount_storage_control_api",
     backend: result.backend ?? RUST_MODEL_MOUNT_STORAGE_CONTROL_BACKEND,
     plan,
     record_dir: result.record_dir ?? plan.record_dir ?? null,
@@ -2165,9 +2158,7 @@ function optionalFunction(value) {
 
 function modelMountApi(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  return typeof value[MODEL_MOUNT_ROUTE_DECISION_API_METHOD] === "function"
-    ? value
-    : null;
+  return value;
 }
 
 function objectRecord(value) {

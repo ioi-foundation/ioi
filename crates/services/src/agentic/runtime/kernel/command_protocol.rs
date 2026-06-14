@@ -17,7 +17,6 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "plan_model_mount_backend_process",
     "plan_model_mount_backend_lifecycle",
     "plan_model_mount_artifact_endpoint",
-    "plan_model_mount_storage_control",
     "plan_model_mount_mcp_workflow",
     "plan_model_mount_server_control",
     "plan_model_mount_runtime_engine",
@@ -85,7 +84,6 @@ pub enum CommandOperation {
     PlanModelMountBackendProcess,
     PlanModelMountBackendLifecycle,
     PlanModelMountArtifactEndpoint,
-    PlanModelMountStorageControl,
     PlanModelMountMcpWorkflow,
     PlanModelMountServerControl,
     PlanModelMountRuntimeEngine,
@@ -156,7 +154,6 @@ impl CommandOperation {
             Self::PlanModelMountBackendProcess => "plan_model_mount_backend_process",
             Self::PlanModelMountBackendLifecycle => "plan_model_mount_backend_lifecycle",
             Self::PlanModelMountArtifactEndpoint => "plan_model_mount_artifact_endpoint",
-            Self::PlanModelMountStorageControl => "plan_model_mount_storage_control",
             Self::PlanModelMountMcpWorkflow => "plan_model_mount_mcp_workflow",
             Self::PlanModelMountServerControl => "plan_model_mount_server_control",
             Self::PlanModelMountRuntimeEngine => "plan_model_mount_runtime_engine",
@@ -324,7 +321,6 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
         "plan_model_mount_artifact_endpoint" => {
             Some(CommandOperation::PlanModelMountArtifactEndpoint)
         }
-        "plan_model_mount_storage_control" => Some(CommandOperation::PlanModelMountStorageControl),
         "plan_model_mount_mcp_workflow" => Some(CommandOperation::PlanModelMountMcpWorkflow),
         "plan_model_mount_server_control" => Some(CommandOperation::PlanModelMountServerControl),
         "plan_model_mount_runtime_engine" => Some(CommandOperation::PlanModelMountRuntimeEngine),
@@ -521,7 +517,6 @@ mod tests {
             "plan_model_mount_server_control",
             "plan_model_mount_runtime_survey",
             "plan_model_mount_artifact_endpoint",
-            "plan_model_mount_storage_control",
             "plan_model_mount_mcp_workflow",
             "plan_model_mount_catalog_provider_control",
             "plan_model_mount_provider_control",
@@ -573,6 +568,24 @@ mod tests {
         assert_eq!(
             validate_command_envelope(
                 "admit_model_mount_route_decision",
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+            )
+            .unwrap_err()
+            .code(),
+            "operation_unknown"
+        );
+    }
+
+    #[test]
+    fn model_mount_storage_control_command_transport_is_retired() {
+        assert_eq!(command_operation("plan_model_mount_storage_control"), None);
+        assert_eq!(
+            expected_command_schema_version("plan_model_mount_storage_control"),
+            None
+        );
+        assert_eq!(
+            validate_command_envelope(
+                "plan_model_mount_storage_control",
                 DAEMON_CORE_COMMAND_SCHEMA_VERSION,
             )
             .unwrap_err()

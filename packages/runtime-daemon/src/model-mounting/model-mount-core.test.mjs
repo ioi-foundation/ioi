@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   MODEL_MOUNT_CORE_SCHEMA_VERSION,
   MODEL_MOUNT_ROUTE_DECISION_API_METHOD,
+  MODEL_MOUNT_STORAGE_CONTROL_API_METHOD,
   ModelMountCoreError,
   RUST_MODEL_MOUNT_ARTIFACT_ENDPOINT_BACKEND,
   RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_BACKEND,
@@ -18,7 +19,6 @@ import {
   RUST_MODEL_MOUNT_RUNTIME_ENGINE_BACKEND,
   RUST_MODEL_MOUNT_RUNTIME_SURVEY_BACKEND,
   RUST_MODEL_MOUNT_SERVER_CONTROL_BACKEND,
-  RUST_MODEL_MOUNT_STORAGE_CONTROL_BACKEND,
   RUST_MODEL_MOUNT_STREAM_CANCEL_BACKEND,
   RUST_MODEL_MOUNT_STREAM_COMPLETION_BACKEND,
   RUST_MODEL_MOUNT_TOKENIZER_BACKEND,
@@ -2121,18 +2121,19 @@ test("Rust model_mount core sends positive artifact-endpoint request", () => {
 test("Rust model_mount core sends positive storage-control request", () => {
   const calls = [];
   const runner = new ModelMountCore({
-    daemonCoreInvoker(request) {
-      calls.push({ request });
+    daemonCoreModelMountApi: {
+      planModelMountStorageControl(request) {
+        calls.push({ method: MODEL_MOUNT_STORAGE_CONTROL_API_METHOD, request });
       const record = {
         id: "download.local.test",
         record_id: "download.local.test",
         object: "ioi.model_mount_download",
         status: "queued",
-        operation_kind: request.request.operation_kind,
+        operation_kind: request.operation_kind,
         rust_core_boundary: "model_mount.storage_control",
         details: {
-          model_id: request.request.body.model_id,
-          provider_id: request.request.body.provider_id,
+          model_id: request.body.model_id,
+          provider_id: request.body.provider_id,
           network_transfer_executed: false,
         },
         public_response: {
@@ -2141,7 +2142,7 @@ test("Rust model_mount core sends positive storage-control request", () => {
           id: "download.local.test",
           record_id: "download.local.test",
           record_dir: "model-downloads",
-          operation_kind: request.request.operation_kind,
+          operation_kind: request.operation_kind,
           rust_core_boundary: "model_mount.storage_control",
           js_network_transfer_executed: false,
           js_filesystem_mutation_executed: false,
@@ -2161,15 +2162,15 @@ test("Rust model_mount core sends positive storage-control request", () => {
       return {
         ok: true,
         result: {
-          source: "rust_model_mount_storage_control_command",
-          backend: RUST_MODEL_MOUNT_STORAGE_CONTROL_BACKEND,
+          source: "direct_model_mount_api",
+          backend: "rust_model_mount_storage_control",
           plan: {
             schema_version: "ioi.model_mount.storage_control_plan.v1",
             object: "ioi.model_mount_storage_control_plan",
             status: "planned",
             rust_core_boundary: "model_mount.storage_control",
-            operation_kind: request.request.operation_kind,
-            source: request.request.source,
+            operation_kind: request.operation_kind,
+            source: request.source,
             record_dir: "model-downloads",
             record_id: record.id,
             record,
@@ -2189,25 +2190,30 @@ test("Rust model_mount core sends positive storage-control request", () => {
           authority_grant_refs: ["grant://wallet/storage"],
           authority_receipt_refs: ["receipt://wallet/storage"],
           evidence_refs: record.evidence_refs,
-          operation_kind: request.request.operation_kind,
+          operation_kind: request.operation_kind,
           rust_core_boundary: "model_mount.storage_control",
           control_hash: "sha256:storage-control",
           authority_hash: "sha256:storage-authority",
         },
       };
+      },
+    },
+    daemonCoreInvoker(request) {
+      calls.push({ method: "daemonCoreInvoker", request });
+      throw new Error(`generic command invoker must not run storage control: ${request?.operation}`);
     },
   });
 
   const result = runner.planStorageControl(storageControlRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
-  assert.equal(calls[0].request.operation, "plan_model_mount_storage_control");
-  assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_STORAGE_CONTROL_BACKEND);
-  assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.storage_control.v1");
-  assert.equal(calls[0].request.request.operation_kind, "model_mount.download.queue");
-  assert.equal(calls[0].request.request.body.model_id, "local:test");
-  assert.equal(calls[0].request.request.required_scope, "model.download.queue:local:test");
+  assert.equal(calls[0].method, MODEL_MOUNT_STORAGE_CONTROL_API_METHOD);
+  assert.equal(calls[0].request.schema_version, "ioi.model_mount.storage_control.v1");
+  assert.equal(Object.hasOwn(calls[0].request, "operation"), false);
+  assert.equal(Object.hasOwn(calls[0].request, "backend"), false);
+  assert.equal(calls[0].request.operation_kind, "model_mount.download.queue");
+  assert.equal(calls[0].request.body.model_id, "local:test");
+  assert.equal(calls[0].request.required_scope, "model.download.queue:local:test");
   assert.equal(result.record_dir, "model-downloads");
   assert.equal(result.record_id, "download.local.test");
   assert.equal(result.record.public_response.js_network_transfer_executed, false);
@@ -2215,6 +2221,22 @@ test("Rust model_mount core sends positive storage-control request", () => {
   assert.equal(result.authority_hash, "sha256:storage-authority");
   assert.equal(result.rust_core_boundary, "model_mount.storage_control");
   assert.equal(result.evidence_refs.includes("agentgres_model_storage_truth_required"), true);
+});
+
+test("Rust model_mount core rejects command-shaped storage-control fallback", () => {
+  const runner = new ModelMountCore({
+    daemonCoreInvoker(request) {
+      throw new Error(`generic command invoker must not run storage control: ${request?.operation}`);
+    },
+  });
+
+  assert.throws(
+    () => runner.planStorageControl(storageControlRequest()),
+    (error) =>
+      error instanceof ModelMountCoreError &&
+      error.code === "model_mount_core_direct_model_mount_api_unconfigured" &&
+      error.details.boundary === "daemonCoreModelMountApi.planModelMountStorageControl",
+  );
 });
 
 test("Rust model_mount core sends positive MCP workflow request", () => {
@@ -3607,6 +3629,20 @@ test("Rust model_mount core rejects retired compatibility options", () => {
       error instanceof ModelMountCoreError &&
       error.code === "model_mount_core_compatibility_option_retired" &&
       error.details.retired_option === "env",
+  );
+  assert.throws(
+    () =>
+      createModelMountCore({
+        daemonCoreApi: {
+          planModelMountStorageControl() {
+            return {};
+          },
+        },
+      }),
+    (error) =>
+      error instanceof ModelMountCoreError &&
+      error.code === "model_mount_core_compatibility_option_retired" &&
+      error.details.retired_option === "daemonCoreApi",
   );
 });
 

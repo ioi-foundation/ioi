@@ -5,6 +5,7 @@ import path from "node:path";
 import test from "node:test";
 
 import { AgentgresRuntimeStateStore } from "./index.mjs";
+import { createModelMountCore } from "./model-mounting/model-mount-core.mjs";
 
 test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-daemon-core-direct-"));
@@ -14,10 +15,88 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
   const threadLifecycleCalls = [];
   const workspaceTrustCalls = [];
   const mcpCalls = [];
+  const modelMountCalls = [];
   const threadMemoryCalls = [];
   const agentgresCalls = [];
   const approvalCalls = [];
   const governedAdmissionCalls = [];
+  const failCommandInvoker = (request) => {
+    calls.push(request);
+    throw new Error(`generic command invoker must not run migrated typed APIs: ${request?.operation}`);
+  };
+  const daemonCoreModelMountApi = {
+    planModelMountStorageControl(request) {
+      modelMountCalls.push({ method: "planModelMountStorageControl", request });
+      const record = {
+        id: "download.direct",
+        object: "ioi.model_mount_download",
+        status: "queued",
+        operation_kind: request.operation_kind,
+        rust_core_boundary: "model_mount.storage_control",
+        details: {
+          model_id: request.body?.model_id ?? null,
+          network_transfer_executed: false,
+        },
+        public_response: {
+          object: "ioi.model_mount_download",
+          id: "download.direct",
+          status: "queued",
+          record_dir: "model-downloads",
+          record_id: "download.direct",
+          operation_kind: request.operation_kind,
+          rust_core_boundary: "model_mount.storage_control",
+          js_network_transfer_executed: false,
+          js_filesystem_mutation_executed: false,
+        },
+        receipt_refs: request.receipt_refs ?? [],
+        evidence_refs: [
+          "public_model_storage_js_facade_retired",
+          "rust_daemon_core_model_storage",
+          "agentgres_model_storage_truth_required",
+        ],
+        control_hash: "sha256:direct-storage-control",
+        authority_hash: "sha256:direct-storage-authority",
+      };
+      return {
+        source: "direct_model_mount_api",
+        backend: "rust_model_mount_storage_control",
+        plan: {
+          schema_version: "ioi.model_mount.storage_control_plan.v1",
+          object: "ioi.model_mount_storage_control_plan",
+          status: "planned",
+          rust_core_boundary: "model_mount.storage_control",
+          operation_kind: request.operation_kind,
+          source: request.source,
+          record_dir: "model-downloads",
+          record_id: record.id,
+          record,
+          public_response: record.public_response,
+          receipt_refs: request.receipt_refs ?? [],
+          authority_grant_refs: request.authority_grant_refs ?? [],
+          authority_receipt_refs: request.authority_receipt_refs ?? [],
+          evidence_refs: record.evidence_refs,
+          control_hash: "sha256:direct-storage-control",
+          authority_hash: "sha256:direct-storage-authority",
+        },
+        record_dir: "model-downloads",
+        record_id: record.id,
+        record,
+        public_response: record.public_response,
+        receipt_refs: request.receipt_refs ?? [],
+        authority_grant_refs: request.authority_grant_refs ?? [],
+        authority_receipt_refs: request.authority_receipt_refs ?? [],
+        evidence_refs: record.evidence_refs,
+        operation_kind: request.operation_kind,
+        rust_core_boundary: "model_mount.storage_control",
+        control_hash: "sha256:direct-storage-control",
+        authority_hash: "sha256:direct-storage-authority",
+      };
+    },
+  };
+  const directModelMountCore = createModelMountCore({
+    daemonCoreInvoker: failCommandInvoker,
+    daemonCoreModelMountApi,
+  });
   const store = new AgentgresRuntimeStateStore(stateDir, {
     cwd: stateDir,
     modelMountCore: {
@@ -38,11 +117,12 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
           projection,
         };
       },
+      planStorageControl(request) {
+        return directModelMountCore.planStorageControl(request);
+      },
     },
-    daemonCoreInvoker(request) {
-      calls.push(request);
-      throw new Error(`generic command invoker must not run migrated typed APIs: ${request?.operation}`);
-    },
+    daemonCoreInvoker: failCommandInvoker,
+    daemonCoreModelMountApi,
     daemonCoreContextLifecycleApi: {
       evaluateContextBudgetPolicy(request) {
         contextLifecycleCalls.push({ method: "evaluateContextBudgetPolicy", request });
@@ -302,6 +382,28 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
   assert.equal(Object.hasOwn(mcpCalls[0].request, "backend"), false);
   assert.equal(mcpStatus.source, "direct_mcp_api");
   assert.equal(mcpStatus.server_count, 1);
+  const storagePlan = store.modelMounting.planStorageControl({
+    schema_version: "ioi.model_mount.storage_control.v1",
+    operation_kind: "model_mount.download.queue",
+    source: "runtime-daemon.model_mounting.storage_control",
+    body: {
+      model_id: "local:direct",
+      receipt_refs: ["receipt://storage/direct"],
+    },
+    receipt_refs: ["receipt://storage/direct"],
+    authority_grant_refs: ["grant://wallet/storage-direct"],
+    authority_receipt_refs: ["receipt://wallet/storage-direct"],
+    required_scope: "model.download.queue:local:direct",
+  });
+  assert.equal(calls.length, 0);
+  assert.equal(modelMountCalls.length, 1);
+  assert.equal(modelMountCalls[0].method, "planModelMountStorageControl");
+  assert.equal(modelMountCalls[0].request.schema_version, "ioi.model_mount.storage_control.v1");
+  assert.equal(Object.hasOwn(modelMountCalls[0].request, "operation"), false);
+  assert.equal(Object.hasOwn(modelMountCalls[0].request, "backend"), false);
+  assert.equal(storagePlan.source, "direct_model_mount_api");
+  assert.equal(storagePlan.record_id, "download.direct");
+  assert.equal(storagePlan.rust_core_boundary, "model_mount.storage_control");
   const memoryPlan = store.contextPolicyCore.planRuntimeMemoryControl({
     operation: "write",
     operation_kind: "memory.write",
