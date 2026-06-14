@@ -41,7 +41,7 @@ function modelMountCoreForTest(calls) {
       };
     },
     planRouteControl(request) {
-      calls.push({ operation: "plan_model_mount_route_control", input: request });
+      calls.push({ method: "planModelMountRouteControl", input: request });
       const record = {
         id: request.route_id ?? request.body?.id ?? "route.local-first",
         role: request.body?.role ?? "chat",
@@ -50,8 +50,7 @@ function modelMountCoreForTest(calls) {
         receiptRefs: ["receipt://runtime-thread-control/route"],
       };
       return {
-        source: "rust_model_mount_route_control_command",
-        backend: "rust_model_mount_route_control",
+        source: "rust_daemon_core.model_mount.route_control",
         plan: {
           schema_version: "ioi.model_mount.route_control_plan.v1",
           object: "ioi.model_mount_route_control_plan",
@@ -196,6 +195,124 @@ function runtimeControlStore(stateDir, calls) {
         },
       };
     },
+    daemonCoreAgentgresApi: {
+      commitRuntimeAgentState(request) {
+        const input = request.request ?? {};
+        calls.push({ method: "commitRuntimeAgentState", input });
+        const agentId = input.agent_id ?? input.agent?.id ?? "agent_runtime";
+        return {
+          source: "direct_agentgres_api",
+          backend: "runtime-agentgres",
+          record: {
+            schema_version: "ioi.runtime_agent_state_commit.v1",
+            agent_id: agentId,
+            operation_kind: input.operation_kind,
+            storage_backend_ref: input.storage_backend_ref,
+            record: {
+              object_ref: `agentgres://runtime-state/agents/${agentId}`,
+              content_hash: `sha256:${agentId}-content`,
+              payload_refs: [`payload://runtime/agents/${agentId}`],
+              receipt_refs: [`receipt_agent_state_${agentId}`],
+              admission: {
+                admission_hash: `sha256:${agentId}-admission`,
+              },
+            },
+            commit_hash: `sha256:${agentId}-commit`,
+          },
+          agent_id: agentId,
+          object_ref: `agentgres://runtime-state/agents/${agentId}`,
+          content_hash: `sha256:${agentId}-content`,
+          admission_hash: `sha256:${agentId}-admission`,
+          commit_hash: `sha256:${agentId}-commit`,
+          written_record: {
+            record_path: `agents/${agentId}.json`,
+          },
+          evidence_refs: ["rust_agentgres_runtime_agent_state_commit"],
+        };
+      },
+      commitRuntimeModelMountRecordState(request) {
+        const input = request.request ?? {};
+        calls.push({ method: "commitRuntimeModelMountRecordState", input });
+        return {
+          source: "direct_agentgres_api",
+          backend: "runtime-agentgres",
+          record: {
+            schema_version: "ioi.runtime_model_mount_record_state_commit.v1",
+            record_dir: input.record_dir,
+            record_id: input.record_id,
+            operation_kind: input.operation_kind,
+            storage_backend_ref: input.storage_backend_ref,
+            record: {
+              object_ref: `agentgres://model-mounting/${input.record_dir}/${input.record_id}`,
+              content_hash: `sha256:${input.record_id}-content`,
+              payload_refs: [`payload://model-mounting/${input.record_dir}/${input.record_id}`],
+              receipt_refs: input.receipt_refs,
+              admission: {
+                admission_hash: `sha256:${input.record_id}-admission`,
+              },
+            },
+            commit_hash: `sha256:${input.record_id}-commit`,
+          },
+          record_id: input.record_id,
+          object_ref: `agentgres://model-mounting/${input.record_dir}/${input.record_id}`,
+          content_hash: `sha256:${input.record_id}-content`,
+          admission_hash: `sha256:${input.record_id}-admission`,
+          commit_hash: `sha256:${input.record_id}-commit`,
+          written_record: input.record,
+          evidence_refs: ["rust_agentgres_runtime_model_mount_record_state_commit"],
+        };
+      },
+    },
+    daemonCoreMcpApi: {
+      planMcpManagerCatalogProjection(request) {
+        calls.push({ method: "planMcpManagerCatalogProjection", input: request });
+        return {
+          source: "direct_mcp_api",
+          backend: "rust_policy",
+          status: "projected",
+          server_count: 0,
+          tool_count: 0,
+          resource_count: 0,
+          prompt_count: 0,
+          enabled_tool_count: 0,
+          servers: [],
+          tools: [],
+          resources: [],
+          prompts: [],
+          enabled_tools: [],
+        };
+      },
+    },
+    daemonCoreThreadLifecycleApi: {
+      planRuntimeBridgeThreadStartAgentStateUpdate(request) {
+        calls.push({ method: "planRuntimeBridgeThreadStartAgentStateUpdate", input: request });
+        return {
+          source: "direct_thread_lifecycle_api",
+          backend: "rust_policy",
+          status: "planned",
+          operation_kind: "thread.runtime_bridge.start",
+          updated_at: request.updated_at,
+          bridge_start: {
+            runtime_profile: request.runtime_profile,
+            session_id: request.session_id,
+            bridge_id: request.bridge_id,
+            status: request.status,
+            source: request.source,
+            updated_at: request.updated_at,
+          },
+          agent: {
+            ...request.agent,
+            runtime_profile: request.runtime_profile,
+            runtime_session_id: request.session_id,
+            runtime_bridge_id: request.bridge_id,
+            runtime_bridge_status: request.status,
+            runtime_bridge_source: request.source,
+            fixtureProfile: null,
+            updatedAt: request.updated_at,
+          },
+        };
+      },
+    },
     modelMountCore: modelMountCoreForTest(calls),
     runtimeBridge: runtimeBridgeThatMustNotDispatch(calls),
   });
@@ -245,11 +362,11 @@ test("runtime thread-control integration proof seeds model routes through Rust r
     assert.equal(result.route.id, "route.local-first");
     assert.equal(result.rust_core_boundary, "model_mount.route_control");
     assert.equal(
-      calls.filter((call) => call.operation === "plan_model_mount_route_control").length,
+      calls.filter((call) => call.method === "planModelMountRouteControl").length,
       1,
     );
     assert.equal(
-      calls.filter((call) => call.operation === "commit_runtime_model_mount_record_state").length,
+      calls.filter((call) => call.method === "commitRuntimeModelMountRecordState").length,
       1,
     );
   } finally {

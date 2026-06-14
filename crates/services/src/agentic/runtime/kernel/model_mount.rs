@@ -114,10 +114,7 @@ pub use read_projection::{
     ModelMountReadProjectionError, ModelMountReadProjectionPlan, ModelMountReadProjectionRequest,
 };
 mod route_control;
-pub use route_control::{
-    plan_model_mount_route_control_response, ModelMountRouteControlBridgeRequest,
-    ModelMountRouteControlPlan, ModelMountRouteControlRequest,
-};
+pub use route_control::{ModelMountRouteControlPlan, ModelMountRouteControlRequest};
 mod runtime_engine;
 pub use runtime_engine::{
     plan_model_mount_runtime_engine_response, ModelMountRuntimeEngineBridgeRequest,

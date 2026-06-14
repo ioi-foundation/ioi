@@ -200,6 +200,34 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
         evidence_refs: ["rust_daemon_core_model_mount_provider_result"],
       };
     },
+    planModelMountRouteControl(request) {
+      modelMountCalls.push({ method: "planModelMountRouteControl", request });
+      const record = {
+        id: request.route_id ?? request.body?.id ?? "route.direct",
+        role: request.body?.role ?? "direct",
+        fallback: request.body?.fallback ?? [],
+        providerEligibility: request.body?.provider_eligibility ?? [],
+        receiptRefs: request.receipt_refs ?? [],
+      };
+      return {
+        source: "rust_daemon_core.model_mount.route_control",
+        schema_version: "ioi.model_mount.route_control_plan.v1",
+        object: "ioi.model_mount_route_control_plan",
+        status: "planned",
+        rust_core_boundary: "model_mount.route_control",
+        operation_kind: request.operation_kind,
+        record_dir: "model-routes",
+        record_id: record.id,
+        record,
+        receipt_refs: request.receipt_refs ?? [],
+        evidence_refs: [
+          "model_mount_route_control_rust_owned",
+          "rust_daemon_core_route_control_plan",
+          "agentgres_route_truth_required",
+        ],
+        control_hash: "sha256:direct-route-control",
+      };
+    },
     planModelMountArtifactEndpoint(request) {
       modelMountCalls.push({ method: "planModelMountArtifactEndpoint", request });
       const record = {
@@ -423,6 +451,9 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
       },
       admitProviderResult(request) {
         return directModelMountCore.admitProviderResult(request);
+      },
+      planRouteControl(request) {
+        return directModelMountCore.planRouteControl(request);
       },
       planArtifactEndpoint(request) {
         return directModelMountCore.planArtifactEndpoint(request);
@@ -845,6 +876,28 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
     "ioi.model_mount.provider_result.v1",
   );
   assert.equal(providerResult.provider_result_hash, "sha256:direct-provider-result");
+  const routeControlPlan = store.modelMounting.planRouteControl({
+    schema_version: "ioi.model_mount.route_control.v1",
+    operation_kind: "model_mount.route.write",
+    source: "runtime-daemon.model_mounting.route_control",
+    route_id: "route.direct",
+    body: {
+      id: "route.direct",
+      role: "Direct",
+      fallback: ["endpoint.direct"],
+      provider_eligibility: ["local_folder"],
+    },
+    receipt_refs: ["receipt://route-control/direct"],
+  });
+  assert.equal(calls.length, 0);
+  assertModelMountDirectApiCall(
+    modelMountCalls.at(-1),
+    "planModelMountRouteControl",
+    "ioi.model_mount.route_control.v1",
+  );
+  assert.equal(routeControlPlan.source, "rust_daemon_core.model_mount.route_control");
+  assert.equal(routeControlPlan.record_id, "route.direct");
+  assert.equal(routeControlPlan.rust_core_boundary, "model_mount.route_control");
   const artifactEndpointPlan = store.modelMounting.planArtifactEndpoint({
     schema_version: "ioi.model_mount.artifact_endpoint.v1",
     operation_kind: "model_mount.endpoint.mount",

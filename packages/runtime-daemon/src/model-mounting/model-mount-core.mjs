@@ -12,7 +12,6 @@ export const RUST_MODEL_MOUNT_RUNTIME_ENGINE_BACKEND = "rust_model_mount_runtime
 export const RUST_MODEL_MOUNT_RUNTIME_SURVEY_BACKEND = "rust_model_mount_runtime_survey";
 export const RUST_MODEL_MOUNT_TOKENIZER_REQUIRED_BACKEND = "rust_model_mount_tokenizer_required";
 export const RUST_MODEL_MOUNT_ROUTE_CONTROL_REQUIRED_BACKEND = "rust_model_mount_route_control_required";
-export const RUST_MODEL_MOUNT_ROUTE_CONTROL_BACKEND = "rust_model_mount_route_control";
 export const RUST_MODEL_MOUNT_CATALOG_PROVIDER_CONTROL_BACKEND = "rust_model_mount_catalog_provider_control";
 export const RUST_MODEL_MOUNT_PROVIDER_CONTROL_BACKEND = "rust_model_mount_provider_control";
 export const RUST_MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_BACKEND = "rust_model_mount_capability_token_control";
@@ -41,6 +40,7 @@ export const MODEL_MOUNT_ARTIFACT_ENDPOINT_API_METHOD = "planModelMountArtifactE
 export const MODEL_MOUNT_STORAGE_CONTROL_API_METHOD = "planModelMountStorageControl";
 export const MODEL_MOUNT_MCP_WORKFLOW_API_METHOD = "planModelMountMcpWorkflow";
 export const MODEL_MOUNT_SERVER_CONTROL_API_METHOD = "planModelMountServerControl";
+export const MODEL_MOUNT_ROUTE_CONTROL_API_METHOD = "planModelMountRouteControl";
 
 export function createModelMountCore(options = {}) {
   return new ModelMountCore(options);
@@ -246,13 +246,9 @@ export class ModelMountCore {
   }
 
   planRouteControl(request) {
-    const bridgeRequest = {
-      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
-      operation: "plan_model_mount_route_control",
-      backend: RUST_MODEL_MOUNT_ROUTE_CONTROL_BACKEND,
-      request,
-    };
-    return normalizeRouteControlBridgeResult(this.invokeDaemonCore(bridgeRequest));
+    return normalizeRouteControlApiResult(
+      this.invokeModelMountApi(MODEL_MOUNT_ROUTE_CONTROL_API_METHOD, request),
+    );
   }
 
   planCatalogProviderControl(request) {
@@ -1299,19 +1295,18 @@ function normalizeRouteControlRequiredBridgeResult(value = {}) {
   };
 }
 
-function normalizeRouteControlBridgeResult(value = {}) {
+function normalizeRouteControlApiResult(value = {}) {
   const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   const plan = result.plan && typeof result.plan === "object" && !Array.isArray(result.plan)
     ? result.plan
-    : {};
+    : result;
   const record = result.record && typeof result.record === "object" && !Array.isArray(result.record)
     ? result.record
     : plan.record && typeof plan.record === "object" && !Array.isArray(plan.record)
       ? plan.record
       : null;
   const normalized = {
-    source: result.source ?? "rust_model_mount_route_control_command",
-    backend: result.backend ?? RUST_MODEL_MOUNT_ROUTE_CONTROL_BACKEND,
+    source: result.source ?? plan.source ?? "rust_daemon_core.model_mount.route_control",
     plan,
     record_dir: result.record_dir ?? plan.record_dir ?? null,
     record_id: result.record_id ?? plan.record_id ?? null,
@@ -1345,7 +1340,6 @@ function normalizeRouteControlBridgeResult(value = {}) {
     error.details = {
       missing,
       source: normalized.source,
-      backend: normalized.backend,
       operation_kind: normalized.operation_kind,
     };
     throw error;

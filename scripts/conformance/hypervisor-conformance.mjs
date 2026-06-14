@@ -2331,7 +2331,7 @@ function runDocs() {
       /dead catalog download policy\/risk\/recommendation helpers are deleted from `catalog-helpers\.mjs`/.test(implementationMatrix) &&
       /the orphan `download-helpers\.mjs` HTTP\/partial-file catalog download materializer is deleted/.test(implementationMatrix) &&
       /the dormant catalog import materializer helper tail is deleted from `catalog-helpers\.mjs`/.test(implementationMatrix) &&
-      /public route upsert\/test, mounted route-selection, and explicit-model endpoint resolution now call Rust daemon-core\s+`plan_model_mount_route_control`/.test(implementationMatrix) &&
+      /public route upsert\/test, mounted route-selection, and explicit-model endpoint resolution now call typed\s+`daemonCoreModelMountApi\.planModelMountRouteControl`/.test(implementationMatrix) &&
       /direct receipt-gate validation now calls Rust daemon-core `plan_model_mount_receipt_gate`/.test(implementationMatrix) &&
       /JS no longer computes gate failures, creates gate receipts, or accepts receipt-gate truth without the Rust planner/.test(implementationMatrix) &&
       /Slice\s+755 workflow-edit read-helper facade-retirement compaction is complete/.test(
@@ -8816,6 +8816,8 @@ function runBridge() {
       /pub fn plan_model_mount_tokenizer_required_response/.test(modelMountCore) &&
       /pub struct ModelMountRouteControlRequiredBridgeRequest/.test(modelMountCore) &&
       /pub fn plan_model_mount_route_control_required_response/.test(modelMountCore) &&
+      !/pub struct ModelMountRouteControlBridgeRequest/.test(modelMountCore) &&
+      !/pub fn plan_model_mount_route_control_response/.test(modelMountCore) &&
       /rust_model_mount_backend_process_command/.test(modelMountCore) &&
       /rust_model_mount_backend_lifecycle_command/.test(modelMountCore) &&
       !/rust_model_mount_backend_lifecycle_required_command/.test(modelMountCore) &&
@@ -8854,6 +8856,12 @@ function runBridge() {
       /rust_core_shapes_model_mount_route_control_required_command_response/.test(
         modelMountCore,
       ) &&
+      /rust_core_plans_model_mount_route_control_direct_api/.test(
+        modelMountRouteControlEvidence,
+      ) &&
+      !/rust_core_shapes_model_mount_route_control_command_response/.test(
+        modelMountRouteControlEvidence,
+      ) &&
       /plan_model_mount_backend_process_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
       /plan_model_mount_backend_lifecycle_response\(decode\(raw_request\)\?\)/.test(
         coreCommandDispatch,
@@ -8877,6 +8885,10 @@ function runBridge() {
       /plan_model_mount_route_control_required_response\(decode\(raw_request\)\?\)/.test(
         coreCommandDispatch,
       ) &&
+      !/plan_model_mount_route_control_response\(decode\(raw_request\)\?\)/.test(
+        coreCommandDispatch,
+      ) &&
+      /model_mount_route_control_command_transport_is_retired/.test(commandProtocolCore) &&
       !/plan_model_mount_backend_process_response as plan_model_mount_backend_process/.test(bridgeModule) &&
       !/plan_model_mount_backend_lifecycle_response as plan_model_mount_backend_lifecycle/.test(
         bridgeModule,
@@ -16613,9 +16625,16 @@ function runBridge() {
       /this\.modelMountCore\.planRouteControl\(request\)/.test(modelMountingState) &&
       /planRouteControlRequired\(request\)/.test(modelMountCore) &&
       /planRouteControl\(request\)/.test(modelMountCore) &&
-      /operation:\s*"plan_model_mount_route_control"/.test(modelMountCore) &&
+      /MODEL_MOUNT_ROUTE_CONTROL_API_METHOD\s*=\s*"planModelMountRouteControl"/.test(modelMountCore) &&
+      /this\.invokeModelMountApi\(MODEL_MOUNT_ROUTE_CONTROL_API_METHOD,\s*request\)/.test(modelMountCore) &&
+      /normalizeRouteControlApiResult/.test(modelMountCore) &&
+      !/normalizeRouteControlBridgeResult/.test(modelMountCore) &&
+      !/RUST_MODEL_MOUNT_ROUTE_CONTROL_BACKEND/.test(modelMountCore) &&
+      !/operation:\s*"plan_model_mount_route_control"/.test(modelMountCore) &&
       /Rust model_mount core sends route control required request/.test(modelMountCoreTest) &&
       /Rust model_mount core sends positive route control request/.test(modelMountCoreTest) &&
+      /Rust model_mount core rejects command-shaped route-control fallback/.test(modelMountCoreTest) &&
+      /MODEL_MOUNT_ROUTE_CONTROL_API_METHOD/.test(modelMountCoreTest) &&
       /throwModelRouteControlRustCoreRequired/.test(modelRoutes) &&
       /model_mount_route_control_rust_core_required/.test(modelRoutes) &&
       /model_mount_route_control_rust_owned/.test(modelRoutes + modelMountRouteControlEvidence) &&
@@ -16626,13 +16645,14 @@ function runBridge() {
       /agentgres_route_truth_required/.test(modelRoutes) &&
       /MODEL_MOUNT_ROUTE_CONTROL_SCHEMA_VERSION/.test(modelMountRouteControlEvidence) &&
       /MODEL_MOUNT_ROUTE_CONTROL_PLAN_SCHEMA_VERSION/.test(modelMountRouteControlEvidence) &&
-      /pub struct ModelMountRouteControlBridgeRequest/.test(modelMountRouteControlEvidence) &&
-      /pub fn plan_model_mount_route_control_response/.test(modelMountRouteControlEvidence) &&
+      !/pub struct ModelMountRouteControlBridgeRequest/.test(modelMountRouteControlEvidence) &&
+      !/pub fn plan_model_mount_route_control_response/.test(modelMountRouteControlEvidence) &&
       /rust_core_plans_model_mount_route_write_control/.test(modelMountRouteControlEvidence) &&
       /rust_core_plans_model_mount_route_test_control/.test(modelMountRouteControlEvidence) &&
+      /rust_core_plans_model_mount_route_control_direct_api/.test(modelMountRouteControlEvidence) &&
       /rust_core_rejects_unowned_model_mount_route_control_kind/.test(modelMountRouteControlEvidence) &&
-      /plan_model_mount_route_control_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
-      /"plan_model_mount_route_control"/.test(commandProtocolCore) &&
+      !/plan_model_mount_route_control_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      /model_mount_route_control_command_transport_is_retired/.test(commandProtocolCore) &&
       /model_mount\.route\.write/.test(modelRoutes) &&
       /model_mount\.route\.test/.test(modelRoutes) &&
       !/persistModelRouteSelectionState/.test(modelRoutes) &&

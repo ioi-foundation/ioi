@@ -128,8 +128,8 @@ use model_mount::{
     ModelMountProviderInvocationResult, ModelMountProviderLifecycleRequest,
     ModelMountProviderLifecycleResult, ModelMountProviderResultAdmissionRecord,
     ModelMountProviderResultAdmissionRequest, ModelMountProviderStreamInvocationResult,
-    ModelMountRouteDecisionRecord, ModelMountRouteDecisionRequest, ModelMountStorageControlPlan,
-    ModelMountStorageControlRequest,
+    ModelMountRouteControlPlan, ModelMountRouteControlRequest, ModelMountRouteDecisionRecord,
+    ModelMountRouteDecisionRequest, ModelMountStorageControlPlan, ModelMountStorageControlRequest,
 };
 use plan::{validate_plan, ExecutablePlan, PlanValidationError};
 use policy::{
@@ -902,6 +902,13 @@ impl RuntimeKernelService {
         request: &ModelMountStorageControlRequest,
     ) -> Result<ModelMountStorageControlPlan, ModelMountError> {
         ModelMountCore.plan_storage_control(request)
+    }
+
+    pub fn plan_model_mount_route_control(
+        &self,
+        request: &ModelMountRouteControlRequest,
+    ) -> Result<ModelMountRouteControlPlan, ModelMountError> {
+        ModelMountCore.plan_route_control(request)
     }
 
     pub fn validate_tool_invocation(

@@ -13,6 +13,7 @@ import {
   MODEL_MOUNT_PROVIDER_LIFECYCLE_API_METHOD,
   MODEL_MOUNT_PROVIDER_RESULT_API_METHOD,
   MODEL_MOUNT_PROVIDER_STREAM_INVOCATION_API_METHOD,
+  MODEL_MOUNT_ROUTE_CONTROL_API_METHOD,
   MODEL_MOUNT_ROUTE_DECISION_API_METHOD,
   MODEL_MOUNT_SERVER_CONTROL_API_METHOD,
   MODEL_MOUNT_STORAGE_CONTROL_API_METHOD,
@@ -23,7 +24,6 @@ import {
   RUST_MODEL_MOUNT_CONVERSATION_STATE_BACKEND,
   RUST_MODEL_MOUNT_PROVIDER_CONTROL_BACKEND,
   RUST_MODEL_MOUNT_RECEIPT_GATE_BACKEND,
-  RUST_MODEL_MOUNT_ROUTE_CONTROL_BACKEND,
   RUST_MODEL_MOUNT_ROUTE_CONTROL_REQUIRED_BACKEND,
   RUST_MODEL_MOUNT_RUNTIME_ENGINE_BACKEND,
   RUST_MODEL_MOUNT_RUNTIME_SURVEY_BACKEND,
@@ -2028,27 +2028,25 @@ test("Rust model_mount core sends positive tokenizer request", () => {
 test("Rust model_mount core sends positive route control request", () => {
   const calls = [];
   const runner = new ModelMountCore({
-    daemonCoreInvoker(request) {
-      calls.push({ request });
-      const record = {
-        id: request.request.route_id,
-        role: request.request.body.role,
-        fallback: request.request.body.fallback,
-        providerEligibility: request.request.body.provider_eligibility,
-        receiptRefs: ["receipt://route-control/write"],
-      };
-      return {
-        ok: true,
-        result: {
-          source: "rust_model_mount_route_control_command",
-          backend: RUST_MODEL_MOUNT_ROUTE_CONTROL_BACKEND,
+    daemonCoreModelMountApi: {
+      planModelMountRouteControl(request) {
+        calls.push({ method: MODEL_MOUNT_ROUTE_CONTROL_API_METHOD, request });
+        const record = {
+          id: request.route_id,
+          role: request.body.role,
+          fallback: request.body.fallback,
+          providerEligibility: request.body.provider_eligibility,
+          receiptRefs: ["receipt://route-control/write"],
+        };
+        return {
+          source: "rust_daemon_core.model_mount.route_control",
           plan: {
             schema_version: "ioi.model_mount.route_control_plan.v1",
             object: "ioi.model_mount_route_control_plan",
             status: "planned",
             rust_core_boundary: "model_mount.route_control",
-            operation_kind: request.request.operation_kind,
-            source: request.request.source,
+            operation_kind: request.operation_kind,
+            source: request.source,
             record_dir: "model-routes",
             record_id: record.id,
             record,
@@ -2061,28 +2059,47 @@ test("Rust model_mount core sends positive route control request", () => {
           record,
           receipt_refs: ["receipt://route-control/write"],
           evidence_refs: ["model_mount_route_control_rust_owned"],
-          operation_kind: request.request.operation_kind,
+          operation_kind: request.operation_kind,
           rust_core_boundary: "model_mount.route_control",
           control_hash: "sha256:route-control",
-        },
-      };
+        };
+      },
     },
+    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(calls),
   });
 
   const result = runner.planRouteControl(routeControlRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
-  assert.equal(calls[0].request.operation, "plan_model_mount_route_control");
-  assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_ROUTE_CONTROL_BACKEND);
-  assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.route_control.v1");
-  assert.equal(calls[0].request.request.operation_kind, "model_mount.route.write");
+  assertDirectModelMountApiCall(
+    calls[0],
+    MODEL_MOUNT_ROUTE_CONTROL_API_METHOD,
+    "ioi.model_mount.route_control.v1",
+  );
+  assert.equal(calls[0].request.operation_kind, "model_mount.route.write");
+  assert.equal(calls[0].request.body.role, "Review");
   assert.equal(result.record_dir, "model-routes");
   assert.equal(result.record_id, "route.review");
   assert.equal(result.record.id, "route.review");
   assert.deepEqual(result.receipt_refs, ["receipt://route-control/write"]);
   assert.equal(result.rust_core_boundary, "model_mount.route_control");
   assert.equal(result.evidence_refs.includes("model_mount_route_control_rust_owned"), true);
+});
+
+test("Rust model_mount core rejects command-shaped route-control fallback", () => {
+  const runner = new ModelMountCore({
+    daemonCoreInvoker(request) {
+      throw new Error(`generic command invoker must not run route control: ${request?.operation}`);
+    },
+  });
+
+  assert.throws(
+    () => runner.planRouteControl(routeControlRequest()),
+    (error) =>
+      error instanceof ModelMountCoreError &&
+      error.code === "model_mount_core_direct_model_mount_api_unconfigured" &&
+      error.details.boundary === "daemonCoreModelMountApi.planModelMountRouteControl",
+  );
 });
 
 test("Rust model_mount core sends positive artifact-endpoint request", () => {

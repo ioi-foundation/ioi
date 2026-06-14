@@ -2804,14 +2804,15 @@ APIs remain required.
 Slice 886 retired the direct JS model-route selector and explicit endpoint
 resolver from `routes.mjs`. The current mounted
 `ModelMountingState.selectRoute()` and `endpointIdsForExplicitModel()` methods
-now call the positive Rust `plan_model_mount_route_control` route-selection and
-explicit-endpoint operations, commit only Rust-authored model_mount records, and
-return Rust-selected endpoint truth before endpoint mounting, JS policy
-evaluation, or JS candidate scoring can run. The remaining route-selection
-helpers are limited to Rust admission request assembly, Rust-authored receipt
-persistence, and the typed `daemonCoreModelMountApi.admitModelMountRouteDecision`
-call into Rust `admit_model_mount_route_decision`; the old command transport for
-that route-decision admission is retired. This still does not claim terminal
+now call typed `daemonCoreModelMountApi.planModelMountRouteControl`, backed by
+Rust `RuntimeKernelService::plan_model_mount_route_control`, commit only
+Rust-authored model_mount records, and return Rust-selected endpoint truth
+before endpoint mounting, JS policy evaluation, or JS candidate scoring can run.
+The remaining route-selection helpers are limited to Rust admission request
+assembly, Rust-authored receipt persistence, and the typed
+`daemonCoreModelMountApi.admitModelMountRouteDecision` call into Rust
+`admit_model_mount_route_decision`; the old command transports for route-decision
+admission and positive route-control planning are retired. This still does not claim terminal
 model_route migration: direct Rust daemon-core route projection APIs over
 Agentgres-backed state, stable protocol APIs, replay, and command-transport
 retirement remain required before model route control reaches the pure Rust
@@ -3159,9 +3160,9 @@ records; JS no longer normalizes route records, allocates route-selection
 receipt ids, constructs `ModelMountRouteDecisionRequest` payloads, or persists
 accepted route-selection receipts from local decision truth. Rust
 route-selection/endpoint-resolution replay now exists through the model_mount
-read-projection boundary, while broader wallet/cTEE route authority, stable
-protocol APIs, and command-transport retirement remain required before route
-control reaches terminal pure Rust conformance.
+read-projection boundary. The route-control command transport is now retired;
+broader wallet/cTEE route authority and stable protocol APIs remain required
+before route control reaches terminal pure Rust conformance.
 
 Slice 917 deleted the canonical provider-registry public-provider projection
 helper. `provider-registry.mjs` no longer exports `publicProvider()`, and the
@@ -5156,14 +5157,15 @@ Rust read-projection kind `model_tokenizer_records` with runtime `state_dir`, an
 Rust replays persisted `model-tokenizer-utilities/*.json` Agentgres records while
 filtering truth to Rust-authored tokenizer/context-fit records with tokenizer and
 Agentgres evidence before any JS tokenizer projection path can return;
-public route write/test now request Rust
-`plan_model_mount_route_control` records through the daemon-core command bridge,
-commit only the Rust-authored route or route-test record through Rust Agentgres
-model_mount record-state admission, and return committed Rust route-control
-truth before any JS route-record authoring, route-control receipt synthesis, or
-duplicate route-state mutation can run; mounted route-selection and
-explicit-model endpoint resolution now also request positive Rust
-`plan_model_mount_route_control` records, commit only Rust-authored
+public route write/test now request Rust route-control plans through typed
+`daemonCoreModelMountApi.planModelMountRouteControl`, backed by Rust
+`RuntimeKernelService::plan_model_mount_route_control`, commit only the
+Rust-authored route or route-test record through Rust Agentgres model_mount
+record-state admission, and return committed Rust route-control truth before
+any JS route-record authoring, route-control receipt synthesis, command-envelope
+fallback, or duplicate route-state mutation can run; mounted route-selection and
+explicit-model endpoint resolution now also request the same typed Rust
+route-control plans, commit only Rust-authored
 route-selection or endpoint-resolution records through Rust Agentgres
 model_mount record-state admission, and return Rust-authored selection truth
 before JS route map mutation, endpoint mounting, JS policy evaluation,
@@ -8033,13 +8035,16 @@ conformance now requires those owner tests, proves typed Rust
 `plan_model_mount_backend_lifecycle`,
 `plan_model_mount_tokenizer_required`, and
 `plan_model_mount_route_control_required`, while public route write/test,
-mounted route selection, explicit-model endpoint resolution, runtime
-explicit/run-override model-route selection, and runtime-engine
-selection/profile/remove mutations now use positive Rust
-`plan_model_mount_route_control` and `plan_model_mount_runtime_engine` commands
-plus Rust Agentgres model_mount record-state commits. The owner tests prove both
-the required route-control record family for unmigrated helper edges and the
-positive route-control/runtime-engine commands, while the old bridge-named tests,
+mounted route selection, explicit-model endpoint resolution, and runtime
+explicit/run-override model-route selection now call typed
+`daemonCoreModelMountApi.planModelMountRouteControl`, backed by Rust
+`RuntimeKernelService::plan_model_mount_route_control`, and runtime-engine
+selection/profile/remove mutations still use the positive Rust
+`plan_model_mount_runtime_engine` command plus Rust Agentgres model_mount
+record-state commits. The owner tests prove both the required route-control
+record family for unmigrated helper edges and the positive runtime-engine
+command, while `command_protocol.rs` now rejects the retired
+`plan_model_mount_route_control` operation and the old bridge-named tests,
 request-type imports, and response-function aliases stay absent from
 `ioi_step_module_bridge/proof_tests.rs`. Server-control later moved to the
 positive `plan_model_mount_server_control` boundary and its required-record
@@ -8050,12 +8055,12 @@ backend lifecycle likewise moved to positive
 bridge proof suite now runs 35 tests.
 
 This remains non-terminal because backend-process planning, invocation route
-selection, and public route-control planning still cross
-temporary command transport. The target is direct Rust
-daemon-core model-mount protocol/API ownership where backend supervision,
-server control, runtime-engine control, tokenizer/context-fit control,
-route-control admission, Agentgres truth, replay, and stable IDE/CLI/SDK
-surfaces no longer depend on Node bridge endpoint proof scaffolding.
+selection, runtime-engine control, tokenizer/context-fit control, and adjacent
+model_mount helpers still cross temporary command transport. Public
+route-control planning no longer does. The target is direct Rust daemon-core
+model-mount protocol/API ownership where backend supervision, runtime-engine
+control, tokenizer/context-fit control, Agentgres truth, replay, and stable
+IDE/CLI/SDK surfaces no longer depend on Node bridge endpoint proof scaffolding.
 
 Slice 1186 moves the remaining model-mount accepted-receipt and read-projection
 command-response proof cluster out of the temporary bridge proof surface and
@@ -8642,12 +8647,14 @@ now mounts `modelMountCore` directly; `model-mount-admission-runner.mjs` and its
 tests are deleted, the daemon store/service pass only `modelMountCore`, and the
 old command/env factory path is gone. Route decision, invocation admission,
 provider execution, provider invocation/stream execution, lifecycle/inventory,
-instance lifecycle, provider-result admission, MCP workflow planning, and server-control planning now call typed
+instance lifecycle, provider-result admission, artifact-endpoint planning,
+storage control, route-control planning, MCP workflow planning, and
+server-control planning now call typed
 `daemonCoreModelMountApi` methods instead of command envelopes. Rust rejects the
 retired command operations, dispatch arms, and bridge request/response wrappers
 for that family. Backend process/lifecycle, remaining required-control,
 accepted-receipt head/transition, read-projection, invocation receipt-binding,
-runtime-engine/survey, tokenizer/route-control,
+runtime-engine/survey, tokenizer,
 catalog/provider/vault/receipt-gate, conversation/stream, and projection helpers
 still enter Rust through remaining migration transport. The core requires typed
 `daemonCoreModelMountApi` for migrated model_mount APIs, uses
@@ -9233,10 +9240,11 @@ discovery/materialization, richer hosted catalog materialization, deeper Agentgr
 binding beyond record-state commit, command-transport retirement, and stable
 protocol APIs are Rust-owned.
 Public model route write/test has moved from the fail-closed route-control JS
-facade to Rust `plan_model_mount_route_control` plus Rust Agentgres model_mount
-record-state commits. Mounted route-selection and explicit-model endpoint
-resolution now use the same positive Rust route-control planner, commit only
-Rust-authored route-selection or endpoint-resolution records, and route
+facade to typed `daemonCoreModelMountApi.planModelMountRouteControl`, backed by
+Rust `RuntimeKernelService::plan_model_mount_route_control`, plus Rust Agentgres
+model_mount record-state commits. Mounted route-selection and explicit-model
+endpoint resolution now use the same positive Rust route-control planner,
+commit only Rust-authored route-selection or endpoint-resolution records, and route
 selection reuses Rust model_mount route-decision admission plus the
 Rust-authored accepted route-selection receipt before JS sees a selected
 endpoint. Runtime explicit/run-override model-route selection now forwards
@@ -9256,6 +9264,10 @@ Public `modelRouteEndpointResolutions()` now replays
 Rust-authored route-control records. Invocation route selection, deeper
 wallet/cTEE route authority policy, and direct stable protocol APIs remain
 non-terminal.
+The old `plan_model_mount_route_control` command operation, Rust dispatch arm,
+bridge response wrapper, backend marker, and JS command-envelope builder are
+retired for these route-control hot paths; conformance now guards the typed API
+and the retired command transport.
 Public `listEndpoints()` now replays the same admitted
 `model-route-endpoint-resolutions/*.json` Agentgres records through Rust
 read-projection kind `endpoints`, materializes canonical endpoint records with
@@ -9329,11 +9341,12 @@ no route-decision arm, and the route-decision bridge request/response helper is
 deleted from `model_mount/admission.rs`. The mounted JS model-mount core fails
 closed without the typed API and no longer sends `operation` or `backend` fields
 for route-decision admission. This retires the route-decision command transport
-cut only; the later model_mount typed API cut also retires command transport for
+cut only; later model_mount typed API cuts also retired command transport for
 invocation admission, provider-execution admission, provider invocation/stream
 execution, provider lifecycle/inventory, instance lifecycle, provider-result
-admission, and artifact-endpoint planning. Remaining model_mount backend-process/lifecycle, required-control,
-read-projection, receipt-binding, runtime-engine/survey, tokenizer/route-control, catalog/provider/vault/
+admission, artifact-endpoint planning, storage control, route-control planning,
+MCP workflow planning, and server-control planning. Remaining model_mount backend-process/lifecycle, required-control,
+read-projection, receipt-binding, runtime-engine/survey, tokenizer, catalog/provider/vault/
 receipt-gate, conversation/stream, and projection migration transports still
 need direct Rust daemon-core protocol/API ownership.
 

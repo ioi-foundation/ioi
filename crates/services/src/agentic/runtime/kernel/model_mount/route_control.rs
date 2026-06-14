@@ -46,13 +46,6 @@ pub struct ModelMountRouteControlPlan {
     pub control_hash: String,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct ModelMountRouteControlBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: ModelMountRouteControlRequest,
-}
-
 impl ModelMountRouteControlRequest {
     pub fn validate(&self) -> Result<(), ModelMountError> {
         if self.schema_version != MODEL_MOUNT_ROUTE_CONTROL_SCHEMA_VERSION {
@@ -70,33 +63,6 @@ impl ModelMountRouteControlRequest {
         }
         Ok(())
     }
-}
-
-pub fn plan_model_mount_route_control_response(
-    request: ModelMountRouteControlBridgeRequest,
-) -> Result<Value, ModelMountError> {
-    let plan = plan_route_control(&request.request)?;
-    let record_dir = plan.record_dir.clone();
-    let record_id = plan.record_id.clone();
-    let record = plan.record.clone();
-    let receipt_refs = plan.receipt_refs.clone();
-    let evidence_refs = plan.evidence_refs.clone();
-    let control_hash = plan.control_hash.clone();
-    let operation_kind = plan.operation_kind.clone();
-    let rust_core_boundary = plan.rust_core_boundary.clone();
-    Ok(json!({
-        "source": "rust_model_mount_route_control_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_model_mount_route_control".to_string()),
-        "plan": plan,
-        "record_dir": record_dir,
-        "record_id": record_id,
-        "record": record,
-        "receipt_refs": receipt_refs,
-        "evidence_refs": evidence_refs,
-        "control_hash": control_hash,
-        "operation_kind": operation_kind,
-        "rust_core_boundary": rust_core_boundary,
-    }))
 }
 
 pub(super) fn plan_route_control(
@@ -691,7 +657,7 @@ fn source_for(request: &ModelMountRouteControlRequest) -> String {
         .source
         .as_ref()
         .and_then(|value| non_empty_string(value))
-        .unwrap_or_else(|| "rust_model_mount_route_control_command".to_string())
+        .unwrap_or_else(|| "rust_daemon_core.model_mount.route_control".to_string())
 }
 
 fn route_control_evidence_refs() -> Vec<String> {
@@ -784,8 +750,6 @@ fn bool_field_any(map: &serde_json::Map<String, Value>, fields: &[&str]) -> Opti
 
 #[cfg(test)]
 mod tests {
-    use crate::agentic::runtime::kernel::command_protocol::DAEMON_CORE_COMMAND_SCHEMA_VERSION;
-
     use super::*;
 
     #[test]
@@ -959,30 +923,30 @@ mod tests {
     }
 
     #[test]
-    fn rust_core_shapes_model_mount_route_control_command_response() {
-        let request: ModelMountRouteControlBridgeRequest = serde_json::from_value(json!({
-            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
-            "operation": "plan_model_mount_route_control",
-            "backend": "rust_model_mount_route_control",
-            "request": {
-                "schema_version": MODEL_MOUNT_ROUTE_CONTROL_SCHEMA_VERSION,
-                "operation_kind": "model_mount.route.write",
-                "source": "runtime-daemon.model_mounting.route_control",
-                "body": {"id": "route.review", "role": "Review"},
-            }
-        }))
-        .expect("route control bridge request");
+    fn rust_core_plans_model_mount_route_control_direct_api() {
+        let plan = plan_route_control(&ModelMountRouteControlRequest {
+            schema_version: MODEL_MOUNT_ROUTE_CONTROL_SCHEMA_VERSION.to_string(),
+            operation_kind: "model_mount.route.write".to_string(),
+            source: None,
+            route_id: Some("route.review".to_string()),
+            generated_at: None,
+            body: json!({"id": "route.review", "role": "Review"}),
+            current_route: Value::Null,
+            endpoints: vec![],
+            providers: vec![],
+            receipt_refs: vec!["receipt://route-control/write".to_string()],
+        })
+        .expect("route control direct API plan");
 
-        let response =
-            plan_model_mount_route_control_response(request).expect("route control response");
-
-        assert_eq!(response["source"], "rust_model_mount_route_control_command");
-        assert_eq!(response["backend"], "rust_model_mount_route_control");
-        assert_eq!(response["record_dir"], "model-routes");
-        assert_eq!(response["record_id"], "route.review");
-        assert_eq!(response["record"]["id"], "route.review");
-        assert_eq!(response["operation_kind"], "model_mount.route.write");
-        assert_eq!(response["rust_core_boundary"], "model_mount.route_control");
+        assert_eq!(plan.source, "rust_daemon_core.model_mount.route_control");
+        assert_eq!(plan.record_dir, "model-routes");
+        assert_eq!(plan.record_id, "route.review");
+        assert_eq!(plan.record["id"], "route.review");
+        assert_eq!(plan.operation_kind, "model_mount.route.write");
+        assert_eq!(plan.rust_core_boundary, "model_mount.route_control");
+        assert!(plan
+            .evidence_refs
+            .contains(&"model_mount_route_control_rust_owned".to_string()));
     }
 
     #[test]

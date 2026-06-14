@@ -12,7 +12,6 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "plan_model_mount_runtime_survey",
     "plan_model_mount_tokenizer_required",
     "plan_model_mount_route_control_required",
-    "plan_model_mount_route_control",
     "plan_model_mount_catalog_provider_control",
     "plan_model_mount_provider_control",
     "plan_model_mount_capability_token_control",
@@ -68,7 +67,6 @@ pub enum CommandOperation {
     PlanModelMountRuntimeSurvey,
     PlanModelMountTokenizerRequired,
     PlanModelMountRouteControlRequired,
-    PlanModelMountRouteControl,
     PlanModelMountCatalogProviderControl,
     PlanModelMountProviderControl,
     PlanModelMountCapabilityTokenControl,
@@ -125,7 +123,6 @@ impl CommandOperation {
             Self::PlanModelMountRuntimeSurvey => "plan_model_mount_runtime_survey",
             Self::PlanModelMountTokenizerRequired => "plan_model_mount_tokenizer_required",
             Self::PlanModelMountRouteControlRequired => "plan_model_mount_route_control_required",
-            Self::PlanModelMountRouteControl => "plan_model_mount_route_control",
             Self::PlanModelMountCatalogProviderControl => {
                 "plan_model_mount_catalog_provider_control"
             }
@@ -269,7 +266,6 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
         "plan_model_mount_route_control_required" => {
             Some(CommandOperation::PlanModelMountRouteControlRequired)
         }
-        "plan_model_mount_route_control" => Some(CommandOperation::PlanModelMountRouteControl),
         "plan_model_mount_catalog_provider_control" => {
             Some(CommandOperation::PlanModelMountCatalogProviderControl)
         }
@@ -542,6 +538,24 @@ mod tests {
         assert_eq!(
             validate_command_envelope(
                 "plan_model_mount_artifact_endpoint",
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+            )
+            .unwrap_err()
+            .code(),
+            "operation_unknown"
+        );
+    }
+
+    #[test]
+    fn model_mount_route_control_command_transport_is_retired() {
+        assert_eq!(command_operation("plan_model_mount_route_control"), None);
+        assert_eq!(
+            expected_command_schema_version("plan_model_mount_route_control"),
+            None
+        );
+        assert_eq!(
+            validate_command_envelope(
+                "plan_model_mount_route_control",
                 DAEMON_CORE_COMMAND_SCHEMA_VERSION,
             )
             .unwrap_err()

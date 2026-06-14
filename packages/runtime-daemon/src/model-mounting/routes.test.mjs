@@ -160,8 +160,7 @@ function routeControlPlannerForTest(requests = []) {
           ? "model-route-endpoint-resolutions"
           : "model-routes";
     return {
-      source: "rust_model_mount_route_control_command",
-      backend: "rust_model_mount_route_control",
+      source: "rust_daemon_core.model_mount.route_control",
       plan: {
         schema_version: "ioi.model_mount.route_control_plan.v1",
         object: "ioi.model_mount_route_control_plan",

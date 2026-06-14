@@ -138,10 +138,6 @@ pub fn dispatch_command_operation_response(
                 |error| model_mount_error("model_mount_route_control_required_invalid", error),
             )
         }
-        CommandOperation::PlanModelMountRouteControl => {
-            plan_model_mount_route_control_response(decode(raw_request)?)
-                .map_err(|error| model_mount_error("model_mount_route_control_invalid", error))
-        }
         CommandOperation::PlanModelMountCatalogProviderControl => {
             plan_model_mount_catalog_provider_control_response(decode(raw_request)?).map_err(
                 |error| model_mount_error("model_mount_catalog_provider_control_invalid", error),
