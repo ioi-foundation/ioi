@@ -20227,6 +20227,11 @@ function runReceipts() {
   const modelMountCoreTest = exists("packages/runtime-daemon/src/model-mounting/model-mount-core.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/model-mount-core.test.mjs")
     : "";
+  const daemonCoreDirectInvokerServiceTest = exists(
+    "packages/runtime-daemon/src/runtime-daemon-core-direct-invoker-service.test.mjs",
+  )
+    ? read("packages/runtime-daemon/src/runtime-daemon-core-direct-invoker-service.test.mjs")
+    : "";
   const modelMountInvocationReceiptBridgeBlock =
     modelMountReceiptCore.match(/fn bind_model_mount_invocation_receipt_response[\s\S]*$/)?.[0] ??
     "";
@@ -22234,13 +22239,14 @@ function runReceipts() {
     "model-mount-mcp-workflow-positive-api-rust-owned",
     !exists("packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/mcp-server-record-state.mjs") &&
-      /"plan_model_mount_mcp_workflow"/.test(commandProtocolCore) &&
-      /PlanModelMountMcpWorkflow/.test(commandProtocolCore) &&
-      /CommandOperation::PlanModelMountMcpWorkflow/.test(coreCommandDispatch) &&
-      /plan_model_mount_mcp_workflow_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      /model_mount_mcp_workflow_command_transport_is_retired/.test(commandProtocolCore) &&
+      !/PlanModelMountMcpWorkflow/.test(commandProtocolCore) &&
+      !/CommandOperation::PlanModelMountMcpWorkflow/.test(coreCommandDispatch) &&
+      !/plan_model_mount_mcp_workflow_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
       /pub struct ModelMountMcpWorkflowRequest/.test(modelMountCore) &&
       /pub struct ModelMountMcpWorkflowPlan/.test(modelMountCore) &&
-      /pub fn plan_model_mount_mcp_workflow_response/.test(modelMountCore) &&
+      !/pub struct ModelMountMcpWorkflowBridgeRequest/.test(modelMountCore) &&
+      !/pub fn plan_model_mount_mcp_workflow_response/.test(modelMountCore) &&
       /pub fn plan_mcp_workflow/.test(modelMountCore) &&
       /pub fn plan_mcp_workflow\([\s\S]*?&self,[\s\S]*?request: &ModelMountMcpWorkflowRequest/.test(modelMountCore) &&
       /UnsupportedMcpWorkflowOperation/.test(modelMountCore) &&
@@ -22276,7 +22282,15 @@ function runReceipts() {
 	      /"containment_ref": containment_ref/.test(modelMountCore) &&
 	      /public_response\.transport_execution_status\.retired_rust_required/.test(modelMountCore) &&
 	      /public_response\.execution_status\.retired_rust_required/.test(modelMountCore) &&
-	      /receipt: result\.receipt \?\? plan\.receipt \?\? null/.test(modelMountDaemonCore) &&
+      /MODEL_MOUNT_MCP_WORKFLOW_API_METHOD = "planModelMountMcpWorkflow"/.test(modelMountDaemonCore) &&
+      /invokeModelMountApi\(MODEL_MOUNT_MCP_WORKFLOW_API_METHOD, request\)/.test(modelMountDaemonCore) &&
+      /normalizeMcpWorkflowApiResult/.test(modelMountDaemonCore) &&
+      !/RUST_MODEL_MOUNT_MCP_WORKFLOW_BACKEND/.test(modelMountDaemonCore) &&
+      !/rust_model_mount_mcp_workflow/.test(modelMountDaemonCore) &&
+      !/operation:\s*"plan_model_mount_mcp_workflow"/.test(modelMountDaemonCore) &&
+      !/normalizeMcpWorkflowBridgeResult/.test(modelMountDaemonCore) &&
+      /const plan = result;/.test(modelMountDaemonCore) &&
+	      /receipt: result\.receipt \?\? null/.test(modelMountDaemonCore) &&
 	      /receipt\.id !== publicResponse\.content_receipt_id/.test(modelMountDaemonCore) &&
 	      /receipt\.evidenceRefs\?\.includes\("model_mount_mcp_execution_content_receipt_rust_owned"\)/.test(
 	        modelMountDaemonCore,
@@ -22291,6 +22305,7 @@ function runReceipts() {
 	      /rust_admits_model_mount_workflow_node_dispatch_without_js_fallback/.test(modelMountCore) &&
 	      /rust_rejects_model_mount_mcp_tool_invocation_without_wallet_authority/.test(modelMountCore) &&
 	      /rust_rejects_model_mount_mcp_tool_invocation_without_custody_or_containment/.test(modelMountCore) &&
+	      /rust_core_plans_model_mount_mcp_workflow_direct_api/.test(modelMountCore) &&
 	      /model_mount_mcp_workflow_receipt_synthesis_js_retired/.test(modelMountCore) &&
 	      /model_mount_mcp_workflow_record_state_js_retired/.test(modelMountCore) &&
       /planModelMountMcpWorkflow\(request\)/.test(mcpWorkflowOperations) &&
@@ -22299,8 +22314,9 @@ function runReceipts() {
       /model_mount_mcp_execution_receipt_required/.test(mcpWorkflowOperations) &&
       /model_mount_mcp_execution_receipt_state_commit_unconfigured/.test(mcpWorkflowOperations) &&
       /planMcpWorkflow\(request\)/.test(modelMountCore) &&
-      /operation:\s*"plan_model_mount_mcp_workflow"/.test(modelMountCore) &&
-      /normalizeMcpWorkflowBridgeResult/.test(modelMountCore) &&
+      /Rust model_mount core sends positive MCP workflow request/.test(modelMountCoreTest) &&
+      /assertDirectModelMountApiCall\([\s\S]*?MODEL_MOUNT_MCP_WORKFLOW_API_METHOD/.test(modelMountCoreTest) &&
+      /planModelMountMcpWorkflow/.test(daemonCoreDirectInvokerServiceTest) &&
       /model_mount_mcp_workflow_plan_invalid/.test(modelMountCore) &&
       /rust_core_boundary:\s*"model_mount\.mcp_workflow"/.test(mcpWorkflowOperations) &&
       /model_mount_mcp_workflow_js_facade_retired/.test(mcpWorkflowOperations) &&
@@ -22411,10 +22427,13 @@ function runReceipts() {
       /assert\.deepEqual\(state\.readProjectionRequests,\s*\[\{ projection_kind: "mcp_servers" \}\]\)/.test(
         mcpWorkflowOperationsTest,
       ) &&
-      /assert\.equal\(state\.recordStateCommits\[0\]\.record_dir,\s*"mcp-servers"\)/.test(
-        mcpWorkflowOperationsTest,
-      ) &&
-      /Object\.hasOwn\(error\.details,\s*"rustCoreBoundary"\),\s*false/.test(mcpWorkflowOperationsTest),
+	      /assert\.equal\(state\.recordStateCommits\[0\]\.record_dir,\s*"mcp-servers"\)/.test(
+	        mcpWorkflowOperationsTest,
+	      ) &&
+	      /Object\.hasOwn\(error\.details,\s*"rustCoreBoundary"\),\s*false/.test(mcpWorkflowOperationsTest) &&
+	      !/rust_model_mount_mcp_workflow_command/.test(mcpWorkflowOperationsTest) &&
+	      !/backend:\s*"rust_model_mount_mcp_workflow"/.test(mcpWorkflowOperationsTest) &&
+	      !/if \(plan\.plan\) delete plan\.plan\.receipt/.test(mcpWorkflowOperationsTest),
     [
       "crates/services/src/agentic/runtime/kernel/model_mount/mcp_workflow.rs",
       "crates/services/src/agentic/runtime/kernel/model_mount/read_projection/mcp.rs",

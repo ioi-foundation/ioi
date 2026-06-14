@@ -5,6 +5,7 @@ import {
   MODEL_MOUNT_CORE_SCHEMA_VERSION,
   MODEL_MOUNT_INSTANCE_LIFECYCLE_API_METHOD,
   MODEL_MOUNT_INVOCATION_API_METHOD,
+  MODEL_MOUNT_MCP_WORKFLOW_API_METHOD,
   MODEL_MOUNT_PROVIDER_EXECUTION_API_METHOD,
   MODEL_MOUNT_PROVIDER_INVENTORY_API_METHOD,
   MODEL_MOUNT_PROVIDER_INVOCATION_API_METHOD,
@@ -19,7 +20,6 @@ import {
   RUST_MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_BACKEND,
   RUST_MODEL_MOUNT_CATALOG_PROVIDER_CONTROL_BACKEND,
   RUST_MODEL_MOUNT_CONVERSATION_STATE_BACKEND,
-  RUST_MODEL_MOUNT_MCP_WORKFLOW_BACKEND,
   RUST_MODEL_MOUNT_PROVIDER_CONTROL_BACKEND,
   RUST_MODEL_MOUNT_RECEIPT_GATE_BACKEND,
   RUST_MODEL_MOUNT_ROUTE_CONTROL_BACKEND,
@@ -1474,7 +1474,7 @@ test("Rust model_mount core sends positive backend lifecycle request", () => {
         object: "ioi.model_mount_backend_lifecycle_record",
         backend_id: request.request.backend_id,
         backend_kind: request.request.backend_kind,
-        operation_kind: request.request.operation_kind,
+        operation_kind: request.operation_kind,
         rust_core_boundary: "model_mount.backend_lifecycle",
         receipt_refs: [...request.request.receipt_refs, "sha256:backend-lifecycle-control"],
         evidence_refs: [
@@ -2330,13 +2330,14 @@ test("Rust model_mount core rejects command-shaped storage-control fallback", ()
 test("Rust model_mount core sends positive MCP workflow request", () => {
   const calls = [];
   const runner = new ModelMountCore({
-    daemonCoreInvoker(request) {
-      calls.push({ request });
+    daemonCoreModelMountApi: {
+      planModelMountMcpWorkflow(request) {
+        calls.push({ method: MODEL_MOUNT_MCP_WORKFLOW_API_METHOD, request });
       const record = {
         id: "mcp_import.alpha",
         object: "ioi.model_mount_mcp_workflow",
         status: "committed",
-        operation_kind: request.request.operation_kind,
+        operation_kind: request.operation_kind,
         rust_core_boundary: "model_mount.mcp_workflow",
         details: {
           server_ids: ["mcp.docs"],
@@ -2351,48 +2352,28 @@ test("Rust model_mount core sends positive MCP workflow request", () => {
         authority_hash: "sha256:mcp-authority",
       };
       return {
-        ok: true,
-        result: {
-          source: "rust_model_mount_mcp_workflow_command",
-          backend: request.backend,
-          plan: {
-            status: "committed",
-            rust_core_boundary: "model_mount.mcp_workflow",
-            operation_kind: request.request.operation_kind,
-            record_dir: "mcp-servers",
-            record_id: record.id,
-            record,
-            public_response: {
-              status: "committed",
-              operation_kind: request.request.operation_kind,
-              server_ids: ["mcp.docs"],
-            },
-            receipt_refs: ["receipt://mcp-import"],
-            authority_grant_refs: [],
-            authority_receipt_refs: [],
-            evidence_refs: record.evidence_refs,
-            workflow_hash: record.workflow_hash,
-            authority_hash: record.authority_hash,
-          },
-          record_dir: "mcp-servers",
-          record_id: record.id,
-          record,
-          public_response: {
-            status: "committed",
-            operation_kind: request.request.operation_kind,
-            server_ids: ["mcp.docs"],
-          },
-          receipt_refs: ["receipt://mcp-import"],
-          authority_grant_refs: [],
-          authority_receipt_refs: [],
-          evidence_refs: record.evidence_refs,
-          operation_kind: request.request.operation_kind,
-          rust_core_boundary: "model_mount.mcp_workflow",
-          workflow_hash: record.workflow_hash,
-          authority_hash: record.authority_hash,
+        source: "rust_daemon_core.model_mount.mcp_workflow",
+        status: "committed",
+        rust_core_boundary: "model_mount.mcp_workflow",
+        operation_kind: request.operation_kind,
+        record_dir: "mcp-servers",
+        record_id: record.id,
+        record,
+        public_response: {
+          status: "committed",
+          operation_kind: request.operation_kind,
+          server_ids: ["mcp.docs"],
         },
+        receipt_refs: ["receipt://mcp-import"],
+        authority_grant_refs: [],
+        authority_receipt_refs: [],
+        evidence_refs: record.evidence_refs,
+        workflow_hash: record.workflow_hash,
+        authority_hash: record.authority_hash,
       };
     },
+    },
+    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(calls),
   });
 
   const result = runner.planMcpWorkflow({
@@ -2407,12 +2388,13 @@ test("Rust model_mount core sends positive MCP workflow request", () => {
   });
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
-  assert.equal(calls[0].request.operation, "plan_model_mount_mcp_workflow");
-  assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_MCP_WORKFLOW_BACKEND);
-  assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.mcp_workflow.v1");
-  assert.equal(calls[0].request.request.operation_kind, "model_mount.mcp_server.import");
-  assert.equal(calls[0].request.request.body.mcp_servers.Docs.url, "https://example.test/mcp");
+  assertDirectModelMountApiCall(
+    calls[0],
+    MODEL_MOUNT_MCP_WORKFLOW_API_METHOD,
+    "ioi.model_mount.mcp_workflow.v1",
+  );
+  assert.equal(calls[0].request.operation_kind, "model_mount.mcp_server.import");
+  assert.equal(calls[0].request.body.mcp_servers.Docs.url, "https://example.test/mcp");
   assert.equal(result.record_dir, "mcp-servers");
   assert.equal(result.record_id, "mcp_import.alpha");
   assert.equal(result.rust_core_boundary, "model_mount.mcp_workflow");
@@ -2423,14 +2405,15 @@ test("Rust model_mount core sends positive MCP workflow request", () => {
 test("Rust model_mount core accepts MCP execution receipt binding", () => {
   const calls = [];
   const runner = new ModelMountCore({
-    daemonCoreInvoker(request) {
-      calls.push({ request });
+    daemonCoreModelMountApi: {
+      planModelMountMcpWorkflow(request) {
+        calls.push({ method: MODEL_MOUNT_MCP_WORKFLOW_API_METHOD, request });
       const receiptId = "receipt.mcp_tool.alpha";
       const record = {
         id: "mcp_tool.alpha",
         object: "ioi.model_mount_mcp_workflow",
         status: "admitted",
-        operation_kind: request.request.operation_kind,
+        operation_kind: request.operation_kind,
         rust_core_boundary: "model_mount.mcp_workflow",
         details: {
           server_id: "mcp.docs",
@@ -2472,7 +2455,7 @@ test("Rust model_mount core accepts MCP execution receipt binding", () => {
       };
       const publicResponse = {
         status: "admitted",
-        operation_kind: request.request.operation_kind,
+        operation_kind: request.operation_kind,
         server_id: "mcp.docs",
         tool: "search",
         content_receipt_id: receiptId,
@@ -2488,42 +2471,25 @@ test("Rust model_mount core accepts MCP execution receipt binding", () => {
         legacy_js_result_fallback: false,
       };
       return {
-        ok: true,
-        result: {
-          source: "rust_model_mount_mcp_workflow_command",
-          backend: request.backend,
-          plan: {
-            status: "admitted",
-            rust_core_boundary: "model_mount.mcp_workflow",
-            operation_kind: request.request.operation_kind,
-            record_dir: "mcp-workflow-controls",
-            record_id: record.id,
-            record,
-            receipt,
-            public_response: publicResponse,
-            receipt_refs: [receiptId],
-            authority_grant_refs: request.request.authority_grant_refs,
-            authority_receipt_refs: request.request.authority_receipt_refs,
-            evidence_refs: record.evidence_refs,
-            workflow_hash: record.workflow_hash,
-            authority_hash: record.authority_hash,
-          },
-          record_dir: "mcp-workflow-controls",
-          record_id: record.id,
-          record,
-          receipt,
-          public_response: publicResponse,
-          receipt_refs: [receiptId],
-          authority_grant_refs: request.request.authority_grant_refs,
-          authority_receipt_refs: request.request.authority_receipt_refs,
-          evidence_refs: record.evidence_refs,
-          operation_kind: request.request.operation_kind,
-          rust_core_boundary: "model_mount.mcp_workflow",
-          workflow_hash: record.workflow_hash,
-          authority_hash: record.authority_hash,
-        },
+        source: "rust_daemon_core.model_mount.mcp_workflow",
+        status: "admitted",
+        rust_core_boundary: "model_mount.mcp_workflow",
+        operation_kind: request.operation_kind,
+        record_dir: "mcp-workflow-controls",
+        record_id: record.id,
+        record,
+        receipt,
+        public_response: publicResponse,
+        receipt_refs: [receiptId],
+        authority_grant_refs: request.authority_grant_refs,
+        authority_receipt_refs: request.authority_receipt_refs,
+        evidence_refs: record.evidence_refs,
+        workflow_hash: record.workflow_hash,
+        authority_hash: record.authority_hash,
       };
     },
+    },
+    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(calls),
   });
 
   const result = runner.planMcpWorkflow({
@@ -2544,7 +2510,11 @@ test("Rust model_mount core accepts MCP execution receipt binding", () => {
     required_scope: "model.mcp.tool.invoke:mcp.docs:search",
   });
 
-  assert.equal(calls[0].request.operation, "plan_model_mount_mcp_workflow");
+  assertDirectModelMountApiCall(
+    calls[0],
+    MODEL_MOUNT_MCP_WORKFLOW_API_METHOD,
+    "ioi.model_mount.mcp_workflow.v1",
+  );
   assert.equal(result.receipt.kind, "mcp_tool_invocation");
   assert.equal(result.receipt.id, result.public_response.content_receipt_id);
   assert.equal(
@@ -2555,12 +2525,13 @@ test("Rust model_mount core accepts MCP execution receipt binding", () => {
 
 test("Rust model_mount core rejects retired MCP workflow rust_required execution responses", () => {
   const runner = new ModelMountCore({
-    daemonCoreInvoker(request) {
+    daemonCoreModelMountApi: {
+      planModelMountMcpWorkflow(request) {
       const record = {
         id: "mcp_tool.alpha",
         object: "ioi.model_mount_mcp_workflow",
         status: "planned",
-        operation_kind: request.request.operation_kind,
+        operation_kind: request.operation_kind,
         rust_core_boundary: "model_mount.mcp_workflow",
         details: {
           server_id: "mcp.docs",
@@ -2576,52 +2547,30 @@ test("Rust model_mount core rejects retired MCP workflow rust_required execution
         authority_hash: "sha256:mcp-authority",
       };
       return {
-        ok: true,
-        result: {
-          source: "rust_model_mount_mcp_workflow_command",
-          backend: request.backend,
-          plan: {
-            status: "planned",
-            rust_core_boundary: "model_mount.mcp_workflow",
-            operation_kind: request.request.operation_kind,
-            record_dir: "mcp-workflow-controls",
-            record_id: record.id,
-            record,
-            public_response: {
-              status: "planned",
-              operation_kind: request.request.operation_kind,
-              server_id: "mcp.docs",
-              tool: "search",
-              transport_execution_status: "rust_required",
-            },
-            receipt_refs: ["receipt://mcp-tool"],
-            authority_grant_refs: ["wallet.network://grant/mcp/docs/search"],
-            authority_receipt_refs: ["receipt://wallet.network/mcp/docs/search"],
-            evidence_refs: record.evidence_refs,
-            workflow_hash: record.workflow_hash,
-            authority_hash: record.authority_hash,
-          },
-          record_dir: "mcp-workflow-controls",
-          record_id: record.id,
-          record,
-          public_response: {
-            status: "planned",
-            operation_kind: request.request.operation_kind,
-            server_id: "mcp.docs",
-            tool: "search",
-            transport_execution_status: "rust_required",
-          },
-          receipt_refs: ["receipt://mcp-tool"],
-          authority_grant_refs: ["wallet.network://grant/mcp/docs/search"],
-          authority_receipt_refs: ["receipt://wallet.network/mcp/docs/search"],
-          evidence_refs: record.evidence_refs,
-          operation_kind: request.request.operation_kind,
-          rust_core_boundary: "model_mount.mcp_workflow",
-          workflow_hash: record.workflow_hash,
-          authority_hash: record.authority_hash,
+        source: "rust_daemon_core.model_mount.mcp_workflow",
+        status: "planned",
+        rust_core_boundary: "model_mount.mcp_workflow",
+        operation_kind: request.operation_kind,
+        record_dir: "mcp-workflow-controls",
+        record_id: record.id,
+        record,
+        public_response: {
+          status: "planned",
+          operation_kind: request.operation_kind,
+          server_id: "mcp.docs",
+          tool: "search",
+          transport_execution_status: "rust_required",
         },
+        receipt_refs: ["receipt://mcp-tool"],
+        authority_grant_refs: ["wallet.network://grant/mcp/docs/search"],
+        authority_receipt_refs: ["receipt://wallet.network/mcp/docs/search"],
+        evidence_refs: record.evidence_refs,
+        workflow_hash: record.workflow_hash,
+        authority_hash: record.authority_hash,
       };
     },
+    },
+    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(),
   });
 
   assert.throws(

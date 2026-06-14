@@ -307,24 +307,8 @@ function mcpWorkflowPlan(request) {
     }
     : null;
   return {
-    source: "rust_model_mount_mcp_workflow_command",
-    backend: "rust_model_mount_mcp_workflow",
-    plan: {
-      status: publicResponse.status,
-      rust_core_boundary: "model_mount.mcp_workflow",
-      operation_kind: operationKind,
-      record_dir: recordDir,
-      record_id: recordId,
-      record,
-      receipt: executionReceipt,
-      public_response: publicResponse,
-      receipt_refs: record.receipt_refs,
-      authority_grant_refs: request.authority_grant_refs ?? [],
-      authority_receipt_refs: request.authority_receipt_refs ?? [],
-      evidence_refs: record.evidence_refs,
-      workflow_hash: record.workflow_hash,
-      authority_hash: record.authority_hash,
-    },
+    status: publicResponse.status,
+    source: "rust_daemon_core.model_mount.mcp_workflow",
     record_dir: recordDir,
     record_id: recordId,
     record,
@@ -672,7 +656,6 @@ test("invokeMcpTool fails closed without Rust MCP execution receipt commit", () 
     this.mcpWorkflowRequests.push(JSON.parse(JSON.stringify(request)));
     const plan = mcpWorkflowPlan(request);
     delete plan.receipt;
-    if (plan.plan) delete plan.plan.receipt;
     return plan;
   };
 

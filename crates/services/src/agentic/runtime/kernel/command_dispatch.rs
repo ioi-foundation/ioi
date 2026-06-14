@@ -125,10 +125,6 @@ pub fn dispatch_command_operation_response(
             plan_model_mount_artifact_endpoint_response(decode(raw_request)?)
                 .map_err(|error| model_mount_error("model_mount_artifact_endpoint_invalid", error))
         }
-        CommandOperation::PlanModelMountMcpWorkflow => {
-            plan_model_mount_mcp_workflow_response(decode(raw_request)?)
-                .map_err(|error| model_mount_error("model_mount_mcp_workflow_invalid", error))
-        }
         CommandOperation::PlanModelMountServerControl => {
             plan_model_mount_server_control_response(decode(raw_request)?)
                 .map_err(|error| model_mount_error("model_mount_server_control_invalid", error))

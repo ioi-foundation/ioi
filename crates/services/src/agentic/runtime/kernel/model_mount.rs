@@ -27,10 +27,7 @@ pub use artifact_endpoint::{
 mod storage_control;
 pub use storage_control::{ModelMountStorageControlPlan, ModelMountStorageControlRequest};
 mod mcp_workflow;
-pub use mcp_workflow::{
-    plan_model_mount_mcp_workflow_response, ModelMountMcpWorkflowBridgeRequest,
-    ModelMountMcpWorkflowPlan, ModelMountMcpWorkflowRequest,
-};
+pub use mcp_workflow::{ModelMountMcpWorkflowPlan, ModelMountMcpWorkflowRequest};
 mod common;
 pub(super) use common::{
     non_empty_string, option_trimmed, push_unique_ref, require_non_empty, sha256_hex,

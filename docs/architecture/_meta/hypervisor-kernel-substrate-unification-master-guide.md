@@ -2341,15 +2341,18 @@ The records remain deterministic migration fixtures only; backend inventory,
 process state, and lifecycle projection must come from direct Rust daemon-core
 model_mount projection over Agentgres-admitted truth.
 Model-mounting MCP workflow import, ephemeral registration, tool invocation,
-workflow-node execution, and server list readback now use Rust daemon-core
-positive APIs. `plan_model_mount_mcp_workflow` authors the `mcp-servers` or
-`mcp-workflow-controls` records, evidence refs, receipt refs, workflow hashes,
-authority hashes, custody facts, and no-JS-execution flags before JS can commit
-record-state truth through Rust Agentgres admission. MCP tool invocation and
-workflow-node execution now return Rust-admitted execution/StepModule dispatch
-contracts, bind containment into the authority hash, expose content receipt refs
-and no-fallback flags, and reject stale `rust_required` public responses at the
-JS model-mount core boundary. Public
+workflow-node execution, and server list readback now use the typed
+`daemonCoreModelMountApi.planModelMountMcpWorkflow` positive API backed by Rust
+`RuntimeKernel::plan_model_mount_mcp_workflow`; the old command operation,
+dispatch arm, bridge response wrapper, backend tag, and command-envelope builder
+are retired. Rust authors the `mcp-servers` or `mcp-workflow-controls` records,
+evidence refs, receipt refs, workflow hashes, authority hashes, custody facts,
+and no-JS-execution flags before JS can commit record-state truth through Rust
+Agentgres admission. MCP tool invocation and workflow-node execution now return
+Rust-admitted execution/StepModule dispatch contracts, bind containment into the
+authority hash, expose content receipt refs and no-fallback flags, and reject
+stale `rust_required` public responses at the JS model-mount core boundary.
+Public
 `ModelMountingState.listMcpServers()` now calls Rust read-projection kind
 `mcp_servers` with runtime `state_dir`; Rust replays persisted
 `mcp-servers/*.json`, filters to Rust-authored MCP workflow records, and returns
@@ -8638,12 +8641,12 @@ now mounts `modelMountCore` directly; `model-mount-admission-runner.mjs` and its
 tests are deleted, the daemon store/service pass only `modelMountCore`, and the
 old command/env factory path is gone. Route decision, invocation admission,
 provider execution, provider invocation/stream execution, lifecycle/inventory,
-instance lifecycle, and provider-result admission now call typed
+instance lifecycle, provider-result admission, and MCP workflow planning now call typed
 `daemonCoreModelMountApi` methods instead of command envelopes. Rust rejects the
 retired command operations, dispatch arms, and bridge request/response wrappers
 for that family. Backend process/lifecycle, remaining required-control,
 accepted-receipt head/transition, read-projection, invocation receipt-binding,
-MCP workflow, server-control, runtime-engine/survey, tokenizer/route-control,
+server-control, runtime-engine/survey, tokenizer/route-control,
 catalog/provider/vault/receipt-gate, conversation/stream, and projection helpers
 still enter Rust through remaining migration transport. The core requires typed
 `daemonCoreModelMountApi` for migrated model_mount APIs, uses
@@ -8672,7 +8675,7 @@ records can be committed. Conformance now requires the no-authority negative
 paths, no-custody/no-containment negative paths, and snake_case protocol
 forwarding to remain in place. Actual MCP transport execution, runtime
 containment sandboxing, real result payload materialization, replay/projection
-storage, command-transport retirement, and stable protocol APIs remain
+storage, and stable protocol APIs remain
 non-terminal.
 
 Slice 1212 retires the remaining JS-authored MCP manager catalog record
@@ -8996,9 +8999,12 @@ transport execution, runtime containment sandboxing, real result payload
 materialization into the persisted live-result records, MCP serve command
 transport retirement, and stable protocol APIs over Rust replay records remain
 non-terminal.
-Model-mount MCP workflow control has a matching Rust positive boundary:
-`plan_model_mount_mcp_workflow` now owns import, ephemeral registration, MCP
-tool invocation, and workflow-node execution record planning. Tool invocation
+Model-mount MCP workflow control has a matching typed Rust positive boundary:
+`daemonCoreModelMountApi.planModelMountMcpWorkflow` now calls Rust
+`RuntimeKernel::plan_model_mount_mcp_workflow` for import, ephemeral
+registration, MCP tool invocation, and workflow-node execution record planning;
+the old `plan_model_mount_mcp_workflow` command operation, dispatch arm, bridge
+wrapper, command-envelope builder, and backend tag are retired. Tool invocation
 and workflow-node execution external exits now require Rust-enforced wallet
 grant refs, authority receipt refs, cTEE custody refs, and transport containment
 refs before planning/commit, bind those refs to the workflow authority hash and
@@ -9319,7 +9325,7 @@ cut only; the later model_mount typed API cut also retires command transport for
 invocation admission, provider-execution admission, provider invocation/stream
 execution, provider lifecycle/inventory, instance lifecycle, and provider-result
 admission. Remaining model_mount backend-process/lifecycle, required-control,
-read-projection, receipt-binding, MCP workflow, server-control,
+read-projection, receipt-binding, server-control,
 runtime-engine/survey, tokenizer/route-control, catalog/provider/vault/
 receipt-gate, conversation/stream, and projection migration transports still
 need direct Rust daemon-core protocol/API ownership.

@@ -267,6 +267,47 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
         authority_hash: "sha256:direct-storage-authority",
       };
     },
+    planModelMountMcpWorkflow(request) {
+      modelMountCalls.push({ method: "planModelMountMcpWorkflow", request });
+      const record = {
+        id: "mcp_import.direct",
+        object: "ioi.model_mount_mcp_workflow",
+        status: "committed",
+        operation_kind: request.operation_kind,
+        rust_core_boundary: "model_mount.mcp_workflow",
+        details: {
+          server_ids: ["mcp.direct"],
+          js_registry_mutation: false,
+        },
+        receipt_refs: request.receipt_refs ?? [],
+        evidence_refs: [
+          "rust_daemon_core_model_mount_mcp_workflow",
+          "agentgres_mcp_workflow_truth_required",
+        ],
+        workflow_hash: "sha256:direct-mcp-workflow",
+        authority_hash: "sha256:direct-mcp-authority",
+      };
+      return {
+        source: "direct_model_mount_api",
+        status: "committed",
+        rust_core_boundary: "model_mount.mcp_workflow",
+        operation_kind: request.operation_kind,
+        record_dir: "mcp-servers",
+        record_id: record.id,
+        record,
+        public_response: {
+          status: "committed",
+          operation_kind: request.operation_kind,
+          server_ids: ["mcp.direct"],
+        },
+        receipt_refs: request.receipt_refs ?? [],
+        authority_grant_refs: request.authority_grant_refs ?? [],
+        authority_receipt_refs: request.authority_receipt_refs ?? [],
+        evidence_refs: record.evidence_refs,
+        workflow_hash: record.workflow_hash,
+        authority_hash: record.authority_hash,
+      };
+    },
   };
   const directModelMountCore = createModelMountCore({
     daemonCoreInvoker: failCommandInvoker,
@@ -318,6 +359,9 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
       },
       planStorageControl(request) {
         return directModelMountCore.planStorageControl(request);
+      },
+      planMcpWorkflow(request) {
+        return directModelMountCore.planMcpWorkflow(request);
       },
     },
     daemonCoreInvoker: failCommandInvoker,
@@ -733,6 +777,29 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
   assert.equal(storagePlan.source, "direct_model_mount_api");
   assert.equal(storagePlan.record_id, "download.direct");
   assert.equal(storagePlan.rust_core_boundary, "model_mount.storage_control");
+  const mcpPlan = store.modelMounting.planModelMountMcpWorkflow({
+    schema_version: "ioi.model_mount.mcp_workflow.v1",
+    operation_kind: "model_mount.mcp_server.import",
+    source: "runtime-daemon.model_mounting.mcp_workflow",
+    body: {
+      mcp_servers: {
+        Direct: {
+          url: "https://example.test/mcp",
+          allowed_tools: ["search"],
+        },
+      },
+    },
+    receipt_refs: ["receipt://mcp/direct"],
+  });
+  assert.equal(calls.length, 0);
+  assertModelMountDirectApiCall(
+    modelMountCalls.at(-1),
+    "planModelMountMcpWorkflow",
+    "ioi.model_mount.mcp_workflow.v1",
+  );
+  assert.equal(mcpPlan.source, "direct_model_mount_api");
+  assert.equal(mcpPlan.record_id, "mcp_import.direct");
+  assert.equal(mcpPlan.rust_core_boundary, "model_mount.mcp_workflow");
   const memoryPlan = store.contextPolicyCore.planRuntimeMemoryControl({
     operation: "write",
     operation_kind: "memory.write",

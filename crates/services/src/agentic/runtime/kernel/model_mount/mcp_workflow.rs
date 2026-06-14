@@ -52,50 +52,6 @@ pub struct ModelMountMcpWorkflowPlan {
     pub authority_hash: String,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct ModelMountMcpWorkflowBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: ModelMountMcpWorkflowRequest,
-}
-
-pub fn plan_model_mount_mcp_workflow_response(
-    request: ModelMountMcpWorkflowBridgeRequest,
-) -> Result<Value, ModelMountError> {
-    let plan = plan_mcp_workflow(&request.request)?;
-    let record_dir = plan.record_dir.clone();
-    let record_id = plan.record_id.clone();
-    let record = plan.record.clone();
-    let public_response = plan.public_response.clone();
-    let receipt = plan.receipt.clone();
-    let receipt_refs = plan.receipt_refs.clone();
-    let authority_grant_refs = plan.authority_grant_refs.clone();
-    let authority_receipt_refs = plan.authority_receipt_refs.clone();
-    let evidence_refs = plan.evidence_refs.clone();
-    let workflow_hash = plan.workflow_hash.clone();
-    let authority_hash = plan.authority_hash.clone();
-    let operation_kind = plan.operation_kind.clone();
-    let rust_core_boundary = plan.rust_core_boundary.clone();
-    Ok(json!({
-        "source": "rust_model_mount_mcp_workflow_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_model_mount_mcp_workflow".to_string()),
-        "plan": plan,
-        "record_dir": record_dir,
-        "record_id": record_id,
-        "record": record,
-        "public_response": public_response,
-        "receipt": receipt,
-        "receipt_refs": receipt_refs,
-        "authority_grant_refs": authority_grant_refs.clone(),
-        "authority_receipt_refs": authority_receipt_refs.clone(),
-        "evidence_refs": evidence_refs,
-        "workflow_hash": workflow_hash,
-        "authority_hash": authority_hash,
-        "operation_kind": operation_kind,
-        "rust_core_boundary": rust_core_boundary,
-    }))
-}
-
 pub(super) fn plan_mcp_workflow(
     request: &ModelMountMcpWorkflowRequest,
 ) -> Result<ModelMountMcpWorkflowPlan, ModelMountError> {
@@ -1081,6 +1037,19 @@ mod tests {
     }
 
     #[test]
+    fn rust_core_plans_model_mount_mcp_workflow_direct_api() {
+        let mut request = import_request();
+        request.source = None;
+        let plan = plan_mcp_workflow(&request).expect("mcp workflow direct api plan");
+
+        assert_eq!(plan.source, "rust_daemon_core.model_mount.mcp_workflow");
+        assert_eq!(plan.record_dir, "mcp-servers");
+        assert_eq!(plan.rust_core_boundary, "model_mount.mcp_workflow");
+        assert!(plan.workflow_hash.starts_with("sha256:"));
+        assert!(plan.authority_hash.starts_with("sha256:"));
+    }
+
+    #[test]
     fn rust_admits_model_mount_mcp_tool_invocation_without_js_or_command_fallback() {
         let mut request = import_request();
         request.operation_kind = "model_mount.mcp_tool.invoke".to_string();
@@ -1289,19 +1258,6 @@ mod tests {
             plan_mcp_workflow(&request).expect_err("containment ref required"),
             ModelMountError::MissingField("containment_ref")
         );
-    }
-
-    #[test]
-    fn rust_shapes_model_mount_mcp_workflow_command_response() {
-        let response = plan_model_mount_mcp_workflow_response(ModelMountMcpWorkflowBridgeRequest {
-            backend: None,
-            request: import_request(),
-        })
-        .expect("mcp workflow command response");
-
-        assert_eq!(response["source"], "rust_model_mount_mcp_workflow_command");
-        assert_eq!(response["record_dir"], "mcp-servers");
-        assert_eq!(response["rust_core_boundary"], "model_mount.mcp_workflow");
     }
 
     #[test]
