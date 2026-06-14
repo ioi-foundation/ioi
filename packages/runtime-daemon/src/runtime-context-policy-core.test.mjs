@@ -44,6 +44,7 @@ import {
   RUNTIME_MEMORY_CONTROL_REQUEST_SCHEMA_VERSION,
   RUNTIME_MEMORY_PROJECTION_REQUEST_SCHEMA_VERSION,
   RUNTIME_MCP_SERVE_TOOL_CALL_PLAN_REQUEST_SCHEMA_VERSION,
+  RUNTIME_MCP_SERVE_TOOL_RESULT_PROJECTION_REQUEST_SCHEMA_VERSION,
   RUNTIME_WORKFLOW_EDIT_CONTROL_REQUEST_SCHEMA_VERSION,
   RUNTIME_MANAGED_SESSION_CONTROL_REQUEST_SCHEMA_VERSION,
   RUNTIME_MANAGED_SESSION_PROJECTION_REQUEST_SCHEMA_VERSION,
@@ -104,6 +105,7 @@ import {
   normalizeRuntimeLifecycleProjectionBridgeResult,
   normalizeRuntimeMemoryControlBridgeResult,
   normalizeRuntimeMcpServeToolCallPlanBridgeResult,
+  normalizeRuntimeMcpServeToolResultProjectionBridgeResult,
   normalizeRuntimeMemoryProjectionBridgeResult,
   normalizeRuntimeDiagnosticsRepairProjectionBridgeResult,
   normalizeRuntimeDiagnosticsRepairPolicyBridgeResult,
@@ -3977,6 +3979,86 @@ test("runtime MCP serve tool-call planner rejects missing Rust request envelope"
     (error) =>
       error instanceof RuntimeContextPolicyCoreError &&
       error.code === "runtime_mcp_serve_tool_call_plan_request_missing",
+  );
+});
+
+test("runtime MCP serve tool-result projector sends Rust daemon-core projection request", () => {
+  let captured = null;
+  const runner = new RuntimeContextPolicyCore({
+    daemonCoreInvoker(request) {
+      captured = request;
+      return {
+        source: "rust_runtime_mcp_serve_tool_result_projection_command",
+        backend: "rust_policy",
+        record: {
+          schema_version: "ioi.runtime.mcp_serve_tool_result_projection.v1",
+          object: "ioi.runtime_mcp_serve_tool_result_projection",
+          status: "projected",
+          operation: "project_runtime_mcp_serve_tool_result",
+          operation_kind: "mcp.serve.tools.result",
+          thread_id: request.request.thread_id,
+          tool_id: request.request.tool_id,
+          tool_name: request.request.tool_name,
+          tool_call_id: "call-one",
+          workflow_graph_id: "runtime.mcp_serve",
+          workflow_node_id: "runtime.mcp_serve.git_diff",
+          event_id: "event-one",
+          tool_status: "completed",
+          result: {
+            content: [{ type: "text", text: "git diff completed" }],
+            structuredContent: {
+              schema_version: "ioi.runtime.mcp-serve.test",
+              object: "ioi.runtime_mcp_serve_tool_result",
+              status: "completed",
+              thread_id: request.request.thread_id,
+              tool_name: request.request.tool_name,
+              tool_call_id: "call-one",
+              event_id: "event-one",
+              receipt_refs: ["receipt-one"],
+            },
+            isError: false,
+          },
+          receipt_refs: ["receipt-one"],
+          policy_decision_refs: ["policy-one"],
+          evidence_refs: ["runtime_mcp_serve_tool_result_rust_owned"],
+        },
+      };
+    },
+  });
+
+  const result = runner.projectRuntimeMcpServeToolResult({
+    thread_id: "thread-one",
+    tool_id: "git.diff",
+    tool_name: "git.diff",
+    jsonrpc_id: 7,
+    plan: { thread_id: "thread-one", tool_id: "git.diff" },
+    invocation: { status: "completed" },
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "project_runtime_mcp_serve_tool_result");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    RUNTIME_MCP_SERVE_TOOL_RESULT_PROJECTION_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.invocation.status, "completed");
+  assert.equal(result.source, "rust_runtime_mcp_serve_tool_result_projection_command");
+  assert.equal(result.operation_kind, "mcp.serve.tools.result");
+  assert.equal(result.result.structuredContent.event_id, "event-one");
+  assert.deepEqual(result.evidence_refs, ["runtime_mcp_serve_tool_result_rust_owned"]);
+});
+
+test("runtime MCP serve tool-result projector rejects missing Rust result envelope", () => {
+  assert.throws(
+    () =>
+      normalizeRuntimeMcpServeToolResultProjectionBridgeResult({
+        source: "rust_runtime_mcp_serve_tool_result_projection_command",
+        operation_kind: "mcp.serve.tools.result",
+      }),
+    (error) =>
+      error instanceof RuntimeContextPolicyCoreError &&
+      error.code === "runtime_mcp_serve_tool_result_projection_missing",
   );
 });
 

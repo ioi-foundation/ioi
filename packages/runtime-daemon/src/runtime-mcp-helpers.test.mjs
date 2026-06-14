@@ -12,7 +12,6 @@ import {
   mcpTransportEvidenceRef,
   mcpTransportSummary,
   mcpServeAllowedToolIds,
-  mcpServeToolCallResult,
   mcpServeToolDescriptor,
   mcpServeToolIdForName,
   mcpServerMatchesConfigSourceMode,
@@ -68,7 +67,7 @@ test("runtime MCP helpers resolve servers and tools by stable identities", () =>
   assert.equal(mcpToolMatchesQuery({ serverLabel: "Docs", toolName: "search" }, "doc"), false);
 });
 
-test("runtime MCP helpers shape serve descriptors and tool results", () => {
+test("runtime MCP helpers shape serve descriptors", () => {
   assert.deepEqual(mcpServeAllowedToolIds({
     allowed_tools: ["workspace.status", "git.diff", "not.allowed"],
     allowedTools: ["file.inspect"],
@@ -104,24 +103,6 @@ test("runtime MCP helpers shape serve descriptors and tool results", () => {
   assert.equal(Object.hasOwn(descriptor._meta, "workflowNodeType"), false);
   assert.equal(Object.hasOwn(descriptor._meta, "workflowConfigFields"), false);
   assert.equal(descriptor.annotations.readOnlyHint, true);
-
-  const result = mcpServeToolCallResult({
-    tool_name: "file.inspect",
-    status: "failed",
-    receipt_refs: ["receipt-1"],
-    event: { event_id: "event-1", payload_summary: { summary: "Could not inspect file." } },
-    error: { code: "blocked" },
-  });
-  assert.equal(result.isError, true);
-  assert.equal(result.content[0].text, "Could not inspect file.");
-  assert.equal(result.structuredContent.event_id, "event-1");
-  assert.deepEqual(result.structuredContent.receipt_refs, ["receipt-1"]);
-
-  const retiredAlias = mcpServeToolCallResult({
-    tool_name: "file.inspect",
-    event: { id: "legacy-event-id", payload_summary: { summary: "Inspect complete." } },
-  });
-  assert.equal(retiredAlias.structuredContent.event_id, null);
 });
 
 test("runtime MCP helpers shape JSON-RPC envelopes and transport metadata", () => {

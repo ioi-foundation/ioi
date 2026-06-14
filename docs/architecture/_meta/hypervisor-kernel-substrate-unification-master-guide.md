@@ -8649,11 +8649,16 @@ append, `agents.set`, JS MCP transport execution, and old compatibility aliases
 retired. MCP serve `tools/call` now requires Rust daemon-core
 `plan_runtime_mcp_serve_tool_call` for request-envelope authorship before
 routing allowed served coding-tool requests through the Rust-owned coding-tool
-invocation surface; JS no longer derives served tool-call ids, idempotency keys,
-workflow ids, or `mcp_serve_request`, and the path fails closed instead of
-preserving a JS envelope facade. Actual MCP transport execution, wallet
-authority for external exits, transport containment, content receipts,
-replay/projection storage, and stable protocol APIs remain non-terminal.
+invocation surface, then requires Rust daemon-core
+`project_runtime_mcp_serve_tool_result` to author the MCP result envelope,
+`content`, `structuredContent`, canonical `event_id`, receipt/policy/artifact
+refs, and `isError` state before JSON-RPC wrapping. JS no longer derives served
+tool-call ids, idempotency keys, workflow ids, `mcp_serve_request`, result text,
+event refs, or result error state; the old `mcpServeToolCallResult` helper is
+retired and the path fails closed instead of preserving a JS envelope/result
+facade. Actual MCP transport execution, wallet authority for external exits,
+transport containment, content receipts, replay/projection storage, and stable
+protocol APIs remain non-terminal.
 Model-mount MCP workflow control has a matching Rust positive boundary:
 `plan_model_mount_mcp_workflow` now owns import, ephemeral registration, MCP
 tool invocation, and workflow-node execution record planning, while Rust

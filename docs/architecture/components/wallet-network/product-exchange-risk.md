@@ -859,8 +859,13 @@ IOI L1 anchors only selected public/economic commitments.
 
 ## Related Canon
 
-- [`../../foundations/wallet-exchange-trade-provider-integrations.md`](../../foundations/wallet-exchange-trade-provider-integrations.md):
-  Wallet exchange/trade and Hypervisor provider-integration doctrine.
+- [`../../domains/decentralized/README.md`](../../domains/decentralized/README.md):
+  decentralized.exchange, decentralized.trade, and parked future
+  decentralized.cloud domain doctrine.
+- [`../../domains/decentralized/exchange.md`](../../domains/decentralized/exchange.md):
+  route-source and spot/cross-chain exchange doctrine.
+- [`../../domains/decentralized/trade.md`](../../domains/decentralized/trade.md):
+  advanced trading, exposure, perps, and position lifecycle doctrine.
 - [`doctrine.md`](./doctrine.md): wallet.network authority doctrine.
 - [`api-authority-scopes.md`](./api-authority-scopes.md): low-level account,
   scope, approval, payment, exchange, exposure, receipt, and revocation APIs.

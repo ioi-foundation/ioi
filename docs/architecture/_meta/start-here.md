@@ -154,7 +154,7 @@ Start here:
 3. [`components/daemon-runtime/runtime-nodes-tee-depin.md`](../components/daemon-runtime/runtime-nodes-tee-depin.md)
 4. [`components/daemon-runtime/hypervisoros.md`](../components/daemon-runtime/hypervisoros.md)
 5. [`components/hypervisor/fleet.md`](../components/hypervisor/fleet.md)
-6. [`foundations/wallet-exchange-trade-provider-integrations.md`](../foundations/wallet-exchange-trade-provider-integrations.md)
+6. [`domains/decentralized/README.md`](../domains/decentralized/README.md)
 7. [`components/daemon-runtime/doctrine.md`](../components/daemon-runtime/doctrine.md)
 8. [`components/daemon-runtime/api.md`](../components/daemon-runtime/api.md)
 9. [`components/daemon-runtime/events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md)
@@ -228,7 +228,7 @@ Start here:
 1. [`components/wallet-network/doctrine.md`](../components/wallet-network/doctrine.md)
 2. [`components/wallet-network/product-exchange-risk.md`](../components/wallet-network/product-exchange-risk.md)
 3. [`components/wallet-network/api-authority-scopes.md`](../components/wallet-network/api-authority-scopes.md)
-4. [`foundations/wallet-exchange-trade-provider-integrations.md`](../foundations/wallet-exchange-trade-provider-integrations.md)
+4. [`domains/decentralized/README.md`](../domains/decentralized/README.md)
 5. [`foundations/security-privacy-policy-invariants.md`](../foundations/security-privacy-policy-invariants.md)
 6. [`components/daemon-runtime/api.md#action-mediation--authority-gateway-api`](../components/daemon-runtime/api.md#action-mediation--authority-gateway-api)
 

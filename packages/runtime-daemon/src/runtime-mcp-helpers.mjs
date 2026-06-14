@@ -164,34 +164,6 @@ export function mcpServeToolIdForName(name, options = {}) {
   return allowedToolIds.find((toolId) => toolId === requested || safeId(toolId) === requested) ?? null;
 }
 
-export function mcpServeToolCallResult(invocation = {}) {
-  const payload = invocation.event?.payload_summary ?? {};
-  const status = invocation.status ?? payload.status ?? "completed";
-  const summary =
-    optionalString(payload.summary) ??
-    `IOI runtime tool ${invocation.tool_name ?? "unknown"} ${status}.`;
-  return {
-    content: [{ type: "text", text: summary }],
-    structuredContent: {
-      schema_version: RUNTIME_MCP_SERVE_SCHEMA_VERSION,
-      object: "ioi.runtime_mcp_serve_tool_result",
-      status,
-      tool_name: invocation.tool_name ?? null,
-      tool_call_id: invocation.tool_call_id ?? null,
-      thread_id: invocation.thread_id ?? null,
-      workflow_graph_id: invocation.workflow_graph_id ?? null,
-      workflow_node_id: invocation.workflow_node_id ?? null,
-      receipt_refs: normalizeArray(invocation.receipt_refs),
-      policy_decision_refs: normalizeArray(invocation.policy_decision_refs),
-      artifact_refs: normalizeArray(invocation.artifact_refs),
-      event_id: invocation.event?.event_id ?? null,
-      result: invocation.result ?? null,
-      error: invocation.error ?? null,
-    },
-    isError: status !== "completed",
-  };
-}
-
 export function mcpJsonRpcResult(id, result = {}) {
   return { jsonrpc: "2.0", id: id ?? null, result };
 }

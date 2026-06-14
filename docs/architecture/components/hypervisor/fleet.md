@@ -624,7 +624,7 @@ Reject these:
 
 ## Related Canon
 
-- [`../../foundations/wallet-exchange-trade-provider-integrations.md`](../../foundations/wallet-exchange-trade-provider-integrations.md)
+- [`../../domains/decentralized/cloud-parked-future.md`](../../domains/decentralized/cloud-parked-future.md)
 - [`../daemon-runtime/doctrine.md`](../daemon-runtime/doctrine.md)
 - [`../daemon-runtime/private-workspace-ctee.md`](../daemon-runtime/private-workspace-ctee.md)
 - [`../daemon-runtime/runtime-nodes-tee-depin.md`](../daemon-runtime/runtime-nodes-tee-depin.md)

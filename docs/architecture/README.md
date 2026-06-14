@@ -183,7 +183,7 @@ distilled back into this architecture pack or into an accepted decision record.
 ## High-Level Canonical Spec Files
 
 - [`web4-and-ioi-stack.md`](./foundations/web4-and-ioi-stack.md) — category definition and stack map.
-- [`wallet-exchange-trade-provider-integrations.md`](./foundations/wallet-exchange-trade-provider-integrations.md) — decentralized.exchange, decentralized.trade, and Hypervisor provider-integration doctrine for routing liquidity, exposure, and execution without becoming authority or trust roots; decentralized.cloud is parked future product space, not present canon spine.
+- [`domains/decentralized/README.md`](./domains/decentralized/README.md) — decentralized.exchange, decentralized.trade, and parked future decentralized.cloud doctrine for routing liquidity and exposure without becoming authority or trust roots; Hypervisor provider integrations remain direct and are covered by Fleet.
 - [`aiip.md`](./foundations/aiip.md) — AIIP work interop protocol, bounded execution domains, profiles, packets, and handoff semantics.
 - [`governed-autonomous-systems.md`](./foundations/governed-autonomous-systems.md) — governed autonomous-system chains, Hypervisor Nodes, local settlement domains, and the coherent machine-economy stack.
 - [`verifiable-bounded-agency.md`](./foundations/verifiable-bounded-agency.md) — alignment-security thesis, bounded agency, and execution-boundary alignment.

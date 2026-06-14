@@ -523,6 +523,9 @@ pub fn dispatch_command_operation_response(
         CommandOperation::PlanRuntimeMcpServeToolCall => {
             plan_runtime_mcp_serve_tool_call_response(decode(raw_request)?).map_err(Into::into)
         }
+        CommandOperation::ProjectRuntimeMcpServeToolResult => {
+            project_runtime_mcp_serve_tool_result_response(decode(raw_request)?).map_err(Into::into)
+        }
         CommandOperation::PlanRuntimeWorkflowEditControl => {
             plan_runtime_workflow_edit_control_response(decode(raw_request)?).map_err(Into::into)
         }

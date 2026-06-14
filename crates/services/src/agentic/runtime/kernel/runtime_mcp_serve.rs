@@ -6,6 +6,11 @@ pub const RUNTIME_MCP_SERVE_TOOL_CALL_PLAN_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.mcp-serve-tool-call-plan-request.v1";
 pub const RUNTIME_MCP_SERVE_TOOL_CALL_PLAN_RESULT_SCHEMA_VERSION: &str =
     "ioi.runtime.mcp_serve_tool_call_plan.v1";
+pub const RUNTIME_MCP_SERVE_TOOL_RESULT_PROJECTION_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.mcp-serve-tool-result-projection-request.v1";
+pub const RUNTIME_MCP_SERVE_TOOL_RESULT_PROJECTION_SCHEMA_VERSION: &str =
+    "ioi.runtime.mcp_serve_tool_result_projection.v1";
+pub const RUNTIME_MCP_SERVE_TOOL_RESULT_SCHEMA_VERSION: &str = "ioi.runtime.mcp-serve.v1";
 
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct RuntimeMcpServeToolCallPlanRequest {
@@ -29,6 +34,30 @@ pub struct RuntimeMcpServeToolCallPlanRequest {
     pub params: Value,
     #[serde(default)]
     pub request: Value,
+    #[serde(default)]
+    pub mcp_serve_schema_version: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct RuntimeMcpServeToolResultProjectionRequest {
+    #[serde(default)]
+    pub schema_version: Option<String>,
+    #[serde(default)]
+    pub operation: Option<String>,
+    #[serde(default)]
+    pub operation_kind: Option<String>,
+    #[serde(default)]
+    pub thread_id: Option<String>,
+    #[serde(default)]
+    pub tool_id: Option<String>,
+    #[serde(default)]
+    pub tool_name: Option<String>,
+    #[serde(default)]
+    pub jsonrpc_id: Value,
+    #[serde(default)]
+    pub plan: Value,
+    #[serde(default)]
+    pub invocation: Value,
     #[serde(default)]
     pub mcp_serve_schema_version: Option<String>,
 }
@@ -78,12 +107,41 @@ pub struct RuntimeMcpServeToolCallPlanRecord {
     pub policy_decision_refs: Vec<String>,
 }
 
+#[derive(Debug, Clone)]
+pub struct RuntimeMcpServeToolResultProjectionRecord {
+    pub operation: String,
+    pub operation_kind: String,
+    pub thread_id: String,
+    pub tool_id: String,
+    pub tool_name: Option<String>,
+    pub tool_call_id: Option<String>,
+    pub workflow_graph_id: Option<String>,
+    pub workflow_node_id: Option<String>,
+    pub event_id: Option<String>,
+    pub status: String,
+    pub result: Value,
+    pub evidence_refs: Vec<String>,
+    pub receipt_refs: Vec<String>,
+    pub policy_decision_refs: Vec<String>,
+}
+
 pub fn plan_runtime_mcp_serve_tool_call_response(
     request: RuntimeMcpServeToolCallPlanRequest,
 ) -> Result<Value, RuntimeMcpServeCommandError> {
     let record = RuntimeMcpServeToolCallPlanCore.plan(&request)?;
     Ok(json!({
         "source": "rust_runtime_mcp_serve_tool_call_plan_command",
+        "backend": "rust_policy",
+        "record": record.to_value(),
+    }))
+}
+
+pub fn project_runtime_mcp_serve_tool_result_response(
+    request: RuntimeMcpServeToolResultProjectionRequest,
+) -> Result<Value, RuntimeMcpServeCommandError> {
+    let record = RuntimeMcpServeToolCallPlanCore.project_result(&request)?;
+    Ok(json!({
+        "source": "rust_runtime_mcp_serve_tool_result_projection_command",
         "backend": "rust_policy",
         "record": record.to_value(),
     }))
@@ -244,6 +302,149 @@ impl RuntimeMcpServeToolCallPlanCore {
             )],
         })
     }
+
+    pub fn project_result(
+        &self,
+        request: &RuntimeMcpServeToolResultProjectionRequest,
+    ) -> Result<RuntimeMcpServeToolResultProjectionRecord, RuntimeMcpServeCommandError> {
+        if let Some(schema_version) = optional_trimmed(request.schema_version.as_deref()) {
+            if schema_version != RUNTIME_MCP_SERVE_TOOL_RESULT_PROJECTION_REQUEST_SCHEMA_VERSION {
+                return Err(RuntimeMcpServeCommandError::new(
+                    "runtime_mcp_serve_tool_result_schema_version_invalid",
+                    format!(
+                        "expected {RUNTIME_MCP_SERVE_TOOL_RESULT_PROJECTION_REQUEST_SCHEMA_VERSION}, got {schema_version}"
+                    ),
+                ));
+            }
+        }
+
+        let operation = optional_trimmed(request.operation.as_deref())
+            .unwrap_or_else(|| "project_runtime_mcp_serve_tool_result".to_string());
+        let operation_kind = optional_trimmed(request.operation_kind.as_deref())
+            .unwrap_or_else(|| "mcp.serve.tools.result".to_string());
+        if operation_kind != "mcp.serve.tools.result" {
+            return Err(RuntimeMcpServeCommandError::new(
+                "runtime_mcp_serve_tool_result_operation_kind_unsupported",
+                format!("{operation_kind} is not an MCP serve tools/call result projection"),
+            ));
+        }
+        let thread_id = optional_trimmed(request.thread_id.as_deref()).ok_or_else(|| {
+            RuntimeMcpServeCommandError::new(
+                "runtime_mcp_serve_tool_result_thread_id_required",
+                "MCP serve result projection requires thread_id",
+            )
+        })?;
+        let tool_id = optional_trimmed(request.tool_id.as_deref()).ok_or_else(|| {
+            RuntimeMcpServeCommandError::new(
+                "runtime_mcp_serve_tool_result_tool_id_required",
+                "MCP serve result projection requires tool_id",
+            )
+        })?;
+        let plan = object_value(&request.plan);
+        let invocation = object_value(&request.invocation);
+        if plan.is_empty() {
+            return Err(RuntimeMcpServeCommandError::new(
+                "runtime_mcp_serve_tool_result_plan_required",
+                "MCP serve result projection requires the Rust tool-call plan",
+            ));
+        }
+        if invocation.is_empty() {
+            return Err(RuntimeMcpServeCommandError::new(
+                "runtime_mcp_serve_tool_result_invocation_required",
+                "MCP serve result projection requires a Rust coding-tool invocation result",
+            ));
+        }
+        let plan_thread_id = string_field(&plan, "thread_id");
+        let plan_tool_id = string_field(&plan, "tool_id");
+        if plan_thread_id.as_deref() != Some(thread_id.as_str())
+            || plan_tool_id.as_deref() != Some(tool_id.as_str())
+        {
+            return Err(RuntimeMcpServeCommandError::new(
+                "runtime_mcp_serve_tool_result_plan_mismatch",
+                "MCP serve result projection requires matching Rust plan identity",
+            ));
+        }
+
+        let payload = invocation
+            .get("event")
+            .and_then(Value::as_object)
+            .and_then(|event| event.get("payload_summary"))
+            .and_then(Value::as_object)
+            .cloned()
+            .unwrap_or_default();
+        let status = string_field(&invocation, "status")
+            .or_else(|| string_field(&payload, "status"))
+            .unwrap_or_else(|| "completed".to_string());
+        let tool_name = string_field(&invocation, "tool_name")
+            .or_else(|| optional_trimmed(request.tool_name.as_deref()))
+            .or_else(|| string_field(&plan, "tool_name"));
+        let summary = string_field(&payload, "summary").unwrap_or_else(|| {
+            format!(
+                "IOI runtime tool {} {status}.",
+                tool_name.as_deref().unwrap_or("unknown")
+            )
+        });
+        let tool_call_id = string_field(&invocation, "tool_call_id")
+            .or_else(|| string_field(&plan, "tool_call_id"));
+        let workflow_graph_id = string_field(&invocation, "workflow_graph_id")
+            .or_else(|| string_field(&plan, "workflow_graph_id"));
+        let workflow_node_id = string_field(&invocation, "workflow_node_id")
+            .or_else(|| string_field(&plan, "workflow_node_id"));
+        let event_id = invocation
+            .get("event")
+            .and_then(Value::as_object)
+            .and_then(|event| string_field(event, "event_id"));
+        let receipt_refs = string_array_field(&invocation, "receipt_refs");
+        let policy_decision_refs = string_array_field(&invocation, "policy_decision_refs");
+        let artifact_refs = string_array_field(&invocation, "artifact_refs");
+        let mcp_serve_schema_version =
+            optional_trimmed(request.mcp_serve_schema_version.as_deref())
+                .unwrap_or_else(|| RUNTIME_MCP_SERVE_TOOL_RESULT_SCHEMA_VERSION.to_string());
+        let result_payload = invocation.get("result").cloned().unwrap_or(Value::Null);
+        let error_payload = invocation.get("error").cloned().unwrap_or(Value::Null);
+        let tool_result = json!({
+            "content": [{ "type": "text", "text": summary }],
+            "structuredContent": {
+                "schema_version": mcp_serve_schema_version,
+                "object": "ioi.runtime_mcp_serve_tool_result",
+                "status": status,
+                "tool_name": tool_name,
+                "tool_call_id": tool_call_id,
+                "thread_id": thread_id,
+                "workflow_graph_id": workflow_graph_id,
+                "workflow_node_id": workflow_node_id,
+                "receipt_refs": receipt_refs,
+                "policy_decision_refs": policy_decision_refs,
+                "artifact_refs": artifact_refs,
+                "event_id": event_id,
+                "result": result_payload,
+                "error": error_payload,
+            },
+            "isError": status != "completed",
+        });
+
+        Ok(RuntimeMcpServeToolResultProjectionRecord {
+            operation,
+            operation_kind,
+            thread_id,
+            tool_id,
+            tool_name,
+            tool_call_id,
+            workflow_graph_id,
+            workflow_node_id,
+            event_id,
+            status,
+            result: tool_result,
+            evidence_refs: vec![
+                "runtime_mcp_serve_tool_result_rust_owned".to_string(),
+                "rust_daemon_core_runtime_mcp_serve_tool_result_projection".to_string(),
+                "agentgres_runtime_mcp_serve_tool_call_truth_required".to_string(),
+                "wallet_runtime_mcp_serve_authority_required".to_string(),
+            ],
+            receipt_refs,
+            policy_decision_refs,
+        })
+    }
 }
 
 impl RuntimeMcpServeToolCallPlanRecord {
@@ -271,8 +472,53 @@ impl RuntimeMcpServeToolCallPlanRecord {
     }
 }
 
+impl RuntimeMcpServeToolResultProjectionRecord {
+    fn to_value(&self) -> Value {
+        json!({
+            "schema_version": RUNTIME_MCP_SERVE_TOOL_RESULT_PROJECTION_SCHEMA_VERSION,
+            "object": "ioi.runtime_mcp_serve_tool_result_projection",
+            "status": "projected",
+            "operation": self.operation,
+            "operation_kind": self.operation_kind,
+            "thread_id": self.thread_id,
+            "tool_id": self.tool_id,
+            "tool_name": self.tool_name,
+            "tool_call_id": self.tool_call_id,
+            "workflow_graph_id": self.workflow_graph_id,
+            "workflow_node_id": self.workflow_node_id,
+            "event_id": self.event_id,
+            "tool_status": self.status,
+            "result": self.result,
+            "evidence_refs": self.evidence_refs,
+            "receipt_refs": self.receipt_refs,
+            "policy_decision_refs": self.policy_decision_refs,
+        })
+    }
+}
+
 fn object_value(value: &Value) -> Map<String, Value> {
     value.as_object().cloned().unwrap_or_default()
+}
+
+fn string_field(record: &Map<String, Value>, field: &str) -> Option<String> {
+    record
+        .get(field)
+        .and_then(Value::as_str)
+        .and_then(trimmed_str)
+}
+
+fn string_array_field(record: &Map<String, Value>, field: &str) -> Vec<String> {
+    record
+        .get(field)
+        .and_then(Value::as_array)
+        .map(|values| {
+            values
+                .iter()
+                .filter_map(Value::as_str)
+                .filter_map(trimmed_str)
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 fn request_hash(
@@ -390,6 +636,101 @@ mod tests {
         );
         assert_eq!(response["record"]["operation_kind"], "mcp.serve.tools.call");
         assert_eq!(response["record"]["request"]["source"], "mcp_serve");
+    }
+
+    #[test]
+    fn rust_projects_mcp_serve_tool_call_result() {
+        let plan = RuntimeMcpServeToolCallPlanCore
+            .plan(&request())
+            .expect("mcp serve plan")
+            .to_value();
+        let projection = RuntimeMcpServeToolCallPlanCore
+            .project_result(&RuntimeMcpServeToolResultProjectionRequest {
+                schema_version: Some(
+                    RUNTIME_MCP_SERVE_TOOL_RESULT_PROJECTION_REQUEST_SCHEMA_VERSION.to_string(),
+                ),
+                operation: None,
+                operation_kind: None,
+                thread_id: Some("thread_one".to_string()),
+                tool_id: Some("git.diff".to_string()),
+                tool_name: Some("git.diff".to_string()),
+                jsonrpc_id: json!(7),
+                plan,
+                invocation: json!({
+                    "status": "completed",
+                    "tool_name": "git.diff",
+                    "tool_call_id": "call_one",
+                    "thread_id": "thread_one",
+                    "workflow_graph_id": "graph_one",
+                    "workflow_node_id": "node_one",
+                    "receipt_refs": ["receipt_one"],
+                    "policy_decision_refs": ["policy_one"],
+                    "artifact_refs": ["artifact_one"],
+                    "event": {
+                        "id": "retired_event_id",
+                        "event_id": "event_one",
+                        "payload_summary": { "summary": "git diff completed" }
+                    },
+                    "result": { "ok": true }
+                }),
+                mcp_serve_schema_version: Some("ioi.runtime.mcp-serve.test".to_string()),
+            })
+            .expect("mcp serve result projection");
+        assert_eq!(projection.operation_kind, "mcp.serve.tools.result");
+        assert_eq!(projection.event_id.as_deref(), Some("event_one"));
+        assert!(projection
+            .evidence_refs
+            .contains(&"runtime_mcp_serve_tool_result_rust_owned".to_string()));
+        assert_eq!(
+            projection.result["structuredContent"]["schema_version"],
+            "ioi.runtime.mcp-serve.test"
+        );
+        assert_eq!(
+            projection.result["structuredContent"]["event_id"],
+            "event_one"
+        );
+        assert!(projection.result["structuredContent"]["event"].is_null());
+        assert_eq!(
+            projection.result["content"][0]["text"],
+            "git diff completed"
+        );
+    }
+
+    #[test]
+    fn rust_shapes_mcp_serve_tool_result_command_response() {
+        let plan = RuntimeMcpServeToolCallPlanCore
+            .plan(&request())
+            .expect("mcp serve plan")
+            .to_value();
+        let response = project_runtime_mcp_serve_tool_result_response(
+            RuntimeMcpServeToolResultProjectionRequest {
+                schema_version: Some(
+                    RUNTIME_MCP_SERVE_TOOL_RESULT_PROJECTION_REQUEST_SCHEMA_VERSION.to_string(),
+                ),
+                operation: None,
+                operation_kind: None,
+                thread_id: Some("thread_one".to_string()),
+                tool_id: Some("git.diff".to_string()),
+                tool_name: Some("git.diff".to_string()),
+                jsonrpc_id: json!(7),
+                plan,
+                invocation: json!({
+                    "status": "completed",
+                    "tool_name": "git.diff",
+                    "event": { "payload_summary": { "summary": "ok" } }
+                }),
+                mcp_serve_schema_version: None,
+            },
+        )
+        .expect("command response");
+        assert_eq!(
+            response["source"],
+            "rust_runtime_mcp_serve_tool_result_projection_command"
+        );
+        assert_eq!(
+            response["record"]["result"]["structuredContent"]["object"],
+            "ioi.runtime_mcp_serve_tool_result"
+        );
     }
 
     #[test]

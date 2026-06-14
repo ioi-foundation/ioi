@@ -8,7 +8,6 @@ import {
   mcpJsonRpcErrorCodeFor,
   mcpJsonRpcResult,
   mcpServeAllowedToolIds,
-  mcpServeToolCallResult,
   mcpServeToolDescriptor,
   mcpServeToolIdForName,
 } from "./runtime-mcp-helpers.mjs";
@@ -22,7 +21,6 @@ export function createRuntimeMcpServeSurface({
   mcpJsonRpcErrorCodeFor: mcpJsonRpcErrorCodeForDep = mcpJsonRpcErrorCodeFor,
   mcpJsonRpcResult: mcpJsonRpcResultDep = mcpJsonRpcResult,
   mcpServeAllowedToolIds: mcpServeAllowedToolIdsDep = mcpServeAllowedToolIds,
-  mcpServeToolCallResult: mcpServeToolCallResultDep = mcpServeToolCallResult,
   mcpServeToolDescriptor: mcpServeToolDescriptorDep = mcpServeToolDescriptor,
   mcpServeToolIdForName: mcpServeToolIdForNameDep = mcpServeToolIdForName,
   contextPolicyCore = null,
@@ -41,6 +39,7 @@ export function createRuntimeMcpServeSurface({
         evidence_refs: [
           "runtime_mcp_serve_tool_call_js_facade_retired",
           "rust_daemon_core_runtime_mcp_serve_tool_call_required",
+          "rust_daemon_core_runtime_mcp_serve_tool_result_projection_required",
           "agentgres_runtime_mcp_serve_tool_call_truth_required",
           "wallet_runtime_mcp_serve_authority_required",
         ],
@@ -143,6 +142,7 @@ export function createRuntimeMcpServeSurface({
           const invokeRustCodingTool = store?.codingToolInvocationSurface?.invokeThreadTool;
           if (
             typeof planner?.planRuntimeMcpServeToolCall !== "function" ||
+            typeof planner?.projectRuntimeMcpServeToolResult !== "function" ||
             typeof invokeRustCodingTool !== "function"
           ) {
             return mcpServeRustCoreRequiredError(id, {
@@ -174,7 +174,22 @@ export function createRuntimeMcpServeSurface({
             toolId,
             invocationRequest,
           );
-          return mcpJsonRpcResultDep(id, mcpServeToolCallResultDep(invocation));
+          const resultProjection = planner.projectRuntimeMcpServeToolResult({
+            operation: "project_runtime_mcp_serve_tool_result",
+            operation_kind: "mcp.serve.tools.result",
+            thread_id: threadId,
+            tool_id: toolId,
+            tool_name: toolName,
+            jsonrpc_id: id ?? null,
+            plan,
+            invocation,
+            mcp_serve_schema_version: schemaVersion,
+          });
+          const projectedResult = plannedMcpServeToolResult(resultProjection, {
+            threadId,
+            toolId,
+          });
+          return mcpJsonRpcResultDep(id, projectedResult);
         }
         return mcpJsonRpcErrorDep(id, -32601, `MCP method not found: ${method}.`, {
           supported_methods: [
@@ -195,6 +210,33 @@ export function createRuntimeMcpServeSurface({
       }
     },
   };
+}
+
+function plannedMcpServeToolResult(projection, { threadId, toolId }) {
+  const record = objectRecord(projection);
+  const result = objectRecord(record?.result);
+  const structuredContent = objectRecord(result?.structuredContent);
+  if (
+    !record ||
+    record.status !== "projected" ||
+    record.operation_kind !== "mcp.serve.tools.result" ||
+    record.thread_id !== threadId ||
+    record.tool_id !== toolId ||
+    !result ||
+    !structuredContent ||
+    structuredContent.object !== "ioi.runtime_mcp_serve_tool_result" ||
+    structuredContent.thread_id !== threadId
+  ) {
+    const error = new Error("Rust daemon-core MCP serve tool-result projection is incomplete.");
+    error.code = "runtime_mcp_serve_tool_result_projection_incomplete";
+    error.details = {
+      operation_kind: record?.operation_kind ?? null,
+      thread_id: record?.thread_id ?? null,
+      tool_id: record?.tool_id ?? null,
+    };
+    throw error;
+  }
+  return result;
 }
 
 function plannedMcpServeToolInvocationRequest(plan, { threadId, toolId }) {

@@ -61,6 +61,8 @@ export const RUNTIME_MEMORY_CONTROL_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.memory-control-request.v1";
 export const RUNTIME_MCP_SERVE_TOOL_CALL_PLAN_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.mcp-serve-tool-call-plan-request.v1";
+export const RUNTIME_MCP_SERVE_TOOL_RESULT_PROJECTION_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.mcp-serve-tool-result-projection-request.v1";
 export const RUNTIME_WORKFLOW_EDIT_CONTROL_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.workflow-edit-control-request.v1";
 export const RUNTIME_MANAGED_SESSION_PROJECTION_REQUEST_SCHEMA_VERSION =
@@ -426,6 +428,14 @@ export class RuntimeContextPolicyCore {
     return normalizeRuntimeMcpServeToolCallPlanBridgeResult(this.evaluateRawPolicy({
       operation: "plan_runtime_mcp_serve_tool_call",
       schemaVersion: RUNTIME_MCP_SERVE_TOOL_CALL_PLAN_REQUEST_SCHEMA_VERSION,
+      request,
+    }));
+  }
+
+  projectRuntimeMcpServeToolResult(request = {}) {
+    return normalizeRuntimeMcpServeToolResultProjectionBridgeResult(this.evaluateRawPolicy({
+      operation: "project_runtime_mcp_serve_tool_result",
+      schemaVersion: RUNTIME_MCP_SERVE_TOOL_RESULT_PROJECTION_REQUEST_SCHEMA_VERSION,
       request,
     }));
   }
@@ -1795,6 +1805,49 @@ export function normalizeRuntimeMcpServeToolCallPlanBridgeResult(value = {}) {
       optionalString(result.workflow_node_id ?? record.workflow_node_id) ?? null,
     request_hash: optionalString(result.request_hash ?? record.request_hash) ?? null,
     request,
+    receipt_refs: stringArray(result.receipt_refs ?? record.receipt_refs),
+    policy_decision_refs: stringArray(result.policy_decision_refs ?? record.policy_decision_refs),
+    evidence_refs: stringArray(result.evidence_refs ?? record.evidence_refs),
+    record,
+  };
+}
+
+export function normalizeRuntimeMcpServeToolResultProjectionBridgeResult(value = {}) {
+  const result = objectRecord(value) ?? {};
+  const record = objectRecord(result.record) ?? result;
+  const toolResult = objectRecord(result.result) ?? objectRecord(record.result);
+  if (!toolResult) {
+    throw new RuntimeContextPolicyCoreError(
+      "Rust MCP serve tool-result projector did not return a protocol result.",
+      "runtime_mcp_serve_tool_result_projection_missing",
+      { operation_kind: optionalString(result.operation_kind ?? record.operation_kind) },
+    );
+  }
+  return {
+    ...record,
+    source:
+      result.source ??
+      record.source ??
+      "rust_runtime_mcp_serve_tool_result_projection_command",
+    backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
+    object: optionalString(result.object ?? record.object) ?? null,
+    status: optionalString(result.status ?? record.status) ?? null,
+    operation: optionalString(result.operation ?? record.operation) ?? null,
+    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+      codePrefix: "runtime_mcp_serve_tool_result_projection",
+      expectedOperationKind: "mcp.serve.tools.result",
+    }),
+    thread_id: optionalString(result.thread_id ?? record.thread_id) ?? null,
+    tool_id: optionalString(result.tool_id ?? record.tool_id) ?? null,
+    tool_name: optionalString(result.tool_name ?? record.tool_name) ?? null,
+    tool_call_id: optionalString(result.tool_call_id ?? record.tool_call_id) ?? null,
+    workflow_graph_id:
+      optionalString(result.workflow_graph_id ?? record.workflow_graph_id) ?? null,
+    workflow_node_id:
+      optionalString(result.workflow_node_id ?? record.workflow_node_id) ?? null,
+    event_id: optionalString(result.event_id ?? record.event_id) ?? null,
+    tool_status: optionalString(result.tool_status ?? record.tool_status) ?? null,
+    result: toolResult,
     receipt_refs: stringArray(result.receipt_refs ?? record.receipt_refs),
     policy_decision_refs: stringArray(result.policy_decision_refs ?? record.policy_decision_refs),
     evidence_refs: stringArray(result.evidence_refs ?? record.evidence_refs),

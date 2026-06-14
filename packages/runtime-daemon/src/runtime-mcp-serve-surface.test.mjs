@@ -6,6 +6,7 @@ import { createRuntimeMcpServeSurface } from "./runtime-mcp-serve-surface.mjs";
 function harness() {
   const invocations = [];
   const plans = [];
+  const resultProjections = [];
   const tools = [
     { stable_tool_id: "workspace.status", display_name: "Workspace status", input_schema: { type: "object" } },
     { stable_tool_id: "git.diff", display_name: "Git diff", input_schema: { type: "object" } },
@@ -104,6 +105,68 @@ function harness() {
       ],
     };
   }
+  function rustMcpServeToolResultProjection(projectionRequest = {}) {
+    resultProjections.push(projectionRequest);
+    const invocation = projectionRequest.invocation && typeof projectionRequest.invocation === "object"
+      ? projectionRequest.invocation
+      : {};
+    const payload = invocation.event?.payload_summary && typeof invocation.event.payload_summary === "object"
+      ? invocation.event.payload_summary
+      : {};
+    const status = typeof invocation.status === "string" && invocation.status.trim()
+      ? invocation.status.trim()
+      : typeof payload.status === "string" && payload.status.trim()
+        ? payload.status.trim()
+        : "completed";
+    const summary = typeof payload.summary === "string" && payload.summary.trim()
+      ? payload.summary.trim()
+      : `IOI runtime tool ${invocation.tool_name ?? "unknown"} ${status}.`;
+    return {
+      schema_version: "ioi.runtime.mcp_serve_tool_result_projection.v1",
+      object: "ioi.runtime_mcp_serve_tool_result_projection",
+      status: "projected",
+      source: "rust_runtime_mcp_serve_tool_result_projection_command",
+      backend: "rust_policy",
+      operation: "project_runtime_mcp_serve_tool_result",
+      operation_kind: "mcp.serve.tools.result",
+      thread_id: projectionRequest.thread_id,
+      tool_id: projectionRequest.tool_id,
+      tool_name: projectionRequest.tool_name,
+      tool_call_id: invocation.tool_call_id ?? null,
+      workflow_graph_id: invocation.workflow_graph_id ?? null,
+      workflow_node_id: invocation.workflow_node_id ?? null,
+      event_id: invocation.event?.event_id ?? null,
+      tool_status: status,
+      result: {
+        content: [{ type: "text", text: summary }],
+        structuredContent: {
+          schema_version: projectionRequest.mcp_serve_schema_version,
+          object: "ioi.runtime_mcp_serve_tool_result",
+          status,
+          tool_name: invocation.tool_name ?? null,
+          tool_call_id: invocation.tool_call_id ?? null,
+          thread_id: projectionRequest.thread_id,
+          workflow_graph_id: invocation.workflow_graph_id ?? null,
+          workflow_node_id: invocation.workflow_node_id ?? null,
+          receipt_refs: invocation.receipt_refs ?? [],
+          policy_decision_refs: invocation.policy_decision_refs ?? [],
+          artifact_refs: invocation.artifact_refs ?? [],
+          event_id: invocation.event?.event_id ?? null,
+          result: invocation.result ?? null,
+          error: invocation.error ?? null,
+        },
+        isError: status !== "completed",
+      },
+      receipt_refs: invocation.receipt_refs ?? [],
+      policy_decision_refs: invocation.policy_decision_refs ?? [],
+      evidence_refs: [
+        "runtime_mcp_serve_tool_result_rust_owned",
+        "rust_daemon_core_runtime_mcp_serve_tool_result_projection",
+        "agentgres_runtime_mcp_serve_tool_call_truth_required",
+        "wallet_runtime_mcp_serve_authority_required",
+      ],
+    };
+  }
   const store = {
     agentForThread() {
       throw new Error("MCP serve tool-call facade must not resolve thread agents in JS.");
@@ -116,6 +179,7 @@ function harness() {
     },
     contextPolicyCore: {
       planRuntimeMcpServeToolCall: rustMcpServeToolCallPlan,
+      projectRuntimeMcpServeToolResult: rustMcpServeToolResultProjection,
     },
     codingToolInvocationSurface: {
       invokeThreadTool(surfaceStore, threadId, toolId, request) {
@@ -141,7 +205,7 @@ function harness() {
       },
     },
   };
-  return { invocations, plans, store, surface };
+  return { invocations, plans, resultProjections, store, surface };
 }
 
 test("runtime MCP serve surface projects status and allowed tool catalog", () => {
@@ -213,8 +277,8 @@ test("runtime MCP serve surface handles JSON-RPC lifecycle and batch notificatio
   assert.deepEqual(invocations, []);
 });
 
-test("runtime MCP serve surface invokes Rust-owned coding-tool path for allowed tool calls", async () => {
-  const { invocations, plans, store, surface } = harness();
+test("runtime MCP serve surface invokes Rust-owned coding-tool path and Rust-owned result projection", async () => {
+  const { invocations, plans, resultProjections, store, surface } = harness();
 
   const invalid = await surface.handleSingleMcpServeJsonRpc(store, "thread-one", []);
   assert.equal(invalid.error.code, -32600);
@@ -291,6 +355,11 @@ test("runtime MCP serve surface invokes Rust-owned coding-tool path for allowed 
   assert.equal(invocations[0].request.mcp_serve_request.method, "tools/call");
   assert.equal(invocations[0].request.mcp_serve_request.tool_id, "git.diff");
   assert.equal(Object.hasOwn(invocations[0].request.mcp_serve_request, "toolId"), false);
+  assert.equal(resultProjections.length, 1);
+  assert.equal(resultProjections[0].operation_kind, "mcp.serve.tools.result");
+  assert.equal(resultProjections[0].plan.tool_id, "git.diff");
+  assert.equal(resultProjections[0].invocation.event.event_id, "event_mcp_serve_tool_call");
+  assert.equal(resultProjections[0].invocation.event.id, undefined);
 
   const retiredOnlyResponse = await surface.handleSingleMcpServeJsonRpc(
     store,
@@ -358,6 +427,12 @@ test("runtime MCP serve tool calls fail closed without Rust-owned coding-tool in
     response.error.data.details.evidence_refs.includes("runtime_mcp_serve_tool_call_js_facade_retired"),
     true,
   );
+  assert.equal(
+    response.error.data.details.evidence_refs.includes(
+      "rust_daemon_core_runtime_mcp_serve_tool_result_projection_required",
+    ),
+    true,
+  );
 });
 
 test("runtime MCP serve tool calls fail closed without Rust-owned MCP serve planner", async () => {
@@ -382,6 +457,27 @@ test("runtime MCP serve tool calls fail closed without Rust-owned MCP serve plan
   assert.equal(response.error.data.details.operation_kind, "mcp.serve.tools.call");
   assert.equal(response.error.data.details.thread_id, "thread-one");
   assert.equal(response.error.data.details.tool_id, "git.diff");
+});
+
+test("runtime MCP serve tool calls fail closed without Rust-owned result projection", async () => {
+  const { invocations, store, surface } = harness();
+  delete store.contextPolicyCore.projectRuntimeMcpServeToolResult;
+
+  const response = await surface.handleSingleMcpServeJsonRpc(
+    store,
+    "thread-one",
+    {
+      jsonrpc: "2.0",
+      id: 13,
+      method: "tools/call",
+      params: { name: "git.diff", arguments: { includeStat: true } },
+    },
+    { onlyDiff: true },
+  );
+
+  assert.equal(response.error.code, -32000);
+  assert.equal(response.error.data.code, "runtime_mcp_serve_tool_call_rust_core_required");
+  assert.deepEqual(invocations, []);
 });
 
 test("runtime MCP serve tool calls reject incomplete Rust daemon-core plans", async () => {
@@ -409,4 +505,31 @@ test("runtime MCP serve tool calls reject incomplete Rust daemon-core plans", as
   assert.equal(response.error.data.code, "runtime_mcp_serve_tool_call_plan_incomplete");
   assert.equal(response.error.data.details.operation_kind, "mcp.serve.tools.call");
   assert.deepEqual(invocations, []);
+});
+
+test("runtime MCP serve tool calls reject incomplete Rust result projections", async () => {
+  const { invocations, store, surface } = harness();
+  store.contextPolicyCore.projectRuntimeMcpServeToolResult = () => ({
+    status: "projected",
+    operation_kind: "mcp.serve.tools.result",
+    thread_id: "thread-one",
+    tool_id: "git.diff",
+  });
+
+  const response = await surface.handleSingleMcpServeJsonRpc(
+    store,
+    "thread-one",
+    {
+      jsonrpc: "2.0",
+      id: 14,
+      method: "tools/call",
+      params: { name: "git.diff", arguments: { includeStat: true } },
+    },
+    { onlyDiff: true },
+  );
+
+  assert.equal(response.error.code, -32603);
+  assert.equal(response.error.data.code, "runtime_mcp_serve_tool_result_projection_incomplete");
+  assert.equal(response.error.data.details.operation_kind, "mcp.serve.tools.result");
+  assert.equal(invocations.length, 1);
 });

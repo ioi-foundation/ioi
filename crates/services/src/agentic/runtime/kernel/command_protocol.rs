@@ -109,6 +109,7 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "project_runtime_memory_projection",
     "plan_runtime_memory_control",
     "plan_runtime_mcp_serve_tool_call",
+    "project_runtime_mcp_serve_tool_result",
     "plan_runtime_workflow_edit_control",
     "project_runtime_managed_session_projection",
     "plan_runtime_managed_session_control",
@@ -250,6 +251,7 @@ pub enum CommandOperation {
     ProjectRuntimeMemoryProjection,
     PlanRuntimeMemoryControl,
     PlanRuntimeMcpServeToolCall,
+    ProjectRuntimeMcpServeToolResult,
     PlanRuntimeWorkflowEditControl,
     ProjectRuntimeManagedSessionProjection,
     PlanRuntimeManagedSessionControl,
@@ -426,6 +428,7 @@ impl CommandOperation {
             Self::ProjectRuntimeMemoryProjection => "project_runtime_memory_projection",
             Self::PlanRuntimeMemoryControl => "plan_runtime_memory_control",
             Self::PlanRuntimeMcpServeToolCall => "plan_runtime_mcp_serve_tool_call",
+            Self::ProjectRuntimeMcpServeToolResult => "project_runtime_mcp_serve_tool_result",
             Self::PlanRuntimeWorkflowEditControl => "plan_runtime_workflow_edit_control",
             Self::ProjectRuntimeManagedSessionProjection => {
                 "project_runtime_managed_session_projection"
@@ -761,6 +764,9 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
         }
         "plan_runtime_memory_control" => Some(CommandOperation::PlanRuntimeMemoryControl),
         "plan_runtime_mcp_serve_tool_call" => Some(CommandOperation::PlanRuntimeMcpServeToolCall),
+        "project_runtime_mcp_serve_tool_result" => {
+            Some(CommandOperation::ProjectRuntimeMcpServeToolResult)
+        }
         "plan_runtime_workflow_edit_control" => {
             Some(CommandOperation::PlanRuntimeWorkflowEditControl)
         }
@@ -928,6 +934,7 @@ mod tests {
             "project_runtime_tool_catalog",
             "project_runtime_memory_projection",
             "plan_runtime_mcp_serve_tool_call",
+            "project_runtime_mcp_serve_tool_result",
             "project_runtime_managed_session_projection",
             "plan_runtime_managed_session_control",
             "project_runtime_workspace_change_projection",
