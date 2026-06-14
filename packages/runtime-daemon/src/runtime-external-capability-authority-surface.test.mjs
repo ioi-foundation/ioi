@@ -33,7 +33,7 @@ function store() {
       calls.push({ name: "agentForThread", threadId });
       return { id: "agent_surface" };
     },
-    externalCapabilityAuthorityRunner: {
+    externalCapabilityAuthorityCore: {
       authorizeExit(input, context = {}) {
         calls.push({ name: "authorizeExit", input, context });
         return {
@@ -81,7 +81,7 @@ const EXTERNAL_CAPABILITY_AUTHORITY_CAMEL_ALIASES = [
   "authorityHash",
 ];
 
-test("external capability authority surface authorizes nested request through Rust runner", () => {
+test("external capability authority surface authorizes nested request through Rust core", () => {
   const runtimeStore = store();
   const surface = createRuntimeExternalCapabilityAuthoritySurface();
 
@@ -114,7 +114,7 @@ test("external capability authority surface authorizes nested request through Ru
   });
 });
 
-test("external capability authority surface rejects retired aliases before Rust runner", () => {
+test("external capability authority surface rejects retired aliases before Rust core", () => {
   const runtimeStore = store();
   const surface = createRuntimeExternalCapabilityAuthoritySurface();
 

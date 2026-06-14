@@ -7259,7 +7259,7 @@ including `status`, `exit_authorized`, `direct_truth_write_allowed`,
 `thread_id`, `agent_id`, authority refs, grant refs, receipt refs, and the
 authority hash. The JS external-capability authority surface now only extracts
 the canonical `request` body, rejects retired aliases, looks up the thread
-agent, and forwards context to the Rust-backed runner; it no longer mints the
+agent, and forwards context to the mounted Rust core; it no longer mints the
 public authority response locally.
 
 This remains non-terminal because the route still reaches Rust through the
@@ -7270,15 +7270,13 @@ replace the shared command runner/caller path and broad bridge transport with
 direct Rust daemon-core authority protocol APIs once that seam is clear enough,
 then continue facade retirement for the remaining JS product/readback surfaces.
 
-Slice 1148 removes the remaining JS-side defaulting for the external
-capability authority product-route envelope from the daemon runner
-normalizer. `runtime-external-capability-authority-runner.mjs` now passes
-missing product-envelope fields through as `null` instead of synthesizing
-`schema_version`, `object`, `status`, `exit_authorized`, or
-`direct_truth_write_allowed`. This makes Rust `authority.rs` the only owner of
-the successful external capability authority route envelope and prevents the
-temporary command caller from becoming a compatibility shim for public
-authority truth.
+Slice 1148 removed the remaining JS-side defaulting for the external
+capability authority product-route envelope from the daemon runner normalizer.
+That direct-invoker-only migration edge is now superseded by the Slice 1205
+core cut: `runtime-external-capability-authority-runner.mjs` is deleted,
+`externalCapabilityAuthorityCore` is mounted on the daemon store, and external
+capability authorization no longer has a runner normalizer, command/env
+fallback, or JS response-envelope compatibility path.
 
 This remains non-terminal because the shared JS daemon-core command runner and
 Node bridge transport still carry the request to Rust. The long-term target is
@@ -8134,24 +8132,36 @@ It is still not terminal because the mounted core builds a temporary
 command-envelope request and other command runners still carry temporary command
 transport.
 
-Slice 1197 retires the temporary binary-spawn fallback for the daemon external
-capability authority runner. `runtime-external-capability-authority-runner.mjs`
-no longer imports the shared JS daemon-core command invoker, no longer exposes
-or reads a live `EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_ENV`, and no longer
-accepts constructor command selection or spawn hooks. External capability exit
-authorization now requires the daemon-level `daemonCoreInvoker` direct
-Rust-core seam and fails closed when it is absent. `IOI_RUNTIME_DAEMON_CORE_COMMAND`
-and retired `IOI_EXTERNAL_CAPABILITY_AUTHORITY_COMMAND` values are treated only
-as forbidden command selection input for this surface, not as fallback
-transport.
+Slice 1205 retires the daemon external capability authority runner outright.
+The daemon store now mounts `externalCapabilityAuthorityCore`; the JS runner
+facade, store runner option, command/env fallback, and response normalizer are
+deleted. The core builds only the canonical Rust daemon-core
+`authorize_external_capability_exit` request, fails closed without the
+daemon-level `daemonCoreInvoker`, rejects retired request aliases/truth
+fields/options, and returns the Rust `authority.rs` wallet.network authority
+envelope as-is.
 
-This is the first wallet.network authority surface with binary-spawn fallback
-retired at the daemon runner. It is still not terminal daemon-wide Rust API
-ownership: the JS product surface remains a request extractor and other
-daemon-core command runners still carry temporary command transport. Resume by
-cutting the next authority/admission runner to the same direct-invoker-only
-shape, and keep conformance proving that command-env compatibility cannot
-authorize external effects.
+This removes JS envelope truth for the external capability path:
+authorization booleans, wallet.network grant refs, authority receipt refs,
+authority hashes, route context, source, and backend truth must arrive from
+Rust daemon-core output or remain absent at the JS edge. It is still not
+terminal because the mounted core builds a temporary command-envelope request
+and other command runners still carry temporary command transport.
+
+Slice 1197 retired the temporary binary-spawn fallback for the daemon external
+capability authority runner. That direct-invoker-only migration edge is now
+superseded by the Slice 1205 core cut: the runner file is deleted,
+`externalCapabilityAuthorityCore` is mounted on the daemon store, and external
+capability authorization no longer has a command/env fallback or JS response
+normalizer.
+
+This makes the wallet.network authority path a mounted core API instead of a
+runner facade: external capability authorization, grant refs, receipt refs,
+authority hashes, and public envelope facts must arrive from Rust daemon-core
+authority output or stay absent at the JS edge. It is still not terminal
+daemon-wide Rust API ownership because other command runners remain on
+temporary command transport. Resume by cutting the remaining authority,
+admission, and projection runners the same way.
 
 Slice 1198 retired the temporary binary-spawn fallback for the daemon governed
 improvement runner. That direct-invoker-only migration edge is now superseded by

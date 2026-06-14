@@ -51,7 +51,7 @@ export function createRuntimeExternalCapabilityAuthoritySurface(deps = {}) {
   function authorizeExternalCapabilityExit(store, threadId, request = {}) {
     const authorityRequest = authorityRequestForRequest(request);
     const agent = store.agentForThread(threadId);
-    return store.externalCapabilityAuthorityRunner.authorizeExit(authorityRequest, {
+    return store.externalCapabilityAuthorityCore.authorizeExit(authorityRequest, {
       thread_id: threadId,
       agent_id: agent.id,
     });

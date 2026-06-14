@@ -3395,20 +3395,20 @@ function runBridge() {
   const governedImprovementCoreStoreTest = exists("packages/runtime-daemon/src/runtime-governed-improvement-core-store.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-governed-improvement-core-store.test.mjs")
     : "";
-  const externalCapabilityAuthorityRunner = exists(
-    "packages/runtime-daemon/src/runtime-external-capability-authority-runner.mjs",
+  const externalCapabilityAuthorityCore = exists(
+    "packages/runtime-daemon/src/runtime-external-capability-authority-core.mjs",
   )
-    ? read("packages/runtime-daemon/src/runtime-external-capability-authority-runner.mjs")
+    ? read("packages/runtime-daemon/src/runtime-external-capability-authority-core.mjs")
     : "";
-  const externalCapabilityAuthorityRunnerTest = exists(
-    "packages/runtime-daemon/src/runtime-external-capability-authority-runner.test.mjs",
+  const externalCapabilityAuthorityCoreTest = exists(
+    "packages/runtime-daemon/src/runtime-external-capability-authority-core.test.mjs",
   )
-    ? read("packages/runtime-daemon/src/runtime-external-capability-authority-runner.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-external-capability-authority-core.test.mjs")
     : "";
-  const externalCapabilityAuthorityStoreTest = exists(
-    "packages/runtime-daemon/src/runtime-external-capability-authority-store.test.mjs",
+  const externalCapabilityAuthorityCoreStoreTest = exists(
+    "packages/runtime-daemon/src/runtime-external-capability-authority-core-store.test.mjs",
   )
-    ? read("packages/runtime-daemon/src/runtime-external-capability-authority-store.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-external-capability-authority-core-store.test.mjs")
     : "";
   const externalCapabilityAuthoritySurface = exists(
     "packages/runtime-daemon/src/runtime-external-capability-authority-surface.mjs",
@@ -3989,7 +3989,6 @@ function runBridge() {
     runtimeApprovalStateRunner,
     runtimeContextPolicyRunner,
     workspaceRestoreRunner,
-    externalCapabilityAuthorityRunner,
     modelMountAdmissionRunner,
     runtimeAgentgresRunner,
   ];
@@ -4011,8 +4010,20 @@ function runBridge() {
       /createContextPolicyRunnerFromEnv\(process\.env,\s*\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
         runtimeDaemonIndex,
       ) &&
-      /createExternalCapabilityAuthorityRunnerFromEnv\(process\.env,\s*\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
+      /createRuntimeExternalCapabilityAuthorityCore\(\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
         runtimeDaemonIndex,
+      ) &&
+      /this\.externalCapabilityAuthorityCore/.test(runtimeDaemonIndex) &&
+      !/this\.externalCapabilityAuthorityRunner/.test(runtimeDaemonIndex) &&
+      !exists("packages/runtime-daemon/src/runtime-external-capability-authority-runner.mjs") &&
+      !exists("packages/runtime-daemon/src/runtime-external-capability-authority-runner.test.mjs") &&
+      /RuntimeExternalCapabilityAuthorityCore/.test(externalCapabilityAuthorityCore) &&
+      /this\.daemonCoreInvoker = optionalFunction\(options\.daemonCoreInvoker\)/.test(
+        externalCapabilityAuthorityCore,
+      ) &&
+      /operation:\s*"authorize_external_capability_exit"/.test(externalCapabilityAuthorityCore) &&
+      !/process\.env|IOI_RUNTIME_DAEMON_CORE_COMMAND|IOI_EXTERNAL_CAPABILITY_AUTHORITY_COMMAND|normalizeExternalCapabilityAuthorityBridgeResult|stringArray|createExternalCapabilityAuthorityRunnerFromEnv|RustExternalCapabilityAuthorityRunner|ExternalCapabilityAuthorityRunner/.test(
+        externalCapabilityAuthorityCore,
       ) &&
       !exists("packages/runtime-daemon/src/runtime-worker-service-package-runner.mjs") &&
       !exists("packages/runtime-daemon/src/runtime-worker-service-package-runner.test.mjs") &&
@@ -4099,6 +4110,7 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-ctee-private-workspace-core.mjs",
       "packages/runtime-daemon/src/runtime-l1-settlement-core.mjs",
       "packages/runtime-daemon/src/runtime-governed-improvement-core.mjs",
+      "packages/runtime-daemon/src/runtime-external-capability-authority-core.mjs",
       "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
     ],
     "Rust daemon-core migration must use the direct-invoker seam and keep the retired JS command-spawn helper absent from daemon hot paths",
@@ -8480,96 +8492,76 @@ function runBridge() {
   );
   assertCheck(
     result,
-    "external-capability-exit-authority-daemon-runner",
-    !/EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_ENV/.test(externalCapabilityAuthorityRunner) &&
-      /assertNoExternalCapabilityAuthorityCommandSelection\(\s*options\.command \?\?\s*env\.IOI_RUNTIME_DAEMON_CORE_COMMAND \?\?\s*env\.IOI_EXTERNAL_CAPABILITY_AUTHORITY_COMMAND,\s*\)/.test(
-        externalCapabilityAuthorityRunner,
+    "external-capability-exit-authority-daemon-core-api",
+    !exists("packages/runtime-daemon/src/runtime-external-capability-authority-runner.mjs") &&
+      !exists("packages/runtime-daemon/src/runtime-external-capability-authority-runner.test.mjs") &&
+      !exists("packages/runtime-daemon/src/runtime-external-capability-authority-store.test.mjs") &&
+      /ioi\.runtime\.daemon_core\.command\.v1/.test(externalCapabilityAuthorityCore) &&
+      /RuntimeExternalCapabilityAuthorityCore/.test(externalCapabilityAuthorityCore) &&
+      /createRuntimeExternalCapabilityAuthorityCore/.test(externalCapabilityAuthorityCore) &&
+      /createRuntimeExternalCapabilityAuthorityCore/.test(runtimeDaemonIndex) &&
+      /this\.externalCapabilityAuthorityCore/.test(runtimeDaemonIndex) &&
+      !/this\.externalCapabilityAuthorityRunner/.test(runtimeDaemonIndex) &&
+      /authorizeExit/.test(externalCapabilityAuthorityCore) &&
+      /operation:\s*"authorize_external_capability_exit"/.test(externalCapabilityAuthorityCore) &&
+      /rust_authority/.test(externalCapabilityAuthorityCore) &&
+      /thread_id:\s*optionalString\(context\.thread_id\)/.test(externalCapabilityAuthorityCore) &&
+      /agent_id:\s*optionalString\(context\.agent_id\)/.test(externalCapabilityAuthorityCore) &&
+      /assertCanonicalExternalCapabilityAuthorityCoreRequest\(request\)/.test(
+        externalCapabilityAuthorityCore,
       ) &&
-      /ioi\.runtime\.daemon_core\.command\.v1/.test(externalCapabilityAuthorityRunner) &&
-      !/IOI_STEP_MODULE_COMMAND/.test(externalCapabilityAuthorityRunner) &&
-      !/EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_ARGS_ENV/.test(externalCapabilityAuthorityRunner) &&
-      !/parseCommandArgs/.test(externalCapabilityAuthorityRunner) &&
-      !/normalizeArgs/.test(externalCapabilityAuthorityRunner) &&
-      !/this\.args/.test(externalCapabilityAuthorityRunner) &&
-      !/argsEnv/.test(externalCapabilityAuthorityRunner) &&
-      /RustExternalCapabilityAuthorityRunner/.test(externalCapabilityAuthorityRunner) &&
-      /assertNoExternalCapabilityAuthorityCommandArgs/.test(externalCapabilityAuthorityRunner) &&
-      /assertNoExternalCapabilityAuthorityCommandSelection/.test(externalCapabilityAuthorityRunner) &&
-      /createExternalCapabilityAuthorityRunnerFromEnv/.test(externalCapabilityAuthorityRunner) &&
-      /createExternalCapabilityAuthorityRunnerFromEnv/.test(runtimeDaemonIndex) &&
-      /this\.externalCapabilityAuthorityRunner/.test(runtimeDaemonIndex) &&
-      /authorizeExit/.test(externalCapabilityAuthorityRunner) &&
-      /authorize_external_capability_exit/.test(externalCapabilityAuthorityRunner) &&
-      /rust_authority/.test(externalCapabilityAuthorityRunner) &&
-      /thread_id:\s*optionalString\(context\.thread_id\)/.test(externalCapabilityAuthorityRunner) &&
-      /agent_id:\s*optionalString\(context\.agent_id\)/.test(externalCapabilityAuthorityRunner) &&
-      /schema_version:\s*result\.schema_version\s*\?\?\s*null/.test(
-        externalCapabilityAuthorityRunner,
+      /RETIRED_EXTERNAL_CAPABILITY_AUTHORITY_CORE_REQUEST_ALIASES/.test(
+        externalCapabilityAuthorityCore,
       ) &&
-      /object:\s*result\.object\s*\?\?\s*null/.test(externalCapabilityAuthorityRunner) &&
-      /status:\s*result\.status\s*\?\?\s*null/.test(externalCapabilityAuthorityRunner) &&
-      /exit_authorized:\s*result\.exit_authorized\s*\?\?\s*null/.test(
-        externalCapabilityAuthorityRunner,
+      /RETIRED_EXTERNAL_CAPABILITY_AUTHORITY_CORE_TRUTH_FIELDS/.test(
+        externalCapabilityAuthorityCore,
       ) &&
-      /direct_truth_write_allowed:\s*result\.direct_truth_write_allowed\s*\?\?\s*null/.test(
-        externalCapabilityAuthorityRunner,
-      ) &&
-      /daemonCoreInvoker: options\.daemonCoreInvoker/.test(externalCapabilityAuthorityRunner) &&
       /this\.daemonCoreInvoker = optionalFunction\(options\.daemonCoreInvoker\)/.test(
-        externalCapabilityAuthorityRunner,
+        externalCapabilityAuthorityCore,
       ) &&
-      /external_capability_authority_direct_invoker_unconfigured/.test(externalCapabilityAuthorityRunner) &&
-      /external_capability_authority_command_args_retired/.test(externalCapabilityAuthorityRunner) &&
-      /external_capability_authority_command_selection_retired/.test(externalCapabilityAuthorityRunner) &&
-      !/createDaemonCoreCommandInvoker/.test(externalCapabilityAuthorityRunner) &&
-      !/from "node:child_process"/.test(externalCapabilityAuthorityRunner) &&
-      /external capability authority runner sends Rust authority request through direct daemon-core invoker/.test(
-        externalCapabilityAuthorityRunnerTest,
+      /external_capability_authority_core_direct_invoker_unconfigured/.test(
+        externalCapabilityAuthorityCore,
       ) &&
-      !/assert\.deepEqual\(calls\[0\]\.args,\s*\[\]\)/.test(externalCapabilityAuthorityRunnerTest) &&
-      /assert\.equal\(calls\[0\]\.thread_id,\s*"thread_runner"\)/.test(
-        externalCapabilityAuthorityRunnerTest,
+      /external_capability_authority_core_compatibility_option_retired/.test(
+        externalCapabilityAuthorityCore,
       ) &&
-      /assert\.equal\(result\.exit_authorized,\s*true\)/.test(
-        externalCapabilityAuthorityRunnerTest,
+      /external_capability_authority_core_request_fields_retired/.test(
+        externalCapabilityAuthorityCore,
       ) &&
-      /external capability authority runner does not synthesize product route envelope/.test(
-        externalCapabilityAuthorityRunnerTest,
+      !/process\.env|IOI_RUNTIME_DAEMON_CORE_COMMAND|IOI_EXTERNAL_CAPABILITY_AUTHORITY_COMMAND|IOI_STEP_MODULE_COMMAND|EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_ARGS_ENV|parseCommandArgs|normalizeArgs|this\.args|argsEnv|createDaemonCoreCommandInvoker|normalizeExternalCapabilityAuthorityBridgeResult|stringArray|RustExternalCapabilityAuthorityRunner|ExternalCapabilityAuthorityRunner/.test(
+        externalCapabilityAuthorityCore,
       ) &&
-      /external capability authority runner env uses daemon-level direct invoker/.test(
-        externalCapabilityAuthorityRunnerTest,
+      /external capability authority core calls direct Rust daemon-core wallet\.network API/.test(
+        externalCapabilityAuthorityCoreTest,
       ) &&
-      /external capability authority runner rejects retired binary command env/.test(
-        externalCapabilityAuthorityRunnerTest,
+      /external capability authority core returns the Rust envelope without JS normalization/.test(
+        externalCapabilityAuthorityCoreTest,
       ) &&
-      /external capability authority runner rejects retired authority command env/.test(
-        externalCapabilityAuthorityRunnerTest,
+      /external capability authority core rejects retired compatibility options/.test(
+        externalCapabilityAuthorityCoreTest,
       ) &&
-      /external capability authority runner command args env fails closed/.test(
-        externalCapabilityAuthorityRunnerTest,
+      /external capability authority core rejects retired request aliases before Rust invocation/.test(
+        externalCapabilityAuthorityCoreTest,
       ) &&
-      /external capability authority runner command constructor option fails closed/.test(
-        externalCapabilityAuthorityRunnerTest,
+      /external capability authority core fails closed without direct daemon-core API/.test(
+        externalCapabilityAuthorityCoreTest,
       ) &&
-      /external capability authority runner command args constructor option fails closed/.test(
-        externalCapabilityAuthorityRunnerTest,
+      /external capability authority core surfaces Rust wallet\.network rejection/.test(
+        externalCapabilityAuthorityCoreTest,
       ) &&
-      /external capability authority runner fails closed without direct invoker/.test(
-        externalCapabilityAuthorityRunnerTest,
+      /runtime store mounts external capability authority core from options/.test(
+        externalCapabilityAuthorityCoreStoreTest,
       ) &&
-      /external capability authority runner surfaces Rust wallet\.network rejection/.test(
-        externalCapabilityAuthorityRunnerTest,
-      ) &&
-      /runtime store mounts external capability authority runner from options/.test(
-        externalCapabilityAuthorityStoreTest,
+      /Object\.hasOwn\(store,\s*"externalCapabilityAuthorityRunner"\),\s*false/.test(
+        externalCapabilityAuthorityCoreStoreTest,
       ),
     [
-      "packages/runtime-daemon/src/runtime-external-capability-authority-runner.mjs",
-      "packages/runtime-daemon/src/runtime-external-capability-authority-runner.test.mjs",
-      "packages/runtime-daemon/src/runtime-external-capability-authority-store.test.mjs",
+      "packages/runtime-daemon/src/runtime-external-capability-authority-core.mjs",
+      "packages/runtime-daemon/src/runtime-external-capability-authority-core.test.mjs",
+      "packages/runtime-daemon/src/runtime-external-capability-authority-core-store.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
     ],
-    "Phase 9/10 is pending: daemon external capability exit facade must call Rust wallet.network authority through a direct daemon-core invoker and fail closed when unconfigured",
+    "Phase 9/10 is pending: daemon external capability exit facade must be a mounted Rust daemon-core wallet.network API with the JS runner/env fallback/normalizer absent",
   );
   assertCheck(
     result,
@@ -8585,20 +8577,20 @@ function runBridge() {
       !/exit_authorized:\s*true/.test(externalCapabilityAuthoritySurface) &&
       !/direct_truth_write_allowed:\s*false/.test(externalCapabilityAuthoritySurface) &&
       !/exit_ref:\s*authorization\.exit_ref/.test(externalCapabilityAuthoritySurface) &&
-      /return store\.externalCapabilityAuthorityRunner\.authorizeExit\(authorityRequest,\s*\{\s*thread_id:\s*threadId,\s*agent_id:\s*agent\.id,\s*\}\)/s.test(
+      /return store\.externalCapabilityAuthorityCore\.authorizeExit\(authorityRequest,\s*\{\s*thread_id:\s*threadId,\s*agent_id:\s*agent\.id,\s*\}\)/s.test(
         externalCapabilityAuthoritySurface,
       ) &&
       /external-capability-exits/.test(runtimeRouteHandlers) &&
       /store\.externalCapabilityAuthoritySurface\.authorizeExternalCapabilityExit\(store,\s*threadId,\s*await readBody\(request\)\)/.test(
         runtimeRouteHandlers,
       ) &&
-      /external capability authority surface authorizes nested request through Rust runner/.test(
+      /external capability authority surface authorizes nested request through Rust core/.test(
         externalCapabilityAuthoritySurfaceTest,
       ) &&
       /assert\.deepEqual\(runtimeStore\.calls\.at\(-1\)\.context,\s*\{\s*thread_id:\s*"thread_surface",\s*agent_id:\s*"agent_surface",\s*\}\)/s.test(
         externalCapabilityAuthoritySurfaceTest,
       ) &&
-      /external capability authority surface rejects retired aliases before Rust runner/.test(
+      /external capability authority surface rejects retired aliases before Rust core/.test(
         externalCapabilityAuthoritySurfaceTest,
       ) &&
       /external capability authority surface fails closed without request payload/.test(
@@ -8614,7 +8606,7 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
     ],
-    "Phase 9/10 is pending: daemon external capability exit product route must authorize through the Rust authority runner without minting JS truth",
+    "Phase 9/10 is pending: daemon external capability exit product route must authorize through the Rust authority core without minting JS truth",
   );
   assertCheck(
     result,
