@@ -6,7 +6,7 @@ import test from "node:test";
 
 import { AgentgresRuntimeStateStore } from "./index.mjs";
 
-function modelMountAdmissionRunner() {
+function modelMountCore() {
   return {
     planReadProjection(request) {
       return {
@@ -32,7 +32,7 @@ test("runtime store mounts L1 settlement core from options", () => {
   try {
     const store = new AgentgresRuntimeStateStore(stateDir, {
       l1SettlementCore,
-      modelMountAdmissionRunner: modelMountAdmissionRunner(),
+      modelMountCore: modelMountCore(),
     });
     try {
       assert.equal(store.l1SettlementCore, l1SettlementCore);

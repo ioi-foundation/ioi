@@ -22,7 +22,7 @@ function projectionForKind(projectionKind) {
   return null;
 }
 
-function testModelMountAdmissionRunner(overrides = {}) {
+function testModelMountCore(overrides = {}) {
   return {
     planReadProjection(request) {
       return {
@@ -46,7 +46,7 @@ function withModelState(fn) {
     stateDir: mkdtempSync(join(tmpdir(), "ioi-model-state-")),
     cwd: process.cwd(),
     homeDir: process.env.HOME,
-    modelMountAdmissionRunner: testModelMountAdmissionRunner(),
+    modelMountCore: testModelMountCore(),
   });
   try {
     return fn(state);
@@ -77,7 +77,7 @@ test("backend process planning is delegated to Rust model_mount", () => {
     stateDir: mkdtempSync(join(tmpdir(), "ioi-model-state-")),
     cwd: process.cwd(),
     homeDir: process.env.HOME,
-    modelMountAdmissionRunner: testModelMountAdmissionRunner({
+    modelMountCore: testModelMountCore({
       planBackendProcess(request) {
         calls.push(request);
         return {
@@ -205,7 +205,7 @@ test("accepted receipt head planning is delegated to Rust model_mount", () => {
     stateDir: mkdtempSync(join(tmpdir(), "ioi-model-state-")),
     cwd: process.cwd(),
     homeDir: process.env.HOME,
-    modelMountAdmissionRunner: testModelMountAdmissionRunner({
+    modelMountCore: testModelMountCore({
       planAcceptedReceiptHead(request) {
         calls.push(request);
         return {

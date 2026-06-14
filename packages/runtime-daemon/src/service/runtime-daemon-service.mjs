@@ -16,7 +16,7 @@ export async function startRuntimeDaemonServiceWithStore({
     vaultSecrets: options.vaultSecrets,
     contextPolicyRunner: options.contextPolicyRunner,
     codingToolApprovalCore: options.codingToolApprovalCore,
-    modelMountAdmissionRunner: options.modelMountAdmissionRunner,
+    modelMountCore: options.modelMountCore,
     runtimeAgentgresAdmissionCore: options.runtimeAgentgresAdmissionCore,
     workspaceRestoreCore: options.workspaceRestoreCore,
     runtimeBridge: options.runtimeBridge,

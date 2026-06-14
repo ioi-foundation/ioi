@@ -6,7 +6,7 @@ import test from "node:test";
 
 import { AgentgresRuntimeStateStore } from "./index.mjs";
 
-function modelMountAdmissionRunner() {
+function modelMountCore() {
   return {
     planReadProjection(request) {
       return {
@@ -37,7 +37,7 @@ test("runtime store mounts external capability authority core from options", () 
   try {
     const store = new AgentgresRuntimeStateStore(stateDir, {
       externalCapabilityAuthorityCore,
-      modelMountAdmissionRunner: modelMountAdmissionRunner(),
+      modelMountCore: modelMountCore(),
     });
     try {
       assert.equal(store.externalCapabilityAuthorityCore, externalCapabilityAuthorityCore);

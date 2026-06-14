@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import {
-  createModelMountAdmissionRunnerFromEnv,
+  createModelMountCore,
   RUST_MODEL_MOUNT_CONVERSATION_STATE_BACKEND,
   RUST_MODEL_MOUNT_FIXTURE_INVENTORY_BACKEND,
   RUST_MODEL_MOUNT_FIXTURE_LIFECYCLE_BACKEND,
@@ -14,7 +14,7 @@ import {
   RUST_MODEL_MOUNT_PROVIDER_CONTROL_BACKEND,
   RUST_MODEL_MOUNT_RUNTIME_SURVEY_BACKEND,
   RUST_MODEL_MOUNT_STREAM_COMPLETION_BACKEND,
-} from "./model-mounting/model-mount-admission-runner.mjs";
+} from "./model-mounting/model-mount-core.mjs";
 import { AgentgresModelMountingStore } from "./model-mounting/store.mjs";
 import { modelMountingRelationSchemas } from "./model-mounting/schema-relations.mjs";
 import {
@@ -409,7 +409,7 @@ export class ModelMountingState {
     homeDir,
     now = () => new Date(),
     vaultSecrets = {},
-    modelMountAdmissionRunner = null,
+    modelMountCore = null,
     daemonCoreInvoker = null,
     commitRuntimeModelMountRecordState = null,
     commitRuntimeModelMountReceiptState = null,
@@ -420,9 +420,9 @@ export class ModelMountingState {
     this.modelRoot = path.join(this.stateDir, "models");
     this.bootId = `daemon_boot_${crypto.randomUUID()}`;
     this.now = now;
-    this.modelMountAdmissionRunner =
-      modelMountAdmissionRunner ??
-      createModelMountAdmissionRunnerFromEnv(process.env, {
+    this.modelMountCore =
+      modelMountCore ??
+      createModelMountCore({
         daemonCoreInvoker,
       });
     this.commitRuntimeModelMountRecordState = commitRuntimeModelMountRecordState;
@@ -458,7 +458,6 @@ export class ModelMountingState {
     this.vaultRefs = new Map();
     this.mcpServers = new Map();
     this.conversations = new Map();
-    this.inflightModelInvocations = new Map();
     this.readProjectionFacade = createModelMountingReadProjectionFacade({
       internalFixtureModelsEnabled,
       listJson,
@@ -466,7 +465,7 @@ export class ModelMountingState {
       hardwareSnapshot,
       path,
       readJson,
-      readProjectionPlanner: this.modelMountAdmissionRunner,
+      readProjectionPlanner: this.modelMountCore,
     });
     this.ensureDirs();
     this.load();
@@ -1189,42 +1188,42 @@ export class ModelMountingState {
 
   agentgresModelMountingHead() {
     const sequence = this.listReceipts().length;
-    return this.modelMountAdmissionRunner.planAcceptedReceiptHead({
+    return this.modelMountCore.planAcceptedReceiptHead({
       schema_version: "ioi.model_mount.accepted_receipt_head.v1",
       sequence,
     });
   }
 
   admitModelMountRouteDecision(request) {
-    return this.modelMountAdmissionRunner.admitRouteDecision(request);
+    return this.modelMountCore.admitRouteDecision(request);
   }
 
   admitModelMountInvocation(request) {
-    return this.modelMountAdmissionRunner.admitInvocation(request);
+    return this.modelMountCore.admitInvocation(request);
   }
 
   admitModelMountProviderExecution(request) {
-    return this.modelMountAdmissionRunner.admitProviderExecution(request);
+    return this.modelMountCore.admitProviderExecution(request);
   }
 
   planModelMountAcceptedReceiptTransition(request) {
-    return this.modelMountAdmissionRunner.planAcceptedReceiptTransition(request);
+    return this.modelMountCore.planAcceptedReceiptTransition(request);
   }
 
   executeModelMountProviderInvocation(request) {
-    return this.modelMountAdmissionRunner.executeProviderInvocation(request);
+    return this.modelMountCore.executeProviderInvocation(request);
   }
 
   executeModelMountProviderStreamInvocation(request) {
-    return this.modelMountAdmissionRunner.executeProviderStreamInvocation(request);
+    return this.modelMountCore.executeProviderStreamInvocation(request);
   }
 
   planModelMountProviderLifecycle(request) {
-    return this.modelMountAdmissionRunner.planProviderLifecycle(request);
+    return this.modelMountCore.planProviderLifecycle(request);
   }
 
   planModelMountProviderControl(request) {
-    return this.modelMountAdmissionRunner.planProviderControl(request);
+    return this.modelMountCore.planProviderControl(request);
   }
 
   planProviderLifecycle(provider, options = {}) {
@@ -1232,43 +1231,43 @@ export class ModelMountingState {
   }
 
   planModelMountProviderInventory(request) {
-    return this.modelMountAdmissionRunner.planProviderInventory(request);
+    return this.modelMountCore.planProviderInventory(request);
   }
 
   planModelMountInstanceLifecycle(request) {
-    return this.modelMountAdmissionRunner.planInstanceLifecycle(request);
+    return this.modelMountCore.planInstanceLifecycle(request);
   }
 
   admitModelMountProviderResult(request) {
-    return this.modelMountAdmissionRunner.admitProviderResult(request);
+    return this.modelMountCore.admitProviderResult(request);
   }
 
   bindModelMountInvocationReceipt(request) {
-    return this.modelMountAdmissionRunner.bindInvocationReceipt(request);
+    return this.modelMountCore.bindInvocationReceipt(request);
   }
 
   planBackendLifecycle(request) {
-    if (typeof this.modelMountAdmissionRunner?.planBackendLifecycle !== "function") {
+    if (typeof this.modelMountCore?.planBackendLifecycle !== "function") {
       throwBackendLifecycleRustCoreRequired({
         operation_kind: request?.operation_kind ?? "model_mount.backend_lifecycle",
         details: request?.body,
       });
     }
-    return this.modelMountAdmissionRunner.planBackendLifecycle(request);
+    return this.modelMountCore.planBackendLifecycle(request);
   }
 
   planRuntimeEngine(request) {
-    if (typeof this.modelMountAdmissionRunner?.planRuntimeEngine !== "function") {
+    if (typeof this.modelMountCore?.planRuntimeEngine !== "function") {
       throwRuntimeEngineRustCoreRequired({
         operation_kind: request?.operation_kind ?? "model_mount.runtime_engine",
         details: request?.body,
       });
     }
-    return this.modelMountAdmissionRunner.planRuntimeEngine(request);
+    return this.modelMountCore.planRuntimeEngine(request);
   }
 
   routeControlRequired(operation_kind, details = {}) {
-    return this.modelMountAdmissionRunner.planRouteControlRequired({
+    return this.modelMountCore.planRouteControlRequired({
       schema_version: "ioi.model_mount.route_control_required.v1",
       operation: "model_mount.route_control",
       operation_kind,
@@ -1283,11 +1282,11 @@ export class ModelMountingState {
   }
 
   planRouteControl(request) {
-    return this.modelMountAdmissionRunner.planRouteControl(request);
+    return this.modelMountCore.planRouteControl(request);
   }
 
   planArtifactEndpoint(request) {
-    if (typeof this.modelMountAdmissionRunner?.planArtifactEndpoint !== "function") {
+    if (typeof this.modelMountCore?.planArtifactEndpoint !== "function") {
       throwArtifactEndpointRustCoreRequired(
         request?.operation_kind ?? "model_mount.artifact_endpoint",
         {
@@ -1295,11 +1294,11 @@ export class ModelMountingState {
         },
       );
     }
-    return this.modelMountAdmissionRunner.planArtifactEndpoint(request);
+    return this.modelMountCore.planArtifactEndpoint(request);
   }
 
   planStorageControl(request) {
-    if (typeof this.modelMountAdmissionRunner?.planStorageControl !== "function") {
+    if (typeof this.modelMountCore?.planStorageControl !== "function") {
       throwModelStorageRustCoreRequired(
         request?.operation_kind ?? "model_mount.storage_control",
         {
@@ -1307,58 +1306,58 @@ export class ModelMountingState {
         },
       );
     }
-    return this.modelMountAdmissionRunner.planStorageControl(request);
+    return this.modelMountCore.planStorageControl(request);
   }
 
   planModelMountMcpWorkflow(request) {
-    if (typeof this.modelMountAdmissionRunner?.planMcpWorkflow !== "function") {
+    if (typeof this.modelMountCore?.planMcpWorkflow !== "function") {
       throwMcpWorkflowRustCoreRequired(request?.operation_kind ?? "model_mount.mcp_workflow", {
         rust_core_api: "plan_model_mount_mcp_workflow",
       });
     }
-    return this.modelMountAdmissionRunner.planMcpWorkflow(request);
+    return this.modelMountCore.planMcpWorkflow(request);
   }
 
   planCatalogProviderControl(request) {
-    return this.modelMountAdmissionRunner.planCatalogProviderControl(request);
+    return this.modelMountCore.planCatalogProviderControl(request);
   }
 
   planCapabilityTokenControl(request) {
-    return this.modelMountAdmissionRunner.planCapabilityTokenControl(request);
+    return this.modelMountCore.planCapabilityTokenControl(request);
   }
 
   planVaultControl(request) {
-    return this.modelMountAdmissionRunner.planVaultControl(request);
+    return this.modelMountCore.planVaultControl(request);
   }
 
   planServerControl(request) {
-    if (typeof this.modelMountAdmissionRunner?.planServerControl !== "function") {
+    if (typeof this.modelMountCore?.planServerControl !== "function") {
       throwServerControlRustCoreRequired({
         operation_kind: request?.operation_kind ?? "model_mount.server_control",
         details: request?.body,
       });
     }
-    return this.modelMountAdmissionRunner.planServerControl(request);
+    return this.modelMountCore.planServerControl(request);
   }
 
   planReceiptGate(request) {
-    return this.modelMountAdmissionRunner.planReceiptGate(request);
+    return this.modelMountCore.planReceiptGate(request);
   }
 
   planTokenizer(request) {
-    return this.modelMountAdmissionRunner.planTokenizer(request);
+    return this.modelMountCore.planTokenizer(request);
   }
 
   planModelMountConversationState(request) {
-    return this.modelMountAdmissionRunner.planConversationState(request);
+    return this.modelMountCore.planConversationState(request);
   }
 
   planModelMountStreamCompletion(request) {
-    return this.modelMountAdmissionRunner.planStreamCompletion(request);
+    return this.modelMountCore.planStreamCompletion(request);
   }
 
   planModelMountStreamCancel(request) {
-    return this.modelMountAdmissionRunner.planStreamCancel(request);
+    return this.modelMountCore.planStreamCancel(request);
   }
 
   testRoute(routeId, body = {}) {
@@ -2014,7 +2013,7 @@ export class ModelMountingState {
         model: loadOptions.model ?? null,
       },
     };
-    return this.modelMountAdmissionRunner.planBackendProcess(request);
+    return this.modelMountCore.planBackendProcess(request);
   }
 
   backendProcessArgs(backend, options = {}) {
@@ -2110,15 +2109,15 @@ export class ModelMountingState {
 }
 
 function planRuntimeSurveyForState(state, request) {
-  const runner = state?.modelMountAdmissionRunner;
-  if (!runner || typeof runner.planRuntimeSurvey !== "function") {
+  const core = state?.modelMountCore;
+  if (!core || typeof core.planRuntimeSurvey !== "function") {
     throwRuntimeSurveyRustCoreRequired({
       operation: "runtime_survey",
       operation_kind: "model_mount.runtime_survey.capture",
-      missing: "modelMountAdmissionRunner.planRuntimeSurvey",
+      missing: "modelMountCore.planRuntimeSurvey",
     });
   }
-  return runner.planRuntimeSurvey(request);
+  return core.planRuntimeSurvey(request);
 }
 
 function persistRuntimeSurveyReceiptForState(state, plan = {}) {

@@ -11,7 +11,7 @@ test("daemon-level direct invoker feeds default daemon-core surfaces", () => {
   const calls = [];
   const store = new AgentgresRuntimeStateStore(stateDir, {
     cwd: stateDir,
-    modelMountAdmissionRunner: {
+    modelMountCore: {
       planReadProjection(request) {
         const projection = {
           schemaVersion: request.schema_version,

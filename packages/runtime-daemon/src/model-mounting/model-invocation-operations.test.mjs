@@ -20,7 +20,6 @@ function fakeState(overrides = {}) {
   const state = {
     authorizationCalls: [],
     conversations: new Map(),
-    inflightModelInvocations: new Map(),
     nowMs: 1_000,
     receiptIdCounter: 0,
     receipts: [],
@@ -580,7 +579,7 @@ test("model invocations reject retired authority request aliases before authoriz
   assert.deepEqual(state.authorizationCalls, []);
 });
 
-test("invokeModel public facade executes migrated fixture through Rust model_mount admission, provider execution, and receipt binding", async () => {
+test("invokeModel public facade executes migrated fixture through Rust model_mount core, provider execution, and receipt binding", async () => {
   const state = fakeState();
 
   const invocation = await invokeModel(

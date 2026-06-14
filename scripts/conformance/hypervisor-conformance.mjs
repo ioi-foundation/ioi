@@ -2668,13 +2668,13 @@ function runBridge() {
   const modelMountIoBridge = exists("packages/runtime-daemon/src/model-mounting/io.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/io.mjs")
     : "";
-  const modelMountAdmissionRunner = exists("packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs")
-    ? read("packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs")
+  const modelMountDaemonCore = exists("packages/runtime-daemon/src/model-mounting/model-mount-core.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/model-mount-core.mjs")
     : "";
-  const modelMountAdmissionRunnerTest = exists("packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs")
-    ? read("packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs")
+  const modelMountCoreTest = exists("packages/runtime-daemon/src/model-mounting/model-mount-core.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/model-mount-core.test.mjs")
     : "";
-  const modelMountCore = exists("crates/services/src/agentic/runtime/kernel/model_mount.rs")
+  const rustModelMountCore = exists("crates/services/src/agentic/runtime/kernel/model_mount.rs")
     ? [
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
         exists("crates/services/src/agentic/runtime/kernel/model_mount/common.rs")
@@ -2799,6 +2799,7 @@ function runBridge() {
           : "",
       ].join("\n")
     : "";
+  const modelMountCore = [modelMountDaemonCore, rustModelMountCore].join("\n");
   const modelMountCommandSurface = [bridgeModule, modelMountCommandBridge, modelMountReceiptCommandBridge].join("\n");
   const modelMountReadProjectionEvidence = [modelMountCommandSurface, modelMountCore].join("\n");
   const modelMountArtifactEndpointCore = exists(
@@ -2882,7 +2883,7 @@ function runBridge() {
     modelMountReceiptCore.match(/fn bind_model_mount_invocation_receipt_response[\s\S]*$/)?.[0] ??
     "";
   const modelMountInvocationReceiptRunnerBlock =
-    modelMountAdmissionRunner.match(/bindInvocationReceipt\(request = \{\}\)[\s\S]*?(?=\n}\n\nexport class ModelMountAdmissionRunnerError)/)?.[0] ??
+    modelMountCore.match(/bindInvocationReceipt\(request = \{\}\)[\s\S]*?(?=\n}\n\nexport class ModelMountCoreError)/)?.[0] ??
     "";
   const modelTokenizerOperationsTest = exists("packages/runtime-daemon/src/model-mounting/tokenizer-operations.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/tokenizer-operations.test.mjs")
@@ -3994,7 +3995,7 @@ function runBridge() {
     runtimeCodingToolApprovalCore,
     runtimeContextPolicyRunner,
     workspaceRestoreCore,
-    modelMountAdmissionRunner,
+    modelMountCore,
     runtimeAgentgresCore,
   ];
   assertCheck(
@@ -4148,7 +4149,7 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-external-capability-authority-core.mjs",
       "packages/runtime-daemon/src/runtime-approval-state-core.mjs",
       "packages/runtime-daemon/src/runtime-approval-state-core.test.mjs",
-      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-core.mjs",
     ],
     "Rust daemon-core migration must use the direct-invoker seam and keep the retired JS command-spawn helper absent from daemon hot paths",
   );
@@ -14090,66 +14091,65 @@ function runBridge() {
       /rust_core_shapes_model_mount_route_decision_command_response/.test(modelMountCore) &&
       !/bridge_admits_model_mount_route_decision_through_rust_core/.test(modelMountCommandSurface) &&
       !/model_mount_route_decision_rejects_step_module_command_schema/.test(modelMountCommandSurface) &&
-      /RustModelMountAdmissionRunner/.test(modelMountAdmissionRunner) &&
-      !/MODEL_MOUNT_ADMISSION_COMMAND_ENV/.test(modelMountAdmissionRunner) &&
-      /assertNoModelMountAdmissionCommandSelection\(\s*options\.command\s*\?\?\s*env\.IOI_RUNTIME_DAEMON_CORE_COMMAND\s*\?\?\s*env\.IOI_MODEL_MOUNT_ADMISSION_COMMAND/.test(
-        modelMountAdmissionRunner,
+      /ModelMountCore/.test(modelMountCore) &&
+      /createModelMountCore\(options = \{\}\)/.test(modelMountCore) &&
+      /assertNoRetiredModelMountCoreOption/.test(modelMountCore) &&
+      /model_mount_core_compatibility_option_retired/.test(modelMountCore) &&
+      /model_mount_core_direct_invoker_unconfigured/.test(modelMountCore) &&
+      !exists("packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs") &&
+      !/createModelMountAdmissionRunnerFromEnv|RustModelMountAdmissionRunner|ModelMountAdmissionRunnerError|modelMountAdmissionRunner/.test(
+        `${modelMountCore}\n${modelMountingState}\n${runtimeDaemonIndex}`,
       ) &&
-      /ioi\.runtime\.daemon_core\.command\.v1/.test(modelMountAdmissionRunner) &&
-      !/MODEL_MOUNT_ADMISSION_COMMAND_ARGS_ENV/.test(modelMountAdmissionRunner) &&
-      !/parseCommandArgs/.test(modelMountAdmissionRunner) &&
-      !/normalizeArgs/.test(modelMountAdmissionRunner) &&
-      !/this\.args/.test(modelMountAdmissionRunner) &&
-      !/argsEnv/.test(modelMountAdmissionRunner) &&
-      /assertNoModelMountAdmissionCommandArgs/.test(modelMountAdmissionRunner) &&
-      /assertNoModelMountAdmissionCommandSelection/.test(modelMountAdmissionRunner) &&
-      /model_mount_admission_command_args_retired/.test(modelMountAdmissionRunner) &&
-      /model_mount_admission_command_selection_retired/.test(modelMountAdmissionRunner) &&
-      /model_mount_admission_direct_invoker_unconfigured/.test(modelMountAdmissionRunner) &&
-      !/createDaemonCoreCommandInvoker/.test(modelMountAdmissionRunner) &&
-      !/spawnSyncImpl/.test(modelMountAdmissionRunner) &&
-      !/from "node:child_process"/.test(modelMountAdmissionRunner) &&
-      !/IOI_STEP_MODULE_COMMAND/.test(modelMountAdmissionRunner) &&
-      !retiredRouteDecisionEnvPattern.test(modelMountAdmissionRunner) &&
-      !/model_mount_admission_bridge_unconfigured/.test(modelMountAdmissionRunner) &&
-      /Rust model_mount admission runner env uses daemon-level direct invoker/.test(
-        modelMountAdmissionRunnerTest,
+      !/this\.inflightModelInvocations\s*=\s*new Map|inflightModelInvocations:\s*new Map/.test(
+        modelMountingState,
       ) &&
-      /Rust model_mount admission runner rejects retired daemon-core command env/.test(
-        modelMountAdmissionRunnerTest,
+      !/process\.env|IOI_RUNTIME_DAEMON_CORE_COMMAND|IOI_MODEL_MOUNT_ADMISSION_COMMAND|IOI_MODEL_MOUNT_ADMISSION_COMMAND_ARGS/.test(
+        modelMountDaemonCore,
       ) &&
-      /Rust model_mount admission runner rejects retired model-mount command env/.test(
-        modelMountAdmissionRunnerTest,
+      !/MODEL_MOUNT_ADMISSION_COMMAND_ENV/.test(modelMountCore) &&
+      /ioi\.runtime\.daemon_core\.command\.v1/.test(modelMountCore) &&
+      !/MODEL_MOUNT_ADMISSION_COMMAND_ARGS_ENV/.test(modelMountCore) &&
+      !/parseCommandArgs/.test(modelMountCore) &&
+      !/normalizeArgs/.test(modelMountCore) &&
+      !/this\.args/.test(modelMountCore) &&
+      !/argsEnv/.test(modelMountCore) &&
+      !/createDaemonCoreCommandInvoker/.test(modelMountCore) &&
+      !/spawnSyncImpl/.test(modelMountCore) &&
+      !/from "node:child_process"/.test(modelMountCore) &&
+      !/IOI_STEP_MODULE_COMMAND/.test(modelMountCore) &&
+      !retiredRouteDecisionEnvPattern.test(modelMountCore) &&
+      !/model_mount_admission_bridge_unconfigured/.test(modelMountCore) &&
+      /Rust model_mount core factory uses daemon-level direct invoker/.test(
+        modelMountCoreTest,
       ) &&
-      /Rust model_mount admission runner command args env fails closed/.test(
-        modelMountAdmissionRunnerTest,
+      /Rust model_mount core rejects retired compatibility options/.test(modelMountCoreTest) &&
+      /retired_option === "command"/.test(modelMountCoreTest) &&
+      /retired_option === "args"/.test(modelMountCoreTest) &&
+      /retired_option === "env"/.test(modelMountCoreTest) &&
+      /Rust model_mount core command args constructor option fails closed/.test(
+        modelMountCoreTest,
       ) &&
-      /Rust model_mount admission runner retired model-mount command args env fails closed/.test(
-        modelMountAdmissionRunnerTest,
+      /Rust model_mount core command constructor option fails closed/.test(
+        modelMountCoreTest,
       ) &&
-      /Rust model_mount admission runner command args constructor option fails closed/.test(
-        modelMountAdmissionRunnerTest,
+      /Rust model_mount core fails closed without direct invoker/.test(
+        modelMountCoreTest,
       ) &&
-      /Rust model_mount admission runner command constructor option fails closed/.test(
-        modelMountAdmissionRunnerTest,
+      !/spawnSyncImpl/.test(modelMountCoreTest) &&
+      !/assert\.deepEqual\(calls\[0\]\.args,\s*\[\]\)/.test(modelMountCoreTest) &&
+      /Rust model_mount core sends route-decision through direct daemon-core invoker/.test(
+        modelMountCoreTest,
       ) &&
-      /Rust model_mount admission runner fails closed without direct invoker/.test(
-        modelMountAdmissionRunnerTest,
-      ) &&
-      !/spawnSyncImpl/.test(modelMountAdmissionRunnerTest) &&
-      !/assert\.deepEqual\(calls\[0\]\.args,\s*\[\]\)/.test(modelMountAdmissionRunnerTest) &&
-      /Rust model_mount admission runner sends route-decision through direct daemon-core invoker/.test(
-        modelMountAdmissionRunnerTest,
-      ) &&
-      !/IOI_ENABLE_INTERNAL_FIXTURE_MODELS/.test(modelMountAdmissionRunner) &&
-      !/mockFixtureResponse/.test(modelMountAdmissionRunner) &&
-      !/isFixtureRequest/.test(modelMountAdmissionRunner) &&
+      !/IOI_ENABLE_INTERNAL_FIXTURE_MODELS/.test(modelMountCore) &&
+      !/mockFixtureResponse/.test(modelMountCore) &&
+      !/isFixtureRequest/.test(modelMountCore) &&
       /export function defaultRouteRecords\(\)/.test(modelMountDefaultRecords) &&
       !/internalFixtureModelsEnabled/.test(modelMountDefaultRecords) &&
       !/defaultRouteRecords\(env/.test(modelMountDefaultRecords) &&
       !/fallback:\s*isFixtureEnabled/.test(modelMountDefaultRecords) &&
       /admitModelMountRouteDecision/.test(modelMountingState) &&
-      /createModelMountAdmissionRunnerFromEnv/.test(modelMountingState) &&
+      /createModelMountCore/.test(modelMountingState) &&
       !/modelMountRouteDecisionRequestForSelection/.test(modelRoutes) &&
       !/routeSelectionReceipt(?:ForState)?/.test(modelRoutes) &&
       !/upsertRouteRecord/.test(modelRoutes) &&
@@ -14163,7 +14163,7 @@ function runBridge() {
       ) &&
       /rust_authored_route_selection_receipt/.test(modelMountCore) &&
       /accepted_receipt_record/.test(modelMountCore) &&
-      /accepted_receipt_record/.test(modelMountAdmissionRunner) &&
+      /accepted_receipt_record/.test(modelMountCore) &&
       /persistRustAuthoredReceipt/.test(modelMountingState) &&
       !exists("packages/runtime-daemon/src/model-mounting/receipt-operations.mjs") &&
       /model_mount_js_receipt_creation_retired/.test(modelMountReceiptOperationsBridge) &&
@@ -14193,10 +14193,10 @@ function runBridge() {
       !/export function selectRouteForState\b/.test(modelRoutes) &&
       !/selectRouteForState/.test(modelMountingState) &&
       /routeControlRequired\(operation_kind,\s*details = \{\}\)/.test(modelMountingState) &&
-      /this\.modelMountAdmissionRunner\.planRouteControlRequired/.test(modelMountingState) &&
-      /planRouteControlRequired\(request\)/.test(modelMountAdmissionRunner) &&
-      /operation:\s*"plan_model_mount_route_control_required"/.test(modelMountAdmissionRunner) &&
-      /RUST_MODEL_MOUNT_ROUTE_CONTROL_REQUIRED_BACKEND/.test(modelMountAdmissionRunner) &&
+      /this\.modelMountCore\.planRouteControlRequired/.test(modelMountingState) &&
+      /planRouteControlRequired\(request\)/.test(modelMountCore) &&
+      /operation:\s*"plan_model_mount_route_control_required"/.test(modelMountCore) &&
+      /RUST_MODEL_MOUNT_ROUTE_CONTROL_REQUIRED_BACKEND/.test(modelMountCore) &&
       /mod required;/.test(modelMountCore) &&
       /mod route_control;/.test(modelMountCore) &&
       /pub use required::/.test(modelMountCore) &&
@@ -14260,7 +14260,7 @@ function runBridge() {
       !/modelMountRouteDecisionRef/.test(modelInvocationOps),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-core.mjs",
       "packages/runtime-daemon/src/openai-compat-routes.mjs",
       "packages/runtime-daemon/src/openai-compat-routes.test.mjs",
       "packages/runtime-daemon/src/model-mounting/routes.mjs",
@@ -14581,8 +14581,8 @@ function runBridge() {
       /details:\s*redact\(error\?\.details \?\? \{\}\)/.test(runtimeHttpUtilsBridge) &&
       /return this\.store\.listReceipts\(\);/.test(modelMountReceiptOperationsBridge) &&
       /return this\.store\.getReceipt\(receiptId\);/.test(modelMountReceiptOperationsBridge) &&
-      /planReadProjection/.test(modelMountAdmissionRunner) &&
-      /plan_model_mount_read_projection/.test(modelMountAdmissionRunner) &&
+      /planReadProjection/.test(modelMountCore) &&
+      /plan_model_mount_read_projection/.test(modelMountCore) &&
       /model_mount_read_projection_rust_core_required/.test(modelMountingReadProjectionFacade) &&
       !exists("packages/runtime-daemon/src/model-mounting/receipt-operations.mjs") &&
       !/return buildModelMountingProjection\(state,\s*\{ schemaVersion: modelMountSchemaVersion \}\);/.test(
@@ -14605,7 +14605,7 @@ function runBridge() {
   assertCheck(
     result,
     "model-mount-read-projection-rust-core",
-    /readProjectionPlanner:\s*this\.modelMountAdmissionRunner/.test(modelMountingState) &&
+    /readProjectionPlanner:\s*this\.modelMountCore/.test(modelMountingState) &&
       /function rustReadProjection/.test(modelMountingReadProjectionFacade) &&
       !/function rustProjectionField/.test(modelMountingReadProjectionFacade) &&
       !/function rustProjectionObjectField/.test(modelMountingReadProjectionFacade) &&
@@ -15079,10 +15079,10 @@ function runBridge() {
       /Reranker"\)\.capability,\s*"rerank"/.test(modelMountingReadProjectionFacadeTest) &&
       /provider health has not been checked/.test(modelMountingReadProjectionFacadeTest) &&
       /vault adapter health has not been checked/.test(modelMountingReadProjectionFacadeTest) &&
-      /Rust model_mount admission runner sends read projection plan request/.test(modelMountAdmissionRunnerTest) &&
-      /planReadProjection\(request\)/.test(modelMountAdmissionRunner) &&
-      /operation:\s*"plan_model_mount_read_projection"/.test(modelMountAdmissionRunner) &&
-      /normalizeReadProjectionBridgeResult/.test(modelMountAdmissionRunner) &&
+      /Rust model_mount core sends read projection plan request/.test(modelMountCoreTest) &&
+      /planReadProjection\(request\)/.test(modelMountCore) &&
+      /operation:\s*"plan_model_mount_read_projection"/.test(modelMountCore) &&
+      /normalizeReadProjectionBridgeResult/.test(modelMountCore) &&
       /ModelMountReadProjectionBridgeRequest/.test(modelMountReadProjectionEvidence) &&
       /pub struct ModelMountReadProjectionRequest/.test(modelMountCore) &&
       /pub fn plan_read_projection/.test(modelMountCore) &&
@@ -15386,8 +15386,8 @@ function runBridge() {
       "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/read-projection-facade.mjs",
       "packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs",
-      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
-      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-core.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-core.test.mjs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
       "crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs",
@@ -15501,13 +15501,13 @@ function runBridge() {
       /commitRouteControlPlan\(state,\s*plan/.test(modelRoutes) &&
       /commitModelMountRecordState\(state/.test(modelRoutes) &&
       /routeControlRequiredForState\(state,\s*operation_kind,\s*details = \{\}\)/.test(modelRoutes) &&
-      /this\.modelMountAdmissionRunner\.planRouteControlRequired/.test(modelMountingState) &&
-      /this\.modelMountAdmissionRunner\.planRouteControl\(request\)/.test(modelMountingState) &&
-      /planRouteControlRequired\(request\)/.test(modelMountAdmissionRunner) &&
-      /planRouteControl\(request\)/.test(modelMountAdmissionRunner) &&
-      /operation:\s*"plan_model_mount_route_control"/.test(modelMountAdmissionRunner) &&
-      /Rust model_mount admission runner sends route control required request/.test(modelMountAdmissionRunnerTest) &&
-      /Rust model_mount admission runner sends positive route control request/.test(modelMountAdmissionRunnerTest) &&
+      /this\.modelMountCore\.planRouteControlRequired/.test(modelMountingState) &&
+      /this\.modelMountCore\.planRouteControl\(request\)/.test(modelMountingState) &&
+      /planRouteControlRequired\(request\)/.test(modelMountCore) &&
+      /planRouteControl\(request\)/.test(modelMountCore) &&
+      /operation:\s*"plan_model_mount_route_control"/.test(modelMountCore) &&
+      /Rust model_mount core sends route control required request/.test(modelMountCoreTest) &&
+      /Rust model_mount core sends positive route control request/.test(modelMountCoreTest) &&
       /throwModelRouteControlRustCoreRequired/.test(modelRoutes) &&
       /model_mount_route_control_rust_core_required/.test(modelRoutes) &&
       /model_mount_route_control_rust_owned/.test(modelRoutes + modelMountRouteControlEvidence) &&
@@ -15552,7 +15552,7 @@ function runBridge() {
       /route-selection receipt helper is retired behind Rust core/.test(modelRoutesTest) &&
       /recordStateCommits\[0\]\.record_dir/.test(modelRoutesTest) &&
       /modelTokenizerUtility uses Rust tokenizer planning and Agentgres commit without JS tokenization receipt/.test(modelTokenizerOperationsTest) &&
-      /invokeModel public facade executes migrated fixture through Rust model_mount admission, provider execution, and receipt binding/.test(
+      /invokeModel public facade executes migrated fixture through Rust model_mount core, provider execution, and receipt binding/.test(
         modelInvocationOpsTest,
       ) &&
       /assert\.equal\(state\.recordStateCommits\.length,\s*1\)/.test(modelTokenizerOperationsTest) &&
@@ -15574,8 +15574,8 @@ function runBridge() {
       "packages/runtime-daemon/src/model-mounting/routes.mjs",
       "packages/runtime-daemon/src/model-mounting/routes.test.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
-      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
-      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-core.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-core.test.mjs",
       "packages/runtime-daemon/src/model-mounting/tokenizer-operations.test.mjs",
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs",
@@ -15600,16 +15600,16 @@ function runBridge() {
       /wallet_network_catalog_provider_authority_required/.test(modelMountCore) &&
       /ctee_catalog_provider_custody_enforced/.test(modelMountCore) &&
       /agentgres_catalog_provider_control_truth_required/.test(modelMountCore) &&
-      /planCatalogProviderControl\(request\)\s*\{[\s\S]*?this\.modelMountAdmissionRunner\.planCatalogProviderControl\(request\)/.test(
+      /planCatalogProviderControl\(request\)\s*\{[\s\S]*?this\.modelMountCore\.planCatalogProviderControl\(request\)/.test(
         modelMountingState,
       ) &&
       /planCatalogProviderControl\(request\)\s*\{[\s\S]*?operation:\s*"plan_model_mount_catalog_provider_control"/.test(
-        modelMountAdmissionRunner,
+        modelMountCore,
       ) &&
-      /normalizeCatalogProviderControlBridgeResult/.test(modelMountAdmissionRunner) &&
-      /RUST_MODEL_MOUNT_CATALOG_PROVIDER_CONTROL_BACKEND/.test(modelMountAdmissionRunner) &&
-      /Rust model_mount admission runner sends positive catalog-provider-control request/.test(
-        modelMountAdmissionRunnerTest,
+      /normalizeCatalogProviderControlBridgeResult/.test(modelMountCore) &&
+      /RUST_MODEL_MOUNT_CATALOG_PROVIDER_CONTROL_BACKEND/.test(modelMountCore) &&
+      /Rust model_mount core sends positive catalog-provider-control request/.test(
+        modelMountCoreTest,
       ) &&
       !/catalogProviderConfigState|catalogProviderRuntimeMaterialState|configureCatalogProviderState|getCatalogProviderConfigState|listCatalogProviderConfigsState/.test(modelMountingState) &&
       /catalogProviderControlPlanForState/.test(catalogProviderConfig) &&
@@ -15703,8 +15703,8 @@ function runBridge() {
       "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-provider-config.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-provider-configuration-operations.test.mjs",
-      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
-      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-core.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-core.test.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-provider-ports.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-provider-ports.test.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-registry.mjs",
@@ -15720,7 +15720,7 @@ function runBridge() {
     !exists("packages/runtime-daemon/src/model-mounting/catalog-provider-oauth.mjs") &&
       /plan_model_mount_catalog_provider_control/.test(commandProtocolCore) &&
       /planCatalogProviderControl\(request\)\s*\{[\s\S]*?operation:\s*"plan_model_mount_catalog_provider_control"/.test(
-        modelMountAdmissionRunner,
+        modelMountCore,
       ) &&
       /ctee_catalog_provider_custody_enforced/.test(modelMountCore) &&
       !exists("packages/runtime-daemon/src/model-mounting/oauth-record-state.mjs") &&
@@ -15800,8 +15800,8 @@ function runBridge() {
       "packages/runtime-daemon/src/model-mounting/catalog-provider-config.test.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-provider-oauth.test.mjs",
-      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
-      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-core.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-core.test.mjs",
       "packages/runtime-daemon/src/model-mounting/record-state-commits.mjs",
     ],
     "Phase 9/10 is pending: public catalog provider OAuth control must use Rust daemon-core catalog-provider-control planning plus Agentgres record commits without JS OAuth credential execution",
@@ -15861,16 +15861,16 @@ function runBridge() {
       /agentgres_model_receipt_gate_truth_required/.test(modelMountingValidation) &&
       /rust_core_boundary:\s*"model_mount\.receipt_gate"/.test(modelMountingValidation) &&
       /model_mount_receipt_gate_receipt_state_commit_unconfigured/.test(modelMountingValidation) &&
-      /RUST_MODEL_MOUNT_RECEIPT_GATE_BACKEND/.test(modelMountAdmissionRunner) &&
-      /planReceiptGate\(request\)/.test(modelMountAdmissionRunner) &&
-      /operation:\s*"plan_model_mount_receipt_gate"/.test(modelMountAdmissionRunner) &&
-      /normalizeReceiptGateBridgeResult/.test(modelMountAdmissionRunner) &&
-      /receipt\.details\.model_mount_receipt_gate_hash/.test(modelMountAdmissionRunner) &&
-      /receipt\.details\.model_mount_receipt_binding_ref/.test(modelMountAdmissionRunner) &&
-      /receipt\.details\.model_mount_agentgres_operation_ref/.test(modelMountAdmissionRunner) &&
-      /Rust model_mount admission runner sends positive receipt-gate request/.test(modelMountAdmissionRunnerTest) &&
-      /plan_model_mount_receipt_gate/.test(modelMountAdmissionRunnerTest) &&
-      /RUST_MODEL_MOUNT_RECEIPT_GATE_BACKEND/.test(modelMountAdmissionRunnerTest) &&
+      /RUST_MODEL_MOUNT_RECEIPT_GATE_BACKEND/.test(modelMountCore) &&
+      /planReceiptGate\(request\)/.test(modelMountCore) &&
+      /operation:\s*"plan_model_mount_receipt_gate"/.test(modelMountCore) &&
+      /normalizeReceiptGateBridgeResult/.test(modelMountCore) &&
+      /receipt\.details\.model_mount_receipt_gate_hash/.test(modelMountCore) &&
+      /receipt\.details\.model_mount_receipt_binding_ref/.test(modelMountCore) &&
+      /receipt\.details\.model_mount_agentgres_operation_ref/.test(modelMountCore) &&
+      /Rust model_mount core sends positive receipt-gate request/.test(modelMountCoreTest) &&
+      /plan_model_mount_receipt_gate/.test(modelMountCoreTest) &&
+      /RUST_MODEL_MOUNT_RECEIPT_GATE_BACKEND/.test(modelMountCoreTest) &&
       /MODEL_MOUNT_RECEIPT_GATE_SCHEMA_VERSION/.test(modelMountCore) &&
       /MODEL_MOUNT_RECEIPT_GATE_PLAN_SCHEMA_VERSION/.test(modelMountCore) &&
       /plan_model_mount_receipt_gate_response/.test(modelMountCore) &&
@@ -15922,8 +15922,8 @@ function runBridge() {
     [
       "packages/runtime-daemon/src/model-mounting/validation.mjs",
       "packages/runtime-daemon/src/model-mounting/validation.test.mjs",
-      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
-      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-core.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-core.test.mjs",
       "crates/services/src/agentic/runtime/kernel/model_mount/receipt_gate.rs",
       "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
       "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
@@ -15974,7 +15974,7 @@ function runBridge() {
       /model_mount_invocation_js_facade_retired/.test(modelInvocationOps) &&
       /rust_daemon_core_model_invocation_receipt/.test(modelInvocationOps) &&
       /agentgres_model_invocation_truth_required/.test(modelInvocationOps) &&
-      /public facade executes migrated fixture through Rust model_mount admission, provider execution, and receipt binding/.test(
+      /public facade executes migrated fixture through Rust model_mount core, provider execution, and receipt binding/.test(
         modelInvocationOpsTest,
       ) &&
       /recordModelStreamCompleted persists Rust-authored stream receipt and conversation record/.test(
@@ -16162,10 +16162,10 @@ function runBridge() {
       /model_mount_stream_cancel_rust_owned/.test(modelMountCore) &&
       /rust_daemon_core_model_stream_cancel/.test(modelMountCore) &&
       /agentgres_model_stream_cancel_truth_required/.test(modelMountCore) &&
-      /RUST_MODEL_MOUNT_STREAM_CANCEL_BACKEND/.test(modelMountAdmissionRunner) &&
-      /operation:\s*"plan_model_mount_stream_cancel"/.test(modelMountAdmissionRunner) &&
-      /normalizeStreamCancelBridgeResult/.test(modelMountAdmissionRunner) &&
-      /receipt\?\.kind !== "model_invocation_stream_canceled"/.test(modelMountAdmissionRunner) &&
+      /RUST_MODEL_MOUNT_STREAM_CANCEL_BACKEND/.test(modelMountCore) &&
+      /operation:\s*"plan_model_mount_stream_cancel"/.test(modelMountCore) &&
+      /normalizeStreamCancelBridgeResult/.test(modelMountCore) &&
+      /receipt\?\.kind !== "model_invocation_stream_canceled"/.test(modelMountCore) &&
       /planModelMountStreamCancel\(request\)[\s\S]*?planStreamCancel\(request\)/.test(modelMountingState) &&
       /recordModelStreamCanceled\(\{[\s\S]*?planModelMountStreamCancel\(modelStreamCancelRequestForMountedState/.test(
         modelMountingState,
@@ -16192,17 +16192,17 @@ function runBridge() {
       /assert\.equal\(Object\.hasOwn\(delegated\[0\]\.providerResult,\s*"providerResponseKind"\),\s*false\)/.test(
         openAiCompatRoutesTest,
       ) &&
-      /Rust model_mount admission runner sends positive stream-cancel request/.test(
-        modelMountAdmissionRunnerTest,
+      /Rust model_mount core sends positive stream-cancel request/.test(
+        modelMountCoreTest,
       ) &&
-      /runner\.planStreamCancel\(streamCancelRequest\(\)\)/.test(modelMountAdmissionRunnerTest),
+      /runner\.planStreamCancel\(streamCancelRequest\(\)\)/.test(modelMountCoreTest),
     [
       "crates/services/src/agentic/runtime/kernel/model_mount/conversation.rs",
       "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
       "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
       "packages/runtime-daemon/src/model-mounting.mjs",
-      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
-      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-core.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-core.test.mjs",
       "packages/runtime-daemon/src/openai-compat-routes.mjs",
       "packages/runtime-daemon/src/openai-compat-routes.test.mjs",
     ],
@@ -16528,8 +16528,8 @@ function runBridge() {
       !/ModelMountInvocationAdmissionRequest/.test(modelMountCommandBridge) &&
       /rust_core_shapes_model_mount_invocation_admission_command_response/.test(modelMountCore) &&
       !/bridge_admits_model_mount_invocation_through_rust_core/.test(modelMountCommandSurface) &&
-      /admitInvocation/.test(modelMountAdmissionRunner) &&
-      /rust_model_mount_invocation_command/.test(modelMountAdmissionRunner) &&
+      /admitInvocation/.test(modelMountCore) &&
+      /rust_model_mount_invocation_command/.test(modelMountCore) &&
       /admitModelMountInvocation/.test(modelMountingState) &&
       /modelMountInvocationAdmissionRequestForReceipt/.test(modelInvocationOps) &&
       /model_mount_invocation_admission_ref/.test(modelInvocationOps) &&
@@ -16538,7 +16538,7 @@ function runBridge() {
       !/modelMountInvocationAdmission(?:SchemaVersion|Ref|Hash|Source|Backend|ReceiptRefs)?\s*:/.test(modelInvocationOps),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-core.mjs",
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
     ],
@@ -16557,8 +16557,8 @@ function runBridge() {
       !/ModelMountProviderExecutionRequest/.test(modelMountCommandBridge) &&
       /rust_core_shapes_model_mount_provider_execution_command_response/.test(modelMountCore) &&
       !/bridge_admits_model_mount_provider_execution_through_rust_core/.test(modelMountCommandSurface) &&
-      /admitProviderExecution/.test(modelMountAdmissionRunner) &&
-      /rust_model_mount_provider_execution_command/.test(modelMountAdmissionRunner) &&
+      /admitProviderExecution/.test(modelMountCore) &&
+      /rust_model_mount_provider_execution_command/.test(modelMountCore) &&
       /admitModelMountProviderExecution/.test(modelMountingState) &&
       /modelMountProviderExecutionRequestForInvocation/.test(modelInvocationOps) &&
       /model_mount_provider_execution_ref/.test(modelInvocationOps) &&
@@ -16567,7 +16567,7 @@ function runBridge() {
       !/modelMountProviderExecution(?:SchemaVersion|Ref|Hash|Source|Backend|ReceiptRefs)?\s*:/.test(modelInvocationOps),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-core.mjs",
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
     ],
@@ -16671,7 +16671,7 @@ function runBridge() {
       /conversationRequest\.state,\s*\{\}/.test(modelMountingReadProjectionFacadeTest) &&
       /conversationRequest\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
       /conversationStatesFromAgentgresStateDir/.test(modelMountingReadProjectionFacadeTest) &&
-      /public facade executes migrated fixture through Rust model_mount admission, provider execution, and receipt binding/.test(
+      /public facade executes migrated fixture through Rust model_mount core, provider execution, and receipt binding/.test(
         modelInvocationOpsTest,
       ) &&
       /assert\.deepEqual\(state\.recordedConversations,\s*\[\]\)/.test(modelInvocationOpsTest) &&
@@ -16720,8 +16720,8 @@ function runBridge() {
       /rust_core_shapes_native_local_model_mount_provider_invocation_command_response/.test(modelMountCore) &&
       !/bridge_executes_model_mount_provider_invocation_through_rust_core/.test(modelMountCommandSurface) &&
       !/bridge_executes_native_local_model_mount_provider_invocation_through_rust_core/.test(modelMountCommandSurface) &&
-      /executeProviderInvocation/.test(modelMountAdmissionRunner) &&
-      /rust_model_mount_provider_invocation_command/.test(modelMountAdmissionRunner) &&
+      /executeProviderInvocation/.test(modelMountCore) &&
+      /rust_model_mount_provider_invocation_command/.test(modelMountCore) &&
       /executeModelMountProviderInvocation/.test(modelMountingState) &&
       /modelMountProviderInvocationRequestForExecution/.test(modelInvocationOps) &&
       /modelMountProviderInvocationRequiresRust/.test(modelInvocationOps) &&
@@ -16735,7 +16735,7 @@ function runBridge() {
       !/model_mount_provider_invocation_execution_required/.test(modelInvocationOps),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-core.mjs",
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
     ],
@@ -16754,8 +16754,8 @@ function runBridge() {
       ) &&
       /rust_core_shapes_native_local_model_mount_provider_stream_command_response/.test(modelMountCore) &&
       !/bridge_executes_native_local_model_mount_provider_stream_through_rust_core/.test(modelMountCommandSurface) &&
-      /executeProviderStreamInvocation/.test(modelMountAdmissionRunner) &&
-      /rust_model_mount_provider_stream_invocation_command/.test(modelMountAdmissionRunner) &&
+      /executeProviderStreamInvocation/.test(modelMountCore) &&
+      /rust_model_mount_provider_stream_invocation_command/.test(modelMountCore) &&
       /executeModelMountProviderStreamInvocation/.test(modelMountingState) &&
       /modelMountProviderStreamInvocationRequestForExecution/.test(modelInvocationOps) &&
       /modelMountProviderStreamInvocationRequiresRust/.test(modelInvocationOps) &&
@@ -16781,7 +16781,7 @@ function runBridge() {
       !/providerStreamFrameDelayMs/.test(nativeLocalFixture),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-core.mjs",
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/native-local-fixture.mjs",
@@ -16796,7 +16796,7 @@ function runBridge() {
       const providerLifecycleCoreBlock =
         modelMountCore.match(/pub fn plan_model_mount_provider_lifecycle_response[\s\S]*?(?=\n\npub fn plan_model_mount_provider_inventory_response)/)?.[0] ?? "";
       const providerLifecycleRunnerBlock =
-        modelMountAdmissionRunner.match(/function normalizeProviderLifecycleBridgeResult[\s\S]*?(?=\n\nfunction normalizeProviderInventoryBridgeResult)/)?.[0] ?? "";
+        modelMountCore.match(/function normalizeProviderLifecycleBridgeResult[\s\S]*?(?=\n\nfunction normalizeProviderInventoryBridgeResult)/)?.[0] ?? "";
       return /pub struct ModelMountProviderLifecycleBridgeRequest/.test(modelMountCore) &&
       /pub fn plan_model_mount_provider_lifecycle_response/.test(modelMountCore) &&
       /rust_core_shapes_model_mount_provider_lifecycle_command_response/.test(modelMountCore) &&
@@ -16826,9 +16826,9 @@ function runBridge() {
 	      /public_response:\s*result\.public_response/.test(providerLifecycleRunnerBlock) &&
 	      /receipt_refs:\s*Array\.isArray\(result\.receipt_refs\)/.test(providerLifecycleRunnerBlock) &&
 	      !/result\.(?:backendId|providerBackend)\b/.test(providerLifecycleRunnerBlock) &&
-	      /planProviderLifecycle/.test(modelMountAdmissionRunner) &&
-      /rust_model_mount_provider_lifecycle_command/.test(modelMountAdmissionRunner) &&
-      /RUST_MODEL_MOUNT_FIXTURE_LIFECYCLE_BACKEND/.test(modelMountAdmissionRunner) &&
+	      /planProviderLifecycle/.test(modelMountCore) &&
+      /rust_model_mount_provider_lifecycle_command/.test(modelMountCore) &&
+      /RUST_MODEL_MOUNT_FIXTURE_LIFECYCLE_BACKEND/.test(modelMountCore) &&
       /planModelMountProviderLifecycle/.test(modelMountingState) &&
       !exists("packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/provider-local-drivers.test.mjs") &&
@@ -16838,7 +16838,7 @@ function runBridge() {
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "crates/services/src/agentic/runtime/kernel/model_mount/lifecycle.rs",
-      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-core.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
     ],
     "Phase 9/10 is pending: native-local health/load/unload lifecycle envelopes must be planned by Rust model_mount while lower-level JS provider driver adapters remain deleted",
@@ -16850,7 +16850,7 @@ function runBridge() {
       const backendProcessCoreBlock =
         modelMountCore.match(/pub fn plan_model_mount_backend_process_response[\s\S]*?(?=\n\nfn backend_supports_supervision)/)?.[0] ?? "";
       const backendProcessRunnerBlock =
-        modelMountAdmissionRunner.match(/function normalizeBackendProcessPlanBridgeResult[\s\S]*?(?=\n\nfunction normalizeInvocationReceiptBindingBridgeResult)/)?.[0] ?? "";
+        modelMountCore.match(/function normalizeBackendProcessPlanBridgeResult[\s\S]*?(?=\n\nfunction normalizeInvocationReceiptBindingBridgeResult)/)?.[0] ?? "";
       return /pub struct ModelMountBackendProcessPlanBridgeRequest/.test(modelMountCore) &&
         /pub fn plan_model_mount_backend_process_response/.test(modelMountCore) &&
         /rust_core_shapes_model_mount_backend_process_command_response/.test(modelMountCore) &&
@@ -16862,10 +16862,10 @@ function runBridge() {
         /"spawn_args":\s*plan\.spawn_args/.test(modelMountCore) &&
         /"spawn_status":\s*plan\.spawn_status/.test(modelMountCore) &&
         !/"(?:supportsSupervision|publicArgs|spawnArgs|spawnStatus)":/.test(backendProcessCoreBlock) &&
-        /planBackendProcess\(request\)/.test(modelMountAdmissionRunner) &&
-        /operation:\s*"plan_model_mount_backend_process"/.test(modelMountAdmissionRunner) &&
-        /RUST_MODEL_MOUNT_BACKEND_PROCESS_BACKEND/.test(modelMountAdmissionRunner) &&
-        /function normalizeBackendProcessPlanBridgeResult/.test(modelMountAdmissionRunner) &&
+        /planBackendProcess\(request\)/.test(modelMountCore) &&
+        /operation:\s*"plan_model_mount_backend_process"/.test(modelMountCore) &&
+        /RUST_MODEL_MOUNT_BACKEND_PROCESS_BACKEND/.test(modelMountCore) &&
+        /function normalizeBackendProcessPlanBridgeResult/.test(modelMountCore) &&
         /supports_supervision:\s*result\.supports_supervision \?\? record\.supports_supervision \?\? null/.test(
           backendProcessRunnerBlock,
         ) &&
@@ -16880,14 +16880,14 @@ function runBridge() {
         /backendProcessPlan\(backend,\s*\{ endpoint = null, loadOptions = \{\} \} = \{\}\)/.test(
           modelMountingState,
         ) &&
-        /this\.modelMountAdmissionRunner\.planBackendProcess\(request\)/.test(modelMountingState) &&
+        /this\.modelMountCore\.planBackendProcess\(request\)/.test(modelMountingState) &&
         /return this\.backendProcessPlan\(backend, options\)\.public_args/.test(modelMountingState) &&
         /return this\.backendProcessPlan\(backend, options\)\.spawn_args/.test(modelMountingState) &&
         /return this\.backendProcessPlan\(backend\)\.supports_supervision/.test(modelMountingState) &&
         !exists("packages/runtime-daemon/src/model-mounting/backend-processes.mjs") &&
         !exists("packages/runtime-daemon/src/model-mounting/backend-processes.test.mjs") &&
-        /Rust model_mount admission runner sends backend process plan request/.test(
-          read("packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs"),
+        /Rust model_mount core sends backend process plan request/.test(
+          read("packages/runtime-daemon/src/model-mounting/model-mount-core.test.mjs"),
         ) &&
         /backend process planning is delegated to Rust model_mount/.test(
           read("packages/runtime-daemon/src/model-mounting/product-defaults.test.mjs"),
@@ -16902,8 +16902,8 @@ function runBridge() {
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "crates/services/src/agentic/runtime/kernel/model_mount/backend_process.rs",
-      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
-      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-core.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-core.test.mjs",
       "packages/runtime-daemon/src/model-mounting/product-defaults.test.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
     ],
@@ -17005,7 +17005,7 @@ function runBridge() {
       const providerInventoryCoreBlock =
         modelMountCore.match(/pub fn plan_model_mount_provider_inventory_response[\s\S]*?(?=\n\npub fn plan_model_mount_instance_lifecycle_response)/)?.[0] ?? "";
       const providerInventoryRunnerBlock =
-        modelMountAdmissionRunner.match(/function normalizeProviderInventoryBridgeResult[\s\S]*?(?=\n\nfunction normalizeInstanceLifecycleBridgeResult)/)?.[0] ?? "";
+        modelMountCore.match(/function normalizeProviderInventoryBridgeResult[\s\S]*?(?=\n\nfunction normalizeInstanceLifecycleBridgeResult)/)?.[0] ?? "";
       return /pub struct ModelMountProviderInventoryBridgeRequest/.test(modelMountCore) &&
       /pub fn plan_model_mount_provider_inventory_response/.test(modelMountCore) &&
       /rust_core_shapes_model_mount_provider_inventory_command_response/.test(modelMountCore) &&
@@ -17030,10 +17030,10 @@ function runBridge() {
         providerInventoryRunnerBlock,
       ) &&
       !/result\.(?:backendId|providerBackend|itemRefs|itemCount)\b/.test(providerInventoryRunnerBlock) &&
-      /planProviderInventory/.test(modelMountAdmissionRunner) &&
-      /rust_model_mount_provider_inventory_command/.test(modelMountAdmissionRunner) &&
-      /RUST_MODEL_MOUNT_FIXTURE_INVENTORY_BACKEND/.test(modelMountAdmissionRunner) &&
-      /RUST_MODEL_MOUNT_HOSTED_PROVIDER_INVENTORY_BACKEND/.test(modelMountAdmissionRunner) &&
+      /planProviderInventory/.test(modelMountCore) &&
+      /rust_model_mount_provider_inventory_command/.test(modelMountCore) &&
+      /RUST_MODEL_MOUNT_FIXTURE_INVENTORY_BACKEND/.test(modelMountCore) &&
+      /RUST_MODEL_MOUNT_HOSTED_PROVIDER_INVENTORY_BACKEND/.test(modelMountCore) &&
       /planModelMountProviderInventory/.test(modelMountingState) &&
       !exists("packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/provider-local-drivers.test.mjs") &&
@@ -17046,7 +17046,7 @@ function runBridge() {
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "crates/services/src/agentic/runtime/kernel/model_mount/lifecycle.rs",
-      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-core.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
     ],
     "Phase 9/10 is pending: local provider model/list-loaded inventory envelopes must be planned and hash-bound by Rust model_mount while lower-level JS provider driver adapters remain deleted",
@@ -17060,15 +17060,15 @@ function runBridge() {
       /plan_model_mount_instance_lifecycle_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
       !/plan_model_mount_instance_lifecycle_response as plan_model_mount_instance_lifecycle/.test(modelMountCommandSurface) &&
       !/bridge_plans_model_mount_instance_lifecycle_through_rust_core/.test(modelMountCommandSurface) &&
-      /planInstanceLifecycle/.test(modelMountAdmissionRunner) &&
-      /rust_model_mount_instance_lifecycle_command/.test(modelMountAdmissionRunner) &&
-      /RUST_MODEL_MOUNT_INSTANCE_LIFECYCLE_BACKEND/.test(modelMountAdmissionRunner) &&
-      /provider_lifecycle_hash/.test(modelMountAdmissionRunner) &&
-      !/providerLifecycleHash/.test(modelMountAdmissionRunner) &&
+      /planInstanceLifecycle/.test(modelMountCore) &&
+      /rust_model_mount_instance_lifecycle_command/.test(modelMountCore) &&
+      /RUST_MODEL_MOUNT_INSTANCE_LIFECYCLE_BACKEND/.test(modelMountCore) &&
+      /provider_lifecycle_hash/.test(modelMountCore) &&
+      !/providerLifecycleHash/.test(modelMountDaemonCore) &&
       /provider_lifecycle_hash/.test(modelMountCore) &&
       /response\.get\("providerLifecycleHash"\)\.is_none/.test(modelMountCore) &&
       /planModelMountInstanceLifecycle\(request\)/.test(modelMountingState) &&
-      /modelMountAdmissionRunner\.planInstanceLifecycle\(request\)/.test(modelMountingState) &&
+      /modelMountCore\.planInstanceLifecycle\(request\)/.test(modelMountingState) &&
       /function planModelInstanceLifecycle/.test(modelMountingState) &&
       /function modelMountInstanceLifecycleRequest/.test(modelMountingState) &&
       /function commitModelInstanceLifecycleRecordState/.test(modelMountingState) &&
@@ -17163,7 +17163,7 @@ function runBridge() {
       "packages/runtime-daemon/src/model-mounting/receipt-write-guards.mjs",
       "packages/runtime-daemon/src/model-mounting/loaded-instances.mjs",
       "packages/runtime-daemon/src/model-mounting/loaded-instances.test.mjs",
-      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-core.mjs",
       "packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.mjs",
@@ -17198,8 +17198,8 @@ function runBridge() {
       !/ModelMountProviderResultAdmissionRequest/.test(modelMountCommandBridge) &&
       !/ModelMountProviderResultAdmissionBridgeRequest/.test(modelMountCommandSurface) &&
       !/bridge_admits_model_mount_provider_result_through_rust_core/.test(modelMountCommandSurface) &&
-      /admitProviderResult/.test(modelMountAdmissionRunner) &&
-      /rust_model_mount_provider_result_command/.test(modelMountAdmissionRunner) &&
+      /admitProviderResult/.test(modelMountCore) &&
+      /rust_model_mount_provider_result_command/.test(modelMountCore) &&
       /admitModelMountProviderResult/.test(modelMountingState) &&
       /modelMountProviderResultAdmissionRequestForExecution/.test(modelInvocationOps) &&
       /model_mount_invocation_positive_rust_path/.test(modelInvocationOps) &&
@@ -17250,7 +17250,7 @@ function runBridge() {
       !retiredModelInvocationFacadeBodyPattern.test(modelInvokeFacadeBlock) &&
       !retiredModelInvocationFacadeBodyPattern.test(modelStreamFacadeBlock) &&
       /schema_version:\s*"ioi\.model_mount\.provider_result\.v1"/.test(modelInvocationOps) &&
-      /invokeModel public facade executes migrated fixture through Rust model_mount admission, provider execution, and receipt binding/.test(
+      /invokeModel public facade executes migrated fixture through Rust model_mount core, provider execution, and receipt binding/.test(
         read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
       ) &&
       /startModelStream public facade executes native-local stream through Rust model_mount without JS fallback/.test(
@@ -17268,7 +17268,7 @@ function runBridge() {
       !/modelMountProviderResultAdmission(?:SchemaVersion|Ref|Hash|Source|Backend|ReceiptRefs|EvidenceRefs)?\s*:/.test(modelInvocationOps),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-core.mjs",
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs",
@@ -17301,7 +17301,7 @@ function runBridge() {
       !/error\.details = \{ compatTranslation \}/.test(modelInvocationOps) &&
       !/compat_translation:\s*invocation\.compatTranslation/.test(openAiCompatRoutes) &&
       !/compatTranslation\??:/.test(agentSdkModelMounts) &&
-      /invokeModel public facade executes migrated fixture through Rust model_mount admission, provider execution, and receipt binding/.test(
+      /invokeModel public facade executes migrated fixture through Rust model_mount core, provider execution, and receipt binding/.test(
         read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
       ) &&
       /model_mount_invocation_positive_rust_path/.test(modelInvocationOps) &&
@@ -17451,11 +17451,11 @@ function runBridge() {
       /ReceiptBinder/.test(modelMountReceiptCore) &&
       /AgentgresAdmissionCore/.test(modelMountReceiptCore) &&
       /AcceptedReceiptAppendIssuer::RustReceiptCore/.test(modelMountReceiptCore) &&
-      /bindInvocationReceipt/.test(modelMountAdmissionRunner) &&
-      /model_mount_invocation_expected_heads_retired/.test(modelMountAdmissionRunner) &&
+      /bindInvocationReceipt/.test(modelMountCore) &&
+      /model_mount_invocation_expected_heads_retired/.test(modelMountCore) &&
       !/expected_heads:/.test(modelMountInvocationReceiptRunnerBlock) &&
       /accepted_receipt_transition:\s*acceptedReceiptTransition/.test(modelMountInvocationReceiptRunnerBlock) &&
-      /Rust model_mount admission runner rejects direct expected head binding input/.test(modelMountAdmissionRunnerTest) &&
+      /Rust model_mount core rejects direct expected head binding input/.test(modelMountCoreTest) &&
       /bindModelMountInvocationReceipt/.test(modelMountingState) &&
       /modelMountInvocationReceiptBindingRequestForReceipt/.test(modelInvocationOps) &&
       /acceptedReceiptTransition:\s*objectRecord\(agentgresTransition\?\.acceptedReceiptTransition\)/.test(modelInvocationOps) &&
@@ -17470,7 +17470,7 @@ function runBridge() {
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "crates/services/src/agentic/runtime/kernel/model_mount_receipt.rs",
-      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-core.mjs",
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
     ],
@@ -19055,17 +19055,17 @@ function runReceipts() {
   const runtimeRouteHandlers = exists("packages/runtime-daemon/src/runtime-route-handlers.mjs")
     ? read("packages/runtime-daemon/src/runtime-route-handlers.mjs")
     : "";
-  const modelMountAdmissionRunner = exists("packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs")
-    ? read("packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs")
+  const modelMountDaemonCore = exists("packages/runtime-daemon/src/model-mounting/model-mount-core.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/model-mount-core.mjs")
     : "";
-  const modelMountAdmissionRunnerTest = exists("packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs")
-    ? read("packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs")
+  const modelMountCoreTest = exists("packages/runtime-daemon/src/model-mounting/model-mount-core.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/model-mount-core.test.mjs")
     : "";
   const modelMountInvocationReceiptBridgeBlock =
     modelMountReceiptCore.match(/fn bind_model_mount_invocation_receipt_response[\s\S]*$/)?.[0] ??
     "";
   const modelMountInvocationReceiptRunnerBlock =
-    modelMountAdmissionRunner.match(/bindInvocationReceipt\(request = \{\}\)[\s\S]*?(?=\n}\n\nexport class ModelMountAdmissionRunnerError)/)?.[0] ??
+    modelMountDaemonCore.match(/bindInvocationReceipt\(request = \{\}\)[\s\S]*?(?=\n}\n\nexport class ModelMountCoreError)/)?.[0] ??
     "";
   const conversationOps = modelMountingState;
   const conversationOpsTest = exists("packages/runtime-daemon/src/model-mounting/conversation-operations.test.mjs")
@@ -19490,7 +19490,7 @@ function runReceipts() {
   const agentgresAdmissionCore = exists("crates/services/src/agentic/runtime/kernel/agentgres_admission.rs")
     ? read("crates/services/src/agentic/runtime/kernel/agentgres_admission.rs")
     : "";
-  const modelMountCore = exists("crates/services/src/agentic/runtime/kernel/model_mount.rs")
+  const rustModelMountCore = exists("crates/services/src/agentic/runtime/kernel/model_mount.rs")
     ? [
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
         exists("crates/services/src/agentic/runtime/kernel/model_mount/common.rs")
@@ -19606,6 +19606,7 @@ function runReceipts() {
           : "",
       ].join("\n")
     : "";
+  const modelMountCore = [modelMountDaemonCore, rustModelMountCore].join("\n");
   const modelMountReadProjectionEvidence = [modelMountCommandSurface, modelMountCore].join("\n");
   const modelMountArtifactEndpointCore = exists(
     "crates/services/src/agentic/runtime/kernel/model_mount/artifact_endpoint.rs",
@@ -20608,12 +20609,12 @@ function runReceipts() {
       !/model_mount_tokenizer_rust_core_required/.test(modelMountingState) &&
       !/tokenizerRequired\(operation,\s*details = \{\}\)/.test(modelMountingState) &&
       /planTokenizer\(request\)/.test(modelMountingState) &&
-      /this\.modelMountAdmissionRunner\.planTokenizer\(request\)/.test(modelMountingState) &&
+      /this\.modelMountCore\.planTokenizer\(request\)/.test(modelMountingState) &&
       /modelTokenizerRecords\(\)\s*\{[\s\S]*?readProjectionFacade\.modelTokenizerRecords\(this\)/.test(modelMountingState) &&
-      /planTokenizer\(request\)/.test(modelMountAdmissionRunner) &&
-      /operation:\s*"plan_model_mount_tokenizer"/.test(modelMountAdmissionRunner) &&
-      /RUST_MODEL_MOUNT_TOKENIZER_BACKEND/.test(modelMountAdmissionRunner) &&
-      /normalizeTokenizerBridgeResult/.test(modelMountAdmissionRunner) &&
+      /planTokenizer\(request\)/.test(modelMountCore) &&
+      /operation:\s*"plan_model_mount_tokenizer"/.test(modelMountCore) &&
+      /RUST_MODEL_MOUNT_TOKENIZER_BACKEND/.test(modelMountCore) &&
+      /normalizeTokenizerBridgeResult/.test(modelMountCore) &&
       /mod tokenizer;/.test(modelMountCore) &&
       /ModelMountTokenizerRequest/.test(modelMountCore) &&
       /ModelMountTokenizerPlan/.test(modelMountCore) &&
@@ -20677,8 +20678,8 @@ function runReceipts() {
       /fitModelContext returns Rust context-fit record without JS truncation receipt/.test(
         modelTokenizerOperationsTest,
       ) &&
-      /Rust model_mount admission runner sends positive tokenizer request/.test(
-        modelMountAdmissionRunnerTest,
+      /Rust model_mount core sends positive tokenizer request/.test(
+        modelMountCoreTest,
       ) &&
       /state\.tokenizerPlans\[0\]\.schema_version/.test(modelTokenizerOperationsTest) &&
       /state\.tokenizerPlans\[0\]\.operation/.test(modelTokenizerOperationsTest) &&
@@ -20689,8 +20690,8 @@ function runReceipts() {
     [
       "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/tokenizer-control.mjs",
-      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
-      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-core.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-core.test.mjs",
       "packages/runtime-daemon/src/model-mounting/tokenizer-operations.test.mjs",
       "packages/runtime-daemon/src/model-mounting/read-projection-facade.mjs",
       "packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs",
@@ -20758,10 +20759,10 @@ function runReceipts() {
       /public_artifact_endpoint_js_facade_retired/.test(modelMountingState) &&
       /rust_daemon_core_artifact_endpoint/.test(modelMountingState) &&
       /agentgres_artifact_endpoint_truth_required/.test(modelMountingState) &&
-      /RUST_MODEL_MOUNT_ARTIFACT_ENDPOINT_BACKEND/.test(modelMountAdmissionRunner) &&
-      /operation:\s*"plan_model_mount_artifact_endpoint"/.test(modelMountAdmissionRunner) &&
-      /normalizeArtifactEndpointBridgeResult/.test(modelMountAdmissionRunner) &&
-      /model_mount_artifact_endpoint_plan_invalid/.test(modelMountAdmissionRunner) &&
+      /RUST_MODEL_MOUNT_ARTIFACT_ENDPOINT_BACKEND/.test(modelMountCore) &&
+      /operation:\s*"plan_model_mount_artifact_endpoint"/.test(modelMountCore) &&
+      /normalizeArtifactEndpointBridgeResult/.test(modelMountCore) &&
+      /model_mount_artifact_endpoint_plan_invalid/.test(modelMountCore) &&
       /plan_model_mount_artifact_endpoint_response/.test(modelMountArtifactEndpointEvidence) &&
       /MODEL_MOUNT_ARTIFACT_ENDPOINT_PLAN_SCHEMA_VERSION/.test(modelMountArtifactEndpointEvidence) &&
       /pub\(super\) fn plan_artifact_endpoint/.test(modelMountArtifactEndpointEvidence) &&
@@ -20932,10 +20933,10 @@ function runReceipts() {
       /public_model_storage_js_facade_retired/.test(modelMountingState) &&
       /rust_daemon_core_model_storage/.test(modelMountingState) &&
       /agentgres_model_storage_truth_required/.test(modelMountingState) &&
-      /RUST_MODEL_MOUNT_STORAGE_CONTROL_BACKEND/.test(modelMountAdmissionRunner) &&
-      /operation:\s*"plan_model_mount_storage_control"/.test(modelMountAdmissionRunner) &&
-      /normalizeStorageControlBridgeResult/.test(modelMountAdmissionRunner) &&
-      /model_mount_storage_control_plan_invalid/.test(modelMountAdmissionRunner) &&
+      /RUST_MODEL_MOUNT_STORAGE_CONTROL_BACKEND/.test(modelMountCore) &&
+      /operation:\s*"plan_model_mount_storage_control"/.test(modelMountCore) &&
+      /normalizeStorageControlBridgeResult/.test(modelMountCore) &&
+      /model_mount_storage_control_plan_invalid/.test(modelMountCore) &&
       /plan_model_mount_storage_control_response/.test(modelMountStorageControlEvidence) &&
       /MODEL_MOUNT_STORAGE_CONTROL_PLAN_SCHEMA_VERSION/.test(modelMountStorageControlEvidence) &&
       /pub\(super\) fn plan_storage_control/.test(modelMountStorageControlEvidence) &&
@@ -21034,10 +21035,10 @@ function runReceipts() {
       /model_mount_mcp_workflow_receipt_synthesis_js_retired/.test(modelMountCore) &&
       /model_mount_mcp_workflow_record_state_js_retired/.test(modelMountCore) &&
       /planModelMountMcpWorkflow\(request\)/.test(mcpWorkflowOperations) &&
-      /planMcpWorkflow\(request\)/.test(modelMountAdmissionRunner) &&
-      /operation:\s*"plan_model_mount_mcp_workflow"/.test(modelMountAdmissionRunner) &&
-      /normalizeMcpWorkflowBridgeResult/.test(modelMountAdmissionRunner) &&
-      /model_mount_mcp_workflow_plan_invalid/.test(modelMountAdmissionRunner) &&
+      /planMcpWorkflow\(request\)/.test(modelMountCore) &&
+      /operation:\s*"plan_model_mount_mcp_workflow"/.test(modelMountCore) &&
+      /normalizeMcpWorkflowBridgeResult/.test(modelMountCore) &&
+      /model_mount_mcp_workflow_plan_invalid/.test(modelMountCore) &&
       /rust_core_boundary:\s*"model_mount\.mcp_workflow"/.test(mcpWorkflowOperations) &&
       /model_mount_mcp_workflow_js_facade_retired/.test(mcpWorkflowOperations) &&
       /model_mount_mcp_import_js_facade_retired/.test(mcpWorkflowOperations) &&
@@ -21103,8 +21104,8 @@ function runReceipts() {
       /executeWorkflowNode uses Rust MCP workflow planning and record-state commit before dispatch/.test(
         mcpWorkflowOperationsTest,
       ) &&
-      /Rust model_mount admission runner sends positive MCP workflow request/.test(
-        modelMountAdmissionRunnerTest,
+      /Rust model_mount core sends positive MCP workflow request/.test(
+        modelMountCoreTest,
       ) &&
       /assertNoMcpWorkflowMutation\(state\)/.test(mcpWorkflowOperationsTest) &&
       /assert\.deepEqual\(state\.receipts,\s*\[\]\)/.test(mcpWorkflowOperationsTest) &&
@@ -21119,7 +21120,7 @@ function runReceipts() {
       "crates/services/src/agentic/runtime/kernel/model_mount/mcp_workflow.rs",
       "crates/services/src/agentic/runtime/kernel/model_mount/read_projection/mcp.rs",
       "packages/runtime-daemon/src/model-mounting.mjs",
-      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-core.mjs",
       "packages/runtime-daemon/src/model-mounting/read-projection-facade.mjs",
       "packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.test.mjs",
     ],
@@ -21420,10 +21421,10 @@ function runReceipts() {
         modelMountingState,
       ) &&
       /storageControlBody/.test(modelMountingState) &&
-      /RUST_MODEL_MOUNT_STORAGE_CONTROL_BACKEND/.test(modelMountAdmissionRunner) &&
-      /operation:\s*"plan_model_mount_storage_control"/.test(modelMountAdmissionRunner) &&
-      /normalizeStorageControlBridgeResult/.test(modelMountAdmissionRunner) &&
-      /model_mount_storage_control_plan_invalid/.test(modelMountAdmissionRunner) &&
+      /RUST_MODEL_MOUNT_STORAGE_CONTROL_BACKEND/.test(modelMountCore) &&
+      /operation:\s*"plan_model_mount_storage_control"/.test(modelMountCore) &&
+      /normalizeStorageControlBridgeResult/.test(modelMountCore) &&
+      /model_mount_storage_control_plan_invalid/.test(modelMountCore) &&
       /plan_model_mount_storage_control_response/.test(modelMountStorageControlEvidence) &&
       /MODEL_MOUNT_STORAGE_CONTROL_PLAN_SCHEMA_VERSION/.test(modelMountStorageControlEvidence) &&
       /pub\(super\) fn plan_storage_control/.test(modelMountStorageControlEvidence) &&
@@ -21467,7 +21468,7 @@ function runReceipts() {
     [
       "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-download-operations.test.mjs",
-      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-core.mjs",
       "crates/services/src/agentic/runtime/kernel/model_mount/storage_control.rs",
     ],
     "Phase 9/11 is pending: catalog import/download mutations must use Rust storage-control planning plus Agentgres record-state commit without JS receipt, download, filesystem, or network materialization",
@@ -21551,13 +21552,13 @@ function runReceipts() {
       !exists("packages/runtime-daemon/src/model-mounting/runtime-engines.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/runtime-engines.test.mjs") &&
       !/from "\.\/model-mounting\/runtime-engines\.mjs"/.test(modelMountingState) &&
-      /planRuntimeEngine\(request\)\s*\{[\s\S]*this\.modelMountAdmissionRunner\.planRuntimeEngine\(request\)/.test(modelMountingState) &&
-      /planRuntimeEngine\(request\)\s*\{[\s\S]*operation:\s*"plan_model_mount_runtime_engine"/.test(modelMountAdmissionRunner) &&
-      /RUST_MODEL_MOUNT_RUNTIME_ENGINE_BACKEND/.test(modelMountAdmissionRunner) &&
-      /normalizeRuntimeEngineBridgeResult/.test(modelMountAdmissionRunner) &&
-      !/planRuntimeEngineRequired/.test(modelMountAdmissionRunner) &&
-      !/RUST_MODEL_MOUNT_RUNTIME_ENGINE_REQUIRED_BACKEND/.test(modelMountAdmissionRunner) &&
-      !/plan_model_mount_runtime_engine_required/.test(modelMountAdmissionRunner) &&
+      /planRuntimeEngine\(request\)\s*\{[\s\S]*this\.modelMountCore\.planRuntimeEngine\(request\)/.test(modelMountingState) &&
+      /planRuntimeEngine\(request\)\s*\{[\s\S]*operation:\s*"plan_model_mount_runtime_engine"/.test(modelMountCore) &&
+      /RUST_MODEL_MOUNT_RUNTIME_ENGINE_BACKEND/.test(modelMountCore) &&
+      /normalizeRuntimeEngineBridgeResult/.test(modelMountCore) &&
+      !/planRuntimeEngineRequired/.test(modelMountCore) &&
+      !/RUST_MODEL_MOUNT_RUNTIME_ENGINE_REQUIRED_BACKEND/.test(modelMountCore) &&
+      !/plan_model_mount_runtime_engine_required/.test(modelMountCore) &&
       !/runtimeEngineRequired\(operation_kind/.test(modelMountingState) &&
       /mod runtime_engine;/.test(modelMountCore) &&
       /ModelMountRuntimeEngineRequest/.test(modelMountCore) &&
@@ -21622,9 +21623,9 @@ function runReceipts() {
       /assert\.equal\(state\.recordStateCommits\.length,\s*3\)/.test(runtimeEngineMountedTest) &&
       /assert\.deepEqual\(state\.recordStateCommits,\s*\[\]\)/.test(runtimeEngineMountedTest) &&
       /mounted runtime-engine requests ignore retired camelCase aliases/.test(runtimeEngineMountedTest) &&
-      /Rust model_mount admission runner sends positive runtime-engine request/.test(modelMountAdmissionRunnerTest) &&
-      /calls\[0\]\.request\.operation,\s*"plan_model_mount_runtime_engine"/.test(modelMountAdmissionRunnerTest) &&
-      /calls\[0\]\.request\.backend,\s*RUST_MODEL_MOUNT_RUNTIME_ENGINE_BACKEND/.test(modelMountAdmissionRunnerTest) &&
+      /Rust model_mount core sends positive runtime-engine request/.test(modelMountCoreTest) &&
+      /calls\[0\]\.request\.operation,\s*"plan_model_mount_runtime_engine"/.test(modelMountCoreTest) &&
+      /calls\[0\]\.request\.backend,\s*RUST_MODEL_MOUNT_RUNTIME_ENGINE_BACKEND/.test(modelMountCoreTest) &&
       /loadModelMountingMap applies Rust-admitted tombstone records/.test(
         read("packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs"),
       ) &&
@@ -21643,8 +21644,8 @@ function runReceipts() {
       !/runtimeEngineRequiredRequests/.test(runtimeEngineMountedTest),
     [
       "packages/runtime-daemon/src/model-mounting.mjs",
-      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
-      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-core.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-core.test.mjs",
       "packages/runtime-daemon/src/model-mounting/runtime-engine-mounted.test.mjs",
       "packages/runtime-daemon/src/model-mounting/state-persistence.mjs",
       "packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs",
@@ -21685,12 +21686,12 @@ function runReceipts() {
       /rust_daemon_core_runtime_survey/.test(modelMountingRoot) &&
       /agentgres_runtime_survey_truth_required/.test(modelMountingRoot) &&
       /operation_kind:\s*"model_mount\.runtime_survey\.capture"/.test(modelMountingRoot) &&
-      /RUST_MODEL_MOUNT_RUNTIME_SURVEY_BACKEND/.test(modelMountAdmissionRunner) &&
+      /RUST_MODEL_MOUNT_RUNTIME_SURVEY_BACKEND/.test(modelMountCore) &&
       /planRuntimeSurvey\(request\)\s*\{[\s\S]*?operation:\s*"plan_model_mount_runtime_survey"/.test(
-        modelMountAdmissionRunner,
+        modelMountCore,
       ) &&
-      /normalizeRuntimeSurveyBridgeResult/.test(modelMountAdmissionRunner) &&
-      /model_mount_runtime_survey_plan_invalid/.test(modelMountAdmissionRunner) &&
+      /normalizeRuntimeSurveyBridgeResult/.test(modelMountCore) &&
+      /model_mount_runtime_survey_plan_invalid/.test(modelMountCore) &&
       /plan_model_mount_runtime_survey_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
       /PlanModelMountRuntimeSurvey/.test(commandProtocolCore) &&
       /"plan_model_mount_runtime_survey"/.test(commandProtocolCore) &&
@@ -21762,10 +21763,10 @@ function runReceipts() {
       /Object\.hasOwn\(state\.runtimeSurveyRequests\[0\],\s*"engines"\),\s*false/.test(
         runtimeSurveyTest,
       ) &&
-      /Rust model_mount admission runner sends positive runtime-survey request/.test(
-        modelMountAdmissionRunnerTest,
+      /Rust model_mount core sends positive runtime-survey request/.test(
+        modelMountCoreTest,
       ) &&
-      /planRuntimeSurvey\(runtimeSurveyRequest\(\)\)/.test(modelMountAdmissionRunnerTest) &&
+      /planRuntimeSurvey\(runtimeSurveyRequest\(\)\)/.test(modelMountCoreTest) &&
       !/latestRuntimeSurveyProjectionInput builds primitive runtime-survey input/.test(runtimeSurveyTest) &&
       !/LM Studio runtime engine discovery is retired before public CLI execution/.test(runtimeSurveyTest) &&
       !/LM Studio runtime survey is not checked until Rust core owns probing/.test(runtimeSurveyTest),
@@ -21775,7 +21776,7 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/local-system-probes.mjs",
       "packages/runtime-daemon/src/model-mounting/local-system-probes.test.mjs",
       "packages/runtime-daemon/src/model-mounting/runtime-survey.test.mjs",
-      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-core.mjs",
       "crates/services/src/agentic/runtime/kernel/model_mount/runtime_survey.rs",
       "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
     ],
@@ -21803,13 +21804,13 @@ function runReceipts() {
       /commitServerControlForState\(this,\s*"model_mount\.server_control\.log_append"/.test(modelMountingState) &&
       /commitServerControlForState\(this,\s*"model_mount\.server_control\.write"/.test(modelMountingState) &&
       /commitServerControlForState\(this,\s*"model_mount\.server_control\.record_operation"/.test(modelMountingState) &&
-      /planServerControl\(request\)/.test(modelMountAdmissionRunner) &&
-      /operation:\s*"plan_model_mount_server_control"/.test(modelMountAdmissionRunner) &&
-      /RUST_MODEL_MOUNT_SERVER_CONTROL_BACKEND/.test(modelMountAdmissionRunner) &&
-      /normalizeServerControlBridgeResult/.test(modelMountAdmissionRunner) &&
-      !/planServerControlRequired\(request\)/.test(modelMountAdmissionRunner) &&
-      !/plan_model_mount_server_control_required/.test(modelMountAdmissionRunner) &&
-      !/RUST_MODEL_MOUNT_SERVER_CONTROL_REQUIRED_BACKEND/.test(modelMountAdmissionRunner) &&
+      /planServerControl\(request\)/.test(modelMountCore) &&
+      /operation:\s*"plan_model_mount_server_control"/.test(modelMountCore) &&
+      /RUST_MODEL_MOUNT_SERVER_CONTROL_BACKEND/.test(modelMountCore) &&
+      /normalizeServerControlBridgeResult/.test(modelMountCore) &&
+      !/planServerControlRequired\(request\)/.test(modelMountCore) &&
+      !/plan_model_mount_server_control_required/.test(modelMountCore) &&
+      !/RUST_MODEL_MOUNT_SERVER_CONTROL_REQUIRED_BACKEND/.test(modelMountCore) &&
       /mod server_control;/.test(modelMountCore) &&
       /ModelMountServerControlRequest/.test(modelMountCore) &&
       /ModelMountServerControlBridgeRequest/.test(modelMountCore) &&
@@ -21878,11 +21879,11 @@ function runReceipts() {
       /mounted server log and event reads use Rust read projection/.test(serverControlMountedTest) &&
       /mounted server control state writes and operation recording commit Rust truth/.test(serverControlMountedTest) &&
       /mounted server control fails closed before JS writes when Rust planner is missing/.test(serverControlMountedTest) &&
-      /Rust model_mount admission runner sends positive server-control request/.test(
-        modelMountAdmissionRunnerTest,
+      /Rust model_mount core sends positive server-control request/.test(
+        modelMountCoreTest,
       ) &&
-      !/Rust model_mount admission runner sends server control required request/.test(
-        modelMountAdmissionRunnerTest,
+      !/Rust model_mount core sends server control required request/.test(
+        modelMountCoreTest,
       ) &&
       /recordServerOperation/.test(serverControlMountedTest) &&
       /model_mount\.server_control\.record_operation/.test(serverControlMountedTest) &&
@@ -21892,8 +21893,8 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/server-control.test.mjs",
       "packages/runtime-daemon/src/model-mounting/server-control-mounted.test.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
-      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
-      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-core.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-core.test.mjs",
       "packages/runtime-daemon/src/model-mounting/read-projection-facade.mjs",
       "packages/runtime-daemon/src/model-mounting/record-state-commits.mjs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
@@ -22164,10 +22165,10 @@ function runReceipts() {
       !/"provider_result_ref":\s*provider_result_ref/.test(modelMountCommandBridge) &&
       !/"provider_result_hash":\s*provider_result_hash/.test(modelMountCommandBridge) &&
       !/providerResultRef|providerResultHash/.test(
-        modelMountAdmissionRunner,
+        modelMountCore,
       ) &&
       /Object\.hasOwn\(result,\s*"providerResultRef"\),\s*false/.test(
-        modelMountAdmissionRunnerTest,
+        modelMountCoreTest,
       ) &&
       /modelMountProviderResultAdmissionRequestForExecution/.test(modelInvocationOps) &&
       /model_mount_provider_result_js_observation_retired/.test(modelInvocationOps) &&
@@ -22921,14 +22922,14 @@ function runReceipts() {
       /throwBackendLifecycleRustCoreRequired/.test(backendLifecycle) &&
       /model_mount_backend_lifecycle_rust_core_required/.test(backendLifecycle) &&
       /planBackendLifecycle\(request\)/.test(backendLifecycle) &&
-      /this\.modelMountAdmissionRunner\.planBackendLifecycle/.test(backendLifecycle) &&
-      /planBackendLifecycle\(request\)/.test(modelMountAdmissionRunner) &&
-      /operation:\s*"plan_model_mount_backend_lifecycle"/.test(modelMountAdmissionRunner) &&
-      /RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_BACKEND/.test(modelMountAdmissionRunner) &&
+      /this\.modelMountCore\.planBackendLifecycle/.test(backendLifecycle) &&
+      /planBackendLifecycle\(request\)/.test(modelMountCore) &&
+      /operation:\s*"plan_model_mount_backend_lifecycle"/.test(modelMountCore) &&
+      /RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_BACKEND/.test(modelMountCore) &&
       !/backendLifecycleRequired\(operation_kind,\s*backendId\)/.test(backendLifecycle) &&
-      !/planBackendLifecycleRequired\(request\)/.test(modelMountAdmissionRunner) &&
-      !/operation:\s*"plan_model_mount_backend_lifecycle_required"/.test(modelMountAdmissionRunner) &&
-      !/RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_REQUIRED_BACKEND/.test(modelMountAdmissionRunner) &&
+      !/planBackendLifecycleRequired\(request\)/.test(modelMountCore) &&
+      !/operation:\s*"plan_model_mount_backend_lifecycle_required"/.test(modelMountCore) &&
+      !/RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_REQUIRED_BACKEND/.test(modelMountCore) &&
       /mod backend_lifecycle;/.test(modelMountCore) &&
       /ModelMountBackendLifecycleRequest/.test(modelMountCore) &&
       /backend_lifecycle::plan_backend_lifecycle\(request\)/.test(modelMountCore) &&
@@ -23056,8 +23057,8 @@ function runReceipts() {
       /public backend lifecycle fails closed only when Rust positive planner is unavailable/.test(
         backendLifecycleTest,
       ) &&
-      /Rust model_mount admission runner sends positive backend lifecycle request/.test(
-        modelMountAdmissionRunnerTest,
+      /Rust model_mount core sends positive backend lifecycle request/.test(
+        modelMountCoreTest,
       ) &&
       /state\.backendLifecyclePlans\[0\]\.schema_version/.test(backendLifecycleTest) &&
       /state\.recordStateCommits\.map/.test(backendLifecycleTest) &&
@@ -23126,8 +23127,8 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/backend-registry-state.mjs",
       "packages/runtime-daemon/src/model-mounting/backend-registry-state.test.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
-      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
-      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-core.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-core.test.mjs",
       "packages/runtime-daemon/src/model-mounting/receipt-operations.test.mjs",
     ],
     "Phase 10/11 is pending: public backend lifecycle facade control must fail closed until Rust daemon-core model_mount owns lifecycle receipts and control semantics",
@@ -23193,14 +23194,14 @@ function runReceipts() {
       /planAndCommitProviderControl\(this,\s*"model_mount\.provider\.write"/.test(providerUpsertBlock) &&
       /MODEL_MOUNT_PROVIDER_CONTROL_SCHEMA_VERSION/.test(providerOperations) &&
       /RUST_MODEL_MOUNT_PROVIDER_CONTROL_BACKEND/.test(providerOperations) &&
-      /planModelMountProviderControl\(request\)\s*\{\s*return this\.modelMountAdmissionRunner\.planProviderControl\(request\);/.test(
+      /planModelMountProviderControl\(request\)\s*\{\s*return this\.modelMountCore\.planProviderControl\(request\);/.test(
         providerOperations,
       ) &&
-      /planProviderControl\(request\)/.test(modelMountAdmissionRunner) &&
-      /operation:\s*"plan_model_mount_provider_control"/.test(modelMountAdmissionRunner) &&
-      /normalizeProviderControlBridgeResult/.test(modelMountAdmissionRunner) &&
-      /model_mount_provider_control_plan_invalid/.test(modelMountAdmissionRunner) &&
-      /RUST_MODEL_MOUNT_PROVIDER_CONTROL_BACKEND/.test(modelMountAdmissionRunner) &&
+      /planProviderControl\(request\)/.test(modelMountCore) &&
+      /operation:\s*"plan_model_mount_provider_control"/.test(modelMountCore) &&
+      /normalizeProviderControlBridgeResult/.test(modelMountCore) &&
+      /model_mount_provider_control_plan_invalid/.test(modelMountCore) &&
+      /RUST_MODEL_MOUNT_PROVIDER_CONTROL_BACKEND/.test(modelMountCore) &&
       /PlanModelMountProviderControl/.test(coreCommandProtocol) &&
       /"plan_model_mount_provider_control"/.test(coreCommandProtocol) &&
       /plan_model_mount_provider_control_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
@@ -23216,10 +23217,10 @@ function runReceipts() {
         read("crates/services/src/agentic/runtime/kernel/model_mount/provider_control.rs"),
       ) &&
       /rust_core_boundary:\s*"model_mount\.provider_control"/.test(providerOperations) &&
-      /public_provider_control_js_facade_retired/.test(modelMountAdmissionRunner) &&
-      /rust_daemon_core_provider_control/.test(modelMountAdmissionRunner) &&
-      /ctee_provider_custody_enforced/.test(modelMountAdmissionRunner) &&
-      /agentgres_provider_control_truth_required/.test(modelMountAdmissionRunner) &&
+      /public_provider_control_js_facade_retired/.test(modelMountCore) &&
+      /rust_daemon_core_provider_control/.test(modelMountCore) &&
+      /ctee_provider_custody_enforced/.test(modelMountCore) &&
+      /agentgres_provider_control_truth_required/.test(modelMountCore) &&
       /wallet_network_vault_authority_required/.test(providerOperations) &&
       /"model_mount\.provider\.write"/.test(providerUpsertBlock) &&
       !/modelMountProviderControlRustCoreRequired/.test(providerUpsertBlock) &&
@@ -23249,7 +23250,7 @@ function runReceipts() {
         providerOperationsTest,
       ) &&
       /provider upsert fails closed without Rust Agentgres provider record-state commit/.test(providerOperationsTest) &&
-      /Rust model_mount admission runner sends positive provider-control request/.test(modelMountAdmissionRunnerTest) &&
+      /Rust model_mount core sends positive provider-control request/.test(modelMountCoreTest) &&
       /provider upsert rejects retired request aliases before vault resolution or state write/.test(
         providerOperationsTest,
       ) &&
@@ -23283,8 +23284,8 @@ function runReceipts() {
       "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
       "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
       "packages/runtime-daemon/src/model-mounting.mjs",
-      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
-      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-core.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-core.test.mjs",
       "packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs",
     ],
     "Phase 5/11 is pending: provider upsert must call Rust daemon-core provider-control planning and commit only Rust-authored provider truth through Agentgres",
@@ -23466,7 +23467,7 @@ function runReceipts() {
       ) &&
       /details:\s*\{\s*required_scope:\s*requiredScope\s*\}/.test(modelMountingState) &&
       /tokenHash:\s*hashToken\(token\)/.test(modelMountingState) &&
-      /planCapabilityTokenControl\(request\)\s*\{\s*return this\.modelMountAdmissionRunner\.planCapabilityTokenControl\(request\);/.test(
+      /planCapabilityTokenControl\(request\)\s*\{\s*return this\.modelMountCore\.planCapabilityTokenControl\(request\);/.test(
         modelMountingState,
       ) &&
       /function planAndCommitCapabilityTokenControl\(state,\s*operation_kind,\s*options = \{\}\)/.test(
@@ -23489,18 +23490,18 @@ function runReceipts() {
       /model_mount_capability_token_rust_core_required/.test(capabilityTokenControl) &&
       /rust_core_boundary:\s*"model_mount\.capability_token"/.test(capabilityTokenControl) &&
       /public_capability_token_js_facade_retired/.test(capabilityTokenControl) &&
-      /RUST_MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_BACKEND/.test(modelMountAdmissionRunner) &&
-      /planCapabilityTokenControl\(request\)/.test(modelMountAdmissionRunner) &&
-      /operation:\s*"plan_model_mount_capability_token_control"/.test(modelMountAdmissionRunner) &&
-      /normalizeCapabilityTokenControlBridgeResult/.test(modelMountAdmissionRunner) &&
-      /record\.public_response\.token_absent/.test(modelMountAdmissionRunner) &&
-      /record\.public_response\.plaintext_material_persisted_false/.test(modelMountAdmissionRunner) &&
-      /RUST_MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_BACKEND/.test(modelMountAdmissionRunnerTest) &&
-      /Rust model_mount admission runner sends positive capability-token-control request/.test(
-        modelMountAdmissionRunnerTest,
+      /RUST_MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_BACKEND/.test(modelMountCore) &&
+      /planCapabilityTokenControl\(request\)/.test(modelMountCore) &&
+      /operation:\s*"plan_model_mount_capability_token_control"/.test(modelMountCore) &&
+      /normalizeCapabilityTokenControlBridgeResult/.test(modelMountCore) &&
+      /record\.public_response\.token_absent/.test(modelMountCore) &&
+      /record\.public_response\.plaintext_material_persisted_false/.test(modelMountCore) &&
+      /RUST_MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_BACKEND/.test(modelMountCoreTest) &&
+      /Rust model_mount core sends positive capability-token-control request/.test(
+        modelMountCoreTest,
       ) &&
-      /result\.record\.public_response\.token,\s*undefined/.test(modelMountAdmissionRunnerTest) &&
-      /result\.public_response\.token,\s*"ioi_mnt_positive_token"/.test(modelMountAdmissionRunnerTest) &&
+      /result\.record\.public_response\.token,\s*undefined/.test(modelMountCoreTest) &&
+      /result\.public_response\.token,\s*"ioi_mnt_positive_token"/.test(modelMountCoreTest) &&
       /MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_SCHEMA_VERSION/.test(modelMountCore) &&
       /MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_PLAN_SCHEMA_VERSION/.test(modelMountCore) &&
       /plan_model_mount_capability_token_control_response/.test(modelMountCore) &&
@@ -23553,7 +23554,7 @@ function runReceipts() {
     [
       "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/capability-token-control.mjs",
-      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-core.mjs",
       "packages/runtime-daemon/src/model-mounting/capability-token-operations.test.mjs",
       "crates/services/src/agentic/runtime/kernel/model_mount/capability_token_control.rs",
       "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
@@ -23604,7 +23605,7 @@ function runReceipts() {
       /planAndCommitVaultControl\([\s\S]*?"model_mount\.vault\.status"/.test(modelMountingState) &&
       /planAndCommitVaultControl\([\s\S]*?"model_mount\.vault\.health"/.test(modelMountingState) &&
       /planAndCommitVaultControl\([\s\S]*?"model_mount\.vault_ref\.remove"/.test(modelMountingState) &&
-      /planVaultControl\(request\)\s*\{[\s\S]*?modelMountAdmissionRunner\.planVaultControl\(request\)/.test(modelMountingState) &&
+      /planVaultControl\(request\)\s*\{[\s\S]*?modelMountCore\.planVaultControl\(request\)/.test(modelMountingState) &&
       !/throwVaultRustCoreRequired/.test(modelMountingState) &&
       !/model_mount_vault_rust_core_required/.test(modelMountingState) &&
       /assertCanonicalVaultOperationRequestBody\(body\);[\s\S]*const vaultRef = requiredString\(body\.vault_ref,\s*"vault_ref"\);[\s\S]*const material = requiredString\(body\.material,\s*"material"\);/.test(
@@ -23647,16 +23648,16 @@ function runReceipts() {
       /wallet_network_vault_authority_required/.test(vaultControl) &&
       /ctee_vault_custody_enforced/.test(vaultControl) &&
       /agentgres_vault_truth_required/.test(vaultControl) &&
-      /RUST_MODEL_MOUNT_VAULT_CONTROL_BACKEND/.test(modelMountAdmissionRunner) &&
-      /planVaultControl\(request\)/.test(modelMountAdmissionRunner) &&
-      /operation:\s*"plan_model_mount_vault_control"/.test(modelMountAdmissionRunner) &&
-      /normalizeVaultControlBridgeResult/.test(modelMountAdmissionRunner) &&
-      /record\.public_response\.material_absent/.test(modelMountAdmissionRunner) &&
-      /record\.ctee_custody\.plaintext_material_persisted_false/.test(modelMountAdmissionRunner) &&
-      /record\.ctee_custody\.plaintext_material_returned_false/.test(modelMountAdmissionRunner) &&
-      /Rust model_mount admission runner sends positive vault-control request/.test(modelMountAdmissionRunnerTest) &&
-      /Object\.hasOwn\(calls\[0\]\.request\.request\.body,\s*"material"\),\s*false/.test(modelMountAdmissionRunnerTest) &&
-      /result\.record\.ctee_custody\.plaintext_material_persisted,\s*false/.test(modelMountAdmissionRunnerTest) &&
+      /RUST_MODEL_MOUNT_VAULT_CONTROL_BACKEND/.test(modelMountCore) &&
+      /planVaultControl\(request\)/.test(modelMountCore) &&
+      /operation:\s*"plan_model_mount_vault_control"/.test(modelMountCore) &&
+      /normalizeVaultControlBridgeResult/.test(modelMountCore) &&
+      /record\.public_response\.material_absent/.test(modelMountCore) &&
+      /record\.ctee_custody\.plaintext_material_persisted_false/.test(modelMountCore) &&
+      /record\.ctee_custody\.plaintext_material_returned_false/.test(modelMountCore) &&
+      /Rust model_mount core sends positive vault-control request/.test(modelMountCoreTest) &&
+      /Object\.hasOwn\(calls\[0\]\.request\.request\.body,\s*"material"\),\s*false/.test(modelMountCoreTest) &&
+      /result\.record\.ctee_custody\.plaintext_material_persisted,\s*false/.test(modelMountCoreTest) &&
       /MODEL_MOUNT_VAULT_CONTROL_SCHEMA_VERSION/.test(modelMountCore) &&
       /MODEL_MOUNT_VAULT_CONTROL_PLAN_SCHEMA_VERSION/.test(modelMountCore) &&
       /plan_model_mount_vault_control_response/.test(modelMountCore) &&
@@ -23714,7 +23715,7 @@ function runReceipts() {
     [
       "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/vault-control.mjs",
-      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-core.mjs",
       "packages/runtime-daemon/src/model-mounting/vault-operations.test.mjs",
       "packages/runtime-daemon/src/model-mounting/state-persistence.mjs",
       "packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs",
@@ -23928,7 +23929,7 @@ function runReceipts() {
     result,
     "model-mount-state-append-operation-injection-retired",
     /new ModelMountingState/.test(modelMountingConstructorArgs) &&
-      /modelMountAdmissionRunner: options\.modelMountAdmissionRunner/.test(modelMountingConstructorArgs) &&
+      /modelMountCore: options\.modelMountCore/.test(modelMountingConstructorArgs) &&
       !/\bappendOperation\b/.test(modelMountingConstructorArgs),
     ["packages/runtime-daemon/src/index.mjs"],
     "Phase 5/11 is pending: the runtime store must not inject daemon-local appendOperation into the model-mounting state facade after receipt/Agentgres admission owns model-mounting truth",
@@ -25320,7 +25321,7 @@ function runReceipts() {
       /acceptedReceiptTransition:\s*objectRecord\(agentgresTransition\?\.acceptedReceiptTransition\)/.test(modelInvocationOps) &&
       /acceptedReceiptTransition\.expected_heads/.test(modelInvocationOpsTest) &&
       /planAcceptedReceiptHead/.test(modelMountingState) &&
-      /plan_model_mount_accepted_receipt_head/.test(modelMountAdmissionRunner) &&
+      /plan_model_mount_accepted_receipt_head/.test(modelMountCore) &&
       /plan_model_mount_accepted_receipt_head_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
       !/plan_model_mount_accepted_receipt_head_response as plan_model_mount_accepted_receipt_head/.test(bridgeModule) &&
       !/bridge_plans_model_mount_accepted_receipt_head_through_rust_core/.test(bridgeModule) &&
@@ -25346,9 +25347,9 @@ function runReceipts() {
       ) &&
       /plan_accepted_receipt_head/.test(modelMountCore) &&
       /MODEL_MOUNT_ACCEPTED_RECEIPT_HEAD_SCHEMA_VERSION/.test(modelMountCore) &&
-      /head_ref:\s*result\.head_ref \?\? head\.head_ref/.test(modelMountAdmissionRunner) &&
-      /state_root:\s*result\.state_root \?\? head\.state_root/.test(modelMountAdmissionRunner) &&
-      /Object\.hasOwn\(result,\s*"headRef"\),\s*false/.test(modelMountAdmissionRunnerTest) &&
+      /head_ref:\s*result\.head_ref \?\? head\.head_ref/.test(modelMountCore) &&
+      /state_root:\s*result\.state_root \?\? head\.state_root/.test(modelMountCore) &&
+      /Object\.hasOwn\(result,\s*"headRef"\),\s*false/.test(modelMountCoreTest) &&
       /model invocation Agentgres transition rejects retired camelCase head fields/.test(
         modelInvocationOpsTest,
       ) &&
@@ -25357,7 +25358,7 @@ function runReceipts() {
       !/current_head_ref:\s*currentHead\.headRef/.test(modelInvocationOps) &&
       !/current_state_root:\s*currentHead\.stateRoot/.test(modelInvocationOps) &&
       !/\b(?:headRef|stateRoot|projectionWatermark|headHash):\s*result\./.test(
-        modelMountAdmissionRunner,
+        modelMountCore,
       ) &&
       /head_ref:\s*requiredStringRef\("agentgresHead\.head_ref"/.test(
         modelInvocationOps,
@@ -25373,10 +25374,10 @@ function runReceipts() {
       /model_mount_accepted_receipt_transition_required/.test(modelMountInvocationReceiptBridgeBlock) &&
       /validate_accepted_receipt_transition\(transition\)/.test(modelMountInvocationReceiptBridgeBlock) &&
       /model_mount_accepted_receipt_transition_mismatch/.test(modelMountInvocationReceiptBridgeBlock) &&
-      /model_mount_invocation_expected_heads_retired/.test(modelMountAdmissionRunner) &&
+      /model_mount_invocation_expected_heads_retired/.test(modelMountCore) &&
       !/expected_heads:/.test(modelMountInvocationReceiptRunnerBlock) &&
       /accepted_receipt_transition:\s*acceptedReceiptTransition/.test(modelMountInvocationReceiptRunnerBlock) &&
-      /Rust model_mount admission runner rejects direct expected head binding input/.test(modelMountAdmissionRunnerTest) &&
+      /Rust model_mount core rejects direct expected head binding input/.test(modelMountCoreTest) &&
       /ModelMountAcceptedReceiptTransitionBridgeRequest/.test(modelMountReceiptCore) &&
       /ModelMountAcceptedReceiptTransitionRequest/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount/accepted_receipt.rs"),
@@ -25427,7 +25428,7 @@ function runReceipts() {
         modelInvocationOps,
       ) &&
       !/\b(?:operationId|operationRef|stateRootBefore|stateRootAfter|resultingHead|transitionHash):\s*result\./.test(
-        modelMountAdmissionRunner,
+        modelMountCore,
       ) &&
       /model_mount_step_module_invocation/.test(modelInvocationOps) &&
       /model_mount_step_module_result/.test(modelInvocationOps) &&
@@ -25490,36 +25491,36 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-runner-rust-owned-field-fallbacks-retired",
-    /Rust model_mount runner does not synthesize Rust-owned receipt, required-boundary evidence, or process fields/.test(
-      modelMountAdmissionRunnerTest,
+    /Rust model_mount core does not synthesize Rust-owned receipt, required-boundary evidence, or process fields/.test(
+      modelMountCoreTest,
     ) &&
       /function\s+arrayOrNull\(value\)\s*\{[\s\S]*?Array\.isArray\(value\)\s*\?\s*value\s*:\s*null/.test(
-        modelMountAdmissionRunner,
+        modelMountCore,
       ) &&
       /receipt_refs:\s*Array\.isArray\(result\.receipt_refs\)[\s\S]*?:\s*null/.test(
-        modelMountAdmissionRunner,
+        modelMountCore,
       ) &&
       /evidence_refs:\s*Array\.isArray\(result\.evidence_refs\)[\s\S]*?:\s*null/.test(
-        modelMountAdmissionRunner,
+        modelMountCore,
       ) &&
       /evidence_refs:\s*arrayOrNull\(record\.evidence_refs\)\s*\?\?\s*arrayOrNull\(details\.evidence_refs\)/.test(
-        modelMountAdmissionRunner,
+        modelMountCore,
       ) &&
       /supports_supervision:\s*result\.supports_supervision\s*\?\?\s*record\.supports_supervision\s*\?\?\s*null/.test(
-        modelMountAdmissionRunner,
+        modelMountCore,
       ) &&
       /spawn_required:\s*result\.spawn_required\s*\?\?\s*record\.spawn_required\s*\?\?\s*null/.test(
-        modelMountAdmissionRunner,
+        modelMountCore,
       ) &&
       /itemCount:\s*result\.item_count\s*\?\?\s*record\.item_count\s*\?\?\s*null/.test(
-        modelMountAdmissionRunner,
+        modelMountCore,
       ) &&
-      modelMountRunnerRetiredFallbackPatterns.every((pattern) => !pattern.test(modelMountAdmissionRunner)),
+      modelMountRunnerRetiredFallbackPatterns.every((pattern) => !pattern.test(modelMountCore)),
     [
-      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
-      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-core.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-core.test.mjs",
     ],
-    "Phase 4/5/11 is pending: the JS model_mount runner must not synthesize Rust-owned receipt evidence, accepted-head, process, inventory, binding, or projection fields when Rust omits them",
+    "Phase 4/5/11 is pending: the temporary model_mount core request builder must not synthesize Rust-owned receipt evidence, accepted-head, process, inventory, binding, or projection fields when Rust omits them",
   );
   assertCheck(
     result,

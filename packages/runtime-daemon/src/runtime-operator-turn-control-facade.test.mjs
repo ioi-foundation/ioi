@@ -25,7 +25,7 @@ function createStore() {
   const runtimeBridgeCalls = [];
   const store = new AgentgresRuntimeStateStore(stateDir, {
     cwd: stateDir,
-    modelMountAdmissionRunner: {
+    modelMountCore: {
       planReadProjection(request) {
         return {
           source: "rust_model_mount_read_projection_command",

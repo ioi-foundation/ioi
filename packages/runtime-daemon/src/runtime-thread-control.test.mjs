@@ -6,7 +6,7 @@ import test from "node:test";
 
 import { AgentgresRuntimeStateStore } from "./index.mjs";
 
-function modelMountAdmissionRunnerForTest(calls) {
+function modelMountCoreForTest(calls) {
   return {
     planReadProjection(request) {
       calls.push({ operation: "plan_model_mount_read_projection", input: request });
@@ -196,7 +196,7 @@ function runtimeControlStore(stateDir, calls) {
         },
       };
     },
-    modelMountAdmissionRunner: modelMountAdmissionRunnerForTest(calls),
+    modelMountCore: modelMountCoreForTest(calls),
     runtimeBridge: runtimeBridgeThatMustNotDispatch(calls),
   });
   store.resolveModelRoute = (options = {}, context = {}) => {

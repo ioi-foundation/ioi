@@ -29,7 +29,7 @@ function restoreEnv(name, value) {
   }
 }
 
-function modelMountAdmissionRunnerForApprovalLeaseTest() {
+function modelMountCoreForApprovalLeaseTest() {
   return {
     planReadProjection(request) {
       const projection = { source: "agentgres_model_mounting_projection" };
@@ -549,7 +549,7 @@ test("coding tool approval leases stop satisfying retries after expiry", async (
       cwd,
       stateDir,
       daemonCoreInvoker: daemonCoreInvokerForApprovalLeaseTest(),
-      modelMountAdmissionRunner: modelMountAdmissionRunnerForApprovalLeaseTest(),
+      modelMountCore: modelMountCoreForApprovalLeaseTest(),
       runtimeAgentgresAdmissionCore: runtimeAgentgresAdmissionCoreForApprovalLeaseTest(),
     });
     const now = new Date().toISOString();

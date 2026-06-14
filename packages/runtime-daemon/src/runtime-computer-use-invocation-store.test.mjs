@@ -10,7 +10,7 @@ async function withStore(fn) {
   const stateDir = mkdtempSync(join(tmpdir(), "ioi-computer-use-invocation-store-"));
   const store = new AgentgresRuntimeStateStore(stateDir, {
     cwd: stateDir,
-    modelMountAdmissionRunner: modelMountAdmissionRunnerForComputerUseTest(),
+    modelMountCore: modelMountCoreForComputerUseTest(),
   });
   try {
     return await fn(store);
@@ -20,7 +20,7 @@ async function withStore(fn) {
   }
 }
 
-function modelMountAdmissionRunnerForComputerUseTest() {
+function modelMountCoreForComputerUseTest() {
   return {
     planReadProjection(request) {
       return {

@@ -6,7 +6,7 @@ import test from "node:test";
 
 import { AgentgresRuntimeStateStore } from "./index.mjs";
 
-function modelMountAdmissionRunner() {
+function modelMountCore() {
   return {
     planReadProjection(request) {
       return {
@@ -33,7 +33,7 @@ test("runtime store mounts cTEE private workspace core from options", () => {
     const store = new AgentgresRuntimeStateStore(stateDir, {
       cwd: stateDir,
       cteePrivateWorkspaceCore,
-      modelMountAdmissionRunner: modelMountAdmissionRunner(),
+      modelMountCore: modelMountCore(),
     });
     try {
       assert.equal(store.cteePrivateWorkspaceCore, cteePrivateWorkspaceCore);

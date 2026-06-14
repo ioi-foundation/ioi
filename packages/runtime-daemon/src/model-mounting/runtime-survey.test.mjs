@@ -132,7 +132,7 @@ function fakeState({ withRunner = true } = {}) {
   };
   if (withRunner) {
     state.runtimeSurveyRequests = [];
-    state.modelMountAdmissionRunner = {
+    state.modelMountCore = {
       planRuntimeSurvey(request) {
         state.runtimeSurveyRequests.push(request);
         return runtimeSurveyPlan(request);
@@ -216,7 +216,7 @@ test("runtimeSurvey fails closed before JS probes when Rust planner is missing",
       assert.equal(error.details.rust_core_boundary, "model_mount.runtime_survey");
       assert.equal(error.details.operation, "runtime_survey");
       assert.equal(error.details.operation_kind, "model_mount.runtime_survey.capture");
-      assert.equal(error.details.missing, "modelMountAdmissionRunner.planRuntimeSurvey");
+      assert.equal(error.details.missing, "modelMountCore.planRuntimeSurvey");
       assert.deepEqual(error.details.evidence_refs, [
         "model_mount_runtime_survey_js_facade_retired",
         "rust_daemon_core_runtime_survey_required",

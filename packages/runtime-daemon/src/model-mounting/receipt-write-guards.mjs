@@ -1,6 +1,6 @@
 import {
   RUST_MODEL_MOUNT_INSTANCE_LIFECYCLE_BACKEND,
-} from "./model-mount-admission-runner.mjs";
+} from "./model-mount-core.mjs";
 
 const ACCEPTED_MODEL_INVOCATION_RECEIPT_KINDS = new Set([
   "model_invocation",

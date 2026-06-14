@@ -6,12 +6,24 @@ import test from "node:test";
 
 import { ModelMountingState } from "../model-mounting.mjs";
 
+const CAPABILITY_TOKEN_EVIDENCE_REFS = [
+  "rust_daemon_core_capability_token_control",
+  "wallet_network_capability_token_authority_required",
+  "agentgres_capability_token_truth_required",
+  "public_capability_token_js_facade_retired",
+];
+
+const ROUTE_CONTROL_EVIDENCE_REFS = [
+  "model_mount_route_control_rust_owned",
+  "rust_daemon_core_route_control_plan",
+];
+
 async function withModelState(fn) {
   const state = new ModelMountingState({
     stateDir: mkdtempSync(join(tmpdir(), "ioi-model-state-")),
     cwd: process.cwd(),
     homeDir: process.env.HOME,
-    modelMountAdmissionRunner: mockModelMountAdmissionRunner(),
+    modelMountCore: mockModelMountCore(),
     commitRuntimeModelMountRecordState: mockRuntimeModelMountRecordStateCommit,
     commitRuntimeModelMountReceiptState: mockRuntimeModelMountReceiptStateCommit,
   });
@@ -58,8 +70,243 @@ function mockRuntimeModelMountReceiptStateCommit(request) {
   };
 }
 
-function mockModelMountAdmissionRunner() {
-  return {
+function mockModelMountCore() {
+  const core = {
+    providerInvocationCalls: 0,
+    planReadProjection(request) {
+      return {
+        source: "rust_model_mount_read_projection_command",
+        backend: "rust_model_mount_read_projection",
+        projection_kind: request.projection_kind,
+        projection: {
+          schemaVersion: request.schema_version,
+          source: "agentgres_model_mounting_projection",
+          projectionKind: request.projection_kind,
+          generatedAt: request.generated_at,
+          watermark: 0,
+        },
+        evidence_refs: [
+          "rust_daemon_core_model_mount_projection",
+          "agentgres_model_mount_read_truth",
+          "model_mount_js_read_projection_authoring_retired",
+        ],
+      };
+    },
+    planProviderControl(request) {
+      const body = request.body ?? {};
+      const recordId = body.id ?? request.provider_id ?? "provider.test";
+      const evidenceRefs = [
+        "rust_daemon_core_provider_control",
+        "ctee_provider_custody_enforced",
+        "agentgres_provider_control_truth_required",
+      ];
+      return {
+        operation_kind: request.operation_kind,
+        rust_core_boundary: "model_mount.provider_control",
+        record_dir: "model-providers",
+        record_id: recordId,
+        control_hash: `sha256:provider-control:${recordId}`,
+        authority_hash: `sha256:provider-authority:${recordId}`,
+        receipt_refs: request.receipt_refs ?? [],
+        authority_grant_refs: request.authority_grant_refs ?? [],
+        authority_receipt_refs: request.authority_receipt_refs ?? [],
+        evidence_refs: evidenceRefs,
+        record: {
+          ...body,
+          id: recordId,
+          record_id: recordId,
+          object: "ioi.model_mount_provider",
+          schema_version: request.schema_version,
+          plaintext_material_returned: false,
+          evidence_refs: evidenceRefs,
+          public_response: {
+            ...body,
+            id: recordId,
+            status: body.status ?? "configured",
+            private_material_returned: false,
+            plaintext_material_persisted: false,
+          },
+        },
+      };
+    },
+    planArtifactEndpoint(request) {
+      const body = request.body ?? {};
+      const isEndpoint = request.operation_kind === "model_mount.endpoint.mount";
+      const recordId = isEndpoint
+        ? body.endpoint_id ?? body.id ?? "endpoint.test"
+        : body.model_id ?? body.artifact_id ?? "test-model";
+      return {
+        operation_kind: request.operation_kind,
+        rust_core_boundary: "model_mount.artifact_endpoint",
+        record_dir: isEndpoint ? "model-endpoints" : "model-artifacts",
+        record_id: recordId,
+        control_hash: `sha256:artifact-endpoint:${recordId}`,
+        authority_hash: `sha256:artifact-authority:${recordId}`,
+        receipt_refs: request.receipt_refs ?? [],
+        authority_grant_refs: request.authority_grant_refs ?? [],
+        authority_receipt_refs: request.authority_receipt_refs ?? [],
+        evidence_refs: [
+          "public_artifact_endpoint_js_facade_retired",
+          "rust_daemon_core_artifact_endpoint",
+          "agentgres_artifact_endpoint_truth_required",
+        ],
+        public_response: {
+          ...body,
+          id: recordId,
+          status: "committed",
+        },
+        record: {
+          ...body,
+          id: recordId,
+          record_id: recordId,
+          schema_version: request.schema_version,
+        },
+      };
+    },
+    planCapabilityTokenControl(request) {
+      const tokenId = request.token_id ?? "capability_token:test";
+      const action = request.operation_kind.split(".").at(-1);
+      const recordId = `capability_token_control:${tokenId}:${action}`;
+      const token = "ioi_mnt_inflight_test_token";
+      const tokenHash = request.token_hash ?? `sha256:${token}`;
+      const publicResponse =
+        request.operation_kind === "model_mount.capability_token.create"
+          ? {
+              object: "ioi.model_mount_capability_token",
+              status: "issued",
+              token_id: tokenId,
+              token,
+              token_material_returned_once: true,
+              token_hash: tokenHash,
+              allowed_scopes: request.body?.allowed ?? [],
+              denied_scopes: request.body?.denied ?? [],
+            }
+          : request.operation_kind === "model_mount.capability_token.authorize"
+            ? {
+                object: "ioi.model_mount_capability_token_authorization",
+                status: "authorized",
+                token_id: tokenId,
+                required_scope: request.required_scope,
+              }
+            : {
+                object: "ioi.model_mount_capability_token_list",
+                status: "projected",
+                tokens: [{ token_id: tokenId, status: "active" }],
+              };
+      return {
+        schema_version: "ioi.model_mount.capability_token_control_plan.v1",
+        object: "ioi.model_mount_capability_token_control_plan",
+        status: "planned",
+        operation_kind: request.operation_kind,
+        rust_core_boundary: "model_mount.capability_token",
+        record_dir: "capability-tokens",
+        record_id: recordId,
+        control_hash: `sha256:capability-token-control:${action}`,
+        authority_hash: `sha256:capability-token-authority:${action}`,
+        receipt_refs: [`receipt://model_mount/capability_token/${recordId}`],
+        authority_grant_refs: request.authority_grant_refs ?? [],
+        authority_receipt_refs: request.authority_receipt_refs ?? [],
+        evidence_refs: CAPABILITY_TOKEN_EVIDENCE_REFS,
+        public_response: publicResponse,
+        record: {
+          id: recordId,
+          record_id: recordId,
+          object: "ioi.model_mount_capability_token_control",
+          status: "planned",
+          operation_kind: request.operation_kind,
+          token_id: tokenId,
+          token_hash: tokenHash,
+          rust_core_boundary: "model_mount.capability_token",
+          wallet_authority_boundary: "wallet.network.capability_token",
+          capability_token_authority: {
+            authority_hash: `sha256:capability-token-authority:${action}`,
+            required_scope: request.required_scope ?? null,
+            authority_grant_refs: request.authority_grant_refs ?? [],
+            authority_receipt_refs: request.authority_receipt_refs ?? [],
+          },
+          receipt_refs: [`receipt://model_mount/capability_token/${recordId}`],
+          evidence_refs: CAPABILITY_TOKEN_EVIDENCE_REFS,
+          public_response: {
+            ...publicResponse,
+            plaintext_material_persisted: false,
+          },
+        },
+      };
+    },
+    planRouteControl(request) {
+      const routeId = request.route_id ?? request.body?.route_id ?? "route.local-first";
+      const rawEndpoint = request.endpoints?.[0] ?? {};
+      const endpoint = {
+        id: rawEndpoint.id ?? "endpoint.test",
+        provider_id: rawEndpoint.provider_id ?? "provider.test",
+        model_id: rawEndpoint.model_id ?? request.body?.model ?? request.body?.model_id ?? "test-model",
+        api_format: rawEndpoint.api_format ?? "openai",
+        backend_id: rawEndpoint.backend_id ?? "backend.test",
+        status: rawEndpoint.status ?? "mounted",
+      };
+      const rawProvider = request.providers?.[0] ?? {};
+      const provider = {
+        id: rawProvider.id ?? endpoint.provider_id ?? "provider.test",
+        driver: rawProvider.driver ?? "openai_compatible",
+        kind: "openai_compatible",
+        api_format: rawProvider.api_format ?? "openai",
+        status: rawProvider.status ?? "configured",
+      };
+      const modelId = endpoint.model_id ?? "test-model";
+      const recordId = `route_selection:${routeId}:test`;
+      const routeDecisionRef = `model_mount://route_decision/${routeId}`;
+      const record = {
+        id: recordId,
+        record_id: recordId,
+        object: "ioi.model_mount_route_selection",
+        route_id: routeId,
+        selected_model: modelId,
+        endpoint_id: endpoint.id,
+        provider_id: provider.id,
+        receipt_refs: ["receipt://route-control/select"],
+        evidence_refs: ROUTE_CONTROL_EVIDENCE_REFS,
+        route: request.current_route ?? { id: routeId },
+        endpoint,
+        provider,
+        route_decision: {
+          route_decision_ref: routeDecisionRef,
+          route_ref: routeId,
+          endpoint_ref: endpoint.id,
+          provider_ref: provider.id,
+          model_ref: modelId,
+        },
+        accepted_receipt_record: {
+          id: "receipt.route-selection",
+          kind: "model_route_selection",
+          schemaVersion: "ioi.model_mount.receipt.v1",
+          createdAt: request.generated_at ?? "2026-06-14T00:00:00.000Z",
+          evidenceRefs: ["rust_model_mount_core", ...ROUTE_CONTROL_EVIDENCE_REFS],
+          details: {
+            rust_daemon_core_receipt_author: true,
+            model_mount_route_decision_ref: routeDecisionRef,
+            route_id: routeId,
+            endpoint_id: endpoint.id,
+            provider_id: provider.id,
+            selected_model: modelId,
+          },
+        },
+      };
+      return {
+        source: "rust_model_mount_route_control_command",
+        backend: "rust_model_mount_route_control",
+        schema_version: "ioi.model_mount.route_control_plan.v1",
+        object: "ioi.model_mount_route_control_plan",
+        status: "planned",
+        operation_kind: request.operation_kind,
+        rust_core_boundary: "model_mount.route_control",
+        record_dir: "model-route-selections",
+        record_id: recordId,
+        record,
+        receipt_refs: record.receipt_refs,
+        evidence_refs: ROUTE_CONTROL_EVIDENCE_REFS,
+        control_hash: `sha256:route-control:${routeId}`,
+      };
+    },
     admitRouteDecision(request) {
       return {
         source: "rust_model_mount_mock",
@@ -106,6 +353,7 @@ function mockModelMountAdmissionRunner() {
       };
     },
     executeProviderInvocation(request) {
+      core.providerInvocationCalls += 1;
       return {
         source: "rust_model_mount_provider_invocation_command",
         backend: "rust_model_mount_fixture",
@@ -241,6 +489,7 @@ function mockModelMountAdmissionRunner() {
       };
     },
   };
+  return core;
 }
 
 function mountTestModel(state) {
@@ -262,25 +511,13 @@ function mountTestModel(state) {
   });
 }
 
-test("identical low-variance in-flight chat invocations share one provider call", async () => {
+test("identical low-variance chat invocations stay on the Rust provider path without JS coalescing", async () => {
   await withModelState(async (state) => {
     mountTestModel(state);
     state.ensureLoaded = async (endpoint) => ({
       id: "instance.test",
-      endpointId: endpoint.id,
-      backendId: "backend.test",
-    });
-    let providerCalls = 0;
-    state.driverForProvider = () => ({
-      invoke: async () => {
-        providerCalls += 1;
-        await new Promise((resolve) => setTimeout(resolve, 50));
-        return {
-          outputText: "ok",
-          tokenCount: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
-          providerResponseKind: null,
-        };
-      },
+      endpoint_id: endpoint.id,
+      backend_id: "backend.test",
     });
     const token = state.createToken({
       allowed: ["model.chat:*", "route.use:*"],
@@ -308,12 +545,13 @@ test("identical low-variance in-flight chat invocations share one provider call"
       }),
     ]);
 
-    assert.equal(providerCalls, 1);
-    assert.equal(first.outputText, "ok");
-    assert.equal(second.outputText, "ok");
+    assert.equal(Object.hasOwn(state, "inflightModelInvocations"), false);
+    assert.equal(state.modelMountCore.providerInvocationCalls, 2);
+    assert.equal(first.outputText, "provider answer");
+    assert.equal(second.outputText, "provider answer");
     assert.equal(first.receipt.kind, "model_invocation");
-    assert.equal(second.receipt.kind, "model_invocation_coalesced");
-    assert.equal(second.receipt.details.coalesced, true);
+    assert.equal(second.receipt.kind, "model_invocation");
+    assert.equal(second.receipt.details.coalesced, undefined);
   });
 });
 
@@ -322,20 +560,8 @@ test("high-variance chat invocations are not coalesced", async () => {
     mountTestModel(state);
     state.ensureLoaded = async (endpoint) => ({
       id: "instance.test",
-      endpointId: endpoint.id,
-      backendId: "backend.test",
-    });
-    let providerCalls = 0;
-    state.driverForProvider = () => ({
-      invoke: async () => {
-        providerCalls += 1;
-        await new Promise((resolve) => setTimeout(resolve, 50));
-        return {
-          outputText: `ok ${providerCalls}`,
-          tokenCount: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
-          providerResponseKind: null,
-        };
-      },
+      endpoint_id: endpoint.id,
+      backend_id: "backend.test",
     });
     const token = state.createToken({
       allowed: ["model.chat:*", "route.use:*"],
@@ -363,7 +589,7 @@ test("high-variance chat invocations are not coalesced", async () => {
       }),
     ]);
 
-    assert.equal(providerCalls, 2);
+    assert.equal(state.modelMountCore.providerInvocationCalls, 2);
     assert.equal(first.receipt.kind, "model_invocation");
     assert.equal(second.receipt.kind, "model_invocation");
   });

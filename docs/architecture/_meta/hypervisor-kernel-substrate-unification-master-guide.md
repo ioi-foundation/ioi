@@ -294,9 +294,9 @@ Slice 926 extends the fixed-argv rule to coding-tool approval, approval-state,
 context-policy/state-update, runtime Agentgres admission, and workspace-restore
 daemon-core runners. The remaining command-transport shape is still migration
 scaffolding, not the target Rust daemon-core API.
-Slice 927 extends the fixed-argv rule to the model_mount admission runner. The
+Slice 927 extends the fixed-argv rule to the model_mount core. The
 JS edge can no longer use `IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS` or constructor
-`args` to shape daemon-core argv for model_mount admission, provider execution,
+`args` to shape daemon-core argv for model_mount core, provider execution,
 receipt binding, or projection planning. This still leaves command transport as
 temporary migration scaffolding; the terminal target remains direct Rust
 daemon-core protocol/API ownership with no JS-authoritative model_mount hot path.
@@ -3073,7 +3073,7 @@ leaving the Rust bridge and receipt-binding guards in place. The helper module
 `modelMountInstanceLifecycleFields()`. The mounted
 `ModelMountingState.planModelMountInstanceLifecycle()` method is now a
 temporary positive Rust client over
-`RustModelMountAdmissionRunner.planInstanceLifecycle()` for public load/unload,
+`ModelMountCore.planInstanceLifecycle()` for public load/unload,
 not an authority-bearing JS planner. Direct instance lifecycle planning belongs
 to Rust `model_mount` through `plan_model_mount_instance_lifecycle`; JS may only
 assemble canonical request facts, commit the Rust-authored transition record
@@ -5594,7 +5594,7 @@ protocol/API ownership.
 Slice 1061 extends the temporary helper to the remaining large daemon-core
 command runners: context policy and model-mount admission.
 `runtime-context-policy-runner.mjs` and
-`model-mounting/model-mount-admission-runner.mjs` now delegate fixed empty-argv
+`model-mounting/model-mount-core.mjs` now delegate fixed empty-argv
 command spawn, mock handling, JSON parsing, process failure mapping, and Rust
 rejection mapping to `runtime-daemon-core-command-runner.mjs` instead of
 importing `node:child_process` directly. This leaves the StepModule workload
@@ -6880,7 +6880,7 @@ to `plan_model_mount_read_projection_response`.
 
 This remains non-terminal because the broader Node model-mount bridge, command
 dispatch table, shared daemon-core command runner, JS command callers,
-model-mount admission runner, and JS state-materialization/read-projection
+model-mount core, and JS state-materialization/read-projection
 facades still exist. At this slice, the remaining
 `ioi_step_module_bridge/model_mount_command.rs` file was temporary transport
 scaffolding, not a durable model-mount projection boundary; Slice 1140 later
@@ -6952,7 +6952,7 @@ Node functions only delegate to the Rust response functions.
 
 This remains non-terminal because model-mount command transport, command
 dispatch, the shared daemon-core command runner, JS command callers,
-model-mount admission runner, provider execution/provider-result wrapper
+model-mount core, provider execution/provider-result wrapper
 delegates, local materialization, and mounted JS facades still exist. At this
 slice, the remaining `ioi_step_module_bridge/model_mount_command.rs` file was
 temporary transport scaffolding, not a durable model-mount admission boundary;
@@ -6976,7 +6976,7 @@ delegate to the Rust response functions.
 
 This remains non-terminal because model-mount command transport, command
 dispatch, the shared daemon-core command runner, JS command callers,
-model-mount admission runner, local materialization, mounted JS facades, and
+model-mount core, local materialization, mounted JS facades, and
 direct daemon-core protocol/API extraction still exist. At this slice, the
 remaining `ioi_step_module_bridge/model_mount_command.rs` file was temporary
 transport scaffolding, not a durable model-mount provider boundary; Slice 1140
@@ -7339,16 +7339,16 @@ expected-head/state-root persistence, receipts/events, replay, and stable
 IDE/CLI/SDK protocol surfaces, not preservation of a JS normalizer as a
 canonical state-update envelope author.
 
-Slice 1152 retires JS-side fallback synthesis from the model_mount admission
+Slice 1152 retires JS-side fallback synthesis from the model_mount core
 runner for Rust-authored receipt, evidence, process, inventory, accepted-head,
 accepted-transition, receipt-binding, and read-projection result fields. Rust
 `model_mount` already owns these response records behind the temporary
-daemon-core command path, so `model-mount-admission-runner.mjs` now preserves
+daemon-core command path, so `model-mount-core.mjs` now preserves
 missing Rust-owned arrays, booleans, counts, and process args as `null` instead
 of inventing empty refs, `false` supervision/spawn decisions, or inventory
 counts from JS-local fallbacks.
 
-This remains non-terminal because the JS model_mount runner, shared
+This remains non-terminal because the JS model_mount core request builder, shared
 daemon-core command runner, and Node bridge transport still carry requests to
 Rust. The target is direct Rust daemon-core model_mount protocol/API ownership
 over admission, receipt/state-root binding, Agentgres truth, projection,
@@ -7453,16 +7453,16 @@ command-envelope request builder, local replay cache, and thread persistence
 scaffolding.
 
 Slice 1160 retires JS-side required-boundary evidence fallback synthesis from
-the model_mount admission runner. Rust model_mount required-boundary planners
+the model_mount core. Rust model_mount required-boundary planners
 already own backend-lifecycle, server-control, runtime-engine, tokenizer, and
 route-control required records behind the temporary daemon-core command path,
-so `model-mount-admission-runner.mjs` now preserves omitted Rust-authored
+so `model-mount-core.mjs` now preserves omitted Rust-authored
 required-boundary `evidence_refs` as `null` instead of inventing empty arrays
 from JS. If Rust includes evidence in the returned record or record details,
 the temporary JS edge may pass that Rust-authored array through, but it may not
 create compatibility proof material when Rust omits it.
 
-This remains non-terminal because the JS model_mount runner, shared
+This remains non-terminal because the JS model_mount core request builder, shared
 daemon-core command runner, and Node bridge transport still carry model_mount
 required-boundary requests to Rust. The target is direct Rust daemon-core
 model_mount protocol/API ownership over lifecycle/control/tokenizer/route
@@ -8051,7 +8051,7 @@ accepts `daemonCoreInvoker`, runs it before the temporary binary spawn path,
 and preserves missing-command fail-closed behavior when neither a direct
 invoker nor the migration command is configured. The current StepModule,
 approval, context-policy, governed-improvement, worker/service package,
-workspace-restore, L1 settlement, external capability, model_mount admission,
+workspace-restore, L1 settlement, external capability, model_mount core,
 runtime Agentgres, and cTEE private workspace runners thread
 `options.daemonCoreInvoker` through their environment factories and
 constructors.
@@ -8081,7 +8081,7 @@ plumbing into the daemon composition boundary. `AgentgresRuntimeStateStore`
 accepts `daemonCoreInvoker`, stores it once, and passes it through the default
 runtime Agentgres, context-policy, governed-improvement, external capability,
 worker/service package, cTEE private workspace, L1 settlement, workspace
-restore, model_mount admission, and StepModule runner construction paths. The
+restore, model_mount core, and StepModule runner construction paths. The
 coding-tool invocation surface now receives a StepModule runner constructed
 with the daemon-level direct invoker instead of relying on its own env-only
 default.
@@ -8247,7 +8247,7 @@ API.
 
 Recent direct-invoker macro cut:
 approval-state, coding-tool approval, runtime Agentgres admission, workspace
-restore, context-policy/state-update, model_mount admission, and StepModule
+restore, model_mount, context-policy/state-update, and StepModule
 surfaces are direct-invoker-only or mounted core surfaces at the daemon layer.
 They no longer import the shared JS daemon-core command invoker, accept
 constructor command selection, accept constructor args, or treat
@@ -8433,6 +8433,23 @@ truth synthesis. The coding-tool approval policy remains a Rust-client adapter
 over that core, while the JS event/lease satisfaction gate, manifest matcher,
 and approval-block facade stay retired. Conformance now requires the core
 mount, Rust-envelope passthrough, and old runner paths to stay absent.
+
+Slice 1210 retires the model_mount admission runner facade. `ModelMountingState`
+now mounts `modelMountCore` directly; `model-mount-admission-runner.mjs` and its
+tests are deleted, the daemon store/service pass only `modelMountCore`, and the
+old command/env factory path is gone. Route decision, invocation admission,
+provider execution, provider invocation/stream execution, lifecycle/inventory,
+backend process/lifecycle, required-control, provider-result, accepted-receipt
+head/transition, read-projection, and invocation receipt-binding requests all
+enter Rust through the mounted core. The core requires `daemonCoreInvoker`,
+rejects retired `command`, `args`, and `env` compatibility options, and keeps
+Rust-owned receipt refs, evidence refs, process fields, inventory fields,
+expected heads, binding records, and projection evidence absent instead of
+synthesizing JS fallback truth. The old JS in-flight model invocation coalescing
+map is also deleted; migrated invocation calls stay on the Rust provider path
+instead of minting a JS `model_invocation_coalesced` receipt. Conformance now
+requires the old runner paths and symbols to stay absent and the mounted
+core/fail-closed compatibility-option guard to remain in place.
 
 Coding-tool approval satisfaction projection is now Rust-owned. The daemon
 approval core exposes `project_coding_tool_approval_satisfaction`; Rust

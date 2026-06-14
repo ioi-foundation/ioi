@@ -1,4 +1,4 @@
-export const MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION = "ioi.runtime.daemon_core.command.v1";
+export const MODEL_MOUNT_CORE_SCHEMA_VERSION = "ioi.runtime.daemon_core.command.v1";
 export const RUST_MODEL_MOUNT_ADMISSION_BACKEND = "rust_model_mount_live";
 export const RUST_MODEL_MOUNT_FIXTURE_BACKEND = "rust_model_mount_fixture";
 export const RUST_MODEL_MOUNT_FIXTURE_INVENTORY_BACKEND = "rust_model_mount_fixture_inventory";
@@ -31,51 +31,32 @@ export const RUST_MODEL_MOUNT_NATIVE_LOCAL_BACKEND = "rust_model_mount_native_lo
 export const RUST_MODEL_MOUNT_NATIVE_LOCAL_INVENTORY_BACKEND = "rust_model_mount_native_local_inventory";
 export const RUST_MODEL_MOUNT_NATIVE_LOCAL_LIFECYCLE_BACKEND = "rust_model_mount_native_local_lifecycle";
 
-export function createModelMountAdmissionRunnerFromEnv(env = process.env, options = {}) {
-  assertNoModelMountAdmissionCommandArgs(
-    options.args ??
-      env.IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS ??
-      env.IOI_MODEL_MOUNT_ADMISSION_COMMAND_ARGS,
-  );
-  assertNoModelMountAdmissionCommandSelection(
-    options.command ?? env.IOI_RUNTIME_DAEMON_CORE_COMMAND ?? env.IOI_MODEL_MOUNT_ADMISSION_COMMAND,
-  );
-  return new RustModelMountAdmissionRunner({
-    daemonCoreInvoker: options.daemonCoreInvoker,
-  });
+export function createModelMountCore(options = {}) {
+  return new ModelMountCore(options);
 }
 
-export function assertNoModelMountAdmissionCommandArgs(value) {
-  if (value == null) return;
+export function assertNoRetiredModelMountCoreOption(field, value) {
   if (Array.isArray(value) && value.length === 0) return;
   if (typeof value === "string" && value.trim().length === 0) return;
-  throw new ModelMountAdmissionRunnerError(
-    "Model-mount admission command argument selection is retired; daemon-core command argv is fixed migration transport.",
-    "model_mount_admission_command_args_retired",
-    { retired_args: value },
-  );
-}
-
-export function assertNoModelMountAdmissionCommandSelection(value) {
   if (value == null) return;
-  if (typeof value === "string" && value.trim().length === 0) return;
-  throw new ModelMountAdmissionRunnerError(
-    "Model-mount admission binary command selection is retired; use daemonCoreInvoker for direct Rust daemon-core model_mount admission.",
-    "model_mount_admission_command_selection_retired",
-    { retired_command: value },
+  throw new ModelMountCoreError(
+    "Model-mount command compatibility options are retired; use daemonCoreInvoker for direct Rust daemon-core model_mount APIs.",
+    "model_mount_core_compatibility_option_retired",
+    { retired_option: field, retired_value: value },
   );
 }
 
-export class RustModelMountAdmissionRunner {
+export class ModelMountCore {
   constructor(options = {}) {
-    assertNoModelMountAdmissionCommandArgs(options.args);
-    assertNoModelMountAdmissionCommandSelection(options.command);
+    assertNoRetiredModelMountCoreOption("command", options.command);
+    assertNoRetiredModelMountCoreOption("args", options.args);
+    assertNoRetiredModelMountCoreOption("env", options.env);
     this.daemonCoreInvoker = optionalFunction(options.daemonCoreInvoker);
   }
 
   admitRouteDecision(request) {
     const bridgeRequest = {
-      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
       operation: "admit_model_mount_route_decision",
       backend: RUST_MODEL_MOUNT_ADMISSION_BACKEND,
       request,
@@ -85,7 +66,7 @@ export class RustModelMountAdmissionRunner {
 
   admitInvocation(request) {
     const bridgeRequest = {
-      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
       operation: "admit_model_mount_invocation",
       backend: RUST_MODEL_MOUNT_ADMISSION_BACKEND,
       request,
@@ -95,7 +76,7 @@ export class RustModelMountAdmissionRunner {
 
   admitProviderExecution(request) {
     const bridgeRequest = {
-      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
       operation: "admit_model_mount_provider_execution",
       backend: RUST_MODEL_MOUNT_ADMISSION_BACKEND,
       request,
@@ -105,7 +86,7 @@ export class RustModelMountAdmissionRunner {
 
   executeProviderInvocation(request) {
     const bridgeRequest = {
-      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
       operation: "execute_model_mount_provider_invocation",
       backend: request?.execution_backend ?? RUST_MODEL_MOUNT_FIXTURE_BACKEND,
       request,
@@ -115,7 +96,7 @@ export class RustModelMountAdmissionRunner {
 
   executeProviderStreamInvocation(request) {
     const bridgeRequest = {
-      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
       operation: "execute_model_mount_provider_stream_invocation",
       backend: request?.execution_backend ?? RUST_MODEL_MOUNT_NATIVE_LOCAL_BACKEND,
       request,
@@ -125,7 +106,7 @@ export class RustModelMountAdmissionRunner {
 
   planProviderLifecycle(request) {
     const bridgeRequest = {
-      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
       operation: "plan_model_mount_provider_lifecycle",
       backend: request?.execution_backend ?? RUST_MODEL_MOUNT_NATIVE_LOCAL_LIFECYCLE_BACKEND,
       request,
@@ -135,7 +116,7 @@ export class RustModelMountAdmissionRunner {
 
   planProviderInventory(request) {
     const bridgeRequest = {
-      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
       operation: "plan_model_mount_provider_inventory",
       backend: request?.execution_backend ?? RUST_MODEL_MOUNT_NATIVE_LOCAL_INVENTORY_BACKEND,
       request,
@@ -145,7 +126,7 @@ export class RustModelMountAdmissionRunner {
 
   planInstanceLifecycle(request) {
     const bridgeRequest = {
-      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
       operation: "plan_model_mount_instance_lifecycle",
       backend: request?.execution_backend ?? RUST_MODEL_MOUNT_INSTANCE_LIFECYCLE_BACKEND,
       request,
@@ -155,7 +136,7 @@ export class RustModelMountAdmissionRunner {
 
   admitProviderResult(request) {
     const bridgeRequest = {
-      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
       operation: "admit_model_mount_provider_result",
       backend: RUST_MODEL_MOUNT_ADMISSION_BACKEND,
       request,
@@ -165,7 +146,7 @@ export class RustModelMountAdmissionRunner {
 
   planBackendProcess(request) {
     const bridgeRequest = {
-      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
       operation: "plan_model_mount_backend_process",
       backend: RUST_MODEL_MOUNT_BACKEND_PROCESS_BACKEND,
       request,
@@ -175,7 +156,7 @@ export class RustModelMountAdmissionRunner {
 
   planBackendLifecycle(request) {
     const bridgeRequest = {
-      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
       operation: "plan_model_mount_backend_lifecycle",
       backend: RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_BACKEND,
       request,
@@ -185,7 +166,7 @@ export class RustModelMountAdmissionRunner {
 
   planArtifactEndpoint(request) {
     const bridgeRequest = {
-      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
       operation: "plan_model_mount_artifact_endpoint",
       backend: RUST_MODEL_MOUNT_ARTIFACT_ENDPOINT_BACKEND,
       request,
@@ -195,7 +176,7 @@ export class RustModelMountAdmissionRunner {
 
   planStorageControl(request) {
     const bridgeRequest = {
-      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
       operation: "plan_model_mount_storage_control",
       backend: RUST_MODEL_MOUNT_STORAGE_CONTROL_BACKEND,
       request,
@@ -205,7 +186,7 @@ export class RustModelMountAdmissionRunner {
 
   planMcpWorkflow(request) {
     const bridgeRequest = {
-      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
       operation: "plan_model_mount_mcp_workflow",
       backend: RUST_MODEL_MOUNT_MCP_WORKFLOW_BACKEND,
       request,
@@ -215,7 +196,7 @@ export class RustModelMountAdmissionRunner {
 
   planServerControl(request) {
     const bridgeRequest = {
-      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
       operation: "plan_model_mount_server_control",
       backend: RUST_MODEL_MOUNT_SERVER_CONTROL_BACKEND,
       request,
@@ -225,7 +206,7 @@ export class RustModelMountAdmissionRunner {
 
   planRuntimeEngine(request) {
     const bridgeRequest = {
-      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
       operation: "plan_model_mount_runtime_engine",
       backend: RUST_MODEL_MOUNT_RUNTIME_ENGINE_BACKEND,
       request,
@@ -235,7 +216,7 @@ export class RustModelMountAdmissionRunner {
 
   planRuntimeSurvey(request) {
     const bridgeRequest = {
-      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
       operation: "plan_model_mount_runtime_survey",
       backend: RUST_MODEL_MOUNT_RUNTIME_SURVEY_BACKEND,
       request,
@@ -245,7 +226,7 @@ export class RustModelMountAdmissionRunner {
 
   planTokenizerRequired(request) {
     const bridgeRequest = {
-      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
       operation: "plan_model_mount_tokenizer_required",
       backend: RUST_MODEL_MOUNT_TOKENIZER_REQUIRED_BACKEND,
       request,
@@ -255,7 +236,7 @@ export class RustModelMountAdmissionRunner {
 
   planTokenizer(request) {
     const bridgeRequest = {
-      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
       operation: "plan_model_mount_tokenizer",
       backend: RUST_MODEL_MOUNT_TOKENIZER_BACKEND,
       request,
@@ -265,7 +246,7 @@ export class RustModelMountAdmissionRunner {
 
   planConversationState(request) {
     const bridgeRequest = {
-      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
       operation: "plan_model_mount_conversation_state",
       backend: RUST_MODEL_MOUNT_CONVERSATION_STATE_BACKEND,
       request,
@@ -275,7 +256,7 @@ export class RustModelMountAdmissionRunner {
 
   planStreamCompletion(request) {
     const bridgeRequest = {
-      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
       operation: "plan_model_mount_stream_completion",
       backend: RUST_MODEL_MOUNT_STREAM_COMPLETION_BACKEND,
       request,
@@ -285,7 +266,7 @@ export class RustModelMountAdmissionRunner {
 
   planStreamCancel(request) {
     const bridgeRequest = {
-      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
       operation: "plan_model_mount_stream_cancel",
       backend: RUST_MODEL_MOUNT_STREAM_CANCEL_BACKEND,
       request,
@@ -295,7 +276,7 @@ export class RustModelMountAdmissionRunner {
 
   planRouteControlRequired(request) {
     const bridgeRequest = {
-      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
       operation: "plan_model_mount_route_control_required",
       backend: RUST_MODEL_MOUNT_ROUTE_CONTROL_REQUIRED_BACKEND,
       request,
@@ -305,7 +286,7 @@ export class RustModelMountAdmissionRunner {
 
   planRouteControl(request) {
     const bridgeRequest = {
-      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
       operation: "plan_model_mount_route_control",
       backend: RUST_MODEL_MOUNT_ROUTE_CONTROL_BACKEND,
       request,
@@ -315,7 +296,7 @@ export class RustModelMountAdmissionRunner {
 
   planCatalogProviderControl(request) {
     const bridgeRequest = {
-      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
       operation: "plan_model_mount_catalog_provider_control",
       backend: RUST_MODEL_MOUNT_CATALOG_PROVIDER_CONTROL_BACKEND,
       request,
@@ -325,7 +306,7 @@ export class RustModelMountAdmissionRunner {
 
   planProviderControl(request) {
     const bridgeRequest = {
-      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
       operation: "plan_model_mount_provider_control",
       backend: RUST_MODEL_MOUNT_PROVIDER_CONTROL_BACKEND,
       request,
@@ -335,7 +316,7 @@ export class RustModelMountAdmissionRunner {
 
   planCapabilityTokenControl(request) {
     const bridgeRequest = {
-      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
       operation: "plan_model_mount_capability_token_control",
       backend: RUST_MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_BACKEND,
       request,
@@ -345,7 +326,7 @@ export class RustModelMountAdmissionRunner {
 
   planVaultControl(request) {
     const bridgeRequest = {
-      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
       operation: "plan_model_mount_vault_control",
       backend: RUST_MODEL_MOUNT_VAULT_CONTROL_BACKEND,
       request,
@@ -355,7 +336,7 @@ export class RustModelMountAdmissionRunner {
 
   planReceiptGate(request) {
     const bridgeRequest = {
-      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
       operation: "plan_model_mount_receipt_gate",
       backend: RUST_MODEL_MOUNT_RECEIPT_GATE_BACKEND,
       request,
@@ -365,7 +346,7 @@ export class RustModelMountAdmissionRunner {
 
   planAcceptedReceiptHead(request) {
     const bridgeRequest = {
-      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
       operation: "plan_model_mount_accepted_receipt_head",
       backend: RUST_MODEL_MOUNT_ACCEPTED_RECEIPT_HEAD_BACKEND,
       request,
@@ -375,7 +356,7 @@ export class RustModelMountAdmissionRunner {
 
   planAcceptedReceiptTransition(request) {
     const bridgeRequest = {
-      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
       operation: "plan_model_mount_accepted_receipt_transition",
       backend: RUST_MODEL_MOUNT_ACCEPTED_RECEIPT_TRANSITION_BACKEND,
       request,
@@ -385,7 +366,7 @@ export class RustModelMountAdmissionRunner {
 
   planReadProjection(request) {
     const bridgeRequest = {
-      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
       operation: "plan_model_mount_read_projection",
       backend: "rust_model_mount_read_projection",
       request,
@@ -395,7 +376,7 @@ export class RustModelMountAdmissionRunner {
 
   bindInvocationReceipt(request = {}) {
     if (Object.hasOwn(request, "expectedHeads")) {
-      throw new ModelMountAdmissionRunnerError(
+      throw new ModelMountCoreError(
         "Model mount invocation expected heads must come from the Rust accepted-receipt transition planner.",
         "model_mount_invocation_expected_heads_retired",
         { status: 400 },
@@ -408,7 +389,7 @@ export class RustModelMountAdmissionRunner {
       receiptRef = null,
     } = request;
     const bridgeRequest = {
-      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
       operation: "bind_model_mount_invocation_receipt",
       backend: RUST_MODEL_MOUNT_ADMISSION_BACKEND,
       invocation,
@@ -421,18 +402,18 @@ export class RustModelMountAdmissionRunner {
 
   invokeDaemonCore(request) {
     if (!this.daemonCoreInvoker) {
-      throw new ModelMountAdmissionRunnerError(
-        "Model mount admission requires daemonCoreInvoker for direct Rust daemon-core model_mount admission.",
-        "model_mount_admission_direct_invoker_unconfigured",
+      throw new ModelMountCoreError(
+        "Model mount requires daemonCoreInvoker for direct Rust daemon-core model_mount APIs.",
+        "model_mount_core_direct_invoker_unconfigured",
         { boundary: "daemonCoreInvoker" },
       );
     }
     const response = this.daemonCoreInvoker(request);
     const responseError = objectRecord(response?.error);
     if (response?.ok === false && responseError) {
-      throw new ModelMountAdmissionRunnerError(
+      throw new ModelMountCoreError(
         responseError.message ?? "Rust model_mount core rejected the admission request.",
-        responseError.code ?? "model_mount_admission_direct_invoker_rejected",
+        responseError.code ?? "model_mount_core_direct_invoker_rejected",
         { error: responseError },
       );
     }
@@ -440,10 +421,10 @@ export class RustModelMountAdmissionRunner {
   }
 }
 
-export class ModelMountAdmissionRunnerError extends Error {
-  constructor(message, code = "model_mount_admission_runner_error", details = {}) {
+export class ModelMountCoreError extends Error {
+  constructor(message, code = "model_mount_core_error", details = {}) {
     super(message);
-    this.name = "ModelMountAdmissionRunnerError";
+    this.name = "ModelMountCoreError";
     this.status = details.status ?? 502;
     this.code = code;
     this.details = details;

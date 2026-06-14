@@ -652,7 +652,7 @@ export class AgentgresRuntimeStateStore {
       cwd: this.defaultCwd,
       homeDir: options.homeDir,
       vaultSecrets: options.vaultSecrets,
-      modelMountAdmissionRunner: options.modelMountAdmissionRunner,
+      modelMountCore: options.modelMountCore,
       daemonCoreInvoker: this.daemonCoreInvoker,
       commitRuntimeModelMountRecordState: (request) => this.commitRuntimeModelMountRecordState(request),
       commitRuntimeModelMountReceiptState: (request) => this.commitRuntimeModelMountReceiptState(request),

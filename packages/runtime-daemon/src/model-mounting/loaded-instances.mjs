@@ -1,6 +1,6 @@
 import {
   RUST_MODEL_MOUNT_INSTANCE_LIFECYCLE_BACKEND,
-} from "./model-mount-admission-runner.mjs";
+} from "./model-mount-core.mjs";
 import { commitModelMountRecordState } from "./record-state-commits.mjs";
 
 const MODEL_MOUNT_INSTANCE_LIFECYCLE_SCHEMA_VERSION = "ioi.model_mount.instance_lifecycle.v1";

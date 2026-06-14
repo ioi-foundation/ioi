@@ -149,7 +149,7 @@ function fakeState() {
       };
     },
   };
-  state.modelMountAdmissionRunner = {
+  state.modelMountCore = {
     planBackendLifecycle(request) {
       state.backendLifecyclePlans.push(request);
       const suffix = request.operation_kind.replace(/[^a-z0-9]+/gi, "-");
@@ -343,7 +343,7 @@ test("public backend lifecycle facades commit Rust-authored records", () => {
 
 test("public backend lifecycle fails closed only when Rust positive planner is unavailable", () => {
   const state = fakeState();
-  state.modelMountAdmissionRunner = {};
+  state.modelMountCore = {};
 
   assert.throws(
     () => backendHealth(state, "backend.native"),

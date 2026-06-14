@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
-  ModelMountAdmissionRunnerError,
+  MODEL_MOUNT_CORE_SCHEMA_VERSION,
+  ModelMountCoreError,
   RUST_MODEL_MOUNT_ARTIFACT_ENDPOINT_BACKEND,
   RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_BACKEND,
   RUST_MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_BACKEND,
@@ -23,9 +23,9 @@ import {
   RUST_MODEL_MOUNT_TOKENIZER_BACKEND,
   RUST_MODEL_MOUNT_TOKENIZER_REQUIRED_BACKEND,
   RUST_MODEL_MOUNT_VAULT_CONTROL_BACKEND,
-  createModelMountAdmissionRunnerFromEnv,
-  RustModelMountAdmissionRunner,
-} from "./model-mount-admission-runner.mjs";
+  createModelMountCore,
+  ModelMountCore,
+} from "./model-mount-core.mjs";
 
 function routeRequest() {
   return {
@@ -688,7 +688,7 @@ function streamCancelRequest() {
   };
 }
 
-test("Rust model_mount runner does not synthesize Rust-owned receipt, required-boundary evidence, or process fields", () => {
+test("Rust model_mount core does not synthesize Rust-owned receipt, required-boundary evidence, or process fields", () => {
   const sparseResultByOperation = new Map([
     ["admit_model_mount_route_decision", { record: {} }],
     ["admit_model_mount_invocation", { record: {} }],
@@ -707,7 +707,7 @@ test("Rust model_mount runner does not synthesize Rust-owned receipt, required-b
     ["plan_model_mount_tokenizer_required", { record: { details: {} } }],
     ["plan_model_mount_route_control_required", { record: { details: {} } }],
   ]);
-  const runner = new RustModelMountAdmissionRunner({
+  const runner = new ModelMountCore({
     daemonCoreInvoker(request) {
       return {
         ok: true,
@@ -782,9 +782,9 @@ test("Rust model_mount runner does not synthesize Rust-owned receipt, required-b
   assert.equal(routeControlRequired.evidence_refs, null);
 });
 
-test("Rust model_mount admission runner sends route-decision through direct daemon-core invoker", () => {
+test("Rust model_mount core sends route-decision through direct daemon-core invoker", () => {
   const calls = [];
-  const runner = new RustModelMountAdmissionRunner({
+  const runner = new ModelMountCore({
     daemonCoreInvoker(request) {
       calls.push({ request });
       return {
@@ -809,7 +809,7 @@ test("Rust model_mount admission runner sends route-decision through direct daem
   const result = runner.admitRouteDecision(routeRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
   assert.equal(calls[0].request.operation, "admit_model_mount_route_decision");
   assert.equal(calls[0].request.backend, "rust_model_mount_live");
   assert.equal(calls[0].request.request.model_ref, "model.local");
@@ -817,9 +817,9 @@ test("Rust model_mount admission runner sends route-decision through direct daem
   assert.equal(result.record.route_decision_hash, "sha256:test");
 });
 
-test("Rust model_mount admission runner sends invocation through direct daemon-core invoker", () => {
+test("Rust model_mount core sends invocation through direct daemon-core invoker", () => {
   const calls = [];
-  const runner = new RustModelMountAdmissionRunner({
+  const runner = new ModelMountCore({
     daemonCoreInvoker(request) {
       calls.push({ request });
       return {
@@ -844,16 +844,16 @@ test("Rust model_mount admission runner sends invocation through direct daemon-c
   const result = runner.admitInvocation(invocationRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
   assert.equal(calls[0].request.operation, "admit_model_mount_invocation");
   assert.equal(calls[0].request.request.route_decision_ref, "model_mount://route_decision/test");
   assert.equal(result.invocation_admission_ref, "model_mount://invocation_admission/test");
   assert.equal(result.record.invocation_admission_hash, "sha256:invocation-test");
 });
 
-test("Rust model_mount admission runner sends provider execution through direct daemon-core invoker", () => {
+test("Rust model_mount core sends provider execution through direct daemon-core invoker", () => {
   const calls = [];
-  const runner = new RustModelMountAdmissionRunner({
+  const runner = new ModelMountCore({
     daemonCoreInvoker(request) {
       calls.push({ request });
       return {
@@ -878,16 +878,16 @@ test("Rust model_mount admission runner sends provider execution through direct 
   const result = runner.admitProviderExecution(providerExecutionRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
   assert.equal(calls[0].request.operation, "admit_model_mount_provider_execution");
   assert.equal(calls[0].request.request.request_hash, "sha256:request");
   assert.equal(result.provider_execution_ref, "model_mount://provider_execution/test");
   assert.equal(result.record.provider_execution_hash, "sha256:provider-execution-test");
 });
 
-test("Rust model_mount admission runner sends provider invocation through direct daemon-core invoker", () => {
+test("Rust model_mount core sends provider invocation through direct daemon-core invoker", () => {
   const calls = [];
-  const runner = new RustModelMountAdmissionRunner({
+  const runner = new ModelMountCore({
     daemonCoreInvoker(request) {
       calls.push({ request });
       return {
@@ -923,7 +923,7 @@ test("Rust model_mount admission runner sends provider invocation through direct
   const result = runner.executeProviderInvocation(providerInvocationRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
   assert.equal(calls[0].request.operation, "execute_model_mount_provider_invocation");
   assert.equal(calls[0].request.backend, "rust_model_mount_fixture");
   assert.equal(calls[0].request.request.provider_execution_ref, "model_mount://provider_execution/test");
@@ -933,9 +933,9 @@ test("Rust model_mount admission runner sends provider invocation through direct
   assert.equal(result.invocation_hash, "sha256:invocation");
 });
 
-test("Rust model_mount admission runner sends native-local provider stream invocation through direct daemon-core invoker", () => {
+test("Rust model_mount core sends native-local provider stream invocation through direct daemon-core invoker", () => {
   const calls = [];
-  const runner = new RustModelMountAdmissionRunner({
+  const runner = new ModelMountCore({
     daemonCoreInvoker(request) {
       calls.push({ request });
       return {
@@ -984,7 +984,7 @@ test("Rust model_mount admission runner sends native-local provider stream invoc
   const result = runner.executeProviderStreamInvocation(providerStreamInvocationRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
   assert.equal(calls[0].request.operation, "execute_model_mount_provider_stream_invocation");
   assert.equal(calls[0].request.backend, "rust_model_mount_native_local_stream");
   assert.equal(calls[0].request.request.provider_kind, "ioi_native_local");
@@ -999,9 +999,9 @@ test("Rust model_mount admission runner sends native-local provider stream invoc
   assert.equal(result.invocation_hash, "sha256:stream-invocation");
 });
 
-test("Rust model_mount admission runner sends native-local provider lifecycle through direct daemon-core invoker", () => {
+test("Rust model_mount core sends native-local provider lifecycle through direct daemon-core invoker", () => {
   const calls = [];
-  const runner = new RustModelMountAdmissionRunner({
+  const runner = new ModelMountCore({
     daemonCoreInvoker(request) {
       calls.push({ request });
       return {
@@ -1033,7 +1033,7 @@ test("Rust model_mount admission runner sends native-local provider lifecycle th
   const result = runner.planProviderLifecycle(providerLifecycleRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
   assert.equal(calls[0].request.operation, "plan_model_mount_provider_lifecycle");
   assert.equal(calls[0].request.backend, "rust_model_mount_native_local_lifecycle");
   assert.equal(calls[0].request.request.action, "load");
@@ -1046,9 +1046,9 @@ test("Rust model_mount admission runner sends native-local provider lifecycle th
   assert.equal(Object.hasOwn(result.result, "backendId"), false);
 });
 
-test("Rust model_mount admission runner sends local provider inventory through direct daemon-core invoker", () => {
+test("Rust model_mount core sends local provider inventory through direct daemon-core invoker", () => {
   const calls = [];
-  const runner = new RustModelMountAdmissionRunner({
+  const runner = new ModelMountCore({
     daemonCoreInvoker(request) {
       calls.push({ request });
       const record = {
@@ -1126,7 +1126,7 @@ test("Rust model_mount admission runner sends local provider inventory through d
   const result = runner.planProviderInventory(providerInventoryRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
   assert.equal(calls[0].request.operation, "plan_model_mount_provider_inventory");
   assert.equal(calls[0].request.backend, "rust_model_mount_native_local_inventory");
   assert.equal(calls[0].request.request.action, "list_loaded");
@@ -1149,9 +1149,9 @@ test("Rust model_mount admission runner sends local provider inventory through d
   assert.equal(Object.hasOwn(result.result, "itemCount"), false);
 });
 
-test("Rust model_mount admission runner sends model instance lifecycle through direct daemon-core invoker", () => {
+test("Rust model_mount core sends model instance lifecycle through direct daemon-core invoker", () => {
   const calls = [];
-  const runner = new RustModelMountAdmissionRunner({
+  const runner = new ModelMountCore({
     daemonCoreInvoker(request) {
       calls.push({ request });
       return {
@@ -1181,7 +1181,7 @@ test("Rust model_mount admission runner sends model instance lifecycle through d
   const result = runner.planInstanceLifecycle(instanceLifecycleRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
   assert.equal(calls[0].request.operation, "plan_model_mount_instance_lifecycle");
   assert.equal(calls[0].request.backend, "rust_model_mount_instance_lifecycle");
   assert.equal(calls[0].request.request.action, "load");
@@ -1193,9 +1193,9 @@ test("Rust model_mount admission runner sends model instance lifecycle through d
   assert.equal(result.instance_lifecycle_hash, "sha256:instance-lifecycle");
 });
 
-test("Rust model_mount admission runner sends provider result admission through direct daemon-core invoker", () => {
+test("Rust model_mount core sends provider result admission through direct daemon-core invoker", () => {
   const calls = [];
-  const runner = new RustModelMountAdmissionRunner({
+  const runner = new ModelMountCore({
     daemonCoreInvoker(request) {
       calls.push({ request });
       return {
@@ -1220,7 +1220,7 @@ test("Rust model_mount admission runner sends provider result admission through 
   const result = runner.admitProviderResult(providerResultRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
   assert.equal(calls[0].request.operation, "admit_model_mount_provider_result");
   assert.equal(calls[0].request.backend, "rust_model_mount_live");
   assert.equal(calls[0].request.request.execution_backend, "rust_model_mount_native_local_stream");
@@ -1231,9 +1231,9 @@ test("Rust model_mount admission runner sends provider result admission through 
   assert.deepEqual(result.evidence_refs, ["rust_model_mount_provider_result_admission"]);
 });
 
-test("Rust model_mount admission runner sends backend process plan request", () => {
+test("Rust model_mount core sends backend process plan request", () => {
   const calls = [];
-  const runner = new RustModelMountAdmissionRunner({
+  const runner = new ModelMountCore({
     daemonCoreInvoker(request) {
       calls.push({ request });
       return {
@@ -1270,7 +1270,7 @@ test("Rust model_mount admission runner sends backend process plan request", () 
   const result = runner.planBackendProcess(backendProcessPlanRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
   assert.equal(calls[0].request.operation, "plan_model_mount_backend_process");
   assert.equal(calls[0].request.backend, "rust_model_mount_backend_process");
   assert.equal(calls[0].request.request.backend_kind, "llama_cpp");
@@ -1284,9 +1284,9 @@ test("Rust model_mount admission runner sends backend process plan request", () 
   assert.equal(Object.hasOwn(result, "publicArgs"), false);
 });
 
-test("Rust model_mount admission runner sends positive backend lifecycle request", () => {
+test("Rust model_mount core sends positive backend lifecycle request", () => {
   const calls = [];
-  const runner = new RustModelMountAdmissionRunner({
+  const runner = new ModelMountCore({
     daemonCoreInvoker(request) {
       calls.push({ request });
       const record = {
@@ -1354,7 +1354,7 @@ test("Rust model_mount admission runner sends positive backend lifecycle request
   const result = runner.planBackendLifecycle(backendLifecycleRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
   assert.equal(calls[0].request.operation, "plan_model_mount_backend_lifecycle");
   assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_BACKEND);
   assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.backend_lifecycle.v1");
@@ -1376,9 +1376,9 @@ test("Rust model_mount admission runner sends positive backend lifecycle request
   assert.equal(result.control_hash, "sha256:backend-lifecycle-control");
   assert.equal(Object.hasOwn(result, "status_code"), false);
 });
-test("Rust model_mount admission runner sends positive server-control request", () => {
+test("Rust model_mount core sends positive server-control request", () => {
   const calls = [];
-  const runner = new RustModelMountAdmissionRunner({
+  const runner = new ModelMountCore({
     daemonCoreInvoker(request) {
       calls.push({ request });
       return {
@@ -1444,7 +1444,7 @@ test("Rust model_mount admission runner sends positive server-control request", 
   const result = runner.planServerControl(serverControlRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
   assert.equal(calls[0].request.operation, "plan_model_mount_server_control");
   assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_SERVER_CONTROL_BACKEND);
   assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.server_control.v1");
@@ -1457,9 +1457,9 @@ test("Rust model_mount admission runner sends positive server-control request", 
   assert.equal(result.control_hash, "sha256:server-control");
 });
 
-test("Rust model_mount admission runner sends positive runtime-engine request", () => {
+test("Rust model_mount core sends positive runtime-engine request", () => {
   const calls = [];
-  const runner = new RustModelMountAdmissionRunner({
+  const runner = new ModelMountCore({
     daemonCoreInvoker(request) {
       calls.push({ request });
       return {
@@ -1529,7 +1529,7 @@ test("Rust model_mount admission runner sends positive runtime-engine request", 
   const result = runner.planRuntimeEngine(runtimeEngineRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
   assert.equal(calls[0].request.operation, "plan_model_mount_runtime_engine");
   assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_RUNTIME_ENGINE_BACKEND);
   assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.runtime_engine.v1");
@@ -1543,9 +1543,9 @@ test("Rust model_mount admission runner sends positive runtime-engine request", 
   assert.equal(result.control_hash, "sha256:runtime-engine");
 });
 
-test("Rust model_mount admission runner sends positive runtime-survey request", () => {
+test("Rust model_mount core sends positive runtime-survey request", () => {
   const calls = [];
-  const runner = new RustModelMountAdmissionRunner({
+  const runner = new ModelMountCore({
     daemonCoreInvoker(request) {
       calls.push({ request });
       return {
@@ -1651,7 +1651,7 @@ test("Rust model_mount admission runner sends positive runtime-survey request", 
   const result = runner.planRuntimeSurvey(runtimeSurveyRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
   assert.equal(calls[0].request.operation, "plan_model_mount_runtime_survey");
   assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_RUNTIME_SURVEY_BACKEND);
   assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.runtime_survey.v1");
@@ -1665,9 +1665,9 @@ test("Rust model_mount admission runner sends positive runtime-survey request", 
   assert.equal(result.survey_hash, "sha256:runtime-survey");
 });
 
-test("Rust model_mount admission runner sends tokenizer required request", () => {
+test("Rust model_mount core sends tokenizer required request", () => {
   const calls = [];
-  const runner = new RustModelMountAdmissionRunner({
+  const runner = new ModelMountCore({
     daemonCoreInvoker(request) {
       calls.push({ request });
       return {
@@ -1718,7 +1718,7 @@ test("Rust model_mount admission runner sends tokenizer required request", () =>
   const result = runner.planTokenizerRequired(tokenizerRequiredRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
   assert.equal(calls[0].request.operation, "plan_model_mount_tokenizer_required");
   assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_TOKENIZER_REQUIRED_BACKEND);
   assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.tokenizer_required.v1");
@@ -1735,9 +1735,9 @@ test("Rust model_mount admission runner sends tokenizer required request", () =>
   assert.equal(Object.hasOwn(result.details, "requestedScope"), false);
 });
 
-test("Rust model_mount admission runner sends route control required request", () => {
+test("Rust model_mount core sends route control required request", () => {
   const calls = [];
-  const runner = new RustModelMountAdmissionRunner({
+  const runner = new ModelMountCore({
     daemonCoreInvoker(request) {
       calls.push({ request });
       return {
@@ -1790,7 +1790,7 @@ test("Rust model_mount admission runner sends route control required request", (
   const result = runner.planRouteControlRequired(routeControlRequiredRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
   assert.equal(calls[0].request.operation, "plan_model_mount_route_control_required");
   assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_ROUTE_CONTROL_REQUIRED_BACKEND);
   assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.route_control_required.v1");
@@ -1808,9 +1808,9 @@ test("Rust model_mount admission runner sends route control required request", (
   assert.equal(Object.hasOwn(result.details, "receiptId"), false);
 });
 
-test("Rust model_mount admission runner sends positive tokenizer request", () => {
+test("Rust model_mount core sends positive tokenizer request", () => {
   const calls = [];
-  const runner = new RustModelMountAdmissionRunner({
+  const runner = new ModelMountCore({
     daemonCoreInvoker(request) {
       calls.push({ request });
       const record = {
@@ -1860,7 +1860,7 @@ test("Rust model_mount admission runner sends positive tokenizer request", () =>
   const result = runner.planTokenizer(tokenizerRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
   assert.equal(calls[0].request.operation, "plan_model_mount_tokenizer");
   assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_TOKENIZER_BACKEND);
   assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.tokenizer.v1");
@@ -1874,9 +1874,9 @@ test("Rust model_mount admission runner sends positive tokenizer request", () =>
   assert.equal(result.evidence_refs.includes("model_mount_tokenizer_rust_owned"), true);
 });
 
-test("Rust model_mount admission runner sends positive route control request", () => {
+test("Rust model_mount core sends positive route control request", () => {
   const calls = [];
-  const runner = new RustModelMountAdmissionRunner({
+  const runner = new ModelMountCore({
     daemonCoreInvoker(request) {
       calls.push({ request });
       const record = {
@@ -1921,7 +1921,7 @@ test("Rust model_mount admission runner sends positive route control request", (
   const result = runner.planRouteControl(routeControlRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
   assert.equal(calls[0].request.operation, "plan_model_mount_route_control");
   assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_ROUTE_CONTROL_BACKEND);
   assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.route_control.v1");
@@ -1934,9 +1934,9 @@ test("Rust model_mount admission runner sends positive route control request", (
   assert.equal(result.evidence_refs.includes("model_mount_route_control_rust_owned"), true);
 });
 
-test("Rust model_mount admission runner sends positive artifact-endpoint request", () => {
+test("Rust model_mount core sends positive artifact-endpoint request", () => {
   const calls = [];
-  const runner = new RustModelMountAdmissionRunner({
+  const runner = new ModelMountCore({
     daemonCoreInvoker(request) {
       calls.push({ request });
       const record = {
@@ -2010,7 +2010,7 @@ test("Rust model_mount admission runner sends positive artifact-endpoint request
   const result = runner.planArtifactEndpoint(artifactEndpointRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
   assert.equal(calls[0].request.operation, "plan_model_mount_artifact_endpoint");
   assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_ARTIFACT_ENDPOINT_BACKEND);
   assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.artifact_endpoint.v1");
@@ -2026,9 +2026,9 @@ test("Rust model_mount admission runner sends positive artifact-endpoint request
   assert.equal(result.evidence_refs.includes("agentgres_artifact_endpoint_truth_required"), true);
 });
 
-test("Rust model_mount admission runner sends positive storage-control request", () => {
+test("Rust model_mount core sends positive storage-control request", () => {
   const calls = [];
-  const runner = new RustModelMountAdmissionRunner({
+  const runner = new ModelMountCore({
     daemonCoreInvoker(request) {
       calls.push({ request });
       const record = {
@@ -2109,7 +2109,7 @@ test("Rust model_mount admission runner sends positive storage-control request",
   const result = runner.planStorageControl(storageControlRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
   assert.equal(calls[0].request.operation, "plan_model_mount_storage_control");
   assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_STORAGE_CONTROL_BACKEND);
   assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.storage_control.v1");
@@ -2125,9 +2125,9 @@ test("Rust model_mount admission runner sends positive storage-control request",
   assert.equal(result.evidence_refs.includes("agentgres_model_storage_truth_required"), true);
 });
 
-test("Rust model_mount admission runner sends positive MCP workflow request", () => {
+test("Rust model_mount core sends positive MCP workflow request", () => {
   const calls = [];
-  const runner = new RustModelMountAdmissionRunner({
+  const runner = new ModelMountCore({
     daemonCoreInvoker(request) {
       calls.push({ request });
       const record = {
@@ -2205,7 +2205,7 @@ test("Rust model_mount admission runner sends positive MCP workflow request", ()
   });
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
   assert.equal(calls[0].request.operation, "plan_model_mount_mcp_workflow");
   assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_MCP_WORKFLOW_BACKEND);
   assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.mcp_workflow.v1");
@@ -2218,9 +2218,9 @@ test("Rust model_mount admission runner sends positive MCP workflow request", ()
   assert.equal(result.evidence_refs.includes("agentgres_mcp_workflow_truth_required"), true);
 });
 
-test("Rust model_mount admission runner sends positive catalog-provider-control request", () => {
+test("Rust model_mount core sends positive catalog-provider-control request", () => {
   const calls = [];
-  const runner = new RustModelMountAdmissionRunner({
+  const runner = new ModelMountCore({
     daemonCoreInvoker(request) {
       calls.push({ request });
       const record = {
@@ -2287,7 +2287,7 @@ test("Rust model_mount admission runner sends positive catalog-provider-control 
   const result = runner.planCatalogProviderControl(catalogProviderControlRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
   assert.equal(calls[0].request.operation, "plan_model_mount_catalog_provider_control");
   assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_CATALOG_PROVIDER_CONTROL_BACKEND);
   assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.catalog_provider_control.v1");
@@ -2304,9 +2304,9 @@ test("Rust model_mount admission runner sends positive catalog-provider-control 
   assert.equal(result.evidence_refs.includes("ctee_catalog_provider_custody_enforced"), true);
 });
 
-test("Rust model_mount admission runner sends positive provider-control request", () => {
+test("Rust model_mount core sends positive provider-control request", () => {
   const calls = [];
-  const runner = new RustModelMountAdmissionRunner({
+  const runner = new ModelMountCore({
     daemonCoreInvoker(request) {
       calls.push({ request });
       const record = {
@@ -2375,7 +2375,7 @@ test("Rust model_mount admission runner sends positive provider-control request"
   const result = runner.planProviderControl(providerControlRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
   assert.equal(calls[0].request.operation, "plan_model_mount_provider_control");
   assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_PROVIDER_CONTROL_BACKEND);
   assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.provider_control.v1");
@@ -2392,9 +2392,9 @@ test("Rust model_mount admission runner sends positive provider-control request"
   assert.equal(result.evidence_refs.includes("ctee_provider_custody_enforced"), true);
 });
 
-test("Rust model_mount admission runner sends positive capability-token-control request", () => {
+test("Rust model_mount core sends positive capability-token-control request", () => {
   const calls = [];
-  const runner = new RustModelMountAdmissionRunner({
+  const runner = new ModelMountCore({
     daemonCoreInvoker(request) {
       calls.push({ request });
       const record = {
@@ -2478,7 +2478,7 @@ test("Rust model_mount admission runner sends positive capability-token-control 
   const result = runner.planCapabilityTokenControl(capabilityTokenControlRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
   assert.equal(calls[0].request.operation, "plan_model_mount_capability_token_control");
   assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_BACKEND);
   assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.capability_token_control.v1");
@@ -2499,9 +2499,9 @@ test("Rust model_mount admission runner sends positive capability-token-control 
   );
 });
 
-test("Rust model_mount admission runner sends positive vault-control request", () => {
+test("Rust model_mount core sends positive vault-control request", () => {
   const calls = [];
-  const runner = new RustModelMountAdmissionRunner({
+  const runner = new ModelMountCore({
     daemonCoreInvoker(request) {
       calls.push({ request });
       const record = {
@@ -2596,7 +2596,7 @@ test("Rust model_mount admission runner sends positive vault-control request", (
   const result = runner.planVaultControl(vaultControlRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
   assert.equal(calls[0].request.operation, "plan_model_mount_vault_control");
   assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_VAULT_CONTROL_BACKEND);
   assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.vault_control.v1");
@@ -2616,9 +2616,9 @@ test("Rust model_mount admission runner sends positive vault-control request", (
   assert.equal(result.evidence_refs.includes("ctee_vault_custody_enforced"), true);
 });
 
-test("Rust model_mount admission runner sends positive receipt-gate request", () => {
+test("Rust model_mount core sends positive receipt-gate request", () => {
   const calls = [];
-  const runner = new RustModelMountAdmissionRunner({
+  const runner = new ModelMountCore({
     daemonCoreInvoker(request) {
       calls.push({ request });
       return {
@@ -2710,7 +2710,7 @@ test("Rust model_mount admission runner sends positive receipt-gate request", ()
   const result = runner.planReceiptGate(receiptGateRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
   assert.equal(calls[0].request.operation, "plan_model_mount_receipt_gate");
   assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_RECEIPT_GATE_BACKEND);
   assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.receipt_gate.v1");
@@ -2722,9 +2722,9 @@ test("Rust model_mount admission runner sends positive receipt-gate request", ()
   assert.equal(result.rust_core_boundary, "model_mount.receipt_gate");
 });
 
-test("Rust model_mount admission runner sends positive conversation-state request", () => {
+test("Rust model_mount core sends positive conversation-state request", () => {
   const calls = [];
-  const runner = new RustModelMountAdmissionRunner({
+  const runner = new ModelMountCore({
     daemonCoreInvoker(request) {
       calls.push({ request });
       const record = {
@@ -2772,7 +2772,7 @@ test("Rust model_mount admission runner sends positive conversation-state reques
   const result = runner.planConversationState(conversationStateRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
   assert.equal(calls[0].request.operation, "plan_model_mount_conversation_state");
   assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_CONVERSATION_STATE_BACKEND);
   assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.conversation_state.v1");
@@ -2784,9 +2784,9 @@ test("Rust model_mount admission runner sends positive conversation-state reques
   assert.equal(result.evidence_refs.includes("model_mount_conversation_state_rust_owned"), true);
 });
 
-test("Rust model_mount admission runner sends positive stream-completion request", () => {
+test("Rust model_mount core sends positive stream-completion request", () => {
   const calls = [];
-  const runner = new RustModelMountAdmissionRunner({
+  const runner = new ModelMountCore({
     daemonCoreInvoker(request) {
       calls.push({ request });
       const record = {
@@ -2852,7 +2852,7 @@ test("Rust model_mount admission runner sends positive stream-completion request
   const result = runner.planStreamCompletion(streamCompletionRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
   assert.equal(calls[0].request.operation, "plan_model_mount_stream_completion");
   assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_STREAM_COMPLETION_BACKEND);
   assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.stream_completion.v1");
@@ -2866,9 +2866,9 @@ test("Rust model_mount admission runner sends positive stream-completion request
   assert.equal(result.evidence_refs.includes("model_mount_stream_completion_rust_owned"), true);
 });
 
-test("Rust model_mount admission runner sends positive stream-cancel request", () => {
+test("Rust model_mount core sends positive stream-cancel request", () => {
   const calls = [];
-  const runner = new RustModelMountAdmissionRunner({
+  const runner = new ModelMountCore({
     daemonCoreInvoker(request) {
       calls.push({ request });
       const record = {
@@ -2941,7 +2941,7 @@ test("Rust model_mount admission runner sends positive stream-cancel request", (
   const result = runner.planStreamCancel(streamCancelRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
   assert.equal(calls[0].request.operation, "plan_model_mount_stream_cancel");
   assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_STREAM_CANCEL_BACKEND);
   assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.stream_cancel.v1");
@@ -2957,9 +2957,9 @@ test("Rust model_mount admission runner sends positive stream-cancel request", (
   assert.equal(result.evidence_refs.includes("agentgres_model_stream_cancel_truth_required"), true);
 });
 
-test("Rust model_mount admission runner sends invocation receipt binding request", () => {
+test("Rust model_mount core sends invocation receipt binding request", () => {
   const calls = [];
-  const runner = new RustModelMountAdmissionRunner({
+  const runner = new ModelMountCore({
     daemonCoreInvoker(request) {
       calls.push({ request });
       return {
@@ -3023,7 +3023,7 @@ test("Rust model_mount admission runner sends invocation receipt binding request
   });
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
   assert.equal(calls[0].request.operation, "bind_model_mount_invocation_receipt");
   assert.equal(Object.hasOwn(calls[0].request, "expected_heads"), false);
   assert.deepEqual(calls[0].request.accepted_receipt_transition.expected_heads, [
@@ -3039,8 +3039,8 @@ test("Rust model_mount admission runner sends invocation receipt binding request
   assert.deepEqual(result.evidence_refs, ["rust_receipt_binder_core", "sha256:binding", "sha256:append"]);
 });
 
-test("Rust model_mount admission runner rejects direct expected head binding input", () => {
-  const runner = new RustModelMountAdmissionRunner();
+test("Rust model_mount core rejects direct expected head binding input", () => {
+  const runner = new ModelMountCore();
 
   assert.throws(
     () =>
@@ -3053,9 +3053,9 @@ test("Rust model_mount admission runner rejects direct expected head binding inp
   );
 });
 
-test("Rust model_mount admission runner sends accepted receipt transition plan request", () => {
+test("Rust model_mount core sends accepted receipt transition plan request", () => {
   const calls = [];
-  const runner = new RustModelMountAdmissionRunner({
+  const runner = new ModelMountCore({
     daemonCoreInvoker(request) {
       calls.push({ request });
       return {
@@ -3099,7 +3099,7 @@ test("Rust model_mount admission runner sends accepted receipt transition plan r
   });
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
   assert.equal(calls[0].request.operation, "plan_model_mount_accepted_receipt_transition");
   assert.equal(calls[0].request.backend, "rust_model_mount_accepted_receipt_transition");
   assert.equal(calls[0].request.request.current_sequence, 0);
@@ -3118,9 +3118,9 @@ test("Rust model_mount admission runner sends accepted receipt transition plan r
   assert.equal(Object.hasOwn(result, "resultingHead"), false);
 });
 
-test("Rust model_mount admission runner sends accepted receipt head plan request", () => {
+test("Rust model_mount core sends accepted receipt head plan request", () => {
   const calls = [];
-  const runner = new RustModelMountAdmissionRunner({
+  const runner = new ModelMountCore({
     daemonCoreInvoker(request) {
       calls.push({ request });
       return {
@@ -3154,7 +3154,7 @@ test("Rust model_mount admission runner sends accepted receipt head plan request
   });
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
   assert.equal(calls[0].request.operation, "plan_model_mount_accepted_receipt_head");
   assert.equal(calls[0].request.backend, "rust_model_mount_accepted_receipt_head");
   assert.equal(calls[0].request.request.sequence, 2);
@@ -3167,9 +3167,9 @@ test("Rust model_mount admission runner sends accepted receipt head plan request
   assert.equal(Object.hasOwn(result, "stateRoot"), false);
 });
 
-test("Rust model_mount admission runner sends read projection plan request", () => {
+test("Rust model_mount core sends read projection plan request", () => {
   const calls = [];
-  const runner = new RustModelMountAdmissionRunner({
+  const runner = new ModelMountCore({
     daemonCoreInvoker(request) {
       calls.push({ request });
       return {
@@ -3202,7 +3202,7 @@ test("Rust model_mount admission runner sends read projection plan request", () 
   });
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
   assert.equal(calls[0].request.operation, "plan_model_mount_read_projection");
   assert.equal(calls[0].request.backend, "rust_model_mount_read_projection");
   assert.equal(calls[0].request.request.projection_kind, "projection_summary");
@@ -3212,29 +3212,23 @@ test("Rust model_mount admission runner sends read projection plan request", () 
   assert.equal(result.evidence_refs.includes("model_mount_js_read_projection_authoring_retired"), true);
 });
 
-test("Rust model_mount admission runner env uses daemon-level direct invoker", () => {
+test("Rust model_mount core factory uses daemon-level direct invoker", () => {
   const calls = [];
-  const runner = createModelMountAdmissionRunnerFromEnv(
-    {
-      IOI_STEP_MODULE_COMMAND: "retired-step-module-bridge",
-      IOI_STEP_MODULE_COMMAND_ARGS: "--retired-step",
+  const core = createModelMountCore({
+    daemonCoreInvoker(request) {
+      calls.push(request);
+      return {
+        source: "direct_daemon_core_api",
+        backend: "rust_model_mount_live",
+        record: {
+          route_decision_ref: "model_mount://route_decision/direct",
+          route_decision_hash: "sha256:direct",
+        },
+      };
     },
-    {
-      daemonCoreInvoker(request) {
-        calls.push(request);
-        return {
-          source: "direct_daemon_core_api",
-          backend: "rust_model_mount_live",
-          record: {
-            route_decision_ref: "model_mount://route_decision/direct",
-            route_decision_hash: "sha256:direct",
-          },
-        };
-      },
-    },
-  );
+  });
 
-  const result = runner.admitRouteDecision(routeRequest());
+  const result = core.admitRouteDecision(routeRequest());
 
   assert.equal(calls.length, 1);
   assert.equal(calls[0].operation, "admit_model_mount_route_decision");
@@ -3242,97 +3236,76 @@ test("Rust model_mount admission runner env uses daemon-level direct invoker", (
   assert.equal(result.route_decision_ref, "model_mount://route_decision/direct");
 });
 
-test("Rust model_mount admission runner rejects retired daemon-core command env", () => {
+test("Rust model_mount core rejects retired compatibility options", () => {
   assert.throws(
     () =>
-      createModelMountAdmissionRunnerFromEnv(
-        {
-          IOI_RUNTIME_DAEMON_CORE_COMMAND: "ioi-runtime-daemon-core",
+      createModelMountCore({
+        command: "ioi-runtime-daemon-core",
+        daemonCoreInvoker() {
+          return {};
         },
-        {
-          daemonCoreInvoker() {
-            return {};
-          },
-        },
-      ),
-    (error) =>
-      error instanceof ModelMountAdmissionRunnerError &&
-      error.code === "model_mount_admission_command_selection_retired",
-  );
-});
-
-test("Rust model_mount admission runner rejects retired model-mount command env", () => {
-  assert.throws(
-    () =>
-      createModelMountAdmissionRunnerFromEnv(
-        {
-          IOI_MODEL_MOUNT_ADMISSION_COMMAND: "retired-model-mount-bridge",
-        },
-        {
-          daemonCoreInvoker() {
-            return {};
-          },
-        },
-      ),
-    (error) =>
-      error instanceof ModelMountAdmissionRunnerError &&
-      error.code === "model_mount_admission_command_selection_retired",
-  );
-});
-
-test("Rust model_mount admission runner command args env fails closed", () => {
-  assert.throws(
-    () =>
-      createModelMountAdmissionRunnerFromEnv({
-        IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS: "--json",
       }),
     (error) =>
-      error instanceof ModelMountAdmissionRunnerError &&
-      error.code === "model_mount_admission_command_args_retired",
+      error instanceof ModelMountCoreError &&
+      error.code === "model_mount_core_compatibility_option_retired" &&
+      error.details.retired_option === "command",
   );
-});
-
-test("Rust model_mount admission runner retired model-mount command args env fails closed", () => {
   assert.throws(
     () =>
-      createModelMountAdmissionRunnerFromEnv({
-        IOI_MODEL_MOUNT_ADMISSION_COMMAND_ARGS: "--retired-model-mount",
+      createModelMountCore({
+        args: ["--json"],
+        daemonCoreInvoker() {
+          return {};
+        },
       }),
     (error) =>
-      error instanceof ModelMountAdmissionRunnerError &&
-      error.code === "model_mount_admission_command_args_retired",
+      error instanceof ModelMountCoreError &&
+      error.code === "model_mount_core_compatibility_option_retired" &&
+      error.details.retired_option === "args",
+  );
+  assert.throws(
+    () =>
+      createModelMountCore({
+        env: {
+          RETIRED_MODEL_MOUNT_COMMAND: "retired-model-mount-bridge",
+        },
+      }),
+    (error) =>
+      error instanceof ModelMountCoreError &&
+      error.code === "model_mount_core_compatibility_option_retired" &&
+      error.details.retired_option === "env",
   );
 });
 
-test("Rust model_mount admission runner command args constructor option fails closed", () => {
+test("Rust model_mount core command args constructor option fails closed", () => {
   assert.throws(
     () =>
-      new RustModelMountAdmissionRunner({
+      new ModelMountCore({
         command: "ioi-runtime-daemon-core",
         args: ["--json"],
       }),
     (error) =>
-      error instanceof ModelMountAdmissionRunnerError &&
-      error.code === "model_mount_admission_command_args_retired",
+      error instanceof ModelMountCoreError &&
+      error.code === "model_mount_core_compatibility_option_retired",
   );
 });
 
-test("Rust model_mount admission runner command constructor option fails closed", () => {
+test("Rust model_mount core command constructor option fails closed", () => {
   assert.throws(
-    () => new RustModelMountAdmissionRunner({ command: "ioi-runtime-daemon-core" }),
+    () => new ModelMountCore({ command: "ioi-runtime-daemon-core" }),
     (error) =>
-      error instanceof ModelMountAdmissionRunnerError &&
-      error.code === "model_mount_admission_command_selection_retired",
+      error instanceof ModelMountCoreError &&
+      error.code === "model_mount_core_compatibility_option_retired",
   );
 });
 
-test("Rust model_mount admission runner fails closed without direct invoker", () => {
-  const runner = new RustModelMountAdmissionRunner();
+test("Rust model_mount core fails closed without direct invoker", () => {
+  const core = new ModelMountCore();
 
   assert.throws(
-    () => runner.admitRouteDecision(routeRequest()),
+    () => core.admitRouteDecision(routeRequest()),
     (error) =>
-      error instanceof ModelMountAdmissionRunnerError &&
-      error.code === "model_mount_admission_direct_invoker_unconfigured",
+      error instanceof ModelMountCoreError &&
+      error.code === "model_mount_core_direct_invoker_unconfigured",
   );
 });
