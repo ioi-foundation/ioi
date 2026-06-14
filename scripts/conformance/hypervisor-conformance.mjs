@@ -2190,7 +2190,7 @@ function runDocs() {
       /`project_coding_tool_approval_satisfaction` and `plan_coding_tool_approval_satisfaction` are Rust daemon-core operations/.test(
         matrix,
       ) &&
-      /The JS store projection callback and exported JS manifest matcher are retired/.test(
+      /The JS store projection callback, projection-context run\/agent helper, and exported JS manifest matcher are retired/.test(
         matrix,
       ) &&
       /Coding-tool approval block positive API/.test(matrix) &&
@@ -8785,6 +8785,9 @@ function runBridge() {
       /CodingToolApprovalSatisfactionRequest/.test(approvalCore) &&
       /CodingToolApprovalSatisfactionProjectionCore/.test(approvalCore) &&
       /CodingToolApprovalSatisfactionProjectionRequest/.test(approvalCore) &&
+      /pub struct CodingToolApprovalSatisfactionProjectionRequest \{[\s\S]*pub state_dir: Option<String>[\s\S]*pub run: Value[\s\S]*pub agent: Value/.test(
+        approvalCore,
+      ) &&
       /CODING_TOOL_APPROVAL_SATISFACTION_REQUEST_SCHEMA_VERSION/.test(approvalCore) &&
       /CODING_TOOL_APPROVAL_SATISFACTION_RESULT_SCHEMA_VERSION/.test(approvalCore) &&
       /CODING_TOOL_APPROVAL_SATISFACTION_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
@@ -8796,13 +8799,20 @@ function runBridge() {
       /pub fn project_coding_tool_approval_satisfaction_response/.test(approvalCore) &&
       /pub fn plan_coding_tool_approval_satisfaction_response/.test(approvalCore) &&
       /rust_authority_plans_coding_tool_approval_satisfaction/.test(approvalCore) &&
-      /rust_authority_projects_coding_tool_approval_satisfaction_from_run_projection/.test(
+      /rust_authority_projects_coding_tool_approval_satisfaction_from_state_dir_replay/.test(
         approvalCore,
       ) &&
       /rust_authority_projects_revoked_approval_as_latest_decision/.test(approvalCore) &&
       /rust_core_shapes_coding_tool_approval_satisfaction_projection_command_response/.test(
         approvalCore,
       ) &&
+      /rust_approval_satisfaction_projection_requires_state_dir/.test(approvalCore) &&
+      /rust_approval_satisfaction_projection_rejects_js_candidate_transport/.test(approvalCore) &&
+      /CodingToolApprovalSatisfactionProjectionError::RetiredCandidateTransport/.test(
+        approvalCore,
+      ) &&
+      /approval_satisfaction_projection_sources_from_state_dir/.test(approvalCore) &&
+      /approval_satisfaction_state_dir_records/.test(approvalCore) &&
       /rust_authority_blocks_coding_tool_approval_satisfaction_mismatch/.test(approvalCore) &&
       /rust_authority_blocks_expired_coding_tool_approval_lease/.test(approvalCore) &&
       /rust_core_shapes_coding_tool_approval_satisfaction_command_response/.test(approvalCore) &&
@@ -8827,15 +8837,41 @@ function runBridge() {
       /coding tool approval core calls direct Rust daemon-core approval APIs/.test(
         runtimeCodingToolApprovalCoreTest,
       ) &&
+      /assert\.equal\(calls\[1\]\.request\.state_dir,\s*"\/runtime-state"\)/.test(
+        runtimeCodingToolApprovalCoreTest,
+      ) &&
+      /Object\.hasOwn\(calls\[1\]\.request,\s*"run"\),\s*false/.test(
+        runtimeCodingToolApprovalCoreTest,
+      ) &&
+      /Object\.hasOwn\(calls\[1\]\.request,\s*"agent"\),\s*false/.test(
+        runtimeCodingToolApprovalCoreTest,
+      ) &&
       /coding tool approval core returns the Rust envelope without JS normalization/.test(
         runtimeCodingToolApprovalCoreTest,
       ) &&
       /codingToolApprovalSatisfactionForThread/.test(runtimeCodingToolApproval) &&
       /approvalCore\.projectApprovalSatisfaction/.test(runtimeCodingToolApproval) &&
+      /state_dir:\s*store\?\.stateDir \?\? null/.test(runtimeCodingToolApproval) &&
+      !/approvalProjectionContextForThread/.test(runtimeCodingToolApproval) &&
+      !/projectionContext\.(?:run|agent)/.test(runtimeCodingToolApproval) &&
+      !/store\?\.agentForThread|store\?\.listRuns|store\?\.getRun|store\?\.runs\?\.get/.test(
+        runtimeCodingToolApproval,
+      ) &&
       !/store\.codingToolApprovalSatisfactionProjection/.test(runtimeCodingToolApproval) &&
       !/function codingToolApprovalManifestsMatch/.test(runtimeCodingToolApproval) &&
       /planApprovalSatisfaction/.test(runtimeCodingToolApproval) &&
       /JS approval satisfaction projection must not be used/.test(runtimeCodingToolApprovalTest) &&
+      /JS approval agent projection must not be used/.test(runtimeCodingToolApprovalTest) &&
+      /JS approval run projection must not be used/.test(runtimeCodingToolApprovalTest) &&
+      /assert\.equal\(capturedProjectionRequests\[0\]\.state_dir,\s*"\/runtime-state"\)/.test(
+        runtimeCodingToolApprovalTest,
+      ) &&
+      /Object\.hasOwn\(capturedProjectionRequests\[0\],\s*"run"\),\s*false/.test(
+        runtimeCodingToolApprovalTest,
+      ) &&
+      /Object\.hasOwn\(capturedProjectionRequests\[0\],\s*"agent"\),\s*false/.test(
+        runtimeCodingToolApprovalTest,
+      ) &&
       /coding tool approval retry match JS helper is retired/.test(runtimeCodingToolApprovalTest) &&
       /JS approval request readback must not be used/.test(runtimeCodingToolApprovalTest) &&
       /coding tool approval satisfaction is planned by Rust authority core/.test(
@@ -9011,7 +9047,8 @@ function runBridge() {
       /approval_queue_projection_sources_from_state_dir/.test(approvalCore) &&
       /approval_queue_state_dir_records/.test(approvalCore) &&
       /rust_core_shapes_public_approval_queue_command_response/.test(approvalCore) &&
-      /approval_queue_projection_candidates/.test(approvalCore) &&
+      /approval_projection_candidates_from_sources/.test(approvalCore) &&
+      /append_approval_projection_source_from_replay/.test(approvalCore) &&
       /latest_approval_queue_decision/.test(approvalCore) &&
       /approval_queue_entry/.test(approvalCore) &&
       /project_approval_queue/.test(commandProtocolCore) &&

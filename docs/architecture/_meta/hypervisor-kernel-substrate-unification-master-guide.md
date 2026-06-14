@@ -8490,11 +8490,13 @@ core/fail-closed compatibility-option guard to remain in place.
 Coding-tool approval satisfaction projection is now Rust-owned. The daemon
 approval core exposes `project_coding_tool_approval_satisfaction`; Rust
 `approval.rs` derives the approval request, latest decision or revoke, lease
-state, expected head, and state root from the current run/agent projection
-before `plan_coding_tool_approval_satisfaction` evaluates the manifest. The
-optional JS store projection callback and exported JS manifest matcher are
-retired, so approval-required coding-tool execution can no longer recover a
-parallel JS truth path for request/decision/lease matching.
+state, expected head, and state root by replaying admitted `agents/*.json` and
+`runs/*.json` projections from runtime `state_dir` before
+`plan_coding_tool_approval_satisfaction` evaluates the manifest. The optional
+JS store projection callback, projection-context helper, `run`/`agent`
+candidate transport, and exported JS manifest matcher are retired, so
+approval-required coding-tool execution can no longer recover a parallel JS
+truth path for request/decision/lease matching.
 
 Coding-tool budget-block governance is now a positive Rust daemon-core path
 instead of a fail-closed JS facade. Rust `policy/context_lifecycle.rs` exposes
@@ -8616,9 +8618,11 @@ stable protocol APIs.
 Public approval queue/read projection now sends runtime `state_dir`; Rust
 replays admitted `agents/*.json` and `runs/*.json` Agentgres projections and
 rejects JS `agent`/`run`/`runs` queue candidate transport before queue truth can
-return. The remaining approval blockers are richer approval authority
-projection/replay storage, request/grant issuance semantics, command-transport
-retirement, and stable protocol APIs.
+return. Coding-tool approval satisfaction projection now uses the same runtime
+`state_dir` replay source and rejects JS `agent`/`run` candidate transport
+before request/decision/lease truth can return. The remaining approval blockers
+are richer approval authority projection/replay storage, request/grant issuance
+semantics, command-transport retirement, and stable protocol APIs.
 Runtime MCP registry/control state has moved from the fail-closed JS mutation
 facade into Rust-owned `plan_mcp_control_agent_state_update` planning plus
 Agentgres-backed `writeAgent` commits. Import/add/remove/enable/disable,

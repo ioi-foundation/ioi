@@ -16,10 +16,6 @@ function defaultNormalizeArray(value) {
   return Array.isArray(value) ? value : [];
 }
 
-function objectRecord(value) {
-  return value && typeof value === "object" && !Array.isArray(value) ? value : null;
-}
-
 export function createCodingToolApprovalPolicy(deps = {}) {
   const approvalCore =
     deps.approvalCore ??
@@ -153,14 +149,12 @@ export function createCodingToolApprovalPolicy(deps = {}) {
         approval_manifest: approvalManifest,
       });
     }
-    const projectionContext = approvalProjectionContextForThread(store, threadId, request);
     const projection = approvalCore.projectApprovalSatisfaction({
       schema_version: CODING_TOOL_APPROVAL_SATISFACTION_PROJECTION_REQUEST_SCHEMA_VERSION,
       thread_id: threadId,
       approval_id: approvalId,
       approval_manifest: approvalManifest,
-      run: projectionContext.run,
-      agent: projectionContext.agent,
+      state_dir: store?.stateDir ?? null,
       expected_head: optionalString(request.expected_head) ?? null,
       state_root_before: optionalString(request.state_root_before) ?? null,
       tool_id: toolId,
@@ -179,23 +173,6 @@ export function createCodingToolApprovalPolicy(deps = {}) {
       expected_head: projection?.expected_head ?? null,
       state_root_before: projection?.state_root_before ?? null,
     });
-  }
-
-  function approvalProjectionContextForThread(store, threadId, request = {}) {
-    const explicitRunId = optionalString(request.run_id);
-    let run = null;
-    if (explicitRunId) {
-      run = store?.getRun?.(explicitRunId) ?? store?.runs?.get?.(explicitRunId) ?? null;
-    }
-    const agent = objectRecord(request.agent) ?? store?.agentForThread?.(threadId) ?? null;
-    if (!run && agent?.id && typeof store?.listRuns === "function") {
-      const runs = store.listRuns(agent.id);
-      run = Array.isArray(runs) ? runs.at(-1) ?? null : null;
-    }
-    return {
-      agent,
-      run,
-    };
   }
 
   function codingToolApprovalBlockForThread({

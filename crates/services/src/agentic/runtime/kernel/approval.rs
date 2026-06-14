@@ -159,6 +159,10 @@ pub enum CodingToolApprovalSatisfactionProjectionError {
         actual: String,
     },
     MissingField(&'static str),
+    RetiredCandidateTransport(&'static str),
+    StateDirRequired,
+    ReplayReadFailed(String),
+    ReplayRecordInvalid(String),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -414,6 +418,8 @@ pub struct CodingToolApprovalSatisfactionProjectionRequest {
     pub approval_id: String,
     #[serde(default)]
     pub approval_manifest: Value,
+    #[serde(default)]
+    pub state_dir: Option<String>,
     #[serde(default)]
     pub run: Value,
     #[serde(default)]
@@ -1304,10 +1310,13 @@ impl CodingToolApprovalSatisfactionProjectionCore {
         CodingToolApprovalSatisfactionProjectionError,
     > {
         request.validate()?;
+        reject_approval_satisfaction_candidate_transport(request)?;
         let thread_id = optional_trimmed(Some(request.thread_id.as_str())).unwrap();
         let approval_id = optional_trimmed(Some(request.approval_id.as_str())).unwrap();
+        let sources =
+            approval_satisfaction_projection_sources_from_state_dir(request.state_dir.as_deref())?;
         let approval_request =
-            latest_approval_projection_request(&request.run, &request.agent, approval_id.as_str())
+            latest_approval_projection_request(&sources, &thread_id, approval_id.as_str())
                 .map(|record| {
                     approval_request_projection_value(
                         record,
@@ -1318,7 +1327,7 @@ impl CodingToolApprovalSatisfactionProjectionCore {
                 })
                 .unwrap_or(Value::Null);
         let latest_decision =
-            latest_approval_projection_decision(&request.run, &request.agent, approval_id.as_str())
+            latest_approval_projection_decision(&sources, &thread_id, approval_id.as_str())
                 .map(|record| {
                     approval_decision_projection_value(
                         record,
@@ -1358,14 +1367,14 @@ impl ApprovalQueueProjectionCore {
         let thread_id = optional_trimmed(Some(request.thread_id.as_str())).unwrap();
         let sources =
             approval_queue_projection_sources_from_state_dir(request.state_dir.as_deref())?;
-        let request_records = approval_queue_projection_candidates(
+        let request_records = approval_projection_candidates_from_sources(
             &sources,
             &thread_id,
             &["approvalRequests"],
             &["approval_request"],
             "approval.required",
         );
-        let decision_records = approval_queue_projection_candidates(
+        let decision_records = approval_projection_candidates_from_sources(
             &sources,
             &thread_id,
             &["approvalDecisions", "approvalRevocations"],
@@ -2670,42 +2679,37 @@ fn append_operator_control(existing: Option<&Value>, control: &Value) -> Value {
 }
 
 fn latest_approval_projection_request(
-    run: &Value,
-    agent: &Value,
+    sources: &ApprovalProjectionSources,
+    thread_id: &str,
     approval_id: &str,
 ) -> Option<Value> {
     latest_approval_projection_record(
-        approval_projection_candidates(run, agent, &["approvalRequests"], &["approval_request"]),
-        approval_id,
-    )
-}
-
-fn latest_approval_projection_decision(
-    run: &Value,
-    agent: &Value,
-    approval_id: &str,
-) -> Option<Value> {
-    latest_approval_projection_record(
-        approval_projection_candidates(
-            run,
-            agent,
-            &["approvalDecisions", "approvalRevocations"],
-            &["approval_decision", "approval_revoke"],
+        approval_projection_candidates_from_sources(
+            sources,
+            thread_id,
+            &["approvalRequests"],
+            &["approval_request"],
+            "approval.required",
         ),
         approval_id,
     )
 }
 
-fn approval_projection_candidates(
-    run: &Value,
-    agent: &Value,
-    array_names: &[&str],
-    control_names: &[&str],
-) -> Vec<Value> {
-    let mut records = Vec::new();
-    append_approval_projection_source(&mut records, run, array_names, control_names);
-    append_approval_projection_source(&mut records, agent, array_names, control_names);
-    records
+fn latest_approval_projection_decision(
+    sources: &ApprovalProjectionSources,
+    thread_id: &str,
+    approval_id: &str,
+) -> Option<Value> {
+    latest_approval_projection_record(
+        approval_projection_candidates_from_sources(
+            sources,
+            thread_id,
+            &["approvalDecisions", "approvalRevocations"],
+            &["approval_decision", "approval_revoke"],
+            "approval.decision",
+        ),
+        approval_id,
+    )
 }
 
 fn append_approval_projection_source(
@@ -2851,9 +2855,25 @@ fn approval_projection_lease_state(latest_decision: &Value) -> Value {
     })
 }
 
-struct ApprovalQueueProjectionSources {
+struct ApprovalProjectionSources {
     agents: Vec<Value>,
     runs: Vec<Value>,
+}
+
+fn reject_approval_satisfaction_candidate_transport(
+    request: &CodingToolApprovalSatisfactionProjectionRequest,
+) -> Result<(), CodingToolApprovalSatisfactionProjectionError> {
+    if !request.agent.is_null() {
+        return Err(
+            CodingToolApprovalSatisfactionProjectionError::RetiredCandidateTransport("agent"),
+        );
+    }
+    if !request.run.is_null() {
+        return Err(
+            CodingToolApprovalSatisfactionProjectionError::RetiredCandidateTransport("run"),
+        );
+    }
+    Ok(())
 }
 
 fn reject_approval_queue_candidate_transport(
@@ -2879,11 +2899,21 @@ fn reject_approval_queue_candidate_transport(
 
 fn approval_queue_projection_sources_from_state_dir(
     state_dir: Option<&str>,
-) -> Result<ApprovalQueueProjectionSources, ApprovalQueueProjectionError> {
+) -> Result<ApprovalProjectionSources, ApprovalQueueProjectionError> {
     let state_root = approval_queue_projection_state_root(state_dir)?;
-    Ok(ApprovalQueueProjectionSources {
+    Ok(ApprovalProjectionSources {
         agents: approval_queue_state_dir_records(state_root.join("agents"), "agents")?,
         runs: approval_queue_state_dir_records(state_root.join("runs"), "runs")?,
+    })
+}
+
+fn approval_satisfaction_projection_sources_from_state_dir(
+    state_dir: Option<&str>,
+) -> Result<ApprovalProjectionSources, CodingToolApprovalSatisfactionProjectionError> {
+    let state_root = approval_satisfaction_projection_state_root(state_dir)?;
+    Ok(ApprovalProjectionSources {
+        agents: approval_satisfaction_state_dir_records(state_root.join("agents"), "agents")?,
+        runs: approval_satisfaction_state_dir_records(state_root.join("runs"), "runs")?,
     })
 }
 
@@ -2895,16 +2925,58 @@ fn approval_queue_projection_state_root(
         .ok_or(ApprovalQueueProjectionError::StateDirRequired)
 }
 
+fn approval_satisfaction_projection_state_root(
+    state_dir: Option<&str>,
+) -> Result<PathBuf, CodingToolApprovalSatisfactionProjectionError> {
+    optional_trimmed(state_dir)
+        .map(PathBuf::from)
+        .ok_or(CodingToolApprovalSatisfactionProjectionError::StateDirRequired)
+}
+
 fn approval_queue_state_dir_records(
     dir: PathBuf,
     label: &'static str,
 ) -> Result<Vec<Value>, ApprovalQueueProjectionError> {
+    approval_state_dir_records(dir, label, "approval queue").map_err(|error| match error {
+        ApprovalProjectionReplayError::ReadFailed(message) => {
+            ApprovalQueueProjectionError::ReplayReadFailed(message)
+        }
+        ApprovalProjectionReplayError::RecordInvalid(message) => {
+            ApprovalQueueProjectionError::ReplayRecordInvalid(message)
+        }
+    })
+}
+
+fn approval_satisfaction_state_dir_records(
+    dir: PathBuf,
+    label: &'static str,
+) -> Result<Vec<Value>, CodingToolApprovalSatisfactionProjectionError> {
+    approval_state_dir_records(dir, label, "approval satisfaction").map_err(|error| match error {
+        ApprovalProjectionReplayError::ReadFailed(message) => {
+            CodingToolApprovalSatisfactionProjectionError::ReplayReadFailed(message)
+        }
+        ApprovalProjectionReplayError::RecordInvalid(message) => {
+            CodingToolApprovalSatisfactionProjectionError::ReplayRecordInvalid(message)
+        }
+    })
+}
+
+enum ApprovalProjectionReplayError {
+    ReadFailed(String),
+    RecordInvalid(String),
+}
+
+fn approval_state_dir_records(
+    dir: PathBuf,
+    label: &'static str,
+    projection_label: &'static str,
+) -> Result<Vec<Value>, ApprovalProjectionReplayError> {
     let entries = match fs::read_dir(&dir) {
         Ok(entries) => entries,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
         Err(error) => {
-            return Err(ApprovalQueueProjectionError::ReplayReadFailed(format!(
-                "failed to read approval queue {label} state_dir {}: {error}",
+            return Err(ApprovalProjectionReplayError::ReadFailed(format!(
+                "failed to read {projection_label} {label} state_dir {}: {error}",
                 dir.display()
             )));
         }
@@ -2912,8 +2984,8 @@ fn approval_queue_state_dir_records(
     let mut records = Vec::new();
     for entry in entries {
         let entry = entry.map_err(|error| {
-            ApprovalQueueProjectionError::ReplayReadFailed(format!(
-                "failed to read approval queue {label} state_dir entry: {error}"
+            ApprovalProjectionReplayError::ReadFailed(format!(
+                "failed to read {projection_label} {label} state_dir entry: {error}"
             ))
         })?;
         let path = entry.path();
@@ -2921,20 +2993,20 @@ fn approval_queue_state_dir_records(
             continue;
         }
         let contents = fs::read_to_string(&path).map_err(|error| {
-            ApprovalQueueProjectionError::ReplayReadFailed(format!(
-                "failed to read approval queue {label} record {}: {error}",
+            ApprovalProjectionReplayError::ReadFailed(format!(
+                "failed to read {projection_label} {label} record {}: {error}",
                 path.display()
             ))
         })?;
         let record: Value = serde_json::from_str(&contents).map_err(|error| {
-            ApprovalQueueProjectionError::ReplayRecordInvalid(format!(
-                "failed to parse approval queue {label} record {}: {error}",
+            ApprovalProjectionReplayError::RecordInvalid(format!(
+                "failed to parse {projection_label} {label} record {}: {error}",
                 path.display()
             ))
         })?;
         if !record.is_object() {
-            return Err(ApprovalQueueProjectionError::ReplayRecordInvalid(format!(
-                "approval queue {label} record {} must be an object",
+            return Err(ApprovalProjectionReplayError::RecordInvalid(format!(
+                "{projection_label} {label} record {} must be an object",
                 path.display()
             )));
         }
@@ -2943,8 +3015,8 @@ fn approval_queue_state_dir_records(
     Ok(records)
 }
 
-fn approval_queue_projection_candidates(
-    sources: &ApprovalQueueProjectionSources,
+fn approval_projection_candidates_from_sources(
+    sources: &ApprovalProjectionSources,
     thread_id: &str,
     array_names: &[&str],
     control_names: &[&str],
@@ -2952,7 +3024,7 @@ fn approval_queue_projection_candidates(
 ) -> Vec<Value> {
     let mut records = Vec::new();
     for agent in &sources.agents {
-        append_approval_queue_projection_source(
+        append_approval_projection_source_from_replay(
             &mut records,
             agent,
             None,
@@ -2963,7 +3035,7 @@ fn approval_queue_projection_candidates(
         );
     }
     for run in &sources.runs {
-        append_approval_queue_projection_source(
+        append_approval_projection_source_from_replay(
             &mut records,
             run,
             approval_projection_source_run_id(run),
@@ -2976,7 +3048,7 @@ fn approval_queue_projection_candidates(
     records
 }
 
-fn append_approval_queue_projection_source(
+fn append_approval_projection_source_from_replay(
     records: &mut Vec<Value>,
     source: &Value,
     run_id: Option<String>,
@@ -2988,7 +3060,7 @@ fn append_approval_queue_projection_source(
     let mut candidates = Vec::new();
     append_approval_projection_source(&mut candidates, source, array_names, control_names);
     for candidate in candidates {
-        records.push(approval_queue_projection_value(
+        records.push(approval_replay_projection_value(
             candidate,
             thread_id,
             run_id.as_deref(),
@@ -3001,7 +3073,7 @@ fn approval_projection_source_run_id(source: &Value) -> Option<String> {
     value_string(source, "id").or_else(|| value_string(source, "run_id"))
 }
 
-fn approval_queue_projection_value(
+fn approval_replay_projection_value(
     value: Value,
     thread_id: &str,
     run_id: Option<&str>,
@@ -3613,6 +3685,8 @@ mod tests {
         let decision_record = ApprovalDecisionStateUpdateCore
             .plan(&decision_request)
             .expect("approval decision state");
+        let state_dir = temp_state_dir("satisfaction");
+        write_state_record(&state_dir, "runs", "run_alpha", decision_record.run);
         CodingToolApprovalSatisfactionProjectionRequest {
             schema_version: CODING_TOOL_APPROVAL_SATISFACTION_PROJECTION_REQUEST_SCHEMA_VERSION
                 .to_string(),
@@ -3626,7 +3700,8 @@ mod tests {
                 "effect_class": "workspace_write",
                 "input_hash": "sha256:projection",
             }),
-            run: decision_record.run,
+            state_dir: Some(state_dir.to_string_lossy().to_string()),
+            run: Value::Null,
             agent: Value::Null,
             expected_head: Some("agentgres://head/projection-before".to_string()),
             state_root_before: Some("state://root/projection-before".to_string()),
@@ -3919,7 +3994,7 @@ mod tests {
     }
 
     #[test]
-    fn rust_authority_projects_coding_tool_approval_satisfaction_from_run_projection() {
+    fn rust_authority_projects_coding_tool_approval_satisfaction_from_state_dir_replay() {
         let request = approval_satisfaction_projection_request();
         let record = CodingToolApprovalSatisfactionProjectionCore
             .project(&request)
@@ -3984,8 +4059,9 @@ mod tests {
         let revoke_record = ApprovalRevokeStateUpdateCore
             .plan(&revoke_request)
             .expect("approval revoke state");
-        let mut request = approval_satisfaction_projection_request();
-        request.run = revoke_record.run;
+        let request = approval_satisfaction_projection_request();
+        let state_dir = PathBuf::from(request.state_dir.as_deref().expect("projection state_dir"));
+        write_state_record(&state_dir, "runs", "run_alpha", revoke_record.run);
 
         let record = CodingToolApprovalSatisfactionProjectionCore
             .project(&request)
@@ -4040,6 +4116,36 @@ mod tests {
         assert_eq!(
             response["record"]["schema_version"],
             CODING_TOOL_APPROVAL_SATISFACTION_PROJECTION_RESULT_SCHEMA_VERSION
+        );
+    }
+
+    #[test]
+    fn rust_approval_satisfaction_projection_requires_state_dir() {
+        let mut request = approval_satisfaction_projection_request();
+        request.state_dir = None;
+
+        let error = CodingToolApprovalSatisfactionProjectionCore
+            .project(&request)
+            .expect_err("missing state_dir must fail closed");
+
+        assert_eq!(
+            error,
+            CodingToolApprovalSatisfactionProjectionError::StateDirRequired
+        );
+    }
+
+    #[test]
+    fn rust_approval_satisfaction_projection_rejects_js_candidate_transport() {
+        let mut request = approval_satisfaction_projection_request();
+        request.run = json!({ "id": "run_retired", "trace": {} });
+
+        let error = CodingToolApprovalSatisfactionProjectionCore
+            .project(&request)
+            .expect_err("run candidate transport must stay retired");
+
+        assert_eq!(
+            error,
+            CodingToolApprovalSatisfactionProjectionError::RetiredCandidateTransport("run")
         );
     }
 

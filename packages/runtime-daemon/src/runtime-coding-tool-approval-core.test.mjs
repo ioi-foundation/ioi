@@ -34,8 +34,7 @@ test("coding tool approval core calls direct Rust daemon-core approval APIs", ()
   core.projectApprovalSatisfaction({
     thread_id: "thread_1",
     approval_id: "approval_alpha",
-    run: { id: "run_1" },
-    agent: { id: "agent_1" },
+    state_dir: "/runtime-state",
   });
   core.planApprovalSatisfaction({
     thread_id: "thread_1",
@@ -67,6 +66,9 @@ test("coding tool approval core calls direct Rust daemon-core approval APIs", ()
     calls[1].request.schema_version,
     CODING_TOOL_APPROVAL_SATISFACTION_PROJECTION_REQUEST_SCHEMA_VERSION,
   );
+  assert.equal(calls[1].request.state_dir, "/runtime-state");
+  assert.equal(Object.hasOwn(calls[1].request, "run"), false);
+  assert.equal(Object.hasOwn(calls[1].request, "agent"), false);
   assert.equal(calls[2].request.schema_version, CODING_TOOL_APPROVAL_SATISFACTION_REQUEST_SCHEMA_VERSION);
   assert.equal(calls[3].request.schema_version, CODING_TOOL_APPROVAL_BLOCK_REQUEST_SCHEMA_VERSION);
 });

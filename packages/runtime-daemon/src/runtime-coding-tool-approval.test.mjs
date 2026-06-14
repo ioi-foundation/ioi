@@ -355,30 +355,15 @@ test("coding tool approval satisfaction is planned by Rust authority core", () =
     }),
   });
   const store = {
+    stateDir: "/runtime-state",
     codingToolApprovalSatisfactionProjection(input) {
       throw new Error(`JS approval satisfaction projection must not be used: ${input.approval_id}`);
     },
-    agentForThread(threadId) {
-      assert.equal(threadId, "thread_1");
-      return { id: "agent_1", mode: "agent" };
+    agentForThread() {
+      throw new Error("JS approval agent projection must not be used");
     },
-    listRuns(agentId) {
-      assert.equal(agentId, "agent_1");
-      return [
-        {
-          id: "run_old",
-          agentId,
-          trace: {},
-        },
-        {
-          id: "run_1",
-          agentId,
-          trace: {
-            approvalRequests: [{ approval_id: "approval_alpha", event_id: "event_approval", seq: 3 }],
-            approvalDecisions: [{ approval_id: "approval_alpha", event_id: "event_decision", seq: 4 }],
-          },
-        },
-      ];
+    listRuns() {
+      throw new Error("JS approval run projection must not be used");
     },
     latestApprovalRequestEvent() {
       throw new Error("JS approval request readback must not be used");
@@ -409,8 +394,9 @@ test("coding tool approval satisfaction is planned by Rust authority core", () =
   assert.equal(capturedProjectionRequests.length, 1);
   assert.equal(capturedProjectionRequests[0].approval_id, "approval_alpha");
   assert.equal(capturedProjectionRequests[0].tool_id, "file.apply_patch");
-  assert.equal(capturedProjectionRequests[0].run.id, "run_1");
-  assert.equal(capturedProjectionRequests[0].agent.id, "agent_1");
+  assert.equal(capturedProjectionRequests[0].state_dir, "/runtime-state");
+  assert.equal(Object.hasOwn(capturedProjectionRequests[0], "run"), false);
+  assert.equal(Object.hasOwn(capturedProjectionRequests[0], "agent"), false);
   assert.equal(capturedSatisfactionRequests.length, 1);
   assert.equal(capturedSatisfactionRequests[0].schema_version, "ioi.runtime.coding-tool-approval-satisfaction-request.v1");
   assert.equal(capturedSatisfactionRequests[0].thread_id, "thread_1");
