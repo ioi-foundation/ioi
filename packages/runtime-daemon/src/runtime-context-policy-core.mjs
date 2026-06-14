@@ -173,6 +173,16 @@ export const RUNTIME_CONTROL_RUN_CANCEL_ADMISSION_REQUIRED_API_METHOD =
 export const THREAD_LIFECYCLE_THREAD_CONTROL_AGENT_STATE_UPDATE_API_METHOD =
   "planThreadControlAgentStateUpdate";
 export const WORKSPACE_TRUST_CONTROL_STATE_UPDATE_API_METHOD = "planWorkspaceTrustControlStateUpdate";
+export const THREAD_MEMORY_RUNTIME_MEMORY_PROJECTION_API_METHOD =
+  "projectRuntimeMemoryProjection";
+export const THREAD_MEMORY_RUNTIME_MEMORY_CONTROL_API_METHOD =
+  "planRuntimeMemoryControl";
+export const THREAD_MEMORY_MANAGER_VALIDATION_PROJECTION_API_METHOD =
+  "planMemoryManagerValidationProjection";
+export const THREAD_MEMORY_MANAGER_STATUS_PROJECTION_API_METHOD =
+  "planMemoryManagerStatusProjection";
+export const THREAD_MEMORY_AGENT_STATE_UPDATE_API_METHOD =
+  "planThreadMemoryAgentStateUpdate";
 export const THREAD_LIFECYCLE_RUNTIME_BRIDGE_THREAD_START_AGENT_STATE_UPDATE_API_METHOD =
   "planRuntimeBridgeThreadStartAgentStateUpdate";
 export const THREAD_LIFECYCLE_RUNTIME_BRIDGE_THREAD_CONTROL_AGENT_STATE_UPDATE_API_METHOD =
@@ -234,6 +244,12 @@ export class RuntimeContextPolicyCore {
       options.daemonCoreWorkspaceTrustApi ??
         options.daemonCoreApi?.workspaceTrust ??
         options.daemonCoreApi?.workspace_trust,
+    );
+    this.daemonCoreThreadMemoryApi = threadMemoryApi(
+      options.daemonCoreThreadMemoryApi ??
+        options.daemonCoreApi?.threadMemory ??
+        options.daemonCoreApi?.thread_memory ??
+        options.daemonCoreApi?.memory,
     );
   }
 
@@ -486,19 +502,19 @@ export class RuntimeContextPolicyCore {
   }
 
   projectRuntimeMemoryProjection(request = {}) {
-    return normalizeRuntimeMemoryProjectionBridgeResult(this.evaluateRawPolicy({
-      operation: "project_runtime_memory_projection",
-      schemaVersion: RUNTIME_MEMORY_PROJECTION_REQUEST_SCHEMA_VERSION,
+    return normalizeRuntimeMemoryProjectionBridgeResult(this.invokeThreadMemoryApi(
+      THREAD_MEMORY_RUNTIME_MEMORY_PROJECTION_API_METHOD,
+      RUNTIME_MEMORY_PROJECTION_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   planRuntimeMemoryControl(request = {}) {
-    return normalizeRuntimeMemoryControlBridgeResult(this.evaluateRawPolicy({
-      operation: "plan_runtime_memory_control",
-      schemaVersion: RUNTIME_MEMORY_CONTROL_REQUEST_SCHEMA_VERSION,
+    return normalizeRuntimeMemoryControlBridgeResult(this.invokeThreadMemoryApi(
+      THREAD_MEMORY_RUNTIME_MEMORY_CONTROL_API_METHOD,
+      RUNTIME_MEMORY_CONTROL_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   planRuntimeMcpServeToolCall(request = {}) {
@@ -710,27 +726,27 @@ export class RuntimeContextPolicyCore {
   }
 
   planMemoryManagerValidationProjection(request = {}) {
-    return normalizeMemoryManagerValidationProjectionBridgeResult(this.evaluateRawPolicy({
-      operation: "plan_memory_manager_validation_projection",
-      schemaVersion: MEMORY_MANAGER_VALIDATION_PROJECTION_REQUEST_SCHEMA_VERSION,
+    return normalizeMemoryManagerValidationProjectionBridgeResult(this.invokeThreadMemoryApi(
+      THREAD_MEMORY_MANAGER_VALIDATION_PROJECTION_API_METHOD,
+      MEMORY_MANAGER_VALIDATION_PROJECTION_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   planMemoryManagerStatusProjection(request = {}) {
-    return normalizeMemoryManagerStatusProjectionBridgeResult(this.evaluateRawPolicy({
-      operation: "plan_memory_manager_status_projection",
-      schemaVersion: MEMORY_MANAGER_STATUS_PROJECTION_REQUEST_SCHEMA_VERSION,
+    return normalizeMemoryManagerStatusProjectionBridgeResult(this.invokeThreadMemoryApi(
+      THREAD_MEMORY_MANAGER_STATUS_PROJECTION_API_METHOD,
+      MEMORY_MANAGER_STATUS_PROJECTION_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   planThreadMemoryAgentStateUpdate(request = {}) {
-    return normalizeThreadMemoryAgentStateUpdateBridgeResult(this.evaluateRawPolicy({
-      operation: "plan_thread_memory_agent_state_update",
-      schemaVersion: THREAD_MEMORY_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+    return normalizeThreadMemoryAgentStateUpdateBridgeResult(this.invokeThreadMemoryApi(
+      THREAD_MEMORY_AGENT_STATE_UPDATE_API_METHOD,
+      THREAD_MEMORY_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   planRuntimeBridgeThreadStartAgentStateUpdate(request = {}) {
@@ -920,6 +936,33 @@ export class RuntimeContextPolicyCore {
       throw new RuntimeContextPolicyCoreError(
         responseError.message ?? "Rust workspace trust policy rejected the request.",
         responseError.code ?? "workspace_trust_direct_api_rejected",
+        { error: responseError },
+      );
+    }
+    return response?.ok === true ? response.result : response;
+  }
+
+  invokeThreadMemoryApi(method, schemaVersion, request = {}) {
+    const invoke = this.daemonCoreThreadMemoryApi?.[method];
+    if (typeof invoke !== "function") {
+      throw new RuntimeContextPolicyCoreError(
+        `Thread memory policy requires daemonCoreThreadMemoryApi.${method} for direct Rust daemon-core policy evaluation.`,
+        "runtime_context_policy_core_direct_thread_memory_api_unconfigured",
+        {
+          boundary: `daemonCoreThreadMemoryApi.${method}`,
+          backend: RUST_CONTEXT_POLICY_BACKEND,
+        },
+      );
+    }
+    const response = invoke.call(this.daemonCoreThreadMemoryApi, {
+      ...(objectRecord(request) ?? {}),
+      schema_version: schemaVersion,
+    });
+    const responseError = objectRecord(response?.error);
+    if (response?.ok === false && responseError) {
+      throw new RuntimeContextPolicyCoreError(
+        responseError.message ?? "Rust thread memory policy rejected the request.",
+        responseError.code ?? "thread_memory_direct_api_rejected",
         { error: responseError },
       );
     }
@@ -3086,6 +3129,10 @@ function threadLifecycleApi(value) {
 }
 
 function workspaceTrustApi(value) {
+  return objectRecord(value);
+}
+
+function threadMemoryApi(value) {
   return objectRecord(value);
 }
 

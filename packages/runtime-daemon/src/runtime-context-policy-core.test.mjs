@@ -24,6 +24,11 @@ import {
   RUNTIME_CONTROL_OPERATOR_TURN_CONTROL_ADMISSION_REQUIRED_API_METHOD,
   RUNTIME_CONTROL_RUN_CANCEL_ADMISSION_REQUIRED_API_METHOD,
   RUNTIME_CONTROL_RUN_CANCEL_STATE_UPDATE_API_METHOD,
+  THREAD_MEMORY_AGENT_STATE_UPDATE_API_METHOD,
+  THREAD_MEMORY_MANAGER_STATUS_PROJECTION_API_METHOD,
+  THREAD_MEMORY_MANAGER_VALIDATION_PROJECTION_API_METHOD,
+  THREAD_MEMORY_RUNTIME_MEMORY_CONTROL_API_METHOD,
+  THREAD_MEMORY_RUNTIME_MEMORY_PROJECTION_API_METHOD,
   THREAD_LIFECYCLE_AGENT_CREATE_STATE_UPDATE_API_METHOD,
   THREAD_LIFECYCLE_AGENT_DELETE_STATE_UPDATE_API_METHOD,
   THREAD_LIFECYCLE_AGENT_STATUS_STATE_UPDATE_API_METHOD,
@@ -223,6 +228,22 @@ function createWorkspaceTrustDirectCore(method, handler) {
       throw new Error(`retired generic invoker reached for ${request?.operation}`);
     },
     daemonCoreWorkspaceTrustApi: {
+      [method](request) {
+        calls.push({ method, request });
+        return handler(request);
+      },
+    },
+  });
+  return { calls, runner };
+}
+
+function createThreadMemoryDirectCore(method, handler) {
+  const calls = [];
+  const runner = new RuntimeContextPolicyCore({
+    daemonCoreInvoker(request) {
+      throw new Error(`retired generic invoker reached for ${request?.operation}`);
+    },
+    daemonCoreThreadMemoryApi: {
       [method](request) {
         calls.push({ method, request });
         return handler(request);
@@ -2647,10 +2668,11 @@ test("runtime lifecycle projection core sends Rust daemon-core request", () => {
   );
 });
 
-test("runtime memory projection core sends Rust daemon-core request", () => {
+test("runtime memory projection core sends Rust projection through typed Rust daemon-core thread-memory API", () => {
   let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
+  const { calls, runner } = createThreadMemoryDirectCore(
+    THREAD_MEMORY_RUNTIME_MEMORY_PROJECTION_API_METHOD,
+    (request) => {
       captured = request;
       return {
         source: "rust_runtime_memory_projection_command",
@@ -2677,7 +2699,7 @@ test("runtime memory projection core sends Rust daemon-core request", () => {
         },
       };
     },
-  });
+  );
 
   const result = runner.projectRuntimeMemoryProjection({
     operation: "runtime_memory_projection",
@@ -2690,19 +2712,20 @@ test("runtime memory projection core sends Rust daemon-core request", () => {
     filters: { query: "deploy", scope: null },
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "project_runtime_memory_projection");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, THREAD_MEMORY_RUNTIME_MEMORY_PROJECTION_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    captured.schema_version,
     RUNTIME_MEMORY_PROJECTION_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.operation, "runtime_memory_projection");
-  assert.equal(captured.request.operation_kind, "runtime.memory_projection.records");
-  assert.equal(captured.request.projection_kind, "records");
-  assert.equal(captured.request.state_dir, "/runtime-state");
-  assert.deepEqual(captured.request.filters, { query: "deploy", scope: null });
-  assert.equal(Object.hasOwn(captured.request, "projection"), false);
+  assert.equal(Object.hasOwn(captured, "backend"), false);
+  assert.equal(captured.operation, "runtime_memory_projection");
+  assert.notEqual(captured.operation, "project_runtime_memory_projection");
+  assert.equal(captured.operation_kind, "runtime.memory_projection.records");
+  assert.equal(captured.projection_kind, "records");
+  assert.equal(captured.state_dir, "/runtime-state");
+  assert.deepEqual(captured.filters, { query: "deploy", scope: null });
+  assert.equal(Object.hasOwn(captured, "projection"), false);
   assert.equal(result.source, "rust_runtime_memory_projection_command");
   assert.equal(result.projection_kind, "records");
   assert.equal(result.projection.records[0].id, "memory_123");
@@ -2728,10 +2751,11 @@ test("runtime memory projection core sends Rust daemon-core request", () => {
   );
 });
 
-test("runtime memory control core sends Rust daemon-core request", () => {
+test("runtime memory control core sends Rust control through typed Rust daemon-core thread-memory API", () => {
   let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
+  const { calls, runner } = createThreadMemoryDirectCore(
+    THREAD_MEMORY_RUNTIME_MEMORY_CONTROL_API_METHOD,
+    (request) => {
       captured = request;
       return {
         source: "rust_runtime_memory_control_command",
@@ -2760,7 +2784,7 @@ test("runtime memory control core sends Rust daemon-core request", () => {
         },
       };
     },
-  });
+  );
 
   const result = runner.planRuntimeMemoryControl({
     operation: "write",
@@ -2772,18 +2796,19 @@ test("runtime memory control core sends Rust daemon-core request", () => {
     request: { text: "Remember release window" },
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "plan_runtime_memory_control");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, THREAD_MEMORY_RUNTIME_MEMORY_CONTROL_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    captured.schema_version,
     RUNTIME_MEMORY_CONTROL_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.operation_kind, "memory.write");
-  assert.equal(captured.request.state_dir, "/runtime-state");
-  assert.equal(captured.request.request.text, "Remember release window");
-  assert.equal(Object.hasOwn(captured.request, "current_record"), false);
-  assert.equal(Object.hasOwn(captured.request, "current_policy"), false);
+  assert.equal(Object.hasOwn(captured, "backend"), false);
+  assert.notEqual(captured.operation, "plan_runtime_memory_control");
+  assert.equal(captured.operation_kind, "memory.write");
+  assert.equal(captured.state_dir, "/runtime-state");
+  assert.equal(captured.request.text, "Remember release window");
+  assert.equal(Object.hasOwn(captured, "current_record"), false);
+  assert.equal(Object.hasOwn(captured, "current_policy"), false);
   assert.equal(result.source, "rust_runtime_memory_control_command");
   assert.equal(result.operation_kind, "memory.write");
   assert.equal(result.memory_state_kind, "record");
@@ -4351,10 +4376,11 @@ test("MCP manager status projection core sends Rust daemon-core projection reque
   assert.equal(Object.hasOwn(result.routes, "searchTools"), false);
 });
 
-test("memory manager status projection core sends Rust daemon-core projection request", () => {
+test("memory manager status projection core sends Rust projection through typed Rust daemon-core thread-memory API", () => {
   let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
+  const { calls, runner } = createThreadMemoryDirectCore(
+    THREAD_MEMORY_MANAGER_STATUS_PROJECTION_API_METHOD,
+    (request) => {
       captured = request;
       return {
             source: "rust_memory_manager_status_projection_command",
@@ -4381,7 +4407,7 @@ test("memory manager status projection core sends Rust daemon-core projection re
             evidence_refs: ["runtime_memory_manager"],
           };
     },
-  });
+  );
 
   const projection = { policy: { id: "policy.thread" }, records: [{ id: "memory.one" }] };
   const result = runner.planMemoryManagerStatusProjection({
@@ -4389,13 +4415,15 @@ test("memory manager status projection core sends Rust daemon-core projection re
     projection,
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "plan_memory_manager_status_projection");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, THREAD_MEMORY_MANAGER_STATUS_PROJECTION_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    captured.schema_version,
     MEMORY_MANAGER_STATUS_PROJECTION_REQUEST_SCHEMA_VERSION,
   );
-  assert.deepEqual(captured.request.projection, projection);
+  assert.equal(Object.hasOwn(captured, "operation"), false);
+  assert.equal(Object.hasOwn(captured, "backend"), false);
+  assert.deepEqual(captured.projection, projection);
   assert.equal(result.source, "rust_memory_manager_status_projection_command");
   assert.equal(result.status, "ready");
   assert.equal(result.write_requires_approval, true);
@@ -4405,10 +4433,11 @@ test("memory manager status projection core sends Rust daemon-core projection re
   assert.equal(Object.hasOwn(result, "writeRequiresApproval"), false);
 });
 
-test("memory manager validation projection core sends Rust daemon-core projection request", () => {
+test("memory manager validation projection core sends Rust projection through typed Rust daemon-core thread-memory API", () => {
   let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
+  const { calls, runner } = createThreadMemoryDirectCore(
+    THREAD_MEMORY_MANAGER_VALIDATION_PROJECTION_API_METHOD,
+    (request) => {
       captured = request;
       return {
             source: "rust_memory_manager_validation_projection_command",
@@ -4428,7 +4457,7 @@ test("memory manager validation projection core sends Rust daemon-core projectio
             records: [{ id: "memory.one" }],
           };
     },
-  });
+  );
 
   const projection = { policy: { id: "policy.thread" }, records: [{ id: "memory.one" }] };
   const result = runner.planMemoryManagerValidationProjection({
@@ -4436,12 +4465,15 @@ test("memory manager validation projection core sends Rust daemon-core projectio
     projection,
   });
 
-  assert.equal(captured.operation, "plan_memory_manager_validation_projection");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, THREAD_MEMORY_MANAGER_VALIDATION_PROJECTION_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    captured.schema_version,
     MEMORY_MANAGER_VALIDATION_PROJECTION_REQUEST_SCHEMA_VERSION,
   );
-  assert.deepEqual(captured.request.projection, projection);
+  assert.equal(Object.hasOwn(captured, "operation"), false);
+  assert.equal(Object.hasOwn(captured, "backend"), false);
+  assert.deepEqual(captured.projection, projection);
   assert.equal(result.source, "rust_memory_manager_validation_projection_command");
   assert.equal(result.ok, false);
   assert.equal(result.issue_count, 1);
@@ -4685,10 +4717,11 @@ test("MCP and memory manager projection core does not synthesize Rust-owned proj
   assert.equal(mcpToolFetch.returned_count, null);
 });
 
-test("thread memory agent state update core sends Rust state update through direct daemon-core invoker", () => {
+test("thread memory agent state update core sends Rust state update through typed Rust daemon-core thread-memory API", () => {
   let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
+  const { calls, runner } = createThreadMemoryDirectCore(
+    THREAD_MEMORY_AGENT_STATE_UPDATE_API_METHOD,
+    (request) => {
       captured = request;
       return {
             source: "rust_thread_memory_agent_state_update_command",
@@ -4706,7 +4739,7 @@ test("thread memory agent state update core sends Rust state update through dire
             },
           };
     },
-  });
+  );
 
   const result = runner.planThreadMemoryAgentStateUpdate({
     thread_id: "thread_1",
@@ -4717,14 +4750,15 @@ test("thread memory agent state update core sends Rust state update through dire
     created_at: "2026-06-06T06:05:00.000Z",
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "plan_thread_memory_agent_state_update");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, THREAD_MEMORY_AGENT_STATE_UPDATE_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    captured.schema_version,
     THREAD_MEMORY_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.control_kind, "memory_status");
+  assert.equal(Object.hasOwn(captured, "operation"), false);
+  assert.equal(Object.hasOwn(captured, "backend"), false);
+  assert.equal(captured.control_kind, "memory_status");
   assert.equal(result.source, "rust_thread_memory_agent_state_update_command");
   assert.equal(result.operation_kind, "thread.memory_status");
   assert.equal(result.control.control_kind, "memory_status");

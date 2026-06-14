@@ -529,12 +529,16 @@ policy mutation now have a positive Rust daemon-core boundary through
 before route projection returns. The runtime memory event-control cut extends
 that boundary to status, validation, and direct memory control-event append:
 those event-only operations now use Rust `plan_runtime_memory_control` and Rust
-runtime-event Agentgres admission instead of JS event authorship. This does not
-claim terminal memory migration: policy authority, cTEE private-memory custody,
-broader receipt/state-root binding, ArtifactRef/PayloadRef where needed, durable
-replay/projection storage, SDK/IDE protocol coverage, and conformance still need
-direct ownership. Do not encode the remaining JS memory adapters or run-memory
-projection helper as terminal architecture.
+runtime-event Agentgres admission instead of JS event authorship. The thread
+memory transport cut now reaches memory projection/control, memory-manager
+status/validation projection, and thread-memory agent state-update through
+typed `daemonCoreThreadMemoryApi` methods, and Rust rejects the retired memory
+command operations. This does not claim terminal memory migration: policy
+authority, cTEE private-memory custody, broader receipt/state-root binding,
+ArtifactRef/PayloadRef where needed, durable replay/projection storage, SDK/IDE
+protocol coverage, and conformance still need direct ownership. Do not encode
+the remaining JS memory adapters or run-memory projection helper as terminal
+architecture.
 The Slice 764 direct `AgentMemoryStore` writer and run-memory mutation path
 retirement matrix-compaction pass is complete. No matrix-compaction pass is
 pending until the next Rust-core extraction or facade-retirement seam lands.
@@ -8913,8 +8917,8 @@ only canonical context, filters, and runtime `state_dir` to Rust
 records, synthesizes effective policy/path/status/validation truth, and rejects
 retired JS projection candidate transport before public read truth can return.
 The remaining memory blockers are wallet/policy authority, cTEE private-memory
-custody, direct memory admission/storage APIs, command-transport retirement, and
-stable protocol APIs.
+custody, direct memory admission/storage APIs, richer durable replay/projection,
+and stable protocol APIs.
 Public approval queue/read projection now sends runtime `state_dir`; Rust
 replays admitted `agents/*.json` and `runs/*.json` Agentgres projections and
 rejects JS `agent`/`run`/`runs` queue candidate transport before queue truth can

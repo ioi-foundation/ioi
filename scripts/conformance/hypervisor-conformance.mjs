@@ -4126,7 +4126,10 @@ function runBridge() {
       /this\.daemonCoreWorkspaceTrustApi = options\.daemonCoreWorkspaceTrustApi/.test(
         runtimeDaemonIndex,
       ) &&
-      /createRuntimeContextPolicyCore\(\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*daemonCoreContextLifecycleApi: this\.daemonCoreContextLifecycleApi,\s*daemonCoreRuntimeControlApi: this\.daemonCoreRuntimeControlApi,\s*daemonCoreThreadLifecycleApi: this\.daemonCoreThreadLifecycleApi,\s*daemonCoreWorkspaceTrustApi: this\.daemonCoreWorkspaceTrustApi,\s*\}\)/.test(
+      /this\.daemonCoreThreadMemoryApi = options\.daemonCoreThreadMemoryApi/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /createRuntimeContextPolicyCore\(\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*daemonCoreContextLifecycleApi: this\.daemonCoreContextLifecycleApi,\s*daemonCoreRuntimeControlApi: this\.daemonCoreRuntimeControlApi,\s*daemonCoreThreadLifecycleApi: this\.daemonCoreThreadLifecycleApi,\s*daemonCoreWorkspaceTrustApi: this\.daemonCoreWorkspaceTrustApi,\s*daemonCoreThreadMemoryApi: this\.daemonCoreThreadMemoryApi,\s*\}\)/.test(
         runtimeDaemonIndex,
       ) &&
       /daemonCoreContextLifecycleApi:\s*\{[\s\S]*?evaluateContextBudgetPolicy\(request\)/.test(
@@ -4160,6 +4163,15 @@ function runBridge() {
         daemonCoreDirectInvokerServiceTest,
       ) &&
       /Object\.hasOwn\(workspaceTrustCalls\[0\]\.request,\s*"backend"\),\s*false/.test(
+        daemonCoreDirectInvokerServiceTest,
+      ) &&
+      /daemonCoreThreadMemoryApi:\s*\{[\s\S]*?planRuntimeMemoryControl\(request\)/.test(
+        daemonCoreDirectInvokerServiceTest,
+      ) &&
+      /Object\.hasOwn\(threadMemoryCalls\[0\]\.request,\s*"backend"\),\s*false/.test(
+        daemonCoreDirectInvokerServiceTest,
+      ) &&
+      /threadMemoryCalls\[0\]\.request\.operation,\s*"plan_runtime_memory_control"/.test(
         daemonCoreDirectInvokerServiceTest,
       ) &&
       /this\.daemonCoreAuthorityApi = options\.daemonCoreAuthorityApi/.test(runtimeDaemonIndex) &&
@@ -12940,17 +12952,22 @@ function runBridge() {
       runtimeThreadMemoryState,
     ) &&
     /planRuntimeMemoryControl\(request/.test(runtimeContextPolicyCore) &&
-    /plan_runtime_memory_control/.test(runtimeContextPolicyCore) &&
+    /THREAD_MEMORY_RUNTIME_MEMORY_CONTROL_API_METHOD\s*=\s*"planRuntimeMemoryControl"/.test(
+      runtimeContextPolicyCore,
+    ) &&
+    /daemonCoreThreadMemoryApi/.test(runtimeContextPolicyCore) &&
+    /invokeThreadMemoryApi/.test(runtimeContextPolicyCore) &&
+    !/operation:\s*"plan_runtime_memory_control"/.test(runtimeContextPolicyCore) &&
     /RUNTIME_MEMORY_CONTROL_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyCore) &&
     /normalizeRuntimeMemoryControlBridgeResult/.test(runtimeContextPolicyCore) &&
-    /runtime memory control core sends Rust daemon-core request/.test(
+    /runtime memory control core sends Rust control through typed Rust daemon-core thread-memory API/.test(
       runtimeContextPolicyCoreTest,
     ) &&
-    /captured\.request\.state_dir/.test(runtimeContextPolicyCoreTest) &&
-    /Object\.hasOwn\(captured\.request,\s*"current_record"\),\s*false/.test(
+    /captured\.state_dir/.test(runtimeContextPolicyCoreTest) &&
+    /Object\.hasOwn\(captured,\s*"current_record"\),\s*false/.test(
       runtimeContextPolicyCoreTest,
     ) &&
-    /Object\.hasOwn\(captured\.request,\s*"current_policy"\),\s*false/.test(
+    /Object\.hasOwn\(captured,\s*"current_policy"\),\s*false/.test(
       runtimeContextPolicyCoreTest,
     ) &&
     /pub struct RuntimeMemoryControlCore;/.test(runtimeMemoryControlCore) &&
@@ -12982,9 +12999,9 @@ function runBridge() {
       runtimeMemoryControlCore,
     ) &&
     /rust_rejects_unowned_runtime_memory_control_kind/.test(runtimeMemoryControlCore) &&
-    /PlanRuntimeMemoryControl/.test(commandProtocolCore) &&
-    /"plan_runtime_memory_control"/.test(commandProtocolCore) &&
-    /plan_runtime_memory_control_response/.test(coreCommandDispatch) &&
+    !/PlanRuntimeMemoryControl/.test(commandProtocolCore) &&
+    !/plan_runtime_memory_control_response\(decode/.test(coreCommandDispatch) &&
+    /thread_memory_command_transport_is_retired/.test(commandProtocolCore) &&
     /pub mod runtime_memory_control;/.test(kernelModuleForBridgeChecks) &&
     /thread memory mutation and policy controls use Rust planning and Agentgres commits/.test(
       runtimeThreadMemoryStateTest,
@@ -13106,12 +13123,30 @@ function runBridge() {
         policyMcpMemoryCore,
       ) &&
       /planThreadMemoryAgentStateUpdate/.test(runtimeContextPolicyCore) &&
+      /THREAD_MEMORY_AGENT_STATE_UPDATE_API_METHOD\s*=\s*"planThreadMemoryAgentStateUpdate"/.test(
+        runtimeContextPolicyCore,
+      ) &&
+      /daemonCoreThreadMemoryApi/.test(runtimeContextPolicyCore) &&
+      !/operation:\s*"plan_thread_memory_agent_state_update"/.test(
+        runtimeContextPolicyCore,
+      ) &&
       /THREAD_MEMORY_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
         runtimeContextPolicyCore,
       ) &&
-      /thread memory agent state update core sends Rust state update through typed Rust daemon-core Agentgres API/.test(
+      /thread memory agent state update core sends Rust state update through typed Rust daemon-core thread-memory API/.test(
         runtimeContextPolicyCoreTest,
       ) &&
+      /calls\[0\]\.method,\s*THREAD_MEMORY_AGENT_STATE_UPDATE_API_METHOD/.test(
+        runtimeContextPolicyCoreTest,
+      ) &&
+      /Object\.hasOwn\(captured,\s*"operation"\),\s*false/.test(
+        runtimeContextPolicyCoreTest,
+      ) &&
+      !/CommandOperation::PlanThreadMemoryAgentStateUpdate/.test(
+        commandProtocolCore,
+      ) &&
+      !/CommandOperation::PlanThreadMemoryAgentStateUpdate/.test(coreCommandDispatch) &&
+      /thread_memory_command_transport_is_retired/.test(commandProtocolCore) &&
       /result\.control\.control_kind/.test(runtimeContextPolicyCoreTest) &&
       /result\.control\.event_id/.test(runtimeContextPolicyCoreTest) &&
       /Object\.hasOwn\(result\.control,\s*"controlKind"\),\s*false/.test(
@@ -29136,10 +29171,15 @@ function runCompositor() {
       runtimeThreadMemoryState,
     ) &&
     /planRuntimeMemoryControl\(request/.test(runtimeContextPolicyCore) &&
-    /plan_runtime_memory_control/.test(runtimeContextPolicyCore) &&
+    /THREAD_MEMORY_RUNTIME_MEMORY_CONTROL_API_METHOD\s*=\s*"planRuntimeMemoryControl"/.test(
+      runtimeContextPolicyCore,
+    ) &&
+    /daemonCoreThreadMemoryApi/.test(runtimeContextPolicyCore) &&
+    /invokeThreadMemoryApi/.test(runtimeContextPolicyCore) &&
+    !/operation:\s*"plan_runtime_memory_control"/.test(runtimeContextPolicyCore) &&
     /RUNTIME_MEMORY_CONTROL_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyCore) &&
     /normalizeRuntimeMemoryControlBridgeResult/.test(runtimeContextPolicyCore) &&
-    /runtime memory control core sends Rust daemon-core request/.test(
+    /runtime memory control core sends Rust control through typed Rust daemon-core thread-memory API/.test(
       runtimeContextPolicyCoreTest,
     ) &&
     /pub struct RuntimeMemoryControlCore;/.test(runtimeMemoryControlCore) &&
@@ -29147,9 +29187,9 @@ function runCompositor() {
     /rust_plans_runtime_memory_write_control/.test(runtimeMemoryControlCore) &&
     /rust_plans_runtime_memory_policy_control/.test(runtimeMemoryControlCore) &&
     /rust_rejects_unowned_runtime_memory_control_kind/.test(runtimeMemoryControlCore) &&
-    /PlanRuntimeMemoryControl/.test(commandProtocolCoreForCompositor) &&
-    /"plan_runtime_memory_control"/.test(commandProtocolCoreForCompositor) &&
-    /plan_runtime_memory_control_response/.test(coreCommandDispatchForCompositor) &&
+    !/PlanRuntimeMemoryControl/.test(commandProtocolCoreForCompositor) &&
+    !/plan_runtime_memory_control_response\(decode/.test(coreCommandDispatchForCompositor) &&
+    /thread_memory_command_transport_is_retired/.test(commandProtocolCoreForCompositor) &&
     /pub mod runtime_memory_control;/.test(kernelModuleForCompositor) &&
     /thread memory mutation and policy controls use Rust planning and Agentgres commits/.test(
       runtimeThreadMemoryStateTest,
@@ -30336,14 +30376,19 @@ function runCompositor() {
 	      /filters: memoryListFilters\(context\.filters \?\? \{\}\)/.test(runtimeMemoryProjectPublicBlock) &&
 	      !/^\s*projection,?$/m.test(runtimeMemoryProjectPublicBlock) &&
 	      /projectRuntimeMemoryProjection\(request/.test(runtimeContextPolicyCore) &&
-	      /project_runtime_memory_projection/.test(runtimeContextPolicyCore) &&
+	      /THREAD_MEMORY_RUNTIME_MEMORY_PROJECTION_API_METHOD\s*=\s*"projectRuntimeMemoryProjection"/.test(
+	        runtimeContextPolicyCore,
+	      ) &&
+	      /daemonCoreThreadMemoryApi/.test(runtimeContextPolicyCore) &&
+	      /invokeThreadMemoryApi/.test(runtimeContextPolicyCore) &&
+	      !/operation:\s*"project_runtime_memory_projection"/.test(runtimeContextPolicyCore) &&
 	      /RUNTIME_MEMORY_PROJECTION_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyCore) &&
 	      /normalizeRuntimeMemoryProjectionBridgeResult/.test(runtimeContextPolicyCore) &&
-	      /runtime memory projection core sends Rust daemon-core request/.test(
+	      /runtime memory projection core sends Rust projection through typed Rust daemon-core thread-memory API/.test(
 	        runtimeContextPolicyCoreTest,
 	      ) &&
-	      /captured\.request\.state_dir,\s*"\/runtime-state"/.test(runtimeContextPolicyCoreTest) &&
-	      /Object\.hasOwn\(captured\.request,\s*"projection"\),\s*false/.test(runtimeContextPolicyCoreTest) &&
+	      /captured\.state_dir,\s*"\/runtime-state"/.test(runtimeContextPolicyCoreTest) &&
+	      /Object\.hasOwn\(captured,\s*"projection"\),\s*false/.test(runtimeContextPolicyCoreTest) &&
 	      /pub struct RuntimeMemoryProjectionCore;/.test(runtimeMemoryProjectionCore) &&
 	      /pub state_dir: Option<String>/.test(runtimeMemoryProjectionCore) &&
 	      /runtime_memory_projection_state_dir_required/.test(runtimeMemoryProjectionCore) &&
@@ -30359,9 +30404,9 @@ function runCompositor() {
 	      /rust_shapes_runtime_memory_projection_command_response/.test(
 	        runtimeMemoryProjectionCore,
 	      ) &&
-	      /ProjectRuntimeMemoryProjection/.test(commandProtocolCoreForCompositor) &&
-	      /"project_runtime_memory_projection"/.test(commandProtocolCoreForCompositor) &&
-	      /project_runtime_memory_projection_response/.test(coreCommandDispatchForCompositor) &&
+	      !/ProjectRuntimeMemoryProjection/.test(commandProtocolCoreForCompositor) &&
+	      !/project_runtime_memory_projection_response\(decode/.test(coreCommandDispatchForCompositor) &&
+	      /thread_memory_command_transport_is_retired/.test(commandProtocolCoreForCompositor) &&
 	      /pub mod runtime_memory_projection;/.test(kernelModuleForCompositor) &&
 	      /store\.threadMemorySurface\.publicMemoryPolicyForAgent\(store, agentId,/.test(
 	        runtimeRouteHandlers,
@@ -30676,8 +30721,18 @@ function runCompositor() {
       /validation_schema_version:\s*RUNTIME_MEMORY_MANAGER_VALIDATION_SCHEMA_VERSION/.test(
         runtimeValidateMemoryProjectionBlock,
       ) &&
-      /plan_memory_manager_status_projection/.test(runtimeContextPolicyCore) &&
-      /plan_memory_manager_validation_projection/.test(runtimeContextPolicyCore) &&
+      /THREAD_MEMORY_MANAGER_STATUS_PROJECTION_API_METHOD\s*=\s*"planMemoryManagerStatusProjection"/.test(
+        runtimeContextPolicyCore,
+      ) &&
+      /THREAD_MEMORY_MANAGER_VALIDATION_PROJECTION_API_METHOD\s*=\s*"planMemoryManagerValidationProjection"/.test(
+        runtimeContextPolicyCore,
+      ) &&
+      !/operation:\s*"plan_memory_manager_status_projection"/.test(
+        runtimeContextPolicyCore,
+      ) &&
+      !/operation:\s*"plan_memory_manager_validation_projection"/.test(
+        runtimeContextPolicyCore,
+      ) &&
       /normalizeMemoryManagerStatusProjectionBridgeResult/.test(runtimeContextPolicyCore) &&
       /normalizeMemoryManagerValidationProjectionBridgeResult/.test(runtimeContextPolicyCore) &&
       /MemoryManagerStatusProjectionCore/.test(policyCore) &&
@@ -30709,10 +30764,19 @@ function runCompositor() {
       !/struct MemoryManagerStatusProjectionBridgeRequest/.test(bridgeModule) &&
       !/fn plan_memory_manager_validation_projection/.test(bridgeModule) &&
       !/struct MemoryManagerValidationProjectionBridgeRequest/.test(bridgeModule) &&
-      /memory manager status projection core sends Rust daemon-core projection request/.test(
+      !/PlanMemoryManagerStatusProjection/.test(commandProtocolCoreForCompositor) &&
+      !/PlanMemoryManagerValidationProjection/.test(commandProtocolCoreForCompositor) &&
+      !/plan_memory_manager_status_projection_response\(decode/.test(
+        coreCommandDispatchForCompositor,
+      ) &&
+      !/plan_memory_manager_validation_projection_response\(decode/.test(
+        coreCommandDispatchForCompositor,
+      ) &&
+      /thread_memory_command_transport_is_retired/.test(commandProtocolCoreForCompositor) &&
+      /memory manager status projection core sends Rust projection through typed Rust daemon-core thread-memory API/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /memory manager validation projection core sends Rust daemon-core projection request/.test(
+      /memory manager validation projection core sends Rust projection through typed Rust daemon-core thread-memory API/.test(
         runtimeContextPolicyCoreTest,
       ) &&
       /const threadId = status\.thread_id \?\? null;/.test(runtimeMemoryRowsForStatusBlock) &&

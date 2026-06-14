@@ -345,12 +345,6 @@ pub fn dispatch_command_operation_response(
         CommandOperation::ProjectRuntimeLifecycle => {
             project_runtime_lifecycle_response(decode(raw_request)?).map_err(Into::into)
         }
-        CommandOperation::ProjectRuntimeMemoryProjection => {
-            project_runtime_memory_projection_response(decode(raw_request)?).map_err(Into::into)
-        }
-        CommandOperation::PlanRuntimeMemoryControl => {
-            plan_runtime_memory_control_response(decode(raw_request)?).map_err(Into::into)
-        }
         CommandOperation::PlanRuntimeMcpServeToolCall => {
             plan_runtime_mcp_serve_tool_call_response(decode(raw_request)?).map_err(Into::into)
         }
@@ -416,13 +410,6 @@ pub fn dispatch_command_operation_response(
             plan_mcp_manager_validation_projection_response(decode(raw_request)?)
                 .map_err(Into::into)
         }
-        CommandOperation::PlanMemoryManagerStatusProjection => {
-            plan_memory_manager_status_projection_response(decode(raw_request)?).map_err(Into::into)
-        }
-        CommandOperation::PlanMemoryManagerValidationProjection => {
-            plan_memory_manager_validation_projection_response(decode(raw_request)?)
-                .map_err(Into::into)
-        }
         CommandOperation::PlanMcpManagerCatalogProjection => {
             plan_mcp_manager_catalog_projection_response(decode(raw_request)?).map_err(Into::into)
         }
@@ -435,9 +422,6 @@ pub fn dispatch_command_operation_response(
         }
         CommandOperation::ProjectMcpToolFetchProjection => {
             project_mcp_tool_fetch_projection_response(decode(raw_request)?).map_err(Into::into)
-        }
-        CommandOperation::PlanThreadMemoryAgentStateUpdate => {
-            plan_thread_memory_agent_state_update_response(decode(raw_request)?).map_err(Into::into)
         }
     }
 }

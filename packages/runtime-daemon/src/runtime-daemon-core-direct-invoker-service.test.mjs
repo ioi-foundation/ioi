@@ -13,6 +13,7 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
   const runtimeControlCalls = [];
   const threadLifecycleCalls = [];
   const workspaceTrustCalls = [];
+  const threadMemoryCalls = [];
   const agentgresCalls = [];
   const approvalCalls = [];
   const governedAdmissionCalls = [];
@@ -105,6 +106,33 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
             event_kind: "workspace.trust_warning",
             receipt_refs: ["receipt://workspace-trust/direct"],
           },
+        };
+      },
+    },
+    daemonCoreThreadMemoryApi: {
+      planRuntimeMemoryControl(request) {
+        threadMemoryCalls.push({ method: "planRuntimeMemoryControl", request });
+        return {
+          source: "direct_thread_memory_api",
+          backend: "rust_memory",
+          status: "planned",
+          operation: request.operation,
+          operation_kind: request.operation_kind,
+          memory_state_kind: "record",
+          state_id: "memory_direct",
+          thread_id: request.thread_id,
+          agent_id: request.agent_id,
+          workspace_root: request.workspace_root,
+          payload: {
+            schema_version: "ioi.agent-runtime.memory.v1",
+            object: "ioi.agent_memory_record",
+            id: "memory_direct",
+            thread_id: request.thread_id,
+            agent_id: request.agent_id,
+            fact: request.request?.text ?? "direct memory",
+            receipt_refs: ["receipt://thread-memory/direct"],
+          },
+          receipt_refs: ["receipt://thread-memory/direct"],
         };
       },
     },
@@ -233,6 +261,27 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
   assert.equal(Object.hasOwn(workspaceTrustCalls[0].request, "backend"), false);
   assert.equal(workspaceTrustPlan.source, "direct_workspace_trust_api");
   assert.equal(workspaceTrustPlan.event.event_kind, "workspace.trust_warning");
+  const memoryPlan = store.contextPolicyCore.planRuntimeMemoryControl({
+    operation: "write",
+    operation_kind: "memory.write",
+    thread_id: "thread_direct",
+    agent_id: "agent_direct",
+    workspace_root: stateDir,
+    state_dir: stateDir,
+    request: { text: "direct memory" },
+  });
+  assert.equal(calls.length, 0);
+  assert.equal(threadMemoryCalls.length, 1);
+  assert.equal(threadMemoryCalls[0].method, "planRuntimeMemoryControl");
+  assert.equal(
+    threadMemoryCalls[0].request.schema_version,
+    "ioi.runtime.memory-control-request.v1",
+  );
+  assert.equal(Object.hasOwn(threadMemoryCalls[0].request, "backend"), false);
+  assert.notEqual(threadMemoryCalls[0].request.operation, "plan_runtime_memory_control");
+  assert.equal(threadMemoryCalls[0].request.operation_kind, "memory.write");
+  assert.equal(memoryPlan.source, "direct_thread_memory_api");
+  assert.equal(memoryPlan.payload.id, "memory_direct");
   const queue = store.approvalStateCore.projectApprovalQueue({
     thread_id: "thread_direct",
     state_dir: stateDir,

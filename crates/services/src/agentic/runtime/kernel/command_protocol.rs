@@ -56,8 +56,6 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "project_repository_workflow",
     "project_runtime_tool_catalog",
     "project_runtime_lifecycle",
-    "project_runtime_memory_projection",
-    "plan_runtime_memory_control",
     "plan_runtime_mcp_serve_tool_call",
     "project_runtime_mcp_serve_tool_result",
     "plan_runtime_workflow_edit_control",
@@ -78,13 +76,10 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "project_mcp_server_validation_input",
     "plan_mcp_manager_status_projection",
     "plan_mcp_manager_validation_projection",
-    "plan_memory_manager_status_projection",
-    "plan_memory_manager_validation_projection",
     "plan_mcp_manager_catalog_projection",
     "plan_mcp_manager_catalog_summary_projection",
     "project_mcp_tool_search_projection",
     "project_mcp_tool_fetch_projection",
-    "plan_thread_memory_agent_state_update",
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -140,8 +135,6 @@ pub enum CommandOperation {
     ProjectRepositoryWorkflow,
     ProjectRuntimeToolCatalog,
     ProjectRuntimeLifecycle,
-    ProjectRuntimeMemoryProjection,
-    PlanRuntimeMemoryControl,
     PlanRuntimeMcpServeToolCall,
     ProjectRuntimeMcpServeToolResult,
     PlanRuntimeWorkflowEditControl,
@@ -162,13 +155,10 @@ pub enum CommandOperation {
     ProjectMcpServerValidationInput,
     PlanMcpManagerStatusProjection,
     PlanMcpManagerValidationProjection,
-    PlanMemoryManagerStatusProjection,
-    PlanMemoryManagerValidationProjection,
     PlanMcpManagerCatalogProjection,
     PlanMcpManagerCatalogSummaryProjection,
     ProjectMcpToolSearchProjection,
     ProjectMcpToolFetchProjection,
-    PlanThreadMemoryAgentStateUpdate,
 }
 
 impl CommandOperation {
@@ -247,8 +237,6 @@ impl CommandOperation {
             Self::ProjectRepositoryWorkflow => "project_repository_workflow",
             Self::ProjectRuntimeToolCatalog => "project_runtime_tool_catalog",
             Self::ProjectRuntimeLifecycle => "project_runtime_lifecycle",
-            Self::ProjectRuntimeMemoryProjection => "project_runtime_memory_projection",
-            Self::PlanRuntimeMemoryControl => "plan_runtime_memory_control",
             Self::PlanRuntimeMcpServeToolCall => "plan_runtime_mcp_serve_tool_call",
             Self::ProjectRuntimeMcpServeToolResult => "project_runtime_mcp_serve_tool_result",
             Self::PlanRuntimeWorkflowEditControl => "plan_runtime_workflow_edit_control",
@@ -277,17 +265,12 @@ impl CommandOperation {
             Self::ProjectMcpServerValidationInput => "project_mcp_server_validation_input",
             Self::PlanMcpManagerStatusProjection => "plan_mcp_manager_status_projection",
             Self::PlanMcpManagerValidationProjection => "plan_mcp_manager_validation_projection",
-            Self::PlanMemoryManagerStatusProjection => "plan_memory_manager_status_projection",
-            Self::PlanMemoryManagerValidationProjection => {
-                "plan_memory_manager_validation_projection"
-            }
             Self::PlanMcpManagerCatalogProjection => "plan_mcp_manager_catalog_projection",
             Self::PlanMcpManagerCatalogSummaryProjection => {
                 "plan_mcp_manager_catalog_summary_projection"
             }
             Self::ProjectMcpToolSearchProjection => "project_mcp_tool_search_projection",
             Self::ProjectMcpToolFetchProjection => "project_mcp_tool_fetch_projection",
-            Self::PlanThreadMemoryAgentStateUpdate => "plan_thread_memory_agent_state_update",
         }
     }
 
@@ -459,10 +442,6 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
         "project_repository_workflow" => Some(CommandOperation::ProjectRepositoryWorkflow),
         "project_runtime_tool_catalog" => Some(CommandOperation::ProjectRuntimeToolCatalog),
         "project_runtime_lifecycle" => Some(CommandOperation::ProjectRuntimeLifecycle),
-        "project_runtime_memory_projection" => {
-            Some(CommandOperation::ProjectRuntimeMemoryProjection)
-        }
-        "plan_runtime_memory_control" => Some(CommandOperation::PlanRuntimeMemoryControl),
         "plan_runtime_mcp_serve_tool_call" => Some(CommandOperation::PlanRuntimeMcpServeToolCall),
         "project_runtime_mcp_serve_tool_result" => {
             Some(CommandOperation::ProjectRuntimeMcpServeToolResult)
@@ -513,12 +492,6 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
         "plan_mcp_manager_validation_projection" => {
             Some(CommandOperation::PlanMcpManagerValidationProjection)
         }
-        "plan_memory_manager_status_projection" => {
-            Some(CommandOperation::PlanMemoryManagerStatusProjection)
-        }
-        "plan_memory_manager_validation_projection" => {
-            Some(CommandOperation::PlanMemoryManagerValidationProjection)
-        }
         "plan_mcp_manager_catalog_projection" => {
             Some(CommandOperation::PlanMcpManagerCatalogProjection)
         }
@@ -530,9 +503,6 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
         }
         "project_mcp_tool_fetch_projection" => {
             Some(CommandOperation::ProjectMcpToolFetchProjection)
-        }
-        "plan_thread_memory_agent_state_update" => {
-            Some(CommandOperation::PlanThreadMemoryAgentStateUpdate)
         }
         _ => None,
     }
@@ -605,7 +575,6 @@ mod tests {
             "plan_runtime_task_job_create_state_update",
             "project_runtime_task_job_projection",
             "project_runtime_tool_catalog",
-            "project_runtime_memory_projection",
             "plan_runtime_mcp_serve_tool_call",
             "project_runtime_mcp_serve_tool_result",
             "project_runtime_managed_session_projection",
@@ -811,6 +780,20 @@ mod tests {
         let operation = "plan_workspace_trust_control_state_update";
         assert_eq!(command_operation(operation), None);
         assert_eq!(expected_command_schema_version(operation), None);
+    }
+
+    #[test]
+    fn thread_memory_command_transport_is_retired() {
+        for operation in [
+            "project_runtime_memory_projection",
+            "plan_runtime_memory_control",
+            "plan_memory_manager_status_projection",
+            "plan_memory_manager_validation_projection",
+            "plan_thread_memory_agent_state_update",
+        ] {
+            assert_eq!(command_operation(operation), None);
+            assert_eq!(expected_command_schema_version(operation), None);
+        }
     }
 
     #[test]
