@@ -8998,11 +8998,18 @@ function runBridge() {
       /ApprovalQueueProjectionRecord/.test(approvalCore) &&
       /APPROVAL_QUEUE_PROJECTION_REQUEST_SCHEMA_VERSION/.test(approvalCore) &&
       /APPROVAL_QUEUE_PROJECTION_RESULT_SCHEMA_VERSION/.test(approvalCore) &&
+      /pub state_dir: Option<String>/.test(approvalCore) &&
       /pub fn project_approval_queue_response/.test(approvalCore) &&
       /rust_authority_projects_public_approval_queue_pending_only/.test(approvalCore) &&
       /rust_authority_projects_public_approval_queue_with_resolved_records/.test(
         approvalCore,
       ) &&
+      /rust_approval_queue_projection_requires_state_dir/.test(approvalCore) &&
+      /rust_approval_queue_projection_rejects_js_candidate_transport/.test(approvalCore) &&
+      /ApprovalQueueProjectionError::StateDirRequired/.test(approvalCore) &&
+      /ApprovalQueueProjectionError::RetiredCandidateTransport/.test(approvalCore) &&
+      /approval_queue_projection_sources_from_state_dir/.test(approvalCore) &&
+      /approval_queue_state_dir_records/.test(approvalCore) &&
       /rust_core_shapes_public_approval_queue_command_response/.test(approvalCore) &&
       /approval_queue_projection_candidates/.test(approvalCore) &&
       /latest_approval_queue_decision/.test(approvalCore) &&
@@ -9016,15 +9023,32 @@ function runBridge() {
       /approval state core calls direct Rust daemon-core approval queue projection API/.test(
         runtimeApprovalStateCoreTest,
       ) &&
+      /captured\.request\.state_dir,\s*"\/runtime-state"/.test(runtimeApprovalStateCoreTest) &&
+      /Object\.hasOwn\(captured\.request,\s*"agent"\),\s*false/.test(runtimeApprovalStateCoreTest) &&
+      /Object\.hasOwn\(captured\.request,\s*"run"\),\s*false/.test(runtimeApprovalStateCoreTest) &&
+      /Object\.hasOwn\(captured\.request,\s*"runs"\),\s*false/.test(runtimeApprovalStateCoreTest) &&
       /approval state core fails closed without Rust-planned operation kinds/.test(
         runtimeApprovalStateCoreTest,
       ) &&
       /listThreadApprovals/.test(runtimeApprovalSurface) &&
       /projectApprovalQueue/.test(runtimeApprovalSurface) &&
+      /state_dir:\s*store\?\.stateDir \?\? null/.test(runtimeApprovalSurface) &&
       /approval_queue_js_readback_retired/.test(runtimeApprovalSurface) &&
       /rust_daemon_core_approval_queue_projection_required/.test(runtimeApprovalSurface) &&
       /agentgres_approval_queue_projection_truth_required/.test(runtimeApprovalSurface) &&
       /listThreadApprovals public read calls Rust approval queue projection/.test(
+        runtimeApprovalControlFacadeTest,
+      ) &&
+      /calls\[0\]\.request\.state_dir,\s*"\/runtime-state"/.test(
+        runtimeApprovalControlFacadeTest,
+      ) &&
+      /Object\.hasOwn\(calls\[0\]\.request,\s*"agent"\),\s*false/.test(
+        runtimeApprovalControlFacadeTest,
+      ) &&
+      /Object\.hasOwn\(calls\[0\]\.request,\s*"run"\),\s*false/.test(
+        runtimeApprovalControlFacadeTest,
+      ) &&
+      /Object\.hasOwn\(calls\[0\]\.request,\s*"runs"\),\s*false/.test(
         runtimeApprovalControlFacadeTest,
       ) &&
       /approval queue read surface remains fail-closed without Rust approval authority core/.test(
@@ -9045,6 +9069,9 @@ function runBridge() {
       /operation:\s*"listThreadApprovals"/.test(runtimeRouteHandlersTest) &&
       /include_resolved:\s*"true"/.test(runtimeRouteHandlersTest) &&
       !/latestApprovalRequestEvent|latestApprovalDecisionEvent|approvalQueueForThread|pendingApprovalsForThread/.test(
+        runtimeApprovalSurface,
+      ) &&
+      !/const target = approvalQueueTarget|function approvalQueueTarget|runs:\s*target\.runs/.test(
         runtimeApprovalSurface,
       ) &&
       !/appendRunApprovalControl|store\.appendRuntimeEvent/.test(runtimeApprovalSurface),

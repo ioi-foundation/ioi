@@ -2,7 +2,7 @@ use ioi_types::app::{ActionRequest, ActionTarget, ApprovalAuthority, ApprovalGra
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, fs, path::PathBuf};
 use url::Url;
 
 pub const CODING_TOOL_APPROVAL_REQUEST_SCHEMA_VERSION: &str =
@@ -177,6 +177,10 @@ pub enum ApprovalQueueProjectionError {
         actual: String,
     },
     MissingField(&'static str),
+    RetiredCandidateTransport(&'static str),
+    StateDirRequired,
+    ReplayReadFailed(String),
+    ReplayRecordInvalid(String),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -443,6 +447,8 @@ pub struct CodingToolApprovalSatisfactionProjectionRecord {
 pub struct ApprovalQueueProjectionRequest {
     pub schema_version: String,
     pub thread_id: String,
+    #[serde(default)]
+    pub state_dir: Option<String>,
     #[serde(default)]
     pub run: Value,
     #[serde(default)]
@@ -1348,15 +1354,20 @@ impl ApprovalQueueProjectionCore {
         request: &ApprovalQueueProjectionRequest,
     ) -> Result<ApprovalQueueProjectionRecord, ApprovalQueueProjectionError> {
         request.validate()?;
+        reject_approval_queue_candidate_transport(request)?;
         let thread_id = optional_trimmed(Some(request.thread_id.as_str())).unwrap();
+        let sources =
+            approval_queue_projection_sources_from_state_dir(request.state_dir.as_deref())?;
         let request_records = approval_queue_projection_candidates(
-            request,
+            &sources,
+            &thread_id,
             &["approvalRequests"],
             &["approval_request"],
             "approval.required",
         );
         let decision_records = approval_queue_projection_candidates(
-            request,
+            &sources,
+            &thread_id,
             &["approvalDecisions", "approvalRevocations"],
             &["approval_decision", "approval_revoke"],
             "approval.decision",
@@ -2840,37 +2851,123 @@ fn approval_projection_lease_state(latest_decision: &Value) -> Value {
     })
 }
 
-fn approval_queue_projection_candidates(
+struct ApprovalQueueProjectionSources {
+    agents: Vec<Value>,
+    runs: Vec<Value>,
+}
+
+fn reject_approval_queue_candidate_transport(
     request: &ApprovalQueueProjectionRequest,
+) -> Result<(), ApprovalQueueProjectionError> {
+    if !request.agent.is_null() {
+        return Err(ApprovalQueueProjectionError::RetiredCandidateTransport(
+            "agent",
+        ));
+    }
+    if !request.run.is_null() {
+        return Err(ApprovalQueueProjectionError::RetiredCandidateTransport(
+            "run",
+        ));
+    }
+    if !request.runs.is_empty() {
+        return Err(ApprovalQueueProjectionError::RetiredCandidateTransport(
+            "runs",
+        ));
+    }
+    Ok(())
+}
+
+fn approval_queue_projection_sources_from_state_dir(
+    state_dir: Option<&str>,
+) -> Result<ApprovalQueueProjectionSources, ApprovalQueueProjectionError> {
+    let state_root = approval_queue_projection_state_root(state_dir)?;
+    Ok(ApprovalQueueProjectionSources {
+        agents: approval_queue_state_dir_records(state_root.join("agents"), "agents")?,
+        runs: approval_queue_state_dir_records(state_root.join("runs"), "runs")?,
+    })
+}
+
+fn approval_queue_projection_state_root(
+    state_dir: Option<&str>,
+) -> Result<PathBuf, ApprovalQueueProjectionError> {
+    optional_trimmed(state_dir)
+        .map(PathBuf::from)
+        .ok_or(ApprovalQueueProjectionError::StateDirRequired)
+}
+
+fn approval_queue_state_dir_records(
+    dir: PathBuf,
+    label: &'static str,
+) -> Result<Vec<Value>, ApprovalQueueProjectionError> {
+    let entries = match fs::read_dir(&dir) {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(error) => {
+            return Err(ApprovalQueueProjectionError::ReplayReadFailed(format!(
+                "failed to read approval queue {label} state_dir {}: {error}",
+                dir.display()
+            )));
+        }
+    };
+    let mut records = Vec::new();
+    for entry in entries {
+        let entry = entry.map_err(|error| {
+            ApprovalQueueProjectionError::ReplayReadFailed(format!(
+                "failed to read approval queue {label} state_dir entry: {error}"
+            ))
+        })?;
+        let path = entry.path();
+        if !path.is_file() || path.extension().and_then(|value| value.to_str()) != Some("json") {
+            continue;
+        }
+        let contents = fs::read_to_string(&path).map_err(|error| {
+            ApprovalQueueProjectionError::ReplayReadFailed(format!(
+                "failed to read approval queue {label} record {}: {error}",
+                path.display()
+            ))
+        })?;
+        let record: Value = serde_json::from_str(&contents).map_err(|error| {
+            ApprovalQueueProjectionError::ReplayRecordInvalid(format!(
+                "failed to parse approval queue {label} record {}: {error}",
+                path.display()
+            ))
+        })?;
+        if !record.is_object() {
+            return Err(ApprovalQueueProjectionError::ReplayRecordInvalid(format!(
+                "approval queue {label} record {} must be an object",
+                path.display()
+            )));
+        }
+        records.push(record);
+    }
+    Ok(records)
+}
+
+fn approval_queue_projection_candidates(
+    sources: &ApprovalQueueProjectionSources,
+    thread_id: &str,
     array_names: &[&str],
     control_names: &[&str],
     default_event_kind: &str,
 ) -> Vec<Value> {
     let mut records = Vec::new();
-    append_approval_queue_projection_source(
-        &mut records,
-        &request.agent,
-        None,
-        request.thread_id.as_str(),
-        array_names,
-        control_names,
-        default_event_kind,
-    );
-    append_approval_queue_projection_source(
-        &mut records,
-        &request.run,
-        approval_projection_source_run_id(&request.run),
-        request.thread_id.as_str(),
-        array_names,
-        control_names,
-        default_event_kind,
-    );
-    for run in &request.runs {
+    for agent in &sources.agents {
+        append_approval_queue_projection_source(
+            &mut records,
+            agent,
+            None,
+            thread_id,
+            array_names,
+            control_names,
+            default_event_kind,
+        );
+    }
+    for run in &sources.runs {
         append_approval_queue_projection_source(
             &mut records,
             run,
             approval_projection_source_run_id(run),
-            request.thread_id.as_str(),
+            thread_id,
             array_names,
             control_names,
             default_event_kind,
@@ -3258,6 +3355,11 @@ fn value_hash(value: &Value) -> Result<String, CodingToolApprovalError> {
 mod tests {
     use super::*;
     use ioi_types::app::{ActionContext, SignatureSuite};
+    use std::{
+        env, fs,
+        path::{Path, PathBuf},
+        time::{SystemTime, UNIX_EPOCH},
+    };
 
     fn authority(scopes: Vec<&str>) -> ApprovalAuthority {
         ApprovalAuthority {
@@ -3531,6 +3633,29 @@ mod tests {
         }
     }
 
+    fn temp_state_dir(label: &str) -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system time")
+            .as_nanos();
+        let dir = env::temp_dir().join(format!(
+            "ioi-approval-queue-{label}-{}-{nanos}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&dir).expect("create approval queue temp state dir");
+        dir
+    }
+
+    fn write_state_record(state_dir: &Path, dir: &str, id: &str, record: Value) {
+        let target_dir = state_dir.join(dir);
+        fs::create_dir_all(&target_dir).expect("create approval queue state dir");
+        fs::write(
+            target_dir.join(format!("{id}.json")),
+            serde_json::to_vec_pretty(&record).expect("serialize approval queue state record"),
+        )
+        .expect("write approval queue state record");
+    }
+
     fn approval_queue_projection_request(include_resolved: bool) -> ApprovalQueueProjectionRequest {
         let mut first_request = approval_request_state_update_request();
         first_request.approval_id = "approval_alpha".to_string();
@@ -3558,11 +3683,18 @@ mod tests {
         let second_record = ApprovalRequestStateUpdateCore
             .plan(&second_request)
             .expect("second approval request state");
+        let state_dir = temp_state_dir(if include_resolved {
+            "resolved"
+        } else {
+            "pending"
+        });
+        write_state_record(&state_dir, "runs", "run_alpha", second_record.run);
 
         ApprovalQueueProjectionRequest {
             schema_version: APPROVAL_QUEUE_PROJECTION_REQUEST_SCHEMA_VERSION.to_string(),
             thread_id: "thread_alpha".to_string(),
-            run: second_record.run,
+            state_dir: Some(state_dir.to_string_lossy().to_string()),
+            run: Value::Null,
             runs: vec![],
             agent: Value::Null,
             include_resolved,
@@ -3967,6 +4099,40 @@ mod tests {
         assert_eq!(
             record.expected_head.as_deref(),
             Some("agentgres://head/queue-before")
+        );
+    }
+
+    #[test]
+    fn rust_approval_queue_projection_requires_state_dir() {
+        let mut request = approval_queue_projection_request(false);
+        request.state_dir = None;
+
+        let error = ApprovalQueueProjectionCore
+            .project(&request)
+            .expect_err("approval queue projection without state_dir should fail");
+
+        assert_eq!(error, ApprovalQueueProjectionError::StateDirRequired);
+    }
+
+    #[test]
+    fn rust_approval_queue_projection_rejects_js_candidate_transport() {
+        let mut request = approval_queue_projection_request(false);
+        request.run = json!({
+            "id": "run_candidate",
+            "trace": {
+                "approvalRequests": [{
+                    "approval_id": "approval_candidate"
+                }]
+            }
+        });
+
+        let error = ApprovalQueueProjectionCore
+            .project(&request)
+            .expect_err("approval queue JS run candidates should fail");
+
+        assert_eq!(
+            error,
+            ApprovalQueueProjectionError::RetiredCandidateTransport("run")
         );
     }
 

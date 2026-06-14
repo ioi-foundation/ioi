@@ -41,6 +41,7 @@ function createStore({ approvalStateCore = null } = {}) {
   };
   const writes = [];
   const store = {
+    stateDir: "/runtime-state",
     runtimeEventStreams: new Map(),
     agents: new Map([["agent_alpha", agent]]),
     runs: new Map([["run_alpha", run]]),
@@ -397,9 +398,10 @@ test("listThreadApprovals public read calls Rust approval queue projection", () 
   assert.equal(calls.length, 1);
   assert.equal(calls[0].method, "projectApprovalQueue");
   assert.equal(calls[0].request.thread_id, "thread_alpha");
-  assert.equal(calls[0].request.agent.id, "agent_alpha");
-  assert.equal(calls[0].request.run.id, "run_alpha");
-  assert.equal(calls[0].request.runs.length, 1);
+  assert.equal(calls[0].request.state_dir, "/runtime-state");
+  assert.equal(Object.hasOwn(calls[0].request, "agent"), false);
+  assert.equal(Object.hasOwn(calls[0].request, "run"), false);
+  assert.equal(Object.hasOwn(calls[0].request, "runs"), false);
   assert.equal(calls[0].request.include_resolved, true);
   assertNoRetiredApprovalControlAliases(calls[0].request);
   assert.equal(result.operation_kind, "approval.queue_projection");

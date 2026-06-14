@@ -229,8 +229,7 @@ function approvalRevokeResult(request) {
 function approvalQueueRequest() {
   return {
     thread_id: "thread_alpha",
-    agent: { id: "agent_alpha" },
-    runs: [{ id: "run_alpha", trace: { approvalRequests: [] } }],
+    state_dir: "/runtime-state",
     include_resolved: false,
     expected_head: "agentgres://head/before",
     state_root_before: "state://root/before",
@@ -360,6 +359,10 @@ test("approval state core calls direct Rust daemon-core approval queue projectio
   assert.equal(captured.backend, RUNTIME_APPROVAL_STATE_BACKEND);
   assert.equal(captured.request.schema_version, APPROVAL_QUEUE_PROJECTION_REQUEST_SCHEMA_VERSION);
   assert.equal(captured.request.thread_id, "thread_alpha");
+  assert.equal(captured.request.state_dir, "/runtime-state");
+  assert.equal(Object.hasOwn(captured.request, "agent"), false);
+  assert.equal(Object.hasOwn(captured.request, "run"), false);
+  assert.equal(Object.hasOwn(captured.request, "runs"), false);
   assert.equal(captured.request.include_resolved, false);
   assert.equal(result.operation_kind, "approval.queue_projection");
   assert.equal(result.pending_count, 1);

@@ -192,6 +192,7 @@ function assertCanonicalApprovalStateCoreRequest(request = {}) {
         "authority_hash",
         "authority_grant_refs",
         "authority_receipt_refs",
+        "state_dir",
         "include_resolved",
         "expected_head",
         "state_root_before",

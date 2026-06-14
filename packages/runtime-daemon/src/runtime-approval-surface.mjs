@@ -191,7 +191,6 @@ export function createRuntimeApprovalSurface(deps = {}) {
   }
 
   function listThreadApprovals(store, threadId, request = {}) {
-    const target = approvalQueueTarget(store, threadId);
     const record = requireApprovalStateCore(
       "projectApprovalQueue",
       "approval_queue_projection",
@@ -200,9 +199,7 @@ export function createRuntimeApprovalSurface(deps = {}) {
       null,
     ).projectApprovalQueue({
       thread_id: threadId,
-      agent: target.agent,
-      run: target.run,
-      runs: target.runs,
+      state_dir: store?.stateDir ?? null,
       include_resolved: normalizeBooleanOption(request.include_resolved, false),
       expected_head: optionalString(request.expected_head) ?? null,
       state_root_before: optionalString(request.state_root_before) ?? null,
@@ -261,24 +258,6 @@ export function createRuntimeApprovalSurface(deps = {}) {
       run_id: optionalString(run.id) ?? runId ?? null,
       run,
       agent: null,
-    };
-  }
-
-  function approvalQueueTarget(store, threadId) {
-    const agent = store.agentForThread?.(threadId) ?? null;
-    if (!agent) {
-      throw runtimeError({
-        status: 404,
-        code: "approval_agent_not_found",
-        message: "Approval queue projection requires an agent for the requested thread.",
-        details: { thread_id: threadId },
-      });
-    }
-    const runs = agent?.id ? normalizeArray(store.listRuns?.(agent.id)) : [];
-    return {
-      agent,
-      run: runs.at(-1) ?? null,
-      runs,
     };
   }
 

@@ -8408,12 +8408,15 @@ non-terminal beyond the temporary command-envelope request builder.
 
 Public approval queue/read projection is now Rust-owned at the daemon-core
 command boundary. Rust `approval.rs` exposes `project_approval_queue`, derives
-pending/resolved approval queue records from the run/agent approval projections,
-filters resolved records unless explicitly requested, and emits canonical
-snake_case request, decision, lease, receipt, and policy refs. The daemon
-approval surface exposes `listThreadApprovals()` only as a thin protocol client,
-and `GET /v1/threads/:thread_id/approvals` now returns the Rust projection
-instead of resurrecting JS approval event/readback helpers.
+pending/resolved approval queue records by replaying admitted `agents/*.json`
+and `runs/*.json` Agentgres projections from runtime `state_dir`, filters
+resolved records unless explicitly requested, rejects JS-supplied
+`agent`/`run`/`runs` queue candidate transport, and emits canonical snake_case
+request, decision, lease, receipt, and policy refs. The daemon approval surface
+exposes `listThreadApprovals()` only as a thin protocol client that forwards
+`thread_id`, `include_resolved`, optional heads, and `state_dir`, and
+`GET /v1/threads/:thread_id/approvals` now returns the Rust projection instead
+of resurrecting JS approval event/readback helpers or candidate collectors.
 
 Slice 1206 retires the approval-state runner facade. The daemon store now
 mounts `approvalStateCore` directly; `runtime-approval-state-runner.mjs` and its
@@ -8424,7 +8427,8 @@ Rust daemon-core approval requests, rejects retired aliases/options, validates
 only the Rust `operation_kind`, and returns the Rust `approval.rs` envelope
 without JS synthesis of source, backend, queue counts, authority refs, or state
 defaults. Conformance now requires the core mount and the old runner paths to
-stay absent.
+stay absent, and also requires queue reads to replay via `state_dir` instead of
+JS `agent`/`run`/`runs` candidates.
 
 Slice 1207 retires the runtime Agentgres admission runner facade. The daemon
 store now mounts `runtimeAgentgresAdmissionCore` directly;
@@ -8609,6 +8613,12 @@ retired JS projection candidate transport before public read truth can return.
 The remaining memory blockers are wallet/policy authority, cTEE private-memory
 custody, direct memory admission/storage APIs, command-transport retirement, and
 stable protocol APIs.
+Public approval queue/read projection now sends runtime `state_dir`; Rust
+replays admitted `agents/*.json` and `runs/*.json` Agentgres projections and
+rejects JS `agent`/`run`/`runs` queue candidate transport before queue truth can
+return. The remaining approval blockers are richer approval authority
+projection/replay storage, request/grant issuance semantics, command-transport
+retirement, and stable protocol APIs.
 Runtime MCP registry/control state has moved from the fail-closed JS mutation
 facade into Rust-owned `plan_mcp_control_agent_state_update` planning plus
 Agentgres-backed `writeAgent` commits. Import/add/remove/enable/disable,
