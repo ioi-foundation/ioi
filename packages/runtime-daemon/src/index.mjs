@@ -99,7 +99,7 @@ import { createRuntimeContextPolicySurface } from "./runtime-context-policy-surf
 import { createContextPolicyRunnerFromEnv } from "./runtime-context-policy-runner.mjs";
 import { createRuntimeWorkflowEditSurface } from "./runtime-workflow-edit-surface.mjs";
 import { createRuntimeApprovalSurface } from "./runtime-approval-surface.mjs";
-import { createRuntimeApprovalStateRunnerFromEnv } from "./runtime-approval-state-runner.mjs";
+import { createRuntimeApprovalStateCore } from "./runtime-approval-state-core.mjs";
 import { createRuntimeMcpCatalogSurface } from "./runtime-mcp-catalog-surface.mjs";
 import { createRuntimeMcpControlSurface } from "./runtime-mcp-control-surface.mjs";
 import { createRuntimeMcpServeSurface } from "./runtime-mcp-serve-surface.mjs";
@@ -619,9 +619,9 @@ export class AgentgresRuntimeStateStore {
       createContextPolicyRunnerFromEnv(process.env, {
         daemonCoreInvoker: this.daemonCoreInvoker,
       });
-    this.approvalStateRunner =
-      options.approvalStateRunner ??
-      createRuntimeApprovalStateRunnerFromEnv(process.env, {
+    this.approvalStateCore =
+      options.approvalStateCore ??
+      createRuntimeApprovalStateCore({
         daemonCoreInvoker: this.daemonCoreInvoker,
       });
     this.governedImprovementCore =
@@ -719,7 +719,7 @@ export class AgentgresRuntimeStateStore {
       approvalDecisionForRequest,
       approvalLeaseMetadataForRequest,
       approvalLeaseMetadataFromPayload,
-      approvalStateRunner: this.approvalStateRunner,
+      approvalStateCore: this.approvalStateCore,
       notFound,
       runtimeError,
     });

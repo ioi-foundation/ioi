@@ -25,7 +25,7 @@ function assertNoRetiredApprovalControlAliases(value) {
   }
 }
 
-function createStore({ approvalStateRunner = null } = {}) {
+function createStore({ approvalStateCore = null } = {}) {
   const run = {
     id: "run_alpha",
     agentId: "agent_alpha",
@@ -76,7 +76,7 @@ function createStore({ approvalStateRunner = null } = {}) {
     approvalDecisionForRequest(value) {
       return value === "reject" || value === "rejected" ? "reject" : "approve";
     },
-    approvalStateRunner,
+    approvalStateCore,
     nowIso() {
       return "2026-06-06T04:35:00.000Z";
     },
@@ -171,7 +171,7 @@ function approvalAuthorityResult(decision = "approve") {
 test("requestThreadApproval public surface calls Rust approval authority and commits Rust run projection", () => {
   const calls = [];
   const { store, surface, writes } = createStore({
-    approvalStateRunner: {
+    approvalStateCore: {
       planApprovalRequestStateUpdate(request) {
         calls.push({ method: "planApprovalRequestStateUpdate", request });
         return rustRunRecord("approval.required", request, {
@@ -214,7 +214,7 @@ test("requestThreadApproval public surface calls Rust approval authority and com
 test("decideThreadApproval public surface calls Rust authority with canonical decision fields", () => {
   const calls = [];
   const { store, surface, writes } = createStore({
-    approvalStateRunner: {
+    approvalStateCore: {
       authorizeApprovalDecision(request) {
         calls.push({ method: "authorizeApprovalDecision", request });
         return approvalAuthorityResult(request.decision);
@@ -272,7 +272,7 @@ test("decideThreadApproval public surface calls Rust authority with canonical de
 test("approval decision facade fails closed before state update without Rust wallet.network authority", () => {
   const calls = [];
   const { store, surface, writes } = createStore({
-    approvalStateRunner: {
+    approvalStateCore: {
       authorizeApprovalDecision(request) {
         calls.push({ method: "authorizeApprovalDecision", request });
         const error = new Error("wallet.network approval authority is required");
@@ -309,7 +309,7 @@ test("approval decision facade fails closed before state update without Rust wal
 test("revokeThreadApproval public surface calls Rust authority and commits Rust projection", () => {
   const calls = [];
   const { store, surface, writes } = createStore({
-    approvalStateRunner: {
+    approvalStateCore: {
       authorizeApprovalDecision(request) {
         calls.push({ method: "authorizeApprovalDecision", request });
         return approvalAuthorityResult(request.decision);
@@ -359,7 +359,7 @@ test("revokeThreadApproval public surface calls Rust authority and commits Rust 
 test("listThreadApprovals public read calls Rust approval queue projection", () => {
   const calls = [];
   const { store, surface, writes } = createStore({
-    approvalStateRunner: {
+    approvalStateCore: {
       projectApprovalQueue(request) {
         calls.push({ method: "projectApprovalQueue", request });
         return {
@@ -410,7 +410,7 @@ test("listThreadApprovals public read calls Rust approval queue projection", () 
   assert.equal(store.runtimeEventStreams.size, 0);
 });
 
-test("approval control surface remains fail-closed without Rust approval authority runner", () => {
+test("approval control surface remains fail-closed without Rust approval authority core", () => {
   const { store, surface } = createStore();
   assert.throws(
     () => surface.requestThreadApproval(store, "thread_alpha", {
@@ -432,7 +432,7 @@ test("approval control surface remains fail-closed without Rust approval authori
   assert.equal(store.runtimeEventStreams.size, 0);
 });
 
-test("approval queue read surface remains fail-closed without Rust approval authority runner", () => {
+test("approval queue read surface remains fail-closed without Rust approval authority core", () => {
   const { store, surface } = createStore();
   assert.throws(
     () => surface.listThreadApprovals(store, "thread_alpha", {
@@ -454,7 +454,7 @@ test("approval queue read surface remains fail-closed without Rust approval auth
 
 test("approval queue readback is Rust projection only on the JS approval surface", () => {
   const { surface } = createStore({
-    approvalStateRunner: {
+    approvalStateCore: {
       projectApprovalQueue() {
         return {
           status: "projected",

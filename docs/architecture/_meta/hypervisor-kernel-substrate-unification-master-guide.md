@@ -8362,11 +8362,11 @@ Agentgres runtime-event admission before public restore truth returns.
 
 Public approval request, decision, and revoke controls are now positive Rust
 authority calls instead of fail-closed JS facades. The daemon approval surface
-uses the direct-invoker approval-state runner for all three public control
-operations and commits only the Rust-authored run/agent projection through the
-Agentgres-gated state persistence hooks. JS approval request/decision readback,
-runtime-event append, command/env fallback, and camelCase request aliases stay
-retired.
+uses mounted `approvalStateCore` for all three public control operations and
+commits only the Rust-authored run/agent projection through the Agentgres-gated
+state persistence hooks. The approval-state JS runner facade, command/env
+fallback, response normalizer, JS approval request/decision readback,
+runtime-event append, and camelCase request aliases stay retired.
 
 Public approval decision/revoke authority is now wallet.network-bound at the
 Rust daemon-core command boundary. Rust `approval.rs` exposes
@@ -8377,8 +8377,8 @@ fail closed without that authority binding before any Agentgres-gated JS commit
 can persist. The JS surface no longer treats caller-provided `receipt_refs` as
 approval authority truth; it forwards only the Rust authority receipts/hash into
 the state update. Approval request/grant issuance semantics, approval authority
-projection/replay, and the approval-state runner transport remain non-terminal
-migration scaffolding.
+projection/replay, and stable direct Rust approval protocol/API bindings remain
+non-terminal beyond the temporary command-envelope request builder.
 
 Public approval queue/read projection is now Rust-owned at the daemon-core
 command boundary. Rust `approval.rs` exposes `project_approval_queue`, derives
@@ -8388,6 +8388,17 @@ snake_case request, decision, lease, receipt, and policy refs. The daemon
 approval surface exposes `listThreadApprovals()` only as a thin protocol client,
 and `GET /v1/threads/:thread_id/approvals` now returns the Rust projection
 instead of resurrecting JS approval event/readback helpers.
+
+Slice 1206 retires the approval-state runner facade. The daemon store now
+mounts `approvalStateCore` directly; `runtime-approval-state-runner.mjs` and its
+tests are deleted, `index.mjs` no longer reads command/env fallback for
+approval-state, and the public approval surface consumes the mounted core for
+request, decision, revoke, and queue projection. The core builds only canonical
+Rust daemon-core approval requests, rejects retired aliases/options, validates
+only the Rust `operation_kind`, and returns the Rust `approval.rs` envelope
+without JS synthesis of source, backend, queue counts, authority refs, or state
+defaults. Conformance now requires the core mount and the old runner paths to
+stay absent.
 
 Coding-tool approval satisfaction projection is now Rust-owned. The daemon
 approval runner exposes `project_coding_tool_approval_satisfaction`; Rust

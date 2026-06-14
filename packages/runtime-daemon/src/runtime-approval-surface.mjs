@@ -26,7 +26,7 @@ function approvalRevokeRequiredError(runtimeError, threadId) {
 export function createRuntimeApprovalSurface(deps = {}) {
   const {
     approvalDecisionForRequest,
-    approvalStateRunner = null,
+    approvalStateCore = null,
     nowIso = () => new Date().toISOString(),
     runtimeError,
   } = deps;
@@ -48,7 +48,7 @@ export function createRuntimeApprovalSurface(deps = {}) {
   function requestThreadApproval(store, threadId, request = {}) {
     const approvalId = requiredApprovalId(request.approval_id, threadId, "Approval requests");
     const target = approvalTarget(store, threadId, request);
-    const record = requireApprovalStateRunner(
+    const record = requireApprovalStateCore(
       "planApprovalRequestStateUpdate",
       "approval_request",
       "approval.required",
@@ -84,7 +84,7 @@ export function createRuntimeApprovalSurface(deps = {}) {
     const seq = approvalSeq(request);
     const createdAt = approvalCreatedAt(request);
     const source = approvalSource(request);
-    const authority = requireApprovalStateRunner(
+    const authority = requireApprovalStateCore(
       "authorizeApprovalDecision",
       "approval_decision_authority",
       "approval.decision.authority",
@@ -101,7 +101,7 @@ export function createRuntimeApprovalSurface(deps = {}) {
       createdAt,
       source,
     }));
-    const record = requireApprovalStateRunner(
+    const record = requireApprovalStateCore(
       "planApprovalDecisionStateUpdate",
       "approval_decision",
       `approval.${decision}`,
@@ -144,7 +144,7 @@ export function createRuntimeApprovalSurface(deps = {}) {
     const seq = approvalSeq(request);
     const createdAt = approvalCreatedAt(request);
     const source = approvalSource(request);
-    const authority = requireApprovalStateRunner(
+    const authority = requireApprovalStateCore(
       "authorizeApprovalDecision",
       "approval_decision_authority",
       "approval.decision.authority",
@@ -161,7 +161,7 @@ export function createRuntimeApprovalSurface(deps = {}) {
       createdAt,
       source,
     }));
-    const record = requireApprovalStateRunner(
+    const record = requireApprovalStateCore(
       "planApprovalRevokeStateUpdate",
       "approval_revoke",
       "approval.revoke",
@@ -192,7 +192,7 @@ export function createRuntimeApprovalSurface(deps = {}) {
 
   function listThreadApprovals(store, threadId, request = {}) {
     const target = approvalQueueTarget(store, threadId);
-    const record = requireApprovalStateRunner(
+    const record = requireApprovalStateCore(
       "projectApprovalQueue",
       "approval_queue_projection",
       "approval.queue_projection",
@@ -207,11 +207,7 @@ export function createRuntimeApprovalSurface(deps = {}) {
       expected_head: optionalString(request.expected_head) ?? null,
       state_root_before: optionalString(request.state_root_before) ?? null,
     });
-    return {
-      ...record,
-      source: record.source ?? "rust_approval_queue_projection_command",
-      backend: record.backend ?? "rust_authority",
-    };
+    return record;
   }
 
   return {
@@ -221,8 +217,8 @@ export function createRuntimeApprovalSurface(deps = {}) {
     revokeThreadApproval,
   };
 
-  function requireApprovalStateRunner(method, operation, operationKind, threadId, approvalId) {
-    if (approvalStateRunner?.[method]) return approvalStateRunner;
+  function requireApprovalStateCore(method, operation, operationKind, threadId, approvalId) {
+    if (approvalStateCore?.[method]) return approvalStateCore;
     throwApprovalControlRustCoreRequired(operation, operationKind, {
       thread_id: threadId,
       approval_id: approvalId,
@@ -296,8 +292,6 @@ export function createRuntimeApprovalSurface(deps = {}) {
     return {
       ...record,
       commit,
-      source: value.source ?? record.source ?? "rust_approval_control_api",
-      backend: value.backend ?? record.backend ?? "rust_authority",
     };
   }
 

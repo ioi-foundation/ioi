@@ -3316,11 +3316,11 @@ function runBridge() {
   const runtimeApprovalLeaseTest = exists("packages/runtime-daemon/src/runtime-approval-lease.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-approval-lease.test.mjs")
     : "";
-  const runtimeApprovalStateRunner = exists("packages/runtime-daemon/src/runtime-approval-state-runner.mjs")
-    ? read("packages/runtime-daemon/src/runtime-approval-state-runner.mjs")
+  const runtimeApprovalStateCore = exists("packages/runtime-daemon/src/runtime-approval-state-core.mjs")
+    ? read("packages/runtime-daemon/src/runtime-approval-state-core.mjs")
     : "";
-  const runtimeApprovalStateRunnerTest = exists("packages/runtime-daemon/src/runtime-approval-state-runner.test.mjs")
-    ? read("packages/runtime-daemon/src/runtime-approval-state-runner.test.mjs")
+  const runtimeApprovalStateCoreTest = exists("packages/runtime-daemon/src/runtime-approval-state-core.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-approval-state-core.test.mjs")
     : "";
   const runtimeContextPolicyRunner = exists("packages/runtime-daemon/src/runtime-context-policy-runner.mjs")
     ? read("packages/runtime-daemon/src/runtime-context-policy-runner.mjs")
@@ -3986,7 +3986,6 @@ function runBridge() {
   const daemonCoreDirectInvokerRunners = [
     stepModuleRunner,
     runtimeCodingToolApprovalRunner,
-    runtimeApprovalStateRunner,
     runtimeContextPolicyRunner,
     workspaceRestoreRunner,
     modelMountAdmissionRunner,
@@ -4089,6 +4088,30 @@ function runBridge() {
       !/process\.env|IOI_RUNTIME_DAEMON_CORE_COMMAND|IOI_GOVERNED_IMPROVEMENT_COMMAND|normalizeGovernedImprovementBridgeResult|stringArray|createGovernedImprovementRunnerFromEnv/.test(
         governedImprovementCore,
       ) &&
+      !exists("packages/runtime-daemon/src/runtime-approval-state-runner.mjs") &&
+      !exists("packages/runtime-daemon/src/runtime-approval-state-runner.test.mjs") &&
+      /createRuntimeApprovalStateCore\(\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /this\.approvalStateCore/.test(runtimeDaemonIndex) &&
+      !/this\.approvalStateRunner/.test(runtimeDaemonIndex) &&
+      /approvalStateCore: this\.approvalStateCore/.test(runtimeDaemonIndex) &&
+      /RuntimeApprovalStateCore/.test(runtimeApprovalStateCore) &&
+      /this\.daemonCoreInvoker = optionalFunction\(options\.daemonCoreInvoker\)/.test(
+        runtimeApprovalStateCore,
+      ) &&
+      /operation:\s*"plan_approval_request_state_update"/.test(runtimeApprovalStateCore) &&
+      /operation:\s*"authorize_approval_decision"/.test(runtimeApprovalStateCore) &&
+      /operation:\s*"plan_approval_decision_state_update"/.test(runtimeApprovalStateCore) &&
+      /operation:\s*"plan_approval_revoke_state_update"/.test(runtimeApprovalStateCore) &&
+      /operation:\s*"project_approval_queue"/.test(runtimeApprovalStateCore) &&
+      /approval_state_core_request_fields_retired/.test(runtimeApprovalStateCore) &&
+      /approval state core returns the Rust envelope without JS normalization/.test(
+        runtimeApprovalStateCoreTest,
+      ) &&
+      !/process\.env|IOI_RUNTIME_DAEMON_CORE_COMMAND|IOI_APPROVAL_STATE_COMMAND|normalizeApproval.*BridgeResult|createRuntimeApprovalStateRunnerFromEnv|RustRuntimeApprovalStateRunner|RuntimeApprovalStateRunner/.test(
+        runtimeApprovalStateCore,
+      ) &&
       /createWorkspaceRestoreRunnerFromEnv\(process\.env,\s*\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
         runtimeDaemonIndex,
       ) &&
@@ -4111,6 +4134,8 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-l1-settlement-core.mjs",
       "packages/runtime-daemon/src/runtime-governed-improvement-core.mjs",
       "packages/runtime-daemon/src/runtime-external-capability-authority-core.mjs",
+      "packages/runtime-daemon/src/runtime-approval-state-core.mjs",
+      "packages/runtime-daemon/src/runtime-approval-state-core.test.mjs",
       "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
     ],
     "Rust daemon-core migration must use the direct-invoker seam and keep the retired JS command-spawn helper absent from daemon hot paths",
@@ -8959,14 +8984,14 @@ function runBridge() {
       /project_approval_queue/.test(commandProtocolCore) &&
       /CommandOperation::ProjectApprovalQueue/.test(commandProtocolCore) &&
       /project_approval_queue_response/.test(coreCommandDispatch) &&
-      /projectApprovalQueue/.test(runtimeApprovalStateRunner) &&
-      /APPROVAL_QUEUE_PROJECTION_REQUEST_SCHEMA_VERSION/.test(runtimeApprovalStateRunner) &&
-      /normalizeApprovalQueueProjectionBridgeResult/.test(runtimeApprovalStateRunner) &&
-      /approval queue projection runner sends Rust authority request through direct daemon-core invoker/.test(
-        runtimeApprovalStateRunnerTest,
+      /projectApprovalQueue/.test(runtimeApprovalStateCore) &&
+      /APPROVAL_QUEUE_PROJECTION_REQUEST_SCHEMA_VERSION/.test(runtimeApprovalStateCore) &&
+      !/normalizeApprovalQueueProjectionBridgeResult/.test(runtimeApprovalStateCore) &&
+      /approval state core calls direct Rust daemon-core approval queue projection API/.test(
+        runtimeApprovalStateCoreTest,
       ) &&
-      /approval queue projection runner fails closed without Rust-planned operation kind/.test(
-        runtimeApprovalStateRunnerTest,
+      /approval state core fails closed without Rust-planned operation kinds/.test(
+        runtimeApprovalStateCoreTest,
       ) &&
       /listThreadApprovals/.test(runtimeApprovalSurface) &&
       /projectApprovalQueue/.test(runtimeApprovalSurface) &&
@@ -8976,7 +9001,7 @@ function runBridge() {
       /listThreadApprovals public read calls Rust approval queue projection/.test(
         runtimeApprovalControlFacadeTest,
       ) &&
-      /approval queue read surface remains fail-closed without Rust approval authority runner/.test(
+      /approval queue read surface remains fail-closed without Rust approval authority core/.test(
         runtimeApprovalControlFacadeTest,
       ) &&
       /approval queue readback is Rust projection only on the JS approval surface/.test(
@@ -9001,8 +9026,8 @@ function runBridge() {
       "crates/services/src/agentic/runtime/kernel/approval.rs",
       "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
       "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
-      "packages/runtime-daemon/src/runtime-approval-state-runner.mjs",
-      "packages/runtime-daemon/src/runtime-approval-state-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-approval-state-core.mjs",
+      "packages/runtime-daemon/src/runtime-approval-state-core.test.mjs",
       "packages/runtime-daemon/src/runtime-approval-surface.mjs",
       "packages/runtime-daemon/src/runtime-approval-control-facade.test.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.mjs",
@@ -9043,62 +9068,54 @@ function runBridge() {
       ) &&
       !/fn plan_approval_request_state_update/.test(bridgeModule) &&
       !/struct ApprovalRequestStateUpdateBridgeRequest/.test(bridgeModule) &&
-      /createRuntimeApprovalStateRunnerFromEnv/.test(runtimeApprovalStateRunner) &&
-      /RustRuntimeApprovalStateRunner/.test(runtimeApprovalStateRunner) &&
-      /assertNoApprovalStateCommandSelection\(\s*options\.command\s*\?\?\s*env\.IOI_RUNTIME_DAEMON_CORE_COMMAND/.test(
-        runtimeApprovalStateRunner,
+      /createRuntimeApprovalStateCore/.test(runtimeApprovalStateCore) &&
+      /RuntimeApprovalStateCore/.test(runtimeApprovalStateCore) &&
+      /assertNoRetiredApprovalStateCoreOption\("command",\s*options\.command\)/.test(
+        runtimeApprovalStateCore,
       ) &&
-      /ioi\.runtime\.daemon_core\.command\.v1/.test(runtimeApprovalStateRunner) &&
-      !/IOI_STEP_MODULE_COMMAND/.test(runtimeApprovalStateRunner) &&
-      !/APPROVAL_STATE_COMMAND_ARGS_ENV/.test(runtimeApprovalStateRunner) &&
-      !/parseCommandArgs/.test(runtimeApprovalStateRunner) &&
-      !/normalizeArgs/.test(runtimeApprovalStateRunner) &&
-      !/this\.args/.test(runtimeApprovalStateRunner) &&
-      !/argsEnv/.test(runtimeApprovalStateRunner) &&
-      /assertNoApprovalStateCommandArgs/.test(runtimeApprovalStateRunner) &&
-      /assertNoApprovalStateCommandSelection/.test(runtimeApprovalStateRunner) &&
-      /approval_state_command_args_retired/.test(runtimeApprovalStateRunner) &&
-      /approval_state_command_selection_retired/.test(runtimeApprovalStateRunner) &&
-      /approval_state_direct_invoker_unconfigured/.test(runtimeApprovalStateRunner) &&
-      !/createDaemonCoreCommandInvoker/.test(runtimeApprovalStateRunner) &&
-      !/spawnSyncImpl/.test(runtimeApprovalStateRunner) &&
-      !/from "node:child_process"/.test(runtimeApprovalStateRunner) &&
-      /approval state runner command args env fails closed/.test(runtimeApprovalStateRunnerTest) &&
-      /approval state runner command args constructor option fails closed/.test(runtimeApprovalStateRunnerTest) &&
-      /approval state runner command constructor option fails closed/.test(runtimeApprovalStateRunnerTest) &&
-      /planApprovalRequestStateUpdate/.test(runtimeApprovalStateRunner) &&
-      /approval state runner env uses daemon-level direct invoker/.test(
-        runtimeApprovalStateRunnerTest,
+      /ioi\.runtime\.daemon_core\.command\.v1/.test(runtimeApprovalStateCore) &&
+      !/IOI_STEP_MODULE_COMMAND/.test(runtimeApprovalStateCore) &&
+      !/APPROVAL_STATE_COMMAND_ARGS_ENV/.test(runtimeApprovalStateCore) &&
+      !/parseCommandArgs/.test(runtimeApprovalStateCore) &&
+      !/normalizeArgs/.test(runtimeApprovalStateCore) &&
+      !/this\.args/.test(runtimeApprovalStateCore) &&
+      !/argsEnv/.test(runtimeApprovalStateCore) &&
+      !/process\.env/.test(runtimeApprovalStateCore) &&
+      /assertCanonicalApprovalStateCoreRequest/.test(runtimeApprovalStateCore) &&
+      /approval_state_core_compatibility_option_retired/.test(runtimeApprovalStateCore) &&
+      /approval_state_core_request_fields_retired/.test(runtimeApprovalStateCore) &&
+      /approval_state_core_direct_invoker_unconfigured/.test(runtimeApprovalStateCore) &&
+      !/createDaemonCoreCommandInvoker/.test(runtimeApprovalStateCore) &&
+      !/spawnSyncImpl/.test(runtimeApprovalStateCore) &&
+      !/from "node:child_process"/.test(runtimeApprovalStateCore) &&
+      /approval state core rejects retired compatibility options/.test(runtimeApprovalStateCoreTest) &&
+      /approval state core rejects retired request aliases before Rust invocation/.test(
+        runtimeApprovalStateCoreTest,
       ) &&
-      /approval state runner rejects retired daemon-core command env/.test(
-        runtimeApprovalStateRunnerTest,
+      /planApprovalRequestStateUpdate/.test(runtimeApprovalStateCore) &&
+      /approval state core calls direct Rust daemon-core approval request API/.test(
+        runtimeApprovalStateCoreTest,
       ) &&
-      /approval request state runner sends Rust authority request through direct daemon-core invoker/.test(
-        runtimeApprovalStateRunnerTest,
+      /result\.operator_control\.approval_id/.test(runtimeApprovalStateCoreTest) &&
+      /Object\.hasOwn\(captured\.request,\s*"approvalId"\),\s*false/.test(
+        runtimeApprovalStateCoreTest,
       ) &&
-      /approval request state runner normalizes Rust agent target updates/.test(
-        runtimeApprovalStateRunnerTest,
+      /approval state core fails closed without direct daemon-core API/.test(
+        runtimeApprovalStateCoreTest,
       ) &&
-      /result\.operator_control\.approval_id/.test(runtimeApprovalStateRunnerTest) &&
-      /Object\.hasOwn\(result\.operator_control,\s*field\),\s*false/.test(
-        runtimeApprovalStateRunnerTest,
-      ) &&
-      /approval request state runner fails closed without direct invoker/.test(
-        runtimeApprovalStateRunnerTest,
-      ) &&
-      /approval state runner fails closed without Rust-planned operation kinds/.test(
-        runtimeApprovalStateRunnerTest,
+      /approval state core fails closed without Rust-planned operation kinds/.test(
+        runtimeApprovalStateCoreTest,
       ) &&
       !/operation_kind:\s*optionalString\(result\.operation_kind\s*\?\?\s*record\.operation_kind\)\s*\?\?\s*"approval\.required"/.test(
-        runtimeApprovalStateRunner,
+        runtimeApprovalStateCore,
       ) &&
-      /approvalStateRunner/.test(runtimeApprovalSurface) &&
+      /approvalStateCore/.test(runtimeApprovalSurface) &&
       /planApprovalRequestStateUpdate/.test(approvalRequestFacadeBody) &&
       /applyRustApprovalStateUpdate/.test(approvalRequestFacadeBody) &&
       /persistRustApprovalRunUpdate/.test(runtimeApprovalSurface) &&
       /store\.writeRun\(run,\s*operationKind\)/.test(runtimeApprovalSurface) &&
-      /createRuntimeApprovalStateRunnerFromEnv/.test(runtimeDaemonIndex) &&
-      /approvalStateRunner: this\.approvalStateRunner/.test(runtimeDaemonIndex) &&
+      /createRuntimeApprovalStateCore/.test(runtimeDaemonIndex) &&
+      /approvalStateCore: this\.approvalStateCore/.test(runtimeDaemonIndex) &&
       /runtime_approval_control_rust_core_required/.test(runtimeApprovalSurface) &&
       /rust_core_boundary:\s*"runtime\.approval_control"/.test(runtimeApprovalSurface) &&
       /approval_request_js_facade_retired/.test(runtimeApprovalSurface) &&
@@ -9110,7 +9127,7 @@ function runBridge() {
       /requestThreadApproval public surface calls Rust approval authority and commits Rust run projection/.test(
         runtimeApprovalControlFacadeTest,
       ) &&
-      /approval control surface remains fail-closed without Rust approval authority runner/.test(
+      /approval control surface remains fail-closed without Rust approval authority core/.test(
         runtimeApprovalControlFacadeTest,
       ) &&
       /assertNoRetiredApprovalControlAliases\(calls\[0\]\.request\)/.test(
@@ -9135,8 +9152,8 @@ function runBridge() {
     [
       "crates/services/src/agentic/runtime/kernel/approval.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "packages/runtime-daemon/src/runtime-approval-state-runner.mjs",
-      "packages/runtime-daemon/src/runtime-approval-state-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-approval-state-core.mjs",
+      "packages/runtime-daemon/src/runtime-approval-state-core.test.mjs",
       "packages/runtime-daemon/src/runtime-approval-surface.mjs",
       "packages/runtime-daemon/src/runtime-approval-control-facade.test.mjs",
     ],
@@ -9192,33 +9209,30 @@ function runBridge() {
       /authorize_approval_decision/.test(commandProtocolCore) &&
       /CommandOperation::AuthorizeApprovalDecision/.test(commandProtocolCore) &&
       /authorize_approval_decision_response/.test(coreCommandDispatch) &&
-      /authorizeApprovalDecision/.test(runtimeApprovalStateRunner) &&
-      /APPROVAL_DECISION_AUTHORITY_REQUEST_SCHEMA_VERSION/.test(runtimeApprovalStateRunner) &&
-      /normalizeApprovalDecisionAuthorityBridgeResult/.test(runtimeApprovalStateRunner) &&
-      /planApprovalDecisionStateUpdate/.test(runtimeApprovalStateRunner) &&
+      /authorizeApprovalDecision/.test(runtimeApprovalStateCore) &&
+      /APPROVAL_DECISION_AUTHORITY_REQUEST_SCHEMA_VERSION/.test(runtimeApprovalStateCore) &&
+      !/normalizeApprovalDecisionAuthorityBridgeResult/.test(runtimeApprovalStateCore) &&
+      /planApprovalDecisionStateUpdate/.test(runtimeApprovalStateCore) &&
       /APPROVAL_DECISION_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
-        runtimeApprovalStateRunner,
+        runtimeApprovalStateCore,
       ) &&
-      /approval decision authority runner sends wallet\.network grant verification through direct daemon-core invoker/.test(
-        runtimeApprovalStateRunnerTest,
+      /approval state core calls direct Rust daemon-core wallet\.network decision authority API/.test(
+        runtimeApprovalStateCoreTest,
       ) &&
-      /approval decision authority runner fails closed without Rust authority operation kind/.test(
-        runtimeApprovalStateRunnerTest,
+      /approval state core calls direct Rust daemon-core approval decision state API/.test(
+        runtimeApprovalStateCoreTest,
       ) &&
-      /approval decision state runner sends Rust authority request through direct daemon-core invoker/.test(
-        runtimeApprovalStateRunnerTest,
+      /authority_record:\s*authority\.authority/.test(
+        runtimeApprovalStateCoreTest,
       ) &&
-      /authority_record:\s*approvalDecisionAuthorityResult\(\)\.authority/.test(
-        runtimeApprovalStateRunnerTest,
-      ) &&
-      /result\.operator_control\.lease_id/.test(runtimeApprovalStateRunnerTest) &&
-      /approval state runner fails closed without Rust-planned operation kinds/.test(
-        runtimeApprovalStateRunnerTest,
+      /result\.operator_control\.lease_id/.test(runtimeApprovalStateCoreTest) &&
+      /approval state core fails closed without Rust-planned operation kinds/.test(
+        runtimeApprovalStateCoreTest,
       ) &&
       !/operation_kind:\s*optionalString\(result\.operation_kind\s*\?\?\s*record\.operation_kind\)\s*\?\?\s*"approval\.approve"/.test(
-        runtimeApprovalStateRunner,
+        runtimeApprovalStateCore,
       ) &&
-      /approvalStateRunner/.test(runtimeApprovalSurface) &&
+      /approvalStateCore/.test(runtimeApprovalSurface) &&
       /authorizeApprovalDecision/.test(approvalDecisionFacadeBody) &&
       /planApprovalDecisionStateUpdate/.test(approvalDecisionFacadeBody) &&
       /approvalDecisionAuthorityRequest/.test(runtimeApprovalSurface) &&
@@ -9296,8 +9310,8 @@ function runBridge() {
     [
       "crates/services/src/agentic/runtime/kernel/approval.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "packages/runtime-daemon/src/runtime-approval-state-runner.mjs",
-      "packages/runtime-daemon/src/runtime-approval-state-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-approval-state-core.mjs",
+      "packages/runtime-daemon/src/runtime-approval-state-core.test.mjs",
       "packages/runtime-daemon/src/runtime-approval-surface.mjs",
       "packages/runtime-daemon/src/runtime-approval-control-facade.test.mjs",
     ],
@@ -9333,21 +9347,21 @@ function runBridge() {
       !/bridge_plans_approval_revoke_state_update_through_rust_core/.test(bridgeModule) &&
       !/fn plan_approval_revoke_state_update/.test(bridgeModule) &&
       !/struct ApprovalRevokeStateUpdateBridgeRequest/.test(bridgeModule) &&
-      /planApprovalRevokeStateUpdate/.test(runtimeApprovalStateRunner) &&
+      /planApprovalRevokeStateUpdate/.test(runtimeApprovalStateCore) &&
       /APPROVAL_REVOKE_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
-        runtimeApprovalStateRunner,
+        runtimeApprovalStateCore,
       ) &&
-      /approval revoke state runner sends Rust authority request through direct daemon-core invoker/.test(
-        runtimeApprovalStateRunnerTest,
+      /approval state core calls direct Rust daemon-core approval revoke state API/.test(
+        runtimeApprovalStateCoreTest,
       ) &&
-      /result\.operator_control\.lease_status/.test(runtimeApprovalStateRunnerTest) &&
-      /approval state runner fails closed without Rust-planned operation kinds/.test(
-        runtimeApprovalStateRunnerTest,
+      /result\.operator_control\.lease_status/.test(runtimeApprovalStateCoreTest) &&
+      /approval state core fails closed without Rust-planned operation kinds/.test(
+        runtimeApprovalStateCoreTest,
       ) &&
       !/operation_kind:\s*optionalString\(result\.operation_kind\s*\?\?\s*record\.operation_kind\)\s*\?\?\s*"approval\.revoke"/.test(
-        runtimeApprovalStateRunner,
+        runtimeApprovalStateCore,
       ) &&
-      /approvalStateRunner/.test(runtimeApprovalSurface) &&
+      /approvalStateCore/.test(runtimeApprovalSurface) &&
       /authorizeApprovalDecision/.test(approvalRevokeFacadeBody) &&
       /planApprovalRevokeStateUpdate/.test(approvalRevokeFacadeBody) &&
       /receipt_refs:\s*normalizeArray\(authority\.authority_receipt_refs\)/.test(
@@ -9398,8 +9412,8 @@ function runBridge() {
     [
       "crates/services/src/agentic/runtime/kernel/approval.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "packages/runtime-daemon/src/runtime-approval-state-runner.mjs",
-      "packages/runtime-daemon/src/runtime-approval-state-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-approval-state-core.mjs",
+      "packages/runtime-daemon/src/runtime-approval-state-core.test.mjs",
       "packages/runtime-daemon/src/runtime-approval-surface.mjs",
       "packages/runtime-daemon/src/runtime-approval-control-facade.test.mjs",
     ],
