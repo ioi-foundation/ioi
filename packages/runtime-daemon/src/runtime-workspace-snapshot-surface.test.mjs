@@ -129,7 +129,7 @@ function createSurface(options = {}) {
   const surface = createRuntimeWorkspaceSnapshotSurface({
     runtimeError,
     runtimeThreadEventAdmissionForThread: options.runtimeThreadEventAdmissionForThread,
-    workspaceRestoreRunner: options.workspaceRestoreRunner,
+    workspaceRestoreCore: options.workspaceRestoreCore,
     writeJson(filePath, value) {
       writes.push({ filePath, value });
     },
@@ -193,14 +193,14 @@ function createStore(cwd = "/workspace") {
   };
 }
 
-test("workspace snapshot surface captures patch snapshot through Rust workspace restore runner", () => {
-  const runnerCalls = [];
+test("workspace snapshot surface captures patch snapshot through Rust workspace restore core", () => {
+  const coreCalls = [];
   const artifact = snapshotArtifact();
   const event = snapshotEvent();
   const { surface, writes } = createSurface({
-    workspaceRestoreRunner: {
+    workspaceRestoreCore: {
       captureSnapshotFiles(request) {
-        runnerCalls.push(request);
+        coreCalls.push(request);
         return {
           snapshot_record: {
             schema_version: "ioi.runtime.workspace-snapshot.v1",
@@ -275,11 +275,11 @@ test("workspace snapshot surface captures patch snapshot through Rust workspace 
     },
   });
 
-  assert.equal(runnerCalls.length, 1);
-  assert.equal(runnerCalls[0].thread_id, "thread_alpha");
-  assert.equal(runnerCalls[0].tool_call_id, "tool_call_alpha");
-  assert.equal(runnerCalls[0].changed_files[0].before_hash, "sha256-old");
-  assert.equal(runnerCalls[0].content_drafts[0].before_content, "old");
+  assert.equal(coreCalls.length, 1);
+  assert.equal(coreCalls[0].thread_id, "thread_alpha");
+  assert.equal(coreCalls[0].tool_call_id, "tool_call_alpha");
+  assert.equal(coreCalls[0].changed_files[0].before_hash, "sha256-old");
+  assert.equal(coreCalls[0].content_drafts[0].before_content, "old");
   assert.equal(snapshot.record.snapshot_id, "workspace_snapshot_alpha");
   assert.deepEqual(snapshot.record.receipt_refs, artifact.receipt_refs);
   assert.deepEqual(snapshot.record.artifact_refs, artifact.artifact_refs);
@@ -297,7 +297,7 @@ test("workspace snapshot surface captures patch snapshot through Rust workspace 
   assert.equal(writes.length, 0);
 });
 
-test("workspace snapshot surface fails closed when Rust patch capture runner is absent", () => {
+test("workspace snapshot surface fails closed when Rust patch capture core is absent", () => {
   const { surface, writes } = createSurface();
   const store = createStore();
 
@@ -331,17 +331,22 @@ test("workspace snapshot surface fails closed when Rust patch capture runner is 
 });
 
 test("workspace snapshot surface calls Rust list projection and rejects missing Rust snapshot event", () => {
-  const runnerCalls = [];
+  const coreCalls = [];
   const { surface } = createSurface({
-    workspaceRestoreRunner: {
-      listSnapshots(request) {
-        runnerCalls.push(request);
+    workspaceRestoreCore: {
+      projectWorkspaceSnapshotList(request) {
+        coreCalls.push(request);
         return {
-          schema_version: "ioi.runtime.workspace_snapshot.v1",
-          object: "ioi.runtime_workspace_snapshot_list",
-          thread_id: "thread_alpha",
-          snapshot_count: 1,
-          snapshots: [{ snapshot_id: "workspace_snapshot_alpha" }],
+          source: "rust_workspace_snapshot_projection_command",
+          backend: "rust_workspace_restore",
+          projection_kind: "workspace_snapshot.list",
+          projection: {
+            schema_version: "ioi.runtime.workspace_snapshot.v1",
+            object: "ioi.runtime_workspace_snapshot_list",
+            thread_id: "thread_alpha",
+            snapshot_count: 1,
+            snapshots: [{ snapshot_id: "workspace_snapshot_alpha" }],
+          },
         };
       },
     },
@@ -383,22 +388,27 @@ test("workspace snapshot surface calls Rust list projection and rejects missing 
   const list = surface.listWorkspaceSnapshots(store, "thread_alpha");
   assert.equal(list.object, "ioi.runtime_workspace_snapshot_list");
   assert.equal(list.snapshot_count, 1);
-  assert.deepEqual(runnerCalls, [{ thread_id: "thread_alpha" }]);
+  assert.deepEqual(coreCalls, [{ thread_id: "thread_alpha" }]);
   assert.equal(store.events.length, 0);
 });
 
-test("workspace snapshot content package projection calls Rust runner before JS artifact reads", () => {
+test("workspace snapshot content package projection calls Rust core before JS artifact reads", () => {
   const calls = [];
   const { surface } = createSurface({
-    workspaceRestoreRunner: {
-      workspaceSnapshotContentPackage(request) {
-        calls.push({ name: "runner.workspaceSnapshotContentPackage", request });
+    workspaceRestoreCore: {
+      projectWorkspaceSnapshotContentPackage(request) {
+        calls.push({ name: "core.projectWorkspaceSnapshotContentPackage", request });
         return {
-          schema_version: "ioi.runtime.workspace_snapshot_content_package.v1",
-          object: "ioi.runtime_workspace_snapshot_content_package",
-          thread_id: "thread_alpha",
-          snapshot_id: "workspace_snapshot_alpha",
-          content_files: [{ path: "src/app.js", before: { content: "old" }, after: { content: "new" } }],
+          source: "rust_workspace_snapshot_projection_command",
+          backend: "rust_workspace_restore",
+          projection_kind: "workspace_snapshot.content_package",
+          projection: {
+            schema_version: "ioi.runtime.workspace_snapshot_content_package.v1",
+            object: "ioi.runtime_workspace_snapshot_content_package",
+            thread_id: "thread_alpha",
+            snapshot_id: "workspace_snapshot_alpha",
+            content_files: [{ path: "src/app.js", before: { content: "old" }, after: { content: "new" } }],
+          },
         };
       },
     },
@@ -417,7 +427,7 @@ test("workspace snapshot content package projection calls Rust runner before JS 
   assert.equal(contentPackage.content_files[0].before.content, "old");
   assert.deepEqual(calls, [
     {
-      name: "runner.workspaceSnapshotContentPackage",
+      name: "core.projectWorkspaceSnapshotContentPackage",
       request: { thread_id: "thread_alpha", snapshot_id: "workspace_snapshot_alpha" },
     },
   ]);
@@ -501,44 +511,54 @@ test("workspace snapshot surface commits Rust restore artifacts and admits Rust 
   assert.equal(store.codingArtifacts.size, 0);
 });
 
-test("workspace snapshot surface routes restore preview/apply through Rust runner", () => {
-  const runnerCalls = [];
+test("workspace snapshot surface routes restore preview/apply through Rust core", () => {
+  const coreCalls = [];
   const { surface } = createSurface({
-    workspaceRestoreRunner: {
+    workspaceRestoreCore: {
       previewSnapshotRestore(request) {
-        runnerCalls.push({ name: "previewSnapshotRestore", request });
+        coreCalls.push({ name: "previewSnapshotRestore", request });
         const artifact = restoreArtifact("preview", request.snapshot_id);
         return {
-          schema_version: "ioi.runtime.workspace_restore_preview.v1",
-          object: "ioi.runtime_workspace_restore_preview",
-          thread_id: request.thread_id,
-          snapshot_id: request.snapshot_id,
-          preview_status: "ready",
-          operations: [{ path: "src/app.js", status: "ready" }],
-          artifact_refs: artifact.artifact_refs,
-          receipt_refs: artifact.receipt_refs,
-          rollback_refs: [request.snapshot_id],
-          restore_preview_artifact: artifact,
-          restore_preview_event: restoreEvent("preview", request.snapshot_id),
+          source: "rust_workspace_snapshot_restore_command",
+          backend: "rust_workspace_restore",
+          projection_kind: "workspace_restore.preview",
+          restore_preview: {
+            schema_version: "ioi.runtime.workspace_restore_preview.v1",
+            object: "ioi.runtime_workspace_restore_preview",
+            thread_id: request.thread_id,
+            snapshot_id: request.snapshot_id,
+            preview_status: "ready",
+            operations: [{ path: "src/app.js", status: "ready" }],
+            artifact_refs: artifact.artifact_refs,
+            receipt_refs: artifact.receipt_refs,
+            rollback_refs: [request.snapshot_id],
+            restore_preview_artifact: artifact,
+            restore_preview_event: restoreEvent("preview", request.snapshot_id),
+          },
         };
       },
       applySnapshotRestore(request) {
-        runnerCalls.push({ name: "applySnapshotRestore", request });
+        coreCalls.push({ name: "applySnapshotRestore", request });
         const artifact = restoreArtifact("apply", request.snapshot_id);
         return {
-          schema_version: "ioi.runtime.workspace_restore_apply.v1",
-          object: "ioi.runtime_workspace_restore_apply",
-          thread_id: request.thread_id,
-          snapshot_id: request.snapshot_id,
-          preview_status: "ready",
-          apply_status: "applied",
-          operations: [{ path: "src/app.js", apply_status: "applied" }],
-          artifact_refs: artifact.artifact_refs,
-          receipt_refs: artifact.receipt_refs,
-          rollback_refs: [request.snapshot_id],
-          policy_decision_refs: ["policy_apply"],
-          restore_apply_artifact: artifact,
-          restore_apply_event: restoreEvent("apply", request.snapshot_id),
+          source: "rust_workspace_snapshot_restore_command",
+          backend: "rust_workspace_restore",
+          projection_kind: "workspace_restore.apply",
+          restore_apply: {
+            schema_version: "ioi.runtime.workspace_restore_apply.v1",
+            object: "ioi.runtime_workspace_restore_apply",
+            thread_id: request.thread_id,
+            snapshot_id: request.snapshot_id,
+            preview_status: "ready",
+            apply_status: "applied",
+            operations: [{ path: "src/app.js", apply_status: "applied" }],
+            artifact_refs: artifact.artifact_refs,
+            receipt_refs: artifact.receipt_refs,
+            rollback_refs: [request.snapshot_id],
+            policy_decision_refs: ["policy_apply"],
+            restore_apply_artifact: artifact,
+            restore_apply_event: restoreEvent("apply", request.snapshot_id),
+          },
         };
       },
     },
@@ -562,15 +582,15 @@ test("workspace snapshot surface routes restore preview/apply through Rust runne
 
   assert.equal(preview.preview_status, "ready");
   assert.equal(apply.apply_status, "applied");
-  assert.equal(runnerCalls[0].name, "previewSnapshotRestore");
-  assert.equal(runnerCalls[0].request.thread_id, "thread_alpha");
-  assert.equal(runnerCalls[0].request.snapshot_id, "workspace_snapshot_alpha");
-  assert.equal(runnerCalls[0].request.workspace_root, cwd);
-  assert.equal(runnerCalls[0].request.workflow_node_id, "restore_node");
-  assert.equal(runnerCalls[0].request.idempotency_key, "restore_preview_key");
-  assert.equal(runnerCalls[1].name, "applySnapshotRestore");
-  assert.equal(runnerCalls[1].request.approval_granted, true);
-  assert.equal(Object.hasOwn(runnerCalls[1].request, "approvalGranted"), false);
+  assert.equal(coreCalls[0].name, "previewSnapshotRestore");
+  assert.equal(coreCalls[0].request.thread_id, "thread_alpha");
+  assert.equal(coreCalls[0].request.snapshot_id, "workspace_snapshot_alpha");
+  assert.equal(coreCalls[0].request.workspace_root, cwd);
+  assert.equal(coreCalls[0].request.workflow_node_id, "restore_node");
+  assert.equal(coreCalls[0].request.idempotency_key, "restore_preview_key");
+  assert.equal(coreCalls[1].name, "applySnapshotRestore");
+  assert.equal(coreCalls[1].request.approval_granted, true);
+  assert.equal(Object.hasOwn(coreCalls[1].request, "approvalGranted"), false);
   assert.equal(fs.readFileSync(path.join(cwd, "src", "app.js"), "utf8"), "new");
 });
 
@@ -622,7 +642,7 @@ test("workspace restore public facade calls Rust public restore API instead of o
   const calls = [];
   const surface = createRuntimeWorkspaceSnapshotSurface({
     runtimeError,
-    workspaceRestoreRunner: {
+    workspaceRestoreCore: {
       planApplyPolicy() {
         assert.fail("policy helper must not run in the public workspace restore facade");
       },
@@ -636,16 +656,21 @@ test("workspace restore public facade calls Rust public restore API instead of o
         calls.push(request);
         const artifact = restoreArtifact("apply", request.snapshot_id);
         return {
-          schema_version: "ioi.runtime.workspace_restore_apply.v1",
-          object: "ioi.runtime_workspace_restore_apply",
-          thread_id: request.thread_id,
-          snapshot_id: request.snapshot_id,
-          apply_status: "blocked",
-          artifact_refs: artifact.artifact_refs,
-          receipt_refs: artifact.receipt_refs,
-          rollback_refs: [request.snapshot_id],
-          restore_apply_artifact: artifact,
-          restore_apply_event: restoreEvent("apply", request.snapshot_id, "blocked"),
+          source: "rust_workspace_snapshot_restore_command",
+          backend: "rust_workspace_restore",
+          projection_kind: "workspace_restore.apply",
+          restore_apply: {
+            schema_version: "ioi.runtime.workspace_restore_apply.v1",
+            object: "ioi.runtime_workspace_restore_apply",
+            thread_id: request.thread_id,
+            snapshot_id: request.snapshot_id,
+            apply_status: "blocked",
+            artifact_refs: artifact.artifact_refs,
+            receipt_refs: artifact.receipt_refs,
+            rollback_refs: [request.snapshot_id],
+            restore_apply_artifact: artifact,
+            restore_apply_event: restoreEvent("apply", request.snapshot_id, "blocked"),
+          },
         };
       },
     },

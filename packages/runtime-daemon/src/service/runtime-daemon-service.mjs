@@ -18,6 +18,7 @@ export async function startRuntimeDaemonServiceWithStore({
     codingToolApprovalRunner: options.codingToolApprovalRunner,
     modelMountAdmissionRunner: options.modelMountAdmissionRunner,
     runtimeAgentgresAdmissionCore: options.runtimeAgentgresAdmissionCore,
+    workspaceRestoreCore: options.workspaceRestoreCore,
     runtimeBridge: options.runtimeBridge,
     daemonCoreInvoker: options.daemonCoreInvoker,
   });

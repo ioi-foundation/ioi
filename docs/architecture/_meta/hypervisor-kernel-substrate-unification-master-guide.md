@@ -8312,8 +8312,8 @@ Patch workspace snapshot capture is now a Rust-owned hot-path follow-up for
 `snapshot_record`, `snapshot_artifact`, and `snapshot_event` output with
 snapshot ids, hashes, trigger context, receipt refs, artifact refs, restore
 metadata, payload summary, and runtime-event admission identity. The daemon
-workspace-snapshot surface consumes that output through the direct-invoker
-workspace restore runner, commits only the Rust-authored snapshot artifact
+workspace-snapshot surface consumes that output through the mounted
+`workspaceRestoreCore`, commits only the Rust-authored snapshot artifact
 through Rust Agentgres artifact-state admission, admits only the Rust-authored
 snapshot event through Rust Agentgres runtime-event admission, and the
 coding-tool invocation surface no longer calls JS snapshot-event authorship or
@@ -8345,8 +8345,8 @@ the daemon-core command boundary. `project_workspace_snapshot_list`,
 `project_workspace_snapshot_content_package`,
 `preview_workspace_snapshot_restore`, and `apply_workspace_snapshot_restore`
 live in Rust `workspace_restore.rs`; the daemon workspace-snapshot surface calls
-the direct-invoker workspace restore runner for list/content-package and
-restore preview/apply instead of deriving projection truth from JS runtime
+the mounted `workspaceRestoreCore` for list/content-package and restore
+preview/apply instead of deriving projection truth from JS runtime
 events or `codingArtifacts`. Restore preview/apply responses now also carry
 Rust-authored restore artifact records and restore runtime-event records; the
 JS facade commits only those Rust artifact records through Rust Agentgres
@@ -8405,6 +8405,20 @@ returns Rust `agentgres_admission.rs`, `agentgres_command.rs`,
 `runtime_thread_event.rs`, and `coding_tool_event.rs` envelopes without JS
 normalization or fallback truth synthesis. Conformance now requires the core
 mount, Rust-envelope passthrough, and old runner paths to stay absent.
+
+Slice 1208 retires the workspace restore runner facade. The daemon store now
+mounts `workspaceRestoreCore` directly; `runtime-workspace-restore-runner.mjs`
+and its tests are deleted, command/env fallback and spawn hooks are gone, and
+workspace restore apply-policy planning, preview/apply operation planning,
+snapshot capture, snapshot list/content-package projection, and restore
+preview/apply all call the mounted core. The core builds canonical Rust
+daemon-core workspace restore requests, requires `daemonCoreInvoker`, rejects
+retired compatibility options and request aliases, and returns Rust
+`workspace_restore.rs` envelopes without JS normalization or fallback truth
+synthesis. The workspace-snapshot surface now requires Rust `projection`,
+`restore_preview`, and `restore_apply` envelopes before committing/admitting
+artifact or runtime-event truth. Conformance now requires the core mount,
+Rust-envelope passthrough, and old runner paths to stay absent.
 
 Coding-tool approval satisfaction projection is now Rust-owned. The daemon
 approval runner exposes `project_coding_tool_approval_satisfaction`; Rust

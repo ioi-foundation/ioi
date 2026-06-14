@@ -3633,11 +3633,14 @@ function runBridge() {
   const workspaceRestoreKernel = exists("crates/services/src/agentic/runtime/kernel/workspace_restore.rs")
     ? read("crates/services/src/agentic/runtime/kernel/workspace_restore.rs")
     : "";
-  const workspaceRestoreRunner = exists("packages/runtime-daemon/src/runtime-workspace-restore-runner.mjs")
-    ? read("packages/runtime-daemon/src/runtime-workspace-restore-runner.mjs")
+  const workspaceRestoreCore = exists("packages/runtime-daemon/src/runtime-workspace-restore-core.mjs")
+    ? read("packages/runtime-daemon/src/runtime-workspace-restore-core.mjs")
     : "";
-  const workspaceRestoreRunnerTest = exists("packages/runtime-daemon/src/runtime-workspace-restore-runner.test.mjs")
-    ? read("packages/runtime-daemon/src/runtime-workspace-restore-runner.test.mjs")
+  const workspaceRestoreCoreTest = exists("packages/runtime-daemon/src/runtime-workspace-restore-core.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-workspace-restore-core.test.mjs")
+    : "";
+  const workspaceRestoreCoreStoreTest = exists("packages/runtime-daemon/src/runtime-workspace-restore-core-store.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-workspace-restore-core-store.test.mjs")
     : "";
   const runtimeWorkspaceSnapshotSurface = exists("packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs")
@@ -3987,7 +3990,7 @@ function runBridge() {
     stepModuleRunner,
     runtimeCodingToolApprovalRunner,
     runtimeContextPolicyRunner,
-    workspaceRestoreRunner,
+    workspaceRestoreCore,
     modelMountAdmissionRunner,
     runtimeAgentgresCore,
   ];
@@ -4113,9 +4116,14 @@ function runBridge() {
       !/process\.env|IOI_RUNTIME_DAEMON_CORE_COMMAND|IOI_APPROVAL_STATE_COMMAND|normalizeApproval.*BridgeResult|createRuntimeApprovalStateRunnerFromEnv|RustRuntimeApprovalStateRunner|RuntimeApprovalStateRunner/.test(
         runtimeApprovalStateCore,
       ) &&
-      /createWorkspaceRestoreRunnerFromEnv\(process\.env,\s*\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
+      !exists("packages/runtime-daemon/src/runtime-workspace-restore-runner.mjs") &&
+      !exists("packages/runtime-daemon/src/runtime-workspace-restore-runner.test.mjs") &&
+      /createRuntimeWorkspaceRestoreCore\(\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
         runtimeDaemonIndex,
       ) &&
+      /this\.workspaceRestoreCore/.test(runtimeDaemonIndex) &&
+      !/this\.workspaceRestoreRunner/.test(runtimeDaemonIndex) &&
+      /workspaceRestoreCore: this\.workspaceRestoreCore/.test(runtimeDaemonIndex) &&
       /daemonCoreInvoker: this\.daemonCoreInvoker/.test(runtimeDaemonIndex) &&
       /createStepModuleRunnerFromEnv\(process\.env,\s*\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
         runtimeDaemonIndex,
@@ -17683,186 +17691,126 @@ function runBridge() {
     ],
     "Phase 10 is pending: workspace snapshot capture must be produced by the Rust daemon core and exposed through the command bridge",
   );
-	  assertCheck(
-	    result,
-	    "workspace-restore-daemon-runner-direct-invoker",
-	    !/WORKSPACE_RESTORE_COMMAND_ENV/.test(workspaceRestoreRunner) &&
-      /ioi\.runtime\.daemon_core\.command\.v1/.test(workspaceRestoreRunner) &&
-      !/IOI_STEP_MODULE_COMMAND/.test(workspaceRestoreRunner) &&
-      !/WORKSPACE_RESTORE_COMMAND_ARGS_ENV/.test(workspaceRestoreRunner) &&
-      !/parseCommandArgs/.test(workspaceRestoreRunner) &&
-      !/normalizeArgs/.test(workspaceRestoreRunner) &&
-      !/this\.args/.test(workspaceRestoreRunner) &&
-      !/this\.command/.test(workspaceRestoreRunner) &&
-      !/argsEnv/.test(workspaceRestoreRunner) &&
-      /RustWorkspaceRestoreRunner/.test(workspaceRestoreRunner) &&
-      /assertNoWorkspaceRestoreCommandArgs/.test(workspaceRestoreRunner) &&
-      /assertNoWorkspaceRestoreCommandSelection\(\s*options\.command\s*\?\?\s*env\.IOI_RUNTIME_DAEMON_CORE_COMMAND\s*\?\?\s*env\.IOI_WORKSPACE_RESTORE_COMMAND/.test(
-        workspaceRestoreRunner,
-      ) &&
+  assertCheck(
+    result,
+    "workspace-restore-daemon-core-api",
+    !exists("packages/runtime-daemon/src/runtime-workspace-restore-runner.mjs") &&
+      !exists("packages/runtime-daemon/src/runtime-workspace-restore-runner.test.mjs") &&
+      /ioi\.runtime\.daemon_core\.command\.v1/.test(workspaceRestoreCore) &&
+      /RuntimeWorkspaceRestoreCore/.test(workspaceRestoreCore) &&
+      /createRuntimeWorkspaceRestoreCore/.test(workspaceRestoreCore) &&
       /this\.daemonCoreInvoker\s*=\s*optionalFunction\(options\.daemonCoreInvoker\)/.test(
-        workspaceRestoreRunner,
+        workspaceRestoreCore,
       ) &&
-      /createWorkspaceRestoreRunnerFromEnv/.test(workspaceRestoreRunner) &&
-      /daemonCoreInvoker:\s*options\.daemonCoreInvoker/.test(workspaceRestoreRunner) &&
-      /createWorkspaceRestoreRunnerFromEnv/.test(runtimeDaemonIndex) &&
-      /this\.workspaceRestoreRunner/.test(runtimeDaemonIndex) &&
-      /planApplyPolicy/.test(workspaceRestoreRunner) &&
-      /previewOperations/.test(workspaceRestoreRunner) &&
-      /applyOperations/.test(workspaceRestoreRunner) &&
-      /captureSnapshotFiles/.test(workspaceRestoreRunner) &&
-      /listSnapshots/.test(workspaceRestoreRunner) &&
-      /workspaceSnapshotContentPackage/.test(workspaceRestoreRunner) &&
-      /previewSnapshotRestore/.test(workspaceRestoreRunner) &&
-      /applySnapshotRestore/.test(workspaceRestoreRunner) &&
-      /plan_workspace_restore_apply_policy/.test(workspaceRestoreRunner) &&
-      /preview_workspace_restore_operations/.test(workspaceRestoreRunner) &&
-      /apply_workspace_restore_operations/.test(workspaceRestoreRunner) &&
-      /capture_workspace_snapshot_files/.test(workspaceRestoreRunner) &&
-      /project_workspace_snapshot_list/.test(workspaceRestoreRunner) &&
-      /project_workspace_snapshot_content_package/.test(workspaceRestoreRunner) &&
-      /preview_workspace_snapshot_restore/.test(workspaceRestoreRunner) &&
-      /apply_workspace_snapshot_restore/.test(workspaceRestoreRunner) &&
-      /rust_workspace_restore/.test(workspaceRestoreRunner) &&
-      /workspace_restore_direct_invoker_unconfigured/.test(workspaceRestoreRunner) &&
-      /workspace_restore_command_selection_retired/.test(workspaceRestoreRunner) &&
-      /workspace_restore_command_args_retired/.test(workspaceRestoreRunner) &&
-      !/createDaemonCoreCommandInvoker/.test(workspaceRestoreRunner) &&
-      !/spawnSyncImpl/.test(workspaceRestoreRunner) &&
-      !/from "node:child_process"/.test(workspaceRestoreRunner) &&
-      /workspace restore runner sends apply policy through direct daemon-core invoker/.test(
-        workspaceRestoreRunnerTest,
+      /planApplyPolicy/.test(workspaceRestoreCore) &&
+      /previewOperations/.test(workspaceRestoreCore) &&
+      /applyOperations/.test(workspaceRestoreCore) &&
+      /captureSnapshotFiles/.test(workspaceRestoreCore) &&
+      /projectWorkspaceSnapshotList/.test(workspaceRestoreCore) &&
+      /projectWorkspaceSnapshotContentPackage/.test(workspaceRestoreCore) &&
+      /previewSnapshotRestore/.test(workspaceRestoreCore) &&
+      /applySnapshotRestore/.test(workspaceRestoreCore) &&
+      /operation:\s*"plan_workspace_restore_apply_policy"/.test(workspaceRestoreCore) &&
+      /operation:\s*"preview_workspace_restore_operations"/.test(workspaceRestoreCore) &&
+      /operation:\s*"apply_workspace_restore_operations"/.test(workspaceRestoreCore) &&
+      /operation:\s*"capture_workspace_snapshot_files"/.test(workspaceRestoreCore) &&
+      /operation:\s*"project_workspace_snapshot_list"/.test(workspaceRestoreCore) &&
+      /operation:\s*"project_workspace_snapshot_content_package"/.test(workspaceRestoreCore) &&
+      /operation:\s*"preview_workspace_snapshot_restore"/.test(workspaceRestoreCore) &&
+      /operation:\s*"apply_workspace_snapshot_restore"/.test(workspaceRestoreCore) &&
+      /rust_workspace_restore/.test(workspaceRestoreCore) &&
+      /workspace_restore_core_direct_invoker_unconfigured/.test(workspaceRestoreCore) &&
+      /workspace_restore_core_compatibility_option_retired/.test(workspaceRestoreCore) &&
+      /workspace_restore_core_request_aliases_retired/.test(workspaceRestoreCore) &&
+      !/process\.env|IOI_RUNTIME_DAEMON_CORE_COMMAND|IOI_WORKSPACE_RESTORE_COMMAND|IOI_STEP_MODULE_COMMAND/.test(
+        workspaceRestoreCore,
       ) &&
-      /workspace restore runner sends preview operations through direct daemon-core invoker/.test(
-        workspaceRestoreRunnerTest,
+      !/createWorkspaceRestoreRunnerFromEnv|RustWorkspaceRestoreRunner|WorkspaceRestoreRunner/.test(
+        workspaceRestoreCore,
       ) &&
-      /workspace restore runner sends apply operations through direct daemon-core invoker/.test(
-        workspaceRestoreRunnerTest,
+      !/normalizeWorkspace.*BridgeResult|normalizeWorkspaceSnapshot.*BridgeResult|stringArray|arrayOfObjects/.test(
+        workspaceRestoreCore,
       ) &&
-      /workspace restore runner sends snapshot capture through direct daemon-core invoker/.test(
-        workspaceRestoreRunnerTest,
+      !/createDaemonCoreCommandInvoker|spawnSyncImpl|from "node:child_process"/.test(
+        workspaceRestoreCore,
       ) &&
-      /workspace restore runner sends public snapshot projection and restore APIs through direct daemon-core invoker/.test(
-        workspaceRestoreRunnerTest,
+      /createRuntimeWorkspaceRestoreCore\(\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
+        runtimeDaemonIndex,
       ) &&
-      /workspace restore runner does not synthesize Rust-owned snapshot capture refs/.test(
-        workspaceRestoreRunnerTest,
+      /this\.workspaceRestoreCore/.test(runtimeDaemonIndex) &&
+      !/this\.workspaceRestoreRunner/.test(runtimeDaemonIndex) &&
+      /workspaceRestoreCore: this\.workspaceRestoreCore/.test(runtimeDaemonIndex) &&
+      /workspace restore core calls direct Rust daemon-core workspace APIs/.test(
+        workspaceRestoreCoreTest,
       ) &&
-      /assert\.equal\(capture\.files\[0\]\.receipt_refs,\s*null\)/.test(
-        workspaceRestoreRunnerTest,
+      /workspace restore core returns the Rust envelope without JS normalization/.test(
+        workspaceRestoreCoreTest,
       ) &&
-      /assert\.equal\(capture\.files\[0\]\.artifact_refs,\s*null\)/.test(
-        workspaceRestoreRunnerTest,
+      /Object\.hasOwn\(result,\s*"source"\),\s*false/.test(workspaceRestoreCoreTest) &&
+      /Object\.hasOwn\(result,\s*"backend"\),\s*false/.test(workspaceRestoreCoreTest) &&
+      /workspace restore core rejects retired compatibility options/.test(workspaceRestoreCoreTest) &&
+      /workspace restore core rejects retired request aliases before Rust invocation/.test(
+        workspaceRestoreCoreTest,
       ) &&
-      /assert\.equal\(capture\.snapshot_record,\s*null\)/.test(workspaceRestoreRunnerTest) &&
-      /assert\.equal\(capture\.snapshot_event,\s*null\)/.test(workspaceRestoreRunnerTest) &&
-      /workspace restore runner ignores retired result reader aliases/.test(
-        workspaceRestoreRunnerTest,
+      /workspace restore core fails closed without direct daemon-core API/.test(
+        workspaceRestoreCoreTest,
       ) &&
-      /workspace restore runner ignores retired request aliases/.test(
-        workspaceRestoreRunnerTest,
+      /workspace restore core surfaces Rust rejection/.test(workspaceRestoreCoreTest) &&
+      /runtime store mounts workspace restore core from options/.test(workspaceRestoreCoreStoreTest) &&
+      /Object\.hasOwn\(store,\s*"workspaceRestoreRunner"\),\s*false/.test(
+        workspaceRestoreCoreStoreTest,
       ) &&
-      /workspace restore runner env uses daemon-level direct invoker/.test(
-        workspaceRestoreRunnerTest,
+      /runtime_workspace_snapshot_rust_core_required/.test(runtimeWorkspaceSnapshotSurface) &&
+      /rust_core_boundary:\s*"runtime\.workspace_snapshot"/.test(runtimeWorkspaceSnapshotSurface) &&
+      /workspace_snapshot_js_capture_facade_retired/.test(runtimeWorkspaceSnapshotSurface) &&
+      /workspaceRestoreCore\s*=\s*null/.test(runtimeWorkspaceSnapshotSurface) &&
+      /workspaceRestoreCore\.captureSnapshotFiles\(\{/.test(runtimeWorkspaceSnapshotSurface) &&
+      /workspaceRestoreCore\.projectWorkspaceSnapshotList\(\{/.test(runtimeWorkspaceSnapshotSurface) &&
+      /workspaceRestoreCore\.projectWorkspaceSnapshotContentPackage\(\{/.test(
+        runtimeWorkspaceSnapshotSurface,
       ) &&
-      /workspace restore runner rejects retired daemon-core command env/.test(
-        workspaceRestoreRunnerTest,
+      /workspaceRestoreCore\.previewSnapshotRestore\(\{/.test(runtimeWorkspaceSnapshotSurface) &&
+      /workspaceRestoreCore\.applySnapshotRestore\(\{/.test(runtimeWorkspaceSnapshotSurface) &&
+      /requireWorkspaceSnapshotProjection/.test(runtimeWorkspaceSnapshotSurface) &&
+      /requireWorkspaceRestorePreview/.test(runtimeWorkspaceSnapshotSurface) &&
+      /requireWorkspaceRestoreApply/.test(runtimeWorkspaceSnapshotSurface) &&
+      /workspace snapshot surface captures patch snapshot through Rust workspace restore core/.test(
+        runtimeWorkspaceSnapshotSurfaceTest,
       ) &&
-      /workspace restore runner rejects retired workspace command env/.test(
-        workspaceRestoreRunnerTest,
+      /workspace snapshot surface fails closed when Rust patch capture core is absent/.test(
+        runtimeWorkspaceSnapshotSurfaceTest,
       ) &&
-      /workspace restore runner command args env fails closed/.test(
-        workspaceRestoreRunnerTest,
-      ) &&
-      /workspace restore runner command args constructor option fails closed/.test(
-        workspaceRestoreRunnerTest,
-      ) &&
-      /workspace restore runner command constructor option fails closed/.test(
-        workspaceRestoreRunnerTest,
-      ) &&
-      /workspace restore runner fails closed without direct invoker/.test(
-        workspaceRestoreRunnerTest,
-      ) &&
-      /workspace restore runner surfaces Rust policy rejection/.test(
-        workspaceRestoreRunnerTest,
-      ) &&
-      /Object\.hasOwn\(result,\s*field\),\s*false/.test(workspaceRestoreRunnerTest) &&
-      /Object\.hasOwn\(operations\[0\],\s*field\),\s*false/.test(workspaceRestoreRunnerTest) &&
-      /Object\.hasOwn\(capture,\s*field\),\s*false/.test(workspaceRestoreRunnerTest) &&
-      !/^\s*(?:allowConflicts|conflictPolicy|hardBlocked|conflictBlocked|policyStatus|applyStatus|policyDecisionRefs|operationPolicies|operationPolicyByPath|contentFiles|capturedFileCount|omittedFileCount|contentCaptured|receiptRefs|artifactRefs|contentHash|sizeBytes|mtimeMs|contentBytes|omittedReason|currentExists|currentHash|currentBytes|targetExists|targetHash|snapshotAfterExists|snapshotAfterHash|currentMatchesSnapshotPost|currentMatchesRestoreTarget|blockedReason|diffBytes|diffHash|diffTruncated|applyReason|appliedExists|appliedHash|appliedBytes|appliedMatchesTarget|errorMessage):/m.test(
-        workspaceRestoreRunner,
-      ) &&
-      !/\brecord\.(?:receiptRefs|artifactRefs|currentExists|currentHash|currentBytes|targetExists|targetHash|snapshotAfterExists|snapshotAfterHash|currentMatchesSnapshotPost|currentMatchesRestoreTarget|blockedReason|diffBytes|diffHash|diffTruncated|applyStatus|applyReason|appliedExists|appliedHash|appliedBytes|appliedMatchesTarget|errorMessage)\b/.test(
-        workspaceRestoreRunner,
-      ) &&
-      /receipt_refs:\s*stringArray\(record\.receipt_refs\),/.test(workspaceRestoreRunner) &&
-      /artifact_refs:\s*stringArray\(record\.artifact_refs\),/.test(workspaceRestoreRunner) &&
-      !/receipt_refs:\s*stringArray\(record\.receipt_refs\)\s*\?\?\s*\[\]/.test(
-        workspaceRestoreRunner,
-      ) &&
-      !/artifact_refs:\s*stringArray\(record\.artifact_refs\)\s*\?\?\s*\[\]/.test(
-        workspaceRestoreRunner,
-      ) &&
-      !/function normalizeSnapshotCapturedSide[\s\S]*?\bside\.(?:contentHash|sizeBytes|mtimeMs|contentCaptured|contentBytes|omittedReason)\b[\s\S]*?function normalizeWorkspaceRestoreOperation/.test(
-        workspaceRestoreRunner,
-      ) &&
-      !/\brequest\?\.(?:changedFiles|contentDrafts|workspaceSnapshotDrafts|maxContentBytes)\b/.test(
-        workspaceRestoreRunner,
-      ) &&
-      !/\bentry\.(?:beforeHash|afterHash|beforeExists|afterExists|beforeSizeBytes|afterSizeBytes|beforeMtimeMs|afterMtimeMs|beforeContent|afterContent)\b/.test(
-        workspaceRestoreRunner,
-      ) &&
-	      !/function normalizeRestoreSideForBridge[\s\S]*?\bside\.contentHash\b[\s\S]*?function normalizeSnapshotCapturedFiles/.test(
-	        workspaceRestoreRunner,
-	      ) &&
-	      /runtime_workspace_snapshot_rust_core_required/.test(runtimeWorkspaceSnapshotSurface) &&
-	      /rust_core_boundary:\s*"runtime\.workspace_snapshot"/.test(runtimeWorkspaceSnapshotSurface) &&
-	      /workspace_snapshot_js_capture_facade_retired/.test(runtimeWorkspaceSnapshotSurface) &&
-	      /workspaceRestoreRunner\s*=\s*null/.test(runtimeWorkspaceSnapshotSurface) &&
-	      /workspaceRestoreRunner\.captureSnapshotFiles\(\{/.test(runtimeWorkspaceSnapshotSurface) &&
-	      /snapshot_artifact:\s*objectRecord\(result\.snapshot_artifact\) \?\? null/.test(workspaceRestoreRunner) &&
-	      /snapshot_artifact_commit/.test(runtimeWorkspaceSnapshotSurface) &&
-	      /admitWorkspaceSnapshotEvent/.test(runtimeWorkspaceSnapshotSurface) &&
-	      /workspaceRestoreRunner\.listSnapshots\(\{/.test(runtimeWorkspaceSnapshotSurface) &&
-	      /workspaceRestoreRunner\.workspaceSnapshotContentPackage\(\{/.test(runtimeWorkspaceSnapshotSurface) &&
-	      /workspaceRestoreRunner\.previewSnapshotRestore\(\{/.test(runtimeWorkspaceSnapshotSurface) &&
-	      /workspaceRestoreRunner\.applySnapshotRestore\(\{/.test(runtimeWorkspaceSnapshotSurface) &&
-	      /workspace snapshot surface captures patch snapshot through Rust workspace restore runner/.test(
-	        runtimeWorkspaceSnapshotSurfaceTest,
-	      ) &&
-	      /workspace snapshot surface fails closed when Rust patch capture runner is absent/.test(
-	        runtimeWorkspaceSnapshotSurfaceTest,
-	      ) &&
-	      !/planWorkspaceRestoreApplyPolicy/.test(runtimeWorkspaceSnapshotSurface) &&
-	      !/previewWorkspaceRestoreOperations/.test(runtimeWorkspaceSnapshotSurface) &&
-	      !/applyWorkspaceRestoreOperations/.test(runtimeWorkspaceSnapshotSurface) &&
-	      !/captureWorkspaceSnapshotFiles/.test(runtimeWorkspaceSnapshotSurface) &&
-	      !/workspace_restore_bridge_unconfigured/.test(runtimeWorkspaceSnapshotSurface) &&
-	      !/workspaceRestoreApplyApprovalForRequest/.test(runtimeWorkspaceSnapshotSurface) &&
-	      !/workspaceRestoreApplyAllowsConflicts/.test(runtimeWorkspaceSnapshotSurface) &&
-	      !/workspaceRestoreApplyPolicyDecisionRefs/.test(runtimeWorkspaceSnapshotSurface) &&
+      !/planWorkspaceRestoreApplyPolicy/.test(runtimeWorkspaceSnapshotSurface) &&
+      !/previewWorkspaceRestoreOperations/.test(runtimeWorkspaceSnapshotSurface) &&
+      !/applyWorkspaceRestoreOperations/.test(runtimeWorkspaceSnapshotSurface) &&
+      !/captureWorkspaceSnapshotFiles/.test(runtimeWorkspaceSnapshotSurface) &&
+      !/workspace_restore_bridge_unconfigured/.test(runtimeWorkspaceSnapshotSurface) &&
+      !/workspaceRestoreApplyApprovalForRequest/.test(runtimeWorkspaceSnapshotSurface) &&
+      !/workspaceRestoreApplyAllowsConflicts/.test(runtimeWorkspaceSnapshotSurface) &&
+      !/workspaceRestoreApplyPolicyDecisionRefs/.test(runtimeWorkspaceSnapshotSurface) &&
       !/workspaceRestorePreviewOperation/.test(runtimeWorkspaceSnapshotSurface) &&
       !/workspaceRestoreApplyOperations/.test(runtimeWorkspaceSnapshotSurface) &&
       !/workspaceSnapshotFileForPatch/.test(runtimeWorkspaceSnapshotSurface) &&
       !/workspaceSnapshotContentDraftsByPath/.test(runtimeWorkspaceSnapshotSurface) &&
       !/workspaceRestorePreviewOperation/.test(workspaceRestoreHelpers) &&
-	      !/workspaceRestoreApplyOperations/.test(workspaceRestoreHelpers) &&
-	      !/applyWorkspaceRestoreFile/.test(workspaceRestoreHelpers) &&
-	      !/workspaceSnapshotFileForPatch/.test(workspaceRestoreHelpers) &&
-	      !/workspaceSnapshotCaptureSide/.test(workspaceRestoreHelpers) &&
-	      /workspace restore public facade calls Rust public restore API instead of operation helpers/.test(
-	        runtimeWorkspaceSnapshotSurfaceTest,
-	      ),
+      !/workspaceRestoreApplyOperations/.test(workspaceRestoreHelpers) &&
+      !/applyWorkspaceRestoreFile/.test(workspaceRestoreHelpers) &&
+      !/workspaceSnapshotFileForPatch/.test(workspaceRestoreHelpers) &&
+      !/workspaceSnapshotCaptureSide/.test(workspaceRestoreHelpers) &&
+      /workspace restore public facade calls Rust public restore API instead of operation helpers/.test(
+        runtimeWorkspaceSnapshotSurfaceTest,
+      ),
     [
-      "packages/runtime-daemon/src/runtime-workspace-restore-runner.mjs",
-      "packages/runtime-daemon/src/runtime-workspace-restore-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-restore-core.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-restore-core.test.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-restore-core-store.test.mjs",
       "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",
       "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs",
       "packages/runtime-daemon/src/workspace-restore.mjs",
       "packages/runtime-daemon/src/index.mjs",
     ],
-	    "Phase 10/11 is pending: workspace restore runner must use direct Rust daemon-core invoker while patch capture and public workspace snapshot/restore APIs consume Rust daemon-core records",
-	  );
+    "Phase 10/11 is pending: workspace restore core must replace the retired JS runner/env facade while patch capture and public workspace snapshot/restore APIs consume Rust daemon-core records",
+  );
 	  assertCheck(
 	    result,
 	    "workspace-restore-daemon-facade-reader-aliases-retired",
@@ -26335,8 +26283,8 @@ function runCompositor() {
   const runtimeWorkspaceSnapshotSurfaceTest = exists("packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs")
     : "";
-  const workspaceRestoreRunner = exists("packages/runtime-daemon/src/runtime-workspace-restore-runner.mjs")
-    ? read("packages/runtime-daemon/src/runtime-workspace-restore-runner.mjs")
+  const workspaceRestoreCore = exists("packages/runtime-daemon/src/runtime-workspace-restore-core.mjs")
+    ? read("packages/runtime-daemon/src/runtime-workspace-restore-core.mjs")
     : "";
   const workspaceRestoreKernel = exists("crates/services/src/agentic/runtime/kernel/workspace_restore.rs")
     ? read("crates/services/src/agentic/runtime/kernel/workspace_restore.rs")
@@ -33538,15 +33486,15 @@ function runCompositor() {
     result,
     "workspace-snapshot-list-js-projection-retired",
     /function listWorkspaceSnapshots\(store, threadId\)/.test(runtimeWorkspaceSnapshotSurface) &&
-      /workspaceRestoreRunner\.listSnapshots\(\{/.test(runtimeWorkspaceSnapshotSurface) &&
+      /workspaceRestoreCore\.projectWorkspaceSnapshotList\(\{/.test(runtimeWorkspaceSnapshotSurface) &&
       /thread_id:\s*threadId/.test(runtimeWorkspaceSnapshotSurface) &&
       /workspace snapshot surface calls Rust list projection and rejects missing Rust snapshot event/.test(
         runtimeWorkspaceSnapshotSurfaceTest,
       ) &&
-      /runnerCalls,\s*\[\{\s*thread_id:\s*"thread_alpha"\s*\}\]/.test(
+      /coreCalls,\s*\[\{\s*thread_id:\s*"thread_alpha"\s*\}\]/.test(
         runtimeWorkspaceSnapshotSurfaceTest,
       ) &&
-      /project_workspace_snapshot_list/.test(workspaceRestoreRunner) &&
+      /project_workspace_snapshot_list/.test(workspaceRestoreCore) &&
       /rust_workspace_snapshot_projection_command/.test(workspaceRestoreKernel) &&
       /rust_core_shapes_workspace_snapshot_public_projection_responses/.test(
         workspaceRestoreKernel,
@@ -33561,7 +33509,7 @@ function runCompositor() {
     [
       "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",
       "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs",
-      "packages/runtime-daemon/src/runtime-workspace-restore-runner.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-restore-core.mjs",
       "crates/services/src/agentic/runtime/kernel/workspace_restore.rs",
     ],
     "Phase 10/11 is pending: workspace snapshot list projection must call the Rust daemon-core API and must not read JS runtime events",
@@ -33592,7 +33540,7 @@ function runCompositor() {
 	    "workspace-snapshot-artifact-output-aliases-retired",
 	    /workspace_snapshot_artifact_js_materializer_retired/.test(runtimeWorkspaceSnapshotSurface) &&
 	      /WORKSPACE_SNAPSHOT_ARTIFACT_SCHEMA_VERSION/.test(workspaceRestoreKernel) &&
-	      /snapshot_artifact:\s*objectRecord\(result\.snapshot_artifact\) \?\? null/.test(workspaceRestoreRunner) &&
+	      /snapshot_artifact:\s*objectRecord\(capture\?\.snapshot_artifact\)/.test(runtimeWorkspaceSnapshotSurface) &&
 	      /commitWorkspaceSnapshotArtifact/.test(runtimeWorkspaceSnapshotSurface) &&
 	      /snapshot_artifact_commit/.test(runtimeWorkspaceSnapshotSurface) &&
 	      /runtime_workspace_snapshot_artifact_admission_invalid/.test(runtimeWorkspaceSnapshotSurface) &&
@@ -33628,7 +33576,7 @@ function runCompositor() {
 	    result,
 	    "workspace-snapshot-content-payload-aliases-retired",
 	    /workspace_snapshot_js_capture_facade_retired/.test(runtimeWorkspaceSnapshotSurface) &&
-	      /workspace snapshot surface captures patch snapshot through Rust workspace restore runner/.test(
+	      /workspace snapshot surface captures patch snapshot through Rust workspace restore core/.test(
 	        runtimeWorkspaceSnapshotSurfaceTest,
 	      ) &&
 	      /snapshot_draft_count/.test(
@@ -33648,8 +33596,8 @@ function runCompositor() {
 	    "workspace-snapshot-record-output-aliases-retired",
 	    /runtime_workspace_snapshot_rust_core_required/.test(runtimeWorkspaceSnapshotSurface) &&
 	      /rust_daemon_core_workspace_snapshot_admission_required/.test(runtimeWorkspaceSnapshotSurface) &&
-	      /workspaceRestoreRunner\.captureSnapshotFiles\(\{/.test(runtimeWorkspaceSnapshotSurface) &&
-	      /workspace snapshot surface captures patch snapshot through Rust workspace restore runner/.test(
+	      /workspaceRestoreCore\.captureSnapshotFiles\(\{/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /workspace snapshot surface captures patch snapshot through Rust workspace restore core/.test(
 	        runtimeWorkspaceSnapshotSurfaceTest,
 	      ) &&
 	      !/function prepareWorkspaceSnapshotForPatch(?:(?!\n  function materializeWorkspaceSnapshotArtifact)[\s\S])*?\b(?:schemaVersion|threadId|turnId|workspaceRoot|snapshotKind|snapshotId|snapshotHash|fileCount|changedFileCount|createdFileCount|deletedFileCount|receiptRefs|artifactRefs|contentArtifactRefs|evidenceRefs|toolName|toolCallId|workflowGraphId|workflowNodeId|maxContentBytes|capturedFileCount|omittedFileCount|previewSupported|applySupported|contentIncluded|contentArtifactIncluded|pathsIncluded)\s*:/.test(
@@ -33677,8 +33625,8 @@ function runCompositor() {
 	      /runtime_workspace_snapshot_event_admission_invalid/.test(runtimeWorkspaceSnapshotSurface) &&
 	      /rust_daemon_core_workspace_snapshot_event_required/.test(runtimeWorkspaceSnapshotSurface) &&
 	      /agentgres_workspace_snapshot_event_truth_required/.test(runtimeWorkspaceSnapshotSurface) &&
-	      /idempotency_key:\s*optionalString\(event\.idempotency_key\) \?\? null/.test(workspaceRestoreRunner) &&
-	      /snapshot_artifact:\s*objectRecord\(event\.snapshot_artifact\) \?\? null/.test(workspaceRestoreRunner) &&
+	      /"idempotency_key":\s*idempotency_key/.test(workspaceRestoreKernel) &&
+	      /"snapshot_artifact":\s*snapshot_artifact/.test(workspaceRestoreKernel) &&
 	      /event_workspace_snapshot_captured/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
 	      !/appendWorkspaceSnapshotEvent/.test(runtimeCodingToolInvocationSurface) &&
 	      /assert\.ok\(!store\.calls\.some\(\(call\) => call\.name === "appendSnapshotEvent"\)\)/.test(
@@ -33749,21 +33697,21 @@ function runCompositor() {
 	  assertCheck(
 	    result,
 	    "workspace-restore-result-output-aliases-retired",
-	    /workspaceRestoreRunner\.previewSnapshotRestore\(\{/.test(runtimeWorkspaceSnapshotSurface) &&
-	      /workspaceRestoreRunner\.applySnapshotRestore\(\{/.test(runtimeWorkspaceSnapshotSurface) &&
-	      /workspace snapshot surface routes restore preview\/apply through Rust runner/.test(
+	    /workspaceRestoreCore\.previewSnapshotRestore\(\{/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /workspaceRestoreCore\.applySnapshotRestore\(\{/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /workspace snapshot surface routes restore preview\/apply through Rust core/.test(
 	        runtimeWorkspaceSnapshotSurfaceTest,
 	      ) &&
 	      /rust_core_shapes_workspace_snapshot_restore_preview_and_apply_responses/.test(
 	        workspaceRestoreKernel,
 	      ) &&
-	      /restore_preview_artifact/.test(workspaceRestoreRunner) &&
-	      /restore_apply_artifact/.test(workspaceRestoreRunner) &&
+	      /restore_preview_artifact/.test(workspaceRestoreKernel) &&
+	      /restore_apply_artifact/.test(workspaceRestoreKernel) &&
 	      /restore_preview_artifact_commit/.test(runtimeWorkspaceSnapshotSurface) &&
 	      /restore_apply_artifact_commit/.test(runtimeWorkspaceSnapshotSurface) &&
 	      /runtimeThreadEventAdmissionForThread:\s*\(store,\s*request = \{\}\) =>/.test(runtimeDaemonIndex) &&
-	      /preview_workspace_snapshot_restore/.test(workspaceRestoreRunner) &&
-	      /apply_workspace_snapshot_restore/.test(workspaceRestoreRunner) &&
+	      /preview_workspace_snapshot_restore/.test(workspaceRestoreCore) &&
+	      /apply_workspace_snapshot_restore/.test(workspaceRestoreCore) &&
 	      !workspaceRestoreResultAliasPattern.test(previewWorkspaceSnapshotRestoreBody) &&
 	      !workspaceRestoreResultAliasPattern.test(applyWorkspaceSnapshotRestoreBody) &&
 	      !/\brestorePreviewEvent:\s*event\b/.test(previewWorkspaceSnapshotRestoreBody) &&
@@ -33799,13 +33747,13 @@ function runCompositor() {
 	  assertCheck(
 	    result,
 	    "workspace-snapshot-content-package-js-projection-retired",
-	    /workspaceRestoreRunner\.workspaceSnapshotContentPackage\(\{/.test(runtimeWorkspaceSnapshotSurface) &&
-	      /project_workspace_snapshot_content_package/.test(workspaceRestoreRunner) &&
+	    /workspaceRestoreCore\.projectWorkspaceSnapshotContentPackage\(\{/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /project_workspace_snapshot_content_package/.test(workspaceRestoreCore) &&
 	      /rust_workspace_snapshot_projection_command/.test(workspaceRestoreKernel) &&
-	      /workspace snapshot content package projection calls Rust runner before JS artifact reads/.test(
+	      /workspace snapshot content package projection calls Rust core before JS artifact reads/.test(
 	        runtimeWorkspaceSnapshotSurfaceTest,
 	      ) &&
-	      /runner\.workspaceSnapshotContentPackage/.test(
+	      /core\.projectWorkspaceSnapshotContentPackage/.test(
 	        runtimeWorkspaceSnapshotSurfaceTest,
 	      ) &&
 	      /rust_core_shapes_workspace_snapshot_public_projection_responses/.test(
@@ -33819,7 +33767,7 @@ function runCompositor() {
     [
       "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",
       "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs",
-      "packages/runtime-daemon/src/runtime-workspace-restore-runner.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-restore-core.mjs",
       "crates/services/src/agentic/runtime/kernel/workspace_restore.rs",
     ],
     "Phase 10/11 is pending: workspace snapshot content-package projection must call Rust daemon-core and must not read JS coding artifacts",

@@ -136,7 +136,7 @@ import { createRuntimeExternalCapabilityAuthoritySurface } from "./runtime-exter
 import { createRuntimeWorkerServicePackageCore } from "./runtime-worker-service-package-core.mjs";
 import { createRuntimeCteePrivateWorkspaceCore } from "./runtime-ctee-private-workspace-core.mjs";
 import { createRuntimeL1SettlementCore } from "./runtime-l1-settlement-core.mjs";
-import { createWorkspaceRestoreRunnerFromEnv } from "./runtime-workspace-restore-runner.mjs";
+import { createRuntimeWorkspaceRestoreCore } from "./runtime-workspace-restore-core.mjs";
 import { createRuntimeAgentRunLifecycleSurface } from "./runtime-agent-run-lifecycle.mjs";
 import { createRuntimeRepositorySurface } from "./runtime-repository-surface.mjs";
 import { startRuntimeDaemonServiceWithStore } from "./service/runtime-daemon-service.mjs";
@@ -634,9 +634,9 @@ export class AgentgresRuntimeStateStore {
       createRuntimeL1SettlementCore({
         daemonCoreInvoker: this.daemonCoreInvoker,
       });
-    this.workspaceRestoreRunner =
-      options.workspaceRestoreRunner ??
-      createWorkspaceRestoreRunnerFromEnv(process.env, {
+    this.workspaceRestoreCore =
+      options.workspaceRestoreCore ??
+      createRuntimeWorkspaceRestoreCore({
         daemonCoreInvoker: this.daemonCoreInvoker,
       });
     this.schemaVersion = "ioi.agentgres.runtime.v0";
@@ -775,7 +775,7 @@ export class AgentgresRuntimeStateStore {
       runtimeThreadEventAdmissionForThread: (store, request = {}) =>
         this.admitRuntimeThreadEventForThread(store, request),
       writeJson,
-      workspaceRestoreRunner: this.workspaceRestoreRunner,
+      workspaceRestoreCore: this.workspaceRestoreCore,
     });
     this.diagnosticsFeedbackSurface = createRuntimeDiagnosticsFeedbackSurface({
       compactDiagnosticsFeedback,
