@@ -6665,15 +6665,13 @@ invocation admission wrapping, accepted-receipt append through `ReceiptBinder`,
 and the canonical `rust_ctee_private_workspace_command` and
 `rust_worker_service_package_invocation_command` response envelopes.
 
-This remains non-terminal because the Node bridge, command dispatch table,
-shared daemon-core command runner, JS command callers, cTEE runner, and
-worker/service package runner still exist. The remaining
-`ioi_step_module_bridge/governed_receipt_command.rs` file is a temporary
-delegate to Rust core, not a durable receipt/admission boundary. The long-term
-target remains direct Rust daemon-core cTEE and worker/service package protocol
-APIs over Agentgres-backed receipt/state-root binding, replay, projection,
-wallet.network authority, cTEE custody, and stable IDE/CLI/SDK surfaces end to
-end.
+This was non-terminal because the Node bridge, command dispatch table, shared
+daemon-core command runner, JS command callers, and receipt-bearing JS runners
+still existed at that cut. Subsequent cTEE and worker/service package macro
+cuts retired those JS runners. The remaining target is stable direct Rust
+daemon-core cTEE and worker/service package protocol APIs over Agentgres-backed
+receipt/state-root binding, replay, projection, wallet.network authority, cTEE
+custody, and stable IDE/CLI/SDK surfaces end to end.
 
 Slice 1119 moves Agentgres storage-write admission and runtime-state commit
 command response shaping out of the temporary Node Agentgres command bridge and
@@ -7374,20 +7372,20 @@ daemon-core cTEE protocol/API ownership over custody admission,
 receipt/state-root binding, Agentgres truth, projection, replay, and stable
 IDE/CLI/SDK protocol surfaces.
 
-Slice 1154 retires JS-side ref fallback synthesis from the worker/service
-package runner. Rust `governed_receipt.rs` already owns the receipt-bearing
-worker/service package invocation admission response behind the temporary
-daemon-core command path, so
-`runtime-worker-service-package-runner.mjs` now preserves omitted Rust-authored
-`receipt_refs`, `artifact_refs`, `payload_refs`, and `authority_grant_refs` as
-`null` instead of inventing empty arrays as compatibility truth.
+Slice 1154 retired JS-side ref fallback synthesis from the temporary
+worker/service package runner. Rust `governed_receipt.rs` already owned the
+receipt-bearing worker/service package invocation admission response behind the
+temporary daemon-core command path, so omitted Rust-authored `receipt_refs`,
+`artifact_refs`, `payload_refs`, and `authority_grant_refs` stopped becoming
+invented empty arrays as compatibility truth.
 
-This remains non-terminal because the JS worker/service package runner, shared
-daemon-core command runner, and Node bridge transport still carry requests to
-Rust. The target is direct Rust daemon-core worker/service package protocol/API
+That fallback-retirement slice is now superseded by the worker/service package
+core API cut: the JS runner and normalizer are deleted, and the product route
+reaches Rust-owned package admission through mounted `workerServicePackageCore`.
+The target remains direct Rust daemon-core worker/service package protocol/API
 ownership over StepModuleRouter admission, wallet authority, receipt/state-root
 binding, Agentgres truth, projection, replay, and stable IDE/CLI/SDK protocol
-surfaces, not preservation of JS normalizers as compatibility shims.
+surfaces.
 
 Slice 1155 retires JS-side trigger/receipt ref fallback synthesis from the L1
 settlement runner. Rust `governed_admission.rs` already owns L1 settlement
@@ -8181,25 +8179,21 @@ envelope. Resume by cutting the next receipt-bearing
 runner, then delete the shared JS command invoker once every live surface has a
 direct Rust daemon-core API.
 
-Slice 1200 retires the temporary binary-spawn fallback for the daemon
-worker/service package runner. `runtime-worker-service-package-runner.mjs` no
-longer imports the shared JS daemon-core command invoker, no longer exposes or
-reads a live `WORKER_SERVICE_PACKAGE_COMMAND_ENV`, and no longer accepts
-constructor command selection or spawn hooks. Worker/service package invocation
-admission now requires the daemon-level `daemonCoreInvoker` direct Rust-core
-seam and fails closed when it is absent. `IOI_RUNTIME_DAEMON_CORE_COMMAND` and
-retired `IOI_WORKER_SERVICE_PACKAGE_COMMAND` values are treated only as
-forbidden command selection input for this surface, not as fallback transport.
+Slice 1202 retires the daemon worker/service package runner outright. The
+daemon store now mounts `workerServicePackageCore`; the JS runner facade, store
+runner option, command/env fallback, and response normalizer are deleted. The
+core builds only the canonical Rust daemon-core
+`admit_worker_service_package_invocation` request, fails closed without the
+daemon-level `daemonCoreInvoker`, rejects retired request aliases/options, and
+returns the Rust `governed_receipt.rs` admission envelope as-is.
 
-This makes the receipt-bearing worker/service package path direct-invoker-only:
-package admission, router admission, receipt binding, accepted receipt append,
-Agentgres admission, projection records, receipt refs, artifact refs, payload
-refs, and authority grant refs must arrive from Rust daemon-core output or
-remain absent at the JS edge. It is still not terminal because the JS product
-surface remains a request extractor and other command runners still carry
-temporary command transport. Resume by cutting the remaining command-transport
-runners the same way, then delete the shared JS command invoker once every live
-surface has a direct Rust daemon-core API.
+This removes JS envelope truth for the receipt-bearing worker/service package
+path: package admission, router admission, receipt binding, accepted receipt
+append, Agentgres admission, projection records, receipt refs, artifact refs,
+payload refs, authority grant refs, source, and backend truth must arrive from
+Rust daemon-core output or remain absent at the JS edge. It is still not
+terminal because the mounted core builds a temporary command-envelope request
+and other command runners still carry temporary command transport.
 
 Slice 1201 retires the temporary binary-spawn fallback for the daemon workspace
 restore runner. `runtime-workspace-restore-runner.mjs` no longer imports the

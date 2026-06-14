@@ -80,7 +80,7 @@ function store() {
       calls.push({ name: "agentForThread", threadId });
       return { id: "agent_surface" };
     },
-    workerServicePackageRunner: {
+    workerServicePackageCore: {
       admitInvocation(input, context) {
         calls.push({ name: "admitInvocation", input, context });
         return {
@@ -162,7 +162,7 @@ const WORKER_SERVICE_PACKAGE_ADMISSION_CAMEL_ALIASES = [
   "authorityGrantRefs",
 ];
 
-test("worker/service package surface admits nested invocation through Rust runner", () => {
+test("worker/service package surface admits nested invocation through Rust core", () => {
   const runtimeStore = store();
   const surface = createRuntimeWorkerServicePackageSurface();
 
@@ -198,7 +198,7 @@ test("worker/service package surface admits nested invocation through Rust runne
   });
 });
 
-test("worker/service package surface rejects retired request aliases before agent lookup or Rust runner", () => {
+test("worker/service package surface rejects retired request aliases before agent lookup or Rust core", () => {
   const runtimeStore = store();
   const surface = createRuntimeWorkerServicePackageSurface();
 
@@ -219,7 +219,7 @@ test("worker/service package surface rejects retired request aliases before agen
   assert.deepEqual(runtimeStore.calls, []);
 });
 
-test("worker/service package surface rejects client supplied Agentgres truth before Rust runner", () => {
+test("worker/service package surface rejects client supplied Agentgres truth before Rust core", () => {
   const runtimeStore = store();
   const surface = createRuntimeWorkerServicePackageSurface();
 

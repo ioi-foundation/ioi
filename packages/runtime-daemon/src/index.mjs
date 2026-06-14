@@ -133,7 +133,7 @@ import { createRuntimeAgentgresAdmissionRunnerFromEnv } from "./runtime-agentgre
 import { createGovernedImprovementRunnerFromEnv } from "./runtime-governed-improvement-runner.mjs";
 import { createExternalCapabilityAuthorityRunnerFromEnv } from "./runtime-external-capability-authority-runner.mjs";
 import { createRuntimeExternalCapabilityAuthoritySurface } from "./runtime-external-capability-authority-surface.mjs";
-import { createWorkerServicePackageRunnerFromEnv } from "./runtime-worker-service-package-runner.mjs";
+import { createRuntimeWorkerServicePackageCore } from "./runtime-worker-service-package-core.mjs";
 import { createRuntimeCteePrivateWorkspaceCore } from "./runtime-ctee-private-workspace-core.mjs";
 import { createL1SettlementRunnerFromEnv } from "./runtime-l1-settlement-runner.mjs";
 import { createWorkspaceRestoreRunnerFromEnv } from "./runtime-workspace-restore-runner.mjs";
@@ -634,9 +634,9 @@ export class AgentgresRuntimeStateStore {
       createExternalCapabilityAuthorityRunnerFromEnv(process.env, {
         daemonCoreInvoker: this.daemonCoreInvoker,
       });
-    this.workerServicePackageRunner =
-      options.workerServicePackageRunner ??
-      createWorkerServicePackageRunnerFromEnv(process.env, {
+    this.workerServicePackageCore =
+      options.workerServicePackageCore ??
+      createRuntimeWorkerServicePackageCore({
         daemonCoreInvoker: this.daemonCoreInvoker,
       });
     this.cteePrivateWorkspaceCore =

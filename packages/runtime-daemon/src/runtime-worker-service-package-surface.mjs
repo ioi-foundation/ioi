@@ -70,7 +70,7 @@ export function createRuntimeWorkerServicePackageSurface(deps = {}) {
   function admitWorkerServicePackageInvocation(store, threadId, request = {}) {
     const invocation = invocationForRequest(request);
     const agent = store.agentForThread(threadId);
-    return store.workerServicePackageRunner.admitInvocation(invocation, {
+    return store.workerServicePackageCore.admitInvocation(invocation, {
       thread_id: threadId,
       agent_id: agent.id,
     });

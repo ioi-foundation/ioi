@@ -26,9 +26,9 @@ function modelMountAdmissionRunner() {
   };
 }
 
-test("runtime store mounts worker/service package runner from options", () => {
-  const stateDir = mkdtempSync(join(tmpdir(), "ioi-worker-service-package-store-"));
-  const workerServicePackageRunner = {
+test("runtime store mounts worker/service package core from options", () => {
+  const stateDir = mkdtempSync(join(tmpdir(), "ioi-worker-service-package-core-store-"));
+  const workerServicePackageCore = {
     admitInvocation() {
       throw new Error("not invoked in constructor test");
     },
@@ -38,11 +38,14 @@ test("runtime store mounts worker/service package runner from options", () => {
     const store = new AgentgresRuntimeStateStore(stateDir, {
       cwd: stateDir,
       modelMountAdmissionRunner: modelMountAdmissionRunner(),
-      workerServicePackageRunner,
+      workerServicePackageCore,
     });
-
-    assert.equal(store.workerServicePackageRunner, workerServicePackageRunner);
-    store.close();
+    try {
+      assert.equal(store.workerServicePackageCore, workerServicePackageCore);
+      assert.equal(Object.hasOwn(store, "workerServicePackageRunner"), false);
+    } finally {
+      store.close();
+    }
   } finally {
     rmSync(stateDir, { recursive: true, force: true });
   }
