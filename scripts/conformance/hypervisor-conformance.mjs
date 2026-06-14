@@ -1167,7 +1167,9 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 869 is now satisfied/.test(matrix) &&
       /Implementation Slice Evidence: 870/.test(matrix) &&
       /Slice 870 retired the one-function JS `runtime-survey\.mjs` helper module/.test(matrix) &&
-      /`ModelMountingState\.runtimeSurvey\(\)` method now owns the edge refusal directly/.test(matrix) &&
+      /Model_mount runtime-survey capture positive API/.test(matrix) &&
+      /public `runtimeSurvey\(\)` now calls Rust daemon-core `plan_model_mount_runtime_survey`/.test(matrix) &&
+      /requires Rust Agentgres model_mount receipt-state commit before returning public survey truth/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 870 is now satisfied/.test(matrix) &&
       /Implementation Slice Evidence: 871/.test(matrix) &&
       /Slice 871 retired the fail-closed `catalog-provider-oauth\.mjs` helper module/.test(matrix) &&
@@ -1645,8 +1647,10 @@ function runDocs() {
       /Rust ignores local provider-health records/.test(implementationMatrix) &&
       /dedicated `latestRuntimeSurvey\(\)` also sends empty request state plus runtime state_dir/.test(implementationMatrix) &&
       /Rust ignores local provider-health records plus `runtime_survey_input`, and the dead JS runtime-survey projection-input helper is deleted so JS telemetry fallback cannot become public provider-health or runtime-survey truth/.test(implementationMatrix) &&
-      /the one-function JS `runtime-survey\.mjs` helper module is deleted/.test(implementationMatrix) &&
-      /mounted public `ModelMountingState\.runtimeSurvey\(\)` method now owns the edge refusal directly/.test(implementationMatrix) &&
+      /the one-function JS `runtime-survey\.mjs` helper module (?:is|remains) deleted/.test(implementationMatrix) &&
+      /public runtime-survey capture now calls Rust daemon-core `plan_model_mount_runtime_survey`/.test(implementationMatrix) &&
+      /requires Rust Agentgres model_mount receipt-state commit before public truth returns/.test(implementationMatrix) &&
+      /mounted public `ModelMountingState\.runtimeSurvey\(\)` is now a Rust-planned, Agentgres receipt-state committed protocol edge/.test(implementationMatrix) &&
       /latest runtime-survey readback now routes through Rust `plan_model_mount_read_projection` kind `latest_runtime_survey` with empty request state plus runtime state_dir receipt replay/.test(implementationMatrix) &&
       /Rust now authors not-checked readback as zero\/null\/default and checked readback only from admitted `runtime_survey` receipt details/.test(implementationMatrix) &&
       /broad snapshot\/projection requests also no longer send `artifacts`, `endpoints`, `instances`, `providers`, `routes`, `downloads`, or `product_artifact_policy`/.test(implementationMatrix) &&
@@ -19228,6 +19232,9 @@ function runReceipts() {
   const modelMountRuntimeEngineCore = exists("crates/services/src/agentic/runtime/kernel/model_mount/runtime_engine.rs")
     ? read("crates/services/src/agentic/runtime/kernel/model_mount/runtime_engine.rs")
     : "";
+  const modelMountRuntimeSurveyCore = exists("crates/services/src/agentic/runtime/kernel/model_mount/runtime_survey.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/model_mount/runtime_survey.rs")
+    : "";
   const stateAccessors = exists("packages/runtime-daemon/src/model-mounting/state-accessors.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/state-accessors.mjs")
     : "";
@@ -21514,13 +21521,47 @@ function runReceipts() {
     result,
     "model-mount-runtime-survey-receipt-detail-aliases-retired",
     !exists("packages/runtime-daemon/src/model-mounting/runtime-survey.mjs") &&
-      /runtimeSurvey\(\)\s*\{[\s\S]*?throwRuntimeSurveyRustCoreRequired/.test(modelMountingRoot) &&
+      /runtimeSurvey\(\)\s*\{[\s\S]*?planRuntimeSurveyForState\(this/.test(modelMountingRoot) &&
+      /runtimeSurvey\(\)\s*\{[\s\S]*?persistRuntimeSurveyReceiptForState\(this,\s*plan\)/.test(modelMountingRoot) &&
+      !/runtimeSurvey\(\)\s*\{(?:(?!\n\s+latestRuntimeSurvey\(\)).)*throwRuntimeSurveyRustCoreRequired/s.test(modelMountingRoot) &&
+      /state_dir:\s*this\.stateDir/.test(modelMountingRoot) &&
+      /store\.writeReceipt\(plan\.receipt\)/.test(modelMountingRoot) &&
+      /model_mount_runtime_survey_receipt_state_commit_unconfigured/.test(modelMountingRoot) &&
+      /function assertRuntimeSurveyPlanRustOwned/.test(modelMountingRoot) &&
       /model_mount_runtime_survey_rust_core_required/.test(modelMountingRoot) &&
       /rust_core_boundary:\s*"model_mount\.runtime_survey"/.test(modelMountingRoot) &&
       /model_mount_runtime_survey_js_facade_retired/.test(modelMountingRoot) &&
-      /rust_daemon_core_runtime_survey_required/.test(modelMountingRoot) &&
-      /agentgres_runtime_survey_projection_required/.test(modelMountingRoot) &&
+      /rust_daemon_core_runtime_survey/.test(modelMountingRoot) &&
+      /agentgres_runtime_survey_truth_required/.test(modelMountingRoot) &&
       /operation_kind:\s*"model_mount\.runtime_survey\.capture"/.test(modelMountingRoot) &&
+      /RUST_MODEL_MOUNT_RUNTIME_SURVEY_BACKEND/.test(modelMountAdmissionRunner) &&
+      /planRuntimeSurvey\(request\)\s*\{[\s\S]*?operation:\s*"plan_model_mount_runtime_survey"/.test(
+        modelMountAdmissionRunner,
+      ) &&
+      /normalizeRuntimeSurveyBridgeResult/.test(modelMountAdmissionRunner) &&
+      /model_mount_runtime_survey_plan_invalid/.test(modelMountAdmissionRunner) &&
+      /plan_model_mount_runtime_survey_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      /PlanModelMountRuntimeSurvey/.test(commandProtocolCore) &&
+      /"plan_model_mount_runtime_survey"/.test(commandProtocolCore) &&
+      /mod runtime_survey;/.test(modelMountCore) &&
+      /plan_model_mount_runtime_survey_response/.test(modelMountCore) &&
+      /pub fn plan_runtime_survey/.test(modelMountCore) &&
+      /pub struct ModelMountRuntimeSurveyRequest/.test(modelMountRuntimeSurveyCore) &&
+      /pub fn plan_model_mount_runtime_survey_response/.test(modelMountRuntimeSurveyCore) &&
+      /rust_core_plans_runtime_survey_receipt_from_agentgres_runtime_engine_replay/.test(
+        modelMountRuntimeSurveyCore,
+      ) &&
+      /rust_core_shapes_model_mount_runtime_survey_command_response/.test(
+        modelMountRuntimeSurveyCore,
+      ) &&
+      /runtime_projection\(&state_dir,\s*"runtime_engines"/.test(modelMountRuntimeSurveyCore) &&
+      /runtime_projection\(&state_dir,\s*"runtime_preference"/.test(modelMountRuntimeSurveyCore) &&
+      /"js_hardware_probe_executed":\s*false/.test(modelMountRuntimeSurveyCore) &&
+      /"js_runtime_engine_read_executed":\s*false/.test(modelMountRuntimeSurveyCore) &&
+      /"js_lm_studio_probe_executed":\s*false/.test(modelMountRuntimeSurveyCore) &&
+      /"rust_daemon_core_receipt_author":\s*"model_mount\.runtime_survey"/.test(
+        modelMountRuntimeSurveyCore,
+      ) &&
       !/latestRuntimeSurveyProjectionInput/.test(runtimeSurveyModule) &&
       !/lmStudioRuntimeEngines/.test(runtimeSurveyModule) &&
       !/lmStudioRuntimeSurvey/.test(runtimeSurveyModule) &&
@@ -21546,20 +21587,34 @@ function runReceipts() {
       !/runtime_preference:\s*state\.runtimePreference\(\)/.test(runtimeSurveyModule) &&
       !/hardware:\s*hardwareSnapshot\(\)/.test(runtimeSurveyModule) &&
       !/export function latestRuntimeSurvey\b/.test(runtimeSurveyModule) &&
-      !/\b(?:checkedAt|engineCount|selectedEngines|runtimePreference|lmStudio)\s*:/.test(
-        runtimeSurveyReceiptDetailsObject,
-      ) &&
-      !/receipt\.details\?\.(?:checkedAt|engineCount|selectedEngines|runtimePreference|lmStudio)\b/.test(
-        runtimeSurveyModule,
-      ) &&
       /ModelMountingState\.prototype\.runtimeSurvey\.call/.test(runtimeSurveyTest) &&
-      /runtimeSurvey facade fails closed before JS probes, engine reads, or receipt creation/.test(
+      /runtimeSurvey commits Rust-authored receipt before returning public survey/.test(
+        runtimeSurveyTest,
+      ) &&
+      /runtimeSurvey fails closed before JS probes when Rust planner is missing/.test(
         runtimeSurveyTest,
       ) &&
       /assert\.equal\(hardwareCalls,\s*0\)/.test(runtimeSurveyTest) &&
       /assert\.equal\(engineCalls,\s*0\)/.test(runtimeSurveyTest) &&
       /assert\.equal\(lmStudioCalls,\s*0\)/.test(runtimeSurveyTest) &&
       /assert\.deepEqual\(state\.receipts,\s*\[\]\)/.test(runtimeSurveyTest) &&
+      /assert\.equal\(state\.store\.commits\.length,\s*1\)/.test(runtimeSurveyTest) &&
+      /assert\.equal\(state\.store\.commits\[0\]\.kind,\s*"runtime_survey"\)/.test(
+        runtimeSurveyTest,
+      ) &&
+      /Object\.hasOwn\(state\.store\.commits\[0\]\.details,\s*"engineCount"\),\s*false/.test(
+        runtimeSurveyTest,
+      ) &&
+      /Object\.hasOwn\(state\.runtimeSurveyRequests\[0\],\s*"hardware"\),\s*false/.test(
+        runtimeSurveyTest,
+      ) &&
+      /Object\.hasOwn\(state\.runtimeSurveyRequests\[0\],\s*"engines"\),\s*false/.test(
+        runtimeSurveyTest,
+      ) &&
+      /Rust model_mount admission runner sends positive runtime-survey request/.test(
+        modelMountAdmissionRunnerTest,
+      ) &&
+      /planRuntimeSurvey\(runtimeSurveyRequest\(\)\)/.test(modelMountAdmissionRunnerTest) &&
       !/latestRuntimeSurveyProjectionInput builds primitive runtime-survey input/.test(runtimeSurveyTest) &&
       !/LM Studio runtime engine discovery is retired before public CLI execution/.test(runtimeSurveyTest) &&
       !/LM Studio runtime survey is not checked until Rust core owns probing/.test(runtimeSurveyTest),
@@ -21569,8 +21624,11 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/local-system-probes.mjs",
       "packages/runtime-daemon/src/model-mounting/local-system-probes.test.mjs",
       "packages/runtime-daemon/src/model-mounting/runtime-survey.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
+      "crates/services/src/agentic/runtime/kernel/model_mount/runtime_survey.rs",
+      "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
     ],
-    "Phase 9/11 is pending: runtime survey capture and helper-level LM Studio runtime probes must fail closed until Rust daemon-core owns survey receipts/projection, while readback uses canonical snake_case metadata without duplicate camelCase aliases",
+    "Phase 9/11 remains non-terminal: runtime survey capture is now Rust-planned and Agentgres receipt-state committed, with JS probes and receipt authoring retired; stable direct Rust APIs and broader command-transport retirement still remain",
   );
   assertCheck(
     result,

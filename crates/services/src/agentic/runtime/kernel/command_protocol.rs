@@ -23,6 +23,7 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "plan_model_mount_mcp_workflow",
     "plan_model_mount_server_control",
     "plan_model_mount_runtime_engine",
+    "plan_model_mount_runtime_survey",
     "plan_model_mount_tokenizer_required",
     "plan_model_mount_route_control_required",
     "plan_model_mount_route_control",
@@ -162,6 +163,7 @@ pub enum CommandOperation {
     PlanModelMountMcpWorkflow,
     PlanModelMountServerControl,
     PlanModelMountRuntimeEngine,
+    PlanModelMountRuntimeSurvey,
     PlanModelMountTokenizerRequired,
     PlanModelMountRouteControlRequired,
     PlanModelMountRouteControl,
@@ -304,6 +306,7 @@ impl CommandOperation {
             Self::PlanModelMountMcpWorkflow => "plan_model_mount_mcp_workflow",
             Self::PlanModelMountServerControl => "plan_model_mount_server_control",
             Self::PlanModelMountRuntimeEngine => "plan_model_mount_runtime_engine",
+            Self::PlanModelMountRuntimeSurvey => "plan_model_mount_runtime_survey",
             Self::PlanModelMountTokenizerRequired => "plan_model_mount_tokenizer_required",
             Self::PlanModelMountRouteControlRequired => "plan_model_mount_route_control_required",
             Self::PlanModelMountRouteControl => "plan_model_mount_route_control",
@@ -567,6 +570,7 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
         "plan_model_mount_mcp_workflow" => Some(CommandOperation::PlanModelMountMcpWorkflow),
         "plan_model_mount_server_control" => Some(CommandOperation::PlanModelMountServerControl),
         "plan_model_mount_runtime_engine" => Some(CommandOperation::PlanModelMountRuntimeEngine),
+        "plan_model_mount_runtime_survey" => Some(CommandOperation::PlanModelMountRuntimeSurvey),
         "plan_model_mount_tokenizer_required" => {
             Some(CommandOperation::PlanModelMountTokenizerRequired)
         }
@@ -930,6 +934,7 @@ mod tests {
             "project_runtime_conversation_artifact_projection",
             "project_runtime_subagent_projection",
             "plan_model_mount_server_control",
+            "plan_model_mount_runtime_survey",
             "plan_model_mount_artifact_endpoint",
             "plan_model_mount_storage_control",
             "plan_model_mount_mcp_workflow",

@@ -207,6 +207,10 @@ pub fn dispatch_command_operation_response(
             plan_model_mount_runtime_engine_response(decode(raw_request)?)
                 .map_err(|error| model_mount_error("model_mount_runtime_engine_invalid", error))
         }
+        CommandOperation::PlanModelMountRuntimeSurvey => {
+            plan_model_mount_runtime_survey_response(decode(raw_request)?)
+                .map_err(|error| model_mount_error("model_mount_runtime_survey_invalid", error))
+        }
         CommandOperation::PlanModelMountTokenizerRequired => {
             plan_model_mount_tokenizer_required_response(decode(raw_request)?)
                 .map_err(|error| model_mount_error("model_mount_tokenizer_required_invalid", error))

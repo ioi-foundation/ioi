@@ -67,7 +67,8 @@ pub use common::{
     MODEL_MOUNT_ROUTE_CONTROL_REQUIRED_RESULT_SCHEMA_VERSION,
     MODEL_MOUNT_ROUTE_CONTROL_SCHEMA_VERSION, MODEL_MOUNT_ROUTE_DECISION_SCHEMA_VERSION,
     MODEL_MOUNT_RUNTIME_ENGINE_PLAN_SCHEMA_VERSION, MODEL_MOUNT_RUNTIME_ENGINE_SCHEMA_VERSION,
-    MODEL_MOUNT_RUNTIME_SCHEMA_VERSION, MODEL_MOUNT_SERVER_CONTROL_PLAN_SCHEMA_VERSION,
+    MODEL_MOUNT_RUNTIME_SCHEMA_VERSION, MODEL_MOUNT_RUNTIME_SURVEY_PLAN_SCHEMA_VERSION,
+    MODEL_MOUNT_RUNTIME_SURVEY_SCHEMA_VERSION, MODEL_MOUNT_SERVER_CONTROL_PLAN_SCHEMA_VERSION,
     MODEL_MOUNT_SERVER_CONTROL_SCHEMA_VERSION, MODEL_MOUNT_STORAGE_CONTROL_PLAN_SCHEMA_VERSION,
     MODEL_MOUNT_STORAGE_CONTROL_SCHEMA_VERSION, MODEL_MOUNT_STREAM_COMPLETION_PLAN_SCHEMA_VERSION,
     MODEL_MOUNT_STREAM_COMPLETION_SCHEMA_VERSION, MODEL_MOUNT_TOKENIZER_PLAN_SCHEMA_VERSION,
@@ -137,6 +138,11 @@ mod runtime_engine;
 pub use runtime_engine::{
     plan_model_mount_runtime_engine_response, ModelMountRuntimeEngineBridgeRequest,
     ModelMountRuntimeEnginePlan, ModelMountRuntimeEngineRequest,
+};
+mod runtime_survey;
+pub use runtime_survey::{
+    plan_model_mount_runtime_survey_response, ModelMountRuntimeSurveyBridgeRequest,
+    ModelMountRuntimeSurveyPlan, ModelMountRuntimeSurveyRequest,
 };
 mod server_control;
 pub use server_control::{
@@ -364,6 +370,13 @@ impl ModelMountCore {
         request: &ModelMountAcceptedReceiptTransitionRequest,
     ) -> Result<ModelMountAcceptedReceiptTransition, ModelMountError> {
         accepted_receipt::plan_accepted_receipt_transition(request)
+    }
+
+    pub fn plan_runtime_survey(
+        &self,
+        request: &ModelMountRuntimeSurveyRequest,
+    ) -> Result<ModelMountRuntimeSurveyPlan, ModelMountError> {
+        runtime_survey::plan_runtime_survey(request)
     }
 
     pub fn validate_accepted_receipt_transition(

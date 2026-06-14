@@ -11,6 +11,7 @@ export const RUST_MODEL_MOUNT_STORAGE_CONTROL_BACKEND = "rust_model_mount_storag
 export const RUST_MODEL_MOUNT_MCP_WORKFLOW_BACKEND = "rust_model_mount_mcp_workflow";
 export const RUST_MODEL_MOUNT_SERVER_CONTROL_BACKEND = "rust_model_mount_server_control";
 export const RUST_MODEL_MOUNT_RUNTIME_ENGINE_BACKEND = "rust_model_mount_runtime_engine";
+export const RUST_MODEL_MOUNT_RUNTIME_SURVEY_BACKEND = "rust_model_mount_runtime_survey";
 export const RUST_MODEL_MOUNT_TOKENIZER_REQUIRED_BACKEND = "rust_model_mount_tokenizer_required";
 export const RUST_MODEL_MOUNT_ROUTE_CONTROL_REQUIRED_BACKEND = "rust_model_mount_route_control_required";
 export const RUST_MODEL_MOUNT_ROUTE_CONTROL_BACKEND = "rust_model_mount_route_control";
@@ -229,6 +230,16 @@ export class RustModelMountAdmissionRunner {
       request,
     };
     return normalizeRuntimeEngineBridgeResult(this.invokeDaemonCore(bridgeRequest));
+  }
+
+  planRuntimeSurvey(request) {
+    const bridgeRequest = {
+      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      operation: "plan_model_mount_runtime_survey",
+      backend: RUST_MODEL_MOUNT_RUNTIME_SURVEY_BACKEND,
+      request,
+    };
+    return normalizeRuntimeSurveyBridgeResult(this.invokeDaemonCore(bridgeRequest));
   }
 
   planTokenizerRequired(request) {
@@ -1082,6 +1093,85 @@ function normalizeRuntimeEngineBridgeResult(value = {}) {
   if (missing.length > 0) {
     const error = new Error("Rust model_mount runtime-engine plan is incomplete.");
     error.code = "model_mount_runtime_engine_plan_invalid";
+    error.details = {
+      missing,
+      source: normalized.source,
+      backend: normalized.backend,
+      operation_kind: normalized.operation_kind,
+    };
+    throw error;
+  }
+  return normalized;
+}
+
+function normalizeRuntimeSurveyBridgeResult(value = {}) {
+  const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const plan = result.plan && typeof result.plan === "object" && !Array.isArray(result.plan)
+    ? result.plan
+    : {};
+  const receipt = result.receipt && typeof result.receipt === "object" && !Array.isArray(result.receipt)
+    ? result.receipt
+    : plan.receipt && typeof plan.receipt === "object" && !Array.isArray(plan.receipt)
+      ? plan.receipt
+      : null;
+  const normalized = {
+    source: result.source ?? "rust_model_mount_runtime_survey_command",
+    backend: result.backend ?? RUST_MODEL_MOUNT_RUNTIME_SURVEY_BACKEND,
+    plan,
+    receipt,
+    public_response: result.public_response ?? plan.public_response ?? null,
+    receipt_refs: arrayOrNull(result.receipt_refs) ?? arrayOrNull(plan.receipt_refs),
+    evidence_refs: arrayOrNull(result.evidence_refs) ?? arrayOrNull(plan.evidence_refs),
+    survey_hash: result.survey_hash ?? plan.survey_hash ?? receipt?.details?.runtime_survey_hash ?? null,
+    operation_kind: result.operation_kind ?? plan.operation_kind ?? null,
+    rust_core_boundary: result.rust_core_boundary ?? plan.rust_core_boundary ?? null,
+  };
+  const details = receipt?.details && typeof receipt.details === "object" && !Array.isArray(receipt.details)
+    ? receipt.details
+    : {};
+  const missing = [];
+  for (const field of ["receipt", "public_response", "receipt_refs", "evidence_refs", "survey_hash", "operation_kind"]) {
+    if (!normalized[field]) missing.push(field);
+  }
+  if (normalized.rust_core_boundary !== "model_mount.runtime_survey") {
+    missing.push("rust_core_boundary");
+  }
+  if (receipt?.kind !== "runtime_survey") {
+    missing.push("receipt.kind");
+  }
+  for (const field of ["checked_at", "engine_count", "selected_engines", "runtime_preference", "hardware", "lm_studio", "runtime_survey_hash"]) {
+    if (!Object.hasOwn(details, field)) missing.push(`receipt.details.${field}`);
+  }
+  if (details.rust_daemon_core_receipt_author !== "model_mount.runtime_survey") {
+    missing.push("receipt.details.rust_daemon_core_receipt_author");
+  }
+  if (details.js_hardware_probe_executed !== false) {
+    missing.push("receipt.details.js_hardware_probe_executed_false");
+  }
+  if (details.js_runtime_engine_read_executed !== false) {
+    missing.push("receipt.details.js_runtime_engine_read_executed_false");
+  }
+  if (details.js_lm_studio_probe_executed !== false) {
+    missing.push("receipt.details.js_lm_studio_probe_executed_false");
+  }
+  if (!Array.isArray(normalized.evidence_refs)) {
+    missing.push("evidence_refs");
+  } else {
+    for (const evidenceRef of [
+      "model_mount_runtime_survey_js_facade_retired",
+      "rust_daemon_core_runtime_survey",
+      "agentgres_runtime_survey_truth_required",
+      "rust_model_mount_core",
+    ]) {
+      if (!normalized.evidence_refs.includes(evidenceRef)) {
+        missing.push(`evidence_refs.${evidenceRef}`);
+      }
+    }
+  }
+  if (missing.length > 0) {
+    const error = new Error("Rust model_mount runtime-survey plan is incomplete.");
+    error.status = 502;
+    error.code = "model_mount_runtime_survey_plan_invalid";
     error.details = {
       missing,
       source: normalized.source,

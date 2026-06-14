@@ -15,6 +15,7 @@ import {
   RUST_MODEL_MOUNT_ROUTE_CONTROL_BACKEND,
   RUST_MODEL_MOUNT_ROUTE_CONTROL_REQUIRED_BACKEND,
   RUST_MODEL_MOUNT_RUNTIME_ENGINE_BACKEND,
+  RUST_MODEL_MOUNT_RUNTIME_SURVEY_BACKEND,
   RUST_MODEL_MOUNT_SERVER_CONTROL_BACKEND,
   RUST_MODEL_MOUNT_STORAGE_CONTROL_BACKEND,
   RUST_MODEL_MOUNT_STREAM_COMPLETION_BACKEND,
@@ -296,6 +297,17 @@ function runtimeEngineRequest() {
       default_load_options: { gpu_layers: 4 },
     },
     receipt_refs: ["receipt://runtime-engine"],
+  };
+}
+
+function runtimeSurveyRequest() {
+  return {
+    schema_version: "ioi.model_mount.runtime_survey.v1",
+    operation_kind: "model_mount.runtime_survey.capture",
+    source: "runtime-daemon.model_mounting.runtime_survey",
+    generated_at: "2026-06-13T12:00:00.000Z",
+    state_dir: "/runtime-state",
+    body: {},
   };
 }
 
@@ -1490,6 +1502,128 @@ test("Rust model_mount admission runner sends positive runtime-engine request", 
   assert.equal(result.rust_core_boundary, "model_mount.runtime_engine");
   assert.equal(result.evidence_refs.includes("rust_daemon_core_runtime_engine"), true);
   assert.equal(result.control_hash, "sha256:runtime-engine");
+});
+
+test("Rust model_mount admission runner sends positive runtime-survey request", () => {
+  const calls = [];
+  const runner = new RustModelMountAdmissionRunner({
+    daemonCoreInvoker(request) {
+      calls.push({ request });
+      return {
+        ok: true,
+        result: {
+          source: "rust_model_mount_runtime_survey_command",
+          backend: RUST_MODEL_MOUNT_RUNTIME_SURVEY_BACKEND,
+          plan: {
+            schema_version: "ioi.model_mount.runtime_survey_plan.v1",
+            object: "ioi.model_mount_runtime_survey_plan",
+            status: "planned",
+            rust_core_boundary: "model_mount.runtime_survey",
+            operation_kind: request.request.operation_kind,
+            source: request.request.source,
+            receipt: {
+              id: "receipt_runtime_survey_test",
+              kind: "runtime_survey",
+              schemaVersion: "ioi.model-mounting.runtime.v1",
+              createdAt: request.request.generated_at,
+              redaction: "redacted",
+              evidenceRefs: [
+                "model_mount_runtime_survey_js_facade_retired",
+                "rust_daemon_core_runtime_survey",
+                "agentgres_runtime_survey_truth_required",
+                "rust_model_mount_core",
+              ],
+              details: {
+                checked_at: request.request.generated_at,
+                engine_count: 1,
+                selected_engines: [{ id: "backend.llama-cpp", selected: true }],
+                runtime_preference: { selected_engine_id: "backend.llama-cpp" },
+                hardware: { status: "checked", js_probe_execution: false },
+                lm_studio: { status: "not_checked", js_cli_execution: false },
+                runtime_survey_hash: "sha256:runtime-survey",
+                rust_daemon_core_receipt_author: "model_mount.runtime_survey",
+                js_hardware_probe_executed: false,
+                js_runtime_engine_read_executed: false,
+                js_lm_studio_probe_executed: false,
+              },
+            },
+            public_response: {
+              object: "ioi.model_mount_runtime_survey",
+              status: "checked",
+              receiptId: "receipt_runtime_survey_test",
+              engineCount: 1,
+            },
+            receipt_refs: ["receipt_runtime_survey_test"],
+            evidence_refs: [
+              "model_mount_runtime_survey_js_facade_retired",
+              "rust_daemon_core_runtime_survey",
+              "agentgres_runtime_survey_truth_required",
+              "rust_model_mount_core",
+            ],
+            survey_hash: "sha256:runtime-survey",
+          },
+          receipt: {
+            id: "receipt_runtime_survey_test",
+            kind: "runtime_survey",
+            schemaVersion: "ioi.model-mounting.runtime.v1",
+            createdAt: request.request.generated_at,
+            redaction: "redacted",
+            evidenceRefs: [
+              "model_mount_runtime_survey_js_facade_retired",
+              "rust_daemon_core_runtime_survey",
+              "agentgres_runtime_survey_truth_required",
+              "rust_model_mount_core",
+            ],
+            details: {
+              checked_at: request.request.generated_at,
+              engine_count: 1,
+              selected_engines: [{ id: "backend.llama-cpp", selected: true }],
+              runtime_preference: { selected_engine_id: "backend.llama-cpp" },
+              hardware: { status: "checked", js_probe_execution: false },
+              lm_studio: { status: "not_checked", js_cli_execution: false },
+              runtime_survey_hash: "sha256:runtime-survey",
+              rust_daemon_core_receipt_author: "model_mount.runtime_survey",
+              js_hardware_probe_executed: false,
+              js_runtime_engine_read_executed: false,
+              js_lm_studio_probe_executed: false,
+            },
+          },
+          public_response: {
+            object: "ioi.model_mount_runtime_survey",
+            status: "checked",
+            receiptId: "receipt_runtime_survey_test",
+            engineCount: 1,
+          },
+          receipt_refs: ["receipt_runtime_survey_test"],
+          evidence_refs: [
+            "model_mount_runtime_survey_js_facade_retired",
+            "rust_daemon_core_runtime_survey",
+            "agentgres_runtime_survey_truth_required",
+            "rust_model_mount_core",
+          ],
+          survey_hash: "sha256:runtime-survey",
+          operation_kind: request.request.operation_kind,
+          rust_core_boundary: "model_mount.runtime_survey",
+        },
+      };
+    },
+  });
+
+  const result = runner.planRuntimeSurvey(runtimeSurveyRequest());
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.operation, "plan_model_mount_runtime_survey");
+  assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_RUNTIME_SURVEY_BACKEND);
+  assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.runtime_survey.v1");
+  assert.equal(calls[0].request.request.operation_kind, "model_mount.runtime_survey.capture");
+  assert.equal(calls[0].request.request.state_dir, "/runtime-state");
+  assert.equal(Object.hasOwn(calls[0].request.request, "hardware"), false);
+  assert.equal(Object.hasOwn(calls[0].request.request, "engines"), false);
+  assert.equal(result.receipt.kind, "runtime_survey");
+  assert.equal(result.receipt.details.engine_count, 1);
+  assert.equal(result.rust_core_boundary, "model_mount.runtime_survey");
+  assert.equal(result.survey_hash, "sha256:runtime-survey");
 });
 
 test("Rust model_mount admission runner sends tokenizer required request", () => {

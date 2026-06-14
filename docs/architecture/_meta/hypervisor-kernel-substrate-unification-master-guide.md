@@ -1254,10 +1254,13 @@ projection/snapshot input uses an explicit `runtime_survey_default` migration
 payload instead of recursively calling the public JS read facade. Rust now
 authors the checked runtime-survey envelope from canonical snake_case
 `runtime_survey` receipt details, or returns the explicit not-checked default
-when no admitted survey receipt exists. This still does not claim terminal
-runtime-survey migration: capture still fails closed until direct Rust
-daemon-core survey APIs own hardware/runtime probing, Agentgres admission,
-record-state, projection, and command-transport retirement.
+when no admitted survey receipt exists. Later runtime-survey capture work
+superseded the fail-closed capture edge with Rust daemon-core
+`plan_model_mount_runtime_survey`, Rust hardware capture, Agentgres
+runtime-engine replay, and Rust Agentgres model_mount receipt-state commit.
+This still does not claim terminal runtime-survey migration: richer runtime
+materialization, stable direct APIs, projection persistence, and
+command-transport retirement remain required.
 
 Slice 812 moved public model_mount server-status readback through a dedicated
 Rust read-projection kind. `serverStatus()` now requests `server_status` from
@@ -1287,9 +1290,11 @@ the model_mount read-projection path. The runtime-daemon sends primitive
 `runtime_survey_input` migration data only for the dedicated
 `latest_runtime_survey` read projection, and Rust authors the not-checked
 fallback plus checked receipt projection through the shared read-projection
-planner. This still does not claim terminal runtime-survey migration: direct
-Rust daemon-core runtime-survey APIs still need to replace JS hardware/runtime
-probing, Agentgres admission, record-state, and command transport.
+planner. Later runtime-survey capture work replaced the public fail-closed
+capture edge with Rust `plan_model_mount_runtime_survey` and Rust Agentgres
+model_mount receipt-state commit. This still does not claim terminal
+runtime-survey migration: richer runtime materialization, stable direct APIs,
+projection persistence, and command-transport retirement remain required.
 
 Slice 815 retired the JS-authored catalog-status public envelope from
 the model_mount read-projection path. The public `catalogStatus()` now requests
@@ -1614,18 +1619,20 @@ before the catalog surface
 reaches terminal unification.
 
 Slice 868 retired the remaining runtime-survey projection-input and LM Studio
-runtime placeholder helpers from JS. The runtime-daemon public `runtimeSurvey()`
-facade still fails closed before hardware probes, runtime-engine reads, LM Studio
-public-CLI execution, receipt creation, or projection writes. The latest
-runtime-survey readback now uses Rust `latest_runtime_survey` with empty request
-state plus runtime `state_dir` receipt replay, so
+runtime placeholder helpers from JS. At that point the runtime-daemon public
+`runtimeSurvey()` facade still failed closed before hardware probes,
+runtime-engine reads, LM Studio public-CLI execution, receipt creation, or
+projection writes; later runtime-survey capture work moved that public edge to
+Rust `plan_model_mount_runtime_survey` plus Rust Agentgres model_mount
+receipt-state commit. The latest runtime-survey readback now uses Rust
+`latest_runtime_survey` with empty request state plus runtime `state_dir`
+receipt replay, so
 `latestRuntimeSurveyProjectionInput()`,
 `lmStudioRuntimeEngines()`, and `lmStudioRuntimeSurvey()` were deleted instead
 of being preserved as non-authoritative compatibility shims. This is still not
-terminal runtime-survey migration: direct Rust daemon-core runtime probing,
-Agentgres-admitted survey truth, projection persistence, command-transport
-retirement, and stable protocol APIs remain required before runtime survey
-reaches the pure Rust substrate target.
+terminal runtime-survey migration: richer runtime materialization, projection
+persistence, command-transport retirement, and stable protocol APIs remain
+required before runtime survey reaches the pure Rust substrate target.
 
 Slice 838 retired the remaining non-search catalog variant enrichment path from
 JS. Mounted catalog entry enrichment now fails closed with
@@ -1978,14 +1985,16 @@ retirement still remain.
 
 Slice 870 retired the one-function JS `runtime-survey.mjs` helper module after
 runtime-survey capture had already failed closed and latest runtime-survey
-readback had moved to Rust state-dir receipt replay. The mounted public
-`ModelMountingState.runtimeSurvey()` method now owns the edge refusal directly,
-without importing a helper module or dependency-injecting JS probe helpers.
-The method still fails closed before hardware probes, runtime-engine reads,
-LM Studio public-CLI execution, receipt creation, or projection writes. This
-does not claim terminal runtime-survey migration: direct Rust daemon-core
-runtime probing, Agentgres-admitted survey truth, projection persistence,
-command-transport retirement, and stable protocol APIs remain required.
+readback had moved to Rust state-dir receipt replay. Later runtime-survey
+capture work superseded that mounted edge refusal: public
+`ModelMountingState.runtimeSurvey()` now calls Rust daemon-core
+`plan_model_mount_runtime_survey`, commits only the Rust-authored
+`runtime_survey` receipt through Rust Agentgres model_mount receipt-state
+admission, and still avoids JS hardware probes, runtime-engine reads,
+LM Studio public-CLI execution, and JS receipt creation. This does not claim
+terminal runtime-survey migration: richer runtime materialization, projection
+persistence, command-transport retirement, and stable protocol APIs remain
+required.
 
 Slice 871 retired the `catalog-provider-oauth.mjs` helper module after public
 catalog-provider OAuth start/callback/exchange/refresh/revoke had already been

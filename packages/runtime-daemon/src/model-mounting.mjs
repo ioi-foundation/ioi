@@ -12,6 +12,7 @@ import {
   RUST_MODEL_MOUNT_NATIVE_LOCAL_INVENTORY_BACKEND,
   RUST_MODEL_MOUNT_NATIVE_LOCAL_LIFECYCLE_BACKEND,
   RUST_MODEL_MOUNT_PROVIDER_CONTROL_BACKEND,
+  RUST_MODEL_MOUNT_RUNTIME_SURVEY_BACKEND,
   RUST_MODEL_MOUNT_STREAM_COMPLETION_BACKEND,
 } from "./model-mounting/model-mount-admission-runner.mjs";
 import { AgentgresModelMountingStore } from "./model-mounting/store.mjs";
@@ -1888,10 +1889,35 @@ export class ModelMountingState {
   }
 
   runtimeSurvey() {
-    throwRuntimeSurveyRustCoreRequired({
-      operation: "runtime_survey",
+    const checkedAt = this.nowIso();
+    const plan = planRuntimeSurveyForState(this, {
+      schema_version: "ioi.model_mount.runtime_survey.v1",
       operation_kind: "model_mount.runtime_survey.capture",
+      source: "runtime-daemon.model_mounting.runtime_survey",
+      generated_at: checkedAt,
+      state_dir: this.stateDir,
+      body: {},
     });
+    const { receipt, commit } = persistRuntimeSurveyReceiptForState(this, plan);
+    const response = plan.public_response && typeof plan.public_response === "object" && !Array.isArray(plan.public_response)
+      ? { ...plan.public_response }
+      : {};
+    return {
+      ...response,
+      receiptId: receipt.id,
+      receiptCommitHash: commit.commit_hash,
+      receiptStateCommit: {
+        source: commit.source ?? "rust_agentgres_runtime_model_mount_receipt_state_commit_command",
+        objectRef: commit.object_ref,
+        contentHash: commit.content_hash,
+        admissionHash: commit.admission_hash,
+        commitHash: commit.commit_hash,
+        writtenRecord: commit.written_record,
+      },
+      evidenceRefs: Array.isArray(response.evidenceRefs)
+        ? response.evidenceRefs
+        : plan.evidence_refs,
+    };
   }
 
   latestRuntimeSurvey() {
@@ -2025,6 +2051,93 @@ export class ModelMountingState {
   driverForProvider(provider) {
     throwProviderDriverFactoryRetired(provider);
   }
+}
+
+function planRuntimeSurveyForState(state, request) {
+  const runner = state?.modelMountAdmissionRunner;
+  if (!runner || typeof runner.planRuntimeSurvey !== "function") {
+    throwRuntimeSurveyRustCoreRequired({
+      operation: "runtime_survey",
+      operation_kind: "model_mount.runtime_survey.capture",
+      missing: "modelMountAdmissionRunner.planRuntimeSurvey",
+    });
+  }
+  return runner.planRuntimeSurvey(request);
+}
+
+function persistRuntimeSurveyReceiptForState(state, plan = {}) {
+  assertRuntimeSurveyPlanRustOwned(plan);
+  if (!state?.store || typeof state.store.writeReceipt !== "function") {
+    const error = new Error("Runtime survey receipt persistence requires Rust Agentgres receipt-state commit.");
+    error.status = 500;
+    error.code = "model_mount_runtime_survey_receipt_state_commit_unconfigured";
+    error.details = {
+      receipt_id: plan.receipt?.id ?? null,
+      rust_core_boundary: "model_mount.runtime_survey",
+      evidence_refs: [
+        "model_mount_runtime_survey_js_facade_retired",
+        "rust_daemon_core_runtime_survey",
+        "agentgres_runtime_survey_truth_required",
+      ],
+    };
+    throw error;
+  }
+  const commit = state.store.writeReceipt(plan.receipt);
+  return { receipt: plan.receipt, commit };
+}
+
+function assertRuntimeSurveyPlanRustOwned(plan = {}) {
+  const receipt = plan.receipt && typeof plan.receipt === "object" && !Array.isArray(plan.receipt)
+    ? plan.receipt
+    : null;
+  const details = receipt?.details && typeof receipt.details === "object" && !Array.isArray(receipt.details)
+    ? receipt.details
+    : {};
+  const evidenceRefs = Array.isArray(plan.evidence_refs) ? plan.evidence_refs : [];
+  const receiptEvidenceRefs = Array.isArray(receipt?.evidenceRefs) ? receipt.evidenceRefs : [];
+  const missing = [];
+  if (plan.source !== "rust_model_mount_runtime_survey_command") missing.push("source");
+  if (plan.backend !== RUST_MODEL_MOUNT_RUNTIME_SURVEY_BACKEND) missing.push("backend");
+  if (plan.rust_core_boundary !== "model_mount.runtime_survey") missing.push("rust_core_boundary");
+  if (plan.operation_kind !== "model_mount.runtime_survey.capture") missing.push("operation_kind");
+  if (!plan.survey_hash) missing.push("survey_hash");
+  if (!receipt) missing.push("receipt");
+  if (receipt?.kind !== "runtime_survey") missing.push("receipt.kind");
+  if (!receipt?.schemaVersion) missing.push("receipt.schemaVersion");
+  if (!receipt?.createdAt) missing.push("receipt.createdAt");
+  if (details.rust_daemon_core_receipt_author !== "model_mount.runtime_survey") {
+    missing.push("receipt.details.rust_daemon_core_receipt_author");
+  }
+  for (const field of ["checked_at", "engine_count", "selected_engines", "runtime_preference", "hardware", "lm_studio", "runtime_survey_hash"]) {
+    if (!Object.hasOwn(details, field)) missing.push(`receipt.details.${field}`);
+  }
+  for (const field of [
+    ["js_hardware_probe_executed", false],
+    ["js_runtime_engine_read_executed", false],
+    ["js_lm_studio_probe_executed", false],
+  ]) {
+    if (details[field[0]] !== field[1]) missing.push(`receipt.details.${field[0]}_false`);
+  }
+  for (const evidenceRef of [
+    "model_mount_runtime_survey_js_facade_retired",
+    "rust_daemon_core_runtime_survey",
+    "agentgres_runtime_survey_truth_required",
+    "rust_model_mount_core",
+  ]) {
+    if (!evidenceRefs.includes(evidenceRef)) missing.push(`evidence_refs.${evidenceRef}`);
+    if (!receiptEvidenceRefs.includes(evidenceRef)) missing.push(`receipt.evidenceRefs.${evidenceRef}`);
+  }
+  if (missing.length === 0) return;
+  const error = new Error("Runtime survey capture requires a Rust-authored runtime_survey receipt plan.");
+  error.status = 502;
+  error.code = "model_mount_runtime_survey_plan_invalid";
+  error.details = {
+    missing,
+    rust_core_boundary: "model_mount.runtime_survey",
+    source: plan.source ?? null,
+    backend: plan.backend ?? null,
+  };
+  throw error;
 }
 
 function throwRuntimeSurveyRustCoreRequired(details = {}) {

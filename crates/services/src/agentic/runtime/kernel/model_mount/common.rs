@@ -31,6 +31,9 @@ pub const MODEL_MOUNT_SERVER_CONTROL_PLAN_SCHEMA_VERSION: &str =
 pub const MODEL_MOUNT_RUNTIME_ENGINE_SCHEMA_VERSION: &str = "ioi.model_mount.runtime_engine.v1";
 pub const MODEL_MOUNT_RUNTIME_ENGINE_PLAN_SCHEMA_VERSION: &str =
     "ioi.model_mount.runtime_engine_plan.v1";
+pub const MODEL_MOUNT_RUNTIME_SURVEY_SCHEMA_VERSION: &str = "ioi.model_mount.runtime_survey.v1";
+pub const MODEL_MOUNT_RUNTIME_SURVEY_PLAN_SCHEMA_VERSION: &str =
+    "ioi.model_mount.runtime_survey_plan.v1";
 pub const MODEL_MOUNT_TOKENIZER_REQUIRED_REQUEST_SCHEMA_VERSION: &str =
     "ioi.model_mount.tokenizer_required.v1";
 pub const MODEL_MOUNT_TOKENIZER_REQUIRED_RESULT_SCHEMA_VERSION: &str =
@@ -120,6 +123,7 @@ pub enum ModelMountError {
     UnsupportedVaultControlOperation,
     UnsupportedServerControlOperation,
     UnsupportedRuntimeEngineOperation,
+    UnsupportedRuntimeSurveyOperation,
     UnsupportedReceiptGateOperation,
     UnsupportedArtifactEndpointOperation,
     UnsupportedStorageControlOperation,
@@ -135,6 +139,7 @@ pub enum ModelMountError {
     UnresolvedAutoModel,
     PrivateWorkspaceMissingCustodyRef,
     PrivateWorkspacePlaintextNotAllowed,
+    RuntimeSurveyProjectionFailed(String),
     HashFailed(String),
 }
 
