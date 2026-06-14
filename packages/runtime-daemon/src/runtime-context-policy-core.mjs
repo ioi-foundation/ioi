@@ -93,6 +93,8 @@ export const LIFECYCLE_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.lifecycle-admission-required-request.v1";
 export const MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.mcp-control-agent-state-update-request.v1";
+export const MCP_LIVE_RESULT_REPLAY_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.mcp-live-result-replay-request.v1";
 export const MCP_SERVER_VALIDATION_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.mcp-server-validation-request.v1";
 export const MCP_SERVER_VALIDATION_INPUT_REQUEST_SCHEMA_VERSION =
@@ -105,6 +107,10 @@ export const MCP_MANAGER_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.mcp-manager-catalog-projection-request.v1";
 export const MCP_MANAGER_CATALOG_SUMMARY_PROJECTION_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.mcp-manager-catalog-summary-projection-request.v1";
+export const MCP_TOOL_SEARCH_PROJECTION_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.mcp-tool-search-projection-request.v1";
+export const MCP_TOOL_FETCH_PROJECTION_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.mcp-tool-fetch-projection-request.v1";
 export const MEMORY_MANAGER_VALIDATION_PROJECTION_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.memory-manager-validation-projection-request.v1";
 export const MEMORY_MANAGER_STATUS_PROJECTION_REQUEST_SCHEMA_VERSION =
@@ -560,6 +566,14 @@ export class RuntimeContextPolicyCore {
     }));
   }
 
+  projectMcpLiveResultReplay(request = {}) {
+    return normalizeMcpLiveResultReplayBridgeResult(this.evaluateRawPolicy({
+      operation: "project_mcp_live_result_replay",
+      schemaVersion: MCP_LIVE_RESULT_REPLAY_REQUEST_SCHEMA_VERSION,
+      request,
+    }));
+  }
+
   validateMcpServers(request = {}) {
     return normalizeMcpServerValidationBridgeResult(this.evaluateRawPolicy({
       operation: "validate_mcp_servers",
@@ -604,6 +618,22 @@ export class RuntimeContextPolicyCore {
     return normalizeMcpManagerCatalogSummaryProjectionBridgeResult(this.evaluateRawPolicy({
       operation: "plan_mcp_manager_catalog_summary_projection",
       schemaVersion: MCP_MANAGER_CATALOG_SUMMARY_PROJECTION_REQUEST_SCHEMA_VERSION,
+      request,
+    }));
+  }
+
+  projectMcpToolSearchProjection(request = {}) {
+    return normalizeMcpToolSearchProjectionBridgeResult(this.evaluateRawPolicy({
+      operation: "project_mcp_tool_search_projection",
+      schemaVersion: MCP_TOOL_SEARCH_PROJECTION_REQUEST_SCHEMA_VERSION,
+      request,
+    }));
+  }
+
+  projectMcpToolFetchProjection(request = {}) {
+    return normalizeMcpToolFetchProjectionBridgeResult(this.evaluateRawPolicy({
+      operation: "project_mcp_tool_fetch_projection",
+      schemaVersion: MCP_TOOL_FETCH_PROJECTION_REQUEST_SCHEMA_VERSION,
       request,
     }));
   }
@@ -2327,6 +2357,33 @@ export function normalizeMcpControlAgentStateUpdateBridgeResult(value = {}) {
   };
 }
 
+export function normalizeMcpLiveResultReplayBridgeResult(value = {}) {
+  const result = objectRecord(value) ?? {};
+  const record = objectRecord(result.record) ?? result;
+  const latestResult = objectRecord(result.latest_result ?? record.latest_result);
+  if (!latestResult) {
+    throw new RuntimeContextPolicyCoreError(
+      "Rust MCP live-result replay projection did not return latest_result.",
+      "mcp_live_result_replay_latest_result_missing",
+      { status: optionalString(result.status ?? record.status) ?? null },
+    );
+  }
+  const results = arrayValue(result.results ?? record.results);
+  return {
+    ...record,
+    source: result.source ?? record.source ?? "rust_mcp_live_result_replay_command",
+    backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
+    schema_version: optionalString(result.schema_version ?? record.schema_version) ?? null,
+    object: optionalString(result.object ?? record.object) ?? null,
+    status: optionalString(result.status ?? record.status) ?? "projected",
+    result_count: numberValue(result.result_count ?? record.result_count) ?? results.length,
+    results,
+    result_ids: stringArray(result.result_ids ?? record.result_ids),
+    latest_result: latestResult,
+    replay_hash: optionalString(result.replay_hash ?? record.replay_hash) ?? null,
+  };
+}
+
 export function normalizeMcpServerValidationBridgeResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
@@ -2553,6 +2610,62 @@ export function normalizeMcpManagerCatalogSummaryProjectionBridgeResult(value = 
     error_code: optionalString(result.error_code ?? record.error_code) ?? null,
     search_route: optionalString(result.search_route ?? record.search_route) ?? null,
     fetch_route: optionalString(result.fetch_route ?? record.fetch_route) ?? null,
+  };
+}
+
+export function normalizeMcpToolSearchProjectionBridgeResult(value = {}) {
+  const result = objectRecord(value) ?? {};
+  const record = objectRecord(result.record) ?? result;
+  const tools = arrayValue(result.tools ?? record.tools);
+  const catalogSummaries = arrayValue(result.catalog_summaries ?? record.catalog_summaries);
+  return {
+    ...record,
+    source: result.source ?? record.source ?? "rust_mcp_tool_search_projection_command",
+    backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
+    schema_version: optionalString(result.schema_version ?? record.schema_version) ?? null,
+    object: optionalString(result.object ?? record.object) ?? null,
+    status: optionalString(result.status ?? record.status) ?? null,
+    query: optionalString(result.query ?? record.query) ?? "",
+    q: optionalString(result.q ?? record.q) ?? optionalString(result.query ?? record.query) ?? "",
+    exact: Boolean(result.exact ?? record.exact),
+    live_discovery: result.live_discovery ?? record.live_discovery ?? true,
+    rust_mcp_live_discovery_deferred: Boolean(
+      result.rust_mcp_live_discovery_deferred ?? record.rust_mcp_live_discovery_deferred,
+    ),
+    server_count: numberValue(result.server_count ?? record.server_count),
+    tool_count: numberValue(result.tool_count ?? record.tool_count),
+    returned_count: numberValue(result.returned_count ?? record.returned_count),
+    limit: numberValue(result.limit ?? record.limit),
+    deferred: Boolean(result.deferred ?? record.deferred),
+    tools,
+    catalog_summaries: catalogSummaries,
+    failures: arrayValue(result.failures ?? record.failures),
+    routes: objectRecord(result.routes ?? record.routes) ?? {},
+    evidence_refs: stringArray(result.evidence_refs ?? record.evidence_refs),
+  };
+}
+
+export function normalizeMcpToolFetchProjectionBridgeResult(value = {}) {
+  const result = objectRecord(value) ?? {};
+  const record = objectRecord(result.record) ?? result;
+  const tool = objectRecord(result.tool ?? record.tool);
+  return {
+    ...record,
+    source: result.source ?? record.source ?? "rust_mcp_tool_fetch_projection_command",
+    backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
+    schema_version: optionalString(result.schema_version ?? record.schema_version) ?? null,
+    object: optionalString(result.object ?? record.object) ?? null,
+    status: optionalString(result.status ?? record.status) ?? null,
+    tool_id: optionalString(result.tool_id ?? record.tool_id) ?? null,
+    server_id: optionalString(result.server_id ?? record.server_id) ?? null,
+    tool_name: optionalString(result.tool_name ?? record.tool_name) ?? null,
+    tool: tool ?? null,
+    tools: arrayValue(result.tools ?? record.tools),
+    returned_count: numberValue(result.returned_count ?? record.returned_count),
+    search_projection: objectRecord(result.search_projection ?? record.search_projection) ?? null,
+    catalog_summaries: arrayValue(result.catalog_summaries ?? record.catalog_summaries),
+    routes: objectRecord(result.routes ?? record.routes) ?? {},
+    evidence_refs: stringArray(result.evidence_refs ?? record.evidence_refs),
   };
 }
 

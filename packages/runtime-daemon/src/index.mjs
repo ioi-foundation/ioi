@@ -685,7 +685,11 @@ export class AgentgresRuntimeStateStore {
       eventStreamIdForThread,
       initialThreadRuntimeControls,
       lifecycleAdmissionRunner: this.contextPolicyCore,
-      mcpRegistryForWorkspace,
+      mcpRegistryForWorkspace: (cwd, options = {}) =>
+        mcpRegistryForWorkspace(cwd, {
+          ...options,
+          contextPolicyCore: this.contextPolicyCore,
+        }),
       runtimeError,
       runtimeThreadSchemaVersion: RUNTIME_THREAD_SCHEMA_VERSION,
       runtimeModeForOptions,
@@ -1598,6 +1602,14 @@ export class AgentgresRuntimeStateStore {
 
   commitRuntimeArtifactState(request) {
     return this.runtimeAgentgresAdmissionCore.commitRuntimeArtifactState(this.stateDir, request);
+  }
+
+  commitRuntimeReceiptState(request) {
+    return this.runtimeAgentgresAdmissionCore.commitRuntimeReceiptState(this.stateDir, request);
+  }
+
+  commitRuntimeMcpLiveResultState(request) {
+    return this.runtimeAgentgresAdmissionCore.commitRuntimeMcpLiveResultState(this.stateDir, request);
   }
 
   commitRuntimeModelMountRecordState(request) {

@@ -1730,10 +1730,14 @@ export class ModelMountingState {
   }
 
   persistRustAuthoredReceipt(record) {
+    return this.persistRustAuthoredReceiptWithCommit(record).receipt;
+  }
+
+  persistRustAuthoredReceiptWithCommit(record) {
     assertRustAuthoredReceiptRecord(record);
-    this.store.writeReceipt(record);
+    const commit = this.store.writeReceipt(record);
     this.writeProjection();
-    return record;
+    return { receipt: record, commit };
   }
 
   provider(providerId) {
@@ -2797,6 +2801,7 @@ function planAndCommitProviderControl(state, operation_kind, options = {}) {
       Array.isArray(body.authority_receipt_refs) ? body.authority_receipt_refs : [],
     ),
     custody_ref: optionalString(options.custodyRef) ?? optionalString(body.custody_ref),
+    containment_ref: optionalString(options.containmentRef) ?? optionalString(body.containment_ref),
     required_scope: optionalString(options.requiredScope),
   });
   assertRustAuthoredProviderControlPlan(plan, { operation_kind });
@@ -2876,6 +2881,7 @@ function providerControlCanonicalBody(value = {}) {
     "authority_grant_refs",
     "authority_receipt_refs",
     "custody_ref",
+    "containment_ref",
   ]) {
     if (Object.hasOwn(source, field) && source[field] !== undefined) body[field] = source[field];
   }
@@ -3013,6 +3019,7 @@ function planAndCommitArtifactEndpoint(state, operation_kind, options = {}) {
       Array.isArray(body.authority_receipt_refs) ? body.authority_receipt_refs : [],
     ),
     custody_ref: optionalString(options.custodyRef) ?? optionalString(body.custody_ref),
+    containment_ref: optionalString(options.containmentRef) ?? optionalString(body.containment_ref),
     required_scope: optionalString(options.requiredScope),
   });
   const commit = commitModelMountRecordState(state, {
@@ -3080,6 +3087,7 @@ function artifactEndpointBody(value = {}) {
     "authority_grant_refs",
     "authority_receipt_refs",
     "custody_ref",
+    "containment_ref",
   ]) {
     if (Object.hasOwn(source, field) && source[field] !== undefined) body[field] = source[field];
   }
@@ -3110,6 +3118,7 @@ function planAndCommitStorageControl(state, operation_kind, options = {}) {
       Array.isArray(body.authority_receipt_refs) ? body.authority_receipt_refs : [],
     ),
     custody_ref: optionalString(options.custodyRef) ?? optionalString(body.custody_ref),
+    containment_ref: optionalString(options.containmentRef) ?? optionalString(body.containment_ref),
     required_scope: optionalString(options.requiredScope),
   });
   const commit = commitModelMountRecordState(state, {
@@ -3172,6 +3181,7 @@ function planAndCommitMcpWorkflow(state, operation_kind, options = {}) {
       Array.isArray(body.authority_receipt_refs) ? body.authority_receipt_refs : [],
     ),
     custody_ref: optionalString(options.custodyRef) ?? optionalString(body.custody_ref),
+    containment_ref: optionalString(options.containmentRef) ?? optionalString(body.containment_ref),
     required_scope: optionalString(options.requiredScope),
   });
   const commit = commitModelMountRecordState(state, {
@@ -3188,6 +3198,7 @@ function planAndCommitMcpWorkflow(state, operation_kind, options = {}) {
     },
     invalidCode: "model_mount_mcp_workflow_record_state_commit_invalid",
   });
+  const receiptState = persistMcpWorkflowExecutionReceipt(state, plan);
   const publicResponse =
     plan.public_response && typeof plan.public_response === "object" && !Array.isArray(plan.public_response)
       ? plan.public_response
@@ -3201,6 +3212,9 @@ function planAndCommitMcpWorkflow(state, operation_kind, options = {}) {
     record_id: plan.record_id,
     record: plan.record,
     commit,
+    receipt: receiptState?.receipt ?? null,
+    receipt_commit: receiptState?.commit ?? null,
+    receipt_state_commit: receiptState?.commit ?? null,
     receipt_refs: plan.receipt_refs,
     authority_grant_refs: plan.authority_grant_refs,
     authority_receipt_refs: plan.authority_receipt_refs,
@@ -3208,6 +3222,54 @@ function planAndCommitMcpWorkflow(state, operation_kind, options = {}) {
     workflow_hash: plan.workflow_hash,
     authority_hash: plan.authority_hash,
   };
+}
+
+function persistMcpWorkflowExecutionReceipt(state, plan = {}) {
+  if (!["model_mount.mcp_tool.invoke", "model_mount.workflow_node.execute"].includes(plan.operation_kind)) {
+    return null;
+  }
+  const receipt = plan.receipt && typeof plan.receipt === "object" && !Array.isArray(plan.receipt)
+    ? plan.receipt
+    : null;
+  if (!receipt) {
+    throw runtimeError({
+      status: 502,
+      code: "model_mount_mcp_execution_receipt_required",
+      message: "Model-mount MCP execution requires a Rust-authored content receipt before truth can return.",
+      details: {
+        rust_core_boundary: plan.rust_core_boundary ?? "model_mount.mcp_workflow",
+        operation_kind: plan.operation_kind ?? null,
+        record_id: plan.record_id ?? null,
+      },
+    });
+  }
+  if (typeof state.persistRustAuthoredReceiptWithCommit !== "function") {
+    throw runtimeError({
+      status: 500,
+      code: "model_mount_mcp_execution_receipt_state_commit_unconfigured",
+      message:
+        "Model-mount MCP execution requires Rust Agentgres receipt-state commit before execution truth can return.",
+      details: {
+        rust_core_boundary: plan.rust_core_boundary ?? "model_mount.mcp_workflow",
+        operation_kind: plan.operation_kind ?? null,
+        receipt_id: receipt.id ?? null,
+      },
+    });
+  }
+  const persisted = state.persistRustAuthoredReceiptWithCommit(receipt);
+  if (!persisted?.commit?.commit_hash) {
+    throw runtimeError({
+      status: 502,
+      code: "model_mount_mcp_execution_receipt_state_commit_invalid",
+      message: "Rust Agentgres MCP execution receipt-state commit returned without commit_hash.",
+      details: {
+        rust_core_boundary: plan.rust_core_boundary ?? "model_mount.mcp_workflow",
+        operation_kind: plan.operation_kind ?? null,
+        receipt_id: receipt.id ?? null,
+      },
+    });
+  }
+  return persisted;
 }
 
 function mcpWorkflowBody(value = {}) {
@@ -3236,6 +3298,7 @@ function mcpWorkflowBody(value = {}) {
     "authority_grant_refs",
     "authority_receipt_refs",
     "custody_ref",
+    "containment_ref",
   ]) {
     if (Object.hasOwn(source, field) && source[field] !== undefined) body[field] = source[field];
   }
@@ -3410,13 +3473,28 @@ function assertRustAuthoredReceiptRecord(record = {}) {
   const evidenceRefs = Array.isArray(record.evidenceRefs) ? record.evidenceRefs : [];
   const details = record.details && typeof record.details === "object" ? record.details : {};
   const missing = [];
+  const mcpExecutionReceipt = ["mcp_tool_invocation", "workflow_node_execution"].includes(record.kind);
   if (!record.id) missing.push("id");
   if (!record.kind) missing.push("kind");
   if (!record.createdAt) missing.push("createdAt");
   if (!record.schemaVersion) missing.push("schemaVersion");
   if (!evidenceRefs.includes("rust_model_mount_core")) missing.push("evidenceRefs.rust_model_mount_core");
   if (!details.rust_daemon_core_receipt_author) missing.push("details.rust_daemon_core_receipt_author");
-  if (!details.model_mount_route_decision_ref) missing.push("details.model_mount_route_decision_ref");
+  if (mcpExecutionReceipt) {
+    if (details.rust_daemon_core_receipt_author !== "model_mount.mcp_workflow") {
+      missing.push("details.rust_daemon_core_receipt_author.model_mount.mcp_workflow");
+    }
+    if (!evidenceRefs.includes("model_mount_mcp_execution_content_receipt_rust_owned")) {
+      missing.push("evidenceRefs.model_mount_mcp_execution_content_receipt_rust_owned");
+    }
+    if (!details.model_mount_mcp_workflow_ref) missing.push("details.model_mount_mcp_workflow_ref");
+    if (!details.model_mount_mcp_content_hash) missing.push("details.model_mount_mcp_content_hash");
+    if (!details.model_mount_mcp_content_receipt_id) {
+      missing.push("details.model_mount_mcp_content_receipt_id");
+    }
+  } else if (!details.model_mount_route_decision_ref) {
+    missing.push("details.model_mount_route_decision_ref");
+  }
   if (missing.length === 0) return;
   const error = new Error("Model-mount receipt persistence requires a Rust-authored receipt record.");
   error.status = 502;

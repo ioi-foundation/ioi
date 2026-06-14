@@ -46,6 +46,8 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "commit_runtime_memory_state",
     "commit_runtime_subagent_state",
     "commit_runtime_artifact_state",
+    "commit_runtime_receipt_state",
+    "commit_runtime_mcp_live_result_state",
     "commit_runtime_model_mount_record_state",
     "commit_runtime_model_mount_receipt_state",
     "admit_coding_tool_result_event",
@@ -125,6 +127,7 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "plan_thread_control_agent_state_update",
     "plan_workspace_trust_control_state_update",
     "plan_mcp_control_agent_state_update",
+    "project_mcp_live_result_replay",
     "validate_mcp_servers",
     "project_mcp_server_validation_input",
     "plan_mcp_manager_status_projection",
@@ -133,6 +136,8 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "plan_memory_manager_validation_projection",
     "plan_mcp_manager_catalog_projection",
     "plan_mcp_manager_catalog_summary_projection",
+    "project_mcp_tool_search_projection",
+    "project_mcp_tool_fetch_projection",
     "plan_thread_memory_agent_state_update",
     "plan_runtime_bridge_thread_start_agent_state_update",
     "plan_runtime_bridge_thread_control_agent_state_update",
@@ -188,6 +193,8 @@ pub enum CommandOperation {
     CommitRuntimeMemoryState,
     CommitRuntimeSubagentState,
     CommitRuntimeArtifactState,
+    CommitRuntimeReceiptState,
+    CommitRuntimeMcpLiveResultState,
     CommitRuntimeModelMountRecordState,
     CommitRuntimeModelMountReceiptState,
     AdmitCodingToolResultEvent,
@@ -267,6 +274,7 @@ pub enum CommandOperation {
     PlanThreadControlAgentStateUpdate,
     PlanWorkspaceTrustControlStateUpdate,
     PlanMcpControlAgentStateUpdate,
+    ProjectMcpLiveResultReplay,
     ValidateMcpServers,
     ProjectMcpServerValidationInput,
     PlanMcpManagerStatusProjection,
@@ -275,6 +283,8 @@ pub enum CommandOperation {
     PlanMemoryManagerValidationProjection,
     PlanMcpManagerCatalogProjection,
     PlanMcpManagerCatalogSummaryProjection,
+    ProjectMcpToolSearchProjection,
+    ProjectMcpToolFetchProjection,
     PlanThreadMemoryAgentStateUpdate,
     PlanRuntimeBridgeThreadStartAgentStateUpdate,
     PlanRuntimeBridgeThreadControlAgentStateUpdate,
@@ -339,6 +349,8 @@ impl CommandOperation {
             Self::CommitRuntimeMemoryState => "commit_runtime_memory_state",
             Self::CommitRuntimeSubagentState => "commit_runtime_subagent_state",
             Self::CommitRuntimeArtifactState => "commit_runtime_artifact_state",
+            Self::CommitRuntimeReceiptState => "commit_runtime_receipt_state",
+            Self::CommitRuntimeMcpLiveResultState => "commit_runtime_mcp_live_result_state",
             Self::CommitRuntimeModelMountRecordState => "commit_runtime_model_mount_record_state",
             Self::CommitRuntimeModelMountReceiptState => "commit_runtime_model_mount_receipt_state",
             Self::AdmitCodingToolResultEvent => "admit_coding_tool_result_event",
@@ -454,6 +466,7 @@ impl CommandOperation {
                 "plan_workspace_trust_control_state_update"
             }
             Self::PlanMcpControlAgentStateUpdate => "plan_mcp_control_agent_state_update",
+            Self::ProjectMcpLiveResultReplay => "project_mcp_live_result_replay",
             Self::ValidateMcpServers => "validate_mcp_servers",
             Self::ProjectMcpServerValidationInput => "project_mcp_server_validation_input",
             Self::PlanMcpManagerStatusProjection => "plan_mcp_manager_status_projection",
@@ -466,6 +479,8 @@ impl CommandOperation {
             Self::PlanMcpManagerCatalogSummaryProjection => {
                 "plan_mcp_manager_catalog_summary_projection"
             }
+            Self::ProjectMcpToolSearchProjection => "project_mcp_tool_search_projection",
+            Self::ProjectMcpToolFetchProjection => "project_mcp_tool_fetch_projection",
             Self::PlanThreadMemoryAgentStateUpdate => "plan_thread_memory_agent_state_update",
             Self::PlanRuntimeBridgeThreadStartAgentStateUpdate => {
                 "plan_runtime_bridge_thread_start_agent_state_update"
@@ -621,6 +636,10 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
         "commit_runtime_memory_state" => Some(CommandOperation::CommitRuntimeMemoryState),
         "commit_runtime_subagent_state" => Some(CommandOperation::CommitRuntimeSubagentState),
         "commit_runtime_artifact_state" => Some(CommandOperation::CommitRuntimeArtifactState),
+        "commit_runtime_receipt_state" => Some(CommandOperation::CommitRuntimeReceiptState),
+        "commit_runtime_mcp_live_result_state" => {
+            Some(CommandOperation::CommitRuntimeMcpLiveResultState)
+        }
         "commit_runtime_model_mount_record_state" => {
             Some(CommandOperation::CommitRuntimeModelMountRecordState)
         }
@@ -808,6 +827,7 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
         "plan_mcp_control_agent_state_update" => {
             Some(CommandOperation::PlanMcpControlAgentStateUpdate)
         }
+        "project_mcp_live_result_replay" => Some(CommandOperation::ProjectMcpLiveResultReplay),
         "validate_mcp_servers" => Some(CommandOperation::ValidateMcpServers),
         "project_mcp_server_validation_input" => {
             Some(CommandOperation::ProjectMcpServerValidationInput)
@@ -829,6 +849,12 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
         }
         "plan_mcp_manager_catalog_summary_projection" => {
             Some(CommandOperation::PlanMcpManagerCatalogSummaryProjection)
+        }
+        "project_mcp_tool_search_projection" => {
+            Some(CommandOperation::ProjectMcpToolSearchProjection)
+        }
+        "project_mcp_tool_fetch_projection" => {
+            Some(CommandOperation::ProjectMcpToolFetchProjection)
         }
         "plan_thread_memory_agent_state_update" => {
             Some(CommandOperation::PlanThreadMemoryAgentStateUpdate)
@@ -928,6 +954,9 @@ mod tests {
             "plan_runtime_bridge_thread_control_agent_state_update",
             "plan_workspace_trust_control_state_update",
             "plan_thread_create_state_update",
+            "project_mcp_live_result_replay",
+            "project_mcp_tool_search_projection",
+            "project_mcp_tool_fetch_projection",
             "plan_operator_turn_control_admission_required",
             "plan_runtime_task_job_create_state_update",
             "project_runtime_task_job_projection",

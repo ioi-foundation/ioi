@@ -577,6 +577,9 @@ pub fn dispatch_command_operation_response(
         CommandOperation::PlanMcpControlAgentStateUpdate => {
             plan_mcp_control_agent_state_update_response(decode(raw_request)?).map_err(Into::into)
         }
+        CommandOperation::ProjectMcpLiveResultReplay => {
+            project_mcp_live_result_replay_response(decode(raw_request)?).map_err(Into::into)
+        }
         CommandOperation::ValidateMcpServers => {
             validate_mcp_servers_response(decode(raw_request)?).map_err(Into::into)
         }
@@ -603,6 +606,12 @@ pub fn dispatch_command_operation_response(
         CommandOperation::PlanMcpManagerCatalogSummaryProjection => {
             plan_mcp_manager_catalog_summary_projection_response(decode(raw_request)?)
                 .map_err(Into::into)
+        }
+        CommandOperation::ProjectMcpToolSearchProjection => {
+            project_mcp_tool_search_projection_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::ProjectMcpToolFetchProjection => {
+            project_mcp_tool_fetch_projection_response(decode(raw_request)?).map_err(Into::into)
         }
         CommandOperation::PlanThreadMemoryAgentStateUpdate => {
             plan_thread_memory_agent_state_update_response(decode(raw_request)?).map_err(Into::into)
@@ -654,6 +663,12 @@ pub fn dispatch_command_operation_response(
         }
         CommandOperation::CommitRuntimeArtifactState => {
             commit_runtime_artifact_state_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::CommitRuntimeReceiptState => {
+            commit_runtime_receipt_state_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::CommitRuntimeMcpLiveResultState => {
+            commit_runtime_mcp_live_result_state_response(decode(raw_request)?).map_err(Into::into)
         }
         CommandOperation::CommitRuntimeModelMountRecordState => {
             commit_runtime_model_mount_record_state_response(decode(raw_request)?)

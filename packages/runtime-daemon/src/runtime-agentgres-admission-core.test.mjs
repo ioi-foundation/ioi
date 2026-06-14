@@ -133,6 +133,66 @@ function artifactCommitRequest() {
   };
 }
 
+function receiptCommitRequest() {
+  return {
+    schema_version: "ioi.runtime_receipt_state_commit.v1",
+    receipt_id: "receipt_runtime_mcp_live_exit",
+    operation_kind: "runtime.mcp_live_exit.receipt.write",
+    storage_backend_ref: "storage://runtime-agentgres/local-json",
+    receipt: {
+      schema_version: "ioi.runtime.mcp-live-exit-receipt.v1",
+      id: "receipt_runtime_mcp_live_exit",
+      kind: "runtime_mcp_live_exit",
+      redaction: "redacted",
+      evidence_refs: [
+        "runtime_mcp_live_exit_rust_receipt",
+        "agentgres_runtime_mcp_live_receipt_truth_required",
+      ],
+      details: {
+        rust_daemon_core_receipt_author: "runtime.mcp_control",
+        runtime_mcp_agentgres_operation_ref:
+          "agentgres://runtime-state/agents/agent_1/operations/mcp_invoke/event_1",
+        runtime_mcp_agent_state_root_before: "sha256:before",
+        runtime_mcp_agent_state_root_after: "sha256:after",
+        runtime_mcp_resulting_head: "agentgres://runtime-state/agents/agent_1/head/sha256_after",
+      },
+    },
+  };
+}
+
+function liveResultCommitRequest() {
+  return {
+    schema_version: "ioi.runtime_mcp_live_result_state_commit.v1",
+    result_id: "result_runtime_mcp_live_exit",
+    operation_kind: "runtime.mcp_live_exit.result.write",
+    storage_backend_ref: "storage://runtime-agentgres/local-json",
+    result: {
+      schema_version: "ioi.runtime.mcp-live-result.v1",
+      id: "result_runtime_mcp_live_exit",
+      kind: "runtime_mcp_live_result",
+      status: "admitted_pending_rust_transport",
+      receipt_id: "receipt_runtime_mcp_live_exit",
+      receipt_refs: ["receipt_runtime_mcp_live_exit"],
+      evidence_refs: [
+        "runtime_mcp_live_result_rust_projection",
+        "agentgres_runtime_mcp_live_result_truth_required",
+        "runtime_mcp_no_js_transport_result",
+      ],
+      details: {
+        rust_daemon_core_result_author: "runtime.mcp_control",
+        runtime_mcp_agentgres_operation_ref:
+          "agentgres://runtime-state/agents/agent_1/operations/mcp_invoke/event_1",
+        runtime_mcp_agent_state_root_before: "sha256:before",
+        runtime_mcp_agent_state_root_after: "sha256:after",
+        runtime_mcp_resulting_head: "agentgres://runtime-state/agents/agent_1/head/sha256_after",
+        result_materialized: false,
+        js_transport_invocation: false,
+        command_transport_fallback: false,
+      },
+    },
+  };
+}
+
 function modelMountRecordCommitRequest() {
   return {
     schema_version: "ioi.runtime_model_mount_record_state_commit.v1",
@@ -490,6 +550,36 @@ test("runtime Agentgres core sends runtime artifact-state commit through direct 
   assertCommandEnvelope(calls[0].request, "commit_runtime_artifact_state", RUST_AGENTGRES_STORAGE_BACKEND);
   assert.equal(calls[0].request.request.artifact_id, "artifact_1");
   assert.equal(result.commit_hash, "sha256:artifact-commit");
+});
+
+test("runtime Agentgres core sends runtime receipt-state commit through direct daemon-core invoker", () => {
+  const calls = [];
+  const core = createCore(calls, () => ({
+    receipt_id: "receipt_runtime_mcp_live_exit",
+    commit_hash: "sha256:runtime-receipt-commit",
+  }));
+
+  const result = core.commitRuntimeReceiptState("/tmp/ioi-state", receiptCommitRequest());
+
+  assertCommandEnvelope(calls[0].request, "commit_runtime_receipt_state", RUST_AGENTGRES_STORAGE_BACKEND);
+  assert.equal(calls[0].request.request.receipt_id, "receipt_runtime_mcp_live_exit");
+  assert.equal(calls[0].request.request.receipt.details.rust_daemon_core_receipt_author, "runtime.mcp_control");
+  assert.equal(result.receipt_id, "receipt_runtime_mcp_live_exit");
+});
+
+test("runtime Agentgres core sends runtime MCP live-result state commit through direct daemon-core invoker", () => {
+  const calls = [];
+  const core = createCore(calls, () => ({
+    result_id: "result_runtime_mcp_live_exit",
+    commit_hash: "sha256:runtime-mcp-live-result-commit",
+  }));
+
+  const result = core.commitRuntimeMcpLiveResultState("/tmp/ioi-state", liveResultCommitRequest());
+
+  assertCommandEnvelope(calls[0].request, "commit_runtime_mcp_live_result_state", RUST_AGENTGRES_STORAGE_BACKEND);
+  assert.equal(calls[0].request.request.result_id, "result_runtime_mcp_live_exit");
+  assert.equal(calls[0].request.request.result.details.rust_daemon_core_result_author, "runtime.mcp_control");
+  assert.equal(result.result_id, "result_runtime_mcp_live_exit");
 });
 
 test("runtime Agentgres core sends runtime model-mount record-state commit through direct daemon-core invoker", () => {

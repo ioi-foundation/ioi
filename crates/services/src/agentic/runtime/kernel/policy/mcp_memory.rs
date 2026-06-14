@@ -1,10 +1,15 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 use super::{
     MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
     MCP_CONTROL_AGENT_STATE_UPDATE_RESULT_SCHEMA_VERSION,
+    MCP_LIVE_RESULT_REPLAY_REQUEST_SCHEMA_VERSION, MCP_LIVE_RESULT_REPLAY_RESULT_SCHEMA_VERSION,
     MCP_MANAGER_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION,
     MCP_MANAGER_CATALOG_PROJECTION_RESULT_SCHEMA_VERSION,
     MCP_MANAGER_CATALOG_SUMMARY_PROJECTION_REQUEST_SCHEMA_VERSION,
@@ -16,6 +21,10 @@ use super::{
     MCP_SERVER_VALIDATION_INPUT_REQUEST_SCHEMA_VERSION,
     MCP_SERVER_VALIDATION_INPUT_RESULT_SCHEMA_VERSION,
     MCP_SERVER_VALIDATION_REQUEST_SCHEMA_VERSION, MCP_SERVER_VALIDATION_RESULT_SCHEMA_VERSION,
+    MCP_TOOL_FETCH_PROJECTION_REQUEST_SCHEMA_VERSION,
+    MCP_TOOL_FETCH_PROJECTION_RESULT_SCHEMA_VERSION,
+    MCP_TOOL_SEARCH_PROJECTION_REQUEST_SCHEMA_VERSION,
+    MCP_TOOL_SEARCH_PROJECTION_RESULT_SCHEMA_VERSION,
     MEMORY_MANAGER_STATUS_PROJECTION_REQUEST_SCHEMA_VERSION,
     MEMORY_MANAGER_STATUS_PROJECTION_RESULT_SCHEMA_VERSION,
     MEMORY_MANAGER_VALIDATION_PROJECTION_REQUEST_SCHEMA_VERSION,
@@ -31,6 +40,24 @@ pub enum McpControlAgentStateUpdateError {
         actual: String,
     },
     MissingField(&'static str),
+    AgentCandidateTransportRetired,
+    StateDirRequired,
+    AgentReplayRequired(String),
+    StateDirReadFailed(String),
+    StateDirRecordInvalid(String),
+    WalletAuthorityRequired(&'static str),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum McpLiveResultReplayError {
+    InvalidSchemaVersion {
+        expected: &'static str,
+        actual: String,
+    },
+    StateDirRequired,
+    StateDirReadFailed(String),
+    StateDirRecordInvalid(String),
+    ResultReplayRequired(String),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -87,6 +114,11 @@ pub enum McpManagerCatalogProjectionError {
         expected: &'static str,
         actual: String,
     },
+    AgentCandidateTransportRetired,
+    StateDirRequired,
+    AgentReplayRequired(String),
+    StateDirReadFailed(String),
+    StateDirRecordInvalid(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -95,6 +127,16 @@ pub enum McpManagerCatalogSummaryProjectionError {
         expected: &'static str,
         actual: String,
     },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum McpToolProjectionError {
+    InvalidSchemaVersion {
+        expected: &'static str,
+        actual: String,
+    },
+    CatalogProjectionFailed(String),
+    CatalogSummaryProjectionFailed(String),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -110,6 +152,11 @@ pub enum ThreadMemoryAgentStateUpdateError {
 pub struct McpControlAgentStateUpdateRequest {
     pub schema_version: String,
     pub thread_id: String,
+    #[serde(default)]
+    pub agent_id: Option<String>,
+    #[serde(default)]
+    pub state_dir: Option<String>,
+    #[serde(default)]
     pub agent: Value,
     pub control_kind: String,
     pub event_id: String,
@@ -130,6 +177,41 @@ pub struct McpControlAgentStateUpdateRecord {
     pub updated_at: String,
     pub control: Value,
     pub agent: Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub receipt: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub result: Option<Value>,
+    pub generated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct McpLiveResultReplayRequest {
+    pub schema_version: String,
+    #[serde(default)]
+    pub state_dir: Option<String>,
+    #[serde(default)]
+    pub result_id: Option<String>,
+    #[serde(default)]
+    pub receipt_id: Option<String>,
+    #[serde(default)]
+    pub thread_id: Option<String>,
+    #[serde(default)]
+    pub agent_id: Option<String>,
+    #[serde(default)]
+    pub control_kind: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct McpLiveResultReplayRecord {
+    pub schema_version: String,
+    pub object: String,
+    pub status: String,
+    pub result_count: usize,
+    pub results: Vec<Value>,
+    pub result_ids: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub latest_result: Option<Value>,
+    pub replay_hash: String,
     pub generated_at: String,
 }
 
@@ -321,6 +403,14 @@ pub struct McpManagerCatalogProjectionRequest {
     #[serde(default)]
     pub status_schema_version: Option<String>,
     #[serde(default)]
+    pub state_dir: Option<String>,
+    #[serde(default)]
+    pub thread_id: Option<String>,
+    #[serde(default)]
+    pub agent_id: Option<String>,
+    #[serde(default)]
+    pub agent: Value,
+    #[serde(default)]
     pub servers: Vec<Value>,
 }
 
@@ -365,6 +455,105 @@ pub struct McpManagerCatalogSummaryProjectionRequest {
     pub preview_limit: Option<usize>,
     #[serde(default)]
     pub deferred: Option<bool>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct McpToolSearchProjectionRequest {
+    pub schema_version: String,
+    #[serde(default)]
+    pub status_schema_version: Option<String>,
+    #[serde(default)]
+    pub state_dir: Option<String>,
+    #[serde(default)]
+    pub thread_id: Option<String>,
+    #[serde(default)]
+    pub agent_id: Option<String>,
+    #[serde(default)]
+    pub server_id: Option<String>,
+    #[serde(default)]
+    pub servers: Vec<Value>,
+    #[serde(default)]
+    pub query: Option<String>,
+    #[serde(default)]
+    pub tool_id: Option<String>,
+    #[serde(default)]
+    pub exact: Option<bool>,
+    #[serde(default)]
+    pub limit: Option<usize>,
+    #[serde(default)]
+    pub preview_limit: Option<usize>,
+    #[serde(default)]
+    pub live_discovery: Option<bool>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct McpToolSearchProjectionRecord {
+    pub schema_version: String,
+    pub object: String,
+    pub status: String,
+    pub query: String,
+    pub q: String,
+    pub exact: bool,
+    pub live_discovery: bool,
+    pub rust_mcp_live_discovery_deferred: bool,
+    pub server_count: usize,
+    pub tool_count: usize,
+    pub returned_count: usize,
+    pub limit: usize,
+    pub deferred: bool,
+    pub tools: Vec<Value>,
+    pub catalog_summaries: Vec<Value>,
+    pub failures: Vec<Value>,
+    pub routes: Value,
+    pub evidence_refs: Vec<String>,
+    pub generated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct McpToolFetchProjectionRequest {
+    pub schema_version: String,
+    #[serde(default)]
+    pub status_schema_version: Option<String>,
+    #[serde(default)]
+    pub state_dir: Option<String>,
+    #[serde(default)]
+    pub thread_id: Option<String>,
+    #[serde(default)]
+    pub agent_id: Option<String>,
+    #[serde(default)]
+    pub server_id: Option<String>,
+    #[serde(default)]
+    pub servers: Vec<Value>,
+    #[serde(default)]
+    pub tool_id: Option<String>,
+    #[serde(default)]
+    pub limit: Option<usize>,
+    #[serde(default)]
+    pub preview_limit: Option<usize>,
+    #[serde(default)]
+    pub live_discovery: Option<bool>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct McpToolFetchProjectionRecord {
+    pub schema_version: String,
+    pub object: String,
+    pub status: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tool_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub server_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tool_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tool: Option<Value>,
+    pub tools: Vec<Value>,
+    pub returned_count: usize,
+    pub search_projection: Value,
+    pub catalog_summaries: Vec<Value>,
+    pub routes: Value,
+    pub evidence_refs: Vec<String>,
+    pub generated_at: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -448,6 +637,13 @@ pub struct McpControlAgentStateUpdateBridgeRequest {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct McpLiveResultReplayBridgeRequest {
+    #[serde(default)]
+    backend: Option<String>,
+    request: McpLiveResultReplayRequest,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct McpServerValidationBridgeRequest {
     #[serde(default)]
     backend: Option<String>,
@@ -504,6 +700,20 @@ pub struct McpManagerCatalogSummaryProjectionBridgeRequest {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct McpToolSearchProjectionBridgeRequest {
+    #[serde(default)]
+    backend: Option<String>,
+    request: McpToolSearchProjectionRequest,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct McpToolFetchProjectionBridgeRequest {
+    #[serde(default)]
+    backend: Option<String>,
+    request: McpToolFetchProjectionRequest,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct ThreadMemoryAgentStateUpdateBridgeRequest {
     #[serde(default)]
     backend: Option<String>,
@@ -527,6 +737,31 @@ pub fn plan_mcp_control_agent_state_update_response(
         "updated_at": record.updated_at.clone(),
         "control": record.control.clone(),
         "agent": record.agent.clone(),
+        "receipt": record.receipt.clone(),
+        "result": record.result.clone(),
+    }))
+}
+
+pub fn project_mcp_live_result_replay_response(
+    request: McpLiveResultReplayBridgeRequest,
+) -> Result<Value, McpMemoryCommandError> {
+    let record = McpLiveResultReplayCore
+        .project(&request.request)
+        .map_err(|error| {
+            McpMemoryCommandError::from_debug("mcp_live_result_replay_invalid", error)
+        })?;
+    Ok(json!({
+        "source": "rust_mcp_live_result_replay_command",
+        "backend": mcp_policy_backend(request.backend),
+        "record": record.clone(),
+        "schema_version": record.schema_version.clone(),
+        "object": record.object.clone(),
+        "status": record.status.clone(),
+        "result_count": record.result_count,
+        "results": record.results.clone(),
+        "result_ids": record.result_ids.clone(),
+        "latest_result": record.latest_result.clone(),
+        "replay_hash": record.replay_hash.clone(),
     }))
 }
 
@@ -762,6 +997,67 @@ pub fn plan_mcp_manager_catalog_summary_projection_response(
     }))
 }
 
+pub fn project_mcp_tool_search_projection_response(
+    request: McpToolSearchProjectionBridgeRequest,
+) -> Result<Value, McpMemoryCommandError> {
+    let record = McpToolSearchProjectionCore
+        .project(&request.request)
+        .map_err(|error| {
+            McpMemoryCommandError::from_debug("mcp_tool_search_projection_invalid", error)
+        })?;
+    Ok(json!({
+        "source": "rust_mcp_tool_search_projection_command",
+        "backend": mcp_policy_backend(request.backend),
+        "record": record.clone(),
+        "schema_version": record.schema_version.clone(),
+        "object": record.object.clone(),
+        "status": record.status.clone(),
+        "query": record.query.clone(),
+        "q": record.q.clone(),
+        "exact": record.exact,
+        "live_discovery": record.live_discovery,
+        "rust_mcp_live_discovery_deferred": record.rust_mcp_live_discovery_deferred,
+        "server_count": record.server_count,
+        "tool_count": record.tool_count,
+        "returned_count": record.returned_count,
+        "limit": record.limit,
+        "deferred": record.deferred,
+        "tools": record.tools.clone(),
+        "catalog_summaries": record.catalog_summaries.clone(),
+        "failures": record.failures.clone(),
+        "routes": record.routes.clone(),
+        "evidence_refs": record.evidence_refs.clone(),
+    }))
+}
+
+pub fn project_mcp_tool_fetch_projection_response(
+    request: McpToolFetchProjectionBridgeRequest,
+) -> Result<Value, McpMemoryCommandError> {
+    let record = McpToolFetchProjectionCore
+        .project(&request.request)
+        .map_err(|error| {
+            McpMemoryCommandError::from_debug("mcp_tool_fetch_projection_invalid", error)
+        })?;
+    Ok(json!({
+        "source": "rust_mcp_tool_fetch_projection_command",
+        "backend": mcp_policy_backend(request.backend),
+        "record": record.clone(),
+        "schema_version": record.schema_version.clone(),
+        "object": record.object.clone(),
+        "status": record.status.clone(),
+        "tool_id": record.tool_id.clone(),
+        "server_id": record.server_id.clone(),
+        "tool_name": record.tool_name.clone(),
+        "tool": record.tool.clone(),
+        "tools": record.tools.clone(),
+        "returned_count": record.returned_count,
+        "search_projection": record.search_projection.clone(),
+        "catalog_summaries": record.catalog_summaries.clone(),
+        "routes": record.routes.clone(),
+        "evidence_refs": record.evidence_refs.clone(),
+    }))
+}
+
 pub fn plan_thread_memory_agent_state_update_response(
     request: ThreadMemoryAgentStateUpdateBridgeRequest,
 ) -> Result<Value, McpMemoryCommandError> {
@@ -787,6 +1083,74 @@ fn mcp_policy_backend(backend: Option<String>) -> String {
 }
 
 #[derive(Debug, Default, Clone)]
+pub struct McpLiveResultReplayCore;
+
+impl McpLiveResultReplayCore {
+    pub fn project(
+        &self,
+        request: &McpLiveResultReplayRequest,
+    ) -> Result<McpLiveResultReplayRecord, McpLiveResultReplayError> {
+        request.validate()?;
+        let state_dir = optional_trimmed(request.state_dir.as_deref())
+            .ok_or(McpLiveResultReplayError::StateDirRequired)?;
+        let results_dir = PathBuf::from(state_dir).join("mcp-live-results");
+        let mut results = Vec::new();
+
+        if results_dir.exists() {
+            for entry in fs::read_dir(&results_dir).map_err(|error| {
+                McpLiveResultReplayError::StateDirReadFailed(format!(
+                    "could not inspect Agentgres MCP live-results directory: {error}"
+                ))
+            })? {
+                let entry = entry.map_err(|error| {
+                    McpLiveResultReplayError::StateDirReadFailed(format!(
+                        "could not inspect Agentgres MCP live-result entry: {error}"
+                    ))
+                })?;
+                let path = entry.path();
+                if path.extension().and_then(|value| value.to_str()) != Some("json") {
+                    continue;
+                }
+                let result = read_mcp_live_result_record(&path)?;
+                if mcp_live_result_matches_request(&result, request) {
+                    results.push(result);
+                }
+            }
+        }
+
+        results.sort_by(|left, right| {
+            mcp_live_result_sort_key(left).cmp(&mcp_live_result_sort_key(right))
+        });
+        let result_ids = results
+            .iter()
+            .filter_map(|result| optional_json_string(result, "id"))
+            .collect::<Vec<_>>();
+        if results.is_empty() {
+            return Err(McpLiveResultReplayError::ResultReplayRequired(
+                request
+                    .result_id
+                    .clone()
+                    .unwrap_or_else(|| "latest".to_string()),
+            ));
+        }
+        let latest_result = results.last().cloned();
+        let replay_hash = mcp_live_result_replay_hash(&results);
+
+        Ok(McpLiveResultReplayRecord {
+            schema_version: MCP_LIVE_RESULT_REPLAY_RESULT_SCHEMA_VERSION.to_string(),
+            object: "ioi.runtime_mcp_live_result_replay".to_string(),
+            status: "projected".to_string(),
+            result_count: results.len(),
+            results,
+            result_ids,
+            latest_result,
+            replay_hash,
+            generated_at: "rust_policy_core".to_string(),
+        })
+    }
+}
+
+#[derive(Debug, Default, Clone)]
 pub struct McpControlAgentStateUpdateCore;
 
 impl McpControlAgentStateUpdateCore {
@@ -795,13 +1159,19 @@ impl McpControlAgentStateUpdateCore {
         request: &McpControlAgentStateUpdateRequest,
     ) -> Result<McpControlAgentStateUpdateRecord, McpControlAgentStateUpdateError> {
         request.validate()?;
-        let mut agent = object_value(&request.agent)
-            .ok_or(McpControlAgentStateUpdateError::MissingField("agent"))?;
+        let thread_id = optional_trimmed(Some(request.thread_id.as_str()))
+            .ok_or(McpControlAgentStateUpdateError::MissingField("thread_id"))?;
+        let mut agent = mcp_control_agent_from_state_dir(
+            request.state_dir.as_deref(),
+            thread_id.as_str(),
+            request.agent_id.as_deref(),
+        )?;
         let agent_id = optional_json_string(&Value::Object(agent.clone()), "id")
             .ok_or(McpControlAgentStateUpdateError::MissingField("agent.id"))?;
         let control_kind = optional_trimmed(Some(request.control_kind.as_str())).ok_or(
             McpControlAgentStateUpdateError::MissingField("control_kind"),
         )?;
+        let agent_state_root_before = mcp_control_agent_state_root(&Value::Object(agent.clone()));
         let registry =
             mcp_control_registry_update(&agent, control_kind.as_str(), &request.request)?;
         agent.insert(
@@ -816,6 +1186,138 @@ impl McpControlAgentStateUpdateCore {
         let timeout_ms = request.request.get("timeout_ms").and_then(Value::as_u64);
         let transport_admission_required =
             matches!(control_kind.as_str(), "mcp_invoke" | "mcp_live_discovery");
+        let authority = if transport_admission_required {
+            Some(mcp_control_external_exit_authority(
+                control_kind.as_str(),
+                &request.request,
+                registry.server_id.as_deref(),
+                tool_id.as_deref().or(tool_name.as_deref()),
+            )?)
+        } else {
+            None
+        };
+        let authority_grant_refs = authority
+            .as_ref()
+            .map(|authority| authority.authority_grant_refs.clone())
+            .unwrap_or_default();
+        let authority_receipt_refs = authority
+            .as_ref()
+            .map(|authority| authority.authority_receipt_refs.clone())
+            .unwrap_or_default();
+        let authority_hash = authority
+            .as_ref()
+            .map(|authority| authority.authority_hash.clone());
+        let custody_ref = authority
+            .as_ref()
+            .map(|authority| authority.custody_ref.clone());
+        let containment_ref = authority
+            .as_ref()
+            .map(|authority| authority.containment_ref.clone());
+        let mut evidence_refs = vec![
+            "runtime_mcp_control_rust_owned".to_string(),
+            "runtime_mcp_control_js_facade_retired".to_string(),
+            "agentgres_runtime_agent_state_truth_required".to_string(),
+        ];
+        if transport_admission_required {
+            evidence_refs.push("wallet_network_mcp_external_exit_authority_required".to_string());
+            evidence_refs.push("ctee_mcp_external_exit_custody_required".to_string());
+            evidence_refs.push("mcp_transport_containment_required".to_string());
+            evidence_refs.push("runtime_mcp_live_exit_rust_receipt".to_string());
+            evidence_refs.push("agentgres_runtime_mcp_live_receipt_truth_required".to_string());
+            evidence_refs.push("runtime_mcp_live_result_rust_projection".to_string());
+            evidence_refs.push("agentgres_runtime_mcp_live_result_truth_required".to_string());
+            evidence_refs.push("receipt_state_root_binding_required".to_string());
+        }
+        let live_receipt_id = if transport_admission_required {
+            Some(mcp_control_live_exit_receipt_id(
+                &agent_id,
+                control_kind.as_str(),
+                &request.event_id,
+            ))
+        } else {
+            None
+        };
+        if let Some(receipt_id) = live_receipt_id.as_deref() {
+            mcp_control_push_agent_receipt_ref(&mut agent, receipt_id);
+        }
+        let live_result_id = if transport_admission_required {
+            Some(mcp_control_live_exit_result_id(
+                &agent_id,
+                control_kind.as_str(),
+                &request.event_id,
+            ))
+        } else {
+            None
+        };
+        if let Some(result_id) = live_result_id.as_deref() {
+            mcp_control_push_agent_result_ref(&mut agent, result_id);
+        }
+        let agent_state_root_after = mcp_control_agent_state_root(&Value::Object(agent.clone()));
+        let live_agentgres_operation_ref = if transport_admission_required {
+            Some(mcp_control_live_exit_agentgres_operation_ref(
+                &agent_id,
+                control_kind.as_str(),
+                &request.event_id,
+            ))
+        } else {
+            None
+        };
+        let live_resulting_head = if transport_admission_required {
+            Some(mcp_control_live_exit_resulting_head(
+                &agent_id,
+                &agent_state_root_after,
+            ))
+        } else {
+            None
+        };
+        let receipt = if transport_admission_required {
+            Some(mcp_control_live_exit_receipt(
+                live_receipt_id.as_deref().unwrap_or_default(),
+                &request.created_at,
+                control_kind.as_str(),
+                &request.event_id,
+                &request.thread_id,
+                &agent_id,
+                registry.server_id.as_deref(),
+                tool_id.as_deref().or(tool_name.as_deref()),
+                live_transport.as_deref(),
+                execution_mode.as_deref(),
+                timeout_ms,
+                authority_hash.as_deref(),
+                &authority_grant_refs,
+                &authority_receipt_refs,
+                custody_ref.as_deref(),
+                containment_ref.as_deref(),
+                &agent_state_root_before,
+                &agent_state_root_after,
+                live_agentgres_operation_ref.as_deref().unwrap_or_default(),
+                live_resulting_head.as_deref().unwrap_or_default(),
+            ))
+        } else {
+            None
+        };
+        let result = if transport_admission_required {
+            Some(mcp_control_live_exit_result(
+                live_result_id.as_deref().unwrap_or_default(),
+                live_receipt_id.as_deref().unwrap_or_default(),
+                &request.created_at,
+                control_kind.as_str(),
+                &request.event_id,
+                &request.thread_id,
+                &agent_id,
+                registry.server_id.as_deref(),
+                tool_id.as_deref().or(tool_name.as_deref()),
+                live_transport.as_deref(),
+                execution_mode.as_deref(),
+                timeout_ms,
+                &agent_state_root_before,
+                &agent_state_root_after,
+                live_agentgres_operation_ref.as_deref().unwrap_or_default(),
+                live_resulting_head.as_deref().unwrap_or_default(),
+            ))
+        } else {
+            None
+        };
         let control = json!({
             "control_kind": control_kind,
             "event_id": request.event_id,
@@ -828,15 +1330,30 @@ impl McpControlAgentStateUpdateCore {
             "execution_mode": execution_mode,
             "timeout_ms": timeout_ms,
             "transport_admission_required": transport_admission_required,
+            "wallet_authority_required": transport_admission_required,
+            "wallet_authority_boundary": if transport_admission_required { Some("wallet.network.mcp_external_exit") } else { None },
+            "ctee_custody_required": transport_admission_required,
+            "transport_containment_required": transport_admission_required,
+            "authority_grant_refs": authority_grant_refs,
+            "authority_receipt_refs": authority_receipt_refs,
+            "authority_hash": authority_hash,
+            "custody_ref": custody_ref,
+            "containment_ref": containment_ref,
+            "content_receipt_id": live_receipt_id,
+            "result_receipt_id": live_receipt_id,
+            "result_record_id": live_result_id,
+            "runtime_mcp_live_receipt_required": transport_admission_required,
+            "runtime_mcp_live_result_required": transport_admission_required,
+            "runtime_mcp_live_result_status": if transport_admission_required { Some("admitted_pending_rust_transport") } else { None },
+            "runtime_mcp_agentgres_operation_ref": live_agentgres_operation_ref,
+            "runtime_mcp_agent_state_root_before": if transport_admission_required { Some(agent_state_root_before.as_str()) } else { None },
+            "runtime_mcp_agent_state_root_after": if transport_admission_required { Some(agent_state_root_after.as_str()) } else { None },
+            "runtime_mcp_resulting_head": live_resulting_head,
             "server_count": registry.server_count,
             "enabled_server_count": registry.enabled_server_count,
             "registry_hash": registry.registry_hash,
             "mutation_applied": registry.mutation_applied,
-            "evidence_refs": [
-                "runtime_mcp_control_rust_owned",
-                "runtime_mcp_control_js_facade_retired",
-                "agentgres_runtime_agent_state_truth_required"
-            ],
+            "evidence_refs": evidence_refs,
         });
 
         Ok(McpControlAgentStateUpdateRecord {
@@ -844,13 +1361,587 @@ impl McpControlAgentStateUpdateCore {
             object: "ioi.runtime_mcp_control_agent_state_update".to_string(),
             status: "planned".to_string(),
             operation_kind: format!("thread.{control_kind}"),
-            thread_id: request.thread_id.clone(),
+            thread_id,
             agent_id,
             updated_at: request.created_at.clone(),
             control,
             agent: Value::Object(agent),
+            receipt,
+            result,
             generated_at: "rust_policy_core".to_string(),
         })
+    }
+}
+
+struct McpControlExternalExitAuthority {
+    authority_grant_refs: Vec<String>,
+    authority_receipt_refs: Vec<String>,
+    authority_hash: String,
+    custody_ref: String,
+    containment_ref: String,
+}
+
+fn mcp_control_external_exit_authority(
+    control_kind: &str,
+    request: &Value,
+    server_id: Option<&str>,
+    tool_ref: Option<&str>,
+) -> Result<McpControlExternalExitAuthority, McpControlAgentStateUpdateError> {
+    let server_id = optional_trimmed(server_id).ok_or(
+        McpControlAgentStateUpdateError::MissingField("request.server_id"),
+    )?;
+    if control_kind == "mcp_invoke" && optional_trimmed(tool_ref).is_none() {
+        return Err(McpControlAgentStateUpdateError::MissingField(
+            "request.tool_id_or_tool_name",
+        ));
+    }
+    let authority_grant_refs = mcp_control_string_array(request, "authority_grant_refs");
+    if authority_grant_refs.is_empty() {
+        return Err(McpControlAgentStateUpdateError::WalletAuthorityRequired(
+            "request.authority_grant_refs",
+        ));
+    }
+    let authority_receipt_refs = mcp_control_string_array(request, "authority_receipt_refs");
+    if authority_receipt_refs.is_empty() {
+        return Err(McpControlAgentStateUpdateError::WalletAuthorityRequired(
+            "request.authority_receipt_refs",
+        ));
+    }
+    let custody_ref = json_string_value(request, "custody_ref").ok_or(
+        McpControlAgentStateUpdateError::MissingField("request.custody_ref"),
+    )?;
+    let containment_ref = json_string_value(request, "containment_ref").ok_or(
+        McpControlAgentStateUpdateError::MissingField("request.containment_ref"),
+    )?;
+    let authority_hash = mcp_control_authority_hash(
+        control_kind,
+        &server_id,
+        tool_ref,
+        &authority_grant_refs,
+        &authority_receipt_refs,
+        Some(custody_ref.as_str()),
+        Some(containment_ref.as_str()),
+    );
+    Ok(McpControlExternalExitAuthority {
+        authority_grant_refs,
+        authority_receipt_refs,
+        authority_hash,
+        custody_ref,
+        containment_ref,
+    })
+}
+
+fn mcp_control_string_array(request: &Value, key: &str) -> Vec<String> {
+    let mut values = request
+        .get(key)
+        .and_then(Value::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(Value::as_str)
+                .filter_map(|value| optional_trimmed(Some(value)))
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    values.sort();
+    values.dedup();
+    values
+}
+
+fn mcp_control_authority_hash(
+    control_kind: &str,
+    server_id: &str,
+    tool_ref: Option<&str>,
+    authority_grant_refs: &[String],
+    authority_receipt_refs: &[String],
+    custody_ref: Option<&str>,
+    containment_ref: Option<&str>,
+) -> String {
+    let material = json!({
+        "control_kind": control_kind,
+        "server_id": server_id,
+        "tool_ref": tool_ref,
+        "authority_grant_refs": authority_grant_refs,
+        "authority_receipt_refs": authority_receipt_refs,
+        "custody_ref": custody_ref,
+        "containment_ref": containment_ref,
+    });
+    let bytes = serde_json::to_vec(&material).unwrap_or_else(|_| material.to_string().into_bytes());
+    format!("sha256:{}", hex::encode(Sha256::digest(bytes)))
+}
+
+fn mcp_control_live_exit_receipt_id(agent_id: &str, control_kind: &str, event_id: &str) -> String {
+    format!(
+        "receipt_runtime_mcp_live_exit_{}_{}_{}",
+        safe_mcp_control_ref(agent_id),
+        safe_mcp_control_ref(control_kind),
+        safe_mcp_control_ref(event_id)
+    )
+}
+
+fn mcp_control_live_exit_result_id(agent_id: &str, control_kind: &str, event_id: &str) -> String {
+    format!(
+        "result_runtime_mcp_live_exit_{}_{}_{}",
+        safe_mcp_control_ref(agent_id),
+        safe_mcp_control_ref(control_kind),
+        safe_mcp_control_ref(event_id)
+    )
+}
+
+fn mcp_control_live_exit_agentgres_operation_ref(
+    agent_id: &str,
+    control_kind: &str,
+    event_id: &str,
+) -> String {
+    format!(
+        "agentgres://runtime-state/agents/{}/operations/{}/{}",
+        safe_mcp_control_ref(agent_id),
+        safe_mcp_control_ref(control_kind),
+        safe_mcp_control_ref(event_id)
+    )
+}
+
+fn mcp_control_live_exit_resulting_head(agent_id: &str, state_root_after: &str) -> String {
+    format!(
+        "agentgres://runtime-state/agents/{}/head/{}",
+        safe_mcp_control_ref(agent_id),
+        safe_mcp_control_ref(state_root_after)
+    )
+}
+
+fn mcp_control_agent_state_root(agent: &Value) -> String {
+    let bytes = serde_json::to_vec(agent).unwrap_or_else(|_| agent.to_string().into_bytes());
+    format!("sha256:{}", hex::encode(Sha256::digest(bytes)))
+}
+
+fn mcp_control_push_agent_receipt_ref(
+    agent: &mut serde_json::Map<String, Value>,
+    receipt_id: &str,
+) {
+    mcp_control_push_agent_array_ref(agent, "receipt_refs", receipt_id);
+}
+
+fn mcp_control_push_agent_result_ref(agent: &mut serde_json::Map<String, Value>, result_id: &str) {
+    mcp_control_push_agent_array_ref(agent, "result_refs", result_id);
+}
+
+fn mcp_control_push_agent_array_ref(
+    agent: &mut serde_json::Map<String, Value>,
+    key: &str,
+    entry: &str,
+) {
+    let mut refs = agent
+        .get(key)
+        .and_then(Value::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(Value::as_str)
+                .filter_map(|entry| optional_trimmed(Some(entry)))
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    refs.push(entry.to_string());
+    refs.sort();
+    refs.dedup();
+    agent.insert(
+        key.to_string(),
+        Value::Array(refs.into_iter().map(Value::String).collect()),
+    );
+}
+
+fn mcp_control_live_exit_receipt(
+    receipt_id: &str,
+    created_at: &str,
+    control_kind: &str,
+    event_id: &str,
+    thread_id: &str,
+    agent_id: &str,
+    server_id: Option<&str>,
+    tool_ref: Option<&str>,
+    live_transport: Option<&str>,
+    execution_mode: Option<&str>,
+    timeout_ms: Option<u64>,
+    authority_hash: Option<&str>,
+    authority_grant_refs: &[String],
+    authority_receipt_refs: &[String],
+    custody_ref: Option<&str>,
+    containment_ref: Option<&str>,
+    agent_state_root_before: &str,
+    agent_state_root_after: &str,
+    agentgres_operation_ref: &str,
+    resulting_head: &str,
+) -> Value {
+    json!({
+        "schema_version": "ioi.runtime.mcp-live-exit-receipt.v1",
+        "object": "ioi.runtime_mcp_live_exit_receipt",
+        "id": receipt_id,
+        "kind": "runtime_mcp_live_exit",
+        "redaction": "redacted",
+        "created_at": created_at,
+        "receipt_refs": [receipt_id],
+        "evidence_refs": [
+            "runtime_mcp_control_rust_owned",
+            "runtime_mcp_live_exit_rust_receipt",
+            "agentgres_runtime_mcp_live_receipt_truth_required",
+            "wallet_network_mcp_external_exit_authority_required",
+            "ctee_mcp_external_exit_custody_required",
+            "mcp_transport_containment_required",
+            "receipt_state_root_binding_required"
+        ],
+        "details": {
+            "rust_daemon_core_receipt_author": "runtime.mcp_control",
+            "control_kind": control_kind,
+            "event_id": event_id,
+            "thread_id": thread_id,
+            "agent_id": agent_id,
+            "server_id": server_id,
+            "tool_ref": tool_ref,
+            "live_transport": live_transport,
+            "execution_mode": execution_mode,
+            "timeout_ms": timeout_ms,
+            "wallet_authority_boundary": "wallet.network.mcp_external_exit",
+            "authority_hash": authority_hash,
+            "authority_grant_refs": authority_grant_refs,
+            "authority_receipt_refs": authority_receipt_refs,
+            "custody_ref": custody_ref,
+            "containment_ref": containment_ref,
+            "runtime_mcp_agentgres_operation_ref": agentgres_operation_ref,
+            "runtime_mcp_agent_state_root_before": agent_state_root_before,
+            "runtime_mcp_agent_state_root_after": agent_state_root_after,
+            "runtime_mcp_resulting_head": resulting_head,
+            "result_materialized": false,
+            "js_transport_invocation": false,
+            "command_transport_fallback": false,
+            "binary_bridge_fallback": false,
+            "compatibility_fallback": false
+        }
+    })
+}
+
+fn mcp_control_live_exit_result(
+    result_id: &str,
+    receipt_id: &str,
+    created_at: &str,
+    control_kind: &str,
+    event_id: &str,
+    thread_id: &str,
+    agent_id: &str,
+    server_id: Option<&str>,
+    tool_ref: Option<&str>,
+    live_transport: Option<&str>,
+    execution_mode: Option<&str>,
+    timeout_ms: Option<u64>,
+    agent_state_root_before: &str,
+    agent_state_root_after: &str,
+    agentgres_operation_ref: &str,
+    resulting_head: &str,
+) -> Value {
+    json!({
+        "schema_version": "ioi.runtime.mcp-live-result.v1",
+        "object": "ioi.runtime_mcp_live_result",
+        "id": result_id,
+        "kind": "runtime_mcp_live_result",
+        "status": "admitted_pending_rust_transport",
+        "redaction": "redacted",
+        "created_at": created_at,
+        "receipt_id": receipt_id,
+        "receipt_refs": [receipt_id],
+        "evidence_refs": [
+            "runtime_mcp_control_rust_owned",
+            "runtime_mcp_live_result_rust_projection",
+            "agentgres_runtime_mcp_live_result_truth_required",
+            "runtime_mcp_transport_backend_pending",
+            "runtime_mcp_no_js_transport_result",
+            "receipt_state_root_binding_required"
+        ],
+        "details": {
+            "rust_daemon_core_result_author": "runtime.mcp_control",
+            "control_kind": control_kind,
+            "event_id": event_id,
+            "thread_id": thread_id,
+            "agent_id": agent_id,
+            "server_id": server_id,
+            "tool_ref": tool_ref,
+            "live_transport": live_transport,
+            "execution_mode": execution_mode,
+            "timeout_ms": timeout_ms,
+            "runtime_mcp_agentgres_operation_ref": agentgres_operation_ref,
+            "runtime_mcp_agent_state_root_before": agent_state_root_before,
+            "runtime_mcp_agent_state_root_after": agent_state_root_after,
+            "runtime_mcp_resulting_head": resulting_head,
+            "receipt_id": receipt_id,
+            "result_materialized": false,
+            "backend_materialization_status": "pending_rust_transport_backend",
+            "payload_ref": null,
+            "payload_hash": null,
+            "js_transport_invocation": false,
+            "command_transport_fallback": false,
+            "binary_bridge_fallback": false,
+            "compatibility_fallback": false
+        }
+    })
+}
+
+fn read_mcp_live_result_record(path: &Path) -> Result<Value, McpLiveResultReplayError> {
+    let body = fs::read_to_string(path).map_err(|error| {
+        McpLiveResultReplayError::StateDirReadFailed(format!(
+            "could not read Agentgres MCP live-result record {}: {error}",
+            path.display()
+        ))
+    })?;
+    let value: Value = serde_json::from_str(&body).map_err(|error| {
+        McpLiveResultReplayError::StateDirRecordInvalid(format!(
+            "invalid Agentgres MCP live-result record {}: {error}",
+            path.display()
+        ))
+    })?;
+    if !value.is_object() {
+        return Err(McpLiveResultReplayError::StateDirRecordInvalid(format!(
+            "Agentgres MCP live-result record {} is not an object",
+            path.display()
+        )));
+    }
+    Ok(value)
+}
+
+fn mcp_live_result_matches_request(result: &Value, request: &McpLiveResultReplayRequest) -> bool {
+    if !mcp_live_result_is_rust_owned(result) {
+        return false;
+    }
+    if !mcp_live_result_field_matches(result, "id", request.result_id.as_deref()) {
+        return false;
+    }
+    if !mcp_live_result_field_matches(result, "receipt_id", request.receipt_id.as_deref()) {
+        return false;
+    }
+    let details = result.get("details").unwrap_or(&Value::Null);
+    for (key, expected) in [
+        ("thread_id", request.thread_id.as_deref()),
+        ("agent_id", request.agent_id.as_deref()),
+        ("control_kind", request.control_kind.as_deref()),
+    ] {
+        if !mcp_live_result_field_matches(details, key, expected) {
+            return false;
+        }
+    }
+    true
+}
+
+fn mcp_live_result_is_rust_owned(result: &Value) -> bool {
+    if optional_json_string(result, "schema_version").as_deref()
+        != Some("ioi.runtime.mcp-live-result.v1")
+    {
+        return false;
+    }
+    if optional_json_string(result, "kind").as_deref() != Some("runtime_mcp_live_result") {
+        return false;
+    }
+    let details = result.get("details").unwrap_or(&Value::Null);
+    if optional_json_string(details, "rust_daemon_core_result_author").as_deref()
+        != Some("runtime.mcp_control")
+    {
+        return false;
+    }
+    if result
+        .get("details")
+        .and_then(|details| details.get("js_transport_invocation"))
+        .and_then(Value::as_bool)
+        != Some(false)
+    {
+        return false;
+    }
+    if result
+        .get("details")
+        .and_then(|details| details.get("command_transport_fallback"))
+        .and_then(Value::as_bool)
+        != Some(false)
+    {
+        return false;
+    }
+    for required_ref in [
+        "runtime_mcp_live_result_rust_projection",
+        "agentgres_runtime_mcp_live_result_truth_required",
+    ] {
+        if !json_string_array_contains(result.get("evidence_refs"), required_ref) {
+            return false;
+        }
+    }
+    true
+}
+
+fn mcp_live_result_field_matches(result: &Value, key: &str, expected: Option<&str>) -> bool {
+    match optional_trimmed(expected) {
+        Some(expected) => optional_json_string(result, key).as_deref() == Some(expected.as_str()),
+        None => true,
+    }
+}
+
+fn mcp_live_result_sort_key(result: &Value) -> (String, String) {
+    (
+        optional_json_string(result, "created_at").unwrap_or_default(),
+        optional_json_string(result, "id").unwrap_or_default(),
+    )
+}
+
+fn mcp_live_result_replay_hash(results: &[Value]) -> String {
+    let material = json!({ "results": results });
+    let bytes = serde_json::to_vec(&material).unwrap_or_else(|_| material.to_string().into_bytes());
+    format!("sha256:{}", hex::encode(Sha256::digest(bytes)))
+}
+
+fn json_string_array_contains(value: Option<&Value>, expected: &str) -> bool {
+    value
+        .and_then(Value::as_array)
+        .is_some_and(|items| items.iter().any(|item| item.as_str() == Some(expected)))
+}
+
+fn safe_mcp_control_ref(input: &str) -> String {
+    let safe = input
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || ch == '_' || ch == '-' {
+                ch
+            } else {
+                '_'
+            }
+        })
+        .collect::<String>();
+    let safe = safe.trim_matches('_');
+    if safe.is_empty() {
+        "unknown".to_string()
+    } else {
+        safe.to_string()
+    }
+}
+
+fn mcp_control_agent_from_state_dir(
+    state_dir: Option<&str>,
+    thread_id: &str,
+    agent_id: Option<&str>,
+) -> Result<serde_json::Map<String, Value>, McpControlAgentStateUpdateError> {
+    let state_root =
+        optional_trimmed(state_dir).ok_or(McpControlAgentStateUpdateError::StateDirRequired)?;
+    let agents_dir = PathBuf::from(state_root).join("agents");
+    let mut candidate_ids = Vec::new();
+    if let Some(id) = optional_trimmed(agent_id) {
+        candidate_ids.push(id);
+    }
+    if let Some(derived) = mcp_control_agent_id_for_thread(thread_id) {
+        candidate_ids.push(derived);
+    }
+    candidate_ids.push(thread_id.to_string());
+    candidate_ids.dedup();
+
+    for candidate_id in &candidate_ids {
+        let path = agents_dir.join(format!("{}.json", mcp_control_safe_component(candidate_id)));
+        if path.exists() {
+            let record = read_mcp_control_agent_record(&path)?;
+            if mcp_control_agent_matches_thread(&record, thread_id, Some(candidate_id.as_str())) {
+                return Ok(record);
+            }
+        }
+    }
+
+    if agents_dir.exists() {
+        for entry in fs::read_dir(&agents_dir).map_err(|error| {
+            McpControlAgentStateUpdateError::StateDirReadFailed(format!(
+                "could not inspect Agentgres agents directory: {error}"
+            ))
+        })? {
+            let entry = entry.map_err(|error| {
+                McpControlAgentStateUpdateError::StateDirReadFailed(format!(
+                    "could not inspect Agentgres agent entry: {error}"
+                ))
+            })?;
+            let path = entry.path();
+            if path.extension().and_then(|value| value.to_str()) != Some("json") {
+                continue;
+            }
+            let record = read_mcp_control_agent_record(&path)?;
+            if mcp_control_agent_matches_thread(&record, thread_id, agent_id) {
+                return Ok(record);
+            }
+        }
+    }
+
+    Err(McpControlAgentStateUpdateError::AgentReplayRequired(
+        thread_id.to_string(),
+    ))
+}
+
+fn read_mcp_control_agent_record(
+    path: &Path,
+) -> Result<serde_json::Map<String, Value>, McpControlAgentStateUpdateError> {
+    let body = fs::read_to_string(path).map_err(|error| {
+        McpControlAgentStateUpdateError::StateDirReadFailed(format!(
+            "could not read Agentgres agent record {}: {error}",
+            path.display()
+        ))
+    })?;
+    let value: Value = serde_json::from_str(&body).map_err(|error| {
+        McpControlAgentStateUpdateError::StateDirRecordInvalid(format!(
+            "invalid Agentgres agent record {}: {error}",
+            path.display()
+        ))
+    })?;
+    object_value(&value).ok_or_else(|| {
+        McpControlAgentStateUpdateError::StateDirRecordInvalid(format!(
+            "Agentgres agent record {} is not an object",
+            path.display()
+        ))
+    })
+}
+
+fn mcp_control_agent_matches_thread(
+    agent: &serde_json::Map<String, Value>,
+    thread_id: &str,
+    agent_id: Option<&str>,
+) -> bool {
+    let value = Value::Object(agent.clone());
+    let record_agent_id = optional_json_string(&value, "id");
+    if let Some(expected_agent_id) = optional_trimmed(agent_id) {
+        if record_agent_id.as_deref() == Some(expected_agent_id.as_str()) {
+            return true;
+        }
+    }
+    if let Some(derived_agent_id) = mcp_control_agent_id_for_thread(thread_id) {
+        if record_agent_id.as_deref() == Some(derived_agent_id.as_str()) {
+            return true;
+        }
+    }
+    [
+        optional_json_string(&value, "thread_id"),
+        json_path_string(&value, &["thread", "thread_id"]),
+    ]
+    .into_iter()
+    .flatten()
+    .any(|candidate| candidate == thread_id)
+}
+
+fn mcp_control_agent_id_for_thread(thread_id: &str) -> Option<String> {
+    optional_trimmed(Some(thread_id)).map(|id| {
+        id.strip_prefix("thread_")
+            .map(|suffix| format!("agent_{suffix}"))
+            .unwrap_or(id)
+    })
+}
+
+fn mcp_control_safe_component(value: &str) -> String {
+    let safe = value
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || matches!(ch, '_' | '-' | '.') {
+                ch
+            } else {
+                '_'
+            }
+        })
+        .collect::<String>();
+    if safe.is_empty() {
+        "runtime".to_string()
+    } else {
+        safe
     }
 }
 
@@ -1253,6 +2344,14 @@ impl McpServerValidationInputCore {
             .workspace_root
             .as_deref()
             .and_then(|value| optional_trimmed(Some(value)));
+        let input_source = json_string_value(&request.input, "source")
+            .unwrap_or_else(|| "validation_input".to_string());
+        let input_source_scope = json_string_value(&request.input, "source_scope")
+            .unwrap_or_else(|| "validation".to_string());
+        let input_source_path = json_string_value(&request.input, "source_path");
+        let input_config_compatibility = json_string_value(&request.input, "config_compatibility");
+        let input_status =
+            json_string_value(&request.input, "status").unwrap_or_else(|| "configured".to_string());
         let raw = request.input.get("mcp_json").unwrap_or(&request.input);
         let servers = raw
             .get("mcp_servers")
@@ -1265,32 +2364,42 @@ impl McpServerValidationInputCore {
                 .map(|(index, server)| {
                     let label = mcp_validation_server_label(server)
                         .unwrap_or_else(|| format!("server_{}", index + 1));
+                    let config = enrich_mcp_validation_source_metadata(
+                        server,
+                        input_source_path.as_deref(),
+                        input_config_compatibility.as_deref(),
+                    );
+                    let source = json_string_value(&config, "source")
+                        .unwrap_or_else(|| input_source.clone());
+                    let source_scope = json_string_value(&config, "source_scope")
+                        .unwrap_or_else(|| input_source_scope.clone());
+                    let status = json_string_value(&config, "status")
+                        .unwrap_or_else(|| input_status.clone());
                     normalize_mcp_validation_server_record(
                         &label,
-                        server,
+                        &config,
                         workspace_root.as_deref(),
-                        json_string_value(server, "source")
-                            .as_deref()
-                            .unwrap_or("validation_input"),
-                        json_string_value(server, "source_scope")
-                            .as_deref()
-                            .unwrap_or("validation"),
-                        json_string_value(server, "status")
-                            .as_deref()
-                            .unwrap_or("configured"),
+                        &source,
+                        &source_scope,
+                        &status,
                     )
                 })
                 .collect::<Vec<_>>(),
             Some(Value::Object(map)) => map
                 .iter()
                 .map(|(label, config)| {
+                    let config = enrich_mcp_validation_source_metadata(
+                        config,
+                        input_source_path.as_deref(),
+                        input_config_compatibility.as_deref(),
+                    );
                     normalize_mcp_validation_server_record(
                         label,
-                        config,
+                        &config,
                         workspace_root.as_deref(),
-                        "validation_input",
-                        "validation",
-                        "configured",
+                        &input_source,
+                        &input_source_scope,
+                        &input_status,
                     )
                 })
                 .collect::<Vec<_>>(),
@@ -1374,12 +2483,13 @@ impl McpManagerCatalogProjectionCore {
     ) -> Result<McpManagerCatalogProjectionRecord, McpManagerCatalogProjectionError> {
         request.validate()?;
 
+        let servers = mcp_catalog_projection_servers(request)?;
         let mut tools = Vec::new();
         let mut resources = Vec::new();
         let mut prompts = Vec::new();
         let mut enabled_tools = Vec::new();
 
-        for server in &request.servers {
+        for server in &servers {
             let server_tools = mcp_catalog_tools_for_server(server);
             if server.get("enabled").and_then(Value::as_bool) != Some(false) {
                 enabled_tools.extend(server_tools.clone());
@@ -1402,12 +2512,12 @@ impl McpManagerCatalogProjectionCore {
             }),
             object: "ioi.runtime_mcp_manager_catalog_projection".to_string(),
             status: "projected".to_string(),
-            server_count: request.servers.len(),
+            server_count: servers.len(),
             tool_count: tools.len(),
             resource_count: resources.len(),
             prompt_count: prompts.len(),
             enabled_tool_count: enabled_tools.len(),
-            servers: request.servers.clone(),
+            servers,
             tools,
             resources,
             prompts,
@@ -1415,6 +2525,310 @@ impl McpManagerCatalogProjectionCore {
             generated_at: "rust_policy_core".to_string(),
         })
     }
+}
+
+fn mcp_catalog_projection_servers(
+    request: &McpManagerCatalogProjectionRequest,
+) -> Result<Vec<Value>, McpManagerCatalogProjectionError> {
+    let thread_id = optional_trimmed(request.thread_id.as_deref());
+    let agent_id = optional_trimmed(request.agent_id.as_deref());
+    let state_dir = optional_trimmed(request.state_dir.as_deref());
+    let mut servers = request
+        .servers
+        .iter()
+        .filter(|server| server.is_object())
+        .cloned()
+        .collect::<Vec<_>>();
+
+    if thread_id.is_some() || agent_id.is_some() {
+        let state_root = state_dir
+            .as_deref()
+            .ok_or(McpManagerCatalogProjectionError::StateDirRequired)?;
+        let agent = mcp_catalog_agent_from_state_dir(
+            state_root,
+            thread_id.as_deref(),
+            agent_id.as_deref(),
+        )?;
+        servers.extend(mcp_control_agent_servers(&agent));
+    } else if let Some(state_root) = state_dir.as_deref() {
+        for agent in mcp_catalog_agents_from_state_dir(state_root)? {
+            servers.extend(mcp_control_agent_servers(&agent));
+        }
+    }
+
+    Ok(mcp_catalog_dedup_servers(servers))
+}
+
+fn mcp_catalog_agent_from_state_dir(
+    state_dir: &str,
+    thread_id: Option<&str>,
+    agent_id: Option<&str>,
+) -> Result<serde_json::Map<String, Value>, McpManagerCatalogProjectionError> {
+    let agents_dir = PathBuf::from(state_dir).join("agents");
+    let mut candidate_ids = Vec::new();
+    if let Some(id) = optional_trimmed(agent_id) {
+        candidate_ids.push(id);
+    }
+    if let Some(thread_id) = optional_trimmed(thread_id) {
+        if let Some(derived) = mcp_control_agent_id_for_thread(thread_id.as_str()) {
+            candidate_ids.push(derived);
+        }
+        candidate_ids.push(thread_id);
+    }
+    candidate_ids.dedup();
+
+    for candidate_id in &candidate_ids {
+        let path = agents_dir.join(format!("{}.json", mcp_control_safe_component(candidate_id)));
+        if path.exists() {
+            let record = read_mcp_catalog_agent_record(&path)?;
+            if mcp_control_agent_matches_thread(
+                &record,
+                thread_id.unwrap_or(""),
+                Some(candidate_id.as_str()),
+            ) || agent_id.is_some_and(|expected| {
+                optional_json_string(&Value::Object(record.clone()), "id").as_deref()
+                    == Some(expected)
+            }) {
+                return Ok(record);
+            }
+        }
+    }
+
+    if agents_dir.exists() {
+        for entry in fs::read_dir(&agents_dir).map_err(|error| {
+            McpManagerCatalogProjectionError::StateDirReadFailed(format!(
+                "could not inspect Agentgres agents directory: {error}"
+            ))
+        })? {
+            let entry = entry.map_err(|error| {
+                McpManagerCatalogProjectionError::StateDirReadFailed(format!(
+                    "could not inspect Agentgres agent entry: {error}"
+                ))
+            })?;
+            let path = entry.path();
+            if path.extension().and_then(|value| value.to_str()) != Some("json") {
+                continue;
+            }
+            let record = read_mcp_catalog_agent_record(&path)?;
+            let thread_matches = thread_id.is_some_and(|expected| {
+                mcp_control_agent_matches_thread(&record, expected, agent_id)
+            });
+            let agent_matches = agent_id.is_some_and(|expected| {
+                optional_json_string(&Value::Object(record.clone()), "id").as_deref()
+                    == Some(expected)
+            });
+            if thread_matches || agent_matches {
+                return Ok(record);
+            }
+        }
+    }
+
+    Err(McpManagerCatalogProjectionError::AgentReplayRequired(
+        thread_id
+            .and_then(|value| optional_trimmed(Some(value)))
+            .or_else(|| agent_id.and_then(|value| optional_trimmed(Some(value))))
+            .unwrap_or_else(|| "mcp_catalog_context".to_string()),
+    ))
+}
+
+fn mcp_catalog_agents_from_state_dir(
+    state_dir: &str,
+) -> Result<Vec<serde_json::Map<String, Value>>, McpManagerCatalogProjectionError> {
+    let agents_dir = PathBuf::from(state_dir).join("agents");
+    if !agents_dir.exists() {
+        return Ok(Vec::new());
+    }
+    let mut agents = Vec::new();
+    for entry in fs::read_dir(&agents_dir).map_err(|error| {
+        McpManagerCatalogProjectionError::StateDirReadFailed(format!(
+            "could not inspect Agentgres agents directory: {error}"
+        ))
+    })? {
+        let entry = entry.map_err(|error| {
+            McpManagerCatalogProjectionError::StateDirReadFailed(format!(
+                "could not inspect Agentgres agent entry: {error}"
+            ))
+        })?;
+        let path = entry.path();
+        if path.extension().and_then(|value| value.to_str()) != Some("json") {
+            continue;
+        }
+        agents.push(read_mcp_catalog_agent_record(&path)?);
+    }
+    Ok(agents)
+}
+
+fn read_mcp_catalog_agent_record(
+    path: &Path,
+) -> Result<serde_json::Map<String, Value>, McpManagerCatalogProjectionError> {
+    let body = fs::read_to_string(path).map_err(|error| {
+        McpManagerCatalogProjectionError::StateDirReadFailed(format!(
+            "could not read Agentgres agent record {}: {error}",
+            path.display()
+        ))
+    })?;
+    let value: Value = serde_json::from_str(&body).map_err(|error| {
+        McpManagerCatalogProjectionError::StateDirRecordInvalid(format!(
+            "invalid Agentgres agent record {}: {error}",
+            path.display()
+        ))
+    })?;
+    object_value(&value).ok_or_else(|| {
+        McpManagerCatalogProjectionError::StateDirRecordInvalid(format!(
+            "Agentgres agent record {} is not an object",
+            path.display()
+        ))
+    })
+}
+
+fn mcp_catalog_dedup_servers(servers: Vec<Value>) -> Vec<Value> {
+    let mut seen = Vec::new();
+    let mut deduped = Vec::new();
+    for server in servers {
+        let key = json_string_value(&server, "id").unwrap_or_else(|| server.to_string());
+        if seen.iter().any(|candidate: &String| candidate == &key) {
+            continue;
+        }
+        seen.push(key);
+        deduped.push(server);
+    }
+    deduped
+}
+
+fn mcp_tool_search_catalog_projection(
+    request: &McpToolSearchProjectionRequest,
+) -> Result<McpManagerCatalogProjectionRecord, McpToolProjectionError> {
+    McpManagerCatalogProjectionCore
+        .project(&McpManagerCatalogProjectionRequest {
+            schema_version: MCP_MANAGER_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION.to_string(),
+            status_schema_version: None,
+            state_dir: request.state_dir.clone(),
+            thread_id: request.thread_id.clone(),
+            agent_id: request.agent_id.clone(),
+            agent: Value::Null,
+            servers: request.servers.clone(),
+        })
+        .map_err(|error| McpToolProjectionError::CatalogProjectionFailed(format!("{error:?}")))
+}
+
+fn mcp_tool_catalog_summaries(
+    servers: &[Value],
+    tools: &[Value],
+    resources: &[Value],
+    prompts: &[Value],
+    live_discovery: bool,
+    preview_limit: usize,
+) -> Result<Vec<Value>, McpToolProjectionError> {
+    let mut summaries = Vec::new();
+    for server in servers {
+        let server_id = json_string_value(server, "id");
+        let server_tools = mcp_tool_rows_for_server(tools, server_id.as_deref());
+        let server_resources =
+            mcp_catalog_rows_for_server(resources, server_id.as_deref(), "server_id");
+        let server_prompts =
+            mcp_catalog_rows_for_server(prompts, server_id.as_deref(), "server_id");
+        let deferred_live_discovery =
+            live_discovery && server.get("enabled").and_then(Value::as_bool) != Some(false);
+        let summary = McpManagerCatalogSummaryProjectionCore
+            .project(&McpManagerCatalogSummaryProjectionRequest {
+                schema_version: MCP_MANAGER_CATALOG_SUMMARY_PROJECTION_REQUEST_SCHEMA_VERSION
+                    .to_string(),
+                status_schema_version: None,
+                server: server.clone(),
+                tools: server_tools,
+                resources: server_resources,
+                prompts: server_prompts,
+                live_mode: if deferred_live_discovery {
+                    Some("rust_mcp_live_discovery_deferred".to_string())
+                } else {
+                    None
+                },
+                status: if deferred_live_discovery {
+                    Some("deferred".to_string())
+                } else {
+                    None
+                },
+                error_code: None,
+                preview_limit: Some(preview_limit),
+                deferred: Some(deferred_live_discovery),
+            })
+            .map_err(|error| {
+                McpToolProjectionError::CatalogSummaryProjectionFailed(format!("{error:?}"))
+            })?;
+        summaries.push(serde_json::to_value(summary).unwrap_or(Value::Null));
+    }
+    Ok(summaries)
+}
+
+fn mcp_tool_rows_for_server(tools: &[Value], server_id: Option<&str>) -> Vec<Value> {
+    mcp_catalog_rows_for_server(tools, server_id, "server_id")
+}
+
+fn mcp_catalog_rows_for_server(rows: &[Value], server_id: Option<&str>, key: &str) -> Vec<Value> {
+    rows.iter()
+        .filter(|row| {
+            server_id
+                .and_then(|expected| json_string_value(row, key).map(|actual| actual == expected))
+                .unwrap_or(false)
+        })
+        .cloned()
+        .collect()
+}
+
+fn mcp_catalog_tool_key(tool: &Value) -> String {
+    mcp_catalog_field_string(tool, &["stable_tool_id"]).unwrap_or_else(|| {
+        format!(
+            "{}:{}",
+            mcp_catalog_field_string(tool, &["server_id"])
+                .unwrap_or_else(|| "mcp.unknown".to_string()),
+            mcp_catalog_field_string(tool, &["tool_name", "name"])
+                .unwrap_or_else(|| "tool".to_string())
+        )
+    })
+}
+
+fn mcp_tool_identity_matches(tool: &Value, requested: &str) -> bool {
+    let requested = requested.trim();
+    if requested.is_empty() {
+        return false;
+    }
+    let stable = mcp_catalog_field_string(tool, &["stable_tool_id"]);
+    if stable.as_deref() == Some(requested) {
+        return true;
+    }
+    let server_id = mcp_catalog_field_string(tool, &["server_id"]);
+    let tool_name = mcp_catalog_field_string(tool, &["tool_name", "name"]);
+    match (server_id, tool_name) {
+        (Some(server_id), Some(tool_name)) => format!("{server_id}.{tool_name}") == requested,
+        _ => false,
+    }
+}
+
+fn mcp_tool_matches_query(tool: &Value, query: &str) -> bool {
+    let query = query.trim().to_ascii_lowercase();
+    if query.is_empty() {
+        return true;
+    }
+    [
+        "stable_tool_id",
+        "display_name",
+        "server_id",
+        "server_label",
+        "tool_name",
+        "name",
+        "description",
+    ]
+    .iter()
+    .filter_map(|key| json_string_value(tool, key))
+    .any(|value| value.to_ascii_lowercase().contains(&query))
+}
+
+fn mcp_tool_projection_routes() -> Value {
+    json!({
+        "search": "/v1/mcp/tools/search",
+        "get_tool": "/v1/mcp/tools/{tool_id}",
+        "invoke_tool": "/v1/mcp/tools/{tool_id}/invoke",
+    })
 }
 
 #[derive(Debug, Default, Clone)]
@@ -1480,6 +2894,210 @@ impl McpManagerCatalogSummaryProjectionCore {
             error_code: request.error_code.clone(),
             search_route: "/v1/mcp/tools/search".to_string(),
             fetch_route: "/v1/mcp/tools/{tool_id}".to_string(),
+            generated_at: "rust_policy_core".to_string(),
+        })
+    }
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct McpToolSearchProjectionCore;
+
+impl McpToolSearchProjectionCore {
+    pub fn project(
+        &self,
+        request: &McpToolSearchProjectionRequest,
+    ) -> Result<McpToolSearchProjectionRecord, McpToolProjectionError> {
+        request.validate()?;
+
+        let catalog = mcp_tool_search_catalog_projection(request)?;
+        let query = optional_trimmed(request.query.as_deref()).unwrap_or_default();
+        let requested_tool_id = optional_trimmed(request.tool_id.as_deref());
+        let requested_server_id = optional_trimmed(request.server_id.as_deref());
+        let exact = request.exact.unwrap_or(false);
+        let live_discovery = request.live_discovery.unwrap_or(true);
+        let limit = request.limit.unwrap_or(25).clamp(1, 100);
+        let preview_limit = request.preview_limit.unwrap_or(25).clamp(1, 100);
+        let servers = catalog
+            .servers
+            .iter()
+            .filter(|server| {
+                requested_server_id
+                    .as_deref()
+                    .map(|expected| json_string_value(server, "id").as_deref() == Some(expected))
+                    .unwrap_or(true)
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+        let mut filtered = catalog
+            .tools
+            .iter()
+            .filter(|tool| {
+                requested_server_id
+                    .as_deref()
+                    .map(|expected| {
+                        json_string_value(tool, "server_id").as_deref() == Some(expected)
+                    })
+                    .unwrap_or(true)
+            })
+            .filter(|tool| {
+                if let Some(tool_id) = requested_tool_id.as_deref() {
+                    mcp_tool_identity_matches(tool, tool_id)
+                        || (!exact && mcp_tool_matches_query(tool, tool_id))
+                } else {
+                    mcp_tool_matches_query(tool, &query)
+                }
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+        filtered
+            .sort_by(|left, right| mcp_catalog_tool_key(left).cmp(&mcp_catalog_tool_key(right)));
+        let returned = filtered.iter().take(limit).cloned().collect::<Vec<_>>();
+        let summary_tools = catalog
+            .tools
+            .iter()
+            .filter(|tool| {
+                requested_server_id
+                    .as_deref()
+                    .map(|expected| {
+                        json_string_value(tool, "server_id").as_deref() == Some(expected)
+                    })
+                    .unwrap_or(true)
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+        let summary_resources = catalog
+            .resources
+            .iter()
+            .filter(|resource| {
+                requested_server_id
+                    .as_deref()
+                    .map(|expected| {
+                        json_string_value(resource, "server_id").as_deref() == Some(expected)
+                    })
+                    .unwrap_or(true)
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+        let summary_prompts = catalog
+            .prompts
+            .iter()
+            .filter(|prompt| {
+                requested_server_id
+                    .as_deref()
+                    .map(|expected| {
+                        json_string_value(prompt, "server_id").as_deref() == Some(expected)
+                    })
+                    .unwrap_or(true)
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+        let catalog_summaries = mcp_tool_catalog_summaries(
+            &servers,
+            &summary_tools,
+            &summary_resources,
+            &summary_prompts,
+            live_discovery,
+            preview_limit,
+        )?;
+        let rust_mcp_live_discovery_deferred = catalog_summaries.iter().any(|summary| {
+            json_string_value(summary, "execution_mode").as_deref()
+                == Some("rust_mcp_live_discovery_deferred")
+        });
+
+        Ok(McpToolSearchProjectionRecord {
+            schema_version: MCP_TOOL_SEARCH_PROJECTION_RESULT_SCHEMA_VERSION.to_string(),
+            object: "ioi.runtime_mcp_tool_search".to_string(),
+            status: "completed".to_string(),
+            query: query.clone(),
+            q: query,
+            exact,
+            live_discovery,
+            rust_mcp_live_discovery_deferred,
+            server_count: servers.len(),
+            tool_count: filtered.len(),
+            returned_count: returned.len(),
+            limit,
+            deferred: filtered.len() > returned.len(),
+            tools: returned,
+            catalog_summaries,
+            failures: Vec::new(),
+            routes: mcp_tool_projection_routes(),
+            evidence_refs: vec![
+                "runtime_mcp_tool_search_rust_projection".to_string(),
+                "runtime_mcp_catalog_js_search_filter_retired".to_string(),
+                "runtime_mcp_catalog_fetch_js_shape_retired".to_string(),
+            ],
+            generated_at: "rust_policy_core".to_string(),
+        })
+    }
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct McpToolFetchProjectionCore;
+
+impl McpToolFetchProjectionCore {
+    pub fn project(
+        &self,
+        request: &McpToolFetchProjectionRequest,
+    ) -> Result<McpToolFetchProjectionRecord, McpToolProjectionError> {
+        request.validate()?;
+        let requested_tool_id = optional_trimmed(request.tool_id.as_deref());
+        let search = McpToolSearchProjectionCore.project(&McpToolSearchProjectionRequest {
+            schema_version: MCP_TOOL_SEARCH_PROJECTION_REQUEST_SCHEMA_VERSION.to_string(),
+            status_schema_version: request.status_schema_version.clone(),
+            state_dir: request.state_dir.clone(),
+            thread_id: request.thread_id.clone(),
+            agent_id: request.agent_id.clone(),
+            server_id: request.server_id.clone(),
+            servers: request.servers.clone(),
+            query: requested_tool_id.clone(),
+            tool_id: requested_tool_id.clone(),
+            exact: Some(true),
+            limit: Some(request.limit.unwrap_or(25).max(1)),
+            preview_limit: request.preview_limit,
+            live_discovery: request.live_discovery,
+        })?;
+        let tool = search.tools.iter().find(|tool| {
+            requested_tool_id
+                .as_deref()
+                .is_some_and(|tool_id| mcp_tool_identity_matches(tool, tool_id))
+        });
+        let tool = tool.cloned();
+        let status = if tool.is_some() {
+            "completed".to_string()
+        } else {
+            "not_found".to_string()
+        };
+        let tools = tool.iter().cloned().collect::<Vec<_>>();
+        let returned_count = tools.len();
+        let tool_id = requested_tool_id.or_else(|| {
+            tool.as_ref()
+                .and_then(|tool| json_string_value(tool, "stable_tool_id"))
+        });
+        let server_id = tool
+            .as_ref()
+            .and_then(|tool| json_string_value(tool, "server_id"));
+        let tool_name = tool
+            .as_ref()
+            .and_then(|tool| json_string_value(tool, "tool_name"));
+
+        Ok(McpToolFetchProjectionRecord {
+            schema_version: MCP_TOOL_FETCH_PROJECTION_RESULT_SCHEMA_VERSION.to_string(),
+            object: "ioi.runtime_mcp_tool_fetch".to_string(),
+            status,
+            tool_id,
+            server_id,
+            tool_name,
+            tool,
+            tools,
+            returned_count,
+            search_projection: serde_json::to_value(search).unwrap_or(Value::Null),
+            catalog_summaries: Vec::new(),
+            routes: mcp_tool_projection_routes(),
+            evidence_refs: vec![
+                "runtime_mcp_tool_fetch_rust_projection".to_string(),
+                "runtime_mcp_catalog_fetch_js_shape_retired".to_string(),
+            ],
             generated_at: "rust_policy_core".to_string(),
         })
     }
@@ -1754,8 +3372,8 @@ impl McpControlAgentStateUpdateRequest {
         if optional_trimmed(Some(self.thread_id.as_str())).is_none() {
             return Err(McpControlAgentStateUpdateError::MissingField("thread_id"));
         }
-        if !self.agent.is_object() {
-            return Err(McpControlAgentStateUpdateError::MissingField("agent"));
+        if self.agent.is_object() {
+            return Err(McpControlAgentStateUpdateError::AgentCandidateTransportRetired);
         }
         if optional_trimmed(Some(self.control_kind.as_str())).is_none() {
             return Err(McpControlAgentStateUpdateError::MissingField(
@@ -1771,9 +3389,20 @@ impl McpControlAgentStateUpdateRequest {
         if optional_trimmed(Some(self.created_at.as_str())).is_none() {
             return Err(McpControlAgentStateUpdateError::MissingField("created_at"));
         }
-        let agent_value = Value::Object(object_value(&self.agent).unwrap_or_default());
-        if optional_json_string(&agent_value, "id").is_none() {
-            return Err(McpControlAgentStateUpdateError::MissingField("agent.id"));
+        Ok(())
+    }
+}
+
+impl McpLiveResultReplayRequest {
+    pub fn validate(&self) -> Result<(), McpLiveResultReplayError> {
+        if self.schema_version != MCP_LIVE_RESULT_REPLAY_REQUEST_SCHEMA_VERSION {
+            return Err(McpLiveResultReplayError::InvalidSchemaVersion {
+                expected: MCP_LIVE_RESULT_REPLAY_REQUEST_SCHEMA_VERSION,
+                actual: self.schema_version.clone(),
+            });
+        }
+        if optional_trimmed(self.state_dir.as_deref()).is_none() {
+            return Err(McpLiveResultReplayError::StateDirRequired);
         }
         Ok(())
     }
@@ -1861,6 +3490,15 @@ impl McpManagerCatalogProjectionRequest {
                 actual: self.schema_version.clone(),
             });
         }
+        if self.agent.is_object() {
+            return Err(McpManagerCatalogProjectionError::AgentCandidateTransportRetired);
+        }
+        if (optional_trimmed(self.thread_id.as_deref()).is_some()
+            || optional_trimmed(self.agent_id.as_deref()).is_some())
+            && optional_trimmed(self.state_dir.as_deref()).is_none()
+        {
+            return Err(McpManagerCatalogProjectionError::StateDirRequired);
+        }
         Ok(())
     }
 }
@@ -1874,6 +3512,30 @@ impl McpManagerCatalogSummaryProjectionRequest {
                     actual: self.schema_version.clone(),
                 },
             );
+        }
+        Ok(())
+    }
+}
+
+impl McpToolSearchProjectionRequest {
+    pub fn validate(&self) -> Result<(), McpToolProjectionError> {
+        if self.schema_version != MCP_TOOL_SEARCH_PROJECTION_REQUEST_SCHEMA_VERSION {
+            return Err(McpToolProjectionError::InvalidSchemaVersion {
+                expected: MCP_TOOL_SEARCH_PROJECTION_REQUEST_SCHEMA_VERSION,
+                actual: self.schema_version.clone(),
+            });
+        }
+        Ok(())
+    }
+}
+
+impl McpToolFetchProjectionRequest {
+    pub fn validate(&self) -> Result<(), McpToolProjectionError> {
+        if self.schema_version != MCP_TOOL_FETCH_PROJECTION_REQUEST_SCHEMA_VERSION {
+            return Err(McpToolProjectionError::InvalidSchemaVersion {
+                expected: MCP_TOOL_FETCH_PROJECTION_REQUEST_SCHEMA_VERSION,
+                actual: self.schema_version.clone(),
+            });
         }
         Ok(())
     }
@@ -2542,6 +4204,26 @@ fn mcp_validation_server_label(server: &Value) -> Option<String> {
         .or_else(|| json_string_value(server, "id"))
 }
 
+fn enrich_mcp_validation_source_metadata(
+    config: &Value,
+    source_path: Option<&str>,
+    config_compatibility: Option<&str>,
+) -> Value {
+    let mut enriched = object_value(config).unwrap_or_default();
+    if let Some(path) = source_path.and_then(|value| optional_trimmed(Some(value))) {
+        enriched.insert("source_path".to_string(), Value::String(path));
+    }
+    if let Some(compatibility) =
+        config_compatibility.and_then(|value| optional_trimmed(Some(value)))
+    {
+        enriched.insert(
+            "config_compatibility".to_string(),
+            Value::String(compatibility),
+        );
+    }
+    Value::Object(enriched)
+}
+
 fn normalize_mcp_validation_server_record(
     label: &str,
     config: &Value,
@@ -2773,21 +4455,65 @@ fn json_path_string(value: &Value, path: &[&str]) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::{Path, PathBuf};
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn temp_mcp_state_dir(label: &str) -> PathBuf {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock before unix epoch")
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!(
+            "ioi-mcp-control-{label}-{}-{nonce}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&path);
+        fs::create_dir_all(path.join("agents")).expect("create temp Agentgres agents dir");
+        path
+    }
+
+    fn seed_mcp_agent_state(state_dir: &Path, agent: &Value) {
+        let agent_id = optional_json_string(agent, "id").expect("agent id");
+        let path = state_dir
+            .join("agents")
+            .join(format!("{}.json", mcp_control_safe_component(&agent_id)));
+        fs::write(
+            path,
+            serde_json::to_vec_pretty(agent).expect("serialize agent record"),
+        )
+        .expect("write temp Agentgres agent record");
+    }
+
+    fn seed_mcp_live_result_state(state_dir: &Path, result: &Value) {
+        let result_id = optional_json_string(result, "id").expect("result id");
+        let results_dir = state_dir.join("mcp-live-results");
+        fs::create_dir_all(&results_dir).expect("create temp MCP live-results dir");
+        fs::write(
+            results_dir.join(format!("{}.json", mcp_control_safe_component(&result_id))),
+            serde_json::to_vec_pretty(result).expect("serialize MCP live-result record"),
+        )
+        .expect("write temp Agentgres MCP live-result record");
+    }
 
     fn mcp_control_agent_state_update_request() -> McpControlAgentStateUpdateRequest {
+        let state_dir = temp_mcp_state_dir("state-update");
+        let agent = json!({
+            "id": "agent_1",
+            "cwd": "/workspace",
+            "mcpRegistry": {
+                "servers": [
+                    { "id": "mcp.docs", "enabled": true }
+                ]
+            },
+            "updatedAt": "2026-06-06T05:00:00.000Z"
+        });
+        seed_mcp_agent_state(&state_dir, &agent);
         McpControlAgentStateUpdateRequest {
             schema_version: MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION.to_string(),
             thread_id: "thread_1".to_string(),
-            agent: json!({
-                "id": "agent_1",
-                "cwd": "/workspace",
-                "mcpRegistry": {
-                    "servers": [
-                        { "id": "mcp.docs", "enabled": true }
-                    ]
-                },
-                "updatedAt": "2026-06-06T05:00:00.000Z"
-            }),
+            agent_id: Some("agent_1".to_string()),
+            state_dir: Some(state_dir.to_string_lossy().to_string()),
+            agent: Value::Null,
             control_kind: "mcp_add".to_string(),
             event_id: "event_mcp_add".to_string(),
             seq: 4,
@@ -2985,6 +4711,10 @@ mod tests {
             "live_transport": "stdio",
             "execution_mode": "live",
             "timeout_ms": 2500,
+            "authority_grant_refs": ["wallet.network://grant/mcp/docs/search"],
+            "authority_receipt_refs": ["receipt://wallet.network/mcp/docs/search"],
+            "custody_ref": "ctee://workspace/public",
+            "containment_ref": "containment://mcp/docs",
             "serverId": "retired",
             "toolId": "retired"
         });
@@ -3001,6 +4731,141 @@ mod tests {
         assert_eq!(record.control["execution_mode"], "live");
         assert_eq!(record.control["timeout_ms"], 2500);
         assert_eq!(record.control["transport_admission_required"], true);
+        assert_eq!(record.control["wallet_authority_required"], true);
+        assert_eq!(
+            record.control["wallet_authority_boundary"],
+            "wallet.network.mcp_external_exit"
+        );
+        assert_eq!(record.control["ctee_custody_required"], true);
+        assert_eq!(record.control["transport_containment_required"], true);
+        assert_eq!(
+            record.control["authority_grant_refs"][0],
+            "wallet.network://grant/mcp/docs/search"
+        );
+        assert_eq!(
+            record.control["authority_receipt_refs"][0],
+            "receipt://wallet.network/mcp/docs/search"
+        );
+        assert_eq!(record.control["custody_ref"], "ctee://workspace/public");
+        assert_eq!(record.control["containment_ref"], "containment://mcp/docs");
+        assert!(record.control["authority_hash"]
+            .as_str()
+            .is_some_and(|hash| hash.starts_with("sha256:")));
+        assert!(record.control["evidence_refs"]
+            .as_array()
+            .is_some_and(|refs| refs
+                .iter()
+                .any(|value| value == "wallet_network_mcp_external_exit_authority_required")));
+        assert!(record.control["evidence_refs"]
+            .as_array()
+            .is_some_and(|refs| refs
+                .iter()
+                .any(|value| value == "ctee_mcp_external_exit_custody_required")));
+        assert!(record.control["evidence_refs"]
+            .as_array()
+            .is_some_and(|refs| refs
+                .iter()
+                .any(|value| value == "mcp_transport_containment_required")));
+        assert_eq!(
+            record.control["content_receipt_id"],
+            "receipt_runtime_mcp_live_exit_agent_1_mcp_invoke_event_mcp_invoke"
+        );
+        assert_eq!(
+            record.control["result_receipt_id"],
+            "receipt_runtime_mcp_live_exit_agent_1_mcp_invoke_event_mcp_invoke"
+        );
+        assert_eq!(
+            record.control["result_record_id"],
+            "result_runtime_mcp_live_exit_agent_1_mcp_invoke_event_mcp_invoke"
+        );
+        assert_eq!(record.control["runtime_mcp_live_receipt_required"], true);
+        assert_eq!(record.control["runtime_mcp_live_result_required"], true);
+        assert_eq!(
+            record.control["runtime_mcp_live_result_status"],
+            "admitted_pending_rust_transport"
+        );
+        assert!(record.control["runtime_mcp_agent_state_root_before"]
+            .as_str()
+            .is_some_and(|hash| hash.starts_with("sha256:")));
+        assert!(record.control["runtime_mcp_agent_state_root_after"]
+            .as_str()
+            .is_some_and(|hash| hash.starts_with("sha256:")));
+        assert_eq!(
+            record.control["runtime_mcp_agentgres_operation_ref"],
+            "agentgres://runtime-state/agents/agent_1/operations/mcp_invoke/event_mcp_invoke"
+        );
+        assert!(record.control["runtime_mcp_resulting_head"]
+            .as_str()
+            .is_some_and(|head| {
+                head.starts_with("agentgres://runtime-state/agents/agent_1/head/sha256_")
+            }));
+        let receipt = record.receipt.as_ref().expect("Rust live-exit receipt");
+        assert_eq!(
+            receipt["schema_version"],
+            "ioi.runtime.mcp-live-exit-receipt.v1"
+        );
+        assert_eq!(
+            receipt["id"],
+            "receipt_runtime_mcp_live_exit_agent_1_mcp_invoke_event_mcp_invoke"
+        );
+        assert_eq!(receipt["kind"], "runtime_mcp_live_exit");
+        assert_eq!(
+            receipt["details"]["rust_daemon_core_receipt_author"],
+            "runtime.mcp_control"
+        );
+        assert_eq!(
+            receipt["details"]["runtime_mcp_agentgres_operation_ref"],
+            record.control["runtime_mcp_agentgres_operation_ref"]
+        );
+        assert_eq!(
+            receipt["details"]["runtime_mcp_agent_state_root_after"],
+            record.control["runtime_mcp_agent_state_root_after"]
+        );
+        assert_eq!(receipt["details"]["result_materialized"], false);
+        assert_eq!(receipt["details"]["js_transport_invocation"], false);
+        assert_eq!(receipt["details"]["command_transport_fallback"], false);
+        assert!(receipt["evidence_refs"].as_array().is_some_and(|refs| refs
+            .iter()
+            .any(|value| value == "agentgres_runtime_mcp_live_receipt_truth_required")));
+        let result = record.result.as_ref().expect("Rust live-result record");
+        assert_eq!(result["schema_version"], "ioi.runtime.mcp-live-result.v1");
+        assert_eq!(
+            result["id"],
+            "result_runtime_mcp_live_exit_agent_1_mcp_invoke_event_mcp_invoke"
+        );
+        assert_eq!(result["kind"], "runtime_mcp_live_result");
+        assert_eq!(result["status"], "admitted_pending_rust_transport");
+        assert_eq!(result["receipt_id"], receipt["id"]);
+        assert_eq!(
+            result["details"]["rust_daemon_core_result_author"],
+            "runtime.mcp_control"
+        );
+        assert_eq!(
+            result["details"]["runtime_mcp_agentgres_operation_ref"],
+            record.control["runtime_mcp_agentgres_operation_ref"]
+        );
+        assert_eq!(
+            result["details"]["runtime_mcp_agent_state_root_after"],
+            record.control["runtime_mcp_agent_state_root_after"]
+        );
+        assert_eq!(
+            result["details"]["backend_materialization_status"],
+            "pending_rust_transport_backend"
+        );
+        assert_eq!(result["details"]["result_materialized"], false);
+        assert_eq!(result["details"]["js_transport_invocation"], false);
+        assert_eq!(result["details"]["command_transport_fallback"], false);
+        assert!(result["evidence_refs"].as_array().is_some_and(|refs| refs
+            .iter()
+            .any(|value| value == "agentgres_runtime_mcp_live_result_truth_required")));
+        assert_eq!(
+            record.agent["receipt_refs"][0],
+            "receipt_runtime_mcp_live_exit_agent_1_mcp_invoke_event_mcp_invoke"
+        );
+        assert_eq!(
+            record.agent["result_refs"][0],
+            "result_runtime_mcp_live_exit_agent_1_mcp_invoke_event_mcp_invoke"
+        );
         assert_eq!(record.control["mutation_applied"], false);
         assert!(record.control.get("toolId").is_none());
         assert_eq!(
@@ -3017,7 +4882,11 @@ mod tests {
             "server_id": "mcp.docs",
             "live_transport": "stdio",
             "execution_mode": "discovery",
-            "timeout_ms": 1500
+            "timeout_ms": 1500,
+            "authority_grant_refs": ["wallet.network://grant/mcp/docs/discovery"],
+            "authority_receipt_refs": ["receipt://wallet.network/mcp/docs/discovery"],
+            "custody_ref": "ctee://workspace/public",
+            "containment_ref": "containment://mcp/docs/discovery"
         });
 
         let discovery_record = McpControlAgentStateUpdateCore
@@ -3032,7 +4901,91 @@ mod tests {
         assert_eq!(discovery_record.control["server_id"], "mcp.docs");
         assert_eq!(discovery_record.control["live_transport"], "stdio");
         assert_eq!(discovery_record.control["timeout_ms"], 1500);
+        assert_eq!(
+            discovery_record.control["authority_grant_refs"][0],
+            "wallet.network://grant/mcp/docs/discovery"
+        );
+        assert_eq!(
+            discovery_record.control["content_receipt_id"],
+            "receipt_runtime_mcp_live_exit_agent_1_mcp_live_discovery_event_mcp_live_discovery"
+        );
+        assert_eq!(
+            discovery_record.control["result_record_id"],
+            "result_runtime_mcp_live_exit_agent_1_mcp_live_discovery_event_mcp_live_discovery"
+        );
+        assert!(discovery_record.receipt.is_some());
+        assert!(discovery_record.result.is_some());
         assert_eq!(discovery_record.control["mutation_applied"], false);
+    }
+
+    #[test]
+    fn rust_policy_rejects_mcp_live_transport_without_wallet_authority() {
+        let mut request = mcp_control_agent_state_update_request();
+        request.control_kind = "mcp_invoke".to_string();
+        request.event_id = "event_mcp_invoke".to_string();
+        request.request = json!({
+            "server_id": "mcp.docs",
+            "tool_id": "mcp.docs.search",
+            "tool_name": "search",
+            "live_transport": "stdio",
+            "execution_mode": "live",
+        });
+
+        let error = McpControlAgentStateUpdateCore
+            .plan(&request)
+            .expect_err("MCP live transport exits require wallet authority");
+
+        assert!(matches!(
+            error,
+            McpControlAgentStateUpdateError::WalletAuthorityRequired(
+                "request.authority_grant_refs"
+            )
+        ));
+    }
+
+    #[test]
+    fn rust_policy_rejects_mcp_live_transport_without_custody_or_containment() {
+        let mut request = mcp_control_agent_state_update_request();
+        request.control_kind = "mcp_invoke".to_string();
+        request.event_id = "event_mcp_invoke".to_string();
+        request.request = json!({
+            "server_id": "mcp.docs",
+            "tool_id": "mcp.docs.search",
+            "tool_name": "search",
+            "live_transport": "stdio",
+            "execution_mode": "live",
+            "authority_grant_refs": ["wallet.network://grant/mcp/docs/search"],
+            "authority_receipt_refs": ["receipt://wallet.network/mcp/docs/search"]
+        });
+
+        let error = McpControlAgentStateUpdateCore
+            .plan(&request)
+            .expect_err("MCP live transport exits require cTEE custody");
+
+        assert!(matches!(
+            error,
+            McpControlAgentStateUpdateError::MissingField("request.custody_ref")
+        ));
+
+        request.request = json!({
+            "server_id": "mcp.docs",
+            "tool_id": "mcp.docs.search",
+            "tool_name": "search",
+            "live_transport": "stdio",
+            "execution_mode": "live",
+            "authority_grant_refs": ["wallet.network://grant/mcp/docs/search"],
+            "authority_receipt_refs": ["receipt://wallet.network/mcp/docs/search"],
+            "custody_ref": "ctee://workspace/public"
+        });
+
+        let error = McpControlAgentStateUpdateCore
+            .plan(&request)
+            .expect_err("MCP live transport exits require containment");
+
+        assert!(matches!(
+            error,
+            McpControlAgentStateUpdateError::MissingField("request.containment_ref")
+        ));
     }
 
     #[test]
@@ -3064,6 +5017,353 @@ mod tests {
             .get("serverId")
             .is_none());
         assert!(record.agent["mcpRegistry"].get("mcpServers").is_none());
+    }
+
+    #[test]
+    fn rust_policy_rejects_mcp_control_agent_candidate_transport() {
+        let mut request = mcp_control_agent_state_update_request();
+        request.agent = json!({ "id": "agent_1", "mcpRegistry": { "servers": [] } });
+
+        let error = McpControlAgentStateUpdateCore
+            .plan(&request)
+            .expect_err("JS agent candidate transport must be rejected");
+
+        assert_eq!(
+            error,
+            McpControlAgentStateUpdateError::AgentCandidateTransportRetired
+        );
+    }
+
+    #[test]
+    fn rust_policy_requires_mcp_control_agentgres_replay_state_dir() {
+        let mut request = mcp_control_agent_state_update_request();
+        request.state_dir = None;
+
+        let error = McpControlAgentStateUpdateCore
+            .plan(&request)
+            .expect_err("state_dir is required for Agentgres agent replay");
+
+        assert_eq!(error, McpControlAgentStateUpdateError::StateDirRequired);
+    }
+
+    #[test]
+    fn rust_policy_replays_runtime_mcp_live_results_from_agentgres_state() {
+        let mut control_request = mcp_control_agent_state_update_request();
+        control_request.control_kind = "mcp_invoke".to_string();
+        control_request.event_id = "event_mcp_invoke".to_string();
+        control_request.request = json!({
+            "server_id": "mcp.docs",
+            "tool_id": "mcp.docs.search",
+            "tool_name": "search",
+            "live_transport": "stdio",
+            "execution_mode": "live",
+            "timeout_ms": 2500,
+            "authority_grant_refs": ["wallet.network://grant/mcp/docs/search"],
+            "authority_receipt_refs": ["receipt://wallet.network/mcp/docs/search"],
+            "custody_ref": "ctee://workspace/public",
+            "containment_ref": "containment://mcp/docs/search"
+        });
+        let record = McpControlAgentStateUpdateCore
+            .plan(&control_request)
+            .expect("mcp live result record");
+        let result = record.result.as_ref().expect("live result");
+        let receipt = record.receipt.as_ref().expect("live receipt");
+        let state_dir = PathBuf::from(control_request.state_dir.as_ref().expect("state dir"));
+        seed_mcp_live_result_state(&state_dir, result);
+
+        let replay = McpLiveResultReplayCore
+            .project(&McpLiveResultReplayRequest {
+                schema_version: MCP_LIVE_RESULT_REPLAY_REQUEST_SCHEMA_VERSION.to_string(),
+                state_dir: control_request.state_dir.clone(),
+                result_id: optional_json_string(result, "id"),
+                receipt_id: optional_json_string(receipt, "id"),
+                thread_id: Some("thread_1".to_string()),
+                agent_id: Some("agent_1".to_string()),
+                control_kind: Some("mcp_invoke".to_string()),
+            })
+            .expect("Rust MCP live-result replay projection");
+
+        assert_eq!(
+            replay.schema_version,
+            MCP_LIVE_RESULT_REPLAY_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(replay.object, "ioi.runtime_mcp_live_result_replay");
+        assert_eq!(replay.status, "projected");
+        assert_eq!(replay.result_count, 1);
+        assert_eq!(
+            replay.result_ids,
+            vec!["result_runtime_mcp_live_exit_agent_1_mcp_invoke_event_mcp_invoke"]
+        );
+        assert_eq!(replay.latest_result.as_ref(), Some(result));
+        assert!(replay.replay_hash.starts_with("sha256:"));
+    }
+
+    #[test]
+    fn rust_policy_rejects_mcp_live_result_replay_without_state_dir() {
+        let error = McpLiveResultReplayCore
+            .project(&McpLiveResultReplayRequest {
+                schema_version: MCP_LIVE_RESULT_REPLAY_REQUEST_SCHEMA_VERSION.to_string(),
+                state_dir: None,
+                result_id: Some("result_runtime_mcp_live_exit".to_string()),
+                receipt_id: None,
+                thread_id: None,
+                agent_id: None,
+                control_kind: None,
+            })
+            .expect_err("state dir is required for MCP live-result replay");
+
+        assert_eq!(error, McpLiveResultReplayError::StateDirRequired);
+    }
+
+    #[test]
+    fn rust_policy_filters_js_authored_mcp_live_result_candidates() {
+        let state_dir = temp_mcp_state_dir("live-result-replay-filter");
+        seed_mcp_live_result_state(
+            &state_dir,
+            &json!({
+                "schema_version": "ioi.runtime.mcp-live-result.v1",
+                "object": "ioi.runtime_mcp_live_result",
+                "id": "result_runtime_mcp_live_exit",
+                "kind": "runtime_mcp_live_result",
+                "status": "admitted_pending_rust_transport",
+                "created_at": "2026-06-06T05:45:00.000Z",
+                "receipt_id": "receipt_runtime_mcp_live_exit",
+                "receipt_refs": ["receipt_runtime_mcp_live_exit"],
+                "evidence_refs": [
+                    "runtime_mcp_live_result_rust_projection",
+                    "agentgres_runtime_mcp_live_result_truth_required"
+                ],
+                "details": {
+                    "rust_daemon_core_result_author": "js_mcp_control",
+                    "thread_id": "thread_1",
+                    "agent_id": "agent_1",
+                    "control_kind": "mcp_invoke",
+                    "js_transport_invocation": true,
+                    "command_transport_fallback": true
+                }
+            }),
+        );
+
+        let error = McpLiveResultReplayCore
+            .project(&McpLiveResultReplayRequest {
+                schema_version: MCP_LIVE_RESULT_REPLAY_REQUEST_SCHEMA_VERSION.to_string(),
+                state_dir: Some(state_dir.to_string_lossy().to_string()),
+                result_id: Some("result_runtime_mcp_live_exit".to_string()),
+                receipt_id: Some("receipt_runtime_mcp_live_exit".to_string()),
+                thread_id: Some("thread_1".to_string()),
+                agent_id: Some("agent_1".to_string()),
+                control_kind: Some("mcp_invoke".to_string()),
+            })
+            .expect_err("JS-authored candidate must not replay");
+
+        assert_eq!(
+            error,
+            McpLiveResultReplayError::ResultReplayRequired(
+                "result_runtime_mcp_live_exit".to_string()
+            )
+        );
+    }
+
+    #[test]
+    fn rust_policy_shapes_mcp_live_result_replay_command_response() {
+        let mut control_request = mcp_control_agent_state_update_request();
+        control_request.control_kind = "mcp_invoke".to_string();
+        control_request.event_id = "event_mcp_invoke".to_string();
+        control_request.request = json!({
+            "server_id": "mcp.docs",
+            "tool_id": "mcp.docs.search",
+            "tool_name": "search",
+            "live_transport": "stdio",
+            "execution_mode": "live",
+            "timeout_ms": 2500,
+            "authority_grant_refs": ["wallet.network://grant/mcp/docs/search"],
+            "authority_receipt_refs": ["receipt://wallet.network/mcp/docs/search"],
+            "custody_ref": "ctee://workspace/public",
+            "containment_ref": "containment://mcp/docs/search"
+        });
+        let record = McpControlAgentStateUpdateCore
+            .plan(&control_request)
+            .expect("mcp live result record");
+        let result = record.result.as_ref().expect("live result");
+        let state_dir = PathBuf::from(control_request.state_dir.as_ref().expect("state dir"));
+        seed_mcp_live_result_state(&state_dir, result);
+
+        let response = project_mcp_live_result_replay_response(McpLiveResultReplayBridgeRequest {
+            backend: Some("rust_policy".to_string()),
+            request: McpLiveResultReplayRequest {
+                schema_version: MCP_LIVE_RESULT_REPLAY_REQUEST_SCHEMA_VERSION.to_string(),
+                state_dir: control_request.state_dir.clone(),
+                result_id: optional_json_string(result, "id"),
+                receipt_id: optional_json_string(result, "receipt_id"),
+                thread_id: Some("thread_1".to_string()),
+                agent_id: Some("agent_1".to_string()),
+                control_kind: Some("mcp_invoke".to_string()),
+            },
+        })
+        .expect("mcp live result replay command response");
+
+        assert_eq!(response["source"], "rust_mcp_live_result_replay_command");
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "projected");
+        assert_eq!(response["result_count"], 1);
+        assert_eq!(
+            response["latest_result"]["id"],
+            "result_runtime_mcp_live_exit_agent_1_mcp_invoke_event_mcp_invoke"
+        );
+        assert!(response["replay_hash"]
+            .as_str()
+            .is_some_and(|hash| hash.starts_with("sha256:")));
+    }
+
+    fn mcp_tool_search_projection_request() -> McpToolSearchProjectionRequest {
+        McpToolSearchProjectionRequest {
+            schema_version: MCP_TOOL_SEARCH_PROJECTION_REQUEST_SCHEMA_VERSION.to_string(),
+            status_schema_version: None,
+            state_dir: None,
+            thread_id: None,
+            agent_id: None,
+            server_id: None,
+            servers: vec![
+                json!({
+                    "id": "mcp.docs",
+                    "label": "Docs",
+                    "enabled": true,
+                    "allowed_tools": [
+                        { "name": "search", "description": "Search docs" },
+                        { "name": "read", "description": "Read docs" }
+                    ],
+                    "resources": [{ "uri": "docs://index" }],
+                    "prompts": [{ "name": "summarize" }]
+                }),
+                json!({
+                    "id": "mcp.git",
+                    "label": "Git",
+                    "enabled": false,
+                    "allowed_tools": [{ "name": "diff" }]
+                }),
+            ],
+            query: Some("search".to_string()),
+            tool_id: None,
+            exact: Some(false),
+            limit: Some(25),
+            preview_limit: Some(2),
+            live_discovery: Some(true),
+        }
+    }
+
+    #[test]
+    fn rust_policy_projects_mcp_tool_search_without_js_filtering() {
+        let projection = McpToolSearchProjectionCore
+            .project(&mcp_tool_search_projection_request())
+            .expect("MCP tool search projection");
+
+        assert_eq!(
+            projection.schema_version,
+            MCP_TOOL_SEARCH_PROJECTION_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(projection.object, "ioi.runtime_mcp_tool_search");
+        assert_eq!(projection.status, "completed");
+        assert_eq!(projection.query, "search");
+        assert_eq!(projection.server_count, 2);
+        assert_eq!(projection.tool_count, 1);
+        assert_eq!(projection.returned_count, 1);
+        assert_eq!(projection.tools[0]["tool_name"], "search");
+        assert_eq!(projection.tools[0]["stable_tool_id"], "mcp.Docs.search");
+        assert!(projection.rust_mcp_live_discovery_deferred);
+        assert!(projection
+            .catalog_summaries
+            .iter()
+            .any(|summary| summary["execution_mode"] == "rust_mcp_live_discovery_deferred"));
+        assert!(projection
+            .evidence_refs
+            .contains(&"runtime_mcp_catalog_js_search_filter_retired".to_string()));
+        assert_eq!(projection.routes["get_tool"], "/v1/mcp/tools/{tool_id}");
+    }
+
+    #[test]
+    fn rust_policy_projects_mcp_tool_fetch_and_not_found_status() {
+        let mut request = McpToolFetchProjectionRequest {
+            schema_version: MCP_TOOL_FETCH_PROJECTION_REQUEST_SCHEMA_VERSION.to_string(),
+            status_schema_version: None,
+            state_dir: None,
+            thread_id: None,
+            agent_id: None,
+            server_id: Some("mcp.docs".to_string()),
+            servers: mcp_tool_search_projection_request().servers,
+            tool_id: Some("mcp.docs.search".to_string()),
+            limit: Some(25),
+            preview_limit: Some(2),
+            live_discovery: Some(false),
+        };
+
+        let projection = McpToolFetchProjectionCore
+            .project(&request)
+            .expect("MCP tool fetch projection");
+
+        assert_eq!(
+            projection.schema_version,
+            MCP_TOOL_FETCH_PROJECTION_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(projection.object, "ioi.runtime_mcp_tool_fetch");
+        assert_eq!(projection.status, "completed");
+        assert_eq!(projection.tool_id.as_deref(), Some("mcp.docs.search"));
+        assert_eq!(projection.server_id.as_deref(), Some("mcp.docs"));
+        assert_eq!(projection.tool_name.as_deref(), Some("search"));
+        assert_eq!(projection.returned_count, 1);
+        assert!(projection
+            .evidence_refs
+            .contains(&"runtime_mcp_catalog_fetch_js_shape_retired".to_string()));
+
+        request.tool_id = Some("mcp.docs.missing".to_string());
+        let missing = McpToolFetchProjectionCore
+            .project(&request)
+            .expect("MCP missing tool fetch projection");
+        assert_eq!(missing.status, "not_found");
+        assert_eq!(missing.returned_count, 0);
+        assert!(missing.tool.is_none());
+    }
+
+    #[test]
+    fn rust_policy_shapes_mcp_tool_search_and_fetch_command_responses() {
+        let search_response =
+            project_mcp_tool_search_projection_response(McpToolSearchProjectionBridgeRequest {
+                backend: Some("rust_policy".to_string()),
+                request: mcp_tool_search_projection_request(),
+            })
+            .expect("MCP tool search command response");
+
+        assert_eq!(
+            search_response["source"],
+            "rust_mcp_tool_search_projection_command"
+        );
+        assert_eq!(search_response["status"], "completed");
+        assert_eq!(search_response["tools"][0]["tool_name"], "search");
+
+        let fetch_response =
+            project_mcp_tool_fetch_projection_response(McpToolFetchProjectionBridgeRequest {
+                backend: Some("rust_policy".to_string()),
+                request: McpToolFetchProjectionRequest {
+                    schema_version: MCP_TOOL_FETCH_PROJECTION_REQUEST_SCHEMA_VERSION.to_string(),
+                    status_schema_version: None,
+                    state_dir: None,
+                    thread_id: None,
+                    agent_id: None,
+                    server_id: Some("mcp.docs".to_string()),
+                    servers: mcp_tool_search_projection_request().servers,
+                    tool_id: Some("mcp.docs.search".to_string()),
+                    limit: Some(25),
+                    preview_limit: Some(2),
+                    live_discovery: Some(false),
+                },
+            })
+            .expect("MCP tool fetch command response");
+
+        assert_eq!(
+            fetch_response["source"],
+            "rust_mcp_tool_fetch_projection_command"
+        );
+        assert_eq!(fetch_response["status"], "completed");
+        assert_eq!(fetch_response["tool"]["tool_name"], "search");
     }
 
     #[test]
@@ -3171,6 +5471,47 @@ mod tests {
         assert_eq!(record.servers[0]["allowed_tools"][0], "search");
         assert!(record.servers[0].get("sourcePath").is_none());
         assert!(record.servers[0].get("sourceScope").is_none());
+    }
+
+    #[test]
+    fn rust_policy_projects_mcp_config_source_metadata() {
+        let record = McpServerValidationInputCore
+            .project(&McpServerValidationInputRequest {
+                schema_version: MCP_SERVER_VALIDATION_INPUT_REQUEST_SCHEMA_VERSION.to_string(),
+                workspace_root: Some("/workspace".to_string()),
+                input: json!({
+                    "mcp_json": {
+                        "mcp_servers": {
+                            "docs": {
+                                "transport": "stdio",
+                                "command": "npx",
+                                "allowed_tools": ["search"],
+                                "sourcePath": "/retired/mcp.json",
+                                "sourceScope": "retired",
+                                "configCompatibility": "retired"
+                            }
+                        }
+                    },
+                    "source": ".cursor/mcp.json",
+                    "source_path": "/workspace/.cursor/mcp.json",
+                    "source_scope": "workspace",
+                    "config_compatibility": "cursor",
+                    "status": "configured"
+                }),
+            })
+            .expect("mcp config source metadata projection");
+
+        assert_eq!(record.server_count, 1);
+        assert_eq!(record.servers[0]["source"], ".cursor/mcp.json");
+        assert_eq!(
+            record.servers[0]["source_path"],
+            "/workspace/.cursor/mcp.json"
+        );
+        assert_eq!(record.servers[0]["source_scope"], "workspace");
+        assert_eq!(record.servers[0]["config_compatibility"], "cursor");
+        assert!(record.servers[0].get("sourcePath").is_none());
+        assert!(record.servers[0].get("sourceScope").is_none());
+        assert!(record.servers[0].get("configCompatibility").is_none());
     }
 
     #[test]
@@ -3531,6 +5872,10 @@ mod tests {
         let request = McpManagerCatalogProjectionRequest {
             schema_version: MCP_MANAGER_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION.to_string(),
             status_schema_version: None,
+            state_dir: None,
+            thread_id: None,
+            agent_id: None,
+            agent: Value::Null,
             servers: vec![
                 json!({
                     "id": "mcp.docs",
@@ -3598,6 +5943,98 @@ mod tests {
     }
 
     #[test]
+    fn rust_policy_replays_mcp_manager_catalog_from_agentgres_state() {
+        let state_dir = temp_mcp_state_dir("catalog-replay");
+        seed_mcp_agent_state(
+            &state_dir,
+            &json!({
+                "id": "agent_1",
+                "thread_id": "thread_1",
+                "mcpRegistry": {
+                    "servers": [{
+                        "id": "mcp.agent.docs",
+                        "label": "Agent Docs",
+                        "source_scope": "thread",
+                        "enabled": true,
+                        "allowed_tools": [{ "name": "diff" }],
+                        "resources": [{ "uri": "agent://docs" }],
+                        "prompts": [{ "name": "agent_prompt" }]
+                    }]
+                }
+            }),
+        );
+        seed_mcp_agent_state(
+            &state_dir,
+            &json!({
+                "id": "agent_2",
+                "thread_id": "thread_2",
+                "mcpRegistry": {
+                    "servers": [{
+                        "id": "mcp.other",
+                        "label": "Other",
+                        "enabled": true,
+                        "allowed_tools": [{ "name": "other" }]
+                    }]
+                }
+            }),
+        );
+
+        let record = McpManagerCatalogProjectionCore
+            .project(&McpManagerCatalogProjectionRequest {
+                schema_version: MCP_MANAGER_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION.to_string(),
+                status_schema_version: None,
+                state_dir: Some(state_dir.to_string_lossy().to_string()),
+                thread_id: Some("thread_1".to_string()),
+                agent_id: None,
+                agent: Value::Null,
+                servers: vec![json!({
+                    "id": "mcp.workspace",
+                    "label": "Workspace",
+                    "enabled": true,
+                    "allowed_tools": [{ "name": "search" }]
+                })],
+            })
+            .expect("mcp manager catalog Agentgres replay");
+
+        assert_eq!(record.server_count, 2);
+        assert_eq!(record.servers[0]["id"], "mcp.workspace");
+        assert_eq!(record.servers[1]["id"], "mcp.agent.docs");
+        assert_eq!(record.tool_count, 2);
+        assert_eq!(record.tools[1]["server_id"], "mcp.agent.docs");
+        assert_eq!(record.tools[1]["tool_name"], "diff");
+        assert_eq!(record.resources[0]["server_id"], "mcp.agent.docs");
+        assert_eq!(record.prompts[0]["server_id"], "mcp.agent.docs");
+        assert!(record
+            .servers
+            .iter()
+            .all(|server| server["id"] != "mcp.other"));
+
+        let _ = fs::remove_dir_all(state_dir);
+    }
+
+    #[test]
+    fn rust_policy_rejects_mcp_manager_catalog_agent_candidate_transport() {
+        let request = McpManagerCatalogProjectionRequest {
+            schema_version: MCP_MANAGER_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION.to_string(),
+            status_schema_version: None,
+            state_dir: Some("/runtime-state".to_string()),
+            thread_id: Some("thread_1".to_string()),
+            agent_id: None,
+            agent: json!({ "id": "agent_1", "mcpRegistry": { "servers": [] } }),
+            servers: vec![],
+        };
+
+        let error = McpManagerCatalogProjectionCore
+            .project(&request)
+            .expect_err("JS agent candidate transport must be rejected");
+
+        assert_eq!(
+            error,
+            McpManagerCatalogProjectionError::AgentCandidateTransportRetired
+        );
+    }
+
+    #[test]
     fn rust_policy_shapes_mcp_manager_catalog_command_response() {
         let response = plan_mcp_manager_catalog_projection_response(
             McpManagerCatalogProjectionBridgeRequest {
@@ -3606,6 +6043,10 @@ mod tests {
                     schema_version: MCP_MANAGER_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION
                         .to_string(),
                     status_schema_version: None,
+                    state_dir: None,
+                    thread_id: None,
+                    agent_id: None,
+                    agent: Value::Null,
                     servers: vec![
                         json!({
                             "id": "mcp.docs",
@@ -3656,6 +6097,10 @@ mod tests {
             .project(&McpManagerCatalogProjectionRequest {
                 schema_version: MCP_MANAGER_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION.to_string(),
                 status_schema_version: None,
+                state_dir: None,
+                thread_id: None,
+                agent_id: None,
+                agent: Value::Null,
                 servers: vec![json!({
                     "id": "mcp.docs",
                     "label": "Docs",
@@ -3712,6 +6157,10 @@ mod tests {
             .project(&McpManagerCatalogProjectionRequest {
                 schema_version: MCP_MANAGER_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION.to_string(),
                 status_schema_version: None,
+                state_dir: None,
+                thread_id: None,
+                agent_id: None,
+                agent: Value::Null,
                 servers: vec![json!({
                     "id": "mcp.docs",
                     "label": "Docs",
@@ -3771,6 +6220,10 @@ mod tests {
             .project(&McpManagerCatalogProjectionRequest {
                 schema_version: MCP_MANAGER_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION.to_string(),
                 status_schema_version: None,
+                state_dir: None,
+                thread_id: None,
+                agent_id: None,
+                agent: Value::Null,
                 servers: vec![json!({
                     "id": "mcp.docs",
                     "label": "Docs",

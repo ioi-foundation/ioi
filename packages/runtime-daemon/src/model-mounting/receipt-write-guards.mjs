@@ -11,6 +11,10 @@ const MODEL_MOUNT_ACCEPTED_RECEIPT_OPERATION_REF_PREFIX =
   "agentgres://model-mounting/accepted-receipts/";
 const MODEL_MOUNT_ACCEPTED_RECEIPT_HEAD_REF_PREFIX =
   "agentgres://model-mounting/accepted-receipts/head/";
+const MODEL_MOUNT_MCP_WORKFLOW_OPERATION_REF_PREFIX =
+  "agentgres://model-mounting/mcp-workflow/";
+const MODEL_MOUNT_MCP_WORKFLOW_HEAD_REF_PREFIX =
+  "agentgres://model-mounting/mcp-workflow/head/";
 
 const MODEL_INSTANCE_LIFECYCLE_RECEIPT_STATUSES = new Map([
   ["model_load", "loaded"],
@@ -40,6 +44,7 @@ const PROVIDER_HEALTH_LIFECYCLE_STATUSES = new Set(["available", "blocked"]);
 
 export function assertModelMountingReceiptWriteBound(receipt) {
   assertAcceptedModelInvocationReceiptBound(receipt);
+  assertMcpWorkflowExecutionReceiptBound(receipt);
   assertModelInstanceLifecycleReceiptBound(receipt);
   assertProviderInventoryReceiptBound(receipt);
   assertProviderControlReceiptBound(receipt);
@@ -127,6 +132,99 @@ function assertAcceptedModelInvocationReceiptBound(receipt) {
       status: 409,
       code: "model_mount_invocation_receipt_direct_append_forbidden",
       message: "Model invocation receipts require Rust receipt_binder and Agentgres admission before JS store persistence.",
+      details: {
+        receiptId: receipt?.id ?? null,
+        receiptKind: receipt?.kind ?? null,
+        missing,
+        mismatches,
+      },
+    });
+  }
+}
+
+function assertMcpWorkflowExecutionReceiptBound(receipt) {
+  if (!["mcp_tool_invocation", "workflow_node_execution"].includes(receipt?.kind)) return;
+  const details = receipt?.details && typeof receipt.details === "object" ? receipt.details : {};
+  const evidenceRefs = Array.isArray(receipt?.evidenceRefs) ? receipt.evidenceRefs : [];
+  const operationRef = optionalNonEmptyString(details.model_mount_agentgres_operation_ref);
+  const resultingHead = optionalNonEmptyString(details.model_mount_agentgres_resulting_head);
+  const missing = [];
+  const mismatches = [];
+
+  for (const evidenceRef of [
+    "rust_model_mount_core",
+    "rust_daemon_core_model_mount_mcp_workflow",
+    "model_mount_mcp_execution_content_receipt_rust_owned",
+    "agentgres_mcp_content_receipt_truth_required",
+  ]) {
+    if (!evidenceRefs.includes(evidenceRef)) missing.push(`evidenceRefs.${evidenceRef}`);
+  }
+  if (details.rust_daemon_core_receipt_author !== "model_mount.mcp_workflow") {
+    missing.push("rust_daemon_core_receipt_author");
+  }
+  if (!optionalNonEmptyString(details.model_mount_mcp_workflow_ref)) {
+    missing.push("model_mount_mcp_workflow_ref");
+  }
+  if (!optionalNonEmptyString(details.model_mount_mcp_content_receipt_id)) {
+    missing.push("model_mount_mcp_content_receipt_id");
+  }
+  if (!optionalNonEmptyString(details.model_mount_mcp_content_hash)) {
+    missing.push("model_mount_mcp_content_hash");
+  }
+  if (!optionalNonEmptyString(details.workflow_hash)) missing.push("workflow_hash");
+  if (!optionalNonEmptyString(details.authority_hash)) missing.push("authority_hash");
+  if (!operationRef) missing.push("model_mount_agentgres_operation_ref");
+  if (!optionalNonEmptyString(details.model_mount_agentgres_state_root_before)) {
+    missing.push("model_mount_agentgres_state_root_before");
+  }
+  if (!optionalNonEmptyString(details.model_mount_agentgres_state_root_after)) {
+    missing.push("model_mount_agentgres_state_root_after");
+  }
+  if (!resultingHead) missing.push("model_mount_agentgres_resulting_head");
+  if (!Array.isArray(details.model_mount_step_module_result?.agentgres_operation_refs)) {
+    missing.push("model_mount_step_module_result.agentgres_operation_refs");
+  }
+  if (!optionalNonEmptyString(details.model_mount_step_module_result?.state_root_after)) {
+    missing.push("model_mount_step_module_result.state_root_after");
+  }
+  if (!optionalNonEmptyString(details.model_mount_step_module_result?.resulting_head)) {
+    missing.push("model_mount_step_module_result.resulting_head");
+  }
+  if (details.model_mount_step_module_result?.result_materialized !== false) {
+    missing.push("model_mount_step_module_result.result_materialized_false");
+  }
+
+  if (operationRef && !operationRef.startsWith(MODEL_MOUNT_MCP_WORKFLOW_OPERATION_REF_PREFIX)) {
+    mismatches.push("model_mount_agentgres_operation_ref_namespace");
+  }
+  if (resultingHead && !resultingHead.startsWith(MODEL_MOUNT_MCP_WORKFLOW_HEAD_REF_PREFIX)) {
+    mismatches.push("model_mount_agentgres_resulting_head_namespace");
+  }
+  if (
+    operationRef &&
+    !details.model_mount_step_module_result?.agentgres_operation_refs?.includes(operationRef)
+  ) {
+    mismatches.push("model_mount_agentgres_operation_ref");
+  }
+  if (
+    optionalNonEmptyString(details.model_mount_agentgres_state_root_after) !==
+    optionalNonEmptyString(details.model_mount_step_module_result?.state_root_after)
+  ) {
+    mismatches.push("model_mount_agentgres_state_root_after");
+  }
+  if (
+    optionalNonEmptyString(details.model_mount_agentgres_resulting_head) !==
+    optionalNonEmptyString(details.model_mount_step_module_result?.resulting_head)
+  ) {
+    mismatches.push("model_mount_agentgres_resulting_head");
+  }
+
+  if (missing.length > 0 || mismatches.length > 0) {
+    throw runtimeError({
+      status: 409,
+      code: "model_mount_mcp_execution_receipt_direct_append_forbidden",
+      message:
+        "MCP execution receipts require Rust model_mount MCP workflow receipt binding and Agentgres admission before JS store persistence.",
       details: {
         receiptId: receipt?.id ?? null,
         receiptKind: receipt?.kind ?? null,

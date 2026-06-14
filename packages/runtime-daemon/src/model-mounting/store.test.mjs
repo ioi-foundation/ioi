@@ -63,6 +63,10 @@ function fakeReceiptCommitter(stateDir, commits) {
   };
 }
 
+function readJson(filePath) {
+  return JSON.parse(fs.readFileSync(filePath, "utf8"));
+}
+
 function boundModelInvocationReceipt(overrides = {}) {
   const operationRef = "agentgres://model-mounting/accepted-receipts/op_00000001_model_invocation";
   const resultingHead = "agentgres://model-mounting/accepted-receipts/head/1";
@@ -93,6 +97,48 @@ function boundModelInvocationReceipt(overrides = {}) {
         resulting_head: resultingHead,
       },
     },
+    ...overrides,
+  };
+}
+
+function boundMcpExecutionReceipt(overrides = {}) {
+  const operationRef = "agentgres://model-mounting/mcp-workflow/mcp_tool_alpha";
+  const resultingHead = "agentgres://model-mounting/mcp-workflow/head/mcp_tool_alpha";
+  return {
+    id: "receipt.mcp-tool",
+    kind: "mcp_tool_invocation",
+    schemaVersion: "ioi.model_mount.mcp_workflow_receipt.v1",
+    redaction: "redacted",
+    evidenceRefs: [
+      "rust_model_mount_core",
+      "rust_daemon_core_model_mount_mcp_workflow",
+      "model_mount_mcp_execution_content_receipt_rust_owned",
+      "agentgres_mcp_content_receipt_truth_required",
+    ],
+    details: {
+      rust_daemon_core_receipt_author: "model_mount.mcp_workflow",
+      operation_kind: "model_mount.mcp_tool.invoke",
+      model_mount_mcp_workflow_ref: "model_mount://mcp_workflow/mcp_tool.alpha",
+      model_mount_mcp_content_receipt_id: "receipt.mcp-tool",
+      model_mount_mcp_content_hash: "sha256:mcp-content",
+      model_mount_mcp_result_materialized: false,
+      model_mount_mcp_result_materialization_status: "rust_admitted_pending_transport_backend",
+      workflow_hash: "sha256:mcp-workflow",
+      authority_hash: "sha256:mcp-authority",
+      model_mount_agentgres_operation_ref: operationRef,
+      model_mount_agentgres_state_root_before: "sha256:mcp-before",
+      model_mount_agentgres_state_root_after: "sha256:mcp-after",
+      model_mount_agentgres_resulting_head: resultingHead,
+      model_mount_step_module_result: {
+        status: "admitted",
+        agentgres_operation_refs: [operationRef],
+        state_root_after: "sha256:mcp-after",
+        resulting_head: resultingHead,
+        content_hash: "sha256:mcp-content",
+        result_materialized: false,
+      },
+    },
+    createdAt: "2026-06-14T00:00:00.000Z",
     ...overrides,
   };
 }
@@ -234,6 +280,46 @@ test("stream completion receipt writes fail closed without Rust receipt and Agen
       error.details.missing.includes("model_mount_agentgres_operation_ref"),
   );
   assert.equal(fs.existsSync(path.join(stateDir, "receipts", "receipt.stream-direct.json")), false);
+  assert.deepEqual(appended, []);
+});
+
+test("MCP execution receipt writes fail closed without Rust workflow binding", () => {
+  const { appended, stateDir, store } = testStore();
+
+  assert.throws(
+    () =>
+      store.writeReceipt({
+        id: "receipt.mcp-direct",
+        kind: "mcp_tool_invocation",
+        schemaVersion: "ioi.model_mount.mcp_workflow_receipt.v1",
+        redaction: "redacted",
+        evidenceRefs: ["daemon_js_direct_write"],
+        details: {},
+      }),
+    (error) =>
+      error.code === "model_mount_mcp_execution_receipt_direct_append_forbidden" &&
+      error.details.missing.includes("evidenceRefs.model_mount_mcp_execution_content_receipt_rust_owned") &&
+      error.details.missing.includes("model_mount_step_module_result.state_root_after"),
+  );
+  assert.equal(fs.existsSync(path.join(stateDir, "receipts", "receipt.mcp-direct.json")), false);
+  assert.deepEqual(appended, []);
+});
+
+test("MCP execution receipt writes persist only after Rust content receipt and Agentgres admission", () => {
+  const { appended, commits, stateDir, store } = testStore();
+  const receipt = boundMcpExecutionReceipt();
+
+  const commit = store.writeReceipt(receipt);
+
+  assert.equal(commit.receipt_id, "receipt.mcp-tool");
+  assert.equal(commits.length, 1);
+  assert.equal(commits[0].operation_kind, "model_mount.receipt.write");
+  assert.deepEqual(commits[0].receipt_refs, ["receipt.mcp-tool"]);
+  assert.equal(
+    readJson(path.join(stateDir, "receipts", "receipt.mcp-tool.json")).details
+      .rust_daemon_core_receipt_author,
+    "model_mount.mcp_workflow",
+  );
   assert.deepEqual(appended, []);
 });
 

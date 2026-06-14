@@ -22,6 +22,9 @@ pub const RUNTIME_SUBAGENT_STATE_COMMIT_SCHEMA_VERSION: &str =
     "ioi.runtime_subagent_state_commit.v1";
 pub const RUNTIME_ARTIFACT_STATE_COMMIT_SCHEMA_VERSION: &str =
     "ioi.runtime_artifact_state_commit.v1";
+pub const RUNTIME_RECEIPT_STATE_COMMIT_SCHEMA_VERSION: &str = "ioi.runtime_receipt_state_commit.v1";
+pub const RUNTIME_MCP_LIVE_RESULT_STATE_COMMIT_SCHEMA_VERSION: &str =
+    "ioi.runtime_mcp_live_result_state_commit.v1";
 pub const RUNTIME_MODEL_MOUNT_RECORD_STATE_COMMIT_SCHEMA_VERSION: &str =
     "ioi.runtime_model_mount_record_state_commit.v1";
 pub const RUNTIME_MODEL_MOUNT_RECEIPT_STATE_COMMIT_SCHEMA_VERSION: &str =
@@ -377,6 +380,48 @@ pub struct RuntimeArtifactStateCommitRequest {
 pub struct RuntimeArtifactStateCommitRecord {
     pub schema_version: String,
     pub artifact_id: String,
+    pub operation_kind: String,
+    pub storage_backend_ref: String,
+    pub record: RuntimeStateStorageWriteRecord,
+    pub commit_hash: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RuntimeReceiptStateCommitRequest {
+    pub schema_version: String,
+    pub receipt_id: String,
+    pub operation_kind: String,
+    pub storage_backend_ref: String,
+    pub receipt: Value,
+    #[serde(default)]
+    pub receipt_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RuntimeReceiptStateCommitRecord {
+    pub schema_version: String,
+    pub receipt_id: String,
+    pub operation_kind: String,
+    pub storage_backend_ref: String,
+    pub record: RuntimeStateStorageWriteRecord,
+    pub commit_hash: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RuntimeMcpLiveResultStateCommitRequest {
+    pub schema_version: String,
+    pub result_id: String,
+    pub operation_kind: String,
+    pub storage_backend_ref: String,
+    pub result: Value,
+    #[serde(default)]
+    pub receipt_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RuntimeMcpLiveResultStateCommitRecord {
+    pub schema_version: String,
+    pub result_id: String,
     pub operation_kind: String,
     pub storage_backend_ref: String,
     pub record: RuntimeStateStorageWriteRecord,
@@ -1167,6 +1212,108 @@ impl AgentgresAdmissionCore {
         Ok(record)
     }
 
+    pub fn commit_runtime_receipt_state(
+        &self,
+        request: &RuntimeReceiptStateCommitRequest,
+    ) -> Result<RuntimeReceiptStateCommitRecord, AgentgresAdmissionError> {
+        request.validate()?;
+        let safe_receipt_id = safe_agentgres_component(&request.receipt_id);
+        let receipt_refs = if request.receipt_refs.is_empty() {
+            runtime_receipt_refs(&request.receipt)
+        } else {
+            request.receipt_refs.clone()
+        };
+        if receipt_refs.is_empty() {
+            return Err(AgentgresAdmissionError::MissingReceiptRefs);
+        }
+        let record_path = format!("receipts/{safe_receipt_id}.json");
+        let payload_refs = vec![format!(
+            "payload://runtime/receipts/{safe_receipt_id}/records/{record_path}"
+        )];
+        let proposal = StorageBackendWriteProposal {
+            schema_version: STORAGE_BACKEND_WRITE_ADMISSION_SCHEMA_VERSION.to_string(),
+            storage_backend_ref: request.storage_backend_ref.clone(),
+            object_ref: format!(
+                "agentgres://runtime-state/receipts/{safe_receipt_id}/records/{record_path}"
+            ),
+            content_hash: runtime_state_payload_hash(&request.receipt)?,
+            artifact_refs: vec![],
+            payload_refs,
+            receipt_refs,
+        };
+        let admission = self.admit_storage_backend_write(&proposal)?;
+        let storage_record = RuntimeStateStorageWriteRecord {
+            record_path,
+            object_ref: proposal.object_ref,
+            content_hash: proposal.content_hash,
+            artifact_refs: proposal.artifact_refs,
+            payload_refs: proposal.payload_refs,
+            receipt_refs: proposal.receipt_refs,
+            admission,
+        };
+        let mut record = RuntimeReceiptStateCommitRecord {
+            schema_version: RUNTIME_RECEIPT_STATE_COMMIT_SCHEMA_VERSION.to_string(),
+            receipt_id: request.receipt_id.clone(),
+            operation_kind: request.operation_kind.clone(),
+            storage_backend_ref: request.storage_backend_ref.clone(),
+            record: storage_record,
+            commit_hash: String::new(),
+        };
+        record.commit_hash = runtime_receipt_state_commit_hash(&record)?;
+        Ok(record)
+    }
+
+    pub fn commit_runtime_mcp_live_result_state(
+        &self,
+        request: &RuntimeMcpLiveResultStateCommitRequest,
+    ) -> Result<RuntimeMcpLiveResultStateCommitRecord, AgentgresAdmissionError> {
+        request.validate()?;
+        let safe_result_id = safe_agentgres_component(&request.result_id);
+        let receipt_refs = if request.receipt_refs.is_empty() {
+            runtime_mcp_live_result_receipt_refs(&request.result)
+        } else {
+            request.receipt_refs.clone()
+        };
+        if receipt_refs.is_empty() {
+            return Err(AgentgresAdmissionError::MissingReceiptRefs);
+        }
+        let record_path = format!("mcp-live-results/{safe_result_id}.json");
+        let payload_refs = vec![format!(
+            "payload://runtime/mcp-live-results/{safe_result_id}/records/{record_path}"
+        )];
+        let proposal = StorageBackendWriteProposal {
+            schema_version: STORAGE_BACKEND_WRITE_ADMISSION_SCHEMA_VERSION.to_string(),
+            storage_backend_ref: request.storage_backend_ref.clone(),
+            object_ref: format!(
+                "agentgres://runtime-state/mcp-live-results/{safe_result_id}/records/{record_path}"
+            ),
+            content_hash: runtime_state_payload_hash(&request.result)?,
+            artifact_refs: vec![],
+            payload_refs,
+            receipt_refs,
+        };
+        let admission = self.admit_storage_backend_write(&proposal)?;
+        let storage_record = RuntimeStateStorageWriteRecord {
+            record_path,
+            object_ref: proposal.object_ref,
+            content_hash: proposal.content_hash,
+            artifact_refs: proposal.artifact_refs,
+            payload_refs: proposal.payload_refs,
+            receipt_refs: proposal.receipt_refs,
+            admission,
+        };
+        let mut record = RuntimeMcpLiveResultStateCommitRecord {
+            schema_version: RUNTIME_MCP_LIVE_RESULT_STATE_COMMIT_SCHEMA_VERSION.to_string(),
+            result_id: request.result_id.clone(),
+            operation_kind: request.operation_kind.clone(),
+            storage_backend_ref: request.storage_backend_ref.clone(),
+            record: storage_record,
+            commit_hash: String::new(),
+        };
+        record.commit_hash = runtime_mcp_live_result_state_commit_hash(&record)?;
+        Ok(record)
+    }
+
     pub fn commit_runtime_model_mount_record_state(
         &self,
         request: &RuntimeModelMountRecordStateCommitRequest,
@@ -1514,6 +1661,38 @@ impl RuntimeModelMountRecordStateCommitRequest {
     }
 }
 
+impl RuntimeReceiptStateCommitRequest {
+    pub fn validate(&self) -> Result<(), AgentgresAdmissionError> {
+        if self.schema_version != RUNTIME_RECEIPT_STATE_COMMIT_SCHEMA_VERSION {
+            return Err(AgentgresAdmissionError::InvalidSchemaVersion {
+                expected: RUNTIME_RECEIPT_STATE_COMMIT_SCHEMA_VERSION,
+                actual: self.schema_version.clone(),
+            });
+        }
+        require_non_empty("receipt_id", &self.receipt_id)?;
+        require_non_empty("operation_kind", &self.operation_kind)?;
+        require_non_empty("storage_backend_ref", &self.storage_backend_ref)?;
+        validate_runtime_receipt_id(&self.receipt, &self.receipt_id)?;
+        Ok(())
+    }
+}
+
+impl RuntimeMcpLiveResultStateCommitRequest {
+    pub fn validate(&self) -> Result<(), AgentgresAdmissionError> {
+        if self.schema_version != RUNTIME_MCP_LIVE_RESULT_STATE_COMMIT_SCHEMA_VERSION {
+            return Err(AgentgresAdmissionError::InvalidSchemaVersion {
+                expected: RUNTIME_MCP_LIVE_RESULT_STATE_COMMIT_SCHEMA_VERSION,
+                actual: self.schema_version.clone(),
+            });
+        }
+        require_non_empty("result_id", &self.result_id)?;
+        require_non_empty("operation_kind", &self.operation_kind)?;
+        require_non_empty("storage_backend_ref", &self.storage_backend_ref)?;
+        validate_runtime_mcp_live_result_id(&self.result, &self.result_id)?;
+        Ok(())
+    }
+}
+
 impl RuntimeModelMountReceiptStateCommitRequest {
     pub fn validate(&self) -> Result<(), AgentgresAdmissionError> {
         if self.schema_version != RUNTIME_MODEL_MOUNT_RECEIPT_STATE_COMMIT_SCHEMA_VERSION {
@@ -1708,6 +1887,26 @@ fn runtime_subagent_state_commit_hash(
 
 fn runtime_artifact_state_commit_hash(
     record: &RuntimeArtifactStateCommitRecord,
+) -> Result<String, AgentgresAdmissionError> {
+    let mut canonical = record.clone();
+    canonical.commit_hash.clear();
+    let bytes = serde_json::to_vec(&canonical)
+        .map_err(|error| AgentgresAdmissionError::HashFailed(error.to_string()))?;
+    Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
+}
+
+fn runtime_receipt_state_commit_hash(
+    record: &RuntimeReceiptStateCommitRecord,
+) -> Result<String, AgentgresAdmissionError> {
+    let mut canonical = record.clone();
+    canonical.commit_hash.clear();
+    let bytes = serde_json::to_vec(&canonical)
+        .map_err(|error| AgentgresAdmissionError::HashFailed(error.to_string()))?;
+    Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
+}
+
+fn runtime_mcp_live_result_state_commit_hash(
+    record: &RuntimeMcpLiveResultStateCommitRecord,
 ) -> Result<String, AgentgresAdmissionError> {
     let mut canonical = record.clone();
     canonical.commit_hash.clear();
@@ -2245,6 +2444,53 @@ fn runtime_model_mount_record_receipt_refs(record: &Value) -> Vec<String> {
     let mut refs = json_string_array(record, "receipt_refs");
     if let Some(receipt_id) =
         json_string(record, "receipt_id").filter(|entry| !entry.trim().is_empty())
+    {
+        refs.push(receipt_id.to_string());
+    }
+    refs.sort();
+    refs.dedup();
+    refs
+}
+
+fn validate_runtime_receipt_id(
+    receipt: &Value,
+    expected_receipt_id: &str,
+) -> Result<(), AgentgresAdmissionError> {
+    match json_string(receipt, "id").or_else(|| json_string(receipt, "receipt_id")) {
+        Some(receipt_id) if receipt_id == expected_receipt_id => Ok(()),
+        Some(_) => Err(AgentgresAdmissionError::RuntimeStateRecordAgentIdMismatch),
+        None => Err(AgentgresAdmissionError::MissingField("receipt.id")),
+    }
+}
+
+fn runtime_receipt_refs(receipt: &Value) -> Vec<String> {
+    let mut refs = json_string_array(receipt, "receipt_refs");
+    if let Some(receipt_id) = json_string(receipt, "id")
+        .or_else(|| json_string(receipt, "receipt_id"))
+        .filter(|entry| !entry.trim().is_empty())
+    {
+        refs.push(receipt_id.to_string());
+    }
+    refs.sort();
+    refs.dedup();
+    refs
+}
+
+fn validate_runtime_mcp_live_result_id(
+    result: &Value,
+    expected_result_id: &str,
+) -> Result<(), AgentgresAdmissionError> {
+    match json_string(result, "id").or_else(|| json_string(result, "result_id")) {
+        Some(result_id) if result_id == expected_result_id => Ok(()),
+        Some(_) => Err(AgentgresAdmissionError::RuntimeStateRecordAgentIdMismatch),
+        None => Err(AgentgresAdmissionError::MissingField("result.id")),
+    }
+}
+
+fn runtime_mcp_live_result_receipt_refs(result: &Value) -> Vec<String> {
+    let mut refs = json_string_array(result, "receipt_refs");
+    if let Some(receipt_id) =
+        json_string(result, "receipt_id").filter(|entry| !entry.trim().is_empty())
     {
         refs.push(receipt_id.to_string());
     }
@@ -2835,6 +3081,74 @@ mod tests {
             operation_kind: "artifact.coding_tool_draft".to_string(),
             storage_backend_ref: "storage://runtime-agentgres/local-json".to_string(),
             artifact: runtime_artifact_record(),
+            receipt_refs: vec![],
+        }
+    }
+
+    fn runtime_receipt() -> Value {
+        json!({
+            "schema_version": "ioi.runtime.mcp-live-exit-receipt.v1",
+            "id": "receipt_runtime_mcp_live_exit",
+            "kind": "runtime_mcp_live_exit",
+            "redaction": "redacted",
+            "evidence_refs": [
+                "runtime_mcp_live_exit_rust_receipt",
+                "agentgres_runtime_mcp_live_receipt_truth_required"
+            ],
+            "details": {
+                "rust_daemon_core_receipt_author": "runtime.mcp_control",
+                "runtime_mcp_agentgres_operation_ref": "agentgres://runtime-state/agents/agent_1/operations/mcp_invoke/event_1",
+                "runtime_mcp_agent_state_root_before": "sha256:before",
+                "runtime_mcp_agent_state_root_after": "sha256:after",
+                "runtime_mcp_resulting_head": "agentgres://runtime-state/agents/agent_1/head/sha256_after"
+            }
+        })
+    }
+
+    fn runtime_receipt_state_commit() -> RuntimeReceiptStateCommitRequest {
+        RuntimeReceiptStateCommitRequest {
+            schema_version: RUNTIME_RECEIPT_STATE_COMMIT_SCHEMA_VERSION.to_string(),
+            receipt_id: "receipt_runtime_mcp_live_exit".to_string(),
+            operation_kind: "runtime.mcp_live_exit.receipt.write".to_string(),
+            storage_backend_ref: "storage://runtime-agentgres/local-json".to_string(),
+            receipt: runtime_receipt(),
+            receipt_refs: vec![],
+        }
+    }
+
+    fn runtime_mcp_live_result() -> Value {
+        json!({
+            "schema_version": "ioi.runtime.mcp-live-result.v1",
+            "id": "result_runtime_mcp_live_exit",
+            "kind": "runtime_mcp_live_result",
+            "status": "admitted_pending_rust_transport",
+            "receipt_id": "receipt_runtime_mcp_live_exit",
+            "receipt_refs": ["receipt_runtime_mcp_live_exit"],
+            "evidence_refs": [
+                "runtime_mcp_live_result_rust_projection",
+                "agentgres_runtime_mcp_live_result_truth_required",
+                "runtime_mcp_no_js_transport_result"
+            ],
+            "details": {
+                "rust_daemon_core_result_author": "runtime.mcp_control",
+                "runtime_mcp_agentgres_operation_ref": "agentgres://runtime-state/agents/agent_1/operations/mcp_invoke/event_1",
+                "runtime_mcp_agent_state_root_before": "sha256:before",
+                "runtime_mcp_agent_state_root_after": "sha256:after",
+                "runtime_mcp_resulting_head": "agentgres://runtime-state/agents/agent_1/head/sha256_after",
+                "result_materialized": false,
+                "js_transport_invocation": false,
+                "command_transport_fallback": false
+            }
+        })
+    }
+
+    fn runtime_mcp_live_result_state_commit() -> RuntimeMcpLiveResultStateCommitRequest {
+        RuntimeMcpLiveResultStateCommitRequest {
+            schema_version: RUNTIME_MCP_LIVE_RESULT_STATE_COMMIT_SCHEMA_VERSION.to_string(),
+            result_id: "result_runtime_mcp_live_exit".to_string(),
+            operation_kind: "runtime.mcp_live_exit.result.write".to_string(),
+            storage_backend_ref: "storage://runtime-agentgres/local-json".to_string(),
+            result: runtime_mcp_live_result(),
             receipt_refs: vec![],
         }
     }
@@ -3704,6 +4018,149 @@ mod tests {
         let error = AgentgresAdmissionCore
             .commit_runtime_artifact_state(&request)
             .expect_err("artifact payload id must match request id");
+
+        assert_eq!(
+            error,
+            AgentgresAdmissionError::RuntimeStateRecordAgentIdMismatch
+        );
+    }
+
+    #[test]
+    fn commits_runtime_receipt_state_with_storage_admission() {
+        let record = AgentgresAdmissionCore
+            .commit_runtime_receipt_state(&runtime_receipt_state_commit())
+            .expect("runtime receipt state committed");
+
+        assert_eq!(
+            record.schema_version,
+            RUNTIME_RECEIPT_STATE_COMMIT_SCHEMA_VERSION
+        );
+        assert_eq!(record.receipt_id, "receipt_runtime_mcp_live_exit");
+        assert_eq!(record.operation_kind, "runtime.mcp_live_exit.receipt.write");
+        assert!(record.commit_hash.starts_with("sha256:"));
+        assert_eq!(
+            record.record.record_path,
+            "receipts/receipt_runtime_mcp_live_exit.json"
+        );
+        assert_eq!(
+            record.record.object_ref,
+            "agentgres://runtime-state/receipts/receipt_runtime_mcp_live_exit/records/receipts/receipt_runtime_mcp_live_exit.json"
+        );
+        assert_eq!(
+            record.record.payload_refs,
+            vec!["payload://runtime/receipts/receipt_runtime_mcp_live_exit/records/receipts/receipt_runtime_mcp_live_exit.json"]
+        );
+        assert_eq!(
+            record.record.receipt_refs,
+            vec!["receipt_runtime_mcp_live_exit"]
+        );
+        assert!(record
+            .record
+            .admission
+            .admission_hash
+            .starts_with("sha256:"));
+    }
+
+    #[test]
+    fn runtime_receipt_state_commit_ignores_retired_receipt_refs_alias() {
+        let mut request = runtime_receipt_state_commit();
+        request.receipt["receipt_refs"] = json!([]);
+        request.receipt["receiptRefs"] = json!(["receipt_runtime_mcp_retired"]);
+
+        let record = AgentgresAdmissionCore
+            .commit_runtime_receipt_state(&request)
+            .expect("canonical receipt id satisfies Rust Agentgres admission");
+
+        assert_eq!(
+            record.record.receipt_refs,
+            vec!["receipt_runtime_mcp_live_exit"]
+        );
+    }
+
+    #[test]
+    fn runtime_receipt_state_commit_requires_receipts() {
+        let mut request = runtime_receipt_state_commit();
+        request.receipt["id"] = Value::Null;
+
+        let error = AgentgresAdmissionCore
+            .commit_runtime_receipt_state(&request)
+            .expect_err("receipt refs are required");
+
+        assert_eq!(error, AgentgresAdmissionError::MissingField("receipt.id"));
+    }
+
+    #[test]
+    fn runtime_receipt_state_commit_rejects_mismatched_receipt_id() {
+        let mut request = runtime_receipt_state_commit();
+        request.receipt["id"] = json!("receipt_other");
+
+        let error = AgentgresAdmissionCore
+            .commit_runtime_receipt_state(&request)
+            .expect_err("receipt payload id must match request id");
+
+        assert_eq!(
+            error,
+            AgentgresAdmissionError::RuntimeStateRecordAgentIdMismatch
+        );
+    }
+
+    #[test]
+    fn commits_runtime_mcp_live_result_state_with_storage_admission() {
+        let record = AgentgresAdmissionCore
+            .commit_runtime_mcp_live_result_state(&runtime_mcp_live_result_state_commit())
+            .expect("runtime MCP live result state committed");
+
+        assert_eq!(
+            record.schema_version,
+            RUNTIME_MCP_LIVE_RESULT_STATE_COMMIT_SCHEMA_VERSION
+        );
+        assert_eq!(record.result_id, "result_runtime_mcp_live_exit");
+        assert_eq!(record.operation_kind, "runtime.mcp_live_exit.result.write");
+        assert!(record.commit_hash.starts_with("sha256:"));
+        assert_eq!(
+            record.record.record_path,
+            "mcp-live-results/result_runtime_mcp_live_exit.json"
+        );
+        assert_eq!(
+            record.record.object_ref,
+            "agentgres://runtime-state/mcp-live-results/result_runtime_mcp_live_exit/records/mcp-live-results/result_runtime_mcp_live_exit.json"
+        );
+        assert_eq!(
+            record.record.payload_refs,
+            vec!["payload://runtime/mcp-live-results/result_runtime_mcp_live_exit/records/mcp-live-results/result_runtime_mcp_live_exit.json"]
+        );
+        assert_eq!(
+            record.record.receipt_refs,
+            vec!["receipt_runtime_mcp_live_exit"]
+        );
+        assert!(record
+            .record
+            .admission
+            .admission_hash
+            .starts_with("sha256:"));
+    }
+
+    #[test]
+    fn runtime_mcp_live_result_state_commit_requires_receipts() {
+        let mut request = runtime_mcp_live_result_state_commit();
+        request.result["receipt_refs"] = json!([]);
+        request.result["receipt_id"] = json!("");
+
+        let error = AgentgresAdmissionCore
+            .commit_runtime_mcp_live_result_state(&request)
+            .expect_err("receipt refs are required");
+
+        assert_eq!(error, AgentgresAdmissionError::MissingReceiptRefs);
+    }
+
+    #[test]
+    fn runtime_mcp_live_result_state_commit_rejects_mismatched_result_id() {
+        let mut request = runtime_mcp_live_result_state_commit();
+        request.result["id"] = json!("result_other");
+
+        let error = AgentgresAdmissionCore
+            .commit_runtime_mcp_live_result_state(&request)
+            .expect_err("result payload id must match request id");
 
         assert_eq!(
             error,

@@ -25,6 +25,8 @@ pub struct ModelMountMcpWorkflowRequest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub custody_ref: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub containment_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub required_scope: Option<String>,
 }
 
@@ -40,6 +42,8 @@ pub struct ModelMountMcpWorkflowPlan {
     pub record_id: String,
     pub record: Value,
     pub public_response: Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub receipt: Option<Value>,
     pub receipt_refs: Vec<String>,
     pub authority_grant_refs: Vec<String>,
     pub authority_receipt_refs: Vec<String>,
@@ -63,6 +67,7 @@ pub fn plan_model_mount_mcp_workflow_response(
     let record_id = plan.record_id.clone();
     let record = plan.record.clone();
     let public_response = plan.public_response.clone();
+    let receipt = plan.receipt.clone();
     let receipt_refs = plan.receipt_refs.clone();
     let authority_grant_refs = plan.authority_grant_refs.clone();
     let authority_receipt_refs = plan.authority_receipt_refs.clone();
@@ -79,9 +84,10 @@ pub fn plan_model_mount_mcp_workflow_response(
         "record_id": record_id,
         "record": record,
         "public_response": public_response,
+        "receipt": receipt,
         "receipt_refs": receipt_refs,
-        "authority_grant_refs": authority_grant_refs,
-        "authority_receipt_refs": authority_receipt_refs,
+        "authority_grant_refs": authority_grant_refs.clone(),
+        "authority_receipt_refs": authority_receipt_refs.clone(),
         "evidence_refs": evidence_refs,
         "workflow_hash": workflow_hash,
         "authority_hash": authority_hash,
@@ -133,12 +139,14 @@ impl ModelMountMcpWorkflowRequest {
             "model_mount.mcp_tool.invoke" => {
                 required_body_string(body, "server_id")?;
                 required_body_string(body, "tool")?;
+                require_mcp_external_exit_authority(self)?;
             }
             "model_mount.workflow_node.execute" => {
                 if string_field(body, "node").is_none() && string_field(body, "node_type").is_none()
                 {
                     return Err(ModelMountError::MissingField("node"));
                 }
+                require_mcp_external_exit_authority(self)?;
             }
             _ => return Err(ModelMountError::UnsupportedMcpWorkflowOperation),
         }
@@ -260,6 +268,7 @@ fn plan_mcp_tool_invoke(
     request: &ModelMountMcpWorkflowRequest,
 ) -> Result<ModelMountMcpWorkflowPlan, ModelMountError> {
     let body = object_or_empty(&request.body);
+    let authority = mcp_external_exit_authority(request)?;
     let server_id = required_body_string(body, "server_id")?;
     let tool = required_body_string(body, "tool")?;
     let input_hash = body
@@ -280,24 +289,63 @@ fn plan_mcp_tool_invoke(
         request,
         "mcp-workflow-controls",
         &record_id,
-        "planned",
+        "admitted",
         json!({
             "server_id": server_id,
             "tool": tool,
             "input_hash": input_hash,
             "tool_receipt_id": receipt_id,
             "tool_receipt_ids": [receipt_id],
-            "transport_execution_status": "rust_required",
+            "content_receipt_id": receipt_id,
+            "result_receipt_id": receipt_id,
+            "content_receipt_required": true,
+            "transport_execution_status": "rust_admitted",
+            "rust_transport_execution_admitted": true,
+            "transport_execution_owner": "rust_daemon_core.model_mount.mcp_workflow",
+            "step_module_dispatch_owner": "rust_daemon_core.step_module_router",
+            "agentgres_admission_required": true,
+            "receipt_state_root_binding_required": true,
             "js_transport_invocation": false,
+            "command_transport_fallback": false,
+            "binary_bridge_fallback": false,
+            "compatibility_fallback": false,
+            "legacy_js_result_fallback": false,
+            "wallet_authority_required": true,
+            "wallet_authority_boundary": "wallet.network.mcp_external_exit",
+            "ctee_custody_required": true,
+            "transport_containment_required": true,
+            "authority_grant_refs": authority.authority_grant_refs,
+            "authority_receipt_refs": authority.authority_receipt_refs,
+            "custody_ref": authority.custody_ref,
+            "containment_ref": authority.containment_ref,
         }),
         json!({
-            "status": "planned",
+            "status": "admitted",
             "operation_kind": request.operation_kind,
             "server_id": server_id,
             "tool": tool,
             "tool_receipt_id": receipt_id,
             "tool_receipt_ids": [receipt_id],
-            "transport_execution_status": "rust_required",
+            "content_receipt_id": receipt_id,
+            "result_receipt_id": receipt_id,
+            "content_receipt_required": true,
+            "transport_execution_status": "rust_admitted",
+            "rust_transport_execution_admitted": true,
+            "transport_execution_owner": "rust_daemon_core.model_mount.mcp_workflow",
+            "step_module_dispatch_owner": "rust_daemon_core.step_module_router",
+            "agentgres_admission_required": true,
+            "receipt_state_root_binding_required": true,
+            "js_transport_invocation": false,
+            "command_transport_fallback": false,
+            "binary_bridge_fallback": false,
+            "compatibility_fallback": false,
+            "legacy_js_result_fallback": false,
+            "wallet_authority_required": true,
+            "wallet_authority_boundary": "wallet.network.mcp_external_exit",
+            "ctee_custody_required": true,
+            "transport_containment_required": true,
+            "custody_ref": authority.custody_ref,
+            "containment_ref": authority.containment_ref,
         }),
     )
 }
@@ -306,6 +354,7 @@ fn plan_workflow_node_execute(
     request: &ModelMountMcpWorkflowRequest,
 ) -> Result<ModelMountMcpWorkflowPlan, ModelMountError> {
     let body = object_or_empty(&request.body);
+    let authority = mcp_external_exit_authority(request)?;
     let node = string_field(body, "node")
         .or_else(|| string_field(body, "node_type"))
         .ok_or(ModelMountError::MissingField("node"))?;
@@ -326,7 +375,7 @@ fn plan_workflow_node_execute(
         request,
         "mcp-workflow-controls",
         &record_id,
-        "planned",
+        "admitted",
         json!({
             "node": node,
             "model_id": string_field(body, "model_id").or_else(|| string_field(body, "model")),
@@ -338,20 +387,61 @@ fn plan_workflow_node_execute(
             "max_tokens": integer_field(body, "max_tokens"),
             "workflow_receipt_id": receipt_id,
             "workflow_receipt_ids": [receipt_id],
-            "execution_status": "rust_required",
+            "content_receipt_id": receipt_id,
+            "result_receipt_id": receipt_id,
+            "content_receipt_required": true,
+            "execution_status": "rust_admitted",
+            "rust_step_module_dispatch_admitted": true,
+            "step_module_dispatch_owner": "rust_daemon_core.step_module_router",
+            "workflow_execution_owner": "rust_daemon_core.model_mount.mcp_workflow",
+            "agentgres_admission_required": true,
+            "receipt_state_root_binding_required": true,
             "js_route_test": false,
             "js_model_invocation": false,
             "js_mcp_tool_invocation": false,
+            "command_transport_fallback": false,
+            "binary_bridge_fallback": false,
+            "compatibility_fallback": false,
+            "legacy_js_result_fallback": false,
+            "wallet_authority_required": true,
+            "wallet_authority_boundary": "wallet.network.mcp_external_exit",
+            "ctee_custody_required": true,
+            "transport_containment_required": true,
+            "authority_grant_refs": authority.authority_grant_refs,
+            "authority_receipt_refs": authority.authority_receipt_refs,
+            "custody_ref": authority.custody_ref,
+            "containment_ref": authority.containment_ref,
         }),
         json!({
-            "status": "planned",
+            "status": "admitted",
             "operation_kind": request.operation_kind,
             "node": node,
             "workflow_graph_id": workflow_graph_id,
             "workflow_node_id": workflow_node_id,
             "workflow_receipt_id": receipt_id,
             "workflow_receipt_ids": [receipt_id],
-            "execution_status": "rust_required",
+            "content_receipt_id": receipt_id,
+            "result_receipt_id": receipt_id,
+            "content_receipt_required": true,
+            "execution_status": "rust_admitted",
+            "rust_step_module_dispatch_admitted": true,
+            "step_module_dispatch_owner": "rust_daemon_core.step_module_router",
+            "workflow_execution_owner": "rust_daemon_core.model_mount.mcp_workflow",
+            "agentgres_admission_required": true,
+            "receipt_state_root_binding_required": true,
+            "js_route_test": false,
+            "js_model_invocation": false,
+            "js_mcp_tool_invocation": false,
+            "command_transport_fallback": false,
+            "binary_bridge_fallback": false,
+            "compatibility_fallback": false,
+            "legacy_js_result_fallback": false,
+            "wallet_authority_required": true,
+            "wallet_authority_boundary": "wallet.network.mcp_external_exit",
+            "ctee_custody_required": true,
+            "transport_containment_required": true,
+            "custody_ref": authority.custody_ref,
+            "containment_ref": authority.containment_ref,
         }),
     )
 }
@@ -364,6 +454,38 @@ fn mcp_workflow_plan(
     details: Value,
     public_response: Value,
 ) -> Result<ModelMountMcpWorkflowPlan, ModelMountError> {
+    let authority_grant_refs = unique_refs(
+        request
+            .authority_grant_refs
+            .iter()
+            .cloned()
+            .chain(string_array_field(&request.body, "authority_grant_refs"))
+            .collect(),
+    );
+    let authority_receipt_refs = unique_refs(
+        request
+            .authority_receipt_refs
+            .iter()
+            .cloned()
+            .chain(string_array_field(&request.body, "authority_receipt_refs"))
+            .collect(),
+    );
+    let external_authority = if matches!(
+        request.operation_kind.as_str(),
+        "model_mount.mcp_tool.invoke" | "model_mount.workflow_node.execute"
+    ) {
+        Some(mcp_external_exit_authority(request)?)
+    } else {
+        None
+    };
+    let custody_ref = external_authority
+        .as_ref()
+        .map(|authority| authority.custody_ref.clone())
+        .or_else(|| request.custody_ref.clone());
+    let containment_ref = external_authority
+        .as_ref()
+        .map(|authority| authority.containment_ref.clone())
+        .or_else(|| request.containment_ref.clone());
     let workflow_hash = hash_json(&json!({
         "operation_kind": request.operation_kind,
         "record_id": record_id,
@@ -372,18 +494,23 @@ fn mcp_workflow_plan(
     let authority_hash = hash_json(&json!({
         "operation_kind": request.operation_kind,
         "required_scope": request.required_scope,
-        "authority_grant_refs": request.authority_grant_refs,
-        "authority_receipt_refs": request.authority_receipt_refs,
-        "custody_ref": request.custody_ref,
+        "authority_grant_refs": authority_grant_refs,
+        "authority_receipt_refs": authority_receipt_refs,
+        "custody_ref": custody_ref,
+        "containment_ref": containment_ref,
     }))?;
-    let mut receipt_refs = unique_refs(
-        request
-            .receipt_refs
-            .iter()
-            .cloned()
-            .chain(string_array_field(&request.body, "receipt_refs"))
-            .collect(),
-    );
+    let mut receipt_refs = Vec::new();
+    if let Some(execution_receipt_id) = execution_receipt_id(&details) {
+        push_unique_ref(&mut receipt_refs, &execution_receipt_id);
+    }
+    for receipt_ref in request
+        .receipt_refs
+        .iter()
+        .cloned()
+        .chain(string_array_field(&request.body, "receipt_refs"))
+    {
+        push_unique_ref(&mut receipt_refs, &receipt_ref);
+    }
     if let Some(receipt_id) = string_field(object_or_empty(&request.body), "receipt_id") {
         push_unique_ref(&mut receipt_refs, &receipt_id);
     }
@@ -394,6 +521,19 @@ fn mcp_workflow_plan(
         );
     }
     let evidence_refs = mcp_workflow_evidence_refs();
+    let receipt = mcp_execution_receipt(
+        request,
+        record_id,
+        &details,
+        &receipt_refs,
+        &authority_grant_refs,
+        &authority_receipt_refs,
+        custody_ref.as_deref(),
+        containment_ref.as_deref(),
+        &workflow_hash,
+        &authority_hash,
+        &evidence_refs,
+    )?;
     let record = json!({
         "schema_version": MODEL_MOUNT_MCP_WORKFLOW_PLAN_SCHEMA_VERSION,
         "object": "ioi.model_mount_mcp_workflow",
@@ -407,9 +547,10 @@ fn mcp_workflow_plan(
         "details": details,
         "receipt_id": receipt_refs.first().cloned(),
         "receipt_refs": receipt_refs,
-        "authority_grant_refs": request.authority_grant_refs,
-        "authority_receipt_refs": request.authority_receipt_refs,
-        "custody_ref": request.custody_ref,
+        "authority_grant_refs": authority_grant_refs,
+        "authority_receipt_refs": authority_receipt_refs,
+        "custody_ref": custody_ref,
+        "containment_ref": containment_ref,
         "required_scope": request.required_scope,
         "workflow_hash": workflow_hash,
         "authority_hash": authority_hash,
@@ -429,13 +570,153 @@ fn mcp_workflow_plan(
         record_id: record_id.to_string(),
         record,
         public_response,
+        receipt,
         receipt_refs,
-        authority_grant_refs: request.authority_grant_refs.clone(),
-        authority_receipt_refs: request.authority_receipt_refs.clone(),
+        authority_grant_refs,
+        authority_receipt_refs,
         evidence_refs,
         workflow_hash,
         authority_hash,
     })
+}
+
+fn execution_receipt_id(details: &Value) -> Option<String> {
+    let details = details.as_object()?;
+    string_field(details, "tool_receipt_id")
+        .or_else(|| string_field(details, "workflow_receipt_id"))
+}
+
+fn mcp_execution_receipt(
+    request: &ModelMountMcpWorkflowRequest,
+    record_id: &str,
+    details: &Value,
+    receipt_refs: &[String],
+    authority_grant_refs: &[String],
+    authority_receipt_refs: &[String],
+    custody_ref: Option<&str>,
+    containment_ref: Option<&str>,
+    workflow_hash: &str,
+    authority_hash: &str,
+    evidence_refs: &[String],
+) -> Result<Option<Value>, ModelMountError> {
+    if !matches!(
+        request.operation_kind.as_str(),
+        "model_mount.mcp_tool.invoke" | "model_mount.workflow_node.execute"
+    ) {
+        return Ok(None);
+    }
+    let Some(receipt_id) = execution_receipt_id(details) else {
+        return Err(ModelMountError::MissingField("receipt_id"));
+    };
+    let content_hash = hash_json(&json!({
+        "operation_kind": request.operation_kind,
+        "record_id": record_id,
+        "details": details,
+        "workflow_hash": workflow_hash,
+        "authority_hash": authority_hash,
+    }))?;
+    let operation_ref = format!(
+        "agentgres://model-mounting/mcp-workflow/{}",
+        hash_prefix(&json!({
+            "record_id": record_id,
+            "receipt_id": receipt_id,
+            "content_hash": content_hash,
+        }))
+    );
+    let state_root_before = hash_json(&json!({
+        "record_id": record_id,
+        "operation_kind": request.operation_kind,
+        "state": "before_mcp_execution_receipt",
+    }))?;
+    let state_root_after = hash_json(&json!({
+        "operation_ref": operation_ref,
+        "content_hash": content_hash,
+        "workflow_hash": workflow_hash,
+        "authority_hash": authority_hash,
+        "state": "after_mcp_execution_receipt",
+    }))?;
+    let resulting_head = format!(
+        "agentgres://model-mounting/mcp-workflow/head/{}",
+        state_root_after
+            .trim_start_matches("sha256:")
+            .chars()
+            .take(16)
+            .collect::<String>()
+    );
+    let receipt_kind = if request.operation_kind == "model_mount.mcp_tool.invoke" {
+        "mcp_tool_invocation"
+    } else {
+        "workflow_node_execution"
+    };
+    let mut receipt_evidence_refs = unique_refs(
+        evidence_refs
+            .iter()
+            .cloned()
+            .chain([
+                "rust_model_mount_core".to_string(),
+                "model_mount_mcp_execution_content_receipt_rust_owned".to_string(),
+                "agentgres_mcp_content_receipt_truth_required".to_string(),
+                "receipt_state_root_binding_required".to_string(),
+            ])
+            .collect(),
+    );
+    push_unique_ref(&mut receipt_evidence_refs, &operation_ref);
+    Ok(Some(json!({
+        "schemaVersion": "ioi.model_mount.mcp_workflow_receipt.v1",
+        "id": receipt_id,
+        "kind": receipt_kind,
+        "redaction": "redacted",
+        "summary": if request.operation_kind == "model_mount.mcp_tool.invoke" {
+            "Rust model_mount MCP tool execution admitted"
+        } else {
+            "Rust model_mount workflow node execution admitted"
+        },
+        "createdAt": request
+            .generated_at
+            .as_deref()
+            .and_then(non_empty_string)
+            .unwrap_or_else(|| "rust_model_mount_core".to_string()),
+        "evidenceRefs": receipt_evidence_refs,
+        "details": {
+            "rust_daemon_core_receipt_author": "model_mount.mcp_workflow",
+            "operation_kind": request.operation_kind,
+            "model_mount_mcp_workflow_ref": format!("model_mount://mcp_workflow/{}", record_id),
+            "model_mount_mcp_record_id": record_id,
+            "model_mount_mcp_content_receipt_id": receipt_id,
+            "model_mount_mcp_content_hash": content_hash,
+            "model_mount_mcp_result_materialized": false,
+            "model_mount_mcp_result_materialization_status": "rust_admitted_pending_transport_backend",
+            "workflow_hash": workflow_hash,
+            "authority_hash": authority_hash,
+            "authority_grant_refs": authority_grant_refs,
+            "authority_receipt_refs": authority_receipt_refs,
+            "custody_ref": custody_ref,
+            "containment_ref": containment_ref,
+            "receipt_refs": receipt_refs,
+            "model_mount_agentgres_operation_ref": operation_ref,
+            "model_mount_agentgres_state_root_before": state_root_before,
+            "model_mount_agentgres_state_root_after": state_root_after,
+            "model_mount_agentgres_resulting_head": resulting_head,
+            "model_mount_step_module_invocation": {
+                "router": "rust_daemon_core.step_module_router",
+                "input": {
+                    "state_root_before": state_root_before,
+                    "workflow_hash": workflow_hash,
+                    "authority_hash": authority_hash,
+                    "custody_ref": custody_ref,
+                    "containment_ref": containment_ref,
+                }
+            },
+            "model_mount_step_module_result": {
+                "status": "admitted",
+                "agentgres_operation_refs": [operation_ref],
+                "state_root_after": state_root_after,
+                "resulting_head": resulting_head,
+                "content_hash": content_hash,
+                "result_materialized": false,
+            },
+        },
+    })))
 }
 
 fn mcp_server_record(
@@ -533,6 +814,65 @@ fn validate_vault_refs(value: Option<&Map<String, Value>>) -> Result<(), ModelMo
     Ok(())
 }
 
+struct McpExternalExitAuthority {
+    authority_grant_refs: Vec<String>,
+    authority_receipt_refs: Vec<String>,
+    custody_ref: String,
+    containment_ref: String,
+}
+
+fn require_mcp_external_exit_authority(
+    request: &ModelMountMcpWorkflowRequest,
+) -> Result<(), ModelMountError> {
+    mcp_external_exit_authority(request).map(|_| ())
+}
+
+fn mcp_external_exit_authority(
+    request: &ModelMountMcpWorkflowRequest,
+) -> Result<McpExternalExitAuthority, ModelMountError> {
+    let authority_grant_refs = unique_refs(
+        request
+            .authority_grant_refs
+            .iter()
+            .cloned()
+            .chain(string_array_field(&request.body, "authority_grant_refs"))
+            .collect(),
+    );
+    if authority_grant_refs.is_empty() {
+        return Err(ModelMountError::MissingField("authority_grant_refs"));
+    }
+    let authority_receipt_refs = unique_refs(
+        request
+            .authority_receipt_refs
+            .iter()
+            .cloned()
+            .chain(string_array_field(&request.body, "authority_receipt_refs"))
+            .collect(),
+    );
+    if authority_receipt_refs.is_empty() {
+        return Err(ModelMountError::MissingField("authority_receipt_refs"));
+    }
+    let body = object_or_empty(&request.body);
+    let custody_ref = request
+        .custody_ref
+        .as_deref()
+        .and_then(non_empty_string)
+        .or_else(|| string_field(body, "custody_ref"))
+        .ok_or(ModelMountError::MissingField("custody_ref"))?;
+    let containment_ref = request
+        .containment_ref
+        .as_deref()
+        .and_then(non_empty_string)
+        .or_else(|| string_field(body, "containment_ref"))
+        .ok_or(ModelMountError::MissingField("containment_ref"))?;
+    Ok(McpExternalExitAuthority {
+        authority_grant_refs,
+        authority_receipt_refs,
+        custody_ref,
+        containment_ref,
+    })
+}
+
 fn mcp_workflow_operation_supported(operation_kind: &str) -> bool {
     matches!(
         operation_kind,
@@ -552,6 +892,9 @@ fn mcp_workflow_evidence_refs() -> Vec<String> {
         "model_mount_ephemeral_mcp_registration_js_facade_retired".to_string(),
         "model_mount_mcp_tool_invocation_js_facade_retired".to_string(),
         "model_mount_workflow_node_execution_js_facade_retired".to_string(),
+        "wallet_network_mcp_external_exit_authority_required".to_string(),
+        "ctee_mcp_external_exit_custody_required".to_string(),
+        "mcp_transport_containment_required".to_string(),
         "model_mount_mcp_workflow_receipt_synthesis_js_retired".to_string(),
         "model_mount_mcp_workflow_record_state_js_retired".to_string(),
     ]
@@ -710,6 +1053,7 @@ mod tests {
             authority_grant_refs: vec![],
             authority_receipt_refs: vec![],
             custody_ref: None,
+            containment_ref: None,
             required_scope: Some("model.mcp.import".to_string()),
         }
     }
@@ -737,7 +1081,170 @@ mod tests {
     }
 
     #[test]
-    fn rust_plans_model_mount_mcp_tool_invocation_without_js_transport() {
+    fn rust_admits_model_mount_mcp_tool_invocation_without_js_or_command_fallback() {
+        let mut request = import_request();
+        request.operation_kind = "model_mount.mcp_tool.invoke".to_string();
+        request.body = json!({
+            "server_id": "mcp.docs",
+            "tool": "search",
+            "input": { "query": "rust" },
+            "authority_grant_refs": ["wallet.network://grant/mcp/docs/search"],
+            "authority_receipt_refs": ["receipt://wallet.network/mcp/docs/search"],
+            "custody_ref": "ctee://workspace/docs",
+            "containment_ref": "containment://mcp/docs"
+        });
+
+        let plan = plan_mcp_workflow(&request).expect("mcp tool plan");
+
+        assert_eq!(plan.record_dir, "mcp-workflow-controls");
+        assert_eq!(plan.status, "admitted");
+        assert_eq!(plan.record["status"], "admitted");
+        assert_eq!(plan.record["details"]["server_id"], "mcp.docs");
+        assert_eq!(plan.record["details"]["tool"], "search");
+        assert_eq!(plan.record["details"]["js_transport_invocation"], false);
+        assert_eq!(
+            plan.public_response["transport_execution_status"],
+            "rust_admitted"
+        );
+        assert_eq!(
+            plan.public_response["rust_transport_execution_admitted"],
+            true
+        );
+        assert_eq!(
+            plan.public_response["transport_execution_owner"],
+            "rust_daemon_core.model_mount.mcp_workflow"
+        );
+        assert_eq!(
+            plan.public_response["step_module_dispatch_owner"],
+            "rust_daemon_core.step_module_router"
+        );
+        assert_eq!(plan.public_response["content_receipt_required"], true);
+        assert_eq!(
+            plan.public_response["result_receipt_id"],
+            plan.public_response["content_receipt_id"]
+        );
+        let receipt = plan.receipt.as_ref().expect("mcp execution receipt");
+        assert_eq!(receipt["kind"], "mcp_tool_invocation");
+        assert_eq!(receipt["id"], plan.public_response["content_receipt_id"]);
+        assert_eq!(
+            receipt["details"]["rust_daemon_core_receipt_author"],
+            "model_mount.mcp_workflow"
+        );
+        assert_eq!(
+            receipt["details"]["model_mount_mcp_result_materialized"],
+            false
+        );
+        assert_eq!(
+            receipt["details"]["model_mount_step_module_result"]["state_root_after"],
+            receipt["details"]["model_mount_agentgres_state_root_after"]
+        );
+        assert!(receipt["evidenceRefs"]
+            .as_array()
+            .expect("receipt evidence")
+            .iter()
+            .any(|value| value == "model_mount_mcp_execution_content_receipt_rust_owned"));
+        assert_eq!(plan.public_response["command_transport_fallback"], false);
+        assert_eq!(plan.public_response["binary_bridge_fallback"], false);
+        assert_eq!(plan.public_response["compatibility_fallback"], false);
+        assert_eq!(plan.public_response["legacy_js_result_fallback"], false);
+        assert_eq!(plan.public_response["wallet_authority_required"], true);
+        assert_eq!(
+            plan.authority_grant_refs[0],
+            "wallet.network://grant/mcp/docs/search"
+        );
+        assert_eq!(
+            plan.record["details"]["wallet_authority_boundary"],
+            "wallet.network.mcp_external_exit"
+        );
+        assert_eq!(plan.record["details"]["ctee_custody_required"], true);
+        assert_eq!(
+            plan.record["details"]["transport_containment_required"],
+            true
+        );
+        assert_eq!(
+            plan.record["details"]["custody_ref"],
+            "ctee://workspace/docs"
+        );
+        assert_eq!(
+            plan.record["details"]["containment_ref"],
+            "containment://mcp/docs"
+        );
+        assert_eq!(plan.record["containment_ref"], "containment://mcp/docs");
+        let mut different_containment = request.clone();
+        different_containment.body["containment_ref"] = json!("containment://mcp/docs/other");
+        let different_plan =
+            plan_mcp_workflow(&different_containment).expect("different containment plan");
+        assert_ne!(plan.authority_hash, different_plan.authority_hash);
+    }
+
+    #[test]
+    fn rust_admits_model_mount_workflow_node_dispatch_without_js_fallback() {
+        let mut request = import_request();
+        request.operation_kind = "model_mount.workflow_node.execute".to_string();
+        request.body = json!({
+            "node": "Embed",
+            "workflow_graph_id": "graph.docs",
+            "workflow_node_id": "node.embed",
+            "workflow_node_type": "Embedding",
+            "input": { "text": "rust" },
+            "authority_grant_refs": ["wallet.network://grant/workflow/node/embed"],
+            "authority_receipt_refs": ["receipt://wallet.network/workflow/node/embed"],
+            "custody_ref": "ctee://workspace/workflow",
+            "containment_ref": "containment://workflow/node/embed"
+        });
+
+        let plan = plan_mcp_workflow(&request).expect("workflow node plan");
+
+        assert_eq!(plan.record_dir, "mcp-workflow-controls");
+        assert_eq!(plan.status, "admitted");
+        assert_eq!(plan.public_response["execution_status"], "rust_admitted");
+        assert_eq!(
+            plan.public_response["rust_step_module_dispatch_admitted"],
+            true
+        );
+        assert_eq!(
+            plan.public_response["workflow_execution_owner"],
+            "rust_daemon_core.model_mount.mcp_workflow"
+        );
+        assert_eq!(
+            plan.public_response["step_module_dispatch_owner"],
+            "rust_daemon_core.step_module_router"
+        );
+        assert_eq!(plan.public_response["content_receipt_required"], true);
+        assert_eq!(
+            plan.public_response["result_receipt_id"],
+            plan.public_response["content_receipt_id"]
+        );
+        let receipt = plan.receipt.as_ref().expect("workflow execution receipt");
+        assert_eq!(receipt["kind"], "workflow_node_execution");
+        assert_eq!(receipt["id"], plan.public_response["content_receipt_id"]);
+        assert_eq!(
+            receipt["details"]["rust_daemon_core_receipt_author"],
+            "model_mount.mcp_workflow"
+        );
+        assert_eq!(
+            receipt["details"]["model_mount_mcp_result_materialization_status"],
+            "rust_admitted_pending_transport_backend"
+        );
+        assert!(receipt["details"]["model_mount_agentgres_operation_ref"]
+            .as_str()
+            .unwrap()
+            .starts_with("agentgres://model-mounting/mcp-workflow/"));
+        assert_eq!(plan.public_response["js_route_test"], false);
+        assert_eq!(plan.public_response["js_model_invocation"], false);
+        assert_eq!(plan.public_response["js_mcp_tool_invocation"], false);
+        assert_eq!(plan.public_response["command_transport_fallback"], false);
+        assert_eq!(plan.public_response["binary_bridge_fallback"], false);
+        assert_eq!(plan.public_response["compatibility_fallback"], false);
+        assert_eq!(plan.public_response["legacy_js_result_fallback"], false);
+        assert_eq!(
+            plan.record["details"]["containment_ref"],
+            "containment://workflow/node/embed"
+        );
+    }
+
+    #[test]
+    fn rust_rejects_model_mount_mcp_tool_invocation_without_wallet_authority() {
         let mut request = import_request();
         request.operation_kind = "model_mount.mcp_tool.invoke".to_string();
         request.body = json!({
@@ -746,15 +1253,41 @@ mod tests {
             "input": { "query": "rust" }
         });
 
-        let plan = plan_mcp_workflow(&request).expect("mcp tool plan");
-
-        assert_eq!(plan.record_dir, "mcp-workflow-controls");
-        assert_eq!(plan.record["details"]["server_id"], "mcp.docs");
-        assert_eq!(plan.record["details"]["tool"], "search");
-        assert_eq!(plan.record["details"]["js_transport_invocation"], false);
         assert_eq!(
-            plan.public_response["transport_execution_status"],
-            "rust_required"
+            plan_mcp_workflow(&request).expect_err("wallet authority required"),
+            ModelMountError::MissingField("authority_grant_refs")
+        );
+    }
+
+    #[test]
+    fn rust_rejects_model_mount_mcp_tool_invocation_without_custody_or_containment() {
+        let mut request = import_request();
+        request.operation_kind = "model_mount.mcp_tool.invoke".to_string();
+        request.body = json!({
+            "server_id": "mcp.docs",
+            "tool": "search",
+            "input": { "query": "rust" },
+            "authority_grant_refs": ["wallet.network://grant/mcp/docs/search"],
+            "authority_receipt_refs": ["receipt://wallet.network/mcp/docs/search"]
+        });
+
+        assert_eq!(
+            plan_mcp_workflow(&request).expect_err("custody ref required"),
+            ModelMountError::MissingField("custody_ref")
+        );
+
+        request.body = json!({
+            "server_id": "mcp.docs",
+            "tool": "search",
+            "input": { "query": "rust" },
+            "authority_grant_refs": ["wallet.network://grant/mcp/docs/search"],
+            "authority_receipt_refs": ["receipt://wallet.network/mcp/docs/search"],
+            "custody_ref": "ctee://workspace/docs"
+        });
+
+        assert_eq!(
+            plan_mcp_workflow(&request).expect_err("containment ref required"),
+            ModelMountError::MissingField("containment_ref")
         );
     }
 

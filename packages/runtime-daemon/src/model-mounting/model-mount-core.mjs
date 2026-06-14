@@ -936,6 +936,7 @@ function normalizeMcpWorkflowBridgeResult(value = {}) {
     record_id: result.record_id ?? plan.record_id ?? null,
     record,
     public_response: result.public_response ?? plan.public_response ?? null,
+    receipt: result.receipt ?? plan.receipt ?? null,
     operation_kind: result.operation_kind ?? plan.operation_kind ?? null,
     rust_core_boundary: result.rust_core_boundary ?? plan.rust_core_boundary ?? null,
     receipt_refs: arrayOrNull(result.receipt_refs) ?? arrayOrNull(plan.receipt_refs) ?? [],
@@ -967,6 +968,107 @@ function normalizeMcpWorkflowBridgeResult(value = {}) {
   }
   if (record?.id !== normalized.record_id) {
     missing.push("record.id");
+  }
+  const publicResponse =
+    normalized.public_response && typeof normalized.public_response === "object" && !Array.isArray(normalized.public_response)
+      ? normalized.public_response
+      : {};
+  const receipt = normalized.receipt && typeof normalized.receipt === "object" && !Array.isArray(normalized.receipt)
+    ? normalized.receipt
+    : null;
+  if (normalized.operation_kind === "model_mount.mcp_tool.invoke") {
+    if (publicResponse.transport_execution_status === "rust_required") {
+      missing.push("public_response.transport_execution_status.retired_rust_required");
+    }
+    if (publicResponse.transport_execution_status !== "rust_admitted") {
+      missing.push("public_response.transport_execution_status.rust_admitted");
+    }
+    if (publicResponse.rust_transport_execution_admitted !== true) {
+      missing.push("public_response.rust_transport_execution_admitted");
+    }
+    for (const field of [
+      "js_transport_invocation",
+      "command_transport_fallback",
+      "binary_bridge_fallback",
+      "compatibility_fallback",
+      "legacy_js_result_fallback",
+    ]) {
+      if (publicResponse[field] !== false) missing.push(`public_response.${field}_false`);
+    }
+    for (const field of [
+      "content_receipt_id",
+      "result_receipt_id",
+      "transport_execution_owner",
+      "step_module_dispatch_owner",
+    ]) {
+      if (!publicResponse[field]) missing.push(`public_response.${field}`);
+    }
+    if (!receipt) {
+      missing.push("receipt");
+    } else {
+      if (receipt.kind !== "mcp_tool_invocation") missing.push("receipt.kind.mcp_tool_invocation");
+      if (receipt.id !== publicResponse.content_receipt_id) missing.push("receipt.id.content_receipt_id");
+      if (!receipt.evidenceRefs?.includes("model_mount_mcp_execution_content_receipt_rust_owned")) {
+        missing.push("receipt.evidenceRefs.model_mount_mcp_execution_content_receipt_rust_owned");
+      }
+      if (receipt.details?.rust_daemon_core_receipt_author !== "model_mount.mcp_workflow") {
+        missing.push("receipt.details.rust_daemon_core_receipt_author");
+      }
+      if (!receipt.details?.model_mount_mcp_content_hash) {
+        missing.push("receipt.details.model_mount_mcp_content_hash");
+      }
+      if (!receipt.details?.model_mount_step_module_result?.state_root_after) {
+        missing.push("receipt.details.model_mount_step_module_result.state_root_after");
+      }
+    }
+  }
+  if (normalized.operation_kind === "model_mount.workflow_node.execute") {
+    if (publicResponse.execution_status === "rust_required") {
+      missing.push("public_response.execution_status.retired_rust_required");
+    }
+    if (publicResponse.execution_status !== "rust_admitted") {
+      missing.push("public_response.execution_status.rust_admitted");
+    }
+    if (publicResponse.rust_step_module_dispatch_admitted !== true) {
+      missing.push("public_response.rust_step_module_dispatch_admitted");
+    }
+    for (const field of [
+      "js_route_test",
+      "js_model_invocation",
+      "js_mcp_tool_invocation",
+      "command_transport_fallback",
+      "binary_bridge_fallback",
+      "compatibility_fallback",
+      "legacy_js_result_fallback",
+    ]) {
+      if (publicResponse[field] !== false) missing.push(`public_response.${field}_false`);
+    }
+    for (const field of [
+      "content_receipt_id",
+      "result_receipt_id",
+      "workflow_execution_owner",
+      "step_module_dispatch_owner",
+    ]) {
+      if (!publicResponse[field]) missing.push(`public_response.${field}`);
+    }
+    if (!receipt) {
+      missing.push("receipt");
+    } else {
+      if (receipt.kind !== "workflow_node_execution") missing.push("receipt.kind.workflow_node_execution");
+      if (receipt.id !== publicResponse.content_receipt_id) missing.push("receipt.id.content_receipt_id");
+      if (!receipt.evidenceRefs?.includes("model_mount_mcp_execution_content_receipt_rust_owned")) {
+        missing.push("receipt.evidenceRefs.model_mount_mcp_execution_content_receipt_rust_owned");
+      }
+      if (receipt.details?.rust_daemon_core_receipt_author !== "model_mount.mcp_workflow") {
+        missing.push("receipt.details.rust_daemon_core_receipt_author");
+      }
+      if (!receipt.details?.model_mount_mcp_content_hash) {
+        missing.push("receipt.details.model_mount_mcp_content_hash");
+      }
+      if (!receipt.details?.model_mount_step_module_result?.state_root_after) {
+        missing.push("receipt.details.model_mount_step_module_result.state_root_after");
+      }
+    }
   }
   if (missing.length > 0) {
     const error = new Error("Rust model_mount MCP workflow plan is incomplete.");

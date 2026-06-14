@@ -26,8 +26,11 @@ import {
   DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   LIFECYCLE_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
   MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  MCP_LIVE_RESULT_REPLAY_REQUEST_SCHEMA_VERSION,
   MCP_MANAGER_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION,
   MCP_MANAGER_CATALOG_SUMMARY_PROJECTION_REQUEST_SCHEMA_VERSION,
+  MCP_TOOL_FETCH_PROJECTION_REQUEST_SCHEMA_VERSION,
+  MCP_TOOL_SEARCH_PROJECTION_REQUEST_SCHEMA_VERSION,
   MCP_MANAGER_VALIDATION_PROJECTION_REQUEST_SCHEMA_VERSION,
   MCP_MANAGER_STATUS_PROJECTION_REQUEST_SCHEMA_VERSION,
   MCP_SERVER_VALIDATION_INPUT_REQUEST_SCHEMA_VERSION,
@@ -92,6 +95,8 @@ import {
   normalizeMcpManagerCatalogSummaryProjectionBridgeResult,
   normalizeMcpManagerStatusProjectionBridgeResult,
   normalizeMcpManagerValidationProjectionBridgeResult,
+  normalizeMcpToolFetchProjectionBridgeResult,
+  normalizeMcpToolSearchProjectionBridgeResult,
   normalizeMemoryManagerStatusProjectionBridgeResult,
   normalizeMemoryManagerValidationProjectionBridgeResult,
   normalizeOperatorInterruptStateUpdateBridgeResult,
@@ -3772,7 +3777,8 @@ test("mcp control agent state update core sends Rust state update through direct
 
   const result = runner.planMcpControlAgentStateUpdate({
     thread_id: "thread_1",
-    agent: { id: "agent_1", mcpRegistry: { servers: [{ id: "mcp.docs" }] } },
+    agent_id: "agent_1",
+    state_dir: "/runtime-state",
     control_kind: "mcp_add",
     event_id: "event_mcp_add",
     seq: 5,
@@ -3787,6 +3793,9 @@ test("mcp control agent state update core sends Rust state update through direct
     MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   );
   assert.equal(captured.request.control_kind, "mcp_add");
+  assert.equal(captured.request.agent_id, "agent_1");
+  assert.equal(captured.request.state_dir, "/runtime-state");
+  assert.equal(Object.hasOwn(captured.request, "agent"), false);
   assert.equal(result.source, "rust_mcp_control_agent_state_update_command");
   assert.equal(result.operation_kind, "thread.mcp_add");
   assert.equal(result.control.control_kind, "mcp_add");
@@ -3795,6 +3804,163 @@ test("mcp control agent state update core sends Rust state update through direct
   assert.equal(Object.hasOwn(result.control, "eventId"), false);
   assert.equal(Object.hasOwn(result.control, "createdAt"), false);
   assert.equal(result.agent.mcpRegistry.servers[0].id, "mcp.docs");
+});
+
+test("MCP live-result replay sends Rust daemon-core state replay request", () => {
+  let captured = null;
+  const runner = new RuntimeContextPolicyCore({
+    daemonCoreInvoker(request) {
+      captured = request;
+      return {
+        source: "rust_mcp_live_result_replay_command",
+        backend: "rust_policy",
+        schema_version: "ioi.runtime.mcp-live-result-replay.v1",
+        object: "ioi.runtime_mcp_live_result_replay",
+        status: "projected",
+        result_count: 1,
+        result_ids: ["result_runtime_mcp_live_exit"],
+        latest_result: {
+          schema_version: "ioi.runtime.mcp-live-result.v1",
+          id: "result_runtime_mcp_live_exit",
+          kind: "runtime_mcp_live_result",
+          receipt_id: "receipt_runtime_mcp_live_exit",
+        },
+        results: [
+          {
+            schema_version: "ioi.runtime.mcp-live-result.v1",
+            id: "result_runtime_mcp_live_exit",
+            kind: "runtime_mcp_live_result",
+            receipt_id: "receipt_runtime_mcp_live_exit",
+          },
+        ],
+        replay_hash: "sha256:replay",
+      };
+    },
+  });
+
+  const result = runner.projectMcpLiveResultReplay({
+    state_dir: "/runtime-state",
+    result_id: "result_runtime_mcp_live_exit",
+    receipt_id: "receipt_runtime_mcp_live_exit",
+    thread_id: "thread_1",
+    agent_id: "agent_1",
+    control_kind: "mcp_invoke",
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "project_mcp_live_result_replay");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    MCP_LIVE_RESULT_REPLAY_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.state_dir, "/runtime-state");
+  assert.equal(captured.request.result_id, "result_runtime_mcp_live_exit");
+  assert.equal(captured.request.receipt_id, "receipt_runtime_mcp_live_exit");
+  assert.equal(result.source, "rust_mcp_live_result_replay_command");
+  assert.equal(result.latest_result.id, "result_runtime_mcp_live_exit");
+  assert.equal(result.replay_hash, "sha256:replay");
+});
+
+test("MCP tool search projection sends Rust daemon-core catalog search request", () => {
+  let captured = null;
+  const runner = new RuntimeContextPolicyCore({
+    daemonCoreInvoker(request) {
+      captured = request;
+      return {
+        source: "rust_mcp_tool_search_projection_command",
+        backend: "rust_policy",
+        schema_version: "ioi.runtime.mcp-tool-search.v1",
+        object: "ioi.runtime_mcp_tool_search",
+        status: "completed",
+        query: "diff",
+        q: "diff",
+        exact: false,
+        live_discovery: false,
+        rust_mcp_live_discovery_deferred: false,
+        server_count: 1,
+        tool_count: 1,
+        returned_count: 1,
+        limit: 25,
+        deferred: false,
+        tools: [{ stable_tool_id: "mcp.agent.git.diff", server_id: "mcp.agent.git", tool_name: "diff" }],
+        catalog_summaries: [],
+        failures: [],
+        routes: { get_tool: "/v1/mcp/tools/{tool_id}" },
+        evidence_refs: ["runtime_mcp_tool_search_rust_projection"],
+      };
+    },
+  });
+
+  const result = runner.projectMcpToolSearchProjection({
+    state_dir: "/runtime-state",
+    thread_id: "thread_1",
+    server_id: "mcp.agent.git",
+    query: "diff",
+    exact: false,
+    live_discovery: false,
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "project_mcp_tool_search_projection");
+  assert.equal(
+    captured.request.schema_version,
+    MCP_TOOL_SEARCH_PROJECTION_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.thread_id, "thread_1");
+  assert.equal(captured.request.server_id, "mcp.agent.git");
+  assert.equal(captured.request.query, "diff");
+  assert.equal(Object.hasOwn(captured.request, "threadId"), false);
+  assert.equal(Object.hasOwn(captured.request, "serverId"), false);
+  assert.equal(result.source, "rust_mcp_tool_search_projection_command");
+  assert.equal(result.tools[0].stable_tool_id, "mcp.agent.git.diff");
+  assert.equal(result.returned_count, 1);
+});
+
+test("MCP tool fetch projection sends Rust daemon-core fetch request", () => {
+  let captured = null;
+  const runner = new RuntimeContextPolicyCore({
+    daemonCoreInvoker(request) {
+      captured = request;
+      return {
+        source: "rust_mcp_tool_fetch_projection_command",
+        backend: "rust_policy",
+        schema_version: "ioi.runtime.mcp-tool-fetch.v1",
+        object: "ioi.runtime_mcp_tool_fetch",
+        status: "completed",
+        tool_id: "mcp.agent.git.diff",
+        server_id: "mcp.agent.git",
+        tool_name: "diff",
+        tool: { stable_tool_id: "mcp.agent.git.diff", server_id: "mcp.agent.git", tool_name: "diff" },
+        tools: [{ stable_tool_id: "mcp.agent.git.diff", server_id: "mcp.agent.git", tool_name: "diff" }],
+        returned_count: 1,
+        search_projection: { object: "ioi.runtime_mcp_tool_search" },
+        catalog_summaries: [],
+        routes: { get_tool: "/v1/mcp/tools/{tool_id}" },
+        evidence_refs: ["runtime_mcp_tool_fetch_rust_projection"],
+      };
+    },
+  });
+
+  const result = runner.projectMcpToolFetchProjection({
+    state_dir: "/runtime-state",
+    thread_id: "thread_1",
+    server_id: "mcp.agent.git",
+    tool_id: "mcp.agent.git.diff",
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "project_mcp_tool_fetch_projection");
+  assert.equal(
+    captured.request.schema_version,
+    MCP_TOOL_FETCH_PROJECTION_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.tool_id, "mcp.agent.git.diff");
+  assert.equal(captured.request.server_id, "mcp.agent.git");
+  assert.equal(Object.hasOwn(captured.request, "toolId"), false);
+  assert.equal(result.source, "rust_mcp_tool_fetch_projection_command");
+  assert.equal(result.tool.stable_tool_id, "mcp.agent.git.diff");
+  assert.equal(result.returned_count, 1);
 });
 
 test("MCP server validation core sends Rust daemon-core validation request", () => {
@@ -4436,6 +4602,23 @@ test("MCP and memory manager projection core does not synthesize Rust-owned proj
   assert.equal(mcpSummary.preview_limit, null);
   assert.equal(mcpSummary.search_route, null);
   assert.equal(mcpSummary.fetch_route, null);
+
+  const mcpToolSearch = normalizeMcpToolSearchProjectionBridgeResult({
+    source: "legacy_mcp_tool_search_fixture",
+    tools: [{ stable_tool_id: "mcp.docs.search" }],
+  });
+  assert.equal(mcpToolSearch.object, null);
+  assert.equal(mcpToolSearch.status, null);
+  assert.equal(mcpToolSearch.tool_count, null);
+  assert.equal(mcpToolSearch.returned_count, null);
+
+  const mcpToolFetch = normalizeMcpToolFetchProjectionBridgeResult({
+    source: "legacy_mcp_tool_fetch_fixture",
+    tools: [{ stable_tool_id: "mcp.docs.search" }],
+  });
+  assert.equal(mcpToolFetch.object, null);
+  assert.equal(mcpToolFetch.status, null);
+  assert.equal(mcpToolFetch.returned_count, null);
 });
 
 test("thread memory agent state update core sends Rust state update through direct daemon-core invoker", () => {

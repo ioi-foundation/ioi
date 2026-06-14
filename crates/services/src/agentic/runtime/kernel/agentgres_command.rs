@@ -3,10 +3,10 @@ use serde_json::{json, Value};
 
 use super::agentgres_admission::{
     AgentgresAdmissionCore, RuntimeAgentStateCommitRequest, RuntimeArtifactStateCommitRequest,
-    RuntimeMemoryStateCommitRequest, RuntimeModelMountReceiptStateCommitRequest,
-    RuntimeModelMountRecordStateCommitRequest, RuntimeRunStateCommitRequest,
-    RuntimeStateStorageWriteRecord, RuntimeStateWrittenRecord, RuntimeSubagentStateCommitRequest,
-    StorageBackendWriteProposal,
+    RuntimeMcpLiveResultStateCommitRequest, RuntimeMemoryStateCommitRequest,
+    RuntimeModelMountReceiptStateCommitRequest, RuntimeModelMountRecordStateCommitRequest,
+    RuntimeReceiptStateCommitRequest, RuntimeRunStateCommitRequest, RuntimeStateStorageWriteRecord,
+    RuntimeStateWrittenRecord, RuntimeSubagentStateCommitRequest, StorageBackendWriteProposal,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -74,6 +74,22 @@ pub struct RuntimeArtifactStateCommitBridgeRequest {
     pub backend: Option<String>,
     pub state_dir: String,
     pub request: RuntimeArtifactStateCommitRequest,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RuntimeReceiptStateCommitBridgeRequest {
+    #[serde(default)]
+    pub backend: Option<String>,
+    pub state_dir: String,
+    pub request: RuntimeReceiptStateCommitRequest,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RuntimeMcpLiveResultStateCommitBridgeRequest {
+    #[serde(default)]
+    pub backend: Option<String>,
+    pub state_dir: String,
+    pub request: RuntimeMcpLiveResultStateCommitRequest,
 }
 
 #[derive(Debug, Deserialize)]
@@ -299,6 +315,81 @@ pub fn commit_runtime_artifact_state_response(
         "written_record": written_record,
         "evidence_refs": [
             "rust_agentgres_runtime_artifact_state_commit",
+            record.commit_hash,
+        ],
+    }))
+}
+
+pub fn commit_runtime_receipt_state_response(
+    request: RuntimeReceiptStateCommitBridgeRequest,
+) -> Result<Value, AgentgresCommandError> {
+    let record = AgentgresAdmissionCore
+        .commit_runtime_receipt_state(&request.request)
+        .map_err(|error| {
+            AgentgresCommandError::new("runtime_receipt_state_commit_invalid", format!("{error:?}"))
+        })?;
+    let written_record = persist_runtime_state_storage_record(
+        &request.state_dir,
+        &record.record,
+        &request.request.receipt,
+        "runtime_receipt_state_commit_invalid",
+    )?;
+    Ok(json!({
+        "source": "rust_agentgres_runtime_receipt_state_commit_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_agentgres_storage".to_string()),
+        "record": record.clone(),
+        "storage_record": record.record.clone(),
+        "receipt_id": record.receipt_id.clone(),
+        "operation_kind": record.operation_kind.clone(),
+        "storage_backend_ref": record.storage_backend_ref.clone(),
+        "object_ref": record.record.object_ref.clone(),
+        "content_hash": record.record.content_hash.clone(),
+        "payload_refs": record.record.payload_refs.clone(),
+        "receipt_refs": record.record.receipt_refs.clone(),
+        "admission_hash": record.record.admission.admission_hash.clone(),
+        "commit_hash": record.commit_hash.clone(),
+        "written_record": written_record,
+        "evidence_refs": [
+            "rust_agentgres_runtime_receipt_state_commit",
+            record.commit_hash,
+        ],
+    }))
+}
+
+pub fn commit_runtime_mcp_live_result_state_response(
+    request: RuntimeMcpLiveResultStateCommitBridgeRequest,
+) -> Result<Value, AgentgresCommandError> {
+    let record = AgentgresAdmissionCore
+        .commit_runtime_mcp_live_result_state(&request.request)
+        .map_err(|error| {
+            AgentgresCommandError::new(
+                "runtime_mcp_live_result_state_commit_invalid",
+                format!("{error:?}"),
+            )
+        })?;
+    let written_record = persist_runtime_state_storage_record(
+        &request.state_dir,
+        &record.record,
+        &request.request.result,
+        "runtime_mcp_live_result_state_commit_invalid",
+    )?;
+    Ok(json!({
+        "source": "rust_agentgres_runtime_mcp_live_result_state_commit_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_agentgres_storage".to_string()),
+        "record": record.clone(),
+        "storage_record": record.record.clone(),
+        "result_id": record.result_id.clone(),
+        "operation_kind": record.operation_kind.clone(),
+        "storage_backend_ref": record.storage_backend_ref.clone(),
+        "object_ref": record.record.object_ref.clone(),
+        "content_hash": record.record.content_hash.clone(),
+        "payload_refs": record.record.payload_refs.clone(),
+        "receipt_refs": record.record.receipt_refs.clone(),
+        "admission_hash": record.record.admission.admission_hash.clone(),
+        "commit_hash": record.commit_hash.clone(),
+        "written_record": written_record,
+        "evidence_refs": [
+            "rust_agentgres_runtime_mcp_live_result_state_commit",
             record.commit_hash,
         ],
     }))
@@ -782,6 +873,151 @@ mod tests {
             .expect("evidence refs")
             .iter()
             .any(|value| value == "rust_agentgres_runtime_artifact_state_commit"));
+    }
+
+    #[test]
+    fn agentgres_command_commits_runtime_receipt_state_through_rust_core() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let state_dir = temp.path().join("runtime-state");
+        let request: RuntimeReceiptStateCommitBridgeRequest = serde_json::from_value(json!({
+            "schema_version": "ioi.runtime.daemon_core.command.v1",
+            "operation": "commit_runtime_receipt_state",
+            "backend": "rust_agentgres_storage",
+            "state_dir": state_dir,
+            "request": {
+                "schema_version": "ioi.runtime_receipt_state_commit.v1",
+                "receipt_id": "receipt_runtime_mcp_live_exit",
+                "operation_kind": "runtime.mcp_live_exit.receipt.write",
+                "storage_backend_ref": "storage://runtime-agentgres/local-json",
+                "receipt": {
+                    "schema_version": "ioi.runtime.mcp-live-exit-receipt.v1",
+                    "id": "receipt_runtime_mcp_live_exit",
+                    "kind": "runtime_mcp_live_exit",
+                    "redaction": "redacted",
+                    "evidence_refs": [
+                        "runtime_mcp_live_exit_rust_receipt",
+                        "agentgres_runtime_mcp_live_receipt_truth_required"
+                    ],
+                    "details": {
+                        "rust_daemon_core_receipt_author": "runtime.mcp_control",
+                        "runtime_mcp_agentgres_operation_ref": "agentgres://runtime-state/agents/agent_1/operations/mcp_invoke/event_1",
+                        "runtime_mcp_agent_state_root_before": "sha256:before",
+                        "runtime_mcp_agent_state_root_after": "sha256:after",
+                        "runtime_mcp_resulting_head": "agentgres://runtime-state/agents/agent_1/head/sha256_after"
+                    }
+                }
+            }
+        }))
+        .expect("runtime receipt-state commit bridge request");
+
+        let response =
+            commit_runtime_receipt_state_response(request).expect("runtime receipt committed");
+
+        assert_eq!(
+            response["source"],
+            "rust_agentgres_runtime_receipt_state_commit_command"
+        );
+        assert_eq!(response["receipt_id"], "receipt_runtime_mcp_live_exit");
+        assert_eq!(
+            response["operation_kind"],
+            "runtime.mcp_live_exit.receipt.write"
+        );
+        assert!(response["commit_hash"]
+            .as_str()
+            .expect("commit hash")
+            .starts_with("sha256:"));
+        assert!(state_dir
+            .join("receipts/receipt_runtime_mcp_live_exit.json")
+            .exists());
+        let receipt_record =
+            fs::read_to_string(state_dir.join("receipts/receipt_runtime_mcp_live_exit.json"))
+                .expect("runtime receipt record");
+        assert!(receipt_record.contains("\"id\": \"receipt_runtime_mcp_live_exit\""));
+        assert_eq!(
+            response["written_record"]["object_ref"],
+            "agentgres://runtime-state/receipts/receipt_runtime_mcp_live_exit/records/receipts/receipt_runtime_mcp_live_exit.json"
+        );
+        assert!(response["evidence_refs"]
+            .as_array()
+            .expect("evidence refs")
+            .iter()
+            .any(|value| value == "rust_agentgres_runtime_receipt_state_commit"));
+    }
+
+    #[test]
+    fn agentgres_command_commits_runtime_mcp_live_result_state_through_rust_core() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let state_dir = temp.path().join("runtime-state");
+        let request: RuntimeMcpLiveResultStateCommitBridgeRequest = serde_json::from_value(json!({
+            "schema_version": "ioi.runtime.daemon_core.command.v1",
+            "operation": "commit_runtime_mcp_live_result_state",
+            "backend": "rust_agentgres_storage",
+            "state_dir": state_dir,
+            "request": {
+                "schema_version": "ioi.runtime_mcp_live_result_state_commit.v1",
+                "result_id": "result_runtime_mcp_live_exit",
+                "operation_kind": "runtime.mcp_live_exit.result.write",
+                "storage_backend_ref": "storage://runtime-agentgres/local-json",
+                "result": {
+                    "schema_version": "ioi.runtime.mcp-live-result.v1",
+                    "id": "result_runtime_mcp_live_exit",
+                    "kind": "runtime_mcp_live_result",
+                    "status": "admitted_pending_rust_transport",
+                    "receipt_id": "receipt_runtime_mcp_live_exit",
+                    "receipt_refs": ["receipt_runtime_mcp_live_exit"],
+                    "evidence_refs": [
+                        "runtime_mcp_live_result_rust_projection",
+                        "agentgres_runtime_mcp_live_result_truth_required",
+                        "runtime_mcp_no_js_transport_result"
+                    ],
+                    "details": {
+                        "rust_daemon_core_result_author": "runtime.mcp_control",
+                        "runtime_mcp_agentgres_operation_ref": "agentgres://runtime-state/agents/agent_1/operations/mcp_invoke/event_1",
+                        "runtime_mcp_agent_state_root_before": "sha256:before",
+                        "runtime_mcp_agent_state_root_after": "sha256:after",
+                        "runtime_mcp_resulting_head": "agentgres://runtime-state/agents/agent_1/head/sha256_after",
+                        "result_materialized": false,
+                        "js_transport_invocation": false,
+                        "command_transport_fallback": false
+                    }
+                }
+            }
+        }))
+        .expect("runtime MCP live-result state commit bridge request");
+
+        let response = commit_runtime_mcp_live_result_state_response(request)
+            .expect("runtime MCP live result committed");
+
+        assert_eq!(
+            response["source"],
+            "rust_agentgres_runtime_mcp_live_result_state_commit_command"
+        );
+        assert_eq!(response["result_id"], "result_runtime_mcp_live_exit");
+        assert_eq!(
+            response["operation_kind"],
+            "runtime.mcp_live_exit.result.write"
+        );
+        assert!(response["commit_hash"]
+            .as_str()
+            .expect("commit hash")
+            .starts_with("sha256:"));
+        assert!(state_dir
+            .join("mcp-live-results/result_runtime_mcp_live_exit.json")
+            .exists());
+        let result_record = fs::read_to_string(
+            state_dir.join("mcp-live-results/result_runtime_mcp_live_exit.json"),
+        )
+        .expect("runtime MCP live result record");
+        assert!(result_record.contains("\"id\": \"result_runtime_mcp_live_exit\""));
+        assert_eq!(
+            response["written_record"]["object_ref"],
+            "agentgres://runtime-state/mcp-live-results/result_runtime_mcp_live_exit/records/mcp-live-results/result_runtime_mcp_live_exit.json"
+        );
+        assert!(response["evidence_refs"]
+            .as_array()
+            .expect("evidence refs")
+            .iter()
+            .any(|value| value == "rust_agentgres_runtime_mcp_live_result_state_commit"));
     }
 
     #[test]

@@ -11,6 +11,7 @@ function fakeState() {
     modelInvocations: [],
     readProjectionRequests: [],
     recordStateCommits: [],
+    receiptStateCommits: [],
     receipts: [],
     routeTests: [],
     writes: [],
@@ -47,6 +48,23 @@ function fakeState() {
       const receipt = { id: `receipt.${kind}.${this.receipts.length + 1}`, kind, payload };
       this.receipts.push(receipt);
       return receipt;
+    },
+    persistRustAuthoredReceiptWithCommit(receipt) {
+      this.receipts.push(JSON.parse(JSON.stringify(receipt)));
+      const commit = {
+        receipt_id: receipt.id,
+        commit_hash: `sha256:receipt-commit:${receipt.id}`,
+        written_record: receipt,
+        storage_record: {
+          object_ref: `agentgres://model-mounting/receipts/${receipt.id}`,
+          content_hash: `sha256:receipt-content:${receipt.id}`,
+          admission: {
+            admission_hash: `sha256:receipt-admission:${receipt.id}`,
+          },
+        },
+      };
+      this.receiptStateCommits.push({ receipt_id: receipt.id, receipt, commit });
+      return { receipt, commit };
     },
     planModelMountMcpWorkflow(request) {
       this.mcpWorkflowRequests.push(JSON.parse(JSON.stringify(request)));
@@ -88,6 +106,45 @@ function fakeState() {
 
 function mcpWorkflowPlan(request) {
   const operationKind = request.operation_kind;
+  if (
+    ["model_mount.mcp_tool.invoke", "model_mount.workflow_node.execute"].includes(operationKind) &&
+    (!Array.isArray(request.authority_grant_refs) ||
+      request.authority_grant_refs.length === 0 ||
+      !Array.isArray(request.authority_receipt_refs) ||
+      request.authority_receipt_refs.length === 0)
+  ) {
+    const error = new Error("Rust MCP workflow external exits require wallet authority refs.");
+    error.status = 403;
+    error.code = "model_mount_mcp_external_exit_wallet_authority_required";
+    error.details = {
+      rust_core_boundary: "model_mount.mcp_workflow",
+      operation_kind: operationKind,
+    };
+    throw error;
+  }
+  if (["model_mount.mcp_tool.invoke", "model_mount.workflow_node.execute"].includes(operationKind) && !request.custody_ref) {
+    const error = new Error("Rust MCP workflow external exits require cTEE custody refs.");
+    error.status = 403;
+    error.code = "model_mount_mcp_external_exit_custody_required";
+    error.details = {
+      rust_core_boundary: "model_mount.mcp_workflow",
+      operation_kind: operationKind,
+    };
+    throw error;
+  }
+  if (
+    ["model_mount.mcp_tool.invoke", "model_mount.workflow_node.execute"].includes(operationKind) &&
+    !request.containment_ref
+  ) {
+    const error = new Error("Rust MCP workflow external exits require transport containment refs.");
+    error.status = 403;
+    error.code = "model_mount_mcp_external_exit_containment_required";
+    error.details = {
+      rust_core_boundary: "model_mount.mcp_workflow",
+      operation_kind: operationKind,
+    };
+    throw error;
+  }
   const recordDir = operationKind === "model_mount.mcp_server.import" ||
     operationKind === "model_mount.mcp_server.ephemeral_register"
     ? "mcp-servers"
@@ -99,12 +156,56 @@ function mcpWorkflowPlan(request) {
       ? ["mcp.search"]
       : [];
   const publicResponse = {
-    status: operationKind.includes("mcp_server") ? "committed" : "planned",
+    status: operationKind.includes("mcp_server") ? "committed" : "admitted",
     operation_kind: operationKind,
     server_ids: serverIds,
     tool_receipt_ids: [],
-    transport_execution_status: operationKind === "model_mount.mcp_tool.invoke" ? "rust_required" : undefined,
-    execution_status: operationKind === "model_mount.workflow_node.execute" ? "rust_required" : undefined,
+    content_receipt_id: ["model_mount.mcp_tool.invoke", "model_mount.workflow_node.execute"].includes(operationKind)
+      ? `receipt.${recordId}`
+      : undefined,
+    result_receipt_id: ["model_mount.mcp_tool.invoke", "model_mount.workflow_node.execute"].includes(operationKind)
+      ? `receipt.${recordId}`
+      : undefined,
+    content_receipt_required: ["model_mount.mcp_tool.invoke", "model_mount.workflow_node.execute"].includes(
+      operationKind,
+    ) || undefined,
+    transport_execution_status: operationKind === "model_mount.mcp_tool.invoke" ? "rust_admitted" : undefined,
+    rust_transport_execution_admitted: operationKind === "model_mount.mcp_tool.invoke" || undefined,
+    transport_execution_owner: operationKind === "model_mount.mcp_tool.invoke"
+      ? "rust_daemon_core.model_mount.mcp_workflow"
+      : undefined,
+    execution_status: operationKind === "model_mount.workflow_node.execute" ? "rust_admitted" : undefined,
+    rust_step_module_dispatch_admitted: operationKind === "model_mount.workflow_node.execute" || undefined,
+    workflow_execution_owner: operationKind === "model_mount.workflow_node.execute"
+      ? "rust_daemon_core.model_mount.mcp_workflow"
+      : undefined,
+    step_module_dispatch_owner: ["model_mount.mcp_tool.invoke", "model_mount.workflow_node.execute"].includes(
+      operationKind,
+    )
+      ? "rust_daemon_core.step_module_router"
+      : undefined,
+    agentgres_admission_required: ["model_mount.mcp_tool.invoke", "model_mount.workflow_node.execute"].includes(
+      operationKind,
+    ) || undefined,
+    receipt_state_root_binding_required: ["model_mount.mcp_tool.invoke", "model_mount.workflow_node.execute"].includes(
+      operationKind,
+    ) || undefined,
+    js_transport_invocation: operationKind === "model_mount.mcp_tool.invoke" ? false : undefined,
+    js_route_test: operationKind === "model_mount.workflow_node.execute" ? false : undefined,
+    js_model_invocation: operationKind === "model_mount.workflow_node.execute" ? false : undefined,
+    js_mcp_tool_invocation: operationKind === "model_mount.workflow_node.execute" ? false : undefined,
+    command_transport_fallback: ["model_mount.mcp_tool.invoke", "model_mount.workflow_node.execute"].includes(
+      operationKind,
+    ) ? false : undefined,
+    binary_bridge_fallback: ["model_mount.mcp_tool.invoke", "model_mount.workflow_node.execute"].includes(operationKind)
+      ? false
+      : undefined,
+    compatibility_fallback: ["model_mount.mcp_tool.invoke", "model_mount.workflow_node.execute"].includes(operationKind)
+      ? false
+      : undefined,
+    legacy_js_result_fallback: ["model_mount.mcp_tool.invoke", "model_mount.workflow_node.execute"].includes(
+      operationKind,
+    ) ? false : undefined,
     server_id: request.body.server_id ?? null,
     tool: request.body.tool ?? null,
     workflow_node_id: request.body.workflow_node_id ?? null,
@@ -123,6 +224,36 @@ function mcpWorkflowPlan(request) {
       js_mcp_tool_invocation: false,
       js_receipt_gate_dispatch: false,
       js_model_invocation: false,
+      command_transport_fallback: ["model_mount.mcp_tool.invoke", "model_mount.workflow_node.execute"].includes(
+        operationKind,
+      ) ? false : undefined,
+      binary_bridge_fallback: ["model_mount.mcp_tool.invoke", "model_mount.workflow_node.execute"].includes(
+        operationKind,
+      ) ? false : undefined,
+      compatibility_fallback: ["model_mount.mcp_tool.invoke", "model_mount.workflow_node.execute"].includes(
+        operationKind,
+      ) ? false : undefined,
+      legacy_js_result_fallback: ["model_mount.mcp_tool.invoke", "model_mount.workflow_node.execute"].includes(
+        operationKind,
+      ) ? false : undefined,
+      wallet_authority_required: ["model_mount.mcp_tool.invoke", "model_mount.workflow_node.execute"].includes(
+        operationKind,
+      ),
+      wallet_authority_boundary: ["model_mount.mcp_tool.invoke", "model_mount.workflow_node.execute"].includes(
+        operationKind,
+      )
+        ? "wallet.network.mcp_external_exit"
+        : null,
+      ctee_custody_required: ["model_mount.mcp_tool.invoke", "model_mount.workflow_node.execute"].includes(
+        operationKind,
+      ),
+      transport_containment_required: ["model_mount.mcp_tool.invoke", "model_mount.workflow_node.execute"].includes(
+        operationKind,
+      ),
+      authority_grant_refs: request.authority_grant_refs ?? [],
+      authority_receipt_refs: request.authority_receipt_refs ?? [],
+      custody_ref: request.custody_ref ?? null,
+      containment_ref: request.containment_ref ?? null,
     },
     receipt_id: `receipt.${recordId}`,
     receipt_refs: [`receipt.${recordId}`],
@@ -134,6 +265,47 @@ function mcpWorkflowPlan(request) {
       "model_mount_mcp_workflow_js_facade_retired",
     ],
   };
+  const executionReceipt = ["model_mount.mcp_tool.invoke", "model_mount.workflow_node.execute"].includes(operationKind)
+    ? {
+      schemaVersion: "ioi.model_mount.mcp_workflow_receipt.v1",
+      id: `receipt.${recordId}`,
+      kind: operationKind === "model_mount.mcp_tool.invoke" ? "mcp_tool_invocation" : "workflow_node_execution",
+      redaction: "redacted",
+      summary: "Rust model_mount MCP execution admitted",
+      createdAt: request.generated_at,
+      evidenceRefs: [
+        "rust_model_mount_core",
+        "rust_daemon_core_model_mount_mcp_workflow",
+        "model_mount_mcp_execution_content_receipt_rust_owned",
+        "agentgres_mcp_content_receipt_truth_required",
+      ],
+      details: {
+        rust_daemon_core_receipt_author: "model_mount.mcp_workflow",
+        operation_kind: operationKind,
+        model_mount_mcp_workflow_ref: `model_mount://mcp_workflow/${recordId}`,
+        model_mount_mcp_content_receipt_id: `receipt.${recordId}`,
+        model_mount_mcp_content_hash: `sha256:content:${recordId}`,
+        model_mount_mcp_result_materialized: false,
+        model_mount_mcp_result_materialization_status: "rust_admitted_pending_transport_backend",
+        workflow_hash: record.workflow_hash,
+        authority_hash: record.authority_hash,
+        custody_ref: request.custody_ref ?? null,
+        containment_ref: request.containment_ref ?? null,
+        model_mount_agentgres_operation_ref: `agentgres://model-mounting/mcp-workflow/${recordId}`,
+        model_mount_agentgres_state_root_before: `sha256:state-before:${recordId}`,
+        model_mount_agentgres_state_root_after: `sha256:state-after:${recordId}`,
+        model_mount_agentgres_resulting_head: `agentgres://model-mounting/mcp-workflow/head/${recordId}`,
+        model_mount_step_module_result: {
+          status: "admitted",
+          agentgres_operation_refs: [`agentgres://model-mounting/mcp-workflow/${recordId}`],
+          state_root_after: `sha256:state-after:${recordId}`,
+          resulting_head: `agentgres://model-mounting/mcp-workflow/head/${recordId}`,
+          content_hash: `sha256:content:${recordId}`,
+          result_materialized: false,
+        },
+      },
+    }
+    : null;
   return {
     source: "rust_model_mount_mcp_workflow_command",
     backend: "rust_model_mount_mcp_workflow",
@@ -144,10 +316,11 @@ function mcpWorkflowPlan(request) {
       record_dir: recordDir,
       record_id: recordId,
       record,
+      receipt: executionReceipt,
       public_response: publicResponse,
       receipt_refs: record.receipt_refs,
-      authority_grant_refs: [],
-      authority_receipt_refs: [],
+      authority_grant_refs: request.authority_grant_refs ?? [],
+      authority_receipt_refs: request.authority_receipt_refs ?? [],
       evidence_refs: record.evidence_refs,
       workflow_hash: record.workflow_hash,
       authority_hash: record.authority_hash,
@@ -155,12 +328,13 @@ function mcpWorkflowPlan(request) {
     record_dir: recordDir,
     record_id: recordId,
     record,
+    receipt: executionReceipt,
     public_response: publicResponse,
     operation_kind: operationKind,
     rust_core_boundary: "model_mount.mcp_workflow",
     receipt_refs: record.receipt_refs,
-    authority_grant_refs: [],
-    authority_receipt_refs: [],
+    authority_grant_refs: request.authority_grant_refs ?? [],
+    authority_receipt_refs: request.authority_receipt_refs ?? [],
     evidence_refs: record.evidence_refs,
     workflow_hash: record.workflow_hash,
     authority_hash: record.authority_hash,
@@ -394,7 +568,7 @@ test("importMcpJson rejects retired request aliases before state mutation", () =
   assert.deepEqual(state.writes, []);
 });
 
-test("invokeMcpTool uses Rust MCP workflow planning and record-state commit before transport execution", () => {
+test("invokeMcpTool uses Rust MCP workflow admission and rejects JS or command fallback", () => {
   const state = fakeState();
   state.mcpServers.set("mcp.Local", {
     id: "mcp.Local",
@@ -404,19 +578,200 @@ test("invokeMcpTool uses Rust MCP workflow planning and record-state commit befo
 
   const result = invokeMcpTool(
     state,
-    { authorization: "auth", body: { server_id: "mcp.Local", tool: "run", input: { prompt: "hello" } } },
+    {
+      authorization: "auth",
+      body: {
+        server_id: "mcp.Local",
+        tool: "run",
+        input: { prompt: "hello" },
+        authority_grant_refs: ["wallet.network://grant/mcp/local/run"],
+        authority_receipt_refs: ["receipt://wallet.network/mcp/local/run"],
+        custody_ref: "ctee://workspace/local",
+        containment_ref: "containment://mcp/local",
+      },
+    },
   );
 
   assert.equal(result.operation_kind, "model_mount.mcp_tool.invoke");
-  assert.equal(result.transport_execution_status, "rust_required");
+  assert.equal(result.status, "admitted");
+  assert.equal(result.transport_execution_status, "rust_admitted");
+  assert.equal(result.rust_transport_execution_admitted, true);
+  assert.equal(result.transport_execution_owner, "rust_daemon_core.model_mount.mcp_workflow");
+  assert.equal(result.step_module_dispatch_owner, "rust_daemon_core.step_module_router");
+  assert.equal(result.content_receipt_required, true);
+  assert.equal(result.result_receipt_id, result.content_receipt_id);
+  assert.equal(result.receipt.kind, "mcp_tool_invocation");
+  assert.equal(result.receipt.details.rust_daemon_core_receipt_author, "model_mount.mcp_workflow");
+  assert.equal(result.receipt.details.model_mount_mcp_result_materialized, false);
+  assert.equal(result.receipt_commit.commit_hash, `sha256:receipt-commit:${result.receipt.id}`);
+  assert.equal(result.js_transport_invocation, false);
+  assert.equal(result.command_transport_fallback, false);
+  assert.equal(result.binary_bridge_fallback, false);
+  assert.equal(result.compatibility_fallback, false);
+  assert.equal(result.legacy_js_result_fallback, false);
   assert.equal(state.mcpWorkflowRequests.length, 1);
   assert.equal(state.mcpWorkflowRequests[0].body.server_id, "mcp.Local");
   assert.equal(state.mcpWorkflowRequests[0].body.tool, "run");
+  assert.deepEqual(state.mcpWorkflowRequests[0].authority_grant_refs, [
+    "wallet.network://grant/mcp/local/run",
+  ]);
+  assert.deepEqual(state.mcpWorkflowRequests[0].authority_receipt_refs, [
+    "receipt://wallet.network/mcp/local/run",
+  ]);
+  assert.equal(state.mcpWorkflowRequests[0].custody_ref, "ctee://workspace/local");
+  assert.equal(state.mcpWorkflowRequests[0].containment_ref, "containment://mcp/local");
+  assert.equal(state.recordStateCommits[0].record.details.wallet_authority_required, true);
+  assert.equal(
+    state.recordStateCommits[0].record.details.wallet_authority_boundary,
+    "wallet.network.mcp_external_exit",
+  );
+  assert.equal(state.recordStateCommits[0].record.details.ctee_custody_required, true);
+  assert.equal(state.recordStateCommits[0].record.details.transport_containment_required, true);
+  assert.equal(state.recordStateCommits[0].record.details.custody_ref, "ctee://workspace/local");
+  assert.equal(state.recordStateCommits[0].record.details.containment_ref, "containment://mcp/local");
   assert.equal(state.recordStateCommits.length, 1);
   assert.equal(state.recordStateCommits[0].record_dir, "mcp-workflow-controls");
   assert.equal(state.recordStateCommits[0].record.details.js_transport_invocation, false);
+  assert.equal(state.recordStateCommits[0].record.details.command_transport_fallback, false);
+  assert.equal(state.recordStateCommits[0].record.details.binary_bridge_fallback, false);
+  assert.equal(state.recordStateCommits[0].record.details.compatibility_fallback, false);
+  assert.equal(state.receiptStateCommits.length, 1);
+  assert.equal(state.receiptStateCommits[0].receipt_id, result.content_receipt_id);
+  assert.equal(
+    state.receiptStateCommits[0].receipt.details.model_mount_agentgres_operation_ref,
+    `agentgres://model-mounting/mcp-workflow/${state.recordStateCommits[0].record_id}`,
+  );
   assert.deepEqual(state.authorizations, []);
-  assert.deepEqual(state.receipts, []);
+  assert.equal(state.receipts.length, 1);
+  assert.equal(state.receipts[0].kind, "mcp_tool_invocation");
+});
+
+test("invokeMcpTool fails closed without wallet authority refs", () => {
+  const state = fakeState();
+
+  assert.throws(
+    () =>
+      invokeMcpTool(
+        state,
+        { authorization: "auth", body: { server_id: "mcp.Local", tool: "run", input: { prompt: "hello" } } },
+      ),
+    (error) => {
+      assert.equal(error.code, "model_mount_mcp_external_exit_wallet_authority_required");
+      assert.equal(error.details.rust_core_boundary, "model_mount.mcp_workflow");
+      assert.equal(error.details.operation_kind, "model_mount.mcp_tool.invoke");
+      return true;
+    },
+  );
+  assert.equal(state.recordStateCommits.length, 0);
+  assert.deepEqual(state.authorizations, []);
+});
+
+test("invokeMcpTool fails closed without Rust MCP execution receipt commit", () => {
+  const missingReceiptState = fakeState();
+  missingReceiptState.planModelMountMcpWorkflow = function planWithoutReceipt(request) {
+    this.mcpWorkflowRequests.push(JSON.parse(JSON.stringify(request)));
+    const plan = mcpWorkflowPlan(request);
+    delete plan.receipt;
+    if (plan.plan) delete plan.plan.receipt;
+    return plan;
+  };
+
+  assert.throws(
+    () =>
+      invokeMcpTool(
+        missingReceiptState,
+        {
+          authorization: "auth",
+          body: {
+            server_id: "mcp.Local",
+            tool: "run",
+            input: { prompt: "hello" },
+            authority_grant_refs: ["wallet.network://grant/mcp/local/run"],
+            authority_receipt_refs: ["receipt://wallet.network/mcp/local/run"],
+            custody_ref: "ctee://workspace/local",
+            containment_ref: "containment://mcp/local",
+          },
+        },
+      ),
+    (error) => error.code === "model_mount_mcp_execution_receipt_required",
+  );
+  assert.equal(missingReceiptState.recordStateCommits.length, 1);
+  assert.equal(missingReceiptState.receiptStateCommits.length, 0);
+
+  const missingCommitterState = fakeState();
+  delete missingCommitterState.persistRustAuthoredReceiptWithCommit;
+  assert.throws(
+    () =>
+      invokeMcpTool(
+        missingCommitterState,
+        {
+          authorization: "auth",
+          body: {
+            server_id: "mcp.Local",
+            tool: "run",
+            input: { prompt: "hello" },
+            authority_grant_refs: ["wallet.network://grant/mcp/local/run"],
+            authority_receipt_refs: ["receipt://wallet.network/mcp/local/run"],
+            custody_ref: "ctee://workspace/local",
+            containment_ref: "containment://mcp/local",
+          },
+        },
+      ),
+    (error) => error.code === "model_mount_mcp_execution_receipt_state_commit_unconfigured",
+  );
+  assert.equal(missingCommitterState.recordStateCommits.length, 1);
+  assert.equal(missingCommitterState.receiptStateCommits.length, 0);
+});
+
+test("invokeMcpTool fails closed without custody and containment refs", () => {
+  const state = fakeState();
+
+  assert.throws(
+    () =>
+      invokeMcpTool(
+        state,
+        {
+          authorization: "auth",
+          body: {
+            server_id: "mcp.Local",
+            tool: "run",
+            input: { prompt: "hello" },
+            authority_grant_refs: ["wallet.network://grant/mcp/local/run"],
+            authority_receipt_refs: ["receipt://wallet.network/mcp/local/run"],
+          },
+        },
+      ),
+    (error) => {
+      assert.equal(error.code, "model_mount_mcp_external_exit_custody_required");
+      assert.equal(error.details.rust_core_boundary, "model_mount.mcp_workflow");
+      return true;
+    },
+  );
+
+  assert.throws(
+    () =>
+      invokeMcpTool(
+        state,
+        {
+          authorization: "auth",
+          body: {
+            server_id: "mcp.Local",
+            tool: "run",
+            input: { prompt: "hello" },
+            authority_grant_refs: ["wallet.network://grant/mcp/local/run"],
+            authority_receipt_refs: ["receipt://wallet.network/mcp/local/run"],
+            custody_ref: "ctee://workspace/local",
+          },
+        },
+      ),
+    (error) => {
+      assert.equal(error.code, "model_mount_mcp_external_exit_containment_required");
+      assert.equal(error.details.rust_core_boundary, "model_mount.mcp_workflow");
+      return true;
+    },
+  );
+  assert.equal(state.recordStateCommits.length, 0);
+  assert.deepEqual(state.authorizations, []);
 });
 
 test("invokeMcpTool rejects retired request aliases before authorization", () => {
@@ -539,7 +894,7 @@ test("compileEphemeralMcpIntegrations rejects retired integration aliases before
   assert.deepEqual(state.authorizations, []);
 });
 
-test("executeWorkflowNode uses Rust MCP workflow planning and record-state commit before dispatch", async () => {
+test("executeWorkflowNode uses Rust StepModule dispatch admission and rejects JS fallback", async () => {
   const state = fakeState();
   state.mcpServers.set("mcp.Local", {
     id: "mcp.Local",
@@ -560,12 +915,33 @@ test("executeWorkflowNode uses Rust MCP workflow planning and record-state commi
         workflow_graph_id: "graph.workflow",
         workflow_node_id: "node.embed",
         workflow_node_type: "Embedding",
+        authority_grant_refs: ["wallet.network://grant/workflow/node/embed"],
+        authority_receipt_refs: ["receipt://wallet.network/workflow/node/embed"],
+        custody_ref: "ctee://workspace/workflow",
+        containment_ref: "containment://workflow/node/embed",
       },
     },
   );
 
   assert.equal(result.operation_kind, "model_mount.workflow_node.execute");
-  assert.equal(result.execution_status, "rust_required");
+  assert.equal(result.status, "admitted");
+  assert.equal(result.execution_status, "rust_admitted");
+  assert.equal(result.rust_step_module_dispatch_admitted, true);
+  assert.equal(result.workflow_execution_owner, "rust_daemon_core.model_mount.mcp_workflow");
+  assert.equal(result.step_module_dispatch_owner, "rust_daemon_core.step_module_router");
+  assert.equal(result.content_receipt_required, true);
+  assert.equal(result.result_receipt_id, result.content_receipt_id);
+  assert.equal(result.receipt.kind, "workflow_node_execution");
+  assert.equal(result.receipt.details.rust_daemon_core_receipt_author, "model_mount.mcp_workflow");
+  assert.equal(result.receipt.details.model_mount_mcp_result_materialized, false);
+  assert.equal(result.receipt_commit.commit_hash, `sha256:receipt-commit:${result.receipt.id}`);
+  assert.equal(result.js_route_test, false);
+  assert.equal(result.js_model_invocation, false);
+  assert.equal(result.js_mcp_tool_invocation, false);
+  assert.equal(result.command_transport_fallback, false);
+  assert.equal(result.binary_bridge_fallback, false);
+  assert.equal(result.compatibility_fallback, false);
+  assert.equal(result.legacy_js_result_fallback, false);
   assert.equal(state.mcpWorkflowRequests.length, 1);
   assert.deepEqual(
     {
@@ -582,11 +958,21 @@ test("executeWorkflowNode uses Rust MCP workflow planning and record-state commi
   assert.equal(state.recordStateCommits.length, 1);
   assert.equal(state.recordStateCommits[0].record_dir, "mcp-workflow-controls");
   assert.equal(state.recordStateCommits[0].record.details.js_model_invocation, false);
+  assert.equal(state.recordStateCommits[0].record.details.wallet_authority_required, true);
+  assert.equal(state.recordStateCommits[0].record.details.ctee_custody_required, true);
+  assert.equal(state.recordStateCommits[0].record.details.transport_containment_required, true);
+  assert.equal(state.recordStateCommits[0].record.details.containment_ref, "containment://workflow/node/embed");
+  assert.equal(state.recordStateCommits[0].record.details.command_transport_fallback, false);
+  assert.equal(state.recordStateCommits[0].record.details.binary_bridge_fallback, false);
+  assert.equal(state.recordStateCommits[0].record.details.compatibility_fallback, false);
+  assert.equal(state.receiptStateCommits.length, 1);
+  assert.equal(state.receiptStateCommits[0].receipt_id, result.content_receipt_id);
   assert.equal(state.mcpServers.size, 1);
   assert.deepEqual(state.authorizations, []);
   assert.deepEqual(state.routeTests, []);
   assert.deepEqual(state.modelInvocations, []);
-  assert.deepEqual(state.receipts, []);
+  assert.equal(state.receipts.length, 1);
+  assert.equal(state.receipts[0].kind, "workflow_node_execution");
 });
 
 test("executeWorkflowNode rejects retired request aliases before authorization", async () => {

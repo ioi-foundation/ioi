@@ -157,6 +157,26 @@ export class RuntimeAgentgresAdmissionCore {
     });
   }
 
+  commitRuntimeReceiptState(stateDir, request) {
+    return this.invokeDaemonCore({
+      schema_version: RUNTIME_AGENTGRES_CORE_SCHEMA_VERSION,
+      operation: "commit_runtime_receipt_state",
+      backend: RUST_AGENTGRES_STORAGE_BACKEND,
+      state_dir: stateDir,
+      request,
+    });
+  }
+
+  commitRuntimeMcpLiveResultState(stateDir, request) {
+    return this.invokeDaemonCore({
+      schema_version: RUNTIME_AGENTGRES_CORE_SCHEMA_VERSION,
+      operation: "commit_runtime_mcp_live_result_state",
+      backend: RUST_AGENTGRES_STORAGE_BACKEND,
+      state_dir: stateDir,
+      request,
+    });
+  }
+
   commitRuntimeModelMountRecordState(stateDir, request) {
     return this.invokeDaemonCore({
       schema_version: RUNTIME_AGENTGRES_CORE_SCHEMA_VERSION,

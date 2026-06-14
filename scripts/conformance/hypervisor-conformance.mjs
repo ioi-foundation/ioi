@@ -356,6 +356,73 @@ function runDocs() {
     [GUIDE],
     "master guide live status must reflect the current Rust workload live default and fail-closed daemon_js selection",
   );
+  assertCheck(
+    result,
+    "guide-mcp-workflow-rust-required-placeholder-retired",
+    /Slice 1213 retires the MCP workflow execution `rust_required` placeholder/.test(guide) &&
+      /Slice 1214 binds the migrated model-mount MCP execution hot paths to\s+Rust-authored execution\/content receipts/.test(guide) &&
+      /`model_mount\.mcp_tool\.invoke` emits `transport_execution_status:\s+"rust_admitted"`/.test(
+        guide,
+      ) &&
+      /`model_mount\.workflow_node\.execute` emits the matching `execution_status:\s+"rust_admitted"`/.test(
+        guide,
+      ) &&
+      /JS model-mount core rejects stale\s+`rust_required` MCP workflow execution responses/.test(guide) &&
+      /persistRustAuthoredReceiptWithCommit\(\)/.test(guide) &&
+      /Rust MCP transport\s+backend materializes real tool results/.test(guide),
+    [GUIDE],
+    "master guide must record the retired MCP workflow rust_required placeholder, Rust execution receipt binding, and the remaining Rust transport backend blocker",
+  );
+  assertCheck(
+    result,
+    "guide-runtime-mcp-live-exit-receipt-state-bound",
+      /Slice 1215 binds runtime MCP live invoke\/discovery exits to\s+Rust-authored\s+runtime receipt-state commits/.test(guide) &&
+      /ioi\.runtime\.mcp-live-exit-receipt\.v1/.test(guide) &&
+      /commitRuntimeReceiptState\(\)` before `writeAgent\(\)` can persist/.test(guide) &&
+      /commit_runtime_receipt_state/.test(guide) &&
+      /real contained\s+tool\/discovery result payloads/.test(guide),
+    [GUIDE],
+    "master guide must record Rust-owned runtime MCP live-exit receipt-state binding and the narrower remaining transport/result-payload blocker",
+  );
+  assertCheck(
+    result,
+    "guide-runtime-mcp-live-result-state-bound",
+      /Slice 1216 binds runtime MCP live invoke\/discovery exits to\s+Rust-authored\s+live-result state commits/.test(guide) &&
+      /ioi\.runtime\.mcp-live-result\.v1/.test(guide) &&
+      /commitRuntimeMcpLiveResultState\(\)` after `commitRuntimeReceiptState\(\)` and\s+before `writeAgent\(\)` can persist/.test(guide) &&
+      /commit_runtime_mcp_live_result_state/.test(guide) &&
+      /mcp-live-results\/\*\.json/.test(guide) &&
+      /real\s+contained tool\/discovery payloads into those result records/.test(guide),
+    [GUIDE],
+    "master guide must record Rust-owned runtime MCP live-result state binding and the remaining real transport payload blocker",
+  );
+  assertCheck(
+    result,
+    "guide-runtime-mcp-live-result-replay-bound",
+      /Slice 1217 binds runtime MCP live-result public return to Rust-owned\s+Agentgres replay\/projection/.test(guide) &&
+      /McpLiveResultReplayCore/.test(guide) &&
+      /project_mcp_live_result_replay/.test(guide) &&
+      /projectMcpLiveResultReplay\(\)` after `commitRuntimeReceiptState\(\)` and\s+`commitRuntimeMcpLiveResultState\(\)` and before `writeAgent\(\)`/.test(guide) &&
+      /mcp-live-results\/\*\.json/.test(guide) &&
+      /replayed result instead of the planner's direct `record\.result`/.test(guide) &&
+      /real contained tool\/discovery payloads into the persisted\s+result records/.test(guide),
+    [GUIDE],
+    "master guide must record Rust-owned runtime MCP live-result replay and the retired direct planner-result public truth path",
+  );
+  assertCheck(
+    result,
+    "guide-runtime-mcp-tool-search-fetch-rust-projection",
+    /Slice 1218 moves public MCP tool search\/fetch projection into Rust daemon-core/.test(guide) &&
+      /McpToolSearchProjectionCore/.test(guide) &&
+      /McpToolFetchProjectionCore/.test(guide) &&
+      /project_mcp_tool_search_projection/.test(guide) &&
+      /project_mcp_tool_fetch_projection/.test(guide) &&
+      /query\/tool\/server filtering, stable ordering, catalog summaries,\s+pagination, fetch `not_found`\/`completed` status/.test(guide) &&
+      /no longer imports or calls JS\s+`mcpToolMatchesQuery`, `mcpToolIdentityMatches`, `mcpToolKey`,\s+`resolveMcpServerRecord`, or `mcpLiveExecutionModeForServer`/.test(guide) &&
+      /JS maps Rust `not_found` to the route error only/.test(guide),
+    [GUIDE],
+    "master guide must record Rust-owned MCP catalog search/fetch projection and retired JS search/fetch truth helpers",
+  );
   const macroPrunedMatrixGuard =
     /stable daemon-to-kernel protocol surface, not a\s+permanent bridge binary/.test(guide) &&
     /current `ioi-step-module-bridge` command path is migration scaffolding/.test(guide) &&
@@ -2090,17 +2157,31 @@ function runDocs() {
       /public MCP validation decisions now send Rust-projected canonical server records through Rust\s+daemon-core `McpServerValidationCore`\/`validate_mcp_servers` migration transport/.test(implementationMatrix) &&
       /public MCP validation envelopes now route through Rust daemon-core\s+`McpManagerValidationProjectionCore`\/`plan_mcp_manager_validation_projection`/.test(implementationMatrix) &&
       /public MCP status plus agent-scoped `mcpStatusForAgent` catalog row inputs now\s+route through Rust daemon-core `McpManagerCatalogProjectionCore`\/`plan_mcp_manager_catalog_projection`/.test(implementationMatrix) &&
-      /public MCP list\/search declared catalog row inputs now route through Rust daemon-core\s+`McpManagerCatalogProjectionCore`\/`plan_mcp_manager_catalog_projection` instead of JS\s+`mcpToolsForServers`\/`mcpResourcesForServers`\/`mcpPromptsForServers` builders/.test(implementationMatrix) &&
-      /public MCP search\/fetch catalog summaries now route through Rust daemon-core\s+`McpManagerCatalogSummaryProjectionCore`\/`plan_mcp_manager_catalog_summary_projection` instead of JS\s+`mcpCatalogSummaryForServer`/.test(implementationMatrix) &&
+      /public MCP list\/search\/fetch catalog row inputs now route through Rust daemon-core\s+`McpManagerCatalogProjectionCore`\/`plan_mcp_manager_catalog_projection` instead of JS\s+`mcpToolsForServers`\/`mcpResourcesForServers`\/`mcpPromptsForServers` builders/.test(implementationMatrix) &&
+	      /contextual catalog projection now sends runtime `state_dir`, `thread_id`, and `agent_id`\s+so Rust replays admitted `agents\/\*\.json` before returning contextual server rows/.test(implementationMatrix) &&
+	      /public catalog `live_discovery` returns Rust-projected declared rows with\s+`rust_mcp_live_discovery_deferred` instead of executing JS transport/.test(implementationMatrix) &&
+	      /public MCP tool search\/fetch now call Rust\s+`McpToolSearchProjectionCore`\/`McpToolFetchProjectionCore` through\s+`project_mcp_tool_search_projection`\/`project_mcp_tool_fetch_projection`/.test(implementationMatrix) &&
+	      /public MCP search\/fetch catalog summaries now route through Rust daemon-core\s+`McpManagerCatalogSummaryProjectionCore`\/`plan_mcp_manager_catalog_summary_projection` instead of JS\s+`mcpCatalogSummaryForServer`/.test(implementationMatrix) &&
       /helper-level `mcpCatalogSummaryForServer`\/`mcpCatalogExposureForStatus`\/`mcpToolNamespaces`\s+JS summary code is retired/.test(implementationMatrix) &&
       /helper-level `mcpRegistryWithServers`\/`mcpServerRecordsFromMutationInput`\/`mcpServerRecordFromAddRequest`\/`mcpResourceKey`\/`mcpPromptKey`\s+JS mutation\/registry projection code is retired/.test(implementationMatrix) &&
+      /JS `normalizeMcpServerRecord` plus `mcpToolsForServers`\/`mcpResourcesForServers`\/`mcpPromptsForServers`\s+catalog row builders are deleted/.test(implementationMatrix) &&
+      /`mcp-manager\.mjs` only collects raw inline\/workspace\/global config source inputs,\s+forwards canonical `mcp_json\.mcp_servers` plus source metadata into Rust validation-input projection,\s+and returns server\/tool\/resource\/prompt rows from Rust catalog projection/.test(implementationMatrix) &&
       /public\/agent MCP status readiness\/count\/projection now route through Rust daemon-core\s+`McpManagerStatusProjectionCore`\/`plan_mcp_manager_status_projection`/.test(implementationMatrix) &&
 	      /public memory list\/policy\/path\/status\/validation route projections now call Rust daemon-core\s+`project_runtime_memory_projection`/.test(implementationMatrix) &&
       /Rust projection boundary plus SDK memory output contracts now accept only canonical memory projection envelope\/policy\/path\/record fields\s+\(`schema_version`, `thread_id`, `agent_id`, `total_matches`, `injection_enabled`,\s+`read_only`, `write_requires_approval`, `subagent_inheritance`, `records_path`,\s+`policies_path`, `effective_policy_id`, `memory_key`, `fact_hash`\)/.test(implementationMatrix) &&
       /public model-capability contracts now emit canonical snake_case protocol fields\s+\(`schema_version`, `route_id`, `model_role`, `authority_scope_requirements`,/.test(
         implementationMatrix,
       ) &&
-      /live catalog discovery remains a read-only\/projection migration helper, and\s+validation-input projection now routes through Rust migration transport/.test(implementationMatrix) &&
+	      /live MCP invoke\/discovery exits now also call the same Rust planner[\s\S]*?require Rust-enforced wallet grant refs, authority receipt refs, cTEE custody refs, and transport containment refs/.test(implementationMatrix) &&
+	      /MCP tool invocation and workflow-node external exits now require Rust-enforced\s+`wallet\.network\.mcp_external_exit` grant refs, authority receipt refs, cTEE custody refs, and transport containment refs/.test(
+	        implementationMatrix,
+	      ) &&
+	      /MCP tool invocation now returns a Rust-admitted transport execution contract with\s+`transport_execution_status: "rust_admitted"`/.test(implementationMatrix) &&
+	      /workflow-node execution returns the matching `execution_status: "rust_admitted"`\s+StepModule dispatch contract/.test(implementationMatrix) &&
+	      /JS model-mount core rejects stale `rust_required` MCP workflow execution responses/.test(
+	        implementationMatrix,
+	      ) &&
+	      /actual MCP transport backend materialization, runtime containment sandboxing,\s+result content receipts, command-transport retirement, and stable SDK\/IDE APIs remain non-terminal/.test(implementationMatrix) &&
       /`allowedTools`, `allowedResources`, `allowedPrompts`, `serverUrl`,\s+`containmentMode`, `allowNetworkEgress`, `allowChildProcesses`, and\s+`secretRefs` aliases/.test(
         implementationMatrix,
       ) &&
@@ -7806,8 +7887,9 @@ function runBridge() {
   assertCheck(
     result,
     "mcp-memory-command-envelope-owned-by-rust-core",
-    /pub struct McpMemoryCommandError/.test(policyMcpMemoryCore) &&
+      /pub struct McpMemoryCommandError/.test(policyMcpMemoryCore) &&
       /pub fn plan_mcp_control_agent_state_update_response/.test(policyMcpMemoryCore) &&
+      /pub fn project_mcp_live_result_replay_response/.test(policyMcpMemoryCore) &&
       /pub fn validate_mcp_servers_response/.test(policyMcpMemoryCore) &&
       /pub fn project_mcp_server_validation_input_response/.test(policyMcpMemoryCore) &&
       /pub fn plan_mcp_manager_status_projection_response/.test(policyMcpMemoryCore) &&
@@ -7822,6 +7904,7 @@ function runBridge() {
       ) &&
       /pub fn plan_thread_memory_agent_state_update_response/.test(policyMcpMemoryCore) &&
       /rust_mcp_control_agent_state_update_command/.test(policyMcpMemoryCore) &&
+      /rust_mcp_live_result_replay_command/.test(policyMcpMemoryCore) &&
       /rust_mcp_server_validation_command/.test(policyMcpMemoryCore) &&
       /rust_mcp_server_validation_input_command/.test(policyMcpMemoryCore) &&
       /rust_mcp_manager_status_projection_command/.test(policyMcpMemoryCore) &&
@@ -7832,6 +7915,7 @@ function runBridge() {
       /rust_memory_manager_validation_projection_command/.test(policyMcpMemoryCore) &&
       /rust_thread_memory_agent_state_update_command/.test(policyMcpMemoryCore) &&
       /rust_policy_shapes_mcp_control_agent_state_update_command_response/.test(policyMcpMemoryCore) &&
+      /rust_policy_shapes_mcp_live_result_replay_command_response/.test(policyMcpMemoryCore) &&
       /rust_policy_shapes_mcp_server_validation_command_response/.test(policyMcpMemoryCore) &&
       /rust_policy_shapes_mcp_server_validation_input_command_response/.test(policyMcpMemoryCore) &&
       /rust_policy_shapes_mcp_manager_status_command_response/.test(policyMcpMemoryCore) &&
@@ -7844,6 +7928,9 @@ function runBridge() {
       !mcpMemoryCommandBridgeExists &&
       !/mod mcp_memory_command;/.test(bridgeModule) &&
       !/plan_mcp_control_agent_state_update_response as plan_mcp_control_agent_state_update/.test(
+        bridgeModule,
+      ) &&
+      !/project_mcp_live_result_replay_response as project_mcp_live_result_replay/.test(
         bridgeModule,
       ) &&
       !/validate_mcp_servers_response as validate_mcp_servers/.test(bridgeModule) &&
@@ -9876,9 +9963,12 @@ function runBridge() {
         codingToolBudgetPolicySurfaceTest,
       ),
     [
-      "crates/services/src/agentic/runtime/kernel/policy.rs",
-      "crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+	      "crates/services/src/agentic/runtime/kernel/policy.rs",
+	      "crates/services/src/agentic/runtime/kernel/policy/mcp_memory.rs",
+	      "crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs",
+	      "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
+	      "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
+	      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs",
       "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
@@ -10004,17 +10094,30 @@ function runBridge() {
     /mod mcp_memory;/.test(policyFacade) &&
       /pub use mcp_memory::/.test(policyFacade) &&
       /pub struct McpControlAgentStateUpdateCore;/.test(policyMcpMemoryCore) &&
+      /pub state_dir: Option<String>/.test(policyMcpMemoryCore) &&
+      /pub agent_id: Option<String>/.test(policyMcpMemoryCore) &&
+      /mcp_control_agent_from_state_dir/.test(policyMcpMemoryCore) &&
+      /AgentCandidateTransportRetired/.test(policyMcpMemoryCore) &&
       /pub struct McpServerValidationCore;/.test(policyMcpMemoryCore) &&
       /pub struct McpManagerStatusProjectionCore;/.test(policyMcpMemoryCore) &&
       /pub struct McpManagerCatalogProjectionCore;/.test(policyMcpMemoryCore) &&
+      /pub thread_id: Option<String>/.test(policyMcpMemoryCore) &&
+      /mcp_catalog_projection_servers/.test(policyMcpMemoryCore) &&
+      /mcp_catalog_agent_from_state_dir/.test(policyMcpMemoryCore) &&
       /pub struct McpManagerCatalogSummaryProjectionCore;/.test(policyMcpMemoryCore) &&
       /pub struct MemoryManagerValidationProjectionCore;/.test(policyMcpMemoryCore) &&
       /pub struct MemoryManagerStatusProjectionCore;/.test(policyMcpMemoryCore) &&
       /pub struct ThreadMemoryAgentStateUpdateCore;/.test(policyMcpMemoryCore) &&
       /rust_policy_validates_mcp_servers/.test(policyMcpMemoryCore) &&
       /rust_policy_projects_mcp_manager_catalog_rows/.test(policyMcpMemoryCore) &&
+      /rust_policy_replays_mcp_manager_catalog_from_agentgres_state/.test(policyMcpMemoryCore) &&
+      /rust_policy_rejects_mcp_manager_catalog_agent_candidate_transport/.test(
+        policyMcpMemoryCore,
+      ) &&
       /rust_policy_projects_memory_manager_status/.test(policyMcpMemoryCore) &&
       /rust_policy_plans_thread_memory_agent_state_update/.test(policyMcpMemoryCore) &&
+      /rust_policy_rejects_mcp_control_agent_candidate_transport/.test(policyMcpMemoryCore) &&
+      /rust_policy_requires_mcp_control_agentgres_replay_state_dir/.test(policyMcpMemoryCore) &&
       !/pub struct McpControlAgentStateUpdateCore;/.test(policyFacade) &&
       !/pub struct McpServerValidationCore;/.test(policyFacade) &&
       !/pub struct McpManagerStatusProjectionCore;/.test(policyFacade) &&
@@ -11671,9 +11774,12 @@ function runBridge() {
       /assert\.equal\(plannerCalls\.length,\s*3\)/.test(runtimeThreadControlSurfaceTest) &&
       /assert\.equal\(store\.writes\.length,\s*3\)/.test(runtimeThreadControlSurfaceTest),
     [
-      "crates/services/src/agentic/runtime/kernel/policy.rs",
-      "crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+	      "crates/services/src/agentic/runtime/kernel/policy.rs",
+	      "crates/services/src/agentic/runtime/kernel/policy/mcp_memory.rs",
+	      "crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs",
+	      "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
+	      "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
+	      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
       "packages/runtime-daemon/src/runtime-thread-control-surface.mjs",
@@ -11860,9 +11966,13 @@ function runBridge() {
   assertCheck(
     result,
     "mcp-control-js-facade-retired",
-    /McpControlAgentStateUpdateCore/.test(policyCore) &&
+      /McpControlAgentStateUpdateCore/.test(policyCore) &&
       /McpControlAgentStateUpdateRequest/.test(policyCore) &&
       /MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
+      /pub state_dir: Option<String>/.test(policyMcpMemoryCore) &&
+      /pub agent_id: Option<String>/.test(policyMcpMemoryCore) &&
+      /mcp_control_agent_from_state_dir/.test(policyMcpMemoryCore) &&
+      /AgentCandidateTransportRetired/.test(policyMcpMemoryCore) &&
       /rust_policy_plans_mcp_control_agent_state_update/.test(policyCore) &&
       /rust_policy_applies_mcp_control_agent_state_update_registry_mutations/.test(
         policyMcpMemoryCore,
@@ -11871,6 +11981,8 @@ function runBridge() {
         policyMcpMemoryCore,
       ) &&
       /rust_policy_rejects_invalid_mcp_control_agent_state_update_schema/.test(policyCore) &&
+      /rust_policy_rejects_mcp_control_agent_candidate_transport/.test(policyMcpMemoryCore) &&
+      /rust_policy_requires_mcp_control_agentgres_replay_state_dir/.test(policyMcpMemoryCore) &&
       /McpServerValidationCore/.test(policyCore) &&
       /McpServerValidationRequest/.test(policyCore) &&
       /MCP_SERVER_VALIDATION_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
@@ -11889,6 +12001,11 @@ function runBridge() {
       /McpManagerCatalogProjectionRequest/.test(policyCore) &&
       /MCP_MANAGER_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
       /rust_policy_projects_mcp_manager_catalog_rows/.test(policyCore) &&
+      /mcp_catalog_projection_servers/.test(policyMcpMemoryCore) &&
+      /rust_policy_replays_mcp_manager_catalog_from_agentgres_state/.test(policyMcpMemoryCore) &&
+      /rust_policy_rejects_mcp_manager_catalog_agent_candidate_transport/.test(
+        policyMcpMemoryCore,
+      ) &&
       /McpManagerCatalogSummaryProjectionCore/.test(policyCore) &&
       /McpManagerCatalogSummaryProjectionRequest/.test(policyCore) &&
       /MCP_MANAGER_CATALOG_SUMMARY_PROJECTION_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
@@ -11908,10 +12025,15 @@ function runBridge() {
       ) &&
       !mcpMemoryCommandBridgeExists && !/mod mcp_memory_command;/.test(bridgeModule) &&
       /pub fn plan_mcp_control_agent_state_update_response/.test(policyMcpMemoryCore) &&
+      /pub fn project_mcp_live_result_replay_response/.test(policyMcpMemoryCore) &&
       /rust_mcp_control_agent_state_update_command/.test(policyMcpMemoryCore) &&
+      /rust_mcp_live_result_replay_command/.test(policyMcpMemoryCore) &&
       /rust_policy_shapes_mcp_control_agent_state_update_command_response/.test(policyMcpMemoryCore) &&
+      /rust_policy_shapes_mcp_live_result_replay_command_response/.test(policyMcpMemoryCore) &&
       !/plan_mcp_control_agent_state_update_response as plan_mcp_control_agent_state_update/.test(bridgeModule) &&
+      !/project_mcp_live_result_replay_response as project_mcp_live_result_replay/.test(bridgeModule) &&
       !/McpControlAgentStateUpdateBridgeRequest/.test(bridgeModule) &&
+      !/McpLiveResultReplayBridgeRequest/.test(bridgeModule) &&
       !/bridge_plans_mcp_control_agent_state_update_through_rust_core/.test(bridgeModule) &&
       /pub fn validate_mcp_servers_response/.test(policyMcpMemoryCore) &&
       /rust_mcp_server_validation_command/.test(policyMcpMemoryCore) &&
@@ -11937,14 +12059,41 @@ function runBridge() {
       !/plan_mcp_manager_catalog_projection_response as plan_mcp_manager_catalog_projection/.test(bridgeModule) &&
       !/McpManagerCatalogProjectionBridgeRequest/.test(bridgeModule) &&
       !/bridge_projects_mcp_manager_catalog_through_rust_core/.test(bridgeModule) &&
-      /pub fn plan_mcp_manager_catalog_summary_projection_response/.test(
-        policyMcpMemoryCore,
-      ) &&
-      /rust_mcp_manager_catalog_summary_projection_command/.test(policyMcpMemoryCore) &&
-      /rust_policy_shapes_mcp_manager_catalog_summary_command_response/.test(policyMcpMemoryCore) &&
-      !/plan_mcp_manager_catalog_summary_projection_response as plan_mcp_manager_catalog_summary_projection/.test(bridgeModule) &&
-      !/McpManagerCatalogSummaryProjectionBridgeRequest/.test(bridgeModule) &&
-      !/bridge_projects_mcp_manager_catalog_summary_through_rust_core/.test(bridgeModule) &&
+	      /pub fn plan_mcp_manager_catalog_summary_projection_response/.test(
+	        policyMcpMemoryCore,
+	      ) &&
+	      /rust_mcp_manager_catalog_summary_projection_command/.test(policyMcpMemoryCore) &&
+	      /rust_policy_shapes_mcp_manager_catalog_summary_command_response/.test(policyMcpMemoryCore) &&
+	      /McpToolSearchProjectionCore/.test(policyMcpMemoryCore) &&
+	      /McpToolFetchProjectionCore/.test(policyMcpMemoryCore) &&
+	      /McpToolSearchProjectionRequest/.test(policyMcpMemoryCore) &&
+	      /McpToolFetchProjectionRequest/.test(policyMcpMemoryCore) &&
+	      /MCP_TOOL_SEARCH_PROJECTION_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
+	      /MCP_TOOL_FETCH_PROJECTION_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
+	      /pub fn project_mcp_tool_search_projection_response/.test(policyMcpMemoryCore) &&
+	      /pub fn project_mcp_tool_fetch_projection_response/.test(policyMcpMemoryCore) &&
+	      /rust_mcp_tool_search_projection_command/.test(policyMcpMemoryCore) &&
+	      /rust_mcp_tool_fetch_projection_command/.test(policyMcpMemoryCore) &&
+	      /runtime_mcp_tool_search_rust_projection/.test(policyMcpMemoryCore) &&
+	      /runtime_mcp_tool_fetch_rust_projection/.test(policyMcpMemoryCore) &&
+	      /runtime_mcp_catalog_js_search_filter_retired/.test(policyMcpMemoryCore) &&
+	      /runtime_mcp_catalog_fetch_js_shape_retired/.test(policyMcpMemoryCore) &&
+	      /rust_policy_projects_mcp_tool_search_without_js_filtering/.test(policyMcpMemoryCore) &&
+	      /rust_policy_projects_mcp_tool_fetch_and_not_found_status/.test(policyMcpMemoryCore) &&
+	      /rust_policy_shapes_mcp_tool_search_and_fetch_command_responses/.test(policyMcpMemoryCore) &&
+	      /"project_mcp_tool_search_projection"/.test(commandProtocolCore) &&
+	      /"project_mcp_tool_fetch_projection"/.test(commandProtocolCore) &&
+	      /ProjectMcpToolSearchProjection/.test(commandProtocolCore) &&
+	      /ProjectMcpToolFetchProjection/.test(commandProtocolCore) &&
+	      /CommandOperation::ProjectMcpToolSearchProjection/.test(coreCommandDispatch) &&
+	      /CommandOperation::ProjectMcpToolFetchProjection/.test(coreCommandDispatch) &&
+	      !/plan_mcp_manager_catalog_summary_projection_response as plan_mcp_manager_catalog_summary_projection/.test(bridgeModule) &&
+	      !/McpManagerCatalogSummaryProjectionBridgeRequest/.test(bridgeModule) &&
+	      !/bridge_projects_mcp_manager_catalog_summary_through_rust_core/.test(bridgeModule) &&
+	      !/project_mcp_tool_search_projection_response as project_mcp_tool_search_projection/.test(bridgeModule) &&
+	      !/project_mcp_tool_fetch_projection_response as project_mcp_tool_fetch_projection/.test(bridgeModule) &&
+	      !/McpToolSearchProjectionBridgeRequest/.test(bridgeModule) &&
+	      !/McpToolFetchProjectionBridgeRequest/.test(bridgeModule) &&
       /pub fn plan_mcp_manager_validation_projection_response/.test(policyMcpMemoryCore) &&
       /rust_mcp_manager_validation_projection_command/.test(policyMcpMemoryCore) &&
       /rust_policy_shapes_mcp_manager_validation_command_response/.test(policyMcpMemoryCore) &&
@@ -11979,6 +12128,8 @@ function runBridge() {
         policyMcpMemoryCore,
       ) &&
       /planMcpControlAgentStateUpdate/.test(runtimeContextPolicyCore) &&
+      /projectMcpLiveResultReplay/.test(runtimeContextPolicyCore) &&
+      /normalizeMcpLiveResultReplayBridgeResult/.test(runtimeContextPolicyCore) &&
       /validateMcpServers/.test(runtimeContextPolicyCore) &&
       /planMcpManagerStatusProjection/.test(runtimeContextPolicyCore) &&
       /planMcpManagerCatalogProjection/.test(runtimeContextPolicyCore) &&
@@ -12029,10 +12180,14 @@ function runBridge() {
       !/ioi\.runtime_memory_manager_validation"/.test(runtimeContextPolicyCore) &&
       !/ioi\.runtime_mcp_manager_catalog_projection"/.test(runtimeContextPolicyCore) &&
       !/ioi\.runtime_mcp_catalog_summary"/.test(runtimeContextPolicyCore) &&
-      !/\?\?\s*tools\.length/.test(runtimeContextPolicyCore) &&
-      !/\?\?\s*namespaces\.length/.test(runtimeContextPolicyCore) &&
-      !/\?\?\s*!deferred/.test(runtimeContextPolicyCore) &&
-      /MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
+	      !/\?\?\s*tools\.length/.test(runtimeContextPolicyCore) &&
+	      !/\?\?\s*namespaces\.length/.test(runtimeContextPolicyCore) &&
+	      !/\?\?\s*!deferred/.test(runtimeContextPolicyCore) &&
+	      !/\?\?\s*\(tool \? 1 : 0\)/.test(runtimeContextPolicyCore) &&
+	      /MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
+        runtimeContextPolicyCore,
+      ) &&
+      /MCP_LIVE_RESULT_REPLAY_REQUEST_SCHEMA_VERSION/.test(
         runtimeContextPolicyCore,
       ) &&
       /MCP_SERVER_VALIDATION_REQUEST_SCHEMA_VERSION/.test(
@@ -12047,13 +12202,28 @@ function runBridge() {
       /MCP_MANAGER_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
         runtimeContextPolicyCore,
       ) &&
-      /MCP_MANAGER_CATALOG_SUMMARY_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
-        runtimeContextPolicyCore,
-      ) &&
-      /MCP_MANAGER_VALIDATION_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
-        runtimeContextPolicyCore,
-      ) &&
+	      /MCP_MANAGER_CATALOG_SUMMARY_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
+	        runtimeContextPolicyCore,
+	      ) &&
+	      /MCP_TOOL_SEARCH_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
+	        runtimeContextPolicyCore,
+	      ) &&
+	      /MCP_TOOL_FETCH_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
+	        runtimeContextPolicyCore,
+	      ) &&
+	      /MCP_MANAGER_VALIDATION_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
+	        runtimeContextPolicyCore,
+	      ) &&
       /mcp control agent state update core sends Rust state update through direct daemon-core invoker/.test(
+        runtimeContextPolicyCoreTest,
+      ) &&
+      /MCP live-result replay sends Rust daemon-core state replay request/.test(
+        runtimeContextPolicyCoreTest,
+      ) &&
+      /captured\.operation,\s*"project_mcp_live_result_replay"/.test(
+        runtimeContextPolicyCoreTest,
+      ) &&
+      /result\.source,\s*"rust_mcp_live_result_replay_command"/.test(
         runtimeContextPolicyCoreTest,
       ) &&
       /MCP server validation core sends Rust daemon-core validation request/.test(
@@ -12068,12 +12238,30 @@ function runBridge() {
       /MCP manager catalog projection core sends Rust daemon-core projection request/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /MCP manager catalog summary projection core sends Rust daemon-core projection request/.test(
-        runtimeContextPolicyCoreTest,
-      ) &&
-      /MCP manager validation projection core sends Rust daemon-core projection request/.test(
-        runtimeContextPolicyCoreTest,
-      ) &&
+	      /MCP manager catalog summary projection core sends Rust daemon-core projection request/.test(
+	        runtimeContextPolicyCoreTest,
+	      ) &&
+	      /MCP tool search projection sends Rust daemon-core catalog search request/.test(
+	        runtimeContextPolicyCoreTest,
+	      ) &&
+	      /MCP tool fetch projection sends Rust daemon-core fetch request/.test(
+	        runtimeContextPolicyCoreTest,
+	      ) &&
+	      /captured\.operation,\s*"project_mcp_tool_search_projection"/.test(
+	        runtimeContextPolicyCoreTest,
+	      ) &&
+	      /captured\.operation,\s*"project_mcp_tool_fetch_projection"/.test(
+	        runtimeContextPolicyCoreTest,
+	      ) &&
+	      /result\.source,\s*"rust_mcp_tool_search_projection_command"/.test(
+	        runtimeContextPolicyCoreTest,
+	      ) &&
+	      /result\.source,\s*"rust_mcp_tool_fetch_projection_command"/.test(
+	        runtimeContextPolicyCoreTest,
+	      ) &&
+	      /MCP manager validation projection core sends Rust daemon-core projection request/.test(
+	        runtimeContextPolicyCoreTest,
+	      ) &&
       /captured\.operation,\s*"validate_mcp_servers"/.test(
         runtimeContextPolicyCoreTest,
       ) &&
@@ -12127,29 +12315,40 @@ function runBridge() {
       /runtime MCP catalog must not read model-mounting MCP server maps/.test(
         runtimeMcpCatalogSurfaceTest,
       ) &&
-      /assert\.equal\(calls\.some\(\(call\) => call\.name === "normalizeMcpServerRecord"\),\s*false\)/.test(
-        runtimeMcpCatalogSurfaceTest,
-      ) &&
-      /mcpCatalogRowsForServers\(servers = \[\]\)/.test(runtimeMcpCatalogSurface) &&
-      /const catalog = contextPolicyCore\.planMcpManagerCatalogProjection\(\{ servers \}\)/.test(
+      /contextPolicyCore,/.test(runtimeMcpCatalogSurface) &&
+      /mcpRegistryForWorkspaceDep\(store\.defaultCwd,\s*\{[\s\S]*?contextPolicyCore,[\s\S]*?homeDir: store\.homeDir/.test(
         runtimeMcpCatalogSurface,
       ) &&
-      /return this\.mcpCatalogRowsForServers\(/.test(runtimeMcpCatalogSurface) &&
-      /const declaredCatalog = this\.mcpCatalogRowsForServers\(\[server\]\)/.test(
-        runtimeMcpCatalogSurface,
-      ) &&
-      /const liveCatalog = this\.mcpCatalogRowsForServers\(\[\{/.test(
-        runtimeMcpCatalogSurface,
-      ) &&
-      /mcpCatalogSummaryForRows\(server, catalog = \{\}, options = \{\}\)/.test(
-        runtimeMcpCatalogSurface,
-      ) &&
-      /contextPolicyCore\.planMcpManagerCatalogSummaryProjection\(\{/.test(
-        runtimeMcpCatalogSurface,
-      ) &&
-      !/mcpCatalogSummaryForServer/.test(runtimeMcpCatalogSurface) &&
-      !/validateMcpServerRecords/.test(runtimeMcpCatalogSurface) &&
-      !/mcpToolsForServers|mcpResourcesForServers|mcpPromptsForServers/.test(
+	      /mcpCatalogRowsForServers\(servers = \[\]\)/.test(runtimeMcpCatalogSurface) &&
+	      /const catalog = contextPolicyCore\.planMcpManagerCatalogProjection\(\{ servers \}\)/.test(
+	        runtimeMcpCatalogSurface,
+	      ) &&
+	      /return this\.mcpCatalogRowsForServers\(/.test(runtimeMcpCatalogSurface) &&
+	      /contextPolicyCore\.projectMcpToolSearchProjection\(\{/.test(
+	        runtimeMcpCatalogSurface,
+	      ) &&
+	      /contextPolicyCore\.projectMcpToolFetchProjection\(\{/.test(
+	        runtimeMcpCatalogSurface,
+	      ) &&
+	      !/discoverMcp(?:Stdio|Http)Catalog/.test(runtimeMcpCatalogSurface) &&
+	      /mcpCatalogSummaryForRows\(server, catalog = \{\}, options = \{\}\)/.test(
+	        runtimeMcpCatalogSurface,
+	      ) &&
+	      /contextPolicyCore\.planMcpManagerCatalogSummaryProjection\(\{/.test(
+	        runtimeMcpCatalogSurface,
+	      ) &&
+	      /contextPolicyCore\.projectMcpToolSearchProjection\(\{/.test(
+	        runtimeMcpCatalogSurface,
+	      ) &&
+	      /contextPolicyCore\.projectMcpToolFetchProjection\(\{/.test(
+	        runtimeMcpCatalogSurface,
+	      ) &&
+	      !/mcpToolMatchesQuery|mcpToolIdentityMatches|mcpToolKey|resolveMcpServerRecord|mcpLiveExecutionModeForServer/.test(
+	        runtimeMcpCatalogSurface,
+	      ) &&
+	      !/mcpCatalogSummaryForServer/.test(runtimeMcpCatalogSurface) &&
+	      !/validateMcpServerRecords/.test(runtimeMcpCatalogSurface) &&
+	      !/mcpToolsForServers|mcpResourcesForServers|mcpPromptsForServers/.test(
         runtimeMcpCatalogSurface,
       ) &&
       /status\.source,\s*"rust_mcp_manager_status_projection_command"/.test(
@@ -12161,18 +12360,26 @@ function runBridge() {
       /planMcpManagerStatusProjection\(request\)/.test(runtimeMcpCatalogSurfaceTest) &&
       /planMcpManagerCatalogProjection\(request\)/.test(runtimeMcpCatalogSurfaceTest) &&
       /planMcpManagerValidationProjection\(request\)/.test(runtimeMcpCatalogSurfaceTest) &&
-      /planMcpManagerCatalogSummaryProjection\(request\)/.test(
-        runtimeMcpCatalogSurfaceTest,
-      ) &&
-      /validateMcpServers\(request\)/.test(runtimeMcpCatalogSurfaceTest) &&
-      !/mcpToolsForServers|mcpResourcesForServers|mcpPromptsForServers/.test(
-        runtimeMcpCatalogSurfaceTest,
-      ) &&
-      /rust_mcp_manager_status_projection_command/.test(runtimeMcpCatalogSurfaceTest) &&
-      /rust_mcp_manager_catalog_projection_command/.test(runtimeMcpCatalogSurfaceTest) &&
-      /rust_mcp_manager_catalog_summary_projection_command/.test(
-        runtimeMcpCatalogSurfaceTest,
-      ) &&
+	      /planMcpManagerCatalogSummaryProjection\(request\)/.test(
+	        runtimeMcpCatalogSurfaceTest,
+	      ) &&
+	      /projectMcpToolSearchProjection\(request\)/.test(runtimeMcpCatalogSurfaceTest) &&
+	      /projectMcpToolFetchProjection\(request\)/.test(runtimeMcpCatalogSurfaceTest) &&
+	      /call\.name === "projectMcpToolSearchProjection"/.test(runtimeMcpCatalogSurfaceTest) &&
+	      /call\.name === "projectMcpToolFetchProjection"/.test(runtimeMcpCatalogSurfaceTest) &&
+	      /call\.request\.query === "diff"/.test(runtimeMcpCatalogSurfaceTest) &&
+	      /call\.request\.tool_id === "mcp\.agent\.git\.diff"/.test(runtimeMcpCatalogSurfaceTest) &&
+	      /validateMcpServers\(request\)/.test(runtimeMcpCatalogSurfaceTest) &&
+	      !/mcpToolsForServers|mcpResourcesForServers|mcpPromptsForServers/.test(
+	        runtimeMcpCatalogSurfaceTest,
+	      ) &&
+	      /rust_mcp_manager_status_projection_command/.test(runtimeMcpCatalogSurfaceTest) &&
+	      /rust_mcp_manager_catalog_projection_command/.test(runtimeMcpCatalogSurfaceTest) &&
+	      /rust_mcp_manager_catalog_summary_projection_command/.test(
+	        runtimeMcpCatalogSurfaceTest,
+	      ) &&
+	      /rust_mcp_tool_search_projection_command/.test(runtimeMcpCatalogSurfaceTest) &&
+	      /rust_mcp_tool_fetch_projection_command/.test(runtimeMcpCatalogSurfaceTest) &&
       /rust_mcp_manager_validation_projection_command/.test(runtimeMcpCatalogSurfaceTest) &&
       /rust_mcp_server_validation_command/.test(runtimeMcpCatalogSurfaceTest) &&
       /result\.control\.control_kind/.test(runtimeContextPolicyCoreTest) &&
@@ -12212,12 +12419,78 @@ function runBridge() {
       /required_core:\s*"rust_daemon_core"/.test(runtimeMcpControlSurface) &&
       /migration_transport_only:\s*false/.test(runtimeMcpControlSurface) &&
       /mcpControlStateUpdatePlanner/.test(runtimeMcpControlSurface) &&
+      /mcpLiveResultReplayProjector/.test(runtimeMcpControlSurface) &&
       /contextPolicyCore\.planMcpControlAgentStateUpdate/.test(
         runtimeMcpControlSurface,
+	      ) &&
+      /contextPolicyCore\.projectMcpLiveResultReplay/.test(
+        runtimeMcpControlSurface,
       ) &&
-      /mcpControlRequestPayload/.test(runtimeMcpControlSurface) &&
-      /mcpControlAgentWriter/.test(runtimeMcpControlSurface) &&
+	      /mcpControlRequestPayload/.test(runtimeMcpControlSurface) &&
+	      /"authority_grant_refs"/.test(runtimeMcpControlSurface) &&
+	      /"authority_receipt_refs"/.test(runtimeMcpControlSurface) &&
+	      !/authorityGrantRefs|authorityReceiptRefs/.test(runtimeMcpControlSurface) &&
+	      /WalletAuthorityRequired/.test(policyMcpMemoryCore) &&
+	      /mcp_control_external_exit_authority/.test(policyMcpMemoryCore) &&
+	      /wallet_network_mcp_external_exit_authority_required/.test(policyMcpMemoryCore) &&
+	      /ctee_mcp_external_exit_custody_required/.test(policyMcpMemoryCore) &&
+	      /mcp_transport_containment_required/.test(policyMcpMemoryCore) &&
+	      /receipt:\s*Option<Value>/.test(policyMcpMemoryCore) &&
+	      /result:\s*Option<Value>/.test(policyMcpMemoryCore) &&
+	      /mcp_control_live_exit_receipt\(/.test(policyMcpMemoryCore) &&
+		      /mcp_control_live_exit_result\(/.test(policyMcpMemoryCore) &&
+		      /McpLiveResultReplayCore/.test(policyMcpMemoryCore) &&
+		      /McpLiveResultReplayRequest/.test(policyMcpMemoryCore) &&
+		      /read_mcp_live_result_record/.test(policyMcpMemoryCore) &&
+		      /mcp_live_result_matches_request/.test(policyMcpMemoryCore) &&
+		      /mcp_live_result_is_rust_owned/.test(policyMcpMemoryCore) &&
+		      /ioi\.runtime\.mcp-live-exit-receipt\.v1/.test(policyMcpMemoryCore) &&
+		      /ioi\.runtime\.mcp-live-result\.v1/.test(policyMcpMemoryCore) &&
+		      /MCP_LIVE_RESULT_REPLAY_RESULT_SCHEMA_VERSION/.test(policyMcpMemoryCore) &&
+	      /runtime_mcp_live_exit_rust_receipt/.test(policyMcpMemoryCore) &&
+	      /agentgres_runtime_mcp_live_receipt_truth_required/.test(policyMcpMemoryCore) &&
+	      /runtime_mcp_live_result_rust_projection/.test(policyMcpMemoryCore) &&
+	      /agentgres_runtime_mcp_live_result_truth_required/.test(policyMcpMemoryCore) &&
+	      /receipt_state_root_binding_required/.test(policyMcpMemoryCore) &&
+	      /ctee_custody_required/.test(policyMcpMemoryCore) &&
+	      /transport_containment_required/.test(policyMcpMemoryCore) &&
+	      /MissingField\("request\.custody_ref"\)/.test(policyMcpMemoryCore) &&
+	      /MissingField\("request\.containment_ref"\)/.test(policyMcpMemoryCore) &&
+		      /rust_policy_rejects_mcp_live_transport_without_wallet_authority/.test(policyMcpMemoryCore) &&
+		      /rust_policy_rejects_mcp_live_transport_without_custody_or_containment/.test(policyMcpMemoryCore) &&
+		      /rust_policy_replays_runtime_mcp_live_results_from_agentgres_state/.test(policyMcpMemoryCore) &&
+		      /rust_policy_filters_js_authored_mcp_live_result_candidates/.test(policyMcpMemoryCore) &&
+		      /rust_policy_rejects_mcp_live_result_replay_without_state_dir/.test(policyMcpMemoryCore) &&
+		      /"project_mcp_live_result_replay"/.test(commandProtocolCore) &&
+		      /ProjectMcpLiveResultReplay/.test(commandProtocolCore) &&
+		      /commits_runtime_receipt_state_with_storage_admission/.test(agentgresAdmissionCoreForBridge) &&
+	      /commits_runtime_mcp_live_result_state_with_storage_admission/.test(agentgresAdmissionCoreForBridge) &&
+	      /commitRuntimeReceiptState\(stateDir, request\)/.test(runtimeAgentgresCore) &&
+	      /commitRuntimeMcpLiveResultState\(stateDir, request\)/.test(runtimeAgentgresCore) &&
+	      /mcpControlAgentWriter/.test(runtimeMcpControlSurface) &&
+      /persistRuntimeMcpLiveReceipt/.test(runtimeMcpControlSurface) &&
+      /persistRuntimeMcpLiveResult/.test(runtimeMcpControlSurface) &&
+      /projectRuntimeMcpLiveResult/.test(runtimeMcpControlSurface) &&
+      /result:\s*resultReplay\?\.result \?\? null/.test(runtimeMcpControlSurface) &&
+      !/result:\s*resultState\?\.result\s*\?\?\s*record\.result/.test(runtimeMcpControlSurface) &&
+      /mcp_control_live_exit_receipt_required/.test(runtimeMcpControlSurface) &&
+      /mcp_control_live_exit_receipt_state_commit_required/.test(runtimeMcpControlSurface) &&
+      /mcp_control_live_exit_receipt_binding_invalid/.test(runtimeMcpControlSurface) &&
+      /mcp_control_live_exit_result_required/.test(runtimeMcpControlSurface) &&
+      /mcp_control_live_exit_result_state_commit_required/.test(runtimeMcpControlSurface) &&
+      /mcp_control_live_exit_result_replay_required/.test(runtimeMcpControlSurface) &&
+      /mcp_control_live_exit_result_replay_state_dir_required/.test(runtimeMcpControlSurface) &&
+      /mcp_control_live_exit_result_replay_invalid/.test(runtimeMcpControlSurface) &&
+      /mcp_control_live_exit_result_binding_invalid/.test(runtimeMcpControlSurface) &&
       /store\?\.writeAgent/.test(runtimeMcpControlSurface) &&
+      /agent_id:\s*optionalStringDep\(request\.agent_id\) \?\? agentIdForThreadDep\(threadId\)/.test(
+        runtimeMcpControlSurface,
+      ) &&
+      /state_dir:\s*optionalStringDep\(request\.state_dir\) \?\? optionalStringDep\(store\?\.stateDir\) \?\? null/.test(
+        runtimeMcpControlSurface,
+      ) &&
+      !/store\.agentForThread|store\?\.agentForThread/.test(runtimeMcpControlSurface) &&
+      !/agent\?\.id/.test(runtimeMcpControlSurface) &&
       !/requiredMcpControlOperationKind/.test(runtimeMcpControlSurface) &&
       !/store\.appendRuntimeEvent/.test(runtimeMcpControlSurface) &&
       !/store\.agents\.set/.test(runtimeMcpControlSurface) &&
@@ -12226,18 +12499,53 @@ function runBridge() {
       /runtime MCP control mutations plan in Rust and commit agent state without JS state mutation/.test(
         runtimeMcpControlSurfaceTest,
       ) &&
+      /call\.request\.state_dir === "\/runtime-state"/.test(
+        runtimeMcpControlSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(call\.request,\s*"agent"\) === false/.test(
+        runtimeMcpControlSurfaceTest,
+      ) &&
+      /assert\.equal\(Object\.hasOwn\(planCalls\[1\]\.request\.request,\s*"agent_id"\),\s*false\)/.test(
+        runtimeMcpControlSurfaceTest,
+      ) &&
       /runtime MCP control planner absence fails closed before JS state mutation/.test(
         runtimeMcpControlSurfaceTest,
       ) &&
       /runtime MCP live exits use Rust control admission before JS transport invocation/.test(
         runtimeMcpControlSurfaceTest,
       ) &&
-      /runtime MCP live exits fail closed when Rust control planner is missing/.test(
-        runtimeMcpControlSurfaceTest,
-      ) &&
-      /applyRustMcpControlStateUpdate\(store, requestedThreadId, "mcp_invoke", "invoke_mcp_tool"/.test(
-        runtimeMcpControlSurface,
-      ) &&
+	      /runtime MCP live exits fail closed when Rust control planner is missing/.test(
+	        runtimeMcpControlSurfaceTest,
+	      ) &&
+	      /runtime MCP live exits fail closed without wallet authority refs/.test(
+	        runtimeMcpControlSurfaceTest,
+	      ) &&
+	      /mcp_control_live_exit_wallet_authority_required/.test(runtimeMcpControlSurfaceTest) &&
+	      /runtime MCP live exits fail closed without custody and containment refs/.test(
+	        runtimeMcpControlSurfaceTest,
+	      ) &&
+	      /runtime MCP live exits fail closed without Rust receipt-state commit/.test(
+	        runtimeMcpControlSurfaceTest,
+	      ) &&
+	      /commitRuntimeReceiptState/.test(runtimeMcpControlSurfaceTest) &&
+		      /runtime MCP live exits fail closed without Rust result-state commit/.test(
+		        runtimeMcpControlSurfaceTest,
+		      ) &&
+		      /runtime MCP live exits fail closed without Rust result replay projection/.test(
+		        runtimeMcpControlSurfaceTest,
+		      ) &&
+		      /commitRuntimeMcpLiveResultState/.test(runtimeMcpControlSurfaceTest) &&
+		      /projectMcpLiveResultReplay/.test(runtimeMcpControlSurfaceTest) &&
+		      /projectMcpLiveResultReplay",\s*"writeAgent"/.test(runtimeMcpControlSurfaceTest) &&
+		      /mcp_control_live_exit_result_required/.test(runtimeMcpControlSurfaceTest) &&
+		      /mcp_control_live_exit_result_state_commit_required/.test(runtimeMcpControlSurfaceTest) &&
+		      /mcp_control_live_exit_result_replay_required/.test(runtimeMcpControlSurfaceTest) &&
+	      /mcp_control_live_exit_custody_required/.test(runtimeMcpControlSurfaceTest) &&
+	      /mcp_control_live_exit_containment_required/.test(runtimeMcpControlSurfaceTest) &&
+	      /includes\("authorityGrantRefs"\), false/.test(runtimeMcpControlSurfaceTest) &&
+	      /applyRustMcpControlStateUpdate\(store, requestedThreadId, "mcp_invoke", "invoke_mcp_tool"/.test(
+	        runtimeMcpControlSurface,
+	      ) &&
       /applyRustMcpControlStateUpdate\(store, threadId, "mcp_live_discovery", "mcp_live_discovery"/.test(
         runtimeMcpControlSurface,
       ) &&
@@ -21325,12 +21633,57 @@ function runReceipts() {
       /model_mount\.mcp_server\.import/.test(modelMountCore) &&
       /model_mount\.mcp_server\.ephemeral_register/.test(modelMountCore) &&
       /model_mount\.mcp_tool\.invoke/.test(modelMountCore) &&
-      /model_mount\.workflow_node\.execute/.test(modelMountCore) &&
-      /rust_daemon_core_model_mount_mcp_workflow/.test(modelMountCore) &&
-      /agentgres_mcp_workflow_truth_required/.test(modelMountCore) &&
-      /model_mount_mcp_workflow_receipt_synthesis_js_retired/.test(modelMountCore) &&
-      /model_mount_mcp_workflow_record_state_js_retired/.test(modelMountCore) &&
+	      /model_mount\.workflow_node\.execute/.test(modelMountCore) &&
+	      /rust_daemon_core_model_mount_mcp_workflow/.test(modelMountCore) &&
+	      /agentgres_mcp_workflow_truth_required/.test(modelMountCore) &&
+	      /require_mcp_external_exit_authority/.test(modelMountCore) &&
+	      /MissingField\("authority_grant_refs"\)/.test(modelMountCore) &&
+	      /MissingField\("authority_receipt_refs"\)/.test(modelMountCore) &&
+	      /MissingField\("custody_ref"\)/.test(modelMountCore) &&
+	      /MissingField\("containment_ref"\)/.test(modelMountCore) &&
+	      /"wallet_authority_boundary": "wallet\.network\.mcp_external_exit"/.test(modelMountCore) &&
+	      /"ctee_custody_required": true/.test(modelMountCore) &&
+	      /"transport_containment_required": true/.test(modelMountCore) &&
+	      /"transport_execution_status": "rust_admitted"/.test(modelMountCore) &&
+	      /"execution_status": "rust_admitted"/.test(modelMountCore) &&
+	      /"rust_transport_execution_admitted": true/.test(modelMountCore) &&
+	      /"rust_step_module_dispatch_admitted": true/.test(modelMountCore) &&
+	      /"command_transport_fallback": false/.test(modelMountCore) &&
+	      /"binary_bridge_fallback": false/.test(modelMountCore) &&
+	      /"compatibility_fallback": false/.test(modelMountCore) &&
+	      /"legacy_js_result_fallback": false/.test(modelMountCore) &&
+	      /pub receipt: Option<Value>/.test(modelMountCore) &&
+	      /mcp_execution_receipt/.test(modelMountCore) &&
+	      /"schemaVersion": "ioi\.model_mount\.mcp_workflow_receipt\.v1"/.test(modelMountCore) &&
+	      /"rust_daemon_core_receipt_author": "model_mount\.mcp_workflow"/.test(modelMountCore) &&
+	      /"model_mount_mcp_execution_content_receipt_rust_owned"/.test(modelMountCore) &&
+	      /"agentgres_mcp_content_receipt_truth_required"/.test(modelMountCore) &&
+	      /"model_mount_agentgres_state_root_after": state_root_after/.test(modelMountCore) &&
+	      /"containment_ref": containment_ref/.test(modelMountCore) &&
+	      /public_response\.transport_execution_status\.retired_rust_required/.test(modelMountCore) &&
+	      /public_response\.execution_status\.retired_rust_required/.test(modelMountCore) &&
+	      /receipt: result\.receipt \?\? plan\.receipt \?\? null/.test(modelMountDaemonCore) &&
+	      /receipt\.id !== publicResponse\.content_receipt_id/.test(modelMountDaemonCore) &&
+	      /receipt\.evidenceRefs\?\.includes\("model_mount_mcp_execution_content_receipt_rust_owned"\)/.test(
+	        modelMountDaemonCore,
+	      ) &&
+	      /receipt\.details\?\.model_mount_step_module_result\?\.state_root_after/.test(
+	        modelMountDaemonCore,
+	      ) &&
+	      /wallet_network_mcp_external_exit_authority_required/.test(modelMountCore) &&
+	      /ctee_mcp_external_exit_custody_required/.test(modelMountCore) &&
+	      /mcp_transport_containment_required/.test(modelMountCore) &&
+	      /rust_admits_model_mount_mcp_tool_invocation_without_js_or_command_fallback/.test(modelMountCore) &&
+	      /rust_admits_model_mount_workflow_node_dispatch_without_js_fallback/.test(modelMountCore) &&
+	      /rust_rejects_model_mount_mcp_tool_invocation_without_wallet_authority/.test(modelMountCore) &&
+	      /rust_rejects_model_mount_mcp_tool_invocation_without_custody_or_containment/.test(modelMountCore) &&
+	      /model_mount_mcp_workflow_receipt_synthesis_js_retired/.test(modelMountCore) &&
+	      /model_mount_mcp_workflow_record_state_js_retired/.test(modelMountCore) &&
       /planModelMountMcpWorkflow\(request\)/.test(mcpWorkflowOperations) &&
+      /persistMcpWorkflowExecutionReceipt\(state, plan\)/.test(mcpWorkflowOperations) &&
+      /persistRustAuthoredReceiptWithCommit\(receipt\)/.test(mcpWorkflowOperations) &&
+      /model_mount_mcp_execution_receipt_required/.test(mcpWorkflowOperations) &&
+      /model_mount_mcp_execution_receipt_state_commit_unconfigured/.test(mcpWorkflowOperations) &&
       /planMcpWorkflow\(request\)/.test(modelMountCore) &&
       /operation:\s*"plan_model_mount_mcp_workflow"/.test(modelMountCore) &&
       /normalizeMcpWorkflowBridgeResult/.test(modelMountCore) &&
@@ -21391,17 +21744,53 @@ function runReceipts() {
       /importMcpJson uses Rust MCP workflow planning, record-state commit, and Rust projection/.test(
         mcpWorkflowOperationsTest,
       ) &&
-      /invokeMcpTool uses Rust MCP workflow planning and record-state commit before transport execution/.test(
+      /invokeMcpTool uses Rust MCP workflow admission and rejects JS or command fallback/.test(
         mcpWorkflowOperationsTest,
       ) &&
       /compileEphemeralMcpIntegrations uses Rust MCP workflow planning and record-state commit/.test(
         mcpWorkflowOperationsTest,
       ) &&
-      /executeWorkflowNode uses Rust MCP workflow planning and record-state commit before dispatch/.test(
-        mcpWorkflowOperationsTest,
+	      /executeWorkflowNode uses Rust StepModule dispatch admission and rejects JS fallback/.test(
+	        mcpWorkflowOperationsTest,
+	      ) &&
+	      /model_mount_mcp_external_exit_wallet_authority_required/.test(mcpWorkflowOperationsTest) &&
+	      /invokeMcpTool fails closed without wallet authority refs/.test(mcpWorkflowOperationsTest) &&
+	      /model_mount_mcp_external_exit_custody_required/.test(mcpWorkflowOperationsTest) &&
+	      /model_mount_mcp_external_exit_containment_required/.test(mcpWorkflowOperationsTest) &&
+	      /invokeMcpTool fails closed without custody and containment refs/.test(
+	        mcpWorkflowOperationsTest,
+	      ) &&
+	      /wallet\.network:\/\/grant\/mcp\/local\/run/.test(mcpWorkflowOperationsTest) &&
+	      /ctee:\/\/workspace\/local/.test(mcpWorkflowOperationsTest) &&
+	      /containment:\/\/mcp\/local/.test(mcpWorkflowOperationsTest) &&
+	      /receipt:\/\/wallet\.network\/mcp\/local\/run/.test(mcpWorkflowOperationsTest) &&
+	      /invokeMcpTool fails closed without Rust MCP execution receipt commit/.test(
+	        mcpWorkflowOperationsTest,
+	      ) &&
+	      /state\.receiptStateCommits\.length,\s*1/.test(mcpWorkflowOperationsTest) &&
+	      /Rust model_mount core sends positive MCP workflow request/.test(
+	        modelMountCoreTest,
+	      ) &&
+	      /Rust model_mount core accepts MCP execution receipt binding/.test(
+	        modelMountCoreTest,
+	      ) &&
+	      /Rust model_mount core rejects retired MCP workflow rust_required execution responses/.test(
+	        modelMountCoreTest,
+	      ) &&
+      /assertMcpWorkflowExecutionReceiptBound/.test(modelMountReceiptWriteGuards) &&
+      /model_mount_mcp_execution_receipt_direct_append_forbidden/.test(
+        modelMountReceiptWriteGuards,
       ) &&
-      /Rust model_mount core sends positive MCP workflow request/.test(
-        modelMountCoreTest,
+      /MODEL_MOUNT_MCP_WORKFLOW_OPERATION_REF_PREFIX/.test(modelMountReceiptWriteGuards) &&
+      /MCP execution receipt writes fail closed without Rust workflow binding/.test(
+        modelMountStoreTest,
+      ) &&
+      /MCP execution receipt writes persist only after Rust content receipt and Agentgres admission/.test(
+        modelMountStoreTest,
+      ) &&
+      /`ioi\.model_mount\.mcp_workflow_receipt\.v1` receipts/.test(implementationMatrix) &&
+      /persistRustAuthoredReceiptWithCommit\(\)` before public execution truth returns/.test(
+        implementationMatrix,
       ) &&
       /assertNoMcpWorkflowMutation\(state\)/.test(mcpWorkflowOperationsTest) &&
       /assert\.deepEqual\(state\.receipts,\s*\[\]\)/.test(mcpWorkflowOperationsTest) &&
@@ -21419,6 +21808,8 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/model-mount-core.mjs",
       "packages/runtime-daemon/src/model-mounting/read-projection-facade.mjs",
       "packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/receipt-write-guards.mjs",
+      "packages/runtime-daemon/src/model-mounting/store.test.mjs",
     ],
     "Phase 9/11 is pending: MCP registration, import, tool invocation, workflow-node execution, and MCP server list projection must use Rust daemon-core planning/projection with Agentgres record-state truth and no JS fallback",
   );
@@ -21562,7 +21953,7 @@ function runReceipts() {
       /retired_aliases,\s*\[\s*"nodeType",\s*"modelId",\s*"routeId",\s*"modelPolicy",\s*"maxTokens",\s*"workflowGraphId",\s*"workflowNodeId",\s*"nodeId",\s*"node_id",\s*"workflowNodeType",\s*\]/.test(
         mcpWorkflowOperationsTest,
       ) &&
-      /executeWorkflowNode uses Rust MCP workflow planning and record-state commit before dispatch/.test(
+      /executeWorkflowNode uses Rust StepModule dispatch admission and rejects JS fallback/.test(
         mcpWorkflowOperationsTest,
       ) &&
       /assert\.deepEqual\(state\.modelInvocations,\s*\[\]\)/.test(mcpWorkflowOperationsTest),
@@ -24124,6 +24515,20 @@ function runReceipts() {
       /commits_runtime_model_mount_receipt_state_with_storage_admission/.test(agentgresAdmissionCore) &&
       /runtime_model_mount_receipt_state_commit_ignores_retired_receipt_refs_alias/.test(agentgresAdmissionCore) &&
       /runtime_model_mount_receipt_state_commit_rejects_mismatched_receipt_id/.test(agentgresAdmissionCore) &&
+      /RUNTIME_RECEIPT_STATE_COMMIT_SCHEMA_VERSION/.test(agentgresAdmissionCore) &&
+      /RuntimeReceiptStateCommitRequest/.test(agentgresAdmissionCore) &&
+      /RuntimeReceiptStateCommitRecord/.test(agentgresAdmissionCore) &&
+      /commit_runtime_receipt_state/.test(agentgresAdmissionCore) &&
+      /commits_runtime_receipt_state_with_storage_admission/.test(agentgresAdmissionCore) &&
+      /runtime_receipt_state_commit_ignores_retired_receipt_refs_alias/.test(agentgresAdmissionCore) &&
+      /runtime_receipt_state_commit_rejects_mismatched_receipt_id/.test(agentgresAdmissionCore) &&
+      /RUNTIME_MCP_LIVE_RESULT_STATE_COMMIT_SCHEMA_VERSION/.test(agentgresAdmissionCore) &&
+      /RuntimeMcpLiveResultStateCommitRequest/.test(agentgresAdmissionCore) &&
+      /RuntimeMcpLiveResultStateCommitRecord/.test(agentgresAdmissionCore) &&
+      /commit_runtime_mcp_live_result_state/.test(agentgresAdmissionCore) &&
+      /commits_runtime_mcp_live_result_state_with_storage_admission/.test(agentgresAdmissionCore) &&
+      /runtime_mcp_live_result_state_commit_requires_receipts/.test(agentgresAdmissionCore) &&
+      /runtime_mcp_live_result_state_commit_rejects_mismatched_result_id/.test(agentgresAdmissionCore) &&
       !/fn runtime_model_mount_receipt_refs[\s\S]*?json_string_array\(receipt,\s*"receiptRefs"\)[\s\S]*?fn runtime_state_payload_hash/.test(
         agentgresAdmissionCore,
       ) &&
@@ -24143,8 +24548,20 @@ function runReceipts() {
         agentgresCommandCore,
       ) &&
       /agentgres_command_commits_runtime_model_mount_receipt_state_through_rust_core/.test(agentgresCommandCore) &&
+      /pub struct RuntimeReceiptStateCommitBridgeRequest/.test(agentgresCommandCore) &&
+      /commit_runtime_receipt_state_response/.test(agentgresCommandCore) &&
+      /rust_agentgres_runtime_receipt_state_commit_command/.test(agentgresCommandCore) &&
+      /agentgres_command_commits_runtime_receipt_state_through_rust_core/.test(agentgresCommandCore) &&
+      /pub struct RuntimeMcpLiveResultStateCommitBridgeRequest/.test(agentgresCommandCore) &&
+      /commit_runtime_mcp_live_result_state_response/.test(agentgresCommandCore) &&
+      /rust_agentgres_runtime_mcp_live_result_state_commit_command/.test(
+        agentgresCommandCore,
+      ) &&
+      /agentgres_command_commits_runtime_mcp_live_result_state_through_rust_core/.test(agentgresCommandCore) &&
       !/bridge_commits_runtime_model_mount_receipt_state_through_rust_core/.test(bridgeModule) &&
       /commitRuntimeModelMountReceiptState/.test(runtimeAgentgresCore) &&
+      /commitRuntimeReceiptState/.test(runtimeAgentgresCore) &&
+      /commitRuntimeMcpLiveResultState/.test(runtimeAgentgresCore) &&
       !/normalizeRuntimeModelMountReceiptStateCommitBridgeResult/.test(runtimeAgentgresCore) &&
       !/RUNTIME_AGENTGRES_COMMAND_ARGS_ENV/.test(runtimeAgentgresCore) &&
       !/parseCommandArgs/.test(runtimeAgentgresCore) &&
@@ -24169,6 +24586,12 @@ function runReceipts() {
       /runtime Agentgres core sends runtime model-mount receipt-state commit through direct daemon-core invoker/.test(
         read("packages/runtime-daemon/src/runtime-agentgres-admission-core.test.mjs"),
       ) &&
+      /runtime Agentgres core sends runtime receipt-state commit through direct daemon-core invoker/.test(
+        read("packages/runtime-daemon/src/runtime-agentgres-admission-core.test.mjs"),
+      ) &&
+      /runtime Agentgres core sends runtime MCP live-result state commit through direct daemon-core invoker/.test(
+        read("packages/runtime-daemon/src/runtime-agentgres-admission-core.test.mjs"),
+      ) &&
       /agentgres:\/\/model-mounting\/accepted-receipts\/op_1/.test(
         read("packages/runtime-daemon/src/runtime-agentgres-admission-core.test.mjs"),
       ) &&
@@ -24176,6 +24599,8 @@ function runReceipts() {
         read("packages/runtime-daemon/src/runtime-agentgres-admission-core.test.mjs"),
       ) &&
       /commitRuntimeModelMountReceiptState\(request\)/.test(runtimeDaemonIndex) &&
+      /commitRuntimeReceiptState\(request\)/.test(runtimeDaemonIndex) &&
+      /commitRuntimeMcpLiveResultState\(request\)/.test(runtimeDaemonIndex) &&
       /commitRuntimeModelMountReceiptState:\s*\(request\) => this\.commitRuntimeModelMountReceiptState\(request\)/.test(
         runtimeDaemonIndex,
       ) &&
@@ -27479,38 +27904,16 @@ function runCompositor() {
   const runtimeAgentOptionsTest = exists("packages/runtime-daemon/src/runtime-agent-options.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-agent-options.test.mjs")
     : "";
-  const runtimeMcpManagerValidationBlock =
-    runtimeMcpManager.match(
-      /export function validateMcpServerRecords\(servers = \[\]\) \{[\s\S]*?\n}\n\nexport async function discoverMcpStdioCatalog/,
-    )?.[0] ?? "";
+  const runtimeMcpManagerValidationBlock = runtimeMcpManager;
   const runtimeMcpManagerValidationInputBlock =
     runtimeMcpManager.match(
-      /export function mcpServerRecordsFromValidationInput\(input = \{\}, workspaceRoot, options = \{\}\) \{[\s\S]*?\n}\n\nexport function normalizeMcpServerRecord/,
+      /export function mcpServerRecordsFromValidationInput\(input = \{\}, workspaceRoot, options = \{\}\) \{[\s\S]*?\n}\n\nfunction loadGlobalMcpConfigSources/,
     )?.[0] ?? "";
   const runtimeMcpManagerRegistryBlock =
     runtimeMcpManager.match(
       /export function mcpRegistryForWorkspace\(cwd, options = \{\}\) \{[\s\S]*?\n}\n\nexport function mcpServerRecordsFromValidationInput/,
     )?.[0] ?? "";
-  const runtimeMcpManagerServerRecordBlock =
-    runtimeMcpManager.match(
-      /export function normalizeMcpServerRecord\(label, config = \{\}, context = \{\}\) \{[\s\S]*?\n}\n\nexport function mcpToolsForServers/,
-    )?.[0] ?? "";
-  const runtimeMcpManagerToolRecordBlock =
-    runtimeMcpManager.match(
-      /function normalizeMcpToolEntry\(tool, server = \{\}\) \{[\s\S]*?\n}\n\nfunction normalizeMcpResourceDeclarations/,
-    )?.[0] ?? "";
-  const runtimeMcpManagerResourceRecordBlock =
-    runtimeMcpManager.match(
-      /function normalizeMcpResourceEntry\(resource, server = \{\}\) \{[\s\S]*?\n}\n\nfunction normalizeMcpPromptEntry/,
-    )?.[0] ?? "";
-  const runtimeMcpManagerPromptRecordBlock =
-    runtimeMcpManager.match(
-      /function normalizeMcpPromptEntry\(prompt, server = \{\}\) \{[\s\S]*?\n}\n\nfunction normalizeCatalogItems/,
-    )?.[0] ?? "";
-  const runtimeMcpManagerLiveOutputBlock =
-    runtimeMcpManager.match(
-      /export async function discoverMcpStdioCatalog\(server, options = \{\}\) \{[\s\S]*?\n}\n\nasync function withMcpRemoteSession/,
-    )?.[0] ?? "";
+  const runtimeMcpManagerLiveOutputBlock = runtimeMcpManager;
   const runtimeMcpCatalogSurface = exists("packages/runtime-daemon/src/runtime-mcp-catalog-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-mcp-catalog-surface.mjs")
     : "";
@@ -27627,13 +28030,91 @@ function runCompositor() {
     /mcp_control_rust_core_required/.test(runtimeMcpControlSurface) &&
     /boundary:\s*"runtime\.mcp_control"/.test(runtimeMcpControlSurface) &&
     /required_core:\s*"rust_daemon_core"/.test(runtimeMcpControlSurface) &&
-    /migration_transport_only:\s*false/.test(runtimeMcpControlSurface) &&
-    /mcpControlStateUpdatePlanner/.test(runtimeMcpControlSurface) &&
-    /contextPolicyCore\.planMcpControlAgentStateUpdate/.test(runtimeMcpControlSurface) &&
-    /mcpControlRequestPayload/.test(runtimeMcpControlSurface) &&
-    /mcpControlAgentWriter/.test(runtimeMcpControlSurface) &&
+	    /migration_transport_only:\s*false/.test(runtimeMcpControlSurface) &&
+		    /mcpControlStateUpdatePlanner/.test(runtimeMcpControlSurface) &&
+		    /mcpLiveResultReplayProjector/.test(runtimeMcpControlSurface) &&
+		    /contextPolicyCore\.planMcpControlAgentStateUpdate/.test(runtimeMcpControlSurface) &&
+		    /contextPolicyCore\.projectMcpLiveResultReplay/.test(runtimeMcpControlSurface) &&
+		    /mcpControlRequestPayload/.test(runtimeMcpControlSurface) &&
+	    /"authority_grant_refs"/.test(runtimeMcpControlSurface) &&
+	    /"authority_receipt_refs"/.test(runtimeMcpControlSurface) &&
+	    !/authorityGrantRefs|authorityReceiptRefs/.test(runtimeMcpControlSurface) &&
+	    /WalletAuthorityRequired/.test(policyMcpMemoryCore) &&
+	    /mcp_control_external_exit_authority/.test(policyMcpMemoryCore) &&
+	    /wallet_network_mcp_external_exit_authority_required/.test(policyMcpMemoryCore) &&
+	    /ctee_mcp_external_exit_custody_required/.test(policyMcpMemoryCore) &&
+	    /mcp_transport_containment_required/.test(policyMcpMemoryCore) &&
+		    /mcp_control_live_exit_receipt\(/.test(policyMcpMemoryCore) &&
+		    /mcp_control_live_exit_result\(/.test(policyMcpMemoryCore) &&
+		    /McpLiveResultReplayCore/.test(policyMcpMemoryCore) &&
+		    /project_mcp_live_result_replay_response/.test(policyMcpMemoryCore) &&
+		    /ioi\.runtime\.mcp-live-exit-receipt\.v1/.test(policyMcpMemoryCore) &&
+		    /ioi\.runtime\.mcp-live-result\.v1/.test(policyMcpMemoryCore) &&
+		    /MCP_LIVE_RESULT_REPLAY_RESULT_SCHEMA_VERSION/.test(policyMcpMemoryCore) &&
+		    /McpToolSearchProjectionCore/.test(policyMcpMemoryCore) &&
+		    /McpToolFetchProjectionCore/.test(policyMcpMemoryCore) &&
+		    /project_mcp_tool_search_projection_response/.test(policyMcpMemoryCore) &&
+		    /project_mcp_tool_fetch_projection_response/.test(policyMcpMemoryCore) &&
+		    /rust_mcp_tool_search_projection_command/.test(policyMcpMemoryCore) &&
+		    /rust_mcp_tool_fetch_projection_command/.test(policyMcpMemoryCore) &&
+		    /runtime_mcp_catalog_js_search_filter_retired/.test(policyMcpMemoryCore) &&
+		    /runtime_mcp_catalog_fetch_js_shape_retired/.test(policyMcpMemoryCore) &&
+		    /rust_policy_projects_mcp_tool_search_without_js_filtering/.test(policyMcpMemoryCore) &&
+		    /rust_policy_projects_mcp_tool_fetch_and_not_found_status/.test(policyMcpMemoryCore) &&
+		    /rust_policy_shapes_mcp_tool_search_and_fetch_command_responses/.test(policyMcpMemoryCore) &&
+		    /"project_mcp_tool_search_projection"/.test(commandProtocolCoreForCompositor) &&
+		    /"project_mcp_tool_fetch_projection"/.test(commandProtocolCoreForCompositor) &&
+		    /ProjectMcpToolSearchProjection/.test(commandProtocolCoreForCompositor) &&
+		    /ProjectMcpToolFetchProjection/.test(commandProtocolCoreForCompositor) &&
+	    /runtime_mcp_live_exit_rust_receipt/.test(policyMcpMemoryCore) &&
+	    /agentgres_runtime_mcp_live_receipt_truth_required/.test(policyMcpMemoryCore) &&
+	    /runtime_mcp_live_result_rust_projection/.test(policyMcpMemoryCore) &&
+	    /agentgres_runtime_mcp_live_result_truth_required/.test(policyMcpMemoryCore) &&
+	    /receipt_state_root_binding_required/.test(policyMcpMemoryCore) &&
+	    /ctee_custody_required/.test(policyMcpMemoryCore) &&
+	    /transport_containment_required/.test(policyMcpMemoryCore) &&
+	    /MissingField\("request\.custody_ref"\)/.test(policyMcpMemoryCore) &&
+	    /MissingField\("request\.containment_ref"\)/.test(policyMcpMemoryCore) &&
+		    /rust_policy_rejects_mcp_live_transport_without_wallet_authority/.test(policyMcpMemoryCore) &&
+		    /rust_policy_rejects_mcp_live_transport_without_custody_or_containment/.test(policyMcpMemoryCore) &&
+		    /rust_policy_replays_runtime_mcp_live_results_from_agentgres_state/.test(policyMcpMemoryCore) &&
+		    /rust_policy_filters_js_authored_mcp_live_result_candidates/.test(policyMcpMemoryCore) &&
+		    /mcpControlAgentWriter/.test(runtimeMcpControlSurface) &&
+	    /persistRuntimeMcpLiveReceipt/.test(runtimeMcpControlSurface) &&
+	    /persistRuntimeMcpLiveResult/.test(runtimeMcpControlSurface) &&
+	    /projectRuntimeMcpLiveResult/.test(runtimeMcpControlSurface) &&
+	    /contextPolicyCore\.projectMcpToolSearchProjection\(\{/.test(runtimeMcpSearchToolCatalogBlock) &&
+	    /contextPolicyCore\.projectMcpToolFetchProjection\(\{/.test(runtimeMcpGetToolFromCatalogBlock) &&
+	    !/mcpToolMatchesQuery|mcpToolIdentityMatches|mcpToolKey|resolveMcpServerRecord|mcpLiveExecutionModeForServer/.test(
+	      runtimeMcpCatalogSurface,
+	    ) &&
+	    /result:\s*resultReplay\?\.result \?\? null/.test(runtimeMcpControlSurface) &&
+	    !/result:\s*resultState\?\.result\s*\?\?\s*record\.result/.test(runtimeMcpControlSurface) &&
+	    /mcp_control_live_exit_receipt_required/.test(runtimeMcpControlSurface) &&
+    /mcp_control_live_exit_receipt_state_commit_required/.test(runtimeMcpControlSurface) &&
+    /mcp_control_live_exit_receipt_binding_invalid/.test(runtimeMcpControlSurface) &&
+	    /mcp_control_live_exit_result_required/.test(runtimeMcpControlSurface) &&
+	    /mcp_control_live_exit_result_state_commit_required/.test(runtimeMcpControlSurface) &&
+	    /mcp_control_live_exit_result_replay_required/.test(runtimeMcpControlSurface) &&
+	    /mcp_control_live_exit_result_replay_invalid/.test(runtimeMcpControlSurface) &&
+	    /mcp_control_live_exit_result_binding_invalid/.test(runtimeMcpControlSurface) &&
     /store\?\.writeAgent/.test(runtimeMcpControlSurface) &&
+    /agent_id:\s*optionalStringDep\(request\.agent_id\) \?\? agentIdForThreadDep\(threadId\)/.test(
+      runtimeMcpControlSurface,
+    ) &&
+    /state_dir:\s*optionalStringDep\(request\.state_dir\) \?\? optionalStringDep\(store\?\.stateDir\) \?\? null/.test(
+      runtimeMcpControlSurface,
+    ) &&
+    !/store\.agentForThread|store\?\.agentForThread/.test(runtimeMcpControlSurface) &&
+    !/agent\?\.id/.test(runtimeMcpControlSurface) &&
     /runtime MCP control mutations plan in Rust and commit agent state without JS state mutation/.test(
+      runtimeMcpControlSurfaceTest,
+    ) &&
+    /call\.request\.state_dir === "\/runtime-state"/.test(runtimeMcpControlSurfaceTest) &&
+    /Object\.hasOwn\(call\.request,\s*"agent"\) === false/.test(
+      runtimeMcpControlSurfaceTest,
+    ) &&
+    /assert\.equal\(Object\.hasOwn\(planCalls\[1\]\.request\.request,\s*"agent_id"\),\s*false\)/.test(
       runtimeMcpControlSurfaceTest,
     ) &&
     /runtime MCP control planner absence fails closed before JS state mutation/.test(
@@ -27642,12 +28123,37 @@ function runCompositor() {
     /runtime MCP live exits use Rust control admission before JS transport invocation/.test(
       runtimeMcpControlSurfaceTest,
     ) &&
-    /runtime MCP live exits fail closed when Rust control planner is missing/.test(
-      runtimeMcpControlSurfaceTest,
-    ) &&
-    /applyRustMcpControlStateUpdate\(store, requestedThreadId, "mcp_invoke", "invoke_mcp_tool"/.test(
-      runtimeMcpControlSurface,
-    ) &&
+	    /runtime MCP live exits fail closed when Rust control planner is missing/.test(
+	      runtimeMcpControlSurfaceTest,
+	    ) &&
+	    /runtime MCP live exits fail closed without wallet authority refs/.test(
+	      runtimeMcpControlSurfaceTest,
+	    ) &&
+	    /mcp_control_live_exit_wallet_authority_required/.test(runtimeMcpControlSurfaceTest) &&
+	    /runtime MCP live exits fail closed without custody and containment refs/.test(
+	      runtimeMcpControlSurfaceTest,
+	    ) &&
+	    /runtime MCP live exits fail closed without Rust receipt-state commit/.test(
+	      runtimeMcpControlSurfaceTest,
+	    ) &&
+	    /commitRuntimeReceiptState/.test(runtimeMcpControlSurfaceTest) &&
+		    /runtime MCP live exits fail closed without Rust result-state commit/.test(
+		      runtimeMcpControlSurfaceTest,
+		    ) &&
+		    /runtime MCP live exits fail closed without Rust result replay projection/.test(
+		      runtimeMcpControlSurfaceTest,
+		    ) &&
+		    /commitRuntimeMcpLiveResultState/.test(runtimeMcpControlSurfaceTest) &&
+		    /projectMcpLiveResultReplay/.test(runtimeMcpControlSurfaceTest) &&
+		    /mcp_control_live_exit_result_required/.test(runtimeMcpControlSurfaceTest) &&
+		    /mcp_control_live_exit_result_state_commit_required/.test(runtimeMcpControlSurfaceTest) &&
+		    /mcp_control_live_exit_result_replay_required/.test(runtimeMcpControlSurfaceTest) &&
+	    /mcp_control_live_exit_custody_required/.test(runtimeMcpControlSurfaceTest) &&
+	    /mcp_control_live_exit_containment_required/.test(runtimeMcpControlSurfaceTest) &&
+	    /includes\("authorityGrantRefs"\), false/.test(runtimeMcpControlSurfaceTest) &&
+	    /applyRustMcpControlStateUpdate\(store, requestedThreadId, "mcp_invoke", "invoke_mcp_tool"/.test(
+	      runtimeMcpControlSurface,
+	    ) &&
     /applyRustMcpControlStateUpdate\(store, threadId, "mcp_live_discovery", "mcp_live_discovery"/.test(
       runtimeMcpControlSurface,
     ) &&
@@ -36744,19 +37250,15 @@ function runCompositor() {
     result,
     "runtime-mcp-live-timeout-request-alias-retired",
     /request\.timeout_ms/.test(`${runtimeMcpControlSurface}\n${runtimeMcpCatalogSurface}`) &&
-      /timeout_ms:\s*request\.timeout_ms/.test(
+      /timeout_ms:\s*finitePositiveNumber\(request\.timeout_ms\)/.test(
         `${runtimeMcpControlSurface}\n${runtimeMcpCatalogSurface}`,
-      ) &&
-      /options\.timeout_ms \?\? process\.env\.IOI_MCP_REQUEST_TIMEOUT_MS/.test(runtimeMcpManager) &&
-      /timeoutMs: 9999/.test(`${runtimeMcpControlSurfaceTest}\n${runtimeMcpCatalogSurfaceTest}`) &&
-      /Object\.hasOwn\([^)]*\.options,\s*"timeoutMs"\)/.test(
-        `${runtimeMcpControlSurfaceTest}\n${runtimeMcpCatalogSurfaceTest}`,
       ) &&
       /^\s*timeout_ms\?: number;/m.test(runtimeMcpSdkToolInvokeInputBlock) &&
       !/request\.timeoutMs\b/.test(`${runtimeMcpControlSurface}\n${runtimeMcpCatalogSurface}`) &&
       !/timeoutMs:\s*request\.timeout_ms/.test(
         `${runtimeMcpControlSurface}\n${runtimeMcpCatalogSurface}`,
       ) &&
+      !/options\.timeout_ms \?\? process\.env\.IOI_MCP_REQUEST_TIMEOUT_MS/.test(runtimeMcpManager) &&
       !/options\.timeoutMs\b/.test(runtimeMcpManager) &&
       !/^\s*timeoutMs\?:/m.test(runtimeMcpSdkToolInvokeInputBlock),
     [
@@ -36816,9 +37318,7 @@ function runCompositor() {
     result,
     "runtime-mcp-invoke-mode-request-alias-retired",
     runtimeMcpControlFacadeRetired &&
-      /IOI_MCP_MODE:\s*optionalString\(options\.mcp_mode\) \?\? "development"/.test(
-        runtimeMcpManager,
-      ) &&
+      !/IOI_MCP_MODE:\s*optionalString\(options\.mcp_mode\) \?\? "development"/.test(runtimeMcpManager) &&
       !/request\.mcpMode\b/.test(runtimeMcpControlSurface) &&
       !/mcpMode:\s*request\.mcp_mode/.test(runtimeMcpControlSurface) &&
       !/options\.mcpMode\b/.test(runtimeMcpManager) &&
@@ -37169,101 +37669,43 @@ function runCompositor() {
       /workspace_root:\s*workspaceRoot/.test(runtimeMcpManagerRegistryBlock) &&
       /server_count:\s*normalizedServers\.length/.test(runtimeMcpManagerRegistryBlock) &&
       /tool_count:\s*tools\.length/.test(runtimeMcpManagerRegistryBlock) &&
-      /source_path:\s*optionalString\(config\.source_path\)\s*\?\?\s*context\.source_path\s*\?\?\s*null/.test(
-        runtimeMcpManagerServerRecordBlock,
-      ) &&
-      /source_scope:/.test(runtimeMcpManagerServerRecordBlock) &&
-      /source_scope:\s*optionalString\(config\.source_scope\)\s*\?\?\s*optionalString\(context\.source_scope\)\s*\?\?\s*"workspace"/.test(
-        runtimeMcpManagerServerRecordBlock,
-      ) &&
-      /config_compatibility:\s*optionalString\(config\.config_compatibility\)\s*\?\?\s*optionalString\(context\.config_compatibility\)/.test(
-        runtimeMcpManagerServerRecordBlock,
-      ) &&
-      /const serverUrl = optionalString\(\s*config\.server_url \?\? config\.url \?\? config\.endpoint,\s*\)/.test(
-        runtimeMcpManagerServerRecordBlock,
-      ) &&
-      /source_path: source\.path/.test(runtimeMcpManagerRegistryBlock) &&
-      /source_scope: source\.scope/.test(runtimeMcpManagerRegistryBlock) &&
-      /config_compatibility: source\.compatibility/.test(runtimeMcpManagerRegistryBlock) &&
-      /config_compatibility: "inline"/.test(runtimeMcpManagerRegistryBlock) &&
-      ((runtimeMcpManagerServerRecordBlock.match(
-        /workspace_root:\s*context\.workspace_root \?\? null/g,
-      ) ?? []).length >= 2) &&
-      /allowed_tools:\s*declaredTools/.test(runtimeMcpManagerServerRecordBlock) &&
-      /normalizeArray\(config\.allowed_tools\)/.test(runtimeMcpManagerServerRecordBlock) &&
-      !/normalizeArray\(config\.allowedTools \?\? config\.allowed_tools\)/.test(
-        runtimeMcpManagerServerRecordBlock,
-      ) &&
+      /createRuntimeContextPolicyCore\(\{\s*daemonCoreInvoker: options\.daemonCoreInvoker,\s*\}\)/.test(runtimeMcpManagerRegistryBlock) &&
+      /mcpServerRecordsFromValidationInput\(\s*mcpValidationInputForSource\(source\),\s*workspaceRoot,\s*\{ contextPolicyCore \},\s*\)/.test(runtimeMcpManagerRegistryBlock) &&
+      /contextPolicyCore\.planMcpManagerCatalogProjection\(\{\s*servers: \[\.\.\.byId\.values\(\)\],\s*\}\)/.test(runtimeMcpManagerRegistryBlock) &&
+      /const tools = normalizeArray\(projected\.tools\)/.test(runtimeMcpManagerRegistryBlock) &&
+      /const resources = normalizeArray\(projected\.resources\)/.test(runtimeMcpManagerRegistryBlock) &&
+      /const prompts = normalizeArray\(projected\.prompts\)/.test(runtimeMcpManagerRegistryBlock) &&
+      /mcp_json:\s*\{\s*mcp_servers: source\.servers \?\? \{\},\s*\}/.test(runtimeMcpManager) &&
+      /source_path: source\.path \?\? null/.test(runtimeMcpManager) &&
+      /source_scope: source\.scope \?\? null/.test(runtimeMcpManager) &&
+      /config_compatibility: source\.compatibility \?\? null/.test(runtimeMcpManager) &&
+      /compatibility: "inline"/.test(runtimeMcpManagerRegistryBlock) &&
+      /rust_policy_projects_mcp_config_source_metadata/.test(policyCore) &&
+      /"source_path": "\/workspace\/\.cursor\/mcp\.json"/.test(policyCore) &&
+      /"config_compatibility": "cursor"/.test(policyCore) &&
+      /record\.servers\[0\]\.get\("sourcePath"\)\.is_none\(\)/.test(policyCore) &&
       !/normalizeArray\(server\.allowedTools \?\? server\.allowed_tools\)/.test(
         runtimeMcpManager,
       ) &&
       !/(?:config|server)\.(?:allowedResources|allowedPrompts)\s*\?\?/.test(
         runtimeMcpManager,
       ) &&
-      !/config\.(?:serverUrl|containmentMode|allowNetworkEgress|allowChildProcesses)\b/.test(
-        runtimeMcpManagerServerRecordBlock,
-      ) &&
-      !/config\.containment\?\.(?:allowNetworkEgress|allowChildProcesses)\b/.test(
-        runtimeMcpManagerServerRecordBlock,
-      ) &&
+      !/export function normalizeMcpServerRecord/.test(runtimeMcpManager) &&
+      !/export function mcpToolsForServers|export function mcpResourcesForServers|export function mcpPromptsForServers/.test(runtimeMcpManager) &&
+      !/function normalizeMcpToolEntry|function normalizeMcpResourceEntry|function normalizeMcpPromptEntry/.test(runtimeMcpManager) &&
       !/server\.serverUrl\b/.test(runtimeMcpManagerValidationBlock) &&
-      /vault_boundary:\s*\{/.test(runtimeMcpManagerServerRecordBlock) &&
-      /header_ref_count:\s*Object\.keys\(headerSecretRefs\)\.length/.test(
-        runtimeMcpManagerServerRecordBlock,
-      ) &&
+      /"vault_boundary":\s*\{/.test(policyCore) &&
+      /header_ref_count/.test(policyCore) &&
       !/mcpRegistryWithServers/.test(`${runtimeMcpHelpers}\n${runtimeMcpHelpersTest}`) &&
       /Object\.hasOwn\(registry,\s*"schemaVersion"\),\s*false/.test(runtimeMcpManagerTest) &&
-      /Object\.hasOwn\(server,\s*"schemaVersion"\),\s*false/.test(runtimeMcpManagerTest) &&
-      /Object\.hasOwn\(server,\s*"workspaceRoot"\),\s*false/.test(runtimeMcpManagerTest) &&
-      /Object\.hasOwn\(server\.containment,\s*"workspaceRoot"\),\s*false/.test(
-        runtimeMcpManagerTest,
-      ) &&
-      /workspaceRoot:\s*"\/retired-workspace"/.test(runtimeMcpManagerTest) &&
-      /assert\.notEqual\(server\.workspace_root,\s*"\/retired-workspace"\)/.test(
-        runtimeMcpManagerTest,
-      ) &&
-      /assert\.notEqual\(server\.containment\.workspace_root,\s*"\/retired-workspace"\)/.test(
-        runtimeMcpManagerTest,
-      ) &&
-      /Object\.hasOwn\(server,\s*"vaultBoundary"\),\s*false/.test(runtimeMcpManagerTest) &&
-      /MCP manager server records ignore retired allowedTools aliases/.test(
-        runtimeMcpManagerTest,
-      ) &&
+      /MCP manager registry returns Rust-projected catalog rows/.test(runtimeMcpManagerTest) &&
+      /projectMcpServerValidationInput/.test(runtimeMcpManagerTest) &&
+      /planMcpManagerCatalogProjection/.test(runtimeMcpManagerTest) &&
+      /rust\.projected\.mcp\.docs\.search/.test(runtimeMcpManagerTest) &&
+      /MCP manager registry fails closed without Rust daemon-core projection/.test(runtimeMcpManagerTest) &&
+      /runtime_context_policy_core_direct_invoker_unconfigured/.test(runtimeMcpManagerTest) &&
       /allowedTools:\s*\["retired\.invoke"\]/.test(runtimeMcpManagerTest) &&
-      /retiredOnly\.allowed_tools,\s*\[\]/.test(runtimeMcpManagerTest) &&
-      /MCP manager server records ignore retired allowedResources and allowedPrompts aliases/.test(
-        runtimeMcpManagerTest,
-      ) &&
-      /allowedResources:\s*\[\{ uri: "docs:\/\/retired"/.test(runtimeMcpManagerTest) &&
-      /allowedPrompts:\s*\[\{ name: "ask_retired" \}\]/.test(runtimeMcpManagerTest) &&
-      /retiredOnly\.resource_count,\s*0/.test(runtimeMcpManagerTest) &&
-      /retiredOnly\.prompt_count,\s*0/.test(runtimeMcpManagerTest) &&
-      /MCP manager server records ignore retired transport and containment aliases/.test(
-        runtimeMcpManagerTest,
-      ) &&
-      /serverUrl:\s*"https:\/\/retired\.example\.test\/mcp"/.test(
-        runtimeMcpManagerTest,
-      ) &&
-      /allowNetworkEgress:\s*true/.test(runtimeMcpManagerTest) &&
-      /retiredOnly\.server_url,\s*null/.test(runtimeMcpManagerTest) &&
-      /retiredOnly\.containment\.allow_network_egress,\s*false/.test(
-        runtimeMcpManagerTest,
-      ) &&
-      /MCP manager server records ignore retired sourcePath and sourceScope aliases/.test(
-        runtimeMcpManagerTest,
-      ) &&
-      /retiredOnly\.source_path,\s*null/.test(runtimeMcpManagerTest) &&
-      /retiredOnly\.source_scope,\s*"workspace"/.test(runtimeMcpManagerTest) &&
-      /retiredOnly\.evidence_refs\.includes\("\/retired\/context\.json"\),\s*false/.test(
-        runtimeMcpManagerTest,
-      ) &&
-      /MCP manager server records ignore retired configCompatibility aliases/.test(
-        runtimeMcpManagerTest,
-      ) &&
-      /retiredOnly\.config_compatibility,\s*null/.test(runtimeMcpManagerTest) &&
-      /retiredOnly\.evidence_refs\.includes\("retired-context"\),\s*false/.test(
-        runtimeMcpManagerTest,
-      ) &&
+      /MCP manager registry ignores retired top-level MCP config aliases/.test(runtimeMcpManagerTest) &&
       /const sourceScope = optionalString\(server\.source_scope\) \?\? "workspace";/.test(
         runtimeMcpServerSourceModeBlock,
       ) &&
@@ -37273,19 +37715,10 @@ function runCompositor() {
       !/^\s*(?:schemaVersion|workspaceRoot|serverCount|resourceCount|promptCount)\s*:/m.test(
         runtimeMcpManagerRegistryBlock,
       ) &&
-      !/^\s*(?:schemaVersion|serverUrl|headerNames|headerSecretRefs|envSecretRefs|sourcePath|sourceScope|configCompatibility|workspaceRoot|allowedTools|toolCount|resourceCount|promptCount|secretRefs|vaultBoundary|evidenceRefs)\s*:/m.test(
-        runtimeMcpManagerServerRecordBlock,
-      ) &&
-      !/context\.workspaceRoot\b/.test(runtimeMcpManagerServerRecordBlock) &&
-      !/(?:config|context)\.(?:sourcePath|sourceScope)\b/.test(runtimeMcpManagerServerRecordBlock) &&
-      !/(?:config|context)\.configCompatibility\b/.test(runtimeMcpManagerServerRecordBlock) &&
       !/(?:sourcePath|sourceScope):\s*(?:source\.(?:path|scope)|"thread")/.test(
         runtimeMcpManagerRegistryBlock,
       ) &&
       !/configCompatibility:\s*(?:source\.compatibility|"inline")/.test(runtimeMcpManagerRegistryBlock) &&
-      !/^\s*(?:headerRefCount|envRefCount|secretValuesIncluded|runtimeResolution)\s*:/m.test(
-        runtimeMcpManagerServerRecordBlock,
-      ) &&
       !/server\.sourceScope\b/.test(
         runtimeMcpServerSourceModeBlock,
       ),
@@ -37300,31 +37733,28 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-mcp-manager-catalog-record-output-aliases-retired",
-    /stable_tool_id:\s*`mcp\.\$\{safeId\(serverLabel\)\}\.\$\{safeId\(toolName\)\}`/.test(
-      runtimeMcpManagerToolRecordBlock,
-    ) &&
-      /server_id:\s*server\.id/.test(runtimeMcpManagerToolRecordBlock) &&
-      /tool_name:\s*toolName/.test(runtimeMcpManagerToolRecordBlock) &&
-      /primitive_capabilities:\s*\["prim:connector\.invoke"\]/.test(runtimeMcpManagerToolRecordBlock) &&
-      /input_schema:\s*tool\?\.inputSchema/.test(runtimeMcpManagerToolRecordBlock) &&
-      /workflow_node_id:\s*`runtime\.mcp-tool/.test(runtimeMcpManagerToolRecordBlock) &&
-      /stable_resource_id:\s*stableId/.test(runtimeMcpManagerResourceRecordBlock) &&
-      /mime_type:\s*optionalString/.test(runtimeMcpManagerResourceRecordBlock) &&
-      /stable_prompt_id:\s*stableId/.test(runtimeMcpManagerPromptRecordBlock) &&
-      /prompt_arguments:\s*Array\.isArray/.test(runtimeMcpManagerPromptRecordBlock) &&
+    !/normalizeMcpToolEntry|normalizeMcpResourceEntry|normalizeMcpPromptEntry/.test(runtimeMcpManager) &&
+      !/mcpToolsForServers|mcpResourcesForServers|mcpPromptsForServers/.test(runtimeMcpManager) &&
+      /fn mcp_catalog_tools_for_server/.test(policyCore) &&
+      /"stable_tool_id": format!\("mcp\.\{safe_server\}\.\{safe_tool\}"\)/.test(policyCore) &&
+      /"primitive_capabilities": \["prim:connector\.invoke"\]/.test(policyCore) &&
+      /"input_schema": tool\.get\("input_schema"\)/.test(policyCore) &&
+      /fn mcp_catalog_resources_for_server/.test(policyCore) &&
+      /"stable_resource_id": format!\("mcp\.\{safe_server\}\.resource\.\{safe_uri\}"\)/.test(policyCore) &&
+      /"mime_type": mcp_catalog_field_string/.test(policyCore) &&
+      /fn mcp_catalog_prompts_for_server/.test(policyCore) &&
+      /"stable_prompt_id": format!\("mcp\.\{safe_server\}\.prompt\.\{safe_prompt\}"\)/.test(policyCore) &&
+      /"prompt_arguments": arguments/.test(policyCore) &&
+      /const tools = normalizeArray\(projected\.tools\)/.test(runtimeMcpManagerRegistryBlock) &&
+      /const resources = normalizeArray\(projected\.resources\)/.test(runtimeMcpManagerRegistryBlock) &&
+      /const prompts = normalizeArray\(projected\.prompts\)/.test(runtimeMcpManagerRegistryBlock) &&
       /allowedToolIds\.has\(tool\.stable_tool_id\)/.test(runtimeMcpServeSurface) &&
-      /Object\.hasOwn\(tool,\s*"stableToolId"\),\s*false/.test(runtimeMcpManagerTest) &&
-      /Object\.hasOwn\(resource,\s*"stableResourceId"\),\s*false/.test(runtimeMcpManagerTest) &&
-      /Object\.hasOwn\(prompt,\s*"stablePromptId"\),\s*false/.test(runtimeMcpManagerTest) &&
+      /Object\.hasOwn\(registry\.tools\[0\],\s*"stableToolId"\),\s*false/.test(runtimeMcpManagerTest) &&
+      /rust\.projected\.mcp\.docs\.resource/.test(runtimeMcpManagerTest) &&
+      /rust\.projected\.mcp\.docs\.prompt\.ask/.test(runtimeMcpManagerTest) &&
       !/tool\.stableToolId/.test(runtimeMcpServeSurface) &&
-      !/^\s*(?:schemaVersion|stableToolId|displayName|serverId|serverLabel|toolName|primitiveCapabilities|authorityScopeRequirements|effectClass|riskDomain|inputSchema|outputSchema|evidenceRequirements|workflowNodeType|workflowConfigFields|workflowNodeId|receiptRefs)\s*:/m.test(
-        runtimeMcpManagerToolRecordBlock,
-      ) &&
-      !/^\s*(?:schemaVersion|stableResourceId|displayName|serverId|serverLabel|mimeType|primitiveCapabilities|authorityScopeRequirements|effectClass|riskDomain|evidenceRequirements|workflowNodeType|workflowConfigFields|workflowNodeId|receiptRefs)\s*:/m.test(
-        runtimeMcpManagerResourceRecordBlock,
-      ) &&
-      !/^\s*(?:schemaVersion|stablePromptId|displayName|serverId|serverLabel|promptArguments|primitiveCapabilities|authorityScopeRequirements|effectClass|riskDomain|evidenceRequirements|workflowNodeType|workflowConfigFields|workflowNodeId|receiptRefs)\s*:/m.test(
-        runtimeMcpManagerPromptRecordBlock,
+      !/^\s*(?:schemaVersion|stableToolId|displayName|serverId|serverLabel|toolName|primitiveCapabilities|authorityScopeRequirements|effectClass|riskDomain|inputSchema|outputSchema|evidenceRequirements|workflowNodeType|workflowConfigFields|workflowNodeId|receiptRefs|stableResourceId|mimeType|stablePromptId|promptArguments)\s*:/m.test(
+        runtimeMcpManager,
       ),
     [
       "packages/runtime-daemon/src/mcp-manager.mjs",
@@ -37336,43 +37766,40 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-mcp-manager-live-output-aliases-retired",
-    /execution_mode:\s*"live_stdio"/.test(runtimeMcpManagerLiveOutputBlock) &&
-      /execution_mode:\s*session\.executionMode/.test(runtimeMcpManagerLiveOutputBlock) &&
-      /server_url:\s*session\.serverUrl/.test(runtimeMcpManagerLiveOutputBlock) &&
-      /protocol_version:/.test(runtimeMcpManagerLiveOutputBlock) &&
-      /server_info:/.test(runtimeMcpManagerLiveOutputBlock) &&
-      /tool_count:\s*(?:tools|listedTools)\.length/.test(runtimeMcpManagerLiveOutputBlock) &&
-      /listed_tools:\s*(?:tools|listedTools)/.test(runtimeMcpManagerLiveOutputBlock) &&
-      /resource_count:\s*(?:resources|listedResources)\.length/.test(runtimeMcpManagerLiveOutputBlock) &&
-      /listed_resources:\s*(?:resources|listedResources)/.test(runtimeMcpManagerLiveOutputBlock) &&
-      /prompt_count:\s*(?:prompts|listedPrompts)\.length/.test(runtimeMcpManagerLiveOutputBlock) &&
-      /listed_prompts:\s*(?:prompts|listedPrompts)/.test(runtimeMcpManagerLiveOutputBlock) &&
-      /auth_boundary:\s*session\.authBoundary \?\? session\.auth_boundary \?\? null/.test(
-        runtimeMcpManagerLiveOutputBlock,
+    !/export async function discoverMcp(?:Stdio|Http)Catalog/.test(runtimeMcpManagerLiveOutputBlock) &&
+	      !/export async function invokeMcp(?:Stdio|Http)Tool/.test(runtimeMcpManagerLiveOutputBlock) &&
+	      !/async function withMcp(?:Remote|Http|Sse|Stdio)Session/.test(runtimeMcpManagerLiveOutputBlock) &&
+	      !/fetchMcpHttp|node:child_process|spawn\(command/.test(runtimeMcpManagerLiveOutputBlock) &&
+	      !/discoverMcp(?:Stdio|Http)Catalog|invokeMcp(?:Stdio|Http)Tool/.test(runtimeMcpManagerTest) &&
+	      /contextPolicyCore\.projectMcpToolSearchProjection\(\{/.test(
+	        runtimeMcpSearchToolCatalogBlock,
+	      ) &&
+	      /contextPolicyCore\.projectMcpToolFetchProjection\(\{/.test(
+	        runtimeMcpGetToolFromCatalogBlock,
+	      ) &&
+	      /state_dir:\s*stateDir \?\? null/.test(runtimeMcpCatalogSurface) &&
+      /thread_id:\s*threadId \?\? null/.test(runtimeMcpCatalogSurface) &&
+      /agent_id:\s*agentId \?\? null/.test(runtimeMcpCatalogSurface) &&
+      !/discoverMcp(?:Stdio|Http)CatalogDep/.test(runtimeMcpCatalogSurface) &&
+      !/invokeMcp(?:Stdio|Http)ToolDep/.test(runtimeMcpCatalogSurface) &&
+      !/request\.agent\b|store\.agentForThread|store\.agents|store\.getAgent/.test(runtimeMcpCatalogSurface) &&
+      /runtime MCP catalog surface defers live transport through Rust projection/.test(
+        runtimeMcpCatalogSurfaceTest,
       ) &&
-      /server\.containment\?\.workspace_root\s*\?\?\s*\n\s*server\.workspace_root\s*\?\?\s*\n\s*process\.cwd\(\)/.test(
-        runtimeMcpManager,
-      ) &&
-      /test\("MCP stdio sessions ignore retired workspaceRoot cwd aliases"/.test(
-        runtimeMcpManagerTest,
-      ) &&
-      /workspaceRoot:\s*retiredCwd/.test(runtimeMcpManagerTest) &&
-      /assert\.notEqual\(catalog\.cwd,\s*path\.resolve\(retiredCwd\)\)/.test(
-        runtimeMcpManagerTest,
-      ) &&
+      /runtime MCP catalog must not call agentForThread/.test(runtimeMcpCatalogSurfaceTest) &&
       runtimeMcpControlFacadeRetired &&
       !/^\s*(?:executionMode|serverUrl|protocolVersion|serverInfo|toolCount|listedTools|resourceCount|listedResources|promptCount|listedPrompts|authBoundary)\s*:/m.test(
         runtimeMcpManagerLiveOutputBlock,
       ) &&
-      !/server\.containment\?\.workspaceRoot\b/.test(runtimeMcpManager) &&
-      !/server\.workspaceRoot\b/.test(runtimeMcpManager) &&
       !/catalog\.(?:executionMode|authBoundary)\b/.test(runtimeMcpControlSurface),
     [
       "packages/runtime-daemon/src/mcp-manager.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-catalog-surface.mjs",
       "packages/runtime-daemon/src/runtime-mcp-control-surface.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-catalog-surface.test.mjs",
       "packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs",
     ],
-    "Phase 10/11 is pending: MCP manager live transport outputs must expose canonical snake_case fields without duplicate camelCase aliases",
+    "Phase 10/11 is pending: retired JS MCP live transport helpers must stay removed and catalog live discovery must defer through Rust projection",
   );
   assertCheck(
     result,
@@ -37383,8 +37810,8 @@ function runCompositor() {
       /runtime MCP helpers accept only canonical catalog request options/.test(
         runtimeMcpHelpersTest,
       ) &&
-      /live_mode:\s*liveMode/.test(runtimeMcpCatalogSurface) &&
-      /error_code:\s*optionalStringDep/.test(runtimeMcpCatalogSurface) &&
+      /live_mode:\s*options\.live_mode/.test(runtimeMcpCatalogSurface) &&
+      /error_code:\s*options\.error_code/.test(runtimeMcpCatalogSurface) &&
       /preview_limit:\s*mcpCatalogPreviewLimitDep/.test(runtimeMcpCatalogSurface) &&
       !/\b(?:previewLimit|forceFullCatalog|liveMode|errorCode)\s*:/.test(
         `${runtimeMcpControlSurface}\n${runtimeMcpCatalogSurface}`,
@@ -37427,26 +37854,39 @@ function runCompositor() {
       /tools:\s*catalog\.tools/.test(runtimeMcpValidateBlock) &&
       /resources:\s*catalog\.resources/.test(runtimeMcpValidateBlock) &&
       /prompts:\s*catalog\.prompts/.test(runtimeMcpValidateBlock) &&
-      /const declaredCatalog = this\.mcpCatalogRowsForServers\(\[server\]\)/.test(runtimeMcpSearchToolCatalogBlock) &&
-      /const liveCatalog = this\.mcpCatalogRowsForServers\(\[\{/.test(runtimeMcpSearchToolCatalogBlock) &&
-      /this\.mcpCatalogSummaryForRows\(server, \{ tools, resources, prompts \}/.test(runtimeMcpSearchToolCatalogBlock) &&
-      /schema_version:\s*toolSearchSchemaVersion/.test(runtimeMcpSearchToolCatalogBlock) &&
-      /live_discovery:\s*liveDiscovery/.test(runtimeMcpSearchToolCatalogBlock) &&
-      /catalog_summaries:\s*catalogSummaries/.test(runtimeMcpSearchToolCatalogBlock) &&
-      /get_tool:\s*"\/v1\/mcp\/tools\/\{tool_id\}"/.test(runtimeMcpSearchToolCatalogBlock) &&
-      /tool_id:\s*requested\s*\?\?\s*tool\.stable_tool_id\s*\?\?\s*null/.test(
-        runtimeMcpGetToolFromCatalogBlock,
-      ) &&
-      /server_id:\s*tool\.server_id\s*\?\?\s*null/.test(runtimeMcpGetToolFromCatalogBlock) &&
-      /tool_name:\s*tool\.tool_name\s*\?\?\s*null/.test(runtimeMcpGetToolFromCatalogBlock) &&
-      /returned_count:\s*1/.test(runtimeMcpGetToolFromCatalogBlock) &&
-      /Object\.hasOwn\(status,\s*"schemaVersion"\),\s*false/.test(runtimeMcpCatalogSurfaceTest) &&
-      /validation\.source,\s*"rust_mcp_manager_validation_projection_command"/.test(runtimeMcpCatalogSurfaceTest) &&
-      /planMcpManagerValidationProjection/.test(runtimeMcpCatalogSurfaceTest) &&
-      /Object\.hasOwn\(validation,\s*"issueCount"\),\s*false/.test(runtimeMcpCatalogSurfaceTest) &&
-      /Object\.hasOwn\(globalSearch,\s*"catalogSummaries"\),\s*false/.test(runtimeMcpCatalogSurfaceTest) &&
-      /globalSearch\.catalog_summaries\[0\]\.source,\s+"rust_mcp_manager_catalog_summary_projection_command"/.test(runtimeMcpCatalogSurfaceTest) &&
-      /Object\.hasOwn\(fetched,\s*"toolId"\),\s*false/.test(runtimeMcpCatalogSurfaceTest) &&
+	      /contextPolicyCore\.projectMcpToolSearchProjection\(\{/.test(runtimeMcpSearchToolCatalogBlock) &&
+	      /status_schema_version:\s*toolSearchSchemaVersion/.test(runtimeMcpSearchToolCatalogBlock) &&
+	      /state_dir:\s*optionalStringDep\(request\.state_dir\) \?\? optionalStringDep\(store\?\.stateDir\) \?\? null/.test(
+	        runtimeMcpSearchToolCatalogBlock,
+	      ) &&
+	      /thread_id:\s*optionalStringDep\(request\.thread_id\) \?\? null/.test(
+	        runtimeMcpSearchToolCatalogBlock,
+	      ) &&
+	      /server_id:\s*optionalStringDep\(request\.server_id\) \?\? null/.test(
+	        runtimeMcpSearchToolCatalogBlock,
+	      ) &&
+	      /tool_id:\s*requestedToolId \?\? null/.test(runtimeMcpSearchToolCatalogBlock) &&
+	      /live_discovery:\s*liveDiscovery/.test(runtimeMcpSearchToolCatalogBlock) &&
+	      !/discoverMcp(?:Stdio|Http)Catalog/.test(runtimeMcpSearchToolCatalogBlock) &&
+	      !/mcpToolMatchesQuery|mcpToolIdentityMatches|mcpToolKey|resolveMcpServerRecord|mcpLiveExecutionModeForServer/.test(
+	        `${runtimeMcpSearchToolCatalogBlock}\n${runtimeMcpGetToolFromCatalogBlock}`,
+	      ) &&
+	      /contextPolicyCore\.projectMcpToolFetchProjection\(\{/.test(runtimeMcpGetToolFromCatalogBlock) &&
+	      /tool_id:\s*requested \?\? null/.test(runtimeMcpGetToolFromCatalogBlock) &&
+	      /if \(result\.status === "not_found" \|\| !result\.tool\)/.test(
+	        runtimeMcpGetToolFromCatalogBlock,
+	      ) &&
+	      /throw notFoundDep\("MCP tool not found\."/.test(runtimeMcpGetToolFromCatalogBlock) &&
+	      /return result;/.test(runtimeMcpGetToolFromCatalogBlock) &&
+	      /Object\.hasOwn\(status,\s*"schemaVersion"\),\s*false/.test(runtimeMcpCatalogSurfaceTest) &&
+	      /validation\.source,\s*"rust_mcp_manager_validation_projection_command"/.test(runtimeMcpCatalogSurfaceTest) &&
+	      /planMcpManagerValidationProjection/.test(runtimeMcpCatalogSurfaceTest) &&
+	      /Object\.hasOwn\(validation,\s*"issueCount"\),\s*false/.test(runtimeMcpCatalogSurfaceTest) &&
+	      /globalSearch\.source,\s*"rust_mcp_tool_search_projection_command"/.test(runtimeMcpCatalogSurfaceTest) &&
+	      /Object\.hasOwn\(globalSearch,\s*"catalogSummaries"\),\s*false/.test(runtimeMcpCatalogSurfaceTest) &&
+	      /globalSearch\.catalog_summaries\[0\]\.source,\s+"rust_mcp_manager_catalog_summary_projection_command"/.test(runtimeMcpCatalogSurfaceTest) &&
+	      /Object\.hasOwn\(fetched,\s*"toolId"\),\s*false/.test(runtimeMcpCatalogSurfaceTest) &&
+	      /fetched\.source,\s*"rust_mcp_tool_fetch_projection_command"/.test(runtimeMcpCatalogSurfaceTest) &&
       /stable_tool_id:\s*`\$\{item\.id\}\.\$\{tool\.name\}`/.test(runtimeMcpCatalogSurfaceTest) &&
       !/mcpToolsForServers|mcpResourcesForServers|mcpPromptsForServers/.test(runtimeMcpCatalogSurfaceTest) &&
       !/mcpCatalogSummaryForServer/.test(runtimeMcpCatalogSurfaceTest) &&

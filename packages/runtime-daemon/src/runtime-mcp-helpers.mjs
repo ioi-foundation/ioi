@@ -3,9 +3,6 @@ import {
   CODING_TOOL_PACK_ID,
 } from "./coding-tools.mjs";
 import {
-  mcpToolsForServers,
-} from "./mcp-manager.mjs";
-import {
   RUNTIME_MCP_SERVE_DEFAULT_ALLOWED_TOOL_IDS,
   RUNTIME_MCP_SERVE_SCHEMA_VERSION,
   MCP_LIVE_CATALOG_DEFAULT_PREVIEW_LIMIT,
@@ -67,7 +64,7 @@ export function resolveMcpToolRecord(servers = [], toolId, request = {}) {
   let server = requestedServerId ? resolveMcpServerRecord(servers, requestedServerId) : null;
   if (!server && requestedToolId) {
     const toolsByServer = normalizeArray(servers).flatMap((candidate) =>
-      mcpToolsForServers([candidate]).map((tool) => ({ server: candidate, tool })),
+      mcpToolCandidatesForServer(candidate).map((tool) => ({ server: candidate, tool })),
     );
     const normalizedToolId = requestedToolId.toLowerCase();
     const match = toolsByServer.find(({ tool }) => {
@@ -93,6 +90,30 @@ export function resolveMcpToolRecord(servers = [], toolId, request = {}) {
     }
   }
   return { server, toolName: requestedToolName };
+}
+
+function mcpToolCandidatesForServer(server = {}) {
+  const serverLabel =
+    optionalString(server.label) ??
+    optionalString(server.name) ??
+    optionalString(server.id) ??
+    "mcp";
+  const serverId = optionalString(server.id) ?? `mcp.${safeId(serverLabel)}`;
+  return normalizeArray(server.allowed_tools).map((tool) => {
+    const toolName =
+      optionalString(tool?.name) ??
+      optionalString(tool?.tool_name) ??
+      optionalString(tool) ??
+      "tool";
+    const safeServer = safeId(serverLabel);
+    const safeTool = safeId(toolName);
+    return {
+      stable_tool_id: `mcp.${safeServer}.${safeTool}`,
+      workflow_node_id: `runtime.mcp-tool.${safeServer}.${safeTool}`,
+      server_id: serverId,
+      tool_name: toolName,
+    };
+  });
 }
 
 export function mcpServeAllowedToolIds(options = {}) {

@@ -6,7 +6,7 @@ import {
 import {
   RUNTIME_MCP_MANAGER_VALIDATION_SCHEMA_VERSION,
 } from "./runtime-contract-constants.mjs";
-import { eventStreamIdForThread } from "./runtime-identifiers.mjs";
+import { agentIdForThread, eventStreamIdForThread } from "./runtime-identifiers.mjs";
 import { runtimeError } from "./runtime-http-utils.mjs";
 import {
   normalizeArray,
@@ -16,8 +16,14 @@ import {
 } from "./runtime-value-helpers.mjs";
 import {
   MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  MCP_LIVE_RESULT_REPLAY_REQUEST_SCHEMA_VERSION,
   createRuntimeContextPolicyCore,
 } from "./runtime-context-policy-core.mjs";
+
+const RUNTIME_RECEIPT_STATE_COMMIT_SCHEMA_VERSION = "ioi.runtime_receipt_state_commit.v1";
+const RUNTIME_MCP_LIVE_RESULT_STATE_COMMIT_SCHEMA_VERSION =
+  "ioi.runtime_mcp_live_result_state_commit.v1";
+const RUNTIME_STATE_STORAGE_BACKEND_REF = "storage://runtime-agentgres/local-json";
 
 export function createRuntimeMcpControlSurface({
   RUNTIME_MCP_MANAGER_INVOCATION_SCHEMA_VERSION: invocationSchemaVersion = RUNTIME_MCP_MANAGER_INVOCATION_SCHEMA_VERSION,
@@ -30,6 +36,7 @@ export function createRuntimeMcpControlSurface({
   runtimeError: runtimeErrorDep = runtimeError,
   safeId: safeIdDep = safeId,
   contextPolicyCore = createRuntimeContextPolicyCore(),
+  agentIdForThread: agentIdForThreadDep = agentIdForThread,
   eventStreamIdForThread: eventStreamIdForThreadDep = eventStreamIdForThread,
   mcpControlStateUpdateSchemaVersion = MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   nowIso = () => new Date().toISOString(),
@@ -61,7 +68,9 @@ export function createRuntimeMcpControlSurface({
       return this.invokeThreadMcpTool(store, threadId, request.tool_id, request);
     },
     mcpStatusForAgent(agent) {
-      const registry = agent.mcpRegistry ?? mcpRegistryForWorkspaceDep(agent.cwd);
+      const registry = agent.mcpRegistry ?? mcpRegistryForWorkspaceDep(agent.cwd, {
+        contextPolicyCore,
+      });
       const servers = normalizeArrayDep(registry.servers);
       const catalog = contextPolicyCore.planMcpManagerCatalogProjection({ servers });
       const validation = contextPolicyCore.validateMcpServers({ servers });
@@ -105,12 +114,9 @@ export function createRuntimeMcpControlSurface({
         ...(server ? { server: mcpControlServerPayload(server) } : {}),
       });
     },
-    async mcpStatusWithLiveDiscovery(store, status = {}, agent, request = {}) {
-      const threadId = requiredMcpThreadId(request, "MCP live discovery", {
-        agent_id: agent?.id ?? null,
-      });
+    async mcpStatusWithLiveDiscovery(store, status = {}, request = {}) {
+      const threadId = requiredMcpThreadId(request, "MCP live discovery");
       return applyRustMcpControlStateUpdate(store, threadId, "mcp_live_discovery", "mcp_live_discovery", request, {
-        agent_id: optionalStringDep(agent?.id) ?? null,
         status: optionalStringDep(status?.status) ?? null,
         live_transport: optionalStringDep(request.live_transport) ?? null,
         execution_mode: optionalStringDep(request.execution_mode) ?? "discovery",
@@ -200,15 +206,6 @@ export function createRuntimeMcpControlSurface({
     const operationKind = `thread.${controlKind}`;
     const planner = mcpControlStateUpdatePlanner(operation, operationKind, { thread_id: threadId });
     const writer = mcpControlAgentWriter(store, operation, operationKind, { thread_id: threadId });
-    const agent = objectRecordDep(store.agentForThread?.(threadId));
-    if (!agent) {
-      throw runtimeErrorDep({
-        status: 404,
-        code: "mcp_control_agent_not_found",
-        message: "MCP control requires a canonical agent projection.",
-        details: { thread_id: threadId, operation, operation_kind: operationKind },
-      });
-    }
 
     const now = optionalStringDep(request.updated_at) ?? optionalStringDep(request.created_at) ?? nowIso();
     const eventStreamId = eventStreamIdForThreadDep(threadId);
@@ -220,7 +217,8 @@ export function createRuntimeMcpControlSurface({
       `mcp_control_${safeIdDep(threadId)}_${safeIdDep(controlKind)}_${safeIdDep(now)}`;
     const stateUpdate = planner({
       thread_id: threadId,
-      agent,
+      agent_id: optionalStringDep(request.agent_id) ?? agentIdForThreadDep(threadId),
+      state_dir: optionalStringDep(request.state_dir) ?? optionalStringDep(store?.stateDir) ?? null,
       control_kind: controlKind,
       event_id: eventId,
       seq: Number.isFinite(latestSeq) ? latestSeq + 1 : 1,
@@ -242,13 +240,351 @@ export function createRuntimeMcpControlSurface({
       });
     }
     const plannedOperationKind = optionalStringDep(record.operation_kind) ?? operationKind;
+    const receiptState = persistRuntimeMcpLiveReceipt(store, record, operation, plannedOperationKind, threadId);
+    const resultState = persistRuntimeMcpLiveResult(
+      store,
+      record,
+      receiptState?.receipt ?? record.receipt ?? null,
+      operation,
+      plannedOperationKind,
+      threadId,
+    );
+    const resultReplay = projectRuntimeMcpLiveResult(
+      store,
+      record,
+      receiptState?.receipt ?? record.receipt ?? null,
+      resultState,
+      operation,
+      plannedOperationKind,
+      threadId,
+    );
     const commit = writer(plannedAgent, plannedOperationKind);
     return {
       ...record,
       commit,
+      receipt: receiptState?.receipt ?? record.receipt ?? null,
+      result: resultReplay?.result ?? null,
+      receipt_commit: receiptState?.commit ?? null,
+      receipt_state_commit: receiptState?.commit ?? null,
+      result_commit: resultState?.commit ?? null,
+      result_state_commit: resultState?.commit ?? null,
+      result_replay: resultReplay?.projection ?? null,
+      result_projection: resultReplay?.projection ?? null,
+      result_state_replay: resultReplay?.projection ?? null,
       source: stateUpdate?.source ?? record.source ?? "rust_mcp_control_agent_state_update_command",
       backend: stateUpdate?.backend ?? record.backend ?? "rust_policy",
     };
+  }
+
+  function persistRuntimeMcpLiveReceipt(store, record, operation, operationKind, threadId) {
+    const control = objectRecordDep(record.control) ?? {};
+    if (!isRuntimeMcpLiveExit(control.control_kind ?? operationKind)) return null;
+    const receipt = objectRecordDep(record.receipt);
+    if (!receipt) {
+      throw runtimeErrorDep({
+        status: 502,
+        code: "mcp_control_live_exit_receipt_required",
+        message: "Rust MCP live exit planner did not return the required Rust-authored receipt.",
+        details: {
+          operation,
+          operation_kind: operationKind,
+          thread_id: threadId,
+          boundary: "runtime.mcp_control",
+          required_schema_version: "ioi.runtime.mcp-live-exit-receipt.v1",
+        },
+      });
+    }
+    assertRuntimeMcpLiveReceiptBound(receipt, control, { operation, operationKind, threadId });
+    if (typeof store?.commitRuntimeReceiptState !== "function") {
+      throw runtimeErrorDep({
+        status: 501,
+        code: "mcp_control_live_exit_receipt_state_commit_required",
+        message: "Runtime MCP live exits require Rust Agentgres receipt-state commit before public truth returns.",
+        details: {
+          operation,
+          operation_kind: operationKind,
+          thread_id: threadId,
+          boundary: "runtime.mcp_control",
+          required_store_api: "commitRuntimeReceiptState",
+          required_core: "rust_daemon_core",
+          receipt_id: receipt.id ?? null,
+        },
+      });
+    }
+    const commit = store.commitRuntimeReceiptState({
+      schema_version: RUNTIME_RECEIPT_STATE_COMMIT_SCHEMA_VERSION,
+      receipt_id: receipt.id,
+      operation_kind: "runtime.mcp_live_exit.receipt.write",
+      storage_backend_ref: RUNTIME_STATE_STORAGE_BACKEND_REF,
+      receipt,
+      receipt_refs: [receipt.id],
+    });
+    if (!commit?.commit_hash) {
+      throw runtimeErrorDep({
+        status: 502,
+        code: "mcp_control_live_exit_receipt_state_commit_invalid",
+        message: "Rust Agentgres runtime MCP live-exit receipt-state commit returned without commit_hash.",
+        details: {
+          operation,
+          operation_kind: operationKind,
+          thread_id: threadId,
+          receipt_id: receipt.id ?? null,
+        },
+      });
+    }
+    return { receipt, commit };
+  }
+
+  function persistRuntimeMcpLiveResult(store, record, receipt, operation, operationKind, threadId) {
+    const control = objectRecordDep(record.control) ?? {};
+    if (!isRuntimeMcpLiveExit(control.control_kind ?? operationKind)) return null;
+    const result = objectRecordDep(record.result);
+    if (!result) {
+      throw runtimeErrorDep({
+        status: 502,
+        code: "mcp_control_live_exit_result_required",
+        message: "Rust MCP live exit planner did not return the required Rust-authored live result record.",
+        details: {
+          operation,
+          operation_kind: operationKind,
+          thread_id: threadId,
+          boundary: "runtime.mcp_control",
+          required_schema_version: "ioi.runtime.mcp-live-result.v1",
+        },
+      });
+    }
+    assertRuntimeMcpLiveResultBound(result, receipt, control, { operation, operationKind, threadId });
+    if (typeof store?.commitRuntimeMcpLiveResultState !== "function") {
+      throw runtimeErrorDep({
+        status: 501,
+        code: "mcp_control_live_exit_result_state_commit_required",
+        message: "Runtime MCP live exits require Rust Agentgres live-result state commit before public truth returns.",
+        details: {
+          operation,
+          operation_kind: operationKind,
+          thread_id: threadId,
+          boundary: "runtime.mcp_control",
+          required_store_api: "commitRuntimeMcpLiveResultState",
+          required_core: "rust_daemon_core",
+          result_id: result.id ?? null,
+        },
+      });
+    }
+    const commit = store.commitRuntimeMcpLiveResultState({
+      schema_version: RUNTIME_MCP_LIVE_RESULT_STATE_COMMIT_SCHEMA_VERSION,
+      result_id: result.id,
+      operation_kind: "runtime.mcp_live_exit.result.write",
+      storage_backend_ref: RUNTIME_STATE_STORAGE_BACKEND_REF,
+      result,
+      receipt_refs: [receipt?.id].filter(Boolean),
+    });
+    if (!commit?.commit_hash) {
+      throw runtimeErrorDep({
+        status: 502,
+        code: "mcp_control_live_exit_result_state_commit_invalid",
+        message: "Rust Agentgres runtime MCP live-exit result-state commit returned without commit_hash.",
+        details: {
+          operation,
+          operation_kind: operationKind,
+          thread_id: threadId,
+          result_id: result.id ?? null,
+        },
+      });
+    }
+    return { result, commit };
+  }
+
+  function projectRuntimeMcpLiveResult(store, record, receipt, resultState, operation, operationKind, threadId) {
+    const control = objectRecordDep(record.control) ?? {};
+    if (!isRuntimeMcpLiveExit(control.control_kind ?? operationKind)) return null;
+    const result = objectRecordDep(resultState?.result);
+    if (!result) {
+      throw runtimeErrorDep({
+        status: 502,
+        code: "mcp_control_live_exit_result_replay_input_required",
+        message: "Runtime MCP live-result replay requires a committed Rust-authored live result.",
+        details: {
+          operation,
+          operation_kind: operationKind,
+          thread_id: threadId,
+          boundary: "runtime.mcp_control",
+          required_core: "rust_daemon_core",
+        },
+      });
+    }
+    const stateDir = optionalStringDep(store?.stateDir);
+    if (!stateDir) {
+      throw runtimeErrorDep({
+        status: 501,
+        code: "mcp_control_live_exit_result_replay_state_dir_required",
+        message: "Runtime MCP live-result replay requires the Agentgres state directory before public truth returns.",
+        details: {
+          operation,
+          operation_kind: operationKind,
+          thread_id: threadId,
+          boundary: "runtime.mcp_control",
+          required_state_dir: true,
+          required_core: "rust_daemon_core",
+        },
+      });
+    }
+    const projector = mcpLiveResultReplayProjector(operation, operationKind, {
+      thread_id: threadId,
+      result_id: result.id ?? null,
+    });
+    const projection = projector({
+      schema_version: MCP_LIVE_RESULT_REPLAY_REQUEST_SCHEMA_VERSION,
+      state_dir: stateDir,
+      result_id: optionalStringDep(result.id) ?? null,
+      receipt_id: optionalStringDep(receipt?.id) ?? optionalStringDep(result.receipt_id) ?? null,
+      thread_id: threadId,
+      agent_id:
+        optionalStringDep(record.agent_id) ??
+        optionalStringDep((objectRecordDep(record.agent) ?? {}).id) ??
+        null,
+      control_kind: optionalStringDep(control.control_kind) ?? null,
+    });
+    const projectedResult = objectRecordDep(projection?.latest_result);
+    if (!projectedResult) {
+      throw runtimeErrorDep({
+        status: 502,
+        code: "mcp_control_live_exit_result_replay_invalid",
+        message: "Rust MCP live-result replay projection did not return a bound latest_result.",
+        details: {
+          operation,
+          operation_kind: operationKind,
+          thread_id: threadId,
+          boundary: "runtime.mcp_control",
+          result_id: result.id ?? null,
+          replay_hash: projection?.replay_hash ?? null,
+        },
+      });
+    }
+    assertRuntimeMcpLiveResultBound(projectedResult, receipt, control, {
+      operation,
+      operationKind,
+      threadId,
+      replay_hash: projection?.replay_hash ?? null,
+    });
+    return { result: projectedResult, projection };
+  }
+
+  function assertRuntimeMcpLiveReceiptBound(receipt, control, details = {}) {
+    const receiptDetails = objectRecordDep(receipt.details) ?? {};
+    const evidenceRefs = Array.isArray(receipt.evidence_refs) ? receipt.evidence_refs : [];
+    const receiptId = optionalStringDep(receipt.id);
+    const contentReceiptId = optionalStringDep(control.content_receipt_id);
+    const resultReceiptId = optionalStringDep(control.result_receipt_id);
+    const missing = [];
+    if (receipt.schema_version !== "ioi.runtime.mcp-live-exit-receipt.v1") missing.push("schema_version");
+    if (receipt.kind !== "runtime_mcp_live_exit") missing.push("kind");
+    if (!receiptId) missing.push("id");
+    if (receiptId !== contentReceiptId) missing.push("content_receipt_id");
+    if (receiptId !== resultReceiptId) missing.push("result_receipt_id");
+    if (receiptDetails.rust_daemon_core_receipt_author !== "runtime.mcp_control") {
+      missing.push("rust_daemon_core_receipt_author");
+    }
+    for (const ref of [
+      "runtime_mcp_live_exit_rust_receipt",
+      "agentgres_runtime_mcp_live_receipt_truth_required",
+      "receipt_state_root_binding_required",
+    ]) {
+      if (!evidenceRefs.includes(ref)) missing.push(ref);
+    }
+    if (!receiptDetails.runtime_mcp_agentgres_operation_ref) {
+      missing.push("runtime_mcp_agentgres_operation_ref");
+    }
+    if (!receiptDetails.runtime_mcp_agent_state_root_before) {
+      missing.push("runtime_mcp_agent_state_root_before");
+    }
+    if (!receiptDetails.runtime_mcp_agent_state_root_after) {
+      missing.push("runtime_mcp_agent_state_root_after");
+    }
+    if (!receiptDetails.runtime_mcp_resulting_head) {
+      missing.push("runtime_mcp_resulting_head");
+    }
+    if (receiptDetails.runtime_mcp_agentgres_operation_ref !== control.runtime_mcp_agentgres_operation_ref) {
+      missing.push("control_operation_ref_binding");
+    }
+    if (receiptDetails.runtime_mcp_agent_state_root_after !== control.runtime_mcp_agent_state_root_after) {
+      missing.push("control_state_root_after_binding");
+    }
+    if (receiptDetails.runtime_mcp_resulting_head !== control.runtime_mcp_resulting_head) {
+      missing.push("control_resulting_head_binding");
+    }
+    if (receiptDetails.result_materialized !== false) missing.push("result_materialized_false");
+    if (receiptDetails.js_transport_invocation !== false) missing.push("js_transport_invocation_false");
+    if (receiptDetails.command_transport_fallback !== false) missing.push("command_transport_fallback_false");
+    if (missing.length > 0) {
+      throw runtimeErrorDep({
+        status: 502,
+        code: "mcp_control_live_exit_receipt_binding_invalid",
+        message: "Rust MCP live-exit receipt is not bound to the Rust control admission and Agentgres state-root transition.",
+        details: {
+          ...details,
+          receipt_id: receiptId ?? null,
+          missing,
+        },
+      });
+    }
+  }
+
+  function assertRuntimeMcpLiveResultBound(result, receipt, control, details = {}) {
+    const resultDetails = objectRecordDep(result.details) ?? {};
+    const evidenceRefs = Array.isArray(result.evidence_refs) ? result.evidence_refs : [];
+    const resultId = optionalStringDep(result.id);
+    const receiptId = optionalStringDep(receipt?.id);
+    const resultRecordId = optionalStringDep(control.result_record_id);
+    const missing = [];
+    if (result.schema_version !== "ioi.runtime.mcp-live-result.v1") missing.push("schema_version");
+    if (result.kind !== "runtime_mcp_live_result") missing.push("kind");
+    if (!resultId) missing.push("id");
+    if (resultId !== resultRecordId) missing.push("result_record_id");
+    if (!receiptId) missing.push("receipt_id");
+    if (optionalStringDep(result.receipt_id) !== receiptId) missing.push("receipt_binding");
+    if (resultDetails.rust_daemon_core_result_author !== "runtime.mcp_control") {
+      missing.push("rust_daemon_core_result_author");
+    }
+    for (const ref of [
+      "runtime_mcp_live_result_rust_projection",
+      "agentgres_runtime_mcp_live_result_truth_required",
+      "runtime_mcp_no_js_transport_result",
+      "receipt_state_root_binding_required",
+    ]) {
+      if (!evidenceRefs.includes(ref)) missing.push(ref);
+    }
+    if (resultDetails.runtime_mcp_agentgres_operation_ref !== control.runtime_mcp_agentgres_operation_ref) {
+      missing.push("control_operation_ref_binding");
+    }
+    if (resultDetails.runtime_mcp_agent_state_root_after !== control.runtime_mcp_agent_state_root_after) {
+      missing.push("control_state_root_after_binding");
+    }
+    if (resultDetails.runtime_mcp_resulting_head !== control.runtime_mcp_resulting_head) {
+      missing.push("control_resulting_head_binding");
+    }
+    if (resultDetails.result_materialized !== false) missing.push("result_materialized_false");
+    if (resultDetails.backend_materialization_status !== "pending_rust_transport_backend") {
+      missing.push("backend_materialization_status");
+    }
+    if (resultDetails.js_transport_invocation !== false) missing.push("js_transport_invocation_false");
+    if (resultDetails.command_transport_fallback !== false) missing.push("command_transport_fallback_false");
+    if (missing.length > 0) {
+      throw runtimeErrorDep({
+        status: 502,
+        code: "mcp_control_live_exit_result_binding_invalid",
+        message: "Rust MCP live-exit result record is not bound to the Rust control admission, receipt, and Agentgres state-root transition.",
+        details: {
+          ...details,
+          result_id: resultId ?? null,
+          receipt_id: receiptId ?? null,
+          missing,
+        },
+      });
+    }
+  }
+
+  function isRuntimeMcpLiveExit(controlKind) {
+    return controlKind === "mcp_invoke" || controlKind === "mcp_live_discovery";
   }
 
   function mcpControlStateUpdatePlanner(operation, operationKind, details = {}) {
@@ -256,6 +592,30 @@ export function createRuntimeMcpControlSurface({
       return contextPolicyCore.planMcpControlAgentStateUpdate.bind(contextPolicyCore);
     }
     throwMcpControlRustCoreRequired(operation, operationKind, details);
+  }
+
+  function mcpLiveResultReplayProjector(operation, operationKind, details = {}) {
+    if (typeof contextPolicyCore?.projectMcpLiveResultReplay === "function") {
+      return contextPolicyCore.projectMcpLiveResultReplay.bind(contextPolicyCore);
+    }
+    throw runtimeErrorDep({
+      status: 501,
+      code: "mcp_control_live_exit_result_replay_required",
+      message: "Runtime MCP live exits require Rust daemon-core live-result replay before public truth returns.",
+      details: {
+        boundary: "runtime.mcp_control",
+        operation,
+        operation_kind: operationKind,
+        required_core: "rust_daemon_core",
+        required_policy_api: "projectMcpLiveResultReplay",
+        schema_version: MCP_LIVE_RESULT_REPLAY_REQUEST_SCHEMA_VERSION,
+        evidence_refs: [
+          "runtime_mcp_live_result_rust_projection",
+          "agentgres_runtime_mcp_live_result_truth_required",
+        ],
+        ...details,
+      },
+    });
   }
 
   function mcpControlAgentWriter(store, operation, operationKind, details = {}) {
@@ -300,6 +660,10 @@ export function createRuntimeMcpControlSurface({
       "live_transport",
       "execution_mode",
       "timeout_ms",
+      "authority_grant_refs",
+      "authority_receipt_refs",
+      "custody_ref",
+      "containment_ref",
       "source",
       "reason",
       "enabled",

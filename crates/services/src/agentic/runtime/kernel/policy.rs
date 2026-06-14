@@ -52,10 +52,13 @@ pub use mcp_memory::{
     plan_mcp_manager_status_projection_response, plan_mcp_manager_validation_projection_response,
     plan_memory_manager_status_projection_response,
     plan_memory_manager_validation_projection_response,
-    plan_thread_memory_agent_state_update_response, project_mcp_server_validation_input_response,
-    validate_mcp_servers_response, McpControlAgentStateUpdateBridgeRequest,
-    McpControlAgentStateUpdateCore, McpControlAgentStateUpdateError,
-    McpControlAgentStateUpdateRecord, McpControlAgentStateUpdateRequest,
+    plan_thread_memory_agent_state_update_response, project_mcp_live_result_replay_response,
+    project_mcp_server_validation_input_response, project_mcp_tool_fetch_projection_response,
+    project_mcp_tool_search_projection_response, validate_mcp_servers_response,
+    McpControlAgentStateUpdateBridgeRequest, McpControlAgentStateUpdateCore,
+    McpControlAgentStateUpdateError, McpControlAgentStateUpdateRecord,
+    McpControlAgentStateUpdateRequest, McpLiveResultReplayBridgeRequest, McpLiveResultReplayCore,
+    McpLiveResultReplayError, McpLiveResultReplayRecord, McpLiveResultReplayRequest,
     McpManagerCatalogProjectionBridgeRequest, McpManagerCatalogProjectionCore,
     McpManagerCatalogProjectionError, McpManagerCatalogProjectionRecord,
     McpManagerCatalogProjectionRequest, McpManagerCatalogSummaryProjectionBridgeRequest,
@@ -69,7 +72,10 @@ pub use mcp_memory::{
     McpMemoryCommandError, McpServerValidationBridgeRequest, McpServerValidationCore,
     McpServerValidationError, McpServerValidationInputBridgeRequest, McpServerValidationInputCore,
     McpServerValidationInputError, McpServerValidationInputRecord, McpServerValidationInputRequest,
-    McpServerValidationRecord, McpServerValidationRequest,
+    McpServerValidationRecord, McpServerValidationRequest, McpToolFetchProjectionBridgeRequest,
+    McpToolFetchProjectionCore, McpToolFetchProjectionRecord, McpToolFetchProjectionRequest,
+    McpToolProjectionError, McpToolSearchProjectionBridgeRequest, McpToolSearchProjectionCore,
+    McpToolSearchProjectionRecord, McpToolSearchProjectionRequest,
     MemoryManagerStatusProjectionBridgeRequest, MemoryManagerStatusProjectionCore,
     MemoryManagerStatusProjectionError, MemoryManagerStatusProjectionRecord,
     MemoryManagerStatusProjectionRequest, MemoryManagerValidationProjectionBridgeRequest,
@@ -257,6 +263,10 @@ pub const MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.mcp-control-agent-state-update-request.v1";
 pub const MCP_CONTROL_AGENT_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =
     "ioi.runtime.mcp-control-agent-state-update.v1";
+pub const MCP_LIVE_RESULT_REPLAY_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.mcp-live-result-replay-request.v1";
+pub const MCP_LIVE_RESULT_REPLAY_RESULT_SCHEMA_VERSION: &str =
+    "ioi.runtime.mcp-live-result-replay.v1";
 pub const MCP_SERVER_VALIDATION_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.mcp-server-validation-request.v1";
 pub const MCP_SERVER_VALIDATION_RESULT_SCHEMA_VERSION: &str =
@@ -281,6 +291,12 @@ pub const MCP_MANAGER_CATALOG_SUMMARY_PROJECTION_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.mcp-manager-catalog-summary-projection-request.v1";
 pub const MCP_MANAGER_CATALOG_SUMMARY_PROJECTION_RESULT_SCHEMA_VERSION: &str =
     "ioi.runtime.mcp-manager-catalog-summary.v1";
+pub const MCP_TOOL_SEARCH_PROJECTION_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.mcp-tool-search-projection-request.v1";
+pub const MCP_TOOL_SEARCH_PROJECTION_RESULT_SCHEMA_VERSION: &str = "ioi.runtime.mcp-tool-search.v1";
+pub const MCP_TOOL_FETCH_PROJECTION_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.mcp-tool-fetch-projection-request.v1";
+pub const MCP_TOOL_FETCH_PROJECTION_RESULT_SCHEMA_VERSION: &str = "ioi.runtime.mcp-tool-fetch.v1";
 pub const MEMORY_MANAGER_VALIDATION_PROJECTION_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.memory-manager-validation-projection-request.v1";
 pub const MEMORY_MANAGER_VALIDATION_PROJECTION_RESULT_SCHEMA_VERSION: &str =

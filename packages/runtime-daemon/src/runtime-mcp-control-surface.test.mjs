@@ -35,12 +35,153 @@ function cloneJson(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
-function planMcpControlAgentStateUpdate(request) {
-  const agent = cloneJson(request.agent);
+function liveExitReceipt({ request, payload, agent, control, receiptId, operationRef, stateRootBefore, stateRootAfter, resultingHead }) {
+  return {
+    schema_version: "ioi.runtime.mcp-live-exit-receipt.v1",
+    object: "ioi.runtime_mcp_live_exit_receipt",
+    id: receiptId,
+    kind: "runtime_mcp_live_exit",
+    redaction: "redacted",
+    created_at: request.created_at,
+    receipt_refs: [receiptId],
+    evidence_refs: [
+      "runtime_mcp_control_rust_owned",
+      "runtime_mcp_live_exit_rust_receipt",
+      "agentgres_runtime_mcp_live_receipt_truth_required",
+      "wallet_network_mcp_external_exit_authority_required",
+      "ctee_mcp_external_exit_custody_required",
+      "mcp_transport_containment_required",
+      "receipt_state_root_binding_required",
+    ],
+    details: {
+      rust_daemon_core_receipt_author: "runtime.mcp_control",
+      control_kind: request.control_kind,
+      event_id: request.event_id,
+      thread_id: request.thread_id,
+      agent_id: agent.id,
+      server_id: payload.server_id ?? null,
+      tool_ref: payload.tool_id ?? payload.tool_name ?? null,
+      live_transport: payload.live_transport ?? null,
+      execution_mode: payload.execution_mode ?? null,
+      timeout_ms: payload.timeout_ms ?? null,
+      wallet_authority_boundary: "wallet.network.mcp_external_exit",
+      authority_hash: control.authority_hash,
+      authority_grant_refs: payload.authority_grant_refs ?? [],
+      authority_receipt_refs: payload.authority_receipt_refs ?? [],
+      custody_ref: payload.custody_ref ?? null,
+      containment_ref: payload.containment_ref ?? null,
+      runtime_mcp_agentgres_operation_ref: operationRef,
+      runtime_mcp_agent_state_root_before: stateRootBefore,
+      runtime_mcp_agent_state_root_after: stateRootAfter,
+      runtime_mcp_resulting_head: resultingHead,
+      result_materialized: false,
+      js_transport_invocation: false,
+      command_transport_fallback: false,
+      binary_bridge_fallback: false,
+      compatibility_fallback: false,
+    },
+  };
+}
+
+function liveExitResult({
+  request,
+  payload,
+  agent,
+  control,
+  resultId,
+  receiptId,
+  operationRef,
+  stateRootBefore,
+  stateRootAfter,
+  resultingHead,
+}) {
+  return {
+    schema_version: "ioi.runtime.mcp-live-result.v1",
+    object: "ioi.runtime_mcp_live_result",
+    id: resultId,
+    kind: "runtime_mcp_live_result",
+    status: "admitted_pending_rust_transport",
+    redaction: "redacted",
+    created_at: request.created_at,
+    receipt_id: receiptId,
+    receipt_refs: [receiptId],
+    evidence_refs: [
+      "runtime_mcp_control_rust_owned",
+      "runtime_mcp_live_result_rust_projection",
+      "agentgres_runtime_mcp_live_result_truth_required",
+      "runtime_mcp_transport_backend_pending",
+      "runtime_mcp_no_js_transport_result",
+      "receipt_state_root_binding_required",
+    ],
+    details: {
+      rust_daemon_core_result_author: "runtime.mcp_control",
+      control_kind: request.control_kind,
+      event_id: request.event_id,
+      thread_id: request.thread_id,
+      agent_id: agent.id,
+      server_id: payload.server_id ?? null,
+      tool_ref: payload.tool_id ?? payload.tool_name ?? null,
+      live_transport: payload.live_transport ?? null,
+      execution_mode: payload.execution_mode ?? null,
+      timeout_ms: payload.timeout_ms ?? null,
+      runtime_mcp_agentgres_operation_ref: operationRef,
+      runtime_mcp_agent_state_root_before: stateRootBefore,
+      runtime_mcp_agent_state_root_after: stateRootAfter,
+      runtime_mcp_resulting_head: resultingHead,
+      receipt_id: receiptId,
+      result_materialized: false,
+      backend_materialization_status: "pending_rust_transport_backend",
+      payload_ref: null,
+      payload_hash: null,
+      js_transport_invocation: false,
+      command_transport_fallback: false,
+      binary_bridge_fallback: false,
+      compatibility_fallback: false,
+    },
+  };
+}
+
+function planMcpControlAgentStateUpdate(request, currentAgent) {
+  assert.equal(Object.hasOwn(request, "agent"), false);
+  assert.equal(request.agent_id, currentAgent.id);
+  assert.equal(request.state_dir, "/runtime-state");
+  const agent = cloneJson(currentAgent);
   const payload = request.request ?? {};
   const registry = agent.mcpRegistry ?? { servers: [] };
   let servers = Array.isArray(registry.servers) ? registry.servers.map((item) => cloneJson(item)) : [];
   const serverId = payload.server_id ?? payload.server?.id ?? null;
+  if (["mcp_invoke", "mcp_live_discovery"].includes(request.control_kind)) {
+    if (!serverId) {
+      const error = new Error("Rust MCP live exits require a server_id.");
+      error.code = "mcp_control_live_exit_server_required";
+      throw error;
+    }
+    if (request.control_kind === "mcp_invoke" && !payload.tool_id && !payload.tool_name) {
+      const error = new Error("Rust MCP invoke exits require a tool id or name.");
+      error.code = "mcp_control_live_exit_tool_required";
+      throw error;
+    }
+    if (!Array.isArray(payload.authority_grant_refs) || payload.authority_grant_refs.length === 0) {
+      const error = new Error("Rust MCP live exits require wallet authority grant refs.");
+      error.code = "mcp_control_live_exit_wallet_authority_required";
+      throw error;
+    }
+    if (!Array.isArray(payload.authority_receipt_refs) || payload.authority_receipt_refs.length === 0) {
+      const error = new Error("Rust MCP live exits require wallet authority receipt refs.");
+      error.code = "mcp_control_live_exit_wallet_authority_required";
+      throw error;
+    }
+    if (!payload.custody_ref) {
+      const error = new Error("Rust MCP live exits require cTEE custody refs.");
+      error.code = "mcp_control_live_exit_custody_required";
+      throw error;
+    }
+    if (!payload.containment_ref) {
+      const error = new Error("Rust MCP live exits require transport containment refs.");
+      error.code = "mcp_control_live_exit_containment_required";
+      throw error;
+    }
+  }
   if (request.control_kind === "mcp_import") {
     servers = Array.isArray(payload.servers) ? payload.servers.map((item) => cloneJson(item)) : [];
   } else if (request.control_kind === "mcp_add" && payload.server) {
@@ -63,6 +204,61 @@ function planMcpControlAgentStateUpdate(request) {
   }
   agent.mcpRegistry = { servers };
   agent.updatedAt = request.created_at;
+  const liveExit = ["mcp_invoke", "mcp_live_discovery"].includes(request.control_kind);
+  const receiptId = liveExit
+    ? `receipt_runtime_mcp_live_exit_${agent.id}_${request.control_kind}_${request.event_id}`
+    : null;
+  const resultId = liveExit
+    ? `result_runtime_mcp_live_exit_${agent.id}_${request.control_kind}_${request.event_id}`
+    : null;
+  if (receiptId) {
+    agent.receipt_refs = [receiptId];
+  }
+  if (resultId) {
+    agent.result_refs = [resultId];
+  }
+  const stateRootBefore = liveExit ? `sha256:before:${request.control_kind}` : null;
+  const stateRootAfter = liveExit ? `sha256:after:${request.control_kind}` : null;
+  const operationRef = liveExit
+    ? `agentgres://runtime-state/agents/${agent.id}/operations/${request.control_kind}/${request.event_id}`
+    : null;
+  const resultingHead = liveExit
+    ? `agentgres://runtime-state/agents/${agent.id}/head/${stateRootAfter.replaceAll(":", "_")}`
+    : null;
+  const control = {
+    control_kind: request.control_kind,
+    event_id: request.event_id,
+    seq: request.seq,
+    created_at: request.created_at,
+    server_id: serverId,
+    server_count: servers.length,
+    enabled_server_count: servers.filter((item) => item.enabled !== false).length,
+    registry_hash: `hash.${servers.map((item) => item.id).join(".")}`,
+    wallet_authority_required: liveExit,
+    wallet_authority_boundary: liveExit ? "wallet.network.mcp_external_exit" : null,
+    ctee_custody_required: liveExit,
+    transport_containment_required: liveExit,
+    authority_grant_refs: payload.authority_grant_refs ?? [],
+    authority_receipt_refs: payload.authority_receipt_refs ?? [],
+    authority_hash: payload.authority_grant_refs?.length
+      ? `sha256:authority:${request.control_kind}:${serverId}`
+      : null,
+    custody_ref: payload.custody_ref ?? null,
+    containment_ref: payload.containment_ref ?? null,
+    content_receipt_id: receiptId,
+    result_receipt_id: receiptId,
+    result_record_id: resultId,
+    runtime_mcp_live_receipt_required: liveExit,
+    runtime_mcp_live_result_required: liveExit,
+    runtime_mcp_live_result_status: liveExit ? "admitted_pending_rust_transport" : null,
+    runtime_mcp_agentgres_operation_ref: operationRef,
+    runtime_mcp_agent_state_root_before: stateRootBefore,
+    runtime_mcp_agent_state_root_after: stateRootAfter,
+    runtime_mcp_resulting_head: resultingHead,
+    mutation_applied: ["mcp_import", "mcp_add", "mcp_remove", "mcp_enable", "mcp_disable"].includes(
+      request.control_kind,
+    ),
+  };
   return {
     source: "rust_mcp_control_agent_state_update_command",
     backend: "rust_policy",
@@ -73,20 +269,25 @@ function planMcpControlAgentStateUpdate(request) {
     thread_id: request.thread_id,
     agent_id: agent.id,
     updated_at: request.created_at,
-    control: {
-      control_kind: request.control_kind,
-      event_id: request.event_id,
-      seq: request.seq,
-      created_at: request.created_at,
-      server_id: serverId,
-      server_count: servers.length,
-      enabled_server_count: servers.filter((item) => item.enabled !== false).length,
-      registry_hash: `hash.${servers.map((item) => item.id).join(".")}`,
-      mutation_applied: ["mcp_import", "mcp_add", "mcp_remove", "mcp_enable", "mcp_disable"].includes(
-        request.control_kind,
-      ),
-    },
+    control,
     agent,
+    receipt: receiptId
+      ? liveExitReceipt({ request, payload, agent, control, receiptId, operationRef, stateRootBefore, stateRootAfter, resultingHead })
+      : null,
+    result: resultId
+      ? liveExitResult({
+          request,
+          payload,
+          agent,
+          control,
+          resultId,
+          receiptId,
+          operationRef,
+          stateRootBefore,
+          stateRootAfter,
+          resultingHead,
+        })
+      : null,
   };
 }
 
@@ -177,7 +378,26 @@ function harness(options = {}) {
     },
     planMcpControlAgentStateUpdate(request) {
       calls.push({ name: "planMcpControlAgentStateUpdate", request: cloneJson(request) });
-      return planMcpControlAgentStateUpdate(request);
+      return planMcpControlAgentStateUpdate(request, agent);
+    },
+    projectMcpLiveResultReplay(request) {
+      calls.push({ name: "projectMcpLiveResultReplay", request: cloneJson(request) });
+      const commitCall = [...calls]
+        .reverse()
+        .find((call) => call.name === "commitRuntimeMcpLiveResultState" && call.request.result_id === request.result_id);
+      const result = commitCall?.request?.result;
+      return {
+        source: "rust_mcp_live_result_replay_command",
+        backend: "rust_policy",
+        schema_version: "ioi.runtime.mcp-live-result-replay.v1",
+        object: "ioi.runtime_mcp_live_result_replay",
+        status: "projected",
+        result_count: result ? 1 : 0,
+        results: result ? [cloneJson(result)] : [],
+        result_ids: result?.id ? [result.id] : [],
+        latest_result: result ? cloneJson(result) : null,
+        replay_hash: `replay.${request.result_id}`,
+      };
     },
   };
   const surface = createRuntimeMcpControlSurface({
@@ -186,15 +406,14 @@ function harness(options = {}) {
     RUNTIME_MCP_MANAGER_VALIDATION_SCHEMA_VERSION: "validation.schema",
     runtimeError,
     contextPolicyCore,
+    agentIdForThread: () => agent.id,
     eventStreamIdForThread: (threadId) => `events_${threadId}`,
     nowIso: () => "2026-06-06T06:30:00.000Z",
   });
   const store = {
+    stateDir: "/runtime-state",
     agents: { set: failIfCalled("agents.set") },
-    agentForThread(threadId) {
-      calls.push({ name: "agentForThread", threadId });
-      return agent;
-    },
+    agentForThread: failIfCalled("agentForThread"),
     appendRuntimeEvent: failIfCalled("appendRuntimeEvent"),
     latestRuntimeEventSeq(eventStreamId) {
       calls.push({ name: "latestRuntimeEventSeq", eventStreamId });
@@ -204,6 +423,24 @@ function harness(options = {}) {
     mcpStatus: failIfCalled("mcpStatus"),
     threadForAgent: failIfCalled("threadForAgent"),
     validateMcp: failIfCalled("validateMcp"),
+    commitRuntimeReceiptState(request) {
+      calls.push({ name: "commitRuntimeReceiptState", request: cloneJson(request) });
+      return {
+        receipt_id: request.receipt_id,
+        operation_kind: request.operation_kind,
+        commit_hash: `receipt.commit.${request.receipt_id}`,
+        written_record: { record_path: `receipts/${request.receipt_id}.json` },
+      };
+    },
+    commitRuntimeMcpLiveResultState(request) {
+      calls.push({ name: "commitRuntimeMcpLiveResultState", request: cloneJson(request) });
+      return {
+        result_id: request.result_id,
+        operation_kind: request.operation_kind,
+        commit_hash: `result.commit.${request.result_id}`,
+        written_record: { record_path: `mcp-live-results/${request.result_id}.json` },
+      };
+    },
     writeAgent(record, operationKind) {
       calls.push({ name: "writeAgent", agent: cloneJson(record), operationKind });
       agent = cloneJson(record);
@@ -341,7 +578,7 @@ test("runtime MCP control mutations plan in Rust and commit agent state without 
   });
   const appended = surface.appendThreadMcpControlEvent(store, {
     thread_id: "thread-agent-one",
-    control_kind: "mcp_invoke",
+    control_kind: "mcp_control",
   });
   const removed = surface.removeMcpServer(store, "mcp.git", { thread_id: "thread-agent-one" });
 
@@ -350,7 +587,7 @@ test("runtime MCP control mutations plan in Rust and commit agent state without 
   assert.equal(disabled.control.enabled_server_count, 1);
   assert.equal(status.operation_kind, "thread.mcp_status");
   assert.equal(validation.operation_kind, "thread.mcp_validate");
-  assert.equal(appended.operation_kind, "thread.mcp_invoke");
+  assert.equal(appended.operation_kind, "thread.mcp_control");
   assert.equal(removed.operation_kind, "thread.mcp_remove");
   assert.equal(added.commit.operation_kind, "thread.mcp_add");
   assert.equal(removed.commit.operation_kind, "thread.mcp_remove");
@@ -362,10 +599,13 @@ test("runtime MCP control mutations plan in Rust and commit agent state without 
     "mcp_disable",
     "mcp_status",
     "mcp_validate",
-    "mcp_invoke",
+    "mcp_control",
     "mcp_remove",
   ]);
   assert.equal(planCalls[0].request.thread_id, "thread-agent-one");
+  assert.equal(planCalls[0].request.agent_id, "agent-one");
+  assert.equal(planCalls.every((call) => call.request.state_dir === "/runtime-state"), true);
+  assert.equal(planCalls.every((call) => Object.hasOwn(call.request, "agent") === false), true);
   assert.equal(planCalls[0].request.request.servers[0].id, "mcp.imported");
   assert.equal(planCalls[1].request.request.server.id, "mcp.git");
   assert.equal(planCalls[2].request.request.server_id, "mcp.git");
@@ -386,7 +626,7 @@ test("runtime MCP control mutations plan in Rust and commit agent state without 
       "thread.mcp_disable",
       "thread.mcp_status",
       "thread.mcp_validate",
-      "thread.mcp_invoke",
+      "thread.mcp_control",
       "thread.mcp_remove",
     ],
   );
@@ -412,7 +652,7 @@ test("runtime MCP control planner absence fails closed before JS state mutation"
 });
 
 test("runtime MCP live exits use Rust control admission before JS transport invocation", async () => {
-  const { agent, calls, store, surface } = harness();
+  const { calls, store, surface } = harness();
 
   const invoked = await surface.invokeMcpTool(store, {
     thread_id: "thread-agent-one",
@@ -422,18 +662,25 @@ test("runtime MCP live exits use Rust control admission before JS transport invo
     live_transport: "stdio",
     execution_mode: "live",
     timeout_ms: 2500,
+    authority_grant_refs: ["wallet.network://grant/mcp/docs/search"],
+    authority_receipt_refs: ["receipt://wallet.network/mcp/docs/search"],
+    custody_ref: "ctee://workspace/public",
+    containment_ref: "containment://mcp/docs",
     timeoutMs: 999,
   });
   const discovered = await surface.mcpStatusWithLiveDiscovery(
     store,
     { status: "ready", servers: [] },
-    agent,
     {
       thread_id: "thread-agent-one",
       server_id: "mcp.docs",
       live_transport: "stdio",
       execution_mode: "discovery",
       timeout_ms: 1500,
+      authority_grant_refs: ["wallet.network://grant/mcp/docs/discovery"],
+      authority_receipt_refs: ["receipt://wallet.network/mcp/docs/discovery"],
+      custody_ref: "ctee://workspace/public",
+      containment_ref: "containment://mcp/docs/discovery",
       liveDiscovery: true,
     },
   );
@@ -447,23 +694,323 @@ test("runtime MCP live exits use Rust control admission before JS transport invo
 
   const planCalls = calls.filter((call) => call.name === "planMcpControlAgentStateUpdate");
   assert.deepEqual(planCalls.map((call) => call.request.control_kind), ["mcp_invoke", "mcp_live_discovery"]);
+  assert.equal(planCalls.every((call) => call.request.state_dir === "/runtime-state"), true);
+  assert.equal(planCalls.every((call) => Object.hasOwn(call.request, "agent") === false), true);
   assert.deepEqual(planCalls.map((call) => call.request.request.timeout_ms), [2500, 1500]);
+  assert.deepEqual(planCalls.map((call) => call.request.request.authority_grant_refs), [
+    ["wallet.network://grant/mcp/docs/search"],
+    ["wallet.network://grant/mcp/docs/discovery"],
+  ]);
+  assert.deepEqual(planCalls.map((call) => call.request.request.authority_receipt_refs), [
+    ["receipt://wallet.network/mcp/docs/search"],
+    ["receipt://wallet.network/mcp/docs/discovery"],
+  ]);
+  assert.deepEqual(planCalls.map((call) => call.request.request.custody_ref), [
+    "ctee://workspace/public",
+    "ctee://workspace/public",
+  ]);
+  assert.deepEqual(planCalls.map((call) => call.request.request.containment_ref), [
+    "containment://mcp/docs",
+    "containment://mcp/docs/discovery",
+  ]);
+  assert.equal(invoked.control.wallet_authority_required, true);
+  assert.equal(invoked.control.wallet_authority_boundary, "wallet.network.mcp_external_exit");
+  assert.equal(invoked.control.ctee_custody_required, true);
+  assert.equal(invoked.control.transport_containment_required, true);
+  assert.deepEqual(invoked.control.authority_grant_refs, ["wallet.network://grant/mcp/docs/search"]);
+  assert.equal(invoked.control.custody_ref, "ctee://workspace/public");
+  assert.equal(invoked.control.containment_ref, "containment://mcp/docs");
+  assert.equal(
+    invoked.control.content_receipt_id,
+    "receipt_runtime_mcp_live_exit_agent-one_mcp_invoke_mcp_control_thread-agent-one_mcp_invoke_2026-06-06T06_30_00.000Z",
+  );
+  assert.equal(invoked.receipt.id, invoked.control.content_receipt_id);
+  assert.equal(invoked.receipt.details.rust_daemon_core_receipt_author, "runtime.mcp_control");
+  assert.equal(
+    invoked.receipt.details.runtime_mcp_agentgres_operation_ref,
+    invoked.control.runtime_mcp_agentgres_operation_ref,
+  );
+  assert.equal(invoked.receipt.details.result_materialized, false);
+  assert.equal(invoked.receipt.details.js_transport_invocation, false);
+  assert.equal(invoked.receipt.details.command_transport_fallback, false);
+  assert.equal(invoked.receipt_commit.commit_hash, `receipt.commit.${invoked.receipt.id}`);
+  assert.equal(
+    invoked.control.result_record_id,
+    "result_runtime_mcp_live_exit_agent-one_mcp_invoke_mcp_control_thread-agent-one_mcp_invoke_2026-06-06T06_30_00.000Z",
+  );
+  assert.equal(invoked.result.id, invoked.control.result_record_id);
+  assert.equal(invoked.result.receipt_id, invoked.receipt.id);
+  assert.equal(invoked.result.details.rust_daemon_core_result_author, "runtime.mcp_control");
+  assert.equal(invoked.result.details.backend_materialization_status, "pending_rust_transport_backend");
+  assert.equal(invoked.result.details.result_materialized, false);
+  assert.equal(invoked.result.details.js_transport_invocation, false);
+  assert.equal(invoked.result.details.command_transport_fallback, false);
+  assert.equal(invoked.result_commit.commit_hash, `result.commit.${invoked.result.id}`);
+  assert.equal(invoked.result_replay.source, "rust_mcp_live_result_replay_command");
+  assert.equal(invoked.result_replay.latest_result.id, invoked.result.id);
+  assert.equal(invoked.result_projection.replay_hash, `replay.${invoked.result.id}`);
+  assert.equal(discovered.receipt.id, discovered.control.content_receipt_id);
+  assert.equal(discovered.receipt_commit.commit_hash, `receipt.commit.${discovered.receipt.id}`);
+  assert.equal(discovered.result.id, discovered.control.result_record_id);
+  assert.equal(discovered.result.receipt_id, discovered.receipt.id);
+  assert.equal(discovered.result_commit.commit_hash, `result.commit.${discovered.result.id}`);
+  assert.equal(discovered.result_replay.latest_result.id, discovered.result.id);
   assert.equal(planCalls[0].request.request.tool_id, "mcp.docs.search");
   assert.equal(planCalls[0].request.request.tool_name, "search");
   assert.equal(planCalls[0].request.request.server_id, "mcp.docs");
   assert.equal(planCalls[0].request.request.live_transport, "stdio");
   assert.equal(planCalls[0].request.request.execution_mode, "live");
   assert.equal(planCalls[1].request.request.execution_mode, "discovery");
+  assert.equal(Object.hasOwn(planCalls[1].request.request, "agent_id"), false);
   assert.equal(JSON.stringify(planCalls[0].request.request).includes("timeoutMs"), false);
+  assert.equal(JSON.stringify(planCalls[0].request.request).includes("authorityGrantRefs"), false);
   assert.equal(JSON.stringify(planCalls[1].request.request).includes("liveDiscovery"), false);
   assert.deepEqual(
     calls.filter((call) => call.name === "writeAgent").map((call) => call.operationKind),
     ["thread.mcp_invoke", "thread.mcp_live_discovery"],
   );
+  assert.deepEqual(
+    calls.filter((call) => call.name === "commitRuntimeReceiptState").map((call) => call.request.operation_kind),
+    ["runtime.mcp_live_exit.receipt.write", "runtime.mcp_live_exit.receipt.write"],
+  );
+  assert.deepEqual(
+    calls.filter((call) => call.name === "commitRuntimeMcpLiveResultState").map((call) => call.request.operation_kind),
+    ["runtime.mcp_live_exit.result.write", "runtime.mcp_live_exit.result.write"],
+  );
+  const replayCalls = calls.filter((call) => call.name === "projectMcpLiveResultReplay");
+  assert.deepEqual(replayCalls.map((call) => call.request.state_dir), ["/runtime-state", "/runtime-state"]);
+  assert.deepEqual(replayCalls.map((call) => call.request.result_id), [invoked.result.id, discovered.result.id]);
+  assert.deepEqual(replayCalls.map((call) => call.request.receipt_id), [invoked.receipt.id, discovered.receipt.id]);
+  assert.deepEqual(replayCalls.map((call) => call.request.thread_id), ["thread-agent-one", "thread-agent-one"]);
+  assert.deepEqual(replayCalls.map((call) => call.request.agent_id), ["agent-one", "agent-one"]);
+  assert.deepEqual(replayCalls.map((call) => call.request.control_kind), ["mcp_invoke", "mcp_live_discovery"]);
+  assert.deepEqual(
+    calls
+      .filter((call) =>
+        ["commitRuntimeReceiptState", "commitRuntimeMcpLiveResultState", "projectMcpLiveResultReplay", "writeAgent"].includes(call.name)
+      )
+      .map((call) => call.name),
+    [
+      "commitRuntimeReceiptState",
+      "commitRuntimeMcpLiveResultState",
+      "projectMcpLiveResultReplay",
+      "writeAgent",
+      "commitRuntimeReceiptState",
+      "commitRuntimeMcpLiveResultState",
+      "projectMcpLiveResultReplay",
+      "writeAgent",
+    ],
+  );
+});
+
+test("runtime MCP live exits fail closed without wallet authority refs", async () => {
+  const { store, surface } = harness();
+
+  await assert.rejects(
+    () =>
+      surface.invokeMcpTool(store, {
+        thread_id: "thread-agent-one",
+        server_id: "mcp.docs",
+        tool_id: "mcp.docs.search",
+        tool_name: "search",
+        live_transport: "stdio",
+        execution_mode: "live",
+      }),
+    (error) => {
+      assert.equal(error.code, "mcp_control_live_exit_wallet_authority_required");
+      return true;
+    },
+  );
+});
+
+test("runtime MCP live exits fail closed without custody and containment refs", async () => {
+  const { store, surface } = harness();
+
+  await assert.rejects(
+    () =>
+      surface.invokeMcpTool(store, {
+        thread_id: "thread-agent-one",
+        server_id: "mcp.docs",
+        tool_id: "mcp.docs.search",
+        tool_name: "search",
+        live_transport: "stdio",
+        execution_mode: "live",
+        authority_grant_refs: ["wallet.network://grant/mcp/docs/search"],
+        authority_receipt_refs: ["receipt://wallet.network/mcp/docs/search"],
+      }),
+    (error) => {
+      assert.equal(error.code, "mcp_control_live_exit_custody_required");
+      return true;
+    },
+  );
+
+  await assert.rejects(
+    () =>
+      surface.invokeMcpTool(store, {
+        thread_id: "thread-agent-one",
+        server_id: "mcp.docs",
+        tool_id: "mcp.docs.search",
+        tool_name: "search",
+        live_transport: "stdio",
+        execution_mode: "live",
+        authority_grant_refs: ["wallet.network://grant/mcp/docs/search"],
+        authority_receipt_refs: ["receipt://wallet.network/mcp/docs/search"],
+        custody_ref: "ctee://workspace/public",
+      }),
+    (error) => {
+      assert.equal(error.code, "mcp_control_live_exit_containment_required");
+      return true;
+    },
+  );
+});
+
+test("runtime MCP live exits fail closed without Rust receipt-state commit", async () => {
+  const missingReceiptCore = {
+    planMcpControlAgentStateUpdate(request) {
+      const planned = planMcpControlAgentStateUpdate(request, {
+        id: "agent-one",
+        cwd: "/workspace",
+        mcpRegistry: { servers: [server("mcp.docs")] },
+      });
+      delete planned.receipt;
+      return planned;
+    },
+  };
+  const { store: missingReceiptStore, surface: missingReceiptSurface } = harness({
+    contextPolicyCore: missingReceiptCore,
+  });
+
+  await assert.rejects(
+    () =>
+      missingReceiptSurface.invokeMcpTool(missingReceiptStore, {
+        thread_id: "thread-agent-one",
+        server_id: "mcp.docs",
+        tool_id: "mcp.docs.search",
+        authority_grant_refs: ["wallet.network://grant/mcp/docs/search"],
+        authority_receipt_refs: ["receipt://wallet.network/mcp/docs/search"],
+        custody_ref: "ctee://workspace/public",
+        containment_ref: "containment://mcp/docs",
+      }),
+    (error) => {
+      assert.equal(error.code, "mcp_control_live_exit_receipt_required");
+      return true;
+    },
+  );
+
+  const { store: missingCommitStore, surface: missingCommitSurface } = harness();
+  delete missingCommitStore.commitRuntimeReceiptState;
+
+  await assert.rejects(
+    () =>
+      missingCommitSurface.invokeMcpTool(missingCommitStore, {
+        thread_id: "thread-agent-one",
+        server_id: "mcp.docs",
+        tool_id: "mcp.docs.search",
+        authority_grant_refs: ["wallet.network://grant/mcp/docs/search"],
+        authority_receipt_refs: ["receipt://wallet.network/mcp/docs/search"],
+        custody_ref: "ctee://workspace/public",
+        containment_ref: "containment://mcp/docs",
+      }),
+    (error) => {
+      assert.equal(error.code, "mcp_control_live_exit_receipt_state_commit_required");
+      return true;
+    },
+  );
+});
+
+test("runtime MCP live exits fail closed without Rust result-state commit", async () => {
+  const missingResultCore = {
+    planMcpControlAgentStateUpdate(request) {
+      const planned = planMcpControlAgentStateUpdate(request, {
+        id: "agent-one",
+        cwd: "/workspace",
+        mcpRegistry: { servers: [server("mcp.docs")] },
+      });
+      delete planned.result;
+      return planned;
+    },
+  };
+  const { store: missingResultStore, surface: missingResultSurface } = harness({
+    contextPolicyCore: missingResultCore,
+  });
+
+  await assert.rejects(
+    () =>
+      missingResultSurface.invokeMcpTool(missingResultStore, {
+        thread_id: "thread-agent-one",
+        server_id: "mcp.docs",
+        tool_id: "mcp.docs.search",
+        authority_grant_refs: ["wallet.network://grant/mcp/docs/search"],
+        authority_receipt_refs: ["receipt://wallet.network/mcp/docs/search"],
+        custody_ref: "ctee://workspace/public",
+        containment_ref: "containment://mcp/docs",
+      }),
+    (error) => {
+      assert.equal(error.code, "mcp_control_live_exit_result_required");
+      return true;
+    },
+  );
+
+  const { store: missingCommitStore, surface: missingCommitSurface } = harness();
+  delete missingCommitStore.commitRuntimeMcpLiveResultState;
+
+  await assert.rejects(
+    () =>
+      missingCommitSurface.invokeMcpTool(missingCommitStore, {
+        thread_id: "thread-agent-one",
+        server_id: "mcp.docs",
+        tool_id: "mcp.docs.search",
+        authority_grant_refs: ["wallet.network://grant/mcp/docs/search"],
+        authority_receipt_refs: ["receipt://wallet.network/mcp/docs/search"],
+        custody_ref: "ctee://workspace/public",
+        containment_ref: "containment://mcp/docs",
+      }),
+    (error) => {
+      assert.equal(error.code, "mcp_control_live_exit_result_state_commit_required");
+      return true;
+    },
+  );
+});
+
+test("runtime MCP live exits fail closed without Rust result replay projection", async () => {
+  const replaylessCore = {
+    planMcpControlAgentStateUpdate(request) {
+      return planMcpControlAgentStateUpdate(request, {
+        id: "agent-one",
+        cwd: "/workspace",
+        mcpRegistry: { servers: [server("mcp.docs")] },
+      });
+    },
+  };
+  const { store, surface } = harness({
+    contextPolicyCore: replaylessCore,
+    store: {
+      writeAgent: failIfCalled("writeAgent"),
+    },
+  });
+
+  await assert.rejects(
+    () =>
+      surface.invokeMcpTool(store, {
+        thread_id: "thread-agent-one",
+        server_id: "mcp.docs",
+        tool_id: "mcp.docs.search",
+        authority_grant_refs: ["wallet.network://grant/mcp/docs/search"],
+        authority_receipt_refs: ["receipt://wallet.network/mcp/docs/search"],
+        custody_ref: "ctee://workspace/public",
+        containment_ref: "containment://mcp/docs",
+      }),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "mcp_control_live_exit_result_replay_required");
+      assert.equal(error.details.required_policy_api, "projectMcpLiveResultReplay");
+      return true;
+    },
+  );
 });
 
 test("runtime MCP live exits fail closed when Rust control planner is missing", async () => {
-  const { agent, store, surface } = harness({
+  const { store, surface } = harness({
     contextPolicyCore: {},
     store: {
       agentForThread: failIfCalled("agentForThread"),
@@ -488,7 +1035,6 @@ test("runtime MCP live exits fail closed when Rust control planner is missing", 
       surface.mcpStatusWithLiveDiscovery(
         store,
         { status: "ready", servers: [] },
-        agent,
         { thread_id: "thread-agent-one", live_discovery: true },
       ),
     (error) => {
