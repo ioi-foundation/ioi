@@ -14,7 +14,7 @@ function stringRefs(values) {
 }
 
 function threadForkRunner(store, request = {}, deps = {}) {
-  const runner = deps.contextPolicyRunner ?? store?.contextPolicyRunner;
+  const runner = deps.contextPolicyCore ?? store?.contextPolicyCore;
   if (
     runner?.planRuntimeThreadForkControl &&
     typeof store?.writeAgent === "function" &&

@@ -41,7 +41,7 @@ export function createRuntimeWorkflowEditSurface(deps = {}) {
   }
 
   function workflowEditControlRunner(store, request = {}) {
-    const runner = store?.contextPolicyRunner ?? workflowEditRunner;
+    const runner = store?.contextPolicyCore ?? workflowEditRunner;
     if (
       runner?.planRuntimeWorkflowEditControl &&
       typeof store?.appendRuntimeEvent === "function"

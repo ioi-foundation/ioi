@@ -1,4 +1,4 @@
-import { createContextPolicyRunnerFromEnv } from "./runtime-context-policy-runner.mjs";
+import { createRuntimeContextPolicyCore } from "./runtime-context-policy-core.mjs";
 
 export const RUNTIME_MEMORY_MANAGER_STATUS_SCHEMA_VERSION =
   "ioi.runtime.memory-manager-status.v1";
@@ -8,9 +8,9 @@ export const RUNTIME_MEMORY_MANAGER_MUTATION_SCHEMA_VERSION =
   "ioi.runtime.memory-manager-mutation.v1";
 
 export function memoryStatusForProjection(projection = {}, options = {}) {
-  const contextPolicyRunner =
-    options.contextPolicyRunner ?? createContextPolicyRunnerFromEnv();
-  return contextPolicyRunner.planMemoryManagerStatusProjection({
+  const contextPolicyCore =
+    options.contextPolicyCore ?? createRuntimeContextPolicyCore();
+  return contextPolicyCore.planMemoryManagerStatusProjection({
     status_schema_version: RUNTIME_MEMORY_MANAGER_STATUS_SCHEMA_VERSION,
     validation_schema_version: RUNTIME_MEMORY_MANAGER_VALIDATION_SCHEMA_VERSION,
     projection,
@@ -18,9 +18,9 @@ export function memoryStatusForProjection(projection = {}, options = {}) {
 }
 
 export function validateMemoryProjection(projection = {}, options = {}) {
-  const contextPolicyRunner =
-    options.contextPolicyRunner ?? createContextPolicyRunnerFromEnv();
-  return contextPolicyRunner.planMemoryManagerValidationProjection({
+  const contextPolicyCore =
+    options.contextPolicyCore ?? createRuntimeContextPolicyCore();
+  return contextPolicyCore.planMemoryManagerValidationProjection({
     validation_schema_version: RUNTIME_MEMORY_MANAGER_VALIDATION_SCHEMA_VERSION,
     projection,
   });

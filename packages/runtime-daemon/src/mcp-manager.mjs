@@ -3,7 +3,7 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { createContextPolicyRunnerFromEnv } from "./runtime-context-policy-runner.mjs";
+import { createRuntimeContextPolicyCore } from "./runtime-context-policy-core.mjs";
 
 export const RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION =
   "ioi.runtime.mcp-manager-status.v1";
@@ -87,9 +87,9 @@ export function mcpRegistryForWorkspace(cwd, options = {}) {
 }
 
 export function mcpServerRecordsFromValidationInput(input = {}, workspaceRoot, options = {}) {
-  const contextPolicyRunner =
-    options.contextPolicyRunner ?? createContextPolicyRunnerFromEnv();
-  const projection = contextPolicyRunner.projectMcpServerValidationInput({
+  const contextPolicyCore =
+    options.contextPolicyCore ?? createRuntimeContextPolicyCore();
+  const projection = contextPolicyCore.projectMcpServerValidationInput({
     input,
     workspace_root: workspaceRoot,
   });

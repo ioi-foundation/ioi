@@ -13,7 +13,7 @@ import {
 
 test("MCP manager validation input consumes canonical MCP JSON fields only", () => {
   const calls = [];
-  const contextPolicyRunner = {
+  const contextPolicyCore = {
     projectMcpServerValidationInput(request) {
       calls.push(request);
       return {
@@ -46,7 +46,7 @@ test("MCP manager validation input consumes canonical MCP JSON fields only", () 
         retired: { transport: "stdio", command: "retired" },
       },
     },
-  }, "/workspace", { contextPolicyRunner });
+  }, "/workspace", { contextPolicyCore });
   assert.deepEqual(canonicalRecords.map((record) => record.label), ["canonical"]);
   assert.equal(calls[0].workspace_root, "/workspace");
   assert.equal(calls[0].input.mcp_json.mcp_servers.canonical.command, "npx");
@@ -59,7 +59,7 @@ test("MCP manager validation input consumes canonical MCP JSON fields only", () 
         retired: { transport: "stdio", command: "retired" },
       },
     },
-  }, "/workspace", { contextPolicyRunner });
+  }, "/workspace", { contextPolicyCore });
   assert.deepEqual(retiredRecords, []);
   assert.equal(calls.length, 2);
 });

@@ -198,7 +198,7 @@ function subagentCancellationPropagatesRecord(record = {}) {
 
 export function createRuntimeSubagentSurface({
   cancelRun: cancelRunDep = cancelRun,
-  contextPolicyRunner = null,
+  contextPolicyCore = null,
   eventStreamIdForThread: eventStreamIdForThreadDep = eventStreamIdForThread,
   lifecycleStatusForRun: lifecycleStatusForRunDep = lifecycleStatusForRun,
   nowIso = () => new Date().toISOString(),
@@ -211,7 +211,7 @@ export function createRuntimeSubagentSurface({
   validateSubagentOutputContract: validateSubagentOutputContractDep = validateSubagentOutputContract,
 } = {}) {
   function subagentProjectionRunner(store, request = {}) {
-    const runner = store?.contextPolicyRunner ?? contextPolicyRunner;
+    const runner = store?.contextPolicyCore ?? contextPolicyCore;
     if (runner?.projectRuntimeSubagentProjection) return runner;
     throw runtimeErrorDep({
       status: 501,
@@ -233,7 +233,7 @@ export function createRuntimeSubagentSurface({
   }
 
   function subagentControlRunner(store, request = {}) {
-    const runner = store?.contextPolicyRunner ?? contextPolicyRunner;
+    const runner = store?.contextPolicyCore ?? contextPolicyCore;
     if (
       runner?.planRuntimeSubagentControl &&
       runner?.planSubagentRecordStateUpdate

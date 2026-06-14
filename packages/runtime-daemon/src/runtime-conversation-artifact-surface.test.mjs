@@ -10,7 +10,7 @@ function harness(options = {}) {
     ["artifact-two", { id: "artifact-two", thread_id: "thread-two", title: "Two", revisions: [{ revision_id: "rev-two" }] }],
   ]);
   const surface = createRuntimeConversationArtifactSurface({
-    contextPolicyRunner: options.contextPolicyRunner,
+    contextPolicyCore: options.contextPolicyCore,
   });
   const store = {
     commitRuntimeArtifactState(request) {
@@ -131,7 +131,7 @@ function assertConversationArtifactProjectionMissing(error, {
 test("conversation artifact mutation plans in Rust and commits artifact truth without JS writers", () => {
   const planCalls = [];
   const { calls, store, surface } = harness({
-    contextPolicyRunner: {
+    contextPolicyCore: {
       planRuntimeConversationArtifactControl(request) {
         planCalls.push(request);
         const artifactId =
@@ -260,7 +260,7 @@ test("conversation artifact mutation fails before artifact lookup without Rust p
 test("conversation artifact mutation fails before artifact lookup without Agentgres commit", () => {
   const planCalls = [];
   const { calls, store, surface } = harness({
-    contextPolicyRunner: {
+    contextPolicyCore: {
       planRuntimeConversationArtifactControl(request) {
         planCalls.push(request);
         return {};
@@ -286,7 +286,7 @@ test("conversation artifact mutation fails before artifact lookup without Agentg
 
 test("conversation artifact mutation rejects invalid Rust plans before commit", () => {
   const { calls, store, surface } = harness({
-    contextPolicyRunner: {
+    contextPolicyCore: {
       planRuntimeConversationArtifactControl() {
         return {
           operation_kind: "artifact.conversation.action",
@@ -346,7 +346,7 @@ test("conversation artifact read projections fail closed before JS artifact read
 test("conversation artifact read projections return Rust daemon-core projections", () => {
   const projectionCalls = [];
   const { calls, store, surface } = harness({
-    contextPolicyRunner: {
+    contextPolicyCore: {
       projectRuntimeConversationArtifactProjection(request) {
         projectionCalls.push(request);
         const artifacts = request.projection.artifacts;

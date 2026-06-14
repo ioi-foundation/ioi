@@ -43,7 +43,7 @@ export function createThreadMemoryState({
   safeId,
   threadIdForAgent,
   validateMemoryProjection,
-  contextPolicyRunner,
+  contextPolicyCore,
   nowIso = () => new Date().toISOString(),
 } = {}) {
   const memoryRuntimeError = runtimeError ?? (({ status = 500, code = "thread_memory_state_error", message, details }) =>
@@ -284,7 +284,7 @@ export function createThreadMemoryState({
   }
 
   function publicMemoryProjectionRunner(store, request = {}) {
-    const runner = store?.contextPolicyRunner ?? contextPolicyRunner;
+    const runner = store?.contextPolicyCore ?? contextPolicyCore;
     if (runner?.projectRuntimeMemoryProjection) return runner;
     throw memoryRuntimeError({
       status: 501,
@@ -306,7 +306,7 @@ export function createThreadMemoryState({
   }
 
   function memoryControlRunner(store, request = {}) {
-    const runner = store?.contextPolicyRunner ?? contextPolicyRunner;
+    const runner = store?.contextPolicyCore ?? contextPolicyCore;
     if (
       runner?.planRuntimeMemoryControl &&
       runner?.projectRuntimeMemoryProjection &&
@@ -324,7 +324,7 @@ export function createThreadMemoryState({
   }
 
   function memoryControlEventRunner(store, request = {}) {
-    const runner = store?.contextPolicyRunner ?? contextPolicyRunner;
+    const runner = store?.contextPolicyCore ?? contextPolicyCore;
     if (runner?.planRuntimeMemoryControl && typeof store?.appendRuntimeEvent === "function") {
       return runner;
     }
@@ -782,9 +782,9 @@ export function createThreadMemoryState({
 
   function memoryStatus(store, options = {}) {
     const projection = store.memoryProjectionForContext(options);
-    const runner = store.contextPolicyRunner ?? contextPolicyRunner;
+    const runner = store.contextPolicyCore ?? contextPolicyCore;
     return {
-      ...memoryStatusForProjection(projection, { contextPolicyRunner: runner }),
+      ...memoryStatusForProjection(projection, { contextPolicyCore: runner }),
       thread_id: projection.thread_id ?? null,
       agent_id: projection.agent_id ?? null,
       workspace: projection.workspace ?? null,
@@ -796,8 +796,8 @@ export function createThreadMemoryState({
       input.projection && typeof input.projection === "object"
         ? input.projection
         : store.memoryProjectionForContext(input);
-    const runner = store.contextPolicyRunner ?? contextPolicyRunner;
-    const validation = validateMemoryProjection(projection, { contextPolicyRunner: runner });
+    const runner = store.contextPolicyCore ?? contextPolicyCore;
+    const validation = validateMemoryProjection(projection, { contextPolicyCore: runner });
     return {
       ...validation,
       thread_id: projection.thread_id ?? null,

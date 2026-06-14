@@ -81,7 +81,7 @@ test("cancelRun facade commits only Rust-planned cancellation through Agentgres 
   const run = runFixture();
   const state = {
     ...fakeState(run),
-    contextPolicyRunner: {
+    contextPolicyCore: {
       planRunCancelStateUpdate(request) {
         state.runnerCalls.push(request);
         return canceledRunProjection(request);
@@ -155,7 +155,7 @@ test("cancelRun facade uses Rust daemon-core admission-required planner when sta
   const runnerCalls = [];
   const state = {
     ...fakeState(run),
-    contextPolicyRunner: {
+    contextPolicyCore: {
       planRunCancelAdmissionRequired(request) {
         runnerCalls.push(request);
         return {
@@ -244,7 +244,7 @@ test("cancelRun rejects Rust state update without canceled run projection", () =
   const run = runFixture();
   const state = {
     ...fakeState(run),
-    contextPolicyRunner: {
+    contextPolicyCore: {
       planRunCancelStateUpdate(request) {
         return canceledRunProjection(request, {
           run: { ...request.run, status: "running" },
@@ -271,7 +271,7 @@ test("cancelRun rejects Rust state update with wrong operation kind", () => {
   const run = runFixture();
   const state = {
     ...fakeState(run),
-    contextPolicyRunner: {
+    contextPolicyCore: {
       planRunCancelStateUpdate(request) {
         return canceledRunProjection(request, {
           operation_kind: "run.create",

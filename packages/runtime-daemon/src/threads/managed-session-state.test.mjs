@@ -6,11 +6,11 @@ import {
   inspectManagedSessionsForThread,
 } from "./managed-session-state.mjs";
 
-function fakeStore({ sessions = [], contextPolicyRunner = {}, appendRuntimeEvent = null } = {}) {
+function fakeStore({ sessions = [], contextPolicyCore = {}, appendRuntimeEvent = null } = {}) {
   const calls = [];
   return {
     calls,
-    contextPolicyRunner,
+    contextPolicyCore,
     managedSessionsForThread(thread_id) {
       calls.push({ operation: "managed_sessions_for_thread", thread_id });
       return sessions;
@@ -62,7 +62,7 @@ test("managed session inspection returns Rust daemon-core projection without JS 
         control_state: "observe",
       },
     ],
-    contextPolicyRunner: {
+    contextPolicyCore: {
       projectRuntimeManagedSessionProjection(request) {
         captured = request;
         return {
@@ -154,7 +154,7 @@ test("managed session control uses Rust planning and runtime event admission", a
         control_state: "observe",
       },
     ],
-    contextPolicyRunner: {
+    contextPolicyCore: {
       planRuntimeManagedSessionControl(request) {
         captured = request;
         return {
@@ -236,7 +236,7 @@ test("managed session control fails closed before Rust planning or event append 
 test("managed session control ignores retired request aliases before Rust planning", async () => {
   let planned = false;
   const store = fakeStore({
-    contextPolicyRunner: {
+    contextPolicyCore: {
       planRuntimeManagedSessionControl() {
         planned = true;
         assert.fail("retired managed-session aliases must not reach Rust control planning");

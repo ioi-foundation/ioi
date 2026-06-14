@@ -533,7 +533,7 @@ function runDocs() {
         guide,
       ) &&
       /Slice 775 retired the public MCP status JS validation decision path/.test(guide) &&
-      /both `mcpStatus\(\)` and `validateMcp\(\)` now send normalized canonical server\s+records through `contextPolicyRunner\.validateMcpServers/.test(guide) &&
+      /both `mcpStatus\(\)` and `validateMcp\(\)` now send normalized canonical server\s+records through `contextPolicyCore\.validateMcpServers/.test(guide) &&
       /The Slice 775 MCP status validation Rust-core\s+matrix-compaction pass is complete/.test(guide) &&
       /Slice 776 moved public MCP status readiness\/count\/projection into Rust\s+daemon-core migration transport/.test(guide) &&
       /McpManagerStatusProjectionCore/.test(guide) &&
@@ -1999,11 +1999,11 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 774/.test(matrix) &&
       /McpServerValidationCore/.test(matrix) &&
       /validate_mcp_servers/.test(matrix) &&
-      /contextPolicyRunner\.validateMcpServers\(\{\s+servers \}\)/.test(matrix) &&
+      /contextPolicyCore\.validateMcpServers\(\{\s+servers \}\)/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 774 is now satisfied/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 775/.test(matrix) &&
       /runtime-mcp-catalog-surface\.mjs` no longer imports, injects, or calls\s+`validateMcpServerRecords`/.test(matrix) &&
-      /`mcpStatus\(\)` and `validateMcp\(\)` route normalized canonical server records\s+through `contextPolicyRunner\.validateMcpServers/.test(matrix) &&
+      /`mcpStatus\(\)` and `validateMcp\(\)` route normalized canonical server records\s+through `contextPolicyCore\.validateMcpServers/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 775 is now satisfied/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 776/.test(matrix) &&
       /McpManagerStatusProjectionCore/.test(matrix) &&
@@ -2011,8 +2011,8 @@ function runDocs() {
       /`mcpStatus\(\)` no longer derives the public status envelope, counts, or readiness\s+state in JS/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 776 is now satisfied/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 777/.test(matrix) &&
-      /mcpStatusForAgent\(\)` now sends\s+the agent's canonical server records through\s+`contextPolicyRunner\.validateMcpServers/.test(matrix) &&
-      /contextPolicyRunner\.planMcpManagerStatusProjection/.test(matrix) &&
+      /mcpStatusForAgent\(\)` now sends\s+the agent's canonical server records through\s+`contextPolicyCore\.validateMcpServers/.test(matrix) &&
+      /contextPolicyCore\.planMcpManagerStatusProjection/.test(matrix) &&
       /optional `enabled_tool_count`/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 777 is now satisfied/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 778/.test(matrix) &&
@@ -3137,11 +3137,11 @@ function runBridge() {
   const codingToolEventCoreForDiagnosticsFeedback = exists("crates/services/src/agentic/runtime/kernel/coding_tool_event.rs")
     ? read("crates/services/src/agentic/runtime/kernel/coding_tool_event.rs")
     : "";
-  const runtimeContextPolicyRunnerForDiagnosticsFeedback = exists("packages/runtime-daemon/src/runtime-context-policy-runner.mjs")
-    ? read("packages/runtime-daemon/src/runtime-context-policy-runner.mjs")
+  const runtimeContextPolicyCoreForDiagnosticsFeedback = exists("packages/runtime-daemon/src/runtime-context-policy-core.mjs")
+    ? read("packages/runtime-daemon/src/runtime-context-policy-core.mjs")
     : "";
-  const runtimeContextPolicyRunnerTestForDiagnosticsFeedback = exists("packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs")
-    ? read("packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs")
+  const runtimeContextPolicyCoreTestForDiagnosticsFeedback = exists("packages/runtime-daemon/src/runtime-context-policy-core.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-context-policy-core.test.mjs")
     : "";
   const commandProtocolForDiagnosticsFeedback = exists("crates/services/src/agentic/runtime/kernel/command_protocol.rs")
     ? read("crates/services/src/agentic/runtime/kernel/command_protocol.rs")
@@ -3326,11 +3326,11 @@ function runBridge() {
   const runtimeApprovalStateCoreTest = exists("packages/runtime-daemon/src/runtime-approval-state-core.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-approval-state-core.test.mjs")
     : "";
-  const runtimeContextPolicyRunner = exists("packages/runtime-daemon/src/runtime-context-policy-runner.mjs")
-    ? read("packages/runtime-daemon/src/runtime-context-policy-runner.mjs")
+  const runtimeContextPolicyCore = exists("packages/runtime-daemon/src/runtime-context-policy-core.mjs")
+    ? read("packages/runtime-daemon/src/runtime-context-policy-core.mjs")
     : "";
-  const runtimeContextPolicyRunnerTest = exists("packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs")
-    ? read("packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs")
+  const runtimeContextPolicyCoreTest = exists("packages/runtime-daemon/src/runtime-context-policy-core.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-context-policy-core.test.mjs")
     : "";
   const codingToolBudgetPolicySurface = exists("packages/runtime-daemon/src/threads/context-budget-policy.mjs")
     ? read("packages/runtime-daemon/src/threads/context-budget-policy.mjs")
@@ -3993,7 +3993,7 @@ function runBridge() {
   const daemonCoreDirectInvokerRunners = [
     stepModuleRunner,
     runtimeCodingToolApprovalCore,
-    runtimeContextPolicyRunner,
+    runtimeContextPolicyCore,
     workspaceRestoreCore,
     modelMountCore,
     runtimeAgentgresCore,
@@ -4014,7 +4014,7 @@ function runBridge() {
       /createRuntimeAgentgresAdmissionCore\(\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
         runtimeDaemonIndex,
       ) &&
-      /createContextPolicyRunnerFromEnv\(process\.env,\s*\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
+      /createRuntimeContextPolicyCore\(\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
         runtimeDaemonIndex,
       ) &&
       /createRuntimeExternalCapabilityAuthorityCore\(\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
@@ -4826,16 +4826,16 @@ function runBridge() {
       /admit_coding_tool_result_event_response/.test(coreCommandDispatch) &&
       /plan_coding_tool_result_envelope_response/.test(coreCommandDispatch) &&
       /CODING_TOOL_RESULT_ENVELOPE_PLAN_REQUEST_SCHEMA_VERSION/.test(
-        runtimeContextPolicyRunner,
+        runtimeContextPolicyCore,
       ) &&
-      /planCodingToolResultEnvelope\(request = \{\}\)/.test(runtimeContextPolicyRunner) &&
-      /operation:\s*"plan_coding_tool_result_envelope"/.test(runtimeContextPolicyRunner) &&
-      /normalizeCodingToolResultEnvelopePlanBridgeResult/.test(runtimeContextPolicyRunner) &&
-      /coding-tool result envelope runner sends Rust daemon-core plan request/.test(
-        runtimeContextPolicyRunnerTest,
+      /planCodingToolResultEnvelope\(request = \{\}\)/.test(runtimeContextPolicyCore) &&
+      /operation:\s*"plan_coding_tool_result_envelope"/.test(runtimeContextPolicyCore) &&
+      /normalizeCodingToolResultEnvelopePlanBridgeResult/.test(runtimeContextPolicyCore) &&
+      /coding-tool result envelope core sends Rust daemon-core plan request/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
       /coding-tool result envelope normalizer rejects wrong operation kind/.test(
-        runtimeContextPolicyRunnerTest,
+        runtimeContextPolicyCoreTest,
       ) &&
       /CODING_TOOL_RESULT_EVENT_ADMISSION_REQUEST_SCHEMA_VERSION/.test(
         runtimeAgentgresCore,
@@ -4873,7 +4873,7 @@ function runBridge() {
         runtimeCodingToolInvocationSurface,
       ) &&
       /admitCodingToolResultEventForThread/.test(runtimeDaemonIndex) &&
-      /contextPolicyRunner\.planCodingToolResultEnvelope/.test(runtimeDaemonIndex) &&
+      /contextPolicyCore\.planCodingToolResultEnvelope/.test(runtimeDaemonIndex) &&
       /runtimeAgentgresAdmissionCore\.admitCodingToolResultEvent/.test(runtimeDaemonIndex) &&
       /store\.registerRuntimeEvent\(admittedEvent\)/.test(runtimeDaemonIndex) &&
       /runtime_coding_tool_result_envelope_rust_core_required/.test(
@@ -5773,14 +5773,14 @@ function runBridge() {
       /CommandOperation::ProjectRuntimeCodingToolArtifactRead/.test(commandProtocolCore) &&
       /project_runtime_coding_tool_artifact_read_response/.test(coreCommandDispatch) &&
       /RuntimeCodingToolArtifactReadProjectionCommandError/.test(coreCommandDispatch) &&
-      /RUNTIME_CODING_TOOL_ARTIFACT_READ_PROJECTION_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyRunner) &&
-      /projectRuntimeCodingToolArtifactRead/.test(runtimeContextPolicyRunner) &&
-      /normalizeRuntimeCodingToolArtifactReadProjectionBridgeResult/.test(runtimeContextPolicyRunner) &&
-      /project_runtime_coding_tool_artifact_read/.test(runtimeContextPolicyRunner) &&
-      /coding-tool artifact read projection runner sends Rust daemon-core request/.test(runtimeContextPolicyRunnerTest) &&
-      /coding-tool artifact read projection normalizer rejects missing Rust result/.test(runtimeContextPolicyRunnerTest) &&
-      /assert\.equal\(captured\.request\.state_dir,\s*"\/runtime-state"\)/.test(runtimeContextPolicyRunnerTest) &&
-      /assert\.equal\(Object\.hasOwn\(captured\.request,\s*"artifact_records"\),\s*false\)/.test(runtimeContextPolicyRunnerTest) &&
+      /RUNTIME_CODING_TOOL_ARTIFACT_READ_PROJECTION_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyCore) &&
+      /projectRuntimeCodingToolArtifactRead/.test(runtimeContextPolicyCore) &&
+      /normalizeRuntimeCodingToolArtifactReadProjectionBridgeResult/.test(runtimeContextPolicyCore) &&
+      /project_runtime_coding_tool_artifact_read/.test(runtimeContextPolicyCore) &&
+      /coding-tool artifact read projection core sends Rust daemon-core request/.test(runtimeContextPolicyCoreTest) &&
+      /coding-tool artifact read projection normalizer rejects missing Rust result/.test(runtimeContextPolicyCoreTest) &&
+      /assert\.equal\(captured\.request\.state_dir,\s*"\/runtime-state"\)/.test(runtimeContextPolicyCoreTest) &&
+      /assert\.equal\(Object\.hasOwn\(captured\.request,\s*"artifact_records"\),\s*false\)/.test(runtimeContextPolicyCoreTest) &&
       /const artifactId = optionalString\(input\.artifact_id \?\? input\.artifact_ref\)/.test(
         runtimeCodingToolInvocationSurface,
       ) &&
@@ -6007,12 +6007,12 @@ function runBridge() {
       /CommandOperation::PlanRuntimeCodingToolArtifactDrafts/.test(commandProtocolCore) &&
       /plan_runtime_coding_tool_artifact_drafts_response/.test(coreCommandDispatch) &&
       /RuntimeCodingToolArtifactDraftPlanCommandError/.test(coreCommandDispatch) &&
-      /RUNTIME_CODING_TOOL_ARTIFACT_DRAFT_PLAN_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyRunner) &&
-      /planRuntimeCodingToolArtifactDrafts/.test(runtimeContextPolicyRunner) &&
-      /normalizeRuntimeCodingToolArtifactDraftPlanBridgeResult/.test(runtimeContextPolicyRunner) &&
-      /plan_runtime_coding_tool_artifact_drafts/.test(runtimeContextPolicyRunner) &&
-      /coding-tool artifact draft runner sends Rust daemon-core plan request/.test(runtimeContextPolicyRunnerTest) &&
-      /coding-tool artifact draft normalizer rejects missing Rust records/.test(runtimeContextPolicyRunnerTest) &&
+      /RUNTIME_CODING_TOOL_ARTIFACT_DRAFT_PLAN_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyCore) &&
+      /planRuntimeCodingToolArtifactDrafts/.test(runtimeContextPolicyCore) &&
+      /normalizeRuntimeCodingToolArtifactDraftPlanBridgeResult/.test(runtimeContextPolicyCore) &&
+      /plan_runtime_coding_tool_artifact_drafts/.test(runtimeContextPolicyCore) &&
+      /coding-tool artifact draft core sends Rust daemon-core plan request/.test(runtimeContextPolicyCoreTest) &&
+      /coding-tool artifact draft normalizer rejects missing Rust records/.test(runtimeContextPolicyCoreTest) &&
       /runtime_coding_tool_artifact_rust_core_required/.test(runtimeCodingToolArtifactSurface) &&
       /rust_core_boundary:\s*"runtime\.coding_tool_artifact"/.test(runtimeCodingToolArtifactSurface) &&
       /operation_kind:\s*operationKind/.test(runtimeCodingToolArtifactSurface) &&
@@ -7266,16 +7266,16 @@ function runBridge() {
       /plan_coding_tool_budget_block/.test(commandProtocolCore) &&
       /CommandOperation::PlanCodingToolBudgetBlock/.test(commandProtocolCore) &&
       /plan_coding_tool_budget_block_response/.test(coreCommandDispatch) &&
-      /planCodingToolBudgetBlock/.test(runtimeContextPolicyRunner) &&
-      /CODING_TOOL_BUDGET_BLOCK_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyRunner) &&
-      /normalizeCodingToolBudgetBlockBridgeResult/.test(runtimeContextPolicyRunner) &&
-      /coding tool budget block runner sends Rust block request through direct daemon-core invoker/.test(
-        runtimeContextPolicyRunnerTest,
+      /planCodingToolBudgetBlock/.test(runtimeContextPolicyCore) &&
+      /CODING_TOOL_BUDGET_BLOCK_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyCore) &&
+      /normalizeCodingToolBudgetBlockBridgeResult/.test(runtimeContextPolicyCore) &&
+      /coding tool budget block core sends Rust block request through direct daemon-core invoker/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
       /codingToolBudgetBlockPlanner/.test(runtimeCodingToolGovernanceSurface) &&
       /planCodingToolBudgetBlock/.test(runtimeCodingToolGovernanceSurface) &&
       /canonicalBudgetPolicy/.test(runtimeCodingToolGovernanceSurface) &&
-      /codingToolBudgetBlockPlanner:\s*this\.contextPolicyRunner/.test(runtimeDaemonIndex) &&
+      /codingToolBudgetBlockPlanner:\s*this\.contextPolicyCore/.test(runtimeDaemonIndex) &&
       /runtime_coding_tool_governance_rust_core_required/.test(runtimeCodingToolGovernanceSurface) &&
       /rust_core_boundary:\s*"runtime\.coding_tool_governance"/.test(runtimeCodingToolGovernanceSurface) &&
       /throwGovernanceRustCoreRequired\("coding_tool_budget_block",\s*"policy\.blocked"/.test(runtimeCodingToolGovernanceSurface) &&
@@ -7309,8 +7309,8 @@ function runBridge() {
       "crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs",
       "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
       "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-governance-surface.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-governance-surface.test.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs",
@@ -7888,9 +7888,9 @@ function runBridge() {
 	        policyCodingToolBudgetRecoveryCore,
 	      ) &&
 	      !/plan_coding_tool_budget_recovery_admission_required/.test(
-	        commandProtocolCore + coreCommandDispatch + policyCodingToolBudgetRecoveryCore + runtimeContextPolicyRunner,
+	        commandProtocolCore + coreCommandDispatch + policyCodingToolBudgetRecoveryCore + runtimeContextPolicyCore,
 	      ) &&
-	      !/planCodingToolBudgetRecoveryAdmissionRequired/.test(runtimeContextPolicyRunner) &&
+	      !/planCodingToolBudgetRecoveryAdmissionRequired/.test(runtimeContextPolicyCore) &&
 	      /rust_coding_tool_budget_recovery_state_update_command/.test(
 	        policyCodingToolBudgetRecoveryCore,
 	      ) &&
@@ -9550,43 +9550,49 @@ function runBridge() {
       /runtime_event_idempotency_key/.test(policyContextLifecycleCore) &&
       !/fn evaluate_context_budget_policy/.test(bridgeModule) &&
       !/struct ContextBudgetPolicyBridgeRequest/.test(bridgeModule) &&
-      /createContextPolicyRunnerFromEnv/.test(runtimeContextPolicyRunner) &&
-      /RustContextPolicyRunner/.test(runtimeContextPolicyRunner) &&
-      /assertNoContextPolicyCommandSelection\(\s*options\.command\s*\?\?\s*env\.IOI_RUNTIME_DAEMON_CORE_COMMAND/.test(
-        runtimeContextPolicyRunner,
+      /createRuntimeContextPolicyCore/.test(runtimeContextPolicyCore) &&
+      /RuntimeContextPolicyCore/.test(runtimeContextPolicyCore) &&
+      /assertNoRuntimeContextPolicyCoreOption\("command",\s*options\.command\)/.test(
+        runtimeContextPolicyCore,
       ) &&
-      /ioi\.runtime\.daemon_core\.command\.v1/.test(runtimeContextPolicyRunner) &&
-      !/IOI_STEP_MODULE_COMMAND/.test(runtimeContextPolicyRunner) &&
-      !/CONTEXT_POLICY_COMMAND_ARGS_ENV/.test(runtimeContextPolicyRunner) &&
-      !/parseCommandArgs/.test(runtimeContextPolicyRunner) &&
-      !/normalizeArgs/.test(runtimeContextPolicyRunner) &&
-      !/this\.args/.test(runtimeContextPolicyRunner) &&
-      !/argsEnv/.test(runtimeContextPolicyRunner) &&
-      /assertNoContextPolicyCommandArgs/.test(runtimeContextPolicyRunner) &&
-      /assertNoContextPolicyCommandSelection/.test(runtimeContextPolicyRunner) &&
-      /evaluateContextBudgetPolicy/.test(runtimeContextPolicyRunner) &&
-      /context_policy_command_args_retired/.test(runtimeContextPolicyRunner) &&
-      /context_policy_command_selection_retired/.test(runtimeContextPolicyRunner) &&
-      /context_policy_direct_invoker_unconfigured/.test(runtimeContextPolicyRunner) &&
-      !/createDaemonCoreCommandInvoker/.test(runtimeContextPolicyRunner) &&
-      !/spawnSyncImpl/.test(runtimeContextPolicyRunner) &&
-      !/from "node:child_process"/.test(runtimeContextPolicyRunner) &&
-      /runtime_event_item_id/.test(runtimeContextPolicyRunner) &&
-      /context policy runner env uses daemon-level direct invoker/.test(
-        runtimeContextPolicyRunnerTest,
+      /assertNoRuntimeContextPolicyCoreOption\("args",\s*options\.args\)/.test(
+        runtimeContextPolicyCore,
       ) &&
-      /context policy runner rejects retired daemon-core command env/.test(
-        runtimeContextPolicyRunnerTest,
+      /assertNoRuntimeContextPolicyCoreOption\("env",\s*options\.env\)/.test(
+        runtimeContextPolicyCore,
       ) &&
-      /context policy runner command args env fails closed/.test(runtimeContextPolicyRunnerTest) &&
-      /context policy runner command args constructor option fails closed/.test(
-        runtimeContextPolicyRunnerTest,
+      /ioi\.runtime\.daemon_core\.command\.v1/.test(runtimeContextPolicyCore) &&
+      !/IOI_STEP_MODULE_COMMAND/.test(runtimeContextPolicyCore) &&
+      !/CONTEXT_POLICY_COMMAND_ARGS_ENV/.test(runtimeContextPolicyCore) &&
+      !/parseCommandArgs/.test(runtimeContextPolicyCore) &&
+      !/normalizeArgs/.test(runtimeContextPolicyCore) &&
+      !/this\.args/.test(runtimeContextPolicyCore) &&
+      !/argsEnv/.test(runtimeContextPolicyCore) &&
+      /assertNoRuntimeContextPolicyCoreOption/.test(runtimeContextPolicyCore) &&
+      /evaluateContextBudgetPolicy/.test(runtimeContextPolicyCore) &&
+      /runtime_context_policy_core_\$\{option\}_retired/.test(runtimeContextPolicyCore) &&
+      /runtime_context_policy_core_direct_invoker_unconfigured/.test(runtimeContextPolicyCore) &&
+      !/createDaemonCoreCommandInvoker/.test(runtimeContextPolicyCore) &&
+      !/spawnSyncImpl/.test(runtimeContextPolicyCore) &&
+      !/from "node:child_process"/.test(runtimeContextPolicyCore) &&
+      /runtime_event_item_id/.test(runtimeContextPolicyCore) &&
+      /runtime context policy core uses daemon-level direct invoker/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
-      /context policy runner command constructor option fails closed/.test(
-        runtimeContextPolicyRunnerTest,
+      /runtime context policy core rejects retired daemon-core command option/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
-      /context budget policy runner sends generic Rust policy through direct daemon-core invoker/.test(
-        runtimeContextPolicyRunnerTest,
+      /runtime context policy core env option fails closed/.test(runtimeContextPolicyCoreTest) &&
+      /runtime context policy core command args constructor option fails closed/.test(
+        runtimeContextPolicyCoreTest,
+      ) &&
+      /runtime_context_policy_core_args_retired/.test(runtimeContextPolicyCoreTest) &&
+      /runtime context policy core command constructor option fails closed/.test(
+        runtimeContextPolicyCoreTest,
+      ) &&
+      /runtime_context_policy_core_command_retired/.test(runtimeContextPolicyCoreTest) &&
+      /context budget policy core sends generic Rust policy through direct daemon-core invoker/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
       /runtime_context_policy_rust_core_required/.test(runtimeContextPolicySurface) &&
       /rust_core_boundary:\s*"runtime\.context_policy"/.test(runtimeContextPolicySurface) &&
@@ -9634,8 +9640,8 @@ function runBridge() {
       !/(?:\.|\b)(?:agentForThread|getRun|writeRun|writeAgent)\s*\(/.test(
         runtimeContextBudgetEvaluationBlock,
       ) &&
-      /context policy runner fails closed without direct invoker/.test(
-        runtimeContextPolicyRunnerTest,
+      /runtime context policy core fails closed without direct invoker/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
       !/\brequest\.(?:workflowNodeId|workflowGraphId|threadId|runId|turnId|eventKind)\b/.test(
         runtimeContextBudgetEvaluationBlock,
@@ -9671,8 +9677,8 @@ function runBridge() {
       "crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
       "packages/runtime-daemon/src/threads/context-budget-policy.mjs",
       "packages/runtime-daemon/src/threads/context-budget-policy.test.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-surface.mjs",
@@ -9699,11 +9705,11 @@ function runBridge() {
       ) &&
       !/bridge_evaluates_coding_tool_budget_policy_through_rust_core/.test(bridgeModule) &&
       !/fn evaluate_coding_tool_budget_policy/.test(bridgeModule) &&
-      /createContextPolicyRunnerFromEnv/.test(runtimeContextPolicyRunner) &&
-      /RustContextPolicyRunner/.test(runtimeContextPolicyRunner) &&
-      /evaluateCodingToolBudgetPolicy/.test(runtimeContextPolicyRunner) &&
-      /coding tool budget runner sends Rust policy through direct daemon-core invoker/.test(
-        runtimeContextPolicyRunnerTest,
+      /createRuntimeContextPolicyCore/.test(runtimeContextPolicyCore) &&
+      /RuntimeContextPolicyCore/.test(runtimeContextPolicyCore) &&
+      /evaluateCodingToolBudgetPolicy/.test(runtimeContextPolicyCore) &&
+      /coding tool budget core sends Rust policy through direct daemon-core invoker/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
       /budgetRunner\.evaluateCodingToolBudgetPolicy/.test(codingToolBudgetPolicySurface) &&
       /coding tool budget policy reads canonical tool pack fields and annotates runtime context/.test(
@@ -9720,8 +9726,8 @@ function runBridge() {
       "crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
       "packages/runtime-daemon/src/threads/context-budget-policy.mjs",
       "packages/runtime-daemon/src/threads/context-budget-policy.test.mjs",
     ],
@@ -9963,16 +9969,16 @@ function runBridge() {
       /response\["operator_control"\]\.get\("approvalId"\)\.is_none\(\)/.test(
         policyCodingToolBudgetRecoveryCore,
       ) &&
-      /planCodingToolBudgetRecoveryStateUpdate/.test(runtimeContextPolicyRunner) &&
+      /planCodingToolBudgetRecoveryStateUpdate/.test(runtimeContextPolicyCore) &&
       /CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
-        runtimeContextPolicyRunner,
+        runtimeContextPolicyCore,
       ) &&
-      /coding tool budget recovery state update runner sends Rust state update through direct daemon-core invoker/.test(
-        runtimeContextPolicyRunnerTest,
+      /coding tool budget recovery state update core sends Rust state update through direct daemon-core invoker/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
-      /result\.operator_control\.approval_id/.test(runtimeContextPolicyRunnerTest) &&
+      /result\.operator_control\.approval_id/.test(runtimeContextPolicyCoreTest) &&
       /Object\.hasOwn\(result\.operator_control,\s*field\),\s*false/.test(
-        runtimeContextPolicyRunnerTest,
+        runtimeContextPolicyCoreTest,
       ) &&
       /runtime_coding_tool_budget_recovery_rust_core_required/.test(
         runtimeCodingToolBudgetRecoverySurface,
@@ -10013,8 +10019,8 @@ function runBridge() {
       "crates/services/src/agentic/runtime/kernel/policy.rs",
       "crates/services/src/agentic/runtime/kernel/policy/coding_tool_budget_recovery.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.test.mjs",
     ],
@@ -10144,12 +10150,12 @@ function runBridge() {
 	      !/fn plan_coding_tool_budget_recovery_control/.test(bridgeModule) &&
 	      !/struct CodingToolBudgetRecoveryControlBridgeRequest/.test(bridgeModule) &&
 	      /planCodingToolBudgetRecoveryControl\(request = \{\}\)/.test(
-	        runtimeContextPolicyRunner,
+	        runtimeContextPolicyCore,
 	      ) &&
-	      /coding-tool budget recovery control runner sends Rust daemon-core request/.test(
-	        runtimeContextPolicyRunnerTest,
+	      /coding-tool budget recovery control core sends Rust daemon-core request/.test(
+	        runtimeContextPolicyCoreTest,
 	      ) &&
-      /codingToolBudgetRecoveryRunner:\s*this\.contextPolicyRunner/.test(
+      /codingToolBudgetRecoveryRunner:\s*this\.contextPolicyCore/.test(
         runtimeDaemonIndex,
       ) &&
       /coding-tool budget recovery control fails closed before JS approval, event append, or run persistence without Rust planner/.test(
@@ -10345,37 +10351,37 @@ function runBridge() {
       /"decisionId"[\s\S]*"createdAt"[\s\S]*response\["operator_control"\]\.get\(field\)\.is_none\(\)/.test(
         policyOperatorControlCore,
       ) &&
-      /planDiagnosticsOperatorOverrideStateUpdate/.test(runtimeContextPolicyRunner) &&
+      /planDiagnosticsOperatorOverrideStateUpdate/.test(runtimeContextPolicyCore) &&
       /DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
-        runtimeContextPolicyRunner,
+        runtimeContextPolicyCore,
       ) &&
-      /diagnostics operator override state update runner sends Rust state update through direct daemon-core invoker/.test(
-        runtimeContextPolicyRunnerTest,
+      /diagnostics operator override state update core sends Rust state update through direct daemon-core invoker/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
-      /result\.operator_control\.decision_id/.test(runtimeContextPolicyRunnerTest) &&
+      /result\.operator_control\.decision_id/.test(runtimeContextPolicyCoreTest) &&
       /captured\.request\.operator_override_request\.operator_override_approval/.test(
-        runtimeContextPolicyRunnerTest,
+        runtimeContextPolicyCoreTest,
       ) &&
       /captured\.request\.decision\.requires_approval/.test(
-        runtimeContextPolicyRunnerTest,
+        runtimeContextPolicyCoreTest,
       ) &&
       /captured\.request\.repair_policy\.operator_override_requires_approval/.test(
-        runtimeContextPolicyRunnerTest,
+        runtimeContextPolicyCoreTest,
       ) &&
       /captured\.request\.authority_grant_refs/.test(
-        runtimeContextPolicyRunnerTest,
+        runtimeContextPolicyCoreTest,
       ) &&
       /captured\.request\.authority_receipt_refs/.test(
-        runtimeContextPolicyRunnerTest,
+        runtimeContextPolicyCoreTest,
       ) &&
       /result\.operator_control\.authority_hash/.test(
-        runtimeContextPolicyRunnerTest,
+        runtimeContextPolicyCoreTest,
       ) &&
       /Object\.hasOwn\(captured\.request,\s*field\),\s*false/.test(
-        runtimeContextPolicyRunnerTest,
+        runtimeContextPolicyCoreTest,
       ) &&
       /Object\.hasOwn\(result\.operator_control,\s*field\),\s*false/.test(
-        runtimeContextPolicyRunnerTest,
+        runtimeContextPolicyCoreTest,
       ) &&
       /runtime_diagnostics_repair_rust_core_required/.test(runtimeDiagnosticsRepairSurface) &&
       /rust_core_boundary:\s*"runtime\.diagnostics_repair"/.test(
@@ -10457,8 +10463,8 @@ function runBridge() {
       "crates/services/src/agentic/runtime/kernel/policy.rs",
       "crates/services/src/agentic/runtime/kernel/policy/operator_control.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
       "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs",
       "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs",
     ],
@@ -10521,35 +10527,35 @@ function runBridge() {
       /CommandOperation::PlanOperatorTurnControlAdmissionRequired/.test(commandProtocolCore) &&
       /response\["details"\]\["thread_id"\]/.test(policyOperatorControlCore) &&
       /response\["details"\]\.get\(field\)\.is_none\(\)/.test(policyOperatorControlCore) &&
-      /planOperatorTurnControlAdmissionRequired/.test(runtimeContextPolicyRunner) &&
+      /planOperatorTurnControlAdmissionRequired/.test(runtimeContextPolicyCore) &&
       /OPERATOR_TURN_CONTROL_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION/.test(
-        runtimeContextPolicyRunner,
+        runtimeContextPolicyCore,
       ) &&
-      /operator turn control admission-required runner sends Rust daemon-core request/.test(
-        runtimeContextPolicyRunnerTest,
+      /operator turn control admission-required core sends Rust daemon-core request/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
       /captured\.operation,\s*"plan_operator_turn_control_admission_required"/.test(
-        runtimeContextPolicyRunnerTest,
+        runtimeContextPolicyCoreTest,
       ) &&
       /result\.record\.code,\s*"runtime_operator_turn_control_rust_core_required"/.test(
-        runtimeContextPolicyRunnerTest,
+        runtimeContextPolicyCoreTest,
       ) &&
-      /planOperatorInterruptStateUpdate/.test(runtimeContextPolicyRunner) &&
+      /planOperatorInterruptStateUpdate/.test(runtimeContextPolicyCore) &&
       /OPERATOR_INTERRUPT_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
-        runtimeContextPolicyRunner,
+        runtimeContextPolicyCore,
       ) &&
-      /operator interrupt state update runner sends Rust state update through direct daemon-core invoker/.test(
-        runtimeContextPolicyRunnerTest,
+      /operator interrupt state update core sends Rust state update through direct daemon-core invoker/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
-      /result\.operator_control\.event_id/.test(runtimeContextPolicyRunnerTest) &&
+      /result\.operator_control\.event_id/.test(runtimeContextPolicyCoreTest) &&
       /Object\.hasOwn\(result\.operator_control,\s*"eventId"\),\s*false/.test(
-        runtimeContextPolicyRunnerTest,
+        runtimeContextPolicyCoreTest,
       ) &&
       /Object\.hasOwn\(result\.operator_control,\s*"createdAt"\),\s*false/.test(
-        runtimeContextPolicyRunnerTest,
+        runtimeContextPolicyCoreTest,
       ) &&
-      /createContextPolicyRunnerFromEnv/.test(runtimeDaemonIndex) &&
-      /contextPolicyRunner:\s*this\.contextPolicyRunner/.test(runtimeDaemonIndex) &&
+      /createRuntimeContextPolicyCore/.test(runtimeDaemonIndex) &&
+      /contextPolicyCore:\s*this\.contextPolicyCore/.test(runtimeDaemonIndex) &&
       /runtime_operator_turn_control_rust_core_required/.test(runtimeThreadTurnSurface) &&
       /planOperatorTurnControlAdmissionRequired/.test(runtimeThreadTurnSurface) &&
       /operatorTurnControlAdmissionRunner/.test(runtimeThreadTurnSurface) &&
@@ -10613,8 +10619,8 @@ function runBridge() {
       "crates/services/src/agentic/runtime/kernel/policy.rs",
       "crates/services/src/agentic/runtime/kernel/policy/operator_control.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
       "packages/runtime-daemon/src/runtime-thread-turn-surface.mjs",
       "packages/runtime-daemon/src/runtime-operator-turn-control-facade.test.mjs",
     ],
@@ -10652,21 +10658,21 @@ function runBridge() {
       /response\["operator_control"\]\.get\("createdAt"\)\.is_none\(\)/.test(
         policyOperatorControlCore,
       ) &&
-      /planOperatorSteerStateUpdate/.test(runtimeContextPolicyRunner) &&
-      /OPERATOR_STEER_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyRunner) &&
-      /operator steer state update runner sends Rust state update through direct daemon-core invoker/.test(
-        runtimeContextPolicyRunnerTest,
+      /planOperatorSteerStateUpdate/.test(runtimeContextPolicyCore) &&
+      /OPERATOR_STEER_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyCore) &&
+      /operator steer state update core sends Rust state update through direct daemon-core invoker/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
-      /result\.operator_control\.event_id/.test(runtimeContextPolicyRunnerTest) &&
+      /result\.operator_control\.event_id/.test(runtimeContextPolicyCoreTest) &&
       /Object\.hasOwn\(result\.operator_control,\s*"eventId"\),\s*false/.test(
-        runtimeContextPolicyRunnerTest,
+        runtimeContextPolicyCoreTest,
       ) &&
       /Object\.hasOwn\(result\.operator_control,\s*"createdAt"\),\s*false/.test(
-        runtimeContextPolicyRunnerTest,
+        runtimeContextPolicyCoreTest,
       ) &&
-      /planOperatorTurnControlAdmissionRequired/.test(runtimeContextPolicyRunner) &&
-      /operator turn control admission-required runner sends Rust daemon-core request/.test(
-        runtimeContextPolicyRunnerTest,
+      /planOperatorTurnControlAdmissionRequired/.test(runtimeContextPolicyCore) &&
+      /operator turn control admission-required core sends Rust daemon-core request/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
       /runtime_operator_turn_control_rust_core_required/.test(runtimeThreadTurnSurface) &&
       /planOperatorTurnControlAdmissionRequired/.test(runtimeThreadTurnSurface) &&
@@ -10723,8 +10729,8 @@ function runBridge() {
       "crates/services/src/agentic/runtime/kernel/policy.rs",
       "crates/services/src/agentic/runtime/kernel/policy/operator_control.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
       "packages/runtime-daemon/src/runtime-thread-turn-surface.mjs",
       "packages/runtime-daemon/src/runtime-operator-turn-control-facade.test.mjs",
     ],
@@ -10886,13 +10892,13 @@ function runBridge() {
       !/bridge_plans_thread_turn_admission_required_through_rust_core/.test(bridgeModule) &&
       !/fn plan_thread_turn_admission_required/.test(bridgeModule) &&
       !/struct ThreadTurnAdmissionRequiredBridgeRequest/.test(bridgeModule) &&
-      /planThreadTurnAdmissionRequired/.test(runtimeContextPolicyRunner) &&
-      /THREAD_TURN_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyRunner) &&
-      /thread turn admission-required runner sends Rust daemon-core request/.test(
-        runtimeContextPolicyRunnerTest,
+      /planThreadTurnAdmissionRequired/.test(runtimeContextPolicyCore) &&
+      /THREAD_TURN_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyCore) &&
+      /thread turn admission-required core sends Rust daemon-core request/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
       /captured\.operation,\s*"plan_thread_turn_admission_required"/.test(
-        runtimeContextPolicyRunnerTest,
+        runtimeContextPolicyCoreTest,
       ) &&
       /runtime_thread_turn_rust_core_required/.test(runtimeThreadTurnSurface) &&
       /planThreadTurnAdmissionRequired/.test(runtimeThreadTurnSurface) &&
@@ -11016,10 +11022,10 @@ function runBridge() {
       !/bridge_plans_run_cancel_state_update_through_rust_core/.test(bridgeModule) &&
       !/fn plan_run_cancel_state_update/.test(bridgeModule) &&
       !/struct RunCancelStateUpdateBridgeRequest/.test(bridgeModule) &&
-      /planRunCancelStateUpdate/.test(runtimeContextPolicyRunner) &&
-      /RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyRunner) &&
-      /run cancel state update runner sends Rust state update through direct daemon-core invoker/.test(
-        runtimeContextPolicyRunnerTest,
+      /planRunCancelStateUpdate/.test(runtimeContextPolicyCore) &&
+      /RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyCore) &&
+      /run cancel state update core sends Rust state update through direct daemon-core invoker/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
       /RunCancelAdmissionRequiredCore/.test(policyCore) &&
       /RUN_CANCEL_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
@@ -11037,10 +11043,10 @@ function runBridge() {
       !/fn plan_run_cancel_admission_required/.test(bridgeModule) &&
       !/struct RunCancelAdmissionRequiredBridgeRequest/.test(bridgeModule) &&
       /planRunCancelAdmissionRequired\(request = \{\}\)/.test(
-        runtimeContextPolicyRunner,
+        runtimeContextPolicyCore,
       ) &&
-      /run cancel admission-required runner sends Rust daemon-core request/.test(
-        runtimeContextPolicyRunnerTest,
+      /run cancel admission-required core sends Rust daemon-core request/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
       /runtime_run_cancel_rust_core_required/.test(runtimeRunCancellation) &&
       /rust_core_boundary:\s*"runtime\.run_cancel"/.test(runtimeRunCancellation) &&
@@ -11100,8 +11106,8 @@ function runBridge() {
       "crates/services/src/agentic/runtime/kernel/policy.rs",
       "crates/services/src/agentic/runtime/kernel/policy/thread_lifecycle.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
       "packages/runtime-daemon/src/runtime-run-cancellation.mjs",
       "packages/runtime-daemon/src/runtime-run-cancellation.test.mjs",
       "packages/runtime-daemon/src/runtime-thread-auxiliary-surface.mjs",
@@ -11200,17 +11206,17 @@ function runBridge() {
       !/fn plan_skill_hook_registry_projection_required/.test(bridgeModule) &&
       !/struct SkillHookRegistryProjectionRequiredBridgeRequest/.test(bridgeModule) &&
       /SKILL_HOOK_REGISTRY_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
-        runtimeContextPolicyRunner,
+        runtimeContextPolicyCore,
       ) &&
       /projectSkillHookRegistry\(request = \{\}\)/.test(
-        runtimeContextPolicyRunner,
+        runtimeContextPolicyCore,
       ) &&
       /normalizeSkillHookRegistryProjectionBridgeResult/.test(
-        runtimeContextPolicyRunner,
+        runtimeContextPolicyCore,
       ) &&
-      !/planSkillHookRegistryProjectionRequired/.test(runtimeContextPolicyRunner) &&
-      /skill hook registry projection runner sends Rust daemon-core request/.test(
-        runtimeContextPolicyRunnerTest,
+      !/planSkillHookRegistryProjectionRequired/.test(runtimeContextPolicyCore) &&
+      /skill hook registry projection core sends Rust daemon-core request/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
       /runtime_skill_hook_registry_rust_core_required/.test(runtimeSkillHookSurface) &&
       /rust_core_boundary:\s*"runtime\.skill_hook_registry"/.test(
@@ -11252,7 +11258,7 @@ function runBridge() {
       /public runtime skill and hook routes use mounted skill hook surface/.test(
         publicRuntimeRoutesTest,
       ) &&
-      /createRuntimeSkillHookSurface\(\{\s*defaultCwd:\s*this\.defaultCwd,\s*skillHookRunner:\s*this\.contextPolicyRunner,/s.test(
+      /createRuntimeSkillHookSurface\(\{\s*defaultCwd:\s*this\.defaultCwd,\s*skillHookRunner:\s*this\.contextPolicyCore,/s.test(
         runtimeDaemonIndex,
       ) &&
       !/^\s+(?:skillHookCatalog|listSkills|listHooks)\(/m.test(runtimeDaemonIndex),
@@ -11262,8 +11268,8 @@ function runBridge() {
       "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
       "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
       "packages/runtime-daemon/src/runtime-skill-hook-surface.mjs",
       "packages/runtime-daemon/src/runtime-skill-hook-surface.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
@@ -11316,17 +11322,17 @@ function runBridge() {
       !/fn plan_repository_workflow_projection_required/.test(bridgeModule) &&
       !/struct RepositoryWorkflowProjectionRequiredBridgeRequest/.test(bridgeModule) &&
       /REPOSITORY_WORKFLOW_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
-        runtimeContextPolicyRunner,
+        runtimeContextPolicyCore,
       ) &&
       /projectRepositoryWorkflow\(request = \{\}\)/.test(
-        runtimeContextPolicyRunner,
+        runtimeContextPolicyCore,
       ) &&
       /normalizeRepositoryWorkflowProjectionBridgeResult/.test(
-        runtimeContextPolicyRunner,
+        runtimeContextPolicyCore,
       ) &&
-      !/planRepositoryWorkflowProjectionRequired/.test(runtimeContextPolicyRunner) &&
-      /repository workflow projection runner sends Rust daemon-core request/.test(
-        runtimeContextPolicyRunnerTest,
+      !/planRepositoryWorkflowProjectionRequired/.test(runtimeContextPolicyCore) &&
+      /repository workflow projection core sends Rust daemon-core request/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
       /runtime_repository_workflow_rust_projection_missing/.test(
         runtimeRepositorySurface,
@@ -11360,7 +11366,7 @@ function runBridge() {
       /runtime repository surface rejects Rust projection mismatches/.test(
         runtimeRepositorySurfaceTest,
       ) &&
-      /createRuntimeRepositorySurface\(\{\s*repositoryRunner:\s*this\.contextPolicyRunner,/s.test(
+      /createRuntimeRepositorySurface\(\{\s*repositoryRunner:\s*this\.contextPolicyCore,/s.test(
         runtimeDaemonIndex,
       ) &&
       /store\.repositorySurface\.listRepositories\(store\)/.test(publicRuntimeRoutes) &&
@@ -11384,8 +11390,8 @@ function runBridge() {
       "crates/services/src/agentic/runtime/kernel/policy.rs",
       "crates/services/src/agentic/runtime/kernel/policy/thread_lifecycle.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
       "packages/runtime-daemon/src/runtime-repository-surface.mjs",
       "packages/runtime-daemon/src/runtime-repository-surface.test.mjs",
       "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
@@ -11449,25 +11455,25 @@ function runBridge() {
       /"controlKind"[\s\S]*"workspaceTrustWarningEventId"[\s\S]*response\["control"\]\.get\(field\)\.is_none\(\)/.test(
         policyThreadLifecycleCore,
       ) &&
-      /planThreadControlAgentStateUpdate/.test(runtimeContextPolicyRunner) &&
+      /planThreadControlAgentStateUpdate/.test(runtimeContextPolicyCore) &&
       /THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
-        runtimeContextPolicyRunner,
+        runtimeContextPolicyCore,
       ) &&
-      /thread control agent state update runner sends Rust state update through direct daemon-core invoker/.test(
-        runtimeContextPolicyRunnerTest,
+      /thread control agent state update core sends Rust state update through direct daemon-core invoker/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
       /captured\.request\.model_route\.selected_model/.test(
-        runtimeContextPolicyRunnerTest,
+        runtimeContextPolicyCoreTest,
       ) &&
       /Object\.hasOwn\(captured\.request\.model_route,\s*field\),\s*false/.test(
-        runtimeContextPolicyRunnerTest,
+        runtimeContextPolicyCoreTest,
       ) &&
-      /result\.control\.control_kind/.test(runtimeContextPolicyRunnerTest) &&
-      /result\.control\.event_id/.test(runtimeContextPolicyRunnerTest) &&
-      /result\.receipt_refs/.test(runtimeContextPolicyRunnerTest) &&
-      /result\.control\.receipt_refs/.test(runtimeContextPolicyRunnerTest) &&
+      /result\.control\.control_kind/.test(runtimeContextPolicyCoreTest) &&
+      /result\.control\.event_id/.test(runtimeContextPolicyCoreTest) &&
+      /result\.receipt_refs/.test(runtimeContextPolicyCoreTest) &&
+      /result\.control\.receipt_refs/.test(runtimeContextPolicyCoreTest) &&
       /Object\.hasOwn\(result\.control,\s*field\),\s*false/.test(
-        runtimeContextPolicyRunnerTest,
+        runtimeContextPolicyCoreTest,
       ) &&
       /runtime_thread_control_rust_core_required/.test(runtimeThreadControlSurface) &&
       /runtime_thread_control_js_facade_retired/.test(runtimeThreadControlSurface) &&
@@ -11477,7 +11483,7 @@ function runBridge() {
       /runtime_thread_control_event_js_facade_retired/.test(runtimeThreadControlSurface) &&
       /rust_daemon_core_thread_control_required/.test(runtimeThreadControlSurface) &&
       /agentgres_thread_control_truth_required/.test(runtimeThreadControlSurface) &&
-      /contextPolicyRunnerDep\?\.planThreadControlAgentStateUpdate/.test(
+      /contextPolicyCoreDep\?\.planThreadControlAgentStateUpdate/.test(
         runtimeThreadControlSurface,
       ) &&
       /applyRustThreadControlStateUpdate/.test(runtimeThreadControlSurface) &&
@@ -11514,8 +11520,8 @@ function runBridge() {
       "crates/services/src/agentic/runtime/kernel/policy.rs",
       "crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
       "packages/runtime-daemon/src/runtime-thread-control-surface.mjs",
       "packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
@@ -11818,149 +11824,149 @@ function runBridge() {
       /response\["control"\]\.get\("createdAt"\)\.is_none\(\)/.test(
         policyMcpMemoryCore,
       ) &&
-      /planMcpControlAgentStateUpdate/.test(runtimeContextPolicyRunner) &&
-      /validateMcpServers/.test(runtimeContextPolicyRunner) &&
-      /planMcpManagerStatusProjection/.test(runtimeContextPolicyRunner) &&
-      /planMcpManagerCatalogProjection/.test(runtimeContextPolicyRunner) &&
-      /planMcpManagerCatalogSummaryProjection/.test(runtimeContextPolicyRunner) &&
-      /planMcpManagerValidationProjection/.test(runtimeContextPolicyRunner) &&
+      /planMcpControlAgentStateUpdate/.test(runtimeContextPolicyCore) &&
+      /validateMcpServers/.test(runtimeContextPolicyCore) &&
+      /planMcpManagerStatusProjection/.test(runtimeContextPolicyCore) &&
+      /planMcpManagerCatalogProjection/.test(runtimeContextPolicyCore) &&
+      /planMcpManagerCatalogSummaryProjection/.test(runtimeContextPolicyCore) &&
+      /planMcpManagerValidationProjection/.test(runtimeContextPolicyCore) &&
       /object:\s*optionalString\(result\.object \?\? record\.object\)\s*\?\?\s*null/.test(
-        runtimeContextPolicyRunner,
+        runtimeContextPolicyCore,
       ) &&
       /status:\s*optionalString\(result\.status \?\? record\.status\)\s*\?\?\s*null/.test(
-        runtimeContextPolicyRunner,
+        runtimeContextPolicyCore,
       ) &&
       /server_count:\s*numberValue\(result\.server_count \?\? record\.server_count\)/.test(
-        runtimeContextPolicyRunner,
+        runtimeContextPolicyCore,
       ) &&
       /injection_enabled:\s*result\.injection_enabled \?\? record\.injection_enabled \?\? null/.test(
-        runtimeContextPolicyRunner,
+        runtimeContextPolicyCore,
       ) &&
       /full_catalog_included:\s*result\.full_catalog_included \?\? record\.full_catalog_included \?\? null/.test(
-        runtimeContextPolicyRunner,
+        runtimeContextPolicyCore,
       ) &&
       /search_route:\s*optionalString\(result\.search_route \?\? record\.search_route\)\s*\?\?\s*null/.test(
-        runtimeContextPolicyRunner,
+        runtimeContextPolicyCore,
       ) &&
       /runtime_event_kind:\s*\n\s*optionalString\(result\.runtime_event_kind \?\? record\.runtime_event_kind\)\s*\?\?\s*\n\s*null/.test(
-        runtimeContextPolicyRunner,
+        runtimeContextPolicyCore,
       ) &&
       /event_source:\s*optionalString\(result\.event_source \?\? record\.event_source\)\s*\?\?\s*null/.test(
-        runtimeContextPolicyRunner,
+        runtimeContextPolicyCore,
       ) &&
       /compact_workflow_node_id:\s*\n\s*optionalString\(result\.compact_workflow_node_id \?\? record\.compact_workflow_node_id\)\s*\?\?\s*\n\s*null/.test(
-        runtimeContextPolicyRunner,
+        runtimeContextPolicyCore,
       ) &&
-      /context lifecycle runners do not synthesize Rust-owned public fields/.test(
-        runtimeContextPolicyRunnerTest,
+      /runtime context lifecycle core does not synthesize Rust-owned public fields/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
-      /runtime state-update runners do not synthesize Rust-owned envelopes/.test(
-        runtimeContextPolicyRunnerTest,
+      /runtime state-update core does not synthesize Rust-owned envelopes/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
-      !/\?\?\s*"planned"/.test(runtimeContextPolicyRunner) &&
-      !/context_budget\.evaluated/.test(runtimeContextPolicyRunner) &&
-      !/compaction_policy\.evaluated/.test(runtimeContextPolicyRunner) &&
-      !/"OperatorControl\.Compact"/.test(runtimeContextPolicyRunner) &&
-      !/"runtime\.context-compact"/.test(runtimeContextPolicyRunner) &&
-      !/"ioi\.runtime\.context-compaction\.v1"/.test(runtimeContextPolicyRunner) &&
-      !/ioi\.runtime_mcp_manager_status"/.test(runtimeContextPolicyRunner) &&
-      !/ioi\.runtime_mcp_manager_validation"/.test(runtimeContextPolicyRunner) &&
-      !/ioi\.runtime_memory_manager_status"/.test(runtimeContextPolicyRunner) &&
-      !/ioi\.runtime_memory_manager_validation"/.test(runtimeContextPolicyRunner) &&
-      !/ioi\.runtime_mcp_manager_catalog_projection"/.test(runtimeContextPolicyRunner) &&
-      !/ioi\.runtime_mcp_catalog_summary"/.test(runtimeContextPolicyRunner) &&
-      !/\?\?\s*tools\.length/.test(runtimeContextPolicyRunner) &&
-      !/\?\?\s*namespaces\.length/.test(runtimeContextPolicyRunner) &&
-      !/\?\?\s*!deferred/.test(runtimeContextPolicyRunner) &&
+      !/\?\?\s*"planned"/.test(runtimeContextPolicyCore) &&
+      !/context_budget\.evaluated/.test(runtimeContextPolicyCore) &&
+      !/compaction_policy\.evaluated/.test(runtimeContextPolicyCore) &&
+      !/"OperatorControl\.Compact"/.test(runtimeContextPolicyCore) &&
+      !/"runtime\.context-compact"/.test(runtimeContextPolicyCore) &&
+      !/"ioi\.runtime\.context-compaction\.v1"/.test(runtimeContextPolicyCore) &&
+      !/ioi\.runtime_mcp_manager_status"/.test(runtimeContextPolicyCore) &&
+      !/ioi\.runtime_mcp_manager_validation"/.test(runtimeContextPolicyCore) &&
+      !/ioi\.runtime_memory_manager_status"/.test(runtimeContextPolicyCore) &&
+      !/ioi\.runtime_memory_manager_validation"/.test(runtimeContextPolicyCore) &&
+      !/ioi\.runtime_mcp_manager_catalog_projection"/.test(runtimeContextPolicyCore) &&
+      !/ioi\.runtime_mcp_catalog_summary"/.test(runtimeContextPolicyCore) &&
+      !/\?\?\s*tools\.length/.test(runtimeContextPolicyCore) &&
+      !/\?\?\s*namespaces\.length/.test(runtimeContextPolicyCore) &&
+      !/\?\?\s*!deferred/.test(runtimeContextPolicyCore) &&
       /MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
-        runtimeContextPolicyRunner,
+        runtimeContextPolicyCore,
       ) &&
       /MCP_SERVER_VALIDATION_REQUEST_SCHEMA_VERSION/.test(
-        runtimeContextPolicyRunner,
+        runtimeContextPolicyCore,
       ) &&
       /MCP_SERVER_VALIDATION_INPUT_REQUEST_SCHEMA_VERSION/.test(
-        runtimeContextPolicyRunner,
+        runtimeContextPolicyCore,
       ) &&
       /MCP_MANAGER_STATUS_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
-        runtimeContextPolicyRunner,
+        runtimeContextPolicyCore,
       ) &&
       /MCP_MANAGER_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
-        runtimeContextPolicyRunner,
+        runtimeContextPolicyCore,
       ) &&
       /MCP_MANAGER_CATALOG_SUMMARY_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
-        runtimeContextPolicyRunner,
+        runtimeContextPolicyCore,
       ) &&
       /MCP_MANAGER_VALIDATION_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
-        runtimeContextPolicyRunner,
+        runtimeContextPolicyCore,
       ) &&
-      /mcp control agent state update runner sends Rust state update through direct daemon-core invoker/.test(
-        runtimeContextPolicyRunnerTest,
+      /mcp control agent state update core sends Rust state update through direct daemon-core invoker/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
-      /MCP server validation runner sends Rust daemon-core validation request/.test(
-        runtimeContextPolicyRunnerTest,
+      /MCP server validation core sends Rust daemon-core validation request/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
-      /MCP server validation input runner sends Rust daemon-core projection request/.test(
-        runtimeContextPolicyRunnerTest,
+      /MCP server validation input core sends Rust daemon-core projection request/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
-      /MCP manager status projection runner sends Rust daemon-core projection request/.test(
-        runtimeContextPolicyRunnerTest,
+      /MCP manager status projection core sends Rust daemon-core projection request/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
-      /MCP manager catalog projection runner sends Rust daemon-core projection request/.test(
-        runtimeContextPolicyRunnerTest,
+      /MCP manager catalog projection core sends Rust daemon-core projection request/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
-      /MCP manager catalog summary projection runner sends Rust daemon-core projection request/.test(
-        runtimeContextPolicyRunnerTest,
+      /MCP manager catalog summary projection core sends Rust daemon-core projection request/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
-      /MCP manager validation projection runner sends Rust daemon-core projection request/.test(
-        runtimeContextPolicyRunnerTest,
+      /MCP manager validation projection core sends Rust daemon-core projection request/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
       /captured\.operation,\s*"validate_mcp_servers"/.test(
-        runtimeContextPolicyRunnerTest,
+        runtimeContextPolicyCoreTest,
       ) &&
       /result\.source,\s*"rust_mcp_server_validation_command"/.test(
-        runtimeContextPolicyRunnerTest,
+        runtimeContextPolicyCoreTest,
       ) &&
       /captured\.operation,\s*"project_mcp_server_validation_input"/.test(
-        runtimeContextPolicyRunnerTest,
+        runtimeContextPolicyCoreTest,
       ) &&
       /result\.source,\s*"rust_mcp_server_validation_input_command"/.test(
-        runtimeContextPolicyRunnerTest,
+        runtimeContextPolicyCoreTest,
       ) &&
       /captured\.operation,\s*"plan_mcp_manager_status_projection"/.test(
-        runtimeContextPolicyRunnerTest,
+        runtimeContextPolicyCoreTest,
       ) &&
       /result\.source,\s*"rust_mcp_manager_status_projection_command"/.test(
-        runtimeContextPolicyRunnerTest,
+        runtimeContextPolicyCoreTest,
       ) &&
       /captured\.operation,\s*"plan_mcp_manager_catalog_projection"/.test(
-        runtimeContextPolicyRunnerTest,
+        runtimeContextPolicyCoreTest,
       ) &&
       /result\.source,\s*"rust_mcp_manager_catalog_projection_command"/.test(
-        runtimeContextPolicyRunnerTest,
+        runtimeContextPolicyCoreTest,
       ) &&
       /captured\.operation,\s*"plan_mcp_manager_catalog_summary_projection"/.test(
-        runtimeContextPolicyRunnerTest,
+        runtimeContextPolicyCoreTest,
       ) &&
       /result\.source,\s*"rust_mcp_manager_catalog_summary_projection_command"/.test(
-        runtimeContextPolicyRunnerTest,
+        runtimeContextPolicyCoreTest,
       ) &&
       /captured\.operation,\s*"plan_mcp_manager_validation_projection"/.test(
-        runtimeContextPolicyRunnerTest,
+        runtimeContextPolicyCoreTest,
       ) &&
       /result\.source,\s*"rust_mcp_manager_validation_projection_command"/.test(
-        runtimeContextPolicyRunnerTest,
+        runtimeContextPolicyCoreTest,
       ) &&
-      /MCP and memory manager projection runners do not synthesize Rust-owned projection envelopes/.test(
-        runtimeContextPolicyRunnerTest,
+      /MCP and memory manager projection core does not synthesize Rust-owned projection envelopes/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
-      (runtimeMcpCatalogSurface.match(/contextPolicyRunner\.validateMcpServers\(\{ servers \}\)/g) ?? []).length === 2 &&
-      /contextPolicyRunner\.planMcpManagerCatalogProjection\(\{ servers \}\)/.test(
+      (runtimeMcpCatalogSurface.match(/contextPolicyCore\.validateMcpServers\(\{ servers \}\)/g) ?? []).length === 2 &&
+      /contextPolicyCore\.planMcpManagerCatalogProjection\(\{ servers \}\)/.test(
         runtimeMcpCatalogSurface,
       ) &&
-      /contextPolicyRunner\.planMcpManagerValidationProjection\(\{/.test(
+      /contextPolicyCore\.planMcpManagerValidationProjection\(\{/.test(
         runtimeMcpCatalogSurface,
       ) &&
-      /contextPolicyRunner\.planMcpManagerStatusProjection\(\{/.test(
+      /contextPolicyCore\.planMcpManagerStatusProjection\(\{/.test(
         runtimeMcpCatalogSurface,
       ) &&
       !/store\.modelMounting\.listMcpServers\(\)/.test(runtimeMcpCatalogSurface) &&
@@ -11971,7 +11977,7 @@ function runBridge() {
         runtimeMcpCatalogSurfaceTest,
       ) &&
       /mcpCatalogRowsForServers\(servers = \[\]\)/.test(runtimeMcpCatalogSurface) &&
-      /const catalog = contextPolicyRunner\.planMcpManagerCatalogProjection\(\{ servers \}\)/.test(
+      /const catalog = contextPolicyCore\.planMcpManagerCatalogProjection\(\{ servers \}\)/.test(
         runtimeMcpCatalogSurface,
       ) &&
       /return this\.mcpCatalogRowsForServers\(/.test(runtimeMcpCatalogSurface) &&
@@ -11984,7 +11990,7 @@ function runBridge() {
       /mcpCatalogSummaryForRows\(server, catalog = \{\}, options = \{\}\)/.test(
         runtimeMcpCatalogSurface,
       ) &&
-      /contextPolicyRunner\.planMcpManagerCatalogSummaryProjection\(\{/.test(
+      /contextPolicyCore\.planMcpManagerCatalogSummaryProjection\(\{/.test(
         runtimeMcpCatalogSurface,
       ) &&
       !/mcpCatalogSummaryForServer/.test(runtimeMcpCatalogSurface) &&
@@ -12015,25 +12021,25 @@ function runBridge() {
       ) &&
       /rust_mcp_manager_validation_projection_command/.test(runtimeMcpCatalogSurfaceTest) &&
       /rust_mcp_server_validation_command/.test(runtimeMcpCatalogSurfaceTest) &&
-      /result\.control\.control_kind/.test(runtimeContextPolicyRunnerTest) &&
-      /result\.control\.event_id/.test(runtimeContextPolicyRunnerTest) &&
+      /result\.control\.control_kind/.test(runtimeContextPolicyCoreTest) &&
+      /result\.control\.event_id/.test(runtimeContextPolicyCoreTest) &&
       /Object\.hasOwn\(result\.control,\s*"controlKind"\),\s*false/.test(
-        runtimeContextPolicyRunnerTest,
+        runtimeContextPolicyCoreTest,
       ) &&
       /Object\.hasOwn\(result\.control,\s*"eventId"\),\s*false/.test(
-        runtimeContextPolicyRunnerTest,
+        runtimeContextPolicyCoreTest,
       ) &&
       /Object\.hasOwn\(result\.control,\s*"createdAt"\),\s*false/.test(
-        runtimeContextPolicyRunnerTest,
+        runtimeContextPolicyCoreTest,
       ) &&
       /mcpStatusForAgent/.test(runtimeMcpControlSurface) &&
-      /contextPolicyRunner\.validateMcpServers\(\{ servers \}\)/.test(
+      /contextPolicyCore\.validateMcpServers\(\{ servers \}\)/.test(
         runtimeMcpControlSurface,
       ) &&
-      /contextPolicyRunner\.planMcpManagerCatalogProjection\(\{ servers \}\)/.test(
+      /contextPolicyCore\.planMcpManagerCatalogProjection\(\{ servers \}\)/.test(
         runtimeMcpControlSurface,
       ) &&
-      /contextPolicyRunner\.planMcpManagerStatusProjection\(\{/.test(
+      /contextPolicyCore\.planMcpManagerStatusProjection\(\{/.test(
         runtimeMcpControlSurface,
       ) &&
       !/validateMcpServerRecords/.test(runtimeMcpControlSurface) &&
@@ -12052,7 +12058,7 @@ function runBridge() {
       /required_core:\s*"rust_daemon_core"/.test(runtimeMcpControlSurface) &&
       /migration_transport_only:\s*false/.test(runtimeMcpControlSurface) &&
       /mcpControlStateUpdatePlanner/.test(runtimeMcpControlSurface) &&
-      /contextPolicyRunner\.planMcpControlAgentStateUpdate/.test(
+      /contextPolicyCore\.planMcpControlAgentStateUpdate/.test(
         runtimeMcpControlSurface,
       ) &&
       /mcpControlRequestPayload/.test(runtimeMcpControlSurface) &&
@@ -12098,8 +12104,8 @@ function runBridge() {
       "crates/services/src/agentic/runtime/kernel/policy.rs",
       "crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
       "packages/runtime-daemon/src/runtime-mcp-catalog-surface.mjs",
       "packages/runtime-daemon/src/runtime-mcp-catalog-surface.test.mjs",
       "packages/runtime-daemon/src/runtime-mcp-control-surface.mjs",
@@ -12120,12 +12126,12 @@ function runBridge() {
     !/store\.memory\.(?:remember|setPolicy|updateRecord|deleteRecord)\(/.test(
       runtimeThreadMemoryState,
     ) &&
-    /planRuntimeMemoryControl\(request/.test(runtimeContextPolicyRunner) &&
-    /plan_runtime_memory_control/.test(runtimeContextPolicyRunner) &&
-    /RUNTIME_MEMORY_CONTROL_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyRunner) &&
-    /normalizeRuntimeMemoryControlBridgeResult/.test(runtimeContextPolicyRunner) &&
-    /runtime memory control runner sends Rust daemon-core request/.test(
-      runtimeContextPolicyRunnerTest,
+    /planRuntimeMemoryControl\(request/.test(runtimeContextPolicyCore) &&
+    /plan_runtime_memory_control/.test(runtimeContextPolicyCore) &&
+    /RUNTIME_MEMORY_CONTROL_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyCore) &&
+    /normalizeRuntimeMemoryControlBridgeResult/.test(runtimeContextPolicyCore) &&
+    /runtime memory control core sends Rust daemon-core request/.test(
+      runtimeContextPolicyCoreTest,
     ) &&
     /pub struct RuntimeMemoryControlCore;/.test(runtimeMemoryControlCore) &&
     /pub fn plan_runtime_memory_control_response/.test(runtimeMemoryControlCore) &&
@@ -12196,8 +12202,8 @@ function runBridge() {
       "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
       "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
       "packages/runtime-daemon/src/threads/thread-memory-state.mjs",
       "packages/runtime-daemon/src/threads/thread-memory-state.test.mjs",
     ],
@@ -12249,23 +12255,23 @@ function runBridge() {
       /response\["control"\]\.get\("createdAt"\)\.is_none\(\)/.test(
         policyMcpMemoryCore,
       ) &&
-      /planThreadMemoryAgentStateUpdate/.test(runtimeContextPolicyRunner) &&
+      /planThreadMemoryAgentStateUpdate/.test(runtimeContextPolicyCore) &&
       /THREAD_MEMORY_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
-        runtimeContextPolicyRunner,
+        runtimeContextPolicyCore,
       ) &&
-      /thread memory agent state update runner sends Rust state update through direct daemon-core invoker/.test(
-        runtimeContextPolicyRunnerTest,
+      /thread memory agent state update core sends Rust state update through direct daemon-core invoker/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
-      /result\.control\.control_kind/.test(runtimeContextPolicyRunnerTest) &&
-      /result\.control\.event_id/.test(runtimeContextPolicyRunnerTest) &&
+      /result\.control\.control_kind/.test(runtimeContextPolicyCoreTest) &&
+      /result\.control\.event_id/.test(runtimeContextPolicyCoreTest) &&
       /Object\.hasOwn\(result\.control,\s*"controlKind"\),\s*false/.test(
-        runtimeContextPolicyRunnerTest,
+        runtimeContextPolicyCoreTest,
       ) &&
       /Object\.hasOwn\(result\.control,\s*"eventId"\),\s*false/.test(
-        runtimeContextPolicyRunnerTest,
+        runtimeContextPolicyCoreTest,
       ) &&
       /Object\.hasOwn\(result\.control,\s*"createdAt"\),\s*false/.test(
-        runtimeContextPolicyRunnerTest,
+        runtimeContextPolicyCoreTest,
 	      ) &&
 	      /runtime_thread_memory_control_rust_core_required/.test(runtimeThreadMemoryState) &&
 	      /runtime_thread_memory_control_js_facade_retired/.test(runtimeThreadMemoryState) &&
@@ -12278,7 +12284,7 @@ function runBridge() {
       /runtime_memory_state_store_js_mutation_retired/.test(runtimeThreadMemoryState) &&
       /rust_daemon_core_thread_memory_control_required/.test(runtimeThreadMemoryState) &&
       /agentgres_thread_memory_state_truth_required/.test(runtimeThreadMemoryState) &&
-      !/contextPolicyRunner\.planThreadMemoryAgentStateUpdate/.test(
+      !/contextPolicyCore\.planThreadMemoryAgentStateUpdate/.test(
         runtimeThreadMemoryState,
       ) &&
       runtimeThreadMemoryStatusValidationControlRustOwned &&
@@ -12326,8 +12332,8 @@ function runBridge() {
       "crates/services/src/agentic/runtime/kernel/policy.rs",
       "crates/services/src/agentic/runtime/kernel/policy/mcp_memory.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
       "packages/runtime-daemon/src/threads/thread-memory-state.mjs",
       "packages/runtime-daemon/src/threads/thread-memory-state.test.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.mjs",
@@ -12428,20 +12434,20 @@ function runBridge() {
       coreCommandDispatch,
     ) &&
     /pub mod runtime_thread_fork_control;/.test(kernelModuleForBridgeChecks) &&
-    /planRuntimeThreadForkControl\(request/.test(runtimeContextPolicyRunner) &&
-    /plan_runtime_thread_fork_control/.test(runtimeContextPolicyRunner) &&
+    /planRuntimeThreadForkControl\(request/.test(runtimeContextPolicyCore) &&
+    /plan_runtime_thread_fork_control/.test(runtimeContextPolicyCore) &&
     /RUNTIME_THREAD_FORK_CONTROL_REQUEST_SCHEMA_VERSION/.test(
-      runtimeContextPolicyRunner,
+      runtimeContextPolicyCore,
     ) &&
     /normalizeRuntimeThreadForkControlBridgeResult/.test(
-      runtimeContextPolicyRunner,
+      runtimeContextPolicyCore,
     ) &&
-    /expectedOperationKind:\s*"thread\.fork"/.test(runtimeContextPolicyRunner) &&
-    /runtime thread-fork control runner sends Rust daemon-core request/.test(
-      runtimeContextPolicyRunnerTest,
+    /expectedOperationKind:\s*"thread\.fork"/.test(runtimeContextPolicyCore) &&
+    /runtime thread-fork control core sends Rust daemon-core request/.test(
+      runtimeContextPolicyCoreTest,
     ) &&
     /runtime_thread_fork_control_event_missing/.test(
-      runtimeContextPolicyRunnerTest,
+      runtimeContextPolicyCoreTest,
     ) &&
     /threadForkRunner/.test(runtimeThreadForkState) &&
     /planRuntimeThreadForkControl/.test(runtimeThreadForkState) &&
@@ -12525,8 +12531,8 @@ function runBridge() {
       "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
       "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
       "packages/runtime-daemon/src/threads/thread-fork-state.mjs",
       "packages/runtime-daemon/src/threads/thread-fork-state.test.mjs",
       "packages/runtime-daemon/src/runtime-thread-auxiliary-surface.mjs",
@@ -12588,24 +12594,24 @@ function runBridge() {
       bridgeModule,
     ) &&
     !/fn plan_runtime_bridge_thread_control_agent_state_update/.test(bridgeModule) &&
-    /planRuntimeBridgeThreadControlAgentStateUpdate/.test(runtimeContextPolicyRunner) &&
+    /planRuntimeBridgeThreadControlAgentStateUpdate/.test(runtimeContextPolicyCore) &&
     /RUNTIME_BRIDGE_THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
-      runtimeContextPolicyRunner,
+      runtimeContextPolicyCore,
     ) &&
     /normalizeRuntimeBridgeThreadControlAgentStateUpdateBridgeResult/.test(
-      runtimeContextPolicyRunner,
+      runtimeContextPolicyCore,
     ) &&
-    /runtime bridge thread control agent state update runner sends Rust state update through direct daemon-core invoker/.test(
-      runtimeContextPolicyRunnerTest,
+    /runtime bridge thread control agent state update core sends Rust state update through direct daemon-core invoker/.test(
+      runtimeContextPolicyCoreTest,
     ) &&
     /captured\.operation, "plan_runtime_bridge_thread_control_agent_state_update"/.test(
-      runtimeContextPolicyRunnerTest,
+      runtimeContextPolicyCoreTest,
     ) &&
     /Object\.hasOwn\(captured\.request,\s*"threadId"\),\s*false/.test(
-      runtimeContextPolicyRunnerTest,
+      runtimeContextPolicyCoreTest,
     ) &&
     /result\.control\.runtime_bridge_status, "active"/.test(
-      runtimeContextPolicyRunnerTest,
+      runtimeContextPolicyCoreTest,
     ) &&
     /createRuntimeBridgeThreadControl/.test(runtimeAgentRunLifecycle) &&
     /planRuntimeBridgeThreadControlAgentStateUpdate/.test(runtimeAgentRunLifecycle) &&
@@ -12664,8 +12670,8 @@ function runBridge() {
       "crates/services/src/agentic/runtime/kernel/policy/thread_lifecycle.rs",
       "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
       "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
       "packages/runtime-daemon/src/runtime-agent-run-lifecycle.mjs",
       "packages/runtime-daemon/src/runtime-agent-run-lifecycle.test.mjs",
       "packages/runtime-daemon/src/runtime-thread-turn-surface.mjs",
@@ -12759,30 +12765,30 @@ function runBridge() {
       /"runtimeProfile"[\s\S]*"updatedAt"[\s\S]*response\["bridge_start"\]\.get\(field\)\.is_none\(\)/.test(
         policyThreadLifecycleCore,
       ) &&
-      /planRuntimeBridgeThreadStartAgentStateUpdate/.test(runtimeContextPolicyRunner) &&
-      /planRuntimeBridgeTurnRunStateUpdate/.test(runtimeContextPolicyRunner) &&
+      /planRuntimeBridgeThreadStartAgentStateUpdate/.test(runtimeContextPolicyCore) &&
+      /planRuntimeBridgeTurnRunStateUpdate/.test(runtimeContextPolicyCore) &&
       /RUNTIME_BRIDGE_THREAD_START_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
-        runtimeContextPolicyRunner,
+        runtimeContextPolicyCore,
       ) &&
       /RUNTIME_BRIDGE_TURN_RUN_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
-        runtimeContextPolicyRunner,
+        runtimeContextPolicyCore,
       ) &&
-      /runtime bridge thread start agent state update runner sends Rust state update through direct daemon-core invoker/.test(
-        runtimeContextPolicyRunnerTest,
+      /runtime bridge thread start agent state update core sends Rust state update through direct daemon-core invoker/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
-      /runtime bridge turn run state update runner sends Rust state update through direct daemon-core invoker/.test(
-        runtimeContextPolicyRunnerTest,
+      /runtime bridge turn run state update core sends Rust state update through direct daemon-core invoker/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
-      /result\.bridge_start\.bridge_id/.test(runtimeContextPolicyRunnerTest) &&
+      /result\.bridge_start\.bridge_id/.test(runtimeContextPolicyCoreTest) &&
       /Object\.hasOwn\(result\.bridge_start,\s*field\),\s*false/.test(
-        runtimeContextPolicyRunnerTest,
+        runtimeContextPolicyCoreTest,
       ) &&
       /projection:\s*\{\s*run_id:\s*"run_runtime"\s*\}/.test(
-        runtimeContextPolicyRunnerTest,
+        runtimeContextPolicyCoreTest,
       ) &&
-      /captured\.request\.projection\.run_id/.test(runtimeContextPolicyRunnerTest) &&
+      /captured\.request\.projection\.run_id/.test(runtimeContextPolicyCoreTest) &&
       /Object\.hasOwn\(captured\.request\.projection,\s*"runId"\),\s*false/.test(
-        runtimeContextPolicyRunnerTest,
+        runtimeContextPolicyCoreTest,
       ) &&
       !exists("packages/runtime-daemon/src/threads/runtime-bridge-thread.mjs") &&
       !exists("packages/runtime-daemon/src/threads/runtime-bridge-thread.test.mjs") &&
@@ -12897,8 +12903,8 @@ function runBridge() {
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
       "packages/runtime-daemon/src/runtime-api-bridge.mjs",
       "packages/runtime-daemon/src/runtime-api-bridge.test.mjs",
       "packages/runtime-daemon/src/runtime-agent-run-lifecycle.mjs",
@@ -12961,9 +12967,9 @@ function runBridge() {
         policyCore,
       ) &&
       /plan_runtime_bridge_turn_run_state_update_response/.test(policyThreadLifecycleCore) &&
-      /planRuntimeBridgeTurnRunStateUpdate/.test(runtimeContextPolicyRunner) &&
-      /runtime bridge turn run state update runner sends Rust state update through direct daemon-core invoker/.test(
-        runtimeContextPolicyRunnerTest,
+      /planRuntimeBridgeTurnRunStateUpdate/.test(runtimeContextPolicyCore) &&
+      /runtime bridge turn run state update core sends Rust state update through direct daemon-core invoker/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
       /createRuntimeBridgeTurnRun/.test(runtimeAgentRunLifecycle) &&
       /runtimeBridgeTurnSubmitEvidenceRefs/.test(runtimeAgentRunLifecycle) &&
@@ -12993,8 +12999,8 @@ function runBridge() {
       !/store\.runtimeBridge\.submitTurn/.test(runtimeAgentRunLifecycle),
     [
       "crates/services/src/agentic/runtime/kernel/policy/thread_lifecycle.rs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
       "packages/runtime-daemon/src/runtime-agent-run-lifecycle.mjs",
       "packages/runtime-daemon/src/runtime-agent-run-lifecycle.test.mjs",
       "packages/runtime-daemon/src/runtime-thread-turn-surface.mjs",
@@ -13114,18 +13120,18 @@ function runBridge() {
       !/struct RunCreateStateUpdateBridgeRequest/.test(bridgeModule) &&
       !/struct AgentStatusStateUpdateBridgeRequest/.test(bridgeModule) &&
       !/struct AgentDeleteStateUpdateBridgeRequest/.test(bridgeModule) &&
-      /planAgentCreateStateUpdate/.test(runtimeContextPolicyRunner) &&
-      /planThreadCreateStateUpdate/.test(runtimeContextPolicyRunner) &&
-      /planRunCreateStateUpdate/.test(runtimeContextPolicyRunner) &&
-      /planAgentStatusStateUpdate/.test(runtimeContextPolicyRunner) &&
-      /planAgentDeleteStateUpdate/.test(runtimeContextPolicyRunner) &&
-      /planLifecycleAdmissionRequired/.test(runtimeContextPolicyRunner) &&
-      /AGENT_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyRunner) &&
-      /THREAD_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyRunner) &&
-      /RUN_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyRunner) &&
-      /AGENT_STATUS_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyRunner) &&
-      /AGENT_DELETE_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyRunner) &&
-      /LIFECYCLE_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyRunner) &&
+      /planAgentCreateStateUpdate/.test(runtimeContextPolicyCore) &&
+      /planThreadCreateStateUpdate/.test(runtimeContextPolicyCore) &&
+      /planRunCreateStateUpdate/.test(runtimeContextPolicyCore) &&
+      /planAgentStatusStateUpdate/.test(runtimeContextPolicyCore) &&
+      /planAgentDeleteStateUpdate/.test(runtimeContextPolicyCore) &&
+      /planLifecycleAdmissionRequired/.test(runtimeContextPolicyCore) &&
+      /AGENT_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyCore) &&
+      /THREAD_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyCore) &&
+      /RUN_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyCore) &&
+      /AGENT_STATUS_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyCore) &&
+      /AGENT_DELETE_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyCore) &&
+      /LIFECYCLE_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyCore) &&
       /LifecycleAdmissionRequiredCore/.test(policyCore) &&
       /LifecycleAdmissionRequiredRequest/.test(policyCore) &&
       /rust_policy_plans_lifecycle_admission_required/.test(policyThreadLifecycleCore) &&
@@ -13145,26 +13151,26 @@ function runBridge() {
       !/bridge_plans_lifecycle_admission_required_through_rust_core/.test(bridgeModule) &&
       !/fn plan_lifecycle_admission_required/.test(bridgeModule) &&
       !/struct LifecycleAdmissionRequiredBridgeRequest/.test(bridgeModule) &&
-      /agent create state update runner sends Rust state update through direct daemon-core invoker/.test(
-        runtimeContextPolicyRunnerTest,
+      /agent create state update core sends Rust state update through direct daemon-core invoker/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
-      /run create state update runner sends Rust state update through direct daemon-core invoker/.test(
-        runtimeContextPolicyRunnerTest,
+      /run create state update core sends Rust state update through direct daemon-core invoker/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
-      /thread create state update runner sends Rust state update through direct daemon-core invoker/.test(
-        runtimeContextPolicyRunnerTest,
+      /thread create state update core sends Rust state update through direct daemon-core invoker/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
-      /agent status state update runner sends Rust state update through direct daemon-core invoker/.test(
-        runtimeContextPolicyRunnerTest,
+      /agent status state update core sends Rust state update through direct daemon-core invoker/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
-      /agent delete state update runner sends Rust tombstone through direct daemon-core invoker/.test(
-        runtimeContextPolicyRunnerTest,
+      /agent delete state update core sends Rust tombstone through direct daemon-core invoker/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
-      /lifecycle admission-required runner sends Rust daemon-core request/.test(
-        runtimeContextPolicyRunnerTest,
+      /lifecycle admission-required core sends Rust daemon-core request/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
       /captured\.operation,\s*"plan_lifecycle_admission_required"/.test(
-        runtimeContextPolicyRunnerTest,
+        runtimeContextPolicyCoreTest,
       ) &&
       /runtime_agent_create_rust_core_required/.test(runtimeAgentRunLifecycle) &&
       /runtime_thread_create_rust_core_required/.test(runtimeAgentRunLifecycle) &&
@@ -13183,9 +13189,9 @@ function runBridge() {
       /agentgres_agent_create_state_truth_required/.test(runtimeAgentRunLifecycle) &&
       /agentgres_thread_create_state_truth_required/.test(runtimeAgentRunLifecycle) &&
       /agentgres_run_create_state_truth_required/.test(runtimeAgentRunLifecycle) &&
-      !/contextPolicyRunner\.planAgentCreateStateUpdate/.test(runtimeAgentRunLifecycle) &&
-      !/contextPolicyRunner\.planThreadCreateStateUpdate/.test(runtimeAgentRunLifecycle) &&
-      !/contextPolicyRunner\.planRunCreateStateUpdate/.test(runtimeAgentRunLifecycle) &&
+      !/contextPolicyCore\.planAgentCreateStateUpdate/.test(runtimeAgentRunLifecycle) &&
+      !/contextPolicyCore\.planThreadCreateStateUpdate/.test(runtimeAgentRunLifecycle) &&
+      !/contextPolicyCore\.planRunCreateStateUpdate/.test(runtimeAgentRunLifecycle) &&
       /lifecycleAdmissionRequiredCalls\.length,\s*1/.test(runtimeAgentRunLifecycleTest) &&
       /operation:\s*"agent_create"/.test(runtimeAgentRunLifecycleTest) &&
       /operation,\s*"thread_create"/.test(runtimeAgentRunLifecycleTest) &&
@@ -13276,7 +13282,7 @@ function runBridge() {
       /createRuntimeAgentRunLifecycleSurface/.test(runtimeAgentRunLifecycle) &&
       /approvalModeForThreadMode/.test(runtimeDaemonIndex) &&
       /buildRun/.test(runtimeDaemonIndex) &&
-      /lifecycleAdmissionRunner:\s*this\.contextPolicyRunner/.test(
+      /lifecycleAdmissionRunner:\s*this\.contextPolicyCore/.test(
         runtimeDaemonIndex,
       ) &&
       /initialThreadRuntimeControls/.test(runtimeDaemonIndex) &&
@@ -13410,8 +13416,8 @@ function runBridge() {
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
       "packages/runtime-daemon/src/runtime-agent-run-lifecycle.mjs",
       "packages/runtime-daemon/src/runtime-agent-run-lifecycle.test.mjs",
       "packages/runtime-daemon/src/threads/thread-store.mjs",
@@ -13501,12 +13507,12 @@ function runBridge() {
       /runtime_event_idempotency_key/.test(policyContextLifecycleCore) &&
       !/fn evaluate_compaction_policy/.test(bridgeModule) &&
       !/struct CompactionPolicyBridgeRequest/.test(bridgeModule) &&
-      /createContextPolicyRunnerFromEnv/.test(runtimeContextPolicyRunner) &&
-      /RustContextPolicyRunner/.test(runtimeContextPolicyRunner) &&
-      /evaluateCompactionPolicy/.test(runtimeContextPolicyRunner) &&
-      /runtime_event_item_id/.test(runtimeContextPolicyRunner) &&
-      /compaction policy runner sends Rust policy through direct daemon-core invoker/.test(
-        runtimeContextPolicyRunnerTest,
+      /createRuntimeContextPolicyCore/.test(runtimeContextPolicyCore) &&
+      /RuntimeContextPolicyCore/.test(runtimeContextPolicyCore) &&
+      /evaluateCompactionPolicy/.test(runtimeContextPolicyCore) &&
+      /runtime_event_item_id/.test(runtimeContextPolicyCore) &&
+      /compaction policy core sends Rust policy through direct daemon-core invoker/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
       /runtime_context_policy_rust_core_required/.test(runtimeContextPolicySurface) &&
       /compaction_policy_evaluation_js_event_facade_retired/.test(runtimeContextPolicySurface) &&
@@ -13554,8 +13560,8 @@ function runBridge() {
       "crates/services/src/agentic/runtime/kernel/policy.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
       "packages/runtime-daemon/src/threads/context-budget-policy.mjs",
       "packages/runtime-daemon/src/threads/context-budget-policy.test.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-surface.mjs",
@@ -13636,30 +13642,30 @@ function runBridge() {
     result,
     "context-policy-runner-operation-kind-detail-aliases-retired",
     /operation_kind:\s*expectedOperationKinds\[0\] \?\? expectedPrefix \?\? null/.test(
-      runtimeContextPolicyRunner,
+      runtimeContextPolicyCore,
     ) &&
-      /expected_operation_kinds:\s*expectedOperationKinds/.test(runtimeContextPolicyRunner) &&
-      /expected_prefix:\s*expectedPrefix/.test(runtimeContextPolicyRunner) &&
+      /expected_operation_kinds:\s*expectedOperationKinds/.test(runtimeContextPolicyCore) &&
+      /expected_prefix:\s*expectedPrefix/.test(runtimeContextPolicyCore) &&
       /expected_operation_kind:\s*expectedOperationKinds\[0\]/.test(
-        runtimeContextPolicyRunner,
+        runtimeContextPolicyCore,
       ) &&
-      /operation_kind:\s*operationKind/.test(runtimeContextPolicyRunner) &&
+      /operation_kind:\s*operationKind/.test(runtimeContextPolicyCore) &&
       /assertNoRetiredOperationKindDetailAliases\(error\.details\)/.test(
-        runtimeContextPolicyRunnerTest,
+        runtimeContextPolicyCoreTest,
       ) &&
-      /error\.details\.operation_kind/.test(runtimeContextPolicyRunnerTest) &&
-      /error\.details\.expected_operation_kind/.test(runtimeContextPolicyRunnerTest) &&
-      /error\.details\.expected_operation_kinds/.test(runtimeContextPolicyRunnerTest) &&
-      /error\.details\.expected_prefix/.test(runtimeContextPolicyRunnerTest) &&
+      /error\.details\.operation_kind/.test(runtimeContextPolicyCoreTest) &&
+      /error\.details\.expected_operation_kind/.test(runtimeContextPolicyCoreTest) &&
+      /error\.details\.expected_operation_kinds/.test(runtimeContextPolicyCoreTest) &&
+      /error\.details\.expected_prefix/.test(runtimeContextPolicyCoreTest) &&
       !/\b(?:operationKind|expectedOperationKind|expectedOperationKinds|expectedPrefix)\s*:/.test(
-        runtimeContextPolicyRunner.match(/function requiredContextPolicyBridgeOperationKind[\s\S]*?\n\}/)?.[0] ?? "",
+        runtimeContextPolicyCore.match(/function requiredContextPolicyBridgeOperationKind[\s\S]*?\n\}/)?.[0] ?? "",
       ) &&
       !/error\.details\.(?:operationKind|expectedOperationKind|expectedOperationKinds|expectedPrefix)\b/.test(
-        runtimeContextPolicyRunnerTest,
+        runtimeContextPolicyCoreTest,
       ),
     [
-      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
     ],
     "Phase 10/11 is pending: context-policy bridge operation-kind failures must expose canonical snake_case details without duplicate camelCase aliases",
   );
@@ -13684,12 +13690,12 @@ function runBridge() {
     /"plan_runtime_workflow_edit_control"/.test(commandProtocolCore) &&
     /plan_runtime_workflow_edit_control_response/.test(coreCommandDispatch) &&
     /pub mod runtime_workflow_edit_control;/.test(kernelModuleForBridgeChecks) &&
-    /planRuntimeWorkflowEditControl\(request = \{\}\)/.test(runtimeContextPolicyRunner) &&
-    /normalizeRuntimeWorkflowEditControlBridgeResult/.test(runtimeContextPolicyRunner) &&
-    /runtime workflow-edit control runner sends Rust daemon-core request/.test(
-      runtimeContextPolicyRunnerTest,
+    /planRuntimeWorkflowEditControl\(request = \{\}\)/.test(runtimeContextPolicyCore) &&
+    /normalizeRuntimeWorkflowEditControlBridgeResult/.test(runtimeContextPolicyCore) &&
+    /runtime workflow-edit control core sends Rust daemon-core request/.test(
+      runtimeContextPolicyCoreTest,
     ) &&
-    /workflowEditRunner:\s*this\.contextPolicyRunner/.test(runtimeDaemonIndex) &&
+    /workflowEditRunner:\s*this\.contextPolicyCore/.test(runtimeDaemonIndex) &&
     /eventStreamIdForThread/.test(runtimeDaemonIndex) &&
     /workflow-edit proposal uses Rust planning and runtime event admission/.test(
       runtimeWorkflowEditSurfaceTest,
@@ -13719,8 +13725,8 @@ function runBridge() {
       "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
       "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
       "packages/runtime-daemon/src/runtime-workflow-edit-surface.mjs",
       "packages/runtime-daemon/src/runtime-workflow-edit-surface.test.mjs",
     ],
@@ -13750,8 +13756,8 @@ function runBridge() {
       !/bridge_plans_workflow_edit_admission_required_through_rust_core/.test(
         bridgeModule,
       ) &&
-      /workflow-edit admission-required runner sends Rust daemon-core request/.test(
-        runtimeContextPolicyRunnerTest,
+      /workflow-edit admission-required core sends Rust daemon-core request/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
       /workflow-edit helper facades are retired with the JS apply path/.test(
         runtimeWorkflowEditSurfaceTest,
@@ -13883,10 +13889,10 @@ function runBridge() {
       !/bridge_plans_context_compaction_through_rust_core/.test(bridgeModule) &&
       !/fn plan_context_compaction/.test(bridgeModule) &&
       !/struct ContextCompactionPlanBridgeRequest/.test(bridgeModule) &&
-      /planContextCompaction/.test(runtimeContextPolicyRunner) &&
-      /CONTEXT_COMPACTION_PLAN_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyRunner) &&
-      /context compaction runner sends Rust plan through direct daemon-core invoker/.test(
-        runtimeContextPolicyRunnerTest,
+      /planContextCompaction/.test(runtimeContextPolicyCore) &&
+      /CONTEXT_COMPACTION_PLAN_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyCore) &&
+      /context compaction core sends Rust plan through direct daemon-core invoker/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
       /runtime_context_policy_rust_core_required/.test(runtimeContextPolicySurface) &&
       /context_compaction_js_facade_retired/.test(runtimeContextPolicySurface) &&
@@ -13928,8 +13934,8 @@ function runBridge() {
       "crates/services/src/agentic/runtime/kernel/policy.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-surface.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-surface.test.mjs",
     ],
@@ -13972,27 +13978,27 @@ function runBridge() {
       ) &&
       !/fn plan_context_compaction_state_update/.test(bridgeModule) &&
       !/struct ContextCompactionStateUpdateBridgeRequest/.test(bridgeModule) &&
-      /planContextCompactionStateUpdate/.test(runtimeContextPolicyRunner) &&
+      /planContextCompactionStateUpdate/.test(runtimeContextPolicyCore) &&
       /CONTEXT_COMPACTION_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
-        runtimeContextPolicyRunner,
+        runtimeContextPolicyCore,
       ) &&
-      /context compaction state update runner sends Rust state update through direct daemon-core invoker/.test(
-        runtimeContextPolicyRunnerTest,
+      /context compaction state update core sends Rust state update through direct daemon-core invoker/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
-      /result\.operator_control\.event_id/.test(runtimeContextPolicyRunnerTest) &&
+      /result\.operator_control\.event_id/.test(runtimeContextPolicyCoreTest) &&
       /Object\.hasOwn\(result\.operator_control,\s*"eventId"\),\s*false/.test(
-        runtimeContextPolicyRunnerTest,
+        runtimeContextPolicyCoreTest,
       ) &&
-      /result\.context_compaction\.compacted_tokens/.test(runtimeContextPolicyRunnerTest) &&
+      /result\.context_compaction\.compacted_tokens/.test(runtimeContextPolicyCoreTest) &&
       /Object\.hasOwn\(result\.context_compaction,\s*"compactedTokens"\),\s*false/.test(
-        runtimeContextPolicyRunnerTest,
+        runtimeContextPolicyCoreTest,
       ) &&
-      /requiredContextPolicyBridgeOperationKind/.test(runtimeContextPolicyRunner) &&
-      /context policy state update runner fails closed without Rust-planned operation kinds/.test(
-        runtimeContextPolicyRunnerTest,
+      /requiredContextPolicyBridgeOperationKind/.test(runtimeContextPolicyCore) &&
+      /runtime context policy state-update core fails closed without Rust-planned operation kinds/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
       !/operation_kind:\s*optionalString\(result\.operation_kind\s*\?\?\s*record\.operation_kind\)\s*\?\?/.test(
-        runtimeContextPolicyRunner,
+        runtimeContextPolicyCore,
       ) &&
       /runtime_context_policy_rust_core_required/.test(runtimeContextPolicySurface) &&
       /rust_daemon_core_context_compaction_required/.test(runtimeContextPolicySurface) &&
@@ -14054,8 +14060,8 @@ function runBridge() {
       "crates/services/src/agentic/runtime/kernel/policy.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-surface.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-surface.test.mjs",
     ],
@@ -19636,11 +19642,11 @@ function runReceipts() {
     ? read("crates/services/src/agentic/runtime/kernel/mod.rs")
     : "";
   const policyCoreForState = readRustPolicyCore();
-  const runtimeContextPolicyRunnerForState = exists("packages/runtime-daemon/src/runtime-context-policy-runner.mjs")
-    ? read("packages/runtime-daemon/src/runtime-context-policy-runner.mjs")
+  const runtimeContextPolicyCoreForState = exists("packages/runtime-daemon/src/runtime-context-policy-core.mjs")
+    ? read("packages/runtime-daemon/src/runtime-context-policy-core.mjs")
     : "";
-  const runtimeContextPolicyRunnerTestForState = exists("packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs")
-    ? read("packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs")
+  const runtimeContextPolicyCoreTestForState = exists("packages/runtime-daemon/src/runtime-context-policy-core.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-context-policy-core.test.mjs")
     : "";
   const runtimeRunReadSurface = exists("packages/runtime-daemon/src/runtime-run-read-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-run-read-surface.mjs")
@@ -24343,14 +24349,14 @@ function runReceipts() {
       !projectionCommandBridgeExists &&
       !/plan_runtime_tool_catalog_projection_required/.test(bridgeModule) &&
       /RUNTIME_TOOL_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
-        runtimeContextPolicyRunnerForState,
+        runtimeContextPolicyCoreForState,
       ) &&
-      /projectRuntimeToolCatalog/.test(runtimeContextPolicyRunnerForState) &&
+      /projectRuntimeToolCatalog/.test(runtimeContextPolicyCoreForState) &&
       /normalizeRuntimeToolCatalogProjectionBridgeResult/.test(
-        runtimeContextPolicyRunnerForState,
+        runtimeContextPolicyCoreForState,
       ) &&
-      /runtime tool catalog projection runner sends Rust daemon-core request/.test(
-        runtimeContextPolicyRunnerTestForState,
+      /runtime tool catalog projection core sends Rust daemon-core request/.test(
+        runtimeContextPolicyCoreTestForState,
       ) &&
       /projectRuntimeToolCatalog/.test(runtimeToolSurface) &&
       /throwRuntimeToolCatalogRustCoreRequired/.test(runtimeToolSurface) &&
@@ -24366,7 +24372,7 @@ function runReceipts() {
       /runtime tool surface fails closed when Rust projection is missing/.test(
         runtimeToolSurfaceTest,
       ) &&
-      /toolCatalogRunner: this\.contextPolicyRunner/.test(runtimeDaemonIndex) &&
+      /toolCatalogRunner: this\.contextPolicyCore/.test(runtimeDaemonIndex) &&
       /store\.toolSurface\.getAccount\(\)/.test(publicRuntimeRoutes) &&
       /store\.toolSurface\.listRuntimeNodes\(\)/.test(publicRuntimeRoutes) &&
       /store\.toolSurface\.listTools\(Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
@@ -24412,8 +24418,8 @@ function runReceipts() {
       "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
       "packages/runtime-daemon/src/runtime-tool-surface.mjs",
       "packages/runtime-daemon/src/runtime-tool-surface.test.mjs",
       "packages/runtime-daemon/src/runtime-doctor-report.mjs",
@@ -24466,21 +24472,21 @@ function runReceipts() {
       !/struct RuntimeLifecycleProjectionRequiredBridgeRequest/.test(bridgeModule) &&
       !/fn plan_runtime_lifecycle_projection_required/.test(bridgeModule) &&
       /RUNTIME_LIFECYCLE_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
-        runtimeContextPolicyRunnerForState,
+        runtimeContextPolicyCoreForState,
       ) &&
-      /projectRuntimeLifecycle/.test(runtimeContextPolicyRunnerForState) &&
+      /projectRuntimeLifecycle/.test(runtimeContextPolicyCoreForState) &&
       /normalizeRuntimeLifecycleProjectionBridgeResult/.test(
-        runtimeContextPolicyRunnerForState,
+        runtimeContextPolicyCoreForState,
       ) &&
-      !/planRuntimeLifecycleProjectionRequired/.test(runtimeContextPolicyRunnerForState) &&
-      /runtime lifecycle projection runner sends Rust daemon-core request/.test(
-        runtimeContextPolicyRunnerTestForState,
+      !/planRuntimeLifecycleProjectionRequired/.test(runtimeContextPolicyCoreForState) &&
+      /runtime lifecycle projection core sends Rust daemon-core request/.test(
+        runtimeContextPolicyCoreTestForState,
       ) &&
       /captured\.request\.artifact_ref,\s*"artifact_123"/.test(
-        runtimeContextPolicyRunnerTestForState,
+        runtimeContextPolicyCoreTestForState,
       ) &&
       /captured\.request\.turn_id,\s*"turn_123"/.test(
-        runtimeContextPolicyRunnerTestForState,
+        runtimeContextPolicyCoreTestForState,
       ) &&
       /projectRuntimeLifecycle/.test(runtimeLifecycleProjectionSurface) &&
       !/planRuntimeLifecycleProjectionRequired/.test(
@@ -24533,7 +24539,7 @@ function runReceipts() {
       /lifecycleProjectionSurface = createRuntimeLifecycleProjectionSurface/.test(
         runtimeDaemonIndex,
       ) &&
-      /lifecycleRunner: this\.contextPolicyRunner/.test(runtimeDaemonIndex) &&
+      /lifecycleRunner: this\.contextPolicyCore/.test(runtimeDaemonIndex) &&
       /resolveRunArtifact/.test(runtimeDaemonIndex) &&
       /store\.lifecycleProjectionSurface\.listAgents\(store\)/.test(
         publicRuntimeRoutes,
@@ -24697,8 +24703,8 @@ function runReceipts() {
       "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
       "packages/runtime-daemon/src/runtime-lifecycle-projection-surface.mjs",
       "packages/runtime-daemon/src/runtime-lifecycle-projection-surface.test.mjs",
       "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
@@ -26181,11 +26187,11 @@ function runCompositor() {
   const threadLifecycleCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/thread_lifecycle_command.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/thread_lifecycle_command.rs")
     : "";
-  const runtimeContextPolicyRunner = exists("packages/runtime-daemon/src/runtime-context-policy-runner.mjs")
-    ? read("packages/runtime-daemon/src/runtime-context-policy-runner.mjs")
+  const runtimeContextPolicyCore = exists("packages/runtime-daemon/src/runtime-context-policy-core.mjs")
+    ? read("packages/runtime-daemon/src/runtime-context-policy-core.mjs")
     : "";
-  const runtimeContextPolicyRunnerTest = exists("packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs")
-    ? read("packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs")
+  const runtimeContextPolicyCoreTest = exists("packages/runtime-daemon/src/runtime-context-policy-core.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-context-policy-core.test.mjs")
     : "";
   const runtimeDaemonIndex = exists("packages/runtime-daemon/src/index.mjs")
     ? read("packages/runtime-daemon/src/index.mjs")
@@ -26779,12 +26785,12 @@ function runCompositor() {
     !/throwRuntimeSubagentRustCoreRequired/.test(runtimeSubagentListEnvelopeBlock) &&
     !/throwRuntimeSubagentRustCoreRequired/.test(runtimeSubagentGetBlock) &&
     !/throwRuntimeSubagentRustCoreRequired/.test(runtimeSubagentResultReadBlock) &&
-    /projectRuntimeSubagentProjection\(request/.test(runtimeContextPolicyRunner) &&
-    /project_runtime_subagent_projection/.test(runtimeContextPolicyRunner) &&
-    /RUNTIME_SUBAGENT_PROJECTION_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyRunner) &&
-    /normalizeRuntimeSubagentProjectionBridgeResult/.test(runtimeContextPolicyRunner) &&
-    /runtime subagent projection runner sends Rust daemon-core request/.test(
-      runtimeContextPolicyRunnerTest,
+    /projectRuntimeSubagentProjection\(request/.test(runtimeContextPolicyCore) &&
+    /project_runtime_subagent_projection/.test(runtimeContextPolicyCore) &&
+    /RUNTIME_SUBAGENT_PROJECTION_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyCore) &&
+    /normalizeRuntimeSubagentProjectionBridgeResult/.test(runtimeContextPolicyCore) &&
+    /runtime subagent projection core sends Rust daemon-core request/.test(
+      runtimeContextPolicyCoreTest,
     ) &&
     /pub struct RuntimeSubagentProjectionCore;/.test(runtimeSubagentProjectionCore) &&
     /pub fn project_runtime_subagent_projection_response/.test(runtimeSubagentProjectionCore) &&
@@ -26794,7 +26800,7 @@ function runCompositor() {
     /"project_runtime_subagent_projection"/.test(commandProtocolCoreForCompositor) &&
     /project_runtime_subagent_projection_response/.test(coreCommandDispatchForCompositor) &&
     /pub mod runtime_subagent_projection;/.test(kernelModuleForCompositor) &&
-    /contextPolicyRunner:\s*this\.contextPolicyRunner/.test(runtimeDaemonIndex) &&
+    /contextPolicyCore:\s*this\.contextPolicyCore/.test(runtimeDaemonIndex) &&
     /subagent read projections fail closed before JS subagent\/run reads without Rust/.test(
       runtimeSubagentSurfaceTest,
     ) &&
@@ -26822,12 +26828,12 @@ function runCompositor() {
         /waitSubagent\(store, threadId, subagentId, request = \{\}\) \{[\s\S]*?\n    \},\n    getSubagentResult/,
       )?.[0] ?? "",
     ) &&
-    /planRuntimeSubagentControl\(request/.test(runtimeContextPolicyRunner) &&
-    /plan_runtime_subagent_control/.test(runtimeContextPolicyRunner) &&
-    /RUNTIME_SUBAGENT_CONTROL_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyRunner) &&
-    /normalizeRuntimeSubagentControlBridgeResult/.test(runtimeContextPolicyRunner) &&
-    /runtime subagent wait control runner sends Rust daemon-core request/.test(
-      runtimeContextPolicyRunnerTest,
+    /planRuntimeSubagentControl\(request/.test(runtimeContextPolicyCore) &&
+    /plan_runtime_subagent_control/.test(runtimeContextPolicyCore) &&
+    /RUNTIME_SUBAGENT_CONTROL_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyCore) &&
+    /normalizeRuntimeSubagentControlBridgeResult/.test(runtimeContextPolicyCore) &&
+    /runtime subagent wait control core sends Rust daemon-core request/.test(
+      runtimeContextPolicyCoreTest,
     ) &&
     /pub struct RuntimeSubagentControlCore;/.test(runtimeSubagentControlCore) &&
     /pub fn plan_runtime_subagent_control_response/.test(runtimeSubagentControlCore) &&
@@ -27248,7 +27254,7 @@ function runCompositor() {
     /required_core:\s*"rust_daemon_core"/.test(runtimeMcpControlSurface) &&
     /migration_transport_only:\s*false/.test(runtimeMcpControlSurface) &&
     /mcpControlStateUpdatePlanner/.test(runtimeMcpControlSurface) &&
-    /contextPolicyRunner\.planMcpControlAgentStateUpdate/.test(runtimeMcpControlSurface) &&
+    /contextPolicyCore\.planMcpControlAgentStateUpdate/.test(runtimeMcpControlSurface) &&
     /mcpControlRequestPayload/.test(runtimeMcpControlSurface) &&
     /mcpControlAgentWriter/.test(runtimeMcpControlSurface) &&
     /store\?\.writeAgent/.test(runtimeMcpControlSurface) &&
@@ -27772,12 +27778,12 @@ function runCompositor() {
     !/store\.memory\.(?:remember|setPolicy|updateRecord|deleteRecord)\(/.test(
       runtimeThreadMemoryState,
     ) &&
-    /planRuntimeMemoryControl\(request/.test(runtimeContextPolicyRunner) &&
-    /plan_runtime_memory_control/.test(runtimeContextPolicyRunner) &&
-    /RUNTIME_MEMORY_CONTROL_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyRunner) &&
-    /normalizeRuntimeMemoryControlBridgeResult/.test(runtimeContextPolicyRunner) &&
-    /runtime memory control runner sends Rust daemon-core request/.test(
-      runtimeContextPolicyRunnerTest,
+    /planRuntimeMemoryControl\(request/.test(runtimeContextPolicyCore) &&
+    /plan_runtime_memory_control/.test(runtimeContextPolicyCore) &&
+    /RUNTIME_MEMORY_CONTROL_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyCore) &&
+    /normalizeRuntimeMemoryControlBridgeResult/.test(runtimeContextPolicyCore) &&
+    /runtime memory control core sends Rust daemon-core request/.test(
+      runtimeContextPolicyCoreTest,
     ) &&
     /pub struct RuntimeMemoryControlCore;/.test(runtimeMemoryControlCore) &&
     /pub fn plan_runtime_memory_control_response/.test(runtimeMemoryControlCore) &&
@@ -28116,17 +28122,17 @@ function runCompositor() {
     /command_error_from!\(RuntimeTaskJobProjectionCommandError\)/.test(
       coreCommandDispatchForCompositor,
     ) &&
-    /projectRuntimeTaskJobProjection/.test(runtimeContextPolicyRunner) &&
-    /RUNTIME_TASK_JOB_PROJECTION_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyRunner) &&
-    /normalizeRuntimeTaskJobProjectionBridgeResult/.test(runtimeContextPolicyRunner) &&
+    /projectRuntimeTaskJobProjection/.test(runtimeContextPolicyCore) &&
+    /RUNTIME_TASK_JOB_PROJECTION_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyCore) &&
+    /normalizeRuntimeTaskJobProjectionBridgeResult/.test(runtimeContextPolicyCore) &&
     /expectedOperationKinds:\s*\["task\.list",\s*"task\.get",\s*"job\.list",\s*"job\.get"\]/.test(
-      runtimeContextPolicyRunner,
+      runtimeContextPolicyCore,
     ) &&
-    /runtime task job projection runner sends Rust projection through direct daemon-core invoker/.test(
-      runtimeContextPolicyRunnerTest,
+    /runtime task job projection core sends Rust projection through direct daemon-core invoker/.test(
+      runtimeContextPolicyCoreTest,
     ) &&
     /runtime task job projection normalizer accepts get operation kinds/.test(
-      runtimeContextPolicyRunnerTest,
+      runtimeContextPolicyCoreTest,
     ) &&
     /taskJobProjectionRunner/.test(runtimeTaskJobSurface) &&
     /projectRuntimeTaskJob/.test(runtimeTaskJobSurface) &&
@@ -28146,7 +28152,7 @@ function runCompositor() {
     /runtime_task_job_projection_not_found/.test(runtimeTaskJobSurface) &&
     /Task not found: \$\{taskId\}/.test(runtimeTaskJobSurface) &&
     /Job not found: \$\{jobId\}/.test(runtimeTaskJobSurface) &&
-    /taskJobProjectionRunner: this\.contextPolicyRunner/.test(runtimeDaemonIndex) &&
+    /taskJobProjectionRunner: this\.contextPolicyCore/.test(runtimeDaemonIndex) &&
     !/runtimeJobRecordForRun,\s*\n\s*runtimeTaskRecordForRun/.test(runtimeDaemonIndex) &&
     !/runtimeTaskRecordForRun/.test(runtimeTaskJobSurface) &&
     !/runtimeJobRecordForRun/.test(runtimeTaskJobSurface) &&
@@ -28202,19 +28208,19 @@ function runCompositor() {
     /command_error_from!\(RuntimeTaskJobCreateCommandError\)/.test(
       coreCommandDispatchForCompositor,
     ) &&
-    /planRuntimeTaskJobCreateStateUpdate/.test(runtimeContextPolicyRunner) &&
+    /planRuntimeTaskJobCreateStateUpdate/.test(runtimeContextPolicyCore) &&
     /RUNTIME_TASK_JOB_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
-      runtimeContextPolicyRunner,
+      runtimeContextPolicyCore,
     ) &&
     /normalizeRuntimeTaskJobCreateStateUpdateBridgeResult/.test(
-      runtimeContextPolicyRunner,
+      runtimeContextPolicyCore,
     ) &&
-    /expectedOperationKind:\s*"task\.create"/.test(runtimeContextPolicyRunner) &&
-    /runtime task job create runner sends Rust state update through direct daemon-core invoker/.test(
-      runtimeContextPolicyRunnerTest,
+    /expectedOperationKind:\s*"task\.create"/.test(runtimeContextPolicyCore) &&
+    /runtime task job create core sends Rust state update through direct daemon-core invoker/.test(
+      runtimeContextPolicyCoreTest,
     ) &&
     /runtime task job create normalizer requires task create operation kind/.test(
-      runtimeContextPolicyRunnerTest,
+      runtimeContextPolicyCoreTest,
     ) &&
     /RuntimeTaskJobCancelStateUpdateCore/.test(policyTaskJobCore) &&
     /RuntimeTaskJobCancelStateUpdateRequest/.test(policyTaskJobCore) &&
@@ -28258,21 +28264,21 @@ function runCompositor() {
     /command_error_from!\(RuntimeTaskJobCancelCommandError\)/.test(
       coreCommandDispatchForCompositor,
     ) &&
-    /planRuntimeTaskJobCancelStateUpdate/.test(runtimeContextPolicyRunner) &&
+    /planRuntimeTaskJobCancelStateUpdate/.test(runtimeContextPolicyCore) &&
     /RUNTIME_TASK_JOB_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
-      runtimeContextPolicyRunner,
+      runtimeContextPolicyCore,
     ) &&
     /normalizeRuntimeTaskJobCancelStateUpdateBridgeResult/.test(
-      runtimeContextPolicyRunner,
+      runtimeContextPolicyCore,
     ) &&
     /expectedOperationKinds:\s*\["task\.cancel",\s*"job\.cancel"\]/.test(
-      runtimeContextPolicyRunner,
+      runtimeContextPolicyCore,
     ) &&
-    /runtime task job cancel runner sends Rust state update through direct daemon-core invoker/.test(
-      runtimeContextPolicyRunnerTest,
+    /runtime task job cancel core sends Rust state update through direct daemon-core invoker/.test(
+      runtimeContextPolicyCoreTest,
     ) &&
     /runtime task job cancel normalizer accepts job cancel operation kind/.test(
-      runtimeContextPolicyRunnerTest,
+      runtimeContextPolicyCoreTest,
     ) &&
     /runtime_task_job_control_rust_core_required/.test(runtimeTaskJobSurface) &&
     /runtime_task_job_control_js_facade_retired/.test(runtimeTaskJobSurface) &&
@@ -28295,7 +28301,7 @@ function runCompositor() {
     /runtime_task_create_state_update_projection_mismatch/.test(
       runtimeTaskJobSurface,
     ) &&
-    /taskJobCreateRunner: this\.contextPolicyRunner/.test(runtimeDaemonIndex) &&
+    /taskJobCreateRunner: this\.contextPolicyCore/.test(runtimeDaemonIndex) &&
     /buildRun,\s*\n\s*ensureProviderAvailable,\s*\n\s*notFound/.test(
       runtimeDaemonIndex,
     ) &&
@@ -28546,20 +28552,20 @@ function runCompositor() {
     ) &&
     /pub mod runtime_conversation_artifact_control;/.test(kernelModuleForCompositor) &&
     /RUNTIME_CONVERSATION_ARTIFACT_CONTROL_REQUEST_SCHEMA_VERSION/.test(
-      runtimeContextPolicyRunner,
+      runtimeContextPolicyCore,
     ) &&
     /planRuntimeConversationArtifactControl\(request = \{\}\)/.test(
-      runtimeContextPolicyRunner,
+      runtimeContextPolicyCore,
     ) &&
-    /plan_runtime_conversation_artifact_control/.test(runtimeContextPolicyRunner) &&
+    /plan_runtime_conversation_artifact_control/.test(runtimeContextPolicyCore) &&
     /normalizeRuntimeConversationArtifactControlBridgeResult/.test(
-      runtimeContextPolicyRunner,
+      runtimeContextPolicyCore,
     ) &&
     /runtime_conversation_artifact_control_artifact_missing/.test(
-      runtimeContextPolicyRunner,
+      runtimeContextPolicyCore,
     ) &&
-    /runtime conversation artifact control runner sends Rust daemon-core request/.test(
-      runtimeContextPolicyRunnerTest,
+    /runtime conversation artifact control core sends Rust daemon-core request/.test(
+      runtimeContextPolicyCoreTest,
     ) &&
     /commitRuntimeArtifactRecord/.test(runtimeConversationArtifactSurface) &&
     /conversationArtifactControlRunner/.test(runtimeConversationArtifactSurface) &&
@@ -28634,16 +28640,16 @@ function runCompositor() {
     !/throwConversationArtifactRustCoreRequired/.test(
       runtimeConversationArtifactRevisionListBlock,
     ) &&
-    /projectRuntimeConversationArtifactProjection\(request/.test(runtimeContextPolicyRunner) &&
-    /project_runtime_conversation_artifact_projection/.test(runtimeContextPolicyRunner) &&
+    /projectRuntimeConversationArtifactProjection\(request/.test(runtimeContextPolicyCore) &&
+    /project_runtime_conversation_artifact_projection/.test(runtimeContextPolicyCore) &&
     /RUNTIME_CONVERSATION_ARTIFACT_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
-      runtimeContextPolicyRunner,
+      runtimeContextPolicyCore,
     ) &&
     /normalizeRuntimeConversationArtifactProjectionBridgeResult/.test(
-      runtimeContextPolicyRunner,
+      runtimeContextPolicyCore,
     ) &&
-    /runtime conversation artifact projection runner sends Rust daemon-core request/.test(
-      runtimeContextPolicyRunnerTest,
+    /runtime conversation artifact projection core sends Rust daemon-core request/.test(
+      runtimeContextPolicyCoreTest,
     ) &&
     /pub struct RuntimeConversationArtifactProjectionCore;/.test(
       runtimeConversationArtifactProjectionCore,
@@ -28667,7 +28673,7 @@ function runCompositor() {
       coreCommandDispatchForCompositor,
     ) &&
     /pub mod runtime_conversation_artifact_projection;/.test(kernelModuleForCompositor) &&
-    /contextPolicyRunner:\s*this\.contextPolicyRunner/.test(runtimeDaemonIndex) &&
+    /contextPolicyCore:\s*this\.contextPolicyCore/.test(runtimeDaemonIndex) &&
     /public conversation artifact routes use mounted Rust-owned artifact surface/.test(
       publicRuntimeRoutesTest,
     ) &&
@@ -28879,8 +28885,8 @@ function runCompositor() {
       "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
       "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
       "packages/runtime-daemon/src/runtime-conversation-artifact-surface.mjs",
       "packages/runtime-daemon/src/runtime-conversation-artifact-surface.test.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.mjs",
@@ -28900,8 +28906,8 @@ function runCompositor() {
       "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
       "packages/runtime-daemon/src/index.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
       "packages/runtime-daemon/src/runtime-conversation-artifact-surface.mjs",
       "packages/runtime-daemon/src/runtime-conversation-artifact-surface.test.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.mjs",
@@ -28930,12 +28936,12 @@ function runCompositor() {
 	      /runtime_public_memory_projection_rust_projection_missing/.test(runtimeThreadMemoryState) &&
 	      /runtime_public_memory_projection_rust_projection_invalid/.test(runtimeThreadMemoryState) &&
 	      /runtime_memory_public_projection_rust_owned/.test(runtimeThreadMemoryState) &&
-	      /projectRuntimeMemoryProjection\(request/.test(runtimeContextPolicyRunner) &&
-	      /project_runtime_memory_projection/.test(runtimeContextPolicyRunner) &&
-	      /RUNTIME_MEMORY_PROJECTION_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyRunner) &&
-	      /normalizeRuntimeMemoryProjectionBridgeResult/.test(runtimeContextPolicyRunner) &&
-	      /runtime memory projection runner sends Rust daemon-core request/.test(
-	        runtimeContextPolicyRunnerTest,
+	      /projectRuntimeMemoryProjection\(request/.test(runtimeContextPolicyCore) &&
+	      /project_runtime_memory_projection/.test(runtimeContextPolicyCore) &&
+	      /RUNTIME_MEMORY_PROJECTION_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyCore) &&
+	      /normalizeRuntimeMemoryProjectionBridgeResult/.test(runtimeContextPolicyCore) &&
+	      /runtime memory projection core sends Rust daemon-core request/.test(
+	        runtimeContextPolicyCoreTest,
 	      ) &&
 	      /pub struct RuntimeMemoryProjectionCore;/.test(runtimeMemoryProjectionCore) &&
 	      /pub fn project_runtime_memory_projection_response/.test(
@@ -29044,8 +29050,8 @@ function runCompositor() {
 	      "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
 	      "crates/services/src/agentic/runtime/kernel/mod.rs",
 	      "packages/runtime-daemon/src/index.mjs",
-	      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
-	      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+	      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
+	      "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
 	      "packages/runtime-daemon/src/threads/thread-memory-state.mjs",
 	      "packages/runtime-daemon/src/threads/thread-memory-state.test.mjs",
 	      "packages/runtime-daemon/src/runtime-route-handlers.mjs",
@@ -29064,8 +29070,8 @@ function runCompositor() {
       "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
       "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
       "packages/runtime-daemon/src/threads/thread-memory-state.mjs",
       "packages/runtime-daemon/src/threads/thread-memory-state.test.mjs",
     ],
@@ -29256,10 +29262,10 @@ function runCompositor() {
       /validation_schema_version:\s*RUNTIME_MEMORY_MANAGER_VALIDATION_SCHEMA_VERSION/.test(
         runtimeValidateMemoryProjectionBlock,
       ) &&
-      /plan_memory_manager_status_projection/.test(runtimeContextPolicyRunner) &&
-      /plan_memory_manager_validation_projection/.test(runtimeContextPolicyRunner) &&
-      /normalizeMemoryManagerStatusProjectionBridgeResult/.test(runtimeContextPolicyRunner) &&
-      /normalizeMemoryManagerValidationProjectionBridgeResult/.test(runtimeContextPolicyRunner) &&
+      /plan_memory_manager_status_projection/.test(runtimeContextPolicyCore) &&
+      /plan_memory_manager_validation_projection/.test(runtimeContextPolicyCore) &&
+      /normalizeMemoryManagerStatusProjectionBridgeResult/.test(runtimeContextPolicyCore) &&
+      /normalizeMemoryManagerValidationProjectionBridgeResult/.test(runtimeContextPolicyCore) &&
       /MemoryManagerStatusProjectionCore/.test(policyCore) &&
       /MemoryManagerValidationProjectionCore/.test(policyCore) &&
       /MEMORY_MANAGER_STATUS_PROJECTION_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
@@ -29289,11 +29295,11 @@ function runCompositor() {
       !/struct MemoryManagerStatusProjectionBridgeRequest/.test(bridgeModule) &&
       !/fn plan_memory_manager_validation_projection/.test(bridgeModule) &&
       !/struct MemoryManagerValidationProjectionBridgeRequest/.test(bridgeModule) &&
-      /memory manager status projection runner sends Rust daemon-core projection request/.test(
-        runtimeContextPolicyRunnerTest,
+      /memory manager status projection core sends Rust daemon-core projection request/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
-      /memory manager validation projection runner sends Rust daemon-core projection request/.test(
-        runtimeContextPolicyRunnerTest,
+      /memory manager validation projection core sends Rust daemon-core projection request/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
       /const threadId = status\.thread_id \?\? null;/.test(runtimeMemoryRowsForStatusBlock) &&
       /const receiptRefs = normalizeArray\(status\.receipt_refs\);/.test(runtimeMemoryRowsForStatusBlock) &&
@@ -29317,10 +29323,10 @@ function runCompositor() {
       /state\.memoryStatus\(store, \{ agentId: "agent_a" \}\)/.test(
         runtimeThreadMemoryStateTest,
       ) &&
-      /memoryStatusForProjection\(projection, \{ contextPolicyRunner: runner \}\)/.test(
+      /memoryStatusForProjection\(projection, \{ contextPolicyCore: runner \}\)/.test(
         runtimeThreadMemoryState,
       ) &&
-      /validateMemoryProjection\(projection, \{ contextPolicyRunner: runner \}\)/.test(
+      /validateMemoryProjection\(projection, \{ contextPolicyCore: runner \}\)/.test(
         runtimeThreadMemoryState,
       ) &&
       /thread_id: projection\.thread_id \?\? null/.test(runtimeThreadMemoryState) &&
@@ -31257,12 +31263,12 @@ function runCompositor() {
       ) &&
       !/fn plan_subagent_record_state_update/.test(bridgeModule) &&
       !/struct SubagentRecordStateUpdateBridgeRequest/.test(bridgeModule) &&
-      /planSubagentRecordStateUpdate/.test(runtimeContextPolicyRunner) &&
+      /planSubagentRecordStateUpdate/.test(runtimeContextPolicyCore) &&
       /SUBAGENT_RECORD_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
-        runtimeContextPolicyRunner,
+        runtimeContextPolicyCore,
       ) &&
-      /subagent record state update runner sends Rust state update through direct daemon-core invoker/.test(
-        runtimeContextPolicyRunnerTest,
+      /subagent record state update core sends Rust state update through direct daemon-core invoker/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
       /runner\.planSubagentRecordStateUpdate/.test(
         runtimeSubagentSurface,
@@ -31282,8 +31288,8 @@ function runCompositor() {
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
       "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
       "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
     ],
@@ -31298,8 +31304,8 @@ function runCompositor() {
       "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
       "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
       "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
       "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
     ],
@@ -31365,7 +31371,7 @@ function runCompositor() {
     result,
     "runtime-subagent-spawn-state-update-live-bridge",
     runtimeSubagentSpawnControlRustOwned &&
-      /planSubagentRecordStateUpdate/.test(runtimeContextPolicyRunner) &&
+      /planSubagentRecordStateUpdate/.test(runtimeContextPolicyCore) &&
       /operationKind = "subagent\.spawn"/.test(runtimeSubagentSpawnBlock) &&
       /requiredPlannedSubagentOperationKind\(stateUpdate,\s*operationKind/.test(
         runtimeSubagentSurface,
@@ -31377,7 +31383,7 @@ function runCompositor() {
         runtimeSubagentSurface,
       ),
     [
-      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
       "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
       "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
     ],
@@ -31387,7 +31393,7 @@ function runCompositor() {
     result,
     "runtime-subagent-input-state-update-live-bridge",
     runtimeSubagentInputResumeControlRustOwned &&
-      /planSubagentRecordStateUpdate/.test(runtimeContextPolicyRunner) &&
+      /planSubagentRecordStateUpdate/.test(runtimeContextPolicyCore) &&
       /operationKind = "subagent\.input"/.test(runtimeSubagentSendInputBlock) &&
       /requiredPlannedSubagentOperationKind\(stateUpdate,\s*operationKind/.test(
         runtimeSubagentSurface,
@@ -31399,7 +31405,7 @@ function runCompositor() {
         runtimeSubagentSurface,
       ),
     [
-      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
       "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
       "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
     ],
@@ -31409,7 +31415,7 @@ function runCompositor() {
     result,
     "runtime-subagent-resume-state-update-live-bridge",
     runtimeSubagentInputResumeControlRustOwned &&
-      /planSubagentRecordStateUpdate/.test(runtimeContextPolicyRunner) &&
+      /planSubagentRecordStateUpdate/.test(runtimeContextPolicyCore) &&
       /operationKind = "subagent\.resume"/.test(runtimeSubagentResumeBlock) &&
       /requiredPlannedSubagentOperationKind\(stateUpdate,\s*operationKind/.test(
         runtimeSubagentSurface,
@@ -31421,7 +31427,7 @@ function runCompositor() {
         runtimeSubagentSurface,
       ),
     [
-      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
       "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
       "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
     ],
@@ -31456,7 +31462,7 @@ function runCompositor() {
     result,
     "runtime-subagent-assign-state-update-live-bridge",
     runtimeSubagentDirectControlRustOwned &&
-      /planSubagentRecordStateUpdate/.test(runtimeContextPolicyRunner) &&
+      /planSubagentRecordStateUpdate/.test(runtimeContextPolicyCore) &&
       /operationKind = "subagent\.assign"/.test(runtimeSubagentAssignBlock) &&
       /requiredPlannedSubagentOperationKind\(stateUpdate,\s*operationKind/.test(
         runtimeSubagentSurface,
@@ -31468,7 +31474,7 @@ function runCompositor() {
         runtimeSubagentSurface,
       ),
     [
-      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
       "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
       "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
     ],
@@ -31478,7 +31484,7 @@ function runCompositor() {
     result,
     "runtime-subagent-cancel-state-update-live-bridge",
     runtimeSubagentDirectControlRustOwned &&
-      /planSubagentRecordStateUpdate/.test(runtimeContextPolicyRunner) &&
+      /planSubagentRecordStateUpdate/.test(runtimeContextPolicyCore) &&
       /operationKind = "subagent\.cancel"/.test(runtimeSubagentCancelBlock) &&
       /requiredPlannedSubagentOperationKind\(stateUpdate,\s*operationKind/.test(
         runtimeSubagentSurface,
@@ -31490,7 +31496,7 @@ function runCompositor() {
         runtimeSubagentSurface,
       ),
     [
-      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
       "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
       "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
     ],
@@ -31506,8 +31512,8 @@ function runCompositor() {
       "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
       "packages/runtime-daemon/src/index.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
       "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
       "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
     ],
@@ -32738,8 +32744,8 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-task-job-surface.test.mjs",
       "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
       "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
       "crates/services/src/agentic/runtime/kernel/policy/task_job.rs",
       "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
       "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
@@ -33825,27 +33831,27 @@ function runCompositor() {
       /assertManagedSessionControlPlan/.test(managedSessionState) &&
       /managed_session\.inspect/.test(managedSessionState) &&
       /managed_session\.control/.test(managedSessionState) &&
-      /projectRuntimeManagedSessionProjection\(request/.test(runtimeContextPolicyRunner) &&
-      /planRuntimeManagedSessionControl\(request/.test(runtimeContextPolicyRunner) &&
-      /project_runtime_managed_session_projection/.test(runtimeContextPolicyRunner) &&
-      /plan_runtime_managed_session_control/.test(runtimeContextPolicyRunner) &&
+      /projectRuntimeManagedSessionProjection\(request/.test(runtimeContextPolicyCore) &&
+      /planRuntimeManagedSessionControl\(request/.test(runtimeContextPolicyCore) &&
+      /project_runtime_managed_session_projection/.test(runtimeContextPolicyCore) &&
+      /plan_runtime_managed_session_control/.test(runtimeContextPolicyCore) &&
       /RUNTIME_MANAGED_SESSION_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
-        runtimeContextPolicyRunner,
+        runtimeContextPolicyCore,
       ) &&
       /RUNTIME_MANAGED_SESSION_CONTROL_REQUEST_SCHEMA_VERSION/.test(
-        runtimeContextPolicyRunner,
+        runtimeContextPolicyCore,
       ) &&
       /normalizeRuntimeManagedSessionProjectionBridgeResult/.test(
-        runtimeContextPolicyRunner,
+        runtimeContextPolicyCore,
       ) &&
       /normalizeRuntimeManagedSessionControlBridgeResult/.test(
-        runtimeContextPolicyRunner,
+        runtimeContextPolicyCore,
       ) &&
-      /runtime managed-session projection runner sends Rust daemon-core request/.test(
-        runtimeContextPolicyRunnerTest,
+      /runtime managed-session projection core sends Rust daemon-core request/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
-      /runtime managed-session control runner sends Rust daemon-core request/.test(
-        runtimeContextPolicyRunnerTest,
+      /runtime managed-session control core sends Rust daemon-core request/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
       /pub struct RuntimeManagedSessionProjectionCore;/.test(
         runtimeManagedSessionControlCore,
@@ -33965,8 +33971,8 @@ function runCompositor() {
     [
       "packages/runtime-daemon/src/threads/managed-session-state.mjs",
       "packages/runtime-daemon/src/threads/managed-session-state.test.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
       "crates/services/src/agentic/runtime/kernel/runtime_managed_session_control.rs",
       "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
       "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
@@ -34033,34 +34039,34 @@ function runCompositor() {
       /command_error_from!\(RuntimeWorkspaceChangeCommandError\)/.test(
         coreCommandDispatchForCompositor,
       ) &&
-      /projectRuntimeWorkspaceChangeProjection/.test(runtimeContextPolicyRunner) &&
-      /planRuntimeWorkspaceChangeControl/.test(runtimeContextPolicyRunner) &&
+      /projectRuntimeWorkspaceChangeProjection/.test(runtimeContextPolicyCore) &&
+      /planRuntimeWorkspaceChangeControl/.test(runtimeContextPolicyCore) &&
       /RUNTIME_WORKSPACE_CHANGE_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
-        runtimeContextPolicyRunner,
+        runtimeContextPolicyCore,
       ) &&
       /RUNTIME_WORKSPACE_CHANGE_CONTROL_REQUEST_SCHEMA_VERSION/.test(
-        runtimeContextPolicyRunner,
+        runtimeContextPolicyCore,
       ) &&
       /normalizeRuntimeWorkspaceChangeProjectionBridgeResult/.test(
-        runtimeContextPolicyRunner,
+        runtimeContextPolicyCore,
       ) &&
       /normalizeRuntimeWorkspaceChangeControlBridgeResult/.test(
-        runtimeContextPolicyRunner,
+        runtimeContextPolicyCore,
       ) &&
       /expectedOperationKind:\s*"workspace_change\.inspect"/.test(
-        runtimeContextPolicyRunner,
+        runtimeContextPolicyCore,
       ) &&
       /expectedOperationKind:\s*"workspace_change\.control"/.test(
-        runtimeContextPolicyRunner,
+        runtimeContextPolicyCore,
       ) &&
-      /runtime workspace-change projection runner sends Rust daemon-core request/.test(
-        runtimeContextPolicyRunnerTest,
+      /runtime workspace-change projection core sends Rust daemon-core request/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
-      /runtime workspace-change control runner sends Rust daemon-core request/.test(
-        runtimeContextPolicyRunnerTest,
+      /runtime workspace-change control core sends Rust daemon-core request/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
       /runtime_workspace_change_control_event_missing/.test(
-        runtimeContextPolicyRunnerTest,
+        runtimeContextPolicyCoreTest,
       ) &&
       /runtime_workspace_change_projection_rust_core_required/.test(
         workspaceChangeState,
@@ -34147,8 +34153,8 @@ function runCompositor() {
     [
       "packages/runtime-daemon/src/threads/workspace-change-state.mjs",
       "packages/runtime-daemon/src/threads/workspace-change-state.test.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
       "crates/services/src/agentic/runtime/kernel/runtime_workspace_change_control.rs",
       "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
       "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
@@ -34188,15 +34194,15 @@ function runCompositor() {
         coreCommandDispatchForCompositor,
       ) &&
       /pub mod runtime_thread_fork_control;/.test(kernelModuleForCompositor) &&
-      /planRuntimeThreadForkControl/.test(runtimeContextPolicyRunner) &&
+      /planRuntimeThreadForkControl/.test(runtimeContextPolicyCore) &&
       /RUNTIME_THREAD_FORK_CONTROL_REQUEST_SCHEMA_VERSION/.test(
-        runtimeContextPolicyRunner,
+        runtimeContextPolicyCore,
       ) &&
       /normalizeRuntimeThreadForkControlBridgeResult/.test(
-        runtimeContextPolicyRunner,
+        runtimeContextPolicyCore,
       ) &&
-      /runtime thread-fork control runner sends Rust daemon-core request/.test(
-        runtimeContextPolicyRunnerTest,
+      /runtime thread-fork control core sends Rust daemon-core request/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
       /threadForkRunner/.test(runtimeThreadForkState) &&
       /planRuntimeThreadForkControl/.test(runtimeThreadForkState) &&
@@ -34227,8 +34233,8 @@ function runCompositor() {
       "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
       "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
       "packages/runtime-daemon/src/threads/thread-fork-state.mjs",
       "packages/runtime-daemon/src/threads/thread-fork-state.test.mjs",
       "packages/runtime-daemon/src/runtime-thread-auxiliary-surface.mjs",
@@ -34275,21 +34281,21 @@ function runCompositor() {
       /command_error_from!\(WorkspaceTrustControlCommandError\)/.test(
         coreCommandDispatchForCompositor,
       ) &&
-      /planWorkspaceTrustControlStateUpdate/.test(runtimeContextPolicyRunner) &&
+      /planWorkspaceTrustControlStateUpdate/.test(runtimeContextPolicyCore) &&
       /WORKSPACE_TRUST_CONTROL_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
-        runtimeContextPolicyRunner,
+        runtimeContextPolicyCore,
       ) &&
       /normalizeWorkspaceTrustControlStateUpdateBridgeResult/.test(
-        runtimeContextPolicyRunner,
+        runtimeContextPolicyCore,
       ) &&
       /expectedOperationKinds:\s*\["workspace_trust\.warning",\s*"workspace_trust\.acknowledge"\]/.test(
-        runtimeContextPolicyRunner,
+        runtimeContextPolicyCore,
       ) &&
-      /workspace trust control state update runner sends Rust state update through direct daemon-core invoker/.test(
-        runtimeContextPolicyRunnerTest,
+      /workspace trust control state update core sends Rust state update through direct daemon-core invoker/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
       /workspace_trust_control_state_update_operation_kind_mismatch/.test(
-        runtimeContextPolicyRunnerTest,
+        runtimeContextPolicyCoreTest,
       ) &&
       /planWorkspaceTrustControlStateUpdate/.test(workspaceTrustState) &&
       /store\.appendRuntimeEvent\(event\)/.test(workspaceTrustState) &&
@@ -34484,24 +34490,24 @@ function runCompositor() {
     ) &&
     /pub mod runtime_diagnostics_repair_control;/.test(kernelModuleForCompositor) &&
     /planRuntimeDiagnosticsRepairControl\(request = \{\}\)/.test(
-      runtimeContextPolicyRunner,
+      runtimeContextPolicyCore,
     ) &&
     /planRuntimeDiagnosticsRepairRetryRun\(request = \{\}\)/.test(
-      runtimeContextPolicyRunner,
+      runtimeContextPolicyCore,
     ) &&
     /normalizeRuntimeDiagnosticsRepairControlBridgeResult/.test(
-      runtimeContextPolicyRunner,
+      runtimeContextPolicyCore,
     ) &&
     /normalizeRuntimeDiagnosticsRepairRetryRunBridgeResult/.test(
-      runtimeContextPolicyRunner,
+      runtimeContextPolicyCore,
     ) &&
-    /runtime diagnostics repair control runner sends Rust daemon-core request/.test(
-      runtimeContextPolicyRunnerTest,
+    /runtime diagnostics repair control core sends Rust daemon-core request/.test(
+      runtimeContextPolicyCoreTest,
     ) &&
-    /runtime diagnostics repair retry-run runner sends Rust daemon-core request/.test(
-      runtimeContextPolicyRunnerTest,
+    /runtime diagnostics repair retry-run core sends Rust daemon-core request/.test(
+      runtimeContextPolicyCoreTest,
     ) &&
-    /diagnosticsRepairRunner:\s*this\.contextPolicyRunner/.test(runtimeDaemonIndex) &&
+    /diagnosticsRepairRunner:\s*this\.contextPolicyCore/.test(runtimeDaemonIndex) &&
     /eventStreamIdForThread/.test(runtimeDaemonIndex) &&
     /diagnostics repair decision execution uses Rust planning and runtime event admission/.test(
       runtimeDiagnosticsRepairSurfaceTest,
@@ -34624,22 +34630,22 @@ function runCompositor() {
       kernelModuleForCompositor,
     ) &&
     /projectRuntimeDiagnosticsRepairProjection\(request = \{\}\)/.test(
-      runtimeContextPolicyRunner,
+      runtimeContextPolicyCore,
     ) &&
     /RUNTIME_DIAGNOSTICS_REPAIR_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
-      runtimeContextPolicyRunner,
+      runtimeContextPolicyCore,
     ) &&
     /normalizeRuntimeDiagnosticsRepairProjectionBridgeResult/.test(
-      runtimeContextPolicyRunner,
+      runtimeContextPolicyCore,
     ) &&
-    /runtime diagnostics repair projection runner sends Rust daemon-core request/.test(
-      runtimeContextPolicyRunnerTest,
+    /runtime diagnostics repair projection core sends Rust daemon-core request/.test(
+      runtimeContextPolicyCoreTest,
     ) &&
     /captured\.request\.state_dir,\s*"\/runtime-state"/.test(
-      runtimeContextPolicyRunnerTest,
+      runtimeContextPolicyCoreTest,
     ) &&
     /Object\.hasOwn\(captured\.request,\s*"projection"\),\s*false/.test(
-      runtimeContextPolicyRunnerTest,
+      runtimeContextPolicyCoreTest,
     ) &&
     /state_dir:\s*store\?\.stateDir \?\? null/.test(
       runtimeDiagnosticsRepairSurface,
@@ -34689,8 +34695,8 @@ function runCompositor() {
       "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
       "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
       "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs",
       "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs",
     ],
@@ -34705,8 +34711,8 @@ function runCompositor() {
       "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
       "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
       "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs",
       "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs",
     ],
@@ -34753,12 +34759,12 @@ function runCompositor() {
         bridgeModule,
       ) &&
       /planDiagnosticsRepairAdmissionRequired\(request = \{\}\)/.test(
-        runtimeContextPolicyRunner,
+        runtimeContextPolicyCore,
       ) &&
-      /diagnostics repair admission-required runner sends Rust daemon-core request/.test(
-        runtimeContextPolicyRunnerTest,
+      /diagnostics repair admission-required core sends Rust daemon-core request/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
-      /diagnosticsRepairRunner:\s*this\.contextPolicyRunner/.test(runtimeDaemonIndex) &&
+      /diagnosticsRepairRunner:\s*this\.contextPolicyCore/.test(runtimeDaemonIndex) &&
       /diagnosticsRepairRetryResultFromEvent/.test(runtimeDaemonIndex) &&
       !/store\.(?:createRun|runs\.set|resolveDiagnosticsRepairDecision|executeDiagnosticsOperatorOverride|createDiagnosticsRepairRetryTurn)\b/.test(
         runtimeDiagnosticsRepairSurface,
@@ -34785,7 +34791,7 @@ function runCompositor() {
 	        runtimeDiagnosticsRepairSurfaceTest,
 	      ) &&
 	      /planRuntimeDiagnosticsRepairRetryRun\(request = \{\}\)/.test(
-	        runtimeContextPolicyRunner,
+	        runtimeContextPolicyCore,
 	      ) &&
 	      /runtime_diagnostics_repair_retry_run_request_rust_owned/.test(
 	        runtimeDiagnosticsRepairSurface,
@@ -34836,8 +34842,8 @@ function runCompositor() {
     [
       "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs",
       "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
       "crates/services/src/agentic/runtime/kernel/policy.rs",
       "crates/services/src/agentic/runtime/kernel/policy/admission_required.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
@@ -34851,11 +34857,11 @@ function runCompositor() {
       const codingToolEventCoreForDiagnosticsFeedback = exists("crates/services/src/agentic/runtime/kernel/coding_tool_event.rs")
         ? read("crates/services/src/agentic/runtime/kernel/coding_tool_event.rs")
         : "";
-      const runtimeContextPolicyRunnerForDiagnosticsFeedback = exists("packages/runtime-daemon/src/runtime-context-policy-runner.mjs")
-        ? read("packages/runtime-daemon/src/runtime-context-policy-runner.mjs")
+      const runtimeContextPolicyCoreForDiagnosticsFeedback = exists("packages/runtime-daemon/src/runtime-context-policy-core.mjs")
+        ? read("packages/runtime-daemon/src/runtime-context-policy-core.mjs")
         : "";
-      const runtimeContextPolicyRunnerTestForDiagnosticsFeedback = exists("packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs")
-        ? read("packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs")
+      const runtimeContextPolicyCoreTestForDiagnosticsFeedback = exists("packages/runtime-daemon/src/runtime-context-policy-core.test.mjs")
+        ? read("packages/runtime-daemon/src/runtime-context-policy-core.test.mjs")
         : "";
       const commandProtocolForDiagnosticsFeedback = exists("crates/services/src/agentic/runtime/kernel/command_protocol.rs")
         ? read("crates/services/src/agentic/runtime/kernel/command_protocol.rs")
@@ -34884,19 +34890,19 @@ function runCompositor() {
       ) &&
       /plan_post_edit_diagnostics_feedback_response/.test(commandDispatchForDiagnosticsFeedback) &&
       /POST_EDIT_DIAGNOSTICS_FEEDBACK_PLAN_REQUEST_SCHEMA_VERSION/.test(
-        runtimeContextPolicyRunnerForDiagnosticsFeedback,
+        runtimeContextPolicyCoreForDiagnosticsFeedback,
       ) &&
       /planPostEditDiagnosticsFeedback\(request = \{\}\)/.test(
-        runtimeContextPolicyRunnerForDiagnosticsFeedback,
+        runtimeContextPolicyCoreForDiagnosticsFeedback,
       ) &&
       /operation:\s*"plan_post_edit_diagnostics_feedback"/.test(
-        runtimeContextPolicyRunnerForDiagnosticsFeedback,
+        runtimeContextPolicyCoreForDiagnosticsFeedback,
       ) &&
       /normalizePostEditDiagnosticsFeedbackPlanBridgeResult/.test(
-        runtimeContextPolicyRunnerForDiagnosticsFeedback,
+        runtimeContextPolicyCoreForDiagnosticsFeedback,
       ) &&
-      /post-edit diagnostics feedback runner sends Rust daemon-core plan request/.test(
-        runtimeContextPolicyRunnerTestForDiagnosticsFeedback,
+      /post-edit diagnostics feedback core sends Rust daemon-core plan request/.test(
+        runtimeContextPolicyCoreTestForDiagnosticsFeedback,
       ) &&
       /diagnosticsFeedbackPlanner\.planPostEditDiagnosticsFeedback/.test(
         runtimeDiagnosticsFeedbackSurface,
@@ -34940,8 +34946,8 @@ function runCompositor() {
       "crates/services/src/agentic/runtime/kernel/coding_tool_event.rs",
       "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
       "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
       "packages/runtime-daemon/src/runtime-diagnostics-feedback-surface.mjs",
       "packages/runtime-daemon/src/runtime-diagnostics-feedback-surface.test.mjs",
     ],
@@ -35096,27 +35102,27 @@ function runCompositor() {
       ) &&
       /pub mod runtime_diagnostics_repair_policy;/.test(kernelModuleForCompositor) &&
       /RUNTIME_DIAGNOSTICS_REPAIR_POLICY_REQUEST_SCHEMA_VERSION/.test(
-        runtimeContextPolicyRunner,
+        runtimeContextPolicyCore,
       ) &&
       /projectRuntimeDiagnosticsRepairPolicy\(request = \{\}\)/.test(
-        runtimeContextPolicyRunner,
+        runtimeContextPolicyCore,
       ) &&
       /normalizeRuntimeDiagnosticsRepairPolicyBridgeResult/.test(
-        runtimeContextPolicyRunner,
+        runtimeContextPolicyCore,
       ) &&
-      /runtime diagnostics repair policy runner sends Rust daemon-core request/.test(
-        runtimeContextPolicyRunnerTest,
+      /runtime diagnostics repair policy core sends Rust daemon-core request/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
       /captured\.request\.state_dir,\s*"\/runtime-state"/.test(
-        runtimeContextPolicyRunnerTest,
+        runtimeContextPolicyCoreTest,
       ) &&
       /captured\.request\.diagnostic_event_ids,\s*\["event_diagnostics_alpha"\]/.test(
-        runtimeContextPolicyRunnerTest,
+        runtimeContextPolicyCoreTest,
       ) &&
       /Object\.hasOwn\(captured\.request,\s*field\),\s*false/.test(
-        runtimeContextPolicyRunnerTest,
+        runtimeContextPolicyCoreTest,
       ) &&
-      /diagnosticsRepairPolicyProjector:\s*this\.contextPolicyRunner/.test(
+      /diagnosticsRepairPolicyProjector:\s*this\.contextPolicyCore/.test(
         runtimeDaemonIndex,
       ) &&
       /projectDiagnosticsRepairPolicy/.test(diagnosticsFeedback) &&
@@ -35174,8 +35180,8 @@ function runCompositor() {
       "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
       "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
       "packages/runtime-daemon/src/diagnostics-repair-policy.test.mjs",
       "packages/runtime-daemon/src/diagnostics-feedback.mjs",
       "packages/runtime-daemon/src/diagnostics-feedback.test.mjs",
@@ -35250,10 +35256,10 @@ function runCompositor() {
       !/postEditDiagnosticsConfig/.test(diagnosticsFeedback) &&
       !/diagnosticsRepairPolicyConfig/.test(diagnosticsFeedback) &&
       /planPostEditDiagnosticsFeedback\(request = \{\}\)/.test(
-        runtimeContextPolicyRunner,
+        runtimeContextPolicyCore,
       ) &&
-      /post-edit diagnostics feedback runner sends Rust daemon-core plan request/.test(
-        runtimeContextPolicyRunnerTest,
+      /post-edit diagnostics feedback core sends Rust daemon-core plan request/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
       /diagnostics feedback surface invokes lsp diagnostics with Rust-authored repair context/.test(
         runtimeDiagnosticsFeedbackSurfaceTest,
@@ -35261,8 +35267,8 @@ function runCompositor() {
     [
       "packages/runtime-daemon/src/diagnostics-feedback.mjs",
       "packages/runtime-daemon/src/diagnostics-feedback.test.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
       "packages/runtime-daemon/src/runtime-diagnostics-feedback-surface.test.mjs",
     ],
     "Post-edit diagnostics config must remain Rust-planned; the old JS config normalizer must stay retired",
@@ -36290,7 +36296,7 @@ function runCompositor() {
     !/mcpServerRecordsFromMutationInput/.test(`${runtimeMcpHelpers}\n${runtimeMcpHelpersTest}`) &&
       /projectMcpServerValidationInput\(\{/.test(runtimeMcpManagerValidationInputBlock) &&
       /workspace_root:\s*workspaceRoot/.test(runtimeMcpManagerValidationInputBlock) &&
-      /contextPolicyRunner/.test(runtimeMcpManagerValidationInputBlock) &&
+      /contextPolicyCore/.test(runtimeMcpManagerValidationInputBlock) &&
       runtimeMcpControlFacadeRetired &&
       /mcpJson:\s*\{/.test(runtimeMcpManagerTest) &&
       /^\s*mcp_json\?: Record<string, unknown>;/m.test(runtimeMcpSdkValidationInputBlock) &&
@@ -36420,15 +36426,15 @@ function runCompositor() {
       /plan_runtime_mcp_serve_tool_call_response/.test(runtimeMcpServeCore) &&
       /rust_plans_mcp_serve_tool_call_request/.test(runtimeMcpServeCore) &&
       /rust_shapes_mcp_serve_tool_call_command_response/.test(runtimeMcpServeCore) &&
-      /planRuntimeMcpServeToolCall\(request = \{\}\)/.test(runtimeContextPolicyRunner) &&
-      /operation:\s*"plan_runtime_mcp_serve_tool_call"/.test(runtimeContextPolicyRunner) &&
-      /RUNTIME_MCP_SERVE_TOOL_CALL_PLAN_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyRunner) &&
-      /normalizeRuntimeMcpServeToolCallPlanBridgeResult/.test(runtimeContextPolicyRunner) &&
+      /planRuntimeMcpServeToolCall\(request = \{\}\)/.test(runtimeContextPolicyCore) &&
+      /operation:\s*"plan_runtime_mcp_serve_tool_call"/.test(runtimeContextPolicyCore) &&
+      /RUNTIME_MCP_SERVE_TOOL_CALL_PLAN_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyCore) &&
+      /normalizeRuntimeMcpServeToolCallPlanBridgeResult/.test(runtimeContextPolicyCore) &&
       /runtime MCP serve tool-call planner sends Rust daemon-core request/.test(
-        runtimeContextPolicyRunnerTest,
+        runtimeContextPolicyCoreTest,
       ) &&
       /captured\.operation,\s*"plan_runtime_mcp_serve_tool_call"/.test(
-        runtimeContextPolicyRunnerTest,
+        runtimeContextPolicyCoreTest,
       ) &&
       /store\?\.codingToolInvocationSurface\?\.invokeThreadTool/.test(runtimeMcpServeSurface) &&
       /planner\.planRuntimeMcpServeToolCall/.test(runtimeMcpServeSurface) &&
@@ -36492,8 +36498,8 @@ function runCompositor() {
       "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
       "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
       "packages/runtime-daemon/src/runtime-mcp-serve-surface.mjs",
       "packages/runtime-daemon/src/runtime-mcp-serve-surface.test.mjs",
     ],
@@ -36824,8 +36830,8 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-mcp-catalog-surface-output-aliases-retired",
-    /contextPolicyRunner\.planMcpManagerCatalogProjection\(\{ servers \}\)/.test(runtimeMcpStatusBlock) &&
-      /contextPolicyRunner\.planMcpManagerStatusProjection\(\{/.test(runtimeMcpStatusBlock) &&
+    /contextPolicyCore\.planMcpManagerCatalogProjection\(\{ servers \}\)/.test(runtimeMcpStatusBlock) &&
+      /contextPolicyCore\.planMcpManagerStatusProjection\(\{/.test(runtimeMcpStatusBlock) &&
       /status_schema_version:\s*statusSchemaVersion/.test(runtimeMcpStatusBlock) &&
       /validation,/.test(runtimeMcpStatusBlock) &&
       /servers,/.test(runtimeMcpStatusBlock) &&
@@ -36835,8 +36841,8 @@ function runCompositor() {
       /enabled_tools:\s*catalog\.enabled_tools/.test(runtimeMcpStatusBlock) &&
       /search_tools:\s*"\/v1\/mcp\/tools\/search"/.test(runtimeMcpStatusBlock) &&
       /serve_for_thread:\s*"\/v1\/threads\/\{thread_id\}\/mcp\/serve"/.test(runtimeMcpStatusBlock) &&
-      /contextPolicyRunner\.planMcpManagerCatalogProjection\(\{ servers \}\)/.test(runtimeMcpValidateBlock) &&
-      /contextPolicyRunner\.planMcpManagerValidationProjection\(\{/.test(runtimeMcpValidateBlock) &&
+      /contextPolicyCore\.planMcpManagerCatalogProjection\(\{ servers \}\)/.test(runtimeMcpValidateBlock) &&
+      /contextPolicyCore\.planMcpManagerValidationProjection\(\{/.test(runtimeMcpValidateBlock) &&
       /validation_schema_version:\s*validationSchemaVersion/.test(runtimeMcpValidateBlock) &&
       /tools:\s*catalog\.tools/.test(runtimeMcpValidateBlock) &&
       /resources:\s*catalog\.resources/.test(runtimeMcpValidateBlock) &&
@@ -36897,13 +36903,13 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-mcp-control-status-output-aliases-retired",
-    /contextPolicyRunner\.validateMcpServers\(\{ servers \}\)/.test(
+    /contextPolicyCore\.validateMcpServers\(\{ servers \}\)/.test(
       runtimeMcpControlStatusForAgentBlock,
     ) &&
-      /contextPolicyRunner\.planMcpManagerCatalogProjection\(\{ servers \}\)/.test(
+      /contextPolicyCore\.planMcpManagerCatalogProjection\(\{ servers \}\)/.test(
         runtimeMcpControlStatusForAgentBlock,
       ) &&
-      /contextPolicyRunner\.planMcpManagerStatusProjection\(\{/.test(
+      /contextPolicyCore\.planMcpManagerStatusProjection\(\{/.test(
         runtimeMcpControlStatusForAgentBlock,
       ) &&
       /status_schema_version:\s*statusSchemaVersion/.test(runtimeMcpControlStatusForAgentBlock) &&

@@ -5,7 +5,7 @@ import {
 
 export function cancelRun(state, runId) {
   const run = state.getRun(runId);
-  const runCancelRunner = state?.runCancelRunner ?? state?.contextPolicyRunner ?? null;
+  const runCancelRunner = state?.runCancelRunner ?? state?.contextPolicyCore ?? null;
   const operationDetails = {
     operation: "run_cancel",
     operation_kind: "run.cancel",

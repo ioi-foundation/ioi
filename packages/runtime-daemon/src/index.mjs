@@ -97,7 +97,7 @@ import { createRuntimeCodingToolGovernanceSurface } from "./runtime-coding-tool-
 import { createRuntimeCodingToolBudgetRecoverySurface } from "./runtime-coding-tool-budget-recovery-surface.mjs";
 import { createRuntimeConversationArtifactSurface } from "./runtime-conversation-artifact-surface.mjs";
 import { createRuntimeContextPolicySurface } from "./runtime-context-policy-surface.mjs";
-import { createContextPolicyRunnerFromEnv } from "./runtime-context-policy-runner.mjs";
+import { createRuntimeContextPolicyCore } from "./runtime-context-policy-core.mjs";
 import { createRuntimeWorkflowEditSurface } from "./runtime-workflow-edit-surface.mjs";
 import { createRuntimeApprovalSurface } from "./runtime-approval-surface.mjs";
 import { createRuntimeApprovalStateCore } from "./runtime-approval-state-core.mjs";
@@ -595,14 +595,17 @@ export class AgentgresRuntimeStateStore {
     this.conversationArtifacts = new ConversationArtifactStore(this.stateDir);
     this.runtimeBridge = createRuntimeApiBridge(options.runtimeBridge);
     this.daemonCoreInvoker = options.daemonCoreInvoker;
+    if (Object.hasOwn(options, "contextPolicyRunner")) {
+      throw new Error("contextPolicyRunner is retired; pass contextPolicyCore for the Rust daemon-core policy boundary.");
+    }
     this.runtimeAgentgresAdmissionCore =
       options.runtimeAgentgresAdmissionCore ??
       createRuntimeAgentgresAdmissionCore({
         daemonCoreInvoker: this.daemonCoreInvoker,
       });
-    this.contextPolicyRunner =
-      options.contextPolicyRunner ??
-      createContextPolicyRunnerFromEnv(process.env, {
+    this.contextPolicyCore =
+      options.contextPolicyCore ??
+      createRuntimeContextPolicyCore({
         daemonCoreInvoker: this.daemonCoreInvoker,
       });
     this.codingToolApprovalCore =
@@ -681,7 +684,7 @@ export class AgentgresRuntimeStateStore {
       ensureProviderAvailable,
       eventStreamIdForThread,
       initialThreadRuntimeControls,
-      lifecycleAdmissionRunner: this.contextPolicyRunner,
+      lifecycleAdmissionRunner: this.contextPolicyCore,
       mcpRegistryForWorkspace,
       runtimeError,
       runtimeThreadSchemaVersion: RUNTIME_THREAD_SCHEMA_VERSION,
@@ -703,7 +706,7 @@ export class AgentgresRuntimeStateStore {
       redactRuntimeNodeForDoctor,
     });
     this.conversationArtifactSurface = createRuntimeConversationArtifactSurface({
-      contextPolicyRunner: this.contextPolicyRunner,
+      contextPolicyCore: this.contextPolicyCore,
       notFound,
     });
     this.approvalSurface = createRuntimeApprovalSurface({
@@ -731,8 +734,8 @@ export class AgentgresRuntimeStateStore {
     });
     this.codingToolBudgetRecoverySurface = createRuntimeCodingToolBudgetRecoverySurface({
       approvalReasonForDecisionEvent,
-      codingToolBudgetRecoveryRunner: this.contextPolicyRunner,
-      contextPolicyRunner: this.contextPolicyRunner,
+      codingToolBudgetRecoveryRunner: this.contextPolicyCore,
+      contextPolicyCore: this.contextPolicyCore,
       notFound,
       runtimeError,
     });
@@ -751,7 +754,7 @@ export class AgentgresRuntimeStateStore {
     this.codingToolArtifactSurface = createRuntimeCodingToolArtifactSurface({
       codingToolCommandStreamAdmissionForThread: (store, request = {}) =>
         this.admitCodingToolCommandStreamEventsForThread(store, request),
-      contextPolicyRunner: this.contextPolicyRunner,
+      contextPolicyCore: this.contextPolicyCore,
       notFound,
       policyError,
       runtimeError,
@@ -767,7 +770,7 @@ export class AgentgresRuntimeStateStore {
       diagnosticsRepairContextForRequest,
       diagnosticsRepairContextForToolPack,
       codingToolResultEnvelopeForThread: (_store, request = {}) =>
-        this.contextPolicyRunner.planCodingToolResultEnvelope(request),
+        this.contextPolicyCore.planCodingToolResultEnvelope(request),
       codingToolResultEventAdmissionForThread: (store, request = {}) =>
         this.admitCodingToolResultEventForThread(store, request),
       stepModuleRunner: createStepModuleRunnerFromEnv(process.env, {
@@ -784,13 +787,13 @@ export class AgentgresRuntimeStateStore {
     });
     this.diagnosticsFeedbackSurface = createRuntimeDiagnosticsFeedbackSurface({
       compactDiagnosticsFeedback,
-      diagnosticsFeedbackPlanner: this.contextPolicyRunner,
-      diagnosticsRepairPolicyProjector: this.contextPolicyRunner,
+      diagnosticsFeedbackPlanner: this.contextPolicyCore,
+      diagnosticsRepairPolicyProjector: this.contextPolicyCore,
       normalizeDiagnosticsMode,
     });
     this.diagnosticsRepairSurface = createRuntimeDiagnosticsRepairSurface({
-      contextPolicyRunner: this.contextPolicyRunner,
-      diagnosticsRepairRunner: this.contextPolicyRunner,
+      contextPolicyCore: this.contextPolicyCore,
+      diagnosticsRepairRunner: this.contextPolicyCore,
       eventStreamIdForThread,
       diagnosticsOperatorOverrideResultFromEvent,
       diagnosticsRepairApplyApprovalKey,
@@ -800,11 +803,11 @@ export class AgentgresRuntimeStateStore {
       runtimeError,
     });
     this.codingToolGovernanceSurface = createRuntimeCodingToolGovernanceSurface({
-      codingToolBudgetBlockPlanner: this.contextPolicyRunner,
+      codingToolBudgetBlockPlanner: this.contextPolicyCore,
       runtimeError,
     });
     this.contextPolicySurface = createRuntimeContextPolicySurface({
-      contextPolicyRunner: this.contextPolicyRunner,
+      contextPolicyCore: this.contextPolicyCore,
       runtimeError,
     });
     this.workflowEditSurface = createRuntimeWorkflowEditSurface({
@@ -813,16 +816,16 @@ export class AgentgresRuntimeStateStore {
       notFound,
       policyError,
       runtimeError,
-      workflowEditRunner: this.contextPolicyRunner,
+      workflowEditRunner: this.contextPolicyCore,
       writeJson,
     });
     this.mcpCatalogSurface = createRuntimeMcpCatalogSurface();
     this.mcpControlSurface = createRuntimeMcpControlSurface({
-      contextPolicyRunner: this.contextPolicyRunner,
+      contextPolicyCore: this.contextPolicyCore,
     });
     this.mcpServeSurface = createRuntimeMcpServeSurface();
     this.repositorySurface = createRuntimeRepositorySurface({
-      repositoryRunner: this.contextPolicyRunner,
+      repositoryRunner: this.contextPolicyCore,
     });
     this.runReadSurface = createRuntimeRunReadSurface({
       authorityEvidenceSummaryForEvents,
@@ -835,37 +838,37 @@ export class AgentgresRuntimeStateStore {
       threadIdForAgent,
     });
     this.lifecycleProjectionSurface = createRuntimeLifecycleProjectionSurface({
-      lifecycleRunner: this.contextPolicyRunner,
+      lifecycleRunner: this.contextPolicyCore,
       resolveRunArtifact,
       workspaceRoot: this.defaultCwd,
     });
     this.skillHookSurface = createRuntimeSkillHookSurface({
       defaultCwd: this.defaultCwd,
-      skillHookRunner: this.contextPolicyRunner,
+      skillHookRunner: this.contextPolicyCore,
     });
     this.taskJobSurface = createRuntimeTaskJobSurface({
       buildRun,
       ensureProviderAvailable,
       notFound,
       optionalString,
-      taskJobCreateRunner: this.contextPolicyRunner,
-      taskJobCancelRunner: this.contextPolicyRunner,
-      taskJobProjectionRunner: this.contextPolicyRunner,
+      taskJobCreateRunner: this.contextPolicyCore,
+      taskJobCancelRunner: this.contextPolicyCore,
+      taskJobProjectionRunner: this.contextPolicyCore,
     });
     this.toolSurface = createRuntimeToolSurface({
-      toolCatalogRunner: this.contextPolicyRunner,
+      toolCatalogRunner: this.contextPolicyCore,
       workspaceRoot: this.defaultCwd,
     });
     this.threadControlSurface = createRuntimeThreadControlSurface({
-      contextPolicyRunner: this.contextPolicyRunner,
+      contextPolicyCore: this.contextPolicyCore,
     });
     this.threadTurnSurface = createRuntimeThreadTurnSurface({
-      contextPolicyRunner: this.contextPolicyRunner,
+      contextPolicyCore: this.contextPolicyCore,
       diagnosticsFeedbackBlocksContinuation,
       runtimeError,
     });
     this.subagentSurface = createRuntimeSubagentSurface({
-      contextPolicyRunner: this.contextPolicyRunner,
+      contextPolicyCore: this.contextPolicyCore,
     });
     this.threadTurnProjection = createThreadTurnProjection({
       eventStreamIdForThread,

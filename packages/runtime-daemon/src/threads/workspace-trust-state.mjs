@@ -5,7 +5,7 @@ import {
 } from "../runtime-value-helpers.mjs";
 
 export function createWorkspaceTrustState({
-  contextPolicyRunner,
+  contextPolicyCore,
   eventStreamIdForThread,
   runtimeError,
   nowIso = () => new Date().toISOString(),
@@ -129,9 +129,9 @@ export function createWorkspaceTrustState({
   }
 
   function workspaceTrustPlanner({ threadId, operation } = {}) {
-    const planner = contextPolicyRunner?.planWorkspaceTrustControlStateUpdate;
+    const planner = contextPolicyCore?.planWorkspaceTrustControlStateUpdate;
     if (typeof planner === "function") {
-      return planner.bind(contextPolicyRunner);
+      return planner.bind(contextPolicyCore);
     }
     throwWorkspaceTrustRustCoreRequired({
       operation,

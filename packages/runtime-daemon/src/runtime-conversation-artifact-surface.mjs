@@ -35,7 +35,7 @@ function objectRecord(value) {
 }
 
 export function createRuntimeConversationArtifactSurface({
-  contextPolicyRunner = null,
+  contextPolicyCore = null,
   runtimeError = ({ status = 500, code = "runtime_conversation_artifact_error", message, details }) =>
     Object.assign(new Error(message), { status, code, details }),
 } = {}) {
@@ -68,7 +68,7 @@ export function createRuntimeConversationArtifactSurface({
   }
 
   function conversationArtifactControlRunner(store, request = {}) {
-    const runner = store?.contextPolicyRunner ?? contextPolicyRunner;
+    const runner = store?.contextPolicyCore ?? contextPolicyCore;
     if (runner?.planRuntimeConversationArtifactControl) return runner;
     throwConversationArtifactControlRequired({
       operation: request.operation ?? "conversation_artifact_control",
@@ -91,7 +91,7 @@ export function createRuntimeConversationArtifactSurface({
   }
 
   function conversationArtifactProjectionRunner(store, request = {}) {
-    const runner = store?.contextPolicyRunner ?? contextPolicyRunner;
+    const runner = store?.contextPolicyCore ?? contextPolicyCore;
     if (runner?.projectRuntimeConversationArtifactProjection) return runner;
     throw runtimeError({
       status: 501,

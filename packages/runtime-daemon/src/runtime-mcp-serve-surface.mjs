@@ -25,7 +25,7 @@ export function createRuntimeMcpServeSurface({
   mcpServeToolCallResult: mcpServeToolCallResultDep = mcpServeToolCallResult,
   mcpServeToolDescriptor: mcpServeToolDescriptorDep = mcpServeToolDescriptor,
   mcpServeToolIdForName: mcpServeToolIdForNameDep = mcpServeToolIdForName,
-  contextPolicyRunner = null,
+  contextPolicyCore = null,
   optionalString: optionalStringDep = optionalString,
 } = {}) {
   function mcpServeRustCoreRequiredError(id, { threadId, toolId, toolName }) {
@@ -139,7 +139,7 @@ export function createRuntimeMcpServeSurface({
               allowed_tools: mcpServeAllowedToolIdsDep(request),
             });
           }
-          const planner = store?.contextPolicyRunner ?? contextPolicyRunner;
+          const planner = store?.contextPolicyCore ?? contextPolicyCore;
           const invokeRustCodingTool = store?.codingToolInvocationSurface?.invokeThreadTool;
           if (
             typeof planner?.planRuntimeMcpServeToolCall !== "function" ||

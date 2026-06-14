@@ -270,7 +270,7 @@ function compactHarness() {
     },
   };
   const store = {
-    contextPolicyRunner: runner,
+    contextPolicyCore: runner,
     agentForThread(threadId) {
       calls.push({ name: "agentForThread", threadId });
       return agent;

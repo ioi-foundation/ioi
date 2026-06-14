@@ -86,9 +86,9 @@ function createHarness(options = {}) {
   });
   const store = {
     agents,
-    contextPolicyRunner:
-      Object.hasOwn(options, "contextPolicyRunner")
-        ? options.contextPolicyRunner
+    contextPolicyCore:
+      Object.hasOwn(options, "contextPolicyCore")
+        ? options.contextPolicyCore
         : {
             planThreadMemoryAgentStateUpdate(request = {}) {
               calls.push({ type: "planThreadMemoryAgentStateUpdate", input: request });
@@ -565,7 +565,7 @@ test("thread memory mutation and policy controls use Rust planning and Agentgres
 
 test("thread memory mutation controls fail closed before JS store mutation without Rust planner", () => {
   const { calls, state, store } = createHarness({
-    contextPolicyRunner: {
+    contextPolicyCore: {
       projectRuntimeMemoryProjection(request = {}) {
         calls.push({ type: "projectRuntimeMemoryProjection", input: request });
         return {
@@ -679,7 +679,7 @@ test("route-facing memory read projections return Rust daemon-core projections",
 });
 
 test("route-facing memory projections fail closed before JS readback when Rust projection is missing", () => {
-  const { calls, state, store } = createHarness({ contextPolicyRunner: null });
+  const { calls, state, store } = createHarness({ contextPolicyCore: null });
 
   assert.throws(
     () => state.publicListMemoryForThread(store, "thread_a", { query: "deploy" }),
@@ -743,7 +743,7 @@ test("thread memory status, validation, and direct control events use Rust plann
 });
 
 test("thread memory direct control event fails closed before appendRuntimeEvent without Rust planning", () => {
-  const { calls, state, store } = createHarness({ contextPolicyRunner: null });
+  const { calls, state, store } = createHarness({ contextPolicyCore: null });
 
   assert.throws(
     () => state.appendThreadMemoryControlEvent(store, {

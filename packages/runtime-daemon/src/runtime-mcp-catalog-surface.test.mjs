@@ -47,7 +47,7 @@ function harness() {
       calls.push({ name: "mcpServerRecordsFromValidationInput", input, workspaceRoot });
       return input.servers ?? [];
     },
-    contextPolicyRunner: {
+    contextPolicyCore: {
       validateMcpServers(request) {
         calls.push({ name: "validateMcpServers", request });
         const issues = request.servers.some((item) => item.invalid)

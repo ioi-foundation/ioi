@@ -35,7 +35,7 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
   const {
     eventStreamIdForThread: eventStreamIdForThreadDep = eventStreamIdForThread,
     runtimeError = defaultRuntimeError,
-    diagnosticsRepairRunner = deps.contextPolicyRunner ?? null,
+    diagnosticsRepairRunner = deps.contextPolicyCore ?? null,
     diagnosticsRepairRetryResultFromEvent = null,
   } = deps;
 
@@ -76,7 +76,7 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
   }
 
   function diagnosticsRepairControlRunner(store, request = {}) {
-    const runner = store?.contextPolicyRunner ?? diagnosticsRepairRunner;
+    const runner = store?.contextPolicyCore ?? diagnosticsRepairRunner;
     if (
       runner?.planRuntimeDiagnosticsRepairControl &&
       typeof store?.appendRuntimeEvent === "function"
@@ -108,7 +108,7 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
   }
 
   function diagnosticsRepairRetryRunRunner(store, details = {}) {
-    const runner = store?.contextPolicyRunner ?? diagnosticsRepairRunner;
+    const runner = store?.contextPolicyCore ?? diagnosticsRepairRunner;
     if (
       runner?.planRuntimeDiagnosticsRepairRetryRun &&
       runner?.planRuntimeDiagnosticsRepairControl
@@ -119,7 +119,7 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
   }
 
   function diagnosticsRepairProjectionRunner(store, details = {}) {
-    const runner = store?.contextPolicyRunner ?? diagnosticsRepairRunner;
+    const runner = store?.contextPolicyCore ?? diagnosticsRepairRunner;
     if (runner?.projectRuntimeDiagnosticsRepairProjection) {
       return runner;
     }
@@ -226,7 +226,7 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
   }
 
   function diagnosticsOperatorOverrideStateUpdateRunner(store, details = {}) {
-    const runner = store?.contextPolicyRunner ?? diagnosticsRepairRunner;
+    const runner = store?.contextPolicyCore ?? diagnosticsRepairRunner;
     if (
       runner?.planDiagnosticsOperatorOverrideStateUpdate &&
       typeof store?.getRun === "function" &&

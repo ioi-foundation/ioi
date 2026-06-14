@@ -891,7 +891,7 @@ test("diagnostics operator override event append fails closed before JS runtime 
 test("diagnostics repair decision resolver uses Rust state replay projection without JS candidate transport", () => {
   const runner = diagnosticsRepairProjectionRunner();
   const { calls, store } = harness();
-  store.contextPolicyRunner = runner;
+  store.contextPolicyCore = runner;
   const surface = createRuntimeDiagnosticsRepairSurface({ runtimeError });
 
   const result = surface.resolveDiagnosticsRepairDecision(store, "thread_alpha", "decision_alpha", {
@@ -932,7 +932,7 @@ test("diagnostics repair decision resolver uses Rust state replay projection wit
 test("diagnostics repair decision resolver rejects retired JS candidate transport", () => {
   const runner = diagnosticsRepairProjectionRunner();
   const { calls, store } = harness();
-  store.contextPolicyRunner = runner;
+  store.contextPolicyCore = runner;
   const surface = createRuntimeDiagnosticsRepairSurface({ runtimeError });
 
   assert.throws(

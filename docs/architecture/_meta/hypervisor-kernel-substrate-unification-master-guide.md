@@ -671,7 +671,7 @@ Slice 774 moved public MCP server validation decisioning into Rust daemon-core
 validation transport. `McpServerValidationCore` now owns validation status,
 diagnostics, and warnings for normalized canonical MCP server records, the
 daemon-core command bridge exposes `validate_mcp_servers`, and the runtime
-daemon `validateMcp()` facade consumes `contextPolicyRunner.validateMcpServers`
+daemon `validateMcp()` facade consumes `contextPolicyCore.validateMcpServers`
 instead of synthesizing public validation pass/block truth in JS. This remains
 migration transport, not the terminal direct daemon-core API: catalog
 normalization/projection and manager/status helpers still need direct Rust
@@ -682,7 +682,7 @@ facade-retirement seam lands.
 Slice 775 retired the public MCP status JS validation decision path. The runtime
 MCP catalog surface no longer imports or injects `validateMcpServerRecords`;
 both `mcpStatus()` and `validateMcp()` now send normalized canonical server
-records through `contextPolicyRunner.validateMcpServers({ servers })` so public
+records through `contextPolicyCore.validateMcpServers({ servers })` so public
 MCP status/validation pass-block decisions come from Rust
 `McpServerValidationCore` via `validate_mcp_servers` migration transport. This
 still does not claim terminal MCP migration: catalog normalization/projection,
@@ -808,7 +808,7 @@ transport. `McpServerValidationInputCore` /
 `project_mcp_server_validation_input` now owns canonical raw `mcp_json` /
 `mcp_servers` normalization into snake_case MCP server records before
 `validate_mcp_servers`; `mcpServerRecordsFromValidationInput()` remains only a
-JS transport wrapper around `contextPolicyRunner.projectMcpServerValidationInput`
+JS transport wrapper around `contextPolicyCore.projectMcpServerValidationInput`
 and no longer walks raw validation JSON itself. This still does not claim
 terminal MCP migration: direct Rust daemon-core MCP registry truth, live
 transport discovery and containment, wallet authority, StepModuleRouter
@@ -835,7 +835,7 @@ Rust daemon-core migration transport. `MemoryManagerStatusProjectionCore` and
 `ioi.runtime_memory_manager_status` / `ioi.runtime_memory_manager_validation`
 envelopes, while `memoryStatusForProjection()` and
 `validateMemoryProjection()` remain only thin JS transport wrappers around
-`contextPolicyRunner.planMemoryManagerStatusProjection()` /
+`contextPolicyCore.planMemoryManagerStatusProjection()` /
 `planMemoryManagerValidationProjection()`. Public memory status/validate routes
 therefore no longer calculate readiness, issue counts, memory-key counts,
 write-block reasons, routes, validation records, or evidence refs in JS. This
@@ -5593,7 +5593,7 @@ protocol/API ownership.
 
 Slice 1061 extends the temporary helper to the remaining large daemon-core
 command runners: context policy and model-mount admission.
-`runtime-context-policy-runner.mjs` and
+`runtime-context-policy-core.mjs` and
 `model-mounting/model-mount-core.mjs` now delegate fixed empty-argv
 command spawn, mock handling, JSON parsing, process failure mapping, and Rust
 rejection mapping to `runtime-daemon-core-command-runner.mjs` instead of
@@ -7285,7 +7285,7 @@ manager context-policy runner normalizers. Rust `policy/mcp_memory.rs` already
 authors MCP manager status, MCP validation, MCP catalog, MCP catalog summary,
 memory manager status, and memory validation projection response fields through
 the daemon-core command path. The JS
-`runtime-context-policy-runner.mjs` now passes missing Rust-owned
+`runtime-context-policy-core.mjs` now passes missing Rust-owned
 `object`, `status`, count, readiness, route, and projection policy fields
 through as `null` instead of reconstructing public projection truth from
 arrays, booleans, or hard-coded defaults.
@@ -7301,7 +7301,7 @@ Slice 1150 retires JS-side public context lifecycle fallbacks from the
 context-policy runner normalizers. Rust `policy/context_lifecycle.rs` already
 authors context-budget policy, compaction-policy, context-compaction plan, and
 context-compaction state-update public record fields through the daemon-core
-command path. The JS `runtime-context-policy-runner.mjs` now passes missing
+command path. The JS `runtime-context-policy-core.mjs` now passes missing
 Rust-owned `object`, `status`, mode/action, event identity, payload schema,
 compaction policy, boolean decision, and target fields through as `null`
 instead of reconstructing plausible context lifecycle records from hard-coded
@@ -7328,7 +7328,7 @@ state-update records for coding-tool budget recovery, diagnostics operator
 override, operator interrupt/steer, run cancel, thread control, MCP control,
 thread memory, runtime bridge thread start/control/turn submit, subagent record,
 agent create/status, and run create paths. The JS
-`runtime-context-policy-runner.mjs` now passes missing Rust-owned `object` and
+`runtime-context-policy-core.mjs` now passes missing Rust-owned `object` and
 `status` fields through as `null` for those state-update normalizers instead
 of synthesizing `status: "planned"` as compatibility truth.
 

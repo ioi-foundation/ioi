@@ -108,7 +108,7 @@ function harness(options = {}) {
       ],
     },
   };
-  const contextPolicyRunner = options.contextPolicyRunner ?? {
+  const contextPolicyCore = options.contextPolicyCore ?? {
     validateMcpServers(request) {
       calls.push({ name: "validateMcpServers", request });
       const issues = request.servers.some((item) => item.invalid) ? [{ code: "invalid_server" }] : [];
@@ -185,7 +185,7 @@ function harness(options = {}) {
     RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION: "status.schema",
     RUNTIME_MCP_MANAGER_VALIDATION_SCHEMA_VERSION: "validation.schema",
     runtimeError,
-    contextPolicyRunner,
+    contextPolicyCore,
     eventStreamIdForThread: (threadId) => `events_${threadId}`,
     nowIso: () => "2026-06-06T06:30:00.000Z",
   });
@@ -395,7 +395,7 @@ test("runtime MCP control mutations plan in Rust and commit agent state without 
 
 test("runtime MCP control planner absence fails closed before JS state mutation", () => {
   const { store, surface } = harness({
-    contextPolicyRunner: {},
+    contextPolicyCore: {},
     store: {
       agentForThread: failIfCalled("agentForThread"),
       writeAgent: failIfCalled("writeAgent"),
@@ -464,7 +464,7 @@ test("runtime MCP live exits use Rust control admission before JS transport invo
 
 test("runtime MCP live exits fail closed when Rust control planner is missing", async () => {
   const { agent, store, surface } = harness({
-    contextPolicyRunner: {},
+    contextPolicyCore: {},
     store: {
       agentForThread: failIfCalled("agentForThread"),
       writeAgent: failIfCalled("writeAgent"),

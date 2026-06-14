@@ -21,11 +21,11 @@ export function createRuntimeThreadTurnSurface(deps = {}) {
     isRuntimeBackedAgent: isRuntimeBackedAgentDep = isRuntimeBackedAgent,
     isRuntimeServiceProfile: isRuntimeServiceProfileDep = isRuntimeServiceProfile,
     optionalString: optionalStringDep = optionalString,
-    operatorTurnControlAdmissionRunner = deps.contextPolicyRunner ?? null,
+    operatorTurnControlAdmissionRunner = deps.contextPolicyCore ?? null,
     requestWithThreadRuntimeControls: requestWithThreadRuntimeControlsDep = requestWithThreadRuntimeControls,
     runtimeError: runtimeErrorDep = runtimeError,
     runtimeProfileForRequest: runtimeProfileForRequestDep = runtimeProfileForRequest,
-    threadTurnAdmissionRunner = deps.contextPolicyRunner ?? null,
+    threadTurnAdmissionRunner = deps.contextPolicyCore ?? null,
   } = deps;
   return {
     async resumeThread(store, threadId, request = {}) {

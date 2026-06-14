@@ -45,18 +45,18 @@ function plannedForkRecord() {
   };
 }
 
-function createHarness({ plan = () => plannedForkRecord(), contextPolicyRunner } = {}) {
+function createHarness({ plan = () => plannedForkRecord(), contextPolicyCore } = {}) {
   const calls = [];
   const state = createThreadForkState();
   const runner =
-    contextPolicyRunner ?? {
+    contextPolicyCore ?? {
       planRuntimeThreadForkControl(request) {
         calls.push({ type: "planRuntimeThreadForkControl", request });
         return plan(request);
       },
     };
   const store = {
-    contextPolicyRunner: runner,
+    contextPolicyCore: runner,
     agentForThread(threadId) {
       calls.push({ type: "agentForThread", threadId });
       return {

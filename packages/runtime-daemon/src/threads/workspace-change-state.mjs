@@ -20,7 +20,7 @@ function stringRefs(values) {
 }
 
 function workspaceChangeProjectionRunner(store, request = {}, deps = {}) {
-  const runner = deps.contextPolicyRunner ?? store?.contextPolicyRunner;
+  const runner = deps.contextPolicyCore ?? store?.contextPolicyCore;
   if (runner?.projectRuntimeWorkspaceChangeProjection) return runner;
   throw runtimeError({
     status: 501,
@@ -38,7 +38,7 @@ function workspaceChangeProjectionRunner(store, request = {}, deps = {}) {
 }
 
 function workspaceChangeControlRunner(store, request = {}, deps = {}) {
-  const runner = deps.contextPolicyRunner ?? store?.contextPolicyRunner;
+  const runner = deps.contextPolicyCore ?? store?.contextPolicyCore;
   if (
     runner?.planRuntimeWorkspaceChangeControl &&
     typeof store?.appendRuntimeEvent === "function"

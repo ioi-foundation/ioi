@@ -280,7 +280,7 @@ test("coding-tool artifact surface fails closed without Rust artifact draft plan
 test("coding-tool artifact surface fails closed before cache mutation without Agentgres commit", () => {
   const plannerCalls = [];
   const { surface } = createSurface({
-    contextPolicyRunner: {
+    contextPolicyCore: {
       planRuntimeCodingToolArtifactDrafts(request) {
         plannerCalls.push(request);
         return {
@@ -332,7 +332,7 @@ test("coding-tool artifact surface fails closed before cache mutation without Ag
 test("coding-tool artifact surface commits Rust-planned artifact drafts through Agentgres", () => {
   const plannerCalls = [];
   const { surface, writes } = createSurface({
-    contextPolicyRunner: {
+    contextPolicyCore: {
       planRuntimeCodingToolArtifactDrafts(request) {
         plannerCalls.push(request);
         return {
@@ -438,7 +438,7 @@ test("coding-tool artifact surface reads artifacts inside the owning thread", ()
     content_hash: "hash_full",
     receipt_refs: ["receipt://artifact/admitted"],
   }];
-  const { surface } = createSurface({ contextPolicyRunner: createArtifactReadProjector(projectionCalls, artifactRecords) });
+  const { surface } = createSurface({ contextPolicyCore: createArtifactReadProjector(projectionCalls, artifactRecords) });
   const store = createStore();
 
   const result = surface.readCodingToolArtifact(store, "thread_alpha", "artifact_alpha", {
@@ -486,7 +486,7 @@ test("coding-tool artifact surface blocks cross-thread reads", () => {
     thread_id: "thread_alpha",
     content: "secret",
   }];
-  const { surface } = createSurface({ contextPolicyRunner: createArtifactReadProjector([], artifactRecords) });
+  const { surface } = createSurface({ contextPolicyCore: createArtifactReadProjector([], artifactRecords) });
   const store = createStore();
 
   assert.throws(
@@ -517,7 +517,7 @@ test("coding-tool artifact surface retrieves tool results by channel or artifact
     channel: "stdout",
     content: "out",
   }];
-  const { surface } = createSurface({ contextPolicyRunner: createArtifactReadProjector(projectionCalls, artifactRecords) });
+  const { surface } = createSurface({ contextPolicyCore: createArtifactReadProjector(projectionCalls, artifactRecords) });
   const store = createStore();
 
   const byChannel = surface.retrieveCodingToolResult(store, "thread_alpha", {
@@ -577,7 +577,7 @@ test("coding-tool artifact surface retrieves tool results by channel or artifact
 });
 
 test("coding-tool artifact surface requires retrieve targets", () => {
-  const { surface } = createSurface({ contextPolicyRunner: createArtifactReadProjector() });
+  const { surface } = createSurface({ contextPolicyCore: createArtifactReadProjector() });
   const store = createStore();
 
   assert.throws(

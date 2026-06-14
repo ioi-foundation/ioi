@@ -35,7 +35,7 @@ function createHarness({ planner } = {}) {
     },
   ];
   const state = createWorkspaceTrustState({
-    contextPolicyRunner: planner
+    contextPolicyCore: planner
       ? {
         planWorkspaceTrustControlStateUpdate(request = {}) {
           calls.push({ type: "planner", request });

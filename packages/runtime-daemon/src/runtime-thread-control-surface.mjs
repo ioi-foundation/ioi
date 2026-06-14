@@ -4,7 +4,7 @@ import {
   RUNTIME_THREAD_MODE_CONTROL_SCHEMA_VERSION,
 } from "./runtime-contract-constants.mjs";
 import { eventStreamIdForThread } from "./runtime-identifiers.mjs";
-import { createContextPolicyRunnerFromEnv } from "./runtime-context-policy-runner.mjs";
+import { createRuntimeContextPolicyCore } from "./runtime-context-policy-core.mjs";
 import { runtimeError } from "./runtime-http-utils.mjs";
 import {
   objectRecord,
@@ -23,7 +23,7 @@ import { createWorkspaceTrustState } from "./threads/workspace-trust-state.mjs";
 
 export function createRuntimeThreadControlSurface({
   approvalModeForThreadMode: approvalModeForThreadModeDep = approvalModeForThreadMode,
-  contextPolicyRunner: contextPolicyRunnerDep = createContextPolicyRunnerFromEnv(),
+  contextPolicyCore: contextPolicyCoreDep = createRuntimeContextPolicyCore(),
   eventStreamIdForThread: eventStreamIdForThreadDep = eventStreamIdForThread,
   normalizeThreadApprovalMode: normalizeThreadApprovalModeDep = normalizeThreadApprovalMode,
   normalizeThreadInteractionMode: normalizeThreadInteractionModeDep = normalizeThreadInteractionMode,
@@ -42,7 +42,7 @@ export function createRuntimeThreadControlSurface({
   const trustState = workspaceTrustState ?? createWorkspaceTrustState({
     eventStreamIdForThread: eventStreamIdForThreadDep,
     runtimeError: runtimeErrorDep,
-    contextPolicyRunner: contextPolicyRunnerDep,
+    contextPolicyCore: contextPolicyCoreDep,
     nowIso,
   });
 
@@ -92,14 +92,14 @@ export function createRuntimeThreadControlSurface({
   };
 
   function applyRustThreadControlStateUpdate(store, threadId, controlKind, request = {}) {
-    const planner = contextPolicyRunnerDep?.planThreadControlAgentStateUpdate;
+    const planner = contextPolicyCoreDep?.planThreadControlAgentStateUpdate;
     if (typeof planner !== "function") {
       throwThreadControlRustCoreRequired({ threadId, controlKind });
     }
     if (
       controlKind === "mode" &&
       !workspaceTrustState &&
-      typeof contextPolicyRunnerDep?.planWorkspaceTrustControlStateUpdate !== "function"
+      typeof contextPolicyCoreDep?.planWorkspaceTrustControlStateUpdate !== "function"
     ) {
       throwWorkspaceTrustRustCoreRequired({ threadId });
     }
@@ -124,7 +124,7 @@ export function createRuntimeThreadControlSurface({
     const eventId =
       optionalStringDep(request.event_id) ??
       `thread_control_${safeIdDep(threadId)}_${controlKind}_${safeIdDep(now)}`;
-    const stateUpdate = planner.call(contextPolicyRunnerDep, {
+    const stateUpdate = planner.call(contextPolicyCoreDep, {
       thread_id: threadId,
       agent,
       control_kind: controlKind,

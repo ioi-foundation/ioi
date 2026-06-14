@@ -2,8 +2,8 @@ import {
   CODING_TOOL_BUDGET_POLICY_REQUEST_SCHEMA_VERSION,
   COMPACTION_POLICY_REQUEST_SCHEMA_VERSION,
   CONTEXT_BUDGET_POLICY_REQUEST_SCHEMA_VERSION,
-  createContextPolicyRunnerFromEnv,
-} from "../runtime-context-policy-runner.mjs";
+  createRuntimeContextPolicyCore,
+} from "../runtime-context-policy-core.mjs";
 
 export function contextBudgetUsageTelemetryFromRequest(request = {}) {
   return contextBudgetFirstObject(
@@ -19,7 +19,7 @@ export function codingToolBudgetPolicyForRequest({
   toolCallId = null,
   workflowGraphId = null,
   workflowNodeId = null,
-  budgetRunner = createContextPolicyRunnerFromEnv(),
+  budgetRunner = createRuntimeContextPolicyCore(),
 } = {}) {
   const codingPack = codingToolBudgetConfigForRequest(request);
   const usageTelemetry = contextBudgetFirstObject(
@@ -104,7 +104,7 @@ export function codingToolBudgetConfigForRequest(request = {}) {
 export function evaluateContextBudgetPolicy({
   usageTelemetry,
   request = {},
-  budgetRunner = createContextPolicyRunnerFromEnv(),
+  budgetRunner = createRuntimeContextPolicyCore(),
 } = {}) {
   const canonicalUsageTelemetry = contextBudgetFirstObject(usageTelemetry) ?? {};
   const thresholds = contextBudgetThresholds(request);
@@ -196,7 +196,7 @@ export function evaluateCompactionPolicyDecision({
   threadId,
   turnId = "",
   request = {},
-  policyRunner = createContextPolicyRunnerFromEnv(),
+  policyRunner = createRuntimeContextPolicyCore(),
 } = {}) {
   const policy = contextBudgetFirstObject(request.policy, request.compaction_policy) ?? {};
   const contextBudget = contextBudgetFirstObject(

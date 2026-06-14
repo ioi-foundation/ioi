@@ -4,7 +4,7 @@ import {
 
 export function createRuntimeCodingToolGovernanceSurface(deps = {}) {
   const {
-    codingToolBudgetBlockPlanner = deps.contextPolicyRunner ?? null,
+    codingToolBudgetBlockPlanner = deps.contextPolicyCore ?? null,
     runtimeError = ({ status = 500, code = "runtime_error", message = code, details = {} } = {}) => {
       const error = new Error(message);
       error.status = status;

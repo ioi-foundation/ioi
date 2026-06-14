@@ -443,7 +443,7 @@ test("thread turn surface resumes non-runtime threads through Rust lifecycle sta
 test("thread turn surface fails closed for non-runtime resume when mounted Rust lifecycle boundary is missing", async () => {
   const admissionRequiredCalls = [];
   const surface = createRuntimeThreadTurnSurface({
-    contextPolicyRunner: createThreadTurnAdmissionRunner(admissionRequiredCalls),
+    contextPolicyCore: createThreadTurnAdmissionRunner(admissionRequiredCalls),
     diagnosticsFeedbackBlocksContinuation: () => false,
     runtimeError,
   });
@@ -508,7 +508,7 @@ test("thread turn surface creates non-runtime turns through Rust-planned run and
 test("thread turn surface fails closed for non-runtime turns when mounted Rust run boundary is missing", async () => {
   const admissionRequiredCalls = [];
   const surface = createRuntimeThreadTurnSurface({
-    contextPolicyRunner: createThreadTurnAdmissionRunner(admissionRequiredCalls),
+    contextPolicyCore: createThreadTurnAdmissionRunner(admissionRequiredCalls),
     diagnosticsFeedbackBlocksContinuation: () => false,
     runtimeError,
   });
@@ -546,7 +546,7 @@ test("thread turn surface fails closed for non-runtime turns when mounted Rust r
 test("thread turn surface fails closed for diagnostics-blocked turns before Rust run creation", async () => {
   const admissionRequiredCalls = [];
   const surface = createRuntimeThreadTurnSurface({
-    contextPolicyRunner: createThreadTurnAdmissionRunner(admissionRequiredCalls),
+    contextPolicyCore: createThreadTurnAdmissionRunner(admissionRequiredCalls),
     diagnosticsFeedbackBlocksContinuation: () => true,
     runtimeError,
   });
@@ -585,7 +585,7 @@ test("thread turn surface fails closed for diagnostics-blocked turns before Rust
 test("thread turn surface plans operator interrupt and steer through Rust before run persistence", async () => {
   const operatorCalls = [];
   const surface = createRuntimeThreadTurnSurface({
-    contextPolicyRunner: createOperatorTurnControlRunner(operatorCalls),
+    contextPolicyCore: createOperatorTurnControlRunner(operatorCalls),
     diagnosticsFeedbackBlocksContinuation: () => false,
     runtimeError,
   });

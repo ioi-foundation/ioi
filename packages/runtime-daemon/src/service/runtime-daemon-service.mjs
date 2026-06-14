@@ -10,11 +10,14 @@ export async function startRuntimeDaemonServiceWithStore({
   const stateDir = path.resolve(options.stateDir ?? path.join(process.cwd(), ".ioi", "agentgres"));
   const host = options.host ?? "127.0.0.1";
   const port = options.port ?? 0;
+  if (Object.hasOwn(options, "contextPolicyRunner")) {
+    throw new Error("contextPolicyRunner is retired; pass contextPolicyCore for the Rust daemon-core policy boundary.");
+  }
   const store = new StateStore(stateDir, {
     cwd: options.cwd ?? process.cwd(),
     homeDir: options.homeDir,
     vaultSecrets: options.vaultSecrets,
-    contextPolicyRunner: options.contextPolicyRunner,
+    contextPolicyCore: options.contextPolicyCore,
     codingToolApprovalCore: options.codingToolApprovalCore,
     modelMountCore: options.modelMountCore,
     runtimeAgentgresAdmissionCore: options.runtimeAgentgresAdmissionCore,

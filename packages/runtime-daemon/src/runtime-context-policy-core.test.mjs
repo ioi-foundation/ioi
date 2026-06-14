@@ -17,7 +17,7 @@ import {
   CONTEXT_COMPACTION_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   CONTEXT_BUDGET_POLICY_REQUEST_SCHEMA_VERSION,
   CONTEXT_POLICY_COMMAND_SCHEMA_VERSION,
-  ContextPolicyRunnerError,
+  RuntimeContextPolicyCoreError,
   DIAGNOSTICS_REPAIR_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
   RUNTIME_DIAGNOSTICS_REPAIR_CONTROL_REQUEST_SCHEMA_VERSION,
   RUNTIME_DIAGNOSTICS_REPAIR_RETRY_RUN_REQUEST_SCHEMA_VERSION,
@@ -63,7 +63,7 @@ import {
   RUNTIME_TASK_JOB_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   RUNTIME_TASK_JOB_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   RUNTIME_TASK_JOB_PROJECTION_REQUEST_SCHEMA_VERSION,
-  RustContextPolicyRunner,
+  RuntimeContextPolicyCore,
   SKILL_HOOK_REGISTRY_PROJECTION_REQUEST_SCHEMA_VERSION,
   SUBAGENT_RECORD_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   THREAD_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
@@ -72,7 +72,7 @@ import {
   THREAD_MEMORY_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   WORKSPACE_TRUST_CONTROL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   WORKFLOW_EDIT_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
-  createContextPolicyRunnerFromEnv,
+  createRuntimeContextPolicyCore,
   normalizeAgentCreateStateUpdateBridgeResult,
   normalizeAgentDeleteStateUpdateBridgeResult,
   normalizeAgentStatusStateUpdateBridgeResult,
@@ -128,7 +128,7 @@ import {
   normalizeThreadControlAgentStateUpdateBridgeResult,
   normalizeThreadMemoryAgentStateUpdateBridgeResult,
   normalizeWorkspaceTrustControlStateUpdateBridgeResult,
-} from "./runtime-context-policy-runner.mjs";
+} from "./runtime-context-policy-core.mjs";
 
 function assertNoRetiredOperationKindDetailAliases(details) {
   for (const key of ["operationKind", "expectedOperationKind", "expectedOperationKinds", "expectedPrefix"]) {
@@ -136,12 +136,9 @@ function assertNoRetiredOperationKindDetailAliases(details) {
   }
 }
 
-test("context policy runner env uses daemon-level direct invoker", () => {
+test("runtime context policy core uses daemon-level direct invoker", () => {
   const calls = [];
-  const runner = createContextPolicyRunnerFromEnv({
-    IOI_STEP_MODULE_COMMAND: "retired-step-module-bridge",
-    IOI_STEP_MODULE_COMMAND_ARGS: "--retired",
-  }, {
+  const runner = createRuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       calls.push(request);
       return {
@@ -164,58 +161,54 @@ test("context policy runner env uses daemon-level direct invoker", () => {
   assert.equal(result.source, "direct_daemon_core_api");
 });
 
-test("context policy runner rejects retired daemon-core command env", () => {
+test("runtime context policy core rejects retired daemon-core command option", () => {
   assert.throws(
     () =>
-      createContextPolicyRunnerFromEnv(
-        {
-          IOI_RUNTIME_DAEMON_CORE_COMMAND: "ioi-runtime-daemon-core",
+      createRuntimeContextPolicyCore({
+        command: "ioi-runtime-daemon-core",
+        daemonCoreInvoker() {
+          return {};
         },
-        {
-          daemonCoreInvoker() {
-            return {};
-          },
-        },
-      ),
-    (error) =>
-      error instanceof ContextPolicyRunnerError &&
-      error.code === "context_policy_command_selection_retired",
-  );
-});
-
-test("context policy runner command args env fails closed", () => {
-  assert.throws(
-    () =>
-      createContextPolicyRunnerFromEnv({
-        IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS: "--json",
       }),
     (error) =>
-      error instanceof ContextPolicyRunnerError &&
-      error.code === "context_policy_command_args_retired",
+      error instanceof RuntimeContextPolicyCoreError &&
+      error.code === "runtime_context_policy_core_command_retired",
   );
 });
 
-test("context policy runner command args constructor option fails closed", () => {
+test("runtime context policy core env option fails closed", () => {
   assert.throws(
-    () => new RustContextPolicyRunner({ args: ["--json"] }),
+    () =>
+      createRuntimeContextPolicyCore({
+        env: { IOI_RUNTIME_DAEMON_CORE_COMMAND: "ioi-runtime-daemon-core" },
+      }),
     (error) =>
-      error instanceof ContextPolicyRunnerError &&
-      error.code === "context_policy_command_args_retired",
+      error instanceof RuntimeContextPolicyCoreError &&
+      error.code === "runtime_context_policy_core_env_retired",
   );
 });
 
-test("context policy runner command constructor option fails closed", () => {
+test("runtime context policy core command args constructor option fails closed", () => {
   assert.throws(
-    () => new RustContextPolicyRunner({ command: "ioi-runtime-daemon-core" }),
+    () => new RuntimeContextPolicyCore({ args: ["--json"] }),
     (error) =>
-      error instanceof ContextPolicyRunnerError &&
-      error.code === "context_policy_command_selection_retired",
+      error instanceof RuntimeContextPolicyCoreError &&
+      error.code === "runtime_context_policy_core_args_retired",
   );
 });
 
-test("context budget policy runner sends generic Rust policy through direct daemon-core invoker", () => {
+test("runtime context policy core command constructor option fails closed", () => {
+  assert.throws(
+    () => new RuntimeContextPolicyCore({ command: "ioi-runtime-daemon-core" }),
+    (error) =>
+      error instanceof RuntimeContextPolicyCoreError &&
+      error.code === "runtime_context_policy_core_command_retired",
+  );
+});
+
+test("context budget policy core sends generic Rust policy through direct daemon-core invoker", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -266,9 +259,9 @@ test("context budget policy runner sends generic Rust policy through direct daem
   assert.deepEqual(result.policy_decision_refs, ["policy_context_budget_thread_test_blocked"]);
 });
 
-test("coding tool budget runner sends Rust policy through direct daemon-core invoker", () => {
+test("coding tool budget core sends Rust policy through direct daemon-core invoker", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -307,9 +300,9 @@ test("coding tool budget runner sends Rust policy through direct daemon-core inv
   assert.deepEqual(result.policy_decision_refs, ["policy_context_budget_thread_test_blocked"]);
 });
 
-test("compaction policy runner sends Rust policy through direct daemon-core invoker", () => {
+test("compaction policy core sends Rust policy through direct daemon-core invoker", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -367,9 +360,9 @@ test("compaction policy runner sends Rust policy through direct daemon-core invo
   );
 });
 
-test("context compaction runner sends Rust plan through direct daemon-core invoker", () => {
+test("context compaction core sends Rust plan through direct daemon-core invoker", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -420,9 +413,9 @@ test("context compaction runner sends Rust plan through direct daemon-core invok
   assert.deepEqual(result.receipt_refs, ["receipt_run_1_context_compaction_hash_one"]);
 });
 
-test("context compaction state update runner sends Rust state update through direct daemon-core invoker", () => {
+test("context compaction state update core sends Rust state update through direct daemon-core invoker", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -491,7 +484,7 @@ test("context compaction state update runner sends Rust state update through dir
   assert.equal(result.run.trace.contextCompaction.event_id, "event_1");
 });
 
-test("context lifecycle runners do not synthesize Rust-owned public fields", () => {
+test("runtime context lifecycle core does not synthesize Rust-owned public fields", () => {
   const budget = normalizeContextBudgetPolicyBridgeResult({
     source: "rust_context_budget_policy_command",
     usage_telemetry: {},
@@ -550,7 +543,7 @@ test("context lifecycle runners do not synthesize Rust-owned public fields", () 
   assert.equal(update.operation_kind, "thread.compact");
 });
 
-test("runtime state-update runners do not synthesize Rust-owned envelopes", () => {
+test("runtime state-update core does not synthesize Rust-owned envelopes", () => {
   const sparseCases = [
     [
       normalizeCodingToolBudgetRecoveryStateUpdateBridgeResult,
@@ -667,9 +660,9 @@ test("runtime state-update runners do not synthesize Rust-owned envelopes", () =
   }
 });
 
-test("coding tool budget recovery state update runner sends Rust state update through direct daemon-core invoker", () => {
+test("coding tool budget recovery state update core sends Rust state update through direct daemon-core invoker", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -729,9 +722,9 @@ test("coding tool budget recovery state update runner sends Rust state update th
   assert.equal(result.run.trace.operatorControls[0].event_id, "event_retry");
 });
 
-test("coding tool budget block runner sends Rust block request through direct daemon-core invoker", () => {
+test("coding tool budget block core sends Rust block request through direct daemon-core invoker", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -807,9 +800,9 @@ test("coding tool budget block runner sends Rust block request through direct da
   assert.equal(Object.hasOwn(result.event.payload_summary, "receiptRefs"), false);
 });
 
-test("coding-tool budget recovery control runner sends Rust daemon-core request", () => {
+test("coding-tool budget recovery control core sends Rust daemon-core request", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -870,9 +863,9 @@ test("coding-tool budget recovery control runner sends Rust daemon-core request"
   assert.equal(Object.hasOwn(result.operator_control, "authorityHash"), false);
 });
 
-test("workflow-edit admission-required runner sends Rust daemon-core request", () => {
+test("workflow-edit admission-required core sends Rust daemon-core request", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -918,9 +911,9 @@ test("workflow-edit admission-required runner sends Rust daemon-core request", (
   assert.equal(Object.hasOwn(result.record.details, "threadId"), false);
 });
 
-test("diagnostics repair admission-required runner sends Rust daemon-core request", () => {
+test("diagnostics repair admission-required core sends Rust daemon-core request", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -975,9 +968,9 @@ test("diagnostics repair admission-required runner sends Rust daemon-core reques
   assert.equal(Object.hasOwn(result.record.details, "gateEventId"), false);
 });
 
-test("runtime diagnostics repair control runner sends Rust daemon-core request", () => {
+test("runtime diagnostics repair control core sends Rust daemon-core request", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -1035,9 +1028,9 @@ test("runtime diagnostics repair control runner sends Rust daemon-core request",
   assert.deepEqual(result.receipt_refs, ["receipt_diagnostics_repair_decision_alpha"]);
 });
 
-test("runtime diagnostics repair retry-run runner sends Rust daemon-core request", () => {
+test("runtime diagnostics repair retry-run core sends Rust daemon-core request", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -1110,9 +1103,9 @@ test("runtime diagnostics repair retry-run runner sends Rust daemon-core request
   assert.deepEqual(result.receipt_refs, ["receipt_retry"]);
 });
 
-test("runtime diagnostics repair projection runner sends Rust daemon-core request", () => {
+test("runtime diagnostics repair projection core sends Rust daemon-core request", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -1197,9 +1190,9 @@ test("runtime diagnostics repair projection runner sends Rust daemon-core reques
   );
 });
 
-test("runtime diagnostics repair policy runner sends Rust daemon-core request", () => {
+test("runtime diagnostics repair policy core sends Rust daemon-core request", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -1294,9 +1287,9 @@ test("runtime diagnostics repair policy runner sends Rust daemon-core request", 
   );
 });
 
-test("diagnostics operator override state update runner sends Rust state update through direct daemon-core invoker", () => {
+test("diagnostics operator override state update core sends Rust state update through direct daemon-core invoker", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -1406,9 +1399,9 @@ test("diagnostics operator override state update runner sends Rust state update 
   assert.equal(result.run.trace.operatorControls[0].event_id, "event_override");
 });
 
-test("coding-tool result envelope runner sends Rust daemon-core plan request", () => {
+test("coding-tool result envelope core sends Rust daemon-core plan request", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -1472,9 +1465,9 @@ test("coding-tool result envelope runner sends Rust daemon-core plan request", (
   assert.equal(result.envelope_hash, "sha256:envelope");
 });
 
-test("coding-tool artifact draft runner sends Rust daemon-core plan request", () => {
+test("coding-tool artifact draft core sends Rust daemon-core plan request", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -1557,9 +1550,9 @@ test("coding-tool artifact draft normalizer rejects missing Rust records", () =>
   );
 });
 
-test("coding-tool artifact read projection runner sends Rust daemon-core request", () => {
+test("coding-tool artifact read projection core sends Rust daemon-core request", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -1654,9 +1647,9 @@ test("coding-tool result envelope normalizer rejects wrong operation kind", () =
   );
 });
 
-test("post-edit diagnostics feedback runner sends Rust daemon-core plan request", () => {
+test("post-edit diagnostics feedback core sends Rust daemon-core plan request", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -1734,9 +1727,9 @@ test("post-edit diagnostics feedback plan normalizer preserves Rust-owned reques
   assert.deepEqual(result.rollback_refs, ["snapshot_alpha"]);
 });
 
-test("operator turn control admission-required runner sends Rust daemon-core request", () => {
+test("operator turn control admission-required core sends Rust daemon-core request", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -1787,9 +1780,9 @@ test("operator turn control admission-required runner sends Rust daemon-core req
   assert.equal(Object.hasOwn(result.record.details, "requestedAction"), false);
 });
 
-test("operator interrupt state update runner sends Rust state update through direct daemon-core invoker", () => {
+test("operator interrupt state update core sends Rust state update through direct daemon-core invoker", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -1854,9 +1847,9 @@ test("operator interrupt state update runner sends Rust state update through dir
   assert.equal(result.run.trace.operatorControls[0].event_id, "event_interrupt");
 });
 
-test("operator steer state update runner sends Rust state update through direct daemon-core invoker", () => {
+test("operator steer state update core sends Rust state update through direct daemon-core invoker", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -1916,9 +1909,9 @@ test("operator steer state update runner sends Rust state update through direct 
   assert.equal(result.run.trace.operatorControls[0].event_id, "event_steer");
 });
 
-test("run cancel state update runner sends Rust state update through direct daemon-core invoker", () => {
+test("run cancel state update core sends Rust state update through direct daemon-core invoker", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -1977,9 +1970,9 @@ test("run cancel state update runner sends Rust state update through direct daem
   assert.equal(result.run.events.at(-1).type, "canceled");
 });
 
-test("run cancel admission-required runner sends Rust daemon-core request", () => {
+test("run cancel admission-required core sends Rust daemon-core request", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -2027,9 +2020,9 @@ test("run cancel admission-required runner sends Rust daemon-core request", () =
   assert.equal(Object.hasOwn(result.record.details, "runStatus"), false);
 });
 
-test("runtime task job cancel runner sends Rust state update through direct daemon-core invoker", () => {
+test("runtime task job cancel core sends Rust state update through direct daemon-core invoker", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -2110,9 +2103,9 @@ test("runtime task job cancel normalizer accepts job cancel operation kind", () 
   assert.equal(result.runtime_job.status, "canceled");
 });
 
-test("runtime task job create runner sends Rust state update through direct daemon-core invoker", () => {
+test("runtime task job create core sends Rust state update through direct daemon-core invoker", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -2191,9 +2184,9 @@ test("runtime task job create normalizer requires task create operation kind", (
   assert.equal(result.runtime_checklist.status, "completed");
 });
 
-test("runtime task job projection runner sends Rust projection through direct daemon-core invoker", () => {
+test("runtime task job projection core sends Rust projection through direct daemon-core invoker", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -2274,9 +2267,9 @@ test("runtime task job projection normalizer accepts get operation kinds", () =>
   assert.equal(jobResult.runtime_job.jobId, "job_run-one");
 });
 
-test("skill hook registry projection runner sends Rust daemon-core request", () => {
+test("skill hook registry projection core sends Rust daemon-core request", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -2351,9 +2344,9 @@ test("skill hook registry projection runner sends Rust daemon-core request", () 
   );
 });
 
-test("repository workflow projection runner sends Rust daemon-core request", () => {
+test("repository workflow projection core sends Rust daemon-core request", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -2436,9 +2429,9 @@ test("repository workflow projection runner sends Rust daemon-core request", () 
   );
 });
 
-test("runtime tool catalog projection runner sends Rust daemon-core request", () => {
+test("runtime tool catalog projection core sends Rust daemon-core request", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -2499,9 +2492,9 @@ test("runtime tool catalog projection runner sends Rust daemon-core request", ()
   );
 });
 
-test("runtime lifecycle projection runner sends Rust daemon-core request", () => {
+test("runtime lifecycle projection core sends Rust daemon-core request", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -2587,9 +2580,9 @@ test("runtime lifecycle projection runner sends Rust daemon-core request", () =>
   );
 });
 
-test("runtime memory projection runner sends Rust daemon-core request", () => {
+test("runtime memory projection core sends Rust daemon-core request", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -2670,9 +2663,9 @@ test("runtime memory projection runner sends Rust daemon-core request", () => {
   );
 });
 
-test("runtime memory control runner sends Rust daemon-core request", () => {
+test("runtime memory control core sends Rust daemon-core request", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -2745,9 +2738,9 @@ test("runtime memory control runner sends Rust daemon-core request", () => {
   );
 });
 
-test("runtime workflow-edit control runner sends Rust daemon-core request", () => {
+test("runtime workflow-edit control core sends Rust daemon-core request", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -2821,9 +2814,9 @@ test("runtime workflow-edit control runner sends Rust daemon-core request", () =
   );
 });
 
-test("runtime managed-session projection runner sends Rust daemon-core request", () => {
+test("runtime managed-session projection core sends Rust daemon-core request", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -2892,9 +2885,9 @@ test("runtime managed-session projection runner sends Rust daemon-core request",
   );
 });
 
-test("runtime managed-session control runner sends Rust daemon-core request", () => {
+test("runtime managed-session control core sends Rust daemon-core request", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -2966,9 +2959,9 @@ test("runtime managed-session control runner sends Rust daemon-core request", ()
   );
 });
 
-test("runtime workspace-change projection runner sends Rust daemon-core request", () => {
+test("runtime workspace-change projection core sends Rust daemon-core request", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -3037,9 +3030,9 @@ test("runtime workspace-change projection runner sends Rust daemon-core request"
   );
 });
 
-test("runtime workspace-change control runner sends Rust daemon-core request", () => {
+test("runtime workspace-change control core sends Rust daemon-core request", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -3111,9 +3104,9 @@ test("runtime workspace-change control runner sends Rust daemon-core request", (
   );
 });
 
-test("runtime thread-fork control runner sends Rust daemon-core request", () => {
+test("runtime thread-fork control core sends Rust daemon-core request", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -3200,9 +3193,9 @@ test("runtime thread-fork control runner sends Rust daemon-core request", () => 
   );
 });
 
-test("runtime conversation artifact projection runner sends Rust daemon-core request", () => {
+test("runtime conversation artifact projection core sends Rust daemon-core request", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -3276,9 +3269,9 @@ test("runtime conversation artifact projection runner sends Rust daemon-core req
   );
 });
 
-test("runtime conversation artifact control runner sends Rust daemon-core request", () => {
+test("runtime conversation artifact control core sends Rust daemon-core request", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -3356,9 +3349,9 @@ test("runtime conversation artifact control runner sends Rust daemon-core reques
   );
 });
 
-test("runtime subagent projection runner sends Rust daemon-core request", () => {
+test("runtime subagent projection core sends Rust daemon-core request", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -3430,9 +3423,9 @@ test("runtime subagent projection runner sends Rust daemon-core request", () => 
   );
 });
 
-test("runtime subagent wait control runner sends Rust daemon-core request", () => {
+test("runtime subagent wait control core sends Rust daemon-core request", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -3502,9 +3495,9 @@ test("runtime subagent wait control runner sends Rust daemon-core request", () =
   );
 });
 
-test("thread control agent state update runner sends Rust state update through direct daemon-core invoker", () => {
+test("thread control agent state update core sends Rust state update through direct daemon-core invoker", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -3579,9 +3572,9 @@ test("thread control agent state update runner sends Rust state update through d
   assert.equal(result.agent.modelId, "local-model");
 });
 
-test("workspace trust control state update runner sends Rust state update through direct daemon-core invoker", () => {
+test("workspace trust control state update core sends Rust state update through direct daemon-core invoker", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -3643,9 +3636,9 @@ test("workspace trust control state update runner sends Rust state update throug
   assert.deepEqual(result.receipt_refs, ["receipt_workspace_trust_ack_1"]);
 });
 
-test("thread turn admission-required runner sends Rust daemon-core request", () => {
+test("thread turn admission-required core sends Rust daemon-core request", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -3696,9 +3689,9 @@ test("thread turn admission-required runner sends Rust daemon-core request", () 
   assert.equal(Object.hasOwn(result.record.details, "runtimeProfile"), false);
 });
 
-test("lifecycle admission-required runner sends Rust daemon-core request", () => {
+test("lifecycle admission-required core sends Rust daemon-core request", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -3749,9 +3742,9 @@ test("lifecycle admission-required runner sends Rust daemon-core request", () =>
   assert.equal(Object.hasOwn(result.record.details, "requestedStatus"), false);
 });
 
-test("mcp control agent state update runner sends Rust state update through direct daemon-core invoker", () => {
+test("mcp control agent state update core sends Rust state update through direct daemon-core invoker", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -3802,9 +3795,9 @@ test("mcp control agent state update runner sends Rust state update through dire
   assert.equal(result.agent.mcpRegistry.servers[0].id, "mcp.docs");
 });
 
-test("MCP server validation runner sends Rust daemon-core validation request", () => {
+test("MCP server validation core sends Rust daemon-core validation request", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -3857,9 +3850,9 @@ test("MCP server validation runner sends Rust daemon-core validation request", (
   assert.equal(Object.hasOwn(result.issues[0], "serverId"), false);
 });
 
-test("MCP server validation input runner sends Rust daemon-core projection request", () => {
+test("MCP server validation input core sends Rust daemon-core projection request", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -3909,7 +3902,7 @@ test("MCP server validation input runner sends Rust daemon-core projection reque
 
 test("runtime MCP serve tool-call planner sends Rust daemon-core request", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -3982,14 +3975,14 @@ test("runtime MCP serve tool-call planner rejects missing Rust request envelope"
         operation_kind: "mcp.serve.tools.call",
       }),
     (error) =>
-      error instanceof ContextPolicyRunnerError &&
+      error instanceof RuntimeContextPolicyCoreError &&
       error.code === "runtime_mcp_serve_tool_call_plan_request_missing",
   );
 });
 
-test("MCP manager status projection runner sends Rust daemon-core projection request", () => {
+test("MCP manager status projection core sends Rust daemon-core projection request", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -4046,9 +4039,9 @@ test("MCP manager status projection runner sends Rust daemon-core projection req
   assert.equal(Object.hasOwn(result.routes, "searchTools"), false);
 });
 
-test("memory manager status projection runner sends Rust daemon-core projection request", () => {
+test("memory manager status projection core sends Rust daemon-core projection request", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -4100,9 +4093,9 @@ test("memory manager status projection runner sends Rust daemon-core projection 
   assert.equal(Object.hasOwn(result, "writeRequiresApproval"), false);
 });
 
-test("memory manager validation projection runner sends Rust daemon-core projection request", () => {
+test("memory manager validation projection core sends Rust daemon-core projection request", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -4145,9 +4138,9 @@ test("memory manager validation projection runner sends Rust daemon-core project
   assert.equal(Object.hasOwn(result, "recordCount"), false);
 });
 
-test("MCP manager catalog projection runner sends Rust daemon-core projection request", () => {
+test("MCP manager catalog projection core sends Rust daemon-core projection request", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -4192,9 +4185,9 @@ test("MCP manager catalog projection runner sends Rust daemon-core projection re
   assert.equal(Object.hasOwn(result.tools[0], "stableToolId"), false);
 });
 
-test("MCP manager catalog summary projection runner sends Rust daemon-core projection request", () => {
+test("MCP manager catalog summary projection core sends Rust daemon-core projection request", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -4243,9 +4236,9 @@ test("MCP manager catalog summary projection runner sends Rust daemon-core proje
   assert.equal(Object.hasOwn(result, "catalogHash"), false);
 });
 
-test("MCP manager validation projection runner sends Rust daemon-core projection request", () => {
+test("MCP manager validation projection core sends Rust daemon-core projection request", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -4299,7 +4292,7 @@ test("MCP manager validation projection runner sends Rust daemon-core projection
   assert.equal(Object.hasOwn(result.tools[0], "stableToolId"), false);
 });
 
-test("MCP and memory manager projection runners do not synthesize Rust-owned projection envelopes", () => {
+test("MCP and memory manager projection core does not synthesize Rust-owned projection envelopes", () => {
   const mcpStatus = normalizeMcpManagerStatusProjectionBridgeResult({
     source: "legacy_mcp_status_projection_fixture",
     servers: [{ id: "mcp.docs" }],
@@ -4363,9 +4356,9 @@ test("MCP and memory manager projection runners do not synthesize Rust-owned pro
   assert.equal(mcpSummary.fetch_route, null);
 });
 
-test("thread memory agent state update runner sends Rust state update through direct daemon-core invoker", () => {
+test("thread memory agent state update core sends Rust state update through direct daemon-core invoker", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -4413,9 +4406,9 @@ test("thread memory agent state update runner sends Rust state update through di
   assert.equal(result.agent.updatedAt, "2026-06-06T06:05:00.000Z");
 });
 
-test("runtime bridge thread start agent state update runner sends Rust state update through direct daemon-core invoker", () => {
+test("runtime bridge thread start agent state update core sends Rust state update through direct daemon-core invoker", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -4477,9 +4470,9 @@ test("runtime bridge thread start agent state update runner sends Rust state upd
   assert.equal(result.agent.runtime_bridge_source, "runtime_service");
 });
 
-test("runtime bridge thread control agent state update runner sends Rust state update through direct daemon-core invoker", () => {
+test("runtime bridge thread control agent state update core sends Rust state update through direct daemon-core invoker", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -4533,9 +4526,9 @@ test("runtime bridge thread control agent state update runner sends Rust state u
   assert.equal(result.agent.runtime_bridge_status, "active");
 });
 
-test("runtime bridge turn run state update runner sends Rust state update through direct daemon-core invoker", () => {
+test("runtime bridge turn run state update core sends Rust state update through direct daemon-core invoker", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -4582,9 +4575,9 @@ test("runtime bridge turn run state update runner sends Rust state update throug
   assert.equal(result.run.id, "run_runtime");
 });
 
-test("subagent record state update runner sends Rust state update through direct daemon-core invoker", () => {
+test("subagent record state update core sends Rust state update through direct daemon-core invoker", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -4628,9 +4621,9 @@ test("subagent record state update runner sends Rust state update through direct
   assert.equal(result.subagent.subagent_id, "subagent_1");
 });
 
-test("agent create state update runner sends Rust state update through direct daemon-core invoker", () => {
+test("agent create state update core sends Rust state update through direct daemon-core invoker", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -4670,9 +4663,9 @@ test("agent create state update runner sends Rust state update through direct da
   assert.equal(result.agent.id, "agent_create_one");
 });
 
-test("thread create state update runner sends Rust state update through direct daemon-core invoker", () => {
+test("thread create state update core sends Rust state update through direct daemon-core invoker", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -4732,9 +4725,9 @@ test("thread create state update runner sends Rust state update through direct d
   assert.equal(result.agent.id, "agent_create_one");
 });
 
-test("agent status state update runner sends Rust state update through direct daemon-core invoker", () => {
+test("agent status state update core sends Rust state update through direct daemon-core invoker", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -4772,9 +4765,9 @@ test("agent status state update runner sends Rust state update through direct da
   assert.equal(result.agent.status, "archived");
 });
 
-test("agent delete state update runner sends Rust tombstone through direct daemon-core invoker", () => {
+test("agent delete state update core sends Rust tombstone through direct daemon-core invoker", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -4814,9 +4807,9 @@ test("agent delete state update runner sends Rust tombstone through direct daemo
   assert.equal(result.agent.deletedAt, "2026-06-06T06:40:00.000Z");
 });
 
-test("run create state update runner sends Rust state update through direct daemon-core invoker", () => {
+test("run create state update core sends Rust state update through direct daemon-core invoker", () => {
   let captured = null;
-  const runner = new RustContextPolicyRunner({
+  const runner = new RuntimeContextPolicyCore({
     daemonCoreInvoker(request) {
       captured = request;
       return {
@@ -4862,18 +4855,18 @@ test("run create state update runner sends Rust state update through direct daem
   assert.equal(result.run.usage_telemetry.total_tokens, 7);
 });
 
-test("context policy runner fails closed without direct invoker", () => {
-  const runner = new RustContextPolicyRunner();
+test("runtime context policy core fails closed without direct invoker", () => {
+  const runner = new RuntimeContextPolicyCore();
 
   assert.throws(
     () => runner.evaluateContextBudgetPolicy({ usage_telemetry: { total_tokens: 1 } }),
     (error) =>
-      error instanceof ContextPolicyRunnerError &&
-      error.code === "context_policy_direct_invoker_unconfigured",
+      error instanceof RuntimeContextPolicyCoreError &&
+      error.code === "runtime_context_policy_core_direct_invoker_unconfigured",
   );
 });
 
-test("context policy state update runner fails closed without Rust-planned operation kinds", () => {
+test("runtime context policy state-update core fails closed without Rust-planned operation kinds", () => {
   assert.throws(
     () =>
       normalizeContextCompactionStateUpdateBridgeResult({

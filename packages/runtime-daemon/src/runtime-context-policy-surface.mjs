@@ -50,7 +50,7 @@ const COMPACTION_POLICY_REQUIRED_EVIDENCE_REFS = [
 
 export function createRuntimeContextPolicySurface({
   contextBudgetUsageTelemetryFromRequest: contextBudgetUsageTelemetryFromRequestDep = contextBudgetUsageTelemetryFromRequest,
-  contextPolicyRunner = null,
+  contextPolicyCore = null,
   evaluateCompactionPolicyDecision: evaluateCompactionPolicyDecisionDep = evaluateCompactionPolicyDecision,
   evaluateContextBudgetPolicy: evaluateContextBudgetPolicyDep = evaluateContextBudgetPolicy,
   eventStreamIdForThread: eventStreamIdForThreadDep = eventStreamIdForThread,
@@ -73,7 +73,7 @@ export function createRuntimeContextPolicySurface({
 
   return {
     compactThread(store, threadId, request = {}) {
-      const runner = store?.contextPolicyRunner ?? contextPolicyRunner;
+      const runner = store?.contextPolicyCore ?? contextPolicyCore;
       if (
         typeof runner?.planContextCompaction !== "function" ||
         typeof runner?.planContextCompactionStateUpdate !== "function" ||
@@ -320,7 +320,7 @@ export function createRuntimeContextPolicySurface({
       const requestedRunId = optionalStringDep(canonicalRequest.run_id) ?? runId;
       const requestedThreadId = optionalStringDep(canonicalRequest.thread_id) ?? threadId;
       if (requestedThreadId || requestedRunId) {
-        const runner = store?.contextPolicyRunner ?? contextPolicyRunner;
+        const runner = store?.contextPolicyCore ?? contextPolicyCore;
         if (
           typeof runner?.evaluateContextBudgetPolicy !== "function" ||
           typeof store?.appendRuntimeEvent !== "function"
@@ -408,7 +408,7 @@ export function createRuntimeContextPolicySurface({
           message: "Compaction policy evaluation requires a thread id.",
         });
       }
-      const runner = store?.contextPolicyRunner ?? contextPolicyRunner;
+      const runner = store?.contextPolicyCore ?? contextPolicyCore;
       if (
         typeof runner?.evaluateCompactionPolicy !== "function" ||
         typeof store?.appendRuntimeEvent !== "function"

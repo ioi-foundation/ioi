@@ -6,11 +6,11 @@ import {
   inspectWorkspaceChangeReviewsForThread,
 } from "./workspace-change-state.mjs";
 
-function fakeStore({ changes = [], contextPolicyRunner = {}, appendRuntimeEvent = null } = {}) {
+function fakeStore({ changes = [], contextPolicyCore = {}, appendRuntimeEvent = null } = {}) {
   const calls = [];
   return {
     calls,
-    contextPolicyRunner,
+    contextPolicyCore,
     workspaceChangesForThread(thread_id) {
       calls.push({ operation: "workspace_changes_for_thread", thread_id });
       return changes;
@@ -63,7 +63,7 @@ test("workspace change inspection returns Rust daemon-core projection without JS
         lifecycle: "proposed",
       },
     ],
-    contextPolicyRunner: {
+    contextPolicyCore: {
       projectRuntimeWorkspaceChangeProjection(request) {
         captured = request;
         return {
@@ -156,7 +156,7 @@ test("workspace change control uses Rust planning and runtime event admission", 
         lifecycle: "proposed",
       },
     ],
-    contextPolicyRunner: {
+    contextPolicyCore: {
       planRuntimeWorkspaceChangeControl(request) {
         captured = request;
         return {
@@ -242,7 +242,7 @@ test("workspace change control fails closed before Rust planning or event append
 test("workspace change control ignores retired request aliases before Rust planning", async () => {
   let planned = false;
   const store = fakeStore({
-    contextPolicyRunner: {
+    contextPolicyCore: {
       planRuntimeWorkspaceChangeControl() {
         planned = true;
         assert.fail("retired workspace-change aliases must not reach Rust control planning");

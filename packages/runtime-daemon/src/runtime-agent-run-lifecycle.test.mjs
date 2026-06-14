@@ -85,7 +85,7 @@ function fakeStore({
         },
       };
     },
-    contextPolicyRunner: {
+    contextPolicyCore: {
       planLifecycleAdmissionRequired(request) {
         store.lifecycleAdmissionRequiredCalls.push(request);
         const profile = lifecycleRequiredProfile(request);
@@ -157,37 +157,37 @@ function fakeStore({
     },
   };
   if (agentCreatePlan) {
-    store.contextPolicyRunner.planAgentCreateStateUpdate = (request) => {
+    store.contextPolicyCore.planAgentCreateStateUpdate = (request) => {
       store.plannerCalls.push(request);
       return agentCreatePlan(request);
     };
   }
   if (threadCreatePlan) {
-    store.contextPolicyRunner.planThreadCreateStateUpdate = (request) => {
+    store.contextPolicyCore.planThreadCreateStateUpdate = (request) => {
       store.plannerCalls.push(request);
       return threadCreatePlan(request);
     };
   }
   if (runCreatePlan) {
-    store.contextPolicyRunner.planRunCreateStateUpdate = (request) => {
+    store.contextPolicyCore.planRunCreateStateUpdate = (request) => {
       store.plannerCalls.push(request);
       return runCreatePlan(request);
     };
   }
   if (runtimeBridgeThreadStartPlan) {
-    store.contextPolicyRunner.planRuntimeBridgeThreadStartAgentStateUpdate = (request) => {
+    store.contextPolicyCore.planRuntimeBridgeThreadStartAgentStateUpdate = (request) => {
       store.plannerCalls.push(request);
       return runtimeBridgeThreadStartPlan(request);
     };
   }
   if (runtimeBridgeThreadControlPlan) {
-    store.contextPolicyRunner.planRuntimeBridgeThreadControlAgentStateUpdate = (request) => {
+    store.contextPolicyCore.planRuntimeBridgeThreadControlAgentStateUpdate = (request) => {
       store.plannerCalls.push(request);
       return runtimeBridgeThreadControlPlan(request);
     };
   }
   if (runtimeBridgeTurnRunStateUpdatePlan) {
-    store.contextPolicyRunner.planRuntimeBridgeTurnRunStateUpdate = (request) => {
+    store.contextPolicyCore.planRuntimeBridgeTurnRunStateUpdate = (request) => {
       store.plannerCalls.push(request);
       return runtimeBridgeTurnRunStateUpdatePlan(request);
     };
@@ -1091,7 +1091,7 @@ test("createThread fails closed for runtime-service threads before route plannin
 test("createRuntimeBridgeThreadControl commits Rust-planned bridge agent and returns Rust thread projection", () => {
   const store = fakeStore();
   const surface = createRuntimeAgentRunLifecycleSurface({
-    lifecycleAdmissionRunner: store.contextPolicyRunner,
+    lifecycleAdmissionRunner: store.contextPolicyCore,
   });
   const agent = store.agents.get("agent_runtime");
 
@@ -1132,7 +1132,7 @@ test("createRuntimeBridgeThreadControl commits Rust-planned bridge agent and ret
 test("createRuntimeBridgeThreadControl fails closed before projection or persistence when Rust bridge-control planner is missing", () => {
   const store = fakeStore({ runtimeBridgeThreadControlPlan: null });
   const surface = createRuntimeAgentRunLifecycleSurface({
-    lifecycleAdmissionRunner: store.contextPolicyRunner,
+    lifecycleAdmissionRunner: store.contextPolicyCore,
   });
   const agent = store.agents.get("agent_runtime");
 
@@ -1156,7 +1156,7 @@ test("createRuntimeBridgeThreadControl fails closed before projection or persist
 test("createRuntimeBridgeTurn commits Rust-planned runtime bridge run and returns Rust turn projection", () => {
   const store = fakeStore();
   const surface = createRuntimeAgentRunLifecycleSurface({
-    lifecycleAdmissionRunner: store.contextPolicyRunner,
+    lifecycleAdmissionRunner: store.contextPolicyCore,
     ...runCreateDeps(store),
   });
   const agent = store.agents.get("agent_runtime");
@@ -1224,7 +1224,7 @@ test("createRuntimeBridgeTurn commits Rust-planned runtime bridge run and return
 test("createRuntimeBridgeTurn fails closed before route, memory, or persistence when Rust bridge-turn planner is missing", () => {
   const store = fakeStore({ runtimeBridgeTurnRunStateUpdatePlan: null });
   const surface = createRuntimeAgentRunLifecycleSurface({
-    lifecycleAdmissionRunner: store.contextPolicyRunner,
+    lifecycleAdmissionRunner: store.contextPolicyCore,
     ...runCreateDeps(store),
   });
   const agent = store.agents.get("agent_runtime");
@@ -1250,7 +1250,7 @@ test("createRuntimeBridgeTurn fails closed before route, memory, or persistence 
 test("agent/run lifecycle surface routes create, run creation, and thread creation to mounted boundary", async () => {
   const store = fakeStore();
   const surface = createRuntimeAgentRunLifecycleSurface({
-    lifecycleAdmissionRunner: store.contextPolicyRunner,
+    lifecycleAdmissionRunner: store.contextPolicyCore,
     ...runCreateDeps(store),
     ...threadCreateDeps(store),
   });

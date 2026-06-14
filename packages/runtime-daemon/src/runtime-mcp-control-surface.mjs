@@ -16,8 +16,8 @@ import {
 } from "./runtime-value-helpers.mjs";
 import {
   MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
-  createContextPolicyRunnerFromEnv,
-} from "./runtime-context-policy-runner.mjs";
+  createRuntimeContextPolicyCore,
+} from "./runtime-context-policy-core.mjs";
 
 export function createRuntimeMcpControlSurface({
   RUNTIME_MCP_MANAGER_INVOCATION_SCHEMA_VERSION: invocationSchemaVersion = RUNTIME_MCP_MANAGER_INVOCATION_SCHEMA_VERSION,
@@ -29,7 +29,7 @@ export function createRuntimeMcpControlSurface({
   optionalString: optionalStringDep = optionalString,
   runtimeError: runtimeErrorDep = runtimeError,
   safeId: safeIdDep = safeId,
-  contextPolicyRunner = createContextPolicyRunnerFromEnv(),
+  contextPolicyCore = createRuntimeContextPolicyCore(),
   eventStreamIdForThread: eventStreamIdForThreadDep = eventStreamIdForThread,
   mcpControlStateUpdateSchemaVersion = MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   nowIso = () => new Date().toISOString(),
@@ -63,9 +63,9 @@ export function createRuntimeMcpControlSurface({
     mcpStatusForAgent(agent) {
       const registry = agent.mcpRegistry ?? mcpRegistryForWorkspaceDep(agent.cwd);
       const servers = normalizeArrayDep(registry.servers);
-      const catalog = contextPolicyRunner.planMcpManagerCatalogProjection({ servers });
-      const validation = contextPolicyRunner.validateMcpServers({ servers });
-      return contextPolicyRunner.planMcpManagerStatusProjection({
+      const catalog = contextPolicyCore.planMcpManagerCatalogProjection({ servers });
+      const validation = contextPolicyCore.validateMcpServers({ servers });
+      return contextPolicyCore.planMcpManagerStatusProjection({
         status_schema_version: statusSchemaVersion,
         validation,
         servers,
@@ -252,8 +252,8 @@ export function createRuntimeMcpControlSurface({
   }
 
   function mcpControlStateUpdatePlanner(operation, operationKind, details = {}) {
-    if (typeof contextPolicyRunner?.planMcpControlAgentStateUpdate === "function") {
-      return contextPolicyRunner.planMcpControlAgentStateUpdate.bind(contextPolicyRunner);
+    if (typeof contextPolicyCore?.planMcpControlAgentStateUpdate === "function") {
+      return contextPolicyCore.planMcpControlAgentStateUpdate.bind(contextPolicyCore);
     }
     throwMcpControlRustCoreRequired(operation, operationKind, details);
   }

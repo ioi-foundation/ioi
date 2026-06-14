@@ -81,7 +81,7 @@ function createStore() {
 
 function createSurface(plannerCalls = [], { threadControlStateUpdate = null } = {}) {
   return createRuntimeThreadControlSurface({
-    contextPolicyRunner: {
+    contextPolicyCore: {
       planThreadControlAgentStateUpdate(request = {}) {
         plannerCalls.push(request);
         const receiptRefs =
@@ -272,7 +272,7 @@ test("thread runtime-control facade fails closed before lookup without Rust plan
   const store = createStore();
   const plannerCalls = [];
   const surface = createRuntimeThreadControlSurface({
-    contextPolicyRunner: null,
+    contextPolicyCore: null,
     runtimeError: ({ message, code, status, details }) => {
       const error = new Error(message);
       error.code = code;
@@ -303,7 +303,7 @@ test("thread mode fails closed before lookup when workspace trust Rust planner i
   const store = createStore();
   const plannerCalls = [];
   const surface = createRuntimeThreadControlSurface({
-    contextPolicyRunner: {
+    contextPolicyCore: {
       planThreadControlAgentStateUpdate(request = {}) {
         plannerCalls.push(request);
         return {};

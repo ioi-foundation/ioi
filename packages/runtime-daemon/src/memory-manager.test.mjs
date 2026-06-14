@@ -31,7 +31,7 @@ test("memory manager status and validation expose canonical fields only", () => 
     ],
   };
   const calls = [];
-  const contextPolicyRunner = {
+  const contextPolicyCore = {
     planMemoryManagerStatusProjection(request) {
       calls.push(["status", request]);
       return {
@@ -53,7 +53,7 @@ test("memory manager status and validation expose canonical fields only", () => 
       };
     },
   };
-  const status = memoryStatusForProjection(projection, { contextPolicyRunner });
+  const status = memoryStatusForProjection(projection, { contextPolicyCore });
   assert.equal(status.schema_version, "ioi.runtime.memory-manager-status.v1");
   assert.equal(status.record_count, 1);
   assert.deepEqual(status.memory_keys, ["canonical.key"]);
@@ -75,7 +75,7 @@ test("memory manager status and validation expose canonical fields only", () => 
     assert.equal(Object.hasOwn(status, field), false);
   }
 
-  const validation = validateMemoryProjection(projection, { contextPolicyRunner });
+  const validation = validateMemoryProjection(projection, { contextPolicyCore });
   assert.equal(validation.schema_version, "ioi.runtime.memory-manager-validation.v1");
   assert.equal(validation.record_count, 1);
   assert.equal(calls[1][0], "validation");

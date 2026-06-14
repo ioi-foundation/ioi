@@ -599,7 +599,7 @@ test("subagent control event append uses Rust control planning and Agentgres eve
   const stateUpdateCalls = [];
   const store = createStore();
   const surface = createRuntimeSubagentSurface({
-    contextPolicyRunner: {
+    contextPolicyCore: {
       planRuntimeSubagentControl(request) {
         controlCalls.push(request);
         assert.equal(request.operation, "cancel");
@@ -783,7 +783,7 @@ test("subagent read projections return Rust daemon-core projections", () => {
   const projectionCalls = [];
   const store = createStore();
   const surface = createRuntimeSubagentSurface({
-    contextPolicyRunner: {
+    contextPolicyCore: {
       projectRuntimeSubagentProjection(request) {
         projectionCalls.push(request);
         return projectSubagentForTest(request);
@@ -832,7 +832,7 @@ test("subagent spawn control uses Rust agent and run creation, control planning,
   const stateUpdateCalls = [];
   const store = createStore();
   const surface = createRuntimeSubagentSurface({
-    contextPolicyRunner: {
+    contextPolicyCore: {
       planRuntimeSubagentControl(request) {
         controlCalls.push(request);
         assert.equal(request.operation, "spawn");
@@ -923,7 +923,7 @@ test("subagent wait control uses Rust control, state planning, and Agentgres com
   const stateUpdateCalls = [];
   const store = createStore();
   const surface = createRuntimeSubagentSurface({
-    contextPolicyRunner: {
+    contextPolicyCore: {
       projectRuntimeSubagentProjection(request) {
         projectionCalls.push(request);
         return projectSubagentForTest(request);
@@ -993,7 +993,7 @@ test("subagent input and resume controls use Rust run creation, control planning
   const stateUpdateCalls = [];
   const store = createStore();
   const surface = createRuntimeSubagentSurface({
-    contextPolicyRunner: {
+    contextPolicyCore: {
       projectRuntimeSubagentProjection(request) {
         projectionCalls.push(request);
         return projectSubagentForTest(request);
@@ -1115,7 +1115,7 @@ test("subagent assign and cancel controls use Rust control, state planning, and 
       state.runs.set(runId, canceled);
       return canceled;
     },
-    contextPolicyRunner: {
+    contextPolicyCore: {
       projectRuntimeSubagentProjection(request) {
         projectionCalls.push(request);
         return projectSubagentForTest(request);
@@ -1224,7 +1224,7 @@ test("subagent cancellation propagation uses Rust projection, propagated cancel 
       state.runs.set(runId, canceled);
       return canceled;
     },
-    contextPolicyRunner: {
+    contextPolicyCore: {
       projectRuntimeSubagentProjection(request) {
         projectionCalls.push(request);
         return projectSubagentForTest(request);

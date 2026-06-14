@@ -55,7 +55,7 @@ function fakeStore(options = {}) {
   return {
     agents: new Map(),
     calls,
-    contextPolicyRunner: {
+    contextPolicyCore: {
       planLifecycleAdmissionRequired(request = {}) {
         calls.push({ operation: "plan_lifecycle_admission_required", input: request });
         return lifecycleRequiredRecord(request);
@@ -274,7 +274,7 @@ test("thread store updates agent status through Rust state planning and Agentgre
 
 test("thread store agent status control fails closed without Rust status planner", () => {
   const store = fakeStore();
-  store.contextPolicyRunner = {};
+  store.contextPolicyCore = {};
   store.agents.set("agent_1", { id: "agent_1", status: "active" });
 
   assert.throws(
@@ -385,7 +385,7 @@ test("thread store permanent delete commits Rust tombstone through Agentgres", (
 
 test("thread store permanent delete fails closed without Rust delete planner", () => {
   const store = fakeStore();
-  store.contextPolicyRunner = {};
+  store.contextPolicyCore = {};
   store.agents.set("agent_1", { id: "agent_1", status: "active" });
 
   assert.throws(

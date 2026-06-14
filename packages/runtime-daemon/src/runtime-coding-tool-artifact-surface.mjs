@@ -33,7 +33,7 @@ const {
 export function createRuntimeCodingToolArtifactSurface(deps = {}) {
   const {
     codingToolCommandStreamAdmissionForThread = null,
-    contextPolicyRunner = null,
+    contextPolicyCore = null,
     notFound = defaultNotFound,
     policyError = defaultPolicyError,
     runtimeError = defaultRuntimeError,
@@ -54,7 +54,7 @@ export function createRuntimeCodingToolArtifactSurface(deps = {}) {
   }
 
   function codingToolArtifactDraftPlanner(store, request = {}) {
-    const runner = store?.contextPolicyRunner ?? contextPolicyRunner;
+    const runner = store?.contextPolicyCore ?? contextPolicyCore;
     if (typeof runner?.planRuntimeCodingToolArtifactDrafts === "function") return runner;
     throwCodingToolArtifactRustCoreRequired("coding_tool_artifact_draft_materialization", "artifact.coding_tool_draft", {
       ...request,
@@ -67,7 +67,7 @@ export function createRuntimeCodingToolArtifactSurface(deps = {}) {
   }
 
   function codingToolArtifactReadProjector(store, request = {}) {
-    const runner = store?.contextPolicyRunner ?? contextPolicyRunner;
+    const runner = store?.contextPolicyCore ?? contextPolicyCore;
     if (typeof runner?.projectRuntimeCodingToolArtifactRead === "function") return runner;
     throwCodingToolArtifactRustCoreRequired(
       request.operation ?? "coding_tool_artifact_read_projection",

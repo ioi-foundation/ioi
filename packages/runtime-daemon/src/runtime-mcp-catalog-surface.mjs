@@ -30,7 +30,7 @@ import {
   optionalString,
 } from "./runtime-value-helpers.mjs";
 import { agentIdForThread } from "./runtime-identifiers.mjs";
-import { createContextPolicyRunnerFromEnv } from "./runtime-context-policy-runner.mjs";
+import { createRuntimeContextPolicyCore } from "./runtime-context-policy-core.mjs";
 
 export function createRuntimeMcpCatalogSurface({
   RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION: statusSchemaVersion = RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION,
@@ -56,7 +56,7 @@ export function createRuntimeMcpCatalogSurface({
   optionalString: optionalStringDep = optionalString,
   pathResolve = path.resolve,
   resolveMcpServerRecord: resolveMcpServerRecordDep = resolveMcpServerRecord,
-  contextPolicyRunner = createContextPolicyRunnerFromEnv(),
+  contextPolicyCore = createRuntimeContextPolicyCore(),
 } = {}) {
   return {
     listMcpServers(store, options = {}) {
@@ -103,8 +103,8 @@ export function createRuntimeMcpCatalogSurface({
     },
     mcpStatus(store, options = {}) {
       const servers = this.listMcpServers(store, options);
-      const catalog = contextPolicyRunner.planMcpManagerCatalogProjection({ servers });
-      const validation = contextPolicyRunner.validateMcpServers({ servers });
+      const catalog = contextPolicyCore.planMcpManagerCatalogProjection({ servers });
+      const validation = contextPolicyCore.validateMcpServers({ servers });
       const routes = {
         servers: "/v1/mcp/servers",
         tools: "/v1/mcp/tools",
@@ -122,7 +122,7 @@ export function createRuntimeMcpCatalogSurface({
         serve: "/v1/mcp/serve",
         serve_for_thread: "/v1/threads/{thread_id}/mcp/serve",
       };
-      return contextPolicyRunner.planMcpManagerStatusProjection({
+      return contextPolicyCore.planMcpManagerStatusProjection({
         status_schema_version: statusSchemaVersion,
         validation,
         servers,
@@ -285,11 +285,11 @@ export function createRuntimeMcpCatalogSurface({
         input.cwd ?? input.workspace_root ?? store.defaultCwd,
       );
       const servers = mcpServerRecordsFromValidationInputDep(input, workspaceRoot, {
-        contextPolicyRunner,
+        contextPolicyCore,
       });
-      const validation = contextPolicyRunner.validateMcpServers({ servers });
-      const catalog = contextPolicyRunner.planMcpManagerCatalogProjection({ servers });
-      return contextPolicyRunner.planMcpManagerValidationProjection({
+      const validation = contextPolicyCore.validateMcpServers({ servers });
+      const catalog = contextPolicyCore.planMcpManagerCatalogProjection({ servers });
+      return contextPolicyCore.planMcpManagerValidationProjection({
         validation_schema_version: validationSchemaVersion,
         validation,
         servers,
@@ -299,7 +299,7 @@ export function createRuntimeMcpCatalogSurface({
       });
     },
     mcpCatalogRowsForServers(servers = []) {
-      const catalog = contextPolicyRunner.planMcpManagerCatalogProjection({ servers });
+      const catalog = contextPolicyCore.planMcpManagerCatalogProjection({ servers });
       return {
         ...catalog,
         tools: normalizeArrayDep(catalog.tools),
@@ -309,7 +309,7 @@ export function createRuntimeMcpCatalogSurface({
       };
     },
     mcpCatalogSummaryForRows(server, catalog = {}, options = {}) {
-      return contextPolicyRunner.planMcpManagerCatalogSummaryProjection({
+      return contextPolicyCore.planMcpManagerCatalogSummaryProjection({
         server,
         tools: normalizeArrayDep(catalog.tools),
         resources: normalizeArrayDep(catalog.resources),

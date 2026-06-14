@@ -40,7 +40,7 @@ function createStore() {
         };
       },
     },
-    contextPolicyRunner: {
+    contextPolicyCore: {
       planOperatorInterruptStateUpdate(request) {
         plannerCalls.push({ method: "planOperatorInterruptStateUpdate", request });
         return {

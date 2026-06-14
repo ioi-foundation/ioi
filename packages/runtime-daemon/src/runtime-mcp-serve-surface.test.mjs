@@ -114,7 +114,7 @@ function harness() {
     async invokeThreadToolAsync() {
       throw new Error("MCP serve tool-call facade must not invoke retired async JS thread tools.");
     },
-    contextPolicyRunner: {
+    contextPolicyCore: {
       planRuntimeMcpServeToolCall: rustMcpServeToolCallPlan,
     },
     codingToolInvocationSurface: {
@@ -362,7 +362,7 @@ test("runtime MCP serve tool calls fail closed without Rust-owned coding-tool in
 
 test("runtime MCP serve tool calls fail closed without Rust-owned MCP serve planner", async () => {
   const { store, surface } = harness();
-  delete store.contextPolicyRunner;
+  delete store.contextPolicyCore;
 
   const response = await surface.handleSingleMcpServeJsonRpc(
     store,
@@ -386,7 +386,7 @@ test("runtime MCP serve tool calls fail closed without Rust-owned MCP serve plan
 
 test("runtime MCP serve tool calls reject incomplete Rust daemon-core plans", async () => {
   const { invocations, store, surface } = harness();
-  store.contextPolicyRunner.planRuntimeMcpServeToolCall = () => ({
+  store.contextPolicyCore.planRuntimeMcpServeToolCall = () => ({
     status: "planned",
     operation_kind: "mcp.serve.tools.call",
     thread_id: "thread-one",

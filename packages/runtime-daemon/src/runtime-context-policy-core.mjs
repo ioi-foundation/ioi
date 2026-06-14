@@ -135,39 +135,26 @@ export const CONTEXT_COMPACTION_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.context-compaction-state-update-request.v1";
 export const RUST_CONTEXT_POLICY_BACKEND = "rust_policy";
 
-export function createContextPolicyRunnerFromEnv(env = process.env, options = {}) {
-  assertNoContextPolicyCommandArgs(options.args ?? env.IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS);
-  assertNoContextPolicyCommandSelection(options.command ?? env.IOI_RUNTIME_DAEMON_CORE_COMMAND);
-  return new RustContextPolicyRunner({
-    daemonCoreInvoker: options.daemonCoreInvoker,
-  });
+export function createRuntimeContextPolicyCore(options = {}) {
+  return new RuntimeContextPolicyCore(options);
 }
 
-export function assertNoContextPolicyCommandArgs(value) {
+export function assertNoRuntimeContextPolicyCoreOption(option, value) {
   if (Array.isArray(value) && value.length === 0) return;
   if (typeof value === "string" && value.trim().length === 0) return;
   if (value == null) return;
-  throw new ContextPolicyRunnerError(
-    "Context policy command argument selection is retired; daemon-core command argv is fixed migration transport.",
-    "context_policy_command_args_retired",
-    { retired_args: value },
+  throw new RuntimeContextPolicyCoreError(
+    `Runtime context policy core ${option} selection is retired; use daemonCoreInvoker for direct Rust daemon-core policy evaluation.`,
+    `runtime_context_policy_core_${option}_retired`,
+    { [`retired_${option}`]: value },
   );
 }
 
-export function assertNoContextPolicyCommandSelection(value) {
-  if (typeof value === "string" && value.trim().length === 0) return;
-  if (value == null) return;
-  throw new ContextPolicyRunnerError(
-    "Context policy binary command selection is retired; use daemonCoreInvoker for direct Rust daemon-core policy evaluation.",
-    "context_policy_command_selection_retired",
-    { retired_command: value },
-  );
-}
-
-export class RustContextPolicyRunner {
+export class RuntimeContextPolicyCore {
   constructor(options = {}) {
-    assertNoContextPolicyCommandArgs(options.args);
-    assertNoContextPolicyCommandSelection(options.command);
+    assertNoRuntimeContextPolicyCoreOption("command", options.command);
+    assertNoRuntimeContextPolicyCoreOption("args", options.args);
+    assertNoRuntimeContextPolicyCoreOption("env", options.env);
     this.daemonCoreInvoker = optionalFunction(options.daemonCoreInvoker);
   }
 
@@ -730,16 +717,16 @@ export class RustContextPolicyRunner {
 
   invokeDaemonCore(request) {
     if (!this.daemonCoreInvoker) {
-      throw new ContextPolicyRunnerError(
+      throw new RuntimeContextPolicyCoreError(
         "Context policy requires daemonCoreInvoker for direct Rust daemon-core policy evaluation.",
-        "context_policy_direct_invoker_unconfigured",
+        "runtime_context_policy_core_direct_invoker_unconfigured",
         { boundary: "daemonCoreInvoker" },
       );
     }
     const response = this.daemonCoreInvoker(request);
     const responseError = objectRecord(response?.error);
     if (response?.ok === false && responseError) {
-      throw new ContextPolicyRunnerError(
+      throw new RuntimeContextPolicyCoreError(
         responseError.message ?? "Rust context policy rejected the request.",
         responseError.code ?? "context_policy_direct_invoker_rejected",
         { error: responseError },
@@ -749,10 +736,10 @@ export class RustContextPolicyRunner {
   }
 }
 
-export class ContextPolicyRunnerError extends Error {
-  constructor(message, code = "context_policy_runner_error", details = {}) {
+export class RuntimeContextPolicyCoreError extends Error {
+  constructor(message, code = "runtime_context_policy_core_error", details = {}) {
     super(message);
-    this.name = "ContextPolicyRunnerError";
+    this.name = "RuntimeContextPolicyCoreError";
     this.status = details.status ?? 502;
     this.code = code;
     this.details = details;
@@ -768,7 +755,7 @@ function requiredContextPolicyBridgeOperationKind(result, record, options = {}) 
   } = options;
   const operationKind = optionalString(result.operation_kind ?? record.operation_kind);
   if (!operationKind) {
-    throw new ContextPolicyRunnerError(
+    throw new RuntimeContextPolicyCoreError(
       "Rust context policy bridge result did not include an operation kind.",
       `${codePrefix}_operation_kind_missing`,
       {
@@ -779,7 +766,7 @@ function requiredContextPolicyBridgeOperationKind(result, record, options = {}) 
     );
   }
   if (expectedOperationKinds.length > 0 && !expectedOperationKinds.includes(operationKind)) {
-    throw new ContextPolicyRunnerError(
+    throw new RuntimeContextPolicyCoreError(
       "Rust context policy bridge result included an unexpected operation kind.",
       `${codePrefix}_operation_kind_mismatch`,
       {
@@ -790,7 +777,7 @@ function requiredContextPolicyBridgeOperationKind(result, record, options = {}) 
     );
   }
   if (expectedPrefix && !operationKind.startsWith(expectedPrefix)) {
-    throw new ContextPolicyRunnerError(
+    throw new RuntimeContextPolicyCoreError(
       "Rust context policy bridge result included an unexpected operation kind.",
       `${codePrefix}_operation_kind_mismatch`,
       { expected_prefix: expectedPrefix, operation_kind: operationKind },
@@ -1053,7 +1040,7 @@ export function normalizeRuntimeCodingToolArtifactDraftPlanBridgeResult(value = 
   const artifactRecords = arrayValue(result.artifact_records ?? record.artifact_records)
     .filter((item) => objectRecord(item));
   if (artifactRecords.length === 0) {
-    throw new ContextPolicyRunnerError(
+    throw new RuntimeContextPolicyCoreError(
       "Rust coding-tool artifact draft planner did not return artifact records.",
       "runtime_coding_tool_artifact_draft_plan_records_missing",
       { operation_kind: optionalString(result.operation_kind ?? record.operation_kind) },
@@ -1092,7 +1079,7 @@ export function normalizeRuntimeCodingToolArtifactReadProjectionBridgeResult(val
   const record = objectRecord(result.record) ?? result;
   const projectedResult = objectRecord(result.result ?? record.result);
   if (!projectedResult) {
-    throw new ContextPolicyRunnerError(
+    throw new RuntimeContextPolicyCoreError(
       "Rust coding-tool artifact read projection did not return a result.",
       "runtime_coding_tool_artifact_read_projection_result_missing",
       { operation_kind: optionalString(result.operation_kind ?? record.operation_kind) },
@@ -1275,7 +1262,7 @@ export function normalizeRuntimeDiagnosticsRepairRetryRunBridgeResult(value = {}
     result.retry_event_request ?? record.retry_event_request,
   );
   if (!runRequest || !retryEventRequest) {
-    throw new ContextPolicyRunnerError(
+    throw new RuntimeContextPolicyCoreError(
       "Rust diagnostics repair retry-run planning did not return run and event requests.",
       "runtime_diagnostics_repair_retry_run_projection_incomplete",
       { operation_kind: optionalString(result.operation_kind ?? record.operation_kind) },
@@ -1736,7 +1723,7 @@ export function normalizeRuntimeMemoryControlBridgeResult(value = {}) {
   const record = objectRecord(result.record) ?? result;
   const payload = objectRecord(result.payload) ?? objectRecord(record.payload);
   if (!payload) {
-    throw new ContextPolicyRunnerError(
+    throw new RuntimeContextPolicyCoreError(
       "Rust memory control did not return a memory payload.",
       "runtime_memory_control_payload_missing",
       { operation_kind: optionalString(result.operation_kind ?? record.operation_kind) },
@@ -1776,7 +1763,7 @@ export function normalizeRuntimeMcpServeToolCallPlanBridgeResult(value = {}) {
   const record = objectRecord(result.record) ?? result;
   const request = objectRecord(result.request) ?? objectRecord(record.request);
   if (!request) {
-    throw new ContextPolicyRunnerError(
+    throw new RuntimeContextPolicyCoreError(
       "Rust MCP serve tool-call planner did not return a coding-tool request.",
       "runtime_mcp_serve_tool_call_plan_request_missing",
       { operation_kind: optionalString(result.operation_kind ?? record.operation_kind) },
@@ -1820,7 +1807,7 @@ export function normalizeRuntimeWorkflowEditControlBridgeResult(value = {}) {
   const record = objectRecord(result.record) ?? result;
   const event = objectRecord(result.event) ?? objectRecord(record.event);
   if (!event) {
-    throw new ContextPolicyRunnerError(
+    throw new RuntimeContextPolicyCoreError(
       "Rust workflow-edit control did not return a control event.",
       "runtime_workflow_edit_control_event_missing",
       { operation_kind: optionalString(result.operation_kind ?? record.operation_kind) },
@@ -1892,14 +1879,14 @@ export function normalizeRuntimeConversationArtifactControlBridgeResult(value = 
   const artifact = objectRecord(result.artifact) ?? objectRecord(record.artifact);
   const controlResult = objectRecord(result.result) ?? objectRecord(record.result);
   if (!artifact) {
-    throw new ContextPolicyRunnerError(
+    throw new RuntimeContextPolicyCoreError(
       "Rust conversation artifact control did not return an artifact.",
       "runtime_conversation_artifact_control_artifact_missing",
       { operation_kind: optionalString(result.operation_kind ?? record.operation_kind) },
     );
   }
   if (!controlResult) {
-    throw new ContextPolicyRunnerError(
+    throw new RuntimeContextPolicyCoreError(
       "Rust conversation artifact control did not return a control result.",
       "runtime_conversation_artifact_control_result_missing",
       { operation_kind: optionalString(result.operation_kind ?? record.operation_kind) },
@@ -1976,7 +1963,7 @@ export function normalizeRuntimeSubagentControlBridgeResult(value = {}) {
   const record = objectRecord(result.record) ?? result;
   const event = objectRecord(result.event) ?? objectRecord(record.event);
   if (!event) {
-    throw new ContextPolicyRunnerError(
+    throw new RuntimeContextPolicyCoreError(
       "Rust subagent control did not return a control event.",
       "runtime_subagent_control_event_missing",
       { operation_kind: optionalString(result.operation_kind ?? record.operation_kind) },
@@ -2041,7 +2028,7 @@ export function normalizeRuntimeManagedSessionControlBridgeResult(value = {}) {
   const record = objectRecord(result.record) ?? result;
   const event = objectRecord(result.event) ?? objectRecord(record.event);
   if (!event) {
-    throw new ContextPolicyRunnerError(
+    throw new RuntimeContextPolicyCoreError(
       "Rust managed-session control did not return a control event.",
       "runtime_managed_session_control_event_missing",
       { operation_kind: optionalString(result.operation_kind ?? record.operation_kind) },
@@ -2106,7 +2093,7 @@ export function normalizeRuntimeWorkspaceChangeControlBridgeResult(value = {}) {
   const record = objectRecord(result.record) ?? result;
   const event = objectRecord(result.event) ?? objectRecord(record.event);
   if (!event) {
-    throw new ContextPolicyRunnerError(
+    throw new RuntimeContextPolicyCoreError(
       "Rust workspace-change control did not return a control event.",
       "runtime_workspace_change_control_event_missing",
       { operation_kind: optionalString(result.operation_kind ?? record.operation_kind) },
@@ -2144,21 +2131,21 @@ export function normalizeRuntimeThreadForkControlBridgeResult(value = {}) {
   const agent = objectRecord(result.agent) ?? objectRecord(record.agent);
   const thread = objectRecord(result.thread) ?? objectRecord(record.thread);
   if (!event) {
-    throw new ContextPolicyRunnerError(
+    throw new RuntimeContextPolicyCoreError(
       "Rust thread-fork control did not return a runtime event.",
       "runtime_thread_fork_control_event_missing",
       { operation_kind: optionalString(result.operation_kind ?? record.operation_kind) },
     );
   }
   if (!agent) {
-    throw new ContextPolicyRunnerError(
+    throw new RuntimeContextPolicyCoreError(
       "Rust thread-fork control did not return a forked agent.",
       "runtime_thread_fork_control_agent_missing",
       { operation_kind: optionalString(result.operation_kind ?? record.operation_kind) },
     );
   }
   if (!thread) {
-    throw new ContextPolicyRunnerError(
+    throw new RuntimeContextPolicyCoreError(
       "Rust thread-fork control did not return a forked thread projection.",
       "runtime_thread_fork_control_thread_missing",
       { operation_kind: optionalString(result.operation_kind ?? record.operation_kind) },
