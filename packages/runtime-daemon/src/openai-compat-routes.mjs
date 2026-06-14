@@ -1384,43 +1384,18 @@ export async function writeModelSseFrames({ response, invocation, mounts, stream
   }
 }
 
-export const MODEL_STREAM_CANCEL_RUST_CORE_REQUIRED_EVIDENCE_REFS = [
-  "model_mount_stream_cancel_js_facade_retired",
-  "rust_daemon_core_model_stream_cancel_required",
-  "agentgres_model_stream_cancel_truth_required",
-];
-
-export function modelStreamCancelRustCoreRequiredError({ invocation, streamKind, framesWritten }) {
-  const error = new Error("Model stream cancellation requires Rust model_mount stream lifecycle admission.");
-  error.code = "model_mount_stream_cancel_rust_core_required";
-  error.status = 409;
-  error.details = {
-    boundary: "model_mount.stream_cancel",
-    operation_kind: "model_stream_cancel",
-    evidence_refs: MODEL_STREAM_CANCEL_RUST_CORE_REQUIRED_EVIDENCE_REFS,
-    stream_kind: streamKind,
-    invocation_receipt_id: invocation.receipt.id,
-    route_id: invocation.route.id,
-    selected_model: invocation.model,
-    endpoint_id: invocation.endpoint.id,
-    provider_id: invocation.endpoint.providerId,
-    instance_id: invocation.instance.id,
-    backend_id: invocation.instance.backendId ?? invocation.receipt.details?.backend_id ?? null,
-    selected_backend: invocation.receipt.details?.selected_backend ?? null,
-    stream_source: invocation.receipt.details?.stream_source ?? null,
-    provider_response_kind: invocation.providerResponseKind ?? invocation.receipt.details?.provider_response_kind ?? null,
-    backend_evidence_refs: invocation.receipt.details?.backend_evidence_refs ?? [],
-    tool_receipt_ids: invocation.toolReceiptIds ?? [],
-    frames_written: framesWritten,
-    status: "aborted",
-    reason: "client_disconnect",
-  };
-  return error;
-}
-
 export function recordModelStreamCanceled({ mounts, invocation, streamKind, framesWritten }) {
-  void mounts;
-  throw modelStreamCancelRustCoreRequiredError({ invocation, streamKind, framesWritten });
+  return mounts.recordModelStreamCanceled({
+    invocation,
+    streamKind,
+    framesWritten,
+    cancelReason: "client_disconnect",
+    providerResult: {
+      provider_response_kind:
+        invocation.providerResponseKind ?? invocation.receipt?.details?.provider_response_kind ?? null,
+      backend_evidence_refs: invocation.receipt?.details?.backend_evidence_refs ?? [],
+    },
+  });
 }
 
 export function streamFrameDelayMs() {

@@ -70,7 +70,8 @@ pub use common::{
     MODEL_MOUNT_RUNTIME_SCHEMA_VERSION, MODEL_MOUNT_RUNTIME_SURVEY_PLAN_SCHEMA_VERSION,
     MODEL_MOUNT_RUNTIME_SURVEY_SCHEMA_VERSION, MODEL_MOUNT_SERVER_CONTROL_PLAN_SCHEMA_VERSION,
     MODEL_MOUNT_SERVER_CONTROL_SCHEMA_VERSION, MODEL_MOUNT_STORAGE_CONTROL_PLAN_SCHEMA_VERSION,
-    MODEL_MOUNT_STORAGE_CONTROL_SCHEMA_VERSION, MODEL_MOUNT_STREAM_COMPLETION_PLAN_SCHEMA_VERSION,
+    MODEL_MOUNT_STORAGE_CONTROL_SCHEMA_VERSION, MODEL_MOUNT_STREAM_CANCEL_PLAN_SCHEMA_VERSION,
+    MODEL_MOUNT_STREAM_CANCEL_SCHEMA_VERSION, MODEL_MOUNT_STREAM_COMPLETION_PLAN_SCHEMA_VERSION,
     MODEL_MOUNT_STREAM_COMPLETION_SCHEMA_VERSION, MODEL_MOUNT_TOKENIZER_PLAN_SCHEMA_VERSION,
     MODEL_MOUNT_TOKENIZER_REQUIRED_REQUEST_SCHEMA_VERSION,
     MODEL_MOUNT_TOKENIZER_REQUIRED_RESULT_SCHEMA_VERSION, MODEL_MOUNT_TOKENIZER_SCHEMA_VERSION,
@@ -95,10 +96,12 @@ pub use provider_control::{
 };
 mod conversation;
 pub use conversation::{
-    plan_model_mount_conversation_state_response, plan_model_mount_stream_completion_response,
-    ModelMountConversationStateBridgeRequest, ModelMountConversationStatePlan,
-    ModelMountConversationStateRequest, ModelMountStreamCompletionBridgeRequest,
-    ModelMountStreamCompletionPlan, ModelMountStreamCompletionRequest,
+    plan_model_mount_conversation_state_response, plan_model_mount_stream_cancel_response,
+    plan_model_mount_stream_completion_response, ModelMountConversationStateBridgeRequest,
+    ModelMountConversationStatePlan, ModelMountConversationStateRequest,
+    ModelMountStreamCancelBridgeRequest, ModelMountStreamCancelPlan, ModelMountStreamCancelRequest,
+    ModelMountStreamCompletionBridgeRequest, ModelMountStreamCompletionPlan,
+    ModelMountStreamCompletionRequest,
 };
 mod lifecycle;
 pub use lifecycle::{

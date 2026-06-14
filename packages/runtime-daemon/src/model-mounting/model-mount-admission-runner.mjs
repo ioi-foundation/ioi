@@ -23,6 +23,7 @@ export const RUST_MODEL_MOUNT_RECEIPT_GATE_BACKEND = "rust_model_mount_receipt_g
 export const RUST_MODEL_MOUNT_TOKENIZER_BACKEND = "rust_model_mount_tokenizer";
 export const RUST_MODEL_MOUNT_CONVERSATION_STATE_BACKEND = "rust_model_mount_conversation_state";
 export const RUST_MODEL_MOUNT_STREAM_COMPLETION_BACKEND = "rust_model_mount_stream_completion";
+export const RUST_MODEL_MOUNT_STREAM_CANCEL_BACKEND = "rust_model_mount_stream_cancel";
 export const RUST_MODEL_MOUNT_ACCEPTED_RECEIPT_HEAD_BACKEND = "rust_model_mount_accepted_receipt_head";
 export const RUST_MODEL_MOUNT_ACCEPTED_RECEIPT_TRANSITION_BACKEND = "rust_model_mount_accepted_receipt_transition";
 export const RUST_MODEL_MOUNT_INSTANCE_LIFECYCLE_BACKEND = "rust_model_mount_instance_lifecycle";
@@ -280,6 +281,16 @@ export class RustModelMountAdmissionRunner {
       request,
     };
     return normalizeStreamCompletionBridgeResult(this.invokeDaemonCore(bridgeRequest));
+  }
+
+  planStreamCancel(request) {
+    const bridgeRequest = {
+      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      operation: "plan_model_mount_stream_cancel",
+      backend: RUST_MODEL_MOUNT_STREAM_CANCEL_BACKEND,
+      request,
+    };
+    return normalizeStreamCancelBridgeResult(this.invokeDaemonCore(bridgeRequest));
   }
 
   planRouteControlRequired(request) {
@@ -1795,6 +1806,92 @@ function normalizeStreamCompletionBridgeResult(value = {}) {
     const error = new Error("Rust model_mount stream-completion plan is incomplete.");
     error.status = 502;
     error.code = "model_mount_stream_completion_plan_invalid";
+    error.details = {
+      missing,
+      source: normalized.source,
+      backend: normalized.backend,
+      operation: normalized.operation,
+    };
+    throw error;
+  }
+  return normalized;
+}
+
+function normalizeStreamCancelBridgeResult(value = {}) {
+  const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const plan = result.plan && typeof result.plan === "object" && !Array.isArray(result.plan)
+    ? result.plan
+    : {};
+  const record = result.record && typeof result.record === "object" && !Array.isArray(result.record)
+    ? result.record
+    : plan.record && typeof plan.record === "object" && !Array.isArray(plan.record)
+      ? plan.record
+      : null;
+  const receipt = result.receipt && typeof result.receipt === "object" && !Array.isArray(result.receipt)
+    ? result.receipt
+    : plan.receipt && typeof plan.receipt === "object" && !Array.isArray(plan.receipt)
+      ? plan.receipt
+      : null;
+  const normalized = {
+    source: result.source ?? "rust_model_mount_stream_cancel_command",
+    backend: result.backend ?? RUST_MODEL_MOUNT_STREAM_CANCEL_BACKEND,
+    plan,
+    record_dir: result.record_dir ?? plan.record_dir ?? null,
+    record_id: result.record_id ?? plan.record_id ?? null,
+    record,
+    receipt,
+    operation: result.operation ?? plan.operation ?? null,
+    operation_kind: result.operation_kind ?? plan.operation_kind ?? null,
+    rust_core_boundary: result.rust_core_boundary ?? plan.rust_core_boundary ?? null,
+    receipt_refs: arrayOrNull(result.receipt_refs) ?? arrayOrNull(plan.receipt_refs),
+    evidence_refs: arrayOrNull(result.evidence_refs) ?? arrayOrNull(plan.evidence_refs),
+    stream_cancel_hash: result.stream_cancel_hash ?? plan.stream_cancel_hash ?? null,
+    conversation_hash: result.conversation_hash ?? plan.conversation_hash ?? null,
+  };
+  const missing = [];
+  for (const field of [
+    "record_dir",
+    "record_id",
+    "record",
+    "receipt",
+    "operation",
+    "operation_kind",
+    "stream_cancel_hash",
+    "conversation_hash",
+  ]) {
+    if (!normalized[field]) missing.push(field);
+  }
+  if (normalized.rust_core_boundary !== "model_mount.conversation") {
+    missing.push("rust_core_boundary");
+  }
+  if (!Array.isArray(normalized.receipt_refs) || normalized.receipt_refs.length === 0) {
+    missing.push("receipt_refs");
+  }
+  if (
+    !Array.isArray(normalized.evidence_refs) ||
+    !normalized.evidence_refs.includes("model_mount_stream_cancel_rust_owned")
+  ) {
+    missing.push("evidence_refs.model_mount_stream_cancel_rust_owned");
+  }
+  if (
+    !Array.isArray(normalized.evidence_refs) ||
+    !normalized.evidence_refs.includes("agentgres_model_stream_cancel_truth_required")
+  ) {
+    missing.push("evidence_refs.agentgres_model_stream_cancel_truth_required");
+  }
+  if (record?.id !== normalized.record_id) {
+    missing.push("record.id");
+  }
+  if (receipt?.kind !== "model_invocation_stream_canceled") {
+    missing.push("receipt.kind");
+  }
+  if (!receipt?.details?.model_mount_step_module_result?.agentgres_operation_refs) {
+    missing.push("receipt.details.model_mount_step_module_result.agentgres_operation_refs");
+  }
+  if (missing.length > 0) {
+    const error = new Error("Rust model_mount stream-cancel plan is incomplete.");
+    error.status = 502;
+    error.code = "model_mount_stream_cancel_plan_invalid";
     error.details = {
       missing,
       source: normalized.source,

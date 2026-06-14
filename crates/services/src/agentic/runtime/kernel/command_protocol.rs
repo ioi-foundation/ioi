@@ -35,6 +35,7 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "plan_model_mount_tokenizer",
     "plan_model_mount_conversation_state",
     "plan_model_mount_stream_completion",
+    "plan_model_mount_stream_cancel",
     "plan_model_mount_accepted_receipt_head",
     "plan_model_mount_accepted_receipt_transition",
     "bind_model_mount_invocation_receipt",
@@ -175,6 +176,7 @@ pub enum CommandOperation {
     PlanModelMountTokenizer,
     PlanModelMountConversationState,
     PlanModelMountStreamCompletion,
+    PlanModelMountStreamCancel,
     PlanModelMountAcceptedReceiptHead,
     PlanModelMountAcceptedReceiptTransition,
     BindModelMountInvocationReceipt,
@@ -322,6 +324,7 @@ impl CommandOperation {
             Self::PlanModelMountTokenizer => "plan_model_mount_tokenizer",
             Self::PlanModelMountConversationState => "plan_model_mount_conversation_state",
             Self::PlanModelMountStreamCompletion => "plan_model_mount_stream_completion",
+            Self::PlanModelMountStreamCancel => "plan_model_mount_stream_cancel",
             Self::PlanModelMountAcceptedReceiptHead => "plan_model_mount_accepted_receipt_head",
             Self::PlanModelMountAcceptedReceiptTransition => {
                 "plan_model_mount_accepted_receipt_transition"
@@ -596,6 +599,7 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
         "plan_model_mount_stream_completion" => {
             Some(CommandOperation::PlanModelMountStreamCompletion)
         }
+        "plan_model_mount_stream_cancel" => Some(CommandOperation::PlanModelMountStreamCancel),
         "plan_model_mount_accepted_receipt_head" => {
             Some(CommandOperation::PlanModelMountAcceptedReceiptHead)
         }

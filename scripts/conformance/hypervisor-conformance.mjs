@@ -439,7 +439,7 @@ function runDocs() {
       /Slice 748 direct model lifecycle receipt helper facade-retirement\s+compaction is complete/.test(guide) &&
       /Slice 749 public model invocation facade-retirement\s+compaction is complete/.test(guide) &&
       /Slice 750 runtime model-route selection facade\s+retirement compaction is complete/.test(guide) &&
-      /Slice 751 stream-cancel receipt facade\s+retirement compaction is complete/.test(guide) &&
+      /Slice 751 stream-cancel positive Rust API compaction is complete/.test(guide) &&
       /Slice 752 receipt-gate receipt facade\s+retirement compaction is complete/.test(guide) &&
       /Slice 753 public model invocation dead JS\s+body-retirement compaction is complete/.test(guide) &&
       /Slice 754 retired model invocation\s+migration-helper compatibility aliases/.test(guide) &&
@@ -1856,9 +1856,10 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 751/.test(
         matrix,
       ) &&
-      /model_mount_stream_cancel_rust_core_required/.test(matrix) &&
-      /model_mount_stream_cancel_js_facade_retired/.test(matrix) &&
-      /rust_daemon_core_model_stream_cancel_required/.test(matrix) &&
+      /Model_mount stream-cancel positive API/.test(matrix) &&
+      /plan_model_mount_stream_cancel/.test(matrix) &&
+      /model_mount_stream_cancel_rust_owned/.test(matrix) &&
+      /rust_daemon_core_model_stream_cancel/.test(matrix) &&
       /agentgres_model_stream_cancel_truth_required/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 751 is now satisfied/.test(
         matrix,
@@ -2678,6 +2679,9 @@ function runBridge() {
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
         exists("crates/services/src/agentic/runtime/kernel/model_mount/common.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/common.rs")
+          : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/conversation.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/conversation.rs")
           : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/admission.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/admission.rs")
@@ -3977,8 +3981,6 @@ function runBridge() {
   const openAiCompatRoutesTest = exists("packages/runtime-daemon/src/openai-compat-routes.test.mjs")
     ? read("packages/runtime-daemon/src/openai-compat-routes.test.mjs")
     : "";
-  const modelStreamCancelDetailsObject =
-    openAiCompatRoutes.match(/error\.details = \{\n {4}boundary: "model_mount\.stream_cancel"[\s\S]*?\n {2}\};/)?.[0] ?? "";
   const retiredRouteDecisionEnvPattern = new RegExp("MODEL_MOUNT_" + "ROUTE_DECISION_COMMAND_ENV");
   const daemonCoreDirectInvokerRunners = [
     stepModuleRunner,
@@ -16070,42 +16072,62 @@ function runBridge() {
   );
   assertCheck(
     result,
-    "model-mount-stream-cancel-js-facade-retired",
-    /model_mount_stream_cancel_rust_core_required/.test(openAiCompatRoutes) &&
-      /MODEL_STREAM_CANCEL_RUST_CORE_REQUIRED_EVIDENCE_REFS/.test(openAiCompatRoutes) &&
-      /model_mount_stream_cancel_js_facade_retired/.test(openAiCompatRoutes) &&
-      /rust_daemon_core_model_stream_cancel_required/.test(openAiCompatRoutes) &&
-      /agentgres_model_stream_cancel_truth_required/.test(openAiCompatRoutes) &&
-      /throw modelStreamCancelRustCoreRequiredError/.test(openAiCompatRoutes) &&
-      !/mounts\.receipt\("model_invocation_stream_canceled"/.test(openAiCompatRoutes) &&
-      /^ {4}stream_kind:\s*streamKind/m.test(modelStreamCancelDetailsObject) &&
-      /^ {4}invocation_receipt_id:\s*invocation\.receipt\.id/m.test(modelStreamCancelDetailsObject) &&
-      /^ {4}route_id:\s*invocation\.route\.id/m.test(modelStreamCancelDetailsObject) &&
-      /^ {4}selected_model:\s*invocation\.model/m.test(modelStreamCancelDetailsObject) &&
-      /^ {4}endpoint_id:\s*invocation\.endpoint\.id/m.test(modelStreamCancelDetailsObject) &&
-      /^ {4}provider_id:\s*invocation\.endpoint\.providerId/m.test(modelStreamCancelDetailsObject) &&
-      /^ {4}instance_id:\s*invocation\.instance\.id/m.test(modelStreamCancelDetailsObject) &&
-      /^ {4}backend_id:\s*invocation\.instance\.backendId/m.test(modelStreamCancelDetailsObject) &&
-      /^ {4}selected_backend:\s*invocation\.receipt\.details\?\.selected_backend/m.test(modelStreamCancelDetailsObject) &&
-      /^ {4}stream_source:\s*invocation\.receipt\.details\?\.stream_source/m.test(modelStreamCancelDetailsObject) &&
-      /^ {4}provider_response_kind:\s*invocation\.providerResponseKind/m.test(modelStreamCancelDetailsObject) &&
-      /^ {4}backend_evidence_refs:\s*invocation\.receipt\.details\?\.backend_evidence_refs/m.test(modelStreamCancelDetailsObject) &&
-      /^ {4}tool_receipt_ids:\s*invocation\.toolReceiptIds/m.test(modelStreamCancelDetailsObject) &&
-      /^ {4}frames_written:\s*framesWritten/m.test(modelStreamCancelDetailsObject) &&
-      !/^ {4}(?:streamKind|invocationReceiptId|routeId|selectedModel|endpointId|providerId|instanceId|backendId|selectedBackend|streamSource|providerResponseKind|backendEvidenceRefs|toolReceiptIds|framesWritten)\s*[:,]/m.test(
-        modelStreamCancelDetailsObject,
+    "model-mount-stream-cancel-positive-rust-api",
+    /plan_model_mount_stream_cancel/.test(commandProtocolCore) &&
+      /CommandOperation::PlanModelMountStreamCancel/.test(commandProtocolCore) &&
+      /plan_model_mount_stream_cancel_response/.test(coreCommandDispatch) &&
+      /MODEL_MOUNT_STREAM_CANCEL_SCHEMA_VERSION/.test(modelMountCore) &&
+      /MODEL_MOUNT_STREAM_CANCEL_PLAN_SCHEMA_VERSION/.test(modelMountCore) &&
+      /plan_model_mount_stream_cancel_response/.test(modelMountCore) &&
+      /ModelMountCore\.plan_model_mount_stream_cancel/.test(modelMountCore) &&
+      /model_mount_stream_cancel_rust_owned/.test(modelMountCore) &&
+      /rust_daemon_core_model_stream_cancel/.test(modelMountCore) &&
+      /agentgres_model_stream_cancel_truth_required/.test(modelMountCore) &&
+      /RUST_MODEL_MOUNT_STREAM_CANCEL_BACKEND/.test(modelMountAdmissionRunner) &&
+      /operation:\s*"plan_model_mount_stream_cancel"/.test(modelMountAdmissionRunner) &&
+      /normalizeStreamCancelBridgeResult/.test(modelMountAdmissionRunner) &&
+      /receipt\?\.kind !== "model_invocation_stream_canceled"/.test(modelMountAdmissionRunner) &&
+      /planModelMountStreamCancel\(request\)[\s\S]*?planStreamCancel\(request\)/.test(modelMountingState) &&
+      /recordModelStreamCanceled\(\{[\s\S]*?planModelMountStreamCancel\(modelStreamCancelRequestForMountedState/.test(
+        modelMountingState,
       ) &&
-      /stream cancellation receipt facade fails closed with canonical detail metadata/.test(openAiCompatRoutesTest) &&
-      /JS stream cancellation receipt should not be created/.test(openAiCompatRoutesTest) &&
-      /assert\.deepEqual\(calls,\s*\[\]\)/.test(openAiCompatRoutesTest) &&
-      /Object\.hasOwn\(error\.details,\s*"streamKind"\),\s*false/.test(openAiCompatRoutesTest) &&
-      /Object\.hasOwn\(error\.details,\s*"providerResponseKind"\),\s*false/.test(openAiCompatRoutesTest) &&
-      /Object\.hasOwn\(error\.details,\s*"framesWritten"\),\s*false/.test(openAiCompatRoutesTest),
+      /model_mount_stream_cancel_record_state_commit_unconfigured/.test(modelMountingState) &&
+      /persistRustAuthoredReceipt\(plan\.receipt\)/.test(modelMountingState) &&
+      /stream_cancel_hash:\s*plan\.stream_cancel_hash/.test(modelMountingState) &&
+      /mounts\.recordModelStreamCanceled\(\{/.test(openAiCompatRoutes) &&
+      /cancelReason:\s*"client_disconnect"/.test(openAiCompatRoutes) &&
+      /provider_response_kind:/.test(openAiCompatRoutes) &&
+      /backend_evidence_refs:/.test(openAiCompatRoutes) &&
+      !/mounts\.receipt\("model_invocation_stream_canceled"/.test(openAiCompatRoutes) &&
+      !/model_mount_stream_cancel_rust_core_required/.test(openAiCompatRoutes) &&
+      !/MODEL_STREAM_CANCEL_RUST_CORE_REQUIRED_EVIDENCE_REFS/.test(openAiCompatRoutes) &&
+      !/modelStreamCancelRustCoreRequiredError/.test(openAiCompatRoutes) &&
+      /stream cancellation is delegated to Rust model_mount stream lifecycle admission/.test(
+        openAiCompatRoutesTest,
+      ) &&
+      /Legacy JS stream cancellation receipt authoring must stay retired/.test(openAiCompatRoutesTest) &&
+      /assert\.deepEqual\(receiptCalls,\s*\[\]\)/.test(openAiCompatRoutesTest) &&
+      /assert\.equal\(delegated\[0\]\.cancelReason,\s*"client_disconnect"\)/.test(
+        openAiCompatRoutesTest,
+      ) &&
+      /assert\.equal\(Object\.hasOwn\(delegated\[0\]\.providerResult,\s*"providerResponseKind"\),\s*false\)/.test(
+        openAiCompatRoutesTest,
+      ) &&
+      /Rust model_mount admission runner sends positive stream-cancel request/.test(
+        modelMountAdmissionRunnerTest,
+      ) &&
+      /runner\.planStreamCancel\(streamCancelRequest\(\)\)/.test(modelMountAdmissionRunnerTest),
     [
+      "crates/services/src/agentic/runtime/kernel/model_mount/conversation.rs",
+      "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
+      "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs",
       "packages/runtime-daemon/src/openai-compat-routes.mjs",
       "packages/runtime-daemon/src/openai-compat-routes.test.mjs",
     ],
-    "Phase 10 is pending: stream cancellation must fail closed before JS receipt creation and keep canonical snake_case Rust-core-required details",
+    "Model stream cancellation must be planned by Rust daemon-core, committed through Agentgres model conversation state, persisted as a Rust-authored receipt, and must not recreate the retired JS fail-closed receipt facade",
   );
   assertCheck(
     result,
@@ -19360,6 +19382,9 @@ function runReceipts() {
   const openAiCompatRoutes = exists("packages/runtime-daemon/src/openai-compat-routes.mjs")
     ? read("packages/runtime-daemon/src/openai-compat-routes.mjs")
     : "";
+  const openAiCompatRoutesTest = exists("packages/runtime-daemon/src/openai-compat-routes.test.mjs")
+    ? read("packages/runtime-daemon/src/openai-compat-routes.test.mjs")
+    : "";
   const memoryStore = exists("packages/runtime-daemon/src/memory-store.mjs")
     ? read("packages/runtime-daemon/src/memory-store.mjs")
     : "";
@@ -19405,6 +19430,9 @@ function runReceipts() {
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
         exists("crates/services/src/agentic/runtime/kernel/model_mount/common.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/common.rs")
+          : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/conversation.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/conversation.rs")
           : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/admission.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/admission.rs")
@@ -25490,6 +25518,37 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/conversation-operations.test.mjs",
     ],
     "Phase 10/11 is pending: model stream completion finalization is Rust-owned; durable replay/list projection remains non-terminal",
+  );
+  assertCheck(
+    result,
+    "model-mount-stream-cancel-rust-owned-public-api",
+    /recordModelStreamCanceled/.test(conversationOps) &&
+      /MODEL_MOUNT_STREAM_CANCEL_SCHEMA_VERSION/.test(conversationOps) &&
+      /planModelMountStreamCancel/.test(conversationOps) &&
+      /modelStreamCancelRequestForMountedState/.test(conversationOps) &&
+      /model_mount_stream_cancel_rust_owned/.test(conversationOps) &&
+      /rust_daemon_core_model_stream_cancel/.test(conversationOps) &&
+      /agentgres_model_stream_cancel_truth_required/.test(conversationOps) &&
+      /model_stream_cancel/.test(conversationOps) &&
+      /model_invocation_stream_canceled/.test(conversationOps) &&
+      /plan_model_mount_stream_cancel_response/.test(modelMountCore) &&
+      /ModelMountCore\.plan_model_mount_stream_cancel/.test(modelMountCore) &&
+      /model_mount_accepted_receipt_transition/.test(modelMountCore) &&
+      /model_mount_step_module_result/.test(modelMountCore) &&
+      /model_mount_agentgres_state_root_after/.test(modelMountCore) &&
+      /mounts\.recordModelStreamCanceled/.test(openAiCompatRoutes) &&
+      /stream cancellation is delegated to Rust model_mount stream lifecycle admission/.test(
+        openAiCompatRoutesTest,
+      ) &&
+      !/state\.receipt\("model_invocation_stream_canceled"/.test(conversationOps) &&
+      !/mounts\.receipt\("model_invocation_stream_canceled"/.test(openAiCompatRoutes),
+    [
+      "crates/services/src/agentic/runtime/kernel/model_mount/conversation.rs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
+      "packages/runtime-daemon/src/openai-compat-routes.mjs",
+      "packages/runtime-daemon/src/openai-compat-routes.test.mjs",
+    ],
+    "Model stream cancellation finalization must be Rust-owned with accepted-receipt transition, StepModule binding, Agentgres state-root binding, and no JS receipt synthesis",
   );
   assertCheck(
     result,

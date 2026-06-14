@@ -59,6 +59,9 @@ pub const MODEL_MOUNT_STREAM_COMPLETION_SCHEMA_VERSION: &str =
     "ioi.model_mount.stream_completion.v1";
 pub const MODEL_MOUNT_STREAM_COMPLETION_PLAN_SCHEMA_VERSION: &str =
     "ioi.model_mount.stream_completion_plan.v1";
+pub const MODEL_MOUNT_STREAM_CANCEL_SCHEMA_VERSION: &str = "ioi.model_mount.stream_cancel.v1";
+pub const MODEL_MOUNT_STREAM_CANCEL_PLAN_SCHEMA_VERSION: &str =
+    "ioi.model_mount.stream_cancel_plan.v1";
 pub const MODEL_MOUNT_CATALOG_PROVIDER_CONTROL_SCHEMA_VERSION: &str =
     "ioi.model_mount.catalog_provider_control.v1";
 pub const MODEL_MOUNT_CATALOG_PROVIDER_CONTROL_PLAN_SCHEMA_VERSION: &str =

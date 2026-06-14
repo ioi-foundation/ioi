@@ -170,6 +170,7 @@ const MODEL_MOUNT_STORAGE_CONTROL_SCHEMA_VERSION = "ioi.model_mount.storage_cont
 const MODEL_MOUNT_MCP_WORKFLOW_SCHEMA_VERSION = "ioi.model_mount.mcp_workflow.v1";
 const MODEL_MOUNT_CONVERSATION_STATE_SCHEMA_VERSION = "ioi.model_mount.conversation_state.v1";
 const MODEL_MOUNT_STREAM_COMPLETION_SCHEMA_VERSION = "ioi.model_mount.stream_completion.v1";
+const MODEL_MOUNT_STREAM_CANCEL_SCHEMA_VERSION = "ioi.model_mount.stream_cancel.v1";
 const SERVER_CONTROL_RECORD_ID = "server-control.default";
 const MODEL_LIFECYCLE_RECEIPT_RUST_CORE_REQUIRED_EVIDENCE_REFS = [
   "model_mount_lifecycle_receipt_js_facade_retired",
@@ -1357,6 +1358,10 @@ export class ModelMountingState {
     return this.modelMountAdmissionRunner.planStreamCompletion(request);
   }
 
+  planModelMountStreamCancel(request) {
+    return this.modelMountAdmissionRunner.planStreamCancel(request);
+  }
+
   testRoute(routeId, body = {}) {
     return testRouteState(this, routeId, body);
   }
@@ -1531,6 +1536,51 @@ export class ModelMountingState {
       conversation_state: conversation.record,
       conversationState: conversation.record,
       stream_completion_hash: plan.stream_completion_hash,
+      conversation_hash: plan.conversation_hash,
+      record_commit: conversation.commit,
+    };
+  }
+
+  recordModelStreamCanceled({
+    invocation,
+    streamKind,
+    outputText = "",
+    providerUsage = null,
+    framesWritten = 0,
+    cancelReason = "client_disconnect",
+    providerResult = {},
+    providerStreamShapeSummary = null,
+  }) {
+    const currentHead = this.agentgresModelMountingHead();
+    const receiptId = this.nextReceiptId("model_invocation_stream_canceled");
+    const plan = this.planModelMountStreamCancel(modelStreamCancelRequestForMountedState(this, {
+      invocation,
+      streamKind,
+      outputText,
+      providerUsage,
+      framesWritten,
+      cancelReason,
+      providerResult,
+      providerStreamShapeSummary,
+      currentHead,
+      receiptId,
+    }));
+    const conversation = commitModelConversationPlanRecordState(this, plan, {
+      unconfiguredCode: "model_mount_stream_cancel_record_state_commit_unconfigured",
+      unconfiguredMessage:
+        "Model stream cancellation requires Rust Agentgres conversation record-state commit before stream truth can return.",
+      invalidCode: "model_mount_stream_cancel_record_state_commit_invalid",
+    });
+    const receipt = this.persistRustAuthoredReceipt(plan.receipt);
+    if (invocation && typeof invocation === "object") {
+      invocation.conversationState = conversation.record;
+      invocation.streamCancelReceipt = receipt;
+    }
+    return {
+      ...receipt,
+      conversation_state: conversation.record,
+      conversationState: conversation.record,
+      stream_cancel_hash: plan.stream_cancel_hash,
       conversation_hash: plan.conversation_hash,
       record_commit: conversation.commit,
     };
@@ -3558,6 +3608,89 @@ function modelStreamCompletionRequestForMountedState(
   };
 }
 
+function modelStreamCancelRequestForMountedState(
+  state,
+  {
+    invocation,
+    streamKind,
+    outputText,
+    providerUsage,
+    framesWritten,
+    cancelReason,
+    providerResult,
+    providerStreamShapeSummary,
+    currentHead,
+    receiptId,
+  } = {},
+) {
+  const routeReceipt = invocation?.routeReceipt;
+  const receipt = invocation?.receipt;
+  const endpoint = invocation?.endpoint ?? {};
+  const route = invocation?.route ?? {};
+  const previousState = invocation?.previousConversationState ?? null;
+  return {
+    schema_version: MODEL_MOUNT_STREAM_CANCEL_SCHEMA_VERSION,
+    operation: "model_stream_cancel",
+    response_id: requiredModelConversationString("response_id", invocation?.responseId),
+    previous_response_id: optionalString(invocation?.previousResponseId),
+    root_response_id:
+      optionalString(previousState?.root_response_id) ??
+      optionalString(previousState?.id) ??
+      optionalString(invocation?.responseId),
+    previous_message_count: normalizedMessageCount(previousState?.message_count),
+    kind: requiredModelConversationString("kind", invocation?.kind),
+    stream_kind: requiredModelConversationString("stream_kind", streamKind),
+    source: "runtime-daemon.model_mounting.stream_cancel",
+    generated_at: state.nowIso(),
+    receipt_id: requiredModelConversationString("receipt_id", receiptId),
+    current_sequence: normalizeNonNegativeInteger(currentHead?.sequence, 0),
+    current_head_ref: requiredModelConversationString("current_head_ref", currentHead?.head_ref),
+    current_state_root: requiredModelConversationString("current_state_root", currentHead?.state_root),
+    invocation_receipt_ref: requiredModelConversationString(
+      "invocation_receipt_ref",
+      modelMountReceiptRef(receipt?.id),
+    ),
+    route_decision_ref: requiredModelConversationString(
+      "route_decision_ref",
+      routeReceipt?.details?.model_mount_route_decision_ref ??
+        receipt?.details?.model_mount_route_decision_ref,
+    ),
+    route_receipt_ref: modelMountReceiptRef(routeReceipt?.id),
+    route_ref: requiredModelConversationString("route_ref", route.id ?? receipt?.details?.route_id),
+    endpoint_ref: requiredModelConversationString("endpoint_ref", endpoint.id ?? receipt?.details?.endpoint_id),
+    provider_ref: requiredModelConversationString(
+      "provider_ref",
+      endpoint.provider_id ?? endpoint.providerId ?? receipt?.details?.provider_id,
+    ),
+    model_ref: requiredModelConversationString(
+      "model_ref",
+      endpoint.model_id ?? endpoint.modelId ?? invocation?.model ?? receipt?.details?.selected_model,
+    ),
+    instance_ref: optionalString(invocation?.instance?.id ?? receipt?.details?.instance_id),
+    input_text: modelConversationText(invocation?.input),
+    output_text: modelConversationText(outputText),
+    token_count: invocation?.tokenCount ?? null,
+    provider_usage: providerUsage ?? null,
+    provider_result: providerResult ?? {},
+    provider_stream_shape_summary: providerStreamShapeSummary ?? null,
+    frames_written: normalizeNonNegativeInteger(framesWritten, 0),
+    cancel_reason: optionalString(cancelReason) ?? "client_disconnect",
+    stream_source: optionalString(receipt?.details?.stream_source),
+    provider_response_kind: optionalString(
+      providerResult?.provider_response_kind ??
+        providerResult?.providerResponseKind ??
+        invocation?.providerResponseKind ??
+        receipt?.details?.provider_response_kind,
+    ),
+    receipt_refs: uniqueModelMountRefs([
+      modelMountReceiptRef(routeReceipt?.id),
+      modelMountReceiptRef(receipt?.id),
+      ...(invocation?.toolReceiptIds ?? []).map(modelMountReceiptRef),
+      modelMountReceiptRef(receiptId),
+    ]),
+  };
+}
+
 function commitModelConversationPlanRecordState(
   state,
   plan,
@@ -3606,7 +3739,8 @@ function assertRustModelConversationPlan(plan = {}) {
   if (!plan.conversation_hash) missing.push("conversation_hash");
   if (
     !evidenceRefs.includes("model_mount_conversation_state_rust_owned") &&
-    !evidenceRefs.includes("model_mount_stream_completion_rust_owned")
+    !evidenceRefs.includes("model_mount_stream_completion_rust_owned") &&
+    !evidenceRefs.includes("model_mount_stream_cancel_rust_owned")
   ) {
     missing.push("evidence_refs.model_mount_conversation_or_stream_rust_owned");
   }
@@ -3624,6 +3758,18 @@ function assertRustModelConversationPlan(plan = {}) {
     !evidenceRefs.includes("rust_daemon_core_model_stream_completion")
   ) {
     missing.push("evidence_refs.rust_daemon_core_model_stream_completion");
+  }
+  if (
+    evidenceRefs.includes("model_mount_stream_cancel_rust_owned") &&
+    !evidenceRefs.includes("rust_daemon_core_model_stream_cancel")
+  ) {
+    missing.push("evidence_refs.rust_daemon_core_model_stream_cancel");
+  }
+  if (
+    evidenceRefs.includes("model_mount_stream_cancel_rust_owned") &&
+    !evidenceRefs.includes("agentgres_model_stream_cancel_truth_required")
+  ) {
+    missing.push("evidence_refs.agentgres_model_stream_cancel_truth_required");
   }
   if (missing.length === 0) return;
   throw runtimeError({

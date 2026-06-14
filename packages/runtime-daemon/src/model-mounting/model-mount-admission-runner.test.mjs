@@ -18,6 +18,7 @@ import {
   RUST_MODEL_MOUNT_RUNTIME_SURVEY_BACKEND,
   RUST_MODEL_MOUNT_SERVER_CONTROL_BACKEND,
   RUST_MODEL_MOUNT_STORAGE_CONTROL_BACKEND,
+  RUST_MODEL_MOUNT_STREAM_CANCEL_BACKEND,
   RUST_MODEL_MOUNT_STREAM_COMPLETION_BACKEND,
   RUST_MODEL_MOUNT_TOKENIZER_BACKEND,
   RUST_MODEL_MOUNT_TOKENIZER_REQUIRED_BACKEND,
@@ -646,6 +647,44 @@ function streamCompletionRequest() {
     finish_reason: "stop",
     provider_response_kind: "openai.responses",
     receipt_refs: ["receipt://route", "receipt://invocation"],
+  };
+}
+
+function streamCancelRequest() {
+  return {
+    schema_version: "ioi.model_mount.stream_cancel.v1",
+    operation: "model_stream_cancel",
+    response_id: "resp.stream",
+    previous_response_id: null,
+    root_response_id: "resp.stream",
+    previous_message_count: null,
+    kind: "responses",
+    stream_kind: "responses",
+    source: "runtime-daemon.model_mounting.stream_cancel",
+    generated_at: "2026-06-13T00:00:00.000Z",
+    receipt_id: "receipt.stream-cancel",
+    current_sequence: 2,
+    current_head_ref: "agentgres://model-mounting/accepted-receipts/head/2",
+    current_state_root: "sha256:state-2",
+    invocation_receipt_ref: "receipt://invocation",
+    route_decision_ref: "model_mount://route_decision/test",
+    route_receipt_ref: "receipt://route",
+    route_ref: "route.local-first",
+    endpoint_ref: "endpoint.local",
+    provider_ref: "provider.local",
+    model_ref: "llama-test",
+    instance_ref: "instance.local",
+    input_text: "hello",
+    output_text: "partial",
+    token_count: { total_tokens: 2 },
+    provider_usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+    provider_result: { provider_response_kind: "openai.responses" },
+    provider_stream_shape_summary: { frames_forwarded: 1 },
+    frames_written: 1,
+    cancel_reason: "client_disconnect",
+    stream_source: "provider_native",
+    provider_response_kind: "openai.responses",
+    receipt_refs: ["receipt://route", "receipt://invocation", "receipt://receipt.stream-cancel"],
   };
 }
 
@@ -2825,6 +2864,97 @@ test("Rust model_mount admission runner sends positive stream-completion request
   assert.equal(result.stream_completion_hash, "sha256:stream-completion");
   assert.equal(result.rust_core_boundary, "model_mount.conversation");
   assert.equal(result.evidence_refs.includes("model_mount_stream_completion_rust_owned"), true);
+});
+
+test("Rust model_mount admission runner sends positive stream-cancel request", () => {
+  const calls = [];
+  const runner = new RustModelMountAdmissionRunner({
+    daemonCoreInvoker(request) {
+      calls.push({ request });
+      const record = {
+        id: request.request.response_id,
+        object: "ioi.model_mount_conversation_state",
+        status: "canceled",
+        response_id: request.request.response_id,
+        stream_receipt_ref: `receipt://${request.request.receipt_id}`,
+        conversation_hash: "sha256:conversation-cancel",
+        stream_cancel_hash: "sha256:stream-cancel",
+      };
+      const receipt = {
+        id: request.request.receipt_id,
+        kind: "model_invocation_stream_canceled",
+        evidenceRefs: ["rust_model_mount_core", "model_mount_stream_cancel_rust_owned"],
+        createdAt: request.request.generated_at,
+        schemaVersion: "ioi.model-mounting.runtime.v1",
+        details: {
+          rust_daemon_core_receipt_author: "ModelMountCore.plan_model_mount_stream_cancel",
+          model_mount_route_decision_ref: request.request.route_decision_ref,
+          model_mount_step_module_result: {
+            agentgres_operation_refs: ["agentgres://model-mounting/accepted-receipts/op_cancel"],
+          },
+        },
+      };
+      return {
+        ok: true,
+        result: {
+          source: "rust_model_mount_stream_cancel_command",
+          backend: RUST_MODEL_MOUNT_STREAM_CANCEL_BACKEND,
+          plan: {
+            schema_version: "ioi.model_mount.stream_cancel_plan.v1",
+            object: "ioi.model_mount_stream_cancel_plan",
+            status: "planned",
+            rust_core_boundary: "model_mount.conversation",
+            operation: request.request.operation,
+            operation_kind: "model_mount.conversation.stream_cancel",
+            source: request.request.source,
+            record_dir: "model-conversations",
+            record_id: record.id,
+            record,
+            receipt,
+            receipt_refs: request.request.receipt_refs,
+            evidence_refs: [
+              "model_mount_stream_cancel_rust_owned",
+              "agentgres_model_stream_cancel_truth_required",
+            ],
+            stream_cancel_hash: "sha256:stream-cancel",
+            conversation_hash: "sha256:conversation-cancel",
+          },
+          record_dir: "model-conversations",
+          record_id: record.id,
+          record,
+          receipt,
+          receipt_refs: request.request.receipt_refs,
+          evidence_refs: [
+            "model_mount_stream_cancel_rust_owned",
+            "agentgres_model_stream_cancel_truth_required",
+          ],
+          operation: request.request.operation,
+          operation_kind: "model_mount.conversation.stream_cancel",
+          rust_core_boundary: "model_mount.conversation",
+          stream_cancel_hash: "sha256:stream-cancel",
+          conversation_hash: "sha256:conversation-cancel",
+        },
+      };
+    },
+  });
+
+  const result = runner.planStreamCancel(streamCancelRequest());
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.operation, "plan_model_mount_stream_cancel");
+  assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_STREAM_CANCEL_BACKEND);
+  assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.stream_cancel.v1");
+  assert.equal(calls[0].request.request.operation, "model_stream_cancel");
+  assert.equal(calls[0].request.request.route_decision_ref, "model_mount://route_decision/test");
+  assert.equal(calls[0].request.request.cancel_reason, "client_disconnect");
+  assert.equal(result.record_dir, "model-conversations");
+  assert.equal(result.record_id, "resp.stream");
+  assert.equal(result.receipt.kind, "model_invocation_stream_canceled");
+  assert.equal(result.stream_cancel_hash, "sha256:stream-cancel");
+  assert.equal(result.rust_core_boundary, "model_mount.conversation");
+  assert.equal(result.evidence_refs.includes("model_mount_stream_cancel_rust_owned"), true);
+  assert.equal(result.evidence_refs.includes("agentgres_model_stream_cancel_truth_required"), true);
 });
 
 test("Rust model_mount admission runner sends invocation receipt binding request", () => {

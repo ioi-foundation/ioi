@@ -359,9 +359,11 @@ Slice 750 retired the explicit runtime model-route selection JS facade before
 model-route binding from a JS receipt, or fallback receipt minting. Persisted
 agent route readback without a model override remains projection-only until
 direct Rust projection APIs replace it.
-Slice 751 retired the OpenAI-compatible stream cancellation JS receipt facade
-before `model_invocation_stream_canceled` receipt construction; cancellation
-now requires Rust `model_mount` stream lifecycle admission.
+Slice 751 now routes OpenAI-compatible stream cancellation through Rust
+`plan_model_mount_stream_cancel`; Rust authors the
+`model_invocation_stream_canceled` receipt, accepted-receipt transition,
+StepModule binding, Agentgres admission, and canceled conversation projection
+before the JS protocol adapter can return or persist stream-cancel truth.
 The receipt-gate boundary now has a positive Rust daemon-core planner.
 Receipt-gate validation calls `plan_model_mount_receipt_gate`, passes canonical
 receipt facts and required tool receipt ids to Rust, receives a Rust-authored
@@ -384,8 +386,8 @@ complete. Slice 747 model tokenizer/context-fit facade-retirement compaction is
 complete. Slice 748 direct model lifecycle receipt helper facade-retirement
 compaction is complete. Slice 749 public model invocation facade-retirement
 compaction is complete. Slice 750 runtime model-route selection facade
-retirement compaction is complete. Slice 751 stream-cancel receipt facade
-retirement compaction is complete. Slice 752 receipt-gate receipt facade
+retirement compaction is complete. Slice 751 stream-cancel positive Rust API
+compaction is complete. Slice 752 receipt-gate receipt facade
 retirement is superseded by the Rust receipt-gate planner. Slice 753 public model invocation dead JS
 body-retirement compaction is complete. Slice 754 retired model invocation
 migration-helper compatibility aliases and its compaction is complete. Slice

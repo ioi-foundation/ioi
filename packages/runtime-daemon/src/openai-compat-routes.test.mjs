@@ -3,7 +3,6 @@ import { EventEmitter } from "node:events";
 import test from "node:test";
 
 import {
-  MODEL_STREAM_CANCEL_RUST_CORE_REQUIRED_EVIDENCE_REFS,
   anthropicMessagesToCanonicalBody,
   nativeInvocationResponse,
   recordModelStreamCanceled,
@@ -156,61 +155,50 @@ test("OpenAI provider stream shape is bound to the stream receipt without operat
   assert.equal(Object.hasOwn(finalPayload.usage, "tokenCount"), false);
 });
 
-test("stream cancellation receipt facade fails closed with canonical detail metadata", () => {
+test("stream cancellation is delegated to Rust model_mount stream lifecycle admission", () => {
   const { invocation } = invocationFixture();
-  const calls = [];
+  const delegated = [];
+  const receiptCalls = [];
   const mounts = {
     receipt(kind, payload) {
-      calls.push({ kind, payload });
-      throw new Error("JS stream cancellation receipt should not be created");
+      receiptCalls.push({ kind, payload });
+      throw new Error("Legacy JS stream cancellation receipt authoring must stay retired");
+    },
+    recordModelStreamCanceled(payload) {
+      delegated.push(payload);
+      return {
+        id: "receipt.stream-cancel",
+        kind: "model_invocation_stream_canceled",
+        details: {
+          rust_daemon_core_receipt_author: "ModelMountCore.plan_model_mount_stream_cancel",
+          stream_status: "canceled",
+          frames_written: payload.framesWritten,
+          cancel_reason: payload.cancelReason,
+        },
+      };
     },
   };
 
-  assert.throws(
-    () =>
-      recordModelStreamCanceled({
-        mounts,
-        invocation,
-        streamKind: "chat.completions",
-        framesWritten: 2,
-      }),
-    (error) => {
-      assert.equal(error.code, "model_mount_stream_cancel_rust_core_required");
-      assert.equal(error.status, 409);
-      assert.equal(error.details.boundary, "model_mount.stream_cancel");
-      assert.equal(error.details.operation_kind, "model_stream_cancel");
-      assert.deepEqual(error.details.evidence_refs, MODEL_STREAM_CANCEL_RUST_CORE_REQUIRED_EVIDENCE_REFS);
-      assert.equal(error.details.stream_kind, "chat.completions");
-      assert.equal(error.details.invocation_receipt_id, "receipt.invocation");
-      assert.equal(error.details.route_id, "route.native");
-      assert.equal(error.details.selected_model, "model.native");
-      assert.equal(error.details.endpoint_id, "endpoint.native");
-      assert.equal(error.details.provider_id, "provider.native");
-      assert.equal(error.details.instance_id, "instance.native");
-      assert.equal(error.details.backend_id, "backend.native");
-      assert.equal(error.details.selected_backend, "backend.native");
-      assert.equal(error.details.stream_source, "provider_native");
-      assert.equal(error.details.provider_response_kind, "openai.chat.stream");
-      assert.deepEqual(error.details.backend_evidence_refs, ["backend.native"]);
-      assert.deepEqual(error.details.tool_receipt_ids, []);
-      assert.equal(error.details.frames_written, 2);
-      assert.equal(error.details.status, "aborted");
-      assert.equal(error.details.reason, "client_disconnect");
-      assert.equal(Object.hasOwn(error.details, "streamKind"), false);
-      assert.equal(Object.hasOwn(error.details, "invocationReceiptId"), false);
-      assert.equal(Object.hasOwn(error.details, "routeId"), false);
-      assert.equal(Object.hasOwn(error.details, "selectedModel"), false);
-      assert.equal(Object.hasOwn(error.details, "backendId"), false);
-      assert.equal(Object.hasOwn(error.details, "selectedBackend"), false);
-      assert.equal(Object.hasOwn(error.details, "streamSource"), false);
-      assert.equal(Object.hasOwn(error.details, "providerResponseKind"), false);
-      assert.equal(Object.hasOwn(error.details, "backendEvidenceRefs"), false);
-      assert.equal(Object.hasOwn(error.details, "toolReceiptIds"), false);
-      assert.equal(Object.hasOwn(error.details, "framesWritten"), false);
-      return true;
-    },
-  );
-  assert.deepEqual(calls, []);
+  const receipt = recordModelStreamCanceled({
+    mounts,
+    invocation,
+    streamKind: "chat.completions",
+    framesWritten: 2,
+  });
+
+  assert.equal(receipt.kind, "model_invocation_stream_canceled");
+  assert.equal(receipt.details.rust_daemon_core_receipt_author, "ModelMountCore.plan_model_mount_stream_cancel");
+  assert.equal(delegated.length, 1);
+  assert.equal(delegated[0].invocation, invocation);
+  assert.equal(delegated[0].streamKind, "chat.completions");
+  assert.equal(delegated[0].framesWritten, 2);
+  assert.equal(delegated[0].cancelReason, "client_disconnect");
+  assert.deepEqual(delegated[0].providerResult, {
+    provider_response_kind: "openai.chat.stream",
+    backend_evidence_refs: ["backend.native"],
+  });
+  assert.equal(Object.hasOwn(delegated[0].providerResult, "providerResponseKind"), false);
+  assert.deepEqual(receiptCalls, []);
 });
 
 test("native invocation response reads canonical route decision details", () => {
