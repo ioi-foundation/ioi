@@ -27924,6 +27924,10 @@ function runCompositor() {
     )?.[0] ?? "";
   const runtimeMemoryCommitControlReturnBlock =
     runtimeMemoryCommitControlBlock.match(/return \{[\s\S]*?\n    \};/)?.[0] ?? "";
+  const runtimeMemoryProjectPublicBlock =
+    runtimeThreadMemoryState.match(
+      /function projectPublicMemory\(store, projectionKind, context = \{\}\) \{[\s\S]*?\n  \}\n\n  function memoryProjectionStateDir/,
+    )?.[0] ?? "";
   const runtimeThreadMemoryMutationControlRustOwned =
     /runtime_memory_control_rust_owned/.test(runtimeThreadMemoryState) &&
     /memoryControlRunner/.test(runtimeThreadMemoryState) &&
@@ -29095,6 +29099,9 @@ function runCompositor() {
 	      /runtime_public_memory_projection_rust_projection_missing/.test(runtimeThreadMemoryState) &&
 	      /runtime_public_memory_projection_rust_projection_invalid/.test(runtimeThreadMemoryState) &&
 	      /runtime_memory_public_projection_rust_owned/.test(runtimeThreadMemoryState) &&
+	      /state_dir: memoryProjectionStateDir\(store\)/.test(runtimeMemoryProjectPublicBlock) &&
+	      /filters: memoryListFilters\(context\.filters \?\? \{\}\)/.test(runtimeMemoryProjectPublicBlock) &&
+	      !/^\s*projection,?$/m.test(runtimeMemoryProjectPublicBlock) &&
 	      /projectRuntimeMemoryProjection\(request/.test(runtimeContextPolicyCore) &&
 	      /project_runtime_memory_projection/.test(runtimeContextPolicyCore) &&
 	      /RUNTIME_MEMORY_PROJECTION_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyCore) &&
@@ -29102,11 +29109,20 @@ function runCompositor() {
 	      /runtime memory projection core sends Rust daemon-core request/.test(
 	        runtimeContextPolicyCoreTest,
 	      ) &&
+	      /captured\.request\.state_dir,\s*"\/runtime-state"/.test(runtimeContextPolicyCoreTest) &&
+	      /Object\.hasOwn\(captured\.request,\s*"projection"\),\s*false/.test(runtimeContextPolicyCoreTest) &&
 	      /pub struct RuntimeMemoryProjectionCore;/.test(runtimeMemoryProjectionCore) &&
+	      /pub state_dir: Option<String>/.test(runtimeMemoryProjectionCore) &&
+	      /runtime_memory_projection_state_dir_required/.test(runtimeMemoryProjectionCore) &&
+	      /runtime_memory_projection_candidate_transport_retired/.test(runtimeMemoryProjectionCore) &&
+	      /memory_projection_from_state_dir/.test(runtimeMemoryProjectionCore) &&
+	      /load_memory_records/.test(runtimeMemoryProjectionCore) &&
 	      /pub fn project_runtime_memory_projection_response/.test(
 	        runtimeMemoryProjectionCore,
 	      ) &&
 	      /rust_projects_runtime_memory_route_family_shapes/.test(runtimeMemoryProjectionCore) &&
+	      /rust_rejects_runtime_memory_projection_candidate_transport/.test(runtimeMemoryProjectionCore) &&
+	      /rust_requires_state_dir_for_runtime_memory_projection/.test(runtimeMemoryProjectionCore) &&
 	      /rust_shapes_runtime_memory_projection_command_response/.test(
 	        runtimeMemoryProjectionCore,
 	      ) &&
@@ -29183,6 +29199,12 @@ function runCompositor() {
 	        publicRuntimeRoutesTest,
 	      ) &&
 	      /route-facing memory read projections return Rust daemon-core projections/.test(
+	        runtimeThreadMemoryStateTest,
+	      ) &&
+	      /Object\.hasOwn\(call\.input,\s*"projection"\) === false/.test(
+	        runtimeThreadMemoryStateTest,
+	      ) &&
+	      /calls\.some\(\(call\) => call\.type === "projection"\),\s*false/.test(
 	        runtimeThreadMemoryStateTest,
 	      ) &&
 	      /route-facing memory projections fail closed before JS readback when Rust projection is missing/.test(

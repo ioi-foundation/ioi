@@ -3,19 +3,45 @@ import test from "node:test";
 
 import { createThreadMemoryState } from "./thread-memory-state.mjs";
 
-function publicMemoryProjectionForRequest(request = {}) {
+function publicMemoryProjectionForRequest(request = {}, store = {}) {
+  const records = [...(store.memory?.records?.values?.() ?? [])].filter(
+    (record) =>
+      record.status !== "deleted" &&
+      (!request.thread_id || record.thread_id === request.thread_id) &&
+      (!request.agent_id || record.agent_id === request.agent_id),
+  ).map((record) => ({ id: record.id, fact: record.fact }));
+  const projection = {
+    schema_version: "ioi.agent-runtime.memory.v1",
+    object: "ioi.agent_memory_projection",
+    agent_id: request.agent_id ?? null,
+    thread_id: request.thread_id ?? null,
+    workspace: request.workspace_root ?? null,
+    policy: {
+      id: `policy_${request.thread_id ?? "runtime"}`,
+      injection_enabled: true,
+    },
+    paths: {
+      records_path: `${request.state_dir}/memory-records`,
+      policies_path: `${request.state_dir}/memory-policies`,
+      effective_policy_id: `policy_${request.thread_id ?? "runtime"}`,
+    },
+    filters: request.filters ?? {},
+    records,
+    total_matches: records.length,
+    state_dir_replay_required: true,
+  };
   switch (request.projection_kind) {
     case "records":
-      return request.projection;
+      return projection;
     case "policy":
-      return request.projection.policy;
+      return projection.policy;
     case "path":
-      return request.projection.paths;
+      return projection.paths;
     case "status":
       return {
         object: "ioi.runtime_memory_manager_status",
         status: "ready",
-        record_count: request.projection.records?.length ?? 0,
+        record_count: projection.records.length,
         thread_id: request.thread_id ?? null,
         agent_id: request.agent_id ?? null,
         workspace: request.workspace_root ?? null,
@@ -24,7 +50,7 @@ function publicMemoryProjectionForRequest(request = {}) {
       return {
         object: "ioi.runtime_memory_manager_validation",
         ok: true,
-        record_count: request.projection.records?.length ?? 0,
+        record_count: projection.records.length,
         thread_id: request.thread_id ?? null,
         agent_id: request.agent_id ?? null,
         workspace: request.workspace_root ?? null,
@@ -84,8 +110,10 @@ function createHarness(options = {}) {
       record_count: projection.records?.length ?? 0,
     }),
   });
-  const store = {
+  let store;
+  store = {
     agents,
+    stateDir: "/runtime-state",
     contextPolicyCore:
       Object.hasOwn(options, "contextPolicyCore")
         ? options.contextPolicyCore
@@ -177,7 +205,7 @@ function createHarness(options = {}) {
                 source: "rust_runtime_memory_projection_command",
                 projection_kind: request.projection_kind,
                 operation_kind: request.operation_kind,
-                projection: publicMemoryProjectionForRequest(request),
+                projection: publicMemoryProjectionForRequest(request, store),
                 record_count: 1,
                 evidence_refs: ["runtime_memory_public_projection_rust_owned"],
                 receipt_refs: [`receipt_runtime_memory_projection_${request.projection_kind}`],
@@ -571,7 +599,7 @@ test("thread memory mutation controls fail closed before JS store mutation witho
         return {
           projection_kind: request.projection_kind,
           operation_kind: request.operation_kind,
-          projection: publicMemoryProjectionForRequest(request),
+          projection: publicMemoryProjectionForRequest(request, store),
         };
       },
     },
@@ -609,7 +637,7 @@ test("route-facing memory read projections return Rust daemon-core projections",
   assert.equal(state.publicMemoryPolicyForThread(store, "thread_a", {}).id, "policy_thread_a");
   assert.equal(
     state.publicMemoryPathForThread(store, "thread_a", {}).records_path,
-    "/workspace/thread_a/memory",
+    "/runtime-state/memory-records",
   );
   assert.equal(
     state.publicListMemoryForAgent(store, "agent_a", { query: "deploy" }).records[0].id,
@@ -618,7 +646,7 @@ test("route-facing memory read projections return Rust daemon-core projections",
   assert.equal(state.publicMemoryPolicyForAgent(store, "agent_a", {}).id, "policy_thread_a");
   assert.equal(
     state.publicMemoryPathForAgent(store, "agent_a", {}).records_path,
-    "/workspace/thread_a/memory",
+    "/runtime-state/memory-records",
   );
   assert.equal(
     state.publicMemoryProjectionForContext(store, { thread_id: "thread_a" }).thread_id,
@@ -635,7 +663,7 @@ test("route-facing memory read projections return Rust daemon-core projections",
   assert.equal(state.publicMemoryPolicyForContext(store, { thread_id: "thread_a" }).id, "policy_thread_a");
   assert.equal(
     state.publicMemoryPathForContext(store, { thread_id: "thread_a" }).records_path,
-    "/workspace/thread_a/memory",
+    "/runtime-state/memory-records",
   );
   assert.deepEqual(state.publicValidateMemory(store, { thread_id: "thread_a" }), {
     object: "ioi.runtime_memory_manager_validation",
@@ -675,6 +703,11 @@ test("route-facing memory read projections return Rust daemon-core projections",
   assert.equal(projectionCalls[0].input.thread_id, "thread_a");
   assert.equal(projectionCalls[0].input.agent_id, "agent_a");
   assert.equal(projectionCalls[0].input.workspace_root, "/workspace");
+  assert.equal(projectionCalls[0].input.state_dir, "/runtime-state");
+  assert.deepEqual(projectionCalls[0].input.filters, { query: "deploy", scope: null });
+  assert.ok(projectionCalls.every((call) => call.input.state_dir === "/runtime-state"));
+  assert.ok(projectionCalls.every((call) => Object.hasOwn(call.input, "projection") === false));
+  assert.equal(calls.some((call) => call.type === "projection"), false);
   assert.equal(Object.hasOwn(projectionCalls[0].input, "threadId"), false);
 });
 

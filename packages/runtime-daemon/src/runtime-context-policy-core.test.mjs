@@ -2612,11 +2612,6 @@ test("runtime memory projection core sends Rust daemon-core request", () => {
     },
   });
 
-  const projection = {
-    schema_version: "ioi.agent-runtime.memory.v1",
-    records: [{ id: "memory_123" }],
-    total_matches: 1,
-  };
   const result = runner.projectRuntimeMemoryProjection({
     operation: "runtime_memory_projection",
     operation_kind: "runtime.memory_projection.records",
@@ -2624,7 +2619,8 @@ test("runtime memory projection core sends Rust daemon-core request", () => {
     agent_id: "agent_123",
     thread_id: "thread_123",
     workspace_root: "/workspace/project",
-    projection,
+    state_dir: "/runtime-state",
+    filters: { query: "deploy", scope: null },
   });
 
   assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
@@ -2637,7 +2633,9 @@ test("runtime memory projection core sends Rust daemon-core request", () => {
   assert.equal(captured.request.operation, "runtime_memory_projection");
   assert.equal(captured.request.operation_kind, "runtime.memory_projection.records");
   assert.equal(captured.request.projection_kind, "records");
-  assert.deepEqual(captured.request.projection, projection);
+  assert.equal(captured.request.state_dir, "/runtime-state");
+  assert.deepEqual(captured.request.filters, { query: "deploy", scope: null });
+  assert.equal(Object.hasOwn(captured.request, "projection"), false);
   assert.equal(result.source, "rust_runtime_memory_projection_command");
   assert.equal(result.projection_kind, "records");
   assert.equal(result.projection.records[0].id, "memory_123");
