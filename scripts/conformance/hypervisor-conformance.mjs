@@ -29274,6 +29274,9 @@ function runCompositor() {
     /runtime_job_get_js_facade_retired/.test(runtimeTaskJobSurface) &&
     /RuntimeTaskJobProjectionCore/.test(policyTaskJobCore) &&
     /RuntimeTaskJobProjectionRequest/.test(policyTaskJobCore) &&
+    /pub state_dir: Option<String>/.test(policyTaskJobCore) &&
+    !/pub runs: Vec<Value>/.test(policyTaskJobCore) &&
+    /runtime_task_job_runs_from_state_dir/.test(policyTaskJobCore) &&
     /RUNTIME_TASK_JOB_PROJECTION_REQUEST_SCHEMA_VERSION/.test(policyTaskJobCore) &&
     /RUNTIME_TASK_JOB_PROJECTION_RESULT_SCHEMA_VERSION/.test(policyTaskJobCore) &&
     /pub fn project_runtime_task_job_projection_response/.test(policyTaskJobCore) &&
@@ -29281,6 +29284,9 @@ function runCompositor() {
     /rust_policy_projects_runtime_task_list/.test(policyTaskJobCore) &&
     /rust_policy_projects_runtime_job_get/.test(policyTaskJobCore) &&
     /rust_policy_filters_runtime_task_job_projection_in_rust/.test(policyTaskJobCore) &&
+    /rust_policy_replays_runtime_task_job_projection_from_state_dir/.test(policyTaskJobCore) &&
+    /rust_policy_rejects_runtime_task_job_projection_without_state_dir/.test(policyTaskJobCore) &&
+    /rust_policy_rejects_runtime_task_job_projection_run_candidate_transport/.test(policyTaskJobCore) &&
     /project_runtime_task_job_projection/.test(commandProtocolCoreForCompositor) &&
     /CommandOperation::ProjectRuntimeTaskJobProjection/.test(commandProtocolCoreForCompositor) &&
     /CommandOperation::ProjectRuntimeTaskJobProjection/.test(coreCommandDispatchForCompositor) &&
@@ -29294,7 +29300,7 @@ function runCompositor() {
     /expectedOperationKinds:\s*\["task\.list",\s*"task\.get",\s*"job\.list",\s*"job\.get"\]/.test(
       runtimeContextPolicyCore,
     ) &&
-    /runtime task job projection core sends Rust projection through typed Rust daemon-core Agentgres API/.test(
+    /runtime task job projection core sends Rust projection through direct daemon-core invoker/.test(
       runtimeContextPolicyCoreTest,
     ) &&
     /runtime task job projection normalizer accepts get operation kinds/.test(
@@ -29303,7 +29309,9 @@ function runCompositor() {
     /taskJobProjectionRunner/.test(runtimeTaskJobSurface) &&
     /projectRuntimeTaskJob/.test(runtimeTaskJobSurface) &&
     /projectRuntimeTaskJobProjection/.test(runtimeTaskJobSurface) &&
-    /store\.listRuns\(\)/.test(runtimeTaskJobSurface) &&
+    /runtime_task_job_projection_state_dir_required/.test(runtimeTaskJobSurface) &&
+    /state_dir:\s*stateDir/.test(runtimeTaskJobSurface) &&
+    !/store\.listRuns\(\)/.test(runtimeTaskJobSurface) &&
     /operationKind:\s*"task\.list"/.test(runtimeTaskJobSurface) &&
     /operationKind:\s*"task\.get"/.test(runtimeTaskJobSurface) &&
     /operationKind:\s*"job\.list"/.test(runtimeTaskJobSurface) &&
@@ -29322,7 +29330,10 @@ function runCompositor() {
     !/runtimeJobRecordForRun,\s*\n\s*runtimeTaskRecordForRun/.test(runtimeDaemonIndex) &&
     !/runtimeTaskRecordForRun/.test(runtimeTaskJobSurface) &&
     !/runtimeJobRecordForRun/.test(runtimeTaskJobSurface) &&
-    /runtime task job read projection calls Rust projector for list filters/.test(
+    /runtime task job read projection calls Rust state-dir projector for list filters/.test(
+      runtimeTaskJobSurfaceTest,
+    ) &&
+    /Object\.hasOwn\(calls\[0\]\.request,\s*"runs"\),\s*false/.test(
       runtimeTaskJobSurfaceTest,
     ) &&
     /runtime task job read projection returns Rust-selected task and job records/.test(
@@ -29382,7 +29393,7 @@ function runCompositor() {
       runtimeContextPolicyCore,
     ) &&
     /expectedOperationKind:\s*"task\.create"/.test(runtimeContextPolicyCore) &&
-    /runtime task job create core sends Rust state update through typed Rust daemon-core Agentgres API/.test(
+    /runtime task job create core sends Rust state update through direct daemon-core invoker/.test(
       runtimeContextPolicyCoreTest,
     ) &&
     /runtime task job create normalizer requires task create operation kind/.test(
@@ -29440,7 +29451,7 @@ function runCompositor() {
     /expectedOperationKinds:\s*\["task\.cancel",\s*"job\.cancel"\]/.test(
       runtimeContextPolicyCore,
     ) &&
-    /runtime task job cancel core sends Rust state update through typed Rust daemon-core Agentgres API/.test(
+    /runtime task job cancel core sends Rust state update through direct daemon-core invoker/.test(
       runtimeContextPolicyCoreTest,
     ) &&
     /runtime task job cancel normalizer accepts job cancel operation kind/.test(

@@ -28,6 +28,7 @@ function harness() {
     },
   });
   const store = {
+    stateDir: "/tmp/ioi-runtime-state",
     defaultCwd: "/workspace/default",
     listRuns(agentId) {
       calls.push({ name: "listRuns", agentId });
@@ -476,12 +477,8 @@ test("runtime task job cancel rejects Rust projection mismatches before persiste
   assert.deepEqual(writes, []);
 });
 
-test("runtime task job read projection calls Rust projector for list filters", () => {
+test("runtime task job read projection calls Rust state-dir projector for list filters", () => {
   const calls = [];
-  const runs = [
-    run("run-a", "running", "2026-06-04T00:00:01.000Z"),
-    run("run-b", "completed", "2026-06-04T00:00:02.000Z"),
-  ];
   const surface = createRuntimeTaskJobSurface({
     taskJobProjectionRunner: {
       projectRuntimeTaskJobProjection(request) {
@@ -505,10 +502,7 @@ test("runtime task job read projection calls Rust projector for list filters", (
     },
   });
   const store = {
-    listRuns(agentId) {
-      calls.push({ name: "listRuns", agentId });
-      return runs;
-    },
+    stateDir: "/tmp/ioi-runtime-state",
   };
 
   const result = surface.listTasks(store, {
@@ -525,23 +519,18 @@ test("runtime task job read projection calls Rust projector for list filters", (
       status: "running",
     },
   ]);
-  assert.equal(calls[0].name, "listRuns");
-  assert.equal(calls[0].agentId, undefined);
-  assert.equal(calls[1].name, "projectRuntimeTaskJobProjection");
-  assert.deepEqual(calls[1].request, {
+  assert.equal(calls[0].name, "projectRuntimeTaskJobProjection");
+  assert.deepEqual(calls[0].request, {
     projection_kind: "task.list",
+    state_dir: "/tmp/ioi-runtime-state",
     agent_id: "agent-one",
     status: "running",
-    runs,
   });
+  assert.equal(Object.hasOwn(calls[0].request, "runs"), false);
 });
 
 test("runtime task job read projection returns Rust-selected task and job records", () => {
   const calls = [];
-  const runs = [
-    run("run-a", "running", "2026-06-04T00:00:01.000Z"),
-    run("run-b", "completed", "2026-06-04T00:00:02.000Z"),
-  ];
   const surface = createRuntimeTaskJobSurface({
     taskJobProjectionRunner: {
       projectRuntimeTaskJobProjection(request) {
@@ -572,10 +561,7 @@ test("runtime task job read projection returns Rust-selected task and job record
     },
   });
   const store = {
-    listRuns() {
-      calls.push({ name: "listRuns" });
-      return runs;
-    },
+    stateDir: "/tmp/ioi-runtime-state",
   };
 
   const task = surface.getTask(store, "task_run-a");
@@ -583,16 +569,18 @@ test("runtime task job read projection returns Rust-selected task and job record
 
   assert.equal(task.taskId, "task_run-a");
   assert.equal(job.jobId, "job_run-b");
-  assert.deepEqual(calls[1].request, {
+  assert.deepEqual(calls[0].request, {
     projection_kind: "task.get",
+    state_dir: "/tmp/ioi-runtime-state",
     task_id: "task_run-a",
-    runs,
   });
-  assert.deepEqual(calls[3].request, {
+  assert.deepEqual(calls[1].request, {
     projection_kind: "job.get",
+    state_dir: "/tmp/ioi-runtime-state",
     job_id: "job_run-b",
-    runs,
   });
+  assert.equal(Object.hasOwn(calls[0].request, "runs"), false);
+  assert.equal(Object.hasOwn(calls[1].request, "runs"), false);
 });
 
 test("runtime task job read projection fails closed before run lookup when Rust projector is missing", () => {
@@ -649,9 +637,7 @@ test("runtime task job read projection rejects Rust projection mismatches before
     },
   });
   const store = {
-    listRuns() {
-      return [run("run-a", "running", "2026-06-04T00:00:01.000Z")];
-    },
+    stateDir: "/tmp/ioi-runtime-state",
   };
 
   assert.throws(

@@ -8793,11 +8793,11 @@ and projection mismatch compatibility paths remain retired.
 
 Public task/job read projection is now a positive Rust daemon-core path. The
 task/job control surface calls Rust `project_runtime_task_job_projection` for
-task/job list and get, JS only supplies raw run candidates plus canonical
-`agent_id`, `status`, `task_id`, or `job_id` request facts after the Rust
-projector boundary exists, and Rust owns record construction, filtering, and
-public-id selection before public records are returned. The task/job surface no
-longer receives the JS runtime task/job record builders, retired `agentId`
+task/job list and get, JS only supplies runtime `state_dir` plus canonical
+`agent_id`, `status`, `task_id`, or `job_id` request facts, and Rust replays
+admitted `runs/*.json` Agentgres state before record construction, filtering,
+and public-id selection. The task/job surface no longer receives the JS runtime
+task/job record builders or `runs` candidate transport, retired `agentId`
 aliases stay ignored, and missing or mismatched Rust projections fail closed
 instead of falling back to JS readback.
 

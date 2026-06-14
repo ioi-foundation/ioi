@@ -316,12 +316,13 @@ export function createRuntimeTaskJobSurface({
         ...(jobId ? { jobId } : {}),
       });
     }
-    if (typeof store.listRuns !== "function") {
+    const stateDir = optionalString(store.stateDir);
+    if (!stateDir) {
       throwRuntimeTaskJobStateUpdateError({
         status: 501,
-        code: "runtime_task_job_projection_runs_unavailable",
+        code: "runtime_task_job_projection_state_dir_required",
         message:
-          "Runtime task/job projection requires Rust Agentgres run projection candidates.",
+          "Runtime task/job projection requires runtime state_dir for Rust Agentgres run replay.",
         details: {
           rust_core_boundary: "runtime.task_job_control",
           operation,
@@ -337,11 +338,11 @@ export function createRuntimeTaskJobSurface({
     }
     const request = {
       projection_kind: projectionKind,
+      state_dir: stateDir,
       ...(optionalString(options?.agent_id) ? { agent_id: optionalString(options.agent_id) } : {}),
       ...(optionalString(options?.status) ? { status: optionalString(options.status) } : {}),
       ...(taskId ? { task_id: taskId } : {}),
       ...(jobId ? { job_id: jobId } : {}),
-      runs: store.listRuns(),
     };
     const projected = runner.projectRuntimeTaskJobProjection(request);
     validateRuntimeTaskJobProjection(projected, {

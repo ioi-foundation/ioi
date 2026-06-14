@@ -1,3 +1,8 @@
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
+
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -45,6 +50,8 @@ pub enum RuntimeTaskJobProjectionError {
         expected: String,
         actual: String,
     },
+    ReplayReadFailed(String),
+    ReplayRecordInvalid(String),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -124,9 +131,12 @@ pub struct RuntimeTaskJobCreateStateUpdateRecord {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct RuntimeTaskJobProjectionRequest {
     pub schema_version: String,
     pub projection_kind: String,
+    #[serde(default)]
+    pub state_dir: Option<String>,
     #[serde(default)]
     pub agent_id: Option<String>,
     #[serde(default)]
@@ -135,8 +145,6 @@ pub struct RuntimeTaskJobProjectionRequest {
     pub task_id: Option<String>,
     #[serde(default)]
     pub job_id: Option<String>,
-    #[serde(default)]
-    pub runs: Vec<Value>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -516,8 +524,8 @@ impl RuntimeTaskJobProjectionCore {
         let projection_kind = optional_trimmed(Some(request.projection_kind.as_str())).unwrap();
         let agent_id = optional_trimmed(request.agent_id.as_deref());
         let status_filter = optional_trimmed(request.status.as_deref());
-        let projected = request
-            .runs
+        let replayed_runs = runtime_task_job_runs_from_state_dir(request.state_dir.as_deref())?;
+        let projected = replayed_runs
             .iter()
             .filter_map(project_runtime_task_job_records_for_run)
             .collect::<Vec<_>>();
@@ -678,8 +686,58 @@ impl RuntimeTaskJobProjectionRequest {
         if projection_kind == "job.get" && optional_trimmed(self.job_id.as_deref()).is_none() {
             return Err(RuntimeTaskJobProjectionError::MissingField("job_id"));
         }
+        if optional_trimmed(self.state_dir.as_deref()).is_none() {
+            return Err(RuntimeTaskJobProjectionError::MissingField("state_dir"));
+        }
         Ok(())
     }
+}
+
+fn runtime_task_job_runs_from_state_dir(
+    state_dir: Option<&str>,
+) -> Result<Vec<Value>, RuntimeTaskJobProjectionError> {
+    let state_dir = optional_trimmed(state_dir)
+        .ok_or(RuntimeTaskJobProjectionError::MissingField("state_dir"))?;
+    let runs_dir = Path::new(&state_dir).join("runs");
+    if !runs_dir.exists() {
+        return Ok(Vec::new());
+    }
+    let entries = fs::read_dir(&runs_dir).map_err(|error| {
+        RuntimeTaskJobProjectionError::ReplayReadFailed(format!(
+            "runtime task/job projection could not read Agentgres runs: {error}"
+        ))
+    })?;
+    let mut paths = Vec::<PathBuf>::new();
+    for entry in entries {
+        let entry = entry.map_err(|error| {
+            RuntimeTaskJobProjectionError::ReplayReadFailed(format!(
+                "runtime task/job projection could not inspect Agentgres run entry: {error}"
+            ))
+        })?;
+        let path = entry.path();
+        if path.is_file() && path.extension().and_then(|value| value.to_str()) == Some("json") {
+            paths.push(path);
+        }
+    }
+    paths.sort();
+
+    let mut runs = Vec::new();
+    for path in paths.into_iter().take(1000) {
+        let contents = fs::read_to_string(&path).map_err(|error| {
+            RuntimeTaskJobProjectionError::ReplayReadFailed(format!(
+                "runtime task/job projection could not read Agentgres run record {}: {error}",
+                path.display()
+            ))
+        })?;
+        let value: Value = serde_json::from_str(&contents).map_err(|error| {
+            RuntimeTaskJobProjectionError::ReplayRecordInvalid(format!(
+                "runtime task/job projection found invalid Agentgres run record {}: {error}",
+                path.display()
+            ))
+        })?;
+        runs.push(value);
+    }
+    Ok(runs)
 }
 
 impl RuntimeTaskJobCreateStateUpdateRequest {
@@ -1265,6 +1323,11 @@ fn runtime_job_record_for_run(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::{
+        fs,
+        path::{Path, PathBuf},
+        time::{SystemTime, UNIX_EPOCH},
+    };
 
     fn task_job_cancel_request(cancel_kind: &str) -> RuntimeTaskJobCancelStateUpdateRequest {
         RuntimeTaskJobCancelStateUpdateRequest {
@@ -1290,51 +1353,96 @@ mod tests {
         }
     }
 
-    fn task_job_projection_request(projection_kind: &str) -> RuntimeTaskJobProjectionRequest {
-        RuntimeTaskJobProjectionRequest {
-            schema_version: RUNTIME_TASK_JOB_PROJECTION_REQUEST_SCHEMA_VERSION.to_string(),
-            projection_kind: projection_kind.to_string(),
-            agent_id: None,
-            status: None,
-            task_id: None,
-            job_id: None,
-            runs: vec![
-                json!({
-                    "id": "run_task_job_projection_a",
-                    "agentId": "agent_task_job",
-                    "status": "running",
-                    "objective": "Project a task",
-                    "mode": "send",
-                    "createdAt": "2026-06-06T04:59:00.000Z",
-                    "updatedAt": "2026-06-06T04:59:30.000Z",
-                    "events": [{ "type": "delta" }],
-                    "trace": { "qualityLedger": {} },
-                    "receipts": [{ "kind": "runtime_task" }],
-                    "artifacts": [{ "name": "runtime-task.json" }]
-                }),
-                json!({
-                    "id": "run_task_job_projection_b",
-                    "agentId": "agent_task_job",
-                    "status": "completed",
-                    "objective": "Project a job",
-                    "mode": "plan",
-                    "createdAt": "2026-06-06T05:00:00.000Z",
-                    "updatedAt": "2026-06-06T05:01:00.000Z",
-                    "events": [{ "type": "completed" }],
-                    "trace": { "qualityLedger": { "taskFamily": "planning" } },
-                    "receipts": [{ "kind": "runtime_job" }],
-                    "artifacts": [{ "name": "runtime-job.json" }]
-                }),
-                json!({
-                    "id": "run_task_job_projection_c",
-                    "agentId": "agent_other",
-                    "status": "completed",
-                    "createdAt": "2026-06-06T05:02:00.000Z",
-                    "updatedAt": "2026-06-06T05:03:00.000Z",
-                    "events": []
-                }),
-            ],
-        }
+    fn task_job_projection_request(
+        projection_kind: &str,
+    ) -> (RuntimeTaskJobProjectionRequest, PathBuf) {
+        let state_dir = temp_task_job_state_dir(projection_kind);
+        seed_task_job_projection_runs(&state_dir);
+        (
+            RuntimeTaskJobProjectionRequest {
+                schema_version: RUNTIME_TASK_JOB_PROJECTION_REQUEST_SCHEMA_VERSION.to_string(),
+                projection_kind: projection_kind.to_string(),
+                state_dir: Some(state_dir.to_string_lossy().to_string()),
+                agent_id: None,
+                status: None,
+                task_id: None,
+                job_id: None,
+            },
+            state_dir,
+        )
+    }
+
+    fn temp_task_job_state_dir(label: &str) -> PathBuf {
+        let suffix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock")
+            .as_nanos();
+        let state_dir = std::env::temp_dir().join(format!(
+            "ioi_runtime_task_job_projection_{label}_{}_{}",
+            std::process::id(),
+            suffix
+        ));
+        let _ = fs::remove_dir_all(&state_dir);
+        fs::create_dir_all(state_dir.join("runs")).expect("runs dir");
+        state_dir
+    }
+
+    fn write_run_record(state_dir: &Path, file_name: &str, run: Value) {
+        let path = state_dir.join("runs").join(file_name);
+        fs::write(
+            path,
+            serde_json::to_string_pretty(&run).expect("serialize run"),
+        )
+        .expect("write run record");
+    }
+
+    fn seed_task_job_projection_runs(state_dir: &Path) {
+        write_run_record(
+            state_dir,
+            "run_task_job_projection_a.json",
+            json!({
+                "id": "run_task_job_projection_a",
+                "agentId": "agent_task_job",
+                "status": "running",
+                "objective": "Project a task",
+                "mode": "send",
+                "createdAt": "2026-06-06T04:59:00.000Z",
+                "updatedAt": "2026-06-06T04:59:30.000Z",
+                "events": [{ "type": "delta" }],
+                "trace": { "qualityLedger": {} },
+                "receipts": [{ "kind": "runtime_task" }],
+                "artifacts": [{ "name": "runtime-task.json" }]
+            }),
+        );
+        write_run_record(
+            state_dir,
+            "run_task_job_projection_b.json",
+            json!({
+                "id": "run_task_job_projection_b",
+                "agentId": "agent_task_job",
+                "status": "completed",
+                "objective": "Project a job",
+                "mode": "plan",
+                "createdAt": "2026-06-06T05:00:00.000Z",
+                "updatedAt": "2026-06-06T05:01:00.000Z",
+                "events": [{ "type": "completed" }],
+                "trace": { "qualityLedger": { "taskFamily": "planning" } },
+                "receipts": [{ "kind": "runtime_job" }],
+                "artifacts": [{ "name": "runtime-job.json" }]
+            }),
+        );
+        write_run_record(
+            state_dir,
+            "run_task_job_projection_c.json",
+            json!({
+                "id": "run_task_job_projection_c",
+                "agentId": "agent_other",
+                "status": "completed",
+                "createdAt": "2026-06-06T05:02:00.000Z",
+                "updatedAt": "2026-06-06T05:03:00.000Z",
+                "events": []
+            }),
+        );
     }
 
     fn task_job_create_request() -> RuntimeTaskJobCreateStateUpdateRequest {
@@ -1493,7 +1601,7 @@ mod tests {
 
     #[test]
     fn rust_policy_projects_runtime_task_list() {
-        let mut request = task_job_projection_request("task.list");
+        let (mut request, _state_dir) = task_job_projection_request("task.list");
         request.agent_id = Some("agent_task_job".to_string());
 
         let record = RuntimeTaskJobProjectionCore
@@ -1516,7 +1624,7 @@ mod tests {
 
     #[test]
     fn rust_policy_projects_runtime_job_get() {
-        let mut request = task_job_projection_request("job.get");
+        let (mut request, _state_dir) = task_job_projection_request("job.get");
         request.job_id = Some("job_run_task_job_projection_b".to_string());
 
         let record = RuntimeTaskJobProjectionCore
@@ -1534,7 +1642,7 @@ mod tests {
 
     #[test]
     fn rust_policy_filters_runtime_task_job_projection_in_rust() {
-        let mut request = task_job_projection_request("job.list");
+        let (mut request, _state_dir) = task_job_projection_request("job.list");
         request.agent_id = Some("agent_task_job".to_string());
         request.status = Some("completed".to_string());
 
@@ -1548,8 +1656,53 @@ mod tests {
     }
 
     #[test]
+    fn rust_policy_replays_runtime_task_job_projection_from_state_dir() {
+        let (request, state_dir) = task_job_projection_request("task.list");
+
+        let record = RuntimeTaskJobProjectionCore
+            .project(&request)
+            .expect("state_dir projection");
+
+        assert!(state_dir
+            .join("runs/run_task_job_projection_a.json")
+            .exists());
+        assert_eq!(record.operation_kind, "task.list");
+        assert_eq!(record.record_count, 3);
+        assert_eq!(
+            record.records[0]["taskId"],
+            "task_run_task_job_projection_a"
+        );
+    }
+
+    #[test]
+    fn rust_policy_rejects_runtime_task_job_projection_without_state_dir() {
+        let (mut request, _state_dir) = task_job_projection_request("task.list");
+        request.state_dir = None;
+
+        assert!(matches!(
+            RuntimeTaskJobProjectionCore.project(&request),
+            Err(RuntimeTaskJobProjectionError::MissingField("state_dir"))
+        ));
+    }
+
+    #[test]
+    fn rust_policy_rejects_runtime_task_job_projection_run_candidate_transport() {
+        let state_dir = temp_task_job_state_dir("retired-runs-candidate");
+        seed_task_job_projection_runs(&state_dir);
+        let error = serde_json::from_value::<RuntimeTaskJobProjectionRequest>(json!({
+            "schema_version": RUNTIME_TASK_JOB_PROJECTION_REQUEST_SCHEMA_VERSION,
+            "projection_kind": "task.list",
+            "state_dir": state_dir.to_string_lossy(),
+            "runs": []
+        }))
+        .expect_err("retired runs candidate transport must be rejected");
+
+        assert!(error.to_string().contains("unknown field `runs`"));
+    }
+
+    #[test]
     fn rust_policy_shapes_runtime_task_job_projection_command_response() {
-        let mut request = task_job_projection_request("task.get");
+        let (mut request, _state_dir) = task_job_projection_request("task.get");
         request.task_id = Some("task_run_task_job_projection_a".to_string());
         let response =
             project_runtime_task_job_projection_response(RuntimeTaskJobProjectionBridgeRequest {

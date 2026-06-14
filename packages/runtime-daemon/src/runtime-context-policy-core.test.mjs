@@ -2219,9 +2219,9 @@ test("runtime task job projection core sends Rust projection through direct daem
 
   const result = runner.projectRuntimeTaskJobProjection({
     projection_kind: "task.list",
+    state_dir: "/tmp/ioi-runtime-state",
     agent_id: "agent-one",
     status: "running",
-    runs: [{ id: "run-one", agentId: "agent-one", status: "running" }],
   });
 
   assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
@@ -2232,7 +2232,9 @@ test("runtime task job projection core sends Rust projection through direct daem
     RUNTIME_TASK_JOB_PROJECTION_REQUEST_SCHEMA_VERSION,
   );
   assert.equal(captured.request.projection_kind, "task.list");
+  assert.equal(captured.request.state_dir, "/tmp/ioi-runtime-state");
   assert.equal(captured.request.agent_id, "agent-one");
+  assert.equal(Object.hasOwn(captured.request, "runs"), false);
   assert.equal(result.source, "rust_runtime_task_job_projection_command");
   assert.equal(result.operation_kind, "task.list");
   assert.equal(result.projection_kind, "task.list");
