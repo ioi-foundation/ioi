@@ -85,6 +85,7 @@ impl ModelMountProviderLifecycleRequest {
         }
         if !is_native_local_provider_lifecycle_backend(self)
             && !is_fixture_provider_lifecycle_backend(self)
+            && !is_hosted_provider_lifecycle_backend(self)
         {
             return Err(ModelMountError::UnsupportedProviderLifecycleBackend);
         }
@@ -149,6 +150,34 @@ fn is_fixture_provider_lifecycle_backend(request: &ModelMountProviderLifecycleRe
     provider_kind == "local_folder" || driver == "fixture" || api_format == "ioi_fixture"
 }
 
+fn is_hosted_provider_lifecycle_backend(request: &ModelMountProviderLifecycleRequest) -> bool {
+    if request.execution_backend.trim() != "rust_model_mount_hosted_provider_lifecycle" {
+        return false;
+    }
+    let provider_kind = request.provider_kind.trim();
+    let api_format = request.api_format.as_deref().unwrap_or("").trim();
+    let driver = request.driver.as_deref().unwrap_or("").trim();
+    matches!(
+        provider_kind,
+        "openai"
+            | "anthropic"
+            | "gemini"
+            | "custom_http"
+            | "openai_compatible"
+            | "ollama"
+            | "vllm"
+            | "llama_cpp"
+            | "lm_studio"
+            | "depin_tee"
+    ) || matches!(
+        api_format,
+        "openai" | "anthropic" | "gemini" | "custom" | "openai_compatible" | "ollama"
+    ) || matches!(
+        driver,
+        "openai_compatible" | "hosted_provider" | "hosted_provider_metadata"
+    )
+}
+
 fn provider_lifecycle_status(
     request: &ModelMountProviderLifecycleRequest,
 ) -> Result<String, ModelMountError> {
@@ -172,6 +201,21 @@ fn provider_lifecycle_status(
 fn provider_lifecycle_backend(request: &ModelMountProviderLifecycleRequest) -> String {
     if is_native_local_provider_lifecycle_backend(request) {
         "autopilot.native_local.fixture".to_string()
+    } else if is_hosted_provider_lifecycle_backend(request) {
+        request
+            .api_format
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .or_else(|| {
+                request
+                    .driver
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|value| !value.is_empty())
+            })
+            .unwrap_or("hosted_provider_metadata")
+            .to_string()
     } else {
         request
             .api_format
@@ -193,6 +237,15 @@ fn provider_lifecycle_backend_id(request: &ModelMountProviderLifecycleRequest) -
             .unwrap_or("backend.autopilot.native-local.fixture")
             .to_string();
     }
+    if is_hosted_provider_lifecycle_backend(request) {
+        return request
+            .backend_ref
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(str::to_string)
+            .unwrap_or_else(|| format!("backend.hosted.{}", record_id_segment(&request.provider_kind, "hosted")));
+    }
     request
         .backend_ref
         .as_deref()
@@ -205,6 +258,8 @@ fn provider_lifecycle_backend_id(request: &ModelMountProviderLifecycleRequest) -
 fn provider_lifecycle_driver(request: &ModelMountProviderLifecycleRequest) -> String {
     if is_native_local_provider_lifecycle_backend(request) {
         "native_local".to_string()
+    } else if is_hosted_provider_lifecycle_backend(request) {
+        "hosted_provider_metadata".to_string()
     } else {
         "fixture".to_string()
     }
@@ -225,6 +280,10 @@ fn provider_lifecycle_evidence_refs(request: &ModelMountProviderLifecycleRequest
             refs.push("autopilot_native_local_process_supervisor".to_string());
         }
         refs.push("deterministic_native_local_fixture".to_string());
+    } else if is_hosted_provider_lifecycle_backend(request) {
+        refs.push("rust_model_mount_hosted_provider_lifecycle_backend".to_string());
+        refs.push("hosted_provider_transport_not_executed".to_string());
+        refs.push("wallet_network_provider_lifecycle_authority_required".to_string());
     } else {
         refs.push("rust_model_mount_fixture_lifecycle_backend".to_string());
         refs.push("agentgres_model_registry_fixture".to_string());
@@ -534,6 +593,47 @@ mod tests {
         let result =
             plan_provider_lifecycle(&request).expect("fixture provider unload planned in Rust");
         assert_eq!(result.status, "unloaded");
+    }
+
+    #[test]
+    fn hosted_provider_lifecycle_is_planned_without_transport_execution() {
+        let request = ModelMountProviderLifecycleRequest {
+            schema_version: MODEL_MOUNT_PROVIDER_LIFECYCLE_SCHEMA_VERSION.to_string(),
+            provider_ref: "provider://openai".to_string(),
+            provider_kind: "custom_http".to_string(),
+            endpoint_ref: "endpoint://openai/hosted-metadata".to_string(),
+            model_ref: "model://custom_http/hosted-metadata".to_string(),
+            action: "health".to_string(),
+            execution_backend: "rust_model_mount_hosted_provider_lifecycle".to_string(),
+            api_format: Some("openai_compatible".to_string()),
+            driver: Some("hosted_provider_metadata".to_string()),
+            backend_ref: Some("backend.hosted.custom_http".to_string()),
+            provider_status: Some("configured".to_string()),
+            evidence_refs: vec!["daemon_hosted_health_request".to_string()],
+            process_evidence_refs: vec![],
+            operation_kind: Some("model_mount.provider.health".to_string()),
+            source: Some("test".to_string()),
+            generated_at: Some("2026-06-14T00:00:00.000Z".to_string()),
+            receipt_refs: vec![],
+        };
+
+        let result = plan_provider_lifecycle(&request)
+            .expect("hosted provider metadata lifecycle planned in Rust");
+
+        assert_eq!(result.status, "available");
+        assert_eq!(result.backend, "openai_compatible");
+        assert_eq!(result.driver, "hosted_provider_metadata");
+        assert_eq!(
+            result.execution_backend,
+            "rust_model_mount_hosted_provider_lifecycle"
+        );
+        assert!(result
+            .evidence_refs
+            .contains(&"rust_model_mount_hosted_provider_lifecycle_backend".to_string()));
+        assert!(result
+            .evidence_refs
+            .contains(&"hosted_provider_transport_not_executed".to_string()));
+        assert!(result.public_response["js_provider_driver_call"] == false);
     }
 
     #[test]

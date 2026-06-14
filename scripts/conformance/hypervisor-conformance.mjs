@@ -21921,7 +21921,7 @@ function runReceipts() {
       /RUST_MODEL_MOUNT_NATIVE_LOCAL_INVENTORY_BACKEND/.test(providerOperations) &&
       /RUST_MODEL_MOUNT_FIXTURE_INVENTORY_BACKEND/.test(providerOperations) &&
       /RUST_MODEL_MOUNT_HOSTED_PROVIDER_INVENTORY_BACKEND/.test(providerOperations) &&
-      /hostedProviderInventoryMetadata/.test(providerOperations) &&
+      /hostedProviderMetadata/.test(providerOperations) &&
       /providerInventoryItemRefs/.test(providerOperations) &&
       /assertRustAuthoredProviderInventoryResult/.test(providerOperations) &&
       /model_mount_provider_inventory_rust_result_required/.test(providerOperations) &&
@@ -22027,8 +22027,21 @@ function runReceipts() {
       !/state\.receipt\("provider_health"/.test(providerOperations) &&
       !/state\.providers\.set/.test(providerOperations) &&
       !/state\.writeProjection/.test(providerOperations) &&
+      /RUST_MODEL_MOUNT_HOSTED_PROVIDER_LIFECYCLE_BACKEND/.test(providerOperations) &&
+      /hostedProviderMetadata\(provider\)/.test(providerOperations) &&
+      /rust_model_mount_hosted_provider_lifecycle/.test(modelMountCore) &&
+      /hosted_provider_lifecycle_is_planned_without_transport_execution/.test(modelMountCore) &&
       /provider health commits Rust provider-lifecycle record without JS driver, receipt, or provider write/.test(
         read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
+      ) &&
+      /hosted provider health commits Rust metadata lifecycle records without JS driver execution/.test(
+        providerOperationsTest,
+      ) &&
+      /state\.modelMountLifecycleRequests\[0\]\.execution_backend,\s*"rust_model_mount_hosted_provider_lifecycle"/.test(
+        providerOperationsTest,
+      ) &&
+      /state\.recordStateCommits\[0\]\.record\.execution_backend,\s*"rust_model_mount_hosted_provider_lifecycle"/.test(
+        providerOperationsTest,
       ) &&
       /provider health requires Rust Agentgres provider-lifecycle record-state commit/.test(
         read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
@@ -23273,7 +23286,8 @@ function runReceipts() {
       /assert\.equal\(state\.recordStateCommits\.length,\s*1\)/.test(providerOperationsTest) &&
       /assert\.equal\(state\.recordStateCommits\[0\]\.record_dir,\s*"model-providers"\)/.test(providerOperationsTest) &&
       /model_mount_provider_control_record_state_commit_unconfigured/.test(providerOperationsTest) &&
-      /provider start and stop fail closed until direct Rust core control exists/.test(providerOperationsTest) &&
+      /hosted provider start and stop commit Rust metadata lifecycle records without JS driver execution/.test(providerOperationsTest) &&
+      /rust_model_mount_hosted_provider_lifecycle/.test(providerOperationsTest) &&
       /retired_aliases,\s*\[\s*"authScheme"\s*,\s*"authHeaderName"\s*,\s*"apiFormat"\s*,\s*"baseUrl"\s*,\s*"privacyClass"\s*,\s*"evidenceRefs"\s*,?\s*\]/.test(
         providerOperationsTest,
       ) &&
@@ -23412,8 +23426,8 @@ function runReceipts() {
       !/details:\s*\{[^}]*\b(?:providerId|providerKind|httpStatus|authVaultRefHash|providerAuthEvidenceRefs|providerAuthHeaderNames|failureCode|failureStatus|providerErrorHash|vaultRefConfigured|resolvedMaterial|modelId|modelCount|loadedCount|evidenceRefs|providerHealthStatus|providerHealthReceiptId)\s*:/.test(
         providerOperations,
       ) &&
-      /Object\.hasOwn\(error\.details,\s*"providerId"\),\s*false/.test(providerOperationsTest) &&
-      /hosted provider health fails closed before JS driver execution/.test(providerOperationsTest) &&
+      /hosted provider health commits Rust metadata lifecycle records without JS driver execution/.test(providerOperationsTest) &&
+      /rust_model_mount_hosted_provider_lifecycle/.test(providerOperationsTest) &&
       /assert\.equal\(healthCalls,\s*0\)/.test(providerOperationsTest) &&
       /provider inventory list routes through Rust inventory planner without JS driver or local fallback reads/.test(providerOperationsTest) &&
       /hosted provider inventory commits Rust metadata records without JS driver execution/.test(providerOperationsTest) &&
@@ -23423,8 +23437,8 @@ function runReceipts() {
       /assert\.equal\(listInstancesCalls,\s*0\)/.test(providerOperationsTest) &&
       /assert\.equal\(startCalls,\s*0\)/.test(providerOperationsTest) &&
       /assert\.equal\(stopCalls,\s*0\)/.test(providerOperationsTest) &&
-      /Object\.hasOwn\(error\.details,\s*"providerHealthStatus"\),\s*false/.test(providerOperationsTest) &&
-      /Object\.hasOwn\(error\.details,\s*"providerId"\)\s*===\s*false/.test(providerOperationsTest) &&
+      /hosted provider start and stop commit Rust metadata lifecycle records without JS driver execution/.test(providerOperationsTest) &&
+      /state\.recordStateCommits\.map\(\(commit\) => commit\.record\.execution_backend\)/.test(providerOperationsTest) &&
       /retiredProviderDetailAliases/.test(modelMountReceiptWriteGuards) &&
       !/details\.providerId \?\? details\.provider_id/.test(modelMountReceiptWriteGuards) &&
       !/details\.providerKind \?\? details\.provider_kind/.test(modelMountReceiptWriteGuards) &&

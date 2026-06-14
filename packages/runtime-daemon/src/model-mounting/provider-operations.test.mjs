@@ -148,6 +148,7 @@ function fakeState() {
     planModelMountProviderLifecycle(request) {
       this.modelMountLifecycleRequests.push(JSON.parse(JSON.stringify(request)));
       const nativeLocal = request.execution_backend === "rust_model_mount_native_local_lifecycle";
+      const hostedProvider = request.execution_backend === "rust_model_mount_hosted_provider_lifecycle";
       const status = request.action === "load"
         ? "loaded"
         : request.action === "unload"
@@ -157,23 +158,44 @@ function fakeState() {
             : "available";
       const backendId = request.backend_ref ?? (nativeLocal
         ? "backend.autopilot.native-local.fixture"
-        : "backend.fixture");
+        : hostedProvider
+          ? `backend.hosted.${request.provider_kind}`
+          : "backend.fixture");
+      const backend = nativeLocal
+        ? "autopilot.native_local.fixture"
+        : hostedProvider
+          ? (request.api_format ?? request.driver ?? "hosted_provider_metadata")
+          : "ioi_fixture";
+      const driver = nativeLocal
+        ? "native_local"
+        : hostedProvider
+          ? "hosted_provider_metadata"
+          : "fixture";
+      const evidenceRefs = [
+        "public_provider_lifecycle_js_facade_retired",
+        "rust_model_mount_provider_lifecycle",
+        "agentgres_provider_lifecycle_truth_required",
+        nativeLocal
+          ? "rust_model_mount_native_local_lifecycle_backend"
+          : hostedProvider
+            ? "rust_model_mount_hosted_provider_lifecycle_backend"
+            : "rust_model_mount_fixture_lifecycle_backend",
+        ...(hostedProvider
+          ? [
+            "hosted_provider_transport_not_executed",
+            "wallet_network_provider_lifecycle_authority_required",
+          ]
+          : []),
+      ];
       const record = {
         ...request,
         operation_kind: request.operation_kind,
         status,
-        backend: nativeLocal ? "autopilot.native_local.fixture" : "ioi_fixture",
+        backend,
         backend_id: backendId,
-        driver: nativeLocal ? "native_local" : "fixture",
+        driver,
         lifecycle_hash: `sha256:${request.provider_ref}:${request.action}`,
-        evidence_refs: [
-          "public_provider_lifecycle_js_facade_retired",
-          "rust_model_mount_provider_lifecycle",
-          "agentgres_provider_lifecycle_truth_required",
-          nativeLocal
-            ? "rust_model_mount_native_local_lifecycle_backend"
-            : "rust_model_mount_fixture_lifecycle_backend",
-        ],
+        evidence_refs: evidenceRefs,
         rust_core_boundary: "model_mount.provider_lifecycle",
         record_dir: "model-provider-lifecycle-controls",
         receipt_refs: [],
@@ -739,12 +761,14 @@ test("provider health commits Rust provider-lifecycle record without JS driver, 
   assert.equal(state.projections, 0);
 });
 
-test("hosted provider health fails closed before JS driver execution", async () => {
+test("hosted provider health commits Rust metadata lifecycle records without JS driver execution", async () => {
   const state = fakeState();
   let healthCalls = 0;
   state.providers.set("provider.remote", {
     id: "provider.remote",
     kind: "custom_http",
+    apiFormat: "openai_compatible",
+    driver: "hosted_provider_metadata",
     label: "Remote",
     status: "configured",
     discovery: { evidenceRefs: ["operator_provider_config"] },
@@ -764,33 +788,26 @@ test("hosted provider health fails closed before JS driver execution", async () 
       throw error;
     },
   });
-  const currentDeps = providerDeps();
 
-  await assert.rejects(
-    () => providerHealth(state, "provider.remote", currentDeps),
-    (error) => {
-      assert.equal(error.code, "model_mount_provider_health_rust_core_required");
-      assert.equal(error.status, 501);
-      assert.equal(error.details.operation, "provider_health");
-      assert.equal(error.details.provider_id, "provider.remote");
-      assert.equal(error.details.provider_kind, "custom_http");
-      assert.equal(error.details.provider_driver, null);
-      assert.equal(error.details.api_format, null);
-      assert.equal(Object.hasOwn(error.details, "providerHealthStatus"), false);
-      assert.equal(Object.hasOwn(error.details, "providerHealthReceiptId"), false);
-      assert.equal(Object.hasOwn(error.details, "providerId"), false);
-      assert.equal(Object.hasOwn(error.details, "providerKind"), false);
-      assert.equal(Object.hasOwn(error.details, "failureCode"), false);
-      assert.equal(Object.hasOwn(error.details, "failureStatus"), false);
-      assert.equal(Object.hasOwn(error.details, "httpStatus"), false);
-      assert.equal(Object.hasOwn(error.details, "providerErrorHash"), false);
-      return true;
-    },
-  );
+  const result = await providerHealth(state, "provider.remote");
+
   assert.equal(healthCalls, 0);
+  assert.equal(state.modelMountLifecycleRequests.length, 1);
+  assert.equal(state.modelMountLifecycleRequests[0].execution_backend, "rust_model_mount_hosted_provider_lifecycle");
+  assert.equal(state.modelMountLifecycleRequests[0].endpoint_ref, "endpoint://provider.remote/hosted-metadata");
+  assert.equal(state.modelMountLifecycleRequests[0].model_ref, "model://custom_http/hosted-metadata");
+  assert.equal(result.status, "available");
+  assert.equal(result.executionBackend, "rust_model_mount_hosted_provider_lifecycle");
+  assert.equal(result.driver, "hosted_provider_metadata");
+  assert.equal(result.public_response.js_provider_driver_call, false);
+  assert.equal(result.evidence_refs.includes("rust_model_mount_hosted_provider_lifecycle_backend"), true);
+  assert.equal(result.evidence_refs.includes("hosted_provider_transport_not_executed"), true);
   assert.equal(state.providers.get("provider.remote").status, "configured");
   assert.deepEqual(state.receipts, []);
-  assert.deepEqual(state.recordStateCommits, []);
+  assert.equal(state.recordStateCommits.length, 1);
+  assert.equal(state.recordStateCommits[0].record_dir, "model-provider-lifecycle-controls");
+  assert.equal(state.recordStateCommits[0].record.rust_core_boundary, "model_mount.provider_lifecycle");
+  assert.equal(state.recordStateCommits[0].record.execution_backend, "rust_model_mount_hosted_provider_lifecycle");
   assert.equal(state.projections, 0);
 });
 
@@ -1242,13 +1259,15 @@ test("provider inventory facade requires Rust Agentgres provider-inventory recor
   assert.deepEqual(state.receipts, []);
 });
 
-test("provider start and stop fail closed until direct Rust core control exists", async () => {
+test("hosted provider start and stop commit Rust metadata lifecycle records without JS driver execution", async () => {
   const state = fakeState();
   let startCalls = 0;
   let stopCalls = 0;
   state.providers.set("provider.custom", {
     id: "provider.custom",
     kind: "custom_http",
+    apiFormat: "openai_compatible",
+    driver: "hosted_provider_metadata",
     label: "Custom",
     status: "configured",
     discovery: { evidenceRefs: ["operator_provider_config"] },
@@ -1264,33 +1283,34 @@ test("provider start and stop fail closed until direct Rust core control exists"
     },
   });
 
-  await assert.rejects(
-    () => startProvider(state, "provider.custom", providerDeps()),
-    (error) =>
-      error.code === "model_mount_provider_control_rust_core_required" &&
-      error.status === 501 &&
-      error.details.operation === "provider_start" &&
-      error.details.provider_id === "provider.custom" &&
-      error.details.provider_kind === "custom_http" &&
-      Object.hasOwn(error.details, "providerId") === false &&
-      Object.hasOwn(error.details, "providerKind") === false,
-  );
-  await assert.rejects(
-    () => stopProvider(state, "provider.custom", providerDeps()),
-    (error) =>
-      error.code === "model_mount_provider_control_rust_core_required" &&
-      error.status === 501 &&
-      error.details.operation === "provider_stop" &&
-      error.details.provider_id === "provider.custom" &&
-      error.details.provider_kind === "custom_http" &&
-      Object.hasOwn(error.details, "providerId") === false &&
-      Object.hasOwn(error.details, "providerKind") === false,
-  );
+  const startResult = await startProvider(state, "provider.custom");
+  const stopResult = await stopProvider(state, "provider.custom");
+
   assert.equal(startCalls, 0);
   assert.equal(stopCalls, 0);
+  assert.deepEqual(
+    state.modelMountLifecycleRequests.map((request) => request.execution_backend),
+    ["rust_model_mount_hosted_provider_lifecycle", "rust_model_mount_hosted_provider_lifecycle"],
+  );
+  assert.deepEqual(
+    state.modelMountLifecycleRequests.map((request) => request.action),
+    ["load", "unload"],
+  );
+  assert.equal(startResult.status, "loaded");
+  assert.equal(stopResult.status, "unloaded");
+  assert.equal(startResult.executionBackend, "rust_model_mount_hosted_provider_lifecycle");
+  assert.equal(stopResult.executionBackend, "rust_model_mount_hosted_provider_lifecycle");
+  assert.equal(startResult.public_response.js_provider_driver_call, false);
+  assert.equal(stopResult.public_response.js_provider_driver_call, false);
+  assert.equal(startResult.evidence_refs.includes("rust_model_mount_hosted_provider_lifecycle_backend"), true);
+  assert.equal(stopResult.evidence_refs.includes("hosted_provider_transport_not_executed"), true);
   assert.equal(state.providers.get("provider.custom").status, "configured");
   assert.deepEqual(state.receipts, []);
-  assert.deepEqual(state.recordStateCommits, []);
+  assert.equal(state.recordStateCommits.length, 2);
+  assert.deepEqual(
+    state.recordStateCommits.map((commit) => commit.record.execution_backend),
+    ["rust_model_mount_hosted_provider_lifecycle", "rust_model_mount_hosted_provider_lifecycle"],
+  );
   assert.deepEqual(state.writes, []);
 });
 

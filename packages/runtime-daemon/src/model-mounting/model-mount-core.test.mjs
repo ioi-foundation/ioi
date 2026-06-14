@@ -1046,6 +1046,69 @@ test("Rust model_mount core sends native-local provider lifecycle through direct
   assert.equal(Object.hasOwn(result.result, "backendId"), false);
 });
 
+test("Rust model_mount core sends hosted provider lifecycle through direct daemon-core invoker", () => {
+  const calls = [];
+  const runner = new ModelMountCore({
+    daemonCoreInvoker(request) {
+      calls.push({ request });
+      return {
+        ok: true,
+        result: {
+          source: "rust_model_mount_provider_lifecycle_command",
+          backend: "rust_model_mount_hosted_provider_lifecycle",
+          result: {
+            ...request.request,
+            status: "available",
+            backend: "openai_compatible",
+            backend_id: "backend.hosted.custom_http",
+            driver: "hosted_provider_metadata",
+            lifecycle_hash: "sha256:hosted-lifecycle",
+            evidence_refs: [
+              "rust_model_mount_provider_lifecycle",
+              "rust_model_mount_hosted_provider_lifecycle_backend",
+              "hosted_provider_transport_not_executed",
+            ],
+          },
+          status: "available",
+          backend_id: "backend.hosted.custom_http",
+          provider_backend: "openai_compatible",
+          driver: "hosted_provider_metadata",
+          execution_backend: "rust_model_mount_hosted_provider_lifecycle",
+          lifecycle_hash: "sha256:hosted-lifecycle",
+          evidence_refs: [
+            "rust_model_mount_provider_lifecycle",
+            "rust_model_mount_hosted_provider_lifecycle_backend",
+            "hosted_provider_transport_not_executed",
+          ],
+        },
+      };
+    },
+  });
+
+  const result = runner.planProviderLifecycle({
+    ...providerLifecycleRequest(),
+    provider_kind: "custom_http",
+    endpoint_ref: "endpoint://provider.remote/hosted-metadata",
+    model_ref: "model://custom_http/hosted-metadata",
+    execution_backend: "rust_model_mount_hosted_provider_lifecycle",
+    api_format: "openai_compatible",
+    driver: "hosted_provider_metadata",
+    backend_ref: "backend.hosted.custom_http",
+    action: "health",
+    operation_kind: "model_mount.provider.health",
+  });
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].request.operation, "plan_model_mount_provider_lifecycle");
+  assert.equal(calls[0].request.backend, "rust_model_mount_hosted_provider_lifecycle");
+  assert.equal(calls[0].request.request.provider_kind, "custom_http");
+  assert.equal(result.status, "available");
+  assert.equal(result.providerBackend, "openai_compatible");
+  assert.equal(result.driver, "hosted_provider_metadata");
+  assert.equal(result.executionBackend, "rust_model_mount_hosted_provider_lifecycle");
+  assert.equal(result.evidence_refs.includes("hosted_provider_transport_not_executed"), true);
+});
+
 test("Rust model_mount core sends local provider inventory through direct daemon-core invoker", () => {
   const calls = [];
   const runner = new ModelMountCore({

@@ -8,6 +8,7 @@ import {
   RUST_MODEL_MOUNT_FIXTURE_INVENTORY_BACKEND,
   RUST_MODEL_MOUNT_FIXTURE_LIFECYCLE_BACKEND,
   RUST_MODEL_MOUNT_HOSTED_PROVIDER_INVENTORY_BACKEND,
+  RUST_MODEL_MOUNT_HOSTED_PROVIDER_LIFECYCLE_BACKEND,
   RUST_MODEL_MOUNT_INSTANCE_LIFECYCLE_BACKEND,
   RUST_MODEL_MOUNT_NATIVE_LOCAL_INVENTORY_BACKEND,
   RUST_MODEL_MOUNT_NATIVE_LOCAL_LIFECYCLE_BACKEND,
@@ -3968,7 +3969,7 @@ function modelMountProviderLifecycleRequest(state, provider, options = {}) {
   const operation = options.operation ?? "provider_lifecycle";
   const action = options.action ?? "health";
   const operation_kind = options.operation_kind ?? "model_mount.provider.lifecycle";
-  const executionBackend = providerLifecycleExecutionBackend(provider);
+  const executionBackend = providerLifecycleExecutionBackend(provider, { operation, operation_kind, action });
   if (!executionBackend) {
     throwProviderLifecycleRustCoreRequired(provider, operation, {
       operation_kind,
@@ -4001,7 +4002,7 @@ function modelMountProviderLifecycleRequest(state, provider, options = {}) {
   };
 }
 
-function providerLifecycleExecutionBackend(provider = {}) {
+function providerLifecycleExecutionBackend(provider = {}, options = {}) {
   const providerKind = String(provider?.kind ?? "").trim();
   const driver = String(provider?.driver ?? "").trim();
   const apiFormat = String(provider?.api_format ?? provider?.apiFormat ?? "").trim();
@@ -4016,7 +4017,15 @@ function providerLifecycleExecutionBackend(provider = {}) {
   ) {
     return RUST_MODEL_MOUNT_FIXTURE_LIFECYCLE_BACKEND;
   }
+  if (hostedProviderMetadata(provider) && hostedProviderLifecycleMetadataOperation(options)) {
+    return RUST_MODEL_MOUNT_HOSTED_PROVIDER_LIFECYCLE_BACKEND;
+  }
   return null;
+}
+
+function hostedProviderLifecycleMetadataOperation(options = {}) {
+  const operationKind = String(options.operation_kind ?? "").trim();
+  return operationKind === "model_mount.provider.lifecycle" || operationKind.startsWith("model_mount.provider.");
 }
 
 function providerLifecycleSubject(state, provider, options = {}) {
@@ -4027,6 +4036,15 @@ function providerLifecycleSubject(state, provider, options = {}) {
   );
   const modelRef = endpoint?.model_ref ?? endpoint?.modelId ?? endpoint?.model_id ?? null;
   if (!endpoint || !endpoint.id || !modelRef || String(modelRef).trim().toLowerCase() === "auto") {
+    if (hostedProviderMetadata(provider)) {
+      const providerId = String(provider?.id ?? provider?.provider_id ?? "hosted").trim() || "hosted";
+      const providerKind = String(provider?.kind ?? provider?.api_format ?? provider?.apiFormat ?? "hosted").trim() || "hosted";
+      return {
+        endpoint_ref: provider?.endpoint_ref ?? `endpoint://${providerId}/hosted-metadata`,
+        model_ref: provider?.model_ref ?? `model://${providerKind}/hosted-metadata`,
+        backend_ref: provider?.backend_ref ?? provider?.backend_id ?? provider?.backendId ?? `backend.hosted.${safeId(providerKind)}`,
+      };
+    }
     throwProviderLifecycleRustCoreRequired(provider, options.operation ?? "provider_lifecycle", {
       operation_kind: options.operation_kind ?? "model_mount.provider.lifecycle",
       missing: [
@@ -4108,13 +4126,13 @@ function providerInventoryExecutionBackend(provider = {}) {
   ) {
     return RUST_MODEL_MOUNT_FIXTURE_INVENTORY_BACKEND;
   }
-  if (hostedProviderInventoryMetadata(provider)) {
+  if (hostedProviderMetadata(provider)) {
     return RUST_MODEL_MOUNT_HOSTED_PROVIDER_INVENTORY_BACKEND;
   }
   return null;
 }
 
-function hostedProviderInventoryMetadata(provider = {}) {
+function hostedProviderMetadata(provider = {}) {
   const providerKind = String(provider?.kind ?? "").trim();
   const driver = String(provider?.driver ?? "").trim();
   const apiFormat = String(provider?.api_format ?? provider?.apiFormat ?? "").trim();

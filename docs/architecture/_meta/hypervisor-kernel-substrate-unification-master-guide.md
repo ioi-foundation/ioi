@@ -8640,19 +8640,19 @@ to Rust daemon-core projection/control planning plus Rust-authored runtime-event
 admission. The remaining workspace-change blockers are durable Agentgres-backed
 workspace-change storage/replay/projection, wallet/workspace rollback authority,
 command-transport retirement, and stable protocol APIs.
-Model-mount local provider lifecycle has moved from fail-closed JS public
+Model-mount provider lifecycle has moved from fail-closed JS public
 health/start/stop facades to Rust `plan_model_mount_provider_lifecycle` plus
-Rust Agentgres model_mount record-state commit. Migrated local/fixture health
-and native-local start/stop now receive Rust-authored
-`model-provider-lifecycle-controls` records with lifecycle hash/evidence,
-operation kind, and `model_mount.provider_lifecycle` boundary, then require
-Rust Agentgres commit before returning public lifecycle truth. They still avoid
-JS driver execution, lifecycle receipt creation, provider-map mutation, and
-projection writes. Hosted/custom provider lifecycle remains fail-closed before
-JS driver execution, and this is still non-terminal: provider lifecycle
-projection/replay over admitted records, hosted/provider transports, deeper
-receipt/state-root binding, command-transport retirement, and stable protocol
-APIs remain open.
+Rust Agentgres model_mount record-state commit. Migrated local/fixture,
+native-local, and hosted/custom metadata health/start/stop now receive
+Rust-authored `model-provider-lifecycle-controls` records with lifecycle
+hash/evidence, operation kind, and `model_mount.provider_lifecycle` boundary,
+then require Rust Agentgres commit before returning public lifecycle truth. They
+still avoid JS driver execution, lifecycle receipt creation, provider-map
+mutation, projection writes, and hosted transport execution; hosted/custom
+records carry `hosted_provider_transport_not_executed` evidence. This is still
+non-terminal: provider lifecycle projection/replay over admitted records,
+actual hosted/provider transports, deeper receipt/state-root binding,
+command-transport retirement, and stable protocol APIs remain open.
 Public model artifact import and endpoint mount/unmount have moved from the
 fail-closed artifact/endpoint JS facade to Rust
 `plan_model_mount_artifact_endpoint` plus Rust Agentgres model_mount
