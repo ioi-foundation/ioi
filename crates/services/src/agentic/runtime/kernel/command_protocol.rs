@@ -72,7 +72,6 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "plan_runtime_subagent_control",
     "plan_lifecycle_admission_required",
     "plan_thread_turn_admission_required",
-    "plan_workspace_trust_control_state_update",
     "plan_mcp_control_agent_state_update",
     "project_mcp_live_result_replay",
     "validate_mcp_servers",
@@ -157,7 +156,6 @@ pub enum CommandOperation {
     PlanRuntimeSubagentControl,
     PlanLifecycleAdmissionRequired,
     PlanThreadTurnAdmissionRequired,
-    PlanWorkspaceTrustControlStateUpdate,
     PlanMcpControlAgentStateUpdate,
     ProjectMcpLiveResultReplay,
     ValidateMcpServers,
@@ -273,9 +271,6 @@ impl CommandOperation {
             Self::PlanRuntimeSubagentControl => "plan_runtime_subagent_control",
             Self::PlanLifecycleAdmissionRequired => "plan_lifecycle_admission_required",
             Self::PlanThreadTurnAdmissionRequired => "plan_thread_turn_admission_required",
-            Self::PlanWorkspaceTrustControlStateUpdate => {
-                "plan_workspace_trust_control_state_update"
-            }
             Self::PlanMcpControlAgentStateUpdate => "plan_mcp_control_agent_state_update",
             Self::ProjectMcpLiveResultReplay => "project_mcp_live_result_replay",
             Self::ValidateMcpServers => "validate_mcp_servers",
@@ -504,9 +499,6 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
         "plan_thread_turn_admission_required" => {
             Some(CommandOperation::PlanThreadTurnAdmissionRequired)
         }
-        "plan_workspace_trust_control_state_update" => {
-            Some(CommandOperation::PlanWorkspaceTrustControlStateUpdate)
-        }
         "plan_mcp_control_agent_state_update" => {
             Some(CommandOperation::PlanMcpControlAgentStateUpdate)
         }
@@ -607,7 +599,6 @@ mod tests {
             "project_runtime_diagnostics_repair_policy",
             "plan_lifecycle_admission_required",
             "plan_thread_turn_admission_required",
-            "plan_workspace_trust_control_state_update",
             "project_mcp_live_result_replay",
             "project_mcp_tool_search_projection",
             "project_mcp_tool_fetch_projection",
@@ -813,6 +804,13 @@ mod tests {
             assert_eq!(command_operation(operation), None);
             assert_eq!(expected_command_schema_version(operation), None);
         }
+    }
+
+    #[test]
+    fn workspace_trust_command_transport_is_retired() {
+        let operation = "plan_workspace_trust_control_state_update";
+        assert_eq!(command_operation(operation), None);
+        assert_eq!(expected_command_schema_version(operation), None);
     }
 
     #[test]

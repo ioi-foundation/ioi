@@ -397,10 +397,6 @@ pub fn dispatch_command_operation_response(
         CommandOperation::PlanThreadTurnAdmissionRequired => {
             plan_thread_turn_admission_required_response(decode(raw_request)?).map_err(Into::into)
         }
-        CommandOperation::PlanWorkspaceTrustControlStateUpdate => {
-            plan_workspace_trust_control_state_update_response(decode(raw_request)?)
-                .map_err(Into::into)
-        }
         CommandOperation::PlanMcpControlAgentStateUpdate => {
             plan_mcp_control_agent_state_update_response(decode(raw_request)?).map_err(Into::into)
         }

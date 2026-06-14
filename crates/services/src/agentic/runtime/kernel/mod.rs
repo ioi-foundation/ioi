@@ -199,6 +199,8 @@ use policy::{
     ThreadMemoryAgentStateUpdateRecord, ThreadMemoryAgentStateUpdateRequest,
     WorkflowEditAdmissionRequiredCore, WorkflowEditAdmissionRequiredError,
     WorkflowEditAdmissionRequiredRecord, WorkflowEditAdmissionRequiredRequest,
+    WorkspaceTrustControlStateUpdateCore, WorkspaceTrustControlStateUpdateError,
+    WorkspaceTrustControlStateUpdateRecord, WorkspaceTrustControlStateUpdateRequest,
 };
 use profile::{RuntimeProfileConfig, RuntimeProfileValidator, RuntimeProfileViolation};
 use projection::{ProjectionError, RustProjectionCore, StepModuleProjectionRecord};
@@ -619,6 +621,13 @@ impl RuntimeKernelService {
         request: &ThreadControlAgentStateUpdateRequest,
     ) -> Result<ThreadControlAgentStateUpdateRecord, ThreadControlAgentStateUpdateError> {
         ThreadControlAgentStateUpdateCore.plan(request)
+    }
+
+    pub fn plan_workspace_trust_control_state_update(
+        &self,
+        request: &WorkspaceTrustControlStateUpdateRequest,
+    ) -> Result<WorkspaceTrustControlStateUpdateRecord, WorkspaceTrustControlStateUpdateError> {
+        WorkspaceTrustControlStateUpdateCore.plan(request)
     }
 
     pub fn plan_mcp_control_agent_state_update(

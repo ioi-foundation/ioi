@@ -2727,12 +2727,15 @@ the mounted `RuntimeThreadControl` surface directly, so JS no longer preserves
 `updateThreadMode()`, `updateThreadModel()`, `updateThreadThinking()`, or
 `acknowledgeWorkspaceTrustWarning()` as duplicate store-level compatibility
 wrappers. Later workspace-trust work moved warning/acknowledgement event
-envelope planning to Rust `plan_workspace_trust_control_state_update` and
-admits those Rust-authored events through the Rust runtime-event Agentgres path.
+envelope planning to Rust `plan_workspace_trust_control_state_update` through
+typed `daemonCoreWorkspaceTrustApi.planWorkspaceTrustControlStateUpdate`,
+admits those Rust-authored events through the Rust runtime-event Agentgres path,
+and rejects the old workspace-trust state-update command operation in Rust
+`command_protocol.rs`/`command_dispatch.rs`.
 This still does not claim terminal thread-control or workspace-trust admission:
 deeper wallet/cTEE/model-route authority, durable Agentgres projection storage,
-command-transport retirement, and stable SDK/IDE/CLI protocol APIs remain
-required before terminal conformance.
+and stable SDK/IDE/CLI protocol APIs remain required before terminal
+conformance.
 Slice 958 retired the daemon-store subagent route pass-through wrappers. The
 public subagent list/get/result routes now call Rust
 `project_runtime_subagent_projection` through the mounted
@@ -6457,16 +6460,20 @@ delegate. At that point the mounted thread-control surface kept
 daemon store no longer provided a duplicate `store.appendWorkspaceTrustWarningEvent()`
 compatibility entrypoint, and conformance failed if that wrapper returned.
 
-Slice 1105 moves workspace-trust warning and acknowledgement event ownership
-into Rust daemon-core planning. `plan_workspace_trust_control_state_update`
-authors warning and acknowledgement event envelopes, receipt refs, policy refs,
-and replay-bound acknowledgement payloads; the JS thread-control surface only
+Slice 1105 moved workspace-trust warning and acknowledgement event ownership
+into Rust daemon-core planning. The subsequent workspace-trust transport cut
+routes that planner through typed
+`daemonCoreWorkspaceTrustApi.planWorkspaceTrustControlStateUpdate`, so JS sends
+canonical request bodies without generic command `operation`/`backend`
+envelopes and Rust rejects `plan_workspace_trust_control_state_update` as a
+command operation. `plan_workspace_trust_control_state_update` authors warning
+and acknowledgement event envelopes, receipt refs, policy refs, and
+replay-bound acknowledgement payloads; the JS thread-control surface only
 forwards canonical facts, requires the Rust planner before mode lookup/write,
 and admits Rust-authored events through `admit_runtime_thread_event`. The old JS
 repository-context warning record and acknowledgement payload construction stay
 retired. Deeper wallet/cTEE workspace authority and stable direct projection
-APIs remain terminal work beyond the temporary context-policy runner and replay
-cache transport.
+APIs remain terminal work beyond the temporary replay cache transport.
 
 Slice 1103 splits the Rust StepModule bridge computer-use provider registry and
 provider-selection helper out of `ioi_step_module_bridge/computer_use.rs` into
@@ -7912,6 +7919,17 @@ is direct Rust daemon-core lifecycle, MCP, and memory API ownership where
 admission, projection, Agentgres truth, replay, and conformance no longer depend
 on Node bridge endpoint proof scaffolding.
 
+The workspace-trust state-update transport cut replaces the temporary command
+path with typed `daemonCoreWorkspaceTrustApi.planWorkspaceTrustControlStateUpdate`.
+The JS runtime context-policy core now sends canonical workspace-trust
+warning/ack request bodies to that typed API without generic command
+`operation`/`backend` envelopes, the Rust kernel exposes the corresponding
+positive daemon-core method, and `command_protocol.rs`/`command_dispatch.rs`
+reject the old workspace-trust state-update command operation. This retires the
+command transport for the workspace-trust warning/ack hot path guarded by
+compositor conformance; deeper wallet/cTEE workspace authority, durable
+projection storage, and stable SDK/IDE/CLI APIs remain non-terminal.
+
 Slice 1181 moved the workspace-restore command-response proof cluster out of
 the temporary bridge proof surface and into the Rust workspace owner at
 `crates/services/src/agentic/runtime/kernel/workspace_restore.rs`. That
@@ -8853,9 +8871,11 @@ projection, and the returned event set while JS only supplies temporary cache
 candidates. Public thread/turn projection records now call Rust
 `project_runtime_thread_turn_projection`; Rust owns public thread/turn record
 shape, runtime identity fields, projection hashes, and event-derived seq/input/
-output fields over admitted replay events while JS only supplies canonical
-agent/run/event facts. The runner/cache transport remains non-terminal
-scaffolding until stable Rust projection/replay APIs replace it.
+output fields over admitted replay events through typed
+`daemonCoreAgentgresApi.projectRuntimeThreadTurnProjection`, while JS only
+supplies canonical agent/run/event facts and a temporary replay cache. Stable
+Rust projection/replay protocol APIs remain non-terminal beyond that thin JS
+protocol-client scaffolding.
 
 This is still not terminal coding-tool migration. Coding-tool artifact draft
 materialization now calls Rust `plan_runtime_coding_tool_artifact_drafts`,

@@ -12,6 +12,7 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
   const contextLifecycleCalls = [];
   const runtimeControlCalls = [];
   const threadLifecycleCalls = [];
+  const workspaceTrustCalls = [];
   const agentgresCalls = [];
   const approvalCalls = [];
   const governedAdmissionCalls = [];
@@ -84,6 +85,25 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
           agent: {
             id: request.agent?.id,
             status: request.agent?.status ?? "active",
+          },
+        };
+      },
+    },
+    daemonCoreWorkspaceTrustApi: {
+      planWorkspaceTrustControlStateUpdate(request) {
+        workspaceTrustCalls.push({ method: "planWorkspaceTrustControlStateUpdate", request });
+        return {
+          source: "direct_workspace_trust_api",
+          backend: "rust_policy",
+          status: "planned",
+          operation_kind: request.operation_kind,
+          thread_id: request.thread_id,
+          event_stream_id: request.event_stream_id,
+          event: {
+            event_id: request.event_id,
+            thread_id: request.thread_id,
+            event_kind: "workspace.trust_warning",
+            receipt_refs: ["receipt://workspace-trust/direct"],
           },
         };
       },
@@ -193,6 +213,26 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
   assert.equal(agentPlan.source, "direct_thread_lifecycle_api");
   assert.equal(agentPlan.operation_kind, "agent.create");
   assert.equal(agentPlan.agent.id, "agent_direct");
+  const workspaceTrustPlan = store.contextPolicyCore.planWorkspaceTrustControlStateUpdate({
+    operation_kind: "workspace_trust.warning",
+    thread_id: "thread_direct",
+    event_stream_id: "thread_direct:events",
+    agent: { id: "agent_direct", cwd: stateDir },
+    controls: { mode: "review", approval_mode: "human_required" },
+    event_id: "evt_workspace_trust_direct",
+    created_at: "2026-06-14T18:36:00.000Z",
+  });
+  assert.equal(calls.length, 0);
+  assert.equal(workspaceTrustCalls.length, 1);
+  assert.equal(workspaceTrustCalls[0].method, "planWorkspaceTrustControlStateUpdate");
+  assert.equal(
+    workspaceTrustCalls[0].request.schema_version,
+    "ioi.runtime.workspace-trust-control-state-update-request.v1",
+  );
+  assert.equal(Object.hasOwn(workspaceTrustCalls[0].request, "operation"), false);
+  assert.equal(Object.hasOwn(workspaceTrustCalls[0].request, "backend"), false);
+  assert.equal(workspaceTrustPlan.source, "direct_workspace_trust_api");
+  assert.equal(workspaceTrustPlan.event.event_kind, "workspace.trust_warning");
   const queue = store.approvalStateCore.projectApprovalQueue({
     thread_id: "thread_direct",
     state_dir: stateDir,

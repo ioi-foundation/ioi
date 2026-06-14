@@ -172,6 +172,7 @@ export const RUNTIME_CONTROL_RUN_CANCEL_ADMISSION_REQUIRED_API_METHOD =
   "planRunCancelAdmissionRequired";
 export const THREAD_LIFECYCLE_THREAD_CONTROL_AGENT_STATE_UPDATE_API_METHOD =
   "planThreadControlAgentStateUpdate";
+export const WORKSPACE_TRUST_CONTROL_STATE_UPDATE_API_METHOD = "planWorkspaceTrustControlStateUpdate";
 export const THREAD_LIFECYCLE_RUNTIME_BRIDGE_THREAD_START_AGENT_STATE_UPDATE_API_METHOD =
   "planRuntimeBridgeThreadStartAgentStateUpdate";
 export const THREAD_LIFECYCLE_RUNTIME_BRIDGE_THREAD_CONTROL_AGENT_STATE_UPDATE_API_METHOD =
@@ -228,6 +229,11 @@ export class RuntimeContextPolicyCore {
       options.daemonCoreThreadLifecycleApi ??
         options.daemonCoreApi?.threadLifecycle ??
         options.daemonCoreApi?.thread_lifecycle,
+    );
+    this.daemonCoreWorkspaceTrustApi = workspaceTrustApi(
+      options.daemonCoreWorkspaceTrustApi ??
+        options.daemonCoreApi?.workspaceTrust ??
+        options.daemonCoreApi?.workspace_trust,
     );
   }
 
@@ -600,11 +606,11 @@ export class RuntimeContextPolicyCore {
   }
 
   planWorkspaceTrustControlStateUpdate(request = {}) {
-    return normalizeWorkspaceTrustControlStateUpdateBridgeResult(this.evaluateRawPolicy({
-      operation: "plan_workspace_trust_control_state_update",
-      schemaVersion: WORKSPACE_TRUST_CONTROL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+    return normalizeWorkspaceTrustControlStateUpdateBridgeResult(this.invokeWorkspaceTrustApi(
+      WORKSPACE_TRUST_CONTROL_STATE_UPDATE_API_METHOD,
+      WORKSPACE_TRUST_CONTROL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   planThreadTurnAdmissionRequired(request = {}) {
@@ -887,6 +893,33 @@ export class RuntimeContextPolicyCore {
       throw new RuntimeContextPolicyCoreError(
         responseError.message ?? "Rust thread lifecycle policy rejected the request.",
         responseError.code ?? "thread_lifecycle_direct_api_rejected",
+        { error: responseError },
+      );
+    }
+    return response?.ok === true ? response.result : response;
+  }
+
+  invokeWorkspaceTrustApi(method, schemaVersion, request = {}) {
+    const invoke = this.daemonCoreWorkspaceTrustApi?.[method];
+    if (typeof invoke !== "function") {
+      throw new RuntimeContextPolicyCoreError(
+        `Workspace trust policy requires daemonCoreWorkspaceTrustApi.${method} for direct Rust daemon-core policy evaluation.`,
+        "runtime_context_policy_core_direct_workspace_trust_api_unconfigured",
+        {
+          boundary: `daemonCoreWorkspaceTrustApi.${method}`,
+          backend: RUST_CONTEXT_POLICY_BACKEND,
+        },
+      );
+    }
+    const response = invoke.call(this.daemonCoreWorkspaceTrustApi, {
+      ...(objectRecord(request) ?? {}),
+      schema_version: schemaVersion,
+    });
+    const responseError = objectRecord(response?.error);
+    if (response?.ok === false && responseError) {
+      throw new RuntimeContextPolicyCoreError(
+        responseError.message ?? "Rust workspace trust policy rejected the request.",
+        responseError.code ?? "workspace_trust_direct_api_rejected",
         { error: responseError },
       );
     }
@@ -3049,6 +3082,10 @@ function runtimeControlApi(value) {
 }
 
 function threadLifecycleApi(value) {
+  return objectRecord(value);
+}
+
+function workspaceTrustApi(value) {
   return objectRecord(value);
 }
 

@@ -20,8 +20,7 @@ export const AGENTGRES_RUNTIME_THREAD_EVENT_API_METHOD = "admitRuntimeThreadEven
 export const AGENTGRES_RUNTIME_THREAD_EVENTS_PROJECTION_API_METHOD = "projectRuntimeThreadEvents";
 export const AGENTGRES_RUNTIME_THREAD_EVENT_REPLAY_API_METHOD =
   "projectRuntimeThreadEventReplay";
-export const AGENTGRES_RUNTIME_THREAD_TURN_PROJECTION_API_METHOD =
-  "projectRuntimeThreadTurnProjection";
+export const AGENTGRES_RUNTIME_THREAD_TURN_PROJECTION_API_METHOD = "projectRuntimeThreadTurnProjection";
 export const AGENTGRES_RUNTIME_RUN_STATE_COMMIT_API_METHOD = "commitRuntimeRunState";
 export const AGENTGRES_RUNTIME_AGENT_STATE_COMMIT_API_METHOD = "commitRuntimeAgentState";
 export const AGENTGRES_RUNTIME_MEMORY_STATE_COMMIT_API_METHOD = "commitRuntimeMemoryState";

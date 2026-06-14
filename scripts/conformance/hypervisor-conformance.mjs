@@ -4123,7 +4123,10 @@ function runBridge() {
       /this\.daemonCoreThreadLifecycleApi = options\.daemonCoreThreadLifecycleApi/.test(
         runtimeDaemonIndex,
       ) &&
-      /createRuntimeContextPolicyCore\(\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*daemonCoreContextLifecycleApi: this\.daemonCoreContextLifecycleApi,\s*daemonCoreRuntimeControlApi: this\.daemonCoreRuntimeControlApi,\s*daemonCoreThreadLifecycleApi: this\.daemonCoreThreadLifecycleApi,\s*\}\)/.test(
+      /this\.daemonCoreWorkspaceTrustApi = options\.daemonCoreWorkspaceTrustApi/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /createRuntimeContextPolicyCore\(\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*daemonCoreContextLifecycleApi: this\.daemonCoreContextLifecycleApi,\s*daemonCoreRuntimeControlApi: this\.daemonCoreRuntimeControlApi,\s*daemonCoreThreadLifecycleApi: this\.daemonCoreThreadLifecycleApi,\s*daemonCoreWorkspaceTrustApi: this\.daemonCoreWorkspaceTrustApi,\s*\}\)/.test(
         runtimeDaemonIndex,
       ) &&
       /daemonCoreContextLifecycleApi:\s*\{[\s\S]*?evaluateContextBudgetPolicy\(request\)/.test(
@@ -4148,6 +4151,15 @@ function runBridge() {
         daemonCoreDirectInvokerServiceTest,
       ) &&
       /Object\.hasOwn\(threadLifecycleCalls\[0\]\.request,\s*"backend"\),\s*false/.test(
+        daemonCoreDirectInvokerServiceTest,
+      ) &&
+      /daemonCoreWorkspaceTrustApi:\s*\{[\s\S]*?planWorkspaceTrustControlStateUpdate\(request\)/.test(
+        daemonCoreDirectInvokerServiceTest,
+      ) &&
+      /Object\.hasOwn\(workspaceTrustCalls\[0\]\.request,\s*"operation"\),\s*false/.test(
+        daemonCoreDirectInvokerServiceTest,
+      ) &&
+      /Object\.hasOwn\(workspaceTrustCalls\[0\]\.request,\s*"backend"\),\s*false/.test(
         daemonCoreDirectInvokerServiceTest,
       ) &&
       /this\.daemonCoreAuthorityApi = options\.daemonCoreAuthorityApi/.test(runtimeDaemonIndex) &&
@@ -35792,21 +35804,32 @@ function runCompositor() {
       /rust_policy_rejects_workspace_trust_acknowledgement_without_warning_replay/.test(
         policyWorkspaceTrustCore,
       ) &&
-      /plan_workspace_trust_control_state_update/.test(commandProtocolCoreForCompositor) &&
-      /CommandOperation::PlanWorkspaceTrustControlStateUpdate/.test(
+      /pub fn plan_workspace_trust_control_state_update/.test(
+        kernelModuleForCompositor,
+      ) &&
+      /workspace_trust_command_transport_is_retired/.test(
         commandProtocolCoreForCompositor,
       ) &&
-      /CommandOperation::PlanWorkspaceTrustControlStateUpdate/.test(
+      !/CommandOperation::PlanWorkspaceTrustControlStateUpdate/.test(
+        commandProtocolCoreForCompositor,
+      ) &&
+      !/CommandOperation::PlanWorkspaceTrustControlStateUpdate/.test(
         coreCommandDispatchForCompositor,
       ) &&
-      /plan_workspace_trust_control_state_update_response/.test(
-        coreCommandDispatchForCompositor,
-      ) &&
-      /command_error_from!\(WorkspaceTrustControlCommandError\)/.test(
+      !/plan_workspace_trust_control_state_update_response/.test(
         coreCommandDispatchForCompositor,
       ) &&
       /planWorkspaceTrustControlStateUpdate/.test(runtimeContextPolicyCore) &&
       /WORKSPACE_TRUST_CONTROL_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
+        runtimeContextPolicyCore,
+      ) &&
+      /WORKSPACE_TRUST_CONTROL_STATE_UPDATE_API_METHOD\s*=\s*"planWorkspaceTrustControlStateUpdate"/.test(
+        runtimeContextPolicyCore,
+      ) &&
+      /daemonCoreWorkspaceTrustApi/.test(runtimeContextPolicyCore) &&
+      /invokeWorkspaceTrustApi/.test(runtimeContextPolicyCore) &&
+      /daemonCoreWorkspaceTrustApi\.\$\{method\}/.test(runtimeContextPolicyCore) &&
+      !/operation:\s*"plan_workspace_trust_control_state_update"/.test(
         runtimeContextPolicyCore,
       ) &&
       /normalizeWorkspaceTrustControlStateUpdateBridgeResult/.test(
@@ -35818,8 +35841,26 @@ function runCompositor() {
       /workspace trust control state update core sends Rust state update through typed Rust daemon-core Agentgres API/.test(
         runtimeContextPolicyCoreTest,
       ) &&
+      /calls\[0\]\.method,\s*WORKSPACE_TRUST_CONTROL_STATE_UPDATE_API_METHOD/.test(
+        runtimeContextPolicyCoreTest,
+      ) &&
+      /Object\.hasOwn\(captured,\s*"operation"\),\s*false/.test(
+        runtimeContextPolicyCoreTest,
+      ) &&
+      /Object\.hasOwn\(captured,\s*"backend"\),\s*false/.test(
+        runtimeContextPolicyCoreTest,
+      ) &&
       /workspace_trust_control_state_update_operation_kind_mismatch/.test(
         runtimeContextPolicyCoreTest,
+      ) &&
+      /this\.daemonCoreWorkspaceTrustApi = options\.daemonCoreWorkspaceTrustApi/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /daemonCoreWorkspaceTrustApi: this\.daemonCoreWorkspaceTrustApi/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /daemonCoreWorkspaceTrustApi:\s*\{[\s\S]*?planWorkspaceTrustControlStateUpdate/.test(
+        read("packages/runtime-daemon/src/runtime-daemon-core-direct-invoker-service.test.mjs"),
       ) &&
       /planWorkspaceTrustControlStateUpdate/.test(workspaceTrustState) &&
       /store\.appendRuntimeEvent\(event\)/.test(workspaceTrustState) &&
@@ -35891,7 +35932,13 @@ function runCompositor() {
     [
       "packages/runtime-daemon/src/threads/workspace-trust-state.mjs",
       "packages/runtime-daemon/src/threads/workspace-trust-state.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
       "crates/services/src/agentic/runtime/kernel/policy/workspace_trust.rs",
+      "crates/services/src/agentic/runtime/kernel/mod.rs",
+      "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
+      "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
       "packages/agent-ide/src/runtime/workflow-runtime-control-nodes.ts",
       "packages/agent-ide/src/runtime/workflow-runtime-control-nodes.test.ts",
     ],

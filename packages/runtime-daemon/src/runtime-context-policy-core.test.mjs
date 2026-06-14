@@ -98,6 +98,7 @@ import {
   THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   THREAD_TURN_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
   THREAD_MEMORY_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  WORKSPACE_TRUST_CONTROL_STATE_UPDATE_API_METHOD,
   WORKSPACE_TRUST_CONTROL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   WORKFLOW_EDIT_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
   createRuntimeContextPolicyCore,
@@ -206,6 +207,22 @@ function createThreadLifecycleDirectCore(method, handler) {
       throw new Error(`retired generic invoker reached for ${request?.operation}`);
     },
     daemonCoreThreadLifecycleApi: {
+      [method](request) {
+        calls.push({ method, request });
+        return handler(request);
+      },
+    },
+  });
+  return { calls, runner };
+}
+
+function createWorkspaceTrustDirectCore(method, handler) {
+  const calls = [];
+  const runner = new RuntimeContextPolicyCore({
+    daemonCoreInvoker(request) {
+      throw new Error(`retired generic invoker reached for ${request?.operation}`);
+    },
+    daemonCoreWorkspaceTrustApi: {
       [method](request) {
         calls.push({ method, request });
         return handler(request);
@@ -3624,10 +3641,11 @@ test("thread control agent state update core sends Rust state update through typ
   assert.equal(result.agent.modelId, "local-model");
 });
 
-test("workspace trust control state update core sends Rust state update through direct daemon-core invoker", () => {
+test("workspace trust control state update core sends Rust state update through typed Rust daemon-core Agentgres API", () => {
   let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
+  const { calls, runner } = createWorkspaceTrustDirectCore(
+    WORKSPACE_TRUST_CONTROL_STATE_UPDATE_API_METHOD,
+    (request) => {
       captured = request;
       return {
         source: "rust_workspace_trust_control_state_update_command",
@@ -3652,7 +3670,7 @@ test("workspace trust control state update core sends Rust state update through 
         },
       };
     },
-  });
+  );
 
   const result = runner.planWorkspaceTrustControlStateUpdate({
     operation_kind: "workspace_trust.acknowledge",
@@ -3672,15 +3690,16 @@ test("workspace trust control state update core sends Rust state update through 
     created_at: "2026-06-06T05:00:01.000Z",
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "plan_workspace_trust_control_state_update");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, WORKSPACE_TRUST_CONTROL_STATE_UPDATE_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    captured.schema_version,
     WORKSPACE_TRUST_CONTROL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.operation_kind, "workspace_trust.acknowledge");
-  assert.equal(captured.request.warning_id, "workspace_trust_warning_1");
+  assert.equal(Object.hasOwn(captured, "operation"), false);
+  assert.equal(Object.hasOwn(captured, "backend"), false);
+  assert.equal(captured.operation_kind, "workspace_trust.acknowledge");
+  assert.equal(captured.warning_id, "workspace_trust_warning_1");
   assert.equal(result.source, "rust_workspace_trust_control_state_update_command");
   assert.equal(result.operation_kind, "workspace_trust.acknowledge");
   assert.equal(result.workspace_trust_acknowledgement.status, "acknowledged");
