@@ -909,12 +909,15 @@ function runDocs() {
       /Slice 929 deleted the final `provider-protocol\.mjs` token-count fallback/.test(guide) &&
       /Slice 930 retired the remaining JS estimate-only model-load projection path/.test(guide) &&
       /`ModelMountingState\.loadEstimate\(\)` and `estimateNativeLocalResources\(\)` are\s+absent/.test(guide) &&
+      /canonical `load_options\.estimate_only` now calls Rust instance-lifecycle estimate planning/.test(guide) &&
+      /commits a Rust-authored model-instance estimate record through Rust Agentgres/.test(guide) &&
       /Slice 931 retired the JS synthetic embedding-vector fallback/.test(guide) &&
       /`model_mount\.provider_result\.embeddings` before JS can derive deterministic\s+vectors/.test(guide) &&
       /Slice 932 retired the public JS model-load estimate route/.test(guide) &&
       /`\/api\/v1\/models\/estimate-load` is no longer routed/.test(guide) &&
       /Slice 933 retired the load-option `estimateOnly` compatibility alias/.test(guide) &&
       /load-option normalizer now honors only canonical `estimate_only`/.test(guide) &&
+      /canonical `estimate_only` now enters the Rust-owned `model_mount\.instance\.estimate` path/.test(guide) &&
       /Slice 934 retired the load-option `gpuOffload` compatibility alias/.test(guide) &&
       /load-option normalizer now honors only canonical `gpu_offload` or `gpu`/.test(guide) &&
       /Slice 935 retired the load-option `contextLength` compatibility alias/.test(guide) &&
@@ -1369,6 +1372,9 @@ function runDocs() {
       /Slice 929 deleted the final `provider-protocol\.mjs` token-count fallback/.test(matrix) &&
       /Implementation Slice Evidence: 930/.test(matrix) &&
       /Slice 930 retired the JS estimate-only model-load projection path/.test(matrix) &&
+      /Public model load\/unload positive Rust path/.test(matrix) &&
+      /canonical estimate-only now calls Rust instance-lifecycle estimate planning/.test(matrix) &&
+      /commits the Rust-authored estimate record through Rust Agentgres/.test(matrix) &&
       /Implementation Slice Evidence: 931/.test(matrix) &&
       /Slice 931 retired the JS synthetic embedding-vector fallback/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 918 is now satisfied/.test(matrix) &&
@@ -16981,7 +16987,15 @@ function runBridge() {
       /model_mount_model_loading_js_facade_retired/.test(modelLoadingOperations) &&
       /rust_core_boundary:\s*"model_mount\.instance_lifecycle"/.test(modelLoadingOperations) &&
       /model_mount\.instance\.estimate/.test(modelLoadingOperations) &&
-      /model_load_estimate/.test(modelLoadingOperations) &&
+      /model_load_estimate/.test(modelMountingState) &&
+      /model_mount_model_load_estimate_rust_positive_api/.test(modelLoadingOperations) &&
+      /canonicalLoadEstimateOptions/.test(modelMountingState) &&
+      /defaultModelLoadEstimateId/.test(modelMountingState) &&
+      /updateInstanceCache:\s*false/.test(modelLoadingOperations) &&
+      /model_instance_load_estimate_is_planned_in_rust_without_provider_lifecycle/.test(modelMountCore) &&
+      /rust_model_mount_load_estimate/.test(modelMountCore) &&
+      /agentgres_model_instance_estimate_truth_required/.test(modelMountCore) &&
+      /js_sizing_execution/.test(modelMountCore) &&
       !/\/api\/v1\/models\/estimate-load/.test(runtimeRouteHandlers) &&
       /model mounting native route does not expose retired estimate-load endpoint/.test(runtimeRouteHandlersTest) &&
       !/loadEstimate\(/.test(modelLoadingOperations) &&
@@ -17008,7 +17022,13 @@ function runBridge() {
       /loadModel commits Rust-planned instance lifecycle before returning public instance truth/.test(
         read("packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs"),
       ) &&
-      /loadModel estimate-only facade fails closed before JS sizing, driver, receipt, or instance write/.test(
+      /loadModel estimate-only commits Rust estimate record before returning public estimate truth/.test(
+        read("packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs"),
+      ) &&
+      /loadModel estimate-only fails closed without Rust Agentgres estimate commit/.test(
+        read("packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs"),
+      ) &&
+      !/loadModel estimate-only facade fails closed before JS sizing, driver, receipt, or instance write/.test(
         read("packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs"),
       ) &&
       /unloadModel commits Rust-planned instance lifecycle before returning public instance truth/.test(
@@ -20236,7 +20256,15 @@ function runReceipts() {
       /model_mount_instance_lifecycle_record_state_commit_unconfigured/.test(modelMountingState) &&
       /public_model_loading_rust_facade/.test(modelMountingState) &&
       /model_mount\.instance\.estimate/.test(modelLoadingOperations) &&
-      /model_load_estimate/.test(modelLoadingOperations) &&
+      /model_load_estimate/.test(modelMountingState) &&
+      /model_mount_model_load_estimate_rust_positive_api/.test(modelLoadingOperations) &&
+      /canonicalLoadEstimateOptions/.test(modelMountingState) &&
+      /defaultModelLoadEstimateId/.test(modelMountingState) &&
+      /updateInstanceCache:\s*false/.test(modelLoadingOperations) &&
+      /model_instance_load_estimate_is_planned_in_rust_without_provider_lifecycle/.test(modelMountCore) &&
+      /rust_model_mount_load_estimate/.test(modelMountCore) &&
+      /agentgres_model_instance_estimate_truth_required/.test(modelMountCore) &&
+      /js_sizing_execution/.test(modelMountCore) &&
       !/loadEstimate\(/.test(modelLoadingOperations) &&
       !/estimateNativeLocalResources/.test(modelLoadingOperations) &&
       !/commitModelInstanceRecordState/.test(modelLoadingOperations) &&
@@ -20269,7 +20297,13 @@ function runReceipts() {
       /loadModel commits Rust-planned instance lifecycle before returning public instance truth/.test(
         modelLoadingOperationsTest,
       ) &&
-      /loadModel estimate-only facade fails closed before JS sizing, driver, receipt, or instance write/.test(
+      /loadModel estimate-only commits Rust estimate record before returning public estimate truth/.test(
+        modelLoadingOperationsTest,
+      ) &&
+      /loadModel estimate-only fails closed without Rust Agentgres estimate commit/.test(
+        modelLoadingOperationsTest,
+      ) &&
+      !/loadModel estimate-only facade fails closed before JS sizing, driver, receipt, or instance write/.test(
         modelLoadingOperationsTest,
       ) &&
       /unloadModel commits Rust-planned instance lifecycle before returning public instance truth/.test(
@@ -20348,7 +20382,7 @@ function runReceipts() {
       /model_mount_provider_lifecycle_hash/.test(
         read("packages/runtime-daemon/src/model-mounting/receipt-operations.test.mjs"),
       ) &&
-      /provider_kind:\s*provider\.kind/.test(modelLoadingOperations) &&
+      /provider_kind:\s*provider\?\.kind/.test(modelMountReceiptOperations) &&
       /public_model_instance_maintenance_rust_facade/.test(loadedInstances) &&
       /model instance lifecycle receipt helper fails closed even with Rust binding details/.test(
         read("packages/runtime-daemon/src/model-mounting/receipt-operations.test.mjs"),
@@ -20378,9 +20412,10 @@ function runReceipts() {
       /instance_lifecycle_hash:\s*lifecycle\.instance_lifecycle_hash \?\? record\.instance_lifecycle_hash \?\? null/.test(
         modelInstanceLifecycleClientBlock,
       ) &&
-      /endpoint_id:\s*endpoint\.id/.test(modelLoadingOperations) &&
-      /model_id:\s*endpoint\.modelId/.test(modelLoadingOperations) &&
-      /provider_kind:\s*provider\.kind/.test(modelLoadingOperations) &&
+      /assert\.equal\(estimate\.endpoint_id,\s*"endpoint\.local\.llama"\)/.test(modelLoadingOperationsTest) &&
+      /assert\.equal\(estimate\.model_id,\s*"llama-test"\)/.test(modelLoadingOperationsTest) &&
+      /assert\.equal\(estimate\.provider_id,\s*"provider\.local"\)/.test(modelLoadingOperationsTest) &&
+      /provider_kind:\s*provider\?\.kind/.test(modelMountReceiptOperations) &&
       /instance_id:\s*instance\?\.id/.test(loadedInstances) &&
       /notFound\(`No loaded model instance for endpoint: \$\{endpointId\}`,\s*\{ endpoint_id: endpointId \}\)/.test(
         loadedInstances,

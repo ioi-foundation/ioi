@@ -155,6 +155,7 @@ function fakeState() {
     },
     planModelMountInstanceLifecycle(request) {
       this.instanceLifecycleRequests.push(JSON.parse(JSON.stringify(request)));
+      const estimate = request.action === "estimate";
       const record = {
         schema_version: request.schema_version,
         id: request.instance_ref,
@@ -170,10 +171,36 @@ function fakeState() {
         backend_id: request.backend_ref,
         driver: request.driver,
         execution_backend: request.execution_backend,
-        provider_lifecycle_hash: request.provider_lifecycle_hash,
+        provider_lifecycle_hash: estimate
+          ? `sha256:estimate-provider-lifecycle-not-executed:${request.instance_ref}`
+          : request.provider_lifecycle_hash,
+        runtime_engine_id: request.runtime_engine_ref,
+        load_options: request.load_options,
+        load_estimate: estimate
+          ? {
+            object: "ioi.model_mount_load_estimate",
+            status: "estimated",
+            provider_lifecycle_execution: false,
+            js_sizing_execution: false,
+            js_driver_execution: false,
+            runtime_engine_id: request.runtime_engine_ref,
+            backend_id: request.backend_ref,
+            requested_context_tokens: request.load_options.context_length,
+            parallel: request.load_options.parallel,
+            ttl_seconds: request.load_options.ttl_seconds,
+            estimated_memory_bytes: 262144,
+            estimate_source: "rust_daemon_core.model_mount.instance_lifecycle",
+          }
+          : undefined,
         evidence_refs: [
           "rust_model_mount_instance_lifecycle",
-          "rust_model_mount_provider_lifecycle_bound",
+          ...(estimate
+            ? [
+              "rust_model_mount_load_estimate",
+              "agentgres_model_instance_estimate_truth_required",
+              "model_mount_model_loading_js_estimate_facade_retired",
+            ]
+            : ["rust_model_mount_provider_lifecycle_bound"]),
           ...request.evidence_refs,
         ],
         instance_lifecycle_hash: `sha256:instance:${request.instance_ref}:${request.action}`,
@@ -341,43 +368,54 @@ test("unloadModel rejects retired request aliases before instance lookup", async
   assert.equal(state.receipts.length, 0);
 });
 
-test("loadModel estimate-only facade fails closed before JS sizing, driver, receipt, or instance write", async () => {
+test("loadModel estimate-only commits Rust estimate record before returning public estimate truth", async () => {
   const state = fakeState();
 
-  await assert.rejects(
-    () =>
-      loadModel(
-        state,
-        {
-          endpoint_id: "endpoint.local.llama",
-          load_policy: "resident",
-          load_options: { estimate_only: true, context_length: 2048 },
-        },
-        deps,
-      ),
-    (error) => {
-      assert.equal(error.status, 501);
-      assert.equal(error.code, "model_mount_model_loading_rust_core_required");
-      assert.equal(error.details.rust_core_boundary, "model_mount.instance_lifecycle");
-      assert.equal(error.details.operation, "model_load_estimate");
-      assert.equal(error.details.operation_kind, "model_mount.instance.estimate");
-      assert.equal(error.details.endpoint_id, "endpoint.local.llama");
-      assert.equal(error.details.model_id, "llama-test");
-      assert.equal(error.details.backend_id, "backend.autopilot.native-local.fixture");
-      assert.equal(error.details.runtime_engine_id, "engine.native");
-      assert.equal(error.details.provider_id, "provider.local");
-      assert.equal(error.details.provider_kind, "ioi_native_local");
-      assert.equal(Object.hasOwn(error.details, "endpointId"), false);
-      assert.equal(Object.hasOwn(error.details, ["runtime", "Engine", "Id"].join("")), false);
-      return true;
+  const estimate = await loadModel(
+    state,
+    {
+      endpoint_id: "endpoint.local.llama",
+      load_policy: "resident",
+      load_options: { estimate_only: true, context_length: 2048 },
     },
+    deps,
   );
 
+  assert.equal(estimate.status, "estimated");
+  assert.equal(estimate.action, "estimate");
+  assert.equal(estimate.endpoint_id, "endpoint.local.llama");
+  assert.equal(estimate.model_id, "llama-test");
+  assert.equal(estimate.provider_id, "provider.local");
+  assert.equal(estimate.backend_id, "backend.autopilot.native-local.fixture");
+  assert.equal(estimate.runtime_engine_id, "engine.native");
+  assert.equal(estimate.load_estimate.object, "ioi.model_mount_load_estimate");
+  assert.equal(estimate.load_estimate.js_sizing_execution, false);
+  assert.equal(estimate.load_estimate.js_driver_execution, false);
+  assert.equal(estimate.load_estimate.provider_lifecycle_execution, false);
+  assert.equal(estimate.load_estimate.requested_context_tokens, 2048);
+  assert.equal(estimate.evidence_refs.includes("rust_model_mount_load_estimate"), true);
+  assert.equal(
+    estimate.evidence_refs.includes("agentgres_model_instance_estimate_truth_required"),
+    true,
+  );
   assert.deepEqual(state.driverCalls, []);
   assert.deepEqual(state.receipts, []);
-  assert.deepEqual(state.recordStateCommits, []);
   assert.deepEqual(state.writes, []);
   assert.equal(state.instances.size, 0);
+  assert.equal(state.providerLifecycleRequests.length, 0);
+  assert.equal(state.instanceLifecycleRequests.length, 1);
+  assert.equal(state.instanceLifecycleRequests[0].action, "estimate");
+  assert.equal(state.instanceLifecycleRequests[0].target_status, "estimated");
+  assert.equal(state.instanceLifecycleRequests[0].provider_lifecycle_hash, "");
+  assert.equal(state.instanceLifecycleRequests[0].runtime_engine_ref, "engine.native");
+  assert.equal(state.instanceLifecycleRequests[0].load_options.estimate_only, true);
+  assert.equal(state.instanceLifecycleRequests[0].load_options.context_length, 2048);
+  assert.equal(state.recordStateCommits.length, 1);
+  assert.equal(state.recordStateCommits[0].record_dir, "model-instances");
+  assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.instance.estimate");
+  assert.equal(state.recordStateCommits[0].record.action, "estimate");
+  assert.equal(state.recordStateCommits[0].record.status, "estimated");
+  assert.equal(state.recordStateCommits[0].record.load_estimate.js_sizing_execution, false);
 });
 
 test("loadModel commits Rust-planned instance lifecycle before returning public instance truth", async () => {
@@ -557,6 +595,32 @@ test("loadModel fails closed if Rust Agentgres commit is unavailable after Rust 
   assert.equal(state.providerLifecycleRequests.length, 1);
   assert.equal(state.instanceLifecycleRequests.length, 1);
   assert.equal(state.writes.length, 0);
+});
+
+test("loadModel estimate-only fails closed without Rust Agentgres estimate commit", async () => {
+  const state = fakeState();
+  delete state.commitRuntimeModelMountRecordState;
+
+  await assert.rejects(
+    () =>
+      loadModel(
+        state,
+        {
+          endpoint_id: "endpoint.local.llama",
+          load_options: { estimate_only: true, context_length: 2048 },
+        },
+        deps,
+      ),
+    (error) => error.code === "model_mount_instance_lifecycle_record_state_commit_unconfigured",
+  );
+
+  assert.deepEqual(state.driverCalls, []);
+  assert.deepEqual(state.receipts, []);
+  assert.deepEqual(state.recordStateCommits, []);
+  assert.equal(state.instances.size, 0);
+  assert.equal(state.providerLifecycleRequests.length, 0);
+  assert.equal(state.instanceLifecycleRequests.length, 1);
+  assert.equal(state.instanceLifecycleRequests[0].action, "estimate");
 });
 
 test("unloadModel fails closed if Rust Agentgres commit is unavailable after Rust planning", async () => {

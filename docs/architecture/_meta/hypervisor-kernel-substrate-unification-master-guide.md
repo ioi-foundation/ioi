@@ -2194,10 +2194,12 @@ binding, command-transport retirement, and stable protocol APIs remain
 required.
 Slice 930 retired the remaining JS estimate-only model-load projection path:
 `ModelMountingState.loadEstimate()` and `estimateNativeLocalResources()` are
-absent, and `load_options.estimate_only` now fails closed at
-`model_mount.instance.estimate` with the same Rust daemon-core instance
-lifecycle boundary before JS sizing, provider drivers, receipts, record-state
-commits, or instance-map writes.
+absent. The canonical `load_options.estimate_only` now calls Rust
+instance-lifecycle estimate planning at `model_mount.instance.estimate`,
+receives a Rust-authored `load_estimate` record with provider lifecycle
+execution, JS sizing, and JS driver execution all false, commits a
+Rust-authored model-instance estimate record through Rust Agentgres, and
+returns only that committed estimate truth without instance-map mutation.
 Slice 931 retired the JS synthetic embedding-vector fallback. OpenAI-compatible
 and native embedding responses now require a Rust/provider-authored
 `providerResponseKind: "embeddings"` result with provider response vectors;
@@ -2208,14 +2210,15 @@ Slice 932 retired the public JS model-load estimate route. The native
 model-mounting route handler no longer routes
 `/api/v1/models/estimate-load`; `/api/v1/models/estimate-load` is no longer routed,
 so callers cannot preserve the retired estimate-only facade through a
-route-shaped compatibility wrapper after `load_options.estimate_only` was moved
-to the Rust-core-required `model_mount.instance.estimate` boundary.
+route-shaped compatibility wrapper after `load_options.estimate_only` moved to
+the Rust-owned `model_mount.instance.estimate` planning and Agentgres commit
+boundary.
 Slice 933 retired the load-option `estimateOnly` compatibility alias. The
 load-option normalizer now honors only canonical `estimate_only`, and
 `canonicalLoadOptionsInput()` strips `estimateOnly` before provider/runtime
 normalization, so the retired public estimate path cannot be steered through a
-camelCase request alias while canonical `estimate_only` still fails closed at
-the Rust-core-required `model_mount.instance.estimate` boundary.
+camelCase request alias while canonical `estimate_only` now enters the
+Rust-owned `model_mount.instance.estimate` path.
 Slice 934 retired the load-option `gpuOffload` compatibility alias. The
 load-option normalizer now honors only canonical `gpu_offload` or `gpu`, and
 `canonicalLoadOptionsInput()` strips `gpuOffload` before provider/runtime

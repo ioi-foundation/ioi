@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 
 use super::super::{
@@ -18,11 +19,16 @@ pub struct ModelMountInstanceLifecycleRequest {
     pub execution_backend: String,
     pub backend_ref: String,
     pub driver: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub provider_lifecycle_hash: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub superseded_by: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub runtime_engine_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub load_options: Option<Value>,
     #[serde(default)]
     pub evidence_refs: Vec<String>,
 }
@@ -48,6 +54,12 @@ pub struct ModelMountInstanceLifecycleResult {
     pub reason: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub superseded_by: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub runtime_engine_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub load_options: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub load_estimate: Option<Value>,
     pub evidence_refs: Vec<String>,
     pub instance_lifecycle_hash: String,
 }
@@ -69,7 +81,9 @@ impl ModelMountInstanceLifecycleRequest {
         require_non_empty("execution_backend", &self.execution_backend)?;
         require_non_empty("backend_ref", &self.backend_ref)?;
         require_non_empty("driver", &self.driver)?;
-        require_non_empty("provider_lifecycle_hash", &self.provider_lifecycle_hash)?;
+        if self.action.trim() != "estimate" {
+            require_non_empty("provider_lifecycle_hash", &self.provider_lifecycle_hash)?;
+        }
         if self.execution_backend.trim() != "rust_model_mount_instance_lifecycle" {
             return Err(ModelMountError::UnsupportedInstanceLifecycleBackend);
         }
@@ -84,7 +98,8 @@ impl ModelMountInstanceLifecycleRequest {
             "unload" if self.target_status.trim() == "unloaded" => Ok(()),
             "evict" if self.target_status.trim() == "evicted" => Ok(()),
             "supersede" if self.target_status.trim() == "superseded" => Ok(()),
-            "load" | "unload" | "evict" | "supersede" => {
+            "estimate" if self.target_status.trim() == "estimated" => Ok(()),
+            "load" | "unload" | "evict" | "supersede" | "estimate" => {
                 Err(ModelMountError::InstanceLifecycleStatusMismatch)
             }
             _ => Err(ModelMountError::UnsupportedInstanceLifecycleAction),
@@ -111,9 +126,12 @@ pub(super) fn plan_instance_lifecycle(
         backend_id: request.backend_ref.clone(),
         driver: request.driver.clone(),
         execution_backend: request.execution_backend.clone(),
-        provider_lifecycle_hash: request.provider_lifecycle_hash.clone(),
+        provider_lifecycle_hash: provider_lifecycle_hash(request)?,
         reason: request.reason.clone(),
         superseded_by: request.superseded_by.clone(),
+        runtime_engine_id: request.runtime_engine_ref.clone(),
+        load_options: request.load_options.clone(),
+        load_estimate: load_estimate(request)?,
         evidence_refs: instance_lifecycle_evidence_refs(request),
         instance_lifecycle_hash: String::new(),
     };
@@ -124,13 +142,75 @@ pub(super) fn plan_instance_lifecycle(
 fn instance_lifecycle_evidence_refs(request: &ModelMountInstanceLifecycleRequest) -> Vec<String> {
     let mut refs = vec![
         "rust_model_mount_instance_lifecycle".to_string(),
-        "rust_model_mount_provider_lifecycle_bound".to_string(),
         "agentgres_model_instance_registry_planned".to_string(),
     ];
+    if request.action.trim() == "estimate" {
+        refs.push("rust_model_mount_load_estimate".to_string());
+        refs.push("agentgres_model_instance_estimate_truth_required".to_string());
+        refs.push("model_mount_model_loading_js_estimate_facade_retired".to_string());
+    } else {
+        refs.push("rust_model_mount_provider_lifecycle_bound".to_string());
+    }
     for evidence_ref in &request.evidence_refs {
         push_unique_ref(&mut refs, evidence_ref);
     }
     refs
+}
+
+fn provider_lifecycle_hash(
+    request: &ModelMountInstanceLifecycleRequest,
+) -> Result<String, ModelMountError> {
+    if !request.provider_lifecycle_hash.trim().is_empty() {
+        return Ok(request.provider_lifecycle_hash.clone());
+    }
+    let bytes = serde_json::to_vec(&json!({
+        "instance_ref": request.instance_ref,
+        "endpoint_ref": request.endpoint_ref,
+        "model_ref": request.model_ref,
+        "provider_ref": request.provider_ref,
+        "action": request.action,
+        "runtime_engine_ref": request.runtime_engine_ref,
+        "load_options": request.load_options,
+        "provider_lifecycle_execution": false,
+    }))
+    .map_err(|error| ModelMountError::HashFailed(error.to_string()))?;
+    Ok(format!(
+        "sha256:estimate-provider-lifecycle-not-executed:{}",
+        hex::encode(Sha256::digest(bytes))
+    ))
+}
+
+fn load_estimate(
+    request: &ModelMountInstanceLifecycleRequest,
+) -> Result<Option<Value>, ModelMountError> {
+    if request.action.trim() != "estimate" {
+        return Ok(None);
+    }
+    let options = request.load_options.clone().unwrap_or_else(|| json!({}));
+    let requested_context_tokens = number_field(&options, "context_length").unwrap_or(0);
+    let parallel = number_field(&options, "parallel").unwrap_or(1).max(1);
+    let ttl_seconds = number_field(&options, "ttl_seconds");
+    let estimated_memory_bytes = requested_context_tokens
+        .saturating_mul(parallel)
+        .saturating_mul(64);
+    Ok(Some(json!({
+        "object": "ioi.model_mount_load_estimate",
+        "status": "estimated",
+        "provider_lifecycle_execution": false,
+        "js_sizing_execution": false,
+        "js_driver_execution": false,
+        "runtime_engine_id": request.runtime_engine_ref,
+        "backend_id": request.backend_ref,
+        "requested_context_tokens": requested_context_tokens,
+        "parallel": parallel,
+        "ttl_seconds": ttl_seconds,
+        "estimated_memory_bytes": estimated_memory_bytes,
+        "estimate_source": "rust_daemon_core.model_mount.instance_lifecycle",
+    })))
+}
+
+fn number_field(value: &Value, field: &str) -> Option<u64> {
+    value.get(field).and_then(Value::as_u64)
 }
 
 fn instance_lifecycle_hash(
@@ -162,6 +242,8 @@ mod tests {
             provider_lifecycle_hash: "sha256:provider-lifecycle".to_string(),
             reason: None,
             superseded_by: None,
+            runtime_engine_ref: None,
+            load_options: None,
             evidence_refs: vec!["rust_model_mount_provider_lifecycle".to_string()],
         }
     }
@@ -297,5 +379,48 @@ mod tests {
             .expect_err("supersede action must bind its replacement instance");
 
         assert_eq!(error, ModelMountError::MissingField("superseded_by"));
+    }
+
+    #[test]
+    fn model_instance_load_estimate_is_planned_in_rust_without_provider_lifecycle() {
+        let mut request = instance_lifecycle_request();
+        request.action = "estimate".to_string();
+        request.target_status = "estimated".to_string();
+        request.provider_lifecycle_hash.clear();
+        request.runtime_engine_ref = Some("engine.native".to_string());
+        request.load_options = Some(json!({
+            "estimate_only": true,
+            "context_length": 2048,
+            "parallel": 2,
+            "ttl_seconds": 120,
+        }));
+        request.evidence_refs =
+            vec!["model_mount_model_load_estimate_rust_positive_api".to_string()];
+
+        let result = plan_instance_lifecycle(&request)
+            .expect("model load estimate lifecycle planned in Rust");
+
+        assert_eq!(result.action, "estimate");
+        assert_eq!(result.status, "estimated");
+        assert_eq!(result.runtime_engine_id.as_deref(), Some("engine.native"));
+        assert!(result
+            .provider_lifecycle_hash
+            .starts_with("sha256:estimate-provider-lifecycle-not-executed:"));
+        assert!(result
+            .evidence_refs
+            .contains(&"rust_model_mount_load_estimate".to_string()));
+        assert!(result
+            .evidence_refs
+            .contains(&"agentgres_model_instance_estimate_truth_required".to_string()));
+        assert!(!result
+            .evidence_refs
+            .contains(&"rust_model_mount_provider_lifecycle_bound".to_string()));
+        let estimate = result.load_estimate.expect("load estimate");
+        assert_eq!(estimate["js_sizing_execution"], false);
+        assert_eq!(estimate["js_driver_execution"], false);
+        assert_eq!(estimate["provider_lifecycle_execution"], false);
+        assert_eq!(estimate["requested_context_tokens"], 2048);
+        assert_eq!(estimate["parallel"], 2);
+        assert!(result.instance_lifecycle_hash.starts_with("sha256:"));
     }
 }

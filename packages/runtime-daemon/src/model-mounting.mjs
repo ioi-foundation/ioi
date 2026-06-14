@@ -898,13 +898,20 @@ export class ModelMountingState {
     if (loadOptions.ttlSeconds !== null) loadPolicy.idleTtlSeconds = loadOptions.ttlSeconds;
     const backendId = endpoint.backendId ?? endpoint.backend_id ?? defaultBackendForProvider(provider);
     if (loadOptions.estimateOnly) {
-      throwModelLoadingRustCoreRequired("model_load_estimate", provider, {
-        operation_kind: "model_mount.instance.estimate",
-        endpoint_id: endpoint.id,
-        model_id: endpoint.modelId ?? endpoint.model_id,
-        provider_kind: provider.kind,
-        backend_id: backendId,
+      const lifecycle = planModelInstanceLifecycle(this, {
+        action: "estimate",
+        targetStatus: "estimated",
+        endpoint,
+        provider,
+        backendId,
+        instanceId: body.instance_id ?? body.id ?? defaultModelLoadEstimateId(endpoint, loadOptions),
+        load_options: loadOptions,
         runtime_engine_id: runtimePreference.selectedEngineId,
+        evidenceRefs: ["model_mount_model_load_estimate_rust_positive_api"],
+      });
+      return commitModelInstanceLifecycleRecordState(this, lifecycle, {
+        operation_kind: "model_mount.instance.estimate",
+        updateInstanceCache: false,
       });
     }
     const providerLifecycle = planProviderLifecycle(this, provider, {
@@ -4197,7 +4204,11 @@ function planModelInstanceLifecycle(state, options = {}) {
   const request = modelMountInstanceLifecycleRequest(options);
   if (typeof state.planModelMountInstanceLifecycle !== "function") {
     throwModelLoadingRustCoreRequired(
-      options.action === "unload" ? "model_unload" : "model_load",
+      options.action === "estimate"
+        ? "model_load_estimate"
+        : options.action === "unload"
+          ? "model_unload"
+          : "model_load",
       options.provider,
       {
         operation_kind: `model_mount.instance.${options.action ?? "lifecycle"}`,
@@ -4223,6 +4234,8 @@ function modelMountInstanceLifecycleRequest({
   modelId,
   backendId,
   providerLifecycle,
+  load_options,
+  runtime_engine_id,
   evidenceRefs = [],
 } = {}) {
   const endpointId = requiredString(endpoint.id ?? endpoint.endpoint_id ?? endpoint.endpointId, "endpoint_id");
@@ -4240,8 +4253,10 @@ function modelMountInstanceLifecycleRequest({
     "backend_id",
   );
   const driver = requiredString(provider.driver ?? provider.driver_ref ?? endpoint.driver, "driver");
-  const provider_lifecycle_hash = requiredProviderLifecycleHash(providerLifecycle);
-  return {
+  const provider_lifecycle_hash = action === "estimate"
+    ? optionalProviderLifecycleHash(providerLifecycle)
+    : requiredProviderLifecycleHash(providerLifecycle);
+  const request = {
     schema_version: MODEL_MOUNT_INSTANCE_LIFECYCLE_SCHEMA_VERSION,
     instance_ref: resolvedInstanceId,
     endpoint_ref: endpointId,
@@ -4260,6 +4275,11 @@ function modelMountInstanceLifecycleRequest({
       ].filter(Boolean)),
     ],
   };
+  if (action === "estimate") {
+    request.runtime_engine_ref = runtime_engine_id ?? null;
+    request.load_options = canonicalLoadEstimateOptions(load_options);
+  }
+  return request;
 }
 
 function requiredProviderLifecycleHash(providerLifecycle = {}) {
@@ -4314,7 +4334,29 @@ function assertRustAuthoredModelInstanceLifecycleResult(result = {}, options = {
   });
 }
 
-function commitModelInstanceLifecycleRecordState(state, lifecycle, { operation_kind, providerLifecycle } = {}) {
+function optionalProviderLifecycleHash(providerLifecycle = {}) {
+  const record = providerLifecycle.result && typeof providerLifecycle.result === "object" && !Array.isArray(providerLifecycle.result)
+    ? providerLifecycle.result
+    : {};
+  return providerLifecycle.lifecycle_hash ?? record.lifecycle_hash ?? "";
+}
+
+function canonicalLoadEstimateOptions(load_options = {}) {
+  return {
+    estimate_only: true,
+    ttl_seconds: load_options.ttlSeconds ?? null,
+    parallel: load_options.parallel ?? null,
+    gpu: load_options.gpu ?? null,
+    context_length: load_options.contextLength ?? null,
+    identifier: load_options.identifier ?? null,
+  };
+}
+
+function commitModelInstanceLifecycleRecordState(
+  state,
+  lifecycle,
+  { operation_kind, providerLifecycle, updateInstanceCache = true } = {},
+) {
   const record = lifecycle.result;
   const commit = commitModelMountRecordState(state, {
     recordDir: "model-instances",
@@ -4326,7 +4368,7 @@ function commitModelInstanceLifecycleRecordState(state, lifecycle, { operation_k
       "Model instance lifecycle requires Rust Agentgres record-state commit before public model-instance truth can return.",
     invalidCode: "model_mount_instance_lifecycle_record_state_commit_invalid",
   });
-  state.instances?.set?.(record.id, record);
+  if (updateInstanceCache) state.instances?.set?.(record.id, record);
   return modelInstanceLifecycleResponse(lifecycle, commit, providerLifecycle);
 }
 
@@ -4348,6 +4390,16 @@ function modelInstanceLifecycleResponse(lifecycle, commit, providerLifecycle = {
 
 function defaultModelInstanceId(endpoint = {}, loadOptions = {}) {
   return `model_instance.${safeId(endpoint.id ?? "endpoint")}.${safeId(loadOptions.identifier ?? endpoint.modelId ?? endpoint.model_id ?? "model")}`;
+}
+
+function defaultModelLoadEstimateId(endpoint = {}, loadOptions = {}) {
+  return `model_instance_estimate.${safeId(endpoint.id ?? "endpoint")}.${stableHash({
+    model_id: endpoint.modelId ?? endpoint.model_id ?? null,
+    context_length: loadOptions.contextLength ?? null,
+    parallel: loadOptions.parallel ?? null,
+    ttl_seconds: loadOptions.ttlSeconds ?? null,
+    identifier: loadOptions.identifier ?? null,
+  }).slice(0, 16)}`;
 }
 
 function throwProviderLifecycleRustCoreRequired(provider, operation, details = {}) {
