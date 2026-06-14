@@ -1860,25 +1860,26 @@ retirement still remain before this surface reaches the pure Rust substrate
 target.
 
 Slice 860 retired dedicated provider-health JS read-projection input, and the
-later provider-health list cut moved the placeholder list onto receipt replay.
-The `provider_health` read projection now sends empty request state plus runtime
-`state_dir`; Rust replays admitted `provider_health` receipts into
-`agentgres_provider_health` list entries carrying the receipt replay envelope and
-projection watermark. The Rust bridge `provider_health` arm ignores
-caller-supplied provider-health records and no longer returns the default empty
-list, so direct bridge callers cannot promote local JS telemetry into projection
-truth or preserve a duplicate empty truth path. The `latest_provider_health`
-read projection sends empty request state plus runtime `state_dir` receipt replay
-and no longer reads JS provider records, local provider-health files, or
-caller-supplied receipt arrays. Rust derives provider-health read envelopes only
-from admitted `provider_health` receipt details with canonical `provider_id`;
-missing `state_dir` fails closed at the shared receipt-replay boundary, and
-missing latest receipt truth fails closed with
-`model_mount_provider_health_not_found`. Direct Rust daemon-core provider health
-capture, Agentgres-admitted health writes, provider-control APIs,
-command-transport replacement, and local provider-health materialization
-retirement still remain before this surface reaches the pure Rust substrate
-target.
+provider-lifecycle replay cut moved provider-health list/latest truth from
+receipt replay onto admitted lifecycle records. The `provider_health` read
+projection now sends empty request state plus runtime `state_dir`; Rust replays
+admitted `model-provider-lifecycle-controls/*.json` records into
+`agentgres_provider_lifecycle_health` list entries carrying the lifecycle record,
+null receipt field, projection replay envelope, and projection watermark. The
+Rust bridge `provider_health` arm ignores caller-supplied provider-health records
+and no longer returns the default empty list, so direct bridge callers cannot
+promote local JS telemetry into projection truth or preserve a duplicate empty
+truth path. The `latest_provider_health` read projection now sends empty request
+state plus runtime `state_dir`, uses admitted provider-lifecycle records instead
+of `provider_health` receipts, and no longer reads JS provider records, local
+provider-health files, or caller-supplied receipt arrays. Rust derives
+provider-health read envelopes from canonical provider-lifecycle records with
+canonical `provider_id`; missing `state_dir` fails closed at
+`model_mount_provider_lifecycle_replay_state_dir_required`, and missing latest
+record truth fails closed with `model_mount_provider_health_not_found`. Actual
+hosted/provider transports, deeper receipt/state-root binding beyond record-state
+commit, command-transport replacement, and stable direct Rust daemon-core
+provider-lifecycle APIs remain non-terminal.
 
 Slice 861 retired dedicated model-topology list JS read-projection input. The
 `artifacts`, `providers`, `endpoints`, `instances`, `routes`,
@@ -8649,9 +8650,11 @@ hash/evidence, operation kind, and `model_mount.provider_lifecycle` boundary,
 then require Rust Agentgres commit before returning public lifecycle truth. They
 still avoid JS driver execution, lifecycle receipt creation, provider-map
 mutation, projection writes, and hosted transport execution; hosted/custom
-records carry `hosted_provider_transport_not_executed` evidence. This is still
-non-terminal: provider lifecycle projection/replay over admitted records,
-actual hosted/provider transports, deeper receipt/state-root binding,
+records carry `hosted_provider_transport_not_executed` evidence. Public
+provider-health list/latest projections now replay admitted
+`model-provider-lifecycle-controls/*.json` records in Rust and ignore stale
+`provider_health` receipts or JS telemetry inputs. This remains non-terminal
+because actual hosted/provider transports, deeper receipt/state-root binding,
 command-transport retirement, and stable protocol APIs remain open.
 Public model artifact import and endpoint mount/unmount have moved from the
 fail-closed artifact/endpoint JS facade to Rust

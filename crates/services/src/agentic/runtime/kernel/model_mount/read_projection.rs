@@ -77,14 +77,12 @@ pub(super) const MODEL_MOUNT_MCP_SERVERS_PROJECTION_KIND: &str = "mcp_servers";
 pub(super) const MODEL_MOUNT_OAUTH_SESSIONS_PROJECTION_KIND: &str = "oauth_sessions";
 pub(super) const MODEL_MOUNT_OAUTH_STATES_PROJECTION_KIND: &str = "oauth_states";
 pub(super) const MODEL_MOUNT_PROVIDER_HEALTH_PROJECTION_KIND: &str = "provider_health";
-pub(super) const MODEL_MOUNT_RECEIPT_REPLAY_PROJECTION_KINDS: [&str; 9] = [
+pub(super) const MODEL_MOUNT_RECEIPT_REPLAY_PROJECTION_KINDS: [&str; 7] = [
     "snapshot",
     "projection",
     "projection_summary",
     "receipt_replay",
     "authority_snapshot",
-    MODEL_MOUNT_PROVIDER_HEALTH_PROJECTION_KIND,
-    "latest_provider_health",
     "latest_vault_health",
     "latest_runtime_survey",
 ];
@@ -299,10 +297,13 @@ pub(super) fn plan_read_projection(
             "model_mount_oauth_read_projection_js_facade_retired".to_string(),
         ]);
     }
-    if request.projection_kind == MODEL_MOUNT_PROVIDER_HEALTH_PROJECTION_KIND {
+    if matches!(
+        request.projection_kind.as_str(),
+        MODEL_MOUNT_PROVIDER_HEALTH_PROJECTION_KIND | "latest_provider_health"
+    ) {
         evidence_refs.extend([
             "rust_daemon_core_provider_health_projection".to_string(),
-            "agentgres_provider_health_replay_required".to_string(),
+            "agentgres_provider_lifecycle_replay_required".to_string(),
             "model_mount_provider_health_js_projection_retired".to_string(),
         ]);
     }

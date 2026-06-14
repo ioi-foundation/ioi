@@ -244,7 +244,12 @@ fn provider_lifecycle_backend_id(request: &ModelMountProviderLifecycleRequest) -
             .map(str::trim)
             .filter(|value| !value.is_empty())
             .map(str::to_string)
-            .unwrap_or_else(|| format!("backend.hosted.{}", record_id_segment(&request.provider_kind, "hosted")));
+            .unwrap_or_else(|| {
+                format!(
+                    "backend.hosted.{}",
+                    record_id_segment(&request.provider_kind, "hosted")
+                )
+            });
     }
     request
         .backend_ref

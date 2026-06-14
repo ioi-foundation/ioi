@@ -800,6 +800,35 @@ function createState() {
       ],
     },
   ]);
+  writeProviderLifecycleRecords(stateDir, [
+    {
+      id: "provider-lifecycle-health",
+      record_id: "provider-lifecycle-health",
+      object: "ioi.model_mount_provider_lifecycle",
+      schema_version: "ioi.model_mount.provider_lifecycle_plan.v1",
+      provider_ref: "provider://provider.local",
+      provider_kind: "ioi_native_local",
+      endpoint_ref: "endpoint://endpoint.local",
+      model_ref: "model://model.local",
+      action: "health",
+      operation_kind: "model_mount.provider.health",
+      status: "healthy",
+      backend: "autopilot.native_local.fixture",
+      backend_id: "backend.autopilot.native-local.fixture",
+      driver: "native_local",
+      execution_backend: "rust_model_mount_native_local_lifecycle",
+      lifecycle_hash: "sha256:provider-lifecycle-health",
+      record_dir: "model-provider-lifecycle-controls",
+      rust_core_boundary: "model_mount.provider_lifecycle",
+      source: "rust_model_mount_provider_lifecycle_command",
+      generated_at: "2026-06-03T00:00:03.000Z",
+      evidence_refs: [
+        "public_provider_lifecycle_js_facade_retired",
+        "rust_model_mount_provider_lifecycle",
+        "agentgres_provider_lifecycle_truth_required",
+      ],
+    },
+  ]);
   const receipts = [
     {
       id: "receipt-route",
@@ -817,7 +846,7 @@ function createState() {
       kind: "provider_health",
       details: {
         provider_id: "provider.local",
-        status: "healthy",
+        status: "stale-js-receipt",
       },
     },
     {
@@ -1027,16 +1056,8 @@ function createState() {
     },
   };
   const facade = createModelMountingReadProjectionFacade({
-    listJson: () => ["/state/provider-health/provider.local.json"],
     modelMountSchemaVersion: "model.mount.schema",
-    path: { join: (...parts) => parts.join("/") },
-    readJson: () => ({
-      providerId: "provider.local",
-      receiptId: "receipt-provider-health",
-      status: "healthy",
-    }),
     readProjectionPlanner,
-    hardwareSnapshot: () => ({ cpuCount: 8 }),
     notFound: (message, details) => Object.assign(new Error(message), {
       status: 404,
       code: "not_found",
@@ -1046,11 +1067,6 @@ function createState() {
   for (const key of Object.keys(facade)) {
     state[key] = (...args) => facade[key](state, ...args);
   }
-  state.listProviderHealth = () => [{
-    providerId: "provider.local",
-    receiptId: "receipt-provider-health",
-    status: "healthy",
-  }];
   return { facade, state, readProjectionPlanner, readProjectionRequests };
 }
 
@@ -1114,7 +1130,7 @@ function rustProjectionFixture(request) {
   if (request.projection_kind === "backend_logs") return backendLogsFromRustRequest(request);
   if (request.projection_kind === "oauth_sessions" || request.projection_kind === "oauth_states") return [];
   if (request.projection_kind === "provider_health") {
-    return providerHealthFromReceipts(request, receipts);
+    return providerHealthFromLifecycleRecords(request);
   }
   if (request.projection_kind === "server_status") return serverStatusFromRustRequest(request);
   if (request.projection_kind === "server_logs") return serverLogsFromRustRequest(request);
@@ -1173,7 +1189,7 @@ function rustProjectionFixture(request) {
     oauthSessions: [],
     oauthStates: [],
     downloads: downloadRecordsFromAgentgresStateDir(request.state_dir),
-    providerHealth: [],
+    providerHealth: providerHealthFromLifecycleRecords(request),
     runtimeEngines: [],
     runtimeEngineProfiles: [],
     runtimePreference: null,
@@ -1187,7 +1203,7 @@ function rustProjectionFixture(request) {
     lifecycleEvents: receipts.filter((receipt) => receipt.kind === "model_lifecycle"),
     routeReceipts: receipts.filter((receipt) => receipt.kind === "model_route_selection"),
     routeDecisions: routeDecisionsFromAgentgresStateDir(request.state_dir ?? null),
-    providerHealthReceipts: receipts.filter((receipt) => receipt.kind === "provider_health"),
+    providerLifecycleRecords: providerLifecycleRecordsFromAgentgresStateDir(request.state_dir),
     runtimeSurveyReceipts: receipts.filter((receipt) => receipt.kind === "runtime_survey"),
     invocationReceipts: receipts.filter((receipt) => receipt.kind === "model_invocation"),
     toolReceipts: receipts.filter((receipt) => receipt.kind === "mcp_tool_invocation"),
@@ -1212,7 +1228,7 @@ function rustProjectionFixture(request) {
       runtimeModelCatalog: [],
       openAiModelList: { object: "list", data: [] },
       downloads: downloadRecordsFromAgentgresStateDir(request.state_dir),
-      providerHealth: [],
+      providerHealth: providerHealthFromLifecycleRecords(request),
       runtimeEngines: [],
       runtimeEngineProfiles: [],
       runtimePreference: null,
@@ -1281,28 +1297,30 @@ function rustProjectionFixture(request) {
     };
   }
   if (request.projection_kind === "latest_provider_health") {
-    const receipt = [...receipts].reverse()
+    const record = [...providerLifecycleRecordsFromAgentgresStateDir(request.state_dir)].reverse()
       .find((candidate) =>
-        candidate.kind === "provider_health" &&
-        candidate.details?.provider_id === request.provider_id);
-    if (!receipt) {
+        candidate.action === "health" &&
+        providerIdFromRef(candidate.provider_ref) === request.provider_id);
+    if (!record) {
       throw Object.assign(new Error("provider health has not been checked"), {
         code: "model_mount_provider_health_not_found",
       });
     }
     return {
       schemaVersion: request.schema_version,
-      source: "agentgres_provider_health_latest",
+      source: "agentgres_provider_lifecycle_health_latest",
       providerId: request.provider_id,
-      health: receipt.details,
-      receipt,
+      health: providerHealthEnvelope(record),
+      record,
+      receipt: null,
       replay: {
         schemaVersion: request.schema_version,
-        source: "agentgres_model_mounting_projection_replay",
-        receipt,
-        projectionWatermark: projection.watermark,
+        source: "agentgres_provider_lifecycle_projection_replay",
+        record,
+        receipt: null,
+        projectionWatermark: providerLifecycleRecordsFromAgentgresStateDir(request.state_dir).length,
       },
-      projectionWatermark: projection.watermark,
+      projectionWatermark: providerLifecycleRecordsFromAgentgresStateDir(request.state_dir).length,
     };
   }
   if (request.projection_kind === "latest_vault_health") {
@@ -1339,24 +1357,49 @@ function rustProjectionFixture(request) {
   throw new Error(`unsupported projection fixture: ${request.projection_kind}`);
 }
 
-function providerHealthFromReceipts(request, receipts) {
-  const projectionWatermark = receipts.length;
-  return receipts
-    .filter((receipt) => receipt.kind === "provider_health")
-    .map((receipt) => ({
+function providerHealthFromLifecycleRecords(request) {
+  const records = providerLifecycleRecordsFromAgentgresStateDir(request.state_dir);
+  const projectionWatermark = records.length;
+  return records
+    .filter((record) => record.action === "health" && record.operation_kind === "model_mount.provider.health")
+    .map((record) => ({
       schemaVersion: request.schema_version,
-      source: "agentgres_provider_health",
-      providerId: receipt.details?.provider_id ?? null,
-      health: receipt.details ?? null,
-      receipt,
+      source: "agentgres_provider_lifecycle_health",
+      providerId: providerIdFromRef(record.provider_ref),
+      health: providerHealthEnvelope(record),
+      record,
+      receipt: null,
       replay: {
         schemaVersion: request.schema_version,
-        source: "agentgres_model_mounting_projection_replay",
-        receipt,
+        source: "agentgres_provider_lifecycle_projection_replay",
+        record,
+        receipt: null,
         projectionWatermark,
       },
       projectionWatermark,
     }));
+}
+
+function providerHealthEnvelope(record) {
+  return {
+    provider_id: providerIdFromRef(record.provider_ref),
+    provider_ref: record.provider_ref,
+    provider_kind: record.provider_kind,
+    status: record.status,
+    action: record.action,
+    backend: record.backend,
+    backend_id: record.backend_id,
+    driver: record.driver,
+    execution_backend: record.execution_backend,
+    operation_kind: record.operation_kind,
+    rust_core_boundary: record.rust_core_boundary,
+    lifecycle_hash: record.lifecycle_hash,
+    evidence_refs: record.evidence_refs ?? [],
+  };
+}
+
+function providerIdFromRef(providerRef) {
+  return String(providerRef ?? "").replace(/^provider:\/\//, "");
 }
 
 function latestRuntimeSurveyFromReceipts(receipts = []) {
@@ -1767,6 +1810,17 @@ function writeProviderInventoryRecords(stateDir, records = []) {
   }
 }
 
+function writeProviderLifecycleRecords(stateDir, records = []) {
+  const providerLifecycleDir = path.join(stateDir, "model-provider-lifecycle-controls");
+  fs.mkdirSync(providerLifecycleDir, { recursive: true });
+  for (const record of records) {
+    fs.writeFileSync(
+      path.join(providerLifecycleDir, `${record.id}.json`),
+      `${JSON.stringify(record, null, 2)}\n`,
+    );
+  }
+}
+
 function writeProviderControlRecords(stateDir, records = []) {
   const providerDir = path.join(stateDir, "model-providers");
   fs.mkdirSync(providerDir, { recursive: true });
@@ -1997,6 +2051,39 @@ function providerInventoryRecordsFromAgentgresStateDir(stateDir) {
     .sort((left, right) =>
       String(left.provider_ref ?? "").localeCompare(String(right.provider_ref ?? "")) ||
       String(left.action ?? "").localeCompare(String(right.action ?? "")) ||
+      String(left.id ?? "").localeCompare(String(right.id ?? "")));
+}
+
+function providerLifecycleRecordsFromAgentgresStateDir(stateDir) {
+  if (!stateDir) return [];
+  const providerLifecycleDir = path.join(stateDir, "model-provider-lifecycle-controls");
+  if (!fs.existsSync(providerLifecycleDir)) return [];
+  return fs.readdirSync(providerLifecycleDir)
+    .filter((file) => file.endsWith(".json"))
+    .map((file) => JSON.parse(fs.readFileSync(path.join(providerLifecycleDir, file), "utf8")))
+    .filter((record) =>
+      record?.deleted !== true &&
+      record?.object === "ioi.model_mount_provider_lifecycle" &&
+      record?.schema_version === "ioi.model_mount.provider_lifecycle_plan.v1" &&
+      typeof record?.id === "string" &&
+      record?.record_id === record.id &&
+      record?.record_dir === "model-provider-lifecycle-controls" &&
+      record?.rust_core_boundary === "model_mount.provider_lifecycle" &&
+      typeof record?.provider_ref === "string" &&
+      typeof record?.provider_kind === "string" &&
+      typeof record?.action === "string" &&
+      typeof record?.operation_kind === "string" &&
+      typeof record?.status === "string" &&
+      typeof record?.backend === "string" &&
+      typeof record?.backend_id === "string" &&
+      typeof record?.driver === "string" &&
+      typeof record?.execution_backend === "string" &&
+      typeof record?.lifecycle_hash === "string" &&
+      Array.isArray(record?.evidence_refs) &&
+      record.evidence_refs.includes("rust_model_mount_provider_lifecycle") &&
+      record.evidence_refs.includes("agentgres_provider_lifecycle_truth_required"))
+    .sort((left, right) =>
+      String(left.generated_at ?? "").localeCompare(String(right.generated_at ?? "")) ||
       String(left.id ?? "").localeCompare(String(right.id ?? "")));
 }
 
@@ -3265,12 +3352,13 @@ test("read projection facade delegates product-safe lists and capabilities", () 
   const providerHealth = facade.listProviderHealth(state);
   assert.equal(providerHealth.length, 1);
   assert.equal(providerHealth[0].schemaVersion, "model.mount.schema");
-  assert.equal(providerHealth[0].source, "agentgres_provider_health");
+  assert.equal(providerHealth[0].source, "agentgres_provider_lifecycle_health");
   assert.equal(providerHealth[0].providerId, "provider.local");
   assert.equal(providerHealth[0].health.status, "healthy");
-  assert.equal(providerHealth[0].receipt.id, "receipt-provider-health");
-  assert.equal(providerHealth[0].replay.receipt.id, "receipt-provider-health");
-  assert.equal(providerHealth[0].projectionWatermark, 5);
+  assert.equal(providerHealth[0].record.id, "provider-lifecycle-health");
+  assert.equal(providerHealth[0].receipt, null);
+  assert.equal(providerHealth[0].replay.record.id, "provider-lifecycle-health");
+  assert.equal(providerHealth[0].projectionWatermark, 1);
   const workflowBindings = facade.workflowNodeBindings(state);
   assert.equal(workflowBindings.find((binding) => binding.node === "Embedding").capability, "embeddings");
   assert.equal(workflowBindings.find((binding) => binding.node === "Reranker").capability, "rerank");
@@ -3899,13 +3987,14 @@ test("read projection facade projects latest provider and vault health envelopes
 
   const providerHealth = facade.latestProviderHealth(state, "provider.local");
   assert.equal(providerHealth.schemaVersion, "model.mount.schema");
-  assert.equal(providerHealth.source, "agentgres_provider_health_latest");
+  assert.equal(providerHealth.source, "agentgres_provider_lifecycle_health_latest");
   assert.equal(providerHealth.providerId, "provider.local");
   assert.equal(providerHealth.health.status, "healthy");
   assert.equal(providerHealth.health.provider_id, "provider.local");
-  assert.equal(providerHealth.receipt.id, "receipt-provider-health");
-  assert.equal(providerHealth.replay.receipt.id, "receipt-provider-health");
-  assert.equal(providerHealth.projectionWatermark, 5);
+  assert.equal(providerHealth.record.id, "provider-lifecycle-health");
+  assert.equal(providerHealth.receipt, null);
+  assert.equal(providerHealth.replay.record.id, "provider-lifecycle-health");
+  assert.equal(providerHealth.projectionWatermark, 1);
 
   const vaultHealth = facade.latestVaultHealth(state);
   assert.equal(vaultHealth.schemaVersion, "model.mount.schema");

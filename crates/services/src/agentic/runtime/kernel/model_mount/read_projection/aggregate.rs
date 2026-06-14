@@ -32,7 +32,7 @@ pub(super) fn snapshot(
         "runtimeModelCatalog": topology::runtime_model_catalog_records(request).unwrap_or_default(),
         "openAiModelList": topology::open_ai_model_list_value(request),
         "downloads": topology::download_records(request),
-        "providerHealth": [],
+        "providerHealth": health::provider_health(request)?,
         "runtimeEngines": [],
         "runtimeEngineProfiles": [],
         "runtimePreference": Value::Null,
@@ -73,7 +73,7 @@ pub(super) fn projection(
         "oauthSessions": [],
         "oauthStates": [],
         "downloads": topology::download_records(request),
-        "providerHealth": [],
+        "providerHealth": health::provider_health(request)?,
         "runtimeEngines": [],
         "runtimeEngineProfiles": [],
         "runtimePreference": Value::Null,
@@ -87,7 +87,7 @@ pub(super) fn projection(
         "lifecycleEvents": receipts_by_kind(&receipts, "model_lifecycle"),
         "routeReceipts": receipts_by_kind(&receipts, "model_route_selection"),
         "routeDecisions": route_decision::route_decision_records_or_empty(request),
-        "providerHealthReceipts": receipts_by_kind(&receipts, "provider_health"),
+        "providerLifecycleRecords": health::provider_lifecycle_records_or_empty(request),
         "runtimeSurveyReceipts": receipts_by_kind(&receipts, "runtime_survey"),
         "invocationReceipts": receipts_by_kind(&receipts, "model_invocation"),
         "toolReceipts": receipts_by_kind(&receipts, "mcp_tool_invocation"),
@@ -131,6 +131,22 @@ mod tests {
         }
     }
 
+    fn write_provider_lifecycle_records(state_dir: &std::path::Path, records: &[Value]) {
+        let record_dir = state_dir.join("model-provider-lifecycle-controls");
+        std::fs::create_dir_all(&record_dir).expect("provider lifecycle dir");
+        for record in records {
+            let record_id = record
+                .get("id")
+                .and_then(Value::as_str)
+                .expect("provider lifecycle record id");
+            std::fs::write(
+                record_dir.join(format!("{record_id}.json")),
+                serde_json::to_string_pretty(record).expect("provider lifecycle json"),
+            )
+            .expect("write provider lifecycle");
+        }
+    }
+
     #[test]
     fn aggregate_projection_is_planned_from_admitted_receipts() {
         let temp = tempfile::tempdir().expect("tempdir");
@@ -157,6 +173,32 @@ mod tests {
                 }),
             ],
         );
+        write_provider_lifecycle_records(
+            temp.path(),
+            &[json!({
+                "id": "provider-lifecycle-health",
+                "record_id": "provider-lifecycle-health",
+                "object": "ioi.model_mount_provider_lifecycle",
+                "schema_version": "ioi.model_mount.provider_lifecycle_plan.v1",
+                "provider_ref": "provider://provider.local",
+                "provider_kind": "ioi_native_local",
+                "action": "health",
+                "operation_kind": "model_mount.provider.health",
+                "status": "available",
+                "backend": "autopilot.native_local.fixture",
+                "backend_id": "backend.autopilot.native-local.fixture",
+                "driver": "native_local",
+                "execution_backend": "rust_model_mount_native_local_lifecycle",
+                "lifecycle_hash": "sha256:provider-lifecycle-health",
+                "record_dir": "model-provider-lifecycle-controls",
+                "rust_core_boundary": "model_mount.provider_lifecycle",
+                "generated_at": "2026-06-11T00:00:01.000Z",
+                "evidence_refs": [
+                    "rust_model_mount_provider_lifecycle",
+                    "agentgres_provider_lifecycle_truth_required"
+                ]
+            })],
+        );
         let projection = projection(&request(
             Some(temp.path().to_string_lossy().to_string()),
             json!({
@@ -174,9 +216,14 @@ mod tests {
         assert_eq!(projection["routeReceipts"].as_array().unwrap().len(), 1);
         assert_eq!(projection["routeDecisions"], json!([]));
         assert_eq!(
-            projection["providerHealthReceipts"][0]["id"],
-            "receipt.health"
+            projection["providerHealth"][0]["record"]["id"],
+            "provider-lifecycle-health"
         );
+        assert_eq!(
+            projection["providerLifecycleRecords"][0]["id"],
+            "provider-lifecycle-health"
+        );
+        assert_eq!(projection.get("providerHealthReceipts"), None);
         assert_eq!(projection["routes"], json!([]));
         assert_eq!(projection["providers"], json!([]));
     }

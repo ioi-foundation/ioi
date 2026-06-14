@@ -727,9 +727,10 @@ function runDocs() {
       /Rust ignores `runtime_survey_input` for\s+this projection/.test(guide) &&
       /Slice 860 retired dedicated provider-health JS read-projection\s+input/.test(guide) &&
       /`provider_health` read projection now sends empty request state plus runtime\s+`state_dir`/.test(guide) &&
-      /Rust replays admitted `provider_health` receipts into\s+`agentgres_provider_health` list entries/.test(guide) &&
+      /Rust replays admitted `model-provider-lifecycle-controls\/\*\.json` records into\s+`agentgres_provider_lifecycle_health` list entries/.test(guide) &&
       /Rust bridge `provider_health` arm ignores\s+caller-supplied provider-health records and no longer returns the default empty\s+list/.test(guide) &&
       /`latest_provider_health` read\s+projection now sends empty request state plus runtime `state_dir` receipt replay/.test(guide) &&
+      /uses admitted provider-lifecycle records instead of `provider_health` receipts/.test(guide) &&
       /canonical\s+`provider_id`/.test(guide) &&
       /Slice 861 retired dedicated model-topology list JS read-projection\s+input/.test(guide) &&
       /`artifacts`, `providers`, `endpoints`, `instances`, `routes`,\s+`model_capabilities`, and `downloads` read projections now send empty state\s+objects/.test(guide) &&
@@ -1655,10 +1656,10 @@ function runDocs() {
       /broad snapshot\/projection requests also no longer send `grants: state\.listTokens\(\)`, `vault_refs: state\.listVaultRefs\(\)`, `agentgres_store: state\.store\.adapterStatus\(\)`, `wallet: state\.walletAuthority\.adapterStatus\(\)`, or `vault: state\.vaultStatus\(\)`/.test(implementationMatrix) &&
       /broad snapshot\/projection requests also no longer send `provider_health: providerHealthList\(\.\.\.\)` or `runtime_survey_input: latestRuntimeSurveyProjectionInput\(\.\.\.\)`/.test(implementationMatrix) &&
       /dedicated `provider_health` now sends empty request state plus runtime state_dir/.test(implementationMatrix) &&
-      /Rust replays admitted `provider_health` receipts into `agentgres_provider_health` list entries/.test(implementationMatrix) &&
+      /Rust replays admitted `model-provider-lifecycle-controls\/\*\.json` records into `agentgres_provider_lifecycle_health` list entries/.test(implementationMatrix) &&
       /Rust bridge `provider_health` arm ignores caller-supplied provider-health records and no longer returns a default empty list/.test(implementationMatrix) &&
-      /dedicated `latestProviderHealth\(\)` sends empty request state plus runtime state_dir/.test(implementationMatrix) &&
-      /Rust ignores local provider-health records/.test(implementationMatrix) &&
+      /dedicated `latestProviderHealth\(\)` also selects the latest admitted lifecycle health record instead of stale `provider_health` receipts/.test(implementationMatrix) &&
+      /provider-lifecycle record replay instead of JS provider records, provider-health records, stale provider_health receipts/.test(implementationMatrix) &&
       /dedicated `latestRuntimeSurvey\(\)` also sends empty request state plus runtime state_dir/.test(implementationMatrix) &&
       /Rust ignores local provider-health records plus `runtime_survey_input`, and the dead JS runtime-survey projection-input helper is deleted so JS telemetry fallback cannot become public provider-health or runtime-survey truth/.test(implementationMatrix) &&
       /the one-function JS `runtime-survey\.mjs` helper module (?:is|remains) deleted/.test(implementationMatrix) &&
@@ -14893,9 +14894,10 @@ function runBridge() {
       /Object\.hasOwn\(authorityRequest\.state,\s*"wallet"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(authorityRequest\.state,\s*"vault"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /const providerHealth = facade\.listProviderHealth\(state\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /providerHealth\[0\]\.source,\s*"agentgres_provider_health"/.test(modelMountingReadProjectionFacadeTest) &&
-      /providerHealth\[0\]\.receipt\.id,\s*"receipt-provider-health"/.test(modelMountingReadProjectionFacadeTest) &&
-      /providerHealth\[0\]\.projectionWatermark,\s*5/.test(modelMountingReadProjectionFacadeTest) &&
+      /providerHealth\[0\]\.source,\s*"agentgres_provider_lifecycle_health"/.test(modelMountingReadProjectionFacadeTest) &&
+      /providerHealth\[0\]\.record\.id,\s*"provider-lifecycle-health"/.test(modelMountingReadProjectionFacadeTest) &&
+      /providerHealth\[0\]\.receipt,\s*null/.test(modelMountingReadProjectionFacadeTest) &&
+      /providerHealth\[0\]\.projectionWatermark,\s*1/.test(modelMountingReadProjectionFacadeTest) &&
       /providerHealthRequest\.state,\s*\{\}/.test(modelMountingReadProjectionFacadeTest) &&
       /providerHealthRequest\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(providerHealthRequest\.state,\s*"provider_health"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
@@ -15197,10 +15199,15 @@ function runBridge() {
       !/model_mount_oauth_read_projection_js_retired/.test(modelMountReadProjectionEvidence) &&
       /MODEL_MOUNT_PROVIDER_HEALTH_PROJECTION_KIND => health::provider_health\(request\)/.test(modelMountReadProjectionEvidence) &&
       /rust_daemon_core_provider_health_projection/.test(modelMountReadProjectionEvidence) &&
-      /agentgres_provider_health_replay_required/.test(modelMountReadProjectionEvidence) &&
+      /agentgres_provider_lifecycle_replay_required/.test(modelMountReadProjectionEvidence) &&
       /model_mount_provider_health_js_projection_retired/.test(modelMountReadProjectionEvidence) &&
-      /provider_health_list_replays_admitted_receipts_and_ignores_js_state/.test(modelMountReadProjectionEvidence) &&
-      /provider_health_list_rejects_js_receipt_transport_without_state_dir/.test(modelMountReadProjectionEvidence) &&
+      /model-provider-lifecycle-controls/.test(modelMountReadProjectionEvidence) &&
+      /agentgres_provider_lifecycle_health/.test(modelMountReadProjectionEvidence) &&
+      /provider_health_list_replays_lifecycle_records_and_ignores_js_state/.test(modelMountReadProjectionEvidence) &&
+      /provider_health_list_rejects_js_transport_without_lifecycle_state_dir/.test(modelMountReadProjectionEvidence) &&
+      /latest_provider_health_replays_lifecycle_records_and_ignores_receipts/.test(modelMountReadProjectionEvidence) &&
+      /providerLifecycleRecords/.test(modelMountReadProjectionEvidence) &&
+      /projection\.get\("providerHealthReceipts"\), None/.test(modelMountReadProjectionEvidence) &&
       !/"provider_health" => Ok\(topology::provider_health\(\)\)/.test(modelMountReadProjectionEvidence) &&
       !/pub\(super\) fn provider_health\(\) -> Value \{\s*empty_list\(\)\s*\}/.test(modelMountReadProjectionEvidence) &&
       /MODEL_MOUNT_BACKENDS_PROJECTION_KIND => topology::backends\(request\)/.test(modelMountReadProjectionEvidence) &&
@@ -15300,7 +15307,7 @@ function runBridge() {
       /model_mount_receipt_replay_state_dir_required/.test(modelMountReadProjectionEvidence) &&
       /receipt_projection_rejects_js_receipt_transport_without_state_dir/.test(modelMountReadProjectionEvidence) &&
       /route_decisions_replay_agentgres_selection_records_and_filter_js_truth/.test(modelMountReadProjectionEvidence) &&
-      /latest_health_projections_have_dedicated_receipt_projection_owner/.test(modelMountReadProjectionEvidence) &&
+      /latest_provider_health_replays_lifecycle_records_and_ignores_receipts/.test(modelMountReadProjectionEvidence) &&
       /latest_health_rejects_js_receipt_transport_without_state_dir/.test(modelMountReadProjectionEvidence) &&
       /runtime_survey_has_dedicated_receipt_projection_owner/.test(modelMountReadProjectionEvidence) &&
       /authority_snapshot_rejects_js_receipt_transport_without_state_dir/.test(modelMountReadProjectionEvidence) &&
