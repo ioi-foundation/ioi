@@ -60,47 +60,6 @@ function workspaceChangeControlRunner(store, request = {}, deps = {}) {
   });
 }
 
-function collectionRecords(value) {
-  if (Array.isArray(value)) return value;
-  if (value instanceof Map) return [...value.values()];
-  const record = objectRecord(value);
-  if (!record) return [];
-  for (const key of ["changes", "workspace_changes", "records"]) {
-    if (Array.isArray(record[key])) return record[key];
-  }
-  return Object.values(record);
-}
-
-function recordChangeId(record = {}) {
-  return optionalString(record.workspace_change_id ?? record.change_id ?? record.id);
-}
-
-function recordThreadMatches(record = {}, threadId) {
-  const recordThread = optionalString(record.thread_id);
-  return !recordThread || recordThread === threadId;
-}
-
-async function workspaceChangeCandidatesForThread(store, threadId) {
-  let source = null;
-  if (typeof store?.workspaceChangesForThread === "function") {
-    source = await store.workspaceChangesForThread(threadId);
-  } else if (typeof store?.workspaceChangeProjectionForThread === "function") {
-    source = await store.workspaceChangeProjectionForThread(threadId);
-  } else if (store?.workspaceChanges) {
-    source = store.workspaceChanges;
-  }
-  return collectionRecords(source)
-    .map((value) => objectRecord(value))
-    .filter(Boolean)
-    .filter((record) => recordChangeId(record))
-    .filter((record) => recordThreadMatches(record, threadId))
-    .map((record) => ({
-      ...record,
-      workspace_change_id: recordChangeId(record),
-      thread_id: optionalString(record.thread_id) ?? threadId,
-    }));
-}
-
 function workspaceChangeProjectionStateDir(store) {
   return optionalString(store?.stateDir) ?? optionalString(store?.workspaceChanges?.stateDir);
 }
@@ -252,17 +211,12 @@ export async function controlWorkspaceChangeForThread(store, threadId, request =
       },
     });
   }
-  const changes = await workspaceChangeCandidatesForThread(store, threadId);
-  const currentChange = changes.find((record) => recordChangeId(record) === selectedId) ?? {
-    workspace_change_id: selectedId,
-    thread_id: threadId,
-    lifecycle: "unknown",
-  };
   const planned = await runner.planRuntimeWorkspaceChangeControl({
     operation: "workspace_change_control",
     operation_kind: "workspace_change.control",
     thread_id: threadId,
     event_stream_id: eventStreamIdForThread(threadId),
+    state_dir: workspaceChangeProjectionStateDir(store),
     workspace_change_id: selectedId,
     control_state: optionalString(normalizedRequest.control_state) ?? null,
     reason: optionalString(normalizedRequest.reason) ?? null,
@@ -270,7 +224,6 @@ export async function controlWorkspaceChangeForThread(store, threadId, request =
       optionalString(normalizedRequest.event_seed) ??
       optionalString(normalizedRequest.created_at) ??
       null,
-    workspace_change: currentChange,
     request: workspaceChangeControlRequestPayload(normalizedRequest),
     receipt_refs: stringRefs(normalizedRequest.receipt_refs),
     policy_decision_refs: stringRefs(normalizedRequest.policy_decision_refs),

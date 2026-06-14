@@ -34036,13 +34036,14 @@ function runCompositor() {
       /runtime_managed_session_projection_rust_core_required/.test(managedSessionState) &&
       /managedSessionProjectionRunner/.test(managedSessionState) &&
       /managedSessionControlRunner/.test(managedSessionState) &&
-      /managedSessionCandidatesForThread/.test(managedSessionState) &&
+      !/managedSessionCandidatesForThread/.test(managedSessionState) &&
       /projectRuntimeManagedSessionProjection/.test(managedSessionState) &&
       /managedSessionProjectionStateDir/.test(managedSessionState) &&
       /state_dir:\s*managedSessionProjectionStateDir\(store\)/.test(
         managedSessionState,
       ) &&
       !/projection:\s*\{\s*sessions\s*:/.test(managedSessionState) &&
+      !/managed_session:\s*currentSession/.test(managedSessionState) &&
       /planRuntimeManagedSessionControl/.test(managedSessionState) &&
       /store\.appendRuntimeEvent\(event\)/.test(managedSessionState) &&
       /assertManagedSessionProjectionResult/.test(managedSessionState) &&
@@ -34075,6 +34076,9 @@ function runCompositor() {
       /runtime managed-session control core sends Rust daemon-core request/.test(
         runtimeContextPolicyCoreTest,
       ) &&
+      /Object\.hasOwn\(captured\.request,\s*"managed_session"\),\s*false/.test(
+        runtimeContextPolicyCoreTest,
+      ) &&
       /pub struct RuntimeManagedSessionProjectionCore;/.test(
         runtimeManagedSessionControlCore,
       ) &&
@@ -34100,10 +34104,31 @@ function runCompositor() {
       /runtime_managed_session_projection_candidate_transport_retired/.test(
         runtimeManagedSessionControlCore,
       ) &&
+      /runtime_managed_session_control_state_dir_required/.test(
+        runtimeManagedSessionControlCore,
+      ) &&
+      /runtime_managed_session_control_candidate_transport_retired/.test(
+        runtimeManagedSessionControlCore,
+      ) &&
+      /runtime_managed_session_control_record_required/.test(
+        runtimeManagedSessionControlCore,
+      ) &&
+      /managed_session_control_record_from_state_dir/.test(
+        runtimeManagedSessionControlCore,
+      ) &&
       /rust_rejects_managed_session_projection_candidate_transport/.test(
         runtimeManagedSessionControlCore,
       ) &&
+      /rust_rejects_managed_session_control_candidate_transport/.test(
+        runtimeManagedSessionControlCore,
+      ) &&
       /rust_requires_state_dir_for_managed_session_projection/.test(
+        runtimeManagedSessionControlCore,
+      ) &&
+      /rust_requires_state_dir_for_managed_session_control/.test(
+        runtimeManagedSessionControlCore,
+      ) &&
+      /rust_requires_replayed_record_for_managed_session_control/.test(
         runtimeManagedSessionControlCore,
       ) &&
       /rust_plans_managed_session_control_event/.test(
@@ -34157,6 +34182,9 @@ function runCompositor() {
         managedSessionStateTest,
       ) &&
       /managed session control uses Rust planning and runtime event admission/.test(
+        managedSessionStateTest,
+      ) &&
+      /Object\.hasOwn\(captured,\s*"managed_session"\),\s*false/.test(
         managedSessionStateTest,
       ) &&
       /managed session control fails closed before Rust planning or event append when planner is missing/.test(
@@ -34269,10 +34297,31 @@ function runCompositor() {
       /runtime_workspace_change_projection_candidate_transport_retired/.test(
         runtimeWorkspaceChangeControlCore,
       ) &&
+      /runtime_workspace_change_control_state_dir_required/.test(
+        runtimeWorkspaceChangeControlCore,
+      ) &&
+      /runtime_workspace_change_control_candidate_transport_retired/.test(
+        runtimeWorkspaceChangeControlCore,
+      ) &&
+      /runtime_workspace_change_control_record_required/.test(
+        runtimeWorkspaceChangeControlCore,
+      ) &&
+      /workspace_change_control_record_from_state_dir/.test(
+        runtimeWorkspaceChangeControlCore,
+      ) &&
       /rust_rejects_workspace_change_projection_candidate_transport/.test(
         runtimeWorkspaceChangeControlCore,
       ) &&
+      /rust_rejects_workspace_change_control_candidate_transport/.test(
+        runtimeWorkspaceChangeControlCore,
+      ) &&
       /rust_requires_state_dir_for_workspace_change_projection/.test(
+        runtimeWorkspaceChangeControlCore,
+      ) &&
+      /rust_requires_state_dir_for_workspace_change_control/.test(
+        runtimeWorkspaceChangeControlCore,
+      ) &&
+      /rust_requires_replayed_record_for_workspace_change_control/.test(
         runtimeWorkspaceChangeControlCore,
       ) &&
       /rust_plans_workspace_change_control_event/.test(runtimeWorkspaceChangeControlCore) &&
@@ -34332,6 +34381,9 @@ function runCompositor() {
       /runtime workspace-change control core sends Rust daemon-core request/.test(
         runtimeContextPolicyCoreTest,
       ) &&
+      /Object\.hasOwn\(captured\.request,\s*"workspace_change"\),\s*false/.test(
+        runtimeContextPolicyCoreTest,
+      ) &&
       /runtime_workspace_change_control_event_missing/.test(
         runtimeContextPolicyCoreTest,
       ) &&
@@ -34344,6 +34396,8 @@ function runCompositor() {
         workspaceChangeState,
       ) &&
       !/projection:\s*\{\s*changes\s*:/.test(workspaceChangeState) &&
+      !/workspaceChangeCandidatesForThread/.test(workspaceChangeState) &&
+      !/workspace_change:\s*currentChange/.test(workspaceChangeState) &&
       /planRuntimeWorkspaceChangeControl/.test(workspaceChangeState) &&
       /store\.appendRuntimeEvent\(event\)/.test(workspaceChangeState) &&
       /workspace_change_inspection_js_facade_retired/.test(workspaceChangeState) &&
@@ -34375,6 +34429,9 @@ function runCompositor() {
         workspaceChangeStateTest,
       ) &&
       /workspace change control uses Rust planning and runtime event admission/.test(
+        workspaceChangeStateTest,
+      ) &&
+      /Object\.hasOwn\(captured,\s*"workspace_change"\),\s*false/.test(
         workspaceChangeStateTest,
       ) &&
       /workspace change control fails closed before Rust planning or event append when planner is missing/.test(

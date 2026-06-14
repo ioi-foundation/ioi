@@ -60,47 +60,6 @@ function managedSessionControlRunner(store, request = {}, deps = {}) {
   });
 }
 
-function collectionRecords(value) {
-  if (Array.isArray(value)) return value;
-  if (value instanceof Map) return [...value.values()];
-  const record = objectRecord(value);
-  if (!record) return [];
-  for (const key of ["sessions", "managed_sessions", "records"]) {
-    if (Array.isArray(record[key])) return record[key];
-  }
-  return Object.values(record);
-}
-
-function recordSessionId(record = {}) {
-  return optionalString(record.managed_session_id ?? record.id);
-}
-
-function recordThreadMatches(record = {}, threadId) {
-  const recordThread = optionalString(record.thread_id);
-  return !recordThread || recordThread === threadId;
-}
-
-async function managedSessionCandidatesForThread(store, threadId) {
-  let source = null;
-  if (typeof store?.managedSessionsForThread === "function") {
-    source = await store.managedSessionsForThread(threadId);
-  } else if (typeof store?.managedSessionProjectionForThread === "function") {
-    source = await store.managedSessionProjectionForThread(threadId);
-  } else if (store?.managedSessions) {
-    source = store.managedSessions;
-  }
-  return collectionRecords(source)
-    .map((value) => objectRecord(value))
-    .filter(Boolean)
-    .filter((record) => recordSessionId(record))
-    .filter((record) => recordThreadMatches(record, threadId))
-    .map((record) => ({
-      ...record,
-      managed_session_id: recordSessionId(record),
-      thread_id: optionalString(record.thread_id) ?? threadId,
-    }));
-}
-
 function managedSessionProjectionStateDir(store) {
   return optionalString(store?.stateDir) ?? optionalString(store?.managedSessions?.stateDir);
 }
@@ -249,16 +208,12 @@ export async function controlManagedSessionForThread(store, threadId, request = 
       },
     });
   }
-  const sessions = await managedSessionCandidatesForThread(store, threadId);
-  const currentSession = sessions.find((record) => recordSessionId(record) === selectedId) ?? {
-    managed_session_id: selectedId,
-    thread_id: threadId,
-  };
   const planned = await runner.planRuntimeManagedSessionControl({
     operation: "managed_session_control",
     operation_kind: "managed_session.control",
     thread_id: threadId,
     event_stream_id: eventStreamIdForThread(threadId),
+    state_dir: managedSessionProjectionStateDir(store),
     managed_session_id: selectedId,
     control_state: optionalString(normalizedRequest.control_state) ?? null,
     reason: optionalString(normalizedRequest.reason) ?? null,
@@ -266,7 +221,6 @@ export async function controlManagedSessionForThread(store, threadId, request = 
       optionalString(normalizedRequest.event_seed) ??
       optionalString(normalizedRequest.created_at) ??
       null,
-    managed_session: currentSession,
     request: managedSessionControlRequestPayload(normalizedRequest),
     receipt_refs: stringRefs(normalizedRequest.receipt_refs),
     policy_decision_refs: stringRefs(normalizedRequest.policy_decision_refs),

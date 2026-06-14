@@ -2917,9 +2917,9 @@ test("runtime managed-session control core sends Rust daemon-core request", () =
     operation_kind: "managed_session.control",
     thread_id: "thread_123",
     event_stream_id: "thread_123:events",
+    state_dir: "/runtime-state",
     managed_session_id: "sandbox_browser:1",
     control_state: "take_over",
-    managed_session: { managed_session_id: "sandbox_browser:1", control_state: "observe" },
     request: { receipt_refs: ["receipt_request"] },
   });
 
@@ -2931,8 +2931,10 @@ test("runtime managed-session control core sends Rust daemon-core request", () =
     RUNTIME_MANAGED_SESSION_CONTROL_REQUEST_SCHEMA_VERSION,
   );
   assert.equal(captured.request.operation_kind, "managed_session.control");
+  assert.equal(captured.request.state_dir, "/runtime-state");
   assert.equal(captured.request.managed_session_id, "sandbox_browser:1");
   assert.equal(captured.request.control_state, "take_over");
+  assert.equal(Object.hasOwn(captured.request, "managed_session"), false);
   assert.equal(result.source, "rust_runtime_managed_session_control_command");
   assert.equal(result.operation_kind, "managed_session.control");
   assert.equal(result.event.event_kind, "managed_session.controlled");
@@ -3060,9 +3062,9 @@ test("runtime workspace-change control core sends Rust daemon-core request", () 
     operation_kind: "workspace_change.control",
     thread_id: "thread_123",
     event_stream_id: "thread_123:events",
+    state_dir: "/runtime-state",
     workspace_change_id: "workspace_change:file:1",
     control_state: "accept",
-    workspace_change: { workspace_change_id: "workspace_change:file:1", lifecycle: "proposed" },
     request: { receipt_refs: ["receipt_request"] },
   });
 
@@ -3074,8 +3076,10 @@ test("runtime workspace-change control core sends Rust daemon-core request", () 
     RUNTIME_WORKSPACE_CHANGE_CONTROL_REQUEST_SCHEMA_VERSION,
   );
   assert.equal(captured.request.operation_kind, "workspace_change.control");
+  assert.equal(captured.request.state_dir, "/runtime-state");
   assert.equal(captured.request.workspace_change_id, "workspace_change:file:1");
   assert.equal(captured.request.control_state, "accept");
+  assert.equal(Object.hasOwn(captured.request, "workspace_change"), false);
   assert.equal(result.source, "rust_runtime_workspace_change_control_command");
   assert.equal(result.operation_kind, "workspace_change.control");
   assert.equal(result.event.event_kind, "workspace_change.controlled");

@@ -47,6 +47,8 @@ pub struct RuntimeWorkspaceChangeControlRequest {
     #[serde(default)]
     pub event_stream_id: Option<String>,
     #[serde(default)]
+    pub state_dir: Option<String>,
+    #[serde(default)]
     pub workspace_change_id: Option<String>,
     #[serde(default)]
     pub control_state: Option<String>,
@@ -168,7 +170,14 @@ impl RuntimeWorkspaceChangeProjectionCore {
         reject_projection_candidate_transport(request)?;
         let projection_kind = normalized_projection_kind(request)?;
         let changes = projected_workspace_changes(
-            workspace_change_candidates_from_state_dir(request, &thread_id)?,
+            workspace_change_candidates_from_state_dir(
+                request.state_dir.as_deref(),
+                &thread_id,
+                "runtime_workspace_change_projection_state_dir_required",
+                "runtime_workspace_change_projection_replay_read_failed",
+                "runtime_workspace_change_projection_replay_record_invalid",
+                "workspace change projection",
+            )?,
             &thread_id,
         );
         let projection = match projection_kind.as_str() {
@@ -266,10 +275,9 @@ impl RuntimeWorkspaceChangeControlCore {
                     "workspace change control requires event_stream_id",
                 )
             })?;
+        reject_control_candidate_transport(request)?;
         let workspace_change_id = optional_trimmed(request.workspace_change_id.as_deref())
             .or_else(|| string_field(&request.request, "workspace_change_id"))
-            .or_else(|| string_field(&request.workspace_change, "workspace_change_id"))
-            .or_else(|| string_field(&request.workspace_change, "change_id"))
             .ok_or_else(|| {
                 RuntimeWorkspaceChangeCommandError::new(
                     "runtime_workspace_change_control_id_required",
@@ -285,8 +293,13 @@ impl RuntimeWorkspaceChangeControlCore {
                 )
             })?;
         let control_state = normalized_control_state(Some(requested_control_state.as_str()))?;
-        let previous_lifecycle = string_field(&request.workspace_change, "lifecycle")
-            .or_else(|| string_field(&request.workspace_change, "review_state"))
+        let current_change = workspace_change_control_record_from_state_dir(
+            request,
+            &thread_id,
+            &workspace_change_id,
+        )?;
+        let previous_lifecycle = string_field(&current_change, "lifecycle")
+            .or_else(|| string_field(&current_change, "review_state"))
             .unwrap_or_else(|| "unknown".to_string());
         ensure_control_transition_allowed(&control_state, &previous_lifecycle)?;
         let reason = optional_trimmed(request.reason.as_deref())
@@ -294,13 +307,13 @@ impl RuntimeWorkspaceChangeControlCore {
         let event_seed = optional_trimmed(request.event_seed.as_deref())
             .or_else(|| string_field(&request.request, "event_seed"))
             .or_else(|| string_field(&request.request, "created_at"))
-            .or_else(|| string_field(&request.workspace_change, "updated_at"))
-            .or_else(|| string_field(&request.workspace_change, "receipt_ref"))
+            .or_else(|| string_field(&current_change, "updated_at"))
+            .or_else(|| string_field(&current_change, "receipt_ref"))
             .unwrap_or_else(|| control_state.clone());
         let event_hash = short_hash(format!(
             "{thread_id}:{workspace_change_id}:{control_state}:{event_seed}"
         ));
-        let receipt_refs = workspace_change_receipt_refs(request, &event_hash);
+        let receipt_refs = workspace_change_receipt_refs(request, &current_change, &event_hash);
         let policy_decision_refs = workspace_change_policy_decision_refs(request, &event_hash);
         let evidence_refs = if request.evidence_refs.is_empty() {
             vec![
@@ -342,10 +355,12 @@ impl RuntimeWorkspaceChangeControlCore {
                 "reason": reason,
                 "requested_by": string_field(&request.request, "requested_by").unwrap_or_else(|| "operator".to_string()),
                 "available_control_states": ["accept", "reject", "rollback"],
-                "path": string_field(&request.workspace_change, "path"),
-                "tool_name": string_field(&request.workspace_change, "tool_name"),
-                "expected_head_ref": string_field(&request.request, "expected_head_ref"),
-                "state_root_ref": string_field(&request.request, "state_root_ref"),
+                "path": string_field(&current_change, "path"),
+                "tool_name": string_field(&current_change, "tool_name"),
+                "expected_head_ref": string_field(&request.request, "expected_head_ref")
+                    .or_else(|| string_field(&current_change, "expected_head_ref")),
+                "state_root_ref": string_field(&request.request, "state_root_ref")
+                    .or_else(|| string_field(&current_change, "state_root_ref")),
                 "receipt_refs": receipt_refs,
                 "policy_decision_refs": policy_decision_refs,
             },
@@ -435,19 +450,34 @@ fn normalized_projection_kind(
 fn reject_projection_candidate_transport(
     request: &RuntimeWorkspaceChangeProjectionRequest,
 ) -> Result<(), RuntimeWorkspaceChangeCommandError> {
-    let has_candidate_projection = match &request.projection {
-        Value::Null => false,
-        Value::Object(object) => !object.is_empty(),
-        Value::Array(items) => !items.is_empty(),
-        _ => true,
-    };
-    if has_candidate_projection {
+    if has_candidate_transport(&request.projection) {
         return Err(RuntimeWorkspaceChangeCommandError::new(
             "runtime_workspace_change_projection_candidate_transport_retired",
             "workspace change projection rejects JS-supplied change candidates; provide state_dir for Agentgres event replay",
         ));
     }
     Ok(())
+}
+
+fn reject_control_candidate_transport(
+    request: &RuntimeWorkspaceChangeControlRequest,
+) -> Result<(), RuntimeWorkspaceChangeCommandError> {
+    if has_candidate_transport(&request.workspace_change) {
+        return Err(RuntimeWorkspaceChangeCommandError::new(
+            "runtime_workspace_change_control_candidate_transport_retired",
+            "workspace change control rejects JS-supplied change candidates; provide state_dir for Agentgres event replay",
+        ));
+    }
+    Ok(())
+}
+
+fn has_candidate_transport(value: &Value) -> bool {
+    match value {
+        Value::Null => false,
+        Value::Object(object) => !object.is_empty(),
+        Value::Array(items) => !items.is_empty(),
+        _ => true,
+    }
 }
 
 fn projected_workspace_changes(candidates: Vec<Value>, thread_id: &str) -> Vec<Value> {
@@ -465,13 +495,17 @@ fn projected_workspace_changes(candidates: Vec<Value>, thread_id: &str) -> Vec<V
 }
 
 fn workspace_change_candidates_from_state_dir(
-    request: &RuntimeWorkspaceChangeProjectionRequest,
+    state_dir: Option<&str>,
     thread_id: &str,
+    state_dir_required_code: &'static str,
+    replay_read_failed_code: &'static str,
+    replay_record_invalid_code: &'static str,
+    context: &str,
 ) -> Result<Vec<Value>, RuntimeWorkspaceChangeCommandError> {
-    let state_dir = optional_trimmed(request.state_dir.as_deref()).ok_or_else(|| {
+    let state_dir = optional_trimmed(state_dir).ok_or_else(|| {
         RuntimeWorkspaceChangeCommandError::new(
-            "runtime_workspace_change_projection_state_dir_required",
-            "workspace change projection requires runtime state_dir for Agentgres event replay",
+            state_dir_required_code,
+            format!("{context} requires runtime state_dir for Agentgres event replay"),
         )
     })?;
     let events_dir = Path::new(&state_dir).join("events");
@@ -480,18 +514,16 @@ fn workspace_change_candidates_from_state_dir(
     }
     let entries = fs::read_dir(&events_dir).map_err(|error| {
         RuntimeWorkspaceChangeCommandError::new(
-            "runtime_workspace_change_projection_replay_read_failed",
-            format!("workspace change projection could not read Agentgres events: {error}"),
+            replay_read_failed_code,
+            format!("{context} could not read Agentgres events: {error}"),
         )
     })?;
     let mut paths = Vec::new();
     for entry in entries {
         let entry = entry.map_err(|error| {
             RuntimeWorkspaceChangeCommandError::new(
-                "runtime_workspace_change_projection_replay_read_failed",
-                format!(
-                    "workspace change projection could not inspect Agentgres event entry: {error}"
-                ),
+                replay_read_failed_code,
+                format!("{context} could not inspect Agentgres event entry: {error}"),
             )
         })?;
         let path = entry.path();
@@ -505,9 +537,9 @@ fn workspace_change_candidates_from_state_dir(
     for path in paths {
         let contents = fs::read_to_string(&path).map_err(|error| {
             RuntimeWorkspaceChangeCommandError::new(
-                "runtime_workspace_change_projection_replay_read_failed",
+                replay_read_failed_code,
                 format!(
-                    "workspace change projection could not read Agentgres event record {}: {error}",
+                    "{context} could not read Agentgres event record {}: {error}",
                     path.display()
                 ),
             )
@@ -519,9 +551,9 @@ fn workspace_change_candidates_from_state_dir(
             }
             let event: Value = serde_json::from_str(line).map_err(|error| {
                 RuntimeWorkspaceChangeCommandError::new(
-                    "runtime_workspace_change_projection_replay_record_invalid",
+                    replay_record_invalid_code,
                     format!(
-                        "workspace change projection found invalid Agentgres event record {}:{}: {error}",
+                        "{context} found invalid Agentgres event record {}:{}: {error}",
                         path.display(),
                         index + 1
                     ),
@@ -538,6 +570,31 @@ fn workspace_change_candidates_from_state_dir(
         }
     }
     Ok(candidates.into_values().collect())
+}
+
+fn workspace_change_control_record_from_state_dir(
+    request: &RuntimeWorkspaceChangeControlRequest,
+    thread_id: &str,
+    selected_workspace_change_id: &str,
+) -> Result<Value, RuntimeWorkspaceChangeCommandError> {
+    workspace_change_candidates_from_state_dir(
+        request.state_dir.as_deref(),
+        thread_id,
+        "runtime_workspace_change_control_state_dir_required",
+        "runtime_workspace_change_control_replay_read_failed",
+        "runtime_workspace_change_control_replay_record_invalid",
+        "workspace change control",
+    )?
+    .into_iter()
+    .find(|record| workspace_change_id(record).as_deref() == Some(selected_workspace_change_id))
+    .ok_or_else(|| {
+        RuntimeWorkspaceChangeCommandError::new(
+            "runtime_workspace_change_control_record_required",
+            format!(
+                "workspace change control requires replayed workspace change {selected_workspace_change_id}"
+            ),
+        )
+    })
 }
 
 fn workspace_change_candidates_from_event(event: &Value, thread_id: &str) -> Vec<Value> {
@@ -851,6 +908,7 @@ fn lifecycle_after_control(control_state: &str) -> String {
 
 fn workspace_change_receipt_refs(
     request: &RuntimeWorkspaceChangeControlRequest,
+    current_change: &Value,
     event_hash: &str,
 ) -> Vec<String> {
     unique_strings(
@@ -859,7 +917,7 @@ fn workspace_change_receipt_refs(
             .clone()
             .into_iter()
             .chain(string_array_field(&request.request, "receipt_refs"))
-            .chain(string_field(&request.workspace_change, "receipt_ref"))
+            .chain(string_field(current_change, "receipt_ref"))
             .chain(std::iter::once(format!(
                 "receipt_workspace_change_control_{event_hash}"
             )))
@@ -1048,7 +1106,7 @@ mod tests {
         );
     }
 
-    fn control_request() -> RuntimeWorkspaceChangeControlRequest {
+    fn control_request(state_dir: &Path) -> RuntimeWorkspaceChangeControlRequest {
         RuntimeWorkspaceChangeControlRequest {
             schema_version: Some(
                 RUNTIME_WORKSPACE_CHANGE_CONTROL_REQUEST_SCHEMA_VERSION.to_string(),
@@ -1057,19 +1115,12 @@ mod tests {
             operation_kind: Some("workspace_change.control".to_string()),
             thread_id: Some("thread_1".to_string()),
             event_stream_id: Some("thread_1:events".to_string()),
+            state_dir: Some(state_dir.to_string_lossy().to_string()),
             workspace_change_id: Some("workspace_change:file:1".to_string()),
             control_state: Some("accept".to_string()),
             reason: Some("operator accepted".to_string()),
             event_seed: Some("2026-06-12T12:00:00.000Z".to_string()),
-            workspace_change: json!({
-                "change_id": "workspace_change:file:1",
-                "thread_id": "thread_1",
-                "tool_name": "file__edit",
-                "path": "src/lib.rs",
-                "lifecycle": "proposed",
-                "receipt_ref": "receipt_workspace_change_proposed",
-                "updated_at": "2026-06-12T11:59:00.000Z",
-            }),
+            workspace_change: Value::Null,
             request: json!({
                 "source": "agent_studio",
                 "workspace_root": "/workspace/project",
@@ -1124,8 +1175,10 @@ mod tests {
 
     #[test]
     fn rust_plans_workspace_change_control_event() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        seed_workspace_change_events(temp.path());
         let record = RuntimeWorkspaceChangeControlCore
-            .plan(&control_request())
+            .plan(&control_request(temp.path()))
             .expect("control should plan");
 
         assert_eq!(record.operation_kind, "workspace_change.control");
@@ -1155,7 +1208,9 @@ mod tests {
 
     #[test]
     fn rust_shapes_workspace_change_control_command_response() {
-        let response = plan_runtime_workspace_change_control_response(control_request())
+        let temp = tempfile::tempdir().expect("tempdir");
+        seed_workspace_change_events(temp.path());
+        let response = plan_runtime_workspace_change_control_response(control_request(temp.path()))
             .expect("response should shape");
 
         assert_eq!(
@@ -1174,7 +1229,9 @@ mod tests {
 
     #[test]
     fn rust_rejects_unowned_workspace_change_control_state() {
-        let mut request = control_request();
+        let temp = tempfile::tempdir().expect("tempdir");
+        seed_workspace_change_events(temp.path());
+        let mut request = control_request(temp.path());
         request.control_state = Some("apply".to_string());
         let error = RuntimeWorkspaceChangeControlCore
             .plan(&request)
@@ -1187,7 +1244,8 @@ mod tests {
 
     #[test]
     fn rust_rejects_retired_workspace_change_control_action_alias() {
-        let mut request = control_request();
+        let temp = tempfile::tempdir().expect("tempdir");
+        let mut request = control_request(temp.path());
         request.control_state = None;
         request.request = json!({
             "action": "accept",
@@ -1220,7 +1278,9 @@ mod tests {
 
     #[test]
     fn rust_rejects_invalid_workspace_change_transition() {
-        let mut request = control_request();
+        let temp = tempfile::tempdir().expect("tempdir");
+        seed_workspace_change_events(temp.path());
+        let mut request = control_request(temp.path());
         request.control_state = Some("rollback".to_string());
         let error = RuntimeWorkspaceChangeControlCore
             .plan(&request)
@@ -1228,6 +1288,51 @@ mod tests {
         assert_eq!(
             error.code(),
             "runtime_workspace_change_control_transition_unsupported"
+        );
+    }
+
+    #[test]
+    fn rust_rejects_workspace_change_control_candidate_transport() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        seed_workspace_change_events(temp.path());
+        let mut request = control_request(temp.path());
+        request.workspace_change = json!({
+            "workspace_change_id": "workspace_change:file:1",
+            "lifecycle": "proposed"
+        });
+        let error = RuntimeWorkspaceChangeControlCore
+            .plan(&request)
+            .expect_err("candidate transport should fail");
+        assert_eq!(
+            error.code(),
+            "runtime_workspace_change_control_candidate_transport_retired"
+        );
+    }
+
+    #[test]
+    fn rust_requires_state_dir_for_workspace_change_control() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let mut request = control_request(temp.path());
+        request.state_dir = None;
+        let error = RuntimeWorkspaceChangeControlCore
+            .plan(&request)
+            .expect_err("missing state_dir should fail");
+        assert_eq!(
+            error.code(),
+            "runtime_workspace_change_control_state_dir_required"
+        );
+    }
+
+    #[test]
+    fn rust_requires_replayed_record_for_workspace_change_control() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let request = control_request(temp.path());
+        let error = RuntimeWorkspaceChangeControlCore
+            .plan(&request)
+            .expect_err("missing replayed record should fail");
+        assert_eq!(
+            error.code(),
+            "runtime_workspace_change_control_record_required"
         );
     }
 

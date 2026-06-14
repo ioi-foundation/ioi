@@ -6,15 +6,14 @@ import {
   inspectWorkspaceChangeReviewsForThread,
 } from "./workspace-change-state.mjs";
 
-function fakeStore({ changes = [], contextPolicyCore = {}, appendRuntimeEvent = null } = {}) {
+function fakeStore({ contextPolicyCore = {}, appendRuntimeEvent = null } = {}) {
   const calls = [];
   return {
     calls,
     stateDir: "/runtime-state",
     contextPolicyCore,
     workspaceChangesForThread(thread_id) {
-      calls.push({ operation: "workspace_changes_for_thread", thread_id });
-      return changes;
+      assert.fail(`workspace change control must not read JS change candidates: ${thread_id}`);
     },
     appendRuntimeEvent(event) {
       calls.push({ operation: "append_runtime_event", event });
@@ -56,14 +55,6 @@ function assertNoRetiredWorkspaceChangeDetailAliases(details = {}) {
 test("workspace change inspection returns Rust daemon-core projection without JS bridge readback", async () => {
   let captured = null;
   const store = fakeStore({
-    changes: [
-      {
-        change_id: "workspace_change:file:1",
-        thread_id: "thread_runtime",
-        path: "src/lib.rs",
-        lifecycle: "proposed",
-      },
-    ],
     contextPolicyCore: {
       projectRuntimeWorkspaceChangeProjection(request) {
         captured = request;
@@ -148,14 +139,6 @@ test("workspace change control uses Rust planning and runtime event admission", 
     },
   };
   const store = fakeStore({
-    changes: [
-      {
-        workspace_change_id: "workspace_change:file:1",
-        thread_id: "thread_runtime",
-        path: "src/lib.rs",
-        lifecycle: "proposed",
-      },
-    ],
     contextPolicyCore: {
       planRuntimeWorkspaceChangeControl(request) {
         captured = request;
@@ -190,9 +173,10 @@ test("workspace change control uses Rust planning and runtime event admission", 
   assert.equal(captured.operation_kind, "workspace_change.control");
   assert.equal(captured.thread_id, "thread_runtime");
   assert.equal(captured.event_stream_id, "thread_runtime:events");
+  assert.equal(captured.state_dir, "/runtime-state");
   assert.equal(captured.workspace_change_id, "workspace_change:file:1");
   assert.equal(captured.control_state, "accept");
-  assert.equal(captured.workspace_change.lifecycle, "proposed");
+  assert.equal(Object.hasOwn(captured, "workspace_change"), false);
   assert.deepEqual(captured.request.receipt_refs, ["receipt_request"]);
   assert.equal(captured.request.expected_head_ref, "head_before");
   assert.equal(captured.request.state_root_ref, "state_after");
@@ -204,7 +188,6 @@ test("workspace change control uses Rust planning and runtime event admission", 
     "agentgres_workspace_change_truth_required",
   ]);
   assert.deepEqual(store.calls, [
-    { operation: "workspace_changes_for_thread", thread_id: "thread_runtime" },
     { operation: "append_runtime_event", event: plannedEvent },
   ]);
   assert.deepEqual(result, { admitted: true, event: plannedEvent });

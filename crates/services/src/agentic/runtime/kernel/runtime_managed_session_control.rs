@@ -47,6 +47,8 @@ pub struct RuntimeManagedSessionControlRequest {
     #[serde(default)]
     pub event_stream_id: Option<String>,
     #[serde(default)]
+    pub state_dir: Option<String>,
+    #[serde(default)]
     pub managed_session_id: Option<String>,
     #[serde(default)]
     pub control_state: Option<String>,
@@ -168,7 +170,14 @@ impl RuntimeManagedSessionProjectionCore {
         reject_projection_candidate_transport(request)?;
         let projection_kind = normalized_projection_kind(request)?;
         let sessions = projected_sessions(
-            managed_session_candidates_from_state_dir(request, &thread_id)?,
+            managed_session_candidates_from_state_dir(
+                request.state_dir.as_deref(),
+                &thread_id,
+                "runtime_managed_session_projection_state_dir_required",
+                "runtime_managed_session_projection_replay_read_failed",
+                "runtime_managed_session_projection_replay_record_invalid",
+                "managed session projection",
+            )?,
             &thread_id,
         );
         let projection = match projection_kind.as_str() {
@@ -266,9 +275,9 @@ impl RuntimeManagedSessionControlCore {
                     "managed session control requires event_stream_id",
                 )
             })?;
+        reject_control_candidate_transport(request)?;
         let managed_session_id = optional_trimmed(request.managed_session_id.as_deref())
             .or_else(|| string_field(&request.request, "managed_session_id"))
-            .or_else(|| string_field(&request.managed_session, "managed_session_id"))
             .ok_or_else(|| {
                 RuntimeManagedSessionCommandError::new(
                     "runtime_managed_session_control_id_required",
@@ -284,7 +293,12 @@ impl RuntimeManagedSessionControlCore {
                 )
             })?;
         let control_state = normalized_control_state(Some(requested_control_state.as_str()))?;
-        let previous_control_state = string_field(&request.managed_session, "control_state")
+        let current_session = managed_session_control_record_from_state_dir(
+            request,
+            &thread_id,
+            &managed_session_id,
+        )?;
+        let previous_control_state = string_field(&current_session, "control_state")
             .and_then(|value| normalized_control_state(Some(value.as_str())).ok())
             .unwrap_or_else(|| "observe".to_string());
         let reason = optional_trimmed(request.reason.as_deref())
@@ -292,7 +306,7 @@ impl RuntimeManagedSessionControlCore {
         let event_seed = optional_trimmed(request.event_seed.as_deref())
             .or_else(|| string_field(&request.request, "event_seed"))
             .or_else(|| string_field(&request.request, "created_at"))
-            .or_else(|| string_field(&request.managed_session, "updated_at"))
+            .or_else(|| string_field(&current_session, "updated_at"))
             .unwrap_or_else(|| control_state.clone());
         let event_hash = short_hash(format!(
             "{thread_id}:{managed_session_id}:{control_state}:{event_seed}"
@@ -426,19 +440,34 @@ fn normalized_projection_kind(
 fn reject_projection_candidate_transport(
     request: &RuntimeManagedSessionProjectionRequest,
 ) -> Result<(), RuntimeManagedSessionCommandError> {
-    let has_candidate_projection = match &request.projection {
-        Value::Null => false,
-        Value::Object(object) => !object.is_empty(),
-        Value::Array(items) => !items.is_empty(),
-        _ => true,
-    };
-    if has_candidate_projection {
+    if has_candidate_transport(&request.projection) {
         return Err(RuntimeManagedSessionCommandError::new(
             "runtime_managed_session_projection_candidate_transport_retired",
             "managed session projection rejects JS-supplied session candidates; provide state_dir for Agentgres event replay",
         ));
     }
     Ok(())
+}
+
+fn reject_control_candidate_transport(
+    request: &RuntimeManagedSessionControlRequest,
+) -> Result<(), RuntimeManagedSessionCommandError> {
+    if has_candidate_transport(&request.managed_session) {
+        return Err(RuntimeManagedSessionCommandError::new(
+            "runtime_managed_session_control_candidate_transport_retired",
+            "managed session control rejects JS-supplied session candidates; provide state_dir for Agentgres event replay",
+        ));
+    }
+    Ok(())
+}
+
+fn has_candidate_transport(value: &Value) -> bool {
+    match value {
+        Value::Null => false,
+        Value::Object(object) => !object.is_empty(),
+        Value::Array(items) => !items.is_empty(),
+        _ => true,
+    }
 }
 
 fn projected_sessions(candidates: Vec<Value>, thread_id: &str) -> Vec<Value> {
@@ -452,13 +481,17 @@ fn projected_sessions(candidates: Vec<Value>, thread_id: &str) -> Vec<Value> {
 }
 
 fn managed_session_candidates_from_state_dir(
-    request: &RuntimeManagedSessionProjectionRequest,
+    state_dir: Option<&str>,
     thread_id: &str,
+    state_dir_required_code: &'static str,
+    replay_read_failed_code: &'static str,
+    replay_record_invalid_code: &'static str,
+    context: &str,
 ) -> Result<Vec<Value>, RuntimeManagedSessionCommandError> {
-    let state_dir = optional_trimmed(request.state_dir.as_deref()).ok_or_else(|| {
+    let state_dir = optional_trimmed(state_dir).ok_or_else(|| {
         RuntimeManagedSessionCommandError::new(
-            "runtime_managed_session_projection_state_dir_required",
-            "managed session projection requires runtime state_dir for Agentgres event replay",
+            state_dir_required_code,
+            format!("{context} requires runtime state_dir for Agentgres event replay"),
         )
     })?;
     let events_dir = Path::new(&state_dir).join("events");
@@ -467,18 +500,16 @@ fn managed_session_candidates_from_state_dir(
     }
     let entries = fs::read_dir(&events_dir).map_err(|error| {
         RuntimeManagedSessionCommandError::new(
-            "runtime_managed_session_projection_replay_read_failed",
-            format!("managed session projection could not read Agentgres events: {error}"),
+            replay_read_failed_code,
+            format!("{context} could not read Agentgres events: {error}"),
         )
     })?;
     let mut paths = Vec::new();
     for entry in entries {
         let entry = entry.map_err(|error| {
             RuntimeManagedSessionCommandError::new(
-                "runtime_managed_session_projection_replay_read_failed",
-                format!(
-                    "managed session projection could not inspect Agentgres event entry: {error}"
-                ),
+                replay_read_failed_code,
+                format!("{context} could not inspect Agentgres event entry: {error}"),
             )
         })?;
         let path = entry.path();
@@ -492,9 +523,9 @@ fn managed_session_candidates_from_state_dir(
     for path in paths {
         let contents = fs::read_to_string(&path).map_err(|error| {
             RuntimeManagedSessionCommandError::new(
-                "runtime_managed_session_projection_replay_read_failed",
+                replay_read_failed_code,
                 format!(
-                    "managed session projection could not read Agentgres event record {}: {error}",
+                    "{context} could not read Agentgres event record {}: {error}",
                     path.display()
                 ),
             )
@@ -506,9 +537,9 @@ fn managed_session_candidates_from_state_dir(
             }
             let event: Value = serde_json::from_str(line).map_err(|error| {
                 RuntimeManagedSessionCommandError::new(
-                    "runtime_managed_session_projection_replay_record_invalid",
+                    replay_record_invalid_code,
                     format!(
-                        "managed session projection found invalid Agentgres event record {}:{}: {error}",
+                        "{context} found invalid Agentgres event record {}:{}: {error}",
                         path.display(),
                         index + 1
                     ),
@@ -527,6 +558,36 @@ fn managed_session_candidates_from_state_dir(
         }
     }
     Ok(candidates.into_values().collect())
+}
+
+fn managed_session_control_record_from_state_dir(
+    request: &RuntimeManagedSessionControlRequest,
+    thread_id: &str,
+    managed_session_id: &str,
+) -> Result<Value, RuntimeManagedSessionCommandError> {
+    managed_session_candidates_from_state_dir(
+        request.state_dir.as_deref(),
+        thread_id,
+        "runtime_managed_session_control_state_dir_required",
+        "runtime_managed_session_control_replay_read_failed",
+        "runtime_managed_session_control_replay_record_invalid",
+        "managed session control",
+    )?
+    .into_iter()
+    .find(|record| {
+        string_field(record, "managed_session_id")
+            .or_else(|| string_field(record, "id"))
+            .as_deref()
+            == Some(managed_session_id)
+    })
+    .ok_or_else(|| {
+        RuntimeManagedSessionCommandError::new(
+            "runtime_managed_session_control_record_required",
+            format!(
+                "managed session control requires replayed managed session {managed_session_id}"
+            ),
+        )
+    })
 }
 
 fn managed_session_candidates_from_event(event: &Value, thread_id: &str) -> Vec<Value> {
@@ -926,7 +987,7 @@ mod tests {
         );
     }
 
-    fn control_request() -> RuntimeManagedSessionControlRequest {
+    fn control_request(state_dir: &Path) -> RuntimeManagedSessionControlRequest {
         RuntimeManagedSessionControlRequest {
             schema_version: Some(
                 RUNTIME_MANAGED_SESSION_CONTROL_REQUEST_SCHEMA_VERSION.to_string(),
@@ -935,16 +996,12 @@ mod tests {
             operation_kind: Some("managed_session.control".to_string()),
             thread_id: Some("thread_1".to_string()),
             event_stream_id: Some("thread_1:events".to_string()),
+            state_dir: Some(state_dir.to_string_lossy().to_string()),
             managed_session_id: Some("sandbox_browser:1".to_string()),
             control_state: Some("take_over".to_string()),
             reason: Some("operator takeover".to_string()),
             event_seed: Some("2026-06-12T12:00:00.000Z".to_string()),
-            managed_session: json!({
-                "managed_session_id": "sandbox_browser:1",
-                "thread_id": "thread_1",
-                "control_state": "observe",
-                "updated_at": "2026-06-12T11:59:00.000Z",
-            }),
+            managed_session: Value::Null,
             request: json!({
                 "source": "agent_studio",
                 "workspace_root": "/workspace/project",
@@ -996,8 +1053,10 @@ mod tests {
 
     #[test]
     fn rust_plans_managed_session_control_event() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        seed_managed_session_events(temp.path());
         let record = RuntimeManagedSessionControlCore
-            .plan(&control_request())
+            .plan(&control_request(temp.path()))
             .expect("control should plan");
 
         assert_eq!(record.operation_kind, "managed_session.control");
@@ -1021,7 +1080,9 @@ mod tests {
 
     #[test]
     fn rust_shapes_managed_session_control_command_response() {
-        let response = plan_runtime_managed_session_control_response(control_request())
+        let temp = tempfile::tempdir().expect("tempdir");
+        seed_managed_session_events(temp.path());
+        let response = plan_runtime_managed_session_control_response(control_request(temp.path()))
             .expect("response should shape");
 
         assert_eq!(
@@ -1040,7 +1101,9 @@ mod tests {
 
     #[test]
     fn rust_rejects_unowned_managed_session_control_state() {
-        let mut request = control_request();
+        let temp = tempfile::tempdir().expect("tempdir");
+        seed_managed_session_events(temp.path());
+        let mut request = control_request(temp.path());
         request.control_state = Some("plaintext_takeover".to_string());
         let error = RuntimeManagedSessionControlCore
             .plan(&request)
@@ -1053,7 +1116,8 @@ mod tests {
 
     #[test]
     fn rust_rejects_retired_managed_session_control_action_alias() {
-        let mut request = control_request();
+        let temp = tempfile::tempdir().expect("tempdir");
+        let mut request = control_request(temp.path());
         request.control_state = None;
         request.request = json!({
             "action": "take_over",
@@ -1066,6 +1130,51 @@ mod tests {
         assert_eq!(
             error.code(),
             "runtime_managed_session_control_state_required"
+        );
+    }
+
+    #[test]
+    fn rust_rejects_managed_session_control_candidate_transport() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        seed_managed_session_events(temp.path());
+        let mut request = control_request(temp.path());
+        request.managed_session = json!({
+            "managed_session_id": "sandbox_browser:1",
+            "control_state": "observe"
+        });
+        let error = RuntimeManagedSessionControlCore
+            .plan(&request)
+            .expect_err("candidate transport should fail");
+        assert_eq!(
+            error.code(),
+            "runtime_managed_session_control_candidate_transport_retired"
+        );
+    }
+
+    #[test]
+    fn rust_requires_state_dir_for_managed_session_control() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let mut request = control_request(temp.path());
+        request.state_dir = None;
+        let error = RuntimeManagedSessionControlCore
+            .plan(&request)
+            .expect_err("missing state_dir should fail");
+        assert_eq!(
+            error.code(),
+            "runtime_managed_session_control_state_dir_required"
+        );
+    }
+
+    #[test]
+    fn rust_requires_replayed_record_for_managed_session_control() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let request = control_request(temp.path());
+        let error = RuntimeManagedSessionControlCore
+            .plan(&request)
+            .expect_err("missing replayed record should fail");
+        assert_eq!(
+            error.code(),
+            "runtime_managed_session_control_record_required"
         );
     }
 

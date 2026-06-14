@@ -6,15 +6,14 @@ import {
   inspectManagedSessionsForThread,
 } from "./managed-session-state.mjs";
 
-function fakeStore({ sessions = [], contextPolicyCore = {}, appendRuntimeEvent = null } = {}) {
+function fakeStore({ contextPolicyCore = {}, appendRuntimeEvent = null } = {}) {
   const calls = [];
   return {
     calls,
     stateDir: "/runtime-state",
     contextPolicyCore,
     managedSessionsForThread(thread_id) {
-      calls.push({ operation: "managed_sessions_for_thread", thread_id });
-      return sessions;
+      assert.fail(`managed session control must not read JS session candidates: ${thread_id}`);
     },
     appendRuntimeEvent(event) {
       calls.push({ operation: "append_runtime_event", event });
@@ -55,14 +54,6 @@ function assertNoRetiredManagedSessionDetailAliases(details = {}) {
 test("managed session inspection returns Rust daemon-core projection without JS bridge readback", async () => {
   let captured = null;
   const store = fakeStore({
-    sessions: [
-      {
-        managed_session_id: "sandbox_browser:1",
-        thread_id: "thread_runtime",
-        status: "waiting_for_user",
-        control_state: "observe",
-      },
-    ],
     contextPolicyCore: {
       projectRuntimeManagedSessionProjection(request) {
         captured = request;
@@ -147,13 +138,6 @@ test("managed session control uses Rust planning and runtime event admission", a
     },
   };
   const store = fakeStore({
-    sessions: [
-      {
-        managed_session_id: "sandbox_browser:1",
-        thread_id: "thread_runtime",
-        control_state: "observe",
-      },
-    ],
     contextPolicyCore: {
       planRuntimeManagedSessionControl(request) {
         captured = request;
@@ -186,9 +170,10 @@ test("managed session control uses Rust planning and runtime event admission", a
   assert.equal(captured.operation_kind, "managed_session.control");
   assert.equal(captured.thread_id, "thread_runtime");
   assert.equal(captured.event_stream_id, "thread_runtime:events");
+  assert.equal(captured.state_dir, "/runtime-state");
   assert.equal(captured.managed_session_id, "sandbox_browser:1");
   assert.equal(captured.control_state, "take_over");
-  assert.equal(captured.managed_session.control_state, "observe");
+  assert.equal(Object.hasOwn(captured, "managed_session"), false);
   assert.deepEqual(captured.request.receipt_refs, ["receipt_request"]);
   assert.deepEqual(captured.receipt_refs, ["receipt_request"]);
   assert.deepEqual(captured.evidence_refs, [
@@ -198,7 +183,6 @@ test("managed session control uses Rust planning and runtime event admission", a
     "agentgres_managed_session_truth_required",
   ]);
   assert.deepEqual(store.calls, [
-    { operation: "managed_sessions_for_thread", thread_id: "thread_runtime" },
     { operation: "append_runtime_event", event: plannedEvent },
   ]);
   assert.deepEqual(result, { admitted: true, event: plannedEvent });
