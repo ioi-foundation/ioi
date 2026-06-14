@@ -1,5 +1,5 @@
-export const CTEE_PRIVATE_WORKSPACE_CORE_SCHEMA_VERSION = "ioi.runtime.daemon_core.command.v1";
 export const RUNTIME_CTEE_PRIVATE_WORKSPACE_BACKEND = "ctee_operator";
+export const CTEE_PRIVATE_WORKSPACE_CORE_API_METHOD = "executePrivateWorkspaceCteeAction";
 
 const RETIRED_CTEE_PRIVATE_WORKSPACE_CORE_REQUEST_ALIASES = [
   "nodeTrust",
@@ -15,37 +15,41 @@ export class RuntimeCteePrivateWorkspaceCore {
   constructor(options = {}) {
     assertNoRetiredCteePrivateWorkspaceCoreOption("command", options.command);
     assertNoRetiredCteePrivateWorkspaceCoreOption("args", options.args);
-    this.daemonCoreInvoker = optionalFunction(options.daemonCoreInvoker);
+    assertNoRetiredCteePrivateWorkspaceCoreOption("daemonCoreInvoker", options.daemonCoreInvoker);
+    this.daemonCoreCteeApi = cteeApi(
+      options.daemonCoreCteeApi ?? options.daemonCoreApi?.ctee ?? options.daemonCoreApi,
+    );
   }
 
   executeAction(request = {}, context = {}) {
     assertCanonicalCteePrivateWorkspaceCoreRequest(request);
-    const daemonCoreRequest = {
-      schema_version: CTEE_PRIVATE_WORKSPACE_CORE_SCHEMA_VERSION,
-      operation: "execute_private_workspace_ctee_action",
-      backend: RUNTIME_CTEE_PRIVATE_WORKSPACE_BACKEND,
+    const routeContext = {
       thread_id: optionalString(context.thread_id),
       agent_id: optionalString(context.agent_id),
-      invocation: request.invocation,
-      node_trust: request.node_trust,
     };
-    return this.invokeDaemonCore(daemonCoreRequest);
+    return this.invokeRustCteeApi(request, routeContext);
   }
 
-  invokeDaemonCore(request) {
-    if (!this.daemonCoreInvoker) {
+  invokeRustCteeApi(request, context = {}) {
+    if (!this.daemonCoreCteeApi) {
       throw new RuntimeCteePrivateWorkspaceCoreError(
-        "Private Workspace cTEE execution requires daemonCoreInvoker for direct Rust daemon-core cTEE custody admission.",
-        "ctee_private_workspace_core_direct_invoker_unconfigured",
-        { boundary: "daemonCoreInvoker" },
+        "Private Workspace cTEE execution requires daemonCoreCteeApi.executePrivateWorkspaceCteeAction for Rust daemon-core cTEE custody admission.",
+        "ctee_private_workspace_core_direct_ctee_api_unconfigured",
+        {
+          boundary: "daemonCoreCteeApi.executePrivateWorkspaceCteeAction",
+          backend: RUNTIME_CTEE_PRIVATE_WORKSPACE_BACKEND,
+        },
       );
     }
-    const response = this.daemonCoreInvoker(request);
+    const response = this.daemonCoreCteeApi[CTEE_PRIVATE_WORKSPACE_CORE_API_METHOD](
+      request,
+      context,
+    );
     if (response?.ok === false) {
       const error = objectRecord(response.error) ?? {};
       throw new RuntimeCteePrivateWorkspaceCoreError(
         error.message ?? "Rust cTEE Private Workspace core rejected the action.",
-        error.code ?? "ctee_private_workspace_core_direct_invoker_rejected",
+        error.code ?? "ctee_private_workspace_core_direct_ctee_api_rejected",
         { error },
       );
     }
@@ -75,7 +79,7 @@ function assertNoRetiredCteePrivateWorkspaceCoreOption(field, value) {
   if (typeof value === "string" && value.trim().length === 0) return;
   if (value == null) return;
   throw new RuntimeCteePrivateWorkspaceCoreError(
-    "Private Workspace cTEE command compatibility options are retired; use daemonCoreInvoker for direct Rust daemon-core cTEE custody admission.",
+    "Private Workspace cTEE command compatibility options are retired; use daemonCoreCteeApi.executePrivateWorkspaceCteeAction for Rust daemon-core cTEE custody admission.",
     "ctee_private_workspace_core_compatibility_option_retired",
     { retired_option: field, retired_value: value },
   );
@@ -103,6 +107,9 @@ function optionalString(value) {
   return trimmed ? trimmed : null;
 }
 
-function optionalFunction(value) {
-  return typeof value === "function" ? value : null;
+function cteeApi(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return typeof value[CTEE_PRIVATE_WORKSPACE_CORE_API_METHOD] === "function"
+    ? value
+    : null;
 }

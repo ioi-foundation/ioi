@@ -25,6 +25,7 @@ export async function startRuntimeDaemonServiceWithStore({
     runtimeBridge: options.runtimeBridge,
     daemonCoreInvoker: options.daemonCoreInvoker,
     daemonCoreAuthorityApi: options.daemonCoreAuthorityApi,
+    daemonCoreCteeApi: options.daemonCoreCteeApi,
   });
   const server = http.createServer((request, response) => {
     handleRequest({ request, response, store }).catch((error) => {

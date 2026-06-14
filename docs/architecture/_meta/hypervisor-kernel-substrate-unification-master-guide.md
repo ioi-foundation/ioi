@@ -6712,7 +6712,7 @@ service crate. Rust core now owns the governed receipt bridge request structs,
 cTEE StepModule kind/backend guard, caller-supplied expected-head rejection,
 private-workspace cTEE execution/admission wrapping, worker/service package
 invocation admission wrapping, accepted-receipt append through `ReceiptBinder`,
-and the canonical `rust_ctee_private_workspace_command` and
+and the canonical `rust_ctee_private_workspace_protocol` and
 `rust_worker_service_package_invocation_command` response envelopes.
 
 This was non-terminal because the Node bridge, command dispatch table, shared
@@ -7261,8 +7261,8 @@ and broad bridge transport with direct Rust daemon-core protocol APIs.
 
 Slice 1145 moves cTEE Private Workspace product-route admission envelope
 authorship out of the JS surface and into Rust `governed_receipt.rs`. The Rust
-`CteePrivateWorkspaceBridgeRequest` now accepts thread/agent route context and
-`execute_private_workspace_ctee_action_response()` emits the canonical
+`CteePrivateWorkspaceProtocolRequest` accepts thread/agent route context and
+`execute_private_workspace_ctee_action_protocol_response()` emits the canonical
 `ioi.runtime.ctee_private_workspace_admission.v1` route envelope, including
 `action_executed`, `thread_id`, `agent_id`, invocation/receipt refs, receipt,
 result, receipt binding, accepted-receipt append, Agentgres admission,
@@ -7410,16 +7410,19 @@ normalizers as compatibility shims.
 
 Slice 1153 first retired JS-side receipt/evidence ref fallback synthesis from
 the cTEE Private Workspace migration edge. That runner has since been removed:
-the daemon now mounts `cteePrivateWorkspaceCore`, which builds only the
-canonical Rust daemon-core `execute_private_workspace_ctee_action` request and
-returns the Rust `governed_receipt.rs` admission envelope as-is instead of
-inventing receipt/evidence refs, source, or backend compatibility truth.
+the daemon now mounts `cteePrivateWorkspaceCore`, requires typed
+`daemonCoreCteeApi.executePrivateWorkspaceCteeAction`, rejects the retired
+generic `daemonCoreInvoker` command-transport option, and returns the Rust
+`governed_receipt.rs` cTEE custody protocol envelope as-is instead of inventing
+receipt/evidence refs, source, or backend compatibility truth. Rust
+`command_protocol.rs` rejects the old `execute_private_workspace_ctee_action`
+operation, so this migrated custody path cannot return through the temporary
+command dispatcher.
 
-This remains non-terminal only because the mounted core still builds a
-temporary command-envelope request. The target is stable direct Rust
-daemon-core cTEE protocol/API ownership over custody admission,
-receipt/state-root binding, Agentgres truth, projection, replay, and stable
-IDE/CLI/SDK protocol surfaces.
+This remains non-terminal because richer cTEE projection/replay records,
+Agentgres receipt/state-root binding, and stable IDE/CLI/SDK cTEE read APIs
+still need direct Rust ownership, and other route families still carry
+temporary command transport.
 
 Slice 1154 retired JS-side ref fallback synthesis from the temporary
 worker/service package runner. Rust `governed_receipt.rs` already owned the
@@ -8205,6 +8208,24 @@ receipt/state-root binding, and stable IDE/CLI/SDK authority read APIs still
 need direct Rust ownership, and other route families still carry temporary
 command transport.
 
+The current cTEE Private Workspace transport cut retires the remaining generic
+command-envelope request builder for this family. The core now requires typed
+`daemonCoreCteeApi.executePrivateWorkspaceCteeAction`, rejects the retired
+`daemonCoreInvoker` command-transport option plus request aliases before Rust
+invocation, and returns the Rust `governed_receipt.rs` cTEE custody protocol
+envelope as-is. Rust `command_protocol.rs` also rejects
+`execute_private_workspace_ctee_action` as an absent command operation, so this
+migrated custody path cannot return through the temporary command dispatcher.
+
+This removes JS envelope truth for the cTEE path: action execution booleans,
+custody proof refs, receipt refs, accepted-receipt append, Agentgres admission,
+projection records, route context, source, and backend truth must arrive from
+Rust daemon-core output or remain absent at the JS edge. It is still not
+terminal because richer cTEE projection/replay records, Agentgres
+receipt/state-root binding, and stable IDE/CLI/SDK cTEE read APIs still need
+direct Rust ownership, and other route families still carry temporary command
+transport.
+
 Slice 1197 retired the temporary binary-spawn fallback for the daemon external
 capability authority runner. That direct-invoker-only migration edge is now
 superseded by the Slice 1205 core cut: the runner file is deleted,
@@ -8242,11 +8263,14 @@ and receipt-bearing cTEE execution, custody proof refs, receipt binding,
 accepted receipt append, Agentgres admission, projection records, receipt refs,
 and evidence refs must arrive from Rust daemon-core output.
 
-This is still not terminal because the JS product surface remains a canonical
-request extractor and the cTEE core still builds a temporary daemon-core command
-envelope. Resume by cutting the next receipt-bearing
-runner, then delete the shared JS command invoker once every live surface has a
-direct Rust daemon-core API.
+The follow-on transport cut supersedes the direct-invoker-only edge: the cTEE
+core now requires typed `daemonCoreCteeApi.executePrivateWorkspaceCteeAction`,
+rejects generic `daemonCoreInvoker`, and the old Rust
+`execute_private_workspace_ctee_action` command operation is retired. This is
+still not terminal because the JS product surface remains a canonical request
+extractor and richer cTEE projection/replay records, Agentgres
+receipt/state-root binding, and stable IDE/CLI/SDK cTEE read APIs still need
+direct Rust ownership.
 
 Slice 1202 retires the daemon worker/service package runner outright. The
 daemon store now mounts `workerServicePackageCore`; the JS runner facade, store

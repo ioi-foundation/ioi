@@ -55,7 +55,7 @@ function store() {
           object: "ioi.runtime_ctee_private_workspace_admission",
           status: "admitted",
           action_executed: true,
-          source: "rust_ctee_private_workspace_command",
+          source: "rust_ctee_private_workspace_protocol",
           backend: "ctee_operator",
           thread_id: context.thread_id,
           agent_id: context.agent_id,

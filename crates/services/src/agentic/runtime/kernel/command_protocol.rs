@@ -60,7 +60,6 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "project_runtime_thread_event_replay",
     "project_runtime_thread_turn_projection",
     "plan_post_edit_diagnostics_feedback",
-    "execute_private_workspace_ctee_action",
     "admit_l1_settlement_attempt",
     "admit_governed_runtime_improvement_proposal",
     "plan_workspace_restore_apply_policy",
@@ -206,7 +205,6 @@ pub enum CommandOperation {
     ProjectRuntimeThreadEventReplay,
     ProjectRuntimeThreadTurnProjection,
     PlanPostEditDiagnosticsFeedback,
-    ExecutePrivateWorkspaceCteeAction,
     AdmitL1SettlementAttempt,
     AdmitGovernedRuntimeImprovementProposal,
     PlanWorkspaceRestoreApplyPolicy,
@@ -363,7 +361,6 @@ impl CommandOperation {
             Self::ProjectRuntimeThreadEventReplay => "project_runtime_thread_event_replay",
             Self::ProjectRuntimeThreadTurnProjection => "project_runtime_thread_turn_projection",
             Self::PlanPostEditDiagnosticsFeedback => "plan_post_edit_diagnostics_feedback",
-            Self::ExecutePrivateWorkspaceCteeAction => "execute_private_workspace_ctee_action",
             Self::AdmitL1SettlementAttempt => "admit_l1_settlement_attempt",
             Self::AdmitGovernedRuntimeImprovementProposal => {
                 "admit_governed_runtime_improvement_proposal"
@@ -665,9 +662,6 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
         "plan_post_edit_diagnostics_feedback" => {
             Some(CommandOperation::PlanPostEditDiagnosticsFeedback)
         }
-        "execute_private_workspace_ctee_action" => {
-            Some(CommandOperation::ExecutePrivateWorkspaceCteeAction)
-        }
         "admit_l1_settlement_attempt" => Some(CommandOperation::AdmitL1SettlementAttempt),
         "admit_governed_runtime_improvement_proposal" => {
             Some(CommandOperation::AdmitGovernedRuntimeImprovementProposal)
@@ -925,7 +919,6 @@ mod tests {
     fn daemon_core_operations_use_daemon_core_command_schema() {
         for operation in [
             "admit_model_mount_route_decision",
-            "execute_private_workspace_ctee_action",
             "plan_workflow_edit_admission_required",
             "validate_mcp_servers",
             "plan_mcp_manager_catalog_summary_projection",
@@ -1005,6 +998,18 @@ mod tests {
         );
         assert_eq!(
             expected_command_schema_version("authorize_external_capability_exit"),
+            None
+        );
+    }
+
+    #[test]
+    fn ctee_private_workspace_command_transport_is_retired() {
+        assert_eq!(
+            command_operation("execute_private_workspace_ctee_action"),
+            None
+        );
+        assert_eq!(
+            expected_command_schema_version("execute_private_workspace_ctee_action"),
             None
         );
     }

@@ -32,9 +32,7 @@ impl GovernedReceiptError {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct CteePrivateWorkspaceBridgeRequest {
-    #[serde(default)]
-    pub backend: Option<String>,
+pub struct CteePrivateWorkspaceProtocolRequest {
     #[serde(default)]
     pub thread_id: Option<String>,
     #[serde(default)]
@@ -56,8 +54,8 @@ pub struct WorkerServicePackageInvocationBridgeRequest {
     pub request: WorkerServicePackageInvocationRequest,
 }
 
-pub fn execute_private_workspace_ctee_action_response(
-    request: CteePrivateWorkspaceBridgeRequest,
+pub fn execute_private_workspace_ctee_action_protocol_response(
+    request: CteePrivateWorkspaceProtocolRequest,
 ) -> Result<Value, GovernedReceiptError> {
     if request.invocation.module_ref.kind != StepModuleKind::PrivateWorkspaceCteeAction
         || request.invocation.execution.backend != StepModuleBackend::CteeOperator
@@ -102,8 +100,8 @@ pub fn execute_private_workspace_ctee_action_response(
         "object": "ioi.runtime_ctee_private_workspace_admission",
         "status": "admitted",
         "action_executed": true,
-        "source": "rust_ctee_private_workspace_command",
-        "backend": request.backend.unwrap_or_else(|| "ctee_operator".to_string()),
+        "source": "rust_ctee_private_workspace_protocol",
+        "backend": "ctee_operator",
         "thread_id": request.thread_id,
         "agent_id": request.agent_id,
         "invocation_id": record.result.invocation_id.clone(),
@@ -341,10 +339,9 @@ mod tests {
     }
 
     #[test]
-    fn rust_core_shapes_ctee_receipt_command_response() {
-        let response =
-            execute_private_workspace_ctee_action_response(CteePrivateWorkspaceBridgeRequest {
-                backend: Some("ctee_operator".to_string()),
+    fn rust_core_shapes_ctee_receipt_protocol_response() {
+        let response = execute_private_workspace_ctee_action_protocol_response(
+            CteePrivateWorkspaceProtocolRequest {
                 thread_id: Some("thread:ctee".to_string()),
                 agent_id: Some("agent:ctee".to_string()),
                 invocation: ctee_invocation(),
@@ -354,10 +351,11 @@ mod tests {
                     attestation_ref: Some("attestation://ctee".to_string()),
                 },
                 expected_heads: vec![],
-            })
-            .expect("ctee response");
+            },
+        )
+        .expect("ctee response");
 
-        assert_eq!(response["source"], "rust_ctee_private_workspace_command");
+        assert_eq!(response["source"], "rust_ctee_private_workspace_protocol");
         assert_eq!(
             response["schema_version"],
             "ioi.runtime.ctee_private_workspace_admission.v1"

@@ -277,9 +277,6 @@ pub fn dispatch_command_operation_response(
             plan_model_mount_read_projection_response(decode(raw_request)?)
                 .map_err(CommandDispatchError::from)
         }
-        CommandOperation::ExecutePrivateWorkspaceCteeAction => {
-            execute_private_workspace_ctee_action_response(decode(raw_request)?).map_err(Into::into)
-        }
         CommandOperation::AdmitWorkerServicePackageInvocation => {
             admit_worker_service_package_invocation_response(decode(raw_request)?)
                 .map_err(Into::into)
