@@ -7,8 +7,7 @@ import {
 
 function runtimeSurveyPlan(request) {
   return {
-    source: "rust_model_mount_runtime_survey_command",
-    backend: "rust_model_mount_runtime_survey",
+    source: "rust_daemon_core.model_mount.runtime_survey",
     public_response: {
       schemaVersion: "ioi.model-mounting.runtime.v1",
       object: "ioi.model_mount_runtime_survey",

@@ -1375,7 +1375,7 @@ function runDocs() {
       /Implementation Slice Evidence: 870/.test(matrix) &&
       /Slice 870 retired the one-function JS `runtime-survey\.mjs` helper module/.test(matrix) &&
       /Model_mount runtime-survey capture positive API/.test(matrix) &&
-      /public `runtimeSurvey\(\)` now calls Rust daemon-core `plan_model_mount_runtime_survey`/.test(matrix) &&
+      /public `runtimeSurvey\(\)` now calls typed `daemonCoreModelMountApi\.planModelMountRuntimeSurvey`, backed by Rust `RuntimeKernelService::plan_model_mount_runtime_survey`/.test(matrix) &&
       /requires Rust Agentgres model_mount receipt-state commit before returning public survey truth/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 870 is now satisfied/.test(matrix) &&
       /Implementation Slice Evidence: 871/.test(matrix) &&
@@ -1858,7 +1858,7 @@ function runDocs() {
       /dedicated `latestRuntimeSurvey\(\)` also sends empty request state plus runtime state_dir/.test(implementationMatrix) &&
       /Rust ignores local provider-health records plus `runtime_survey_input`, and the dead JS runtime-survey projection-input helper is deleted so JS telemetry fallback cannot become public provider-health or runtime-survey truth/.test(implementationMatrix) &&
       /the one-function JS `runtime-survey\.mjs` helper module (?:is|remains) deleted/.test(implementationMatrix) &&
-      /public runtime-survey capture now calls Rust daemon-core `plan_model_mount_runtime_survey`/.test(implementationMatrix) &&
+      /public runtime-survey capture now calls typed `daemonCoreModelMountApi.planModelMountRuntimeSurvey`, backed by Rust `RuntimeKernelService::plan_model_mount_runtime_survey`/.test(implementationMatrix) &&
       /requires Rust Agentgres model_mount receipt-state commit before public truth returns/.test(implementationMatrix) &&
       /mounted public `ModelMountingState\.runtimeSurvey\(\)` is now a Rust-planned, Agentgres receipt-state committed protocol edge/.test(implementationMatrix) &&
       /latest runtime-survey readback now routes through Rust `plan_model_mount_read_projection` kind `latest_runtime_survey` with empty request state plus runtime state_dir receipt replay/.test(implementationMatrix) &&
@@ -8587,9 +8587,10 @@ function runBridge() {
         coreCommandDispatch,
       ) &&
       /model_mount_server_control_command_transport_is_retired/.test(commandProtocolCore) &&
-      /plan_model_mount_runtime_engine_response\(decode\(raw_request\)\?\)/.test(
+      !/plan_model_mount_runtime_engine_response\(decode\(raw_request\)\?\)/.test(
         coreCommandDispatch,
       ) &&
+      /model_mount_runtime_engine_command_transport_is_retired/.test(commandProtocolCore) &&
       !/plan_model_mount_runtime_engine_required_response/.test(coreCommandDispatch) &&
       /plan_model_mount_tokenizer_required_response\(decode\(raw_request\)\?\)/.test(
         coreCommandDispatch,
@@ -8617,7 +8618,8 @@ function runBridge() {
       !/rust_core_shapes_model_mount_server_control_required_command_response/.test(
         modelMountCore,
       ) &&
-      /rust_core_shapes_model_mount_runtime_engine_command_response/.test(
+      /rust_core_plans_model_mount_runtime_engine_direct_api/.test(modelMountCore) &&
+      !/rust_core_shapes_model_mount_runtime_engine_command_response/.test(
         modelMountCore,
       ) &&
       !/rust_core_shapes_model_mount_runtime_engine_required_command_response/.test(
@@ -8808,8 +8810,8 @@ function runBridge() {
       !/pub fn plan_model_mount_server_control_response/.test(modelMountCore) &&
       !/ModelMountServerControlRequiredBridgeRequest/.test(modelMountCore) &&
       !/plan_model_mount_server_control_required_response/.test(modelMountCore) &&
-      /pub struct ModelMountRuntimeEngineBridgeRequest/.test(modelMountCore) &&
-      /pub fn plan_model_mount_runtime_engine_response/.test(modelMountCore) &&
+      !/pub struct ModelMountRuntimeEngineBridgeRequest/.test(modelMountCore) &&
+      !/pub fn plan_model_mount_runtime_engine_response/.test(modelMountCore) &&
       !/ModelMountRuntimeEngineRequiredBridgeRequest/.test(modelMountCore) &&
       !/plan_model_mount_runtime_engine_required_response/.test(modelMountCore) &&
       /pub struct ModelMountTokenizerRequiredBridgeRequest/.test(modelMountCore) &&
@@ -8824,7 +8826,7 @@ function runBridge() {
       !/rust_model_mount_artifact_endpoint_command/.test(modelMountArtifactEndpointEvidence) &&
       !/rust_model_mount_server_control_command/.test(modelMountCore) &&
       !/rust_model_mount_server_control_required_command/.test(modelMountCore) &&
-      /rust_model_mount_runtime_engine_command/.test(modelMountCore) &&
+      !/rust_model_mount_runtime_engine_command/.test(modelMountCore) &&
       !/rust_model_mount_runtime_engine_required_command/.test(modelMountCore) &&
       /rust_model_mount_tokenizer_required_command/.test(modelMountCore) &&
       /rust_model_mount_route_control_required_command/.test(modelMountCore) &&
@@ -8846,7 +8848,8 @@ function runBridge() {
       !/rust_core_shapes_model_mount_server_control_command_response/.test(
         modelMountCore,
       ) &&
-      /rust_core_shapes_model_mount_runtime_engine_command_response/.test(
+      /rust_core_plans_model_mount_runtime_engine_direct_api/.test(modelMountCore) &&
+      !/rust_core_shapes_model_mount_runtime_engine_command_response/.test(
         modelMountCore,
       ) &&
       !/rust_core_shapes_model_mount_runtime_engine_required_command_response/.test(
@@ -8875,9 +8878,10 @@ function runBridge() {
         coreCommandDispatch,
       ) &&
       /model_mount_server_control_command_transport_is_retired/.test(commandProtocolCore) &&
-      /plan_model_mount_runtime_engine_response\(decode\(raw_request\)\?\)/.test(
+      !/plan_model_mount_runtime_engine_response\(decode\(raw_request\)\?\)/.test(
         coreCommandDispatch,
       ) &&
+      /model_mount_runtime_engine_command_transport_is_retired/.test(commandProtocolCore) &&
       !/plan_model_mount_runtime_engine_required_response/.test(coreCommandDispatch) &&
       /plan_model_mount_tokenizer_required_response\(decode\(raw_request\)\?\)/.test(
         coreCommandDispatch,
@@ -22957,24 +22961,28 @@ function runReceipts() {
       !exists("packages/runtime-daemon/src/model-mounting/runtime-engines.test.mjs") &&
       !/from "\.\/model-mounting\/runtime-engines\.mjs"/.test(modelMountingState) &&
       /planRuntimeEngine\(request\)\s*\{[\s\S]*this\.modelMountCore\.planRuntimeEngine\(request\)/.test(modelMountingState) &&
-      /planRuntimeEngine\(request\)\s*\{[\s\S]*operation:\s*"plan_model_mount_runtime_engine"/.test(modelMountCore) &&
-      /RUST_MODEL_MOUNT_RUNTIME_ENGINE_BACKEND/.test(modelMountCore) &&
-      /normalizeRuntimeEngineBridgeResult/.test(modelMountCore) &&
+      /MODEL_MOUNT_RUNTIME_ENGINE_API_METHOD = "planModelMountRuntimeEngine"/.test(modelMountCore) &&
+      /planRuntimeEngine\(request\)\s*\{[\s\S]*invokeModelMountApi\(MODEL_MOUNT_RUNTIME_ENGINE_API_METHOD,\s*request\)/.test(modelMountCore) &&
+      /normalizeRuntimeEngineApiResult/.test(modelMountCore) &&
+      !/RUST_MODEL_MOUNT_RUNTIME_ENGINE_BACKEND/.test(modelMountCore) &&
+      !/normalizeRuntimeEngineBridgeResult/.test(modelMountCore) &&
       !/planRuntimeEngineRequired/.test(modelMountCore) &&
       !/RUST_MODEL_MOUNT_RUNTIME_ENGINE_REQUIRED_BACKEND/.test(modelMountCore) &&
       !/plan_model_mount_runtime_engine_required/.test(modelMountCore) &&
       !/runtimeEngineRequired\(operation_kind/.test(modelMountingState) &&
       /mod runtime_engine;/.test(modelMountCore) &&
       /ModelMountRuntimeEngineRequest/.test(modelMountCore) &&
-      /ModelMountRuntimeEngineBridgeRequest/.test(modelMountCore) &&
-      /plan_model_mount_runtime_engine_response/.test(modelMountCore) &&
+      !/ModelMountRuntimeEngineBridgeRequest/.test(modelMountCore) &&
+      !/plan_model_mount_runtime_engine_response/.test(modelMountCore) &&
       !/ModelMountRuntimeEngineRequiredRequest/.test(modelMountCore) &&
       !/ModelMountRuntimeEngineRequiredBridgeRequest/.test(modelMountCore) &&
       !/plan_model_mount_runtime_engine_required_response/.test(modelMountCore) &&
       /pub struct ModelMountRuntimeEngineRequest/.test(modelMountRuntimeEngineCore) &&
-      /pub struct ModelMountRuntimeEngineBridgeRequest/.test(modelMountRuntimeEngineCore) &&
-      /pub fn plan_model_mount_runtime_engine_response/.test(modelMountRuntimeEngineCore) &&
+      !/pub struct ModelMountRuntimeEngineBridgeRequest/.test(modelMountRuntimeEngineCore) &&
+      !/pub fn plan_model_mount_runtime_engine_response/.test(modelMountRuntimeEngineCore) &&
       /pub\(super\) fn plan_runtime_engine/.test(modelMountRuntimeEngineCore) &&
+      /pub fn plan_runtime_engine/.test(modelMountCore) &&
+      /pub fn plan_model_mount_runtime_engine/.test(read("crates/services/src/agentic/runtime/kernel/mod.rs")) &&
       /MODEL_MOUNT_RUNTIME_ENGINE_SCHEMA_VERSION/.test(modelMountRuntimeEngineCore) &&
       /MODEL_MOUNT_RUNTIME_ENGINE_PLAN_SCHEMA_VERSION/.test(modelMountRuntimeEngineCore) &&
       /runtime_engine_operation_supported/.test(modelMountRuntimeEngineCore) &&
@@ -22985,9 +22993,11 @@ function runReceipts() {
       /public_runtime_engine_js_facade_retired/.test(modelMountRuntimeEngineCore) &&
       /rust_daemon_core_runtime_engine/.test(modelMountRuntimeEngineCore) &&
       /agentgres_runtime_engine_truth_required/.test(modelMountRuntimeEngineCore) &&
-      /rust_core_shapes_model_mount_runtime_engine_command_response/.test(modelMountRuntimeEngineCore) &&
+      /rust_core_plans_model_mount_runtime_engine_direct_api/.test(modelMountRuntimeEngineCore) &&
+      !/rust_core_shapes_model_mount_runtime_engine_command_response/.test(modelMountRuntimeEngineCore) &&
       !exists("crates/services/src/agentic/runtime/kernel/model_mount/required/runtime_engine.rs") &&
-      /plan_model_mount_runtime_engine_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      !/plan_model_mount_runtime_engine_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      /model_mount_runtime_engine_command_transport_is_retired/.test(commandProtocolCore) &&
       !/plan_model_mount_runtime_engine_required_response/.test(coreCommandDispatch) &&
       !/plan_model_mount_runtime_engine_required_response as plan_model_mount_runtime_engine_required/.test(bridgeModule) &&
       !/plan_model_mount_runtime_engine_response as plan_model_mount_runtime_engine/.test(bridgeModule) &&
@@ -23028,8 +23038,9 @@ function runReceipts() {
       /assert\.deepEqual\(state\.recordStateCommits,\s*\[\]\)/.test(runtimeEngineMountedTest) &&
       /mounted runtime-engine requests ignore retired camelCase aliases/.test(runtimeEngineMountedTest) &&
       /Rust model_mount core sends positive runtime-engine request/.test(modelMountCoreTest) &&
-      /calls\[0\]\.request\.operation,\s*"plan_model_mount_runtime_engine"/.test(modelMountCoreTest) &&
-      /calls\[0\]\.request\.backend,\s*RUST_MODEL_MOUNT_RUNTIME_ENGINE_BACKEND/.test(modelMountCoreTest) &&
+      /MODEL_MOUNT_RUNTIME_ENGINE_API_METHOD/.test(modelMountCoreTest) &&
+      /assertDirectModelMountApiCall\(calls\[0\],\s*MODEL_MOUNT_RUNTIME_ENGINE_API_METHOD/.test(modelMountCoreTest) &&
+      /Rust model_mount core rejects command-shaped runtime-engine fallback/.test(modelMountCoreTest) &&
       /loadModelMountingMap applies Rust-admitted tombstone records/.test(
         read("packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs"),
       ) &&
@@ -23090,24 +23101,30 @@ function runReceipts() {
       /rust_daemon_core_runtime_survey/.test(modelMountingRoot) &&
       /agentgres_runtime_survey_truth_required/.test(modelMountingRoot) &&
       /operation_kind:\s*"model_mount\.runtime_survey\.capture"/.test(modelMountingRoot) &&
-      /RUST_MODEL_MOUNT_RUNTIME_SURVEY_BACKEND/.test(modelMountCore) &&
-      /planRuntimeSurvey\(request\)\s*\{[\s\S]*?operation:\s*"plan_model_mount_runtime_survey"/.test(
+      /MODEL_MOUNT_RUNTIME_SURVEY_API_METHOD = "planModelMountRuntimeSurvey"/.test(modelMountCore) &&
+      /planRuntimeSurvey\(request\)\s*\{[\s\S]*?invokeModelMountApi\(MODEL_MOUNT_RUNTIME_SURVEY_API_METHOD,\s*request\)/.test(
         modelMountCore,
       ) &&
-      /normalizeRuntimeSurveyBridgeResult/.test(modelMountCore) &&
+      /normalizeRuntimeSurveyApiResult/.test(modelMountCore) &&
+      !/RUST_MODEL_MOUNT_RUNTIME_SURVEY_BACKEND/.test(modelMountCore) &&
+      !/normalizeRuntimeSurveyBridgeResult/.test(modelMountCore) &&
       /model_mount_runtime_survey_plan_invalid/.test(modelMountCore) &&
-      /plan_model_mount_runtime_survey_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
-      /PlanModelMountRuntimeSurvey/.test(commandProtocolCore) &&
-      /"plan_model_mount_runtime_survey"/.test(commandProtocolCore) &&
+      !/plan_model_mount_runtime_survey_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      !/PlanModelMountRuntimeSurvey/.test(commandProtocolCore) &&
+      /model_mount_runtime_survey_command_transport_is_retired/.test(commandProtocolCore) &&
       /mod runtime_survey;/.test(modelMountCore) &&
-      /plan_model_mount_runtime_survey_response/.test(modelMountCore) &&
+      !/plan_model_mount_runtime_survey_response/.test(modelMountCore) &&
       /pub fn plan_runtime_survey/.test(modelMountCore) &&
+      /pub fn plan_model_mount_runtime_survey/.test(read("crates/services/src/agentic/runtime/kernel/mod.rs")) &&
       /pub struct ModelMountRuntimeSurveyRequest/.test(modelMountRuntimeSurveyCore) &&
-      /pub fn plan_model_mount_runtime_survey_response/.test(modelMountRuntimeSurveyCore) &&
+      !/pub fn plan_model_mount_runtime_survey_response/.test(modelMountRuntimeSurveyCore) &&
       /rust_core_plans_runtime_survey_receipt_from_agentgres_runtime_engine_replay/.test(
         modelMountRuntimeSurveyCore,
       ) &&
-      /rust_core_shapes_model_mount_runtime_survey_command_response/.test(
+      /rust_core_plans_model_mount_runtime_survey_direct_api/.test(
+        modelMountRuntimeSurveyCore,
+      ) &&
+      !/rust_core_shapes_model_mount_runtime_survey_command_response/.test(
         modelMountRuntimeSurveyCore,
       ) &&
       /runtime_projection\(&state_dir,\s*"runtime_engines"/.test(modelMountRuntimeSurveyCore) &&

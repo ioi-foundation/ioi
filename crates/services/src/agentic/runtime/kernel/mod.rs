@@ -129,7 +129,9 @@ use model_mount::{
     ModelMountProviderLifecycleResult, ModelMountProviderResultAdmissionRecord,
     ModelMountProviderResultAdmissionRequest, ModelMountProviderStreamInvocationResult,
     ModelMountRouteControlPlan, ModelMountRouteControlRequest, ModelMountRouteDecisionRecord,
-    ModelMountRouteDecisionRequest, ModelMountStorageControlPlan, ModelMountStorageControlRequest,
+    ModelMountRouteDecisionRequest, ModelMountRuntimeEnginePlan, ModelMountRuntimeEngineRequest,
+    ModelMountRuntimeSurveyPlan, ModelMountRuntimeSurveyRequest, ModelMountStorageControlPlan,
+    ModelMountStorageControlRequest,
 };
 use plan::{validate_plan, ExecutablePlan, PlanValidationError};
 use policy::{
@@ -909,6 +911,20 @@ impl RuntimeKernelService {
         request: &ModelMountRouteControlRequest,
     ) -> Result<ModelMountRouteControlPlan, ModelMountError> {
         ModelMountCore.plan_route_control(request)
+    }
+
+    pub fn plan_model_mount_runtime_engine(
+        &self,
+        request: &ModelMountRuntimeEngineRequest,
+    ) -> Result<ModelMountRuntimeEnginePlan, ModelMountError> {
+        ModelMountCore.plan_runtime_engine(request)
+    }
+
+    pub fn plan_model_mount_runtime_survey(
+        &self,
+        request: &ModelMountRuntimeSurveyRequest,
+    ) -> Result<ModelMountRuntimeSurveyPlan, ModelMountError> {
+        ModelMountCore.plan_runtime_survey(request)
     }
 
     pub fn validate_tool_invocation(

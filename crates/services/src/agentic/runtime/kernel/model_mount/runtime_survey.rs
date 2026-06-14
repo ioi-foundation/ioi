@@ -43,13 +43,6 @@ pub struct ModelMountRuntimeSurveyPlan {
     pub survey_hash: String,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct ModelMountRuntimeSurveyBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: ModelMountRuntimeSurveyRequest,
-}
-
 impl ModelMountRuntimeSurveyRequest {
     pub fn validate(&self) -> Result<(), ModelMountError> {
         if self.schema_version != MODEL_MOUNT_RUNTIME_SURVEY_SCHEMA_VERSION {
@@ -75,31 +68,6 @@ impl ModelMountRuntimeSurveyRequest {
         }
         Ok(())
     }
-}
-
-pub fn plan_model_mount_runtime_survey_response(
-    request: ModelMountRuntimeSurveyBridgeRequest,
-) -> Result<Value, ModelMountError> {
-    let plan = plan_runtime_survey(&request.request)?;
-    let receipt = plan.receipt.clone();
-    let public_response = plan.public_response.clone();
-    let receipt_refs = plan.receipt_refs.clone();
-    let evidence_refs = plan.evidence_refs.clone();
-    let survey_hash = plan.survey_hash.clone();
-    let operation_kind = plan.operation_kind.clone();
-    let rust_core_boundary = plan.rust_core_boundary.clone();
-    Ok(json!({
-        "source": "rust_model_mount_runtime_survey_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_model_mount_runtime_survey".to_string()),
-        "plan": plan,
-        "receipt": receipt,
-        "public_response": public_response,
-        "receipt_refs": receipt_refs,
-        "evidence_refs": evidence_refs,
-        "survey_hash": survey_hash,
-        "operation_kind": operation_kind,
-        "rust_core_boundary": rust_core_boundary,
-    }))
 }
 
 pub(super) fn plan_runtime_survey(
@@ -436,29 +404,20 @@ mod tests {
     }
 
     #[test]
-    fn rust_core_shapes_model_mount_runtime_survey_command_response() {
+    fn rust_core_plans_model_mount_runtime_survey_direct_api() {
         let temp = tempfile::tempdir().expect("tempdir");
         write_runtime_engine_record(temp.path());
 
-        let response =
-            plan_model_mount_runtime_survey_response(ModelMountRuntimeSurveyBridgeRequest {
-                backend: Some("rust_model_mount_runtime_survey".to_string()),
-                request: request(temp.path().to_string_lossy().to_string()),
-            })
-            .expect("runtime survey command response");
+        let response = plan_runtime_survey(&request(temp.path().to_string_lossy().to_string()))
+            .expect("runtime survey direct api plan");
 
-        assert_eq!(
-            response["source"],
-            "rust_model_mount_runtime_survey_command"
-        );
-        assert_eq!(response["backend"], "rust_model_mount_runtime_survey");
-        assert_eq!(response["operation_kind"], RUNTIME_SURVEY_OPERATION_KIND);
-        assert_eq!(response["rust_core_boundary"], RUNTIME_SURVEY_BOUNDARY);
-        assert_eq!(response["receipt"]["kind"], "runtime_survey");
-        assert!(response["survey_hash"]
-            .as_str()
-            .expect("survey hash")
-            .starts_with("sha256:"));
+        assert_eq!(response.operation_kind, RUNTIME_SURVEY_OPERATION_KIND);
+        assert_eq!(response.rust_core_boundary, RUNTIME_SURVEY_BOUNDARY);
+        assert_eq!(response.receipt["kind"], "runtime_survey");
+        assert!(response.survey_hash.starts_with("sha256:"));
+        assert!(response
+            .evidence_refs
+            .contains(&"rust_daemon_core_runtime_survey".to_string()));
     }
 
     #[test]

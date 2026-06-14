@@ -15,6 +15,8 @@ import {
   MODEL_MOUNT_PROVIDER_STREAM_INVOCATION_API_METHOD,
   MODEL_MOUNT_ROUTE_CONTROL_API_METHOD,
   MODEL_MOUNT_ROUTE_DECISION_API_METHOD,
+  MODEL_MOUNT_RUNTIME_ENGINE_API_METHOD,
+  MODEL_MOUNT_RUNTIME_SURVEY_API_METHOD,
   MODEL_MOUNT_SERVER_CONTROL_API_METHOD,
   MODEL_MOUNT_STORAGE_CONTROL_API_METHOD,
   ModelMountCoreError,
@@ -25,8 +27,6 @@ import {
   RUST_MODEL_MOUNT_PROVIDER_CONTROL_BACKEND,
   RUST_MODEL_MOUNT_RECEIPT_GATE_BACKEND,
   RUST_MODEL_MOUNT_ROUTE_CONTROL_REQUIRED_BACKEND,
-  RUST_MODEL_MOUNT_RUNTIME_ENGINE_BACKEND,
-  RUST_MODEL_MOUNT_RUNTIME_SURVEY_BACKEND,
   RUST_MODEL_MOUNT_STREAM_CANCEL_BACKEND,
   RUST_MODEL_MOUNT_STREAM_COMPLETION_BACKEND,
   RUST_MODEL_MOUNT_TOKENIZER_BACKEND,
@@ -1611,82 +1611,51 @@ test("Rust model_mount core sends positive server-control request", () => {
 test("Rust model_mount core sends positive runtime-engine request", () => {
   const calls = [];
   const runner = new ModelMountCore({
-    daemonCoreInvoker(request) {
-      calls.push({ request });
-      return {
-        ok: true,
-        result: {
-          source: "rust_model_mount_runtime_engine_command",
-          backend: RUST_MODEL_MOUNT_RUNTIME_ENGINE_BACKEND,
-          plan: {
-            schema_version: "ioi.model_mount.runtime_engine_plan.v1",
-            object: "ioi.model_mount_runtime_engine_plan",
-            status: "planned",
-            rust_core_boundary: "model_mount.runtime_engine",
-            operation_kind: request.request.operation_kind,
-            source: request.request.source,
-            record_dir: "runtime-engine-controls",
-            record_id: "runtime-engine-control:positive",
-            record: {
-              id: "runtime-engine-control:positive",
-              object: "ioi.model_mount_runtime_engine_record",
-              engine_id: request.request.engine_id,
-              rust_core_boundary: "model_mount.runtime_engine",
-              operation_kind: request.request.operation_kind,
-            },
-            public_response: {
-              object: "ioi.model_mount_runtime_engine",
-              status: "planned",
-              engine_id: request.request.engine_id,
-              operation_kind: request.request.operation_kind,
-            },
-            receipt_refs: request.request.receipt_refs,
-            evidence_refs: [
-              "public_runtime_engine_js_facade_retired",
-              "rust_daemon_core_runtime_engine",
-              "agentgres_runtime_engine_truth_required",
-            ],
-            control_hash: "sha256:runtime-engine",
-          },
+    daemonCoreModelMountApi: {
+      planModelMountRuntimeEngine(request) {
+        calls.push({ method: MODEL_MOUNT_RUNTIME_ENGINE_API_METHOD, request });
+        return {
+          source: "rust_daemon_core.model_mount.runtime_engine",
+          schema_version: "ioi.model_mount.runtime_engine_plan.v1",
+          object: "ioi.model_mount_runtime_engine_plan",
+          status: "planned",
+          rust_core_boundary: "model_mount.runtime_engine",
+          operation_kind: request.operation_kind,
           record_dir: "runtime-engine-controls",
           record_id: "runtime-engine-control:positive",
           record: {
             id: "runtime-engine-control:positive",
             object: "ioi.model_mount_runtime_engine_record",
-            engine_id: request.request.engine_id,
+            engine_id: request.engine_id,
             rust_core_boundary: "model_mount.runtime_engine",
-            operation_kind: request.request.operation_kind,
+            operation_kind: request.operation_kind,
           },
           public_response: {
             object: "ioi.model_mount_runtime_engine",
             status: "planned",
-            engine_id: request.request.engine_id,
-            operation_kind: request.request.operation_kind,
+            engine_id: request.engine_id,
+            operation_kind: request.operation_kind,
           },
-          receipt_refs: request.request.receipt_refs,
+          receipt_refs: request.receipt_refs,
           evidence_refs: [
             "public_runtime_engine_js_facade_retired",
             "rust_daemon_core_runtime_engine",
             "agentgres_runtime_engine_truth_required",
           ],
           control_hash: "sha256:runtime-engine",
-          operation_kind: request.request.operation_kind,
-          rust_core_boundary: "model_mount.runtime_engine",
-        },
-      };
+        };
+      },
     },
+    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(calls),
   });
 
   const result = runner.planRuntimeEngine(runtimeEngineRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
-  assert.equal(calls[0].request.operation, "plan_model_mount_runtime_engine");
-  assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_RUNTIME_ENGINE_BACKEND);
-  assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.runtime_engine.v1");
-  assert.equal(calls[0].request.request.operation_kind, "model_mount.runtime_engine_profile.write");
-  assert.equal(calls[0].request.request.engine_id, "backend.llama-cpp");
-  assert.equal(calls[0].request.request.body.default_load_options.gpu_layers, 4);
+  assertDirectModelMountApiCall(calls[0], MODEL_MOUNT_RUNTIME_ENGINE_API_METHOD, "ioi.model_mount.runtime_engine.v1");
+  assert.equal(calls[0].request.operation_kind, "model_mount.runtime_engine_profile.write");
+  assert.equal(calls[0].request.engine_id, "backend.llama-cpp");
+  assert.equal(calls[0].request.body.default_load_options.gpu_layers, 4);
   assert.equal(result.record_dir, "runtime-engine-controls");
   assert.equal(result.operation_kind, "model_mount.runtime_engine_profile.write");
   assert.equal(result.rust_core_boundary, "model_mount.runtime_engine");
@@ -1694,69 +1663,40 @@ test("Rust model_mount core sends positive runtime-engine request", () => {
   assert.equal(result.control_hash, "sha256:runtime-engine");
 });
 
+test("Rust model_mount core rejects command-shaped runtime-engine fallback", () => {
+  const runner = new ModelMountCore({
+    daemonCoreInvoker(request) {
+      throw new Error(`generic command invoker must not run runtime engine: ${request?.operation}`);
+    },
+  });
+
+  assert.throws(
+    () => runner.planRuntimeEngine(runtimeEngineRequest()),
+    (error) =>
+      error instanceof ModelMountCoreError &&
+      error.code === "model_mount_core_direct_model_mount_api_unconfigured" &&
+      error.details.boundary === "daemonCoreModelMountApi.planModelMountRuntimeEngine",
+  );
+});
+
 test("Rust model_mount core sends positive runtime-survey request", () => {
   const calls = [];
   const runner = new ModelMountCore({
-    daemonCoreInvoker(request) {
-      calls.push({ request });
-      return {
-        ok: true,
-        result: {
-          source: "rust_model_mount_runtime_survey_command",
-          backend: RUST_MODEL_MOUNT_RUNTIME_SURVEY_BACKEND,
-          plan: {
-            schema_version: "ioi.model_mount.runtime_survey_plan.v1",
-            object: "ioi.model_mount_runtime_survey_plan",
-            status: "planned",
-            rust_core_boundary: "model_mount.runtime_survey",
-            operation_kind: request.request.operation_kind,
-            source: request.request.source,
-            receipt: {
-              id: "receipt_runtime_survey_test",
-              kind: "runtime_survey",
-              schemaVersion: "ioi.model-mounting.runtime.v1",
-              createdAt: request.request.generated_at,
-              redaction: "redacted",
-              evidenceRefs: [
-                "model_mount_runtime_survey_js_facade_retired",
-                "rust_daemon_core_runtime_survey",
-                "agentgres_runtime_survey_truth_required",
-                "rust_model_mount_core",
-              ],
-              details: {
-                checked_at: request.request.generated_at,
-                engine_count: 1,
-                selected_engines: [{ id: "backend.llama-cpp", selected: true }],
-                runtime_preference: { selected_engine_id: "backend.llama-cpp" },
-                hardware: { status: "checked", js_probe_execution: false },
-                lm_studio: { status: "not_checked", js_cli_execution: false },
-                runtime_survey_hash: "sha256:runtime-survey",
-                rust_daemon_core_receipt_author: "model_mount.runtime_survey",
-                js_hardware_probe_executed: false,
-                js_runtime_engine_read_executed: false,
-                js_lm_studio_probe_executed: false,
-              },
-            },
-            public_response: {
-              object: "ioi.model_mount_runtime_survey",
-              status: "checked",
-              receiptId: "receipt_runtime_survey_test",
-              engineCount: 1,
-            },
-            receipt_refs: ["receipt_runtime_survey_test"],
-            evidence_refs: [
-              "model_mount_runtime_survey_js_facade_retired",
-              "rust_daemon_core_runtime_survey",
-              "agentgres_runtime_survey_truth_required",
-              "rust_model_mount_core",
-            ],
-            survey_hash: "sha256:runtime-survey",
-          },
+    daemonCoreModelMountApi: {
+      planModelMountRuntimeSurvey(request) {
+        calls.push({ method: MODEL_MOUNT_RUNTIME_SURVEY_API_METHOD, request });
+        return {
+          source: "rust_daemon_core.model_mount.runtime_survey",
+          schema_version: "ioi.model_mount.runtime_survey_plan.v1",
+          object: "ioi.model_mount_runtime_survey_plan",
+          status: "planned",
+          rust_core_boundary: "model_mount.runtime_survey",
+          operation_kind: request.operation_kind,
           receipt: {
             id: "receipt_runtime_survey_test",
             kind: "runtime_survey",
             schemaVersion: "ioi.model-mounting.runtime.v1",
-            createdAt: request.request.generated_at,
+            createdAt: request.generated_at,
             redaction: "redacted",
             evidenceRefs: [
               "model_mount_runtime_survey_js_facade_retired",
@@ -1765,7 +1705,7 @@ test("Rust model_mount core sends positive runtime-survey request", () => {
               "rust_model_mount_core",
             ],
             details: {
-              checked_at: request.request.generated_at,
+              checked_at: request.generated_at,
               engine_count: 1,
               selected_engines: [{ id: "backend.llama-cpp", selected: true }],
               runtime_preference: { selected_engine_id: "backend.llama-cpp" },
@@ -1792,28 +1732,40 @@ test("Rust model_mount core sends positive runtime-survey request", () => {
             "rust_model_mount_core",
           ],
           survey_hash: "sha256:runtime-survey",
-          operation_kind: request.request.operation_kind,
-          rust_core_boundary: "model_mount.runtime_survey",
-        },
-      };
+        };
+      },
     },
+    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(calls),
   });
 
   const result = runner.planRuntimeSurvey(runtimeSurveyRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
-  assert.equal(calls[0].request.operation, "plan_model_mount_runtime_survey");
-  assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_RUNTIME_SURVEY_BACKEND);
-  assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.runtime_survey.v1");
-  assert.equal(calls[0].request.request.operation_kind, "model_mount.runtime_survey.capture");
-  assert.equal(calls[0].request.request.state_dir, "/runtime-state");
-  assert.equal(Object.hasOwn(calls[0].request.request, "hardware"), false);
-  assert.equal(Object.hasOwn(calls[0].request.request, "engines"), false);
+  assertDirectModelMountApiCall(calls[0], MODEL_MOUNT_RUNTIME_SURVEY_API_METHOD, "ioi.model_mount.runtime_survey.v1");
+  assert.equal(calls[0].request.operation_kind, "model_mount.runtime_survey.capture");
+  assert.equal(calls[0].request.state_dir, "/runtime-state");
+  assert.equal(Object.hasOwn(calls[0].request, "hardware"), false);
+  assert.equal(Object.hasOwn(calls[0].request, "engines"), false);
   assert.equal(result.receipt.kind, "runtime_survey");
   assert.equal(result.receipt.details.engine_count, 1);
   assert.equal(result.rust_core_boundary, "model_mount.runtime_survey");
   assert.equal(result.survey_hash, "sha256:runtime-survey");
+});
+
+test("Rust model_mount core rejects command-shaped runtime-survey fallback", () => {
+  const runner = new ModelMountCore({
+    daemonCoreInvoker(request) {
+      throw new Error(`generic command invoker must not run runtime survey: ${request?.operation}`);
+    },
+  });
+
+  assert.throws(
+    () => runner.planRuntimeSurvey(runtimeSurveyRequest()),
+    (error) =>
+      error instanceof ModelMountCoreError &&
+      error.code === "model_mount_core_direct_model_mount_api_unconfigured" &&
+      error.details.boundary === "daemonCoreModelMountApi.planModelMountRuntimeSurvey",
+  );
 });
 
 test("Rust model_mount core sends tokenizer required request", () => {

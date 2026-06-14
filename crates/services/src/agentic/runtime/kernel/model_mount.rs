@@ -116,15 +116,9 @@ pub use read_projection::{
 mod route_control;
 pub use route_control::{ModelMountRouteControlPlan, ModelMountRouteControlRequest};
 mod runtime_engine;
-pub use runtime_engine::{
-    plan_model_mount_runtime_engine_response, ModelMountRuntimeEngineBridgeRequest,
-    ModelMountRuntimeEnginePlan, ModelMountRuntimeEngineRequest,
-};
+pub use runtime_engine::{ModelMountRuntimeEnginePlan, ModelMountRuntimeEngineRequest};
 mod runtime_survey;
-pub use runtime_survey::{
-    plan_model_mount_runtime_survey_response, ModelMountRuntimeSurveyBridgeRequest,
-    ModelMountRuntimeSurveyPlan, ModelMountRuntimeSurveyRequest,
-};
+pub use runtime_survey::{ModelMountRuntimeSurveyPlan, ModelMountRuntimeSurveyRequest};
 mod server_control;
 pub use server_control::{ModelMountServerControlPlan, ModelMountServerControlRequest};
 mod tokenizer;
@@ -348,6 +342,13 @@ impl ModelMountCore {
         request: &ModelMountAcceptedReceiptTransitionRequest,
     ) -> Result<ModelMountAcceptedReceiptTransition, ModelMountError> {
         accepted_receipt::plan_accepted_receipt_transition(request)
+    }
+
+    pub fn plan_runtime_engine(
+        &self,
+        request: &ModelMountRuntimeEngineRequest,
+    ) -> Result<ModelMountRuntimeEnginePlan, ModelMountError> {
+        runtime_engine::plan_runtime_engine(request)
     }
 
     pub fn plan_runtime_survey(

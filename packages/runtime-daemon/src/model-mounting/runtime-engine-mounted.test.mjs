@@ -16,8 +16,7 @@ function fakeState() {
       state.runtimeEnginePlans.push(request);
       const recordId = `runtime-engine-control:${state.runtimeEnginePlans.length}`;
       return {
-        source: "rust_model_mount_runtime_engine_command",
-        backend: "rust_model_mount_runtime_engine",
+        source: "rust_daemon_core.model_mount.runtime_engine",
         schema_version: "ioi.model_mount.runtime_engine_plan.v1",
         object: "ioi.model_mount_runtime_engine_plan",
         status: "planned",

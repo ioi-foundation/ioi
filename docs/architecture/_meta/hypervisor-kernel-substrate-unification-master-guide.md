@@ -5139,8 +5139,7 @@ recording, and log append now call typed
 those records through Rust Agentgres model_mount record-state admission, and
 return Rust public responses before any JS state write, log write, command
 envelope, bridge backend tag, or transport execution can run;
-public runtime-engine selection/profile/remove mutations now call Rust
-`plan_model_mount_runtime_engine` through the daemon-core command bridge,
+public runtime-engine selection/profile/remove mutations now call typed `daemonCoreModelMountApi.planModelMountRuntimeEngine`, backed by Rust `RuntimeKernelService::plan_model_mount_runtime_engine`,
 receive Rust-authored `runtime-engine-controls` records with runtime-engine
 evidence, commit only those records through Rust Agentgres model_mount
 record-state admission, and return Rust public responses before any JS runtime
@@ -8039,27 +8038,20 @@ mounted route selection, explicit-model endpoint resolution, and runtime
 explicit/run-override model-route selection now call typed
 `daemonCoreModelMountApi.planModelMountRouteControl`, backed by Rust
 `RuntimeKernelService::plan_model_mount_route_control`, and runtime-engine
-selection/profile/remove mutations still use the positive Rust
-`plan_model_mount_runtime_engine` command plus Rust Agentgres model_mount
-record-state commits. The owner tests prove both the required route-control
-record family for unmigrated helper edges and the positive runtime-engine
-command, while `command_protocol.rs` now rejects the retired
+selection/profile/remove mutations now call typed `daemonCoreModelMountApi.planModelMountRuntimeEngine`, backed by Rust `RuntimeKernelService::plan_model_mount_runtime_engine`, with Rust Agentgres model_mount record-state commits. The owner tests prove the required route-control record family for unmigrated helper edges, the positive runtime-engine direct API, and the retired runtime-engine command transport, while `command_protocol.rs` now rejects the retired
 `plan_model_mount_route_control` operation and the old bridge-named tests,
 request-type imports, and response-function aliases stay absent from
 `ioi_step_module_bridge/proof_tests.rs`. Server-control later moved to the
 positive `plan_model_mount_server_control` boundary and its required-record
-command stayed retired; runtime-engine likewise moved to positive
-`plan_model_mount_runtime_engine` and retired its required-record command;
+command stayed retired; runtime-engine likewise moved to typed `daemonCoreModelMountApi.planModelMountRuntimeEngine` and retired its command transport plus required-record command;
 backend lifecycle likewise moved to positive
 `plan_model_mount_backend_lifecycle` and retired its required-record command. The
 bridge proof suite now runs 35 tests.
 
-This remains non-terminal because backend-process planning, invocation route
-selection, runtime-engine control, tokenizer/context-fit control, and adjacent
+This remains non-terminal because backend-process planning, invocation route selection, tokenizer/context-fit control, and adjacent
 model_mount helpers still cross temporary command transport. Public
 route-control planning no longer does. The target is direct Rust daemon-core
-model-mount protocol/API ownership where backend supervision, runtime-engine
-control, tokenizer/context-fit control, Agentgres truth, replay, and stable
+model-mount protocol/API ownership where backend supervision, tokenizer/context-fit control, Agentgres truth, replay, and stable
 IDE/CLI/SDK surfaces no longer depend on Node bridge endpoint proof scaffolding.
 
 Slice 1186 moves the remaining model-mount accepted-receipt and read-projection
@@ -8648,13 +8640,12 @@ tests are deleted, the daemon store/service pass only `modelMountCore`, and the
 old command/env factory path is gone. Route decision, invocation admission,
 provider execution, provider invocation/stream execution, lifecycle/inventory,
 instance lifecycle, provider-result admission, artifact-endpoint planning,
-storage control, route-control planning, MCP workflow planning, and
-server-control planning now call typed
+storage control, route-control planning, MCP workflow planning, server-control planning, runtime-engine planning, and runtime-survey planning now call typed
 `daemonCoreModelMountApi` methods instead of command envelopes. Rust rejects the
 retired command operations, dispatch arms, and bridge request/response wrappers
 for that family. Backend process/lifecycle, remaining required-control,
 accepted-receipt head/transition, read-projection, invocation receipt-binding,
-runtime-engine/survey, tokenizer,
+tokenizer,
 catalog/provider/vault/receipt-gate, conversation/stream, and projection helpers
 still enter Rust through remaining migration transport. The core requires typed
 `daemonCoreModelMountApi` for migrated model_mount APIs, uses
@@ -9346,7 +9337,7 @@ invocation admission, provider-execution admission, provider invocation/stream
 execution, provider lifecycle/inventory, instance lifecycle, provider-result
 admission, artifact-endpoint planning, storage control, route-control planning,
 MCP workflow planning, and server-control planning. Remaining model_mount backend-process/lifecycle, required-control,
-read-projection, receipt-binding, runtime-engine/survey, tokenizer, catalog/provider/vault/
+read-projection, receipt-binding, tokenizer, catalog/provider/vault/
 receipt-gate, conversation/stream, and projection migration transports still
 need direct Rust daemon-core protocol/API ownership.
 

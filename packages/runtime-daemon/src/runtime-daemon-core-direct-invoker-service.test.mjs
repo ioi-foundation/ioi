@@ -420,6 +420,92 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
         control_hash: record.control_hash,
       };
     },
+    planModelMountRuntimeEngine(request) {
+      modelMountCalls.push({ method: "planModelMountRuntimeEngine", request });
+      const record = {
+        id: "runtime-engine-control.direct",
+        object: "ioi.model_mount_runtime_engine_record",
+        status: "planned",
+        engine_id: request.engine_id,
+        operation_kind: request.operation_kind,
+        rust_core_boundary: "model_mount.runtime_engine",
+        public_response: {
+          object: "ioi.model_mount_runtime_engine",
+          status: "planned",
+          engine_id: request.engine_id,
+          operation_kind: request.operation_kind,
+          js_preference_write: false,
+          js_profile_write: false,
+          js_projection_write: false,
+        },
+        receipt_refs: request.receipt_refs ?? [],
+        evidence_refs: [
+          "public_runtime_engine_js_facade_retired",
+          "rust_daemon_core_runtime_engine",
+          "agentgres_runtime_engine_truth_required",
+        ],
+        control_hash: "sha256:direct-runtime-engine",
+      };
+      return {
+        source: "direct_model_mount_api",
+        status: "planned",
+        rust_core_boundary: "model_mount.runtime_engine",
+        operation_kind: request.operation_kind,
+        record_dir: "runtime-engine-controls",
+        record_id: record.id,
+        record,
+        public_response: record.public_response,
+        receipt_refs: request.receipt_refs ?? [],
+        evidence_refs: record.evidence_refs,
+        control_hash: record.control_hash,
+      };
+    },
+    planModelMountRuntimeSurvey(request) {
+      modelMountCalls.push({ method: "planModelMountRuntimeSurvey", request });
+      const receipt = {
+        id: "receipt_runtime_survey_direct",
+        kind: "runtime_survey",
+        schemaVersion: "ioi.model-mounting.runtime.v1",
+        createdAt: request.generated_at,
+        redaction: "redacted",
+        evidenceRefs: [
+          "model_mount_runtime_survey_js_facade_retired",
+          "rust_daemon_core_runtime_survey",
+          "agentgres_runtime_survey_truth_required",
+          "rust_model_mount_core",
+        ],
+        details: {
+          checked_at: request.generated_at,
+          engine_count: 0,
+          selected_engines: [],
+          runtime_preference: {},
+          hardware: { status: "checked", js_probe_execution: false },
+          lm_studio: { status: "not_checked", js_cli_execution: false },
+          runtime_survey_hash: "sha256:direct-runtime-survey",
+          rust_daemon_core_receipt_author: "model_mount.runtime_survey",
+          js_hardware_probe_executed: false,
+          js_runtime_engine_read_executed: false,
+          js_lm_studio_probe_executed: false,
+        },
+      };
+      return {
+        source: "direct_model_mount_api",
+        status: "planned",
+        rust_core_boundary: "model_mount.runtime_survey",
+        operation_kind: request.operation_kind,
+        receipt,
+        public_response: {
+          object: "ioi.model_mount_runtime_survey",
+          status: "checked",
+          receiptId: receipt.id,
+          engineCount: 0,
+          rustCoreBoundary: "model_mount.runtime_survey",
+        },
+        receipt_refs: [receipt.id],
+        evidence_refs: receipt.evidenceRefs,
+        survey_hash: "sha256:direct-runtime-survey",
+      };
+    },
   };
   const directModelMountCore = createModelMountCore({
     daemonCoreInvoker: failCommandInvoker,
@@ -483,6 +569,12 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
       },
       planServerControl(request) {
         return directModelMountCore.planServerControl(request);
+      },
+      planRuntimeEngine(request) {
+        return directModelMountCore.planRuntimeEngine(request);
+      },
+      planRuntimeSurvey(request) {
+        return directModelMountCore.planRuntimeSurvey(request);
       },
     },
     daemonCoreInvoker: failCommandInvoker,
@@ -612,6 +704,38 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
           commit_hash: "sha256:direct-agentgres-commit",
           record: {
             run_id: request.request.run_id,
+          },
+        };
+      },
+      commitRuntimeModelMountReceiptState(request) {
+        agentgresCalls.push({ method: "commitRuntimeModelMountReceiptState", request });
+        const commitRequest = request.request;
+        const recordPath = `receipts/${commitRequest.receipt_id}.json`;
+        return {
+          source: "direct_agentgres_api",
+          backend: "rust_agentgres_storage",
+          receipt_id: commitRequest.receipt_id,
+          object_ref: `agentgres://model-mounting/receipts/${commitRequest.receipt_id}/records/${recordPath}`,
+          content_hash: "sha256:direct-model-mount-receipt-content",
+          admission_hash: "sha256:direct-model-mount-receipt-admission",
+          commit_hash: "sha256:direct-model-mount-receipt-commit",
+          written_record: { record_path: recordPath },
+          record: {
+            schema_version: "ioi.runtime_model_mount_receipt_state_commit.v1",
+            receipt_id: commitRequest.receipt_id,
+            operation_kind: commitRequest.operation_kind,
+            commit_hash: "sha256:direct-model-mount-receipt-commit",
+            record: {
+              object_ref: `agentgres://model-mounting/receipts/${commitRequest.receipt_id}/records/${recordPath}`,
+              content_hash: "sha256:direct-model-mount-receipt-content",
+              admission: { admission_hash: "sha256:direct-model-mount-receipt-admission" },
+            },
+          },
+          storage_record: {
+            record_path: recordPath,
+            object_ref: `agentgres://model-mounting/receipts/${commitRequest.receipt_id}/records/${recordPath}`,
+            content_hash: "sha256:direct-model-mount-receipt-content",
+            admission: { admission_hash: "sha256:direct-model-mount-receipt-admission" },
           },
         };
       },
@@ -985,6 +1109,42 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
   assert.equal(serverPlan.source, "direct_model_mount_api");
   assert.equal(serverPlan.record_id, "server-control.direct");
   assert.equal(serverPlan.rust_core_boundary, "model_mount.server_control");
+  const runtimeEnginePlan = store.modelMounting.planRuntimeEngine({
+    schema_version: "ioi.model_mount.runtime_engine.v1",
+    operation_kind: "model_mount.runtime_engine_profile.write",
+    source: "runtime-daemon.model_mounting.runtime_engine",
+    engine_id: "backend.direct",
+    body: {
+      engine_id: "backend.direct",
+      default_load_options: { gpu_layers: 8 },
+    },
+    receipt_refs: ["receipt://runtime-engine/direct"],
+  });
+  assert.equal(calls.length, 0);
+  assertModelMountDirectApiCall(
+    modelMountCalls.at(-1),
+    "planModelMountRuntimeEngine",
+    "ioi.model_mount.runtime_engine.v1",
+  );
+  assert.equal(runtimeEnginePlan.source, "direct_model_mount_api");
+  assert.equal(runtimeEnginePlan.record_id, "runtime-engine-control.direct");
+  assert.equal(runtimeEnginePlan.rust_core_boundary, "model_mount.runtime_engine");
+  const runtimeSurveyPlan = store.modelMounting.runtimeSurvey();
+  assert.equal(calls.length, 0);
+  assertModelMountDirectApiCall(
+    modelMountCalls.at(-1),
+    "planModelMountRuntimeSurvey",
+    "ioi.model_mount.runtime_survey.v1",
+  );
+  assert.equal(modelMountCalls.at(-1).request.state_dir, stateDir);
+  assert.equal(runtimeSurveyPlan.receiptId, "receipt_runtime_survey_direct");
+  assert.equal(runtimeSurveyPlan.rustCoreBoundary, "model_mount.runtime_survey");
+  assert.equal(agentgresCalls.at(-1).method, "commitRuntimeModelMountReceiptState");
+  assert.equal(agentgresCalls.at(-1).request.state_dir, stateDir);
+  assert.equal(
+    agentgresCalls.at(-1).request.request.receipt_id,
+    "receipt_runtime_survey_direct",
+  );
   const memoryPlan = store.contextPolicyCore.planRuntimeMemoryControl({
     operation: "write",
     operation_kind: "memory.write",
@@ -1023,12 +1183,12 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
     run_id: "run_direct",
   });
   assert.equal(calls.length, 0);
-  assert.equal(agentgresCalls.length, 1);
-  assert.equal(agentgresCalls[0].method, "commitRuntimeRunState");
-  assert.equal(agentgresCalls[0].request.state_dir, stateDir);
-  assert.equal(agentgresCalls[0].request.request.run_id, "run_direct");
-  assert.equal(Object.hasOwn(agentgresCalls[0].request, "operation"), false);
-  assert.equal(Object.hasOwn(agentgresCalls[0].request, "backend"), false);
+  const runStateCommitCall = agentgresCalls.find((call) => call.method === "commitRuntimeRunState");
+  assert.equal(runStateCommitCall.method, "commitRuntimeRunState");
+  assert.equal(runStateCommitCall.request.state_dir, stateDir);
+  assert.equal(runStateCommitCall.request.request.run_id, "run_direct");
+  assert.equal(Object.hasOwn(runStateCommitCall.request, "operation"), false);
+  assert.equal(Object.hasOwn(runStateCommitCall.request, "backend"), false);
   assert.equal(commit.source, "direct_agentgres_api");
   assert.equal(commit.commit_hash, "sha256:direct-agentgres-commit");
 

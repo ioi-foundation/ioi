@@ -13,7 +13,6 @@ import {
   RUST_MODEL_MOUNT_NATIVE_LOCAL_INVENTORY_BACKEND,
   RUST_MODEL_MOUNT_NATIVE_LOCAL_LIFECYCLE_BACKEND,
   RUST_MODEL_MOUNT_PROVIDER_CONTROL_BACKEND,
-  RUST_MODEL_MOUNT_RUNTIME_SURVEY_BACKEND,
   RUST_MODEL_MOUNT_STREAM_COMPLETION_BACKEND,
 } from "./model-mounting/model-mount-core.mjs";
 import { AgentgresModelMountingStore } from "./model-mounting/store.mjs";
@@ -2157,8 +2156,6 @@ function assertRuntimeSurveyPlanRustOwned(plan = {}) {
   const evidenceRefs = Array.isArray(plan.evidence_refs) ? plan.evidence_refs : [];
   const receiptEvidenceRefs = Array.isArray(receipt?.evidenceRefs) ? receipt.evidenceRefs : [];
   const missing = [];
-  if (plan.source !== "rust_model_mount_runtime_survey_command") missing.push("source");
-  if (plan.backend !== RUST_MODEL_MOUNT_RUNTIME_SURVEY_BACKEND) missing.push("backend");
   if (plan.rust_core_boundary !== "model_mount.runtime_survey") missing.push("rust_core_boundary");
   if (plan.operation_kind !== "model_mount.runtime_survey.capture") missing.push("operation_kind");
   if (!plan.survey_hash) missing.push("survey_hash");

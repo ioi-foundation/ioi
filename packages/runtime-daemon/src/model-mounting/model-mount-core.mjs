@@ -8,8 +8,6 @@ export const RUST_MODEL_MOUNT_HOSTED_PROVIDER_LIFECYCLE_BACKEND = "rust_model_mo
 export const RUST_MODEL_MOUNT_BACKEND_PROCESS_BACKEND = "rust_model_mount_backend_process";
 export const RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_BACKEND = "rust_model_mount_backend_lifecycle";
 export const RUST_MODEL_MOUNT_STORAGE_CONTROL_BACKEND = "rust_model_mount_storage_control";
-export const RUST_MODEL_MOUNT_RUNTIME_ENGINE_BACKEND = "rust_model_mount_runtime_engine";
-export const RUST_MODEL_MOUNT_RUNTIME_SURVEY_BACKEND = "rust_model_mount_runtime_survey";
 export const RUST_MODEL_MOUNT_TOKENIZER_REQUIRED_BACKEND = "rust_model_mount_tokenizer_required";
 export const RUST_MODEL_MOUNT_ROUTE_CONTROL_REQUIRED_BACKEND = "rust_model_mount_route_control_required";
 export const RUST_MODEL_MOUNT_CATALOG_PROVIDER_CONTROL_BACKEND = "rust_model_mount_catalog_provider_control";
@@ -41,6 +39,8 @@ export const MODEL_MOUNT_STORAGE_CONTROL_API_METHOD = "planModelMountStorageCont
 export const MODEL_MOUNT_MCP_WORKFLOW_API_METHOD = "planModelMountMcpWorkflow";
 export const MODEL_MOUNT_SERVER_CONTROL_API_METHOD = "planModelMountServerControl";
 export const MODEL_MOUNT_ROUTE_CONTROL_API_METHOD = "planModelMountRouteControl";
+export const MODEL_MOUNT_RUNTIME_ENGINE_API_METHOD = "planModelMountRuntimeEngine";
+export const MODEL_MOUNT_RUNTIME_SURVEY_API_METHOD = "planModelMountRuntimeSurvey";
 
 export function createModelMountCore(options = {}) {
   return new ModelMountCore(options);
@@ -166,23 +166,15 @@ export class ModelMountCore {
   }
 
   planRuntimeEngine(request) {
-    const bridgeRequest = {
-      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
-      operation: "plan_model_mount_runtime_engine",
-      backend: RUST_MODEL_MOUNT_RUNTIME_ENGINE_BACKEND,
-      request,
-    };
-    return normalizeRuntimeEngineBridgeResult(this.invokeDaemonCore(bridgeRequest));
+    return normalizeRuntimeEngineApiResult(
+      this.invokeModelMountApi(MODEL_MOUNT_RUNTIME_ENGINE_API_METHOD, request),
+    );
   }
 
   planRuntimeSurvey(request) {
-    const bridgeRequest = {
-      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
-      operation: "plan_model_mount_runtime_survey",
-      backend: RUST_MODEL_MOUNT_RUNTIME_SURVEY_BACKEND,
-      request,
-    };
-    return normalizeRuntimeSurveyBridgeResult(this.invokeDaemonCore(bridgeRequest));
+    return normalizeRuntimeSurveyApiResult(
+      this.invokeModelMountApi(MODEL_MOUNT_RUNTIME_SURVEY_API_METHOD, request),
+    );
   }
 
   planTokenizerRequired(request) {
@@ -1104,19 +1096,18 @@ function normalizeServerControlApiResult(value = {}) {
   return normalized;
 }
 
-function normalizeRuntimeEngineBridgeResult(value = {}) {
+function normalizeRuntimeEngineApiResult(value = {}) {
   const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   const plan = result.plan && typeof result.plan === "object" && !Array.isArray(result.plan)
     ? result.plan
-    : {};
+    : result;
   const record = result.record && typeof result.record === "object" && !Array.isArray(result.record)
     ? result.record
     : plan.record && typeof plan.record === "object" && !Array.isArray(plan.record)
       ? plan.record
       : null;
   const normalized = {
-    source: result.source ?? "rust_model_mount_runtime_engine_command",
-    backend: result.backend ?? RUST_MODEL_MOUNT_RUNTIME_ENGINE_BACKEND,
+    source: result.source ?? plan.source ?? "rust_daemon_core.model_mount.runtime_engine",
     plan,
     record_dir: result.record_dir ?? plan.record_dir ?? null,
     record_id: result.record_id ?? plan.record_id ?? null,
@@ -1153,7 +1144,6 @@ function normalizeRuntimeEngineBridgeResult(value = {}) {
     error.details = {
       missing,
       source: normalized.source,
-      backend: normalized.backend,
       operation_kind: normalized.operation_kind,
     };
     throw error;
@@ -1161,19 +1151,18 @@ function normalizeRuntimeEngineBridgeResult(value = {}) {
   return normalized;
 }
 
-function normalizeRuntimeSurveyBridgeResult(value = {}) {
+function normalizeRuntimeSurveyApiResult(value = {}) {
   const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   const plan = result.plan && typeof result.plan === "object" && !Array.isArray(result.plan)
     ? result.plan
-    : {};
+    : result;
   const receipt = result.receipt && typeof result.receipt === "object" && !Array.isArray(result.receipt)
     ? result.receipt
     : plan.receipt && typeof plan.receipt === "object" && !Array.isArray(plan.receipt)
       ? plan.receipt
       : null;
   const normalized = {
-    source: result.source ?? "rust_model_mount_runtime_survey_command",
-    backend: result.backend ?? RUST_MODEL_MOUNT_RUNTIME_SURVEY_BACKEND,
+    source: result.source ?? plan.source ?? "rust_daemon_core.model_mount.runtime_survey",
     plan,
     receipt,
     public_response: result.public_response ?? plan.public_response ?? null,
@@ -1232,7 +1221,6 @@ function normalizeRuntimeSurveyBridgeResult(value = {}) {
     error.details = {
       missing,
       source: normalized.source,
-      backend: normalized.backend,
       operation_kind: normalized.operation_kind,
     };
     throw error;

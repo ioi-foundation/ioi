@@ -40,13 +40,6 @@ pub struct ModelMountRuntimeEnginePlan {
     pub control_hash: String,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct ModelMountRuntimeEngineBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: ModelMountRuntimeEngineRequest,
-}
-
 impl ModelMountRuntimeEngineRequest {
     pub fn validate(&self) -> Result<(), ModelMountError> {
         if self.schema_version != MODEL_MOUNT_RUNTIME_ENGINE_SCHEMA_VERSION {
@@ -64,35 +57,6 @@ impl ModelMountRuntimeEngineRequest {
         }
         Ok(())
     }
-}
-
-pub fn plan_model_mount_runtime_engine_response(
-    request: ModelMountRuntimeEngineBridgeRequest,
-) -> Result<Value, ModelMountError> {
-    let plan = plan_runtime_engine(&request.request)?;
-    let record_dir = plan.record_dir.clone();
-    let record_id = plan.record_id.clone();
-    let record = plan.record.clone();
-    let public_response = plan.public_response.clone();
-    let receipt_refs = plan.receipt_refs.clone();
-    let evidence_refs = plan.evidence_refs.clone();
-    let control_hash = plan.control_hash.clone();
-    let operation_kind = plan.operation_kind.clone();
-    let rust_core_boundary = plan.rust_core_boundary.clone();
-    Ok(json!({
-        "source": "rust_model_mount_runtime_engine_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_model_mount_runtime_engine".to_string()),
-        "plan": plan,
-        "record_dir": record_dir,
-        "record_id": record_id,
-        "record": record,
-        "public_response": public_response,
-        "receipt_refs": receipt_refs,
-        "evidence_refs": evidence_refs,
-        "control_hash": control_hash,
-        "operation_kind": operation_kind,
-        "rust_core_boundary": rust_core_boundary,
-    }))
 }
 
 pub(super) fn plan_runtime_engine(
@@ -321,24 +285,19 @@ mod tests {
     }
 
     #[test]
-    fn rust_core_shapes_model_mount_runtime_engine_command_response() {
-        let response =
-            plan_model_mount_runtime_engine_response(ModelMountRuntimeEngineBridgeRequest {
-                backend: Some("rust_model_mount_runtime_engine".to_string()),
-                request: request("model_mount.runtime_engine_profile.write"),
-            })
-            .expect("runtime-engine command response");
+    fn rust_core_plans_model_mount_runtime_engine_direct_api() {
+        let response = plan_runtime_engine(&request("model_mount.runtime_engine_profile.write"))
+            .expect("runtime-engine direct api plan");
 
         assert_eq!(
-            response["source"],
-            "rust_model_mount_runtime_engine_command"
-        );
-        assert_eq!(response["backend"], "rust_model_mount_runtime_engine");
-        assert_eq!(
-            response["operation_kind"],
+            response.operation_kind,
             "model_mount.runtime_engine_profile.write"
         );
-        assert_eq!(response["rust_core_boundary"], "model_mount.runtime_engine");
-        assert_eq!(response["record_dir"], "runtime-engine-controls");
+        assert_eq!(response.rust_core_boundary, "model_mount.runtime_engine");
+        assert_eq!(response.record_dir, "runtime-engine-controls");
+        assert_eq!(response.record["engine_id"], "backend.llama-cpp");
+        assert!(response
+            .evidence_refs
+            .contains(&"rust_daemon_core_runtime_engine".to_string()));
     }
 }
