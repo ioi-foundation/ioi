@@ -289,6 +289,49 @@ pub(super) fn backends(
     Ok(Value::Array(backend_records(request)?))
 }
 
+pub(super) fn backend_logs(
+    request: &ModelMountReadProjectionRequest,
+) -> Result<Value, ModelMountReadProjectionError> {
+    let records = agentgres_backend_lifecycle_records(request)?;
+    let backend_id = backend_log_query_backend_id(request).ok_or_else(|| {
+        ModelMountReadProjectionError::new(
+            "model_mount_backend_log_projection_backend_id_required",
+            "backend log projection requires canonical backend_id",
+        )
+    })?;
+    let filtered = records
+        .into_iter()
+        .filter(|record| string_field(record, "backend_id") == backend_id)
+        .collect::<Vec<_>>();
+    let limit = backend_log_query_limit(request, 80);
+    let start = filtered.len().saturating_sub(limit);
+    let entries = filtered
+        .iter()
+        .skip(start)
+        .map(projected_backend_log_entry)
+        .collect::<Vec<_>>();
+    Ok(json!({
+        "schemaVersion": request.schema_version.clone().unwrap_or_default(),
+        "object": "ioi.model_mount_backend_logs",
+        "status": "projected",
+        "projectionKind": "backend_logs",
+        "backend_id": backend_id,
+        "redaction": "redacted",
+        "records": entries.clone(),
+        "logs": entries,
+        "count": filtered.len().min(limit),
+        "source": "agentgres_backend_lifecycle_control",
+        "recordDir": "model-backend-lifecycle-controls",
+        "recordCount": filtered.len(),
+        "rustCoreBoundary": "model_mount.backend_lifecycle_log_projection",
+        "evidenceRefs": [
+            "rust_daemon_core_backend_lifecycle_log_projection",
+            "agentgres_backend_lifecycle_log_replay_required",
+            "model_mount_backend_log_read_js_control_path_retired"
+        ],
+    }))
+}
+
 pub(super) fn backend_records(
     request: &ModelMountReadProjectionRequest,
 ) -> Result<Vec<Value>, ModelMountReadProjectionError> {
@@ -1876,10 +1919,7 @@ fn admitted_backend_lifecycle_record(record: Value) -> Option<Value> {
     }
     if !matches!(
         string_field(&record, "operation_kind").as_str(),
-        "model_mount.backend.health"
-            | "model_mount.backend.start"
-            | "model_mount.backend.stop"
-            | "model_mount.backend.logs_read"
+        "model_mount.backend.health" | "model_mount.backend.start" | "model_mount.backend.stop"
     ) {
         return None;
     }
@@ -2079,6 +2119,70 @@ fn projected_backend_lifecycle_evidence_refs(record: &Value) -> Vec<String> {
         }
     }
     refs
+}
+
+fn backend_log_query_backend_id(request: &ModelMountReadProjectionRequest) -> Option<String> {
+    request
+        .state
+        .get("backend_log_query")
+        .and_then(|query| query.get("backend_id"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+}
+
+fn backend_log_query_limit(
+    request: &ModelMountReadProjectionRequest,
+    default_limit: usize,
+) -> usize {
+    let raw_limit = request
+        .state
+        .get("backend_log_query")
+        .and_then(|query| query.get("limit"));
+    let parsed = raw_limit
+        .and_then(Value::as_u64)
+        .or_else(|| {
+            raw_limit
+                .and_then(Value::as_str)
+                .and_then(|value| value.trim().parse::<u64>().ok())
+        })
+        .filter(|value| *value > 0)
+        .unwrap_or(default_limit as u64);
+    parsed.min(500) as usize
+}
+
+fn projected_backend_log_entry(record: &Value) -> Value {
+    let public_response = record.get("public_response").unwrap_or(&Value::Null);
+    let event = match string_field(record, "operation_kind").as_str() {
+        "model_mount.backend.health" => "backend_health",
+        "model_mount.backend.start" => "backend_start",
+        "model_mount.backend.stop" => "backend_stop",
+        _ => "backend_lifecycle_recorded",
+    };
+    json_object_without_nulls(json!({
+        "event": event,
+        "level": "info",
+        "message": event.split('_').collect::<Vec<_>>().join(" "),
+        "timestamp": string_field(record, "generated_at"),
+        "backend_id": string_field(record, "backend_id"),
+        "backend_kind": string_field(record, "backend_kind"),
+        "operation_kind": string_field(record, "operation_kind"),
+        "operation_status": string_field(record, "status"),
+        "backend_status": public_response.get("backend_status").cloned().unwrap_or(Value::Null),
+        "receipt_refs": record.get("receipt_refs").cloned().unwrap_or_else(|| json!([])),
+        "record_dir": "model-backend-lifecycle-controls",
+        "record_id": string_field(record, "id"),
+        "control_hash": string_field(record, "control_hash"),
+        "source": string_field(record, "source"),
+        "rust_core_boundary": "model_mount.backend_lifecycle_log_projection",
+        "evidence_refs": [
+            "rust_daemon_core_backend_lifecycle_log_projection",
+            "agentgres_backend_lifecycle_log_replay_required",
+            "model_mount_backend_log_read_js_control_path_retired"
+        ],
+    }))
+    .unwrap_or_else(|| json!({}))
 }
 
 fn catalog_search_input(state: &Value) -> &Value {
@@ -2570,6 +2674,34 @@ mod tests {
                         "agentgres_backend_lifecycle_truth_required"
                     ]
                 }),
+                json!({
+                    "id": "backend-lifecycle-control:retired-logs-read",
+                    "schema_version": MODEL_MOUNT_BACKEND_LIFECYCLE_PLAN_SCHEMA_VERSION,
+                    "object": "ioi.model_mount_backend_lifecycle_record",
+                    "backend_id": "backend.native",
+                    "backend_kind": "native_local",
+                    "operation_kind": "model_mount.backend.logs_read",
+                    "status": "planned",
+                    "source": "runtime-daemon.model_mounting.backend_lifecycle",
+                    "generated_at": "2026-06-13T00:00:02.000Z",
+                    "rust_core_boundary": "model_mount.backend_lifecycle",
+                    "control_hash": "sha256:retired-logs-read",
+                    "public_response": {
+                        "object": "ioi.model_mount_backend_lifecycle",
+                        "status": "planned",
+                        "backend_id": "backend.native",
+                        "operation_kind": "model_mount.backend.logs_read",
+                        "rust_core_boundary": "model_mount.backend_lifecycle",
+                        "logs": [],
+                        "count": 0
+                    },
+                    "receipt_refs": ["receipt://backend/native/logs-read", "sha256:retired-logs-read"],
+                    "evidence_refs": [
+                        "public_backend_lifecycle_js_facade_retired",
+                        "rust_daemon_core_backend_lifecycle",
+                        "agentgres_backend_lifecycle_truth_required"
+                    ]
+                }),
             ],
         );
 
@@ -2592,6 +2724,145 @@ mod tests {
             .expect("evidence refs")
             .iter()
             .any(|value| value == "agentgres_backend_lifecycle_replay_required"));
+    }
+
+    #[test]
+    fn backend_logs_replay_agentgres_lifecycle_records_and_filter_retired_read_controls() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        write_backend_lifecycle_records(
+            temp.path(),
+            &[
+                json!({
+                    "id": "legacy-js-backend-lifecycle",
+                    "schema_version": MODEL_MOUNT_BACKEND_LIFECYCLE_PLAN_SCHEMA_VERSION,
+                    "object": "ioi.model_mount_backend_lifecycle_record",
+                    "backend_id": "backend.native",
+                    "backend_kind": "native_local",
+                    "operation_kind": "model_mount.backend.start",
+                    "status": "planned",
+                    "generated_at": "2026-06-13T00:00:00.000Z",
+                    "rust_core_boundary": "daemon_js",
+                    "control_hash": "sha256:legacy",
+                    "evidence_refs": ["legacy_js_backend_lifecycle"]
+                }),
+                json!({
+                    "id": "backend-lifecycle-control:native-start",
+                    "schema_version": MODEL_MOUNT_BACKEND_LIFECYCLE_PLAN_SCHEMA_VERSION,
+                    "object": "ioi.model_mount_backend_lifecycle_record",
+                    "backend_id": "backend.native",
+                    "backend_kind": "native_local",
+                    "operation_kind": "model_mount.backend.start",
+                    "status": "planned",
+                    "source": "runtime-daemon.model_mounting.backend_lifecycle",
+                    "generated_at": "2026-06-13T00:00:01.000Z",
+                    "rust_core_boundary": "model_mount.backend_lifecycle",
+                    "control_hash": "sha256:backend-native-start",
+                    "public_response": {
+                        "object": "ioi.model_mount_backend_lifecycle",
+                        "status": "planned",
+                        "backend_id": "backend.native",
+                        "backend_kind": "native_local",
+                        "operation_kind": "model_mount.backend.start",
+                        "rust_core_boundary": "model_mount.backend_lifecycle",
+                        "backend_status": "start_planned",
+                        "js_backend_registry_read": false,
+                        "js_process_control": false,
+                        "js_log_read": false,
+                        "js_log_write": false
+                    },
+                    "receipt_refs": ["receipt://backend/native/start", "sha256:backend-native-start"],
+                    "evidence_refs": [
+                        "public_backend_lifecycle_js_facade_retired",
+                        "rust_daemon_core_backend_lifecycle",
+                        "agentgres_backend_lifecycle_truth_required"
+                    ]
+                }),
+                json!({
+                    "id": "backend-lifecycle-control:native-health",
+                    "schema_version": MODEL_MOUNT_BACKEND_LIFECYCLE_PLAN_SCHEMA_VERSION,
+                    "object": "ioi.model_mount_backend_lifecycle_record",
+                    "backend_id": "backend.native",
+                    "backend_kind": "native_local",
+                    "operation_kind": "model_mount.backend.health",
+                    "status": "planned",
+                    "source": "runtime-daemon.model_mounting.backend_lifecycle",
+                    "generated_at": "2026-06-13T00:00:02.000Z",
+                    "rust_core_boundary": "model_mount.backend_lifecycle",
+                    "control_hash": "sha256:backend-native-health",
+                    "public_response": {
+                        "object": "ioi.model_mount_backend_lifecycle",
+                        "status": "planned",
+                        "backend_id": "backend.native",
+                        "backend_kind": "native_local",
+                        "operation_kind": "model_mount.backend.health",
+                        "rust_core_boundary": "model_mount.backend_lifecycle",
+                        "backend_status": "health_planned"
+                    },
+                    "receipt_refs": ["receipt://backend/native/health", "sha256:backend-native-health"],
+                    "evidence_refs": [
+                        "public_backend_lifecycle_js_facade_retired",
+                        "rust_daemon_core_backend_lifecycle",
+                        "agentgres_backend_lifecycle_truth_required"
+                    ]
+                }),
+                json!({
+                    "id": "backend-lifecycle-control:retired-logs-read",
+                    "schema_version": MODEL_MOUNT_BACKEND_LIFECYCLE_PLAN_SCHEMA_VERSION,
+                    "object": "ioi.model_mount_backend_lifecycle_record",
+                    "backend_id": "backend.native",
+                    "backend_kind": "native_local",
+                    "operation_kind": "model_mount.backend.logs_read",
+                    "status": "planned",
+                    "source": "runtime-daemon.model_mounting.backend_lifecycle",
+                    "generated_at": "2026-06-13T00:00:03.000Z",
+                    "rust_core_boundary": "model_mount.backend_lifecycle",
+                    "control_hash": "sha256:retired-logs-read",
+                    "public_response": {
+                        "object": "ioi.model_mount_backend_lifecycle",
+                        "status": "planned",
+                        "backend_id": "backend.native",
+                        "operation_kind": "model_mount.backend.logs_read",
+                        "rust_core_boundary": "model_mount.backend_lifecycle",
+                        "logs": [],
+                        "count": 0
+                    },
+                    "receipt_refs": ["receipt://backend/native/logs-read", "sha256:retired-logs-read"],
+                    "evidence_refs": [
+                        "public_backend_lifecycle_js_facade_retired",
+                        "rust_daemon_core_backend_lifecycle",
+                        "agentgres_backend_lifecycle_truth_required"
+                    ]
+                }),
+            ],
+        );
+
+        let projection = backend_logs(&request_with_state(
+            "backend_logs",
+            Some(temp.path().to_string_lossy().to_string()),
+            json!({
+                "backend_log_query": {
+                    "backend_id": "backend.native",
+                    "limit": 10
+                }
+            }),
+        ))
+        .expect("backend logs projection");
+
+        assert_eq!(projection["projectionKind"], "backend_logs");
+        assert_eq!(projection["backend_id"], "backend.native");
+        assert_eq!(projection["count"], 2);
+        assert_eq!(projection["records"][0]["event"], "backend_start");
+        assert_eq!(projection["records"][1]["event"], "backend_health");
+        assert!(projection["records"]
+            .as_array()
+            .expect("backend log records")
+            .iter()
+            .all(|record| record["operation_kind"] != "model_mount.backend.logs_read"));
+        assert!(projection["evidenceRefs"]
+            .as_array()
+            .expect("evidence refs")
+            .iter()
+            .any(|value| value == "model_mount_backend_log_read_js_control_path_retired"));
     }
 
     #[test]

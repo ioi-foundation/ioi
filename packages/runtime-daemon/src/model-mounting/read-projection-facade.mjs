@@ -69,6 +69,12 @@ export function createModelMountingReadProjectionFacade({
     return rustReadProjection(state, "backends");
   }
 
+  function backendLogs(state, backendId, query = {}) {
+    return rustReadProjection(state, "backend_logs", {
+      backendLogQuery: canonicalBackendLogQuery(backendId, query),
+    });
+  }
+
   function listOAuthSessions(state) {
     try {
       return rustReadProjection(state, "oauth_sessions");
@@ -220,9 +226,10 @@ export function createModelMountingReadProjectionFacade({
   function rustReadProjection(
     state,
     projectionKind,
-    { baseUrl = null, catalogQuery = null, downloadId = null, engineId = null, endpoint = null, providerId = null, receiptId = null, serverLogQuery = null } = {},
+    { backendLogQuery = null, baseUrl = null, catalogQuery = null, downloadId = null, engineId = null, endpoint = null, providerId = null, receiptId = null, serverLogQuery = null } = {},
   ) {
     const result = rustReadProjectionPlan(state, projectionKind, {
+      backendLogQuery,
       baseUrl,
       catalogQuery,
       downloadId,
@@ -238,7 +245,7 @@ export function createModelMountingReadProjectionFacade({
   function rustReadProjectionPlan(
     state,
     projectionKind,
-    { baseUrl = null, catalogQuery = null, downloadId = null, engineId = null, endpoint = null, providerId = null, receiptId = null, serverLogQuery = null } = {},
+    { backendLogQuery = null, baseUrl = null, catalogQuery = null, downloadId = null, engineId = null, endpoint = null, providerId = null, receiptId = null, serverLogQuery = null } = {},
   ) {
     if (!readProjectionPlanner || typeof readProjectionPlanner.planReadProjection !== "function") {
       throwReadProjectionRustCoreRequired(projectionKind, {
@@ -259,7 +266,7 @@ export function createModelMountingReadProjectionFacade({
       provider_id: providerId,
       receipt_id: receiptId,
       state_dir: readProjectionStateDir(state, projectionKind),
-      state: readProjectionInput(state, baseUrl, projectionKind, { catalogQuery, engineId, endpoint, serverLogQuery }),
+      state: readProjectionInput(state, baseUrl, projectionKind, { backendLogQuery, catalogQuery, engineId, endpoint, serverLogQuery }),
     });
     if (!result || !Object.hasOwn(result, "projection")) {
       throwReadProjectionRustCoreRequired(projectionKind, {
@@ -352,7 +359,19 @@ export function createModelMountingReadProjectionFacade({
     return canonical;
   }
 
-  function readProjectionInput(state, baseUrl = null, projectionKind = "projection", { catalogQuery = null, engineId = null, endpoint = null, serverLogQuery = null } = {}) {
+  function canonicalBackendLogQuery(backendId, query = {}) {
+    const input = query && typeof query === "object" ? query : {};
+    const canonical = {
+      backend_id: backendId,
+    };
+    const limit = Number.parseInt(String(input.limit ?? ""), 10);
+    if (Number.isSafeInteger(limit) && limit > 0) {
+      canonical.limit = Math.min(limit, 500);
+    }
+    return canonical;
+  }
+
+  function readProjectionInput(state, baseUrl = null, projectionKind = "projection", { backendLogQuery = null, catalogQuery = null, engineId = null, endpoint = null, serverLogQuery = null } = {}) {
     if (projectionKind === "workflow_bindings") {
       return {};
     }
@@ -414,6 +433,11 @@ export function createModelMountingReadProjectionFacade({
         server_log_query: serverLogQuery ?? {},
       };
     }
+    if (projectionKind === "backend_logs") {
+      return {
+        backend_log_query: backendLogQuery ?? {},
+      };
+    }
     if (projectionKind === "catalog_status") return {};
     if (projectionKind === "catalog_search") {
       return {
@@ -435,6 +459,7 @@ export function createModelMountingReadProjectionFacade({
       projectionKind === "downloads" ||
       projectionKind === "download_status" ||
       projectionKind === "storage_summary" ||
+      projectionKind === "backend_logs" ||
       projectionKind === "backends" ||
       projectionKind === "mcp_servers" ||
       projectionKind === "product_artifacts" ||
@@ -479,6 +504,7 @@ export function createModelMountingReadProjectionFacade({
       projectionKind !== "downloads" &&
       projectionKind !== "download_status" &&
       projectionKind !== "storage_summary" &&
+      projectionKind !== "backend_logs" &&
       projectionKind !== "server_status" &&
       projectionKind !== "server_logs" &&
       projectionKind !== "server_events" &&
@@ -533,6 +559,7 @@ export function createModelMountingReadProjectionFacade({
     latestProviderHealth,
     latestRuntimeSurvey,
     latestVaultHealth,
+    backendLogs,
     listArtifacts,
     listBackends,
     listConversations,

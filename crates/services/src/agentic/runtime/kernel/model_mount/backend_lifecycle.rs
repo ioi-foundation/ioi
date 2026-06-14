@@ -224,10 +224,6 @@ fn public_response_for(
                 Value::String("stop_planned".to_string()),
             );
         }
-        "model_mount.backend.logs_read" => {
-            response.insert("logs".to_string(), Value::Array(Vec::new()));
-            response.insert("count".to_string(), Value::Number(0.into()));
-        }
         _ => {}
     }
     Value::Object(response)
@@ -236,10 +232,7 @@ fn public_response_for(
 fn backend_lifecycle_operation_supported(operation_kind: &str) -> bool {
     matches!(
         operation_kind,
-        "model_mount.backend.health"
-            | "model_mount.backend.start"
-            | "model_mount.backend.stop"
-            | "model_mount.backend.logs_read"
+        "model_mount.backend.health" | "model_mount.backend.start" | "model_mount.backend.stop"
     )
 }
 
@@ -328,7 +321,7 @@ mod tests {
     }
 
     #[test]
-    fn rust_core_plans_backend_lifecycle_health_stop_and_logs_records() {
+    fn rust_core_plans_backend_lifecycle_health_and_stop_records() {
         let health = plan_backend_lifecycle(&request("model_mount.backend.health"))
             .expect("backend lifecycle health plan");
         assert_eq!(health.public_response["backend_status"], "health_planned");
@@ -336,11 +329,16 @@ mod tests {
         let stop = plan_backend_lifecycle(&request("model_mount.backend.stop"))
             .expect("backend lifecycle stop plan");
         assert_eq!(stop.public_response["backend_status"], "stop_planned");
+    }
 
-        let logs = plan_backend_lifecycle(&request("model_mount.backend.logs_read"))
-            .expect("backend lifecycle logs plan");
-        assert_eq!(logs.public_response["logs"], json!([]));
-        assert_eq!(logs.public_response["count"], 0);
+    #[test]
+    fn rust_core_rejects_retired_backend_logs_read_control() {
+        let error = plan_backend_lifecycle(&request("model_mount.backend.logs_read"))
+            .expect_err("backend logs read control must stay retired");
+        assert!(matches!(
+            error,
+            ModelMountError::UnsupportedBackendLifecycleOperation
+        ));
     }
 
     #[test]

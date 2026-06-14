@@ -22751,7 +22751,10 @@ function runReceipts() {
       /commitBackendLifecycleForState\(this,\s*"model_mount\.backend\.stop"/.test(
         backendLifecycle,
       ) &&
-      /commitBackendLifecycleForState\(this,\s*"model_mount\.backend\.logs_read"/.test(
+      !/commitBackendLifecycleForState\(this,\s*"model_mount\.backend\.logs_read"/.test(
+        backendLifecycle,
+      ) &&
+      /backendLogs\(backendId,\s*query = \{\}\) \{[\s\S]*?return this\.readProjectionFacade\.backendLogs\(this,\s*resolvedBackendId,\s*query\)/.test(
         backendLifecycle,
       ) &&
       /schema_version:\s*"ioi\.model_mount\.backend_lifecycle\.v1"/.test(backendLifecycle) &&
@@ -22789,10 +22792,21 @@ function runReceipts() {
       /listBackends\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"backends"\)/.test(
         modelMountingReadProjectionFacade,
       ) &&
+      /backendLogs\(state,\s*backendId,\s*query = \{\}\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"backend_logs"/.test(
+        modelMountingReadProjectionFacade,
+      ) &&
+      /backend_log_query:\s*backendLogQuery \?\? \{\}/.test(modelMountingReadProjectionFacade) &&
       /MODEL_MOUNT_BACKENDS_PROJECTION_KIND => topology::backends\(request\)/.test(modelMountCore) &&
+      /MODEL_MOUNT_BACKEND_LOGS_PROJECTION_KIND => topology::backend_logs\(request\)/.test(modelMountCore) &&
       /backend_projection_replays_agentgres_lifecycle_records_and_filters_js_truth/.test(modelMountCore) &&
+      /backend_logs_replay_agentgres_lifecycle_records_and_filter_retired_read_controls/.test(
+        modelMountCore,
+      ) &&
       /agentgres_backend_lifecycle_replay_required/.test(modelMountCore) &&
       /pub\(super\) fn backends/.test(modelMountCore) &&
+      /pub\(super\) fn backend_logs/.test(modelMountCore) &&
+      /rust_core_rejects_retired_backend_logs_read_control/.test(modelMountCore) &&
+      /model_mount_backend_log_read_js_control_path_retired/.test(modelMountCore) &&
       !/listBackends\(\)\s*\{[\s\S]*?return this\.backendRegistry\(\)/.test(backendLifecycle) &&
       /url\.pathname === "\/api\/v1\/backends"[\s\S]*?mounts\.listBackends\(\)/.test(runtimeRouteHandlers) &&
       /url\.pathname === "\/api\/v1\/models\/backends"[\s\S]*?mounts\.listBackends\(\)/.test(runtimeRouteHandlers) &&
@@ -22838,8 +22852,17 @@ function runReceipts() {
       /blocked backend public lifecycle start still commits through Rust boundary before JS control/.test(
         backendLifecycleTest,
       ) &&
-      /public backend logs facade commits Rust record before reading local logs or writing a receipt/.test(
+      /public backend logs delegate to Rust projection without lifecycle control or local log reads/.test(
         backendLifecycleTest,
+      ) &&
+      /read projection facade delegates backend logs through Rust replay only/.test(
+        modelMountingReadProjectionFacadeTest,
+      ) &&
+      /state\.backendLogProjectionRequests\[0\]\.backendId/.test(backendLifecycleTest) &&
+      /assert\.equal\(state\.backendLifecyclePlans\.length,\s*0\)/.test(backendLifecycleTest) &&
+      /assert\.equal\(state\.recordStateCommits\.length,\s*0\)/.test(backendLifecycleTest) &&
+      /backend_log_query:\s*\{[\s\S]*backend_id:\s*"backend\.native"[\s\S]*limit:\s*4/.test(
+        modelMountingReadProjectionFacadeTest,
       ) &&
       /assert\.deepEqual\(state\.receipts,\s*\[\]\)/.test(backendLifecycleTest) &&
       /assert\.deepEqual\(state\.logs,\s*\[\]\)/.test(backendLifecycleTest) &&

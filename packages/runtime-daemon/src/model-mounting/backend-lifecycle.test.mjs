@@ -7,8 +7,8 @@ function backendHealth(state, backendId) {
   return ModelMountingState.prototype.backendHealth.call(state, backendId);
 }
 
-function backendLogs(state, backendId) {
-  return ModelMountingState.prototype.backendLogs.call(state, backendId);
+function backendLogs(state, backendId, query = {}) {
+  return ModelMountingState.prototype.backendLogs.call(state, backendId, query);
 }
 
 function listBackends(state) {
@@ -61,6 +61,7 @@ function fakeState() {
     writes: [],
     now: "2026-06-03T20:00:00.000Z",
     backendLifecyclePlans: [],
+    backendLogProjectionRequests: [],
     recordStateCommits: [],
     backend(backendId) {
       return this.backends.get(backendId);
@@ -118,6 +119,32 @@ function fakeState() {
       };
     },
   };
+  state.readProjectionFacade = {
+    backendLogs(projectionState, backendId, query = {}) {
+      state.backendLogProjectionRequests.push({ projectionState, backendId, query });
+      const record = {
+        event: "backend_start",
+        backend_id: backendId,
+        rust_core_boundary: "model_mount.backend_lifecycle_log_projection",
+      };
+      return {
+        object: "ioi.model_mount_backend_logs",
+        status: "projected",
+        projectionKind: "backend_logs",
+        backend_id: backendId,
+        redaction: "redacted",
+        records: [record],
+        logs: [record],
+        count: 1,
+        rustCoreBoundary: "model_mount.backend_lifecycle_log_projection",
+        evidenceRefs: [
+          "rust_daemon_core_backend_lifecycle_log_projection",
+          "agentgres_backend_lifecycle_log_replay_required",
+          "model_mount_backend_log_read_js_control_path_retired",
+        ],
+      };
+    },
+  };
   state.modelMountAdmissionRunner = {
     planBackendLifecycle(request) {
       state.backendLifecyclePlans.push(request);
@@ -148,9 +175,6 @@ function fakeState() {
         publicResponse.backend_status = "health_planned";
       } else if (request.operation_kind === "model_mount.backend.stop") {
         publicResponse.backend_status = "stop_planned";
-      } else if (request.operation_kind === "model_mount.backend.logs_read") {
-        publicResponse.logs = [];
-        publicResponse.count = 0;
       }
       return {
         source: "rust_model_mount_backend_lifecycle_command",
@@ -276,19 +300,16 @@ test("public backend lifecycle facades commit Rust-authored records", () => {
   const health = backendHealth(state, "backend.native");
   const started = startBackend(state, "backend.native", { loadOptions: { contextLength: 1024 } });
   const stopped = stopBackend(state, "backend.native");
-  const logs = backendLogs(state, "backend.native");
 
   assert.deepEqual(state.backendLifecyclePlans.map((request) => request.operation_kind), [
     "model_mount.backend.health",
     "model_mount.backend.start",
     "model_mount.backend.stop",
-    "model_mount.backend.logs_read",
   ]);
   assert.deepEqual(state.recordStateCommits.map((request) => request.operation_kind), [
     "model_mount.backend.health",
     "model_mount.backend.start",
     "model_mount.backend.stop",
-    "model_mount.backend.logs_read",
   ]);
   assert.equal(state.backendLifecyclePlans[0].schema_version, "ioi.model_mount.backend_lifecycle.v1");
   assert.equal(state.backendLifecyclePlans[0].backend_id, "backend.native");
@@ -297,7 +318,7 @@ test("public backend lifecycle facades commit Rust-authored records", () => {
   assert.deepEqual(state.backendLifecyclePlans[1].body.load_options, { contextLength: 1024 });
   assert.equal(Object.hasOwn(state.backendLifecyclePlans[1].body, "loadOptions"), false);
 
-  for (const response of [health, started, stopped, logs]) {
+  for (const response of [health, started, stopped]) {
     assert.equal(response.status, "planned");
     assert.equal(response.rust_core_boundary, "model_mount.backend_lifecycle");
     assert.equal(response.js_backend_registry_read, false);
@@ -310,8 +331,6 @@ test("public backend lifecycle facades commit Rust-authored records", () => {
   assert.equal(started.backend_status, "start_planned");
   assert.deepEqual(started.load_options, { contextLength: 1024 });
   assert.equal(stopped.backend_status, "stop_planned");
-  assert.deepEqual(logs.logs, []);
-  assert.equal(logs.count, 0);
 
   assert.deepEqual(state.receipts, []);
   assert.deepEqual(state.logs, []);
@@ -378,11 +397,16 @@ test("blocked backend public lifecycle start still commits through Rust boundary
   assert.equal(state.recordStateCommits.length, 1);
 });
 
-test("public backend logs facade commits Rust record before reading local logs or writing a receipt", () => {
+test("public backend logs delegate to Rust projection without lifecycle control or local log reads", () => {
   const state = fakeState();
   let listFilesCalled = false;
+  state.planBackendLifecycle = () => {
+    throw new Error("backend logs must not plan lifecycle control");
+  };
 
   const response = backendLogs(state, "backend.native", {
+    limit: "1",
+    authorization: "Bearer secret-token",
     listFiles() {
       listFilesCalled = true;
       return ["/state/backend-logs/backend.native.jsonl"];
@@ -402,11 +426,14 @@ test("public backend logs facade commits Rust record before reading local logs o
     safeFileName: (value) => value,
   });
 
-  assert.equal(response.operation_kind, "model_mount.backend.logs_read");
-  assert.deepEqual(response.logs, []);
+  assert.equal(response.projectionKind, "backend_logs");
+  assert.deepEqual(response.logs.map((record) => record.event), ["backend_start"]);
   assert.equal(listFilesCalled, false);
-  assert.equal(state.backendLifecyclePlans.length, 1);
-  assert.equal(state.backendLifecyclePlans[0].operation_kind, "model_mount.backend.logs_read");
-  assert.equal(state.recordStateCommits.length, 1);
+  assert.equal(state.backendLifecyclePlans.length, 0);
+  assert.equal(state.recordStateCommits.length, 0);
   assert.deepEqual(state.receipts, []);
+  assert.equal(state.backendLogProjectionRequests.length, 1);
+  assert.equal(state.backendLogProjectionRequests[0].backendId, "backend.native");
+  assert.equal(state.backendLogProjectionRequests[0].query.limit, "1");
+  assert.equal(state.backendLogProjectionRequests[0].query.authorization, "Bearer secret-token");
 });

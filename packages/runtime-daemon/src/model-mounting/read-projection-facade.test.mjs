@@ -695,6 +695,35 @@ function createState() {
         "agentgres_backend_lifecycle_truth_required",
       ],
     },
+    {
+      id: "backend-lifecycle-control:retired-logs-read",
+      schema_version: "ioi.model_mount.backend_lifecycle_plan.v1",
+      object: "ioi.model_mount_backend_lifecycle_record",
+      backend_id: "backend.native",
+      backend_kind: "native_local",
+      operation_kind: "model_mount.backend.logs_read",
+      status: "planned",
+      source: "runtime-daemon.model_mounting.backend_lifecycle",
+      generated_at: "2026-06-03T00:00:03.000Z",
+      rust_core_boundary: "model_mount.backend_lifecycle",
+      control_hash: "sha256:backend-native-logs-read",
+      public_response: {
+        object: "ioi.model_mount_backend_lifecycle",
+        status: "planned",
+        backend_id: "backend.native",
+        backend_kind: "native_local",
+        operation_kind: "model_mount.backend.logs_read",
+        rust_core_boundary: "model_mount.backend_lifecycle",
+        logs: [],
+        count: 0,
+      },
+      receipt_refs: ["receipt://backend/native/logs-read", "sha256:backend-native-logs-read"],
+      evidence_refs: [
+        "public_backend_lifecycle_js_facade_retired",
+        "rust_daemon_core_backend_lifecycle",
+        "agentgres_backend_lifecycle_truth_required",
+      ],
+    },
   ]);
   writeServerControlRecords(stateDir, [
     {
@@ -1101,6 +1130,7 @@ function rustProjectionFixture(request) {
     return storageSummaryFromAgentgresStateDir(request);
   }
   if (request.projection_kind === "backends") return backendRecordsFromAgentgresStateDir(request.state_dir);
+  if (request.projection_kind === "backend_logs") return backendLogsFromRustRequest(request);
   if (request.projection_kind === "oauth_sessions" || request.projection_kind === "oauth_states") {
     throw Object.assign(new Error("OAuth session/state read projection is retired"), {
       code: "model_mount_oauth_read_projection_js_retired",
@@ -2808,7 +2838,6 @@ function backendLifecycleControlRecordsFromAgentgresStateDir(stateDir) {
         "model_mount.backend.health",
         "model_mount.backend.start",
         "model_mount.backend.stop",
-        "model_mount.backend.logs_read",
       ].includes(record?.operation_kind) &&
       Array.isArray(record?.evidence_refs) &&
       record.evidence_refs.includes("public_backend_lifecycle_js_facade_retired") &&
@@ -2817,6 +2846,63 @@ function backendLifecycleControlRecordsFromAgentgresStateDir(stateDir) {
     .sort((left, right) =>
       String(left.generated_at ?? "").localeCompare(String(right.generated_at ?? "")) ||
       String(left.id ?? "").localeCompare(String(right.id ?? "")));
+}
+
+function backendLogsFromRustRequest(request) {
+  const query = request.state?.backend_log_query ?? {};
+  const backendId = typeof query.backend_id === "string" ? query.backend_id : "";
+  const limit = Math.min(Number.parseInt(String(query.limit ?? 80), 10) || 80, 500);
+  const records = backendLifecycleControlRecordsFromAgentgresStateDir(request.state_dir)
+    .filter((record) => record.backend_id === backendId);
+  const entries = records.slice(Math.max(records.length - limit, 0)).map((record) => {
+    const event = {
+      "model_mount.backend.health": "backend_health",
+      "model_mount.backend.start": "backend_start",
+      "model_mount.backend.stop": "backend_stop",
+    }[record.operation_kind] ?? "backend_lifecycle_recorded";
+    return {
+      event,
+      level: "info",
+      message: event.split("_").join(" "),
+      timestamp: record.generated_at,
+      backend_id: record.backend_id,
+      backend_kind: record.backend_kind ?? null,
+      operation_kind: record.operation_kind,
+      operation_status: record.status,
+      backend_status: record.public_response?.backend_status ?? null,
+      receipt_refs: record.receipt_refs ?? [],
+      record_dir: "model-backend-lifecycle-controls",
+      record_id: record.id,
+      control_hash: record.control_hash,
+      source: record.source,
+      rust_core_boundary: "model_mount.backend_lifecycle_log_projection",
+      evidence_refs: backendLogProjectionEvidenceRefs(),
+    };
+  });
+  return {
+    schemaVersion: request.schema_version,
+    object: "ioi.model_mount_backend_logs",
+    status: "projected",
+    projectionKind: "backend_logs",
+    backend_id: backendId,
+    redaction: "redacted",
+    records: entries,
+    logs: entries,
+    count: entries.length,
+    source: "agentgres_backend_lifecycle_control",
+    recordDir: "model-backend-lifecycle-controls",
+    recordCount: records.length,
+    rustCoreBoundary: "model_mount.backend_lifecycle_log_projection",
+    evidenceRefs: backendLogProjectionEvidenceRefs(),
+  };
+}
+
+function backendLogProjectionEvidenceRefs() {
+  return [
+    "rust_daemon_core_backend_lifecycle_log_projection",
+    "agentgres_backend_lifecycle_log_replay_required",
+    "model_mount_backend_log_read_js_control_path_retired",
+  ];
 }
 
 function backendRecordsFromAgentgresStateDir(stateDir) {
@@ -3342,6 +3428,40 @@ test("read projection facade delegates product-safe lists and capabilities", () 
     "workflow_bindings",
     "adapter_boundaries",
   ]);
+});
+
+test("read projection facade delegates backend logs through Rust replay only", () => {
+  const { facade, state, readProjectionRequests } = createState();
+  let listFilesCalled = false;
+
+  const logs = facade.backendLogs(state, "backend.native", {
+    limit: "4",
+    authorization: "Bearer secret-token",
+    listFiles() {
+      listFilesCalled = true;
+      return ["/state/backend-logs/backend.native.jsonl"];
+    },
+  });
+
+  assert.equal(logs.projectionKind, "backend_logs");
+  assert.equal(logs.redaction, "redacted");
+  assert.deepEqual(logs.records.map((record) => record.event), ["backend_start"]);
+  assert.equal(
+    logs.records.some((record) => record.operation_kind === "model_mount.backend.logs_read"),
+    false,
+  );
+  assert.equal(logs.evidenceRefs.includes("model_mount_backend_log_read_js_control_path_retired"), true);
+  assert.equal(listFilesCalled, false);
+  assert.deepEqual(readProjectionRequests.map((request) => request.projection_kind), ["backend_logs"]);
+  assert.deepEqual(readProjectionRequests[0].state, {
+    backend_log_query: {
+      backend_id: "backend.native",
+      limit: 4,
+    },
+  });
+  assert.equal(readProjectionRequests[0].state.backend_log_query.authorization, undefined);
+  assert.equal(readProjectionRequests[0].state.backend_log_query.listFiles, undefined);
+  assert.equal(readProjectionRequests[0].state_dir, state.stateDir);
 });
 
 test("read projection facade delegates catalog search through Rust provider inventory replay", () => {

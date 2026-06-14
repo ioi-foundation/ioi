@@ -2009,11 +2009,9 @@ export class ModelMountingState {
     });
   }
 
-  backendLogs(backendId) {
+  backendLogs(backendId, query = {}) {
     const resolvedBackendId = requiredString(backendId, "backend_id");
-    return commitBackendLifecycleForState(this, "model_mount.backend.logs_read", {
-      backend_id: resolvedBackendId,
-    });
+    return this.readProjectionFacade.backendLogs(this, resolvedBackendId, query);
   }
 
   writeBackendLog(endpointId, event) {

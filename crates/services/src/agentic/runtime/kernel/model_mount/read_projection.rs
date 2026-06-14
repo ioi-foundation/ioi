@@ -68,6 +68,7 @@ pub(super) const MODEL_MOUNT_DOWNLOADS_PROJECTION_KIND: &str = "downloads";
 pub(super) const MODEL_MOUNT_DOWNLOAD_STATUS_PROJECTION_KIND: &str = "download_status";
 pub(super) const MODEL_MOUNT_STORAGE_SUMMARY_PROJECTION_KIND: &str = "storage_summary";
 pub(super) const MODEL_MOUNT_BACKENDS_PROJECTION_KIND: &str = "backends";
+pub(super) const MODEL_MOUNT_BACKEND_LOGS_PROJECTION_KIND: &str = "backend_logs";
 pub(super) const MODEL_MOUNT_SERVER_STATUS_PROJECTION_KIND: &str = "server_status";
 pub(super) const MODEL_MOUNT_SERVER_LOGS_PROJECTION_KIND: &str = "server_logs";
 pub(super) const MODEL_MOUNT_SERVER_EVENTS_PROJECTION_KIND: &str = "server_events";
@@ -252,6 +253,13 @@ pub(super) fn plan_read_projection(
             "model_mount_backend_list_js_facade_retired".to_string(),
         ]);
     }
+    if request.projection_kind == MODEL_MOUNT_BACKEND_LOGS_PROJECTION_KIND {
+        evidence_refs.extend([
+            "rust_daemon_core_backend_lifecycle_log_projection".to_string(),
+            "agentgres_backend_lifecycle_log_replay_required".to_string(),
+            "model_mount_backend_log_read_js_control_path_retired".to_string(),
+        ]);
+    }
     if request.projection_kind == MODEL_MOUNT_SERVER_STATUS_PROJECTION_KIND {
         evidence_refs.extend([
             "rust_daemon_core_server_control_projection".to_string(),
@@ -333,6 +341,7 @@ pub(super) fn model_mount_read_projection(
         MODEL_MOUNT_DOWNLOAD_STATUS_PROJECTION_KIND => topology::download_status(request),
         MODEL_MOUNT_STORAGE_SUMMARY_PROJECTION_KIND => topology::storage_summary(request),
         MODEL_MOUNT_BACKENDS_PROJECTION_KIND => topology::backends(request),
+        MODEL_MOUNT_BACKEND_LOGS_PROJECTION_KIND => topology::backend_logs(request),
         MODEL_MOUNT_MCP_SERVERS_PROJECTION_KIND => mcp::mcp_servers(request),
         "oauth_sessions" => oauth::sessions(),
         "oauth_states" => oauth::states(),
