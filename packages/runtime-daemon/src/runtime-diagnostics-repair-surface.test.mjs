@@ -378,11 +378,10 @@ test("diagnostics repair decision execution fails closed before event append wit
   assert.throws(
     () =>
       surface.executeDiagnosticsRepairDecision(store, "thread_alpha", null, {
-        decisionId: "decision_retired",
         decision_id: "decision_alpha",
         action: "restore_apply",
-        snapshotId: "snapshot_retired",
-        idempotencyKey: "idempotency_retired",
+        snapshot_id: "snapshot_alpha",
+        idempotency_key: "idempotency_alpha",
       }),
     (error) => {
       assert.equal(error.status, 501);
@@ -392,6 +391,56 @@ test("diagnostics repair decision execution fails closed before event append wit
       assert.equal(error.details.operation_kind, "diagnostics.repair_decision.execute");
       assert.equal(error.details.thread_id, "thread_alpha");
       assert.equal(error.details.decision_id, "decision_alpha");
+      assert.deepEqual(error.details.evidence_refs, [
+        "runtime_diagnostics_repair_decision_execution_rust_owned",
+        "runtime_diagnostics_repair_control_event_rust_owned",
+        "agentgres_runtime_thread_event_truth_required",
+      ]);
+      assertNoRetiredDiagnosticsRepairDetailAliases(error.details);
+      return true;
+    },
+  );
+
+  assert.deepEqual(calls, []);
+});
+
+test("diagnostics repair decision execution rejects retired request aliases", () => {
+  const { calls, store, surface } = harness();
+
+  assert.throws(
+    () =>
+      surface.executeDiagnosticsRepairDecision(store, "thread_alpha", null, {
+        decisionId: "decision_retired",
+        decision_id: "decision_alpha",
+        snapshotId: "snapshot_retired",
+        workflowGraphId: "workflow_retired",
+        workflowNodeId: "node_retired",
+        approvalGranted: true,
+        allowConflicts: true,
+        restoreApplyIdempotencyKey: "restore_apply_retired",
+        payloadSchemaVersion: "ioi.retired.schema.v1",
+      }),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(
+        error.code,
+        "runtime_diagnostics_repair_decision_request_aliases_retired",
+      );
+      assert.equal(error.details.rust_core_boundary, "runtime.diagnostics_repair");
+      assert.equal(error.details.operation, "diagnostics_repair_decision_execution");
+      assert.equal(error.details.operation_kind, "diagnostics.repair_decision.execute");
+      assert.equal(error.details.thread_id, "thread_alpha");
+      assert.equal(error.details.decision_id, "decision_alpha");
+      assert.deepEqual(error.details.retired_inputs, [
+        "decisionId",
+        "snapshotId",
+        "workflowGraphId",
+        "workflowNodeId",
+        "approvalGranted",
+        "allowConflicts",
+        "restoreApplyIdempotencyKey",
+        "payloadSchemaVersion",
+      ]);
       assert.deepEqual(error.details.evidence_refs, [
         "runtime_diagnostics_repair_decision_execution_rust_owned",
         "runtime_diagnostics_repair_control_event_rust_owned",

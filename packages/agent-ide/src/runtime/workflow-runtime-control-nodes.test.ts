@@ -9,6 +9,7 @@ import {
   RUNTIME_CONTEXT_COMPACT_SOURCE_EVENT_KIND,
   RUNTIME_CONTEXT_COMPACT_WORKFLOW_NODE_ID,
   RUNTIME_DIAGNOSTICS_REPAIR_COMPONENT_KIND,
+  RUNTIME_DIAGNOSTICS_REPAIR_PAYLOAD_SCHEMA_VERSION,
   RUNTIME_DIAGNOSTICS_REPAIR_SOURCE_EVENT_KIND,
   RUNTIME_DIAGNOSTICS_REPAIR_WORKFLOW_NODE_ID,
   RUNTIME_RESTORE_GATE_COMPONENT_KIND,
@@ -801,27 +802,46 @@ test("runtime_diagnostics_repair workflow node builds a React Flow daemon reques
   assert.equal(request.body.decision_id, "restore_preview");
   assert.equal(request.body.action, "restore_preview");
   assert.equal(request.body.message, "Preview rollback from diagnostics repair.");
-  assert.equal(request.body.approvalGranted, false);
-  assert.equal(request.body.operatorOverrideApproved, false);
-  assert.equal(request.body.allowConflicts, false);
+  assert.equal(request.body.schema_version, RUNTIME_DIAGNOSTICS_REPAIR_PAYLOAD_SCHEMA_VERSION);
+  assert.equal(
+    request.body.object,
+    "ioi.runtime_diagnostics_repair_decision_execute_client",
+  );
+  assert.equal(request.body.approval_granted, false);
+  assert.equal(request.body.operator_override_approved, false);
+  assert.equal(request.body.allow_conflicts, false);
   assert.equal(request.body.source, "react_flow");
   assert.equal(request.body.actor, "operator");
   assert.equal(
-    request.body.workflowGraphId,
+    request.body.workflow_graph_id,
     "workflow.react-flow.diagnostics-repair-proof",
   );
   assert.equal(
-    request.body.workflowNodeId,
+    request.body.workflow_node_id,
     RUNTIME_DIAGNOSTICS_REPAIR_WORKFLOW_NODE_ID,
   );
   assert.equal(
-    request.body.eventKind,
+    request.body.event_kind,
     RUNTIME_DIAGNOSTICS_REPAIR_SOURCE_EVENT_KIND,
   );
   assert.equal(
-    request.body.componentKind,
+    request.body.component_kind,
     RUNTIME_DIAGNOSTICS_REPAIR_COMPONENT_KIND,
   );
+  for (const field of [
+    "decisionId",
+    "approvalGranted",
+    "operatorOverrideApproved",
+    "allowConflicts",
+    "workflowGraphId",
+    "workflowNodeId",
+    "eventKind",
+    "componentKind",
+    "payloadSchemaVersion",
+  ]) {
+    assert.equal(Object.prototype.hasOwnProperty.call(request.body, field), false);
+  }
+  assert.equal(Object.prototype.hasOwnProperty.call(request.body, "decisionId"), false);
 });
 
 test("runtime_diagnostics_repair helper supports approval, conflicts, and configurable fields", () => {
@@ -871,6 +891,9 @@ test("runtime_diagnostics_repair helper supports approval, conflicts, and config
   assert.equal(request.body.message, "Continue after review.");
   assert.equal(request.body.actor, "workflow-author");
   assert.equal(request.body.source, "react_flow");
+  assert.equal(request.body.workflow_node_id, "runtime.diagnostics-repair");
+  assert.equal(Object.prototype.hasOwnProperty.call(request.body, "operatorOverrideApproved"), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(request.body, "allowConflicts"), false);
 });
 
 test("runtime_operator_steer workflow node builds a React Flow daemon request", () => {

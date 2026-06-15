@@ -37,6 +37,36 @@ const DIAGNOSTICS_REPAIR_DECISION_PROJECTION_EVIDENCE_REFS = [
   "agentgres_diagnostics_repair_projection_truth_required",
 ];
 
+const DIAGNOSTICS_REPAIR_DECISION_EXECUTION_RETIRED_REQUEST_ALIASES = [
+  "schemaVersion",
+  "decisionId",
+  "gateId",
+  "snapshotId",
+  "workflowGraphId",
+  "workflowNodeId",
+  "approvalDecision",
+  "policyDecision",
+  "approvalGranted",
+  "allowConflicts",
+  "overrideConflicts",
+  "restoreConflictPolicy",
+  "conflictPolicy",
+  "restorePolicy",
+  "restorePreviewIdempotencyKey",
+  "restoreApplyIdempotencyKey",
+  "repairRetryIdempotencyKey",
+  "operatorOverrideIdempotencyKey",
+  "idempotencyKey",
+  "repairPromptText",
+  "operatorOverrideApproved",
+  "operatorOverrideApproval",
+  "confirmRestoreApply",
+  "applyConfirmed",
+  "eventKind",
+  "componentKind",
+  "payloadSchemaVersion",
+];
+
 export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
   const {
     eventStreamIdForThread: eventStreamIdForThreadDep = eventStreamIdForThread,
@@ -165,18 +195,33 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
   function diagnosticsRepairControlRequestPayload(request = {}) {
     const payload = {};
     for (const key of [
+      "schema_version",
+      "object",
       "source",
       "status",
+      "message",
       "event_id",
+      "event_kind",
+      "component_kind",
+      "payload_schema_version",
       "turn_id",
       "decision_id",
       "gate_event_id",
       "gate_id",
       "snapshot_id",
       "workspace_root",
+      "workflow_graph_id",
+      "workflow_node_id",
       "action",
       "repair_action",
       "approval_id",
+      "approval_decision",
+      "policy_decision",
+      "approval_granted",
+      "operator_override_approved",
+      "allow_conflicts",
+      "override_conflicts",
+      "restore_conflict_policy",
       "diagnostic_refs",
       "target_paths",
       "retry_turn_id",
@@ -191,10 +236,38 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
       "authority_grant_refs",
       "authority_receipt_refs",
       "idempotency_key",
+      "restore_preview_idempotency_key",
+      "restore_apply_idempotency_key",
+      "repair_retry_idempotency_key",
+      "operator_override_idempotency_key",
+      "repair_prompt_text",
     ]) {
       if (Object.hasOwn(request, key)) payload[key] = request[key];
     }
     return payload;
+  }
+
+  function rejectDiagnosticsRepairDecisionExecutionRetiredAliases(request = {}, details = {}) {
+    const record = objectRecord(request) ?? {};
+    const retiredInputs = DIAGNOSTICS_REPAIR_DECISION_EXECUTION_RETIRED_REQUEST_ALIASES
+      .filter((key) => Object.hasOwn(record, key));
+    if (retiredInputs.length === 0) return;
+    throw runtimeError({
+      status: 400,
+      code: "runtime_diagnostics_repair_decision_request_aliases_retired",
+      message:
+        "Runtime diagnostics repair decision execution requires canonical daemon protocol request fields.",
+      details: {
+        rust_core_boundary: "runtime.diagnostics_repair",
+        operation: "diagnostics_repair_decision_execution",
+        operation_kind: "diagnostics.repair_decision.execute",
+        ...details,
+        retired_inputs: retiredInputs,
+        evidence_refs: diagnosticsRepairControlEvidenceRefs(
+          "diagnostics.repair_decision.execute",
+        ),
+      },
+    });
   }
 
   function rejectDiagnosticsRepairProjectionCandidateTransport(request = {}, details = {}) {
@@ -365,7 +438,14 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
   }
 
   function executeDiagnosticsRepairDecision(store, threadId, decisionRef, request = {}) {
-    const decisionId = optionalString(decisionRef ?? request.decision_id ?? request.action) ?? null;
+    const normalizedRequest = objectRecord(request) ?? {};
+    const decisionId =
+      optionalString(decisionRef ?? normalizedRequest.decision_id ?? normalizedRequest.action) ??
+      null;
+    rejectDiagnosticsRepairDecisionExecutionRetiredAliases(normalizedRequest, {
+      thread_id: threadId,
+      decision_id: decisionId,
+    });
     const plannedControl = planDiagnosticsRepairControlEvent(store, threadId, request, {
       operation: "diagnostics_repair_decision_execution",
       operationKind: "diagnostics.repair_decision.execute",

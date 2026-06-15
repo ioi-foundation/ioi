@@ -541,27 +541,22 @@ export type RuntimeDiagnosticsRepairAction =
   | "operator_override";
 
 export interface RuntimeDiagnosticsRepairControlRequestBody {
-  decisionId: string;
+  schema_version: typeof RUNTIME_DIAGNOSTICS_REPAIR_PAYLOAD_SCHEMA_VERSION;
+  object: "ioi.runtime_diagnostics_repair_decision_execute_client";
   decision_id: string;
   action: RuntimeDiagnosticsRepairAction;
   message: string | null;
-  approvalGranted: boolean;
   approval_granted: boolean;
-  approved: boolean;
-  confirm: boolean;
-  operatorOverrideApproved: boolean;
   operator_override_approved: boolean;
-  allowConflicts: boolean;
   allow_conflicts: boolean;
-  overrideConflicts: boolean;
   override_conflicts: boolean;
   source: typeof RUNTIME_DIAGNOSTICS_REPAIR_SOURCE;
   actor: string;
-  workflowGraphId: string | null;
-  workflowNodeId: string;
-  eventKind: typeof RUNTIME_DIAGNOSTICS_REPAIR_SOURCE_EVENT_KIND;
-  componentKind: typeof RUNTIME_DIAGNOSTICS_REPAIR_COMPONENT_KIND;
-  payloadSchemaVersion: typeof RUNTIME_DIAGNOSTICS_REPAIR_PAYLOAD_SCHEMA_VERSION;
+  workflow_graph_id: string | null;
+  workflow_node_id: string;
+  event_kind: typeof RUNTIME_DIAGNOSTICS_REPAIR_SOURCE_EVENT_KIND;
+  component_kind: typeof RUNTIME_DIAGNOSTICS_REPAIR_COMPONENT_KIND;
+  payload_schema_version: typeof RUNTIME_DIAGNOSTICS_REPAIR_PAYLOAD_SCHEMA_VERSION;
 }
 
 export interface RuntimeDiagnosticsRepairControlRequest {
@@ -1195,21 +1190,22 @@ export function createRuntimeDiagnosticsRepairControlRequest(
       decisionId,
     }),
     body: {
-      decisionId,
+      schema_version: RUNTIME_DIAGNOSTICS_REPAIR_PAYLOAD_SCHEMA_VERSION,
+      object: "ioi.runtime_diagnostics_repair_decision_execute_client",
       decision_id: decisionId,
       action,
       message,
-      approvalGranted,
       approval_granted: approvalGranted,
-      approved: approvalGranted,
-      confirm: approvalGranted,
-      operatorOverrideApproved: approvalGranted,
       operator_override_approved: approvalGranted,
-      allowConflicts,
       allow_conflicts: allowConflicts,
-      overrideConflicts: allowConflicts,
       override_conflicts: allowConflicts,
-      ...envelope.metadata,
+      source: envelope.metadata.source,
+      actor: envelope.metadata.actor,
+      workflow_graph_id: envelope.metadata.workflowGraphId,
+      workflow_node_id: envelope.metadata.workflowNodeId,
+      event_kind: envelope.metadata.eventKind,
+      component_kind: envelope.metadata.componentKind,
+      payload_schema_version: envelope.metadata.payloadSchemaVersion,
     },
   };
 }

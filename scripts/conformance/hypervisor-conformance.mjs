@@ -4507,6 +4507,14 @@ function runBridge() {
     workflowRuntimeControlNodes.match(
       /export function createRuntimeRestoreGateControlRequest\([\s\S]*?\n}\n\nexport function createRuntimeDiagnosticsRepairControlRequest/,
     )?.[0] ?? "";
+  const runtimeDiagnosticsRepairControlRequestBody =
+    workflowRuntimeControlNodes.match(
+      /export interface RuntimeDiagnosticsRepairControlRequestBody \{[\s\S]*?\n\}/,
+    )?.[0] ?? "";
+  const runtimeDiagnosticsRepairControlRequestBlock =
+    workflowRuntimeControlNodes.match(
+      /export function createRuntimeDiagnosticsRepairControlRequest\([\s\S]*?\n}\n\nexport function createRuntimeThreadForkControlRequestFromWorkflowNode/,
+    )?.[0] ?? "";
   const agentSdkTest = exists("packages/agent-sdk/test/sdk.test.mjs")
     ? read("packages/agent-sdk/test/sdk.test.mjs")
     : "";
@@ -19983,6 +19991,101 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",
     ],
     "Phase 10/11 is pending: IDE restore-gate control nodes must call daemon workspace restore routes with canonical request bodies only",
+  );
+  assertCheck(
+    result,
+    "diagnostics-repair-ide-control-surface",
+    /createRuntimeDiagnosticsRepairControlRequest/.test(workflowRuntimeControlNodes) &&
+      /diagnostics\/repair-decisions\/\{decisionId\}\/execute/.test(
+        runtimeDiagnosticsRepairControlRequestBlock,
+      ) &&
+      /schema_version:\s*typeof RUNTIME_DIAGNOSTICS_REPAIR_PAYLOAD_SCHEMA_VERSION;/.test(
+        runtimeDiagnosticsRepairControlRequestBody,
+      ) &&
+      /object:\s*"ioi\.runtime_diagnostics_repair_decision_execute_client";/.test(
+        runtimeDiagnosticsRepairControlRequestBody,
+      ) &&
+      /decision_id:\s*string;/.test(runtimeDiagnosticsRepairControlRequestBody) &&
+      /approval_granted:\s*boolean;/.test(
+        runtimeDiagnosticsRepairControlRequestBody,
+      ) &&
+      /operator_override_approved:\s*boolean;/.test(
+        runtimeDiagnosticsRepairControlRequestBody,
+      ) &&
+      /allow_conflicts:\s*boolean;/.test(
+        runtimeDiagnosticsRepairControlRequestBody,
+      ) &&
+      /override_conflicts:\s*boolean;/.test(
+        runtimeDiagnosticsRepairControlRequestBody,
+      ) &&
+      /workflow_graph_id:\s*string \| null;/.test(
+        runtimeDiagnosticsRepairControlRequestBody,
+      ) &&
+      /workflow_node_id:\s*string;/.test(
+        runtimeDiagnosticsRepairControlRequestBody,
+      ) &&
+      /event_kind:\s*typeof RUNTIME_DIAGNOSTICS_REPAIR_SOURCE_EVENT_KIND;/.test(
+        runtimeDiagnosticsRepairControlRequestBody,
+      ) &&
+      /component_kind:\s*typeof RUNTIME_DIAGNOSTICS_REPAIR_COMPONENT_KIND;/.test(
+        runtimeDiagnosticsRepairControlRequestBody,
+      ) &&
+      /payload_schema_version:\s*typeof RUNTIME_DIAGNOSTICS_REPAIR_PAYLOAD_SCHEMA_VERSION;/.test(
+        runtimeDiagnosticsRepairControlRequestBody,
+      ) &&
+      /schema_version:\s*RUNTIME_DIAGNOSTICS_REPAIR_PAYLOAD_SCHEMA_VERSION/.test(
+        runtimeDiagnosticsRepairControlRequestBlock,
+      ) &&
+      /decision_id:\s*decisionId/.test(runtimeDiagnosticsRepairControlRequestBlock) &&
+      /approval_granted:\s*approvalGranted/.test(
+        runtimeDiagnosticsRepairControlRequestBlock,
+      ) &&
+      /operator_override_approved:\s*approvalGranted/.test(
+        runtimeDiagnosticsRepairControlRequestBlock,
+      ) &&
+      /allow_conflicts:\s*allowConflicts/.test(
+        runtimeDiagnosticsRepairControlRequestBlock,
+      ) &&
+      /override_conflicts:\s*allowConflicts/.test(
+        runtimeDiagnosticsRepairControlRequestBlock,
+      ) &&
+      /workflow_graph_id:\s*envelope\.metadata\.workflowGraphId/.test(
+        runtimeDiagnosticsRepairControlRequestBlock,
+      ) &&
+      /workflow_node_id:\s*envelope\.metadata\.workflowNodeId/.test(
+        runtimeDiagnosticsRepairControlRequestBlock,
+      ) &&
+      /event_kind:\s*envelope\.metadata\.eventKind/.test(
+        runtimeDiagnosticsRepairControlRequestBlock,
+      ) &&
+      /component_kind:\s*envelope\.metadata\.componentKind/.test(
+        runtimeDiagnosticsRepairControlRequestBlock,
+      ) &&
+      /payload_schema_version:\s*envelope\.metadata\.payloadSchemaVersion/.test(
+        runtimeDiagnosticsRepairControlRequestBlock,
+      ) &&
+      !/^\s*(?:decisionId|approvalGranted|approved|confirm|operatorOverrideApproved|allowConflicts|overrideConflicts|workflowGraphId|workflowNodeId|eventKind|componentKind|payloadSchemaVersion):/m.test(
+        runtimeDiagnosticsRepairControlRequestBody,
+      ) &&
+      /Object\.prototype\.hasOwnProperty\.call\(request\.body,\s*"decisionId"\),\s*false/.test(
+        workflowRuntimeControlNodesTest,
+      ) &&
+      /Object\.prototype\.hasOwnProperty\.call\(request\.body,\s*"operatorOverrideApproved"\),\s*false/.test(
+        workflowRuntimeControlNodesTest,
+      ) &&
+      /Object\.prototype\.hasOwnProperty\.call\(request\.body,\s*"allowConflicts"\),\s*false/.test(
+        workflowRuntimeControlNodesTest,
+      ) &&
+      /Object\.prototype\.hasOwnProperty\.call\(request\.body,\s*"workflowGraphId"\),\s*false/.test(
+        workflowRuntimeControlNodesTest,
+      ),
+    [
+      "packages/agent-ide/src/runtime/workflow-runtime-control-nodes.ts",
+      "packages/agent-ide/src/runtime/workflow-runtime-control-nodes.test.ts",
+      "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs",
+      "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: IDE diagnostics repair nodes must call daemon diagnostics repair routes with canonical request bodies only",
   );
   assertCheck(
     result,
@@ -37802,7 +37905,7 @@ function runCompositor() {
     !/normalizedRequest\.prompt \?\? normalizedRequest\.repair_prompt/.test(
       runtimeDiagnosticsRepairSurface,
     ) &&
-    !/repair_prompt/.test(runtimeDiagnosticsRepairSurface) &&
+    !/repair_prompt(?!_text)/.test(runtimeDiagnosticsRepairSurface) &&
     /diagnostics repair retry event append uses Rust planning and runtime event admission/.test(
       runtimeDiagnosticsRepairSurfaceTest,
     ) &&
@@ -38162,6 +38265,19 @@ function runCompositor() {
       ) &&
       /thread route sends workflow, diagnostics, and snapshot controls through mounted surfaces/.test(
         runtimeRouteHandlersTest,
+      ) &&
+      /DIAGNOSTICS_REPAIR_DECISION_EXECUTION_RETIRED_REQUEST_ALIASES/.test(
+        runtimeDiagnosticsRepairSurface,
+      ) &&
+      /runtime_diagnostics_repair_decision_request_aliases_retired/.test(
+        runtimeDiagnosticsRepairSurface,
+      ) &&
+      /retired_inputs:\s*retiredInputs/.test(runtimeDiagnosticsRepairSurface) &&
+      /diagnostics repair decision execution rejects retired request aliases/.test(
+        runtimeDiagnosticsRepairSurfaceTest,
+      ) &&
+      /restoreApplyIdempotencyKey:\s*"restore_apply_retired"/.test(
+        runtimeDiagnosticsRepairSurfaceTest,
       ) &&
       !/^\s*executeDiagnosticsRepairDecision\(threadId, decisionRef, request = \{\}\) \{/m.test(
         runtimeDaemonIndex,

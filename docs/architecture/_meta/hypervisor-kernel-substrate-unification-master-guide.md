@@ -10022,6 +10022,22 @@ depends on durable
 diagnostics repair storage/replay, wallet-governed repair policy authority, and
 stable IDE/CLI/SDK diagnostics APIs over Rust-owned records.
 
+Slice 1258 hard-cuts the IDE diagnostics repair client compatibility body. The
+React Flow diagnostics repair node now emits only the canonical daemon protocol
+body for `/v1/threads/{thread_id}/diagnostics/repair-decisions/{decision_id}/execute`:
+snake_case schema, workflow, event, approval, conflict, and idempotency facts
+plus the diagnostics repair decision action. The daemon diagnostics repair
+surface rejects retired camelCase request aliases such as `decisionId`,
+`snapshotId`, `workflowGraphId`, `workflowNodeId`, `approvalGranted`,
+`allowConflicts`, `restoreApplyIdempotencyKey`, and `payloadSchemaVersion`
+before Rust planning or runtime-event admission, and forwards the canonical
+protocol body into Rust diagnostics repair control planning. Conformance now
+guards both the daemon alias rejection and the IDE canonical request body. This
+removes the diagnostics repair IDE compatibility body as a duplicate client
+truth path; broader diagnostics completion still depends on durable diagnostics
+repair storage/replay, wallet-governed repair policy authority, and any
+remaining CLI/SDK diagnostics read APIs over Rust-owned records.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The
