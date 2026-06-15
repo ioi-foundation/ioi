@@ -27,6 +27,10 @@ pub const APPROVAL_QUEUE_PROJECTION_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.approval-queue-projection-request.v1";
 pub const APPROVAL_QUEUE_PROJECTION_RESULT_SCHEMA_VERSION: &str =
     "ioi.runtime.approval-queue-projection.v1";
+pub const APPROVAL_REQUEST_AUTHORITY_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.approval-request-authority-request.v1";
+pub const APPROVAL_REQUEST_AUTHORITY_RESULT_SCHEMA_VERSION: &str =
+    "ioi.runtime.approval-request-authority.v1";
 pub const APPROVAL_DECISION_AUTHORITY_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.approval-decision-authority-request.v1";
 pub const APPROVAL_DECISION_AUTHORITY_RESULT_SCHEMA_VERSION: &str =
@@ -185,6 +189,17 @@ pub enum ApprovalQueueProjectionError {
     StateDirRequired,
     ReplayReadFailed(String),
     ReplayRecordInvalid(String),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ApprovalRequestAuthorityError {
+    InvalidSchemaVersion {
+        expected: &'static str,
+        actual: String,
+    },
+    MissingField(&'static str),
+    MissingAuthorityReceipt,
+    HashFailed(String),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -503,6 +518,57 @@ pub struct ApprovalQueueProjectionRecord {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ApprovalRequestAuthorityRequest {
+    pub schema_version: String,
+    pub thread_id: String,
+    pub approval_id: String,
+    #[serde(default)]
+    pub target_kind: Option<String>,
+    #[serde(default)]
+    pub run_id: Option<String>,
+    #[serde(default)]
+    pub actor_ref: Option<String>,
+    #[serde(default)]
+    pub source: Option<String>,
+    #[serde(default)]
+    pub idempotency_key: Option<String>,
+    #[serde(default)]
+    pub receipt_refs: Vec<String>,
+    #[serde(default)]
+    pub policy_decision_refs: Vec<String>,
+    #[serde(default)]
+    pub approval_manifest: Value,
+    #[serde(default)]
+    pub authority_context: Value,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ApprovalRequestAuthorityRecord {
+    pub schema_version: String,
+    pub object: String,
+    pub status: String,
+    pub operation_kind: String,
+    pub thread_id: String,
+    pub approval_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_kind: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub run_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub actor_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
+    pub idempotency_key: String,
+    pub receipt_refs: Vec<String>,
+    pub authority_receipt_refs: Vec<String>,
+    pub policy_decision_refs: Vec<String>,
+    pub direct_truth_write_allowed: bool,
+    pub authority_hash: String,
+    pub projection_source: String,
+    pub generated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ApprovalDecisionAuthorityRequest {
     pub schema_version: String,
     pub thread_id: String,
@@ -648,6 +714,14 @@ pub struct ApprovalRequestStateUpdateRequest {
     pub receipt_refs: Vec<String>,
     #[serde(default)]
     pub policy_decision_refs: Vec<String>,
+    #[serde(default)]
+    pub authority_record: Value,
+    #[serde(default)]
+    pub authority_hash: Option<String>,
+    #[serde(default)]
+    pub authority_grant_refs: Vec<String>,
+    #[serde(default)]
+    pub authority_receipt_refs: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -807,6 +881,11 @@ pub struct ApprovalQueueProjectionProtocolRequest {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct ApprovalRequestAuthorityProtocolRequest {
+    pub request: ApprovalRequestAuthorityRequest,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct ApprovalDecisionAuthorityProtocolRequest {
     pub request: ApprovalDecisionAuthorityRequest,
 }
@@ -853,6 +932,9 @@ pub struct CodingToolApprovalSatisfactionProjectionCore;
 pub struct ApprovalQueueProjectionCore;
 
 #[derive(Debug, Default, Clone)]
+pub struct ApprovalRequestAuthorityCore;
+
+#[derive(Debug, Default, Clone)]
 pub struct ApprovalDecisionAuthorityCore;
 
 #[derive(Debug, Default, Clone)]
@@ -880,6 +962,26 @@ impl ApprovalRequestStateUpdateCore {
         let reason = optional_trimmed(Some(request.reason.as_str()))
             .unwrap_or_else(|| "operator requested approval".to_string());
         let approval_id = optional_trimmed(Some(request.approval_id.as_str())).unwrap();
+        let authority_record = authority_record_value(&request.authority_record);
+        let authority_hash =
+            approval_authority_hash(request.authority_hash.as_deref(), &authority_record);
+        let authority_grant_refs =
+            approval_authority_grant_refs(&request.authority_grant_refs, &authority_record);
+        let authority_receipt_refs =
+            approval_authority_receipt_refs(&request.authority_receipt_refs, &authority_record);
+        let receipt_refs = unique_trimmed_values(
+            request
+                .receipt_refs
+                .iter()
+                .cloned()
+                .chain(authority_receipt_refs.iter().cloned())
+                .collect::<Vec<_>>()
+                .as_slice(),
+        );
+        let policy_decision_refs = approval_authority_policy_decision_refs(
+            &request.policy_decision_refs,
+            &authority_record,
+        );
         let operator_control = json!({
             "control": "approval_request",
             "approval_id": approval_id,
@@ -888,8 +990,12 @@ impl ApprovalRequestStateUpdateCore {
             "reason": reason,
             "event_id": request.event_id,
             "seq": request.seq,
-            "receipt_refs": request.receipt_refs.clone(),
-            "policy_decision_refs": request.policy_decision_refs.clone(),
+            "receipt_refs": receipt_refs,
+            "policy_decision_refs": policy_decision_refs,
+            "authority": authority_record,
+            "authority_hash": authority_hash,
+            "authority_grant_refs": authority_grant_refs,
+            "authority_receipt_refs": authority_receipt_refs,
             "created_at": request.created_at,
         });
         let (run, agent) = if target_kind == "run" {
@@ -1483,6 +1589,42 @@ impl ApprovalQueueProjectionCore {
     }
 }
 
+impl ApprovalRequestAuthorityCore {
+    pub fn authorize(
+        &self,
+        request: &ApprovalRequestAuthorityRequest,
+    ) -> Result<ApprovalRequestAuthorityRecord, ApprovalRequestAuthorityError> {
+        request.validate()?;
+        let thread_id = optional_trimmed(Some(request.thread_id.as_str())).unwrap();
+        let approval_id = optional_trimmed(Some(request.approval_id.as_str())).unwrap();
+        let receipt_refs = unique_trimmed(&request.receipt_refs);
+        let idempotency_key = optional_trimmed(request.idempotency_key.as_deref())
+            .unwrap_or_else(|| format!("approval:{thread_id}:{approval_id}:request"));
+        let mut record = ApprovalRequestAuthorityRecord {
+            schema_version: APPROVAL_REQUEST_AUTHORITY_RESULT_SCHEMA_VERSION.to_string(),
+            object: "ioi.runtime_approval_request_authority".to_string(),
+            status: "issued".to_string(),
+            operation_kind: "approval.request.authority".to_string(),
+            thread_id,
+            approval_id,
+            target_kind: optional_trimmed(request.target_kind.as_deref()),
+            run_id: optional_trimmed(request.run_id.as_deref()),
+            actor_ref: optional_trimmed(request.actor_ref.as_deref()),
+            source: optional_trimmed(request.source.as_deref()),
+            idempotency_key,
+            receipt_refs: receipt_refs.clone(),
+            authority_receipt_refs: receipt_refs,
+            policy_decision_refs: unique_trimmed(&request.policy_decision_refs),
+            direct_truth_write_allowed: false,
+            authority_hash: String::new(),
+            projection_source: "rust_daemon_core_approval_request_authority".to_string(),
+            generated_at: "rust_authority_core".to_string(),
+        };
+        record.authority_hash = approval_request_authority_hash(&record)?;
+        Ok(record)
+    }
+}
+
 impl ApprovalDecisionAuthorityCore {
     pub fn authorize(
         &self,
@@ -2022,6 +2164,38 @@ pub fn project_approval_queue_protocol_response(
     }))
 }
 
+pub fn authorize_approval_request_protocol_response(
+    request: ApprovalRequestAuthorityProtocolRequest,
+) -> Result<Value, ApprovalCommandError> {
+    let record = ApprovalRequestAuthorityCore
+        .authorize(&request.request)
+        .map_err(|error| {
+            ApprovalCommandError::new("approval_request_authority_invalid", format!("{error:?}"))
+        })?;
+    let record_value = serde_json::to_value(record.clone()).unwrap_or(Value::Null);
+    Ok(json!({
+        "schema_version": APPROVAL_REQUEST_AUTHORITY_RESULT_SCHEMA_VERSION,
+        "object": "ioi.runtime_approval_request_authority",
+        "status": record.status,
+        "operation_kind": record.operation_kind,
+        "source": "rust_approval_request_authority_protocol",
+        "backend": "rust_authority",
+        "record": record_value,
+        "authority": record.clone(),
+        "thread_id": record.thread_id,
+        "approval_id": record.approval_id,
+        "target_kind": record.target_kind,
+        "run_id": record.run_id,
+        "actor_ref": record.actor_ref,
+        "idempotency_key": record.idempotency_key,
+        "receipt_refs": record.receipt_refs,
+        "authority_receipt_refs": record.authority_receipt_refs,
+        "policy_decision_refs": record.policy_decision_refs,
+        "direct_truth_write_allowed": record.direct_truth_write_allowed,
+        "authority_hash": record.authority_hash,
+    }))
+}
+
 pub fn authorize_approval_decision_protocol_response(
     request: ApprovalDecisionAuthorityProtocolRequest,
 ) -> Result<Value, ApprovalCommandError> {
@@ -2271,6 +2445,27 @@ impl ApprovalDecisionAuthorityRequest {
     }
 }
 
+impl ApprovalRequestAuthorityRequest {
+    pub fn validate(&self) -> Result<(), ApprovalRequestAuthorityError> {
+        if self.schema_version != APPROVAL_REQUEST_AUTHORITY_REQUEST_SCHEMA_VERSION {
+            return Err(ApprovalRequestAuthorityError::InvalidSchemaVersion {
+                expected: APPROVAL_REQUEST_AUTHORITY_REQUEST_SCHEMA_VERSION,
+                actual: self.schema_version.clone(),
+            });
+        }
+        if optional_trimmed(Some(self.thread_id.as_str())).is_none() {
+            return Err(ApprovalRequestAuthorityError::MissingField("thread_id"));
+        }
+        if optional_trimmed(Some(self.approval_id.as_str())).is_none() {
+            return Err(ApprovalRequestAuthorityError::MissingField("approval_id"));
+        }
+        if unique_trimmed(&self.receipt_refs).is_empty() {
+            return Err(ApprovalRequestAuthorityError::MissingAuthorityReceipt);
+        }
+        Ok(())
+    }
+}
+
 impl CodingToolApprovalBlockRequest {
     pub fn validate(&self) -> Result<(), CodingToolApprovalBlockError> {
         if self.schema_version != CODING_TOOL_APPROVAL_BLOCK_REQUEST_SCHEMA_VERSION {
@@ -2326,6 +2521,17 @@ impl ApprovalRequestStateUpdateRequest {
         }
         if optional_trimmed(Some(self.approval_id.as_str())).is_none() {
             return Err(ApprovalRequestStateUpdateError::MissingField("approval_id"));
+        }
+        if !approval_request_authority_state_binding_present(
+            &self.authority_record,
+            self.authority_hash.as_deref(),
+            &self.authority_receipt_refs,
+            self.thread_id.as_deref(),
+            &self.approval_id,
+        ) {
+            return Err(ApprovalRequestStateUpdateError::MissingField(
+                "authority_record",
+            ));
         }
         Ok(())
     }
@@ -2634,6 +2840,16 @@ fn approval_decision_authority_hash(
     Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
 }
 
+fn approval_request_authority_hash(
+    record: &ApprovalRequestAuthorityRecord,
+) -> Result<String, ApprovalRequestAuthorityError> {
+    let mut canonical = record.clone();
+    canonical.authority_hash.clear();
+    let bytes = serde_json::to_vec(&canonical)
+        .map_err(|error| ApprovalRequestAuthorityError::HashFailed(error.to_string()))?;
+    Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
+}
+
 fn authority_record_value(value: &Value) -> Value {
     if value.is_object() {
         value.clone()
@@ -2697,6 +2913,60 @@ fn approval_authority_state_binding_present(
             .iter()
             .any(|grant_ref| is_wallet_network_grant_ref(grant_ref))
         && !approval_authority_receipt_refs(authority_receipt_refs, authority_record).is_empty()
+}
+
+fn approval_request_authority_state_binding_present(
+    authority_record: &Value,
+    authority_hash: Option<&str>,
+    authority_receipt_refs: &[String],
+    thread_id: Option<&str>,
+    approval_id: &str,
+) -> bool {
+    let record =
+        match serde_json::from_value::<ApprovalRequestAuthorityRecord>(authority_record.clone()) {
+            Ok(record) => record,
+            Err(_) => return false,
+        };
+    let request_thread_id = optional_trimmed(thread_id);
+    let request_approval_id = match optional_trimmed(Some(approval_id)) {
+        Some(value) => value,
+        None => return false,
+    };
+    if record.schema_version != APPROVAL_REQUEST_AUTHORITY_RESULT_SCHEMA_VERSION
+        || record.object != "ioi.runtime_approval_request_authority"
+        || record.status != "issued"
+        || record.operation_kind != "approval.request.authority"
+        || record.direct_truth_write_allowed
+        || optional_trimmed(Some(record.approval_id.as_str())).as_deref()
+            != Some(request_approval_id.as_str())
+    {
+        return false;
+    }
+    if let Some(request_thread_id) = request_thread_id.as_deref() {
+        if optional_trimmed(Some(record.thread_id.as_str())).as_deref() != Some(request_thread_id) {
+            return false;
+        }
+    }
+
+    let supplied_hash = match optional_trimmed(authority_hash) {
+        Some(value) => value,
+        None => return false,
+    };
+    if record.authority_hash != supplied_hash {
+        return false;
+    }
+    match approval_request_authority_hash(&record) {
+        Ok(expected_hash) if expected_hash == supplied_hash => {}
+        _ => return false,
+    }
+
+    let record_refs = unique_trimmed(&record.authority_receipt_refs);
+    let request_refs = unique_trimmed(authority_receipt_refs);
+    !record_refs.is_empty()
+        && !request_refs.is_empty()
+        && request_refs
+            .iter()
+            .all(|receipt_ref| record_refs.contains(receipt_ref))
 }
 
 fn approval_state_update_target_kind(value: Option<&str>) -> String {
@@ -3734,6 +4004,9 @@ mod tests {
             "trace": {},
         });
         write_state_record(&state_dir, "runs", "run_alpha", run);
+        let authority = ApprovalRequestAuthorityCore
+            .authorize(&approval_request_authority_request())
+            .expect("approval request authority");
         ApprovalRequestStateUpdateRequest {
             schema_version: APPROVAL_REQUEST_STATE_UPDATE_REQUEST_SCHEMA_VERSION.to_string(),
             target_kind: None,
@@ -3750,6 +4023,11 @@ mod tests {
             reason: "Need permission".to_string(),
             receipt_refs: vec!["receipt_approval".to_string()],
             policy_decision_refs: vec!["policy_approval".to_string()],
+            authority_record: serde_json::to_value(authority.clone())
+                .expect("authority serializes"),
+            authority_hash: Some(authority.authority_hash),
+            authority_grant_refs: vec![],
+            authority_receipt_refs: authority.authority_receipt_refs,
         }
     }
 
@@ -3877,6 +4155,28 @@ mod tests {
             }),
             approval_request: json!({
                 "event_id": "event_approval",
+                "approval_id": "approval_alpha",
+            }),
+            authority_context: json!({
+                "surface": "runtime.approval_control",
+            }),
+        }
+    }
+
+    fn approval_request_authority_request() -> ApprovalRequestAuthorityRequest {
+        ApprovalRequestAuthorityRequest {
+            schema_version: APPROVAL_REQUEST_AUTHORITY_REQUEST_SCHEMA_VERSION.to_string(),
+            thread_id: "thread_alpha".to_string(),
+            approval_id: "approval_alpha".to_string(),
+            target_kind: Some("run".to_string()),
+            run_id: Some("run_alpha".to_string()),
+            actor_ref: Some("operator://local/heath".to_string()),
+            source: Some("sdk_client".to_string()),
+            idempotency_key: Some("approval:thread_alpha:approval_alpha:request".to_string()),
+            receipt_refs: vec!["receipt://authority/approval-request/approval_alpha".to_string()],
+            policy_decision_refs: vec!["policy_approval".to_string()],
+            approval_manifest: json!({
+                "thread_id": "thread_alpha",
                 "approval_id": "approval_alpha",
             }),
             authority_context: json!({
@@ -4535,6 +4835,67 @@ mod tests {
     }
 
     #[test]
+    fn rust_authority_authorizes_approval_request_with_authority_receipt() {
+        let record = ApprovalRequestAuthorityCore
+            .authorize(&approval_request_authority_request())
+            .expect("approval request authority");
+
+        assert_eq!(
+            record.schema_version,
+            APPROVAL_REQUEST_AUTHORITY_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(record.status, "issued");
+        assert_eq!(record.operation_kind, "approval.request.authority");
+        assert_eq!(record.thread_id, "thread_alpha");
+        assert_eq!(record.approval_id, "approval_alpha");
+        assert_eq!(
+            record.authority_receipt_refs,
+            vec!["receipt://authority/approval-request/approval_alpha"]
+        );
+        assert_eq!(record.direct_truth_write_allowed, false);
+        assert!(record.authority_hash.starts_with("sha256:"));
+    }
+
+    #[test]
+    fn rust_authority_rejects_approval_request_without_authority_receipt() {
+        let mut request = approval_request_authority_request();
+        request.receipt_refs = vec![];
+
+        let error = ApprovalRequestAuthorityCore
+            .authorize(&request)
+            .expect_err("authority receipt is required");
+
+        assert_eq!(
+            error,
+            ApprovalRequestAuthorityError::MissingAuthorityReceipt
+        );
+    }
+
+    #[test]
+    fn rust_core_shapes_approval_request_authority_protocol_response() {
+        let response =
+            authorize_approval_request_protocol_response(ApprovalRequestAuthorityProtocolRequest {
+                request: approval_request_authority_request(),
+            })
+            .expect("approval request authority protocol response");
+
+        assert_eq!(
+            response["schema_version"],
+            APPROVAL_REQUEST_AUTHORITY_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(response["status"], "issued");
+        assert_eq!(response["operation_kind"], "approval.request.authority");
+        assert_eq!(
+            response["authority"]["authority_receipt_refs"][0],
+            "receipt://authority/approval-request/approval_alpha"
+        );
+        assert_eq!(
+            response["record"]["schema_version"],
+            APPROVAL_REQUEST_AUTHORITY_RESULT_SCHEMA_VERSION
+        );
+    }
+
+    #[test]
     fn rust_authority_authorizes_approval_decision_with_wallet_network_grant() {
         let record = ApprovalDecisionAuthorityCore
             .authorize(&approval_decision_authority_request("approve"))
@@ -4700,6 +5061,11 @@ mod tests {
         assert!(record.operator_control.get("receiptRefs").is_none());
         assert!(record.operator_control.get("policyDecisionRefs").is_none());
         assert!(record.operator_control.get("createdAt").is_none());
+        assert!(record.operator_control.get("authorityHash").is_none());
+        assert!(record
+            .operator_control
+            .get("authorityReceiptRefs")
+            .is_none());
         assert_eq!(record.run["status"], "blocked");
         assert_eq!(record.run["turnStatus"], "waiting_for_approval");
         assert_eq!(
@@ -4707,8 +5073,20 @@ mod tests {
             "event_approval"
         );
         assert_eq!(
+            record.operator_control["authority_hash"],
+            record.run["trace"]["approvalRequests"][0]["authority_hash"]
+        );
+        assert_eq!(
+            record.operator_control["authority_receipt_refs"][0],
+            "receipt://authority/approval-request/approval_alpha"
+        );
+        assert_eq!(
             record.run["operatorControls"][0]["receipt_refs"][0],
             "receipt_approval"
+        );
+        assert_eq!(
+            record.run["operatorControls"][0]["receipt_refs"][1],
+            "receipt://authority/approval-request/approval_alpha"
         );
     }
 
@@ -4797,6 +5175,38 @@ mod tests {
             .expect_err("approval request state update without state_dir should fail");
 
         assert_eq!(error, ApprovalRequestStateUpdateError::StateDirRequired);
+    }
+
+    #[test]
+    fn rust_authority_rejects_approval_request_state_update_without_authority_binding() {
+        let mut request = approval_request_state_update_request();
+        request.authority_record = Value::Null;
+        request.authority_hash = None;
+        request.authority_receipt_refs = vec![];
+
+        let error = ApprovalRequestStateUpdateCore
+            .plan(&request)
+            .expect_err("approval request state update without authority should fail");
+
+        assert_eq!(
+            error,
+            ApprovalRequestStateUpdateError::MissingField("authority_record")
+        );
+    }
+
+    #[test]
+    fn rust_authority_rejects_approval_request_state_update_with_mismatched_authority_hash() {
+        let mut request = approval_request_state_update_request();
+        request.authority_hash = Some("sha256:forged-approval-request-authority".to_string());
+
+        let error = ApprovalRequestStateUpdateCore
+            .plan(&request)
+            .expect_err("approval request state update with forged authority should fail");
+
+        assert_eq!(
+            error,
+            ApprovalRequestStateUpdateError::MissingField("authority_record")
+        );
     }
 
     #[test]

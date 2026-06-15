@@ -628,6 +628,7 @@ mod tests {
             "plan_coding_tool_approval_satisfaction",
             "plan_coding_tool_approval_block",
             "project_approval_queue",
+            "authorize_approval_request",
             "authorize_approval_decision",
             "plan_approval_request_state_update",
             "plan_approval_decision_state_update",

@@ -6,6 +6,8 @@ export const APPROVAL_REVOKE_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.approval-revoke-state-update-request.v1";
 export const APPROVAL_QUEUE_PROJECTION_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.approval-queue-projection-request.v1";
+export const APPROVAL_REQUEST_AUTHORITY_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.approval-request-authority-request.v1";
 export const APPROVAL_DECISION_AUTHORITY_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.approval-decision-authority-request.v1";
 export const RUNTIME_APPROVAL_STATE_BACKEND = "rust_authority";
@@ -13,6 +15,7 @@ export const APPROVAL_REQUEST_STATE_UPDATE_API_METHOD = "planApprovalRequestStat
 export const APPROVAL_DECISION_STATE_UPDATE_API_METHOD = "planApprovalDecisionStateUpdate";
 export const APPROVAL_REVOKE_STATE_UPDATE_API_METHOD = "planApprovalRevokeStateUpdate";
 export const APPROVAL_QUEUE_PROJECTION_API_METHOD = "projectApprovalQueue";
+export const APPROVAL_REQUEST_AUTHORITY_API_METHOD = "authorizeApprovalRequest";
 export const APPROVAL_DECISION_AUTHORITY_API_METHOD = "authorizeApprovalDecision";
 
 const RETIRED_APPROVAL_STATE_CORE_REQUEST_ALIASES = [
@@ -120,6 +123,17 @@ export class RuntimeApprovalStateCore {
         schema_version: APPROVAL_QUEUE_PROJECTION_REQUEST_SCHEMA_VERSION,
       },
     ), "approval.queue_projection", "approval_queue_projection");
+  }
+
+  authorizeApprovalRequest(request = {}) {
+    assertCanonicalApprovalStateCoreRequest(request);
+    return assertApprovalStateCoreOperationKind(this.invokeRustApprovalApi(
+      APPROVAL_REQUEST_AUTHORITY_API_METHOD,
+      {
+        ...(objectRecord(request) ?? {}),
+        schema_version: APPROVAL_REQUEST_AUTHORITY_REQUEST_SCHEMA_VERSION,
+      },
+    ), "approval.request.authority", "approval_request_authority");
   }
 
   authorizeApprovalDecision(request = {}) {

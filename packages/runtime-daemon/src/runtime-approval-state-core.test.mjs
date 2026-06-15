@@ -8,6 +8,8 @@ import {
   APPROVAL_DECISION_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   APPROVAL_QUEUE_PROJECTION_API_METHOD,
   APPROVAL_QUEUE_PROJECTION_REQUEST_SCHEMA_VERSION,
+  APPROVAL_REQUEST_AUTHORITY_API_METHOD,
+  APPROVAL_REQUEST_AUTHORITY_REQUEST_SCHEMA_VERSION,
   APPROVAL_REQUEST_STATE_UPDATE_API_METHOD,
   APPROVAL_REQUEST_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   APPROVAL_REVOKE_STATE_UPDATE_API_METHOD,
@@ -19,6 +21,7 @@ import {
 } from "./runtime-approval-state-core.mjs";
 
 function approvalRequest() {
+  const authority = approvalRequestAuthorityResult(approvalRequestAuthorityRequest());
   return {
     thread_id: "thread_alpha",
     run_id: "run_alpha",
@@ -29,8 +32,12 @@ function approvalRequest() {
     approval_id: "approval_alpha",
     source: "runtime_auto",
     reason: "Need permission",
-    receipt_refs: ["receipt_approval"],
-    policy_decision_refs: ["policy_approval"],
+    receipt_refs: authority.authority_receipt_refs,
+    policy_decision_refs: authority.policy_decision_refs,
+    authority_record: authority.authority,
+    authority_hash: authority.authority_hash,
+    authority_grant_refs: [],
+    authority_receipt_refs: authority.authority_receipt_refs,
   };
 }
 
@@ -59,6 +66,60 @@ function approvalRequestResult(request) {
           },
         ],
       },
+    },
+  };
+}
+
+function approvalRequestAuthorityRequest() {
+  return {
+    thread_id: "thread_alpha",
+    approval_id: "approval_alpha",
+    target_kind: "run",
+    run_id: "run_alpha",
+    actor_ref: "operator://local/heath",
+    idempotency_key: "approval:thread_alpha:approval_alpha:request",
+    receipt_refs: ["receipt://authority/approval-request/approval_alpha"],
+    policy_decision_refs: ["policy_approval"],
+    approval_manifest: {
+      approval_id: "approval_alpha",
+      thread_id: "thread_alpha",
+    },
+    authority_context: {
+      surface: "runtime.approval_control",
+    },
+  };
+}
+
+function approvalRequestAuthorityResult(request) {
+  return {
+    schema_version: "ioi.runtime.approval-request-authority.v1",
+    object: "ioi.runtime_approval_request_authority",
+    source: "rust_approval_request_authority_protocol",
+    backend: RUNTIME_APPROVAL_STATE_BACKEND,
+    status: "issued",
+    operation_kind: "approval.request.authority",
+    thread_id: request.thread_id,
+    approval_id: request.approval_id,
+    target_kind: request.target_kind,
+    run_id: request.run_id,
+    actor_ref: request.actor_ref,
+    idempotency_key: request.idempotency_key,
+    receipt_refs: request.receipt_refs,
+    authority_receipt_refs: request.receipt_refs,
+    policy_decision_refs: request.policy_decision_refs,
+    direct_truth_write_allowed: false,
+    authority_hash: "sha256:approval-request-authority",
+    authority: {
+      schema_version: "ioi.runtime.approval-request-authority.v1",
+      object: "ioi.runtime_approval_request_authority",
+      status: "issued",
+      operation_kind: "approval.request.authority",
+      thread_id: request.thread_id,
+      approval_id: request.approval_id,
+      authority_receipt_refs: request.receipt_refs,
+      policy_decision_refs: request.policy_decision_refs,
+      direct_truth_write_allowed: false,
+      authority_hash: "sha256:approval-request-authority",
     },
   };
 }
@@ -269,7 +330,7 @@ test("approval state core calls typed Rust daemon-core approval request API", ()
   const core = createRuntimeApprovalStateCore({
     daemonCoreApprovalApi: {
       [APPROVAL_REQUEST_STATE_UPDATE_API_METHOD](request) {
-      captured = request;
+        captured = request;
         return approvalRequestResult(request);
       },
     },
@@ -286,12 +347,36 @@ test("approval state core calls typed Rust daemon-core approval request API", ()
   assert.equal(result.operator_control.approval_id, "approval_alpha");
 });
 
+test("approval state core calls typed Rust daemon-core approval request authority API", () => {
+  let captured = null;
+  const core = createRuntimeApprovalStateCore({
+    daemonCoreApprovalApi: {
+      [APPROVAL_REQUEST_AUTHORITY_API_METHOD](request) {
+        captured = request;
+        return approvalRequestAuthorityResult(request);
+      },
+    },
+  });
+
+  const result = core.authorizeApprovalRequest(approvalRequestAuthorityRequest());
+
+  assert.equal(captured.schema_version, APPROVAL_REQUEST_AUTHORITY_REQUEST_SCHEMA_VERSION);
+  assert.equal(captured.approval_id, "approval_alpha");
+  assert.deepEqual(captured.receipt_refs, [
+    "receipt://authority/approval-request/approval_alpha",
+  ]);
+  assert.equal(Object.hasOwn(captured, "operation"), false);
+  assert.equal(Object.hasOwn(captured, "backend"), false);
+  assert.equal(result.operation_kind, "approval.request.authority");
+  assert.equal(result.authority_hash, "sha256:approval-request-authority");
+});
+
 test("approval state core calls typed Rust daemon-core wallet.network decision authority API", () => {
   let captured = null;
   const core = createRuntimeApprovalStateCore({
     daemonCoreApprovalApi: {
       [APPROVAL_DECISION_AUTHORITY_API_METHOD](request) {
-      captured = request;
+        captured = request;
         return approvalDecisionAuthorityResult(request);
       },
     },
@@ -315,7 +400,7 @@ test("approval state core calls typed Rust daemon-core approval decision state A
   const core = createRuntimeApprovalStateCore({
     daemonCoreApprovalApi: {
       [APPROVAL_DECISION_STATE_UPDATE_API_METHOD](request) {
-      captured = request;
+        captured = request;
         return approvalDecisionResult(request);
       },
     },
@@ -337,7 +422,7 @@ test("approval state core calls typed Rust daemon-core approval revoke state API
   const core = createRuntimeApprovalStateCore({
     daemonCoreApprovalApi: {
       [APPROVAL_REVOKE_STATE_UPDATE_API_METHOD](request) {
-      captured = request;
+        captured = request;
         return approvalRevokeResult(request);
       },
     },
@@ -359,7 +444,7 @@ test("approval state core calls typed Rust daemon-core approval queue projection
   const core = createRuntimeApprovalStateCore({
     daemonCoreApprovalApi: {
       [APPROVAL_QUEUE_PROJECTION_API_METHOD](request) {
-      captured = request;
+        captured = request;
         return approvalQueueResult(request);
       },
     },
@@ -536,5 +621,28 @@ test("approval state core surfaces Rust wallet.network rejection", () => {
     (error) =>
       error.code === "approval_decision_authority_invalid" &&
       error.message === "MissingWalletNetworkAuthority",
+  );
+});
+
+test("approval state core surfaces Rust approval request authority rejection", () => {
+  const core = createRuntimeApprovalStateCore({
+    daemonCoreApprovalApi: {
+      [APPROVAL_REQUEST_AUTHORITY_API_METHOD]() {
+        return {
+          ok: false,
+          error: {
+            code: "approval_request_authority_invalid",
+            message: "MissingAuthorityReceipt",
+          },
+        };
+      },
+    },
+  });
+
+  assert.throws(
+    () => core.authorizeApprovalRequest({ ...approvalRequestAuthorityRequest(), receipt_refs: [] }),
+    (error) =>
+      error.code === "approval_request_authority_invalid" &&
+      error.message === "MissingAuthorityReceipt",
   );
 });

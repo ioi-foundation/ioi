@@ -8541,6 +8541,15 @@ approval-state JS runner facade, command/env fallback, response normalizer, JS
 approval request/decision readback, JS target lookup, runtime-event append, and
 camelCase request aliases stay retired.
 
+Public approval request authority is now Rust-issued before request state
+planning. Rust `approval.rs` exposes `authorize_approval_request`; the public
+request surface calls the typed approval API first, requires a Rust
+request-authority record with authority receipt refs and authority hash, and
+the Rust request state planner fails closed without that binding before any
+Agentgres-gated JS commit can persist. The old one-call request state-update
+shape is no longer terminally valid, and `authorize_approval_request` remains
+retired from command transport.
+
 Public approval decision/revoke authority is now wallet.network-bound at the
 typed Rust daemon-core approval API boundary. Rust `approval.rs` exposes
 `authorize_approval_decision`; the public decision/revoke surface calls the typed
@@ -8550,7 +8559,7 @@ emits a Rust authority record/hash, and the Rust decision/revoke state planners
 fail closed without that authority binding before any Agentgres-gated JS commit
 can persist. The JS surface no longer treats caller-provided `receipt_refs` as
 approval authority truth; it forwards only the Rust authority receipts/hash into
-the state update. Approval request/grant issuance semantics, approval authority
+the state update. Approval grant issuance semantics, approval authority
 projection/replay, and stable direct Rust approval protocol/API bindings remain
 non-terminal beyond the thin JS protocol-client scaffolding.
 
@@ -8970,7 +8979,7 @@ receipt refs, available-artifact projection, and retired `artifact_records`
 candidate-transport rejection. JS still coordinates snapshot materialization,
 diagnostics orchestration, runner transport, and projection adapters around
 Rust-owned plans. Diagnostics projection/replay, temporary runner transport,
-approval request/grant issuance semantics, and authority projection/replay
+approval grant issuance semantics, and authority projection/replay
 still need direct Rust daemon-core ownership.
 
 This is still not terminal migration. These runner, gate, coding-tool,
@@ -9011,7 +9020,7 @@ transport before target truth can return; the public JS surface no longer reads
 Coding-tool approval satisfaction projection also uses runtime `state_dir`
 replay and rejects JS `agent`/`run` candidate transport before
 request/decision/lease truth can return. The remaining approval blockers are
-richer approval authority projection/replay storage, request/grant issuance
+richer approval authority projection/replay storage, grant issuance
 semantics, and stable protocol APIs.
 Runtime MCP registry/control state has moved from the fail-closed JS mutation
 facade into Rust-owned `plan_mcp_control_agent_state_update` planning plus
@@ -10070,6 +10079,23 @@ lifecycle route edge; deletion/cancellation replay/projection, direct
 runtime-control event materialization, durable diagnostics replay/storage,
 wallet/cTEE authority, broader run lifecycle, and stable protocol APIs remain
 non-terminal.
+
+Slice 1261 hard-cuts public approval request issuance into Rust authority.
+`RuntimeApprovalStateCore` now exposes the typed
+`authorizeApprovalRequest` approval API, backed by Rust
+`ApprovalRequestAuthorityCore::authorize`. The public approval request surface
+must call that Rust authority method before `planApprovalRequestStateUpdate`,
+and the Rust request state planner now rejects missing request-authority
+record/hash/authority-receipt binding. The JS surface forwards the Rust
+request-authority receipts/hash into state planning and cannot fall back to
+caller receipt truth, JS runtime-event append, JS run/agent target lookup,
+command/env fallback, generic command transport, or bridge command wrappers.
+Conformance guards the positive API, the failure path without request
+authority, command-transport retirement for `authorize_approval_request`, and
+the two-step public request ordering. Approval grant issuance, richer authority
+projection/replay storage, durable approval read APIs, wallet/cTEE authority
+coverage across the remaining routes, and stable IDE/CLI/SDK protocol APIs
+remain non-terminal.
 
 ## Final Doctrine
 

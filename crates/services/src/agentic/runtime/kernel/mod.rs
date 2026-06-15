@@ -79,10 +79,11 @@ use approval::{
     ApprovalDecisionAuthorityRequest, ApprovalDecisionStateUpdateCore,
     ApprovalDecisionStateUpdateError, ApprovalDecisionStateUpdateRecord,
     ApprovalDecisionStateUpdateRequest, ApprovalQueueProjectionCore, ApprovalQueueProjectionError,
-    ApprovalQueueProjectionRecord, ApprovalQueueProjectionRequest, ApprovalRequestStateUpdateCore,
-    ApprovalRequestStateUpdateError, ApprovalRequestStateUpdateRecord,
-    ApprovalRequestStateUpdateRequest, ApprovalRevokeStateUpdateCore,
-    ApprovalRevokeStateUpdateError, ApprovalRevokeStateUpdateRecord,
+    ApprovalQueueProjectionRecord, ApprovalQueueProjectionRequest, ApprovalRequestAuthorityCore,
+    ApprovalRequestAuthorityError, ApprovalRequestAuthorityRecord, ApprovalRequestAuthorityRequest,
+    ApprovalRequestStateUpdateCore, ApprovalRequestStateUpdateError,
+    ApprovalRequestStateUpdateRecord, ApprovalRequestStateUpdateRequest,
+    ApprovalRevokeStateUpdateCore, ApprovalRevokeStateUpdateError, ApprovalRevokeStateUpdateRecord,
     ApprovalRevokeStateUpdateRequest, ApprovalScopeContext, AuthorityScopeMatcher,
     CodingToolApprovalBlockCore, CodingToolApprovalBlockError, CodingToolApprovalBlockRecord,
     CodingToolApprovalBlockRequest, CodingToolApprovalCore, CodingToolApprovalError,
@@ -415,6 +416,13 @@ impl RuntimeKernelService {
         request: &ApprovalQueueProjectionRequest,
     ) -> Result<ApprovalQueueProjectionRecord, ApprovalQueueProjectionError> {
         ApprovalQueueProjectionCore.project(request)
+    }
+
+    pub fn authorize_approval_request(
+        &self,
+        request: &ApprovalRequestAuthorityRequest,
+    ) -> Result<ApprovalRequestAuthorityRecord, ApprovalRequestAuthorityError> {
+        ApprovalRequestAuthorityCore.authorize(request)
     }
 
     pub fn authorize_approval_decision(

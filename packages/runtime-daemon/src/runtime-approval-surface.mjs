@@ -48,6 +48,26 @@ export function createRuntimeApprovalSurface(deps = {}) {
   function requestThreadApproval(store, threadId, request = {}) {
     const approvalId = requiredApprovalId(request.approval_id, threadId, "Approval requests");
     const target = approvalControlTargetFacts(request);
+    const eventId = approvalEventId(request, approvalId, "request");
+    const seq = approvalSeq(request);
+    const createdAt = approvalCreatedAt(request);
+    const source = approvalSource(request);
+    const authority = requireApprovalStateCore(
+      "authorizeApprovalRequest",
+      "approval_request_authority",
+      "approval.request.authority",
+      threadId,
+      approvalId,
+    ).authorizeApprovalRequest(approvalRequestAuthorityRequest({
+      threadId,
+      approvalId,
+      target,
+      request,
+      eventId,
+      seq,
+      createdAt,
+      source,
+    }));
     const record = requireApprovalStateCore(
       "planApprovalRequestStateUpdate",
       "approval_request",
@@ -59,14 +79,18 @@ export function createRuntimeApprovalSurface(deps = {}) {
       thread_id: threadId,
       run_id: target.run_id,
       state_dir: store?.stateDir ?? null,
-      event_id: approvalEventId(request, approvalId, "request"),
-      seq: approvalSeq(request),
-      created_at: approvalCreatedAt(request),
+      event_id: eventId,
+      seq,
+      created_at: createdAt,
       approval_id: approvalId,
-      source: approvalSource(request),
+      source,
       reason: optionalString(request.reason) ?? "operator requested approval",
-      receipt_refs: normalizeArray(request.receipt_refs),
-      policy_decision_refs: normalizeArray(request.policy_decision_refs),
+      receipt_refs: normalizeArray(authority.authority_receipt_refs),
+      policy_decision_refs: normalizeArray(authority.policy_decision_refs),
+      authority_record: objectRecord(authority.authority) ?? objectRecord(authority) ?? null,
+      authority_hash: optionalString(authority.authority_hash) ?? null,
+      authority_grant_refs: [],
+      authority_receipt_refs: normalizeArray(authority.authority_receipt_refs),
     });
     return applyRustApprovalStateUpdate(store, record);
   }
@@ -341,7 +365,51 @@ function approvalDecisionAuthorityRequest({
   };
 }
 
+function approvalRequestAuthorityRequest({
+  threadId,
+  approvalId,
+  target,
+  request,
+  eventId,
+  seq,
+  createdAt,
+  source,
+}) {
+  return {
+    thread_id: threadId,
+    approval_id: approvalId,
+    target_kind: target.target_kind,
+    run_id: target.run_id,
+    actor_ref: optionalString(request.actor_ref) ?? source,
+    source,
+    idempotency_key:
+      optionalString(request.idempotency_key) ??
+      `approval:${safeId(threadId)}:${safeId(approvalId)}:request:${seq}`,
+    receipt_refs: normalizeArray(request.receipt_refs),
+    policy_decision_refs: normalizeArray(request.policy_decision_refs),
+    approval_manifest: objectRecord(request.approval_manifest) ?? {},
+    authority_context: {
+      ...(objectRecord(request.authority_context) ?? {}),
+      thread_id: threadId,
+      approval_id: approvalId,
+      target_kind: target.target_kind,
+      run_id: target.run_id,
+      event_id: eventId,
+      seq,
+      created_at: createdAt,
+      source,
+    },
+  };
+}
+
 function approvalControlEvidenceRefs(operation) {
+  if (operation === "approval_request_authority") {
+    return [
+      "approval_request_authority_rust_owned",
+      "rust_daemon_core_approval_request_authority_required",
+      "agentgres_approval_request_authority_truth_required",
+    ];
+  }
   if (operation === "approval_decision_authority") {
     return [
       "approval_decision_wallet_network_authority_required",

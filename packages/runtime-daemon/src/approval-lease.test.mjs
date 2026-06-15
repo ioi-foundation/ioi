@@ -365,6 +365,34 @@ function daemonCoreFixtureForApprovalLeaseTest() {
           },
         };
     },
+    authorizeApprovalRequest(request = {}) {
+      const approvalId = approvalIdFor(request);
+      return {
+        source: "rust_approval_request_authority_protocol",
+        backend: "rust_authority",
+        status: "issued",
+        operation_kind: "approval.request.authority",
+        thread_id: request.thread_id,
+        approval_id: approvalId,
+        target_kind: request.target_kind,
+        run_id: request.run_id,
+        receipt_refs: request.receipt_refs ?? [],
+        authority_receipt_refs: [`receipt://authority/approval-request/${approvalId}`],
+        policy_decision_refs: request.policy_decision_refs ?? [],
+        direct_truth_write_allowed: false,
+        authority_hash: `sha256:${safeId(approvalId)}_request_authority`,
+        authority: {
+          schema_version: "ioi.runtime.approval-request-authority.v1",
+          status: "issued",
+          operation_kind: "approval.request.authority",
+          approval_id: approvalId,
+          authority_receipt_refs: [`receipt://authority/approval-request/${approvalId}`],
+          policy_decision_refs: request.policy_decision_refs ?? [],
+          direct_truth_write_allowed: false,
+          authority_hash: `sha256:${safeId(approvalId)}_request_authority`,
+        },
+      };
+    },
     authorizeApprovalDecision(request = {}) {
         const approvalId = approvalIdFor(request);
         return {

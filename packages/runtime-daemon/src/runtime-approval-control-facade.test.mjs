@@ -150,6 +150,37 @@ function rustRunRecord(operationKind, request, control = {}) {
   };
 }
 
+function approvalRequestAuthorityResult(request = {}) {
+  return {
+    source: "rust_approval_request_authority_protocol",
+    backend: "rust_authority",
+    status: "issued",
+    operation_kind: "approval.request.authority",
+    thread_id: request.thread_id,
+    approval_id: request.approval_id,
+    target_kind: request.target_kind,
+    run_id: request.run_id,
+    actor_ref: request.actor_ref,
+    receipt_refs: request.receipt_refs,
+    authority_receipt_refs: ["receipt://authority/approval-request/approval_alpha"],
+    policy_decision_refs: request.policy_decision_refs,
+    direct_truth_write_allowed: false,
+    authority_hash: "sha256:approval-request-authority",
+    authority: {
+      schema_version: "ioi.runtime.approval-request-authority.v1",
+      object: "ioi.runtime_approval_request_authority",
+      status: "issued",
+      operation_kind: "approval.request.authority",
+      thread_id: request.thread_id,
+      approval_id: request.approval_id,
+      authority_receipt_refs: ["receipt://authority/approval-request/approval_alpha"],
+      policy_decision_refs: request.policy_decision_refs,
+      direct_truth_write_allowed: false,
+      authority_hash: "sha256:approval-request-authority",
+    },
+  };
+}
+
 function approvalAuthorityResult(decision = "approve") {
   return {
     source: "rust_approval_decision_authority_protocol",
@@ -188,6 +219,10 @@ test("requestThreadApproval public surface calls Rust approval authority and com
   const calls = [];
   const { store, surface, writes } = createStore({
     approvalStateCore: {
+      authorizeApprovalRequest(request) {
+        calls.push({ method: "authorizeApprovalRequest", request });
+        return approvalRequestAuthorityResult(request);
+      },
       planApprovalRequestStateUpdate(request) {
         calls.push({ method: "planApprovalRequestStateUpdate", request });
         return rustRunRecord("approval.required", request, {
@@ -212,20 +247,78 @@ test("requestThreadApproval public surface calls Rust approval authority and com
     eventId: "event_retired",
   });
 
-  assert.equal(calls.length, 1);
-  assert.equal(calls[0].method, "planApprovalRequestStateUpdate");
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0].method, "authorizeApprovalRequest");
   assert.equal(calls[0].request.thread_id, "thread_alpha");
   assert.equal(calls[0].request.run_id, null);
   assert.equal(calls[0].request.target_kind, "run");
-  assertRustReplayStateUpdateRequest(calls[0].request);
   assert.equal(calls[0].request.approval_id, "approval_alpha");
   assert.deepEqual(calls[0].request.receipt_refs, ["receipt_approval"]);
+  assert.deepEqual(calls[0].request.policy_decision_refs, ["policy_approval"]);
+  assert.equal(Object.hasOwn(calls[0].request, "run"), false);
+  assert.equal(Object.hasOwn(calls[0].request, "agent"), false);
   assertNoRetiredApprovalControlAliases(calls[0].request);
+  assert.equal(calls[1].method, "planApprovalRequestStateUpdate");
+  assert.equal(calls[1].request.thread_id, "thread_alpha");
+  assert.equal(calls[1].request.run_id, null);
+  assert.equal(calls[1].request.target_kind, "run");
+  assertRustReplayStateUpdateRequest(calls[1].request);
+  assert.equal(calls[1].request.approval_id, "approval_alpha");
+  assert.deepEqual(calls[1].request.receipt_refs, [
+    "receipt://authority/approval-request/approval_alpha",
+  ]);
+  assert.deepEqual(calls[1].request.policy_decision_refs, ["policy_approval"]);
+  assert.equal(calls[1].request.authority_hash, "sha256:approval-request-authority");
+  assert.deepEqual(calls[1].request.authority_receipt_refs, [
+    "receipt://authority/approval-request/approval_alpha",
+  ]);
+  assert.equal(
+    calls[1].request.authority_record.operation_kind,
+    "approval.request.authority",
+  );
+  assertNoRetiredApprovalControlAliases(calls[1].request);
   assert.equal(result.operation_kind, "approval.required");
   assert.equal(result.run.status, "blocked");
   assert.equal(result.run.trace.approvalRequests[0].event_id, "event_approval");
+  assert.equal(result.operator_control.authority_hash, "sha256:approval-request-authority");
   assert.equal(result.commit.source, "rust_agentgres_runtime_run_state_commit_protocol");
   assert.deepEqual(writes.map((write) => write.operationKind), ["approval.required"]);
+  assert.equal(store.runtimeEventStreams.size, 0);
+});
+
+test("approval request facade fails closed before state update without Rust request authority", () => {
+  const calls = [];
+  const { store, surface, writes } = createStore({
+    approvalStateCore: {
+      authorizeApprovalRequest(request) {
+        calls.push({ method: "authorizeApprovalRequest", request });
+        const error = new Error("approval request authority is required");
+        error.code = "approval_request_authority_invalid";
+        error.status = 502;
+        throw error;
+      },
+      planApprovalRequestStateUpdate() {
+        calls.push({ method: "planApprovalRequestStateUpdate" });
+        throw new Error("state update must not run without approval request authority");
+      },
+    },
+  });
+
+  assert.throws(
+    () => surface.requestThreadApproval(store, "thread_alpha", {
+      approval_id: "approval_alpha",
+      event_id: "event_approval",
+      seq: 3,
+      created_at: "2026-06-06T04:30:00.000Z",
+      receipt_refs: [],
+    }),
+    (error) => {
+      assert.equal(error.code, "approval_request_authority_invalid");
+      return true;
+    },
+  );
+  assert.deepEqual(calls.map((call) => call.method), ["authorizeApprovalRequest"]);
+  assert.deepEqual(writes, []);
   assert.equal(store.runtimeEventStreams.size, 0);
 });
 
@@ -437,7 +530,7 @@ test("listThreadApprovals public read calls Rust approval queue projection", () 
   assert.equal(store.runtimeEventStreams.size, 0);
 });
 
-test("approval control surface remains fail-closed without Rust approval authority core", () => {
+test("approval request surface remains fail-closed without Rust request authority core", () => {
   const { store, surface } = createStore();
   assert.throws(
     () => surface.requestThreadApproval(store, "thread_alpha", {
@@ -450,7 +543,7 @@ test("approval control surface remains fail-closed without Rust approval authori
       assert.equal(error.code, "runtime_approval_control_rust_core_required");
       assert.equal(error.status, 501);
       assert.equal(error.details.rust_core_boundary, "runtime.approval_control");
-      assert.equal(error.details.operation, "approval_request");
+      assert.equal(error.details.operation, "approval_request_authority");
       assert.equal(error.details.approval_id, "approval_alpha");
       assertNoRetiredApprovalControlAliases(error.details);
       return true;

@@ -5025,6 +5025,9 @@ function runBridge() {
       /APPROVAL_QUEUE_PROJECTION_API_METHOD = "projectApprovalQueue"/.test(
         runtimeApprovalStateCore,
       ) &&
+      /APPROVAL_REQUEST_AUTHORITY_API_METHOD = "authorizeApprovalRequest"/.test(
+        runtimeApprovalStateCore,
+      ) &&
       /APPROVAL_DECISION_AUTHORITY_API_METHOD = "authorizeApprovalDecision"/.test(
         runtimeApprovalStateCore,
       ) &&
@@ -5033,7 +5036,7 @@ function runBridge() {
         runtimeApprovalStateCore,
       ) &&
       /approval_state_core_direct_approval_api_unconfigured/.test(runtimeApprovalStateCore) &&
-      !/operation:\s*"plan_approval_request_state_update"|operation:\s*"authorize_approval_decision"|operation:\s*"plan_approval_decision_state_update"|operation:\s*"plan_approval_revoke_state_update"|operation:\s*"project_approval_queue"|ioi\.runtime\.daemon_core\.command\.v1|this\.daemonCoreInvoker = optionalFunction\(options\.daemonCoreInvoker\)/.test(
+      !/operation:\s*"plan_approval_request_state_update"|operation:\s*"authorize_approval_request"|operation:\s*"authorize_approval_decision"|operation:\s*"plan_approval_decision_state_update"|operation:\s*"plan_approval_revoke_state_update"|operation:\s*"project_approval_queue"|ioi\.runtime\.daemon_core\.command\.v1|this\.daemonCoreInvoker = optionalFunction\(options\.daemonCoreInvoker\)/.test(
         runtimeApprovalStateCore,
       ) &&
       /approval_state_core_request_fields_retired/.test(runtimeApprovalStateCore) &&
@@ -8378,10 +8381,10 @@ function runBridge() {
       /coding_tool_approval_core_compatibility_option_retired/.test(runtimeCodingToolApprovalCore) &&
       /coding_tool_approval_core_request_aliases_retired/.test(runtimeCodingToolApprovalCore) &&
       /approval_command_transport_is_retired/.test(commandProtocolCore) &&
-      !/CommandOperation::PlanCodingToolApprovalManifest|CommandOperation::ProjectCodingToolApprovalSatisfaction|CommandOperation::PlanCodingToolApprovalSatisfaction|CommandOperation::PlanCodingToolApprovalBlock/.test(
+      !/CommandOperation::PlanCodingToolApprovalManifest|CommandOperation::ProjectCodingToolApprovalSatisfaction|CommandOperation::PlanCodingToolApprovalSatisfaction|CommandOperation::PlanCodingToolApprovalBlock|CommandOperation::AuthorizeApprovalRequest/.test(
         commandProtocolCore,
       ) &&
-      !/"plan_coding_tool_approval_manifest"\s*=>|"project_coding_tool_approval_satisfaction"\s*=>|"plan_coding_tool_approval_satisfaction"\s*=>|"plan_coding_tool_approval_block"\s*=>/.test(
+      !/"plan_coding_tool_approval_manifest"\s*=>|"project_coding_tool_approval_satisfaction"\s*=>|"plan_coding_tool_approval_satisfaction"\s*=>|"plan_coding_tool_approval_block"\s*=>|"authorize_approval_request"\s*=>/.test(
         commandProtocolCore,
       ) &&
       !/plan_coding_tool_approval_manifest_protocol_response\(decode\(raw_request\)\?\)|project_coding_tool_approval_satisfaction_protocol_response\(decode\(raw_request\)\?\)|plan_coding_tool_approval_satisfaction_protocol_response\(decode\(raw_request\)\?\)|plan_coding_tool_approval_block_protocol_response\(decode\(raw_request\)\?\)/.test(
@@ -8638,16 +8641,21 @@ function runBridge() {
       !/validate_command_envelope\(\s*"plan_approval_request_state_update",[\s\n]*STEP_MODULE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
         bridgeModule,
       ) &&
+      !/validate_command_envelope\(\s*"authorize_approval_request",[\s\n]*STEP_MODULE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
+        bridgeModule,
+      ) &&
       !/validate_command_envelope\(\s*"apply_workspace_restore_operations",[\s\n]*STEP_MODULE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
         bridgeModule,
       ) &&
       !approvalCommandBridgeExists &&
       !workspaceRestoreCommandBridgeExists &&
       /rust_core_shapes_coding_tool_approval_protocol_response/.test(approvalCore) &&
+      /rust_core_shapes_approval_request_authority_protocol_response/.test(approvalCore) &&
       /rust_core_shapes_approval_request_state_update_protocol_response/.test(approvalCore) &&
       /rust_core_shapes_approval_decision_state_update_protocol_response/.test(approvalCore) &&
       /rust_core_shapes_approval_revoke_state_update_protocol_response/.test(approvalCore) &&
       !/plan_coding_tool_approval_manifest_protocol_response as plan_coding_tool_approval_manifest/.test(bridgeModule) &&
+      !/authorize_approval_request_protocol_response as authorize_approval_request/.test(bridgeModule) &&
       !/plan_approval_request_state_update_protocol_response as plan_approval_request_state_update/.test(bridgeModule) &&
       !/plan_approval_decision_state_update_protocol_response as plan_approval_decision_state_update/.test(bridgeModule) &&
       !/plan_approval_revoke_state_update_protocol_response as plan_approval_revoke_state_update/.test(bridgeModule) &&
@@ -10219,6 +10227,24 @@ function runBridge() {
         approvalCore,
       ) &&
       /APPROVAL_REQUEST_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(approvalCore) &&
+      /ApprovalRequestAuthorityCore/.test(approvalCore) &&
+      /ApprovalRequestAuthorityRequest/.test(approvalCore) &&
+      /ApprovalRequestAuthorityRecord/.test(approvalCore) &&
+      /APPROVAL_REQUEST_AUTHORITY_REQUEST_SCHEMA_VERSION/.test(approvalCore) &&
+      /APPROVAL_REQUEST_AUTHORITY_RESULT_SCHEMA_VERSION/.test(approvalCore) &&
+      /approval_request_authority_hash/.test(approvalCore) &&
+      /approval_request_authority_state_binding_present/.test(approvalCore) &&
+      /pub struct ApprovalRequestAuthorityProtocolRequest/.test(approvalCore) &&
+      /pub fn authorize_approval_request_protocol_response/.test(approvalCore) &&
+      /rust_authority_authorizes_approval_request_with_authority_receipt/.test(approvalCore) &&
+      /rust_authority_rejects_approval_request_without_authority_receipt/.test(approvalCore) &&
+      /rust_core_shapes_approval_request_authority_protocol_response/.test(approvalCore) &&
+      /rust_authority_rejects_approval_request_state_update_without_authority_binding/.test(
+        approvalCore,
+      ) &&
+      /rust_authority_rejects_approval_request_state_update_with_mismatched_authority_hash/.test(
+        approvalCore,
+      ) &&
       /rust_authority_plans_approval_request_state_update/.test(approvalCore) &&
       /rust_authority_plans_approval_request_agent_state_update/.test(approvalCore) &&
       /rust_authority_plans_approval_request_state_update_from_state_dir_without_run_id/.test(
@@ -10237,8 +10263,12 @@ function runBridge() {
       /approval_state_update_sources_from_state_dir/.test(approvalCore) &&
       /"approval_id": approval_id/.test(approvalCore) &&
       /"event_id": request\.event_id/.test(approvalCore) &&
-      /"receipt_refs": request\.receipt_refs\.clone\(\)/.test(approvalCore) &&
-      /"policy_decision_refs": request\.policy_decision_refs\.clone\(\)/.test(approvalCore) &&
+      /"receipt_refs": receipt_refs/.test(approvalCore) &&
+      /"policy_decision_refs": policy_decision_refs/.test(approvalCore) &&
+      /"authority": authority_record/.test(approvalCore) &&
+      /"authority_hash": authority_hash/.test(approvalCore) &&
+      /"authority_grant_refs": authority_grant_refs/.test(approvalCore) &&
+      /"authority_receipt_refs": authority_receipt_refs/.test(approvalCore) &&
       /"created_at": request\.created_at/.test(approvalCore) &&
       /pub struct ApprovalRequestStateUpdateProtocolRequest/.test(approvalCore) &&
       /pub fn plan_approval_request_state_update_protocol_response/.test(approvalCore) &&
@@ -10260,6 +10290,9 @@ function runBridge() {
       ) &&
       !/fn plan_approval_request_state_update/.test(bridgeModule) &&
       !/struct ApprovalRequestStateUpdateProtocolRequest/.test(bridgeModule) &&
+      /approval_command_transport_is_retired/.test(commandProtocolCore) &&
+      /"authorize_approval_request"/.test(commandProtocolCore) &&
+      !/"authorize_approval_request"\s*=>/.test(commandProtocolCore) &&
       /createRuntimeApprovalStateCore/.test(runtimeApprovalStateCore) &&
       /RuntimeApprovalStateCore/.test(runtimeApprovalStateCore) &&
       /assertNoRetiredApprovalStateCoreOption\("command",\s*options\.command\)/.test(
@@ -10268,11 +10301,14 @@ function runBridge() {
       /APPROVAL_REQUEST_STATE_UPDATE_API_METHOD = "planApprovalRequestStateUpdate"/.test(
         runtimeApprovalStateCore,
       ) &&
+      /APPROVAL_REQUEST_AUTHORITY_API_METHOD = "authorizeApprovalRequest"/.test(
+        runtimeApprovalStateCore,
+      ) &&
       /this\.daemonCoreApprovalApi = approvalApi/.test(runtimeApprovalStateCore) &&
       /assertNoRetiredApprovalStateCoreOption\("daemonCoreInvoker", options\.daemonCoreInvoker\)/.test(
         runtimeApprovalStateCore,
       ) &&
-      !/ioi\.runtime\.daemon_core\.command\.v1|operation:\s*"plan_approval_request_state_update"/.test(
+      !/ioi\.runtime\.daemon_core\.command\.v1|operation:\s*"plan_approval_request_state_update"|operation:\s*"authorize_approval_request"/.test(
         runtimeApprovalStateCore,
       ) &&
       !/IOI_STEP_MODULE_COMMAND/.test(runtimeApprovalStateCore) &&
@@ -10294,7 +10330,14 @@ function runBridge() {
         runtimeApprovalStateCoreTest,
       ) &&
       /planApprovalRequestStateUpdate/.test(runtimeApprovalStateCore) &&
+      /authorizeApprovalRequest/.test(runtimeApprovalStateCore) &&
       /approval state core calls typed Rust daemon-core approval request API/.test(
+        runtimeApprovalStateCoreTest,
+      ) &&
+      /approval state core calls typed Rust daemon-core approval request authority API/.test(
+        runtimeApprovalStateCoreTest,
+      ) &&
+      /approval state core surfaces Rust approval request authority rejection/.test(
         runtimeApprovalStateCoreTest,
       ) &&
       /result\.operator_control\.approval_id/.test(runtimeApprovalStateCoreTest) &&
@@ -10311,8 +10354,20 @@ function runBridge() {
         runtimeApprovalStateCore,
       ) &&
       /approvalStateCore/.test(runtimeApprovalSurface) &&
+      /authorizeApprovalRequest[\s\S]*planApprovalRequestStateUpdate/.test(
+        approvalRequestFacadeBody,
+      ) &&
       /planApprovalRequestStateUpdate/.test(approvalRequestFacadeBody) &&
       /state_dir:\s*store\?\.stateDir \?\? null/.test(approvalRequestFacadeBody) &&
+      /authority_record:\s*objectRecord\(authority\.authority\)/.test(
+        approvalRequestFacadeBody,
+      ) &&
+      /authority_hash:\s*optionalString\(authority\.authority_hash\)/.test(
+        approvalRequestFacadeBody,
+      ) &&
+      /authority_receipt_refs:\s*normalizeArray\(authority\.authority_receipt_refs\)/.test(
+        approvalRequestFacadeBody,
+      ) &&
       /applyRustApprovalStateUpdate/.test(approvalRequestFacadeBody) &&
       /persistRustApprovalRunUpdate/.test(runtimeApprovalSurface) &&
       /store\.writeRun\(run,\s*operationKind\)/.test(runtimeApprovalSurface) &&
@@ -10325,6 +10380,9 @@ function runBridge() {
       /approvalStateCore: this\.approvalStateCore/.test(runtimeDaemonIndex) &&
       /runtime_approval_control_rust_core_required/.test(runtimeApprovalSurface) &&
       /rust_core_boundary:\s*"runtime\.approval_control"/.test(runtimeApprovalSurface) &&
+      /approval_request_authority_rust_owned/.test(runtimeApprovalSurface) &&
+      /rust_daemon_core_approval_request_authority_required/.test(runtimeApprovalSurface) &&
+      /agentgres_approval_request_authority_truth_required/.test(runtimeApprovalSurface) &&
       /approval_request_js_facade_retired/.test(runtimeApprovalSurface) &&
       /rust_daemon_core_approval_request_required/.test(runtimeApprovalSurface) &&
       /agentgres_approval_request_state_truth_required/.test(runtimeApprovalSurface) &&
@@ -10334,10 +10392,21 @@ function runBridge() {
       /requestThreadApproval public surface calls Rust approval authority and commits Rust run projection/.test(
         runtimeApprovalControlFacadeTest,
       ) &&
-      /assertRustReplayStateUpdateRequest\(calls\[0\]\.request\)/.test(
+      /assert\.equal\(calls\[0\]\.method,\s*"authorizeApprovalRequest"\)/.test(
         runtimeApprovalControlFacadeTest,
       ) &&
-      /assert\.equal\(calls\[0\]\.request\.run_id,\s*null\)/.test(
+      /assert\.equal\(calls\[1\]\.method,\s*"planApprovalRequestStateUpdate"\)/.test(
+        runtimeApprovalControlFacadeTest,
+      ) &&
+      /assertRustReplayStateUpdateRequest\(calls\[1\]\.request\)/.test(
+        runtimeApprovalControlFacadeTest,
+      ) &&
+      /assert\.equal\(calls\[1\]\.request\.run_id,\s*null\)/.test(
+        runtimeApprovalControlFacadeTest,
+      ) &&
+      /calls\[1\]\.request\.authority_hash/.test(runtimeApprovalControlFacadeTest) &&
+      /calls\[1\]\.request\.authority_receipt_refs/.test(runtimeApprovalControlFacadeTest) &&
+      /approval request facade fails closed before state update without Rust request authority/.test(
         runtimeApprovalControlFacadeTest,
       ) &&
       /approval control must not read JS agent truth/.test(
@@ -10346,10 +10415,13 @@ function runBridge() {
       /approval control must not list JS run truth/.test(
         runtimeApprovalControlFacadeTest,
       ) &&
-      /approval control surface remains fail-closed without Rust approval authority core/.test(
+      /approval request surface remains fail-closed without Rust request authority core/.test(
         runtimeApprovalControlFacadeTest,
       ) &&
       /assertNoRetiredApprovalControlAliases\(calls\[0\]\.request\)/.test(
+        runtimeApprovalControlFacadeTest,
+      ) &&
+      /assertNoRetiredApprovalControlAliases\(calls\[1\]\.request\)/.test(
         runtimeApprovalControlFacadeTest,
       ) &&
       /store\.approvalSurface\.requestThreadApproval\(store,\s*threadId,\s*await readBody\(request\)\)/.test(
@@ -10370,6 +10442,7 @@ function runBridge() {
       ),
     [
       "crates/services/src/agentic/runtime/kernel/approval.rs",
+      "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/runtime-approval-state-core.mjs",
       "packages/runtime-daemon/src/runtime-approval-state-core.test.mjs",
