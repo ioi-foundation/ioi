@@ -15,6 +15,9 @@ use std::collections::BTreeSet;
 const TUI_SCHEMA_VERSION: &str = "ioi.agent-cli.tui.v1";
 const TUI_CONTROL_STATE_SCHEMA_VERSION: &str = "ioi.agent-cli.tui-control-state.v1";
 const TUI_WORKFLOW_DEEP_LINK_SCHEMA_VERSION: &str = "ioi.workflow.runtime-tui-deeplink.v1";
+const TUI_MCP_SERVE_CLIENT_SCHEMA_VERSION: &str = "ioi.runtime.mcp-serve-client.v1";
+const TUI_MCP_SERVE_DEFAULT_ALLOWED_TOOLS: [&str; 3] =
+    ["workspace.status", "git.diff", "file.inspect"];
 const TUI_PRIVATE_RUNTIME_LOOP: bool = false;
 const TUI_THREAD_CREATE_ROUTE: &str = "/v1/threads";
 const TUI_THREAD_LIST_ROUTE: &str = "/v1/threads";
@@ -42,6 +45,7 @@ const TUI_THREAD_MCP_TOOL_FETCH_ROUTE_TEMPLATE: &str =
     "/v1/threads/{thread_id}/mcp/tools/{tool_id}";
 const TUI_THREAD_MCP_TOOL_INVOKE_ROUTE_TEMPLATE: &str =
     "/v1/threads/{thread_id}/mcp/tools/{tool_id}/invoke";
+const TUI_THREAD_MCP_SERVE_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/mcp/serve";
 const TUI_THREAD_MEMORY_STATUS_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/memory/status";
 const TUI_THREAD_MEMORY_VALIDATE_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/memory/validate";
 const TUI_THREAD_MEMORY_POLICY_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/memory/policy";
@@ -335,6 +339,10 @@ fn print_tui_json(render: &TuiRender) -> Result<()> {
         routes_object.insert(
             "thread_mcp_import".to_string(),
             Value::String(TUI_THREAD_MCP_IMPORT_ROUTE_TEMPLATE.to_string()),
+        );
+        routes_object.insert(
+            "thread_mcp_serve".to_string(),
+            Value::String(TUI_THREAD_MCP_SERVE_ROUTE_TEMPLATE.to_string()),
         );
         routes_object.insert(
             "thread_mcp_server_add".to_string(),
@@ -1234,6 +1242,59 @@ pub(crate) async fn invoke_tui_mcp_tool(
         })),
     )
     .await
+}
+
+pub(crate) async fn serve_tui_mcp_tools_list(
+    thread_id: &str,
+    allowed_tools: &[String],
+    endpoint: &str,
+    token: Option<&str>,
+) -> Result<Value> {
+    daemon_request(
+        Some(endpoint),
+        token,
+        Method::POST,
+        &route_with_thread(TUI_THREAD_MCP_SERVE_ROUTE_TEMPLATE, thread_id),
+        Some(tui_mcp_serve_protocol_body(thread_id, allowed_tools)),
+    )
+    .await
+}
+
+pub(crate) fn tui_mcp_serve_protocol_body(thread_id: &str, allowed_tools: &[String]) -> Value {
+    let mut allowed_tools = allowed_tools
+        .iter()
+        .map(|value| value.trim())
+        .filter(|value| !value.is_empty())
+        .map(ToString::to_string)
+        .collect::<Vec<_>>();
+    if allowed_tools.is_empty() {
+        allowed_tools = TUI_MCP_SERVE_DEFAULT_ALLOWED_TOOLS
+            .iter()
+            .map(|value| (*value).to_string())
+            .collect();
+    }
+    let authority_grant_refs = allowed_tools
+        .iter()
+        .map(|tool| format!("wallet.network://grant/mcp-serve/{thread_id}/{tool}"))
+        .collect::<Vec<_>>();
+    let authority_receipt_refs = allowed_tools
+        .iter()
+        .map(|tool| format!("receipt://wallet.network/mcp-serve/{thread_id}/{tool}"))
+        .collect::<Vec<_>>();
+    serde_json::json!({
+        "schema_version": TUI_MCP_SERVE_CLIENT_SCHEMA_VERSION,
+        "source": "cli_tui",
+        "allowed_tools": allowed_tools,
+        "authority_grant_refs": authority_grant_refs,
+        "authority_receipt_refs": authority_receipt_refs,
+        "custody_ref": format!("ctee://workspace/{thread_id}"),
+        "containment_ref": format!("containment://mcp-serve/{thread_id}/tools-list"),
+        "message": {
+            "jsonrpc": "2.0",
+            "id": format!("cli-tui-mcp-serve-{thread_id}-tools-list"),
+            "method": "tools/list",
+        },
+    })
 }
 
 pub(crate) async fn inspect_tui_memory_status(
@@ -5305,6 +5366,10 @@ mod tests {
             "/v1/threads/thread_live/compaction-policy"
         );
         assert_eq!(
+            route_with_thread(TUI_THREAD_MCP_SERVE_ROUTE_TEMPLATE, "thread_live"),
+            "/v1/threads/thread_live/mcp/serve"
+        );
+        assert_eq!(
             route_with_job(TUI_JOB_CANCEL_ROUTE_TEMPLATE, "job_run_live"),
             "/v1/jobs/job_run_live/cancel"
         );
@@ -5331,6 +5396,72 @@ mod tests {
             ),
             "/v1/threads/thread_live/subagents/cancel"
         );
+    }
+
+    #[test]
+    fn tui_mcp_serve_protocol_body_is_stable_cli_admission_request() {
+        let body = tui_mcp_serve_protocol_body("thread_cli", &[]);
+
+        assert_eq!(
+            body.pointer("/schema_version"),
+            Some(&Value::String(
+                TUI_MCP_SERVE_CLIENT_SCHEMA_VERSION.to_string()
+            ))
+        );
+        assert_eq!(
+            body.pointer("/source"),
+            Some(&Value::String("cli_tui".to_string()))
+        );
+        assert_eq!(
+            body.pointer("/allowed_tools"),
+            Some(&serde_json::json!([
+                "workspace.status",
+                "git.diff",
+                "file.inspect"
+            ]))
+        );
+        assert_eq!(
+            body.pointer("/authority_grant_refs"),
+            Some(&serde_json::json!([
+                "wallet.network://grant/mcp-serve/thread_cli/workspace.status",
+                "wallet.network://grant/mcp-serve/thread_cli/git.diff",
+                "wallet.network://grant/mcp-serve/thread_cli/file.inspect",
+            ]))
+        );
+        assert_eq!(
+            body.pointer("/authority_receipt_refs"),
+            Some(&serde_json::json!([
+                "receipt://wallet.network/mcp-serve/thread_cli/workspace.status",
+                "receipt://wallet.network/mcp-serve/thread_cli/git.diff",
+                "receipt://wallet.network/mcp-serve/thread_cli/file.inspect",
+            ]))
+        );
+        assert_eq!(
+            body.pointer("/custody_ref"),
+            Some(&Value::String("ctee://workspace/thread_cli".to_string()))
+        );
+        assert_eq!(
+            body.pointer("/containment_ref"),
+            Some(&Value::String(
+                "containment://mcp-serve/thread_cli/tools-list".to_string()
+            ))
+        );
+        assert_eq!(
+            body.pointer("/message/jsonrpc"),
+            Some(&Value::String("2.0".to_string()))
+        );
+        assert_eq!(
+            body.pointer("/message/id"),
+            Some(&Value::String(
+                "cli-tui-mcp-serve-thread_cli-tools-list".to_string()
+            ))
+        );
+        assert_eq!(
+            body.pointer("/message/method"),
+            Some(&Value::String("tools/list".to_string()))
+        );
+        assert!(body.get("endpoint").is_none());
+        assert!(body.get("thread_id").is_none());
     }
 
     #[test]

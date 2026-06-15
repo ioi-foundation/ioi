@@ -16,13 +16,13 @@ use super::agent_tui::{
     propagate_tui_subagent_cancellation, remember_tui_memory, remove_tui_mcp_server,
     replay_tui_run_events, resume_tui_subagent, resume_tui_thread, search_tui_mcp_tools,
     selected_run_id_from_thread, selected_turn_id_from_values, send_tui_subagent_input,
-    set_tui_mcp_server_enabled, spawn_tui_subagent, steer_tui_turn, thread_id_from_value,
-    tui_approval_decisions, tui_approval_rows, tui_coding_tool_rows, tui_context_pressure_rows,
-    tui_context_rows, tui_cost_rows, tui_job_rows, tui_mcp_rows, tui_memory_rows, tui_mode_status,
-    tui_run_lifecycle_rows, tui_subagent_rows, tui_task_rows, tui_usage_delta_rows,
-    tui_usage_status, tui_workspace_trust_rows, update_tui_memory_policy, update_tui_thread_mode,
-    update_tui_thread_model, update_tui_thread_thinking, validate_tui_mcp, validate_tui_memory,
-    wait_tui_subagent,
+    serve_tui_mcp_tools_list, set_tui_mcp_server_enabled, spawn_tui_subagent, steer_tui_turn,
+    thread_id_from_value, tui_approval_decisions, tui_approval_rows, tui_coding_tool_rows,
+    tui_context_pressure_rows, tui_context_rows, tui_cost_rows, tui_job_rows, tui_mcp_rows,
+    tui_memory_rows, tui_mode_status, tui_run_lifecycle_rows, tui_subagent_rows, tui_task_rows,
+    tui_usage_delta_rows, tui_usage_status, tui_workspace_trust_rows, update_tui_memory_policy,
+    update_tui_thread_mode, update_tui_thread_model, update_tui_thread_thinking, validate_tui_mcp,
+    validate_tui_memory, wait_tui_subagent,
 };
 use anyhow::{anyhow, Result};
 use serde_json::{Map, Value};
@@ -2097,9 +2097,24 @@ async fn handle_mcp_command(
             )
             .await?
         }
+        "serve" => {
+            let allowed_tools = remaining
+                .iter()
+                .map(|value| value.trim())
+                .filter(|value| !value.is_empty())
+                .map(ToString::to_string)
+                .collect::<Vec<_>>();
+            serve_tui_mcp_tools_list(
+                &thread_id,
+                &allowed_tools,
+                &session.endpoint,
+                session.token.as_deref(),
+            )
+            .await?
+        }
         _ => {
             return Err(anyhow!(
-                "/mcp accepts status, tools, servers, search, fetch, validate, import, add, remove, enable, disable, or invoke"
+                "/mcp accepts status, tools, servers, search, fetch, validate, serve, import, add, remove, enable, disable, or invoke"
             ));
         }
     };
@@ -4090,7 +4105,7 @@ fn coding_tool_line_command(tool_id: &str) -> &'static str {
 }
 
 fn print_tui_help() {
-    println!("Line-mode commands: /resume /events [since_seq] /mode [plan|agent|yolo] /model [model_id] [route_id|--route route_id] /thinking [low|medium|high|xhigh] /cost /context /browser-discovery /native-browser [prompt-or-url] [--session-mode owned_hermetic_browser|attached_cdp|controlled_relaunch] [--approval-ref approval_id] [--controlled-relaunch-approval-ref approval_id] [--controlled-relaunch-executable-path path] [--controlled-relaunch-headless] [--selector css] [--target-ref ref] [--text value] [--key value] [--scroll-x n] [--scroll-y n] [--file-path path] [--cdp-endpoint-url url] [--cdp-websocket-url ws] [--cdp-timeout-ms n] /sandboxed-computer [prompt] [--action-kind inspect|shell|wait] [--session-mode local_sandbox|hosted_sandbox] [--approval-ref approval_id] [--target-ref ref] [--sandbox-provider provider] [--no-sandbox-fixture] [--sandbox-image-ref image] [--sandbox-task-ref task] /visual-gui-observe [prompt] [--session-mode visual_fallback|foreground_desktop|background_desktop|app_scoped_desktop] [--screenshot-ref ref|--screenshot-path path] [--som-ref ref|--som-path path] [--ax-ref ref|--ax-path path] [--capture-screen] [--capture-ax-tree] [--capture-app-name name] [--capture-window-title title] [--app-name name] [--window-title title] [--coordinate-space-id id] [--viewport-width n] [--viewport-height n] /visual-gui [prompt] [--session-mode visual_fallback|foreground_desktop|background_desktop|app_scoped_desktop] [--screenshot-ref ref|--screenshot-path path] [--som-ref ref|--som-path path] [--ax-ref ref|--ax-path path] [--local-gui-executor] [--local-gui-executor-provider auto|fixture] [--app-name name] [--window-title title] [--coordinate-space-id id] [--viewport-width n] [--viewport-height n] /computer-use [pause|resume|abort|cleanup] --lease-id lease_id [--handoff-ref ref] [--reason text] [--resume-observation-ref ref] [--cdp-endpoint-url url] /mcp [status|tools|servers|search <query>|fetch <tool_id>|validate|enable <server_id>|disable <server_id>|invoke <server_id> <tool_name> [json]] [--source-mode workspace|global|workspace_and_global] /memory [status|show|policy|path|validate|enable|disable|remember <text>|edit <memory_id> <text>|delete <memory_id>] /subagents /subagent [list|spawn <role> <prompt>|wait [subagent_id]|result [subagent_id]|input [subagent_id] <message>|cancel [subagent_id] [reason]|resume [subagent_id] [message]|assign [subagent_id] <role>|propagate [reason]] [--role role] [--tool-pack pack] [--route route_id] [--max-concurrency n] [--output-contract A,B] [--merge-policy policy] [--cancel-inheritance propagate|isolate] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /patch <path> <old> => <new> /patch-dry-run <path> <old> => <new> /test [path] /diagnostics <path> /diagnostics repair [retry|preview-restore|apply-restore|override] [decision_id] [--approve] [--allow-conflicts] [--message text] /artifact <artifact_id> /retrieve <tool_call_id_or_artifact_id> /tasks /task [inspect|cancel] [task_id] /jobs /job [inspect|cancel] [job_id] /run [run_id|trace|inspect|replay|cancel|recovery] [run_id] /run recovery [request|approve|reject|retry-approved] [run_id] [approval_id] /restore [list|preview <snapshot_id>|apply <snapshot_id> --approve] /quit");
+    println!("Line-mode commands: /resume /events [since_seq] /mode [plan|agent|yolo] /model [model_id] [route_id|--route route_id] /thinking [low|medium|high|xhigh] /cost /context /browser-discovery /native-browser [prompt-or-url] [--session-mode owned_hermetic_browser|attached_cdp|controlled_relaunch] [--approval-ref approval_id] [--controlled-relaunch-approval-ref approval_id] [--controlled-relaunch-executable-path path] [--controlled-relaunch-headless] [--selector css] [--target-ref ref] [--text value] [--key value] [--scroll-x n] [--scroll-y n] [--file-path path] [--cdp-endpoint-url url] [--cdp-websocket-url ws] [--cdp-timeout-ms n] /sandboxed-computer [prompt] [--action-kind inspect|shell|wait] [--session-mode local_sandbox|hosted_sandbox] [--approval-ref approval_id] [--target-ref ref] [--sandbox-provider provider] [--no-sandbox-fixture] [--sandbox-image-ref image] [--sandbox-task-ref task] /visual-gui-observe [prompt] [--session-mode visual_fallback|foreground_desktop|background_desktop|app_scoped_desktop] [--screenshot-ref ref|--screenshot-path path] [--som-ref ref|--som-path path] [--ax-ref ref|--ax-path path] [--capture-screen] [--capture-ax-tree] [--capture-app-name name] [--capture-window-title title] [--app-name name] [--window-title title] [--coordinate-space-id id] [--viewport-width n] [--viewport-height n] /visual-gui [prompt] [--session-mode visual_fallback|foreground_desktop|background_desktop|app_scoped_desktop] [--screenshot-ref ref|--screenshot-path path] [--som-ref ref|--som-path path] [--ax-ref ref|--ax-path path] [--local-gui-executor] [--local-gui-executor-provider auto|fixture] [--app-name name] [--window-title title] [--coordinate-space-id id] [--viewport-width n] [--viewport-height n] /computer-use [pause|resume|abort|cleanup] --lease-id lease_id [--handoff-ref ref] [--reason text] [--resume-observation-ref ref] [--cdp-endpoint-url url] /mcp [status|tools|servers|search <query>|fetch <tool_id>|validate|serve [allowed_tool...]|enable <server_id>|disable <server_id>|invoke <server_id> <tool_name> [json]] [--source-mode workspace|global|workspace_and_global] /memory [status|show|policy|path|validate|enable|disable|remember <text>|edit <memory_id> <text>|delete <memory_id>] /subagents /subagent [list|spawn <role> <prompt>|wait [subagent_id]|result [subagent_id]|input [subagent_id] <message>|cancel [subagent_id] [reason]|resume [subagent_id] [message]|assign [subagent_id] <role>|propagate [reason]] [--role role] [--tool-pack pack] [--route route_id] [--max-concurrency n] [--output-contract A,B] [--merge-policy policy] [--cancel-inheritance propagate|isolate] /approvals /approve [approval_id] [reason] /reject [approval_id] [reason] /interrupt [reason] /steer <guidance> /status /diff [path] /inspect <path> /patch <path> <old> => <new> /patch-dry-run <path> <old> => <new> /test [path] /diagnostics <path> /diagnostics repair [retry|preview-restore|apply-restore|override] [decision_id] [--approve] [--allow-conflicts] [--message text] /artifact <artifact_id> /retrieve <tool_call_id_or_artifact_id> /tasks /task [inspect|cancel] [task_id] /jobs /job [inspect|cancel] [job_id] /run [run_id|trace|inspect|replay|cancel|recovery] [run_id] /run recovery [request|approve|reject|retry-approved] [run_id] [approval_id] /restore [list|preview <snapshot_id>|apply <snapshot_id> --approve] /quit");
 }
 
 fn print_events(events: &[Value]) {
@@ -6130,6 +6145,12 @@ mod tests {
             parse_tui_line_command("/mcp fetch mcp.search/query --source-mode workspace").unwrap(),
             TuiLineCommand::Mcp {
                 action: Some("fetch mcp.search/query --source-mode workspace".to_string())
+            }
+        );
+        assert_eq!(
+            parse_tui_line_command("/mcp serve workspace.status git.diff").unwrap(),
+            TuiLineCommand::Mcp {
+                action: Some("serve workspace.status git.diff".to_string())
             }
         );
         assert_eq!(

@@ -30558,6 +30558,12 @@ function runCompositor() {
   const agentIdeGraphTypes = exists("packages/agent-ide/src/types/graph.ts")
     ? read("packages/agent-ide/src/types/graph.ts")
     : "";
+  const agentTuiCli = exists("crates/cli/src/commands/agent_tui.rs")
+    ? read("crates/cli/src/commands/agent_tui.rs")
+    : "";
+  const agentTuiLoop = exists("crates/cli/src/commands/agent_tui_loop.rs")
+    ? read("crates/cli/src/commands/agent_tui_loop.rs")
+    : "";
   const runtimeCompletePlus = exists("scripts/evidence/runtime-complete-plus.mjs")
     ? read("scripts/evidence/runtime-complete-plus.mjs")
     : "";
@@ -39264,6 +39270,53 @@ function runCompositor() {
       "packages/agent-ide/src/types/graph.ts",
     ],
     "Phase 10/11 is pending: IDE MCP serve nodes must be stable daemon protocol clients with body-carried admission refs, no endpoint override, and no duplicate camelCase protocol body",
+  );
+  assertCheck(
+    result,
+    "cli-mcp-serve-stable-protocol-client",
+    /const TUI_MCP_SERVE_CLIENT_SCHEMA_VERSION: &str = "ioi\.runtime\.mcp-serve-client\.v1";/.test(
+      agentTuiCli,
+    ) &&
+      /const TUI_THREAD_MCP_SERVE_ROUTE_TEMPLATE: &str = "\/v1\/threads\/\{thread_id\}\/mcp\/serve";/.test(
+        agentTuiCli,
+      ) &&
+      /"thread_mcp_serve"\.to_string\(\),\s*Value::String\(TUI_THREAD_MCP_SERVE_ROUTE_TEMPLATE\.to_string\(\)\)/.test(
+        agentTuiCli,
+      ) &&
+      /pub\(crate\) async fn serve_tui_mcp_tools_list/.test(agentTuiCli) &&
+      /Method::POST/.test(agentTuiCli) &&
+      /route_with_thread\(TUI_THREAD_MCP_SERVE_ROUTE_TEMPLATE, thread_id\)/.test(
+        agentTuiCli,
+      ) &&
+      /pub\(crate\) fn tui_mcp_serve_protocol_body/.test(agentTuiCli) &&
+      /"schema_version": TUI_MCP_SERVE_CLIENT_SCHEMA_VERSION/.test(agentTuiCli) &&
+      /"source": "cli_tui"/.test(agentTuiCli) &&
+      /"allowed_tools": allowed_tools/.test(agentTuiCli) &&
+      /"authority_grant_refs": authority_grant_refs/.test(agentTuiCli) &&
+      /"authority_receipt_refs": authority_receipt_refs/.test(agentTuiCli) &&
+      /"custody_ref": format!\("ctee:\/\/workspace\/\{thread_id\}"\)/.test(agentTuiCli) &&
+      /"containment_ref": format!\("containment:\/\/mcp-serve\/\{thread_id\}\/tools-list"\)/.test(
+        agentTuiCli,
+      ) &&
+      /"method": "tools\/list"/.test(agentTuiCli) &&
+      /tui_mcp_serve_protocol_body_is_stable_cli_admission_request/.test(agentTuiCli) &&
+      /assert!\(body\.get\("endpoint"\)\.is_none\(\)\)/.test(agentTuiCli) &&
+      /serve_tui_mcp_tools_list/.test(agentTuiLoop) &&
+      /"serve" =>/.test(agentTuiLoop) &&
+      /parse_tui_line_command\("\/mcp serve workspace\.status git\.diff"\)/.test(
+        agentTuiLoop,
+      ) &&
+      /\/mcp \[status\|tools\|servers\|search <query>\|fetch <tool_id>\|validate\|serve \[allowed_tool\.\.\.\]/.test(
+        agentTuiLoop,
+      ) &&
+      !/\/v1\/mcp\/serve(?:["'/?#]|$)|mcpServeEndpoint|mcp_serve_endpoint/.test(
+        `${agentTuiCli}\n${agentTuiLoop}`,
+      ),
+    [
+      "crates/cli/src/commands/agent_tui.rs",
+      "crates/cli/src/commands/agent_tui_loop.rs",
+    ],
+    "Phase 10/11 is pending: CLI MCP serve must be a stable daemon protocol client with body-carried admission refs and no endpoint/query fallback",
   );
   assertCheck(
     result,

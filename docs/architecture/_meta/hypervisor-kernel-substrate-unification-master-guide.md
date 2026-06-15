@@ -9856,9 +9856,9 @@ and transport containment refs into the Rust-owned MCP serve context. The SDK
 refs, send them in the protocol body instead of query-string transport, and
 keep raw JSON-RPC as the message being served. Tests and conformance guard the
 stable SDK body, the advertised thread route, absence of admission refs in
-query strings, and Rust replay context handoff. This remains non-terminal
-because IDE/CLI protocol APIs and broader SDK route-family coverage over Rust
-replay records still need to close.
+query strings, and Rust replay context handoff. At that cut this remained
+non-terminal because IDE/CLI protocol APIs and broader SDK route-family coverage
+over Rust replay records still need to close.
 
 Slice 1247 closes the IDE MCP serve client split. React Flow MCP serve state
 nodes no longer carry an editable endpoint override or duplicate camelCase MCP
@@ -9867,9 +9867,20 @@ protocol body fields. The IDE builder now emits the canonical
 `ioi.runtime.mcp-serve-client.v1`, body-carried allowed tools, wallet authority
 grant/receipt refs, cTEE custody refs, containment refs, and a raw JSON-RPC
 `tools/list` message. Tests and conformance guard the endpoint override
-retirement, canonical IDE body, and admission-ref fields. This remains
-non-terminal because CLI protocol APIs and broader SDK route-family coverage
-over Rust replay records still need to close.
+retirement, canonical IDE body, and admission-ref fields. At that cut this
+remained non-terminal because CLI protocol APIs and broader SDK route-family
+coverage over Rust replay records still need to close.
+
+Slice 1248 closes the CLI MCP serve client split. The Rust CLI TUI now treats
+`/mcp serve` as a stable daemon protocol client for
+`/v1/threads/{thread_id}/mcp/serve`, emits
+`ioi.runtime.mcp-serve-client.v1` with allowed tools, wallet authority
+grant/receipt refs, cTEE custody refs, containment refs, and a raw JSON-RPC
+`tools/list` message, and rejects endpoint overrides, top-level
+`/v1/mcp/serve`, query-string admission, and duplicate endpoint body fields.
+Tests and conformance guard that the old CLI command transport cannot return.
+This remains non-terminal because broader SDK route-family coverage over Rust
+replay records still needs to close.
 
 ## Final Doctrine
 
