@@ -9860,6 +9860,17 @@ query strings, and Rust replay context handoff. This remains non-terminal
 because IDE/CLI protocol APIs and broader SDK route-family coverage over Rust
 replay records still need to close.
 
+Slice 1247 closes the IDE MCP serve client split. React Flow MCP serve state
+nodes no longer carry an editable endpoint override or duplicate camelCase MCP
+protocol body fields. The IDE builder now emits the canonical
+`/v1/threads/{thread_id}/mcp/serve` daemon request with
+`ioi.runtime.mcp-serve-client.v1`, body-carried allowed tools, wallet authority
+grant/receipt refs, cTEE custody refs, containment refs, and a raw JSON-RPC
+`tools/list` message. Tests and conformance guard the endpoint override
+retirement, canonical IDE body, and admission-ref fields. This remains
+non-terminal because CLI protocol APIs and broader SDK route-family coverage
+over Rust replay records still need to close.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

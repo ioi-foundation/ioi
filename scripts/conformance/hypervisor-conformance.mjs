@@ -3854,9 +3854,6 @@ function runBridge() {
   const agentSdkComputerUseTest = exists("packages/agent-sdk/test/computer-use.test.mjs")
     ? read("packages/agent-sdk/test/computer-use.test.mjs")
     : "";
-  const agentIdeWorkflowNodeRegistry = exists("packages/agent-ide/src/runtime/workflow-node-registry.ts")
-    ? read("packages/agent-ide/src/runtime/workflow-node-registry.ts")
-    : "";
   const agentSdkThread = exists("packages/agent-sdk/src/thread.ts")
     ? read("packages/agent-sdk/src/thread.ts")
     : "";
@@ -4500,6 +4497,9 @@ function runBridge() {
     : "";
   const agentIdeIndex = exists("packages/agent-ide/src/index.ts")
     ? read("packages/agent-ide/src/index.ts")
+    : "";
+  const agentIdeWorkflowNodeRegistry = exists("packages/agent-ide/src/runtime/workflow-node-registry.ts")
+    ? read("packages/agent-ide/src/runtime/workflow-node-registry.ts")
     : "";
   const graphRuntimeTypes = exists("packages/agent-ide/src/runtime/graph-runtime-types.ts")
     ? read("packages/agent-ide/src/runtime/graph-runtime-types.ts")
@@ -30537,6 +30537,27 @@ function runCompositor() {
   const agentSdkTest = exists("packages/agent-sdk/test/sdk.test.mjs")
     ? read("packages/agent-sdk/test/sdk.test.mjs")
     : "";
+  const agentIdeWorkflowRuntimeMcpControlNodes = exists(
+    "packages/agent-ide/src/runtime/workflow-runtime-mcp-control-nodes.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-runtime-mcp-control-nodes.ts")
+    : "";
+  const agentIdeWorkflowRuntimeMcpControlNodesTest = exists(
+    "packages/agent-ide/src/runtime/workflow-runtime-mcp-control-nodes.test.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-runtime-mcp-control-nodes.test.ts")
+    : "";
+  const agentIdeWorkflowNodeRegistry = exists("packages/agent-ide/src/runtime/workflow-node-registry.ts")
+    ? read("packages/agent-ide/src/runtime/workflow-node-registry.ts")
+    : "";
+  const agentIdeWorkflowNodeBindingEditorSections = exists(
+    "packages/agent-ide/src/features/Workflows/WorkflowNodeBindingEditor/sections.tsx",
+  )
+    ? read("packages/agent-ide/src/features/Workflows/WorkflowNodeBindingEditor/sections.tsx")
+    : "";
+  const agentIdeGraphTypes = exists("packages/agent-ide/src/types/graph.ts")
+    ? read("packages/agent-ide/src/types/graph.ts")
+    : "";
   const runtimeCompletePlus = exists("scripts/evidence/runtime-complete-plus.mjs")
     ? read("scripts/evidence/runtime-complete-plus.mjs")
     : "";
@@ -39180,6 +39201,69 @@ function runCompositor() {
       "scripts/lib/live-runtime-daemon-contract.test.mjs",
     ],
     "Phase 10/11 is pending: SDK MCP serve clients and public routes must use stable protocol admission bodies over Rust replay records instead of query-string admission or unadvertised thread routes",
+  );
+  assertCheck(
+    result,
+    "ide-mcp-serve-stable-protocol-client",
+    /RUNTIME_MCP_SERVE_CLIENT_SCHEMA_VERSION\s*=\s*\n\s*"ioi\.runtime\.mcp-serve-client\.v1"/.test(
+      agentIdeWorkflowRuntimeMcpControlNodes,
+    ) &&
+      /export type RuntimeMcpToolOperation = "search" \| "fetch" \| "invoke" \| "serve";/.test(
+        agentIdeWorkflowRuntimeMcpControlNodes,
+      ) &&
+      /if \(params\.operation === "serve"\)/.test(agentIdeWorkflowRuntimeMcpControlNodes) &&
+      /endpoint: `\/v1\/threads\/\$\{encodeSegment\(threadId\)\}\/mcp\/serve`/.test(
+        agentIdeWorkflowRuntimeMcpControlNodes,
+      ) &&
+      /schema_version: RUNTIME_MCP_SERVE_CLIENT_SCHEMA_VERSION/.test(
+        agentIdeWorkflowRuntimeMcpControlNodes,
+      ) &&
+      /authority_grant_refs: authorityGrantRefs/.test(agentIdeWorkflowRuntimeMcpControlNodes) &&
+      /authority_receipt_refs: authorityReceiptRefs/.test(agentIdeWorkflowRuntimeMcpControlNodes) &&
+      /custody_ref: custodyRef/.test(agentIdeWorkflowRuntimeMcpControlNodes) &&
+      /containment_ref: containmentRef/.test(agentIdeWorkflowRuntimeMcpControlNodes) &&
+      /message:\s*\{[\s\S]*?method: "tools\/list"/.test(
+        agentIdeWorkflowRuntimeMcpControlNodes,
+      ) &&
+      /if \(stateOperation === "mcp_serve"\) return "serve";/.test(
+        agentIdeWorkflowRuntimeMcpControlNodes,
+      ) &&
+      /mcpServeAuthorityGrantRefsJson/.test(agentIdeGraphTypes) &&
+      /mcpServeAuthorityReceiptRefsJson/.test(agentIdeGraphTypes) &&
+      /mcpServeCustodyRef/.test(agentIdeGraphTypes) &&
+      /mcpServeContainmentRef/.test(agentIdeGraphTypes) &&
+      /mcpServeAuthorityGrantRefsJson/.test(agentIdeWorkflowNodeRegistry) &&
+      /mcpServeAuthorityReceiptRefsJson/.test(agentIdeWorkflowNodeRegistry) &&
+      /workflow-state-mcp-serve-authority-grant-refs/.test(
+        agentIdeWorkflowNodeBindingEditorSections,
+      ) &&
+      /workflow-state-mcp-serve-authority-receipt-refs/.test(
+        agentIdeWorkflowNodeBindingEditorSections,
+      ) &&
+      /workflow-state-mcp-serve-custody-ref/.test(agentIdeWorkflowNodeBindingEditorSections) &&
+      /workflow-state-mcp-serve-containment-ref/.test(
+        agentIdeWorkflowNodeBindingEditorSections,
+      ) &&
+      /MCP serve state node builds a stable protocol admission request/.test(
+        agentIdeWorkflowRuntimeMcpControlNodesTest,
+      ) &&
+      /Object\.prototype\.hasOwnProperty\.call\(body,\s*"endpoint"\),\s*false/.test(
+        agentIdeWorkflowRuntimeMcpControlNodesTest,
+      ) &&
+      !/mcpServeEndpoint|workflow-state-mcp-serve-endpoint/.test(
+        `${agentIdeWorkflowRuntimeMcpControlNodes}\n${agentIdeWorkflowNodeRegistry}\n${agentIdeGraphTypes}\n${agentIdeWorkflowNodeBindingEditorSections}`,
+      ) &&
+      !/(?:eventKind: typeof RUNTIME_MCP_TOOL_SOURCE_EVENT_KIND|componentKind: typeof RUNTIME_MCP_TOOL_COMPONENT_KIND|payloadSchemaVersion: typeof RUNTIME_MCP_TOOL_PAYLOAD_SCHEMA_VERSION|workflowGraphId: string \| null;|workflowNodeId: string;|serverId: string;|toolName: string;|sideEffectClass: string;|mcpConfigSourceMode: string;|catalogMode: string;|containmentMode: string;|allowNetworkEgress: boolean;|vaultHeaderRefs: Record<string, string>;)/.test(
+        agentIdeWorkflowRuntimeMcpControlNodes,
+      ),
+    [
+      "packages/agent-ide/src/runtime/workflow-runtime-mcp-control-nodes.ts",
+      "packages/agent-ide/src/runtime/workflow-runtime-mcp-control-nodes.test.ts",
+      "packages/agent-ide/src/features/Workflows/WorkflowNodeBindingEditor/sections.tsx",
+      "packages/agent-ide/src/runtime/workflow-node-registry.ts",
+      "packages/agent-ide/src/types/graph.ts",
+    ],
+    "Phase 10/11 is pending: IDE MCP serve nodes must be stable daemon protocol clients with body-carried admission refs, no endpoint override, and no duplicate camelCase protocol body",
   );
   assertCheck(
     result,

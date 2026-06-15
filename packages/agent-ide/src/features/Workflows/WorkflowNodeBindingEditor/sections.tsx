@@ -1587,22 +1587,6 @@ export function WorkflowNodeBindingSections({
               {logic.stateOperation === "mcp_serve" ? (
                 <>
                   <label>
-                    MCP serve endpoint
-                    <input
-                      data-testid="workflow-state-mcp-serve-endpoint"
-                      value={String(
-                        logic.mcpServeEndpoint ??
-                          "/v1/threads/{thread_id}/mcp/serve",
-                      )}
-                      onChange={(event) =>
-                        updateLogic({
-                          ...logic,
-                          mcpServeEndpoint: event.target.value,
-                        })
-                      }
-                    />
-                  </label>
-                  <label>
                     MCP serve allowed tools JSON
                     <textarea
                       data-testid="workflow-state-mcp-serve-allowed-tools"
@@ -1614,6 +1598,67 @@ export function WorkflowNodeBindingSections({
                         updateLogic({
                           ...logic,
                           mcpServeAllowedToolsJson: event.target.value,
+                        })
+                      }
+                    />
+                  </label>
+                  <label>
+                    MCP serve authority grant refs JSON
+                    <textarea
+                      data-testid="workflow-state-mcp-serve-authority-grant-refs"
+                      value={String(
+                        logic.mcpServeAuthorityGrantRefsJson ??
+                          "[\"wallet.network://grant/mcp-serve/{thread_id}/workspace.status\"]",
+                      )}
+                      onChange={(event) =>
+                        updateLogic({
+                          ...logic,
+                          mcpServeAuthorityGrantRefsJson: event.target.value,
+                        })
+                      }
+                    />
+                  </label>
+                  <label>
+                    MCP serve authority receipt refs JSON
+                    <textarea
+                      data-testid="workflow-state-mcp-serve-authority-receipt-refs"
+                      value={String(
+                        logic.mcpServeAuthorityReceiptRefsJson ??
+                          "[\"receipt://wallet.network/mcp-serve/{thread_id}/workspace.status\"]",
+                      )}
+                      onChange={(event) =>
+                        updateLogic({
+                          ...logic,
+                          mcpServeAuthorityReceiptRefsJson: event.target.value,
+                        })
+                      }
+                    />
+                  </label>
+                  <label>
+                    MCP serve cTEE custody ref
+                    <input
+                      data-testid="workflow-state-mcp-serve-custody-ref"
+                      value={String(logic.mcpServeCustodyRef ?? "ctee://workspace/{thread_id}")}
+                      onChange={(event) =>
+                        updateLogic({
+                          ...logic,
+                          mcpServeCustodyRef: event.target.value,
+                        })
+                      }
+                    />
+                  </label>
+                  <label>
+                    MCP serve containment ref
+                    <input
+                      data-testid="workflow-state-mcp-serve-containment-ref"
+                      value={String(
+                        logic.mcpServeContainmentRef ??
+                          "containment://mcp-serve/{thread_id}/workspace.status",
+                      )}
+                      onChange={(event) =>
+                        updateLogic({
+                          ...logic,
+                          mcpServeContainmentRef: event.target.value,
                         })
                       }
                     />

@@ -4082,8 +4082,11 @@ const WORKFLOW_NODE_DEFINITION_BASES: WorkflowNodeDefinitionBase[] = [
         mcpCatalogMode: { type: "string", enum: ["summary", "full"] },
         mcpToolSearchQuery: { type: "string" },
         mcpToolCatalogPreviewLimit: { type: "number" },
-        mcpServeEndpoint: { type: "string" },
         mcpServeAllowedToolsJson: { type: "string" },
+        mcpServeAuthorityGrantRefsJson: { type: "string" },
+        mcpServeAuthorityReceiptRefsJson: { type: "string" },
+        mcpServeCustodyRef: { type: "string" },
+        mcpServeContainmentRef: { type: "string" },
         mcpToolName: { type: "string" },
         mcpToolInputJson: { type: "string" },
         mcpVaultHeaderRefsJson: { type: "string" },
@@ -5909,9 +5912,15 @@ export function workflowNodeCreatorDefinitions(): WorkflowNodeCreatorDefinition[
       stateKey: "mcp",
       stateOperation: "mcp_serve",
       reducer: "replace",
-      mcpServeEndpoint: "/v1/threads/{thread_id}/mcp/serve",
       mcpServeAllowedToolsJson:
         "[\"workspace.status\",\"git.diff\",\"file.inspect\"]",
+      mcpServeAuthorityGrantRefsJson:
+        "[\"wallet.network://grant/mcp-serve/{thread_id}/workspace.status\"]",
+      mcpServeAuthorityReceiptRefsJson:
+        "[\"receipt://wallet.network/mcp-serve/{thread_id}/workspace.status\"]",
+      mcpServeCustodyRef: "ctee://workspace/{thread_id}",
+      mcpServeContainmentRef:
+        "containment://mcp-serve/{thread_id}/workspace.status",
     },
   });
   const mcpServerRemove = creatorDefinition("state", {

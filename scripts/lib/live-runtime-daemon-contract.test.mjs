@@ -14544,8 +14544,11 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowNodeBindingEditorSections, /workflow-state-mcp-server-config/);
   assert.match(workflowNodeBindingEditorSections, /workflow-state-mcp-config-source-mode/);
   assert.match(workflowNodeBindingEditorSections, /workflow-mcp-config-source-mode/);
-  assert.match(workflowNodeBindingEditorSections, /workflow-state-mcp-serve-endpoint/);
   assert.match(workflowNodeBindingEditorSections, /workflow-state-mcp-serve-allowed-tools/);
+  assert.match(workflowNodeBindingEditorSections, /workflow-state-mcp-serve-authority-grant-refs/);
+  assert.match(workflowNodeBindingEditorSections, /workflow-state-mcp-serve-authority-receipt-refs/);
+  assert.match(workflowNodeBindingEditorSections, /workflow-state-mcp-serve-custody-ref/);
+  assert.match(workflowNodeBindingEditorSections, /workflow-state-mcp-serve-containment-ref/);
   assert.match(workflowNodeBindingEditorSections, /workflow-state-mcp-import-json/);
   assert.match(workflowNodeBindingEditorSections, /workflow-state-mcp-tool-input/);
   assert.match(workflowNodeBindingEditorSections, /workflow-state-mcp-containment-mode/);

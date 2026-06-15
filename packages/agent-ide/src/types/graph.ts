@@ -455,8 +455,11 @@ export interface NodeLogic {
   mcpCatalogMode?: "summary" | "full" | string;
   mcpToolSearchQuery?: string;
   mcpToolCatalogPreviewLimit?: number;
-  mcpServeEndpoint?: string;
   mcpServeAllowedToolsJson?: string;
+  mcpServeAuthorityGrantRefsJson?: string;
+  mcpServeAuthorityReceiptRefsJson?: string;
+  mcpServeCustodyRef?: string;
+  mcpServeContainmentRef?: string;
   mcpToolName?: string;
   mcpToolInputJson?: string;
   mcpVaultHeaderRefsJson?: string;

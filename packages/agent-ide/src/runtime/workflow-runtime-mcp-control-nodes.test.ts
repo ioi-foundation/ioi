@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { makeWorkflowNode } from "./workflow-node-registry";
 import {
+  RUNTIME_MCP_SERVE_CLIENT_SCHEMA_VERSION,
   RUNTIME_MCP_TOOL_COMPONENT_KIND,
   RUNTIME_MCP_TOOL_SOURCE,
   RUNTIME_MCP_TOOL_SOURCE_EVENT_KIND,
@@ -98,17 +99,83 @@ test("MCP invoke state node builds a governed invocation request", () => {
     request.endpoint,
     "/v1/threads/thread-mcp-invoke/mcp/tools/mcp.search.query/invoke",
   );
-  assert.equal(request.body?.source, RUNTIME_MCP_TOOL_SOURCE);
-  assert.equal(request.body?.actor, "workflow-author");
-  assert.equal(request.body?.eventKind, RUNTIME_MCP_TOOL_SOURCE_EVENT_KIND);
-  assert.equal(request.body?.componentKind, RUNTIME_MCP_TOOL_COMPONENT_KIND);
-  assert.equal(request.body?.workflowGraphId, "workflow.mcp.invoke");
-  assert.equal(request.body?.workflowNodeId, "runtime.mcp-tool.mcp.search.query");
-  assert.deepEqual(request.body?.input, { q: "workflow-authored" });
-  assert.deepEqual(request.body?.arguments, { q: "workflow-authored" });
-  assert.equal(request.body?.containmentMode, "sandboxed");
-  assert.equal(request.body?.allowNetworkEgress, false);
-  assert.deepEqual(request.body?.headers, {
+  const body = request.body as unknown as Record<string, unknown>;
+  assert.equal(body.source, RUNTIME_MCP_TOOL_SOURCE);
+  assert.equal(body.actor, "workflow-author");
+  assert.equal(body.event_kind, RUNTIME_MCP_TOOL_SOURCE_EVENT_KIND);
+  assert.equal(body.component_kind, RUNTIME_MCP_TOOL_COMPONENT_KIND);
+  assert.equal(body.workflow_graph_id, "workflow.mcp.invoke");
+  assert.equal(body.workflow_node_id, "runtime.mcp-tool.mcp.search.query");
+  assert.deepEqual(body.input, { q: "workflow-authored" });
+  assert.deepEqual(body.arguments, { q: "workflow-authored" });
+  assert.equal(body.containment_mode, "sandboxed");
+  assert.equal(body.allow_network_egress, false);
+  assert.deepEqual(body.headers, {
     Authorization: "vault://mcp/search-token",
   });
+  for (const retired of [
+    "eventKind",
+    "componentKind",
+    "payloadSchemaVersion",
+    "workflowGraphId",
+    "workflowNodeId",
+    "serverId",
+    "toolName",
+    "sideEffectClass",
+    "mcpConfigSourceMode",
+    "catalogMode",
+    "containmentMode",
+    "allowNetworkEgress",
+    "vaultHeaderRefs",
+  ]) {
+    assert.equal(Object.prototype.hasOwnProperty.call(body, retired), false);
+  }
+});
+
+test("MCP serve state node builds a stable protocol admission request", () => {
+  const node = makeWorkflowNode("mcp-serve", "state", "Serve MCP", 100, 120, {
+    stateKey: "mcp",
+    stateOperation: "mcp_serve",
+    reducer: "replace",
+    mcpServeAllowedToolsJson: "[\"workspace.status\",\"git.diff\"]",
+    mcpServeAuthorityGrantRefsJson:
+      "[\"wallet.network://grant/mcp-serve/{thread_id}/workspace.status\"]",
+    mcpServeAuthorityReceiptRefsJson:
+      "[\"receipt://wallet.network/mcp-serve/{thread_id}/workspace.status\"]",
+    mcpServeCustodyRef: "ctee://workspace/{thread_id}",
+    mcpServeContainmentRef: "containment://mcp-serve/{thread_id}/workspace.status",
+  });
+
+  const request = createRuntimeMcpToolControlRequestFromWorkflowNode(
+    node,
+    { threadId: "thread mcp serve" },
+    { workflowGraphId: "workflow.mcp.serve", actor: "workflow-author" },
+  );
+  const body = request.body as unknown as Record<string, unknown>;
+
+  assert.equal(request.operation, "serve");
+  assert.equal(request.method, "POST");
+  assert.equal(request.endpoint, "/v1/threads/thread%20mcp%20serve/mcp/serve");
+  assert.equal(request.serverId, null);
+  assert.equal(request.toolName, null);
+  assert.equal(body.schema_version, RUNTIME_MCP_SERVE_CLIENT_SCHEMA_VERSION);
+  assert.equal(body.source, RUNTIME_MCP_TOOL_SOURCE);
+  assert.deepEqual(body.allowed_tools, ["workspace.status", "git.diff"]);
+  assert.deepEqual(body.authority_grant_refs, [
+    "wallet.network://grant/mcp-serve/thread mcp serve/workspace.status",
+  ]);
+  assert.deepEqual(body.authority_receipt_refs, [
+    "receipt://wallet.network/mcp-serve/thread mcp serve/workspace.status",
+  ]);
+  assert.equal(body.custody_ref, "ctee://workspace/thread mcp serve");
+  assert.equal(
+    body.containment_ref,
+    "containment://mcp-serve/thread mcp serve/workspace.status",
+  );
+  assert.deepEqual(body.message, {
+    jsonrpc: "2.0",
+    id: "workflow-mcp-serve-mcp-serve",
+    method: "tools/list",
+  });
+  assert.equal(Object.prototype.hasOwnProperty.call(body, "endpoint"), false);
 });
