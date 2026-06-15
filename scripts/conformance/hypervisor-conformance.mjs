@@ -15755,17 +15755,23 @@ function runBridge() {
       /approvalModeForThreadMode/.test(runtimeDaemonIndex) &&
       /buildRun/.test(runtimeDaemonIndex) &&
       !/agentRunLifecycleSurface/.test(runtimeDaemonIndex) &&
-      /lifecycleAdmissionRunner:\s*store\.contextPolicyCore\s*\?\?\s*lifecycleAdmissionRunner/.test(
+      /lifecycleAdmissionRunner:\s*store\.contextPolicyCore/.test(
         publicRuntimeRoutes,
       ) &&
-      /lifecycleAdmissionRunner:\s*store\.contextPolicyCore\s*\?\?\s*lifecycleAdmissionRunner/.test(
+      /lifecycleAdmissionRunner:\s*store\.contextPolicyCore/.test(
         runtimeRouteHandlers,
       ) &&
-      /statusStateUpdateRunner:\s*store\.contextPolicyCore\s*\?\?\s*lifecycleAdmissionRunner/.test(
+      /statusStateUpdateRunner:\s*store\.contextPolicyCore/.test(
         runtimeRouteHandlers,
       ) &&
-      /deleteStateUpdateRunner:\s*store\.contextPolicyCore\s*\?\?\s*lifecycleAdmissionRunner/.test(
+      /deleteStateUpdateRunner:\s*store\.contextPolicyCore/.test(
         runtimeRouteHandlers,
+      ) &&
+      !/lifecycleAdmissionRunner\s*=\s*null/.test(
+        publicRuntimeRoutes + runtimeRouteHandlers,
+      ) &&
+      !/\?\?\s*lifecycleAdmissionRunner/.test(
+        publicRuntimeRoutes + runtimeRouteHandlers,
       ) &&
       /contextPolicyCore:\s*this\.contextPolicyCore/.test(runtimeDaemonIndex) &&
       /initialThreadRuntimeControls/.test(runtimeDaemonIndex) &&

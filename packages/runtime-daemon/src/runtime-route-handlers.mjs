@@ -14,7 +14,6 @@ export function createRuntimeRouteHandlers(deps) {
     createLifecycleRun: createLifecycleRunDep = createLifecycleRun,
     deleteLifecycleAgent: deleteLifecycleAgentDep = deleteLifecycleAgent,
     ensureProviderAvailable = null,
-    lifecycleAdmissionRunner = null,
     nativeEmbeddingResponse,
     nativeInvocationResponse,
     notFound,
@@ -604,7 +603,7 @@ export function createRuntimeRouteHandlers(deps) {
     }
     if (request.method === "DELETE" && !action) {
       writeJsonResponse(response, deleteLifecycleAgentDep(store, agentId, {
-        deleteStateUpdateRunner: store.contextPolicyCore ?? lifecycleAdmissionRunner,
+        deleteStateUpdateRunner: store.contextPolicyCore,
         runtimeError: lifecycleRuntimeError,
       }), 204);
       return;
@@ -612,35 +611,35 @@ export function createRuntimeRouteHandlers(deps) {
     if (request.method === "POST" && action === "archive") {
       writeJsonResponse(response, updateLifecycleAgentDep(store, agentId, "archived", "agent.archive", {
         runtimeError: lifecycleRuntimeError,
-        statusStateUpdateRunner: store.contextPolicyCore ?? lifecycleAdmissionRunner,
+        statusStateUpdateRunner: store.contextPolicyCore,
       }));
       return;
     }
     if (request.method === "POST" && action === "unarchive") {
       writeJsonResponse(response, updateLifecycleAgentDep(store, agentId, "active", "agent.unarchive", {
         runtimeError: lifecycleRuntimeError,
-        statusStateUpdateRunner: store.contextPolicyCore ?? lifecycleAdmissionRunner,
+        statusStateUpdateRunner: store.contextPolicyCore,
       }));
       return;
     }
     if (request.method === "POST" && action === "resume") {
       writeJsonResponse(response, updateLifecycleAgentDep(store, agentId, "active", "agent.resume", {
         runtimeError: lifecycleRuntimeError,
-        statusStateUpdateRunner: store.contextPolicyCore ?? lifecycleAdmissionRunner,
+        statusStateUpdateRunner: store.contextPolicyCore,
       }));
       return;
     }
     if (request.method === "POST" && action === "close") {
       writeJsonResponse(response, updateLifecycleAgentDep(store, agentId, "closed", "agent.close", {
         runtimeError: lifecycleRuntimeError,
-        statusStateUpdateRunner: store.contextPolicyCore ?? lifecycleAdmissionRunner,
+        statusStateUpdateRunner: store.contextPolicyCore,
       }));
       return;
     }
     if (request.method === "POST" && action === "reload") {
       writeJsonResponse(response, updateLifecycleAgentDep(store, agentId, null, "agent.reload", {
         runtimeError: lifecycleRuntimeError,
-        statusStateUpdateRunner: store.contextPolicyCore ?? lifecycleAdmissionRunner,
+        statusStateUpdateRunner: store.contextPolicyCore,
       }));
       return;
     }
@@ -649,7 +648,7 @@ export function createRuntimeRouteHandlers(deps) {
         approvalModeForThreadMode,
         buildRun,
         ensureProviderAvailable,
-        lifecycleAdmissionRunner: store.contextPolicyCore ?? lifecycleAdmissionRunner,
+        lifecycleAdmissionRunner: store.contextPolicyCore,
         runtimeError: lifecycleRuntimeError,
         threadModeForRunMode,
       }));

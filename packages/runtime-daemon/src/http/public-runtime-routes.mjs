@@ -20,7 +20,6 @@ export function createPublicRuntimeRequestHandler(deps) {
     handleThreadRoute,
     initialThreadRuntimeControls = null,
     isOpenAiCompatibilityRoute,
-    lifecycleAdmissionRunner = null,
     mcpRegistryForWorkspace = null,
     normalizeBooleanOption,
     notFound,
@@ -150,7 +149,7 @@ export function createPublicRuntimeRequestHandler(deps) {
         writeJsonResponse(response, createLifecycleAgentDep(store, (await readBody(request)).options ?? {}, {
           ensureProviderAvailable,
           initialThreadRuntimeControls,
-          lifecycleAdmissionRunner: store.contextPolicyCore ?? lifecycleAdmissionRunner,
+          lifecycleAdmissionRunner: store.contextPolicyCore,
           mcpRegistryForWorkspace: lifecycleMcpRegistryForStore(store),
           runtimeError: lifecycleRuntimeError,
           runtimeModeForOptions,
@@ -167,7 +166,7 @@ export function createPublicRuntimeRequestHandler(deps) {
           ensureProviderAvailable,
           eventStreamIdForThread,
           initialThreadRuntimeControls,
-          lifecycleAdmissionRunner: store.contextPolicyCore ?? lifecycleAdmissionRunner,
+          lifecycleAdmissionRunner: store.contextPolicyCore,
           mcpRegistryForWorkspace: lifecycleMcpRegistryForStore(store),
           runtimeError: lifecycleRuntimeError,
           runtimeThreadSchemaVersion,
@@ -390,7 +389,7 @@ export function createPublicRuntimeRequestHandler(deps) {
     return (cwd, options = {}) =>
       mcpRegistryForWorkspace(cwd, {
         ...options,
-        contextPolicyCore: store?.contextPolicyCore ?? lifecycleAdmissionRunner,
+        contextPolicyCore: store?.contextPolicyCore,
       });
   }
 }

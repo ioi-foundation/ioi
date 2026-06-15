@@ -10469,6 +10469,16 @@ receipt/state-root binding for every lifecycle read projection, richer
 ArtifactRef/PayloadRef-aware artifact projection, and stable IDE/CLI/SDK
 protocol APIs, not a JS runner fallback.
 
+Slice 1305 hard-cuts the route-level lifecycle admission fallback. Public
+agent/thread create routes and native agent status/delete/run-create routes no
+longer accept a `lifecycleAdmissionRunner` handler option or fall back through
+`store.contextPolicyCore ?? lifecycleAdmissionRunner`; those route families pass
+only `store.contextPolicyCore` into the direct Rust-backed lifecycle functions.
+Conformance now guards that the route fallback option and nullish fallback
+shape cannot return. Remaining work is wallet/cTEE policy depth,
+receipt/state-root binding, lifecycle replay/projection storage, and stable
+protocol APIs, not an alternate JS route runner.
+
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,
 `/v1/memory/policy`, `/v1/memory/path`, or `/v1/memory/validate`; the daemon
