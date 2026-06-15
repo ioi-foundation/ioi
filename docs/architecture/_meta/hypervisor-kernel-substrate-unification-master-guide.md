@@ -10303,6 +10303,20 @@ removes the last coding-tool result duplicate-truth shortcut before Rust
 admission; remaining coding-tool work is durable read/projection cleanup and
 stable API consumption rather than JS idempotency authority.
 
+Slice 1292 hard-cuts pending diagnostics feedback off the JS local event
+cache. `pendingDiagnosticsFeedbackForNextTurn()` now calls
+`runtimeEventsForStream(..., { since_seq: 0 })`, which routes through the Rust
+runtime thread-event replay API over admitted Agentgres `events/*.jsonl`
+records, before selecting diagnostic completion events for feedback compaction.
+It fails closed when the replay API is absent and no longer reads
+`store.runtimeEventStream()` for pending diagnostics truth. Conformance guards
+the Rust replay call, the focused no-local-cache test, and the absence of a
+direct runtime event stream cache read in the diagnostics feedback surface.
+This removes another diagnostics/runtime feedback duplicate truth path; broader
+diagnostics completion remains non-terminal until wallet-governed repair
+authority, durable diagnostics projection/replay storage, and stable SDK/IDE
+diagnostics APIs close.
+
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,
 `/v1/memory/policy`, `/v1/memory/path`, or `/v1/memory/validate`; the daemon

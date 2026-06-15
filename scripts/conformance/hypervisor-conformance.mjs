@@ -39277,6 +39277,10 @@ function runCompositor() {
       /assertCanonicalPendingDiagnosticsFeedbackRequest\(request\);/.test(
         runtimeDiagnosticsFeedbackSurface,
       ) &&
+      /store\.runtimeEventsForStream\(eventStreamIdForThread\(threadId\),\s*\{\s*since_seq:\s*0,\s*\}\)/.test(
+        runtimeDiagnosticsFeedbackSurface,
+      ) &&
+      !/\.runtimeEventStream\(/.test(runtimeDiagnosticsFeedbackSurface) &&
       /request\.diagnostics_mode/.test(runtimeDiagnosticsFeedbackSurface) &&
       /request\.options\?\.diagnostics_mode/.test(runtimeDiagnosticsFeedbackSurface) &&
       !/request\.diagnosticsMode/.test(runtimeDiagnosticsFeedbackSurface) &&
@@ -39286,6 +39290,9 @@ function runCompositor() {
       ) &&
       /diagnosticsMode:\s*"blocking"/.test(runtimeDiagnosticsFeedbackSurfaceTest) &&
       /options:\s*\{\s*diagnosticsMode:\s*"skip"\s*\}/.test(
+        runtimeDiagnosticsFeedbackSurfaceTest,
+      ) &&
+      /pending diagnostics feedback must use Rust replay/.test(
         runtimeDiagnosticsFeedbackSurfaceTest,
       ),
     [

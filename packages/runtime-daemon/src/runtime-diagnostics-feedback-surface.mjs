@@ -86,14 +86,27 @@ export function createRuntimeDiagnosticsFeedbackSurface(deps = {}) {
         "advisory",
     );
     if (injectionMode === "skip") return null;
-    const stream = store.runtimeEventStream(eventStreamIdForThread(threadId));
+    if (typeof store.runtimeEventsForStream !== "function") {
+      throw runtimeDiagnosticsFeedbackRustCoreRequired({
+        operation: "runtime_thread_event_replay",
+        operation_kind: "runtime.thread_event_replay",
+        thread_id: threadId,
+        evidence_refs: [
+          "runtime_thread_event_replay_rust_owned",
+          "rust_daemon_core_diagnostics_feedback_replay_required",
+        ],
+      });
+    }
+    const events = store.runtimeEventsForStream(eventStreamIdForThread(threadId), {
+      since_seq: 0,
+    });
     const lastInjectedSeq = Math.max(
       0,
-      ...stream.events
+      ...events
         .filter((event) => event.event_kind === "lsp.diagnostics.injected")
         .map((event) => Number(event.seq) || 0),
     );
-    const diagnosticEvents = stream.events.filter((event) => {
+    const diagnosticEvents = events.filter((event) => {
       const payload = event.payload_summary ?? event.payload ?? {};
       return (
         event.seq > lastInjectedSeq &&

@@ -77,8 +77,12 @@ function createStore(events = []) {
     invokeThreadToolAsync() {
       throw new Error("retired invokeThreadToolAsync wrapper must not be used for diagnostics feedback");
     },
+    runtimeEventsForStream(eventStreamId, cursor) {
+      calls.push({ name: "runtimeEventsForStream", eventStreamId, cursor });
+      return events;
+    },
     runtimeEventStream() {
-      return { events };
+      throw new Error("pending diagnostics feedback must use Rust replay, not local runtimeEventStream");
     },
   };
 }
@@ -429,6 +433,13 @@ test("diagnostics feedback surface returns pending diagnostics after last inject
   assert.equal(feedback.diagnosticCount, 2);
   assert.equal(feedback.rustPolicyProjectorMounted, true);
   assert.deepEqual(feedback.eventIds, ["event_old", "event_diagnostics"]);
+  assert.deepEqual(store.calls.filter((call) => call.name === "runtimeEventsForStream"), [
+    {
+      name: "runtimeEventsForStream",
+      eventStreamId: "thread_alpha:events",
+      cursor: { since_seq: 0 },
+    },
+  ]);
   assert.equal(
     surface.pendingDiagnosticsFeedbackForNextTurn(store, "thread_alpha", { diagnostics_mode: "skip" }),
     null,
