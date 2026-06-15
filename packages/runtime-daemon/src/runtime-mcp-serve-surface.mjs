@@ -334,6 +334,18 @@ function plannedMcpServeLiveResult(projection, { threadId, toolId }) {
   const protocolResult = objectRecord(payload?.protocol_result);
   const evidenceRefs = Array.isArray(liveResult?.evidence_refs) ? liveResult.evidence_refs : [];
   const receiptRefs = Array.isArray(liveResult?.receipt_refs) ? liveResult.receipt_refs : [];
+  const retiredTransportProofFields = [];
+  if (details) {
+    for (const field of [
+      "js_backend_execution",
+      "js_transport_invocation",
+      "command_transport_fallback",
+      "binary_bridge_fallback",
+      "compatibility_fallback",
+    ]) {
+      if (Object.hasOwn(details, field)) retiredTransportProofFields.push(`details.${field}_retired`);
+    }
+  }
   const authorityGrantRefs = Array.isArray(details?.authority_grant_refs)
     ? details.authority_grant_refs.filter((ref) => typeof ref === "string" && ref.trim())
     : [];
@@ -362,10 +374,7 @@ function plannedMcpServeLiveResult(projection, { threadId, toolId }) {
     !optionalString(details.containment_ref) ||
     details.ctee_custody_required !== true ||
     details.transport_containment_required !== true ||
-    details.js_transport_invocation !== false ||
-    details.command_transport_fallback !== false ||
-    details.binary_bridge_fallback !== false ||
-    details.compatibility_fallback !== false ||
+    retiredTransportProofFields.length > 0 ||
     !evidenceRefs.includes("runtime_mcp_live_result_rust_projection") ||
     !evidenceRefs.includes("agentgres_runtime_mcp_live_result_truth_required") ||
     !evidenceRefs.includes("runtime_mcp_serve_result_payload_materialized") ||
@@ -381,6 +390,7 @@ function plannedMcpServeLiveResult(projection, { threadId, toolId }) {
       thread_id: details?.thread_id ?? null,
       tool_id: details?.tool_id ?? null,
       result_id: liveResult?.id ?? null,
+      retired_transport_proof_fields: retiredTransportProofFields,
     };
     throw error;
   }

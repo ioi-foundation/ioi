@@ -277,10 +277,6 @@ function harness() {
           backend_materialization_status: "rust_step_module_invocation_materialized",
           rust_coding_tool_invocation: true,
           step_module_router_owner: "rust_daemon_core",
-          js_transport_invocation: false,
-          command_transport_fallback: false,
-          binary_bridge_fallback: false,
-          compatibility_fallback: false,
         },
       },
       receipt_refs: invocation.receipt_refs ?? [],
@@ -537,8 +533,8 @@ test("runtime MCP serve surface invokes Rust-owned coding-tool path and Rust-own
   );
   assert.equal(resultCommits[0].request.result.details.custody_ref, MCP_SERVE_ADMISSION.custody_ref);
   assert.equal(resultCommits[0].request.result.details.containment_ref, MCP_SERVE_ADMISSION.containment_ref);
-  assert.equal(resultCommits[0].request.result.details.js_transport_invocation, false);
-  assert.equal(resultCommits[0].request.result.details.command_transport_fallback, false);
+  assert.equal(Object.hasOwn(resultCommits[0].request.result.details, "js_transport_invocation"), false);
+  assert.equal(Object.hasOwn(resultCommits[0].request.result.details, "command_transport_fallback"), false);
   assert.equal(
     resultCommits[0].request.result.payload.protocol_result.structuredContent.event_id,
     "event_mcp_serve_tool_call",
@@ -589,6 +585,38 @@ test("runtime MCP serve surface invokes Rust-owned coding-tool path and Rust-own
   const retiredArgsInvocation = invocations.at(-1);
   assert.equal(Object.hasOwn(retiredArgsInvocation.request, "includeStat"), false);
   assert.equal(Object.hasOwn(retiredArgsInvocation.request, "args"), false);
+});
+
+test("runtime MCP serve tool calls reject retired transport fallback proof fields", async () => {
+  const { invocations, resultCommits, store, surface } = harness();
+  const projectResult = store.contextPolicyCore.projectRuntimeMcpServeToolResult;
+  store.contextPolicyCore.projectRuntimeMcpServeToolResult = (request) => {
+    const projection = projectResult(request);
+    projection.live_result.details.command_transport_fallback = false;
+    projection.live_result.details.js_transport_invocation = false;
+    return projection;
+  };
+
+  const response = await surface.handleSingleMcpServeJsonRpc(
+    store,
+    "thread-one",
+    {
+      jsonrpc: "2.0",
+      id: 18,
+      method: "tools/call",
+      params: { name: "git.diff", arguments: { includeStat: true } },
+    },
+    { onlyDiff: true, ...MCP_SERVE_ADMISSION },
+  );
+
+  assert.equal(response.error.code, -32603);
+  assert.equal(response.error.data.code, "runtime_mcp_serve_live_result_projection_incomplete");
+  assert.deepEqual(response.error.data.details.retired_transport_proof_fields, [
+    "details.js_transport_invocation_retired",
+    "details.command_transport_fallback_retired",
+  ]);
+  assert.equal(invocations.length, 1);
+  assert.deepEqual(resultCommits, []);
 });
 
 test("runtime MCP serve tool calls fail closed without Rust-owned coding-tool invocation surface", async () => {

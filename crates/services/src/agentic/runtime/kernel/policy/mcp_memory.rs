@@ -1360,11 +1360,7 @@ fn mcp_control_backend_execution_contract(
         "custody_ref": custody_ref,
         "containment_ref": containment_ref,
         "runtime_mcp_agentgres_operation_ref": agentgres_operation_ref,
-        "runtime_mcp_resulting_head": resulting_head,
-        "js_backend_execution": false,
-        "command_transport_fallback": false,
-        "binary_bridge_fallback": false,
-        "compatibility_fallback": false
+        "runtime_mcp_resulting_head": resulting_head
     })
 }
 
@@ -1436,12 +1432,7 @@ fn mcp_control_live_exit_receipt(
             "runtime_mcp_backend_owner": "ioi_drivers::mcp::McpManager",
             "runtime_mcp_backend_transport_owner": "ioi_drivers::mcp::transport::McpTransport",
             "runtime_mcp_backend_method": mcp_control_backend_method(control_kind),
-            "runtime_mcp_backend_contract_required": true,
-            "js_backend_execution": false,
-            "js_transport_invocation": false,
-            "command_transport_fallback": false,
-            "binary_bridge_fallback": false,
-            "compatibility_fallback": false
+            "runtime_mcp_backend_contract_required": true
         }
     })
 }
@@ -1514,12 +1505,7 @@ fn mcp_control_live_exit_result(
         "runtime_mcp_backend_contract_required": true,
         "payload_ref": null,
         "payload_hash": payload_hash,
-        "result_payload_hash": payload_hash,
-        "js_backend_execution": false,
-        "js_transport_invocation": false,
-        "command_transport_fallback": false,
-        "binary_bridge_fallback": false,
-        "compatibility_fallback": false
+        "result_payload_hash": payload_hash
     });
     json!({
         "schema_version": "ioi.runtime.mcp-live-result.v1",
@@ -1599,20 +1585,7 @@ fn mcp_live_result_is_rust_owned(result: &Value) -> bool {
     ) {
         return false;
     }
-    if result
-        .get("details")
-        .and_then(|details| details.get("js_transport_invocation"))
-        .and_then(Value::as_bool)
-        != Some(false)
-    {
-        return false;
-    }
-    if result
-        .get("details")
-        .and_then(|details| details.get("command_transport_fallback"))
-        .and_then(Value::as_bool)
-        != Some(false)
-    {
+    if contains_retired_mcp_transport_proof_field(details) {
         return false;
     }
     if result_author.as_deref() == Some("runtime.mcp_control") {
@@ -1652,9 +1625,6 @@ fn mcp_live_result_is_rust_owned(result: &Value) -> bool {
         {
             return false;
         }
-        if details.get("js_backend_execution").and_then(Value::as_bool) != Some(false) {
-            return false;
-        }
         if !result.get("payload").is_some_and(Value::is_object) {
             return false;
         }
@@ -1683,11 +1653,7 @@ fn mcp_live_result_is_rust_owned(result: &Value) -> bool {
         if optional_json_string(backend_execution, "method").is_none() {
             return false;
         }
-        if backend_execution
-            .get("js_backend_execution")
-            .and_then(Value::as_bool)
-            != Some(false)
-        {
+        if contains_retired_mcp_transport_proof_field(backend_execution) {
             return false;
         }
         if optional_json_string(details, "payload_hash").is_none()
@@ -1723,6 +1689,18 @@ fn mcp_live_result_is_rust_owned(result: &Value) -> bool {
         }
     }
     true
+}
+
+fn contains_retired_mcp_transport_proof_field(record: &Value) -> bool {
+    [
+        "js_backend_execution",
+        "js_transport_invocation",
+        "command_transport_fallback",
+        "binary_bridge_fallback",
+        "compatibility_fallback",
+    ]
+    .iter()
+    .any(|key| record.get(key).is_some())
 }
 
 fn mcp_live_result_field_matches(result: &Value, key: &str, expected: Option<&str>) -> bool {
@@ -4812,9 +4790,9 @@ mod tests {
             receipt["details"]["runtime_mcp_backend_contract_required"],
             true
         );
-        assert_eq!(receipt["details"]["js_backend_execution"], false);
-        assert_eq!(receipt["details"]["js_transport_invocation"], false);
-        assert_eq!(receipt["details"]["command_transport_fallback"], false);
+        assert!(receipt["details"]["js_backend_execution"].is_null());
+        assert!(receipt["details"]["js_transport_invocation"].is_null());
+        assert!(receipt["details"]["command_transport_fallback"].is_null());
         assert!(receipt["evidence_refs"].as_array().is_some_and(|refs| refs
             .iter()
             .any(|value| value == "agentgres_runtime_mcp_live_receipt_truth_required")));
@@ -4895,10 +4873,7 @@ mod tests {
             result["payload"]["backend_execution"]["method"],
             "tools/call"
         );
-        assert_eq!(
-            result["payload"]["backend_execution"]["js_backend_execution"],
-            false
-        );
+        assert!(result["payload"]["backend_execution"]["js_backend_execution"].is_null());
         assert_eq!(
             result["payload"]["protocol_result"]["structuredContent"]["object"],
             "ioi.runtime_mcp_live_result_payload"
@@ -4911,9 +4886,9 @@ mod tests {
             result["payload"]["protocol_result"]["structuredContent"]["backend_method"],
             "tools/call"
         );
-        assert_eq!(result["details"]["js_backend_execution"], false);
-        assert_eq!(result["details"]["js_transport_invocation"], false);
-        assert_eq!(result["details"]["command_transport_fallback"], false);
+        assert!(result["details"]["js_backend_execution"].is_null());
+        assert!(result["details"]["js_transport_invocation"].is_null());
+        assert!(result["details"]["command_transport_fallback"].is_null());
         assert!(result["evidence_refs"].as_array().is_some_and(|refs| refs
             .iter()
             .any(|value| value == "agentgres_runtime_mcp_live_result_truth_required")));
@@ -5213,18 +5188,14 @@ mod tests {
                     "isError": false
                 }
             },
-            "details": {
-                "rust_daemon_core_result_author": "runtime.mcp_serve",
-                "thread_id": "thread_1",
-                "control_kind": "mcp_serve_tool_call",
-                "tool_id": "git.diff",
-                "result_materialized": true,
-                "backend_materialization_status": "rust_step_module_invocation_materialized",
-                "js_transport_invocation": false,
-                "command_transport_fallback": false,
-                "binary_bridge_fallback": false,
-                "compatibility_fallback": false
-            }
+                "details": {
+                    "rust_daemon_core_result_author": "runtime.mcp_serve",
+                    "thread_id": "thread_1",
+                    "control_kind": "mcp_serve_tool_call",
+                    "tool_id": "git.diff",
+                    "result_materialized": true,
+                    "backend_materialization_status": "rust_step_module_invocation_materialized"
+                }
         });
         seed_mcp_live_result_state(&state_dir, &result);
 

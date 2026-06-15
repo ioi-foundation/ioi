@@ -179,11 +179,7 @@ impl RuntimeAgentService {
                     "tool_ref": tool_ref,
                     "result": execution.result,
                     "driver_owner": "ioi_drivers::mcp::McpManager",
-                    "transport_owner": "ioi_drivers::mcp::transport::McpTransport",
-                    "js_backend_execution": false,
-                    "command_transport_fallback": false,
-                    "binary_bridge_fallback": false,
-                    "compatibility_fallback": false
+                    "transport_owner": "ioi_drivers::mcp::transport::McpTransport"
                 })
             }
             "tools/list" => {
@@ -207,11 +203,7 @@ impl RuntimeAgentService {
                     "tool_count": tools.len(),
                     "tools": tools,
                     "driver_owner": "ioi_drivers::mcp::McpManager",
-                    "transport_owner": "ioi_drivers::mcp::transport::McpTransport",
-                    "js_backend_execution": false,
-                    "command_transport_fallback": false,
-                    "binary_bridge_fallback": false,
-                    "compatibility_fallback": false
+                    "transport_owner": "ioi_drivers::mcp::transport::McpTransport"
                 })
             }
             other => {
@@ -283,7 +275,7 @@ impl RuntimeMcpLiveBackendExecutionRequest {
             "binary_bridge_fallback",
             "compatibility_fallback",
         ] {
-            if json_bool(&self.backend_execution, key) != Some(false) {
+            if self.backend_execution.get(key).is_some() {
                 return Err(RuntimeMcpLiveBackendExecutionError::BackendContractInvalid(
                     key,
                 ));
@@ -641,10 +633,6 @@ fn json_string(value: &Value, key: &str) -> Option<String> {
     value.get(key).and_then(Value::as_str).and_then(trimmed)
 }
 
-fn json_bool(value: &Value, key: &str) -> Option<bool> {
-    value.get(key).and_then(Value::as_bool)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -727,11 +715,7 @@ mod tests {
             "status": "rust_driver_contract_bound",
             "owner": "ioi_drivers::mcp::McpManager",
             "transport_owner": "ioi_drivers::mcp::transport::McpTransport",
-            "method": method,
-            "js_backend_execution": false,
-            "command_transport_fallback": false,
-            "binary_bridge_fallback": false,
-            "compatibility_fallback": false
+            "method": method
         })
     }
 
@@ -774,12 +758,7 @@ mod tests {
                 "runtime_mcp_backend_method": method,
                 "runtime_mcp_backend_contract_required": true,
                 "payload_hash": "sha256:planned",
-                "result_payload_hash": "sha256:planned",
-                "js_backend_execution": false,
-                "js_transport_invocation": false,
-                "command_transport_fallback": false,
-                "binary_bridge_fallback": false,
-                "compatibility_fallback": false
+                "result_payload_hash": "sha256:planned"
             }
         })
     }
@@ -900,10 +879,7 @@ mod tests {
             record.result["details"]["runtime_mcp_live_backend_driver_result_hash"],
             record.driver_result_hash
         );
-        assert_eq!(
-            record.result["details"]["command_transport_fallback"],
-            false
-        );
+        assert!(record.result["details"]["command_transport_fallback"].is_null());
         Ok(())
     }
 

@@ -580,11 +580,7 @@ impl RuntimeMcpServeToolCallPlanCore {
             "result_materialized": true,
             "backend_materialization_status": "rust_step_module_invocation_materialized",
             "rust_coding_tool_invocation": true,
-            "step_module_router_owner": "rust_daemon_core",
-            "js_transport_invocation": false,
-            "command_transport_fallback": false,
-            "binary_bridge_fallback": false,
-            "compatibility_fallback": false
+            "step_module_router_owner": "rust_daemon_core"
         });
         let live_result = json!({
             "schema_version": "ioi.runtime.mcp-live-result.v1",
@@ -918,10 +914,7 @@ mod tests {
             projection.live_result["details"]["result_materialized"],
             true
         );
-        assert_eq!(
-            projection.live_result["details"]["js_transport_invocation"],
-            false
-        );
+        assert!(projection.live_result["details"]["js_transport_invocation"].is_null());
         assert_eq!(
             projection.live_result["details"]["authority_grant_refs"][0],
             "wallet.network://grant/mcp-serve/git.diff"

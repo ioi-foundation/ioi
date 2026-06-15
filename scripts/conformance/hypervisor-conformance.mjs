@@ -927,6 +927,20 @@ function runDocs() {
   );
   assertCheck(
     result,
+    "guide-runtime-mcp-live-transport-fallback-proof-retired",
+    /Slice 1269 hard-deletes the runtime MCP live\/serve fallback-proof\s+protocol shape/.test(guide) &&
+      /Rust `mcp_control_backend_execution_contract`,\s+`mcp_control_live_exit_receipt`, `mcp_control_live_exit_result`,\s+`project_runtime_mcp_serve_tool_result`/.test(guide) &&
+      /no longer serialize\s+`js_backend_execution`, `js_transport_invocation`,\s+`command_transport_fallback`, `binary_bridge_fallback`, or\s+`compatibility_fallback`/.test(guide) &&
+      /JS MCP control\/serve protocol clients treat those keys as\s+retired compatibility fields/.test(guide) &&
+      /Slice 1269 additionally hard-deletes the runtime MCP live\/serve fallback-proof\s+protocol shape/.test(matrix) &&
+      /omits retired JS\/backend\/command\/binary-bridge\/compatibility fallback proof fields/.test(
+        implementationMatrix,
+      ),
+    [GUIDE, MATRIX, IMPLEMENTATION_MATRIX],
+    "master guide and matrices must record that runtime MCP live and serve records no longer accept fallback-proof fields",
+  );
+  assertCheck(
+    result,
     "guide-runtime-mcp-live-exit-receipt-state-bound",
       /Slice 1215 binds runtime MCP live invoke\/discovery exits to\s+Rust-authored\s+runtime receipt-state commits/.test(guide) &&
       /ioi\.runtime\.mcp-live-exit-receipt\.v1/.test(guide) &&
@@ -26508,6 +26522,9 @@ function runReceipts() {
       /"backend_materialization_status": "rust_driver_contract_bound"/.test(
         agentgresAdmissionCore,
       ) &&
+      !/"(?:js_backend_execution|js_transport_invocation|command_transport_fallback|binary_bridge_fallback|compatibility_fallback)"\s*:\s*false/.test(
+        agentgresAdmissionCore + agentgresProtocolCore,
+      ) &&
       !/"status": "admitted_pending_rust_transport"/.test(agentgresAdmissionCore) &&
       !/"result_materialized": false/.test(agentgresAdmissionCore) &&
       /commits_runtime_mcp_live_result_state_with_storage_admission/.test(agentgresAdmissionCore) &&
@@ -40346,10 +40363,31 @@ function runCompositor() {
       /runtime MCP serve tool calls reject incomplete Rust result projections/.test(
         runtimeMcpServeSurfaceTest,
       ) &&
-      /runtime MCP serve tool calls fail closed without authority custody or containment admission/.test(
+	      /runtime MCP serve tool calls fail closed without authority custody or containment admission/.test(
+	        runtimeMcpServeSurfaceTest,
+	      ) &&
+      !/"(?:js_backend_execution|js_transport_invocation|command_transport_fallback|binary_bridge_fallback|compatibility_fallback)"\s*:\s*false/.test(
+        policyMcpMemoryCore +
+          runtimeMcpLiveBackendService +
+          runtimeMcpServeCore +
+          runtimeMcpControlSurface +
+          runtimeMcpServeSurface,
+      ) &&
+      /assertRetiredMcpLiveTransportProofFieldsAbsent/.test(runtimeMcpControlSurface) &&
+      /retiredTransportProofFields/.test(runtimeMcpServeSurface) &&
+      /runtime MCP live exits reject retired transport fallback proof fields/.test(
+        runtimeMcpControlSurfaceTest,
+      ) &&
+      /runtime MCP live results reject retired transport fallback proof fields/.test(
+        runtimeMcpControlSurfaceTest,
+      ) &&
+      /runtime MCP serve tool calls reject retired transport fallback proof fields/.test(
         runtimeMcpServeSurfaceTest,
       ) &&
-      /runtime_mcp_serve_tool_call_authority_required/.test(runtimeMcpServeSurfaceTest) &&
+      /details\.command_transport_fallback_retired/.test(runtimeMcpControlSurfaceTest) &&
+      /result\.details\.command_transport_fallback_retired/.test(runtimeMcpControlSurfaceTest) &&
+      /details\.js_transport_invocation_retired/.test(runtimeMcpServeSurfaceTest) &&
+	      /runtime_mcp_serve_tool_call_authority_required/.test(runtimeMcpServeSurfaceTest) &&
       /runtime_mcp_serve_tool_call_custody_required/.test(runtimeMcpServeSurfaceTest) &&
       /runtime_mcp_serve_tool_call_containment_required/.test(runtimeMcpServeSurfaceTest) &&
       /response\.error\.data\.code,\s*"runtime_mcp_serve_tool_call_rust_core_required"/.test(

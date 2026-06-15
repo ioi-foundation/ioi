@@ -626,8 +626,8 @@ calls the Rust-owned coding-tool invocation surface. Slice 1236 then binds MCP
 serve `tools/call` public return to Rust-authored Agentgres live-result truth:
 Rust `project_runtime_mcp_serve_tool_result` now emits a materialized
 `ioi.runtime.mcp-live-result.v1` record with the protocol result payload,
-receipt refs, no-JS/no-command/no-binary-bridge/no-compatibility fallback facts,
-and `runtime.mcp_serve` result authorship; the JS adapter must
+receipt refs, `runtime.mcp_serve` result authorship, and no retired JS/command/
+binary-bridge/compatibility fallback proof fields; the JS adapter must
 `commitRuntimeMcpLiveResultState()` and `projectMcpLiveResultReplay()` before it
 can wrap the replayed protocol payload as JSON-RPC. This does not claim terminal
 MCP serve migration: external Rust MCP transport execution, transport
@@ -8758,8 +8758,8 @@ live-result state commits. Rust `plan_mcp_control_agent_state_update` now
 returns an `ioi.runtime.mcp-live-result.v1` result record for `mcp_invoke` and
 `mcp_live_discovery`, with `rust_daemon_core_result_author:
 "runtime.mcp_control"`, the live-exit receipt id, Agentgres operation refs,
-before/after agent-state roots, resulting-head binding, and explicit
-no-JS/no-command/no-binary-bridge/no-compatibility fallback flags. The Rust
+before/after agent-state roots, resulting-head binding, and no retired
+JS/command/binary-bridge/compatibility fallback proof fields. The Rust
 planner adds the result id to the returned agent projection's canonical
 `result_refs`, and the JS MCP control surface now requires
 `commitRuntimeMcpLiveResultState()` after `commitRuntimeReceiptState()` and
@@ -8780,8 +8780,9 @@ Agentgres replay/projection. Rust `McpLiveResultReplayCore` and
 records from `mcp-live-results/*.json` under runtime `state_dir`, filter only
 canonical `ioi.runtime.mcp-live-result.v1` records with
 `rust_daemon_core_result_author: "runtime.mcp_control"`, required
-Agentgres/live-result evidence refs, and explicit no-JS/no-command fallback
-flags, then return `ioi.runtime.mcp-live-result-replay.v1` with `latest_result`
+Agentgres/live-result evidence refs, and no retired JS/command/binary-bridge/
+compatibility fallback proof fields, then return
+`ioi.runtime.mcp-live-result-replay.v1` with `latest_result`
 and a replay hash. The JS MCP control surface now calls
 `projectMcpLiveResultReplay()` after `commitRuntimeReceiptState()` and
 `commitRuntimeMcpLiveResultState()` and before `writeAgent()`, validates the
@@ -9074,8 +9075,8 @@ facade. Slice 1236 moves MCP serve result public truth behind Rust-authored
 Agentgres live-result replay: the Rust projector emits a materialized
 `ioi.runtime.mcp-live-result.v1` record whose payload contains the protocol
 result, whose details declare `runtime.mcp_serve` authorship, receipt binding,
-StepModuleRouter/Rust coding-tool invocation ownership, and explicit no-JS,
-no-command, no-binary-bridge, and no-compatibility fallback flags. The MCP serve
+StepModuleRouter/Rust coding-tool invocation ownership, and no retired
+JS/command/binary-bridge/compatibility fallback proof fields. The MCP serve
 adapter now refuses to invoke the tool unless `commitRuntimeMcpLiveResultState`,
 runtime `stateDir`, and `projectMcpLiveResultReplay` are available, commits the
 Rust live-result record under Agentgres, and returns only the replayed protocol
@@ -9720,7 +9721,7 @@ Slice 1236 binds MCP serve `tools/call` public result truth to Rust-authored
 Agentgres live-result replay. Rust `runtime_mcp_serve.rs` now requires coding
 tool receipt refs, emits materialized `ioi.runtime.mcp-live-result.v1` records
 with protocol payload hashes, `runtime.mcp_serve` authorship, StepModuleRouter
-ownership, and no JS/command/binary-bridge/compatibility fallback facts, and
+ownership, and no retired JS/command/binary-bridge/compatibility fallback proof fields, and
 `policy/mcp_memory.rs` replays `runtime.mcp_serve` live results while still
 filtering JS-authored candidates. `runtime-mcp-serve-surface.mjs` now fails
 closed without `commitRuntimeMcpLiveResultState`, runtime `stateDir`, or
@@ -9783,6 +9784,22 @@ model_mount Rust/JS production source for the retired false-valued provider
 transport fields and requires focused provider lifecycle/inventory negative
 tests.
 
+Slice 1269 hard-deletes the runtime MCP live/serve fallback-proof protocol shape
+for migrated MCP live-result, backend-execution, receipt, and served-tool result
+records. Rust `mcp_control_backend_execution_contract`,
+`mcp_control_live_exit_receipt`, `mcp_control_live_exit_result`,
+`project_runtime_mcp_serve_tool_result`, Agentgres MCP live-result fixtures, and
+`RuntimeAgentService::execute_runtime_mcp_live_backend()` no longer serialize
+`js_backend_execution`, `js_transport_invocation`,
+`command_transport_fallback`, `binary_bridge_fallback`, or
+`compatibility_fallback` as false-valued proof fields. Rust replay/backend
+validation and the JS MCP control/serve protocol clients treat those keys as
+retired compatibility fields and fail closed if they reappear in receipt
+details, result details, backend-execution payloads, or served live-result
+details. Conformance now scans the runtime MCP Rust/JS production source for
+retired false-valued MCP fallback fields and requires focused MCP control/serve
+negative tests.
+
 Slice 1239 hard-cuts runtime MCP control live invoke/discovery exits out of the
 admitted-but-pending transport-result lane. Rust
 `plan_mcp_control_agent_state_update` now materializes deterministic
@@ -9817,8 +9834,8 @@ now requires every MCP-control live invoke/discovery result payload to carry an
 `ioi.runtime.mcp-backend-execution.v1` `backend_execution` contract bound to
 `ioi_drivers::mcp::McpManager` and
 `ioi_drivers::mcp::transport::McpTransport`, with `tools/call` for invoke,
-`tools/list` for discovery, custody/containment refs, Agentgres refs, and
-explicit no-JS/no-command/no-binary-bridge/no-compatibility fallback facts. The
+`tools/list` for discovery, custody/containment refs, Agentgres refs, and no
+retired JS/command/binary-bridge/compatibility fallback proof fields. The
 live-exit receipt and result details now carry
 `runtime_mcp_backend_execution_rust_driver_bound` evidence and
 `rust_driver_contract_bound` backend status, Rust replay filters MCP-control
@@ -9890,8 +9907,8 @@ requires the same refs before emitting the `runtime.mcp_serve`
 canonical snake_case admission refs to Rust, rejects incomplete Rust plans or
 live results that omit the refs, commits only the Rust-authored live result,
 and returns only replayed Rust protocol payloads. Tests and conformance guard
-the authority/custody/containment refusal paths, no-JS/no-command fallback
-facts, and replay-before-return path. This remains non-terminal because stable
+the authority/custody/containment refusal paths, retired fallback-proof field
+rejection, and replay-before-return path. This remains non-terminal because stable
 SDK/IDE/CLI protocol APIs over Rust replay records still need to close.
 
 Slice 1246 closes the SDK/public-route MCP serve protocol gap. The public
@@ -10184,8 +10201,8 @@ approval APIs remain non-terminal.
 Slice 1264 retires the stale Agentgres MCP live-result pending-transport
 fixture truth. Rust Agentgres MCP live-result state commit examples and protocol
 tests now use `status: "rust_materialized"`, `result_materialized: true`,
-`backend_materialization_status: "rust_driver_contract_bound"`, and explicit
-no-command/no-binary/no-compatibility fallback facts. Conformance now scans the
+`backend_materialization_status: "rust_driver_contract_bound"`, and no retired
+command/binary/compatibility fallback proof fields. Conformance now scans the
 Rust Agentgres admission/protocol cores so `admitted_pending_rust_transport`
 cannot remain accepted live-result commit truth. Broader non-MCP SDK
 route-family protocol coverage over Rust replay records remains non-terminal.

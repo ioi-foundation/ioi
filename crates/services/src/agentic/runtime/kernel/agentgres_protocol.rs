@@ -947,11 +947,7 @@ mod tests {
                         "runtime_mcp_agent_state_root_after": "sha256:after",
                         "runtime_mcp_resulting_head": "agentgres://runtime-state/agents/agent_1/head/sha256_after",
                         "result_materialized": true,
-                        "backend_materialization_status": "rust_driver_contract_bound",
-                        "js_transport_invocation": false,
-                        "command_transport_fallback": false,
-                        "binary_bridge_fallback": false,
-                        "compatibility_fallback": false
+                        "backend_materialization_status": "rust_driver_contract_bound"
                     }
                 }
             }

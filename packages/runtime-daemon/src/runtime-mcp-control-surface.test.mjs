@@ -93,11 +93,6 @@ function liveExitReceipt({
       runtime_mcp_backend_transport_owner: "ioi_drivers::mcp::transport::McpTransport",
       runtime_mcp_backend_method: request.control_kind === "mcp_live_discovery" ? "tools/list" : "tools/call",
       runtime_mcp_backend_contract_required: true,
-      js_backend_execution: false,
-      js_transport_invocation: false,
-      command_transport_fallback: false,
-      binary_bridge_fallback: false,
-      compatibility_fallback: false,
     },
   };
 }
@@ -123,10 +118,6 @@ function liveBackendExecutionContract({ request, payload, agent, operationRef, r
     containment_ref: payload.containment_ref ?? null,
     runtime_mcp_agentgres_operation_ref: operationRef,
     runtime_mcp_resulting_head: resultingHead,
-    js_backend_execution: false,
-    command_transport_fallback: false,
-    binary_bridge_fallback: false,
-    compatibility_fallback: false,
   };
 }
 
@@ -222,11 +213,6 @@ function liveExitResult({
       payload_ref: null,
       payload_hash: payloadHash,
       result_payload_hash: payloadHash,
-      js_backend_execution: false,
-      js_transport_invocation: false,
-      command_transport_fallback: false,
-      binary_bridge_fallback: false,
-      compatibility_fallback: false,
     },
   };
 }
@@ -938,9 +924,9 @@ test("runtime MCP live exits use Rust control admission before JS transport invo
   assert.equal(invoked.receipt.details.runtime_mcp_backend_contract_required, true);
   assert.equal(invoked.receipt.details.runtime_mcp_live_backend_execution_status, "rust_driver_executed");
   assert.equal(invoked.receipt.details.runtime_mcp_live_backend_execution_required, true);
-  assert.equal(invoked.receipt.details.js_backend_execution, false);
-  assert.equal(invoked.receipt.details.js_transport_invocation, false);
-  assert.equal(invoked.receipt.details.command_transport_fallback, false);
+  assert.equal(Object.hasOwn(invoked.receipt.details, "js_backend_execution"), false);
+  assert.equal(Object.hasOwn(invoked.receipt.details, "js_transport_invocation"), false);
+  assert.equal(Object.hasOwn(invoked.receipt.details, "command_transport_fallback"), false);
   assert.equal(invoked.receipt_commit.commit_hash, `receipt.commit.${invoked.receipt.id}`);
   assert.equal(
     invoked.control.result_record_id,
@@ -966,7 +952,7 @@ test("runtime MCP live exits use Rust control admission before JS transport invo
   assert.equal(invoked.result.payload.backend_execution.owner, "ioi_drivers::mcp::McpManager");
   assert.equal(invoked.result.payload.backend_execution.transport_owner, "ioi_drivers::mcp::transport::McpTransport");
   assert.equal(invoked.result.payload.backend_execution.method, "tools/call");
-  assert.equal(invoked.result.payload.backend_execution.js_backend_execution, false);
+  assert.equal(Object.hasOwn(invoked.result.payload.backend_execution, "js_backend_execution"), false);
   assert.equal(invoked.result.payload.backend_execution.driver_result_hash, invoked.live_backend_execution.driver_result_hash);
   assert.equal(invoked.result.payload.driver_result_hash, invoked.live_backend_execution.driver_result_hash);
   assert.equal(
@@ -992,9 +978,9 @@ test("runtime MCP live exits use Rust control admission before JS transport invo
     "rust_driver_contract_bound",
   );
   assert.equal(invoked.result.payload.protocol_result.structuredContent.backend_method, "tools/call");
-  assert.equal(invoked.result.details.js_backend_execution, false);
-  assert.equal(invoked.result.details.js_transport_invocation, false);
-  assert.equal(invoked.result.details.command_transport_fallback, false);
+  assert.equal(Object.hasOwn(invoked.result.details, "js_backend_execution"), false);
+  assert.equal(Object.hasOwn(invoked.result.details, "js_transport_invocation"), false);
+  assert.equal(Object.hasOwn(invoked.result.details, "command_transport_fallback"), false);
   assert.equal(invoked.result_commit.commit_hash, `result.commit.${invoked.result.id}`);
   assert.equal(invoked.live_backend_execution.status, "rust_driver_executed");
   assert.equal(invoked.live_backend_execution.backend_execution.status, "rust_driver_executed");
@@ -1091,6 +1077,74 @@ test("runtime MCP live exits use Rust control admission before JS transport invo
   );
 });
 
+test("runtime MCP live exits reject retired transport fallback proof fields", async () => {
+  const { store, surface } = harness({
+    planRecordTransform(record) {
+      const next = cloneJson(record);
+      next.receipt.details.js_backend_execution = false;
+      next.receipt.details.command_transport_fallback = false;
+      return next;
+    },
+  });
+
+  await assert.rejects(
+    () =>
+      surface.invokeMcpTool(store, {
+        thread_id: "thread-agent-one",
+        server_id: "mcp.docs",
+        tool_id: "mcp.docs.search",
+        tool_name: "search",
+        live_transport: "stdio",
+        execution_mode: "live",
+        authority_grant_refs: ["wallet.network://grant/mcp/docs/search"],
+        authority_receipt_refs: ["receipt://wallet.network/mcp/docs/search"],
+        custody_ref: "ctee://workspace/public",
+        containment_ref: "containment://mcp/docs",
+      }),
+    (error) => {
+      assert.equal(error.code, "mcp_control_live_exit_receipt_binding_invalid");
+      assert.ok(error.details.missing.includes("details.js_backend_execution_retired"));
+      assert.ok(error.details.missing.includes("details.command_transport_fallback_retired"));
+      return true;
+    },
+  );
+});
+
+test("runtime MCP live results reject retired transport fallback proof fields", async () => {
+  const { store, surface } = harness({
+    planRecordTransform(record) {
+      const next = cloneJson(record);
+      next.result.details.js_transport_invocation = false;
+      next.result.details.command_transport_fallback = false;
+      next.result.payload.backend_execution.compatibility_fallback = false;
+      return next;
+    },
+  });
+
+  await assert.rejects(
+    () =>
+      surface.invokeMcpTool(store, {
+        thread_id: "thread-agent-one",
+        server_id: "mcp.docs",
+        tool_id: "mcp.docs.search",
+        tool_name: "search",
+        live_transport: "stdio",
+        execution_mode: "live",
+        authority_grant_refs: ["wallet.network://grant/mcp/docs/search"],
+        authority_receipt_refs: ["receipt://wallet.network/mcp/docs/search"],
+        custody_ref: "ctee://workspace/public",
+        containment_ref: "containment://mcp/docs",
+      }),
+    (error) => {
+      assert.equal(error.code, "mcp_control_live_backend_execution_invalid");
+      assert.ok(error.details.missing.includes("result.details.js_transport_invocation_retired"));
+      assert.ok(error.details.missing.includes("result.details.command_transport_fallback_retired"));
+      assert.ok(error.details.missing.includes("backend_execution.compatibility_fallback_retired"));
+      return true;
+    },
+  );
+});
+
 test("runtime MCP live exits reject pending Rust transport result materialization", async () => {
   const { calls, store, surface } = harness({
     planRecordTransform(record) {
@@ -1147,7 +1201,6 @@ test("runtime MCP live exits reject missing Rust MCP backend driver contract", a
       delete next.receipt.details.runtime_mcp_backend_transport_owner;
       delete next.receipt.details.runtime_mcp_backend_method;
       delete next.receipt.details.runtime_mcp_backend_contract_required;
-      delete next.receipt.details.js_backend_execution;
       next.result.evidence_refs = next.result.evidence_refs.filter(
         (ref) => ref !== "runtime_mcp_backend_execution_rust_driver_bound",
       );
@@ -1157,7 +1210,6 @@ test("runtime MCP live exits reject missing Rust MCP backend driver contract", a
       delete next.result.details.runtime_mcp_backend_transport_owner;
       delete next.result.details.runtime_mcp_backend_method;
       delete next.result.details.runtime_mcp_backend_contract_required;
-      delete next.result.details.js_backend_execution;
       next.result.details.backend_materialization_status = "rust_materialized";
       return next;
     },

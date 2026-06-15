@@ -581,6 +581,19 @@ export function createRuntimeMcpControlSurface({
     return { result: projectedResult, projection };
   }
 
+  function assertRetiredMcpLiveTransportProofFieldsAbsent(record, path, missing) {
+    if (!record || typeof record !== "object" || Array.isArray(record)) return;
+    for (const field of [
+      "js_backend_execution",
+      "js_transport_invocation",
+      "command_transport_fallback",
+      "binary_bridge_fallback",
+      "compatibility_fallback",
+    ]) {
+      if (Object.hasOwn(record, field)) missing.push(`${path}.${field}_retired`);
+    }
+  }
+
   function assertRuntimeMcpLiveReceiptBound(receipt, control, details = {}) {
     const receiptDetails = objectRecordDep(receipt.details) ?? {};
     const evidenceRefs = Array.isArray(receipt.evidence_refs) ? receipt.evidence_refs : [];
@@ -640,11 +653,7 @@ export function createRuntimeMcpControlSurface({
     if (receiptDetails.runtime_mcp_backend_contract_required !== true) {
       missing.push("runtime_mcp_backend_contract_required");
     }
-    if (receiptDetails.js_backend_execution !== false) missing.push("js_backend_execution_false");
-    if (receiptDetails.js_transport_invocation !== false) missing.push("js_transport_invocation_false");
-    if (receiptDetails.command_transport_fallback !== false) missing.push("command_transport_fallback_false");
-    if (receiptDetails.binary_bridge_fallback !== false) missing.push("binary_bridge_fallback_false");
-    if (receiptDetails.compatibility_fallback !== false) missing.push("compatibility_fallback_false");
+    assertRetiredMcpLiveTransportProofFieldsAbsent(receiptDetails, "details", missing);
     if (missing.length > 0) {
       throw runtimeErrorDep({
         status: 502,
@@ -755,12 +764,8 @@ export function createRuntimeMcpControlSurface({
     if (receiptPayloadHash && detailsPayloadHash && receiptPayloadHash !== detailsPayloadHash) {
       missing.push("receipt_result_payload_hash_binding");
     }
-    if (resultDetails.js_transport_invocation !== false) missing.push("js_transport_invocation_false");
-    if (resultDetails.js_backend_execution !== false) missing.push("js_backend_execution_false");
-    if (backendExecution?.js_backend_execution !== false) missing.push("payload.backend_execution.js_backend_execution_false");
-    if (resultDetails.command_transport_fallback !== false) missing.push("command_transport_fallback_false");
-    if (resultDetails.binary_bridge_fallback !== false) missing.push("binary_bridge_fallback_false");
-    if (resultDetails.compatibility_fallback !== false) missing.push("compatibility_fallback_false");
+    assertRetiredMcpLiveTransportProofFieldsAbsent(resultDetails, "details", missing);
+    assertRetiredMcpLiveTransportProofFieldsAbsent(backendExecution, "payload.backend_execution", missing);
     if (missing.length > 0) {
       throw runtimeErrorDep({
         status: 502,
@@ -810,18 +815,7 @@ export function createRuntimeMcpControlSurface({
       missing.push("backend_execution.transport_owner");
     }
     if (!optionalStringDep(backendExecution?.method)) missing.push("backend_execution.method");
-    if (backendExecution?.js_backend_execution !== false) {
-      missing.push("backend_execution.js_backend_execution_false");
-    }
-    if (backendExecution?.command_transport_fallback !== false) {
-      missing.push("backend_execution.command_transport_fallback_false");
-    }
-    if (backendExecution?.binary_bridge_fallback !== false) {
-      missing.push("backend_execution.binary_bridge_fallback_false");
-    }
-    if (backendExecution?.compatibility_fallback !== false) {
-      missing.push("backend_execution.compatibility_fallback_false");
-    }
+    assertRetiredMcpLiveTransportProofFieldsAbsent(backendExecution, "backend_execution", missing);
     if (!result) missing.push("result");
     if (optionalStringDep(result?.id) !== optionalStringDep(control.result_record_id)) {
       missing.push("result_record_id");
@@ -851,10 +845,7 @@ export function createRuntimeMcpControlSurface({
     ) {
       missing.push("result.payload.runtime_mcp_live_backend_driver_result_hash");
     }
-    if (resultDetails.js_backend_execution !== false) missing.push("result.js_backend_execution_false");
-    if (resultDetails.command_transport_fallback !== false) {
-      missing.push("result.command_transport_fallback_false");
-    }
+    assertRetiredMcpLiveTransportProofFieldsAbsent(resultDetails, "result.details", missing);
     if (missing.length > 0) {
       throw runtimeErrorDep({
         status: 502,
