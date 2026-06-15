@@ -248,10 +248,17 @@ Slice 1255 folds the remaining public usage and authority-evidence read edges
 into that Rust lifecycle projector: Rust projection kinds `usage_list` and
 `authority_evidence_summary` derive top-level usage and authority/preflight
 evidence from admitted Agentgres `runs/*.json` and `events/*.jsonl` records,
-public `/v1/usage`, `/v1/authority-evidence`, and native `/api/v1`
-authority-evidence/workflow-capability preflight routes call the lifecycle
-surface, and the old JS authority summary helper plus run-read `listUsage` /
-`authorityEvidenceSummary` facade are retired.
+public `/v1/usage`, `/v1/authority-evidence`, and
+`/v1/workflow-capability-preflights` call the lifecycle surface, and the old JS
+authority summary helper plus run-read `listUsage` / `authorityEvidenceSummary`
+facade are retired.
+Slice 1256 retires the migrated authority-evidence native compatibility path:
+`/api/v1/authority-evidence`, `/api/v1/authority-evidence-summaries`,
+`/api/v1/workflow-capability-preflight-evidence`, and
+`/api/v1/workflow-capability-preflight` are no longer routed. The canonical
+Rust-owned daemon protocol surface for this family is `/v1/authority-evidence`
+and `/v1/workflow-capability-preflights`, and conformance now guards that the
+native aliases cannot return.
 Slice 1229 additionally retires the model_mount generic daemon-core invoker
 shim: `ModelMountCore` rejects `daemonCoreInvoker`, stores only
 `daemonCoreModelMountApi`, deletes `invokeDaemonCore()`, removes the command

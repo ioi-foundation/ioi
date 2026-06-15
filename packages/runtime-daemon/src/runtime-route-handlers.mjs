@@ -123,19 +123,6 @@ export function createRuntimeRouteHandlers(deps) {
       writeJsonResponse(response, mounts.authoritySnapshot(baseUrl));
       return;
     }
-    if (
-      request.method === "GET" &&
-      (url.pathname === "/api/v1/authority-evidence" ||
-        url.pathname === "/api/v1/authority-evidence-summaries" ||
-        url.pathname === "/api/v1/workflow-capability-preflight-evidence" ||
-        url.pathname === "/api/v1/workflow-capability-preflight")
-    ) {
-      writeJsonResponse(
-        response,
-        store.lifecycleProjectionSurface.authorityEvidenceSummary(store, Object.fromEntries(url.searchParams.entries())),
-      );
-      return;
-    }
     if (request.method === "GET" && url.pathname === "/api/v1/model-capabilities") {
       writeJsonResponse(response, mounts.listModelCapabilities());
       return;

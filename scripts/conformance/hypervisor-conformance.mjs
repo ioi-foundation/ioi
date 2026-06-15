@@ -27224,8 +27224,14 @@ function runReceipts() {
       /store\.lifecycleProjectionSurface\.authorityEvidenceSummary\(store, Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
         publicRuntimeRoutes,
       ) &&
+      !/\/api\/v1\/authority-evidence|\/api\/v1\/authority-evidence-summaries|\/api\/v1\/workflow-capability-preflight-evidence|\/api\/v1\/workflow-capability-preflight/.test(
+        runtimeRouteHandlers,
+      ) &&
       /public runtime usage and authority evidence routes use mounted lifecycle projection surface/.test(
         publicRuntimeRoutesTest,
+      ) &&
+      /native authority evidence compatibility routes are retired/.test(
+        runtimeRouteHandlersTest,
       ) &&
       !/store\.runReadSurface\.listUsage\(store, Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
         publicRuntimeRoutes,
@@ -27350,13 +27356,13 @@ function runReceipts() {
       /store\.lifecycleProjectionSurface\.authorityEvidenceSummary\(store, Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
         publicRuntimeRoutes,
       ) &&
-      /store\.lifecycleProjectionSurface\.authorityEvidenceSummary\(store, Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
+      !/\/api\/v1\/authority-evidence|\/api\/v1\/authority-evidence-summaries|\/api\/v1\/workflow-capability-preflight-evidence|\/api\/v1\/workflow-capability-preflight/.test(
         runtimeRouteHandlers,
       ) &&
       /public runtime usage and authority evidence routes use mounted lifecycle projection surface/.test(
         publicRuntimeRoutesTest,
       ) &&
-      /model mounting authority evidence routes use mounted lifecycle projection surface/.test(
+      /native authority evidence compatibility routes are retired/.test(
         runtimeRouteHandlersTest,
       ) &&
       !/authorityEvidenceSummaryForEvents/.test(

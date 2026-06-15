@@ -9979,8 +9979,7 @@ read family into the Rust lifecycle projector. Rust
 usage rows and authority/preflight evidence from admitted Agentgres
 `runs/*.json` and `events/*.jsonl` records, and keeps the projection source
 bound to `rust_runtime_lifecycle_state_dir_replay`. Public `/v1/usage`,
-`/v1/authority-evidence`, `/v1/workflow-capability-preflights`, and native
-`/api/v1` authority-evidence/workflow-capability preflight routes call the
+`/v1/authority-evidence`, and `/v1/workflow-capability-preflights` call the
 mounted lifecycle projection surface; the run-read surface no longer exposes
 `listUsage` or `authorityEvidenceSummary`, and the old JS
 `authority-evidence-summary.mjs` helper/test are deleted. Conformance now
@@ -9991,6 +9990,15 @@ broader lifecycle completion still depends on wallet/cTEE authority for
 lifecycle exits, complete receipt/state-root binding for every lifecycle read
 projection, and stable IDE/CLI/SDK protocol APIs over the Rust-owned Agentgres
 replay records.
+
+Slice 1256 retires the authority-evidence native compatibility aliases after
+Slice 1255 verified Rust lifecycle projection parity. The daemon no longer
+routes `/api/v1/authority-evidence`, `/api/v1/authority-evidence-summaries`,
+`/api/v1/workflow-capability-preflight-evidence`, or
+`/api/v1/workflow-capability-preflight`; the canonical protocol clients must
+use `/v1/authority-evidence` or `/v1/workflow-capability-preflights`.
+Conformance now guards the absence of those native aliases so the migrated read
+family cannot regain a duplicate compatibility truth path.
 
 ## Final Doctrine
 

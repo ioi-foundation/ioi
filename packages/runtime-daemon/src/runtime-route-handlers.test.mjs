@@ -62,11 +62,15 @@ function routeHandlers() {
   });
 }
 
-test("model mounting authority evidence routes use mounted lifecycle projection surface", async () => {
+test("native authority evidence compatibility routes are retired", async () => {
   const { handleModelMountingNativeRoute } = routeHandlers();
   const calls = [];
   const store = {
-    modelMounting: {},
+    modelMounting: {
+      snapshot: retiredRouteWrapper,
+      authoritySnapshot: retiredRouteWrapper,
+      listModelCapabilities: retiredRouteWrapper,
+    },
     lifecycleProjectionSurface: {
       authorityEvidenceSummary(surfaceStore, options) {
         calls.push({ surfaceStore, options });
@@ -90,24 +94,21 @@ test("model mounting authority evidence routes use mounted lifecycle projection 
 
   for (const path of paths) {
     const response = responseRecorder();
-    await handleModelMountingNativeRoute({
-      request: request({ url: `${path}?thread_id=thread_route` }),
-      response,
-      store,
-      url: new URL(`${path}?thread_id=thread_route`, "http://daemon.test"),
-      segments: path.split("/").filter(Boolean),
-    });
-
-    assert.equal(response.statusCode, 200);
-    assert.deepEqual(JSON.parse(response.body), {
-      schema_version: "authority.evidence.summary.v1",
-      filters: { thread_id: "thread_route" },
-    });
+    await assert.rejects(
+      handleModelMountingNativeRoute({
+        request: request({ url: `${path}?thread_id=thread_route` }),
+        response,
+        store,
+        url: new URL(`${path}?thread_id=thread_route`, "http://daemon.test"),
+        segments: path.split("/").filter(Boolean),
+      }),
+      (error) =>
+        error.code === "not_found" &&
+        error.details?.path === path,
+    );
   }
 
-  assert.equal(calls.length, paths.length);
-  assert.equal(calls.every((call) => call.surfaceStore === store), true);
-  assert.deepEqual(calls.map((call) => call.options), paths.map(() => ({ thread_id: "thread_route" })));
+  assert.deepEqual(calls, []);
 });
 
 test("agent, thread, and run detail routes return lifecycle projection surface output", async () => {
