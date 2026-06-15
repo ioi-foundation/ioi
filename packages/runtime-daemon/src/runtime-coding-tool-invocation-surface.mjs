@@ -336,7 +336,7 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
       });
       receiptRefs.push(
         ...normalizeArray(stepModuleProjection?.result?.receipt_refs),
-        ...normalizeArray(stepModuleProjection?.bridge_result?.receipt_refs),
+        ...normalizeArray(stepModuleProjection?.workload_result?.receipt_refs),
       );
       result = codingToolResultForRustLiveStepModule(normalizedToolId, stepModuleProjection);
       receiptRefs.push(...normalizeArray(result.receipt_refs));
@@ -805,7 +805,7 @@ function canonicalRustLiveToolResult(value) {
 
 function codingToolResultForRustLiveStepModule(toolId, stepModuleProjection = {}) {
   const stepResult = stepModuleProjection?.result ?? {};
-  const workloadObservation = stepModuleProjection?.bridge_result?.workload_observation ?? null;
+  const workloadObservation = stepModuleProjection?.workload_result?.workload_observation ?? null;
   const observedResult = workloadObservation?.result;
   const toolResult =
     observedResult && typeof observedResult === "object" && !Array.isArray(observedResult)
@@ -822,7 +822,7 @@ function codingToolResultForRustLiveStepModule(toolId, stepModuleProjection = {}
     step_module_backend: stepModuleProjection?.backend ?? "rust_workload_live",
     execution_result_ref: stepResult.execution_result_ref ?? null,
     normalized_observation_ref: stepResult.normalized_observation_ref ?? null,
-    router_admission: stepModuleProjection?.bridge_result?.router_admission ?? null,
+    router_admission: stepModuleProjection?.workload_result?.router_admission ?? null,
     receipt_refs: normalizeArray(stepResult.receipt_refs),
     observation: workloadObservation,
   };

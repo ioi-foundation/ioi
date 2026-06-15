@@ -1,7 +1,7 @@
 export const WORKLOAD_GRPC_ADDR_ENV = "IOI_WORKLOAD_GRPC_ADDR";
 export const WORKLOAD_SHMEM_ID_ENV = "IOI_SHMEM_ID";
 
-const COMMAND_SCHEMA_VERSION = "ioi.runtime.daemon_core.command.v1";
+export const WORKLOAD_STEP_MODULE_API_METHOD = "runCodingToolStepModule";
 const CODING_TOOL_STEP_MODULE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.coding-tool-step-module-request.v1";
 
@@ -13,8 +13,9 @@ export function createStepModuleRunnerFromEnv(env = process.env, options = {}) {
   assertNoStepModuleCommandSelection(
     options.command ?? env.IOI_RUNTIME_DAEMON_CORE_COMMAND ?? env.IOI_STEP_MODULE_COMMAND,
   );
+  assertNoStepModuleCommandInvoker("daemonCoreInvoker", options.daemonCoreInvoker);
   return new RustWorkloadStepModuleRunner({
-    daemonCoreInvoker: options.daemonCoreInvoker,
+    daemonCoreWorkloadApi: options.daemonCoreWorkloadApi,
     grpcAddr: options.grpcAddr ?? env[WORKLOAD_GRPC_ADDR_ENV] ?? null,
     shmemId: options.shmemId ?? env[WORKLOAD_SHMEM_ID_ENV] ?? null,
   });
@@ -43,9 +44,18 @@ export function assertNoStepModuleCommandArgs(value) {
 export function assertNoStepModuleCommandSelection(value) {
   if (typeof value !== "string" || value.trim().length === 0) return;
   throw new StepModuleRunnerError(
-    "StepModule binary command selection is retired; use daemonCoreInvoker for direct Rust daemon-core StepModule execution.",
+    "StepModule binary command selection is retired; use daemonCoreWorkloadApi.runCodingToolStepModule for direct Rust daemon-core StepModule execution.",
     "step_module_command_selection_retired",
     { retired_command: value },
+  );
+}
+
+export function assertNoStepModuleCommandInvoker(field, value) {
+  if (value == null) return;
+  throw new StepModuleRunnerError(
+    "StepModule generic daemon-core invokers are retired; use daemonCoreWorkloadApi.runCodingToolStepModule.",
+    "step_module_daemon_core_invoker_retired",
+    { retired_option: field },
   );
 }
 
@@ -75,7 +85,8 @@ export class RustWorkloadStepModuleRunner extends StepModuleRunner {
     this.grpcAddr = optionalString(options.grpcAddr);
     this.shmemId = optionalString(options.shmemId);
     assertNoStepModuleCommandSelection(options.command);
-    this.daemonCoreInvoker = optionalFunction(options.daemonCoreInvoker);
+    assertNoStepModuleCommandInvoker("daemonCoreInvoker", options.daemonCoreInvoker);
+    this.daemonCoreWorkloadApi = workloadApi(options.daemonCoreWorkloadApi);
   }
 
   get blocksDaemonJsExecution() {
@@ -84,10 +95,7 @@ export class RustWorkloadStepModuleRunner extends StepModuleRunner {
 
   runCodingTool({ toolId, input = {}, context = {} } = {}) {
     const request = {
-      schema_version: COMMAND_SCHEMA_VERSION,
-      operation: "run_coding_tool_step_module",
-      backend: this.backend,
-      request_schema_version: CODING_TOOL_STEP_MODULE_REQUEST_SCHEMA_VERSION,
+      schema_version: CODING_TOOL_STEP_MODULE_REQUEST_SCHEMA_VERSION,
       workload_grpc_addr: this.grpcAddr,
       shmem_id: this.shmemId,
       tool_id: optionalString(toolId),
@@ -112,38 +120,39 @@ export class RustWorkloadStepModuleRunner extends StepModuleRunner {
       manifest_ref: context.manifest_ref ?? null,
       input,
     };
-    const daemonCoreResult = this.invokeDaemonCore(request);
+    const workloadApiResult = this.invokeWorkloadApi(request);
     return {
       backend: this.backend,
       mode: "live",
       blocking: this.blocksDaemonJsExecution,
-      source: daemonCoreResult.source,
-      bridge_result: daemonCoreResult,
-      invocation: daemonCoreResult.invocation ?? null,
-      result: daemonCoreResult.result ?? null,
+      source: workloadApiResult.source,
+      workload_result: workloadApiResult,
+      invocation: workloadApiResult.invocation ?? null,
+      result: workloadApiResult.result ?? null,
     };
   }
 
-  invokeDaemonCore(request) {
-    if (!this.daemonCoreInvoker) {
+  invokeWorkloadApi(request) {
+    const invoke = this.daemonCoreWorkloadApi?.[WORKLOAD_STEP_MODULE_API_METHOD];
+    if (typeof invoke !== "function") {
       throw new StepModuleRunnerError(
-        "Rust workload StepModule runner requires daemonCoreInvoker for direct Rust daemon-core StepModule execution.",
-        "rust_workload_direct_invoker_unconfigured",
-        { boundary: "daemonCoreInvoker" },
+        "Rust workload StepModule runner requires daemonCoreWorkloadApi.runCodingToolStepModule for direct Rust daemon-core StepModule execution.",
+        "rust_workload_api_unconfigured",
+        { boundary: "daemonCoreWorkloadApi.runCodingToolStepModule" },
       );
     }
-    const response = this.daemonCoreInvoker(request);
+    const response = invoke.call(this.daemonCoreWorkloadApi, request);
     const responseError = objectRecord(response?.error);
     if (response?.ok === false && responseError) {
       throw new StepModuleRunnerError(
         responseError.message ?? "Rust workload StepModule core rejected the invocation.",
-        responseError.code ?? "rust_workload_direct_invoker_rejected",
+        responseError.code ?? "rust_workload_api_rejected",
         { error: responseError },
       );
     }
     const result = response?.ok === true ? response.result : response;
-    return normalizeBridgeResult(result, {
-      source: "rust_workload_command",
+    return normalizeWorkloadApiResult(result, {
+      source: "rust_workload_api",
     });
   }
 }
@@ -158,7 +167,7 @@ export class StepModuleRunnerError extends Error {
   }
 }
 
-function normalizeBridgeResult(value, defaults = {}) {
+function normalizeWorkloadApiResult(value, defaults = {}) {
   const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   return {
     ...result,
@@ -182,6 +191,11 @@ function optionalFunction(value) {
 
 function objectRecord(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+}
+
+function workloadApi(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return typeof value[WORKLOAD_STEP_MODULE_API_METHOD] === "function" ? value : null;
 }
 
 function normalizeStringArray(value) {

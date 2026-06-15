@@ -6,6 +6,12 @@ mod ioi_step_module_bridge;
 fn main() {
     println!(
         "{}",
-        ioi_services::agentic::runtime::kernel::command_dispatch::run_daemon_core_command_response_from_stdin()
+        serde_json::json!({
+            "ok": false,
+            "error": {
+                "code": "daemon_core_command_transport_retired",
+                "message": "ioi-step-module-bridge is retired; use the Rust daemon-core workload API."
+            }
+        })
     );
 }

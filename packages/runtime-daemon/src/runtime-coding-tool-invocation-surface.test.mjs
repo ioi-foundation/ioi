@@ -541,7 +541,7 @@ test("coding tool invocation surface fails closed until Rust result-event admiss
         backend: "rust_workload_live",
         mode: "live",
         blocking: true,
-        source: "rust_workload_command",
+        source: "rust_workload_api",
         invocation: {
           schema_version: "ioi.step_module_invocation.v1",
           invocation_id: "invocation://rust-live/workspace.status",
@@ -558,7 +558,7 @@ test("coding tool invocation surface fails closed until Rust result-event admiss
           resulting_head: null,
           workflow_projection: { status: "live" },
         },
-        bridge_result: {
+        workload_result: {
           router_admission: {
             schema_version: "ioi.step_module_router_admission.v1",
             backend: "workload_grpc",
@@ -649,7 +649,7 @@ test("coding tool invocation surface ignores retired request identity aliases", 
         backend: "rust_workload_live",
         mode: "live",
         blocking: true,
-        source: "rust_workload_command",
+        source: "rust_workload_api",
         invocation: {
           schema_version: "ioi.step_module_invocation.v1",
           invocation_id: "invocation://rust-live/workspace.status",
@@ -674,7 +674,7 @@ test("coding tool invocation surface ignores retired request identity aliases", 
             receipt_refs: ["receipt://rust-live/workspace.status"],
           },
         },
-        bridge_result: {
+        workload_result: {
           router_admission: {
             schema_version: "ioi.step_module_router_admission.v1",
             backend: "workload_grpc",
@@ -729,7 +729,7 @@ test("coding tool invocation surface accepts canonical idempotency key", () => {
         backend: "rust_workload_live",
         mode: "live",
         blocking: true,
-        source: "rust_workload_command",
+        source: "rust_workload_api",
         invocation: {
           schema_version: "ioi.step_module_invocation.v1",
           invocation_id: "invocation://rust/workspace.status",
@@ -812,7 +812,7 @@ test("coding tool invocation surface runs workspace.status through rust workload
         backend: "rust_workload_live",
         mode: "live",
         blocking: true,
-        source: "rust_workload_command",
+        source: "rust_workload_api",
         invocation: {
           schema_version: "ioi.step_module_invocation.v1",
           invocation_id: "invocation://rust-live/workspace.status",
@@ -843,7 +843,7 @@ test("coding tool invocation surface runs workspace.status through rust workload
             verifier_required: false,
           },
         },
-        bridge_result: {
+        workload_result: {
           router_admission: {
             schema_version: "ioi.step_module_router_admission.v1",
             backend: "workload_grpc",
@@ -905,8 +905,8 @@ test("coding tool invocation surface runs workspace.status through rust workload
   assert.equal(result.result.execution_result_ref, "result://rust-live/workspace.status");
   assert.equal(result.result.router_admission.schema_version, "ioi.step_module_router_admission.v1");
   assert.equal(result.result.observation.tool, "workspace.status");
-  assert.equal(Object.hasOwn(result.step_module.bridge_result, "workload_observation"), true);
-  assert.equal(Object.hasOwn(result.step_module.bridge_result, "shadow_observation"), false);
+  assert.equal(Object.hasOwn(result.step_module.workload_result, "workload_observation"), true);
+  assert.equal(Object.hasOwn(result.step_module.workload_result, "shadow_observation"), false);
   assert.equal(Object.hasOwn(result.result, "routerAdmission"), false);
   assert.equal(Object.hasOwn(result.result, "schemaVersion"), false);
   assert.equal(Object.hasOwn(result.result, "toolName"), false);
@@ -955,7 +955,7 @@ test("coding tool invocation surface runs file.inspect through rust workload liv
         backend: "rust_workload_live",
         mode: "live",
         blocking: true,
-        source: "rust_workload_command",
+        source: "rust_workload_api",
         invocation: {
           schema_version: "ioi.step_module_invocation.v1",
           invocation_id: "invocation://rust-live/file.inspect",
@@ -986,7 +986,7 @@ test("coding tool invocation surface runs file.inspect through rust workload liv
             verifier_required: false,
           },
         },
-        bridge_result: {
+        workload_result: {
           router_admission: {
             schema_version: "ioi.step_module_router_admission.v1",
             backend: "workload_grpc",
@@ -1049,7 +1049,7 @@ test("coding tool invocation surface runs git.diff through rust workload live pa
         backend: "rust_workload_live",
         mode: "live",
         blocking: true,
-        source: "rust_workload_command",
+        source: "rust_workload_api",
         invocation: {
           schema_version: "ioi.step_module_invocation.v1",
           invocation_id: "invocation://rust-live/git.diff",
@@ -1080,7 +1080,7 @@ test("coding tool invocation surface runs git.diff through rust workload live pa
             verifier_required: false,
           },
         },
-        bridge_result: {
+        workload_result: {
           router_admission: {
             schema_version: "ioi.step_module_router_admission.v1",
             backend: "workload_grpc",
@@ -1148,7 +1148,7 @@ test("coding tool invocation surface runs lsp.diagnostics through rust workload 
         backend: "rust_workload_live",
         mode: "live",
         blocking: true,
-        source: "rust_workload_command",
+        source: "rust_workload_api",
         invocation: {
           schema_version: "ioi.step_module_invocation.v1",
           invocation_id: "invocation://rust-live/lsp.diagnostics",
@@ -1179,7 +1179,7 @@ test("coding tool invocation surface runs lsp.diagnostics through rust workload 
             verifier_required: false,
           },
         },
-        bridge_result: {
+        workload_result: {
           router_admission: {
             schema_version: "ioi.step_module_router_admission.v1",
             backend: "workload_grpc",
@@ -1266,7 +1266,7 @@ test("coding tool invocation surface runs test.run through rust workload live pa
         backend: "rust_workload_live",
         mode: "live",
         blocking: true,
-        source: "rust_workload_command",
+        source: "rust_workload_api",
         invocation: {
           schema_version: "ioi.step_module_invocation.v1",
           invocation_id: "invocation://rust-live/test.run",
@@ -1297,7 +1297,7 @@ test("coding tool invocation surface runs test.run through rust workload live pa
             verifier_required: false,
           },
         },
-        bridge_result: {
+        workload_result: {
           router_admission: {
             schema_version: "ioi.step_module_router_admission.v1",
             backend: "workload_grpc",
@@ -1374,7 +1374,7 @@ test("coding tool invocation surface runs file.apply_patch through rust workload
         backend: "rust_workload_live",
         mode: "live",
         blocking: true,
-        source: "rust_workload_command",
+        source: "rust_workload_api",
         invocation: {
           schema_version: "ioi.step_module_invocation.v1",
           invocation_id: "invocation://rust-live/file.apply_patch",
@@ -1405,7 +1405,7 @@ test("coding tool invocation surface runs file.apply_patch through rust workload
             verifier_required: false,
           },
         },
-        bridge_result: {
+        workload_result: {
           router_admission: {
             schema_version: "ioi.step_module_router_admission.v1",
             backend: "workload_grpc",
@@ -1571,7 +1571,7 @@ test("coding tool invocation surface runs artifact.read through rust workload li
         backend: "rust_workload_live",
         mode: "live",
         blocking: true,
-        source: "rust_workload_command",
+        source: "rust_workload_api",
         invocation: {
           schema_version: "ioi.step_module_invocation.v1",
           invocation_id: "invocation://rust-live/artifact.read",
@@ -1602,7 +1602,7 @@ test("coding tool invocation surface runs artifact.read through rust workload li
             verifier_required: false,
           },
         },
-        bridge_result: {
+        workload_result: {
           router_admission: {
             schema_version: "ioi.step_module_router_admission.v1",
             backend: "workload_grpc",
@@ -1690,7 +1690,7 @@ test("coding tool invocation surface runs tool.retrieve_result through rust work
         backend: "rust_workload_live",
         mode: "live",
         blocking: true,
-        source: "rust_workload_command",
+        source: "rust_workload_api",
         invocation: {
           schema_version: "ioi.step_module_invocation.v1",
           invocation_id: "invocation://rust-live/tool.retrieve_result",
@@ -1721,7 +1721,7 @@ test("coding tool invocation surface runs tool.retrieve_result through rust work
             verifier_required: false,
           },
         },
-        bridge_result: {
+        workload_result: {
           router_admission: {
             schema_version: "ioi.step_module_router_admission.v1",
             backend: "workload_grpc",
@@ -1808,7 +1808,7 @@ test("coding tool invocation surface runs computer_use.request_lease through rus
         backend: "rust_workload_live",
         mode: "live",
         blocking: true,
-        source: "rust_workload_command",
+        source: "rust_workload_api",
         invocation: {
           schema_version: "ioi.step_module_invocation.v1",
           invocation_id: "invocation://rust-live/computer_use.request_lease",
@@ -1842,7 +1842,7 @@ test("coding tool invocation surface runs computer_use.request_lease through rus
             verifier_required: false,
           },
         },
-        bridge_result: {
+        workload_result: {
           router_admission: {
             schema_version: "ioi.step_module_router_admission.v1",
             backend: "workload_grpc",
@@ -2013,7 +2013,7 @@ test("coding tool invocation surface executes approval-required tools only after
         backend: "rust_workload_live",
         mode: "live",
         blocking: true,
-        source: "rust_workload_command",
+        source: "rust_workload_api",
         invocation: {
           schema_version: "ioi.step_module_invocation.v1",
           invocation_id: "invocation://rust-live/file.inspect",
@@ -2035,7 +2035,7 @@ test("coding tool invocation surface executes approval-required tools only after
             receipt_refs: ["receipt://rust-live/file.inspect"],
           },
         },
-        bridge_result: {
+        workload_result: {
           router_admission: {
             schema_version: "ioi.step_module_router_admission.v1",
             backend: "workload_grpc",

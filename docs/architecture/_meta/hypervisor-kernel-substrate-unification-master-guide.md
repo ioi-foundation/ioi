@@ -9520,11 +9520,12 @@ source markers, and JS `operation`/`backend` command envelopes are retired for
 these hot paths; `command_protocol.rs` proves the retired operation names are
 unknown. Conformance now guards the typed APIs, direct Rust service methods,
 retired command protocol entries, missing dispatch wrappers, source-scan
-blockers, and absence of command-fallback source markers. This remains
-non-terminal because coding-tool StepModule transport, deeper durable
-replay/storage, MCP materialization, model_mount backend/materialization work,
-and stable IDE/CLI/SDK protocol APIs still need terminal Rust daemon-core
-ownership.
+blockers, and absence of command-fallback source markers. This remained
+non-terminal at that cut because coding-tool StepModule transport, deeper
+durable replay/storage, MCP materialization, model_mount
+backend/materialization work, and stable IDE/CLI/SDK protocol APIs still needed
+terminal Rust daemon-core ownership. Slice 1228 retires the StepModule transport
+blocker.
 
 Slice 1227 retires the coding-tool result/artifact and diagnostics-repair
 command transport family. Coding-tool result envelope planning, coding-tool
@@ -9536,19 +9537,38 @@ rollback repair policy projection now enter Rust through typed
 by direct `RuntimeKernelService` APIs. `RuntimeContextPolicyCore` rejects the
 old generic `daemonCoreInvoker` option, no longer builds command envelopes for
 these hot paths, and sends no command `operation`/`backend` transport fields.
-Rust `command_protocol.rs` now retains only the temporary
-`run_coding_tool_step_module` command operation, rejects the retired
-coding/artifact/diagnostics operation names as unknown, and `command_dispatch.rs`
-has no dispatch arms or response-wrapper error conversions for them. The Rust
-bridge request/response wrappers and command-source markers for this family are
-deleted, while conformance guards the typed APIs, direct Rust service methods,
-retired operation catalog, missing dispatch wrappers, missing command response
-helpers, and source-scan blockers. This remains non-terminal because the
-StepModule runner command transport still exists for admitted workload dispatch,
-model_mount materialization/backend work and MCP runtime materialization still
-need deeper Rust ownership, durable replay/storage remains incomplete for some
-route families, and IDE/CLI/SDK clients still need stable protocol APIs over the
-Rust-owned projection/replay records.
+Rust `command_protocol.rs` rejected the retired coding/artifact/diagnostics
+operation names as unknown while still retaining the temporary
+`run_coding_tool_step_module` operation at that cut, and `command_dispatch.rs`
+had no dispatch arms or response-wrapper error conversions for the retired
+coding/artifact/diagnostics operations. The Rust bridge request/response
+wrappers and command-source markers for this family were deleted, while
+conformance guarded the typed APIs, direct Rust service methods, retired
+operation catalog, missing dispatch wrappers, missing command response helpers,
+and source-scan blockers. Slice 1228 retires the remaining StepModule command
+transport.
+
+Slice 1228 retires the coding-tool StepModule command transport. The runtime
+daemon now passes `daemonCoreWorkloadApi` into `RustWorkloadStepModuleRunner`,
+and the runner calls `runCodingToolStepModule` with canonical
+`ioi.runtime.coding-tool-step-module-request.v1` facts instead of a daemon-core
+command envelope. It rejects backend/command/env selectors, generic
+`daemonCoreInvoker`, command `operation`, command `backend`, and JS-supplied
+`invocation` fields before admitted workload dispatch can return through JS
+authority. Rust `coding_tool_step_module.rs` exposes the direct
+`CodingToolStepModuleRunRequest` with deny-unknown deserialization, while
+`RuntimeKernelService::run_coding_tool_step_module` owns the positive API.
+`command_protocol.rs` now has an empty `DAEMON_CORE_OPERATIONS` catalog,
+`command_dispatch.rs` has no StepModule dispatch arm, and the old
+`ioi-step-module-bridge` binary returns `daemon_core_command_transport_retired`.
+The coding-tool invocation surface consumes `workload_result` rather than a
+bridge result, and conformance guards the typed API path plus absence of the old
+command operation, command response wrapper, binary fallback, and JS
+command-envelope request builder. This remains non-terminal because durable
+replay/storage, MCP runtime materialization, model_mount backend/materialization
+work, richer protocol APIs, and IDE/CLI/SDK clients still need terminal
+Rust-owned projection/replay records; the StepModule command transport itself is
+retired.
 
 ## Final Doctrine
 

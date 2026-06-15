@@ -7,7 +7,7 @@ import {
   createStepModuleRunnerFromEnv,
 } from "./step-module-runner.mjs";
 
-test("default StepModuleRunner is Rust workload live and fails closed without direct invoker", () => {
+test("default StepModuleRunner is Rust workload live and fails closed without direct workload API", () => {
   const runner = createStepModuleRunnerFromEnv({});
   assert.ok(runner instanceof RustWorkloadStepModuleRunner);
   assert.equal(runner.backend, "rust_workload_live");
@@ -20,7 +20,7 @@ test("default StepModuleRunner is Rust workload live and fails closed without di
       }),
     (error) =>
       error instanceof StepModuleRunnerError &&
-      error.code === "rust_workload_direct_invoker_unconfigured",
+      error.code === "rust_workload_api_unconfigured",
   );
 });
 
@@ -98,41 +98,54 @@ test("retired StepModule command constructor option fails closed", () => {
   );
 });
 
-test("rust workload live runner produces workload invocation with direct daemon-core result", () => {
+test("retired StepModule daemon-core invoker option fails closed", () => {
+  assert.throws(
+    () => new RustWorkloadStepModuleRunner({ daemonCoreInvoker() {} }),
+    (error) =>
+      error instanceof StepModuleRunnerError &&
+      error.code === "step_module_daemon_core_invoker_retired",
+  );
+});
+
+test("rust workload live runner produces workload invocation with direct daemon-core workload API result", () => {
   const runner = new RustWorkloadStepModuleRunner({
-    daemonCoreInvoker(request) {
-      assert.equal(request.tool_id, "workspace.status");
-      assert.equal(Object.hasOwn(request, "invocation"), false);
-      return {
-        source: "direct_daemon_core_api",
-        invocation: rustInvocation(request.tool_id),
-        result: {
-          schema_version: "ioi.step_module_result.v1",
-          invocation_id: "invocation://direct",
-          status: "success",
-          execution_result_ref: "result://direct",
-          normalized_observation_ref: "observation://direct",
-          receipt_refs: ["receipt://direct"],
-          artifact_refs: [],
-          payload_refs: [],
-          agentgres_operation_refs: [],
-          state_root_after: null,
-          resulting_head: null,
-          workflow_projection: {
-            workflow_graph_id: "workflow:test",
-            workflow_node_id: "node:test",
-            component_kind: "CodingToolNode",
-            status: "live",
-            attempt_id: "attempt://direct",
-            evidence_refs: [],
+    daemonCoreWorkloadApi: {
+      runCodingToolStepModule(request) {
+        assert.equal(request.tool_id, "workspace.status");
+        assert.equal(Object.hasOwn(request, "invocation"), false);
+        assert.equal(Object.hasOwn(request, "operation"), false);
+        assert.equal(Object.hasOwn(request, "backend"), false);
+        return {
+          source: "direct_daemon_core_workload_api",
+          invocation: rustInvocation(request.tool_id),
+          result: {
+            schema_version: "ioi.step_module_result.v1",
+            invocation_id: "invocation://direct",
+            status: "success",
+            execution_result_ref: "result://direct",
+            normalized_observation_ref: "observation://direct",
             receipt_refs: ["receipt://direct"],
+            artifact_refs: [],
+            payload_refs: [],
+            agentgres_operation_refs: [],
+            state_root_after: null,
+            resulting_head: null,
+            workflow_projection: {
+              workflow_graph_id: "workflow:test",
+              workflow_node_id: "node:test",
+              component_kind: "CodingToolNode",
+              status: "live",
+              attempt_id: "attempt://direct",
+              evidence_refs: [],
+              receipt_refs: ["receipt://direct"],
+            },
+            next: {
+              model_reentry_required: false,
+              verifier_required: false,
+            },
           },
-          next: {
-            model_reentry_required: false,
-            verifier_required: false,
-          },
-        },
-      };
+        };
+      },
     },
   });
   const projection = runner.runCodingTool({
@@ -153,23 +166,25 @@ test("rust workload live runner produces workload invocation with direct daemon-
   assert.equal(projection.blocking, true);
 });
 
-test("rust workload direct daemon-core invoker sends canonical coding-tool request", () => {
+test("rust workload direct daemon-core workload API sends canonical coding-tool request", () => {
   const calls = [];
   const runner = new RustWorkloadStepModuleRunner({
-    daemonCoreInvoker(request) {
-      calls.push({ request });
-      return {
-        ok: true,
-        result: {
-          source: "rust_workload_command",
-          invocation: rustInvocation(request.tool_id),
-          receipt_binding: {
-            schema_version: "ioi.step_module_receipt_binding.v1",
-            binding_hash: "sha256:test",
+    daemonCoreWorkloadApi: {
+      runCodingToolStepModule(request) {
+        calls.push({ request });
+        return {
+          ok: true,
+          result: {
+            source: "rust_workload_api",
+            invocation: rustInvocation(request.tool_id),
+            receipt_binding: {
+              schema_version: "ioi.step_module_receipt_binding.v1",
+              binding_hash: "sha256:test",
+            },
+            result: null,
           },
-          result: null,
-        },
-      };
+        };
+      },
     },
   });
   const projection = runner.runCodingTool({
@@ -183,12 +198,12 @@ test("rust workload direct daemon-core invoker sends canonical coding-tool reque
   });
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, "ioi.runtime.daemon_core.command.v1");
-  assert.equal(calls[0].request.operation, "run_coding_tool_step_module");
   assert.equal(
-    calls[0].request.request_schema_version,
+    calls[0].request.schema_version,
     "ioi.runtime.coding-tool-step-module-request.v1",
   );
+  assert.equal(Object.hasOwn(calls[0].request, "operation"), false);
+  assert.equal(Object.hasOwn(calls[0].request, "backend"), false);
   assert.equal(calls[0].request.tool_id, "workspace.status");
   assert.equal(calls[0].request.workspace_root, "/tmp/workspace");
   assert.notEqual(calls[0].request.workspace_root, "/tmp/retired-workspace");
@@ -197,7 +212,7 @@ test("rust workload direct daemon-core invoker sends canonical coding-tool reque
   assert.equal(projection.invocation.module_ref.kind, "workload_job");
   assert.equal(projection.invocation.execution.backend, "workload_grpc");
   assert.equal(
-    projection.bridge_result.receipt_binding.schema_version,
+    projection.workload_result.receipt_binding.schema_version,
     "ioi.step_module_receipt_binding.v1",
   );
   assert.equal(projection.result, null);

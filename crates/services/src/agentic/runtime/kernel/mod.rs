@@ -114,6 +114,9 @@ use coding_tool_event::{
     PostEditDiagnosticsFeedbackPlanCore, PostEditDiagnosticsFeedbackPlanError,
     PostEditDiagnosticsFeedbackPlanRecord, PostEditDiagnosticsFeedbackPlanRequest,
 };
+use coding_tool_step_module::{
+    run_coding_tool_step_module, CodingToolStepModuleRunError, CodingToolStepModuleRunRequest,
+};
 use ctee::{
     CteeNodeTrust, CteePrivateWorkspaceError, CteePrivateWorkspaceExecutionRecord,
     CteePrivateWorkspaceReceipt, PrivateWorkspaceCteeModule,
@@ -1290,6 +1293,13 @@ impl RuntimeKernelService {
         result: &StepModuleResult,
     ) -> Result<StepModuleExecutionAdmissionRecord, StepModuleRouterError> {
         StepModuleRouterCore.admit_execution(invocation, result)
+    }
+
+    pub fn run_coding_tool_step_module(
+        &self,
+        request: &CodingToolStepModuleRunRequest,
+    ) -> Result<serde_json::Value, CodingToolStepModuleRunError> {
+        run_coding_tool_step_module(request.clone())
     }
 
     pub fn bind_step_module_result(

@@ -955,18 +955,18 @@ function runDocs() {
     "master guide must record Rust-owned MCP catalog search/fetch projection and retired JS search/fetch truth helpers",
   );
   const macroPrunedMatrixGuard =
-    /stable daemon-to-kernel protocol surface, not a\s+permanent bridge binary/.test(guide) &&
-    /current `ioi-step-module-bridge` command path is migration scaffolding/.test(guide) &&
-    /must\s+not be treated as the terminal substrate/.test(guide) &&
+    /Slice 1228 retires the coding-tool StepModule command transport/.test(guide) &&
+    /old\s+`ioi-step-module-bridge` binary returns `daemon_core_command_transport_retired`/.test(guide) &&
+    /command operation, command response wrapper, binary fallback, and JS\s+command-envelope request builder/.test(guide) &&
     /Macro-cut bias/.test(guide) &&
     /do not add per-slice evidence sections/.test(guide) &&
     /This file is no longer a per-slice evidence archive/.test(matrix) &&
     /Macro Authority Cut Ledger/.test(matrix) &&
     /Do Not Recreate/.test(matrix) &&
-    /runtime-daemon-core-command-runner\.mjs/.test(matrix) &&
-    /codingToolApprovalSatisfaction\(\)/.test(matrix) &&
-    /The current `ioi-step-module-bridge` command path is acceptable only as\s+migration transport/.test(matrix) &&
-    /It is not the terminal architecture/.test(matrix) &&
+    /Slice 1228 retires the remaining coding-tool StepModule command transport/.test(matrix) &&
+    /`RustWorkloadStepModuleRunner` calls `runCodingToolStepModule`/.test(matrix) &&
+    /`command_protocol\.rs` has an empty daemon-core operation catalog/.test(matrix) &&
+    /old `ioi-step-module-bridge` binary is fail-closed/.test(matrix) &&
     /Terminal acceptance still requires the master guide terminal conditions/.test(matrix);
   assertCheck(
     result,
@@ -976,9 +976,9 @@ function runDocs() {
       guide,
     ) &&
       (/`ioi-step-module-bridge` command path is migration scaffolding/.test(guide) ||
-        /current `ioi-step-module-bridge` command path is migration scaffolding/.test(guide)) &&
-      /must\s+not be treated as the terminal substrate/.test(guide) &&
-      /collapse into the Rust daemon core API/.test(guide) &&
+        /Slice 1228 retires the coding-tool StepModule command transport/.test(guide)) &&
+      /old\s+`ioi-step-module-bridge` binary returns `daemon_core_command_transport_retired`/.test(guide) &&
+      /command operation, command response wrapper, binary fallback, and JS\s+command-envelope request builder/.test(guide) &&
       /Resume-goal scheduling marker: the Slice 733-740 matrix-compaction pass is\s+complete/.test(
         guide,
       ) &&
@@ -2749,16 +2749,13 @@ function runDocs() {
       (/stable daemon-to-kernel protocol surface, not a\s+permanent bridge binary/.test(
         guide,
       ) &&
-        /current `ioi-step-module-bridge` command path is migration scaffolding/.test(guide) &&
-        /must\s+not be treated as the terminal substrate/.test(guide) &&
-        /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
-          guide,
-        ) &&
-        /`ioi-step-module-bridge` command path is acceptable only as\s+migration transport/.test(
-          matrix,
-        ) &&
-        /not the terminal architecture/.test(matrix) &&
-        /Bridge scaffolding retirement/.test(matrix) &&
+	        /Slice 1228 retires the coding-tool StepModule command transport/.test(guide) &&
+	        /old\s+`ioi-step-module-bridge` binary returns `daemon_core_command_transport_retired`/.test(guide) &&
+	        /command operation, command response wrapper, binary fallback, and JS\s+command-envelope request builder/.test(guide) &&
+	        /Slice 1228 retires the remaining coding-tool StepModule command transport/.test(matrix) &&
+	        /`command_protocol\.rs` has an empty daemon-core operation catalog/.test(matrix) &&
+	        /old `ioi-step-module-bridge` binary is fail-closed/.test(matrix) &&
+	        /Bridge scaffolding retirement/.test(matrix) &&
         /Last matrix compaction pass: 2026-06-11/.test(matrix) &&
         /Compacted Implementation Slice Evidence: 941-969/.test(matrix) &&
         /Scheduled matrix-compaction obligation from Slices 941-969 is now satisfied/.test(
@@ -2769,7 +2766,7 @@ function runDocs() {
           matrix,
         ) &&
         /No\s+matrix-compaction pass is pending until the next larger Rust-core extraction\s+or facade-retirement seam lands/.test(matrix) &&
-        /encoding the command bridge as\s+terminal shape/.test(matrix)),
+	        /without restoring StepModule command transport/.test(matrix)),
     [GUIDE, MATRIX],
     "master guide and migration matrix must keep command bridge usage scoped to migration transport, not terminal architecture",
   );
@@ -2778,11 +2775,11 @@ function runDocs() {
     "matrix-coding-tools-rust-live-status-reconciled",
     (/Rust-live coding-tool StepModule path/.test(matrix) &&
       /Migrated coding tools execute through Rust workload\/StepModule contracts/.test(matrix) &&
-      /explicit `daemon_js`\/shadow\/gated\/backend selection fails closed/.test(matrix) &&
+	      /explicit `daemon_js`\/shadow\/gated\/backend, command\/env, generic invoker, and command-envelope selection fails closed/.test(matrix) &&
       /Rust daemon-core constructs the coding-tool `StepModuleInvocation` envelope before workload dispatch\/admission/.test(
         matrix,
       ) &&
-      /JS invocation surface still coordinates temporary runner transport plus fail-closed governance\/artifact\/snapshot surfaces/.test(
+      /JS invocation surface is protocol-client scaffolding over the typed workload API plus fail-closed governance\/artifact\/snapshot surfaces/.test(
         matrix,
       ) &&
       /normal success\/failure execution now calls Rust `plan_coding_tool_result_envelope` before dispatch/.test(
@@ -2791,9 +2788,9 @@ function runDocs() {
       /JS-authored StepModule context, JS-authored result payload summary\/source-event kind\/result-event candidate/.test(
         matrix,
       ) &&
-      /Move remaining diagnostics repair approval authority and broader orchestration into the Rust-owned execution spine/.test(
-        matrix,
-      ) &&
+	      /Move remaining diagnostics repair approval authority, durable replay\/storage, MCP\/model_mount materialization, and stable IDE\/CLI\/SDK protocol APIs into the Rust-owned execution spine without restoring StepModule command transport/.test(
+	        matrix,
+	      ) &&
       /Public workspace snapshot\/restore API Rust-owned/.test(matrix) &&
       /`projectWorkspaceSnapshotList`, `projectWorkspaceSnapshotContentPackage`, `previewWorkspaceSnapshotRestore`, and `applyWorkspaceSnapshotRestore` are typed Rust daemon-core workspace restore API methods/.test(
         matrix,
@@ -2824,7 +2821,7 @@ function runDocs() {
         matrix,
       ) &&
       /Coding-tool StepModule invocation construction Rust-owned/.test(matrix) &&
-      /`run_coding_tool_step_module` now accepts canonical coding-tool request facts/.test(
+      /`daemonCoreWorkloadApi\.runCodingToolStepModule` now calls Rust `RuntimeKernelService::run_coding_tool_step_module` with canonical coding-tool request facts/.test(
         matrix,
       )) ||
       (/Implementation Slice 21[\s\S]*execution_backend: rust_workload_live for all allowlisted test\.run command[\s\S]*legacy_paths_removed: true[\s\S]*compatibility_shims_remaining: \[\]/.test(
@@ -3158,9 +3155,10 @@ function runBridge() {
       !/pub use ioi_services::agentic::runtime::kernel::command_dispatch::run_daemon_core_command_response_from_stdin;/.test(
         bridgeModuleRuntime,
       ) &&
-      /ioi_services::agentic::runtime::kernel::command_dispatch::run_daemon_core_command_response_from_stdin\(\)/.test(
+      !/ioi_services::agentic::runtime::kernel::command_dispatch::run_daemon_core_command_response_from_stdin\(\)/.test(
         bridgeBin,
       ) &&
+      /daemon_core_command_transport_retired/.test(bridgeBin) &&
       !/struct BridgeEnvelope/.test(bridgeDispatch) &&
       !/struct BridgeError/.test(bridgeModule) &&
       !/fn run_bridge\(\)/.test(bridgeModule) &&
@@ -3198,12 +3196,13 @@ function runBridge() {
       !/expected_schema_version/.test(bridgeDispatch) &&
       !/schema_version_invalid/.test(bridgeDispatch) &&
       !/match envelope\.operation\.as_str\(\)/.test(bridgeDispatch) &&
-      /pub fn dispatch_command_operation_response\(\s*command_operation: CommandOperation,\s*raw_request: Value,\s*\)/.test(
+      /pub fn dispatch_command_operation_response\(\s*command_operation: CommandOperation,\s*_raw_request: Value,\s*\)/.test(
         coreCommandDispatch,
       ) &&
       /pub struct CommandDispatchError/.test(coreCommandDispatch) &&
       /match command_operation/.test(coreCommandDispatch) &&
-      /CommandOperation::RunCodingToolStepModule/.test(coreCommandDispatch) &&
+      /match command_operation\s*\{\s*\}/.test(coreCommandDispatch) &&
+      !/CommandOperation::RunCodingToolStepModule/.test(coreCommandDispatch) &&
       !/CommandOperation::AdmitModelMountRouteDecision/.test(coreCommandDispatch) &&
       !/match \(command_family, operation\)/.test(bridgeCommandDispatch) &&
       !/\(CommandFamily::StepModule, "run_coding_tool_step_module"\)/.test(bridgeCommandDispatch) &&
@@ -3215,6 +3214,7 @@ function runBridge() {
       /pub const DAEMON_CORE_COMMAND_SCHEMA_VERSION/.test(commandProtocolCore) &&
       !/pub const STEP_MODULE_OPERATIONS: &\[&str\]/.test(commandProtocolCore) &&
       /pub const DAEMON_CORE_OPERATIONS: &\[&str\]/.test(commandProtocolCore) &&
+      /pub const DAEMON_CORE_OPERATIONS: &\[&str\] = &\[\];/.test(commandProtocolCore) &&
       !/pub enum CommandFamily/.test(commandProtocolCore) &&
       /pub enum CommandOperation/.test(commandProtocolCore) &&
       /pub struct CommandEnvelope/.test(commandProtocolCore) &&
@@ -3237,8 +3237,8 @@ function runBridge() {
       /command_operation\(operation\)\.map\(CommandOperation::schema_version\)/.test(commandProtocolCore) &&
       !/pub fn is_step_module_operation/.test(commandProtocolCore) &&
       !/pub fn is_daemon_core_operation/.test(commandProtocolCore) &&
-      /daemon_core_operations_use_daemon_core_command_schema/.test(commandProtocolCore) &&
-      /coding_tool_step_module_operation_uses_daemon_core_command_schema/.test(commandProtocolCore) &&
+      /coding_tool_step_module_command_transport_is_retired/.test(commandProtocolCore) &&
+      /daemon_core_command_operation_catalog_is_empty/.test(commandProtocolCore) &&
       /unknown_operation_has_no_command_schema/.test(commandProtocolCore) &&
       /command_envelope_rejects_retired_schema_version_alias/.test(commandProtocolCore) &&
       /retired_coding_tool_result_command_transport_is_unknown/.test(commandProtocolCore) &&
@@ -3246,10 +3246,10 @@ function runBridge() {
       /coding_tool_step_module_operation_rejects_retired_step_module_command_schema/.test(
         commandProtocolCore,
       ) &&
-      /command_operation\(operation\)\.expect\("daemon-core operation has typed identity"\)/.test(commandProtocolCore) &&
+      !/command_operation\(operation\)\.expect\("daemon-core operation has typed identity"\)/.test(commandProtocolCore) &&
       /command_envelope_requires_canonical_schema_version_field/.test(commandProtocolCore) &&
       /command_catalog_operations_have_daemon_core_schema/.test(commandProtocolCore) &&
-      /validate_command_envelope_returns_rust_owned_operation_schema/.test(commandProtocolCore) &&
+      /validate_command_envelope_rejects_retired_step_module_operation/.test(commandProtocolCore) &&
       /validate_command_envelope_rejects_schema_mismatch/.test(commandProtocolCore) &&
       /"validate_mcp_servers"/.test(commandProtocolCore) &&
       /admission_required_command_transport_is_retired/.test(commandProtocolCore) &&
@@ -4662,10 +4662,6 @@ function runBridge() {
         : "",
       daemonCoreDirectInvokerServiceTest,
     });
-  const daemonCoreDirectInvokerRunners = [
-    stepModuleRunner,
-    modelMountCore,
-  ];
   assertCheck(
     result,
     "daemon-core-direct-invoker-mock-fallback-retired",
@@ -4673,10 +4669,12 @@ function runBridge() {
       !exists("packages/runtime-daemon/src/runtime-daemon-core-command-runner.test.mjs") &&
       !exists("packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs") &&
       !exists("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs") &&
-      daemonCoreDirectInvokerRunners.every(
-        (runner) =>
-          /this\.daemonCoreInvoker = optionalFunction\(options\.daemonCoreInvoker\)/.test(runner) &&
-          !/mockResult|mockSource|defaultBackend|createDaemonCoreCommandInvoker|spawnSyncImpl/.test(runner),
+      /assertNoStepModuleCommandInvoker\("daemonCoreInvoker", options\.daemonCoreInvoker\)/.test(stepModuleRunner) &&
+      !/this\.daemonCoreInvoker = optionalFunction\(options\.daemonCoreInvoker\)/.test(stepModuleRunner) &&
+      /this\.daemonCoreWorkloadApi = workloadApi\(options\.daemonCoreWorkloadApi\)/.test(stepModuleRunner) &&
+      /this\.daemonCoreInvoker = optionalFunction\(options\.daemonCoreInvoker\)/.test(modelMountCore) &&
+      !/mockResult|mockSource|defaultBackend|createDaemonCoreCommandInvoker|spawnSyncImpl/.test(
+        [stepModuleRunner, modelMountCore].join("\n"),
       ) &&
       /assertNoRuntimeContextPolicyCoreOption\("daemonCoreInvoker", options\.daemonCoreInvoker\)/.test(
         runtimeContextPolicyCore,
@@ -4981,7 +4979,8 @@ function runBridge() {
       /this\.workspaceRestoreCore/.test(runtimeDaemonIndex) &&
       !/this\.workspaceRestoreRunner/.test(runtimeDaemonIndex) &&
       /workspaceRestoreCore: this\.workspaceRestoreCore/.test(runtimeDaemonIndex) &&
-      /createStepModuleRunnerFromEnv\(process\.env,\s*\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*\}\)/.test(
+      /this\.daemonCoreWorkloadApi = options\.daemonCoreWorkloadApi/.test(runtimeDaemonIndex) &&
+      /createStepModuleRunnerFromEnv\(process\.env,\s*\{\s*daemonCoreWorkloadApi: this\.daemonCoreWorkloadApi,\s*\}\)/.test(
         runtimeDaemonIndex,
       ) &&
       /daemon-level typed APIs feed migrated daemon-core surfaces/.test(
@@ -5004,7 +5003,7 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-approval-state-core.test.mjs",
       "packages/runtime-daemon/src/model-mounting/model-mount-core.mjs",
     ],
-    "Rust daemon-core migration must use the direct-invoker seam and keep the retired JS command-spawn helper absent from daemon hot paths",
+    "Rust daemon-core migration must use typed daemon-core APIs and keep the retired JS command-spawn helper absent from daemon hot paths",
   );
   assertCheck(
     result,
@@ -5020,13 +5019,18 @@ function runBridge() {
       /assertNoStepModuleBackendSelection/.test(stepModuleRunner) &&
       /assertNoStepModuleCommandArgs/.test(stepModuleRunner) &&
       /assertNoStepModuleCommandSelection/.test(stepModuleRunner) &&
+      /assertNoStepModuleCommandInvoker/.test(stepModuleRunner) &&
       /CODING_TOOL_STEP_MODULE_REQUEST_SCHEMA_VERSION/.test(stepModuleRunner) &&
-      /request_schema_version:\s*CODING_TOOL_STEP_MODULE_REQUEST_SCHEMA_VERSION/.test(stepModuleRunner) &&
+      /schema_version:\s*CODING_TOOL_STEP_MODULE_REQUEST_SCHEMA_VERSION/.test(stepModuleRunner) &&
       /tool_id:\s*optionalString\(toolId\)/.test(stepModuleRunner) &&
+      !/operation:\s*"run_coding_tool_step_module"/.test(stepModuleRunner) &&
+	      !/const request = \{(?:(?!const workloadApiResult)[\s\S])*backend:\s*this\.backend/.test(
+	        stepModuleRunner,
+	      ) &&
       !/from "\.\/step-module-abi\.mjs"/.test(stepModuleRunner) &&
       !/createStepModuleInvocationForCodingTool/.test(stepModuleRunner) &&
       !/createCodingToolStepModuleProjection/.test(stepModuleRunner) &&
-      /result:\s*daemonCoreResult\.result\s*\?\?\s*null/.test(stepModuleRunner) &&
+      /result:\s*workloadApiResult\.result\s*\?\?\s*null/.test(stepModuleRunner) &&
       /assert\.equal\(projection\.result,\s*null\)/.test(
         read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
       ) &&
@@ -5043,16 +5047,19 @@ function runBridge() {
       /step_module_backend_selection_retired/.test(stepModuleRunner) &&
       /step_module_command_args_retired/.test(stepModuleRunner) &&
       /step_module_command_selection_retired/.test(stepModuleRunner) &&
-      /rust_workload_direct_invoker_unconfigured/.test(stepModuleRunner) &&
+      /step_module_daemon_core_invoker_retired/.test(stepModuleRunner) &&
+      /rust_workload_api_unconfigured/.test(stepModuleRunner) &&
       !/DaemonJsStepModuleRunner/.test(stepModuleRunner) &&
       !/"daemon_js",/.test(stepModuleRunner) &&
       !/"rust_workload_shadow",/.test(stepModuleRunner) &&
       !/"rust_workload_gated",/.test(stepModuleRunner) &&
       /mode:\s*"live"/.test(stepModuleRunner) &&
       !/this\.backend\.replace\("rust_workload_"/.test(stepModuleRunner) &&
-      /daemonCoreInvoker: options\.daemonCoreInvoker/.test(stepModuleRunner) &&
-      /this\.daemonCoreInvoker = optionalFunction\(options\.daemonCoreInvoker\)/.test(stepModuleRunner) &&
-      /this\.invokeDaemonCore\(request\)/.test(stepModuleRunner) &&
+      /daemonCoreWorkloadApi: options\.daemonCoreWorkloadApi/.test(stepModuleRunner) &&
+      /this\.daemonCoreWorkloadApi = workloadApi\(options\.daemonCoreWorkloadApi\)/.test(stepModuleRunner) &&
+      /this\.invokeWorkloadApi\(request\)/.test(stepModuleRunner) &&
+      !/this\.daemonCoreInvoker = optionalFunction\(options\.daemonCoreInvoker\)/.test(stepModuleRunner) &&
+      !/this\.invokeDaemonCore\(request\)/.test(stepModuleRunner) &&
       !/createDaemonCoreCommandInvoker/.test(stepModuleRunner) &&
       !/from "\.\/runtime-daemon-core-command-runner\.mjs"/.test(stepModuleRunner) &&
       !/from "node:child_process"/.test(stepModuleRunner) &&
@@ -5096,7 +5103,16 @@ function runBridge() {
       /retired StepModule command constructor option fails closed/.test(
         read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
       ) &&
-      /rust workload direct daemon-core invoker sends canonical coding-tool request/.test(
+      /retired StepModule daemon-core invoker option fails closed/.test(
+        read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
+      ) &&
+      /rust workload direct daemon-core workload API sends canonical coding-tool request/.test(
+        read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
+      ) &&
+      /assert\.equal\(Object\.hasOwn\(calls\[0\]\.request,\s*"operation"\),\s*false\)/.test(
+        read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
+      ) &&
+      /assert\.equal\(Object\.hasOwn\(calls\[0\]\.request,\s*"backend"\),\s*false\)/.test(
         read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
       ) &&
       /assert\.equal\(Object\.hasOwn\(calls\[0\]\.request,\s*"invocation"\),\s*false\)/.test(
@@ -5121,7 +5137,7 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-daemon-core-command-runner.test.mjs",
       "crates/client/src/workload_client/mod.rs",
     ],
-    "Phase 2 is pending: StepModule execution must be Rust workload live by construction, direct-invoker-only, Rust-owned for coding-tool invocation envelope construction, and all explicit backend or command selection must fail closed",
+    "Phase 2 is pending: StepModule execution must be Rust workload live by construction, typed-workload-API-only, Rust-owned for coding-tool invocation envelope construction, and all explicit backend or command selection must fail closed",
   );
   assertCheck(
     result,
@@ -5133,12 +5149,15 @@ function runBridge() {
       !exists("crates/node/src/bin/ioi_step_module_bridge/coding_tool_receipt_command.rs") &&
       !exists("crates/node/src/bin/ioi_step_module_bridge/computer_use.rs") &&
       exists("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs") &&
-      /run_daemon_core_command_response_from_stdin/.test(bridgeBin) &&
+      /daemon_core_command_transport_retired/.test(bridgeBin) &&
+      !/run_daemon_core_command_response_from_stdin/.test(bridgeBin) &&
       !/mod coding_tool_command;/.test(bridgeModule) &&
       !/mod coding_tool_helpers;/.test(bridgeModule) &&
       !/mod coding_tool_receipt_command;/.test(bridgeModule) &&
       !/mod computer_use;/.test(bridgeModule) &&
-      /run_coding_tool_step_module_response/.test(coreCommandDispatch) &&
+      !/run_coding_tool_step_module_response/.test(coreCommandDispatch) &&
+      !/CommandOperation::RunCodingToolStepModule/.test(coreCommandDispatch) &&
+      /command_transport_rejects_retired_step_module_operation_before_dispatch/.test(coreCommandDispatch) &&
       !/CodingToolStepModuleBridgeRequest as StepModuleBridgeRequest/.test(bridgeModule) &&
       !/fn run_coding_tool_step_module/.test(bridgeModule) &&
       !/core_run_coding_tool_step_module/.test(bridgeModule) &&
@@ -5198,12 +5217,18 @@ function runBridge() {
       !/ReceiptBinder/.test(codingToolReceiptCommandBridge) &&
       !/RustProjectionCore/.test(codingToolReceiptCommandBridge) &&
       /pub mod coding_tool_step_module;/.test(kernelModuleForBridgeChecks) &&
+      /pub fn run_coding_tool_step_module\(\s*&self,\s*request: &CodingToolStepModuleRunRequest,\s*\)/.test(
+        kernelModuleForBridgeChecks,
+      ) &&
       /pub const CODING_TOOL_STEP_MODULE_REQUEST_SCHEMA_VERSION/.test(codingToolStepModuleCore) &&
-      /pub struct CodingToolStepModuleBridgeRequest/.test(codingToolStepModuleCore) &&
+      /#\[serde\(deny_unknown_fields\)\]/.test(codingToolStepModuleCore) &&
+      /pub struct CodingToolStepModuleRunRequest/.test(codingToolStepModuleCore) &&
       /fn try_core_request/.test(codingToolStepModuleCore) &&
       /fn coding_tool_contract/.test(codingToolStepModuleCore) &&
-      /js_step_module_invocation_retired/.test(codingToolStepModuleCore) &&
-      /pub fn run_coding_tool_step_module_response/.test(codingToolStepModuleCore) &&
+      !/pub struct CodingToolStepModuleBridgeRequest/.test(codingToolStepModuleCore) &&
+      !/js_step_module_invocation_retired/.test(codingToolStepModuleCore) &&
+      /pub fn run_coding_tool_step_module/.test(codingToolStepModuleCore) &&
+      !/pub fn run_coding_tool_step_module_response/.test(codingToolStepModuleCore) &&
       /pub fn successful_coding_tool_step_module_result/.test(codingToolStepModuleCore) &&
       /pub fn coding_tool_step_module_response/.test(codingToolStepModuleCore) &&
       /rust_core_builds_coding_tool_invocation_from_canonical_request/.test(
@@ -5587,21 +5612,28 @@ function runBridge() {
       !/schema_version_invalid/.test(codingToolReceiptCommandBridge) &&
       !/operation_unsupported/.test(codingToolCommandBridge) &&
       !/operation_unsupported/.test(codingToolReceiptCommandBridge) &&
-      /CommandOperation::RunCodingToolStepModule/.test(coreCommandDispatch) &&
+      !/CommandOperation::RunCodingToolStepModule/.test(coreCommandDispatch) &&
+      /command_transport_rejects_retired_step_module_operation_before_dispatch/.test(
+        coreCommandDispatch,
+      ) &&
       /validate_command_envelope\(\s*"run_coding_tool_step_module",[\s\n]*DAEMON_CORE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
         commandProtocolCore,
       ) &&
       /coding_tool_step_module_operation_rejects_retired_step_module_command_schema/.test(
         commandProtocolCore,
       ) &&
-      /request\.schema_version,\s*"ioi\.runtime\.daemon_core\.command\.v1"/.test(
+      /request\.schema_version,\s*"ioi\.runtime\.coding-tool-step-module-request\.v1"/.test(
+        read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
+      ) &&
+      /Object\.hasOwn\(calls\[0\]\.request,\s*"operation"\),\s*false/.test(
         read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
       ) &&
       !/coding_tool_step_module_rejects_daemon_core_command_schema/.test(bridgeModule) &&
       !/CodingToolStepModuleBridgeRequest as StepModuleBridgeRequest/.test(bridgeModule) &&
       !/fn run_coding_tool_step_module/.test(bridgeModule) &&
       !/core_run_coding_tool_step_module/.test(bridgeModule) &&
-      /pub fn run_coding_tool_step_module_response/.test(codingToolStepModuleCore) &&
+      /pub fn run_coding_tool_step_module/.test(codingToolStepModuleCore) &&
+      !/pub fn run_coding_tool_step_module_response/.test(codingToolStepModuleCore) &&
       !/StepModuleRouterCore/.test(codingToolCommandBridge) &&
       !/WorkloadClient::plan_step_module_dispatch/.test(codingToolCommandBridge) &&
       !/StepModuleRouterCore/.test(codingToolReceiptCommandBridge) &&
@@ -5635,8 +5667,8 @@ function runBridge() {
       /"workload_dispatch": workload_dispatch/.test(codingToolStepModuleCore) &&
       /"workload_observation": workload_observation/.test(codingToolStepModuleCore) &&
       /rust_workload_client_step_module_dispatch/.test(codingToolStepModuleCore) &&
-      /bridge_result\?\.workload_observation/.test(runtimeCodingToolInvocationSurface) &&
-      /Object\.hasOwn\(result\.step_module\.bridge_result,\s*"shadow_observation"\),\s*false/.test(
+      /workload_result\?\.workload_observation/.test(runtimeCodingToolInvocationSurface) &&
+      /Object\.hasOwn\(result\.step_module\.workload_result,\s*"shadow_observation"\),\s*false/.test(
         runtimeCodingToolInvocationSurfaceTest,
       ) &&
       !/shadow_observation/.test(bridgeModule) &&

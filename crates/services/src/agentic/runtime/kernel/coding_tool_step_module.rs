@@ -41,8 +41,9 @@ pub struct CodingToolStepModuleRequest {
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]
-pub struct CodingToolStepModuleBridgeRequest {
-    pub backend: String,
+#[serde(deny_unknown_fields)]
+pub struct CodingToolStepModuleRunRequest {
+    pub schema_version: String,
     #[serde(default)]
     pub tool_id: Option<String>,
     #[serde(default)]
@@ -85,17 +86,15 @@ pub struct CodingToolStepModuleBridgeRequest {
     pub deadline_ms: Option<u64>,
     #[serde(default)]
     pub manifest_ref: Option<String>,
-    #[serde(default)]
-    pub invocation: Option<Value>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CodingToolStepModuleCommandError {
+pub struct CodingToolStepModuleRunError {
     code: &'static str,
     message: String,
 }
 
-impl CodingToolStepModuleCommandError {
+impl CodingToolStepModuleRunError {
     fn new(code: &'static str, message: String) -> Self {
         Self { code, message }
     }
@@ -109,9 +108,9 @@ impl CodingToolStepModuleCommandError {
     }
 }
 
-pub fn run_coding_tool_step_module_response(
-    request: CodingToolStepModuleBridgeRequest,
-) -> Result<Value, CodingToolStepModuleCommandError> {
+pub fn run_coding_tool_step_module(
+    request: CodingToolStepModuleRunRequest,
+) -> Result<Value, CodingToolStepModuleRunError> {
     let tool_id = request.required_tool_id()?;
     match tool_id.as_str() {
         "workspace.status" => workspace_status_response(request),
@@ -123,7 +122,7 @@ pub fn run_coding_tool_step_module_response(
         "artifact.read" => artifact_read_response(request),
         "tool.retrieve_result" => tool_retrieve_result_response(request),
         "computer_use.request_lease" => computer_use_request_lease_response(request),
-        other => Err(CodingToolStepModuleCommandError::new(
+        other => Err(CodingToolStepModuleRunError::new(
             "tool_unsupported",
             format!("unsupported StepModule tool {other}"),
         )),
@@ -131,8 +130,8 @@ pub fn run_coding_tool_step_module_response(
 }
 
 pub fn workspace_status_response(
-    request: CodingToolStepModuleBridgeRequest,
-) -> Result<Value, CodingToolStepModuleCommandError> {
+    request: CodingToolStepModuleRunRequest,
+) -> Result<Value, CodingToolStepModuleRunError> {
     let workspace_root = required_workspace_root(&request)?;
     let core_request = request.try_core_request()?;
     let status_result =
@@ -153,8 +152,8 @@ pub fn workspace_status_response(
 }
 
 pub fn git_diff_response(
-    request: CodingToolStepModuleBridgeRequest,
-) -> Result<Value, CodingToolStepModuleCommandError> {
+    request: CodingToolStepModuleRunRequest,
+) -> Result<Value, CodingToolStepModuleRunError> {
     let workspace_root = required_workspace_root(&request)?;
     let core_request = request.try_core_request()?;
     let diff_result = inspect_git_diff(&workspace_root, &request.input).map_err(workspace_error)?;
@@ -171,8 +170,8 @@ pub fn git_diff_response(
 }
 
 pub fn file_inspect_response(
-    request: CodingToolStepModuleBridgeRequest,
-) -> Result<Value, CodingToolStepModuleCommandError> {
+    request: CodingToolStepModuleRunRequest,
+) -> Result<Value, CodingToolStepModuleRunError> {
     let workspace_root = required_workspace_root(&request)?;
     let core_request = request.try_core_request()?;
     let selected_path = request
@@ -182,7 +181,7 @@ pub fn file_inspect_response(
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .ok_or_else(|| {
-            CodingToolStepModuleCommandError::new(
+            CodingToolStepModuleRunError::new(
                 "file_inspect_path_required",
                 "file.inspect requires path".to_string(),
             )
@@ -205,8 +204,8 @@ pub fn file_inspect_response(
 }
 
 pub fn file_apply_patch_response(
-    request: CodingToolStepModuleBridgeRequest,
-) -> Result<Value, CodingToolStepModuleCommandError> {
+    request: CodingToolStepModuleRunRequest,
+) -> Result<Value, CodingToolStepModuleRunError> {
     let workspace_root = required_workspace_root(&request)?;
     let mut core_request = request.try_core_request()?;
     let patch = apply_workspace_patch(&workspace_root, &request.input).map_err(workspace_error)?;
@@ -247,8 +246,8 @@ pub fn file_apply_patch_response(
 }
 
 pub fn test_run_response(
-    request: CodingToolStepModuleBridgeRequest,
-) -> Result<Value, CodingToolStepModuleCommandError> {
+    request: CodingToolStepModuleRunRequest,
+) -> Result<Value, CodingToolStepModuleRunError> {
     let workspace_root = required_workspace_root(&request)?;
     let core_request = request.try_core_request()?;
     let test_result = inspect_test_run(&workspace_root, &request.input).map_err(workspace_error)?;
@@ -265,8 +264,8 @@ pub fn test_run_response(
 }
 
 pub fn lsp_diagnostics_response(
-    request: CodingToolStepModuleBridgeRequest,
-) -> Result<Value, CodingToolStepModuleCommandError> {
+    request: CodingToolStepModuleRunRequest,
+) -> Result<Value, CodingToolStepModuleRunError> {
     let workspace_root = required_workspace_root(&request)?;
     let core_request = request.try_core_request()?;
     let diagnostics_result =
@@ -287,8 +286,8 @@ pub fn lsp_diagnostics_response(
 }
 
 pub fn artifact_read_response(
-    request: CodingToolStepModuleBridgeRequest,
-) -> Result<Value, CodingToolStepModuleCommandError> {
+    request: CodingToolStepModuleRunRequest,
+) -> Result<Value, CodingToolStepModuleRunError> {
     let core_request = request.try_core_request()?;
     let read_result = normalize_artifact_read(&request.input).map_err(artifact_error)?;
     let mut result = successful_coding_tool_step_module_result(
@@ -319,8 +318,8 @@ pub fn artifact_read_response(
 }
 
 pub fn tool_retrieve_result_response(
-    request: CodingToolStepModuleBridgeRequest,
-) -> Result<Value, CodingToolStepModuleCommandError> {
+    request: CodingToolStepModuleRunRequest,
+) -> Result<Value, CodingToolStepModuleRunError> {
     let core_request = request.try_core_request()?;
     let retrieve_result = normalize_tool_retrieve_result(&request.input).map_err(artifact_error)?;
     let mut result = successful_coding_tool_step_module_result(
@@ -351,8 +350,8 @@ pub fn tool_retrieve_result_response(
 }
 
 pub fn computer_use_request_lease_response(
-    request: CodingToolStepModuleBridgeRequest,
-) -> Result<Value, CodingToolStepModuleCommandError> {
+    request: CodingToolStepModuleRunRequest,
+) -> Result<Value, CodingToolStepModuleRunError> {
     let workspace_root = required_workspace_root(&request)?;
     let core_request = request.try_core_request()?;
     let lease_request = build_computer_use_lease_request(&workspace_root, &request.input)
@@ -454,7 +453,7 @@ pub fn coding_tool_step_module_response_with_expected_heads(
         Ok(plan) => plan,
         Err(error) => {
             return json!({
-                "source": "rust_workload_command",
+                "source": "rust_workload_api",
                 "error": {
                     "code": "workload_client_dispatch_invalid",
                     "message": format!("{error:?}"),
@@ -472,7 +471,7 @@ pub fn coding_tool_step_module_response_with_expected_heads(
     );
     if let Err(errors) = result.validate() {
         return json!({
-            "source": "rust_workload_command",
+            "source": "rust_workload_api",
             "error": {
                 "code": "result_invalid",
                 "message": format!("{errors:?}"),
@@ -484,7 +483,7 @@ pub fn coding_tool_step_module_response_with_expected_heads(
         Ok(record) => record,
         Err(error) => {
             return json!({
-                "source": "rust_workload_command",
+                "source": "rust_workload_api",
                 "error": {
                     "code": "router_admission_invalid",
                     "message": format!("{error:?}"),
@@ -497,7 +496,7 @@ pub fn coding_tool_step_module_response_with_expected_heads(
             Ok(binding) => binding,
             Err(error) => {
                 return json!({
-                    "source": "rust_workload_command",
+                    "source": "rust_workload_api",
                     "error": {
                         "code": "receipt_binding_invalid",
                         "message": format!("{error:?}"),
@@ -529,7 +528,7 @@ pub fn coding_tool_step_module_response_with_expected_heads(
             Ok(record) => json!(record),
             Err(error) => {
                 return json!({
-                    "source": "rust_workload_command",
+                    "source": "rust_workload_api",
                     "error": {
                         "code": "agentgres_admission_invalid",
                         "message": format!("{error:?}"),
@@ -546,7 +545,7 @@ pub fn coding_tool_step_module_response_with_expected_heads(
         Ok(record) => record,
         Err(error) => {
             return json!({
-                "source": "rust_workload_command",
+                "source": "rust_workload_api",
                 "error": {
                     "code": "projection_record_invalid",
                     "message": format!("{error:?}"),
@@ -555,7 +554,7 @@ pub fn coding_tool_step_module_response_with_expected_heads(
         }
     };
     json!({
-        "source": "rust_workload_command",
+        "source": "rust_workload_api",
         "backend": request.backend,
         "invocation": request.invocation,
         "workload_dispatch": workload_dispatch,
@@ -613,10 +612,10 @@ fn unique_string_refs(values: Vec<String>) -> Vec<String> {
 }
 
 fn required_workspace_root(
-    request: &CodingToolStepModuleBridgeRequest,
-) -> Result<String, CodingToolStepModuleCommandError> {
+    request: &CodingToolStepModuleRunRequest,
+) -> Result<String, CodingToolStepModuleRunError> {
     request.workspace_root.clone().ok_or_else(|| {
-        CodingToolStepModuleCommandError::new(
+        CodingToolStepModuleRunError::new(
             "workspace_root_required",
             "workspace_root is required".to_string(),
         )
@@ -675,38 +674,33 @@ fn safe_ref_path(value: &str) -> String {
 
 fn workspace_error(
     error: super::coding_tool_workspace::CodingToolWorkspaceError,
-) -> CodingToolStepModuleCommandError {
-    CodingToolStepModuleCommandError::new(error.code(), error.message().to_string())
+) -> CodingToolStepModuleRunError {
+    CodingToolStepModuleRunError::new(error.code(), error.message().to_string())
 }
 
 fn artifact_error(
     error: super::coding_tool_artifact::CodingToolArtifactError,
-) -> CodingToolStepModuleCommandError {
-    CodingToolStepModuleCommandError::new(error.code(), error.message().to_string())
+) -> CodingToolStepModuleRunError {
+    CodingToolStepModuleRunError::new(error.code(), error.message().to_string())
 }
 
 fn computer_use_error(
     error: super::coding_tool_computer_use::CodingToolComputerUseError,
-) -> CodingToolStepModuleCommandError {
-    CodingToolStepModuleCommandError::new(error.code(), error.message().to_string())
+) -> CodingToolStepModuleRunError {
+    CodingToolStepModuleRunError::new(error.code(), error.message().to_string())
 }
 
-impl CodingToolStepModuleBridgeRequest {
+impl CodingToolStepModuleRunRequest {
     fn try_core_request(
         &self,
-    ) -> Result<CodingToolStepModuleRequest, CodingToolStepModuleCommandError> {
-        if self.invocation.is_some() {
-            return Err(CodingToolStepModuleCommandError::new(
-                "js_step_module_invocation_retired",
-                "coding-tool StepModule invocations are constructed by Rust daemon-core"
-                    .to_string(),
-            ));
-        }
-        let backend = trimmed_required("backend", Some(&self.backend))?;
-        if backend != RUST_WORKLOAD_LIVE_BACKEND {
-            return Err(CodingToolStepModuleCommandError::new(
-                "rust_workload_live_required",
-                format!("coding-tool StepModule execution requires {RUST_WORKLOAD_LIVE_BACKEND}"),
+    ) -> Result<CodingToolStepModuleRequest, CodingToolStepModuleRunError> {
+        let schema_version = trimmed_required("schema_version", Some(&self.schema_version))?;
+        if schema_version != CODING_TOOL_STEP_MODULE_REQUEST_SCHEMA_VERSION {
+            return Err(CodingToolStepModuleRunError::new(
+                "schema_version_invalid",
+                format!(
+                    "expected {CODING_TOOL_STEP_MODULE_REQUEST_SCHEMA_VERSION} but received {schema_version}"
+                ),
             ));
         }
         let tool_id = self.required_tool_id()?;
@@ -808,15 +802,15 @@ impl CodingToolStepModuleBridgeRequest {
             },
         };
         invocation.validate().map_err(|errors| {
-            CodingToolStepModuleCommandError::new("invocation_invalid", format!("{errors:?}"))
+            CodingToolStepModuleRunError::new("invocation_invalid", format!("{errors:?}"))
         })?;
         Ok(CodingToolStepModuleRequest {
-            backend,
+            backend: RUST_WORKLOAD_LIVE_BACKEND.to_string(),
             invocation,
         })
     }
 
-    fn required_tool_id(&self) -> Result<String, CodingToolStepModuleCommandError> {
+    fn required_tool_id(&self) -> Result<String, CodingToolStepModuleRunError> {
         let tool_id = trimmed_required("tool_id", self.tool_id.as_deref())?;
         coding_tool_contract(&tool_id)?;
         Ok(tool_id)
@@ -830,9 +824,7 @@ struct CodingToolContract {
     authority_scope_requirements: &'static [&'static str],
 }
 
-fn coding_tool_contract(
-    tool_id: &str,
-) -> Result<CodingToolContract, CodingToolStepModuleCommandError> {
+fn coding_tool_contract(tool_id: &str) -> Result<CodingToolContract, CodingToolStepModuleRunError> {
     let contract = match tool_id {
         "workspace.status" => CodingToolContract {
             schema_version: CODING_TOOL_PACK_SCHEMA_VERSION,
@@ -883,7 +875,7 @@ fn coding_tool_contract(
             authority_scope_requirements: &["computer_use.lease.request"],
         },
         other => {
-            return Err(CodingToolStepModuleCommandError::new(
+            return Err(CodingToolStepModuleRunError::new(
                 "tool_unsupported",
                 format!("unsupported StepModule tool {other}"),
             ));
@@ -895,12 +887,9 @@ fn coding_tool_contract(
 fn trimmed_required(
     field: &'static str,
     value: Option<&str>,
-) -> Result<String, CodingToolStepModuleCommandError> {
+) -> Result<String, CodingToolStepModuleRunError> {
     trimmed_optional(value).ok_or_else(|| {
-        CodingToolStepModuleCommandError::new(
-            "required_field_missing",
-            format!("{field} is required"),
-        )
+        CodingToolStepModuleRunError::new("required_field_missing", format!("{field} is required"))
     })
 }
 
@@ -911,7 +900,7 @@ fn trimmed_optional(value: Option<&str>) -> Option<String> {
         .map(ToOwned::to_owned)
 }
 
-fn step_module_value_hash(value: &Value) -> Result<String, CodingToolStepModuleCommandError> {
+fn step_module_value_hash(value: &Value) -> Result<String, CodingToolStepModuleRunError> {
     let stable = stable_json_value(value)?;
     Ok(format!(
         "sha256:{}",
@@ -919,7 +908,7 @@ fn step_module_value_hash(value: &Value) -> Result<String, CodingToolStepModuleC
     ))
 }
 
-fn stable_json_value(value: &Value) -> Result<String, CodingToolStepModuleCommandError> {
+fn stable_json_value(value: &Value) -> Result<String, CodingToolStepModuleRunError> {
     match value {
         Value::Null | Value::Bool(_) | Value::Number(_) | Value::String(_) => {
             serde_json::to_string(value).map_err(hash_error)
@@ -945,8 +934,8 @@ fn stable_json_value(value: &Value) -> Result<String, CodingToolStepModuleComman
     }
 }
 
-fn hash_error(error: serde_json::Error) -> CodingToolStepModuleCommandError {
-    CodingToolStepModuleCommandError::new("hash_failed", error.to_string())
+fn hash_error(error: serde_json::Error) -> CodingToolStepModuleRunError {
+    CodingToolStepModuleRunError::new("hash_failed", error.to_string())
 }
 
 fn short_hash_suffix(value: &str, len: usize) -> String {
@@ -1057,7 +1046,7 @@ mod tests {
 
     #[test]
     fn rust_core_builds_coding_tool_invocation_from_canonical_request() {
-        let request = bridge_request(
+        let request = run_request(
             "file.apply_patch",
             "/tmp/workspace",
             json!({
@@ -1110,27 +1099,34 @@ mod tests {
 
     #[test]
     fn rust_core_rejects_js_supplied_coding_tool_step_module_invocation() {
-        let mut request = bridge_request("workspace.status", "/tmp/workspace", json!({}));
-        request.invocation = Some(json!({
-            "schema_version": STEP_MODULE_INVOCATION_SCHEMA_VERSION,
-            "invocation_id": "invocation://js-owned"
-        }));
+        let error = serde_json::from_value::<CodingToolStepModuleRunRequest>(json!({
+            "schema_version": CODING_TOOL_STEP_MODULE_REQUEST_SCHEMA_VERSION,
+            "tool_id": "workspace.status",
+            "workspace_root": "/tmp/workspace",
+            "invocation": {
+                "schema_version": STEP_MODULE_INVOCATION_SCHEMA_VERSION,
+                "invocation_id": "invocation://js-owned"
+            }
+        }))
+        .expect_err("JS-supplied invocation must be retired by the direct API schema");
 
-        let error = run_coding_tool_step_module_response(request)
-            .expect_err("JS-supplied invocation must be retired");
-
-        assert_eq!(error.code(), "js_step_module_invocation_retired");
+        assert!(error.to_string().contains("unknown field"));
+        assert!(error.to_string().contains("invocation"));
     }
 
     #[test]
     fn rust_core_rejects_non_live_coding_tool_step_module_backend() {
-        let mut request = bridge_request("workspace.status", "/tmp/workspace", json!({}));
-        request.backend = "rust_workload_shadow".to_string();
+        let error = serde_json::from_value::<CodingToolStepModuleRunRequest>(json!({
+            "schema_version": CODING_TOOL_STEP_MODULE_REQUEST_SCHEMA_VERSION,
+            "backend": "rust_workload_shadow",
+            "tool_id": "workspace.status",
+            "workspace_root": "/tmp/workspace",
+            "input": {}
+        }))
+        .expect_err("backend command selector must be retired by the direct API schema");
 
-        let error =
-            run_coding_tool_step_module_response(request).expect_err("non-live backend must fail");
-
-        assert_eq!(error.code(), "rust_workload_live_required");
+        assert!(error.to_string().contains("unknown field"));
+        assert!(error.to_string().contains("backend"));
     }
 
     #[test]
@@ -1152,7 +1148,7 @@ mod tests {
             }),
         );
 
-        assert_eq!(response["source"], "rust_workload_command");
+        assert_eq!(response["source"], "rust_workload_api");
         assert_eq!(
             response["workload_dispatch"]["schema_version"],
             WORKLOAD_STEP_MODULE_DISPATCH_SCHEMA_VERSION
@@ -1182,7 +1178,7 @@ mod tests {
         let workspace = temp.path().join("workspace");
         fs::create_dir(&workspace).expect("workspace dir");
         fs::write(workspace.join("README.md"), "before\n").expect("fixture file");
-        let request = bridge_request(
+        let request = run_request(
             "file.apply_patch",
             workspace.to_str().expect("utf8 path"),
             json!({
@@ -1227,7 +1223,7 @@ mod tests {
         let workspace = temp.path().join("workspace");
         fs::create_dir(&workspace).expect("workspace dir");
         fs::write(workspace.join("README.md"), "before\n").expect("fixture file");
-        let request = bridge_request(
+        let request = run_request(
             "file.apply_patch",
             workspace.to_str().expect("utf8 path"),
             json!({
@@ -1252,7 +1248,7 @@ mod tests {
 
     #[test]
     fn rust_core_artifact_read_uses_prefetched_data_plane_payload() {
-        let request = bridge_request(
+        let request = run_request(
             "artifact.read",
             "/tmp",
             json!({
@@ -1325,7 +1321,7 @@ mod tests {
 
     #[test]
     fn rust_core_artifact_read_requires_prefetched_data_plane_payload() {
-        let request = bridge_request(
+        let request = run_request(
             "artifact.read",
             "/tmp",
             json!({
@@ -1340,7 +1336,7 @@ mod tests {
 
     #[test]
     fn rust_core_tool_retrieve_result_uses_prefetched_data_plane_payload() {
-        let request = bridge_request(
+        let request = run_request(
             "tool.retrieve_result",
             "/tmp",
             json!({
@@ -1415,7 +1411,7 @@ mod tests {
 
     #[test]
     fn rust_core_computer_use_request_lease_ignores_retired_aliases() {
-        let request = bridge_request(
+        let request = run_request(
             "computer_use.request_lease",
             "/tmp/workspace",
             json!({
@@ -1459,7 +1455,7 @@ mod tests {
 
     #[test]
     fn rust_core_computer_use_request_lease_ignores_retired_approval_alias() {
-        let request = bridge_request(
+        let request = run_request(
             "computer_use.request_lease",
             "/tmp/workspace",
             json!({
@@ -1491,7 +1487,7 @@ mod tests {
 
     #[test]
     fn rust_core_computer_use_request_lease_ignores_retired_action_kind_alias() {
-        let request = bridge_request(
+        let request = run_request(
             "computer_use.request_lease",
             "/tmp/workspace",
             json!({
@@ -1519,7 +1515,7 @@ mod tests {
 
     #[test]
     fn rust_core_computer_use_request_lease_binds_canonical_receipt_and_request_refs() {
-        let request = bridge_request(
+        let request = run_request(
             "computer_use.request_lease",
             "/tmp/workspace",
             json!({
@@ -1570,13 +1566,13 @@ mod tests {
         }
     }
 
-    fn bridge_request(
+    fn run_request(
         tool_id: &str,
         workspace_root: &str,
         input: Value,
-    ) -> CodingToolStepModuleBridgeRequest {
-        CodingToolStepModuleBridgeRequest {
-            backend: RUST_WORKLOAD_LIVE_BACKEND.to_string(),
+    ) -> CodingToolStepModuleRunRequest {
+        CodingToolStepModuleRunRequest {
+            schema_version: CODING_TOOL_STEP_MODULE_REQUEST_SCHEMA_VERSION.to_string(),
             tool_id: Some(tool_id.to_string()),
             workspace_root: Some(workspace_root.to_string()),
             input,

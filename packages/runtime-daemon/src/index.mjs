@@ -607,6 +607,7 @@ export class AgentgresRuntimeStateStore {
     this.daemonCoreAuthorityApi = options.daemonCoreAuthorityApi;
     this.daemonCoreApprovalApi = options.daemonCoreApprovalApi;
     this.daemonCoreCteeApi = options.daemonCoreCteeApi;
+    this.daemonCoreWorkloadApi = options.daemonCoreWorkloadApi;
     this.daemonCoreWorkerServiceApi = options.daemonCoreWorkerServiceApi;
     this.daemonCoreGovernedAdmissionApi = options.daemonCoreGovernedAdmissionApi;
     this.daemonCoreWorkspaceRestoreApi = options.daemonCoreWorkspaceRestoreApi;
@@ -800,7 +801,7 @@ export class AgentgresRuntimeStateStore {
       codingToolResultEventAdmissionForThread: (store, request = {}) =>
         this.admitCodingToolResultEventForThread(store, request),
       stepModuleRunner: createStepModuleRunnerFromEnv(process.env, {
-        daemonCoreInvoker: this.daemonCoreInvoker,
+        daemonCoreWorkloadApi: this.daemonCoreWorkloadApi,
       }),
     });
     this.workspaceSnapshotSurface = createRuntimeWorkspaceSnapshotSurface({

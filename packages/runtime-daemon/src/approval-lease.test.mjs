@@ -407,33 +407,28 @@ function daemonCoreFixtureForApprovalLeaseTest() {
     },
   };
 
-  function daemonCoreInvoker(envelope = {}) {
-    const request = envelope.request ?? {};
-    switch (envelope.operation) {
-      case "plan_coding_tool_result_envelope":
-        return codingToolResultEnvelopeForApprovalLease(request);
-      case "run_coding_tool_step_module":
-        return codingToolStepModuleResultForApprovalLease(envelope);
-      case "plan_post_edit_diagnostics_feedback":
-        return {
-          source: "rust_post_edit_diagnostics_feedback_plan_command",
-          backend: "rust_runtime_diagnostics_feedback",
-          operation_kind: "runtime.post_edit_diagnostics_feedback",
-          status: "skipped",
-          skipped: true,
-        };
-      default:
-        return {
-          ok: false,
-          error: {
-            code: "approval_lease_daemon_core_fixture_operation_unhandled",
-            message: `Unhandled approval lease daemon-core fixture operation: ${envelope.operation}`,
-          },
-        };
-    }
-  }
+  const daemonCoreRuntimeControlApi = {
+    planCodingToolResultEnvelope(request = {}) {
+      return codingToolResultEnvelopeForApprovalLease(request);
+    },
+    planPostEditDiagnosticsFeedback() {
+      return {
+        source: "rust_post_edit_diagnostics_feedback_plan_api",
+        backend: "rust_runtime_diagnostics_feedback",
+        operation_kind: "runtime.post_edit_diagnostics_feedback",
+        status: "skipped",
+        skipped: true,
+      };
+    },
+  };
 
-  return { daemonCoreInvoker, daemonCoreApprovalApi };
+  const daemonCoreWorkloadApi = {
+    runCodingToolStepModule(request = {}) {
+      return codingToolStepModuleResultForApprovalLease(request);
+    },
+  };
+
+  return { daemonCoreRuntimeControlApi, daemonCoreWorkloadApi, daemonCoreApprovalApi };
 }
 
 function codingToolResultEnvelopeForApprovalLease(request = {}) {
@@ -494,15 +489,15 @@ function codingToolResultEnvelopeForApprovalLease(request = {}) {
   };
 }
 
-function codingToolStepModuleResultForApprovalLease(envelope = {}) {
+function codingToolStepModuleResultForApprovalLease(request = {}) {
   return {
-    source: "rust_workload_command",
+    source: "rust_workload_api",
     invocation: {
       schema_version: "ioi.step_module_invocation.v1",
-      invocation_id: `invocation://approval-lease/${safeId(envelope.tool_id)}`,
+      invocation_id: `invocation://approval-lease/${safeId(request.tool_id)}`,
       module_ref: {
         kind: "workload_job",
-        id: envelope.tool_id,
+        id: request.tool_id,
         version: "ioi.runtime.coding-tool-pack.v1",
       },
       execution: { backend: "workload_grpc" },
@@ -510,26 +505,26 @@ function codingToolStepModuleResultForApprovalLease(envelope = {}) {
     result: {
       schema_version: "ioi.step_module_result.v1",
       status: "success",
-      execution_result_ref: `result://approval-lease/${safeId(envelope.tool_id)}`,
-      normalized_observation_ref: `observation://approval-lease/${safeId(envelope.tool_id)}`,
-      receipt_refs: [`receipt_${safeId(envelope.tool_id)}_step_module`],
+      execution_result_ref: `result://approval-lease/${safeId(request.tool_id)}`,
+      normalized_observation_ref: `observation://approval-lease/${safeId(request.tool_id)}`,
+      receipt_refs: [`receipt_${safeId(request.tool_id)}_step_module`],
       artifact_refs: [],
       payload_refs: [],
     },
     workload_observation: {
-      tool_id: envelope.tool_id,
+      tool_id: request.tool_id,
       result: {
         schema_version: "ioi.runtime.coding-tool-result.v1",
-        tool_name: envelope.tool_id,
+        tool_name: request.tool_id,
         status: "completed",
         applied: false,
         dry_run: true,
         changed_files: [],
-        receipt_refs: [`receipt_${safeId(envelope.tool_id)}_step_module`],
+        receipt_refs: [`receipt_${safeId(request.tool_id)}_step_module`],
         artifact_refs: [],
       },
     },
-    receipt_refs: [`receipt_${safeId(envelope.tool_id)}_step_module`],
+    receipt_refs: [`receipt_${safeId(request.tool_id)}_step_module`],
     evidence_refs: ["rust_workload_step_module_fixture"],
   };
 }
@@ -554,11 +549,16 @@ test("coding tool approval leases stop satisfying retries after expiry", async (
   let daemon;
 
   try {
-    const { daemonCoreInvoker, daemonCoreApprovalApi } = daemonCoreFixtureForApprovalLeaseTest();
+    const {
+      daemonCoreRuntimeControlApi,
+      daemonCoreWorkloadApi,
+      daemonCoreApprovalApi,
+    } = daemonCoreFixtureForApprovalLeaseTest();
     daemon = await startRuntimeDaemonService({
       cwd,
       stateDir,
-      daemonCoreInvoker,
+      daemonCoreRuntimeControlApi,
+      daemonCoreWorkloadApi,
       daemonCoreApprovalApi,
       modelMountCore: modelMountCoreForApprovalLeaseTest(),
       runtimeAgentgresAdmissionCore: runtimeAgentgresAdmissionCoreForApprovalLeaseTest(),

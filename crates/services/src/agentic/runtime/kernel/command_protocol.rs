@@ -4,22 +4,18 @@ pub const STEP_MODULE_COMMAND_SCHEMA_VERSION: &str = "ioi.step_module.command_br
 pub const DAEMON_CORE_COMMAND_SCHEMA_VERSION: &str = "ioi.runtime.daemon_core.command.v1";
 pub const COMMAND_SCHEMA_VERSION: &str = DAEMON_CORE_COMMAND_SCHEMA_VERSION;
 
-pub const DAEMON_CORE_OPERATIONS: &[&str] = &["run_coding_tool_step_module"];
+pub const DAEMON_CORE_OPERATIONS: &[&str] = &[];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CommandOperation {
-    RunCodingToolStepModule,
-}
+pub enum CommandOperation {}
 
 impl CommandOperation {
     pub fn as_str(self) -> &'static str {
-        match self {
-            Self::RunCodingToolStepModule => "run_coding_tool_step_module",
-        }
+        match self {}
     }
 
     pub fn schema_version(self) -> &'static str {
-        DAEMON_CORE_COMMAND_SCHEMA_VERSION
+        match self {}
     }
 }
 
@@ -73,7 +69,6 @@ impl CommandProtocolError {
 
 pub fn command_operation(operation: &str) -> Option<CommandOperation> {
     match operation {
-        "run_coding_tool_step_module" => Some(CommandOperation::RunCodingToolStepModule),
         _ => None,
     }
 }
@@ -114,25 +109,26 @@ mod tests {
     use super::*;
 
     #[test]
-    fn coding_tool_step_module_operation_uses_daemon_core_command_schema() {
-        assert_eq!(
-            command_operation("run_coding_tool_step_module"),
-            Some(CommandOperation::RunCodingToolStepModule)
-        );
+    fn coding_tool_step_module_command_transport_is_retired() {
+        assert_eq!(command_operation("run_coding_tool_step_module"), None);
         assert_eq!(
             expected_command_schema_version("run_coding_tool_step_module"),
-            Some(DAEMON_CORE_COMMAND_SCHEMA_VERSION)
+            None
+        );
+        assert_eq!(
+            validate_command_envelope(
+                "run_coding_tool_step_module",
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION
+            )
+            .expect_err("coding-tool StepModule command transport must stay retired")
+            .code(),
+            "operation_unknown"
         );
     }
 
     #[test]
-    fn daemon_core_operations_use_daemon_core_command_schema() {
-        for operation in ["run_coding_tool_step_module"] {
-            assert_eq!(
-                expected_command_schema_version(operation),
-                Some(DAEMON_CORE_COMMAND_SCHEMA_VERSION)
-            );
-        }
+    fn daemon_core_command_operation_catalog_is_empty() {
+        assert!(DAEMON_CORE_OPERATIONS.is_empty());
     }
 
     #[test]
@@ -739,14 +735,15 @@ mod tests {
 
     #[test]
     fn daemon_core_catalog_rejects_step_module_command_schema() {
-        for operation in DAEMON_CORE_OPERATIONS {
-            let error = validate_command_envelope(operation, STEP_MODULE_COMMAND_SCHEMA_VERSION)
-                .expect_err("daemon-core operation must reject StepModule schema");
+        assert!(DAEMON_CORE_OPERATIONS.is_empty());
+        let error = validate_command_envelope(
+            "run_coding_tool_step_module",
+            STEP_MODULE_COMMAND_SCHEMA_VERSION,
+        )
+        .expect_err("retired StepModule command transport must stay unknown");
 
-            assert_eq!(error.code(), "schema_version_invalid");
-            assert!(error.message().contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
-            assert!(error.message().contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
-        }
+        assert_eq!(error.code(), "operation_unknown");
+        assert!(error.message().contains("run_coding_tool_step_module"));
     }
 
     #[test]
@@ -757,40 +754,27 @@ mod tests {
         )
         .expect_err("Rust command protocol rejects retired StepModule schema before dispatch");
 
-        assert_eq!(error.code(), "schema_version_invalid");
-        assert!(error.message().contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
-        assert!(error.message().contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
+        assert_eq!(error.code(), "operation_unknown");
+        assert!(error.message().contains("run_coding_tool_step_module"));
     }
 
     #[test]
     fn command_catalog_operations_have_daemon_core_schema() {
-        for operation in DAEMON_CORE_OPERATIONS {
-            let command_operation =
-                command_operation(operation).expect("daemon-core operation has typed identity");
-            assert_eq!(command_operation.as_str(), *operation);
-            assert_eq!(
-                expected_command_schema_version(operation),
-                Some(DAEMON_CORE_COMMAND_SCHEMA_VERSION)
-            );
-        }
+        assert!(
+            DAEMON_CORE_OPERATIONS.is_empty(),
+            "daemon-core command operation catalog must remain retired"
+        );
     }
 
     #[test]
-    fn validate_command_envelope_returns_rust_owned_operation_schema() {
-        let step_module = validate_command_envelope(
+    fn validate_command_envelope_rejects_retired_step_module_operation() {
+        let error = validate_command_envelope(
             "run_coding_tool_step_module",
             DAEMON_CORE_COMMAND_SCHEMA_VERSION,
         )
-        .expect("coding-tool StepModule command envelope");
-        assert_eq!(step_module.operation, "run_coding_tool_step_module");
-        assert_eq!(
-            step_module.command_operation,
-            CommandOperation::RunCodingToolStepModule
-        );
-        assert_eq!(
-            step_module.schema_version,
-            DAEMON_CORE_COMMAND_SCHEMA_VERSION
-        );
+        .expect_err("coding-tool StepModule command envelope is retired");
+        assert_eq!(error.code(), "operation_unknown");
+        assert!(error.message().contains("run_coding_tool_step_module"));
     }
 
     #[test]
@@ -801,12 +785,9 @@ mod tests {
         }))
         .expect("canonical command envelope");
 
-        let validated =
-            validate_command_envelope_payload(&canonical).expect("validated command envelope");
-        assert_eq!(
-            validated.command_operation,
-            CommandOperation::RunCodingToolStepModule
-        );
+        let error = validate_command_envelope_payload(&canonical)
+            .expect_err("validated command envelope is retired");
+        assert_eq!(error.code(), "operation_unknown");
 
         let retired_alias = serde_json::from_value::<CommandEnvelope>(serde_json::json!({
             "schemaVersion": STEP_MODULE_COMMAND_SCHEMA_VERSION,
@@ -827,11 +808,8 @@ mod tests {
         )
         .expect_err("schema mismatch should fail closed");
 
-        assert_eq!(error.code(), "schema_version_invalid");
-        assert_eq!(
-            error.message(),
-            "expected ioi.runtime.daemon_core.command.v1 but received ioi.step_module.command_bridge.v1"
-        );
+        assert_eq!(error.code(), "operation_unknown");
+        assert!(error.message().contains("run_coding_tool_step_module"));
     }
 
     #[test]
