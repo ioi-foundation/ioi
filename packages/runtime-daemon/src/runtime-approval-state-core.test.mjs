@@ -20,6 +20,28 @@ import {
   createRuntimeApprovalStateCore,
 } from "./runtime-approval-state-core.mjs";
 
+const WALLET_APPROVAL_GRANT_HASH = "sha256:wallet-approval-grant-alpha";
+const WALLET_APPROVAL_GRANT_REF =
+  "wallet.network://grant/approval/wallet-approval-grant-alpha";
+
+function walletApprovalGrant() {
+  return {
+    schema_version: 1,
+    authority_id: Array.from({ length: 32 }, (_, index) => index + 1),
+    request_hash: Array.from({ length: 32 }, () => 1),
+    policy_hash: Array.from({ length: 32 }, () => 2),
+    audience: Array.from({ length: 32 }, () => 3),
+    nonce: Array.from({ length: 32 }, () => 4),
+    counter: 1,
+    expires_at: 1850000000000,
+    max_usages: 1,
+    window_id: 9,
+    approver_public_key: Array.from({ length: 32 }, () => 7),
+    approver_sig: Array.from({ length: 64 }, () => 8),
+    approver_suite: -8,
+  };
+}
+
 function approvalRequest() {
   const authority = approvalRequestAuthorityResult(approvalRequestAuthorityRequest());
   return {
@@ -125,6 +147,7 @@ function approvalRequestAuthorityResult(request) {
 }
 
 function approvalDecisionAuthorityRequest(decision = "approve") {
+  const isApprove = decision === "approve";
   return {
     thread_id: "thread_alpha",
     approval_id: "approval_alpha",
@@ -133,7 +156,8 @@ function approvalDecisionAuthorityRequest(decision = "approve") {
     run_id: "run_alpha",
     actor_ref: "operator://local/heath",
     idempotency_key: `approval:thread_alpha:approval_alpha:${decision}`,
-    authority_grant_refs: ["wallet.network://grant/approval/approval_alpha"],
+    wallet_approval_grant: isApprove ? walletApprovalGrant() : null,
+    authority_grant_refs: isApprove ? [] : ["wallet.network://grant/approval/approval_alpha"],
     authority_receipt_refs: ["receipt://wallet.network/approval/approval_alpha"],
     policy_decision_refs: ["policy_wallet_approval"],
     approval_request: {
@@ -148,6 +172,13 @@ function approvalDecisionAuthorityRequest(decision = "approve") {
 }
 
 function approvalDecisionAuthorityResult(request) {
+  const walletGrantRefs =
+    request.decision === "approve"
+      ? [WALLET_APPROVAL_GRANT_REF]
+      : request.authority_grant_refs;
+  const walletGrantHash =
+    request.decision === "approve" ? WALLET_APPROVAL_GRANT_HASH : null;
+  const walletGrantRef = request.decision === "approve" ? WALLET_APPROVAL_GRANT_REF : null;
   return {
     schema_version: "ioi.runtime.approval-decision-authority.v1",
     object: "ioi.runtime_approval_decision_authority",
@@ -162,7 +193,9 @@ function approvalDecisionAuthorityResult(request) {
     run_id: request.run_id,
     actor_ref: request.actor_ref,
     idempotency_key: request.idempotency_key,
-    wallet_network_grant_refs: request.authority_grant_refs,
+    wallet_approval_grant_hash: walletGrantHash,
+    wallet_approval_grant_ref: walletGrantRef,
+    wallet_network_grant_refs: walletGrantRefs,
     authority_receipt_refs: request.authority_receipt_refs,
     policy_decision_refs: request.policy_decision_refs,
     direct_truth_write_allowed: false,
@@ -175,7 +208,9 @@ function approvalDecisionAuthorityResult(request) {
       thread_id: request.thread_id,
       approval_id: request.approval_id,
       decision: request.decision,
-      wallet_network_grant_refs: request.authority_grant_refs,
+      wallet_approval_grant_hash: walletGrantHash,
+      wallet_approval_grant_ref: walletGrantRef,
+      wallet_network_grant_refs: walletGrantRefs,
       authority_receipt_refs: request.authority_receipt_refs,
       policy_decision_refs: request.policy_decision_refs,
       direct_truth_write_allowed: false,
@@ -386,9 +421,8 @@ test("approval state core calls typed Rust daemon-core wallet.network decision a
 
   assert.equal(captured.schema_version, APPROVAL_DECISION_AUTHORITY_REQUEST_SCHEMA_VERSION);
   assert.equal(captured.approval_id, "approval_alpha");
-  assert.deepEqual(captured.authority_grant_refs, [
-    "wallet.network://grant/approval/approval_alpha",
-  ]);
+  assert.deepEqual(captured.wallet_approval_grant, walletApprovalGrant());
+  assert.deepEqual(captured.authority_grant_refs, []);
   assert.equal(Object.hasOwn(captured, "operation"), false);
   assert.equal(Object.hasOwn(captured, "backend"), false);
   assert.equal(result.operation_kind, "approval.decision.authority");

@@ -205,6 +205,7 @@ function assertCanonicalApprovalStateCoreRequest(request = {}) {
         "lease_ttl_ms",
         "expires_at",
         "approval_lease",
+        "wallet_approval_grant",
         "action",
         "scope",
         "authority_scope_requirements",

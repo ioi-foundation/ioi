@@ -10424,18 +10424,24 @@ function runBridge() {
       /APPROVAL_DECISION_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(approvalCore) &&
       /ApprovalDecisionAuthorityCore/.test(approvalCore) &&
       /ApprovalDecisionAuthorityRequest/.test(approvalCore) &&
-      /ApprovalDecisionAuthorityRecord/.test(approvalCore) &&
-      /APPROVAL_DECISION_AUTHORITY_REQUEST_SCHEMA_VERSION/.test(approvalCore) &&
-      /APPROVAL_DECISION_AUTHORITY_RESULT_SCHEMA_VERSION/.test(approvalCore) &&
-      /MissingWalletNetworkAuthority/.test(approvalCore) &&
-      /MissingAuthorityReceipt/.test(approvalCore) &&
-      /is_wallet_network_grant_ref/.test(approvalCore) &&
-      /approval_decision_authority_hash/.test(approvalCore) &&
-      /approval_authority_state_binding_present/.test(approvalCore) &&
-      /pub fn authorize_approval_decision_protocol_response/.test(approvalCore) &&
-      /rust_authority_authorizes_approval_decision_with_wallet_network_grant/.test(approvalCore) &&
-      /rust_authority_rejects_approval_decision_without_wallet_network_grant/.test(approvalCore) &&
-      /rust_core_shapes_approval_decision_authority_protocol_response/.test(approvalCore) &&
+	      /ApprovalDecisionAuthorityRecord/.test(approvalCore) &&
+	      /APPROVAL_DECISION_AUTHORITY_REQUEST_SCHEMA_VERSION/.test(approvalCore) &&
+	      /APPROVAL_DECISION_AUTHORITY_RESULT_SCHEMA_VERSION/.test(approvalCore) &&
+	      /pub wallet_approval_grant: Value/.test(approvalCore) &&
+	      /pub wallet_approval_grant_hash: Option<String>/.test(approvalCore) &&
+	      /pub wallet_approval_grant_ref: Option<String>/.test(approvalCore) &&
+	      /MissingWalletNetworkAuthority/.test(approvalCore) &&
+	      /MissingAuthorityReceipt/.test(approvalCore) &&
+	      /InvalidWalletApprovalGrant/.test(approvalCore) &&
+	      /is_wallet_network_grant_ref/.test(approvalCore) &&
+	      /approval_wallet_grant_binding_from_request/.test(approvalCore) &&
+	      /approval_decision_authority_hash/.test(approvalCore) &&
+	      /approval_authority_state_binding_present/.test(approvalCore) &&
+	      /pub fn authorize_approval_decision_protocol_response/.test(approvalCore) &&
+	      /rust_authority_authorizes_approval_decision_with_wallet_network_grant/.test(approvalCore) &&
+	      /rust_authority_rejects_approval_decision_without_wallet_approval_grant/.test(approvalCore) &&
+	      /rust_authority_rejects_revoke_decision_without_wallet_network_grant/.test(approvalCore) &&
+	      /rust_core_shapes_approval_decision_authority_protocol_response/.test(approvalCore) &&
       /rust_authority_plans_approval_decision_state_update/.test(approvalCore) &&
       /rust_authority_plans_approval_decision_agent_state_update/.test(approvalCore) &&
       /rust_approval_decision_state_update_requires_state_dir/.test(approvalCore) &&
@@ -10508,8 +10514,14 @@ function runBridge() {
       /authorizeApprovalDecision/.test(approvalDecisionFacadeBody) &&
       /planApprovalDecisionStateUpdate/.test(approvalDecisionFacadeBody) &&
       /state_dir:\s*store\?\.stateDir \?\? null/.test(approvalDecisionFacadeBody) &&
-      /approvalDecisionAuthorityRequest/.test(runtimeApprovalSurface) &&
-      /approval_decision_wallet_network_authority_required/.test(runtimeApprovalSurface) &&
+	      /approvalDecisionAuthorityRequest/.test(runtimeApprovalSurface) &&
+	      /wallet_approval_grant:\s*objectRecord\(request\.wallet_approval_grant\)\s*\?\?\s*null/.test(
+	        runtimeApprovalSurface,
+	      ) &&
+	      /authority_grant_refs:\s*requiresWalletApprovalGrant\s*\?\s*\[\]\s*:\s*normalizeArray\(request\.authority_grant_refs\)/.test(
+	        runtimeApprovalSurface,
+	      ) &&
+	      /approval_decision_wallet_network_authority_required/.test(runtimeApprovalSurface) &&
       /rust_daemon_core_approval_decision_authority_required/.test(runtimeApprovalSurface) &&
       /receipt_refs:\s*normalizeArray\(authority\.authority_receipt_refs\)/.test(
         approvalDecisionFacadeBody,
@@ -10547,12 +10559,21 @@ function runBridge() {
       !/latestApprovalRequestEvent|store\.appendRuntimeEvent/.test(
         approvalDecisionFacadeBody,
       ) &&
-      /decideThreadApproval public surface calls Rust authority with canonical decision fields/.test(
-        runtimeApprovalControlFacadeTest,
-      ) &&
-      /approval decision facade fails closed before state update without Rust wallet\.network authority/.test(
-        runtimeApprovalControlFacadeTest,
-      ) &&
+	      /decideThreadApproval public surface calls Rust authority with canonical decision fields/.test(
+	        runtimeApprovalControlFacadeTest,
+	      ) &&
+	      /assert\.deepEqual\(calls\[0\]\.request\.wallet_approval_grant,\s*walletApprovalGrant\(\)\)/.test(
+	        runtimeApprovalControlFacadeTest,
+	      ) &&
+	      /assert\.deepEqual\(calls\[0\]\.request\.authority_grant_refs,\s*\[\]\)/.test(
+	        runtimeApprovalControlFacadeTest,
+	      ) &&
+	      /assert\.deepEqual\(captured\.wallet_approval_grant,\s*walletApprovalGrant\(\)\)/.test(
+	        runtimeApprovalStateCoreTest,
+	      ) &&
+	      /approval decision facade fails closed before state update without Rust wallet\.network authority/.test(
+	        runtimeApprovalControlFacadeTest,
+	      ) &&
       /assert\.deepEqual\(calls\.map\(\(call\) => call\.method\),\s*\["authorizeApprovalDecision"\]\)/.test(
         runtimeApprovalControlFacadeTest,
       ) &&

@@ -213,6 +213,7 @@ pub enum ApprovalDecisionAuthorityError {
     MissingField(&'static str),
     MissingWalletNetworkAuthority,
     MissingAuthorityReceipt,
+    InvalidWalletApprovalGrant(String),
     HashFailed(String),
 }
 
@@ -610,6 +611,8 @@ pub struct ApprovalDecisionAuthorityRequest {
     #[serde(default)]
     pub idempotency_key: Option<String>,
     #[serde(default)]
+    pub wallet_approval_grant: Value,
+    #[serde(default)]
     pub authority_grant_refs: Vec<String>,
     #[serde(default)]
     pub authority_receipt_refs: Vec<String>,
@@ -644,6 +647,10 @@ pub struct ApprovalDecisionAuthorityRecord {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source: Option<String>,
     pub idempotency_key: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub wallet_approval_grant_hash: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub wallet_approval_grant_ref: Option<String>,
     pub wallet_network_grant_refs: Vec<String>,
     pub authority_receipt_refs: Vec<String>,
     pub policy_decision_refs: Vec<String>,
@@ -1755,15 +1762,31 @@ impl ApprovalDecisionAuthorityCore {
         let approval_id = optional_trimmed(Some(request.approval_id.as_str())).unwrap();
         let decision =
             normalized_approval_control_decision(Some(request.decision.as_str())).unwrap();
-        let wallet_network_grant_refs = unique_trimmed_values(
-            request
-                .authority_grant_refs
-                .iter()
-                .filter(|grant_ref| is_wallet_network_grant_ref(grant_ref))
-                .cloned()
-                .collect::<Vec<_>>()
-                .as_slice(),
-        );
+        let wallet_approval_grant_binding = if decision == "approve" {
+            Some(approval_wallet_grant_binding_from_request(request)?)
+        } else {
+            None
+        };
+        let wallet_network_grant_refs =
+            if let Some(binding) = wallet_approval_grant_binding.as_ref() {
+                vec![binding.grant_ref.clone()]
+            } else {
+                unique_trimmed_values(
+                    request
+                        .authority_grant_refs
+                        .iter()
+                        .filter(|grant_ref| is_wallet_network_grant_ref(grant_ref))
+                        .cloned()
+                        .collect::<Vec<_>>()
+                        .as_slice(),
+                )
+            };
+        let wallet_approval_grant_hash = wallet_approval_grant_binding
+            .as_ref()
+            .map(|binding| binding.hash.clone());
+        let wallet_approval_grant_ref = wallet_approval_grant_binding
+            .as_ref()
+            .map(|binding| binding.grant_ref.clone());
         let authority_receipt_refs = unique_trimmed(&request.authority_receipt_refs);
         let policy_decision_refs = unique_trimmed(&request.policy_decision_refs);
         let idempotency_key = optional_trimmed(request.idempotency_key.as_deref())
@@ -1808,6 +1831,8 @@ impl ApprovalDecisionAuthorityCore {
             actor_ref: optional_trimmed(request.actor_ref.as_deref()),
             source: optional_trimmed(request.source.as_deref()),
             idempotency_key,
+            wallet_approval_grant_hash,
+            wallet_approval_grant_ref,
             wallet_network_grant_refs,
             authority_receipt_refs,
             policy_decision_refs,
@@ -2374,6 +2399,8 @@ pub fn authorize_approval_decision_protocol_response(
         "run_id": record.run_id,
         "actor_ref": record.actor_ref,
         "idempotency_key": record.idempotency_key,
+        "wallet_approval_grant_hash": record.wallet_approval_grant_hash.clone(),
+        "wallet_approval_grant_ref": record.wallet_approval_grant_ref.clone(),
         "wallet_network_grant_refs": record.wallet_network_grant_refs,
         "authority_receipt_refs": record.authority_receipt_refs,
         "policy_decision_refs": record.policy_decision_refs,
@@ -2589,10 +2616,17 @@ impl ApprovalDecisionAuthorityRequest {
         if optional_trimmed(Some(self.approval_id.as_str())).is_none() {
             return Err(ApprovalDecisionAuthorityError::MissingField("approval_id"));
         }
-        if normalized_approval_control_decision(Some(self.decision.as_str())).is_none() {
+        let decision = normalized_approval_control_decision(Some(self.decision.as_str()));
+        if decision.is_none() {
             return Err(ApprovalDecisionAuthorityError::MissingField("decision"));
         }
-        if self
+        if decision.as_deref() == Some("approve") {
+            if !self.wallet_approval_grant.is_object() {
+                return Err(ApprovalDecisionAuthorityError::MissingField(
+                    "wallet_approval_grant",
+                ));
+            }
+        } else if self
             .authority_grant_refs
             .iter()
             .all(|grant_ref| !is_wallet_network_grant_ref(grant_ref))
@@ -3012,6 +3046,40 @@ fn normalized_approval_control_decision(value: Option<&str>) -> Option<String> {
         "revoke" | "revoked" => Some("revoke".to_string()),
         _ => None,
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ApprovalWalletGrantBinding {
+    hash: String,
+    grant_ref: String,
+}
+
+fn approval_wallet_grant_binding_from_request(
+    request: &ApprovalDecisionAuthorityRequest,
+) -> Result<ApprovalWalletGrantBinding, ApprovalDecisionAuthorityError> {
+    let grant: ApprovalGrant = serde_json::from_value(request.wallet_approval_grant.clone())
+        .map_err(|error| {
+            ApprovalDecisionAuthorityError::InvalidWalletApprovalGrant(error.to_string())
+        })?;
+    grant.verify().map_err(|error| {
+        ApprovalDecisionAuthorityError::InvalidWalletApprovalGrant(error.to_string())
+    })?;
+    let grant_hash = format!(
+        "sha256:{}",
+        hex::encode(
+            grant
+                .artifact_hash()
+                .map_err(|error| ApprovalDecisionAuthorityError::HashFailed(error.to_string()))?,
+        ),
+    );
+    let grant_ref = format!(
+        "wallet.network://grant/approval/{}",
+        grant_hash.trim_start_matches("sha256:"),
+    );
+    Ok(ApprovalWalletGrantBinding {
+        hash: grant_hash,
+        grant_ref,
+    })
 }
 
 fn is_wallet_network_grant_ref(grant_ref: &str) -> bool {
@@ -4357,7 +4425,7 @@ fn value_hash(value: &Value) -> Result<String, CodingToolApprovalError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ioi_types::app::{ActionContext, SignatureSuite};
+    use ioi_types::app::{account_id_from_key_material, ActionContext, SignatureSuite};
     use std::{
         env, fs,
         path::{Path, PathBuf},
@@ -4534,7 +4602,61 @@ mod tests {
         }
     }
 
+    fn approval_wallet_grant() -> ApprovalGrant {
+        let approver_public_key = vec![7u8; 32];
+        let authority_id =
+            account_id_from_key_material(SignatureSuite::ED25519, &approver_public_key)
+                .expect("authority id");
+        ApprovalGrant {
+            schema_version: 1,
+            authority_id,
+            request_hash: [1u8; 32],
+            policy_hash: [2u8; 32],
+            audience: [3u8; 32],
+            nonce: [4u8; 32],
+            counter: 1,
+            expires_at: 1_850_000_000_000,
+            max_usages: Some(1),
+            window_id: Some(9),
+            pii_action: None,
+            scoped_exception: None,
+            review_request_hash: None,
+            approver_public_key,
+            approver_sig: vec![8u8; 64],
+            approver_suite: SignatureSuite::ED25519,
+        }
+    }
+
+    fn wallet_approval_grant_hash_ref() -> (String, String) {
+        let grant_hash = format!(
+            "sha256:{}",
+            hex::encode(
+                approval_wallet_grant()
+                    .artifact_hash()
+                    .expect("wallet approval grant hash"),
+            ),
+        );
+        let grant_ref = format!(
+            "wallet.network://grant/approval/{}",
+            grant_hash.trim_start_matches("sha256:"),
+        );
+        (grant_hash, grant_ref)
+    }
+
     fn approval_decision_authority_request(decision: &str) -> ApprovalDecisionAuthorityRequest {
+        let wallet_approval_grant = if decision == "approve" {
+            serde_json::to_value(approval_wallet_grant()).expect("wallet approval grant serializes")
+        } else {
+            Value::Null
+        };
+        let authority_grant_refs = if decision == "approve" {
+            vec!["grant://local-debug-only".to_string()]
+        } else {
+            vec![
+                "wallet.network://grant/approval/approval_alpha".to_string(),
+                "grant://local-debug-only".to_string(),
+            ]
+        };
         ApprovalDecisionAuthorityRequest {
             schema_version: APPROVAL_DECISION_AUTHORITY_REQUEST_SCHEMA_VERSION.to_string(),
             thread_id: "thread_alpha".to_string(),
@@ -4549,10 +4671,8 @@ mod tests {
             actor_ref: Some("operator://local/heath".to_string()),
             source: Some("sdk_client".to_string()),
             idempotency_key: Some("approval:thread_alpha:approval_alpha:approve".to_string()),
-            authority_grant_refs: vec![
-                "wallet.network://grant/approval/approval_alpha".to_string(),
-                "grant://local-debug-only".to_string(),
-            ],
+            wallet_approval_grant,
+            authority_grant_refs,
             authority_receipt_refs: vec![
                 "receipt://wallet.network/approval/approval_alpha".to_string()
             ],
@@ -5337,6 +5457,7 @@ mod tests {
 
     #[test]
     fn rust_authority_authorizes_approval_decision_with_wallet_network_grant() {
+        let (grant_hash, grant_ref) = wallet_approval_grant_hash_ref();
         let record = ApprovalDecisionAuthorityCore
             .authorize(&approval_decision_authority_request("approve"))
             .expect("approval decision authority");
@@ -5349,9 +5470,14 @@ mod tests {
         assert_eq!(record.operation_kind, "approval.decision.authority");
         assert_eq!(record.decision, "approve");
         assert_eq!(
-            record.wallet_network_grant_refs,
-            vec!["wallet.network://grant/approval/approval_alpha"]
+            record.wallet_approval_grant_hash.as_deref(),
+            Some(grant_hash.as_str())
         );
+        assert_eq!(
+            record.wallet_approval_grant_ref.as_deref(),
+            Some(grant_ref.as_str())
+        );
+        assert_eq!(record.wallet_network_grant_refs, vec![grant_ref]);
         assert_eq!(
             record.authority_receipt_refs,
             vec!["receipt://wallet.network/approval/approval_alpha"]
@@ -5361,8 +5487,25 @@ mod tests {
     }
 
     #[test]
-    fn rust_authority_rejects_approval_decision_without_wallet_network_grant() {
+    fn rust_authority_rejects_approval_decision_without_wallet_approval_grant() {
         let mut request = approval_decision_authority_request("approve");
+        request.wallet_approval_grant = Value::Null;
+        request.authority_grant_refs =
+            vec!["wallet.network://grant/approval/forged_js".to_string()];
+
+        let error = ApprovalDecisionAuthorityCore
+            .authorize(&request)
+            .expect_err("typed wallet.network approval grant is required");
+
+        assert_eq!(
+            error,
+            ApprovalDecisionAuthorityError::MissingField("wallet_approval_grant")
+        );
+    }
+
+    #[test]
+    fn rust_authority_rejects_revoke_decision_without_wallet_network_grant() {
+        let mut request = approval_decision_authority_request("revoke");
         request.authority_grant_refs = vec!["grant://local-debug-only".to_string()];
 
         let error = ApprovalDecisionAuthorityCore
@@ -5710,6 +5853,7 @@ mod tests {
 
     #[test]
     fn rust_authority_plans_approval_decision_state_update() {
+        let (_, grant_ref) = wallet_approval_grant_hash_ref();
         let record = ApprovalDecisionStateUpdateCore
             .plan(&approval_decision_state_update_request())
             .expect("approval decision state update");
@@ -5754,7 +5898,7 @@ mod tests {
         );
         assert_eq!(
             record.operator_control["authority_grant_refs"][0],
-            "wallet.network://grant/approval/approval_alpha"
+            grant_ref.as_str()
         );
         assert_eq!(
             record.operator_control["authority_receipt_refs"][0],

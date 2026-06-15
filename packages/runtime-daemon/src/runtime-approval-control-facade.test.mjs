@@ -200,9 +200,37 @@ function approvalRequestAuthorityResult(request = {}) {
   };
 }
 
+const WALLET_APPROVAL_GRANT_HASH = "sha256:wallet-approval-grant-alpha";
+const WALLET_APPROVAL_GRANT_REF =
+  "wallet.network://grant/approval/wallet-approval-grant-alpha";
+
+function walletApprovalGrant() {
+  return {
+    schema_version: 1,
+    authority_id: Array.from({ length: 32 }, (_, index) => index + 1),
+    request_hash: Array.from({ length: 32 }, () => 1),
+    policy_hash: Array.from({ length: 32 }, () => 2),
+    audience: Array.from({ length: 32 }, () => 3),
+    nonce: Array.from({ length: 32 }, () => 4),
+    counter: 1,
+    expires_at: 1850000000000,
+    max_usages: 1,
+    window_id: 9,
+    approver_public_key: Array.from({ length: 32 }, () => 7),
+    approver_sig: Array.from({ length: 64 }, () => 8),
+    approver_suite: -8,
+  };
+}
+
 function approvalAuthorityResult(decision = "approve") {
   const leaseStatus =
     decision === "revoke" ? "revoked" : decision === "reject" ? "denied" : "active";
+  const walletGrantRefs =
+    decision === "approve"
+      ? [WALLET_APPROVAL_GRANT_REF]
+      : ["wallet.network://grant/approval/approval_alpha"];
+  const walletGrantHash = decision === "approve" ? WALLET_APPROVAL_GRANT_HASH : null;
+  const walletGrantRef = decision === "approve" ? WALLET_APPROVAL_GRANT_REF : null;
   const approvalLease = {
     schema_version: "ioi.runtime.approval-lease.v1",
     object: "ioi.runtime_approval_lease",
@@ -226,7 +254,9 @@ function approvalAuthorityResult(decision = "approve") {
     target_kind: "run",
     run_id: "run_alpha",
     actor_ref: "operator://local/heath",
-    wallet_network_grant_refs: ["wallet.network://grant/approval/approval_alpha"],
+    wallet_approval_grant_hash: walletGrantHash,
+    wallet_approval_grant_ref: walletGrantRef,
+    wallet_network_grant_refs: walletGrantRefs,
     authority_receipt_refs: ["receipt://wallet.network/approval/approval_alpha"],
     policy_decision_refs: ["policy_wallet_approval"],
     direct_truth_write_allowed: false,
@@ -242,7 +272,9 @@ function approvalAuthorityResult(decision = "approve") {
       lease_id: approvalLease.lease_id,
       lease_status: approvalLease.status,
       approval_lease: approvalLease,
-      wallet_network_grant_refs: ["wallet.network://grant/approval/approval_alpha"],
+      wallet_approval_grant_hash: walletGrantHash,
+      wallet_approval_grant_ref: walletGrantRef,
+      wallet_network_grant_refs: walletGrantRefs,
       authority_receipt_refs: ["receipt://wallet.network/approval/approval_alpha"],
       policy_decision_refs: ["policy_wallet_approval"],
       direct_truth_write_allowed: false,
@@ -386,7 +418,8 @@ test("decideThreadApproval public surface calls Rust authority with canonical de
     created_at: "2026-06-06T04:35:00.000Z",
     lease_id: "lease_alpha",
     receipt_refs: ["receipt_js_caller_must_not_authorize"],
-    authority_grant_refs: ["wallet.network://grant/approval/approval_alpha"],
+    wallet_approval_grant: walletApprovalGrant(),
+    authority_grant_refs: ["wallet.network://grant/approval/js_forged_approve_ref"],
     authority_receipt_refs: ["receipt://wallet.network/approval/approval_alpha"],
     policy_decision_refs: ["policy_decision"],
     status: "reject",
@@ -398,9 +431,8 @@ test("decideThreadApproval public surface calls Rust authority with canonical de
   assert.equal(calls[0].request.decision, "approve");
   assert.equal(Object.hasOwn(calls[0].request, "run"), false);
   assert.equal(Object.hasOwn(calls[0].request, "agent"), false);
-  assert.deepEqual(calls[0].request.authority_grant_refs, [
-    "wallet.network://grant/approval/approval_alpha",
-  ]);
+  assert.deepEqual(calls[0].request.wallet_approval_grant, walletApprovalGrant());
+  assert.deepEqual(calls[0].request.authority_grant_refs, []);
   assert.deepEqual(calls[0].request.authority_receipt_refs, [
     "receipt://wallet.network/approval/approval_alpha",
   ]);
@@ -415,6 +447,7 @@ test("decideThreadApproval public surface calls Rust authority with canonical de
   assert.deepEqual(calls[1].request.receipt_refs, [
     "receipt://wallet.network/approval/approval_alpha",
   ]);
+  assert.deepEqual(calls[1].request.authority_grant_refs, [WALLET_APPROVAL_GRANT_REF]);
   assert.equal(calls[1].request.authority_hash, "sha256:approval-authority-approve");
   assertNoRetiredApprovalControlAliases(calls[1].request);
   assert.equal(result.operation_kind, "approval.approve");
