@@ -10447,6 +10447,16 @@ retired alias name cannot return. Remaining work is direct Rust governance and
 catalog storage/replay depth, wallet authority where applicable,
 receipt/state-root binding, and stable protocol APIs, not a JS runner fallback.
 
+Slice 1303 hard-cuts repository workflow runner injection scaffolding.
+`createRuntimeRepositorySurface()` no longer accepts `repositoryRunner`;
+repository workflow projections mount the positive `contextPolicyCore` API
+directly before Rust daemon-core repository projection. Daemon construction no
+longer wires a parallel repository runner handle, focused tests mount fake Rust
+projectors only through `contextPolicyCore`, and conformance guards that the
+retired alias name cannot return. Remaining work is durable Agentgres-backed
+repository workflow storage/replay, wallet authority for external exits,
+receipt/state-root binding, and stable protocol APIs, not a JS runner fallback.
+
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,
 `/v1/memory/policy`, `/v1/memory/path`, or `/v1/memory/validate`; the daemon

@@ -44,11 +44,11 @@ const REPOSITORY_PROJECTIONS = {
 };
 
 export function createRuntimeRepositorySurface({
-  repositoryRunner = null,
+  contextPolicyCore = null,
 } = {}) {
   const project = (store, projection) =>
     projectRepositoryWorkflow({
-      repositoryRunner,
+      contextPolicyCore,
       workspace_root: store?.defaultCwd,
       ...projection,
     });
@@ -82,13 +82,13 @@ export function createRuntimeRepositorySurface({
 }
 
 function projectRepositoryWorkflow(details = {}) {
-  const { repositoryRunner = null, ...errorDetails } = details;
+  const { contextPolicyCore = null, ...errorDetails } = details;
   const evidence_refs = [
     "runtime_repository_workflow_rust_projection",
     "agentgres_repository_workflow_truth_required",
   ];
 
-  if (!repositoryRunner?.projectRepositoryWorkflow) {
+  if (!contextPolicyCore?.projectRepositoryWorkflow) {
     throw createRepositoryWorkflowProjectionError(null, {
       ...errorDetails,
       source: "runtime.repository_surface",
@@ -96,7 +96,7 @@ function projectRepositoryWorkflow(details = {}) {
     });
   }
 
-  const result = repositoryRunner.projectRepositoryWorkflow({
+  const result = contextPolicyCore.projectRepositoryWorkflow({
     ...errorDetails,
     source: "runtime.repository_surface",
     evidence_refs,

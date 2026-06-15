@@ -763,7 +763,7 @@ export class AgentgresRuntimeStateStore {
     });
     this.mcpServeSurface = createRuntimeMcpServeSurface();
     this.repositorySurface = createRuntimeRepositorySurface({
-      repositoryRunner: this.contextPolicyCore,
+      contextPolicyCore: this.contextPolicyCore,
     });
     this.runReadSurface = createRuntimeRunReadSurface({
       notFound,

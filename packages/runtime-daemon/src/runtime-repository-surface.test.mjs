@@ -6,7 +6,7 @@ import { createRuntimeRepositorySurface } from "./runtime-repository-surface.mjs
 test("runtime repository surface returns Rust-owned repository workflow projections", () => {
   const calls = [];
   const surface = createRuntimeRepositorySurface({
-    repositoryRunner: {
+    contextPolicyCore: {
       projectRepositoryWorkflow(request) {
         calls.push(request);
         if (request.projection_kind === "repository_context") {
@@ -99,7 +99,7 @@ test("runtime repository surface fails closed when Rust projection is missing", 
 
 test("runtime repository surface rejects Rust projection mismatches", () => {
   const surface = createRuntimeRepositorySurface({
-    repositoryRunner: {
+    contextPolicyCore: {
       projectRepositoryWorkflow() {
         return {
           source: "rust_repository_workflow_projection_api",

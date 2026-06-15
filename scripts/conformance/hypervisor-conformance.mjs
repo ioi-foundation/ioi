@@ -13348,9 +13348,10 @@ function runBridge() {
       /agentgres_repository_workflow_truth_required/.test(
         runtimeRepositorySurface,
       ) &&
-      /repositoryRunner\.projectRepositoryWorkflow/.test(
+      /contextPolicyCore\.projectRepositoryWorkflow/.test(
         runtimeRepositorySurface,
       ) &&
+      !/repositoryRunner/.test(runtimeDaemonIndex + runtimeRepositorySurface + runtimeRepositorySurfaceTest) &&
       !/planRepositoryWorkflowProjectionRequired/.test(runtimeRepositorySurface) &&
       !/repositoryContextProjection|repositoryListProjection|prAttemptsProjection|issueContextProjection|reviewGateProjection|githubPrCreatePlanProjection/.test(
         runtimeRepositorySurface,
@@ -13368,7 +13369,7 @@ function runBridge() {
       /runtime repository surface rejects Rust projection mismatches/.test(
         runtimeRepositorySurfaceTest,
       ) &&
-      /createRuntimeRepositorySurface\(\{\s*repositoryRunner:\s*this\.contextPolicyCore,/s.test(
+      /createRuntimeRepositorySurface\(\{\s*contextPolicyCore:\s*this\.contextPolicyCore,/s.test(
         runtimeDaemonIndex,
       ) &&
       /store\.repositorySurface\.listRepositories\(store\)/.test(publicRuntimeRoutes) &&
