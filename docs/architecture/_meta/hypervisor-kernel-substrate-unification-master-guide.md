@@ -10202,6 +10202,21 @@ terminally retired; the broader master guide remains non-terminal until durable
 replay/storage, richer wallet/cTEE authority, model_mount/MCP materialization,
 and stable IDE/CLI/SDK protocol APIs close over Rust-owned records.
 
+Slice 1286 hard-cuts runtime bridge turn-submit projection-candidate
+transport. `createRuntimeBridgeTurnRun()` no longer calls
+`store.turnForRun(candidateRun)` before Rust planning and no longer sends a
+JS-authored `projection` candidate into `planRuntimeBridgeTurnRunStateUpdate`;
+the Rust `RuntimeBridgeTurnRunStateUpdateRequest` denies unknown fields and
+focused Rust tests reject the retired `projection` field. The daemon now commits
+only the Rust-planned `turn.runtime_bridge.submit` run through Agentgres-backed
+`writeRun` before requesting the Rust-authored turn projection from the
+committed run. Conformance guards absence of the pre-plan candidate projection,
+the retired request field, and the old projection-mismatch compatibility path.
+This removes a duplicate JS turn-projection truth handoff; broader lifecycle
+completion remains non-terminal until run creation itself is Rust-authored from
+canonical request facts, durable replay/storage, wallet/cTEE lifecycle
+authority, and stable IDE/CLI/SDK lifecycle APIs close.
+
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,
 `/v1/memory/policy`, `/v1/memory/path`, or `/v1/memory/validate`; the daemon

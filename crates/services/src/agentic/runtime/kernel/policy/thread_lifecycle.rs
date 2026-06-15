@@ -421,11 +421,11 @@ pub struct RuntimeBridgeThreadControlAgentStateUpdateRecord {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct RuntimeBridgeTurnRunStateUpdateRequest {
     pub schema_version: String,
     pub thread_id: String,
     pub agent: Value,
-    pub projection: Value,
     pub run: Value,
 }
 
@@ -1001,10 +1001,6 @@ impl RuntimeBridgeTurnRunStateUpdateCore {
         let run = object_value(&request.run)
             .ok_or(RuntimeBridgeTurnRunStateUpdateError::MissingField("run"))?;
         let run_value = Value::Object(run.clone());
-        let projection = object_value(&request.projection).ok_or(
-            RuntimeBridgeTurnRunStateUpdateError::MissingField("projection"),
-        )?;
-        let projection_value = Value::Object(projection);
         let run_id = optional_json_string(&run_value, "id")
             .ok_or(RuntimeBridgeTurnRunStateUpdateError::MissingField("run.id"))?;
         let agent_id = optional_json_string(&run_value, "agentId").ok_or(
@@ -1013,17 +1009,6 @@ impl RuntimeBridgeTurnRunStateUpdateCore {
         let updated_at = optional_json_string(&run_value, "updatedAt").ok_or(
             RuntimeBridgeTurnRunStateUpdateError::MissingField("run.updatedAt"),
         )?;
-        let projection_run_id = optional_json_string(&projection_value, "run_id").ok_or(
-            RuntimeBridgeTurnRunStateUpdateError::MissingField("projection.run_id"),
-        )?;
-        if projection_run_id != run_id {
-            return Err(RuntimeBridgeTurnRunStateUpdateError::MismatchedField {
-                field: "projection.run_id",
-                expected: run_id,
-                actual: projection_run_id,
-            });
-        }
-
         Ok(RuntimeBridgeTurnRunStateUpdateRecord {
             schema_version: RUNTIME_BRIDGE_TURN_RUN_STATE_UPDATE_RESULT_SCHEMA_VERSION.to_string(),
             object: "ioi.runtime_bridge_turn_run_state_update".to_string(),
@@ -1446,10 +1431,6 @@ impl RuntimeBridgeTurnRunStateUpdateRequest {
         let agent_id = optional_json_string(&agent_value, "id").ok_or(
             RuntimeBridgeTurnRunStateUpdateError::MissingField("agent.id"),
         )?;
-        let projection = object_value(&self.projection).ok_or(
-            RuntimeBridgeTurnRunStateUpdateError::MissingField("projection"),
-        )?;
-        let projection_value = Value::Object(projection);
         let run = object_value(&self.run)
             .ok_or(RuntimeBridgeTurnRunStateUpdateError::MissingField("run"))?;
         let run_value = Value::Object(run);
@@ -1475,11 +1456,6 @@ impl RuntimeBridgeTurnRunStateUpdateRequest {
                 expected: agent_id,
                 actual: run_agent_id,
             });
-        }
-        if optional_json_string(&projection_value, "run_id").is_none() {
-            return Err(RuntimeBridgeTurnRunStateUpdateError::MissingField(
-                "projection.run_id",
-            ));
         }
         Ok(())
     }
@@ -2612,10 +2588,6 @@ mod tests {
             agent: json!({
                 "id": "agent_1",
                 "cwd": "/workspace"
-            }),
-            projection: json!({
-                "run_id": "run_runtime_bridge",
-                "turn_id": "turn_runtime_bridge"
             }),
             run: json!({
                 "id": "run_runtime_bridge",
@@ -3760,5 +3732,34 @@ mod tests {
                 actual: "legacy.runtime-bridge-turn-run-state-update".to_string(),
             }
         );
+    }
+
+    #[test]
+    fn rust_policy_rejects_runtime_bridge_turn_projection_candidate_transport() {
+        let request = json!({
+            "schema_version": RUNTIME_BRIDGE_TURN_RUN_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+            "thread_id": "thread_1",
+            "agent": {
+                "id": "agent_1",
+                "cwd": "/workspace"
+            },
+            "projection": {
+                "run_id": "run_runtime_bridge",
+                "turn_id": "turn_runtime_bridge"
+            },
+            "run": {
+                "id": "run_runtime_bridge",
+                "agentId": "agent_1",
+                "mode": "send",
+                "status": "completed",
+                "createdAt": "2026-06-06T06:34:00.000Z",
+                "updatedAt": "2026-06-06T06:35:00.000Z"
+            }
+        });
+
+        let error = serde_json::from_value::<RuntimeBridgeTurnRunStateUpdateRequest>(request)
+            .expect_err("retired projection candidate transport should be rejected");
+
+        assert!(error.to_string().contains("unknown field `projection`"));
     }
 }

@@ -661,34 +661,9 @@ export function createRuntimeBridgeTurnRun(store, threadId, agent, request = {},
       "Runtime bridge turn submission requires mounted run candidate construction before Rust state planning.",
     evidenceRefs: runtimeBridgeTurnSubmitEvidenceRefs(),
   });
-  const candidateProjection = objectRecord(store.turnForRun(candidateRun));
-  const candidateProjectionRunId = optionalString(candidateProjection?.run_id ?? candidateProjection?.request_id);
-  if (
-    !candidateProjection ||
-    optionalString(candidateProjection.thread_id) !== threadId ||
-    candidateProjectionRunId !== optionalString(candidateRun.id)
-  ) {
-    throwRuntimeLifecycleStateUpdateError({
-      runtimeError: deps.runtimeError,
-      status: 502,
-      code: "runtime_bridge_turn_submit_projection_mismatch",
-      message: "Rust daemon-core turn projection did not match the runtime bridge run candidate.",
-      details: {
-        rust_core_boundary: "runtime.bridge_thread",
-        operation: "runtime_bridge_turn_submit",
-        operation_kind: "turn.runtime_bridge.submit",
-        thread_id: threadId,
-        agent_id: agentId,
-        run_id: optionalString(candidateRun.id),
-        actual_thread_id: optionalString(candidateProjection?.thread_id),
-        actual_run_id: candidateProjectionRunId ?? null,
-      },
-    });
-  }
   const planned = runtimeBridgeTurnRunStateUpdateRunner.planRuntimeBridgeTurnRunStateUpdate({
     thread_id: threadId,
     agent: agentRecord,
-    projection: candidateProjection,
     run: candidateRun,
   });
   const plannedRun = objectRecord(planned?.run);

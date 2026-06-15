@@ -5485,7 +5485,6 @@ test("runtime bridge turn run state update core sends Rust state update through 
   const result = runner.planRuntimeBridgeTurnRunStateUpdate({
     thread_id: "thread_1",
     agent: { id: "agent_1", cwd: "/workspace" },
-    projection: { run_id: "run_runtime" },
     run: {
       id: "run_runtime",
       agentId: "agent_1",
@@ -5504,8 +5503,7 @@ test("runtime bridge turn run state update core sends Rust state update through 
   );
   assert.equal(Object.hasOwn(captured, "operation"), false);
   assert.equal(Object.hasOwn(captured, "backend"), false);
-  assert.equal(captured.projection.run_id, "run_runtime");
-  assert.equal(Object.hasOwn(captured.projection, "runId"), false);
+  assert.equal(Object.hasOwn(captured, "projection"), false);
   assert.equal(result.source, "rust_runtime_bridge_turn_run_state_update_api");
   assert.equal(result.operation_kind, "turn.runtime_bridge.submit");
   assert.equal(result.run.id, "run_runtime");

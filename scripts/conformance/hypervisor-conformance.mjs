@@ -14827,13 +14827,17 @@ function runBridge() {
       runtimeBridgeThreadControlRustOwned &&
       /RUNTIME_BRIDGE_THREAD_START_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
       /RUNTIME_BRIDGE_TURN_RUN_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
-      /rust_policy_plans_runtime_bridge_thread_start_agent_state_update/.test(policyCore) &&
-      /rust_policy_plans_runtime_bridge_turn_run_state_update/.test(policyCore) &&
+      /rust_policy_plans_runtime_bridge_thread_start_agent_state_update/.test(
+        policyThreadLifecycleCore,
+      ) &&
+      /rust_policy_plans_runtime_bridge_turn_run_state_update/.test(
+        policyThreadLifecycleCore,
+      ) &&
       /rust_policy_rejects_invalid_runtime_bridge_thread_start_agent_state_update_schema/.test(
-        policyCore,
+        policyThreadLifecycleCore,
       ) &&
       /rust_policy_rejects_invalid_runtime_bridge_turn_run_state_update_schema/.test(
-        policyCore,
+        policyThreadLifecycleCore,
       ) &&
       /"runtime_profile": request\.runtime_profile/.test(
         runtimeBridgeThreadStartAgentStateUpdateCoreBlock,
@@ -14863,10 +14867,13 @@ function runBridge() {
       /remove_runtime_service_agent_aliases\(&mut agent\);/.test(
         runtimeBridgeThreadStartAgentStateUpdateCoreBlock,
       ) &&
-      /optional_json_string\(&projection_value,\s*"run_id"\)/.test(
+      !/optional_json_string\(&projection_value,\s*"run_id"\)/.test(
         runtimeBridgeTurnRunStateUpdateCoreBlock,
       ) &&
-      /"projection\.run_id"/.test(runtimeBridgeTurnRunStateUpdateCoreBlock) &&
+      !/"projection\.run_id"/.test(runtimeBridgeTurnRunStateUpdateCoreBlock) &&
+      /rust_policy_rejects_runtime_bridge_turn_projection_candidate_transport/.test(
+        policyThreadLifecycleCore,
+      ) &&
       !/optional_json_string\(&projection_value,\s*"runId"\)/.test(
         runtimeBridgeTurnRunStateUpdateCoreBlock,
       ) &&
@@ -14939,13 +14946,19 @@ function runBridge() {
       /Object\.hasOwn\(result\.bridge_start,\s*field\),\s*false/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /projection:\s*\{\s*run_id:\s*"run_runtime"\s*\}/.test(
+      /Object\.hasOwn\(captured,\s*"projection"\),\s*false/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /captured\.projection\.run_id/.test(runtimeContextPolicyCoreTest) &&
-      /Object\.hasOwn\(captured\.projection,\s*"runId"\),\s*false/.test(
-        runtimeContextPolicyCoreTest,
+      /#\[serde\(deny_unknown_fields\)\][\s\S]*pub struct RuntimeBridgeTurnRunStateUpdateRequest/.test(
+        policyThreadLifecycleCore,
       ) &&
+      /rust_policy_rejects_runtime_bridge_turn_projection_candidate_transport/.test(
+        policyThreadLifecycleCore,
+      ) &&
+      !/const candidateProjection = objectRecord\(store\.turnForRun\(candidateRun\)\)/.test(
+        runtimeAgentRunLifecycle,
+      ) &&
+      !/runtime bridge run candidate/.test(runtimeAgentRunLifecycle) &&
       !exists("packages/runtime-daemon/src/threads/runtime-bridge-thread.mjs") &&
       !exists("packages/runtime-daemon/src/threads/runtime-bridge-thread.test.mjs") &&
       !/runtime-bridge-thread\.mjs/.test(runtimeDaemonIndex) &&
@@ -15157,6 +15170,13 @@ function runBridge() {
       /rust_policy_rejects_invalid_runtime_bridge_turn_run_state_update_schema/.test(
         policyCore,
       ) &&
+      /#\[serde\(deny_unknown_fields\)\][\s\S]*pub struct RuntimeBridgeTurnRunStateUpdateRequest/.test(
+        policyThreadLifecycleCore,
+      ) &&
+      /rust_policy_rejects_runtime_bridge_turn_projection_candidate_transport/.test(
+        policyThreadLifecycleCore,
+      ) &&
+      !/pub projection: Value/.test(policyThreadLifecycleCore) &&
       !/RuntimeBridgeTurnRunStateUpdateBridgeRequest/.test(policyThreadLifecycleCore) &&
       !/plan_runtime_bridge_turn_run_state_update_response/.test(policyThreadLifecycleCore) &&
       !/rust_runtime_bridge_turn_run_state_update_command/.test(policyThreadLifecycleCore) &&
@@ -15169,10 +15189,18 @@ function runBridge() {
       /runtime bridge turn run state update core sends Rust state update through typed thread-lifecycle API/.test(
         runtimeContextPolicyCoreTest,
       ) &&
+      /Object\.hasOwn\(captured,\s*"projection"\),\s*false/.test(
+        runtimeContextPolicyCoreTest,
+      ) &&
       /createRuntimeBridgeTurnRun/.test(runtimeAgentRunLifecycle) &&
       /runtimeBridgeTurnSubmitEvidenceRefs/.test(runtimeAgentRunLifecycle) &&
       /runtime_bridge_turn_submit_rust_owned/.test(runtimeAgentRunLifecycle) &&
       /planRuntimeBridgeTurnRunStateUpdate/.test(runtimeAgentRunLifecycle) &&
+      !/const candidateProjection = objectRecord\(store\.turnForRun\(candidateRun\)\)/.test(
+        runtimeAgentRunLifecycle,
+      ) &&
+      !/projection:\s*candidateProjection/.test(runtimeAgentRunLifecycle) &&
+      !/runtime bridge run candidate/.test(runtimeAgentRunLifecycle) &&
       /store\.writeRun\(plannedRun,\s*plannedOperationKind\)/.test(runtimeAgentRunLifecycle) &&
       /turn\.runtime_bridge\.submit/.test(runtimeAgentRunLifecycle) &&
       /runtimeBridgeTurnRun = createRuntimeBridgeTurnRun/.test(runtimeThreadTurnSurface) &&

@@ -1183,8 +1183,7 @@ test("createRuntimeBridgeTurn commits Rust-planned runtime bridge run and return
   assert.equal(store.plannerCalls.length, 1);
   assert.equal(store.plannerCalls[0].thread_id, "thread_runtime");
   assert.equal(store.plannerCalls[0].agent.id, "agent_runtime");
-  assert.equal(store.plannerCalls[0].projection.thread_id, "thread_runtime");
-  assert.equal(store.plannerCalls[0].projection.run_id, "run_uuid-run");
+  assert.equal(Object.hasOwn(store.plannerCalls[0], "projection"), false);
   assert.equal(store.plannerCalls[0].run.id, "run_uuid-run");
   assert.deepEqual(store.writes, [{
     kind: "run",
@@ -1218,9 +1217,8 @@ test("createRuntimeBridgeTurn commits Rust-planned runtime bridge run and return
       rust_runtime_bridge_submitted: true,
     },
   }]);
-  assert.equal(store.turnProjectionCalls.length, 2);
-  assert.equal(store.turnProjectionCalls[0].id, "run_uuid-run");
-  assert.equal(store.turnProjectionCalls[1].rust_runtime_bridge_submitted, true);
+  assert.equal(store.turnProjectionCalls.length, 1);
+  assert.equal(store.turnProjectionCalls[0].rust_runtime_bridge_submitted, true);
 });
 
 test("createRuntimeBridgeTurn fails closed before route, memory, or persistence when Rust bridge-turn planner is missing", () => {
@@ -1329,7 +1327,7 @@ test("agent/run lifecycle direct APIs route create, run creation, and thread cre
   assert.equal(store.writes[5].run.rust_runtime_bridge_submitted, true);
   assert.deepEqual(store.startedEvents, ["agent_uuid-agent", "agent_uuid-agent"]);
   assert.equal(store.threadProjectionCalls.length, 3);
-  assert.equal(store.turnProjectionCalls.length, 2);
+  assert.equal(store.turnProjectionCalls.length, 1);
   assert.deepEqual(store.getAgentCalls, ["agent_existing"]);
   assert.equal(store.routeCalls.length, 5);
   assert.equal(store.memoryCalls.length, 2);
