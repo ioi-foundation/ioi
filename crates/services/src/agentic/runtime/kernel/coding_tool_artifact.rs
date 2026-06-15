@@ -117,18 +117,7 @@ impl RuntimeCodingToolArtifactReadProjectionCommandError {
     }
 }
 
-pub fn plan_runtime_coding_tool_artifact_drafts_response(
-    request: RuntimeCodingToolArtifactDraftPlanRequest,
-) -> Result<Value, RuntimeCodingToolArtifactDraftPlanCommandError> {
-    let record = plan_runtime_coding_tool_artifact_drafts(&request)?;
-    Ok(json!({
-        "source": "rust_runtime_coding_tool_artifact_draft_plan_command",
-        "backend": "rust_policy",
-        "record": record,
-    }))
-}
-
-fn plan_runtime_coding_tool_artifact_drafts(
+pub fn plan_runtime_coding_tool_artifact_drafts(
     request: &RuntimeCodingToolArtifactDraftPlanRequest,
 ) -> Result<Value, RuntimeCodingToolArtifactDraftPlanCommandError> {
     if let Some(schema_version) = optional_trimmed(request.schema_version.as_deref()) {
@@ -256,18 +245,7 @@ fn plan_runtime_coding_tool_artifact_drafts(
     }))
 }
 
-pub fn project_runtime_coding_tool_artifact_read_response(
-    request: RuntimeCodingToolArtifactReadProjectionRequest,
-) -> Result<Value, RuntimeCodingToolArtifactReadProjectionCommandError> {
-    let record = project_runtime_coding_tool_artifact_read(&request)?;
-    Ok(json!({
-        "source": "rust_runtime_coding_tool_artifact_read_projection_command",
-        "backend": "rust_policy",
-        "record": record,
-    }))
-}
-
-fn project_runtime_coding_tool_artifact_read(
+pub fn project_runtime_coding_tool_artifact_read(
     request: &RuntimeCodingToolArtifactReadProjectionRequest,
 ) -> Result<Value, RuntimeCodingToolArtifactReadProjectionCommandError> {
     if let Some(schema_version) = optional_trimmed(request.schema_version.as_deref()) {
@@ -1205,9 +1183,8 @@ mod tests {
         }))
         .expect("request");
 
-        let response =
-            plan_runtime_coding_tool_artifact_drafts_response(request).expect("draft plan");
-        let record = response["record"].as_object().expect("record");
+        let response = plan_runtime_coding_tool_artifact_drafts(&request).expect("draft plan");
+        let record = response.as_object().expect("record");
         let artifact_records = record["artifact_records"]
             .as_array()
             .expect("artifact records");
@@ -1255,7 +1232,7 @@ mod tests {
         }))
         .expect("request");
 
-        let error = plan_runtime_coding_tool_artifact_drafts_response(request)
+        let error = plan_runtime_coding_tool_artifact_drafts(&request)
             .expect_err("retired alias should fail");
 
         assert_eq!(
@@ -1294,9 +1271,8 @@ mod tests {
             }))
             .expect("request");
 
-        let response =
-            project_runtime_coding_tool_artifact_read_response(request).expect("projection");
-        let record = response["record"].as_object().expect("record");
+        let response = project_runtime_coding_tool_artifact_read(&request).expect("projection");
+        let record = response.as_object().expect("record");
         let result = record["result"].as_object().expect("result");
 
         assert_eq!(record["operation"], "artifact.read");
@@ -1353,9 +1329,8 @@ mod tests {
             }))
             .expect("request");
 
-        let response =
-            project_runtime_coding_tool_artifact_read_response(request).expect("projection");
-        let result = response["record"]["result"].as_object().expect("result");
+        let response = project_runtime_coding_tool_artifact_read(&request).expect("projection");
+        let result = response["result"].as_object().expect("result");
         let available = result["available_artifacts"].as_array().expect("available");
 
         assert_eq!(result["artifact_id"], "artifact_stderr");
@@ -1377,7 +1352,7 @@ mod tests {
             }))
             .expect("request");
 
-        let error = project_runtime_coding_tool_artifact_read_response(request)
+        let error = project_runtime_coding_tool_artifact_read(&request)
             .expect_err("retired target alias should fail");
 
         assert_eq!(
@@ -1398,7 +1373,7 @@ mod tests {
             }))
             .expect("request");
 
-        let error = project_runtime_coding_tool_artifact_read_response(request)
+        let error = project_runtime_coding_tool_artifact_read(&request)
             .expect_err("retired candidate transport should fail");
 
         assert_eq!(
@@ -1418,7 +1393,7 @@ mod tests {
             }))
             .expect("request");
 
-        let error = project_runtime_coding_tool_artifact_read_response(request)
+        let error = project_runtime_coding_tool_artifact_read(&request)
             .expect_err("state_dir should be required");
 
         assert_eq!(
@@ -1449,7 +1424,7 @@ mod tests {
             }))
             .expect("request");
 
-        let error = project_runtime_coding_tool_artifact_read_response(request)
+        let error = project_runtime_coding_tool_artifact_read(&request)
             .expect_err("retired range alias should fail");
 
         assert_eq!(error.code(), "artifact_read_range_aliases_retired");
@@ -1476,7 +1451,7 @@ mod tests {
             }))
             .expect("request");
 
-        let error = project_runtime_coding_tool_artifact_read_response(request)
+        let error = project_runtime_coding_tool_artifact_read(&request)
             .expect_err("cross-thread read should fail");
 
         assert_eq!(

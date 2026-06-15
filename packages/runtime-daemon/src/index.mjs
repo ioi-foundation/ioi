@@ -621,7 +621,6 @@ export class AgentgresRuntimeStateStore {
     this.contextPolicyCore =
       options.contextPolicyCore ??
       createRuntimeContextPolicyCore({
-        daemonCoreInvoker: this.daemonCoreInvoker,
         daemonCoreContextLifecycleApi: this.daemonCoreContextLifecycleApi,
         daemonCoreRuntimeControlApi: this.daemonCoreRuntimeControlApi,
         daemonCoreRuntimeProjectionApi: this.daemonCoreRuntimeProjectionApi,

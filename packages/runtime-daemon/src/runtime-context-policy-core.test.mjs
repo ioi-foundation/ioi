@@ -16,8 +16,12 @@ import {
   CONTEXT_LIFECYCLE_CONTEXT_BUDGET_POLICY_API_METHOD,
   CONTEXT_LIFECYCLE_CONTEXT_COMPACTION_PLAN_API_METHOD,
   CONTEXT_LIFECYCLE_CONTEXT_COMPACTION_STATE_UPDATE_API_METHOD,
+  RUNTIME_CONTROL_CODING_TOOL_ARTIFACT_DRAFTS_API_METHOD,
   RUNTIME_CONTROL_CODING_TOOL_BUDGET_RECOVERY_CONTROL_API_METHOD,
   RUNTIME_CONTROL_CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_API_METHOD,
+  RUNTIME_CONTROL_CODING_TOOL_RESULT_ENVELOPE_API_METHOD,
+  RUNTIME_CONTROL_DIAGNOSTICS_REPAIR_CONTROL_API_METHOD,
+  RUNTIME_CONTROL_DIAGNOSTICS_REPAIR_RETRY_RUN_API_METHOD,
   RUNTIME_CONTROL_DIAGNOSTICS_REPAIR_ADMISSION_REQUIRED_API_METHOD,
   RUNTIME_CONTROL_DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_API_METHOD,
   RUNTIME_CONTROL_OPERATOR_INTERRUPT_STATE_UPDATE_API_METHOD,
@@ -34,6 +38,10 @@ import {
   RUNTIME_CONTROL_THREAD_FORK_API_METHOD,
   RUNTIME_CONTROL_CONVERSATION_ARTIFACT_API_METHOD,
   RUNTIME_CONTROL_SUBAGENT_API_METHOD,
+  RUNTIME_CONTROL_POST_EDIT_DIAGNOSTICS_FEEDBACK_API_METHOD,
+  RUNTIME_PROJECTION_CODING_TOOL_ARTIFACT_READ_API_METHOD,
+  RUNTIME_PROJECTION_DIAGNOSTICS_REPAIR_POLICY_API_METHOD,
+  RUNTIME_PROJECTION_DIAGNOSTICS_REPAIR_PROJECTION_API_METHOD,
   RUNTIME_PROJECTION_TASK_JOB_API_METHOD,
   RUNTIME_PROJECTION_LIFECYCLE_API_METHOD,
   RUNTIME_PROJECTION_MANAGED_SESSION_API_METHOD,
@@ -66,7 +74,6 @@ import {
   CONTEXT_COMPACTION_PLAN_REQUEST_SCHEMA_VERSION,
   CONTEXT_COMPACTION_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   CONTEXT_BUDGET_POLICY_REQUEST_SCHEMA_VERSION,
-  CONTEXT_POLICY_COMMAND_SCHEMA_VERSION,
   RuntimeContextPolicyCoreError,
   DIAGNOSTICS_REPAIR_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
   RUNTIME_DIAGNOSTICS_REPAIR_CONTROL_REQUEST_SCHEMA_VERSION,
@@ -209,9 +216,6 @@ function assertNoRetiredOperationKindDetailAliases(details) {
 function createContextLifecycleDirectCore(method, handler) {
   const calls = [];
   const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
-      throw new Error(`retired generic invoker reached for ${request?.operation}`);
-    },
     daemonCoreContextLifecycleApi: {
       [method](request) {
         calls.push({ method, request });
@@ -225,9 +229,6 @@ function createContextLifecycleDirectCore(method, handler) {
 function createRuntimeControlDirectCore(method, handler) {
   const calls = [];
   const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
-      throw new Error(`retired generic invoker reached for ${request?.operation}`);
-    },
     daemonCoreRuntimeControlApi: {
       [method](request) {
         calls.push({ method, request });
@@ -241,9 +242,6 @@ function createRuntimeControlDirectCore(method, handler) {
 function createRuntimeProjectionDirectCore(method, handler) {
   const calls = [];
   const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
-      throw new Error(`retired generic invoker reached for ${request?.operation}`);
-    },
     daemonCoreRuntimeProjectionApi: {
       [method](request) {
         calls.push({ method, request });
@@ -257,9 +255,6 @@ function createRuntimeProjectionDirectCore(method, handler) {
 function createThreadLifecycleDirectCore(method, handler) {
   const calls = [];
   const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
-      throw new Error(`retired generic invoker reached for ${request?.operation}`);
-    },
     daemonCoreThreadLifecycleApi: {
       [method](request) {
         calls.push({ method, request });
@@ -273,9 +268,6 @@ function createThreadLifecycleDirectCore(method, handler) {
 function createWorkspaceTrustDirectCore(method, handler) {
   const calls = [];
   const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
-      throw new Error(`retired generic invoker reached for ${request?.operation}`);
-    },
     daemonCoreWorkspaceTrustApi: {
       [method](request) {
         calls.push({ method, request });
@@ -289,9 +281,6 @@ function createWorkspaceTrustDirectCore(method, handler) {
 function createMcpDirectCore(method, handler) {
   const calls = [];
   const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
-      throw new Error(`retired generic invoker reached for ${request?.operation}`);
-    },
     daemonCoreMcpApi: {
       [method](request) {
         calls.push({ method, request });
@@ -305,9 +294,6 @@ function createMcpDirectCore(method, handler) {
 function createThreadMemoryDirectCore(method, handler) {
   const calls = [];
   const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
-      throw new Error(`retired generic invoker reached for ${request?.operation}`);
-    },
     daemonCoreThreadMemoryApi: {
       [method](request) {
         calls.push({ method, request });
@@ -348,13 +334,19 @@ test("runtime context policy core rejects retired daemon-core command option", (
     () =>
       createRuntimeContextPolicyCore({
         command: "ioi-runtime-daemon-core",
-        daemonCoreInvoker() {
-          return {};
-        },
       }),
     (error) =>
       error instanceof RuntimeContextPolicyCoreError &&
       error.code === "runtime_context_policy_core_command_retired",
+  );
+});
+
+test("runtime context policy core daemonCoreInvoker option fails closed", () => {
+  assert.throws(
+    () => new RuntimeContextPolicyCore({ daemonCoreInvoker() {} }),
+    (error) =>
+      error instanceof RuntimeContextPolicyCoreError &&
+      error.code === "runtime_context_policy_core_daemonCoreInvoker_retired",
   );
 });
 
@@ -1124,12 +1116,10 @@ test("diagnostics repair admission-required core sends typed Rust daemon-core re
 });
 
 test("runtime diagnostics repair control core sends Rust daemon-core request", () => {
-  let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
-      captured = request;
-      return {
-        source: "rust_runtime_diagnostics_repair_control_command",
+  const { calls, runner } = createRuntimeControlDirectCore(
+    RUNTIME_CONTROL_DIAGNOSTICS_REPAIR_CONTROL_API_METHOD,
+    () => ({
+        source: "rust_runtime_diagnostics_repair_control_api",
         backend: "rust_policy",
         record: {
           schema_version: "ioi.runtime.diagnostics_repair_control.v1",
@@ -1150,9 +1140,8 @@ test("runtime diagnostics repair control core sends Rust daemon-core request", (
           policy_decision_refs: ["policy_diagnostics_repair_decision_alpha"],
           evidence_refs: ["runtime_diagnostics_repair_decision_execution_rust_owned"],
         },
-      };
-    },
-  });
+      }),
+  );
 
   const result = runner.planRuntimeDiagnosticsRepairControl({
     operation: "diagnostics_repair_decision_execution",
@@ -1164,19 +1153,19 @@ test("runtime diagnostics repair control core sends Rust daemon-core request", (
     snapshot_id: "snapshot_alpha",
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "plan_runtime_diagnostics_repair_control");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, RUNTIME_CONTROL_DIAGNOSTICS_REPAIR_CONTROL_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    calls[0].request.schema_version,
     RUNTIME_DIAGNOSTICS_REPAIR_CONTROL_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.operation, "diagnostics_repair_decision_execution");
+  assert.equal(calls[0].request.operation, "diagnostics_repair_decision_execution");
   assert.equal(
-    captured.request.operation_kind,
+    calls[0].request.operation_kind,
     "diagnostics.repair_decision.execute",
   );
-  assert.equal(result.source, "rust_runtime_diagnostics_repair_control_command");
+  assert.equal(Object.hasOwn(calls[0].request, "backend"), false);
+  assert.equal(result.source, "rust_runtime_diagnostics_repair_control_api");
   assert.equal(result.operation_kind, "diagnostics.repair_decision.execute");
   assert.equal(result.decision_id, "decision_alpha");
   assert.equal(result.event.event_kind, "diagnostics.repair_decision.execute");
@@ -1184,12 +1173,10 @@ test("runtime diagnostics repair control core sends Rust daemon-core request", (
 });
 
 test("runtime diagnostics repair retry-run core sends Rust daemon-core request", () => {
-  let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
-      captured = request;
-      return {
-        source: "rust_runtime_diagnostics_repair_retry_run_command",
+  const { calls, runner } = createRuntimeControlDirectCore(
+    RUNTIME_CONTROL_DIAGNOSTICS_REPAIR_RETRY_RUN_API_METHOD,
+    () => ({
+        source: "rust_runtime_diagnostics_repair_retry_run_api",
         backend: "rust_policy",
         record: {
           schema_version: "ioi.runtime.diagnostics_repair_retry_run.v1",
@@ -1224,9 +1211,8 @@ test("runtime diagnostics repair retry-run core sends Rust daemon-core request",
           policy_decision_refs: ["policy_retry"],
           evidence_refs: ["runtime_diagnostics_repair_retry_run_request_rust_owned"],
         },
-      };
-    },
-  });
+      }),
+  );
 
   const result = runner.planRuntimeDiagnosticsRepairRetryRun({
     operation: "diagnostics_repair_retry_run_create",
@@ -1238,20 +1224,20 @@ test("runtime diagnostics repair retry-run core sends Rust daemon-core request",
     request: { prompt: "Retry the diagnostics repair." },
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "plan_runtime_diagnostics_repair_retry_run");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, RUNTIME_CONTROL_DIAGNOSTICS_REPAIR_RETRY_RUN_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    calls[0].request.schema_version,
     RUNTIME_DIAGNOSTICS_REPAIR_RETRY_RUN_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.operation, "diagnostics_repair_retry_run_create");
+  assert.equal(calls[0].request.operation, "diagnostics_repair_retry_run_create");
   assert.equal(
-    captured.request.operation_kind,
+    calls[0].request.operation_kind,
     "diagnostics.repair_retry.run_create",
   );
-  assert.equal(captured.request.agent_id, "agent_alpha");
-  assert.equal(result.source, "rust_runtime_diagnostics_repair_retry_run_command");
+  assert.equal(calls[0].request.agent_id, "agent_alpha");
+  assert.equal(Object.hasOwn(calls[0].request, "backend"), false);
+  assert.equal(result.source, "rust_runtime_diagnostics_repair_retry_run_api");
   assert.equal(result.operation_kind, "diagnostics.repair_retry.run_create");
   assert.equal(result.run_request.options.diagnostics_repair.action, "repair_retry");
   assert.equal(result.retry_event_request.target_run_id, "run_blocked");
@@ -1259,12 +1245,10 @@ test("runtime diagnostics repair retry-run core sends Rust daemon-core request",
 });
 
 test("runtime diagnostics repair projection core sends Rust daemon-core request", () => {
-  let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
-      captured = request;
-      return {
-        source: "rust_runtime_diagnostics_repair_projection_command",
+  const { calls, runner } = createRuntimeProjectionDirectCore(
+    RUNTIME_PROJECTION_DIAGNOSTICS_REPAIR_PROJECTION_API_METHOD,
+    () => ({
+        source: "rust_runtime_diagnostics_repair_projection_api",
         backend: "rust_policy",
         record: {
           schema_version: "ioi.runtime.diagnostics_repair_projection.v1",
@@ -1289,9 +1273,8 @@ test("runtime diagnostics repair projection core sends Rust daemon-core request"
           receipt_refs: ["receipt_runtime_diagnostics_repair_projection_decision"],
           evidence_refs: ["runtime_diagnostics_repair_decision_projection_rust_owned"],
         },
-      };
-    },
-  });
+      }),
+  );
 
   const result = runner.projectRuntimeDiagnosticsRepairProjection({
     operation: "runtime_diagnostics_repair_projection",
@@ -1303,24 +1286,24 @@ test("runtime diagnostics repair projection core sends Rust daemon-core request"
     state_dir: "/runtime-state",
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "project_runtime_diagnostics_repair_projection");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, RUNTIME_PROJECTION_DIAGNOSTICS_REPAIR_PROJECTION_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    calls[0].request.schema_version,
     RUNTIME_DIAGNOSTICS_REPAIR_PROJECTION_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.operation, "runtime_diagnostics_repair_projection");
+  assert.equal(calls[0].request.operation, "runtime_diagnostics_repair_projection");
   assert.equal(
-    captured.request.operation_kind,
+    calls[0].request.operation_kind,
     "runtime.diagnostics_repair_projection.decision",
   );
-  assert.equal(captured.request.projection_kind, "decision");
-  assert.equal(captured.request.thread_id, "thread_alpha");
-  assert.equal(captured.request.decision_id, "decision_alpha");
-  assert.equal(captured.request.state_dir, "/runtime-state");
-  assert.equal(Object.hasOwn(captured.request, "projection"), false);
-  assert.equal(result.source, "rust_runtime_diagnostics_repair_projection_command");
+  assert.equal(calls[0].request.projection_kind, "decision");
+  assert.equal(calls[0].request.thread_id, "thread_alpha");
+  assert.equal(calls[0].request.decision_id, "decision_alpha");
+  assert.equal(calls[0].request.state_dir, "/runtime-state");
+  assert.equal(Object.hasOwn(calls[0].request, "backend"), false);
+  assert.equal(Object.hasOwn(calls[0].request, "projection"), false);
+  assert.equal(result.source, "rust_runtime_diagnostics_repair_projection_api");
   assert.equal(result.projection_kind, "decision");
   assert.equal(result.projection.decision_id, "decision_alpha");
   assert.equal(result.record_count, 1);
@@ -1346,12 +1329,10 @@ test("runtime diagnostics repair projection core sends Rust daemon-core request"
 });
 
 test("runtime diagnostics repair policy core sends Rust daemon-core request", () => {
-  let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
-      captured = request;
-      return {
-        source: "rust_runtime_diagnostics_repair_policy_command",
+  const { calls, runner } = createRuntimeProjectionDirectCore(
+    RUNTIME_PROJECTION_DIAGNOSTICS_REPAIR_POLICY_API_METHOD,
+    () => ({
+        source: "rust_runtime_diagnostics_repair_policy_api",
         backend: "rust_policy",
         projected: true,
         record: {
@@ -1384,9 +1365,8 @@ test("runtime diagnostics repair policy core sends Rust daemon-core request", ()
           evidence_refs: ["runtime_diagnostics_repair_policy_projection_rust_owned"],
           projection_hash: "sha256:policy",
         },
-      };
-    },
-  });
+      }),
+  );
 
   const result = runner.projectRuntimeDiagnosticsRepairPolicy({
     thread_id: "thread_alpha",
@@ -1395,16 +1375,16 @@ test("runtime diagnostics repair policy core sends Rust daemon-core request", ()
     diagnostic_event_ids: ["event_diagnostics_alpha"],
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "project_runtime_diagnostics_repair_policy");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, RUNTIME_PROJECTION_DIAGNOSTICS_REPAIR_POLICY_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    calls[0].request.schema_version,
     RUNTIME_DIAGNOSTICS_REPAIR_POLICY_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.thread_id, "thread_alpha");
-  assert.equal(captured.request.state_dir, "/runtime-state");
-  assert.deepEqual(captured.request.diagnostic_event_ids, ["event_diagnostics_alpha"]);
+  assert.equal(calls[0].request.thread_id, "thread_alpha");
+  assert.equal(calls[0].request.state_dir, "/runtime-state");
+  assert.deepEqual(calls[0].request.diagnostic_event_ids, ["event_diagnostics_alpha"]);
+  assert.equal(Object.hasOwn(calls[0].request, "backend"), false);
   for (const field of [
     "injection_id",
     "diagnostic_status",
@@ -1415,9 +1395,9 @@ test("runtime diagnostics repair policy core sends Rust daemon-core request", ()
     "diagnostics_repair_contexts",
     "receipt_refs",
   ]) {
-    assert.equal(Object.hasOwn(captured.request, field), false, `${field} must not be sent`);
+    assert.equal(Object.hasOwn(calls[0].request, field), false, `${field} must not be sent`);
   }
-  assert.equal(result.source, "rust_runtime_diagnostics_repair_policy_command");
+  assert.equal(result.source, "rust_runtime_diagnostics_repair_policy_api");
   assert.equal(result.operation_kind, "runtime.diagnostics_repair_policy.projection");
   assert.equal(result.repair_policy.policy_id, "policy_alpha");
   assert.equal(result.repair_policy_config.restore_policy, "preview_only");
@@ -1553,12 +1533,10 @@ test("diagnostics operator override state update core sends Rust state update th
 });
 
 test("coding-tool result envelope core sends Rust daemon-core plan request", () => {
-  let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
-      captured = request;
-      return {
-        source: "rust_coding_tool_result_envelope_plan_command",
+  const { calls, runner } = createRuntimeControlDirectCore(
+    RUNTIME_CONTROL_CODING_TOOL_RESULT_ENVELOPE_API_METHOD,
+    () => ({
+        source: "rust_coding_tool_result_envelope_plan_api",
         backend: "rust_runtime_coding_tool_event",
         planned: true,
         phase: "result_event",
@@ -1586,9 +1564,8 @@ test("coding-tool result envelope core sends Rust daemon-core plan request", () 
           phase: "result_event",
         },
         envelope_hash: "sha256:envelope",
-      };
-    },
-  });
+      }),
+  );
 
   const result = runner.planCodingToolResultEnvelope({
     phase: "result_event",
@@ -1600,16 +1577,17 @@ test("coding-tool result envelope core sends Rust daemon-core plan request", () 
     idempotency_key: "thread:thread_alpha:coding-tool:tool_status",
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "plan_coding_tool_result_envelope");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, RUNTIME_CONTROL_CODING_TOOL_RESULT_ENVELOPE_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    calls[0].request.schema_version,
     CODING_TOOL_RESULT_ENVELOPE_PLAN_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.thread_id, "thread_alpha");
-  assert.equal(captured.request.tool_id, "workspace.status");
-  assert.equal(result.source, "rust_coding_tool_result_envelope_plan_command");
+  assert.equal(calls[0].request.thread_id, "thread_alpha");
+  assert.equal(calls[0].request.tool_id, "workspace.status");
+  assert.equal(Object.hasOwn(calls[0].request, "operation"), false);
+  assert.equal(Object.hasOwn(calls[0].request, "backend"), false);
+  assert.equal(result.source, "rust_coding_tool_result_envelope_plan_api");
   assert.equal(result.operation_kind, "runtime.coding_tool.result_envelope");
   assert.equal(result.phase, "result_event");
   assert.equal(result.planned, true);
@@ -1619,12 +1597,10 @@ test("coding-tool result envelope core sends Rust daemon-core plan request", () 
 });
 
 test("coding-tool artifact draft core sends Rust daemon-core plan request", () => {
-  let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
-      captured = request;
-      return {
-        source: "rust_runtime_coding_tool_artifact_draft_plan_command",
+  const { calls, runner } = createRuntimeControlDirectCore(
+    RUNTIME_CONTROL_CODING_TOOL_ARTIFACT_DRAFTS_API_METHOD,
+    () => ({
+        source: "rust_runtime_coding_tool_artifact_draft_plan_api",
         backend: "rust_policy",
         record: {
           object: "ioi.runtime_coding_tool_artifact_draft_plan",
@@ -1653,9 +1629,8 @@ test("coding-tool artifact draft core sends Rust daemon-core plan request", () =
           evidence_refs: ["coding_tool_artifact_draft_rust_owned"],
           plan_hash: "sha256:artifact-plan",
         },
-      };
-    },
-  });
+      }),
+  );
 
   const result = runner.planRuntimeCodingToolArtifactDrafts({
     operation: "coding_tool_artifact_draft_materialization",
@@ -1668,17 +1643,17 @@ test("coding-tool artifact draft core sends Rust daemon-core plan request", () =
     artifact_drafts: [{ channel: "stdout", content: "diff body" }],
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "plan_runtime_coding_tool_artifact_drafts");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, RUNTIME_CONTROL_CODING_TOOL_ARTIFACT_DRAFTS_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    calls[0].request.schema_version,
     RUNTIME_CODING_TOOL_ARTIFACT_DRAFT_PLAN_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.thread_id, "thread_alpha");
-  assert.equal(captured.request.tool_id, "git.diff");
-  assert.equal(captured.request.artifact_drafts[0].content, "diff body");
-  assert.equal(result.source, "rust_runtime_coding_tool_artifact_draft_plan_command");
+  assert.equal(calls[0].request.thread_id, "thread_alpha");
+  assert.equal(calls[0].request.tool_id, "git.diff");
+  assert.equal(calls[0].request.artifact_drafts[0].content, "diff body");
+  assert.equal(Object.hasOwn(calls[0].request, "backend"), false);
+  assert.equal(result.source, "rust_runtime_coding_tool_artifact_draft_plan_api");
   assert.equal(result.operation_kind, "artifact.coding_tool_draft");
   assert.equal(result.artifact_records[0].id, "artifact_rust_planned");
   assert.deepEqual(result.artifact_refs, ["artifact_rust_planned"]);
@@ -1704,12 +1679,10 @@ test("coding-tool artifact draft normalizer rejects missing Rust records", () =>
 });
 
 test("coding-tool artifact read projection core sends Rust daemon-core request", () => {
-  let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
-      captured = request;
-      return {
-        source: "rust_runtime_coding_tool_artifact_read_projection_command",
+  const { calls, runner } = createRuntimeProjectionDirectCore(
+    RUNTIME_PROJECTION_CODING_TOOL_ARTIFACT_READ_API_METHOD,
+    () => ({
+        source: "rust_runtime_coding_tool_artifact_read_projection_api",
         backend: "rust_policy",
         record: {
           object: "ioi.runtime_coding_tool_artifact_read_projection",
@@ -1734,9 +1707,8 @@ test("coding-tool artifact read projection core sends Rust daemon-core request",
           evidence_refs: ["coding_tool_artifact_read_projection_rust_owned"],
           projection_hash: "sha256:artifact-read-projection",
         },
-      };
-    },
-  });
+      }),
+  );
 
   const result = runner.projectRuntimeCodingToolArtifactRead({
     operation: "artifact.read",
@@ -1747,18 +1719,18 @@ test("coding-tool artifact read projection core sends Rust daemon-core request",
     state_dir: "/runtime-state",
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "project_runtime_coding_tool_artifact_read");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, RUNTIME_PROJECTION_CODING_TOOL_ARTIFACT_READ_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    calls[0].request.schema_version,
     RUNTIME_CODING_TOOL_ARTIFACT_READ_PROJECTION_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.thread_id, "thread_alpha");
-  assert.equal(captured.request.artifact_id, "artifact_rust");
-  assert.equal(captured.request.state_dir, "/runtime-state");
-  assert.equal(Object.hasOwn(captured.request, "artifact_records"), false);
-  assert.equal(result.source, "rust_runtime_coding_tool_artifact_read_projection_command");
+  assert.equal(calls[0].request.thread_id, "thread_alpha");
+  assert.equal(calls[0].request.artifact_id, "artifact_rust");
+  assert.equal(calls[0].request.state_dir, "/runtime-state");
+  assert.equal(Object.hasOwn(calls[0].request, "backend"), false);
+  assert.equal(Object.hasOwn(calls[0].request, "artifact_records"), false);
+  assert.equal(result.source, "rust_runtime_coding_tool_artifact_read_projection_api");
   assert.equal(result.operation_kind, "artifact.read_projection");
   assert.equal(result.result.content, "hello");
   assert.deepEqual(result.artifact_refs, ["artifact_rust"]);
@@ -1801,12 +1773,10 @@ test("coding-tool result envelope normalizer rejects wrong operation kind", () =
 });
 
 test("post-edit diagnostics feedback core sends Rust daemon-core plan request", () => {
-  let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
-      captured = request;
-      return {
-        source: "rust_post_edit_diagnostics_feedback_plan_command",
+  const { calls, runner } = createRuntimeControlDirectCore(
+    RUNTIME_CONTROL_POST_EDIT_DIAGNOSTICS_FEEDBACK_API_METHOD,
+    () => ({
+        source: "rust_post_edit_diagnostics_feedback_plan_api",
         backend: "rust_runtime_diagnostics_feedback",
         planned: true,
         request: {
@@ -1822,9 +1792,8 @@ test("post-edit diagnostics feedback core sends Rust daemon-core plan request", 
           paths: ["src/app.js"],
           rollback_refs: ["snapshot_alpha"],
         },
-      };
-    },
-  });
+      }),
+  );
 
   const result = runner.planPostEditDiagnosticsFeedback({
     thread_id: "thread_alpha",
@@ -1836,17 +1805,18 @@ test("post-edit diagnostics feedback core sends Rust daemon-core plan request", 
     patch_result: { changed_files: [{ path: "src/app.js" }] },
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "plan_post_edit_diagnostics_feedback");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, RUNTIME_CONTROL_POST_EDIT_DIAGNOSTICS_FEEDBACK_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    calls[0].request.schema_version,
     POST_EDIT_DIAGNOSTICS_FEEDBACK_PLAN_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.thread_id, "thread_alpha");
-  assert.equal(captured.request.patch_tool_call_id, "patch_alpha");
-  assert.deepEqual(captured.request.patch_result.changed_files, [{ path: "src/app.js" }]);
-  assert.equal(result.source, "rust_post_edit_diagnostics_feedback_plan_command");
+  assert.equal(calls[0].request.thread_id, "thread_alpha");
+  assert.equal(calls[0].request.patch_tool_call_id, "patch_alpha");
+  assert.deepEqual(calls[0].request.patch_result.changed_files, [{ path: "src/app.js" }]);
+  assert.equal(Object.hasOwn(calls[0].request, "operation"), false);
+  assert.equal(Object.hasOwn(calls[0].request, "backend"), false);
+  assert.equal(result.source, "rust_post_edit_diagnostics_feedback_plan_api");
   assert.equal(result.backend, "rust_runtime_diagnostics_feedback");
   assert.equal(result.operation_kind, "runtime.post_edit_diagnostics_feedback");
   assert.equal(result.planned, true);

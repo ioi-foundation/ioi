@@ -549,7 +549,7 @@ function requireRustPlannedStepModuleContext(plan = {}, details = {}) {
       message: "Rust daemon-core coding-tool result envelope plan did not include a valid StepModule context.",
       details: {
         ...details,
-        operation: "plan_coding_tool_result_envelope",
+        operation: "coding_tool_result_envelope_planning",
         operation_kind: plan.operation_kind ?? null,
         planned_phase: plan.phase ?? null,
         envelope_hash: plan.envelope_hash ?? null,
@@ -578,7 +578,7 @@ function requireRustPlannedResultEvent(plan = {}, details = {}) {
       message: "Rust daemon-core coding-tool result envelope plan did not include a valid result event.",
       details: {
         ...details,
-        operation: "plan_coding_tool_result_envelope",
+        operation: "coding_tool_result_envelope_planning",
         operation_kind: plan.operation_kind ?? null,
         planned_phase: plan.phase ?? null,
         envelope_hash: plan.envelope_hash ?? null,

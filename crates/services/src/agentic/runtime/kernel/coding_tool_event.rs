@@ -339,20 +339,6 @@ pub struct CodingToolCommandStreamAdmissionProtocolRequest {
     pub request: CodingToolCommandStreamAdmissionRequest,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct CodingToolResultEnvelopePlanBridgeRequest {
-    #[serde(default)]
-    pub backend: Option<String>,
-    pub request: CodingToolResultEnvelopePlanRequest,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct PostEditDiagnosticsFeedbackPlanBridgeRequest {
-    #[serde(default)]
-    pub backend: Option<String>,
-    pub request: PostEditDiagnosticsFeedbackPlanRequest,
-}
-
 #[derive(Debug, Default, Clone)]
 pub struct CodingToolResultEventAdmissionCore;
 
@@ -1299,50 +1285,6 @@ pub fn admit_coding_tool_command_stream_events_response(
     }))
 }
 
-pub fn plan_coding_tool_result_envelope_response(
-    request: CodingToolResultEnvelopePlanBridgeRequest,
-) -> Result<Value, CodingToolResultEnvelopePlanError> {
-    let record = CodingToolResultEnvelopePlanCore.plan(&request.request)?;
-    Ok(json!({
-        "source": "rust_coding_tool_result_envelope_plan_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_runtime_coding_tool_event".to_string()),
-        "planned": true,
-        "record": record.clone(),
-        "phase": record.phase.clone(),
-        "operation_kind": record.operation_kind.clone(),
-        "step_module_context": record.step_module_context.clone(),
-        "payload_summary": record.payload_summary.clone(),
-        "event": record.event.clone(),
-        "receipt_refs": record.receipt_refs.clone(),
-        "artifact_refs": record.artifact_refs.clone(),
-        "rollback_refs": record.rollback_refs.clone(),
-        "envelope_hash": record.envelope_hash.clone(),
-    }))
-}
-
-pub fn plan_post_edit_diagnostics_feedback_response(
-    request: PostEditDiagnosticsFeedbackPlanBridgeRequest,
-) -> Result<Value, PostEditDiagnosticsFeedbackPlanError> {
-    let record = PostEditDiagnosticsFeedbackPlanCore.plan(&request.request)?;
-    let planned = record.status == "planned";
-    let skipped = record.status == "skipped";
-    Ok(json!({
-        "source": "rust_post_edit_diagnostics_feedback_plan_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_runtime_diagnostics_feedback".to_string()),
-        "planned": planned,
-        "skipped": skipped,
-        "record": record.clone(),
-        "request": record.request.clone(),
-        "diagnostics_repair_context": record.diagnostics_repair_context.clone(),
-        "tool_id": record.tool_id.clone(),
-        "tool_call_id": record.tool_call_id.clone(),
-        "paths": record.paths.clone(),
-        "rollback_refs": record.rollback_refs.clone(),
-        "workspace_snapshot_id": record.workspace_snapshot_id.clone(),
-        "plan_hash": record.plan_hash.clone(),
-    }))
-}
-
 impl CodingToolResultEventAdmissionRequest {
     pub fn validate(&self) -> Result<(), CodingToolResultEventAdmissionError> {
         if self.schema_version != CODING_TOOL_RESULT_EVENT_ADMISSION_REQUEST_SCHEMA_VERSION {
@@ -2214,35 +2156,6 @@ mod tests {
         assert!(record.envelope_hash.starts_with("sha256:"));
     }
 
-    #[test]
-    fn rust_shapes_coding_tool_result_envelope_command_response() {
-        let response =
-            plan_coding_tool_result_envelope_response(CodingToolResultEnvelopePlanBridgeRequest {
-                backend: Some("rust_runtime_coding_tool_event".to_string()),
-                request: result_envelope_request("result_event"),
-            })
-            .expect("result envelope command response");
-
-        assert_eq!(
-            response["source"],
-            "rust_coding_tool_result_envelope_plan_command"
-        );
-        assert_eq!(
-            response["operation_kind"],
-            "runtime.coding_tool.result_envelope"
-        );
-        assert_eq!(response["planned"], true);
-        assert_eq!(
-            response["event"]["payload_summary"]["tool_name"],
-            "workspace.status"
-        );
-        assert_eq!(
-            response["step_module_context"]["workflow_projection_status"],
-            "live"
-        );
-    }
-
-    #[test]
     fn rust_admits_coding_tool_command_stream_events_with_agentgres_refs() {
         let record = CodingToolCommandStreamAdmissionCore
             .admit(&command_stream_request())
@@ -2479,36 +2392,5 @@ mod tests {
             record.diagnostics_repair_context["restore_policy"],
             "apply_with_approval"
         );
-    }
-
-    #[test]
-    fn rust_core_shapes_post_edit_diagnostics_feedback_plan_command_response() {
-        let response = plan_post_edit_diagnostics_feedback_response(
-            PostEditDiagnosticsFeedbackPlanBridgeRequest {
-                backend: Some("rust_runtime_diagnostics_feedback".to_string()),
-                request: post_edit_diagnostics_request(),
-            },
-        )
-        .expect("plan response");
-
-        assert_eq!(
-            response["source"],
-            "rust_post_edit_diagnostics_feedback_plan_command"
-        );
-        assert_eq!(response["backend"], "rust_runtime_diagnostics_feedback");
-        assert_eq!(response["planned"], true);
-        assert_eq!(response["tool_id"], "lsp.diagnostics");
-        assert_eq!(
-            response["request"]["workflow_node_id"],
-            LSP_DIAGNOSTICS_AUTO_NODE_ID
-        );
-        assert_eq!(
-            response["record"]["schema_version"],
-            POST_EDIT_DIAGNOSTICS_FEEDBACK_PLAN_RESULT_SCHEMA_VERSION
-        );
-        assert!(response["plan_hash"]
-            .as_str()
-            .expect("plan hash")
-            .starts_with("sha256:"));
     }
 }

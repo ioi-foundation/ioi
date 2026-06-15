@@ -1,4 +1,3 @@
-export const CONTEXT_POLICY_COMMAND_SCHEMA_VERSION = "ioi.runtime.daemon_core.command.v1";
 export const CONTEXT_BUDGET_POLICY_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.context-budget-policy-request.v1";
 export const CODING_TOOL_BUDGET_POLICY_REQUEST_SCHEMA_VERSION =
@@ -158,12 +157,28 @@ export const RUNTIME_CONTROL_CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_API_METHOD
   "planCodingToolBudgetRecoveryStateUpdate";
 export const RUNTIME_CONTROL_CODING_TOOL_BUDGET_RECOVERY_CONTROL_API_METHOD =
   "planCodingToolBudgetRecoveryControl";
+export const RUNTIME_CONTROL_CODING_TOOL_RESULT_ENVELOPE_API_METHOD =
+  "planCodingToolResultEnvelope";
+export const RUNTIME_CONTROL_CODING_TOOL_ARTIFACT_DRAFTS_API_METHOD =
+  "planRuntimeCodingToolArtifactDrafts";
+export const RUNTIME_PROJECTION_CODING_TOOL_ARTIFACT_READ_API_METHOD =
+  "projectRuntimeCodingToolArtifactRead";
 export const RUNTIME_CONTROL_WORKFLOW_EDIT_ADMISSION_REQUIRED_API_METHOD =
   "planWorkflowEditAdmissionRequired";
 export const RUNTIME_CONTROL_DIAGNOSTICS_REPAIR_ADMISSION_REQUIRED_API_METHOD =
   "planDiagnosticsRepairAdmissionRequired";
+export const RUNTIME_CONTROL_DIAGNOSTICS_REPAIR_CONTROL_API_METHOD =
+  "planRuntimeDiagnosticsRepairControl";
+export const RUNTIME_CONTROL_DIAGNOSTICS_REPAIR_RETRY_RUN_API_METHOD =
+  "planRuntimeDiagnosticsRepairRetryRun";
+export const RUNTIME_PROJECTION_DIAGNOSTICS_REPAIR_PROJECTION_API_METHOD =
+  "projectRuntimeDiagnosticsRepairProjection";
+export const RUNTIME_PROJECTION_DIAGNOSTICS_REPAIR_POLICY_API_METHOD =
+  "projectRuntimeDiagnosticsRepairPolicy";
 export const RUNTIME_CONTROL_DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_API_METHOD =
   "planDiagnosticsOperatorOverrideStateUpdate";
+export const RUNTIME_CONTROL_POST_EDIT_DIAGNOSTICS_FEEDBACK_API_METHOD =
+  "planPostEditDiagnosticsFeedback";
 export const RUNTIME_CONTROL_OPERATOR_TURN_CONTROL_ADMISSION_REQUIRED_API_METHOD =
   "planOperatorTurnControlAdmissionRequired";
 export const RUNTIME_CONTROL_OPERATOR_INTERRUPT_STATE_UPDATE_API_METHOD =
@@ -278,7 +293,7 @@ export class RuntimeContextPolicyCore {
     assertNoRuntimeContextPolicyCoreOption("command", options.command);
     assertNoRuntimeContextPolicyCoreOption("args", options.args);
     assertNoRuntimeContextPolicyCoreOption("env", options.env);
-    this.daemonCoreInvoker = optionalFunction(options.daemonCoreInvoker);
+    assertNoRuntimeContextPolicyCoreOption("daemonCoreInvoker", options.daemonCoreInvoker);
     this.daemonCoreContextLifecycleApi = contextLifecycleApi(
       options.daemonCoreContextLifecycleApi ??
         options.daemonCoreApi?.contextLifecycle ??
@@ -381,27 +396,27 @@ export class RuntimeContextPolicyCore {
   }
 
   planCodingToolResultEnvelope(request = {}) {
-    return normalizeCodingToolResultEnvelopePlanBridgeResult(this.evaluateRawPolicy({
-      operation: "plan_coding_tool_result_envelope",
-      schemaVersion: CODING_TOOL_RESULT_ENVELOPE_PLAN_REQUEST_SCHEMA_VERSION,
+    return normalizeCodingToolResultEnvelopePlanBridgeResult(this.invokeRuntimeControlApi(
+      RUNTIME_CONTROL_CODING_TOOL_RESULT_ENVELOPE_API_METHOD,
+      CODING_TOOL_RESULT_ENVELOPE_PLAN_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   planRuntimeCodingToolArtifactDrafts(request = {}) {
-    return normalizeRuntimeCodingToolArtifactDraftPlanBridgeResult(this.evaluateRawPolicy({
-      operation: "plan_runtime_coding_tool_artifact_drafts",
-      schemaVersion: RUNTIME_CODING_TOOL_ARTIFACT_DRAFT_PLAN_REQUEST_SCHEMA_VERSION,
+    return normalizeRuntimeCodingToolArtifactDraftPlanBridgeResult(this.invokeRuntimeControlApi(
+      RUNTIME_CONTROL_CODING_TOOL_ARTIFACT_DRAFTS_API_METHOD,
+      RUNTIME_CODING_TOOL_ARTIFACT_DRAFT_PLAN_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   projectRuntimeCodingToolArtifactRead(request = {}) {
-    return normalizeRuntimeCodingToolArtifactReadProjectionBridgeResult(this.evaluateRawPolicy({
-      operation: "project_runtime_coding_tool_artifact_read",
-      schemaVersion: RUNTIME_CODING_TOOL_ARTIFACT_READ_PROJECTION_REQUEST_SCHEMA_VERSION,
+    return normalizeRuntimeCodingToolArtifactReadProjectionBridgeResult(this.invokeRuntimeProjectionApi(
+      RUNTIME_PROJECTION_CODING_TOOL_ARTIFACT_READ_API_METHOD,
+      RUNTIME_CODING_TOOL_ARTIFACT_READ_PROJECTION_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   planWorkflowEditAdmissionRequired(request = {}) {
@@ -421,35 +436,35 @@ export class RuntimeContextPolicyCore {
   }
 
   planRuntimeDiagnosticsRepairControl(request = {}) {
-    return normalizeRuntimeDiagnosticsRepairControlBridgeResult(this.evaluateRawPolicy({
-      operation: "plan_runtime_diagnostics_repair_control",
-      schemaVersion: RUNTIME_DIAGNOSTICS_REPAIR_CONTROL_REQUEST_SCHEMA_VERSION,
+    return normalizeRuntimeDiagnosticsRepairControlBridgeResult(this.invokeRuntimeControlApi(
+      RUNTIME_CONTROL_DIAGNOSTICS_REPAIR_CONTROL_API_METHOD,
+      RUNTIME_DIAGNOSTICS_REPAIR_CONTROL_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   planRuntimeDiagnosticsRepairRetryRun(request = {}) {
-    return normalizeRuntimeDiagnosticsRepairRetryRunBridgeResult(this.evaluateRawPolicy({
-      operation: "plan_runtime_diagnostics_repair_retry_run",
-      schemaVersion: RUNTIME_DIAGNOSTICS_REPAIR_RETRY_RUN_REQUEST_SCHEMA_VERSION,
+    return normalizeRuntimeDiagnosticsRepairRetryRunBridgeResult(this.invokeRuntimeControlApi(
+      RUNTIME_CONTROL_DIAGNOSTICS_REPAIR_RETRY_RUN_API_METHOD,
+      RUNTIME_DIAGNOSTICS_REPAIR_RETRY_RUN_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   projectRuntimeDiagnosticsRepairProjection(request = {}) {
-    return normalizeRuntimeDiagnosticsRepairProjectionBridgeResult(this.evaluateRawPolicy({
-      operation: "project_runtime_diagnostics_repair_projection",
-      schemaVersion: RUNTIME_DIAGNOSTICS_REPAIR_PROJECTION_REQUEST_SCHEMA_VERSION,
+    return normalizeRuntimeDiagnosticsRepairProjectionBridgeResult(this.invokeRuntimeProjectionApi(
+      RUNTIME_PROJECTION_DIAGNOSTICS_REPAIR_PROJECTION_API_METHOD,
+      RUNTIME_DIAGNOSTICS_REPAIR_PROJECTION_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   projectRuntimeDiagnosticsRepairPolicy(request = {}) {
-    return normalizeRuntimeDiagnosticsRepairPolicyBridgeResult(this.evaluateRawPolicy({
-      operation: "project_runtime_diagnostics_repair_policy",
-      schemaVersion: RUNTIME_DIAGNOSTICS_REPAIR_POLICY_REQUEST_SCHEMA_VERSION,
+    return normalizeRuntimeDiagnosticsRepairPolicyBridgeResult(this.invokeRuntimeProjectionApi(
+      RUNTIME_PROJECTION_DIAGNOSTICS_REPAIR_POLICY_API_METHOD,
+      RUNTIME_DIAGNOSTICS_REPAIR_POLICY_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   planDiagnosticsOperatorOverrideStateUpdate(request = {}) {
@@ -461,11 +476,11 @@ export class RuntimeContextPolicyCore {
   }
 
   planPostEditDiagnosticsFeedback(request = {}) {
-    return normalizePostEditDiagnosticsFeedbackPlanBridgeResult(this.evaluateRawPolicy({
-      operation: "plan_post_edit_diagnostics_feedback",
-      schemaVersion: POST_EDIT_DIAGNOSTICS_FEEDBACK_PLAN_REQUEST_SCHEMA_VERSION,
+    return normalizePostEditDiagnosticsFeedbackPlanBridgeResult(this.invokeRuntimeControlApi(
+      RUNTIME_CONTROL_POST_EDIT_DIAGNOSTICS_FEEDBACK_API_METHOD,
+      POST_EDIT_DIAGNOSTICS_FEEDBACK_PLAN_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   planOperatorTurnControlAdmissionRequired(request = {}) {
@@ -884,19 +899,6 @@ export class RuntimeContextPolicyCore {
     ));
   }
 
-  evaluateRawPolicy({ operation, schemaVersion, request }) {
-    const bridgeRequest = {
-      schema_version: CONTEXT_POLICY_COMMAND_SCHEMA_VERSION,
-      operation,
-      backend: RUST_CONTEXT_POLICY_BACKEND,
-      request: {
-        ...(objectRecord(request) ?? {}),
-        schema_version: schemaVersion,
-      },
-    };
-    return this.invokeDaemonCore(bridgeRequest);
-  }
-
   invokeContextLifecycleApi(method, schemaVersion, request = {}) {
     const invoke = this.daemonCoreContextLifecycleApi?.[method];
     if (typeof invoke !== "function") {
@@ -1086,25 +1088,6 @@ export class RuntimeContextPolicyCore {
     return response?.ok === true ? response.result : response;
   }
 
-  invokeDaemonCore(request) {
-    if (!this.daemonCoreInvoker) {
-      throw new RuntimeContextPolicyCoreError(
-        "Context policy requires daemonCoreInvoker for direct Rust daemon-core policy evaluation.",
-        "runtime_context_policy_core_direct_invoker_unconfigured",
-        { boundary: "daemonCoreInvoker" },
-      );
-    }
-    const response = this.daemonCoreInvoker(request);
-    const responseError = objectRecord(response?.error);
-    if (response?.ok === false && responseError) {
-      throw new RuntimeContextPolicyCoreError(
-        responseError.message ?? "Rust context policy rejected the request.",
-        responseError.code ?? "context_policy_direct_invoker_rejected",
-        { error: responseError },
-      );
-    }
-    return response?.ok === true ? response.result : response;
-  }
 }
 
 export class RuntimeContextPolicyCoreError extends Error {
@@ -1374,7 +1357,7 @@ export function normalizeCodingToolResultEnvelopePlanBridgeResult(value = {}) {
     source:
       result.source ??
       record.source ??
-      "rust_coding_tool_result_envelope_plan_command",
+      "rust_coding_tool_result_envelope_plan_api",
     backend:
       result.backend ??
       record.backend ??
@@ -1422,7 +1405,7 @@ export function normalizeRuntimeCodingToolArtifactDraftPlanBridgeResult(value = 
     source:
       result.source ??
       record.source ??
-      "rust_runtime_coding_tool_artifact_draft_plan_command",
+      "rust_runtime_coding_tool_artifact_draft_plan_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     record,
     object: optionalString(result.object ?? record.object) ?? null,
@@ -1461,7 +1444,7 @@ export function normalizeRuntimeCodingToolArtifactReadProjectionBridgeResult(val
     source:
       result.source ??
       record.source ??
-      "rust_runtime_coding_tool_artifact_read_projection_command",
+      "rust_runtime_coding_tool_artifact_read_projection_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     record,
     object: optionalString(result.object ?? record.object) ?? null,
@@ -1560,7 +1543,7 @@ export function normalizePostEditDiagnosticsFeedbackPlanBridgeResult(value = {})
     source:
       result.source ??
       record.source ??
-      "rust_post_edit_diagnostics_feedback_plan_command",
+      "rust_post_edit_diagnostics_feedback_plan_api",
     backend:
       result.backend ??
       record.backend ??
@@ -1597,7 +1580,7 @@ export function normalizeRuntimeDiagnosticsRepairControlBridgeResult(value = {})
     source:
       result.source ??
       record.source ??
-      "rust_runtime_diagnostics_repair_control_command",
+      "rust_runtime_diagnostics_repair_control_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
@@ -1644,7 +1627,7 @@ export function normalizeRuntimeDiagnosticsRepairRetryRunBridgeResult(value = {}
     source:
       result.source ??
       record.source ??
-      "rust_runtime_diagnostics_repair_retry_run_command",
+      "rust_runtime_diagnostics_repair_retry_run_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     record,
     object: optionalString(result.object ?? record.object) ?? null,
@@ -1680,7 +1663,7 @@ export function normalizeRuntimeDiagnosticsRepairProjectionBridgeResult(value = 
     source:
       result.source ??
       record.source ??
-      "rust_runtime_diagnostics_repair_projection_command",
+      "rust_runtime_diagnostics_repair_projection_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
@@ -1712,7 +1695,7 @@ export function normalizeRuntimeDiagnosticsRepairPolicyBridgeResult(value = {}) 
     source:
       result.source ??
       record.source ??
-      "rust_runtime_diagnostics_repair_policy_command",
+      "rust_runtime_diagnostics_repair_policy_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
@@ -3227,10 +3210,6 @@ function optionalString(value) {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   return trimmed || null;
-}
-
-function optionalFunction(value) {
-  return typeof value === "function" ? value : null;
 }
 
 function contextLifecycleApi(value) {

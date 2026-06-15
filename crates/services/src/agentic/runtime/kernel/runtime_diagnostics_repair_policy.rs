@@ -83,24 +83,6 @@ pub struct RuntimeDiagnosticsRepairPolicyRecord {
     pub projection_hash: String,
 }
 
-pub fn project_runtime_diagnostics_repair_policy_response(
-    request: RuntimeDiagnosticsRepairPolicyRequest,
-) -> Result<Value, RuntimeDiagnosticsRepairPolicyCommandError> {
-    let record = RuntimeDiagnosticsRepairPolicyCore::default().project(&request)?;
-    Ok(json!({
-        "source": "rust_runtime_diagnostics_repair_policy_command",
-        "backend": "rust_policy",
-        "projected": true,
-        "record": record.to_value(),
-        "policy": record.policy,
-        "repair_policy": record.policy,
-        "repair_policy_config": record.repair_policy_config,
-        "receipt_refs": record.receipt_refs,
-        "evidence_refs": record.evidence_refs,
-        "projection_hash": record.projection_hash,
-    }))
-}
-
 impl RuntimeDiagnosticsRepairPolicyCore {
     pub fn project(
         &self,
@@ -178,7 +160,7 @@ impl RuntimeDiagnosticsRepairPolicyCore {
         let operation = request
             .operation
             .clone()
-            .unwrap_or_else(|| "project_runtime_diagnostics_repair_policy".to_string());
+            .unwrap_or_else(|| "runtime_diagnostics_repair_policy_projection".to_string());
         let operation_kind = request
             .operation_kind
             .clone()
@@ -209,34 +191,6 @@ impl RuntimeDiagnosticsRepairPolicyCore {
             evidence_refs,
             receipt_refs,
             projection_hash,
-        })
-    }
-}
-
-impl RuntimeDiagnosticsRepairPolicyRecord {
-    fn to_value(&self) -> Value {
-        json!({
-            "schema_version": RUNTIME_DIAGNOSTICS_REPAIR_POLICY_RESULT_SCHEMA_VERSION,
-            "object": "ioi.runtime_diagnostics_repair_policy_projection",
-            "status": "projected",
-            "operation": self.operation,
-            "operation_kind": self.operation_kind,
-            "thread_id": self.thread_id,
-            "injection_id": self.injection_id,
-            "mode": self.mode,
-            "diagnostic_event_ids": self.diagnostic_event_ids,
-            "diagnostic_status": self.diagnostic_status,
-            "diagnostic_count": self.diagnostic_count,
-            "workspace_snapshot_refs": self.workspace_snapshot_refs,
-            "rollback_refs": self.rollback_refs,
-            "source_tool_call_ids": self.source_tool_call_ids,
-            "diagnostics_repair_contexts": self.diagnostics_repair_contexts,
-            "policy": self.policy,
-            "repair_policy": self.policy,
-            "repair_policy_config": self.repair_policy_config,
-            "receipt_refs": self.receipt_refs,
-            "evidence_refs": self.evidence_refs,
-            "projection_hash": self.projection_hash,
         })
     }
 }
@@ -969,7 +923,7 @@ mod tests {
 
         assert_eq!(
             record.operation,
-            "project_runtime_diagnostics_repair_policy"
+            "runtime_diagnostics_repair_policy_projection"
         );
         assert_eq!(
             record.operation_kind,
@@ -1019,33 +973,6 @@ mod tests {
             .evidence_refs
             .contains(&"runtime_diagnostics_repair_policy_projection_rust_owned".to_string()));
         assert!(record.projection_hash.starts_with("sha256:"));
-    }
-
-    #[test]
-    fn rust_shapes_runtime_diagnostics_repair_policy_command_response() {
-        let temp = tempfile::tempdir().expect("tempdir");
-        write_runtime_event(temp.path(), diagnostics_event());
-        let response =
-            project_runtime_diagnostics_repair_policy_response(policy_request(temp.path()))
-                .expect("policy command response");
-
-        assert_eq!(
-            response["source"],
-            "rust_runtime_diagnostics_repair_policy_command"
-        );
-        assert_eq!(response["projected"], true);
-        assert_eq!(
-            response["record"]["schema_version"],
-            RUNTIME_DIAGNOSTICS_REPAIR_POLICY_RESULT_SCHEMA_VERSION
-        );
-        assert_eq!(
-            response["repair_policy"]["object"],
-            "ioi.runtime_diagnostics_rollback_repair_policy"
-        );
-        assert_eq!(
-            response["record"]["diagnostic_event_ids"],
-            json!(["event_diagnostics_alpha"])
-        );
     }
 
     #[test]

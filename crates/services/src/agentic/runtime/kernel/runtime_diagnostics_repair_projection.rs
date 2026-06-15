@@ -76,17 +76,6 @@ pub struct RuntimeDiagnosticsRepairProjectionRecord {
     pub receipt_refs: Vec<String>,
 }
 
-pub fn project_runtime_diagnostics_repair_projection_response(
-    request: RuntimeDiagnosticsRepairProjectionRequest,
-) -> Result<Value, RuntimeDiagnosticsRepairProjectionCommandError> {
-    let record = RuntimeDiagnosticsRepairProjectionCore::default().project(&request)?;
-    Ok(json!({
-        "source": "rust_runtime_diagnostics_repair_projection_command",
-        "backend": "rust_policy",
-        "record": record.to_value(),
-    }))
-}
-
 impl RuntimeDiagnosticsRepairProjectionCore {
     pub fn project(
         &self,
@@ -132,7 +121,7 @@ impl RuntimeDiagnosticsRepairProjectionCore {
             .unwrap_or_else(|| format!("runtime.diagnostics_repair_projection.{projection_kind}"));
         let gate_id = optional_trimmed(request.gate_id.as_deref());
         let source = optional_trimmed(request.source.as_deref())
-            .unwrap_or_else(|| "runtime.diagnostics_repair_projection.rust_command".to_string());
+            .unwrap_or_else(|| "runtime.diagnostics_repair_projection.rust_api".to_string());
         let evidence_refs = if request.evidence_refs.is_empty() {
             vec![
                 "runtime_diagnostics_repair_decision_projection_rust_owned".to_string(),
@@ -164,27 +153,6 @@ impl RuntimeDiagnosticsRepairProjectionCore {
             record_count,
             evidence_refs,
             receipt_refs,
-        })
-    }
-}
-
-impl RuntimeDiagnosticsRepairProjectionRecord {
-    fn to_value(&self) -> Value {
-        json!({
-            "schema_version": RUNTIME_DIAGNOSTICS_REPAIR_PROJECTION_RESULT_SCHEMA_VERSION,
-            "object": "ioi.runtime_diagnostics_repair_projection",
-            "status": "projected",
-            "operation": self.operation,
-            "operation_kind": self.operation_kind,
-            "projection_kind": self.projection_kind,
-            "thread_id": self.thread_id,
-            "decision_id": self.decision_id,
-            "gate_id": self.gate_id,
-            "source": self.source,
-            "projection": self.projection,
-            "record_count": self.record_count,
-            "evidence_refs": self.evidence_refs,
-            "receipt_refs": self.receipt_refs,
         })
     }
 }
@@ -631,38 +599,6 @@ mod tests {
                 "receipt_gate_alpha".to_string(),
                 "receipt_runtime_diagnostics_repair_projection_decision".to_string()
             ]
-        );
-    }
-
-    #[test]
-    fn rust_shapes_runtime_diagnostics_repair_projection_command_response() {
-        let temp = tempfile::tempdir().expect("tempdir");
-        write_runtime_event(temp.path(), blocking_gate_event());
-        let response = project_runtime_diagnostics_repair_projection_response(
-            RuntimeDiagnosticsRepairProjectionRequest {
-                operation_kind: Some("runtime.diagnostics_repair_projection.decision".to_string()),
-                projection_kind: Some("decision".to_string()),
-                thread_id: Some("thread_alpha".to_string()),
-                decision_id: Some("decision_alpha".to_string()),
-                gate_id: Some("gate_alpha".to_string()),
-                state_dir: Some(temp.path().to_string_lossy().to_string()),
-                ..Default::default()
-            },
-        )
-        .expect("command response");
-
-        assert_eq!(
-            response["source"],
-            "rust_runtime_diagnostics_repair_projection_command"
-        );
-        assert_eq!(
-            response["record"]["schema_version"],
-            RUNTIME_DIAGNOSTICS_REPAIR_PROJECTION_RESULT_SCHEMA_VERSION
-        );
-        assert_eq!(response["record"]["projection_kind"], "decision");
-        assert_eq!(
-            response["record"]["projection"]["decision_id"],
-            "decision_alpha"
         );
     }
 

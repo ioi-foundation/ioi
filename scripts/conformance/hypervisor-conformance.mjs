@@ -3241,7 +3241,7 @@ function runBridge() {
       /coding_tool_step_module_operation_uses_daemon_core_command_schema/.test(commandProtocolCore) &&
       /unknown_operation_has_no_command_schema/.test(commandProtocolCore) &&
       /command_envelope_rejects_retired_schema_version_alias/.test(commandProtocolCore) &&
-      /daemon_core_operation_rejects_step_module_command_schema/.test(commandProtocolCore) &&
+      /retired_coding_tool_result_command_transport_is_unknown/.test(commandProtocolCore) &&
       /daemon_core_catalog_rejects_step_module_command_schema/.test(commandProtocolCore) &&
       /coding_tool_step_module_operation_rejects_retired_step_module_command_schema/.test(
         commandProtocolCore,
@@ -4664,7 +4664,6 @@ function runBridge() {
     });
   const daemonCoreDirectInvokerRunners = [
     stepModuleRunner,
-    runtimeContextPolicyCore,
     modelMountCore,
   ];
   assertCheck(
@@ -4678,6 +4677,12 @@ function runBridge() {
         (runner) =>
           /this\.daemonCoreInvoker = optionalFunction\(options\.daemonCoreInvoker\)/.test(runner) &&
           !/mockResult|mockSource|defaultBackend|createDaemonCoreCommandInvoker|spawnSyncImpl/.test(runner),
+      ) &&
+      /assertNoRuntimeContextPolicyCoreOption\("daemonCoreInvoker", options\.daemonCoreInvoker\)/.test(
+        runtimeContextPolicyCore,
+      ) &&
+      !/this\.daemonCoreInvoker = optionalFunction\(options\.daemonCoreInvoker\)/.test(
+        runtimeContextPolicyCore,
       ) &&
       /this\.daemonCoreInvoker = options\.daemonCoreInvoker/.test(runtimeDaemonIndex) &&
       /this\.daemonCoreAgentgresApi = options\.daemonCoreAgentgresApi/.test(runtimeDaemonIndex) &&
@@ -4715,7 +4720,7 @@ function runBridge() {
       /this\.daemonCoreThreadMemoryApi = options\.daemonCoreThreadMemoryApi/.test(
         runtimeDaemonIndex,
       ) &&
-      /createRuntimeContextPolicyCore\(\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*daemonCoreContextLifecycleApi: this\.daemonCoreContextLifecycleApi,\s*daemonCoreRuntimeControlApi: this\.daemonCoreRuntimeControlApi,\s*daemonCoreRuntimeProjectionApi: this\.daemonCoreRuntimeProjectionApi,\s*daemonCoreThreadLifecycleApi: this\.daemonCoreThreadLifecycleApi,\s*daemonCoreWorkspaceTrustApi: this\.daemonCoreWorkspaceTrustApi,\s*daemonCoreMcpApi: this\.daemonCoreMcpApi,\s*daemonCoreThreadMemoryApi: this\.daemonCoreThreadMemoryApi,\s*\}\)/.test(
+      /createRuntimeContextPolicyCore\(\{\s*daemonCoreContextLifecycleApi: this\.daemonCoreContextLifecycleApi,\s*daemonCoreRuntimeControlApi: this\.daemonCoreRuntimeControlApi,\s*daemonCoreRuntimeProjectionApi: this\.daemonCoreRuntimeProjectionApi,\s*daemonCoreThreadLifecycleApi: this\.daemonCoreThreadLifecycleApi,\s*daemonCoreWorkspaceTrustApi: this\.daemonCoreWorkspaceTrustApi,\s*daemonCoreMcpApi: this\.daemonCoreMcpApi,\s*daemonCoreThreadMemoryApi: this\.daemonCoreThreadMemoryApi,\s*\}\)/.test(
         runtimeDaemonIndex,
       ) &&
       /daemonCoreContextLifecycleApi:\s*\{[\s\S]*?evaluateContextBudgetPolicy\(request\)/.test(
@@ -5658,28 +5663,35 @@ function runBridge() {
       /CODING_TOOL_RESULT_EVENT_ADMISSION_REQUEST_SCHEMA_VERSION/.test(codingToolEventCore) &&
       /CODING_TOOL_RESULT_ENVELOPE_PLAN_REQUEST_SCHEMA_VERSION/.test(codingToolEventCore) &&
       /pub fn admit_coding_tool_result_event_response/.test(codingToolEventCore) &&
-      /pub fn plan_coding_tool_result_envelope_response/.test(codingToolEventCore) &&
+      !/pub fn plan_coding_tool_result_envelope_response/.test(codingToolEventCore) &&
       /rust_admits_coding_tool_result_event_with_agentgres_refs/.test(codingToolEventCore) &&
       /rust_rejects_coding_tool_result_event_without_receipts/.test(codingToolEventCore) &&
       /rust_plans_coding_tool_result_step_module_context/.test(codingToolEventCore) &&
       /rust_plans_coding_tool_result_event_envelope/.test(codingToolEventCore) &&
-      /rust_shapes_coding_tool_result_envelope_command_response/.test(codingToolEventCore) &&
+      !/rust_shapes_coding_tool_result_envelope_command_response/.test(codingToolEventCore) &&
       /rust_core_shapes_coding_tool_result_event_admission_protocol_response/.test(
         codingToolEventCore,
       ) &&
       /runtime_agentgres_command_transport_is_retired/.test(commandProtocolCore) &&
       !/CommandOperation::AdmitCodingToolResultEvent/.test(commandProtocolCore) &&
-      /plan_coding_tool_result_envelope/.test(commandProtocolCore) &&
-      /CommandOperation::PlanCodingToolResultEnvelope/.test(commandProtocolCore) &&
+      /runtime_coding_tool_and_diagnostics_command_transport_is_retired/.test(commandProtocolCore) &&
+      !/CommandOperation::PlanCodingToolResultEnvelope/.test(commandProtocolCore) &&
       !/admit_coding_tool_result_event_response/.test(coreCommandDispatch) &&
-      /plan_coding_tool_result_envelope_response/.test(coreCommandDispatch) &&
+      !/plan_coding_tool_result_envelope_response/.test(coreCommandDispatch) &&
       /CODING_TOOL_RESULT_ENVELOPE_PLAN_REQUEST_SCHEMA_VERSION/.test(
         runtimeContextPolicyCore,
       ) &&
+      /RUNTIME_CONTROL_CODING_TOOL_RESULT_ENVELOPE_API_METHOD/.test(
+        runtimeContextPolicyCore,
+      ) &&
       /planCodingToolResultEnvelope\(request = \{\}\)/.test(runtimeContextPolicyCore) &&
-      /operation:\s*"plan_coding_tool_result_envelope"/.test(runtimeContextPolicyCore) &&
+      /RUNTIME_CONTROL_CODING_TOOL_RESULT_ENVELOPE_API_METHOD,[\s\S]*?CODING_TOOL_RESULT_ENVELOPE_PLAN_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyCore) &&
+      !/operation:\s*"plan_coding_tool_result_envelope"/.test(runtimeContextPolicyCore) &&
       /normalizeCodingToolResultEnvelopePlanBridgeResult/.test(runtimeContextPolicyCore) &&
       /coding-tool result envelope core sends Rust daemon-core plan request/.test(
+        runtimeContextPolicyCoreTest,
+      ) &&
+      /RUNTIME_CONTROL_CODING_TOOL_RESULT_ENVELOPE_API_METHOD/.test(
         runtimeContextPolicyCoreTest,
       ) &&
       /coding-tool result envelope normalizer rejects wrong operation kind/.test(
@@ -6607,8 +6619,8 @@ function runBridge() {
     /RUNTIME_CODING_TOOL_ARTIFACT_READ_PROJECTION_REQUEST_SCHEMA_VERSION/.test(codingToolArtifactCore) &&
       /RuntimeCodingToolArtifactReadProjectionRequest/.test(codingToolArtifactCore) &&
       /pub state_dir: Option<String>/.test(codingToolArtifactCore) &&
-      /project_runtime_coding_tool_artifact_read_response/.test(codingToolArtifactCore) &&
-      /project_runtime_coding_tool_artifact_read/.test(codingToolArtifactCore) &&
+      !/project_runtime_coding_tool_artifact_read_response/.test(codingToolArtifactCore) &&
+      /pub fn project_runtime_coding_tool_artifact_read/.test(codingToolArtifactCore) &&
       /agentgres_artifact_records/.test(codingToolArtifactCore) &&
       /canonical_coding_tool_artifact_record/.test(codingToolArtifactCore) &&
       /coding_tool_artifact_read_projection_result/.test(codingToolArtifactCore) &&
@@ -6621,18 +6633,20 @@ function runBridge() {
       /runtime_coding_tool_artifact_candidate_transport_retired/.test(codingToolArtifactCore) &&
       /runtime_coding_tool_artifact_replay_state_dir_required/.test(codingToolArtifactCore) &&
       /rust_daemon_core_artifact_replay_required/.test(codingToolArtifactCore) &&
-      /project_runtime_coding_tool_artifact_read/.test(commandProtocolCore) &&
-      /CommandOperation::ProjectRuntimeCodingToolArtifactRead/.test(commandProtocolCore) &&
-      /project_runtime_coding_tool_artifact_read_response/.test(coreCommandDispatch) &&
-      /RuntimeCodingToolArtifactReadProjectionCommandError/.test(coreCommandDispatch) &&
+      /runtime_coding_tool_and_diagnostics_command_transport_is_retired/.test(commandProtocolCore) &&
+      !/CommandOperation::ProjectRuntimeCodingToolArtifactRead/.test(commandProtocolCore) &&
+      !/project_runtime_coding_tool_artifact_read_response/.test(coreCommandDispatch) &&
+      !/RuntimeCodingToolArtifactReadProjectionCommandError/.test(coreCommandDispatch) &&
       /RUNTIME_CODING_TOOL_ARTIFACT_READ_PROJECTION_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyCore) &&
+      /RUNTIME_PROJECTION_CODING_TOOL_ARTIFACT_READ_API_METHOD/.test(runtimeContextPolicyCore) &&
       /projectRuntimeCodingToolArtifactRead/.test(runtimeContextPolicyCore) &&
       /normalizeRuntimeCodingToolArtifactReadProjectionBridgeResult/.test(runtimeContextPolicyCore) &&
-      /project_runtime_coding_tool_artifact_read/.test(runtimeContextPolicyCore) &&
+      !/operation:\s*"project_runtime_coding_tool_artifact_read"/.test(runtimeContextPolicyCore) &&
       /coding-tool artifact read projection core sends Rust daemon-core request/.test(runtimeContextPolicyCoreTest) &&
       /coding-tool artifact read projection normalizer rejects missing Rust result/.test(runtimeContextPolicyCoreTest) &&
-      /assert\.equal\(captured\.request\.state_dir,\s*"\/runtime-state"\)/.test(runtimeContextPolicyCoreTest) &&
-      /assert\.equal\(Object\.hasOwn\(captured\.request,\s*"artifact_records"\),\s*false\)/.test(runtimeContextPolicyCoreTest) &&
+      /RUNTIME_PROJECTION_CODING_TOOL_ARTIFACT_READ_API_METHOD/.test(runtimeContextPolicyCoreTest) &&
+      /assert\.equal\(calls\[0\]\.request\.state_dir,\s*"\/runtime-state"\)/.test(runtimeContextPolicyCoreTest) &&
+      /assert\.equal\(Object\.hasOwn\(calls\[0\]\.request,\s*"artifact_records"\),\s*false\)/.test(runtimeContextPolicyCoreTest) &&
       /const artifactId = optionalString\(input\.artifact_id \?\? input\.artifact_ref\)/.test(
         runtimeCodingToolInvocationSurface,
       ) &&
@@ -6852,18 +6866,21 @@ function runBridge() {
     "coding-tool-artifact-record-storage-aliases-retired",
     /RUNTIME_CODING_TOOL_ARTIFACT_DRAFT_PLAN_REQUEST_SCHEMA_VERSION/.test(codingToolArtifactCore) &&
       /RuntimeCodingToolArtifactDraftPlanRequest/.test(codingToolArtifactCore) &&
-      /plan_runtime_coding_tool_artifact_drafts_response/.test(codingToolArtifactCore) &&
+      !/plan_runtime_coding_tool_artifact_drafts_response/.test(codingToolArtifactCore) &&
+      /pub fn plan_runtime_coding_tool_artifact_drafts/.test(codingToolArtifactCore) &&
       /artifact_draft_planner_authors_rust_artifact_records/.test(codingToolArtifactCore) &&
       /artifact_draft_planner_rejects_retired_artifact_drafts_alias/.test(codingToolArtifactCore) &&
-      /plan_runtime_coding_tool_artifact_drafts/.test(commandProtocolCore) &&
-      /CommandOperation::PlanRuntimeCodingToolArtifactDrafts/.test(commandProtocolCore) &&
-      /plan_runtime_coding_tool_artifact_drafts_response/.test(coreCommandDispatch) &&
-      /RuntimeCodingToolArtifactDraftPlanCommandError/.test(coreCommandDispatch) &&
+      /runtime_coding_tool_and_diagnostics_command_transport_is_retired/.test(commandProtocolCore) &&
+      !/CommandOperation::PlanRuntimeCodingToolArtifactDrafts/.test(commandProtocolCore) &&
+      !/plan_runtime_coding_tool_artifact_drafts_response/.test(coreCommandDispatch) &&
+      !/RuntimeCodingToolArtifactDraftPlanCommandError/.test(coreCommandDispatch) &&
       /RUNTIME_CODING_TOOL_ARTIFACT_DRAFT_PLAN_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyCore) &&
+      /RUNTIME_CONTROL_CODING_TOOL_ARTIFACT_DRAFTS_API_METHOD/.test(runtimeContextPolicyCore) &&
       /planRuntimeCodingToolArtifactDrafts/.test(runtimeContextPolicyCore) &&
       /normalizeRuntimeCodingToolArtifactDraftPlanBridgeResult/.test(runtimeContextPolicyCore) &&
-      /plan_runtime_coding_tool_artifact_drafts/.test(runtimeContextPolicyCore) &&
+      !/operation:\s*"plan_runtime_coding_tool_artifact_drafts"/.test(runtimeContextPolicyCore) &&
       /coding-tool artifact draft core sends Rust daemon-core plan request/.test(runtimeContextPolicyCoreTest) &&
+      /RUNTIME_CONTROL_CODING_TOOL_ARTIFACT_DRAFTS_API_METHOD/.test(runtimeContextPolicyCoreTest) &&
       /coding-tool artifact draft normalizer rejects missing Rust records/.test(runtimeContextPolicyCoreTest) &&
       /runtime_coding_tool_artifact_rust_core_required/.test(runtimeCodingToolArtifactSurface) &&
       /rust_core_boundary:\s*"runtime\.coding_tool_artifact"/.test(runtimeCodingToolArtifactSurface) &&
@@ -30997,10 +31014,10 @@ function runCompositor() {
     /runtime conversation artifact projection core sends Rust request through typed runtime-projection API/.test(
       runtimeContextPolicyCoreTest,
     ) &&
-    /captured\.request\.state_dir,\s*"\/runtime-state"/.test(
+    /captured\.state_dir,\s*"\/runtime-state"/.test(
       runtimeContextPolicyCoreTest,
     ) &&
-    /Object\.hasOwn\(captured\.request,\s*"projection"\),\s*false/.test(
+    /Object\.hasOwn\(captured,\s*"projection"\),\s*false/.test(
       runtimeContextPolicyCoreTest,
     ) &&
     /pub struct RuntimeConversationArtifactProjectionCore;/.test(
@@ -37047,7 +37064,7 @@ function runCompositor() {
     /rust_plans_runtime_diagnostics_repair_retry_run_create_request/.test(
       runtimeDiagnosticsRepairControlCore,
     ) &&
-    /rust_shapes_runtime_diagnostics_repair_retry_run_command_response/.test(
+    !/rust_shapes_runtime_diagnostics_repair_retry_run_command_response/.test(
       runtimeDiagnosticsRepairControlCore,
     ) &&
     /rust_rejects_runtime_diagnostics_repair_retry_run_retired_transport/.test(
@@ -37065,19 +37082,26 @@ function runCompositor() {
     /rust_rejects_unowned_runtime_diagnostics_repair_control_kind/.test(
       runtimeDiagnosticsRepairControlCore,
     ) &&
-    /PlanRuntimeDiagnosticsRepairControl/.test(commandProtocolCoreForCompositor) &&
-    /PlanRuntimeDiagnosticsRepairRetryRun/.test(commandProtocolCoreForCompositor) &&
+    /runtime_coding_tool_and_diagnostics_command_transport_is_retired/.test(commandProtocolCoreForCompositor) &&
+    !/PlanRuntimeDiagnosticsRepairControl/.test(commandProtocolCoreForCompositor) &&
+    !/PlanRuntimeDiagnosticsRepairRetryRun/.test(commandProtocolCoreForCompositor) &&
     /"plan_runtime_diagnostics_repair_control"/.test(commandProtocolCoreForCompositor) &&
     /"plan_runtime_diagnostics_repair_retry_run"/.test(
       commandProtocolCoreForCompositor,
     ) &&
-    /plan_runtime_diagnostics_repair_control_response/.test(
+    !/plan_runtime_diagnostics_repair_control_response/.test(
       coreCommandDispatchForCompositor,
     ) &&
-    /plan_runtime_diagnostics_repair_retry_run_response/.test(
+    !/plan_runtime_diagnostics_repair_retry_run_response/.test(
       coreCommandDispatchForCompositor,
     ) &&
     /pub mod runtime_diagnostics_repair_control;/.test(kernelModuleForCompositor) &&
+    /RUNTIME_CONTROL_DIAGNOSTICS_REPAIR_CONTROL_API_METHOD/.test(
+      runtimeContextPolicyCore,
+    ) &&
+    /RUNTIME_CONTROL_DIAGNOSTICS_REPAIR_RETRY_RUN_API_METHOD/.test(
+      runtimeContextPolicyCore,
+    ) &&
     /planRuntimeDiagnosticsRepairControl\(request = \{\}\)/.test(
       runtimeContextPolicyCore,
     ) &&
@@ -37094,6 +37118,12 @@ function runCompositor() {
       runtimeContextPolicyCoreTest,
     ) &&
     /runtime diagnostics repair retry-run core sends Rust daemon-core request/.test(
+      runtimeContextPolicyCoreTest,
+    ) &&
+    /RUNTIME_CONTROL_DIAGNOSTICS_REPAIR_CONTROL_API_METHOD/.test(
+      runtimeContextPolicyCoreTest,
+    ) &&
+    /RUNTIME_CONTROL_DIAGNOSTICS_REPAIR_RETRY_RUN_API_METHOD/.test(
       runtimeContextPolicyCoreTest,
     ) &&
     /diagnosticsRepairRunner:\s*this\.contextPolicyCore/.test(runtimeDaemonIndex) &&
@@ -37173,7 +37203,7 @@ function runCompositor() {
     /RUNTIME_DIAGNOSTICS_REPAIR_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
       runtimeDiagnosticsRepairProjectionCore,
     ) &&
-    /project_runtime_diagnostics_repair_projection_response/.test(
+    !/project_runtime_diagnostics_repair_projection_response/.test(
       runtimeDiagnosticsRepairProjectionCore,
     ) &&
     /pub state_dir: Option<String>/.test(
@@ -37191,7 +37221,7 @@ function runCompositor() {
     /rust_replays_runtime_diagnostics_repair_decision_projection_from_state_dir/.test(
       runtimeDiagnosticsRepairProjectionCore,
     ) &&
-    /rust_shapes_runtime_diagnostics_repair_projection_command_response/.test(
+    !/rust_shapes_runtime_diagnostics_repair_projection_command_response/.test(
       runtimeDiagnosticsRepairProjectionCore,
     ) &&
     /rust_rejects_runtime_diagnostics_repair_projection_candidate_transport/.test(
@@ -37206,19 +37236,22 @@ function runCompositor() {
     /rust_rejects_unowned_runtime_diagnostics_repair_projection_kind/.test(
       runtimeDiagnosticsRepairProjectionCore,
     ) &&
-    /ProjectRuntimeDiagnosticsRepairProjection/.test(
+    !/ProjectRuntimeDiagnosticsRepairProjection/.test(
       commandProtocolCoreForCompositor,
     ) &&
     /"project_runtime_diagnostics_repair_projection"/.test(
       commandProtocolCoreForCompositor,
     ) &&
-    /project_runtime_diagnostics_repair_projection_response/.test(
+    !/project_runtime_diagnostics_repair_projection_response/.test(
       coreCommandDispatchForCompositor,
     ) &&
     /pub mod runtime_diagnostics_repair_projection;/.test(
       kernelModuleForCompositor,
     ) &&
     /projectRuntimeDiagnosticsRepairProjection\(request = \{\}\)/.test(
+      runtimeContextPolicyCore,
+    ) &&
+    /RUNTIME_PROJECTION_DIAGNOSTICS_REPAIR_PROJECTION_API_METHOD/.test(
       runtimeContextPolicyCore,
     ) &&
     /RUNTIME_DIAGNOSTICS_REPAIR_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
@@ -37230,10 +37263,13 @@ function runCompositor() {
     /runtime diagnostics repair projection core sends Rust daemon-core request/.test(
       runtimeContextPolicyCoreTest,
     ) &&
-    /captured\.request\.state_dir,\s*"\/runtime-state"/.test(
+    /RUNTIME_PROJECTION_DIAGNOSTICS_REPAIR_PROJECTION_API_METHOD/.test(
       runtimeContextPolicyCoreTest,
     ) &&
-    /Object\.hasOwn\(captured\.request,\s*"projection"\),\s*false/.test(
+    /calls\[0\]\.request\.state_dir,\s*"\/runtime-state"/.test(
+      runtimeContextPolicyCoreTest,
+    ) &&
+    /Object\.hasOwn\(calls\[0\]\.request,\s*"projection"\),\s*false/.test(
       runtimeContextPolicyCoreTest,
     ) &&
     /state_dir:\s*store\?\.stateDir \?\? null/.test(
@@ -37468,7 +37504,7 @@ function runCompositor() {
       return /POST_EDIT_DIAGNOSTICS_FEEDBACK_PLAN_REQUEST_SCHEMA_VERSION/.test(codingToolEventCoreForDiagnosticsFeedback) &&
       /pub struct PostEditDiagnosticsFeedbackPlanRequest/.test(codingToolEventCoreForDiagnosticsFeedback) &&
       /pub struct PostEditDiagnosticsFeedbackPlanCore/.test(codingToolEventCoreForDiagnosticsFeedback) &&
-      /pub fn plan_post_edit_diagnostics_feedback_response/.test(codingToolEventCoreForDiagnosticsFeedback) &&
+      !/pub fn plan_post_edit_diagnostics_feedback_response/.test(codingToolEventCoreForDiagnosticsFeedback) &&
       /runtime\.post_edit_diagnostics_feedback/.test(codingToolEventCoreForDiagnosticsFeedback) &&
       /diagnostics_repair_context/.test(codingToolEventCoreForDiagnosticsFeedback) &&
       /source_tool_name":\s*"file\.apply_patch"/.test(codingToolEventCoreForDiagnosticsFeedback) &&
@@ -37479,25 +37515,31 @@ function runCompositor() {
       !/\.get\("changedFiles"\)/.test(codingToolEventCoreForDiagnosticsFeedback) &&
       /rust_plans_post_edit_diagnostics_feedback_request/.test(codingToolEventCoreForDiagnosticsFeedback) &&
       /rust_ignores_retired_post_edit_diagnostics_aliases/.test(codingToolEventCoreForDiagnosticsFeedback) &&
-      /plan_post_edit_diagnostics_feedback/.test(commandProtocolForDiagnosticsFeedback) &&
-      /PlanPostEditDiagnosticsFeedback/.test(commandProtocolForDiagnosticsFeedback) &&
-      /CommandOperation::PlanPostEditDiagnosticsFeedback/.test(
+      /runtime_coding_tool_and_diagnostics_command_transport_is_retired/.test(commandProtocolForDiagnosticsFeedback) &&
+      !/PlanPostEditDiagnosticsFeedback/.test(commandProtocolForDiagnosticsFeedback) &&
+      !/CommandOperation::PlanPostEditDiagnosticsFeedback/.test(
         commandDispatchForDiagnosticsFeedback,
       ) &&
-      /plan_post_edit_diagnostics_feedback_response/.test(commandDispatchForDiagnosticsFeedback) &&
+      !/plan_post_edit_diagnostics_feedback_response/.test(commandDispatchForDiagnosticsFeedback) &&
       /POST_EDIT_DIAGNOSTICS_FEEDBACK_PLAN_REQUEST_SCHEMA_VERSION/.test(
+        runtimeContextPolicyCoreForDiagnosticsFeedback,
+      ) &&
+      /RUNTIME_CONTROL_POST_EDIT_DIAGNOSTICS_FEEDBACK_API_METHOD/.test(
         runtimeContextPolicyCoreForDiagnosticsFeedback,
       ) &&
       /planPostEditDiagnosticsFeedback\(request = \{\}\)/.test(
         runtimeContextPolicyCoreForDiagnosticsFeedback,
       ) &&
-      /operation:\s*"plan_post_edit_diagnostics_feedback"/.test(
+      !/operation:\s*"plan_post_edit_diagnostics_feedback"/.test(
         runtimeContextPolicyCoreForDiagnosticsFeedback,
       ) &&
       /normalizePostEditDiagnosticsFeedbackPlanBridgeResult/.test(
         runtimeContextPolicyCoreForDiagnosticsFeedback,
       ) &&
       /post-edit diagnostics feedback core sends Rust daemon-core plan request/.test(
+        runtimeContextPolicyCoreTestForDiagnosticsFeedback,
+      ) &&
+      /RUNTIME_CONTROL_POST_EDIT_DIAGNOSTICS_FEEDBACK_API_METHOD/.test(
         runtimeContextPolicyCoreTestForDiagnosticsFeedback,
       ) &&
       /diagnosticsFeedbackPlanner\.planPostEditDiagnosticsFeedback/.test(
@@ -37649,7 +37691,7 @@ function runCompositor() {
       runtimeDiagnosticsRepairPolicyCore,
     ) &&
       /RuntimeDiagnosticsRepairPolicyCore/.test(runtimeDiagnosticsRepairPolicyCore) &&
-      /project_runtime_diagnostics_repair_policy_response/.test(
+      !/project_runtime_diagnostics_repair_policy_response/.test(
         runtimeDiagnosticsRepairPolicyCore,
       ) &&
       /ioi\.runtime_diagnostics_rollback_repair_policy/.test(
@@ -37674,7 +37716,7 @@ function runCompositor() {
       /rust_replays_runtime_diagnostics_repair_policy_from_state_dir/.test(
         runtimeDiagnosticsRepairPolicyCore,
       ) &&
-      /rust_shapes_runtime_diagnostics_repair_policy_command_response/.test(
+      !/rust_shapes_runtime_diagnostics_repair_policy_command_response/.test(
         runtimeDiagnosticsRepairPolicyCore,
       ) &&
       /rust_rejects_runtime_diagnostics_repair_policy_candidate_transport/.test(
@@ -37689,11 +37731,11 @@ function runCompositor() {
       /rust_rejects_runtime_diagnostics_repair_policy_without_thread_id/.test(
         runtimeDiagnosticsRepairPolicyCore,
       ) &&
-      /ProjectRuntimeDiagnosticsRepairPolicy/.test(commandProtocolCoreForCompositor) &&
+      !/ProjectRuntimeDiagnosticsRepairPolicy/.test(commandProtocolCoreForCompositor) &&
       /"project_runtime_diagnostics_repair_policy"/.test(
         commandProtocolCoreForCompositor,
       ) &&
-      /project_runtime_diagnostics_repair_policy_response/.test(
+      !/project_runtime_diagnostics_repair_policy_response/.test(
         coreCommandDispatchForCompositor,
       ) &&
       /pub mod runtime_diagnostics_repair_policy;/.test(kernelModuleForCompositor) &&
@@ -37703,19 +37745,25 @@ function runCompositor() {
       /projectRuntimeDiagnosticsRepairPolicy\(request = \{\}\)/.test(
         runtimeContextPolicyCore,
       ) &&
+      /RUNTIME_PROJECTION_DIAGNOSTICS_REPAIR_POLICY_API_METHOD/.test(
+        runtimeContextPolicyCore,
+      ) &&
       /normalizeRuntimeDiagnosticsRepairPolicyBridgeResult/.test(
         runtimeContextPolicyCore,
       ) &&
       /runtime diagnostics repair policy core sends Rust daemon-core request/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /captured\.request\.state_dir,\s*"\/runtime-state"/.test(
+      /RUNTIME_PROJECTION_DIAGNOSTICS_REPAIR_POLICY_API_METHOD/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /captured\.request\.diagnostic_event_ids,\s*\["event_diagnostics_alpha"\]/.test(
+      /calls\[0\]\.request\.state_dir,\s*"\/runtime-state"/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /Object\.hasOwn\(captured\.request,\s*field\),\s*false/.test(
+      /calls\[0\]\.request\.diagnostic_event_ids,\s*\["event_diagnostics_alpha"\]/.test(
+        runtimeContextPolicyCoreTest,
+      ) &&
+      /Object\.hasOwn\(calls\[0\]\.request,\s*field\),\s*false/.test(
         runtimeContextPolicyCoreTest,
       ) &&
       /diagnosticsRepairPolicyProjector:\s*this\.contextPolicyCore/.test(

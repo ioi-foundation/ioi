@@ -98,6 +98,12 @@ use authority::{
     WalletAuthorityError,
 };
 use capability::CapabilityLeaseDecision;
+use coding_tool_artifact::{
+    plan_runtime_coding_tool_artifact_drafts, project_runtime_coding_tool_artifact_read,
+    RuntimeCodingToolArtifactDraftPlanCommandError, RuntimeCodingToolArtifactDraftPlanRequest,
+    RuntimeCodingToolArtifactReadProjectionCommandError,
+    RuntimeCodingToolArtifactReadProjectionRequest,
+};
 use coding_tool_event::{
     CodingToolCommandStreamAdmissionCore, CodingToolCommandStreamAdmissionError,
     CodingToolCommandStreamAdmissionRecord, CodingToolCommandStreamAdmissionRequest,
@@ -426,6 +432,20 @@ impl RuntimeKernelService {
         request: &CodingToolResultEnvelopePlanRequest,
     ) -> Result<CodingToolResultEnvelopePlanRecord, CodingToolResultEnvelopePlanError> {
         CodingToolResultEnvelopePlanCore.plan(request)
+    }
+
+    pub fn plan_runtime_coding_tool_artifact_drafts(
+        &self,
+        request: &RuntimeCodingToolArtifactDraftPlanRequest,
+    ) -> Result<serde_json::Value, RuntimeCodingToolArtifactDraftPlanCommandError> {
+        plan_runtime_coding_tool_artifact_drafts(request)
+    }
+
+    pub fn project_runtime_coding_tool_artifact_read(
+        &self,
+        request: &RuntimeCodingToolArtifactReadProjectionRequest,
+    ) -> Result<serde_json::Value, RuntimeCodingToolArtifactReadProjectionCommandError> {
+        project_runtime_coding_tool_artifact_read(request)
     }
 
     pub fn admit_coding_tool_command_stream_events(

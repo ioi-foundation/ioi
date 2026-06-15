@@ -4,51 +4,17 @@ pub const STEP_MODULE_COMMAND_SCHEMA_VERSION: &str = "ioi.step_module.command_br
 pub const DAEMON_CORE_COMMAND_SCHEMA_VERSION: &str = "ioi.runtime.daemon_core.command.v1";
 pub const COMMAND_SCHEMA_VERSION: &str = DAEMON_CORE_COMMAND_SCHEMA_VERSION;
 
-pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
-    "run_coding_tool_step_module",
-    "plan_coding_tool_result_envelope",
-    "plan_runtime_coding_tool_artifact_drafts",
-    "project_runtime_coding_tool_artifact_read",
-    "plan_post_edit_diagnostics_feedback",
-    "plan_runtime_diagnostics_repair_control",
-    "plan_runtime_diagnostics_repair_retry_run",
-    "project_runtime_diagnostics_repair_projection",
-    "project_runtime_diagnostics_repair_policy",
-];
+pub const DAEMON_CORE_OPERATIONS: &[&str] = &["run_coding_tool_step_module"];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CommandOperation {
     RunCodingToolStepModule,
-    PlanCodingToolResultEnvelope,
-    PlanRuntimeCodingToolArtifactDrafts,
-    ProjectRuntimeCodingToolArtifactRead,
-    PlanPostEditDiagnosticsFeedback,
-    PlanRuntimeDiagnosticsRepairControl,
-    PlanRuntimeDiagnosticsRepairRetryRun,
-    ProjectRuntimeDiagnosticsRepairProjection,
-    ProjectRuntimeDiagnosticsRepairPolicy,
 }
 
 impl CommandOperation {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::RunCodingToolStepModule => "run_coding_tool_step_module",
-            Self::PlanCodingToolResultEnvelope => "plan_coding_tool_result_envelope",
-            Self::PlanRuntimeCodingToolArtifactDrafts => "plan_runtime_coding_tool_artifact_drafts",
-            Self::ProjectRuntimeCodingToolArtifactRead => {
-                "project_runtime_coding_tool_artifact_read"
-            }
-            Self::PlanPostEditDiagnosticsFeedback => "plan_post_edit_diagnostics_feedback",
-            Self::PlanRuntimeDiagnosticsRepairControl => "plan_runtime_diagnostics_repair_control",
-            Self::PlanRuntimeDiagnosticsRepairRetryRun => {
-                "plan_runtime_diagnostics_repair_retry_run"
-            }
-            Self::ProjectRuntimeDiagnosticsRepairProjection => {
-                "project_runtime_diagnostics_repair_projection"
-            }
-            Self::ProjectRuntimeDiagnosticsRepairPolicy => {
-                "project_runtime_diagnostics_repair_policy"
-            }
         }
     }
 
@@ -108,28 +74,6 @@ impl CommandProtocolError {
 pub fn command_operation(operation: &str) -> Option<CommandOperation> {
     match operation {
         "run_coding_tool_step_module" => Some(CommandOperation::RunCodingToolStepModule),
-        "plan_coding_tool_result_envelope" => Some(CommandOperation::PlanCodingToolResultEnvelope),
-        "plan_runtime_coding_tool_artifact_drafts" => {
-            Some(CommandOperation::PlanRuntimeCodingToolArtifactDrafts)
-        }
-        "project_runtime_coding_tool_artifact_read" => {
-            Some(CommandOperation::ProjectRuntimeCodingToolArtifactRead)
-        }
-        "plan_post_edit_diagnostics_feedback" => {
-            Some(CommandOperation::PlanPostEditDiagnosticsFeedback)
-        }
-        "plan_runtime_diagnostics_repair_control" => {
-            Some(CommandOperation::PlanRuntimeDiagnosticsRepairControl)
-        }
-        "plan_runtime_diagnostics_repair_retry_run" => {
-            Some(CommandOperation::PlanRuntimeDiagnosticsRepairRetryRun)
-        }
-        "project_runtime_diagnostics_repair_projection" => {
-            Some(CommandOperation::ProjectRuntimeDiagnosticsRepairProjection)
-        }
-        "project_runtime_diagnostics_repair_policy" => {
-            Some(CommandOperation::ProjectRuntimeDiagnosticsRepairPolicy)
-        }
         _ => None,
     }
 }
@@ -183,6 +127,16 @@ mod tests {
 
     #[test]
     fn daemon_core_operations_use_daemon_core_command_schema() {
+        for operation in ["run_coding_tool_step_module"] {
+            assert_eq!(
+                expected_command_schema_version(operation),
+                Some(DAEMON_CORE_COMMAND_SCHEMA_VERSION)
+            );
+        }
+    }
+
+    #[test]
+    fn runtime_coding_tool_and_diagnostics_command_transport_is_retired() {
         for operation in [
             "plan_coding_tool_result_envelope",
             "plan_runtime_coding_tool_artifact_drafts",
@@ -193,9 +147,13 @@ mod tests {
             "project_runtime_diagnostics_repair_projection",
             "project_runtime_diagnostics_repair_policy",
         ] {
+            assert_eq!(command_operation(operation), None);
+            assert_eq!(expected_command_schema_version(operation), None);
             assert_eq!(
-                expected_command_schema_version(operation),
-                Some(DAEMON_CORE_COMMAND_SCHEMA_VERSION)
+                validate_command_envelope(operation, DAEMON_CORE_COMMAND_SCHEMA_VERSION)
+                    .unwrap_err()
+                    .code(),
+                "operation_unknown"
             );
         }
     }
@@ -768,16 +726,15 @@ mod tests {
     }
 
     #[test]
-    fn daemon_core_operation_rejects_step_module_command_schema() {
+    fn retired_coding_tool_result_command_transport_is_unknown() {
         let error = validate_command_envelope(
             "plan_coding_tool_result_envelope",
             STEP_MODULE_COMMAND_SCHEMA_VERSION,
         )
         .expect_err("schema mismatch should fail closed");
 
-        assert_eq!(error.code(), "schema_version_invalid");
-        assert!(error.message().contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
-        assert!(error.message().contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
+        assert_eq!(error.code(), "operation_unknown");
+        assert!(error.message().contains("plan_coding_tool_result_envelope"));
     }
 
     #[test]
@@ -834,21 +791,6 @@ mod tests {
             step_module.schema_version,
             DAEMON_CORE_COMMAND_SCHEMA_VERSION
         );
-
-        let daemon_core = validate_command_envelope(
-            "plan_coding_tool_result_envelope",
-            DAEMON_CORE_COMMAND_SCHEMA_VERSION,
-        )
-        .expect("daemon-core command envelope");
-        assert_eq!(daemon_core.operation, "plan_coding_tool_result_envelope");
-        assert_eq!(
-            daemon_core.command_operation,
-            CommandOperation::PlanCodingToolResultEnvelope
-        );
-        assert_eq!(
-            daemon_core.schema_version,
-            DAEMON_CORE_COMMAND_SCHEMA_VERSION
-        );
     }
 
     #[test]
@@ -880,7 +822,7 @@ mod tests {
     #[test]
     fn validate_command_envelope_rejects_schema_mismatch() {
         let error = validate_command_envelope(
-            "plan_coding_tool_result_envelope",
+            "run_coding_tool_step_module",
             STEP_MODULE_COMMAND_SCHEMA_VERSION,
         )
         .expect_err("schema mismatch should fail closed");

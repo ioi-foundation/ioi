@@ -141,28 +141,6 @@ pub struct RuntimeDiagnosticsRepairRetryRunRecord {
     pub evidence_refs: Vec<String>,
 }
 
-pub fn plan_runtime_diagnostics_repair_control_response(
-    request: RuntimeDiagnosticsRepairControlRequest,
-) -> Result<Value, RuntimeDiagnosticsRepairControlCommandError> {
-    let record = RuntimeDiagnosticsRepairControlCore.plan(&request)?;
-    Ok(json!({
-        "source": "rust_runtime_diagnostics_repair_control_command",
-        "backend": "rust_policy",
-        "record": record.to_value(),
-    }))
-}
-
-pub fn plan_runtime_diagnostics_repair_retry_run_response(
-    request: RuntimeDiagnosticsRepairRetryRunRequest,
-) -> Result<Value, RuntimeDiagnosticsRepairControlCommandError> {
-    let record = RuntimeDiagnosticsRepairRetryRunCore.plan(&request)?;
-    Ok(json!({
-        "source": "rust_runtime_diagnostics_repair_retry_run_command",
-        "backend": "rust_policy",
-        "record": record.to_value(),
-    }))
-}
-
 impl RuntimeDiagnosticsRepairControlCore {
     pub fn plan(
         &self,
@@ -287,25 +265,6 @@ impl RuntimeDiagnosticsRepairControlCore {
             receipt_refs,
             policy_decision_refs,
             evidence_refs,
-        })
-    }
-}
-
-impl RuntimeDiagnosticsRepairControlRecord {
-    fn to_value(&self) -> Value {
-        json!({
-            "schema_version": RUNTIME_DIAGNOSTICS_REPAIR_CONTROL_RESULT_SCHEMA_VERSION,
-            "object": "ioi.runtime_diagnostics_repair_control",
-            "status": "planned",
-            "operation": self.operation,
-            "operation_kind": self.operation_kind,
-            "thread_id": self.thread_id,
-            "decision_id": self.decision_id,
-            "control_status": self.status,
-            "event": self.event,
-            "receipt_refs": self.receipt_refs,
-            "policy_decision_refs": self.policy_decision_refs,
-            "evidence_refs": self.evidence_refs,
         })
     }
 }
@@ -438,26 +397,6 @@ impl RuntimeDiagnosticsRepairRetryRunCore {
             receipt_refs,
             policy_decision_refs,
             evidence_refs,
-        })
-    }
-}
-
-impl RuntimeDiagnosticsRepairRetryRunRecord {
-    fn to_value(&self) -> Value {
-        json!({
-            "schema_version": RUNTIME_DIAGNOSTICS_REPAIR_RETRY_RUN_RESULT_SCHEMA_VERSION,
-            "object": "ioi.runtime_diagnostics_repair_retry_run",
-            "status": "planned",
-            "operation": self.operation,
-            "operation_kind": self.operation_kind,
-            "thread_id": self.thread_id,
-            "agent_id": self.agent_id,
-            "decision_id": self.decision_id,
-            "run_request": self.run_request,
-            "retry_event_request": self.retry_event_request,
-            "receipt_refs": self.receipt_refs,
-            "policy_decision_refs": self.policy_decision_refs,
-            "evidence_refs": self.evidence_refs,
         })
     }
 }
@@ -1021,30 +960,6 @@ mod tests {
         assert!(record
             .evidence_refs
             .contains(&"runtime_diagnostics_repair_retry_run_request_rust_owned".to_string()));
-    }
-
-    #[test]
-    fn rust_shapes_runtime_diagnostics_repair_retry_run_command_response() {
-        let response = plan_runtime_diagnostics_repair_retry_run_response(retry_run_request())
-            .expect("diagnostics repair retry run response");
-
-        assert_eq!(
-            response["source"],
-            "rust_runtime_diagnostics_repair_retry_run_command"
-        );
-        assert_eq!(response["record"]["status"], "planned");
-        assert_eq!(
-            response["record"]["operation_kind"],
-            "diagnostics.repair_retry.run_create"
-        );
-        assert_eq!(
-            response["record"]["run_request"]["options"]["diagnostics_repair"]["decision_id"],
-            "decision_retry"
-        );
-        assert_eq!(
-            response["record"]["retry_event_request"]["action"],
-            "repair_retry"
-        );
     }
 
     #[test]

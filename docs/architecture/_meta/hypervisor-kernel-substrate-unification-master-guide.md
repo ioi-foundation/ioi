@@ -9521,10 +9521,34 @@ these hot paths; `command_protocol.rs` proves the retired operation names are
 unknown. Conformance now guards the typed APIs, direct Rust service methods,
 retired command protocol entries, missing dispatch wrappers, source-scan
 blockers, and absence of command-fallback source markers. This remains
-non-terminal because coding-tool StepModule transport, diagnostics/coding-tool
-artifact command transport, deeper durable replay/storage, MCP materialization,
-model_mount backend/materialization work, and stable IDE/CLI/SDK protocol APIs
-still need terminal Rust daemon-core ownership.
+non-terminal because coding-tool StepModule transport, deeper durable
+replay/storage, MCP materialization, model_mount backend/materialization work,
+and stable IDE/CLI/SDK protocol APIs still need terminal Rust daemon-core
+ownership.
+
+Slice 1227 retires the coding-tool result/artifact and diagnostics-repair
+command transport family. Coding-tool result envelope planning, coding-tool
+artifact draft planning, coding-tool artifact read projection, post-edit
+diagnostics feedback planning, diagnostics-repair control, diagnostics-repair
+retry-run planning, diagnostics-repair decision projection, and diagnostics
+rollback repair policy projection now enter Rust through typed
+`daemonCoreRuntimeControlApi` or `daemonCoreRuntimeProjectionApi` methods backed
+by direct `RuntimeKernelService` APIs. `RuntimeContextPolicyCore` rejects the
+old generic `daemonCoreInvoker` option, no longer builds command envelopes for
+these hot paths, and sends no command `operation`/`backend` transport fields.
+Rust `command_protocol.rs` now retains only the temporary
+`run_coding_tool_step_module` command operation, rejects the retired
+coding/artifact/diagnostics operation names as unknown, and `command_dispatch.rs`
+has no dispatch arms or response-wrapper error conversions for them. The Rust
+bridge request/response wrappers and command-source markers for this family are
+deleted, while conformance guards the typed APIs, direct Rust service methods,
+retired operation catalog, missing dispatch wrappers, missing command response
+helpers, and source-scan blockers. This remains non-terminal because the
+StepModule runner command transport still exists for admitted workload dispatch,
+model_mount materialization/backend work and MCP runtime materialization still
+need deeper Rust ownership, durable replay/storage remains incomplete for some
+route families, and IDE/CLI/SDK clients still need stable protocol APIs over the
+Rust-owned projection/replay records.
 
 ## Final Doctrine
 

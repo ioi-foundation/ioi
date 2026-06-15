@@ -2,13 +2,7 @@ use serde::de::DeserializeOwned;
 use serde_json::{json, Value};
 use std::io::{self, Read};
 
-use super::{
-    approval::*, coding_tool_artifact::*, coding_tool_event::*, coding_tool_step_module::*,
-    command_protocol::CommandOperation, model_mount::*, model_mount_receipt::*, policy::*,
-    runtime_diagnostics_repair_control::*, runtime_diagnostics_repair_policy::*,
-    runtime_diagnostics_repair_projection::*, runtime_memory_control::*,
-    runtime_memory_projection::*,
-};
+use super::{coding_tool_step_module::*, command_protocol::CommandOperation};
 
 #[derive(Debug, Clone)]
 pub struct CommandDispatchError {
@@ -108,46 +102,6 @@ pub fn dispatch_command_operation_response(
         CommandOperation::RunCodingToolStepModule => {
             run_coding_tool_step_module_response(decode(raw_request)?).map_err(Into::into)
         }
-        CommandOperation::PlanCodingToolResultEnvelope => {
-            plan_coding_tool_result_envelope_response(decode(raw_request)?).map_err(|error| {
-                CommandDispatchError::new(
-                    "coding_tool_result_envelope_plan_rejected",
-                    format!("{error:?}"),
-                )
-            })
-        }
-        CommandOperation::PlanRuntimeCodingToolArtifactDrafts => {
-            plan_runtime_coding_tool_artifact_drafts_response(decode(raw_request)?)
-                .map_err(Into::into)
-        }
-        CommandOperation::ProjectRuntimeCodingToolArtifactRead => {
-            project_runtime_coding_tool_artifact_read_response(decode(raw_request)?)
-                .map_err(Into::into)
-        }
-        CommandOperation::PlanPostEditDiagnosticsFeedback => {
-            plan_post_edit_diagnostics_feedback_response(decode(raw_request)?).map_err(|error| {
-                CommandDispatchError::new(
-                    "post_edit_diagnostics_feedback_plan_rejected",
-                    format!("{error:?}"),
-                )
-            })
-        }
-        CommandOperation::PlanRuntimeDiagnosticsRepairControl => {
-            plan_runtime_diagnostics_repair_control_response(decode(raw_request)?)
-                .map_err(Into::into)
-        }
-        CommandOperation::PlanRuntimeDiagnosticsRepairRetryRun => {
-            plan_runtime_diagnostics_repair_retry_run_response(decode(raw_request)?)
-                .map_err(Into::into)
-        }
-        CommandOperation::ProjectRuntimeDiagnosticsRepairProjection => {
-            project_runtime_diagnostics_repair_projection_response(decode(raw_request)?)
-                .map_err(Into::into)
-        }
-        CommandOperation::ProjectRuntimeDiagnosticsRepairPolicy => {
-            project_runtime_diagnostics_repair_policy_response(decode(raw_request)?)
-                .map_err(Into::into)
-        }
     }
 }
 
@@ -166,28 +120,7 @@ macro_rules! command_error_from {
     };
 }
 
-command_error_from!(ApprovalCommandError);
 command_error_from!(CodingToolStepModuleCommandError);
-command_error_from!(RuntimeCodingToolArtifactDraftPlanCommandError);
-command_error_from!(RuntimeCodingToolArtifactReadProjectionCommandError);
-command_error_from!(ModelMountReceiptError);
-command_error_from!(ContextPolicyCommandError);
-command_error_from!(CodingToolBudgetRecoveryCommandError);
-command_error_from!(OperatorControlCommandError);
-command_error_from!(RunCancelCommandError);
-command_error_from!(RuntimeDiagnosticsRepairControlCommandError);
-command_error_from!(RuntimeDiagnosticsRepairProjectionCommandError);
-command_error_from!(RuntimeDiagnosticsRepairPolicyCommandError);
-command_error_from!(RuntimeMemoryControlCommandError);
-command_error_from!(RuntimeMemoryProjectionCommandError);
-command_error_from!(ThreadLifecycleCommandError);
-command_error_from!(WorkspaceTrustControlCommandError);
-command_error_from!(McpMemoryCommandError);
-impl From<ModelMountReadProjectionError> for CommandDispatchError {
-    fn from(error: ModelMountReadProjectionError) -> Self {
-        Self::new(error.code, error.message)
-    }
-}
 
 #[cfg(test)]
 mod tests {
