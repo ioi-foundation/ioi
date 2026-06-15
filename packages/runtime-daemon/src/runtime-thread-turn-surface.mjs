@@ -10,6 +10,10 @@ import {
   requestWithThreadRuntimeControls,
 } from "./threads/thread-runtime-controls.mjs";
 import {
+  createRuntimeBridgeThreadControl,
+  createRuntimeBridgeTurnRun,
+} from "./runtime-agent-run-lifecycle.mjs";
+import {
   objectRecord,
   optionalString,
 } from "./runtime-value-helpers.mjs";
@@ -17,48 +21,38 @@ import { runtimeError } from "./runtime-http-utils.mjs";
 
 export function createRuntimeThreadTurnSurface(deps = {}) {
   const {
+    approvalModeForThreadMode = null,
+    buildRun = null,
     diagnosticsFeedbackBlocksContinuation,
+    ensureProviderAvailable = null,
     isRuntimeBackedAgent: isRuntimeBackedAgentDep = isRuntimeBackedAgent,
     isRuntimeServiceProfile: isRuntimeServiceProfileDep = isRuntimeServiceProfile,
     optionalString: optionalStringDep = optionalString,
     operatorTurnControlAdmissionRunner = deps.contextPolicyCore ?? null,
     requestWithThreadRuntimeControls: requestWithThreadRuntimeControlsDep = requestWithThreadRuntimeControls,
+    runtimeBridgeThreadControl = createRuntimeBridgeThreadControl,
+    runtimeBridgeTurnRun = createRuntimeBridgeTurnRun,
     runtimeError: runtimeErrorDep = runtimeError,
     runtimeProfileForRequest: runtimeProfileForRequestDep = runtimeProfileForRequest,
     threadTurnAdmissionRunner = deps.contextPolicyCore ?? null,
+    threadModeForRunMode = null,
   } = deps;
+  const threadLifecycleRunner = deps.threadLifecycleRunner ?? deps.contextPolicyCore ?? null;
   return {
     async resumeThread(store, threadId, request = {}) {
       const agent = store.agentForThread(threadId);
       if (isRuntimeBackedAgentDep(agent)) {
-        if (typeof store.agentRunLifecycleSurface?.createRuntimeBridgeThreadControl !== "function") {
-          return throwRuntimeBridgeThreadRustCoreRequired({
-            operation: "runtime_bridge_thread_control",
-            operationKind: "thread.runtime_bridge.control",
-            details: {
-              thread_id: threadId,
-              agent_id: agent?.id ?? null,
-              runtime_profile: agent?.runtime_profile ?? null,
-              action: "resume",
-              reason:
-                optionalStringDep(request.reason ?? request.message ?? request.input) ??
-                "operator requested resume",
-              evidence_refs: [
-                "runtime_bridge_thread_control_rust_owned",
-                "runtime_bridge_thread_control_js_facade_retired",
-                "rust_daemon_core_runtime_bridge_thread_control_required",
-                "agentgres_runtime_bridge_thread_control_truth_required",
-              ],
-            },
-          });
-        }
-        const threadProjection = await store.agentRunLifecycleSurface.createRuntimeBridgeThreadControl(
+        const threadProjection = await runtimeBridgeThreadControl(
           store,
           threadId,
           agent,
           {
             ...request,
             action: "resume",
+          },
+          {
+            lifecycleAdmissionRunner: threadLifecycleRunner,
+            runtimeError: runtimeErrorDep,
           },
         );
         if (
@@ -120,28 +114,19 @@ export function createRuntimeThreadTurnSurface(deps = {}) {
       const agent = store.agentForThread(threadId);
       const controlledRequest = requestWithThreadRuntimeControlsDep(agent, request);
       if (isRuntimeBackedAgentDep(agent)) {
-        if (typeof store.agentRunLifecycleSurface?.createRuntimeBridgeTurn !== "function") {
-          return throwRuntimeBridgeThreadRustCoreRequired({
-            operation: "runtime_bridge_turn_submit",
-            operationKind: "turn.runtime_bridge.submit",
-            details: {
-              thread_id: threadId,
-              agent_id: agent?.id ?? null,
-              runtime_profile: agent?.runtime_profile ?? null,
-              evidence_refs: [
-                "runtime_bridge_turn_submit_rust_owned",
-                "runtime_bridge_turn_submit_js_facade_retired",
-                "rust_daemon_core_runtime_bridge_turn_required",
-                "agentgres_runtime_bridge_turn_truth_required",
-              ],
-            },
-          });
-        }
-        const turnProjection = await store.agentRunLifecycleSurface.createRuntimeBridgeTurn(
+        const turnProjection = await runtimeBridgeTurnRun(
           store,
           threadId,
           agent,
           controlledRequest,
+          {
+            approvalModeForThreadMode,
+            buildRun,
+            ensureProviderAvailable,
+            lifecycleAdmissionRunner: threadLifecycleRunner,
+            runtimeError: runtimeErrorDep,
+            threadModeForRunMode,
+          },
         );
         const projectionRunId = optionalStringDep(turnProjection?.run_id ?? turnProjection?.request_id);
         if (
@@ -572,18 +557,4 @@ export function createRuntimeThreadTurnSurface(deps = {}) {
     });
   }
 
-  function throwRuntimeBridgeThreadRustCoreRequired({ operation, operationKind, details = {} }) {
-    throw runtimeErrorDep({
-      status: 501,
-      code: "runtime_bridge_thread_rust_core_required",
-      message:
-        "Runtime bridge thread start and turn submission require direct Rust daemon-core admission and persistence.",
-      details: {
-        rust_core_boundary: "runtime.bridge_thread",
-        operation,
-        operation_kind: operationKind,
-        ...details,
-      },
-    });
-  }
 }

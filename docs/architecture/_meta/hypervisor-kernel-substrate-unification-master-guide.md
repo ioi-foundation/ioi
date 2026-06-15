@@ -10093,6 +10093,22 @@ non-terminal because durable replay/storage, richer wallet/cTEE authority,
 deeper Agentgres receipt/state-root binding, and stable IDE/CLI/SDK read APIs
 still need terminal Rust-owned coverage across the remaining hot paths.
 
+Slice 1279 hard-cuts the mounted runtime bridge turn/control lifecycle facade.
+Public runtime-service resume and turn submission no longer call
+`agentRunLifecycleSurface.createRuntimeBridgeThreadControl` or
+`agentRunLifecycleSurface.createRuntimeBridgeTurn`; the public thread-turn
+surface now calls the direct Rust lifecycle adapter with typed
+`daemonCoreThreadLifecycleApi` planning through `RuntimeContextPolicyCore`,
+explicit run-builder/provider dependencies, Agentgres-backed `writeAgent` /
+`writeRun` commits, and Rust thread/turn projection validation. The mounted
+lifecycle surface no longer exposes those two facade methods, focused tests
+prove the methods are absent, and conformance rejects any return to those
+public-surface facade calls. This remains non-terminal because runtime-service
+thread start still enters through the create-thread lifecycle surface, and
+broader lifecycle completion still needs deletion/cancellation replay/projection,
+durable wallet/cTEE authority, and stable IDE/CLI/SDK lifecycle APIs over
+Rust-owned records.
+
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,
 `/v1/memory/policy`, `/v1/memory/path`, or `/v1/memory/validate`; the daemon

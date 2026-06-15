@@ -42,6 +42,50 @@ function createStore(overrides = {}) {
   return {
     calls,
     runs: new Map([[run.id, run]]),
+    contextPolicyCore: Object.hasOwn(overrides, "contextPolicyCore")
+      ? overrides.contextPolicyCore
+      : {
+          planRuntimeBridgeThreadControlAgentStateUpdate(request) {
+            calls.push({ method: "planRuntimeBridgeThreadControlAgentStateUpdate", request });
+            return {
+              source: "rust_runtime_bridge_thread_control_agent_state_update_api",
+              backend: "rust_policy",
+              status: "planned",
+              operation_kind: "thread.runtime_bridge.control",
+              thread_id: request.thread_id,
+              agent_id: request.agent.id,
+              control: {
+                action: request.action,
+                reason: request.reason,
+                runtime_bridge_status: "active",
+                evidence_refs: request.evidence_refs,
+              },
+              agent: {
+                ...request.agent,
+                status: "active",
+                runtime_bridge_status: "active",
+                updatedAt: request.updated_at,
+                rust_runtime_bridge_controlled: true,
+              },
+            };
+          },
+          planRuntimeBridgeTurnRunStateUpdate(request) {
+            calls.push({ method: "planRuntimeBridgeTurnRunStateUpdate", request });
+            return {
+              source: "rust_runtime_bridge_turn_run_state_update_api",
+              backend: "rust_policy",
+              status: "planned",
+              operation_kind: "turn.runtime_bridge.submit",
+              thread_id: request.thread_id,
+              run_id: request.run.id,
+              agent_id: request.agent.id,
+              run: {
+                ...request.run,
+                rust_runtime_bridge_submitted: true,
+              },
+            };
+          },
+        },
     agentForThread(threadId) {
       calls.push({ method: "agentForThread", threadId });
       return agent;
@@ -56,6 +100,14 @@ function createStore(overrides = {}) {
         thread_id: "thread_alpha",
         agent_id: updatedAgent.id,
         status: updatedAgent.status,
+        rust_projected: true,
+      };
+    },
+    writeAgent(plannedAgent, operationKind) {
+      calls.push({ method: "writeAgent", plannedAgent, operationKind });
+      return {
+        operation_kind: operationKind,
+        receipt_refs: [`receipt://${operationKind}/${plannedAgent.id}`],
       };
     },
     agentRunLifecycleSurface: Object.hasOwn(overrides, "agentRunLifecycleSurface")
@@ -80,38 +132,6 @@ function createStore(overrides = {}) {
             });
             return { id: "run_alpha", agentId, request, rust_planned: true };
           },
-          createRuntimeBridgeTurn(surfaceStore, threadId, agentRecord, request) {
-            calls.push({
-              method: "agentRunLifecycleSurface.createRuntimeBridgeTurn",
-              surfaceStore,
-              threadId,
-              agentId: agentRecord.id,
-              request,
-            });
-            return {
-              turn_id: "turn_runtime",
-              thread_id: threadId,
-              request_id: "run_runtime",
-              run_id: "run_runtime",
-              agent_id: agentRecord.id,
-              rust_projected: true,
-            };
-          },
-          createRuntimeBridgeThreadControl(surfaceStore, threadId, agentRecord, request) {
-            calls.push({
-              method: "agentRunLifecycleSurface.createRuntimeBridgeThreadControl",
-              surfaceStore,
-              threadId,
-              agentId: agentRecord.id,
-              request,
-            });
-            return {
-              thread_id: threadId,
-              agent_id: agentRecord.id,
-              status: "active",
-              rust_projected: true,
-            };
-          },
         },
     pendingDiagnosticsFeedbackForNextTurn(threadId, request) {
       calls.push({ method: "pendingDiagnosticsFeedbackForNextTurn", threadId, request });
@@ -120,6 +140,21 @@ function createStore(overrides = {}) {
     createRun(agentId, request) {
       calls.push({ method: "createRun", agentId, request });
       return { id: "run_alpha", agentId, request };
+    },
+    resolveRunModelRoute(agentRecord, request) {
+      calls.push({ method: "resolveRunModelRoute", agentId: agentRecord.id, request });
+      return {
+        selectedModel: "model.runtime",
+        requestedModelId: request.model?.id ?? "auto",
+        routeId: "route.runtime",
+        endpointId: "endpoint.runtime",
+        providerId: "provider.runtime",
+        receiptId: "receipt.runtime-route",
+      };
+    },
+    resolveRunMemory(agentRecord, request, prompt) {
+      calls.push({ method: "resolveRunMemory", agentId: agentRecord.id, request, prompt });
+      return { records: [] };
     },
     turnForRun(run) {
       calls.push({ method: "turnForRun", runId: run.id });
@@ -130,10 +165,6 @@ function createStore(overrides = {}) {
         run_id: run.id,
         request: run.request,
       };
-    },
-    createRuntimeBridgeTurn(request) {
-      calls.push({ method: "createRuntimeBridgeTurn", request });
-      return { turn_id: "turn_runtime", runtime_bridge: request };
     },
     latestRuntimeEventSeq(eventStreamId) {
       calls.push({ method: "latestRuntimeEventSeq", eventStreamId });
@@ -156,6 +187,35 @@ function createStore(overrides = {}) {
         receipt_refs: [`receipt://${operationKind}/${plannedRun.id}`],
         policy_decision_refs: [`policy://${operationKind}/${plannedRun.id}`],
       };
+    },
+  };
+}
+
+function runtimeBridgeTurnDeps() {
+  return {
+    buildRun({ agent, mode, prompt, request }) {
+      return {
+        id: "run_runtime",
+        agentId: agent.id,
+        status: "completed",
+        mode,
+        objective: prompt,
+        request,
+        createdAt: "2026-06-13T12:02:00.000Z",
+        updatedAt: "2026-06-13T12:02:00.000Z",
+        events: [],
+        conversation: [],
+        receipts: [],
+        artifacts: [],
+        trace: {},
+      };
+    },
+    ensureProviderAvailable() {},
+    threadModeForRunMode(_mode, fallback = "agent") {
+      return fallback ?? "agent";
+    },
+    approvalModeForThreadMode() {
+      return "suggest";
     },
   };
 }
@@ -304,6 +364,7 @@ test("thread turn surface controls runtime thread resume through Rust bridge-con
   const surface = createRuntimeThreadTurnSurface({
     diagnosticsFeedbackBlocksContinuation: () => false,
     isRuntimeBackedAgent: () => true,
+    ...runtimeBridgeTurnDeps(),
     runtimeError,
   });
   const store = createStore({
@@ -317,27 +378,33 @@ test("thread turn surface controls runtime thread resume through Rust bridge-con
   assert.equal(thread.rust_projected, true);
   assert.deepEqual(
     store.calls.map((call) => call.method),
-    ["agentForThread", "agentRunLifecycleSurface.createRuntimeBridgeThreadControl"],
+    [
+      "agentForThread",
+      "planRuntimeBridgeThreadControlAgentStateUpdate",
+      "writeAgent",
+      "threadForAgent",
+    ],
   );
-  assert.equal(store.calls[1].surfaceStore, store);
-  assert.equal(store.calls[1].threadId, "thread_alpha");
-  assert.equal(store.calls[1].agentId, "agent_runtime");
+  assert.equal(store.calls[1].request.thread_id, "thread_alpha");
+  assert.equal(store.calls[1].request.agent.id, "agent_runtime");
   assert.equal(store.calls[1].request.action, "resume");
   assert.equal(store.calls[1].request.reason, "continue");
+  assert.equal(store.calls[2].operationKind, "thread.runtime_bridge.control");
 
   assert.equal(store.calls.some((call) => call.method === "updateAgent"), false);
-  assert.equal(store.calls.some((call) => call.method === "threadForAgent"), false);
+  assert.equal(store.calls.some((call) => call.method === "agentRunLifecycleSurface.createRuntimeBridgeThreadControl"), false);
 });
 
 test("thread turn surface fails closed for runtime thread resume when Rust bridge-control boundary is missing", async () => {
   const surface = createRuntimeThreadTurnSurface({
     diagnosticsFeedbackBlocksContinuation: () => false,
     isRuntimeBackedAgent: () => true,
+    ...runtimeBridgeTurnDeps(),
     runtimeError,
   });
   const store = createStore({
     agent: { id: "agent_runtime", runtime_profile: "runtime_service" },
-    agentRunLifecycleSurface: null,
+    contextPolicyCore: {},
   });
 
   await assert.rejects(
@@ -358,6 +425,7 @@ test("thread turn surface submits runtime turns through Rust bridge-turn state p
   const surface = createRuntimeThreadTurnSurface({
     diagnosticsFeedbackBlocksContinuation: () => false,
     isRuntimeBackedAgent: () => true,
+    ...runtimeBridgeTurnDeps(),
     runtimeError,
   });
   const store = createStore({
@@ -374,26 +442,36 @@ test("thread turn surface submits runtime turns through Rust bridge-turn state p
   assert.equal(turn.run_id, "run_runtime");
   assert.deepEqual(
     store.calls.map((call) => call.method),
-    ["agentForThread", "agentRunLifecycleSurface.createRuntimeBridgeTurn"],
+    [
+      "agentForThread",
+      "resolveRunModelRoute",
+      "resolveRunMemory",
+      "turnForRun",
+      "planRuntimeBridgeTurnRunStateUpdate",
+      "writeRun",
+      "turnForRun",
+    ],
   );
-  assert.equal(store.calls[1].surfaceStore, store);
-  assert.equal(store.calls[1].threadId, "thread_alpha");
-  assert.equal(store.calls[1].agentId, "agent_runtime");
-  assert.equal(store.calls[1].request.prompt, "ship it");
+  assert.equal(store.calls[4].request.thread_id, "thread_alpha");
+  assert.equal(store.calls[4].request.agent.id, "agent_runtime");
+  assert.equal(store.calls[4].request.run.objective, "ship it");
+  assert.equal(store.calls[5].operationKind, "turn.runtime_bridge.submit");
+  assert.equal(store.calls[6].runId, "run_runtime");
   assert.equal(store.calls.some((call) => call.method === "createRuntimeBridgeTurn"), false);
+  assert.equal(store.calls.some((call) => call.method === "agentRunLifecycleSurface.createRuntimeBridgeTurn"), false);
   assert.equal(store.calls.some((call) => call.method === "createRun"), false);
-  assert.equal(store.calls.some((call) => call.method === "turnForRun"), false);
 });
 
 test("thread turn surface fails closed for runtime turns when Rust bridge-turn lifecycle boundary is missing", async () => {
   const surface = createRuntimeThreadTurnSurface({
     diagnosticsFeedbackBlocksContinuation: () => false,
     isRuntimeBackedAgent: () => true,
+    ...runtimeBridgeTurnDeps(),
     runtimeError,
   });
   const store = createStore({
     agent: { id: "agent_runtime", runtime_profile: "runtime_service" },
-    agentRunLifecycleSurface: null,
+    contextPolicyCore: {},
   });
 
   await assert.rejects(

@@ -14512,16 +14512,21 @@ function runBridge() {
       runtimeAgentRunLifecycle,
     ) &&
     /thread\.runtime_bridge\.control/.test(runtimeAgentRunLifecycle) &&
-    /store\.agentRunLifecycleSurface\.createRuntimeBridgeThreadControl\(\s*store,\s*threadId,\s*agent,/.test(
+    /runtimeBridgeThreadControl = createRuntimeBridgeThreadControl/.test(
       runtimeThreadTurnSurface,
     ) &&
-    /runtime_bridge_thread_control_rust_owned/.test(runtimeThreadTurnSurface) &&
-    /runtime_bridge_thread_control_js_facade_retired/.test(runtimeThreadTurnSurface) &&
-    /rust_daemon_core_runtime_bridge_thread_control_required/.test(
+    /runtimeBridgeThreadControl\(\s*store,\s*threadId,\s*agent,/.test(
       runtimeThreadTurnSurface,
     ) &&
-    /agentgres_runtime_bridge_thread_control_truth_required/.test(
+    /lifecycleAdmissionRunner:\s*threadLifecycleRunner/.test(runtimeThreadTurnSurface) &&
+    !/store\.agentRunLifecycleSurface\.createRuntimeBridgeThreadControl/.test(
       runtimeThreadTurnSurface,
+    ) &&
+    !/\n\s{4}createRuntimeBridgeThreadControl\(store,\s*threadId,\s*agent,\s*request = \{\}\)\s*\{/.test(
+      runtimeAgentRunLifecycle,
+    ) &&
+    /typeof surface\.createRuntimeBridgeThreadControl,\s*"undefined"/.test(
+      runtimeAgentRunLifecycleTest,
     ) &&
     /thread turn surface controls runtime thread resume through Rust bridge-control state planning/.test(
       runtimeThreadTurnSurfaceTest,
@@ -14722,17 +14727,23 @@ function runBridge() {
       /store\.writeRun\(plannedRun,\s*plannedOperationKind\)/.test(runtimeAgentRunLifecycle) &&
       /thread\.runtime_bridge\.start/.test(runtimeAgentRunLifecycle) &&
       /turn\.runtime_bridge\.submit/.test(runtimeAgentRunLifecycle) &&
-      /runtime_bridge_thread_rust_core_required/.test(runtimeThreadTurnSurface) &&
-      /store\.agentRunLifecycleSurface\.createRuntimeBridgeTurn\(\s*store,\s*threadId,\s*agent,\s*controlledRequest/.test(
+      /runtimeBridgeTurnRun = createRuntimeBridgeTurnRun/.test(runtimeThreadTurnSurface) &&
+      /runtimeBridgeTurnRun\(\s*store,\s*threadId,\s*agent,\s*controlledRequest/.test(
         runtimeThreadTurnSurface,
       ) &&
-      /runtime_bridge_turn_submit_rust_owned/.test(runtimeThreadTurnSurface) &&
-      /runtime_bridge_turn_submit_js_facade_retired/.test(runtimeThreadTurnSurface) &&
-      /runtime_bridge_thread_control_js_facade_retired/.test(runtimeThreadTurnSurface) &&
-      /rust_daemon_core_runtime_bridge_turn_required/.test(runtimeThreadTurnSurface) &&
-      /rust_daemon_core_runtime_bridge_thread_control_required/.test(runtimeThreadTurnSurface) &&
-      /agentgres_runtime_bridge_turn_truth_required/.test(runtimeThreadTurnSurface) &&
-      /agentgres_runtime_bridge_thread_control_truth_required/.test(runtimeThreadTurnSurface) &&
+      /buildRun/.test(runtimeThreadTurnSurface) &&
+      /ensureProviderAvailable/.test(runtimeThreadTurnSurface) &&
+      /threadModeForRunMode/.test(runtimeThreadTurnSurface) &&
+      /lifecycleAdmissionRunner:\s*threadLifecycleRunner/.test(runtimeThreadTurnSurface) &&
+      !/store\.agentRunLifecycleSurface\.createRuntimeBridgeTurn/.test(
+        runtimeThreadTurnSurface,
+      ) &&
+      !/\n\s{4}createRuntimeBridgeTurn\(store,\s*threadId,\s*agent,\s*request = \{\}\)\s*\{/.test(
+        runtimeAgentRunLifecycle,
+      ) &&
+      /typeof surface\.createRuntimeBridgeTurn,\s*"undefined"/.test(
+        runtimeAgentRunLifecycleTest,
+      ) &&
       /createThread starts runtime-service threads through Rust bridge-start state planning/.test(
         runtimeAgentRunLifecycleTest,
       ) &&
@@ -14765,7 +14776,7 @@ function runBridge() {
       ) &&
       /assertRuntimeBridgeThreadRustCoreRequired/.test(runtimeAgentRunLifecycleTest) &&
       /assertRuntimeBridgeThreadRustCoreRequired/.test(runtimeThreadTurnSurfaceTest) &&
-      /store\.calls\.some\(\(call\) => call\.method === "createRuntimeBridgeTurn"\), false/.test(
+      /store\.calls\.some\(\(call\) => call\.method === "agentRunLifecycleSurface\.createRuntimeBridgeTurn"\), false/.test(
         runtimeThreadTurnSurfaceTest,
       ) &&
       !/runtimeBridge:\s*\{/.test(runtimeThreadTurnSurfaceTest) &&
@@ -14776,7 +14787,7 @@ function runBridge() {
         runtimeThreadControlTest,
       ) &&
       /commitRuntimeModelMountRecordState/.test(runtimeThreadControlTest) &&
-      /runtime-service thread creation uses Rust bridge-start planning before JS bridge dispatch/.test(
+      /runtime-service thread creation uses Rust bridge-start planning with retired dispatch absent/.test(
         runtimeThreadControlTest,
       ) &&
       /runtime thread-control compatibility store wrappers stay retired/.test(
@@ -14909,8 +14920,15 @@ function runBridge() {
       /planRuntimeBridgeTurnRunStateUpdate/.test(runtimeAgentRunLifecycle) &&
       /store\.writeRun\(plannedRun,\s*plannedOperationKind\)/.test(runtimeAgentRunLifecycle) &&
       /turn\.runtime_bridge\.submit/.test(runtimeAgentRunLifecycle) &&
-      /store\.agentRunLifecycleSurface\.createRuntimeBridgeTurn\(\s*store,\s*threadId,\s*agent,\s*controlledRequest/.test(
+      /runtimeBridgeTurnRun = createRuntimeBridgeTurnRun/.test(runtimeThreadTurnSurface) &&
+      /runtimeBridgeTurnRun\(\s*store,\s*threadId,\s*agent,\s*controlledRequest/.test(
         runtimeThreadTurnSurface,
+      ) &&
+      !/store\.agentRunLifecycleSurface\.createRuntimeBridgeTurn/.test(
+        runtimeThreadTurnSurface,
+      ) &&
+      !/\n\s{4}createRuntimeBridgeTurn\(store,\s*threadId,\s*agent,\s*request = \{\}\)\s*\{/.test(
+        runtimeAgentRunLifecycle,
       ) &&
       /thread turn surface submits runtime turns through Rust bridge-turn state planning/.test(
         runtimeThreadTurnSurfaceTest,

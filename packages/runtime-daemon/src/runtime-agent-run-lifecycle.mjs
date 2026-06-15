@@ -61,22 +61,6 @@ export function createRuntimeAgentRunLifecycleSurface({
         threadModeForRunMode,
       });
     },
-    createRuntimeBridgeTurn(store, threadId, agent, request = {}) {
-      return createRuntimeBridgeTurnRun(store, threadId, agent, request, {
-        approvalModeForThreadMode,
-        buildRun,
-        ensureProviderAvailable,
-        lifecycleAdmissionRunner,
-        runtimeError,
-        threadModeForRunMode,
-      });
-    },
-    createRuntimeBridgeThreadControl(store, threadId, agent, request = {}) {
-      return createRuntimeBridgeThreadControl(store, threadId, agent, request, {
-        lifecycleAdmissionRunner,
-        runtimeError,
-      });
-    },
     createThread(store, request = {}) {
       return createThread(store, request, {
         ensureProviderAvailable,

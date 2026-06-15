@@ -310,7 +310,7 @@ test("runtime thread-event replay sends state-dir request without JS event candi
   }
 });
 
-test("runtime-service thread creation uses Rust bridge-start planning before JS bridge dispatch", async () => {
+test("runtime-service thread creation uses Rust bridge-start planning with retired dispatch absent", async () => {
   const stateDir = mkdtempSync(join(tmpdir(), "ioi-runtime-thread-control-create-required-"));
   const calls = [];
   const store = runtimeControlStore(stateDir, calls);

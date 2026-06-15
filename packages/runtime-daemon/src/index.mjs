@@ -808,9 +808,13 @@ export class AgentgresRuntimeStateStore {
       contextPolicyCore: this.contextPolicyCore,
     });
     this.threadTurnSurface = createRuntimeThreadTurnSurface({
+      approvalModeForThreadMode,
+      buildRun,
       contextPolicyCore: this.contextPolicyCore,
       diagnosticsFeedbackBlocksContinuation,
+      ensureProviderAvailable,
       runtimeError,
+      threadModeForRunMode,
     });
     this.subagentSurface = createRuntimeSubagentSurface({
       contextPolicyCore: this.contextPolicyCore,

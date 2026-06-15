@@ -4,6 +4,8 @@ import test from "node:test";
 import {
   createAgent,
   createRuntimeAgentRunLifecycleSurface,
+  createRuntimeBridgeThreadControl,
+  createRuntimeBridgeTurnRun,
   createRun,
   createThread,
 } from "./runtime-agent-run-lifecycle.mjs";
@@ -1077,15 +1079,20 @@ test("createThread fails closed for runtime-service threads before route plannin
 
 test("createRuntimeBridgeThreadControl commits Rust-planned bridge agent and returns Rust thread projection", () => {
   const store = fakeStore();
-  const surface = createRuntimeAgentRunLifecycleSurface({
-    lifecycleAdmissionRunner: store.contextPolicyCore,
-  });
   const agent = store.agents.get("agent_runtime");
 
-  const thread = surface.createRuntimeBridgeThreadControl(store, "thread_runtime", agent, {
-    action: "resume",
-    reason: "continue",
-  });
+  const thread = createRuntimeBridgeThreadControl(
+    store,
+    "thread_runtime",
+    agent,
+    {
+      action: "resume",
+      reason: "continue",
+    },
+    {
+      lifecycleAdmissionRunner: store.contextPolicyCore,
+    },
+  );
 
   assert.equal(thread.thread_id, "thread_runtime");
   assert.equal(thread.agent_id, "agent_runtime");
@@ -1117,16 +1124,21 @@ test("createRuntimeBridgeThreadControl commits Rust-planned bridge agent and ret
 
 test("createRuntimeBridgeThreadControl fails closed before projection or persistence when Rust bridge-control planner is missing", () => {
   const store = fakeStore({ runtimeBridgeThreadControlPlan: null });
-  const surface = createRuntimeAgentRunLifecycleSurface({
-    lifecycleAdmissionRunner: store.contextPolicyCore,
-  });
   const agent = store.agents.get("agent_runtime");
 
   assert.throws(
-    () => surface.createRuntimeBridgeThreadControl(store, "thread_runtime", agent, {
-      action: "resume",
-      reason: "continue",
-    }),
+    () => createRuntimeBridgeThreadControl(
+      store,
+      "thread_runtime",
+      agent,
+      {
+        action: "resume",
+        reason: "continue",
+      },
+      {
+        lifecycleAdmissionRunner: store.contextPolicyCore,
+      },
+    ),
     (error) => assertRuntimeBridgeThreadRustCoreRequired(error, {
       operation: "runtime_bridge_thread_control",
       operationKind: "thread.runtime_bridge.control",
@@ -1141,18 +1153,23 @@ test("createRuntimeBridgeThreadControl fails closed before projection or persist
 
 test("createRuntimeBridgeTurn commits Rust-planned runtime bridge run and returns Rust turn projection", () => {
   const store = fakeStore();
-  const surface = createRuntimeAgentRunLifecycleSurface({
-    lifecycleAdmissionRunner: store.contextPolicyCore,
-    ...runCreateDeps(store),
-  });
   const agent = store.agents.get("agent_runtime");
 
-  const turn = surface.createRuntimeBridgeTurn(store, "thread_runtime", agent, {
-    mode: "send",
-    prompt: "Ship the runtime turn",
-    threadMode: "retired",
-    approvalMode: "retired",
-  });
+  const turn = createRuntimeBridgeTurnRun(
+    store,
+    "thread_runtime",
+    agent,
+    {
+      mode: "send",
+      prompt: "Ship the runtime turn",
+      threadMode: "retired",
+      approvalMode: "retired",
+    },
+    {
+      lifecycleAdmissionRunner: store.contextPolicyCore,
+      ...runCreateDeps(store),
+    },
+  );
 
   assert.equal(turn.thread_id, "thread_runtime");
   assert.equal(turn.request_id, "run_uuid-run");
@@ -1209,17 +1226,22 @@ test("createRuntimeBridgeTurn commits Rust-planned runtime bridge run and return
 
 test("createRuntimeBridgeTurn fails closed before route, memory, or persistence when Rust bridge-turn planner is missing", () => {
   const store = fakeStore({ runtimeBridgeTurnRunStateUpdatePlan: null });
-  const surface = createRuntimeAgentRunLifecycleSurface({
-    lifecycleAdmissionRunner: store.contextPolicyCore,
-    ...runCreateDeps(store),
-  });
   const agent = store.agents.get("agent_runtime");
 
   assert.throws(
-    () => surface.createRuntimeBridgeTurn(store, "thread_runtime", agent, {
-      mode: "send",
-      prompt: "Ship the runtime turn",
-    }),
+    () => createRuntimeBridgeTurnRun(
+      store,
+      "thread_runtime",
+      agent,
+      {
+        mode: "send",
+        prompt: "Ship the runtime turn",
+      },
+      {
+        lifecycleAdmissionRunner: store.contextPolicyCore,
+        ...runCreateDeps(store),
+      },
+    ),
     (error) => assertRuntimeBridgeThreadRustCoreRequired(error, {
       operation: "runtime_bridge_turn_submit",
       operationKind: "turn.runtime_bridge.submit",
@@ -1240,6 +1262,8 @@ test("agent/run lifecycle surface routes create, run creation, and thread creati
     ...runCreateDeps(store),
     ...threadCreateDeps(store),
   });
+  assert.equal(typeof surface.createRuntimeBridgeThreadControl, "undefined");
+  assert.equal(typeof surface.createRuntimeBridgeTurn, "undefined");
 
   const agent = surface.createAgent(store, { local: { cwd: "/workspace/surface" } });
   assert.equal(agent.id, "agent_uuid-agent");
@@ -1266,18 +1290,30 @@ test("agent/run lifecycle surface routes create, run creation, and thread creati
   assert.equal(runtimeThread.thread_id, "thread_uuid-agent");
   assert.equal(runtimeThread.agent_id, "agent_uuid-agent");
   assert.equal(runtimeThread.rust_projected, true);
-  const runtimeControl = surface.createRuntimeBridgeThreadControl(
+  const runtimeControl = createRuntimeBridgeThreadControl(
     store,
     "thread_uuid-agent",
     store.writes[3].agent,
     { reason: "continue runtime thread" },
+    {
+      lifecycleAdmissionRunner: store.contextPolicyCore,
+    },
   );
   assert.equal(runtimeControl.thread_id, "thread_uuid-agent");
   assert.equal(runtimeControl.agent_id, "agent_uuid-agent");
   assert.equal(runtimeControl.rust_projected, true);
-  const runtimeTurn = surface.createRuntimeBridgeTurn(store, "thread_uuid-agent", store.writes[4].agent, {
-    prompt: "ship runtime turn",
-  });
+  const runtimeTurn = createRuntimeBridgeTurnRun(
+    store,
+    "thread_uuid-agent",
+    store.writes[4].agent,
+    {
+      prompt: "ship runtime turn",
+    },
+    {
+      lifecycleAdmissionRunner: store.contextPolicyCore,
+      ...runCreateDeps(store),
+    },
+  );
   assert.equal(runtimeTurn.thread_id, "thread_uuid-agent");
   assert.equal(runtimeTurn.run_id, "run_uuid-run");
   assert.equal(runtimeTurn.rust_projected, true);
