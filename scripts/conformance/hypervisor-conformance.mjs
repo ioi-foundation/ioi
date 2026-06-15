@@ -29855,7 +29855,10 @@ function runCompositor() {
     /runtime_subagent_read_projection_rust_owned/.test(runtimeSubagentSurface) &&
     /runtime_subagent_read_projection_js_facade_retired/.test(runtimeSubagentSurface) &&
     /subagentProjectionRunner/.test(runtimeSubagentSurface) &&
-    /candidateSubagentProjectionFacts/.test(runtimeSubagentSurface) &&
+    /subagentProjectionStateDir/.test(runtimeSubagentSurface) &&
+    /state_dir:\s*subagentProjectionStateDir\(store\)/.test(runtimeSubagentSurface) &&
+    !/candidateSubagentProjectionFacts/.test(runtimeSubagentSurface) &&
+    !/runtime_subagent_read_projection_candidates_missing/.test(runtimeSubagentSurface) &&
     /projectRuntimeSubagentProjection\(request\)/.test(runtimeSubagentSurface) &&
     /runtime_subagent_read_projection_rust_projection_missing/.test(runtimeSubagentSurface) &&
     /runtime_subagent_read_projection_rust_projection_invalid/.test(runtimeSubagentSurface) &&
@@ -29875,9 +29878,21 @@ function runCompositor() {
     /runtime subagent projection core sends Rust request through typed runtime-projection API/.test(
       runtimeContextPolicyCoreTest,
     ) &&
+    /captured\.state_dir,\s*"\/runtime-state"/.test(runtimeContextPolicyCoreTest) &&
+    /Object\.hasOwn\(captured,\s*"projection"\),\s*false/.test(runtimeContextPolicyCoreTest) &&
     /pub struct RuntimeSubagentProjectionCore;/.test(runtimeSubagentProjectionCore) &&
+    /pub state_dir: Option<String>/.test(runtimeSubagentProjectionCore) &&
+    /runtime_subagent_projection_sources_from_state_dir/.test(runtimeSubagentProjectionCore) &&
+    /runtime_subagent_projection_state_dir_required/.test(runtimeSubagentProjectionCore) &&
+    /runtime_subagent_projection_candidate_transport_retired/.test(
+      runtimeSubagentProjectionCore,
+    ) &&
     !/pub fn project_runtime_subagent_projection_response/.test(runtimeSubagentProjectionCore) &&
     /rust_projects_subagent_list_get_and_result/.test(runtimeSubagentProjectionCore) &&
+    /rust_rejects_subagent_projection_candidate_transport/.test(
+      runtimeSubagentProjectionCore,
+    ) &&
+    /rust_requires_state_dir_for_subagent_projection/.test(runtimeSubagentProjectionCore) &&
     !/rust_shapes_subagent_projection_command_response/.test(runtimeSubagentProjectionCore) &&
     /runtime_compositor_command_transport_is_retired/.test(commandProtocolCoreForCompositor) &&
     !/ProjectRuntimeSubagentProjection/.test(commandProtocolCoreForCompositor) &&
@@ -29889,6 +29904,10 @@ function runCompositor() {
       runtimeSubagentSurfaceTest,
     ) &&
     /subagent read projections return Rust daemon-core projections/.test(
+      runtimeSubagentSurfaceTest,
+    ) &&
+    /request\.state_dir === "\/runtime-state"/.test(runtimeSubagentSurfaceTest) &&
+    /Object\.hasOwn\(request,\s*"projection"\) === false/.test(
       runtimeSubagentSurfaceTest,
     ) &&
     !/subagent read projection facades fail closed before JS subagent\/run reads/.test(

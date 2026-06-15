@@ -49,6 +49,7 @@ function createStore() {
     modelRouteId: "route.parent",
   };
   const store = {
+    stateDir: "/runtime-state",
     parentAgent,
     agents: new Map([
       [parentAgent.id, parentAgent],
@@ -355,7 +356,63 @@ function assertRuntimeSubagentControlPlanningMissing(error, {
 }
 
 function projectSubagentForTest(request) {
-  const records = request.projection.subagents.filter(
+  const projectionFixture = {
+    subagents: [
+      {
+        subagent_id: "subagent_2",
+        agent_id: "agent_child_2",
+        run_id: "run_2",
+        parent_thread_id: "thread_1",
+        parent_turn_id: "turn_1",
+        role: "reviewer",
+        lifecycle_status: "completed",
+        created_at: "2026-06-04T12:00:02.000Z",
+      },
+      {
+        subagent_id: "subagent_1",
+        agent_id: "agent_child_1",
+        run_id: "run_1",
+        parent_turn_id: "turn_1",
+        parent_thread_id: "thread_1",
+        role: "reviewer",
+        lifecycle_status: "running",
+        output_contract_status: "passed",
+        output_contract_validation: { status: "passed" },
+        created_at: "2026-06-04T12:00:01.000Z",
+      },
+      {
+        subagent_id: "subagent_other",
+        parent_thread_id: "thread_other",
+        role: "reviewer",
+        lifecycle_status: "running",
+        created_at: "2026-06-04T12:00:00.000Z",
+      },
+      {
+        subagent_id: "subagent_worker",
+        parent_thread_id: "thread_1",
+        role: "worker",
+        lifecycle_status: "running",
+        created_at: "2026-06-04T12:00:03.000Z",
+      },
+    ],
+    runs: [
+      {
+        id: "run_1",
+        agentId: "agent_child_1",
+        status: "completed",
+        result: "Subagent one completed.",
+        receipts: [{ id: "receipt_run_1" }],
+      },
+      {
+        id: "run_2",
+        agentId: "agent_child_2",
+        status: "completed",
+        result: "Subagent two completed.",
+        receipts: [{ id: "receipt_run_2" }],
+      },
+    ],
+  };
+  const records = projectionFixture.subagents.filter(
     (record) =>
       record.parent_thread_id === request.thread_id &&
       (!request.role || record.role === request.role),
@@ -383,7 +440,7 @@ function projectSubagentForTest(request) {
         : null,
     };
   }
-  const run = request.projection.runs.find((candidate) => candidate.id === record?.run_id) ?? {};
+  const run = projectionFixture.runs.find((candidate) => candidate.id === record?.run_id) ?? {};
   return {
     projection_kind: "result",
     projection: record
@@ -821,8 +878,8 @@ test("subagent read projections return Rust daemon-core projections", () => {
   assert.equal(projectionCalls[0].role, "reviewer");
   assert.equal(projectionCalls[1].subagent_id, "subagent_1");
   assert.equal(projectionCalls[2].subagent_id, "subagent_2");
-  assert.equal(projectionCalls[0].projection.subagents.length, store.subagents.size);
-  assert.equal(projectionCalls[0].projection.runs.length, store.runs.size);
+  assert.equal(projectionCalls.every((request) => request.state_dir === "/runtime-state"), true);
+  assert.equal(projectionCalls.every((request) => Object.hasOwn(request, "projection") === false), true);
   assert.equal(
     projectionCalls[0].evidence_refs.includes("runtime_subagent_read_projection_js_facade_retired"),
     true,

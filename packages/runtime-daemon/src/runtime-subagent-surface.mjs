@@ -485,24 +485,8 @@ export function createRuntimeSubagentSurface({
     return run;
   }
 
-  function candidateSubagentProjectionFacts(store) {
-    const subagentValues = store?.subagents?.values;
-    const runValues = store?.runs?.values;
-    if (typeof subagentValues !== "function" || typeof runValues !== "function") {
-      throw runtimeErrorDep({
-        status: 500,
-        code: "runtime_subagent_read_projection_candidates_missing",
-        message: "Runtime subagent read projection candidates are unavailable.",
-        details: {
-          rust_core_boundary: "runtime.subagent_projection",
-          source: "runtime.subagent_surface.read_projection",
-        },
-      });
-    }
-    return {
-      subagents: Array.from(subagentValues.call(store.subagents)),
-      runs: Array.from(runValues.call(store.runs)),
-    };
+  function subagentProjectionStateDir(store) {
+    return optionalString(store?.stateDir);
   }
 
   function lifecycleMcpRegistryForStore(store) {
@@ -532,7 +516,6 @@ export function createRuntimeSubagentSurface({
       role,
     };
     const runner = subagentProjectionRunner(store, requestContext);
-    const projection = candidateSubagentProjectionFacts(store);
     const request = {
       operation: "runtime_subagent_projection",
       operation_kind: operationKind,
@@ -541,7 +524,7 @@ export function createRuntimeSubagentSurface({
       subagent_id: subagentId,
       role,
       source: "runtime.subagent_surface.read_projection",
-      projection,
+      state_dir: subagentProjectionStateDir(store),
       evidence_refs: runtimeSubagentReadProjectionEvidenceRefs,
     };
     const result = runner.projectRuntimeSubagentProjection(request);

@@ -921,11 +921,13 @@ protocol APIs remain non-terminal.
 The current subagent read macro cut replaces the fail-closed public subagent
 read facade with Rust daemon-core projection. Public subagent list, get, and
 result routes now call `project_runtime_subagent_projection` through the
-mounted subagent surface; Rust owns parent-thread filtering, role filtering,
-subagent id selection, result envelope shaping, projection-kind validation,
-evidence refs, and receipt refs, while JS only supplies temporary subagent/run
-candidates and fails closed before JS map readback when the projector is absent
-or mismatched. Subagent mutation/admission, StepModuleRouter delegation
+mounted subagent surface with runtime `state_dir`; Rust replays admitted
+`subagents/*.json` and `runs/*.json` Agentgres records before route truth can
+return, owns parent-thread filtering, role filtering, subagent id selection,
+result envelope shaping, projection-kind validation, evidence refs, and receipt
+refs, and rejects retired JS subagent/run candidate transport. The route family
+fails closed when the Rust projector or `state_dir` replay is absent or
+mismatched. Subagent mutation/admission, StepModuleRouter delegation
 authority, wallet delegation/cancellation authority, durable Agentgres
 storage/replay, receipt/state-root binding, and direct protocol APIs remain
 non-terminal.
@@ -10171,6 +10173,19 @@ control planning, and focused Rust/JS tests plus conformance guard that the
 retired candidate path cannot return. This remains non-terminal because durable
 ArtifactRef/PayloadRef admission, richer replay/storage, wallet/cTEE authority,
 and stable SDK/IDE artifact APIs still need to close.
+
+Slice 1284 hard-retires public subagent read JS subagent/run candidate
+transport. Public subagent list/get/result still call Rust
+`projectRuntimeSubagentProjection`; the mounted JS surface now sends runtime
+`state_dir` instead of a `{subagents,runs}` projection bundle, Rust
+`runtime_subagent_projection.rs` replays admitted `subagents/*.json` and
+`runs/*.json` records, rejects the old projection candidate transport, and
+requires `state_dir` for valid read projections. Focused Rust/JS tests and
+conformance guard that the deleted `candidateSubagentProjectionFacts()` path and
+candidate error cannot return. This remains non-terminal because subagent
+control still coordinates current subagent/run mutation facts, and direct
+StepModuleRouter delegation/execution, wallet authority, durable replay/storage,
+and stable SDK/IDE subagent APIs still need to close.
 
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,

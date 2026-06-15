@@ -1,5 +1,6 @@
 use serde::Deserialize;
 use serde_json::{json, Value};
+use std::{fs, path::Path};
 
 pub const RUNTIME_SUBAGENT_PROJECTION_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.subagent-projection-request.v1";
@@ -27,6 +28,8 @@ pub struct RuntimeSubagentProjectionRequest {
     pub role: Option<String>,
     #[serde(default)]
     pub source: Option<String>,
+    #[serde(default)]
+    pub state_dir: Option<String>,
     #[serde(default)]
     pub projection: Value,
     #[serde(default)]
@@ -74,13 +77,26 @@ pub struct RuntimeSubagentProjectionRecord {
     pub receipt_refs: Vec<String>,
 }
 
+struct RuntimeSubagentProjectionSources {
+    subagents: Vec<Value>,
+    runs: Vec<Value>,
+}
+
 impl RuntimeSubagentProjectionCore {
     pub fn project(
         &self,
         request: &RuntimeSubagentProjectionRequest,
     ) -> Result<RuntimeSubagentProjectionRecord, RuntimeSubagentProjectionCommandError> {
         let projection_kind = normalized_projection_kind(request)?;
-        let projection = projection_for_kind(&projection_kind, request)?;
+        if !matches!(projection_kind.as_str(), "list" | "get" | "result") {
+            return Err(RuntimeSubagentProjectionCommandError::new(
+                "runtime_subagent_projection_kind_invalid",
+                format!("unsupported runtime subagent projection kind {projection_kind}"),
+            ));
+        }
+        reject_projection_candidate_transport(request)?;
+        let sources = runtime_subagent_projection_sources_from_state_dir(request)?;
+        let projection = projection_for_kind(&projection_kind, request, &sources)?;
         let record_count = record_count_for_projection(&projection);
         let operation = request
             .operation
@@ -122,10 +138,14 @@ impl RuntimeSubagentProjectionCore {
 fn projection_for_kind(
     projection_kind: &str,
     request: &RuntimeSubagentProjectionRequest,
+    sources: &RuntimeSubagentProjectionSources,
 ) -> Result<Value, RuntimeSubagentProjectionCommandError> {
     match projection_kind {
         "list" => {
-            let mut records: Vec<Value> = subagent_candidates(&request.projection)
+            let mut records: Vec<Value> = sources
+                .subagents
+                .iter()
+                .cloned()
                 .into_iter()
                 .filter(|record| matches_thread(record, request.thread_id.as_deref()))
                 .filter(|record| matches_role(record, request.role.as_deref()))
@@ -142,7 +162,10 @@ fn projection_for_kind(
                         "subagent get projection requires subagent_id",
                     )
                 })?;
-            Ok(subagent_candidates(&request.projection)
+            Ok(sources
+                .subagents
+                .iter()
+                .cloned()
                 .into_iter()
                 .find(|record| {
                     matches_subagent_id(record, &subagent_id)
@@ -159,7 +182,10 @@ fn projection_for_kind(
                         "subagent result projection requires subagent_id",
                     )
                 })?;
-            let subagent = subagent_candidates(&request.projection)
+            let subagent = sources
+                .subagents
+                .iter()
+                .cloned()
                 .into_iter()
                 .find(|record| {
                     matches_subagent_id(record, &subagent_id)
@@ -172,7 +198,10 @@ fn projection_for_kind(
             let run = run_id
                 .as_deref()
                 .and_then(|id| {
-                    run_candidates(&request.projection)
+                    sources
+                        .runs
+                        .iter()
+                        .cloned()
                         .into_iter()
                         .find(|run| matches_run_id(run, id))
                 })
@@ -204,20 +233,109 @@ fn normalized_projection_kind(
     ))
 }
 
-fn subagent_candidates(projection: &Value) -> Vec<Value> {
-    projection
-        .get("subagents")
-        .and_then(Value::as_array)
-        .cloned()
-        .unwrap_or_default()
+fn reject_projection_candidate_transport(
+    request: &RuntimeSubagentProjectionRequest,
+) -> Result<(), RuntimeSubagentProjectionCommandError> {
+    if has_candidate_transport(&request.projection) {
+        return Err(RuntimeSubagentProjectionCommandError::new(
+            "runtime_subagent_projection_candidate_transport_retired",
+            "runtime subagent projection rejects JS-supplied subagent/run candidates; provide state_dir for Agentgres replay",
+        ));
+    }
+    Ok(())
 }
 
-fn run_candidates(projection: &Value) -> Vec<Value> {
-    projection
-        .get("runs")
-        .and_then(Value::as_array)
-        .cloned()
-        .unwrap_or_default()
+fn has_candidate_transport(value: &Value) -> bool {
+    match value {
+        Value::Null => false,
+        Value::Object(object) => !object.is_empty(),
+        Value::Array(items) => !items.is_empty(),
+        _ => true,
+    }
+}
+
+fn runtime_subagent_projection_sources_from_state_dir(
+    request: &RuntimeSubagentProjectionRequest,
+) -> Result<RuntimeSubagentProjectionSources, RuntimeSubagentProjectionCommandError> {
+    let state_dir = optional_trimmed(request.state_dir.as_deref()).ok_or_else(|| {
+        RuntimeSubagentProjectionCommandError::new(
+            "runtime_subagent_projection_state_dir_required",
+            "runtime subagent projection requires runtime state_dir for Agentgres replay",
+        )
+    })?;
+    let state_root = Path::new(&state_dir);
+    Ok(RuntimeSubagentProjectionSources {
+        subagents: read_json_records(state_root, "subagents", "subagent")?
+            .into_iter()
+            .filter(active_subagent_record)
+            .collect(),
+        runs: read_json_records(state_root, "runs", "run")?,
+    })
+}
+
+fn read_json_records(
+    state_root: &Path,
+    dir: &str,
+    label: &str,
+) -> Result<Vec<Value>, RuntimeSubagentProjectionCommandError> {
+    let record_dir = state_root.join(dir);
+    if !record_dir.exists() {
+        return Ok(Vec::new());
+    }
+    let entries = fs::read_dir(&record_dir).map_err(|error| {
+        RuntimeSubagentProjectionCommandError::new(
+            "runtime_subagent_projection_replay_read_failed",
+            format!(
+                "runtime subagent projection could not read Agentgres {label} records: {error}"
+            ),
+        )
+    })?;
+    let mut paths = Vec::new();
+    for entry in entries {
+        let entry = entry.map_err(|error| {
+            RuntimeSubagentProjectionCommandError::new(
+                "runtime_subagent_projection_replay_read_failed",
+                format!(
+                    "runtime subagent projection could not inspect Agentgres {label} entry: {error}"
+                ),
+            )
+        })?;
+        let path = entry.path();
+        if path.is_file() && path.extension().and_then(|value| value.to_str()) == Some("json") {
+            paths.push(path);
+        }
+    }
+    paths.sort();
+
+    let mut records = Vec::new();
+    for path in paths {
+        let contents = fs::read_to_string(&path).map_err(|error| {
+            RuntimeSubagentProjectionCommandError::new(
+                "runtime_subagent_projection_replay_read_failed",
+                format!(
+                    "runtime subagent projection could not read Agentgres {label} record {}: {error}",
+                    path.display()
+                ),
+            )
+        })?;
+        let record = serde_json::from_str(&contents).map_err(|error| {
+            RuntimeSubagentProjectionCommandError::new(
+                "runtime_subagent_projection_replay_record_invalid",
+                format!(
+                    "runtime subagent projection found invalid Agentgres {label} record {}: {error}",
+                    path.display()
+                ),
+            )
+        })?;
+        records.push(record);
+    }
+    Ok(records)
+}
+
+fn active_subagent_record(record: &Value) -> bool {
+    string_field(record, "status").as_deref() != Some("deleted")
+        && string_field(record, "lifecycle_status").as_deref() != Some("deleted")
+        && string_field(record, "deleted_at").is_none()
 }
 
 fn projected_subagent_record(record: Value) -> Value {
@@ -409,6 +527,7 @@ fn optional_trimmed_lower(value: Option<&str>) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::{fs, path::Path};
 
     fn projection_candidates() -> Value {
         json!({
@@ -460,14 +579,66 @@ mod tests {
         })
     }
 
+    fn write_state_record(state_dir: &Path, dir: &str, file_name: &str, record: Value) {
+        let record_dir = state_dir.join(dir);
+        fs::create_dir_all(&record_dir).expect("record dir");
+        fs::write(
+            record_dir.join(file_name),
+            serde_json::to_string_pretty(&record).expect("record json"),
+        )
+        .expect("write state record");
+    }
+
+    fn seed_subagent_state(state_dir: &Path) {
+        let candidates = projection_candidates();
+        for record in candidates
+            .get("subagents")
+            .and_then(Value::as_array)
+            .expect("subagent candidates")
+        {
+            let subagent_id = record
+                .get("subagent_id")
+                .and_then(Value::as_str)
+                .expect("subagent id");
+            write_state_record(
+                state_dir,
+                "subagents",
+                &format!("{subagent_id}.json"),
+                record.clone(),
+            );
+        }
+        for record in candidates
+            .get("runs")
+            .and_then(Value::as_array)
+            .expect("run candidates")
+        {
+            let run_id = record.get("id").and_then(Value::as_str).expect("run id");
+            write_state_record(state_dir, "runs", &format!("{run_id}.json"), record.clone());
+        }
+        write_state_record(
+            state_dir,
+            "subagents",
+            "subagent_deleted.json",
+            json!({
+                "subagent_id": "subagent_deleted",
+                "parent_thread_id": "thread_1",
+                "role": "reviewer",
+                "status": "deleted",
+                "created_at": "2026-06-04T12:00:04.000Z"
+            }),
+        );
+    }
+
     #[test]
     fn rust_projects_subagent_list_get_and_result() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        seed_subagent_state(temp.path());
         let list = RuntimeSubagentProjectionCore
             .project(&RuntimeSubagentProjectionRequest {
                 projection_kind: Some("list".to_string()),
                 thread_id: Some("thread_1".to_string()),
                 role: Some("reviewer".to_string()),
-                projection: projection_candidates(),
+                state_dir: Some(temp.path().to_string_lossy().to_string()),
                 ..Default::default()
             })
             .expect("list projection");
@@ -481,7 +652,7 @@ mod tests {
                 projection_kind: Some("get".to_string()),
                 thread_id: Some("thread_1".to_string()),
                 subagent_id: Some("subagent_old".to_string()),
-                projection: projection_candidates(),
+                state_dir: Some(temp.path().to_string_lossy().to_string()),
                 ..Default::default()
             })
             .expect("get projection");
@@ -493,7 +664,7 @@ mod tests {
                 projection_kind: Some("result".to_string()),
                 thread_id: Some("thread_1".to_string()),
                 subagent_id: Some("subagent_new".to_string()),
-                projection: projection_candidates(),
+                state_dir: Some(temp.path().to_string_lossy().to_string()),
                 ..Default::default()
             })
             .expect("result projection");
@@ -507,6 +678,38 @@ mod tests {
         assert_eq!(
             result.projection["output"]["sections"]["EVIDENCE"],
             json!(["evidence-run-new", "receipt_record_new", "receipt_run_new"])
+        );
+    }
+
+    #[test]
+    fn rust_rejects_subagent_projection_candidate_transport() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        seed_subagent_state(temp.path());
+        let error = RuntimeSubagentProjectionCore
+            .project(&RuntimeSubagentProjectionRequest {
+                projection_kind: Some("list".to_string()),
+                state_dir: Some(temp.path().to_string_lossy().to_string()),
+                projection: projection_candidates(),
+                ..Default::default()
+            })
+            .expect_err("candidate transport should fail");
+        assert_eq!(
+            error.code(),
+            "runtime_subagent_projection_candidate_transport_retired"
+        );
+    }
+
+    #[test]
+    fn rust_requires_state_dir_for_subagent_projection() {
+        let error = RuntimeSubagentProjectionCore
+            .project(&RuntimeSubagentProjectionRequest {
+                projection_kind: Some("list".to_string()),
+                ..Default::default()
+            })
+            .expect_err("missing state_dir should fail");
+        assert_eq!(
+            error.code(),
+            "runtime_subagent_projection_state_dir_required"
         );
     }
 

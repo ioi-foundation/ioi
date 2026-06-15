@@ -3888,17 +3888,13 @@ test("runtime subagent projection core sends Rust request through typed runtime-
     },
   );
 
-  const projection = {
-    subagents: [{ subagent_id: "subagent_123", parent_thread_id: "thread_123" }],
-    runs: [],
-  };
   const result = runner.projectRuntimeSubagentProjection({
     operation: "runtime_subagent_projection",
     operation_kind: "runtime.subagent_projection.list",
     projection_kind: "list",
     thread_id: "thread_123",
     role: "reviewer",
-    projection,
+    state_dir: "/runtime-state",
   });
 
   assert.equal(calls.length, 1);
@@ -3912,7 +3908,8 @@ test("runtime subagent projection core sends Rust request through typed runtime-
   assert.equal(captured.projection_kind, "list");
   assert.equal(captured.thread_id, "thread_123");
   assert.equal(captured.role, "reviewer");
-  assert.deepEqual(captured.projection, projection);
+  assert.equal(captured.state_dir, "/runtime-state");
+  assert.equal(Object.hasOwn(captured, "projection"), false);
   assert.equal(Object.hasOwn(captured, "backend"), false);
   assert.equal(result.source, "rust_runtime_subagent_projection_api");
   assert.equal(result.projection_kind, "list");
