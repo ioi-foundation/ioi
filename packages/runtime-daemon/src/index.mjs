@@ -1661,7 +1661,7 @@ function runtimeThreadProjectionAgent(agent, { threadId } = {}) {
     created_at: optionalString(record.created_at ?? record.createdAt) ?? null,
     updated_at: optionalString(record.updated_at ?? record.updatedAt) ?? null,
     workspace_root: optionalString(record.workspace_root ?? record.cwd) ?? null,
-    fixture_profile: optionalString(record.fixture_profile ?? record.fixtureProfile) ?? null,
+    fixture_profile: optionalString(record.fixture_profile) ?? null,
     model_route_receipt_id: optionalString(
       record.model_route_receipt_id ?? record.modelRouteReceiptId,
     ) ?? null,

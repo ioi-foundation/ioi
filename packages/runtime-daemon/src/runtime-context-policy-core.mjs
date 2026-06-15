@@ -1165,6 +1165,35 @@ function requiredContextPolicyBridgeOperationKind(result, record, options = {}) 
   return operationKind;
 }
 
+const RETIRED_RUNTIME_SERVICE_AGENT_ALIASES = [
+  "runtimeProfile",
+  "runtimeSessionId",
+  "runtimeBridgeId",
+  "runtimeBridgeStatus",
+  "runtimeBridgeSource",
+  "fixtureProfile",
+];
+
+function runtimeServiceAgentWithoutRetiredAliases(agent, { codePrefix, operationKind }) {
+  const record = objectRecord(agent);
+  if (!record) return null;
+  const retiredAliases = RETIRED_RUNTIME_SERVICE_AGENT_ALIASES.filter((field) =>
+    Object.hasOwn(record, field),
+  );
+  if (retiredAliases.length > 0) {
+    throw new RuntimeContextPolicyCoreError(
+      "Rust runtime-service lifecycle state update returned retired agent aliases.",
+      `${codePrefix}_retired_agent_aliases`,
+      {
+        operation_kind: operationKind,
+        retired_aliases: retiredAliases,
+        rust_core_boundary: "runtime.thread_lifecycle",
+      },
+    );
+  }
+  return record;
+}
+
 export function normalizeContextBudgetPolicyBridgeResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
@@ -3157,6 +3186,10 @@ export function normalizeThreadMemoryAgentStateUpdateBridgeResult(value = {}) {
 export function normalizeRuntimeBridgeThreadStartAgentStateUpdateApiResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
+  const operationKind = requiredContextPolicyBridgeOperationKind(result, record, {
+    codePrefix: "runtime_bridge_thread_start_agent_state_update",
+    expectedOperationKind: "thread.runtime_bridge.start",
+  });
   return {
     ...record,
     source:
@@ -3166,20 +3199,27 @@ export function normalizeRuntimeBridgeThreadStartAgentStateUpdateApiResult(value
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
-    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
-      codePrefix: "runtime_bridge_thread_start_agent_state_update",
-      expectedOperationKind: "thread.runtime_bridge.start",
-    }),
+    operation_kind: operationKind,
     updated_at: optionalString(result.updated_at ?? record.updated_at) ?? null,
     bridge_start:
       objectRecord(result.bridge_start) ?? objectRecord(record.bridge_start) ?? null,
-    agent: objectRecord(result.agent) ?? objectRecord(record.agent) ?? null,
+    agent: runtimeServiceAgentWithoutRetiredAliases(
+      objectRecord(result.agent) ?? objectRecord(record.agent),
+      {
+        codePrefix: "runtime_bridge_thread_start_agent_state_update",
+        operationKind,
+      },
+    ),
   };
 }
 
 export function normalizeRuntimeBridgeThreadControlAgentStateUpdateApiResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
+  const operationKind = requiredContextPolicyBridgeOperationKind(result, record, {
+    codePrefix: "runtime_bridge_thread_control_agent_state_update",
+    expectedOperationKind: "thread.runtime_bridge.control",
+  });
   return {
     ...record,
     source:
@@ -3189,14 +3229,17 @@ export function normalizeRuntimeBridgeThreadControlAgentStateUpdateApiResult(val
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
-    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
-      codePrefix: "runtime_bridge_thread_control_agent_state_update",
-      expectedOperationKind: "thread.runtime_bridge.control",
-    }),
+    operation_kind: operationKind,
     updated_at: optionalString(result.updated_at ?? record.updated_at) ?? null,
     control:
       objectRecord(result.control) ?? objectRecord(record.control) ?? null,
-    agent: objectRecord(result.agent) ?? objectRecord(record.agent) ?? null,
+    agent: runtimeServiceAgentWithoutRetiredAliases(
+      objectRecord(result.agent) ?? objectRecord(record.agent),
+      {
+        codePrefix: "runtime_bridge_thread_control_agent_state_update",
+        operationKind,
+      },
+    ),
   };
 }
 

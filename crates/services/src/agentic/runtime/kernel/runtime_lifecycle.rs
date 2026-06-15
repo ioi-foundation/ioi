@@ -591,7 +591,7 @@ fn thread_record_for_agent(
     Some(json!({
         "schema_version": "ioi.runtime.thread.v1",
         "thread_id": thread_id,
-        "session_id": value_string_any(agent, &["runtimeSessionId", "runtime_session_id"]).unwrap_or_else(|| agent_id.clone()),
+        "session_id": value_string_any(agent, &["runtime_session_id"]).unwrap_or_else(|| agent_id.clone()),
         "agent_id": agent_id,
         "workspace_root": workspace_root,
         "title": title,
@@ -620,7 +620,7 @@ fn thread_record_for_agent(
         "memory_count": 0,
         "archived": value_string_any(agent, &["status"]).as_deref() == Some("archived"),
         "evidence_refs": ["agentgres_canonical_state_projection", "rust_runtime_lifecycle_state_dir_replay"],
-        "runtime_profile": value_string_any(agent, &["runtimeProfile", "runtime_profile"]).unwrap_or_else(|| "fixture".to_string()),
+        "runtime_profile": value_string_any(agent, &["runtime_profile"]).unwrap_or_else(|| "fixture".to_string()),
         "usage": usage,
         "usage_telemetry": usage,
     }))

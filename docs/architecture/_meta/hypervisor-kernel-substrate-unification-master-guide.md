@@ -10038,6 +10038,22 @@ truth path; broader diagnostics completion still depends on durable diagnostics
 repair storage/replay, wallet-governed repair policy authority, and any
 remaining CLI/SDK diagnostics read APIs over Rust-owned records.
 
+Slice 1259 hard-cuts runtime-service lifecycle agent projection aliases. Rust
+thread-lifecycle start/control planning now scrubs caller-supplied
+`runtimeProfile`, `runtimeSessionId`, `runtimeBridgeId`,
+`runtimeBridgeStatus`, `runtimeBridgeSource`, and `fixtureProfile` before
+returning Agentgres-bound agent projections, emits only canonical snake_case
+runtime-service identity/custody fields, and lifecycle/thread-event/workspace
+trust Rust replay/projection readers no longer accept those camel aliases as
+truth. The JS runtime-service lifecycle normalizers fail closed if Rust returns
+any retired alias, and daemon runtime identity/session helpers read only
+`runtime_profile`, `runtime_session_id`, and `fixture_profile`. Conformance now
+guards Rust alias scrubbing, JS normalizer rejection, and snake-only helper
+reads. This removes another runtime-service compatibility truth path; broader
+lifecycle completion still depends on durable wallet/cTEE authority,
+deletion/cancellation replay/projection, and stable IDE/CLI/SDK lifecycle APIs
+over Rust-owned records.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

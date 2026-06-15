@@ -106,7 +106,7 @@ test("workspace trust warning ignores UI-provided trust overrides", () => {
     agent: {
       id: "agent_test",
       cwd: "/tmp/not-a-git-repository-for-ioi-test",
-      runtimeSessionId: "session_test",
+      runtime_session_id: "session_test",
     },
     threadId: "thread_test",
     controls: { mode: "yolo" },

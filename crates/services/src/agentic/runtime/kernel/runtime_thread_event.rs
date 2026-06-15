@@ -1479,7 +1479,7 @@ fn thread_started_event(
             ))
             .collect(),
     );
-    let fixture_profile = optional_json_string(agent, &["fixture_profile", "fixtureProfile"])
+    let fixture_profile = optional_json_string(agent, &["fixture_profile"])
         .unwrap_or_else(|| "local_daemon_agentgres_projection".to_string());
     let payload = json!({
         "schema_version": "ioi.runtime.thread.v1",

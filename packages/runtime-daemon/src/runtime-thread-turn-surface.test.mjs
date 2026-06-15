@@ -28,7 +28,7 @@ function createStore(overrides = {}) {
   const calls = [];
   const agent = overrides.agent ?? {
     id: "agent_alpha",
-    runtimeProfile: "fixture",
+    runtime_profile: "fixture",
   };
   const run = overrides.run ?? {
     id: "run_alpha",
@@ -307,7 +307,7 @@ test("thread turn surface controls runtime thread resume through Rust bridge-con
     runtimeError,
   });
   const store = createStore({
-    agent: { id: "agent_runtime", runtimeProfile: "runtime_service" },
+    agent: { id: "agent_runtime", runtime_profile: "runtime_service" },
   });
 
   const thread = await surface.resumeThread(store, "thread_alpha", { reason: "continue" });
@@ -336,7 +336,7 @@ test("thread turn surface fails closed for runtime thread resume when Rust bridg
     runtimeError,
   });
   const store = createStore({
-    agent: { id: "agent_runtime", runtimeProfile: "runtime_service" },
+    agent: { id: "agent_runtime", runtime_profile: "runtime_service" },
     agentRunLifecycleSurface: null,
   });
 
@@ -361,7 +361,7 @@ test("thread turn surface submits runtime turns through Rust bridge-turn state p
     runtimeError,
   });
   const store = createStore({
-    agent: { id: "agent_runtime", runtimeProfile: "runtime_service" },
+    agent: { id: "agent_runtime", runtime_profile: "runtime_service" },
   });
 
   const turn = await surface.createTurn(store, "thread_alpha", {
@@ -392,7 +392,7 @@ test("thread turn surface fails closed for runtime turns when Rust bridge-turn l
     runtimeError,
   });
   const store = createStore({
-    agent: { id: "agent_runtime", runtimeProfile: "runtime_service" },
+    agent: { id: "agent_runtime", runtime_profile: "runtime_service" },
     agentRunLifecycleSurface: null,
   });
 

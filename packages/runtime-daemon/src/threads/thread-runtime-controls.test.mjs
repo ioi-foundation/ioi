@@ -148,7 +148,7 @@ test("initial and normalized runtime controls preserve schema and model route fi
 
 test("runtime-backed requests inherit model controls without overriding explicit options", () => {
   const agent = {
-    runtimeProfile: "runtime_service",
+    runtime_profile: "runtime_service",
     runtimeControls: {
       mode: "review",
       approval_mode: "human_required",
@@ -227,7 +227,7 @@ test("thread control request kind and model input infer compact operator updates
 test("thread runtime control helpers ignore retired request aliases", () => {
   const controlled = requestWithThreadRuntimeControls(
     {
-      runtimeProfile: "runtime_service",
+      runtime_profile: "runtime_service",
       runtimeControls: {
         mode: "agent",
         approval_mode: "suggest",
@@ -274,7 +274,7 @@ test("thread runtime control helpers ignore retired request aliases", () => {
 test("thread runtime control model payloads use canonical route-selection fields", () => {
   const controlled = requestWithThreadRuntimeControls(
     {
-      runtimeProfile: "runtime_service",
+      runtime_profile: "runtime_service",
       runtimeControls: {
         mode: "agent",
         approval_mode: "suggest",

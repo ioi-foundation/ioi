@@ -35,11 +35,8 @@ function fakeStore({
       {
         id: "agent_runtime",
         runtime: "local",
-        runtimeProfile: "runtime_service",
         runtime_profile: "runtime_service",
-        runtimeSessionId: "session_runtime",
         runtime_session_id: "session_runtime",
-        runtimeBridgeId: "bridge_runtime",
         runtime_bridge_id: "bridge_runtime",
         runtimeControls: {
           mode: "agent",
@@ -261,17 +258,12 @@ function defaultRuntimeBridgeThreadStartPlan(request) {
     },
     agent: {
       ...request.agent,
-      runtimeProfile: request.runtime_profile,
       runtime_profile: request.runtime_profile,
-      runtimeSessionId: request.session_id,
       runtime_session_id: request.session_id,
-      runtimeBridgeId: request.bridge_id,
       runtime_bridge_id: request.bridge_id,
-      runtimeBridgeStatus: request.status,
       runtime_bridge_status: request.status,
-      runtimeBridgeSource: request.source,
       runtime_bridge_source: request.source,
-      fixtureProfile: null,
+      fixture_profile: null,
       updatedAt: request.updated_at,
       rust_runtime_bridge_started: true,
     },
@@ -297,7 +289,6 @@ function defaultRuntimeBridgeThreadControlPlan(request) {
     agent: {
       ...request.agent,
       status: "active",
-      runtimeBridgeStatus: "active",
       runtime_bridge_status: "active",
       updatedAt: request.updated_at,
       rust_runtime_bridge_controlled: true,
@@ -1111,7 +1102,6 @@ test("createRuntimeBridgeThreadControl commits Rust-planned bridge agent and ret
     agent: {
       ...agent,
       status: "active",
-      runtimeBridgeStatus: "active",
       runtime_bridge_status: "active",
       updatedAt: store.writes[0]?.agent?.updatedAt,
       rust_runtime_bridge_controlled: true,

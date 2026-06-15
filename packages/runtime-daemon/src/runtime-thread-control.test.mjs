@@ -212,7 +212,7 @@ function runtimeControlStore(stateDir, calls) {
             runtime_bridge_id: request.bridge_id,
             runtime_bridge_status: request.status,
             runtime_bridge_source: request.source,
-            fixtureProfile: null,
+            fixture_profile: null,
             updatedAt: request.updated_at,
           },
         };

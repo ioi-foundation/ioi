@@ -339,7 +339,7 @@ impl WorkspaceTrustControlStateUpdateCore {
             "artifact_refs": [],
             "rollback_refs": [],
             "redaction_profile": "internal",
-            "fixture_profile": optional_map_string(agent, "fixtureProfile").unwrap_or_else(|| "runtime".to_string()),
+            "fixture_profile": optional_map_string(agent, "fixture_profile").unwrap_or_else(|| "runtime".to_string()),
         });
 
         Ok(WorkspaceTrustControlStateUpdateRecord {

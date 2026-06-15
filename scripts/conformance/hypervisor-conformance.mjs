@@ -14355,9 +14355,10 @@ function runBridge() {
     /rust_policy_rejects_invalid_runtime_bridge_thread_control_agent_state_update_schema/.test(
       policyThreadLifecycleCore,
     ) &&
-    /"runtimeBridgeStatus"\.to_string\(\)/.test(
+    /remove_runtime_service_agent_aliases\(&mut agent\);/.test(
       runtimeBridgeThreadControlAgentStateUpdateCoreBlock,
     ) &&
+    /"runtimeBridgeStatus"/.test(policyThreadLifecycleCore) &&
     /"runtime_bridge_status"\.to_string\(\)/.test(
       runtimeBridgeThreadControlAgentStateUpdateCoreBlock,
     ) &&
@@ -14392,6 +14393,14 @@ function runBridge() {
     ) &&
     /normalizeRuntimeBridgeThreadControlAgentStateUpdateApiResult/.test(
       runtimeContextPolicyCore,
+    ) &&
+    /RETIRED_RUNTIME_SERVICE_AGENT_ALIASES/.test(runtimeContextPolicyCore) &&
+    /runtimeServiceAgentWithoutRetiredAliases/.test(runtimeContextPolicyCore) &&
+    /runtime_bridge_thread_control_agent_state_update_retired_agent_aliases/.test(
+      runtimeContextPolicyCoreTest,
+    ) &&
+    /runtime bridge lifecycle normalizers reject retired agent aliases/.test(
+      runtimeContextPolicyCoreTest,
     ) &&
     /runtime bridge thread control agent state update core sends Rust state update through typed thread-lifecycle API/.test(
       runtimeContextPolicyCoreTest,
@@ -14511,6 +14520,12 @@ function runBridge() {
       /"runtime_bridge_source"\.to_string\(\)/.test(
         runtimeBridgeThreadStartAgentStateUpdateCoreBlock,
       ) &&
+      /"fixture_profile"\.to_string\(\)/.test(
+        runtimeBridgeThreadStartAgentStateUpdateCoreBlock,
+      ) &&
+      /remove_runtime_service_agent_aliases\(&mut agent\);/.test(
+        runtimeBridgeThreadStartAgentStateUpdateCoreBlock,
+      ) &&
       /optional_json_string\(&projection_value,\s*"run_id"\)/.test(
         runtimeBridgeTurnRunStateUpdateCoreBlock,
       ) &&
@@ -14538,6 +14553,10 @@ function runBridge() {
       /rust_runtime_bridge_turn_run_state_update_api/.test(runtimeContextPolicyCore) &&
       /normalizeRuntimeBridgeThreadStartAgentStateUpdateApiResult/.test(
         runtimeContextPolicyCore,
+      ) &&
+      /runtimeServiceAgentWithoutRetiredAliases/.test(runtimeContextPolicyCore) &&
+      /runtime_bridge_thread_start_agent_state_update_retired_agent_aliases/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
       /normalizeRuntimeBridgeTurnRunStateUpdateApiResult/.test(runtimeContextPolicyCore) &&
       /rust_policy_shapes_runtime_bridge_thread_start_agent_state_update_direct_record/.test(
@@ -14696,6 +14715,7 @@ function runBridge() {
         runtimeApiBridgeTest,
       ) &&
       !/request\.runtimeProfile|options\.runtimeProfile/.test(runtimeApiBridge) &&
+      !/deps\.runtimeProfile/.test(runtimeAgentRunLifecycle) &&
       !/const updated = \{\s*\.\.\.agent,\s*runtimeProfile,\s*runtimeSessionId/s.test(
         runtimeBridgeThread,
       ) &&

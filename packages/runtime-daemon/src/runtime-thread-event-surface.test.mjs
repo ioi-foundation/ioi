@@ -37,7 +37,7 @@ function harness() {
     },
     fs: { appendFileSync() {} },
     isRuntimeBackedAgent(inputAgent) {
-      return inputAgent.runtimeProfile === "native";
+      return inputAgent.runtime_profile === "native";
     },
     latestRuntimeEventSeq(store, eventStreamId) {
       calls.push({ name: "latestRuntimeEventSeq", eventStreamId });

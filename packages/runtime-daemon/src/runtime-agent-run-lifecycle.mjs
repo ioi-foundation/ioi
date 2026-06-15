@@ -259,7 +259,7 @@ export function createThread(store, request = {}, deps = {}) {
 
 function createRuntimeBridgeThread(store, request = {}, deps = {}) {
   const options = deps.options ?? request.options ?? request;
-  const runtimeProfile = deps.runtimeProfile ?? runtimeProfileForRequest(request, options);
+  const runtimeProfile = deps.runtime_profile ?? runtimeProfileForRequest(request, options);
   const threadStartStateUpdateRunner = deps.runtimeBridgeThreadStartStateUpdateRunner ??
     deps.lifecycleAdmissionRunner ??
     store.contextPolicyCore ??
@@ -682,7 +682,7 @@ export function createRun(store, agentId, request = {}, deps = {}) {
 export function createRuntimeBridgeTurnRun(store, threadId, agent, request = {}, deps = {}) {
   const agentRecord = objectRecord(agent);
   const agentId = optionalString(agentRecord?.id);
-  const runtimeProfile = optionalString(agentRecord?.runtimeProfile ?? agentRecord?.runtime_profile);
+  const runtimeProfile = optionalString(agentRecord?.runtime_profile);
   const runtimeBridgeTurnRunStateUpdateRunner = deps.runtimeBridgeTurnRunStateUpdateRunner ??
     deps.lifecycleAdmissionRunner ??
     store.contextPolicyCore ??
@@ -864,7 +864,7 @@ export function createRuntimeBridgeTurnRun(store, threadId, agent, request = {},
 export function createRuntimeBridgeThreadControl(store, threadId, agent, request = {}, deps = {}) {
   const agentRecord = objectRecord(agent);
   const agentId = optionalString(agentRecord?.id);
-  const runtimeProfile = optionalString(agentRecord?.runtimeProfile ?? agentRecord?.runtime_profile);
+  const runtimeProfile = optionalString(agentRecord?.runtime_profile);
   const action = optionalString(request.action ?? request.runtime_control_action) ?? "resume";
   const bridgeThreadControlStateUpdateRunner = deps.runtimeBridgeThreadControlStateUpdateRunner ??
     deps.lifecycleAdmissionRunner ??

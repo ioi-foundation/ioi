@@ -30,15 +30,17 @@ test("runtime identity helpers preserve thread, agent, run, turn, and stream ids
 
 test("runtime identity helpers preserve session and fixture profile defaults", () => {
   assert.equal(runtimeSessionIdForAgent({ id: "agent_alpha" }), "agent_alpha");
-  assert.equal(runtimeSessionIdForAgent({ id: "agent_alpha", runtimeSessionId: "session_alpha" }), "session_alpha");
+  assert.equal(runtimeSessionIdForAgent({ id: "agent_alpha", runtime_session_id: "session_alpha" }), "session_alpha");
+  assert.equal(runtimeSessionIdForAgent({ id: "agent_alpha", runtimeSessionId: "session_retired" }), "agent_alpha");
   assert.equal(runtimeTurnIdForRun({ id: "run_alpha" }), "turn_alpha");
   assert.equal(runtimeTurnIdForRun({ id: "run_alpha", runtime_turn_id: "turn_runtime" }), "turn_runtime");
   assert.equal(fixtureProfileForAgent({}), DAEMON_FIXTURE_PROFILE);
-  assert.equal(fixtureProfileForAgent({ fixtureProfile: null }), null);
+  assert.equal(fixtureProfileForAgent({ fixture_profile: null }), null);
+  assert.equal(fixtureProfileForAgent({ fixtureProfile: null }), DAEMON_FIXTURE_PROFILE);
 });
 
 test("runtime identity helpers normalize runtime and lifecycle statuses", () => {
-  assert.equal(isRuntimeBackedAgent({ runtimeProfile: "runtime_service" }), true);
+  assert.equal(isRuntimeBackedAgent({ runtimeProfile: "runtime_service" }), false);
   assert.equal(isRuntimeBackedAgent({ runtime_profile: "runtime_service" }), true);
   assert.equal(isRuntimeBackedAgent({ runtimeProfile: "deterministic_fixture" }), false);
   assert.equal(threadStatusForAgent("closed"), "archived");

@@ -5061,9 +5061,7 @@ test("runtime bridge thread start agent state update core sends Rust state updat
             },
             agent: {
               id: "agent_1",
-              runtimeSessionId: "session_runtime",
               runtime_session_id: "session_runtime",
-              runtimeBridgeId: "bridge_runtime",
               runtime_bridge_id: "bridge_runtime",
               runtime_profile: "runtime_service",
               runtime_bridge_source: "runtime_service",
@@ -5102,11 +5100,20 @@ test("runtime bridge thread start agent state update core sends Rust state updat
   for (const field of ["runtimeProfile", "sessionId", "bridgeId", "updatedAt"]) {
     assert.equal(Object.hasOwn(result.bridge_start, field), false);
   }
-  assert.equal(result.agent.runtimeSessionId, "session_runtime");
   assert.equal(result.agent.runtime_session_id, "session_runtime");
   assert.equal(result.agent.runtime_bridge_id, "bridge_runtime");
   assert.equal(result.agent.runtime_profile, "runtime_service");
   assert.equal(result.agent.runtime_bridge_source, "runtime_service");
+  for (const field of [
+    "runtimeProfile",
+    "runtimeSessionId",
+    "runtimeBridgeId",
+    "runtimeBridgeStatus",
+    "runtimeBridgeSource",
+    "fixtureProfile",
+  ]) {
+    assert.equal(Object.hasOwn(result.agent, field), false);
+  }
 });
 
 test("runtime bridge thread control agent state update core sends Rust state update through typed thread-lifecycle API", () => {
@@ -5130,7 +5137,6 @@ test("runtime bridge thread control agent state update core sends Rust state upd
             agent: {
               id: "agent_1",
               status: "active",
-              runtimeBridgeStatus: "active",
               runtime_bridge_status: "active",
               updatedAt: "2026-06-06T06:20:00.000Z",
             },
@@ -5168,6 +5174,39 @@ test("runtime bridge thread control agent state update core sends Rust state upd
   assert.equal(Object.hasOwn(result.control, "runtimeBridgeStatus"), false);
   assert.equal(result.agent.status, "active");
   assert.equal(result.agent.runtime_bridge_status, "active");
+  assert.equal(Object.hasOwn(result.agent, "runtimeBridgeStatus"), false);
+});
+
+test("runtime bridge lifecycle normalizers reject retired agent aliases", () => {
+  assert.throws(
+    () => normalizeRuntimeBridgeThreadStartAgentStateUpdateApiResult({
+      status: "planned",
+      operation_kind: "thread.runtime_bridge.start",
+      agent: {
+        id: "agent_1",
+        runtimeProfile: "runtime_service",
+        runtime_profile: "runtime_service",
+      },
+    }),
+    (error) =>
+      error.code === "runtime_bridge_thread_start_agent_state_update_retired_agent_aliases" &&
+      error.details?.retired_aliases?.includes("runtimeProfile"),
+  );
+
+  assert.throws(
+    () => normalizeRuntimeBridgeThreadControlAgentStateUpdateApiResult({
+      status: "planned",
+      operation_kind: "thread.runtime_bridge.control",
+      agent: {
+        id: "agent_1",
+        runtimeBridgeStatus: "active",
+        runtime_bridge_status: "active",
+      },
+    }),
+    (error) =>
+      error.code === "runtime_bridge_thread_control_agent_state_update_retired_agent_aliases" &&
+      error.details?.retired_aliases?.includes("runtimeBridgeStatus"),
+  );
 });
 
 test("runtime bridge turn run state update core sends Rust state update through typed thread-lifecycle API", () => {

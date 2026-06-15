@@ -662,7 +662,7 @@ function repositoryContextRedaction() {
 }
 
 function runtimeSessionIdForAgent(agent) {
-  return agent.runtimeSessionId ?? agent.id;
+  return agent.runtime_session_id ?? agent.id;
 }
 
 function doctorHash(value) {

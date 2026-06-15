@@ -878,47 +878,28 @@ impl RuntimeBridgeThreadStartAgentStateUpdateCore {
         let agent_id = optional_json_string(&Value::Object(agent.clone()), "id").ok_or(
             RuntimeBridgeThreadStartAgentStateUpdateError::MissingField("agent.id"),
         )?;
-        agent.insert(
-            "runtimeProfile".to_string(),
-            Value::String(request.runtime_profile.clone()),
-        );
+        remove_runtime_service_agent_aliases(&mut agent);
         agent.insert(
             "runtime_profile".to_string(),
             Value::String(request.runtime_profile.clone()),
-        );
-        agent.insert(
-            "runtimeSessionId".to_string(),
-            Value::String(request.session_id.clone()),
         );
         agent.insert(
             "runtime_session_id".to_string(),
             Value::String(request.session_id.clone()),
         );
         agent.insert(
-            "runtimeBridgeId".to_string(),
-            Value::String(request.bridge_id.clone()),
-        );
-        agent.insert(
             "runtime_bridge_id".to_string(),
             Value::String(request.bridge_id.clone()),
-        );
-        agent.insert(
-            "runtimeBridgeStatus".to_string(),
-            Value::String(request.status.clone()),
         );
         agent.insert(
             "runtime_bridge_status".to_string(),
             Value::String(request.status.clone()),
         );
         agent.insert(
-            "runtimeBridgeSource".to_string(),
-            Value::String(request.source.clone()),
-        );
-        agent.insert(
             "runtime_bridge_source".to_string(),
             Value::String(request.source.clone()),
         );
-        agent.insert("fixtureProfile".to_string(), Value::Null);
+        agent.insert("fixture_profile".to_string(), Value::Null);
         agent.insert(
             "updatedAt".to_string(),
             Value::String(request.updated_at.clone()),
@@ -966,12 +947,9 @@ impl RuntimeBridgeThreadControlAgentStateUpdateCore {
             .ok_or(RuntimeBridgeThreadControlAgentStateUpdateError::MissingField("agent.id"))?;
         let action = normalized_runtime_bridge_thread_control_action(request.action.as_str())?;
         let bridge_status = runtime_bridge_thread_status_for_action(action.as_str());
+        remove_runtime_service_agent_aliases(&mut agent);
         agent.insert(
             "status".to_string(),
-            Value::String(bridge_status.to_string()),
-        );
-        agent.insert(
-            "runtimeBridgeStatus".to_string(),
             Value::String(bridge_status.to_string()),
         );
         agent.insert(
@@ -1656,6 +1634,19 @@ fn runtime_bridge_thread_status_for_action(action: &str) -> &'static str {
     match action {
         "resume" => "active",
         _ => "active",
+    }
+}
+
+fn remove_runtime_service_agent_aliases(agent: &mut serde_json::Map<String, Value>) {
+    for field in [
+        "runtimeProfile",
+        "runtimeSessionId",
+        "runtimeBridgeId",
+        "runtimeBridgeStatus",
+        "runtimeBridgeSource",
+        "fixtureProfile",
+    ] {
+        agent.remove(field);
     }
 }
 
@@ -2608,15 +2599,21 @@ mod tests {
         for field in ["runtimeProfile", "sessionId", "bridgeId", "updatedAt"] {
             assert!(record.bridge_start.get(field).is_none());
         }
-        assert_eq!(record.agent["runtimeProfile"], "runtime_service");
         assert_eq!(record.agent["runtime_profile"], "runtime_service");
-        assert_eq!(record.agent["runtimeSessionId"], "session_runtime");
         assert_eq!(record.agent["runtime_session_id"], "session_runtime");
-        assert_eq!(record.agent["runtimeBridgeId"], "bridge_runtime");
         assert_eq!(record.agent["runtime_bridge_id"], "bridge_runtime");
-        assert_eq!(record.agent["runtimeBridgeSource"], "runtime_service");
         assert_eq!(record.agent["runtime_bridge_source"], "runtime_service");
-        assert_eq!(record.agent["fixtureProfile"], Value::Null);
+        assert_eq!(record.agent["fixture_profile"], Value::Null);
+        for field in [
+            "runtimeProfile",
+            "runtimeSessionId",
+            "runtimeBridgeId",
+            "runtimeBridgeStatus",
+            "runtimeBridgeSource",
+            "fixtureProfile",
+        ] {
+            assert!(record.agent.get(field).is_none());
+        }
     }
 
     #[test]
@@ -2633,16 +2630,23 @@ mod tests {
         for field in ["runtimeProfile", "sessionId", "bridgeId", "updatedAt"] {
             assert!(response["bridge_start"].get(field).is_none());
         }
-        assert_eq!(response["agent"]["runtimeSessionId"], "session_runtime");
         assert_eq!(response["agent"]["runtime_session_id"], "session_runtime");
-        assert_eq!(response["agent"]["runtimeBridgeId"], "bridge_runtime");
         assert_eq!(response["agent"]["runtime_bridge_id"], "bridge_runtime");
-        assert_eq!(response["agent"]["runtimeBridgeSource"], "runtime_service");
         assert_eq!(
             response["agent"]["runtime_bridge_source"],
             "runtime_service"
         );
-        assert_eq!(response["agent"]["fixtureProfile"], Value::Null);
+        assert_eq!(response["agent"]["fixture_profile"], Value::Null);
+        for field in [
+            "runtimeProfile",
+            "runtimeSessionId",
+            "runtimeBridgeId",
+            "runtimeBridgeStatus",
+            "runtimeBridgeSource",
+            "fixtureProfile",
+        ] {
+            assert!(response["agent"].get(field).is_none());
+        }
         assert!(response.get("source").is_none());
         assert!(response.get("backend").is_none());
         assert!(response.get("record").is_none());
@@ -2676,8 +2680,17 @@ mod tests {
         );
         assert!(record.control.get("runtimeBridgeStatus").is_none());
         assert_eq!(record.agent["status"], "active");
-        assert_eq!(record.agent["runtimeBridgeStatus"], "active");
         assert_eq!(record.agent["runtime_bridge_status"], "active");
+        for field in [
+            "runtimeProfile",
+            "runtimeSessionId",
+            "runtimeBridgeId",
+            "runtimeBridgeStatus",
+            "runtimeBridgeSource",
+            "fixtureProfile",
+        ] {
+            assert!(record.agent.get(field).is_none());
+        }
         assert_eq!(record.agent["updatedAt"], "2026-06-06T06:20:00.000Z");
     }
 
@@ -2693,8 +2706,17 @@ mod tests {
         assert_eq!(response["control"]["action"], "resume");
         assert_eq!(response["control"]["runtime_bridge_status"], "active");
         assert_eq!(response["agent"]["id"], "agent_1");
-        assert_eq!(response["agent"]["runtimeBridgeStatus"], "active");
         assert_eq!(response["agent"]["runtime_bridge_status"], "active");
+        for field in [
+            "runtimeProfile",
+            "runtimeSessionId",
+            "runtimeBridgeId",
+            "runtimeBridgeStatus",
+            "runtimeBridgeSource",
+            "fixtureProfile",
+        ] {
+            assert!(response["agent"].get(field).is_none());
+        }
         assert!(response.get("source").is_none());
         assert!(response.get("backend").is_none());
         assert!(response.get("record").is_none());

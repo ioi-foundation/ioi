@@ -29,7 +29,7 @@ function deps(calls = []) {
       },
     },
     isRuntimeBackedAgent(agent) {
-      return Boolean(agent.runtimeSessionId);
+      return Boolean(agent.runtime_session_id);
     },
     normalizeRuntimeEventEnvelope(event, { seq, parentSeq, idempotencyKey }) {
       return {
@@ -503,7 +503,7 @@ test("thread replay projection skips runtime-backed agents", () => {
   const store = fakeStore();
   const agent = {
     id: "agent_1",
-    runtimeSessionId: "session_runtime",
+    runtime_session_id: "session_runtime",
     cwd: "/workspace",
   };
 

@@ -359,7 +359,7 @@ export function normalizeReasoningEffort(value, allowNull = false) {
 }
 
 function isRuntimeBackedAgent(agent = {}) {
-  return isRuntimeServiceProfile(agent.runtimeProfile);
+  return isRuntimeServiceProfile(agent.runtime_profile);
 }
 
 function optionalString(value) {

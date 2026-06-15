@@ -10,15 +10,15 @@ export function agentIdForThread(threadId) {
 }
 
 export function runtimeSessionIdForAgent(agent = {}) {
-  return agent.runtimeSessionId ?? agent.id;
+  return agent.runtime_session_id ?? agent.id;
 }
 
 export function isRuntimeBackedAgent(agent = {}) {
-  return isRuntimeServiceProfile(agent.runtimeProfile ?? agent.runtime_profile);
+  return isRuntimeServiceProfile(agent.runtime_profile);
 }
 
 export function fixtureProfileForAgent(agent = {}) {
-  return Object.hasOwn(agent, "fixtureProfile") ? agent.fixtureProfile : DAEMON_FIXTURE_PROFILE;
+  return Object.hasOwn(agent, "fixture_profile") ? agent.fixture_profile : DAEMON_FIXTURE_PROFILE;
 }
 
 export function turnIdForRun(runId) {

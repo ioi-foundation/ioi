@@ -38,7 +38,7 @@ export function createRuntimeThreadTurnSurface(deps = {}) {
             details: {
               thread_id: threadId,
               agent_id: agent?.id ?? null,
-              runtime_profile: agent?.runtimeProfile ?? agent?.runtime_profile ?? null,
+              runtime_profile: agent?.runtime_profile ?? null,
               action: "resume",
               reason:
                 optionalStringDep(request.reason ?? request.message ?? request.input) ??
@@ -85,7 +85,7 @@ export function createRuntimeThreadTurnSurface(deps = {}) {
           operationKind: "thread.resume",
           threadId,
           agentId: agent?.id ?? null,
-          runtimeProfile: agent?.runtimeProfile ?? null,
+          runtime_profile: agent?.runtime_profile ?? null,
           evidenceRefs: [
             "thread_resume_js_state_mutation_retired",
             "rust_daemon_core_thread_resume_required",
@@ -127,7 +127,7 @@ export function createRuntimeThreadTurnSurface(deps = {}) {
             details: {
               thread_id: threadId,
               agent_id: agent?.id ?? null,
-              runtime_profile: agent?.runtimeProfile ?? agent?.runtime_profile ?? null,
+              runtime_profile: agent?.runtime_profile ?? null,
               evidence_refs: [
                 "runtime_bridge_turn_submit_rust_owned",
                 "runtime_bridge_turn_submit_js_facade_retired",
@@ -172,7 +172,7 @@ export function createRuntimeThreadTurnSurface(deps = {}) {
           details: {
             thread_id: threadId,
             agent_id: agent.id,
-            agent_runtime_profile: agent.runtimeProfile ?? "fixture",
+            agent_runtime_profile: agent.runtime_profile ?? "fixture",
             requested_runtime_profile: requestedRuntimeProfile,
             synthetic_fallback_allowed: false,
           },
@@ -185,7 +185,7 @@ export function createRuntimeThreadTurnSurface(deps = {}) {
           operationKind: "turn.diagnostics_block",
           threadId,
           agentId: agent?.id ?? null,
-          runtimeProfile: agent?.runtimeProfile ?? null,
+          runtime_profile: agent?.runtime_profile ?? null,
           evidenceRefs: [
             "thread_turn_diagnostics_block_js_run_creation_retired",
             "rust_daemon_core_thread_turn_create_required",
@@ -202,7 +202,7 @@ export function createRuntimeThreadTurnSurface(deps = {}) {
           operationKind: "turn.create",
           threadId,
           agentId: agent?.id ?? null,
-          runtimeProfile: agent?.runtimeProfile ?? null,
+          runtime_profile: agent?.runtime_profile ?? null,
           evidenceRefs: [
             "thread_turn_create_js_run_creation_retired",
             "rust_daemon_core_thread_turn_create_required",
@@ -529,7 +529,7 @@ export function createRuntimeThreadTurnSurface(deps = {}) {
     operationKind,
     threadId,
     agentId,
-    runtimeProfile,
+    runtime_profile,
     evidenceRefs,
   }) {
     if (threadTurnAdmissionRunner?.planThreadTurnAdmissionRequired) {
@@ -538,7 +538,7 @@ export function createRuntimeThreadTurnSurface(deps = {}) {
         operation_kind: operationKind,
         thread_id: threadId,
         agent_id: agentId,
-        runtime_profile: runtimeProfile,
+        runtime_profile,
         evidence_refs: evidenceRefs,
       });
       const planned = record?.record ?? record;
@@ -555,7 +555,7 @@ export function createRuntimeThreadTurnSurface(deps = {}) {
           operation_kind: operationKind,
           thread_id: threadId,
           agent_id: agentId,
-          runtime_profile: runtimeProfile,
+          runtime_profile,
           evidence_refs: evidenceRefs,
         },
       });
@@ -570,7 +570,7 @@ export function createRuntimeThreadTurnSurface(deps = {}) {
         operation_kind: operationKind,
         thread_id: threadId,
         agent_id: agentId,
-        runtime_profile: runtimeProfile,
+        runtime_profile,
         evidence_refs: evidenceRefs,
       },
     });

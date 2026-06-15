@@ -7,8 +7,8 @@ function createStore() {
   const agent = {
     id: "agent_1",
     cwd: "/tmp/runtime-thread-control-test",
-    runtimeProfile: "runtime_service",
-    runtimeSessionId: "session_1",
+    runtime_profile: "runtime_service",
+    runtime_session_id: "session_1",
     runtimeControls: {
       mode: "agent",
       approvalMode: "suggest",
