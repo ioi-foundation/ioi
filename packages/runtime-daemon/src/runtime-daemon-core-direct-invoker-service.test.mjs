@@ -1707,6 +1707,7 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
   const lifecycleProjection = store.contextPolicyCore.projectRuntimeLifecycle({
     projection_kind: "agents",
     operation_kind: "runtime.lifecycle_projection.agents",
+    state_dir: stateDir,
   });
   assert.equal(calls.length, 0);
   assert.equal(runtimeProjectionCalls.length, 4);
@@ -1720,6 +1721,7 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
   assert.equal(runtimeProjectionCalls[1].request.schema_version, "ioi.runtime.repository-workflow-projection-request.v1");
   assert.equal(runtimeProjectionCalls[2].request.schema_version, "ioi.runtime.tool-catalog-projection-request.v1");
   assert.equal(runtimeProjectionCalls[3].request.schema_version, "ioi.runtime.lifecycle-projection-request.v1");
+  assert.equal(runtimeProjectionCalls[3].request.state_dir, stateDir);
   assert.equal(runtimeProjectionCalls.some((call) => Object.hasOwn(call.request, "operation")), false);
   assert.equal(runtimeProjectionCalls.some((call) => Object.hasOwn(call.request, "backend")), false);
   assert.equal(skillsProjection.source, "direct_runtime_projection_api");

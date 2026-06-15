@@ -22,54 +22,6 @@ function lifecycleRunner(calls = []) {
 }
 
 function projectionForRequest(request) {
-  switch (request.projection_kind) {
-    case "agents":
-      return request.agents;
-    case "agent":
-      return request.agent;
-    case "threads":
-      return request.threads;
-    case "thread":
-      return request.thread;
-    case "thread_usage":
-    case "run_usage":
-      return request.usage;
-    case "thread_turns":
-      return request.turns;
-    case "thread_turn":
-      return request.turn;
-    case "thread_events":
-    case "run_events":
-      return request.events;
-    case "runs":
-      return request.runs;
-    case "agent_runs":
-      return request.runs.filter((run) => run.agentId === request.agent_id);
-    case "run":
-    case "run_wait":
-      return request.run;
-    case "run_conversation":
-      return request.conversation;
-    case "run_replay":
-      return request.replay;
-    case "run_trace":
-      return request.trace;
-    case "run_computer_use_trace":
-      return request.computer_use_trace;
-    case "run_computer_use_trajectory":
-      return request.computer_use_trajectory;
-    case "run_scorecard":
-      return request.scorecard;
-    case "run_artifacts":
-      return request.artifacts;
-    case "run_artifact":
-      return request.artifact;
-    default:
-      return null;
-  }
-}
-
-function storeFixture() {
   const run = {
     id: "run_123",
     agentId: "agent_123",
@@ -84,33 +36,70 @@ function storeFixture() {
     },
     artifacts: [{ id: "artifact_123", name: "trace.json" }],
   };
+  switch (request.projection_kind) {
+    case "agents":
+      return [{ id: "agent_123", createdAt: "2026-06-12T00:00:00.000Z" }];
+    case "agent":
+      return { id: request.agent_id };
+    case "threads":
+      return [{ thread_id: "thread_123", agent_id: "agent_123" }];
+    case "thread":
+      return { thread_id: request.thread_id, agent_id: "agent_123" };
+    case "thread_usage":
+      return { thread_id: request.thread_id, total_tokens: 11 };
+    case "run_usage":
+      return { run_id: request.run_id, total_tokens: 7 };
+    case "thread_turns":
+      return [{ thread_id: request.thread_id, turn_id: "turn_123" }];
+    case "thread_turn":
+      return { thread_id: request.thread_id, turn_id: request.turn_id };
+    case "thread_events":
+      return [{ thread_id: request.thread_id, seq: 1, event_id: "event_thread" }];
+    case "run_events":
+      return [{ run_id: request.run_id, seq: 1, event_id: "event_run" }];
+    case "runs":
+      return [run, { id: "run_other", agentId: "agent_other", createdAt: "2026-06-12T02:00:00.000Z" }];
+    case "agent_runs":
+      return request.agent_id === "agent_123" ? [run] : [];
+    case "run":
+    case "run_wait":
+      return run;
+    case "run_conversation":
+      return run.conversation;
+    case "run_replay":
+      return [{ run_id: request.run_id, seq: 1, event_id: "event_run" }];
+    case "run_trace":
+      return run.trace;
+    case "run_computer_use_trace":
+      return run.trace.computerUse.trace;
+    case "run_computer_use_trajectory":
+      return run.trace.computerUse.trajectory;
+    case "run_scorecard":
+      return run.trace.scorecard;
+    case "run_artifacts":
+      return run.artifacts;
+    case "run_artifact":
+      return run.artifacts.find((artifact) => artifact.id === request.artifact_ref) ?? null;
+    default:
+      return null;
+  }
+}
+
+function storeFixture() {
+  const retired = () => {
+    throw new Error("runtime lifecycle projection must not read JS cache truth");
+  };
   return {
     defaultCwd: "/workspace/project",
-    agents: new Map([
-      ["agent_123", { id: "agent_123", createdAt: "2026-06-12T00:00:00.000Z" }],
-    ]),
-    runs: new Map([
-      ["run_123", run],
-      ["run_other", { id: "run_other", agentId: "agent_other", createdAt: "2026-06-12T02:00:00.000Z" }],
-    ]),
-    listThreads() {
-      return [{ thread_id: "thread_123", agent_id: "agent_123" }];
-    },
-    usageForThread(threadId) {
-      return { thread_id: threadId, total_tokens: 11 };
-    },
-    listTurns(threadId) {
-      return [{ thread_id: threadId, turn_id: "turn_123" }];
-    },
-    eventsForThread(threadId) {
-      return [{ thread_id: threadId, seq: 1, event_id: "event_thread" }];
-    },
-    usageForRun(runId) {
-      return { run_id: runId, total_tokens: 7 };
-    },
-    eventsForRun(runId) {
-      return [{ run_id: runId, seq: 1, event_id: "event_run" }];
-    },
+    stateDir: "/runtime-state",
+    get agents() { return retired(); },
+    get runs() { return retired(); },
+    listThreads: retired,
+    usageForThread: retired,
+    listTurns: retired,
+    eventsForThread: retired,
+    usageForRun: retired,
+    eventsForRun: retired,
   };
 }
 
@@ -118,9 +107,6 @@ test("runtime lifecycle surface returns Rust-owned public lifecycle projections"
   const calls = [];
   const surface = createRuntimeLifecycleProjectionSurface({
     lifecycleRunner: lifecycleRunner(calls),
-    resolveRunArtifact(run, artifactRef) {
-      return run.artifacts.find((artifact) => artifact.id === artifactRef) ?? null;
-    },
     workspaceRoot: "/workspace/project",
   });
   const store = storeFixture();
@@ -150,7 +136,15 @@ test("runtime lifecycle surface returns Rust-owned public lifecycle projections"
 
   assert.ok(calls.every((call) => call.source === "runtime.lifecycle_projection_surface"));
   assert.ok(calls.every((call) => call.workspace_root === "/workspace/project"));
+  assert.ok(calls.every((call) => call.state_dir === "/runtime-state"));
   assert.ok(calls.every((call) => call.evidence_refs.includes("runtime_lifecycle_rust_projection")));
+  assert.ok(calls.every((call) => Object.hasOwn(call, "agents") === false));
+  assert.ok(calls.every((call) => Object.hasOwn(call, "runs") === false));
+  assert.ok(calls.every((call) => Object.hasOwn(call, "events") === false));
+  assert.ok(calls.every((call) => Object.hasOwn(call, "replay") === false));
+  assert.ok(calls.every((call) => Object.hasOwn(call, "agent") === false));
+  assert.ok(calls.every((call) => Object.hasOwn(call, "run") === false));
+  assert.ok(calls.every((call) => Object.hasOwn(call, "usage") === false));
   assert.deepEqual(calls.map((call) => call.projection_kind), [
     "agents",
     "agent",

@@ -43,7 +43,6 @@ function routeHandlers() {
       throw error;
     },
     readBody: async (req) => req.body ?? {},
-    resolveRunArtifact: () => null,
     runtimeEventCursorFromRequest: () => ({}),
     usageRequestMetadataFromUrl: () => ({}),
     usageTelemetryWithRequestMetadata: (payload) => payload,

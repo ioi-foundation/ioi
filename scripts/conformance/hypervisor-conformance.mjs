@@ -12549,14 +12549,31 @@ function runBridge() {
       policyProjectionRequiredCore.trim() === "" &&
       /pub struct RuntimeLifecycleProjectionCore/.test(runtimeLifecycleRustCore) &&
       /pub struct RuntimeLifecycleProjectionBridgeRequest/.test(runtimeLifecycleRustCore) &&
+      /pub state_dir: Option<String>/.test(runtimeLifecycleRustCore) &&
       !/pub fn project_runtime_lifecycle_response/.test(runtimeLifecycleRustCore) &&
       /pub fn project_runtime_lifecycle\(/.test(kernelModuleForBridgeChecks) &&
       /rust_runtime_lifecycle_projection_api/.test(runtimeLifecycleRustCore) &&
       !/rust_runtime_lifecycle_projection_command/.test(runtimeLifecycleRustCore) &&
       /runtime_lifecycle_projection_kind_invalid/.test(runtimeLifecycleRustCore) &&
+      /runtime_lifecycle_sources_from_state_dir/.test(runtimeLifecycleRustCore) &&
+      /runtime_lifecycle_projection_state_dir_required/.test(runtimeLifecycleRustCore) &&
+      /runtime_lifecycle_projection_retired_candidate_transport/.test(
+        runtimeLifecycleRustCore,
+      ) &&
+      /rust_requires_state_dir_for_runtime_lifecycle_projection/.test(
+        runtimeLifecycleRustCore,
+      ) &&
+      /rust_rejects_retired_runtime_lifecycle_candidate_transport/.test(
+        runtimeLifecycleRustCore,
+      ) &&
       /rust_projects_runtime_lifecycle_route_family_shapes/.test(
         runtimeLifecycleRustCore,
       ) &&
+      !/"agents"\s*=>\s*Ok\(Value::Array\(sort_records\(request\.agents\.clone\(\)\)\)\)/.test(
+        runtimeLifecycleRustCore,
+      ) &&
+      !/request\.runs\.clone\(\)/.test(runtimeLifecycleRustCore) &&
+      !/request\.events\.clone\(\)/.test(runtimeLifecycleRustCore) &&
       !/SkillHookRegistryProjectionRequiredCore/.test(projectionCommandBridge) &&
       !/RepositoryWorkflowProjectionRequiredCore/.test(projectionCommandBridge) &&
       !/RuntimeLifecycleProjectionRequiredCore/.test(projectionCommandBridge) &&
@@ -26951,21 +26968,39 @@ function runReceipts() {
       !/pub fn project_runtime_lifecycle_response/.test(runtimeLifecycleRustCore) &&
       /pub fn project_runtime_lifecycle\(/.test(runtimeKernelModule) &&
       /pub struct RuntimeLifecycleProjectionCore/.test(runtimeLifecycleRustCore) &&
-      /pub struct RuntimeLifecycleProjectionBridgeRequest/.test(
-        runtimeLifecycleRustCore,
-      ) &&
-      /rust_runtime_lifecycle_projection_api/.test(runtimeLifecycleRustCore) &&
-      !/rust_runtime_lifecycle_projection_command/.test(runtimeLifecycleRustCore) &&
-      /runtime_lifecycle_rust_projection/.test(runtimeLifecycleRustCore) &&
-      /agentgres_runtime_lifecycle_truth_required/.test(runtimeLifecycleRustCore) &&
-      /artifact_ref/.test(runtimeLifecycleRustCore) &&
-      /turn_id/.test(runtimeLifecycleRustCore) &&
-      /rust_projects_runtime_lifecycle_route_family_shapes/.test(
-        runtimeLifecycleRustCore,
-      ) &&
-      /rust_shapes_runtime_lifecycle_direct_record/.test(
-        runtimeLifecycleRustCore,
-      ) &&
+	      /pub struct RuntimeLifecycleProjectionBridgeRequest/.test(
+	        runtimeLifecycleRustCore,
+	      ) &&
+	      /pub state_dir: Option<String>/.test(runtimeLifecycleRustCore) &&
+	      /rust_runtime_lifecycle_projection_api/.test(runtimeLifecycleRustCore) &&
+	      !/rust_runtime_lifecycle_projection_command/.test(runtimeLifecycleRustCore) &&
+	      /runtime_lifecycle_rust_projection/.test(runtimeLifecycleRustCore) &&
+	      /runtime_lifecycle_state_dir_replay/.test(runtimeLifecycleRustCore) &&
+	      /agentgres_runtime_lifecycle_truth_required/.test(runtimeLifecycleRustCore) &&
+	      /runtime_lifecycle_sources_from_state_dir/.test(runtimeLifecycleRustCore) &&
+	      /runtime_lifecycle_projection_state_dir_required/.test(runtimeLifecycleRustCore) &&
+	      /runtime_lifecycle_projection_retired_candidate_transport/.test(
+	        runtimeLifecycleRustCore,
+	      ) &&
+	      /artifact_ref/.test(runtimeLifecycleRustCore) &&
+	      /turn_id/.test(runtimeLifecycleRustCore) &&
+	      /rust_projects_runtime_lifecycle_route_family_shapes/.test(
+	        runtimeLifecycleRustCore,
+	      ) &&
+	      /rust_shapes_runtime_lifecycle_direct_record/.test(
+	        runtimeLifecycleRustCore,
+	      ) &&
+	      /rust_requires_state_dir_for_runtime_lifecycle_projection/.test(
+	        runtimeLifecycleRustCore,
+	      ) &&
+	      /rust_rejects_retired_runtime_lifecycle_candidate_transport/.test(
+	        runtimeLifecycleRustCore,
+	      ) &&
+	      !/"agents"\s*=>\s*Ok\(Value::Array\(sort_records\(request\.agents\.clone\(\)\)\)\)/.test(
+	        runtimeLifecycleRustCore,
+	      ) &&
+	      !/request\.runs\.clone\(\)/.test(runtimeLifecycleRustCore) &&
+	      !/request\.events\.clone\(\)/.test(runtimeLifecycleRustCore) &&
       /public_projection_catalog_command_transport_is_retired/.test(commandProtocolCore) &&
       !/ProjectRuntimeLifecycle/.test(commandProtocolCore) &&
 	      !/project_runtime_lifecycle_response/.test(coreCommandDispatch) &&
@@ -27012,10 +27047,16 @@ function runReceipts() {
       !/throwRuntimeLifecycleProjectionRustCoreRequired/.test(
         runtimeLifecycleProjectionSurface,
       ) &&
-      /runtime_lifecycle_rust_projection/.test(runtimeLifecycleProjectionSurface) &&
-      /agentgres_runtime_lifecycle_truth_required/.test(
-        runtimeLifecycleProjectionSurface,
-      ) &&
+	      /runtime_lifecycle_rust_projection/.test(runtimeLifecycleProjectionSurface) &&
+	      /state_dir:\s*lifecycleProjectionStateDir\(store\)/.test(
+	        runtimeLifecycleProjectionSurface,
+	      ) &&
+	      /function lifecycleProjectionStateDir\(store\)/.test(
+	        runtimeLifecycleProjectionSurface,
+	      ) &&
+	      /agentgres_runtime_lifecycle_truth_required/.test(
+	        runtimeLifecycleProjectionSurface,
+	      ) &&
       /projection\("agents"\)/.test(runtimeLifecycleProjectionSurface) &&
       /agent_runs/.test(runtimeLifecycleProjectionSurface) &&
       /thread_usage/.test(runtimeLifecycleProjectionSurface) &&
@@ -27035,29 +27076,49 @@ function runReceipts() {
       ) &&
       /run_scorecard/.test(runtimeLifecycleProjectionSurface) &&
       /run_artifacts/.test(runtimeLifecycleProjectionSurface) &&
-      /run_artifact/.test(runtimeLifecycleProjectionSurface) &&
-      /artifact_ref:\s*optionalString\(artifactRef\)/.test(runtimeLifecycleProjectionSurface) &&
-      /turn_id:\s*optionalString\(turnId\)/.test(runtimeLifecycleProjectionSurface) &&
-      /runtime lifecycle surface returns Rust-owned public lifecycle projections/.test(
-        runtimeLifecycleProjectionSurfaceTest,
-      ) &&
+	      /run_artifact/.test(runtimeLifecycleProjectionSurface) &&
+	      /artifact_ref:\s*optionalString\(artifactRef\)/.test(runtimeLifecycleProjectionSurface) &&
+	      /turn_id:\s*optionalString\(turnId\)/.test(runtimeLifecycleProjectionSurface) &&
+	      !/agentRecords\(/.test(runtimeLifecycleProjectionSurface) &&
+	      !/agentRecord\(/.test(runtimeLifecycleProjectionSurface) &&
+	      !/threadRecords\(/.test(runtimeLifecycleProjectionSurface) &&
+	      !/runRecords\(/.test(runtimeLifecycleProjectionSurface) &&
+	      !/runRecord\(/.test(runtimeLifecycleProjectionSurface) &&
+	      !/callStore\(/.test(runtimeLifecycleProjectionSurface) &&
+	      !/eventsForRun/.test(runtimeLifecycleProjectionSurface) &&
+	      !/eventsForThread/.test(runtimeLifecycleProjectionSurface) &&
+	      /runtime lifecycle surface returns Rust-owned public lifecycle projections/.test(
+	        runtimeLifecycleProjectionSurfaceTest,
+	      ) &&
       /runtime lifecycle surface fails closed when Rust projection is missing/.test(
         runtimeLifecycleProjectionSurfaceTest,
       ) &&
       /runtime lifecycle surface rejects Rust projection mismatches/.test(
         runtimeLifecycleProjectionSurfaceTest,
       ) &&
-      /turnCall\.turn_id,\s*"turn_123"/.test(
-        runtimeLifecycleProjectionSurfaceTest,
-      ) &&
-      /calls\.at\(-1\)\.artifact_ref,\s*"artifact_123"/.test(
-        runtimeLifecycleProjectionSurfaceTest,
-      ) &&
+	      /turnCall\.turn_id,\s*"turn_123"/.test(
+	        runtimeLifecycleProjectionSurfaceTest,
+	      ) &&
+	      /call\.state_dir === "\/runtime-state"/.test(
+	        runtimeLifecycleProjectionSurfaceTest,
+	      ) &&
+	      /Object\.hasOwn\(call,\s*"agents"\) === false/.test(
+	        runtimeLifecycleProjectionSurfaceTest,
+	      ) &&
+	      /Object\.hasOwn\(call,\s*"runs"\) === false/.test(
+	        runtimeLifecycleProjectionSurfaceTest,
+	      ) &&
+	      /Object\.hasOwn\(call,\s*"events"\) === false/.test(
+	        runtimeLifecycleProjectionSurfaceTest,
+	      ) &&
+	      /calls\.at\(-1\)\.artifact_ref,\s*"artifact_123"/.test(
+	        runtimeLifecycleProjectionSurfaceTest,
+	      ) &&
       /lifecycleProjectionSurface = createRuntimeLifecycleProjectionSurface/.test(
         runtimeDaemonIndex,
       ) &&
-      /lifecycleRunner: this\.contextPolicyCore/.test(runtimeDaemonIndex) &&
-      /resolveRunArtifact/.test(runtimeDaemonIndex) &&
+	      /lifecycleRunner: this\.contextPolicyCore/.test(runtimeDaemonIndex) &&
+	      !/resolveRunArtifact/.test(runtimeDaemonIndex) &&
       /store\.lifecycleProjectionSurface\.listAgents\(store\)/.test(
         publicRuntimeRoutes,
       ) &&
@@ -32599,9 +32660,14 @@ function runCompositor() {
       !/replayFromCanonicalState/.test(
         `${runtimeDaemonIndex}\n${runtimeRunReadSurface}\n${runtimeLifecycleProjectionSurface}`,
       ) &&
-      /replay:\s*callStore\(store,\s*"eventsForRun",\s*runId,\s*\[\]\)/.test(
+      /replayRun\(store,\s*runId\)\s*\{[\s\S]*?run_id:\s*optionalString\(runId\)/.test(
         runtimeLifecycleProjectionSurface,
       ) &&
+      /state_dir:\s*lifecycleProjectionStateDir\(store\)/.test(
+        runtimeLifecycleProjectionSurface,
+      ) &&
+      !/eventsForRun/.test(runtimeLifecycleProjectionSurface) &&
+      !/callStore\(/.test(runtimeLifecycleProjectionSurface) &&
       /canonicalProjection/.test(runtimeRunReadSurface) &&
       /Object\.hasOwn\(surface,\s*"legacyEventsForRun"\),\s*false/.test(runtimeRunReadSurfaceTest) &&
       /Object\.hasOwn\(surface,\s*"replayFromCanonicalState"\),\s*false/.test(

@@ -67,7 +67,7 @@ import {
 import { createRuntimeRouteHandlers } from "./runtime-route-handlers.mjs";
 import { createRuntimeRecordProjections } from "./runtime-record-projections.mjs";
 import { createRuntimeApprovalLease } from "./runtime-approval-lease.mjs";
-import { artifact, createRunArtifactResolver } from "./runtime-artifacts.mjs";
+import { artifact } from "./runtime-artifacts.mjs";
 import { createCodingToolApprovalPolicy } from "./runtime-coding-tool-approval.mjs";
 import { createRuntimeInvocationResultProjections } from "./runtime-invocation-results.mjs";
 import { createDiagnosticsRepairExecutionHelpers } from "./diagnostics-repair-execution.mjs";
@@ -244,12 +244,6 @@ import {
 } from "./runtime-contract-constants.mjs";
 
 const {
-  resolveRunArtifact,
-} = createRunArtifactResolver({
-  normalizeArray,
-  optionalString,
-});
-const {
   diagnosticsOperatorOverrideResultFromEvent,
   diagnosticsRepairApplyApprovalKey,
   diagnosticsRepairExecutionStatus,
@@ -400,7 +394,6 @@ const {
   nativeInvocationResponse,
   notFound,
   readBody,
-  resolveRunArtifact,
   runtimeEventCursorFromRequest,
   usageRequestMetadataFromUrl,
   usageTelemetryWithRequestMetadata,
@@ -858,7 +851,6 @@ export class AgentgresRuntimeStateStore {
     });
     this.lifecycleProjectionSurface = createRuntimeLifecycleProjectionSurface({
       lifecycleRunner: this.contextPolicyCore,
-      resolveRunArtifact,
       workspaceRoot: this.defaultCwd,
     });
     this.skillHookSurface = createRuntimeSkillHookSurface({

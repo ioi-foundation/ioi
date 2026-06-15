@@ -47,71 +47,52 @@ const LIFECYCLE_PROJECTIONS = {
 export function createRuntimeLifecycleProjectionSurface({
   lifecycleRunner = null,
   workspaceRoot = null,
-  resolveRunArtifact = defaultResolveRunArtifact,
 } = {}) {
   const project = (store, projectionDetails, facts = {}) =>
     projectRuntimeLifecycle({
       lifecycleRunner,
       workspace_root: workspaceRoot ?? store?.defaultCwd,
+      state_dir: lifecycleProjectionStateDir(store),
       ...projectionDetails,
       ...facts,
     });
 
   return {
     listAgents(store) {
-      return project(store, LIFECYCLE_PROJECTIONS.agents, {
-        agents: agentRecords(store),
-      });
+      return project(store, LIFECYCLE_PROJECTIONS.agents);
     },
     getAgent(store, agentId) {
       return project(store, LIFECYCLE_PROJECTIONS.agent, {
         agent_id: optionalString(agentId),
-        agents: agentRecords(store),
-        agent: agentRecord(store, agentId),
       });
     },
     listThreads(store) {
-      return project(store, LIFECYCLE_PROJECTIONS.threads, {
-        agents: agentRecords(store),
-        threads: threadRecords(store),
-      });
+      return project(store, LIFECYCLE_PROJECTIONS.threads);
     },
     getThread(store, threadId) {
-      const threads = threadRecords(store);
       return project(store, LIFECYCLE_PROJECTIONS.thread, {
         thread_id: optionalString(threadId),
-        agents: agentRecords(store),
-        threads,
-        thread: threads.find((thread) => thread?.thread_id === threadId || thread?.id === threadId) ?? null,
       });
     },
     getThreadUsage(store, threadId) {
       return project(store, LIFECYCLE_PROJECTIONS.thread_usage, {
         thread_id: optionalString(threadId),
-        usage: callStore(store, "usageForThread", threadId),
       });
     },
     listThreadTurns(store, threadId) {
       return project(store, LIFECYCLE_PROJECTIONS.thread_turns, {
         thread_id: optionalString(threadId),
-        turns: callStore(store, "listTurns", threadId, []),
       });
     },
     getThreadTurn(store, threadId, turnId) {
-      const turns = callStore(store, "listTurns", threadId, []);
       return project(store, LIFECYCLE_PROJECTIONS.thread_turn, {
         thread_id: optionalString(threadId),
         turn_id: optionalString(turnId),
-        turns,
-        turn:
-          turns.find((turn) => turn?.turn_id === turnId || turn?.id === turnId) ??
-          null,
       });
     },
     listThreadEvents(store, threadId) {
       return project(store, LIFECYCLE_PROJECTIONS.thread_events, {
         thread_id: optionalString(threadId),
-        events: callStore(store, "eventsForThread", threadId, []),
       });
     },
     listRuns(store, agentId = null) {
@@ -123,113 +104,68 @@ export function createRuntimeLifecycleProjectionSurface({
           : LIFECYCLE_PROJECTIONS.runs,
         {
           agent_id: canonicalAgentId,
-          agents: agentRecords(store),
-          runs: runRecords(store),
         },
       );
     },
     getRun(store, runId) {
-      const run = runRecord(store, runId);
       return project(store, LIFECYCLE_PROJECTIONS.run, {
         run_id: optionalString(runId),
-        agents: agentRecords(store),
-        runs: runRecords(store),
-        run,
       });
     },
     waitRun(store, runId) {
-      const run = runRecord(store, runId);
       return project(store, LIFECYCLE_PROJECTIONS.run_wait, {
         run_id: optionalString(runId),
-        runs: runRecords(store),
-        run,
       });
     },
     getRunConversation(store, runId) {
-      const run = runRecord(store, runId);
       return project(store, LIFECYCLE_PROJECTIONS.run_conversation, {
         run_id: optionalString(runId),
-        run,
-        conversation: Array.isArray(run?.conversation) ? run.conversation : [],
       });
     },
     getRunUsage(store, runId) {
       return project(store, LIFECYCLE_PROJECTIONS.run_usage, {
         run_id: optionalString(runId),
-        usage: callStore(store, "usageForRun", runId),
       });
     },
     listRunEvents(store, runId) {
       return project(store, LIFECYCLE_PROJECTIONS.run_events, {
         run_id: optionalString(runId),
-        events: callStore(store, "eventsForRun", runId, []),
       });
     },
     replayRun(store, runId) {
       return project(store, LIFECYCLE_PROJECTIONS.run_replay, {
         run_id: optionalString(runId),
-        replay: callStore(store, "eventsForRun", runId, []),
       });
     },
     getRunTrace(store, runId) {
-      const run = runRecord(store, runId);
       return project(store, LIFECYCLE_PROJECTIONS.run_trace, {
         run_id: optionalString(runId),
-        run,
-        trace: run?.trace ?? null,
       });
     },
     getRunComputerUseTrace(store, runId) {
-      const run = runRecord(store, runId);
       return project(store, LIFECYCLE_PROJECTIONS.run_computer_use_trace, {
         run_id: optionalString(runId),
-        run,
-        trace: run?.trace ?? null,
-        computer_use_trace:
-          run?.trace?.computerUse?.trace ??
-          run?.trace?.computer_use?.trace ??
-          run?.trace?.computer_use_trace ??
-          null,
       });
     },
     getRunComputerUseTrajectory(store, runId) {
-      const run = runRecord(store, runId);
       return project(store, LIFECYCLE_PROJECTIONS.run_computer_use_trajectory, {
         run_id: optionalString(runId),
-        run,
-        trace: run?.trace ?? null,
-        computer_use_trajectory:
-          run?.trace?.computerUse?.trajectory ??
-          run?.trace?.computer_use?.trajectory ??
-          run?.trace?.computer_use_trajectory ??
-          null,
       });
     },
     getRunScorecard(store, runId) {
-      const run = runRecord(store, runId);
       return project(store, LIFECYCLE_PROJECTIONS.run_scorecard, {
         run_id: optionalString(runId),
-        run,
-        trace: run?.trace ?? null,
-        scorecard: run?.trace?.scorecard ?? null,
       });
     },
     listRunArtifacts(store, runId) {
-      const run = runRecord(store, runId);
       return project(store, LIFECYCLE_PROJECTIONS.run_artifacts, {
         run_id: optionalString(runId),
-        run,
-        artifacts: Array.isArray(run?.artifacts) ? run.artifacts : [],
       });
     },
     getRunArtifact(store, runId, artifactRef) {
-      const run = runRecord(store, runId);
       return project(store, LIFECYCLE_PROJECTIONS.run_artifact, {
         run_id: optionalString(runId),
         artifact_ref: optionalString(artifactRef),
-        run,
-        artifacts: Array.isArray(run?.artifacts) ? run.artifacts : [],
-        artifact: resolveRunArtifact(run ?? {}, artifactRef),
       });
     },
   };
@@ -271,54 +207,8 @@ function projectRuntimeLifecycle(details = {}) {
   throw createRuntimeLifecycleProjectionMismatchError(result, request);
 }
 
-function agentRecords(store) {
-  if (store?.agents instanceof Map) return [...store.agents.values()];
-  return Array.isArray(store?.agents) ? store.agents : [];
-}
-
-function agentRecord(store, agentId) {
-  const id = optionalString(agentId);
-  if (!id) return null;
-  if (store?.agents instanceof Map) return store.agents.get(id) ?? null;
-  return agentRecords(store).find((agent) => agent?.id === id || agent?.agent_id === id) ?? null;
-}
-
-function threadRecords(store) {
-  if (typeof store?.listThreads !== "function") return [];
-  const result = store.listThreads();
-  return Array.isArray(result) ? result : [];
-}
-
-function runRecords(store) {
-  if (store?.runs instanceof Map) return [...store.runs.values()];
-  return Array.isArray(store?.runs) ? store.runs : [];
-}
-
-function runRecord(store, runId) {
-  const id = optionalString(runId);
-  if (!id) return null;
-  if (store?.runs instanceof Map) return store.runs.get(id) ?? null;
-  return runRecords(store).find((run) => run?.id === id || run?.run_id === id) ?? null;
-}
-
-function callStore(store, method, firstArg, fallback = null) {
-  if (typeof store?.[method] !== "function") return fallback;
-  const result = store[method](firstArg);
-  return result ?? fallback;
-}
-
-function defaultResolveRunArtifact(run = {}, artifactRef) {
-  const ref = optionalString(artifactRef);
-  if (!ref || !Array.isArray(run?.artifacts)) return null;
-  return (
-    run.artifacts.find(
-      (artifact) =>
-        artifact?.id === ref ||
-        artifact?.name === ref ||
-        artifact?.artifactRef === ref ||
-        artifact?.artifact_ref === ref,
-    ) ?? null
-  );
+function lifecycleProjectionStateDir(store) {
+  return optionalString(store?.stateDir) ?? null;
 }
 
 function createRuntimeLifecycleProjectionError(record, fallbackDetails) {

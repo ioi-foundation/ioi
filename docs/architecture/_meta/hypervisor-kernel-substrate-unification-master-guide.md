@@ -9953,6 +9953,24 @@ lifecycle completion still depends on moving the remaining lifecycle projection
 candidate facts and stable IDE/CLI/SDK read APIs fully onto Rust-owned
 Agentgres projection records.
 
+Slice 1254 hard-cuts public lifecycle projection off JS cache candidates. Rust
+`RuntimeLifecycleProjectionBridgeRequest` now requires runtime `state_dir`,
+replays admitted `agents/*.json`, `runs/*.json`, and `events/*.jsonl`
+Agentgres records in Rust, and derives public agent/thread/run/turn/event,
+run replay, usage, trace, computer-use, scorecard, and artifact projections
+from those records. Rust rejects retired lifecycle candidate transport fields
+such as `agents`, `runs`, `events`, `replay`, `usage`, `trace`, `artifacts`,
+and `artifact`; the daemon lifecycle surface now sends only route identifiers
+plus `state_dir` and no longer calls JS agent/run maps, thread/turn helpers,
+usage helpers, event/replay streams, trace helpers, or artifact resolvers before
+the Rust projection. Conformance guards the `state_dir` requirement, retired
+candidate transport, daemon no-cache-call surface, and the updated run replay
+alias retirement. This removes the public lifecycle read split-brain projection
+boundary; broader lifecycle completion still depends on wallet/cTEE authority
+for lifecycle exits, complete receipt/state-root binding for every lifecycle
+read projection, and stable IDE/CLI/SDK protocol APIs over the Rust-owned
+Agentgres replay records.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The
