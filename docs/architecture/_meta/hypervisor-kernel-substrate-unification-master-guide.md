@@ -629,8 +629,8 @@ and `runtime.mcp_serve` result authorship; the JS adapter must
 `commitRuntimeMcpLiveResultState()` and `projectMcpLiveResultReplay()` before it
 can wrap the replayed protocol payload as JSON-RPC. This does not claim terminal
 MCP serve migration: external Rust MCP transport execution, transport
-containment for non-coding-tool live backends, broader serve admission,
-SDK/IDE protocol coverage, and conformance still require deeper Rust ownership.
+containment for non-coding-tool live backends, SDK/IDE protocol coverage, and
+conformance still require deeper Rust ownership.
 Do not encode the remaining JS MCP serve protocol facade as terminal
 architecture. The Slice 769 MCP serve `params.args` alias-retirement
 matrix-compaction pass is complete, and the Slice 1224/1236 MCP serve
@@ -9500,8 +9500,8 @@ live-result record before JSON-RPC return. Conformance now guards the typed API,
 direct Rust records, retired command transport, live-result commit/replay
 boundary, and source-scan blockers. This remains non-terminal because actual
 external Rust MCP transport execution, runtime containment for live backends,
-broader serve admission, and stable IDE/CLI/SDK protocol APIs still need deeper
-Rust daemon-core ownership.
+and stable IDE/CLI/SDK protocol APIs still need deeper Rust daemon-core
+ownership.
 
 Slice 1225 retires the public runtime projection family command transport for
 skill/hook registry, repository workflow, runtime tool catalog, and runtime
@@ -9705,9 +9705,8 @@ filtering JS-authored candidates. `runtime-mcp-serve-surface.mjs` now fails
 closed without `commitRuntimeMcpLiveResultState`, runtime `stateDir`, or
 `projectMcpLiveResultReplay`, commits the Rust live-result record, and returns
 only the replayed protocol payload. This remains non-terminal because external
-MCP transport execution, runtime containment sandboxing for live backends,
-broader serve admission, and stable SDK/IDE protocol APIs still need terminal
-Rust-owned records.
+MCP transport execution, runtime containment sandboxing for live backends, and
+stable SDK/IDE protocol APIs still need terminal Rust-owned records.
 
 Slice 1237 hard-cuts hosted provider lifecycle/inventory metadata transport out
 of the old refusal-marker compatibility lane. Rust provider lifecycle and
@@ -9748,8 +9747,8 @@ retired pending backend evidence, and the JS MCP control surface rejects
 `admitted_pending_rust_transport` / `runtime_mcp_transport_backend_pending`
 records before result-state commit or public truth can return. This remains
 non-terminal because actual external Rust MCP backend invocation/discovery,
-runtime containment sandboxing for live backends, broader serve admission, and
-stable IDE/CLI/SDK protocol APIs still need terminal Rust-owned records.
+runtime containment sandboxing for live backends, and stable IDE/CLI/SDK
+protocol APIs still need terminal Rust-owned records.
 
 Slice 1240 hard-cuts runtime MCP catalog live-discovery out of the deferred
 projection lane. Rust `McpToolSearchProjectionCore` now marks live catalog
@@ -9814,7 +9813,7 @@ JSON-RPC survives initialization. Rust tests execute both `tools/call` and
 `tools/list` through the repo MCP stdio fixture, and conformance guards the
 service API, admitted live discovery path, and child-retention fix. This remains
 non-terminal because stable SDK/IDE/CLI protocol APIs over the Rust replay
-records plus broader MCP serve admission still need to close.
+records still need to close.
 
 Slice 1244 closes the runtime MCP live-result receipt-order blocker. The public
 MCP control surface now calls `executeRuntimeMcpLiveBackend()` before
@@ -9830,7 +9829,22 @@ backend-execution-before-receipt/result-commit order, the old planner-direct
 payload hash no longer remains terminal, and missing backend execution now fails
 closed before any live-exit receipt-state or result-state commit. This remains
 non-terminal because stable SDK/IDE/CLI protocol APIs over Rust replay records
-and broader MCP serve admission still need to close.
+still need to close.
+
+Slice 1245 closes the broader runtime MCP serve admission blocker. Rust
+`RuntimeMcpServeToolCallPlanCore` now requires wallet authority grant refs,
+wallet authority receipt refs, cTEE custody refs, and transport containment
+refs before it can plan a served `tools/call`; missing refs fail closed before
+the coding-tool invocation surface can run. The Rust planner binds those refs
+into the served StepModule invocation request and the Rust result projector
+requires the same refs before emitting the `runtime.mcp_serve`
+`ioi.runtime.mcp-live-result.v1` record. The JS MCP serve surface passes only
+canonical snake_case admission refs to Rust, rejects incomplete Rust plans or
+live results that omit the refs, commits only the Rust-authored live result,
+and returns only replayed Rust protocol payloads. Tests and conformance guard
+the authority/custody/containment refusal paths, no-JS/no-command fallback
+facts, and replay-before-return path. This remains non-terminal because stable
+SDK/IDE/CLI protocol APIs over Rust replay records still need to close.
 
 ## Final Doctrine
 

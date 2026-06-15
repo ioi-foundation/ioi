@@ -39407,10 +39407,25 @@ function runCompositor() {
 	      /rust_projects_mcp_serve_tool_call_result/.test(runtimeMcpServeCore) &&
 	      /rust_shapes_mcp_serve_tool_result_direct_record/.test(runtimeMcpServeCore) &&
 	      /live_result:\s*Value/.test(runtimeMcpServeCore) &&
-	      /runtime_mcp_serve_tool_result_receipt_required/.test(runtimeMcpServeCore) &&
-	      /runtime_mcp_serve_result_payload_materialized/.test(runtimeMcpServeCore) &&
-	      /rust_step_module_invocation_materialized/.test(runtimeMcpServeCore) &&
-	      /runtime\.mcp_serve/.test(runtimeMcpServeCore) &&
+      /runtime_mcp_serve_tool_result_receipt_required/.test(runtimeMcpServeCore) &&
+      /runtime_mcp_serve_result_payload_materialized/.test(runtimeMcpServeCore) &&
+      /rust_step_module_invocation_materialized/.test(runtimeMcpServeCore) &&
+      /runtime\.mcp_serve/.test(runtimeMcpServeCore) &&
+      /runtime_mcp_serve_tool_call_authority_required/.test(runtimeMcpServeCore) &&
+      /runtime_mcp_serve_tool_call_custody_required/.test(runtimeMcpServeCore) &&
+      /runtime_mcp_serve_tool_call_containment_required/.test(runtimeMcpServeCore) &&
+      /runtime_mcp_serve_tool_result_authority_required/.test(runtimeMcpServeCore) &&
+      /runtime_mcp_serve_tool_result_custody_required/.test(runtimeMcpServeCore) &&
+      /runtime_mcp_serve_tool_result_containment_required/.test(runtimeMcpServeCore) &&
+      /"wallet_authority_boundary": "wallet\.network\.mcp_serve_tool_call"/.test(
+        runtimeMcpServeCore,
+      ) &&
+      /authority_grant_refs/.test(runtimeMcpServeCore) &&
+      /authority_receipt_refs/.test(runtimeMcpServeCore) &&
+      /custody_ref/.test(runtimeMcpServeCore) &&
+      /containment_ref/.test(runtimeMcpServeCore) &&
+      /ctee_runtime_mcp_serve_custody_required/.test(runtimeMcpServeCore) &&
+      /runtime_mcp_serve_transport_containment_required/.test(runtimeMcpServeCore) &&
 	      /Some\("runtime\.mcp_control"\)\s*\|\s*Some\("runtime\.mcp_serve"\)/.test(policyMcpMemoryCore) &&
 	      /rust_policy_replays_runtime_mcp_serve_materialized_results_from_agentgres_state/.test(policyMcpMemoryCore) &&
 	      /planRuntimeMcpServeToolCall\(request = \{\}\)/.test(runtimeContextPolicyCore) &&
@@ -39470,7 +39485,18 @@ function runCompositor() {
 	      /agentgres_runtime_mcp_serve_tool_call_truth_required/.test(runtimeMcpServeSurface) &&
 	      /agentgres_runtime_mcp_live_result_truth_required/.test(runtimeMcpServeSurface) &&
 	      /wallet_runtime_mcp_serve_authority_required/.test(runtimeMcpServeSurface) &&
+	      /authority_grant_refs:\s*Array\.isArray\(request\.authority_grant_refs\)/.test(runtimeMcpServeSurface) &&
+	      /authority_receipt_refs:\s*Array\.isArray\(request\.authority_receipt_refs\)/.test(runtimeMcpServeSurface) &&
+	      /custody_ref:\s*optionalStringDep\(request\.custody_ref\)/.test(runtimeMcpServeSurface) &&
+	      /containment_ref:\s*optionalStringDep\(request\.containment_ref\)/.test(runtimeMcpServeSurface) &&
+	      /mcpServeRequest\.wallet_authority_boundary !== "wallet\.network\.mcp_serve_tool_call"/.test(runtimeMcpServeSurface) &&
+	      /details\.wallet_authority_boundary !== "wallet\.network\.mcp_serve_tool_call"/.test(runtimeMcpServeSurface) &&
+	      /details\.ctee_custody_required !== true/.test(runtimeMcpServeSurface) &&
+	      /details\.transport_containment_required !== true/.test(runtimeMcpServeSurface) &&
+	      /ctee_runtime_mcp_serve_custody_required/.test(runtimeMcpServeSurface) &&
+	      /runtime_mcp_serve_transport_containment_required/.test(runtimeMcpServeSurface) &&
 	      !/return mcpJsonRpcResultDep\(id,\s*projectedResult\)/.test(runtimeMcpServeSurface) &&
+	      /MCP_SERVE_ADMISSION/.test(runtimeMcpServeSurfaceTest) &&
 	      /runtime MCP serve surface invokes Rust-owned coding-tool path and Rust-owned result projection/.test(
 	        runtimeMcpServeSurfaceTest,
 	      ) &&
@@ -39493,7 +39519,23 @@ function runCompositor() {
 	      /liveResultReplays\[0\]\.control_kind,\s*"mcp_serve_tool_call"/.test(
 	        runtimeMcpServeSurfaceTest,
 	      ) &&
-	      /invocations\[0\]\.request\.source,\s*"mcp_serve"/.test(runtimeMcpServeSurfaceTest) &&
+      /invocations\[0\]\.request\.source,\s*"mcp_serve"/.test(runtimeMcpServeSurfaceTest) &&
+      /invocations\[0\]\.request\.authority_grant_refs/.test(runtimeMcpServeSurfaceTest) &&
+      /invocations\[0\]\.request\.authority_receipt_refs/.test(runtimeMcpServeSurfaceTest) &&
+      /invocations\[0\]\.request\.custody_ref/.test(runtimeMcpServeSurfaceTest) &&
+      /invocations\[0\]\.request\.containment_ref/.test(runtimeMcpServeSurfaceTest) &&
+      /invocations\[0\]\.request\.mcp_serve_request\.authority_grant_refs/.test(
+        runtimeMcpServeSurfaceTest,
+      ) &&
+      /resultCommits\[0\]\.request\.result\.details\.authority_grant_refs/.test(
+        runtimeMcpServeSurfaceTest,
+      ) &&
+      /resultCommits\[0\]\.request\.result\.details\.custody_ref/.test(
+        runtimeMcpServeSurfaceTest,
+      ) &&
+      /resultCommits\[0\]\.request\.result\.details\.containment_ref/.test(
+        runtimeMcpServeSurfaceTest,
+      ) &&
 	      /Object\.hasOwn\(invocations\[0\]\.request,\s*"workflowGraphId"\),\s*false/.test(
 	        runtimeMcpServeSurfaceTest,
       ) &&
@@ -39521,6 +39563,12 @@ function runCompositor() {
       /runtime MCP serve tool calls reject incomplete Rust result projections/.test(
         runtimeMcpServeSurfaceTest,
       ) &&
+      /runtime MCP serve tool calls fail closed without authority custody or containment admission/.test(
+        runtimeMcpServeSurfaceTest,
+      ) &&
+      /runtime_mcp_serve_tool_call_authority_required/.test(runtimeMcpServeSurfaceTest) &&
+      /runtime_mcp_serve_tool_call_custody_required/.test(runtimeMcpServeSurfaceTest) &&
+      /runtime_mcp_serve_tool_call_containment_required/.test(runtimeMcpServeSurfaceTest) &&
       /response\.error\.data\.code,\s*"runtime_mcp_serve_tool_call_rust_core_required"/.test(
         runtimeMcpServeSurfaceTest,
       ) &&

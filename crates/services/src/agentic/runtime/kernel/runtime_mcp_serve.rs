@@ -35,6 +35,14 @@ pub struct RuntimeMcpServeToolCallPlanRequest {
     #[serde(default)]
     pub request: Value,
     #[serde(default)]
+    pub authority_grant_refs: Vec<String>,
+    #[serde(default)]
+    pub authority_receipt_refs: Vec<String>,
+    #[serde(default)]
+    pub custody_ref: Option<String>,
+    #[serde(default)]
+    pub containment_ref: Option<String>,
+    #[serde(default)]
     pub mcp_serve_schema_version: Option<String>,
 }
 
@@ -102,6 +110,10 @@ pub struct RuntimeMcpServeToolCallPlanRecord {
     pub workflow_node_id: String,
     pub request_hash: String,
     pub request: Value,
+    pub authority_grant_refs: Vec<String>,
+    pub authority_receipt_refs: Vec<String>,
+    pub custody_ref: String,
+    pub containment_ref: String,
     pub evidence_refs: Vec<String>,
     pub receipt_refs: Vec<String>,
     pub policy_decision_refs: Vec<String>,
@@ -174,6 +186,36 @@ impl RuntimeMcpServeToolCallPlanCore {
         })?;
         let params = object_value(&request.params);
         let context = object_value(&request.request);
+        let mut authority_grant_refs = canonical_string_vec(&request.authority_grant_refs);
+        if authority_grant_refs.is_empty() {
+            authority_grant_refs = string_array_field(&context, "authority_grant_refs");
+        }
+        let mut authority_receipt_refs = canonical_string_vec(&request.authority_receipt_refs);
+        if authority_receipt_refs.is_empty() {
+            authority_receipt_refs = string_array_field(&context, "authority_receipt_refs");
+        }
+        if authority_grant_refs.is_empty() || authority_receipt_refs.is_empty() {
+            return Err(RuntimeMcpServeError::new(
+                "runtime_mcp_serve_tool_call_authority_required",
+                "MCP serve tool-call planning requires wallet authority grant and receipt refs",
+            ));
+        }
+        let custody_ref = optional_trimmed(request.custody_ref.as_deref())
+            .or_else(|| string_field(&context, "custody_ref"))
+            .ok_or_else(|| {
+                RuntimeMcpServeError::new(
+                    "runtime_mcp_serve_tool_call_custody_required",
+                    "MCP serve tool-call planning requires cTEE custody ref",
+                )
+            })?;
+        let containment_ref = optional_trimmed(request.containment_ref.as_deref())
+            .or_else(|| string_field(&context, "containment_ref"))
+            .ok_or_else(|| {
+                RuntimeMcpServeError::new(
+                    "runtime_mcp_serve_tool_call_containment_required",
+                    "MCP serve tool-call planning requires transport containment ref",
+                )
+            })?;
         let input = params
             .get("arguments")
             .and_then(Value::as_object)
@@ -224,17 +266,36 @@ impl RuntimeMcpServeToolCallPlanCore {
         invocation_request.insert("workflow_graph_id".to_string(), json!(workflow_graph_id));
         invocation_request.insert("workflow_node_id".to_string(), json!(workflow_node_id));
         invocation_request.insert(
-            "mcp_serve_request".to_string(),
-            json!({
-                "schema_version": mcp_serve_schema_version,
-                "jsonrpc_id": request.jsonrpc_id.clone(),
-                "method": "tools/call",
-                "thread_id": thread_id,
-                "tool_id": tool_id,
-                "tool_name": optional_trimmed(request.tool_name.as_deref()),
-                "request_hash": request_hash,
-            }),
+            "authority_grant_refs".to_string(),
+            json!(authority_grant_refs),
         );
+        invocation_request.insert(
+            "authority_receipt_refs".to_string(),
+            json!(authority_receipt_refs),
+        );
+        invocation_request.insert("custody_ref".to_string(), json!(custody_ref));
+        invocation_request.insert("containment_ref".to_string(), json!(containment_ref));
+        let mcp_serve_request = json!({
+            "schema_version": mcp_serve_schema_version,
+            "jsonrpc_id": request.jsonrpc_id.clone(),
+            "method": "tools/call",
+            "thread_id": thread_id,
+            "tool_id": tool_id,
+            "tool_name": optional_trimmed(request.tool_name.as_deref()),
+            "request_hash": request_hash,
+            "wallet_authority_boundary": "wallet.network.mcp_serve_tool_call",
+            "authority_grant_refs": invocation_request.get("authority_grant_refs").cloned().unwrap_or(Value::Array(vec![])),
+            "authority_receipt_refs": invocation_request.get("authority_receipt_refs").cloned().unwrap_or(Value::Array(vec![])),
+            "custody_ref": invocation_request.get("custody_ref").cloned().unwrap_or(Value::Null),
+            "containment_ref": invocation_request.get("containment_ref").cloned().unwrap_or(Value::Null),
+        });
+        invocation_request.insert("mcp_serve_request".to_string(), mcp_serve_request);
+        let authority_grant_refs = string_array_field(&invocation_request, "authority_grant_refs");
+        let authority_receipt_refs =
+            string_array_field(&invocation_request, "authority_receipt_refs");
+        let custody_ref = string_field(&invocation_request, "custody_ref").unwrap_or_default();
+        let containment_ref =
+            string_field(&invocation_request, "containment_ref").unwrap_or_default();
 
         Ok(RuntimeMcpServeToolCallPlanRecord {
             operation,
@@ -265,11 +326,17 @@ impl RuntimeMcpServeToolCallPlanCore {
                 .to_string(),
             request_hash,
             request: Value::Object(invocation_request),
+            authority_grant_refs,
+            authority_receipt_refs,
+            custody_ref,
+            containment_ref,
             evidence_refs: vec![
                 "runtime_mcp_serve_tool_call_rust_owned".to_string(),
                 "rust_daemon_core_runtime_mcp_serve_tool_call_plan".to_string(),
                 "agentgres_runtime_mcp_serve_tool_call_truth_required".to_string(),
                 "wallet_runtime_mcp_serve_authority_required".to_string(),
+                "ctee_runtime_mcp_serve_custody_required".to_string(),
+                "runtime_mcp_serve_transport_containment_required".to_string(),
             ],
             receipt_refs: vec![format!(
                 "receipt_runtime_mcp_serve_tool_call_plan_{}",
@@ -343,6 +410,39 @@ impl RuntimeMcpServeToolCallPlanCore {
                 "MCP serve result projection requires matching Rust plan identity",
             ));
         }
+        let plan_request = plan
+            .get("request")
+            .and_then(Value::as_object)
+            .cloned()
+            .unwrap_or_default();
+        let mcp_serve_request = plan_request
+            .get("mcp_serve_request")
+            .and_then(Value::as_object)
+            .cloned()
+            .unwrap_or_default();
+        let authority_grant_refs = string_array_field(&mcp_serve_request, "authority_grant_refs");
+        let authority_receipt_refs =
+            string_array_field(&mcp_serve_request, "authority_receipt_refs");
+        let custody_ref = string_field(&mcp_serve_request, "custody_ref");
+        let containment_ref = string_field(&mcp_serve_request, "containment_ref");
+        if authority_grant_refs.is_empty() || authority_receipt_refs.is_empty() {
+            return Err(RuntimeMcpServeError::new(
+                "runtime_mcp_serve_tool_result_authority_required",
+                "MCP serve result projection requires wallet authority refs from the Rust plan",
+            ));
+        }
+        let custody_ref = custody_ref.ok_or_else(|| {
+            RuntimeMcpServeError::new(
+                "runtime_mcp_serve_tool_result_custody_required",
+                "MCP serve result projection requires cTEE custody ref from the Rust plan",
+            )
+        })?;
+        let containment_ref = containment_ref.ok_or_else(|| {
+            RuntimeMcpServeError::new(
+                "runtime_mcp_serve_tool_result_containment_required",
+                "MCP serve result projection requires transport containment ref from the Rust plan",
+            )
+        })?;
 
         let payload = invocation
             .get("event")
@@ -402,6 +502,11 @@ impl RuntimeMcpServeToolCallPlanCore {
                 "receipt_refs": receipt_refs,
                 "policy_decision_refs": policy_decision_refs,
                 "artifact_refs": artifact_refs,
+                "wallet_authority_boundary": "wallet.network.mcp_serve_tool_call",
+                "authority_grant_refs": authority_grant_refs,
+                "authority_receipt_refs": authority_receipt_refs,
+                "custody_ref": custody_ref,
+                "containment_ref": containment_ref,
                 "event_id": event_id,
                 "result": result_payload,
                 "error": error_payload,
@@ -430,6 +535,57 @@ impl RuntimeMcpServeToolCallPlanCore {
         let payload_hash = value_hash(&tool_result);
         let payload_ref =
             format!("payload://runtime/mcp-live-results/{live_result_id}/protocol-result");
+        let live_result_evidence_refs = vec![
+            "runtime_mcp_serve_tool_result_rust_owned",
+            "rust_daemon_core_runtime_mcp_serve_tool_result_projection",
+            "runtime_mcp_live_result_rust_projection",
+            "agentgres_runtime_mcp_live_result_truth_required",
+            "runtime_mcp_serve_result_payload_materialized",
+            "runtime_mcp_no_js_transport_result",
+            "wallet_runtime_mcp_serve_authority_required",
+            "ctee_runtime_mcp_serve_custody_required",
+            "runtime_mcp_serve_transport_containment_required",
+            "receipt_state_root_binding_required",
+        ];
+        let live_result_payload = json!({
+            "schema_version": mcp_serve_schema_version,
+            "protocol_result": tool_result,
+            "payload_hash": payload_hash,
+            "payload_ref": payload_ref
+        });
+        let live_result_details = json!({
+            "rust_daemon_core_result_author": "runtime.mcp_serve",
+            "control_kind": "mcp_serve_tool_call",
+            "operation_kind": "mcp.serve.tools.result",
+            "thread_id": thread_id,
+            "tool_id": tool_id,
+            "tool_name": tool_name,
+            "tool_call_id": tool_call_id,
+            "workflow_graph_id": workflow_graph_id,
+            "workflow_node_id": workflow_node_id,
+            "event_id": event_id,
+            "receipt_id": receipt_id,
+            "receipt_refs": receipt_refs,
+            "policy_decision_refs": policy_decision_refs,
+            "artifact_refs": artifact_refs,
+            "wallet_authority_boundary": "wallet.network.mcp_serve_tool_call",
+            "authority_grant_refs": authority_grant_refs,
+            "authority_receipt_refs": authority_receipt_refs,
+            "custody_ref": custody_ref,
+            "containment_ref": containment_ref,
+            "ctee_custody_required": true,
+            "transport_containment_required": true,
+            "payload_ref": payload_ref,
+            "payload_hash": payload_hash,
+            "result_materialized": true,
+            "backend_materialization_status": "rust_step_module_invocation_materialized",
+            "rust_coding_tool_invocation": true,
+            "step_module_router_owner": "rust_daemon_core",
+            "js_transport_invocation": false,
+            "command_transport_fallback": false,
+            "binary_bridge_fallback": false,
+            "compatibility_fallback": false
+        });
         let live_result = json!({
             "schema_version": "ioi.runtime.mcp-live-result.v1",
             "object": "ioi.runtime_mcp_live_result",
@@ -440,47 +596,9 @@ impl RuntimeMcpServeToolCallPlanCore {
             "created_at": created_at,
             "receipt_id": receipt_id,
             "receipt_refs": receipt_refs,
-            "evidence_refs": [
-                "runtime_mcp_serve_tool_result_rust_owned",
-                "rust_daemon_core_runtime_mcp_serve_tool_result_projection",
-                "runtime_mcp_live_result_rust_projection",
-                "agentgres_runtime_mcp_live_result_truth_required",
-                "runtime_mcp_serve_result_payload_materialized",
-                "runtime_mcp_no_js_transport_result",
-                "receipt_state_root_binding_required"
-            ],
-            "payload": {
-                "schema_version": mcp_serve_schema_version,
-                "protocol_result": tool_result,
-                "payload_hash": payload_hash,
-                "payload_ref": payload_ref
-            },
-            "details": {
-                "rust_daemon_core_result_author": "runtime.mcp_serve",
-                "control_kind": "mcp_serve_tool_call",
-                "operation_kind": "mcp.serve.tools.result",
-                "thread_id": thread_id,
-                "tool_id": tool_id,
-                "tool_name": tool_name,
-                "tool_call_id": tool_call_id,
-                "workflow_graph_id": workflow_graph_id,
-                "workflow_node_id": workflow_node_id,
-                "event_id": event_id,
-                "receipt_id": receipt_id,
-                "receipt_refs": receipt_refs,
-                "policy_decision_refs": policy_decision_refs,
-                "artifact_refs": artifact_refs,
-                "payload_ref": payload_ref,
-                "payload_hash": payload_hash,
-                "result_materialized": true,
-                "backend_materialization_status": "rust_step_module_invocation_materialized",
-                "rust_coding_tool_invocation": true,
-                "step_module_router_owner": "rust_daemon_core",
-                "js_transport_invocation": false,
-                "command_transport_fallback": false,
-                "binary_bridge_fallback": false,
-                "compatibility_fallback": false
-            }
+            "evidence_refs": live_result_evidence_refs,
+            "payload": live_result_payload,
+            "details": live_result_details
         });
 
         Ok(RuntimeMcpServeToolResultProjectionRecord {
@@ -501,6 +619,8 @@ impl RuntimeMcpServeToolCallPlanCore {
                 "rust_daemon_core_runtime_mcp_serve_tool_result_projection".to_string(),
                 "agentgres_runtime_mcp_serve_tool_call_truth_required".to_string(),
                 "wallet_runtime_mcp_serve_authority_required".to_string(),
+                "ctee_runtime_mcp_serve_custody_required".to_string(),
+                "runtime_mcp_serve_transport_containment_required".to_string(),
                 "agentgres_runtime_mcp_live_result_truth_required".to_string(),
             ],
             receipt_refs,
@@ -527,6 +647,10 @@ impl RuntimeMcpServeToolCallPlanRecord {
             "workflow_node_id": self.workflow_node_id,
             "request_hash": self.request_hash,
             "request": self.request,
+            "authority_grant_refs": self.authority_grant_refs,
+            "authority_receipt_refs": self.authority_receipt_refs,
+            "custody_ref": self.custody_ref,
+            "containment_ref": self.containment_ref,
             "evidence_refs": self.evidence_refs,
             "receipt_refs": self.receipt_refs,
             "policy_decision_refs": self.policy_decision_refs,
@@ -582,6 +706,13 @@ fn string_array_field(record: &Map<String, Value>, field: &str) -> Vec<String> {
                 .collect()
         })
         .unwrap_or_default()
+}
+
+fn canonical_string_vec(values: &[String]) -> Vec<String> {
+    values
+        .iter()
+        .filter_map(|value| trimmed_str(value))
+        .collect()
 }
 
 fn request_hash(
@@ -654,8 +785,16 @@ mod tests {
             }),
             request: json!({
                 "workflow_graph_id": "graph_one",
-                "workflowGraphId": "retired_graph"
+                "workflowGraphId": "retired_graph",
+                "authority_grant_refs": ["wallet.network://grant/mcp-serve/git.diff"],
+                "authority_receipt_refs": ["receipt://wallet.network/mcp-serve/git.diff"],
+                "custody_ref": "ctee://workspace/thread_one",
+                "containment_ref": "containment://mcp-serve/thread_one/git.diff"
             }),
+            authority_grant_refs: vec![],
+            authority_receipt_refs: vec![],
+            custody_ref: None,
+            containment_ref: None,
             mcp_serve_schema_version: Some("ioi.runtime.mcp-serve.test".to_string()),
         }
     }
@@ -678,6 +817,8 @@ mod tests {
                 "rust_daemon_core_runtime_mcp_serve_tool_call_plan",
                 "agentgres_runtime_mcp_serve_tool_call_truth_required",
                 "wallet_runtime_mcp_serve_authority_required",
+                "ctee_runtime_mcp_serve_custody_required",
+                "runtime_mcp_serve_transport_containment_required",
             ]
         );
         let planned_request = record.request.as_object().expect("request object");
@@ -691,6 +832,15 @@ mod tests {
         assert_eq!(mcp_request["schema_version"], "ioi.runtime.mcp-serve.test");
         assert_eq!(mcp_request["thread_id"], "thread_one");
         assert_eq!(mcp_request["tool_id"], "git.diff");
+        assert_eq!(
+            mcp_request["authority_grant_refs"][0],
+            "wallet.network://grant/mcp-serve/git.diff"
+        );
+        assert_eq!(mcp_request["custody_ref"], "ctee://workspace/thread_one");
+        assert_eq!(
+            mcp_request["containment_ref"],
+            "containment://mcp-serve/thread_one/git.diff"
+        );
         assert!(!mcp_request.contains_key("toolId"));
     }
 
@@ -771,6 +921,18 @@ mod tests {
         assert_eq!(
             projection.live_result["details"]["js_transport_invocation"],
             false
+        );
+        assert_eq!(
+            projection.live_result["details"]["authority_grant_refs"][0],
+            "wallet.network://grant/mcp-serve/git.diff"
+        );
+        assert_eq!(
+            projection.live_result["details"]["custody_ref"],
+            "ctee://workspace/thread_one"
+        );
+        assert_eq!(
+            projection.live_result["details"]["containment_ref"],
+            "containment://mcp-serve/thread_one/git.diff"
         );
         assert_eq!(
             projection.live_result["payload"]["protocol_result"]["structuredContent"]["event_id"],
@@ -866,6 +1028,40 @@ mod tests {
         assert_eq!(
             error.code(),
             "runtime_mcp_serve_tool_call_method_unsupported"
+        );
+    }
+
+    #[test]
+    fn rust_rejects_mcp_serve_without_authority_custody_or_containment() {
+        let mut no_authority = request();
+        no_authority.request = json!({});
+        let error = RuntimeMcpServeToolCallPlanCore
+            .plan(&no_authority)
+            .expect_err("authority refs are required");
+        assert_eq!(
+            error.code(),
+            "runtime_mcp_serve_tool_call_authority_required"
+        );
+
+        let mut no_custody = request();
+        no_custody.request["authority_grant_refs"] =
+            json!(["wallet.network://grant/mcp-serve/git.diff"]);
+        no_custody.request["authority_receipt_refs"] =
+            json!(["receipt://wallet.network/mcp-serve/git.diff"]);
+        no_custody.request["custody_ref"] = Value::Null;
+        let error = RuntimeMcpServeToolCallPlanCore
+            .plan(&no_custody)
+            .expect_err("custody ref is required");
+        assert_eq!(error.code(), "runtime_mcp_serve_tool_call_custody_required");
+
+        let mut no_containment = request();
+        no_containment.request["containment_ref"] = Value::Null;
+        let error = RuntimeMcpServeToolCallPlanCore
+            .plan(&no_containment)
+            .expect_err("containment ref is required");
+        assert_eq!(
+            error.code(),
+            "runtime_mcp_serve_tool_call_containment_required"
         );
     }
 }

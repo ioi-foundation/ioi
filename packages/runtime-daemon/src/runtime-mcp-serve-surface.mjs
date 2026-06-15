@@ -172,6 +172,10 @@ export function createRuntimeMcpServeSurface({
             jsonrpc_id: id ?? null,
             params,
             request,
+            authority_grant_refs: Array.isArray(request.authority_grant_refs) ? request.authority_grant_refs : [],
+            authority_receipt_refs: Array.isArray(request.authority_receipt_refs) ? request.authority_receipt_refs : [],
+            custody_ref: optionalStringDep(request.custody_ref) ?? null,
+            containment_ref: optionalStringDep(request.containment_ref) ?? null,
             mcp_serve_schema_version: schemaVersion,
           });
           const invocationRequest = plannedMcpServeToolInvocationRequest(plan, {
@@ -330,6 +334,12 @@ function plannedMcpServeLiveResult(projection, { threadId, toolId }) {
   const protocolResult = objectRecord(payload?.protocol_result);
   const evidenceRefs = Array.isArray(liveResult?.evidence_refs) ? liveResult.evidence_refs : [];
   const receiptRefs = Array.isArray(liveResult?.receipt_refs) ? liveResult.receipt_refs : [];
+  const authorityGrantRefs = Array.isArray(details?.authority_grant_refs)
+    ? details.authority_grant_refs.filter((ref) => typeof ref === "string" && ref.trim())
+    : [];
+  const authorityReceiptRefs = Array.isArray(details?.authority_receipt_refs)
+    ? details.authority_receipt_refs.filter((ref) => typeof ref === "string" && ref.trim())
+    : [];
   if (
     !liveResult ||
     liveResult.schema_version !== "ioi.runtime.mcp-live-result.v1" ||
@@ -345,6 +355,13 @@ function plannedMcpServeLiveResult(projection, { threadId, toolId }) {
     details.tool_id !== toolId ||
     details.result_materialized !== true ||
     details.backend_materialization_status !== "rust_step_module_invocation_materialized" ||
+    details.wallet_authority_boundary !== "wallet.network.mcp_serve_tool_call" ||
+    authorityGrantRefs.length === 0 ||
+    authorityReceiptRefs.length === 0 ||
+    !optionalString(details.custody_ref) ||
+    !optionalString(details.containment_ref) ||
+    details.ctee_custody_required !== true ||
+    details.transport_containment_required !== true ||
     details.js_transport_invocation !== false ||
     details.command_transport_fallback !== false ||
     details.binary_bridge_fallback !== false ||
@@ -352,6 +369,9 @@ function plannedMcpServeLiveResult(projection, { threadId, toolId }) {
     !evidenceRefs.includes("runtime_mcp_live_result_rust_projection") ||
     !evidenceRefs.includes("agentgres_runtime_mcp_live_result_truth_required") ||
     !evidenceRefs.includes("runtime_mcp_serve_result_payload_materialized") ||
+    !evidenceRefs.includes("wallet_runtime_mcp_serve_authority_required") ||
+    !evidenceRefs.includes("ctee_runtime_mcp_serve_custody_required") ||
+    !evidenceRefs.includes("runtime_mcp_serve_transport_containment_required") ||
     !protocolResult
   ) {
     const error = new Error("Rust daemon-core MCP serve live-result projection is incomplete.");
@@ -371,6 +391,12 @@ function plannedMcpServeToolInvocationRequest(plan, { threadId, toolId }) {
   const record = objectRecord(plan);
   const request = objectRecord(record?.request);
   const mcpServeRequest = objectRecord(request?.mcp_serve_request);
+  const authorityGrantRefs = Array.isArray(mcpServeRequest?.authority_grant_refs)
+    ? mcpServeRequest.authority_grant_refs.filter((ref) => typeof ref === "string" && ref.trim())
+    : [];
+  const authorityReceiptRefs = Array.isArray(mcpServeRequest?.authority_receipt_refs)
+    ? mcpServeRequest.authority_receipt_refs.filter((ref) => typeof ref === "string" && ref.trim())
+    : [];
   if (
     !record ||
     record.status !== "planned" ||
@@ -386,7 +412,12 @@ function plannedMcpServeToolInvocationRequest(plan, { threadId, toolId }) {
     !mcpServeRequest ||
     mcpServeRequest.method !== "tools/call" ||
     mcpServeRequest.thread_id !== threadId ||
-    mcpServeRequest.tool_id !== toolId
+    mcpServeRequest.tool_id !== toolId ||
+    mcpServeRequest.wallet_authority_boundary !== "wallet.network.mcp_serve_tool_call" ||
+    authorityGrantRefs.length === 0 ||
+    authorityReceiptRefs.length === 0 ||
+    !optionalString(mcpServeRequest.custody_ref) ||
+    !optionalString(mcpServeRequest.containment_ref)
   ) {
     const error = new Error("Rust daemon-core MCP serve tool-call plan is incomplete.");
     error.code = "runtime_mcp_serve_tool_call_plan_incomplete";

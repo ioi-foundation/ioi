@@ -3,6 +3,13 @@ import test from "node:test";
 
 import { createRuntimeMcpServeSurface } from "./runtime-mcp-serve-surface.mjs";
 
+const MCP_SERVE_ADMISSION = {
+  authority_grant_refs: ["wallet.network://grant/mcp-serve/git.diff"],
+  authority_receipt_refs: ["receipt://wallet.network/mcp-serve/git.diff"],
+  custody_ref: "ctee://workspace/thread-one",
+  containment_ref: "containment://mcp-serve/thread-one/git.diff",
+};
+
 function harness() {
   const invocations = [];
   const plans = [];
@@ -39,6 +46,33 @@ function harness() {
     plans.push(planRequest);
     const params = planRequest.params && typeof planRequest.params === "object" ? planRequest.params : {};
     const request = planRequest.request && typeof planRequest.request === "object" ? planRequest.request : {};
+    const authorityGrantRefs = Array.isArray(planRequest.authority_grant_refs)
+      ? planRequest.authority_grant_refs.filter((ref) => typeof ref === "string" && ref.trim())
+      : [];
+    const authorityReceiptRefs = Array.isArray(planRequest.authority_receipt_refs)
+      ? planRequest.authority_receipt_refs.filter((ref) => typeof ref === "string" && ref.trim())
+      : [];
+    if (authorityGrantRefs.length === 0 || authorityReceiptRefs.length === 0) {
+      const error = new Error("MCP serve tool-call planning requires wallet authority grant and receipt refs.");
+      error.code = "runtime_mcp_serve_tool_call_authority_required";
+      throw error;
+    }
+    const custodyRef = typeof planRequest.custody_ref === "string" && planRequest.custody_ref.trim()
+      ? planRequest.custody_ref.trim()
+      : null;
+    if (!custodyRef) {
+      const error = new Error("MCP serve tool-call planning requires cTEE custody ref.");
+      error.code = "runtime_mcp_serve_tool_call_custody_required";
+      throw error;
+    }
+    const containmentRef = typeof planRequest.containment_ref === "string" && planRequest.containment_ref.trim()
+      ? planRequest.containment_ref.trim()
+      : null;
+    if (!containmentRef) {
+      const error = new Error("MCP serve tool-call planning requires transport containment ref.");
+      error.code = "runtime_mcp_serve_tool_call_containment_required";
+      throw error;
+    }
     const input = params.arguments && typeof params.arguments === "object" && !Array.isArray(params.arguments)
       ? { ...params.arguments }
       : {};
@@ -69,6 +103,10 @@ function harness() {
       idempotency_key: idempotencyKey,
       workflow_graph_id: workflowGraphId,
       workflow_node_id: workflowNodeId,
+      authority_grant_refs: authorityGrantRefs,
+      authority_receipt_refs: authorityReceiptRefs,
+      custody_ref: custodyRef,
+      containment_ref: containmentRef,
       mcp_serve_request: {
         schema_version: planRequest.mcp_serve_schema_version,
         jsonrpc_id: planRequest.jsonrpc_id,
@@ -77,6 +115,11 @@ function harness() {
         tool_id: planRequest.tool_id,
         tool_name: planRequest.tool_name,
         request_hash: requestHash,
+        wallet_authority_boundary: "wallet.network.mcp_serve_tool_call",
+        authority_grant_refs: authorityGrantRefs,
+        authority_receipt_refs: authorityReceiptRefs,
+        custody_ref: custodyRef,
+        containment_ref: containmentRef,
       },
     };
     return {
@@ -97,6 +140,10 @@ function harness() {
       workflow_node_id: workflowNodeId,
       request_hash: requestHash,
       request: invocationRequest,
+      authority_grant_refs: authorityGrantRefs,
+      authority_receipt_refs: authorityReceiptRefs,
+      custody_ref: custodyRef,
+      containment_ref: containmentRef,
       receipt_refs: [`receipt_runtime_mcp_serve_tool_call_plan_${safeToolId}`],
       policy_decision_refs: [`policy_runtime_mcp_serve_tool_call_plan_${safeToolId}`],
       evidence_refs: [
@@ -104,6 +151,8 @@ function harness() {
         "rust_daemon_core_runtime_mcp_serve_tool_call_plan",
         "agentgres_runtime_mcp_serve_tool_call_truth_required",
         "wallet_runtime_mcp_serve_authority_required",
+        "ctee_runtime_mcp_serve_custody_required",
+        "runtime_mcp_serve_transport_containment_required",
       ],
     };
   }
@@ -112,6 +161,15 @@ function harness() {
     const invocation = projectionRequest.invocation && typeof projectionRequest.invocation === "object"
       ? projectionRequest.invocation
       : {};
+    const planRequest = projectionRequest.plan?.request?.mcp_serve_request ?? {};
+    const authorityGrantRefs = Array.isArray(planRequest.authority_grant_refs)
+      ? planRequest.authority_grant_refs
+      : [];
+    const authorityReceiptRefs = Array.isArray(planRequest.authority_receipt_refs)
+      ? planRequest.authority_receipt_refs
+      : [];
+    const custodyRef = planRequest.custody_ref ?? null;
+    const containmentRef = planRequest.containment_ref ?? null;
     const payload = invocation.event?.payload_summary && typeof invocation.event.payload_summary === "object"
       ? invocation.event.payload_summary
       : {};
@@ -141,6 +199,11 @@ function harness() {
         receipt_refs: invocation.receipt_refs ?? [],
         policy_decision_refs: invocation.policy_decision_refs ?? [],
         artifact_refs: invocation.artifact_refs ?? [],
+        wallet_authority_boundary: "wallet.network.mcp_serve_tool_call",
+        authority_grant_refs: authorityGrantRefs,
+        authority_receipt_refs: authorityReceiptRefs,
+        custody_ref: custodyRef,
+        containment_ref: containmentRef,
         event_id: invocation.event?.event_id ?? null,
         result: invocation.result ?? null,
         error: invocation.error ?? null,
@@ -180,6 +243,9 @@ function harness() {
           "agentgres_runtime_mcp_live_result_truth_required",
           "runtime_mcp_serve_result_payload_materialized",
           "runtime_mcp_no_js_transport_result",
+          "wallet_runtime_mcp_serve_authority_required",
+          "ctee_runtime_mcp_serve_custody_required",
+          "runtime_mcp_serve_transport_containment_required",
           "receipt_state_root_binding_required",
         ],
         payload: {
@@ -200,6 +266,13 @@ function harness() {
           workflow_node_id: invocation.workflow_node_id ?? null,
           event_id: invocation.event?.event_id ?? null,
           receipt_id: invocation.receipt_refs?.[0] ?? "receipt_mcp_serve_tool_call",
+          wallet_authority_boundary: "wallet.network.mcp_serve_tool_call",
+          authority_grant_refs: authorityGrantRefs,
+          authority_receipt_refs: authorityReceiptRefs,
+          custody_ref: custodyRef,
+          containment_ref: containmentRef,
+          ctee_custody_required: true,
+          transport_containment_required: true,
           result_materialized: true,
           backend_materialization_status: "rust_step_module_invocation_materialized",
           rust_coding_tool_invocation: true,
@@ -217,6 +290,8 @@ function harness() {
         "rust_daemon_core_runtime_mcp_serve_tool_result_projection",
         "agentgres_runtime_mcp_serve_tool_call_truth_required",
         "wallet_runtime_mcp_serve_authority_required",
+        "ctee_runtime_mcp_serve_custody_required",
+        "runtime_mcp_serve_transport_containment_required",
         "agentgres_runtime_mcp_live_result_truth_required",
       ],
     };
@@ -407,6 +482,7 @@ test("runtime MCP serve surface invokes Rust-owned coding-tool path and Rust-own
     },
     {
       onlyDiff: true,
+      ...MCP_SERVE_ADMISSION,
       workflow_graph_id: "custom.graph",
       workflow_node_id: "custom.node",
       workflowGraphId: "retired.graph",
@@ -432,10 +508,19 @@ test("runtime MCP serve surface invokes Rust-owned coding-tool path and Rust-own
   assert.equal(invocations[0].request.source, "mcp_serve");
   assert.equal(invocations[0].request.workflow_graph_id, "custom.graph");
   assert.equal(invocations[0].request.workflow_node_id, "custom.node");
+  assert.deepEqual(invocations[0].request.authority_grant_refs, MCP_SERVE_ADMISSION.authority_grant_refs);
+  assert.deepEqual(invocations[0].request.authority_receipt_refs, MCP_SERVE_ADMISSION.authority_receipt_refs);
+  assert.equal(invocations[0].request.custody_ref, MCP_SERVE_ADMISSION.custody_ref);
+  assert.equal(invocations[0].request.containment_ref, MCP_SERVE_ADMISSION.containment_ref);
   assert.equal(Object.hasOwn(invocations[0].request, "workflowGraphId"), false);
   assert.equal(Object.hasOwn(invocations[0].request, "workflowNodeId"), false);
   assert.equal(invocations[0].request.mcp_serve_request.method, "tools/call");
   assert.equal(invocations[0].request.mcp_serve_request.tool_id, "git.diff");
+  assert.deepEqual(
+    invocations[0].request.mcp_serve_request.authority_grant_refs,
+    MCP_SERVE_ADMISSION.authority_grant_refs,
+  );
+  assert.equal(invocations[0].request.mcp_serve_request.custody_ref, MCP_SERVE_ADMISSION.custody_ref);
   assert.equal(Object.hasOwn(invocations[0].request.mcp_serve_request, "toolId"), false);
   assert.equal(resultProjections.length, 1);
   assert.equal(resultProjections[0].operation_kind, "mcp.serve.tools.result");
@@ -446,6 +531,12 @@ test("runtime MCP serve surface invokes Rust-owned coding-tool path and Rust-own
   assert.equal(resultCommits[0].request.operation_kind, "runtime.mcp_serve.result.write");
   assert.equal(resultCommits[0].request.result.details.rust_daemon_core_result_author, "runtime.mcp_serve");
   assert.equal(resultCommits[0].request.result.details.result_materialized, true);
+  assert.deepEqual(
+    resultCommits[0].request.result.details.authority_grant_refs,
+    MCP_SERVE_ADMISSION.authority_grant_refs,
+  );
+  assert.equal(resultCommits[0].request.result.details.custody_ref, MCP_SERVE_ADMISSION.custody_ref);
+  assert.equal(resultCommits[0].request.result.details.containment_ref, MCP_SERVE_ADMISSION.containment_ref);
   assert.equal(resultCommits[0].request.result.details.js_transport_invocation, false);
   assert.equal(resultCommits[0].request.result.details.command_transport_fallback, false);
   assert.equal(
@@ -469,6 +560,7 @@ test("runtime MCP serve surface invokes Rust-owned coding-tool path and Rust-own
     },
     {
       onlyDiff: true,
+      ...MCP_SERVE_ADMISSION,
       workflowGraphId: "retired.graph",
       workflowNodeId: "retired.node",
     },
@@ -491,7 +583,7 @@ test("runtime MCP serve surface invokes Rust-owned coding-tool path and Rust-own
       method: "tools/call",
       params: { name: "git.diff", args: { includeStat: "retired" } },
     },
-    { onlyDiff: true },
+    { onlyDiff: true, ...MCP_SERVE_ADMISSION },
   );
   assert.equal(retiredArgsResponse.result.structuredContent.status, "completed");
   const retiredArgsInvocation = invocations.at(-1);
@@ -512,7 +604,7 @@ test("runtime MCP serve tool calls fail closed without Rust-owned coding-tool in
       method: "tools/call",
       params: { name: "git.diff", arguments: { includeStat: true } },
     },
-    { onlyDiff: true },
+    { onlyDiff: true, ...MCP_SERVE_ADMISSION },
   );
 
   assert.equal(response.error.code, -32000);
@@ -547,7 +639,7 @@ test("runtime MCP serve tool calls fail closed without Agentgres live-result com
       method: "tools/call",
       params: { name: "git.diff", arguments: { includeStat: true } },
     },
-    { onlyDiff: true },
+    { onlyDiff: true, ...MCP_SERVE_ADMISSION },
   );
 
   assert.equal(response.error.code, -32000);
@@ -674,11 +766,67 @@ test("runtime MCP serve tool calls reject incomplete Rust result projections", a
       method: "tools/call",
       params: { name: "git.diff", arguments: { includeStat: true } },
     },
-    { onlyDiff: true },
+    { onlyDiff: true, ...MCP_SERVE_ADMISSION },
   );
 
   assert.equal(response.error.code, -32603);
   assert.equal(response.error.data.code, "runtime_mcp_serve_tool_result_projection_incomplete");
   assert.equal(response.error.data.details.operation_kind, "mcp.serve.tools.result");
   assert.equal(invocations.length, 1);
+});
+
+test("runtime MCP serve tool calls fail closed without authority custody or containment admission", async () => {
+  const { invocations, store, surface } = harness();
+
+  const missingAuthority = await surface.handleSingleMcpServeJsonRpc(
+    store,
+    "thread-one",
+    {
+      jsonrpc: "2.0",
+      id: 17,
+      method: "tools/call",
+      params: { name: "git.diff", arguments: { includeStat: true } },
+    },
+    { onlyDiff: true, custody_ref: MCP_SERVE_ADMISSION.custody_ref, containment_ref: MCP_SERVE_ADMISSION.containment_ref },
+  );
+  assert.equal(missingAuthority.error.data.code, "runtime_mcp_serve_tool_call_authority_required");
+  assert.deepEqual(invocations, []);
+
+  const missingCustody = await surface.handleSingleMcpServeJsonRpc(
+    store,
+    "thread-one",
+    {
+      jsonrpc: "2.0",
+      id: 18,
+      method: "tools/call",
+      params: { name: "git.diff", arguments: { includeStat: true } },
+    },
+    {
+      onlyDiff: true,
+      authority_grant_refs: MCP_SERVE_ADMISSION.authority_grant_refs,
+      authority_receipt_refs: MCP_SERVE_ADMISSION.authority_receipt_refs,
+      containment_ref: MCP_SERVE_ADMISSION.containment_ref,
+    },
+  );
+  assert.equal(missingCustody.error.data.code, "runtime_mcp_serve_tool_call_custody_required");
+  assert.deepEqual(invocations, []);
+
+  const missingContainment = await surface.handleSingleMcpServeJsonRpc(
+    store,
+    "thread-one",
+    {
+      jsonrpc: "2.0",
+      id: 19,
+      method: "tools/call",
+      params: { name: "git.diff", arguments: { includeStat: true } },
+    },
+    {
+      onlyDiff: true,
+      authority_grant_refs: MCP_SERVE_ADMISSION.authority_grant_refs,
+      authority_receipt_refs: MCP_SERVE_ADMISSION.authority_receipt_refs,
+      custody_ref: MCP_SERVE_ADMISSION.custody_ref,
+    },
+  );
+  assert.equal(missingContainment.error.data.code, "runtime_mcp_serve_tool_call_containment_required");
+  assert.deepEqual(invocations, []);
 });
