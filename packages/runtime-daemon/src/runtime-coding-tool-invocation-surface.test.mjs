@@ -203,9 +203,6 @@ function createSurface(overrides = {}) {
     },
     codingToolApprovalManifestForThread: () => null,
     codingToolBudgetPolicyForRequest: () => ({ status: "allowed" }),
-    codingToolInvocationResultFromEvent(event, context = {}) {
-      return { duplicate: true, event, context };
-    },
     codingToolResultWithoutDrafts(result = {}, artifacts = []) {
       const publicResult = { ...result };
       delete publicResult.artifactDrafts;
@@ -492,9 +489,6 @@ test("coding tool invocation surface fails closed before workload execution with
   const surface = createRuntimeCodingToolInvocationSurface({
     codingToolApprovalManifestForThread: () => null,
     codingToolBudgetPolicyForRequest: () => ({ status: "allowed" }),
-    codingToolInvocationResultFromEvent: () => {
-      throw new Error("duplicate replay should not be used");
-    },
     codingToolResultWithoutDrafts: (result = {}) => result,
     diagnosticsRepairContextForRequest: () => null,
     diagnosticsRepairContextForToolPack: () => null,
@@ -578,9 +572,6 @@ test("coding tool invocation surface fails closed until Rust result-event admiss
   const surface = createRuntimeCodingToolInvocationSurface({
     codingToolApprovalManifestForThread: () => null,
     codingToolBudgetPolicyForRequest: () => ({ status: "allowed" }),
-    codingToolInvocationResultFromEvent: () => {
-      throw new Error("duplicate replay should not be used");
-    },
     codingToolResultWithoutDrafts: (result = {}) => result,
     diagnosticsRepairContextForRequest: () => null,
     diagnosticsRepairContextForToolPack: () => null,
@@ -618,21 +609,24 @@ test("coding tool invocation surface fails closed until Rust result-event admiss
   assert.equal(store.events.length, 0);
 });
 
-test("coding tool invocation surface replays duplicate idempotent tool events", () => {
+test("coding tool invocation surface ignores local idempotency cache before Rust execution", () => {
   const surface = createSurface();
   const store = createStore();
   const duplicateEvent = { event_id: "event_duplicate", payload_summary: { status: "completed" } };
   store.idempotency.set("thread:thread_alpha:coding-tool:tool_alpha", duplicateEvent);
 
-  const result = surface.invokeThreadTool(store, "thread_alpha", "file.inspect", {
-    tool_call_id: "tool_alpha",
-  });
-
-  assert.equal(result.duplicate, true);
-  assert.equal(result.event, duplicateEvent);
-  assert.equal(result.context.tool_id, "file.inspect");
-  assert.equal(Object.hasOwn(result.context, "toolId"), false);
-  assert.ok(!store.calls.some((call) => call.name === "materializeArtifacts"));
+  assert.throws(
+    () =>
+      surface.invokeThreadTool(store, "thread_alpha", "file.inspect", {
+        tool_call_id: "tool_alpha",
+      }),
+    (error) => {
+      assert.equal(error.code, "runtime_coding_tool_workload_rust_core_required");
+      assert.equal(error.details.tool_call_id, "tool_alpha");
+      return true;
+    },
+  );
+  assert.ok(!store.calls.some((call) => call.name === "runtimeEventStream"));
 });
 
 test("coding tool invocation surface ignores retired request identity aliases", () => {

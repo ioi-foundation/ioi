@@ -10286,6 +10286,23 @@ a JS authority input; remaining coding-tool work is now durable read/projection
 cleanup and stable API consumption rather than command/env, binary bridge, or
 cache-head admission fallback.
 
+Slice 1291 hard-cuts coding-tool duplicate-result replay out of the JS local
+event cache. `CodingToolResultEventAdmissionCore` now checks admitted
+`events/*.jsonl` Agentgres records for an existing result event with the same
+idempotency key and returns a Rust `replayed` admission record with the
+existing event, operation ref, storage admission evidence, state root, head,
+receipt refs, payload refs, artifact refs, and projection watermark. The
+coding-tool invocation surface no longer reads
+`store.runtimeEventStream(...).idempotency` and is no longer wired to
+`codingToolInvocationResultFromEvent` before workload execution/result-event
+admission; duplicate handling is owned by Rust admission over admitted
+Agentgres truth. Conformance guards the Rust replay path, the focused Rust
+idempotency replay test, the focused JS no-cache-preflight test, and the
+absence of the invocation-surface cache read or duplicate replay shaper. This
+removes the last coding-tool result duplicate-truth shortcut before Rust
+admission; remaining coding-tool work is durable read/projection cleanup and
+stable API consumption rather than JS idempotency authority.
+
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,
 `/v1/memory/policy`, `/v1/memory/path`, or `/v1/memory/validate`; the daemon

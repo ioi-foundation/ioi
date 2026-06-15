@@ -711,7 +711,6 @@ export class AgentgresRuntimeStateStore {
       codingToolApprovalBlockForThread: codingToolApprovalPolicy.codingToolApprovalBlockForThread,
       codingToolApprovalSatisfactionForThread: codingToolApprovalPolicy.codingToolApprovalSatisfactionForThread,
       codingToolBudgetPolicyForRequest,
-      codingToolInvocationResultFromEvent,
       codingToolResultWithoutDrafts,
       diagnosticsRepairContextForRequest,
       diagnosticsRepairContextForToolPack,

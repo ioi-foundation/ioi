@@ -52,7 +52,6 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
     codingToolApprovalManifestForThread,
     codingToolApprovalSatisfactionForThread = () => null,
     codingToolBudgetPolicyForRequest,
-    codingToolInvocationResultFromEvent,
     codingToolResultWithoutDrafts,
     diagnosticsRepairContextForRequest,
     diagnosticsRepairContextForToolPack,
@@ -106,20 +105,6 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
     const codingToolIdempotencyKey =
       optionalString(request.idempotency_key) ??
       `thread:${threadId}:coding-tool:${toolCallId}`;
-    const duplicateToolEvent = store.runtimeEventStream(eventStreamIdForThread(threadId)).idempotency.get(
-      codingToolIdempotencyKey,
-    );
-    if (duplicateToolEvent) {
-      return codingToolInvocationResultFromEvent(duplicateToolEvent, {
-        agent,
-        thread_id: threadId,
-        turn_id: turnId,
-        tool_id: normalizedToolId,
-        tool_call_id: toolCallId,
-        workflow_graph_id: workflowGraphId,
-        workflow_node_id: workflowNodeId,
-      });
-    }
     const receiptId = `receipt_coding_tool_${safeId(normalizedToolId)}_${doctorHash(
       `${threadId}:${normalizedToolId}:${toolCallId}`,
     ).slice(0, 12)}`;

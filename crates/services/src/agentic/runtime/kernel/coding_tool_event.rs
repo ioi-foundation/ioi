@@ -429,8 +429,18 @@ impl CodingToolResultEventAdmissionCore {
                 "payload_schema_version",
             ));
         }
-        let admission_state =
-            coding_tool_result_event_admission_state_from_state_dir(request, &event_stream_id)?;
+        let admission_state = coding_tool_result_event_admission_state_from_state_dir(
+            request,
+            &event_stream_id,
+            &idempotency_key,
+        )?;
+        if let Some(existing_event) = admission_state.existing_idempotent_event.clone() {
+            return replay_coding_tool_result_event_admission_record(
+                existing_event,
+                event,
+                admission_state.latest_seq,
+            );
+        }
         let latest_seq = admission_state.latest_seq;
         let seq = latest_seq + 1;
         let event_id = optional_event_string(event, "event_id").unwrap_or_else(|| {
@@ -1384,15 +1394,21 @@ struct CodingToolEventAdmissionState {
     latest_seq: u64,
     expected_head: Option<String>,
     state_root_before: Option<String>,
+    existing_idempotent_event: Option<Value>,
 }
 
 fn coding_tool_result_event_admission_state_from_state_dir(
     request: &CodingToolResultEventAdmissionRequest,
     event_stream_id: &str,
+    idempotency_key: &str,
 ) -> Result<CodingToolEventAdmissionState, CodingToolResultEventAdmissionError> {
     let events =
         coding_tool_events_from_state_dir(request.state_dir.as_deref(), "result-event admission")?;
-    Ok(coding_tool_event_state_for_stream(events, event_stream_id)?)
+    Ok(coding_tool_event_state_for_stream(
+        events,
+        event_stream_id,
+        Some(idempotency_key),
+    )?)
 }
 
 fn coding_tool_command_stream_admission_state_from_state_dir(
@@ -1403,12 +1419,17 @@ fn coding_tool_command_stream_admission_state_from_state_dir(
         request.state_dir.as_deref(),
         "command-stream admission",
     )?;
-    Ok(coding_tool_event_state_for_stream(events, event_stream_id)?)
+    Ok(coding_tool_event_state_for_stream(
+        events,
+        event_stream_id,
+        None,
+    )?)
 }
 
 fn coding_tool_event_state_for_stream(
     events: Vec<Value>,
     event_stream_id: &str,
+    idempotency_key: Option<&str>,
 ) -> Result<CodingToolEventAdmissionState, CodingToolEventStateReadError> {
     let mut selected = events
         .iter()
@@ -1433,13 +1454,118 @@ fn coding_tool_event_state_for_stream(
         .filter_map(|event| event.as_object().and_then(coding_tool_event_seq))
         .max()
         .unwrap_or(0);
+    let existing_idempotent_event = idempotency_key.and_then(|idempotency_key| {
+        selected.iter().find_map(|event| {
+            let record = event.as_object()?;
+            (optional_event_string(record, "idempotency_key").as_deref() == Some(idempotency_key))
+                .then(|| event.clone())
+        })
+    });
     Ok(CodingToolEventAdmissionState {
         latest_seq,
         expected_head: latest_event
             .and_then(|event| optional_event_string(event, "resulting_head")),
         state_root_before: latest_event
             .and_then(|event| optional_event_string(event, "state_root_after")),
+        existing_idempotent_event,
     })
+}
+
+fn replay_coding_tool_result_event_admission_record(
+    existing_event: Value,
+    request_event: &Map<String, Value>,
+    latest_seq: u64,
+) -> Result<CodingToolResultEventAdmissionRecord, CodingToolResultEventAdmissionError> {
+    let event = existing_event.as_object().ok_or(
+        CodingToolResultEventAdmissionError::ReplayRecordInvalid(
+            "existing coding-tool result event replay record is not an object".to_string(),
+        ),
+    )?;
+    validate_admitted_coding_tool_event(event)
+        .map_err(CodingToolResultEventAdmissionError::from)?;
+    let event_id = required_event_string(event, "event_id")?;
+    let event_stream_id = required_event_string(event, "event_stream_id")?;
+    let thread_id = required_event_string(event, "thread_id")?;
+    let tool_call_id = optional_event_string(event, "tool_call_id")
+        .or_else(|| optional_event_string(request_event, "tool_call_id"))
+        .ok_or(CodingToolResultEventAdmissionError::MissingField(
+            "tool_call_id",
+        ))?;
+    let event_kind = optional_event_string(event, "event_kind")
+        .or_else(|| optional_event_string(request_event, "event_kind"))
+        .ok_or(CodingToolResultEventAdmissionError::MissingField(
+            "event_kind",
+        ))?;
+    let event_status = optional_event_string(event, "status")
+        .or_else(|| optional_event_string(request_event, "status"))
+        .ok_or(CodingToolResultEventAdmissionError::MissingField("status"))?;
+    let seq = coding_tool_event_seq(event)
+        .ok_or(CodingToolResultEventAdmissionError::MissingField("seq"))?;
+    let expected_heads =
+        unique_trimmed_strings(json_string_array_from_map(event, "expected_heads"));
+    let state_root_before = optional_event_string(event, "state_root_before").ok_or(
+        CodingToolResultEventAdmissionError::MissingField("state_root_before"),
+    )?;
+    let state_root_after = required_event_string(event, "state_root_after")?;
+    let resulting_head = required_event_string(event, "resulting_head")?;
+    let operation_ref = required_event_string(event, "agentgres_operation_ref")?;
+    let projection_watermark = required_event_string(event, "projection_watermark")?;
+    let payload_refs = unique_trimmed_strings(json_string_array_from_map(event, "payload_refs"));
+    let receipt_refs = unique_trimmed_strings(json_string_array_from_map(event, "receipt_refs"));
+    let artifact_refs = unique_trimmed_strings(json_string_array_from_map(event, "artifact_refs"));
+    let rollback_refs = unique_trimmed_strings(json_string_array_from_map(event, "rollback_refs"));
+    let event_stream_ref = safe_component(&event_stream_id);
+    let object_ref =
+        optional_event_string(event, "agentgres_storage_object_ref").unwrap_or_else(|| {
+            format!("agentgres://runtime-events/{event_stream_ref}/events/{event_id}")
+        });
+    let content_hash = optional_event_string(event, "agentgres_storage_content_hash")
+        .map(Ok)
+        .unwrap_or_else(|| value_hash(&existing_event))?;
+    let storage_admission = StorageBackendWriteAdmissionRecord {
+        schema_version: STORAGE_BACKEND_WRITE_ADMISSION_SCHEMA_VERSION.to_string(),
+        storage_backend_ref: "agentgres://runtime-events".to_string(),
+        object_ref,
+        content_hash,
+        artifact_refs: artifact_refs.clone(),
+        payload_refs: payload_refs.clone(),
+        receipt_refs: receipt_refs.clone(),
+        admission_hash: optional_event_string(event, "agentgres_storage_admission_hash")
+            .unwrap_or_else(|| format!("sha256:replayed-{event_id}")),
+    };
+    let mut record = CodingToolResultEventAdmissionRecord {
+        schema_version: CODING_TOOL_RESULT_EVENT_ADMISSION_RESULT_SCHEMA_VERSION.to_string(),
+        object: "ioi.runtime_coding_tool_result_event_admission".to_string(),
+        status: "replayed".to_string(),
+        operation_kind: "runtime.coding_tool_result_event".to_string(),
+        event_id,
+        event_stream_id,
+        thread_id,
+        turn_id: optional_event_string(event, "turn_id"),
+        tool_call_id,
+        event_kind,
+        event_status,
+        seq,
+        latest_seq,
+        expected_heads,
+        state_root_before,
+        state_root_after,
+        resulting_head,
+        operation_ref,
+        projection_watermark,
+        payload_refs,
+        receipt_refs,
+        artifact_refs,
+        rollback_refs,
+        storage_admission,
+        event: existing_event,
+        admission_hash: String::new(),
+    };
+    record.admission_hash =
+        value_hash(&serde_json::to_value(&record).map_err(|error| {
+            CodingToolResultEventAdmissionError::HashFailed(error.to_string())
+        })?)?;
+    Ok(record)
 }
 
 fn coding_tool_events_from_state_dir(
@@ -2126,6 +2252,7 @@ mod tests {
     }
 
     fn admitted_replay_event(event_id: &str, idempotency_key: &str, seq: u64) -> Value {
+        let previous_seq = seq.saturating_sub(1);
         json!({
             "event_id": event_id,
             "event_stream_id": "thread_1:events",
@@ -2134,12 +2261,29 @@ mod tests {
             "item_id": format!("turn_1:item:{event_id}"),
             "idempotency_key": idempotency_key,
             "event_kind": "tool.completed",
+            "status": "completed",
+            "tool_call_id": "call_1",
             "seq": seq,
             "agentgres_operation_ref": format!("agentgres://runtime-events/thread_1_events/operations/{event_id}"),
+            "agentgres_storage_object_ref": format!("agentgres://runtime-events/thread_1_events/events/{event_id}"),
+            "agentgres_storage_admission_hash": format!("sha256:storage-admission-{seq}"),
+            "expected_heads": [format!("agentgres://runtime-events/thread_1_events/head/{previous_seq}")],
+            "state_root_before": format!("sha256:state-root-before-{seq}"),
             "state_root_after": format!("sha256:state-root-after-{seq}"),
             "resulting_head": format!("agentgres://runtime-events/thread_1_events/head/{seq}"),
             "projection_watermark": format!("runtime-events:thread_1:events:{seq}"),
             "receipt_refs": [format!("receipt_{event_id}")],
+            "payload_refs": [format!("payload://runtime-events/thread_1_events/events/{event_id}")],
+            "artifact_refs": [],
+            "rollback_refs": [],
+            "payload_schema_version": CODING_TOOL_RESULT_SCHEMA_VERSION,
+            "payload_summary": {
+                "schema_version": CODING_TOOL_RESULT_SCHEMA_VERSION,
+                "event_kind": "CodingToolResult",
+                "tool_call_id": "call_1",
+                "status": "completed",
+                "receipt_refs": [format!("receipt_{event_id}")]
+            }
         })
     }
 
@@ -2300,6 +2444,38 @@ mod tests {
         assert_eq!(
             record.storage_admission.storage_backend_ref,
             "agentgres://runtime-events"
+        );
+        assert!(record.admission_hash.starts_with("sha256:"));
+    }
+
+    #[test]
+    fn rust_replays_existing_coding_tool_result_event_by_idempotency() {
+        let existing = admitted_replay_event(
+            "event_coding_tool_existing",
+            "thread:thread_1:coding-tool:call_1",
+            7,
+        );
+        let state_dir = write_coding_tool_event_state("result-replay", &[existing.clone()]);
+        let mut request = admission_request();
+        request.state_dir = Some(state_dir.to_string_lossy().to_string());
+
+        let record = CodingToolResultEventAdmissionCore
+            .admit(&request)
+            .expect("duplicate result event replayed by Rust");
+
+        assert_eq!(record.status, "replayed");
+        assert_eq!(record.event_id, "event_coding_tool_existing");
+        assert_eq!(record.seq, 7);
+        assert_eq!(record.latest_seq, 7);
+        assert_eq!(record.event, existing);
+        assert_eq!(
+            record.operation_ref,
+            record.event["agentgres_operation_ref"]
+        );
+        assert_eq!(record.state_root_after, "sha256:state-root-after-7");
+        assert_eq!(
+            record.storage_admission.object_ref,
+            "agentgres://runtime-events/thread_1_events/events/event_coding_tool_existing"
         );
         assert!(record.admission_hash.starts_with("sha256:"));
     }

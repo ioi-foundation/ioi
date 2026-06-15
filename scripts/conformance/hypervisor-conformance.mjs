@@ -6120,6 +6120,9 @@ function runBridge() {
       /pub fn admit_coding_tool_result_event_response/.test(codingToolEventCore) &&
       !/pub fn plan_coding_tool_result_envelope_response/.test(codingToolEventCore) &&
       /rust_admits_coding_tool_result_event_with_agentgres_refs/.test(codingToolEventCore) &&
+      /rust_replays_existing_coding_tool_result_event_by_idempotency/.test(codingToolEventCore) &&
+      /replay_coding_tool_result_event_admission_record/.test(codingToolEventCore) &&
+      /existing_idempotent_event/.test(codingToolEventCore) &&
       /rust_rejects_coding_tool_result_event_without_receipts/.test(codingToolEventCore) &&
       /rust_requires_state_dir_for_coding_tool_result_event_admission/.test(
         codingToolEventCore,
@@ -6182,6 +6185,8 @@ function runBridge() {
       /codingToolResultEventAdmissionForThread = requireRustCoreCodingToolResultEventAdmission/.test(
         runtimeCodingToolInvocationSurface,
       ) &&
+      !/codingToolInvocationResultFromEvent/.test(runtimeCodingToolInvocationSurface) &&
+      !/runtimeEventStream\(/.test(runtimeCodingToolInvocationSurface) &&
       /codingToolResultEnvelopeForThread = requireRustCoreCodingToolResultEnvelopePlanning/.test(
         runtimeCodingToolInvocationSurface,
       ) &&
@@ -6252,6 +6257,12 @@ function runBridge() {
         runtimeCodingToolInvocationSurfaceTest,
       ) &&
       /coding tool invocation surface fails closed before workload execution without Rust result envelope planning/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
+      /coding tool invocation surface ignores local idempotency cache before Rust execution/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
+      /assert\.ok\(!store\.calls\.some\(\(call\) => call\.name === "runtimeEventStream"\)\)/.test(
         runtimeCodingToolInvocationSurfaceTest,
       ) &&
       /assert\.equal\(runnerCalled,\s*false\)/.test(runtimeCodingToolInvocationSurfaceTest) &&
