@@ -407,7 +407,6 @@ export class ModelMountingState {
     now = () => new Date(),
     vaultSecrets = {},
     modelMountCore = null,
-    daemonCoreInvoker = null,
     daemonCoreModelMountApi = null,
     commitRuntimeModelMountRecordState = null,
     commitRuntimeModelMountReceiptState = null,
@@ -421,7 +420,6 @@ export class ModelMountingState {
     this.modelMountCore =
       modelMountCore ??
       createModelMountCore({
-        daemonCoreInvoker,
         daemonCoreModelMountApi,
       });
     this.commitRuntimeModelMountRecordState = commitRuntimeModelMountRecordState;

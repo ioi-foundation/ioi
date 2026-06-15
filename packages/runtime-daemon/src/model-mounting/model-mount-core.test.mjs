@@ -40,15 +40,6 @@ import {
   ModelMountCore,
 } from "./model-mount-core.mjs";
 
-function rejectMigratedModelMountCommandInvoker(calls = []) {
-  return (request) => {
-    calls.push({ method: "daemonCoreInvoker", request });
-    throw new Error(
-      `generic command invoker must not run migrated model_mount typed APIs: ${request?.operation}`,
-    );
-  };
-}
-
 function assertDirectModelMountApiCall(call, method, schemaVersion) {
   assert.equal(call.method, method);
   assert.equal(call.request.schema_version, schemaVersion);
@@ -769,7 +760,6 @@ test("Rust model_mount core does not synthesize Rust-owned receipt, required-bou
         return { ok: true, result: { record: { details: {} } } };
       },
     },
-    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(),
   });
 
   const route = runner.admitRouteDecision(routeRequest());
@@ -862,10 +852,6 @@ test("Rust model_mount core sends route-decision through typed Rust daemon-core 
         };
       },
     },
-    daemonCoreInvoker(request) {
-      calls.push({ method: "daemonCoreInvoker", request });
-      throw new Error(`generic command invoker must not run route decisions: ${request?.operation}`);
-    },
   });
 
   const result = runner.admitRouteDecision(routeRequest());
@@ -882,11 +868,7 @@ test("Rust model_mount core sends route-decision through typed Rust daemon-core 
 });
 
 test("Rust model_mount core rejects command-shaped route-decision fallback", () => {
-  const runner = new ModelMountCore({
-    daemonCoreInvoker(request) {
-      throw new Error(`generic command invoker must not run route decisions: ${request?.operation}`);
-    },
-  });
+  const runner = new ModelMountCore();
 
   assert.throws(
     () => runner.admitRouteDecision(routeRequest()),
@@ -921,7 +903,6 @@ test("Rust model_mount core sends invocation through typed daemon-core API", () 
         };
       },
     },
-    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(calls),
   });
 
   const result = runner.admitInvocation(invocationRequest());
@@ -961,7 +942,6 @@ test("Rust model_mount core sends provider execution through typed daemon-core A
         };
       },
     },
-    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(calls),
   });
 
   const result = runner.admitProviderExecution(providerExecutionRequest());
@@ -1012,7 +992,6 @@ test("Rust model_mount core sends provider invocation through typed daemon-core 
         };
       },
     },
-    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(calls),
   });
 
   const result = runner.executeProviderInvocation(providerInvocationRequest());
@@ -1078,7 +1057,6 @@ test("Rust model_mount core sends native-local provider stream invocation throug
         };
       },
     },
-    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(calls),
   });
 
   const result = runner.executeProviderStreamInvocation(providerStreamInvocationRequest());
@@ -1132,7 +1110,6 @@ test("Rust model_mount core sends native-local provider lifecycle through typed 
         };
       },
     },
-    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(calls),
   });
 
   const result = runner.planProviderLifecycle(providerLifecycleRequest());
@@ -1192,7 +1169,6 @@ test("Rust model_mount core sends hosted provider lifecycle through typed daemon
         };
       },
     },
-    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(calls),
   });
 
   const result = runner.planProviderLifecycle({
@@ -1299,7 +1275,6 @@ test("Rust model_mount core sends local provider inventory through typed daemon-
       };
       },
     },
-    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(calls),
   });
 
   const result = runner.planProviderInventory(providerInventoryRequest());
@@ -1359,7 +1334,6 @@ test("Rust model_mount core sends model instance lifecycle through typed daemon-
         };
       },
     },
-    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(calls),
   });
 
   const result = runner.planInstanceLifecycle(instanceLifecycleRequest());
@@ -1403,7 +1377,6 @@ test("Rust model_mount core sends provider result admission through typed daemon
         };
       },
     },
-    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(calls),
   });
 
   const result = runner.admitProviderResult(providerResultRequest());
@@ -1457,7 +1430,6 @@ test("Rust model_mount core sends backend process plan request through typed Rus
         };
       },
     },
-    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(calls),
   });
 
   const result = runner.planBackendProcess(backendProcessPlanRequest());
@@ -1546,7 +1518,6 @@ test("Rust model_mount core sends positive backend lifecycle request", () => {
         };
       },
     },
-    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(calls),
   });
 
   const result = runner.planBackendLifecycle(backendLifecycleRequest());
@@ -1610,7 +1581,6 @@ test("Rust model_mount core sends positive server-control request", () => {
         };
       },
     },
-    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(calls),
   });
 
   const result = runner.planServerControl(serverControlRequest());
@@ -1664,7 +1634,6 @@ test("Rust model_mount core sends positive runtime-engine request", () => {
         };
       },
     },
-    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(calls),
   });
 
   const result = runner.planRuntimeEngine(runtimeEngineRequest());
@@ -1683,9 +1652,6 @@ test("Rust model_mount core sends positive runtime-engine request", () => {
 
 test("Rust model_mount core rejects command-shaped runtime-engine fallback", () => {
   const runner = new ModelMountCore({
-    daemonCoreInvoker(request) {
-      throw new Error(`generic command invoker must not run runtime engine: ${request?.operation}`);
-    },
   });
 
   assert.throws(
@@ -1753,7 +1719,6 @@ test("Rust model_mount core sends positive runtime-survey request", () => {
         };
       },
     },
-    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(calls),
   });
 
   const result = runner.planRuntimeSurvey(runtimeSurveyRequest());
@@ -1772,9 +1737,6 @@ test("Rust model_mount core sends positive runtime-survey request", () => {
 
 test("Rust model_mount core rejects command-shaped runtime-survey fallback", () => {
   const runner = new ModelMountCore({
-    daemonCoreInvoker(request) {
-      throw new Error(`generic command invoker must not run runtime survey: ${request?.operation}`);
-    },
   });
 
   assert.throws(
@@ -1835,7 +1797,6 @@ test("Rust model_mount core sends tokenizer required request through typed Rust 
       };
     },
     },
-    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(),
   });
 
   const result = runner.planTokenizerRequired(tokenizerRequiredRequest());
@@ -1909,7 +1870,6 @@ test("Rust model_mount core sends route control required request through typed R
       };
     },
     },
-    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(),
   });
 
   const result = runner.planRouteControlRequired(routeControlRequiredRequest());
@@ -1982,7 +1942,6 @@ test("Rust model_mount core sends positive tokenizer request through typed Rust 
       };
     },
     },
-    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(),
   });
 
   const result = runner.planTokenizer(tokenizerRequest());
@@ -2042,7 +2001,6 @@ test("Rust model_mount core sends positive route control request", () => {
         };
       },
     },
-    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(calls),
   });
 
   const result = runner.planRouteControl(routeControlRequest());
@@ -2065,9 +2023,6 @@ test("Rust model_mount core sends positive route control request", () => {
 
 test("Rust model_mount core rejects command-shaped route-control fallback", () => {
   const runner = new ModelMountCore({
-    daemonCoreInvoker(request) {
-      throw new Error(`generic command invoker must not run route control: ${request?.operation}`);
-    },
   });
 
   assert.throws(
@@ -2133,7 +2088,6 @@ test("Rust model_mount core sends positive artifact-endpoint request", () => {
         };
       },
     },
-    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(calls),
   });
 
   const result = runner.planArtifactEndpoint(artifactEndpointRequest());
@@ -2158,9 +2112,6 @@ test("Rust model_mount core sends positive artifact-endpoint request", () => {
 
 test("Rust model_mount core rejects command-shaped artifact-endpoint fallback", () => {
   const runner = new ModelMountCore({
-    daemonCoreInvoker(request) {
-      throw new Error(`generic command invoker must not run artifact endpoint: ${request?.operation}`);
-    },
   });
 
   assert.throws(
@@ -2252,10 +2203,6 @@ test("Rust model_mount core sends positive storage-control request", () => {
       };
       },
     },
-    daemonCoreInvoker(request) {
-      calls.push({ method: "daemonCoreInvoker", request });
-      throw new Error(`generic command invoker must not run storage control: ${request?.operation}`);
-    },
   });
 
   const result = runner.planStorageControl(storageControlRequest());
@@ -2279,9 +2226,6 @@ test("Rust model_mount core sends positive storage-control request", () => {
 
 test("Rust model_mount core rejects command-shaped storage-control fallback", () => {
   const runner = new ModelMountCore({
-    daemonCoreInvoker(request) {
-      throw new Error(`generic command invoker must not run storage control: ${request?.operation}`);
-    },
   });
 
   assert.throws(
@@ -2339,7 +2283,6 @@ test("Rust model_mount core sends positive MCP workflow request", () => {
       };
     },
     },
-    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(calls),
   });
 
   const result = runner.planMcpWorkflow({
@@ -2455,7 +2398,6 @@ test("Rust model_mount core accepts MCP execution receipt binding", () => {
       };
     },
     },
-    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(calls),
   });
 
   const result = runner.planMcpWorkflow({
@@ -2536,7 +2478,6 @@ test("Rust model_mount core rejects retired MCP workflow rust_required execution
       };
     },
     },
-    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(),
   });
 
   assert.throws(
@@ -2631,7 +2572,6 @@ test("Rust model_mount core sends positive catalog-provider-control request", ()
       };
     },
     },
-    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(),
   });
 
   const result = runner.planCatalogProviderControl(catalogProviderControlRequest());
@@ -2719,7 +2659,6 @@ test("Rust model_mount core sends positive provider-control request", () => {
       };
     },
     },
-    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(),
   });
 
   const result = runner.planProviderControl(providerControlRequest());
@@ -2822,7 +2761,6 @@ test("Rust model_mount core sends positive capability-token-control request", ()
       };
     },
     },
-    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(),
   });
 
   const result = runner.planCapabilityTokenControl(capabilityTokenControlRequest());
@@ -2940,7 +2878,6 @@ test("Rust model_mount core sends positive vault-control request", () => {
       };
     },
     },
-    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(),
   });
 
   const result = runner.planVaultControl(vaultControlRequest());
@@ -3054,7 +2991,6 @@ test("Rust model_mount core sends positive receipt-gate request", () => {
       };
     },
     },
-    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(),
   });
 
   const result = runner.planReceiptGate(receiptGateRequest());
@@ -3076,10 +3012,6 @@ test("Rust model_mount core sends positive receipt-gate request", () => {
 test("Rust model_mount core rejects command-shaped backend/catalog/provider/vault/receipt/conversation fallbacks", () => {
   const calls = [];
   const runner = new ModelMountCore({
-    daemonCoreInvoker(request) {
-      calls.push({ method: "daemonCoreInvoker", request });
-      throw new Error(`generic command invoker must not run migrated model_mount controls: ${request?.operation}`);
-    },
   });
   const cases = [
     [MODEL_MOUNT_BACKEND_PROCESS_API_METHOD, () => runner.planBackendProcess(backendProcessPlanRequest())],
@@ -3406,7 +3338,6 @@ test("Rust model_mount core binds invocation receipt through typed daemon-core A
         };
       },
     },
-    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(genericCalls),
   });
 
   const result = runner.bindInvocationReceipt({
@@ -3504,7 +3435,6 @@ test("Rust model_mount core sends accepted receipt transition through typed daem
         };
       },
     },
-    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(genericCalls),
   });
 
   const result = runner.planAcceptedReceiptTransition({
@@ -3569,7 +3499,6 @@ test("Rust model_mount core sends accepted receipt head through typed daemon-cor
         };
       },
     },
-    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(genericCalls),
   });
 
   const result = runner.planAcceptedReceiptHead({
@@ -3621,7 +3550,6 @@ test("Rust model_mount core sends read projection through typed daemon-core API"
         };
       }
     },
-    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(genericCalls),
   });
 
   const result = runner.planReadProjection({
@@ -3661,10 +3589,6 @@ test("Rust model_mount core factory uses daemon-level typed model_mount API", ()
         };
       },
     },
-    daemonCoreInvoker(request) {
-      calls.push({ method: "daemonCoreInvoker", request });
-      return { source: "generic_daemon_core_api" };
-    },
   });
 
   const result = core.admitRouteDecision(routeRequest());
@@ -3681,9 +3605,6 @@ test("Rust model_mount core rejects retired compatibility options", () => {
     () =>
       createModelMountCore({
         command: "ioi-runtime-daemon-core",
-        daemonCoreInvoker() {
-          return {};
-        },
       }),
     (error) =>
       error instanceof ModelMountCoreError &&
@@ -3694,9 +3615,6 @@ test("Rust model_mount core rejects retired compatibility options", () => {
     () =>
       createModelMountCore({
         args: ["--json"],
-        daemonCoreInvoker() {
-          return {};
-        },
       }),
     (error) =>
       error instanceof ModelMountCoreError &&
@@ -3728,6 +3646,18 @@ test("Rust model_mount core rejects retired compatibility options", () => {
       error instanceof ModelMountCoreError &&
       error.code === "model_mount_core_compatibility_option_retired" &&
       error.details.retired_option === "daemonCoreApi",
+  );
+  assert.throws(
+    () =>
+      createModelMountCore({
+        daemonCoreInvoker() {
+          return {};
+        },
+      }),
+    (error) =>
+      error instanceof ModelMountCoreError &&
+      error.code === "model_mount_core_compatibility_option_retired" &&
+      error.details.retired_option === "daemonCoreInvoker",
   );
 });
 

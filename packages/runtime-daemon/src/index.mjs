@@ -678,7 +678,6 @@ export class AgentgresRuntimeStateStore {
       homeDir: options.homeDir,
       vaultSecrets: options.vaultSecrets,
       modelMountCore: options.modelMountCore,
-      daemonCoreInvoker: this.daemonCoreInvoker,
       daemonCoreModelMountApi: this.daemonCoreModelMountApi,
       commitRuntimeModelMountRecordState: (request) => this.commitRuntimeModelMountRecordState(request),
       commitRuntimeModelMountReceiptState: (request) => this.commitRuntimeModelMountReceiptState(request),

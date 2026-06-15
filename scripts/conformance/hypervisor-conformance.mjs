@@ -4672,7 +4672,14 @@ function runBridge() {
       /assertNoStepModuleCommandInvoker\("daemonCoreInvoker", options\.daemonCoreInvoker\)/.test(stepModuleRunner) &&
       !/this\.daemonCoreInvoker = optionalFunction\(options\.daemonCoreInvoker\)/.test(stepModuleRunner) &&
       /this\.daemonCoreWorkloadApi = workloadApi\(options\.daemonCoreWorkloadApi\)/.test(stepModuleRunner) &&
-      /this\.daemonCoreInvoker = optionalFunction\(options\.daemonCoreInvoker\)/.test(modelMountCore) &&
+      /assertNoRetiredModelMountCoreOption\("daemonCoreInvoker", options\.daemonCoreInvoker\)/.test(
+        modelMountCore,
+      ) &&
+      !/this\.daemonCoreInvoker = optionalFunction\(options\.daemonCoreInvoker\)/.test(
+        modelMountCore,
+      ) &&
+      !/invokeDaemonCore\(/.test(modelMountCore) &&
+      !/ioi\.runtime\.daemon_core\.command\.v1/.test(modelMountCore) &&
       !/mockResult|mockSource|defaultBackend|createDaemonCoreCommandInvoker|spawnSyncImpl/.test(
         [stepModuleRunner, modelMountCore].join("\n"),
       ) &&
@@ -15709,7 +15716,14 @@ function runBridge() {
       /model_mount_core_direct_model_mount_api_unconfigured/.test(modelMountCore) &&
       /daemonCoreModelMountApi: this\.daemonCoreModelMountApi/.test(runtimeDaemonIndex) &&
       /daemonCoreModelMountApi,/.test(modelMountingState) &&
-      /model_mount_core_direct_invoker_unconfigured/.test(modelMountCore) &&
+      /assertNoRetiredModelMountCoreOption\("daemonCoreInvoker", options\.daemonCoreInvoker\)/.test(
+        modelMountCore,
+      ) &&
+      !/model_mount_core_direct_invoker_unconfigured/.test(modelMountCore) &&
+      !/this\.daemonCoreInvoker = optionalFunction\(options\.daemonCoreInvoker\)/.test(
+        modelMountCore,
+      ) &&
+      !/invokeDaemonCore\(/.test(modelMountCore) &&
       !exists("packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs") &&
       !/createModelMountAdmissionRunnerFromEnv|RustModelMountAdmissionRunner|ModelMountAdmissionRunnerError|modelMountAdmissionRunner/.test(
@@ -15722,7 +15736,7 @@ function runBridge() {
         modelMountDaemonCore,
       ) &&
       !/MODEL_MOUNT_ADMISSION_COMMAND_ENV/.test(modelMountCore) &&
-      /ioi\.runtime\.daemon_core\.command\.v1/.test(modelMountCore) &&
+      !/ioi\.runtime\.daemon_core\.command\.v1/.test(modelMountCore) &&
       !/operation:\s*"admit_model_mount_route_decision"/.test(modelMountCore) &&
       !/MODEL_MOUNT_ADMISSION_COMMAND_ARGS_ENV/.test(modelMountCore) &&
       !/parseCommandArgs/.test(modelMountCore) &&
@@ -15745,6 +15759,7 @@ function runBridge() {
       /retired_option === "command"/.test(modelMountCoreTest) &&
       /retired_option === "args"/.test(modelMountCoreTest) &&
       /retired_option === "env"/.test(modelMountCoreTest) &&
+      /retired_option === "daemonCoreInvoker"/.test(modelMountCoreTest) &&
       /Rust model_mount core command args constructor option fails closed/.test(
         modelMountCoreTest,
       ) &&

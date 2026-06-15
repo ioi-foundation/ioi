@@ -7572,13 +7572,14 @@ from JS. If Rust includes evidence in the returned record or record details,
 the temporary JS edge may pass that Rust-authored array through, but it may not
 create compatibility proof material when Rust omits it.
 
-This remains non-terminal because the JS model_mount core request builder, shared
-daemon-core command runner, and Node bridge transport still carry model_mount
-required-boundary requests to Rust. The target is direct Rust daemon-core
-model_mount protocol/API ownership over lifecycle/control/tokenizer/route
-admission, receipt/state-root binding, Agentgres projection, replay, and
-stable IDE/CLI/SDK protocol surfaces, not preservation of JS normalizers as
-compatibility shims.
+At that cut, the JS model_mount core request builder, shared daemon-core command
+runner, and Node bridge transport still carried model_mount required-boundary
+requests to Rust. Later model_mount typed API cuts retired those command paths;
+Slice 1229 also retires the generic model_mount invoker shim. The remaining
+target is Rust daemon-core model_mount materialization/protocol ownership over
+lifecycle/control/tokenizer/route admission, receipt/state-root binding,
+Agentgres projection, replay, and stable IDE/CLI/SDK protocol surfaces, not
+preservation of JS normalizers as compatibility shims.
 
 Slice 1161 retires JS-side StepModuleResult receipt and result fallback
 authorship for coding-tool StepModule execution. `step-module-abi.mjs` no
@@ -8657,12 +8658,12 @@ capability-token control, vault control, and receipt-gate planning now call type
 `daemonCoreModelMountApi` methods backed by Rust `RuntimeKernelService`; the
 old command operations, dispatch arms, bridge wrappers, backend markers, and JS
 command-envelope builders are retired. The core requires typed
-`daemonCoreModelMountApi` for migrated model_mount APIs, uses
-`daemonCoreInvoker` only for remaining temporary operations, rejects retired
-`command`, `args`, and `env` compatibility options, and keeps Rust-owned receipt
-refs, evidence refs, process fields, inventory fields, expected heads, binding
-records, and projection evidence absent instead of synthesizing JS fallback
-truth. The old JS in-flight model invocation coalescing map is also deleted;
+`daemonCoreModelMountApi` for migrated model_mount APIs, rejects retired
+`command`, `args`, `env`, and `daemonCoreInvoker` compatibility options, stores
+no generic direct-invoker shim, and keeps Rust-owned receipt refs, evidence refs,
+process fields, inventory fields, expected heads, binding records, and
+projection evidence absent instead of synthesizing JS fallback truth. The old JS
+in-flight model invocation coalescing map is also deleted;
 migrated invocation calls stay on the Rust provider path instead of minting a JS
 `model_invocation_coalesced` receipt. Conformance now requires the old runner
 paths and symbols to stay absent, typed API calls to omit `operation`/`backend`,
@@ -9569,6 +9570,22 @@ replay/storage, MCP runtime materialization, model_mount backend/materialization
 work, richer protocol APIs, and IDE/CLI/SDK clients still need terminal
 Rust-owned projection/replay records; the StepModule command transport itself is
 retired.
+
+Slice 1229 retires the model_mount generic daemon-core invoker shim. The
+mounted `ModelMountCore` now rejects constructor `daemonCoreInvoker` as a
+retired compatibility option, stores only `daemonCoreModelMountApi`, deletes
+`invokeDaemonCore()`, and no longer exports the daemon-core command schema
+marker from `model-mount-core.mjs`. `ModelMountingState` no longer forwards the
+daemon-wide invoker into model_mount, and route-decision default source now
+reports `rust_model_mount_api` instead of a command-transport marker.
+Conformance guards the retired option, absence of generic invoker storage,
+absence of the direct-invoker fallback error, absence of the command schema
+marker, and the no-bridge/no-command-env source scan. This remains non-terminal
+because backend supervision/execution materialization, hosted/provider
+transport, OAuth/materialization, invocation authority, local cache scaffolding,
+durable replay/storage, richer MCP runtime materialization, and stable
+IDE/CLI/SDK protocol APIs still need terminal Rust-owned materialization and
+projection/replay records.
 
 ## Final Doctrine
 

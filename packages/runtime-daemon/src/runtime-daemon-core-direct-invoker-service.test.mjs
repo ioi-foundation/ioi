@@ -1159,7 +1159,6 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
     },
   };
   const directModelMountCore = createModelMountCore({
-    daemonCoreInvoker: failCommandInvoker,
     daemonCoreModelMountApi,
   });
   const store = new AgentgresRuntimeStateStore(stateDir, {
@@ -1262,7 +1261,6 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
         return directModelMountCore.planRuntimeSurvey(request);
       },
     },
-    daemonCoreInvoker: failCommandInvoker,
     daemonCoreModelMountApi,
     daemonCoreContextLifecycleApi: {
       evaluateContextBudgetPolicy(request) {

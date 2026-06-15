@@ -1,4 +1,3 @@
-export const MODEL_MOUNT_CORE_SCHEMA_VERSION = "ioi.runtime.daemon_core.command.v1";
 export const RUST_MODEL_MOUNT_ADMISSION_BACKEND = "rust_model_mount_live";
 export const RUST_MODEL_MOUNT_FIXTURE_BACKEND = "rust_model_mount_fixture";
 export const RUST_MODEL_MOUNT_FIXTURE_INVENTORY_BACKEND = "rust_model_mount_fixture_inventory";
@@ -65,7 +64,7 @@ export class ModelMountCore {
     assertNoRetiredModelMountCoreOption("args", options.args);
     assertNoRetiredModelMountCoreOption("env", options.env);
     assertNoRetiredModelMountCoreOption("daemonCoreApi", options.daemonCoreApi);
-    this.daemonCoreInvoker = optionalFunction(options.daemonCoreInvoker);
+    assertNoRetiredModelMountCoreOption("daemonCoreInvoker", options.daemonCoreInvoker);
     this.daemonCoreModelMountApi = modelMountApi(options.daemonCoreModelMountApi);
   }
 
@@ -286,26 +285,6 @@ export class ModelMountCore {
     );
   }
 
-  invokeDaemonCore(request) {
-    if (!this.daemonCoreInvoker) {
-      throw new ModelMountCoreError(
-        "Model mount requires daemonCoreInvoker for direct Rust daemon-core model_mount APIs.",
-        "model_mount_core_direct_invoker_unconfigured",
-        { boundary: "daemonCoreInvoker" },
-      );
-    }
-    const response = this.daemonCoreInvoker(request);
-    const responseError = objectRecord(response?.error);
-    if (response?.ok === false && responseError) {
-      throw new ModelMountCoreError(
-        responseError.message ?? "Rust model_mount core rejected the admission request.",
-        responseError.code ?? "model_mount_core_direct_invoker_rejected",
-        { error: responseError },
-      );
-    }
-    return response?.ok === true ? response.result : response;
-  }
-
   invokeModelMountApi(method, request) {
     const invoke = this.daemonCoreModelMountApi?.[method];
     if (typeof invoke !== "function") {
@@ -342,7 +321,7 @@ function normalizeRouteDecisionApiResult(value = {}) {
   const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   const record = result.record && typeof result.record === "object" ? result.record : {};
   return {
-    source: result.source ?? "rust_model_mount_command",
+    source: result.source ?? "rust_model_mount_api",
     backend: result.backend ?? RUST_MODEL_MOUNT_ADMISSION_BACKEND,
     record,
     route_decision_ref: result.route_decision_ref ?? record.route_decision_ref ?? null,
@@ -1995,10 +1974,6 @@ function normalizeReadProjectionApiResult(value = {}) {
     projection: result.projection ?? null,
     evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : null,
   };
-}
-
-function optionalFunction(value) {
-  return typeof value === "function" ? value : null;
 }
 
 function modelMountApi(value) {
