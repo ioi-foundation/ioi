@@ -32495,7 +32495,10 @@ function runCompositor() {
       runtimeContextPolicyCoreTest,
     ) &&
     /commitRuntimeArtifactRecord/.test(runtimeConversationArtifactSurface) &&
-    /conversationArtifactControlRunner/.test(runtimeConversationArtifactSurface) &&
+    /requireConversationArtifactControlCore/.test(runtimeConversationArtifactSurface) &&
+    !/conversationArtifact(?:Control|Projection)Runner|store\?\.contextPolicyCore\s*\?\?\s*contextPolicyCore/.test(
+      runtimeConversationArtifactSurface + runtimeConversationArtifactSurfaceTest,
+    ) &&
     /planRuntimeConversationArtifactControl\(request\)/.test(
       runtimeConversationArtifactSurface,
     ) &&
@@ -32555,7 +32558,10 @@ function runCompositor() {
     /conversation_artifact_read_projection_js_facade_retired/.test(
       runtimeConversationArtifactSurface,
     ) &&
-    /conversationArtifactProjectionRunner/.test(runtimeConversationArtifactSurface) &&
+    /requireConversationArtifactProjectionCore/.test(runtimeConversationArtifactSurface) &&
+    !/conversationArtifact(?:Control|Projection)Runner|store\?\.contextPolicyCore\s*\?\?\s*contextPolicyCore/.test(
+      runtimeConversationArtifactSurface + runtimeConversationArtifactSurfaceTest,
+    ) &&
     /state_dir:\s*conversationArtifactProjectionStateDir\(store\)/.test(
       runtimeConversationArtifactProjectReadBlock,
     ) &&

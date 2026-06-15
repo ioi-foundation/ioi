@@ -10534,6 +10534,19 @@ wallet/cTEE lifecycle policy depth, durable lifecycle replay/projection,
 receipt/state-root binding, and stable protocol APIs, not alternate lifecycle
 helper runners.
 
+Slice 1310 hard-cuts conversation-artifact surface runner wrappers.
+`createRuntimeConversationArtifactSurface()` no longer routes artifact
+create/action/export/promote control or list/get/revision projection through
+`conversationArtifactControlRunner`, `conversationArtifactProjectionRunner`, or
+the `store.contextPolicyCore ?? contextPolicyCore` fallback shape. Public and
+thread-scoped conversation-artifact read/control routes now resolve through the
+single positive `contextPolicyCore` mount injected by daemon startup before Rust
+control planning, Rust projection, and Agentgres artifact-state commit.
+Conformance now guards that the retired wrappers and fallback cannot return.
+Remaining work is durable Agentgres-backed artifact replay/projection,
+ArtifactRef/PayloadRef admission depth, wallet/cTEE authority where needed, and
+stable protocol APIs, not alternate conversation-artifact runners.
+
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,
 `/v1/memory/policy`, `/v1/memory/path`, or `/v1/memory/validate`; the daemon

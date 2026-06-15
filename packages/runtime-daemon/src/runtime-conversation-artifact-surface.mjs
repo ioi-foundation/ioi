@@ -67,9 +67,8 @@ export function createRuntimeConversationArtifactSurface({
     });
   }
 
-  function conversationArtifactControlRunner(store, request = {}) {
-    const runner = store?.contextPolicyCore ?? contextPolicyCore;
-    if (runner?.planRuntimeConversationArtifactControl) return runner;
+  function requireConversationArtifactControlCore(request = {}) {
+    if (contextPolicyCore?.planRuntimeConversationArtifactControl) return contextPolicyCore;
     throwConversationArtifactControlRequired({
       operation: request.operation ?? "conversation_artifact_control",
       operationKind: request.operation_kind ?? "artifact.conversation.control",
@@ -90,9 +89,8 @@ export function createRuntimeConversationArtifactSurface({
     });
   }
 
-  function conversationArtifactProjectionRunner(store, request = {}) {
-    const runner = store?.contextPolicyCore ?? contextPolicyCore;
-    if (runner?.projectRuntimeConversationArtifactProjection) return runner;
+  function requireConversationArtifactProjectionCore(request = {}) {
+    if (contextPolicyCore?.projectRuntimeConversationArtifactProjection) return contextPolicyCore;
     throw runtimeError({
       status: 501,
       code: "runtime_conversation_artifact_read_projection_rust_projection_missing",
@@ -161,7 +159,7 @@ export function createRuntimeConversationArtifactSurface({
       thread_id: threadId,
       artifact_id: artifactId,
     };
-    const runner = conversationArtifactControlRunner(store, requestContext);
+    const core = requireConversationArtifactControlCore(requestContext);
     assertConversationArtifactCommitAvailable(store, requestContext);
     const request = {
       operation,
@@ -175,7 +173,7 @@ export function createRuntimeConversationArtifactSurface({
         `${operation}_rust_owned`,
       ],
     };
-    const plan = runner.planRuntimeConversationArtifactControl(request);
+    const plan = core.planRuntimeConversationArtifactControl(request);
     return assertConversationArtifactControlPlan(plan, {
       operation,
       operationKind,
@@ -272,7 +270,7 @@ export function createRuntimeConversationArtifactSurface({
       thread_id: threadId,
       artifact_id: artifactId,
     };
-    const runner = conversationArtifactProjectionRunner(store, requestContext);
+    const core = requireConversationArtifactProjectionCore(requestContext);
     const request = {
       operation: "runtime_conversation_artifact_projection",
       operation_kind: operationKind,
@@ -283,7 +281,7 @@ export function createRuntimeConversationArtifactSurface({
       source: "runtime.conversation_artifact_surface.read_projection",
       evidence_refs: conversationArtifactReadProjectionEvidenceRefs,
     };
-    const result = runner.projectRuntimeConversationArtifactProjection(request);
+    const result = core.projectRuntimeConversationArtifactProjection(request);
     if (
       result?.projection_kind !== projectionKind ||
       !validProjectedConversationArtifactRead(projectionKind, result?.projection)
