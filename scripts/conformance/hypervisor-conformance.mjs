@@ -12999,6 +12999,7 @@ function runBridge() {
       /agentgres_run_cancel_state_truth_required/.test(runtimeRunCancellation) &&
       /operation_kind:\s*"run\.cancel"/.test(runtimeRunCancellation) &&
       /planRunCancelStateUpdate/.test(runtimeRunCancellation) &&
+      !/runCancelRunner/.test(runtimeRunCancellation) &&
       /run_cancel_state_update_run_missing/.test(runtimeRunCancellation) &&
       /run_cancel_state_update_operation_kind_mismatch/.test(runtimeRunCancellation) &&
       /run_cancel_state_update_projection_incomplete/.test(runtimeRunCancellation) &&

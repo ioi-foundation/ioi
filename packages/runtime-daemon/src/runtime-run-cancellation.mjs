@@ -5,7 +5,7 @@ import {
 
 export function cancelRun(state, runId) {
   const run = state.getRun(runId);
-  const runCancelRunner = state?.runCancelRunner ?? state?.contextPolicyCore ?? null;
+  const contextPolicyCore = state?.contextPolicyCore ?? null;
   const operationDetails = {
     operation: "run_cancel",
     operation_kind: "run.cancel",
@@ -14,13 +14,13 @@ export function cancelRun(state, runId) {
   };
   if (!objectRecord(run)) {
     throwRunCancelRustCoreRequired({
-      runCancelRunner,
+      contextPolicyCore,
       ...operationDetails,
     });
   }
-  if (typeof runCancelRunner?.planRunCancelStateUpdate !== "function") {
+  if (typeof contextPolicyCore?.planRunCancelStateUpdate !== "function") {
     throwRunCancelRustCoreRequired({
-      runCancelRunner,
+      contextPolicyCore,
       ...operationDetails,
     });
   }
@@ -38,7 +38,7 @@ export function cancelRun(state, runId) {
     });
   }
   const canceledAt = state.nowIso?.() ?? new Date().toISOString();
-  const planned = runCancelRunner.planRunCancelStateUpdate({
+  const planned = contextPolicyCore.planRunCancelStateUpdate({
     run_id: run?.id ?? runId,
     run,
     canceled_at: canceledAt,
@@ -106,9 +106,9 @@ export function cancelRun(state, runId) {
 }
 
 function throwRunCancelRustCoreRequired(details = {}) {
-  const { runCancelRunner = null, ...errorDetails } = details;
-  if (runCancelRunner?.planRunCancelAdmissionRequired) {
-    const record = runCancelRunner.planRunCancelAdmissionRequired({
+  const { contextPolicyCore = null, ...errorDetails } = details;
+  if (contextPolicyCore?.planRunCancelAdmissionRequired) {
+    const record = contextPolicyCore.planRunCancelAdmissionRequired({
       operation: errorDetails.operation,
       operation_kind: errorDetails.operation_kind,
       run_id: errorDetails.run_id,

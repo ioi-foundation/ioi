@@ -10405,6 +10405,16 @@ workflow mutation custody, durable workflow-edit projection/replay,
 ArtifactRef/PayloadRef binding where needed, and stable IDE/CLI/SDK
 workflow-edit clients, not a JS runner fallback.
 
+Slice 1299 hard-cuts run-cancel runner injection scaffolding. `cancelRun()` no
+longer reads `state.runCancelRunner`; cancellation state planning and
+admission-required refusal shaping resolve only `state.contextPolicyCore`
+before Rust daemon-core run-cancel planning and Agentgres-backed `writeRun`
+persistence. Focused tests already mount fake Rust planners only under
+`state.contextPolicyCore`, and conformance guards that the retired runner alias
+cannot return. Remaining work is wallet/operator authority depth, cancellation
+replay/projection storage, and direct Rust lifecycle APIs, not a JS runner
+fallback.
+
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,
 `/v1/memory/policy`, `/v1/memory/path`, or `/v1/memory/validate`; the daemon
