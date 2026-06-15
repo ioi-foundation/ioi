@@ -915,9 +915,9 @@ function runDocs() {
       /ioi\.runtime\.mcp-live-exit-receipt\.v1/.test(guide) &&
       /commitRuntimeReceiptState\(\)` before `writeAgent\(\)` can persist/.test(guide) &&
       /commit_runtime_receipt_state/.test(guide) &&
-      /real contained\s+tool\/discovery result payloads/.test(guide),
+      /actual external Rust MCP backend invocation and\s+discovery execute inside the contained runtime/.test(guide),
     [GUIDE],
-    "master guide must record Rust-owned runtime MCP live-exit receipt-state binding and the narrower remaining transport/result-payload blocker",
+    "master guide must record Rust-owned runtime MCP live-exit receipt-state binding and the narrower remaining external backend blocker",
   );
   assertCheck(
     result,
@@ -927,9 +927,9 @@ function runDocs() {
       /commitRuntimeMcpLiveResultState\(\)` after `commitRuntimeReceiptState\(\)` and\s+before `writeAgent\(\)` can persist/.test(guide) &&
       /commit_runtime_mcp_live_result_state/.test(guide) &&
       /mcp-live-results\/\*\.json/.test(guide) &&
-      /real\s+contained tool\/discovery payloads into those result records/.test(guide),
+      /actual external Rust MCP backend invocation and\s+discovery execute inside the contained runtime/.test(guide),
     [GUIDE],
-    "master guide must record Rust-owned runtime MCP live-result state binding and the remaining real transport payload blocker",
+    "master guide must record Rust-owned runtime MCP live-result state binding and the remaining external backend blocker",
   );
   assertCheck(
     result,
@@ -940,9 +940,20 @@ function runDocs() {
       /projectMcpLiveResultReplay\(\)` after `commitRuntimeReceiptState\(\)` and\s+`commitRuntimeMcpLiveResultState\(\)` and before `writeAgent\(\)`/.test(guide) &&
       /mcp-live-results\/\*\.json/.test(guide) &&
       /replayed result instead of the planner's direct `record\.result`/.test(guide) &&
-      /real contained tool\/discovery payloads into the persisted\s+result records/.test(guide),
+      /actual external Rust MCP\s+backend invocation and discovery execute inside the contained runtime/.test(guide),
     [GUIDE],
     "master guide must record Rust-owned runtime MCP live-result replay and the retired direct planner-result public truth path",
+  );
+  assertCheck(
+    result,
+    "guide-runtime-mcp-live-result-materialized",
+      /Slice 1239 hard-cuts runtime MCP control live invoke\/discovery exits out of the\s+admitted-but-pending transport-result lane/.test(guide) &&
+      /ioi\.runtime\.mcp-live-result-payload\.v1/.test(guide) &&
+      /hashes the payload, binds that hash through the live-exit\s+receipt, control record/.test(guide) &&
+      /stamps the result as `rust_materialized`/.test(guide) &&
+      /admitted_pending_rust_transport` \/ `runtime_mcp_transport_backend_pending/.test(guide),
+    [GUIDE],
+    "master guide must record the runtime MCP control Rust materialized result-payload cut and retired pending transport marker",
   );
   assertCheck(
     result,
@@ -13537,6 +13548,13 @@ function runBridge() {
 	      /agentgres_runtime_mcp_live_receipt_truth_required/.test(policyMcpMemoryCore) &&
 	      /runtime_mcp_live_result_rust_projection/.test(policyMcpMemoryCore) &&
 	      /agentgres_runtime_mcp_live_result_truth_required/.test(policyMcpMemoryCore) &&
+	      /mcp_control_live_exit_result_payload/.test(policyMcpMemoryCore) &&
+	      /runtime_mcp_live_result_payload_hash/.test(policyMcpMemoryCore) &&
+	      /runtime_mcp_live_result_payload_rust_materialized/.test(policyMcpMemoryCore) &&
+	      /"status": "rust_materialized"/.test(policyMcpMemoryCore) &&
+	      /"backend_materialization_status": "rust_materialized"/.test(policyMcpMemoryCore) &&
+	      !/"status": "admitted_pending_rust_transport"/.test(policyMcpMemoryCore) &&
+	      !/"backend_materialization_status": "pending_rust_transport_backend"/.test(policyMcpMemoryCore) &&
 	      /receipt_state_root_binding_required/.test(policyMcpMemoryCore) &&
 	      /ctee_custody_required/.test(policyMcpMemoryCore) &&
 	      /transport_containment_required/.test(policyMcpMemoryCore) &&
@@ -13568,6 +13586,12 @@ function runBridge() {
       /mcp_control_live_exit_result_replay_state_dir_required/.test(runtimeMcpControlSurface) &&
       /mcp_control_live_exit_result_replay_invalid/.test(runtimeMcpControlSurface) &&
       /mcp_control_live_exit_result_binding_invalid/.test(runtimeMcpControlSurface) &&
+      /admitted_pending_rust_transport_retired/.test(runtimeMcpControlSurface) &&
+      /runtime_mcp_transport_backend_pending_retired/.test(runtimeMcpControlSurface) &&
+      /runtime_mcp_live_result_payload_rust_materialized/.test(runtimeMcpControlSurface) &&
+      /result_materialized_true/.test(runtimeMcpControlSurface) &&
+      /payload_hash_binding/.test(runtimeMcpControlSurface) &&
+      !/result_materialized_false/.test(runtimeMcpControlSurface) &&
       /store\?\.writeAgent/.test(runtimeMcpControlSurface) &&
       /agent_id:\s*optionalStringDep\(request\.agent_id\) \?\? agentIdForThreadDep\(threadId\)/.test(
         runtimeMcpControlSurface,
@@ -13600,6 +13624,12 @@ function runBridge() {
       /runtime MCP live exits use Rust control admission before JS transport invocation/.test(
         runtimeMcpControlSurfaceTest,
       ) &&
+	      /runtime MCP live exits reject pending Rust transport result materialization/.test(
+	        runtimeMcpControlSurfaceTest,
+	      ) &&
+	      /runtime_mcp_live_result_payload_hash/.test(runtimeMcpControlSurfaceTest) &&
+	      /admitted_pending_rust_transport_retired/.test(runtimeMcpControlSurfaceTest) &&
+	      /commitRuntimeMcpLiveResultState"\),\s*\[\]/.test(runtimeMcpControlSurfaceTest) &&
 	      /runtime MCP live exits fail closed when Rust control planner is missing/.test(
 	        runtimeMcpControlSurfaceTest,
 	      ) &&
@@ -29663,6 +29693,13 @@ function runCompositor() {
 	    /agentgres_runtime_mcp_live_receipt_truth_required/.test(policyMcpMemoryCore) &&
 	    /runtime_mcp_live_result_rust_projection/.test(policyMcpMemoryCore) &&
 	    /agentgres_runtime_mcp_live_result_truth_required/.test(policyMcpMemoryCore) &&
+	    /mcp_control_live_exit_result_payload/.test(policyMcpMemoryCore) &&
+	    /runtime_mcp_live_result_payload_hash/.test(policyMcpMemoryCore) &&
+	    /runtime_mcp_live_result_payload_rust_materialized/.test(policyMcpMemoryCore) &&
+	    /"status": "rust_materialized"/.test(policyMcpMemoryCore) &&
+	    /"backend_materialization_status": "rust_materialized"/.test(policyMcpMemoryCore) &&
+	    !/"status": "admitted_pending_rust_transport"/.test(policyMcpMemoryCore) &&
+	    !/"backend_materialization_status": "pending_rust_transport_backend"/.test(policyMcpMemoryCore) &&
 	    /receipt_state_root_binding_required/.test(policyMcpMemoryCore) &&
 	    /ctee_custody_required/.test(policyMcpMemoryCore) &&
 	    /transport_containment_required/.test(policyMcpMemoryCore) &&
@@ -29691,6 +29728,12 @@ function runCompositor() {
 	    /mcp_control_live_exit_result_replay_required/.test(runtimeMcpControlSurface) &&
 	    /mcp_control_live_exit_result_replay_invalid/.test(runtimeMcpControlSurface) &&
 	    /mcp_control_live_exit_result_binding_invalid/.test(runtimeMcpControlSurface) &&
+	    /admitted_pending_rust_transport_retired/.test(runtimeMcpControlSurface) &&
+	    /runtime_mcp_transport_backend_pending_retired/.test(runtimeMcpControlSurface) &&
+	    /runtime_mcp_live_result_payload_rust_materialized/.test(runtimeMcpControlSurface) &&
+	    /result_materialized_true/.test(runtimeMcpControlSurface) &&
+	    /payload_hash_binding/.test(runtimeMcpControlSurface) &&
+	    !/result_materialized_false/.test(runtimeMcpControlSurface) &&
     /store\?\.writeAgent/.test(runtimeMcpControlSurface) &&
     /agent_id:\s*optionalStringDep\(request\.agent_id\) \?\? agentIdForThreadDep\(threadId\)/.test(
       runtimeMcpControlSurface,
@@ -29716,6 +29759,12 @@ function runCompositor() {
     /runtime MCP live exits use Rust control admission before JS transport invocation/.test(
       runtimeMcpControlSurfaceTest,
     ) &&
+	    /runtime MCP live exits reject pending Rust transport result materialization/.test(
+	      runtimeMcpControlSurfaceTest,
+	    ) &&
+	    /runtime_mcp_live_result_payload_hash/.test(runtimeMcpControlSurfaceTest) &&
+	    /admitted_pending_rust_transport_retired/.test(runtimeMcpControlSurfaceTest) &&
+	    /commitRuntimeMcpLiveResultState"\),\s*\[\]/.test(runtimeMcpControlSurfaceTest) &&
 	    /runtime MCP live exits fail closed when Rust control planner is missing/.test(
 	      runtimeMcpControlSurfaceTest,
 	    ) &&

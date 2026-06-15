@@ -35,7 +35,18 @@ function cloneJson(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
-function liveExitReceipt({ request, payload, agent, control, receiptId, operationRef, stateRootBefore, stateRootAfter, resultingHead }) {
+function liveExitReceipt({
+  request,
+  payload,
+  agent,
+  control,
+  receiptId,
+  operationRef,
+  stateRootBefore,
+  stateRootAfter,
+  resultingHead,
+  payloadHash,
+}) {
   return {
     schema_version: "ioi.runtime.mcp-live-exit-receipt.v1",
     object: "ioi.runtime_mcp_live_exit_receipt",
@@ -74,7 +85,8 @@ function liveExitReceipt({ request, payload, agent, control, receiptId, operatio
       runtime_mcp_agent_state_root_before: stateRootBefore,
       runtime_mcp_agent_state_root_after: stateRootAfter,
       runtime_mcp_resulting_head: resultingHead,
-      result_materialized: false,
+      result_materialized: true,
+      result_payload_hash: payloadHash,
       js_transport_invocation: false,
       command_transport_fallback: false,
       binary_bridge_fallback: false,
@@ -94,13 +106,17 @@ function liveExitResult({
   stateRootBefore,
   stateRootAfter,
   resultingHead,
+  payloadHash,
 }) {
+  const payloadKind = request.control_kind === "mcp_live_discovery"
+    ? "mcp_live_discovery_result"
+    : "mcp_tool_result";
   return {
     schema_version: "ioi.runtime.mcp-live-result.v1",
     object: "ioi.runtime_mcp_live_result",
     id: resultId,
     kind: "runtime_mcp_live_result",
-    status: "admitted_pending_rust_transport",
+    status: "rust_materialized",
     redaction: "redacted",
     created_at: request.created_at,
     receipt_id: receiptId,
@@ -109,10 +125,28 @@ function liveExitResult({
       "runtime_mcp_control_rust_owned",
       "runtime_mcp_live_result_rust_projection",
       "agentgres_runtime_mcp_live_result_truth_required",
-      "runtime_mcp_transport_backend_pending",
+      "runtime_mcp_live_result_payload_rust_materialized",
       "runtime_mcp_no_js_transport_result",
       "receipt_state_root_binding_required",
     ],
+    payload: {
+      schema_version: "ioi.runtime.mcp-live-result-payload.v1",
+      object: "ioi.runtime_mcp_live_result_payload",
+      payload_kind: payloadKind,
+      status: "materialized",
+      payload_hash: payloadHash,
+      result_payload_hash: payloadHash,
+      protocol_result: {
+        content: [{ type: "text", text: `Rust daemon core materialized ${payloadKind}.` }],
+        structuredContent: {
+          object: "ioi.runtime_mcp_live_result_payload",
+          payload_kind: payloadKind,
+          control_kind: request.control_kind,
+          event_id: request.event_id,
+        },
+        isError: false,
+      },
+    },
     details: {
       rust_daemon_core_result_author: "runtime.mcp_control",
       control_kind: request.control_kind,
@@ -129,10 +163,11 @@ function liveExitResult({
       runtime_mcp_agent_state_root_after: stateRootAfter,
       runtime_mcp_resulting_head: resultingHead,
       receipt_id: receiptId,
-      result_materialized: false,
-      backend_materialization_status: "pending_rust_transport_backend",
+      result_materialized: true,
+      backend_materialization_status: "rust_materialized",
       payload_ref: null,
-      payload_hash: null,
+      payload_hash: payloadHash,
+      result_payload_hash: payloadHash,
       js_transport_invocation: false,
       command_transport_fallback: false,
       binary_bridge_fallback: false,
@@ -225,6 +260,7 @@ function planMcpControlAgentStateUpdate(request, currentAgent) {
   const resultingHead = liveExit
     ? `agentgres://runtime-state/agents/${agent.id}/head/${stateRootAfter.replaceAll(":", "_")}`
     : null;
+  const payloadHash = liveExit ? `sha256:payload:${request.control_kind}:${request.event_id}` : null;
   const control = {
     control_kind: request.control_kind,
     event_id: request.event_id,
@@ -250,7 +286,9 @@ function planMcpControlAgentStateUpdate(request, currentAgent) {
     result_record_id: resultId,
     runtime_mcp_live_receipt_required: liveExit,
     runtime_mcp_live_result_required: liveExit,
-    runtime_mcp_live_result_status: liveExit ? "admitted_pending_rust_transport" : null,
+    runtime_mcp_live_result_status: liveExit ? "rust_materialized" : null,
+    runtime_mcp_live_result_materialized: liveExit,
+    runtime_mcp_live_result_payload_hash: payloadHash,
     runtime_mcp_agentgres_operation_ref: operationRef,
     runtime_mcp_agent_state_root_before: stateRootBefore,
     runtime_mcp_agent_state_root_after: stateRootAfter,
@@ -272,7 +310,18 @@ function planMcpControlAgentStateUpdate(request, currentAgent) {
     control,
     agent,
     receipt: receiptId
-      ? liveExitReceipt({ request, payload, agent, control, receiptId, operationRef, stateRootBefore, stateRootAfter, resultingHead })
+      ? liveExitReceipt({
+          request,
+          payload,
+          agent,
+          control,
+          receiptId,
+          operationRef,
+          stateRootBefore,
+          stateRootAfter,
+          resultingHead,
+          payloadHash,
+        })
       : null,
     result: resultId
       ? liveExitResult({
@@ -286,6 +335,7 @@ function planMcpControlAgentStateUpdate(request, currentAgent) {
           stateRootBefore,
           stateRootAfter,
           resultingHead,
+          payloadHash,
         })
       : null,
   };
@@ -378,7 +428,10 @@ function harness(options = {}) {
     },
     planMcpControlAgentStateUpdate(request) {
       calls.push({ name: "planMcpControlAgentStateUpdate", request: cloneJson(request) });
-      return planMcpControlAgentStateUpdate(request, agent);
+      const record = planMcpControlAgentStateUpdate(request, agent);
+      return typeof options.planRecordTransform === "function"
+        ? options.planRecordTransform(record, request)
+        : record;
     },
     projectMcpLiveResultReplay(request) {
       calls.push({ name: "projectMcpLiveResultReplay", request: cloneJson(request) });
@@ -717,6 +770,12 @@ test("runtime MCP live exits use Rust control admission before JS transport invo
   assert.equal(invoked.control.wallet_authority_boundary, "wallet.network.mcp_external_exit");
   assert.equal(invoked.control.ctee_custody_required, true);
   assert.equal(invoked.control.transport_containment_required, true);
+  assert.equal(invoked.control.runtime_mcp_live_result_status, "rust_materialized");
+  assert.equal(invoked.control.runtime_mcp_live_result_materialized, true);
+  assert.equal(
+    invoked.control.runtime_mcp_live_result_payload_hash,
+    `sha256:payload:mcp_invoke:${planCalls[0].request.event_id}`,
+  );
   assert.deepEqual(invoked.control.authority_grant_refs, ["wallet.network://grant/mcp/docs/search"]);
   assert.equal(invoked.control.custody_ref, "ctee://workspace/public");
   assert.equal(invoked.control.containment_ref, "containment://mcp/docs");
@@ -730,7 +789,8 @@ test("runtime MCP live exits use Rust control admission before JS transport invo
     invoked.receipt.details.runtime_mcp_agentgres_operation_ref,
     invoked.control.runtime_mcp_agentgres_operation_ref,
   );
-  assert.equal(invoked.receipt.details.result_materialized, false);
+  assert.equal(invoked.receipt.details.result_materialized, true);
+  assert.equal(invoked.receipt.details.result_payload_hash, invoked.control.runtime_mcp_live_result_payload_hash);
   assert.equal(invoked.receipt.details.js_transport_invocation, false);
   assert.equal(invoked.receipt.details.command_transport_fallback, false);
   assert.equal(invoked.receipt_commit.commit_hash, `receipt.commit.${invoked.receipt.id}`);
@@ -740,9 +800,16 @@ test("runtime MCP live exits use Rust control admission before JS transport invo
   );
   assert.equal(invoked.result.id, invoked.control.result_record_id);
   assert.equal(invoked.result.receipt_id, invoked.receipt.id);
+  assert.equal(invoked.result.status, "rust_materialized");
   assert.equal(invoked.result.details.rust_daemon_core_result_author, "runtime.mcp_control");
-  assert.equal(invoked.result.details.backend_materialization_status, "pending_rust_transport_backend");
-  assert.equal(invoked.result.details.result_materialized, false);
+  assert.equal(invoked.result.details.backend_materialization_status, "rust_materialized");
+  assert.equal(invoked.result.details.result_materialized, true);
+  assert.equal(invoked.result.details.payload_hash, invoked.control.runtime_mcp_live_result_payload_hash);
+  assert.equal(invoked.result.payload.payload_hash, invoked.control.runtime_mcp_live_result_payload_hash);
+  assert.equal(
+    invoked.result.payload.protocol_result.structuredContent.object,
+    "ioi.runtime_mcp_live_result_payload",
+  );
   assert.equal(invoked.result.details.js_transport_invocation, false);
   assert.equal(invoked.result.details.command_transport_fallback, false);
   assert.equal(invoked.result_commit.commit_hash, `result.commit.${invoked.result.id}`);
@@ -800,6 +867,52 @@ test("runtime MCP live exits use Rust control admission before JS transport invo
       "projectMcpLiveResultReplay",
       "writeAgent",
     ],
+  );
+});
+
+test("runtime MCP live exits reject pending Rust transport result materialization", async () => {
+  const { calls, store, surface } = harness({
+    planRecordTransform(record) {
+      const next = cloneJson(record);
+      next.result.status = "admitted_pending_rust_transport";
+      next.result.evidence_refs = next.result.evidence_refs
+        .filter((ref) => ref !== "runtime_mcp_live_result_payload_rust_materialized");
+      next.result.evidence_refs.push("runtime_mcp_transport_backend_pending");
+      next.result.details.result_materialized = false;
+      next.result.details.backend_materialization_status = "pending_rust_transport_backend";
+      next.result.details.payload_hash = null;
+      next.result.details.result_payload_hash = null;
+      delete next.result.payload;
+      return next;
+    },
+  });
+
+  await assert.rejects(
+    () =>
+      surface.invokeMcpTool(store, {
+        thread_id: "thread-agent-one",
+        server_id: "mcp.docs",
+        tool_id: "mcp.docs.search",
+        tool_name: "search",
+        live_transport: "stdio",
+        execution_mode: "live",
+        authority_grant_refs: ["wallet.network://grant/mcp/docs/search"],
+        authority_receipt_refs: ["receipt://wallet.network/mcp/docs/search"],
+        custody_ref: "ctee://workspace/public",
+        containment_ref: "containment://mcp/docs",
+      }),
+    (error) => {
+      assert.equal(error.code, "mcp_control_live_exit_result_binding_invalid");
+      assert.ok(error.details.missing.includes("admitted_pending_rust_transport_retired"));
+      assert.ok(error.details.missing.includes("runtime_mcp_transport_backend_pending_retired"));
+      assert.ok(error.details.missing.includes("runtime_mcp_live_result_payload_rust_materialized"));
+      assert.ok(error.details.missing.includes("payload_hash"));
+      return true;
+    },
+  );
+  assert.deepEqual(
+    calls.filter((call) => call.name === "commitRuntimeMcpLiveResultState"),
+    [],
   );
 });
 

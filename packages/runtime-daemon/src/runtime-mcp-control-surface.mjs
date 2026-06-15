@@ -512,9 +512,12 @@ export function createRuntimeMcpControlSurface({
     if (receiptDetails.runtime_mcp_resulting_head !== control.runtime_mcp_resulting_head) {
       missing.push("control_resulting_head_binding");
     }
-    if (receiptDetails.result_materialized !== false) missing.push("result_materialized_false");
+    if (receiptDetails.result_materialized !== true) missing.push("result_materialized_true");
+    if (!optionalStringDep(receiptDetails.result_payload_hash)) missing.push("result_payload_hash");
     if (receiptDetails.js_transport_invocation !== false) missing.push("js_transport_invocation_false");
     if (receiptDetails.command_transport_fallback !== false) missing.push("command_transport_fallback_false");
+    if (receiptDetails.binary_bridge_fallback !== false) missing.push("binary_bridge_fallback_false");
+    if (receiptDetails.compatibility_fallback !== false) missing.push("compatibility_fallback_false");
     if (missing.length > 0) {
       throw runtimeErrorDep({
         status: 502,
@@ -531,13 +534,23 @@ export function createRuntimeMcpControlSurface({
 
   function assertRuntimeMcpLiveResultBound(result, receipt, control, details = {}) {
     const resultDetails = objectRecordDep(result.details) ?? {};
+    const payload = objectRecordDep(result.payload);
     const evidenceRefs = Array.isArray(result.evidence_refs) ? result.evidence_refs : [];
     const resultId = optionalStringDep(result.id);
     const receiptId = optionalStringDep(receipt?.id);
     const resultRecordId = optionalStringDep(control.result_record_id);
+    const detailsPayloadHash =
+      optionalStringDep(resultDetails.payload_hash) ?? optionalStringDep(resultDetails.result_payload_hash);
+    const payloadHash =
+      optionalStringDep(payload?.payload_hash) ?? optionalStringDep(payload?.result_payload_hash);
+    const receiptPayloadHash = optionalStringDep(receipt?.details?.result_payload_hash);
     const missing = [];
     if (result.schema_version !== "ioi.runtime.mcp-live-result.v1") missing.push("schema_version");
     if (result.kind !== "runtime_mcp_live_result") missing.push("kind");
+    if (result.status === "admitted_pending_rust_transport") {
+      missing.push("admitted_pending_rust_transport_retired");
+    }
+    if (result.status !== "rust_materialized") missing.push("status.rust_materialized");
     if (!resultId) missing.push("id");
     if (resultId !== resultRecordId) missing.push("result_record_id");
     if (!receiptId) missing.push("receipt_id");
@@ -548,10 +561,14 @@ export function createRuntimeMcpControlSurface({
     for (const ref of [
       "runtime_mcp_live_result_rust_projection",
       "agentgres_runtime_mcp_live_result_truth_required",
+      "runtime_mcp_live_result_payload_rust_materialized",
       "runtime_mcp_no_js_transport_result",
       "receipt_state_root_binding_required",
     ]) {
       if (!evidenceRefs.includes(ref)) missing.push(ref);
+    }
+    if (evidenceRefs.includes("runtime_mcp_transport_backend_pending")) {
+      missing.push("runtime_mcp_transport_backend_pending_retired");
     }
     if (resultDetails.runtime_mcp_agentgres_operation_ref !== control.runtime_mcp_agentgres_operation_ref) {
       missing.push("control_operation_ref_binding");
@@ -562,12 +579,23 @@ export function createRuntimeMcpControlSurface({
     if (resultDetails.runtime_mcp_resulting_head !== control.runtime_mcp_resulting_head) {
       missing.push("control_resulting_head_binding");
     }
-    if (resultDetails.result_materialized !== false) missing.push("result_materialized_false");
-    if (resultDetails.backend_materialization_status !== "pending_rust_transport_backend") {
+    if (resultDetails.result_materialized !== true) missing.push("result_materialized_true");
+    if (resultDetails.backend_materialization_status !== "rust_materialized") {
       missing.push("backend_materialization_status");
+    }
+    if (!payload) missing.push("payload");
+    if (!detailsPayloadHash) missing.push("payload_hash");
+    if (!payloadHash) missing.push("payload.payload_hash");
+    if (detailsPayloadHash && payloadHash && detailsPayloadHash !== payloadHash) {
+      missing.push("payload_hash_binding");
+    }
+    if (receiptPayloadHash && detailsPayloadHash && receiptPayloadHash !== detailsPayloadHash) {
+      missing.push("receipt_result_payload_hash_binding");
     }
     if (resultDetails.js_transport_invocation !== false) missing.push("js_transport_invocation_false");
     if (resultDetails.command_transport_fallback !== false) missing.push("command_transport_fallback_false");
+    if (resultDetails.binary_bridge_fallback !== false) missing.push("binary_bridge_fallback_false");
+    if (resultDetails.compatibility_fallback !== false) missing.push("compatibility_fallback_false");
     if (missing.length > 0) {
       throw runtimeErrorDep({
         status: 502,

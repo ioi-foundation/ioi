@@ -8761,9 +8761,9 @@ public live-exit truth can return. The new
 `commit_runtime_mcp_live_result_state` daemon-core operation persists runtime
 MCP live-result records under `mcp-live-results/*.json` through Rust Agentgres
 storage admission, so JS cannot substitute a live transport result projection.
-This remains non-terminal until the Rust MCP transport backend materializes real
-contained tool/discovery payloads into those result records and stable protocol
-APIs replay/project those payloads without temporary command transport.
+This remains non-terminal until actual external Rust MCP backend invocation and
+discovery execute inside the contained runtime, and stable protocol APIs
+replay/project those Rust records without temporary command transport.
 
 Slice 1217 binds runtime MCP live-result public return to Rust-owned
 Agentgres replay/projection. Rust `McpLiveResultReplayCore` and
@@ -8780,10 +8780,10 @@ replayed result against the Rust receipt/control/state-root binding, and returns
 that replayed result instead of the planner's direct `record.result`. Missing
 state dir, missing replay API, invalid replay projection, JS-authored result
 candidate, or uncommitted result id fails closed before public live-exit truth or
-agent truth can return. This remains non-terminal until the Rust MCP transport
-backend materializes real contained tool/discovery payloads into the persisted
-result records, command transport is retired for this hot path, and stable
-IDE/CLI/SDK protocol APIs consume the Rust replay records directly.
+agent truth can return. This remains non-terminal until actual external Rust MCP
+backend invocation and discovery execute inside the contained runtime, command
+transport is retired for this hot path, and stable IDE/CLI/SDK protocol APIs
+consume the Rust replay records directly.
 
 Slice 1218 moves public MCP tool search/fetch projection into Rust daemon-core.
 Rust `McpToolSearchProjectionCore` / `McpToolFetchProjectionCore` and
@@ -9735,6 +9735,21 @@ Rust materialized result binding. This remains non-terminal because live
 external MCP transport backend invocation/discovery, broader runtime containment
 sandboxing, and stable IDE/CLI/SDK protocol APIs still need terminal Rust-owned
 records.
+
+Slice 1239 hard-cuts runtime MCP control live invoke/discovery exits out of the
+admitted-but-pending transport-result lane. Rust
+`plan_mcp_control_agent_state_update` now materializes deterministic
+`ioi.runtime.mcp-live-result-payload.v1` protocol payloads for `mcp_invoke` and
+`mcp_live_discovery`, hashes the payload, binds that hash through the live-exit
+receipt, control record, `ioi.runtime.mcp-live-result.v1` Agentgres result
+record, and replay projection, and stamps the result as `rust_materialized`.
+Rust replay now rejects MCP control live-result records that still carry the
+retired pending backend evidence, and the JS MCP control surface rejects
+`admitted_pending_rust_transport` / `runtime_mcp_transport_backend_pending`
+records before result-state commit or public truth can return. This remains
+non-terminal because actual external Rust MCP backend invocation/discovery,
+runtime containment sandboxing for live backends, broader serve admission, and
+stable IDE/CLI/SDK protocol APIs still need terminal Rust-owned records.
 
 ## Final Doctrine
 

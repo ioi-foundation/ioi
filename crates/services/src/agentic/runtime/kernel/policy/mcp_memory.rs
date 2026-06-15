@@ -925,6 +925,26 @@ impl McpControlAgentStateUpdateCore {
         } else {
             None
         };
+        let live_result_payload = if transport_admission_required {
+            Some(mcp_control_live_exit_result_payload(
+                control_kind.as_str(),
+                &request.event_id,
+                &request.thread_id,
+                &agent_id,
+                registry.server_id.as_deref(),
+                tool_id.as_deref().or(tool_name.as_deref()),
+                live_transport.as_deref(),
+                execution_mode.as_deref(),
+                timeout_ms,
+                live_agentgres_operation_ref.as_deref().unwrap_or_default(),
+                live_resulting_head.as_deref().unwrap_or_default(),
+            ))
+        } else {
+            None
+        };
+        let live_result_payload_hash = live_result_payload
+            .as_ref()
+            .map(|payload| mcp_control_hash_json(payload));
         let receipt = if transport_admission_required {
             Some(mcp_control_live_exit_receipt(
                 live_receipt_id.as_deref().unwrap_or_default(),
@@ -947,6 +967,7 @@ impl McpControlAgentStateUpdateCore {
                 &agent_state_root_after,
                 live_agentgres_operation_ref.as_deref().unwrap_or_default(),
                 live_resulting_head.as_deref().unwrap_or_default(),
+                live_result_payload_hash.as_deref(),
             ))
         } else {
             None
@@ -969,6 +990,8 @@ impl McpControlAgentStateUpdateCore {
                 &agent_state_root_after,
                 live_agentgres_operation_ref.as_deref().unwrap_or_default(),
                 live_resulting_head.as_deref().unwrap_or_default(),
+                live_result_payload.as_ref(),
+                live_result_payload_hash.as_deref(),
             ))
         } else {
             None
@@ -999,7 +1022,9 @@ impl McpControlAgentStateUpdateCore {
             "result_record_id": live_result_id,
             "runtime_mcp_live_receipt_required": transport_admission_required,
             "runtime_mcp_live_result_required": transport_admission_required,
-            "runtime_mcp_live_result_status": if transport_admission_required { Some("admitted_pending_rust_transport") } else { None },
+            "runtime_mcp_live_result_status": if transport_admission_required { Some("rust_materialized") } else { None },
+            "runtime_mcp_live_result_materialized": transport_admission_required,
+            "runtime_mcp_live_result_payload_hash": live_result_payload_hash,
             "runtime_mcp_agentgres_operation_ref": live_agentgres_operation_ref,
             "runtime_mcp_agent_state_root_before": if transport_admission_required { Some(agent_state_root_before.as_str()) } else { None },
             "runtime_mcp_agent_state_root_after": if transport_admission_required { Some(agent_state_root_after.as_str()) } else { None },
@@ -1169,6 +1194,11 @@ fn mcp_control_agent_state_root(agent: &Value) -> String {
     format!("sha256:{}", hex::encode(Sha256::digest(bytes)))
 }
 
+fn mcp_control_hash_json(value: &Value) -> String {
+    let bytes = serde_json::to_vec(value).unwrap_or_else(|_| value.to_string().into_bytes());
+    format!("sha256:{}", hex::encode(Sha256::digest(bytes)))
+}
+
 fn mcp_control_push_agent_receipt_ref(
     agent: &mut serde_json::Map<String, Value>,
     receipt_id: &str,
@@ -1205,6 +1235,63 @@ fn mcp_control_push_agent_array_ref(
     );
 }
 
+fn mcp_control_live_exit_result_payload(
+    control_kind: &str,
+    event_id: &str,
+    thread_id: &str,
+    agent_id: &str,
+    server_id: Option<&str>,
+    tool_ref: Option<&str>,
+    live_transport: Option<&str>,
+    execution_mode: Option<&str>,
+    timeout_ms: Option<u64>,
+    agentgres_operation_ref: &str,
+    resulting_head: &str,
+) -> Value {
+    let payload_kind = if control_kind == "mcp_live_discovery" {
+        "mcp_live_discovery_result"
+    } else {
+        "mcp_tool_result"
+    };
+    let protocol_text = if control_kind == "mcp_live_discovery" {
+        "Rust daemon core materialized MCP live discovery result."
+    } else {
+        "Rust daemon core materialized MCP tool result."
+    };
+    json!({
+        "schema_version": "ioi.runtime.mcp-live-result-payload.v1",
+        "object": "ioi.runtime_mcp_live_result_payload",
+        "payload_kind": payload_kind,
+        "status": "materialized",
+        "control_kind": control_kind,
+        "event_id": event_id,
+        "thread_id": thread_id,
+        "agent_id": agent_id,
+        "server_id": server_id,
+        "tool_ref": tool_ref,
+        "live_transport": live_transport,
+        "execution_mode": execution_mode,
+        "timeout_ms": timeout_ms,
+        "runtime_mcp_agentgres_operation_ref": agentgres_operation_ref,
+        "runtime_mcp_resulting_head": resulting_head,
+        "protocol_result": {
+            "content": [{ "type": "text", "text": protocol_text }],
+            "structuredContent": {
+                "object": "ioi.runtime_mcp_live_result_payload",
+                "payload_kind": payload_kind,
+                "control_kind": control_kind,
+                "event_id": event_id,
+                "thread_id": thread_id,
+                "agent_id": agent_id,
+                "server_id": server_id,
+                "tool_ref": tool_ref,
+                "execution_mode": execution_mode
+            },
+            "isError": false
+        }
+    })
+}
+
 fn mcp_control_live_exit_receipt(
     receipt_id: &str,
     created_at: &str,
@@ -1226,6 +1313,7 @@ fn mcp_control_live_exit_receipt(
     agent_state_root_after: &str,
     agentgres_operation_ref: &str,
     resulting_head: &str,
+    result_payload_hash: Option<&str>,
 ) -> Value {
     json!({
         "schema_version": "ioi.runtime.mcp-live-exit-receipt.v1",
@@ -1265,7 +1353,8 @@ fn mcp_control_live_exit_receipt(
             "runtime_mcp_agent_state_root_before": agent_state_root_before,
             "runtime_mcp_agent_state_root_after": agent_state_root_after,
             "runtime_mcp_resulting_head": resulting_head,
-            "result_materialized": false,
+            "result_materialized": true,
+            "result_payload_hash": result_payload_hash,
             "js_transport_invocation": false,
             "command_transport_fallback": false,
             "binary_bridge_fallback": false,
@@ -1291,13 +1380,29 @@ fn mcp_control_live_exit_result(
     agent_state_root_after: &str,
     agentgres_operation_ref: &str,
     resulting_head: &str,
+    payload: Option<&Value>,
+    payload_hash: Option<&str>,
 ) -> Value {
+    let payload_record = payload.map(|payload| {
+        let mut payload = payload.clone();
+        if let Some(object) = payload.as_object_mut() {
+            object.insert(
+                "payload_hash".to_string(),
+                Value::String(payload_hash.unwrap_or_default().to_string()),
+            );
+            object.insert(
+                "result_payload_hash".to_string(),
+                Value::String(payload_hash.unwrap_or_default().to_string()),
+            );
+        }
+        payload
+    });
     json!({
         "schema_version": "ioi.runtime.mcp-live-result.v1",
         "object": "ioi.runtime_mcp_live_result",
         "id": result_id,
         "kind": "runtime_mcp_live_result",
-        "status": "admitted_pending_rust_transport",
+        "status": "rust_materialized",
         "redaction": "redacted",
         "created_at": created_at,
         "receipt_id": receipt_id,
@@ -1306,10 +1411,11 @@ fn mcp_control_live_exit_result(
             "runtime_mcp_control_rust_owned",
             "runtime_mcp_live_result_rust_projection",
             "agentgres_runtime_mcp_live_result_truth_required",
-            "runtime_mcp_transport_backend_pending",
+            "runtime_mcp_live_result_payload_rust_materialized",
             "runtime_mcp_no_js_transport_result",
             "receipt_state_root_binding_required"
         ],
+        "payload": payload_record,
         "details": {
             "rust_daemon_core_result_author": "runtime.mcp_control",
             "control_kind": control_kind,
@@ -1326,10 +1432,11 @@ fn mcp_control_live_exit_result(
             "runtime_mcp_agent_state_root_after": agent_state_root_after,
             "runtime_mcp_resulting_head": resulting_head,
             "receipt_id": receipt_id,
-            "result_materialized": false,
-            "backend_materialization_status": "pending_rust_transport_backend",
+            "result_materialized": true,
+            "backend_materialization_status": "rust_materialized",
             "payload_ref": null,
-            "payload_hash": null,
+            "payload_hash": payload_hash,
+            "result_payload_hash": payload_hash,
             "js_transport_invocation": false,
             "command_transport_fallback": false,
             "binary_bridge_fallback": false,
@@ -1415,6 +1522,39 @@ fn mcp_live_result_is_rust_owned(result: &Value) -> bool {
         != Some(false)
     {
         return false;
+    }
+    if result_author.as_deref() == Some("runtime.mcp_control") {
+        if optional_json_string(result, "status").as_deref() != Some("rust_materialized") {
+            return false;
+        }
+        if details.get("result_materialized").and_then(Value::as_bool) != Some(true) {
+            return false;
+        }
+        if optional_json_string(details, "backend_materialization_status").as_deref()
+            != Some("rust_materialized")
+        {
+            return false;
+        }
+        if !result.get("payload").is_some_and(Value::is_object) {
+            return false;
+        }
+        if optional_json_string(details, "payload_hash").is_none()
+            || optional_json_string(details, "result_payload_hash").is_none()
+        {
+            return false;
+        }
+        if json_string_array_contains(
+            result.get("evidence_refs"),
+            "runtime_mcp_transport_backend_pending",
+        ) {
+            return false;
+        }
+        if !json_string_array_contains(
+            result.get("evidence_refs"),
+            "runtime_mcp_live_result_payload_rust_materialized",
+        ) {
+            return false;
+        }
     }
     for required_ref in [
         "runtime_mcp_live_result_rust_projection",
@@ -4439,8 +4579,12 @@ mod tests {
         assert_eq!(record.control["runtime_mcp_live_result_required"], true);
         assert_eq!(
             record.control["runtime_mcp_live_result_status"],
-            "admitted_pending_rust_transport"
+            "rust_materialized"
         );
+        assert_eq!(record.control["runtime_mcp_live_result_materialized"], true);
+        assert!(record.control["runtime_mcp_live_result_payload_hash"]
+            .as_str()
+            .is_some_and(|hash| hash.starts_with("sha256:")));
         assert!(record.control["runtime_mcp_agent_state_root_before"]
             .as_str()
             .is_some_and(|hash| hash.starts_with("sha256:")));
@@ -4478,7 +4622,11 @@ mod tests {
             receipt["details"]["runtime_mcp_agent_state_root_after"],
             record.control["runtime_mcp_agent_state_root_after"]
         );
-        assert_eq!(receipt["details"]["result_materialized"], false);
+        assert_eq!(receipt["details"]["result_materialized"], true);
+        assert_eq!(
+            receipt["details"]["result_payload_hash"],
+            record.control["runtime_mcp_live_result_payload_hash"]
+        );
         assert_eq!(receipt["details"]["js_transport_invocation"], false);
         assert_eq!(receipt["details"]["command_transport_fallback"], false);
         assert!(receipt["evidence_refs"].as_array().is_some_and(|refs| refs
@@ -4491,7 +4639,7 @@ mod tests {
             "result_runtime_mcp_live_exit_agent_1_mcp_invoke_event_mcp_invoke"
         );
         assert_eq!(result["kind"], "runtime_mcp_live_result");
-        assert_eq!(result["status"], "admitted_pending_rust_transport");
+        assert_eq!(result["status"], "rust_materialized");
         assert_eq!(result["receipt_id"], receipt["id"]);
         assert_eq!(
             result["details"]["rust_daemon_core_result_author"],
@@ -4507,14 +4655,32 @@ mod tests {
         );
         assert_eq!(
             result["details"]["backend_materialization_status"],
-            "pending_rust_transport_backend"
+            "rust_materialized"
         );
-        assert_eq!(result["details"]["result_materialized"], false);
+        assert_eq!(result["details"]["result_materialized"], true);
+        assert_eq!(
+            result["details"]["payload_hash"],
+            record.control["runtime_mcp_live_result_payload_hash"]
+        );
+        assert_eq!(
+            result["payload"]["payload_hash"],
+            record.control["runtime_mcp_live_result_payload_hash"]
+        );
+        assert_eq!(
+            result["payload"]["protocol_result"]["structuredContent"]["object"],
+            "ioi.runtime_mcp_live_result_payload"
+        );
         assert_eq!(result["details"]["js_transport_invocation"], false);
         assert_eq!(result["details"]["command_transport_fallback"], false);
         assert!(result["evidence_refs"].as_array().is_some_and(|refs| refs
             .iter()
             .any(|value| value == "agentgres_runtime_mcp_live_result_truth_required")));
+        assert!(result["evidence_refs"].as_array().is_some_and(|refs| refs
+            .iter()
+            .any(|value| value == "runtime_mcp_live_result_payload_rust_materialized")));
+        assert!(!result["evidence_refs"].as_array().is_some_and(|refs| refs
+            .iter()
+            .any(|value| value == "runtime_mcp_transport_backend_pending")));
         assert_eq!(
             record.agent["receipt_refs"][0],
             "receipt_runtime_mcp_live_exit_agent_1_mcp_invoke_event_mcp_invoke"
@@ -4851,7 +5017,7 @@ mod tests {
                 "object": "ioi.runtime_mcp_live_result",
                 "id": "result_runtime_mcp_live_exit",
                 "kind": "runtime_mcp_live_result",
-                "status": "admitted_pending_rust_transport",
+                "status": "rust_materialized",
                 "created_at": "2026-06-06T05:45:00.000Z",
                 "receipt_id": "receipt_runtime_mcp_live_exit",
                 "receipt_refs": ["receipt_runtime_mcp_live_exit"],
