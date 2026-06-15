@@ -2946,6 +2946,9 @@ export function normalizeMcpToolSearchProjectionApiResult(value = {}) {
     rust_mcp_live_discovery_deferred: Boolean(
       result.rust_mcp_live_discovery_deferred ?? record.rust_mcp_live_discovery_deferred,
     ),
+    rust_mcp_live_discovery_materialized: Boolean(
+      result.rust_mcp_live_discovery_materialized ?? record.rust_mcp_live_discovery_materialized,
+    ),
     server_count: numberValue(result.server_count ?? record.server_count),
     tool_count: numberValue(result.tool_count ?? record.tool_count),
     returned_count: numberValue(result.returned_count ?? record.returned_count),

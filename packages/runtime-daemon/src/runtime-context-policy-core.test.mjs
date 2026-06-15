@@ -4006,6 +4006,7 @@ test("MCP tool search projection sends typed Rust daemon-core MCP catalog search
         exact: false,
         live_discovery: false,
         rust_mcp_live_discovery_deferred: false,
+        rust_mcp_live_discovery_materialized: false,
         server_count: 1,
         tool_count: 1,
         returned_count: 1,
@@ -4045,6 +4046,8 @@ test("MCP tool search projection sends typed Rust daemon-core MCP catalog search
   assert.equal(result.source, "rust_mcp_tool_search_projection_api");
   assert.equal(result.tools[0].stable_tool_id, "mcp.agent.git.diff");
   assert.equal(result.returned_count, 1);
+  assert.equal(result.rust_mcp_live_discovery_deferred, false);
+  assert.equal(result.rust_mcp_live_discovery_materialized, false);
 });
 
 test("MCP tool fetch projection sends typed Rust daemon-core MCP fetch request", () => {

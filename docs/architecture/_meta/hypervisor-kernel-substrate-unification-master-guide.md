@@ -823,11 +823,11 @@ transport. The runtime MCP catalog surface no longer calls `agentForThread()`,
 `discoverMcpHttpCatalog()`; `mcp-manager.mjs` no longer exports JS stdio/HTTP
 catalog discovery or tool invocation helpers. Public catalog live-discovery
 requests now return Rust-projected declared rows with a
-`rust_mcp_live_discovery_deferred` summary instead of executing JS transport.
+`rust_mcp_live_discovery_materialized` summary instead of executing JS
+transport or preserving the old deferred marker.
 This still does not claim terminal MCP migration: actual Rust MCP transport
-execution, StepModuleRouter live backend execution, result payload
-materialization, replay/projection storage, and
-stable SDK/IDE protocol APIs remain non-terminal.
+execution, StepModuleRouter live backend execution, replay/projection storage,
+and stable SDK/IDE protocol APIs remain non-terminal.
 Slice 783 retired the dead helper-level JS MCP mutation/registry projection
 path. `runtime-mcp-helpers.mjs` no longer exports
 `mcpRegistryWithServers()`, `mcpServerRecordsFromMutationInput()`,
@@ -9750,6 +9750,19 @@ records before result-state commit or public truth can return. This remains
 non-terminal because actual external Rust MCP backend invocation/discovery,
 runtime containment sandboxing for live backends, broader serve admission, and
 stable IDE/CLI/SDK protocol APIs still need terminal Rust-owned records.
+
+Slice 1240 hard-cuts runtime MCP catalog live-discovery out of the deferred
+projection lane. Rust `McpToolSearchProjectionCore` now marks live catalog
+search summaries as `rust_mcp_live_discovery_materialized`, emits
+`runtime_mcp_live_discovery_rust_materialized` evidence, keeps the retired
+`rust_mcp_live_discovery_deferred` field false, and returns completed,
+non-deferred catalog summaries for declared Rust-projected server rows. The JS
+catalog surface and context-policy adapter preserve the Rust materialized field
+as protocol output, while conformance rejects the old deferred-live-discovery
+surface name and marker from the success path. This remains non-terminal because
+actual external Rust MCP backend invocation/discovery, runtime containment
+sandboxing for live backends, and stable IDE/CLI/SDK protocol APIs still need
+terminal Rust-owned records.
 
 ## Final Doctrine
 

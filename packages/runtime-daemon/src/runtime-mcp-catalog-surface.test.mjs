@@ -149,18 +149,25 @@ function harness() {
           const serverTools = catalog.tools.filter((tool) => tool.server_id === item.id);
           const serverResources = catalog.resources.filter((resource) => resource.server_id === item.id);
           const serverPrompts = catalog.prompts.filter((prompt) => prompt.server_id === item.id);
-          const deferred = request.live_discovery !== false && item.enabled !== false;
+          const materialized = request.live_discovery !== false && item.enabled !== false;
           return this.planMcpManagerCatalogSummaryProjection({
             server: item,
             tools: serverTools,
             resources: serverResources,
             prompts: serverPrompts,
-            live_mode: deferred ? "rust_mcp_live_discovery_deferred" : null,
-            status: deferred ? "deferred" : undefined,
-            deferred,
+            live_mode: materialized ? "rust_mcp_live_discovery_materialized" : null,
+            status: materialized ? "completed" : undefined,
+            deferred: false,
             preview_limit: request.preview_limit,
           });
         });
+        const materialized = catalogSummaries.some(
+          (summary) => summary.execution_mode === "rust_mcp_live_discovery_materialized",
+        );
+        const evidenceRefs = ["runtime_mcp_tool_search_rust_projection"];
+        if (materialized) {
+          evidenceRefs.push("runtime_mcp_live_discovery_rust_materialized");
+        }
         return {
           source: "rust_mcp_tool_search_projection_api",
           backend: "rust_policy",
@@ -171,9 +178,8 @@ function harness() {
           q: query,
           exact,
           live_discovery: request.live_discovery !== false,
-          rust_mcp_live_discovery_deferred: catalogSummaries.some(
-            (summary) => summary.execution_mode === "rust_mcp_live_discovery_deferred",
-          ),
+          rust_mcp_live_discovery_deferred: false,
+          rust_mcp_live_discovery_materialized: materialized,
           server_count: servers.length,
           tool_count: tools.length,
           returned_count: returned.length,
@@ -187,7 +193,7 @@ function harness() {
             get_tool: "/v1/mcp/tools/{tool_id}",
             invoke_tool: "/v1/mcp/tools/{tool_id}/invoke",
           },
-          evidence_refs: ["runtime_mcp_tool_search_rust_projection"],
+          evidence_refs: evidenceRefs,
         };
       },
       projectMcpToolFetchProjection(request) {
@@ -537,7 +543,7 @@ test("runtime MCP catalog surface searches and fetches tools through global and 
   );
 });
 
-test("runtime MCP catalog surface defers live transport through Rust projection", async () => {
+test("runtime MCP catalog surface materializes live discovery through Rust projection", async () => {
   const { calls, store, surface } = harness();
 
   const live = await surface.searchMcpTools(store, {
@@ -547,10 +553,13 @@ test("runtime MCP catalog surface defers live transport through Rust projection"
     timeoutMs: 9999,
   });
   assert.equal(live.status, "completed");
-  assert.equal(live.rust_mcp_live_discovery_deferred, true);
+  assert.equal(live.rust_mcp_live_discovery_deferred, false);
+  assert.equal(live.rust_mcp_live_discovery_materialized, true);
   assert.equal(live.failures.length, 0);
-  assert.equal(live.catalog_summaries[0].execution_mode, "rust_mcp_live_discovery_deferred");
-  assert.equal(live.catalog_summaries[0].status, "deferred");
+  assert.equal(live.catalog_summaries[0].execution_mode, "rust_mcp_live_discovery_materialized");
+  assert.equal(live.catalog_summaries[0].status, "completed");
+  assert.equal(live.catalog_summaries[0].deferred, false);
+  assert.equal(live.evidence_refs.includes("runtime_mcp_live_discovery_rust_materialized"), true);
   assert.equal(
     calls.some((call) => call.name === "projectMcpToolSearchProjection" && call.request.thread_id === "thread-agent-one"),
     true,
@@ -566,7 +575,8 @@ test("runtime MCP catalog surface defers live transport through Rust projection"
     live_discovery: true,
     timeoutMs: 9999,
   });
-  assert.equal(aliasOnly.rust_mcp_live_discovery_deferred, true);
+  assert.equal(aliasOnly.rust_mcp_live_discovery_deferred, false);
+  assert.equal(aliasOnly.rust_mcp_live_discovery_materialized, true);
   assert.equal(aliasOnly.failures.length, 0);
   assert.equal(
     calls.some((call) => call.name === "projectMcpToolSearchProjection" && call.request.thread_id === "thread-agent-one"),

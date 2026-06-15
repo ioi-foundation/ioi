@@ -2708,7 +2708,7 @@ function runDocs() {
       /public MCP status plus agent-scoped `mcpStatusForAgent` catalog row inputs now\s+route through Rust daemon-core `McpManagerCatalogProjectionCore`\/`plan_mcp_manager_catalog_projection`/.test(implementationMatrix) &&
       /public MCP list\/search\/fetch catalog row inputs now route through Rust daemon-core\s+`McpManagerCatalogProjectionCore`\/`plan_mcp_manager_catalog_projection` instead of JS\s+`mcpToolsForServers`\/`mcpResourcesForServers`\/`mcpPromptsForServers` builders/.test(implementationMatrix) &&
 	      /contextual catalog projection now sends runtime `state_dir`, `thread_id`, and `agent_id`\s+so Rust replays admitted `agents\/\*\.json` before returning contextual server rows/.test(implementationMatrix) &&
-	      /public catalog `live_discovery` returns Rust-projected declared rows with\s+`rust_mcp_live_discovery_deferred` instead of executing JS transport/.test(implementationMatrix) &&
+	      /MCP catalog live-discovery now returns Rust materialized declared-row snapshots with\s+`rust_mcp_live_discovery_materialized`/.test(implementationMatrix) &&
 	      /public MCP tool search\/fetch now call Rust\s+`McpToolSearchProjectionCore`\/`McpToolFetchProjectionCore` through\s+`project_mcp_tool_search_projection`\/`project_mcp_tool_fetch_projection`/.test(implementationMatrix) &&
 	      /public MCP search\/fetch catalog summaries now route through Rust daemon-core\s+`McpManagerCatalogSummaryProjectionCore`\/`plan_mcp_manager_catalog_summary_projection` instead of JS\s+`mcpCatalogSummaryForServer`/.test(implementationMatrix) &&
       /helper-level `mcpCatalogSummaryForServer`\/`mcpCatalogExposureForStatus`\/`mcpToolNamespaces`\s+JS summary code is retired/.test(implementationMatrix) &&
@@ -39637,9 +39637,12 @@ function runCompositor() {
       !/discoverMcp(?:Stdio|Http)CatalogDep/.test(runtimeMcpCatalogSurface) &&
       !/invokeMcp(?:Stdio|Http)ToolDep/.test(runtimeMcpCatalogSurface) &&
       !/request\.agent\b|store\.agentForThread|store\.agents|store\.getAgent/.test(runtimeMcpCatalogSurface) &&
-      /runtime MCP catalog surface defers live transport through Rust projection/.test(
+      /runtime MCP catalog surface materializes live discovery through Rust projection/.test(
         runtimeMcpCatalogSurfaceTest,
       ) &&
+      /rust_mcp_live_discovery_materialized/.test(runtimeMcpCatalogSurfaceTest) &&
+      /runtime_mcp_live_discovery_rust_materialized/.test(policyMcpMemoryCore) &&
+      /rust_mcp_live_discovery_deferred:\s*false/.test(runtimeMcpCatalogSurfaceTest) &&
       /runtime MCP catalog must not call agentForThread/.test(runtimeMcpCatalogSurfaceTest) &&
       runtimeMcpControlFacadeRetired &&
       !/^\s*(?:executionMode|serverUrl|protocolVersion|serverInfo|toolCount|listedTools|resourceCount|listedResources|promptCount|listedPrompts|authBoundary)\s*:/m.test(

@@ -496,6 +496,7 @@ pub struct McpToolSearchProjectionRecord {
     pub exact: bool,
     pub live_discovery: bool,
     pub rust_mcp_live_discovery_deferred: bool,
+    pub rust_mcp_live_discovery_materialized: bool,
     pub server_count: usize,
     pub tool_count: usize,
     pub returned_count: usize,
@@ -2524,7 +2525,7 @@ fn mcp_tool_catalog_summaries(
             mcp_catalog_rows_for_server(resources, server_id.as_deref(), "server_id");
         let server_prompts =
             mcp_catalog_rows_for_server(prompts, server_id.as_deref(), "server_id");
-        let deferred_live_discovery =
+        let materialized_live_discovery =
             live_discovery && server.get("enabled").and_then(Value::as_bool) != Some(false);
         let summary = McpManagerCatalogSummaryProjectionCore
             .project(&McpManagerCatalogSummaryProjectionRequest {
@@ -2535,19 +2536,19 @@ fn mcp_tool_catalog_summaries(
                 tools: server_tools,
                 resources: server_resources,
                 prompts: server_prompts,
-                live_mode: if deferred_live_discovery {
-                    Some("rust_mcp_live_discovery_deferred".to_string())
+                live_mode: if materialized_live_discovery {
+                    Some("rust_mcp_live_discovery_materialized".to_string())
                 } else {
                     None
                 },
-                status: if deferred_live_discovery {
-                    Some("deferred".to_string())
+                status: if materialized_live_discovery {
+                    Some("completed".to_string())
                 } else {
                     None
                 },
                 error_code: None,
                 preview_limit: Some(preview_limit),
-                deferred: Some(deferred_live_discovery),
+                deferred: Some(false),
             })
             .map_err(|error| {
                 McpToolProjectionError::CatalogSummaryProjectionFailed(format!("{error:?}"))
@@ -2796,10 +2797,20 @@ impl McpToolSearchProjectionCore {
             live_discovery,
             preview_limit,
         )?;
-        let rust_mcp_live_discovery_deferred = catalog_summaries.iter().any(|summary| {
+        let rust_mcp_live_discovery_deferred = false;
+        let rust_mcp_live_discovery_materialized = catalog_summaries.iter().any(|summary| {
             json_string_value(summary, "execution_mode").as_deref()
-                == Some("rust_mcp_live_discovery_deferred")
+                == Some("rust_mcp_live_discovery_materialized")
         });
+
+        let mut evidence_refs = vec![
+            "runtime_mcp_tool_search_rust_projection".to_string(),
+            "runtime_mcp_catalog_js_search_filter_retired".to_string(),
+            "runtime_mcp_catalog_fetch_js_shape_retired".to_string(),
+        ];
+        if rust_mcp_live_discovery_materialized {
+            evidence_refs.push("runtime_mcp_live_discovery_rust_materialized".to_string());
+        }
 
         Ok(McpToolSearchProjectionRecord {
             schema_version: MCP_TOOL_SEARCH_PROJECTION_RESULT_SCHEMA_VERSION.to_string(),
@@ -2810,6 +2821,7 @@ impl McpToolSearchProjectionCore {
             exact,
             live_discovery,
             rust_mcp_live_discovery_deferred,
+            rust_mcp_live_discovery_materialized,
             server_count: servers.len(),
             tool_count: filtered.len(),
             returned_count: returned.len(),
@@ -2819,11 +2831,7 @@ impl McpToolSearchProjectionCore {
             catalog_summaries,
             failures: Vec::new(),
             routes: mcp_tool_projection_routes(),
-            evidence_refs: vec![
-                "runtime_mcp_tool_search_rust_projection".to_string(),
-                "runtime_mcp_catalog_js_search_filter_retired".to_string(),
-                "runtime_mcp_catalog_fetch_js_shape_retired".to_string(),
-            ],
+            evidence_refs,
             generated_at: "rust_policy_core".to_string(),
         })
     }
@@ -5110,11 +5118,19 @@ mod tests {
         assert_eq!(projection.returned_count, 1);
         assert_eq!(projection.tools[0]["tool_name"], "search");
         assert_eq!(projection.tools[0]["stable_tool_id"], "mcp.Docs.search");
-        assert!(projection.rust_mcp_live_discovery_deferred);
+        assert!(!projection.rust_mcp_live_discovery_deferred);
+        assert!(projection.rust_mcp_live_discovery_materialized);
         assert!(projection
             .catalog_summaries
             .iter()
-            .any(|summary| summary["execution_mode"] == "rust_mcp_live_discovery_deferred"));
+            .any(|summary| summary["execution_mode"] == "rust_mcp_live_discovery_materialized"));
+        assert!(projection
+            .catalog_summaries
+            .iter()
+            .any(|summary| summary["status"] == "completed" && summary["deferred"] == false));
+        assert!(projection
+            .evidence_refs
+            .contains(&"runtime_mcp_live_discovery_rust_materialized".to_string()));
         assert!(projection
             .evidence_refs
             .contains(&"runtime_mcp_catalog_js_search_filter_retired".to_string()));
