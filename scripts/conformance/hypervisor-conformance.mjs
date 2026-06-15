@@ -15657,7 +15657,27 @@ function runBridge() {
       /planThreadCreateStateUpdate/.test(runtimeAgentRunLifecycle) &&
       /planRunCreateStateUpdate/.test(runtimeAgentRunLifecycle) &&
       /planLifecycleAdmissionRequired/.test(runtimeAgentRunLifecycle) &&
-      /lifecycleAdmissionRunner/.test(runtimeAgentRunLifecycle) &&
+      /const agentCreateStateUpdateRunner = deps\.lifecycleAdmissionRunner \?\? null;/.test(
+        runtimeAgentRunLifecycle,
+      ) &&
+      /const threadCreateStateUpdateRunner = deps\.lifecycleAdmissionRunner \?\? null;/.test(
+        runtimeAgentRunLifecycle,
+      ) &&
+      /const runCreateStateUpdateRunner = deps\.lifecycleAdmissionRunner \?\? null;/.test(
+        runtimeAgentRunLifecycle,
+      ) &&
+      /const threadStartStateUpdateRunner = deps\.lifecycleAdmissionRunner \?\? null;/.test(
+        runtimeAgentRunLifecycle,
+      ) &&
+      /const runtimeBridgeTurnRunStateUpdateRunner = deps\.lifecycleAdmissionRunner \?\? null;/.test(
+        runtimeAgentRunLifecycle,
+      ) &&
+      /const bridgeThreadControlStateUpdateRunner = deps\.lifecycleAdmissionRunner \?\? null;/.test(
+        runtimeAgentRunLifecycle,
+      ) &&
+      !/deps\.(?:agentCreateStateUpdateRunner|threadCreateStateUpdateRunner|runCreateStateUpdateRunner|runtimeBridgeThreadStartStateUpdateRunner|runtimeBridgeTurnRunStateUpdateRunner|runtimeBridgeThreadControlStateUpdateRunner)|store\.contextPolicyCore\s*\?\?/.test(
+        runtimeAgentRunLifecycle,
+      ) &&
       /runtime_agent_create_js_facade_retired/.test(runtimeAgentRunLifecycle) &&
       /runtime_thread_create_js_facade_retired/.test(runtimeAgentRunLifecycle) &&
       /runtime_run_create_js_facade_retired/.test(runtimeAgentRunLifecycle) &&

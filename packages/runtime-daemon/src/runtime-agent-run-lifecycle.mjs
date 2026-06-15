@@ -27,10 +27,7 @@ export function createThread(store, request = {}, deps = {}) {
       runtimeProfile,
     });
   }
-  const threadCreateStateUpdateRunner = deps.threadCreateStateUpdateRunner ??
-    deps.lifecycleAdmissionRunner ??
-    store.contextPolicyCore ??
-    null;
+  const threadCreateStateUpdateRunner = deps.lifecycleAdmissionRunner ?? null;
   if (typeof threadCreateStateUpdateRunner?.planThreadCreateStateUpdate !== "function") {
     throwRuntimeLifecycleRustCoreRequired({
       lifecycleAdmissionRunner: threadCreateStateUpdateRunner,
@@ -175,10 +172,7 @@ export function createThread(store, request = {}, deps = {}) {
 function createRuntimeBridgeThread(store, request = {}, deps = {}) {
   const options = deps.options ?? request.options ?? request;
   const runtimeProfile = deps.runtime_profile ?? runtimeProfileForRequest(request, options);
-  const threadStartStateUpdateRunner = deps.runtimeBridgeThreadStartStateUpdateRunner ??
-    deps.lifecycleAdmissionRunner ??
-    store.contextPolicyCore ??
-    null;
+  const threadStartStateUpdateRunner = deps.lifecycleAdmissionRunner ?? null;
   if (typeof threadStartStateUpdateRunner?.planRuntimeBridgeThreadStartAgentStateUpdate !== "function") {
     throwRuntimeBridgeThreadRustCoreRequired({
       runtimeError: deps.runtimeError,
@@ -316,10 +310,7 @@ function createRuntimeBridgeThread(store, request = {}, deps = {}) {
 }
 
 export function createAgent(store, options = {}, deps = {}) {
-  const agentCreateStateUpdateRunner = deps.agentCreateStateUpdateRunner ??
-    deps.lifecycleAdmissionRunner ??
-    store.contextPolicyCore ??
-    null;
+  const agentCreateStateUpdateRunner = deps.lifecycleAdmissionRunner ?? null;
   if (typeof agentCreateStateUpdateRunner?.planAgentCreateStateUpdate !== "function") {
     throwRuntimeLifecycleRustCoreRequired({
       lifecycleAdmissionRunner: agentCreateStateUpdateRunner,
@@ -463,10 +454,7 @@ function buildThreadCreateCandidate(agent, deps = {}) {
 }
 
 export function createRun(store, agentId, request = {}, deps = {}) {
-  const runCreateStateUpdateRunner = deps.runCreateStateUpdateRunner ??
-    deps.lifecycleAdmissionRunner ??
-    store.contextPolicyCore ??
-    null;
+  const runCreateStateUpdateRunner = deps.lifecycleAdmissionRunner ?? null;
   if (typeof runCreateStateUpdateRunner?.planRunCreateStateUpdate !== "function") {
     throwRuntimeLifecycleRustCoreRequired({
       lifecycleAdmissionRunner: runCreateStateUpdateRunner,
@@ -598,10 +586,7 @@ export function createRuntimeBridgeTurnRun(store, threadId, agent, request = {},
   const agentRecord = objectRecord(agent);
   const agentId = optionalString(agentRecord?.id);
   const runtimeProfile = optionalString(agentRecord?.runtime_profile);
-  const runtimeBridgeTurnRunStateUpdateRunner = deps.runtimeBridgeTurnRunStateUpdateRunner ??
-    deps.lifecycleAdmissionRunner ??
-    store.contextPolicyCore ??
-    null;
+  const runtimeBridgeTurnRunStateUpdateRunner = deps.lifecycleAdmissionRunner ?? null;
   if (typeof runtimeBridgeTurnRunStateUpdateRunner?.planRuntimeBridgeTurnRunStateUpdate !== "function") {
     throwRuntimeBridgeThreadRustCoreRequired({
       runtimeError: deps.runtimeError,
@@ -756,10 +741,7 @@ export function createRuntimeBridgeThreadControl(store, threadId, agent, request
   const agentId = optionalString(agentRecord?.id);
   const runtimeProfile = optionalString(agentRecord?.runtime_profile);
   const action = optionalString(request.action ?? request.runtime_control_action) ?? "resume";
-  const bridgeThreadControlStateUpdateRunner = deps.runtimeBridgeThreadControlStateUpdateRunner ??
-    deps.lifecycleAdmissionRunner ??
-    store.contextPolicyCore ??
-    null;
+  const bridgeThreadControlStateUpdateRunner = deps.lifecycleAdmissionRunner ?? null;
   if (typeof bridgeThreadControlStateUpdateRunner?.planRuntimeBridgeThreadControlAgentStateUpdate !== "function") {
     throwRuntimeBridgeThreadRustCoreRequired({
       runtimeError: deps.runtimeError,

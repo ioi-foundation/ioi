@@ -338,6 +338,7 @@ function lifecycleRequiredProfile(request) {
 
 function agentCreateDeps(store) {
   return {
+    lifecycleAdmissionRunner: store.contextPolicyCore,
     ensureProviderAvailable(runtime, options) {
       store.providerCalls.push({ runtime, options });
     },
@@ -403,6 +404,7 @@ function threadCreateDeps(store) {
 
 function runCreateDeps(store) {
   return {
+    lifecycleAdmissionRunner: store.contextPolicyCore,
     ensureProviderAvailable(runtime, options) {
       store.providerCalls.push({ runtime, options });
     },

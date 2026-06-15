@@ -10521,6 +10521,19 @@ durable diagnostics repair projection/replay, receipt/state-root binding, cTEE
 custody where repair work touches private workspace state, and stable SDK/IDE
 diagnostics APIs, not alternate diagnostics repair runners.
 
+Slice 1309 hard-cuts runtime agent/run lifecycle helper runner fallbacks.
+`createAgent()`, `createThread()`, `createRun()`,
+`createRuntimeBridgeTurnRun()`, and `createRuntimeBridgeThreadControl()` no
+longer accept per-operation state-update runner deps or recover through
+`store.contextPolicyCore ?? null`; agent create, thread create, run create,
+runtime-service bridge thread start/control, and runtime-service turn submit
+resolve through the explicit `lifecycleAdmissionRunner` dependency supplied by
+the daemon route/surface caller. Conformance now guards that the retired
+per-operation runner deps and store fallback cannot return. Remaining work is
+wallet/cTEE lifecycle policy depth, durable lifecycle replay/projection,
+receipt/state-root binding, and stable protocol APIs, not alternate lifecycle
+helper runners.
+
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,
 `/v1/memory/policy`, `/v1/memory/path`, or `/v1/memory/validate`; the daemon
