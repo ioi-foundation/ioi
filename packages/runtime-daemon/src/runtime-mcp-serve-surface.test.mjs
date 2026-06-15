@@ -7,6 +7,8 @@ function harness() {
   const invocations = [];
   const plans = [];
   const resultProjections = [];
+  const resultCommits = [];
+  const liveResultReplays = [];
   const tools = [
     { stable_tool_id: "workspace.status", display_name: "Workspace status", input_schema: { type: "object" } },
     { stable_tool_id: "git.diff", display_name: "Git diff", input_schema: { type: "object" } },
@@ -121,6 +123,30 @@ function harness() {
     const summary = typeof payload.summary === "string" && payload.summary.trim()
       ? payload.summary.trim()
       : `IOI runtime tool ${invocation.tool_name ?? "unknown"} ${status}.`;
+    const safeToolId = String(projectionRequest.tool_id ?? "unknown")
+      .replace(/[^A-Za-z0-9]/g, "_")
+      .replace(/^_+|_+$/g, "") || "unknown";
+    const liveResultId = `result_runtime_mcp_serve_${projectionRequest.thread_id}_${safeToolId}_${invocation.tool_call_id ?? "mock"}`;
+    const protocolResult = {
+      content: [{ type: "text", text: summary }],
+      structuredContent: {
+        schema_version: projectionRequest.mcp_serve_schema_version,
+        object: "ioi.runtime_mcp_serve_tool_result",
+        status,
+        tool_name: invocation.tool_name ?? null,
+        tool_call_id: invocation.tool_call_id ?? null,
+        thread_id: projectionRequest.thread_id,
+        workflow_graph_id: invocation.workflow_graph_id ?? null,
+        workflow_node_id: invocation.workflow_node_id ?? null,
+        receipt_refs: invocation.receipt_refs ?? [],
+        policy_decision_refs: invocation.policy_decision_refs ?? [],
+        artifact_refs: invocation.artifact_refs ?? [],
+        event_id: invocation.event?.event_id ?? null,
+        result: invocation.result ?? null,
+        error: invocation.error ?? null,
+      },
+      isError: status !== "completed",
+    };
     return {
       schema_version: "ioi.runtime.mcp_serve_tool_result_projection.v1",
       object: "ioi.runtime_mcp_serve_tool_result_projection",
@@ -136,25 +162,53 @@ function harness() {
       workflow_node_id: invocation.workflow_node_id ?? null,
       event_id: invocation.event?.event_id ?? null,
       tool_status: status,
-      result: {
-        content: [{ type: "text", text: summary }],
-        structuredContent: {
+      result: protocolResult,
+      live_result: {
+        schema_version: "ioi.runtime.mcp-live-result.v1",
+        object: "ioi.runtime_mcp_live_result",
+        id: liveResultId,
+        kind: "runtime_mcp_live_result",
+        status: status === "completed" ? "materialized" : "materialized_error",
+        redaction: "redacted",
+        created_at: "2026-06-06T07:00:00.000Z",
+        receipt_id: invocation.receipt_refs?.[0] ?? "receipt_mcp_serve_tool_call",
+        receipt_refs: invocation.receipt_refs ?? ["receipt_mcp_serve_tool_call"],
+        evidence_refs: [
+          "runtime_mcp_serve_tool_result_rust_owned",
+          "rust_daemon_core_runtime_mcp_serve_tool_result_projection",
+          "runtime_mcp_live_result_rust_projection",
+          "agentgres_runtime_mcp_live_result_truth_required",
+          "runtime_mcp_serve_result_payload_materialized",
+          "runtime_mcp_no_js_transport_result",
+          "receipt_state_root_binding_required",
+        ],
+        payload: {
           schema_version: projectionRequest.mcp_serve_schema_version,
-          object: "ioi.runtime_mcp_serve_tool_result",
-          status,
-          tool_name: invocation.tool_name ?? null,
-          tool_call_id: invocation.tool_call_id ?? null,
+          protocol_result: protocolResult,
+          payload_hash: "sha256:protocol-result",
+          payload_ref: `payload://runtime/mcp-live-results/${liveResultId}/protocol-result`,
+        },
+        details: {
+          rust_daemon_core_result_author: "runtime.mcp_serve",
+          control_kind: "mcp_serve_tool_call",
+          operation_kind: "mcp.serve.tools.result",
           thread_id: projectionRequest.thread_id,
+          tool_id: projectionRequest.tool_id,
+          tool_name: projectionRequest.tool_name,
+          tool_call_id: invocation.tool_call_id ?? null,
           workflow_graph_id: invocation.workflow_graph_id ?? null,
           workflow_node_id: invocation.workflow_node_id ?? null,
-          receipt_refs: invocation.receipt_refs ?? [],
-          policy_decision_refs: invocation.policy_decision_refs ?? [],
-          artifact_refs: invocation.artifact_refs ?? [],
           event_id: invocation.event?.event_id ?? null,
-          result: invocation.result ?? null,
-          error: invocation.error ?? null,
+          receipt_id: invocation.receipt_refs?.[0] ?? "receipt_mcp_serve_tool_call",
+          result_materialized: true,
+          backend_materialization_status: "rust_step_module_invocation_materialized",
+          rust_coding_tool_invocation: true,
+          step_module_router_owner: "rust_daemon_core",
+          js_transport_invocation: false,
+          command_transport_fallback: false,
+          binary_bridge_fallback: false,
+          compatibility_fallback: false,
         },
-        isError: status !== "completed",
       },
       receipt_refs: invocation.receipt_refs ?? [],
       policy_decision_refs: invocation.policy_decision_refs ?? [],
@@ -163,10 +217,12 @@ function harness() {
         "rust_daemon_core_runtime_mcp_serve_tool_result_projection",
         "agentgres_runtime_mcp_serve_tool_call_truth_required",
         "wallet_runtime_mcp_serve_authority_required",
+        "agentgres_runtime_mcp_live_result_truth_required",
       ],
     };
   }
   const store = {
+    stateDir: "/runtime-state",
     agentForThread() {
       throw new Error("MCP serve tool-call facade must not resolve thread agents in JS.");
     },
@@ -179,6 +235,25 @@ function harness() {
     contextPolicyCore: {
       planRuntimeMcpServeToolCall: rustMcpServeToolCallPlan,
       projectRuntimeMcpServeToolResult: rustMcpServeToolResultProjection,
+      projectMcpLiveResultReplay(request) {
+        liveResultReplays.push(request);
+        const commit = [...resultCommits]
+          .reverse()
+          .find((entry) => entry.request.result_id === request.result_id);
+        const latestResult = commit?.request?.result ?? null;
+        return {
+          source: "rust_mcp_live_result_replay_api",
+          backend: "rust_policy",
+          schema_version: "ioi.runtime.mcp-live-result-replay.v1",
+          object: "ioi.runtime_mcp_live_result_replay",
+          status: "projected",
+          result_count: latestResult ? 1 : 0,
+          results: latestResult ? [latestResult] : [],
+          result_ids: latestResult?.id ? [latestResult.id] : [],
+          latest_result: latestResult,
+          replay_hash: `replay.${request.result_id}`,
+        };
+      },
     },
     codingToolInvocationSurface: {
       invokeThreadTool(surfaceStore, threadId, toolId, request) {
@@ -203,8 +278,16 @@ function harness() {
         };
       },
     },
+    commitRuntimeMcpLiveResultState(request) {
+      resultCommits.push({ request });
+      return {
+        result_id: request.result_id,
+        operation_kind: request.operation_kind,
+        commit_hash: `commit.${request.result_id}`,
+      };
+    },
   };
-  return { invocations, plans, resultProjections, store, surface };
+  return { invocations, liveResultReplays, plans, resultCommits, resultProjections, store, surface };
 }
 
 test("runtime MCP serve surface projects status and allowed tool catalog", () => {
@@ -277,7 +360,7 @@ test("runtime MCP serve surface handles JSON-RPC lifecycle and batch notificatio
 });
 
 test("runtime MCP serve surface invokes Rust-owned coding-tool path and Rust-owned result projection", async () => {
-  const { invocations, plans, resultProjections, store, surface } = harness();
+  const { invocations, liveResultReplays, plans, resultCommits, resultProjections, store, surface } = harness();
 
   const invalid = await surface.handleSingleMcpServeJsonRpc(store, "thread-one", []);
   assert.equal(invalid.error.code, -32600);
@@ -359,6 +442,21 @@ test("runtime MCP serve surface invokes Rust-owned coding-tool path and Rust-own
   assert.equal(resultProjections[0].plan.tool_id, "git.diff");
   assert.equal(resultProjections[0].invocation.event.event_id, "event_mcp_serve_tool_call");
   assert.equal(resultProjections[0].invocation.event.id, undefined);
+  assert.equal(resultCommits.length, 1);
+  assert.equal(resultCommits[0].request.operation_kind, "runtime.mcp_serve.result.write");
+  assert.equal(resultCommits[0].request.result.details.rust_daemon_core_result_author, "runtime.mcp_serve");
+  assert.equal(resultCommits[0].request.result.details.result_materialized, true);
+  assert.equal(resultCommits[0].request.result.details.js_transport_invocation, false);
+  assert.equal(resultCommits[0].request.result.details.command_transport_fallback, false);
+  assert.equal(
+    resultCommits[0].request.result.payload.protocol_result.structuredContent.event_id,
+    "event_mcp_serve_tool_call",
+  );
+  assert.equal(liveResultReplays.length, 1);
+  assert.equal(liveResultReplays[0].state_dir, "/runtime-state");
+  assert.equal(liveResultReplays[0].result_id, resultCommits[0].request.result_id);
+  assert.equal(liveResultReplays[0].receipt_id, "receipt_mcp_serve_tool_call");
+  assert.equal(liveResultReplays[0].control_kind, "mcp_serve_tool_call");
 
   const retiredOnlyResponse = await surface.handleSingleMcpServeJsonRpc(
     store,
@@ -376,6 +474,8 @@ test("runtime MCP serve surface invokes Rust-owned coding-tool path and Rust-own
     },
   );
   assert.equal(retiredOnlyResponse.result.structuredContent.status, "completed");
+  assert.equal(resultCommits.length, 2);
+  assert.equal(liveResultReplays.length, 2);
   const retiredOnlyInvocation = invocations.at(-1);
   assert.equal(retiredOnlyInvocation.request.workflow_graph_id, "runtime.mcp_serve");
   assert.equal(retiredOnlyInvocation.request.workflow_node_id, "runtime.mcp_serve.git_diff");
@@ -430,6 +530,56 @@ test("runtime MCP serve tool calls fail closed without Rust-owned coding-tool in
     response.error.data.details.evidence_refs.includes(
       "rust_daemon_core_runtime_mcp_serve_tool_result_projection_required",
     ),
+    true,
+  );
+});
+
+test("runtime MCP serve tool calls fail closed without Agentgres live-result commit", async () => {
+  const { invocations, store, surface } = harness();
+  delete store.commitRuntimeMcpLiveResultState;
+
+  const response = await surface.handleSingleMcpServeJsonRpc(
+    store,
+    "thread-one",
+    {
+      jsonrpc: "2.0",
+      id: 15,
+      method: "tools/call",
+      params: { name: "git.diff", arguments: { includeStat: true } },
+    },
+    { onlyDiff: true },
+  );
+
+  assert.equal(response.error.code, -32000);
+  assert.equal(response.error.data.code, "runtime_mcp_serve_tool_call_rust_core_required");
+  assert.deepEqual(invocations, []);
+  assert.equal(
+    response.error.data.details.evidence_refs.includes("agentgres_runtime_mcp_live_result_state_commit_required"),
+    true,
+  );
+});
+
+test("runtime MCP serve tool calls fail closed without Rust live-result replay", async () => {
+  const { invocations, store, surface } = harness();
+  delete store.contextPolicyCore.projectMcpLiveResultReplay;
+
+  const response = await surface.handleSingleMcpServeJsonRpc(
+    store,
+    "thread-one",
+    {
+      jsonrpc: "2.0",
+      id: 16,
+      method: "tools/call",
+      params: { name: "git.diff", arguments: { includeStat: true } },
+    },
+    { onlyDiff: true },
+  );
+
+  assert.equal(response.error.code, -32000);
+  assert.equal(response.error.data.code, "runtime_mcp_serve_tool_call_rust_core_required");
+  assert.deepEqual(invocations, []);
+  assert.equal(
+    response.error.data.details.evidence_refs.includes("rust_daemon_core_runtime_mcp_live_result_replay_required"),
     true,
   );
 });

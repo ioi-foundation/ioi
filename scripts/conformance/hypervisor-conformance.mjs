@@ -39180,12 +39180,19 @@ function runCompositor() {
       ) &&
       /rust_plans_mcp_serve_tool_call_request/.test(runtimeMcpServeCore) &&
       /rust_shapes_mcp_serve_tool_call_direct_record/.test(runtimeMcpServeCore) &&
-      /rust_projects_mcp_serve_tool_call_result/.test(runtimeMcpServeCore) &&
-      /rust_shapes_mcp_serve_tool_result_direct_record/.test(runtimeMcpServeCore) &&
-      /planRuntimeMcpServeToolCall\(request = \{\}\)/.test(runtimeContextPolicyCore) &&
-      /projectRuntimeMcpServeToolResult\(request = \{\}\)/.test(runtimeContextPolicyCore) &&
-      /MCP_SERVE_TOOL_CALL_PLAN_API_METHOD/.test(runtimeContextPolicyCore) &&
-      /MCP_SERVE_TOOL_RESULT_PROJECTION_API_METHOD/.test(runtimeContextPolicyCore) &&
+	      /rust_projects_mcp_serve_tool_call_result/.test(runtimeMcpServeCore) &&
+	      /rust_shapes_mcp_serve_tool_result_direct_record/.test(runtimeMcpServeCore) &&
+	      /live_result:\s*Value/.test(runtimeMcpServeCore) &&
+	      /runtime_mcp_serve_tool_result_receipt_required/.test(runtimeMcpServeCore) &&
+	      /runtime_mcp_serve_result_payload_materialized/.test(runtimeMcpServeCore) &&
+	      /rust_step_module_invocation_materialized/.test(runtimeMcpServeCore) &&
+	      /runtime\.mcp_serve/.test(runtimeMcpServeCore) &&
+	      /Some\("runtime\.mcp_control"\)\s*\|\s*Some\("runtime\.mcp_serve"\)/.test(policyMcpMemoryCore) &&
+	      /rust_policy_replays_runtime_mcp_serve_materialized_results_from_agentgres_state/.test(policyMcpMemoryCore) &&
+	      /planRuntimeMcpServeToolCall\(request = \{\}\)/.test(runtimeContextPolicyCore) &&
+	      /projectRuntimeMcpServeToolResult\(request = \{\}\)/.test(runtimeContextPolicyCore) &&
+	      /MCP_SERVE_TOOL_CALL_PLAN_API_METHOD/.test(runtimeContextPolicyCore) &&
+	      /MCP_SERVE_TOOL_RESULT_PROJECTION_API_METHOD/.test(runtimeContextPolicyCore) &&
       /invokeMcpApi\(\s*MCP_SERVE_TOOL_CALL_PLAN_API_METHOD/.test(runtimeContextPolicyCore) &&
       /invokeMcpApi\(\s*MCP_SERVE_TOOL_RESULT_PROJECTION_API_METHOD/.test(runtimeContextPolicyCore) &&
       !/operation:\s*"plan_runtime_mcp_serve_tool_call"/.test(
@@ -39213,45 +39220,74 @@ function runCompositor() {
         runtimeContextPolicyCoreTest,
       ) &&
       /Object\.hasOwn\(captured,\s*"operation"\),\s*false/.test(runtimeContextPolicyCoreTest) &&
-      /store\?\.codingToolInvocationSurface\?\.invokeThreadTool/.test(runtimeMcpServeSurface) &&
-      /planner\.planRuntimeMcpServeToolCall/.test(runtimeMcpServeSurface) &&
-      /planner\?\.projectRuntimeMcpServeToolResult/.test(runtimeMcpServeSurface) &&
-      /plannedMcpServeToolResult/.test(runtimeMcpServeSurface) &&
-      /plannedMcpServeToolInvocationRequest/.test(runtimeMcpServeSurface) &&
-      /request\.source !== "mcp_serve"/.test(runtimeMcpServeSurface) &&
-      /runtime_mcp_serve_tool_call_rust_core_required/.test(runtimeMcpServeSurface) &&
-      /runtime_mcp_serve_tool_call_js_facade_retired/.test(runtimeMcpServeSurface) &&
-      /rust_daemon_core_runtime_mcp_serve_tool_call_required/.test(runtimeMcpServeSurface) &&
-      /rust_daemon_core_runtime_mcp_serve_tool_result_projection_required/.test(runtimeMcpServeSurface) &&
-      /runtime_mcp_serve_tool_call_plan_incomplete/.test(runtimeMcpServeSurface) &&
-      /runtime_mcp_serve_tool_result_projection_incomplete/.test(runtimeMcpServeSurface) &&
-      /agentgres_runtime_mcp_serve_tool_call_truth_required/.test(runtimeMcpServeSurface) &&
-      /wallet_runtime_mcp_serve_authority_required/.test(runtimeMcpServeSurface) &&
-      /runtime MCP serve surface invokes Rust-owned coding-tool path and Rust-owned result projection/.test(
-        runtimeMcpServeSurfaceTest,
-      ) &&
+	      /store\?\.codingToolInvocationSurface\?\.invokeThreadTool/.test(runtimeMcpServeSurface) &&
+	      /planner\.planRuntimeMcpServeToolCall/.test(runtimeMcpServeSurface) &&
+	      /planner\?\.projectRuntimeMcpServeToolResult/.test(runtimeMcpServeSurface) &&
+	      /planner\?\.projectMcpLiveResultReplay/.test(runtimeMcpServeSurface) &&
+	      /store\?\.commitRuntimeMcpLiveResultState/.test(runtimeMcpServeSurface) &&
+	      /MCP_LIVE_RESULT_REPLAY_REQUEST_SCHEMA_VERSION/.test(runtimeMcpServeSurface) &&
+	      /commitAndReplayMcpServeLiveResult/.test(runtimeMcpServeSurface) &&
+	      /plannedMcpServeLiveResult/.test(runtimeMcpServeSurface) &&
+	      /plannedMcpServeProtocolResult/.test(runtimeMcpServeSurface) &&
+	      /plannedMcpServeToolResult/.test(runtimeMcpServeSurface) &&
+	      /plannedMcpServeToolInvocationRequest/.test(runtimeMcpServeSurface) &&
+	      /request\.source !== "mcp_serve"/.test(runtimeMcpServeSurface) &&
+	      /runtime_mcp_serve_tool_call_rust_core_required/.test(runtimeMcpServeSurface) &&
+	      /runtime_mcp_serve_tool_call_js_facade_retired/.test(runtimeMcpServeSurface) &&
+	      /rust_daemon_core_runtime_mcp_serve_tool_call_required/.test(runtimeMcpServeSurface) &&
+	      /rust_daemon_core_runtime_mcp_serve_tool_result_projection_required/.test(runtimeMcpServeSurface) &&
+	      /rust_daemon_core_runtime_mcp_live_result_replay_required/.test(runtimeMcpServeSurface) &&
+	      /agentgres_runtime_mcp_live_result_state_commit_required/.test(runtimeMcpServeSurface) &&
+	      /runtime_mcp_serve_tool_call_plan_incomplete/.test(runtimeMcpServeSurface) &&
+	      /runtime_mcp_serve_tool_result_projection_incomplete/.test(runtimeMcpServeSurface) &&
+	      /runtime_mcp_serve_live_result_projection_incomplete/.test(runtimeMcpServeSurface) &&
+	      /runtime_mcp_serve_live_result_state_commit_invalid/.test(runtimeMcpServeSurface) &&
+	      /runtime_mcp_serve_live_result_replay_invalid/.test(runtimeMcpServeSurface) &&
+	      /agentgres_runtime_mcp_serve_tool_call_truth_required/.test(runtimeMcpServeSurface) &&
+	      /agentgres_runtime_mcp_live_result_truth_required/.test(runtimeMcpServeSurface) &&
+	      /wallet_runtime_mcp_serve_authority_required/.test(runtimeMcpServeSurface) &&
+	      !/return mcpJsonRpcResultDep\(id,\s*projectedResult\)/.test(runtimeMcpServeSurface) &&
+	      /runtime MCP serve surface invokes Rust-owned coding-tool path and Rust-owned result projection/.test(
+	        runtimeMcpServeSurfaceTest,
+	      ) &&
       /plans\[0\]\.operation_kind,\s*"mcp\.serve\.tools\.call"/.test(
         runtimeMcpServeSurfaceTest,
       ) &&
       /resultProjections\[0\]\.operation_kind,\s*"mcp\.serve\.tools\.result"/.test(
         runtimeMcpServeSurfaceTest,
       ) &&
-      /response\.result\.structuredContent\.event_id,\s*"event_mcp_serve_tool_call"/.test(
-        runtimeMcpServeSurfaceTest,
-      ) &&
-      /invocations\[0\]\.request\.source,\s*"mcp_serve"/.test(runtimeMcpServeSurfaceTest) &&
-      /Object\.hasOwn\(invocations\[0\]\.request,\s*"workflowGraphId"\),\s*false/.test(
-        runtimeMcpServeSurfaceTest,
+	      /response\.result\.structuredContent\.event_id,\s*"event_mcp_serve_tool_call"/.test(
+	        runtimeMcpServeSurfaceTest,
+	      ) &&
+	      /resultCommits\[0\]\.request\.operation_kind,\s*"runtime\.mcp_serve\.result\.write"/.test(
+	        runtimeMcpServeSurfaceTest,
+	      ) &&
+	      /resultCommits\[0\]\.request\.result\.details\.rust_daemon_core_result_author,\s*"runtime\.mcp_serve"/.test(
+	        runtimeMcpServeSurfaceTest,
+	      ) &&
+	      /liveResultReplays\[0\]\.state_dir,\s*"\/runtime-state"/.test(runtimeMcpServeSurfaceTest) &&
+	      /liveResultReplays\[0\]\.control_kind,\s*"mcp_serve_tool_call"/.test(
+	        runtimeMcpServeSurfaceTest,
+	      ) &&
+	      /invocations\[0\]\.request\.source,\s*"mcp_serve"/.test(runtimeMcpServeSurfaceTest) &&
+	      /Object\.hasOwn\(invocations\[0\]\.request,\s*"workflowGraphId"\),\s*false/.test(
+	        runtimeMcpServeSurfaceTest,
       ) &&
       /Object\.hasOwn\(retiredArgsInvocation\.request,\s*"args"\),\s*false/.test(
         runtimeMcpServeSurfaceTest,
       ) &&
-      /runtime MCP serve tool calls fail closed without Rust-owned coding-tool invocation surface/.test(
-        runtimeMcpServeSurfaceTest,
-      ) &&
-      /runtime MCP serve tool calls fail closed without Rust-owned MCP serve planner/.test(
-        runtimeMcpServeSurfaceTest,
-      ) &&
+	      /runtime MCP serve tool calls fail closed without Rust-owned coding-tool invocation surface/.test(
+	        runtimeMcpServeSurfaceTest,
+	      ) &&
+	      /runtime MCP serve tool calls fail closed without Agentgres live-result commit/.test(
+	        runtimeMcpServeSurfaceTest,
+	      ) &&
+	      /runtime MCP serve tool calls fail closed without Rust live-result replay/.test(
+	        runtimeMcpServeSurfaceTest,
+	      ) &&
+	      /runtime MCP serve tool calls fail closed without Rust-owned MCP serve planner/.test(
+	        runtimeMcpServeSurfaceTest,
+	      ) &&
       /runtime MCP serve tool calls fail closed without Rust-owned result projection/.test(
         runtimeMcpServeSurfaceTest,
       ) &&
@@ -39285,17 +39321,18 @@ function runCompositor() {
       !/store\.agentForThread/.test(runtimeMcpServeSurface) &&
       !/store\.invokeThreadTool(?:Async)?\(/.test(runtimeMcpServeSurface),
     [
-      "crates/services/src/agentic/runtime/kernel/runtime_mcp_serve.rs",
-      "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
-      "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
+	      "crates/services/src/agentic/runtime/kernel/runtime_mcp_serve.rs",
+	      "crates/services/src/agentic/runtime/kernel/policy/mcp_memory.rs",
+	      "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
+	      "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
       "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
       "packages/runtime-daemon/src/runtime-mcp-serve-surface.mjs",
       "packages/runtime-daemon/src/runtime-mcp-serve-surface.test.mjs",
     ],
-    "Phase 10/11 is pending: MCP serve tool-call requests and result envelopes must be planned/projected by Rust daemon-core before/after the Rust-owned coding-tool invocation surface, fail closed when any boundary is missing, and ignore retired camelCase aliases",
-  );
+	    "Phase 10/11 is pending: MCP serve tool-call requests and result envelopes must be planned/projected by Rust daemon-core, persisted as Rust-authored Agentgres live-result truth, replayed before JSON-RPC return, fail closed when any boundary is missing, and ignore retired camelCase aliases",
+	  );
   assertCheck(
     result,
     "runtime-mcp-serve-output-aliases-retired",

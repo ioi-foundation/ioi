@@ -1393,9 +1393,11 @@ fn mcp_live_result_is_rust_owned(result: &Value) -> bool {
         return false;
     }
     let details = result.get("details").unwrap_or(&Value::Null);
-    if optional_json_string(details, "rust_daemon_core_result_author").as_deref()
-        != Some("runtime.mcp_control")
-    {
+    let result_author = optional_json_string(details, "rust_daemon_core_result_author");
+    if !matches!(
+        result_author.as_deref(),
+        Some("runtime.mcp_control") | Some("runtime.mcp_serve")
+    ) {
         return false;
     }
     if result
@@ -4751,6 +4753,75 @@ mod tests {
         );
         assert_eq!(replay.latest_result.as_ref(), Some(result));
         assert!(replay.replay_hash.starts_with("sha256:"));
+    }
+
+    #[test]
+    fn rust_policy_replays_runtime_mcp_serve_materialized_results_from_agentgres_state() {
+        let state_dir = temp_mcp_state_dir("mcp-serve-live-result-replay");
+        let result = json!({
+            "schema_version": "ioi.runtime.mcp-live-result.v1",
+            "object": "ioi.runtime_mcp_live_result",
+            "id": "result_runtime_mcp_serve_thread_1_git_diff_call_1",
+            "kind": "runtime_mcp_live_result",
+            "status": "materialized",
+            "created_at": "2026-06-06T05:45:00.000Z",
+            "receipt_id": "receipt_mcp_serve_tool_call",
+            "receipt_refs": ["receipt_mcp_serve_tool_call"],
+            "evidence_refs": [
+                "runtime_mcp_serve_tool_result_rust_owned",
+                "runtime_mcp_live_result_rust_projection",
+                "agentgres_runtime_mcp_live_result_truth_required",
+                "runtime_mcp_serve_result_payload_materialized",
+                "runtime_mcp_no_js_transport_result"
+            ],
+            "payload": {
+                "protocol_result": {
+                    "content": [{ "type": "text", "text": "git diff completed" }],
+                    "structuredContent": {
+                        "object": "ioi.runtime_mcp_serve_tool_result",
+                        "thread_id": "thread_1"
+                    },
+                    "isError": false
+                }
+            },
+            "details": {
+                "rust_daemon_core_result_author": "runtime.mcp_serve",
+                "thread_id": "thread_1",
+                "control_kind": "mcp_serve_tool_call",
+                "tool_id": "git.diff",
+                "result_materialized": true,
+                "backend_materialization_status": "rust_step_module_invocation_materialized",
+                "js_transport_invocation": false,
+                "command_transport_fallback": false,
+                "binary_bridge_fallback": false,
+                "compatibility_fallback": false
+            }
+        });
+        seed_mcp_live_result_state(&state_dir, &result);
+
+        let replay = McpLiveResultReplayCore
+            .project(&McpLiveResultReplayRequest {
+                schema_version: MCP_LIVE_RESULT_REPLAY_REQUEST_SCHEMA_VERSION.to_string(),
+                state_dir: Some(state_dir.to_string_lossy().to_string()),
+                result_id: Some("result_runtime_mcp_serve_thread_1_git_diff_call_1".to_string()),
+                receipt_id: Some("receipt_mcp_serve_tool_call".to_string()),
+                thread_id: Some("thread_1".to_string()),
+                agent_id: None,
+                control_kind: Some("mcp_serve_tool_call".to_string()),
+            })
+            .expect("Rust MCP serve live-result replay projection");
+
+        assert_eq!(replay.result_count, 1);
+        assert_eq!(
+            replay.latest_result.as_ref().expect("latest result")["details"]
+                ["rust_daemon_core_result_author"],
+            "runtime.mcp_serve"
+        );
+        assert_eq!(
+            replay.latest_result.as_ref().expect("latest result")["payload"]["protocol_result"]
+                ["structuredContent"]["object"],
+            "ioi.runtime_mcp_serve_tool_result"
+        );
     }
 
     #[test]

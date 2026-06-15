@@ -4,6 +4,9 @@ import {
   RUNTIME_MCP_SERVE_SCHEMA_VERSION,
 } from "./runtime-contract-constants.mjs";
 import {
+  MCP_LIVE_RESULT_REPLAY_REQUEST_SCHEMA_VERSION,
+} from "./runtime-context-policy-core.mjs";
+import {
   mcpJsonRpcError,
   mcpJsonRpcErrorCodeFor,
   mcpJsonRpcResult,
@@ -12,6 +15,10 @@ import {
   mcpServeToolIdForName,
 } from "./runtime-mcp-helpers.mjs";
 import { objectRecord, optionalString } from "./runtime-value-helpers.mjs";
+
+const RUNTIME_MCP_LIVE_RESULT_STATE_COMMIT_SCHEMA_VERSION =
+  "ioi.runtime_mcp_live_result_state_commit.v1";
+const RUNTIME_STATE_STORAGE_BACKEND_REF = "storage://runtime-agentgres/local-json";
 
 export function createRuntimeMcpServeSurface({
   RUNTIME_MCP_SERVE_PROTOCOL_VERSION: protocolVersion = RUNTIME_MCP_SERVE_PROTOCOL_VERSION,
@@ -40,6 +47,8 @@ export function createRuntimeMcpServeSurface({
           "runtime_mcp_serve_tool_call_js_facade_retired",
           "rust_daemon_core_runtime_mcp_serve_tool_call_required",
           "rust_daemon_core_runtime_mcp_serve_tool_result_projection_required",
+          "rust_daemon_core_runtime_mcp_live_result_replay_required",
+          "agentgres_runtime_mcp_live_result_state_commit_required",
           "agentgres_runtime_mcp_serve_tool_call_truth_required",
           "wallet_runtime_mcp_serve_authority_required",
         ],
@@ -143,7 +152,10 @@ export function createRuntimeMcpServeSurface({
           if (
             typeof planner?.planRuntimeMcpServeToolCall !== "function" ||
             typeof planner?.projectRuntimeMcpServeToolResult !== "function" ||
-            typeof invokeRustCodingTool !== "function"
+            typeof planner?.projectMcpLiveResultReplay !== "function" ||
+            typeof invokeRustCodingTool !== "function" ||
+            typeof store?.commitRuntimeMcpLiveResultState !== "function" ||
+            !optionalStringDep(store?.stateDir)
           ) {
             return mcpServeRustCoreRequiredError(id, {
               threadId,
@@ -187,7 +199,16 @@ export function createRuntimeMcpServeSurface({
             threadId,
             toolId,
           });
-          return mcpJsonRpcResultDep(id, projectedResult);
+          const liveResult = plannedMcpServeLiveResult(resultProjection, {
+            threadId,
+            toolId,
+          });
+          const replayedResult = commitAndReplayMcpServeLiveResult(store, planner, liveResult, {
+            threadId,
+            toolId,
+            projectedResult,
+          });
+          return mcpJsonRpcResultDep(id, replayedResult);
         }
         return mcpJsonRpcErrorDep(id, -32601, `MCP method not found: ${method}.`, {
           supported_methods: [
@@ -210,16 +231,80 @@ export function createRuntimeMcpServeSurface({
   };
 }
 
+function commitAndReplayMcpServeLiveResult(store, planner, liveResult, { threadId, toolId }) {
+  const resultId = optionalString(liveResult.id);
+  const receiptId = optionalString(liveResult.receipt_id);
+  const commit = store.commitRuntimeMcpLiveResultState({
+    schema_version: RUNTIME_MCP_LIVE_RESULT_STATE_COMMIT_SCHEMA_VERSION,
+    result_id: resultId,
+    operation_kind: "runtime.mcp_serve.result.write",
+    storage_backend_ref: RUNTIME_STATE_STORAGE_BACKEND_REF,
+    result: liveResult,
+    receipt_refs: Array.isArray(liveResult.receipt_refs) ? liveResult.receipt_refs : [receiptId].filter(Boolean),
+  });
+  if (!commit?.commit_hash) {
+    const error = new Error("Rust Agentgres MCP serve live-result commit returned without commit_hash.");
+    error.code = "runtime_mcp_serve_live_result_state_commit_invalid";
+    error.details = {
+      operation_kind: "runtime.mcp_serve.result.write",
+      thread_id: threadId,
+      tool_id: toolId,
+      result_id: resultId ?? null,
+    };
+    throw error;
+  }
+  const details = objectRecord(liveResult.details) ?? {};
+  const replay = planner.projectMcpLiveResultReplay({
+    schema_version: MCP_LIVE_RESULT_REPLAY_REQUEST_SCHEMA_VERSION,
+    state_dir: optionalString(store.stateDir),
+    result_id: resultId,
+    receipt_id: receiptId,
+    thread_id: threadId,
+    agent_id: optionalString(details.agent_id) ?? null,
+    control_kind: "mcp_serve_tool_call",
+  });
+  const latestResult = objectRecord(replay?.latest_result);
+  if (!latestResult || latestResult.id !== resultId) {
+    const error = new Error("Rust MCP serve live-result replay did not return the committed result.");
+    error.code = "runtime_mcp_serve_live_result_replay_invalid";
+    error.details = {
+      operation_kind: "runtime.mcp_serve.result.replay",
+      thread_id: threadId,
+      tool_id: toolId,
+      result_id: resultId ?? null,
+      replay_hash: replay?.replay_hash ?? null,
+    };
+    throw error;
+  }
+  const replayedLiveResult = plannedMcpServeLiveResult({ live_result: latestResult }, {
+    threadId,
+    toolId,
+  });
+  const payload = objectRecord(replayedLiveResult.payload);
+  return plannedMcpServeProtocolResult(objectRecord(payload?.protocol_result), {
+    threadId,
+    toolId,
+  });
+}
+
 function plannedMcpServeToolResult(projection, { threadId, toolId }) {
   const record = objectRecord(projection);
   const result = objectRecord(record?.result);
+  return plannedMcpServeProtocolResult(result, { threadId, toolId, record });
+}
+
+function plannedMcpServeProtocolResult(result, { threadId, toolId, record = null }) {
   const structuredContent = objectRecord(result?.structuredContent);
+  const recordInvalid = record
+    ? (
+      record.status !== "projected" ||
+      record.operation_kind !== "mcp.serve.tools.result" ||
+      record.thread_id !== threadId ||
+      record.tool_id !== toolId
+    )
+    : false;
   if (
-    !record ||
-    record.status !== "projected" ||
-    record.operation_kind !== "mcp.serve.tools.result" ||
-    record.thread_id !== threadId ||
-    record.tool_id !== toolId ||
+    recordInvalid ||
     !result ||
     !structuredContent ||
     structuredContent.object !== "ioi.runtime_mcp_serve_tool_result" ||
@@ -235,6 +320,51 @@ function plannedMcpServeToolResult(projection, { threadId, toolId }) {
     throw error;
   }
   return result;
+}
+
+function plannedMcpServeLiveResult(projection, { threadId, toolId }) {
+  const record = objectRecord(projection);
+  const liveResult = objectRecord(record?.live_result ?? projection?.latest_result ?? projection);
+  const details = objectRecord(liveResult?.details);
+  const payload = objectRecord(liveResult?.payload);
+  const protocolResult = objectRecord(payload?.protocol_result);
+  const evidenceRefs = Array.isArray(liveResult?.evidence_refs) ? liveResult.evidence_refs : [];
+  const receiptRefs = Array.isArray(liveResult?.receipt_refs) ? liveResult.receipt_refs : [];
+  if (
+    !liveResult ||
+    liveResult.schema_version !== "ioi.runtime.mcp-live-result.v1" ||
+    liveResult.object !== "ioi.runtime_mcp_live_result" ||
+    liveResult.kind !== "runtime_mcp_live_result" ||
+    !optionalString(liveResult.id) ||
+    !optionalString(liveResult.receipt_id) ||
+    receiptRefs.length === 0 ||
+    !details ||
+    details.rust_daemon_core_result_author !== "runtime.mcp_serve" ||
+    details.control_kind !== "mcp_serve_tool_call" ||
+    details.thread_id !== threadId ||
+    details.tool_id !== toolId ||
+    details.result_materialized !== true ||
+    details.backend_materialization_status !== "rust_step_module_invocation_materialized" ||
+    details.js_transport_invocation !== false ||
+    details.command_transport_fallback !== false ||
+    details.binary_bridge_fallback !== false ||
+    details.compatibility_fallback !== false ||
+    !evidenceRefs.includes("runtime_mcp_live_result_rust_projection") ||
+    !evidenceRefs.includes("agentgres_runtime_mcp_live_result_truth_required") ||
+    !evidenceRefs.includes("runtime_mcp_serve_result_payload_materialized") ||
+    !protocolResult
+  ) {
+    const error = new Error("Rust daemon-core MCP serve live-result projection is incomplete.");
+    error.code = "runtime_mcp_serve_live_result_projection_incomplete";
+    error.details = {
+      operation_kind: record?.operation_kind ?? null,
+      thread_id: details?.thread_id ?? null,
+      tool_id: details?.tool_id ?? null,
+      result_id: liveResult?.id ?? null,
+    };
+    throw error;
+  }
+  return liveResult;
 }
 
 function plannedMcpServeToolInvocationRequest(plan, { threadId, toolId }) {

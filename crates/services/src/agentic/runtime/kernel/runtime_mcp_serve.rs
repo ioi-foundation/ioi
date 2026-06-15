@@ -120,6 +120,7 @@ pub struct RuntimeMcpServeToolResultProjectionRecord {
     pub event_id: Option<String>,
     pub status: String,
     pub result: Value,
+    pub live_result: Value,
     pub evidence_refs: Vec<String>,
     pub receipt_refs: Vec<String>,
     pub policy_decision_refs: Vec<String>,
@@ -373,6 +374,13 @@ impl RuntimeMcpServeToolCallPlanCore {
             .and_then(Value::as_object)
             .and_then(|event| string_field(event, "event_id"));
         let receipt_refs = string_array_field(&invocation, "receipt_refs");
+        if receipt_refs.is_empty() {
+            return Err(RuntimeMcpServeError::new(
+                "runtime_mcp_serve_tool_result_receipt_required",
+                "MCP serve result projection requires Rust coding-tool receipt refs",
+            ));
+        }
+        let receipt_id = receipt_refs.first().cloned().unwrap_or_default();
         let policy_decision_refs = string_array_field(&invocation, "policy_decision_refs");
         let artifact_refs = string_array_field(&invocation, "artifact_refs");
         let mcp_serve_schema_version =
@@ -400,6 +408,80 @@ impl RuntimeMcpServeToolCallPlanCore {
             },
             "isError": status != "completed",
         });
+        let identity = tool_call_id
+            .clone()
+            .or_else(|| event_id.clone())
+            .or_else(|| string_field(&plan, "request_hash"))
+            .unwrap_or_else(|| "result".to_string());
+        let live_result_id = format!(
+            "result_runtime_mcp_serve_{}_{}_{}",
+            safe_id(&thread_id),
+            safe_id(&tool_id),
+            safe_id(&identity)
+        );
+        let event = invocation
+            .get("event")
+            .and_then(Value::as_object)
+            .cloned()
+            .unwrap_or_default();
+        let created_at = string_field(&invocation, "created_at")
+            .or_else(|| string_field(&event, "created_at"))
+            .unwrap_or_else(|| "rust_policy_core".to_string());
+        let payload_hash = value_hash(&tool_result);
+        let payload_ref =
+            format!("payload://runtime/mcp-live-results/{live_result_id}/protocol-result");
+        let live_result = json!({
+            "schema_version": "ioi.runtime.mcp-live-result.v1",
+            "object": "ioi.runtime_mcp_live_result",
+            "id": live_result_id,
+            "kind": "runtime_mcp_live_result",
+            "status": if status == "completed" { "materialized" } else { "materialized_error" },
+            "redaction": "redacted",
+            "created_at": created_at,
+            "receipt_id": receipt_id,
+            "receipt_refs": receipt_refs,
+            "evidence_refs": [
+                "runtime_mcp_serve_tool_result_rust_owned",
+                "rust_daemon_core_runtime_mcp_serve_tool_result_projection",
+                "runtime_mcp_live_result_rust_projection",
+                "agentgres_runtime_mcp_live_result_truth_required",
+                "runtime_mcp_serve_result_payload_materialized",
+                "runtime_mcp_no_js_transport_result",
+                "receipt_state_root_binding_required"
+            ],
+            "payload": {
+                "schema_version": mcp_serve_schema_version,
+                "protocol_result": tool_result,
+                "payload_hash": payload_hash,
+                "payload_ref": payload_ref
+            },
+            "details": {
+                "rust_daemon_core_result_author": "runtime.mcp_serve",
+                "control_kind": "mcp_serve_tool_call",
+                "operation_kind": "mcp.serve.tools.result",
+                "thread_id": thread_id,
+                "tool_id": tool_id,
+                "tool_name": tool_name,
+                "tool_call_id": tool_call_id,
+                "workflow_graph_id": workflow_graph_id,
+                "workflow_node_id": workflow_node_id,
+                "event_id": event_id,
+                "receipt_id": receipt_id,
+                "receipt_refs": receipt_refs,
+                "policy_decision_refs": policy_decision_refs,
+                "artifact_refs": artifact_refs,
+                "payload_ref": payload_ref,
+                "payload_hash": payload_hash,
+                "result_materialized": true,
+                "backend_materialization_status": "rust_step_module_invocation_materialized",
+                "rust_coding_tool_invocation": true,
+                "step_module_router_owner": "rust_daemon_core",
+                "js_transport_invocation": false,
+                "command_transport_fallback": false,
+                "binary_bridge_fallback": false,
+                "compatibility_fallback": false
+            }
+        });
 
         Ok(RuntimeMcpServeToolResultProjectionRecord {
             operation,
@@ -413,11 +495,13 @@ impl RuntimeMcpServeToolCallPlanCore {
             event_id,
             status,
             result: tool_result,
+            live_result,
             evidence_refs: vec![
                 "runtime_mcp_serve_tool_result_rust_owned".to_string(),
                 "rust_daemon_core_runtime_mcp_serve_tool_result_projection".to_string(),
                 "agentgres_runtime_mcp_serve_tool_call_truth_required".to_string(),
                 "wallet_runtime_mcp_serve_authority_required".to_string(),
+                "agentgres_runtime_mcp_live_result_truth_required".to_string(),
             ],
             receipt_refs,
             policy_decision_refs,
@@ -467,6 +551,7 @@ impl RuntimeMcpServeToolResultProjectionRecord {
             "event_id": self.event_id,
             "tool_status": self.status,
             "result": self.result,
+            "live_result": self.live_result,
             "evidence_refs": self.evidence_refs,
             "receipt_refs": self.receipt_refs,
             "policy_decision_refs": self.policy_decision_refs,
@@ -514,6 +599,11 @@ fn request_hash(
     });
     hasher.update(payload.to_string().as_bytes());
     format!("{:x}", hasher.finalize())
+}
+
+fn value_hash(value: &Value) -> String {
+    let bytes = serde_json::to_vec(value).unwrap_or_else(|_| value.to_string().into_bytes());
+    format!("sha256:{}", hex::encode(Sha256::digest(bytes)))
 }
 
 fn optional_trimmed(value: Option<&str>) -> Option<String> {
@@ -670,6 +760,26 @@ mod tests {
             projection.result["content"][0]["text"],
             "git diff completed"
         );
+        assert_eq!(
+            projection.live_result["details"]["rust_daemon_core_result_author"],
+            "runtime.mcp_serve"
+        );
+        assert_eq!(
+            projection.live_result["details"]["result_materialized"],
+            true
+        );
+        assert_eq!(
+            projection.live_result["details"]["js_transport_invocation"],
+            false
+        );
+        assert_eq!(
+            projection.live_result["payload"]["protocol_result"]["structuredContent"]["event_id"],
+            "event_one"
+        );
+        assert_eq!(
+            projection.live_result["receipt_refs"],
+            json!(["receipt_one"])
+        );
     }
 
     #[test]
@@ -693,6 +803,7 @@ mod tests {
                 invocation: json!({
                     "status": "completed",
                     "tool_name": "git.diff",
+                    "receipt_refs": ["receipt_one"],
                     "event": { "payload_summary": { "summary": "ok" } }
                 }),
                 mcp_serve_schema_version: None,
@@ -702,6 +813,46 @@ mod tests {
         assert_eq!(
             value["result"]["structuredContent"]["object"],
             "ioi.runtime_mcp_serve_tool_result"
+        );
+        assert_eq!(
+            value["live_result"]["object"],
+            "ioi.runtime_mcp_live_result"
+        );
+        assert_eq!(
+            value["live_result"]["details"]["backend_materialization_status"],
+            "rust_step_module_invocation_materialized"
+        );
+    }
+
+    #[test]
+    fn rust_rejects_mcp_serve_result_without_receipt_refs() {
+        let plan = RuntimeMcpServeToolCallPlanCore
+            .plan(&request())
+            .expect("mcp serve plan")
+            .to_value();
+        let error = RuntimeMcpServeToolCallPlanCore
+            .project_result(&RuntimeMcpServeToolResultProjectionRequest {
+                schema_version: Some(
+                    RUNTIME_MCP_SERVE_TOOL_RESULT_PROJECTION_REQUEST_SCHEMA_VERSION.to_string(),
+                ),
+                operation: None,
+                operation_kind: None,
+                thread_id: Some("thread_one".to_string()),
+                tool_id: Some("git.diff".to_string()),
+                tool_name: Some("git.diff".to_string()),
+                jsonrpc_id: json!(7),
+                plan,
+                invocation: json!({
+                    "status": "completed",
+                    "tool_name": "git.diff",
+                    "event": { "payload_summary": { "summary": "ok" } }
+                }),
+                mcp_serve_schema_version: None,
+            })
+            .expect_err("receipt refs are required for MCP serve result truth");
+        assert_eq!(
+            error.code(),
+            "runtime_mcp_serve_tool_result_receipt_required"
         );
     }
 
