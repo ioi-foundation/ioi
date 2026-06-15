@@ -10047,6 +10047,23 @@ execution, direct Rust computer-use event materialization, cTEE custody, durable
 Agentgres expected-head/state-root binding, replay/projection, and stable
 IDE/CLI/SDK APIs still need to close.
 
+Slice 1276 hard-cuts computer-use run materialization into Rust run-create
+planning. The public run-create hot path no longer imports or calls the JS
+`computer-use-projection.mjs` facade; `buildRun()` forwards only canonical
+request facts in `computer_use_materialization_request`, and Rust
+`RunCreateStateUpdateCore` consumes that request during
+`plan_run_create_state_update`. Rust now rejects prebuilt JS `computerUse` or
+`computer_use_projection` candidates, materializes `trace.computerUse`,
+computer-use events, a `computer_use_trace` receipt, task-state evidence refs,
+and the redacted `computer-use-trace.json` artifact before the run-create
+projection is committed. The old JS facade/test are deleted, the remaining JS
+event-contract module is non-authoritative protocol scaffolding, and
+conformance rejects any return to JS-authored run materialization. This remains
+non-terminal because concrete provider execution beyond run-create
+materialization, direct provider/backend event admission, cTEE custody, durable
+Agentgres expected-head/state-root binding across replay/projection, and stable
+IDE/CLI/SDK APIs still need to close.
+
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,
 `/v1/memory/policy`, `/v1/memory/path`, or `/v1/memory/validate`; the daemon

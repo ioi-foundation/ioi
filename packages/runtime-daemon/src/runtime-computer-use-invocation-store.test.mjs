@@ -6,11 +6,12 @@ import test from "node:test";
 
 import { AgentgresRuntimeStateStore } from "./index.mjs";
 
-async function withStore(fn) {
+async function withStore(fn, options = {}) {
   const stateDir = mkdtempSync(join(tmpdir(), "ioi-computer-use-invocation-store-"));
   const store = new AgentgresRuntimeStateStore(stateDir, {
     cwd: stateDir,
     modelMountCore: modelMountCoreForComputerUseTest(),
+    ...options,
   });
   try {
     return await fn(store);
@@ -18,6 +19,75 @@ async function withStore(fn) {
     store.close();
     rmSync(stateDir, { recursive: true, force: true });
   }
+}
+
+function threadLifecycleApiForComputerUseRunMaterialization() {
+  const calls = [];
+  return {
+    calls,
+    planRunCreateStateUpdate(request) {
+      calls.push(request);
+      assert.equal(request.schema_version, "ioi.runtime.run-create-state-update-request.v1");
+      assert.equal(request.run.trace.computerUse, null);
+      assert.equal(Object.hasOwn(request.run, "computerUse"), false);
+      assert.equal(
+        request.run.computer_use_materialization_request?.schema_version,
+        "ioi.runtime.computer-use-run-materialization-request.v1",
+      );
+      assert.equal(
+        request.run.computer_use_materialization_request?.request?.computer_use,
+        true,
+      );
+      const {
+        computer_use_materialization_request: _retiredShim,
+        ...run
+      } = request.run;
+      return {
+        status: "planned",
+        operation_kind: "run.create",
+        created_at: run.createdAt,
+        updated_at: run.updatedAt,
+        run: {
+          ...run,
+          trace: {
+            ...run.trace,
+            computerUse: {
+              source: "rust_daemon_core_run_create",
+              lease: {
+                lane: "native_browser",
+              },
+            },
+          },
+          events: [
+            ...run.events,
+            {
+              type: "computer_use_observation",
+              data: {
+                rust_daemon_core_materialized: true,
+              },
+            },
+          ],
+          receipts: [
+            ...run.receipts,
+            {
+              id: "receipt_run_browser_computer_use_trace",
+              kind: "computer_use_trace",
+              evidenceRefs: ["rust_daemon_core_computer_use_run_materialization"],
+            },
+          ],
+          artifacts: [
+            ...run.artifacts,
+            {
+              id: "artifact_run_browser_computer_use_trace_json",
+              name: "computer-use-trace.json",
+              receiptId: "receipt_run_browser_computer_use_trace",
+              content: "{}",
+            },
+          ],
+        },
+      };
+    },
+  };
 }
 
 function modelMountCoreForComputerUseTest() {
@@ -234,4 +304,53 @@ test("computer-use public invocation adapter preserves canonical lease request f
       }
     }
   });
+});
+
+test("computer-use run materialization is delegated to Rust run-create planning", async () => {
+  const daemonCoreThreadLifecycleApi = threadLifecycleApiForComputerUseRunMaterialization();
+  await withStore(async (store) => {
+    const writes = [];
+    store.writeRun = (run, operationKind) => {
+      writes.push({ run, operationKind });
+    };
+    store.agents.set("agent_browser", {
+      id: "agent_browser",
+      status: "active",
+      runtime: "local",
+      cwd: store.defaultCwd,
+      modelId: "model.local",
+      options: {
+        mcpServerNames: [],
+        skillNames: [],
+        hookNames: [],
+      },
+      runtimeControls: {
+        mode: "agent",
+        approval_mode: "suggest",
+      },
+      createdAt: "2026-06-15T18:00:00.000Z",
+      updatedAt: "2026-06-15T18:00:00.000Z",
+    });
+
+    const run = store.agentRunLifecycleSurface.createRun(store, "agent_browser", {
+      mode: "send",
+      prompt: "Inspect the browser page without side effects.",
+      metadata: {
+        computer_use: true,
+        computer_use_lane: "native_browser",
+        computer_use_action_kind: "inspect",
+        computer_use_target_ref: "target_browser",
+      },
+    });
+
+    assert.equal(daemonCoreThreadLifecycleApi.calls.length, 1);
+    assert.equal(run.trace.computerUse.source, "rust_daemon_core_run_create");
+    assert.equal(run.trace.computerUse.lease.lane, "native_browser");
+    assert.equal(Object.hasOwn(run, "computer_use_materialization_request"), false);
+    assert.equal(Object.hasOwn(run, "computerUse"), false);
+    assert.ok(run.events.some((event) => event.type === "computer_use_observation"));
+    assert.ok(run.receipts.some((receipt) => receipt.kind === "computer_use_trace"));
+    assert.ok(run.artifacts.some((artifact) => artifact.name === "computer-use-trace.json"));
+    assert.deepEqual(writes, [{ run, operationKind: "run.create" }]);
+  }, { daemonCoreThreadLifecycleApi });
 });

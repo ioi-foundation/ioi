@@ -1727,7 +1727,7 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
     operation_kind: "runtime.lifecycle_projection.agents",
     state_dir: stateDir,
   });
-  const computerUseProjection = store.contextPolicyCore.projectRuntimeComputerUse({
+  const computerUseProviderProjection = store.contextPolicyCore.projectRuntimeComputerUse({
     projection_kind: "provider_registry",
     operation_kind: "runtime.computer_use.projection.provider_registry",
   });
@@ -1752,7 +1752,7 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
   assert.equal(repositoryProjection.projection_kind, "repository_context");
   assert.equal(toolProjection.tools[0].stable_tool_id, "file.apply_patch");
   assert.equal(lifecycleProjection.projection[0].id, "agent_direct");
-  assert.equal(computerUseProjection.provider_registry.fail_closed_when_unavailable, true);
+  assert.equal(computerUseProviderProjection.provider_registry.fail_closed_when_unavailable, true);
   const workflowRequired = store.contextPolicyCore.planWorkflowEditAdmissionRequired({
     operation: "workflow_edit_proposal",
     operation_kind: "workflow.edit_proposed",

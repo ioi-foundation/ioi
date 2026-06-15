@@ -3908,12 +3908,6 @@ function runBridge() {
   const computerUseSandboxFixtureTest = exists("packages/runtime-daemon/src/computer-use-sandbox-fixture.test.mjs")
     ? read("packages/runtime-daemon/src/computer-use-sandbox-fixture.test.mjs")
     : "";
-  const computerUseProjection = exists("packages/runtime-daemon/src/computer-use-projection.mjs")
-    ? read("packages/runtime-daemon/src/computer-use-projection.mjs")
-    : "";
-  const computerUseProjectionTest = exists("packages/runtime-daemon/src/computer-use-projection.test.mjs")
-    ? read("packages/runtime-daemon/src/computer-use-projection.test.mjs")
-    : "";
   const runtimeRunEventHelpers = exists("packages/runtime-daemon/src/runtime-run-event-helpers.mjs")
     ? read("packages/runtime-daemon/src/runtime-run-event-helpers.mjs")
     : "";
@@ -7418,143 +7412,32 @@ function runBridge() {
   );
   assertCheck(
     result,
-    "computer-use-projection-selector-aliases-retired",
-    /computerUseActionKindValue\(metadata\.computer_use_action_kind\)/.test(
-      computerUseProjection,
-    ) &&
-      /return cleanString\(metadata\.computer_use_target_ref\)/.test(computerUseProjection) &&
-      /return cleanString\(metadata\.computer_use_approval_ref\)/.test(computerUseProjection) &&
-      computerUseInvocationBodiesGuardOnly &&
-      !/computer_use_action_kind: requestedActionKind/.test(runtimeDaemonIndex) &&
-      !/computer_use_approval_ref: requestedApprovalRef/.test(runtimeDaemonIndex) &&
-      !/computer_use_target_ref: requestedTargetRef/.test(runtimeDaemonIndex) &&
-      !/computerUseActionKind: requestedActionKind/.test(runtimeDaemonIndex) &&
-      !/computerUseApprovalRef: requestedApprovalRef/.test(runtimeDaemonIndex) &&
-      !/computerUseTargetRef: requestedTargetRef/.test(runtimeDaemonIndex) &&
-      !/computerUseActionKind: "inspect"/.test(runtimeDaemonIndex) &&
-      /computer-use projection accepts canonical computer_use_target_ref/.test(
-        computerUseProjectionTest,
-      ) &&
-      /computer-use projection ignores retired targetRef request alias/.test(
-        computerUseProjectionTest,
-      ) &&
-      /computer-use projection accepts canonical action and approval refs/.test(
-        computerUseProjectionTest,
-      ) &&
-      /computer-use projection ignores retired actionKind and approvalRef aliases/.test(
-        computerUseProjectionTest,
-      ) &&
-      /targetRef: "target_retired"/.test(computerUseProjectionTest) &&
-      /computerUseTargetRef: "target_retired_computer_use"/.test(computerUseProjectionTest) &&
-      /actionKind: "click"/.test(computerUseProjectionTest) &&
-      /approvalRef: "approval_retired"/.test(computerUseProjectionTest) &&
-      /computerUseActionKind: "click"/.test(computerUseProjectionTest) &&
-      /computerUseApprovalRef: "approval_retired_computer_use"/.test(computerUseProjectionTest) &&
-      !/metadata\.computerUseTargetRef/.test(computerUseProjection) &&
-      !/metadata\.computerUseActionKind/.test(computerUseProjection) &&
-      !/metadata\.computerUseApprovalRef/.test(computerUseProjection) &&
-      !/metadata\.targetRef/.test(computerUseProjection) &&
-      !/metadata\.target_ref/.test(computerUseProjection) &&
-      !/metadata\.actionKind/.test(computerUseProjection) &&
-      !/metadata\.action_kind/.test(computerUseProjection) &&
-      !/metadata\.approvalRef/.test(computerUseProjection) &&
-      !/metadata\.approval_ref/.test(computerUseProjection),
+    "runtime-computer-use-run-materialization-rust-owned",
+    !exists("packages/runtime-daemon/src/computer-use-projection.mjs") &&
+      !exists("packages/runtime-daemon/src/computer-use-projection.test.mjs") &&
+      /computer-use-event-contracts\.mjs/.test(runtimeDaemonIndex) &&
+      /const COMPUTER_USE_RUN_MATERIALIZATION_REQUEST_SCHEMA_VERSION/.test(runtimeDaemonIndex) &&
+      /function computerUseMaterializationRequestForRun/.test(runtimeDaemonIndex) &&
+      /computer_use_materialization_request:\s*computerUseMaterializationRequest/.test(runtimeDaemonIndex) &&
+      !/computerUseProjectionForRun|computerUseProjection\.|computerUseProjection =/.test(runtimeDaemonIndex) &&
+      /fn materialize_computer_use_run/.test(policyThreadLifecycleCore) &&
+      /COMPUTER_USE_RUN_MATERIALIZATION_REQUEST_SCHEMA_VERSION/.test(policyThreadLifecycleCore) &&
+      /RetiredComputerUseProjectionCandidate/.test(policyThreadLifecycleCore) &&
+      /rust_policy_materializes_computer_use_run_create_truth/.test(policyThreadLifecycleCore) &&
+      /rust_policy_rejects_js_computer_use_projection_candidate/.test(policyThreadLifecycleCore) &&
+      /computer-use run materialization is delegated to Rust run-create planning/.test(runtimeComputerUseInvocationStoreTest) &&
+      /trace\.computerUse\.source,\s*"rust_daemon_core_run_create"/.test(runtimeComputerUseInvocationStoreTest) &&
+      /Object\.hasOwn\(run,\s*"computerUse"\),\s*false/.test(runtimeComputerUseInvocationStoreTest) &&
+      /Object\.hasOwn\(request\.run,\s*"computerUse"\),\s*false/.test(runtimeComputerUseInvocationStoreTest) &&
+      !/from "\.\/computer-use-projection\.mjs"/.test(runtimeDaemonIndex) &&
+      computerUseInvocationBodiesGuardOnly,
     [
       "packages/runtime-daemon/src/index.mjs",
-      "packages/runtime-daemon/src/computer-use-projection.mjs",
-      "packages/runtime-daemon/src/computer-use-projection.test.mjs",
+      "packages/runtime-daemon/src/computer-use-event-contracts.mjs",
+      "packages/runtime-daemon/src/runtime-computer-use-invocation-store.test.mjs",
+      "crates/services/src/agentic/runtime/kernel/policy/thread_lifecycle.rs",
     ],
-    "Phase 10/11 is pending: computer-use projection selectors must use canonical metadata while daemon JS invocation bodies no longer author selector metadata",
-  );
-  assertCheck(
-    result,
-    "computer-use-controlled-relaunch-metadata-aliases-retired",
-    /observationRetentionMode:\s*cleanString\(metadata\.observation_retention_mode\)/.test(
-      computerUseProjection,
-    ) &&
-      /objectValue\(metadata\.computer_use_controlled_relaunch_broker\) \?\?[\r\n\s]*objectValue\(metadata\.controlled_relaunch_broker\)/.test(
-        computerUseProjection,
-      ) &&
-      /cleanString\(metadata\.controlled_relaunch_broker_ref\)/.test(computerUseProjection) &&
-      /cleanString\(metadata\.controlled_relaunch_start_url\)/.test(computerUseProjection) &&
-      /cleanString\(metadata\.controlled_relaunch_profile_dir_ref\)/.test(computerUseProjection) &&
-      /cleanString\(metadata\.controlled_relaunch_launch_plan_ref\)/.test(computerUseProjection) &&
-      /metadata\.computer_use_controlled_relaunch_launch_receipt \?\?[\r\n\s]*metadata\.controlled_relaunch_launch_receipt/.test(
-        computerUseProjection,
-      ) &&
-      computerUseInvocationBodiesGuardOnly &&
-      !/computer_use_controlled_relaunch_broker:\s*[\r\n\s]*objectRecord/.test(runtimeDaemonIndex) &&
-      !/controlled_relaunch_broker_ref:/.test(runtimeDaemonIndex) &&
-      !/controlled_relaunch_launch_plan_ref:/.test(runtimeDaemonIndex) &&
-      /computer-use projection accepts canonical controlled relaunch metadata/.test(
-        computerUseProjectionTest,
-      ) &&
-      /computer-use projection ignores retired controlled relaunch aliases/.test(
-        computerUseProjectionTest,
-      ) &&
-      /controlledRelaunchBroker:/.test(computerUseProjectionTest) &&
-      /controlledRelaunchLaunchReceipt:/.test(computerUseProjectionTest) &&
-      /assert\.equal\(projection\.runState\.blocker_state,\s*"controlled_relaunch_broker_unavailable"\)/.test(
-        computerUseProjectionTest,
-      ) &&
-      !/metadata\.(?:observationRetentionMode|computerUseControlledRelaunchBroker|controlledRelaunchBroker|controlledRelaunchBrokerRef|controlledRelaunchStartUrl|controlledRelaunchProfileDirRef|controlledRelaunchLaunchPlanRef|controlledRelaunchLaunchReceipt)\b/.test(
-        computerUseProjection,
-      ) &&
-      !/input\.(?:computerUseControlledRelaunchBroker|controlledRelaunchBroker|controlledRelaunchBrokerRef|controlledRelaunchStartUrl|controlledRelaunchProfileDirRef|controlledRelaunchLaunchPlanRef|controlledRelaunchExecutablePath)\b/.test(
-        runtimeDaemonIndex,
-      ) &&
-      !/input\.(?:controlledRelaunchApprovalRef|hostBrowserLaunchApprovalRef|browserLaunchApprovalRef|computerUseControlledRelaunchBroker|controlledRelaunchBroker|controlledRelaunchBrokerRef|controlledRelaunchExecutablePath|browserExecutablePath|controlledRelaunchExecutableArgs|browserExecutableArgs|controlledRelaunchExtraArgs|browserLaunchArgs|controlledRelaunchCdpPort|browserLaunchCdpPort|controlledRelaunchStartUrl|targetUrl|controlledRelaunchHeadless|browserLaunchHeadless)\b/.test(
-        nativeBrowserControlledRelaunchBroker,
-      ) &&
-      !/(?:computerUseControlledRelaunchBroker|controlledRelaunchBrokerRef|controlledRelaunchExecutablePath|browserExecutablePath|controlledRelaunchExecutableArgs|browserExecutableArgs|controlledRelaunchExtraArgs|browserLaunchArgs|controlledRelaunchCdpPort|browserLaunchCdpPort|controlledRelaunchStartUrl|targetUrl|controlledRelaunchHeadless|browserLaunchHeadless)\?\./.test(
-        nativeBrowserControlledRelaunchBroker,
-      ) &&
-      /controlled relaunch broker ignores retired camelCase launch aliases/.test(
-        nativeBrowserControlledRelaunchBrokerTest,
-      ) &&
-      /controlledRelaunchApprovalRef: "approval_retired"/.test(
-        nativeBrowserControlledRelaunchBrokerTest,
-      ) &&
-      /assert\.equal\(result\.launchReceipt\.approval_ref,\s*null\)/.test(
-        nativeBrowserControlledRelaunchBrokerTest,
-      ) &&
-      !/(?:computerUseControlledRelaunchBroker|controlledRelaunchBrokerRef|controlledRelaunchStartUrl|controlledRelaunchProfileDirRef|controlledRelaunchLaunchPlanRef|controlledRelaunchExecutablePath):/.test(
-        runtimeDaemonIndex,
-      ),
-    [
-      "packages/runtime-daemon/src/index.mjs",
-      "packages/runtime-daemon/src/computer-use-projection.mjs",
-      "packages/runtime-daemon/src/computer-use-projection.test.mjs",
-      "packages/runtime-daemon/src/native-browser-controlled-relaunch-broker.mjs",
-      "packages/runtime-daemon/src/native-browser-controlled-relaunch-broker.test.mjs",
-    ],
-    "Phase 10/11 is pending: computer-use controlled relaunch projection must use canonical snake_case metadata and daemon JS invocation bodies must not author relaunch metadata",
-  );
-  assertCheck(
-    result,
-    "computer-use-native-browser-execution-metadata-aliases-retired",
-    /metadata\.computer_use_native_browser_execution \?\?[\r\n\s]*metadata\.computer_use_execution_result/.test(
-      computerUseProjection,
-    ) &&
-      /computer-use projection accepts canonical native-browser execution metadata/.test(
-        computerUseProjectionTest,
-      ) &&
-      /computer-use projection ignores retired native-browser execution aliases/.test(
-        computerUseProjectionTest,
-      ) &&
-      /computerUseNativeBrowserExecution:/.test(computerUseProjectionTest) &&
-      /computerUseExecutionResult:/.test(computerUseProjectionTest) &&
-      /assert\.equal\(projection\.policyDecision\.outcome,\s*"blocked_executor_unavailable"\)/.test(
-        computerUseProjectionTest,
-      ) &&
-      !/metadata\.(?:computerUseNativeBrowserExecution|computerUseExecutionResult)\b/.test(
-        computerUseProjection,
-      ),
-    [
-      "packages/runtime-daemon/src/computer-use-projection.mjs",
-      "packages/runtime-daemon/src/computer-use-projection.test.mjs",
-    ],
-    "Phase 10/11 is pending: computer-use projection must use canonical snake_case native-browser execution metadata without retired camelCase aliases",
+    "Computer-use run materialization must be Rust-owned during run-create planning, with the old JS projection facade deleted.",
   );
   assertCheck(
     result,
@@ -7580,95 +7463,6 @@ function runBridge() {
       "packages/runtime-daemon/src/native-browser-cdp-executor.test.mjs",
     ],
     "Phase 10/11 is pending: native-browser CDP executor inputs must use canonical snake_case endpoint, selector, text, key, scroll, and upload fields without retired camelCase aliases",
-  );
-  assertCheck(
-    result,
-    "computer-use-contract-override-metadata-aliases-retired",
-    /observationBundle:\s*objectValue\(metadata\.computer_use_observation_bundle\)/.test(
-      computerUseProjection,
-    ) &&
-      /targetIndex:\s*objectValue\(metadata\.computer_use_target_index\)/.test(
-        computerUseProjection,
-      ) &&
-      /affordanceGraph:\s*objectValue\(metadata\.computer_use_affordance_graph\)/.test(
-        computerUseProjection,
-      ) &&
-      /adapterContract:\s*objectValue\(metadata\.computer_use_adapter_contract\)/.test(
-        computerUseProjection,
-      ) &&
-      /cleanupReceipt:\s*objectValue\(metadata\.computer_use_cleanup_receipt\)/.test(
-        computerUseProjection,
-      ) &&
-      /metadata\.computer_use_browser_observation_artifacts \?\?[\r\n\s]*metadata\.browser_observation_artifacts/.test(
-        computerUseProjection,
-      ) &&
-      computerUseInvocationBodiesGuardOnly &&
-      !/computer_use_observation_bundle:\s*[\r\n\s]*objectRecord/.test(runtimeDaemonIndex) &&
-      !/computer_use_target_index:\s*[\r\n\s]*objectRecord/.test(runtimeDaemonIndex) &&
-      !/computer_use_affordance_graph:\s*[\r\n\s]*objectRecord/.test(runtimeDaemonIndex) &&
-      !/computer_use_adapter_contract:\s*[\r\n\s]*objectRecord/.test(runtimeDaemonIndex) &&
-      !/computer_use_cleanup_receipt:\s*[\r\n\s]*objectRecord/.test(runtimeDaemonIndex) &&
-      /computer-use projection accepts canonical contract override metadata/.test(
-        computerUseProjectionTest,
-      ) &&
-      /computer-use projection ignores retired contract override aliases/.test(
-        computerUseProjectionTest,
-      ) &&
-      /computerUseObservationBundle:/.test(computerUseProjectionTest) &&
-      /computerUseTargetIndex:/.test(computerUseProjectionTest) &&
-      /computerUseAffordanceGraph:/.test(computerUseProjectionTest) &&
-      /computerUseAdapterContract:/.test(computerUseProjectionTest) &&
-      /computerUseCleanupReceipt:/.test(computerUseProjectionTest) &&
-      /computerUseBrowserObservationArtifacts:/.test(computerUseProjectionTest) &&
-      !/metadata\.(?:computerUseObservationBundle|computerUseTargetIndex|computerUseAffordanceGraph|computerUseAdapterContract|computerUseCleanupReceipt|computerUseBrowserObservationArtifacts|browserObservationArtifacts)\b/.test(
-        computerUseProjection,
-      ) &&
-      !/input\.(?:computerUseObservationBundle|computerUseTargetIndex|computerUseAffordanceGraph|computerUseAdapterContract|computerUseCleanupReceipt|computerUseBrowserObservationArtifacts)\b/.test(
-        runtimeDaemonIndex,
-      ) &&
-      !/(?:computerUseObservationBundle|computerUseTargetIndex|computerUseAffordanceGraph|computerUseAdapterContract|computerUseCleanupReceipt|computerUseBrowserObservationArtifacts):/.test(
-        runtimeDaemonIndex,
-      ),
-    [
-      "packages/runtime-daemon/src/index.mjs",
-      "packages/runtime-daemon/src/computer-use-projection.mjs",
-      "packages/runtime-daemon/src/computer-use-projection.test.mjs",
-    ],
-    "Phase 10/11 is pending: computer-use projection contract overrides must use canonical snake_case metadata and daemon JS invocation bodies must not author contract override metadata",
-  );
-  assertCheck(
-    result,
-    "computer-use-workflow-binding-metadata-aliases-retired",
-    /if \(metadata\.computer_use === true\)/.test(computerUseProjection) &&
-      /workflowGraphId:\s*cleanString\(metadata\.workflow_graph_id\)/.test(computerUseProjection) &&
-      /workflowNodeId:\s*cleanString\(metadata\.workflow_node_id\)/.test(computerUseProjection) &&
-      /workflowNodeIds:\s*cleanStringArray\(metadata\.workflow_node_ids\)/.test(computerUseProjection) &&
-      /toolRef:\s*cleanString\(metadata\.tool_ref\)/.test(computerUseProjection) &&
-      /authorityScopes:\s*cleanStringArray\(metadata\.authority_scopes\)/.test(computerUseProjection) &&
-      /booleanValue\(metadata\.fail_closed_when_unavailable\)/.test(computerUseProjection) &&
-      /const value = metadata\.computer_use_lane;/.test(computerUseProjection) &&
-      /const value = metadata\.computer_use_session_mode;/.test(computerUseProjection) &&
-      /computer-use projection accepts canonical workflow binding metadata/.test(
-        computerUseProjectionTest,
-      ) &&
-      /computer-use projection ignores retired workflow binding aliases/.test(
-        computerUseProjectionTest,
-      ) &&
-      /computerUseLane: "visual_gui"/.test(computerUseProjectionTest) &&
-      /workflowGraphId: "graph_retired"/.test(computerUseProjectionTest) &&
-      /failClosedWhenUnavailable: false/.test(computerUseProjectionTest) &&
-      computerUseInvocationBodiesGuardOnly &&
-      !/computer_use_lane: "(?:native_browser|visual_gui|sandboxed_hosted)"/.test(runtimeDaemonIndex) &&
-      !/workflow_node_ids: uniqueStrings/.test(runtimeDaemonIndex) &&
-      !/metadata\.(?:computerUse|computerUseLane|computerUseSessionMode|workflowGraphId|workflowNodeId|workflowNodeIds|toolRef|authorityScopes|failClosedWhenUnavailable)\b/.test(
-        computerUseProjection,
-      ),
-    [
-      "packages/runtime-daemon/src/index.mjs",
-      "packages/runtime-daemon/src/computer-use-projection.mjs",
-      "packages/runtime-daemon/src/computer-use-projection.test.mjs",
-    ],
-    "Phase 10/11 is pending: computer-use projection workflow binding must use canonical snake_case fields and daemon JS invocation bodies must not author workflow binding metadata",
   );
   assertCheck(
     result,

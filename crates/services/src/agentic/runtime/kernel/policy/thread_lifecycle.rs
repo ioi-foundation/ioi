@@ -88,6 +88,7 @@ pub enum RunCreateStateUpdateError {
         actual: String,
     },
     MissingField(&'static str),
+    RetiredComputerUseProjectionCandidate,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -764,8 +765,9 @@ impl RunCreateStateUpdateCore {
         request: &RunCreateStateUpdateRequest,
     ) -> Result<RunCreateStateUpdateRecord, RunCreateStateUpdateError> {
         request.validate()?;
-        let run =
+        let mut run =
             object_value(&request.run).ok_or(RunCreateStateUpdateError::MissingField("run"))?;
+        materialize_computer_use_run(&mut run)?;
         let run_value = Value::Object(run.clone());
         let run_id = optional_json_string(&run_value, "id")
             .ok_or(RunCreateStateUpdateError::MissingField("run.id"))?;
@@ -1574,6 +1576,626 @@ fn unique_string_vec(values: Vec<String>) -> Vec<String> {
         }
     }
     unique
+}
+
+const COMPUTER_USE_CONTRACT_SCHEMA_VERSION: &str = "ioi.computer-use.harness.v1";
+const COMPUTER_USE_RUN_MATERIALIZATION_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.computer-use-run-materialization-request.v1";
+
+fn materialize_computer_use_run(
+    run: &mut serde_json::Map<String, Value>,
+) -> Result<(), RunCreateStateUpdateError> {
+    if run.contains_key("computerUse") || run.contains_key("computer_use_projection") {
+        return Err(RunCreateStateUpdateError::RetiredComputerUseProjectionCandidate);
+    }
+    let request_value = match run.remove("computer_use_materialization_request") {
+        Some(Value::Object(request)) => Value::Object(request),
+        Some(Value::Null) | None => return Ok(()),
+        Some(_) => {
+            return Err(RunCreateStateUpdateError::MissingField(
+                "run.computer_use_materialization_request",
+            ))
+        }
+    };
+    let request = request_value
+        .as_object()
+        .ok_or(RunCreateStateUpdateError::MissingField(
+            "run.computer_use_materialization_request",
+        ))?;
+    let schema_version = optional_json_string(&request_value, "schema_version").ok_or(
+        RunCreateStateUpdateError::MissingField(
+            "run.computer_use_materialization_request.schema_version",
+        ),
+    )?;
+    if schema_version != COMPUTER_USE_RUN_MATERIALIZATION_REQUEST_SCHEMA_VERSION {
+        return Err(RunCreateStateUpdateError::InvalidSchemaVersion {
+            expected: COMPUTER_USE_RUN_MATERIALIZATION_REQUEST_SCHEMA_VERSION,
+            actual: schema_version,
+        });
+    }
+    if !computer_use_materialization_requested(request, run) {
+        return Ok(());
+    }
+
+    let run_value = Value::Object(run.clone());
+    let run_id = optional_json_string(&run_value, "id")
+        .ok_or(RunCreateStateUpdateError::MissingField("run.id"))?;
+    let agent_id = optional_json_string(&run_value, "agentId")
+        .ok_or(RunCreateStateUpdateError::MissingField("run.agentId"))?;
+    let prompt = optional_json_string(&request_value, "prompt")
+        .or_else(|| optional_json_string(&run_value, "objective"))
+        .unwrap_or_else(|| "Governed computer-use run".to_string());
+    let _mode = optional_json_string(&request_value, "mode")
+        .or_else(|| optional_json_string(&run_value, "mode"))
+        .unwrap_or_else(|| "send".to_string());
+    let selected_model = optional_json_string(&request_value, "selected_model")
+        .or_else(|| optional_json_string(&run_value, "modelRouteReceiptId"))
+        .unwrap_or_else(|| "runtime_daemon".to_string());
+    let request_body = request
+        .get("request")
+        .and_then(Value::as_object)
+        .cloned()
+        .unwrap_or_default();
+    let request_body_value = Value::Object(request_body.clone());
+    let lane = canonical_computer_use_lane(optional_json_string(
+        &request_body_value,
+        "computer_use_lane",
+    ));
+    let session_mode = canonical_computer_use_session_mode(
+        optional_json_string(&request_body_value, "computer_use_session_mode"),
+        &lane,
+    );
+    let action_kind = canonical_computer_use_action_kind(optional_json_string(
+        &request_body_value,
+        "computer_use_action_kind",
+    ));
+    let action_read_only = computer_use_action_is_read_only(&action_kind);
+    let approval_ref = optional_json_string(&request_body_value, "computer_use_approval_ref");
+    let target_ref = optional_json_string(&request_body_value, "computer_use_target_ref")
+        .unwrap_or_else(|| format!("target_{run_id}_document"));
+    let retention_mode = optional_json_string(&request_body_value, "observation_retention_mode")
+        .unwrap_or_else(|| {
+            if lane == "sandboxed_hosted" {
+                "no_persistence".to_string()
+            } else {
+                "prompt_visible_summary_only".to_string()
+            }
+        });
+    let workflow_graph_id = optional_json_string(&request_body_value, "workflow_graph_id");
+    let workflow_node_id = optional_json_string(&request_body_value, "workflow_node_id")
+        .unwrap_or_else(|| "computer-use.run-materialization".to_string());
+    let authority_scope = if action_read_only {
+        format!("computer_use.{lane}.read")
+    } else {
+        format!("computer_use.{lane}.act")
+    };
+    let approval_satisfied = action_read_only || approval_ref.is_some();
+    let execution_completed = request_body
+        .get("computer_use_execution_result")
+        .and_then(Value::as_object)
+        .and_then(|result| result.get("status"))
+        .and_then(Value::as_str)
+        == Some("completed");
+    let action_executed = action_read_only || execution_completed;
+
+    let lease_id = format!("lease_{run_id}_{}", lane.replace('_', "-"));
+    let observation_ref = format!("observation_{run_id}_computer_use_initial");
+    let target_index_ref = format!("target_index_{run_id}_computer_use_initial");
+    let affordance_graph_ref = format!("affordance_{run_id}_computer_use_initial");
+    let proposal_ref = format!("proposal_{run_id}_{action_kind}");
+    let action_ref = format!("action_{run_id}_{action_kind}");
+    let verification_ref = format!("verification_{run_id}_{action_kind}");
+    let commit_gate_ref = format!("commit_gate_{run_id}_{action_kind}");
+    let trajectory_ref = format!("trajectory_{run_id}_computer_use");
+    let cleanup_ref = format!("cleanup_{run_id}_computer_use");
+    let trace_receipt_id = format!("receipt_{run_id}_computer_use_trace");
+    let environment_receipt_ref = format!("receipt_{run_id}_computer_use_environment");
+    let policy_decision_ref = approval_ref.clone().unwrap_or_else(|| {
+        if action_read_only {
+            format!("policy_{run_id}_computer_use_read_only")
+        } else {
+            format!("policy_{run_id}_computer_use_requires_approval")
+        }
+    });
+
+    let environment_selection = json!({
+        "receipt_ref": environment_receipt_ref,
+        "run_id": run_id,
+        "selected_lane": lane,
+        "selected_session_mode": session_mode,
+        "rejected_options": [],
+        "reasons": [
+            "Rust daemon-core run-create materialized the governed computer-use lane from canonical request facts.",
+            "JS computer-use projection authoring is retired for run materialization."
+        ],
+        "risk_posture": if action_read_only { "read_only_probe" } else if execution_completed { "approved_external_effect" } else { "commit_confirmation_required" },
+        "authority_required": authority_scope,
+        "privacy_impact": retention_mode,
+        "expected_cleanup": "rust_daemon_core_cleanup_receipt_and_redacted_trace"
+    });
+    let lease = json!({
+        "schema_version": COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
+        "lease_id": lease_id,
+        "lane": lane,
+        "session_mode": session_mode,
+        "status": "active",
+        "authority_scope": authority_scope,
+        "consent_scope": "operator_prompt",
+        "target_hint": prompt.chars().take(160).collect::<String>(),
+        "environment_ref": format!("{}:{}", lane, stable_suffix(&run_id)),
+        "profile_provenance": "rust_daemon_core_run_materialization",
+        "retention_mode": retention_mode,
+        "cleanup_required": true,
+        "evidence_refs": [
+            environment_receipt_ref,
+            "rust_daemon_core_computer_use_run_materialization",
+            "wallet.network.authority_boundary"
+        ]
+    });
+    let run_state = json!({
+        "run_id": run_id,
+        "lease_id": lease_id,
+        "user_goal": prompt,
+        "current_subgoal": "Observe the requested surface, index targets, and produce a governed computer-use trace.",
+        "current_observation_ref": observation_ref,
+        "current_target_index_ref": target_index_ref,
+        "verification_status": if action_executed { "passed" } else { "requires_human" },
+        "blocker_state": if action_executed { Value::Null } else { json!("commit_gate_requires_confirmation") },
+        "risk_posture": if action_read_only { "read_only_probe" } else { "external_effect_gate_required" },
+        "cleanup_state": "cleanup_required"
+    });
+    let observation = json!({
+        "schema_version": COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
+        "observation_ref": observation_ref,
+        "lease_id": lease_id,
+        "lane": lane,
+        "session_mode": session_mode,
+        "title": "IOI Rust daemon-core computer-use observation",
+        "target_index_ref": target_index_ref,
+        "retention_mode": retention_mode,
+        "detected_patterns": ["rust_daemon_core_materialized", "computer_use_trace"]
+    });
+    let target_index = json!({
+        "schema_version": COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
+        "target_index_ref": target_index_ref,
+        "observation_ref": observation_ref,
+        "coordinate_space_id": format!("viewport_{run_id}"),
+        "drift_state": "fresh",
+        "targets": [{
+            "target_ref": target_ref,
+            "label": "Requested computer-use target",
+            "role": "document",
+            "confidence": 92,
+            "available_actions": unique_string_vec(vec!["inspect".to_string(), "scroll".to_string(), action_kind.clone()])
+        }]
+    });
+    let affordance_graph = json!({
+        "schema_version": COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
+        "graph_ref": affordance_graph_ref,
+        "target_index_ref": target_index_ref,
+        "observation_ref": observation_ref,
+        "affordances": [{
+            "target_ref": target_ref,
+            "possible_action": action_kind,
+            "confidence": if action_read_only { 95 } else { 86 },
+            "risk_class": if action_read_only { "read_only" } else { "possible_external_effect" },
+            "required_authority": authority_scope,
+            "confirmation_required": !action_read_only
+        }]
+    });
+    let action_proposal = json!({
+        "proposal_ref": proposal_ref,
+        "proposed_by": selected_model,
+        "model_role": "grounder",
+        "normalized_action_candidate": if action_kind == "inspect" { "inspect current surface and summarize actionable targets".to_string() } else { format!("{action_kind} {target_ref}") },
+        "target_ref": target_ref,
+        "confidence": if action_read_only { 92 } else { 86 },
+        "rationale_summary": "Rust daemon-core materialized the governed computer-use proposal from canonical run-create facts.",
+        "predicted_postcondition": if action_read_only { "A redacted observation and target index exist without external side effects." } else { "The action remains gated unless wallet.network approval and executor evidence are present." },
+        "risk_assessment": if action_read_only { "read_only" } else { "possible_external_effect" },
+        "policy_decision_ref": policy_decision_ref
+    });
+    let action = if action_executed {
+        json!({
+            "action_ref": action_ref,
+            "proposal_ref": proposal_ref,
+            "action_kind": action_kind,
+            "target_ref": target_ref,
+            "observation_ref": observation_ref,
+            "coordinate_space_id": format!("viewport_{run_id}"),
+            "payload_summary": if action_read_only { "Read-only inspect of the current computer-use target." } else { "Approved computer-use action executed with Rust-bound evidence." },
+            "approval_ref": approval_ref
+        })
+    } else {
+        Value::Null
+    };
+    let action_receipt = if action_executed {
+        json!({
+            "receipt_ref": format!("receipt_{run_id}_computer_use_action"),
+            "action_ref": action_ref,
+            "status": "completed",
+            "grounding_ref": target_index_ref,
+            "verification_ref": verification_ref,
+            "evidence_refs": [observation_ref, target_index_ref, proposal_ref]
+        })
+    } else {
+        Value::Null
+    };
+    let verification = json!({
+        "verification_ref": verification_ref,
+        "action_ref": if action_executed { Value::String(action_ref.clone()) } else { Value::Null },
+        "status": if action_executed { "passed" } else { "requires_human" },
+        "expected_postcondition": if action_read_only { "Read-only computer-use trace exists." } else { "Mutating action requires explicit authority before external effects." },
+        "observed_postcondition": if action_executed { "Rust daemon-core materialized the computer-use trace and action evidence." } else { "No external-effect action executed before authority was present." },
+        "verifier": "rust_daemon_core_computer_use_run_materializer",
+        "evidence_refs": [environment_receipt_ref, observation_ref, target_index_ref, proposal_ref]
+    });
+    let outcome_contract = json!({
+        "outcome_ref": format!("outcome_{run_id}_computer_use"),
+        "requested_outcome": "Produce a Rust-owned governed computer-use trace.",
+        "success_criteria": ["Rust-owned computer-use events, receipt, artifact, and trace projection exist."],
+        "external_effect_policy": if action_read_only { "read_only" } else { "wallet_network_authority_required" }
+    });
+    let policy_decision = json!({
+        "policy_decision_ref": policy_decision_ref,
+        "proposal_ref": proposal_ref,
+        "action_kind": action_kind,
+        "outcome": if action_read_only { "approved_for_read_only_probe" } else if approval_satisfied && execution_completed { "approved_after_confirmation" } else { "requires_confirmation_before_execution" },
+        "authority_scope": authority_scope,
+        "approval_ref": approval_ref,
+        "external_effect": !action_read_only,
+        "fail_closed": !action_read_only && !execution_completed,
+        "evidence_refs": [observation_ref, target_index_ref, proposal_ref]
+    });
+    let commit_gate = json!({
+        "commit_gate_ref": commit_gate_ref,
+        "final_action_ref": if action_executed { Value::String(action_ref.clone()) } else { Value::Null },
+        "outcome_ref": format!("outcome_{run_id}_computer_use"),
+        "external_effect": !action_read_only,
+        "user_confirmation_required": !action_read_only && !execution_completed,
+        "authority_required": authority_scope,
+        "policy_decision_ref": policy_decision_ref,
+        "status": if action_executed { "completed" } else { "pending_confirmation" }
+    });
+    let trajectory = json!({
+        "schema_version": COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
+        "trajectory_ref": trajectory_ref,
+        "run_id": run_id,
+        "lease_id": lease_id,
+        "retention_mode": retention_mode,
+        "entries": [
+            {"sequence": 1, "event_kind": "select_environment", "receipt_ref": environment_receipt_ref},
+            {"sequence": 2, "event_kind": "observe", "observation_ref": observation_ref},
+            {"sequence": 3, "event_kind": "propose_action", "proposal_ref": proposal_ref},
+            {"sequence": 4, "event_kind": "verify_postcondition", "verification_ref": verification_ref},
+            {"sequence": 5, "event_kind": "commit_or_handoff", "receipt_ref": commit_gate_ref}
+        ]
+    });
+    let cleanup = json!({
+        "cleanup_ref": cleanup_ref,
+        "lease_id": lease_id,
+        "status": "completed",
+        "retained_artifact_refs": ["computer-use-trace.json"],
+        "warnings": []
+    });
+    let adapter_contract = json!({
+        "adapter_id": format!("ioi.{lane}.rust_daemon_core"),
+        "lane": lane,
+        "supported_session_modes": [session_mode],
+        "capabilities": ["observe", "target_index", "action_proposal", "verification", "cleanup"],
+        "emits_observation_bundle": true,
+        "emits_action_receipts": action_executed,
+        "emits_cleanup_receipts": true,
+        "fail_closed_when_unavailable": true
+    });
+    let computer_use = json!({
+        "source": "rust_daemon_core_run_create",
+        "environmentSelection": environment_selection,
+        "lease": lease,
+        "runState": run_state,
+        "observation": observation,
+        "targetIndex": target_index,
+        "affordanceGraph": affordance_graph,
+        "actionProposal": action_proposal,
+        "action": action,
+        "actionReceipt": action_receipt,
+        "verification": verification,
+        "outcomeContract": outcome_contract,
+        "policyDecision": policy_decision,
+        "commitGate": commit_gate,
+        "trajectory": trajectory,
+        "cleanup": cleanup,
+        "adapterContract": adapter_contract
+    });
+    let receipt = json!({
+        "id": trace_receipt_id,
+        "kind": "computer_use_trace",
+        "summary": "Rust daemon-core materialized computer-use trace, events, receipt, and artifact during run-create planning.",
+        "redaction": "redacted",
+        "evidenceRefs": [
+            "rust_daemon_core_computer_use_run_materialization",
+            "computer_use_projection_js_facade_retired",
+            environment_receipt_ref,
+            observation_ref,
+            target_index_ref,
+            trajectory_ref,
+            cleanup_ref
+        ]
+    });
+    let artifact = json!({
+        "id": format!("artifact_{run_id}_computer_use_trace_json"),
+        "runId": run_id,
+        "name": "computer-use-trace.json",
+        "mediaType": "application/json",
+        "redaction": "redacted",
+        "receiptId": trace_receipt_id,
+        "content": serde_json::to_string_pretty(&computer_use).unwrap_or_else(|_| "{}".to_string())
+    });
+    let events = rust_computer_use_run_events(
+        &run_id,
+        &agent_id,
+        &workflow_graph_id,
+        &workflow_node_id,
+        &computer_use,
+        &trace_receipt_id,
+    );
+    append_array_field(run, "receipts", vec![receipt.clone()]);
+    append_array_field(run, "artifacts", vec![artifact.clone()]);
+    append_array_field(run, "events", events.clone());
+    if let Some(trace) = run.get_mut("trace").and_then(Value::as_object_mut) {
+        trace.insert("computerUse".to_string(), computer_use.clone());
+        append_array_field(trace, "receipts", vec![receipt]);
+        append_array_field(trace, "artifacts", vec![artifact]);
+        append_array_field(trace, "events", events);
+        if let Some(task_state) = trace.get_mut("taskState").and_then(Value::as_object_mut) {
+            append_string_array_field(
+                task_state,
+                "knownFacts",
+                vec![
+                    "Computer-use run materialization was authored by Rust daemon-core run-create planning.".to_string(),
+                    "JS computer-use projection authoring is retired for this run hot path.".to_string(),
+                ],
+            );
+            append_string_array_field(
+                task_state,
+                "evidenceRefs",
+                vec![
+                    "rust_daemon_core_computer_use_run_materialization".to_string(),
+                    "computer_use_projection_js_facade_retired".to_string(),
+                ],
+            );
+        }
+    }
+    Ok(())
+}
+
+fn computer_use_materialization_requested(
+    request: &serde_json::Map<String, Value>,
+    run: &serde_json::Map<String, Value>,
+) -> bool {
+    let request_value = Value::Object(request.clone());
+    let request_body = request
+        .get("request")
+        .and_then(Value::as_object)
+        .cloned()
+        .unwrap_or_default();
+    let request_body_value = Value::Object(request_body);
+    request_body_value
+        .get("computer_use")
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
+        || optional_json_string(&request_body_value, "computer_use_lane").is_some()
+        || optional_json_string(&request_body_value, "computer_use_action_kind").is_some()
+        || optional_json_string(&request_value, "prompt")
+            .or_else(|| optional_json_string(&Value::Object(run.clone()), "objective"))
+            .is_some_and(|prompt| prompt_requests_computer_use(&prompt))
+}
+
+fn prompt_requests_computer_use(prompt: &str) -> bool {
+    let text = prompt.to_ascii_lowercase();
+    [
+        "browser",
+        "web page",
+        "website",
+        "computer use",
+        "computer-use",
+        "screen",
+        "click",
+        "type",
+        "scroll",
+    ]
+    .iter()
+    .any(|needle| text.contains(needle))
+}
+
+fn canonical_computer_use_lane(value: Option<String>) -> String {
+    match value.as_deref() {
+        Some("visual_gui") => "visual_gui".to_string(),
+        Some("sandboxed_hosted") => "sandboxed_hosted".to_string(),
+        _ => "native_browser".to_string(),
+    }
+}
+
+fn canonical_computer_use_session_mode(value: Option<String>, lane: &str) -> String {
+    if let Some(value) = value {
+        return value;
+    }
+    match lane {
+        "visual_gui" => "visual_fallback".to_string(),
+        "sandboxed_hosted" => "local_sandbox".to_string(),
+        _ => "owned_hermetic_browser".to_string(),
+    }
+}
+
+fn canonical_computer_use_action_kind(value: Option<String>) -> String {
+    let normalized = value
+        .unwrap_or_default()
+        .to_ascii_lowercase()
+        .replace([' ', '-'], "_");
+    match normalized.as_str() {
+        "" => "inspect".to_string(),
+        "type" | "input_text" => "type_text".to_string(),
+        "keypress" => "key_press".to_string(),
+        "click" | "type_text" | "key_press" | "scroll" | "drag" | "hover" | "select" | "upload"
+        | "clipboard" | "wait" | "shell" | "mobile_gesture" | "navigate" | "inspect" => normalized,
+        _ => "inspect".to_string(),
+    }
+}
+
+fn computer_use_action_is_read_only(action_kind: &str) -> bool {
+    matches!(action_kind, "inspect" | "hover" | "wait" | "scroll")
+}
+
+fn rust_computer_use_run_events(
+    run_id: &str,
+    agent_id: &str,
+    workflow_graph_id: &Option<String>,
+    workflow_node_id: &str,
+    computer_use: &Value,
+    trace_receipt_id: &str,
+) -> Vec<Value> {
+    let steps = [
+        (
+            "computer_use_environment_selected",
+            "Computer-use environment selected by Rust daemon-core",
+            "select_environment",
+            "environmentSelection",
+        ),
+        (
+            "computer_use_lease_acquired",
+            "Computer-use lease materialized by Rust daemon-core",
+            "acquire_lease",
+            "lease",
+        ),
+        (
+            "computer_use_observation",
+            "Computer-use observation materialized by Rust daemon-core",
+            "observe",
+            "observation",
+        ),
+        (
+            "computer_use_action_proposed",
+            "Computer-use action proposal policy-gated by Rust daemon-core",
+            "propose_action",
+            "actionProposal",
+        ),
+        (
+            "computer_use_verification",
+            "Computer-use postcondition verified by Rust daemon-core",
+            "verify_postcondition",
+            "verification",
+        ),
+        (
+            "computer_use_commit_gate",
+            "Computer-use commit gate evaluated by Rust daemon-core",
+            "commit_or_handoff",
+            "commitGate",
+        ),
+        (
+            "computer_use_trajectory_written",
+            "Computer-use trajectory written by Rust daemon-core",
+            "write_trajectory",
+            "trajectory",
+        ),
+        (
+            "computer_use_cleanup",
+            "Computer-use cleanup completed by Rust daemon-core",
+            "cleanup",
+            "cleanup",
+        ),
+    ];
+    steps
+        .iter()
+        .enumerate()
+        .map(|(index, (event_type, summary, step, payload_key))| {
+            let payload = computer_use.get(*payload_key).cloned().unwrap_or(Value::Null);
+            let data = json!({
+                "schema_version": COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
+                "event_kind": computer_use_source_event_kind(event_type),
+                "computer_use_step": step,
+                "computer_use_lane": computer_use["lease"]["lane"],
+                "computer_use_session_mode": computer_use["lease"]["session_mode"],
+                "computer_use_lease_id": computer_use["lease"]["lease_id"],
+                "computer_use_observation_ref": computer_use["observation"]["observation_ref"],
+                "computer_use_target_index_ref": computer_use["targetIndex"]["target_index_ref"],
+                "computer_use_affordance_graph_ref": computer_use["affordanceGraph"]["graph_ref"],
+                "computer_use_proposal_ref": computer_use["actionProposal"]["proposal_ref"],
+                "computer_use_action_ref": computer_use["action"]["action_ref"],
+                "computer_use_policy_decision_ref": computer_use["policyDecision"]["policy_decision_ref"],
+                "computer_use_verification_ref": computer_use["verification"]["verification_ref"],
+                "computer_use_commit_gate_ref": computer_use["commitGate"]["commit_gate_ref"],
+                "computer_use_trajectory_ref": computer_use["trajectory"]["trajectory_ref"],
+                "computer_use_cleanup_ref": computer_use["cleanup"]["cleanup_ref"],
+                "workflow_graph_id": workflow_graph_id,
+                "workflow_node_id": workflow_node_id,
+                "rust_daemon_core_materialized": true,
+                "trace_receipt_id": trace_receipt_id,
+                (*payload_key): payload
+            });
+            json!({
+                "id": format!("event_{run_id}_{event_type}_{:08}", index + 1),
+                "run_id": run_id,
+                "agent_id": agent_id,
+                "type": event_type,
+                "summary": summary,
+                "created_at": "rust_policy_core",
+                "data": data
+            })
+        })
+        .collect()
+}
+
+fn computer_use_source_event_kind(event_type: &str) -> &'static str {
+    match event_type {
+        "computer_use_environment_selected" => "ComputerUse.EnvironmentSelected",
+        "computer_use_lease_acquired" => "ComputerUse.LeaseAcquired",
+        "computer_use_observation" => "ComputerUse.Observation",
+        "computer_use_action_proposed" => "ComputerUse.ActionProposed",
+        "computer_use_verification" => "ComputerUse.Verification",
+        "computer_use_commit_gate" => "ComputerUse.CommitGate",
+        "computer_use_trajectory_written" => "ComputerUse.TrajectoryWritten",
+        "computer_use_cleanup" => "ComputerUse.Cleanup",
+        _ => "ComputerUse.Event",
+    }
+}
+
+fn append_array_field(target: &mut serde_json::Map<String, Value>, key: &str, values: Vec<Value>) {
+    if values.is_empty() {
+        return;
+    }
+    let entry = target
+        .entry(key.to_string())
+        .or_insert_with(|| Value::Array(Vec::new()));
+    if let Value::Array(existing) = entry {
+        existing.extend(values);
+    }
+}
+
+fn append_string_array_field(
+    target: &mut serde_json::Map<String, Value>,
+    key: &str,
+    values: Vec<String>,
+) {
+    if values.is_empty() {
+        return;
+    }
+    let entry = target
+        .entry(key.to_string())
+        .or_insert_with(|| Value::Array(Vec::new()));
+    if let Value::Array(existing) = entry {
+        existing.extend(values.into_iter().map(Value::String));
+    }
+}
+
+fn stable_suffix(value: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(value.as_bytes());
+    let digest = hasher.finalize();
+    let mut suffix = String::new();
+    for byte in digest.iter().take(8) {
+        suffix.push_str(&format!("{byte:02x}"));
+    }
+    suffix
 }
 
 fn generated_thread_control_receipt_ref(
@@ -2497,6 +3119,91 @@ mod tests {
         assert!(response.get("source").is_none());
         assert!(response.get("backend").is_none());
         assert!(response.get("record").is_none());
+    }
+
+    #[test]
+    fn rust_policy_materializes_computer_use_run_create_truth() {
+        let mut request = run_create_state_update_request();
+        request.run["objective"] = json!("Inspect the browser page without side effects.");
+        request.run["trace"]["taskState"] = json!({
+            "knownFacts": [],
+            "evidenceRefs": []
+        });
+        request.run["computer_use_materialization_request"] = json!({
+            "schema_version": COMPUTER_USE_RUN_MATERIALIZATION_REQUEST_SCHEMA_VERSION,
+            "object": "ioi.runtime_computer_use_run_materialization_request",
+            "run_id": "run_create_one",
+            "agent_id": "agent_create_one",
+            "prompt": "Inspect the browser page without side effects.",
+            "mode": "send",
+            "selected_model": "model_rust",
+            "request": {
+                "computer_use": true,
+                "computer_use_lane": "native_browser",
+                "computer_use_action_kind": "inspect",
+                "computer_use_target_ref": "target_browser",
+                "workflow_graph_id": "graph_browser",
+                "workflow_node_id": "node_browser"
+            }
+        });
+
+        let record = RunCreateStateUpdateCore
+            .plan(&request)
+            .expect("run create state update");
+
+        assert!(record
+            .run
+            .get("computer_use_materialization_request")
+            .is_none());
+        assert_eq!(
+            record.run["trace"]["computerUse"]["source"],
+            "rust_daemon_core_run_create"
+        );
+        assert_eq!(
+            record.run["trace"]["computerUse"]["lease"]["lane"],
+            "native_browser"
+        );
+        assert_eq!(
+            record.run["trace"]["computerUse"]["actionProposal"]["target_ref"],
+            "target_browser"
+        );
+        assert!(record.run["events"]
+            .as_array()
+            .expect("events")
+            .iter()
+            .any(|event| event["type"] == "computer_use_observation"));
+        assert!(record.run["receipts"]
+            .as_array()
+            .expect("receipts")
+            .iter()
+            .any(|receipt| receipt["kind"] == "computer_use_trace"));
+        assert!(record.run["artifacts"]
+            .as_array()
+            .expect("artifacts")
+            .iter()
+            .any(|artifact| artifact["name"] == "computer-use-trace.json"));
+        assert!(record.run["trace"]["taskState"]["evidenceRefs"]
+            .as_array()
+            .expect("evidence refs")
+            .iter()
+            .any(|value| value == "rust_daemon_core_computer_use_run_materialization"));
+    }
+
+    #[test]
+    fn rust_policy_rejects_js_computer_use_projection_candidate() {
+        let mut request = run_create_state_update_request();
+        request.run["computerUse"] = json!({
+            "source": "js_computer_use_projection"
+        });
+
+        let error = RunCreateStateUpdateCore
+            .plan(&request)
+            .expect_err("retired JS projection candidate rejected");
+
+        assert_eq!(
+            error,
+            RunCreateStateUpdateError::RetiredComputerUseProjectionCandidate
+        );
     }
 
     #[test]

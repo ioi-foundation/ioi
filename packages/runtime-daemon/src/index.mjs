@@ -6,10 +6,9 @@ import path from "node:path";
 import { ModelMountingState } from "./model-mounting.mjs";
 import {
   COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
-  computerUseProjectionForRun,
   computerUseSourceEventKind,
   isComputerUseRunEventType,
-} from "./computer-use-projection.mjs";
+} from "./computer-use-event-contracts.mjs";
 import { AgentMemoryStore, parseMemoryCommand } from "./memory-store.mjs";
 import {
   CODING_TOOL_PACK_ID,
@@ -1608,6 +1607,83 @@ function computerUseLeaseInputForRequest(source = {}) {
   return input;
 }
 
+const COMPUTER_USE_RUN_MATERIALIZATION_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.computer-use-run-materialization-request.v1";
+
+function computerUseMaterializationRequestForRun({
+  agent,
+  runId,
+  prompt,
+  mode,
+  request,
+  selectedModel,
+} = {}) {
+  const source = objectRecord(request) ?? {};
+  const metadata = objectRecord(source.metadata) ?? objectRecord(source.input) ?? source;
+  const canonicalRequest = {};
+  const canonicalFields = [
+    "computer_use",
+    "computer_use_lane",
+    "computer_use_session_mode",
+    "computer_use_action_kind",
+    "computer_use_approval_ref",
+    "computer_use_target_ref",
+    "computer_use_execution_result",
+    "observation_retention_mode",
+    "workflow_graph_id",
+    "workflow_node_id",
+    "workflow_node_ids",
+    "tool_ref",
+    "authority_scopes",
+    "fail_closed_when_unavailable",
+    "url",
+    "selector",
+  ];
+  for (const field of canonicalFields) {
+    if (Object.hasOwn(metadata, field)) canonicalRequest[field] = metadata[field];
+  }
+  const materializationRequested = shouldRequestComputerUseMaterialization(prompt, canonicalRequest);
+  if (!materializationRequested) {
+    return null;
+  }
+  if (!Object.hasOwn(canonicalRequest, "computer_use")) canonicalRequest.computer_use = true;
+  return {
+    schema_version: COMPUTER_USE_RUN_MATERIALIZATION_REQUEST_SCHEMA_VERSION,
+    object: "ioi.runtime_computer_use_run_materialization_request",
+    run_id: optionalString(runId) ?? null,
+    agent_id: optionalString(agent?.id) ?? null,
+    workspace_root: optionalString(agent?.cwd) ?? null,
+    prompt: optionalString(prompt) ?? "",
+    mode: optionalString(mode) ?? "send",
+    selected_model: optionalString(selectedModel) ?? null,
+    source: "daemon_protocol_client",
+    request: canonicalRequest,
+    evidence_refs: [
+      "rust_daemon_core_computer_use_run_materialization_required",
+      "computer_use_projection_js_facade_retired",
+    ],
+  };
+}
+
+function shouldRequestComputerUseMaterialization(prompt, request = {}) {
+  if (request.computer_use === true) return true;
+  if (optionalString(request.computer_use_lane) || optionalString(request.computer_use_action_kind)) {
+    return true;
+  }
+  const text = String(prompt ?? "").toLowerCase();
+  return [
+    "browser",
+    "web page",
+    "website",
+    "computer use",
+    "computer-use",
+    "screen",
+    "click",
+    "type",
+    "scroll",
+  ].some((needle) => text.includes(needle));
+}
+
 function runtimeThreadProjectionAgent(agent, { threadId } = {}) {
   const record = objectRecord(agent) ?? {};
   return {
@@ -1742,7 +1818,7 @@ function buildRun({
     modelRoute?.selectedModel ??
     request.options?.model?.id ??
     agent.modelId;
-  const computerUseProjection = computerUseProjectionForRun({
+  const computerUseMaterializationRequest = computerUseMaterializationRequestForRun({
     agent,
     runId,
     prompt,
@@ -1750,9 +1826,6 @@ function buildRun({
     request,
     selectedModel,
   });
-  if (computerUseProjection) {
-    toolSequence.push("computer_use_harness");
-  }
   const modelRouteReceiptId =
     modelRoute?.receiptId ?? modelRouteDecision?.receipt_id ?? `receipt_${runId}_model_route`;
   const memoryRecords = normalizeArray(memory.records);
@@ -1891,12 +1964,6 @@ function buildRun({
             `Subagent memory inheritance: mode=${subagentMemoryInheritance.mode}, receiver=${subagentMemoryInheritance.subagent_name ?? "handoff"}, records=${subagentMemoryInheritance.records.length}, write_allowed=${subagentMemoryInheritance.write_allowed}`,
           ]
         : []),
-      ...(computerUseProjection
-        ? [
-            `Computer-use lane: ${computerUseProjection.environmentSelection.selected_lane}/${computerUseProjection.environmentSelection.selected_session_mode}`,
-            `Computer-use observation: ${computerUseProjection.observation.observation_ref} with target index ${computerUseProjection.targetIndex.target_index_ref}`,
-          ]
-        : []),
       `Active skill/hook manifest: skills=${activeSkillHookManifest.selectedSkillIds.length}, hooks=${activeSkillHookManifest.selectedHookIds.length}, skillSet=${activeSkillHookManifest.activeSkillSetHash.slice(0, 12)}, hookSet=${activeSkillHookManifest.activeHookSetHash.slice(0, 12)}`,
       `Hook dry-run plan: wouldRun=${hookDryRunPlan.wouldRunCount}, blocked=${hookDryRunPlan.blockedCount}, skipped=${hookDryRunPlan.skippedCount}`,
       `Hook invocation ledger: invocations=${hookInvocationLedger.invocationCount}, wouldRun=${hookInvocationLedger.wouldRunCount}, blocked=${hookInvocationLedger.blockedCount}, skipped=${hookInvocationLedger.skippedCount}`,
@@ -1956,14 +2023,6 @@ function buildRun({
       ...memoryRecords.map((record) => record.id),
       ...memoryWriteReceipts.map((receipt) => receipt.id),
       subagentMemoryReceipt?.id,
-      computerUseProjection?.receipt.id,
-      computerUseProjection?.environmentSelection.receipt_ref,
-      computerUseProjection?.observation.observation_ref,
-      computerUseProjection?.actionProposal?.proposal_ref,
-      computerUseProjection?.action?.action_ref,
-      computerUseProjection?.actionReceipt?.receipt_ref,
-      computerUseProjection?.trajectory?.trajectory_ref,
-      computerUseProjection?.cleanup.cleanup_ref,
     ].filter(Boolean),
   };
   const uncertainty = {
@@ -2070,11 +2129,11 @@ function buildRun({
         description: "Hook execution is previewed with policy decisions and no command execution.",
         status: "passed",
       },
-      ...(computerUseProjection
+      ...(computerUseMaterializationRequest
         ? [
             {
               checkId: "computer-use-glass-box-trace",
-              description: "Computer-use environment selection, lease, observation, target index, affordance graph, action proposal, action receipt, verification, trajectory, and cleanup are trace-visible.",
+              description: "Computer-use run materialization request is delegated to Rust daemon-core before run persistence.",
               status: "passed",
             },
           ]
@@ -2133,7 +2192,7 @@ function buildRun({
       "hook_dry_run_plan",
       "hook_invocation_ledger",
       "hook_escalation_receipt",
-      ...(computerUseProjection ? ["computer_use_trace", "computer-use-trace.json"] : []),
+      ...(computerUseMaterializationRequest ? ["computer_use_trace", "computer-use-trace.json"] : []),
       ...(diagnosticsFeedback ? ["lsp_diagnostics_injection"] : []),
       ...(diagnosticsBlockingGate ? ["lsp_diagnostics_blocking_gate"] : []),
     ],
@@ -2186,7 +2245,7 @@ function buildRun({
       "HookInvocationRecord",
       "HookEscalationReceipt",
       "RuntimeUsageTelemetry",
-      ...(computerUseProjection
+      ...(computerUseMaterializationRequest
         ? [
             "ComputerUseRunState",
             "EnvironmentSelectionReceipt",
@@ -2237,7 +2296,7 @@ function buildRun({
         ? [`lsp.diagnostics.${diagnosticsFeedback.mode}`]
         : []),
       ...(diagnosticsBlockingGate ? ["lsp.diagnostics.blocking_gate"] : []),
-      ...(computerUseProjection
+      ...(computerUseMaterializationRequest
         ? [
             "computer_use.native_browser.read_only",
             "computer_use.action_proposal_required",
@@ -2538,7 +2597,6 @@ function buildRun({
   };
   const receipts = [
     modelRouteReceipt,
-    computerUseProjection?.receipt,
     subagentMemoryReceipt,
     runtimeTaskReceipt,
     runtimeJobReceipt,
@@ -2927,11 +2985,6 @@ function buildRun({
       receipt_id: modelRouteReceiptId,
     });
   }
-  if (computerUseProjection) {
-    for (const event of computerUseProjection.events) {
-      addEvent(event.type, event.summary, event.data);
-    }
-  }
   for (const mutation of memoryMutations) {
     const operation = mutation.operation ?? "write";
     addEvent("memory_update", memoryEventSummary(operation), {
@@ -3067,7 +3120,6 @@ function buildRun({
       "hook-dry-run-plan.json",
       "hook-invocations.json",
       ...(diagnosticsBlockingGate ? ["diagnostics-blocking-gate.json"] : []),
-      ...(computerUseProjection ? ["computer-use-trace.json"] : []),
       "scorecard.json",
       "agentgres-projection.json",
     ],
@@ -3148,26 +3200,7 @@ function buildRun({
     memoryWrites: memoryWriteRecords,
     usage: usageTelemetry,
     usage_telemetry: usageTelemetry,
-    computerUse: computerUseProjection
-      ? {
-          environmentSelection: computerUseProjection.environmentSelection,
-          lease: computerUseProjection.lease,
-          runState: computerUseProjection.runState,
-          observation: computerUseProjection.observation,
-          targetIndex: computerUseProjection.targetIndex,
-          affordanceGraph: computerUseProjection.affordanceGraph,
-          actionProposal: computerUseProjection.actionProposal,
-          action: computerUseProjection.action,
-          actionReceipt: computerUseProjection.actionReceipt,
-          verification: computerUseProjection.verification,
-          outcomeContract: computerUseProjection.outcomeContract,
-          policyDecision: computerUseProjection.policyDecision,
-          commitGate: computerUseProjection.commitGate,
-          trajectory: computerUseProjection.trajectory,
-          cleanup: computerUseProjection.cleanup,
-          adapterContract: computerUseProjection.adapterContract,
-        }
-      : null,
+    computerUse: null,
     diagnosticsFeedback,
     diagnosticsBlockingGate,
     subagentMemoryInheritance,
@@ -3297,33 +3330,6 @@ function buildRun({
       hookInvocationLedger,
       "redacted",
     ),
-    ...(computerUseProjection
-      ? [
-          artifact(
-            runId,
-            "computer-use-trace.json",
-            "application/json",
-            computerUseProjection.receipt.id,
-            {
-              environmentSelection: computerUseProjection.environmentSelection,
-              lease: computerUseProjection.lease,
-              runState: computerUseProjection.runState,
-              observation: computerUseProjection.observation,
-              targetIndex: computerUseProjection.targetIndex,
-              affordanceGraph: computerUseProjection.affordanceGraph,
-              actionProposal: computerUseProjection.actionProposal,
-              action: computerUseProjection.action,
-              actionReceipt: computerUseProjection.actionReceipt,
-              verification: computerUseProjection.verification,
-              outcomeContract: computerUseProjection.outcomeContract,
-              commitGate: computerUseProjection.commitGate,
-              trajectory: computerUseProjection.trajectory,
-              cleanup: computerUseProjection.cleanup,
-            },
-            "redacted",
-          ),
-        ]
-      : []),
     ...(diagnosticsBlockingGate
       ? [
           artifact(
@@ -3392,6 +3398,7 @@ function buildRun({
     diagnosticsFeedback,
     diagnosticsBlockingGate,
     subagentMemoryInheritance,
+    computer_use_materialization_request: computerUseMaterializationRequest,
     result,
   };
 }
