@@ -9852,11 +9852,11 @@ daemon now implements the advertised
 unwraps stable `ioi.runtime.mcp-serve-client.v1` protocol envelopes, and
 forwards body-carried wallet authority grant/receipt refs, cTEE custody refs,
 and transport containment refs into the Rust-owned MCP serve context. The SDK
-`serveMcpRpc()` and `threadMcpServeRpc()` clients now require those admission
-refs, send them in the protocol body instead of query-string transport, and
-keep raw JSON-RPC as the message being served. Tests and conformance guard the
-stable SDK body, the advertised thread route, absence of admission refs in
-query strings, and Rust replay context handoff. At that cut this remained
+clients at that cut required those admission refs, sent them in the protocol
+body instead of query-string transport, and kept raw JSON-RPC as the message
+being served. Tests and conformance guard the stable SDK body, the advertised
+thread route, absence of admission refs in query strings, and Rust replay
+context handoff. At that cut this remained
 non-terminal because IDE/CLI protocol APIs and broader SDK route-family coverage
 over Rust replay records still need to close.
 
@@ -9879,8 +9879,18 @@ grant/receipt refs, cTEE custody refs, containment refs, and a raw JSON-RPC
 `tools/list` message, and rejects endpoint overrides, top-level
 `/v1/mcp/serve`, query-string admission, and duplicate endpoint body fields.
 Tests and conformance guard that the old CLI command transport cannot return.
-This remains non-terminal because broader SDK route-family coverage over Rust
-replay records still needs to close.
+At that cut this remained non-terminal because broader SDK route-family coverage
+over Rust replay records still needed to close.
+
+Slice 1249 retires the top-level MCP serve compatibility path. The public
+daemon no longer handles `GET` or `POST /v1/mcp/serve`, the SDK no longer
+exports the global `serveMcpRpc()` client or `RuntimeMcpServeRpcInput`, and MCP
+serve JSON-RPC now enters through the canonical thread-scoped
+`/v1/threads/{thread_id}/mcp/serve` protocol route. Tests and conformance guard
+that `/v1/mcp/serve`, query-carried `thread_id` serve transport, the global SDK
+client, and the global SDK request type cannot return. This remains
+non-terminal because broader non-MCP SDK route-family coverage over Rust replay
+records still needs to close.
 
 ## Final Doctrine
 

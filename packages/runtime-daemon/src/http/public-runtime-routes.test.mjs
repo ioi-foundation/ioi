@@ -1107,18 +1107,6 @@ test("public runtime MCP routes use mounted MCP surfaces directly", async () => 
     },
     {
       method: "GET",
-      path: "/v1/mcp/serve?thread_id=thread_route",
-      expectedMethod: "mcpServeStatus",
-      expectedArgs: [{ thread_id: "thread_route" }],
-    },
-    {
-      method: "POST",
-      path: "/v1/mcp/serve?thread_id=thread_route",
-      expectedMethod: "handleMcpServeJsonRpc",
-      expectedArgs: ["thread_route", body, { thread_id: "thread_route" }],
-    },
-    {
-      method: "GET",
       path: "/v1/threads/thread_route/mcp/serve?server_id=mcp.docs",
       expectedMethod: "mcpServeStatus",
       expectedArgs: [{ server_id: "mcp.docs", thread_id: "thread_route" }],
@@ -1205,41 +1193,41 @@ test("public runtime MCP serve route accepts stable protocol admission envelope"
   assert.deepEqual(JSON.parse(response.body), { jsonrpc: "2.0", id: 31, result: { ok: true } });
 });
 
-test("public runtime routes preserve MCP serve thread requirement", async () => {
-  const { handleRequest } = routeHarness();
-  const response = responseRecorder();
-
-  await handleRequest({
-    request: request({ method: "POST", url: "/v1/mcp/serve", body: { jsonrpc: "2.0" } }),
-    response,
-    store: {},
+test("public runtime top-level MCP serve route is retired", async () => {
+  const { handleRequest } = routeHarness({
+    notFound(message, details) {
+      throw Object.assign(new Error(message), {
+        status: 404,
+        code: "route_not_found",
+        details,
+      });
+    },
   });
-
-  assert.equal(response.statusCode, 400);
-  assert.equal(response.error.code, "mcp_thread_required");
-  assert.deepEqual(response.error.details, { route: "/v1/mcp/serve" });
-});
-
-test("public runtime MCP serve route ignores retired threadId query alias", async () => {
-  const { handleRequest } = routeHarness();
-  const response = responseRecorder();
   const store = {
-    async handleMcpServeJsonRpc() {
-      assert.fail("retired threadId query alias must not reach MCP serve handler");
+    mcpServeSurface: {
+      mcpServeStatus() {
+        assert.fail("retired top-level MCP serve status route must not reach the MCP serve surface");
+      },
+      async handleMcpServeJsonRpc() {
+        assert.fail("retired top-level MCP serve JSON-RPC route must not reach the MCP serve surface");
+      },
     },
   };
 
-  await handleRequest({
-    request: request({
-      method: "POST",
-      url: "/v1/mcp/serve?threadId=thread-retired",
-      body: { jsonrpc: "2.0", id: 1, method: "initialize" },
-    }),
-    response,
-    store,
-  });
+  for (const method of ["GET", "POST"]) {
+    const response = responseRecorder();
+    await handleRequest({
+      request: request({
+        method,
+        url: "/v1/mcp/serve?thread_id=thread-retired",
+        body: { jsonrpc: "2.0", id: 1, method: "initialize" },
+      }),
+      response,
+      store,
+    });
 
-  assert.equal(response.statusCode, 400);
-  assert.equal(response.error.code, "mcp_thread_required");
-  assert.deepEqual(response.error.details, { route: "/v1/mcp/serve" });
+    assert.equal(response.statusCode, 404);
+    assert.equal(response.error.code, "route_not_found");
+    assert.deepEqual(response.error.details, { method, path: "/v1/mcp/serve" });
+  }
 });

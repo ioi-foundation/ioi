@@ -101,7 +101,6 @@ export type {
   RuntimeMcpJsonRpcRequest,
   RuntimeMcpJsonRpcResponse,
   RuntimeMcpListOptions,
-  RuntimeMcpServeRpcInput,
   RuntimeMcpServerControlInput,
   RuntimeMcpToolSearchInput,
   RuntimeMcpToolInvokeInput,

@@ -1670,10 +1670,7 @@ test("SDK MCP serve clients send stable protocol admission body", async () => {
     const body = await readBody(request);
     requests.push({ method: request.method, pathname: url.pathname, search: url.search, body });
     response.setHeader("content-type", "application/json");
-    if (
-      request.method === "POST" &&
-      (url.pathname === "/v1/threads/thread_sdk/mcp/serve" || url.pathname === "/v1/mcp/serve")
-    ) {
+    if (request.method === "POST" && url.pathname === "/v1/threads/thread_sdk/mcp/serve") {
       assert.equal(url.searchParams.has("authority_grant_refs"), false);
       assert.equal(url.searchParams.has("authority_receipt_refs"), false);
       assert.equal(url.searchParams.has("custody_ref"), false);
@@ -1698,14 +1695,11 @@ test("SDK MCP serve clients send stable protocol admission body", async () => {
     const client = createRuntimeSubstrateClient({ endpoint: `http://127.0.0.1:${address.port}` });
 
     const threadResult = await client.threadMcpServeRpc("thread_sdk", rpcMessage, admission);
-    const globalResult = await client.serveMcpRpc({ thread_id: "thread_sdk", message: rpcMessage, ...admission });
 
     assert.equal(threadResult.result.status, "completed");
-    assert.equal(globalResult.result.status, "completed");
+    assert.equal(requests.length, 1);
     assert.equal(requests[0].pathname, "/v1/threads/thread_sdk/mcp/serve");
     assert.equal(requests[0].search, "");
-    assert.equal(requests[1].pathname, "/v1/mcp/serve");
-    assert.equal(requests[1].search, "?thread_id=thread_sdk");
   } finally {
     await close(server);
   }

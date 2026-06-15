@@ -747,10 +747,6 @@ export interface RuntimeMcpServeRpcOptions extends RuntimeMcpListOptions, Runtim
   source?: "sdk_client" | "cli_tui" | "react_flow" | "mcp_serve" | string;
 }
 
-export interface RuntimeMcpServeRpcInput extends RuntimeMcpServeRpcOptions {
-  message: RuntimeMcpJsonRpcRequest | RuntimeMcpJsonRpcRequest[];
-}
-
 export interface RuntimeMemoryStatusOptions extends MemoryListOptions {
   thread_id?: string;
   agent_id?: string;
@@ -1504,9 +1500,6 @@ export interface RuntimeSubstrateClient {
   enableMcpServer(serverId: string, input?: RuntimeMcpServerControlInput): Promise<RuntimeMcpStatus>;
   disableMcpServer(serverId: string, input?: RuntimeMcpServerControlInput): Promise<RuntimeMcpStatus>;
   invokeMcpTool(input?: RuntimeMcpToolInvokeInput): Promise<RuntimeMcpInvocationResult>;
-  serveMcpRpc(
-    input: RuntimeMcpServeRpcInput,
-  ): Promise<RuntimeMcpJsonRpcResponse | RuntimeMcpJsonRpcResponse[] | null>;
   threadMcpStatus(threadId: string, input?: RuntimeThreadMcpInput): Promise<RuntimeMcpStatus>;
   importThreadMcp(threadId: string, input?: RuntimeMcpServerMutationInput): Promise<RuntimeMcpStatus>;
   addThreadMcpServer(threadId: string, input?: RuntimeMcpServerMutationInput): Promise<RuntimeMcpStatus>;
@@ -2391,18 +2384,6 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
         source: "sdk_client",
         ...input,
       },
-    );
-  }
-
-  async serveMcpRpc(
-    input: RuntimeMcpServeRpcInput,
-  ): Promise<RuntimeMcpJsonRpcResponse | RuntimeMcpJsonRpcResponse[] | null> {
-    const { message, ...options } = input;
-    return this.request(
-      "serveMcpRpc",
-      "POST",
-      `/v1/mcp/serve${mcpServeQuery(options)}`,
-      mcpServeProtocolBody(message, { source: "sdk_client", ...options }),
     );
   }
 

@@ -39143,13 +39143,14 @@ function runCompositor() {
       /surface\.importMcp\(store, \{ threadId: "thread-agent-one"/.test(
         runtimeMcpControlSurfaceTest,
       ) &&
-      /const threadId = optionalString\(query\.thread_id\)/.test(publicRuntimeRoutesForTaskJob) &&
-      /public runtime MCP serve route ignores retired threadId query alias/.test(publicRuntimeRoutesTestForTaskJob) &&
-      /url: "\/v1\/mcp\/serve\?threadId=thread-retired"/.test(publicRuntimeRoutesTestForTaskJob) &&
+      /public runtime top-level MCP serve route is retired/.test(publicRuntimeRoutesTestForTaskJob) &&
+      /url: "\/v1\/mcp\/serve\?thread_id=thread-retired"/.test(publicRuntimeRoutesTestForTaskJob) &&
       /^\s*thread_id\?: string;/m.test(runtimeMcpSdkServerControlInputBlock) &&
       /^\s*thread_id\?: string;/m.test(runtimeMcpSdkToolInvokeInputBlock) &&
       !/(?:input|request)\.threadId\b/.test(runtimeMcpControlSurface) &&
       !/query\.threadId\b/.test(publicRuntimeRoutesForTaskJob) &&
+      !/url\.pathname === "\/v1\/mcp\/serve"/.test(publicRuntimeRoutesForTaskJob) &&
+      !/mcp_thread_required/.test(publicRuntimeRoutesForTaskJob) &&
       !/^\s*threadId\?:/m.test(
         `${runtimeMcpSdkServerControlInputBlock}\n${runtimeMcpSdkToolInvokeInputBlock}`,
       ),
@@ -39169,10 +39170,15 @@ function runCompositor() {
       /export interface RuntimeMcpServeRpcOptions extends RuntimeMcpListOptions, RuntimeMcpServeAdmissionRefs/.test(
         agentSdkSubstrateClient,
       ) &&
+      runtimeMcpSdkServeRpcInputBlock === "" &&
       /export interface RuntimeMcpServeAdmissionRefs \{[\s\S]*authority_grant_refs: string\[\];[\s\S]*authority_receipt_refs: string\[\];[\s\S]*custody_ref: string;[\s\S]*containment_ref: string;[\s\S]*\}/.test(
         agentSdkSubstrateClient,
       ) &&
       /allowed_tools\?: string\[\];/.test(runtimeMcpSdkServeRpcOptionsBlock) &&
+      !/\bserveMcpRpc\(/.test(agentSdkSubstrateClient) &&
+      !/"serveMcpRpc"/.test(agentSdkSubstrateClient) &&
+      !/RuntimeMcpServeRpcInput/.test(agentSdkSubstrateClient) &&
+      !/`\/v1\/mcp\/serve(?:\$\{|`|\?)/.test(agentSdkSubstrateClient) &&
       /mcpServeProtocolBody\(message, \{ source: "sdk_client", \.\.\.options \}\)/.test(
         agentSdkSubstrateClient,
       ) &&
@@ -39189,10 +39195,16 @@ function runCompositor() {
       /handleMcpServeJsonRpc\(store, threadId, message, \{ \.\.\.context, thread_id: threadId \}\)/.test(
         publicRuntimeRoutesForTaskJob,
       ) &&
+      !/url\.pathname === "\/v1\/mcp\/serve"/.test(publicRuntimeRoutesForTaskJob) &&
+      !/mcp_thread_required/.test(publicRuntimeRoutesForTaskJob) &&
       /public runtime MCP serve route accepts stable protocol admission envelope/.test(
         publicRuntimeRoutesTestForTaskJob,
       ) &&
+      /public runtime top-level MCP serve route is retired/.test(publicRuntimeRoutesTestForTaskJob) &&
       /SDK MCP serve clients send stable protocol admission body/.test(agentSdkTest) &&
+      /assert\.equal\(requests\.length,\s*1\)/.test(agentSdkTest) &&
+      !/client\.serveMcpRpc/.test(agentSdkTest) &&
+      !/\/v1\/mcp\/serve/.test(agentSdkTest) &&
       /url\.searchParams\.has\("authority_grant_refs"\), false/.test(agentSdkTest) &&
       /body\.schema_version,\s*"ioi\.runtime\.mcp-serve-client\.v1"/.test(agentSdkTest) &&
       /const mcpServeAdmission = \{/.test(liveRuntimeDaemonContract) &&

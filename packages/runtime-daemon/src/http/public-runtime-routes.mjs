@@ -17,7 +17,6 @@ export function createPublicRuntimeRequestHandler(deps) {
     optionalString,
     readBody,
     resolveStudioIntentFrame,
-    runtimeError,
     usageRequestMetadataFromUrl,
     usageTelemetryWithRequestMetadata,
     writeError,
@@ -325,28 +324,6 @@ export function createPublicRuntimeRequestHandler(deps) {
       }
       if (request.method === "GET" && url.pathname === "/v1/mcp") {
         writeJsonResponse(response, store.mcpCatalogSurface.mcpStatus(store, Object.fromEntries(url.searchParams.entries())));
-        return;
-      }
-      if (request.method === "GET" && url.pathname === "/v1/mcp/serve") {
-        writeJsonResponse(response, store.mcpServeSurface.mcpServeStatus(store, Object.fromEntries(url.searchParams.entries())));
-        return;
-      }
-      if (request.method === "POST" && url.pathname === "/v1/mcp/serve") {
-        const query = Object.fromEntries(url.searchParams.entries());
-        const { message, context } = mcpServeProtocolParts(await readBody(request), query);
-        const threadId = optionalString(query.thread_id);
-        if (!threadId) {
-          throw runtimeError({
-            status: 400,
-            code: "mcp_thread_required",
-            message: "MCP serve JSON-RPC requires a thread_id so served tool calls can emit governed runtime receipts.",
-            details: { route: "/v1/mcp/serve" },
-          });
-        }
-        writeMcpJsonRpcResponse(
-          response,
-          await store.mcpServeSurface.handleMcpServeJsonRpc(store, threadId, message, context),
-        );
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/mcp/servers") {
