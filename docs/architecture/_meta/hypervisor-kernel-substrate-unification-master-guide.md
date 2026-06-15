@@ -10415,6 +10415,17 @@ cannot return. Remaining work is wallet/operator authority depth, cancellation
 replay/projection storage, and direct Rust lifecycle APIs, not a JS runner
 fallback.
 
+Slice 1300 hard-cuts coding-tool budget recovery runner injection scaffolding.
+`createRuntimeCodingToolBudgetRecoverySurface()` no longer accepts
+`codingToolBudgetRecoveryRunner`; retry completion, request-approval control,
+and approve-override control resolve only `store.contextPolicyCore` before Rust
+daemon-core budget recovery planning, wallet authority binding, and
+Agentgres-backed `writeRun` persistence. Daemon construction no longer wires a
+parallel budget recovery runner handle, focused tests mount fake Rust planners
+only under `store.contextPolicyCore`, and conformance guards that the retired
+alias name cannot return. Remaining work is durable recovery replay/projection
+depth and stable IDE/CLI/SDK recovery clients, not a JS runner fallback.
+
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,
 `/v1/memory/policy`, `/v1/memory/path`, or `/v1/memory/validate`; the daemon

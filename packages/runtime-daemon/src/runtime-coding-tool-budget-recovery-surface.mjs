@@ -26,7 +26,6 @@ function defaultRuntimeError(payload = {}) {
 export function createRuntimeCodingToolBudgetRecoverySurface(deps = {}) {
   const {
     runtimeError = defaultRuntimeError,
-    codingToolBudgetRecoveryRunner = deps.contextPolicyCore ?? null,
   } = deps;
 
   function stringRefs(values) {
@@ -49,7 +48,7 @@ export function createRuntimeCodingToolBudgetRecoverySurface(deps = {}) {
     details = {},
     evidenceRefs = CODING_TOOL_BUDGET_RECOVERY_CONTROL_EVIDENCE_REFS,
   ) {
-    const runner = store?.contextPolicyCore ?? codingToolBudgetRecoveryRunner;
+    const runner = store?.contextPolicyCore ?? null;
     if (
       typeof runner?.[method] === "function" &&
       typeof store?.getRun === "function" &&

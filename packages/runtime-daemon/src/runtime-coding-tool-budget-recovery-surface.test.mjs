@@ -110,28 +110,7 @@ test("coding-tool budget recovery retry completion uses Rust planner and Agentgr
   const calls = [];
   const run = { id: "run_alpha", agentId: "agent_alpha", trace: {} };
   const store = {
-    getRun(runId) {
-      calls.push({ name: "getRun", runId });
-      return run;
-    },
-    appendRuntimeEvent(event) {
-      calls.push({ name: "appendRuntimeEvent", event });
-      throw new Error("Budget recovery facade must not append JS runtime events.");
-    },
-    writeRun(run, operationKind) {
-      calls.push({ name: "writeRun", run, operationKind });
-      return {
-        source: "rust_agentgres_runtime_run_state_commit_protocol",
-        commit_hash: "sha256:commit",
-        receipt_refs: ["receipt_commit"],
-        policy_decision_refs: ["policy_commit"],
-      };
-    },
-  };
-  const runnerCalls = [];
-  const surface = createRuntimeCodingToolBudgetRecoverySurface({
-    runtimeError,
-    codingToolBudgetRecoveryRunner: {
+    contextPolicyCore: {
       planCodingToolBudgetRecoveryStateUpdate(request) {
         runnerCalls.push(request);
         return {
@@ -164,7 +143,26 @@ test("coding-tool budget recovery retry completion uses Rust planner and Agentgr
         };
       },
     },
-  });
+    getRun(runId) {
+      calls.push({ name: "getRun", runId });
+      return run;
+    },
+    appendRuntimeEvent(event) {
+      calls.push({ name: "appendRuntimeEvent", event });
+      throw new Error("Budget recovery facade must not append JS runtime events.");
+    },
+    writeRun(run, operationKind) {
+      calls.push({ name: "writeRun", run, operationKind });
+      return {
+        source: "rust_agentgres_runtime_run_state_commit_protocol",
+        commit_hash: "sha256:commit",
+        receipt_refs: ["receipt_commit"],
+        policy_decision_refs: ["policy_commit"],
+      };
+    },
+  };
+  const runnerCalls = [];
+  const surface = createRuntimeCodingToolBudgetRecoverySurface({ runtimeError });
 
   const result = surface.codingToolBudgetRecoveryForRun(store, "run_alpha", {
     thread_id: "thread_alpha",
@@ -225,22 +223,7 @@ test("coding-tool budget recovery request approval uses Rust control planner and
   const runnerCalls = [];
   const run = { id: "run_alpha", agentId: "agent_alpha", status: "running", trace: {} };
   const store = {
-    getRun(runId) {
-      calls.push({ name: "getRun", runId });
-      return run;
-    },
-    writeRun(run, operationKind) {
-      calls.push({ name: "writeRun", run, operationKind });
-      return {
-        source: "rust_agentgres_runtime_run_state_commit_protocol",
-        receipt_refs: ["receipt_commit"],
-        policy_decision_refs: ["policy_commit"],
-      };
-    },
-  };
-  const surface = createRuntimeCodingToolBudgetRecoverySurface({
-    runtimeError,
-    codingToolBudgetRecoveryRunner: {
+    contextPolicyCore: {
       planCodingToolBudgetRecoveryControl(request) {
         runnerCalls.push(request);
         return {
@@ -269,7 +252,20 @@ test("coding-tool budget recovery request approval uses Rust control planner and
         };
       },
     },
-  });
+    getRun(runId) {
+      calls.push({ name: "getRun", runId });
+      return run;
+    },
+    writeRun(run, operationKind) {
+      calls.push({ name: "writeRun", run, operationKind });
+      return {
+        source: "rust_agentgres_runtime_run_state_commit_protocol",
+        receipt_refs: ["receipt_commit"],
+        policy_decision_refs: ["policy_commit"],
+      };
+    },
+  };
+  const surface = createRuntimeCodingToolBudgetRecoverySurface({ runtimeError });
 
   const result = surface.codingToolBudgetRecoveryForRun(store, "run_alpha", {
     thread_id: "thread_alpha",
@@ -336,18 +332,7 @@ test("coding-tool budget recovery approve override uses Rust wallet authority co
   const runnerCalls = [];
   const run = { id: "run_alpha", agentId: "agent_alpha", trace: {} };
   const store = {
-    getRun(runId) {
-      calls.push({ name: "getRun", runId });
-      return run;
-    },
-    writeRun(run, operationKind) {
-      calls.push({ name: "writeRun", run, operationKind });
-      return { receipt_refs: ["receipt_commit"], policy_decision_refs: ["policy_commit"] };
-    },
-  };
-  const surface = createRuntimeCodingToolBudgetRecoverySurface({
-    runtimeError,
-    codingToolBudgetRecoveryRunner: {
+    contextPolicyCore: {
       planCodingToolBudgetRecoveryControl(request) {
         runnerCalls.push(request);
         return {
@@ -377,7 +362,16 @@ test("coding-tool budget recovery approve override uses Rust wallet authority co
         };
       },
     },
-  });
+    getRun(runId) {
+      calls.push({ name: "getRun", runId });
+      return run;
+    },
+    writeRun(run, operationKind) {
+      calls.push({ name: "writeRun", run, operationKind });
+      return { receipt_refs: ["receipt_commit"], policy_decision_refs: ["policy_commit"] };
+    },
+  };
+  const surface = createRuntimeCodingToolBudgetRecoverySurface({ runtimeError });
 
   const result = surface.codingToolBudgetRecoveryForRun(store, "run_alpha", {
     thread_id: "thread_alpha",
@@ -450,6 +444,11 @@ test("coding-tool budget recovery defaults action canonically while ignoring ret
 test("coding-tool budget recovery request approval fails before JS lookup when canonical control inputs are missing", () => {
   const calls = [];
   const store = {
+    contextPolicyCore: {
+      planCodingToolBudgetRecoveryControl() {
+        throw new Error("Rust control planner must not run before required canonical inputs are present.");
+      },
+    },
     getRun(runId) {
       calls.push({ name: "getRun", runId });
       throw new Error("Budget recovery facade must not look up runs before canonical control inputs are present.");
@@ -459,14 +458,7 @@ test("coding-tool budget recovery request approval fails before JS lookup when c
       throw new Error("Budget recovery facade must not persist before canonical control inputs are present.");
     },
   };
-  const surface = createRuntimeCodingToolBudgetRecoverySurface({
-    runtimeError,
-    codingToolBudgetRecoveryRunner: {
-      planCodingToolBudgetRecoveryControl() {
-        throw new Error("Rust control planner must not run before required canonical inputs are present.");
-      },
-    },
-  });
+  const surface = createRuntimeCodingToolBudgetRecoverySurface({ runtimeError });
 
   assert.throws(
     () =>
@@ -493,6 +485,11 @@ test("coding-tool budget recovery request approval fails before JS lookup when c
 test("coding-tool budget recovery retry completion fails before JS lookup when canonical state-update inputs are missing", () => {
   const calls = [];
   const store = {
+    contextPolicyCore: {
+      planCodingToolBudgetRecoveryStateUpdate() {
+        throw new Error("Rust planner must not run before required canonical inputs are present.");
+      },
+    },
     getRun(runId) {
       calls.push({ name: "getRun", runId });
       throw new Error("Budget recovery facade must not look up runs before canonical state inputs are present.");
@@ -502,14 +499,7 @@ test("coding-tool budget recovery retry completion fails before JS lookup when c
       throw new Error("Budget recovery facade must not persist before canonical state inputs are present.");
     },
   };
-  const surface = createRuntimeCodingToolBudgetRecoverySurface({
-    runtimeError,
-    codingToolBudgetRecoveryRunner: {
-      planCodingToolBudgetRecoveryStateUpdate() {
-        throw new Error("Rust planner must not run before required canonical inputs are present.");
-      },
-    },
-  });
+  const surface = createRuntimeCodingToolBudgetRecoverySurface({ runtimeError });
 
   assert.throws(
     () =>

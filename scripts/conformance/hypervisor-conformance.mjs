@@ -11997,8 +11997,10 @@ function runBridge() {
         runtimeContextPolicyCoreTest,
       ) &&
       /rust_coding_tool_budget_recovery_control_api/.test(runtimeContextPolicyCoreTest) &&
-      /codingToolBudgetRecoveryRunner:\s*this\.contextPolicyCore/.test(
-        runtimeDaemonIndex,
+      !/codingToolBudgetRecoveryRunner/.test(
+        runtimeDaemonIndex +
+          runtimeCodingToolBudgetRecoverySurface +
+          runtimeCodingToolBudgetRecoverySurfaceTest,
       ) &&
       /coding-tool budget recovery control fails closed before JS approval, event append, or run persistence without Rust planner/.test(
         runtimeCodingToolBudgetRecoverySurfaceTest,
