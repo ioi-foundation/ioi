@@ -39,6 +39,7 @@ pub enum RuntimeThreadEventAdmissionError {
     InvalidReplayKind(String),
     InvalidThreadTurnProjectionKind(String),
     InvalidCursorField(String),
+    ProjectionStateDirRequired,
     ReplayStateDirRequired,
     ReplayReadFailed(String),
     ReplayRecordInvalid(String),
@@ -112,6 +113,7 @@ pub struct RuntimeThreadEventAdmissionProtocolRequest {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct RuntimeThreadEventProjectionRequest {
     pub schema_version: String,
     #[serde(default)]
@@ -127,13 +129,7 @@ pub struct RuntimeThreadEventProjectionRequest {
     #[serde(default)]
     pub runs: Vec<Value>,
     #[serde(default)]
-    pub latest_seq: Option<u64>,
-    #[serde(default)]
-    pub expected_head: Option<String>,
-    #[serde(default)]
-    pub state_root_before: Option<String>,
-    #[serde(default)]
-    pub existing_idempotency_keys: Vec<String>,
+    pub state_dir: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -167,6 +163,7 @@ pub struct RuntimeThreadEventProjectionProtocolRequest {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct RuntimeThreadEventReplayRequest {
     pub schema_version: String,
     #[serde(default)]
@@ -181,8 +178,6 @@ pub struct RuntimeThreadEventReplayRequest {
     pub state_dir: Option<String>,
     #[serde(default)]
     pub events: Vec<Value>,
-    #[serde(default)]
-    pub latest_seq: Option<u64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -487,12 +482,13 @@ impl RuntimeThreadEventAdmissionCore {
     ) -> Result<RuntimeThreadEventProjectionRecord, RuntimeThreadEventAdmissionError> {
         request.validate_projection()?;
         let candidates = self.projection_candidates(request)?;
-        let existing_idempotency_keys =
-            unique_trimmed_strings(request.existing_idempotency_keys.clone());
+        let projection_state = runtime_thread_projection_state_from_state_dir(request)?;
+        let existing_idempotency_keys = projection_state.existing_idempotency_keys;
         let mut skipped_count = 0usize;
-        let mut latest_seq = request.latest_seq.unwrap_or(0);
-        let mut expected_head = request.expected_head.clone();
-        let mut state_root_before = request.state_root_before.clone();
+        let initial_latest_seq = projection_state.latest_seq;
+        let mut latest_seq = initial_latest_seq;
+        let mut expected_head = projection_state.expected_head;
+        let mut state_root_before = projection_state.state_root_before;
         let mut admissions = Vec::new();
         let mut events = Vec::new();
 
@@ -535,7 +531,7 @@ impl RuntimeThreadEventAdmissionCore {
             )
         });
         let state_root_after = state_root_before.unwrap_or_else(|| {
-            default_state_root_before(&request.event_stream_id, request.latest_seq.unwrap_or(0))
+            default_state_root_before(&request.event_stream_id, initial_latest_seq)
         });
         let projection_watermark =
             format!("runtime-events:{}:{}", request.event_stream_id, latest_seq);
@@ -567,7 +563,7 @@ impl RuntimeThreadEventAdmissionCore {
             thread_id: request.thread_id.clone(),
             event_count: events.len(),
             skipped_count,
-            latest_seq: request.latest_seq.unwrap_or(0),
+            latest_seq: initial_latest_seq,
             resulting_seq: latest_seq,
             resulting_head,
             state_root_after,
@@ -615,7 +611,7 @@ impl RuntimeThreadEventAdmissionCore {
             .filter_map(|event| event.as_object().and_then(event_seq))
             .max()
             .unwrap_or(0);
-        let latest_seq = request.latest_seq.unwrap_or(selected_latest_seq);
+        let latest_seq = selected_latest_seq;
         let cursor_seq = if request.replay_kind == "turn" && selected.is_empty() {
             0
         } else {
@@ -925,6 +921,9 @@ impl RuntimeThreadEventProjectionRequest {
                 actual: self.schema_version.clone(),
             });
         }
+        if optional_trimmed(self.state_dir.as_deref()).is_none() {
+            return Err(RuntimeThreadEventAdmissionError::ProjectionStateDirRequired);
+        }
         if self.thread_id.trim().is_empty() {
             return Err(RuntimeThreadEventAdmissionError::MissingField("thread_id"));
         }
@@ -982,25 +981,95 @@ impl RuntimeThreadEventReplayRequest {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+struct RuntimeThreadEventProjectionState {
+    latest_seq: u64,
+    expected_head: Option<String>,
+    state_root_before: Option<String>,
+    existing_idempotency_keys: Vec<String>,
+}
+
+fn runtime_thread_projection_state_from_state_dir(
+    request: &RuntimeThreadEventProjectionRequest,
+) -> Result<RuntimeThreadEventProjectionState, RuntimeThreadEventAdmissionError> {
+    let replay_events = runtime_thread_projection_events_from_state_dir(request)?;
+    let mut selected = replay_events
+        .iter()
+        .filter_map(|event| event.as_object().map(|record| (event, record)))
+        .filter(|(_, record)| {
+            optional_event_string(record, "event_stream_id").as_deref()
+                == Some(request.event_stream_id.as_str())
+        })
+        .map(|(event, record)| {
+            validate_admitted_replay_event(record)?;
+            Ok(event.clone())
+        })
+        .collect::<Result<Vec<_>, RuntimeThreadEventAdmissionError>>()?;
+    selected.sort_by_key(|event| event.as_object().and_then(event_seq).unwrap_or(0));
+
+    let latest_event = selected.last().and_then(Value::as_object);
+    let latest_seq = selected
+        .iter()
+        .filter_map(|event| event.as_object().and_then(event_seq))
+        .max()
+        .unwrap_or(0);
+    let existing_idempotency_keys = unique_trimmed_strings(
+        selected
+            .iter()
+            .filter_map(Value::as_object)
+            .filter_map(|event| optional_event_string(event, "idempotency_key"))
+            .collect(),
+    );
+    Ok(RuntimeThreadEventProjectionState {
+        latest_seq,
+        expected_head: latest_event
+            .and_then(|event| optional_event_string(event, "resulting_head")),
+        state_root_before: latest_event
+            .and_then(|event| optional_event_string(event, "state_root_after")),
+        existing_idempotency_keys,
+    })
+}
+
+fn runtime_thread_projection_events_from_state_dir(
+    request: &RuntimeThreadEventProjectionRequest,
+) -> Result<Vec<Value>, RuntimeThreadEventAdmissionError> {
+    runtime_thread_events_from_state_dir(
+        request.state_dir.as_deref(),
+        RuntimeThreadEventAdmissionError::ProjectionStateDirRequired,
+        "projection",
+    )
+}
+
 fn runtime_thread_replay_events_from_state_dir(
     request: &RuntimeThreadEventReplayRequest,
 ) -> Result<Vec<Value>, RuntimeThreadEventAdmissionError> {
-    let state_dir = optional_trimmed(request.state_dir.as_deref())
-        .ok_or(RuntimeThreadEventAdmissionError::ReplayStateDirRequired)?;
+    runtime_thread_events_from_state_dir(
+        request.state_dir.as_deref(),
+        RuntimeThreadEventAdmissionError::ReplayStateDirRequired,
+        "replay",
+    )
+}
+
+fn runtime_thread_events_from_state_dir(
+    state_dir: Option<&str>,
+    missing_error: RuntimeThreadEventAdmissionError,
+    operation: &str,
+) -> Result<Vec<Value>, RuntimeThreadEventAdmissionError> {
+    let state_dir = optional_trimmed(state_dir).ok_or(missing_error)?;
     let events_dir = Path::new(&state_dir).join("events");
     if !events_dir.exists() {
         return Ok(Vec::new());
     }
     let entries = fs::read_dir(&events_dir).map_err(|error| {
         RuntimeThreadEventAdmissionError::ReplayReadFailed(format!(
-            "runtime thread-event replay could not read Agentgres events: {error}"
+            "runtime thread-event {operation} could not read Agentgres events: {error}"
         ))
     })?;
     let mut paths: Vec<PathBuf> = Vec::new();
     for entry in entries {
         let entry = entry.map_err(|error| {
             RuntimeThreadEventAdmissionError::ReplayReadFailed(format!(
-                "runtime thread-event replay could not inspect Agentgres event entry: {error}"
+                "runtime thread-event {operation} could not inspect Agentgres event entry: {error}"
             ))
         })?;
         let path = entry.path();
@@ -1014,7 +1083,7 @@ fn runtime_thread_replay_events_from_state_dir(
     for path in paths {
         let contents = fs::read_to_string(&path).map_err(|error| {
             RuntimeThreadEventAdmissionError::ReplayReadFailed(format!(
-                "runtime thread-event replay could not read Agentgres event record {}: {error}",
+                "runtime thread-event {operation} could not read Agentgres event record {}: {error}",
                 path.display()
             ))
         })?;
@@ -1025,7 +1094,7 @@ fn runtime_thread_replay_events_from_state_dir(
             }
             let event: Value = serde_json::from_str(line).map_err(|error| {
                 RuntimeThreadEventAdmissionError::ReplayRecordInvalid(format!(
-                    "runtime thread-event replay found invalid Agentgres event record {}:{}: {error}",
+                    "runtime thread-event {operation} found invalid Agentgres event record {}:{}: {error}",
                     path.display(),
                     index + 1
                 ))
@@ -1928,6 +1997,23 @@ mod tests {
     }
 
     fn projection_request() -> RuntimeThreadEventProjectionRequest {
+        let state_dir = write_runtime_thread_event_state(
+            "projection",
+            &[
+                replay_event(
+                    "event_projection_seed_1",
+                    "projection:thread_1:seed:1",
+                    "thread.seeded",
+                    1,
+                ),
+                replay_event(
+                    "event_projection_seed_2",
+                    "projection:thread_1:seed:2",
+                    "thread.seeded",
+                    2,
+                ),
+            ],
+        );
         RuntimeThreadEventProjectionRequest {
             schema_version: RUNTIME_THREAD_EVENT_PROJECTION_REQUEST_SCHEMA_VERSION.to_string(),
             projection_kind: "thread".to_string(),
@@ -1969,10 +2055,7 @@ mod tests {
                     }
                 ]
             })],
-            latest_seq: Some(2),
-            expected_head: Some("agentgres://runtime-events/thread_1_events/head/2".to_string()),
-            state_root_before: None,
-            existing_idempotency_keys: vec![],
+            state_dir: Some(state_dir.to_string_lossy().to_string()),
         }
     }
 
@@ -1995,10 +2078,27 @@ mod tests {
                 cursor: None,
                 state_dir: Some(state_dir.to_string_lossy().to_string()),
                 events: vec![],
-                latest_seq: Some(projection.resulting_seq),
             },
             events,
         )
+    }
+
+    fn replay_event(event_id: &str, idempotency_key: &str, event_kind: &str, seq: u64) -> Value {
+        json!({
+            "event_id": event_id,
+            "event_stream_id": "thread_1:events",
+            "thread_id": "thread_1",
+            "turn_id": "turn_1",
+            "item_id": format!("turn_1:item:{event_id}"),
+            "idempotency_key": idempotency_key,
+            "event_kind": event_kind,
+            "seq": seq,
+            "agentgres_operation_ref": format!("agentgres://runtime-events/thread_1_events/operations/{event_id}"),
+            "state_root_after": format!("sha256:state-root-after-{seq}"),
+            "resulting_head": format!("agentgres://runtime-events/thread_1_events/head/{seq}"),
+            "projection_watermark": format!("runtime-events:thread_1:events:{seq}"),
+            "receipt_refs": [format!("receipt_{event_id}")],
+        })
     }
 
     fn write_runtime_thread_event_state(label: &str, events: &[Value]) -> std::path::PathBuf {
@@ -2031,7 +2131,6 @@ mod tests {
             cursor: None,
             state_dir: None,
             events: vec![],
-            latest_seq: None,
         }
     }
 
@@ -2255,10 +2354,24 @@ mod tests {
     #[test]
     fn rust_projection_skips_existing_runtime_thread_event_idempotency() {
         let mut request = projection_request();
-        request.existing_idempotency_keys = vec![
-            "thread:thread_1:started".to_string(),
-            "run:run_1:event:event_run_started".to_string(),
-        ];
+        let state_dir = write_runtime_thread_event_state(
+            "projection-skip",
+            &[
+                replay_event(
+                    "event_thread_started",
+                    "thread:thread_1:started",
+                    "thread.started",
+                    1,
+                ),
+                replay_event(
+                    "event_run_started",
+                    "run:run_1:event:event_run_started",
+                    "turn.started",
+                    2,
+                ),
+            ],
+        );
+        request.state_dir = Some(state_dir.to_string_lossy().to_string());
         let record = RuntimeThreadEventAdmissionCore
             .project(&request)
             .expect("runtime thread projection admits only missing events");
@@ -2271,24 +2384,54 @@ mod tests {
 
     #[test]
     fn rust_rejects_retired_runtime_thread_event_projection_request_aliases() {
-        let request: RuntimeThreadEventProjectionRequest = serde_json::from_value(json!({
+        let error = serde_json::from_value::<RuntimeThreadEventProjectionRequest>(json!({
             "schema_version": RUNTIME_THREAD_EVENT_PROJECTION_REQUEST_SCHEMA_VERSION,
             "projectionKind": "thread",
             "threadId": "thread_1",
             "eventStreamId": "thread_1:events",
+            "state_dir": "/tmp/runtime-state",
             "agent": {
                 "agentId": "agent_1",
                 "receiptRefs": ["receipt_agent_state"]
             }
         }))
-        .expect("request parses with unknown aliases ignored");
+        .expect_err("retired projection aliases must not parse");
+        assert!(error.to_string().contains("unknown field"));
+    }
+
+    #[test]
+    fn rust_requires_state_dir_for_runtime_thread_event_projection() {
+        let mut request = projection_request();
+        request.state_dir = None;
         let error = RuntimeThreadEventAdmissionCore
             .project(&request)
-            .expect_err("retired aliases must not satisfy projection");
+            .expect_err("projection requires Agentgres state dir");
         assert_eq!(
             error,
-            RuntimeThreadEventAdmissionError::MissingField("thread_id")
+            RuntimeThreadEventAdmissionError::ProjectionStateDirRequired
         );
+    }
+
+    #[test]
+    fn rust_rejects_retired_runtime_thread_event_projection_cache_transport() {
+        let error = serde_json::from_value::<RuntimeThreadEventProjectionRequest>(json!({
+            "schema_version": RUNTIME_THREAD_EVENT_PROJECTION_REQUEST_SCHEMA_VERSION,
+            "projection_kind": "thread",
+            "thread_id": "thread_1",
+            "event_stream_id": "thread_1:events",
+            "state_dir": "/tmp/runtime-state",
+            "agent": {
+                "agent_id": "agent_1",
+                "receipt_refs": ["receipt_agent_state"]
+            },
+            "runs": [],
+            "latest_seq": 7,
+            "expected_head": "agentgres://runtime-events/thread_1_events/head/7",
+            "state_root_before": "sha256:caller-state-root",
+            "existing_idempotency_keys": ["thread:thread_1:started"]
+        }))
+        .expect_err("retired projection cache transport must not parse");
+        assert!(error.to_string().contains("unknown field"));
     }
 
     #[test]
@@ -2383,6 +2526,21 @@ mod tests {
             error,
             RuntimeThreadEventAdmissionError::InvalidCursorField("sinceSeq".to_string())
         );
+    }
+
+    #[test]
+    fn rust_rejects_retired_runtime_thread_event_replay_latest_seq_transport() {
+        let error = serde_json::from_value::<RuntimeThreadEventReplayRequest>(json!({
+            "schema_version": RUNTIME_THREAD_EVENT_REPLAY_REQUEST_SCHEMA_VERSION,
+            "replay_kind": "stream",
+            "event_stream_id": "thread_1:events",
+            "cursor": { "since_seq": 1 },
+            "state_dir": "/tmp/runtime-state",
+            "events": [],
+            "latest_seq": 7
+        }))
+        .expect_err("retired replay latest_seq transport must not parse");
+        assert!(error.to_string().contains("unknown field"));
     }
 
     #[test]

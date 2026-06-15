@@ -10217,6 +10217,24 @@ completion remains non-terminal until run creation itself is Rust-authored from
 canonical request facts, durable replay/storage, wallet/cTEE lifecycle
 authority, and stable IDE/CLI/SDK lifecycle APIs close.
 
+Slice 1287 hard-cuts runtime thread-event projection/replay cache transport.
+`RuntimeThreadEventProjectionRequest` now requires runtime `state_dir`, denies
+unknown fields, and derives latest sequence, current head, state root, and
+existing idempotency keys by replaying admitted `events/*.jsonl` Agentgres
+records in Rust before admitting any projected `thread.started` or run event.
+`RuntimeThreadEventReplayRequest` also denies unknown fields and no longer
+accepts caller-supplied `latest_seq`; replay derives the latest sequence from
+the same admitted event log. The daemon projection path no longer reads
+`store.runtimeEventStream()` or `store.latestRuntimeEventSeq()` to send
+`latest_seq`, `expected_head`, or `existing_idempotency_keys`, and replay no
+longer forwards a JS latest-seq candidate. Conformance guards the Rust state-dir
+requirement, rejected retired projection cache fields, rejected replay
+`latest_seq`, and the absence of the old JS cache-derived request fields. This
+removes the duplicate event-head/idempotency truth handoff; broader thread-event
+completion remains non-terminal until JS stops supplying agent/run projection
+facts and stable IDE/CLI/SDK event APIs consume Rust projection/replay records
+without the temporary local hydration cache.
+
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,
 `/v1/memory/policy`, `/v1/memory/path`, or `/v1/memory/validate`; the daemon

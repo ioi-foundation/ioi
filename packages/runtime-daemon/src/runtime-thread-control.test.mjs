@@ -158,7 +158,7 @@ function runtimeControlStore(stateDir, calls) {
             {
               event_id: "event_replay_1",
               event_stream_id: input.event_stream_id,
-              seq: input.latest_seq ?? 0,
+              seq: 8,
               agentgres_operation_ref:
                 "agentgres://runtime-events/thread_1_events/operations/event_replay_1",
               receipt_refs: ["receipt_runtime_replay"],
@@ -166,6 +166,30 @@ function runtimeControlStore(stateDir, calls) {
           ],
           event_count: 1,
           replay_hash: "sha256:runtime-thread-replay",
+        };
+      },
+      projectRuntimeThreadEvents(request) {
+        const input = request.request ?? {};
+        calls.push({ method: "projectRuntimeThreadEvents", input });
+        return {
+          source: "direct_agentgres_api",
+          backend: "runtime-agentgres",
+          projected: true,
+          events: [
+            {
+              event_id: "event_projection_1",
+              event_stream_id: input.event_stream_id,
+              thread_id: input.thread_id,
+              idempotency_key: "event_projection_1",
+              event_kind: "thread.started",
+              seq: 9,
+              agentgres_operation_ref:
+                "agentgres://runtime-events/thread_1_events/operations/event_projection_1",
+              receipt_refs: ["receipt_runtime_projection"],
+            },
+          ],
+          event_count: 1,
+          projection_hash: "sha256:runtime-thread-projection",
         };
       },
     },
@@ -280,6 +304,41 @@ test("runtime thread-control integration proof seeds model routes through Rust r
   }
 });
 
+test("runtime thread-event projection sends state-dir request without JS replay cache candidates", () => {
+  const stateDir = mkdtempSync(join(tmpdir(), "ioi-runtime-thread-event-projection-state-dir-"));
+  const calls = [];
+  const store = runtimeControlStore(stateDir, calls);
+  try {
+    store.registerRuntimeEvent({
+      event_stream_id: "thread_1:events",
+      event_id: "event_head_7",
+      idempotency_key: "event_head_7",
+      event_kind: "turn.completed",
+      seq: 7,
+    });
+
+    const projection = store.projectRuntimeThreadEventsForThread(store, {
+      projection_kind: "thread_started",
+      agent: {
+        id: "agent_1",
+        cwd: stateDir,
+        status: "active",
+        receipt_refs: ["receipt_runtime_projection"],
+      },
+    });
+    const call = calls.find((candidate) => candidate.method === "projectRuntimeThreadEvents");
+
+    assert.equal(projection.events[0].event_id, "event_projection_1");
+    assert.equal(call.input.state_dir, stateDir);
+    assert.equal(Object.hasOwn(call.input, "latest_seq"), false);
+    assert.equal(Object.hasOwn(call.input, "expected_head"), false);
+    assert.equal(Object.hasOwn(call.input, "existing_idempotency_keys"), false);
+  } finally {
+    store.close();
+    rmSync(stateDir, { recursive: true, force: true });
+  }
+});
+
 test("runtime thread-event replay sends state-dir request without JS event candidates", () => {
   const stateDir = mkdtempSync(join(tmpdir(), "ioi-runtime-thread-event-replay-state-dir-"));
   const calls = [];
@@ -302,7 +361,7 @@ test("runtime thread-event replay sends state-dir request without JS event candi
 
     assert.equal(replay.events[0].event_id, "event_replay_1");
     assert.equal(call.input.state_dir, stateDir);
-    assert.equal(call.input.latest_seq, 7);
+    assert.equal(Object.hasOwn(call.input, "latest_seq"), false);
     assert.equal(call.input.cursor.since_seq, 6);
     assert.equal(Object.hasOwn(call.input, "events"), false);
   } finally {

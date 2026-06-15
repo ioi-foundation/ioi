@@ -1111,8 +1111,6 @@ export class AgentgresRuntimeStateStore {
         },
       });
     }
-    const stream = store.runtimeEventStream(eventStreamId);
-    const latestSeq = store.latestRuntimeEventSeq(eventStreamId);
     const projection = this.runtimeAgentgresAdmissionCore.projectRuntimeThreadEvents({
       projection_kind: optionalString(request.projection_kind) ?? "thread",
       thread_id: threadId,
@@ -1123,9 +1121,7 @@ export class AgentgresRuntimeStateStore {
         agent,
         threadId,
       })),
-      latest_seq: latestSeq,
-      expected_head: `agentgres://runtime-events/${safeId(eventStreamId)}/head/${latestSeq}`,
-      existing_idempotency_keys: [...stream.idempotency.keys()],
+      state_dir: this.stateDir,
     });
     const events = normalizeArray(projection?.events).filter((event) => objectRecord(event));
     for (const event of events) {
@@ -1141,16 +1137,12 @@ export class AgentgresRuntimeStateStore {
     const replayKind = optionalString(request.replay_kind) ?? "stream";
     const eventStreamId = optionalString(request.event_stream_id);
     const turnId = optionalString(request.turn_id);
-    const latestSeq = eventStreamId
-      ? store.latestRuntimeEventSeq(eventStreamId)
-      : undefined;
     const replay = this.runtimeAgentgresAdmissionCore.projectRuntimeThreadEventReplay({
       replay_kind: replayKind,
       event_stream_id: eventStreamId,
       turn_id: turnId,
       cursor: request.cursor ?? {},
       state_dir: this.stateDir,
-      latest_seq: latestSeq,
     });
     if (replay?.projected !== true) {
       throw runtimeError({

@@ -327,9 +327,7 @@ function runtimeThreadEventProjectionRequest() {
     workspace_root: "/tmp/workspace",
     agent: { id: "agent_1", thread_id: "thread_1", status: "active" },
     runs: [{ id: "run_1", status: "completed" }],
-    latest_seq: 4,
-    expected_head: "agentgres://runtime-events/thread_1_events/head/4",
-    existing_idempotency_keys: [],
+    state_dir: "/tmp/ioi-state",
   };
 }
 
@@ -339,7 +337,6 @@ function runtimeThreadEventReplayRequest() {
     event_stream_id: "thread_1:events",
     cursor: { since_seq: 4 },
     state_dir: "/tmp/ioi-state",
-    latest_seq: 5,
   };
 }
 
@@ -444,6 +441,10 @@ test("runtime Agentgres core projects runtime thread events through typed Rust d
 
   assertTypedAgentgresRequest(calls[0], AGENTGRES_RUNTIME_THREAD_EVENTS_PROJECTION_API_METHOD);
   assert.equal(calls[0].request.request.schema_version, RUNTIME_THREAD_EVENT_PROJECTION_REQUEST_SCHEMA_VERSION);
+  assert.equal(calls[0].request.request.state_dir, "/tmp/ioi-state");
+  assert.equal(Object.hasOwn(calls[0].request.request, "latest_seq"), false);
+  assert.equal(Object.hasOwn(calls[0].request.request, "expected_head"), false);
+  assert.equal(Object.hasOwn(calls[0].request.request, "existing_idempotency_keys"), false);
   assert.equal(result.events[0].event_id, "event_projected_1");
 });
 
@@ -464,6 +465,7 @@ test("runtime Agentgres core replays runtime thread events through typed Rust da
   assert.equal(calls[0].request.request.schema_version, RUNTIME_THREAD_EVENT_REPLAY_REQUEST_SCHEMA_VERSION);
   assert.equal(calls[0].request.request.state_dir, "/tmp/ioi-state");
   assert.equal(Object.hasOwn(calls[0].request.request, "events"), false);
+  assert.equal(Object.hasOwn(calls[0].request.request, "latest_seq"), false);
   assert.equal(result.events[0].event_id, "event_projected_1");
 });
 

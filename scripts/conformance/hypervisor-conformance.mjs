@@ -6245,9 +6245,29 @@ function runBridge() {
       /RuntimeThreadEventProjectionRecord/.test(runtimeThreadEventCore) &&
       /RuntimeThreadEventReplayRequest/.test(runtimeThreadEventCore) &&
       /RuntimeThreadEventReplayRecord/.test(runtimeThreadEventCore) &&
+      /#\[serde\(deny_unknown_fields\)\]\s*pub struct RuntimeThreadEventProjectionRequest/.test(
+        runtimeThreadEventCore,
+      ) &&
+      /#\[serde\(deny_unknown_fields\)\]\s*pub struct RuntimeThreadEventReplayRequest/.test(
+        runtimeThreadEventCore,
+      ) &&
+      /ProjectionStateDirRequired/.test(runtimeThreadEventCore) &&
       /pub state_dir: Option<String>/.test(runtimeThreadEventCore) &&
+      /runtime_thread_projection_state_from_state_dir/.test(runtimeThreadEventCore) &&
       /runtime_thread_replay_events_from_state_dir/.test(runtimeThreadEventCore) &&
       /RetiredReplayEventTransport/.test(runtimeThreadEventCore) &&
+      !/pub struct RuntimeThreadEventProjectionRequest\s*\{(?:(?!\n\})[\s\S])*latest_seq: Option<u64>/.test(
+        runtimeThreadEventCore,
+      ) &&
+      !/pub struct RuntimeThreadEventProjectionRequest\s*\{(?:(?!\n\})[\s\S])*expected_head: Option<String>/.test(
+        runtimeThreadEventCore,
+      ) &&
+      !/pub struct RuntimeThreadEventProjectionRequest\s*\{(?:(?!\n\})[\s\S])*existing_idempotency_keys/.test(
+        runtimeThreadEventCore,
+      ) &&
+      !/pub struct RuntimeThreadEventReplayRequest\s*\{(?:(?!\n\})[\s\S])*latest_seq: Option<u64>/.test(
+        runtimeThreadEventCore,
+      ) &&
       /RUNTIME_THREAD_EVENT_ADMISSION_REQUEST_SCHEMA_VERSION/.test(runtimeThreadEventCore) &&
       /RUNTIME_THREAD_EVENT_PROJECTION_REQUEST_SCHEMA_VERSION/.test(runtimeThreadEventCore) &&
       /RUNTIME_THREAD_EVENT_REPLAY_REQUEST_SCHEMA_VERSION/.test(runtimeThreadEventCore) &&
@@ -6263,9 +6283,16 @@ function runBridge() {
       /rust_rejects_runtime_thread_event_without_receipts/.test(runtimeThreadEventCore) &&
       /rust_rejects_retired_runtime_thread_event_request_aliases/.test(runtimeThreadEventCore) &&
       /rust_rejects_retired_runtime_thread_event_projection_request_aliases/.test(runtimeThreadEventCore) &&
+      /rust_requires_state_dir_for_runtime_thread_event_projection/.test(runtimeThreadEventCore) &&
+      /rust_rejects_retired_runtime_thread_event_projection_cache_transport/.test(
+        runtimeThreadEventCore,
+      ) &&
       /rust_rejects_retired_runtime_thread_event_replay_cursor_aliases/.test(runtimeThreadEventCore) &&
       /rust_requires_state_dir_for_runtime_thread_event_replay/.test(runtimeThreadEventCore) &&
       /rust_rejects_retired_runtime_thread_event_replay_event_transport/.test(runtimeThreadEventCore) &&
+      /rust_rejects_retired_runtime_thread_event_replay_latest_seq_transport/.test(
+        runtimeThreadEventCore,
+      ) &&
       /rust_core_shapes_runtime_thread_event_admission_protocol_response/.test(
         runtimeThreadEventCore,
       ) &&
@@ -6312,6 +6339,15 @@ function runBridge() {
       /Object\.hasOwn\(calls\[0\]\.request\.request,\s*"events"\),\s*false/.test(
         runtimeAgentgresCoreTest,
       ) &&
+      /Object\.hasOwn\(calls\[0\]\.request\.request,\s*"latest_seq"\),\s*false/.test(
+        runtimeAgentgresCoreTest,
+      ) &&
+      /Object\.hasOwn\(calls\[0\]\.request\.request,\s*"expected_head"\),\s*false/.test(
+        runtimeAgentgresCoreTest,
+      ) &&
+      /Object\.hasOwn\(calls\[0\]\.request\.request,\s*"existing_idempotency_keys"\),\s*false/.test(
+        runtimeAgentgresCoreTest,
+      ) &&
       /runtime Agentgres core returns Rust envelopes without JS normalization/.test(runtimeAgentgresCoreTest) &&
       /runtime Agentgres core returns Rust envelopes without JS normalization/.test(runtimeAgentgresCoreTest) &&
       /runtime Agentgres core returns Rust envelopes without JS normalization/.test(runtimeAgentgresCoreTest) &&
@@ -6322,6 +6358,21 @@ function runBridge() {
       /state_dir:\s*this\.stateDir/.test(runtimeDaemonIndex) &&
       !/runtimeThreadReplayCandidateEvents/.test(runtimeDaemonIndex) &&
       !/events:\s*candidateEvents/.test(runtimeDaemonIndex) &&
+      !/projectRuntimeThreadEventsForThread\(store, request = \{\}\) \{(?:(?!\n  projectRuntimeThreadEventReplayForThread\(store, request = \{\}\) \{)[\s\S])*?latest_seq:\s*latestSeq/.test(
+        runtimeDaemonIndex,
+      ) &&
+      !/projectRuntimeThreadEventsForThread\(store, request = \{\}\) \{(?:(?!\n  projectRuntimeThreadEventReplayForThread\(store, request = \{\}\) \{)[\s\S])*?expected_head:/.test(
+        runtimeDaemonIndex,
+      ) &&
+      !/projectRuntimeThreadEventsForThread\(store, request = \{\}\) \{(?:(?!\n  projectRuntimeThreadEventReplayForThread\(store, request = \{\}\) \{)[\s\S])*?existing_idempotency_keys/.test(
+        runtimeDaemonIndex,
+      ) &&
+      !/projectRuntimeThreadEventReplayForThread\(store, request = \{\}\) \{(?:(?!\n  projectRuntimeThreadTurnProjectionForThread\(store, request = \{\}\) \{)[\s\S])*?latest_seq:\s*latestSeq/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /runtime thread-event projection sends state-dir request without JS replay cache candidates/.test(
+        runtimeThreadControlTest,
+      ) &&
       /runtime thread-event replay sends state-dir request without JS event candidates/.test(
         runtimeThreadControlTest,
       ) &&
@@ -39808,6 +39859,15 @@ function runCompositor() {
       /rust_projection_skips_existing_runtime_thread_event_idempotency/.test(
         runtimeThreadEventCoreForCompositor,
       ) &&
+      /rust_requires_state_dir_for_runtime_thread_event_projection/.test(
+        runtimeThreadEventCoreForCompositor,
+      ) &&
+      /rust_rejects_retired_runtime_thread_event_projection_cache_transport/.test(
+        runtimeThreadEventCoreForCompositor,
+      ) &&
+      /rust_rejects_retired_runtime_thread_event_replay_latest_seq_transport/.test(
+        runtimeThreadEventCoreForCompositor,
+      ) &&
       /runtimeAgentgresAdmissionCore\.admitRuntimeThreadEvent/.test(runtimeDaemonIndex) &&
       /runtimeAgentgresAdmissionCore\.projectRuntimeThreadEvents/.test(runtimeDaemonIndex) &&
       /runtimeAgentgresAdmissionCore\.projectRuntimeThreadEventReplay/.test(runtimeDaemonIndex) &&
@@ -39817,7 +39877,16 @@ function runCompositor() {
       /state_dir:\s*this\.stateDir/.test(runtimeDaemonIndex) &&
       !/runtimeThreadReplayCandidateEvents/.test(runtimeDaemonIndex) &&
       !/events:\s*candidateEvents/.test(runtimeDaemonIndex) &&
-      /existing_idempotency_keys:\s*\[\.\.\.stream\.idempotency\.keys\(\)\]/.test(
+      !/projectRuntimeThreadEventsForThread\(store, request = \{\}\) \{(?:(?!\n  projectRuntimeThreadEventReplayForThread\(store, request = \{\}\) \{)[\s\S])*?latest_seq:\s*latestSeq/.test(
+        runtimeDaemonIndex,
+      ) &&
+      !/projectRuntimeThreadEventsForThread\(store, request = \{\}\) \{(?:(?!\n  projectRuntimeThreadEventReplayForThread\(store, request = \{\}\) \{)[\s\S])*?expected_head:/.test(
+        runtimeDaemonIndex,
+      ) &&
+      !/projectRuntimeThreadEventsForThread\(store, request = \{\}\) \{(?:(?!\n  projectRuntimeThreadEventReplayForThread\(store, request = \{\}\) \{)[\s\S])*?existing_idempotency_keys/.test(
+        runtimeDaemonIndex,
+      ) &&
+      !/projectRuntimeThreadEventReplayForThread\(store, request = \{\}\) \{(?:(?!\n  projectRuntimeThreadTurnProjectionForThread\(store, request = \{\}\) \{)[\s\S])*?latest_seq:\s*latestSeq/.test(
         runtimeDaemonIndex,
       ) &&
       /store\.registerRuntimeEvent\(admittedEvent\)/.test(runtimeDaemonIndex) &&
