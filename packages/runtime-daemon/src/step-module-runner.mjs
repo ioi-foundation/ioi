@@ -6,13 +6,9 @@ const CODING_TOOL_STEP_MODULE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.coding-tool-step-module-request.v1";
 
 export function createStepModuleRunnerFromEnv(env = process.env, options = {}) {
-  assertNoStepModuleBackendSelection(options.backend ?? env.IOI_STEP_MODULE_BACKEND);
-  assertNoStepModuleCommandArgs(
-    options.args ?? env.IOI_STEP_MODULE_COMMAND_ARGS ?? env.IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS,
-  );
-  assertNoStepModuleCommandSelection(
-    options.command ?? env.IOI_RUNTIME_DAEMON_CORE_COMMAND ?? env.IOI_STEP_MODULE_COMMAND,
-  );
+  assertNoStepModuleBackendSelection(options.backend);
+  assertNoStepModuleCommandArgs(options.args);
+  assertNoStepModuleCommandSelection(options.command);
   assertNoStepModuleCommandInvoker("daemonCoreInvoker", options.daemonCoreInvoker);
   return new RustWorkloadStepModuleRunner({
     daemonCoreWorkloadApi: options.daemonCoreWorkloadApi,

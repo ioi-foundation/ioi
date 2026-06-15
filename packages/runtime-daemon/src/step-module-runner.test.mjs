@@ -24,17 +24,6 @@ test("default StepModuleRunner is Rust workload live and fails closed without di
   );
 });
 
-test("retired StepModule backend selection env fails closed", () => {
-  for (const backend of ["daemon_js", "rust_workload_shadow", "rust_workload_gated", "rust_workload_live"]) {
-    assert.throws(
-      () => createStepModuleRunnerFromEnv({ IOI_STEP_MODULE_BACKEND: backend }),
-      (error) =>
-        error instanceof StepModuleRunnerError &&
-        error.code === "step_module_backend_selection_retired",
-    );
-  }
-});
-
 test("retired StepModule backend constructor option fails closed", () => {
   assert.throws(
     () => new RustWorkloadStepModuleRunner({ backend: "rust_workload_live" }),
@@ -44,45 +33,9 @@ test("retired StepModule backend constructor option fails closed", () => {
   );
 });
 
-test("retired StepModule command args env fails closed", () => {
-  assert.throws(
-    () => createStepModuleRunnerFromEnv({ IOI_STEP_MODULE_COMMAND_ARGS: "--legacy-flag value" }),
-    (error) =>
-      error instanceof StepModuleRunnerError &&
-      error.code === "step_module_command_args_retired",
-  );
-});
-
-test("retired StepModule command env fails closed", () => {
-  assert.throws(
-    () => createStepModuleRunnerFromEnv({ IOI_STEP_MODULE_COMMAND: "retired-step-module-bridge" }),
-    (error) =>
-      error instanceof StepModuleRunnerError &&
-      error.code === "step_module_command_selection_retired",
-  );
-});
-
-test("retired daemon-core command env fails closed for StepModule runner", () => {
-  assert.throws(
-    () => createStepModuleRunnerFromEnv({ IOI_RUNTIME_DAEMON_CORE_COMMAND: "retired-daemon-core" }),
-    (error) =>
-      error instanceof StepModuleRunnerError &&
-      error.code === "step_module_command_selection_retired",
-  );
-});
-
 test("retired StepModule command args constructor option fails closed", () => {
   assert.throws(
     () => new RustWorkloadStepModuleRunner({ args: ["--legacy-flag", "value"] }),
-    (error) =>
-      error instanceof StepModuleRunnerError &&
-      error.code === "step_module_command_args_retired",
-  );
-});
-
-test("retired daemon-core command args env fails closed for StepModule runner", () => {
-  assert.throws(
-    () => createStepModuleRunnerFromEnv({ IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS: "--json" }),
     (error) =>
       error instanceof StepModuleRunnerError &&
       error.code === "step_module_command_args_retired",
@@ -105,6 +58,16 @@ test("retired StepModule daemon-core invoker option fails closed", () => {
       error instanceof StepModuleRunnerError &&
       error.code === "step_module_daemon_core_invoker_retired",
   );
+});
+
+test("StepModule runner env reads only workload transport handles", () => {
+  const runner = createStepModuleRunnerFromEnv({
+    IOI_WORKLOAD_GRPC_ADDR: "127.0.0.1:9000",
+    IOI_SHMEM_ID: "shmem-step-module",
+  });
+
+  assert.equal(runner.grpcAddr, "127.0.0.1:9000");
+  assert.equal(runner.shmemId, "shmem-step-module");
 });
 
 test("rust workload live runner produces workload invocation with direct daemon-core workload API result", () => {

@@ -8104,41 +8104,20 @@ protocol/API ownership where command-envelope validation, dispatch, workload
 execution, receipt binding, Agentgres admission, replay, projection, and stable
 IDE/CLI/SDK surfaces no longer require a Node bridge binary at all.
 
-Slice 1188 retires the StepModule-specific command path at the JS runner edge.
-`createStepModuleRunnerFromEnv()` no longer reads `IOI_STEP_MODULE_COMMAND`;
-it reads the unified `IOI_RUNTIME_DAEMON_CORE_COMMAND` migration transport used
-by the other daemon-core admission/control surfaces. Any non-empty
-`IOI_STEP_MODULE_COMMAND` now fails closed with
-`step_module_command_env_retired`, and the focused StepModule runner tests prove
-the unified daemon-core command env is the only live command source for
-runtime-daemon StepModule execution. Bridge conformance now requires the
-retired-env guard and the unified daemon-core command env fixture.
+Slice 1188 was an intermediate contraction of the StepModule-specific command
+path at the JS runner edge. It was superseded by the typed workload API cut and
+the later command-env deletion: `createStepModuleRunnerFromEnv()` no longer
+reads `IOI_STEP_MODULE_COMMAND` or `IOI_RUNTIME_DAEMON_CORE_COMMAND`, and no
+command env is a live StepModule source.
 
-This remains non-terminal because `IOI_RUNTIME_DAEMON_CORE_COMMAND` is still
-temporary command transport. The target is direct Rust daemon-core
-StepModuleRouter/coding-tool protocol/API ownership where command-envelope
-validation, dispatch, workload execution, receipt binding, Agentgres admission,
-replay, projection, and stable IDE/CLI/SDK surfaces no longer require any
-Node-launched command bridge.
-
-Slice 1189 retires the live StepModule command schema family for coding-tool
-StepModule dispatch. `run_coding_tool_step_module` is now a daemon-core command
-operation and validates only with `ioi.runtime.daemon_core.command.v1`; the old
-`ioi.step_module.command_bridge.v1` schema is retained only as rejected legacy
-negative evidence. `CommandProtocol` now places
-`run_coding_tool_step_module` in the daemon-core catalog, `COMMAND_SCHEMA_VERSION`
-defaults to the daemon-core schema, and focused Rust tests prove the retired
-StepModule schema fails closed for coding-tool StepModule dispatch. The JS
-StepModule runner now emits the daemon-core command schema in its live request,
-and bridge conformance requires both the Rust protocol proof names and the JS
-schema assertion.
-
-This remains non-terminal because the daemon-core command schema still crosses
-temporary Node-launched transport. The target is direct Rust daemon-core
-StepModuleRouter/coding-tool protocol/API ownership where schema validation,
-dispatch, workload execution, receipt binding, Agentgres admission, replay,
-projection, and stable IDE/CLI/SDK surfaces no longer require command-bridge
-transport at all.
+Slice 1189 was the intermediate daemon-core command-schema contraction for
+coding-tool StepModule dispatch. It was superseded by Slice 1228: the live JS
+StepModule runner no longer emits any command schema or command envelope for
+`run_coding_tool_step_module`; it calls typed
+`daemonCoreWorkloadApi.runCodingToolStepModule`, while Rust
+`command_protocol.rs` rejects `run_coding_tool_step_module` as an unknown
+command operation. The old StepModule and daemon-core command schemas remain
+only as rejected legacy evidence.
 
 Slice 1190 removes the dead StepModule command-family/catalog API left behind
 after Slice 1189. `command_protocol.rs` no longer exposes
@@ -9555,8 +9534,10 @@ Slice 1228 retires the coding-tool StepModule command transport. The runtime
 daemon now passes `daemonCoreWorkloadApi` into `RustWorkloadStepModuleRunner`,
 and the runner calls `runCodingToolStepModule` with canonical
 `ioi.runtime.coding-tool-step-module-request.v1` facts instead of a daemon-core
-command envelope. It rejects backend/command/env selectors, generic
-`daemonCoreInvoker`, command `operation`, command `backend`, and JS-supplied
+command envelope. Constructor backend/command/argv selectors and generic
+`daemonCoreInvoker` fail closed, while retired backend/command env selectors are
+absent from the runner; only workload transport handles remain env-readable.
+The runner rejects command `operation`, command `backend`, and JS-supplied
 `invocation` fields before admitted workload dispatch can return through JS
 authority. Rust `coding_tool_step_module.rs` exposes the direct
 `CodingToolStepModuleRunRequest` with deny-unknown deserialization, while
@@ -9622,6 +9603,20 @@ Rust owner tests return. This remains non-terminal because durable
 runtime-control replay/projection, richer wallet/runtime-control authority,
 deeper receipt/state-root binding, and stable IDE/CLI/SDK protocol APIs still
 need terminal Rust-owned records.
+
+Slice 1232 removes the remaining StepModule command-env selector surface from
+the JS Rust-workload runner. `createStepModuleRunnerFromEnv()` no longer reads
+`IOI_STEP_MODULE_BACKEND`, `IOI_STEP_MODULE_COMMAND`,
+`IOI_STEP_MODULE_COMMAND_ARGS`, `IOI_RUNTIME_DAEMON_CORE_COMMAND`, or
+`IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS`; it reads only workload transport handles
+(`IOI_WORKLOAD_GRPC_ADDR` and `IOI_SHMEM_ID`) before constructing
+`RustWorkloadStepModuleRunner`. Constructor compatibility options still fail
+closed, but command-env compatibility is deleted rather than preserved as a
+runtime selector. Conformance now requires the retired env names to stay absent
+from the StepModule runner and its focused tests. This remains non-terminal
+because durable replay/storage, MCP/model_mount materialization, and stable
+IDE/CLI/SDK protocol APIs still need terminal Rust-owned projection/replay
+records.
 
 ## Final Doctrine
 

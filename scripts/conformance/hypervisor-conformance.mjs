@@ -2775,13 +2775,15 @@ function runDocs() {
     "matrix-coding-tools-rust-live-status-reconciled",
     (/Rust-live coding-tool StepModule path/.test(matrix) &&
       /Migrated coding tools execute through Rust workload\/StepModule contracts/.test(matrix) &&
-	      /explicit `daemon_js`\/shadow\/gated\/backend, command\/env, generic invoker, and command-envelope selection fails closed/.test(matrix) &&
+      /explicit constructor backend\/command\/argv, generic invoker, and command-envelope selection fails closed, retired command\/backend env selectors are absent/.test(
+        matrix,
+      ) &&
       /Rust daemon-core constructs the coding-tool `StepModuleInvocation` envelope before workload dispatch\/admission/.test(
         matrix,
       ) &&
-      /JS invocation surface is protocol-client scaffolding over the typed workload API plus fail-closed governance\/artifact\/snapshot surfaces/.test(
-        matrix,
-      ) &&
+      /JS invocation surface is protocol-client scaffolding over the typed workload API plus mounted Rust-backed governance, artifact, snapshot, and diagnostics surfaces/.test(
+	        matrix,
+	      ) &&
       /normal success\/failure execution now calls Rust `plan_coding_tool_result_envelope` before dispatch/.test(
         matrix,
       ) &&
@@ -5042,7 +5044,9 @@ function runBridge() {
         read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
       ) &&
       /IOI_WORKLOAD_GRPC_ADDR/.test(stepModuleRunner) &&
-      /IOI_RUNTIME_DAEMON_CORE_COMMAND/.test(stepModuleRunner) &&
+      !/IOI_STEP_MODULE_BACKEND|IOI_STEP_MODULE_COMMAND|IOI_STEP_MODULE_COMMAND_ARGS|IOI_RUNTIME_DAEMON_CORE_COMMAND|IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS/.test(
+        stepModuleRunner,
+      ) &&
       !/STEP_MODULE_COMMAND_ENV/.test(stepModuleRunner) &&
       !/STEP_MODULE_BACKEND_ENV/.test(stepModuleRunner) &&
       !/STEP_MODULE_COMMAND_ARGS_ENV/.test(stepModuleRunner) &&
@@ -5050,7 +5054,7 @@ function runBridge() {
       !/parseCommandArgs/.test(stepModuleRunner) &&
       !/normalizeArgs/.test(stepModuleRunner) &&
       !/env\[STEP_MODULE_BACKEND_ENV\]/.test(stepModuleRunner) &&
-      /options\.backend \?\? env\.IOI_STEP_MODULE_BACKEND/.test(stepModuleRunner) &&
+      /assertNoStepModuleBackendSelection\(options\.backend\)/.test(stepModuleRunner) &&
       /step_module_backend_selection_retired/.test(stepModuleRunner) &&
       /step_module_command_args_retired/.test(stepModuleRunner) &&
       /step_module_command_selection_retired/.test(stepModuleRunner) &&
@@ -5083,25 +5087,17 @@ function runBridge() {
       /assert\.notEqual\(calls\[0\]\.request\.workspace_root,\s*"\/tmp\/retired-workspace"\)/.test(
         read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
       ) &&
-      /retired StepModule backend selection env fails closed/.test(
+      !/IOI_STEP_MODULE_BACKEND|IOI_STEP_MODULE_COMMAND|IOI_STEP_MODULE_COMMAND_ARGS|IOI_RUNTIME_DAEMON_CORE_COMMAND|IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS/.test(
         read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
       ) &&
-      /\["daemon_js",\s*"rust_workload_shadow",\s*"rust_workload_gated",\s*"rust_workload_live"\]/.test(
+      /StepModule runner env reads only workload transport handles/.test(
         read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
       ) &&
+      /IOI_WORKLOAD_GRPC_ADDR/.test(
+        read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
+      ) &&
+      /IOI_SHMEM_ID/.test(read("packages/runtime-daemon/src/step-module-runner.test.mjs")) &&
       /retired StepModule backend constructor option fails closed/.test(
-        read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
-      ) &&
-      /retired StepModule command args env fails closed/.test(
-        read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
-      ) &&
-      /retired StepModule command env fails closed/.test(
-        read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
-      ) &&
-      /retired daemon-core command env fails closed for StepModule runner/.test(
-        read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
-      ) &&
-      /retired daemon-core command args env fails closed for StepModule runner/.test(
         read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
       ) &&
       /retired StepModule command args constructor option fails closed/.test(
@@ -5144,7 +5140,7 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-daemon-core-command-runner.test.mjs",
       "crates/client/src/workload_client/mod.rs",
     ],
-    "Phase 2 is pending: StepModule execution must be Rust workload live by construction, typed-workload-API-only, Rust-owned for coding-tool invocation envelope construction, and all explicit backend or command selection must fail closed",
+    "Phase 2 is pending: StepModule execution must be Rust workload live by construction, typed-workload-API-only, Rust-owned for coding-tool invocation envelope construction, with command-env selectors absent and explicit constructor backend or command selection failing closed",
   );
   assertCheck(
     result,
