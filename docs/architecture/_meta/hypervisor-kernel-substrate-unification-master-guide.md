@@ -9764,6 +9764,24 @@ actual external Rust MCP backend invocation/discovery, runtime containment
 sandboxing for live backends, and stable IDE/CLI/SDK protocol APIs still need
 terminal Rust-owned records.
 
+Slice 1241 hard-cuts runtime MCP control live results out of the generic
+Rust-shaped backend-materialization lane. Rust `mcp_control_live_exit_result`
+now requires every MCP-control live invoke/discovery result payload to carry an
+`ioi.runtime.mcp-backend-execution.v1` `backend_execution` contract bound to
+`ioi_drivers::mcp::McpManager` and
+`ioi_drivers::mcp::transport::McpTransport`, with `tools/call` for invoke,
+`tools/list` for discovery, custody/containment refs, Agentgres refs, and
+explicit no-JS/no-command/no-binary-bridge/no-compatibility fallback facts. The
+live-exit receipt and result details now carry
+`runtime_mcp_backend_execution_rust_driver_bound` evidence and
+`rust_driver_contract_bound` backend status, Rust replay filters MCP-control
+live results that lack the driver-bound contract, and the JS MCP control surface
+rejects missing backend contracts before receipt/result commit or public replay
+can return. This remains non-terminal because the async daemon API still needs
+to wire actual live MCP server process I/O through the Rust `McpManager`
+backend under the recorded containment contract, then expose stable SDK/IDE/CLI
+protocol APIs over those replay records.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

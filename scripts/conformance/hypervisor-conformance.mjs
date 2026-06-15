@@ -949,6 +949,9 @@ function runDocs() {
     "guide-runtime-mcp-live-result-materialized",
       /Slice 1239 hard-cuts runtime MCP control live invoke\/discovery exits out of the\s+admitted-but-pending transport-result lane/.test(guide) &&
       /ioi\.runtime\.mcp-live-result-payload\.v1/.test(guide) &&
+      /ioi\.runtime\.mcp-backend-execution\.v1/.test(guide) &&
+      /rust_driver_contract_bound/.test(guide) &&
+      /ioi_drivers::mcp::McpManager/.test(guide) &&
       /hashes the payload, binds that hash through the live-exit\s+receipt, control record/.test(guide) &&
       /stamps the result as `rust_materialized`/.test(guide) &&
       /admitted_pending_rust_transport` \/ `runtime_mcp_transport_backend_pending/.test(guide),
@@ -2709,6 +2712,7 @@ function runDocs() {
       /public MCP list\/search\/fetch catalog row inputs now route through Rust daemon-core\s+`McpManagerCatalogProjectionCore`\/`plan_mcp_manager_catalog_projection` instead of JS\s+`mcpToolsForServers`\/`mcpResourcesForServers`\/`mcpPromptsForServers` builders/.test(implementationMatrix) &&
 	      /contextual catalog projection now sends runtime `state_dir`, `thread_id`, and `agent_id`\s+so Rust replays admitted `agents\/\*\.json` before returning contextual server rows/.test(implementationMatrix) &&
 	      /MCP catalog live-discovery now returns Rust materialized declared-row snapshots with\s+`rust_mcp_live_discovery_materialized`/.test(implementationMatrix) &&
+	      /embeds `ioi\.runtime\.mcp-backend-execution\.v1` contracts bound to\s+`ioi_drivers::mcp::McpManager`\/`McpTransport` with `rust_driver_contract_bound` status/.test(implementationMatrix) &&
 	      /public MCP tool search\/fetch now call Rust\s+`McpToolSearchProjectionCore`\/`McpToolFetchProjectionCore` through\s+`project_mcp_tool_search_projection`\/`project_mcp_tool_fetch_projection`/.test(implementationMatrix) &&
 	      /public MCP search\/fetch catalog summaries now route through Rust daemon-core\s+`McpManagerCatalogSummaryProjectionCore`\/`plan_mcp_manager_catalog_summary_projection` instead of JS\s+`mcpCatalogSummaryForServer`/.test(implementationMatrix) &&
       /helper-level `mcpCatalogSummaryForServer`\/`mcpCatalogExposureForStatus`\/`mcpToolNamespaces`\s+JS summary code is retired/.test(implementationMatrix) &&
@@ -13549,10 +13553,15 @@ function runBridge() {
 	      /runtime_mcp_live_result_rust_projection/.test(policyMcpMemoryCore) &&
 	      /agentgres_runtime_mcp_live_result_truth_required/.test(policyMcpMemoryCore) &&
 	      /mcp_control_live_exit_result_payload/.test(policyMcpMemoryCore) &&
+	      /mcp_control_backend_execution_contract/.test(policyMcpMemoryCore) &&
+	      /ioi\.runtime\.mcp-backend-execution\.v1/.test(policyMcpMemoryCore) &&
+	      /ioi_drivers::mcp::McpManager/.test(policyMcpMemoryCore) &&
+	      /ioi_drivers::mcp::transport::McpTransport/.test(policyMcpMemoryCore) &&
+	      /runtime_mcp_backend_execution_rust_driver_bound/.test(policyMcpMemoryCore) &&
 	      /runtime_mcp_live_result_payload_hash/.test(policyMcpMemoryCore) &&
 	      /runtime_mcp_live_result_payload_rust_materialized/.test(policyMcpMemoryCore) &&
 	      /"status": "rust_materialized"/.test(policyMcpMemoryCore) &&
-	      /"backend_materialization_status": "rust_materialized"/.test(policyMcpMemoryCore) &&
+	      /"backend_materialization_status": "rust_driver_contract_bound"/.test(policyMcpMemoryCore) &&
 	      !/"status": "admitted_pending_rust_transport"/.test(policyMcpMemoryCore) &&
 	      !/"backend_materialization_status": "pending_rust_transport_backend"/.test(policyMcpMemoryCore) &&
 	      /receipt_state_root_binding_required/.test(policyMcpMemoryCore) &&
@@ -13589,6 +13598,8 @@ function runBridge() {
       /admitted_pending_rust_transport_retired/.test(runtimeMcpControlSurface) &&
       /runtime_mcp_transport_backend_pending_retired/.test(runtimeMcpControlSurface) &&
       /runtime_mcp_live_result_payload_rust_materialized/.test(runtimeMcpControlSurface) &&
+      /runtime_mcp_backend_execution_status/.test(runtimeMcpControlSurface) &&
+      /payload\.backend_execution/.test(runtimeMcpControlSurface) &&
       /result_materialized_true/.test(runtimeMcpControlSurface) &&
       /payload_hash_binding/.test(runtimeMcpControlSurface) &&
       !/result_materialized_false/.test(runtimeMcpControlSurface) &&
@@ -13607,6 +13618,9 @@ function runBridge() {
       !/invokeMcp(?:Stdio|Http)ToolDep/.test(runtimeMcpControlSurface) &&
       !/discoverMcp(?:Stdio|Http)CatalogDep/.test(runtimeMcpControlSurface) &&
       /runtime MCP control mutations plan in Rust and commit agent state without JS state mutation/.test(
+        runtimeMcpControlSurfaceTest,
+      ) &&
+      /runtime MCP live exits reject missing Rust MCP backend driver contract/.test(
         runtimeMcpControlSurfaceTest,
       ) &&
       /call\.request\.state_dir === "\/runtime-state"/.test(
@@ -29694,10 +29708,15 @@ function runCompositor() {
 	    /runtime_mcp_live_result_rust_projection/.test(policyMcpMemoryCore) &&
 	    /agentgres_runtime_mcp_live_result_truth_required/.test(policyMcpMemoryCore) &&
 	    /mcp_control_live_exit_result_payload/.test(policyMcpMemoryCore) &&
+	    /mcp_control_backend_execution_contract/.test(policyMcpMemoryCore) &&
+	    /ioi\.runtime\.mcp-backend-execution\.v1/.test(policyMcpMemoryCore) &&
+	    /ioi_drivers::mcp::McpManager/.test(policyMcpMemoryCore) &&
+	    /ioi_drivers::mcp::transport::McpTransport/.test(policyMcpMemoryCore) &&
+	    /runtime_mcp_backend_execution_rust_driver_bound/.test(policyMcpMemoryCore) &&
 	    /runtime_mcp_live_result_payload_hash/.test(policyMcpMemoryCore) &&
 	    /runtime_mcp_live_result_payload_rust_materialized/.test(policyMcpMemoryCore) &&
 	    /"status": "rust_materialized"/.test(policyMcpMemoryCore) &&
-	    /"backend_materialization_status": "rust_materialized"/.test(policyMcpMemoryCore) &&
+	    /"backend_materialization_status": "rust_driver_contract_bound"/.test(policyMcpMemoryCore) &&
 	    !/"status": "admitted_pending_rust_transport"/.test(policyMcpMemoryCore) &&
 	    !/"backend_materialization_status": "pending_rust_transport_backend"/.test(policyMcpMemoryCore) &&
 	    /receipt_state_root_binding_required/.test(policyMcpMemoryCore) &&
@@ -29731,6 +29750,8 @@ function runCompositor() {
 	    /admitted_pending_rust_transport_retired/.test(runtimeMcpControlSurface) &&
 	    /runtime_mcp_transport_backend_pending_retired/.test(runtimeMcpControlSurface) &&
 	    /runtime_mcp_live_result_payload_rust_materialized/.test(runtimeMcpControlSurface) &&
+	    /runtime_mcp_backend_execution_status/.test(runtimeMcpControlSurface) &&
+	    /payload\.backend_execution/.test(runtimeMcpControlSurface) &&
 	    /result_materialized_true/.test(runtimeMcpControlSurface) &&
 	    /payload_hash_binding/.test(runtimeMcpControlSurface) &&
 	    !/result_materialized_false/.test(runtimeMcpControlSurface) &&
@@ -29760,6 +29781,9 @@ function runCompositor() {
       runtimeMcpControlSurfaceTest,
     ) &&
 	    /runtime MCP live exits reject pending Rust transport result materialization/.test(
+	      runtimeMcpControlSurfaceTest,
+	    ) &&
+	    /runtime MCP live exits reject missing Rust MCP backend driver contract/.test(
 	      runtimeMcpControlSurfaceTest,
 	    ) &&
 	    /runtime_mcp_live_result_payload_hash/.test(runtimeMcpControlSurfaceTest) &&

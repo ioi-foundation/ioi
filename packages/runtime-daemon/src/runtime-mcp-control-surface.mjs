@@ -487,6 +487,7 @@ export function createRuntimeMcpControlSurface({
     for (const ref of [
       "runtime_mcp_live_exit_rust_receipt",
       "agentgres_runtime_mcp_live_receipt_truth_required",
+      "runtime_mcp_backend_execution_rust_driver_bound",
       "receipt_state_root_binding_required",
     ]) {
       if (!evidenceRefs.includes(ref)) missing.push(ref);
@@ -514,6 +515,20 @@ export function createRuntimeMcpControlSurface({
     }
     if (receiptDetails.result_materialized !== true) missing.push("result_materialized_true");
     if (!optionalStringDep(receiptDetails.result_payload_hash)) missing.push("result_payload_hash");
+    if (receiptDetails.runtime_mcp_backend_execution_status !== "rust_driver_contract_bound") {
+      missing.push("runtime_mcp_backend_execution_status");
+    }
+    if (receiptDetails.runtime_mcp_backend_owner !== "ioi_drivers::mcp::McpManager") {
+      missing.push("runtime_mcp_backend_owner");
+    }
+    if (receiptDetails.runtime_mcp_backend_transport_owner !== "ioi_drivers::mcp::transport::McpTransport") {
+      missing.push("runtime_mcp_backend_transport_owner");
+    }
+    if (!optionalStringDep(receiptDetails.runtime_mcp_backend_method)) missing.push("runtime_mcp_backend_method");
+    if (receiptDetails.runtime_mcp_backend_contract_required !== true) {
+      missing.push("runtime_mcp_backend_contract_required");
+    }
+    if (receiptDetails.js_backend_execution !== false) missing.push("js_backend_execution_false");
     if (receiptDetails.js_transport_invocation !== false) missing.push("js_transport_invocation_false");
     if (receiptDetails.command_transport_fallback !== false) missing.push("command_transport_fallback_false");
     if (receiptDetails.binary_bridge_fallback !== false) missing.push("binary_bridge_fallback_false");
@@ -535,6 +550,7 @@ export function createRuntimeMcpControlSurface({
   function assertRuntimeMcpLiveResultBound(result, receipt, control, details = {}) {
     const resultDetails = objectRecordDep(result.details) ?? {};
     const payload = objectRecordDep(result.payload);
+    const backendExecution = objectRecordDep(payload?.backend_execution);
     const evidenceRefs = Array.isArray(result.evidence_refs) ? result.evidence_refs : [];
     const resultId = optionalStringDep(result.id);
     const receiptId = optionalStringDep(receipt?.id);
@@ -563,6 +579,7 @@ export function createRuntimeMcpControlSurface({
       "agentgres_runtime_mcp_live_result_truth_required",
       "runtime_mcp_live_result_payload_rust_materialized",
       "runtime_mcp_no_js_transport_result",
+      "runtime_mcp_backend_execution_rust_driver_bound",
       "receipt_state_root_binding_required",
     ]) {
       if (!evidenceRefs.includes(ref)) missing.push(ref);
@@ -580,9 +597,36 @@ export function createRuntimeMcpControlSurface({
       missing.push("control_resulting_head_binding");
     }
     if (resultDetails.result_materialized !== true) missing.push("result_materialized_true");
-    if (resultDetails.backend_materialization_status !== "rust_materialized") {
+    if (resultDetails.backend_materialization_status !== "rust_driver_contract_bound") {
       missing.push("backend_materialization_status");
     }
+    if (resultDetails.runtime_mcp_backend_execution_status !== "rust_driver_contract_bound") {
+      missing.push("runtime_mcp_backend_execution_status");
+    }
+    if (resultDetails.runtime_mcp_backend_owner !== "ioi_drivers::mcp::McpManager") {
+      missing.push("runtime_mcp_backend_owner");
+    }
+    if (resultDetails.runtime_mcp_backend_transport_owner !== "ioi_drivers::mcp::transport::McpTransport") {
+      missing.push("runtime_mcp_backend_transport_owner");
+    }
+    if (!optionalStringDep(resultDetails.runtime_mcp_backend_method)) missing.push("runtime_mcp_backend_method");
+    if (resultDetails.runtime_mcp_backend_contract_required !== true) {
+      missing.push("runtime_mcp_backend_contract_required");
+    }
+    if (!backendExecution) missing.push("payload.backend_execution");
+    if (backendExecution?.schema_version !== "ioi.runtime.mcp-backend-execution.v1") {
+      missing.push("payload.backend_execution.schema_version");
+    }
+    if (backendExecution?.status !== "rust_driver_contract_bound") {
+      missing.push("payload.backend_execution.status");
+    }
+    if (backendExecution?.owner !== "ioi_drivers::mcp::McpManager") {
+      missing.push("payload.backend_execution.owner");
+    }
+    if (backendExecution?.transport_owner !== "ioi_drivers::mcp::transport::McpTransport") {
+      missing.push("payload.backend_execution.transport_owner");
+    }
+    if (!optionalStringDep(backendExecution?.method)) missing.push("payload.backend_execution.method");
     if (!payload) missing.push("payload");
     if (!detailsPayloadHash) missing.push("payload_hash");
     if (!payloadHash) missing.push("payload.payload_hash");
@@ -593,6 +637,8 @@ export function createRuntimeMcpControlSurface({
       missing.push("receipt_result_payload_hash_binding");
     }
     if (resultDetails.js_transport_invocation !== false) missing.push("js_transport_invocation_false");
+    if (resultDetails.js_backend_execution !== false) missing.push("js_backend_execution_false");
+    if (backendExecution?.js_backend_execution !== false) missing.push("payload.backend_execution.js_backend_execution_false");
     if (resultDetails.command_transport_fallback !== false) missing.push("command_transport_fallback_false");
     if (resultDetails.binary_bridge_fallback !== false) missing.push("binary_bridge_fallback_false");
     if (resultDetails.compatibility_fallback !== false) missing.push("compatibility_fallback_false");

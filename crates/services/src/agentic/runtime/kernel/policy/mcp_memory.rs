@@ -882,6 +882,7 @@ impl McpControlAgentStateUpdateCore {
             evidence_refs.push("agentgres_runtime_mcp_live_receipt_truth_required".to_string());
             evidence_refs.push("runtime_mcp_live_result_rust_projection".to_string());
             evidence_refs.push("agentgres_runtime_mcp_live_result_truth_required".to_string());
+            evidence_refs.push("runtime_mcp_backend_execution_rust_driver_bound".to_string());
             evidence_refs.push("receipt_state_root_binding_required".to_string());
         }
         let live_receipt_id = if transport_admission_required {
@@ -937,6 +938,8 @@ impl McpControlAgentStateUpdateCore {
                 live_transport.as_deref(),
                 execution_mode.as_deref(),
                 timeout_ms,
+                custody_ref.as_deref(),
+                containment_ref.as_deref(),
                 live_agentgres_operation_ref.as_deref().unwrap_or_default(),
                 live_resulting_head.as_deref().unwrap_or_default(),
             ))
@@ -1246,6 +1249,8 @@ fn mcp_control_live_exit_result_payload(
     live_transport: Option<&str>,
     execution_mode: Option<&str>,
     timeout_ms: Option<u64>,
+    custody_ref: Option<&str>,
+    containment_ref: Option<&str>,
     agentgres_operation_ref: &str,
     resulting_head: &str,
 ) -> Value {
@@ -1259,6 +1264,22 @@ fn mcp_control_live_exit_result_payload(
     } else {
         "Rust daemon core materialized MCP tool result."
     };
+    let backend_method = mcp_control_backend_method(control_kind);
+    let backend_execution = mcp_control_backend_execution_contract(
+        control_kind,
+        event_id,
+        thread_id,
+        agent_id,
+        server_id,
+        tool_ref,
+        live_transport,
+        execution_mode,
+        timeout_ms,
+        custody_ref,
+        containment_ref,
+        agentgres_operation_ref,
+        resulting_head,
+    );
     json!({
         "schema_version": "ioi.runtime.mcp-live-result-payload.v1",
         "object": "ioi.runtime_mcp_live_result_payload",
@@ -1275,6 +1296,7 @@ fn mcp_control_live_exit_result_payload(
         "timeout_ms": timeout_ms,
         "runtime_mcp_agentgres_operation_ref": agentgres_operation_ref,
         "runtime_mcp_resulting_head": resulting_head,
+        "backend_execution": backend_execution,
         "protocol_result": {
             "content": [{ "type": "text", "text": protocol_text }],
             "structuredContent": {
@@ -1286,10 +1308,63 @@ fn mcp_control_live_exit_result_payload(
                 "agent_id": agent_id,
                 "server_id": server_id,
                 "tool_ref": tool_ref,
-                "execution_mode": execution_mode
+                "execution_mode": execution_mode,
+                "backend_execution_status": "rust_driver_contract_bound",
+                "backend_method": backend_method
             },
             "isError": false
         }
+    })
+}
+
+fn mcp_control_backend_method(control_kind: &str) -> &'static str {
+    if control_kind == "mcp_live_discovery" {
+        "tools/list"
+    } else {
+        "tools/call"
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn mcp_control_backend_execution_contract(
+    control_kind: &str,
+    event_id: &str,
+    thread_id: &str,
+    agent_id: &str,
+    server_id: Option<&str>,
+    tool_ref: Option<&str>,
+    live_transport: Option<&str>,
+    execution_mode: Option<&str>,
+    timeout_ms: Option<u64>,
+    custody_ref: Option<&str>,
+    containment_ref: Option<&str>,
+    agentgres_operation_ref: &str,
+    resulting_head: &str,
+) -> Value {
+    json!({
+        "schema_version": "ioi.runtime.mcp-backend-execution.v1",
+        "object": "ioi.runtime_mcp_backend_execution",
+        "status": "rust_driver_contract_bound",
+        "owner": "ioi_drivers::mcp::McpManager",
+        "transport_owner": "ioi_drivers::mcp::transport::McpTransport",
+        "method": mcp_control_backend_method(control_kind),
+        "control_kind": control_kind,
+        "event_id": event_id,
+        "thread_id": thread_id,
+        "agent_id": agent_id,
+        "server_id": server_id,
+        "tool_ref": tool_ref,
+        "live_transport": live_transport,
+        "execution_mode": execution_mode,
+        "timeout_ms": timeout_ms,
+        "custody_ref": custody_ref,
+        "containment_ref": containment_ref,
+        "runtime_mcp_agentgres_operation_ref": agentgres_operation_ref,
+        "runtime_mcp_resulting_head": resulting_head,
+        "js_backend_execution": false,
+        "command_transport_fallback": false,
+        "binary_bridge_fallback": false,
+        "compatibility_fallback": false
     })
 }
 
@@ -1331,6 +1406,7 @@ fn mcp_control_live_exit_receipt(
             "wallet_network_mcp_external_exit_authority_required",
             "ctee_mcp_external_exit_custody_required",
             "mcp_transport_containment_required",
+            "runtime_mcp_backend_execution_rust_driver_bound",
             "receipt_state_root_binding_required"
         ],
         "details": {
@@ -1356,6 +1432,12 @@ fn mcp_control_live_exit_receipt(
             "runtime_mcp_resulting_head": resulting_head,
             "result_materialized": true,
             "result_payload_hash": result_payload_hash,
+            "runtime_mcp_backend_execution_status": "rust_driver_contract_bound",
+            "runtime_mcp_backend_owner": "ioi_drivers::mcp::McpManager",
+            "runtime_mcp_backend_transport_owner": "ioi_drivers::mcp::transport::McpTransport",
+            "runtime_mcp_backend_method": mcp_control_backend_method(control_kind),
+            "runtime_mcp_backend_contract_required": true,
+            "js_backend_execution": false,
             "js_transport_invocation": false,
             "command_transport_fallback": false,
             "binary_bridge_fallback": false,
@@ -1398,6 +1480,47 @@ fn mcp_control_live_exit_result(
         }
         payload
     });
+    let evidence_refs = json!([
+        "runtime_mcp_control_rust_owned",
+        "runtime_mcp_live_result_rust_projection",
+        "agentgres_runtime_mcp_live_result_truth_required",
+        "runtime_mcp_live_result_payload_rust_materialized",
+        "runtime_mcp_no_js_transport_result",
+        "runtime_mcp_backend_execution_rust_driver_bound",
+        "receipt_state_root_binding_required"
+    ]);
+    let details = json!({
+        "rust_daemon_core_result_author": "runtime.mcp_control",
+        "control_kind": control_kind,
+        "event_id": event_id,
+        "thread_id": thread_id,
+        "agent_id": agent_id,
+        "server_id": server_id,
+        "tool_ref": tool_ref,
+        "live_transport": live_transport,
+        "execution_mode": execution_mode,
+        "timeout_ms": timeout_ms,
+        "runtime_mcp_agentgres_operation_ref": agentgres_operation_ref,
+        "runtime_mcp_agent_state_root_before": agent_state_root_before,
+        "runtime_mcp_agent_state_root_after": agent_state_root_after,
+        "runtime_mcp_resulting_head": resulting_head,
+        "receipt_id": receipt_id,
+        "result_materialized": true,
+        "backend_materialization_status": "rust_driver_contract_bound",
+        "runtime_mcp_backend_execution_status": "rust_driver_contract_bound",
+        "runtime_mcp_backend_owner": "ioi_drivers::mcp::McpManager",
+        "runtime_mcp_backend_transport_owner": "ioi_drivers::mcp::transport::McpTransport",
+        "runtime_mcp_backend_method": mcp_control_backend_method(control_kind),
+        "runtime_mcp_backend_contract_required": true,
+        "payload_ref": null,
+        "payload_hash": payload_hash,
+        "result_payload_hash": payload_hash,
+        "js_backend_execution": false,
+        "js_transport_invocation": false,
+        "command_transport_fallback": false,
+        "binary_bridge_fallback": false,
+        "compatibility_fallback": false
+    });
     json!({
         "schema_version": "ioi.runtime.mcp-live-result.v1",
         "object": "ioi.runtime_mcp_live_result",
@@ -1408,41 +1531,9 @@ fn mcp_control_live_exit_result(
         "created_at": created_at,
         "receipt_id": receipt_id,
         "receipt_refs": [receipt_id],
-        "evidence_refs": [
-            "runtime_mcp_control_rust_owned",
-            "runtime_mcp_live_result_rust_projection",
-            "agentgres_runtime_mcp_live_result_truth_required",
-            "runtime_mcp_live_result_payload_rust_materialized",
-            "runtime_mcp_no_js_transport_result",
-            "receipt_state_root_binding_required"
-        ],
+        "evidence_refs": evidence_refs,
         "payload": payload_record,
-        "details": {
-            "rust_daemon_core_result_author": "runtime.mcp_control",
-            "control_kind": control_kind,
-            "event_id": event_id,
-            "thread_id": thread_id,
-            "agent_id": agent_id,
-            "server_id": server_id,
-            "tool_ref": tool_ref,
-            "live_transport": live_transport,
-            "execution_mode": execution_mode,
-            "timeout_ms": timeout_ms,
-            "runtime_mcp_agentgres_operation_ref": agentgres_operation_ref,
-            "runtime_mcp_agent_state_root_before": agent_state_root_before,
-            "runtime_mcp_agent_state_root_after": agent_state_root_after,
-            "runtime_mcp_resulting_head": resulting_head,
-            "receipt_id": receipt_id,
-            "result_materialized": true,
-            "backend_materialization_status": "rust_materialized",
-            "payload_ref": null,
-            "payload_hash": payload_hash,
-            "result_payload_hash": payload_hash,
-            "js_transport_invocation": false,
-            "command_transport_fallback": false,
-            "binary_bridge_fallback": false,
-            "compatibility_fallback": false
-        }
+        "details": details
     })
 }
 
@@ -1532,11 +1623,71 @@ fn mcp_live_result_is_rust_owned(result: &Value) -> bool {
             return false;
         }
         if optional_json_string(details, "backend_materialization_status").as_deref()
-            != Some("rust_materialized")
+            != Some("rust_driver_contract_bound")
         {
             return false;
         }
+        if optional_json_string(details, "runtime_mcp_backend_execution_status").as_deref()
+            != Some("rust_driver_contract_bound")
+        {
+            return false;
+        }
+        if optional_json_string(details, "runtime_mcp_backend_owner").as_deref()
+            != Some("ioi_drivers::mcp::McpManager")
+        {
+            return false;
+        }
+        if optional_json_string(details, "runtime_mcp_backend_transport_owner").as_deref()
+            != Some("ioi_drivers::mcp::transport::McpTransport")
+        {
+            return false;
+        }
+        if optional_json_string(details, "runtime_mcp_backend_method").is_none() {
+            return false;
+        }
+        if details
+            .get("runtime_mcp_backend_contract_required")
+            .and_then(Value::as_bool)
+            != Some(true)
+        {
+            return false;
+        }
+        if details.get("js_backend_execution").and_then(Value::as_bool) != Some(false) {
+            return false;
+        }
         if !result.get("payload").is_some_and(Value::is_object) {
+            return false;
+        }
+        let payload = result.get("payload").unwrap_or(&Value::Null);
+        let backend_execution = payload.get("backend_execution").unwrap_or(&Value::Null);
+        if optional_json_string(backend_execution, "schema_version").as_deref()
+            != Some("ioi.runtime.mcp-backend-execution.v1")
+        {
+            return false;
+        }
+        if optional_json_string(backend_execution, "status").as_deref()
+            != Some("rust_driver_contract_bound")
+        {
+            return false;
+        }
+        if optional_json_string(backend_execution, "owner").as_deref()
+            != Some("ioi_drivers::mcp::McpManager")
+        {
+            return false;
+        }
+        if optional_json_string(backend_execution, "transport_owner").as_deref()
+            != Some("ioi_drivers::mcp::transport::McpTransport")
+        {
+            return false;
+        }
+        if optional_json_string(backend_execution, "method").is_none() {
+            return false;
+        }
+        if backend_execution
+            .get("js_backend_execution")
+            .and_then(Value::as_bool)
+            != Some(false)
+        {
             return false;
         }
         if optional_json_string(details, "payload_hash").is_none()
@@ -1553,6 +1704,12 @@ fn mcp_live_result_is_rust_owned(result: &Value) -> bool {
         if !json_string_array_contains(
             result.get("evidence_refs"),
             "runtime_mcp_live_result_payload_rust_materialized",
+        ) {
+            return false;
+        }
+        if !json_string_array_contains(
+            result.get("evidence_refs"),
+            "runtime_mcp_backend_execution_rust_driver_bound",
         ) {
             return false;
         }
@@ -4635,11 +4792,35 @@ mod tests {
             receipt["details"]["result_payload_hash"],
             record.control["runtime_mcp_live_result_payload_hash"]
         );
+        assert_eq!(
+            receipt["details"]["runtime_mcp_backend_execution_status"],
+            "rust_driver_contract_bound"
+        );
+        assert_eq!(
+            receipt["details"]["runtime_mcp_backend_owner"],
+            "ioi_drivers::mcp::McpManager"
+        );
+        assert_eq!(
+            receipt["details"]["runtime_mcp_backend_transport_owner"],
+            "ioi_drivers::mcp::transport::McpTransport"
+        );
+        assert_eq!(
+            receipt["details"]["runtime_mcp_backend_method"],
+            "tools/call"
+        );
+        assert_eq!(
+            receipt["details"]["runtime_mcp_backend_contract_required"],
+            true
+        );
+        assert_eq!(receipt["details"]["js_backend_execution"], false);
         assert_eq!(receipt["details"]["js_transport_invocation"], false);
         assert_eq!(receipt["details"]["command_transport_fallback"], false);
         assert!(receipt["evidence_refs"].as_array().is_some_and(|refs| refs
             .iter()
             .any(|value| value == "agentgres_runtime_mcp_live_receipt_truth_required")));
+        assert!(receipt["evidence_refs"].as_array().is_some_and(|refs| refs
+            .iter()
+            .any(|value| value == "runtime_mcp_backend_execution_rust_driver_bound")));
         let result = record.result.as_ref().expect("Rust live-result record");
         assert_eq!(result["schema_version"], "ioi.runtime.mcp-live-result.v1");
         assert_eq!(
@@ -4663,7 +4844,27 @@ mod tests {
         );
         assert_eq!(
             result["details"]["backend_materialization_status"],
-            "rust_materialized"
+            "rust_driver_contract_bound"
+        );
+        assert_eq!(
+            result["details"]["runtime_mcp_backend_execution_status"],
+            "rust_driver_contract_bound"
+        );
+        assert_eq!(
+            result["details"]["runtime_mcp_backend_owner"],
+            "ioi_drivers::mcp::McpManager"
+        );
+        assert_eq!(
+            result["details"]["runtime_mcp_backend_transport_owner"],
+            "ioi_drivers::mcp::transport::McpTransport"
+        );
+        assert_eq!(
+            result["details"]["runtime_mcp_backend_method"],
+            "tools/call"
+        );
+        assert_eq!(
+            result["details"]["runtime_mcp_backend_contract_required"],
+            true
         );
         assert_eq!(result["details"]["result_materialized"], true);
         assert_eq!(
@@ -4675,9 +4876,42 @@ mod tests {
             record.control["runtime_mcp_live_result_payload_hash"]
         );
         assert_eq!(
+            result["payload"]["backend_execution"]["schema_version"],
+            "ioi.runtime.mcp-backend-execution.v1"
+        );
+        assert_eq!(
+            result["payload"]["backend_execution"]["status"],
+            "rust_driver_contract_bound"
+        );
+        assert_eq!(
+            result["payload"]["backend_execution"]["owner"],
+            "ioi_drivers::mcp::McpManager"
+        );
+        assert_eq!(
+            result["payload"]["backend_execution"]["transport_owner"],
+            "ioi_drivers::mcp::transport::McpTransport"
+        );
+        assert_eq!(
+            result["payload"]["backend_execution"]["method"],
+            "tools/call"
+        );
+        assert_eq!(
+            result["payload"]["backend_execution"]["js_backend_execution"],
+            false
+        );
+        assert_eq!(
             result["payload"]["protocol_result"]["structuredContent"]["object"],
             "ioi.runtime_mcp_live_result_payload"
         );
+        assert_eq!(
+            result["payload"]["protocol_result"]["structuredContent"]["backend_execution_status"],
+            "rust_driver_contract_bound"
+        );
+        assert_eq!(
+            result["payload"]["protocol_result"]["structuredContent"]["backend_method"],
+            "tools/call"
+        );
+        assert_eq!(result["details"]["js_backend_execution"], false);
         assert_eq!(result["details"]["js_transport_invocation"], false);
         assert_eq!(result["details"]["command_transport_fallback"], false);
         assert!(result["evidence_refs"].as_array().is_some_and(|refs| refs
@@ -4686,6 +4920,9 @@ mod tests {
         assert!(result["evidence_refs"].as_array().is_some_and(|refs| refs
             .iter()
             .any(|value| value == "runtime_mcp_live_result_payload_rust_materialized")));
+        assert!(result["evidence_refs"].as_array().is_some_and(|refs| refs
+            .iter()
+            .any(|value| value == "runtime_mcp_backend_execution_rust_driver_bound")));
         assert!(!result["evidence_refs"].as_array().is_some_and(|refs| refs
             .iter()
             .any(|value| value == "runtime_mcp_transport_backend_pending")));
@@ -4744,8 +4981,26 @@ mod tests {
             discovery_record.control["result_record_id"],
             "result_runtime_mcp_live_exit_agent_1_mcp_live_discovery_event_mcp_live_discovery"
         );
-        assert!(discovery_record.receipt.is_some());
-        assert!(discovery_record.result.is_some());
+        let discovery_receipt = discovery_record
+            .receipt
+            .as_ref()
+            .expect("discovery live-exit receipt");
+        assert_eq!(
+            discovery_receipt["details"]["runtime_mcp_backend_method"],
+            "tools/list"
+        );
+        let discovery_result = discovery_record
+            .result
+            .as_ref()
+            .expect("discovery live-result record");
+        assert_eq!(
+            discovery_result["details"]["runtime_mcp_backend_method"],
+            "tools/list"
+        );
+        assert_eq!(
+            discovery_result["payload"]["backend_execution"]["method"],
+            "tools/list"
+        );
         assert_eq!(discovery_record.control["mutation_applied"], false);
     }
 

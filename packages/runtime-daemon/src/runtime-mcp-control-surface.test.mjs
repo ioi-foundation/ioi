@@ -62,6 +62,7 @@ function liveExitReceipt({
       "wallet_network_mcp_external_exit_authority_required",
       "ctee_mcp_external_exit_custody_required",
       "mcp_transport_containment_required",
+      "runtime_mcp_backend_execution_rust_driver_bound",
       "receipt_state_root_binding_required",
     ],
     details: {
@@ -87,11 +88,45 @@ function liveExitReceipt({
       runtime_mcp_resulting_head: resultingHead,
       result_materialized: true,
       result_payload_hash: payloadHash,
+      runtime_mcp_backend_execution_status: "rust_driver_contract_bound",
+      runtime_mcp_backend_owner: "ioi_drivers::mcp::McpManager",
+      runtime_mcp_backend_transport_owner: "ioi_drivers::mcp::transport::McpTransport",
+      runtime_mcp_backend_method: request.control_kind === "mcp_live_discovery" ? "tools/list" : "tools/call",
+      runtime_mcp_backend_contract_required: true,
+      js_backend_execution: false,
       js_transport_invocation: false,
       command_transport_fallback: false,
       binary_bridge_fallback: false,
       compatibility_fallback: false,
     },
+  };
+}
+
+function liveBackendExecutionContract({ request, payload, agent, operationRef, resultingHead }) {
+  return {
+    schema_version: "ioi.runtime.mcp-backend-execution.v1",
+    object: "ioi.runtime_mcp_backend_execution",
+    status: "rust_driver_contract_bound",
+    owner: "ioi_drivers::mcp::McpManager",
+    transport_owner: "ioi_drivers::mcp::transport::McpTransport",
+    method: request.control_kind === "mcp_live_discovery" ? "tools/list" : "tools/call",
+    control_kind: request.control_kind,
+    event_id: request.event_id,
+    thread_id: request.thread_id,
+    agent_id: agent.id,
+    server_id: payload.server_id ?? null,
+    tool_ref: payload.tool_id ?? payload.tool_name ?? null,
+    live_transport: payload.live_transport ?? null,
+    execution_mode: payload.execution_mode ?? null,
+    timeout_ms: payload.timeout_ms ?? null,
+    custody_ref: payload.custody_ref ?? null,
+    containment_ref: payload.containment_ref ?? null,
+    runtime_mcp_agentgres_operation_ref: operationRef,
+    runtime_mcp_resulting_head: resultingHead,
+    js_backend_execution: false,
+    command_transport_fallback: false,
+    binary_bridge_fallback: false,
+    compatibility_fallback: false,
   };
 }
 
@@ -111,6 +146,13 @@ function liveExitResult({
   const payloadKind = request.control_kind === "mcp_live_discovery"
     ? "mcp_live_discovery_result"
     : "mcp_tool_result";
+  const backendExecution = liveBackendExecutionContract({
+    request,
+    payload,
+    agent,
+    operationRef,
+    resultingHead,
+  });
   return {
     schema_version: "ioi.runtime.mcp-live-result.v1",
     object: "ioi.runtime_mcp_live_result",
@@ -127,6 +169,7 @@ function liveExitResult({
       "agentgres_runtime_mcp_live_result_truth_required",
       "runtime_mcp_live_result_payload_rust_materialized",
       "runtime_mcp_no_js_transport_result",
+      "runtime_mcp_backend_execution_rust_driver_bound",
       "receipt_state_root_binding_required",
     ],
     payload: {
@@ -136,6 +179,7 @@ function liveExitResult({
       status: "materialized",
       payload_hash: payloadHash,
       result_payload_hash: payloadHash,
+      backend_execution: backendExecution,
       protocol_result: {
         content: [{ type: "text", text: `Rust daemon core materialized ${payloadKind}.` }],
         structuredContent: {
@@ -143,6 +187,8 @@ function liveExitResult({
           payload_kind: payloadKind,
           control_kind: request.control_kind,
           event_id: request.event_id,
+          backend_execution_status: "rust_driver_contract_bound",
+          backend_method: backendExecution.method,
         },
         isError: false,
       },
@@ -164,10 +210,16 @@ function liveExitResult({
       runtime_mcp_resulting_head: resultingHead,
       receipt_id: receiptId,
       result_materialized: true,
-      backend_materialization_status: "rust_materialized",
+      backend_materialization_status: "rust_driver_contract_bound",
+      runtime_mcp_backend_execution_status: "rust_driver_contract_bound",
+      runtime_mcp_backend_owner: "ioi_drivers::mcp::McpManager",
+      runtime_mcp_backend_transport_owner: "ioi_drivers::mcp::transport::McpTransport",
+      runtime_mcp_backend_method: backendExecution.method,
+      runtime_mcp_backend_contract_required: true,
       payload_ref: null,
       payload_hash: payloadHash,
       result_payload_hash: payloadHash,
+      js_backend_execution: false,
       js_transport_invocation: false,
       command_transport_fallback: false,
       binary_bridge_fallback: false,
@@ -791,6 +843,12 @@ test("runtime MCP live exits use Rust control admission before JS transport invo
   );
   assert.equal(invoked.receipt.details.result_materialized, true);
   assert.equal(invoked.receipt.details.result_payload_hash, invoked.control.runtime_mcp_live_result_payload_hash);
+  assert.equal(invoked.receipt.details.runtime_mcp_backend_execution_status, "rust_driver_contract_bound");
+  assert.equal(invoked.receipt.details.runtime_mcp_backend_owner, "ioi_drivers::mcp::McpManager");
+  assert.equal(invoked.receipt.details.runtime_mcp_backend_transport_owner, "ioi_drivers::mcp::transport::McpTransport");
+  assert.equal(invoked.receipt.details.runtime_mcp_backend_method, "tools/call");
+  assert.equal(invoked.receipt.details.runtime_mcp_backend_contract_required, true);
+  assert.equal(invoked.receipt.details.js_backend_execution, false);
   assert.equal(invoked.receipt.details.js_transport_invocation, false);
   assert.equal(invoked.receipt.details.command_transport_fallback, false);
   assert.equal(invoked.receipt_commit.commit_hash, `receipt.commit.${invoked.receipt.id}`);
@@ -802,14 +860,31 @@ test("runtime MCP live exits use Rust control admission before JS transport invo
   assert.equal(invoked.result.receipt_id, invoked.receipt.id);
   assert.equal(invoked.result.status, "rust_materialized");
   assert.equal(invoked.result.details.rust_daemon_core_result_author, "runtime.mcp_control");
-  assert.equal(invoked.result.details.backend_materialization_status, "rust_materialized");
+  assert.equal(invoked.result.details.backend_materialization_status, "rust_driver_contract_bound");
+  assert.equal(invoked.result.details.runtime_mcp_backend_execution_status, "rust_driver_contract_bound");
+  assert.equal(invoked.result.details.runtime_mcp_backend_owner, "ioi_drivers::mcp::McpManager");
+  assert.equal(invoked.result.details.runtime_mcp_backend_transport_owner, "ioi_drivers::mcp::transport::McpTransport");
+  assert.equal(invoked.result.details.runtime_mcp_backend_method, "tools/call");
+  assert.equal(invoked.result.details.runtime_mcp_backend_contract_required, true);
   assert.equal(invoked.result.details.result_materialized, true);
   assert.equal(invoked.result.details.payload_hash, invoked.control.runtime_mcp_live_result_payload_hash);
   assert.equal(invoked.result.payload.payload_hash, invoked.control.runtime_mcp_live_result_payload_hash);
+  assert.equal(invoked.result.payload.backend_execution.schema_version, "ioi.runtime.mcp-backend-execution.v1");
+  assert.equal(invoked.result.payload.backend_execution.status, "rust_driver_contract_bound");
+  assert.equal(invoked.result.payload.backend_execution.owner, "ioi_drivers::mcp::McpManager");
+  assert.equal(invoked.result.payload.backend_execution.transport_owner, "ioi_drivers::mcp::transport::McpTransport");
+  assert.equal(invoked.result.payload.backend_execution.method, "tools/call");
+  assert.equal(invoked.result.payload.backend_execution.js_backend_execution, false);
   assert.equal(
     invoked.result.payload.protocol_result.structuredContent.object,
     "ioi.runtime_mcp_live_result_payload",
   );
+  assert.equal(
+    invoked.result.payload.protocol_result.structuredContent.backend_execution_status,
+    "rust_driver_contract_bound",
+  );
+  assert.equal(invoked.result.payload.protocol_result.structuredContent.backend_method, "tools/call");
+  assert.equal(invoked.result.details.js_backend_execution, false);
   assert.equal(invoked.result.details.js_transport_invocation, false);
   assert.equal(invoked.result.details.command_transport_fallback, false);
   assert.equal(invoked.result_commit.commit_hash, `result.commit.${invoked.result.id}`);
@@ -820,6 +895,9 @@ test("runtime MCP live exits use Rust control admission before JS transport invo
   assert.equal(discovered.receipt_commit.commit_hash, `receipt.commit.${discovered.receipt.id}`);
   assert.equal(discovered.result.id, discovered.control.result_record_id);
   assert.equal(discovered.result.receipt_id, discovered.receipt.id);
+  assert.equal(discovered.receipt.details.runtime_mcp_backend_method, "tools/list");
+  assert.equal(discovered.result.details.runtime_mcp_backend_method, "tools/list");
+  assert.equal(discovered.result.payload.backend_execution.method, "tools/list");
   assert.equal(discovered.result_commit.commit_hash, `result.commit.${discovered.result.id}`);
   assert.equal(discovered.result_replay.latest_result.id, discovered.result.id);
   assert.equal(planCalls[0].request.request.tool_id, "mcp.docs.search");
@@ -907,6 +985,65 @@ test("runtime MCP live exits reject pending Rust transport result materializatio
       assert.ok(error.details.missing.includes("runtime_mcp_transport_backend_pending_retired"));
       assert.ok(error.details.missing.includes("runtime_mcp_live_result_payload_rust_materialized"));
       assert.ok(error.details.missing.includes("payload_hash"));
+      return true;
+    },
+  );
+  assert.deepEqual(
+    calls.filter((call) => call.name === "commitRuntimeMcpLiveResultState"),
+    [],
+  );
+});
+
+test("runtime MCP live exits reject missing Rust MCP backend driver contract", async () => {
+  const { calls, store, surface } = harness({
+    planRecordTransform(record) {
+      const next = cloneJson(record);
+      next.receipt.evidence_refs = next.receipt.evidence_refs.filter(
+        (ref) => ref !== "runtime_mcp_backend_execution_rust_driver_bound",
+      );
+      delete next.receipt.details.runtime_mcp_backend_execution_status;
+      delete next.receipt.details.runtime_mcp_backend_owner;
+      delete next.receipt.details.runtime_mcp_backend_transport_owner;
+      delete next.receipt.details.runtime_mcp_backend_method;
+      delete next.receipt.details.runtime_mcp_backend_contract_required;
+      delete next.receipt.details.js_backend_execution;
+      next.result.evidence_refs = next.result.evidence_refs.filter(
+        (ref) => ref !== "runtime_mcp_backend_execution_rust_driver_bound",
+      );
+      delete next.result.payload.backend_execution;
+      delete next.result.details.runtime_mcp_backend_execution_status;
+      delete next.result.details.runtime_mcp_backend_owner;
+      delete next.result.details.runtime_mcp_backend_transport_owner;
+      delete next.result.details.runtime_mcp_backend_method;
+      delete next.result.details.runtime_mcp_backend_contract_required;
+      delete next.result.details.js_backend_execution;
+      next.result.details.backend_materialization_status = "rust_materialized";
+      return next;
+    },
+  });
+
+  await assert.rejects(
+    () =>
+      surface.invokeMcpTool(store, {
+        thread_id: "thread-agent-one",
+        server_id: "mcp.docs",
+        tool_id: "mcp.docs.search",
+        tool_name: "search",
+        live_transport: "stdio",
+        execution_mode: "live",
+        authority_grant_refs: ["wallet.network://grant/mcp/docs/search"],
+        authority_receipt_refs: ["receipt://wallet.network/mcp/docs/search"],
+        custody_ref: "ctee://workspace/public",
+        containment_ref: "containment://mcp/docs",
+      }),
+    (error) => {
+      assert.equal(error.code, "mcp_control_live_exit_receipt_binding_invalid");
+      assert.ok(error.details.missing.includes("runtime_mcp_backend_execution_rust_driver_bound"));
+      assert.ok(error.details.missing.includes("runtime_mcp_backend_execution_status"));
+      assert.ok(error.details.missing.includes("runtime_mcp_backend_owner"));
+      assert.ok(error.details.missing.includes("runtime_mcp_backend_transport_owner"));
+      assert.ok(error.details.missing.includes("runtime_mcp_backend_contract_required"));
+      assert.ok(error.details.missing.includes("js_backend_execution_false"));
       return true;
     },
   );
