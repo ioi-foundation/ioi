@@ -9786,14 +9786,15 @@ Slice 1242 hard-cuts runtime MCP control live results out of the planner-direct
 terminal-result lane. `RuntimeContextPolicyCore` now exposes the positive
 `daemonCoreMcpApi.executeRuntimeMcpLiveBackend` request surface with
 `ioi.runtime.mcp-live-backend-execution-request.v1`, and the MCP control
-surface must call it after the Rust live-exit receipt commit and before
-`commitRuntimeMcpLiveResultState()`. The committed live result must carry
+surface must call it before live-exit receipt/result state commits. The
+committed live result must carry
 `runtime_mcp_live_backend_rust_driver_executed` evidence plus
 `rust_driver_executed` backend-execution observation details; if the backend
-executor is absent or returns an unbound result, no result-state commit, replay,
-or `writeAgent()` can run. Conformance now guards the typed API, the
-receipt -> backend execution -> result commit -> replay -> agent commit order,
-and the missing-executor failure. This remains non-terminal because the new API
+executor is absent or returns an unbound result, no receipt-state commit,
+result-state commit, replay, or `writeAgent()` can run. Conformance now guards
+the typed API, the backend execution -> receipt commit -> result commit ->
+replay -> agent commit order, and the missing-executor failure. This remains
+non-terminal because the new API
 boundary still needs to be wired to actual live MCP server process I/O through
 Rust `McpManager` under runtime containment, then exposed through stable
 SDK/IDE/CLI protocol APIs over Rust replay records.
@@ -9812,10 +9813,24 @@ dropping a `kill_on_drop` child immediately after pipe extraction, so live stdio
 JSON-RPC survives initialization. Rust tests execute both `tools/call` and
 `tools/list` through the repo MCP stdio fixture, and conformance guards the
 service API, admitted live discovery path, and child-retention fix. This remains
-non-terminal because the current JS commit order still commits the live-exit
-receipt before the backend driver response can be hashed into the public result
-payload, and stable SDK/IDE/CLI protocol APIs over the Rust replay records plus
-broader MCP serve admission still need to close.
+non-terminal because stable SDK/IDE/CLI protocol APIs over the Rust replay
+records plus broader MCP serve admission still need to close.
+
+Slice 1244 closes the runtime MCP live-result receipt-order blocker. The public
+MCP control surface now calls `executeRuntimeMcpLiveBackend()` before
+`commitRuntimeReceiptState()` or `commitRuntimeMcpLiveResultState()` can run,
+then commits only the Rust backend service's returned control/receipt/result
+truth. `RuntimeAgentService::execute_runtime_mcp_live_backend()` now binds the
+actual driver-result hash into the public result payload, recomputes the result
+payload hash, updates the control and receipt hash bindings, and records
+`runtime_mcp_live_backend_driver_result_hash` plus
+`runtime_mcp_live_backend_rust_driver_executed` evidence before JS can persist
+or replay live-result truth. Tests and conformance guard the
+backend-execution-before-receipt/result-commit order, the old planner-direct
+payload hash no longer remains terminal, and missing backend execution now fails
+closed before any live-exit receipt-state or result-state commit. This remains
+non-terminal because stable SDK/IDE/CLI protocol APIs over Rust replay records
+and broader MCP serve admission still need to close.
 
 ## Final Doctrine
 

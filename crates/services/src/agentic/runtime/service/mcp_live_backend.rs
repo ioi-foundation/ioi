@@ -82,6 +82,8 @@ pub struct RuntimeMcpLiveBackendExecutionRecord {
     pub backend_execution: Value,
     pub driver_result: Value,
     pub driver_result_hash: String,
+    pub control: Value,
+    pub receipt: Value,
     pub result: Value,
     pub evidence_refs: Vec<String>,
 }
@@ -346,6 +348,12 @@ fn build_execution_record(
             Value::String(driver_result_hash.clone()),
         );
     }
+    let bound_truth = bind_planned_truth_to_driver_execution(
+        request,
+        &backend_execution,
+        &driver_result_hash,
+        &driver_result,
+    );
     RuntimeMcpLiveBackendExecutionRecord {
         source: "rust_mcp_live_backend_execution_api".to_string(),
         backend: "rust_mcp_live_backend".to_string(),
@@ -365,11 +373,9 @@ fn build_execution_record(
         backend_execution,
         driver_result: driver_result.clone(),
         driver_result_hash: driver_result_hash.clone(),
-        result: bind_planned_result_to_driver_execution(
-            &request.planned_result,
-            &driver_result_hash,
-            &driver_result,
-        ),
+        control: bound_truth.control,
+        receipt: bound_truth.receipt,
+        result: bound_truth.result,
         evidence_refs: vec![
             "runtime_mcp_live_backend_rust_driver_executed".to_string(),
             "runtime_mcp_live_backend_actual_mcp_manager_io".to_string(),
@@ -378,14 +384,50 @@ fn build_execution_record(
     }
 }
 
-fn bind_planned_result_to_driver_execution(
-    planned_result: &Value,
+struct BoundLiveBackendTruth {
+    control: Value,
+    receipt: Value,
+    result: Value,
+}
+
+fn bind_planned_truth_to_driver_execution(
+    request: &RuntimeMcpLiveBackendExecutionRequest,
+    backend_execution: &Value,
     driver_result_hash: &str,
     driver_result: &Value,
-) -> Value {
-    let mut result = planned_result.clone();
+) -> BoundLiveBackendTruth {
+    let mut control = request.control.clone();
+    let mut receipt = request.receipt.clone();
+    let mut result = request.planned_result.clone();
+    let payload_hash = bind_planned_result_to_driver_execution(
+        &mut result,
+        backend_execution,
+        driver_result_hash,
+        driver_result,
+    );
+    bind_live_backend_control(&mut control, &payload_hash, driver_result_hash);
+    bind_live_backend_receipt(&mut receipt, &payload_hash, driver_result_hash);
+    BoundLiveBackendTruth {
+        control,
+        receipt,
+        result,
+    }
+}
+
+fn bind_planned_result_to_driver_execution(
+    result: &mut Value,
+    backend_execution: &Value,
+    driver_result_hash: &str,
+    driver_result: &Value,
+) -> String {
+    let payload_hash = bind_result_payload_to_driver_execution(
+        result,
+        backend_execution,
+        driver_result_hash,
+        driver_result,
+    );
     let Some(object) = result.as_object_mut() else {
-        return planned_result.clone();
+        return payload_hash;
     };
     ensure_string_array_entry(
         object,
@@ -425,7 +467,119 @@ fn bind_planned_result_to_driver_execution(
             .cloned()
             .unwrap_or(Value::String("unknown".to_string())),
     );
-    result
+    details.insert(
+        "payload_hash".to_string(),
+        Value::String(payload_hash.clone()),
+    );
+    details.insert(
+        "result_payload_hash".to_string(),
+        Value::String(payload_hash.clone()),
+    );
+    payload_hash
+}
+
+fn bind_result_payload_to_driver_execution(
+    result: &mut Value,
+    backend_execution: &Value,
+    driver_result_hash: &str,
+    driver_result: &Value,
+) -> String {
+    let Some(result_object) = result.as_object_mut() else {
+        return String::new();
+    };
+    let payload = ensure_object(result_object, "payload");
+    payload.remove("payload_hash");
+    payload.remove("result_payload_hash");
+    payload.insert(
+        "runtime_mcp_live_backend_driver_result_hash".to_string(),
+        Value::String(driver_result_hash.to_string()),
+    );
+    payload.insert(
+        "driver_result_hash".to_string(),
+        Value::String(driver_result_hash.to_string()),
+    );
+    let payload_backend_execution = ensure_object(payload, "backend_execution");
+    payload_backend_execution.insert(
+        "driver_result_hash".to_string(),
+        Value::String(driver_result_hash.to_string()),
+    );
+    if let Some(method) = backend_execution.get("method").cloned() {
+        payload_backend_execution.insert("method".to_string(), method);
+    }
+    let protocol_result = ensure_object(payload, "protocol_result");
+    let structured_content = ensure_object(protocol_result, "structuredContent");
+    structured_content.insert(
+        "runtime_mcp_live_backend_driver_result_hash".to_string(),
+        Value::String(driver_result_hash.to_string()),
+    );
+    structured_content.insert(
+        "driver_result_hash".to_string(),
+        Value::String(driver_result_hash.to_string()),
+    );
+    if let Some(method) = driver_result.get("method").cloned() {
+        structured_content.insert("backend_method".to_string(), method);
+    }
+    let payload_hash = hash_json(&Value::Object(payload.clone()));
+    payload.insert(
+        "payload_hash".to_string(),
+        Value::String(payload_hash.clone()),
+    );
+    payload.insert(
+        "result_payload_hash".to_string(),
+        Value::String(payload_hash.clone()),
+    );
+    payload_hash
+}
+
+fn bind_live_backend_control(control: &mut Value, payload_hash: &str, driver_result_hash: &str) {
+    let Some(object) = control.as_object_mut() else {
+        return;
+    };
+    object.insert(
+        "runtime_mcp_live_result_payload_hash".to_string(),
+        Value::String(payload_hash.to_string()),
+    );
+    object.insert(
+        "runtime_mcp_live_backend_driver_result_hash".to_string(),
+        Value::String(driver_result_hash.to_string()),
+    );
+    object.insert(
+        "runtime_mcp_live_backend_execution_status".to_string(),
+        Value::String("rust_driver_executed".to_string()),
+    );
+}
+
+fn bind_live_backend_receipt(receipt: &mut Value, payload_hash: &str, driver_result_hash: &str) {
+    let Some(object) = receipt.as_object_mut() else {
+        return;
+    };
+    ensure_string_array_entry(
+        object,
+        "evidence_refs",
+        "runtime_mcp_live_backend_rust_driver_executed",
+    );
+    ensure_string_array_entry(
+        object,
+        "evidence_refs",
+        "runtime_mcp_live_backend_actual_mcp_manager_io",
+    );
+    let details = ensure_object(object, "details");
+    details.insert(
+        "result_payload_hash".to_string(),
+        Value::String(payload_hash.to_string()),
+    );
+    details.insert(
+        "runtime_mcp_live_backend_execution_status".to_string(),
+        Value::String("rust_driver_executed".to_string()),
+    );
+    details.insert(
+        "runtime_mcp_live_backend_execution_required".to_string(),
+        Value::Bool(true),
+    );
+    details.insert(
+        "runtime_mcp_live_backend_driver_result_hash".to_string(),
+        Value::String(driver_result_hash.to_string()),
+    );
 }
 
 fn ensure_object<'a>(object: &'a mut Map<String, Value>, key: &str) -> &'a mut Map<String, Value> {

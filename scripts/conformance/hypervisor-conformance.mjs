@@ -13246,6 +13246,9 @@ function runBridge() {
       /execute_tool_with_result/.test(runtimeMcpLiveBackendService) &&
       /list_admitted_tools_for_server/.test(runtimeMcpLiveBackendService) &&
       /runtime_mcp_live_backend_actual_mcp_manager_io/.test(runtimeMcpLiveBackendService) &&
+      /bind_live_backend_control/.test(runtimeMcpLiveBackendService) &&
+      /bind_live_backend_receipt/.test(runtimeMcpLiveBackendService) &&
+      /runtime_mcp_live_backend_driver_result_hash/.test(runtimeMcpLiveBackendService) &&
       /_child:\s*Mutex<tokio::process::Child>/.test(mcpTransportCore) &&
       /normalizeMcpLiveResultReplayApiResult/.test(runtimeContextPolicyCore) &&
       /normalizeMcpLiveBackendExecutionApiResult/.test(runtimeContextPolicyCore) &&
@@ -13629,6 +13632,15 @@ function runBridge() {
       /runtime_mcp_backend_execution_status/.test(runtimeMcpControlSurface) &&
       /runtime_mcp_live_backend_execution_status/.test(runtimeMcpControlSurface) &&
       /runtime_mcp_live_backend_rust_driver_executed/.test(runtimeMcpControlSurface) &&
+      /runtime_mcp_live_backend_driver_result_hash/.test(runtimeMcpControlSurface) &&
+      /control:\s*executedControl/.test(runtimeMcpControlSurface) &&
+      /receipt:\s*executedReceipt/.test(runtimeMcpControlSurface) &&
+      /const backendExecutionState = executeRuntimeMcpLiveBackend\([\s\S]*?const resultRecord = objectRecordDep\(backendExecutionState\?\.record\) \?\? record;[\s\S]*?const receiptState = persistRuntimeMcpLiveReceipt/.test(
+        runtimeMcpControlSurface,
+      ) &&
+      !/const receiptState = persistRuntimeMcpLiveReceipt[\s\S]*?const backendExecutionState = executeRuntimeMcpLiveBackend/.test(
+        runtimeMcpControlSurface,
+      ) &&
       /payload\.backend_execution/.test(runtimeMcpControlSurface) &&
       /live_backend_execution:\s*backendExecutionState\?\.execution \?\? null/.test(
         runtimeMcpControlSurface,
@@ -29720,6 +29732,9 @@ function runCompositor() {
 		    /execute_tool_with_result/.test(runtimeMcpLiveBackendService) &&
 		    /list_admitted_tools_for_server/.test(runtimeMcpLiveBackendService) &&
 		    /runtime_mcp_live_backend_actual_mcp_manager_io/.test(runtimeMcpLiveBackendService) &&
+		    /bind_live_backend_control/.test(runtimeMcpLiveBackendService) &&
+		    /bind_live_backend_receipt/.test(runtimeMcpLiveBackendService) &&
+		    /runtime_mcp_live_backend_driver_result_hash/.test(runtimeMcpLiveBackendService) &&
 		    /runtime_mcp_live_backend_executes_tool_call_through_mcp_manager/.test(
 		      runtimeMcpLiveBackendService,
 		    ) &&
@@ -29815,6 +29830,15 @@ function runCompositor() {
 	    /runtime_mcp_backend_execution_status/.test(runtimeMcpControlSurface) &&
 	    /runtime_mcp_live_backend_execution_status/.test(runtimeMcpControlSurface) &&
 	    /runtime_mcp_live_backend_rust_driver_executed/.test(runtimeMcpControlSurface) &&
+	    /runtime_mcp_live_backend_driver_result_hash/.test(runtimeMcpControlSurface) &&
+	    /control:\s*executedControl/.test(runtimeMcpControlSurface) &&
+	    /receipt:\s*executedReceipt/.test(runtimeMcpControlSurface) &&
+	    /const backendExecutionState = executeRuntimeMcpLiveBackend\([\s\S]*?const resultRecord = objectRecordDep\(backendExecutionState\?\.record\) \?\? record;[\s\S]*?const receiptState = persistRuntimeMcpLiveReceipt/.test(
+	      runtimeMcpControlSurface,
+	    ) &&
+	    !/const receiptState = persistRuntimeMcpLiveReceipt[\s\S]*?const backendExecutionState = executeRuntimeMcpLiveBackend/.test(
+	      runtimeMcpControlSurface,
+	    ) &&
 	    /payload\.backend_execution/.test(runtimeMcpControlSurface) &&
 	    /live_backend_execution:\s*backendExecutionState\?\.execution \?\? null/.test(
 	      runtimeMcpControlSurface,
@@ -29847,13 +29871,13 @@ function runCompositor() {
       /runtime MCP live exits use Rust control admission before JS transport invocation/.test(
         runtimeMcpControlSurfaceTest,
       ) &&
-	      /runtime MCP live exits require Rust live backend execution before result commit/.test(
+	      /runtime MCP live exits require Rust live backend execution before receipt\/result commit/.test(
 	        runtimeMcpControlSurfaceTest,
 	      ) &&
 	      /runtime MCP live exits reject pending Rust transport result materialization/.test(
 	        runtimeMcpControlSurfaceTest,
 	      ) &&
-	      /executeRuntimeMcpLiveBackend",\s*"commitRuntimeMcpLiveResultState"/.test(
+	      /"executeRuntimeMcpLiveBackend",\s*"commitRuntimeReceiptState",\s*"commitRuntimeMcpLiveResultState"/.test(
 	        runtimeMcpControlSurfaceTest,
 	      ) &&
 	    /runtime MCP live exits reject missing Rust MCP backend driver contract/.test(
