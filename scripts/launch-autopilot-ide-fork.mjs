@@ -25,10 +25,6 @@ const managedDaemonEnabled =
   !envFlag("AUTOPILOT_SKIP_DAEMON");
 const localModelDiscoveryEnabled =
   !envFlag("AUTOPILOT_SKIP_MODEL_AUTODISCOVERY");
-const runtimeBridgeEnabled =
-  !envFlag("AUTOPILOT_SKIP_RUNTIME_BRIDGE");
-const RUNTIME_BRIDGE_ID = "autopilot-ide-runtime-agent-service";
-const RUNTIME_BRIDGE_TIMEOUT_MS = "300000";
 const RUNTIME_COGNITION_INFERENCE_TIMEOUT_SECS = "140";
 const RUNTIME_BRIDGE_ROUTE_ID = "route.local-first";
 const DEFAULT_NATIVE_LLAMA_CPP_CONTEXT_LENGTH = 16384;
@@ -60,15 +56,6 @@ const DAEMON_SCOPES = [
   "provider.control:provider.lmstudio",
   "provider.control:provider.ollama",
 ];
-
-function defaultRuntimeBridgeBinary() {
-  return resolve(
-    repoRoot,
-    "target",
-    "debug",
-    process.platform === "win32" ? "ioi-runtime-bridge.exe" : "ioi-runtime-bridge",
-  );
-}
 
 function firstNonEmptyEnv(names) {
   for (const name of names) {
@@ -240,102 +227,6 @@ function configureNativeLlamaCppEnvDefaults() {
     process.env.IOI_LLAMA_CPP_MODEL_PATH = modelPath;
   }
   return { serverPath, modelPath };
-}
-
-function ensureDefaultRuntimeBridgeBinary(command) {
-  if (existsSync(command)) return true;
-  if (envFlag("AUTOPILOT_SKIP_RUNTIME_BRIDGE_BUILD")) return false;
-  console.log(
-    `[Autopilot IDE] Building RuntimeAgentService bridge at ${command}.`,
-  );
-  const result = spawnSync(
-    "cargo",
-    [
-      "build",
-      "-p",
-      "ioi-node",
-      "--bin",
-      "ioi-runtime-bridge",
-      "--features",
-      "local-mode",
-    ],
-    {
-      cwd: repoRoot,
-      env: process.env,
-      stdio: "inherit",
-    },
-  );
-  return result.status === 0 && existsSync(command);
-}
-
-function configureRuntimeBridgeEnv(stateDir) {
-  if (!runtimeBridgeEnabled) {
-    return { configured: false, reason: "disabled" };
-  }
-
-  const configuredCommand = firstNonEmptyEnv([
-    "IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND",
-    "IOI_RUNTIME_BRIDGE_COMMAND",
-  ]);
-  const command = configuredCommand ?? defaultRuntimeBridgeBinary();
-  if (!configuredCommand && !ensureDefaultRuntimeBridgeBinary(command)) {
-    console.warn(
-      `[Autopilot IDE] RuntimeAgentService bridge not found at ${command}; ` +
-        "runtime_service Studio turns will fail until it is built with `cargo build -p ioi-node --bin ioi-runtime-bridge`.",
-    );
-    return { configured: false, reason: "missing_binary", command };
-  }
-
-  const dataDir = resolve(stateDir, "runtime-agent-service-bridge");
-  mkdirSync(dataDir, { recursive: true });
-  setRuntimeEnvDefault(
-    "IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND",
-    ["IOI_RUNTIME_BRIDGE_COMMAND"],
-    command,
-  );
-  setRuntimeEnvDefault(
-    "IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS",
-    ["IOI_RUNTIME_BRIDGE_ARGS"],
-    JSON.stringify(["--data-dir", dataDir, "--workspace", repoRoot]),
-  );
-  setRuntimeEnvDefault(
-    "IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID",
-    ["IOI_RUNTIME_BRIDGE_ID"],
-    RUNTIME_BRIDGE_ID,
-  );
-  setRuntimeEnvDefault(
-    "IOI_RUNTIME_AGENT_SERVICE_BRIDGE_TIMEOUT_MS",
-    ["IOI_RUNTIME_BRIDGE_TIMEOUT_MS"],
-    RUNTIME_BRIDGE_TIMEOUT_MS,
-  );
-  setRuntimeEnvDefault(
-    "IOI_COGNITION_INFERENCE_TIMEOUT_SECS",
-    [],
-    RUNTIME_COGNITION_INFERENCE_TIMEOUT_SECS,
-  );
-
-  return {
-    configured: true,
-    command: firstNonEmptyEnv([
-      "IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND",
-      "IOI_RUNTIME_BRIDGE_COMMAND",
-    ]),
-    dataDir,
-    bridgeId: firstNonEmptyEnv([
-      "IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID",
-      "IOI_RUNTIME_BRIDGE_ID",
-    ]),
-    timeoutMs: Number(
-      firstNonEmptyEnv([
-        "IOI_RUNTIME_AGENT_SERVICE_BRIDGE_TIMEOUT_MS",
-        "IOI_RUNTIME_BRIDGE_TIMEOUT_MS",
-      ]) ?? RUNTIME_BRIDGE_TIMEOUT_MS,
-    ),
-    cognitionTimeoutSecs: Number(
-      firstNonEmptyEnv(["IOI_COGNITION_INFERENCE_TIMEOUT_SECS"]) ??
-        RUNTIME_COGNITION_INFERENCE_TIMEOUT_SECS,
-    ),
-  };
 }
 
 function configureRuntimeBridgeInferenceEnv(endpoint, token, discovery) {
@@ -627,7 +518,6 @@ async function startManagedDaemon() {
   );
   mkdirSync(stateDir, { recursive: true });
   configureNativeLlamaCppEnvDefaults();
-  const runtimeBridge = configureRuntimeBridgeEnv(stateDir);
   const daemon = await startRuntimeDaemonService({ cwd: repoRoot, stateDir });
   const grant = await requestJson(daemon.endpoint, "/api/v1/tokens", {
     method: "POST",
@@ -644,7 +534,6 @@ async function startManagedDaemon() {
     endpoint: daemon.endpoint,
     stateDir: daemon.stateDir,
     modelDiscovery: discovery,
-    runtimeBridge,
     runtimeInference: {
       ...runtimeInference,
       token: runtimeInference.configured ? "redacted" : undefined,
@@ -658,12 +547,6 @@ async function startManagedDaemon() {
   console.log(
     `[Autopilot IDE] IOI daemon ready at ${daemon.endpoint}; discovered ${discovery.mounted.length} local model mount(s).`,
   );
-  if (runtimeBridge.configured) {
-    console.log(
-      `[Autopilot IDE] RuntimeAgentService bridge wired to ${runtimeBridge.command}; ` +
-        `inference route ${runtimeInference.routeId ?? "unconfigured"} model ${runtimeInference.modelId ?? "unconfigured"}.`,
-    );
-  }
   return { daemon, endpoint: daemon.endpoint, token: grant.token, discovery };
 }
 

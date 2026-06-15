@@ -3150,6 +3150,12 @@ function runBridge() {
   const runtimeDaemonService = exists("packages/runtime-daemon/src/service/runtime-daemon-service.mjs")
     ? read("packages/runtime-daemon/src/service/runtime-daemon-service.mjs")
     : "";
+  const nodeCargoToml = exists("crates/node/Cargo.toml")
+    ? read("crates/node/Cargo.toml")
+    : "";
+  const runtimeServicePolicy = exists("crates/services/src/agentic/runtime/service/policy.rs")
+    ? read("crates/services/src/agentic/runtime/service/policy.rs")
+    : "";
   const runtimeDaemonTopLevelGenericInvokerTest = exists("packages/runtime-daemon/src/runtime-daemon-top-level-generic-invoker.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-daemon-top-level-generic-invoker.test.mjs")
     : "";
@@ -4153,6 +4159,15 @@ function runBridge() {
     : "";
   const runtimeApiBridgeTest = exists("packages/runtime-daemon/src/runtime-api-bridge.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-api-bridge.test.mjs")
+    : "";
+  const runtimeAgentServiceInferenceHelper = exists("scripts/lib/autopilot-runtime-agent-service-inference.mjs")
+    ? read("scripts/lib/autopilot-runtime-agent-service-inference.mjs")
+    : "";
+  const autopilotIdeLauncher = exists("scripts/launch-autopilot-ide-fork.mjs")
+    ? read("scripts/launch-autopilot-ide-fork.mjs")
+    : "";
+  const agentStudioLiveValidation = exists("scripts/run-autopilot-agent-studio-live-gui-validation.mjs")
+    ? read("scripts/run-autopilot-agent-studio-live-gui-validation.mjs")
     : "";
   const runtimeAgentServiceBridgeBinary = exists("crates/node/src/bin/ioi-runtime-bridge.rs")
     ? read("crates/node/src/bin/ioi-runtime-bridge.rs")
@@ -11926,7 +11941,7 @@ function runBridge() {
       /plannerCalls\[1\]\.operationKind,\s*"turn\.interrupt"/.test(
         runtimeOperatorTurnControlFacadeTest,
       ) &&
-      /assert\.deepEqual\(runtimeBridgeCalls,\s*\[\]\)/.test(runtimeOperatorTurnControlFacadeTest) &&
+      !/runtimeBridgeCalls|runtimeBridge:\s*\{/.test(runtimeOperatorTurnControlFacadeTest) &&
       /typeof store\.interruptTurn,\s*"undefined"/.test(runtimeOperatorTurnControlFacadeTest) &&
       /runtime_control_action:\s*"cancel"/.test(runtimeOperatorTurnControlFacadeTest) &&
       /controlAction:\s*"cancel"/.test(runtimeOperatorTurnControlFacadeTest) &&
@@ -12050,7 +12065,7 @@ function runBridge() {
       /plannerCalls\[1\]\.operationKind,\s*"turn\.steer"/.test(
         runtimeOperatorTurnControlFacadeTest,
       ) &&
-      /assert\.deepEqual\(runtimeBridgeCalls,\s*\[\]\)/.test(runtimeOperatorTurnControlFacadeTest) &&
+      !/runtimeBridgeCalls|runtimeBridge:\s*\{/.test(runtimeOperatorTurnControlFacadeTest) &&
       /typeof store\.steerTurn,\s*"undefined"/.test(runtimeOperatorTurnControlFacadeTest) &&
       /idempotencyKey:\s*"operator_steer_idempotency_retired"/.test(
         runtimeOperatorTurnControlFacadeTest,
@@ -14584,7 +14599,7 @@ function runBridge() {
       /runtime thread-control integration proof seeds model routes through Rust route control/.test(
         runtimeThreadControlTest,
       ) &&
-      /commit_runtime_model_mount_record_state/.test(runtimeThreadControlTest) &&
+      /commitRuntimeModelMountRecordState/.test(runtimeThreadControlTest) &&
       /runtime-service thread creation uses Rust bridge-start planning before JS bridge dispatch/.test(
         runtimeThreadControlTest,
       ) &&
@@ -14634,38 +14649,54 @@ function runBridge() {
     "runtime-agent-service-command-adapter-retired",
     !exists("packages/runtime-daemon/src/runtime-agent-service-adapter.mjs") &&
       !exists("packages/runtime-daemon/src/runtime-agent-service-adapter.test.mjs") &&
+      !exists("packages/runtime-daemon/src/bridges/runtime-agent-bridge.mjs") &&
+      !exists("packages/runtime-daemon/src/bridges/runtime-agent-bridge.test.mjs") &&
+      !exists("crates/node/src/bin/ioi-runtime-bridge.rs") &&
+      !exists("scripts/run-autopilot-agent-studio-rust-agentic-runtime-parity-goal.mjs") &&
+      !exists("scripts/lib/autopilot-runtime-agent-service-bridge.mjs") &&
+      exists("scripts/lib/autopilot-runtime-agent-service-inference.mjs") &&
       !/runtime-agent-service-adapter\.mjs/.test(runtimeApiBridge) &&
       !/createRuntimeAgentServiceCommandAdapterFromEnv/.test(runtimeApiBridge) &&
+      !/createRuntimeApiBridge|class RuntimeApiBridge|RuntimeApiBridgeUnavailableError/.test(
+        runtimeApiBridge,
+      ) &&
       !/IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND|IOI_RUNTIME_BRIDGE_COMMAND/.test(
         runtimeApiBridge,
       ) &&
-      /return new RuntimeApiBridge\(adapter\);/.test(runtimeApiBridge) &&
-      /RuntimeApiBridge no longer auto-configures command transport from env/.test(
+      /runtime service adapter surface is retired/.test(runtimeApiBridgeTest) &&
+      !/IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND|IOI_RUNTIME_BRIDGE_COMMAND|ioi-runtime-bridge/.test(
         runtimeApiBridgeTest,
       ) &&
-      /IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND/.test(runtimeApiBridgeTest) &&
-      /IOI_RUNTIME_BRIDGE_COMMAND/.test(runtimeApiBridgeTest) &&
-      /bridge\.canStartThread,\s*false/.test(runtimeApiBridgeTest) &&
-      /bridge\.canSubmitTurn,\s*false/.test(runtimeApiBridgeTest) &&
-      /bridge\.canInspectThread,\s*false/.test(runtimeApiBridgeTest) &&
-      /bridge\.canControlThread,\s*false/.test(runtimeApiBridgeTest) &&
-      /RuntimeApiBridgeUnavailableError/.test(runtimeApiBridgeTest) &&
-      !/alias\s*=\s*"(?:schemaVersion|bridgeId|runtime_profile|agent_id|thread_id|workspace_root|created_at|session_id|streamed_events_only|streamEventsOnly|stream_events_only|projection_mode|managed_sessions_only|request_hash|managed_session_id|change_id|workspaceChangeId)"/.test(
-        runtimeAgentServiceBridgeBinary,
+      /Object\.hasOwn\(runtimeProfile,\s*exportName\),\s*false/.test(
+        runtimeApiBridgeTest,
       ) &&
-      /rejects_retired_bridge_request_aliases/.test(runtimeAgentServiceBridgeBinary) &&
-      /rejects_retired_runtime_bridge_input_aliases/.test(
-        runtimeAgentServiceBridgeBinary,
+      /runtimeBridge is retired/.test(runtimeDaemonIndex) &&
+      /runtimeBridge is retired/.test(runtimeDaemonService) &&
+      !/name\s*=\s*"ioi-runtime-bridge"/.test(nodeCargoToml) &&
+      !/IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ALLOW_COMMANDS|IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID|allow-runtime-bridge/.test(
+        runtimeServicePolicy,
       ) &&
-      /ignores_retired_optional_runtime_bridge_input_aliases/.test(
-        runtimeAgentServiceBridgeBinary,
+      !/configureRuntimeAgentServiceBridgeEnv|IOI_RUNTIME_AGENT_SERVICE_BRIDGE|runtime-bridge-env|runtimeBridgeAllowCommands/.test(
+        runtimeAgentServiceInferenceHelper,
+      ) &&
+      !/configureRuntimeBridgeEnv|RuntimeAgentService bridge wired|runtimeBridge/.test(
+        autopilotIdeLauncher,
+      ) &&
+      !/configureRuntimeAgentServiceBridgeEnv|runtimeBridgeAllowCommands|IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ALLOW_COMMANDS|runtime-bridge-env/.test(
+        agentStudioLiveValidation,
       ),
     [
       "packages/runtime-daemon/src/runtime-api-bridge.mjs",
       "packages/runtime-daemon/src/runtime-api-bridge.test.mjs",
-      "crates/node/src/bin/ioi-runtime-bridge.rs",
+      "packages/runtime-daemon/src/index.mjs",
+      "packages/runtime-daemon/src/service/runtime-daemon-service.mjs",
+      "crates/node/Cargo.toml",
+      "crates/services/src/agentic/runtime/service/policy.rs",
+      "scripts/lib/autopilot-runtime-agent-service-inference.mjs",
+      "scripts/launch-autopilot-ide-fork.mjs",
+      "scripts/run-autopilot-agent-studio-live-gui-validation.mjs",
     ],
-    "Phase 10/11 is pending: RuntimeApiBridge must remain injected-only while the retired JS RuntimeAgentService command adapter stays absent until direct Rust daemon-core APIs replace bridge transport",
+    "RuntimeAgentService command transport must stay retired: no JS adapter export, bridge helper, bridge env fallback, Cargo bridge binary, or runtimeBridge service option may return",
   );
   assertCheck(
     result,
@@ -14751,10 +14782,8 @@ function runBridge() {
       /Thread create wrapper rejects retired option aliases before transport/.test(
         agentSdkTest,
       ) &&
-      /request:\s*\{\s*runtime_profile:\s*"runtime_service"\s*\}/.test(
-        agentSdkComputerUseTest,
-      ) &&
-      !/runtimeProfile:\s*"runtime_service"/.test(agentSdkComputerUseTest),
+      /Object\.hasOwn\(body,\s*"runtimeProfile"\),\s*false/.test(agentSdkTest) &&
+      /Object\.hasOwn\(body,\s*"maxSteps"\),\s*false/.test(agentSdkTest),
     [
       "packages/agent-sdk/src/substrate-client.ts",
       "packages/agent-sdk/src/thread.ts",

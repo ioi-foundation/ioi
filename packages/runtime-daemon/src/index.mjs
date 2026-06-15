@@ -21,9 +21,6 @@ import {
   codingToolInputSummary,
 } from "./coding-tools.mjs";
 import {
-  createRuntimeApiBridge,
-} from "./runtime-api-bridge.mjs";
-import {
   agentIdForThread,
   eventStreamIdForThread,
   fixtureProfileForAgent,
@@ -139,10 +136,6 @@ import { createRuntimeWorkspaceRestoreCore } from "./runtime-workspace-restore-c
 import { createRuntimeAgentRunLifecycleSurface } from "./runtime-agent-run-lifecycle.mjs";
 import { createRuntimeRepositorySurface } from "./runtime-repository-surface.mjs";
 import { startRuntimeDaemonServiceWithStore } from "./service/runtime-daemon-service.mjs";
-import {
-  assertRuntimeBridgeAvailable as assertRuntimeBridgeAvailableState,
-  runtimeBridgeUnavailable as runtimeBridgeUnavailableState,
-} from "./bridges/runtime-agent-bridge.mjs";
 import {
   branchPolicyForRepositoryContext,
   emptyToNull,
@@ -589,7 +582,9 @@ export class AgentgresRuntimeStateStore {
     this.runtimeEventStreams = new Map();
     this.codingArtifacts = new Map();
     this.conversationArtifacts = new ConversationArtifactStore(this.stateDir);
-    this.runtimeBridge = createRuntimeApiBridge(options.runtimeBridge);
+    if (Object.hasOwn(options, "runtimeBridge")) {
+      throw new Error("runtimeBridge is retired; use typed Rust daemon-core lifecycle APIs for runtime-service execution.");
+    }
     if (Object.hasOwn(options, "daemonCoreInvoker")) {
       throw new Error("daemonCoreInvoker is retired; pass typed Rust daemon-core APIs for the authority boundary.");
     }
@@ -1098,18 +1093,6 @@ export class AgentgresRuntimeStateStore {
 
   getThread(threadId) {
     return this.threadForAgent(this.agentForThread(threadId));
-  }
-
-  assertRuntimeBridgeAvailable({ runtimeProfile, operation }) {
-    return assertRuntimeBridgeAvailableState(this.runtimeBridge, { runtimeProfile, operation }, {
-      externalBlocker,
-    });
-  }
-
-  runtimeBridgeUnavailable({ runtimeProfile, operation, details = {} }) {
-    return runtimeBridgeUnavailableState({ runtimeProfile, operation, details }, {
-      externalBlocker,
-    });
   }
 
   listTurns(threadId) {

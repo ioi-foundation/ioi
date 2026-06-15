@@ -24,9 +24,8 @@ import {
 import { applyAutopilotWorkbenchShellPatch } from "./lib/autopilot-workbench-shell-patch.mjs";
 import {
   bootstrapNativeRuntimeModelRoute,
-  configureRuntimeAgentServiceBridgeEnv,
   configureRuntimeAgentServiceInferenceEnv,
-} from "./lib/autopilot-runtime-agent-service-bridge.mjs";
+} from "./lib/autopilot-runtime-agent-service-inference.mjs";
 
 const repoRoot = AUTOPILOT_ELECTRON.repoRoot;
 const MASTER_GUIDE = ".internal/plans/autopilot-electron-agent-studio-runtime-cockpit-parity-master-guide.md";
@@ -887,15 +886,6 @@ async function runValidation(outputDir) {
   writeFileSync(join(outputDir, "shell-patch.json"), `${JSON.stringify(shellPatch, null, 2)}\n`);
 
   const daemonStateDir = mkdtempSync(join(tmpdir(), "autopilot-agent-studio-hardening-daemon-"));
-  const runtimeBridge = configureRuntimeAgentServiceBridgeEnv({
-    repoRoot,
-    stateDir: daemonStateDir,
-    overwrite: true,
-  });
-  writeFileSync(join(outputDir, "runtime-bridge-env.json"), `${JSON.stringify(runtimeBridge, null, 2)}\n`);
-  if (!runtimeBridge.configured) {
-    throw new Error(`RuntimeAgentService bridge could not be configured: ${runtimeBridge.reason || "unknown"}`);
-  }
   let daemon;
   let daemonModelToken;
   try {

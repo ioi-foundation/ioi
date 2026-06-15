@@ -23,9 +23,8 @@ import {
 import { applyAutopilotWorkbenchShellPatch } from "./autopilot-workbench-shell-patch.mjs";
 import {
   bootstrapNativeRuntimeModelRoute,
-  configureRuntimeAgentServiceBridgeEnv,
   configureRuntimeAgentServiceInferenceEnv,
-} from "./autopilot-runtime-agent-service-bridge.mjs";
+} from "./autopilot-runtime-agent-service-inference.mjs";
 import { collectDaemonRuntimeTraceSummaryBestEffort } from "./agent-studio-live-gui-validation/trace-summary.mjs";
 
 const repoRoot = AUTOPILOT_ELECTRON.repoRoot;
@@ -440,14 +439,6 @@ async function runProof(outputDir) {
   const daemonStateDir = mkdtempSync(join(tmpdir(), "autopilot-stage5-stop-hook-repair-gui-daemon-"));
   const stage5FixtureStateDir = join(daemonStateDir, "stage5-stop-hook-repair-state");
   process.env.IOI_STAGE5_STOP_HOOK_REPAIR_STATE_DIR = stage5FixtureStateDir;
-  configureRuntimeAgentServiceBridgeEnv({
-    repoRoot,
-    stateDir: daemonStateDir,
-    workspaceRoot: repoRoot,
-    env: process.env,
-    overwrite: true,
-    build: true,
-  });
   const daemon = await startRuntimeDaemonService({ cwd: repoRoot, stateDir: daemonStateDir });
   const token = await createDaemonModelInvocationToken(daemon.endpoint);
   const runtimeModelRoute = await bootstrapNativeRuntimeModelRoute({

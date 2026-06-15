@@ -23,17 +23,6 @@ function fakeStore({ contextPolicyCore = {}, appendRuntimeEvent = null } = {}) {
     agentForThread(thread_id) {
       assert.fail(`managed session state must not read JS agent truth: ${thread_id}`);
     },
-    assertRuntimeBridgeAvailable(input) {
-      assert.fail(`managed session state must not assert JS bridge availability: ${JSON.stringify(input)}`);
-    },
-    runtimeBridge: {
-      inspectThread(input) {
-        assert.fail(`managed session inspection bridge dispatch must not run: ${JSON.stringify(input)}`);
-      },
-      controlThread(input) {
-        assert.fail(`managed session control bridge dispatch must not run: ${JSON.stringify(input)}`);
-      },
-    },
   };
 }
 

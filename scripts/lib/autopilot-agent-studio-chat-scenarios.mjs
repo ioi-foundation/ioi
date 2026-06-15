@@ -1164,7 +1164,6 @@ export const AGENT_STUDIO_CHAT_SCENARIOS = {
     requireAgentModeReply: true,
     pendingWorklogTimeoutMs: 45_000,
     requirePendingWorklog: true,
-    runtimeBridgeAllowCommands: ["node"],
     requireAgentTraceToolNames: [
       "file__read",
       "file__edit",
@@ -1254,7 +1253,6 @@ export const AGENT_STUDIO_CHAT_SCENARIOS = {
     requireAgentTraceToolNames: ["shell__run", "chat__reply"],
     requireAgentTraceToolSuccessNames: ["shell__run", "chat__reply"],
     requireNoAgentTraceToolFailuresFor: ["shell__run"],
-    runtimeBridgeAllowCommands: ["node", "cargo"],
   },
   "stage7-shell-policy-denial-recovery": {
     id: "stage7-shell-policy-denial-recovery",
@@ -1330,7 +1328,6 @@ export const AGENT_STUDIO_CHAT_SCENARIOS = {
     requireAgentTraceToolNames: ["shell__run", "chat__reply"],
     requireAgentTraceToolSuccessNames: ["shell__run", "chat__reply"],
     requireNoAgentTraceToolFailuresFor: ["shell__run"],
-    runtimeBridgeAllowCommands: ["node"],
     runtimeProcessEnv: {
       IOI_STAGE72_SECRET_TOKEN: "stage72-secret-should-not-leak",
     },
@@ -1350,7 +1347,6 @@ export const AGENT_STUDIO_CHAT_SCENARIOS = {
     requireAgentTraceToolNames: ["shell__run", "chat__reply"],
     requireAgentTraceToolSuccessNames: ["shell__run", "chat__reply"],
     requireNoAgentTraceToolFailuresFor: ["shell__run"],
-    runtimeBridgeAllowCommands: ["node"],
   },
   "stage9-timeout-denial-shell-probe": {
     id: "stage9-timeout-denial-shell-probe",
@@ -1366,7 +1362,6 @@ export const AGENT_STUDIO_CHAT_SCENARIOS = {
     allowAgentFinalHandoffStream: true,
     allowNoModelInvocationReceipt: true,
     requireAgentTraceToolNames: ["shell__run", "chat__reply"],
-    runtimeBridgeAllowCommands: ["sleep"],
   },
   "stage9-output-cap-shell-probe": {
     id: "stage9-output-cap-shell-probe",
@@ -1383,7 +1378,6 @@ export const AGENT_STUDIO_CHAT_SCENARIOS = {
     requireAgentTraceToolNames: ["shell__run", "chat__reply"],
     requireAgentTraceToolSuccessNames: ["shell__run", "chat__reply"],
     requireNoAgentTraceToolFailuresFor: ["shell__run"],
-    runtimeBridgeAllowCommands: ["node"],
   },
   "stage10-symlink-boundary-denial": {
     id: "stage10-symlink-boundary-denial",
@@ -1490,7 +1484,6 @@ export const AGENT_STUDIO_CHAT_SCENARIOS = {
     allowApprovalPause: true,
     requireNoDocumentedWorkForAgent: false,
     requireAgentModeReply: true,
-    runtimeBridgeAllowCommands: ["node"],
     requireAgentTraceToolNames: ["shell__cd", "shell__run", "shell__start", "shell__status", "shell__input", "shell__terminate", "shell__reset", "software_install__resolve", "software_install__execute_plan", "chat__reply"],
     requireAgentTraceToolSuccessNames: ["chat__reply"],
   },
@@ -1506,7 +1499,6 @@ export const AGENT_STUDIO_CHAT_SCENARIOS = {
     allowApprovalPause: true,
     requireNoDocumentedWorkForAgent: false,
     requireAgentModeReply: true,
-    runtimeBridgeAllowCommands: ["node"],
     requireAgentTraceToolNames: ["shell__cd", "shell__start", "shell__status", "shell__input", "shell__terminate", "shell__reset", "chat__reply"],
     requireAgentTraceToolSuccessNames: ["shell__cd", "shell__start", "shell__status", "shell__input", "shell__terminate", "shell__reset", "chat__reply"],
     requireNoAgentTraceToolFailuresFor: ["shell__cd", "shell__start", "shell__status", "shell__input", "shell__terminate", "shell__reset"],
@@ -1525,7 +1517,6 @@ export const AGENT_STUDIO_CHAT_SCENARIOS = {
     requireAgentModeReply: true,
     pendingWorklogTimeoutMs: 45_000,
     requirePendingWorklog: true,
-    runtimeBridgeAllowCommands: ["node"],
     requireAgentTraceToolNames: ["shell__start", "shell__status", "shell__input", "shell__terminate", "shell__reset", "chat__reply"],
     requireAgentTraceToolSuccessNames: ["shell__start", "shell__status", "shell__input", "shell__terminate", "shell__reset", "chat__reply"],
     requireNoAgentTraceToolFailuresFor: ["shell__start", "shell__status", "shell__input", "shell__terminate", "shell__reset"],
@@ -1552,7 +1543,6 @@ export const AGENT_STUDIO_CHAT_SCENARIOS = {
     requireWorkLaneExcerptTextAll: ["glassbox-tick-", "Ran Node.js command"],
     requireNoPendingAfterCompletion: true,
     captureNoPendingAfterCompletion: true,
-    runtimeBridgeAllowCommands: ["node"],
     requireAgentTraceToolNames: ["shell__run", "chat__reply"],
     requireAgentTraceToolSuccessNames: ["shell__run", "chat__reply"],
     requireNoAgentTraceToolFailuresFor: ["shell__run"],
@@ -1722,7 +1712,6 @@ export const AGENT_STUDIO_CHAT_SCENARIOS = {
     requireConversationArtifactProof: true,
     allowAgentArtifactSourceStream: true,
     allowNoModelInvocationReceipt: true,
-    runtimeBridgeAllowCommands: ["node"],
     requireManagedSessionViewportProof: true,
     requireAgentTraceToolNames: [
       "web__search",

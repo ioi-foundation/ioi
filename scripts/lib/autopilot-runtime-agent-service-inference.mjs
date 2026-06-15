@@ -1,4 +1,3 @@
-import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import {
@@ -7,8 +6,6 @@ import {
   nativeLlamaCppContextLength,
 } from "./native-llama-cpp-discovery.mjs";
 
-export const DEFAULT_RUNTIME_BRIDGE_ID = "autopilot-ide-runtime-agent-service";
-export const DEFAULT_RUNTIME_BRIDGE_TIMEOUT_MS = 300_000;
 export const DEFAULT_RUNTIME_COGNITION_TIMEOUT_SECS = 140;
 export const DEFAULT_RUNTIME_MODEL_ID = "stories260k";
 export const DEFAULT_RUNTIME_ENDPOINT_ID = "endpoint.stories260k";
@@ -18,15 +15,6 @@ export const DEFAULT_RUNTIME_BACKEND_ID = "backend.autopilot.native-local.fixtur
 
 function truthyEnv(value) {
   return /^(1|true|yes|on)$/i.test(String(value || "").trim());
-}
-
-export function defaultRuntimeBridgeBinary(repoRoot) {
-  return resolve(
-    repoRoot,
-    "target",
-    "debug",
-    process.platform === "win32" ? "ioi-runtime-bridge.exe" : "ioi-runtime-bridge",
-  );
 }
 
 export function firstNonEmptyEnv(env, names) {
@@ -44,113 +32,6 @@ function setEnvValue(env, primaryName, aliasNames, value, { overwrite = false } 
   if (!overwrite && firstNonEmptyEnv(env, [primaryName, ...aliasNames])) return false;
   env[primaryName] = String(value);
   return true;
-}
-
-export function ensureDefaultRuntimeBridgeBinary({
-  repoRoot,
-  command = defaultRuntimeBridgeBinary(repoRoot),
-  env = process.env,
-  build = true,
-  stdio = "inherit",
-} = {}) {
-  if (!build && existsSync(command)) {
-    return { ok: true, built: false, command };
-  }
-  if (!build) {
-    return { ok: false, built: false, command, reason: "missing_binary" };
-  }
-  const result = spawnSync(
-    "cargo",
-    [
-      "build",
-      "-p",
-      "ioi-node",
-      "--bin",
-      "ioi-runtime-bridge",
-      "--features",
-      "local-mode",
-    ],
-    {
-      cwd: repoRoot,
-      env,
-      stdio,
-    },
-  );
-  return {
-    ok: result.status === 0 && existsSync(command),
-    built: true,
-    command,
-    status: result.status,
-    signal: result.signal,
-  };
-}
-
-export function configureRuntimeAgentServiceBridgeEnv({
-  repoRoot,
-  stateDir,
-  workspaceRoot = repoRoot,
-  env = process.env,
-  bridgeId = DEFAULT_RUNTIME_BRIDGE_ID,
-  timeoutMs = DEFAULT_RUNTIME_BRIDGE_TIMEOUT_MS,
-  overwrite = false,
-  build = true,
-} = {}) {
-  const configuredCommand = firstNonEmptyEnv(env, [
-    "IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND",
-    "IOI_RUNTIME_BRIDGE_COMMAND",
-  ]);
-  const command = configuredCommand ?? defaultRuntimeBridgeBinary(repoRoot);
-  const binary = configuredCommand
-    ? { ok: true, built: false, command }
-    : ensureDefaultRuntimeBridgeBinary({ repoRoot, command, env, build });
-  if (!binary.ok) {
-    return { configured: false, reason: binary.reason || "missing_binary", binary };
-  }
-
-  const dataDir = resolve(stateDir, "runtime-agent-service-bridge");
-  mkdirSync(dataDir, { recursive: true });
-  setEnvValue(env, "IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND", ["IOI_RUNTIME_BRIDGE_COMMAND"], command, { overwrite });
-  setEnvValue(
-    env,
-    "IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS",
-    ["IOI_RUNTIME_BRIDGE_ARGS"],
-    JSON.stringify(["--data-dir", dataDir, "--workspace", workspaceRoot]),
-    { overwrite },
-  );
-  setEnvValue(env, "IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID", ["IOI_RUNTIME_BRIDGE_ID"], bridgeId, { overwrite });
-  setEnvValue(
-    env,
-    "IOI_RUNTIME_AGENT_SERVICE_BRIDGE_TIMEOUT_MS",
-    ["IOI_RUNTIME_BRIDGE_TIMEOUT_MS"],
-    String(timeoutMs),
-    { overwrite },
-  );
-  setEnvValue(
-    env,
-    "IOI_COGNITION_INFERENCE_TIMEOUT_SECS",
-    [],
-    String(DEFAULT_RUNTIME_COGNITION_TIMEOUT_SECS),
-    { overwrite: false },
-  );
-
-  return {
-    configured: true,
-    command: firstNonEmptyEnv(env, ["IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND", "IOI_RUNTIME_BRIDGE_COMMAND"]),
-    dataDir,
-    workspaceRoot,
-    bridgeId: firstNonEmptyEnv(env, ["IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID", "IOI_RUNTIME_BRIDGE_ID"]),
-    timeoutMs: Number(
-      firstNonEmptyEnv(env, [
-        "IOI_RUNTIME_AGENT_SERVICE_BRIDGE_TIMEOUT_MS",
-        "IOI_RUNTIME_BRIDGE_TIMEOUT_MS",
-      ]) ?? timeoutMs,
-    ),
-    cognitionTimeoutSecs: Number(
-      firstNonEmptyEnv(env, ["IOI_COGNITION_INFERENCE_TIMEOUT_SECS"]) ??
-        DEFAULT_RUNTIME_COGNITION_TIMEOUT_SECS,
-    ),
-    binary,
-  };
 }
 
 export function configureRuntimeAgentServiceInferenceEnv({

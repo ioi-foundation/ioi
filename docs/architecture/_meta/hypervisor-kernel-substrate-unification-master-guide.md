@@ -181,7 +181,7 @@ The repo also contains extensive product-facing Hypervisor daemon infrastructure
 | Approval routes | `packages/runtime-daemon/src/runtime-route-handlers.mjs` exposes thread approvals, tool invocation, events, replay, trace, and inspect routes. | The daemon owns product UX/control surfaces. |
 | Runtime event envelopes | `packages/runtime-daemon/src/runtime-event-envelopes.mjs` maps runtime events into workflow-node, component-kind, receipt-ref, artifact-ref, policy-ref projections. | The daemon already has the projection vocabulary needed by the IDE. |
 | Model mounting | `packages/runtime-daemon/src/model-mounting/*` stores model artifacts, routes, providers, instances, vault refs, receipts, and projections. | Model mounting is currently product-daemon state, with Agentgres-like receipt/operation hooks. |
-| Retired runtime-service command bridge | The old JS RuntimeAgentService command adapter is retired; `RuntimeApiBridge` is injected-only and does not auto-configure command transport from env. | Runtime-service execution must return through stable Rust daemon-core protocol/API ownership, not a revived Node command bridge. |
+| Retired runtime-service command bridge | The old JS RuntimeAgentService command adapter, `RuntimeApiBridge` adapter surface, `ioi-runtime-bridge` binary, bridge env policy overrides, and deleted runtime-service helper are retired. The daemon rejects `runtimeBridge` options. | Runtime-service execution must return through stable Rust daemon-core protocol/API ownership, not a revived Node command/env or binary bridge. |
 
 The architecture docs already name the intended boundaries:
 
@@ -4381,7 +4381,7 @@ construction, or no execution.
 
 Likely files/modules:
 
-- `packages/runtime-daemon/src/runtime-api-bridge.mjs` as an injected-only edge that must stay non-authoritative until direct Rust daemon-core runtime-service APIs replace bridge transport
+- `packages/runtime-daemon/src/runtime-api-bridge.mjs` as a runtime-profile helper with the adapter surface retired until direct Rust daemon-core runtime-service APIs replace bridge transport
 - `packages/runtime-daemon/src/runtime-route-handlers.mjs`
 - `packages/runtime-daemon/src/coding-tools.mjs`
 - `crates/client/src/workload_client/mod.rs`
@@ -6038,23 +6038,14 @@ The intended long-term shape is direct Rust daemon-core thread-control
 admission, Agentgres expected-head/state-root binding, replay, projection, and
 stable protocol APIs without compatibility request aliases.
 
-Slice 1081 retires RuntimeAgentService bridge command/input alias tolerance at
-both migration edges. The JS command adapter now rejects retired operation
-payload aliases such as `threadId`, `sessionId`, `managedSessionId`,
-`streamEventsOnly`, `requestHash`, and `workspaceChangeId` before spawning the
-bridge command. The Rust `ioi-runtime-bridge` binary now deserializes only the
-canonical `schema_version`, `bridge_id`, `thread_id`, `session_id`,
-`runtime_profile`, `workspace_root`, `streamed_events_only`,
-`managed_sessions_only`, `request_hash`, `managed_session_id`, and `change_id`
-fields.
-
-Conformance now fails if the RuntimeAgentService adapter stops rejecting
-retired input aliases or if the Rust bridge binary regains serde alias
-tolerance for those bridge command/input fields. This still does not make the
-RuntimeAgentService bridge terminal architecture: it remains fixed migration
-transport until direct Rust daemon-core runtime thread/turn/control APIs own
-admission, execution dispatch, persistence, replay, projection, wallet/cTEE
-policy, and Agentgres expected-head/state-root binding.
+Slice 1081 retired RuntimeAgentService bridge command/input alias tolerance at
+both migration edges while the bridge still existed. Slice 1251 supersedes that
+interim guard: the JS command adapter, Rust bridge binary, bridge env policy
+override, and bridge-backed proof scripts are now deleted. Runtime-service
+execution remains non-terminal until direct Rust daemon-core runtime
+thread/turn/control APIs own admission, execution dispatch, persistence,
+replay, projection, wallet/cTEE policy, and Agentgres expected-head/state-root
+binding.
 
 Slice 1082 retires the daemon-store thread-turn and thread-control compatibility
 delegates that remained after public routes moved to mounted surfaces. The
@@ -6290,22 +6281,13 @@ bridge module, daemon index, and focused tests.
 This keeps the verifier aligned with the target architecture: deleted JS bridge
 projection bodies must not remain encoded as parse targets inside conformance.
 
-Slice 1092 retires the JS RuntimeAgentService command adapter itself. The
-daemon no longer imports or exports `runtime-agent-service-adapter.mjs`, the
-adapter module and positive command-spawn tests are deleted, and
-`RuntimeApiBridge` no longer auto-configures command transport from
-`IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND` or `IOI_RUNTIME_BRIDGE_COMMAND`.
-The API bridge is now injected-only and unavailable by default, so runtime
-service profiles cannot regain live execution through env-selected Node command
-transport.
-
-Conformance now fails if the retired adapter module/test return, if
-`RuntimeApiBridge` re-imports the adapter factory, or if env bridge command
-selection becomes a default runtime-service path again. The remaining
-`ioi-runtime-bridge` Rust binary evidence is historical alias-rejection guard
-coverage only; new positive runtime-service execution must land as direct Rust
-daemon-core admission, Agentgres expected-head/state-root binding, replay, and
-projection over stable protocol APIs.
+Slice 1092 retired the JS RuntimeAgentService command adapter. Slice 1251
+finishes the substrate cut: `RuntimeApiBridge` no longer exports an adapter
+class/factory, bridge command envs are absent from the profile helper, the
+`ioi-runtime-bridge` binary is deleted, and daemon startup rejects
+`runtimeBridge`. New positive runtime-service execution must land as direct
+Rust daemon-core admission, Agentgres expected-head/state-root binding, replay,
+and projection over stable protocol APIs.
 
 Slice 1093 retires the stale JS runtime-service bridge projection authoring
 that survived after the command adapter and runtime bridge facades were made
@@ -6322,6 +6304,16 @@ stay absent instead of merely proving their output uses canonical field names.
 Future positive runtime-service replay must be emitted by direct Rust
 daemon-core projection over Agentgres-admitted truth, not by resurrected JS
 bridge event shaping.
+
+Slice 1251 hard-retires the remaining RuntimeAgentService bridge substrate.
+`RuntimeApiBridge` no longer exports an adapter class/factory, the
+`ioi-runtime-bridge` binary and Cargo bin entry are deleted, the daemon and
+service reject `runtimeBridge` options, Rust service policy no longer reads
+bridge allow-command envs, Autopilot uses an inference/model-route helper
+instead of a bridge helper, and bridge-backed live proof scripts/tests are
+removed. Conformance now fails if the JS adapter export, bridge helper,
+command/env fallback, Cargo bridge binary, or runtimeBridge service option
+returns.
 
 Slice 1094 retires the standalone runtime bridge thread/turn/control JS facade
 module instead of preserving it as a fail-closed compatibility wrapper.
@@ -9913,6 +9905,18 @@ top-level memory routes, SDK globals, and daemon-store context helpers cannot
 return. This remains non-terminal because wallet/policy authority, cTEE
 private-memory custody, richer durable memory replay/projection, and stable IDE
 memory APIs still need to close.
+
+Slice 1251 hard-retires the RuntimeAgentService command/binary bridge
+substrate. `RuntimeApiBridge` no longer exports an adapter class or factory,
+the `ioi-runtime-bridge` binary and Cargo bin entry are deleted, daemon startup
+rejects `runtimeBridge`, Rust service policy no longer reads bridge command-env
+overrides, Autopilot uses the renamed inference/model-route helper instead of a
+bridge helper, and stale bridge-backed live proof scripts/tests are removed.
+Conformance now guards that the JS adapter export, bridge helper, bridge env
+fallback, Cargo bridge binary, and service `runtimeBridge` option cannot return.
+This bridge family is terminally retired; the broader master guide remains
+non-terminal until runtime-service execution and replay land through stable Rust
+daemon-core protocol APIs with Agentgres truth.
 
 ## Final Doctrine
 

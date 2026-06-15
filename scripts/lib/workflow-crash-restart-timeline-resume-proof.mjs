@@ -5,7 +5,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { bootstrapNativeRuntimeModelRoute } from "./autopilot-runtime-agent-service-bridge.mjs";
+import { bootstrapNativeRuntimeModelRoute } from "./autopilot-runtime-agent-service-inference.mjs";
 
 const outputPath = process.argv[2];
 if (!outputPath) {
@@ -309,7 +309,7 @@ try {
       "scripts/ioi-local-runtime-daemon.mjs",
       "packages/runtime-daemon/src/index.mjs:RuntimeStore",
       "scripts/lib/workflow-crash-restart-timeline-resume-proof.mjs",
-      "scripts/lib/autopilot-runtime-agent-service-bridge.mjs",
+      "scripts/lib/autopilot-runtime-agent-service-inference.mjs",
     ],
   };
   fs.writeFileSync(outputPath, `${JSON.stringify(proof, null, 2)}\n`, "utf8");

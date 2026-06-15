@@ -1,4 +1,4 @@
-use crate::agentic::rules::{ActionRules, Rule, RuleConditions, Verdict};
+use crate::agentic::rules::ActionRules;
 use crate::agentic::runtime::keys::AGENT_POLICY_PREFIX;
 use crate::agentic::runtime::service::decision_loop::helpers::default_safe_policy;
 use ioi_api::state::StateAccess;
@@ -6,7 +6,6 @@ use ioi_types::codec;
 use ioi_types::error::TransactionError;
 
 pub(crate) const GLOBAL_POLICY_SESSION_ID: [u8; 32] = [0u8; 32];
-const BRIDGE_ALLOW_COMMANDS_ENV: &str = "IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ALLOW_COMMANDS";
 
 pub(crate) fn action_policy_key(session_id: &[u8; 32]) -> Vec<u8> {
     [AGENT_POLICY_PREFIX, session_id.as_slice()].concat()
@@ -16,47 +15,12 @@ fn decode_action_rules(bytes: &[u8]) -> Option<ActionRules> {
     codec::from_bytes_canonical::<ActionRules>(bytes).ok()
 }
 
-fn runtime_bridge_allowed_commands_from_env() -> Vec<String> {
-    std::env::var(BRIDGE_ALLOW_COMMANDS_ENV)
-        .ok()
-        .map(|raw| {
-            raw.split([',', '\n', '\t', ' '])
-                .map(str::trim)
-                .filter(|value| !value.is_empty())
-                .map(str::to_string)
-                .collect()
-        })
-        .unwrap_or_default()
-}
-
-fn apply_runtime_bridge_policy_overrides(rules: &mut ActionRules) {
-    let Ok(bridge_id) = std::env::var("IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID") else {
-        return;
-    };
-    if bridge_id.contains("command") {
-        rules.ontology_policy.intent_routing.enabled = false;
-    }
-    let allowed_commands = runtime_bridge_allowed_commands_from_env();
-    if allowed_commands.is_empty() {
-        return;
-    }
-    rules.rules.push(Rule {
-        rule_id: Some("allow-runtime-bridge-configured-sys-exec".to_string()),
-        target: "sys::exec".to_string(),
-        conditions: RuleConditions {
-            allow_commands: Some(allowed_commands),
-            ..RuleConditions::default()
-        },
-        action: Verdict::Allow,
-    });
-}
-
 pub(crate) fn load_action_rules_for_session(
     state: &dyn StateAccess,
     session_id: [u8; 32],
 ) -> Result<ActionRules, TransactionError> {
     let session_key = action_policy_key(&session_id);
-    let mut rules = if let Some(rules) = state
+    let rules = if let Some(rules) = state
         .get(&session_key)?
         .and_then(|bytes| decode_action_rules(&bytes))
     {
@@ -74,8 +38,6 @@ pub(crate) fn load_action_rules_for_session(
     } else {
         default_safe_policy()
     };
-
-    apply_runtime_bridge_policy_overrides(&mut rules);
 
     Ok(rules)
 }

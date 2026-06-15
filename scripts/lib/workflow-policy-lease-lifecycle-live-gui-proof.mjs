@@ -23,9 +23,8 @@ import {
 import { applyAutopilotWorkbenchShellPatch } from "./autopilot-workbench-shell-patch.mjs";
 import {
   bootstrapNativeRuntimeModelRoute,
-  configureRuntimeAgentServiceBridgeEnv,
   configureRuntimeAgentServiceInferenceEnv,
-} from "./autopilot-runtime-agent-service-bridge.mjs";
+} from "./autopilot-runtime-agent-service-inference.mjs";
 
 const repoRoot = AUTOPILOT_ELECTRON.repoRoot;
 const evidenceRoot =
@@ -363,15 +362,6 @@ async function runProof(outputDir) {
   writeFileSync(join(outputDir, "shell-patch.json"), `${JSON.stringify(shellPatch, null, 2)}\n`);
 
   const daemonStateDir = mkdtempSync(join(tmpdir(), "ioi-policy-lease-live-gui-daemon-"));
-  const runtimeBridge = configureRuntimeAgentServiceBridgeEnv({
-    repoRoot,
-    stateDir: daemonStateDir,
-    overwrite: true,
-  });
-  writeFileSync(join(outputDir, "runtime-bridge-env.json"), `${JSON.stringify(runtimeBridge, null, 2)}\n`);
-  if (!runtimeBridge.configured) {
-    throw new Error(`RuntimeAgentService bridge could not be configured: ${runtimeBridge.reason || "unknown"}`);
-  }
 
   const daemon = await startRuntimeDaemonService({ cwd: repoRoot, stateDir: daemonStateDir });
   const daemonModelToken = await createDaemonModelInvocationToken(daemon.endpoint);

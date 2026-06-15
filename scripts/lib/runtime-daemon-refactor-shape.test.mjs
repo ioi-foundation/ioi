@@ -43,6 +43,6 @@ test("runtime daemon entrypoint delegates constants and HTTP helpers to focused 
   assert.match(routeHandlers, /async function handleRunRoute/);
   assert.match(recordProjections, /export function createRuntimeRecordProjections/);
   assert.match(recordProjections, /function runtimeTaskRecord\(\{/);
-  assert.match(recordProjections, /function runtimeBridgeRunRecord/);
+  assert.doesNotMatch(recordProjections, /function runtimeBridgeRunRecord/);
   assert.match(recordProjections, /function runtimeChecklistRecord/);
 });

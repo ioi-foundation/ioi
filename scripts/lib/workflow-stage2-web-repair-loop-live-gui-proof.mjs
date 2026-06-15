@@ -23,9 +23,8 @@ import {
 import { applyAutopilotWorkbenchShellPatch } from "./autopilot-workbench-shell-patch.mjs";
 import {
   bootstrapNativeRuntimeModelRoute,
-  configureRuntimeAgentServiceBridgeEnv,
   configureRuntimeAgentServiceInferenceEnv,
-} from "./autopilot-runtime-agent-service-bridge.mjs";
+} from "./autopilot-runtime-agent-service-inference.mjs";
 import { collectDaemonRuntimeTraceSummaryBestEffort } from "./agent-studio-live-gui-validation/trace-summary.mjs";
 
 const repoRoot = AUTOPILOT_ELECTRON.repoRoot;
@@ -382,14 +381,6 @@ async function runProof(outputDir) {
   writeFileSync(join(outputDir, "stage2-source-url"), `${sourceUrl}\n`);
 
   const daemonStateDir = mkdtempSync(join(tmpdir(), "autopilot-stage2-web-repair-gui-daemon-"));
-  configureRuntimeAgentServiceBridgeEnv({
-    repoRoot,
-    stateDir: daemonStateDir,
-    workspaceRoot: repoRoot,
-    env: process.env,
-    overwrite: true,
-    build: true,
-  });
   const daemon = await startRuntimeDaemonService({ cwd: repoRoot, stateDir: daemonStateDir });
   const token = await createDaemonModelInvocationToken(daemon.endpoint);
   const runtimeModelRoute = await bootstrapNativeRuntimeModelRoute({

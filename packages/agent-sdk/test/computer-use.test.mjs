@@ -72,36 +72,6 @@ function writeFakeControlledRelaunchExecutable(cwd) {
   };
 }
 
-function runtimeBridgeEnvelope({
-  eventKind,
-  sourceEventKind = eventKind,
-  idempotencyKey,
-  itemId,
-  turnId = "",
-  createdAt,
-  payload,
-  payloadSchemaVersion = "ioi.runtime.event.v1",
-  componentKind = null,
-  workflowNodeId = null,
-  receiptRefs = [],
-  artifactRefs = [],
-}) {
-  return {
-    event_kind: eventKind,
-    source_event_kind: sourceEventKind,
-    idempotency_key: idempotencyKey,
-    item_id: itemId,
-    turn_id: turnId,
-    created_at: createdAt,
-    component_kind: componentKind,
-    workflow_node_id: workflowNodeId,
-    payload_schema_version: payloadSchemaVersion,
-    receipt_refs: receiptRefs,
-    artifact_refs: artifactRefs,
-    payload,
-  };
-}
-
 const expectedComputerUseEventTypes = [
   "computer_use_environment_selected",
   "computer_use_lease_acquired",
@@ -2214,224 +2184,6 @@ test("sandbox fixture contracts ignore retired camelCase aliases", () => {
   assert.equal(canonicalResult.providerReceipt.task_ref, "task-canonical");
 });
 
-test("runtime service bridge computer-use events persist as run trace artifacts", async () => {
-  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-bridge-computer-use-artifacts-cwd-"));
-  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-bridge-computer-use-artifacts-state-"));
-  const bridgeAdapter = {
-    bridgeId: "test-runtime-service-computer-use-bridge",
-    async startThread(input) {
-      const createdAt = new Date().toISOString();
-      return {
-        session_id: "session_bridge_computer_use",
-        status: "active",
-        updated_at: createdAt,
-        events: [
-          runtimeBridgeEnvelope({
-            eventKind: "thread.started",
-            idempotencyKey: `thread:${input.threadId}:started`,
-            itemId: `${input.threadId}:item:started`,
-            createdAt,
-            payload: { event_kind: "ThreadStarted", status: "active" },
-          }),
-        ],
-      };
-    },
-    async submitTurn(input) {
-      const createdAt = new Date().toISOString();
-      const turnId = "turn_bridge_computer_use";
-      const runId = "run_bridge_computer_use";
-      return {
-        turn_id: turnId,
-        run_id: runId,
-        status: "completed",
-        result: "The bridge observed the mounted browser surface and indexed the Submit button.",
-        created_at: createdAt,
-        updated_at: createdAt,
-        stop_reason: "runtime_bridge_completed",
-        events: [
-          runtimeBridgeEnvelope({
-            eventKind: "turn.started",
-            idempotencyKey: `${turnId}:started`,
-            itemId: `${turnId}:item:started`,
-            turnId,
-            createdAt,
-            payload: { event_kind: "TurnStarted", prompt: input.request.prompt },
-          }),
-          runtimeBridgeEnvelope({
-            eventKind: "computer_use.observation",
-            sourceEventKind: "ComputerUse.Observation",
-            idempotencyKey: `${turnId}:computer-use:observation`,
-            itemId: `${turnId}:item:computer-use-observation`,
-            turnId,
-            createdAt,
-            payloadSchemaVersion: COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
-            componentKind: "computer_use_harness",
-            workflowNodeId: "computer-use.observe",
-            receiptRefs: ["receipt_bridge_computer_use_trace"],
-            artifactRefs: ["computer-use-trace.json"],
-            payload: {
-              schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
-              event_kind: "ComputerUse.Observation",
-              computer_use_step: "observe",
-              computer_use_contract_ingest: "browser_observation_artifacts",
-              observation_bundle: {
-                observation_ref: "observation-bridge-browser",
-                lease_id: "lease-bridge-browser",
-                lane: "native_browser",
-                session_mode: "owned_hermetic_browser",
-                url: "https://bridge.example.test/app",
-                title: "Bridge App",
-                target_index_ref: "target-index-bridge-browser",
-                retention_mode: "local_redacted_artifacts",
-                detected_patterns: ["form", "toolbar"],
-              },
-              target_index: {
-                target_index_ref: "target-index-bridge-browser",
-                observation_ref: "observation-bridge-browser",
-                coordinate_space_id: "viewport-bridge-browser",
-                drift_state: "fresh",
-                targets: [
-                  {
-                    target_ref: "target-bridge-submit",
-                    label: "Submit",
-                    role: "button",
-                    confidence: 98,
-                    available_actions: ["click", "inspect"],
-                  },
-                ],
-              },
-            },
-          }),
-          runtimeBridgeEnvelope({
-            eventKind: "computer_use.affordance_graph",
-            sourceEventKind: "ComputerUse.AffordanceGraph",
-            idempotencyKey: `${turnId}:computer-use:affordance-graph`,
-            itemId: `${turnId}:item:computer-use-affordance-graph`,
-            turnId,
-            createdAt,
-            payloadSchemaVersion: COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
-            componentKind: "computer_use_harness",
-            workflowNodeId: "computer-use.affordance-graph",
-            receiptRefs: ["receipt_bridge_computer_use_trace"],
-            artifactRefs: ["computer-use-trace.json"],
-            payload: {
-              schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
-              event_kind: "ComputerUse.AffordanceGraph",
-              computer_use_step: "build_affordance_graph",
-              computer_use_affordance_graph_ref: "affordance-bridge-browser",
-              computer_use_target_index_ref: "target-index-bridge-browser",
-              affordance_graph: {
-                graph_ref: "affordance-bridge-browser",
-                target_index_ref: "target-index-bridge-browser",
-                observation_ref: "observation-bridge-browser",
-                affordances: [
-                  {
-                    target_ref: "target-bridge-submit",
-                    possible_action: "click",
-                    confidence: 93,
-                    risk_class: "external_effect_possible",
-                    confirmation_required: true,
-                  },
-                ],
-              },
-            },
-          }),
-          runtimeBridgeEnvelope({
-            eventKind: "turn.completed",
-            sourceEventKind: "TurnCompleted",
-            idempotencyKey: `${turnId}:completed`,
-            itemId: `${turnId}:item:completed`,
-            turnId,
-            createdAt,
-            payload: { event_kind: "TurnCompleted", stop_reason: "runtime_bridge_completed" },
-          }),
-        ],
-      };
-    },
-  };
-  const daemon = await startRuntimeDaemonService({ cwd, stateDir, runtimeBridge: bridgeAdapter });
-  try {
-    const client = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
-    const thread = await Thread.create({
-      local: { cwd },
-      model: { id: "local:auto" },
-      request: { runtime_profile: "runtime_service" },
-      substrateClient: client,
-    });
-    const turn = await thread.send("Use the browser to inspect the bridge-mounted app.", {
-      metadata: { computerUse: true },
-    });
-    const trace = await client.inspectRun(turn.runId);
-    const directComputerUseTrace = await client.getRunComputerUseTrace(turn.runId);
-    const directTrajectory = await client.getRunComputerUseTrajectory(turn.runId);
-    assert.equal(trace.source, "runtime_service");
-    assert.deepEqual(
-      trace.events.filter((event) => event.type.startsWith("computer_use_")).map((event) => event.type),
-      [
-        "computer_use_observation",
-        "computer_use_affordance_graph",
-        "computer_use_action_proposed",
-        "computer_use_commit_gate",
-      ],
-    );
-    const turnEvents = [];
-    for await (const event of turn.events()) {
-      turnEvents.push(event);
-    }
-    assert.deepEqual(
-      turnEvents.filter((event) => event.eventKind.startsWith("computer_use.")).map((event) => event.type),
-      [
-        "computer_use_observation",
-        "computer_use_affordance_graph",
-        "computer_use_action_proposed",
-        "computer_use_commit_gate",
-      ],
-    );
-    assert.equal(trace.computerUse.environmentSelection.selected_lane, "native_browser");
-    assert.equal(trace.computerUse.environmentSelection.selected_session_mode, "owned_hermetic_browser");
-    assert.equal(trace.computerUse.lease.lease_id, "lease-bridge-browser");
-    assert.equal(trace.computerUse.lease.cleanup_required, false);
-    assert.equal(trace.computerUse.runState.current_observation_ref, "observation-bridge-browser");
-    assert.equal(trace.computerUse.runState.verification_status, "requires_human");
-    assert.equal(trace.computerUse.runState.blocker_state, "commit_gate_requires_confirmation");
-    assert.equal(trace.computerUse.observation.url, "https://bridge.example.test/app");
-    assert.equal(trace.computerUse.targetIndex.targets[0].target_ref, "target-bridge-submit");
-    assert.equal(trace.computerUse.affordanceGraph.affordances[0].possible_action, "click");
-    assert.equal(trace.computerUse.actionProposal.target_ref, "target-bridge-submit");
-    assert.equal(trace.computerUse.actionProposal.confirmation_required, true);
-    assert.equal(trace.computerUse.action, null);
-    assert.equal(trace.computerUse.outcomeContract.external_effect_policy, "confirmation_required");
-    assert.equal(trace.computerUse.commitGate.status, "requires_confirmation_before_execution");
-    assert.equal(trace.computerUse.commitGate.final_action_ref, null);
-    assert.equal(directComputerUseTrace.commitGate.status, "requires_confirmation_before_execution");
-    assert.equal(directTrajectory.entries.at(-1).event_kind, "commit_or_handoff");
-    assert.deepEqual(
-      trace.computerUse.trajectory.entries.map((entry) => entry.event_kind),
-      ["observe", "build_affordance_graph", "propose_action", "commit_or_handoff"],
-    );
-    assert.equal(trace.computerUse.contractIngest, "browser_observation_artifacts");
-    assert.equal(trace.receipts.some((receipt) => receipt.kind === "computer_use_trace"), true);
-
-    const artifacts = await client.listArtifacts(turn.runId);
-    const computerUseArtifact = artifacts.find((artifact) => artifact.name === "computer-use-trace.json");
-    assert.ok(computerUseArtifact);
-    const namedComputerUseArtifact = await client.downloadArtifact(turn.runId, "computer-use-trace.json");
-    assert.equal(namedComputerUseArtifact.id, computerUseArtifact.id);
-    const artifactTrace = JSON.parse(computerUseArtifact.content);
-    assert.equal(artifactTrace.environmentSelection.selected_lane, "native_browser");
-    assert.equal(artifactTrace.lease.authority_scope, "computer_use.native_browser.read");
-    assert.equal(artifactTrace.runState.cleanup_state, "external_runtime_owned");
-    assert.equal(artifactTrace.observation.url, "https://bridge.example.test/app");
-    assert.equal(artifactTrace.targetIndex.targets[0].label, "Submit");
-    assert.equal(artifactTrace.affordanceGraph.graph_ref, "affordance-bridge-browser");
-    assert.equal(artifactTrace.actionProposal.risk_assessment, "external_effect_possible");
-    assert.equal(artifactTrace.commitGate.user_confirmation_required, true);
-    assert.equal(artifactTrace.trajectory.trajectory_ref, "trajectory_run_bridge_computer_use_runtime_bridge");
-  } finally {
-    await daemon.close();
-  }
-});
-
 test("runtime daemon activates mounted visual computer-use contracts instead of failing closed", async () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-computer-use-visual-cwd-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-computer-use-visual-state-"));
@@ -2616,7 +2368,6 @@ test("runtime daemon activates mounted sandboxed computer-use contracts instead 
 });
 
 
-
 test("runtime daemon thread tool activates local fixture sandboxed computer-use lane", async () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-computer-use-local-sandbox-cwd-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-computer-use-local-sandbox-state-"));
@@ -2657,7 +2408,6 @@ test("runtime daemon thread tool activates local fixture sandboxed computer-use 
     await daemon.close();
   }
 });
-
 
 
 test("runtime daemon fails closed when requested computer-use lane is unavailable", async () => {

@@ -22,7 +22,6 @@ function assertNoRetiredOperatorTurnControlDetailAliases(details) {
 function createStore() {
   const stateDir = mkdtempSync(join(tmpdir(), "ioi-runtime-operator-control-facade-"));
   const plannerCalls = [];
-  const runtimeBridgeCalls = [];
   const store = new AgentgresRuntimeStateStore(stateDir, {
     cwd: stateDir,
     modelMountCore: {
@@ -104,12 +103,6 @@ function createStore() {
         };
       },
     },
-    runtimeBridge: {
-      async controlThread() {
-        runtimeBridgeCalls.push({ method: "controlThread" });
-        throw new Error("Operator control must not use runtime bridge direct control.");
-      },
-    },
   });
   store.agents.set("agent_one", {
     id: "agent_one",
@@ -139,11 +132,11 @@ function createStore() {
       policy_decision_refs: [`policy://${operationKind}/${run.id}`],
     };
   };
-  return { plannerCalls, runtimeBridgeCalls, stateDir, store };
+  return { plannerCalls, stateDir, store };
 }
 
 test("interruptTurn facade uses Rust state-update planning before Agentgres run persistence", async () => {
-  const { plannerCalls, runtimeBridgeCalls, stateDir, store } = createStore();
+  const { plannerCalls, stateDir, store } = createStore();
   try {
     assert.equal(typeof store.interruptTurn, "undefined");
     const result = await store.threadTurnSurface.interruptTurn(store, "thread_one", "turn_one", {
@@ -171,7 +164,6 @@ test("interruptTurn facade uses Rust state-update planning before Agentgres run 
     assert.equal(plannerCalls[1].operationKind, "turn.interrupt");
     assert.equal(store.runs.get("run_one").turnStatus, "interrupted");
     assert.equal(store.runs.get("run_one").trace.operatorControls[0].control, "interrupt");
-    assert.deepEqual(runtimeBridgeCalls, []);
   } finally {
     store.close();
     rmSync(stateDir, { recursive: true, force: true });
@@ -179,7 +171,7 @@ test("interruptTurn facade uses Rust state-update planning before Agentgres run 
 });
 
 test("steerTurn facade uses Rust state-update planning before Agentgres run persistence", () => {
-  const { plannerCalls, runtimeBridgeCalls, stateDir, store } = createStore();
+  const { plannerCalls, stateDir, store } = createStore();
   try {
     assert.equal(typeof store.steerTurn, "undefined");
     const result = store.threadTurnSurface.steerTurn(store, "thread_one", "turn_one", {
@@ -203,7 +195,6 @@ test("steerTurn facade uses Rust state-update planning before Agentgres run pers
     assert.equal(plannerCalls[1].method, "writeRun");
     assert.equal(plannerCalls[1].operationKind, "turn.steer");
     assert.equal(store.runs.get("run_one").trace.operatorControls[0].control, "steer");
-    assert.deepEqual(runtimeBridgeCalls, []);
   } finally {
     store.close();
     rmSync(stateDir, { recursive: true, force: true });

@@ -76,123 +76,9 @@ function modelMountCoreForTest(calls) {
   };
 }
 
-function runtimeBridgeThatMustNotDispatch(calls) {
-  return {
-    bridgeId: "retired-runtime-control-test-bridge",
-    async startThread(input) {
-      calls.push({ operation: "start_thread", input });
-      throw new Error("runtime-thread-control test must fail before JS bridge start dispatch.");
-    },
-    async controlThread(input) {
-      calls.push({ operation: "control_thread", input });
-      throw new Error("runtime-thread-control test must fail before JS bridge control dispatch.");
-    },
-    async submitTurn(input) {
-      calls.push({ operation: "submit_turn", input });
-      throw new Error("runtime-thread-control test must fail before JS bridge turn dispatch.");
-    },
-  };
-}
-
 function runtimeControlStore(stateDir, calls) {
   const store = new AgentgresRuntimeStateStore(stateDir, {
     cwd: stateDir,
-    daemonCoreInvoker(request) {
-      calls.push({ operation: request.operation, input: request });
-      if (request.operation === "commit_runtime_agent_state") {
-        const input = request.request ?? {};
-        const agentId = input.agent_id ?? input.agent?.id ?? "agent_runtime";
-        return {
-          source: "rust_agentgres_runtime_agent_state_commit_protocol",
-          backend: "runtime-agentgres",
-          record: {
-            schema_version: "ioi.runtime_agent_state_commit.v1",
-            agent_id: agentId,
-            operation_kind: input.operation_kind,
-            storage_backend_ref: input.storage_backend_ref,
-            record: {
-              object_ref: `agentgres://runtime-state/agents/${agentId}`,
-              content_hash: `sha256:${agentId}-content`,
-              payload_refs: [`payload://runtime/agents/${agentId}`],
-              receipt_refs: [`receipt_agent_state_${agentId}`],
-              admission: {
-                admission_hash: `sha256:${agentId}-admission`,
-              },
-            },
-            commit_hash: `sha256:${agentId}-commit`,
-          },
-          agent_id: agentId,
-          object_ref: `agentgres://runtime-state/agents/${agentId}`,
-          content_hash: `sha256:${agentId}-content`,
-          admission_hash: `sha256:${agentId}-admission`,
-          commit_hash: `sha256:${agentId}-commit`,
-          written_record: {
-            record_path: `agents/${agentId}.json`,
-          },
-          evidence_refs: ["rust_agentgres_runtime_agent_state_commit"],
-        };
-      }
-      if (request.operation === "commit_runtime_model_mount_record_state") {
-        const input = request.request ?? {};
-        return {
-          source: "rust_agentgres_runtime_model_mount_record_state_commit_protocol",
-          backend: "runtime-agentgres",
-          record: {
-            schema_version: "ioi.runtime_model_mount_record_state_commit.v1",
-            record_dir: input.record_dir,
-            record_id: input.record_id,
-            operation_kind: input.operation_kind,
-            storage_backend_ref: input.storage_backend_ref,
-            record: {
-              object_ref: `agentgres://model-mounting/${input.record_dir}/${input.record_id}`,
-              content_hash: `sha256:${input.record_id}-content`,
-              payload_refs: [`payload://model-mounting/${input.record_dir}/${input.record_id}`],
-              receipt_refs: input.receipt_refs,
-              admission: {
-                admission_hash: `sha256:${input.record_id}-admission`,
-              },
-            },
-            commit_hash: `sha256:${input.record_id}-commit`,
-          },
-          record_id: input.record_id,
-          object_ref: `agentgres://model-mounting/${input.record_dir}/${input.record_id}`,
-          content_hash: `sha256:${input.record_id}-content`,
-          admission_hash: `sha256:${input.record_id}-admission`,
-          commit_hash: `sha256:${input.record_id}-commit`,
-          written_record: input.record,
-          evidence_refs: ["rust_agentgres_runtime_model_mount_record_state_commit"],
-        };
-      }
-      if (request.operation !== "plan_runtime_bridge_thread_start_agent_state_update") {
-        throw new Error(`unexpected daemon-core operation ${request.operation}`);
-      }
-      const input = request.request ?? {};
-      return {
-        source: "rust_runtime_bridge_thread_start_agent_state_update_command",
-        backend: "rust_policy",
-        status: "planned",
-        operation_kind: "thread.runtime_bridge.start",
-        updated_at: input.updated_at,
-        bridge_start: {
-          runtime_profile: input.runtime_profile,
-          session_id: input.session_id,
-          bridge_id: input.bridge_id,
-          status: input.status,
-          source: input.source,
-          updated_at: input.updated_at,
-        },
-        agent: {
-          ...input.agent,
-          runtime_profile: input.runtime_profile,
-          runtime_session_id: input.session_id,
-          runtime_bridge_id: input.bridge_id,
-          runtime_bridge_status: input.status,
-          runtime_bridge_source: input.source,
-          fixtureProfile: null,
-          updatedAt: input.updated_at,
-        },
-      };
-    },
     daemonCoreAgentgresApi: {
       commitRuntimeAgentState(request) {
         const input = request.request ?? {};
@@ -312,7 +198,6 @@ function runtimeControlStore(stateDir, calls) {
       },
     },
     modelMountCore: modelMountCoreForTest(calls),
-    runtimeBridge: runtimeBridgeThatMustNotDispatch(calls),
   });
   store.resolveModelRoute = (options = {}, context = {}) => {
     calls.push({ operation: "resolve_model_route", input: { options, context } });

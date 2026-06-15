@@ -16,6 +16,9 @@ export async function startRuntimeDaemonServiceWithStore({
   if (Object.hasOwn(options, "daemonCoreInvoker")) {
     throw new Error("daemonCoreInvoker is retired; pass typed Rust daemon-core APIs for the authority boundary.");
   }
+  if (Object.hasOwn(options, "runtimeBridge")) {
+    throw new Error("runtimeBridge is retired; pass typed Rust daemon-core lifecycle APIs for runtime-service execution.");
+  }
   const store = new StateStore(stateDir, {
     cwd: options.cwd ?? process.cwd(),
     homeDir: options.homeDir,
@@ -25,7 +28,6 @@ export async function startRuntimeDaemonServiceWithStore({
     modelMountCore: options.modelMountCore,
     runtimeAgentgresAdmissionCore: options.runtimeAgentgresAdmissionCore,
     workspaceRestoreCore: options.workspaceRestoreCore,
-    runtimeBridge: options.runtimeBridge,
     daemonCoreContextLifecycleApi: options.daemonCoreContextLifecycleApi,
     daemonCoreRuntimeControlApi: options.daemonCoreRuntimeControlApi,
     daemonCoreRuntimeProjectionApi: options.daemonCoreRuntimeProjectionApi,

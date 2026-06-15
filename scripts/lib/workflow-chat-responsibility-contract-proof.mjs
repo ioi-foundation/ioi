@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 
 import { startRuntimeDaemonService } from "../../packages/runtime-daemon/src/index.mjs";
-import { bootstrapNativeRuntimeModelRoute } from "./autopilot-runtime-agent-service-bridge.mjs";
+import { bootstrapNativeRuntimeModelRoute } from "./autopilot-runtime-agent-service-inference.mjs";
 
 const outputPath = process.argv[2];
 if (!outputPath) {

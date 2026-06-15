@@ -247,8 +247,3 @@ required-features = ["bridge-mode"]
 name = "ioi-agent"
 path = "src/bin/ioi-agent.rs"
 required-features = ["local-mode"]
-
-[[bin]]
-name = "ioi-runtime-bridge"
-path = "src/bin/ioi-runtime-bridge.rs"
-required-features = ["local-mode"]

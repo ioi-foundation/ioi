@@ -42,9 +42,8 @@ import {
 } from "./lib/autopilot-electron-app-paths.mjs";
 import {
   bootstrapNativeRuntimeModelRoute,
-  configureRuntimeAgentServiceBridgeEnv,
   configureRuntimeAgentServiceInferenceEnv,
-} from "./lib/autopilot-runtime-agent-service-bridge.mjs";
+} from "./lib/autopilot-runtime-agent-service-inference.mjs";
 import { applyAutopilotWorkbenchShellPatch } from "./lib/autopilot-workbench-shell-patch.mjs";
 
 const repoRoot = AUTOPILOT_ELECTRON.repoRoot;
@@ -685,11 +684,7 @@ function daemonModelInvocationTokenPolicyForScenario(scenario = {}) {
   const denied = new Set(["connector.*", "filesystem.write", "shell.exec"]);
   const scenarioId = String(scenario?.id || "");
   const promptText = String(scenario?.prompt || "");
-  const allowCommands = Array.isArray(scenario?.runtimeBridgeAllowCommands)
-    ? scenario.runtimeBridgeAllowCommands
-    : [];
   const needsShellScope =
-    allowCommands.length > 0 ||
     /\b(shell|command|terminal|retained|stdin|helper|process)\b/i.test(`${scenarioId} ${promptText}`);
   if (needsShellScope) {
     allowed.push("shell.exec");
@@ -1827,12 +1822,6 @@ async function runValidation(outputDir, { scenario = resolveAgentStudioChatScena
     openWorkspaceRoot = userWorkspaceFixture.fixtureRoot;
   }
   writeFileSync(join(outputDir, "opened-workspace-root"), `${openWorkspaceRoot}\n`);
-  const runtimeBridgeAllowCommands = Array.isArray(scenario.runtimeBridgeAllowCommands)
-    ? scenario.runtimeBridgeAllowCommands.map((value) => String(value || "").trim()).filter(Boolean)
-    : [];
-  if (runtimeBridgeAllowCommands.length > 0) {
-    process.env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ALLOW_COMMANDS = runtimeBridgeAllowCommands.join(",");
-  }
   const runtimeProcessEnv =
     scenario.runtimeProcessEnv && typeof scenario.runtimeProcessEnv === "object" && !Array.isArray(scenario.runtimeProcessEnv)
       ? Object.fromEntries(
@@ -1842,23 +1831,6 @@ async function runValidation(outputDir, { scenario = resolveAgentStudioChatScena
       : {};
   for (const [key, value] of Object.entries(runtimeProcessEnv)) {
     process.env[key] = value;
-  }
-  const runtimeBridge = configureRuntimeAgentServiceBridgeEnv({
-    repoRoot,
-    stateDir: daemonStateDir,
-    workspaceRoot: openWorkspaceRoot,
-    overwrite: true,
-  });
-  writeFileSync(
-    join(outputDir, "runtime-bridge-env.json"),
-    `${JSON.stringify({
-      ...runtimeBridge,
-      allowCommands: runtimeBridgeAllowCommands,
-      injectedEnvKeys: Object.keys(runtimeProcessEnv),
-    }, null, 2)}\n`,
-  );
-  if (!runtimeBridge.configured) {
-    throw new Error(`RuntimeAgentService bridge could not be configured: ${runtimeBridge.reason || "unknown"}`);
   }
   const daemon = await startRuntimeDaemonService({ cwd: repoRoot, stateDir: daemonStateDir });
   daemonEndpointForBridge = daemon.endpoint;

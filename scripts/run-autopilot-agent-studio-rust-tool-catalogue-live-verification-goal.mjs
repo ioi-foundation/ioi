@@ -342,7 +342,7 @@ function writeReverseEngineeringSweep({ campaignDir, round, startIndex }) {
         browser: /\bbrowser__/i.test(content),
         computerUse: /computer[-_ ]use|computer_use/i.test(content),
         sandbox: /sandbox|container|namespace/i.test(content),
-        runtimeBridge: /RuntimeAgentService|runtime bridge|bridge/i.test(content),
+        runtimeServiceBridgeMention: /RuntimeAgentService|runtime bridge|bridge/i.test(content),
       },
     };
   });
