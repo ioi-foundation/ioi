@@ -597,6 +597,7 @@ export class AgentgresRuntimeStateStore {
     this.daemonCoreInvoker = options.daemonCoreInvoker;
     this.daemonCoreContextLifecycleApi = options.daemonCoreContextLifecycleApi;
     this.daemonCoreRuntimeControlApi = options.daemonCoreRuntimeControlApi;
+    this.daemonCoreRuntimeProjectionApi = options.daemonCoreRuntimeProjectionApi;
     this.daemonCoreThreadLifecycleApi = options.daemonCoreThreadLifecycleApi;
     this.daemonCoreWorkspaceTrustApi = options.daemonCoreWorkspaceTrustApi;
     this.daemonCoreMcpApi = options.daemonCoreMcpApi;
@@ -623,6 +624,7 @@ export class AgentgresRuntimeStateStore {
         daemonCoreInvoker: this.daemonCoreInvoker,
         daemonCoreContextLifecycleApi: this.daemonCoreContextLifecycleApi,
         daemonCoreRuntimeControlApi: this.daemonCoreRuntimeControlApi,
+        daemonCoreRuntimeProjectionApi: this.daemonCoreRuntimeProjectionApi,
         daemonCoreThreadLifecycleApi: this.daemonCoreThreadLifecycleApi,
         daemonCoreWorkspaceTrustApi: this.daemonCoreWorkspaceTrustApi,
         daemonCoreMcpApi: this.daemonCoreMcpApi,

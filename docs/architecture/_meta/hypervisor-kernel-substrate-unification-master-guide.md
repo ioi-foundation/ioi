@@ -4924,10 +4924,9 @@ slice begins. A clean worktree is a conformance aid: it keeps review, rollback,
 and context recovery tractable as the daemon, Rust core, workflow compositor,
 Agentgres, wallet.network, and cTEE paths converge.
 
-Current lane note: after the public runtime tool catalog, skill/hook registry,
-and repository workflow positive API cuts, public runtime account, runtime-node,
-tool catalog, skill/hook registry, repository workflow, agent, thread, run,
-agent-run lifecycle, run wait, run conversation,
+Current lane note: after the public runtime projection family direct API cut,
+public runtime account, runtime-node, tool catalog, skill/hook registry,
+repository workflow, agent, thread, run, agent-run lifecycle, run wait, run conversation,
 thread usage, thread turns, thread turn detail, thread events, run usage, run
 events, run replay, run trace/inspect, run computer-use trace/trajectory, run
 scorecard, run artifact, top-level usage, authority-evidence, public memory
@@ -4935,12 +4934,16 @@ list/policy/path/status/validation, public/thread-scoped
 conversation-artifact route-facing projections, and public subagent
 list/get/result projections are no
 longer JS-authored public truth. Runtime account/node/tool catalog projections
-now call Rust `project_runtime_tool_catalog` through the mounted tool surface,
-skill/hook registry projections now call Rust `project_skill_hook_registry`
-through the mounted skill-hook surface, and repository workflow projections now
-call Rust `project_repository_workflow` through the mounted repository surface;
-runtime lifecycle projections now call Rust `project_runtime_lifecycle`
-through the mounted lifecycle surface, and the mounted thread-memory surface
+now call typed `daemonCoreRuntimeProjectionApi.projectRuntimeToolCatalog`,
+skill/hook registry projections now call typed
+`daemonCoreRuntimeProjectionApi.projectSkillHookRegistry`, repository workflow
+projections now call typed
+`daemonCoreRuntimeProjectionApi.projectRepositoryWorkflow`, and runtime
+lifecycle projections now call typed
+`daemonCoreRuntimeProjectionApi.projectRuntimeLifecycle`; all four are backed by
+Rust `RuntimeKernelService` projection methods and their old command operations,
+dispatch arms, response wrappers, and JS generic `operation` envelopes are
+retired. The mounted thread-memory surface
 now calls Rust `project_runtime_memory_projection` for public memory
 list/policy/path/status/validation before JS `AgentMemoryStore` readback;
 conversation-artifact list/get/revision routes call Rust
@@ -5493,11 +5496,14 @@ projection families: `project_skill_hook_registry`,
 `project_repository_workflow`, `project_runtime_tool_catalog`, and
 `project_runtime_lifecycle` are positive Rust daemon-core APIs, and the
 projection-required policy owner for those migrated public routes is retired.
-This is still not terminal projection migration. Resume by replacing the
-temporary runner transport with direct Rust daemon-core projection APIs for
-lifecycle/run-read, doctor/readiness, replay, and stable IDE/CLI/SDK surfaces over
-Agentgres-admitted truth, receipt/state-root binding, wallet authority where
-applicable, and cTEE custody where private workspace projection is involved.
+Slice 1225 now supersedes the remaining runner transport for this public
+projection family with typed direct Rust daemon-core APIs and retires the old
+command operations, dispatch arms, and response wrappers. This is still not
+terminal projection migration. Resume with direct Rust daemon-core projection
+APIs for the remaining lifecycle/run-read storage/replay, doctor/readiness,
+replay, and stable IDE/CLI/SDK surfaces over Agentgres-admitted truth,
+receipt/state-root binding, wallet authority where applicable, and cTEE custody
+where private workspace projection is involved.
 
 Slice 1050 moves the workspace-restore apply-policy, preview/apply operations,
 and workspace-snapshot capture daemon-core command wrappers out of the
@@ -9482,6 +9488,24 @@ path. Conformance now guards the typed API, direct Rust records, retired command
 transport, and source-scan blockers. This remains non-terminal because actual
 Rust MCP transport execution, runtime containment, serve admission, durable
 payload materialization/replay, and stable IDE/CLI/SDK protocol APIs still need
+deeper Rust daemon-core ownership.
+
+Slice 1225 retires the public runtime projection family command transport for
+skill/hook registry, repository workflow, runtime tool catalog, and runtime
+lifecycle projections. `RuntimeContextPolicyCore` now calls typed
+`daemonCoreRuntimeProjectionApi.projectSkillHookRegistry`,
+`projectRepositoryWorkflow`, `projectRuntimeToolCatalog`, and
+`projectRuntimeLifecycle` instead of the generic command-envelope
+`evaluateRawPolicy` path. Rust `RuntimeKernelService` exposes the corresponding
+direct projection methods, `command_protocol.rs` rejects the old
+`project_skill_hook_registry`, `project_repository_workflow`,
+`project_runtime_tool_catalog`, and `project_runtime_lifecycle` operations,
+`command_dispatch.rs` has no arms for them, and the Rust command-response
+wrappers/source markers are deleted. Conformance now guards the typed API,
+direct Rust records, retired command operations, missing dispatch wrappers, and
+source-scan blockers. This remains non-terminal because durable Rust
+storage/replay for catalog, repository workflow, lifecycle/run-read, and
+doctor/readiness projections plus stable IDE/CLI/SDK protocol APIs still need
 deeper Rust daemon-core ownership.
 
 ## Final Doctrine

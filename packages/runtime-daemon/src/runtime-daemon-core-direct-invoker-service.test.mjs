@@ -12,6 +12,7 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
   const calls = [];
   const contextLifecycleCalls = [];
   const runtimeControlCalls = [];
+  const runtimeProjectionCalls = [];
   const threadLifecycleCalls = [];
   const workspaceTrustCalls = [];
   const mcpCalls = [];
@@ -1331,6 +1332,60 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
         };
       },
     },
+    daemonCoreRuntimeProjectionApi: {
+      projectSkillHookRegistry(request) {
+        runtimeProjectionCalls.push({ method: "projectSkillHookRegistry", request });
+        return {
+          source: "direct_runtime_projection_api",
+          backend: "rust_policy",
+          status: "projected",
+          operation_kind: "skill_hook.registry.skills",
+          registry_kind: "skills",
+          projection: { schemaVersion: "ioi.agent-runtime.skills.v1", skillCount: 0, skills: [] },
+          skills: [],
+          hooks: [],
+          sources: [],
+          record_count: 0,
+        };
+      },
+      projectRepositoryWorkflow(request) {
+        runtimeProjectionCalls.push({ method: "projectRepositoryWorkflow", request });
+        return {
+          source: "direct_runtime_projection_api",
+          backend: "rust_policy",
+          status: "projected",
+          operation_kind: "repository_workflow.projection.repository_context",
+          projection_kind: "repository_context",
+          projection: { schemaVersion: "ioi.agent-runtime.repository-context.v1" },
+          repository_context: { status: { availability: "available" } },
+          record_count: 1,
+        };
+      },
+      projectRuntimeToolCatalog(request) {
+        runtimeProjectionCalls.push({ method: "projectRuntimeToolCatalog", request });
+        return {
+          source: "direct_runtime_projection_api",
+          backend: "rust_policy",
+          status: "projected",
+          operation_kind: "runtime.tool_catalog.projection.tools",
+          projection_kind: "tools",
+          tools: [{ stable_tool_id: "file.apply_patch", pack: request.pack ?? "coding" }],
+          record_count: 1,
+        };
+      },
+      projectRuntimeLifecycle(request) {
+        runtimeProjectionCalls.push({ method: "projectRuntimeLifecycle", request });
+        return {
+          source: "direct_runtime_projection_api",
+          backend: "rust_policy",
+          status: "projected",
+          operation_kind: "runtime.lifecycle_projection.agents",
+          projection_kind: "agents",
+          projection: [{ id: "agent_direct" }],
+          record_count: 1,
+        };
+      },
+    },
     daemonCoreThreadLifecycleApi: {
       planThreadTurnAdmissionRequired(request) {
         threadLifecycleCalls.push({ method: "planThreadTurnAdmissionRequired", request });
@@ -1638,6 +1693,41 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
   assert.equal(Object.hasOwn(runtimeControlCalls[0].request, "backend"), false);
   assert.equal(cancelPlan.source, "direct_runtime_control_api");
   assert.equal(cancelPlan.run.status, "canceled");
+  const skillsProjection = store.contextPolicyCore.projectSkillHookRegistry({
+    registry_kind: "skills",
+    operation_kind: "skill_hook.registry.skills",
+  });
+  const repositoryProjection = store.contextPolicyCore.projectRepositoryWorkflow({
+    projection_kind: "repository_context",
+    operation_kind: "repository_workflow.projection.repository_context",
+  });
+  const toolProjection = store.contextPolicyCore.projectRuntimeToolCatalog({
+    projection_kind: "tools",
+    operation_kind: "runtime.tool_catalog.projection.tools",
+    pack: "coding",
+  });
+  const lifecycleProjection = store.contextPolicyCore.projectRuntimeLifecycle({
+    projection_kind: "agents",
+    operation_kind: "runtime.lifecycle_projection.agents",
+  });
+  assert.equal(calls.length, 0);
+  assert.equal(runtimeProjectionCalls.length, 4);
+  assert.deepEqual(runtimeProjectionCalls.map((call) => call.method), [
+    "projectSkillHookRegistry",
+    "projectRepositoryWorkflow",
+    "projectRuntimeToolCatalog",
+    "projectRuntimeLifecycle",
+  ]);
+  assert.equal(runtimeProjectionCalls[0].request.schema_version, "ioi.runtime.skill-hook-registry-projection-request.v1");
+  assert.equal(runtimeProjectionCalls[1].request.schema_version, "ioi.runtime.repository-workflow-projection-request.v1");
+  assert.equal(runtimeProjectionCalls[2].request.schema_version, "ioi.runtime.tool-catalog-projection-request.v1");
+  assert.equal(runtimeProjectionCalls[3].request.schema_version, "ioi.runtime.lifecycle-projection-request.v1");
+  assert.equal(runtimeProjectionCalls.some((call) => Object.hasOwn(call.request, "operation")), false);
+  assert.equal(runtimeProjectionCalls.some((call) => Object.hasOwn(call.request, "backend")), false);
+  assert.equal(skillsProjection.source, "direct_runtime_projection_api");
+  assert.equal(repositoryProjection.projection_kind, "repository_context");
+  assert.equal(toolProjection.tools[0].stable_tool_id, "file.apply_patch");
+  assert.equal(lifecycleProjection.projection[0].id, "agent_direct");
   const workflowRequired = store.contextPolicyCore.planWorkflowEditAdmissionRequired({
     operation: "workflow_edit_proposal",
     operation_kind: "workflow.edit_proposed",

@@ -5,13 +5,12 @@ use std::io::{self, Read};
 use super::{
     approval::*, coding_tool_artifact::*, coding_tool_event::*, coding_tool_step_module::*,
     command_protocol::CommandOperation, model_mount::*, model_mount_receipt::*, policy::*,
-    repository_workflow::*, runtime_conversation_artifact_control::*,
-    runtime_conversation_artifact_projection::*, runtime_diagnostics_repair_control::*,
-    runtime_diagnostics_repair_policy::*, runtime_diagnostics_repair_projection::*,
-    runtime_lifecycle::*, runtime_managed_session_control::*, runtime_memory_control::*,
-    runtime_memory_projection::*, runtime_subagent_control::*, runtime_subagent_projection::*,
-    runtime_thread_fork_control::*, runtime_tool_catalog::*, runtime_workflow_edit_control::*,
-    runtime_workspace_change_control::*, skill_hook_registry::*,
+    runtime_conversation_artifact_control::*, runtime_conversation_artifact_projection::*,
+    runtime_diagnostics_repair_control::*, runtime_diagnostics_repair_policy::*,
+    runtime_diagnostics_repair_projection::*, runtime_managed_session_control::*,
+    runtime_memory_control::*, runtime_memory_projection::*, runtime_subagent_control::*,
+    runtime_subagent_projection::*, runtime_thread_fork_control::*,
+    runtime_workflow_edit_control::*, runtime_workspace_change_control::*,
 };
 
 #[derive(Debug, Clone)]
@@ -163,18 +162,6 @@ pub fn dispatch_command_operation_response(
         CommandOperation::ProjectRuntimeTaskJobProjection => {
             project_runtime_task_job_projection_response(decode(raw_request)?).map_err(Into::into)
         }
-        CommandOperation::ProjectSkillHookRegistry => {
-            project_skill_hook_registry_response(decode(raw_request)?).map_err(Into::into)
-        }
-        CommandOperation::ProjectRepositoryWorkflow => {
-            project_repository_workflow_response(decode(raw_request)?).map_err(Into::into)
-        }
-        CommandOperation::ProjectRuntimeToolCatalog => {
-            project_runtime_tool_catalog_response(decode(raw_request)?).map_err(Into::into)
-        }
-        CommandOperation::ProjectRuntimeLifecycle => {
-            project_runtime_lifecycle_response(decode(raw_request)?).map_err(Into::into)
-        }
         CommandOperation::PlanRuntimeWorkflowEditControl => {
             plan_runtime_workflow_edit_control_response(decode(raw_request)?).map_err(Into::into)
         }
@@ -239,9 +226,6 @@ command_error_from!(RunCancelCommandError);
 command_error_from!(RuntimeTaskJobCancelCommandError);
 command_error_from!(RuntimeTaskJobCreateCommandError);
 command_error_from!(RuntimeTaskJobProjectionCommandError);
-command_error_from!(SkillHookRegistryProjectionCommandError);
-command_error_from!(RepositoryWorkflowProjectionCommandError);
-command_error_from!(RuntimeLifecycleProjectionCommandError);
 command_error_from!(RuntimeDiagnosticsRepairControlCommandError);
 command_error_from!(RuntimeDiagnosticsRepairProjectionCommandError);
 command_error_from!(RuntimeDiagnosticsRepairPolicyCommandError);
@@ -257,7 +241,6 @@ command_error_from!(RuntimeSubagentProjectionCommandError);
 command_error_from!(RuntimeWorkflowEditControlCommandError);
 command_error_from!(ThreadLifecycleCommandError);
 command_error_from!(WorkspaceTrustControlCommandError);
-command_error_from!(RuntimeToolCatalogProjectionCommandError);
 command_error_from!(McpMemoryCommandError);
 impl From<ModelMountReadProjectionError> for CommandDispatchError {
     fn from(error: ModelMountReadProjectionError) -> Self {

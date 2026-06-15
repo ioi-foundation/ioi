@@ -11,7 +11,7 @@ test("runtime repository surface returns Rust-owned repository workflow projecti
         calls.push(request);
         if (request.projection_kind === "repository_context") {
           return {
-            source: "rust_repository_workflow_projection_command",
+            source: "rust_repository_workflow_projection_api",
             projection_kind: "repository_context",
             projection: {
               schemaVersion: "ioi.agent-runtime.repository-context.v1",
@@ -21,7 +21,7 @@ test("runtime repository surface returns Rust-owned repository workflow projecti
           };
         }
         return {
-          source: "rust_repository_workflow_projection_command",
+          source: "rust_repository_workflow_projection_api",
           projection_kind: "pr_attempts",
           projection: [
             {
@@ -102,7 +102,7 @@ test("runtime repository surface rejects Rust projection mismatches", () => {
     repositoryRunner: {
       projectRepositoryWorkflow() {
         return {
-          source: "rust_repository_workflow_projection_command",
+          source: "rust_repository_workflow_projection_api",
           projection_kind: "github_context",
           projection: {
             schemaVersion: "ioi.agent-runtime.github-context.v1",

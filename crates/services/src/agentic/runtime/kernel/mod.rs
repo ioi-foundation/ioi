@@ -238,6 +238,10 @@ use receipt_binder::{
     AcceptedReceiptAppendRecord, AcceptedReceiptAppendRequest, ReceiptBinder, ReceiptBindingError,
     StepModuleReceiptBinding,
 };
+use repository_workflow::{
+    RepositoryWorkflowProjectionBridgeRequest, RepositoryWorkflowProjectionCommandError,
+    RepositoryWorkflowProjectionCore, RepositoryWorkflowProjectionRecord,
+};
 use runtime_conversation_artifact_projection::{
     RuntimeConversationArtifactProjectionCommandError, RuntimeConversationArtifactProjectionCore,
     RuntimeConversationArtifactProjectionRecord, RuntimeConversationArtifactProjectionRequest,
@@ -255,6 +259,10 @@ use runtime_diagnostics_repair_policy::{
 use runtime_diagnostics_repair_projection::{
     RuntimeDiagnosticsRepairProjectionCommandError, RuntimeDiagnosticsRepairProjectionCore,
     RuntimeDiagnosticsRepairProjectionRecord, RuntimeDiagnosticsRepairProjectionRequest,
+};
+use runtime_lifecycle::{
+    RuntimeLifecycleProjectionBridgeRequest, RuntimeLifecycleProjectionCommandError,
+    RuntimeLifecycleProjectionCore, RuntimeLifecycleProjectionRecord,
 };
 use runtime_mcp_serve::{
     RuntimeMcpServeError, RuntimeMcpServeToolCallPlanCore, RuntimeMcpServeToolCallPlanRecord,
@@ -276,6 +284,10 @@ use runtime_thread_event::{
     RuntimeThreadEventReplayRecord, RuntimeThreadEventReplayRequest,
     RuntimeThreadTurnProjectionRecord, RuntimeThreadTurnProjectionRequest,
 };
+use runtime_tool_catalog::{
+    RuntimeToolCatalogProjectionBridgeRequest, RuntimeToolCatalogProjectionCommandError,
+    RuntimeToolCatalogProjectionCore, RuntimeToolCatalogProjectionRecord,
+};
 use runtime_workflow_edit_control::{
     RuntimeWorkflowEditControlCommandError, RuntimeWorkflowEditControlCore,
     RuntimeWorkflowEditControlRecord, RuntimeWorkflowEditControlRequest,
@@ -284,6 +296,10 @@ use settlement::{
     ArtifactPromotionReceipt, L1SettlementAdmissionError, L1SettlementAdmissionRecord,
     L1SettlementAttempt, L1SettlementTriggerGuard, PromotionValidationError,
     SettlementReceiptBundleV2,
+};
+use skill_hook_registry::{
+    SkillHookRegistryProjectionBridgeRequest, SkillHookRegistryProjectionCommandError,
+    SkillHookRegistryProjectionCore, SkillHookRegistryProjectionRecord,
 };
 use step_module::{StepModuleInvocation, StepModuleResult, StepModuleValidationError};
 use step_router::{
@@ -584,6 +600,34 @@ impl RuntimeKernelService {
         request: &RuntimeTaskJobProjectionRequest,
     ) -> Result<RuntimeTaskJobProjectionRecord, RuntimeTaskJobProjectionError> {
         RuntimeTaskJobProjectionCore.project(request)
+    }
+
+    pub fn project_skill_hook_registry(
+        &self,
+        request: &SkillHookRegistryProjectionBridgeRequest,
+    ) -> Result<SkillHookRegistryProjectionRecord, SkillHookRegistryProjectionCommandError> {
+        SkillHookRegistryProjectionCore::default().project(request.clone())
+    }
+
+    pub fn project_repository_workflow(
+        &self,
+        request: &RepositoryWorkflowProjectionBridgeRequest,
+    ) -> Result<RepositoryWorkflowProjectionRecord, RepositoryWorkflowProjectionCommandError> {
+        RepositoryWorkflowProjectionCore::default().project(request.clone())
+    }
+
+    pub fn project_runtime_tool_catalog(
+        &self,
+        request: &RuntimeToolCatalogProjectionBridgeRequest,
+    ) -> Result<RuntimeToolCatalogProjectionRecord, RuntimeToolCatalogProjectionCommandError> {
+        RuntimeToolCatalogProjectionCore::default().project(request.clone())
+    }
+
+    pub fn project_runtime_lifecycle(
+        &self,
+        request: &RuntimeLifecycleProjectionBridgeRequest,
+    ) -> Result<RuntimeLifecycleProjectionRecord, RuntimeLifecycleProjectionCommandError> {
+        RuntimeLifecycleProjectionCore::default().project(request.clone())
     }
 
     pub fn project_runtime_memory_projection(

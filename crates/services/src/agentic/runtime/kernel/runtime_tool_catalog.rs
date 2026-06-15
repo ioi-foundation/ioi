@@ -71,17 +71,6 @@ pub struct RuntimeToolCatalogProjectionRecord {
     pub receipt_refs: Vec<String>,
 }
 
-pub fn project_runtime_tool_catalog_response(
-    request: RuntimeToolCatalogProjectionBridgeRequest,
-) -> Result<Value, RuntimeToolCatalogProjectionCommandError> {
-    let record = RuntimeToolCatalogProjectionCore::default().project(request)?;
-    Ok(json!({
-        "source": "rust_runtime_tool_catalog_projection_command",
-        "backend": "rust_policy",
-        "record": record.to_value(),
-    }))
-}
-
 impl RuntimeToolCatalogProjectionCore {
     pub fn project(
         &self,
@@ -571,20 +560,17 @@ mod tests {
     }
 
     #[test]
-    fn rust_shapes_runtime_tool_catalog_command_response() {
-        let response =
-            project_runtime_tool_catalog_response(RuntimeToolCatalogProjectionBridgeRequest {
+    fn rust_shapes_runtime_tool_catalog_direct_record() {
+        let record = RuntimeToolCatalogProjectionCore::default()
+            .project(RuntimeToolCatalogProjectionBridgeRequest {
                 projection_kind: Some("tools".to_string()),
                 pack: Some("runtime".to_string()),
                 ..RuntimeToolCatalogProjectionBridgeRequest::default()
             })
-            .expect("runtime tool catalog response");
+            .expect("runtime tool catalog direct record");
+        let record = record.to_value();
 
-        assert_eq!(
-            response["source"],
-            "rust_runtime_tool_catalog_projection_command"
-        );
-        assert_eq!(response["record"]["projection_kind"], "tools");
-        assert!(response["record"]["record_count"].as_u64().unwrap() >= 3);
+        assert_eq!(record["projection_kind"], "tools");
+        assert!(record["record_count"].as_u64().unwrap() >= 3);
     }
 }

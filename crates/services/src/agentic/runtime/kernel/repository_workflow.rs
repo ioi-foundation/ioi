@@ -75,17 +75,6 @@ pub struct RepositoryWorkflowProjectionRecord {
     pub receipt_refs: Vec<String>,
 }
 
-pub fn project_repository_workflow_response(
-    request: RepositoryWorkflowProjectionBridgeRequest,
-) -> Result<Value, RepositoryWorkflowProjectionCommandError> {
-    let record = RepositoryWorkflowProjectionCore::default().project(request)?;
-    Ok(json!({
-        "source": "rust_repository_workflow_projection_command",
-        "backend": "rust_policy",
-        "record": record.to_value(),
-    }))
-}
-
 impl RepositoryWorkflowProjectionCore {
     pub fn project(
         &self,
@@ -114,7 +103,7 @@ impl RepositoryWorkflowProjectionCore {
             .clone()
             .unwrap_or_else(|| format!("repository_workflow_{projection_kind}"));
         let source = optional_trimmed(request.source.as_deref())
-            .unwrap_or_else(|| "rust_repository_workflow_projection_command".to_string());
+            .unwrap_or_else(|| "rust_repository_workflow_projection_api".to_string());
         let generated_at = now_rfc3339();
         let repository_context = repository_context_projection(&workspace_root, &generated_at);
         let branch_policy = branch_policy_projection(&repository_context, &generated_at);
@@ -1863,8 +1852,8 @@ mod tests {
 
     #[test]
     fn rust_projects_repository_workflow_context_and_policy() {
-        let response =
-            project_repository_workflow_response(RepositoryWorkflowProjectionBridgeRequest {
+        let record = RepositoryWorkflowProjectionCore::default()
+            .project(RepositoryWorkflowProjectionBridgeRequest {
                 operation: Some("repository_workflow_repository_context".to_string()),
                 operation_kind: Some(
                     "repository_workflow.projection.repository_context".to_string(),
@@ -1875,11 +1864,7 @@ mod tests {
                 ..Default::default()
             })
             .expect("repository workflow projection");
-        let record = &response["record"];
-        assert_eq!(
-            response["source"],
-            "rust_repository_workflow_projection_command"
-        );
+        let record = record.to_value();
         assert_eq!(record["projection_kind"], "repository_context");
         assert_eq!(
             record["projection"]["schemaVersion"],
@@ -1895,8 +1880,8 @@ mod tests {
 
     #[test]
     fn rust_projects_repository_workflow_pr_family_shapes() {
-        let response =
-            project_repository_workflow_response(RepositoryWorkflowProjectionBridgeRequest {
+        let record = RepositoryWorkflowProjectionCore::default()
+            .project(RepositoryWorkflowProjectionBridgeRequest {
                 operation: Some("repository_workflow_github_pr_create_plan".to_string()),
                 operation_kind: Some(
                     "repository_workflow.projection.github_pr_create_plan".to_string(),
@@ -1907,7 +1892,7 @@ mod tests {
                 ..Default::default()
             })
             .expect("repository workflow projection");
-        let record = &response["record"];
+        let record = record.to_value();
         assert_eq!(record["projection_kind"], "github_pr_create_plan");
         assert_eq!(
             record["projection"]["schemaVersion"],
@@ -1926,26 +1911,24 @@ mod tests {
     }
 
     #[test]
-    fn rust_shapes_repository_workflow_command_response() {
-        let response =
-            project_repository_workflow_response(RepositoryWorkflowProjectionBridgeRequest {
+    fn rust_shapes_repository_workflow_direct_record() {
+        let record = RepositoryWorkflowProjectionCore::default()
+            .project(RepositoryWorkflowProjectionBridgeRequest {
                 operation_kind: Some("repository_workflow.projection.pr_attempts".to_string()),
                 projection_kind: Some("pr_attempts".to_string()),
                 workspace_root: Some("/workspace/project".to_string()),
                 ..Default::default()
             })
-            .expect("repository workflow command response");
+            .expect("repository workflow direct record");
+        let record = record.to_value();
+
+        assert_eq!(record["source"], "rust_repository_workflow_projection_api");
         assert_eq!(
-            response["source"],
-            "rust_repository_workflow_projection_command"
-        );
-        assert_eq!(response["backend"], "rust_policy");
-        assert_eq!(
-            response["record"]["schema_version"],
+            record["schema_version"],
             REPOSITORY_WORKFLOW_PROJECTION_RESULT_SCHEMA_VERSION
         );
-        assert_eq!(response["record"]["projection_kind"], "pr_attempts");
-        assert!(response["record"]["receipt_refs"][0]
+        assert_eq!(record["projection_kind"], "pr_attempts");
+        assert!(record["receipt_refs"][0]
             .as_str()
             .expect("receipt")
             .contains("repository_workflow_projection_pr_attempts"));

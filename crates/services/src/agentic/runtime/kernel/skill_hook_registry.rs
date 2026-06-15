@@ -68,17 +68,6 @@ pub struct SkillHookRegistryProjectionRecord {
     pub receipt_refs: Vec<String>,
 }
 
-pub fn project_skill_hook_registry_response(
-    request: SkillHookRegistryProjectionBridgeRequest,
-) -> Result<Value, SkillHookRegistryProjectionCommandError> {
-    let record = SkillHookRegistryProjectionCore::default().project(request)?;
-    Ok(json!({
-        "source": "rust_skill_hook_registry_projection_command",
-        "backend": "rust_policy",
-        "record": record.to_value(),
-    }))
-}
-
 impl SkillHookRegistryProjectionCore {
     pub fn project(
         &self,
@@ -107,7 +96,7 @@ impl SkillHookRegistryProjectionCore {
             .clone()
             .unwrap_or_else(|| format!("skill_hook_registry_{registry_kind}"));
         let source = optional_trimmed(request.source.as_deref())
-            .unwrap_or_else(|| "rust_skill_hook_registry_projection_command".to_string());
+            .unwrap_or_else(|| "rust_skill_hook_registry_projection_api".to_string());
         let catalog = discover_skill_hook_catalog(&workspace_root, &home_dir);
         let skills = array_values(&catalog["skills"]);
         let hooks = array_values(&catalog["hooks"]);
@@ -1167,29 +1156,26 @@ mod tests {
     }
 
     #[test]
-    fn rust_shapes_skill_hook_registry_command_response() {
+    fn rust_shapes_skill_hook_registry_direct_record() {
         let (workspace, home) = fixture_roots("command");
-        let response =
-            project_skill_hook_registry_response(SkillHookRegistryProjectionBridgeRequest {
+        let record = SkillHookRegistryProjectionCore::default()
+            .project(SkillHookRegistryProjectionBridgeRequest {
                 registry_kind: Some("skills".to_string()),
                 operation_kind: Some("skill_hook.registry.skills".to_string()),
                 workspace_root: Some(workspace.to_string_lossy().to_string()),
                 home_dir: Some(home.to_string_lossy().to_string()),
                 ..Default::default()
             })
-            .expect("skill hook registry command response");
+            .expect("skill hook registry direct record");
+        let record = record.to_value();
 
+        assert_eq!(record["source"], "rust_skill_hook_registry_projection_api");
         assert_eq!(
-            response["source"],
-            "rust_skill_hook_registry_projection_command"
-        );
-        assert_eq!(response["backend"], "rust_policy");
-        assert_eq!(
-            response["record"]["schema_version"],
+            record["schema_version"],
             SKILL_HOOK_REGISTRY_PROJECTION_RESULT_SCHEMA_VERSION
         );
         assert_eq!(
-            response["record"]["projection"]["schemaVersion"],
+            record["projection"]["schemaVersion"],
             "ioi.agent-runtime.skills.v1"
         );
     }

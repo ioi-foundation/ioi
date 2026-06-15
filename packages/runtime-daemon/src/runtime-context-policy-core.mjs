@@ -174,6 +174,14 @@ export const RUNTIME_CONTROL_RUN_CANCEL_STATE_UPDATE_API_METHOD =
   "planRunCancelStateUpdate";
 export const RUNTIME_CONTROL_RUN_CANCEL_ADMISSION_REQUIRED_API_METHOD =
   "planRunCancelAdmissionRequired";
+export const RUNTIME_PROJECTION_SKILL_HOOK_REGISTRY_API_METHOD =
+  "projectSkillHookRegistry";
+export const RUNTIME_PROJECTION_REPOSITORY_WORKFLOW_API_METHOD =
+  "projectRepositoryWorkflow";
+export const RUNTIME_PROJECTION_TOOL_CATALOG_API_METHOD =
+  "projectRuntimeToolCatalog";
+export const RUNTIME_PROJECTION_LIFECYCLE_API_METHOD =
+  "projectRuntimeLifecycle";
 export const THREAD_LIFECYCLE_THREAD_CONTROL_AGENT_STATE_UPDATE_API_METHOD =
   "planThreadControlAgentStateUpdate";
 export const THREAD_LIFECYCLE_THREAD_TURN_ADMISSION_REQUIRED_API_METHOD =
@@ -256,6 +264,12 @@ export class RuntimeContextPolicyCore {
       options.daemonCoreRuntimeControlApi ??
         options.daemonCoreApi?.runtimeControl ??
         options.daemonCoreApi?.runtime_control,
+    );
+    this.daemonCoreRuntimeProjectionApi = runtimeProjectionApi(
+      options.daemonCoreRuntimeProjectionApi ??
+        options.daemonCoreApi?.runtimeProjection ??
+        options.daemonCoreApi?.runtime_projection ??
+        options.daemonCoreApi?.projection,
     );
     this.daemonCoreThreadLifecycleApi = threadLifecycleApi(
       options.daemonCoreThreadLifecycleApi ??
@@ -493,35 +507,35 @@ export class RuntimeContextPolicyCore {
   }
 
   projectSkillHookRegistry(request = {}) {
-    return normalizeSkillHookRegistryProjectionBridgeResult(this.evaluateRawPolicy({
-      operation: "project_skill_hook_registry",
-      schemaVersion: SKILL_HOOK_REGISTRY_PROJECTION_REQUEST_SCHEMA_VERSION,
+    return normalizeSkillHookRegistryProjectionBridgeResult(this.invokeRuntimeProjectionApi(
+      RUNTIME_PROJECTION_SKILL_HOOK_REGISTRY_API_METHOD,
+      SKILL_HOOK_REGISTRY_PROJECTION_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   projectRepositoryWorkflow(request = {}) {
-    return normalizeRepositoryWorkflowProjectionBridgeResult(this.evaluateRawPolicy({
-      operation: "project_repository_workflow",
-      schemaVersion: REPOSITORY_WORKFLOW_PROJECTION_REQUEST_SCHEMA_VERSION,
+    return normalizeRepositoryWorkflowProjectionBridgeResult(this.invokeRuntimeProjectionApi(
+      RUNTIME_PROJECTION_REPOSITORY_WORKFLOW_API_METHOD,
+      REPOSITORY_WORKFLOW_PROJECTION_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   projectRuntimeToolCatalog(request = {}) {
-    return normalizeRuntimeToolCatalogProjectionBridgeResult(this.evaluateRawPolicy({
-      operation: "project_runtime_tool_catalog",
-      schemaVersion: RUNTIME_TOOL_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION,
+    return normalizeRuntimeToolCatalogProjectionBridgeResult(this.invokeRuntimeProjectionApi(
+      RUNTIME_PROJECTION_TOOL_CATALOG_API_METHOD,
+      RUNTIME_TOOL_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   projectRuntimeLifecycle(request = {}) {
-    return normalizeRuntimeLifecycleProjectionBridgeResult(this.evaluateRawPolicy({
-      operation: "project_runtime_lifecycle",
-      schemaVersion: RUNTIME_LIFECYCLE_PROJECTION_REQUEST_SCHEMA_VERSION,
+    return normalizeRuntimeLifecycleProjectionBridgeResult(this.invokeRuntimeProjectionApi(
+      RUNTIME_PROJECTION_LIFECYCLE_API_METHOD,
+      RUNTIME_LIFECYCLE_PROJECTION_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   projectRuntimeMemoryProjection(request = {}) {
@@ -905,6 +919,33 @@ export class RuntimeContextPolicyCore {
       throw new RuntimeContextPolicyCoreError(
         responseError.message ?? "Rust runtime control policy rejected the request.",
         responseError.code ?? "runtime_control_direct_api_rejected",
+        { error: responseError },
+      );
+    }
+    return response?.ok === true ? response.result : response;
+  }
+
+  invokeRuntimeProjectionApi(method, schemaVersion, request = {}) {
+    const invoke = this.daemonCoreRuntimeProjectionApi?.[method];
+    if (typeof invoke !== "function") {
+      throw new RuntimeContextPolicyCoreError(
+        `Runtime projection policy requires daemonCoreRuntimeProjectionApi.${method} for direct Rust daemon-core projection evaluation.`,
+        "runtime_context_policy_core_direct_runtime_projection_api_unconfigured",
+        {
+          boundary: `daemonCoreRuntimeProjectionApi.${method}`,
+          backend: RUST_CONTEXT_POLICY_BACKEND,
+        },
+      );
+    }
+    const response = invoke.call(this.daemonCoreRuntimeProjectionApi, {
+      ...(objectRecord(request) ?? {}),
+      schema_version: schemaVersion,
+    });
+    const responseError = objectRecord(response?.error);
+    if (response?.ok === false && responseError) {
+      throw new RuntimeContextPolicyCoreError(
+        responseError.message ?? "Rust runtime projection rejected the request.",
+        responseError.code ?? "runtime_projection_direct_api_rejected",
         { error: responseError },
       );
     }
@@ -1822,7 +1863,7 @@ export function normalizeSkillHookRegistryProjectionBridgeResult(value = {}) {
     source:
       result.source ??
       record.source ??
-      "rust_skill_hook_registry_projection_command",
+      "rust_skill_hook_registry_projection_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
@@ -1866,7 +1907,7 @@ export function normalizeRepositoryWorkflowProjectionBridgeResult(value = {}) {
     source:
       result.source ??
       record.source ??
-      "rust_repository_workflow_projection_command",
+      "rust_repository_workflow_projection_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
@@ -1917,7 +1958,7 @@ export function normalizeRuntimeToolCatalogProjectionBridgeResult(value = {}) {
     source:
       result.source ??
       record.source ??
-      "rust_runtime_tool_catalog_projection_command",
+      "rust_runtime_tool_catalog_projection_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
@@ -1958,7 +1999,7 @@ export function normalizeRuntimeLifecycleProjectionBridgeResult(value = {}) {
     source:
       result.source ??
       record.source ??
-      "rust_runtime_lifecycle_projection_command",
+      "rust_runtime_lifecycle_projection_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
@@ -3171,6 +3212,10 @@ function contextLifecycleApi(value) {
 }
 
 function runtimeControlApi(value) {
+  return objectRecord(value);
+}
+
+function runtimeProjectionApi(value) {
   return objectRecord(value);
 }
 

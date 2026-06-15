@@ -8,7 +8,7 @@ function lifecycleRunner(calls = []) {
     projectRuntimeLifecycle(request) {
       calls.push(request);
       return {
-        source: "rust_runtime_lifecycle_projection_command",
+        source: "rust_runtime_lifecycle_projection_api",
         backend: "rust_policy",
         projection_kind: request.projection_kind,
         operation_kind: request.operation_kind,
@@ -209,7 +209,7 @@ test("runtime lifecycle surface rejects Rust projection mismatches", () => {
     lifecycleRunner: {
       projectRuntimeLifecycle() {
         return {
-          source: "rust_runtime_lifecycle_projection_command",
+          source: "rust_runtime_lifecycle_projection_api",
           projection_kind: "runs",
           projection: [],
         };

@@ -112,17 +112,6 @@ pub struct RuntimeLifecycleProjectionRecord {
     pub receipt_refs: Vec<String>,
 }
 
-pub fn project_runtime_lifecycle_response(
-    request: RuntimeLifecycleProjectionBridgeRequest,
-) -> Result<Value, RuntimeLifecycleProjectionCommandError> {
-    let record = RuntimeLifecycleProjectionCore::default().project(request)?;
-    Ok(json!({
-        "source": "rust_runtime_lifecycle_projection_command",
-        "backend": "rust_policy",
-        "record": record.to_value(),
-    }))
-}
-
 impl RuntimeLifecycleProjectionCore {
     pub fn project(
         &self,
@@ -138,7 +127,7 @@ impl RuntimeLifecycleProjectionCore {
             .clone()
             .unwrap_or_else(|| "runtime_lifecycle_projection".to_string());
         let source = optional_trimmed(request.source.as_deref())
-            .unwrap_or_else(|| "rust_runtime_lifecycle_projection_command".to_string());
+            .unwrap_or_else(|| "rust_runtime_lifecycle_projection_api".to_string());
         let projection = projection_for_kind(&projection_kind, &request)?;
         let record_count = match &projection {
             Value::Array(items) => items.len(),
@@ -534,9 +523,9 @@ mod tests {
     }
 
     #[test]
-    fn rust_shapes_runtime_lifecycle_command_response() {
-        let response =
-            project_runtime_lifecycle_response(RuntimeLifecycleProjectionBridgeRequest {
+    fn rust_shapes_runtime_lifecycle_direct_record() {
+        let record = RuntimeLifecycleProjectionCore::default()
+            .project(RuntimeLifecycleProjectionBridgeRequest {
                 operation: Some("runtime_lifecycle_projection".to_string()),
                 operation_kind: Some("runtime.lifecycle_projection.agents".to_string()),
                 projection_kind: Some("agents".to_string()),
@@ -544,18 +533,15 @@ mod tests {
                 evidence_refs: vec!["runtime_lifecycle_rust_projection".to_string()],
                 ..Default::default()
             })
-            .expect("runtime lifecycle command response");
+            .expect("runtime lifecycle direct record");
+        let record = record.to_value();
 
+        assert_eq!(record["source"], "rust_runtime_lifecycle_projection_api");
         assert_eq!(
-            response["source"],
-            "rust_runtime_lifecycle_projection_command"
-        );
-        assert_eq!(response["backend"], "rust_policy");
-        assert_eq!(
-            response["record"]["schema_version"],
+            record["schema_version"],
             RUNTIME_LIFECYCLE_PROJECTION_RESULT_SCHEMA_VERSION
         );
-        assert_eq!(response["record"]["projection_kind"], "agents");
-        assert_eq!(response["record"]["projection"][0]["id"], "agent_one");
+        assert_eq!(record["projection_kind"], "agents");
+        assert_eq!(record["projection"][0]["id"], "agent_one");
     }
 }

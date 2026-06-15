@@ -26,6 +26,10 @@ import {
   RUNTIME_CONTROL_RUN_CANCEL_ADMISSION_REQUIRED_API_METHOD,
   RUNTIME_CONTROL_RUN_CANCEL_STATE_UPDATE_API_METHOD,
   RUNTIME_CONTROL_WORKFLOW_EDIT_ADMISSION_REQUIRED_API_METHOD,
+  RUNTIME_PROJECTION_LIFECYCLE_API_METHOD,
+  RUNTIME_PROJECTION_REPOSITORY_WORKFLOW_API_METHOD,
+  RUNTIME_PROJECTION_SKILL_HOOK_REGISTRY_API_METHOD,
+  RUNTIME_PROJECTION_TOOL_CATALOG_API_METHOD,
   THREAD_MEMORY_AGENT_STATE_UPDATE_API_METHOD,
   THREAD_MEMORY_MANAGER_STATUS_PROJECTION_API_METHOD,
   THREAD_MEMORY_MANAGER_VALIDATION_PROJECTION_API_METHOD,
@@ -212,6 +216,22 @@ function createRuntimeControlDirectCore(method, handler) {
       throw new Error(`retired generic invoker reached for ${request?.operation}`);
     },
     daemonCoreRuntimeControlApi: {
+      [method](request) {
+        calls.push({ method, request });
+        return handler(request);
+      },
+    },
+  });
+  return { calls, runner };
+}
+
+function createRuntimeProjectionDirectCore(method, handler) {
+  const calls = [];
+  const runner = new RuntimeContextPolicyCore({
+    daemonCoreInvoker(request) {
+      throw new Error(`retired generic invoker reached for ${request?.operation}`);
+    },
+    daemonCoreRuntimeProjectionApi: {
       [method](request) {
         calls.push({ method, request });
         return handler(request);
@@ -2379,11 +2399,12 @@ test("runtime task job projection normalizer accepts get operation kinds", () =>
 
 test("skill hook registry projection core sends Rust daemon-core request", () => {
   let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
+  const { calls, runner } = createRuntimeProjectionDirectCore(
+    RUNTIME_PROJECTION_SKILL_HOOK_REGISTRY_API_METHOD,
+    (request) => {
       captured = request;
       return {
-        source: "rust_skill_hook_registry_projection_command",
+        source: "rust_skill_hook_registry_projection_api",
         backend: "rust_policy",
         record: {
           object: "ioi.runtime_skill_hook_registry_projection",
@@ -2408,7 +2429,7 @@ test("skill hook registry projection core sends Rust daemon-core request", () =>
         },
       };
     },
-  });
+  );
 
   const result = runner.projectSkillHookRegistry({
     operation: "skill_hook_registry_skills",
@@ -2418,18 +2439,18 @@ test("skill hook registry projection core sends Rust daemon-core request", () =>
     home_dir: "/home/operator",
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "project_skill_hook_registry");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, RUNTIME_PROJECTION_SKILL_HOOK_REGISTRY_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    captured.schema_version,
     SKILL_HOOK_REGISTRY_PROJECTION_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.operation, "skill_hook_registry_skills");
-  assert.equal(captured.request.operation_kind, "skill_hook.registry.skills");
-  assert.equal(captured.request.registry_kind, "skills");
-  assert.equal(captured.request.home_dir, "/home/operator");
-  assert.equal(result.source, "rust_skill_hook_registry_projection_command");
+  assert.equal(Object.hasOwn(captured, "backend"), false);
+  assert.equal(captured.operation, "skill_hook_registry_skills");
+  assert.equal(captured.operation_kind, "skill_hook.registry.skills");
+  assert.equal(captured.registry_kind, "skills");
+  assert.equal(captured.home_dir, "/home/operator");
+  assert.equal(result.source, "rust_skill_hook_registry_projection_api");
   assert.equal(result.registry_kind, "skills");
   assert.equal(result.projection.skillCount, 1);
   assert.equal(result.skills[0].id, "skill.repo");
@@ -2456,11 +2477,12 @@ test("skill hook registry projection core sends Rust daemon-core request", () =>
 
 test("repository workflow projection core sends Rust daemon-core request", () => {
   let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
+  const { calls, runner } = createRuntimeProjectionDirectCore(
+    RUNTIME_PROJECTION_REPOSITORY_WORKFLOW_API_METHOD,
+    (request) => {
       captured = request;
       return {
-        source: "rust_repository_workflow_projection_command",
+        source: "rust_repository_workflow_projection_api",
         backend: "rust_policy",
         record: {
           object: "ioi.runtime_repository_workflow_projection",
@@ -2488,7 +2510,7 @@ test("repository workflow projection core sends Rust daemon-core request", () =>
         },
       };
     },
-  });
+  );
 
   const result = runner.projectRepositoryWorkflow({
     operation: "repository_workflow_pr_attempts",
@@ -2498,22 +2520,22 @@ test("repository workflow projection core sends Rust daemon-core request", () =>
     evidence_refs: ["runtime_repository_workflow_rust_projection"],
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "project_repository_workflow");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, RUNTIME_PROJECTION_REPOSITORY_WORKFLOW_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    captured.schema_version,
     REPOSITORY_WORKFLOW_PROJECTION_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.operation, "repository_workflow_pr_attempts");
+  assert.equal(Object.hasOwn(captured, "backend"), false);
+  assert.equal(captured.operation, "repository_workflow_pr_attempts");
   assert.equal(
-    captured.request.operation_kind,
+    captured.operation_kind,
     "repository_workflow.projection.pr_attempts",
   );
-  assert.equal(captured.request.projection_kind, "pr_attempts");
+  assert.equal(captured.projection_kind, "pr_attempts");
   assert.equal(
     result.source,
-    "rust_repository_workflow_projection_command",
+    "rust_repository_workflow_projection_api",
   );
   assert.equal(result.projection_kind, "pr_attempts");
   assert.equal(result.projection[0].attemptId, "pr_attempt_one");
@@ -2541,11 +2563,12 @@ test("repository workflow projection core sends Rust daemon-core request", () =>
 
 test("runtime tool catalog projection core sends Rust daemon-core request", () => {
   let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
+  const { calls, runner } = createRuntimeProjectionDirectCore(
+    RUNTIME_PROJECTION_TOOL_CATALOG_API_METHOD,
+    (request) => {
       captured = request;
       return {
-        source: "rust_runtime_tool_catalog_projection_command",
+        source: "rust_runtime_tool_catalog_projection_api",
         backend: "rust_policy",
         record: {
           object: "ioi.runtime_tool_catalog_projection",
@@ -2562,7 +2585,7 @@ test("runtime tool catalog projection core sends Rust daemon-core request", () =
         },
       };
     },
-  });
+  );
 
   const result = runner.projectRuntimeToolCatalog({
     operation: "runtime_tool_catalog",
@@ -2572,13 +2595,15 @@ test("runtime tool catalog projection core sends Rust daemon-core request", () =
     workspace_root: "/workspace/project",
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "project_runtime_tool_catalog");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, RUNTIME_PROJECTION_TOOL_CATALOG_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    captured.schema_version,
     RUNTIME_TOOL_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(result.source, "rust_runtime_tool_catalog_projection_command");
+  assert.equal(Object.hasOwn(captured, "operation"), true);
+  assert.equal(Object.hasOwn(captured, "backend"), false);
+  assert.equal(result.source, "rust_runtime_tool_catalog_projection_api");
   assert.equal(result.projection_kind, "tools");
   assert.equal(result.tools[0].stable_tool_id, "file.apply_patch");
   assert.equal(Object.hasOwn(result.tools[0], "stableToolId"), false);
@@ -2604,11 +2629,12 @@ test("runtime tool catalog projection core sends Rust daemon-core request", () =
 
 test("runtime lifecycle projection core sends Rust daemon-core request", () => {
   let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
+  const { calls, runner } = createRuntimeProjectionDirectCore(
+    RUNTIME_PROJECTION_LIFECYCLE_API_METHOD,
+    (request) => {
       captured = request;
       return {
-        source: "rust_runtime_lifecycle_projection_command",
+        source: "rust_runtime_lifecycle_projection_api",
         backend: "rust_policy",
         record: {
           object: "ioi.runtime_lifecycle_projection",
@@ -2629,7 +2655,7 @@ test("runtime lifecycle projection core sends Rust daemon-core request", () => {
         },
       };
     },
-  });
+  );
 
   const result = runner.projectRuntimeLifecycle({
     operation: "runtime_lifecycle_projection",
@@ -2644,27 +2670,27 @@ test("runtime lifecycle projection core sends Rust daemon-core request", () => {
     evidence_refs: ["runtime_lifecycle_rust_projection"],
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "project_runtime_lifecycle");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, RUNTIME_PROJECTION_LIFECYCLE_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    captured.schema_version,
     RUNTIME_LIFECYCLE_PROJECTION_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.operation, "runtime_lifecycle_projection");
+  assert.equal(Object.hasOwn(captured, "backend"), false);
+  assert.equal(captured.operation, "runtime_lifecycle_projection");
   assert.equal(
-    captured.request.operation_kind,
+    captured.operation_kind,
     "runtime.lifecycle_projection.run_artifact",
   );
-  assert.equal(captured.request.projection_kind, "run_artifact");
-  assert.equal(captured.request.agent_id, "agent_123");
-  assert.equal(captured.request.thread_id, "thread_123");
-  assert.equal(captured.request.turn_id, "turn_123");
-  assert.equal(captured.request.run_id, "run_123");
-  assert.equal(captured.request.artifact_ref, "artifact_123");
+  assert.equal(captured.projection_kind, "run_artifact");
+  assert.equal(captured.agent_id, "agent_123");
+  assert.equal(captured.thread_id, "thread_123");
+  assert.equal(captured.turn_id, "turn_123");
+  assert.equal(captured.run_id, "run_123");
+  assert.equal(captured.artifact_ref, "artifact_123");
   assert.equal(
     result.source,
-    "rust_runtime_lifecycle_projection_command",
+    "rust_runtime_lifecycle_projection_api",
   );
   assert.equal(result.projection_kind, "run_artifact");
   assert.equal(result.projection.id, "artifact_123");

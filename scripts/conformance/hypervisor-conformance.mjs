@@ -4700,6 +4700,9 @@ function runBridge() {
       /this\.daemonCoreRuntimeControlApi = options\.daemonCoreRuntimeControlApi/.test(
         runtimeDaemonIndex,
       ) &&
+      /this\.daemonCoreRuntimeProjectionApi = options\.daemonCoreRuntimeProjectionApi/.test(
+        runtimeDaemonIndex,
+      ) &&
       /this\.daemonCoreThreadLifecycleApi = options\.daemonCoreThreadLifecycleApi/.test(
         runtimeDaemonIndex,
       ) &&
@@ -4712,7 +4715,7 @@ function runBridge() {
       /this\.daemonCoreThreadMemoryApi = options\.daemonCoreThreadMemoryApi/.test(
         runtimeDaemonIndex,
       ) &&
-      /createRuntimeContextPolicyCore\(\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*daemonCoreContextLifecycleApi: this\.daemonCoreContextLifecycleApi,\s*daemonCoreRuntimeControlApi: this\.daemonCoreRuntimeControlApi,\s*daemonCoreThreadLifecycleApi: this\.daemonCoreThreadLifecycleApi,\s*daemonCoreWorkspaceTrustApi: this\.daemonCoreWorkspaceTrustApi,\s*daemonCoreMcpApi: this\.daemonCoreMcpApi,\s*daemonCoreThreadMemoryApi: this\.daemonCoreThreadMemoryApi,\s*\}\)/.test(
+      /createRuntimeContextPolicyCore\(\{\s*daemonCoreInvoker: this\.daemonCoreInvoker,\s*daemonCoreContextLifecycleApi: this\.daemonCoreContextLifecycleApi,\s*daemonCoreRuntimeControlApi: this\.daemonCoreRuntimeControlApi,\s*daemonCoreRuntimeProjectionApi: this\.daemonCoreRuntimeProjectionApi,\s*daemonCoreThreadLifecycleApi: this\.daemonCoreThreadLifecycleApi,\s*daemonCoreWorkspaceTrustApi: this\.daemonCoreWorkspaceTrustApi,\s*daemonCoreMcpApi: this\.daemonCoreMcpApi,\s*daemonCoreThreadMemoryApi: this\.daemonCoreThreadMemoryApi,\s*\}\)/.test(
         runtimeDaemonIndex,
       ) &&
       /daemonCoreContextLifecycleApi:\s*\{[\s\S]*?evaluateContextBudgetPolicy\(request\)/.test(
@@ -4728,6 +4731,15 @@ function runBridge() {
         daemonCoreDirectInvokerServiceTest,
       ) &&
       /Object\.hasOwn\(runtimeControlCalls\[0\]\.request,\s*"backend"\),\s*false/.test(
+        daemonCoreDirectInvokerServiceTest,
+      ) &&
+      /daemonCoreRuntimeProjectionApi:\s*\{[\s\S]*?projectSkillHookRegistry\(request\)[\s\S]*?projectRepositoryWorkflow\(request\)[\s\S]*?projectRuntimeToolCatalog\(request\)[\s\S]*?projectRuntimeLifecycle\(request\)/.test(
+        daemonCoreDirectInvokerServiceTest,
+      ) &&
+      /runtimeProjectionCalls\.some\(\(call\) => Object\.hasOwn\(call\.request,\s*"operation"\)\),\s*false/.test(
+        daemonCoreDirectInvokerServiceTest,
+      ) &&
+      /runtimeProjectionCalls\.some\(\(call\) => Object\.hasOwn\(call\.request,\s*"backend"\)\),\s*false/.test(
         daemonCoreDirectInvokerServiceTest,
       ) &&
       /daemonCoreThreadLifecycleApi:\s*\{[\s\S]*?planAgentCreateStateUpdate\(request\)/.test(
@@ -4975,6 +4987,7 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-daemon-core-command-runner.test.mjs",
       "packages/runtime-daemon/src/runtime-daemon-core-direct-invoker-service.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
       "packages/runtime-daemon/src/step-module-runner.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-approval-core.mjs",
       "packages/runtime-daemon/src/runtime-worker-service-package-core.mjs",
@@ -8374,8 +8387,8 @@ function runBridge() {
       /rust_policy_shapes_diagnostics_repair_admission_required_direct_record/.test(policyAdmissionRequiredCore) &&
       !/pub fn plan_workflow_edit_admission_required_response/.test(policyAdmissionRequiredCore) &&
       !/pub fn plan_diagnostics_repair_admission_required_response/.test(policyAdmissionRequiredCore) &&
-      /rust_shapes_repository_workflow_command_response/.test(repositoryWorkflowRustCore) &&
-      /rust_shapes_runtime_lifecycle_command_response/.test(runtimeLifecycleRustCore) &&
+      /rust_shapes_repository_workflow_direct_record/.test(repositoryWorkflowRustCore) &&
+      /rust_shapes_runtime_lifecycle_direct_record/.test(runtimeLifecycleRustCore) &&
       !/plan_workflow_edit_admission_required_response as plan_workflow_edit_admission_required/.test(bridgeModule) &&
       !/plan_diagnostics_repair_admission_required_response as plan_diagnostics_repair_admission_required/.test(bridgeModule) &&
       !/plan_skill_hook_registry_projection_required_response as plan_skill_hook_registry_projection_required/.test(bridgeModule) &&
@@ -12341,8 +12354,10 @@ function runBridge() {
       policyProjectionRequiredCore.trim() === "" &&
       /pub struct RuntimeLifecycleProjectionCore/.test(runtimeLifecycleRustCore) &&
       /pub struct RuntimeLifecycleProjectionBridgeRequest/.test(runtimeLifecycleRustCore) &&
-      /pub fn project_runtime_lifecycle_response/.test(runtimeLifecycleRustCore) &&
-      /rust_runtime_lifecycle_projection_command/.test(runtimeLifecycleRustCore) &&
+      !/pub fn project_runtime_lifecycle_response/.test(runtimeLifecycleRustCore) &&
+      /pub fn project_runtime_lifecycle\(/.test(kernelModuleForBridgeChecks) &&
+      /rust_runtime_lifecycle_projection_api/.test(runtimeLifecycleRustCore) &&
+      !/rust_runtime_lifecycle_projection_command/.test(runtimeLifecycleRustCore) &&
       /runtime_lifecycle_projection_kind_invalid/.test(runtimeLifecycleRustCore) &&
       /rust_projects_runtime_lifecycle_route_family_shapes/.test(
         runtimeLifecycleRustCore,
@@ -12364,7 +12379,7 @@ function runBridge() {
       !/pub struct RuntimeLifecycleProjectionRequiredCore;/.test(policyFacade) &&
       !/RepositoryWorkflowProjectionRequired/.test(policyFacade) &&
       !/rust_policy_plans_runtime_lifecycle_projection_required/.test(policyFacade) &&
-      /rust_shapes_runtime_lifecycle_command_response/.test(runtimeLifecycleRustCore),
+      /rust_shapes_runtime_lifecycle_direct_record/.test(runtimeLifecycleRustCore),
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
       "crates/services/src/agentic/runtime/kernel/runtime_lifecycle.rs",
@@ -12378,15 +12393,17 @@ function runBridge() {
       /pub const SKILL_HOOK_REGISTRY_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
         skillHookRegistryRustCore,
       ) &&
-      /pub fn project_skill_hook_registry_response/.test(skillHookRegistryRustCore) &&
       /pub struct SkillHookRegistryProjectionCore/.test(skillHookRegistryRustCore) &&
-      /rust_skill_hook_registry_projection_command/.test(skillHookRegistryRustCore) &&
+      !/pub fn project_skill_hook_registry_response/.test(skillHookRegistryRustCore) &&
+      /pub fn project_skill_hook_registry\(/.test(kernelModuleForBridgeChecks) &&
+      /rust_skill_hook_registry_projection_api/.test(skillHookRegistryRustCore) &&
+      !/rust_skill_hook_registry_projection_command/.test(skillHookRegistryRustCore) &&
       /rust_projects_skill_hook_registry_catalog/.test(skillHookRegistryRustCore) &&
       /rust_projects_skill_and_hook_route_shapes/.test(skillHookRegistryRustCore) &&
-      /rust_shapes_skill_hook_registry_command_response/.test(skillHookRegistryRustCore) &&
-      /project_skill_hook_registry/.test(commandProtocolCore) &&
-      /ProjectSkillHookRegistry/.test(commandProtocolCore) &&
-      /project_skill_hook_registry_response/.test(
+      /rust_shapes_skill_hook_registry_direct_record/.test(skillHookRegistryRustCore) &&
+      /public_projection_catalog_command_transport_is_retired/.test(commandProtocolCore) &&
+      !/ProjectSkillHookRegistry/.test(commandProtocolCore) &&
+      !/project_skill_hook_registry_response/.test(
         read("crates/services/src/agentic/runtime/kernel/command_dispatch.rs"),
       ) &&
       !/plan_skill_hook_registry_projection_required/.test(commandProtocolCore) &&
@@ -12404,9 +12421,14 @@ function runBridge() {
       /SKILL_HOOK_REGISTRY_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
         runtimeContextPolicyCore,
       ) &&
+      /RUNTIME_PROJECTION_SKILL_HOOK_REGISTRY_API_METHOD/.test(
+        runtimeContextPolicyCore,
+      ) &&
+      /invokeRuntimeProjectionApi/.test(runtimeContextPolicyCore) &&
       /projectSkillHookRegistry\(request = \{\}\)/.test(
         runtimeContextPolicyCore,
       ) &&
+      !/operation:\s*"project_skill_hook_registry"/.test(runtimeContextPolicyCore) &&
       /normalizeSkillHookRegistryProjectionBridgeResult/.test(
         runtimeContextPolicyCore,
       ) &&
@@ -12480,13 +12502,17 @@ function runBridge() {
       /pub const REPOSITORY_WORKFLOW_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
         repositoryWorkflowRustCore,
       ) &&
-      /pub fn project_repository_workflow_response/.test(
+      !/pub fn project_repository_workflow_response/.test(
         repositoryWorkflowRustCore,
       ) &&
+      /pub fn project_repository_workflow\(/.test(kernelModuleForBridgeChecks) &&
       /pub struct RepositoryWorkflowProjectionCore/.test(
         repositoryWorkflowRustCore,
       ) &&
-      /rust_repository_workflow_projection_command/.test(
+      /rust_repository_workflow_projection_api/.test(
+        repositoryWorkflowRustCore,
+      ) &&
+      !/rust_repository_workflow_projection_command/.test(
         repositoryWorkflowRustCore,
       ) &&
       /rust_projects_repository_workflow_context_and_policy/.test(
@@ -12495,12 +12521,12 @@ function runBridge() {
       /rust_projects_repository_workflow_pr_family_shapes/.test(
         repositoryWorkflowRustCore,
       ) &&
-      /rust_shapes_repository_workflow_command_response/.test(
+      /rust_shapes_repository_workflow_direct_record/.test(
         repositoryWorkflowRustCore,
       ) &&
-      /project_repository_workflow/.test(commandProtocolCore) &&
-      /ProjectRepositoryWorkflow/.test(commandProtocolCore) &&
-      /project_repository_workflow_response/.test(
+      /public_projection_catalog_command_transport_is_retired/.test(commandProtocolCore) &&
+      !/ProjectRepositoryWorkflow/.test(commandProtocolCore) &&
+      !/project_repository_workflow_response/.test(
         read("crates/services/src/agentic/runtime/kernel/command_dispatch.rs"),
       ) &&
       !/plan_repository_workflow_projection_required/.test(commandProtocolCore) &&
@@ -12520,9 +12546,13 @@ function runBridge() {
       /REPOSITORY_WORKFLOW_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
         runtimeContextPolicyCore,
       ) &&
+      /RUNTIME_PROJECTION_REPOSITORY_WORKFLOW_API_METHOD/.test(
+        runtimeContextPolicyCore,
+      ) &&
       /projectRepositoryWorkflow\(request = \{\}\)/.test(
         runtimeContextPolicyCore,
       ) &&
+      !/operation:\s*"project_repository_workflow"/.test(runtimeContextPolicyCore) &&
       /normalizeRepositoryWorkflowProjectionBridgeResult/.test(
         runtimeContextPolicyCore,
       ) &&
@@ -26449,16 +26479,17 @@ function runReceipts() {
     /pub const RUNTIME_TOOL_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
       runtimeToolCatalogRustCore,
     ) &&
-      /pub fn project_runtime_tool_catalog_response/.test(runtimeToolCatalogRustCore) &&
+      !/pub fn project_runtime_tool_catalog_response/.test(runtimeToolCatalogRustCore) &&
+      /pub fn project_runtime_tool_catalog\(/.test(runtimeKernelModule) &&
       /pub struct RuntimeToolCatalogProjectionCore/.test(runtimeToolCatalogRustCore) &&
-      /rust_runtime_tool_catalog_projection_command/.test(runtimeToolCatalogRustCore) &&
+      !/rust_runtime_tool_catalog_projection_command/.test(runtimeToolCatalogRustCore) &&
       /rust_projects_runtime_tool_catalog_tools/.test(runtimeToolCatalogRustCore) &&
       /rust_projects_runtime_account/.test(runtimeToolCatalogRustCore) &&
       /rust_projects_runtime_nodes_without_endpoint_values/.test(runtimeToolCatalogRustCore) &&
-      /rust_shapes_runtime_tool_catalog_command_response/.test(runtimeToolCatalogRustCore) &&
-      /project_runtime_tool_catalog/.test(commandProtocolCore) &&
-      /ProjectRuntimeToolCatalog/.test(commandProtocolCore) &&
-      /project_runtime_tool_catalog_response/.test(
+      /rust_shapes_runtime_tool_catalog_direct_record/.test(runtimeToolCatalogRustCore) &&
+      /public_projection_catalog_command_transport_is_retired/.test(commandProtocolCore) &&
+      !/ProjectRuntimeToolCatalog/.test(commandProtocolCore) &&
+      !/project_runtime_tool_catalog_response/.test(
         read("crates/services/src/agentic/runtime/kernel/command_dispatch.rs"),
       ) &&
       !/plan_runtime_tool_catalog_projection_required/.test(commandProtocolCore) &&
@@ -26469,7 +26500,13 @@ function runReceipts() {
       /RUNTIME_TOOL_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
         runtimeContextPolicyCoreForState,
       ) &&
+      /RUNTIME_PROJECTION_TOOL_CATALOG_API_METHOD/.test(
+        runtimeContextPolicyCoreForState,
+      ) &&
       /projectRuntimeToolCatalog/.test(runtimeContextPolicyCoreForState) &&
+      !/operation:\s*"project_runtime_tool_catalog"/.test(
+        runtimeContextPolicyCoreForState,
+      ) &&
       /normalizeRuntimeToolCatalogProjectionBridgeResult/.test(
         runtimeContextPolicyCoreForState,
       ) &&
@@ -26555,12 +26592,14 @@ function runReceipts() {
     /pub const RUNTIME_LIFECYCLE_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
       runtimeLifecycleRustCore,
     ) &&
-      /pub fn project_runtime_lifecycle_response/.test(runtimeLifecycleRustCore) &&
+      !/pub fn project_runtime_lifecycle_response/.test(runtimeLifecycleRustCore) &&
+      /pub fn project_runtime_lifecycle\(/.test(runtimeKernelModule) &&
       /pub struct RuntimeLifecycleProjectionCore/.test(runtimeLifecycleRustCore) &&
       /pub struct RuntimeLifecycleProjectionBridgeRequest/.test(
         runtimeLifecycleRustCore,
       ) &&
-      /rust_runtime_lifecycle_projection_command/.test(runtimeLifecycleRustCore) &&
+      /rust_runtime_lifecycle_projection_api/.test(runtimeLifecycleRustCore) &&
+      !/rust_runtime_lifecycle_projection_command/.test(runtimeLifecycleRustCore) &&
       /runtime_lifecycle_rust_projection/.test(runtimeLifecycleRustCore) &&
       /agentgres_runtime_lifecycle_truth_required/.test(runtimeLifecycleRustCore) &&
       /artifact_ref/.test(runtimeLifecycleRustCore) &&
@@ -26568,12 +26607,12 @@ function runReceipts() {
       /rust_projects_runtime_lifecycle_route_family_shapes/.test(
         runtimeLifecycleRustCore,
       ) &&
-      /rust_shapes_runtime_lifecycle_command_response/.test(
+      /rust_shapes_runtime_lifecycle_direct_record/.test(
         runtimeLifecycleRustCore,
       ) &&
-      /project_runtime_lifecycle/.test(commandProtocolCore) &&
-      /ProjectRuntimeLifecycle/.test(commandProtocolCore) &&
-      /project_runtime_lifecycle_response/.test(
+      /public_projection_catalog_command_transport_is_retired/.test(commandProtocolCore) &&
+      !/ProjectRuntimeLifecycle/.test(commandProtocolCore) &&
+      !/project_runtime_lifecycle_response/.test(
         read("crates/services/src/agentic/runtime/kernel/command_dispatch.rs"),
       ) &&
       /pub mod runtime_lifecycle;/.test(runtimeKernelModule) &&
@@ -26592,7 +26631,13 @@ function runReceipts() {
       /RUNTIME_LIFECYCLE_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
         runtimeContextPolicyCoreForState,
       ) &&
+      /RUNTIME_PROJECTION_LIFECYCLE_API_METHOD/.test(
+        runtimeContextPolicyCoreForState,
+      ) &&
       /projectRuntimeLifecycle/.test(runtimeContextPolicyCoreForState) &&
+      !/operation:\s*"project_runtime_lifecycle"/.test(
+        runtimeContextPolicyCoreForState,
+      ) &&
       /normalizeRuntimeLifecycleProjectionBridgeResult/.test(
         runtimeContextPolicyCoreForState,
       ) &&
@@ -26600,10 +26645,10 @@ function runReceipts() {
       /runtime lifecycle projection core sends Rust daemon-core request/.test(
         runtimeContextPolicyCoreTestForState,
       ) &&
-      /captured\.request\.artifact_ref,\s*"artifact_123"/.test(
+      /captured\.artifact_ref,\s*"artifact_123"/.test(
         runtimeContextPolicyCoreTestForState,
       ) &&
-      /captured\.request\.turn_id,\s*"turn_123"/.test(
+      /captured\.turn_id,\s*"turn_123"/.test(
         runtimeContextPolicyCoreTestForState,
       ) &&
       /projectRuntimeLifecycle/.test(runtimeLifecycleProjectionSurface) &&
