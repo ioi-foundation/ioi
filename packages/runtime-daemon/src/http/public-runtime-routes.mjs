@@ -238,10 +238,6 @@ export function createPublicRuntimeRequestHandler(deps) {
         await handleAgentRoute({ request, response, store, url, segments });
         return;
       }
-      if (request.method === "GET" && url.pathname === "/v1/memory") {
-        writeJsonResponse(response, store.threadMemorySurface.publicMemoryStatus(store, Object.fromEntries(url.searchParams.entries())));
-        return;
-      }
       if (request.method === "GET" && url.pathname === "/v1/runs") {
         writeJsonResponse(response, store.lifecycleProjectionSurface.listRuns(store, url.searchParams.get("agent_id") ?? undefined));
         return;
@@ -300,26 +296,6 @@ export function createPublicRuntimeRequestHandler(deps) {
       }
       if (request.method === "GET" && url.pathname === "/v1/tools") {
         writeJsonResponse(response, store.toolSurface.listTools(Object.fromEntries(url.searchParams.entries())));
-        return;
-      }
-      if (request.method === "GET" && url.pathname === "/v1/memory") {
-        writeJsonResponse(response, store.threadMemorySurface.publicMemoryStatus(store, Object.fromEntries(url.searchParams.entries())));
-        return;
-      }
-      if (request.method === "GET" && url.pathname === "/v1/memory/records") {
-        writeJsonResponse(response, store.threadMemorySurface.publicMemoryProjectionForContext(store, Object.fromEntries(url.searchParams.entries())));
-        return;
-      }
-      if (request.method === "GET" && url.pathname === "/v1/memory/policy") {
-        writeJsonResponse(response, store.threadMemorySurface.publicMemoryPolicyForContext(store, Object.fromEntries(url.searchParams.entries())));
-        return;
-      }
-      if (request.method === "GET" && url.pathname === "/v1/memory/path") {
-        writeJsonResponse(response, store.threadMemorySurface.publicMemoryPathForContext(store, Object.fromEntries(url.searchParams.entries())));
-        return;
-      }
-      if (request.method === "POST" && url.pathname === "/v1/memory/validate") {
-        writeJsonResponse(response, store.threadMemorySurface.publicValidateMemory(store, await readBody(request)));
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/mcp") {

@@ -5842,23 +5842,6 @@ test("local daemon records explicit memory writes and injects provenance into th
     assert.equal(memory.records[0].fact, "The operator prefers focused runtime slices.");
     assert.equal(memory.policy.injectionEnabled, true);
 
-    const memoryStatus = await fetchJson(
-      `${daemon.endpoint}/v1/memory?thread_id=${thread.thread_id}`,
-    );
-    assert.equal(memoryStatus.schemaVersion, "ioi.runtime.memory-manager-status.v1");
-    assert.equal(memoryStatus.status, "ready");
-    assert.equal(memoryStatus.record_count, 1);
-    assert.equal(memoryStatus.validation.ok, true);
-    assert.equal(memoryStatus.policy.id, memory.policy.id);
-
-    const memoryValidation = await fetchJson(`${daemon.endpoint}/v1/memory/validate`, {
-      method: "POST",
-      body: JSON.stringify({ thread_id: thread.thread_id }),
-    });
-    assert.equal(memoryValidation.schemaVersion, "ioi.runtime.memory-manager-validation.v1");
-    assert.equal(memoryValidation.ok, true);
-    assert.equal(memoryValidation.record_count, 1);
-
     const threadMemoryStatus = await fetchJson(
       `${daemon.endpoint}/v1/threads/${thread.thread_id}/memory/status`,
       {
@@ -5873,6 +5856,11 @@ test("local daemon records explicit memory writes and injects provenance into th
     assert.equal(threadMemoryStatus.event.source_event_kind, "OperatorControl.Memory");
     assert.equal(threadMemoryStatus.event.component_kind, "memory_policy");
     assert.equal(threadMemoryStatus.event.workflow_node_id, "memory-status-node");
+    assert.equal(threadMemoryStatus.payload.schemaVersion, "ioi.runtime.memory-manager-status.v1");
+    assert.equal(threadMemoryStatus.payload.status, "ready");
+    assert.equal(threadMemoryStatus.payload.record_count, 1);
+    assert.equal(threadMemoryStatus.payload.validation.ok, true);
+    assert.equal(threadMemoryStatus.payload.policy.id, memory.policy.id);
     assert.ok(threadMemoryStatus.rows.some((row) => row.row_kind === "memory_status"));
 
     const threadMemoryValidation = await fetchJson(
@@ -5885,11 +5873,14 @@ test("local daemon records explicit memory writes and injects provenance into th
     assert.equal(threadMemoryValidation.event.source_event_kind, "OperatorControl.MemoryValidate");
     assert.equal(threadMemoryValidation.event.workflow_node_id, "runtime.memory-manager.validate");
     assert.equal(threadMemoryValidation.ok, true);
+    assert.equal(threadMemoryValidation.payload.schemaVersion, "ioi.runtime.memory-manager-validation.v1");
+    assert.equal(threadMemoryValidation.payload.ok, true);
+    assert.equal(threadMemoryValidation.payload.record_count, 1);
 
     const sdkClient = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
     const sdkThread = await Thread.open(thread.thread_id, { substrateClient: sdkClient });
-    assert.equal((await sdkClient.getMemoryStatus({ thread_id: thread.thread_id })).record_count, 1);
-    assert.equal((await sdkClient.validateMemory({ thread_id: thread.thread_id })).ok, true);
+    assert.equal((await sdkClient.threadMemoryStatus(thread.thread_id)).record_count, 1);
+    assert.equal((await sdkClient.validateThreadMemory(thread.thread_id)).ok, true);
     assert.equal((await sdkThread.memory()).record_count, 1);
     assert.equal((await sdkThread.validateMemory()).ok, true);
 

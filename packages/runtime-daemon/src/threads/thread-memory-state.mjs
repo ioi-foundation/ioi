@@ -33,7 +33,6 @@ export function createThreadMemoryState({
   agentIdForThread,
   memoryListFilters,
   memoryPolicyOverrides,
-  memoryStatusForProjection,
   memoryWriteBlockReason,
   normalizeArray,
   operatorControlSource,
@@ -42,7 +41,6 @@ export function createThreadMemoryState({
   runtimeError,
   safeId,
   threadIdForAgent,
-  validateMemoryProjection,
   contextPolicyCore,
   nowIso = () => new Date().toISOString(),
 } = {}) {
@@ -513,7 +511,14 @@ export function createThreadMemoryState({
         thread_id: planned.thread_id ?? undefined,
       });
     }
-    return publicMemoryProjectionForContext(store, {});
+    throwThreadMemoryRustCoreRequired({
+      operation: planned.operation ?? "memory_projection",
+      controlKind: "memory_projection",
+      details: {
+        reason: "memory_projection_owner_required",
+        rust_core_boundary: "runtime.thread_memory_control",
+      },
+    });
   }
 
   function memoryControlPolicyProjection(store, planned = {}) {
@@ -525,7 +530,14 @@ export function createThreadMemoryState({
         thread_id: planned.thread_id ?? undefined,
       });
     }
-    return publicMemoryPolicyForContext(store, {});
+    throwThreadMemoryRustCoreRequired({
+      operation: planned.operation ?? "memory_policy",
+      controlKind: "memory_policy_projection",
+      details: {
+        reason: "memory_projection_owner_required",
+        rust_core_boundary: "runtime.thread_memory_control",
+      },
+    });
   }
 
   function uniqueMemoryStrings(values = []) {
@@ -594,26 +606,6 @@ export function createThreadMemoryState({
     };
   }
 
-  function publicMemoryContextForOptions(store, options = {}) {
-    const threadId = optionalString(options.thread_id);
-    const agentId =
-      optionalString(options.agent_id) ??
-      (threadId ? agentIdForThread(threadId) : undefined);
-    const agent = threadId
-      ? store.agentForThread(threadId)
-      : agentId
-        ? store.getAgent(agentId)
-        : null;
-    const resolvedThreadId =
-      threadId ?? (agentId ? threadIdForAgent(agent?.id ?? agentId) : null);
-    return {
-      threadId: resolvedThreadId,
-      agentId: agentId ?? agent?.id ?? null,
-      workspaceRoot: agent?.cwd ?? store.defaultCwd ?? null,
-      filters: options,
-    };
-  }
-
   function publicListMemoryForThread(store, threadId, options = {}) {
     return projectPublicMemory(store, "records", publicMemoryContextForThread(store, threadId, options));
   }
@@ -638,72 +630,13 @@ export function createThreadMemoryState({
     return projectPublicMemory(store, "path", publicMemoryContextForAgent(store, agentId, options));
   }
 
-  function publicMemoryProjectionForContext(store, options = {}) {
-    return projectPublicMemory(store, "records", publicMemoryContextForOptions(store, options));
-  }
-
-  function publicMemoryStatus(store, options = {}) {
-    return projectPublicMemory(store, "status", publicMemoryContextForOptions(store, options));
-  }
-
-  function publicMemoryPolicyForContext(store, options = {}) {
-    return projectPublicMemory(store, "policy", publicMemoryContextForOptions(store, options));
-  }
-
-  function publicMemoryPathForContext(store, options = {}) {
-    return projectPublicMemory(store, "path", publicMemoryContextForOptions(store, options));
-  }
-
-  function publicValidateMemory(store, input = {}) {
-    return projectPublicMemory(store, "validation", publicMemoryContextForOptions(store, input));
-  }
-
-  function memoryProjectionForContext(store, options = {}) {
-    const threadId = optionalString(options.thread_id);
-    const agentId =
-      optionalString(options.agent_id) ??
-      (threadId ? agentIdForThread(threadId) : undefined);
-    if (threadId) return store.listMemoryForThread(threadId, options);
-    if (agentId) return store.listMemoryForAgent(agentId, options);
-    return store.memory.projection({
-      workspace: store.defaultCwd,
-      filters: memoryListFilters(options),
-    });
-  }
-
-  function memoryStatus(store, options = {}) {
-    const projection = store.memoryProjectionForContext(options);
-    const runner = store.contextPolicyCore ?? contextPolicyCore;
-    return {
-      ...memoryStatusForProjection(projection, { contextPolicyCore: runner }),
-      thread_id: projection.thread_id ?? null,
-      agent_id: projection.agent_id ?? null,
-      workspace: projection.workspace ?? null,
-    };
-  }
-
-  function validateMemory(store, input = {}) {
-    const projection =
-      input.projection && typeof input.projection === "object"
-        ? input.projection
-        : store.memoryProjectionForContext(input);
-    const runner = store.contextPolicyCore ?? contextPolicyCore;
-    const validation = validateMemoryProjection(projection, { contextPolicyCore: runner });
-    return {
-      ...validation,
-      thread_id: projection.thread_id ?? null,
-      agent_id: projection.agent_id ?? null,
-      workspace: projection.workspace ?? null,
-    };
-  }
-
   function objectRecord(value) {
     return value && typeof value === "object" && !Array.isArray(value) ? value : null;
   }
 
   function recordThreadMemoryStatus(store, threadId, request = {}, schemaVersion) {
     const agent = store.agentForThread(threadId);
-    const payload = publicMemoryStatus(store, { thread_id: threadId });
+    const payload = projectPublicMemory(store, "status", publicMemoryContextForThread(store, threadId, {}));
     return appendThreadMemoryControlEvent(store, {
       threadId,
       agent,
@@ -724,7 +657,7 @@ export function createThreadMemoryState({
 
   function validateThreadMemory(store, threadId, request = {}, schemaVersion) {
     const agent = store.agentForThread(threadId);
-    const payload = publicValidateMemory(store, { ...request, thread_id: threadId });
+    const payload = projectPublicMemory(store, "validation", publicMemoryContextForThread(store, threadId, request));
     return appendThreadMemoryControlEvent(store, {
       threadId,
       agent,
@@ -797,19 +730,12 @@ export function createThreadMemoryState({
     memoryPathForThread,
     memoryPolicyForAgent,
     memoryPolicyForThread,
-    memoryProjectionForContext,
-    memoryStatus,
     publicListMemoryForAgent,
     publicListMemoryForThread,
     publicMemoryPathForAgent,
-    publicMemoryPathForContext,
     publicMemoryPathForThread,
     publicMemoryPolicyForAgent,
-    publicMemoryPolicyForContext,
     publicMemoryPolicyForThread,
-    publicMemoryProjectionForContext,
-    publicMemoryStatus,
-    publicValidateMemory,
     recordThreadMemoryMutation,
     recordThreadMemoryStatus,
     rememberForAgent,
@@ -821,6 +747,5 @@ export function createThreadMemoryState({
     updateMemoryForThread,
     updateMemoryRecord,
     validateThreadMemory,
-    validateMemory,
   };
 }

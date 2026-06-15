@@ -6280,15 +6280,16 @@ function runBridge() {
     /rememberThreadMemory/.test(agentSdkSubstrateClient) &&
       /\/v1\/threads\/\$\{encodePath\(threadId\)\}\/memory/.test(agentSdkSubstrateClient) &&
       /SDK writes thread memory with canonical request identity fields/.test(agentSdkTest) &&
-      /workflow_graph_id\?:\s*string;/.test(runtimeMemoryValidationInputType) &&
-      /workflow_node_id\?:\s*string;/.test(runtimeMemoryValidationInputType) &&
+      runtimeMemoryValidationInputType.length === 0 &&
+      /workflow_graph_id\?:\s*string;/.test(runtimeThreadMemoryInputType) &&
+      /workflow_node_id\?:\s*string;/.test(runtimeThreadMemoryInputType) &&
       /turn_id\?:\s*string;/.test(runtimeThreadMemoryInputType) &&
       /idempotency_key\?:\s*string;/.test(runtimeThreadMemoryInputType) &&
       !/(?:^|\n)\s*(?:turnId|workflowGraphId|workflowNodeId|idempotencyKey)\??:/.test(
-        `${runtimeMemoryValidationInputType}\n${runtimeThreadMemoryInputType}`,
+        runtimeThreadMemoryInputType,
       ) &&
       !/\[key:\s*string\]:\s*unknown;/.test(
-        `${runtimeMemoryValidationInputType}\n${runtimeThreadMemoryInputType}`,
+        runtimeThreadMemoryInputType,
       ) &&
       /Object\.hasOwn\(body,\s*field\),\s*false/.test(agentSdkTest) &&
       /"workflowGraphId"/.test(agentSdkTest) &&
@@ -13849,10 +13850,10 @@ function runBridge() {
     /memoryControlEventRunner/.test(runtimeThreadMemoryState) &&
     /planMemoryControlEvent/.test(runtimeThreadMemoryState) &&
     /appendPlannedMemoryControlEvent/.test(runtimeThreadMemoryState) &&
-    /recordThreadMemoryStatus\(store, threadId, request = \{\}, schemaVersion\) \{[\s\S]*?publicMemoryStatus\(store,[\s\S]*?appendThreadMemoryControlEvent/.test(
+    /recordThreadMemoryStatus\(store, threadId, request = \{\}, schemaVersion\) \{[\s\S]*?projectPublicMemory\(store,\s*"status",\s*publicMemoryContextForThread\(store,\s*threadId,[\s\S]*?appendThreadMemoryControlEvent/.test(
       runtimeThreadMemoryState,
     ) &&
-    /validateThreadMemory\(store, threadId, request = \{\}, schemaVersion\) \{[\s\S]*?publicValidateMemory\(store,[\s\S]*?appendThreadMemoryControlEvent/.test(
+    /validateThreadMemory\(store, threadId, request = \{\}, schemaVersion\) \{[\s\S]*?projectPublicMemory\(store,\s*"validation",\s*publicMemoryContextForThread\(store,\s*threadId,[\s\S]*?appendThreadMemoryControlEvent/.test(
       runtimeThreadMemoryState,
     ) &&
     /appendThreadMemoryControlEvent\(store, \{[\s\S]*?planMemoryControlEvent\(store,[\s\S]*?appendPlannedMemoryControlEvent\(store,\s*plannedControl\)/.test(
@@ -30471,10 +30472,10 @@ function runCompositor() {
     /memoryControlEventRunner/.test(runtimeThreadMemoryState) &&
     /planMemoryControlEvent/.test(runtimeThreadMemoryState) &&
     /appendPlannedMemoryControlEvent/.test(runtimeThreadMemoryState) &&
-    /recordThreadMemoryStatus\(store, threadId, request = \{\}, schemaVersion\) \{[\s\S]*?publicMemoryStatus\(store,[\s\S]*?appendThreadMemoryControlEvent/.test(
+    /recordThreadMemoryStatus\(store, threadId, request = \{\}, schemaVersion\) \{[\s\S]*?projectPublicMemory\(store,\s*"status",\s*publicMemoryContextForThread\(store,\s*threadId,[\s\S]*?appendThreadMemoryControlEvent/.test(
       runtimeThreadMemoryState,
     ) &&
-    /validateThreadMemory\(store, threadId, request = \{\}, schemaVersion\) \{[\s\S]*?publicValidateMemory\(store,[\s\S]*?appendThreadMemoryControlEvent/.test(
+    /validateThreadMemory\(store, threadId, request = \{\}, schemaVersion\) \{[\s\S]*?projectPublicMemory\(store,\s*"validation",\s*publicMemoryContextForThread\(store,\s*threadId,[\s\S]*?appendThreadMemoryControlEvent/.test(
       runtimeThreadMemoryState,
     ) &&
     /appendThreadMemoryControlEvent\(store, \{[\s\S]*?planMemoryControlEvent\(store,[\s\S]*?appendPlannedMemoryControlEvent\(store,\s*plannedControl\)/.test(
@@ -31662,16 +31663,19 @@ function runCompositor() {
 	    /this\.threadMemorySurface = threadMemoryState/.test(runtimeDaemonIndex) &&
 	      /publicListMemoryForThread/.test(runtimeThreadMemoryState) &&
 	      /publicMemoryPolicyForThread/.test(runtimeThreadMemoryState) &&
-      /publicMemoryPathForThread/.test(runtimeThreadMemoryState) &&
-      /publicListMemoryForAgent/.test(runtimeThreadMemoryState) &&
-      /publicMemoryPolicyForAgent/.test(runtimeThreadMemoryState) &&
-      /publicMemoryPathForAgent/.test(runtimeThreadMemoryState) &&
-      /publicMemoryProjectionForContext/.test(runtimeThreadMemoryState) &&
-      /publicMemoryStatus/.test(runtimeThreadMemoryState) &&
-	      /publicMemoryPolicyForContext/.test(runtimeThreadMemoryState) &&
-	      /publicMemoryPathForContext/.test(runtimeThreadMemoryState) &&
-	      /publicValidateMemory/.test(runtimeThreadMemoryState) &&
-	      /projectRuntimeMemoryProjection/.test(runtimeThreadMemoryState) &&
+	      /publicMemoryPathForThread/.test(runtimeThreadMemoryState) &&
+	      /publicListMemoryForAgent/.test(runtimeThreadMemoryState) &&
+	      /publicMemoryPolicyForAgent/.test(runtimeThreadMemoryState) &&
+	      /publicMemoryPathForAgent/.test(runtimeThreadMemoryState) &&
+	      !/publicMemoryProjectionForContext/.test(runtimeThreadMemoryState) &&
+	      !/publicMemoryStatus/.test(runtimeThreadMemoryState) &&
+		      !/publicMemoryPolicyForContext/.test(runtimeThreadMemoryState) &&
+		      !/publicMemoryPathForContext/.test(runtimeThreadMemoryState) &&
+		      !/publicValidateMemory/.test(runtimeThreadMemoryState) &&
+		      !/memoryProjectionForContext/.test(runtimeThreadMemoryState) &&
+		      !/memoryStatus\(store, options/.test(runtimeThreadMemoryState) &&
+		      !/validateMemory\(store, input/.test(runtimeThreadMemoryState) &&
+		      /projectRuntimeMemoryProjection/.test(runtimeThreadMemoryState) &&
 	      /runtime_public_memory_projection_rust_projection_missing/.test(runtimeThreadMemoryState) &&
 	      /runtime_public_memory_projection_rust_projection_invalid/.test(runtimeThreadMemoryState) &&
 	      /runtime_memory_public_projection_rust_owned/.test(runtimeThreadMemoryState) &&
@@ -31759,26 +31763,34 @@ function runCompositor() {
       /store\.threadMemorySurface\.rememberForThread\(store, threadId,/.test(
         runtimeRouteHandlers,
       ) &&
-      /store\.threadMemorySurface\.publicMemoryStatus\(store,/.test(publicRuntimeRoutes) &&
-      /store\.threadMemorySurface\.publicMemoryProjectionForContext\(store,/.test(
-        publicRuntimeRoutes,
-      ) &&
-      /store\.threadMemorySurface\.publicMemoryPolicyForContext\(store,/.test(
-        publicRuntimeRoutes,
-      ) &&
-      /store\.threadMemorySurface\.publicMemoryPathForContext\(store,/.test(
-        publicRuntimeRoutes,
-      ) &&
-      /store\.threadMemorySurface\.publicValidateMemory\(store,/.test(publicRuntimeRoutes) &&
+	      !/url\.pathname === "\/v1\/memory"/.test(publicRuntimeRoutes) &&
+	      !/url\.pathname === "\/v1\/memory\/records"/.test(publicRuntimeRoutes) &&
+	      !/url\.pathname === "\/v1\/memory\/policy"/.test(publicRuntimeRoutes) &&
+	      !/url\.pathname === "\/v1\/memory\/path"/.test(publicRuntimeRoutes) &&
+	      !/url\.pathname === "\/v1\/memory\/validate"/.test(publicRuntimeRoutes) &&
+	      !/store\.threadMemorySurface\.publicMemoryStatus\(store,/.test(publicRuntimeRoutes) &&
+	      !/store\.threadMemorySurface\.publicMemoryProjectionForContext\(store,/.test(
+	        publicRuntimeRoutes,
+	      ) &&
+	      !/store\.threadMemorySurface\.publicMemoryPolicyForContext\(store,/.test(
+	        publicRuntimeRoutes,
+	      ) &&
+	      !/store\.threadMemorySurface\.publicMemoryPathForContext\(store,/.test(
+	        publicRuntimeRoutes,
+	      ) &&
+	      !/store\.threadMemorySurface\.publicValidateMemory\(store,/.test(publicRuntimeRoutes) &&
       /agent and thread memory read routes use mounted thread memory surface/.test(
         runtimeRouteHandlersTest,
       ) &&
 	      /agent and thread memory mutation routes use mounted thread memory surface/.test(
 	        runtimeRouteHandlersTest,
 	      ) &&
-	      /public runtime memory projection routes use Rust-projected thread memory surface/.test(
-	        publicRuntimeRoutesTest,
-	      ) &&
+		      /public runtime top-level memory context routes are retired/.test(
+		        publicRuntimeRoutesTest,
+		      ) &&
+		      /retired top-level memory status route must not reach the memory surface/.test(
+		        publicRuntimeRoutesTest,
+		      ) &&
 	      /route-facing memory read projections return Rust daemon-core projections/.test(
 	        runtimeThreadMemoryStateTest,
 	      ) &&
@@ -31821,8 +31833,28 @@ function runCompositor() {
 	      "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
 	      "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
 	    ],
-	    "Public memory read/status/policy/path/validation routes must use Rust daemon-core runtime memory projection through the mounted thread-memory surface and must not return through direct JS memory-store readback or the retired fail-closed read facade",
+	    "Public memory read/status/policy/path/validation routes must use explicit thread/agent Rust daemon-core runtime memory projection and must not restore top-level context-query memory routes or JS memory-store readback",
 	  );
+  assertCheck(
+    result,
+    "agent-sdk-top-level-memory-context-client-retired",
+    !/getMemoryStatus\(options/.test(agentSdkSubstrateClient) &&
+      !/validateMemory\(input: RuntimeMemoryValidationInput/.test(agentSdkSubstrateClient) &&
+      !/RuntimeMemoryStatusOptions/.test(agentSdkSubstrateClient) &&
+      !/RuntimeMemoryValidationInput/.test(agentSdkSubstrateClient) &&
+      !/\/v1\/memory\$\{memoryListQuery\(options\)\}/.test(agentSdkSubstrateClient) &&
+      !/"\/v1\/memory\/validate"/.test(agentSdkSubstrateClient) &&
+      /threadMemoryStatus\(threadId: string/.test(agentSdkSubstrateClient) &&
+      /validateThreadMemory\(\s*\n\s*threadId: string/.test(agentSdkSubstrateClient) &&
+      /threadMemoryStatus\(thread\.thread_id\)/.test(liveRuntimeDaemonContract) &&
+      /validateThreadMemory\(thread\.thread_id\)/.test(liveRuntimeDaemonContract),
+    [
+      "packages/agent-sdk/src/substrate-client.ts",
+      "packages/agent-sdk/src/index.ts",
+      "scripts/lib/live-runtime-daemon-contract.test.mjs",
+    ],
+    "SDK memory status and validation clients must use explicit thread-scoped protocol methods; the top-level context-query /v1/memory client bridge must stay retired",
+  );
   assertCheck(
     result,
     "runtime-thread-memory-mutation-control-rust-owned",
@@ -32095,34 +32127,34 @@ function runCompositor() {
       /recordRow\.thread_id,\s*"thread\.canonical"/.test(runtimeMemoryManagerTest) &&
       /recordRow\.memory_key,\s*null/.test(runtimeMemoryManagerTest) &&
       /recordRow\.workflow_node_id,\s*"runtime\.memory"/.test(runtimeMemoryManagerTest) &&
-      /state\.memoryStatus\(store, \{ thread_id: "thread_a" \}\)/.test(
-        runtimeThreadMemoryStateTest,
-      ) &&
-      /state\.memoryStatus\(store, \{ threadId: "thread_retired" \}\)/.test(
-        runtimeThreadMemoryStateTest,
-      ) &&
-      /state\.memoryStatus\(store, \{ agentId: "agent_a" \}\)/.test(
-        runtimeThreadMemoryStateTest,
-      ) &&
-      /memoryStatusForProjection\(projection, \{ contextPolicyCore: runner \}\)/.test(
-        runtimeThreadMemoryState,
-      ) &&
-      /validateMemoryProjection\(projection, \{ contextPolicyCore: runner \}\)/.test(
-        runtimeThreadMemoryState,
-      ) &&
-      /thread_id: projection\.thread_id \?\? null/.test(runtimeThreadMemoryState) &&
-      /agent_id: projection\.agent_id \?\? null/.test(runtimeThreadMemoryState) &&
+	      /Object\.hasOwn\(state,\s*"memoryProjectionForContext"\),\s*false/.test(
+	        runtimeThreadMemoryStateTest,
+	      ) &&
+	      /Object\.hasOwn\(state,\s*"memoryStatus"\),\s*false/.test(
+	        runtimeThreadMemoryStateTest,
+	      ) &&
+	      /Object\.hasOwn\(state,\s*"validateMemory"\),\s*false/.test(
+	        runtimeThreadMemoryStateTest,
+	      ) &&
+	      !/memoryStatusForProjection\(projection, \{ contextPolicyCore: runner \}\)/.test(
+	        runtimeThreadMemoryState,
+	      ) &&
+	      !/validateMemoryProjection\(projection, \{ contextPolicyCore: runner \}\)/.test(
+	        runtimeThreadMemoryState,
+	      ) &&
+	      !/thread_id: projection\.thread_id \?\? null/.test(runtimeThreadMemoryState) &&
+	      !/agent_id: projection\.agent_id \?\? null/.test(runtimeThreadMemoryState) &&
       !/optionalString\(options\.thread_id \?\? options\.threadId\)/.test(
         runtimeThreadMemoryState,
       ) &&
       !/optionalString\(options\.agent_id \?\? options\.agentId\)/.test(
         runtimeThreadMemoryState,
       ) &&
-      /projection: \{ records: \[\], threadId: "thread_retired" \}/.test(
-        runtimeThreadMemoryStateTest,
-      ) &&
-      /thread_id: "thread_x"/.test(runtimeThreadMemoryStateTest) &&
-      /agent_id: "agent_x"/.test(runtimeThreadMemoryStateTest) &&
+	      !/projection: \{ records: \[\], threadId: "thread_retired" \}/.test(
+	        runtimeThreadMemoryStateTest,
+	      ) &&
+	      !/thread_id: "thread_x"/.test(runtimeThreadMemoryStateTest) &&
+	      !/agent_id: "agent_x"/.test(runtimeThreadMemoryStateTest) &&
       !/^\s*(?:schemaVersion|injectionEnabled|readOnly|writeRequiresApproval|writeBlockedReason|recordCount|scopeCount|memoryKeyCount|memoryKeys|evidenceRefs)\s*:/m.test(
         runtimeMemoryStatusForProjectionBlock,
       ) &&

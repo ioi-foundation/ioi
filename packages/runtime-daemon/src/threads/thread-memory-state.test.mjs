@@ -227,9 +227,6 @@ function createHarness(options = {}) {
     listMemoryForAgent(agentId, options) {
       return state.listMemoryForAgent(this, agentId, options);
     },
-    memoryProjectionForContext(options) {
-      return state.memoryProjectionForContext(this, options);
-    },
     recordThreadMemoryMutation(threadId, mutation, body, operation) {
       return state.recordThreadMemoryMutation(this, threadId, mutation, body, operation, "memory.mutation.v1");
     },
@@ -266,9 +263,6 @@ function createHarness(options = {}) {
     },
     deleteMemoryRecord(memoryId, body = {}) {
       return state.deleteMemoryRecord(this, memoryId, body);
-    },
-    memoryStatus(options = {}) {
-      return state.memoryStatus(this, options);
     },
     rememberForAgent(agent, options = {}) {
       return state.rememberForAgent(this, agent, options);
@@ -436,58 +430,9 @@ test("thread memory state handles policies, paths, status, and validation", () =
     state.memoryPathForAgent(store, "agent_a", { threadId: "thread_retired" }).records_path,
     "/workspace/thread_a/memory",
   );
-  assert.deepEqual(state.memoryStatus(store, { thread_id: "thread_a" }), {
-    status: "ready",
-    record_count: 1,
-    records: [{ id: "memory_1" }],
-    policy: { id: "policy_thread_a" },
-    thread_id: "thread_a",
-    agent_id: "agent_a",
-    workspace: "/workspace",
-  });
-  assert.deepEqual(state.memoryStatus(store, { threadId: "thread_retired" }), {
-    status: "ready",
-    record_count: 1,
-    records: [{ id: "memory_1" }],
-    policy: { id: "policy_runtime" },
-    thread_id: null,
-    agent_id: null,
-    workspace: "/default",
-  });
-  assert.deepEqual(state.memoryStatus(store, { agentId: "agent_a" }), {
-    status: "ready",
-    record_count: 1,
-    records: [{ id: "memory_1" }],
-    policy: { id: "policy_runtime" },
-    thread_id: null,
-    agent_id: null,
-    workspace: "/default",
-  });
-  assert.deepEqual(state.validateMemory(store, { projection: { records: [], threadId: "thread_retired" } }), {
-    ok: true,
-    record_count: 0,
-    thread_id: null,
-    agent_id: null,
-    workspace: null,
-  });
-  assert.deepEqual(
-    state.validateMemory(store, {
-      projection: {
-        records: [],
-        threadId: "thread_retired",
-        agentId: "agent_retired",
-        thread_id: "thread_x",
-        agent_id: "agent_x",
-      },
-    }),
-    {
-      ok: true,
-      record_count: 0,
-      thread_id: "thread_x",
-      agent_id: "agent_x",
-      workspace: null,
-    },
-  );
+  assert.equal(Object.hasOwn(state, "memoryProjectionForContext"), false);
+  assert.equal(Object.hasOwn(state, "memoryStatus"), false);
+  assert.equal(Object.hasOwn(state, "validateMemory"), false);
 });
 
 test("thread memory mutation and policy controls use Rust planning and Agentgres commits", () => {
@@ -650,32 +595,6 @@ test("route-facing memory read projections return Rust daemon-core projections",
     state.publicMemoryPathForAgent(store, "agent_a", {}).records_path,
     "/runtime-state/memory-records",
   );
-  assert.equal(
-    state.publicMemoryProjectionForContext(store, { thread_id: "thread_a" }).thread_id,
-    "thread_a",
-  );
-  assert.deepEqual(state.publicMemoryStatus(store, { agent_id: "agent_a" }), {
-    object: "ioi.runtime_memory_manager_status",
-    status: "ready",
-    record_count: 1,
-    thread_id: "thread_a",
-    agent_id: "agent_a",
-    workspace: "/workspace",
-  });
-  assert.equal(state.publicMemoryPolicyForContext(store, { thread_id: "thread_a" }).id, "policy_thread_a");
-  assert.equal(
-    state.publicMemoryPathForContext(store, { thread_id: "thread_a" }).records_path,
-    "/runtime-state/memory-records",
-  );
-  assert.deepEqual(state.publicValidateMemory(store, { thread_id: "thread_a" }), {
-    object: "ioi.runtime_memory_manager_validation",
-    ok: true,
-    record_count: 1,
-    thread_id: "thread_a",
-    agent_id: "agent_a",
-    workspace: "/workspace",
-  });
-
   const projectionCalls = calls.filter((call) => call.type === "projectRuntimeMemoryProjection");
   assert.deepEqual(projectionCalls.map((call) => call.input.projection_kind), [
     "records",
@@ -684,11 +603,6 @@ test("route-facing memory read projections return Rust daemon-core projections",
     "records",
     "policy",
     "path",
-    "records",
-    "status",
-    "policy",
-    "path",
-    "validation",
   ]);
   assert.ok(
     projectionCalls.every(

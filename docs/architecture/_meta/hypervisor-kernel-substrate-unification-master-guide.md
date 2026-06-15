@@ -3,7 +3,7 @@
 Status: implementation master guide.
 Canonical intent: resolve the current Hypervisor daemon and Rust/WASM kernel/workload split brain without introducing a new runtime beside the daemon.
 Primary owner candidate: architecture meta until promoted into component canon.
-Last alignment pass: 2026-06-04.
+Last alignment pass: 2026-06-15.
 Last pruning alignment: 2026-06-12. The migration matrix is now a compact macro
 ledger; future guide updates should steer macro authority cuts instead of
 per-slice evidence accumulation.
@@ -8988,15 +8988,21 @@ Rust replays admitted `memory-records/*.json` for edit/delete current-record
 truth and `memory-policies/*.json` for policy current truth, and rejects
 JS-supplied `current_record`/`current_policy` transport. Status/validation/direct
 control-event append now uses Rust memory-control event planning plus Rust runtime-event
-admission. Public memory list/policy/path/status/validation routes now send
-only canonical context, filters, and runtime `state_dir` to Rust
+admission. Explicit public thread/agent memory list/policy/path/status/validation routes now send
+only route-owned thread/agent context, filters, and runtime `state_dir` to Rust
 `project_runtime_memory_projection`; Rust replays admitted
 `memory-records/*.json` and `memory-policies/*.json`, filters active canonical
 records, synthesizes effective policy/path/status/validation truth, and rejects
 retired JS projection candidate transport before public read truth can return.
+The top-level `/v1/memory*` context-query/body route family, daemon-store
+`memoryProjectionForContext`/`memoryStatus`/`validateMemory` helpers, SDK global
+`getMemoryStatus()`/`validateMemory()` clients, and their context-query input
+types are retired; memory status/validation clients now enter through explicit
+thread/agent daemon protocol routes over the Rust-owned projection/control
+records.
 The remaining memory blockers are wallet/policy authority, cTEE private-memory
 custody, direct memory admission/storage APIs, richer durable replay/projection,
-and stable protocol APIs.
+and stable IDE memory APIs.
 Public approval queue/read projection now sends runtime `state_dir`; Rust
 replays admitted `agents/*.json` and `runs/*.json` Agentgres projections and
 rejects JS `agent`/`run`/`runs` queue candidate transport before queue truth can
@@ -9891,6 +9897,22 @@ that `/v1/mcp/serve`, query-carried `thread_id` serve transport, the global SDK
 client, and the global SDK request type cannot return. This remains
 non-terminal because broader non-MCP SDK route-family coverage over Rust replay
 records still needs to close.
+
+Slice 1250 retires the top-level runtime memory context route family. The
+public daemon no longer handles `/v1/memory`, `/v1/memory/records`,
+`/v1/memory/policy`, `/v1/memory/path`, or `/v1/memory/validate`; the daemon
+store no longer exports `memoryProjectionForContext`, `memoryStatus`, or
+`validateMemory`; and the SDK no longer exports global `getMemoryStatus()` /
+`validateMemory()` clients or their context-query input types. Runtime memory
+status/validation now enters through explicit
+`/v1/threads/{thread_id}/memory/status` and
+`/v1/threads/{thread_id}/memory/validate` protocol routes, while memory
+list/policy/path remain explicit thread/agent protocol routes over the
+Rust-owned projection records. Tests and conformance guard that the retired
+top-level memory routes, SDK globals, and daemon-store context helpers cannot
+return. This remains non-terminal because wallet/policy authority, cTEE
+private-memory custody, richer durable memory replay/projection, and stable IDE
+memory APIs still need to close.
 
 ## Final Doctrine
 

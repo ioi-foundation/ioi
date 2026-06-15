@@ -747,20 +747,10 @@ export interface RuntimeMcpServeRpcOptions extends RuntimeMcpListOptions, Runtim
   source?: "sdk_client" | "cli_tui" | "react_flow" | "mcp_serve" | string;
 }
 
-export interface RuntimeMemoryStatusOptions extends MemoryListOptions {
-  thread_id?: string;
-  agent_id?: string;
-  [key: string]: unknown;
-}
-
-export interface RuntimeMemoryValidationInput extends RuntimeMemoryStatusOptions {
-  projection?: AgentMemoryProjection;
+export interface RuntimeThreadMemoryInput extends MemoryListOptions {
   source?: "sdk_client" | "cli_tui" | "react_flow" | string;
   workflow_graph_id?: string;
   workflow_node_id?: string;
-}
-
-export interface RuntimeThreadMemoryInput extends RuntimeMemoryValidationInput {
   turn_id?: string;
   idempotency_key?: string;
 }
@@ -1540,8 +1530,6 @@ export interface RuntimeSubstrateClient {
     message: RuntimeMcpJsonRpcRequest | RuntimeMcpJsonRpcRequest[],
     options: RuntimeMcpServeRpcOptions,
   ): Promise<RuntimeMcpJsonRpcResponse | RuntimeMcpJsonRpcResponse[] | null>;
-  getMemoryStatus(options?: RuntimeMemoryStatusOptions): Promise<RuntimeMemoryStatus>;
-  validateMemory(input?: RuntimeMemoryValidationInput): Promise<RuntimeMemoryValidationResult>;
   threadMemoryStatus(threadId: string, input?: RuntimeThreadMemoryInput): Promise<RuntimeMemoryStatus>;
   validateThreadMemory(
     threadId: string,
@@ -2545,17 +2533,6 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
       `/v1/threads/${encodePath(threadId)}/mcp/serve${mcpServeQuery(options)}`,
       mcpServeProtocolBody(message, { source: "sdk_client", ...options }),
     );
-  }
-
-  async getMemoryStatus(options: RuntimeMemoryStatusOptions = {}): Promise<RuntimeMemoryStatus> {
-    return this.request("getMemoryStatus", "GET", `/v1/memory${memoryListQuery(options)}`);
-  }
-
-  async validateMemory(input: RuntimeMemoryValidationInput = {}): Promise<RuntimeMemoryValidationResult> {
-    return this.request("validateMemory", "POST", "/v1/memory/validate", {
-      source: "sdk_client",
-      ...input,
-    });
   }
 
   async threadMemoryStatus(

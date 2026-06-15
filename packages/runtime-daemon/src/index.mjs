@@ -47,8 +47,6 @@ import {
   RUNTIME_MEMORY_MANAGER_STATUS_SCHEMA_VERSION,
   RUNTIME_MEMORY_MANAGER_VALIDATION_SCHEMA_VERSION,
   memoryRowsForStatus,
-  memoryStatusForProjection,
-  validateMemoryProjection,
 } from "./memory-manager.mjs";
 import {
   optionalPositiveInteger,
@@ -321,7 +319,6 @@ const threadMemoryState = createThreadMemoryState({
   memoryPolicyOverrides,
   memoryRowsForStatus,
   memoryRuntimeEventKind,
-  memoryStatusForProjection,
   memoryWorkflowNodeId,
   memoryWriteBlockReason,
   normalizeArray,
@@ -331,7 +328,6 @@ const threadMemoryState = createThreadMemoryState({
   runtimeError,
   safeId,
   threadIdForAgent,
-  validateMemoryProjection,
 });
 const {
   capabilitySequenceForMode,
@@ -1048,18 +1044,6 @@ export class AgentgresRuntimeStateStore {
 
   deleteMemoryRecord(memoryId, body = {}) {
     return threadMemoryState.deleteMemoryRecord(this, memoryId, body);
-  }
-
-  memoryProjectionForContext(options = {}) {
-    return threadMemoryState.memoryProjectionForContext(this, options);
-  }
-
-  memoryStatus(options = {}) {
-    return threadMemoryState.memoryStatus(this, options);
-  }
-
-  validateMemory(input = {}) {
-    return threadMemoryState.validateMemory(this, input);
   }
 
   recordThreadMemoryStatus(threadId, request = {}) {

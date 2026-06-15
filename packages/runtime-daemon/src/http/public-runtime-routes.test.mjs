@@ -577,67 +577,53 @@ test("public runtime usage and authority evidence routes use mounted run read su
   ]);
 });
 
-test("public runtime memory projection routes use Rust-projected thread memory surface", async () => {
-  const { handleRequest } = routeHarness();
-  const calls = [];
+test("public runtime top-level memory context routes are retired", async () => {
+  const { handleRequest } = routeHarness({
+    notFound(message, details) {
+      throw Object.assign(new Error(message), {
+        status: 404,
+        code: "route_not_found",
+        details,
+      });
+    },
+  });
   const store = {
     threadMemorySurface: {
-      publicMemoryStatus(surfaceStore, options) {
-        calls.push({ method: "publicMemoryStatus", surfaceStore, options });
-        return { object: "ioi.runtime_memory_manager_status", options };
+      publicMemoryStatus() {
+        assert.fail("retired top-level memory status route must not reach the memory surface");
       },
-      publicMemoryProjectionForContext(surfaceStore, options) {
-        calls.push({ method: "publicMemoryProjectionForContext", surfaceStore, options });
-        return { object: "ioi.agent_memory_projection", options };
+      publicMemoryProjectionForContext() {
+        assert.fail("retired top-level memory records route must not reach the memory surface");
       },
-      publicMemoryPolicyForContext(surfaceStore, options) {
-        calls.push({ method: "publicMemoryPolicyForContext", surfaceStore, options });
-        return { object: "ioi.agent_memory_policy", options };
+      publicMemoryPolicyForContext() {
+        assert.fail("retired top-level memory policy route must not reach the memory surface");
       },
-      publicMemoryPathForContext(surfaceStore, options) {
-        calls.push({ method: "publicMemoryPathForContext", surfaceStore, options });
-        return { object: "ioi.agent_memory_path_projection", options };
+      publicMemoryPathForContext() {
+        assert.fail("retired top-level memory path route must not reach the memory surface");
       },
-      publicValidateMemory(surfaceStore, input) {
-        calls.push({ method: "publicValidateMemory", surfaceStore, input });
-        return { object: "ioi.runtime_memory_manager_validation", input };
+      publicValidateMemory() {
+        assert.fail("retired top-level memory validation route must not reach the memory surface");
       },
     },
-    memoryProjectionForContext: retiredRouteWrapper,
-    memoryStatus: retiredRouteWrapper,
-    validateMemory: retiredRouteWrapper,
   };
 
-  for (const path of [
-    "/v1/memory?thread_id=thread_route",
-    "/v1/memory/records?thread_id=thread_route",
-    "/v1/memory/policy?agent_id=agent_route",
-    "/v1/memory/path?thread_id=thread_route",
+  for (const route of [
+    { method: "GET", url: "/v1/memory?thread_id=thread_route", path: "/v1/memory" },
+    { method: "GET", url: "/v1/memory/records?thread_id=thread_route", path: "/v1/memory/records" },
+    { method: "GET", url: "/v1/memory/policy?agent_id=agent_route", path: "/v1/memory/policy" },
+    { method: "GET", url: "/v1/memory/path?thread_id=thread_route", path: "/v1/memory/path" },
+    { method: "POST", url: "/v1/memory/validate", path: "/v1/memory/validate", body: { thread_id: "thread_route" } },
   ]) {
     const response = responseRecorder();
-    await handleRequest({ request: request({ url: path }), response, store });
-    assert.equal(response.statusCode, 200);
+    await handleRequest({
+      request: request({ method: route.method, url: route.url, body: route.body }),
+      response,
+      store,
+    });
+    assert.equal(response.statusCode, 404);
+    assert.equal(response.error.code, "route_not_found");
+    assert.deepEqual(response.error.details, { method: route.method, path: route.path });
   }
-
-  const validateResponse = responseRecorder();
-  await handleRequest({
-    request: request({ method: "POST", url: "/v1/memory/validate", body: { thread_id: "thread_route" } }),
-    response: validateResponse,
-    store,
-  });
-  assert.equal(validateResponse.statusCode, 200);
-  assert.equal(JSON.parse(validateResponse.body).object, "ioi.runtime_memory_manager_validation");
-  assert.equal(calls.every((call) => call.surfaceStore === store), true);
-  assert.deepEqual(
-    calls.map(({ method, options, input }) => ({ method, options, input })),
-    [
-      { method: "publicMemoryStatus", options: { thread_id: "thread_route" }, input: undefined },
-      { method: "publicMemoryProjectionForContext", options: { thread_id: "thread_route" }, input: undefined },
-      { method: "publicMemoryPolicyForContext", options: { agent_id: "agent_route" }, input: undefined },
-      { method: "publicMemoryPathForContext", options: { thread_id: "thread_route" }, input: undefined },
-      { method: "publicValidateMemory", options: undefined, input: { thread_id: "thread_route" } },
-    ],
-  );
 });
 
 test("public conversation artifact routes use mounted Rust-owned artifact surface", async () => {
