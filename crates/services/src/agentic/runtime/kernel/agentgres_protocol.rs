@@ -931,12 +931,13 @@ mod tests {
                     "schema_version": "ioi.runtime.mcp-live-result.v1",
                     "id": "result_runtime_mcp_live_exit",
                     "kind": "runtime_mcp_live_result",
-                    "status": "admitted_pending_rust_transport",
+                    "status": "rust_materialized",
                     "receipt_id": "receipt_runtime_mcp_live_exit",
                     "receipt_refs": ["receipt_runtime_mcp_live_exit"],
                     "evidence_refs": [
                         "runtime_mcp_live_result_rust_projection",
                         "agentgres_runtime_mcp_live_result_truth_required",
+                        "runtime_mcp_live_result_payload_rust_materialized",
                         "runtime_mcp_no_js_transport_result"
                     ],
                     "details": {
@@ -945,9 +946,12 @@ mod tests {
                         "runtime_mcp_agent_state_root_before": "sha256:before",
                         "runtime_mcp_agent_state_root_after": "sha256:after",
                         "runtime_mcp_resulting_head": "agentgres://runtime-state/agents/agent_1/head/sha256_after",
-                        "result_materialized": false,
+                        "result_materialized": true,
+                        "backend_materialization_status": "rust_driver_contract_bound",
                         "js_transport_invocation": false,
-                        "command_transport_fallback": false
+                        "command_transport_fallback": false,
+                        "binary_bridge_fallback": false,
+                        "compatibility_fallback": false
                     }
                 }
             }

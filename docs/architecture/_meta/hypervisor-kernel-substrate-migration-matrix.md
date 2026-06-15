@@ -11,6 +11,7 @@ Last alignment pass: 2026-06-15.
 Last matrix pruning pass: 2026-06-15, after the direct typed workload API
 StepModule runner-facade deletion cut, StepModule command-env selector deletion,
 the Rust approval-lease authority cut with JS lease facade deletion,
+the Rust Agentgres MCP live-result pending-transport fixture marker retirement,
 and Rust approval-request authority issuance cut,
 coding-tool approval-satisfaction JS gate retirement, the Rust approval
 satisfaction/projection positive API cut, the Rust-owned coding-tool patch
@@ -179,6 +180,14 @@ the Rust backend service returns executed control/receipt/result truth, the
 actual driver-result hash is bound into the public result payload and recomputed
 payload hash, and JS commits only that Rust-returned receipt/result pair before
 replay and agent projection.
+Slice 1264 additionally removes the stale `admitted_pending_rust_transport`
+fixture truth from the Rust Agentgres MCP live-result state commit examples and
+protocol tests: runtime MCP live-result commit fixtures now carry
+`status: "rust_materialized"`, `result_materialized: true`,
+`backend_materialization_status: "rust_driver_contract_bound"`, and explicit
+no-command/no-binary/no-compatibility fallback facts, while conformance scans
+the Agentgres Rust admission/protocol cores to keep the pending-transport marker
+out of accepted live-result commit truth.
 Slice 1245 closes broader runtime MCP serve admission: Rust
 `RuntimeMcpServeToolCallPlanCore` requires wallet authority grant/receipt refs,
 cTEE custody refs, and transport containment refs before served `tools/call`

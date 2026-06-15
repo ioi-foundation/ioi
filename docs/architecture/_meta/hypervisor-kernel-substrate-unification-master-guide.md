@@ -10133,6 +10133,15 @@ their absence plus the Rust lease-binding API. Wallet.network grant issuance
 semantics, richer authority projection/replay storage, and stable IDE/CLI/SDK
 approval APIs remain non-terminal.
 
+Slice 1264 retires the stale Agentgres MCP live-result pending-transport
+fixture truth. Rust Agentgres MCP live-result state commit examples and protocol
+tests now use `status: "rust_materialized"`, `result_materialized: true`,
+`backend_materialization_status: "rust_driver_contract_bound"`, and explicit
+no-command/no-binary/no-compatibility fallback facts. Conformance now scans the
+Rust Agentgres admission/protocol cores so `admitted_pending_rust_transport`
+cannot remain accepted live-result commit truth. Broader non-MCP SDK
+route-family protocol coverage over Rust replay records remains non-terminal.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

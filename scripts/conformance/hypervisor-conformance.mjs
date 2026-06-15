@@ -26426,6 +26426,13 @@ function runReceipts() {
       /RuntimeMcpLiveResultStateCommitRequest/.test(agentgresAdmissionCore) &&
       /RuntimeMcpLiveResultStateCommitRecord/.test(agentgresAdmissionCore) &&
       /commit_runtime_mcp_live_result_state/.test(agentgresAdmissionCore) &&
+      /"status": "rust_materialized"/.test(agentgresAdmissionCore) &&
+      /"result_materialized": true/.test(agentgresAdmissionCore) &&
+      /"backend_materialization_status": "rust_driver_contract_bound"/.test(
+        agentgresAdmissionCore,
+      ) &&
+      !/"status": "admitted_pending_rust_transport"/.test(agentgresAdmissionCore) &&
+      !/"result_materialized": false/.test(agentgresAdmissionCore) &&
       /commits_runtime_mcp_live_result_state_with_storage_admission/.test(agentgresAdmissionCore) &&
       /runtime_mcp_live_result_state_commit_requires_receipts/.test(agentgresAdmissionCore) &&
       /runtime_mcp_live_result_state_commit_rejects_mismatched_result_id/.test(agentgresAdmissionCore) &&
@@ -26456,6 +26463,13 @@ function runReceipts() {
         agentgresProtocolCore,
       ) &&
       /agentgres_protocol_commits_runtime_mcp_live_result_state_through_rust_core/.test(agentgresProtocolCore) &&
+      /"status": "rust_materialized"/.test(agentgresProtocolCore) &&
+      /"result_materialized": true/.test(agentgresProtocolCore) &&
+      /"backend_materialization_status": "rust_driver_contract_bound"/.test(
+        agentgresProtocolCore,
+      ) &&
+      !/"status": "admitted_pending_rust_transport"/.test(agentgresProtocolCore) &&
+      !/"result_materialized": false/.test(agentgresProtocolCore) &&
       !/bridge_commits_runtime_model_mount_receipt_state_through_rust_core/.test(bridgeModule) &&
       /commitRuntimeModelMountReceiptState/.test(runtimeAgentgresCore) &&
       /commitRuntimeReceiptState/.test(runtimeAgentgresCore) &&
