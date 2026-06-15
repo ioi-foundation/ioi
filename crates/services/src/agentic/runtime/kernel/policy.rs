@@ -1,5 +1,7 @@
 use crate::agentic::rules::Verdict;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use std::{fs, path::PathBuf};
 
 mod admission_required;
 mod coding_tool_budget_recovery;
@@ -10,6 +12,89 @@ mod run_cancel;
 mod task_job;
 mod thread_lifecycle;
 mod workspace_trust;
+
+fn latest_runtime_event_seq_from_state_dir(
+    state_dir: Option<&str>,
+    thread_id: Option<&str>,
+    event_stream_id: Option<&str>,
+) -> Result<u64, String> {
+    let state_dir = state_dir
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| "state_dir is required for runtime event replay".to_string())?;
+    let thread_id = thread_id
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string);
+    let event_stream_id = event_stream_id
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string);
+    let events_dir = PathBuf::from(state_dir).join("events");
+    if !events_dir.exists() {
+        return Ok(0);
+    }
+
+    let mut latest_seq = 0;
+    for entry in fs::read_dir(&events_dir)
+        .map_err(|error| format!("failed to read {}: {error}", events_dir.display()))?
+    {
+        let path = entry
+            .map_err(|error| format!("failed to read {} entry: {error}", events_dir.display()))?
+            .path();
+        if path.extension().and_then(|value| value.to_str()) != Some("jsonl") {
+            continue;
+        }
+        let body = fs::read_to_string(&path)
+            .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
+        for (index, line) in body.lines().enumerate() {
+            let trimmed = line.trim();
+            if trimmed.is_empty() {
+                continue;
+            }
+            let value: Value = serde_json::from_str(trimmed).map_err(|error| {
+                format!(
+                    "failed to parse {} line {}: {error}",
+                    path.display(),
+                    index + 1
+                )
+            })?;
+            let record_thread_id = value
+                .get("thread_id")
+                .and_then(Value::as_str)
+                .map(str::to_string);
+            let record_stream_id = value
+                .get("event_stream_id")
+                .and_then(Value::as_str)
+                .map(str::to_string);
+            let matches_stream = event_stream_id
+                .as_ref()
+                .is_some_and(|stream_id| record_stream_id.as_ref() == Some(stream_id));
+            let matches_thread = thread_id
+                .as_ref()
+                .is_some_and(|thread_id| record_thread_id.as_ref() == Some(thread_id));
+            let relevant = match (&event_stream_id, &thread_id) {
+                (Some(_), Some(_)) => matches_stream || matches_thread,
+                (Some(_), None) => matches_stream,
+                (None, Some(_)) => matches_thread,
+                (None, None) => true,
+            };
+            if !relevant {
+                continue;
+            }
+            let seq = value.get("seq").and_then(Value::as_u64).ok_or_else(|| {
+                format!(
+                    "runtime event {} line {} missing seq",
+                    path.display(),
+                    index + 1
+                )
+            })?;
+            latest_seq = latest_seq.max(seq);
+        }
+    }
+
+    Ok(latest_seq)
+}
 
 pub use admission_required::{
     DiagnosticsRepairAdmissionRequiredCore, DiagnosticsRepairAdmissionRequiredError,

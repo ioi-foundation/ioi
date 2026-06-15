@@ -313,21 +313,18 @@ export function createRuntimeThreadTurnSurface(deps = {}) {
       });
     }
     const streamId = eventStreamIdForThread(threadId);
-    const latestSeq = typeof store.latestRuntimeEventSeq === "function"
-      ? Number(store.latestRuntimeEventSeq(streamId) ?? 0)
-      : 0;
-    const seq = Number.isFinite(latestSeq) ? latestSeq + 1 : 1;
     const createdAt = optionalStringDep(request.created_at ?? request.createdAt) ?? new Date().toISOString();
     const eventId =
       optionalStringDep(request.event_id ?? request.eventId) ??
-      operatorTurnControlEventId(operation, threadId, turnId, seq);
+      operatorTurnControlEventId(operation, threadId, turnId, createdAt);
     const plan = planner.call(operatorTurnControlAdmissionRunner, {
       thread_id: threadId,
+      state_dir: optionalStringDep(store?.stateDir) ?? null,
+      event_stream_id: streamId,
       turn_id: turnId,
       run_id: runId,
       run,
       event_id: eventId,
-      seq,
       created_at: createdAt,
       source: optionalStringDep(request.source) ?? "hypervisor_daemon",
       ...controlRequest,
@@ -370,7 +367,7 @@ export function createRuntimeThreadTurnSurface(deps = {}) {
       turn_id: turnId,
       run_id: runId,
       event_id: eventId,
-      seq,
+      seq: positiveInteger(operatorControl.seq) ?? null,
       operator_control: operatorControl,
       stop_condition: objectRecord(plan?.stop_condition) ?? null,
       run: plannedRun,
@@ -490,18 +487,23 @@ export function createRuntimeThreadTurnSurface(deps = {}) {
         ];
   }
 
-  function operatorTurnControlEventId(operation, threadId, turnId, seq) {
+  function operatorTurnControlEventId(operation, threadId, turnId, suffix) {
     return [
       "event",
       operation,
       safeRuntimeEventIdSegment(threadId),
       safeRuntimeEventIdSegment(turnId),
-      String(seq).padStart(8, "0"),
+      safeRuntimeEventIdSegment(suffix),
     ].join("_");
   }
 
   function safeRuntimeEventIdSegment(value) {
     return optionalStringDep(value)?.replace(/[^a-zA-Z0-9_.:-]/g, "_") ?? "unknown";
+  }
+
+  function positiveInteger(value) {
+    const number = Number(value);
+    return Number.isFinite(number) && number > 0 ? number : null;
   }
 
   function stringRefs(value) {

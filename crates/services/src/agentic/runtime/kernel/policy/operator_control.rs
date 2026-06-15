@@ -35,6 +35,9 @@ pub enum OperatorInterruptStateUpdateError {
         actual: String,
     },
     MissingField(&'static str),
+    RetiredField(&'static str),
+    StateDirRequired,
+    ReplayReadFailed(String),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -44,6 +47,9 @@ pub enum OperatorSteerStateUpdateError {
         actual: String,
     },
     MissingField(&'static str),
+    RetiredField(&'static str),
+    StateDirRequired,
+    ReplayReadFailed(String),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -136,12 +142,17 @@ pub struct OperatorInterruptStateUpdateRequest {
     #[serde(default)]
     pub thread_id: Option<String>,
     #[serde(default)]
+    pub state_dir: Option<String>,
+    #[serde(default)]
+    pub event_stream_id: Option<String>,
+    #[serde(default)]
     pub turn_id: Option<String>,
     #[serde(default)]
     pub run_id: Option<String>,
     pub run: Value,
     pub event_id: String,
-    pub seq: u64,
+    #[serde(default)]
+    pub seq: Option<u64>,
     pub created_at: String,
     pub source: String,
     pub reason: String,
@@ -172,12 +183,17 @@ pub struct OperatorSteerStateUpdateRequest {
     #[serde(default)]
     pub thread_id: Option<String>,
     #[serde(default)]
+    pub state_dir: Option<String>,
+    #[serde(default)]
+    pub event_stream_id: Option<String>,
+    #[serde(default)]
     pub turn_id: Option<String>,
     #[serde(default)]
     pub run_id: Option<String>,
     pub run: Value,
     pub event_id: String,
-    pub seq: u64,
+    #[serde(default)]
+    pub seq: Option<u64>,
     pub created_at: String,
     pub source: String,
     pub guidance: String,
@@ -664,12 +680,19 @@ impl OperatorInterruptStateUpdateCore {
         let source = operator_control_source(Some(request.source.as_str()));
         let reason = optional_trimmed(Some(request.reason.as_str()))
             .unwrap_or_else(|| "operator requested interrupt".to_string());
+        let seq = super::latest_runtime_event_seq_from_state_dir(
+            request.state_dir.as_deref(),
+            thread_id.as_deref(),
+            request.event_stream_id.as_deref(),
+        )
+        .map_err(OperatorInterruptStateUpdateError::ReplayReadFailed)?
+            + 1;
         let operator_control = json!({
             "control": "interrupt",
             "source": source,
             "reason": reason,
             "event_id": request.event_id,
-            "seq": request.seq,
+            "seq": seq,
             "created_at": request.created_at,
         });
         let stop_condition = json!({
@@ -808,12 +831,19 @@ impl OperatorSteerStateUpdateCore {
         let source = operator_control_source(Some(request.source.as_str()));
         let guidance = optional_trimmed(Some(request.guidance.as_str()))
             .unwrap_or_else(|| "operator provided steering guidance".to_string());
+        let seq = super::latest_runtime_event_seq_from_state_dir(
+            request.state_dir.as_deref(),
+            thread_id.as_deref(),
+            request.event_stream_id.as_deref(),
+        )
+        .map_err(OperatorSteerStateUpdateError::ReplayReadFailed)?
+            + 1;
         let operator_control = json!({
             "control": "steer",
             "source": source,
             "guidance": guidance,
             "event_id": request.event_id,
-            "seq": request.seq,
+            "seq": seq,
             "created_at": request.created_at,
         });
         let mut run =
@@ -900,8 +930,11 @@ impl OperatorInterruptStateUpdateRequest {
         if optional_trimmed(Some(self.event_id.as_str())).is_none() {
             return Err(OperatorInterruptStateUpdateError::MissingField("event_id"));
         }
-        if self.seq == 0 {
-            return Err(OperatorInterruptStateUpdateError::MissingField("seq"));
+        if self.seq.is_some() {
+            return Err(OperatorInterruptStateUpdateError::RetiredField("seq"));
+        }
+        if optional_trimmed(self.state_dir.as_deref()).is_none() {
+            return Err(OperatorInterruptStateUpdateError::StateDirRequired);
         }
         if optional_trimmed(Some(self.created_at.as_str())).is_none() {
             return Err(OperatorInterruptStateUpdateError::MissingField(
@@ -926,8 +959,11 @@ impl OperatorSteerStateUpdateRequest {
         if optional_trimmed(Some(self.event_id.as_str())).is_none() {
             return Err(OperatorSteerStateUpdateError::MissingField("event_id"));
         }
-        if self.seq == 0 {
-            return Err(OperatorSteerStateUpdateError::MissingField("seq"));
+        if self.seq.is_some() {
+            return Err(OperatorSteerStateUpdateError::RetiredField("seq"));
+        }
+        if optional_trimmed(self.state_dir.as_deref()).is_none() {
+            return Err(OperatorSteerStateUpdateError::StateDirRequired);
         }
         if optional_trimmed(Some(self.created_at.as_str())).is_none() {
             return Err(OperatorSteerStateUpdateError::MissingField("created_at"));
@@ -1134,6 +1170,8 @@ mod tests {
         OperatorInterruptStateUpdateRequest {
             schema_version: OPERATOR_INTERRUPT_STATE_UPDATE_REQUEST_SCHEMA_VERSION.to_string(),
             thread_id: Some("thread_budget".to_string()),
+            state_dir: Some("/tmp/ioi-operator-control-state".to_string()),
+            event_stream_id: Some("thread_budget:events".to_string()),
             turn_id: Some("turn_budget".to_string()),
             run_id: Some("run_budget".to_string()),
             run: json!({
@@ -1149,7 +1187,7 @@ mod tests {
                 "operatorControls": []
             }),
             event_id: "event_interrupt".to_string(),
-            seq: 11,
+            seq: None,
             created_at: "2026-06-06T04:25:00.000Z".to_string(),
             source: "runtime_auto".to_string(),
             reason: "operator_stop".to_string(),
@@ -1160,6 +1198,8 @@ mod tests {
         OperatorSteerStateUpdateRequest {
             schema_version: OPERATOR_STEER_STATE_UPDATE_REQUEST_SCHEMA_VERSION.to_string(),
             thread_id: Some("thread_budget".to_string()),
+            state_dir: Some("/tmp/ioi-operator-control-state".to_string()),
+            event_stream_id: Some("thread_budget:events".to_string()),
             turn_id: Some("turn_budget".to_string()),
             run_id: Some("run_budget".to_string()),
             run: json!({
@@ -1171,7 +1211,7 @@ mod tests {
                 "operatorControls": []
             }),
             event_id: "event_steer".to_string(),
-            seq: 12,
+            seq: None,
             created_at: "2026-06-06T04:35:00.000Z".to_string(),
             source: "react_flow".to_string(),
             guidance: "focus on the failing bridge assertion".to_string(),

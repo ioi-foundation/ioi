@@ -10331,6 +10331,24 @@ cache reads in the workspace-trust state module. This removes another
 workspace-trust split-brain replay boundary; deeper wallet/cTEE authority and
 stable protocol APIs remain non-terminal.
 
+Slice 1294 hard-cuts runtime-control state-event sequence cache transport out
+of the JS facade cluster. The Rust policy core now shares
+`latest_runtime_event_seq_from_state_dir()`, which reads admitted Agentgres
+`events/*.jsonl` records under runtime `state_dir` and derives the latest
+sequence for a thread or event stream before planning thread-control,
+operator interrupt/steer, context-compaction, or MCP-control state updates.
+Those Rust request structs now reject caller-supplied `seq`, and context
+compaction rejects caller-supplied `previous_latest_seq`; missing `state_dir`
+fails closed before planning. The JS thread-control, thread-turn
+operator-control, context-policy, and MCP-control surfaces no longer call
+`latestRuntimeEventSeq()` for these migrated paths and no longer send sequence
+or previous-latest fields. Context-policy event admission also stops
+preassigning the sequence and consumes only the Rust Agentgres admission result.
+Conformance now guards the shared Rust replay helper, the retired request
+fields, focused fail-if-called tests, and production-source absence of the JS
+latest-sequence cache. Remaining work is durable runtime-control projection and
+stable protocol API cleanup, not a JS sequence authority fallback.
+
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,
 `/v1/memory/policy`, `/v1/memory/path`, or `/v1/memory/validate`; the daemon

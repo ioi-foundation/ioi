@@ -386,7 +386,7 @@ function planMcpControlAgentStateUpdate(request, currentAgent) {
   const control = {
     control_kind: request.control_kind,
     event_id: request.event_id,
-    seq: request.seq,
+    seq: 9,
     created_at: request.created_at,
     server_id: serverId,
     server_count: servers.length,
@@ -596,10 +596,7 @@ function harness(options = {}) {
     agents: { set: failIfCalled("agents.set") },
     agentForThread: failIfCalled("agentForThread"),
     appendRuntimeEvent: failIfCalled("appendRuntimeEvent"),
-    latestRuntimeEventSeq(eventStreamId) {
-      calls.push({ name: "latestRuntimeEventSeq", eventStreamId });
-      return 8;
-    },
+    latestRuntimeEventSeq: failIfCalled("latestRuntimeEventSeq"),
     listMcpServers: failIfCalled("listMcpServers"),
     mcpStatus: failIfCalled("mcpStatus"),
     threadForAgent: failIfCalled("threadForAgent"),
@@ -787,10 +784,10 @@ test("runtime MCP control mutations plan in Rust and commit agent state without 
   assert.equal(planCalls[0].request.agent_id, "agent-one");
   assert.equal(planCalls.every((call) => call.request.state_dir === "/runtime-state"), true);
   assert.equal(planCalls.every((call) => Object.hasOwn(call.request, "agent") === false), true);
+  assert.equal(planCalls.every((call) => Object.hasOwn(call.request, "seq") === false), true);
   assert.equal(planCalls[0].request.request.servers[0].id, "mcp.imported");
   assert.equal(planCalls[1].request.request.server.id, "mcp.git");
   assert.equal(planCalls[2].request.request.server_id, "mcp.git");
-  assert.equal(planCalls[0].request.seq, 9);
   assert.equal(planCalls[0].request.event_id, "mcp_control_thread-agent-one_mcp_import_2026-06-06T06_30_00.000Z");
   for (const call of planCalls) {
     const payload = JSON.stringify(call.request.request);
@@ -811,7 +808,7 @@ test("runtime MCP control mutations plan in Rust and commit agent state without 
       "thread.mcp_remove",
     ],
   );
-  assert.equal(calls.some((call) => call.name === "latestRuntimeEventSeq"), true);
+  assert.equal(calls.some((call) => call.name === "latestRuntimeEventSeq"), false);
 });
 
 test("runtime MCP control planner absence fails closed before JS state mutation", () => {

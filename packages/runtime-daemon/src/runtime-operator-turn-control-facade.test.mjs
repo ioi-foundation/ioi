@@ -41,6 +41,8 @@ function createStore() {
     contextPolicyCore: {
       planOperatorInterruptStateUpdate(request) {
         plannerCalls.push({ method: "planOperatorInterruptStateUpdate", request });
+        assert.equal(request.state_dir, stateDir);
+        assert.equal(Object.hasOwn(request, "seq"), false);
         return {
           source: "rust_operator_interrupt_state_update_command",
           backend: "rust_policy",
@@ -52,7 +54,7 @@ function createStore() {
             source: request.source,
             reason: request.reason,
             event_id: request.event_id,
-            seq: request.seq,
+            seq: 3,
             created_at: request.created_at,
           },
           stop_condition: {
@@ -75,6 +77,8 @@ function createStore() {
       },
       planOperatorSteerStateUpdate(request) {
         plannerCalls.push({ method: "planOperatorSteerStateUpdate", request });
+        assert.equal(request.state_dir, stateDir);
+        assert.equal(Object.hasOwn(request, "seq"), false);
         return {
           source: "rust_operator_steer_state_update_command",
           backend: "rust_policy",
@@ -86,7 +90,7 @@ function createStore() {
             source: request.source,
             guidance: request.guidance,
             event_id: request.event_id,
-            seq: request.seq,
+            seq: 4,
             created_at: request.created_at,
           },
           run: {

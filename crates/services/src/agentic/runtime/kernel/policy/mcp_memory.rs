@@ -40,6 +40,7 @@ pub enum McpControlAgentStateUpdateError {
         actual: String,
     },
     MissingField(&'static str),
+    RetiredField(&'static str),
     AgentCandidateTransportRetired,
     StateDirRequired,
     AgentReplayRequired(String),
@@ -160,7 +161,8 @@ pub struct McpControlAgentStateUpdateRequest {
     pub agent: Value,
     pub control_kind: String,
     pub event_id: String,
-    pub seq: u64,
+    #[serde(default)]
+    pub seq: Option<u64>,
     pub created_at: String,
     #[serde(default)]
     pub request: Value,
@@ -827,6 +829,13 @@ impl McpControlAgentStateUpdateCore {
         let control_kind = optional_trimmed(Some(request.control_kind.as_str())).ok_or(
             McpControlAgentStateUpdateError::MissingField("control_kind"),
         )?;
+        let seq = super::latest_runtime_event_seq_from_state_dir(
+            request.state_dir.as_deref(),
+            Some(thread_id.as_str()),
+            None,
+        )
+        .map_err(McpControlAgentStateUpdateError::StateDirReadFailed)?
+            + 1;
         let agent_state_root_before = mcp_control_agent_state_root(&Value::Object(agent.clone()));
         let registry =
             mcp_control_registry_update(&agent, control_kind.as_str(), &request.request)?;
@@ -1003,7 +1012,7 @@ impl McpControlAgentStateUpdateCore {
         let control = json!({
             "control_kind": control_kind,
             "event_id": request.event_id,
-            "seq": request.seq,
+            "seq": seq,
             "created_at": request.created_at,
             "server_id": registry.server_id,
             "tool_id": tool_id,
@@ -3323,8 +3332,8 @@ impl McpControlAgentStateUpdateRequest {
         if optional_trimmed(Some(self.event_id.as_str())).is_none() {
             return Err(McpControlAgentStateUpdateError::MissingField("event_id"));
         }
-        if self.seq == 0 {
-            return Err(McpControlAgentStateUpdateError::MissingField("seq"));
+        if self.seq.is_some() {
+            return Err(McpControlAgentStateUpdateError::RetiredField("seq"));
         }
         if optional_trimmed(Some(self.created_at.as_str())).is_none() {
             return Err(McpControlAgentStateUpdateError::MissingField("created_at"));
@@ -4456,7 +4465,7 @@ mod tests {
             agent: Value::Null,
             control_kind: "mcp_add".to_string(),
             event_id: "event_mcp_add".to_string(),
-            seq: 4,
+            seq: None,
             created_at: "2026-06-06T05:45:00.000Z".to_string(),
             request: json!({
                 "server": {

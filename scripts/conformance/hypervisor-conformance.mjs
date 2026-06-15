@@ -16558,8 +16558,8 @@ function runBridge() {
       /compactThread fails closed before lookup or event append without Rust planning/.test(
         runtimeContextPolicySurfaceTest,
       ) &&
-      /calls\[5\]\.request\.target_kind,\s*"run"/.test(runtimeContextPolicySurfaceTest) &&
-      /calls\[4\]\.request\.target_kind,\s*"agent"/.test(runtimeContextPolicySurfaceTest) &&
+      /calls\[4\]\.request\.target_kind,\s*"run"/.test(runtimeContextPolicySurfaceTest) &&
+      /calls\[3\]\.request\.target_kind,\s*"agent"/.test(runtimeContextPolicySurfaceTest) &&
       !/^\s*compactThread\(threadId, request = \{\}\) \{/m.test(runtimeDaemonIndex) &&
       !/plannedContextCompactionRunRecord|plannedContextCompactionAgentRecord|plannedContextCompactionOperationKind/.test(
         runtimeContextPolicySurface,
@@ -29690,6 +29690,12 @@ function runCompositor() {
     ? read("crates/services/src/agentic/runtime/kernel/coding_tool_step_module.rs")
     : "";
   const policyCore = readRustPolicyCore();
+  const policyFacade = policyCore;
+  const policyContextLifecycleCore = exists(
+    "crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs",
+  )
+    ? read("crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs")
+    : "";
   const policyOperatorControlCore = exists(
     "crates/services/src/agentic/runtime/kernel/policy/operator_control.rs",
   )
@@ -29727,6 +29733,12 @@ function runCompositor() {
     : "";
   const runtimeContextPolicyCoreTest = exists("packages/runtime-daemon/src/runtime-context-policy-core.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-context-policy-core.test.mjs")
+    : "";
+  const runtimeContextPolicySurface = exists("packages/runtime-daemon/src/runtime-context-policy-surface.mjs")
+    ? read("packages/runtime-daemon/src/runtime-context-policy-surface.mjs")
+    : "";
+  const runtimeContextPolicySurfaceTest = exists("packages/runtime-daemon/src/runtime-context-policy-surface.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-context-policy-surface.test.mjs")
     : "";
   const runtimeMcpLiveBackendService = exists(
     "crates/services/src/agentic/runtime/service/mcp_live_backend.rs",
@@ -29918,6 +29930,17 @@ function runCompositor() {
     : "";
   const runtimeThreadControlSurfaceTest = exists("packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs")
+    : "";
+  const runtimeThreadTurnSurface = exists("packages/runtime-daemon/src/runtime-thread-turn-surface.mjs")
+    ? read("packages/runtime-daemon/src/runtime-thread-turn-surface.mjs")
+    : "";
+  const runtimeThreadTurnSurfaceTest = exists("packages/runtime-daemon/src/runtime-thread-turn-surface.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-thread-turn-surface.test.mjs")
+    : "";
+  const runtimeOperatorTurnControlFacadeTest = exists(
+    "packages/runtime-daemon/src/runtime-operator-turn-control-facade.test.mjs",
+  )
+    ? read("packages/runtime-daemon/src/runtime-operator-turn-control-facade.test.mjs")
     : "";
   const workspaceTrustAcknowledgementBody =
     workspaceTrustState.match(
@@ -38563,6 +38586,123 @@ function runCompositor() {
       "packages/agent-ide/src/runtime/workflow-runtime-control-nodes.test.ts",
     ],
     "Phase 10/11 is pending: workspace-trust warning and acknowledgement controls must be Rust-planned, Rust event-admitted, replay-bound, and guarded against the retired JS payload path",
+  );
+  const runtimeControlSeqCacheTransportSources = [
+    runtimeThreadControlSurface,
+    runtimeThreadTurnSurface,
+    runtimeContextPolicySurface,
+    runtimeMcpControlSurface,
+  ].join("\n");
+  assertCheck(
+    result,
+    "runtime-control-seq-cache-transport-retired",
+    /fn latest_runtime_event_seq_from_state_dir/.test(policyFacade) &&
+      /PathBuf::from\(state_dir\)\.join\("events"\)/.test(policyFacade) &&
+      /serde_json::from_str/.test(policyFacade) &&
+      /value\.get\("seq"\)\.and_then\(Value::as_u64\)/.test(policyFacade) &&
+      /pub state_dir: Option<String>/.test(policyThreadLifecycleCore) &&
+      /pub event_stream_id: Option<String>/.test(policyThreadLifecycleCore) &&
+      /pub seq: Option<u64>/.test(policyThreadLifecycleCore) &&
+      /ThreadControlAgentStateUpdateError::RetiredField\("seq"\)/.test(
+        policyThreadLifecycleCore,
+      ) &&
+      /ThreadControlAgentStateUpdateError::StateDirRequired/.test(
+        policyThreadLifecycleCore,
+      ) &&
+      /latest_runtime_event_seq_from_state_dir\(\s*request\.state_dir\.as_deref\(\),\s*Some\(request\.thread_id\.as_str\(\)\),\s*request\.event_stream_id\.as_deref\(\),/m.test(
+        policyThreadLifecycleCore,
+      ) &&
+      /OperatorInterruptStateUpdateError::RetiredField\("seq"\)/.test(
+        policyOperatorControlCore,
+      ) &&
+      /OperatorSteerStateUpdateError::RetiredField\("seq"\)/.test(
+        policyOperatorControlCore,
+      ) &&
+      /OperatorInterruptStateUpdateError::StateDirRequired/.test(
+        policyOperatorControlCore,
+      ) &&
+      /OperatorSteerStateUpdateError::StateDirRequired/.test(
+        policyOperatorControlCore,
+      ) &&
+      /latest_runtime_event_seq_from_state_dir\(\s*request\.state_dir\.as_deref\(\),\s*thread_id\.as_deref\(\),\s*request\.event_stream_id\.as_deref\(\),/m.test(
+        policyOperatorControlCore,
+      ) &&
+      /ContextCompactionPlanError::RetiredField\(\s*"previous_latest_seq",\s*\)/m.test(
+        policyContextLifecycleCore,
+      ) &&
+      /ContextCompactionPlanError::StateDirRequired/.test(policyContextLifecycleCore) &&
+      /latest_runtime_event_seq_from_state_dir\(\s*request\.state_dir\.as_deref\(\),\s*Some\(request\.thread_id\.as_str\(\)\),\s*request\.event_stream_id\.as_deref\(\),/m.test(
+        policyContextLifecycleCore,
+      ) &&
+      /McpControlAgentStateUpdateError::RetiredField\("seq"\)/.test(
+        policyMcpMemoryCore,
+      ) &&
+      /latest_runtime_event_seq_from_state_dir\(\s*request\.state_dir\.as_deref\(\),\s*Some\(thread_id\.as_str\(\)\),\s*None,/m.test(
+        policyMcpMemoryCore,
+      ) &&
+      !/latestRuntimeEventSeq/.test(runtimeControlSeqCacheTransportSources) &&
+      !/previousLatestSeq|previous_latest_seq/.test(runtimeContextPolicySurface) &&
+      !/seq:\s*Number\.isFinite|seq:\s*latestSeq|seq:\s*previousLatestSeq/.test(
+        runtimeControlSeqCacheTransportSources,
+      ) &&
+      /state_dir:\s*optionalStringDep\(store\?\.stateDir\)\s*\?\?\s*null/.test(
+        runtimeThreadControlSurface,
+      ) &&
+      /event_stream_id:\s*eventStreamId/.test(runtimeThreadControlSurface) &&
+      /state_dir:\s*optionalStringDep\(store\?\.stateDir\)\s*\?\?\s*null/.test(
+        runtimeThreadTurnSurface,
+      ) &&
+      /event_stream_id:\s*streamId/.test(runtimeThreadTurnSurface) &&
+      /state_dir:\s*optionalStringDep\(store\?\.stateDir\)\s*\?\?\s*null/.test(
+        runtimeContextPolicySurface,
+      ) &&
+      /state_dir:\s*optionalStringDep\(request\.state_dir\)\s*\?\?\s*optionalStringDep\(store\?\.stateDir\)\s*\?\?\s*null/.test(
+        runtimeMcpControlSurface,
+      ) &&
+      /assert\.equal\(request\.state_dir,\s*"\/runtime-thread-control-state"\)/.test(
+        runtimeThreadControlSurfaceTest,
+      ) &&
+      /assert\.equal\(Object\.hasOwn\(request,\s*"seq"\),\s*false\)/.test(
+        runtimeThreadControlSurfaceTest,
+      ) &&
+      /assert\.equal\(request\.state_dir,\s*stateDir\)/.test(
+        runtimeOperatorTurnControlFacadeTest,
+      ) &&
+      /assert\.equal\(Object\.hasOwn\(request,\s*"seq"\),\s*false\)/.test(
+        runtimeOperatorTurnControlFacadeTest,
+      ) &&
+      /latestRuntimeEventSeq:\s*failIfCalled\("latestRuntimeEventSeq"\)/.test(
+        runtimeContextPolicySurfaceTest,
+      ) &&
+      /assert\.equal\(request\.state_dir,\s*"\/runtime-state"\)/.test(
+        runtimeContextPolicySurfaceTest,
+      ) &&
+      /assert\.equal\(Object\.hasOwn\(request,\s*"previous_latest_seq"\),\s*false\)/.test(
+        runtimeContextPolicySurfaceTest,
+      ) &&
+      /latestRuntimeEventSeq:\s*failIfCalled\("latestRuntimeEventSeq"\)/.test(
+        runtimeMcpControlSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(call\.request,\s*"seq"\)\s*===\s*false/.test(
+        runtimeMcpControlSurfaceTest,
+      ) &&
+      /request\.state_dir === "\/runtime-state"/.test(runtimeMcpControlSurfaceTest),
+    [
+      "crates/services/src/agentic/runtime/kernel/policy.rs",
+      "crates/services/src/agentic/runtime/kernel/policy/thread_lifecycle.rs",
+      "crates/services/src/agentic/runtime/kernel/policy/operator_control.rs",
+      "crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs",
+      "crates/services/src/agentic/runtime/kernel/policy/mcp_memory.rs",
+      "packages/runtime-daemon/src/runtime-thread-control-surface.mjs",
+      "packages/runtime-daemon/src/runtime-thread-turn-surface.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-surface.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-control-surface.mjs",
+      "packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-operator-turn-control-facade.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs",
+    ],
+    "Runtime-control/context/MCP state-event planning must derive sequence authority from Rust state_dir replay; JS latest-sequence cache transport and caller-supplied seq/previous_latest_seq fields must stay retired",
   );
   const runtimeDiagnosticsRepairControlRustOwned =
     /runtime_diagnostics_repair_control_rust_core_required/.test(runtimeDiagnosticsRepairSurface) &&

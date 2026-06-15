@@ -118,19 +118,17 @@ export function createRuntimeThreadControlSurface({
     const modelRoute = controls.model_route ?? null;
     const { model_route: _modelRoute, ...controlsForRust } = controls;
     const eventStreamId = eventStreamIdForThreadDep(threadId);
-    const latestSeq = typeof store.latestRuntimeEventSeq === "function"
-      ? Number(store.latestRuntimeEventSeq(eventStreamId) ?? 0)
-      : 0;
     const eventId =
       optionalStringDep(request.event_id) ??
       `thread_control_${safeIdDep(threadId)}_${controlKind}_${safeIdDep(now)}`;
     const stateUpdate = planner.call(contextPolicyCoreDep, {
       thread_id: threadId,
+      state_dir: optionalStringDep(store?.stateDir) ?? null,
+      event_stream_id: eventStreamId,
       agent,
       control_kind: controlKind,
       controls: controlsForRust,
       event_id: eventId,
-      seq: Number.isFinite(latestSeq) ? latestSeq + 1 : 1,
       created_at: now,
       updated_at: now,
       model_route: modelRoute,

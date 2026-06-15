@@ -210,9 +210,6 @@ export function createRuntimeMcpControlSurface({
 
     const now = optionalStringDep(request.updated_at) ?? optionalStringDep(request.created_at) ?? nowIso();
     const eventStreamId = eventStreamIdForThreadDep(threadId);
-    const latestSeq = typeof store.latestRuntimeEventSeq === "function"
-      ? Number(store.latestRuntimeEventSeq(eventStreamId) ?? 0)
-      : 0;
     const eventId =
       optionalStringDep(request.event_id) ??
       `mcp_control_${safeIdDep(threadId)}_${safeIdDep(controlKind)}_${safeIdDep(now)}`;
@@ -222,7 +219,6 @@ export function createRuntimeMcpControlSurface({
       state_dir: optionalStringDep(request.state_dir) ?? optionalStringDep(store?.stateDir) ?? null,
       control_kind: controlKind,
       event_id: eventId,
-      seq: Number.isFinite(latestSeq) ? latestSeq + 1 : 1,
       created_at: now,
       request: mcpControlRequestPayload(request, payload),
     });

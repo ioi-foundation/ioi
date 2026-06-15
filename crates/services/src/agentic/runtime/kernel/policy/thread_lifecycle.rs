@@ -35,6 +35,9 @@ pub enum ThreadControlAgentStateUpdateError {
         actual: String,
     },
     MissingField(&'static str),
+    RetiredField(&'static str),
+    StateDirRequired,
+    ReplayReadFailed(String),
     UnsupportedControlKind(String),
 }
 
@@ -160,11 +163,16 @@ pub enum SubagentRecordStateUpdateError {
 pub struct ThreadControlAgentStateUpdateRequest {
     pub schema_version: String,
     pub thread_id: String,
+    #[serde(default)]
+    pub state_dir: Option<String>,
+    #[serde(default)]
+    pub event_stream_id: Option<String>,
     pub agent: Value,
     pub control_kind: String,
     pub controls: Value,
     pub event_id: String,
-    pub seq: u64,
+    #[serde(default)]
+    pub seq: Option<u64>,
     pub created_at: String,
     #[serde(default)]
     pub updated_at: Option<String>,
@@ -574,6 +582,13 @@ impl ThreadControlAgentStateUpdateCore {
         let updated_at = optional_trimmed(request.updated_at.as_deref())
             .or_else(|| optional_trimmed(request.workspace_trust_warning_created_at.as_deref()))
             .unwrap_or_else(|| request.created_at.clone());
+        let seq = super::latest_runtime_event_seq_from_state_dir(
+            request.state_dir.as_deref(),
+            Some(request.thread_id.as_str()),
+            request.event_stream_id.as_deref(),
+        )
+        .map_err(ThreadControlAgentStateUpdateError::ReplayReadFailed)?
+            + 1;
         let mut receipt_refs = unique_string_vec(request.receipt_refs.clone());
         let policy_decision_refs = unique_string_vec(request.policy_decision_refs.clone());
 
@@ -646,7 +661,7 @@ impl ThreadControlAgentStateUpdateCore {
         let control = json!({
             "control_kind": control_kind,
             "event_id": request.event_id,
-            "seq": request.seq,
+            "seq": seq,
             "created_at": request.created_at,
             "workspace_trust_warning_event_id": request.workspace_trust_warning_event_id,
             "receipt_refs": receipt_refs.clone(),
@@ -1080,8 +1095,11 @@ impl ThreadControlAgentStateUpdateRequest {
         if optional_trimmed(Some(self.event_id.as_str())).is_none() {
             return Err(ThreadControlAgentStateUpdateError::MissingField("event_id"));
         }
-        if self.seq == 0 {
-            return Err(ThreadControlAgentStateUpdateError::MissingField("seq"));
+        if self.seq.is_some() {
+            return Err(ThreadControlAgentStateUpdateError::RetiredField("seq"));
+        }
+        if optional_trimmed(self.state_dir.as_deref()).is_none() {
+            return Err(ThreadControlAgentStateUpdateError::StateDirRequired);
         }
         if optional_trimmed(Some(self.created_at.as_str())).is_none() {
             return Err(ThreadControlAgentStateUpdateError::MissingField(
@@ -2354,6 +2372,8 @@ mod tests {
         ThreadControlAgentStateUpdateRequest {
             schema_version: THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION.to_string(),
             thread_id: "thread_1".to_string(),
+            state_dir: Some("/tmp/ioi-thread-control-state".to_string()),
+            event_stream_id: Some("thread_1:events".to_string()),
             agent: json!({
                 "id": "agent_1",
                 "cwd": "/workspace",
@@ -2382,7 +2402,7 @@ mod tests {
                 "updatedAt": "2026-06-06T05:00:00.000Z"
             }),
             event_id: "evt_thread_control".to_string(),
-            seq: 7,
+            seq: None,
             created_at: "2026-06-06T05:00:00.000Z".to_string(),
             updated_at: None,
             workspace_trust_warning_event_id: None,
@@ -2954,6 +2974,8 @@ mod tests {
                 }
             },
             "control_kind": "thinking",
+            "state_dir": "/tmp/ioi-thread-control-state",
+            "event_stream_id": "thread_1:events",
             "controls": {
                 "mode": "agent",
                 "approvalMode": "suggest",
@@ -2963,7 +2985,6 @@ mod tests {
                 }
             },
             "event_id": "evt_thread_control",
-            "seq": 7,
             "created_at": "2026-06-06T05:00:00.000Z",
             "modelRoute": {
                 "requested_model_id": "auto",

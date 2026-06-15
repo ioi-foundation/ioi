@@ -148,10 +148,6 @@ export function createRuntimeContextPolicySurface({
       }
 
       const eventStreamId = eventStreamIdForThreadDep(threadId);
-      const previousLatestSeq = typeof store.latestRuntimeEventSeq === "function"
-        ? Number(store.latestRuntimeEventSeq(eventStreamId) ?? 0)
-        : 0;
-      const seq = Number.isFinite(previousLatestSeq) ? previousLatestSeq + 1 : 1;
       const createdAt = optionalStringDep(request.created_at) ?? new Date().toISOString();
       const reason =
         optionalStringDep(request.reason) ?? "operator requested context compaction";
@@ -163,10 +159,10 @@ export function createRuntimeContextPolicySurface({
         run_id: targetKind === "run" ? runId : null,
         turn_id: optionalStringDep(resolved?.turnId ?? requestedTurnId) ?? null,
         session_id: optionalStringDep(request.session_id) ?? null,
+        state_dir: optionalStringDep(store?.stateDir) ?? null,
         workspace_root:
           optionalStringDep(request.workspace_root ?? agent.cwd ?? agent.workspace_root) ?? null,
         event_stream_id: eventStreamId,
-        previous_latest_seq: Number.isFinite(previousLatestSeq) ? previousLatestSeq : 0,
         source,
         actor: optionalStringDep(request.actor) ?? "operator",
         requested_by: optionalStringDep(request.requested_by) ?? "operator",
@@ -196,11 +192,10 @@ export function createRuntimeContextPolicySurface({
 
       const eventId =
         optionalStringDep(request.event_id) ??
-        contextCompactionEventId(threadId, runId ?? agentId, seq);
+        contextCompactionEventId(threadId, runId ?? agentId, createdAt);
       const plannedEvent = {
         event_stream_id: eventStreamId,
         event_id: eventId,
-        seq,
         thread_id: threadId,
         turn_id: optionalStringDep(plan?.turn_id ?? resolved?.turnId ?? requestedTurnId) ?? null,
         item_id: plan.item_id,
@@ -234,7 +229,6 @@ export function createRuntimeContextPolicySurface({
             thread_id: threadId,
             run_id: runId ?? null,
             event_id: eventId,
-            seq,
           },
         });
       }
@@ -536,17 +530,13 @@ export function createRuntimeContextPolicySurface({
     runId = null,
   }) {
     const eventStreamId = eventStreamIdForThreadDep(threadId);
-    const previousLatestSeq = typeof store.latestRuntimeEventSeq === "function"
-      ? Number(store.latestRuntimeEventSeq(eventStreamId) ?? 0)
-      : 0;
-    const seq = Number.isFinite(previousLatestSeq) ? previousLatestSeq + 1 : 1;
+    const createdAt = optionalStringDep(request.created_at) ?? new Date().toISOString();
     const eventId =
       optionalStringDep(request.event_id) ??
-      contextPolicyEventId(componentKind, threadId, policy.policy_decision_id, seq);
+      contextPolicyEventId(componentKind, threadId, policy.policy_decision_id, createdAt);
     const event = {
       event_stream_id: eventStreamId,
       event_id: eventId,
-      seq,
       thread_id: threadId,
       turn_id: optionalStringDep(policy.turn_id) ?? turnId ?? null,
       item_id: policy.runtime_event_item_id,
@@ -574,7 +564,7 @@ export function createRuntimeContextPolicySurface({
       artifact_refs: stringRefs(policy.artifact_refs),
       rollback_refs: stringRefs(policy.rollback_refs),
       redaction_profile: optionalStringDep(policy.redaction_profile) ?? "internal",
-      created_at: optionalStringDep(request.created_at) ?? new Date().toISOString(),
+      created_at: createdAt,
       evidence_refs: evidenceRefs,
     };
     const admittedEvent = objectRecord(store.appendRuntimeEvent(event));
@@ -589,7 +579,6 @@ export function createRuntimeContextPolicySurface({
           thread_id: threadId,
           run_id: runId,
           event_id: eventId,
-          seq,
           component_kind: componentKind,
         },
       });
@@ -681,22 +670,22 @@ export function createRuntimeContextPolicySurface({
     });
   }
 
-  function contextCompactionEventId(threadId, targetId, seq) {
+  function contextCompactionEventId(threadId, targetId, suffix) {
     return [
       "event_context_compaction",
       safeIdSegment(threadId),
       safeIdSegment(targetId),
-      String(seq).padStart(8, "0"),
+      safeIdSegment(suffix),
     ].join("_");
   }
 
-  function contextPolicyEventId(componentKind, threadId, policyDecisionId, seq) {
+  function contextPolicyEventId(componentKind, threadId, policyDecisionId, suffix) {
     return [
       "event",
       safeIdSegment(componentKind),
       safeIdSegment(threadId),
       safeIdSegment(policyDecisionId),
-      String(seq).padStart(8, "0"),
+      safeIdSegment(suffix),
     ].join("_");
   }
 

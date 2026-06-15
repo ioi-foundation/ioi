@@ -43,6 +43,9 @@ pub enum ContextCompactionPlanError {
         actual: String,
     },
     MissingField(&'static str),
+    RetiredField(&'static str),
+    StateDirRequired,
+    ReplayReadFailed(String),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -402,6 +405,8 @@ pub struct ContextCompactionPlanRequest {
     pub workflow_node_id: Option<String>,
     #[serde(default)]
     pub event_stream_id: Option<String>,
+    #[serde(default)]
+    pub state_dir: Option<String>,
     #[serde(default)]
     pub previous_latest_seq: Option<u64>,
     #[serde(default)]
@@ -1071,7 +1076,12 @@ impl ContextCompactionPlanCore {
         let workflow_node_id = optional_trimmed(request.workflow_node_id.as_deref())
             .unwrap_or_else(|| "runtime.context-compact".to_string());
         let event_stream_id = optional_trimmed(request.event_stream_id.as_deref());
-        let previous_latest_seq = request.previous_latest_seq.unwrap_or(0);
+        let previous_latest_seq = super::latest_runtime_event_seq_from_state_dir(
+            request.state_dir.as_deref(),
+            Some(request.thread_id.as_str()),
+            request.event_stream_id.as_deref(),
+        )
+        .map_err(ContextCompactionPlanError::ReplayReadFailed)?;
         let compact_hash = context_compaction_hash(&reason, &scope);
         let item_scope = turn_id.as_deref().unwrap_or(thread_id.as_str());
         let item_id = format!("{item_scope}:item:context-compact:{compact_hash}");
@@ -1540,6 +1550,14 @@ impl ContextCompactionPlanRequest {
         if optional_trimmed(Some(self.agent_id.as_str())).is_none() {
             return Err(ContextCompactionPlanError::MissingField("agent_id"));
         }
+        if self.previous_latest_seq.is_some() {
+            return Err(ContextCompactionPlanError::RetiredField(
+                "previous_latest_seq",
+            ));
+        }
+        if optional_trimmed(self.state_dir.as_deref()).is_none() {
+            return Err(ContextCompactionPlanError::StateDirRequired);
+        }
         Ok(())
     }
 }
@@ -1919,6 +1937,44 @@ fn context_compaction_hash(reason: &str, scope: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::{
+        fs,
+        path::{Path, PathBuf},
+        time::{SystemTime, UNIX_EPOCH},
+    };
+
+    fn temp_context_state_dir(label: &str) -> PathBuf {
+        let suffix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        let state_dir =
+            std::env::temp_dir().join(format!("ioi-context-lifecycle-{label}-{suffix}"));
+        let _ = fs::remove_dir_all(&state_dir);
+        fs::create_dir_all(state_dir.join("events")).expect("create events dir");
+        state_dir
+    }
+
+    fn seed_context_event_state(
+        state_dir: &Path,
+        thread_id: &str,
+        event_stream_id: &str,
+        seq: u64,
+    ) {
+        let event = json!({
+            "event_stream_id": event_stream_id,
+            "thread_id": thread_id,
+            "event_id": format!("event_seed_{seq}"),
+            "seq": seq,
+            "idempotency_key": format!("seed:{seq}"),
+            "event_kind": "seed.event"
+        });
+        fs::write(
+            state_dir.join("events").join("thread_budget.jsonl"),
+            format!("{event}\n"),
+        )
+        .expect("seed context event");
+    }
 
     fn budget_request() -> ContextBudgetPolicyRequest {
         ContextBudgetPolicyRequest {
@@ -2013,6 +2069,8 @@ mod tests {
     }
 
     fn context_compaction_plan_request() -> ContextCompactionPlanRequest {
+        let state_dir = temp_context_state_dir("compaction-plan");
+        seed_context_event_state(&state_dir, "thread_budget", "thread_budget:events", 7);
         ContextCompactionPlanRequest {
             schema_version: CONTEXT_COMPACTION_PLAN_REQUEST_SCHEMA_VERSION.to_string(),
             thread_id: "thread_budget".to_string(),
@@ -2029,7 +2087,8 @@ mod tests {
             workflow_graph_id: Some("graph_budget".to_string()),
             workflow_node_id: Some("node_compact".to_string()),
             event_stream_id: Some("thread_budget:events".to_string()),
-            previous_latest_seq: Some(7),
+            state_dir: Some(state_dir.to_string_lossy().to_string()),
+            previous_latest_seq: None,
             idempotency_key: None,
         }
     }

@@ -20,6 +20,7 @@ function createStore() {
     },
   };
   const store = {
+    stateDir: "/runtime-thread-control-state",
     agents: new Map([[agent.id, agent]]),
     events: [],
     routeRequests: [],
@@ -84,6 +85,8 @@ function createSurface(plannerCalls = [], { threadControlStateUpdate = null } = 
     contextPolicyCore: {
       planThreadControlAgentStateUpdate(request = {}) {
         plannerCalls.push(request);
+        assert.equal(request.state_dir, "/runtime-thread-control-state");
+        assert.equal(Object.hasOwn(request, "seq"), false);
         const receiptRefs =
           request.receipt_refs?.length > 0
             ? request.receipt_refs
