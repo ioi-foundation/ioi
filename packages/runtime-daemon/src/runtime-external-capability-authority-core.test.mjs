@@ -136,6 +136,18 @@ test("external capability authority core rejects retired compatibility options",
       error.code === "external_capability_authority_core_compatibility_option_retired" &&
       error.details.retired_option === "daemonCoreInvoker",
   );
+  assert.throws(
+    () =>
+      new RuntimeExternalCapabilityAuthorityCore({
+        daemonCoreApi: {
+          authorizeExternalCapabilityExit() {},
+        },
+      }),
+    (error) =>
+      error instanceof RuntimeExternalCapabilityAuthorityCoreError &&
+      error.code === "external_capability_authority_core_compatibility_option_retired" &&
+      error.details.retired_option === "daemonCoreApi",
+  );
 });
 
 test("external capability authority core rejects retired request aliases before Rust invocation", () => {

@@ -140,6 +140,18 @@ test("governed improvement core rejects retired compatibility options", () => {
       error.code === "governed_improvement_core_compatibility_option_retired" &&
       error.details.retired_option === "daemonCoreInvoker",
   );
+  assert.throws(
+    () =>
+      new RuntimeGovernedImprovementCore({
+        daemonCoreApi: {
+          admitGovernedRuntimeImprovementProposal() {},
+        },
+      }),
+    (error) =>
+      error instanceof RuntimeGovernedImprovementCoreError &&
+      error.code === "governed_improvement_core_compatibility_option_retired" &&
+      error.details.retired_option === "daemonCoreApi",
+  );
 });
 
 test("governed improvement core rejects retired proposal fields before Rust invocation", () => {

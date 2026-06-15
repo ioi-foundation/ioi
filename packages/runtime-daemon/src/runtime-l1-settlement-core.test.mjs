@@ -123,6 +123,18 @@ test("L1 settlement core rejects retired compatibility options", () => {
       error.code === "l1_settlement_core_compatibility_option_retired" &&
       error.details.retired_option === "daemonCoreInvoker",
   );
+  assert.throws(
+    () =>
+      new RuntimeL1SettlementCore({
+        daemonCoreApi: {
+          admitL1SettlementAttempt() {},
+        },
+      }),
+    (error) =>
+      error instanceof RuntimeL1SettlementCoreError &&
+      error.code === "l1_settlement_core_compatibility_option_retired" &&
+      error.details.retired_option === "daemonCoreApi",
+  );
 });
 
 test("L1 settlement core rejects retired bridge request aliases before Rust invocation", () => {

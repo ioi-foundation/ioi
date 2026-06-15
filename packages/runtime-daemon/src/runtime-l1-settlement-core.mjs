@@ -16,12 +16,10 @@ export class RuntimeL1SettlementCore {
   constructor(options = {}) {
     assertNoRetiredL1SettlementCoreOption("command", options.command);
     assertNoRetiredL1SettlementCoreOption("args", options.args);
+    assertNoRetiredL1SettlementCoreOption("daemonCoreApi", options.daemonCoreApi);
     assertNoRetiredL1SettlementCoreOption("daemonCoreInvoker", options.daemonCoreInvoker);
     this.daemonCoreGovernedAdmissionApi = governedAdmissionApi(
-      options.daemonCoreGovernedAdmissionApi ??
-        options.daemonCoreApi?.governed_admission ??
-        options.daemonCoreApi?.governedAdmission ??
-        options.daemonCoreApi,
+      options.daemonCoreGovernedAdmissionApi,
       L1_SETTLEMENT_CORE_API_METHOD,
     );
   }
@@ -85,7 +83,7 @@ function assertNoRetiredL1SettlementCoreOption(field, value) {
   if (typeof value === "string" && value.trim().length === 0) return;
   if (value == null) return;
   throw new RuntimeL1SettlementCoreError(
-    "L1 settlement command compatibility options are retired; use daemonCoreGovernedAdmissionApi.admitL1SettlementAttempt for Rust daemon-core trigger admission.",
+    "L1 settlement command compatibility options are retired; use the explicit daemonCoreGovernedAdmissionApi.admitL1SettlementAttempt Rust daemon-core trigger admission API.",
     "l1_settlement_core_compatibility_option_retired",
     { retired_option: field, retired_value: value },
   );

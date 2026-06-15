@@ -16,12 +16,10 @@ export class RuntimeWorkerServicePackageCore {
   constructor(options = {}) {
     assertNoRetiredWorkerServicePackageCoreOption("command", options.command);
     assertNoRetiredWorkerServicePackageCoreOption("args", options.args);
+    assertNoRetiredWorkerServicePackageCoreOption("daemonCoreApi", options.daemonCoreApi);
     assertNoRetiredWorkerServicePackageCoreOption("daemonCoreInvoker", options.daemonCoreInvoker);
     this.daemonCoreWorkerServiceApi = workerServiceApi(
-      options.daemonCoreWorkerServiceApi ??
-        options.daemonCoreApi?.worker_service ??
-        options.daemonCoreApi?.workerService ??
-        options.daemonCoreApi,
+      options.daemonCoreWorkerServiceApi,
     );
   }
 
@@ -83,7 +81,7 @@ function assertNoRetiredWorkerServicePackageCoreOption(field, value) {
   if (typeof value === "string" && value.trim().length === 0) return;
   if (value == null) return;
   throw new RuntimeWorkerServicePackageCoreError(
-    "Worker/service package command compatibility options are retired; use daemonCoreWorkerServiceApi.admitWorkerServicePackageInvocation for Rust daemon-core package admission.",
+    "Worker/service package command compatibility options are retired; use the explicit daemonCoreWorkerServiceApi.admitWorkerServicePackageInvocation Rust daemon-core package admission API.",
     "worker_service_package_core_compatibility_option_retired",
     { retired_option: field, retired_value: value },
   );

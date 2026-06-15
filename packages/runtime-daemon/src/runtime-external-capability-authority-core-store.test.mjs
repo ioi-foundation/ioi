@@ -56,9 +56,6 @@ test("runtime store wires external capability authority to typed Rust authority 
   try {
     const store = new AgentgresRuntimeStateStore(stateDir, {
       modelMountCore: modelMountCore(),
-      daemonCoreInvoker() {
-        throw new Error("generic daemonCoreInvoker must not authorize external capability exits");
-      },
       daemonCoreAuthorityApi: {
         authorizeExternalCapabilityExit(request, context) {
           calls.push({ request, context });

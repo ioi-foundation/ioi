@@ -52,9 +52,6 @@ test("runtime store wires cTEE private workspace to typed Rust cTEE API", () => 
     const store = new AgentgresRuntimeStateStore(stateDir, {
       cwd: stateDir,
       modelMountCore: modelMountCore(),
-      daemonCoreInvoker(request) {
-        throw new Error(`generic command invoker must not run for cTEE: ${request?.operation}`);
-      },
       daemonCoreCteeApi: {
         executePrivateWorkspaceCteeAction(request, context) {
           calls.push({ request, context });

@@ -44,9 +44,10 @@ export class RuntimeExternalCapabilityAuthorityCore {
   constructor(options = {}) {
     assertNoRetiredExternalCapabilityAuthorityCoreOption("command", options.command);
     assertNoRetiredExternalCapabilityAuthorityCoreOption("args", options.args);
+    assertNoRetiredExternalCapabilityAuthorityCoreOption("daemonCoreApi", options.daemonCoreApi);
     assertNoRetiredExternalCapabilityAuthorityCoreOption("daemonCoreInvoker", options.daemonCoreInvoker);
     this.daemonCoreAuthorityApi = authorityApi(
-      options.daemonCoreAuthorityApi ?? options.daemonCoreApi?.authority ?? options.daemonCoreApi,
+      options.daemonCoreAuthorityApi,
     );
   }
 
@@ -122,7 +123,7 @@ function assertNoRetiredExternalCapabilityAuthorityCoreOption(field, value) {
   if (typeof value === "string" && value.trim().length === 0) return;
   if (value == null) return;
   throw new RuntimeExternalCapabilityAuthorityCoreError(
-    "External capability authority command compatibility options are retired; use daemonCoreAuthorityApi.authorizeExternalCapabilityExit for Rust daemon-core wallet.network authority.",
+    "External capability authority command compatibility options are retired; use the explicit daemonCoreAuthorityApi.authorizeExternalCapabilityExit Rust daemon-core wallet.network authority API.",
     "external_capability_authority_core_compatibility_option_retired",
     { retired_option: field, retired_value: value },
   );

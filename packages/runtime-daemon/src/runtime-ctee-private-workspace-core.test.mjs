@@ -209,6 +209,18 @@ test("cTEE private workspace core rejects retired compatibility options", () => 
       error.code === "ctee_private_workspace_core_compatibility_option_retired" &&
       error.details.retired_option === "daemonCoreInvoker",
   );
+  assert.throws(
+    () =>
+      new RuntimeCteePrivateWorkspaceCore({
+        daemonCoreApi: {
+          executePrivateWorkspaceCteeAction() {},
+        },
+      }),
+    (error) =>
+      error instanceof RuntimeCteePrivateWorkspaceCoreError &&
+      error.code === "ctee_private_workspace_core_compatibility_option_retired" &&
+      error.details.retired_option === "daemonCoreApi",
+  );
 });
 
 test("cTEE private workspace core rejects retired bridge request aliases before Rust invocation", () => {

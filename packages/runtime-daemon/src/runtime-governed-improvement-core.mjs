@@ -36,14 +36,15 @@ export class RuntimeGovernedImprovementCore {
     assertNoRetiredGovernedImprovementCoreOption("command", options.command);
     assertNoRetiredGovernedImprovementCoreOption("args", options.args);
     assertNoRetiredGovernedImprovementCoreOption(
+      "daemonCoreApi",
+      options.daemonCoreApi,
+    );
+    assertNoRetiredGovernedImprovementCoreOption(
       "daemonCoreInvoker",
       options.daemonCoreInvoker,
     );
     this.daemonCoreGovernedAdmissionApi = governedAdmissionApi(
-      options.daemonCoreGovernedAdmissionApi ??
-        options.daemonCoreApi?.governed_admission ??
-        options.daemonCoreApi?.governedAdmission ??
-        options.daemonCoreApi,
+      options.daemonCoreGovernedAdmissionApi,
       GOVERNED_IMPROVEMENT_CORE_API_METHOD,
     );
   }
@@ -111,7 +112,7 @@ function assertNoRetiredGovernedImprovementCoreOption(field, value) {
   if (typeof value === "string" && value.trim().length === 0) return;
   if (value == null) return;
   throw new RuntimeGovernedImprovementCoreError(
-    "Governed improvement command compatibility options are retired; use daemonCoreGovernedAdmissionApi.admitGovernedRuntimeImprovementProposal for Rust daemon-core proposal admission.",
+    "Governed improvement command compatibility options are retired; use the explicit daemonCoreGovernedAdmissionApi.admitGovernedRuntimeImprovementProposal Rust daemon-core proposal admission API.",
     "governed_improvement_core_compatibility_option_retired",
     { retired_option: field, retired_value: value },
   );

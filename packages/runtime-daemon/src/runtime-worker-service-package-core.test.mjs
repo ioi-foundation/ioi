@@ -224,6 +224,18 @@ test("worker/service package core rejects retired compatibility options", () => 
       error.code === "worker_service_package_core_compatibility_option_retired" &&
       error.details.retired_option === "daemonCoreInvoker",
   );
+  assert.throws(
+    () =>
+      new RuntimeWorkerServicePackageCore({
+        daemonCoreApi: {
+          admitWorkerServicePackageInvocation() {},
+        },
+      }),
+    (error) =>
+      error instanceof RuntimeWorkerServicePackageCoreError &&
+      error.code === "worker_service_package_core_compatibility_option_retired" &&
+      error.details.retired_option === "daemonCoreApi",
+  );
 });
 
 test("worker/service package core rejects retired bridge request aliases before Rust invocation", () => {

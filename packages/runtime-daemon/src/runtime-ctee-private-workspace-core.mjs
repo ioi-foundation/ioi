@@ -15,9 +15,10 @@ export class RuntimeCteePrivateWorkspaceCore {
   constructor(options = {}) {
     assertNoRetiredCteePrivateWorkspaceCoreOption("command", options.command);
     assertNoRetiredCteePrivateWorkspaceCoreOption("args", options.args);
+    assertNoRetiredCteePrivateWorkspaceCoreOption("daemonCoreApi", options.daemonCoreApi);
     assertNoRetiredCteePrivateWorkspaceCoreOption("daemonCoreInvoker", options.daemonCoreInvoker);
     this.daemonCoreCteeApi = cteeApi(
-      options.daemonCoreCteeApi ?? options.daemonCoreApi?.ctee ?? options.daemonCoreApi,
+      options.daemonCoreCteeApi,
     );
   }
 
@@ -79,7 +80,7 @@ function assertNoRetiredCteePrivateWorkspaceCoreOption(field, value) {
   if (typeof value === "string" && value.trim().length === 0) return;
   if (value == null) return;
   throw new RuntimeCteePrivateWorkspaceCoreError(
-    "Private Workspace cTEE command compatibility options are retired; use daemonCoreCteeApi.executePrivateWorkspaceCteeAction for Rust daemon-core cTEE custody admission.",
+    "Private Workspace cTEE command compatibility options are retired; use the explicit daemonCoreCteeApi.executePrivateWorkspaceCteeAction Rust daemon-core cTEE custody admission API.",
     "ctee_private_workspace_core_compatibility_option_retired",
     { retired_option: field, retired_value: value },
   );

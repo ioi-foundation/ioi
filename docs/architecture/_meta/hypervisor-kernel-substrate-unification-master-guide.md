@@ -10067,6 +10067,20 @@ materialization, direct provider/backend event admission, cTEE custody, durable
 Agentgres expected-head/state-root binding across replay/projection, and stable
 IDE/CLI/SDK APIs still need to close.
 
+Slice 1277 retires the root `daemonCoreApi` compatibility mount for the
+authority/governed-admission family. External capability authority, cTEE Private
+Workspace, worker/service package admission, L1 settlement admission, and
+governed-improvement proposal admission now accept only their explicit typed
+daemon-core API handles (`daemonCoreAuthorityApi`, `daemonCoreCteeApi`,
+`daemonCoreWorkerServiceApi`, or `daemonCoreGovernedAdmissionApi`). Supplying a
+flat `daemonCoreApi` object, even one carrying the right method, fails closed as
+a retired compatibility option before Rust invocation. Conformance now guards
+that those five cores cannot recover the root compatibility mount, nested
+`daemonCoreApi.*` fallback, command/env fallback, or generic invoker path. This
+remains non-terminal because richer projection/replay records, deeper
+Agentgres receipt/state-root binding, and stable IDE/CLI/SDK read APIs still
+need terminal Rust-owned coverage.
+
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,
 `/v1/memory/policy`, `/v1/memory/path`, or `/v1/memory/validate`; the daemon

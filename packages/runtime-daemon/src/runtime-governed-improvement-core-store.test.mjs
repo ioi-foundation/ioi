@@ -57,9 +57,6 @@ test("runtime store wires governed improvement to typed Rust governed-admission 
     const store = new AgentgresRuntimeStateStore(stateDir, {
       cwd: stateDir,
       modelMountCore: modelMountCore(),
-      daemonCoreInvoker(request) {
-        throw new Error(`generic command invoker must not run for governed improvement: ${request?.operation}`);
-      },
       daemonCoreGovernedAdmissionApi: {
         admitGovernedRuntimeImprovementProposal(proposal, context) {
           calls.push({ proposal, context });

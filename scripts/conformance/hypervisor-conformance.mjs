@@ -4643,6 +4643,11 @@ function runBridge() {
   const cteePrivateWorkspaceCore = exists("packages/runtime-daemon/src/runtime-ctee-private-workspace-core.mjs")
     ? read("packages/runtime-daemon/src/runtime-ctee-private-workspace-core.mjs")
     : "";
+  const cteePrivateWorkspaceCoreTest = exists(
+    "packages/runtime-daemon/src/runtime-ctee-private-workspace-core.test.mjs",
+  )
+    ? read("packages/runtime-daemon/src/runtime-ctee-private-workspace-core.test.mjs")
+    : "";
   const cliMain = exists("crates/cli/src/main.rs") ? read("crates/cli/src/main.rs") : "";
   const cliRuntime = exists("crates/cli/src/commands/runtime.rs")
     ? read("crates/cli/src/commands/runtime.rs")
@@ -4909,10 +4914,22 @@ function runBridge() {
         externalCapabilityAuthorityCore,
       ) &&
       /this\.daemonCoreAuthorityApi = authorityApi/.test(externalCapabilityAuthorityCore) &&
+      /assertNoRetiredExternalCapabilityAuthorityCoreOption\("daemonCoreApi", options\.daemonCoreApi\)/.test(
+        externalCapabilityAuthorityCore,
+      ) &&
       /assertNoRetiredExternalCapabilityAuthorityCoreOption\("daemonCoreInvoker", options\.daemonCoreInvoker\)/.test(
         externalCapabilityAuthorityCore,
       ) &&
+      /new RuntimeExternalCapabilityAuthorityCore\(\{\s*daemonCoreApi:\s*\{[\s\S]*?authorizeExternalCapabilityExit\(\) \{\}/.test(
+        externalCapabilityAuthorityCoreTest,
+      ) &&
+      /error\.details\.retired_option === "daemonCoreApi"/.test(
+        externalCapabilityAuthorityCoreTest,
+      ) &&
       /external_capability_authority_core_direct_authority_api_unconfigured/.test(
+        externalCapabilityAuthorityCore,
+      ) &&
+      !/options\.daemonCoreApi\?\.authority|authorityApi\(options\.daemonCoreApi\)/.test(
         externalCapabilityAuthorityCore,
       ) &&
       !/operation:\s*"authorize_external_capability_exit"|ioi\.runtime\.daemon_core\.command\.v1|this\.daemonCoreInvoker = optionalFunction\(options\.daemonCoreInvoker\)/.test(
@@ -4936,10 +4953,22 @@ function runBridge() {
         workerServicePackageCore,
       ) &&
       /this\.daemonCoreWorkerServiceApi = workerServiceApi/.test(workerServicePackageCore) &&
+      /assertNoRetiredWorkerServicePackageCoreOption\("daemonCoreApi", options\.daemonCoreApi\)/.test(
+        workerServicePackageCore,
+      ) &&
       /assertNoRetiredWorkerServicePackageCoreOption\("daemonCoreInvoker", options\.daemonCoreInvoker\)/.test(
         workerServicePackageCore,
       ) &&
+      /new RuntimeWorkerServicePackageCore\(\{\s*daemonCoreApi:\s*\{[\s\S]*?admitWorkerServicePackageInvocation\(\) \{\}/.test(
+        workerServicePackageCoreTest,
+      ) &&
+      /error\.details\.retired_option === "daemonCoreApi"/.test(
+        workerServicePackageCoreTest,
+      ) &&
       /worker_service_package_core_direct_worker_service_api_unconfigured/.test(
+        workerServicePackageCore,
+      ) &&
+      !/options\.daemonCoreApi\?\.(?:worker_service|workerService)|workerServiceApi\(options\.daemonCoreApi\)/.test(
         workerServicePackageCore,
       ) &&
       !/operation:\s*"admit_worker_service_package_invocation"|ioi\.runtime\.daemon_core\.command\.v1|this\.daemonCoreInvoker = optionalFunction\(options\.daemonCoreInvoker\)/.test(
@@ -4961,10 +4990,22 @@ function runBridge() {
         cteePrivateWorkspaceCore,
       ) &&
       /this\.daemonCoreCteeApi = cteeApi/.test(cteePrivateWorkspaceCore) &&
+      /assertNoRetiredCteePrivateWorkspaceCoreOption\("daemonCoreApi", options\.daemonCoreApi\)/.test(
+        cteePrivateWorkspaceCore,
+      ) &&
       /assertNoRetiredCteePrivateWorkspaceCoreOption\("daemonCoreInvoker", options\.daemonCoreInvoker\)/.test(
         cteePrivateWorkspaceCore,
       ) &&
+      /new RuntimeCteePrivateWorkspaceCore\(\{\s*daemonCoreApi:\s*\{[\s\S]*?executePrivateWorkspaceCteeAction\(\) \{\}/.test(
+        cteePrivateWorkspaceCoreTest,
+      ) &&
+      /error\.details\.retired_option === "daemonCoreApi"/.test(
+        cteePrivateWorkspaceCoreTest,
+      ) &&
       /ctee_private_workspace_core_direct_ctee_api_unconfigured/.test(cteePrivateWorkspaceCore) &&
+      !/options\.daemonCoreApi\?\.ctee|cteeApi\(options\.daemonCoreApi\)/.test(
+        cteePrivateWorkspaceCore,
+      ) &&
       !/operation:\s*"execute_private_workspace_ctee_action"|ioi\.runtime\.daemon_core\.command\.v1|this\.daemonCoreInvoker = optionalFunction\(options\.daemonCoreInvoker\)/.test(
         cteePrivateWorkspaceCore,
       ) &&
@@ -4991,7 +5032,17 @@ function runBridge() {
       /assertNoRetiredL1SettlementCoreOption\("daemonCoreInvoker", options\.daemonCoreInvoker\)/.test(
         l1SettlementCore,
       ) &&
+      /assertNoRetiredL1SettlementCoreOption\("daemonCoreApi", options\.daemonCoreApi\)/.test(
+        l1SettlementCore,
+      ) &&
+      /new RuntimeL1SettlementCore\(\{\s*daemonCoreApi:\s*\{[\s\S]*?admitL1SettlementAttempt\(\) \{\}/.test(
+        l1SettlementCoreTest,
+      ) &&
+      /error\.details\.retired_option === "daemonCoreApi"/.test(l1SettlementCoreTest) &&
       /l1_settlement_core_direct_governed_admission_api_unconfigured/.test(
+        l1SettlementCore,
+      ) &&
+      !/options\.daemonCoreApi\?\.(?:governed_admission|governedAdmission)|governedAdmissionApi\(options\.daemonCoreApi/.test(
         l1SettlementCore,
       ) &&
       !/operation:\s*"admit_l1_settlement_attempt"|ioi\.runtime\.daemon_core\.command\.v1|this\.daemonCoreInvoker = optionalFunction\(options\.daemonCoreInvoker\)/.test(
@@ -5017,7 +5068,19 @@ function runBridge() {
       /assertNoRetiredGovernedImprovementCoreOption\(\s*"daemonCoreInvoker",\s*options\.daemonCoreInvoker,\s*\)/.test(
         governedImprovementCore,
       ) &&
+      /assertNoRetiredGovernedImprovementCoreOption\(\s*"daemonCoreApi",\s*options\.daemonCoreApi,\s*\)/.test(
+        governedImprovementCore,
+      ) &&
+      /new RuntimeGovernedImprovementCore\(\{\s*daemonCoreApi:\s*\{[\s\S]*?admitGovernedRuntimeImprovementProposal\(\) \{\}/.test(
+        governedImprovementCoreTest,
+      ) &&
+      /error\.details\.retired_option === "daemonCoreApi"/.test(
+        governedImprovementCoreTest,
+      ) &&
       /governed_improvement_core_direct_governed_admission_api_unconfigured/.test(
+        governedImprovementCore,
+      ) &&
+      !/options\.daemonCoreApi\?\.(?:governed_admission|governedAdmission)|governedAdmissionApi\(options\.daemonCoreApi/.test(
         governedImprovementCore,
       ) &&
       !/operation:\s*"admit_governed_runtime_improvement_proposal"|ioi\.runtime\.daemon_core\.command\.v1|this\.daemonCoreInvoker = optionalFunction\(options\.daemonCoreInvoker\)/.test(

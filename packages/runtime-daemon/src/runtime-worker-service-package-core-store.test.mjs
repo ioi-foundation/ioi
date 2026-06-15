@@ -57,9 +57,6 @@ test("runtime store wires worker/service package to typed Rust package API", () 
     const store = new AgentgresRuntimeStateStore(stateDir, {
       cwd: stateDir,
       modelMountCore: modelMountCore(),
-      daemonCoreInvoker(request) {
-        throw new Error(`generic command invoker must not run for worker/service package: ${request?.operation}`);
-      },
       daemonCoreWorkerServiceApi: {
         admitWorkerServicePackageInvocation(request, context) {
           calls.push({ request, context });

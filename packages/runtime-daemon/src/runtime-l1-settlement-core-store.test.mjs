@@ -51,9 +51,6 @@ test("runtime store wires L1 settlement to typed Rust governed-admission API", (
     const store = new AgentgresRuntimeStateStore(stateDir, {
       cwd: stateDir,
       modelMountCore: modelMountCore(),
-      daemonCoreInvoker(request) {
-        throw new Error(`generic command invoker must not run for L1 settlement: ${request?.operation}`);
-      },
       daemonCoreGovernedAdmissionApi: {
         admitL1SettlementAttempt(attempt, context) {
           calls.push({ attempt, context });
