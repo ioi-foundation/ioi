@@ -524,11 +524,13 @@ or `commitMemoryState` calls now fail closed with
 `runtime_memory_state_store_rust_core_required` before JS record-map mutation,
 policy-map mutation, local memory/policy file writes or deletes, receipt
 synthesis, or memory-state commit transport can occur. Run-memory resolution
-now also fails closed with `runtime_run_memory_mutation_rust_core_required` for
-chat/API remember, edit, delete, enable, and disable mutation commands; read
-injection and subagent memory inheritance remain projection adapters over
-already-admitted memory. Public thread/agent memory write, edit, delete, and
-policy mutation now have a positive Rust daemon-core boundary through
+now requires the mounted thread-memory Rust projection/control surface for chat/API
+remember, edit, delete, enable, and disable commands: it reads policy/path/record
+truth through Rust public memory projection, commits write/edit/delete/policy
+changes through Rust `plan_runtime_memory_control` plus Agentgres
+memory-state admission, and fails closed before JS memory cache reads if that
+surface is absent. Public thread/agent memory write, edit, delete, and
+policy mutation have a positive Rust daemon-core boundary through
 `plan_runtime_memory_control`, followed by Rust Agentgres memory-state commit
 before route projection returns. The runtime memory event-control cut extends
 that boundary to status, validation, and direct memory control-event append:
@@ -10348,6 +10350,21 @@ Conformance now guards the shared Rust replay helper, the retired request
 fields, focused fail-if-called tests, and production-source absence of the JS
 latest-sequence cache. Remaining work is durable runtime-control projection and
 stable protocol API cleanup, not a JS sequence authority fallback.
+
+Slice 1295 hard-cuts run-memory command resolution out of the JS memory cache
+and fail-closed mutation placeholders. `resolveRunMemory()` now requires the
+mounted thread-memory surface, calls Rust-owned public memory policy/path/list
+projections before run construction, and uses the same Rust
+`plan_runtime_memory_control` plus Agentgres `commitRuntimeMemoryState` path for
+chat/API remember, edit, delete, enable, and disable commands. The old
+`store.memory.pathProjection()`, `store.memory.effectivePolicy()`,
+`store.memory.list()`, and run-memory mutation refusal path can no longer
+author run memory truth; missing Rust projection/control fails closed before JS
+cache reads. The daemon-store memory pass-through methods for remember, list,
+policy, path, edit/delete, status/validation, and direct memory control-event
+append are deleted, so migrated memory routes and run construction cannot
+return through those compatibility handles. Remaining work is wallet/policy authority, cTEE private-memory
+custody, durable memory replay/projection depth, and stable IDE/SDK memory APIs.
 
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,

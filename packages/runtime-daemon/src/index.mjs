@@ -34,9 +34,6 @@ import {
 } from "./runtime-tool-catalog.mjs";
 import { mcpRegistryForWorkspace } from "./mcp-manager.mjs";
 import {
-  RUNTIME_MEMORY_MANAGER_MUTATION_SCHEMA_VERSION,
-  RUNTIME_MEMORY_MANAGER_STATUS_SCHEMA_VERSION,
-  RUNTIME_MEMORY_MANAGER_VALIDATION_SCHEMA_VERSION,
   memoryRowsForStatus,
 } from "./memory-manager.mjs";
 import {
@@ -909,120 +906,6 @@ export class AgentgresRuntimeStateStore {
 
   resolveSubagentMemoryInheritance({ agent, threadId, request = {}, parentPolicy = {} } = {}) {
     return this.runMemoryResolution.resolveSubagentMemoryInheritance(this, { agent, threadId, request, parentPolicy });
-  }
-
-  rememberForAgent(agent, { text, threadId = threadIdForAgent(agent.id), scope = "thread", source = "operator_remember", workflow = {} } = {}) {
-    return threadMemoryState.rememberForAgent(this, agent, { text, threadId, scope, source, workflow });
-  }
-
-  rememberForThread(threadId, body = {}) {
-    return threadMemoryState.rememberForThread(this, threadId, body);
-  }
-
-  listMemoryForThread(threadId, options = {}) {
-    return threadMemoryState.listMemoryForThread(this, threadId, options);
-  }
-
-  memoryPolicyForThread(threadId) {
-    return threadMemoryState.memoryPolicyForThread(this, threadId);
-  }
-
-  setMemoryPolicyForThread(threadId, body = {}) {
-    return threadMemoryState.setMemoryPolicyForThread(this, threadId, body);
-  }
-
-  memoryPathForThread(threadId) {
-    return threadMemoryState.memoryPathForThread(this, threadId);
-  }
-
-  updateMemoryForThread(threadId, memoryId, body = {}) {
-    return threadMemoryState.updateMemoryForThread(this, threadId, memoryId, body);
-  }
-
-  deleteMemoryForThread(threadId, memoryId, body = {}) {
-    return threadMemoryState.deleteMemoryForThread(this, threadId, memoryId, body);
-  }
-
-  rememberForAgentId(agentId, body = {}) {
-    return threadMemoryState.rememberForAgentId(this, agentId, body);
-  }
-
-  listMemoryForAgent(agentId, options = {}) {
-    return threadMemoryState.listMemoryForAgent(this, agentId, options);
-  }
-
-  memoryPolicyForAgent(agentId, options = {}) {
-    return threadMemoryState.memoryPolicyForAgent(this, agentId, options);
-  }
-
-  setMemoryPolicyForAgent(agentId, body = {}) {
-    return threadMemoryState.setMemoryPolicyForAgent(this, agentId, body);
-  }
-
-  memoryPathForAgent(agentId, options = {}) {
-    return threadMemoryState.memoryPathForAgent(this, agentId, options);
-  }
-
-  updateMemoryForAgentId(agentId, memoryId, body = {}) {
-    return threadMemoryState.updateMemoryForAgentId(this, agentId, memoryId, body);
-  }
-
-  deleteMemoryForAgentId(agentId, memoryId, body = {}) {
-    return threadMemoryState.deleteMemoryForAgentId(this, agentId, memoryId, body);
-  }
-
-  updateMemoryRecord(memoryId, body = {}) {
-    return threadMemoryState.updateMemoryRecord(this, memoryId, body);
-  }
-
-  deleteMemoryRecord(memoryId, body = {}) {
-    return threadMemoryState.deleteMemoryRecord(this, memoryId, body);
-  }
-
-  recordThreadMemoryStatus(threadId, request = {}) {
-    return threadMemoryState.recordThreadMemoryStatus(this, threadId, request, RUNTIME_MEMORY_MANAGER_STATUS_SCHEMA_VERSION);
-  }
-
-  validateThreadMemory(threadId, request = {}) {
-    return threadMemoryState.validateThreadMemory(this, threadId, request, RUNTIME_MEMORY_MANAGER_VALIDATION_SCHEMA_VERSION);
-  }
-
-  recordThreadMemoryMutation(threadId, mutation = {}, request = {}, operation = "write") {
-    return threadMemoryState.recordThreadMemoryMutation(this, threadId, mutation, request, operation, RUNTIME_MEMORY_MANAGER_MUTATION_SCHEMA_VERSION);
-  }
-
-  appendThreadMemoryControlEvent({
-    threadId,
-    agent,
-    request,
-    controlKind,
-    sourceEventKind,
-    eventKind,
-    componentKind,
-    workflowNodeId,
-    payloadSchemaVersion,
-    status,
-    payload,
-    receiptRefs,
-    policyDecisionRefs,
-    policyDecisionKind = "read",
-  }) {
-    return threadMemoryState.appendThreadMemoryControlEvent(this, {
-      threadId,
-      agent,
-      request,
-      controlKind,
-      sourceEventKind,
-      eventKind,
-      componentKind,
-      workflowNodeId,
-      payloadSchemaVersion,
-      status,
-      payload,
-      receiptRefs,
-      policyDecisionRefs,
-      policyDecisionKind,
-    });
   }
 
   listThreads() {

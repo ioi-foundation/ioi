@@ -14662,7 +14662,10 @@ function runBridge() {
       !/const updatedAgent = \{ \.\.\.agent, updatedAt: event\.created_at \}/.test(
         runtimeThreadMemoryState,
       ) &&
-      /runtimeError/.test(runtimeDaemonIndex),
+      /runtimeError/.test(runtimeDaemonIndex) &&
+      !/^\s*(?:rememberForAgent|rememberForThread|listMemoryForThread|memoryPolicyForThread|setMemoryPolicyForThread|memoryPathForThread|updateMemoryForThread|deleteMemoryForThread|rememberForAgentId|listMemoryForAgent|memoryPolicyForAgent|setMemoryPolicyForAgent|memoryPathForAgent|updateMemoryForAgentId|deleteMemoryForAgentId|updateMemoryRecord|deleteMemoryRecord|recordThreadMemoryStatus|validateThreadMemory|recordThreadMemoryMutation|appendThreadMemoryControlEvent)\s*\(/m.test(
+        runtimeDaemonIndex,
+      ),
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
       "crates/services/src/agentic/runtime/kernel/policy/mcp_memory.rs",
@@ -33549,11 +33552,23 @@ function runCompositor() {
       /run memory resolution ignores retired memory thread and approval aliases/.test(
         runtimeRunMemoryResolutionTest,
       ) &&
-      /run memory resolution write commands fail closed before JS memory mutation/.test(
+      /run memory resolution write commands use Rust memory control and Agentgres commit results/.test(
         runtimeRunMemoryResolutionTest,
       ) &&
+      /run memory resolution policy commands use Rust memory policy control/.test(
+        runtimeRunMemoryResolutionTest,
+      ) &&
+      /run memory resolution fails closed before JS cache reads when Rust memory surface is missing/.test(
+        runtimeRunMemoryResolutionTest,
+      ) &&
+      /runtime_run_memory_projection_js_cache_retired/.test(runtimeRunMemoryResolution) &&
       /runtime_run_memory_mutation_rust_core_required/.test(runtimeRunMemoryResolution) &&
       /runtime_run_memory_resolution_js_mutation_retired/.test(runtimeRunMemoryResolution) &&
+      /surface\.rememberForAgent\(store, agent/.test(runtimeRunMemoryResolution) &&
+      /surface\.updateMemoryForThread\(store, threadId/.test(runtimeRunMemoryResolution) &&
+      /surface\.deleteMemoryForThread\(store, threadId/.test(runtimeRunMemoryResolution) &&
+      /surface\.setMemoryPolicyForThread\(store, threadId/.test(runtimeRunMemoryResolution) &&
+      /surface\.publicListMemoryForThread\(store, threadId/.test(runtimeRunMemoryResolution) &&
       /threadId: "thread-retired"/.test(runtimeRunMemoryResolutionTest) &&
       /thread_id: "thread-canonical"/.test(runtimeRunMemoryResolutionTest) &&
       /writeApproved: true/.test(runtimeRunMemoryResolutionTest) &&
@@ -33570,6 +33585,9 @@ function runCompositor() {
       /subagentInheritance: "full"/.test(runtimeRunMemoryResolutionTest) &&
       /subagent_inheritance: "none"/.test(runtimeRunMemoryResolutionTest) &&
       !/memoryOptions\.(?:threadId|subagentInheritance)\b/.test(runtimeRunMemoryResolution) &&
+      !/store\.memory\.(?:list|pathProjection|effectivePolicy|setPolicy)\b/.test(
+        runtimeRunMemoryResolution,
+      ) &&
       !/request(?:\.|\?\.)(?:subagentName)\b|request\.options\?\.(?:subagentName)\b/.test(
         runtimeMemoryHelpers,
       ) &&
