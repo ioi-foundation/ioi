@@ -4795,6 +4795,15 @@ function runBridge() {
       /assertNoRuntimeContextPolicyCoreOption\("daemonCoreInvoker", options\.daemonCoreInvoker\)/.test(
         runtimeContextPolicyCore,
       ) &&
+      /assertNoRuntimeContextPolicyCoreOption\("daemonCoreApi", options\.daemonCoreApi\)/.test(
+        runtimeContextPolicyCore,
+      ) &&
+      /runtime context policy core daemonCoreApi option fails closed/.test(
+        runtimeContextPolicyCoreTest,
+      ) &&
+      !/options\.daemonCoreApi\?\.(?:contextLifecycle|context_lifecycle|contextPolicy|context_policy|runtimeControl|runtime_control|runtimeProjection|runtime_projection|projection|threadLifecycle|thread_lifecycle|workspaceTrust|workspace_trust|threadMemory|thread_memory|memory)/.test(
+        runtimeContextPolicyCore,
+      ) &&
       !/this\.daemonCoreInvoker = optionalFunction\(options\.daemonCoreInvoker\)/.test(
         runtimeContextPolicyCore,
       ) &&
@@ -5115,7 +5124,19 @@ function runBridge() {
       /assertNoRetiredCodingToolApprovalCoreOption\("daemonCoreInvoker", options\.daemonCoreInvoker\)/.test(
         runtimeCodingToolApprovalCore,
       ) &&
+      /assertNoRetiredCodingToolApprovalCoreOption\("daemonCoreApi", options\.daemonCoreApi\)/.test(
+        runtimeCodingToolApprovalCore,
+      ) &&
+      /daemonCoreApi:\s*\{[\s\S]*?\[CODING_TOOL_APPROVAL_MANIFEST_API_METHOD\]\(\) \{\}/.test(
+        runtimeCodingToolApprovalCoreTest,
+      ) &&
+      /error\.details\.retired_option === "daemonCoreApi"/.test(
+        runtimeCodingToolApprovalCoreTest,
+      ) &&
       /coding_tool_approval_core_direct_approval_api_unconfigured/.test(
+        runtimeCodingToolApprovalCore,
+      ) &&
+      !/options\.daemonCoreApi\?\.(?:approval|approval_state|approvalState)|approvalApi\(options\.daemonCoreApi/.test(
         runtimeCodingToolApprovalCore,
       ) &&
       !/operation:\s*"plan_coding_tool_approval_manifest"|operation:\s*"project_coding_tool_approval_satisfaction"|operation:\s*"plan_coding_tool_approval_satisfaction"|operation:\s*"plan_coding_tool_approval_block"|ioi\.runtime\.daemon_core\.command\.v1|this\.daemonCoreInvoker = optionalFunction\(options\.daemonCoreInvoker\)/.test(
@@ -5147,7 +5168,19 @@ function runBridge() {
       /assertNoRetiredApprovalStateCoreOption\("daemonCoreInvoker", options\.daemonCoreInvoker\)/.test(
         runtimeApprovalStateCore,
       ) &&
+      /assertNoRetiredApprovalStateCoreOption\("daemonCoreApi", options\.daemonCoreApi\)/.test(
+        runtimeApprovalStateCore,
+      ) &&
+      /daemonCoreApi:\s*\{[\s\S]*?\[APPROVAL_REQUEST_STATE_UPDATE_API_METHOD\]\(\) \{\}/.test(
+        runtimeApprovalStateCoreTest,
+      ) &&
+      /error\.details\.retired_option === "daemonCoreApi"/.test(
+        runtimeApprovalStateCoreTest,
+      ) &&
       /approval_state_core_direct_approval_api_unconfigured/.test(runtimeApprovalStateCore) &&
+      !/options\.daemonCoreApi\?\.(?:approval|approval_state|approvalState)|approvalApi\(options\.daemonCoreApi/.test(
+        runtimeApprovalStateCore,
+      ) &&
       !/operation:\s*"plan_approval_request_state_update"|operation:\s*"authorize_approval_request"|operation:\s*"authorize_approval_decision"|operation:\s*"plan_approval_decision_state_update"|operation:\s*"plan_approval_revoke_state_update"|operation:\s*"project_approval_queue"|ioi\.runtime\.daemon_core\.command\.v1|this\.daemonCoreInvoker = optionalFunction\(options\.daemonCoreInvoker\)/.test(
         runtimeApprovalStateCore,
       ) &&
@@ -5169,6 +5202,16 @@ function runBridge() {
       /this\.workspaceRestoreCore/.test(runtimeDaemonIndex) &&
       !/this\.workspaceRestoreRunner/.test(runtimeDaemonIndex) &&
       /workspaceRestoreCore: this\.workspaceRestoreCore/.test(runtimeDaemonIndex) &&
+      /assertNoRetiredWorkspaceRestoreCoreOption\("daemonCoreApi", options\.daemonCoreApi\)/.test(
+        workspaceRestoreCore,
+      ) &&
+      /daemonCoreApi:\s*\{[\s\S]*?\[WORKSPACE_RESTORE_PREVIEW_OPERATIONS_API_METHOD\]\(\) \{\}/.test(
+        workspaceRestoreCoreTest,
+      ) &&
+      /error\.details\.retired_option === "daemonCoreApi"/.test(workspaceRestoreCoreTest) &&
+      !/options\.daemonCoreApi\?\.(?:workspace_restore|workspaceRestore)|workspaceRestoreApi\(options\.daemonCoreApi/.test(
+        workspaceRestoreCore,
+      ) &&
       /this\.daemonCoreWorkloadApi = options\.daemonCoreWorkloadApi/.test(runtimeDaemonIndex) &&
       /daemonCoreWorkloadApi: this\.daemonCoreWorkloadApi/.test(runtimeDaemonIndex) &&
       !/createStepModuleRunnerFromEnv|stepModuleRunner/.test(runtimeDaemonIndex) &&
@@ -5183,6 +5226,7 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-approval-core.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-approval-core.test.mjs",
       "packages/runtime-daemon/src/runtime-worker-service-package-core.mjs",
       "packages/runtime-daemon/src/runtime-ctee-private-workspace-core.mjs",
       "packages/runtime-daemon/src/runtime-l1-settlement-core.mjs",
@@ -5190,6 +5234,8 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-external-capability-authority-core.mjs",
       "packages/runtime-daemon/src/runtime-approval-state-core.mjs",
       "packages/runtime-daemon/src/runtime-approval-state-core.test.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-restore-core.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-restore-core.test.mjs",
       "packages/runtime-daemon/src/model-mounting/model-mount-core.mjs",
     ],
     "Rust daemon-core migration must use typed daemon-core APIs and keep the retired JS command-spawn helper absent from daemon hot paths",
@@ -10188,7 +10234,13 @@ function runBridge() {
       /assertNoRetiredApprovalStateCoreOption\("daemonCoreInvoker", options\.daemonCoreInvoker\)/.test(
         runtimeApprovalStateCore,
       ) &&
+      /assertNoRetiredApprovalStateCoreOption\("daemonCoreApi", options\.daemonCoreApi\)/.test(
+        runtimeApprovalStateCore,
+      ) &&
       !/ioi\.runtime\.daemon_core\.command\.v1|operation:\s*"plan_approval_request_state_update"|operation:\s*"authorize_approval_request"/.test(
+        runtimeApprovalStateCore,
+      ) &&
+      !/options\.daemonCoreApi\?\.(?:approval|approval_state|approvalState)|approvalApi\(options\.daemonCoreApi/.test(
         runtimeApprovalStateCore,
       ) &&
       !/IOI_STEP_MODULE_COMMAND/.test(runtimeApprovalStateCore) &&
@@ -10206,6 +10258,10 @@ function runBridge() {
       !/spawnSyncImpl/.test(runtimeApprovalStateCore) &&
       !/from "node:child_process"/.test(runtimeApprovalStateCore) &&
       /approval state core rejects retired compatibility options/.test(runtimeApprovalStateCoreTest) &&
+      /daemonCoreApi:\s*\{[\s\S]*?\[APPROVAL_REQUEST_STATE_UPDATE_API_METHOD\]\(\) \{\}/.test(
+        runtimeApprovalStateCoreTest,
+      ) &&
+      /error\.details\.retired_option === "daemonCoreApi"/.test(runtimeApprovalStateCoreTest) &&
       /approval state core rejects retired request aliases before Rust invocation/.test(
         runtimeApprovalStateCoreTest,
       ) &&
@@ -10794,6 +10850,9 @@ function runBridge() {
         runtimeContextPolicyCore,
       ) &&
       /this\.daemonCoreContextLifecycleApi = contextLifecycleApi/.test(runtimeContextPolicyCore) &&
+      /assertNoRuntimeContextPolicyCoreOption\("daemonCoreApi", options\.daemonCoreApi\)/.test(
+        runtimeContextPolicyCore,
+      ) &&
       /invokeContextLifecycleApi/.test(runtimeContextPolicyCore) &&
       /daemonCoreContextLifecycleApi\.\$\{method\}/.test(runtimeContextPolicyCore) &&
       !/IOI_STEP_MODULE_COMMAND/.test(runtimeContextPolicyCore) &&
@@ -10811,6 +10870,9 @@ function runBridge() {
       !/createDaemonCoreCommandInvoker/.test(runtimeContextPolicyCore) &&
       !/spawnSyncImpl/.test(runtimeContextPolicyCore) &&
       !/from "node:child_process"/.test(runtimeContextPolicyCore) &&
+      !/options\.daemonCoreApi\?\.(?:contextLifecycle|context_lifecycle|contextPolicy|context_policy|runtimeControl|runtime_control|runtimeProjection|runtime_projection|projection|threadLifecycle|thread_lifecycle|workspaceTrust|workspace_trust|threadMemory|thread_memory|memory)/.test(
+        runtimeContextPolicyCore,
+      ) &&
       /runtime_event_item_id/.test(runtimeContextPolicyCore) &&
       !/operation:\s*"evaluate_context_budget_policy"/.test(runtimeContextPolicyCore) &&
       !/CommandOperation::EvaluateContextBudgetPolicy/.test(commandProtocolCore) &&
@@ -10822,6 +10884,9 @@ function runBridge() {
         runtimeContextPolicyCoreTest,
       ) &&
       /runtime context policy core rejects retired daemon-core command option/.test(
+        runtimeContextPolicyCoreTest,
+      ) &&
+      /runtime context policy core daemonCoreApi option fails closed/.test(
         runtimeContextPolicyCoreTest,
       ) &&
       /runtime context policy core env option fails closed/.test(runtimeContextPolicyCoreTest) &&
@@ -19785,7 +19850,13 @@ function runBridge() {
       /rust_workspace_restore/.test(workspaceRestoreCore) &&
       /workspace_restore_core_direct_workspace_restore_api_unconfigured/.test(workspaceRestoreCore) &&
       /workspace_restore_core_compatibility_option_retired/.test(workspaceRestoreCore) &&
+      /assertNoRetiredWorkspaceRestoreCoreOption\("daemonCoreApi", options\.daemonCoreApi\)/.test(
+        workspaceRestoreCore,
+      ) &&
       /workspace_restore_core_request_aliases_retired/.test(workspaceRestoreCore) &&
+      !/options\.daemonCoreApi\?\.(?:workspace_restore|workspaceRestore)|workspaceRestoreApi\(options\.daemonCoreApi/.test(
+        workspaceRestoreCore,
+      ) &&
       !/process\.env|IOI_RUNTIME_DAEMON_CORE_COMMAND|IOI_WORKSPACE_RESTORE_COMMAND|IOI_STEP_MODULE_COMMAND/.test(
         workspaceRestoreCore,
       ) &&
@@ -19804,6 +19875,10 @@ function runBridge() {
       /createRuntimeWorkspaceRestoreCore\(\{\s*daemonCoreWorkspaceRestoreApi: this\.daemonCoreWorkspaceRestoreApi,\s*\}\)/.test(
         runtimeDaemonIndex,
       ) &&
+      /daemonCoreApi:\s*\{[\s\S]*?\[WORKSPACE_RESTORE_PREVIEW_OPERATIONS_API_METHOD\]\(\) \{\}/.test(
+        workspaceRestoreCoreTest,
+      ) &&
+      /error\.details\.retired_option === "daemonCoreApi"/.test(workspaceRestoreCoreTest) &&
       /this\.workspaceRestoreCore/.test(runtimeDaemonIndex) &&
       !/this\.workspaceRestoreRunner/.test(runtimeDaemonIndex) &&
       /workspaceRestoreCore: this\.workspaceRestoreCore/.test(runtimeDaemonIndex) &&
@@ -21702,6 +21777,9 @@ function runReceipts() {
     : "";
   const runtimeAgentgresCore = exists("packages/runtime-daemon/src/runtime-agentgres-admission-core.mjs")
     ? read("packages/runtime-daemon/src/runtime-agentgres-admission-core.mjs")
+    : "";
+  const runtimeAgentgresCoreTest = exists("packages/runtime-daemon/src/runtime-agentgres-admission-core.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-agentgres-admission-core.test.mjs")
     : "";
   const runtimeCodingToolArtifactSurface = exists("packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.mjs")
@@ -26498,6 +26576,7 @@ function runReceipts() {
       !/argsEnv/.test(runtimeAgentgresCore) &&
       /assertNoRetiredRuntimeAgentgresCoreOption/.test(runtimeAgentgresCore) &&
       /assertNoRetiredRuntimeAgentgresCoreOption\("daemonCoreInvoker", options\.daemonCoreInvoker\)/.test(runtimeAgentgresCore) &&
+      /assertNoRetiredRuntimeAgentgresCoreOption\("daemonCoreApi", options\.daemonCoreApi\)/.test(runtimeAgentgresCore) &&
       /this\.daemonCoreAgentgresApi = agentgresApi/.test(runtimeAgentgresCore) &&
       /runtime_agentgres_admission_core_compatibility_option_retired/.test(runtimeAgentgresCore) &&
       /runtime_agentgres_admission_core_direct_agentgres_api_unconfigured/.test(runtimeAgentgresCore) &&
@@ -26507,9 +26586,16 @@ function runReceipts() {
       !/createDaemonCoreCommandInvoker/.test(runtimeAgentgresCore) &&
       !/spawnSyncImpl/.test(runtimeAgentgresCore) &&
       !/from "node:child_process"/.test(runtimeAgentgresCore) &&
+      !/options\.daemonCoreApi\?\.(?:agentgres|runtimeAgentgres|runtime_agentgres)|agentgresApi\(options\.daemonCoreApi/.test(
+        runtimeAgentgresCore,
+      ) &&
       /runtime Agentgres core rejects retired compatibility options/.test(
         read("packages/runtime-daemon/src/runtime-agentgres-admission-core.test.mjs"),
       ) &&
+      /daemonCoreApi:\s*\{[\s\S]*?\[AGENTGRES_RUNTIME_THREAD_EVENT_API_METHOD\]\(\) \{\}/.test(
+        runtimeAgentgresCoreTest,
+      ) &&
+      /error\.details\.retired_option === "daemonCoreApi"/.test(runtimeAgentgresCoreTest) &&
       /runtime Agentgres core sends runtime model-mount receipt-state commit through typed Rust daemon-core Agentgres API/.test(
         read("packages/runtime-daemon/src/runtime-agentgres-admission-core.test.mjs"),
       ) &&

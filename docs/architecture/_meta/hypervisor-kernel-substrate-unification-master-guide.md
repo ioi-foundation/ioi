@@ -10081,6 +10081,18 @@ remains non-terminal because richer projection/replay records, deeper
 Agentgres receipt/state-root binding, and stable IDE/CLI/SDK read APIs still
 need terminal Rust-owned coverage.
 
+Slice 1278 retires the remaining root `daemonCoreApi` compatibility mount for
+the approval, Agentgres, workspace restore, and context-policy cluster.
+Coding-tool approval, approval state, runtime Agentgres admission, workspace
+restore/snapshot, and runtime context-policy now accept only their explicit typed
+daemon-core API handles. Flat `daemonCoreApi` and nested `daemonCoreApi.*`
+fallbacks fail closed before Rust invocation, even when they carry the matching
+method. Conformance guards the retired root mount, the old nested selectors, the
+generic invoker path, and command/env fallback for this cluster. This remains
+non-terminal because durable replay/storage, richer wallet/cTEE authority,
+deeper Agentgres receipt/state-root binding, and stable IDE/CLI/SDK read APIs
+still need terminal Rust-owned coverage across the remaining hot paths.
+
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,
 `/v1/memory/policy`, `/v1/memory/path`, or `/v1/memory/validate`; the daemon

@@ -175,12 +175,14 @@ test("workspace restore core rejects retired compatibility options", () => {
     { args: ["--restore"] },
     { env: { IOI_WORKSPACE_RESTORE_COMMAND: "retired" } },
     { daemonCoreInvoker() {} },
+    { daemonCoreApi: { [WORKSPACE_RESTORE_PREVIEW_OPERATIONS_API_METHOD]() {} } },
   ]) {
     assert.throws(
       () => new RuntimeWorkspaceRestoreCore(options),
       (error) =>
         error instanceof RuntimeWorkspaceRestoreCoreError &&
-        error.code === "workspace_restore_core_compatibility_option_retired",
+        error.code === "workspace_restore_core_compatibility_option_retired" &&
+        (Object.hasOwn(options, "daemonCoreApi") ? error.details.retired_option === "daemonCoreApi" : true),
     );
   }
 });

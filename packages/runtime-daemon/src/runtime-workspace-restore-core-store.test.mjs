@@ -58,9 +58,6 @@ test("runtime store wires workspace restore core to typed Rust workspace API", (
     const store = new AgentgresRuntimeStateStore(stateDir, {
       cwd: stateDir,
       modelMountCore: modelMountCore(),
-      daemonCoreInvoker() {
-        throw new Error("generic daemonCoreInvoker must not run workspace restore typed APIs");
-      },
       daemonCoreWorkspaceRestoreApi: {
         projectWorkspaceSnapshotList(request) {
           calls.push(request);

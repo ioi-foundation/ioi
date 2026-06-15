@@ -134,12 +134,14 @@ test("coding tool approval core rejects retired compatibility options", () => {
     { args: ["--approval"] },
     { env: { IOI_RUNTIME_DAEMON_CORE_COMMAND: "retired" } },
     { daemonCoreInvoker() {} },
+    { daemonCoreApi: { [CODING_TOOL_APPROVAL_MANIFEST_API_METHOD]() {} } },
   ]) {
     assert.throws(
       () => new RuntimeCodingToolApprovalCore(options),
       (error) =>
         error instanceof RuntimeCodingToolApprovalCoreError &&
-        error.code === "coding_tool_approval_core_compatibility_option_retired",
+        error.code === "coding_tool_approval_core_compatibility_option_retired" &&
+        (Object.hasOwn(options, "daemonCoreApi") ? error.details.retired_option === "daemonCoreApi" : true),
     );
   }
 });

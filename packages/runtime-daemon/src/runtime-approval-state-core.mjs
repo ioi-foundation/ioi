@@ -72,13 +72,8 @@ export class RuntimeApprovalStateCore {
     assertNoRetiredApprovalStateCoreOption("command", options.command);
     assertNoRetiredApprovalStateCoreOption("args", options.args);
     assertNoRetiredApprovalStateCoreOption("daemonCoreInvoker", options.daemonCoreInvoker);
-    this.daemonCoreApprovalApi = approvalApi(
-      options.daemonCoreApprovalApi ??
-        options.daemonCoreApi?.approval ??
-        options.daemonCoreApi?.approval_state ??
-        options.daemonCoreApi?.approvalState ??
-        options.daemonCoreApi,
-    );
+    assertNoRetiredApprovalStateCoreOption("daemonCoreApi", options.daemonCoreApi);
+    this.daemonCoreApprovalApi = approvalApi(options.daemonCoreApprovalApi);
   }
 
   planApprovalRequestStateUpdate(request = {}) {

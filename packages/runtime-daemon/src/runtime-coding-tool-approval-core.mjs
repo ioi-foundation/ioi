@@ -62,13 +62,8 @@ export class RuntimeCodingToolApprovalCore {
     assertNoRetiredCodingToolApprovalCoreOption("args", options.args);
     assertNoRetiredCodingToolApprovalCoreOption("env", options.env);
     assertNoRetiredCodingToolApprovalCoreOption("daemonCoreInvoker", options.daemonCoreInvoker);
-    this.daemonCoreApprovalApi = approvalApi(
-      options.daemonCoreApprovalApi ??
-        options.daemonCoreApi?.approval ??
-        options.daemonCoreApi?.approval_state ??
-        options.daemonCoreApi?.approvalState ??
-        options.daemonCoreApi,
-    );
+    assertNoRetiredCodingToolApprovalCoreOption("daemonCoreApi", options.daemonCoreApi);
+    this.daemonCoreApprovalApi = approvalApi(options.daemonCoreApprovalApi);
   }
 
   planApprovalManifest(request = {}) {

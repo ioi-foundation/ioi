@@ -44,13 +44,8 @@ export class RuntimeAgentgresAdmissionCore {
     assertNoRetiredRuntimeAgentgresCoreOption("args", options.args);
     assertNoRetiredRuntimeAgentgresCoreOption("env", options.env);
     assertNoRetiredRuntimeAgentgresCoreOption("daemonCoreInvoker", options.daemonCoreInvoker);
-    this.daemonCoreAgentgresApi = agentgresApi(
-      options.daemonCoreAgentgresApi ??
-        options.daemonCoreApi?.agentgres ??
-        options.daemonCoreApi?.runtimeAgentgres ??
-        options.daemonCoreApi?.runtime_agentgres ??
-        options.daemonCoreApi,
-    );
+    assertNoRetiredRuntimeAgentgresCoreOption("daemonCoreApi", options.daemonCoreApi);
+    this.daemonCoreAgentgresApi = agentgresApi(options.daemonCoreAgentgresApi);
   }
 
   admitStorageBackendWrite(request = {}) {
@@ -226,7 +221,8 @@ function assertNoRetiredRuntimeAgentgresCoreOption(name, value) {
     "runtime_agentgres_admission_core_compatibility_option_retired",
     {
       status: 400,
-      option: name,
+      retired_option: name,
+      retired_value: value,
     },
   );
 }

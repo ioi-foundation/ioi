@@ -313,41 +313,14 @@ export class RuntimeContextPolicyCore {
     assertNoRuntimeContextPolicyCoreOption("args", options.args);
     assertNoRuntimeContextPolicyCoreOption("env", options.env);
     assertNoRuntimeContextPolicyCoreOption("daemonCoreInvoker", options.daemonCoreInvoker);
-    this.daemonCoreContextLifecycleApi = contextLifecycleApi(
-      options.daemonCoreContextLifecycleApi ??
-        options.daemonCoreApi?.contextLifecycle ??
-        options.daemonCoreApi?.context_lifecycle ??
-        options.daemonCoreApi?.contextPolicy ??
-        options.daemonCoreApi?.context_policy,
-    );
-    this.daemonCoreRuntimeControlApi = runtimeControlApi(
-      options.daemonCoreRuntimeControlApi ??
-        options.daemonCoreApi?.runtimeControl ??
-        options.daemonCoreApi?.runtime_control,
-    );
-    this.daemonCoreRuntimeProjectionApi = runtimeProjectionApi(
-      options.daemonCoreRuntimeProjectionApi ??
-        options.daemonCoreApi?.runtimeProjection ??
-        options.daemonCoreApi?.runtime_projection ??
-        options.daemonCoreApi?.projection,
-    );
-    this.daemonCoreThreadLifecycleApi = threadLifecycleApi(
-      options.daemonCoreThreadLifecycleApi ??
-        options.daemonCoreApi?.threadLifecycle ??
-        options.daemonCoreApi?.thread_lifecycle,
-    );
-    this.daemonCoreWorkspaceTrustApi = workspaceTrustApi(
-      options.daemonCoreWorkspaceTrustApi ??
-        options.daemonCoreApi?.workspaceTrust ??
-        options.daemonCoreApi?.workspace_trust,
-    );
+    assertNoRuntimeContextPolicyCoreOption("daemonCoreApi", options.daemonCoreApi);
+    this.daemonCoreContextLifecycleApi = contextLifecycleApi(options.daemonCoreContextLifecycleApi);
+    this.daemonCoreRuntimeControlApi = runtimeControlApi(options.daemonCoreRuntimeControlApi);
+    this.daemonCoreRuntimeProjectionApi = runtimeProjectionApi(options.daemonCoreRuntimeProjectionApi);
+    this.daemonCoreThreadLifecycleApi = threadLifecycleApi(options.daemonCoreThreadLifecycleApi);
+    this.daemonCoreWorkspaceTrustApi = workspaceTrustApi(options.daemonCoreWorkspaceTrustApi);
     this.daemonCoreMcpApi = mcpApi(options.daemonCoreMcpApi);
-    this.daemonCoreThreadMemoryApi = threadMemoryApi(
-      options.daemonCoreThreadMemoryApi ??
-        options.daemonCoreApi?.threadMemory ??
-        options.daemonCoreApi?.thread_memory ??
-        options.daemonCoreApi?.memory,
-    );
+    this.daemonCoreThreadMemoryApi = threadMemoryApi(options.daemonCoreThreadMemoryApi);
   }
 
   evaluateContextBudgetPolicy(request = {}) {

@@ -538,6 +538,16 @@ test("approval state core rejects retired compatibility options", () => {
       error instanceof RuntimeApprovalStateCoreError &&
       error.code === "approval_state_core_compatibility_option_retired",
   );
+  assert.throws(
+    () =>
+      new RuntimeApprovalStateCore({
+        daemonCoreApi: { [APPROVAL_REQUEST_STATE_UPDATE_API_METHOD]() {} },
+      }),
+    (error) =>
+      error instanceof RuntimeApprovalStateCoreError &&
+      error.code === "approval_state_core_compatibility_option_retired" &&
+      error.details.retired_option === "daemonCoreApi",
+  );
 });
 
 test("approval state core rejects retired request aliases before Rust invocation", () => {

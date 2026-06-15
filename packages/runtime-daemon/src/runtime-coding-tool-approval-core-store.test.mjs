@@ -58,9 +58,6 @@ test("runtime store wires approval cores to typed Rust approval API", () => {
     const store = new AgentgresRuntimeStateStore(stateDir, {
       cwd: stateDir,
       modelMountCore: modelMountCore(),
-      daemonCoreInvoker(request) {
-        throw new Error(`generic command invoker must not run approval APIs: ${request?.operation}`);
-      },
       daemonCoreApprovalApi: {
         planCodingToolApprovalManifest(request) {
           calls.push({ method: "planCodingToolApprovalManifest", request });

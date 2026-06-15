@@ -364,6 +364,23 @@ test("runtime context policy core daemonCoreInvoker option fails closed", () => 
   );
 });
 
+test("runtime context policy core daemonCoreApi option fails closed", () => {
+  assert.throws(
+    () =>
+      new RuntimeContextPolicyCore({
+        daemonCoreApi: {
+          contextLifecycle: {
+            [CONTEXT_LIFECYCLE_CONTEXT_BUDGET_POLICY_API_METHOD]() {},
+          },
+        },
+      }),
+    (error) =>
+      error instanceof RuntimeContextPolicyCoreError &&
+      error.code === "runtime_context_policy_core_daemonCoreApi_retired" &&
+      Object.hasOwn(error.details, "retired_daemonCoreApi"),
+  );
+});
+
 test("runtime context policy core env option fails closed", () => {
   assert.throws(
     () =>

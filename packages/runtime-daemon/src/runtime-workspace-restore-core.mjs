@@ -56,12 +56,8 @@ export class RuntimeWorkspaceRestoreCore {
     assertNoRetiredWorkspaceRestoreCoreOption("args", options.args);
     assertNoRetiredWorkspaceRestoreCoreOption("env", options.env);
     assertNoRetiredWorkspaceRestoreCoreOption("daemonCoreInvoker", options.daemonCoreInvoker);
-    this.daemonCoreWorkspaceRestoreApi = workspaceRestoreApi(
-      options.daemonCoreWorkspaceRestoreApi ??
-        options.daemonCoreApi?.workspace_restore ??
-        options.daemonCoreApi?.workspaceRestore ??
-        options.daemonCoreApi,
-    );
+    assertNoRetiredWorkspaceRestoreCoreOption("daemonCoreApi", options.daemonCoreApi);
+    this.daemonCoreWorkspaceRestoreApi = workspaceRestoreApi(options.daemonCoreWorkspaceRestoreApi);
   }
 
   planApplyPolicy(request = {}) {

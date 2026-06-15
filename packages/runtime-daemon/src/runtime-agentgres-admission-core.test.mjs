@@ -691,12 +691,14 @@ test("runtime Agentgres core rejects retired compatibility options", () => {
     { args: ["--json"] },
     { env: { IOI_RUNTIME_AGENTGRES_COMMAND: "ioi-runtime-daemon-core" } },
     { daemonCoreInvoker() {} },
+    { daemonCoreApi: { [AGENTGRES_RUNTIME_THREAD_EVENT_API_METHOD]() {} } },
   ]) {
     assert.throws(
       () => createRuntimeAgentgresAdmissionCore(options),
       (error) =>
         error instanceof RuntimeAgentgresAdmissionCoreError &&
-        error.code === "runtime_agentgres_admission_core_compatibility_option_retired",
+        error.code === "runtime_agentgres_admission_core_compatibility_option_retired" &&
+        (Object.hasOwn(options, "daemonCoreApi") ? error.details.retired_option === "daemonCoreApi" : true),
     );
   }
 });
