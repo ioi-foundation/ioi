@@ -112,15 +112,6 @@ pub fn dispatch_command_operation_response(
         CommandOperation::RunCodingToolStepModule => {
             run_coding_tool_step_module_response(decode(raw_request)?).map_err(Into::into)
         }
-        CommandOperation::PlanModelMountBackendProcess => {
-            plan_model_mount_backend_process_response(decode(raw_request)?).map_err(|error| {
-                model_mount_error("model_mount_backend_process_plan_rejected", error)
-            })
-        }
-        CommandOperation::PlanModelMountBackendLifecycle => {
-            plan_model_mount_backend_lifecycle_response(decode(raw_request)?)
-                .map_err(|error| model_mount_error("model_mount_backend_lifecycle_invalid", error))
-        }
         CommandOperation::PlanCodingToolResultEnvelope => {
             plan_coding_tool_result_envelope_response(decode(raw_request)?).map_err(|error| {
                 CommandDispatchError::new(
@@ -243,10 +234,6 @@ pub fn dispatch_command_operation_response(
 fn decode<T: DeserializeOwned>(raw_request: Value) -> Result<T, CommandDispatchError> {
     serde_json::from_value(raw_request)
         .map_err(|error| CommandDispatchError::new("request_json_invalid", error.to_string()))
-}
-
-fn model_mount_error(code: &'static str, error: ModelMountError) -> CommandDispatchError {
-    CommandDispatchError::new(code, format!("{error:?}"))
 }
 
 macro_rules! command_error_from {

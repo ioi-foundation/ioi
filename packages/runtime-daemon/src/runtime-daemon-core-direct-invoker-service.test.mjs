@@ -200,6 +200,88 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
         evidence_refs: ["rust_daemon_core_model_mount_provider_result"],
       };
     },
+    planModelMountBackendProcess(request) {
+      modelMountCalls.push({ method: "planModelMountBackendProcess", request });
+      return {
+        source: "rust_daemon_core.model_mount.backend_process",
+        result: {
+          ...request,
+          supports_supervision: true,
+          supervisor_kind: "external_process",
+          public_args: ["llama-server", "--model", "artifact:direct"],
+          spawn_args: ["--model", "/models/private/model.gguf"],
+          spawn_required: true,
+          spawn_status: "spawn_ready",
+          plan_hash: "sha256:direct-backend-process",
+          evidence_refs: ["rust_model_mount_backend_process_plan"],
+        },
+        supports_supervision: true,
+        supervisor_kind: "external_process",
+        public_args: ["llama-server", "--model", "artifact:direct"],
+        spawn_args: ["--model", "/models/private/model.gguf"],
+        spawn_required: true,
+        spawn_status: "spawn_ready",
+        plan_hash: "sha256:direct-backend-process",
+        evidence_refs: ["rust_model_mount_backend_process_plan"],
+      };
+    },
+    planModelMountBackendLifecycle(request) {
+      modelMountCalls.push({ method: "planModelMountBackendLifecycle", request });
+      const record = {
+        id: "backend-lifecycle-control:direct",
+        object: "ioi.model_mount_backend_lifecycle_record",
+        backend_id: request.backend_id,
+        backend_kind: request.backend_kind,
+        operation_kind: request.operation_kind,
+        rust_core_boundary: "model_mount.backend_lifecycle",
+        receipt_refs: request.receipt_refs ?? [],
+        evidence_refs: [
+          "public_backend_lifecycle_js_facade_retired",
+          "rust_daemon_core_backend_lifecycle",
+          "agentgres_backend_lifecycle_truth_required",
+        ],
+      };
+      const publicResponse = {
+        object: "ioi.model_mount_backend_lifecycle",
+        status: "planned",
+        backend_id: request.backend_id,
+        backend_kind: request.backend_kind,
+        operation_kind: request.operation_kind,
+        rust_core_boundary: "model_mount.backend_lifecycle",
+        backend_status: "start_planned",
+        js_backend_registry_read: false,
+        js_process_control: false,
+        js_log_read: false,
+        js_log_write: false,
+      };
+      return {
+        source: "rust_daemon_core.model_mount.backend_lifecycle",
+        plan: {
+          schema_version: "ioi.model_mount.backend_lifecycle_plan.v1",
+          object: "ioi.model_mount_backend_lifecycle_plan",
+          status: "planned",
+          rust_core_boundary: "model_mount.backend_lifecycle",
+          operation_kind: request.operation_kind,
+          source: request.source,
+          record_dir: "model-backend-lifecycle-controls",
+          record_id: record.id,
+          record,
+          public_response: publicResponse,
+          receipt_refs: request.receipt_refs ?? [],
+          evidence_refs: record.evidence_refs,
+          control_hash: "sha256:direct-backend-lifecycle",
+        },
+        record_dir: "model-backend-lifecycle-controls",
+        record_id: record.id,
+        record,
+        public_response: publicResponse,
+        operation_kind: request.operation_kind,
+        rust_core_boundary: "model_mount.backend_lifecycle",
+        receipt_refs: request.receipt_refs ?? [],
+        evidence_refs: record.evidence_refs,
+        control_hash: "sha256:direct-backend-lifecycle",
+      };
+    },
     planModelMountRouteControl(request) {
       modelMountCalls.push({ method: "planModelMountRouteControl", request });
       const record = {
@@ -1106,6 +1188,12 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
       admitProviderResult(request) {
         return directModelMountCore.admitProviderResult(request);
       },
+      planBackendProcess(request) {
+        return directModelMountCore.planBackendProcess(request);
+      },
+      planBackendLifecycle(request) {
+        return directModelMountCore.planBackendLifecycle(request);
+      },
       planRouteControl(request) {
         return directModelMountCore.planRouteControl(request);
       },
@@ -1596,6 +1684,51 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
     "ioi.model_mount.provider_result.v1",
   );
   assert.equal(providerResult.provider_result_hash, "sha256:direct-provider-result");
+  const backendProcess = store.modelMounting.backendProcessPlan(
+    {
+      id: "backend.llama",
+      kind: "llama_cpp",
+      baseUrl: "http://127.0.0.1:8091/v1",
+      binaryAvailable: true,
+    },
+    {
+      endpoint: { modelId: "model.direct" },
+      loadOptions: {
+        context_length: 4096,
+        parallel: 2,
+      },
+    },
+  );
+  assert.equal(calls.length, 0);
+  assertModelMountDirectApiCall(
+    modelMountCalls.at(-1),
+    "planModelMountBackendProcess",
+    "ioi.model_mount.backend_process_plan.v1",
+  );
+  assert.equal(modelMountCalls.at(-1).request.backend_kind, "llama_cpp");
+  assert.equal(backendProcess.source, "rust_daemon_core.model_mount.backend_process");
+  assert.equal(backendProcess.spawn_status, "spawn_ready");
+  const backendLifecycle = store.modelMounting.planBackendLifecycle({
+    schema_version: "ioi.model_mount.backend_lifecycle.v1",
+    operation_kind: "model_mount.backend.start",
+    backend_id: "backend.llama",
+    backend_kind: "llama_cpp",
+    source: "runtime-daemon.model_mounting.backend_lifecycle",
+    body: {
+      backend_id: "backend.llama",
+      backend_kind: "llama_cpp",
+    },
+    receipt_refs: ["receipt://backend-lifecycle/direct"],
+  });
+  assert.equal(calls.length, 0);
+  assertModelMountDirectApiCall(
+    modelMountCalls.at(-1),
+    "planModelMountBackendLifecycle",
+    "ioi.model_mount.backend_lifecycle.v1",
+  );
+  assert.equal(modelMountCalls.at(-1).request.operation_kind, "model_mount.backend.start");
+  assert.equal(backendLifecycle.source, "rust_daemon_core.model_mount.backend_lifecycle");
+  assert.equal(backendLifecycle.record_id, "backend-lifecycle-control:direct");
   const routeControlPlan = store.modelMounting.planRouteControl({
     schema_version: "ioi.model_mount.route_control.v1",
     operation_kind: "model_mount.route.write",

@@ -65,13 +65,6 @@ pub struct ModelMountBackendProcessPlan {
     pub plan_hash: String,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct ModelMountBackendProcessPlanBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: ModelMountBackendProcessPlanRequest,
-}
-
 impl ModelMountBackendProcessPlanRequest {
     pub fn validate(&self) -> Result<(), ModelMountError> {
         if self.schema_version != MODEL_MOUNT_BACKEND_PROCESS_PLAN_SCHEMA_VERSION {
@@ -108,13 +101,12 @@ pub(super) fn plan_backend_process(
     Ok(plan)
 }
 
-pub fn plan_model_mount_backend_process_response(
-    request: ModelMountBackendProcessPlanBridgeRequest,
+pub fn plan_model_mount_backend_process(
+    request: &ModelMountBackendProcessPlanRequest,
 ) -> Result<Value, ModelMountError> {
-    let plan = plan_backend_process(&request.request)?;
+    let plan = plan_backend_process(request)?;
     Ok(json!({
-        "source": "rust_model_mount_backend_process_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_model_mount_backend_process".to_string()),
+        "source": "rust_daemon_core.model_mount.backend_process",
         "result": plan.clone(),
         "supports_supervision": plan.supports_supervision,
         "supervisor_kind": plan.supervisor_kind,
@@ -427,8 +419,6 @@ fn backend_process_plan_hash(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::agentic::runtime::kernel::command_protocol::DAEMON_CORE_COMMAND_SCHEMA_VERSION;
-
     fn backend_process_plan_request() -> ModelMountBackendProcessPlanRequest {
         ModelMountBackendProcessPlanRequest {
             schema_version: MODEL_MOUNT_BACKEND_PROCESS_PLAN_SCHEMA_VERSION.to_string(),
@@ -528,38 +518,15 @@ mod tests {
     }
 
     #[test]
-    fn rust_core_shapes_model_mount_backend_process_command_response() {
-        let request: ModelMountBackendProcessPlanBridgeRequest = serde_json::from_value(json!({
-            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
-            "operation": "plan_model_mount_backend_process",
-            "backend": "rust_model_mount_backend_process",
-            "request": {
-                "schema_version": MODEL_MOUNT_BACKEND_PROCESS_PLAN_SCHEMA_VERSION,
-                "backend_ref": "backend.llama",
-                "backend_kind": "llama_cpp",
-                "base_url": "http://127.0.0.1:8091/v1",
-                "model_ref": "model://qwen/qwen3.5-9b",
-                "artifact_path": "/models/private/model.gguf",
-                "binary_configured": true,
-                "load_options": {
-                    "context_length": 4096,
-                    "parallel": 2,
-                    "gpu": "auto",
-                    "identifier": "llama profile",
-                    "embeddings": true
-                }
-            }
-        }))
-        .expect("backend process command request");
-
-        let response =
-            plan_model_mount_backend_process_response(request).expect("backend process planned");
+    fn rust_core_shapes_model_mount_backend_process_direct_api() {
+        let response = plan_model_mount_backend_process(&backend_process_plan_request())
+            .expect("backend process planned");
 
         assert_eq!(
             response["source"],
-            "rust_model_mount_backend_process_command"
+            "rust_daemon_core.model_mount.backend_process"
         );
-        assert_eq!(response["backend"], "rust_model_mount_backend_process");
+        assert!(response.get("backend").is_none());
         assert_eq!(response["supports_supervision"], true);
         assert_eq!(response["spawn_status"], "spawn_ready");
         assert_eq!(response["spawn_required"], true);

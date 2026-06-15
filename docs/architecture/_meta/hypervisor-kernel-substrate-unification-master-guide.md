@@ -8026,10 +8026,9 @@ Backend process planning plus tokenizer and route-control required
 response shaping now run as Rust owner tests, while backend
 lifecycle now has positive command-envelope and record-planning owner tests in
 Rust `model_mount/backend_lifecycle.rs`. Bridge
-conformance now requires those owner tests, proves typed Rust
-`command_dispatch.rs` still dispatches the remaining
+conformance now requires those owner tests, proves Slice 1222 retired the
 `plan_model_mount_backend_process` and
-`plan_model_mount_backend_lifecycle` temporary operations, and proves Slice 1220
+`plan_model_mount_backend_lifecycle` command operations, and proves Slice 1220
 retired `plan_model_mount_tokenizer_required`,
 `plan_model_mount_route_control_required`, and
 `plan_model_mount_tokenizer`, while public route write/test,
@@ -8044,12 +8043,17 @@ request-type imports, and response-function aliases stay absent from
 positive `plan_model_mount_server_control` boundary and its required-record
 command stayed retired; runtime-engine likewise moved to typed `daemonCoreModelMountApi.planModelMountRuntimeEngine` and retired its command transport plus required-record command;
 backend lifecycle likewise moved to positive
-`plan_model_mount_backend_lifecycle` and retired its required-record command. The
+`plan_model_mount_backend_lifecycle`, retired its required-record command, and
+then Slice 1222 moved backend-process/backend-lifecycle planning to typed
+daemon-core APIs. The
 bridge proof suite now runs 35 tests.
 
-This remains non-terminal because backend-process planning and backend-lifecycle helpers still cross temporary command transport. Public
-route-control and model_mount conversation/stream planning no longer do. The target is direct Rust daemon-core
-model-mount protocol/API ownership where backend supervision, tokenizer/context-fit control, Agentgres truth, replay, and stable
+This remains non-terminal because actual backend process supervision/transport
+execution and richer backend process-state materialization still need Rust
+ownership. Backend-process/backend-lifecycle planning, public route-control, and
+model_mount conversation/stream planning no longer cross temporary command
+transport. The target is direct Rust daemon-core model-mount protocol/API
+ownership where backend supervision, tokenizer/context-fit control, Agentgres truth, replay, and stable
 IDE/CLI/SDK surfaces no longer depend on Node bridge endpoint proof scaffolding.
 
 Slice 1186 moved the remaining model-mount accepted-receipt proof cluster and
@@ -8844,6 +8848,23 @@ truth, and conformance guards the old bridge request/response wrappers,
 dispatch arms, source/backend markers, command-envelope builders, and
 direct-invoker fallback from returning.
 
+Slice 1222 retires the model_mount backend-process/backend-lifecycle planning
+command transport. `ModelMountCore` now calls typed
+`daemonCoreModelMountApi.planModelMountBackendProcess` and
+`planModelMountBackendLifecycle` without command-envelope `operation` or
+`backend` fields; Rust `RuntimeKernelService` exposes
+`plan_model_mount_backend_process` and
+`plan_model_mount_backend_lifecycle`; and `command_protocol.rs` rejects the
+retired `plan_model_mount_backend_process` and
+`plan_model_mount_backend_lifecycle` operations. The Rust direct API responses
+preserve daemon-core sources instead of command/backend markers, JS normalizers
+no longer synthesize backend truth, and conformance guards the old bridge
+request/response wrappers, dispatch arms, source/backend markers,
+command-envelope builders, and direct-invoker fallback from returning. This is
+not terminal backend execution ownership: actual process supervision/transport
+execution, richer backend process-state materialization, and stable
+SDK/IDE/CLI backend APIs remain open.
+
 Coding-tool approval satisfaction projection is now Rust-owned. The daemon
 approval core exposes `project_coding_tool_approval_satisfaction`; Rust
 `approval.rs` derives the approval request, latest decision or revoke, lease
@@ -9384,15 +9405,24 @@ for route-decision admission. This retires the route-decision command transport
 cut only; later model_mount typed API cuts also retired command transport for
 invocation admission, provider-execution admission, provider invocation/stream
 execution, provider lifecycle/inventory, instance lifecycle, provider-result
-admission, artifact-endpoint planning, storage control, route-control planning,
-MCP workflow planning, server-control planning, read-projection planning, and
-conversation/stream planning.
-Remaining model_mount backend-process/lifecycle and projection migration
-transports still need direct Rust daemon-core protocol/API ownership;
-the read-projection, accepted-receipt, invocation receipt-binding,
-tokenizer/required-control, conversation/stream,
-catalog-provider/provider/capability-token/vault/receipt-gate command transports
-are retired.
+admission, backend-process planning, backend-lifecycle planning,
+artifact-endpoint planning, storage control, route-control planning, MCP
+workflow planning, server-control planning, read-projection planning, and
+conversation/stream planning. Remaining model_mount projection migration,
+hosted/provider transport, OAuth/materialization, invocation authority, and
+local cache scaffolding still need direct Rust daemon-core protocol/API
+ownership; the read-projection, accepted-receipt, invocation receipt-binding,
+tokenizer/required-control, conversation/stream, backend-process,
+backend-lifecycle, catalog-provider/provider/capability-token/vault/receipt-gate
+command transports are retired.
+
+Backend-process/backend-lifecycle planning also now uses typed
+`daemonCoreModelMountApi.planModelMountBackendProcess` and
+`planModelMountBackendLifecycle`, backed by Rust
+`RuntimeKernelService::plan_model_mount_backend_process` and
+`plan_model_mount_backend_lifecycle`, and the old command operations, dispatch
+arms, bridge request wrappers, command source/backend markers, and JS command
+envelopes are retired.
 
 Model-mount backend registry lookup now consumes Rust read-projection kind
 `backends` through `ModelMountingState.backendRegistry()` and the internal

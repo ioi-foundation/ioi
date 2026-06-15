@@ -181,8 +181,7 @@ function fakeState() {
         publicResponse.backend_status = "stop_planned";
       }
       return {
-        source: "rust_model_mount_backend_lifecycle_command",
-        backend: "rust_model_mount_backend_lifecycle",
+        source: "rust_daemon_core.model_mount.backend_lifecycle",
         status: "planned",
         rust_core_boundary: "model_mount.backend_lifecycle",
         record_dir: "model-backend-lifecycle-controls",

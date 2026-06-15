@@ -119,11 +119,13 @@ use marketplace::{
     WorkerServicePackageInvocationRecord, WorkerServicePackageInvocationRequest,
 };
 use model_mount::{
+    plan_model_mount_backend_lifecycle, plan_model_mount_backend_process,
     plan_model_mount_conversation_state, plan_model_mount_route_control_required,
     plan_model_mount_stream_cancel, plan_model_mount_stream_completion, plan_model_mount_tokenizer,
     plan_model_mount_tokenizer_required, ModelMountAcceptedReceiptHeadRequest,
     ModelMountAcceptedReceiptTransitionRequest, ModelMountArtifactEndpointPlan,
-    ModelMountArtifactEndpointRequest, ModelMountCapabilityTokenControlPlan,
+    ModelMountArtifactEndpointRequest, ModelMountBackendLifecycleRequest,
+    ModelMountBackendProcessPlanRequest, ModelMountCapabilityTokenControlPlan,
     ModelMountCapabilityTokenControlRequest, ModelMountCatalogProviderControlPlan,
     ModelMountCatalogProviderControlRequest, ModelMountConversationStateRequest, ModelMountCore,
     ModelMountError, ModelMountInstanceLifecycleRequest, ModelMountInstanceLifecycleResult,
@@ -899,6 +901,20 @@ impl RuntimeKernelService {
         request: &ModelMountProviderResultAdmissionRequest,
     ) -> Result<ModelMountProviderResultAdmissionRecord, ModelMountError> {
         ModelMountCore.admit_provider_result(request)
+    }
+
+    pub fn plan_model_mount_backend_process(
+        &self,
+        request: &ModelMountBackendProcessPlanRequest,
+    ) -> Result<serde_json::Value, ModelMountError> {
+        plan_model_mount_backend_process(request)
+    }
+
+    pub fn plan_model_mount_backend_lifecycle(
+        &self,
+        request: &ModelMountBackendLifecycleRequest,
+    ) -> Result<serde_json::Value, ModelMountError> {
+        plan_model_mount_backend_lifecycle(request)
     }
 
     pub fn plan_model_mount_artifact_endpoint(

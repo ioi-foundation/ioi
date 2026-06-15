@@ -10,14 +10,13 @@ pub use accepted_receipt::{
 };
 mod backend_process;
 pub use backend_process::{
-    plan_model_mount_backend_process_response, ModelMountBackendProcessLoadOptions,
-    ModelMountBackendProcessPlan, ModelMountBackendProcessPlanBridgeRequest,
-    ModelMountBackendProcessPlanRequest,
+    plan_model_mount_backend_process, ModelMountBackendProcessLoadOptions,
+    ModelMountBackendProcessPlan, ModelMountBackendProcessPlanRequest,
 };
 mod backend_lifecycle;
 pub use backend_lifecycle::{
-    plan_model_mount_backend_lifecycle_response, ModelMountBackendLifecycleBridgeRequest,
-    ModelMountBackendLifecyclePlan, ModelMountBackendLifecycleRequest,
+    plan_model_mount_backend_lifecycle, ModelMountBackendLifecyclePlan,
+    ModelMountBackendLifecycleRequest,
 };
 mod artifact_endpoint;
 pub use artifact_endpoint::{ModelMountArtifactEndpointPlan, ModelMountArtifactEndpointRequest};

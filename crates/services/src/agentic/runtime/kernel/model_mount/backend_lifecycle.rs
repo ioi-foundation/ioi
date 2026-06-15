@@ -42,13 +42,6 @@ pub struct ModelMountBackendLifecyclePlan {
     pub control_hash: String,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct ModelMountBackendLifecycleBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: ModelMountBackendLifecycleRequest,
-}
-
 impl ModelMountBackendLifecycleRequest {
     pub fn validate(&self) -> Result<(), ModelMountError> {
         if self.schema_version != MODEL_MOUNT_BACKEND_LIFECYCLE_SCHEMA_VERSION {
@@ -68,10 +61,10 @@ impl ModelMountBackendLifecycleRequest {
     }
 }
 
-pub fn plan_model_mount_backend_lifecycle_response(
-    request: ModelMountBackendLifecycleBridgeRequest,
+pub fn plan_model_mount_backend_lifecycle(
+    request: &ModelMountBackendLifecycleRequest,
 ) -> Result<Value, ModelMountError> {
-    let plan = plan_backend_lifecycle(&request.request)?;
+    let plan = plan_backend_lifecycle(request)?;
     let record_dir = plan.record_dir.clone();
     let record_id = plan.record_id.clone();
     let record = plan.record.clone();
@@ -82,8 +75,7 @@ pub fn plan_model_mount_backend_lifecycle_response(
     let operation_kind = plan.operation_kind.clone();
     let rust_core_boundary = plan.rust_core_boundary.clone();
     Ok(json!({
-        "source": "rust_model_mount_backend_lifecycle_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_model_mount_backend_lifecycle".to_string()),
+        "source": "rust_daemon_core.model_mount.backend_lifecycle",
         "plan": plan,
         "record_dir": record_dir,
         "record_id": record_id,
@@ -342,19 +334,15 @@ mod tests {
     }
 
     #[test]
-    fn rust_core_shapes_model_mount_backend_lifecycle_command_response() {
-        let response =
-            plan_model_mount_backend_lifecycle_response(ModelMountBackendLifecycleBridgeRequest {
-                backend: Some("rust_model_mount_backend_lifecycle".to_string()),
-                request: request("model_mount.backend.start"),
-            })
-            .expect("backend lifecycle command response");
+    fn rust_core_shapes_model_mount_backend_lifecycle_direct_api() {
+        let response = plan_model_mount_backend_lifecycle(&request("model_mount.backend.start"))
+            .expect("backend lifecycle direct API response");
 
         assert_eq!(
             response["source"],
-            "rust_model_mount_backend_lifecycle_command"
+            "rust_daemon_core.model_mount.backend_lifecycle"
         );
-        assert_eq!(response["backend"], "rust_model_mount_backend_lifecycle");
+        assert!(response.get("backend").is_none());
         assert_eq!(response["operation_kind"], "model_mount.backend.start");
         assert_eq!(
             response["rust_core_boundary"],

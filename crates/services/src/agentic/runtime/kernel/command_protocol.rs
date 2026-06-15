@@ -6,8 +6,6 @@ pub const COMMAND_SCHEMA_VERSION: &str = DAEMON_CORE_COMMAND_SCHEMA_VERSION;
 
 pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "run_coding_tool_step_module",
-    "plan_model_mount_backend_process",
-    "plan_model_mount_backend_lifecycle",
     "plan_coding_tool_result_envelope",
     "plan_runtime_coding_tool_artifact_drafts",
     "project_runtime_coding_tool_artifact_read",
@@ -44,8 +42,6 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CommandOperation {
     RunCodingToolStepModule,
-    PlanModelMountBackendProcess,
-    PlanModelMountBackendLifecycle,
     PlanCodingToolResultEnvelope,
     PlanRuntimeCodingToolArtifactDrafts,
     ProjectRuntimeCodingToolArtifactRead,
@@ -83,8 +79,6 @@ impl CommandOperation {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::RunCodingToolStepModule => "run_coding_tool_step_module",
-            Self::PlanModelMountBackendProcess => "plan_model_mount_backend_process",
-            Self::PlanModelMountBackendLifecycle => "plan_model_mount_backend_lifecycle",
             Self::PlanCodingToolResultEnvelope => "plan_coding_tool_result_envelope",
             Self::PlanRuntimeCodingToolArtifactDrafts => "plan_runtime_coding_tool_artifact_drafts",
             Self::ProjectRuntimeCodingToolArtifactRead => {
@@ -197,10 +191,6 @@ impl CommandProtocolError {
 pub fn command_operation(operation: &str) -> Option<CommandOperation> {
     match operation {
         "run_coding_tool_step_module" => Some(CommandOperation::RunCodingToolStepModule),
-        "plan_model_mount_backend_process" => Some(CommandOperation::PlanModelMountBackendProcess),
-        "plan_model_mount_backend_lifecycle" => {
-            Some(CommandOperation::PlanModelMountBackendLifecycle)
-        }
         "plan_coding_tool_result_envelope" => Some(CommandOperation::PlanCodingToolResultEnvelope),
         "plan_runtime_coding_tool_artifact_drafts" => {
             Some(CommandOperation::PlanRuntimeCodingToolArtifactDrafts)
@@ -863,7 +853,7 @@ mod tests {
     #[test]
     fn daemon_core_operation_rejects_step_module_command_schema() {
         let error = validate_command_envelope(
-            "plan_model_mount_backend_process",
+            "plan_coding_tool_result_envelope",
             STEP_MODULE_COMMAND_SCHEMA_VERSION,
         )
         .expect_err("schema mismatch should fail closed");
@@ -929,14 +919,14 @@ mod tests {
         );
 
         let daemon_core = validate_command_envelope(
-            "plan_model_mount_backend_process",
+            "plan_coding_tool_result_envelope",
             DAEMON_CORE_COMMAND_SCHEMA_VERSION,
         )
         .expect("daemon-core command envelope");
-        assert_eq!(daemon_core.operation, "plan_model_mount_backend_process");
+        assert_eq!(daemon_core.operation, "plan_coding_tool_result_envelope");
         assert_eq!(
             daemon_core.command_operation,
-            CommandOperation::PlanModelMountBackendProcess
+            CommandOperation::PlanCodingToolResultEnvelope
         );
         assert_eq!(
             daemon_core.schema_version,
@@ -973,7 +963,7 @@ mod tests {
     #[test]
     fn validate_command_envelope_rejects_schema_mismatch() {
         let error = validate_command_envelope(
-            "plan_model_mount_backend_process",
+            "plan_coding_tool_result_envelope",
             STEP_MODULE_COMMAND_SCHEMA_VERSION,
         )
         .expect_err("schema mismatch should fail closed");
@@ -983,5 +973,21 @@ mod tests {
             error.message(),
             "expected ioi.runtime.daemon_core.command.v1 but received ioi.step_module.command_bridge.v1"
         );
+    }
+
+    #[test]
+    fn model_mount_backend_command_transport_is_retired() {
+        for operation in [
+            "plan_model_mount_backend_process",
+            "plan_model_mount_backend_lifecycle",
+        ] {
+            assert_eq!(command_operation(operation), None);
+            assert_eq!(expected_command_schema_version(operation), None);
+
+            let error = validate_command_envelope(operation, DAEMON_CORE_COMMAND_SCHEMA_VERSION)
+                .expect_err("backend command transport must stay retired");
+            assert_eq!(error.code(), "operation_unknown");
+            assert!(error.message().contains(operation));
+        }
     }
 }

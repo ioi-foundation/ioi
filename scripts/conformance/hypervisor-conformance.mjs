@@ -429,6 +429,79 @@ function isModelMountConversationStreamTypedApiOwned({
   );
 }
 
+function isModelMountBackendTypedApiOwned({
+  coreCommandDispatch = "",
+  rustModelMountCore = "",
+  modelMountDaemonCore = "",
+  modelMountCoreTest = "",
+  commandProtocolCore = "",
+  kernelModule = "",
+  daemonCoreDirectInvokerServiceTest = "",
+}) {
+  const runtimeKernelModule =
+    kernelModule ||
+    (exists("crates/services/src/agentic/runtime/kernel/mod.rs")
+      ? read("crates/services/src/agentic/runtime/kernel/mod.rs")
+      : "");
+  const directInvokerServiceTest =
+    daemonCoreDirectInvokerServiceTest ||
+    (exists("packages/runtime-daemon/src/runtime-daemon-core-direct-invoker-service.test.mjs")
+      ? read("packages/runtime-daemon/src/runtime-daemon-core-direct-invoker-service.test.mjs")
+      : "");
+  const retiredBridgeSurface = [coreCommandDispatch, rustModelMountCore, modelMountDaemonCore].join("\n");
+  return (
+    !/plan_model_mount_backend_process_response/.test(retiredBridgeSurface) &&
+    !/plan_model_mount_backend_lifecycle_response/.test(retiredBridgeSurface) &&
+    !/ModelMountBackendProcessPlanBridgeRequest/.test(rustModelMountCore) &&
+    !/ModelMountBackendLifecycleBridgeRequest/.test(rustModelMountCore) &&
+    !/rust_model_mount_backend_process_command/.test(retiredBridgeSurface) &&
+    !/rust_model_mount_backend_lifecycle_command/.test(retiredBridgeSurface) &&
+    !/RUST_MODEL_MOUNT_BACKEND_PROCESS_BACKEND/.test(modelMountDaemonCore) &&
+    !/RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_BACKEND/.test(modelMountDaemonCore) &&
+    !/operation:\s*"plan_model_mount_backend_process"/.test(modelMountDaemonCore) &&
+    !/operation:\s*"plan_model_mount_backend_lifecycle"/.test(modelMountDaemonCore) &&
+    !/backend:\s*"rust_model_mount_backend_process"/.test(modelMountDaemonCore) &&
+    !/backend:\s*"rust_model_mount_backend_lifecycle"/.test(modelMountDaemonCore) &&
+    !/normalizeBackendProcessPlanBridgeResult/.test(modelMountDaemonCore) &&
+    !/normalizeBackendLifecycleBridgeResult/.test(modelMountDaemonCore) &&
+    /MODEL_MOUNT_BACKEND_PROCESS_API_METHOD = "planModelMountBackendProcess"/.test(
+      modelMountDaemonCore,
+    ) &&
+    /MODEL_MOUNT_BACKEND_LIFECYCLE_API_METHOD = "planModelMountBackendLifecycle"/.test(
+      modelMountDaemonCore,
+    ) &&
+    /invokeModelMountApi\(\s*MODEL_MOUNT_BACKEND_PROCESS_API_METHOD,\s*request\s*\)/.test(
+      modelMountDaemonCore,
+    ) &&
+    /invokeModelMountApi\(\s*MODEL_MOUNT_BACKEND_LIFECYCLE_API_METHOD,\s*request\s*\)/.test(
+      modelMountDaemonCore,
+    ) &&
+    /normalizeBackendProcessPlanApiResult/.test(modelMountDaemonCore) &&
+    /normalizeBackendLifecycleApiResult/.test(modelMountDaemonCore) &&
+    /rust_daemon_core\.model_mount\.backend_process/.test(
+      modelMountDaemonCore + rustModelMountCore,
+    ) &&
+    /rust_daemon_core\.model_mount\.backend_lifecycle/.test(
+      modelMountDaemonCore + rustModelMountCore,
+    ) &&
+    /model_mount_backend_command_transport_is_retired/.test(commandProtocolCore) &&
+    !/CommandOperation::PlanModelMountBackendProcess/.test(coreCommandDispatch + commandProtocolCore) &&
+    !/CommandOperation::PlanModelMountBackendLifecycle/.test(coreCommandDispatch + commandProtocolCore) &&
+    /pub fn plan_model_mount_backend_process/.test(rustModelMountCore) &&
+    /pub fn plan_model_mount_backend_lifecycle/.test(rustModelMountCore) &&
+    /pub fn plan_model_mount_backend_process\([\s\S]*?&self/.test(runtimeKernelModule) &&
+    /pub fn plan_model_mount_backend_lifecycle\([\s\S]*?&self/.test(runtimeKernelModule) &&
+    /rust_core_shapes_model_mount_backend_process_direct_api/.test(rustModelMountCore) &&
+    /rust_core_shapes_model_mount_backend_lifecycle_direct_api/.test(rustModelMountCore) &&
+    /Rust model_mount core sends backend process plan request through typed Rust daemon-core API/.test(
+      modelMountCoreTest,
+    ) &&
+    /Rust model_mount core sends positive backend lifecycle request/.test(modelMountCoreTest) &&
+    /planModelMountBackendProcess/.test(directInvokerServiceTest) &&
+    /planModelMountBackendLifecycle/.test(directInvokerServiceTest)
+  );
+}
+
 function isModelMountReceiptBindingTypedApiOwned({
   coreCommandDispatch = "",
   modelMountReceiptCore = "",
@@ -4567,6 +4640,18 @@ function runBridge() {
     });
   const modelMountConversationStreamTypedApiOwned =
     isModelMountConversationStreamTypedApiOwned({
+      coreCommandDispatch,
+      rustModelMountCore,
+      modelMountDaemonCore,
+      modelMountCoreTest,
+      commandProtocolCore,
+      kernelModule: exists("crates/services/src/agentic/runtime/kernel/mod.rs")
+        ? read("crates/services/src/agentic/runtime/kernel/mod.rs")
+        : "",
+      daemonCoreDirectInvokerServiceTest,
+    });
+  const modelMountBackendTypedApiOwned =
+    isModelMountBackendTypedApiOwned({
       coreCommandDispatch,
       rustModelMountCore,
       modelMountDaemonCore,
@@ -8898,6 +8983,7 @@ function runBridge() {
       !/admit_model_mount_route_decision_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
       /model_mount_route_decision_command_transport_is_retired/.test(commandProtocolCore) &&
       modelMountInvocationLifecycleTypedApiOwned &&
+      modelMountBackendTypedApiOwned &&
       !/admit_model_mount_route_decision_response as admit_model_mount_route_decision/.test(bridgeModule) &&
       !/plan_model_mount_backend_process_response as plan_model_mount_backend_process/.test(
         bridgeModule,
@@ -8926,10 +9012,10 @@ function runBridge() {
       !/plan_model_mount_route_control_required_response as plan_model_mount_route_control_required/.test(
         bridgeModule,
       ) &&
-      /plan_model_mount_backend_process_response\(decode\(raw_request\)\?\)/.test(
+      !/plan_model_mount_backend_process_response\(decode\(raw_request\)\?\)/.test(
         coreCommandDispatch,
       ) &&
-      /plan_model_mount_backend_lifecycle_response\(decode\(raw_request\)\?\)/.test(
+      !/plan_model_mount_backend_lifecycle_response\(decode\(raw_request\)\?\)/.test(
         coreCommandDispatch,
       ) &&
       !/plan_model_mount_backend_lifecycle_required_response/.test(coreCommandDispatch) &&
@@ -8947,8 +9033,8 @@ function runBridge() {
       /model_mount_runtime_engine_command_transport_is_retired/.test(commandProtocolCore) &&
       !/plan_model_mount_runtime_engine_required_response/.test(coreCommandDispatch) &&
       modelMountTokenizerRequiredControlTypedApiOwned &&
-      /rust_core_shapes_model_mount_backend_process_command_response/.test(modelMountCore) &&
-      /rust_core_shapes_model_mount_backend_lifecycle_command_response/.test(
+      /rust_core_shapes_model_mount_backend_process_direct_api/.test(modelMountCore) &&
+      /rust_core_shapes_model_mount_backend_lifecycle_direct_api/.test(
         modelMountCore,
       ) &&
       !/rust_core_shapes_model_mount_backend_lifecycle_required_command_response/.test(
@@ -9164,10 +9250,7 @@ function runBridge() {
   assertCheck(
     result,
     "model-mount-planning-command-envelopes-owned-by-rust-core",
-    /pub struct ModelMountBackendProcessPlanBridgeRequest/.test(modelMountCore) &&
-      /pub fn plan_model_mount_backend_process_response/.test(modelMountCore) &&
-      /pub struct ModelMountBackendLifecycleBridgeRequest/.test(modelMountCore) &&
-      /pub fn plan_model_mount_backend_lifecycle_response/.test(modelMountCore) &&
+    modelMountBackendTypedApiOwned &&
       !/ModelMountBackendLifecycleRequiredBridgeRequest/.test(modelMountCore) &&
       !/plan_model_mount_backend_lifecycle_required_response/.test(modelMountCore) &&
       !/ModelMountArtifactEndpointBridgeRequest/.test(modelMountArtifactEndpointEvidence) &&
@@ -9183,8 +9266,6 @@ function runBridge() {
       modelMountTokenizerRequiredControlTypedApiOwned &&
       !/pub struct ModelMountRouteControlBridgeRequest/.test(modelMountCore) &&
       !/pub fn plan_model_mount_route_control_response/.test(modelMountCore) &&
-      /rust_model_mount_backend_process_command/.test(modelMountCore) &&
-      /rust_model_mount_backend_lifecycle_command/.test(modelMountCore) &&
       !/rust_model_mount_backend_lifecycle_required_command/.test(modelMountCore) &&
       !/rust_model_mount_artifact_endpoint_command/.test(modelMountArtifactEndpointEvidence) &&
       !/rust_model_mount_server_control_command/.test(modelMountCore) &&
@@ -9192,10 +9273,6 @@ function runBridge() {
       !/rust_model_mount_runtime_engine_command/.test(modelMountCore) &&
       !/rust_model_mount_runtime_engine_required_command/.test(modelMountCore) &&
       !modelMountCommandBridgeExists &&
-      /rust_core_shapes_model_mount_backend_process_command_response/.test(modelMountCore) &&
-      /rust_core_shapes_model_mount_backend_lifecycle_command_response/.test(
-        modelMountCore,
-      ) &&
       !/rust_core_shapes_model_mount_backend_lifecycle_required_command_response/.test(
         modelMountCore,
       ) &&
@@ -9222,8 +9299,8 @@ function runBridge() {
       !/rust_core_shapes_model_mount_route_control_command_response/.test(
         modelMountRouteControlEvidence,
       ) &&
-      /plan_model_mount_backend_process_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
-      /plan_model_mount_backend_lifecycle_response\(decode\(raw_request\)\?\)/.test(
+      !/plan_model_mount_backend_process_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      !/plan_model_mount_backend_lifecycle_response\(decode\(raw_request\)\?\)/.test(
         coreCommandDispatch,
       ) &&
       !/plan_model_mount_backend_lifecycle_required_response/.test(coreCommandDispatch) &&
@@ -17125,7 +17202,7 @@ function runBridge() {
       /Rust model_mount core sends positive catalog-provider-control request/.test(
         modelMountCoreTest,
       ) &&
-      /Rust model_mount core rejects command-shaped catalog\/provider\/vault\/receipt\/conversation fallbacks/.test(
+      /Rust model_mount core rejects command-shaped backend\/catalog\/provider\/vault\/receipt\/conversation fallbacks/.test(
         modelMountCoreTest,
       ) &&
       !/catalogProviderConfigState|catalogProviderRuntimeMaterialState|configureCatalogProviderState|getCatalogProviderConfigState|listCatalogProviderConfigsState/.test(modelMountingState) &&
@@ -17395,7 +17472,7 @@ function runBridge() {
       /receipt\.details\.model_mount_receipt_binding_ref/.test(modelMountCore) &&
       /receipt\.details\.model_mount_agentgres_operation_ref/.test(modelMountCore) &&
       /Rust model_mount core sends positive receipt-gate request/.test(modelMountCoreTest) &&
-      /Rust model_mount core rejects command-shaped catalog\/provider\/vault\/receipt\/conversation fallbacks/.test(
+      /Rust model_mount core rejects command-shaped backend\/catalog\/provider\/vault\/receipt\/conversation fallbacks/.test(
         modelMountCoreTest,
       ) &&
       /MODEL_MOUNT_RECEIPT_GATE_SCHEMA_VERSION/.test(modelMountCore) &&
@@ -18368,13 +18445,13 @@ function runBridge() {
     "model-mount-backend-process-plan-rust-owner",
     (() => {
       const backendProcessCoreBlock =
-        modelMountCore.match(/pub fn plan_model_mount_backend_process_response[\s\S]*?(?=\n\nfn backend_supports_supervision)/)?.[0] ?? "";
+        modelMountCore.match(/pub fn plan_model_mount_backend_process[\s\S]*?(?=\n\nfn backend_supports_supervision)/)?.[0] ?? "";
       const backendProcessRunnerBlock =
-        modelMountCore.match(/function normalizeBackendProcessPlanBridgeResult[\s\S]*?(?=\n\nfunction normalizeAcceptedReceiptHeadApiResult)/)?.[0] ?? "";
-      return /pub struct ModelMountBackendProcessPlanBridgeRequest/.test(modelMountCore) &&
-        /pub fn plan_model_mount_backend_process_response/.test(modelMountCore) &&
-        /rust_core_shapes_model_mount_backend_process_command_response/.test(modelMountCore) &&
-        /plan_model_mount_backend_process_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+        modelMountCore.match(/function normalizeBackendProcessPlanApiResult[\s\S]*?(?=\n\nfunction normalizeAcceptedReceiptHeadApiResult)/)?.[0] ?? "";
+      return modelMountBackendTypedApiOwned &&
+        /pub fn plan_model_mount_backend_process/.test(modelMountCore) &&
+        /rust_core_shapes_model_mount_backend_process_direct_api/.test(modelMountCore) &&
+        !/plan_model_mount_backend_process_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
         !/plan_model_mount_backend_process_response as plan_model_mount_backend_process/.test(modelMountCommandSurface) &&
         !/bridge_plans_model_mount_backend_process_through_rust_core/.test(modelMountCommandSurface) &&
         /"supports_supervision":\s*plan\.supports_supervision/.test(modelMountCore) &&
@@ -18383,9 +18460,11 @@ function runBridge() {
         /"spawn_status":\s*plan\.spawn_status/.test(modelMountCore) &&
         !/"(?:supportsSupervision|publicArgs|spawnArgs|spawnStatus)":/.test(backendProcessCoreBlock) &&
         /planBackendProcess\(request\)/.test(modelMountCore) &&
-        /operation:\s*"plan_model_mount_backend_process"/.test(modelMountCore) &&
-        /RUST_MODEL_MOUNT_BACKEND_PROCESS_BACKEND/.test(modelMountCore) &&
-        /function normalizeBackendProcessPlanBridgeResult/.test(modelMountCore) &&
+        /MODEL_MOUNT_BACKEND_PROCESS_API_METHOD = "planModelMountBackendProcess"/.test(modelMountCore) &&
+        /invokeModelMountApi\(\s*MODEL_MOUNT_BACKEND_PROCESS_API_METHOD,\s*request\s*\)/.test(modelMountCore) &&
+        /function normalizeBackendProcessPlanApiResult/.test(modelMountCore) &&
+        !/operation:\s*"plan_model_mount_backend_process"/.test(modelMountCore) &&
+        !/RUST_MODEL_MOUNT_BACKEND_PROCESS_BACKEND/.test(modelMountCore) &&
         /supports_supervision:\s*result\.supports_supervision \?\? record\.supports_supervision \?\? null/.test(
           backendProcessRunnerBlock,
         ) &&
@@ -18406,7 +18485,7 @@ function runBridge() {
         /return this\.backendProcessPlan\(backend\)\.supports_supervision/.test(modelMountingState) &&
         !exists("packages/runtime-daemon/src/model-mounting/backend-processes.mjs") &&
         !exists("packages/runtime-daemon/src/model-mounting/backend-processes.test.mjs") &&
-        /Rust model_mount core sends backend process plan request/.test(
+        /Rust model_mount core sends backend process plan request through typed Rust daemon-core API/.test(
           read("packages/runtime-daemon/src/model-mounting/model-mount-core.test.mjs"),
         ) &&
         /backend process planning is delegated to Rust model_mount/.test(
@@ -21269,6 +21348,18 @@ function runReceipts() {
     });
   const modelMountConversationStreamTypedApiOwned =
     isModelMountConversationStreamTypedApiOwned({
+      coreCommandDispatch,
+      rustModelMountCore,
+      modelMountDaemonCore,
+      modelMountCoreTest,
+      commandProtocolCore,
+      kernelModule: exists("crates/services/src/agentic/runtime/kernel/mod.rs")
+        ? read("crates/services/src/agentic/runtime/kernel/mod.rs")
+        : "",
+      daemonCoreDirectInvokerServiceTest,
+    });
+  const modelMountBackendTypedApiOwned =
+    isModelMountBackendTypedApiOwned({
       coreCommandDispatch,
       rustModelMountCore,
       modelMountDaemonCore,
@@ -24862,14 +24953,17 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-backend-lifecycle-detail-aliases-retired",
+      modelMountBackendTypedApiOwned &&
       !exists("packages/runtime-daemon/src/model-mounting/backend-lifecycle.mjs") &&
       /throwBackendLifecycleRustCoreRequired/.test(backendLifecycle) &&
       /model_mount_backend_lifecycle_rust_core_required/.test(backendLifecycle) &&
       /planBackendLifecycle\(request\)/.test(backendLifecycle) &&
       /this\.modelMountCore\.planBackendLifecycle/.test(backendLifecycle) &&
       /planBackendLifecycle\(request\)/.test(modelMountCore) &&
-      /operation:\s*"plan_model_mount_backend_lifecycle"/.test(modelMountCore) &&
-      /RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_BACKEND/.test(modelMountCore) &&
+      /MODEL_MOUNT_BACKEND_LIFECYCLE_API_METHOD = "planModelMountBackendLifecycle"/.test(modelMountCore) &&
+      /invokeModelMountApi\(\s*MODEL_MOUNT_BACKEND_LIFECYCLE_API_METHOD,\s*request\s*\)/.test(modelMountCore) &&
+      !/operation:\s*"plan_model_mount_backend_lifecycle"/.test(modelMountCore) &&
+      !/RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_BACKEND/.test(modelMountCore) &&
       !/backendLifecycleRequired\(operation_kind,\s*backendId\)/.test(backendLifecycle) &&
       !/planBackendLifecycleRequired\(request\)/.test(modelMountCore) &&
       !/operation:\s*"plan_model_mount_backend_lifecycle_required"/.test(modelMountCore) &&
@@ -24878,10 +24972,10 @@ function runReceipts() {
       /ModelMountBackendLifecycleRequest/.test(modelMountCore) &&
       /backend_lifecycle::plan_backend_lifecycle\(request\)/.test(modelMountCore) &&
       /rust_core_plans_backend_lifecycle_start_record/.test(modelMountCore) &&
-      /ModelMountBackendLifecycleBridgeRequest/.test(modelMountCore) &&
-      /rust_core_shapes_model_mount_backend_lifecycle_command_response/.test(modelMountCore) &&
-      /plan_model_mount_backend_lifecycle_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
-      /plan_model_mount_backend_lifecycle/.test(coreCommandDispatch) &&
+      !/ModelMountBackendLifecycleBridgeRequest/.test(modelMountCore) &&
+      /rust_core_shapes_model_mount_backend_lifecycle_direct_api/.test(modelMountCore) &&
+      !/plan_model_mount_backend_lifecycle_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      !/plan_model_mount_backend_lifecycle/.test(coreCommandDispatch) &&
       !exists("crates/services/src/agentic/runtime/kernel/model_mount/required/backend_lifecycle.rs") &&
       !/ModelMountBackendLifecycleRequiredRequest/.test(modelMountCore) &&
       !/required::plan_backend_lifecycle_required\(request\)/.test(modelMountCore) &&
@@ -25459,7 +25553,7 @@ function runReceipts() {
       /Rust model_mount core sends positive capability-token-control request/.test(
         modelMountCoreTest,
       ) &&
-      /Rust model_mount core rejects command-shaped catalog\/provider\/vault\/receipt\/conversation fallbacks/.test(
+      /Rust model_mount core rejects command-shaped backend\/catalog\/provider\/vault\/receipt\/conversation fallbacks/.test(
         modelMountCoreTest,
       ) &&
       /result\.record\.public_response\.token,\s*undefined/.test(modelMountCoreTest) &&

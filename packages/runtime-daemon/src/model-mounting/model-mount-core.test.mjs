@@ -2,10 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  MODEL_MOUNT_CORE_SCHEMA_VERSION,
   MODEL_MOUNT_ACCEPTED_RECEIPT_HEAD_API_METHOD,
   MODEL_MOUNT_ACCEPTED_RECEIPT_TRANSITION_API_METHOD,
   MODEL_MOUNT_ARTIFACT_ENDPOINT_API_METHOD,
+  MODEL_MOUNT_BACKEND_LIFECYCLE_API_METHOD,
+  MODEL_MOUNT_BACKEND_PROCESS_API_METHOD,
   MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_API_METHOD,
   MODEL_MOUNT_CATALOG_PROVIDER_CONTROL_API_METHOD,
   MODEL_MOUNT_CONVERSATION_STATE_API_METHOD,
@@ -35,7 +36,6 @@ import {
   MODEL_MOUNT_TOKENIZER_REQUIRED_API_METHOD,
   MODEL_MOUNT_VAULT_CONTROL_API_METHOD,
   ModelMountCoreError,
-  RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_BACKEND,
   createModelMountCore,
   ModelMountCore,
 } from "./model-mount-core.mjs";
@@ -718,9 +718,6 @@ function streamCancelRequest() {
 }
 
 test("Rust model_mount core does not synthesize Rust-owned receipt, required-boundary evidence, or process fields", () => {
-  const sparseResultByOperation = new Map([
-    ["plan_model_mount_backend_process", { result: {} }],
-  ]);
   const runner = new ModelMountCore({
     daemonCoreModelMountApi: {
       admitModelMountRouteDecision() {
@@ -750,6 +747,9 @@ test("Rust model_mount core does not synthesize Rust-owned receipt, required-bou
       admitModelMountProviderResult() {
         return { ok: true, result: { record: {} } };
       },
+      planModelMountBackendProcess() {
+        return { ok: true, result: { result: {} } };
+      },
       planModelMountReadProjection() {
         return { ok: true, result: {} };
       },
@@ -769,12 +769,7 @@ test("Rust model_mount core does not synthesize Rust-owned receipt, required-bou
         return { ok: true, result: { record: { details: {} } } };
       },
     },
-    daemonCoreInvoker(request) {
-      return {
-        ok: true,
-        result: sparseResultByOperation.get(request.operation) ?? {},
-      }
-    },
+    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(),
   });
 
   const route = runner.admitRouteDecision(routeRequest());
@@ -1427,20 +1422,20 @@ test("Rust model_mount core sends provider result admission through typed daemon
   assert.deepEqual(result.evidence_refs, ["rust_model_mount_provider_result_admission"]);
 });
 
-test("Rust model_mount core sends backend process plan request", () => {
+test("Rust model_mount core sends backend process plan request through typed Rust daemon-core API", () => {
   const calls = [];
   const runner = new ModelMountCore({
-    daemonCoreInvoker(request) {
-      calls.push({ request });
-      return {
-        ok: true,
-        result: {
-            source: "rust_model_mount_backend_process_command",
-            backend: "rust_model_mount_backend_process",
+    daemonCoreModelMountApi: {
+      planModelMountBackendProcess(request) {
+        calls.push({ method: MODEL_MOUNT_BACKEND_PROCESS_API_METHOD, request });
+        return {
+          ok: true,
+          result: {
+            source: "rust_daemon_core.model_mount.backend_process",
             result: {
               schema_version: "ioi.model_mount.backend_process_plan.v1",
-              backend_ref: request.request.backend_ref,
-              backend_kind: request.request.backend_kind,
+              backend_ref: request.backend_ref,
+              backend_kind: request.backend_kind,
               supports_supervision: true,
               supervisor_kind: "external_process",
               public_args: ["llama-server", "--model", "artifact:abc123"],
@@ -1459,18 +1454,23 @@ test("Rust model_mount core sends backend process plan request", () => {
             plan_hash: "sha256:backend-process-plan",
             evidence_refs: ["rust_model_mount_backend_process_plan"],
           },
-      };
+        };
+      },
     },
+    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(calls),
   });
 
   const result = runner.planBackendProcess(backendProcessPlanRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
-  assert.equal(calls[0].request.operation, "plan_model_mount_backend_process");
-  assert.equal(calls[0].request.backend, "rust_model_mount_backend_process");
-  assert.equal(calls[0].request.request.backend_kind, "llama_cpp");
-  assert.equal(calls[0].request.request.load_options.context_length, 4096);
+  assert.equal(calls[0].method, MODEL_MOUNT_BACKEND_PROCESS_API_METHOD);
+  assert.equal(calls[0].request.schema_version, "ioi.model_mount.backend_process_plan.v1");
+  assert.equal(calls[0].request.backend_kind, "llama_cpp");
+  assert.equal(calls[0].request.load_options.context_length, 4096);
+  assert.equal(Object.hasOwn(calls[0].request, "operation"), false);
+  assert.equal(Object.hasOwn(calls[0].request, "backend"), false);
+  assert.equal(result.source, "rust_daemon_core.model_mount.backend_process");
+  assert.equal(Object.hasOwn(result, "backend"), false);
   assert.equal(result.supports_supervision, true);
   assert.equal(result.spawn_status, "spawn_ready");
   assert.deepEqual(result.public_args, ["llama-server", "--model", "artifact:abc123"]);
@@ -1483,82 +1483,84 @@ test("Rust model_mount core sends backend process plan request", () => {
 test("Rust model_mount core sends positive backend lifecycle request", () => {
   const calls = [];
   const runner = new ModelMountCore({
-    daemonCoreInvoker(request) {
-      calls.push({ request });
-      const record = {
-        id: "backend-lifecycle-control:test",
-        object: "ioi.model_mount_backend_lifecycle_record",
-        backend_id: request.request.backend_id,
-        backend_kind: request.request.backend_kind,
-        operation_kind: request.operation_kind,
-        rust_core_boundary: "model_mount.backend_lifecycle",
-        receipt_refs: [...request.request.receipt_refs, "sha256:backend-lifecycle-control"],
-        evidence_refs: [
-          "public_backend_lifecycle_js_facade_retired",
-          "rust_daemon_core_backend_lifecycle",
-          "agentgres_backend_lifecycle_truth_required",
-        ],
-      };
-      const publicResponse = {
-        object: "ioi.model_mount_backend_lifecycle",
-        status: "planned",
-        backend_id: request.request.backend_id,
-        backend_kind: request.request.backend_kind,
-        operation_kind: request.request.operation_kind,
-        rust_core_boundary: "model_mount.backend_lifecycle",
-        backend_status: "start_planned",
-        load_options: request.request.body.load_options,
-        js_backend_registry_read: false,
-        js_process_control: false,
-        js_log_read: false,
-        js_log_write: false,
-      };
-      return {
-        ok: true,
-        result: {
-          source: "rust_model_mount_backend_lifecycle_command",
-          backend: RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_BACKEND,
-          plan: {
-            schema_version: "ioi.model_mount.backend_lifecycle_plan.v1",
-            object: "ioi.model_mount_backend_lifecycle_plan",
-            status: "planned",
-            rust_core_boundary: "model_mount.backend_lifecycle",
-            operation_kind: request.request.operation_kind,
-            source: request.request.source,
+    daemonCoreModelMountApi: {
+      planModelMountBackendLifecycle(request) {
+        calls.push({ method: MODEL_MOUNT_BACKEND_LIFECYCLE_API_METHOD, request });
+        const record = {
+          id: "backend-lifecycle-control:test",
+          object: "ioi.model_mount_backend_lifecycle_record",
+          backend_id: request.backend_id,
+          backend_kind: request.backend_kind,
+          operation_kind: request.operation_kind,
+          rust_core_boundary: "model_mount.backend_lifecycle",
+          receipt_refs: [...request.receipt_refs, "sha256:backend-lifecycle-control"],
+          evidence_refs: [
+            "public_backend_lifecycle_js_facade_retired",
+            "rust_daemon_core_backend_lifecycle",
+            "agentgres_backend_lifecycle_truth_required",
+          ],
+        };
+        const publicResponse = {
+          object: "ioi.model_mount_backend_lifecycle",
+          status: "planned",
+          backend_id: request.backend_id,
+          backend_kind: request.backend_kind,
+          operation_kind: request.operation_kind,
+          rust_core_boundary: "model_mount.backend_lifecycle",
+          backend_status: "start_planned",
+          load_options: request.body.load_options,
+          js_backend_registry_read: false,
+          js_process_control: false,
+          js_log_read: false,
+          js_log_write: false,
+        };
+        return {
+          ok: true,
+          result: {
+            source: "rust_daemon_core.model_mount.backend_lifecycle",
+            plan: {
+              schema_version: "ioi.model_mount.backend_lifecycle_plan.v1",
+              object: "ioi.model_mount_backend_lifecycle_plan",
+              status: "planned",
+              rust_core_boundary: "model_mount.backend_lifecycle",
+              operation_kind: request.operation_kind,
+              source: request.source,
+              record_dir: "model-backend-lifecycle-controls",
+              record_id: "backend-lifecycle-control:test",
+              record,
+              public_response: publicResponse,
+              receipt_refs: request.receipt_refs,
+              evidence_refs: record.evidence_refs,
+              control_hash: "sha256:backend-lifecycle-control",
+            },
             record_dir: "model-backend-lifecycle-controls",
             record_id: "backend-lifecycle-control:test",
             record,
             public_response: publicResponse,
-            receipt_refs: request.request.receipt_refs,
+            operation_kind: request.operation_kind,
+            rust_core_boundary: "model_mount.backend_lifecycle",
+            receipt_refs: request.receipt_refs,
             evidence_refs: record.evidence_refs,
             control_hash: "sha256:backend-lifecycle-control",
           },
-          record_dir: "model-backend-lifecycle-controls",
-          record_id: "backend-lifecycle-control:test",
-          record,
-          public_response: publicResponse,
-          operation_kind: request.request.operation_kind,
-          rust_core_boundary: "model_mount.backend_lifecycle",
-          receipt_refs: request.request.receipt_refs,
-          evidence_refs: record.evidence_refs,
-          control_hash: "sha256:backend-lifecycle-control",
-        },
-      };
+        };
+      },
     },
+    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(calls),
   });
 
   const result = runner.planBackendLifecycle(backendLifecycleRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
-  assert.equal(calls[0].request.operation, "plan_model_mount_backend_lifecycle");
-  assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_BACKEND);
-  assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.backend_lifecycle.v1");
-  assert.equal(calls[0].request.request.backend_id, "backend.llama_cpp");
-  assert.equal(calls[0].request.request.backend_kind, "llama_cpp");
-  assert.equal(calls[0].request.request.operation_kind, "model_mount.backend.start");
-  assert.equal(result.source, "rust_model_mount_backend_lifecycle_command");
-  assert.equal(result.backend, RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_BACKEND);
+  assert.equal(calls[0].method, MODEL_MOUNT_BACKEND_LIFECYCLE_API_METHOD);
+  assert.equal(calls[0].request.schema_version, "ioi.model_mount.backend_lifecycle.v1");
+  assert.equal(calls[0].request.backend_id, "backend.llama_cpp");
+  assert.equal(calls[0].request.backend_kind, "llama_cpp");
+  assert.equal(calls[0].request.operation_kind, "model_mount.backend.start");
+  assert.equal(Object.hasOwn(calls[0].request, "operation"), false);
+  assert.equal(Object.hasOwn(calls[0].request, "backend"), false);
+  assert.equal(result.source, "rust_daemon_core.model_mount.backend_lifecycle");
+  assert.equal(Object.hasOwn(result, "backend"), false);
   assert.equal(result.record_dir, "model-backend-lifecycle-controls");
   assert.equal(result.record_id, "backend-lifecycle-control:test");
   assert.equal(result.record.id, "backend-lifecycle-control:test");
@@ -3071,7 +3073,7 @@ test("Rust model_mount core sends positive receipt-gate request", () => {
   assert.equal(result.rust_core_boundary, "model_mount.receipt_gate");
 });
 
-test("Rust model_mount core rejects command-shaped catalog/provider/vault/receipt/conversation fallbacks", () => {
+test("Rust model_mount core rejects command-shaped backend/catalog/provider/vault/receipt/conversation fallbacks", () => {
   const calls = [];
   const runner = new ModelMountCore({
     daemonCoreInvoker(request) {
@@ -3080,6 +3082,8 @@ test("Rust model_mount core rejects command-shaped catalog/provider/vault/receip
     },
   });
   const cases = [
+    [MODEL_MOUNT_BACKEND_PROCESS_API_METHOD, () => runner.planBackendProcess(backendProcessPlanRequest())],
+    [MODEL_MOUNT_BACKEND_LIFECYCLE_API_METHOD, () => runner.planBackendLifecycle(backendLifecycleRequest())],
     [MODEL_MOUNT_CATALOG_PROVIDER_CONTROL_API_METHOD, () => runner.planCatalogProviderControl(catalogProviderControlRequest())],
     [MODEL_MOUNT_PROVIDER_CONTROL_API_METHOD, () => runner.planProviderControl(providerControlRequest())],
     [MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_API_METHOD, () => runner.planCapabilityTokenControl(capabilityTokenControlRequest())],

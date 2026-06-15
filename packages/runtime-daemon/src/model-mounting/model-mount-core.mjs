@@ -5,8 +5,6 @@ export const RUST_MODEL_MOUNT_FIXTURE_INVENTORY_BACKEND = "rust_model_mount_fixt
 export const RUST_MODEL_MOUNT_FIXTURE_LIFECYCLE_BACKEND = "rust_model_mount_fixture_lifecycle";
 export const RUST_MODEL_MOUNT_HOSTED_PROVIDER_INVENTORY_BACKEND = "rust_model_mount_hosted_provider_inventory";
 export const RUST_MODEL_MOUNT_HOSTED_PROVIDER_LIFECYCLE_BACKEND = "rust_model_mount_hosted_provider_lifecycle";
-export const RUST_MODEL_MOUNT_BACKEND_PROCESS_BACKEND = "rust_model_mount_backend_process";
-export const RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_BACKEND = "rust_model_mount_backend_lifecycle";
 export const RUST_MODEL_MOUNT_STORAGE_CONTROL_BACKEND = "rust_model_mount_storage_control";
 export const RUST_MODEL_MOUNT_INSTANCE_LIFECYCLE_BACKEND = "rust_model_mount_instance_lifecycle";
 export const RUST_MODEL_MOUNT_NATIVE_LOCAL_BACKEND = "rust_model_mount_native_local";
@@ -21,6 +19,8 @@ export const MODEL_MOUNT_PROVIDER_LIFECYCLE_API_METHOD = "planModelMountProvider
 export const MODEL_MOUNT_PROVIDER_INVENTORY_API_METHOD = "planModelMountProviderInventory";
 export const MODEL_MOUNT_INSTANCE_LIFECYCLE_API_METHOD = "planModelMountInstanceLifecycle";
 export const MODEL_MOUNT_PROVIDER_RESULT_API_METHOD = "admitModelMountProviderResult";
+export const MODEL_MOUNT_BACKEND_PROCESS_API_METHOD = "planModelMountBackendProcess";
+export const MODEL_MOUNT_BACKEND_LIFECYCLE_API_METHOD = "planModelMountBackendLifecycle";
 export const MODEL_MOUNT_ARTIFACT_ENDPOINT_API_METHOD = "planModelMountArtifactEndpoint";
 export const MODEL_MOUNT_STORAGE_CONTROL_API_METHOD = "planModelMountStorageControl";
 export const MODEL_MOUNT_MCP_WORKFLOW_API_METHOD = "planModelMountMcpWorkflow";
@@ -124,23 +124,15 @@ export class ModelMountCore {
   }
 
   planBackendProcess(request) {
-    const bridgeRequest = {
-      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
-      operation: "plan_model_mount_backend_process",
-      backend: RUST_MODEL_MOUNT_BACKEND_PROCESS_BACKEND,
-      request,
-    };
-    return normalizeBackendProcessPlanBridgeResult(this.invokeDaemonCore(bridgeRequest));
+    return normalizeBackendProcessPlanApiResult(
+      this.invokeModelMountApi(MODEL_MOUNT_BACKEND_PROCESS_API_METHOD, request),
+    );
   }
 
   planBackendLifecycle(request) {
-    const bridgeRequest = {
-      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
-      operation: "plan_model_mount_backend_lifecycle",
-      backend: RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_BACKEND,
-      request,
-    };
-    return normalizeBackendLifecycleBridgeResult(this.invokeDaemonCore(bridgeRequest));
+    return normalizeBackendLifecycleApiResult(
+      this.invokeModelMountApi(MODEL_MOUNT_BACKEND_LIFECYCLE_API_METHOD, request),
+    );
   }
 
   planArtifactEndpoint(request) {
@@ -615,12 +607,11 @@ function normalizeProviderResultApiResult(value = {}) {
   };
 }
 
-function normalizeBackendProcessPlanBridgeResult(value = {}) {
+function normalizeBackendProcessPlanApiResult(value = {}) {
   const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   const record = result.result && typeof result.result === "object" ? result.result : {};
   return {
-    source: result.source ?? "rust_model_mount_backend_process_command",
-    backend: result.backend ?? RUST_MODEL_MOUNT_BACKEND_PROCESS_BACKEND,
+    source: result.source ?? "rust_daemon_core.model_mount.backend_process",
     result: record,
     supports_supervision: result.supports_supervision ?? record.supports_supervision ?? null,
     supervisor_kind: result.supervisor_kind ?? record.supervisor_kind ?? null,
@@ -645,7 +636,7 @@ function normalizeBackendProcessPlanBridgeResult(value = {}) {
   };
 }
 
-function normalizeBackendLifecycleBridgeResult(value = {}) {
+function normalizeBackendLifecycleApiResult(value = {}) {
   const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   const plan = result.plan && typeof result.plan === "object" && !Array.isArray(result.plan)
     ? result.plan
@@ -656,8 +647,7 @@ function normalizeBackendLifecycleBridgeResult(value = {}) {
       ? plan.record
       : null;
   const normalized = {
-    source: result.source ?? "rust_model_mount_backend_lifecycle_command",
-    backend: result.backend ?? RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_BACKEND,
+    source: result.source ?? "rust_daemon_core.model_mount.backend_lifecycle",
     plan,
     record_dir: result.record_dir ?? plan.record_dir ?? null,
     record_id: result.record_id ?? plan.record_id ?? null,
@@ -694,7 +684,6 @@ function normalizeBackendLifecycleBridgeResult(value = {}) {
     error.details = {
       missing,
       source: normalized.source,
-      backend: normalized.backend,
       operation_kind: normalized.operation_kind,
     };
     throw error;
