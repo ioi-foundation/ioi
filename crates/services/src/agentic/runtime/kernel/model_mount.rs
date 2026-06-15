@@ -78,12 +78,10 @@ mod provider_control;
 pub use provider_control::{ModelMountProviderControlPlan, ModelMountProviderControlRequest};
 mod conversation;
 pub use conversation::{
-    plan_model_mount_conversation_state_response, plan_model_mount_stream_cancel_response,
-    plan_model_mount_stream_completion_response, ModelMountConversationStateBridgeRequest,
-    ModelMountConversationStatePlan, ModelMountConversationStateRequest,
-    ModelMountStreamCancelBridgeRequest, ModelMountStreamCancelPlan, ModelMountStreamCancelRequest,
-    ModelMountStreamCompletionBridgeRequest, ModelMountStreamCompletionPlan,
-    ModelMountStreamCompletionRequest,
+    plan_model_mount_conversation_state, plan_model_mount_stream_cancel,
+    plan_model_mount_stream_completion, ModelMountConversationStatePlan,
+    ModelMountConversationStateRequest, ModelMountStreamCancelPlan, ModelMountStreamCancelRequest,
+    ModelMountStreamCompletionPlan, ModelMountStreamCompletionRequest,
 };
 mod lifecycle;
 pub use lifecycle::{
@@ -312,6 +310,13 @@ impl ModelMountCore {
         request: &ModelMountStreamCompletionRequest,
     ) -> Result<ModelMountStreamCompletionPlan, ModelMountError> {
         conversation::plan_stream_completion(request)
+    }
+
+    pub fn plan_stream_cancel(
+        &self,
+        request: &ModelMountStreamCancelRequest,
+    ) -> Result<ModelMountStreamCancelPlan, ModelMountError> {
+        conversation::plan_stream_cancel(request)
     }
 
     pub fn plan_accepted_receipt_head(

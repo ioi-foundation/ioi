@@ -319,6 +319,170 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
         control_hash: "sha256:direct-tokenizer-control",
       };
     },
+    planModelMountConversationState(request) {
+      modelMountCalls.push({ method: "planModelMountConversationState", request });
+      const record = {
+        id: request.response_id,
+        object: "ioi.model_mount_conversation_state",
+        status: request.status,
+        kind: request.kind,
+        response_id: request.response_id,
+        route_id: request.route_ref,
+        endpoint_id: request.endpoint_ref,
+        provider_id: request.provider_ref,
+        selected_model: request.model_ref,
+        route_decision_ref: request.route_decision_ref,
+        receipt_id: request.invocation_receipt_ref,
+        receipt_refs: request.receipt_refs ?? [],
+        evidence_refs: ["model_mount_conversation_state_rust_owned"],
+        rust_core_boundary: "model_mount.conversation",
+        conversation_hash: "sha256:direct-conversation-state",
+      };
+      return {
+        source: "rust_daemon_core.model_mount.conversation_state",
+        plan: {
+          schema_version: "ioi.model_mount.conversation_state_plan.v1",
+          object: "ioi.model_mount_conversation_state_plan",
+          status: "planned",
+          rust_core_boundary: "model_mount.conversation",
+          operation: request.operation,
+          operation_kind: "model_mount.conversation.state_write",
+          source: request.source,
+          record_dir: "model-conversations",
+          record_id: record.id,
+          record,
+          receipt_refs: request.receipt_refs ?? [],
+          evidence_refs: ["model_mount_conversation_state_rust_owned"],
+          conversation_hash: "sha256:direct-conversation-state",
+        },
+        record_dir: "model-conversations",
+        record_id: record.id,
+        record,
+        receipt_refs: request.receipt_refs ?? [],
+        evidence_refs: ["model_mount_conversation_state_rust_owned"],
+        operation: request.operation,
+        operation_kind: "model_mount.conversation.state_write",
+        rust_core_boundary: "model_mount.conversation",
+        conversation_hash: "sha256:direct-conversation-state",
+      };
+    },
+    planModelMountStreamCompletion(request) {
+      modelMountCalls.push({ method: "planModelMountStreamCompletion", request });
+      const record = {
+        id: request.response_id,
+        object: "ioi.model_mount_conversation_state",
+        status: "completed",
+        response_id: request.response_id,
+        stream_receipt_ref: `receipt://${request.receipt_id}`,
+        receipt_refs: request.receipt_refs ?? [],
+        evidence_refs: ["model_mount_stream_completion_rust_owned"],
+        rust_core_boundary: "model_mount.conversation",
+        conversation_hash: "sha256:direct-stream-conversation",
+        stream_completion_hash: "sha256:direct-stream-completion",
+      };
+      const receipt = {
+        id: request.receipt_id,
+        kind: "model_invocation_stream_completed",
+        evidenceRefs: ["rust_model_mount_core", "model_mount_stream_completion_rust_owned"],
+        details: {
+          rust_daemon_core_receipt_author: "ModelMountCore.plan_model_mount_stream_completion",
+          model_mount_step_module_result: {
+            agentgres_operation_refs: ["agentgres://model-mounting/accepted-receipts/op_direct_stream"],
+          },
+        },
+      };
+      return {
+        source: "rust_daemon_core.model_mount.stream_completion",
+        plan: {
+          schema_version: "ioi.model_mount.stream_completion_plan.v1",
+          object: "ioi.model_mount_stream_completion_plan",
+          status: "planned",
+          rust_core_boundary: "model_mount.conversation",
+          operation: request.operation,
+          operation_kind: "model_mount.conversation.stream_completion",
+          source: request.source,
+          record_dir: "model-conversations",
+          record_id: record.id,
+          record,
+          receipt,
+          receipt_refs: request.receipt_refs ?? [],
+          evidence_refs: ["model_mount_stream_completion_rust_owned"],
+          stream_completion_hash: "sha256:direct-stream-completion",
+          conversation_hash: "sha256:direct-stream-conversation",
+        },
+        record_dir: "model-conversations",
+        record_id: record.id,
+        record,
+        receipt,
+        receipt_refs: request.receipt_refs ?? [],
+        evidence_refs: ["model_mount_stream_completion_rust_owned"],
+        operation: request.operation,
+        operation_kind: "model_mount.conversation.stream_completion",
+        rust_core_boundary: "model_mount.conversation",
+        stream_completion_hash: "sha256:direct-stream-completion",
+        conversation_hash: "sha256:direct-stream-conversation",
+      };
+    },
+    planModelMountStreamCancel(request) {
+      modelMountCalls.push({ method: "planModelMountStreamCancel", request });
+      const record = {
+        id: request.response_id,
+        object: "ioi.model_mount_conversation_state",
+        status: "canceled",
+        response_id: request.response_id,
+        stream_receipt_ref: `receipt://${request.receipt_id}`,
+        receipt_refs: request.receipt_refs ?? [],
+        evidence_refs: [
+          "model_mount_stream_cancel_rust_owned",
+          "agentgres_model_stream_cancel_truth_required",
+        ],
+        rust_core_boundary: "model_mount.conversation",
+        conversation_hash: "sha256:direct-stream-cancel-conversation",
+        stream_cancel_hash: "sha256:direct-stream-cancel",
+      };
+      const receipt = {
+        id: request.receipt_id,
+        kind: "model_invocation_stream_canceled",
+        evidenceRefs: ["rust_model_mount_core", "model_mount_stream_cancel_rust_owned"],
+        details: {
+          rust_daemon_core_receipt_author: "ModelMountCore.plan_model_mount_stream_cancel",
+          model_mount_step_module_result: {
+            agentgres_operation_refs: ["agentgres://model-mounting/accepted-receipts/op_direct_cancel"],
+          },
+        },
+      };
+      return {
+        source: "rust_daemon_core.model_mount.stream_cancel",
+        plan: {
+          schema_version: "ioi.model_mount.stream_cancel_plan.v1",
+          object: "ioi.model_mount_stream_cancel_plan",
+          status: "planned",
+          rust_core_boundary: "model_mount.conversation",
+          operation: request.operation,
+          operation_kind: "model_mount.conversation.stream_cancel",
+          source: request.source,
+          record_dir: "model-conversations",
+          record_id: record.id,
+          record,
+          receipt,
+          receipt_refs: request.receipt_refs ?? [],
+          evidence_refs: record.evidence_refs,
+          stream_cancel_hash: "sha256:direct-stream-cancel",
+          conversation_hash: "sha256:direct-stream-cancel-conversation",
+        },
+        record_dir: "model-conversations",
+        record_id: record.id,
+        record,
+        receipt,
+        receipt_refs: request.receipt_refs ?? [],
+        evidence_refs: record.evidence_refs,
+        operation: request.operation,
+        operation_kind: "model_mount.conversation.stream_cancel",
+        rust_core_boundary: "model_mount.conversation",
+        stream_cancel_hash: "sha256:direct-stream-cancel",
+        conversation_hash: "sha256:direct-stream-cancel-conversation",
+      };
+    },
     planModelMountArtifactEndpoint(request) {
       modelMountCalls.push({ method: "planModelMountArtifactEndpoint", request });
       const record = {
@@ -954,6 +1118,15 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
       planTokenizer(request) {
         return directModelMountCore.planTokenizer(request);
       },
+      planConversationState(request) {
+        return directModelMountCore.planConversationState(request);
+      },
+      planStreamCompletion(request) {
+        return directModelMountCore.planStreamCompletion(request);
+      },
+      planStreamCancel(request) {
+        return directModelMountCore.planStreamCancel(request);
+      },
       planArtifactEndpoint(request) {
         return directModelMountCore.planArtifactEndpoint(request);
       },
@@ -1501,6 +1674,86 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
   assert.equal(tokenizerPlan.source, "rust_daemon_core.model_mount.tokenizer");
   assert.equal(tokenizerPlan.record_id, "model_tokenizer:tokenize:direct");
   assert.equal(tokenizerPlan.rust_core_boundary, "model_mount.tokenizer");
+  const conversationPlan = store.modelMounting.planModelMountConversationState({
+    schema_version: "ioi.model_mount.conversation_state.v1",
+    operation: "model_conversation_state_write",
+    response_id: "resp.direct",
+    kind: "responses",
+    status: "completed",
+    source: "runtime-daemon.model_mounting.conversation",
+    route_ref: "route.direct",
+    endpoint_ref: "endpoint.direct",
+    provider_ref: "provider.direct",
+    model_ref: "model.direct",
+    route_decision_ref: "model_mount://route_decision/direct",
+    invocation_receipt_ref: "receipt://invocation/direct",
+    receipt_refs: ["receipt://invocation/direct"],
+  });
+  assert.equal(calls.length, 0);
+  assert.equal(modelMountCalls.at(-1).method, "planModelMountConversationState");
+  assert.equal(modelMountCalls.at(-1).request.schema_version, "ioi.model_mount.conversation_state.v1");
+  assert.equal(modelMountCalls.at(-1).request.operation, "model_conversation_state_write");
+  assert.equal(Object.hasOwn(modelMountCalls.at(-1).request, "backend"), false);
+  assert.equal(conversationPlan.source, "rust_daemon_core.model_mount.conversation_state");
+  assert.equal(conversationPlan.record_id, "resp.direct");
+  assert.equal(conversationPlan.rust_core_boundary, "model_mount.conversation");
+  const streamCompletionPlan = store.modelMounting.planModelMountStreamCompletion({
+    schema_version: "ioi.model_mount.stream_completion.v1",
+    operation: "model_stream_completion",
+    response_id: "resp.direct.stream",
+    kind: "responses",
+    stream_kind: "responses",
+    source: "runtime-daemon.model_mounting.stream_completion",
+    receipt_id: "receipt.stream.direct",
+    current_sequence: 0,
+    current_head_ref: "agentgres://model-mounting/accepted-receipts/head/0",
+    current_state_root: "sha256:state-0",
+    invocation_receipt_ref: "receipt://invocation/direct",
+    route_decision_ref: "model_mount://route_decision/direct",
+    route_ref: "route.direct",
+    endpoint_ref: "endpoint.direct",
+    provider_ref: "provider.direct",
+    model_ref: "model.direct",
+    chunks_forwarded: 2,
+    receipt_refs: ["receipt://invocation/direct"],
+  });
+  assert.equal(calls.length, 0);
+  assert.equal(modelMountCalls.at(-1).method, "planModelMountStreamCompletion");
+  assert.equal(modelMountCalls.at(-1).request.schema_version, "ioi.model_mount.stream_completion.v1");
+  assert.equal(modelMountCalls.at(-1).request.operation, "model_stream_completion");
+  assert.equal(Object.hasOwn(modelMountCalls.at(-1).request, "backend"), false);
+  assert.equal(streamCompletionPlan.source, "rust_daemon_core.model_mount.stream_completion");
+  assert.equal(streamCompletionPlan.receipt.kind, "model_invocation_stream_completed");
+  assert.equal(streamCompletionPlan.rust_core_boundary, "model_mount.conversation");
+  const streamCancelPlan = store.modelMounting.planModelMountStreamCancel({
+    schema_version: "ioi.model_mount.stream_cancel.v1",
+    operation: "model_stream_cancel",
+    response_id: "resp.direct.cancel",
+    kind: "responses",
+    stream_kind: "responses",
+    source: "runtime-daemon.model_mounting.stream_cancel",
+    receipt_id: "receipt.stream.cancel.direct",
+    current_sequence: 1,
+    current_head_ref: "agentgres://model-mounting/accepted-receipts/head/1",
+    current_state_root: "sha256:state-1",
+    invocation_receipt_ref: "receipt://invocation/direct",
+    route_decision_ref: "model_mount://route_decision/direct",
+    route_ref: "route.direct",
+    endpoint_ref: "endpoint.direct",
+    provider_ref: "provider.direct",
+    model_ref: "model.direct",
+    frames_written: 1,
+    cancel_reason: "client_disconnect",
+    receipt_refs: ["receipt://invocation/direct"],
+  });
+  assert.equal(calls.length, 0);
+  assert.equal(modelMountCalls.at(-1).method, "planModelMountStreamCancel");
+  assert.equal(modelMountCalls.at(-1).request.schema_version, "ioi.model_mount.stream_cancel.v1");
+  assert.equal(modelMountCalls.at(-1).request.operation, "model_stream_cancel");
+  assert.equal(Object.hasOwn(modelMountCalls.at(-1).request, "backend"), false);
+  assert.equal(streamCancelPlan.source, "rust_daemon_core.model_mount.stream_cancel");
+  assert.equal(streamCancelPlan.receipt.kind, "model_invocation_stream_canceled");
+  assert.equal(streamCancelPlan.rust_core_boundary, "model_mount.conversation");
   const artifactEndpointPlan = store.modelMounting.planArtifactEndpoint({
     schema_version: "ioi.model_mount.artifact_endpoint.v1",
     operation_kind: "model_mount.endpoint.mount",

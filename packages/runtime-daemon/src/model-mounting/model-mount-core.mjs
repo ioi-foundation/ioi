@@ -8,9 +8,6 @@ export const RUST_MODEL_MOUNT_HOSTED_PROVIDER_LIFECYCLE_BACKEND = "rust_model_mo
 export const RUST_MODEL_MOUNT_BACKEND_PROCESS_BACKEND = "rust_model_mount_backend_process";
 export const RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_BACKEND = "rust_model_mount_backend_lifecycle";
 export const RUST_MODEL_MOUNT_STORAGE_CONTROL_BACKEND = "rust_model_mount_storage_control";
-export const RUST_MODEL_MOUNT_CONVERSATION_STATE_BACKEND = "rust_model_mount_conversation_state";
-export const RUST_MODEL_MOUNT_STREAM_COMPLETION_BACKEND = "rust_model_mount_stream_completion";
-export const RUST_MODEL_MOUNT_STREAM_CANCEL_BACKEND = "rust_model_mount_stream_cancel";
 export const RUST_MODEL_MOUNT_INSTANCE_LIFECYCLE_BACKEND = "rust_model_mount_instance_lifecycle";
 export const RUST_MODEL_MOUNT_NATIVE_LOCAL_BACKEND = "rust_model_mount_native_local";
 export const RUST_MODEL_MOUNT_NATIVE_LOCAL_INVENTORY_BACKEND = "rust_model_mount_native_local_inventory";
@@ -34,6 +31,9 @@ export const MODEL_MOUNT_RUNTIME_SURVEY_API_METHOD = "planModelMountRuntimeSurve
 export const MODEL_MOUNT_TOKENIZER_REQUIRED_API_METHOD = "planModelMountTokenizerRequired";
 export const MODEL_MOUNT_ROUTE_CONTROL_REQUIRED_API_METHOD = "planModelMountRouteControlRequired";
 export const MODEL_MOUNT_TOKENIZER_API_METHOD = "planModelMountTokenizer";
+export const MODEL_MOUNT_CONVERSATION_STATE_API_METHOD = "planModelMountConversationState";
+export const MODEL_MOUNT_STREAM_COMPLETION_API_METHOD = "planModelMountStreamCompletion";
+export const MODEL_MOUNT_STREAM_CANCEL_API_METHOD = "planModelMountStreamCancel";
 export const MODEL_MOUNT_READ_PROJECTION_API_METHOD = "planModelMountReadProjection";
 export const MODEL_MOUNT_ACCEPTED_RECEIPT_HEAD_API_METHOD = "planModelMountAcceptedReceiptHead";
 export const MODEL_MOUNT_ACCEPTED_RECEIPT_TRANSITION_API_METHOD = "planModelMountAcceptedReceiptTransition";
@@ -192,33 +192,21 @@ export class ModelMountCore {
   }
 
   planConversationState(request) {
-    const bridgeRequest = {
-      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
-      operation: "plan_model_mount_conversation_state",
-      backend: RUST_MODEL_MOUNT_CONVERSATION_STATE_BACKEND,
-      request,
-    };
-    return normalizeConversationStateBridgeResult(this.invokeDaemonCore(bridgeRequest));
+    return normalizeConversationStateApiResult(
+      this.invokeModelMountApi(MODEL_MOUNT_CONVERSATION_STATE_API_METHOD, request),
+    );
   }
 
   planStreamCompletion(request) {
-    const bridgeRequest = {
-      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
-      operation: "plan_model_mount_stream_completion",
-      backend: RUST_MODEL_MOUNT_STREAM_COMPLETION_BACKEND,
-      request,
-    };
-    return normalizeStreamCompletionBridgeResult(this.invokeDaemonCore(bridgeRequest));
+    return normalizeStreamCompletionApiResult(
+      this.invokeModelMountApi(MODEL_MOUNT_STREAM_COMPLETION_API_METHOD, request),
+    );
   }
 
   planStreamCancel(request) {
-    const bridgeRequest = {
-      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
-      operation: "plan_model_mount_stream_cancel",
-      backend: RUST_MODEL_MOUNT_STREAM_CANCEL_BACKEND,
-      request,
-    };
-    return normalizeStreamCancelBridgeResult(this.invokeDaemonCore(bridgeRequest));
+    return normalizeStreamCancelApiResult(
+      this.invokeModelMountApi(MODEL_MOUNT_STREAM_CANCEL_API_METHOD, request),
+    );
   }
 
   planRouteControlRequired(request) {
@@ -1657,7 +1645,7 @@ function normalizeTokenizerApiResult(value = {}) {
   return normalized;
 }
 
-function normalizeConversationStateBridgeResult(value = {}) {
+function normalizeConversationStateApiResult(value = {}) {
   const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   const plan = result.plan && typeof result.plan === "object" && !Array.isArray(result.plan)
     ? result.plan
@@ -1668,8 +1656,7 @@ function normalizeConversationStateBridgeResult(value = {}) {
       ? plan.record
       : null;
   const normalized = {
-    source: result.source ?? "rust_model_mount_conversation_state_command",
-    backend: result.backend ?? RUST_MODEL_MOUNT_CONVERSATION_STATE_BACKEND,
+    source: result.source ?? "rust_daemon_core.model_mount.conversation_state",
     plan,
     record_dir: result.record_dir ?? plan.record_dir ?? null,
     record_id: result.record_id ?? plan.record_id ?? null,
@@ -1715,7 +1702,7 @@ function normalizeConversationStateBridgeResult(value = {}) {
   return normalized;
 }
 
-function normalizeStreamCompletionBridgeResult(value = {}) {
+function normalizeStreamCompletionApiResult(value = {}) {
   const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   const plan = result.plan && typeof result.plan === "object" && !Array.isArray(result.plan)
     ? result.plan
@@ -1731,8 +1718,7 @@ function normalizeStreamCompletionBridgeResult(value = {}) {
       ? plan.receipt
       : null;
   const normalized = {
-    source: result.source ?? "rust_model_mount_stream_completion_command",
-    backend: result.backend ?? RUST_MODEL_MOUNT_STREAM_COMPLETION_BACKEND,
+    source: result.source ?? "rust_daemon_core.model_mount.stream_completion",
     plan,
     record_dir: result.record_dir ?? plan.record_dir ?? null,
     record_id: result.record_id ?? plan.record_id ?? null,
@@ -1795,7 +1781,7 @@ function normalizeStreamCompletionBridgeResult(value = {}) {
   return normalized;
 }
 
-function normalizeStreamCancelBridgeResult(value = {}) {
+function normalizeStreamCancelApiResult(value = {}) {
   const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   const plan = result.plan && typeof result.plan === "object" && !Array.isArray(result.plan)
     ? result.plan
@@ -1811,8 +1797,7 @@ function normalizeStreamCancelBridgeResult(value = {}) {
       ? plan.receipt
       : null;
   const normalized = {
-    source: result.source ?? "rust_model_mount_stream_cancel_command",
-    backend: result.backend ?? RUST_MODEL_MOUNT_STREAM_CANCEL_BACKEND,
+    source: result.source ?? "rust_daemon_core.model_mount.stream_cancel",
     plan,
     record_dir: result.record_dir ?? plan.record_dir ?? null,
     record_id: result.record_id ?? plan.record_id ?? null,

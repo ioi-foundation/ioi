@@ -119,13 +119,14 @@ use marketplace::{
     WorkerServicePackageInvocationRecord, WorkerServicePackageInvocationRequest,
 };
 use model_mount::{
-    plan_model_mount_route_control_required, plan_model_mount_tokenizer,
+    plan_model_mount_conversation_state, plan_model_mount_route_control_required,
+    plan_model_mount_stream_cancel, plan_model_mount_stream_completion, plan_model_mount_tokenizer,
     plan_model_mount_tokenizer_required, ModelMountAcceptedReceiptHeadRequest,
     ModelMountAcceptedReceiptTransitionRequest, ModelMountArtifactEndpointPlan,
     ModelMountArtifactEndpointRequest, ModelMountCapabilityTokenControlPlan,
     ModelMountCapabilityTokenControlRequest, ModelMountCatalogProviderControlPlan,
-    ModelMountCatalogProviderControlRequest, ModelMountCore, ModelMountError,
-    ModelMountInstanceLifecycleRequest, ModelMountInstanceLifecycleResult,
+    ModelMountCatalogProviderControlRequest, ModelMountConversationStateRequest, ModelMountCore,
+    ModelMountError, ModelMountInstanceLifecycleRequest, ModelMountInstanceLifecycleResult,
     ModelMountInvocationAdmissionRecord, ModelMountInvocationAdmissionRequest,
     ModelMountMcpWorkflowPlan, ModelMountMcpWorkflowRequest, ModelMountProviderControlPlan,
     ModelMountProviderControlRequest, ModelMountProviderExecutionRecord,
@@ -139,7 +140,8 @@ use model_mount::{
     ModelMountRouteControlRequest, ModelMountRouteControlRequiredRequest,
     ModelMountRouteDecisionRecord, ModelMountRouteDecisionRequest, ModelMountRuntimeEnginePlan,
     ModelMountRuntimeEngineRequest, ModelMountRuntimeSurveyPlan, ModelMountRuntimeSurveyRequest,
-    ModelMountStorageControlPlan, ModelMountStorageControlRequest, ModelMountTokenizerRequest,
+    ModelMountStorageControlPlan, ModelMountStorageControlRequest, ModelMountStreamCancelRequest,
+    ModelMountStreamCompletionRequest, ModelMountTokenizerRequest,
     ModelMountTokenizerRequiredRequest, ModelMountVaultControlPlan, ModelMountVaultControlRequest,
 };
 use model_mount_receipt::{
@@ -939,6 +941,27 @@ impl RuntimeKernelService {
         request: &ModelMountTokenizerRequest,
     ) -> Result<serde_json::Value, ModelMountError> {
         plan_model_mount_tokenizer(request)
+    }
+
+    pub fn plan_model_mount_conversation_state(
+        &self,
+        request: &ModelMountConversationStateRequest,
+    ) -> Result<serde_json::Value, ModelMountError> {
+        plan_model_mount_conversation_state(request)
+    }
+
+    pub fn plan_model_mount_stream_completion(
+        &self,
+        request: &ModelMountStreamCompletionRequest,
+    ) -> Result<serde_json::Value, ModelMountError> {
+        plan_model_mount_stream_completion(request)
+    }
+
+    pub fn plan_model_mount_stream_cancel(
+        &self,
+        request: &ModelMountStreamCancelRequest,
+    ) -> Result<serde_json::Value, ModelMountError> {
+        plan_model_mount_stream_cancel(request)
     }
 
     pub fn plan_model_mount_route_control(

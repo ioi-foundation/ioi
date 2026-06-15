@@ -329,6 +329,106 @@ function isModelMountTokenizerRequiredControlTypedApiOwned({
   );
 }
 
+function isModelMountConversationStreamTypedApiOwned({
+  coreCommandDispatch = "",
+  rustModelMountCore = "",
+  modelMountDaemonCore = "",
+  modelMountCoreTest = "",
+  commandProtocolCore = "",
+  kernelModule = "",
+  daemonCoreDirectInvokerServiceTest = "",
+}) {
+  const runtimeKernelModule =
+    kernelModule ||
+    (exists("crates/services/src/agentic/runtime/kernel/mod.rs")
+      ? read("crates/services/src/agentic/runtime/kernel/mod.rs")
+      : "");
+  const directInvokerServiceTest =
+    daemonCoreDirectInvokerServiceTest ||
+    (exists("packages/runtime-daemon/src/runtime-daemon-core-direct-invoker-service.test.mjs")
+      ? read("packages/runtime-daemon/src/runtime-daemon-core-direct-invoker-service.test.mjs")
+      : "");
+  const retiredBridgeSurface = [coreCommandDispatch, rustModelMountCore, modelMountDaemonCore].join("\n");
+  return (
+    !/plan_model_mount_conversation_state_response/.test(retiredBridgeSurface) &&
+    !/plan_model_mount_stream_completion_response/.test(retiredBridgeSurface) &&
+    !/plan_model_mount_stream_cancel_response/.test(retiredBridgeSurface) &&
+    !/ModelMountConversationStateBridgeRequest/.test(rustModelMountCore) &&
+    !/ModelMountStreamCompletionBridgeRequest/.test(rustModelMountCore) &&
+    !/ModelMountStreamCancelBridgeRequest/.test(rustModelMountCore) &&
+    !/rust_model_mount_conversation_state_command/.test(retiredBridgeSurface) &&
+    !/rust_model_mount_stream_completion_command/.test(retiredBridgeSurface) &&
+    !/rust_model_mount_stream_cancel_command/.test(retiredBridgeSurface) &&
+    !/RUST_MODEL_MOUNT_CONVERSATION_STATE_BACKEND/.test(modelMountDaemonCore) &&
+    !/RUST_MODEL_MOUNT_STREAM_COMPLETION_BACKEND/.test(modelMountDaemonCore) &&
+    !/RUST_MODEL_MOUNT_STREAM_CANCEL_BACKEND/.test(modelMountDaemonCore) &&
+    !/operation:\s*"plan_model_mount_conversation_state"/.test(modelMountDaemonCore) &&
+    !/operation:\s*"plan_model_mount_stream_completion"/.test(modelMountDaemonCore) &&
+    !/operation:\s*"plan_model_mount_stream_cancel"/.test(modelMountDaemonCore) &&
+    !/backend:\s*"rust_model_mount_conversation_state"/.test(modelMountDaemonCore) &&
+    !/backend:\s*"rust_model_mount_stream_completion"/.test(modelMountDaemonCore) &&
+    !/backend:\s*"rust_model_mount_stream_cancel"/.test(modelMountDaemonCore) &&
+    !/normalizeConversationStateBridgeResult/.test(modelMountDaemonCore) &&
+    !/normalizeStreamCompletionBridgeResult/.test(modelMountDaemonCore) &&
+    !/normalizeStreamCancelBridgeResult/.test(modelMountDaemonCore) &&
+    /MODEL_MOUNT_CONVERSATION_STATE_API_METHOD = "planModelMountConversationState"/.test(
+      modelMountDaemonCore,
+    ) &&
+    /MODEL_MOUNT_STREAM_COMPLETION_API_METHOD = "planModelMountStreamCompletion"/.test(
+      modelMountDaemonCore,
+    ) &&
+    /MODEL_MOUNT_STREAM_CANCEL_API_METHOD = "planModelMountStreamCancel"/.test(
+      modelMountDaemonCore,
+    ) &&
+    /invokeModelMountApi\(\s*MODEL_MOUNT_CONVERSATION_STATE_API_METHOD,\s*request\s*\)/.test(
+      modelMountDaemonCore,
+    ) &&
+    /invokeModelMountApi\(\s*MODEL_MOUNT_STREAM_COMPLETION_API_METHOD,\s*request\s*\)/.test(
+      modelMountDaemonCore,
+    ) &&
+    /invokeModelMountApi\(\s*MODEL_MOUNT_STREAM_CANCEL_API_METHOD,\s*request\s*\)/.test(
+      modelMountDaemonCore,
+    ) &&
+    /normalizeConversationStateApiResult/.test(modelMountDaemonCore) &&
+    /normalizeStreamCompletionApiResult/.test(modelMountDaemonCore) &&
+    /normalizeStreamCancelApiResult/.test(modelMountDaemonCore) &&
+    /rust_daemon_core\.model_mount\.conversation_state/.test(
+      modelMountDaemonCore + rustModelMountCore,
+    ) &&
+    /rust_daemon_core\.model_mount\.stream_completion/.test(
+      modelMountDaemonCore + rustModelMountCore,
+    ) &&
+    /rust_daemon_core\.model_mount\.stream_cancel/.test(
+      modelMountDaemonCore + rustModelMountCore,
+    ) &&
+    /model_mount_conversation_stream_command_transport_is_retired/.test(commandProtocolCore) &&
+    !/CommandOperation::PlanModelMountConversationState/.test(coreCommandDispatch + commandProtocolCore) &&
+    !/CommandOperation::PlanModelMountStreamCompletion/.test(coreCommandDispatch + commandProtocolCore) &&
+    !/CommandOperation::PlanModelMountStreamCancel/.test(coreCommandDispatch + commandProtocolCore) &&
+    /pub fn plan_model_mount_conversation_state/.test(rustModelMountCore) &&
+    /pub fn plan_model_mount_stream_completion/.test(rustModelMountCore) &&
+    /pub fn plan_model_mount_stream_cancel/.test(rustModelMountCore) &&
+    /pub fn plan_model_mount_conversation_state\([\s\S]*?&self/.test(runtimeKernelModule) &&
+    /pub fn plan_model_mount_stream_completion\([\s\S]*?&self/.test(runtimeKernelModule) &&
+    /pub fn plan_model_mount_stream_cancel\([\s\S]*?&self/.test(runtimeKernelModule) &&
+    /rust_core_plans_model_conversation_state_direct_api/.test(rustModelMountCore) &&
+    /rust_core_plans_stream_completion_direct_api/.test(rustModelMountCore) &&
+    /rust_core_plans_stream_cancel_direct_api/.test(rustModelMountCore) &&
+    /Rust model_mount core sends positive conversation-state request through typed Rust daemon-core API/.test(
+      modelMountCoreTest,
+    ) &&
+    /Rust model_mount core sends positive stream-completion request through typed Rust daemon-core API/.test(
+      modelMountCoreTest,
+    ) &&
+    /Rust model_mount core sends positive stream-cancel request through typed Rust daemon-core API/.test(
+      modelMountCoreTest,
+    ) &&
+    /planModelMountConversationState/.test(directInvokerServiceTest) &&
+    /planModelMountStreamCompletion/.test(directInvokerServiceTest) &&
+    /planModelMountStreamCancel/.test(directInvokerServiceTest)
+  );
+}
+
 function isModelMountReceiptBindingTypedApiOwned({
   coreCommandDispatch = "",
   modelMountReceiptCore = "",
@@ -2283,7 +2383,7 @@ function runDocs() {
         matrix,
       ) &&
       /Model_mount stream-cancel positive API/.test(matrix) &&
-      /plan_model_mount_stream_cancel/.test(matrix) &&
+      /daemonCoreModelMountApi\.planModelMountStreamCancel/.test(matrix) &&
       /model_mount_stream_cancel_rust_owned/.test(matrix) &&
       /rust_daemon_core_model_stream_cancel/.test(matrix) &&
       /agentgres_model_stream_cancel_truth_required/.test(matrix) &&
@@ -4455,6 +4555,18 @@ function runBridge() {
     isModelMountInvocationLifecycleTypedApiOwned(modelMountInvocationLifecycleSources);
   const modelMountTokenizerRequiredControlTypedApiOwned =
     isModelMountTokenizerRequiredControlTypedApiOwned({
+      coreCommandDispatch,
+      rustModelMountCore,
+      modelMountDaemonCore,
+      modelMountCoreTest,
+      commandProtocolCore,
+      kernelModule: exists("crates/services/src/agentic/runtime/kernel/mod.rs")
+        ? read("crates/services/src/agentic/runtime/kernel/mod.rs")
+        : "",
+      daemonCoreDirectInvokerServiceTest,
+    });
+  const modelMountConversationStreamTypedApiOwned =
+    isModelMountConversationStreamTypedApiOwned({
       coreCommandDispatch,
       rustModelMountCore,
       modelMountDaemonCore,
@@ -17013,7 +17125,7 @@ function runBridge() {
       /Rust model_mount core sends positive catalog-provider-control request/.test(
         modelMountCoreTest,
       ) &&
-      /Rust model_mount core rejects command-shaped catalog\/provider\/vault\/receipt fallbacks/.test(
+      /Rust model_mount core rejects command-shaped catalog\/provider\/vault\/receipt\/conversation fallbacks/.test(
         modelMountCoreTest,
       ) &&
       !/catalogProviderConfigState|catalogProviderRuntimeMaterialState|configureCatalogProviderState|getCatalogProviderConfigState|listCatalogProviderConfigsState/.test(modelMountingState) &&
@@ -17283,7 +17395,7 @@ function runBridge() {
       /receipt\.details\.model_mount_receipt_binding_ref/.test(modelMountCore) &&
       /receipt\.details\.model_mount_agentgres_operation_ref/.test(modelMountCore) &&
       /Rust model_mount core sends positive receipt-gate request/.test(modelMountCoreTest) &&
-      /Rust model_mount core rejects command-shaped catalog\/provider\/vault\/receipt fallbacks/.test(
+      /Rust model_mount core rejects command-shaped catalog\/provider\/vault\/receipt\/conversation fallbacks/.test(
         modelMountCoreTest,
       ) &&
       /MODEL_MOUNT_RECEIPT_GATE_SCHEMA_VERSION/.test(modelMountCore) &&
@@ -17573,19 +17685,13 @@ function runBridge() {
   assertCheck(
     result,
     "model-mount-stream-cancel-positive-rust-api",
-    /plan_model_mount_stream_cancel/.test(commandProtocolCore) &&
-      /CommandOperation::PlanModelMountStreamCancel/.test(commandProtocolCore) &&
-      /plan_model_mount_stream_cancel_response/.test(coreCommandDispatch) &&
+    modelMountConversationStreamTypedApiOwned &&
       /MODEL_MOUNT_STREAM_CANCEL_SCHEMA_VERSION/.test(modelMountCore) &&
       /MODEL_MOUNT_STREAM_CANCEL_PLAN_SCHEMA_VERSION/.test(modelMountCore) &&
-      /plan_model_mount_stream_cancel_response/.test(modelMountCore) &&
       /ModelMountCore\.plan_model_mount_stream_cancel/.test(modelMountCore) &&
       /model_mount_stream_cancel_rust_owned/.test(modelMountCore) &&
       /rust_daemon_core_model_stream_cancel/.test(modelMountCore) &&
       /agentgres_model_stream_cancel_truth_required/.test(modelMountCore) &&
-      /RUST_MODEL_MOUNT_STREAM_CANCEL_BACKEND/.test(modelMountCore) &&
-      /operation:\s*"plan_model_mount_stream_cancel"/.test(modelMountCore) &&
-      /normalizeStreamCancelBridgeResult/.test(modelMountCore) &&
       /receipt\?\.kind !== "model_invocation_stream_canceled"/.test(modelMountCore) &&
       /planModelMountStreamCancel\(request\)[\s\S]*?planStreamCancel\(request\)/.test(modelMountingState) &&
       /recordModelStreamCanceled\(\{[\s\S]*?planModelMountStreamCancel\(modelStreamCancelRequestForMountedState/.test(
@@ -21151,6 +21257,18 @@ function runReceipts() {
     isModelMountInvocationLifecycleTypedApiOwned(modelMountInvocationLifecycleSources);
   const modelMountTokenizerRequiredControlTypedApiOwned =
     isModelMountTokenizerRequiredControlTypedApiOwned({
+      coreCommandDispatch,
+      rustModelMountCore,
+      modelMountDaemonCore,
+      modelMountCoreTest,
+      commandProtocolCore,
+      kernelModule: exists("crates/services/src/agentic/runtime/kernel/mod.rs")
+        ? read("crates/services/src/agentic/runtime/kernel/mod.rs")
+        : "",
+      daemonCoreDirectInvokerServiceTest,
+    });
+  const modelMountConversationStreamTypedApiOwned =
+    isModelMountConversationStreamTypedApiOwned({
       coreCommandDispatch,
       rustModelMountCore,
       modelMountDaemonCore,
@@ -25341,7 +25459,7 @@ function runReceipts() {
       /Rust model_mount core sends positive capability-token-control request/.test(
         modelMountCoreTest,
       ) &&
-      /Rust model_mount core rejects command-shaped catalog\/provider\/vault\/receipt fallbacks/.test(
+      /Rust model_mount core rejects command-shaped catalog\/provider\/vault\/receipt\/conversation fallbacks/.test(
         modelMountCoreTest,
       ) &&
       /result\.record\.public_response\.token,\s*undefined/.test(modelMountCoreTest) &&
@@ -27483,7 +27601,8 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-stream-cancel-rust-owned-public-api",
-    /recordModelStreamCanceled/.test(conversationOps) &&
+    modelMountConversationStreamTypedApiOwned &&
+      /recordModelStreamCanceled/.test(conversationOps) &&
       /MODEL_MOUNT_STREAM_CANCEL_SCHEMA_VERSION/.test(conversationOps) &&
       /planModelMountStreamCancel/.test(conversationOps) &&
       /modelStreamCancelRequestForMountedState/.test(conversationOps) &&
@@ -27492,7 +27611,6 @@ function runReceipts() {
       /agentgres_model_stream_cancel_truth_required/.test(conversationOps) &&
       /model_stream_cancel/.test(conversationOps) &&
       /model_invocation_stream_canceled/.test(conversationOps) &&
-      /plan_model_mount_stream_cancel_response/.test(modelMountCore) &&
       /ModelMountCore\.plan_model_mount_stream_cancel/.test(modelMountCore) &&
       /model_mount_accepted_receipt_transition/.test(modelMountCore) &&
       /model_mount_step_module_result/.test(modelMountCore) &&

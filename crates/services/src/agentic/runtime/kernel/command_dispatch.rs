@@ -121,18 +121,6 @@ pub fn dispatch_command_operation_response(
             plan_model_mount_backend_lifecycle_response(decode(raw_request)?)
                 .map_err(|error| model_mount_error("model_mount_backend_lifecycle_invalid", error))
         }
-        CommandOperation::PlanModelMountConversationState => {
-            plan_model_mount_conversation_state_response(decode(raw_request)?)
-                .map_err(|error| model_mount_error("model_mount_conversation_state_invalid", error))
-        }
-        CommandOperation::PlanModelMountStreamCompletion => {
-            plan_model_mount_stream_completion_response(decode(raw_request)?)
-                .map_err(|error| model_mount_error("model_mount_stream_completion_invalid", error))
-        }
-        CommandOperation::PlanModelMountStreamCancel => {
-            plan_model_mount_stream_cancel_response(decode(raw_request)?)
-                .map_err(|error| model_mount_error("model_mount_stream_cancel_invalid", error))
-        }
         CommandOperation::PlanCodingToolResultEnvelope => {
             plan_coding_tool_result_envelope_response(decode(raw_request)?).map_err(|error| {
                 CommandDispatchError::new(

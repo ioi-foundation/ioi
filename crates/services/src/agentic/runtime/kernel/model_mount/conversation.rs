@@ -78,13 +78,6 @@ pub struct ModelMountConversationStatePlan {
     pub conversation_hash: String,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct ModelMountConversationStateBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: ModelMountConversationStateRequest,
-}
-
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ModelMountStreamCompletionRequest {
     pub schema_version: String,
@@ -155,13 +148,6 @@ pub struct ModelMountStreamCompletionPlan {
     pub evidence_refs: Vec<String>,
     pub stream_completion_hash: String,
     pub conversation_hash: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct ModelMountStreamCompletionBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: ModelMountStreamCompletionRequest,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -236,13 +222,6 @@ pub struct ModelMountStreamCancelPlan {
     pub evidence_refs: Vec<String>,
     pub stream_cancel_hash: String,
     pub conversation_hash: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct ModelMountStreamCancelBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: ModelMountStreamCancelRequest,
 }
 
 impl ModelMountConversationStateRequest {
@@ -333,10 +312,10 @@ impl ModelMountStreamCancelRequest {
     }
 }
 
-pub fn plan_model_mount_conversation_state_response(
-    request: ModelMountConversationStateBridgeRequest,
+pub fn plan_model_mount_conversation_state(
+    request: &ModelMountConversationStateRequest,
 ) -> Result<Value, ModelMountError> {
-    let plan = plan_conversation_state(&request.request)?;
+    let plan = plan_conversation_state(request)?;
     let record_dir = plan.record_dir.clone();
     let record_id = plan.record_id.clone();
     let record = plan.record.clone();
@@ -347,8 +326,7 @@ pub fn plan_model_mount_conversation_state_response(
     let operation_kind = plan.operation_kind.clone();
     let rust_core_boundary = plan.rust_core_boundary.clone();
     Ok(json!({
-        "source": "rust_model_mount_conversation_state_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_model_mount_conversation_state".to_string()),
+        "source": "rust_daemon_core.model_mount.conversation_state",
         "plan": plan,
         "record_dir": record_dir,
         "record_id": record_id,
@@ -362,10 +340,10 @@ pub fn plan_model_mount_conversation_state_response(
     }))
 }
 
-pub fn plan_model_mount_stream_completion_response(
-    request: ModelMountStreamCompletionBridgeRequest,
+pub fn plan_model_mount_stream_completion(
+    request: &ModelMountStreamCompletionRequest,
 ) -> Result<Value, ModelMountError> {
-    let plan = plan_stream_completion(&request.request)?;
+    let plan = plan_stream_completion(request)?;
     let record_dir = plan.record_dir.clone();
     let record_id = plan.record_id.clone();
     let record = plan.record.clone();
@@ -378,8 +356,7 @@ pub fn plan_model_mount_stream_completion_response(
     let operation_kind = plan.operation_kind.clone();
     let rust_core_boundary = plan.rust_core_boundary.clone();
     Ok(json!({
-        "source": "rust_model_mount_stream_completion_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_model_mount_stream_completion".to_string()),
+        "source": "rust_daemon_core.model_mount.stream_completion",
         "plan": plan,
         "record_dir": record_dir,
         "record_id": record_id,
@@ -395,10 +372,10 @@ pub fn plan_model_mount_stream_completion_response(
     }))
 }
 
-pub fn plan_model_mount_stream_cancel_response(
-    request: ModelMountStreamCancelBridgeRequest,
+pub fn plan_model_mount_stream_cancel(
+    request: &ModelMountStreamCancelRequest,
 ) -> Result<Value, ModelMountError> {
-    let plan = plan_stream_cancel(&request.request)?;
+    let plan = plan_stream_cancel(request)?;
     let record_dir = plan.record_dir.clone();
     let record_id = plan.record_id.clone();
     let record = plan.record.clone();
@@ -411,8 +388,7 @@ pub fn plan_model_mount_stream_cancel_response(
     let operation_kind = plan.operation_kind.clone();
     let rust_core_boundary = plan.rust_core_boundary.clone();
     Ok(json!({
-        "source": "rust_model_mount_stream_cancel_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_model_mount_stream_cancel".to_string()),
+        "source": "rust_daemon_core.model_mount.stream_cancel",
         "plan": plan,
         "record_dir": record_dir,
         "record_id": record_id,
@@ -436,7 +412,7 @@ pub(super) fn plan_conversation_state(
     let evidence_refs = conversation_evidence_refs();
     let source = source_for(
         request.source.as_ref(),
-        "rust_model_mount_conversation_state_command",
+        "rust_daemon_core.model_mount.conversation_state",
     );
     let input_hash = text_hash(request.input_text.as_deref())?;
     let output_hash = text_hash(request.output_text.as_deref())?;
@@ -533,7 +509,7 @@ pub(super) fn plan_stream_completion(
     let evidence_refs = stream_completion_evidence_refs();
     let source = source_for(
         request.source.as_ref(),
-        "rust_model_mount_stream_completion_command",
+        "rust_daemon_core.model_mount.stream_completion",
     );
     let input_hash = text_hash(request.input_text.as_deref())?;
     let output_hash = text_hash(request.output_text.as_deref())?;
@@ -679,7 +655,7 @@ pub(super) fn plan_stream_cancel(
     let evidence_refs = stream_cancel_evidence_refs();
     let source = source_for(
         request.source.as_ref(),
-        "rust_model_mount_stream_cancel_command",
+        "rust_daemon_core.model_mount.stream_cancel",
     );
     let input_hash = text_hash(request.input_text.as_deref())?;
     let output_hash = text_hash(request.output_text.as_deref())?;
@@ -1442,6 +1418,27 @@ mod tests {
     }
 
     #[test]
+    fn rust_core_plans_model_conversation_state_direct_api() {
+        let response = plan_model_mount_conversation_state(&conversation_request())
+            .expect("conversation state planned");
+
+        assert_eq!(
+            response["source"],
+            "rust_daemon_core.model_mount.conversation_state"
+        );
+        assert!(response.get("backend").is_none());
+        assert_eq!(response["record_dir"], "model-conversations");
+        assert_eq!(response["record_id"], "resp.current");
+        assert_eq!(response["rust_core_boundary"], "model_mount.conversation");
+        assert_eq!(response["operation"], "model_conversation_state_write");
+        assert_eq!(
+            response["operation_kind"],
+            "model_mount.conversation.state_write"
+        );
+        assert_eq!(response["record"]["selected_model"], "llama-test");
+    }
+
+    #[test]
     fn rust_core_plans_stream_completion_receipt_and_conversation_record() {
         let plan = plan_stream_completion(&stream_request()).expect("stream completion plan");
 
@@ -1472,6 +1469,34 @@ mod tests {
         assert!(plan
             .evidence_refs
             .contains(&"model_mount_stream_completion_rust_owned".to_string()));
+    }
+
+    #[test]
+    fn rust_core_plans_stream_completion_direct_api() {
+        let response = plan_model_mount_stream_completion(&stream_request())
+            .expect("stream completion planned");
+
+        assert_eq!(
+            response["source"],
+            "rust_daemon_core.model_mount.stream_completion"
+        );
+        assert!(response.get("backend").is_none());
+        assert_eq!(response["record_dir"], "model-conversations");
+        assert_eq!(response["record_id"], "resp.stream");
+        assert_eq!(
+            response["receipt"]["kind"],
+            "model_invocation_stream_completed"
+        );
+        assert_eq!(response["rust_core_boundary"], "model_mount.conversation");
+        assert_eq!(response["operation"], "model_stream_completion");
+        assert_eq!(
+            response["operation_kind"],
+            "model_mount.conversation.stream_completion"
+        );
+        assert_eq!(
+            response["receipt"]["details"]["rust_daemon_core_receipt_author"],
+            "ModelMountCore.plan_model_mount_stream_completion"
+        );
     }
 
     #[test]
@@ -1510,5 +1535,34 @@ mod tests {
         assert!(plan
             .evidence_refs
             .contains(&"agentgres_model_stream_cancel_truth_required".to_string()));
+    }
+
+    #[test]
+    fn rust_core_plans_stream_cancel_direct_api() {
+        let response = plan_model_mount_stream_cancel(&stream_cancel_request())
+            .expect("stream cancel planned");
+
+        assert_eq!(
+            response["source"],
+            "rust_daemon_core.model_mount.stream_cancel"
+        );
+        assert!(response.get("backend").is_none());
+        assert_eq!(response["record_dir"], "model-conversations");
+        assert_eq!(response["record_id"], "resp.stream");
+        assert_eq!(response["record"]["status"], "canceled");
+        assert_eq!(
+            response["receipt"]["kind"],
+            "model_invocation_stream_canceled"
+        );
+        assert_eq!(response["rust_core_boundary"], "model_mount.conversation");
+        assert_eq!(response["operation"], "model_stream_cancel");
+        assert_eq!(
+            response["operation_kind"],
+            "model_mount.conversation.stream_cancel"
+        );
+        assert_eq!(
+            response["receipt"]["details"]["rust_daemon_core_receipt_author"],
+            "ModelMountCore.plan_model_mount_stream_cancel"
+        );
     }
 }

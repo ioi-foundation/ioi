@@ -360,8 +360,11 @@ Slice 750 retired the explicit runtime model-route selection JS facade before
 model-route binding from a JS receipt, or fallback receipt minting. Persisted
 agent route readback without a model override remains projection-only until
 direct Rust projection APIs replace it.
-Slice 751 now routes OpenAI-compatible stream cancellation through Rust
-`plan_model_mount_stream_cancel`; Rust authors the
+Slice 751 first routed OpenAI-compatible stream cancellation through Rust
+`plan_model_mount_stream_cancel`; Slice 1221 later moved stream cancellation to
+typed `daemonCoreModelMountApi.planModelMountStreamCancel`, backed by
+`RuntimeKernelService::plan_model_mount_stream_cancel`, and retired the old
+command operation/dispatch/wrapper/backend path. Rust still authors the
 `model_invocation_stream_canceled` receipt, accepted-receipt transition,
 StepModule binding, Agentgres admission, and canceled conversation projection
 before the JS protocol adapter can return or persist stream-cancel truth.
@@ -2188,8 +2191,8 @@ records, filters the public list to Rust-authored conversation records with
 conversation hashes, conversation/stream evidence, and Agentgres
 conversation-truth evidence, and returns projection truth without public-list
 JS record candidates. This does not claim terminal conversation migration:
-command-transport retirement, deeper wallet/cTEE authority, hosted stream
-parity, and stable protocol APIs remain required.
+deeper wallet/cTEE authority, hosted stream parity, and stable protocol APIs
+remain required.
 
 Slice 881 retired the fail-closed `provider-operations.mjs` helper module after
 provider upsert, health, inventory, and start/stop control had already been
@@ -8044,9 +8047,8 @@ backend lifecycle likewise moved to positive
 `plan_model_mount_backend_lifecycle` and retired its required-record command. The
 bridge proof suite now runs 35 tests.
 
-This remains non-terminal because backend-process planning, invocation route selection, and adjacent
-model_mount conversation/stream helpers still cross temporary command transport. Public
-route-control planning no longer does. The target is direct Rust daemon-core
+This remains non-terminal because backend-process planning and backend-lifecycle helpers still cross temporary command transport. Public
+route-control and model_mount conversation/stream planning no longer do. The target is direct Rust daemon-core
 model-mount protocol/API ownership where backend supervision, tokenizer/context-fit control, Agentgres truth, replay, and stable
 IDE/CLI/SDK surfaces no longer depend on Node bridge endpoint proof scaffolding.
 
@@ -8625,10 +8627,10 @@ tests are deleted, the daemon store/service pass only `modelMountCore`, and the
 old command/env factory path is gone. Route decision, invocation admission,
 provider execution, provider invocation/stream execution, lifecycle/inventory,
 instance lifecycle, provider-result admission, artifact-endpoint planning,
-storage control, route-control planning, MCP workflow planning, server-control planning, runtime-engine planning, runtime-survey planning, catalog-provider control planning, provider control planning, capability-token control planning, vault control planning, receipt-gate planning, accepted-receipt head/transition planning, and invocation receipt-binding now call typed
+storage control, route-control planning, conversation/stream planning, MCP workflow planning, server-control planning, runtime-engine planning, runtime-survey planning, catalog-provider control planning, provider control planning, capability-token control planning, vault control planning, receipt-gate planning, accepted-receipt head/transition planning, and invocation receipt-binding now call typed
 `daemonCoreModelMountApi` methods instead of command envelopes. Rust rejects the
 retired command operations, dispatch arms, and bridge request/response wrappers
-for that family. Backend process/lifecycle, conversation/stream, and projection
+for that family. Backend process/lifecycle and projection
 helpers still enter Rust through remaining migration transport. Read-projection now calls
 `daemonCoreModelMountApi.planModelMountReadProjection`, backed by
 `RuntimeKernelService::plan_model_mount_read_projection`; the old
@@ -8823,6 +8825,23 @@ command-envelope `operation` or `backend` fields; Rust
 daemon-core sources instead of synthesizing tokenizer or required-control
 command/backend truth, and conformance now guards the old bridge request/response
 wrappers, dispatch arms, source/backend markers, command-envelope builders, and
+direct-invoker fallback from returning.
+
+Slice 1221 retires the model_mount conversation/stream command transport.
+`ModelMountCore` now calls typed
+`daemonCoreModelMountApi.planModelMountConversationState`,
+`planModelMountStreamCompletion`, and `planModelMountStreamCancel` without
+command-envelope `operation` or `backend` fields; Rust
+`RuntimeKernelService` exposes
+`plan_model_mount_conversation_state`,
+`plan_model_mount_stream_completion`, and `plan_model_mount_stream_cancel`;
+and `command_protocol.rs` rejects the retired
+`plan_model_mount_conversation_state`,
+`plan_model_mount_stream_completion`, and
+`plan_model_mount_stream_cancel` operations. The JS normalizers preserve Rust
+daemon-core sources instead of synthesizing conversation/stream command/backend
+truth, and conformance guards the old bridge request/response wrappers,
+dispatch arms, source/backend markers, command-envelope builders, and
 direct-invoker fallback from returning.
 
 Coding-tool approval satisfaction projection is now Rust-owned. The daemon
@@ -9325,12 +9344,16 @@ hosted catalog transport, and stable protocol APIs remain required; the
 catalog-provider-control command transport is retired.
 Public model conversation-state writes and native stream-completion
 finalization now move through Rust daemon-core model_mount planners.
-`recordConversationState()` calls `plan_model_mount_conversation_state` and
-commits only the Rust-authored `model-conversations` record through Rust
-Agentgres record-state admission before updating the local continuation cache.
-`recordModelStreamCompleted()` calls `plan_model_mount_stream_completion`,
-commits only the Rust-authored conversation record, and persists only the
-Rust-authored `model_invocation_stream_completed` receipt carrying
+`recordConversationState()` calls typed
+`daemonCoreModelMountApi.planModelMountConversationState`, backed by
+`RuntimeKernelService::plan_model_mount_conversation_state`, and commits only
+the Rust-authored `model-conversations` record through Rust Agentgres
+record-state admission before updating the local continuation cache.
+`recordModelStreamCompleted()` calls typed
+`daemonCoreModelMountApi.planModelMountStreamCompletion`, backed by
+`RuntimeKernelService::plan_model_mount_stream_completion`, commits only the
+Rust-authored conversation record, and persists only the Rust-authored
+`model_invocation_stream_completed` receipt carrying
 receipt_binder, accepted-receipt append, StepModule result, Agentgres
 operation/state-root/resulting-head bindings, and conversation/stream hashes.
 JS conversation record synthesis, JS stream-completion receipt synthesis, JS
@@ -9343,9 +9366,12 @@ persisted `model-conversations/*.json` Agentgres records and emits only
 Rust-authored model conversation records carrying conversation hashes, Rust
 conversation/stream evidence, and Agentgres conversation-truth evidence. The
 old fail-closed JS list facade and public-list `conversation_states` request
-input are deleted. This remains non-terminal because hosted stream parity,
-command-transport retirement, deeper wallet/cTEE conversation authority, and
-stable IDE/CLI/SDK APIs still need direct Rust ownership.
+input are deleted. Slice 1221 later retired conversation/stream command
+transport by moving conversation-state, stream-completion, and stream-cancel
+planning to typed `daemonCoreModelMountApi` methods backed by
+`RuntimeKernelService`. This remains non-terminal because hosted stream parity,
+deeper wallet/cTEE conversation authority, and stable IDE/CLI/SDK APIs still
+need direct Rust ownership.
 
 Model-mount route-decision admission now uses the typed Rust daemon-core
 `daemonCoreModelMountApi.admitModelMountRouteDecision` surface instead of the
@@ -9359,12 +9385,12 @@ cut only; later model_mount typed API cuts also retired command transport for
 invocation admission, provider-execution admission, provider invocation/stream
 execution, provider lifecycle/inventory, instance lifecycle, provider-result
 admission, artifact-endpoint planning, storage control, route-control planning,
-MCP workflow planning, server-control planning, and read-projection planning.
-Remaining model_mount backend-process/lifecycle,
-conversation/stream, and projection
-migration transports still need direct Rust daemon-core protocol/API ownership;
+MCP workflow planning, server-control planning, read-projection planning, and
+conversation/stream planning.
+Remaining model_mount backend-process/lifecycle and projection migration
+transports still need direct Rust daemon-core protocol/API ownership;
 the read-projection, accepted-receipt, invocation receipt-binding,
-tokenizer/required-control,
+tokenizer/required-control, conversation/stream,
 catalog-provider/provider/capability-token/vault/receipt-gate command transports
 are retired.
 

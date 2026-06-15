@@ -4,7 +4,6 @@ import path from "node:path";
 
 import {
   createModelMountCore,
-  RUST_MODEL_MOUNT_CONVERSATION_STATE_BACKEND,
   RUST_MODEL_MOUNT_FIXTURE_INVENTORY_BACKEND,
   RUST_MODEL_MOUNT_FIXTURE_LIFECYCLE_BACKEND,
   RUST_MODEL_MOUNT_HOSTED_PROVIDER_INVENTORY_BACKEND,
@@ -12,7 +11,6 @@ import {
   RUST_MODEL_MOUNT_INSTANCE_LIFECYCLE_BACKEND,
   RUST_MODEL_MOUNT_NATIVE_LOCAL_INVENTORY_BACKEND,
   RUST_MODEL_MOUNT_NATIVE_LOCAL_LIFECYCLE_BACKEND,
-  RUST_MODEL_MOUNT_STREAM_COMPLETION_BACKEND,
 } from "./model-mounting/model-mount-core.mjs";
 import { AgentgresModelMountingStore } from "./model-mounting/store.mjs";
 import { modelMountingRelationSchemas } from "./model-mounting/schema-relations.mjs";

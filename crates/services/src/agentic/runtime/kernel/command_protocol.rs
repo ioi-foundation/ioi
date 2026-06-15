@@ -8,9 +8,6 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "run_coding_tool_step_module",
     "plan_model_mount_backend_process",
     "plan_model_mount_backend_lifecycle",
-    "plan_model_mount_conversation_state",
-    "plan_model_mount_stream_completion",
-    "plan_model_mount_stream_cancel",
     "plan_coding_tool_result_envelope",
     "plan_runtime_coding_tool_artifact_drafts",
     "project_runtime_coding_tool_artifact_read",
@@ -49,9 +46,6 @@ pub enum CommandOperation {
     RunCodingToolStepModule,
     PlanModelMountBackendProcess,
     PlanModelMountBackendLifecycle,
-    PlanModelMountConversationState,
-    PlanModelMountStreamCompletion,
-    PlanModelMountStreamCancel,
     PlanCodingToolResultEnvelope,
     PlanRuntimeCodingToolArtifactDrafts,
     ProjectRuntimeCodingToolArtifactRead,
@@ -91,9 +85,6 @@ impl CommandOperation {
             Self::RunCodingToolStepModule => "run_coding_tool_step_module",
             Self::PlanModelMountBackendProcess => "plan_model_mount_backend_process",
             Self::PlanModelMountBackendLifecycle => "plan_model_mount_backend_lifecycle",
-            Self::PlanModelMountConversationState => "plan_model_mount_conversation_state",
-            Self::PlanModelMountStreamCompletion => "plan_model_mount_stream_completion",
-            Self::PlanModelMountStreamCancel => "plan_model_mount_stream_cancel",
             Self::PlanCodingToolResultEnvelope => "plan_coding_tool_result_envelope",
             Self::PlanRuntimeCodingToolArtifactDrafts => "plan_runtime_coding_tool_artifact_drafts",
             Self::ProjectRuntimeCodingToolArtifactRead => {
@@ -210,13 +201,6 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
         "plan_model_mount_backend_lifecycle" => {
             Some(CommandOperation::PlanModelMountBackendLifecycle)
         }
-        "plan_model_mount_conversation_state" => {
-            Some(CommandOperation::PlanModelMountConversationState)
-        }
-        "plan_model_mount_stream_completion" => {
-            Some(CommandOperation::PlanModelMountStreamCompletion)
-        }
-        "plan_model_mount_stream_cancel" => Some(CommandOperation::PlanModelMountStreamCancel),
         "plan_coding_tool_result_envelope" => Some(CommandOperation::PlanCodingToolResultEnvelope),
         "plan_runtime_coding_tool_artifact_drafts" => {
             Some(CommandOperation::PlanRuntimeCodingToolArtifactDrafts)
@@ -370,8 +354,6 @@ mod tests {
             "project_runtime_diagnostics_repair_projection",
             "project_runtime_conversation_artifact_projection",
             "project_runtime_subagent_projection",
-            "plan_model_mount_conversation_state",
-            "plan_model_mount_stream_completion",
         ] {
             assert_eq!(
                 expected_command_schema_version(operation),
@@ -486,6 +468,24 @@ mod tests {
             "plan_model_mount_tokenizer_required",
             "plan_model_mount_route_control_required",
             "plan_model_mount_tokenizer",
+        ] {
+            assert_eq!(command_operation(operation), None);
+            assert_eq!(expected_command_schema_version(operation), None);
+            assert_eq!(
+                validate_command_envelope(operation, DAEMON_CORE_COMMAND_SCHEMA_VERSION)
+                    .unwrap_err()
+                    .code(),
+                "operation_unknown"
+            );
+        }
+    }
+
+    #[test]
+    fn model_mount_conversation_stream_command_transport_is_retired() {
+        for operation in [
+            "plan_model_mount_conversation_state",
+            "plan_model_mount_stream_completion",
+            "plan_model_mount_stream_cancel",
         ] {
             assert_eq!(command_operation(operation), None);
             assert_eq!(expected_command_schema_version(operation), None);

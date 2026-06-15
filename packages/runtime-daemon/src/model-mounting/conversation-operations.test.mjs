@@ -157,8 +157,7 @@ function fakeState() {
         updated_at: request.generated_at,
       };
       return {
-        source: "rust_model_mount_conversation_state_command",
-        backend: "rust_model_mount_conversation_state",
+        source: "rust_daemon_core.model_mount.conversation_state",
         record_dir: "model-conversations",
         record_id: record.id,
         record,
@@ -252,8 +251,7 @@ function fakeState() {
         },
       };
       return {
-        source: "rust_model_mount_stream_completion_command",
-        backend: "rust_model_mount_stream_completion",
+        source: "rust_daemon_core.model_mount.stream_completion",
         record_dir: "model-conversations",
         record_id: record.id,
         record,
