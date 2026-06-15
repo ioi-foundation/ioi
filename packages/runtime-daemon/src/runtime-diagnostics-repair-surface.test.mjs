@@ -69,7 +69,7 @@ function harness() {
   };
 }
 
-function diagnosticsRepairControlRunner({ operationKind = "diagnostics.repair_decision.execute" } = {}) {
+function diagnosticsRepairControlCore({ operationKind = "diagnostics.repair_decision.execute" } = {}) {
   const requests = [];
   const retryRunRequests = [];
   const retryResultRequests = [];
@@ -185,7 +185,7 @@ function diagnosticsRepairControlRunner({ operationKind = "diagnostics.repair_de
   };
 }
 
-function diagnosticsRepairProjectionRunner() {
+function diagnosticsRepairProjectionCore() {
   const requests = [];
   return {
     requests,
@@ -222,7 +222,7 @@ function diagnosticsRepairProjectionRunner() {
   };
 }
 
-function diagnosticsOperatorOverrideStateUpdateRunner() {
+function diagnosticsOperatorOverrideStateUpdateCore() {
   const requests = [];
   return {
     requests,
@@ -319,15 +319,17 @@ function diagnosticsOperatorOverrideStateUpdateRunner() {
 
 test("diagnostics repair decision execution uses Rust planning and runtime event admission", () => {
   const appended = [];
-  const runner = diagnosticsRepairControlRunner();
+  const runner = diagnosticsRepairControlCore();
   const store = {
-    contextPolicyCore: runner,
     appendRuntimeEvent(event) {
       appended.push(event);
       return { admitted: true, event };
     },
   };
-  const surface = createRuntimeDiagnosticsRepairSurface({ runtimeError });
+  const surface = createRuntimeDiagnosticsRepairSurface({
+    contextPolicyCore: runner,
+    runtimeError,
+  });
 
   const result = surface.executeDiagnosticsRepairDecision(store, "thread_alpha", null, {
     decision_id: "decision_alpha",
@@ -453,10 +455,9 @@ test("diagnostics repair decision execution rejects retired request aliases", ()
 });
 
 test("diagnostics operator override uses Rust state update and run-state admission", () => {
-  const runner = diagnosticsOperatorOverrideStateUpdateRunner();
+  const runner = diagnosticsOperatorOverrideStateUpdateCore();
   const calls = [];
   const store = {
-    contextPolicyCore: runner,
     getRun(runId) {
       calls.push({ name: "getRun", runId });
       return {
@@ -477,7 +478,10 @@ test("diagnostics operator override uses Rust state update and run-state admissi
       };
     },
   };
-  const surface = createRuntimeDiagnosticsRepairSurface({ runtimeError });
+  const surface = createRuntimeDiagnosticsRepairSurface({
+    contextPolicyCore: runner,
+    runtimeError,
+  });
 
   const result = surface.executeDiagnosticsOperatorOverride(store, "thread_alpha", {
     request: {
@@ -606,12 +610,11 @@ test("diagnostics operator override fails closed before run lookup without Rust 
 
 test("diagnostics repair retry uses Rust retry-run planning, run creation, event admission, and result projection", () => {
   const appended = [];
-  const runner = diagnosticsRepairControlRunner({
+  const runner = diagnosticsRepairControlCore({
     operationKind: "diagnostics.repair_retry.created",
   });
   const runCreates = [];
   const store = {
-    contextPolicyCore: runner,
     agentForThread(threadId) {
       assert.equal(threadId, "thread_alpha");
       return { id: "agent_alpha" };
@@ -622,6 +625,7 @@ test("diagnostics repair retry uses Rust retry-run planning, run creation, event
     },
   };
   const surface = createRuntimeDiagnosticsRepairSurface({
+    contextPolicyCore: runner,
     createLifecycleRun(state, agentId, request) {
       assert.equal(state, store);
       runCreates.push({ agentId, request });
@@ -812,15 +816,17 @@ test("diagnostics repair retry fails closed before JS lookup without Rust retry-
 
 test("diagnostics repair retry fails closed before JS lookup without Rust retry-result projection", () => {
   const { calls, store } = harness();
-  store.contextPolicyCore = {
-    planRuntimeDiagnosticsRepairRetryRun() {
-      throw new Error("retry run planning should not run without result projection");
+  const surface = createRuntimeDiagnosticsRepairSurface({
+    contextPolicyCore: {
+      planRuntimeDiagnosticsRepairRetryRun() {
+        throw new Error("retry run planning should not run without result projection");
+      },
+      planRuntimeDiagnosticsRepairControl() {
+        throw new Error("control planning should not run without result projection");
+      },
     },
-    planRuntimeDiagnosticsRepairControl() {
-      throw new Error("control planning should not run without result projection");
-    },
-  };
-  const surface = createRuntimeDiagnosticsRepairSurface({ runtimeError });
+    runtimeError,
+  });
 
   assert.throws(
     () =>
@@ -851,7 +857,7 @@ test("diagnostics repair retry fails closed before JS lookup without Rust retry-
 });
 
 test("diagnostics repair retry rejects partial Rust retry-result projection without JS result synthesis", () => {
-  const runner = diagnosticsRepairControlRunner({
+  const runner = diagnosticsRepairControlCore({
     operationKind: "diagnostics.repair_retry.created",
   });
   runner.projectRuntimeDiagnosticsRepairRetryResult = (request) => {
@@ -873,9 +879,9 @@ test("diagnostics repair retry rejects partial Rust retry-result projection with
     appendRuntimeEvent(event) {
       return { ...event, admitted: true };
     },
-    contextPolicyCore: runner,
   };
   const surface = createRuntimeDiagnosticsRepairSurface({
+    contextPolicyCore: runner,
     createLifecycleRun() {
       return { id: "run_retry", turn_id: "turn_retry" };
     },
@@ -918,17 +924,19 @@ test("diagnostics repair retry rejects partial Rust retry-result projection with
 
 test("diagnostics repair decision executed event uses Rust planning and runtime event admission", () => {
   const appended = [];
-  const runner = diagnosticsRepairControlRunner({
+  const runner = diagnosticsRepairControlCore({
     operationKind: "diagnostics.repair_decision.executed",
   });
   const store = {
-    contextPolicyCore: runner,
     appendRuntimeEvent(event) {
       appended.push(event);
       return { admitted: true, event };
     },
   };
-  const surface = createRuntimeDiagnosticsRepairSurface({ runtimeError });
+  const surface = createRuntimeDiagnosticsRepairSurface({
+    contextPolicyCore: runner,
+    runtimeError,
+  });
 
   const result = surface.appendDiagnosticsRepairDecisionExecutedEvent(store, {
     threadId: "thread_alpha",
@@ -972,17 +980,19 @@ test("diagnostics repair decision executed event uses Rust planning and runtime 
 
 test("diagnostics repair retry event append uses Rust planning and runtime event admission", () => {
   const appended = [];
-  const runner = diagnosticsRepairControlRunner({
+  const runner = diagnosticsRepairControlCore({
     operationKind: "diagnostics.repair_retry.created",
   });
   const store = {
-    contextPolicyCore: runner,
     appendRuntimeEvent(event) {
       appended.push(event);
       return { admitted: true, event };
     },
   };
-  const surface = createRuntimeDiagnosticsRepairSurface({ runtimeError });
+  const surface = createRuntimeDiagnosticsRepairSurface({
+    contextPolicyCore: runner,
+    runtimeError,
+  });
 
   const result = surface.appendDiagnosticsRepairRetryTurnEvent(store, {
     threadId: "thread_alpha",
@@ -1003,17 +1013,19 @@ test("diagnostics repair retry event append uses Rust planning and runtime event
 
 test("diagnostics operator override event append uses Rust planning and runtime event admission", () => {
   const appended = [];
-  const runner = diagnosticsRepairControlRunner({
+  const runner = diagnosticsRepairControlCore({
     operationKind: "diagnostics.operator_override.event",
   });
   const store = {
-    contextPolicyCore: runner,
     appendRuntimeEvent(event) {
       appended.push(event);
       return { admitted: true, event };
     },
   };
-  const surface = createRuntimeDiagnosticsRepairSurface({ runtimeError });
+  const surface = createRuntimeDiagnosticsRepairSurface({
+    contextPolicyCore: runner,
+    runtimeError,
+  });
 
   const result = surface.appendDiagnosticsOperatorOverrideEvent(store, {
     threadId: "thread_alpha",
@@ -1101,10 +1113,12 @@ test("diagnostics operator override event append fails closed before JS runtime 
 });
 
 test("diagnostics repair decision resolver uses Rust state replay projection without JS candidate transport", () => {
-  const runner = diagnosticsRepairProjectionRunner();
+  const runner = diagnosticsRepairProjectionCore();
   const { calls, store } = harness();
-  store.contextPolicyCore = runner;
-  const surface = createRuntimeDiagnosticsRepairSurface({ runtimeError });
+  const surface = createRuntimeDiagnosticsRepairSurface({
+    contextPolicyCore: runner,
+    runtimeError,
+  });
 
   const result = surface.resolveDiagnosticsRepairDecision(store, "thread_alpha", "decision_alpha", {
     gate_id: "gate_alpha",
@@ -1142,10 +1156,12 @@ test("diagnostics repair decision resolver uses Rust state replay projection wit
 });
 
 test("diagnostics repair decision resolver rejects retired JS candidate transport", () => {
-  const runner = diagnosticsRepairProjectionRunner();
+  const runner = diagnosticsRepairProjectionCore();
   const { calls, store } = harness();
-  store.contextPolicyCore = runner;
-  const surface = createRuntimeDiagnosticsRepairSurface({ runtimeError });
+  const surface = createRuntimeDiagnosticsRepairSurface({
+    contextPolicyCore: runner,
+    runtimeError,
+  });
 
   assert.throws(
     () =>

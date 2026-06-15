@@ -10502,6 +10502,25 @@ StepModuleRouter delegation/execution authority, wallet/cTEE policy depth,
 receipt/state-root binding, and stable SDK/IDE subagent protocol APIs, not
 alternate subagent runners.
 
+Slice 1308 hard-cuts diagnostics repair surface runner wrappers.
+`createRuntimeDiagnosticsRepairSurface()` no longer routes diagnostics repair
+decision control, retry-run planning, retry-result projection, decision
+projection, or operator-override state update through
+`diagnosticsRepairControlRunner`, `diagnosticsRepairRetryRunRunner`,
+`diagnosticsRepairRetryResultProjectionRunner`, `diagnosticsRepairProjectionRunner`,
+`diagnosticsOperatorOverrideStateUpdateRunner`, or
+`store.contextPolicyCore ?? null`; decision execution, direct
+decision/retry/operator event append, retry turn creation, retry-result
+projection, decision projection, and operator override execution resolve
+through the single positive `contextPolicyCore` mount injected by daemon
+startup. Diagnostics retry lifecycle composition also passes that same core into
+the direct Rust run-create path, so retry creation cannot recover by reading a
+store-level fallback. Conformance now guards that the retired wrappers and
+fallback cannot return. Remaining work is wallet-governed repair policy depth,
+durable diagnostics repair projection/replay, receipt/state-root binding, cTEE
+custody where repair work touches private workspace state, and stable SDK/IDE
+diagnostics APIs, not alternate diagnostics repair runners.
+
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,
 `/v1/memory/policy`, `/v1/memory/path`, or `/v1/memory/validate`; the daemon

@@ -12253,8 +12253,11 @@ function runBridge() {
       /diagnostics\.operator_override\.execute/.test(
         runtimeDiagnosticsRepairSurface,
       ) &&
-      /diagnosticsOperatorOverrideStateUpdateRunner/.test(
+      /requireDiagnosticsOperatorOverrideStateUpdateCore/.test(
         runtimeDiagnosticsRepairSurface,
+      ) &&
+      !/diagnosticsRepair(?:Control|RetryRun|RetryResultProjection|Projection|OperatorOverrideStateUpdate)Runner|store\?\.contextPolicyCore\s*\?\?\s*null/.test(
+        runtimeDiagnosticsRepairSurface + runtimeDiagnosticsRepairSurfaceTest,
       ) &&
       /planDiagnosticsOperatorOverrideStateUpdate/.test(
         runtimeDiagnosticsRepairSurface,
@@ -38775,7 +38778,7 @@ function runCompositor() {
     /rust_core_boundary:\s*"runtime\.diagnostics_repair"/.test(
       runtimeDiagnosticsRepairSurface,
     ) &&
-    /diagnosticsRepairControlRunner/.test(runtimeDiagnosticsRepairSurface) &&
+    /requireDiagnosticsRepairControlCore/.test(runtimeDiagnosticsRepairSurface) &&
     /planDiagnosticsRepairControlEvent/.test(runtimeDiagnosticsRepairSurface) &&
     /appendPlannedDiagnosticsRepairControlEvent/.test(runtimeDiagnosticsRepairSurface) &&
     /planRuntimeDiagnosticsRepairControl/.test(runtimeDiagnosticsRepairSurface) &&
@@ -38955,6 +38958,12 @@ function runCompositor() {
     !/diagnosticsRepairRunner/.test(
       runtimeDaemonIndex + runtimeDiagnosticsRepairSurface + runtimeDiagnosticsRepairSurfaceTest,
     ) &&
+    !/diagnosticsRepair(?:Control|RetryRun|RetryResultProjection|Projection|OperatorOverrideStateUpdate)Runner|store\?\.contextPolicyCore\s*\?\?\s*null/.test(
+      runtimeDiagnosticsRepairSurface + runtimeDiagnosticsRepairSurfaceTest,
+    ) &&
+    /this\.diagnosticsRepairSurface\s*=\s*createRuntimeDiagnosticsRepairSurface\(\{[\s\S]*?contextPolicyCore:\s*this\.contextPolicyCore/.test(
+      runtimeDaemonIndex,
+    ) &&
     /eventStreamIdForThread/.test(runtimeDaemonIndex) &&
     /diagnostics repair decision execution uses Rust planning and runtime event admission/.test(
       runtimeDiagnosticsRepairSurfaceTest,
@@ -38974,7 +38983,7 @@ function runCompositor() {
     /runtime_diagnostics_repair_retry_run_request_rust_owned/.test(
       runtimeDiagnosticsRepairSurface,
     ) &&
-    /diagnosticsRepairRetryRunRunner/.test(runtimeDiagnosticsRepairSurface) &&
+    /requireDiagnosticsRepairRetryRunCore/.test(runtimeDiagnosticsRepairSurface) &&
     /plannedRetryRun\?\.run_request/.test(runtimeDiagnosticsRepairSurface) &&
     !/normalizedRequest\.prompt \?\? normalizedRequest\.repair_prompt/.test(
       runtimeDiagnosticsRepairSurface,
@@ -39014,7 +39023,7 @@ function runCompositor() {
     /runtime_diagnostics_repair_decision_projection_rust_owned/.test(
       runtimeDiagnosticsRepairSurface,
     ) &&
-    /diagnosticsRepairProjectionRunner/.test(runtimeDiagnosticsRepairSurface) &&
+    /requireDiagnosticsRepairProjectionCore/.test(runtimeDiagnosticsRepairSurface) &&
     /projectRuntimeDiagnosticsRepairProjection/.test(runtimeDiagnosticsRepairSurface) &&
     /runtime_diagnostics_repair_decision_projection_invalid/.test(
       runtimeDiagnosticsRepairSurface,
@@ -39197,7 +39206,7 @@ function runCompositor() {
       /agentgres_run_create_state_truth_required/.test(runtimeDiagnosticsRepairSurface) &&
       /createLifecycleRunDep/.test(runtimeDiagnosticsRepairSurface) &&
       /createLifecycleRunDep\(store,\s*agentId,/.test(runtimeDiagnosticsRepairSurface) &&
-      /lifecycleAdmissionRunner:\s*store\?\.contextPolicyCore\s*\?\?\s*null/.test(
+      /lifecycleAdmissionRunner:\s*contextPolicyCore/.test(
         runtimeDiagnosticsRepairSurface,
       ) &&
       /approvalModeForThreadMode/.test(runtimeDiagnosticsRepairSurface) &&
@@ -39260,6 +39269,12 @@ function runCompositor() {
       ) &&
       !/diagnosticsRepairRunner/.test(
         runtimeDaemonIndex + runtimeDiagnosticsRepairSurface + runtimeDiagnosticsRepairSurfaceTest,
+      ) &&
+      !/diagnosticsRepair(?:Control|RetryRun|RetryResultProjection|Projection|OperatorOverrideStateUpdate)Runner|store\?\.contextPolicyCore\s*\?\?\s*null/.test(
+        runtimeDiagnosticsRepairSurface + runtimeDiagnosticsRepairSurfaceTest,
+      ) &&
+      /this\.diagnosticsRepairSurface\s*=\s*createRuntimeDiagnosticsRepairSurface\(\{[\s\S]*?contextPolicyCore:\s*this\.contextPolicyCore/.test(
+        runtimeDaemonIndex,
       ) &&
       !/diagnosticsRepairRetryResultFromEvent/.test(runtimeDaemonIndex) &&
       !/diagnosticsOperatorOverrideResultFromEvent/.test(runtimeDaemonIndex) &&

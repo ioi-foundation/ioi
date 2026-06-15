@@ -74,6 +74,7 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
   const {
     approvalModeForThreadMode = null,
     buildRun = null,
+    contextPolicyCore = null,
     createLifecycleRun: createLifecycleRunDep = createLifecycleRun,
     ensureProviderAvailable = null,
     eventStreamIdForThread: eventStreamIdForThreadDep = eventStreamIdForThread,
@@ -117,13 +118,12 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
     });
   }
 
-  function diagnosticsRepairControlRunner(store, request = {}) {
-    const runner = store?.contextPolicyCore ?? null;
+  function requireDiagnosticsRepairControlCore(store, request = {}) {
     if (
-      runner?.planRuntimeDiagnosticsRepairControl &&
+      contextPolicyCore?.planRuntimeDiagnosticsRepairControl &&
       typeof store?.appendRuntimeEvent === "function"
     ) {
-      return runner;
+      return contextPolicyCore;
     }
     throwDiagnosticsRepairControlRustCoreRequired({
       operation: request.operation,
@@ -149,13 +149,12 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
     });
   }
 
-  function diagnosticsRepairRetryRunRunner(store, details = {}) {
-    const runner = store?.contextPolicyCore ?? null;
+  function requireDiagnosticsRepairRetryRunCore(details = {}) {
     if (
-      runner?.planRuntimeDiagnosticsRepairRetryRun &&
-      runner?.planRuntimeDiagnosticsRepairControl
+      contextPolicyCore?.planRuntimeDiagnosticsRepairRetryRun &&
+      contextPolicyCore?.planRuntimeDiagnosticsRepairControl
     ) {
-      return runner;
+      return contextPolicyCore;
     }
     throwDiagnosticsRepairRetryRunRustCoreRequired(details);
   }
@@ -176,18 +175,16 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
     });
   }
 
-  function diagnosticsRepairRetryResultProjectionRunner(store, details = {}) {
-    const runner = store?.contextPolicyCore ?? null;
-    if (runner?.projectRuntimeDiagnosticsRepairRetryResult) {
-      return runner;
+  function requireDiagnosticsRepairRetryResultProjectionCore(details = {}) {
+    if (contextPolicyCore?.projectRuntimeDiagnosticsRepairRetryResult) {
+      return contextPolicyCore;
     }
     throwDiagnosticsRepairRetryResultRustCoreRequired(details);
   }
 
-  function diagnosticsRepairProjectionRunner(store, details = {}) {
-    const runner = store?.contextPolicyCore ?? null;
-    if (runner?.projectRuntimeDiagnosticsRepairProjection) {
-      return runner;
+  function requireDiagnosticsRepairProjectionCore(details = {}) {
+    if (contextPolicyCore?.projectRuntimeDiagnosticsRepairProjection) {
+      return contextPolicyCore;
     }
     throwDiagnosticsRepairRustCoreRequired(
       "diagnostics_repair_decision_projection",
@@ -334,14 +331,13 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
     });
   }
 
-  function diagnosticsOperatorOverrideStateUpdateRunner(store, details = {}) {
-    const runner = store?.contextPolicyCore ?? null;
+  function requireDiagnosticsOperatorOverrideStateUpdateCore(store, details = {}) {
     if (
-      runner?.planDiagnosticsOperatorOverrideStateUpdate &&
+      contextPolicyCore?.planDiagnosticsOperatorOverrideStateUpdate &&
       typeof store?.getRun === "function" &&
       typeof store?.writeRun === "function"
     ) {
-      return runner;
+      return contextPolicyCore;
     }
     throwDiagnosticsRepairRustCoreRequired(
       "diagnostics_operator_override_execution",
@@ -363,13 +359,13 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
       optionalString(decision_id) ??
       optionalString(normalizedRequest.decision_id) ??
       null;
-    const runner = diagnosticsRepairControlRunner(store, {
+    const core = requireDiagnosticsRepairControlCore(store, {
       operation,
       operation_kind: operationKind,
       thread_id: threadId,
       decision_id: normalizedDecisionId,
     });
-    return runner.planRuntimeDiagnosticsRepairControl({
+    return core.planRuntimeDiagnosticsRepairControl({
       operation,
       operation_kind: operationKind,
       thread_id: threadId,
@@ -448,7 +444,7 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
       gate_event_id: gateEventId,
       snapshot_id: normalizedSnapshotId,
     };
-    const runner = diagnosticsOperatorOverrideStateUpdateRunner(store, details);
+    const core = requireDiagnosticsOperatorOverrideStateUpdateCore(store, details);
     const runId = optionalString(
       normalizedRequest.run_id ??
         normalizedRequest.target_run_id ??
@@ -486,7 +482,7 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
         details: { ...details, run_id: runId },
       });
     }
-    const planned = runner.planDiagnosticsOperatorOverrideStateUpdate({
+    const planned = core.planDiagnosticsOperatorOverrideStateUpdate({
       thread_id: threadId,
       run_id: runId,
       run,
@@ -593,8 +589,8 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
       gate_event_id: gateEventId,
       snapshot_id: normalizedSnapshotId,
     };
-    const retryRunRunner = diagnosticsRepairRetryRunRunner(store, details);
-    const retryResultProjector = diagnosticsRepairRetryResultProjectionRunner(store, details);
+    const retryRunCore = requireDiagnosticsRepairRetryRunCore(details);
+    const retryResultProjector = requireDiagnosticsRepairRetryResultProjectionCore(details);
     if (
       typeof createLifecycleRunDep !== "function" ||
       typeof store?.agentForThread !== "function"
@@ -621,7 +617,7 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
           gateEvent?.payload?.target_run_id ??
           decision?.target_run_id,
       ) ?? null;
-    const plannedRetryRun = retryRunRunner.planRuntimeDiagnosticsRepairRetryRun({
+    const plannedRetryRun = retryRunCore.planRuntimeDiagnosticsRepairRetryRun({
       operation: "diagnostics_repair_retry_run_create",
       operation_kind: "diagnostics.repair_retry.run_create",
       thread_id: threadId,
@@ -677,7 +673,7 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
       approvalModeForThreadMode,
       buildRun,
       ensureProviderAvailable,
-      lifecycleAdmissionRunner: store?.contextPolicyCore ?? null,
+      lifecycleAdmissionRunner: contextPolicyCore,
       runtimeError,
       threadModeForRunMode,
     });
@@ -858,7 +854,7 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
       gate_id: gateId,
     };
     rejectDiagnosticsRepairProjectionCandidateTransport(request, details);
-    const runner = diagnosticsRepairProjectionRunner(store, details);
+    const core = requireDiagnosticsRepairProjectionCore(details);
     const projectionRequest = {
       operation: "runtime_diagnostics_repair_projection",
       operation_kind: "runtime.diagnostics_repair_projection.decision",
@@ -871,7 +867,7 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
     };
     let projected;
     try {
-      projected = runner.projectRuntimeDiagnosticsRepairProjection(projectionRequest);
+      projected = core.projectRuntimeDiagnosticsRepairProjection(projectionRequest);
     } catch (error) {
       throw mapDiagnosticsRepairProjectionError(error, projectionRequest);
     }
