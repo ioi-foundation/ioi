@@ -84,6 +84,8 @@ import {
   LIFECYCLE_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
   MCP_CONTROL_AGENT_STATE_UPDATE_API_METHOD,
   MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  MCP_LIVE_BACKEND_EXECUTION_API_METHOD,
+  MCP_LIVE_BACKEND_EXECUTION_REQUEST_SCHEMA_VERSION,
   MCP_LIVE_RESULT_REPLAY_API_METHOD,
   MCP_LIVE_RESULT_REPLAY_REQUEST_SCHEMA_VERSION,
   MCP_MANAGER_CATALOG_PROJECTION_API_METHOD,
@@ -161,6 +163,7 @@ import {
   normalizeContextCompactionStateUpdateBridgeResult,
   normalizeDiagnosticsOperatorOverrideStateUpdateApiResult,
   normalizeMcpControlAgentStateUpdateApiResult,
+  normalizeMcpLiveBackendExecutionApiResult,
   normalizeMcpManagerCatalogProjectionApiResult,
   normalizeMcpManagerCatalogSummaryProjectionApiResult,
   normalizeMcpManagerStatusProjectionApiResult,
@@ -3987,6 +3990,88 @@ test("MCP live-result replay sends typed Rust daemon-core MCP state replay reque
   assert.equal(result.source, "rust_mcp_live_result_replay_api");
   assert.equal(result.latest_result.id, "result_runtime_mcp_live_exit");
   assert.equal(result.replay_hash, "sha256:replay");
+});
+
+test("MCP live backend execution sends typed Rust daemon-core MCP backend request", () => {
+  let captured = null;
+  const { calls, runner } = createMcpDirectCore(
+    MCP_LIVE_BACKEND_EXECUTION_API_METHOD,
+    (request) => {
+      captured = request;
+      return {
+        source: "rust_mcp_live_backend_execution_api",
+        backend: "rust_policy",
+        schema_version: "ioi.runtime.mcp-live-backend-execution.v1",
+        object: "ioi.runtime_mcp_live_backend_execution",
+        status: "rust_driver_executed",
+        control_kind: "mcp_invoke",
+        event_id: "event_mcp_invoke",
+        thread_id: "thread_1",
+        agent_id: "agent_1",
+        server_id: "mcp.docs",
+        tool_ref: "mcp.docs.search",
+        backend_execution: {
+          schema_version: "ioi.runtime.mcp-backend-execution.v1",
+          status: "rust_driver_executed",
+          owner: "ioi_drivers::mcp::McpManager",
+          transport_owner: "ioi_drivers::mcp::transport::McpTransport",
+          method: "tools/call",
+          js_backend_execution: false,
+          command_transport_fallback: false,
+          binary_bridge_fallback: false,
+          compatibility_fallback: false,
+        },
+        result: {
+          schema_version: "ioi.runtime.mcp-live-result.v1",
+          id: "result_runtime_mcp_live_exit",
+          kind: "runtime_mcp_live_result",
+          receipt_id: "receipt_runtime_mcp_live_exit",
+          details: {
+            runtime_mcp_live_backend_execution_status: "rust_driver_executed",
+            runtime_mcp_live_backend_execution_required: true,
+          },
+        },
+        evidence_refs: ["runtime_mcp_live_backend_rust_driver_executed"],
+      };
+    },
+  );
+
+  const result = runner.executeRuntimeMcpLiveBackend({
+    state_dir: "/runtime-state",
+    thread_id: "thread_1",
+    agent_id: "agent_1",
+    control_kind: "mcp_invoke",
+    event_id: "event_mcp_invoke",
+    server_id: "mcp.docs",
+    tool_id: "mcp.docs.search",
+    backend_execution: {
+      schema_version: "ioi.runtime.mcp-backend-execution.v1",
+      status: "rust_driver_contract_bound",
+    },
+    planned_result: {
+      id: "result_runtime_mcp_live_exit",
+    },
+  });
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, MCP_LIVE_BACKEND_EXECUTION_API_METHOD);
+  assert.equal(
+    captured.schema_version,
+    MCP_LIVE_BACKEND_EXECUTION_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(Object.hasOwn(captured, "operation"), false);
+  assert.equal(Object.hasOwn(captured, "backend"), false);
+  assert.equal(captured.state_dir, "/runtime-state");
+  assert.equal(captured.control_kind, "mcp_invoke");
+  assert.equal(captured.backend_execution.status, "rust_driver_contract_bound");
+  assert.equal(result.source, "rust_mcp_live_backend_execution_api");
+  assert.equal(result.status, "rust_driver_executed");
+  assert.equal(result.backend_execution.status, "rust_driver_executed");
+  assert.equal(result.result.id, "result_runtime_mcp_live_exit");
+  assert.equal(
+    result.result.details.runtime_mcp_live_backend_execution_status,
+    "rust_driver_executed",
+  );
 });
 
 test("MCP tool search projection sends typed Rust daemon-core MCP catalog search request", () => {

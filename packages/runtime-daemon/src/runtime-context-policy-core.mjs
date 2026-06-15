@@ -94,6 +94,8 @@ export const MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.mcp-control-agent-state-update-request.v1";
 export const MCP_LIVE_RESULT_REPLAY_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.mcp-live-result-replay-request.v1";
+export const MCP_LIVE_BACKEND_EXECUTION_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.mcp-live-backend-execution-request.v1";
 export const MCP_SERVER_VALIDATION_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.mcp-server-validation-request.v1";
 export const MCP_SERVER_VALIDATION_INPUT_REQUEST_SCHEMA_VERSION =
@@ -232,6 +234,7 @@ export const THREAD_LIFECYCLE_LIFECYCLE_ADMISSION_REQUIRED_API_METHOD =
 export const WORKSPACE_TRUST_CONTROL_STATE_UPDATE_API_METHOD = "planWorkspaceTrustControlStateUpdate";
 export const MCP_CONTROL_AGENT_STATE_UPDATE_API_METHOD = "planMcpControlAgentStateUpdate";
 export const MCP_LIVE_RESULT_REPLAY_API_METHOD = "projectMcpLiveResultReplay";
+export const MCP_LIVE_BACKEND_EXECUTION_API_METHOD = "executeRuntimeMcpLiveBackend";
 export const MCP_SERVER_VALIDATION_API_METHOD = "validateMcpServers";
 export const MCP_SERVER_VALIDATION_INPUT_API_METHOD = "projectMcpServerValidationInput";
 export const MCP_MANAGER_VALIDATION_PROJECTION_API_METHOD = "planMcpManagerValidationProjection";
@@ -735,6 +738,14 @@ export class RuntimeContextPolicyCore {
     return normalizeMcpLiveResultReplayApiResult(this.invokeMcpApi(
       MCP_LIVE_RESULT_REPLAY_API_METHOD,
       MCP_LIVE_RESULT_REPLAY_REQUEST_SCHEMA_VERSION,
+      request,
+    ));
+  }
+
+  executeRuntimeMcpLiveBackend(request = {}) {
+    return normalizeMcpLiveBackendExecutionApiResult(this.invokeMcpApi(
+      MCP_LIVE_BACKEND_EXECUTION_API_METHOD,
+      MCP_LIVE_BACKEND_EXECUTION_REQUEST_SCHEMA_VERSION,
       request,
     ));
   }
@@ -2695,6 +2706,43 @@ export function normalizeMcpLiveResultReplayApiResult(value = {}) {
     result_ids: stringArray(result.result_ids ?? record.result_ids),
     latest_result: latestResult,
     replay_hash: optionalString(result.replay_hash ?? record.replay_hash) ?? null,
+  };
+}
+
+export function normalizeMcpLiveBackendExecutionApiResult(value = {}) {
+  const result = objectRecord(value) ?? {};
+  const record = objectRecord(result.record) ?? result;
+  const liveResult =
+    objectRecord(result.result) ??
+    objectRecord(record.result) ??
+    objectRecord(result.live_result) ??
+    objectRecord(record.live_result);
+  if (!liveResult) {
+    throw new RuntimeContextPolicyCoreError(
+      "Rust MCP live backend execution did not return a live result record.",
+      "mcp_live_backend_execution_result_missing",
+      { status: optionalString(result.status ?? record.status) ?? null },
+    );
+  }
+  return {
+    ...record,
+    source: result.source ?? record.source ?? "rust_mcp_live_backend_execution_api",
+    backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
+    schema_version: optionalString(result.schema_version ?? record.schema_version) ?? null,
+    object: optionalString(result.object ?? record.object) ?? null,
+    status: optionalString(result.status ?? record.status) ?? null,
+    control_kind: optionalString(result.control_kind ?? record.control_kind) ?? null,
+    event_id: optionalString(result.event_id ?? record.event_id) ?? null,
+    thread_id: optionalString(result.thread_id ?? record.thread_id) ?? null,
+    agent_id: optionalString(result.agent_id ?? record.agent_id) ?? null,
+    server_id: optionalString(result.server_id ?? record.server_id) ?? null,
+    tool_ref: optionalString(result.tool_ref ?? record.tool_ref) ?? null,
+    backend_execution:
+      objectRecord(result.backend_execution) ??
+      objectRecord(record.backend_execution) ??
+      null,
+    result: liveResult,
+    evidence_refs: arrayValue(result.evidence_refs ?? record.evidence_refs),
   };
 }
 

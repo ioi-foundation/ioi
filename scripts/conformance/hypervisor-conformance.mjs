@@ -13230,7 +13230,9 @@ function runBridge() {
       ) &&
       /planMcpControlAgentStateUpdate/.test(runtimeContextPolicyCore) &&
       /projectMcpLiveResultReplay/.test(runtimeContextPolicyCore) &&
+      /executeRuntimeMcpLiveBackend/.test(runtimeContextPolicyCore) &&
       /normalizeMcpLiveResultReplayApiResult/.test(runtimeContextPolicyCore) &&
+      /normalizeMcpLiveBackendExecutionApiResult/.test(runtimeContextPolicyCore) &&
       /validateMcpServers/.test(runtimeContextPolicyCore) &&
       /planMcpManagerStatusProjection/.test(runtimeContextPolicyCore) &&
       /planMcpManagerCatalogProjection/.test(runtimeContextPolicyCore) &&
@@ -13291,6 +13293,9 @@ function runBridge() {
       /MCP_LIVE_RESULT_REPLAY_REQUEST_SCHEMA_VERSION/.test(
         runtimeContextPolicyCore,
       ) &&
+      /MCP_LIVE_BACKEND_EXECUTION_REQUEST_SCHEMA_VERSION/.test(
+        runtimeContextPolicyCore,
+      ) &&
       /MCP_SERVER_VALIDATION_REQUEST_SCHEMA_VERSION/.test(
         runtimeContextPolicyCore,
       ) &&
@@ -13319,6 +13324,9 @@ function runBridge() {
         runtimeContextPolicyCoreTest,
       ) &&
       /MCP live-result replay sends typed Rust daemon-core MCP state replay request/.test(
+        runtimeContextPolicyCoreTest,
+      ) &&
+      /MCP live backend execution sends typed Rust daemon-core MCP backend request/.test(
         runtimeContextPolicyCoreTest,
       ) &&
       /Object\.hasOwn\(captured,\s*"operation"\),\s*false/.test(
@@ -13521,10 +13529,14 @@ function runBridge() {
       /migration_transport_only:\s*false/.test(runtimeMcpControlSurface) &&
       /mcpControlStateUpdatePlanner/.test(runtimeMcpControlSurface) &&
       /mcpLiveResultReplayProjector/.test(runtimeMcpControlSurface) &&
+      /mcpLiveBackendExecutor/.test(runtimeMcpControlSurface) &&
       /contextPolicyCore\.planMcpControlAgentStateUpdate/.test(
         runtimeMcpControlSurface,
 	      ) &&
       /contextPolicyCore\.projectMcpLiveResultReplay/.test(
+        runtimeMcpControlSurface,
+      ) &&
+      /contextPolicyCore\.executeRuntimeMcpLiveBackend/.test(
         runtimeMcpControlSurface,
       ) &&
 	      /mcpControlRequestPayload/.test(runtimeMcpControlSurface) &&
@@ -13599,7 +13611,12 @@ function runBridge() {
       /runtime_mcp_transport_backend_pending_retired/.test(runtimeMcpControlSurface) &&
       /runtime_mcp_live_result_payload_rust_materialized/.test(runtimeMcpControlSurface) &&
       /runtime_mcp_backend_execution_status/.test(runtimeMcpControlSurface) &&
+      /runtime_mcp_live_backend_execution_status/.test(runtimeMcpControlSurface) &&
+      /runtime_mcp_live_backend_rust_driver_executed/.test(runtimeMcpControlSurface) &&
       /payload\.backend_execution/.test(runtimeMcpControlSurface) &&
+      /live_backend_execution:\s*backendExecutionState\?\.execution \?\? null/.test(
+        runtimeMcpControlSurface,
+      ) &&
       /result_materialized_true/.test(runtimeMcpControlSurface) &&
       /payload_hash_binding/.test(runtimeMcpControlSurface) &&
       !/result_materialized_false/.test(runtimeMcpControlSurface) &&
@@ -29668,8 +29685,10 @@ function runCompositor() {
 	    /migration_transport_only:\s*false/.test(runtimeMcpControlSurface) &&
 		    /mcpControlStateUpdatePlanner/.test(runtimeMcpControlSurface) &&
 		    /mcpLiveResultReplayProjector/.test(runtimeMcpControlSurface) &&
+		    /mcpLiveBackendExecutor/.test(runtimeMcpControlSurface) &&
 		    /contextPolicyCore\.planMcpControlAgentStateUpdate/.test(runtimeMcpControlSurface) &&
 		    /contextPolicyCore\.projectMcpLiveResultReplay/.test(runtimeMcpControlSurface) &&
+		    /contextPolicyCore\.executeRuntimeMcpLiveBackend/.test(runtimeMcpControlSurface) &&
 		    /mcpControlRequestPayload/.test(runtimeMcpControlSurface) &&
 	    /"authority_grant_refs"/.test(runtimeMcpControlSurface) &&
 	    /"authority_receipt_refs"/.test(runtimeMcpControlSurface) &&
@@ -29745,13 +29764,20 @@ function runCompositor() {
 	    /mcp_control_live_exit_result_required/.test(runtimeMcpControlSurface) &&
 	    /mcp_control_live_exit_result_state_commit_required/.test(runtimeMcpControlSurface) &&
 	    /mcp_control_live_exit_result_replay_required/.test(runtimeMcpControlSurface) &&
-	    /mcp_control_live_exit_result_replay_invalid/.test(runtimeMcpControlSurface) &&
-	    /mcp_control_live_exit_result_binding_invalid/.test(runtimeMcpControlSurface) &&
+      /mcp_control_live_exit_result_replay_invalid/.test(runtimeMcpControlSurface) &&
+      /mcp_control_live_backend_execution_required/.test(runtimeMcpControlSurface) &&
+      /mcp_control_live_backend_execution_invalid/.test(runtimeMcpControlSurface) &&
+      /mcp_control_live_exit_result_binding_invalid/.test(runtimeMcpControlSurface) &&
 	    /admitted_pending_rust_transport_retired/.test(runtimeMcpControlSurface) &&
 	    /runtime_mcp_transport_backend_pending_retired/.test(runtimeMcpControlSurface) &&
 	    /runtime_mcp_live_result_payload_rust_materialized/.test(runtimeMcpControlSurface) &&
 	    /runtime_mcp_backend_execution_status/.test(runtimeMcpControlSurface) &&
+	    /runtime_mcp_live_backend_execution_status/.test(runtimeMcpControlSurface) &&
+	    /runtime_mcp_live_backend_rust_driver_executed/.test(runtimeMcpControlSurface) &&
 	    /payload\.backend_execution/.test(runtimeMcpControlSurface) &&
+	    /live_backend_execution:\s*backendExecutionState\?\.execution \?\? null/.test(
+	      runtimeMcpControlSurface,
+	    ) &&
 	    /result_materialized_true/.test(runtimeMcpControlSurface) &&
 	    /payload_hash_binding/.test(runtimeMcpControlSurface) &&
 	    !/result_materialized_false/.test(runtimeMcpControlSurface) &&
@@ -29777,12 +29803,18 @@ function runCompositor() {
     /runtime MCP control planner absence fails closed before JS state mutation/.test(
       runtimeMcpControlSurfaceTest,
     ) &&
-    /runtime MCP live exits use Rust control admission before JS transport invocation/.test(
-      runtimeMcpControlSurfaceTest,
-    ) &&
-	    /runtime MCP live exits reject pending Rust transport result materialization/.test(
-	      runtimeMcpControlSurfaceTest,
-	    ) &&
+      /runtime MCP live exits use Rust control admission before JS transport invocation/.test(
+        runtimeMcpControlSurfaceTest,
+      ) &&
+	      /runtime MCP live exits require Rust live backend execution before result commit/.test(
+	        runtimeMcpControlSurfaceTest,
+	      ) &&
+	      /runtime MCP live exits reject pending Rust transport result materialization/.test(
+	        runtimeMcpControlSurfaceTest,
+	      ) &&
+	      /executeRuntimeMcpLiveBackend",\s*"commitRuntimeMcpLiveResultState"/.test(
+	        runtimeMcpControlSurfaceTest,
+	      ) &&
 	    /runtime MCP live exits reject missing Rust MCP backend driver contract/.test(
 	      runtimeMcpControlSurfaceTest,
 	    ) &&

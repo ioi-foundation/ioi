@@ -9782,6 +9782,22 @@ to wire actual live MCP server process I/O through the Rust `McpManager`
 backend under the recorded containment contract, then expose stable SDK/IDE/CLI
 protocol APIs over those replay records.
 
+Slice 1242 hard-cuts runtime MCP control live results out of the planner-direct
+terminal-result lane. `RuntimeContextPolicyCore` now exposes the positive
+`daemonCoreMcpApi.executeRuntimeMcpLiveBackend` request surface with
+`ioi.runtime.mcp-live-backend-execution-request.v1`, and the MCP control
+surface must call it after the Rust live-exit receipt commit and before
+`commitRuntimeMcpLiveResultState()`. The committed live result must carry
+`runtime_mcp_live_backend_rust_driver_executed` evidence plus
+`rust_driver_executed` backend-execution observation details; if the backend
+executor is absent or returns an unbound result, no result-state commit, replay,
+or `writeAgent()` can run. Conformance now guards the typed API, the
+receipt -> backend execution -> result commit -> replay -> agent commit order,
+and the missing-executor failure. This remains non-terminal because the new API
+boundary still needs to be wired to actual live MCP server process I/O through
+Rust `McpManager` under runtime containment, then exposed through stable
+SDK/IDE/CLI protocol APIs over Rust replay records.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

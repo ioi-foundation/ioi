@@ -170,6 +170,7 @@ function liveExitResult({
       "runtime_mcp_live_result_payload_rust_materialized",
       "runtime_mcp_no_js_transport_result",
       "runtime_mcp_backend_execution_rust_driver_bound",
+      "runtime_mcp_live_backend_rust_driver_executed",
       "receipt_state_root_binding_required",
     ],
     payload: {
@@ -216,6 +217,8 @@ function liveExitResult({
       runtime_mcp_backend_transport_owner: "ioi_drivers::mcp::transport::McpTransport",
       runtime_mcp_backend_method: backendExecution.method,
       runtime_mcp_backend_contract_required: true,
+      runtime_mcp_live_backend_execution_status: "rust_driver_executed",
+      runtime_mcp_live_backend_execution_required: true,
       payload_ref: null,
       payload_hash: payloadHash,
       result_payload_hash: payloadHash,
@@ -225,6 +228,41 @@ function liveExitResult({
       binary_bridge_fallback: false,
       compatibility_fallback: false,
     },
+  };
+}
+
+function liveBackendExecutionObservation(request) {
+  const result = cloneJson(request.planned_result);
+  const backendExecution = {
+    ...(request.backend_execution ?? {}),
+    status: "rust_driver_executed",
+  };
+  result.evidence_refs = Array.from(new Set([
+    ...(Array.isArray(result.evidence_refs) ? result.evidence_refs : []),
+    "runtime_mcp_live_backend_rust_driver_executed",
+  ]));
+  result.details = {
+    ...(result.details ?? {}),
+    runtime_mcp_live_backend_execution_status: "rust_driver_executed",
+    runtime_mcp_live_backend_execution_required: true,
+    runtime_mcp_live_backend_execution_source: "rust_mcp_live_backend_execution_api",
+    runtime_mcp_live_backend_result_observed: true,
+  };
+  return {
+    source: "rust_mcp_live_backend_execution_api",
+    backend: "rust_policy",
+    schema_version: "ioi.runtime.mcp-live-backend-execution.v1",
+    object: "ioi.runtime_mcp_live_backend_execution",
+    status: "rust_driver_executed",
+    control_kind: request.control_kind,
+    event_id: request.event_id,
+    thread_id: request.thread_id,
+    agent_id: request.agent_id,
+    server_id: request.server_id,
+    tool_ref: request.tool_ref,
+    backend_execution: backendExecution,
+    result,
+    evidence_refs: ["runtime_mcp_live_backend_rust_driver_executed"],
   };
 }
 
@@ -484,6 +522,12 @@ function harness(options = {}) {
       return typeof options.planRecordTransform === "function"
         ? options.planRecordTransform(record, request)
         : record;
+    },
+    executeRuntimeMcpLiveBackend(request) {
+      calls.push({ name: "executeRuntimeMcpLiveBackend", request: cloneJson(request) });
+      return typeof options.liveBackendTransform === "function"
+        ? options.liveBackendTransform(request)
+        : liveBackendExecutionObservation(request);
     },
     projectMcpLiveResultReplay(request) {
       calls.push({ name: "projectMcpLiveResultReplay", request: cloneJson(request) });
@@ -862,6 +906,8 @@ test("runtime MCP live exits use Rust control admission before JS transport invo
   assert.equal(invoked.result.details.rust_daemon_core_result_author, "runtime.mcp_control");
   assert.equal(invoked.result.details.backend_materialization_status, "rust_driver_contract_bound");
   assert.equal(invoked.result.details.runtime_mcp_backend_execution_status, "rust_driver_contract_bound");
+  assert.equal(invoked.result.details.runtime_mcp_live_backend_execution_status, "rust_driver_executed");
+  assert.equal(invoked.result.details.runtime_mcp_live_backend_execution_required, true);
   assert.equal(invoked.result.details.runtime_mcp_backend_owner, "ioi_drivers::mcp::McpManager");
   assert.equal(invoked.result.details.runtime_mcp_backend_transport_owner, "ioi_drivers::mcp::transport::McpTransport");
   assert.equal(invoked.result.details.runtime_mcp_backend_method, "tools/call");
@@ -875,6 +921,7 @@ test("runtime MCP live exits use Rust control admission before JS transport invo
   assert.equal(invoked.result.payload.backend_execution.transport_owner, "ioi_drivers::mcp::transport::McpTransport");
   assert.equal(invoked.result.payload.backend_execution.method, "tools/call");
   assert.equal(invoked.result.payload.backend_execution.js_backend_execution, false);
+  assert.ok(invoked.result.evidence_refs.includes("runtime_mcp_live_backend_rust_driver_executed"));
   assert.equal(
     invoked.result.payload.protocol_result.structuredContent.object,
     "ioi.runtime_mcp_live_result_payload",
@@ -888,6 +935,8 @@ test("runtime MCP live exits use Rust control admission before JS transport invo
   assert.equal(invoked.result.details.js_transport_invocation, false);
   assert.equal(invoked.result.details.command_transport_fallback, false);
   assert.equal(invoked.result_commit.commit_hash, `result.commit.${invoked.result.id}`);
+  assert.equal(invoked.live_backend_execution.status, "rust_driver_executed");
+  assert.equal(invoked.live_backend_execution.backend_execution.status, "rust_driver_executed");
   assert.equal(invoked.result_replay.source, "rust_mcp_live_result_replay_api");
   assert.equal(invoked.result_replay.latest_result.id, invoked.result.id);
   assert.equal(invoked.result_projection.replay_hash, `replay.${invoked.result.id}`);
@@ -898,6 +947,7 @@ test("runtime MCP live exits use Rust control admission before JS transport invo
   assert.equal(discovered.receipt.details.runtime_mcp_backend_method, "tools/list");
   assert.equal(discovered.result.details.runtime_mcp_backend_method, "tools/list");
   assert.equal(discovered.result.payload.backend_execution.method, "tools/list");
+  assert.equal(discovered.live_backend_execution.backend_execution.method, "tools/list");
   assert.equal(discovered.result_commit.commit_hash, `result.commit.${discovered.result.id}`);
   assert.equal(discovered.result_replay.latest_result.id, discovered.result.id);
   assert.equal(planCalls[0].request.request.tool_id, "mcp.docs.search");
@@ -923,6 +973,23 @@ test("runtime MCP live exits use Rust control admission before JS transport invo
     ["runtime.mcp_live_exit.result.write", "runtime.mcp_live_exit.result.write"],
   );
   const replayCalls = calls.filter((call) => call.name === "projectMcpLiveResultReplay");
+  const backendCalls = calls.filter((call) => call.name === "executeRuntimeMcpLiveBackend");
+  assert.deepEqual(backendCalls.map((call) => call.request.schema_version), [
+    "ioi.runtime.mcp-live-backend-execution-request.v1",
+    "ioi.runtime.mcp-live-backend-execution-request.v1",
+  ]);
+  assert.deepEqual(backendCalls.map((call) => call.request.control_kind), ["mcp_invoke", "mcp_live_discovery"]);
+  assert.deepEqual(backendCalls.map((call) => call.request.backend_execution.status), [
+    "rust_driver_contract_bound",
+    "rust_driver_contract_bound",
+  ]);
+  assert.deepEqual(backendCalls.map((call) => call.request.backend_execution.owner), [
+    "ioi_drivers::mcp::McpManager",
+    "ioi_drivers::mcp::McpManager",
+  ]);
+  assert.equal(backendCalls[0].request.planned_result.id, invoked.control.result_record_id);
+  assert.equal(backendCalls[0].request.receipt.id, invoked.receipt.id);
+  assert.equal(backendCalls[0].request.arguments.constructor, Object);
   assert.deepEqual(replayCalls.map((call) => call.request.state_dir), ["/runtime-state", "/runtime-state"]);
   assert.deepEqual(replayCalls.map((call) => call.request.result_id), [invoked.result.id, discovered.result.id]);
   assert.deepEqual(replayCalls.map((call) => call.request.receipt_id), [invoked.receipt.id, discovered.receipt.id]);
@@ -932,15 +999,23 @@ test("runtime MCP live exits use Rust control admission before JS transport invo
   assert.deepEqual(
     calls
       .filter((call) =>
-        ["commitRuntimeReceiptState", "commitRuntimeMcpLiveResultState", "projectMcpLiveResultReplay", "writeAgent"].includes(call.name)
+        [
+          "commitRuntimeReceiptState",
+          "executeRuntimeMcpLiveBackend",
+          "commitRuntimeMcpLiveResultState",
+          "projectMcpLiveResultReplay",
+          "writeAgent",
+        ].includes(call.name)
       )
       .map((call) => call.name),
     [
       "commitRuntimeReceiptState",
+      "executeRuntimeMcpLiveBackend",
       "commitRuntimeMcpLiveResultState",
       "projectMcpLiveResultReplay",
       "writeAgent",
       "commitRuntimeReceiptState",
+      "executeRuntimeMcpLiveBackend",
       "commitRuntimeMcpLiveResultState",
       "projectMcpLiveResultReplay",
       "writeAgent",
@@ -960,7 +1035,6 @@ test("runtime MCP live exits reject pending Rust transport result materializatio
       next.result.details.backend_materialization_status = "pending_rust_transport_backend";
       next.result.details.payload_hash = null;
       next.result.details.result_payload_hash = null;
-      delete next.result.payload;
       return next;
     },
   });
@@ -978,7 +1052,7 @@ test("runtime MCP live exits reject pending Rust transport result materializatio
         authority_receipt_refs: ["receipt://wallet.network/mcp/docs/search"],
         custody_ref: "ctee://workspace/public",
         containment_ref: "containment://mcp/docs",
-      }),
+    }),
     (error) => {
       assert.equal(error.code, "mcp_control_live_exit_result_binding_invalid");
       assert.ok(error.details.missing.includes("admitted_pending_rust_transport_retired"));
@@ -1044,6 +1118,51 @@ test("runtime MCP live exits reject missing Rust MCP backend driver contract", a
       assert.ok(error.details.missing.includes("runtime_mcp_backend_transport_owner"));
       assert.ok(error.details.missing.includes("runtime_mcp_backend_contract_required"));
       assert.ok(error.details.missing.includes("js_backend_execution_false"));
+      return true;
+    },
+  );
+  assert.deepEqual(
+    calls.filter((call) => call.name === "commitRuntimeMcpLiveResultState"),
+    [],
+  );
+});
+
+test("runtime MCP live exits require Rust live backend execution before result commit", async () => {
+  const { calls, store, surface } = harness({
+    contextPolicyCore: {
+      planMcpControlAgentStateUpdate(request) {
+        calls.push({ name: "planMcpControlAgentStateUpdate", request: cloneJson(request) });
+        return planMcpControlAgentStateUpdate(request, {
+          id: "agent-one",
+          cwd: "/workspace",
+          mcpRegistry: { servers: [server("mcp.docs")] },
+        });
+      },
+      projectMcpLiveResultReplay: failIfCalled("projectMcpLiveResultReplay"),
+    },
+    store: {
+      writeAgent: failIfCalled("writeAgent"),
+    },
+  });
+
+  await assert.rejects(
+    () =>
+      surface.invokeMcpTool(store, {
+        thread_id: "thread-agent-one",
+        server_id: "mcp.docs",
+        tool_id: "mcp.docs.search",
+        tool_name: "search",
+        live_transport: "stdio",
+        execution_mode: "live",
+        authority_grant_refs: ["wallet.network://grant/mcp/docs/search"],
+        authority_receipt_refs: ["receipt://wallet.network/mcp/docs/search"],
+        custody_ref: "ctee://workspace/public",
+        containment_ref: "containment://mcp/docs",
+      }),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "mcp_control_live_backend_execution_required");
+      assert.equal(error.details.required_policy_api, "executeRuntimeMcpLiveBackend");
       return true;
     },
   );
@@ -1230,6 +1349,9 @@ test("runtime MCP live exits fail closed without Rust result replay projection",
         cwd: "/workspace",
         mcpRegistry: { servers: [server("mcp.docs")] },
       });
+    },
+    executeRuntimeMcpLiveBackend(request) {
+      return liveBackendExecutionObservation(request);
     },
   };
   const { store, surface } = harness({
