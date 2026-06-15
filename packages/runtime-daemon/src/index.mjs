@@ -788,7 +788,7 @@ export class AgentgresRuntimeStateStore {
       optionalString,
     });
     this.toolSurface = createRuntimeToolSurface({
-      toolCatalogRunner: this.contextPolicyCore,
+      contextPolicyCore: this.contextPolicyCore,
       workspaceRoot: this.defaultCwd,
     });
     this.threadControlSurface = createRuntimeThreadControlSurface({

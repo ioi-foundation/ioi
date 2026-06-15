@@ -10426,6 +10426,17 @@ only under `store.contextPolicyCore`, and conformance guards that the retired
 alias name cannot return. Remaining work is durable recovery replay/projection
 depth and stable IDE/CLI/SDK recovery clients, not a JS runner fallback.
 
+Slice 1301 hard-cuts runtime tool catalog runner injection scaffolding.
+`createRuntimeToolSurface()` no longer accepts `toolCatalogRunner`; account,
+runtime-node, and tool catalog projections mount the positive
+`contextPolicyCore` API directly before Rust daemon-core catalog projection.
+Daemon construction no longer wires a parallel tool catalog runner handle,
+focused tests mount fake Rust projectors only through `contextPolicyCore`, and
+conformance guards that the retired alias name cannot return. Remaining work is
+direct Rust catalog storage/replay depth, wallet/network authority on external
+exposure, receipt/state-root binding, and stable protocol APIs, not a JS runner
+fallback.
+
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,
 `/v1/memory/policy`, `/v1/memory/path`, or `/v1/memory/validate`; the daemon

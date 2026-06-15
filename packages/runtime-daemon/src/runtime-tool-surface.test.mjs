@@ -5,7 +5,7 @@ import { createRuntimeToolSurface } from "./runtime-tool-surface.mjs";
 
 test("runtime tool surface returns Rust-owned account nodes and tools", () => {
   const calls = [];
-  const toolCatalogRunner = {
+  const contextPolicyCore = {
     projectRuntimeToolCatalog(request) {
       calls.push(request);
       if (request.projection_kind === "account") {
@@ -54,7 +54,7 @@ test("runtime tool surface returns Rust-owned account nodes and tools", () => {
       IOI_OPERATOR_EMAIL: "operator@example.test",
       IOI_AGENT_SDK_HOSTED_ENDPOINT: "https://hosted.example.test",
     },
-    toolCatalogRunner,
+    contextPolicyCore,
     workspaceRoot: "/workspace/project",
   });
 
@@ -94,7 +94,7 @@ test("runtime tool surface fails closed when Rust projection is missing", () => 
 
 test("runtime tool surface rejects Rust projection mismatches", () => {
   const surface = createRuntimeToolSurface({
-    toolCatalogRunner: {
+    contextPolicyCore: {
       projectRuntimeToolCatalog() {
         return {
           projection_kind: "account",

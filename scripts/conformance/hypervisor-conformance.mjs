@@ -27777,7 +27777,8 @@ function runReceipts() {
       /runtime tool surface fails closed when Rust projection is missing/.test(
         runtimeToolSurfaceTest,
       ) &&
-      /toolCatalogRunner: this\.contextPolicyCore/.test(runtimeDaemonIndex) &&
+      /contextPolicyCore: this\.contextPolicyCore/.test(runtimeDaemonIndex) &&
+      !/toolCatalogRunner/.test(runtimeDaemonIndex + runtimeToolSurface + runtimeToolSurfaceTest) &&
       /store\.toolSurface\.getAccount\(\)/.test(publicRuntimeRoutes) &&
       /store\.toolSurface\.listRuntimeNodes\(\)/.test(publicRuntimeRoutes) &&
       /store\.toolSurface\.listTools\(Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
