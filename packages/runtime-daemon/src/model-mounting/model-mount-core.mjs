@@ -8,9 +8,6 @@ export const RUST_MODEL_MOUNT_HOSTED_PROVIDER_LIFECYCLE_BACKEND = "rust_model_mo
 export const RUST_MODEL_MOUNT_BACKEND_PROCESS_BACKEND = "rust_model_mount_backend_process";
 export const RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_BACKEND = "rust_model_mount_backend_lifecycle";
 export const RUST_MODEL_MOUNT_STORAGE_CONTROL_BACKEND = "rust_model_mount_storage_control";
-export const RUST_MODEL_MOUNT_TOKENIZER_REQUIRED_BACKEND = "rust_model_mount_tokenizer_required";
-export const RUST_MODEL_MOUNT_ROUTE_CONTROL_REQUIRED_BACKEND = "rust_model_mount_route_control_required";
-export const RUST_MODEL_MOUNT_TOKENIZER_BACKEND = "rust_model_mount_tokenizer";
 export const RUST_MODEL_MOUNT_CONVERSATION_STATE_BACKEND = "rust_model_mount_conversation_state";
 export const RUST_MODEL_MOUNT_STREAM_COMPLETION_BACKEND = "rust_model_mount_stream_completion";
 export const RUST_MODEL_MOUNT_STREAM_CANCEL_BACKEND = "rust_model_mount_stream_cancel";
@@ -34,6 +31,9 @@ export const MODEL_MOUNT_SERVER_CONTROL_API_METHOD = "planModelMountServerContro
 export const MODEL_MOUNT_ROUTE_CONTROL_API_METHOD = "planModelMountRouteControl";
 export const MODEL_MOUNT_RUNTIME_ENGINE_API_METHOD = "planModelMountRuntimeEngine";
 export const MODEL_MOUNT_RUNTIME_SURVEY_API_METHOD = "planModelMountRuntimeSurvey";
+export const MODEL_MOUNT_TOKENIZER_REQUIRED_API_METHOD = "planModelMountTokenizerRequired";
+export const MODEL_MOUNT_ROUTE_CONTROL_REQUIRED_API_METHOD = "planModelMountRouteControlRequired";
+export const MODEL_MOUNT_TOKENIZER_API_METHOD = "planModelMountTokenizer";
 export const MODEL_MOUNT_READ_PROJECTION_API_METHOD = "planModelMountReadProjection";
 export const MODEL_MOUNT_ACCEPTED_RECEIPT_HEAD_API_METHOD = "planModelMountAcceptedReceiptHead";
 export const MODEL_MOUNT_ACCEPTED_RECEIPT_TRANSITION_API_METHOD = "planModelMountAcceptedReceiptTransition";
@@ -180,23 +180,15 @@ export class ModelMountCore {
   }
 
   planTokenizerRequired(request) {
-    const bridgeRequest = {
-      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
-      operation: "plan_model_mount_tokenizer_required",
-      backend: RUST_MODEL_MOUNT_TOKENIZER_REQUIRED_BACKEND,
-      request,
-    };
-    return normalizeTokenizerRequiredBridgeResult(this.invokeDaemonCore(bridgeRequest));
+    return normalizeTokenizerRequiredApiResult(
+      this.invokeModelMountApi(MODEL_MOUNT_TOKENIZER_REQUIRED_API_METHOD, request),
+    );
   }
 
   planTokenizer(request) {
-    const bridgeRequest = {
-      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
-      operation: "plan_model_mount_tokenizer",
-      backend: RUST_MODEL_MOUNT_TOKENIZER_BACKEND,
-      request,
-    };
-    return normalizeTokenizerBridgeResult(this.invokeDaemonCore(bridgeRequest));
+    return normalizeTokenizerApiResult(
+      this.invokeModelMountApi(MODEL_MOUNT_TOKENIZER_API_METHOD, request),
+    );
   }
 
   planConversationState(request) {
@@ -230,13 +222,9 @@ export class ModelMountCore {
   }
 
   planRouteControlRequired(request) {
-    const bridgeRequest = {
-      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
-      operation: "plan_model_mount_route_control_required",
-      backend: RUST_MODEL_MOUNT_ROUTE_CONTROL_REQUIRED_BACKEND,
-      request,
-    };
-    return normalizeRouteControlRequiredBridgeResult(this.invokeDaemonCore(bridgeRequest));
+    return normalizeRouteControlRequiredApiResult(
+      this.invokeModelMountApi(MODEL_MOUNT_ROUTE_CONTROL_REQUIRED_API_METHOD, request),
+    );
   }
 
   planRouteControl(request) {
@@ -1197,7 +1185,7 @@ function normalizeRuntimeSurveyApiResult(value = {}) {
   return normalized;
 }
 
-function normalizeTokenizerRequiredBridgeResult(value = {}) {
+function normalizeTokenizerRequiredApiResult(value = {}) {
   const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   const record = result.record && typeof result.record === "object" && !Array.isArray(result.record)
     ? result.record
@@ -1208,8 +1196,7 @@ function normalizeTokenizerRequiredBridgeResult(value = {}) {
       ? record.details
       : {};
   return {
-    source: result.source ?? "rust_model_mount_tokenizer_required_command",
-    backend: result.backend ?? RUST_MODEL_MOUNT_TOKENIZER_REQUIRED_BACKEND,
+    source: result.source ?? "rust_daemon_core.model_mount.tokenizer_required",
     record,
     status: result.status ?? record.status ?? "rust_core_required",
     status_code: result.status_code ?? record.status_code ?? 501,
@@ -1225,7 +1212,7 @@ function normalizeTokenizerRequiredBridgeResult(value = {}) {
   };
 }
 
-function normalizeRouteControlRequiredBridgeResult(value = {}) {
+function normalizeRouteControlRequiredApiResult(value = {}) {
   const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   const record = result.record && typeof result.record === "object" && !Array.isArray(result.record)
     ? result.record
@@ -1236,8 +1223,7 @@ function normalizeRouteControlRequiredBridgeResult(value = {}) {
       ? record.details
       : {};
   return {
-    source: result.source ?? "rust_model_mount_route_control_required_command",
-    backend: result.backend ?? RUST_MODEL_MOUNT_ROUTE_CONTROL_REQUIRED_BACKEND,
+    source: result.source ?? "rust_daemon_core.model_mount.route_control_required",
     record,
     status: result.status ?? record.status ?? "rust_core_required",
     status_code: result.status_code ?? record.status_code ?? 501,
@@ -1618,7 +1604,7 @@ function normalizeVaultControlApiResult(value = {}) {
   return normalized;
 }
 
-function normalizeTokenizerBridgeResult(value = {}) {
+function normalizeTokenizerApiResult(value = {}) {
   const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   const plan = result.plan && typeof result.plan === "object" && !Array.isArray(result.plan)
     ? result.plan
@@ -1629,8 +1615,7 @@ function normalizeTokenizerBridgeResult(value = {}) {
       ? plan.record
       : null;
   const normalized = {
-    source: result.source ?? "rust_model_mount_tokenizer_command",
-    backend: result.backend ?? RUST_MODEL_MOUNT_TOKENIZER_BACKEND,
+    source: result.source ?? "rust_daemon_core.model_mount.tokenizer",
     plan,
     record_dir: result.record_dir ?? plan.record_dir ?? null,
     record_id: result.record_id ?? plan.record_id ?? null,

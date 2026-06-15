@@ -232,6 +232,103 @@ function isModelMountReadProjectionTypedApiOwned({
   );
 }
 
+function isModelMountTokenizerRequiredControlTypedApiOwned({
+  coreCommandDispatch = "",
+  rustModelMountCore = "",
+  modelMountDaemonCore = "",
+  modelMountCoreTest = "",
+  commandProtocolCore = "",
+  kernelModule = "",
+  daemonCoreDirectInvokerServiceTest = "",
+}) {
+  const runtimeKernelModule =
+    kernelModule ||
+    (exists("crates/services/src/agentic/runtime/kernel/mod.rs")
+      ? read("crates/services/src/agentic/runtime/kernel/mod.rs")
+      : "");
+  const directInvokerServiceTest =
+    daemonCoreDirectInvokerServiceTest ||
+    (exists("packages/runtime-daemon/src/runtime-daemon-core-direct-invoker-service.test.mjs")
+      ? read("packages/runtime-daemon/src/runtime-daemon-core-direct-invoker-service.test.mjs")
+      : "");
+  const retiredBridgeSurface = [coreCommandDispatch, rustModelMountCore, modelMountDaemonCore].join("\n");
+  return (
+    !/plan_model_mount_tokenizer_required_response/.test(retiredBridgeSurface) &&
+    !/plan_model_mount_route_control_required_response/.test(retiredBridgeSurface) &&
+    !/plan_model_mount_tokenizer_response/.test(retiredBridgeSurface) &&
+    !/ModelMountTokenizerRequiredBridgeRequest/.test(rustModelMountCore) &&
+    !/ModelMountRouteControlRequiredBridgeRequest/.test(rustModelMountCore) &&
+    !/ModelMountTokenizerBridgeRequest/.test(rustModelMountCore) &&
+    !/rust_model_mount_tokenizer_required_command/.test(retiredBridgeSurface) &&
+    !/rust_model_mount_route_control_required_command/.test(retiredBridgeSurface) &&
+    !/rust_model_mount_tokenizer_command/.test(retiredBridgeSurface) &&
+    !/RUST_MODEL_MOUNT_TOKENIZER_REQUIRED_BACKEND/.test(modelMountDaemonCore) &&
+    !/RUST_MODEL_MOUNT_ROUTE_CONTROL_REQUIRED_BACKEND/.test(modelMountDaemonCore) &&
+    !/RUST_MODEL_MOUNT_TOKENIZER_BACKEND/.test(modelMountDaemonCore) &&
+    !/operation:\s*"plan_model_mount_tokenizer_required"/.test(modelMountDaemonCore) &&
+    !/operation:\s*"plan_model_mount_route_control_required"/.test(modelMountDaemonCore) &&
+    !/operation:\s*"plan_model_mount_tokenizer"/.test(modelMountDaemonCore) &&
+    !/backend:\s*"rust_model_mount_tokenizer_required"/.test(modelMountDaemonCore) &&
+    !/backend:\s*"rust_model_mount_route_control_required"/.test(modelMountDaemonCore) &&
+    !/backend:\s*"rust_model_mount_tokenizer"/.test(modelMountDaemonCore) &&
+    !/normalizeTokenizerRequiredBridgeResult/.test(modelMountDaemonCore) &&
+    !/normalizeRouteControlRequiredBridgeResult/.test(modelMountDaemonCore) &&
+    !/normalizeTokenizerBridgeResult/.test(modelMountDaemonCore) &&
+    /MODEL_MOUNT_TOKENIZER_REQUIRED_API_METHOD = "planModelMountTokenizerRequired"/.test(
+      modelMountDaemonCore,
+    ) &&
+    /MODEL_MOUNT_ROUTE_CONTROL_REQUIRED_API_METHOD = "planModelMountRouteControlRequired"/.test(
+      modelMountDaemonCore,
+    ) &&
+    /MODEL_MOUNT_TOKENIZER_API_METHOD = "planModelMountTokenizer"/.test(modelMountDaemonCore) &&
+    /invokeModelMountApi\(\s*MODEL_MOUNT_TOKENIZER_REQUIRED_API_METHOD,\s*request\s*\)/.test(
+      modelMountDaemonCore,
+    ) &&
+    /invokeModelMountApi\(\s*MODEL_MOUNT_ROUTE_CONTROL_REQUIRED_API_METHOD,\s*request\s*\)/.test(
+      modelMountDaemonCore,
+    ) &&
+    /invokeModelMountApi\(\s*MODEL_MOUNT_TOKENIZER_API_METHOD,\s*request\s*\)/.test(
+      modelMountDaemonCore,
+    ) &&
+    /normalizeTokenizerRequiredApiResult/.test(modelMountDaemonCore) &&
+    /normalizeRouteControlRequiredApiResult/.test(modelMountDaemonCore) &&
+    /normalizeTokenizerApiResult/.test(modelMountDaemonCore) &&
+    /rust_daemon_core\.model_mount\.tokenizer_required/.test(
+      modelMountDaemonCore + rustModelMountCore,
+    ) &&
+    /rust_daemon_core\.model_mount\.route_control_required/.test(
+      modelMountDaemonCore + rustModelMountCore,
+    ) &&
+    /rust_daemon_core\.model_mount\.tokenizer/.test(modelMountDaemonCore + rustModelMountCore) &&
+    /model_mount_tokenizer_required_control_command_transport_is_retired/.test(
+      commandProtocolCore,
+    ) &&
+    !/CommandOperation::PlanModelMountTokenizerRequired/.test(coreCommandDispatch + commandProtocolCore) &&
+    !/CommandOperation::PlanModelMountRouteControlRequired/.test(coreCommandDispatch + commandProtocolCore) &&
+    !/CommandOperation::PlanModelMountTokenizer\b/.test(coreCommandDispatch + commandProtocolCore) &&
+    /pub fn plan_model_mount_tokenizer_required/.test(rustModelMountCore) &&
+    /pub fn plan_model_mount_route_control_required/.test(rustModelMountCore) &&
+    /pub fn plan_model_mount_tokenizer/.test(rustModelMountCore) &&
+    /pub fn plan_model_mount_tokenizer_required\([\s\S]*?&self/.test(runtimeKernelModule) &&
+    /pub fn plan_model_mount_route_control_required\([\s\S]*?&self/.test(runtimeKernelModule) &&
+    /pub fn plan_model_mount_tokenizer\([\s\S]*?&self/.test(runtimeKernelModule) &&
+    /rust_core_plans_model_mount_tokenizer_required_direct_api/.test(rustModelMountCore) &&
+    /rust_core_plans_model_mount_route_control_required_direct_api/.test(rustModelMountCore) &&
+    /Rust model_mount core sends tokenizer required request through typed Rust daemon-core API/.test(
+      modelMountCoreTest,
+    ) &&
+    /Rust model_mount core sends route control required request through typed Rust daemon-core API/.test(
+      modelMountCoreTest,
+    ) &&
+    /Rust model_mount core sends positive tokenizer request through typed Rust daemon-core API/.test(
+      modelMountCoreTest,
+    ) &&
+    /planModelMountTokenizerRequired/.test(directInvokerServiceTest) &&
+    /planModelMountRouteControlRequired/.test(directInvokerServiceTest) &&
+    /planModelMountTokenizer/.test(directInvokerServiceTest)
+  );
+}
+
 function isModelMountReceiptBindingTypedApiOwned({
   coreCommandDispatch = "",
   modelMountReceiptCore = "",
@@ -1933,7 +2030,7 @@ function runDocs() {
       /public vault bind\/list\/metadata\/status\/health\/remove now call Rust daemon-core `plan_model_mount_vault_control`/.test(implementationMatrix) &&
       /committed records persist vault_ref_hash, material_hash, custody facts, and authority facts without plaintext material/.test(implementationMatrix) &&
       /JS vault-port metadata\/write helpers no longer author accepted vault truth/.test(implementationMatrix) &&
-      /public tokenize\/count\/context-fit utility facades now call Rust daemon-core `plan_model_mount_tokenizer`/.test(implementationMatrix) &&
+      /public tokenize\/count\/context-fit utility facades now call typed `daemonCoreModelMountApi\.planModelMountTokenizer`/.test(implementationMatrix) &&
       /commit only those records through Rust Agentgres `commit_runtime_model_mount_record_state`/.test(implementationMatrix) &&
       /the fail-closed `artifact-endpoint-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` artifact\/endpoint methods now own canonical import, endpoint mount, and endpoint unmount request alias rejection/.test(implementationMatrix) &&
@@ -4356,6 +4453,18 @@ function runBridge() {
     isModelMountInvocationLifecycleCommandTransportRetired(modelMountInvocationLifecycleSources);
   const modelMountInvocationLifecycleTypedApiOwned =
     isModelMountInvocationLifecycleTypedApiOwned(modelMountInvocationLifecycleSources);
+  const modelMountTokenizerRequiredControlTypedApiOwned =
+    isModelMountTokenizerRequiredControlTypedApiOwned({
+      coreCommandDispatch,
+      rustModelMountCore,
+      modelMountDaemonCore,
+      modelMountCoreTest,
+      commandProtocolCore,
+      kernelModule: exists("crates/services/src/agentic/runtime/kernel/mod.rs")
+        ? read("crates/services/src/agentic/runtime/kernel/mod.rs")
+        : "",
+      daemonCoreDirectInvokerServiceTest,
+    });
   const daemonCoreDirectInvokerRunners = [
     stepModuleRunner,
     runtimeContextPolicyCore,
@@ -8725,12 +8834,7 @@ function runBridge() {
       ) &&
       /model_mount_runtime_engine_command_transport_is_retired/.test(commandProtocolCore) &&
       !/plan_model_mount_runtime_engine_required_response/.test(coreCommandDispatch) &&
-      /plan_model_mount_tokenizer_required_response\(decode\(raw_request\)\?\)/.test(
-        coreCommandDispatch,
-      ) &&
-      /plan_model_mount_route_control_required_response\(decode\(raw_request\)\?\)/.test(
-        coreCommandDispatch,
-      ) &&
+      modelMountTokenizerRequiredControlTypedApiOwned &&
       /rust_core_shapes_model_mount_backend_process_command_response/.test(modelMountCore) &&
       /rust_core_shapes_model_mount_backend_lifecycle_command_response/.test(
         modelMountCore,
@@ -8756,10 +8860,6 @@ function runBridge() {
         modelMountCore,
       ) &&
       !/rust_core_shapes_model_mount_runtime_engine_required_command_response/.test(
-        modelMountCore,
-      ) &&
-      /rust_core_shapes_model_mount_tokenizer_required_command_response/.test(modelMountCore) &&
-      /rust_core_shapes_model_mount_route_control_required_command_response/.test(
         modelMountCore,
       ) &&
       !/pub\(super\) fn plan_model_mount_accepted_receipt_head/.test(
@@ -8968,10 +9068,7 @@ function runBridge() {
       !/pub fn plan_model_mount_runtime_engine_response/.test(modelMountCore) &&
       !/ModelMountRuntimeEngineRequiredBridgeRequest/.test(modelMountCore) &&
       !/plan_model_mount_runtime_engine_required_response/.test(modelMountCore) &&
-      /pub struct ModelMountTokenizerRequiredBridgeRequest/.test(modelMountCore) &&
-      /pub fn plan_model_mount_tokenizer_required_response/.test(modelMountCore) &&
-      /pub struct ModelMountRouteControlRequiredBridgeRequest/.test(modelMountCore) &&
-      /pub fn plan_model_mount_route_control_required_response/.test(modelMountCore) &&
+      modelMountTokenizerRequiredControlTypedApiOwned &&
       !/pub struct ModelMountRouteControlBridgeRequest/.test(modelMountCore) &&
       !/pub fn plan_model_mount_route_control_response/.test(modelMountCore) &&
       /rust_model_mount_backend_process_command/.test(modelMountCore) &&
@@ -8982,8 +9079,6 @@ function runBridge() {
       !/rust_model_mount_server_control_required_command/.test(modelMountCore) &&
       !/rust_model_mount_runtime_engine_command/.test(modelMountCore) &&
       !/rust_model_mount_runtime_engine_required_command/.test(modelMountCore) &&
-      /rust_model_mount_tokenizer_required_command/.test(modelMountCore) &&
-      /rust_model_mount_route_control_required_command/.test(modelMountCore) &&
       !modelMountCommandBridgeExists &&
       /rust_core_shapes_model_mount_backend_process_command_response/.test(modelMountCore) &&
       /rust_core_shapes_model_mount_backend_lifecycle_command_response/.test(
@@ -9007,10 +9102,6 @@ function runBridge() {
         modelMountCore,
       ) &&
       !/rust_core_shapes_model_mount_runtime_engine_required_command_response/.test(
-        modelMountCore,
-      ) &&
-      /rust_core_shapes_model_mount_tokenizer_required_command_response/.test(modelMountCore) &&
-      /rust_core_shapes_model_mount_route_control_required_command_response/.test(
         modelMountCore,
       ) &&
       /rust_core_plans_model_mount_route_control_direct_api/.test(
@@ -9037,12 +9128,6 @@ function runBridge() {
       ) &&
       /model_mount_runtime_engine_command_transport_is_retired/.test(commandProtocolCore) &&
       !/plan_model_mount_runtime_engine_required_response/.test(coreCommandDispatch) &&
-      /plan_model_mount_tokenizer_required_response\(decode\(raw_request\)\?\)/.test(
-        coreCommandDispatch,
-      ) &&
-      /plan_model_mount_route_control_required_response\(decode\(raw_request\)\?\)/.test(
-        coreCommandDispatch,
-      ) &&
       !/plan_model_mount_route_control_response\(decode\(raw_request\)\?\)/.test(
         coreCommandDispatch,
       ) &&
@@ -9114,7 +9199,7 @@ function runBridge() {
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "scripts/conformance/hypervisor-conformance.mjs",
     ],
-    "Phase 10/11 migration guard: model-mount backend-process, backend-lifecycle, and remaining required-control command request/response envelopes live in Rust model_mount core; the child Node delegate is retired while the broad bridge remains temporary transport only",
+    "Phase 10/11 migration guard: model-mount backend-process and backend-lifecycle command request/response envelopes remain temporary transport while tokenizer and required-control planning are positive Rust daemon-core APIs; the child Node delegate stays retired",
   );
   assertCheck(
     result,
@@ -15434,8 +15519,7 @@ function runBridge() {
       /routeControlRequired\(operation_kind,\s*details = \{\}\)/.test(modelMountingState) &&
       /this\.modelMountCore\.planRouteControlRequired/.test(modelMountingState) &&
       /planRouteControlRequired\(request\)/.test(modelMountCore) &&
-      /operation:\s*"plan_model_mount_route_control_required"/.test(modelMountCore) &&
-      /RUST_MODEL_MOUNT_ROUTE_CONTROL_REQUIRED_BACKEND/.test(modelMountCore) &&
+      modelMountTokenizerRequiredControlTypedApiOwned &&
       /mod required;/.test(modelMountCore) &&
       /mod route_control;/.test(modelMountCore) &&
       /pub use required::/.test(modelMountCore) &&
@@ -15451,9 +15535,9 @@ function runBridge() {
       !/fn route_control_required_is_planned_in_rust_model_mount/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
       ) &&
-      /ModelMountRouteControlRequiredBridgeRequest/.test(modelMountCore) &&
-      /rust_core_shapes_model_mount_route_control_required_command_response/.test(modelMountCore) &&
-      /plan_model_mount_route_control_required_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      !/ModelMountRouteControlRequiredBridgeRequest/.test(modelMountCore) &&
+      !/rust_core_shapes_model_mount_route_control_required_command_response/.test(modelMountCore) &&
+      !/plan_model_mount_route_control_required_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
       !/plan_model_mount_route_control_required_response as plan_model_mount_route_control_required/.test(modelMountCommandSurface) &&
       !/bridge_plans_model_mount_route_control_required_through_rust_core/.test(modelMountCommandSurface) &&
       /operation_kind:\s*"model_mount\.route\.select"/.test(modelMountingState) &&
@@ -21065,6 +21149,18 @@ function runReceipts() {
     isModelMountInvocationLifecycleCommandTransportRetired(modelMountInvocationLifecycleSources);
   const modelMountInvocationLifecycleTypedApiOwned =
     isModelMountInvocationLifecycleTypedApiOwned(modelMountInvocationLifecycleSources);
+  const modelMountTokenizerRequiredControlTypedApiOwned =
+    isModelMountTokenizerRequiredControlTypedApiOwned({
+      coreCommandDispatch,
+      rustModelMountCore,
+      modelMountDaemonCore,
+      modelMountCoreTest,
+      commandProtocolCore,
+      kernelModule: exists("crates/services/src/agentic/runtime/kernel/mod.rs")
+        ? read("crates/services/src/agentic/runtime/kernel/mod.rs")
+        : "",
+      daemonCoreDirectInvokerServiceTest,
+    });
   const modelMountReadProjectionEvidence = [modelMountCommandSurface, modelMountCore].join("\n");
   const modelMountArtifactEndpointCore = exists(
     "crates/services/src/agentic/runtime/kernel/model_mount/artifact_endpoint.rs",
@@ -22071,25 +22167,25 @@ function runReceipts() {
       /this\.modelMountCore\.planTokenizer\(request\)/.test(modelMountingState) &&
       /modelTokenizerRecords\(\)\s*\{[\s\S]*?readProjectionFacade\.modelTokenizerRecords\(this\)/.test(modelMountingState) &&
       /planTokenizer\(request\)/.test(modelMountCore) &&
-      /operation:\s*"plan_model_mount_tokenizer"/.test(modelMountCore) &&
-      /RUST_MODEL_MOUNT_TOKENIZER_BACKEND/.test(modelMountCore) &&
-      /normalizeTokenizerBridgeResult/.test(modelMountCore) &&
+      modelMountTokenizerRequiredControlTypedApiOwned &&
+      /MODEL_MOUNT_TOKENIZER_API_METHOD = "planModelMountTokenizer"/.test(modelMountCore) &&
+      /normalizeTokenizerApiResult/.test(modelMountCore) &&
       /mod tokenizer;/.test(modelMountCore) &&
       /ModelMountTokenizerRequest/.test(modelMountCore) &&
       /ModelMountTokenizerPlan/.test(modelMountCore) &&
-      /plan_model_mount_tokenizer_response/.test(modelMountCore) &&
+      /plan_model_mount_tokenizer/.test(modelMountCore) &&
       /MODEL_MOUNT_TOKENIZER_RECORDS_PROJECTION_KIND/.test(modelMountCore) &&
       /agentgres_model_tokenizer_replay_required/.test(modelMountCore) &&
       /tokenizer_projection_replays_agentgres_records_and_filters_js_truth/.test(modelMountCore) &&
-      /plan_model_mount_tokenizer_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
-      /plan_model_mount_tokenizer/.test(coreCommandDispatch) &&
-      /plan_model_mount_tokenizer/.test(commandProtocolCore) &&
+      !/plan_model_mount_tokenizer_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      !/CommandOperation::PlanModelMountTokenizer\b/.test(coreCommandDispatch + commandProtocolCore) &&
+      /model_mount_tokenizer_required_control_command_transport_is_retired/.test(commandProtocolCore) &&
       /MODEL_MOUNT_TOKENIZER_SCHEMA_VERSION/.test(modelMountTokenizerCore) &&
       /MODEL_MOUNT_TOKENIZER_PLAN_SCHEMA_VERSION/.test(modelMountTokenizerCore) &&
       /tokenizer_control_is_planned_in_rust_model_mount/.test(modelMountTokenizerCore) &&
       /context_fit_uses_rust_context_window_and_truncation/.test(modelMountTokenizerCore) &&
       /model_mount_tokenizer_rust_owned/.test(modelMountTokenizerCore) &&
-      /plan_model_mount_tokenizer_required/.test(coreCommandDispatch) &&
+      !/plan_model_mount_tokenizer_required_response/.test(coreCommandDispatch) &&
       !/plan_model_mount_tokenizer_required_response as plan_model_mount_tokenizer_required/.test(bridgeModule) &&
       !/bridge_plans_model_mount_tokenizer_required_through_rust_core/.test(bridgeModule) &&
       /this\.selectRoute\(\{/.test(modelTokenizerFacadeBlock) &&

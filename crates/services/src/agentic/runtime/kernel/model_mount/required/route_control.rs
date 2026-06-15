@@ -63,7 +63,7 @@ pub(super) fn plan_route_control_required(
         .source
         .as_ref()
         .and_then(|value| non_empty_string(value))
-        .unwrap_or_else(|| "rust_model_mount_route_control_required_command".to_string());
+        .unwrap_or_else(|| "rust_daemon_core.model_mount.route_control_required".to_string());
     let evidence_refs = if request.evidence_refs.is_empty() {
         vec![
             "model_mount_route_control_js_facade_retired".to_string(),

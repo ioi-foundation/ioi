@@ -5144,14 +5144,15 @@ receive Rust-authored `runtime-engine-controls` records with runtime-engine
 evidence, commit only those records through Rust Agentgres model_mount
 record-state admission, and return Rust public responses before any JS runtime
 preference/profile/projection write or receipt creation can run;
-public tokenizer/count/context-fit utility facades now call Rust
-`plan_model_mount_tokenizer` through the daemon-core command bridge, bind the
+public tokenizer/count/context-fit utility facades now call typed
+`daemonCoreModelMountApi.planModelMountTokenizer`, backed by Rust
+`RuntimeKernelService::plan_model_mount_tokenizer`, bind the
 Rust route-selection record and accepted receipt from `model_mount.route.select`,
 commit only Rust-authored tokenizer/context-fit records through Rust Agentgres
 model_mount record-state admission, and return committed Rust tokenizer truth
-before any JS tokenizer required-record shim, context-window fallback,
-tokenization/context-fit receipt synthesis, route-state mutation, truncation,
-or response-envelope shaping can run; public `modelTokenizerRecords()` now calls
+before any JS tokenizer required-record shim, command-envelope bridge,
+context-window fallback, tokenization/context-fit receipt synthesis,
+route-state mutation, truncation, or response-envelope shaping can run; public `modelTokenizerRecords()` now calls
 Rust read-projection kind `model_tokenizer_records` with runtime `state_dir`, and
 Rust replays persisted `model-tokenizer-utilities/*.json` Agentgres records while
 filtering truth to Rust-authored tokenizer/context-fit records with tokenizer and
@@ -6979,7 +6980,11 @@ command was later retired when the positive
 `plan_model_mount_runtime_engine` boundary became the canonical runtime-engine
 control path. The backend-lifecycle required command was later retired when the
 positive `plan_model_mount_backend_lifecycle` boundary became the canonical
-public backend health/start/stop/log path.
+public backend health/start/stop/log path. Slice 1220 later retires tokenizer
+and route-control required command transport in favor of typed
+`daemonCoreModelMountApi.planModelMountTokenizerRequired`,
+`daemonCoreModelMountApi.planModelMountRouteControlRequired`, and
+`daemonCoreModelMountApi.planModelMountTokenizer`.
 
 This remains non-terminal because model-mount command transport, command
 dispatch, the shared daemon-core command runner, JS command callers, local
@@ -8015,15 +8020,16 @@ into Rust model-mount owners at
 `crates/services/src/agentic/runtime/kernel/model_mount/backend_process.rs`
 and `crates/services/src/agentic/runtime/kernel/model_mount/required.rs`.
 Backend process planning plus tokenizer and route-control required
-command-envelope response shaping now run as Rust owner tests, while backend
+response shaping now run as Rust owner tests, while backend
 lifecycle now has positive command-envelope and record-planning owner tests in
 Rust `model_mount/backend_lifecycle.rs`. Bridge
 conformance now requires those owner tests, proves typed Rust
-`command_dispatch.rs` still dispatches
-`plan_model_mount_backend_process`,
-`plan_model_mount_backend_lifecycle`,
-`plan_model_mount_tokenizer_required`, and
-`plan_model_mount_route_control_required`, while public route write/test,
+`command_dispatch.rs` still dispatches the remaining
+`plan_model_mount_backend_process` and
+`plan_model_mount_backend_lifecycle` temporary operations, and proves Slice 1220
+retired `plan_model_mount_tokenizer_required`,
+`plan_model_mount_route_control_required`, and
+`plan_model_mount_tokenizer`, while public route write/test,
 mounted route selection, explicit-model endpoint resolution, and runtime
 explicit/run-override model-route selection now call typed
 `daemonCoreModelMountApi.planModelMountRouteControl`, backed by Rust
@@ -8038,8 +8044,8 @@ backend lifecycle likewise moved to positive
 `plan_model_mount_backend_lifecycle` and retired its required-record command. The
 bridge proof suite now runs 35 tests.
 
-This remains non-terminal because backend-process planning, invocation route selection, tokenizer/context-fit control, and adjacent
-model_mount helpers still cross temporary command transport. Public
+This remains non-terminal because backend-process planning, invocation route selection, and adjacent
+model_mount conversation/stream helpers still cross temporary command transport. Public
 route-control planning no longer does. The target is direct Rust daemon-core
 model-mount protocol/API ownership where backend supervision, tokenizer/context-fit control, Agentgres truth, replay, and stable
 IDE/CLI/SDK surfaces no longer depend on Node bridge endpoint proof scaffolding.
@@ -8622,9 +8628,8 @@ instance lifecycle, provider-result admission, artifact-endpoint planning,
 storage control, route-control planning, MCP workflow planning, server-control planning, runtime-engine planning, runtime-survey planning, catalog-provider control planning, provider control planning, capability-token control planning, vault control planning, receipt-gate planning, accepted-receipt head/transition planning, and invocation receipt-binding now call typed
 `daemonCoreModelMountApi` methods instead of command envelopes. Rust rejects the
 retired command operations, dispatch arms, and bridge request/response wrappers
-for that family. Backend process/lifecycle, remaining required-control,
-tokenizer, conversation/stream, and projection helpers still enter Rust through remaining
-migration transport. Read-projection now calls
+for that family. Backend process/lifecycle, conversation/stream, and projection
+helpers still enter Rust through remaining migration transport. Read-projection now calls
 `daemonCoreModelMountApi.planModelMountReadProjection`, backed by
 `RuntimeKernelService::plan_model_mount_read_projection`; the old
 read-projection command operation, dispatch arm, bridge wrapper, backend/source
@@ -8802,6 +8807,23 @@ Rust daemon-core sources instead of synthesizing command/backend truth, and
 conformance now guards the old bridge request/response wrappers, dispatch arms,
 source/backend markers, command-envelope builders, and direct-invoker fallback
 from returning.
+
+Slice 1220 retires the model_mount tokenizer and required-control command
+transport. `ModelMountCore` now calls typed
+`daemonCoreModelMountApi.planModelMountTokenizerRequired`,
+`planModelMountRouteControlRequired`, and `planModelMountTokenizer` without
+command-envelope `operation` or `backend` fields; Rust
+`RuntimeKernelService` exposes
+`plan_model_mount_tokenizer_required`,
+`plan_model_mount_route_control_required`, and
+`plan_model_mount_tokenizer`; and `command_protocol.rs` rejects the retired
+`plan_model_mount_tokenizer_required`,
+`plan_model_mount_route_control_required`, and
+`plan_model_mount_tokenizer` operations. The JS normalizers preserve Rust
+daemon-core sources instead of synthesizing tokenizer or required-control
+command/backend truth, and conformance now guards the old bridge request/response
+wrappers, dispatch arms, source/backend markers, command-envelope builders, and
+direct-invoker fallback from returning.
 
 Coding-tool approval satisfaction projection is now Rust-owned. The daemon
 approval core exposes `project_coding_tool_approval_satisfaction`; Rust
@@ -9338,10 +9360,11 @@ invocation admission, provider-execution admission, provider invocation/stream
 execution, provider lifecycle/inventory, instance lifecycle, provider-result
 admission, artifact-endpoint planning, storage control, route-control planning,
 MCP workflow planning, server-control planning, and read-projection planning.
-Remaining model_mount backend-process/lifecycle, required-control,
-tokenizer, conversation/stream, and projection
+Remaining model_mount backend-process/lifecycle,
+conversation/stream, and projection
 migration transports still need direct Rust daemon-core protocol/API ownership;
 the read-projection, accepted-receipt, invocation receipt-binding,
+tokenizer/required-control,
 catalog-provider/provider/capability-token/vault/receipt-gate command transports
 are retired.
 

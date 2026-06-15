@@ -100,8 +100,7 @@ function fakeState() {
         fitted_input_hash: "sha256:fitted",
       };
       return {
-        source: "rust_model_mount_tokenizer_command",
-        backend: "rust_model_mount_tokenizer",
+        source: "rust_daemon_core.model_mount.tokenizer",
         plan: {},
         record_dir: "model-tokenizer-utilities",
         record_id: record.id,

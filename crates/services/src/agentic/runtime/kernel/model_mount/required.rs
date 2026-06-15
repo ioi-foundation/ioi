@@ -1,7 +1,6 @@
 mod route_control;
 mod tokenizer;
 
-use serde::Deserialize;
 use serde_json::{json, Value};
 
 pub use route_control::{
@@ -10,20 +9,6 @@ pub use route_control::{
 pub use tokenizer::{ModelMountTokenizerRequiredRecord, ModelMountTokenizerRequiredRequest};
 
 use super::ModelMountError;
-
-#[derive(Debug, Deserialize)]
-pub struct ModelMountTokenizerRequiredBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: ModelMountTokenizerRequiredRequest,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct ModelMountRouteControlRequiredBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: ModelMountRouteControlRequiredRequest,
-}
 
 pub fn plan_tokenizer_required(
     request: &ModelMountTokenizerRequiredRequest,
@@ -37,13 +22,12 @@ pub fn plan_route_control_required(
     route_control::plan_route_control_required(request)
 }
 
-pub fn plan_model_mount_tokenizer_required_response(
-    request: ModelMountTokenizerRequiredBridgeRequest,
+pub fn plan_model_mount_tokenizer_required(
+    request: &ModelMountTokenizerRequiredRequest,
 ) -> Result<Value, ModelMountError> {
-    let record = plan_tokenizer_required(&request.request)?;
+    let record = plan_tokenizer_required(request)?;
     Ok(json!({
-        "source": "rust_model_mount_tokenizer_required_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_model_mount_tokenizer_required".to_string()),
+        "source": "rust_daemon_core.model_mount.tokenizer_required",
         "record": record.clone(),
         "status": record.status,
         "status_code": record.status_code,
@@ -55,13 +39,12 @@ pub fn plan_model_mount_tokenizer_required_response(
     }))
 }
 
-pub fn plan_model_mount_route_control_required_response(
-    request: ModelMountRouteControlRequiredBridgeRequest,
+pub fn plan_model_mount_route_control_required(
+    request: &ModelMountRouteControlRequiredRequest,
 ) -> Result<Value, ModelMountError> {
-    let record = plan_route_control_required(&request.request)?;
+    let record = plan_route_control_required(request)?;
     Ok(json!({
-        "source": "rust_model_mount_route_control_required_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_model_mount_route_control_required".to_string()),
+        "source": "rust_daemon_core.model_mount.route_control_required",
         "record": record.clone(),
         "status": record.status,
         "status_code": record.status_code,
@@ -77,39 +60,33 @@ pub fn plan_model_mount_route_control_required_response(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::agentic::runtime::kernel::command_protocol::DAEMON_CORE_COMMAND_SCHEMA_VERSION;
     use crate::agentic::runtime::kernel::model_mount::{
         MODEL_MOUNT_ROUTE_CONTROL_REQUIRED_REQUEST_SCHEMA_VERSION,
         MODEL_MOUNT_TOKENIZER_REQUIRED_REQUEST_SCHEMA_VERSION,
     };
 
     #[test]
-    fn rust_core_shapes_model_mount_tokenizer_required_command_response() {
-        let request: ModelMountTokenizerRequiredBridgeRequest = serde_json::from_value(json!({
-            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
-            "operation": "plan_model_mount_tokenizer_required",
-            "backend": "rust_model_mount_tokenizer_required",
-            "request": {
-                "schema_version": MODEL_MOUNT_TOKENIZER_REQUIRED_REQUEST_SCHEMA_VERSION,
-                "operation": "context_fit",
-                "source": "runtime-daemon.model_mounting.tokenizer",
-                "details": {
-                    "model": "llama-test",
-                    "route_id": "route.local-first",
-                    "requested_scope": "model.context:*"
-                }
-            }
-        }))
-        .expect("tokenizer required command request");
+    fn rust_core_plans_model_mount_tokenizer_required_direct_api() {
+        let request = ModelMountTokenizerRequiredRequest {
+            schema_version: MODEL_MOUNT_TOKENIZER_REQUIRED_REQUEST_SCHEMA_VERSION.to_string(),
+            operation: "context_fit".to_string(),
+            source: Some("runtime-daemon.model_mounting.tokenizer".to_string()),
+            details: json!({
+                "model": "llama-test",
+                "route_id": "route.local-first",
+                "requested_scope": "model.context:*"
+            }),
+            evidence_refs: vec![],
+        };
 
-        let response = plan_model_mount_tokenizer_required_response(request)
-            .expect("tokenizer required planned");
+        let response =
+            plan_model_mount_tokenizer_required(&request).expect("tokenizer required planned");
 
         assert_eq!(
             response["source"],
-            "rust_model_mount_tokenizer_required_command"
+            "rust_daemon_core.model_mount.tokenizer_required"
         );
-        assert_eq!(response["backend"], "rust_model_mount_tokenizer_required");
+        assert!(response.get("backend").is_none());
         assert_eq!(response["status"], "rust_core_required");
         assert_eq!(response["status_code"], 501);
         assert_eq!(response["code"], "model_mount_tokenizer_rust_core_required");
@@ -123,37 +100,29 @@ mod tests {
     }
 
     #[test]
-    fn rust_core_shapes_model_mount_route_control_required_command_response() {
-        let request: ModelMountRouteControlRequiredBridgeRequest = serde_json::from_value(json!({
-            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
-            "operation": "plan_model_mount_route_control_required",
-            "backend": "rust_model_mount_route_control_required",
-            "request": {
-                "schema_version": MODEL_MOUNT_ROUTE_CONTROL_REQUIRED_REQUEST_SCHEMA_VERSION,
-                "operation": "model_mount.route_control",
-                "operation_kind": "model_mount.route.selection_update",
-                "source": "runtime-daemon.model_mounting.route_control",
-                "details": {
-                    "route_id": "route.local-first",
-                    "selected_model": "model.local",
-                    "receipt_id": "receipt-route-test",
-                    "route_selection_boundary": "model_mount.route_selection"
-                }
-            }
-        }))
-        .expect("route control required command request");
+    fn rust_core_plans_model_mount_route_control_required_direct_api() {
+        let request = ModelMountRouteControlRequiredRequest {
+            schema_version: MODEL_MOUNT_ROUTE_CONTROL_REQUIRED_REQUEST_SCHEMA_VERSION.to_string(),
+            operation: "model_mount.route_control".to_string(),
+            operation_kind: "model_mount.route.selection_update".to_string(),
+            source: Some("runtime-daemon.model_mounting.route_control".to_string()),
+            details: json!({
+                "route_id": "route.local-first",
+                "selected_model": "model.local",
+                "receipt_id": "receipt-route-test",
+                "route_selection_boundary": "model_mount.route_selection"
+            }),
+            evidence_refs: vec![],
+        };
 
-        let response = plan_model_mount_route_control_required_response(request)
+        let response = plan_model_mount_route_control_required(&request)
             .expect("route control required planned");
 
         assert_eq!(
             response["source"],
-            "rust_model_mount_route_control_required_command"
+            "rust_daemon_core.model_mount.route_control_required"
         );
-        assert_eq!(
-            response["backend"],
-            "rust_model_mount_route_control_required"
-        );
+        assert!(response.get("backend").is_none());
         assert_eq!(response["status"], "rust_core_required");
         assert_eq!(response["status_code"], 501);
         assert_eq!(

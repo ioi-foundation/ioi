@@ -43,13 +43,6 @@ pub struct ModelMountTokenizerPlan {
     pub control_hash: String,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct ModelMountTokenizerBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: ModelMountTokenizerRequest,
-}
-
 impl ModelMountTokenizerRequest {
     pub fn validate(&self) -> Result<(), ModelMountError> {
         if self.schema_version != MODEL_MOUNT_TOKENIZER_SCHEMA_VERSION {
@@ -75,10 +68,10 @@ impl ModelMountTokenizerRequest {
     }
 }
 
-pub fn plan_model_mount_tokenizer_response(
-    request: ModelMountTokenizerBridgeRequest,
+pub fn plan_model_mount_tokenizer(
+    request: &ModelMountTokenizerRequest,
 ) -> Result<Value, ModelMountError> {
-    let plan = plan_tokenizer(&request.request)?;
+    let plan = plan_tokenizer(request)?;
     let record_dir = plan.record_dir.clone();
     let record_id = plan.record_id.clone();
     let record = plan.record.clone();
@@ -88,8 +81,7 @@ pub fn plan_model_mount_tokenizer_response(
     let operation = plan.operation.clone();
     let rust_core_boundary = plan.rust_core_boundary.clone();
     Ok(json!({
-        "source": "rust_model_mount_tokenizer_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_model_mount_tokenizer".to_string()),
+        "source": "rust_daemon_core.model_mount.tokenizer",
         "plan": plan,
         "record_dir": record_dir,
         "record_id": record_id,
@@ -427,7 +419,7 @@ fn source_for(request: &ModelMountTokenizerRequest) -> String {
         .source
         .as_ref()
         .and_then(|value| non_empty_string(value))
-        .unwrap_or_else(|| "rust_model_mount_tokenizer_command".to_string())
+        .unwrap_or_else(|| "rust_daemon_core.model_mount.tokenizer".to_string())
 }
 
 fn tokenizer_evidence_refs() -> Vec<String> {

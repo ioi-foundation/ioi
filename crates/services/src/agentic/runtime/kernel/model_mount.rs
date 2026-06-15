@@ -115,8 +115,7 @@ mod server_control;
 pub use server_control::{ModelMountServerControlPlan, ModelMountServerControlRequest};
 mod tokenizer;
 pub use tokenizer::{
-    plan_model_mount_tokenizer_response, ModelMountTokenizerBridgeRequest, ModelMountTokenizerPlan,
-    ModelMountTokenizerRequest,
+    plan_model_mount_tokenizer, ModelMountTokenizerPlan, ModelMountTokenizerRequest,
 };
 mod vault_control;
 pub use vault_control::{ModelMountVaultControlPlan, ModelMountVaultControlRequest};
@@ -124,9 +123,8 @@ mod receipt_gate;
 pub use receipt_gate::{ModelMountReceiptGatePlan, ModelMountReceiptGateRequest};
 mod required;
 pub use required::{
-    plan_model_mount_route_control_required_response, plan_model_mount_tokenizer_required_response,
-    ModelMountRouteControlRequiredBridgeRequest, ModelMountRouteControlRequiredRecord,
-    ModelMountRouteControlRequiredRequest, ModelMountTokenizerRequiredBridgeRequest,
+    plan_model_mount_route_control_required, plan_model_mount_tokenizer_required,
+    ModelMountRouteControlRequiredRecord, ModelMountRouteControlRequiredRequest,
     ModelMountTokenizerRequiredRecord, ModelMountTokenizerRequiredRequest,
 };
 

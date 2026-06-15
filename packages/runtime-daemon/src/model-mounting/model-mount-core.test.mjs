@@ -22,20 +22,20 @@ import {
   MODEL_MOUNT_READ_PROJECTION_API_METHOD,
   MODEL_MOUNT_RECEIPT_GATE_API_METHOD,
   MODEL_MOUNT_ROUTE_CONTROL_API_METHOD,
+  MODEL_MOUNT_ROUTE_CONTROL_REQUIRED_API_METHOD,
   MODEL_MOUNT_ROUTE_DECISION_API_METHOD,
   MODEL_MOUNT_RUNTIME_ENGINE_API_METHOD,
   MODEL_MOUNT_RUNTIME_SURVEY_API_METHOD,
   MODEL_MOUNT_SERVER_CONTROL_API_METHOD,
   MODEL_MOUNT_STORAGE_CONTROL_API_METHOD,
+  MODEL_MOUNT_TOKENIZER_API_METHOD,
+  MODEL_MOUNT_TOKENIZER_REQUIRED_API_METHOD,
   MODEL_MOUNT_VAULT_CONTROL_API_METHOD,
   ModelMountCoreError,
   RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_BACKEND,
   RUST_MODEL_MOUNT_CONVERSATION_STATE_BACKEND,
-  RUST_MODEL_MOUNT_ROUTE_CONTROL_REQUIRED_BACKEND,
   RUST_MODEL_MOUNT_STREAM_CANCEL_BACKEND,
   RUST_MODEL_MOUNT_STREAM_COMPLETION_BACKEND,
-  RUST_MODEL_MOUNT_TOKENIZER_BACKEND,
-  RUST_MODEL_MOUNT_TOKENIZER_REQUIRED_BACKEND,
   createModelMountCore,
   ModelMountCore,
 } from "./model-mount-core.mjs";
@@ -720,8 +720,6 @@ function streamCancelRequest() {
 test("Rust model_mount core does not synthesize Rust-owned receipt, required-boundary evidence, or process fields", () => {
   const sparseResultByOperation = new Map([
     ["plan_model_mount_backend_process", { result: {} }],
-    ["plan_model_mount_tokenizer_required", { record: { details: {} } }],
-    ["plan_model_mount_route_control_required", { record: { details: {} } }],
   ]);
   const runner = new ModelMountCore({
     daemonCoreModelMountApi: {
@@ -763,6 +761,12 @@ test("Rust model_mount core does not synthesize Rust-owned receipt, required-bou
       },
       bindModelMountInvocationReceipt() {
         return { ok: true, result: {} };
+      },
+      planModelMountTokenizerRequired() {
+        return { ok: true, result: { record: { details: {} } } };
+      },
+      planModelMountRouteControlRequired() {
+        return { ok: true, result: { record: { details: {} } } };
       },
     },
     daemonCoreInvoker(request) {
@@ -1780,16 +1784,16 @@ test("Rust model_mount core rejects command-shaped runtime-survey fallback", () 
   );
 });
 
-test("Rust model_mount core sends tokenizer required request", () => {
+test("Rust model_mount core sends tokenizer required request through typed Rust daemon-core API", () => {
   const calls = [];
   const runner = new ModelMountCore({
-    daemonCoreInvoker(request) {
-      calls.push({ request });
+    daemonCoreModelMountApi: {
+      planModelMountTokenizerRequired(request) {
+        calls.push({ method: MODEL_MOUNT_TOKENIZER_REQUIRED_API_METHOD, request });
       return {
         ok: true,
         result: {
-            source: "rust_model_mount_tokenizer_required_command",
-            backend: RUST_MODEL_MOUNT_TOKENIZER_REQUIRED_BACKEND,
+            source: "rust_daemon_core.model_mount.tokenizer_required",
             record: {
               schema_version: "ioi.model_mount.tokenizer_required_result.v1",
               object: "ioi.model_mount_tokenizer_required",
@@ -1799,15 +1803,15 @@ test("Rust model_mount core sends tokenizer required request", () => {
               message:
                 "Model tokenization and context-fit utilities require direct Rust daemon-core admission and projection.",
               rust_core_boundary: "model_mount.tokenizer",
-              operation: request.request.operation,
-              source: request.request.source,
-              evidence_refs: request.request.evidence_refs,
+              operation: request.operation,
+              source: request.source,
+              evidence_refs: request.evidence_refs,
               details: {
-                operation: request.request.operation,
-                ...request.request.details,
+                operation: request.operation,
+                ...request.details,
                 rust_core_boundary: "model_mount.tokenizer",
-                source: request.request.source,
-                evidence_refs: request.request.evidence_refs,
+                source: request.source,
+                evidence_refs: request.evidence_refs,
               },
               generated_at: "rust_model_mount_core",
             },
@@ -1817,28 +1821,30 @@ test("Rust model_mount core sends tokenizer required request", () => {
             message:
               "Model tokenization and context-fit utilities require direct Rust daemon-core admission and projection.",
             rust_core_boundary: "model_mount.tokenizer",
-            operation: request.request.operation,
+            operation: request.operation,
             details: {
-              operation: request.request.operation,
-              ...request.request.details,
+              operation: request.operation,
+              ...request.details,
               rust_core_boundary: "model_mount.tokenizer",
-              source: request.request.source,
-              evidence_refs: request.request.evidence_refs,
+              source: request.source,
+              evidence_refs: request.evidence_refs,
             },
           },
       };
     },
+    },
+    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(),
   });
 
   const result = runner.planTokenizerRequired(tokenizerRequiredRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
-  assert.equal(calls[0].request.operation, "plan_model_mount_tokenizer_required");
-  assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_TOKENIZER_REQUIRED_BACKEND);
-  assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.tokenizer_required.v1");
-  assert.equal(calls[0].request.request.operation, "context_fit");
-  assert.equal(calls[0].request.request.details.route_id, "route.local-first");
+  assert.equal(calls[0].method, MODEL_MOUNT_TOKENIZER_REQUIRED_API_METHOD);
+  assert.equal(calls[0].request.schema_version, "ioi.model_mount.tokenizer_required.v1");
+  assert.equal(calls[0].request.operation, "context_fit");
+  assert.equal(Object.hasOwn(calls[0].request, "backend"), false);
+  assert.equal(calls[0].request.details.route_id, "route.local-first");
+  assert.equal(Object.hasOwn(result, "backend"), false);
   assert.equal(result.status, "rust_core_required");
   assert.equal(result.status_code, 501);
   assert.equal(result.code, "model_mount_tokenizer_rust_core_required");
@@ -1850,16 +1856,16 @@ test("Rust model_mount core sends tokenizer required request", () => {
   assert.equal(Object.hasOwn(result.details, "requestedScope"), false);
 });
 
-test("Rust model_mount core sends route control required request", () => {
+test("Rust model_mount core sends route control required request through typed Rust daemon-core API", () => {
   const calls = [];
   const runner = new ModelMountCore({
-    daemonCoreInvoker(request) {
-      calls.push({ request });
+    daemonCoreModelMountApi: {
+      planModelMountRouteControlRequired(request) {
+        calls.push({ method: MODEL_MOUNT_ROUTE_CONTROL_REQUIRED_API_METHOD, request });
       return {
         ok: true,
         result: {
-            source: "rust_model_mount_route_control_required_command",
-            backend: RUST_MODEL_MOUNT_ROUTE_CONTROL_REQUIRED_BACKEND,
+            source: "rust_daemon_core.model_mount.route_control_required",
             record: {
               schema_version: "ioi.model_mount.route_control_required_result.v1",
               object: "ioi.model_mount_route_control_required",
@@ -1868,17 +1874,17 @@ test("Rust model_mount core sends route control required request", () => {
               code: "model_mount_route_control_rust_core_required",
               message: "Model route control requires Rust daemon-core ownership.",
               rust_core_boundary: "model_mount.route_control",
-              operation: request.request.operation,
-              operation_kind: request.request.operation_kind,
-              source: request.request.source,
-              evidence_refs: request.request.evidence_refs,
+              operation: request.operation,
+              operation_kind: request.operation_kind,
+              source: request.source,
+              evidence_refs: request.evidence_refs,
               details: {
-                operation: request.request.operation,
-                ...request.request.details,
-                operation_kind: request.request.operation_kind,
+                operation: request.operation,
+                ...request.details,
+                operation_kind: request.operation_kind,
                 rust_core_boundary: "model_mount.route_control",
-                source: request.request.source,
-                evidence_refs: request.request.evidence_refs,
+                source: request.source,
+                evidence_refs: request.evidence_refs,
               },
               generated_at: "rust_model_mount_core",
             },
@@ -1887,30 +1893,33 @@ test("Rust model_mount core sends route control required request", () => {
             code: "model_mount_route_control_rust_core_required",
             message: "Model route control requires Rust daemon-core ownership.",
             rust_core_boundary: "model_mount.route_control",
-            operation: request.request.operation,
-            operation_kind: request.request.operation_kind,
+            operation: request.operation,
+            operation_kind: request.operation_kind,
             details: {
-              operation: request.request.operation,
-              ...request.request.details,
-              operation_kind: request.request.operation_kind,
+              operation: request.operation,
+              ...request.details,
+              operation_kind: request.operation_kind,
               rust_core_boundary: "model_mount.route_control",
-              source: request.request.source,
-              evidence_refs: request.request.evidence_refs,
+              source: request.source,
+              evidence_refs: request.evidence_refs,
             },
           },
       };
     },
+    },
+    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(),
   });
 
   const result = runner.planRouteControlRequired(routeControlRequiredRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
-  assert.equal(calls[0].request.operation, "plan_model_mount_route_control_required");
-  assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_ROUTE_CONTROL_REQUIRED_BACKEND);
-  assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.route_control_required.v1");
-  assert.equal(calls[0].request.request.operation_kind, "model_mount.route.selection_update");
-  assert.equal(calls[0].request.request.details.route_id, "route.local-first");
+  assert.equal(calls[0].method, MODEL_MOUNT_ROUTE_CONTROL_REQUIRED_API_METHOD);
+  assert.equal(calls[0].request.schema_version, "ioi.model_mount.route_control_required.v1");
+  assert.equal(calls[0].request.operation, "model_mount.route_control");
+  assert.equal(calls[0].request.operation_kind, "model_mount.route.selection_update");
+  assert.equal(Object.hasOwn(calls[0].request, "backend"), false);
+  assert.equal(calls[0].request.details.route_id, "route.local-first");
+  assert.equal(Object.hasOwn(result, "backend"), false);
   assert.equal(result.status, "rust_core_required");
   assert.equal(result.status_code, 501);
   assert.equal(result.code, "model_mount_route_control_rust_core_required");
@@ -1923,16 +1932,17 @@ test("Rust model_mount core sends route control required request", () => {
   assert.equal(Object.hasOwn(result.details, "receiptId"), false);
 });
 
-test("Rust model_mount core sends positive tokenizer request", () => {
+test("Rust model_mount core sends positive tokenizer request through typed Rust daemon-core API", () => {
   const calls = [];
   const runner = new ModelMountCore({
-    daemonCoreInvoker(request) {
-      calls.push({ request });
+    daemonCoreModelMountApi: {
+      planModelMountTokenizer(request) {
+        calls.push({ method: MODEL_MOUNT_TOKENIZER_API_METHOD, request });
       const record = {
         id: "model_tokenizer:tokenize:test",
         object: "ioi.model_mount_tokenizer_result",
         status: "planned",
-        operation: request.request.operation,
+        operation: request.operation,
         route_id: "route.local-first",
         model: "llama-test",
         endpoint_id: "endpoint.local.llama",
@@ -1943,15 +1953,14 @@ test("Rust model_mount core sends positive tokenizer request", () => {
       return {
         ok: true,
         result: {
-          source: "rust_model_mount_tokenizer_command",
-          backend: RUST_MODEL_MOUNT_TOKENIZER_BACKEND,
+          source: "rust_daemon_core.model_mount.tokenizer",
           plan: {
             schema_version: "ioi.model_mount.tokenizer_plan.v1",
             object: "ioi.model_mount_tokenizer_plan",
             status: "planned",
             rust_core_boundary: "model_mount.tokenizer",
-            operation: request.request.operation,
-            source: request.request.source,
+            operation: request.operation,
+            source: request.source,
             record_dir: "model-tokenizer-utilities",
             record_id: record.id,
             record,
@@ -1964,23 +1973,25 @@ test("Rust model_mount core sends positive tokenizer request", () => {
           record,
           receipt_refs: ["receipt://route-selection/test"],
           evidence_refs: ["model_mount_tokenizer_rust_owned"],
-          operation: request.request.operation,
+          operation: request.operation,
           rust_core_boundary: "model_mount.tokenizer",
           control_hash: "sha256:tokenizer-control",
         },
       };
     },
+    },
+    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(),
   });
 
   const result = runner.planTokenizer(tokenizerRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
-  assert.equal(calls[0].request.operation, "plan_model_mount_tokenizer");
-  assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_TOKENIZER_BACKEND);
-  assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.tokenizer.v1");
-  assert.equal(calls[0].request.request.operation, "tokenize");
-  assert.equal(calls[0].request.request.route_selection.route_decision.route_decision_ref, "model_mount://route_decision/test");
+  assert.equal(calls[0].method, MODEL_MOUNT_TOKENIZER_API_METHOD);
+  assert.equal(calls[0].request.schema_version, "ioi.model_mount.tokenizer.v1");
+  assert.equal(calls[0].request.operation, "tokenize");
+  assert.equal(Object.hasOwn(calls[0].request, "backend"), false);
+  assert.equal(calls[0].request.route_selection.route_decision.route_decision_ref, "model_mount://route_decision/test");
+  assert.equal(Object.hasOwn(result, "backend"), false);
   assert.equal(result.record_dir, "model-tokenizer-utilities");
   assert.equal(result.record_id, "model_tokenizer:tokenize:test");
   assert.equal(result.record.token_count, 3);
@@ -3074,6 +3085,9 @@ test("Rust model_mount core rejects command-shaped catalog/provider/vault/receip
     [MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_API_METHOD, () => runner.planCapabilityTokenControl(capabilityTokenControlRequest())],
     [MODEL_MOUNT_VAULT_CONTROL_API_METHOD, () => runner.planVaultControl(vaultControlRequest())],
     [MODEL_MOUNT_RECEIPT_GATE_API_METHOD, () => runner.planReceiptGate(receiptGateRequest())],
+    [MODEL_MOUNT_TOKENIZER_REQUIRED_API_METHOD, () => runner.planTokenizerRequired(tokenizerRequiredRequest())],
+    [MODEL_MOUNT_ROUTE_CONTROL_REQUIRED_API_METHOD, () => runner.planRouteControlRequired(routeControlRequiredRequest())],
+    [MODEL_MOUNT_TOKENIZER_API_METHOD, () => runner.planTokenizer(tokenizerRequest())],
     [MODEL_MOUNT_ACCEPTED_RECEIPT_HEAD_API_METHOD, () => runner.planAcceptedReceiptHead({
       schema_version: "ioi.model_mount.accepted_receipt_head.v1",
       sequence: 0,

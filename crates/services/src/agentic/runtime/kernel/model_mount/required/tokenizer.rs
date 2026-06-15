@@ -59,7 +59,7 @@ pub(super) fn plan_tokenizer_required(
         .source
         .as_ref()
         .and_then(|value| non_empty_string(value))
-        .unwrap_or_else(|| "rust_model_mount_tokenizer_required_command".to_string());
+        .unwrap_or_else(|| "rust_daemon_core.model_mount.tokenizer_required".to_string());
     let evidence_refs = if request.evidence_refs.is_empty() {
         vec![
             "model_mount_tokenizer_js_facade_retired".to_string(),

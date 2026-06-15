@@ -22,10 +22,9 @@ function modelMountCoreForTest(calls) {
       };
     },
     planRouteControlRequired(request) {
-      calls.push({ operation: "plan_model_mount_route_control_required", input: request });
+      calls.push({ method: "planModelMountRouteControlRequired", input: request });
       return {
-        source: "rust_model_mount_route_control_required_command",
-        backend: "rust_model_mount_route_control_required",
+        source: "rust_daemon_core.model_mount.route_control_required",
         status: "rust_core_required",
         status_code: 501,
         code: "model_mount_route_control_rust_core_required",

@@ -8,9 +8,6 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "run_coding_tool_step_module",
     "plan_model_mount_backend_process",
     "plan_model_mount_backend_lifecycle",
-    "plan_model_mount_tokenizer_required",
-    "plan_model_mount_route_control_required",
-    "plan_model_mount_tokenizer",
     "plan_model_mount_conversation_state",
     "plan_model_mount_stream_completion",
     "plan_model_mount_stream_cancel",
@@ -52,9 +49,6 @@ pub enum CommandOperation {
     RunCodingToolStepModule,
     PlanModelMountBackendProcess,
     PlanModelMountBackendLifecycle,
-    PlanModelMountTokenizerRequired,
-    PlanModelMountRouteControlRequired,
-    PlanModelMountTokenizer,
     PlanModelMountConversationState,
     PlanModelMountStreamCompletion,
     PlanModelMountStreamCancel,
@@ -97,9 +91,6 @@ impl CommandOperation {
             Self::RunCodingToolStepModule => "run_coding_tool_step_module",
             Self::PlanModelMountBackendProcess => "plan_model_mount_backend_process",
             Self::PlanModelMountBackendLifecycle => "plan_model_mount_backend_lifecycle",
-            Self::PlanModelMountTokenizerRequired => "plan_model_mount_tokenizer_required",
-            Self::PlanModelMountRouteControlRequired => "plan_model_mount_route_control_required",
-            Self::PlanModelMountTokenizer => "plan_model_mount_tokenizer",
             Self::PlanModelMountConversationState => "plan_model_mount_conversation_state",
             Self::PlanModelMountStreamCompletion => "plan_model_mount_stream_completion",
             Self::PlanModelMountStreamCancel => "plan_model_mount_stream_cancel",
@@ -219,13 +210,6 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
         "plan_model_mount_backend_lifecycle" => {
             Some(CommandOperation::PlanModelMountBackendLifecycle)
         }
-        "plan_model_mount_tokenizer_required" => {
-            Some(CommandOperation::PlanModelMountTokenizerRequired)
-        }
-        "plan_model_mount_route_control_required" => {
-            Some(CommandOperation::PlanModelMountRouteControlRequired)
-        }
-        "plan_model_mount_tokenizer" => Some(CommandOperation::PlanModelMountTokenizer),
         "plan_model_mount_conversation_state" => {
             Some(CommandOperation::PlanModelMountConversationState)
         }
@@ -494,6 +478,24 @@ mod tests {
             .code(),
             "operation_unknown"
         );
+    }
+
+    #[test]
+    fn model_mount_tokenizer_required_control_command_transport_is_retired() {
+        for operation in [
+            "plan_model_mount_tokenizer_required",
+            "plan_model_mount_route_control_required",
+            "plan_model_mount_tokenizer",
+        ] {
+            assert_eq!(command_operation(operation), None);
+            assert_eq!(expected_command_schema_version(operation), None);
+            assert_eq!(
+                validate_command_envelope(operation, DAEMON_CORE_COMMAND_SCHEMA_VERSION)
+                    .unwrap_err()
+                    .code(),
+                "operation_unknown"
+            );
+        }
     }
 
     #[test]

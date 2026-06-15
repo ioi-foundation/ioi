@@ -119,11 +119,13 @@ use marketplace::{
     WorkerServicePackageInvocationRecord, WorkerServicePackageInvocationRequest,
 };
 use model_mount::{
-    ModelMountAcceptedReceiptHeadRequest, ModelMountAcceptedReceiptTransitionRequest,
-    ModelMountArtifactEndpointPlan, ModelMountArtifactEndpointRequest,
-    ModelMountCapabilityTokenControlPlan, ModelMountCapabilityTokenControlRequest,
-    ModelMountCatalogProviderControlPlan, ModelMountCatalogProviderControlRequest, ModelMountCore,
-    ModelMountError, ModelMountInstanceLifecycleRequest, ModelMountInstanceLifecycleResult,
+    plan_model_mount_route_control_required, plan_model_mount_tokenizer,
+    plan_model_mount_tokenizer_required, ModelMountAcceptedReceiptHeadRequest,
+    ModelMountAcceptedReceiptTransitionRequest, ModelMountArtifactEndpointPlan,
+    ModelMountArtifactEndpointRequest, ModelMountCapabilityTokenControlPlan,
+    ModelMountCapabilityTokenControlRequest, ModelMountCatalogProviderControlPlan,
+    ModelMountCatalogProviderControlRequest, ModelMountCore, ModelMountError,
+    ModelMountInstanceLifecycleRequest, ModelMountInstanceLifecycleResult,
     ModelMountInvocationAdmissionRecord, ModelMountInvocationAdmissionRequest,
     ModelMountMcpWorkflowPlan, ModelMountMcpWorkflowRequest, ModelMountProviderControlPlan,
     ModelMountProviderControlRequest, ModelMountProviderExecutionRecord,
@@ -134,10 +136,11 @@ use model_mount::{
     ModelMountProviderResultAdmissionRequest, ModelMountProviderStreamInvocationResult,
     ModelMountReadProjectionError, ModelMountReadProjectionPlan, ModelMountReadProjectionRequest,
     ModelMountReceiptGatePlan, ModelMountReceiptGateRequest, ModelMountRouteControlPlan,
-    ModelMountRouteControlRequest, ModelMountRouteDecisionRecord, ModelMountRouteDecisionRequest,
-    ModelMountRuntimeEnginePlan, ModelMountRuntimeEngineRequest, ModelMountRuntimeSurveyPlan,
-    ModelMountRuntimeSurveyRequest, ModelMountStorageControlPlan, ModelMountStorageControlRequest,
-    ModelMountVaultControlPlan, ModelMountVaultControlRequest,
+    ModelMountRouteControlRequest, ModelMountRouteControlRequiredRequest,
+    ModelMountRouteDecisionRecord, ModelMountRouteDecisionRequest, ModelMountRuntimeEnginePlan,
+    ModelMountRuntimeEngineRequest, ModelMountRuntimeSurveyPlan, ModelMountRuntimeSurveyRequest,
+    ModelMountStorageControlPlan, ModelMountStorageControlRequest, ModelMountTokenizerRequest,
+    ModelMountTokenizerRequiredRequest, ModelMountVaultControlPlan, ModelMountVaultControlRequest,
 };
 use model_mount_receipt::{
     bind_model_mount_invocation_receipt, plan_model_mount_accepted_receipt_head,
@@ -915,6 +918,27 @@ impl RuntimeKernelService {
         request: &ModelMountStorageControlRequest,
     ) -> Result<ModelMountStorageControlPlan, ModelMountError> {
         ModelMountCore.plan_storage_control(request)
+    }
+
+    pub fn plan_model_mount_tokenizer_required(
+        &self,
+        request: &ModelMountTokenizerRequiredRequest,
+    ) -> Result<serde_json::Value, ModelMountError> {
+        plan_model_mount_tokenizer_required(request)
+    }
+
+    pub fn plan_model_mount_route_control_required(
+        &self,
+        request: &ModelMountRouteControlRequiredRequest,
+    ) -> Result<serde_json::Value, ModelMountError> {
+        plan_model_mount_route_control_required(request)
+    }
+
+    pub fn plan_model_mount_tokenizer(
+        &self,
+        request: &ModelMountTokenizerRequest,
+    ) -> Result<serde_json::Value, ModelMountError> {
+        plan_model_mount_tokenizer(request)
     }
 
     pub fn plan_model_mount_route_control(

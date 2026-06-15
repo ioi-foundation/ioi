@@ -228,6 +228,97 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
         control_hash: "sha256:direct-route-control",
       };
     },
+    planModelMountTokenizerRequired(request) {
+      modelMountCalls.push({ method: "planModelMountTokenizerRequired", request });
+      return {
+        source: "rust_daemon_core.model_mount.tokenizer_required",
+        record: {
+          schema_version: "ioi.model_mount.tokenizer_required_result.v1",
+          object: "ioi.model_mount_tokenizer_required",
+          status: "rust_core_required",
+          status_code: 501,
+          code: "model_mount_tokenizer_rust_core_required",
+          message:
+            "Model tokenization and context-fit utilities require direct Rust daemon-core admission and projection.",
+          rust_core_boundary: "model_mount.tokenizer",
+          operation: request.operation,
+          source: request.source,
+          details: request.details ?? {},
+        },
+        status: "rust_core_required",
+        status_code: 501,
+        code: "model_mount_tokenizer_rust_core_required",
+        rust_core_boundary: "model_mount.tokenizer",
+        operation: request.operation,
+        details: request.details ?? {},
+      };
+    },
+    planModelMountRouteControlRequired(request) {
+      modelMountCalls.push({ method: "planModelMountRouteControlRequired", request });
+      return {
+        source: "rust_daemon_core.model_mount.route_control_required",
+        record: {
+          schema_version: "ioi.model_mount.route_control_required_result.v1",
+          object: "ioi.model_mount_route_control_required",
+          status: "rust_core_required",
+          status_code: 501,
+          code: "model_mount_route_control_rust_core_required",
+          message: "Model route control requires Rust daemon-core ownership.",
+          rust_core_boundary: "model_mount.route_control",
+          operation: request.operation,
+          operation_kind: request.operation_kind,
+          source: request.source,
+          details: request.details ?? {},
+        },
+        status: "rust_core_required",
+        status_code: 501,
+        code: "model_mount_route_control_rust_core_required",
+        rust_core_boundary: "model_mount.route_control",
+        operation: request.operation,
+        operation_kind: request.operation_kind,
+        details: request.details ?? {},
+      };
+    },
+    planModelMountTokenizer(request) {
+      modelMountCalls.push({ method: "planModelMountTokenizer", request });
+      const record = {
+        id: "model_tokenizer:tokenize:direct",
+        object: "ioi.model_mount_tokenizer_result",
+        status: "planned",
+        operation: request.operation,
+        route_id: request.route_selection?.route?.id ?? "route.direct",
+        model: request.route_selection?.endpoint?.modelId ?? "model.direct",
+        endpoint_id: request.route_selection?.endpoint?.id ?? "endpoint.direct",
+        provider_id: request.route_selection?.provider?.id ?? "provider.direct",
+        token_count: 2,
+        tokens: ["direct", "tokens"],
+      };
+      return {
+        source: "rust_daemon_core.model_mount.tokenizer",
+        plan: {
+          schema_version: "ioi.model_mount.tokenizer_plan.v1",
+          object: "ioi.model_mount_tokenizer_plan",
+          status: "planned",
+          rust_core_boundary: "model_mount.tokenizer",
+          operation: request.operation,
+          source: request.source,
+          record_dir: "model-tokenizer-utilities",
+          record_id: record.id,
+          record,
+          receipt_refs: request.receipt_refs ?? [],
+          evidence_refs: ["model_mount_tokenizer_rust_owned"],
+          control_hash: "sha256:direct-tokenizer-control",
+        },
+        record_dir: "model-tokenizer-utilities",
+        record_id: record.id,
+        record,
+        operation: request.operation,
+        rust_core_boundary: "model_mount.tokenizer",
+        receipt_refs: request.receipt_refs ?? [],
+        evidence_refs: ["model_mount_tokenizer_rust_owned"],
+        control_hash: "sha256:direct-tokenizer-control",
+      };
+    },
     planModelMountArtifactEndpoint(request) {
       modelMountCalls.push({ method: "planModelMountArtifactEndpoint", request });
       const record = {
@@ -854,6 +945,15 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
       planRouteControl(request) {
         return directModelMountCore.planRouteControl(request);
       },
+      planTokenizerRequired(request) {
+        return directModelMountCore.planTokenizerRequired(request);
+      },
+      planRouteControlRequired(request) {
+        return directModelMountCore.planRouteControlRequired(request);
+      },
+      planTokenizer(request) {
+        return directModelMountCore.planTokenizer(request);
+      },
       planArtifactEndpoint(request) {
         return directModelMountCore.planArtifactEndpoint(request);
       },
@@ -1345,6 +1445,62 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
   assert.equal(routeControlPlan.source, "rust_daemon_core.model_mount.route_control");
   assert.equal(routeControlPlan.record_id, "route.direct");
   assert.equal(routeControlPlan.rust_core_boundary, "model_mount.route_control");
+  const tokenizerRequired = directModelMountCore.planTokenizerRequired({
+    schema_version: "ioi.model_mount.tokenizer_required.v1",
+    operation: "context_fit",
+    source: "runtime-daemon.model_mounting.tokenizer",
+    details: {
+      model: "model.direct",
+      route_id: "route.direct",
+      requested_scope: "model.context:*",
+    },
+  });
+  assert.equal(calls.length, 0);
+  assert.equal(modelMountCalls.at(-1).method, "planModelMountTokenizerRequired");
+  assert.equal(modelMountCalls.at(-1).request.schema_version, "ioi.model_mount.tokenizer_required.v1");
+  assert.equal(modelMountCalls.at(-1).request.operation, "context_fit");
+  assert.equal(Object.hasOwn(modelMountCalls.at(-1).request, "backend"), false);
+  assert.equal(tokenizerRequired.source, "rust_daemon_core.model_mount.tokenizer_required");
+  assert.equal(tokenizerRequired.rust_core_boundary, "model_mount.tokenizer");
+  const routeControlRequired = store.modelMounting.routeControlRequired(
+    "model_mount.route.selection_update",
+    {
+      route_id: "route.direct",
+      selected_model: "model.direct",
+      receipt_id: "receipt-route-direct",
+    },
+  );
+  assert.equal(calls.length, 0);
+  assert.equal(modelMountCalls.at(-1).method, "planModelMountRouteControlRequired");
+  assert.equal(modelMountCalls.at(-1).request.schema_version, "ioi.model_mount.route_control_required.v1");
+  assert.equal(modelMountCalls.at(-1).request.operation, "model_mount.route_control");
+  assert.equal(modelMountCalls.at(-1).request.operation_kind, "model_mount.route.selection_update");
+  assert.equal(Object.hasOwn(modelMountCalls.at(-1).request, "backend"), false);
+  assert.equal(routeControlRequired.source, "rust_daemon_core.model_mount.route_control_required");
+  assert.equal(routeControlRequired.rust_core_boundary, "model_mount.route_control");
+  const tokenizerPlan = store.modelMounting.planTokenizer({
+    schema_version: "ioi.model_mount.tokenizer.v1",
+    operation: "tokenize",
+    source: "runtime-daemon.model_mounting.tokenizer",
+    required_scope: "model.tokenize:*",
+    body: { input: "direct tokens" },
+    route_selection: {
+      route: { id: "route.direct" },
+      endpoint: { id: "endpoint.direct", modelId: "model.direct" },
+      provider: { id: "provider.direct" },
+      route_decision: { route_decision_ref: "model_mount://route_decision/direct" },
+    },
+    artifacts: [],
+    receipt_refs: ["receipt://route/direct"],
+  });
+  assert.equal(calls.length, 0);
+  assert.equal(modelMountCalls.at(-1).method, "planModelMountTokenizer");
+  assert.equal(modelMountCalls.at(-1).request.schema_version, "ioi.model_mount.tokenizer.v1");
+  assert.equal(modelMountCalls.at(-1).request.operation, "tokenize");
+  assert.equal(Object.hasOwn(modelMountCalls.at(-1).request, "backend"), false);
+  assert.equal(tokenizerPlan.source, "rust_daemon_core.model_mount.tokenizer");
+  assert.equal(tokenizerPlan.record_id, "model_tokenizer:tokenize:direct");
+  assert.equal(tokenizerPlan.rust_core_boundary, "model_mount.tokenizer");
   const artifactEndpointPlan = store.modelMounting.planArtifactEndpoint({
     schema_version: "ioi.model_mount.artifact_endpoint.v1",
     operation_kind: "model_mount.endpoint.mount",

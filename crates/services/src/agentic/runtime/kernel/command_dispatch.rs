@@ -121,19 +121,6 @@ pub fn dispatch_command_operation_response(
             plan_model_mount_backend_lifecycle_response(decode(raw_request)?)
                 .map_err(|error| model_mount_error("model_mount_backend_lifecycle_invalid", error))
         }
-        CommandOperation::PlanModelMountTokenizerRequired => {
-            plan_model_mount_tokenizer_required_response(decode(raw_request)?)
-                .map_err(|error| model_mount_error("model_mount_tokenizer_required_invalid", error))
-        }
-        CommandOperation::PlanModelMountRouteControlRequired => {
-            plan_model_mount_route_control_required_response(decode(raw_request)?).map_err(
-                |error| model_mount_error("model_mount_route_control_required_invalid", error),
-            )
-        }
-        CommandOperation::PlanModelMountTokenizer => {
-            plan_model_mount_tokenizer_response(decode(raw_request)?)
-                .map_err(|error| model_mount_error("model_mount_tokenizer_invalid", error))
-        }
         CommandOperation::PlanModelMountConversationState => {
             plan_model_mount_conversation_state_response(decode(raw_request)?)
                 .map_err(|error| model_mount_error("model_mount_conversation_state_invalid", error))
