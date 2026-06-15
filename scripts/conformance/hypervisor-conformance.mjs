@@ -30407,9 +30407,12 @@ function runCompositor() {
     /runtime_subagent_result_js_facade_retired/.test(runtimeSubagentSurface) &&
     /runtime_subagent_read_projection_rust_owned/.test(runtimeSubagentSurface) &&
     /runtime_subagent_read_projection_js_facade_retired/.test(runtimeSubagentSurface) &&
-    /subagentProjectionRunner/.test(runtimeSubagentSurface) &&
+    /requireSubagentProjectionCore/.test(runtimeSubagentSurface) &&
     /subagentProjectionStateDir/.test(runtimeSubagentSurface) &&
     /state_dir:\s*subagentProjectionStateDir\(store\)/.test(runtimeSubagentSurface) &&
+    !/subagentProjectionRunner|store\?\.contextPolicyCore\s*\?\?\s*contextPolicyCore/.test(
+      runtimeSubagentSurface + runtimeSubagentSurfaceTest,
+    ) &&
     !/candidateSubagentProjectionFacts/.test(runtimeSubagentSurface) &&
     !/runtime_subagent_read_projection_candidates_missing/.test(runtimeSubagentSurface) &&
     /projectRuntimeSubagentProjection\(request\)/.test(runtimeSubagentSurface) &&
@@ -30469,7 +30472,8 @@ function runCompositor() {
   const runtimeSubagentWaitControlRustOwned =
     /runtime_subagent_wait_control_rust_owned/.test(runtimeSubagentSurface) &&
     /runtime_subagent_control_event_rust_owned/.test(runtimeSubagentSurface) &&
-    /subagentControlRunner/.test(runtimeSubagentSurface) &&
+    /requireSubagentControlCore/.test(runtimeSubagentSurface) &&
+    !/subagentControlRunner/.test(runtimeSubagentSurface + runtimeSubagentSurfaceTest) &&
     /planSubagentControlEvent/.test(runtimeSubagentSurface) &&
     /appendPlannedSubagentControlEvent/.test(runtimeSubagentSurface) &&
     /planRuntimeSubagentControl/.test(runtimeSubagentSurface) &&
@@ -30520,7 +30524,7 @@ function runCompositor() {
     /createSubagentRun/.test(runtimeSubagentSurface) &&
     !/store\.createAgent\(/.test(runtimeSubagentSurface) &&
     !/store\.createRun\(/.test(runtimeSubagentSurface) &&
-    /spawnSubagent\(store, threadId, request = \{\}\) \{[\s\S]*?subagentControlRunner[\s\S]*?createSubagentAgent[\s\S]*?createSubagentRun[\s\S]*?commitSubagentControlRecord[\s\S]*?operation:\s*"spawn"[\s\S]*?operationKind/.test(
+    /spawnSubagent\(store, threadId, request = \{\}\) \{[\s\S]*?requireSubagentControlCore[\s\S]*?createSubagentAgent[\s\S]*?createSubagentRun[\s\S]*?commitSubagentControlRecord[\s\S]*?operation:\s*"spawn"[\s\S]*?operationKind/.test(
       runtimeSubagentSurface,
     ) &&
     !/throwRuntimeSubagentRustCoreRequired/.test(runtimeSubagentSpawnBlock) &&
@@ -30568,7 +30572,7 @@ function runCompositor() {
     );
   const runtimeSubagentPropagationControlRustOwned =
     /runtime_subagent_cancel_propagation_rust_owned/.test(runtimeSubagentSurface) &&
-    /propagateSubagentCancellation\(store, threadId, request = \{\}\) \{[\s\S]*?subagentControlRunner[\s\S]*?this\.listSubagents\(store,\s*threadId\)[\s\S]*?cancelRunDep\(store,\s*record\.run_id\)[\s\S]*?commitSubagentControlRecord[\s\S]*?operation:\s*"cancel"[\s\S]*?operationKind/.test(
+    /propagateSubagentCancellation\(store, threadId, request = \{\}\) \{[\s\S]*?requireSubagentControlCore[\s\S]*?this\.listSubagents\(store,\s*threadId\)[\s\S]*?cancelRunDep\(store,\s*record\.run_id\)[\s\S]*?commitSubagentControlRecord[\s\S]*?operation:\s*"cancel"[\s\S]*?operationKind/.test(
       runtimeSubagentSurface,
     ) &&
     !/throwRuntimeSubagentRustCoreRequired/.test(runtimeSubagentPropagationEnvelopeBlock) &&
@@ -35340,7 +35344,7 @@ function runCompositor() {
       /subagent record state update core sends Rust state update through typed thread-lifecycle API/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /runner\.planSubagentRecordStateUpdate/.test(
+      /core\.planSubagentRecordStateUpdate/.test(
         runtimeSubagentSurface,
       ) &&
       /subagent direct controls fail closed before Rust read\/control planning/.test(
@@ -35363,7 +35367,7 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
       "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
     ],
-    "Phase 10/11 is pending: subagent wait lifecycle persistence must be planned by Rust policy core through the command bridge",
+    "Phase 10/11 is pending: subagent wait lifecycle persistence must be planned by Rust policy core through the typed daemon-core API",
   );
   assertCheck(
     result,
@@ -35457,7 +35461,7 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
       "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
     ],
-    "Phase 10/11 is pending: subagent spawn persistence must be planned by Rust policy core through the command bridge",
+    "Phase 10/11 is pending: subagent spawn persistence must be planned by Rust policy core through the typed daemon-core API",
   );
   assertCheck(
     result,
@@ -35479,7 +35483,7 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
       "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
     ],
-    "Phase 10/11 is pending: subagent input lifecycle persistence must be planned by Rust policy core through the command bridge",
+    "Phase 10/11 is pending: subagent input lifecycle persistence must be planned by Rust policy core through the typed daemon-core API",
   );
   assertCheck(
     result,
@@ -35501,7 +35505,7 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
       "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
     ],
-    "Phase 10/11 is pending: subagent resume lifecycle persistence must be planned by Rust policy core through the command bridge",
+    "Phase 10/11 is pending: subagent resume lifecycle persistence must be planned by Rust policy core through the typed daemon-core API",
   );
   assertCheck(
     result,
@@ -35548,7 +35552,7 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
       "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
     ],
-    "Phase 10/11 is pending: subagent assignment persistence must be planned by Rust policy core through the command bridge",
+    "Phase 10/11 is pending: subagent assignment persistence must be planned by Rust policy core through the typed daemon-core API",
   );
   assertCheck(
     result,
@@ -35570,7 +35574,7 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
       "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
     ],
-    "Phase 10/11 is pending: subagent cancellation persistence must be planned by Rust policy core through the command bridge",
+    "Phase 10/11 is pending: subagent cancellation persistence must be planned by Rust policy core through the typed daemon-core API",
   );
   assertCheck(
     result,

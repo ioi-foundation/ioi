@@ -224,9 +224,8 @@ export function createRuntimeSubagentSurface({
   threadModeForRunMode = null,
   validateSubagentOutputContract: validateSubagentOutputContractDep = validateSubagentOutputContract,
 } = {}) {
-  function subagentProjectionRunner(store, request = {}) {
-    const runner = store?.contextPolicyCore ?? contextPolicyCore;
-    if (runner?.projectRuntimeSubagentProjection) return runner;
+  function requireSubagentProjectionCore(request = {}) {
+    if (contextPolicyCore?.projectRuntimeSubagentProjection) return contextPolicyCore;
     throw runtimeErrorDep({
       status: 501,
       code: "runtime_subagent_read_projection_rust_projection_missing",
@@ -246,13 +245,12 @@ export function createRuntimeSubagentSurface({
     });
   }
 
-  function subagentControlRunner(store, request = {}) {
-    const runner = store?.contextPolicyCore ?? contextPolicyCore;
+  function requireSubagentControlCore(request = {}) {
     if (
-      runner?.planRuntimeSubagentControl &&
-      runner?.planSubagentRecordStateUpdate
+      contextPolicyCore?.planRuntimeSubagentControl &&
+      contextPolicyCore?.planSubagentRecordStateUpdate
     ) {
-      return runner;
+      return contextPolicyCore;
     }
     throw runtimeErrorDep({
       status: 501,
@@ -319,13 +317,13 @@ export function createRuntimeSubagentSurface({
     operationKind,
     status,
   }) {
-    const runner = subagentControlRunner(store, {
+    const core = requireSubagentControlCore({
       operation,
       operation_kind: operationKind,
       thread_id: threadId,
       subagent_id: record?.subagent_id ?? null,
     });
-    return runner.planRuntimeSubagentControl({
+    return core.planRuntimeSubagentControl({
       operation,
       operation_kind: operationKind,
       thread_id: threadId,
@@ -401,7 +399,7 @@ export function createRuntimeSubagentSurface({
     }, {
       ensureProviderAvailable,
       initialThreadRuntimeControls,
-      lifecycleAdmissionRunner: store?.contextPolicyCore ?? contextPolicyCore,
+      lifecycleAdmissionRunner: contextPolicyCore,
       mcpRegistryForWorkspace: lifecycleMcpRegistryForStore(store),
       runtimeError: runtimeErrorDep,
       runtimeModeForOptions,
@@ -464,7 +462,7 @@ export function createRuntimeSubagentSurface({
       approvalModeForThreadMode,
       buildRun,
       ensureProviderAvailable,
-      lifecycleAdmissionRunner: store?.contextPolicyCore ?? contextPolicyCore,
+      lifecycleAdmissionRunner: contextPolicyCore,
       runtimeError: runtimeErrorDep,
       threadModeForRunMode,
     });
@@ -496,7 +494,7 @@ export function createRuntimeSubagentSurface({
     return (cwd, options = {}) =>
       mcpRegistryForWorkspace(cwd, {
         ...options,
-        contextPolicyCore: store?.contextPolicyCore ?? contextPolicyCore,
+        contextPolicyCore,
       });
   }
 
@@ -515,7 +513,7 @@ export function createRuntimeSubagentSurface({
       subagent_id: subagentId,
       role,
     };
-    const runner = subagentProjectionRunner(store, requestContext);
+    const core = requireSubagentProjectionCore(requestContext);
     const request = {
       operation: "runtime_subagent_projection",
       operation_kind: operationKind,
@@ -527,7 +525,7 @@ export function createRuntimeSubagentSurface({
       state_dir: subagentProjectionStateDir(store),
       evidence_refs: runtimeSubagentReadProjectionEvidenceRefs,
     };
-    const result = runner.projectRuntimeSubagentProjection(request);
+    const result = core.projectRuntimeSubagentProjection(request);
     if (
       result?.projection_kind !== projectionKind ||
       !validProjectedSubagentRead(projectionKind, result?.projection)
@@ -595,13 +593,13 @@ export function createRuntimeSubagentSurface({
       );
       saved.result = subagentResultForRunDep({ record: saved, run, output, outputContractStatus });
     }
-    const runner = subagentControlRunner(store, {
+    const core = requireSubagentControlCore({
       operation,
       operation_kind: operationKind,
       thread_id: threadId,
       subagent_id: subagentId,
     });
-    const stateUpdate = runner.planSubagentRecordStateUpdate({
+    const stateUpdate = core.planSubagentRecordStateUpdate({
       operation_kind: operationKind,
       thread_id: threadId,
       subagent: saved,
@@ -638,7 +636,7 @@ export function createRuntimeSubagentSurface({
     },
     spawnSubagent(store, threadId, request = {}) {
       const operationKind = "subagent.spawn";
-      subagentControlRunner(store, {
+      requireSubagentControlCore({
         operation: "spawn",
         operation_kind: operationKind,
         thread_id: threadId,
@@ -797,13 +795,13 @@ export function createRuntimeSubagentSurface({
         updated_at: event.created_at,
       });
       saved.result = subagentResultForRunDep({ record: saved, run, output, outputContractStatus });
-      const runner = subagentControlRunner(store, {
+      const core = requireSubagentControlCore({
         operation: "wait",
         operation_kind: operationKind,
         thread_id: threadId,
         subagent_id: subagentId,
       });
-      const stateUpdate = runner.planSubagentRecordStateUpdate({
+      const stateUpdate = core.planSubagentRecordStateUpdate({
         operation_kind: operationKind,
         thread_id: threadId,
         subagent: saved,
@@ -1169,7 +1167,7 @@ export function createRuntimeSubagentSurface({
     },
     propagateSubagentCancellation(store, threadId, request = {}) {
       const operationKind = "subagent.cancel.propagate";
-      subagentControlRunner(store, {
+      requireSubagentControlCore({
         operation: "cancel",
         operation_kind: operationKind,
         thread_id: threadId,

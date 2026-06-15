@@ -10489,6 +10489,19 @@ cannot return. Remaining work is durable lifecycle replay/projection,
 wallet/cTEE runtime-service authority, receipt/state-root binding, and stable
 thread-turn protocol APIs, not alternate surface runners.
 
+Slice 1307 hard-cuts runtime subagent runner wrappers.
+`createRuntimeSubagentSurface()` no longer routes projection/control through
+`subagentProjectionRunner`, `subagentControlRunner`, or
+`store.contextPolicyCore ?? contextPolicyCore`; subagent list/get/result,
+spawn, wait, input, resume, assign, cancel, propagated cancel, direct
+control-event append, and child lifecycle composition resolve through the
+single positive `contextPolicyCore` mount injected by daemon startup.
+Conformance now guards that the retired wrappers and fallback cannot return.
+Remaining work is direct Rust subagent admission/storage/replay,
+StepModuleRouter delegation/execution authority, wallet/cTEE policy depth,
+receipt/state-root binding, and stable SDK/IDE subagent protocol APIs, not
+alternate subagent runners.
+
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,
 `/v1/memory/policy`, `/v1/memory/path`, or `/v1/memory/validate`; the daemon
