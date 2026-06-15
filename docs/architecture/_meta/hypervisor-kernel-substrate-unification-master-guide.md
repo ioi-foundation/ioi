@@ -10568,6 +10568,19 @@ the retired fallback cannot return. Remaining work is durable artifact
 projection/replay depth, ArtifactRef/PayloadRef admission depth, and stable
 protocol APIs, not an alternate artifact core mount.
 
+Slice 1313 hard-cuts the coding-tool budget recovery surface store-core
+fallback. Retry-approved state update, request-approval control, and
+approve-override control now resolve only through the positive
+`contextPolicyCore` mount supplied to
+`createRuntimeCodingToolBudgetRecoverySurface()` by daemon startup. The budget
+recovery surface and focused tests no longer read or model
+`store.contextPolicyCore` or `store.contextPolicyCore ?? null`, so
+budget-recovery run truth cannot return through a store-mounted planner
+fallback. Conformance now guards that the retired fallback cannot return.
+Remaining work is retry-event materialization, durable replay/projection, and
+deeper approval authority projection, not an alternate budget recovery planner
+mount.
+
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,
 `/v1/memory/policy`, `/v1/memory/path`, or `/v1/memory/validate`; the daemon

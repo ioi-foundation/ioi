@@ -109,40 +109,40 @@ test("coding-tool budget recovery control fails closed before JS approval, event
 test("coding-tool budget recovery retry completion uses Rust planner and Agentgres run commit", () => {
   const calls = [];
   const run = { id: "run_alpha", agentId: "agent_alpha", trace: {} };
-  const store = {
-    contextPolicyCore: {
-      planCodingToolBudgetRecoveryStateUpdate(request) {
-        runnerCalls.push(request);
-        return {
-          source: "rust_coding_tool_budget_recovery_state_update_command",
-          backend: "rust_policy",
-          status: "planned",
-          operation_kind: "workflow.run.retry_completed",
-          operator_control: {
-            control: "coding_tool_budget_recovery",
-            action: "retry_approved",
-            approval_id: request.approval_id,
-            event_id: request.event_id,
-            seq: request.seq,
-            receipt_refs: request.receipt_refs,
-            policy_decision_refs: request.policy_decision_refs,
-            created_at: request.created_at,
+  const contextPolicyCore = {
+    planCodingToolBudgetRecoveryStateUpdate(request) {
+      runnerCalls.push(request);
+      return {
+        source: "rust_coding_tool_budget_recovery_state_update_command",
+        backend: "rust_policy",
+        status: "planned",
+        operation_kind: "workflow.run.retry_completed",
+        operator_control: {
+          control: "coding_tool_budget_recovery",
+          action: "retry_approved",
+          approval_id: request.approval_id,
+          event_id: request.event_id,
+          seq: request.seq,
+          receipt_refs: request.receipt_refs,
+          policy_decision_refs: request.policy_decision_refs,
+          created_at: request.created_at,
+        },
+        run: {
+          ...request.run,
+          updatedAt: request.created_at,
+          trace: {
+            operatorControls: [{
+              control: "coding_tool_budget_recovery",
+              action: "retry_approved",
+              approval_id: request.approval_id,
+              event_id: request.event_id,
+            }],
           },
-          run: {
-            ...request.run,
-            updatedAt: request.created_at,
-            trace: {
-              operatorControls: [{
-                control: "coding_tool_budget_recovery",
-                action: "retry_approved",
-                approval_id: request.approval_id,
-                event_id: request.event_id,
-              }],
-            },
-          },
-        };
-      },
+        },
+      };
     },
+  };
+  const store = {
     getRun(runId) {
       calls.push({ name: "getRun", runId });
       return run;
@@ -162,7 +162,7 @@ test("coding-tool budget recovery retry completion uses Rust planner and Agentgr
     },
   };
   const runnerCalls = [];
-  const surface = createRuntimeCodingToolBudgetRecoverySurface({ runtimeError });
+  const surface = createRuntimeCodingToolBudgetRecoverySurface({ contextPolicyCore, runtimeError });
 
   const result = surface.codingToolBudgetRecoveryForRun(store, "run_alpha", {
     thread_id: "thread_alpha",
@@ -222,36 +222,36 @@ test("coding-tool budget recovery request approval uses Rust control planner and
   const calls = [];
   const runnerCalls = [];
   const run = { id: "run_alpha", agentId: "agent_alpha", status: "running", trace: {} };
-  const store = {
-    contextPolicyCore: {
-      planCodingToolBudgetRecoveryControl(request) {
-        runnerCalls.push(request);
-        return {
-          source: "rust_coding_tool_budget_recovery_control_command",
-          backend: "rust_policy",
-          status: "planned",
+  const contextPolicyCore = {
+    planCodingToolBudgetRecoveryControl(request) {
+      runnerCalls.push(request);
+      return {
+        source: "rust_coding_tool_budget_recovery_control_command",
+        backend: "rust_policy",
+        status: "planned",
+        action: "request_approval",
+        operation_kind: "workflow.run.coding_tool_budget_recovery.request_approval",
+        operator_control: {
+          control: "coding_tool_budget_recovery",
           action: "request_approval",
-          operation_kind: "workflow.run.coding_tool_budget_recovery.request_approval",
-          operator_control: {
-            control: "coding_tool_budget_recovery",
-            action: "request_approval",
-            approval_id: request.approval_id,
-            status: "waiting_for_approval",
-            event_id: request.event_id,
-            seq: request.seq,
-            receipt_refs: request.receipt_refs,
-            policy_decision_refs: request.policy_decision_refs,
-            created_at: request.created_at,
-          },
-          run: {
-            ...request.run,
-            updatedAt: request.created_at,
-            status: "blocked",
-            turnStatus: "waiting_for_approval",
-          },
-        };
+          approval_id: request.approval_id,
+          status: "waiting_for_approval",
+          event_id: request.event_id,
+          seq: request.seq,
+          receipt_refs: request.receipt_refs,
+          policy_decision_refs: request.policy_decision_refs,
+          created_at: request.created_at,
+        },
+        run: {
+          ...request.run,
+          updatedAt: request.created_at,
+          status: "blocked",
+          turnStatus: "waiting_for_approval",
+        },
+      };
       },
-    },
+  };
+  const store = {
     getRun(runId) {
       calls.push({ name: "getRun", runId });
       return run;
@@ -265,7 +265,7 @@ test("coding-tool budget recovery request approval uses Rust control planner and
       };
     },
   };
-  const surface = createRuntimeCodingToolBudgetRecoverySurface({ runtimeError });
+  const surface = createRuntimeCodingToolBudgetRecoverySurface({ contextPolicyCore, runtimeError });
 
   const result = surface.codingToolBudgetRecoveryForRun(store, "run_alpha", {
     thread_id: "thread_alpha",
@@ -331,37 +331,37 @@ test("coding-tool budget recovery approve override uses Rust wallet authority co
   const calls = [];
   const runnerCalls = [];
   const run = { id: "run_alpha", agentId: "agent_alpha", trace: {} };
-  const store = {
-    contextPolicyCore: {
-      planCodingToolBudgetRecoveryControl(request) {
-        runnerCalls.push(request);
-        return {
-          source: "rust_coding_tool_budget_recovery_control_command",
-          backend: "rust_policy",
-          status: "planned",
+  const contextPolicyCore = {
+    planCodingToolBudgetRecoveryControl(request) {
+      runnerCalls.push(request);
+      return {
+        source: "rust_coding_tool_budget_recovery_control_command",
+        backend: "rust_policy",
+        status: "planned",
+        action: "approve_override",
+        operation_kind: "workflow.run.coding_tool_budget_recovery.approve_override",
+        wallet_network_grant_refs: request.authority_grant_refs,
+        authority_receipt_refs: request.authority_receipt_refs,
+        authority_hash: "sha256:budget-authority",
+        operator_control: {
+          control: "coding_tool_budget_recovery",
           action: "approve_override",
-          operation_kind: "workflow.run.coding_tool_budget_recovery.approve_override",
+          approval_id: request.approval_id,
+          status: "override_approved",
+          event_id: request.event_id,
+          seq: request.seq,
+          receipt_refs: request.receipt_refs,
+          policy_decision_refs: request.policy_decision_refs,
           wallet_network_grant_refs: request.authority_grant_refs,
           authority_receipt_refs: request.authority_receipt_refs,
           authority_hash: "sha256:budget-authority",
-          operator_control: {
-            control: "coding_tool_budget_recovery",
-            action: "approve_override",
-            approval_id: request.approval_id,
-            status: "override_approved",
-            event_id: request.event_id,
-            seq: request.seq,
-            receipt_refs: request.receipt_refs,
-            policy_decision_refs: request.policy_decision_refs,
-            wallet_network_grant_refs: request.authority_grant_refs,
-            authority_receipt_refs: request.authority_receipt_refs,
-            authority_hash: "sha256:budget-authority",
-            direct_truth_write_allowed: false,
-          },
-          run: { ...request.run, updatedAt: request.created_at },
-        };
-      },
+          direct_truth_write_allowed: false,
+        },
+        run: { ...request.run, updatedAt: request.created_at },
+      };
     },
+  };
+  const store = {
     getRun(runId) {
       calls.push({ name: "getRun", runId });
       return run;
@@ -371,7 +371,7 @@ test("coding-tool budget recovery approve override uses Rust wallet authority co
       return { receipt_refs: ["receipt_commit"], policy_decision_refs: ["policy_commit"] };
     },
   };
-  const surface = createRuntimeCodingToolBudgetRecoverySurface({ runtimeError });
+  const surface = createRuntimeCodingToolBudgetRecoverySurface({ contextPolicyCore, runtimeError });
 
   const result = surface.codingToolBudgetRecoveryForRun(store, "run_alpha", {
     thread_id: "thread_alpha",
@@ -443,12 +443,12 @@ test("coding-tool budget recovery defaults action canonically while ignoring ret
 
 test("coding-tool budget recovery request approval fails before JS lookup when canonical control inputs are missing", () => {
   const calls = [];
-  const store = {
-    contextPolicyCore: {
-      planCodingToolBudgetRecoveryControl() {
-        throw new Error("Rust control planner must not run before required canonical inputs are present.");
-      },
+  const contextPolicyCore = {
+    planCodingToolBudgetRecoveryControl() {
+      throw new Error("Rust control planner must not run before required canonical inputs are present.");
     },
+  };
+  const store = {
     getRun(runId) {
       calls.push({ name: "getRun", runId });
       throw new Error("Budget recovery facade must not look up runs before canonical control inputs are present.");
@@ -458,7 +458,7 @@ test("coding-tool budget recovery request approval fails before JS lookup when c
       throw new Error("Budget recovery facade must not persist before canonical control inputs are present.");
     },
   };
-  const surface = createRuntimeCodingToolBudgetRecoverySurface({ runtimeError });
+  const surface = createRuntimeCodingToolBudgetRecoverySurface({ contextPolicyCore, runtimeError });
 
   assert.throws(
     () =>
@@ -484,12 +484,12 @@ test("coding-tool budget recovery request approval fails before JS lookup when c
 
 test("coding-tool budget recovery retry completion fails before JS lookup when canonical state-update inputs are missing", () => {
   const calls = [];
-  const store = {
-    contextPolicyCore: {
-      planCodingToolBudgetRecoveryStateUpdate() {
-        throw new Error("Rust planner must not run before required canonical inputs are present.");
-      },
+  const contextPolicyCore = {
+    planCodingToolBudgetRecoveryStateUpdate() {
+      throw new Error("Rust planner must not run before required canonical inputs are present.");
     },
+  };
+  const store = {
     getRun(runId) {
       calls.push({ name: "getRun", runId });
       throw new Error("Budget recovery facade must not look up runs before canonical state inputs are present.");
@@ -499,7 +499,7 @@ test("coding-tool budget recovery retry completion fails before JS lookup when c
       throw new Error("Budget recovery facade must not persist before canonical state inputs are present.");
     },
   };
-  const surface = createRuntimeCodingToolBudgetRecoverySurface({ runtimeError });
+  const surface = createRuntimeCodingToolBudgetRecoverySurface({ contextPolicyCore, runtimeError });
 
   assert.throws(
     () =>

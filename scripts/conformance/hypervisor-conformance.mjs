@@ -11829,6 +11829,10 @@ function runBridge() {
         runtimeCodingToolBudgetRecoverySurfaceTest,
       ) &&
       /planCodingToolBudgetRecoveryStateUpdate/.test(runtimeCodingToolBudgetRecoverySurface) &&
+      /contextPolicyCore = null/.test(runtimeCodingToolBudgetRecoverySurface) &&
+      !/store\?\.contextPolicyCore|store\.contextPolicyCore|store\?\.contextPolicyCore\s*\?\?\s*null/.test(
+        runtimeCodingToolBudgetRecoverySurface + runtimeCodingToolBudgetRecoverySurfaceTest,
+      ) &&
       /store\.getRun\(runId\)/.test(runtimeCodingToolBudgetRecoverySurface) &&
       /store\.writeRun\(plannedRun,\s*plannedOperationKind\)/.test(
         runtimeCodingToolBudgetRecoverySurface,
@@ -12007,6 +12011,9 @@ function runBridge() {
         runtimeDaemonIndex +
           runtimeCodingToolBudgetRecoverySurface +
           runtimeCodingToolBudgetRecoverySurfaceTest,
+      ) &&
+      !/store\?\.contextPolicyCore|store\.contextPolicyCore|store\?\.contextPolicyCore\s*\?\?\s*null/.test(
+        runtimeCodingToolBudgetRecoverySurface + runtimeCodingToolBudgetRecoverySurfaceTest,
       ) &&
       /coding-tool budget recovery control fails closed before JS approval, event append, or run persistence without Rust planner/.test(
         runtimeCodingToolBudgetRecoverySurfaceTest,
