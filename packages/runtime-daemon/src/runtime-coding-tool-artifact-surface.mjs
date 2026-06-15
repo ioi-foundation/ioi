@@ -53,9 +53,8 @@ export function createRuntimeCodingToolArtifactSurface(deps = {}) {
     });
   }
 
-  function codingToolArtifactDraftPlanner(store, request = {}) {
-    const runner = store?.contextPolicyCore ?? contextPolicyCore;
-    if (typeof runner?.planRuntimeCodingToolArtifactDrafts === "function") return runner;
+  function codingToolArtifactDraftPlanner(request = {}) {
+    if (typeof contextPolicyCore?.planRuntimeCodingToolArtifactDrafts === "function") return contextPolicyCore;
     throwCodingToolArtifactRustCoreRequired("coding_tool_artifact_draft_materialization", "artifact.coding_tool_draft", {
       ...request,
       evidence_refs: [
@@ -66,9 +65,8 @@ export function createRuntimeCodingToolArtifactSurface(deps = {}) {
     });
   }
 
-  function codingToolArtifactReadProjector(store, request = {}) {
-    const runner = store?.contextPolicyCore ?? contextPolicyCore;
-    if (typeof runner?.projectRuntimeCodingToolArtifactRead === "function") return runner;
+  function codingToolArtifactReadProjector(request = {}) {
+    if (typeof contextPolicyCore?.projectRuntimeCodingToolArtifactRead === "function") return contextPolicyCore;
     throwCodingToolArtifactRustCoreRequired(
       request.operation ?? "coding_tool_artifact_read_projection",
       request.operation_kind ?? "artifact.read_projection",
@@ -110,7 +108,7 @@ export function createRuntimeCodingToolArtifactSurface(deps = {}) {
       receipt_id: receiptId ?? null,
       artifact_draft_count: artifactDrafts.length,
     };
-    const runner = codingToolArtifactDraftPlanner(store, requestContext);
+    const runner = codingToolArtifactDraftPlanner(requestContext);
     assertArtifactStateCommitAvailable(store, requestContext);
     const canonicalResult = {
       ...(objectRecord(result) ?? {}),
@@ -214,7 +212,7 @@ export function createRuntimeCodingToolArtifactSurface(deps = {}) {
   }
 
   function projectCodingToolArtifactRead(store, request = {}) {
-    const runner = codingToolArtifactReadProjector(store, request);
+    const runner = codingToolArtifactReadProjector(request);
     const projectionRequest = {
       ...request,
       state_dir: store?.stateDir ?? null,

@@ -10557,6 +10557,17 @@ Conformance now guards the absence of that store-mounted planner path. Remaining
 work is broader SDK route-family protocol coverage and deeper MCP replay/storage
 cleanup, not an alternate MCP serve planner mount.
 
+Slice 1312 hard-cuts the coding-tool artifact surface store-core fallback.
+Artifact draft materialization and artifact read/retrieve projection now resolve
+only through the positive `contextPolicyCore` mount supplied to
+`createRuntimeCodingToolArtifactSurface()` by daemon startup. The artifact
+surface no longer reads `store.contextPolicyCore ?? contextPolicyCore`, so draft
+records, read projections, and result retrieval cannot return through a
+store-mounted artifact planner/projector fallback. Conformance now guards that
+the retired fallback cannot return. Remaining work is durable artifact
+projection/replay depth, ArtifactRef/PayloadRef admission depth, and stable
+protocol APIs, not an alternate artifact core mount.
+
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,
 `/v1/memory/policy`, `/v1/memory/path`, or `/v1/memory/validate`; the daemon

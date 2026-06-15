@@ -7345,9 +7345,12 @@ function runBridge() {
       !/input\.(?:artifactId|artifactRef|toolCallId)\b/.test(runtimeCodingToolInvocationSurface) &&
       !/\{ threadId, toolId \}/.test(runtimeCodingToolInvocationSurface) &&
       !/query\.(?:artifactId|toolCallId)\b/.test(runtimeCodingToolArtifactSurface) &&
-      !/artifactProjectionCandidateRecords/.test(runtimeCodingToolArtifactSurface) &&
-      !/artifact_records:\s*artifactProjectionCandidateRecords/.test(runtimeCodingToolArtifactSurface) &&
-      !/store\.codingArtifacts\.values/.test(runtimeCodingToolArtifactSurface) &&
+	      !/artifactProjectionCandidateRecords/.test(runtimeCodingToolArtifactSurface) &&
+	      !/artifact_records:\s*artifactProjectionCandidateRecords/.test(runtimeCodingToolArtifactSurface) &&
+	      !/store\?\.contextPolicyCore|store\.contextPolicyCore|store\?\.contextPolicyCore\s*\?\?\s*contextPolicyCore/.test(
+	        runtimeCodingToolArtifactSurface + runtimeCodingToolArtifactSurfaceTest,
+	      ) &&
+	      !/store\.codingArtifacts\.values/.test(runtimeCodingToolArtifactSurface) &&
       !/store\.codingArtifacts\.get/.test(runtimeCodingToolArtifactSurface) &&
       !/codingToolArtifactReadResult/.test(runtimeCodingToolArtifactSurface) &&
       !/codingToolArtifactMetadata/.test(runtimeCodingToolArtifactSurface) &&
@@ -7524,11 +7527,14 @@ function runBridge() {
       /coding-tool artifact draft core sends Rust daemon-core plan request/.test(runtimeContextPolicyCoreTest) &&
       /RUNTIME_CONTROL_CODING_TOOL_ARTIFACT_DRAFTS_API_METHOD/.test(runtimeContextPolicyCoreTest) &&
       /coding-tool artifact draft normalizer rejects missing Rust records/.test(runtimeContextPolicyCoreTest) &&
-      /runtime_coding_tool_artifact_rust_core_required/.test(runtimeCodingToolArtifactSurface) &&
-      /rust_core_boundary:\s*"runtime\.coding_tool_artifact"/.test(runtimeCodingToolArtifactSurface) &&
-      /operation_kind:\s*operationKind/.test(runtimeCodingToolArtifactSurface) &&
-      /codingToolArtifactDraftPlanner/.test(runtimeCodingToolArtifactSurface) &&
-      /assertArtifactStateCommitAvailable/.test(runtimeCodingToolArtifactSurface) &&
+	      /runtime_coding_tool_artifact_rust_core_required/.test(runtimeCodingToolArtifactSurface) &&
+	      /rust_core_boundary:\s*"runtime\.coding_tool_artifact"/.test(runtimeCodingToolArtifactSurface) &&
+	      /operation_kind:\s*operationKind/.test(runtimeCodingToolArtifactSurface) &&
+	      /codingToolArtifactDraftPlanner/.test(runtimeCodingToolArtifactSurface) &&
+	      !/store\?\.contextPolicyCore|store\.contextPolicyCore|store\?\.contextPolicyCore\s*\?\?\s*contextPolicyCore/.test(
+	        runtimeCodingToolArtifactSurface + runtimeCodingToolArtifactSurfaceTest,
+	      ) &&
+	      /assertArtifactStateCommitAvailable/.test(runtimeCodingToolArtifactSurface) &&
       /planRuntimeCodingToolArtifactDrafts/.test(codingToolArtifactDraftMaterializerBlock) &&
       /coding_tool_artifact_draft_materialization/.test(codingToolArtifactDraftMaterializerBlock) &&
       /artifact\.coding_tool_draft/.test(codingToolArtifactDraftMaterializerBlock) &&
@@ -27505,9 +27511,12 @@ function runReceipts() {
       /store\.codingArtifacts\.has\("artifact_retired"\), false/.test(
         read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
       ) &&
-      /runtime_coding_tool_artifact_rust_core_required/.test(runtimeCodingToolArtifactSurface) &&
-      /codingToolArtifactDraftPlanner/.test(runtimeCodingToolArtifactSurface) &&
-      /assertArtifactStateCommitAvailable/.test(runtimeCodingToolArtifactSurface) &&
+	      /runtime_coding_tool_artifact_rust_core_required/.test(runtimeCodingToolArtifactSurface) &&
+	      /codingToolArtifactDraftPlanner/.test(runtimeCodingToolArtifactSurface) &&
+	      !/store\?\.contextPolicyCore|store\.contextPolicyCore|store\?\.contextPolicyCore\s*\?\?\s*contextPolicyCore/.test(
+	        runtimeCodingToolArtifactSurface + runtimeCodingToolArtifactSurfaceTest,
+	      ) &&
+	      /assertArtifactStateCommitAvailable/.test(runtimeCodingToolArtifactSurface) &&
       /planRuntimeCodingToolArtifactDrafts/.test(runtimeCodingToolArtifactSurface) &&
       /coding_tool_artifact_draft_js_materializer_retired/.test(runtimeCodingToolArtifactSurface) &&
       /coding_tool_artifact_draft_rust_owned/.test(runtimeCodingToolArtifactSurface) &&
