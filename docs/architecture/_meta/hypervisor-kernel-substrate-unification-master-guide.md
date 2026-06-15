@@ -641,7 +641,7 @@ Slice 1237 then hard-cuts hosted provider lifecycle/inventory metadata transport
 out of the refusal-marker lane: Rust now emits contained hosted metadata
 transport contracts with `rust_materialized` execution status, cTEE
 no-plaintext custody evidence, wallet.network transport authority evidence, and
-explicit JS/command/binary-bridge/compatibility fallback false facts, while the
+no retired JS/command/binary-bridge/compatibility fallback proof fields, while the
 JS protocol edge rejects retired `hosted_provider_transport_not_executed`
 evidence before public truth can return.
 Slice 770 retired the MCP manager `allowedTools` server config/catalog fallback
@@ -9192,8 +9192,8 @@ mutation, projection writes, and JS-hosted transport execution; hosted/custom
 records carry Rust-contained metadata transport contracts with
 `rust_hosted_provider_metadata_transport_materialized`,
 `ctee_hosted_provider_secret_not_exposed`, and
-`wallet_network_provider_transport_authority_bound` evidence plus explicit
-JS/command/binary-bridge/compatibility fallback false facts. Public
+`wallet_network_provider_transport_authority_bound` evidence while omitting
+retired JS/command/binary-bridge/compatibility fallback proof fields. Public
 provider-health list/latest projections now replay admitted
 `model-provider-lifecycle-controls/*.json` records in Rust and ignore stale
 `provider_health` receipts or JS telemetry inputs. This remains non-terminal
@@ -9252,7 +9252,7 @@ Rust `rust_model_mount_hosted_provider_inventory` metadata backend, records only
 canonical provider metadata/item refs, carries a Rust-contained metadata
 transport contract with `rust_materialized` execution status, cTEE
 no-plaintext custody evidence, wallet.network transport authority evidence, and
-explicit JS/command/binary-bridge/compatibility fallback false facts, and still
+no retired JS/command/binary-bridge/compatibility fallback proof fields, and still
 avoids JS driver/network execution. `providerInventoryRecords()` now
 calls Rust read-projection kind `provider_inventory_records` with runtime
 `state_dir`; Rust replays persisted `model-provider-inventory/*.json` Agentgres
@@ -9733,8 +9733,8 @@ Slice 1237 hard-cuts hosted provider lifecycle/inventory metadata transport out
 of the old refusal-marker compatibility lane. Rust provider lifecycle and
 inventory planners now emit contained hosted metadata transport contracts with
 `rust_materialized` execution status, cTEE no-plaintext custody checks,
-wallet.network transport-authority evidence, and explicit JS/command/
-binary-bridge/compatibility fallback false facts. Public JS protocol adapters
+wallet.network transport-authority evidence, and no retired JS/command/
+binary-bridge/compatibility fallback proof fields. Public JS protocol adapters
 must preserve and validate those Rust-authored contracts, and they now reject the
 retired `hosted_provider_transport_not_executed` evidence marker before hosted
 provider lifecycle or inventory truth can return. This remains non-terminal
@@ -9768,6 +9768,20 @@ fails closed if they reappear in the public response, record details, or
 receipt/result payloads. Conformance now requires the MCP workflow Rust source
 to stay free of those false-valued fallback fields and requires the JS negative
 guard that rejects stale fallback-proof responses.
+
+Slice 1268 hard-deletes the hosted provider lifecycle/inventory fallback-proof
+protocol shape for migrated model_mount provider metadata transport contracts.
+Rust `plan_model_mount_provider_lifecycle` and
+`plan_model_mount_provider_inventory` no longer serialize
+`js_transport_invocation`, `command_transport_fallback`,
+`binary_bridge_fallback`, or `compatibility_fallback` as false-valued proof
+fields on provider lifecycle, provider inventory, or nested transport-contract
+records. The mounted JS provider boundary treats those keys as retired
+compatibility fields and fails closed if they reappear in the normalized result,
+Rust record, public response, or transport contract. Conformance now scans the
+model_mount Rust/JS production source for the retired false-valued provider
+transport fields and requires focused provider lifecycle/inventory negative
+tests.
 
 Slice 1239 hard-cuts runtime MCP control live invoke/discovery exits out of the
 admitted-but-pending transport-result lane. Rust

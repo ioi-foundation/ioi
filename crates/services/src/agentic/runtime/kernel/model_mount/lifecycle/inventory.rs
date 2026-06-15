@@ -295,10 +295,6 @@ fn provider_inventory_transport_contract(request: &ModelMountProviderInventoryRe
         "action": &request.action,
         "metadata_item_refs": &request.item_refs,
         "plaintext_secret_material_returned": false,
-        "js_transport_invocation": false,
-        "command_transport_fallback": false,
-        "binary_bridge_fallback": false,
-        "compatibility_fallback": false,
     })
 }
 
@@ -395,10 +391,6 @@ fn provider_inventory_record(result: &ModelMountProviderInventoryResult) -> Valu
             .cloned()
             .unwrap_or(Value::Null),
         "plaintext_secret_material_returned": false,
-        "js_transport_invocation": false,
-        "command_transport_fallback": false,
-        "binary_bridge_fallback": false,
-        "compatibility_fallback": false,
         "inventory_hash": &result.inventory_hash,
         "record_dir": &result.record_dir,
         "record_id": &result.record_id,
@@ -609,10 +601,21 @@ mod tests {
             result.transport_contract["transport_materialization_kind"],
             "hosted_provider_metadata"
         );
-        assert_eq!(
-            result.transport_contract["command_transport_fallback"],
-            false
-        );
+        for retired_field in [
+            "js_transport_invocation",
+            "command_transport_fallback",
+            "binary_bridge_fallback",
+            "compatibility_fallback",
+        ] {
+            assert!(
+                result.transport_contract.get(retired_field).is_none(),
+                "{retired_field} must stay out of provider inventory transport contracts"
+            );
+            assert!(
+                result.record.get(retired_field).is_none(),
+                "{retired_field} must stay out of provider inventory records"
+            );
+        }
         assert!(result
             .evidence_refs
             .contains(&"hosted_provider_catalog_metadata_recorded".to_string()));
@@ -630,7 +633,6 @@ mod tests {
             result.record["transport_execution_owner"],
             "rust_daemon_core.model_mount.provider_inventory"
         );
-        assert_eq!(result.record["command_transport_fallback"], false);
 
         request.action = "list_loaded".to_string();
         let result = plan_provider_inventory(&request)

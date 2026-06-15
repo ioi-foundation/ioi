@@ -4283,6 +4283,13 @@ function assertRustAuthoredProviderInventoryResult(result = {}, options = {}) {
   const inventoryRecord = result.record && typeof result.record === "object" && !Array.isArray(result.record)
     ? result.record
     : {};
+  const publicResponse = result.public_response && typeof result.public_response === "object" && !Array.isArray(result.public_response)
+    ? result.public_response
+    : record.public_response && typeof record.public_response === "object" && !Array.isArray(record.public_response)
+      ? record.public_response
+      : inventoryRecord.public_response && typeof inventoryRecord.public_response === "object" && !Array.isArray(inventoryRecord.public_response)
+        ? inventoryRecord.public_response
+        : null;
   const evidenceRefs = Array.isArray(result.evidence_refs)
     ? result.evidence_refs
     : Array.isArray(record.evidence_refs)
@@ -4349,16 +4356,15 @@ function assertRustAuthoredProviderInventoryResult(result = {}, options = {}) {
     if (transportContract.transport_execution_owner !== "rust_daemon_core.model_mount.provider_inventory") {
       missing.push("transport_contract.transport_execution_owner");
     }
-    for (const field of [
-      "plaintext_secret_material_returned",
-      "js_transport_invocation",
-      "command_transport_fallback",
-      "binary_bridge_fallback",
-      "compatibility_fallback",
-    ]) {
-      if (transportContract[field] !== false) missing.push(`transport_contract.${field}_false`);
+    if (transportContract.plaintext_secret_material_returned !== false) {
+      missing.push("transport_contract.plaintext_secret_material_returned_false");
     }
+    assertRetiredProviderTransportProofFieldsAbsent(transportContract, "transport_contract", missing);
   }
+  assertRetiredProviderTransportProofFieldsAbsent(result, "result", missing);
+  assertRetiredProviderTransportProofFieldsAbsent(record, "result", missing);
+  assertRetiredProviderTransportProofFieldsAbsent(inventoryRecord, "record", missing);
+  assertRetiredProviderTransportProofFieldsAbsent(publicResponse, "public_response", missing);
   if (!Array.isArray(result.receipt_refs)) missing.push("receipt_refs");
   if (!evidenceRefs.includes("rust_model_mount_provider_inventory")) {
     missing.push("evidence_refs.rust_model_mount_provider_inventory");
@@ -4392,6 +4398,18 @@ function assertRustAuthoredProviderInventoryResult(result = {}, options = {}) {
   });
 }
 
+function assertRetiredProviderTransportProofFieldsAbsent(record, path, missing) {
+  if (!record || typeof record !== "object" || Array.isArray(record)) return;
+  for (const field of [
+    "js_transport_invocation",
+    "command_transport_fallback",
+    "binary_bridge_fallback",
+    "compatibility_fallback",
+  ]) {
+    if (Object.hasOwn(record, field)) missing.push(`${path}.${field}_retired`);
+  }
+}
+
 function commitProviderInventoryRecordState(state, plan = {}) {
   return commitModelMountRecordState(state, {
     recordDir: plan.record_dir,
@@ -4417,6 +4435,13 @@ function assertRustAuthoredProviderLifecycleResult(result = {}, options = {}) {
   const lifecycleRecord = result.record && typeof result.record === "object" && !Array.isArray(result.record)
     ? result.record
     : {};
+  const publicResponse = result.public_response && typeof result.public_response === "object" && !Array.isArray(result.public_response)
+    ? result.public_response
+    : record.public_response && typeof record.public_response === "object" && !Array.isArray(record.public_response)
+      ? record.public_response
+      : lifecycleRecord.public_response && typeof lifecycleRecord.public_response === "object" && !Array.isArray(lifecycleRecord.public_response)
+        ? lifecycleRecord.public_response
+        : null;
   const evidenceRefs = Array.isArray(result.evidence_refs)
     ? result.evidence_refs
     : Array.isArray(record.evidence_refs)
@@ -4455,16 +4480,15 @@ function assertRustAuthoredProviderLifecycleResult(result = {}, options = {}) {
     if (transportContract.transport_execution_owner !== "rust_daemon_core.model_mount.provider_lifecycle") {
       missing.push("transport_contract.transport_execution_owner");
     }
-    for (const field of [
-      "plaintext_secret_material_returned",
-      "js_transport_invocation",
-      "command_transport_fallback",
-      "binary_bridge_fallback",
-      "compatibility_fallback",
-    ]) {
-      if (transportContract[field] !== false) missing.push(`transport_contract.${field}_false`);
+    if (transportContract.plaintext_secret_material_returned !== false) {
+      missing.push("transport_contract.plaintext_secret_material_returned_false");
     }
+    assertRetiredProviderTransportProofFieldsAbsent(transportContract, "transport_contract", missing);
   }
+  assertRetiredProviderTransportProofFieldsAbsent(result, "result", missing);
+  assertRetiredProviderTransportProofFieldsAbsent(record, "result", missing);
+  assertRetiredProviderTransportProofFieldsAbsent(lifecycleRecord, "record", missing);
+  assertRetiredProviderTransportProofFieldsAbsent(publicResponse, "public_response", missing);
   if (evidenceRefs.includes("hosted_provider_transport_not_executed")) {
     missing.push("evidence_refs.hosted_provider_transport_not_executed_retired");
   }

@@ -1153,10 +1153,6 @@ test("Rust model_mount core sends hosted provider lifecycle through typed daemon
 	              transport_execution_owner: "rust_daemon_core.model_mount.provider_lifecycle",
 	              transport_materialization_kind: "hosted_provider_metadata_lifecycle",
 	              plaintext_secret_material_returned: false,
-	              js_transport_invocation: false,
-	              command_transport_fallback: false,
-	              binary_bridge_fallback: false,
-	              compatibility_fallback: false,
 	            },
 	            evidence_refs: [
 	              "rust_model_mount_provider_lifecycle",
@@ -1175,10 +1171,6 @@ test("Rust model_mount core sends hosted provider lifecycle through typed daemon
 	            transport_execution_owner: "rust_daemon_core.model_mount.provider_lifecycle",
 	            transport_materialization_kind: "hosted_provider_metadata_lifecycle",
 	            plaintext_secret_material_returned: false,
-	            js_transport_invocation: false,
-	            command_transport_fallback: false,
-	            binary_bridge_fallback: false,
-	            compatibility_fallback: false,
 	          },
 	          transport_execution_status: "rust_materialized",
 	          evidence_refs: [
@@ -1219,6 +1211,7 @@ test("Rust model_mount core sends hosted provider lifecycle through typed daemon
 	  assert.equal(result.evidence_refs.includes("rust_hosted_provider_metadata_transport_materialized"), true);
 	  assert.equal(result.evidence_refs.includes("hosted_provider_transport_not_executed"), false);
 	  assert.equal(result.transport_execution_status, "rust_materialized");
+	  assert.equal(Object.hasOwn(result.transport_contract, "command_transport_fallback"), false);
 	});
 
 test("Rust model_mount core sends local provider inventory through typed daemon-core API", () => {

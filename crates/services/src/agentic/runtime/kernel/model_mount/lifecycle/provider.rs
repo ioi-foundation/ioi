@@ -332,10 +332,6 @@ fn provider_lifecycle_transport_contract(request: &ModelMountProviderLifecycleRe
         "model_ref": &request.model_ref,
         "action": &request.action,
         "plaintext_secret_material_returned": false,
-        "js_transport_invocation": false,
-        "command_transport_fallback": false,
-        "binary_bridge_fallback": false,
-        "compatibility_fallback": false,
     })
 }
 
@@ -426,10 +422,6 @@ fn provider_lifecycle_public_response(result: &ModelMountProviderLifecycleResult
             .unwrap_or(Value::Null),
         "plaintext_secret_material_returned": false,
         "js_provider_driver_call": false,
-        "js_transport_invocation": false,
-        "command_transport_fallback": false,
-        "binary_bridge_fallback": false,
-        "compatibility_fallback": false,
         "js_provider_map_write": false,
         "js_lifecycle_receipt": false,
         "js_projection_write": false,
@@ -472,10 +464,6 @@ fn provider_lifecycle_record(result: &ModelMountProviderLifecycleResult) -> Valu
             .cloned()
             .unwrap_or(Value::Null),
         "plaintext_secret_material_returned": false,
-        "js_transport_invocation": false,
-        "command_transport_fallback": false,
-        "binary_bridge_fallback": false,
-        "compatibility_fallback": false,
         "lifecycle_hash": &result.lifecycle_hash,
         "record_dir": &result.record_dir,
         "receipt_refs": record_receipt_refs,
@@ -731,15 +719,29 @@ mod tests {
             result.transport_contract["transport_materialization_kind"],
             "hosted_provider_metadata_lifecycle"
         );
-        assert_eq!(
-            result.transport_contract["command_transport_fallback"],
-            false
-        );
+        for retired_field in [
+            "js_transport_invocation",
+            "command_transport_fallback",
+            "binary_bridge_fallback",
+            "compatibility_fallback",
+        ] {
+            assert!(
+                result.transport_contract.get(retired_field).is_none(),
+                "{retired_field} must stay out of provider lifecycle transport contracts"
+            );
+            assert!(
+                result.public_response.get(retired_field).is_none(),
+                "{retired_field} must stay out of provider lifecycle public responses"
+            );
+            assert!(
+                result.record.get(retired_field).is_none(),
+                "{retired_field} must stay out of provider lifecycle records"
+            );
+        }
         assert_eq!(
             result.public_response["transport_execution_status"],
             "rust_materialized"
         );
-        assert_eq!(result.public_response["command_transport_fallback"], false);
         assert!(result.public_response["js_provider_driver_call"] == false);
     }
 

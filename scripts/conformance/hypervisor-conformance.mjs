@@ -914,6 +914,19 @@ function runDocs() {
 	  );
   assertCheck(
     result,
+    "guide-provider-transport-fallback-proof-retired",
+    /Slice 1268 hard-deletes the hosted provider lifecycle\/inventory fallback-proof\s+protocol shape/.test(guide) &&
+      /Rust `plan_model_mount_provider_lifecycle` and\s+`plan_model_mount_provider_inventory` no longer serialize\s+`js_transport_invocation`, `command_transport_fallback`,\s+`binary_bridge_fallback`, or `compatibility_fallback`/.test(guide) &&
+      /mounted JS provider boundary treats those keys as retired\s+compatibility fields/.test(guide) &&
+      /Slice 1268 additionally hard-deletes the hosted provider lifecycle\/inventory\s+fallback-proof protocol shape/.test(matrix) &&
+      /omitting retired JS\/command\/binary-bridge\/compatibility fallback proof fields/.test(
+        implementationMatrix,
+      ),
+    [GUIDE, MATRIX, IMPLEMENTATION_MATRIX],
+    "master guide and matrices must record that hosted provider metadata transport no longer accepts fallback-proof fields",
+  );
+  assertCheck(
+    result,
     "guide-runtime-mcp-live-exit-receipt-state-bound",
       /Slice 1215 binds runtime MCP live invoke\/discovery exits to\s+Rust-authored\s+runtime receipt-state commits/.test(guide) &&
       /ioi\.runtime\.mcp-live-exit-receipt\.v1/.test(guide) &&
@@ -24525,6 +24538,14 @@ function runReceipts() {
 	      /hosted_provider_inventory_materializes_contained_metadata_transport_in_rust/.test(
 	        modelMountCore,
 	      ) &&
+	      !/"(?:js_transport_invocation|command_transport_fallback|binary_bridge_fallback|compatibility_fallback)": false/.test(
+	        modelMountCore,
+	      ) &&
+	      /assertRetiredProviderTransportProofFieldsAbsent/.test(providerOperations) &&
+	      /hosted provider inventory rejects retired transport fallback proof fields/.test(
+	        providerOperationsTest,
+	      ) &&
+	      /record\.command_transport_fallback_retired/.test(providerOperationsTest) &&
 	      /rust_daemon_core\.model_mount\.provider_inventory/.test(modelMountCore) &&
 	      /transport_contract\.transport_execution_status\.rust_materialized/.test(
 	        providerOperations,
@@ -24591,6 +24612,14 @@ function runReceipts() {
 	      /hosted_provider_lifecycle_materializes_contained_metadata_transport_in_rust/.test(
 	        modelMountCore,
 	      ) &&
+	      !/"(?:js_transport_invocation|command_transport_fallback|binary_bridge_fallback|compatibility_fallback)": false/.test(
+	        modelMountCore,
+	      ) &&
+	      /assertRetiredProviderTransportProofFieldsAbsent/.test(providerOperations) &&
+	      /hosted provider health rejects retired transport fallback proof fields/.test(
+	        providerOperationsTest,
+	      ) &&
+	      /public_response\.command_transport_fallback_retired/.test(providerOperationsTest) &&
 	      /rust_hosted_provider_metadata_transport_materialized/.test(providerOperationsTest) &&
 	      /assert\.equal\(stopResult\.evidence_refs\.includes\("hosted_provider_transport_not_executed"\),\s*false\)/.test(
 	        providerOperationsTest,
