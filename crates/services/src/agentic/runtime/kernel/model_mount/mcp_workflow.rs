@@ -269,11 +269,6 @@ fn plan_mcp_tool_invoke(
             "step_module_dispatch_owner": "rust_daemon_core.step_module_router",
             "agentgres_admission_required": true,
             "receipt_state_root_binding_required": true,
-            "js_transport_invocation": false,
-            "command_transport_fallback": false,
-            "binary_bridge_fallback": false,
-            "compatibility_fallback": false,
-            "legacy_js_result_fallback": false,
             "wallet_authority_required": true,
             "wallet_authority_boundary": "wallet.network.mcp_external_exit",
             "ctee_custody_required": true,
@@ -305,11 +300,6 @@ fn plan_mcp_tool_invoke(
             "step_module_dispatch_owner": "rust_daemon_core.step_module_router",
             "agentgres_admission_required": true,
             "receipt_state_root_binding_required": true,
-            "js_transport_invocation": false,
-            "command_transport_fallback": false,
-            "binary_bridge_fallback": false,
-            "compatibility_fallback": false,
-            "legacy_js_result_fallback": false,
             "wallet_authority_required": true,
             "wallet_authority_boundary": "wallet.network.mcp_external_exit",
             "ctee_custody_required": true,
@@ -381,13 +371,6 @@ fn plan_workflow_node_execute(
             "workflow_execution_owner": "rust_daemon_core.model_mount.mcp_workflow",
             "agentgres_admission_required": true,
             "receipt_state_root_binding_required": true,
-            "js_route_test": false,
-            "js_model_invocation": false,
-            "js_mcp_tool_invocation": false,
-            "command_transport_fallback": false,
-            "binary_bridge_fallback": false,
-            "compatibility_fallback": false,
-            "legacy_js_result_fallback": false,
             "wallet_authority_required": true,
             "wallet_authority_boundary": "wallet.network.mcp_external_exit",
             "ctee_custody_required": true,
@@ -420,13 +403,6 @@ fn plan_workflow_node_execute(
             "workflow_execution_owner": "rust_daemon_core.model_mount.mcp_workflow",
             "agentgres_admission_required": true,
             "receipt_state_root_binding_required": true,
-            "js_route_test": false,
-            "js_model_invocation": false,
-            "js_mcp_tool_invocation": false,
-            "command_transport_fallback": false,
-            "binary_bridge_fallback": false,
-            "compatibility_fallback": false,
-            "legacy_js_result_fallback": false,
             "wallet_authority_required": true,
             "wallet_authority_boundary": "wallet.network.mcp_external_exit",
             "ctee_custody_required": true,
@@ -462,10 +438,6 @@ fn mcp_tool_result_payload(
             )
         }],
         "is_error": false,
-        "js_result_synthesis": false,
-        "command_transport_fallback": false,
-        "binary_bridge_fallback": false,
-        "compatibility_fallback": false,
     })
 }
 
@@ -493,10 +465,6 @@ fn workflow_node_result_payload(
             "workflow_node_id": workflow_node_id,
         },
         "is_error": false,
-        "js_result_synthesis": false,
-        "command_transport_fallback": false,
-        "binary_bridge_fallback": false,
-        "compatibility_fallback": false,
     })
 }
 
@@ -1204,7 +1172,22 @@ mod tests {
         assert_eq!(plan.record["status"], "admitted");
         assert_eq!(plan.record["details"]["server_id"], "mcp.docs");
         assert_eq!(plan.record["details"]["tool"], "search");
-        assert_eq!(plan.record["details"]["js_transport_invocation"], false);
+        for retired_field in [
+            "js_transport_invocation",
+            "command_transport_fallback",
+            "binary_bridge_fallback",
+            "compatibility_fallback",
+            "legacy_js_result_fallback",
+        ] {
+            assert!(
+                plan.record["details"].get(retired_field).is_none(),
+                "{retired_field} must stay out of MCP workflow record details"
+            );
+            assert!(
+                plan.public_response.get(retired_field).is_none(),
+                "{retired_field} must stay out of MCP workflow public responses"
+            );
+        }
         assert_eq!(
             plan.public_response["transport_execution_status"],
             "rust_admitted"
@@ -1287,10 +1270,19 @@ mod tests {
             .expect("receipt evidence")
             .iter()
             .any(|value| value == "model_mount_mcp_result_payload_rust_materialized"));
-        assert_eq!(plan.public_response["command_transport_fallback"], false);
-        assert_eq!(plan.public_response["binary_bridge_fallback"], false);
-        assert_eq!(plan.public_response["compatibility_fallback"], false);
-        assert_eq!(plan.public_response["legacy_js_result_fallback"], false);
+        for retired_field in [
+            "js_result_synthesis",
+            "command_transport_fallback",
+            "binary_bridge_fallback",
+            "compatibility_fallback",
+        ] {
+            assert!(
+                plan.public_response["result_payload"]
+                    .get(retired_field)
+                    .is_none(),
+                "{retired_field} must stay out of MCP workflow result payloads"
+            );
+        }
         assert_eq!(plan.public_response["wallet_authority_required"], true);
         assert_eq!(
             plan.authority_grant_refs[0],
@@ -1398,13 +1390,37 @@ mod tests {
             .as_str()
             .unwrap()
             .starts_with("agentgres://model-mounting/mcp-workflow/"));
-        assert_eq!(plan.public_response["js_route_test"], false);
-        assert_eq!(plan.public_response["js_model_invocation"], false);
-        assert_eq!(plan.public_response["js_mcp_tool_invocation"], false);
-        assert_eq!(plan.public_response["command_transport_fallback"], false);
-        assert_eq!(plan.public_response["binary_bridge_fallback"], false);
-        assert_eq!(plan.public_response["compatibility_fallback"], false);
-        assert_eq!(plan.public_response["legacy_js_result_fallback"], false);
+        for retired_field in [
+            "js_route_test",
+            "js_model_invocation",
+            "js_mcp_tool_invocation",
+            "command_transport_fallback",
+            "binary_bridge_fallback",
+            "compatibility_fallback",
+            "legacy_js_result_fallback",
+        ] {
+            assert!(
+                plan.record["details"].get(retired_field).is_none(),
+                "{retired_field} must stay out of workflow-node record details"
+            );
+            assert!(
+                plan.public_response.get(retired_field).is_none(),
+                "{retired_field} must stay out of workflow-node public responses"
+            );
+        }
+        for retired_field in [
+            "js_result_synthesis",
+            "command_transport_fallback",
+            "binary_bridge_fallback",
+            "compatibility_fallback",
+        ] {
+            assert!(
+                plan.public_response["result_payload"]
+                    .get(retired_field)
+                    .is_none(),
+                "{retired_field} must stay out of workflow-node result payloads"
+            );
+        }
         assert_eq!(
             plan.record["details"]["containment_ref"],
             "containment://workflow/node/embed"

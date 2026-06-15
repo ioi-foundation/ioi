@@ -2362,11 +2362,6 @@ test("Rust model_mount core accepts MCP execution receipt binding", () => {
 	          model_mount_mcp_result_materialized: true,
 	          model_mount_mcp_result_materialization_status: "rust_materialized",
 	          result_materialization_owner: "rust_daemon_core.model_mount.mcp_workflow",
-	          js_transport_invocation: false,
-	          command_transport_fallback: false,
-	          binary_bridge_fallback: false,
-          compatibility_fallback: false,
-          legacy_js_result_fallback: false,
         },
         receipt_refs: [receiptId],
         evidence_refs: [
@@ -2420,11 +2415,6 @@ test("Rust model_mount core accepts MCP execution receipt binding", () => {
         rust_transport_execution_admitted: true,
         transport_execution_owner: "rust_daemon_core.model_mount.mcp_workflow",
         step_module_dispatch_owner: "rust_daemon_core.step_module_router",
-        js_transport_invocation: false,
-        command_transport_fallback: false,
-        binary_bridge_fallback: false,
-        compatibility_fallback: false,
-        legacy_js_result_fallback: false,
       };
       return {
         source: "rust_daemon_core.model_mount.mcp_workflow",
@@ -2506,11 +2496,6 @@ test("Rust model_mount core accepts MCP execution receipt binding", () => {
 	            result_payload_hash: "sha256:pending-result-payload",
 	            model_mount_mcp_result_materialized: false,
 	            model_mount_mcp_result_materialization_status: "rust_admitted_pending_transport_backend",
-	            js_transport_invocation: false,
-	            command_transport_fallback: false,
-	            binary_bridge_fallback: false,
-	            compatibility_fallback: false,
-	            legacy_js_result_fallback: false,
 	          },
 	          receipt_refs: [receiptId],
 	          evidence_refs: [
@@ -2570,11 +2555,6 @@ test("Rust model_mount core accepts MCP execution receipt binding", () => {
 	            rust_transport_execution_admitted: true,
 	            transport_execution_owner: "rust_daemon_core.model_mount.mcp_workflow",
 	            step_module_dispatch_owner: "rust_daemon_core.step_module_router",
-	            js_transport_invocation: false,
-	            command_transport_fallback: false,
-	            binary_bridge_fallback: false,
-	            compatibility_fallback: false,
-	            legacy_js_result_fallback: false,
 	          },
 	          receipt_refs: [receiptId],
 	          authority_grant_refs: request.authority_grant_refs,
@@ -2618,6 +2598,144 @@ test("Rust model_mount core accepts MCP execution receipt binding", () => {
 	  );
 	});
 
+	test("Rust model_mount core rejects retired MCP workflow fallback fields", () => {
+	  const runner = new ModelMountCore({
+	    daemonCoreModelMountApi: {
+	      planModelMountMcpWorkflow(request) {
+	        const receiptId = "receipt.mcp_tool.retired-fields";
+	        const resultPayload = {
+	          schema_version: "ioi.model_mount.mcp_result.v1",
+	          payload_kind: "mcp_tool_result",
+	          materialization_status: "rust_materialized",
+	          materialization_owner: "rust_daemon_core.model_mount.mcp_workflow",
+	          command_transport_fallback: false,
+	        };
+	        const record = {
+	          id: "mcp_tool.retired-fields",
+	          object: "ioi.model_mount_mcp_workflow",
+	          status: "admitted",
+	          operation_kind: request.operation_kind,
+	          rust_core_boundary: "model_mount.mcp_workflow",
+	          details: {
+	            server_id: "mcp.docs",
+	            tool: "search",
+	            content_receipt_id: receiptId,
+	            result_receipt_id: receiptId,
+	            result_payload: resultPayload,
+	            result_payload_hash: "sha256:retired-fields-result-payload",
+	            model_mount_mcp_result_materialized: true,
+	            model_mount_mcp_result_materialization_status: "rust_materialized",
+	            result_materialization_owner: "rust_daemon_core.model_mount.mcp_workflow",
+	            command_transport_fallback: false,
+	          },
+	          receipt_refs: [receiptId],
+	          evidence_refs: [
+	            "rust_daemon_core_model_mount_mcp_workflow",
+	            "agentgres_mcp_workflow_truth_required",
+	          ],
+	          workflow_hash: "sha256:mcp-workflow",
+	          authority_hash: "sha256:mcp-authority",
+	        };
+	        return {
+	          source: "rust_daemon_core.model_mount.mcp_workflow",
+	          status: "admitted",
+	          rust_core_boundary: "model_mount.mcp_workflow",
+	          operation_kind: request.operation_kind,
+	          record_dir: "mcp-workflow-controls",
+	          record_id: record.id,
+	          record,
+	          receipt: {
+	            schemaVersion: "ioi.model_mount.mcp_workflow_receipt.v1",
+	            id: receiptId,
+	            kind: "mcp_tool_invocation",
+	            evidenceRefs: [
+	              "rust_model_mount_core",
+	              "rust_daemon_core_model_mount_mcp_workflow",
+	              "model_mount_mcp_execution_content_receipt_rust_owned",
+	              "model_mount_mcp_result_payload_rust_materialized",
+	              "agentgres_mcp_content_receipt_truth_required",
+	            ],
+	            details: {
+	              rust_daemon_core_receipt_author: "model_mount.mcp_workflow",
+	              model_mount_mcp_content_hash: "sha256:mcp-content",
+	              model_mount_mcp_result_materialized: true,
+	              model_mount_mcp_result_materialization_status: "rust_materialized",
+	              result_materialization_owner: "rust_daemon_core.model_mount.mcp_workflow",
+	              result_payload: resultPayload,
+	              result_payload_hash: "sha256:retired-fields-result-payload",
+	              model_mount_step_module_result: {
+	                state_root_after: "sha256:mcp-after",
+	                result_materialized: true,
+	                result_payload_hash: "sha256:retired-fields-result-payload",
+	              },
+	            },
+	          },
+	          public_response: {
+	            status: "admitted",
+	            operation_kind: request.operation_kind,
+	            server_id: "mcp.docs",
+	            tool: "search",
+	            content_receipt_id: receiptId,
+	            result_receipt_id: receiptId,
+	            result_payload: resultPayload,
+	            result_payload_hash: "sha256:retired-fields-result-payload",
+	            model_mount_mcp_result_materialized: true,
+	            model_mount_mcp_result_materialization_status: "rust_materialized",
+	            result_materialization_owner: "rust_daemon_core.model_mount.mcp_workflow",
+	            transport_execution_status: "rust_admitted",
+	            rust_transport_execution_admitted: true,
+	            transport_execution_owner: "rust_daemon_core.model_mount.mcp_workflow",
+	            step_module_dispatch_owner: "rust_daemon_core.step_module_router",
+	            command_transport_fallback: false,
+	          },
+	          receipt_refs: [receiptId],
+	          authority_grant_refs: request.authority_grant_refs,
+	          authority_receipt_refs: request.authority_receipt_refs,
+	          evidence_refs: record.evidence_refs,
+	          workflow_hash: record.workflow_hash,
+	          authority_hash: record.authority_hash,
+	        };
+	      },
+	    },
+	  });
+
+	  assert.throws(
+	    () =>
+	      runner.planMcpWorkflow({
+	        schema_version: "ioi.model_mount.mcp_workflow.v1",
+	        operation_kind: "model_mount.mcp_tool.invoke",
+	        body: {
+	          server_id: "mcp.docs",
+	          tool: "search",
+	        },
+	        authority_grant_refs: ["wallet.network://grant/mcp/docs/search"],
+	        authority_receipt_refs: ["receipt://wallet.network/mcp/docs/search"],
+	        custody_ref: "ctee://workspace/docs",
+	        containment_ref: "containment://mcp/docs",
+	      }),
+	    (error) => {
+	      assert.equal(error.code, "model_mount_mcp_workflow_plan_invalid");
+	      assert.equal(
+	        error.details.missing.includes("public_response.command_transport_fallback_retired"),
+	        true,
+	      );
+	      assert.equal(
+	        error.details.missing.includes("record.details.command_transport_fallback_retired"),
+	        true,
+	      );
+	      assert.equal(
+	        error.details.missing.includes("public_response.result_payload.command_transport_fallback_retired"),
+	        true,
+	      );
+	      assert.equal(
+	        error.details.missing.includes("receipt.details.result_payload.command_transport_fallback_retired"),
+	        true,
+	      );
+	      return true;
+	    },
+	  );
+	});
+
 	test("Rust model_mount core rejects retired MCP workflow rust_required execution responses", () => {
   const runner = new ModelMountCore({
     daemonCoreModelMountApi: {
@@ -2631,7 +2749,6 @@ test("Rust model_mount core accepts MCP execution receipt binding", () => {
         details: {
           server_id: "mcp.docs",
           tool: "search",
-          js_transport_invocation: false,
         },
         receipt_refs: ["receipt://mcp-tool"],
         evidence_refs: [

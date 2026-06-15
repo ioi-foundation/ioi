@@ -2368,8 +2368,9 @@ evidence refs, receipt refs, workflow hashes, authority hashes, custody facts,
 and no-JS-execution flags before JS can commit record-state truth through Rust
 Agentgres admission. MCP tool invocation and workflow-node execution now return
 Rust-admitted execution/StepModule dispatch contracts, bind containment into the
-authority hash, expose content receipt refs and no-fallback flags, and reject
-stale `rust_required` public responses at the JS model-mount core boundary.
+authority hash, expose content receipt refs, omit retired JS/command/binary-
+bridge/compatibility fallback proof fields, and reject stale `rust_required` or
+fallback-proof public responses at the JS model-mount core boundary.
 Public
 `ModelMountingState.listMcpServers()` now calls Rust read-projection kind
 `mcp_servers` with runtime `state_dir`; Rust replays persisted
@@ -8706,14 +8707,15 @@ Slice 1213 retires the MCP workflow execution `rust_required` placeholder for
 the migrated model-mount MCP tool and workflow-node hot paths. Rust
 `plan_model_mount_mcp_workflow` now returns admitted execution contracts:
 `model_mount.mcp_tool.invoke` emits `transport_execution_status:
-"rust_admitted"` with content receipt refs, StepModuleRouter owner, and explicit
-no-JS/no-command/no-binary-bridge/no-compatibility fallback flags, while
+"rust_admitted"` with content receipt refs and StepModuleRouter owner while
+omitting the retired no-JS/no-command/no-binary-bridge/no-compatibility fallback
+proof fields entirely, and
 `model_mount.workflow_node.execute` emits the matching `execution_status:
 "rust_admitted"` StepModule dispatch contract. The Rust authority hash binds
 the transport containment ref alongside wallet grant refs, authority receipt
 refs, and cTEE custody refs. The JS model-mount core rejects stale
-`rust_required` MCP workflow execution responses instead of normalizing them
-into public truth. This remains non-terminal until live external MCP backend
+`rust_required` and fallback-proof MCP workflow execution responses instead of
+normalizing them into public truth. This remains non-terminal until live external MCP backend
 invocation/discovery, runtime containment for external backends, direct protocol
 APIs, and command-transport retirement are complete.
 
@@ -9753,6 +9755,19 @@ Rust materialized result binding. This remains non-terminal because live
 external MCP transport backend invocation/discovery, broader runtime containment
 sandboxing, and stable IDE/CLI/SDK protocol APIs still need terminal Rust-owned
 records.
+
+Slice 1267 hard-deletes the model_mount MCP workflow fallback-proof protocol
+shape. Rust `plan_model_mount_mcp_workflow` no longer serializes
+`js_transport_invocation`, `js_route_test`, `js_model_invocation`,
+`js_mcp_tool_invocation`, `js_result_synthesis`,
+`command_transport_fallback`, `binary_bridge_fallback`,
+`compatibility_fallback`, or `legacy_js_result_fallback` as false-valued proof
+fields on MCP tool, workflow-node, or materialized result payload contracts.
+The JS model-mount core treats those keys as retired compatibility fields and
+fails closed if they reappear in the public response, record details, or
+receipt/result payloads. Conformance now requires the MCP workflow Rust source
+to stay free of those false-valued fallback fields and requires the JS negative
+guard that rejects stale fallback-proof responses.
 
 Slice 1239 hard-cuts runtime MCP control live invoke/discovery exits out of the
 admitted-but-pending transport-result lane. Rust

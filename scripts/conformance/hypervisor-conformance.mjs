@@ -901,11 +901,12 @@ function runDocs() {
       /`model_mount\.workflow_node\.execute` emits the matching `execution_status:\s+"rust_admitted"`/.test(
         guide,
       ) &&
-	      /JS model-mount core rejects stale\s+`rust_required` MCP workflow execution responses/.test(guide) &&
+	      /JS model-mount core rejects stale\s+`rust_required` and fallback-proof MCP workflow execution responses/.test(guide) &&
 	      /persistRustAuthoredReceiptWithCommit\(\)/.test(guide) &&
 	      /Slice 1238 hard-cuts model_mount MCP workflow execution out of the admitted-but-\s+pending result lane/.test(
 	        guide,
 	      ) &&
+	      /Slice 1267 hard-deletes the model_mount MCP workflow fallback-proof protocol\s+shape/.test(guide) &&
 	      /materialized protocol result payload hashes/.test(guide) &&
 	      /live\s+external MCP transport backend invocation\/discovery/.test(guide),
 	    [GUIDE],
@@ -2735,7 +2736,7 @@ function runDocs() {
 	      ) &&
 	      /MCP tool invocation now returns a Rust-admitted transport execution contract with\s+`transport_execution_status: "rust_admitted"`/.test(implementationMatrix) &&
 	      /workflow-node execution returns the matching `execution_status: "rust_admitted"`\s+StepModule dispatch contract/.test(implementationMatrix) &&
-	      /JS model-mount core rejects stale `rust_required` MCP workflow execution responses/.test(
+	      /JS model-mount core rejects stale `rust_required`, fallback-proof, or pending-materialization MCP workflow execution responses/.test(
 	        implementationMatrix,
 	      ) &&
 		      /pending-materialization MCP workflow execution responses/.test(implementationMatrix) &&
@@ -21896,6 +21897,9 @@ function runReceipts() {
           : "",
       ].join("\n")
     : "";
+  const rustModelMountMcpWorkflowCore = exists("crates/services/src/agentic/runtime/kernel/model_mount/mcp_workflow.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/model_mount/mcp_workflow.rs")
+    : "";
   const modelMountCore = [modelMountDaemonCore, rustModelMountCore].join("\n");
   const modelMountInvocationLifecycleSources = {
     coreCommandDispatch,
@@ -23447,10 +23451,9 @@ function runReceipts() {
 		      ) &&
 		      /"result_payload_hash": result_payload_hash/.test(modelMountCore) &&
 		      /model_mount_mcp_result_payload_rust_materialized/.test(modelMountCore) &&
-		      /"command_transport_fallback": false/.test(modelMountCore) &&
-		      /"binary_bridge_fallback": false/.test(modelMountCore) &&
-		      /"compatibility_fallback": false/.test(modelMountCore) &&
-	      /"legacy_js_result_fallback": false/.test(modelMountCore) &&
+		      !/"(?:js_transport_invocation|command_transport_fallback|binary_bridge_fallback|compatibility_fallback|legacy_js_result_fallback|js_route_test|js_model_invocation|js_mcp_tool_invocation|js_result_synthesis)": false/.test(
+		        rustModelMountMcpWorkflowCore,
+		      ) &&
 	      /pub receipt: Option<Value>/.test(modelMountCore) &&
 	      /mcp_execution_receipt/.test(modelMountCore) &&
 	      /"schemaVersion": "ioi\.model_mount\.mcp_workflow_receipt\.v1"/.test(modelMountCore) &&
@@ -23462,6 +23465,7 @@ function runReceipts() {
 		      /public_response\.transport_execution_status\.retired_rust_required/.test(modelMountCore) &&
 		      /public_response\.execution_status\.retired_rust_required/.test(modelMountCore) &&
 		      /assertMcpWorkflowResultMaterialized/.test(modelMountDaemonCore) &&
+		      /assertRetiredMcpWorkflowFieldsAbsent/.test(modelMountDaemonCore) &&
 		      /public_response\.model_mount_mcp_result_materialization_status\.retired_pending_transport_backend/.test(
 		        modelMountDaemonCore,
 		      ) &&
@@ -23502,6 +23506,9 @@ function runReceipts() {
 	      /model_mount_mcp_execution_receipt_state_commit_unconfigured/.test(mcpWorkflowOperations) &&
       /planMcpWorkflow\(request\)/.test(modelMountCore) &&
       /Rust model_mount core sends positive MCP workflow request/.test(modelMountCoreTest) &&
+      /Rust model_mount core rejects retired MCP workflow fallback fields/.test(modelMountCoreTest) &&
+      /public_response\.command_transport_fallback_retired/.test(modelMountCoreTest) &&
+      /record\.details\.command_transport_fallback_retired/.test(modelMountCoreTest) &&
       /assertDirectModelMountApiCall\([\s\S]*?MODEL_MOUNT_MCP_WORKFLOW_API_METHOD/.test(modelMountCoreTest) &&
       /planModelMountMcpWorkflow/.test(daemonCoreDirectInvokerServiceTest) &&
       /model_mount_mcp_workflow_plan_invalid/.test(modelMountCore) &&
