@@ -80,6 +80,25 @@ function projectionForRequest(request) {
       return run.artifacts;
     case "run_artifact":
       return run.artifacts.find((artifact) => artifact.id === request.artifact_ref) ?? null;
+    case "usage_list":
+      return {
+        schema_version: "ioi.runtime.usage-telemetry.v1",
+        object: "ioi.runtime_usage_list",
+        group_by: request.group_by ?? "run",
+        usage: [{ run_id: "run_123", agent_id: request.agent_id ?? null }],
+      };
+    case "authority_evidence_summary":
+      return {
+        schema_version: "ioi.authority-evidence-summary-list.v1",
+        object: "ioi.authority_evidence_summary_list",
+        filters: {
+          thread_id: request.thread_id ?? null,
+          run_id: request.run_id ?? null,
+          capability_ref: request.capability_ref ?? null,
+          route_id: request.route_id ?? null,
+        },
+        items: [{ source_run_id: request.run_id ?? null }],
+      };
     default:
       return null;
   }
@@ -133,6 +152,21 @@ test("runtime lifecycle surface returns Rust-owned public lifecycle projections"
   assert.equal(surface.getRunScorecard(store, "run_123").score, 1);
   assert.equal(surface.listRunArtifacts(store, "run_123")[0].id, "artifact_123");
   assert.equal(surface.getRunArtifact(store, "run_123", "artifact_123").name, "trace.json");
+  assert.equal(surface.listUsage(store, { agent_id: "agent_123", group_by: "thread" }).group_by, "thread");
+  assert.deepEqual(
+    surface.authorityEvidenceSummary(store, {
+      thread_id: "thread_123",
+      run_id: "run_123",
+      capability_ref: "capability:model",
+      route_id: "route_123",
+    }).filters,
+    {
+      thread_id: "thread_123",
+      run_id: "run_123",
+      capability_ref: "capability:model",
+      route_id: "route_123",
+    },
+  );
 
   assert.ok(calls.every((call) => call.source === "runtime.lifecycle_projection_surface"));
   assert.ok(calls.every((call) => call.workspace_root === "/workspace/project"));
@@ -168,12 +202,25 @@ test("runtime lifecycle surface returns Rust-owned public lifecycle projections"
     "run_scorecard",
     "run_artifacts",
     "run_artifact",
+    "usage_list",
+    "authority_evidence_summary",
   ]);
   const turnCall = calls.find((call) => call.projection_kind === "thread_turn");
   assert.equal(turnCall.turn_id, "turn_123");
   assert.equal(Object.hasOwn(turnCall, "turnId"), false);
-  assert.equal(calls.at(-1).artifact_ref, "artifact_123");
-  assert.equal(Object.hasOwn(calls.at(-1), "artifactRef"), false);
+  const artifactCall = calls.find((call) => call.projection_kind === "run_artifact");
+  assert.equal(artifactCall.artifact_ref, "artifact_123");
+  assert.equal(Object.hasOwn(artifactCall, "artifactRef"), false);
+  const usageCall = calls.find((call) => call.projection_kind === "usage_list");
+  assert.equal(usageCall.agent_id, "agent_123");
+  assert.equal(usageCall.group_by, "thread");
+  assert.equal(Object.hasOwn(usageCall, "agentId"), false);
+  assert.equal(Object.hasOwn(usageCall, "groupBy"), false);
+  const authorityCall = calls.find((call) => call.projection_kind === "authority_evidence_summary");
+  assert.equal(authorityCall.capability_ref, "capability:model");
+  assert.equal(authorityCall.route_id, "route_123");
+  assert.equal(Object.hasOwn(authorityCall, "capabilityRef"), false);
+  assert.equal(Object.hasOwn(authorityCall, "routeId"), false);
 });
 
 test("runtime lifecycle surface fails closed when Rust projection is missing", () => {

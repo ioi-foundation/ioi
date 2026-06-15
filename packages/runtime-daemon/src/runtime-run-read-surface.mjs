@@ -6,11 +6,9 @@ import {
   usageForRun as usageForRunState,
   usageForThread as usageForThreadState,
 } from "./threads/thread-store.mjs";
-import { authorityEvidenceSummaryForEvents } from "./authority-evidence-summary.mjs";
 import {
   runtimeUsageTelemetryForRun,
   runtimeUsageTelemetryForThread,
-  runtimeUsageTelemetryList,
 } from "./usage-telemetry.mjs";
 import { threadIdForAgent } from "./runtime-identifiers.mjs";
 
@@ -27,7 +25,6 @@ function runStateProjectionWatermark(store) {
 }
 
 export function createRuntimeRunReadSurface({
-  authorityEvidenceSummaryForEvents: authorityEvidenceSummaryForEventsDep = authorityEvidenceSummaryForEvents,
   getRun: getRunDep = getRunState,
   listRuns: listRunsDep = listRunsState,
   relative: relativeDep = relative,
@@ -35,7 +32,6 @@ export function createRuntimeRunReadSurface({
   runtimeJobRecordForRun,
   runtimeUsageTelemetryForRun: runtimeUsageTelemetryForRunDep = runtimeUsageTelemetryForRun,
   runtimeUsageTelemetryForThread: runtimeUsageTelemetryForThreadDep = runtimeUsageTelemetryForThread,
-  runtimeUsageTelemetryList: runtimeUsageTelemetryListDep = runtimeUsageTelemetryList,
   threadIdForAgent: threadIdForAgentDep = threadIdForAgent,
   usageForRun: usageForRunDep = usageForRunState,
   usageForThread: usageForThreadDep = usageForThreadState,
@@ -63,28 +59,6 @@ export function createRuntimeRunReadSurface({
       return usageForThreadDep(store, threadId, {
         runtimeUsageTelemetryForThread: runtimeUsageTelemetryForThreadDep,
       });
-    },
-    listUsage(store, options = {}) {
-      const groupBy = options.group_by ?? "run";
-      const agentId = options.agent_id;
-      const parentThreadId = agentId ? threadIdForAgentDep(agentId) : null;
-      return runtimeUsageTelemetryListDep({
-        runs: store.listRuns(agentId),
-        subagents: [...store.subagents.values()].filter(
-          (record) =>
-            !parentThreadId || record.parent_thread_id === parentThreadId,
-        ),
-        groupBy,
-      });
-    },
-    authorityEvidenceSummary(store, options = {}) {
-      for (const agent of store.agents.values()) {
-        store.projectThreadEvents(agent);
-      }
-      return authorityEvidenceSummaryForEventsDep(
-        [...store.runtimeEventStreams.values()].flatMap((stream) => stream.events),
-        options,
-      );
     },
     traceFromCanonicalState(store, runId) {
       return store.getRun(runId).trace;

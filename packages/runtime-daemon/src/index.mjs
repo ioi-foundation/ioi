@@ -52,10 +52,8 @@ import {
   RUNTIME_USAGE_TELEMETRY_SCHEMA_VERSION,
   runtimeUsageTelemetryForRun,
   runtimeUsageTelemetryForThread,
-  runtimeUsageTelemetryList,
   runtimeUsageTelemetrySummary,
 } from "./usage-telemetry.mjs";
-import { authorityEvidenceSummaryForEvents } from "./authority-evidence-summary.mjs";
 import { ConversationArtifactStore } from "./conversation-artifacts.mjs";
 import { resolveStudioIntentFrame } from "./studio-intent-frame.mjs";
 import {
@@ -840,13 +838,11 @@ export class AgentgresRuntimeStateStore {
       repositoryRunner: this.contextPolicyCore,
     });
     this.runReadSurface = createRuntimeRunReadSurface({
-      authorityEvidenceSummaryForEvents,
       notFound,
       runtimeChecklistRecordForRun,
       runtimeJobRecordForRun,
       runtimeUsageTelemetryForRun,
       runtimeUsageTelemetryForThread,
-      runtimeUsageTelemetryList,
       threadIdForAgent,
     });
     this.lifecycleProjectionSurface = createRuntimeLifecycleProjectionSurface({
@@ -1386,11 +1382,11 @@ export class AgentgresRuntimeStateStore {
   }
 
   listUsage(options = {}) {
-    return this.runReadSurface.listUsage(this, options);
+    return this.lifecycleProjectionSurface.listUsage(this, options);
   }
 
   authorityEvidenceSummary(options = {}) {
-    return this.runReadSurface.authorityEvidenceSummary(this, options);
+    return this.lifecycleProjectionSurface.authorityEvidenceSummary(this, options);
   }
 
   traceFromCanonicalState(runId) {

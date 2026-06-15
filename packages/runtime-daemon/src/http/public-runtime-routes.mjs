@@ -122,7 +122,7 @@ export function createPublicRuntimeRequestHandler(deps) {
         writeJsonResponse(
           response,
           usageTelemetryWithRequestMetadata(
-            store.runReadSurface.listUsage(store, Object.fromEntries(url.searchParams.entries())),
+            store.lifecycleProjectionSurface.listUsage(store, Object.fromEntries(url.searchParams.entries())),
             usageRequestMetadataFromUrl(url, {
               runtimeUsageTelemetrySchemaVersion: RUNTIME_USAGE_TELEMETRY_SCHEMA_VERSION,
             }),
@@ -137,7 +137,7 @@ export function createPublicRuntimeRequestHandler(deps) {
       ) {
         writeJsonResponse(
           response,
-          store.runReadSurface.authorityEvidenceSummary(store, Object.fromEntries(url.searchParams.entries())),
+          store.lifecycleProjectionSurface.authorityEvidenceSummary(store, Object.fromEntries(url.searchParams.entries())),
         );
         return;
       }

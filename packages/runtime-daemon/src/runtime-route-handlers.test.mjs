@@ -62,12 +62,12 @@ function routeHandlers() {
   });
 }
 
-test("model mounting authority evidence routes use mounted run read surface", async () => {
+test("model mounting authority evidence routes use mounted lifecycle projection surface", async () => {
   const { handleModelMountingNativeRoute } = routeHandlers();
   const calls = [];
   const store = {
     modelMounting: {},
-    runReadSurface: {
+    lifecycleProjectionSurface: {
       authorityEvidenceSummary(surfaceStore, options) {
         calls.push({ surfaceStore, options });
         return {
@@ -75,6 +75,9 @@ test("model mounting authority evidence routes use mounted run read surface", as
           filters: options,
         };
       },
+    },
+    runReadSurface: {
+      authorityEvidenceSummary: retiredRouteWrapper,
     },
     authorityEvidenceSummary: retiredRouteWrapper,
   };

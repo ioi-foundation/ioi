@@ -132,7 +132,7 @@ export function createRuntimeRouteHandlers(deps) {
     ) {
       writeJsonResponse(
         response,
-        store.runReadSurface.authorityEvidenceSummary(store, Object.fromEntries(url.searchParams.entries())),
+        store.lifecycleProjectionSurface.authorityEvidenceSummary(store, Object.fromEntries(url.searchParams.entries())),
       );
       return;
     }

@@ -42,6 +42,8 @@ const LIFECYCLE_PROJECTIONS = {
   run_scorecard: projection("run_scorecard"),
   run_artifacts: projection("run_artifacts"),
   run_artifact: projection("run_artifact"),
+  usage_list: projection("usage_list"),
+  authority_evidence_summary: projection("authority_evidence_summary"),
 };
 
 export function createRuntimeLifecycleProjectionSurface({
@@ -166,6 +168,20 @@ export function createRuntimeLifecycleProjectionSurface({
       return project(store, LIFECYCLE_PROJECTIONS.run_artifact, {
         run_id: optionalString(runId),
         artifact_ref: optionalString(artifactRef),
+      });
+    },
+    listUsage(store, options = {}) {
+      return project(store, LIFECYCLE_PROJECTIONS.usage_list, {
+        agent_id: optionalString(options.agent_id),
+        group_by: optionalString(options.group_by),
+      });
+    },
+    authorityEvidenceSummary(store, options = {}) {
+      return project(store, LIFECYCLE_PROJECTIONS.authority_evidence_summary, {
+        thread_id: optionalString(options.thread_id),
+        run_id: optionalString(options.run_id),
+        capability_ref: optionalString(options.capability_ref),
+        route_id: optionalString(options.route_id),
       });
     },
   };

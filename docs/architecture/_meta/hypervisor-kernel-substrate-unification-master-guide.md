@@ -5208,7 +5208,8 @@ the mounted thread-turn surface now fails closed for non-runtime resume,
 non-runtime turn creation, and diagnostics-blocked turn creation before JS agent
 status mutation, run creation, or turn projection can become accepted truth;
 public usage, public authority-evidence, and `/api/v1` authority-evidence /
-workflow-capability preflight routes call the mounted run-read surface directly;
+workflow-capability preflight routes now call the mounted lifecycle projection
+surface, where Rust replays Agentgres state instead of the JS run-read cache;
 and reload no longer reads JS agent state before fail-closed admission;
 agent/thread memory write, edit, delete, policy, status, and validation routes
 also call the mounted thread-memory surface directly before daemon-store
@@ -9970,6 +9971,26 @@ boundary; broader lifecycle completion still depends on wallet/cTEE authority
 for lifecycle exits, complete receipt/state-root binding for every lifecycle
 read projection, and stable IDE/CLI/SDK protocol APIs over the Rust-owned
 Agentgres replay records.
+
+Slice 1255 folds the remaining top-level usage and authority-evidence public
+read family into the Rust lifecycle projector. Rust
+`project_runtime_lifecycle` now exposes `usage_list` and
+`authority_evidence_summary` projection kinds over runtime `state_dir`, derives
+usage rows and authority/preflight evidence from admitted Agentgres
+`runs/*.json` and `events/*.jsonl` records, and keeps the projection source
+bound to `rust_runtime_lifecycle_state_dir_replay`. Public `/v1/usage`,
+`/v1/authority-evidence`, `/v1/workflow-capability-preflights`, and native
+`/api/v1` authority-evidence/workflow-capability preflight routes call the
+mounted lifecycle projection surface; the run-read surface no longer exposes
+`listUsage` or `authorityEvidenceSummary`, and the old JS
+`authority-evidence-summary.mjs` helper/test are deleted. Conformance now
+guards the Rust projection kinds, lifecycle route calls, absent helper files,
+and absent run-read usage/evidence facade. This removes the last public
+lifecycle read exception that still returned through JS run-read authority;
+broader lifecycle completion still depends on wallet/cTEE authority for
+lifecycle exits, complete receipt/state-root binding for every lifecycle read
+projection, and stable IDE/CLI/SDK protocol APIs over the Rust-owned Agentgres
+replay records.
 
 ## Final Doctrine
 

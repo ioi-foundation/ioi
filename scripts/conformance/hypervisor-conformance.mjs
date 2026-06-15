@@ -26984,6 +26984,15 @@ function runReceipts() {
 	      ) &&
 	      /artifact_ref/.test(runtimeLifecycleRustCore) &&
 	      /turn_id/.test(runtimeLifecycleRustCore) &&
+	      /"usage_list"\s*=>\s*Ok\(usage_list_projection\(sources,\s*request\)\)/.test(
+	        runtimeLifecycleRustCore,
+	      ) &&
+	      /"authority_evidence_summary"\s*=>\s*Ok\(authority_evidence_summary_projection\(sources,\s*request\)\)/.test(
+	        runtimeLifecycleRustCore,
+	      ) &&
+	      /source": "rust_runtime_lifecycle_state_dir_replay"/.test(
+	        runtimeLifecycleRustCore,
+	      ) &&
 	      /rust_projects_runtime_lifecycle_route_family_shapes/.test(
 	        runtimeLifecycleRustCore,
 	      ) &&
@@ -27077,8 +27086,20 @@ function runReceipts() {
       /run_scorecard/.test(runtimeLifecycleProjectionSurface) &&
       /run_artifacts/.test(runtimeLifecycleProjectionSurface) &&
 	      /run_artifact/.test(runtimeLifecycleProjectionSurface) &&
+	      /usage_list:\s*projection\("usage_list"\)/.test(
+	        runtimeLifecycleProjectionSurface,
+	      ) &&
+	      /authority_evidence_summary:\s*projection\("authority_evidence_summary"\)/.test(
+	        runtimeLifecycleProjectionSurface,
+	      ) &&
 	      /artifact_ref:\s*optionalString\(artifactRef\)/.test(runtimeLifecycleProjectionSurface) &&
 	      /turn_id:\s*optionalString\(turnId\)/.test(runtimeLifecycleProjectionSurface) &&
+	      /group_by:\s*optionalString\(options\.group_by\)/.test(
+	        runtimeLifecycleProjectionSurface,
+	      ) &&
+	      /capability_ref:\s*optionalString\(options\.capability_ref\)/.test(
+	        runtimeLifecycleProjectionSurface,
+	      ) &&
 	      !/agentRecords\(/.test(runtimeLifecycleProjectionSurface) &&
 	      !/agentRecord\(/.test(runtimeLifecycleProjectionSurface) &&
 	      !/threadRecords\(/.test(runtimeLifecycleProjectionSurface) &&
@@ -27111,7 +27132,13 @@ function runReceipts() {
 	      /Object\.hasOwn\(call,\s*"events"\) === false/.test(
 	        runtimeLifecycleProjectionSurfaceTest,
 	      ) &&
-	      /calls\.at\(-1\)\.artifact_ref,\s*"artifact_123"/.test(
+	      /artifactCall\.artifact_ref,\s*"artifact_123"/.test(
+	        runtimeLifecycleProjectionSurfaceTest,
+	      ) &&
+	      /usageCall\.group_by,\s*"thread"/.test(
+	        runtimeLifecycleProjectionSurfaceTest,
+	      ) &&
+	      /authorityCall\.capability_ref,\s*"capability:model"/.test(
 	        runtimeLifecycleProjectionSurfaceTest,
 	      ) &&
       /lifecycleProjectionSurface = createRuntimeLifecycleProjectionSurface/.test(
@@ -27191,14 +27218,20 @@ function runReceipts() {
       /public runtime run list route uses mounted lifecycle projection surface/.test(
         publicRuntimeRoutesTest,
       ) &&
-      /store\.runReadSurface\.listUsage\(store, Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
+      /store\.lifecycleProjectionSurface\.listUsage\(store, Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
         publicRuntimeRoutes,
       ) &&
-      /store\.runReadSurface\.authorityEvidenceSummary\(store, Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
+      /store\.lifecycleProjectionSurface\.authorityEvidenceSummary\(store, Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
         publicRuntimeRoutes,
       ) &&
-      /public runtime usage and authority evidence routes use mounted run read surface/.test(
+      /public runtime usage and authority evidence routes use mounted lifecycle projection surface/.test(
         publicRuntimeRoutesTest,
+      ) &&
+      !/store\.runReadSurface\.listUsage\(store, Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      !/store\.runReadSurface\.authorityEvidenceSummary\(store, Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
+        publicRuntimeRoutes,
       ) &&
       /agent, thread, and run detail routes return lifecycle projection surface output/.test(
         runtimeRouteHandlersTest,
@@ -27295,43 +27328,43 @@ function runReceipts() {
   );
   assertCheck(
     result,
-    "authority-evidence-summary-aliases-retired",
-    /schema_version:\s*AUTHORITY_EVIDENCE_SUMMARY_LIST_SCHEMA_VERSION/.test(
-      authorityEvidenceSummary,
-    ) &&
-      /row_count:\s*rows\.length/.test(authorityEvidenceSummary) &&
-      /thread_id:\s*optionalString\(options\.thread_id\)/.test(authorityEvidenceSummary) &&
-      /capability_ref:\s*capabilityRef/.test(authorityEvidenceSummary) &&
-      /authority_scope_requirements:\s*authorityScopeRequirements/.test(
-        authorityEvidenceSummary,
+    "authority-evidence-summary-js-helper-retired",
+    !exists("packages/runtime-daemon/src/authority-evidence-summary.mjs") &&
+      !exists("packages/runtime-daemon/src/authority-evidence-summary.test.mjs") &&
+      authorityEvidenceSummary.trim() === "" &&
+      authorityEvidenceSummaryTest.trim() === "" &&
+      /AUTHORITY_EVIDENCE_SUMMARY_LIST_SCHEMA_VERSION/.test(
+        runtimeLifecycleRustCore,
       ) &&
-      /node_type:\s*optionalString\(row\.node_type\)/.test(authorityEvidenceSummary) &&
-      /Object\.hasOwn\(summary,\s*"schemaVersion"\),\s*false/.test(
-        authorityEvidenceSummaryTest,
+      /fn authority_evidence_summary_projection/.test(runtimeLifecycleRustCore) &&
+      /authority_evidence_source_event/.test(runtimeLifecycleRustCore) &&
+      /authority_evidence_rows_from_runtime_event/.test(runtimeLifecycleRustCore) &&
+      /authority_evidence_row_matches_filters/.test(runtimeLifecycleRustCore) &&
+      /schema_version": AUTHORITY_EVIDENCE_SUMMARY_LIST_SCHEMA_VERSION/.test(
+        runtimeLifecycleRustCore,
       ) &&
-      /Object\.hasOwn\(summary,\s*"rowCount"\),\s*false/.test(
-        authorityEvidenceSummaryTest,
-      ) &&
-      /Object\.hasOwn\(row,\s*retiredKey\),\s*false/.test(
-        authorityEvidenceSummaryTest,
-      ) &&
-      !/^\s*(?:schemaVersion|rowCount|generatedAt|rows|capabilityRef|routeId|authorityScopes|authorityScopeRequirements|receiptRefs|policyDecisionRefs|sourceRunId|sourceEventId|threadId|turnId|workflowGraphId|workflowNodeId|nodeId|nodeType|bindingKind|componentKind|createdAt|createdAtMs|eventSeq)\s*:/m.test(
-        authorityEvidenceSummary,
-      ) &&
-      !/\b(?:options|payload|row|fallbackPayload)\.(?:threadId|runId|capabilityRef|routeId|eventKind|sourceKind|schemaVersion|issueCode|resultSummary|receiptRefs|policyDecisionRefs|capabilityRows|capabilityRefs|modelCapabilityRef|toolCapabilityRef|connectorCapabilityRef|authorityScopes|authorityScopeRequirements|lastRepairReceiptRefs|preflightReceiptRefs|sourceRunId|createdAt|workflowNodeId|nodeId|nodeType|bindingKind)\b/.test(
-        authorityEvidenceSummary,
-      ) &&
-      /store\.runReadSurface\.authorityEvidenceSummary\(store, Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
+      /row_count": rows\.len\(\)/.test(runtimeLifecycleRustCore) &&
+      /capability_ref: Option<String>/.test(runtimeLifecycleRustCore) &&
+      /route_id: Option<String>/.test(runtimeLifecycleRustCore) &&
+      /authority\.projection\["row_count"\],\s*1/.test(runtimeLifecycleRustCore) &&
+      /store\.lifecycleProjectionSurface\.authorityEvidenceSummary\(store, Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
         publicRuntimeRoutes,
       ) &&
-      /store\.runReadSurface\.authorityEvidenceSummary\(store, Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
+      /store\.lifecycleProjectionSurface\.authorityEvidenceSummary\(store, Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
         runtimeRouteHandlers,
       ) &&
-      /public runtime usage and authority evidence routes use mounted run read surface/.test(
+      /public runtime usage and authority evidence routes use mounted lifecycle projection surface/.test(
         publicRuntimeRoutesTest,
       ) &&
-      /model mounting authority evidence routes use mounted run read surface/.test(
+      /model mounting authority evidence routes use mounted lifecycle projection surface/.test(
         runtimeRouteHandlersTest,
+      ) &&
+      !/authorityEvidenceSummaryForEvents/.test(
+        `${runtimeDaemonIndex}\n${runtimeRunReadSurface}\n${publicRuntimeRoutes}\n${runtimeRouteHandlers}`,
+      ) &&
+      !/authorityEvidenceSummary\(store, options/.test(runtimeRunReadSurface) &&
+      !/store\.runReadSurface\.authorityEvidenceSummary\(store, Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
+        `${publicRuntimeRoutes}\n${runtimeRouteHandlers}`,
       ) &&
       !/store\.authorityEvidenceSummary\(Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
         `${publicRuntimeRoutes}\n${runtimeRouteHandlers}`,
@@ -27344,8 +27377,9 @@ function runReceipts() {
       "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
+      "crates/services/src/agentic/runtime/kernel/runtime_lifecycle.rs",
     ],
-    "Phase 10/11 is pending: authority evidence summaries must expose canonical snake_case fields without camelCase compatibility aliases",
+    "Phase 10/11 is pending: authority evidence summaries must remain Rust lifecycle state-dir projections with the retired JS helper absent",
   );
   assertCheck(
     result,
@@ -28892,6 +28926,11 @@ function runCompositor() {
     : "";
   const runtimeLifecycleProjectionSurface = exists("packages/runtime-daemon/src/runtime-lifecycle-projection-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-lifecycle-projection-surface.mjs")
+    : "";
+  const runtimeLifecycleRustCore = exists(
+    "crates/services/src/agentic/runtime/kernel/runtime_lifecycle.rs",
+  )
+    ? read("crates/services/src/agentic/runtime/kernel/runtime_lifecycle.rs")
     : "";
   const runtimeTaskJobSurface = exists("packages/runtime-daemon/src/runtime-task-job-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-task-job-surface.mjs")
@@ -32684,23 +32723,45 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-run-usage-list-read-aliases-retired",
-    /const groupBy = options\.group_by \?\? "run";/.test(runtimeRunReadSurface) &&
-      /const agentId = options\.agent_id;/.test(runtimeRunReadSurface) &&
-      /record\.parent_thread_id === parentThreadId/.test(runtimeRunReadSurface) &&
+    /fn usage_list_projection/.test(runtimeLifecycleRustCore) &&
+      /"usage_list"\s*=>\s*Ok\(usage_list_projection\(sources,\s*request\)\)/.test(
+        runtimeLifecycleRustCore,
+      ) &&
+      /pub group_by: Option<String>/.test(runtimeLifecycleRustCore) &&
+      /usage\.projection\["group_by"\],\s*"thread"/.test(runtimeLifecycleRustCore) &&
+      /usage\.projection\["usage"\]\[0\]\["total_tokens"\],\s*7/.test(
+        runtimeLifecycleRustCore,
+      ) &&
+      /listUsage\(store, options = \{\}\)\s*\{[\s\S]*?LIFECYCLE_PROJECTIONS\.usage_list/.test(
+        runtimeLifecycleProjectionSurface,
+      ) &&
+      /group_by:\s*optionalString\(options\.group_by\)/.test(
+        runtimeLifecycleProjectionSurface,
+      ) &&
+      /agent_id:\s*optionalString\(options\.agent_id\)/.test(
+        runtimeLifecycleProjectionSurface,
+      ) &&
+      /store\.lifecycleProjectionSurface\.listUsage\(store, Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /Object\.hasOwn\(surface,\s*"listUsage"\),\s*false/.test(
+        runtimeRunReadSurfaceTest,
+      ) &&
+      !/listUsage\(store, options = \{\}\)/.test(runtimeRunReadSurface) &&
+      !/runtimeUsageTelemetryListDep/.test(runtimeRunReadSurface) &&
       !/options\.(?:groupBy|agentId)\b/.test(runtimeRunReadSurface) &&
       !/record\.parentThreadId\b/.test(runtimeRunReadSurface) &&
-      /surface\.listUsage\(store, \{ agent_id: "agent-two", group_by: "thread" \}\)/.test(
-        runtimeRunReadSurfaceTest,
-      ) &&
-      /surface\.listUsage\(store, \{ agentId: "agent-two", groupBy: "thread" \}\)/.test(
-        runtimeRunReadSurfaceTest,
-      ) &&
-      /sub-retired/.test(runtimeRunReadSurfaceTest),
+      !/store\.runReadSurface\.listUsage\(store, Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
+        publicRuntimeRoutes,
+      ),
     [
       "packages/runtime-daemon/src/runtime-run-read-surface.mjs",
       "packages/runtime-daemon/src/runtime-run-read-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-lifecycle-projection-surface.mjs",
+      "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
+      "crates/services/src/agentic/runtime/kernel/runtime_lifecycle.rs",
     ],
-    "Phase 10/11 is pending: runtime run usage list reads must ignore retired groupBy/agentId request and parentThreadId record aliases",
+    "Phase 10/11 is pending: runtime usage list reads must stay Rust lifecycle state-dir projections and the run-read facade must not regain listUsage",
   );
   assertCheck(
     result,

@@ -511,11 +511,11 @@ test("public runtime thread create route uses mounted agent lifecycle surface", 
   ]);
 });
 
-test("public runtime usage and authority evidence routes use mounted run read surface", async () => {
+test("public runtime usage and authority evidence routes use mounted lifecycle projection surface", async () => {
   const { handleRequest } = routeHarness();
   const calls = [];
   const store = {
-    runReadSurface: {
+    lifecycleProjectionSurface: {
       listUsage(surfaceStore, options) {
         calls.push({ method: "listUsage", surfaceStore, options });
         return {
@@ -530,6 +530,10 @@ test("public runtime usage and authority evidence routes use mounted run read su
           filters: options,
         };
       },
+    },
+    runReadSurface: {
+      listUsage: retiredRouteWrapper,
+      authorityEvidenceSummary: retiredRouteWrapper,
     },
     listUsage: retiredRouteWrapper,
     authorityEvidenceSummary: retiredRouteWrapper,

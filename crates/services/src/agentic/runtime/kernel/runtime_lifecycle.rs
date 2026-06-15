@@ -9,6 +9,12 @@ pub const RUNTIME_LIFECYCLE_PROJECTION_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.lifecycle-projection-request.v1";
 pub const RUNTIME_LIFECYCLE_PROJECTION_RESULT_SCHEMA_VERSION: &str =
     "ioi.runtime.lifecycle-projection.v1";
+const RUNTIME_USAGE_TELEMETRY_SCHEMA_VERSION: &str = "ioi.runtime.usage-telemetry.v1";
+const AUTHORITY_EVIDENCE_SUMMARY_SCHEMA_VERSION: &str = "ioi.authority-evidence-summary.v1";
+const AUTHORITY_EVIDENCE_SUMMARY_LIST_SCHEMA_VERSION: &str =
+    "ioi.authority-evidence-summary-list.v1";
+const DEFAULT_CONTEXT_WINDOW_TOKENS: u64 = 128_000;
+const FALLBACK_COST_USD_PER_TOKEN: f64 = 0.000001;
 
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct RuntimeLifecycleProjectionBridgeRequest {
@@ -28,6 +34,12 @@ pub struct RuntimeLifecycleProjectionBridgeRequest {
     pub run_id: Option<String>,
     #[serde(default)]
     pub artifact_ref: Option<String>,
+    #[serde(default)]
+    pub group_by: Option<String>,
+    #[serde(default)]
+    pub capability_ref: Option<String>,
+    #[serde(default)]
+    pub route_id: Option<String>,
     #[serde(default)]
     pub workspace_root: Option<String>,
     #[serde(default)]
@@ -298,6 +310,8 @@ fn projection_for_kind(
             .and_then(|run| value_array(&run, "artifacts"))
             .and_then(|artifacts| find_run_artifact(&artifacts, request.artifact_ref.as_deref()))
             .unwrap_or(Value::Null)),
+        "usage_list" => Ok(usage_list_projection(sources, request)),
+        "authority_evidence_summary" => Ok(authority_evidence_summary_projection(sources, request)),
         _ => Err(RuntimeLifecycleProjectionCommandError::new(
             "runtime_lifecycle_projection_kind_invalid",
             format!("unsupported runtime lifecycle projection kind {projection_kind}"),
@@ -701,6 +715,475 @@ fn run_usage(run: &Value) -> Value {
         })
 }
 
+fn usage_list_projection(
+    sources: &RuntimeLifecycleProjectionSources,
+    request: &RuntimeLifecycleProjectionBridgeRequest,
+) -> Value {
+    let group_by =
+        optional_trimmed_lower(request.group_by.as_deref()).unwrap_or_else(|| "run".to_string());
+    let agent_id = optional_trimmed(request.agent_id.as_deref());
+    let runs = filter_runs_for_agent(sources.runs.clone(), agent_id.as_deref());
+    let usage = if group_by == "thread" {
+        let mut thread_ids = runs
+            .iter()
+            .filter_map(run_thread_id)
+            .collect::<Vec<String>>();
+        thread_ids.sort();
+        thread_ids.dedup();
+        thread_ids
+            .into_iter()
+            .map(|thread_id| {
+                let agent_id = agent_id_for_thread(&thread_id);
+                let thread_runs = filter_runs_for_agent(runs.clone(), Some(&agent_id));
+                let records = thread_runs
+                    .iter()
+                    .map(|run| run_usage_telemetry(run, Some(thread_id.as_str())))
+                    .collect::<Vec<Value>>();
+                aggregate_usage_records(&records, "thread", Some(&thread_id), Some(&agent_id))
+            })
+            .collect::<Vec<Value>>()
+    } else {
+        runs.iter()
+            .map(|run| run_usage_telemetry(run, None))
+            .collect::<Vec<Value>>()
+    };
+    json!({
+        "schema_version": RUNTIME_USAGE_TELEMETRY_SCHEMA_VERSION,
+        "object": "ioi.runtime_usage_list",
+        "group_by": if group_by == "thread" { "thread" } else { "run" },
+        "count": usage.len(),
+        "usage": usage,
+        "source": "rust_runtime_lifecycle_state_dir_replay",
+        "generated_at": "rust_runtime_lifecycle_projection_time"
+    })
+}
+
+fn run_usage_telemetry(run: &Value, thread_id_override: Option<&str>) -> Value {
+    let explicit = value_field(run, "usage_telemetry")
+        .or_else(|| value_field(run, "usage"))
+        .or_else(|| nested_value(Some(run), &["trace", "usage_telemetry"]))
+        .or_else(|| nested_value(Some(run), &["trace", "usage"]))
+        .unwrap_or_else(|| json!({}));
+    let provider_usage = nested_value(Some(&explicit), &["usage"])
+        .or_else(|| nested_value(Some(&explicit), &["provider_usage"]))
+        .unwrap_or_else(|| explicit.clone());
+    let route = value_field(run, "model_route_decision")
+        .or_else(|| nested_value(Some(run), &["trace", "model_route_decision"]))
+        .unwrap_or_else(|| json!({}));
+    let prompt_text = value_string_any(run, &["objective"]).unwrap_or_default();
+    let result_text = value_string_any(run, &["result"]).unwrap_or_default();
+    let input_tokens = u64_field_any(&provider_usage, &["input_tokens", "prompt_tokens"])
+        .unwrap_or_else(|| estimated_token_count(&prompt_text));
+    let output_tokens = u64_field_any(&provider_usage, &["output_tokens", "completion_tokens"])
+        .unwrap_or_else(|| estimated_token_count(&result_text));
+    let reasoning_tokens = u64_field_any(&provider_usage, &["reasoning_tokens"]).unwrap_or(0);
+    let cached_input_tokens = u64_field_any(&provider_usage, &["cached_input_tokens"]).unwrap_or(0);
+    let tool_result_tokens = u64_field_any(&provider_usage, &["tool_result_tokens"]).unwrap_or(0);
+    let compacted_tokens = u64_field_any(&provider_usage, &["compacted_tokens"]).unwrap_or(0);
+    let total_tokens = u64_field_any(&provider_usage, &["total_tokens"])
+        .or_else(|| u64_field_any(&explicit, &["total_tokens"]))
+        .unwrap_or(input_tokens + output_tokens + reasoning_tokens + tool_result_tokens);
+    let estimated_cost_usd = f64_field_any(&explicit, &["estimated_cost_usd", "cost_estimate_usd"])
+        .or_else(|| {
+            f64_field_any(
+                &provider_usage,
+                &["estimated_cost_usd", "cost_estimate_usd"],
+            )
+        })
+        .or_else(|| {
+            u64_field_any(&provider_usage, &["estimated_cost_micros"])
+                .map(|value| value as f64 / 1_000_000.0)
+        })
+        .unwrap_or(total_tokens as f64 * FALLBACK_COST_USD_PER_TOKEN);
+    let estimated_cost_micros = u64_field_any(&provider_usage, &["estimated_cost_micros"])
+        .unwrap_or_else(|| (estimated_cost_usd * 1_000_000.0).round() as u64);
+    let context_window_tokens = u64_field_any(&explicit, &["context_window_tokens"])
+        .or_else(|| u64_field_any(&provider_usage, &["context_window_tokens"]))
+        .or_else(|| {
+            u64_field_any(
+                &route,
+                &[
+                    "context_window_tokens",
+                    "model_context_window_tokens",
+                    "max_context_tokens",
+                ],
+            )
+        })
+        .unwrap_or(DEFAULT_CONTEXT_WINDOW_TOKENS);
+    let context_used_tokens = u64_field_any(&explicit, &["context_used_tokens"])
+        .unwrap_or_else(|| total_tokens.saturating_sub(cached_input_tokens));
+    let context_pressure = round_ratio(if context_window_tokens > 0 {
+        context_used_tokens as f64 / context_window_tokens as f64
+    } else {
+        0.0
+    });
+    let agent_id = run_agent_id(run);
+    let run_id = value_string_any(run, &["id", "run_id"]);
+    let thread_id = thread_id_override
+        .map(str::to_string)
+        .or_else(|| value_string_any(run, &["thread_id"]))
+        .or_else(|| agent_id.as_deref().map(thread_id_for_agent));
+    let route_id = value_string_any(&explicit, &["route_id"])
+        .or_else(|| value_string_any(&route, &["route_id"]))
+        .or_else(|| value_string_any(run, &["model_route_id", "modelRouteId"]));
+    let estimated = !(explicit.is_object() && !explicit.as_object().unwrap().is_empty());
+    json!({
+        "schema_version": RUNTIME_USAGE_TELEMETRY_SCHEMA_VERSION,
+        "object": "ioi.runtime_usage_telemetry",
+        "scope": "run",
+        "thread_id": thread_id,
+        "turn_id": value_string_any(run, &["turn_id", "runtimeTurnId", "runtime_turn_id"]).or_else(|| run_id.as_deref().map(turn_id_for_run)),
+        "run_id": run_id,
+        "agent_id": agent_id,
+        "provider": value_string_any(&provider_usage, &["provider"]).or_else(|| value_string_any(&explicit, &["provider"])).or_else(|| value_string_any(&route, &["provider_id"])).unwrap_or_else(|| "local".to_string()),
+        "model": value_string_any(&provider_usage, &["model"]).or_else(|| value_string_any(&explicit, &["model"])).or_else(|| value_string_any(&route, &["selected_model"])).or_else(|| value_string_any(run, &["model_id", "modelId", "requested_model_id", "requestedModelId"])).unwrap_or_else(|| "unknown".to_string()),
+        "route_id": route_id,
+        "model_route_id": route_id,
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "reasoning_tokens": reasoning_tokens,
+        "cached_input_tokens": cached_input_tokens,
+        "tool_result_tokens": tool_result_tokens,
+        "compacted_tokens": compacted_tokens,
+        "total_tokens": total_tokens,
+        "estimated_cost_micros": estimated_cost_micros,
+        "estimated_cost_usd": round_usd(estimated_cost_usd),
+        "currency": value_string_any(&explicit, &["currency"]).or_else(|| value_string_any(&provider_usage, &["currency"])).unwrap_or_else(|| "USD".to_string()),
+        "context_window_tokens": context_window_tokens,
+        "context_used_tokens": context_used_tokens,
+        "context_pressure": context_pressure,
+        "context_pressure_status": context_pressure_status(context_pressure),
+        "latency_ms": u64_field_any(&provider_usage, &["latency_ms"]).unwrap_or(0),
+        "estimated": estimated,
+        "source_counts": {"runs": 1, "subagents": 0},
+        "source_refs": run_id.map(|id| vec![id]).unwrap_or_default(),
+        "source": "rust_runtime_lifecycle_state_dir_replay",
+        "generated_at": "rust_runtime_lifecycle_projection_time"
+    })
+}
+
+fn aggregate_usage_records(
+    records: &[Value],
+    scope: &str,
+    thread_id: Option<&str>,
+    agent_id: Option<&str>,
+) -> Value {
+    let sum = |key: &str| -> u64 {
+        records
+            .iter()
+            .filter_map(|record| u64_field_any(record, &[key]))
+            .sum()
+    };
+    let cost_usd = records
+        .iter()
+        .filter_map(|record| f64_field_any(record, &["estimated_cost_usd"]))
+        .sum::<f64>();
+    let context_window_tokens = records
+        .iter()
+        .filter_map(|record| u64_field_any(record, &["context_window_tokens"]))
+        .max()
+        .unwrap_or(DEFAULT_CONTEXT_WINDOW_TOKENS);
+    let context_used_tokens = sum("context_used_tokens");
+    let context_pressure = round_ratio(if context_window_tokens > 0 {
+        context_used_tokens as f64 / context_window_tokens as f64
+    } else {
+        0.0
+    });
+    let source_refs = records
+        .iter()
+        .flat_map(|record| string_array(record.get("source_refs")))
+        .collect::<Vec<String>>();
+    json!({
+        "schema_version": RUNTIME_USAGE_TELEMETRY_SCHEMA_VERSION,
+        "object": "ioi.runtime_usage_telemetry",
+        "scope": scope,
+        "thread_id": thread_id,
+        "agent_id": agent_id,
+        "provider": "aggregate",
+        "model": "aggregate",
+        "route_id": Value::Null,
+        "model_route_id": Value::Null,
+        "input_tokens": sum("input_tokens"),
+        "output_tokens": sum("output_tokens"),
+        "reasoning_tokens": sum("reasoning_tokens"),
+        "cached_input_tokens": sum("cached_input_tokens"),
+        "tool_result_tokens": sum("tool_result_tokens"),
+        "compacted_tokens": sum("compacted_tokens"),
+        "total_tokens": sum("total_tokens"),
+        "estimated_cost_micros": sum("estimated_cost_micros"),
+        "estimated_cost_usd": round_usd(cost_usd),
+        "currency": "USD",
+        "context_window_tokens": context_window_tokens,
+        "context_used_tokens": context_used_tokens,
+        "context_pressure": context_pressure,
+        "context_pressure_status": context_pressure_status(context_pressure),
+        "latency_ms": sum("latency_ms"),
+        "estimated": true,
+        "source_counts": {"runs": records.len(), "subagents": 0},
+        "source_refs": unique_strings(source_refs),
+        "source": "rust_runtime_lifecycle_state_dir_replay",
+        "generated_at": "rust_runtime_lifecycle_projection_time"
+    })
+}
+
+fn authority_evidence_summary_projection(
+    sources: &RuntimeLifecycleProjectionSources,
+    request: &RuntimeLifecycleProjectionBridgeRequest,
+) -> Value {
+    let filters = json!({
+        "thread_id": optional_trimmed(request.thread_id.as_deref()),
+        "run_id": optional_trimmed(request.run_id.as_deref()),
+        "capability_ref": optional_trimmed(request.capability_ref.as_deref()),
+        "route_id": optional_trimmed(request.route_id.as_deref()),
+    });
+    let mut rows = sources
+        .events
+        .iter()
+        .filter(|event| authority_evidence_source_event(event))
+        .flat_map(authority_evidence_rows_from_runtime_event)
+        .filter(|row| authority_evidence_row_matches_filters(row, request))
+        .collect::<Vec<Value>>();
+    rows.sort_by(|left, right| {
+        let right_seq = event_seq(right).unwrap_or(0);
+        let left_seq = event_seq(left).unwrap_or(0);
+        right_seq.cmp(&left_seq).then_with(|| {
+            value_string_any(right, &["created_at"])
+                .unwrap_or_default()
+                .cmp(&value_string_any(left, &["created_at"]).unwrap_or_default())
+        })
+    });
+    json!({
+        "schema_version": AUTHORITY_EVIDENCE_SUMMARY_LIST_SCHEMA_VERSION,
+        "object": "ioi.authority_evidence_summary_list",
+        "source": "rust_runtime_lifecycle_state_dir_replay",
+        "generated_at": "rust_runtime_lifecycle_projection_time",
+        "row_count": rows.len(),
+        "filters": filters,
+        "items": rows,
+    })
+}
+
+fn authority_evidence_source_event(event: &Value) -> bool {
+    let payload = value_field(event, "payload_summary")
+        .or_else(|| value_field(event, "payload"))
+        .unwrap_or_else(|| json!({}));
+    let haystack = [
+        value_string_any(
+            event,
+            &[
+                "event_kind",
+                "source_event_kind",
+                "component_kind",
+                "payload_schema_version",
+            ],
+        ),
+        value_string_any(
+            &payload,
+            &[
+                "event_kind",
+                "reason",
+                "source_kind",
+                "schema_version",
+                "issue_code",
+            ],
+        ),
+        nested_string(Some(&payload), &["result_summary", "reason"]),
+    ]
+    .into_iter()
+    .flatten()
+    .map(|value| value.to_ascii_lowercase())
+    .collect::<Vec<String>>()
+    .join(" ");
+    haystack.contains("capability")
+        && (haystack.contains("workflowruncapabilitypreflightblocked")
+            || haystack.contains("workflow_capability_preflight_blocked")
+            || haystack.contains("ioi.workflow.capability-preflight.v1")
+            || haystack.contains("capability_preflight"))
+}
+
+fn authority_evidence_rows_from_runtime_event(event: &Value) -> Vec<Value> {
+    let payload_summary = value_field(event, "payload_summary").unwrap_or_else(|| json!({}));
+    let fallback_payload = if payload_summary
+        .as_object()
+        .map(|value| !value.is_empty())
+        .unwrap_or(false)
+    {
+        payload_summary
+    } else {
+        value_field(event, "payload").unwrap_or_else(|| json!({}))
+    };
+    let event_receipt_refs = unique_strings(
+        [
+            string_array(event.get("receipt_refs")),
+            string_array(fallback_payload.get("receipt_refs")),
+        ]
+        .concat(),
+    );
+    let event_policy_decision_refs = unique_strings(
+        [
+            string_array(event.get("policy_decision_refs")),
+            string_array(fallback_payload.get("policy_decision_refs")),
+        ]
+        .concat(),
+    );
+    let rows = value_array_any(&fallback_payload, &["rows", "capability_rows"]);
+    if !rows.is_empty() {
+        return rows
+            .iter()
+            .enumerate()
+            .filter_map(|(index, row)| {
+                authority_evidence_row_from_preflight_row(
+                    event,
+                    &fallback_payload,
+                    row,
+                    index,
+                    &event_receipt_refs,
+                    &event_policy_decision_refs,
+                )
+            })
+            .collect();
+    }
+    string_array(fallback_payload.get("capability_refs"))
+        .iter()
+        .enumerate()
+        .filter_map(|(index, capability_ref)| {
+            authority_evidence_row_from_preflight_row(
+                event,
+                &fallback_payload,
+                &json!({"capability_ref": capability_ref}),
+                index,
+                &event_receipt_refs,
+                &event_policy_decision_refs,
+            )
+        })
+        .collect()
+}
+
+fn authority_evidence_row_from_preflight_row(
+    event: &Value,
+    payload: &Value,
+    row: &Value,
+    row_index: usize,
+    event_receipt_refs: &[String],
+    event_policy_decision_refs: &[String],
+) -> Option<Value> {
+    let capability_ref = value_string_any(
+        row,
+        &[
+            "capability_ref",
+            "model_capability_ref",
+            "tool_capability_ref",
+            "connector_capability_ref",
+        ],
+    )
+    .unwrap_or_default();
+    let route_id =
+        value_string_any(row, &["route_id"]).or_else(|| value_string_any(payload, &["route_id"]));
+    let authority_scopes = unique_strings(
+        [
+            string_array(row.get("authority_scopes")),
+            string_array(payload.get("authority_scopes")),
+        ]
+        .concat(),
+    );
+    let authority_scope_requirements = unique_strings(
+        [
+            string_array(row.get("authority_scope_requirements")),
+            string_array(payload.get("authority_scope_requirements")),
+        ]
+        .concat(),
+    );
+    let receipt_refs = unique_strings(
+        [
+            event_receipt_refs.to_vec(),
+            string_array(row.get("receipt_refs")),
+            string_array(row.get("last_repair_receipt_refs")),
+            string_array(row.get("preflight_receipt_refs")),
+        ]
+        .concat(),
+    );
+    let policy_decision_refs = unique_strings(
+        [
+            event_policy_decision_refs.to_vec(),
+            string_array(row.get("policy_decision_refs")),
+        ]
+        .concat(),
+    );
+    if receipt_refs.is_empty()
+        || (capability_ref.is_empty()
+            && route_id.is_none()
+            && authority_scopes.is_empty()
+            && authority_scope_requirements.is_empty())
+    {
+        return None;
+    }
+    let source_run_id = value_string_any(payload, &["run_id", "source_run_id"])
+        .or_else(|| value_string_any(row, &["run_id", "source_run_id"]));
+    let event_id = value_string_any(event, &["event_id"]);
+    let created_at = value_string_any(event, &["created_at"])
+        .or_else(|| value_string_any(payload, &["created_at"]));
+    let node_id = value_string_any(row, &["node_id"])
+        .or_else(|| value_string_any(event, &["workflow_node_id"]))
+        .or_else(|| value_string_any(payload, &["workflow_node_id"]));
+    Some(json!({
+        "schema_version": AUTHORITY_EVIDENCE_SUMMARY_SCHEMA_VERSION,
+        "id": format!(
+            "authority_evidence_{}_{}",
+            safe_id(event_id.as_deref().or(source_run_id.as_deref()).unwrap_or("event")),
+            row_index + 1
+        ),
+        "capability_ref": capability_ref,
+        "route_id": route_id,
+        "authority_scopes": authority_scopes,
+        "authority_scope_requirements": authority_scope_requirements,
+        "receipt_refs": receipt_refs,
+        "policy_decision_refs": policy_decision_refs,
+        "source_run_id": source_run_id,
+        "source_event_id": event_id,
+        "thread_id": value_string_any(event, &["thread_id"]),
+        "turn_id": value_string_any(event, &["turn_id"]),
+        "workflow_graph_id": value_string_any(event, &["workflow_graph_id"]),
+        "workflow_node_id": node_id,
+        "node_id": value_string_any(row, &["node_id"]).or_else(|| node_id.clone()),
+        "node_type": value_string_any(row, &["node_type"]),
+        "binding_kind": value_string_any(row, &["binding_kind"]),
+        "component_kind": value_string_any(event, &["component_kind"]),
+        "status": value_string_any(event, &["status"]).or_else(|| value_string_any(payload, &["status"])).or_else(|| value_string_any(row, &["status"])),
+        "reason": value_string_any(payload, &["reason", "issue_code"]).or_else(|| value_string_any(row, &["reason"])),
+        "created_at": created_at,
+        "created_at_ms": Value::Null,
+        "event_seq": event_seq(event),
+        "source": "rust_runtime_lifecycle_state_dir_replay"
+    }))
+}
+
+fn authority_evidence_row_matches_filters(
+    row: &Value,
+    request: &RuntimeLifecycleProjectionBridgeRequest,
+) -> bool {
+    if let Some(thread_id) = optional_trimmed(request.thread_id.as_deref()) {
+        if value_string_any(row, &["thread_id"]).as_deref() != Some(thread_id.as_str()) {
+            return false;
+        }
+    }
+    if let Some(run_id) = optional_trimmed(request.run_id.as_deref()) {
+        if value_string_any(row, &["source_run_id"]).as_deref() != Some(run_id.as_str()) {
+            return false;
+        }
+    }
+    if let Some(capability_ref) = optional_trimmed(request.capability_ref.as_deref()) {
+        if value_string_any(row, &["capability_ref"]).as_deref() != Some(capability_ref.as_str()) {
+            return false;
+        }
+    }
+    if let Some(route_id) = optional_trimmed(request.route_id.as_deref()) {
+        if value_string_any(row, &["route_id"]).as_deref() != Some(route_id.as_str()) {
+            return false;
+        }
+    }
+    true
+}
+
 fn events_for_thread(
     sources: &RuntimeLifecycleProjectionSources,
     thread_id: Option<&str>,
@@ -903,7 +1386,10 @@ fn value_array(value: &Value, key: &str) -> Option<Vec<Value>> {
 }
 
 fn event_seq(value: &Value) -> Option<u64> {
-    value.get("seq").and_then(Value::as_u64)
+    value
+        .get("seq")
+        .and_then(Value::as_u64)
+        .or_else(|| value.get("event_seq").and_then(Value::as_u64))
 }
 
 fn value_string(value: &Value, key: &str) -> Option<String> {
@@ -912,6 +1398,106 @@ fn value_string(value: &Value, key: &str) -> Option<String> {
 
 fn value_string_any(value: &Value, keys: &[&str]) -> Option<String> {
     keys.iter().find_map(|key| value_string(value, key))
+}
+
+fn value_array_any(value: &Value, keys: &[&str]) -> Vec<Value> {
+    keys.iter()
+        .find_map(|key| value.get(*key).and_then(Value::as_array).cloned())
+        .unwrap_or_default()
+}
+
+fn string_array(value: Option<&Value>) -> Vec<String> {
+    value
+        .and_then(Value::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|item| match item {
+                    Value::String(text) => optional_trimmed(Some(text)),
+                    other => optional_trimmed(Some(&other.to_string())),
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn unique_strings(values: Vec<String>) -> Vec<String> {
+    let mut output = Vec::new();
+    for value in values {
+        if !output.contains(&value) {
+            output.push(value);
+        }
+    }
+    output
+}
+
+fn u64_field_any(value: &Value, keys: &[&str]) -> Option<u64> {
+    keys.iter().find_map(|key| {
+        value.get(*key).and_then(|candidate| {
+            candidate
+                .as_u64()
+                .or_else(|| candidate.as_str()?.parse().ok())
+        })
+    })
+}
+
+fn f64_field_any(value: &Value, keys: &[&str]) -> Option<f64> {
+    keys.iter().find_map(|key| {
+        value.get(*key).and_then(|candidate| {
+            candidate
+                .as_f64()
+                .or_else(|| candidate.as_str()?.parse::<f64>().ok())
+        })
+    })
+}
+
+fn estimated_token_count(value: &str) -> u64 {
+    if value.is_empty() {
+        0
+    } else {
+        std::cmp::max(1, value.len().div_ceil(4) as u64)
+    }
+}
+
+fn context_pressure_status(pressure: f64) -> &'static str {
+    if pressure >= 0.85 {
+        "high"
+    } else if pressure >= 0.6 {
+        "elevated"
+    } else {
+        "nominal"
+    }
+}
+
+fn round_ratio(value: f64) -> f64 {
+    (value * 10_000.0).round() / 10_000.0
+}
+
+fn round_usd(value: f64) -> f64 {
+    (value * 1_000_000.0).round() / 1_000_000.0
+}
+
+fn safe_id(value: &str) -> String {
+    let mut output = String::new();
+    let mut previous_dash = false;
+    for ch in value.trim().to_ascii_lowercase().chars() {
+        if ch.is_ascii_alphanumeric() {
+            output.push(ch);
+            previous_dash = false;
+        } else if !previous_dash && !output.is_empty() {
+            output.push('-');
+            previous_dash = true;
+        }
+        if output.len() >= 80 {
+            break;
+        }
+    }
+    let output = output.trim_matches('-').to_string();
+    if output.is_empty() {
+        "unknown".to_string()
+    } else {
+        output
+    }
 }
 
 fn optional_trimmed(value: Option<&str>) -> Option<String> {
@@ -986,6 +1572,40 @@ mod tests {
         replay_request.operation_kind = Some("runtime.lifecycle_projection.threads".to_string());
         let threads = core.project(replay_request).expect("threads");
         assert_eq!(threads.projection[0]["thread_id"], "thread_one");
+
+        let usage = core
+            .project(RuntimeLifecycleProjectionBridgeRequest {
+                projection_kind: Some("usage_list".to_string()),
+                operation_kind: Some("runtime.lifecycle_projection.usage_list".to_string()),
+                agent_id: Some("agent_one".to_string()),
+                group_by: Some("thread".to_string()),
+                state_dir: Some(state_dir.to_string_lossy().to_string()),
+                ..Default::default()
+            })
+            .expect("usage list");
+        assert_eq!(usage.projection["group_by"], "thread");
+        assert_eq!(usage.projection["usage"][0]["scope"], "thread");
+        assert_eq!(usage.projection["usage"][0]["total_tokens"], 7);
+
+        let authority = core
+            .project(RuntimeLifecycleProjectionBridgeRequest {
+                projection_kind: Some("authority_evidence_summary".to_string()),
+                operation_kind: Some(
+                    "runtime.lifecycle_projection.authority_evidence_summary".to_string(),
+                ),
+                thread_id: Some("thread_one".to_string()),
+                run_id: Some("run_one".to_string()),
+                capability_ref: Some("capability:model.route".to_string()),
+                route_id: Some("route-alpha".to_string()),
+                state_dir: Some(state_dir.to_string_lossy().to_string()),
+                ..Default::default()
+            })
+            .expect("authority evidence summary");
+        assert_eq!(authority.projection["row_count"], 1);
+        assert_eq!(
+            authority.projection["items"][0]["receipt_refs"][0],
+            "receipt_authority_one"
+        );
     }
 
     #[test]
@@ -1130,6 +1750,26 @@ mod tests {
                 "event_kind": "turn.completed",
                 "seq": 2,
                 "item_id": "turn_one:item:output"
+            }),
+            json!({
+                "event_id": "event_run_one_authority",
+                "event_stream_id": "thread_one:events",
+                "thread_id": "thread_one",
+                "run_id": "run_one",
+                "turn_id": "turn_one",
+                "event_kind": "workflow_capability_preflight_blocked",
+                "component_kind": "capability_preflight",
+                "seq": 3,
+                "payload_summary": {
+                    "schema_version": "ioi.workflow.capability-preflight.v1",
+                    "run_id": "run_one",
+                    "route_id": "route-alpha",
+                    "rows": [{
+                        "capability_ref": "capability:model.route",
+                        "authority_scope_requirements": ["model.invoke"],
+                        "receipt_refs": ["receipt_authority_one"]
+                    }]
+                }
             }),
         ]
         .into_iter()
