@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { createRuntimeLifecycleProjectionSurface } from "./runtime-lifecycle-projection-surface.mjs";
 
-function lifecycleRunner(calls = []) {
+function contextPolicyCore(calls = []) {
   return {
     projectRuntimeLifecycle(request) {
       calls.push(request);
@@ -125,7 +125,7 @@ function storeFixture() {
 test("runtime lifecycle surface returns Rust-owned public lifecycle projections", () => {
   const calls = [];
   const surface = createRuntimeLifecycleProjectionSurface({
-    lifecycleRunner: lifecycleRunner(calls),
+    contextPolicyCore: contextPolicyCore(calls),
     workspaceRoot: "/workspace/project",
   });
   const store = storeFixture();
@@ -244,7 +244,7 @@ test("runtime lifecycle surface fails closed when Rust projection is missing", (
 
 test("runtime lifecycle surface rejects Rust projection mismatches", () => {
   const surface = createRuntimeLifecycleProjectionSurface({
-    lifecycleRunner: {
+    contextPolicyCore: {
       projectRuntimeLifecycle() {
         return {
           source: "rust_runtime_lifecycle_projection_api",

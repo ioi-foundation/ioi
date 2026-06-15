@@ -774,7 +774,7 @@ export class AgentgresRuntimeStateStore {
       threadIdForAgent,
     });
     this.lifecycleProjectionSurface = createRuntimeLifecycleProjectionSurface({
-      lifecycleRunner: this.contextPolicyCore,
+      contextPolicyCore: this.contextPolicyCore,
       workspaceRoot: this.defaultCwd,
     });
     this.skillHookSurface = createRuntimeSkillHookSurface({

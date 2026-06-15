@@ -27958,7 +27958,12 @@ function runReceipts() {
       /captured\.turn_id,\s*"turn_123"/.test(
         runtimeContextPolicyCoreTestForState,
       ) &&
-      /projectRuntimeLifecycle/.test(runtimeLifecycleProjectionSurface) &&
+      /contextPolicyCore\.projectRuntimeLifecycle/.test(
+        runtimeLifecycleProjectionSurface,
+      ) &&
+      !/lifecycleRunner/.test(
+        runtimeDaemonIndex + runtimeLifecycleProjectionSurface + runtimeLifecycleProjectionSurfaceTest,
+      ) &&
       !/planRuntimeLifecycleProjectionRequired/.test(
         runtimeLifecycleProjectionSurface,
       ) &&
@@ -28053,7 +28058,7 @@ function runReceipts() {
       /lifecycleProjectionSurface = createRuntimeLifecycleProjectionSurface/.test(
         runtimeDaemonIndex,
       ) &&
-	      /lifecycleRunner: this\.contextPolicyCore/.test(runtimeDaemonIndex) &&
+	      /contextPolicyCore: this\.contextPolicyCore/.test(runtimeDaemonIndex) &&
 	      !/resolveRunArtifact/.test(runtimeDaemonIndex) &&
       /store\.lifecycleProjectionSurface\.listAgents\(store\)/.test(
         publicRuntimeRoutes,

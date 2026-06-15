@@ -47,12 +47,12 @@ const LIFECYCLE_PROJECTIONS = {
 };
 
 export function createRuntimeLifecycleProjectionSurface({
-  lifecycleRunner = null,
+  contextPolicyCore = null,
   workspaceRoot = null,
 } = {}) {
   const project = (store, projectionDetails, facts = {}) =>
     projectRuntimeLifecycle({
-      lifecycleRunner,
+      contextPolicyCore,
       workspace_root: workspaceRoot ?? store?.defaultCwd,
       state_dir: lifecycleProjectionStateDir(store),
       ...projectionDetails,
@@ -196,8 +196,8 @@ function projection(projectionKind) {
 }
 
 function projectRuntimeLifecycle(details = {}) {
-  const { lifecycleRunner = null, ...request } = details;
-  if (!lifecycleRunner?.projectRuntimeLifecycle) {
+  const { contextPolicyCore = null, ...request } = details;
+  if (!contextPolicyCore?.projectRuntimeLifecycle) {
     throw createRuntimeLifecycleProjectionError(null, {
       ...request,
       source: "runtime.lifecycle_projection_surface",
@@ -205,7 +205,7 @@ function projectRuntimeLifecycle(details = {}) {
     });
   }
 
-  const result = lifecycleRunner.projectRuntimeLifecycle({
+  const result = contextPolicyCore.projectRuntimeLifecycle({
     ...request,
     source: "runtime.lifecycle_projection_surface",
     evidence_refs: EVIDENCE_REFS,

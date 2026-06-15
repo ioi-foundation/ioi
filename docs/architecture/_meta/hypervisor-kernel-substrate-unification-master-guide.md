@@ -10457,6 +10457,18 @@ retired alias name cannot return. Remaining work is durable Agentgres-backed
 repository workflow storage/replay, wallet authority for external exits,
 receipt/state-root binding, and stable protocol APIs, not a JS runner fallback.
 
+Slice 1304 hard-cuts runtime lifecycle projection runner injection scaffolding.
+`createRuntimeLifecycleProjectionSurface()` no longer accepts
+`lifecycleRunner`; public lifecycle projections mount the positive
+`contextPolicyCore` API directly before Rust daemon-core Agentgres replay
+projection. Daemon construction no longer wires a parallel lifecycle runner
+handle, focused tests mount fake Rust projectors only through
+`contextPolicyCore`, and conformance guards that the retired alias name cannot
+return. Remaining work is wallet/cTEE authority on lifecycle exits,
+receipt/state-root binding for every lifecycle read projection, richer
+ArtifactRef/PayloadRef-aware artifact projection, and stable IDE/CLI/SDK
+protocol APIs, not a JS runner fallback.
+
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,
 `/v1/memory/policy`, `/v1/memory/path`, or `/v1/memory/validate`; the daemon
