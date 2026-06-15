@@ -10317,6 +10317,20 @@ diagnostics completion remains non-terminal until wallet-governed repair
 authority, durable diagnostics projection/replay storage, and stable SDK/IDE
 diagnostics APIs close.
 
+Slice 1293 hard-cuts workspace-trust acknowledgement replay and sequencing out
+of the JS local event cache. `WorkspaceTrustControlStateUpdateCore` now accepts
+runtime `state_dir`, replays admitted Agentgres `events/*.jsonl` records inside
+Rust to resolve warning truth, and rejects restored `events` candidate transport
+or caller-supplied `seq` transport. The JS workspace-trust state client sends
+only the `state_dir` replay handle plus canonical request facts, no longer calls
+`runtimeEventsForStream()` or `latestRuntimeEventSeq()`, and still admits only
+the Rust-planned warning/acknowledgement event through Rust runtime-event
+Agentgres admission. Conformance guards the Rust state-dir replay tests, the
+retired `events`/`seq` transports, and the absence of local replay/sequence
+cache reads in the workspace-trust state module. This removes another
+workspace-trust split-brain replay boundary; deeper wallet/cTEE authority and
+stable protocol APIs remain non-terminal.
+
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,
 `/v1/memory/policy`, `/v1/memory/path`, or `/v1/memory/validate`; the daemon

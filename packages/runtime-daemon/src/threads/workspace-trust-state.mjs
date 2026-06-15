@@ -46,7 +46,7 @@ export function createWorkspaceTrustState({
       event_id:
         optionalString(request.event_id) ??
         `evt_workspace_trust_warning_${safeId(threadId)}_${safeId(createdAt)}`,
-      seq: nextSeq(store, eventStreamId),
+      state_dir: optionalString(store?.stateDir) ?? null,
       created_at: createdAt,
       receipt_refs: canonicalStringArray(request.receipt_refs),
       policy_decision_refs: canonicalStringArray(request.policy_decision_refs),
@@ -84,7 +84,6 @@ export function createWorkspaceTrustState({
         details: { thread_id: threadId },
       });
     }
-    const replayEvents = runtimeWorkspaceTrustReplayEvents(store, eventStreamId);
     const createdAt = optionalString(request.created_at) ?? nowIso();
     const planned = planner({
       operation_kind: "workspace_trust.acknowledge",
@@ -103,9 +102,8 @@ export function createWorkspaceTrustState({
       event_id:
         optionalString(request.event_id) ??
         `evt_workspace_trust_ack_${safeId(threadId)}_${safeId(warningId)}_${safeId(createdAt)}`,
-      seq: nextSeq(store, eventStreamId),
+      state_dir: optionalString(store?.stateDir) ?? null,
       created_at: createdAt,
-      events: replayEvents,
       receipt_refs: canonicalStringArray(request.receipt_refs),
       policy_decision_refs: canonicalStringArray(request.policy_decision_refs),
       wallet_authority_refs: canonicalStringArray(request.wallet_authority_refs),
@@ -150,21 +148,6 @@ export function createWorkspaceTrustState({
       });
     }
     return eventStreamId;
-  }
-
-  function runtimeWorkspaceTrustReplayEvents(store, eventStreamId) {
-    if (typeof store.runtimeEventsForStream !== "function") {
-      throw runtimeError({
-        status: 501,
-        code: "workspace_trust_replay_rust_core_required",
-        message: "Workspace trust acknowledgement requires Rust runtime-event replay.",
-        details: {
-          event_stream_id: eventStreamId,
-          operation_kind: "workspace_trust.acknowledge",
-        },
-      });
-    }
-    return store.runtimeEventsForStream(eventStreamId, { since_seq: 0 });
   }
 
   function admitWorkspaceTrustEvent(store, event, { operationKind, threadId }) {
@@ -221,12 +204,6 @@ export function createWorkspaceTrustState({
       });
     }
     return event;
-  }
-
-  function nextSeq(store, eventStreamId) {
-    if (typeof store.latestRuntimeEventSeq !== "function") return 1;
-    const latestSeq = Number(store.latestRuntimeEventSeq(eventStreamId) ?? 0);
-    return Number.isFinite(latestSeq) ? latestSeq + 1 : 1;
   }
 
   function throwWorkspaceTrustRustCoreRequired({

@@ -48,6 +48,7 @@ function createHarness({ planner } = {}) {
     runtimeError,
   });
   const store = {
+    stateDir: "/runtime-state",
     agentForThread(threadId) {
       calls.push({ type: "agentForThread", threadId });
       return { id: "agent_a", cwd: "/workspace" };
@@ -64,12 +65,10 @@ function createHarness({ planner } = {}) {
       return admitted;
     },
     latestRuntimeEventSeq(eventStreamId) {
-      calls.push({ type: "latestRuntimeEventSeq", eventStreamId });
-      return events.filter((event) => event.event_stream_id === eventStreamId).at(-1)?.seq ?? 0;
+      throw new Error(`workspace trust must not read JS latestRuntimeEventSeq for ${eventStreamId}`);
     },
     runtimeEventsForStream(eventStreamId, cursor) {
-      calls.push({ type: "runtimeEventsForStream", eventStreamId, cursor });
-      return events.filter((event) => event.event_stream_id === eventStreamId);
+      throw new Error(`workspace trust must not read JS replay events for ${eventStreamId} ${JSON.stringify(cursor)}`);
     },
   };
   return { calls, events, state, store };
@@ -107,8 +106,9 @@ function rustWarningPlan(request) {
 }
 
 function rustAckPlan(request) {
-  assert.equal(request.events.length, 1);
-  assert.equal(request.events[0].event_kind, "workspace.trust_warning");
+  assert.equal(request.state_dir, "/runtime-state");
+  assert.equal(Object.hasOwn(request, "events"), false);
+  assert.equal(Object.hasOwn(request, "seq"), false);
   return {
     source: "rust_workspace_trust_control_state_update_command",
     backend: "rust_policy",
@@ -163,16 +163,17 @@ test("workspace trust warning uses Rust planner and Rust event admission", () =>
   assert.equal(result.workspace_trust_warning_event.seq, 2);
   assert.equal(events.length, 2);
   assert.deepEqual(calls.map((call) => call.type), [
-    "latestRuntimeEventSeq",
     "planner",
     "appendRuntimeEvent",
   ]);
-  assert.equal(calls[1].request.operation_kind, "workspace_trust.warning");
-  assert.equal(calls[1].request.source_event_id, "evt_thread_mode");
-  assert.equal(calls[2].event.receipt_refs[0], "receipt_workspace_trust_warning_2");
+  assert.equal(calls[0].request.operation_kind, "workspace_trust.warning");
+  assert.equal(calls[0].request.source_event_id, "evt_thread_mode");
+  assert.equal(calls[0].request.state_dir, "/runtime-state");
+  assert.equal(Object.hasOwn(calls[0].request, "seq"), false);
+  assert.equal(calls[1].event.receipt_refs[0], "receipt_workspace_trust_warning_2");
 });
 
-test("workspace trust acknowledgement replays warning truth before Rust planning", () => {
+test("workspace trust acknowledgement sends state_dir replay handle before Rust planning", () => {
   const { calls, events, state, store } = createHarness({ planner: rustAckPlan });
 
   const result = state.acknowledgeWorkspaceTrustWarning(
@@ -198,13 +199,13 @@ test("workspace trust acknowledgement replays warning truth before Rust planning
   assert.equal(events.length, 2);
   assert.deepEqual(calls.map((call) => call.type), [
     "agentForThread",
-    "runtimeEventsForStream",
-    "latestRuntimeEventSeq",
     "planner",
     "appendRuntimeEvent",
   ]);
-  assert.equal(calls[3].request.operation_kind, "workspace_trust.acknowledge");
-  assert.equal(calls[3].request.events[0].event_id, "evt_workspace_trust_warning_1");
+  assert.equal(calls[1].request.operation_kind, "workspace_trust.acknowledge");
+  assert.equal(calls[1].request.state_dir, "/runtime-state");
+  assert.equal(Object.hasOwn(calls[1].request, "events"), false);
+  assert.equal(Object.hasOwn(calls[1].request, "seq"), false);
 });
 
 test("workspace trust controls fail closed before lookup when Rust planner is missing", () => {
@@ -258,8 +259,6 @@ test("workspace trust rejects Rust projection mismatches before event admission"
 
   assert.deepEqual(calls.map((call) => call.type), [
     "agentForThread",
-    "runtimeEventsForStream",
-    "latestRuntimeEventSeq",
     "planner",
   ]);
 });

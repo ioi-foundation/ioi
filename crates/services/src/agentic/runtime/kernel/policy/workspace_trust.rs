@@ -1,6 +1,10 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 use sha2::{Digest, Sha256};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 use super::{
     WORKSPACE_TRUST_CONTROL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
@@ -18,6 +22,10 @@ pub enum WorkspaceTrustControlStateUpdateError {
         actual: String,
     },
     MissingField(&'static str),
+    RetiredField(&'static str),
+    StateDirRequired,
+    ReplayReadFailed(String),
+    ReplayRecordInvalid(String),
     UnsupportedOperationKind(String),
     WarningEventNotFound(String),
     MismatchedField {
@@ -81,6 +89,8 @@ pub struct WorkspaceTrustControlStateUpdateRequest {
     pub event_id: Option<String>,
     #[serde(default)]
     pub seq: Option<u64>,
+    #[serde(default)]
+    pub state_dir: Option<String>,
     pub created_at: String,
     #[serde(default)]
     pub events: Vec<Value>,
@@ -536,6 +546,14 @@ impl WorkspaceTrustControlStateUpdateRequest {
         require_non_empty("thread_id", &self.thread_id)?;
         require_non_empty("event_stream_id", &self.event_stream_id)?;
         require_non_empty("created_at", &self.created_at)?;
+        if self.seq.is_some() {
+            return Err(WorkspaceTrustControlStateUpdateError::RetiredField("seq"));
+        }
+        if !self.events.is_empty() {
+            return Err(WorkspaceTrustControlStateUpdateError::RetiredField(
+                "events",
+            ));
+        }
         if !self.agent.is_object() {
             return Err(WorkspaceTrustControlStateUpdateError::MissingField("agent"));
         }
@@ -605,7 +623,10 @@ fn matching_warning_event(
         .source_event_id
         .as_deref()
         .and_then(optional_trimmed);
-    for event in request.events.iter().filter_map(Value::as_object) {
+    for event in workspace_trust_replay_events_from_state_dir(request)?
+        .iter()
+        .filter_map(Value::as_object)
+    {
         let Some(payload) = event.get("payload_summary").and_then(Value::as_object) else {
             continue;
         };
@@ -625,6 +646,70 @@ fn matching_warning_event(
     Err(WorkspaceTrustControlStateUpdateError::WarningEventNotFound(
         warning_id.to_string(),
     ))
+}
+
+fn workspace_trust_replay_events_from_state_dir(
+    request: &WorkspaceTrustControlStateUpdateRequest,
+) -> Result<Vec<Value>, WorkspaceTrustControlStateUpdateError> {
+    let state_dir = request
+        .state_dir
+        .as_deref()
+        .and_then(optional_trimmed)
+        .ok_or(WorkspaceTrustControlStateUpdateError::StateDirRequired)?;
+    let events_dir = Path::new(state_dir).join("events");
+    if !events_dir.exists() {
+        return Ok(Vec::new());
+    }
+    let entries = fs::read_dir(&events_dir).map_err(|error| {
+        WorkspaceTrustControlStateUpdateError::ReplayReadFailed(format!(
+            "workspace-trust replay could not read Agentgres events: {error}"
+        ))
+    })?;
+    let mut paths: Vec<PathBuf> = Vec::new();
+    for entry in entries {
+        let entry = entry.map_err(|error| {
+            WorkspaceTrustControlStateUpdateError::ReplayReadFailed(format!(
+                "workspace-trust replay could not inspect Agentgres event entry: {error}"
+            ))
+        })?;
+        let path = entry.path();
+        if path.is_file() && path.extension().and_then(|value| value.to_str()) == Some("jsonl") {
+            paths.push(path);
+        }
+    }
+    paths.sort();
+
+    let mut events = Vec::new();
+    for path in paths {
+        let contents = fs::read_to_string(&path).map_err(|error| {
+            WorkspaceTrustControlStateUpdateError::ReplayReadFailed(format!(
+                "workspace-trust replay could not read Agentgres event record {}: {error}",
+                path.display()
+            ))
+        })?;
+        for (index, line) in contents.lines().enumerate() {
+            let line = line.trim();
+            if line.is_empty() {
+                continue;
+            }
+            let event: Value = serde_json::from_str(line).map_err(|error| {
+                WorkspaceTrustControlStateUpdateError::ReplayRecordInvalid(format!(
+                    "workspace-trust replay found invalid Agentgres event record {}:{}: {error}",
+                    path.display(),
+                    index + 1
+                ))
+            })?;
+            events.push(event);
+        }
+    }
+    events.sort_by_key(|event| {
+        event
+            .as_object()
+            .and_then(|record| record.get("seq"))
+            .and_then(Value::as_u64)
+            .unwrap_or(0)
+    });
+    Ok(events)
 }
 
 fn workspace_trust_receipt_refs(
@@ -782,7 +867,8 @@ mod tests {
             workflow_graph_id: Some("workflow_1".to_string()),
             workflow_node_id: Some("runtime.thread-mode.yolo.workspace-trust".to_string()),
             event_id: None,
-            seq: Some(4),
+            seq: None,
+            state_dir: None,
             created_at: "2026-06-06T05:00:01.000Z".to_string(),
             events: vec![],
             receipt_refs: vec![],
@@ -851,12 +937,13 @@ mod tests {
     }
 
     #[test]
-    fn rust_policy_plans_workspace_trust_acknowledgement_event_from_replay() {
+    fn rust_policy_plans_workspace_trust_acknowledgement_event_from_state_dir_replay() {
         let warning = WorkspaceTrustControlStateUpdateCore
             .plan(&warning_request("yolo"))
             .expect("workspace trust warning");
         let warning_event = warning.event.clone().unwrap();
         let warning_id = warning.warning_id.clone().unwrap();
+        let state_dir = write_workspace_trust_event_state("ack", &[warning_event]);
         let request = WorkspaceTrustControlStateUpdateRequest {
             schema_version: WORKSPACE_TRUST_CONTROL_STATE_UPDATE_REQUEST_SCHEMA_VERSION.to_string(),
             operation_kind: "workspace_trust.acknowledge".to_string(),
@@ -873,9 +960,10 @@ mod tests {
             workflow_graph_id: Some("workflow_1".to_string()),
             workflow_node_id: Some("runtime.thread-mode.yolo.workspace-trust".to_string()),
             event_id: None,
-            seq: Some(5),
+            seq: None,
+            state_dir: Some(state_dir.to_string_lossy().to_string()),
             created_at: "2026-06-06T05:00:02.000Z".to_string(),
-            events: vec![warning_event],
+            events: vec![],
             receipt_refs: vec![],
             policy_decision_refs: vec![],
             wallet_authority_refs: vec![],
@@ -911,6 +999,8 @@ mod tests {
         request.operation_kind = "workspace_trust.acknowledge".to_string();
         request.warning_id = Some("workspace_trust_missing".to_string());
         request.controls = Value::Null;
+        let state_dir = write_workspace_trust_event_state("missing", &[]);
+        request.state_dir = Some(state_dir.to_string_lossy().to_string());
 
         let error = WorkspaceTrustControlStateUpdateCore
             .plan(&request)
@@ -921,6 +1011,56 @@ mod tests {
             WorkspaceTrustControlStateUpdateError::WarningEventNotFound(
                 "workspace_trust_missing".to_string()
             )
+        );
+    }
+
+    #[test]
+    fn rust_policy_rejects_workspace_trust_acknowledgement_without_state_dir() {
+        let mut request = warning_request("yolo");
+        request.operation_kind = "workspace_trust.acknowledge".to_string();
+        request.warning_id = Some("workspace_trust_missing".to_string());
+        request.controls = Value::Null;
+
+        let error = WorkspaceTrustControlStateUpdateCore
+            .plan(&request)
+            .expect_err("state_dir replay required");
+
+        assert_eq!(
+            error,
+            WorkspaceTrustControlStateUpdateError::StateDirRequired
+        );
+    }
+
+    #[test]
+    fn rust_policy_rejects_retired_workspace_trust_replay_candidate_transport() {
+        let mut request = warning_request("yolo");
+        request.operation_kind = "workspace_trust.acknowledge".to_string();
+        request.warning_id = Some("workspace_trust_missing".to_string());
+        request.controls = Value::Null;
+        request.events = vec![json!({ "event_kind": "workspace.trust_warning" })];
+
+        let error = WorkspaceTrustControlStateUpdateCore
+            .plan(&request)
+            .expect_err("events candidate transport is retired");
+
+        assert_eq!(
+            error,
+            WorkspaceTrustControlStateUpdateError::RetiredField("events")
+        );
+    }
+
+    #[test]
+    fn rust_policy_rejects_retired_workspace_trust_seq_transport() {
+        let mut request = warning_request("yolo");
+        request.seq = Some(4);
+
+        let error = WorkspaceTrustControlStateUpdateCore
+            .plan(&request)
+            .expect_err("seq transport is retired");
+
+        assert_eq!(
+            error,
+            WorkspaceTrustControlStateUpdateError::RetiredField("seq")
         );
     }
 
@@ -941,5 +1081,29 @@ mod tests {
         assert_eq!(response["operation_kind"], "workspace_trust.warning");
         assert_eq!(response["event"]["event_kind"], "workspace.trust_warning");
         assert_eq!(response["workspace_trust_warning"]["mode"], "review");
+    }
+
+    fn write_workspace_trust_event_state(label: &str, events: &[Value]) -> std::path::PathBuf {
+        let state_dir = std::env::temp_dir().join(format!(
+            "ioi-workspace-trust-{label}-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("system clock")
+                .as_nanos()
+        ));
+        let events_dir = state_dir.join("events");
+        std::fs::create_dir_all(&events_dir).expect("events dir");
+        let contents = events
+            .iter()
+            .map(|event| serde_json::to_string(event).expect("event json"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        std::fs::write(
+            events_dir.join("workspace_trust.jsonl"),
+            format!("{contents}\n"),
+        )
+        .expect("write workspace trust events");
+        state_dir
     }
 }

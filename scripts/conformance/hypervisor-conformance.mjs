@@ -38402,10 +38402,19 @@ function runCompositor() {
       /rust_policy_plans_workspace_trust_warning_event/.test(
         policyWorkspaceTrustCore,
       ) &&
-      /rust_policy_plans_workspace_trust_acknowledgement_event_from_replay/.test(
+      /rust_policy_plans_workspace_trust_acknowledgement_event_from_state_dir_replay/.test(
         policyWorkspaceTrustCore,
       ) &&
       /rust_policy_rejects_workspace_trust_acknowledgement_without_warning_replay/.test(
+        policyWorkspaceTrustCore,
+      ) &&
+      /rust_policy_rejects_workspace_trust_acknowledgement_without_state_dir/.test(
+        policyWorkspaceTrustCore,
+      ) &&
+      /rust_policy_rejects_retired_workspace_trust_replay_candidate_transport/.test(
+        policyWorkspaceTrustCore,
+      ) &&
+      /rust_policy_rejects_retired_workspace_trust_seq_transport/.test(
         policyWorkspaceTrustCore,
       ) &&
       /pub fn plan_workspace_trust_control_state_update/.test(
@@ -38468,16 +38477,23 @@ function runCompositor() {
       ) &&
       /planWorkspaceTrustControlStateUpdate/.test(workspaceTrustState) &&
       /store\.appendRuntimeEvent\(event\)/.test(workspaceTrustState) &&
-      /store\.runtimeEventsForStream\(eventStreamId,\s*\{\s*since_seq:\s*0\s*\}\)/.test(
+      /state_dir:\s*optionalString\(store\?\.stateDir\)\s*\?\?\s*null/.test(
         workspaceTrustState,
       ) &&
+      !/latestRuntimeEventSeq/.test(workspaceTrustState) &&
+      !/runtimeEventsForStream/.test(workspaceTrustState) &&
+      !/events:\s*replayEvents|seq:\s*nextSeq|function nextSeq/.test(workspaceTrustState) &&
       /workspace_trust_rust_event_projection_invalid/.test(workspaceTrustState) &&
       /workspace trust warning uses Rust planner and Rust event admission/.test(
         workspaceTrustStateTest,
       ) &&
-      /workspace trust acknowledgement replays warning truth before Rust planning/.test(
+      /workspace trust acknowledgement sends state_dir replay handle before Rust planning/.test(
         workspaceTrustStateTest,
       ) &&
+      /workspace trust must not read JS latestRuntimeEventSeq/.test(
+        workspaceTrustStateTest,
+      ) &&
+      /workspace trust must not read JS replay events/.test(workspaceTrustStateTest) &&
       /workspace trust controls fail closed before lookup when Rust planner is missing/.test(
         workspaceTrustStateTest,
       ) &&
