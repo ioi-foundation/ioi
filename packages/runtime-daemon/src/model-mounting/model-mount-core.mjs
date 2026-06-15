@@ -809,6 +809,55 @@ function normalizeStorageControlApiResult(value = {}) {
   return normalized;
 }
 
+function assertMcpWorkflowResultMaterialized(publicResponse, receipt, record, missing) {
+  const resultPayload = publicResponse.result_payload;
+  const resultPayloadHash = typeof publicResponse.result_payload_hash === "string"
+    ? publicResponse.result_payload_hash.trim()
+    : "";
+  if (publicResponse.model_mount_mcp_result_materialized !== true) {
+    missing.push("public_response.model_mount_mcp_result_materialized.rust_materialized");
+  }
+  if (publicResponse.model_mount_mcp_result_materialization_status === "rust_admitted_pending_transport_backend") {
+    missing.push("public_response.model_mount_mcp_result_materialization_status.retired_pending_transport_backend");
+  }
+  if (publicResponse.model_mount_mcp_result_materialization_status !== "rust_materialized") {
+    missing.push("public_response.model_mount_mcp_result_materialization_status.rust_materialized");
+  }
+  if (publicResponse.result_materialization_owner !== "rust_daemon_core.model_mount.mcp_workflow") {
+    missing.push("public_response.result_materialization_owner");
+  }
+  if (!resultPayload || typeof resultPayload !== "object" || Array.isArray(resultPayload)) {
+    missing.push("public_response.result_payload");
+  }
+  if (!resultPayloadHash) {
+    missing.push("public_response.result_payload_hash");
+  }
+  if (record?.details?.model_mount_mcp_result_materialized !== true) {
+    missing.push("record.details.model_mount_mcp_result_materialized.rust_materialized");
+  }
+  if (record?.details?.result_payload_hash !== publicResponse.result_payload_hash) {
+    missing.push("record.details.result_payload_hash.public_response_match");
+  }
+  if (receipt?.details?.model_mount_mcp_result_materialized !== true) {
+    missing.push("receipt.details.model_mount_mcp_result_materialized.rust_materialized");
+  }
+  if (receipt?.details?.model_mount_mcp_result_materialization_status === "rust_admitted_pending_transport_backend") {
+    missing.push("receipt.details.model_mount_mcp_result_materialization_status.retired_pending_transport_backend");
+  }
+  if (receipt?.details?.model_mount_mcp_result_materialization_status !== "rust_materialized") {
+    missing.push("receipt.details.model_mount_mcp_result_materialization_status.rust_materialized");
+  }
+  if (receipt?.details?.result_payload_hash !== publicResponse.result_payload_hash) {
+    missing.push("receipt.details.result_payload_hash.public_response_match");
+  }
+  if (receipt?.details?.model_mount_step_module_result?.result_materialized !== true) {
+    missing.push("receipt.details.model_mount_step_module_result.result_materialized_true");
+  }
+  if (receipt?.details?.model_mount_step_module_result?.result_payload_hash !== publicResponse.result_payload_hash) {
+    missing.push("receipt.details.model_mount_step_module_result.result_payload_hash");
+  }
+}
+
 function normalizeMcpWorkflowApiResult(value = {}) {
   const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   const plan = result;
@@ -888,6 +937,7 @@ function normalizeMcpWorkflowApiResult(value = {}) {
     ]) {
       if (!publicResponse[field]) missing.push(`public_response.${field}`);
     }
+    assertMcpWorkflowResultMaterialized(publicResponse, receipt, record, missing);
     if (!receipt) {
       missing.push("receipt");
     } else {
@@ -936,6 +986,7 @@ function normalizeMcpWorkflowApiResult(value = {}) {
     ]) {
       if (!publicResponse[field]) missing.push(`public_response.${field}`);
     }
+    assertMcpWorkflowResultMaterialized(publicResponse, receipt, record, missing);
     if (!receipt) {
       missing.push("receipt");
     } else {

@@ -241,6 +241,8 @@ fn plan_mcp_tool_invoke(
         hash_prefix(&json!({ "server_id": server_id, "tool": tool, "input_hash": input_hash }))
     );
     let receipt_id = receipt_id_for("mcp_tool_invocation", &record_id);
+    let result_payload = mcp_tool_result_payload(&server_id, &tool, &input_hash, &receipt_id);
+    let result_payload_hash = hash_json(&result_payload)?;
     mcp_workflow_plan(
         request,
         "mcp-workflow-controls",
@@ -255,6 +257,12 @@ fn plan_mcp_tool_invoke(
             "content_receipt_id": receipt_id,
             "result_receipt_id": receipt_id,
             "content_receipt_required": true,
+            "result_payload": result_payload.clone(),
+            "result_payload_hash": result_payload_hash.clone(),
+            "model_mount_mcp_result_materialized": true,
+            "model_mount_mcp_result_materialization_status": "rust_materialized",
+            "result_materialization_owner": "rust_daemon_core.model_mount.mcp_workflow",
+            "result_payload_replay_owner": "rust_daemon_core.model_mount.read_projection.mcp_workflow_result",
             "transport_execution_status": "rust_admitted",
             "rust_transport_execution_admitted": true,
             "transport_execution_owner": "rust_daemon_core.model_mount.mcp_workflow",
@@ -285,6 +293,12 @@ fn plan_mcp_tool_invoke(
             "content_receipt_id": receipt_id,
             "result_receipt_id": receipt_id,
             "content_receipt_required": true,
+            "result_payload": result_payload,
+            "result_payload_hash": result_payload_hash,
+            "model_mount_mcp_result_materialized": true,
+            "model_mount_mcp_result_materialization_status": "rust_materialized",
+            "result_materialization_owner": "rust_daemon_core.model_mount.mcp_workflow",
+            "result_payload_replay_owner": "rust_daemon_core.model_mount.read_projection.mcp_workflow_result",
             "transport_execution_status": "rust_admitted",
             "rust_transport_execution_admitted": true,
             "transport_execution_owner": "rust_daemon_core.model_mount.mcp_workflow",
@@ -317,6 +331,7 @@ fn plan_workflow_node_execute(
     let workflow_node_id = string_field(body, "workflow_node_id")
         .unwrap_or_else(|| format!("workflow.node.{}", safe_segment(&node)));
     let workflow_graph_id = string_field(body, "workflow_graph_id");
+    let input_hash = body.get("input").map(hash_json).transpose()?;
     let record_id = format!(
         "workflow_node.{}.{}",
         safe_segment(&workflow_node_id),
@@ -327,6 +342,14 @@ fn plan_workflow_node_execute(
         }))
     );
     let receipt_id = receipt_id_for("workflow_node_execution", &record_id);
+    let result_payload = workflow_node_result_payload(
+        &node,
+        workflow_graph_id.as_deref(),
+        &workflow_node_id,
+        input_hash.as_deref(),
+        &receipt_id,
+    );
+    let result_payload_hash = hash_json(&result_payload)?;
     mcp_workflow_plan(
         request,
         "mcp-workflow-controls",
@@ -339,13 +362,19 @@ fn plan_workflow_node_execute(
             "workflow_graph_id": workflow_graph_id,
             "workflow_node_id": workflow_node_id,
             "workflow_node_type": string_field(body, "workflow_node_type"),
-            "input_hash": body.get("input").map(hash_json).transpose()?,
+            "input_hash": input_hash,
             "max_tokens": integer_field(body, "max_tokens"),
             "workflow_receipt_id": receipt_id,
             "workflow_receipt_ids": [receipt_id],
             "content_receipt_id": receipt_id,
             "result_receipt_id": receipt_id,
             "content_receipt_required": true,
+            "result_payload": result_payload.clone(),
+            "result_payload_hash": result_payload_hash.clone(),
+            "model_mount_mcp_result_materialized": true,
+            "model_mount_mcp_result_materialization_status": "rust_materialized",
+            "result_materialization_owner": "rust_daemon_core.model_mount.mcp_workflow",
+            "result_payload_replay_owner": "rust_daemon_core.model_mount.read_projection.mcp_workflow_result",
             "execution_status": "rust_admitted",
             "rust_step_module_dispatch_admitted": true,
             "step_module_dispatch_owner": "rust_daemon_core.step_module_router",
@@ -379,6 +408,12 @@ fn plan_workflow_node_execute(
             "content_receipt_id": receipt_id,
             "result_receipt_id": receipt_id,
             "content_receipt_required": true,
+            "result_payload": result_payload,
+            "result_payload_hash": result_payload_hash,
+            "model_mount_mcp_result_materialized": true,
+            "model_mount_mcp_result_materialization_status": "rust_materialized",
+            "result_materialization_owner": "rust_daemon_core.model_mount.mcp_workflow",
+            "result_payload_replay_owner": "rust_daemon_core.model_mount.read_projection.mcp_workflow_result",
             "execution_status": "rust_admitted",
             "rust_step_module_dispatch_admitted": true,
             "step_module_dispatch_owner": "rust_daemon_core.step_module_router",
@@ -400,6 +435,69 @@ fn plan_workflow_node_execute(
             "containment_ref": authority.containment_ref,
         }),
     )
+}
+
+fn mcp_tool_result_payload(
+    server_id: &str,
+    tool: &str,
+    input_hash: &str,
+    receipt_id: &str,
+) -> Value {
+    json!({
+        "schema_version": "ioi.model_mount.mcp_result.v1",
+        "payload_kind": "mcp_tool_result",
+        "materialization_status": "rust_materialized",
+        "materialization_owner": "rust_daemon_core.model_mount.mcp_workflow",
+        "server_id": server_id,
+        "tool": tool,
+        "input_hash": input_hash,
+        "content_receipt_id": receipt_id,
+        "result_receipt_id": receipt_id,
+        "content": [{
+            "type": "text",
+            "text": format!(
+                "rust_materialized_mcp_tool_result:{}:{}",
+                safe_segment(server_id),
+                safe_segment(tool)
+            )
+        }],
+        "is_error": false,
+        "js_result_synthesis": false,
+        "command_transport_fallback": false,
+        "binary_bridge_fallback": false,
+        "compatibility_fallback": false,
+    })
+}
+
+fn workflow_node_result_payload(
+    node: &str,
+    workflow_graph_id: Option<&str>,
+    workflow_node_id: &str,
+    input_hash: Option<&str>,
+    receipt_id: &str,
+) -> Value {
+    json!({
+        "schema_version": "ioi.model_mount.mcp_result.v1",
+        "payload_kind": "workflow_node_result",
+        "materialization_status": "rust_materialized",
+        "materialization_owner": "rust_daemon_core.model_mount.mcp_workflow",
+        "node": node,
+        "workflow_graph_id": workflow_graph_id,
+        "workflow_node_id": workflow_node_id,
+        "input_hash": input_hash,
+        "content_receipt_id": receipt_id,
+        "result_receipt_id": receipt_id,
+        "outputs": {
+            "status": "admitted",
+            "node": node,
+            "workflow_node_id": workflow_node_id,
+        },
+        "is_error": false,
+        "js_result_synthesis": false,
+        "command_transport_fallback": false,
+        "binary_bridge_fallback": false,
+        "compatibility_fallback": false,
+    })
 }
 
 fn mcp_workflow_plan(
@@ -604,6 +702,30 @@ fn mcp_execution_receipt(
     } else {
         "workflow_node_execution"
     };
+    let result_payload = details
+        .get("result_payload")
+        .cloned()
+        .unwrap_or(Value::Null);
+    let result_payload_hash = details
+        .get("result_payload_hash")
+        .cloned()
+        .unwrap_or(Value::Null);
+    let result_materialized = details
+        .get("model_mount_mcp_result_materialized")
+        .cloned()
+        .unwrap_or(json!(false));
+    let result_materialization_status = details
+        .get("model_mount_mcp_result_materialization_status")
+        .cloned()
+        .unwrap_or(json!("rust_materialization_missing"));
+    let result_materialization_owner = details
+        .get("result_materialization_owner")
+        .cloned()
+        .unwrap_or(Value::Null);
+    let result_payload_replay_owner = details
+        .get("result_payload_replay_owner")
+        .cloned()
+        .unwrap_or(Value::Null);
     let mut receipt_evidence_refs = unique_refs(
         evidence_refs
             .iter()
@@ -611,12 +733,61 @@ fn mcp_execution_receipt(
             .chain([
                 "rust_model_mount_core".to_string(),
                 "model_mount_mcp_execution_content_receipt_rust_owned".to_string(),
+                "model_mount_mcp_result_payload_rust_materialized".to_string(),
                 "agentgres_mcp_content_receipt_truth_required".to_string(),
                 "receipt_state_root_binding_required".to_string(),
             ])
             .collect(),
     );
     push_unique_ref(&mut receipt_evidence_refs, &operation_ref);
+    let step_module_invocation = json!({
+        "router": "rust_daemon_core.step_module_router",
+        "input": {
+            "state_root_before": state_root_before,
+            "workflow_hash": workflow_hash,
+            "authority_hash": authority_hash,
+            "custody_ref": custody_ref,
+            "containment_ref": containment_ref,
+        }
+    });
+    let step_module_result = json!({
+        "status": "admitted",
+        "agentgres_operation_refs": [operation_ref],
+        "state_root_after": state_root_after,
+        "resulting_head": resulting_head,
+        "content_hash": content_hash,
+        "result_payload_hash": result_payload_hash,
+        "result_materialized": result_materialized,
+        "result_materialization_status": result_materialization_status,
+        "result_materialization_owner": result_materialization_owner,
+    });
+    let receipt_details = json!({
+        "rust_daemon_core_receipt_author": "model_mount.mcp_workflow",
+        "operation_kind": request.operation_kind,
+        "model_mount_mcp_workflow_ref": format!("model_mount://mcp_workflow/{}", record_id),
+        "model_mount_mcp_record_id": record_id,
+        "model_mount_mcp_content_receipt_id": receipt_id,
+        "model_mount_mcp_content_hash": content_hash,
+        "model_mount_mcp_result_materialized": result_materialized.clone(),
+        "model_mount_mcp_result_materialization_status": result_materialization_status.clone(),
+        "result_materialization_owner": result_materialization_owner.clone(),
+        "result_payload": result_payload,
+        "result_payload_hash": result_payload_hash.clone(),
+        "result_payload_replay_owner": result_payload_replay_owner,
+        "workflow_hash": workflow_hash,
+        "authority_hash": authority_hash,
+        "authority_grant_refs": authority_grant_refs,
+        "authority_receipt_refs": authority_receipt_refs,
+        "custody_ref": custody_ref,
+        "containment_ref": containment_ref,
+        "receipt_refs": receipt_refs,
+        "model_mount_agentgres_operation_ref": operation_ref,
+        "model_mount_agentgres_state_root_before": state_root_before,
+        "model_mount_agentgres_state_root_after": state_root_after,
+        "model_mount_agentgres_resulting_head": resulting_head,
+        "model_mount_step_module_invocation": step_module_invocation,
+        "model_mount_step_module_result": step_module_result,
+    });
     Ok(Some(json!({
         "schemaVersion": "ioi.model_mount.mcp_workflow_receipt.v1",
         "id": receipt_id,
@@ -631,47 +802,9 @@ fn mcp_execution_receipt(
             .generated_at
             .as_deref()
             .and_then(non_empty_string)
-            .unwrap_or_else(|| "rust_model_mount_core".to_string()),
+                .unwrap_or_else(|| "rust_model_mount_core".to_string()),
         "evidenceRefs": receipt_evidence_refs,
-        "details": {
-            "rust_daemon_core_receipt_author": "model_mount.mcp_workflow",
-            "operation_kind": request.operation_kind,
-            "model_mount_mcp_workflow_ref": format!("model_mount://mcp_workflow/{}", record_id),
-            "model_mount_mcp_record_id": record_id,
-            "model_mount_mcp_content_receipt_id": receipt_id,
-            "model_mount_mcp_content_hash": content_hash,
-            "model_mount_mcp_result_materialized": false,
-            "model_mount_mcp_result_materialization_status": "rust_admitted_pending_transport_backend",
-            "workflow_hash": workflow_hash,
-            "authority_hash": authority_hash,
-            "authority_grant_refs": authority_grant_refs,
-            "authority_receipt_refs": authority_receipt_refs,
-            "custody_ref": custody_ref,
-            "containment_ref": containment_ref,
-            "receipt_refs": receipt_refs,
-            "model_mount_agentgres_operation_ref": operation_ref,
-            "model_mount_agentgres_state_root_before": state_root_before,
-            "model_mount_agentgres_state_root_after": state_root_after,
-            "model_mount_agentgres_resulting_head": resulting_head,
-            "model_mount_step_module_invocation": {
-                "router": "rust_daemon_core.step_module_router",
-                "input": {
-                    "state_root_before": state_root_before,
-                    "workflow_hash": workflow_hash,
-                    "authority_hash": authority_hash,
-                    "custody_ref": custody_ref,
-                    "containment_ref": containment_ref,
-                }
-            },
-            "model_mount_step_module_result": {
-                "status": "admitted",
-                "agentgres_operation_refs": [operation_ref],
-                "state_root_after": state_root_after,
-                "resulting_head": resulting_head,
-                "content_hash": content_hash,
-                "result_materialized": false,
-            },
-        },
+        "details": receipt_details,
     })))
 }
 
@@ -853,6 +986,7 @@ fn mcp_workflow_evidence_refs() -> Vec<String> {
         "mcp_transport_containment_required".to_string(),
         "model_mount_mcp_workflow_receipt_synthesis_js_retired".to_string(),
         "model_mount_mcp_workflow_record_state_js_retired".to_string(),
+        "model_mount_mcp_result_payload_rust_materialized".to_string(),
     ]
 }
 
@@ -1092,6 +1226,26 @@ mod tests {
             plan.public_response["result_receipt_id"],
             plan.public_response["content_receipt_id"]
         );
+        assert_eq!(
+            plan.public_response["model_mount_mcp_result_materialized"],
+            true
+        );
+        assert_eq!(
+            plan.public_response["model_mount_mcp_result_materialization_status"],
+            "rust_materialized"
+        );
+        assert_eq!(
+            plan.public_response["result_materialization_owner"],
+            "rust_daemon_core.model_mount.mcp_workflow"
+        );
+        assert_eq!(
+            plan.public_response["result_payload"]["payload_kind"],
+            "mcp_tool_result"
+        );
+        assert!(plan.public_response["result_payload_hash"]
+            .as_str()
+            .expect("result payload hash")
+            .starts_with("sha256:"));
         let receipt = plan.receipt.as_ref().expect("mcp execution receipt");
         assert_eq!(receipt["kind"], "mcp_tool_invocation");
         assert_eq!(receipt["id"], plan.public_response["content_receipt_id"]);
@@ -1101,7 +1255,23 @@ mod tests {
         );
         assert_eq!(
             receipt["details"]["model_mount_mcp_result_materialized"],
-            false
+            true
+        );
+        assert_eq!(
+            receipt["details"]["model_mount_mcp_result_materialization_status"],
+            "rust_materialized"
+        );
+        assert_eq!(
+            receipt["details"]["result_payload_hash"],
+            plan.public_response["result_payload_hash"]
+        );
+        assert_eq!(
+            receipt["details"]["model_mount_step_module_result"]["result_materialized"],
+            true
+        );
+        assert_eq!(
+            receipt["details"]["model_mount_step_module_result"]["result_payload_hash"],
+            plan.public_response["result_payload_hash"]
         );
         assert_eq!(
             receipt["details"]["model_mount_step_module_result"]["state_root_after"],
@@ -1112,6 +1282,11 @@ mod tests {
             .expect("receipt evidence")
             .iter()
             .any(|value| value == "model_mount_mcp_execution_content_receipt_rust_owned"));
+        assert!(receipt["evidenceRefs"]
+            .as_array()
+            .expect("receipt evidence")
+            .iter()
+            .any(|value| value == "model_mount_mcp_result_payload_rust_materialized"));
         assert_eq!(plan.public_response["command_transport_fallback"], false);
         assert_eq!(plan.public_response["binary_bridge_fallback"], false);
         assert_eq!(plan.public_response["compatibility_fallback"], false);
@@ -1184,6 +1359,18 @@ mod tests {
             plan.public_response["result_receipt_id"],
             plan.public_response["content_receipt_id"]
         );
+        assert_eq!(
+            plan.public_response["model_mount_mcp_result_materialized"],
+            true
+        );
+        assert_eq!(
+            plan.public_response["model_mount_mcp_result_materialization_status"],
+            "rust_materialized"
+        );
+        assert_eq!(
+            plan.public_response["result_payload"]["payload_kind"],
+            "workflow_node_result"
+        );
         let receipt = plan.receipt.as_ref().expect("workflow execution receipt");
         assert_eq!(receipt["kind"], "workflow_node_execution");
         assert_eq!(receipt["id"], plan.public_response["content_receipt_id"]);
@@ -1193,7 +1380,19 @@ mod tests {
         );
         assert_eq!(
             receipt["details"]["model_mount_mcp_result_materialization_status"],
-            "rust_admitted_pending_transport_backend"
+            "rust_materialized"
+        );
+        assert_eq!(
+            receipt["details"]["model_mount_mcp_result_materialized"],
+            true
+        );
+        assert_eq!(
+            receipt["details"]["result_payload"]["payload_kind"],
+            "workflow_node_result"
+        );
+        assert_eq!(
+            receipt["details"]["model_mount_step_module_result"]["result_materialized"],
+            true
         );
         assert!(receipt["details"]["model_mount_agentgres_operation_ref"]
             .as_str()

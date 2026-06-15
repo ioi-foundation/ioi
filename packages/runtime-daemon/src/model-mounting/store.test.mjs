@@ -121,8 +121,15 @@ function boundMcpExecutionReceipt(overrides = {}) {
       model_mount_mcp_workflow_ref: "model_mount://mcp_workflow/mcp_tool.alpha",
       model_mount_mcp_content_receipt_id: "receipt.mcp-tool",
       model_mount_mcp_content_hash: "sha256:mcp-content",
-      model_mount_mcp_result_materialized: false,
-      model_mount_mcp_result_materialization_status: "rust_admitted_pending_transport_backend",
+      model_mount_mcp_result_materialized: true,
+      model_mount_mcp_result_materialization_status: "rust_materialized",
+      result_materialization_owner: "rust_daemon_core.model_mount.mcp_workflow",
+      result_payload: {
+        schema_version: "ioi.model_mount.mcp_result.v1",
+        payload_kind: "mcp_tool_result",
+        materialization_status: "rust_materialized",
+      },
+      result_payload_hash: "sha256:mcp-result-payload",
       workflow_hash: "sha256:mcp-workflow",
       authority_hash: "sha256:mcp-authority",
       model_mount_agentgres_operation_ref: operationRef,
@@ -135,7 +142,10 @@ function boundMcpExecutionReceipt(overrides = {}) {
         state_root_after: "sha256:mcp-after",
         resulting_head: resultingHead,
         content_hash: "sha256:mcp-content",
-        result_materialized: false,
+        result_payload_hash: "sha256:mcp-result-payload",
+        result_materialized: true,
+        result_materialization_status: "rust_materialized",
+        result_materialization_owner: "rust_daemon_core.model_mount.mcp_workflow",
       },
     },
     createdAt: "2026-06-14T00:00:00.000Z",
@@ -302,6 +312,33 @@ test("MCP execution receipt writes fail closed without Rust workflow binding", (
       error.details.missing.includes("model_mount_step_module_result.state_root_after"),
   );
   assert.equal(fs.existsSync(path.join(stateDir, "receipts", "receipt.mcp-direct.json")), false);
+  assert.deepEqual(appended, []);
+});
+
+test("MCP execution receipt writes reject pending result materialization", () => {
+  const { appended, stateDir, store } = testStore();
+  const base = boundMcpExecutionReceipt();
+  const receipt = boundMcpExecutionReceipt({
+    id: "receipt.mcp-pending",
+    details: {
+      ...base.details,
+      model_mount_mcp_result_materialized: false,
+      model_mount_mcp_result_materialization_status: "rust_admitted_pending_transport_backend",
+      model_mount_step_module_result: {
+        ...base.details.model_mount_step_module_result,
+        result_materialized: false,
+      },
+    },
+  });
+
+  assert.throws(
+    () => store.writeReceipt(receipt),
+    (error) =>
+      error.code === "model_mount_mcp_execution_receipt_direct_append_forbidden" &&
+      error.details.missing.includes("model_mount_mcp_result_materialization_status.retired_pending_transport_backend") &&
+      error.details.missing.includes("model_mount_step_module_result.result_materialized_true"),
+  );
+  assert.equal(fs.existsSync(path.join(stateDir, "receipts", "receipt.mcp-pending.json")), false);
   assert.deepEqual(appended, []);
 });
 

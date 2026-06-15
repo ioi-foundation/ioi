@@ -3237,6 +3237,7 @@ function persistMcpWorkflowExecutionReceipt(state, plan = {}) {
       },
     });
   }
+  assertMcpWorkflowExecutionResultMaterialized(plan, receipt);
   if (typeof state.persistRustAuthoredReceiptWithCommit !== "function") {
     throw runtimeError({
       status: 500,
@@ -3264,6 +3265,75 @@ function persistMcpWorkflowExecutionReceipt(state, plan = {}) {
     });
   }
   return persisted;
+}
+
+function assertMcpWorkflowExecutionResultMaterialized(plan = {}, receipt = {}) {
+  const publicResponse = plan.public_response && typeof plan.public_response === "object" && !Array.isArray(plan.public_response)
+    ? plan.public_response
+    : {};
+  const details = receipt.details && typeof receipt.details === "object" && !Array.isArray(receipt.details)
+    ? receipt.details
+    : {};
+  const stepModuleResult =
+    details.model_mount_step_module_result &&
+    typeof details.model_mount_step_module_result === "object" &&
+    !Array.isArray(details.model_mount_step_module_result)
+      ? details.model_mount_step_module_result
+      : {};
+  const resultPayload = publicResponse.result_payload;
+  const missing = [];
+  const mismatches = [];
+  if (publicResponse.model_mount_mcp_result_materialized !== true) {
+    missing.push("public_response.model_mount_mcp_result_materialized.rust_materialized");
+  }
+  if (publicResponse.model_mount_mcp_result_materialization_status === "rust_admitted_pending_transport_backend") {
+    missing.push("public_response.model_mount_mcp_result_materialization_status.retired_pending_transport_backend");
+  }
+  if (publicResponse.model_mount_mcp_result_materialization_status !== "rust_materialized") {
+    missing.push("public_response.model_mount_mcp_result_materialization_status.rust_materialized");
+  }
+  if (publicResponse.result_materialization_owner !== "rust_daemon_core.model_mount.mcp_workflow") {
+    missing.push("public_response.result_materialization_owner");
+  }
+  if (!resultPayload || typeof resultPayload !== "object" || Array.isArray(resultPayload)) {
+    missing.push("public_response.result_payload");
+  }
+  if (!optionalString(publicResponse.result_payload_hash)) {
+    missing.push("public_response.result_payload_hash");
+  }
+  if (details.model_mount_mcp_result_materialized !== true) {
+    missing.push("receipt.details.model_mount_mcp_result_materialized.rust_materialized");
+  }
+  if (details.model_mount_mcp_result_materialization_status === "rust_admitted_pending_transport_backend") {
+    missing.push("receipt.details.model_mount_mcp_result_materialization_status.retired_pending_transport_backend");
+  }
+  if (details.model_mount_mcp_result_materialization_status !== "rust_materialized") {
+    missing.push("receipt.details.model_mount_mcp_result_materialization_status.rust_materialized");
+  }
+  if (stepModuleResult.result_materialized !== true) {
+    missing.push("receipt.details.model_mount_step_module_result.result_materialized_true");
+  }
+  if (optionalString(details.result_payload_hash) !== optionalString(publicResponse.result_payload_hash)) {
+    mismatches.push("receipt.details.result_payload_hash");
+  }
+  if (optionalString(stepModuleResult.result_payload_hash) !== optionalString(publicResponse.result_payload_hash)) {
+    mismatches.push("receipt.details.model_mount_step_module_result.result_payload_hash");
+  }
+  if (missing.length > 0 || mismatches.length > 0) {
+    throw runtimeError({
+      status: 502,
+      code: "model_mount_mcp_execution_result_materialization_required",
+      message:
+        "Model-mount MCP execution requires a Rust-materialized result payload before public execution truth can return.",
+      details: {
+        rust_core_boundary: plan.rust_core_boundary ?? "model_mount.mcp_workflow",
+        operation_kind: plan.operation_kind ?? null,
+        receipt_id: receipt.id ?? null,
+        missing,
+        mismatches,
+      },
+    });
+  }
 }
 
 function mcpWorkflowBody(value = {}) {

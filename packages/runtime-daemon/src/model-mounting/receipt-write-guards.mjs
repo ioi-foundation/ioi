@@ -171,6 +171,24 @@ function assertMcpWorkflowExecutionReceiptBound(receipt) {
   if (!optionalNonEmptyString(details.model_mount_mcp_content_hash)) {
     missing.push("model_mount_mcp_content_hash");
   }
+  if (details.model_mount_mcp_result_materialized !== true) {
+    missing.push("model_mount_mcp_result_materialized_true");
+  }
+  if (details.model_mount_mcp_result_materialization_status === "rust_admitted_pending_transport_backend") {
+    missing.push("model_mount_mcp_result_materialization_status.retired_pending_transport_backend");
+  }
+  if (details.model_mount_mcp_result_materialization_status !== "rust_materialized") {
+    missing.push("model_mount_mcp_result_materialization_status.rust_materialized");
+  }
+  if (!details.result_payload || typeof details.result_payload !== "object" || Array.isArray(details.result_payload)) {
+    missing.push("result_payload");
+  }
+  if (!optionalNonEmptyString(details.result_payload_hash)) {
+    missing.push("result_payload_hash");
+  }
+  if (details.result_materialization_owner !== "rust_daemon_core.model_mount.mcp_workflow") {
+    missing.push("result_materialization_owner");
+  }
   if (!optionalNonEmptyString(details.workflow_hash)) missing.push("workflow_hash");
   if (!optionalNonEmptyString(details.authority_hash)) missing.push("authority_hash");
   if (!operationRef) missing.push("model_mount_agentgres_operation_ref");
@@ -190,8 +208,11 @@ function assertMcpWorkflowExecutionReceiptBound(receipt) {
   if (!optionalNonEmptyString(details.model_mount_step_module_result?.resulting_head)) {
     missing.push("model_mount_step_module_result.resulting_head");
   }
-  if (details.model_mount_step_module_result?.result_materialized !== false) {
-    missing.push("model_mount_step_module_result.result_materialized_false");
+  if (details.model_mount_step_module_result?.result_materialized !== true) {
+    missing.push("model_mount_step_module_result.result_materialized_true");
+  }
+  if (!optionalNonEmptyString(details.model_mount_step_module_result?.result_payload_hash)) {
+    missing.push("model_mount_step_module_result.result_payload_hash");
   }
 
   if (operationRef && !operationRef.startsWith(MODEL_MOUNT_MCP_WORKFLOW_OPERATION_REF_PREFIX)) {
@@ -217,6 +238,12 @@ function assertMcpWorkflowExecutionReceiptBound(receipt) {
     optionalNonEmptyString(details.model_mount_step_module_result?.resulting_head)
   ) {
     mismatches.push("model_mount_agentgres_resulting_head");
+  }
+  if (
+    optionalNonEmptyString(details.result_payload_hash) !==
+    optionalNonEmptyString(details.model_mount_step_module_result?.result_payload_hash)
+  ) {
+    mismatches.push("model_mount_step_module_result.result_payload_hash");
   }
 
   if (missing.length > 0 || mismatches.length > 0) {

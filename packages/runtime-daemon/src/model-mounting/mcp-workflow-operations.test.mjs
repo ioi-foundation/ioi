@@ -155,20 +155,47 @@ function mcpWorkflowPlan(request) {
     : operationKind === "model_mount.mcp_server.ephemeral_register"
       ? ["mcp.search"]
       : [];
+  const executionOperation = ["model_mount.mcp_tool.invoke", "model_mount.workflow_node.execute"].includes(
+    operationKind,
+  );
+  const resultPayload = executionOperation
+    ? {
+      schema_version: "ioi.model_mount.mcp_result.v1",
+      payload_kind: operationKind === "model_mount.mcp_tool.invoke" ? "mcp_tool_result" : "workflow_node_result",
+      materialization_status: "rust_materialized",
+      materialization_owner: "rust_daemon_core.model_mount.mcp_workflow",
+      content_receipt_id: `receipt.${recordId}`,
+      result_receipt_id: `receipt.${recordId}`,
+      is_error: false,
+      js_result_synthesis: false,
+      command_transport_fallback: false,
+      binary_bridge_fallback: false,
+      compatibility_fallback: false,
+    }
+    : undefined;
+  const resultPayloadHash = executionOperation ? `sha256:result-payload:${recordId}` : undefined;
   const publicResponse = {
     status: operationKind.includes("mcp_server") ? "committed" : "admitted",
     operation_kind: operationKind,
     server_ids: serverIds,
     tool_receipt_ids: [],
-    content_receipt_id: ["model_mount.mcp_tool.invoke", "model_mount.workflow_node.execute"].includes(operationKind)
+    content_receipt_id: executionOperation
       ? `receipt.${recordId}`
       : undefined,
-    result_receipt_id: ["model_mount.mcp_tool.invoke", "model_mount.workflow_node.execute"].includes(operationKind)
+    result_receipt_id: executionOperation
       ? `receipt.${recordId}`
       : undefined,
-    content_receipt_required: ["model_mount.mcp_tool.invoke", "model_mount.workflow_node.execute"].includes(
-      operationKind,
-    ) || undefined,
+    content_receipt_required: executionOperation || undefined,
+    result_payload: resultPayload,
+    result_payload_hash: resultPayloadHash,
+    model_mount_mcp_result_materialized: executionOperation ? true : undefined,
+    model_mount_mcp_result_materialization_status: executionOperation ? "rust_materialized" : undefined,
+    result_materialization_owner: executionOperation
+      ? "rust_daemon_core.model_mount.mcp_workflow"
+      : undefined,
+    result_payload_replay_owner: executionOperation
+      ? "rust_daemon_core.model_mount.read_projection.mcp_workflow_result"
+      : undefined,
     transport_execution_status: operationKind === "model_mount.mcp_tool.invoke" ? "rust_admitted" : undefined,
     rust_transport_execution_admitted: operationKind === "model_mount.mcp_tool.invoke" || undefined,
     transport_execution_owner: operationKind === "model_mount.mcp_tool.invoke"
@@ -179,33 +206,19 @@ function mcpWorkflowPlan(request) {
     workflow_execution_owner: operationKind === "model_mount.workflow_node.execute"
       ? "rust_daemon_core.model_mount.mcp_workflow"
       : undefined,
-    step_module_dispatch_owner: ["model_mount.mcp_tool.invoke", "model_mount.workflow_node.execute"].includes(
-      operationKind,
-    )
+    step_module_dispatch_owner: executionOperation
       ? "rust_daemon_core.step_module_router"
       : undefined,
-    agentgres_admission_required: ["model_mount.mcp_tool.invoke", "model_mount.workflow_node.execute"].includes(
-      operationKind,
-    ) || undefined,
-    receipt_state_root_binding_required: ["model_mount.mcp_tool.invoke", "model_mount.workflow_node.execute"].includes(
-      operationKind,
-    ) || undefined,
+    agentgres_admission_required: executionOperation || undefined,
+    receipt_state_root_binding_required: executionOperation || undefined,
     js_transport_invocation: operationKind === "model_mount.mcp_tool.invoke" ? false : undefined,
     js_route_test: operationKind === "model_mount.workflow_node.execute" ? false : undefined,
     js_model_invocation: operationKind === "model_mount.workflow_node.execute" ? false : undefined,
     js_mcp_tool_invocation: operationKind === "model_mount.workflow_node.execute" ? false : undefined,
-    command_transport_fallback: ["model_mount.mcp_tool.invoke", "model_mount.workflow_node.execute"].includes(
-      operationKind,
-    ) ? false : undefined,
-    binary_bridge_fallback: ["model_mount.mcp_tool.invoke", "model_mount.workflow_node.execute"].includes(operationKind)
-      ? false
-      : undefined,
-    compatibility_fallback: ["model_mount.mcp_tool.invoke", "model_mount.workflow_node.execute"].includes(operationKind)
-      ? false
-      : undefined,
-    legacy_js_result_fallback: ["model_mount.mcp_tool.invoke", "model_mount.workflow_node.execute"].includes(
-      operationKind,
-    ) ? false : undefined,
+    command_transport_fallback: executionOperation ? false : undefined,
+    binary_bridge_fallback: executionOperation ? false : undefined,
+    compatibility_fallback: executionOperation ? false : undefined,
+    legacy_js_result_fallback: executionOperation ? false : undefined,
     server_id: request.body.server_id ?? null,
     tool: request.body.tool ?? null,
     workflow_node_id: request.body.workflow_node_id ?? null,
@@ -224,32 +237,26 @@ function mcpWorkflowPlan(request) {
       js_mcp_tool_invocation: false,
       js_receipt_gate_dispatch: false,
       js_model_invocation: false,
-      command_transport_fallback: ["model_mount.mcp_tool.invoke", "model_mount.workflow_node.execute"].includes(
-        operationKind,
-      ) ? false : undefined,
-      binary_bridge_fallback: ["model_mount.mcp_tool.invoke", "model_mount.workflow_node.execute"].includes(
-        operationKind,
-      ) ? false : undefined,
-      compatibility_fallback: ["model_mount.mcp_tool.invoke", "model_mount.workflow_node.execute"].includes(
-        operationKind,
-      ) ? false : undefined,
-      legacy_js_result_fallback: ["model_mount.mcp_tool.invoke", "model_mount.workflow_node.execute"].includes(
-        operationKind,
-      ) ? false : undefined,
-      wallet_authority_required: ["model_mount.mcp_tool.invoke", "model_mount.workflow_node.execute"].includes(
-        operationKind,
-      ),
-      wallet_authority_boundary: ["model_mount.mcp_tool.invoke", "model_mount.workflow_node.execute"].includes(
-        operationKind,
-      )
+      command_transport_fallback: executionOperation ? false : undefined,
+      binary_bridge_fallback: executionOperation ? false : undefined,
+      compatibility_fallback: executionOperation ? false : undefined,
+      legacy_js_result_fallback: executionOperation ? false : undefined,
+      result_payload: resultPayload,
+      result_payload_hash: resultPayloadHash,
+      model_mount_mcp_result_materialized: executionOperation ? true : undefined,
+      model_mount_mcp_result_materialization_status: executionOperation ? "rust_materialized" : undefined,
+      result_materialization_owner: executionOperation
+        ? "rust_daemon_core.model_mount.mcp_workflow"
+        : undefined,
+      result_payload_replay_owner: executionOperation
+        ? "rust_daemon_core.model_mount.read_projection.mcp_workflow_result"
+        : undefined,
+      wallet_authority_required: executionOperation,
+      wallet_authority_boundary: executionOperation
         ? "wallet.network.mcp_external_exit"
         : null,
-      ctee_custody_required: ["model_mount.mcp_tool.invoke", "model_mount.workflow_node.execute"].includes(
-        operationKind,
-      ),
-      transport_containment_required: ["model_mount.mcp_tool.invoke", "model_mount.workflow_node.execute"].includes(
-        operationKind,
-      ),
+      ctee_custody_required: executionOperation,
+      transport_containment_required: executionOperation,
       authority_grant_refs: request.authority_grant_refs ?? [],
       authority_receipt_refs: request.authority_receipt_refs ?? [],
       custody_ref: request.custody_ref ?? null,
@@ -259,13 +266,14 @@ function mcpWorkflowPlan(request) {
     receipt_refs: [`receipt.${recordId}`],
     workflow_hash: `sha256:workflow:${recordId}`,
     authority_hash: `sha256:authority:${recordId}`,
-    evidence_refs: [
-      "rust_daemon_core_model_mount_mcp_workflow",
-      "agentgres_mcp_workflow_truth_required",
-      "model_mount_mcp_workflow_js_facade_retired",
-    ],
-  };
-  const executionReceipt = ["model_mount.mcp_tool.invoke", "model_mount.workflow_node.execute"].includes(operationKind)
+	    evidence_refs: [
+	      "rust_daemon_core_model_mount_mcp_workflow",
+	      "agentgres_mcp_workflow_truth_required",
+	      "model_mount_mcp_workflow_js_facade_retired",
+	      "model_mount_mcp_result_payload_rust_materialized",
+	    ],
+	  };
+  const executionReceipt = executionOperation
     ? {
       schemaVersion: "ioi.model_mount.mcp_workflow_receipt.v1",
       id: `receipt.${recordId}`,
@@ -274,19 +282,24 @@ function mcpWorkflowPlan(request) {
       summary: "Rust model_mount MCP execution admitted",
       createdAt: request.generated_at,
       evidenceRefs: [
-        "rust_model_mount_core",
-        "rust_daemon_core_model_mount_mcp_workflow",
-        "model_mount_mcp_execution_content_receipt_rust_owned",
-        "agentgres_mcp_content_receipt_truth_required",
-      ],
-      details: {
-        rust_daemon_core_receipt_author: "model_mount.mcp_workflow",
-        operation_kind: operationKind,
-        model_mount_mcp_workflow_ref: `model_mount://mcp_workflow/${recordId}`,
-        model_mount_mcp_content_receipt_id: `receipt.${recordId}`,
-        model_mount_mcp_content_hash: `sha256:content:${recordId}`,
-        model_mount_mcp_result_materialized: false,
-        model_mount_mcp_result_materialization_status: "rust_admitted_pending_transport_backend",
+	        "rust_model_mount_core",
+	        "rust_daemon_core_model_mount_mcp_workflow",
+	        "model_mount_mcp_execution_content_receipt_rust_owned",
+	        "model_mount_mcp_result_payload_rust_materialized",
+	        "agentgres_mcp_content_receipt_truth_required",
+	      ],
+	      details: {
+	        rust_daemon_core_receipt_author: "model_mount.mcp_workflow",
+	        operation_kind: operationKind,
+	        model_mount_mcp_workflow_ref: `model_mount://mcp_workflow/${recordId}`,
+	        model_mount_mcp_content_receipt_id: `receipt.${recordId}`,
+	        model_mount_mcp_content_hash: `sha256:content:${recordId}`,
+        model_mount_mcp_result_materialized: true,
+        model_mount_mcp_result_materialization_status: "rust_materialized",
+        result_materialization_owner: "rust_daemon_core.model_mount.mcp_workflow",
+        result_payload: resultPayload,
+        result_payload_hash: resultPayloadHash,
+        result_payload_replay_owner: "rust_daemon_core.model_mount.read_projection.mcp_workflow_result",
         workflow_hash: record.workflow_hash,
         authority_hash: record.authority_hash,
         custody_ref: request.custody_ref ?? null,
@@ -301,7 +314,10 @@ function mcpWorkflowPlan(request) {
           state_root_after: `sha256:state-after:${recordId}`,
           resulting_head: `agentgres://model-mounting/mcp-workflow/head/${recordId}`,
           content_hash: `sha256:content:${recordId}`,
-          result_materialized: false,
+          result_payload_hash: resultPayloadHash,
+          result_materialized: true,
+          result_materialization_status: "rust_materialized",
+          result_materialization_owner: "rust_daemon_core.model_mount.mcp_workflow",
         },
       },
     }
@@ -584,9 +600,17 @@ test("invokeMcpTool uses Rust MCP workflow admission and rejects JS or command f
   assert.equal(result.step_module_dispatch_owner, "rust_daemon_core.step_module_router");
   assert.equal(result.content_receipt_required, true);
   assert.equal(result.result_receipt_id, result.content_receipt_id);
+  assert.equal(result.model_mount_mcp_result_materialized, true);
+  assert.equal(result.model_mount_mcp_result_materialization_status, "rust_materialized");
+  assert.equal(result.result_materialization_owner, "rust_daemon_core.model_mount.mcp_workflow");
+  assert.equal(result.result_payload.payload_kind, "mcp_tool_result");
+  assert.equal(result.result_payload_hash, `sha256:result-payload:${state.recordStateCommits[0]?.record_id ?? "unused"}`);
   assert.equal(result.receipt.kind, "mcp_tool_invocation");
   assert.equal(result.receipt.details.rust_daemon_core_receipt_author, "model_mount.mcp_workflow");
-  assert.equal(result.receipt.details.model_mount_mcp_result_materialized, false);
+  assert.equal(result.receipt.details.model_mount_mcp_result_materialized, true);
+  assert.equal(result.receipt.details.model_mount_mcp_result_materialization_status, "rust_materialized");
+  assert.equal(result.receipt.details.result_payload_hash, result.result_payload_hash);
+  assert.equal(result.receipt.details.model_mount_step_module_result.result_materialized, true);
   assert.equal(result.receipt_commit.commit_hash, `sha256:receipt-commit:${result.receipt.id}`);
   assert.equal(result.js_transport_invocation, false);
   assert.equal(result.command_transport_fallback, false);
@@ -619,6 +643,8 @@ test("invokeMcpTool uses Rust MCP workflow admission and rejects JS or command f
   assert.equal(state.recordStateCommits[0].record.details.command_transport_fallback, false);
   assert.equal(state.recordStateCommits[0].record.details.binary_bridge_fallback, false);
   assert.equal(state.recordStateCommits[0].record.details.compatibility_fallback, false);
+  assert.equal(state.recordStateCommits[0].record.details.model_mount_mcp_result_materialized, true);
+  assert.equal(state.recordStateCommits[0].record.details.result_payload_hash, result.result_payload_hash);
   assert.equal(state.receiptStateCommits.length, 1);
   assert.equal(state.receiptStateCommits[0].receipt_id, result.content_receipt_id);
   assert.equal(
@@ -914,9 +940,14 @@ test("executeWorkflowNode uses Rust StepModule dispatch admission and rejects JS
   assert.equal(result.step_module_dispatch_owner, "rust_daemon_core.step_module_router");
   assert.equal(result.content_receipt_required, true);
   assert.equal(result.result_receipt_id, result.content_receipt_id);
+  assert.equal(result.model_mount_mcp_result_materialized, true);
+  assert.equal(result.model_mount_mcp_result_materialization_status, "rust_materialized");
+  assert.equal(result.result_payload.payload_kind, "workflow_node_result");
   assert.equal(result.receipt.kind, "workflow_node_execution");
   assert.equal(result.receipt.details.rust_daemon_core_receipt_author, "model_mount.mcp_workflow");
-  assert.equal(result.receipt.details.model_mount_mcp_result_materialized, false);
+  assert.equal(result.receipt.details.model_mount_mcp_result_materialized, true);
+  assert.equal(result.receipt.details.result_payload_hash, result.result_payload_hash);
+  assert.equal(result.receipt.details.model_mount_step_module_result.result_materialized, true);
   assert.equal(result.receipt_commit.commit_hash, `sha256:receipt-commit:${result.receipt.id}`);
   assert.equal(result.js_route_test, false);
   assert.equal(result.js_model_invocation, false);

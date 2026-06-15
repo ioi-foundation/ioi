@@ -8675,10 +8675,9 @@ model_mount `plan_model_mount_mcp_workflow` path applies the same wallet gate to
 MCP tool invocation and workflow-node execution before Rust-authored workflow
 records can be committed. Conformance now requires the no-authority negative
 paths, no-custody/no-containment negative paths, and snake_case protocol
-forwarding to remain in place. Actual MCP transport execution, runtime
-containment sandboxing, real result payload materialization, replay/projection
-storage, and stable protocol APIs remain
-non-terminal.
+forwarding to remain in place. Live external MCP transport execution and
+discovery, broader runtime containment sandboxing, and stable protocol APIs
+remain non-terminal.
 
 Slice 1212 retires the remaining JS-authored MCP manager catalog record
 builders. `mcp-manager.mjs` no longer exports `normalizeMcpServerRecord()`,
@@ -8694,8 +8693,7 @@ a no-invoker fallback. Rust `McpServerValidationInputCore` now owns source
 metadata projection for MCP config files and rejects retired camelCase
 source/config aliases before public server records can return. This is still
 non-terminal because actual Rust MCP transport execution, runtime containment
-sandboxing, real result payload materialization, replay/projection storage,
-command transport, and stable APIs remain open.
+sandboxing for live backends, command transport, and stable APIs remain open.
 
 Slice 1213 retires the MCP workflow execution `rust_required` placeholder for
 the migrated model-mount MCP tool and workflow-node hot paths. Rust
@@ -8708,10 +8706,9 @@ no-JS/no-command/no-binary-bridge/no-compatibility fallback flags, while
 the transport containment ref alongside wallet grant refs, authority receipt
 refs, and cTEE custody refs. The JS model-mount core rejects stale
 `rust_required` MCP workflow execution responses instead of normalizing them
-into public truth. This remains non-terminal until the Rust MCP transport
-backend materializes real tool results with runtime containment, richer result
-payload replay/projection storage, direct protocol APIs, and command-transport
-retirement.
+into public truth. This remains non-terminal until live external MCP backend
+invocation/discovery, runtime containment for external backends, direct protocol
+APIs, and command-transport retirement are complete.
 
 Slice 1214 binds the migrated model-mount MCP execution hot paths to
 Rust-authored execution/content receipts instead of leaving result truth implied
@@ -8724,10 +8721,9 @@ StepModuleRouter result binding. The JS model-mount state path now requires
 `persistRustAuthoredReceiptWithCommit()` for those execution receipts and fails
 closed when the Rust receipt or receipt-state commit is absent; store guards
 reject direct JS MCP execution receipt appends without the Rust content receipt
-and Agentgres/state-root binding. This remains non-terminal until the Rust MCP
-transport backend produces real contained tool result payloads and Rust
-projection/replay exposes those result payloads through stable protocol APIs
-without temporary command transport.
+and Agentgres/state-root binding. Slice 1238 extends this receipt path with
+Rust-materialized protocol result payload hashes and makes the old pending
+materialization state fail closed.
 
 Slice 1215 binds runtime MCP live invoke/discovery exits to Rust-authored
 runtime receipt-state commits. Rust `plan_mcp_control_agent_state_update` now
@@ -9099,16 +9095,18 @@ committed control details, and fail closed without JS no-authority, no-custody,
 or no-containment compatibility. Tool invocation and workflow-node execution
 also return admitted Rust execution/StepModule dispatch contracts instead of the
 retired `rust_required` placeholder response, and the JS model-mount core fails
-closed on stale placeholder responses before public truth can return. Those
-execution ops now also require Rust-authored MCP execution/content receipts and
-Rust Agentgres receipt-state commit before route truth returns, so JS cannot
-invent the content receipt or complete result envelope locally. Rust
+closed on stale placeholder or pending-materialization responses before public
+truth can return. Those execution ops now also require Rust-authored MCP
+execution/content receipts, materialized protocol result payload hashes, and Rust
+Agentgres receipt-state commit before route truth returns, so JS cannot invent
+the content receipt, StepModule result binding, or result envelope locally. Rust
 `mcp_servers` read projection replays admitted `mcp-servers` records for public
 server list readback. The JS surface remains only a canonical request client plus
 record/receipt-state commit adapter; JS MCP receipt synthesis, server-map
 projection, route tests, receipt-gate dispatch, and model invocation stay retired
-for this family until Rust MCP transport backend materialization replaces the
-temporary edge.
+for this family while live external MCP backend invocation/discovery, broader
+runtime containment sandboxing, and stable protocol APIs remain the terminal
+blockers.
 Workflow-edit proposal/apply controls have also moved to Rust-owned event
 planning plus Rust runtime-event admission; the remaining workflow-edit blockers
 are wallet approval authority, workflow mutation custody, durable
@@ -9723,6 +9721,20 @@ provider lifecycle or inventory truth can return. This remains non-terminal
 because live external hosted API/model payload execution, richer hosted catalog
 materialization, deeper receipt/state-root binding, and stable SDK/IDE provider
 protocol APIs still need terminal Rust-owned records.
+
+Slice 1238 hard-cuts model_mount MCP workflow execution out of the admitted-but-
+pending result lane. Rust `plan_model_mount_mcp_workflow` now materializes
+deterministic protocol result payloads for MCP tool invocation and workflow-node
+execution, binds their `result_payload_hash` into the control details,
+`ioi.model_mount.mcp_workflow_receipt.v1` receipt, and StepModuleRouter result,
+and marks `model_mount_mcp_result_materialized: true` with
+`rust_materialized` status. The JS model-mount core and mounted state path now
+reject stale pending-materialization plans before public truth can return, and
+receipt-write guards reject direct MCP execution receipt appends without the
+Rust materialized result binding. This remains non-terminal because live
+external MCP transport backend invocation/discovery, broader runtime containment
+sandboxing, and stable IDE/CLI/SDK protocol APIs still need terminal Rust-owned
+records.
 
 ## Final Doctrine
 
