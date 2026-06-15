@@ -3252,7 +3252,7 @@ function runBridge() {
       /validate_command_envelope_returns_rust_owned_operation_schema/.test(commandProtocolCore) &&
       /validate_command_envelope_rejects_schema_mismatch/.test(commandProtocolCore) &&
       /"validate_mcp_servers"/.test(commandProtocolCore) &&
-      /"plan_workflow_edit_admission_required"/.test(commandProtocolCore) &&
+      /admission_required_command_transport_is_retired/.test(commandProtocolCore) &&
       !/match envelope\.operation\.as_str\(\)/.test(bridgeModule) &&
       !/fn is_daemon_core_operation/.test(bridgeModule) &&
       !/bridge_command_schema_version_alias_is_retired/.test(bridgeModule) &&
@@ -8370,8 +8370,10 @@ function runBridge() {
       !/authorize_external_capability_exit_response as authorize_external_capability_exit/.test(bridgeModule) &&
       !policyCommandBridgeExists &&
       !projectionCommandBridgeExists &&
-      /rust_policy_shapes_workflow_edit_admission_required_command_response/.test(policyAdmissionRequiredCore) &&
-      /rust_policy_shapes_diagnostics_repair_admission_required_command_response/.test(policyAdmissionRequiredCore) &&
+      /rust_policy_shapes_workflow_edit_admission_required_direct_record/.test(policyAdmissionRequiredCore) &&
+      /rust_policy_shapes_diagnostics_repair_admission_required_direct_record/.test(policyAdmissionRequiredCore) &&
+      !/pub fn plan_workflow_edit_admission_required_response/.test(policyAdmissionRequiredCore) &&
+      !/pub fn plan_diagnostics_repair_admission_required_response/.test(policyAdmissionRequiredCore) &&
       /rust_shapes_repository_workflow_command_response/.test(repositoryWorkflowRustCore) &&
       /rust_shapes_runtime_lifecycle_command_response/.test(runtimeLifecycleRustCore) &&
       !/plan_workflow_edit_admission_required_response as plan_workflow_edit_admission_required/.test(bridgeModule) &&
@@ -8546,10 +8548,10 @@ function runBridge() {
       /pub fn plan_thread_control_agent_state_update_response/.test(
         policyThreadLifecycleCore,
       ) &&
-      /pub fn plan_thread_turn_admission_required_response/.test(
+      !/pub fn plan_thread_turn_admission_required_response/.test(
         policyThreadLifecycleCore,
       ) &&
-      /pub fn plan_lifecycle_admission_required_response/.test(policyThreadLifecycleCore) &&
+      !/pub fn plan_lifecycle_admission_required_response/.test(policyThreadLifecycleCore) &&
       /pub fn plan_agent_create_state_update_response/.test(policyThreadLifecycleCore) &&
       /pub fn plan_thread_create_state_update_response/.test(policyThreadLifecycleCore) &&
       /pub fn plan_agent_status_state_update_response/.test(policyThreadLifecycleCore) &&
@@ -8561,8 +8563,8 @@ function runBridge() {
       /rust_runtime_bridge_turn_run_state_update_command/.test(policyThreadLifecycleCore) &&
       /rust_subagent_record_state_update_command/.test(policyThreadLifecycleCore) &&
       /rust_thread_control_agent_state_update_command/.test(policyThreadLifecycleCore) &&
-      /rust_thread_turn_admission_required_command/.test(policyThreadLifecycleCore) &&
-      /rust_lifecycle_admission_required_command/.test(policyThreadLifecycleCore) &&
+      !/rust_thread_turn_admission_required_command/.test(policyThreadLifecycleCore) &&
+      !/rust_lifecycle_admission_required_command/.test(policyThreadLifecycleCore) &&
       /rust_agent_create_state_update_command/.test(policyThreadLifecycleCore) &&
       /rust_thread_create_state_update_command/.test(policyThreadLifecycleCore) &&
       /rust_agent_status_state_update_command/.test(policyThreadLifecycleCore) &&
@@ -8571,10 +8573,10 @@ function runBridge() {
       /rust_policy_shapes_thread_control_agent_state_update_command_response/.test(
         policyThreadLifecycleCore,
       ) &&
-      /rust_policy_shapes_thread_turn_admission_required_command_response/.test(
+      /rust_policy_shapes_thread_turn_admission_required_direct_record/.test(
         policyThreadLifecycleCore,
       ) &&
-      /rust_policy_shapes_lifecycle_admission_required_command_response/.test(
+      /rust_policy_shapes_lifecycle_admission_required_direct_record/.test(
         policyThreadLifecycleCore,
       ) &&
       /rust_policy_shapes_runtime_bridge_thread_start_agent_state_update_command_response/.test(
@@ -8640,6 +8642,8 @@ function runBridge() {
       !/ThreadControlAgentStateUpdateBridgeRequest/.test(bridgeModule) &&
       !/ThreadTurnAdmissionRequiredBridgeRequest/.test(bridgeModule) &&
       !/LifecycleAdmissionRequiredBridgeRequest/.test(bridgeModule) &&
+      !/ThreadTurnAdmissionRequiredBridgeRequest/.test(policyThreadLifecycleCore) &&
+      !/LifecycleAdmissionRequiredBridgeRequest/.test(policyThreadLifecycleCore) &&
       !/RuntimeBridgeThreadStartAgentStateUpdateBridgeRequest/.test(bridgeModule) &&
       !/RuntimeBridgeTurnRunStateUpdateBridgeRequest/.test(bridgeModule) &&
       !/SubagentRecordStateUpdateBridgeRequest/.test(bridgeModule) &&
@@ -10988,18 +10992,18 @@ function runBridge() {
       /pub struct DiagnosticsRepairAdmissionRequiredCore;/.test(policyAdmissionRequiredCore) &&
       /pub struct WorkflowEditAdmissionRequiredRequest/.test(policyAdmissionRequiredCore) &&
       /pub struct DiagnosticsRepairAdmissionRequiredRequest/.test(policyAdmissionRequiredCore) &&
-      /pub struct WorkflowEditAdmissionRequiredBridgeRequest/.test(policyAdmissionRequiredCore) &&
-      /pub struct DiagnosticsRepairAdmissionRequiredBridgeRequest/.test(policyAdmissionRequiredCore) &&
-      /pub fn plan_workflow_edit_admission_required_response/.test(policyAdmissionRequiredCore) &&
-      /pub fn plan_diagnostics_repair_admission_required_response/.test(policyAdmissionRequiredCore) &&
-      /rust_workflow_edit_admission_required_command/.test(policyAdmissionRequiredCore) &&
-      /rust_diagnostics_repair_admission_required_command/.test(policyAdmissionRequiredCore) &&
-      /workflow_edit_admission_required_invalid/.test(policyAdmissionRequiredCore) &&
-      /diagnostics_repair_admission_required_invalid/.test(policyAdmissionRequiredCore) &&
+      !/pub struct WorkflowEditAdmissionRequiredBridgeRequest/.test(policyAdmissionRequiredCore) &&
+      !/pub struct DiagnosticsRepairAdmissionRequiredBridgeRequest/.test(policyAdmissionRequiredCore) &&
+      !/pub fn plan_workflow_edit_admission_required_response/.test(policyAdmissionRequiredCore) &&
+      !/pub fn plan_diagnostics_repair_admission_required_response/.test(policyAdmissionRequiredCore) &&
+      !/rust_workflow_edit_admission_required_command/.test(policyAdmissionRequiredCore) &&
+      !/rust_diagnostics_repair_admission_required_command/.test(policyAdmissionRequiredCore) &&
+      !/workflow_edit_admission_required_invalid/.test(policyAdmissionRequiredCore) &&
+      !/diagnostics_repair_admission_required_invalid/.test(policyAdmissionRequiredCore) &&
       /rust_policy_plans_workflow_edit_admission_required/.test(policyAdmissionRequiredCore) &&
       /rust_policy_plans_diagnostics_repair_admission_required/.test(policyAdmissionRequiredCore) &&
-      /rust_policy_shapes_workflow_edit_admission_required_command_response/.test(policyAdmissionRequiredCore) &&
-      /rust_policy_shapes_diagnostics_repair_admission_required_command_response/.test(policyAdmissionRequiredCore) &&
+      /rust_policy_shapes_workflow_edit_admission_required_direct_record/.test(policyAdmissionRequiredCore) &&
+      /rust_policy_shapes_diagnostics_repair_admission_required_direct_record/.test(policyAdmissionRequiredCore) &&
       !/mod policy_command;/.test(bridgeModule) &&
       !policyCommandBridgeExists &&
       !/plan_workflow_edit_admission_required_response as plan_workflow_edit_admission_required/.test(bridgeModule) &&
@@ -12051,11 +12055,11 @@ function runBridge() {
       /ThreadTurnAdmissionRequiredRequest/.test(policyCore) &&
       /THREAD_TURN_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
       /rust_policy_plans_thread_turn_admission_required/.test(policyCore) &&
-      /plan_thread_turn_admission_required/.test(commandProtocolCore) &&
-      /CommandOperation::PlanThreadTurnAdmissionRequired/.test(commandProtocolCore) &&
-      /pub fn plan_thread_turn_admission_required_response/.test(policyThreadLifecycleCore) &&
-      /rust_thread_turn_admission_required_command/.test(policyThreadLifecycleCore) &&
-      /rust_policy_shapes_thread_turn_admission_required_command_response/.test(
+      /admission_required_command_transport_is_retired/.test(commandProtocolCore) &&
+      !/CommandOperation::PlanThreadTurnAdmissionRequired/.test(commandProtocolCore) &&
+      !/pub fn plan_thread_turn_admission_required_response/.test(policyThreadLifecycleCore) &&
+      !/rust_thread_turn_admission_required_command/.test(policyThreadLifecycleCore) &&
+      /rust_policy_shapes_thread_turn_admission_required_direct_record/.test(
         policyThreadLifecycleCore,
       ) &&
       !/plan_thread_turn_admission_required_response as plan_thread_turn_admission_required/.test(bridgeModule) &&
@@ -12065,10 +12069,13 @@ function runBridge() {
       !/struct ThreadTurnAdmissionRequiredBridgeRequest/.test(bridgeModule) &&
       /planThreadTurnAdmissionRequired/.test(runtimeContextPolicyCore) &&
       /THREAD_TURN_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyCore) &&
-      /thread turn admission-required core sends Rust daemon-core request/.test(
+      /THREAD_LIFECYCLE_THREAD_TURN_ADMISSION_REQUIRED_API_METHOD/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /captured\.operation,\s*"plan_thread_turn_admission_required"/.test(
+      /thread turn admission-required core sends typed Rust daemon-core request/.test(
+        runtimeContextPolicyCoreTest,
+      ) &&
+      !/captured\.operation,\s*"plan_thread_turn_admission_required"/.test(
         runtimeContextPolicyCoreTest,
       ) &&
       /runtime_thread_turn_rust_core_required/.test(runtimeThreadTurnSurface) &&
@@ -14597,14 +14604,14 @@ function runBridge() {
       /LifecycleAdmissionRequiredCore/.test(policyCore) &&
       /LifecycleAdmissionRequiredRequest/.test(policyCore) &&
       /rust_policy_plans_lifecycle_admission_required/.test(policyThreadLifecycleCore) &&
-      /plan_lifecycle_admission_required/.test(commandProtocolCore) &&
-      /CommandOperation::PlanLifecycleAdmissionRequired/.test(commandProtocolCore) &&
+      /admission_required_command_transport_is_retired/.test(commandProtocolCore) &&
+      !/CommandOperation::PlanLifecycleAdmissionRequired/.test(commandProtocolCore) &&
       /thread_lifecycle_state_update_command_transport_is_retired/.test(commandProtocolCore) &&
       !/CommandOperation::(?:PlanThreadCreateStateUpdate|PlanAgentCreateStateUpdate|PlanAgentStatusStateUpdate|PlanAgentDeleteStateUpdate|PlanRunCreateStateUpdate)/.test(commandProtocolCore) &&
       !/"(?:plan_thread_create_state_update|plan_agent_create_state_update|plan_agent_status_state_update|plan_agent_delete_state_update|plan_run_create_state_update)"\s*=>/.test(commandProtocolCore) &&
-      /pub fn plan_lifecycle_admission_required_response/.test(policyThreadLifecycleCore) &&
-      /rust_lifecycle_admission_required_command/.test(policyThreadLifecycleCore) &&
-      /rust_policy_shapes_lifecycle_admission_required_command_response/.test(
+      !/pub fn plan_lifecycle_admission_required_response/.test(policyThreadLifecycleCore) &&
+      !/rust_lifecycle_admission_required_command/.test(policyThreadLifecycleCore) &&
+      /rust_policy_shapes_lifecycle_admission_required_direct_record/.test(
         policyThreadLifecycleCore,
       ) &&
       /runtime_thread_create_rust_core_required/.test(policyThreadLifecycleCore) &&
@@ -14629,10 +14636,13 @@ function runBridge() {
       /agent delete state update core sends Rust tombstone through typed thread-lifecycle API/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /lifecycle admission-required core sends Rust daemon-core request/.test(
+      /THREAD_LIFECYCLE_LIFECYCLE_ADMISSION_REQUIRED_API_METHOD/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /captured\.operation,\s*"plan_lifecycle_admission_required"/.test(
+      /lifecycle admission-required core sends typed Rust daemon-core request/.test(
+        runtimeContextPolicyCoreTest,
+      ) &&
+      !/captured\.operation,\s*"plan_lifecycle_admission_required"/.test(
         runtimeContextPolicyCoreTest,
       ) &&
       /runtime_agent_create_rust_core_required/.test(runtimeAgentRunLifecycle) &&
@@ -15223,12 +15233,19 @@ function runBridge() {
       /WorkflowEditAdmissionRequiredCore/.test(policyCore) &&
       /WORKFLOW_EDIT_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
       /rust_policy_plans_workflow_edit_admission_required/.test(policyCore) &&
-      /rust_policy_shapes_workflow_edit_admission_required_command_response/.test(policyCore) &&
+      /rust_policy_shapes_workflow_edit_admission_required_direct_record/.test(policyCore) &&
+      /admission_required_command_transport_is_retired/.test(commandProtocolCore) &&
+      !/CommandOperation::PlanWorkflowEditAdmissionRequired/.test(commandProtocolCore) &&
+      !/pub fn plan_workflow_edit_admission_required_response/.test(policyAdmissionRequiredCore) &&
+      !/WorkflowEditAdmissionRequiredBridgeRequest/.test(policyAdmissionRequiredCore) &&
       !/plan_workflow_edit_admission_required/.test(bridgeModule) &&
       !/bridge_plans_workflow_edit_admission_required_through_rust_core/.test(
         bridgeModule,
       ) &&
-      /workflow-edit admission-required core sends Rust daemon-core request/.test(
+      /RUNTIME_CONTROL_WORKFLOW_EDIT_ADMISSION_REQUIRED_API_METHOD/.test(
+        runtimeContextPolicyCoreTest,
+      ) &&
+      /workflow-edit admission-required core sends typed Rust daemon-core request/.test(
         runtimeContextPolicyCoreTest,
       ) &&
       /workflow-edit helper facades are retired with the JS apply path/.test(
@@ -37228,15 +37245,22 @@ function runCompositor() {
         policyCore,
       ) &&
       /rust_policy_plans_diagnostics_repair_admission_required/.test(policyCore) &&
-      /rust_policy_shapes_diagnostics_repair_admission_required_command_response/.test(policyCore) &&
+      /rust_policy_shapes_diagnostics_repair_admission_required_direct_record/.test(policyCore) &&
+      /admission_required_command_transport_is_retired/.test(commandProtocolCoreForCompositor) &&
+      !/CommandOperation::PlanDiagnosticsRepairAdmissionRequired/.test(commandProtocolCoreForCompositor) &&
+      !/pub fn plan_diagnostics_repair_admission_required_response/.test(policyCore) &&
+      !/DiagnosticsRepairAdmissionRequiredBridgeRequest/.test(policyCore) &&
       !/plan_diagnostics_repair_admission_required/.test(bridgeModule) &&
       !/bridge_plans_diagnostics_repair_admission_required_through_rust_core/.test(
         bridgeModule,
       ) &&
+      /RUNTIME_CONTROL_DIAGNOSTICS_REPAIR_ADMISSION_REQUIRED_API_METHOD/.test(
+        runtimeContextPolicyCoreTest,
+      ) &&
       /planDiagnosticsRepairAdmissionRequired\(request = \{\}\)/.test(
         runtimeContextPolicyCore,
       ) &&
-      /diagnostics repair admission-required core sends Rust daemon-core request/.test(
+      /diagnostics repair admission-required core sends typed Rust daemon-core request/.test(
         runtimeContextPolicyCoreTest,
       ) &&
       /diagnosticsRepairRunner:\s*this\.contextPolicyCore/.test(runtimeDaemonIndex) &&

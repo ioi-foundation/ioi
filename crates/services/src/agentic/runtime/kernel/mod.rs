@@ -172,7 +172,9 @@ use policy::{
     DiagnosticsOperatorOverrideStateUpdateError, DiagnosticsOperatorOverrideStateUpdateRecord,
     DiagnosticsOperatorOverrideStateUpdateRequest, DiagnosticsRepairAdmissionRequiredCore,
     DiagnosticsRepairAdmissionRequiredError, DiagnosticsRepairAdmissionRequiredRecord,
-    DiagnosticsRepairAdmissionRequiredRequest, McpControlAgentStateUpdateCore,
+    DiagnosticsRepairAdmissionRequiredRequest, LifecycleAdmissionRequiredCore,
+    LifecycleAdmissionRequiredError, LifecycleAdmissionRequiredRecord,
+    LifecycleAdmissionRequiredRequest, McpControlAgentStateUpdateCore,
     McpControlAgentStateUpdateError, McpControlAgentStateUpdateRecord,
     McpControlAgentStateUpdateRequest, McpLiveResultReplayCore, McpLiveResultReplayError,
     McpLiveResultReplayRecord, McpLiveResultReplayRequest, McpManagerCatalogProjectionCore,
@@ -223,6 +225,8 @@ use policy::{
     ThreadCreateStateUpdateError, ThreadCreateStateUpdateRecord, ThreadCreateStateUpdateRequest,
     ThreadMemoryAgentStateUpdateCore, ThreadMemoryAgentStateUpdateError,
     ThreadMemoryAgentStateUpdateRecord, ThreadMemoryAgentStateUpdateRequest,
+    ThreadTurnAdmissionRequiredCore, ThreadTurnAdmissionRequiredError,
+    ThreadTurnAdmissionRequiredRecord, ThreadTurnAdmissionRequiredRequest,
     WorkflowEditAdmissionRequiredCore, WorkflowEditAdmissionRequiredError,
     WorkflowEditAdmissionRequiredRecord, WorkflowEditAdmissionRequiredRequest,
     WorkspaceTrustControlStateUpdateCore, WorkspaceTrustControlStateUpdateError,
@@ -647,6 +651,20 @@ impl RuntimeKernelService {
         request: &ThreadControlAgentStateUpdateRequest,
     ) -> Result<ThreadControlAgentStateUpdateRecord, ThreadControlAgentStateUpdateError> {
         ThreadControlAgentStateUpdateCore.plan(request)
+    }
+
+    pub fn plan_thread_turn_admission_required(
+        &self,
+        request: &ThreadTurnAdmissionRequiredRequest,
+    ) -> Result<ThreadTurnAdmissionRequiredRecord, ThreadTurnAdmissionRequiredError> {
+        ThreadTurnAdmissionRequiredCore.plan(request)
+    }
+
+    pub fn plan_lifecycle_admission_required(
+        &self,
+        request: &LifecycleAdmissionRequiredRequest,
+    ) -> Result<LifecycleAdmissionRequiredRecord, LifecycleAdmissionRequiredError> {
+        LifecycleAdmissionRequiredCore.plan(request)
     }
 
     pub fn plan_workspace_trust_control_state_update(

@@ -57,7 +57,7 @@ function fakeStore(options = {}) {
     calls,
     contextPolicyCore: {
       planLifecycleAdmissionRequired(request = {}) {
-        calls.push({ operation: "plan_lifecycle_admission_required", input: request });
+        calls.push({ operation: "planLifecycleAdmissionRequired", input: request });
         return lifecycleRequiredRecord(request);
       },
       planAgentStatusStateUpdate(request = {}) {
@@ -123,26 +123,22 @@ function fakeStore(options = {}) {
 function lifecycleRequiredRecord(request) {
   const isDelete = request.operation === "agent_delete";
   return {
-    source: "rust_lifecycle_admission_required_command",
-    backend: "rust_policy",
-    record: {
-      status: "rust_core_required",
-      status_code: 501,
-      code: isDelete
-        ? "runtime_agent_delete_rust_core_required"
-        : "runtime_agent_status_control_rust_core_required",
-      message: isDelete
-        ? "Permanent agent deletion requires direct Rust daemon-core admission and persistence."
-        : "Agent lifecycle/status control requires direct Rust daemon-core admission and projection.",
-      details: {
-        rust_core_boundary: isDelete ? "runtime.agent_delete" : "runtime.agent_status_control",
-        operation: request.operation,
-        operation_kind: request.operation_kind,
-        agent_id: request.agent_id,
-        requested_status: request.requested_status ?? null,
-        requested_operation_kind: request.requested_operation_kind ?? null,
-        evidence_refs: request.evidence_refs,
-      },
+    status: "rust_core_required",
+    status_code: 501,
+    code: isDelete
+      ? "runtime_agent_delete_rust_core_required"
+      : "runtime_agent_status_control_rust_core_required",
+    message: isDelete
+      ? "Permanent agent deletion requires direct Rust daemon-core admission and persistence."
+      : "Agent lifecycle/status control requires direct Rust daemon-core admission and projection.",
+    details: {
+      rust_core_boundary: isDelete ? "runtime.agent_delete" : "runtime.agent_status_control",
+      operation: request.operation,
+      operation_kind: request.operation_kind,
+      agent_id: request.agent_id,
+      requested_status: request.requested_status ?? null,
+      requested_operation_kind: request.requested_operation_kind ?? null,
+      evidence_refs: request.evidence_refs,
     },
   };
 }

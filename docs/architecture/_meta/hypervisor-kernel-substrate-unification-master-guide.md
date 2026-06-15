@@ -7899,8 +7899,8 @@ positive daemon-core methods, and `command_protocol.rs`/`command_dispatch.rs`
 reject the old runtime-control command operations. This does not claim
 terminal runtime-control migration: durable replay/projection, richer
 runtime-control receipts/state roots, wallet/runtime-control authority, stable
-IDE/CLI/SDK APIs, and the remaining MCP/memory plus admission-required
-families still need direct Rust ownership.
+IDE/CLI/SDK APIs, and the remaining MCP/memory families still need direct Rust
+ownership.
 
 The thread-lifecycle state-update transport cut after Slice 1180 replaces the
 temporary command path with typed `daemonCoreThreadLifecycleApi` methods for
@@ -7915,9 +7915,10 @@ state-update command operations. This retires the command transport for the
 runtime-bridge thread-control/start/turn-submit, agent-run-create, thread
 control, and subagent-wait state-update hot paths guarded by bridge and
 compositor conformance. This does not claim terminal lifecycle migration:
-thread-turn and lifecycle admission-required refusals, durable replay/projection,
-wallet/cTEE lifecycle authority, stable IDE/CLI/SDK APIs, and MCP/memory
-policy/control transport remain non-terminal.
+durable replay/projection, wallet/cTEE lifecycle authority, stable
+IDE/CLI/SDK APIs, and MCP/memory policy/control transport remain non-terminal;
+Slice 1223 later retires the thread-turn and lifecycle admission-required
+command transport through typed lifecycle APIs.
 
 Slice 1180 moves the thread-lifecycle and MCP/memory command-response proof
 clusters out of the temporary bridge proof surface and relies on the Rust
@@ -7934,11 +7935,13 @@ proves the old bridge-named thread/MCP/memory tests, request-type imports, and
 response-function aliases stay absent from
 `ioi_step_module_bridge/proof_tests.rs`.
 
-This remains non-terminal because thread-turn/lifecycle admission-required and
-MCP/memory policy decisions still cross temporary command transport. The target
-is direct Rust daemon-core lifecycle, MCP, and memory API ownership where
-admission, projection, Agentgres truth, replay, and conformance no longer depend
-on Node bridge endpoint proof scaffolding.
+This remains non-terminal because MCP/memory policy decisions still cross
+temporary command transport. Thread-turn and lifecycle admission-required
+refusals were later moved to typed Rust daemon-core lifecycle APIs, so they are
+no longer a current command-transport blocker. The target is direct Rust
+daemon-core MCP and memory API ownership where admission, projection,
+Agentgres truth, replay, and conformance no longer depend on Node bridge
+endpoint proof scaffolding.
 
 The workspace-trust state-update transport cut replaces the temporary command
 path with typed `daemonCoreWorkspaceTrustApi.planWorkspaceTrustControlStateUpdate`.
@@ -9433,6 +9436,25 @@ JS backend truth path. This remains non-terminal because actual backend process
 supervision/transport execution, richer backend process-state materialization,
 stable SDK/IDE/CLI APIs still need direct
 Rust ownership.
+
+Slice 1223 retires the admission-required command transport for workflow-edit,
+diagnostics-repair, thread-turn, and lifecycle required-boundary refusals.
+`RuntimeContextPolicyCore` now calls typed `daemonCoreRuntimeControlApi`
+methods for workflow-edit and diagnostics-repair admission-required records and
+typed `daemonCoreThreadLifecycleApi` methods for thread-turn and lifecycle
+admission-required records. Rust `RuntimeKernelService` exposes positive direct
+methods for the lifecycle admission-required planners, the old bridge request
+structs and command-response wrappers are deleted, `command_dispatch.rs` has no
+arms for the retired operations, and `command_protocol.rs` rejects
+`plan_workflow_edit_admission_required`,
+`plan_diagnostics_repair_admission_required`,
+`plan_thread_turn_admission_required`, and
+`plan_lifecycle_admission_required` as unknown command operations. Conformance
+now guards the typed API calls, direct Rust records, and retired command
+operations so this family cannot return through JS authority, a command-env
+fallback, or the binary bridge command path. This remains non-terminal only
+because other route families, especially MCP/memory and remaining model_mount
+materialization/protocol work, still need direct Rust daemon-core ownership.
 
 ## Final Doctrine
 

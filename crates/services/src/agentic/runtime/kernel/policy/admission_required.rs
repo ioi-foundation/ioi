@@ -26,26 +26,6 @@ pub enum DiagnosticsRepairAdmissionRequiredError {
     MissingField(&'static str),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct AdmissionRequiredCommandError {
-    code: &'static str,
-    message: String,
-}
-
-impl AdmissionRequiredCommandError {
-    fn new(code: &'static str, message: String) -> Self {
-        Self { code, message }
-    }
-
-    pub fn code(&self) -> &'static str {
-        self.code
-    }
-
-    pub fn message(&self) -> &str {
-        &self.message
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct WorkflowEditAdmissionRequiredRequest {
     pub schema_version: String,
@@ -152,20 +132,6 @@ pub struct DiagnosticsRepairAdmissionRequiredRecord {
     pub evidence_refs: Vec<String>,
     pub details: Value,
     pub generated_at: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct WorkflowEditAdmissionRequiredBridgeRequest {
-    #[serde(default)]
-    pub backend: Option<String>,
-    pub request: WorkflowEditAdmissionRequiredRequest,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct DiagnosticsRepairAdmissionRequiredBridgeRequest {
-    #[serde(default)]
-    pub backend: Option<String>,
-    pub request: DiagnosticsRepairAdmissionRequiredRequest,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -333,67 +299,6 @@ impl DiagnosticsRepairAdmissionRequiredCore {
     }
 }
 
-pub fn plan_workflow_edit_admission_required_response(
-    request: WorkflowEditAdmissionRequiredBridgeRequest,
-) -> Result<Value, AdmissionRequiredCommandError> {
-    let record = WorkflowEditAdmissionRequiredCore
-        .plan(&request.request)
-        .map_err(|error| {
-            AdmissionRequiredCommandError::new(
-                "workflow_edit_admission_required_invalid",
-                format!("{error:?}"),
-            )
-        })?;
-    Ok(admission_required_response(
-        "rust_workflow_edit_admission_required_command",
-        request.backend,
-        record,
-    ))
-}
-
-pub fn plan_diagnostics_repair_admission_required_response(
-    request: DiagnosticsRepairAdmissionRequiredBridgeRequest,
-) -> Result<Value, AdmissionRequiredCommandError> {
-    let record = DiagnosticsRepairAdmissionRequiredCore
-        .plan(&request.request)
-        .map_err(|error| {
-            AdmissionRequiredCommandError::new(
-                "diagnostics_repair_admission_required_invalid",
-                format!("{error:?}"),
-            )
-        })?;
-    Ok(admission_required_response(
-        "rust_diagnostics_repair_admission_required_command",
-        request.backend,
-        record,
-    ))
-}
-
-fn admission_required_response<T>(source: &'static str, backend: Option<String>, record: T) -> Value
-where
-    T: Serialize + Clone,
-{
-    let record_value = serde_json::to_value(record.clone()).unwrap_or(Value::Null);
-    json!({
-        "source": source,
-        "backend": backend.unwrap_or_else(|| "rust_policy".to_string()),
-        "record": record_value.clone(),
-        "status": record_value.get("status").cloned().unwrap_or(Value::Null),
-        "status_code": record_value.get("status_code").cloned().unwrap_or(Value::Null),
-        "code": record_value.get("code").cloned().unwrap_or(Value::Null),
-        "message": record_value.get("message").cloned().unwrap_or(Value::Null),
-        "rust_core_boundary": record_value
-            .get("rust_core_boundary")
-            .cloned()
-            .unwrap_or(Value::Null),
-        "operation_kind": record_value
-            .get("operation_kind")
-            .cloned()
-            .unwrap_or(Value::Null),
-        "details": record_value.get("details").cloned().unwrap_or(Value::Null),
-    })
-}
-
 impl DiagnosticsRepairAdmissionRequiredRequest {
     pub fn validate(&self) -> Result<(), DiagnosticsRepairAdmissionRequiredError> {
         if self.schema_version != DIAGNOSTICS_REPAIR_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION {
@@ -470,43 +375,37 @@ mod tests {
     }
 
     #[test]
-    fn rust_policy_shapes_workflow_edit_admission_required_command_response() {
-        let response = plan_workflow_edit_admission_required_response(
-            WorkflowEditAdmissionRequiredBridgeRequest {
-                backend: Some("rust_policy".to_string()),
-                request: WorkflowEditAdmissionRequiredRequest {
-                    schema_version: WORKFLOW_EDIT_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION
-                        .to_string(),
-                    operation: "workflow_edit_proposal".to_string(),
-                    operation_kind: "workflow.edit_proposed".to_string(),
-                    thread_id: "thread_alpha".to_string(),
-                    turn_id: Some("turn_alpha".to_string()),
-                    proposal_id: Some("proposal_alpha".to_string()),
-                    edit_intent_id: Some("intent_alpha".to_string()),
-                    approval_id: Some("approval_alpha".to_string()),
-                    workflow_graph_id: Some("graph_alpha".to_string()),
-                    workflow_node_id: Some("node_alpha".to_string()),
-                    workflow_path: Some("workflows/demo.json".to_string()),
-                    source: Some("agent_studio".to_string()),
-                    evidence_refs: vec!["rust_daemon_core_workflow_edit_required".to_string()],
-                },
-            },
-        )
-        .expect("workflow edit command response");
+    fn rust_policy_shapes_workflow_edit_admission_required_direct_record() {
+        let record = WorkflowEditAdmissionRequiredCore
+            .plan(&WorkflowEditAdmissionRequiredRequest {
+                schema_version: WORKFLOW_EDIT_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION.to_string(),
+                operation: "workflow_edit_proposal".to_string(),
+                operation_kind: "workflow.edit_proposed".to_string(),
+                thread_id: "thread_alpha".to_string(),
+                turn_id: Some("turn_alpha".to_string()),
+                proposal_id: Some("proposal_alpha".to_string()),
+                edit_intent_id: Some("intent_alpha".to_string()),
+                approval_id: Some("approval_alpha".to_string()),
+                workflow_graph_id: Some("graph_alpha".to_string()),
+                workflow_node_id: Some("node_alpha".to_string()),
+                workflow_path: Some("workflows/demo.json".to_string()),
+                source: Some("agent_studio".to_string()),
+                evidence_refs: vec!["rust_daemon_core_workflow_edit_required".to_string()],
+            })
+            .expect("workflow edit direct record");
+        let response = serde_json::to_value(record).expect("record serializes");
 
-        assert_eq!(
-            response["source"],
-            "rust_workflow_edit_admission_required_command"
-        );
-        assert_eq!(response["backend"], "rust_policy");
         assert_eq!(response["status"], "rust_core_required");
         assert_eq!(response["status_code"], 501);
         assert_eq!(response["code"], "runtime_workflow_edit_rust_core_required");
         assert_eq!(response["details"]["thread_id"], "thread_alpha");
         assert_eq!(
-            response["record"]["schema_version"],
+            response["schema_version"],
             WORKFLOW_EDIT_ADMISSION_REQUIRED_RESULT_SCHEMA_VERSION
         );
+        assert_eq!(response["source"], "agent_studio");
+        assert!(response.get("backend").is_none());
+        assert!(response.get("record").is_none());
     }
 
     #[test]
@@ -552,32 +451,24 @@ mod tests {
     }
 
     #[test]
-    fn rust_policy_shapes_diagnostics_repair_admission_required_command_response() {
-        let response = plan_diagnostics_repair_admission_required_response(
-            DiagnosticsRepairAdmissionRequiredBridgeRequest {
-                backend: Some("rust_policy".to_string()),
-                request: DiagnosticsRepairAdmissionRequiredRequest {
-                    schema_version: DIAGNOSTICS_REPAIR_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION
-                        .to_string(),
-                    operation: "diagnostics_repair_decision_execution".to_string(),
-                    operation_kind: "diagnostics.repair_decision.execute".to_string(),
-                    thread_id: Some("thread_alpha".to_string()),
-                    decision_id: Some("decision_alpha".to_string()),
-                    gate_event_id: Some("event_gate".to_string()),
-                    gate_id: Some("gate_alpha".to_string()),
-                    snapshot_id: Some("snapshot_alpha".to_string()),
-                    source: Some("agent_studio".to_string()),
-                    evidence_refs: vec!["rust_daemon_core_diagnostics_repair_required".to_string()],
-                },
-            },
-        )
-        .expect("diagnostics repair command response");
+    fn rust_policy_shapes_diagnostics_repair_admission_required_direct_record() {
+        let record = DiagnosticsRepairAdmissionRequiredCore
+            .plan(&DiagnosticsRepairAdmissionRequiredRequest {
+                schema_version: DIAGNOSTICS_REPAIR_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION
+                    .to_string(),
+                operation: "diagnostics_repair_decision_execution".to_string(),
+                operation_kind: "diagnostics.repair_decision.execute".to_string(),
+                thread_id: Some("thread_alpha".to_string()),
+                decision_id: Some("decision_alpha".to_string()),
+                gate_event_id: Some("event_gate".to_string()),
+                gate_id: Some("gate_alpha".to_string()),
+                snapshot_id: Some("snapshot_alpha".to_string()),
+                source: Some("agent_studio".to_string()),
+                evidence_refs: vec!["rust_daemon_core_diagnostics_repair_required".to_string()],
+            })
+            .expect("diagnostics repair direct record");
+        let response = serde_json::to_value(record).expect("record serializes");
 
-        assert_eq!(
-            response["source"],
-            "rust_diagnostics_repair_admission_required_command"
-        );
-        assert_eq!(response["backend"], "rust_policy");
         assert_eq!(response["status"], "rust_core_required");
         assert_eq!(response["status_code"], 501);
         assert_eq!(
@@ -586,8 +477,11 @@ mod tests {
         );
         assert_eq!(response["details"]["decision_id"], "decision_alpha");
         assert_eq!(
-            response["record"]["schema_version"],
+            response["schema_version"],
             DIAGNOSTICS_REPAIR_ADMISSION_REQUIRED_RESULT_SCHEMA_VERSION
         );
+        assert_eq!(response["source"], "agent_studio");
+        assert!(response.get("backend").is_none());
+        assert!(response.get("record").is_none());
     }
 }

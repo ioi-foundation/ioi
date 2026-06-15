@@ -90,23 +90,19 @@ function fakeStore({
         store.lifecycleAdmissionRequiredCalls.push(request);
         const profile = lifecycleRequiredProfile(request);
         return {
-          source: "rust_lifecycle_admission_required_command",
-          backend: "rust_policy",
-          record: {
-            status: "rust_core_required",
-            status_code: 501,
-            code: profile.code,
-            message: profile.message,
-            details: {
-              rust_core_boundary: profile.boundary,
-              operation: request.operation,
-              operation_kind: request.operation_kind,
-              agent_id: request.agent_id ?? null,
-              requested_cwd: request.requested_cwd ?? null,
-              requested_runtime: request.requested_runtime ?? null,
-              requested_mode: request.requested_mode ?? null,
-              evidence_refs: request.evidence_refs,
-            },
+          status: "rust_core_required",
+          status_code: 501,
+          code: profile.code,
+          message: profile.message,
+          details: {
+            rust_core_boundary: profile.boundary,
+            operation: request.operation,
+            operation_kind: request.operation_kind,
+            agent_id: request.agent_id ?? null,
+            requested_cwd: request.requested_cwd ?? null,
+            requested_runtime: request.requested_runtime ?? null,
+            requested_mode: request.requested_mode ?? null,
+            evidence_refs: request.evidence_refs,
           },
         };
       },

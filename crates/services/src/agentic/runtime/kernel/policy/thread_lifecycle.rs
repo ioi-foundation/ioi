@@ -494,20 +494,6 @@ pub struct ThreadControlAgentStateUpdateBridgeRequest {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct ThreadTurnAdmissionRequiredBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: ThreadTurnAdmissionRequiredRequest,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct LifecycleAdmissionRequiredBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: LifecycleAdmissionRequiredRequest,
-}
-
-#[derive(Debug, Deserialize)]
 pub struct ThreadCreateStateUpdateBridgeRequest {
     #[serde(default)]
     backend: Option<String>,
@@ -679,52 +665,6 @@ pub fn plan_thread_control_agent_state_update_response(
         "policy_decision_refs": record.policy_decision_refs.clone(),
         "control": record.control.clone(),
         "agent": record.agent.clone(),
-    }))
-}
-
-pub fn plan_thread_turn_admission_required_response(
-    request: ThreadTurnAdmissionRequiredBridgeRequest,
-) -> Result<Value, ThreadLifecycleCommandError> {
-    let record = ThreadTurnAdmissionRequiredCore
-        .plan(&request.request)
-        .map_err(|error| {
-            ThreadLifecycleCommandError::from_debug("thread_turn_admission_required_invalid", error)
-        })?;
-    Ok(json!({
-        "source": "rust_thread_turn_admission_required_command",
-        "backend": rust_policy_backend(request.backend),
-        "record": record.clone(),
-        "status": record.status.clone(),
-        "status_code": record.status_code,
-        "code": record.code.clone(),
-        "message": record.message.clone(),
-        "rust_core_boundary": record.rust_core_boundary.clone(),
-        "operation": record.operation.clone(),
-        "operation_kind": record.operation_kind.clone(),
-        "details": record.details.clone(),
-    }))
-}
-
-pub fn plan_lifecycle_admission_required_response(
-    request: LifecycleAdmissionRequiredBridgeRequest,
-) -> Result<Value, ThreadLifecycleCommandError> {
-    let record = LifecycleAdmissionRequiredCore
-        .plan(&request.request)
-        .map_err(|error| {
-            ThreadLifecycleCommandError::from_debug("lifecycle_admission_required_invalid", error)
-        })?;
-    Ok(json!({
-        "source": "rust_lifecycle_admission_required_command",
-        "backend": rust_policy_backend(request.backend),
-        "record": record.clone(),
-        "status": record.status.clone(),
-        "status_code": record.status_code,
-        "code": record.code.clone(),
-        "message": record.message.clone(),
-        "rust_core_boundary": record.rust_core_boundary.clone(),
-        "operation": record.operation.clone(),
-        "operation_kind": record.operation_kind.clone(),
-        "details": record.details.clone(),
     }))
 }
 
@@ -2562,20 +2502,12 @@ mod tests {
     }
 
     #[test]
-    fn rust_policy_shapes_thread_turn_admission_required_command_response() {
-        let response = plan_thread_turn_admission_required_response(
-            ThreadTurnAdmissionRequiredBridgeRequest {
-                backend: Some("rust_policy".to_string()),
-                request: thread_turn_admission_required_request(),
-            },
-        )
-        .expect("thread turn admission-required command response");
+    fn rust_policy_shapes_thread_turn_admission_required_direct_record() {
+        let record = ThreadTurnAdmissionRequiredCore
+            .plan(&thread_turn_admission_required_request())
+            .expect("thread turn admission-required direct record");
+        let response = serde_json::to_value(record).expect("record serializes");
 
-        assert_eq!(
-            response["source"],
-            "rust_thread_turn_admission_required_command"
-        );
-        assert_eq!(response["backend"], "rust_policy");
         assert_eq!(response["status"], "rust_core_required");
         assert_eq!(response["status_code"], 501);
         assert_eq!(response["code"], "runtime_thread_turn_rust_core_required");
@@ -2598,6 +2530,9 @@ mod tests {
         ] {
             assert!(response["details"].get(field).is_none());
         }
+        assert!(response.get("source").is_none());
+        assert!(response.get("backend").is_none());
+        assert!(response.get("record").is_none());
     }
 
     #[test]
@@ -2677,22 +2612,15 @@ mod tests {
     }
 
     #[test]
-    fn rust_policy_shapes_lifecycle_admission_required_command_response() {
-        let response =
-            plan_lifecycle_admission_required_response(LifecycleAdmissionRequiredBridgeRequest {
-                backend: Some("rust_policy".to_string()),
-                request: lifecycle_admission_required_request(
-                    "agent_status_control",
-                    "agent_status_update",
-                ),
-            })
-            .expect("lifecycle admission-required command response");
+    fn rust_policy_shapes_lifecycle_admission_required_direct_record() {
+        let record = LifecycleAdmissionRequiredCore
+            .plan(&lifecycle_admission_required_request(
+                "agent_status_control",
+                "agent_status_update",
+            ))
+            .expect("lifecycle admission-required direct record");
+        let response = serde_json::to_value(record).expect("record serializes");
 
-        assert_eq!(
-            response["source"],
-            "rust_lifecycle_admission_required_command"
-        );
-        assert_eq!(response["backend"], "rust_policy");
         assert_eq!(response["status"], "rust_core_required");
         assert_eq!(response["status_code"], 501);
         assert_eq!(
@@ -2724,6 +2652,9 @@ mod tests {
         ] {
             assert!(response["details"].get(field).is_none());
         }
+        assert!(response.get("source").is_none());
+        assert!(response.get("backend").is_none());
+        assert!(response.get("record").is_none());
     }
 
     #[test]

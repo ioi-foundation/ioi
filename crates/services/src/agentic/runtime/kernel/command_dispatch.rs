@@ -136,13 +136,6 @@ pub fn dispatch_command_operation_response(
                 )
             })
         }
-        CommandOperation::PlanWorkflowEditAdmissionRequired => {
-            plan_workflow_edit_admission_required_response(decode(raw_request)?).map_err(Into::into)
-        }
-        CommandOperation::PlanDiagnosticsRepairAdmissionRequired => {
-            plan_diagnostics_repair_admission_required_response(decode(raw_request)?)
-                .map_err(Into::into)
-        }
         CommandOperation::PlanRuntimeDiagnosticsRepairControl => {
             plan_runtime_diagnostics_repair_control_response(decode(raw_request)?)
                 .map_err(Into::into)
@@ -222,12 +215,6 @@ pub fn dispatch_command_operation_response(
         CommandOperation::PlanRuntimeSubagentControl => {
             plan_runtime_subagent_control_response(decode(raw_request)?).map_err(Into::into)
         }
-        CommandOperation::PlanLifecycleAdmissionRequired => {
-            plan_lifecycle_admission_required_response(decode(raw_request)?).map_err(Into::into)
-        }
-        CommandOperation::PlanThreadTurnAdmissionRequired => {
-            plan_thread_turn_admission_required_response(decode(raw_request)?).map_err(Into::into)
-        }
     }
 }
 
@@ -251,7 +238,6 @@ command_error_from!(CodingToolStepModuleCommandError);
 command_error_from!(RuntimeCodingToolArtifactDraftPlanCommandError);
 command_error_from!(RuntimeCodingToolArtifactReadProjectionCommandError);
 command_error_from!(ModelMountReceiptError);
-command_error_from!(AdmissionRequiredCommandError);
 command_error_from!(ContextPolicyCommandError);
 command_error_from!(CodingToolBudgetRecoveryCommandError);
 command_error_from!(OperatorControlCommandError);

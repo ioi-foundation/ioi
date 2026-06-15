@@ -158,6 +158,10 @@ export const RUNTIME_CONTROL_CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_API_METHOD
   "planCodingToolBudgetRecoveryStateUpdate";
 export const RUNTIME_CONTROL_CODING_TOOL_BUDGET_RECOVERY_CONTROL_API_METHOD =
   "planCodingToolBudgetRecoveryControl";
+export const RUNTIME_CONTROL_WORKFLOW_EDIT_ADMISSION_REQUIRED_API_METHOD =
+  "planWorkflowEditAdmissionRequired";
+export const RUNTIME_CONTROL_DIAGNOSTICS_REPAIR_ADMISSION_REQUIRED_API_METHOD =
+  "planDiagnosticsRepairAdmissionRequired";
 export const RUNTIME_CONTROL_DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_API_METHOD =
   "planDiagnosticsOperatorOverrideStateUpdate";
 export const RUNTIME_CONTROL_OPERATOR_TURN_CONTROL_ADMISSION_REQUIRED_API_METHOD =
@@ -172,6 +176,10 @@ export const RUNTIME_CONTROL_RUN_CANCEL_ADMISSION_REQUIRED_API_METHOD =
   "planRunCancelAdmissionRequired";
 export const THREAD_LIFECYCLE_THREAD_CONTROL_AGENT_STATE_UPDATE_API_METHOD =
   "planThreadControlAgentStateUpdate";
+export const THREAD_LIFECYCLE_THREAD_TURN_ADMISSION_REQUIRED_API_METHOD =
+  "planThreadTurnAdmissionRequired";
+export const THREAD_LIFECYCLE_LIFECYCLE_ADMISSION_REQUIRED_API_METHOD =
+  "planLifecycleAdmissionRequired";
 export const WORKSPACE_TRUST_CONTROL_STATE_UPDATE_API_METHOD = "planWorkspaceTrustControlStateUpdate";
 export const MCP_CONTROL_AGENT_STATE_UPDATE_API_METHOD = "planMcpControlAgentStateUpdate";
 export const MCP_LIVE_RESULT_REPLAY_API_METHOD = "projectMcpLiveResultReplay";
@@ -354,19 +362,19 @@ export class RuntimeContextPolicyCore {
   }
 
   planWorkflowEditAdmissionRequired(request = {}) {
-    return this.evaluateRawPolicy({
-      operation: "plan_workflow_edit_admission_required",
-      schemaVersion: WORKFLOW_EDIT_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
+    return this.invokeRuntimeControlApi(
+      RUNTIME_CONTROL_WORKFLOW_EDIT_ADMISSION_REQUIRED_API_METHOD,
+      WORKFLOW_EDIT_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
       request,
-    });
+    );
   }
 
   planDiagnosticsRepairAdmissionRequired(request = {}) {
-    return this.evaluateRawPolicy({
-      operation: "plan_diagnostics_repair_admission_required",
-      schemaVersion: DIAGNOSTICS_REPAIR_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
+    return this.invokeRuntimeControlApi(
+      RUNTIME_CONTROL_DIAGNOSTICS_REPAIR_ADMISSION_REQUIRED_API_METHOD,
+      DIAGNOSTICS_REPAIR_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
       request,
-    });
+    );
   }
 
   planRuntimeDiagnosticsRepairControl(request = {}) {
@@ -642,19 +650,19 @@ export class RuntimeContextPolicyCore {
   }
 
   planThreadTurnAdmissionRequired(request = {}) {
-    return this.evaluateRawPolicy({
-      operation: "plan_thread_turn_admission_required",
-      schemaVersion: THREAD_TURN_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
+    return this.invokeThreadLifecycleApi(
+      THREAD_LIFECYCLE_THREAD_TURN_ADMISSION_REQUIRED_API_METHOD,
+      THREAD_TURN_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
       request,
-    });
+    );
   }
 
   planLifecycleAdmissionRequired(request = {}) {
-    return this.evaluateRawPolicy({
-      operation: "plan_lifecycle_admission_required",
-      schemaVersion: LIFECYCLE_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
+    return this.invokeThreadLifecycleApi(
+      THREAD_LIFECYCLE_LIFECYCLE_ADMISSION_REQUIRED_API_METHOD,
+      LIFECYCLE_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
       request,
-    });
+    );
   }
 
   planMcpControlAgentStateUpdate(request = {}) {

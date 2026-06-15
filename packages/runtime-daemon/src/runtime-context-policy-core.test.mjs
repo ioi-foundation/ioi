@@ -18,12 +18,14 @@ import {
   CONTEXT_LIFECYCLE_CONTEXT_COMPACTION_STATE_UPDATE_API_METHOD,
   RUNTIME_CONTROL_CODING_TOOL_BUDGET_RECOVERY_CONTROL_API_METHOD,
   RUNTIME_CONTROL_CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_API_METHOD,
+  RUNTIME_CONTROL_DIAGNOSTICS_REPAIR_ADMISSION_REQUIRED_API_METHOD,
   RUNTIME_CONTROL_DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_API_METHOD,
   RUNTIME_CONTROL_OPERATOR_INTERRUPT_STATE_UPDATE_API_METHOD,
   RUNTIME_CONTROL_OPERATOR_STEER_STATE_UPDATE_API_METHOD,
   RUNTIME_CONTROL_OPERATOR_TURN_CONTROL_ADMISSION_REQUIRED_API_METHOD,
   RUNTIME_CONTROL_RUN_CANCEL_ADMISSION_REQUIRED_API_METHOD,
   RUNTIME_CONTROL_RUN_CANCEL_STATE_UPDATE_API_METHOD,
+  RUNTIME_CONTROL_WORKFLOW_EDIT_ADMISSION_REQUIRED_API_METHOD,
   THREAD_MEMORY_AGENT_STATE_UPDATE_API_METHOD,
   THREAD_MEMORY_MANAGER_STATUS_PROJECTION_API_METHOD,
   THREAD_MEMORY_MANAGER_VALIDATION_PROJECTION_API_METHOD,
@@ -32,6 +34,7 @@ import {
   THREAD_LIFECYCLE_AGENT_CREATE_STATE_UPDATE_API_METHOD,
   THREAD_LIFECYCLE_AGENT_DELETE_STATE_UPDATE_API_METHOD,
   THREAD_LIFECYCLE_AGENT_STATUS_STATE_UPDATE_API_METHOD,
+  THREAD_LIFECYCLE_LIFECYCLE_ADMISSION_REQUIRED_API_METHOD,
   THREAD_LIFECYCLE_RUN_CREATE_STATE_UPDATE_API_METHOD,
   THREAD_LIFECYCLE_RUNTIME_BRIDGE_THREAD_CONTROL_AGENT_STATE_UPDATE_API_METHOD,
   THREAD_LIFECYCLE_RUNTIME_BRIDGE_THREAD_START_AGENT_STATE_UPDATE_API_METHOD,
@@ -39,6 +42,7 @@ import {
   THREAD_LIFECYCLE_SUBAGENT_RECORD_STATE_UPDATE_API_METHOD,
   THREAD_LIFECYCLE_THREAD_CONTROL_AGENT_STATE_UPDATE_API_METHOD,
   THREAD_LIFECYCLE_THREAD_CREATE_STATE_UPDATE_API_METHOD,
+  THREAD_LIFECYCLE_THREAD_TURN_ADMISSION_REQUIRED_API_METHOD,
   RUNTIME_CODING_TOOL_ARTIFACT_DRAFT_PLAN_REQUEST_SCHEMA_VERSION,
   RUNTIME_CODING_TOOL_ARTIFACT_READ_PROJECTION_REQUEST_SCHEMA_VERSION,
   COMPACTION_POLICY_REQUEST_SCHEMA_VERSION,
@@ -989,30 +993,23 @@ test("coding-tool budget recovery control core sends Rust request through direct
   assert.equal(Object.hasOwn(result.operator_control, "authorityHash"), false);
 });
 
-test("workflow-edit admission-required core sends Rust daemon-core request", () => {
-  let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
-      captured = request;
-      return {
-            source: "rust_workflow_edit_admission_required_command",
-            backend: "rust_policy",
-            record: {
-              status_code: 501,
-              code: "runtime_workflow_edit_rust_core_required",
-              message: "Runtime workflow edit control requires direct Rust daemon-core admission and persistence.",
-              details: {
-                rust_core_boundary: "runtime.workflow_edit",
-                operation: "workflow_edit_proposal",
-                operation_kind: "workflow.edit_proposed",
-                thread_id: "thread_alpha",
-                proposal_id: "proposal_alpha",
-                evidence_refs: ["workflow_edit_proposal_js_facade_retired"],
-              },
-            },
-          };
-    },
-  });
+test("workflow-edit admission-required core sends typed Rust daemon-core request", () => {
+  const { calls, runner } = createRuntimeControlDirectCore(
+    RUNTIME_CONTROL_WORKFLOW_EDIT_ADMISSION_REQUIRED_API_METHOD,
+    () => ({
+      status_code: 501,
+      code: "runtime_workflow_edit_rust_core_required",
+      message: "Runtime workflow edit control requires direct Rust daemon-core admission and persistence.",
+      details: {
+        rust_core_boundary: "runtime.workflow_edit",
+        operation: "workflow_edit_proposal",
+        operation_kind: "workflow.edit_proposed",
+        thread_id: "thread_alpha",
+        proposal_id: "proposal_alpha",
+        evidence_refs: ["workflow_edit_proposal_js_facade_retired"],
+      },
+    }),
+  );
 
   const result = runner.planWorkflowEditAdmissionRequired({
     operation: "workflow_edit_proposal",
@@ -1022,48 +1019,43 @@ test("workflow-edit admission-required core sends Rust daemon-core request", () 
     evidence_refs: ["workflow_edit_proposal_js_facade_retired"],
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "plan_workflow_edit_admission_required");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, RUNTIME_CONTROL_WORKFLOW_EDIT_ADMISSION_REQUIRED_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    calls[0].request.schema_version,
     WORKFLOW_EDIT_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.operation, "workflow_edit_proposal");
-  assert.equal(captured.request.operation_kind, "workflow.edit_proposed");
-  assert.equal(result.source, "rust_workflow_edit_admission_required_command");
-  assert.equal(result.record.status_code, 501);
-  assert.equal(result.record.details.thread_id, "thread_alpha");
-  assert.equal(Object.hasOwn(result.record.details, "threadId"), false);
+  assert.equal(calls[0].request.operation, "workflow_edit_proposal");
+  assert.equal(calls[0].request.operation_kind, "workflow.edit_proposed");
+  assert.equal(Object.hasOwn(calls[0].request, "backend"), false);
+  assert.equal(result.status_code, 501);
+  assert.equal(result.details.thread_id, "thread_alpha");
+  assert.equal(Object.hasOwn(result.details, "threadId"), false);
+  assert.equal(Object.hasOwn(result, "source"), false);
+  assert.equal(Object.hasOwn(result, "backend"), false);
+  assert.equal(Object.hasOwn(result, "record"), false);
 });
 
-test("diagnostics repair admission-required core sends Rust daemon-core request", () => {
-  let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
-      captured = request;
-      return {
-            source: "rust_diagnostics_repair_admission_required_command",
-            backend: "rust_policy",
-            record: {
-              status_code: 501,
-              code: "runtime_diagnostics_repair_rust_core_required",
-              message:
-                "Runtime diagnostics repair control requires direct Rust daemon-core admission and persistence.",
-              details: {
-                rust_core_boundary: "runtime.diagnostics_repair",
-                operation: "diagnostics_repair_decision_execution",
-                operation_kind: "diagnostics.repair_decision.execute",
-                thread_id: "thread_alpha",
-                decision_id: "decision_alpha",
-                gate_event_id: "event_gate",
-                snapshot_id: "snapshot_alpha",
-                evidence_refs: ["diagnostics_repair_decision_execution_js_facade_retired"],
-              },
-            },
-          };
-    },
-  });
+test("diagnostics repair admission-required core sends typed Rust daemon-core request", () => {
+  const { calls, runner } = createRuntimeControlDirectCore(
+    RUNTIME_CONTROL_DIAGNOSTICS_REPAIR_ADMISSION_REQUIRED_API_METHOD,
+    () => ({
+      status_code: 501,
+      code: "runtime_diagnostics_repair_rust_core_required",
+      message:
+        "Runtime diagnostics repair control requires direct Rust daemon-core admission and persistence.",
+      details: {
+        rust_core_boundary: "runtime.diagnostics_repair",
+        operation: "diagnostics_repair_decision_execution",
+        operation_kind: "diagnostics.repair_decision.execute",
+        thread_id: "thread_alpha",
+        decision_id: "decision_alpha",
+        gate_event_id: "event_gate",
+        snapshot_id: "snapshot_alpha",
+        evidence_refs: ["diagnostics_repair_decision_execution_js_facade_retired"],
+      },
+    }),
+  );
 
   const result = runner.planDiagnosticsRepairAdmissionRequired({
     operation: "diagnostics_repair_decision_execution",
@@ -1075,23 +1067,25 @@ test("diagnostics repair admission-required core sends Rust daemon-core request"
     evidence_refs: ["diagnostics_repair_decision_execution_js_facade_retired"],
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "plan_diagnostics_repair_admission_required");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, RUNTIME_CONTROL_DIAGNOSTICS_REPAIR_ADMISSION_REQUIRED_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    calls[0].request.schema_version,
     DIAGNOSTICS_REPAIR_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.operation, "diagnostics_repair_decision_execution");
+  assert.equal(calls[0].request.operation, "diagnostics_repair_decision_execution");
   assert.equal(
-    captured.request.operation_kind,
+    calls[0].request.operation_kind,
     "diagnostics.repair_decision.execute",
   );
-  assert.equal(result.source, "rust_diagnostics_repair_admission_required_command");
-  assert.equal(result.record.status_code, 501);
-  assert.equal(result.record.details.thread_id, "thread_alpha");
-  assert.equal(Object.hasOwn(result.record.details, "threadId"), false);
-  assert.equal(Object.hasOwn(result.record.details, "gateEventId"), false);
+  assert.equal(Object.hasOwn(calls[0].request, "backend"), false);
+  assert.equal(result.status_code, 501);
+  assert.equal(result.details.thread_id, "thread_alpha");
+  assert.equal(Object.hasOwn(result.details, "threadId"), false);
+  assert.equal(Object.hasOwn(result.details, "gateEventId"), false);
+  assert.equal(Object.hasOwn(result, "source"), false);
+  assert.equal(Object.hasOwn(result, "backend"), false);
+  assert.equal(Object.hasOwn(result, "record"), false);
 });
 
 test("runtime diagnostics repair control core sends Rust daemon-core request", () => {
@@ -3758,33 +3752,26 @@ test("workspace trust control state update core sends Rust state update through 
   assert.deepEqual(result.receipt_refs, ["receipt_workspace_trust_ack_1"]);
 });
 
-test("thread turn admission-required core sends Rust daemon-core request", () => {
-  let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
-      captured = request;
-      return {
-            source: "rust_thread_turn_admission_required_command",
-            backend: "rust_policy",
-            record: {
-              status: "rust_core_required",
-              status_code: 501,
-              code: "runtime_thread_turn_rust_core_required",
-              message:
-                "Thread resume and turn creation require direct Rust daemon-core admission and persistence.",
-              details: {
-                rust_core_boundary: "runtime.thread_turn",
-                operation: "thread_turn_create",
-                operation_kind: "turn.create",
-                thread_id: "thread_1",
-                agent_id: "agent_1",
-                runtime_profile: "fixture",
-                evidence_refs: ["thread_turn_create_js_run_creation_retired"],
-              },
-            },
-          };
-    },
-  });
+test("thread turn admission-required core sends typed Rust daemon-core request", () => {
+  const { calls, runner } = createThreadLifecycleDirectCore(
+    THREAD_LIFECYCLE_THREAD_TURN_ADMISSION_REQUIRED_API_METHOD,
+    () => ({
+      status: "rust_core_required",
+      status_code: 501,
+      code: "runtime_thread_turn_rust_core_required",
+      message:
+        "Thread resume and turn creation require direct Rust daemon-core admission and persistence.",
+      details: {
+        rust_core_boundary: "runtime.thread_turn",
+        operation: "thread_turn_create",
+        operation_kind: "turn.create",
+        thread_id: "thread_1",
+        agent_id: "agent_1",
+        runtime_profile: "fixture",
+        evidence_refs: ["thread_turn_create_js_run_creation_retired"],
+      },
+    }),
+  );
 
   const result = runner.planThreadTurnAdmissionRequired({
     operation: "thread_turn_create",
@@ -3795,49 +3782,44 @@ test("thread turn admission-required core sends Rust daemon-core request", () =>
     evidence_refs: ["thread_turn_create_js_run_creation_retired"],
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "plan_thread_turn_admission_required");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, THREAD_LIFECYCLE_THREAD_TURN_ADMISSION_REQUIRED_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    calls[0].request.schema_version,
     THREAD_TURN_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.operation_kind, "turn.create");
-  assert.equal(result.source, "rust_thread_turn_admission_required_command");
-  assert.equal(result.record.code, "runtime_thread_turn_rust_core_required");
-  assert.equal(result.record.details.thread_id, "thread_1");
-  assert.equal(Object.hasOwn(result.record.details, "threadId"), false);
-  assert.equal(Object.hasOwn(result.record.details, "operationKind"), false);
-  assert.equal(Object.hasOwn(result.record.details, "runtimeProfile"), false);
+  assert.equal(calls[0].request.operation_kind, "turn.create");
+  assert.equal(Object.hasOwn(calls[0].request, "backend"), false);
+  assert.equal(result.code, "runtime_thread_turn_rust_core_required");
+  assert.equal(result.details.thread_id, "thread_1");
+  assert.equal(Object.hasOwn(result.details, "threadId"), false);
+  assert.equal(Object.hasOwn(result.details, "operationKind"), false);
+  assert.equal(Object.hasOwn(result.details, "runtimeProfile"), false);
+  assert.equal(Object.hasOwn(result, "source"), false);
+  assert.equal(Object.hasOwn(result, "backend"), false);
+  assert.equal(Object.hasOwn(result, "record"), false);
 });
 
-test("lifecycle admission-required core sends Rust daemon-core request", () => {
-  let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
-      captured = request;
-      return {
-            source: "rust_lifecycle_admission_required_command",
-            backend: "rust_policy",
-            record: {
-              status: "rust_core_required",
-              status_code: 501,
-              code: "runtime_agent_status_control_rust_core_required",
-              message:
-                "Agent lifecycle/status control requires direct Rust daemon-core admission and projection.",
-              details: {
-                rust_core_boundary: "runtime.agent_status_control",
-                operation: "agent_status_control",
-                operation_kind: "agent_status_update",
-                agent_id: "agent_1",
-                requested_status: "archived",
-                requested_operation_kind: "agent.archive",
-                evidence_refs: ["runtime_agent_status_control_js_facade_retired"],
-              },
-            },
-          };
-    },
-  });
+test("lifecycle admission-required core sends typed Rust daemon-core request", () => {
+  const { calls, runner } = createThreadLifecycleDirectCore(
+    THREAD_LIFECYCLE_LIFECYCLE_ADMISSION_REQUIRED_API_METHOD,
+    () => ({
+      status: "rust_core_required",
+      status_code: 501,
+      code: "runtime_agent_status_control_rust_core_required",
+      message:
+        "Agent lifecycle/status control requires direct Rust daemon-core admission and projection.",
+      details: {
+        rust_core_boundary: "runtime.agent_status_control",
+        operation: "agent_status_control",
+        operation_kind: "agent_status_update",
+        agent_id: "agent_1",
+        requested_status: "archived",
+        requested_operation_kind: "agent.archive",
+        evidence_refs: ["runtime_agent_status_control_js_facade_retired"],
+      },
+    }),
+  );
 
   const result = runner.planLifecycleAdmissionRequired({
     operation: "agent_status_control",
@@ -3848,20 +3830,22 @@ test("lifecycle admission-required core sends Rust daemon-core request", () => {
     evidence_refs: ["runtime_agent_status_control_js_facade_retired"],
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "plan_lifecycle_admission_required");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, THREAD_LIFECYCLE_LIFECYCLE_ADMISSION_REQUIRED_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    calls[0].request.schema_version,
     LIFECYCLE_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.operation_kind, "agent_status_update");
-  assert.equal(result.source, "rust_lifecycle_admission_required_command");
-  assert.equal(result.record.code, "runtime_agent_status_control_rust_core_required");
-  assert.equal(result.record.details.agent_id, "agent_1");
-  assert.equal(Object.hasOwn(result.record.details, "agentId"), false);
-  assert.equal(Object.hasOwn(result.record.details, "operationKind"), false);
-  assert.equal(Object.hasOwn(result.record.details, "requestedStatus"), false);
+  assert.equal(calls[0].request.operation_kind, "agent_status_update");
+  assert.equal(Object.hasOwn(calls[0].request, "backend"), false);
+  assert.equal(result.code, "runtime_agent_status_control_rust_core_required");
+  assert.equal(result.details.agent_id, "agent_1");
+  assert.equal(Object.hasOwn(result.details, "agentId"), false);
+  assert.equal(Object.hasOwn(result.details, "operationKind"), false);
+  assert.equal(Object.hasOwn(result.details, "requestedStatus"), false);
+  assert.equal(Object.hasOwn(result, "source"), false);
+  assert.equal(Object.hasOwn(result, "backend"), false);
+  assert.equal(Object.hasOwn(result, "record"), false);
 });
 
 test("mcp control agent state update core sends Rust state update through typed Rust daemon-core MCP API", () => {

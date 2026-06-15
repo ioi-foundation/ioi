@@ -12,11 +12,8 @@ mod thread_lifecycle;
 mod workspace_trust;
 
 pub use admission_required::{
-    plan_diagnostics_repair_admission_required_response,
-    plan_workflow_edit_admission_required_response, AdmissionRequiredCommandError,
-    DiagnosticsRepairAdmissionRequiredBridgeRequest, DiagnosticsRepairAdmissionRequiredCore,
-    DiagnosticsRepairAdmissionRequiredError, DiagnosticsRepairAdmissionRequiredRecord,
-    DiagnosticsRepairAdmissionRequiredRequest, WorkflowEditAdmissionRequiredBridgeRequest,
+    DiagnosticsRepairAdmissionRequiredCore, DiagnosticsRepairAdmissionRequiredError,
+    DiagnosticsRepairAdmissionRequiredRecord, DiagnosticsRepairAdmissionRequiredRequest,
     WorkflowEditAdmissionRequiredCore, WorkflowEditAdmissionRequiredError,
     WorkflowEditAdmissionRequiredRecord, WorkflowEditAdmissionRequiredRequest,
 };
@@ -114,19 +111,17 @@ pub use task_job::{
 };
 pub use thread_lifecycle::{
     plan_agent_create_state_update_response, plan_agent_delete_state_update_response,
-    plan_agent_status_state_update_response, plan_lifecycle_admission_required_response,
-    plan_run_create_state_update_response,
+    plan_agent_status_state_update_response, plan_run_create_state_update_response,
     plan_runtime_bridge_thread_control_agent_state_update_response,
     plan_runtime_bridge_thread_start_agent_state_update_response,
     plan_runtime_bridge_turn_run_state_update_response, plan_subagent_record_state_update_response,
     plan_thread_control_agent_state_update_response, plan_thread_create_state_update_response,
-    plan_thread_turn_admission_required_response, AgentCreateStateUpdateBridgeRequest,
-    AgentCreateStateUpdateCore, AgentCreateStateUpdateError, AgentCreateStateUpdateRecord,
-    AgentCreateStateUpdateRequest, AgentDeleteStateUpdateBridgeRequest, AgentDeleteStateUpdateCore,
-    AgentDeleteStateUpdateError, AgentDeleteStateUpdateRecord, AgentDeleteStateUpdateRequest,
+    AgentCreateStateUpdateBridgeRequest, AgentCreateStateUpdateCore, AgentCreateStateUpdateError,
+    AgentCreateStateUpdateRecord, AgentCreateStateUpdateRequest,
+    AgentDeleteStateUpdateBridgeRequest, AgentDeleteStateUpdateCore, AgentDeleteStateUpdateError,
+    AgentDeleteStateUpdateRecord, AgentDeleteStateUpdateRequest,
     AgentStatusStateUpdateBridgeRequest, AgentStatusStateUpdateCore, AgentStatusStateUpdateError,
-    AgentStatusStateUpdateRecord, AgentStatusStateUpdateRequest,
-    LifecycleAdmissionRequiredBridgeRequest, LifecycleAdmissionRequiredCore,
+    AgentStatusStateUpdateRecord, AgentStatusStateUpdateRequest, LifecycleAdmissionRequiredCore,
     LifecycleAdmissionRequiredError, LifecycleAdmissionRequiredRecord,
     LifecycleAdmissionRequiredRequest, RunCreateStateUpdateBridgeRequest, RunCreateStateUpdateCore,
     RunCreateStateUpdateError, RunCreateStateUpdateRecord, RunCreateStateUpdateRequest,
@@ -148,8 +143,7 @@ pub use thread_lifecycle::{
     ThreadControlAgentStateUpdateRecord, ThreadControlAgentStateUpdateRequest,
     ThreadCreateStateUpdateBridgeRequest, ThreadCreateStateUpdateCore,
     ThreadCreateStateUpdateError, ThreadCreateStateUpdateRecord, ThreadCreateStateUpdateRequest,
-    ThreadLifecycleCommandError, ThreadTurnAdmissionRequiredBridgeRequest,
-    ThreadTurnAdmissionRequiredCore, ThreadTurnAdmissionRequiredError,
+    ThreadLifecycleCommandError, ThreadTurnAdmissionRequiredCore, ThreadTurnAdmissionRequiredError,
     ThreadTurnAdmissionRequiredRecord, ThreadTurnAdmissionRequiredRequest,
 };
 pub use workspace_trust::{

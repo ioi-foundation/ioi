@@ -10,8 +10,6 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "plan_runtime_coding_tool_artifact_drafts",
     "project_runtime_coding_tool_artifact_read",
     "plan_post_edit_diagnostics_feedback",
-    "plan_workflow_edit_admission_required",
-    "plan_diagnostics_repair_admission_required",
     "plan_runtime_diagnostics_repair_control",
     "plan_runtime_diagnostics_repair_retry_run",
     "project_runtime_diagnostics_repair_projection",
@@ -35,8 +33,6 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "project_runtime_conversation_artifact_projection",
     "project_runtime_subagent_projection",
     "plan_runtime_subagent_control",
-    "plan_lifecycle_admission_required",
-    "plan_thread_turn_admission_required",
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -46,8 +42,6 @@ pub enum CommandOperation {
     PlanRuntimeCodingToolArtifactDrafts,
     ProjectRuntimeCodingToolArtifactRead,
     PlanPostEditDiagnosticsFeedback,
-    PlanWorkflowEditAdmissionRequired,
-    PlanDiagnosticsRepairAdmissionRequired,
     PlanRuntimeDiagnosticsRepairControl,
     PlanRuntimeDiagnosticsRepairRetryRun,
     ProjectRuntimeDiagnosticsRepairProjection,
@@ -71,8 +65,6 @@ pub enum CommandOperation {
     ProjectRuntimeConversationArtifactProjection,
     ProjectRuntimeSubagentProjection,
     PlanRuntimeSubagentControl,
-    PlanLifecycleAdmissionRequired,
-    PlanThreadTurnAdmissionRequired,
 }
 
 impl CommandOperation {
@@ -85,10 +77,6 @@ impl CommandOperation {
                 "project_runtime_coding_tool_artifact_read"
             }
             Self::PlanPostEditDiagnosticsFeedback => "plan_post_edit_diagnostics_feedback",
-            Self::PlanWorkflowEditAdmissionRequired => "plan_workflow_edit_admission_required",
-            Self::PlanDiagnosticsRepairAdmissionRequired => {
-                "plan_diagnostics_repair_admission_required"
-            }
             Self::PlanRuntimeDiagnosticsRepairControl => "plan_runtime_diagnostics_repair_control",
             Self::PlanRuntimeDiagnosticsRepairRetryRun => {
                 "plan_runtime_diagnostics_repair_retry_run"
@@ -130,8 +118,6 @@ impl CommandOperation {
             }
             Self::ProjectRuntimeSubagentProjection => "project_runtime_subagent_projection",
             Self::PlanRuntimeSubagentControl => "plan_runtime_subagent_control",
-            Self::PlanLifecycleAdmissionRequired => "plan_lifecycle_admission_required",
-            Self::PlanThreadTurnAdmissionRequired => "plan_thread_turn_admission_required",
         }
     }
 
@@ -201,12 +187,6 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
         "plan_post_edit_diagnostics_feedback" => {
             Some(CommandOperation::PlanPostEditDiagnosticsFeedback)
         }
-        "plan_workflow_edit_admission_required" => {
-            Some(CommandOperation::PlanWorkflowEditAdmissionRequired)
-        }
-        "plan_diagnostics_repair_admission_required" => {
-            Some(CommandOperation::PlanDiagnosticsRepairAdmissionRequired)
-        }
         "plan_runtime_diagnostics_repair_control" => {
             Some(CommandOperation::PlanRuntimeDiagnosticsRepairControl)
         }
@@ -262,12 +242,6 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
             Some(CommandOperation::ProjectRuntimeSubagentProjection)
         }
         "plan_runtime_subagent_control" => Some(CommandOperation::PlanRuntimeSubagentControl),
-        "plan_lifecycle_admission_required" => {
-            Some(CommandOperation::PlanLifecycleAdmissionRequired)
-        }
-        "plan_thread_turn_admission_required" => {
-            Some(CommandOperation::PlanThreadTurnAdmissionRequired)
-        }
         _ => None,
     }
 }
@@ -322,14 +296,11 @@ mod tests {
     #[test]
     fn daemon_core_operations_use_daemon_core_command_schema() {
         for operation in [
-            "plan_workflow_edit_admission_required",
             "plan_coding_tool_result_envelope",
             "plan_runtime_coding_tool_artifact_drafts",
             "project_runtime_coding_tool_artifact_read",
             "plan_post_edit_diagnostics_feedback",
             "project_runtime_diagnostics_repair_policy",
-            "plan_lifecycle_admission_required",
-            "plan_thread_turn_admission_required",
             "plan_runtime_task_job_create_state_update",
             "project_runtime_task_job_projection",
             "project_runtime_tool_catalog",
@@ -695,9 +666,29 @@ mod tests {
             "plan_agent_status_state_update",
             "plan_agent_delete_state_update",
             "plan_run_create_state_update",
+            "plan_lifecycle_admission_required",
+            "plan_thread_turn_admission_required",
         ] {
             assert_eq!(command_operation(operation), None);
             assert_eq!(expected_command_schema_version(operation), None);
+        }
+    }
+
+    #[test]
+    fn admission_required_command_transport_is_retired() {
+        for operation in [
+            "plan_workflow_edit_admission_required",
+            "plan_diagnostics_repair_admission_required",
+            "plan_lifecycle_admission_required",
+            "plan_thread_turn_admission_required",
+        ] {
+            assert_eq!(command_operation(operation), None);
+            assert_eq!(expected_command_schema_version(operation), None);
+
+            let error = validate_command_envelope(operation, DAEMON_CORE_COMMAND_SCHEMA_VERSION)
+                .expect_err("admission-required command transport must stay retired");
+            assert_eq!(error.code(), "operation_unknown");
+            assert!(error.message().contains(operation));
         }
     }
 

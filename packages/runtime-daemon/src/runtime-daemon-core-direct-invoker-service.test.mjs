@@ -1278,6 +1278,43 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
       },
     },
     daemonCoreRuntimeControlApi: {
+      planWorkflowEditAdmissionRequired(request) {
+        runtimeControlCalls.push({ method: "planWorkflowEditAdmissionRequired", request });
+        return {
+          status: "rust_core_required",
+          status_code: 501,
+          code: "runtime_workflow_edit_rust_core_required",
+          message: "Runtime workflow edit control requires direct Rust daemon-core admission and persistence.",
+          details: {
+            rust_core_boundary: "runtime.workflow_edit",
+            operation: request.operation,
+            operation_kind: request.operation_kind,
+            thread_id: request.thread_id,
+            proposal_id: request.proposal_id,
+            evidence_refs: request.evidence_refs ?? [],
+          },
+        };
+      },
+      planDiagnosticsRepairAdmissionRequired(request) {
+        runtimeControlCalls.push({ method: "planDiagnosticsRepairAdmissionRequired", request });
+        return {
+          status: "rust_core_required",
+          status_code: 501,
+          code: "runtime_diagnostics_repair_rust_core_required",
+          message:
+            "Runtime diagnostics repair control requires direct Rust daemon-core admission and persistence.",
+          details: {
+            rust_core_boundary: "runtime.diagnostics_repair",
+            operation: request.operation,
+            operation_kind: request.operation_kind,
+            thread_id: request.thread_id,
+            decision_id: request.decision_id,
+            gate_event_id: request.gate_event_id,
+            snapshot_id: request.snapshot_id,
+            evidence_refs: request.evidence_refs ?? [],
+          },
+        };
+      },
       planRunCancelStateUpdate(request) {
         runtimeControlCalls.push({ method: "planRunCancelStateUpdate", request });
         return {
@@ -1295,6 +1332,43 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
       },
     },
     daemonCoreThreadLifecycleApi: {
+      planThreadTurnAdmissionRequired(request) {
+        threadLifecycleCalls.push({ method: "planThreadTurnAdmissionRequired", request });
+        return {
+          status: "rust_core_required",
+          status_code: 501,
+          code: "runtime_thread_turn_rust_core_required",
+          message:
+            "Thread resume and turn creation require direct Rust daemon-core admission and persistence.",
+          details: {
+            rust_core_boundary: "runtime.thread_turn",
+            operation: request.operation,
+            operation_kind: request.operation_kind,
+            thread_id: request.thread_id,
+            agent_id: request.agent_id,
+            runtime_profile: request.runtime_profile,
+            evidence_refs: request.evidence_refs ?? [],
+          },
+        };
+      },
+      planLifecycleAdmissionRequired(request) {
+        threadLifecycleCalls.push({ method: "planLifecycleAdmissionRequired", request });
+        return {
+          status: "rust_core_required",
+          status_code: 501,
+          code: "runtime_agent_status_control_rust_core_required",
+          message: "Agent lifecycle/status control requires direct Rust daemon-core admission and projection.",
+          details: {
+            rust_core_boundary: "runtime.agent_status_control",
+            operation: request.operation,
+            operation_kind: request.operation_kind,
+            agent_id: request.agent_id,
+            requested_status: request.requested_status,
+            requested_operation_kind: request.requested_operation_kind,
+            evidence_refs: request.evidence_refs ?? [],
+          },
+        };
+      },
       planAgentCreateStateUpdate(request) {
         threadLifecycleCalls.push({ method: "planAgentCreateStateUpdate", request });
         return {
@@ -1496,6 +1570,43 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
   assert.equal(Object.hasOwn(runtimeControlCalls[0].request, "backend"), false);
   assert.equal(cancelPlan.source, "direct_runtime_control_api");
   assert.equal(cancelPlan.run.status, "canceled");
+  const workflowRequired = store.contextPolicyCore.planWorkflowEditAdmissionRequired({
+    operation: "workflow_edit_proposal",
+    operation_kind: "workflow.edit_proposed",
+    thread_id: "thread_direct",
+    proposal_id: "proposal_direct",
+    evidence_refs: ["workflow_edit_proposal_js_facade_retired"],
+  });
+  assert.equal(calls.length, 0);
+  assert.equal(runtimeControlCalls.length, 2);
+  assert.equal(runtimeControlCalls[1].method, "planWorkflowEditAdmissionRequired");
+  assert.equal(
+    runtimeControlCalls[1].request.schema_version,
+    "ioi.runtime.workflow-edit-admission-required-request.v1",
+  );
+  assert.equal(Object.hasOwn(runtimeControlCalls[1].request, "operation"), true);
+  assert.equal(Object.hasOwn(runtimeControlCalls[1].request, "backend"), false);
+  assert.equal(workflowRequired.code, "runtime_workflow_edit_rust_core_required");
+  assert.equal(Object.hasOwn(workflowRequired, "backend"), false);
+  const diagnosticsRequired = store.contextPolicyCore.planDiagnosticsRepairAdmissionRequired({
+    operation: "diagnostics_repair_decision_execution",
+    operation_kind: "diagnostics.repair_decision.execute",
+    thread_id: "thread_direct",
+    decision_id: "decision_direct",
+    gate_event_id: "event_gate_direct",
+    snapshot_id: "snapshot_direct",
+    evidence_refs: ["diagnostics_repair_decision_execution_js_facade_retired"],
+  });
+  assert.equal(calls.length, 0);
+  assert.equal(runtimeControlCalls.length, 3);
+  assert.equal(runtimeControlCalls[2].method, "planDiagnosticsRepairAdmissionRequired");
+  assert.equal(
+    runtimeControlCalls[2].request.schema_version,
+    "ioi.runtime.diagnostics-repair-admission-required-request.v1",
+  );
+  assert.equal(Object.hasOwn(runtimeControlCalls[2].request, "backend"), false);
+  assert.equal(diagnosticsRequired.code, "runtime_diagnostics_repair_rust_core_required");
+  assert.equal(Object.hasOwn(diagnosticsRequired, "backend"), false);
   const agentPlan = store.contextPolicyCore.planAgentCreateStateUpdate({
     agent: {
       id: "agent_direct",
@@ -1516,6 +1627,42 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
   assert.equal(agentPlan.source, "direct_thread_lifecycle_api");
   assert.equal(agentPlan.operation_kind, "agent.create");
   assert.equal(agentPlan.agent.id, "agent_direct");
+  const threadTurnRequired = store.contextPolicyCore.planThreadTurnAdmissionRequired({
+    operation: "thread_turn_create",
+    operation_kind: "turn.create",
+    thread_id: "thread_direct",
+    agent_id: "agent_direct",
+    runtime_profile: "fixture",
+    evidence_refs: ["thread_turn_create_js_run_creation_retired"],
+  });
+  assert.equal(calls.length, 0);
+  assert.equal(threadLifecycleCalls.length, 2);
+  assert.equal(threadLifecycleCalls[1].method, "planThreadTurnAdmissionRequired");
+  assert.equal(
+    threadLifecycleCalls[1].request.schema_version,
+    "ioi.runtime.thread-turn-admission-required-request.v1",
+  );
+  assert.equal(Object.hasOwn(threadLifecycleCalls[1].request, "backend"), false);
+  assert.equal(threadTurnRequired.code, "runtime_thread_turn_rust_core_required");
+  assert.equal(Object.hasOwn(threadTurnRequired, "backend"), false);
+  const lifecycleRequired = store.contextPolicyCore.planLifecycleAdmissionRequired({
+    operation: "agent_status_control",
+    operation_kind: "agent_status_update",
+    agent_id: "agent_direct",
+    requested_status: "archived",
+    requested_operation_kind: "agent.archive",
+    evidence_refs: ["runtime_agent_status_control_js_facade_retired"],
+  });
+  assert.equal(calls.length, 0);
+  assert.equal(threadLifecycleCalls.length, 3);
+  assert.equal(threadLifecycleCalls[2].method, "planLifecycleAdmissionRequired");
+  assert.equal(
+    threadLifecycleCalls[2].request.schema_version,
+    "ioi.runtime.lifecycle-admission-required-request.v1",
+  );
+  assert.equal(Object.hasOwn(threadLifecycleCalls[2].request, "backend"), false);
+  assert.equal(lifecycleRequired.code, "runtime_agent_status_control_rust_core_required");
+  assert.equal(Object.hasOwn(lifecycleRequired, "backend"), false);
   const workspaceTrustPlan = store.contextPolicyCore.planWorkspaceTrustControlStateUpdate({
     operation_kind: "workspace_trust.warning",
     thread_id: "thread_direct",
