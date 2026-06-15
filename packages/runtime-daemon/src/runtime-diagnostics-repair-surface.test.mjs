@@ -321,15 +321,13 @@ test("diagnostics repair decision execution uses Rust planning and runtime event
   const appended = [];
   const runner = diagnosticsRepairControlRunner();
   const store = {
+    contextPolicyCore: runner,
     appendRuntimeEvent(event) {
       appended.push(event);
       return { admitted: true, event };
     },
   };
-  const surface = createRuntimeDiagnosticsRepairSurface({
-    runtimeError,
-    diagnosticsRepairRunner: runner,
-  });
+  const surface = createRuntimeDiagnosticsRepairSurface({ runtimeError });
 
   const result = surface.executeDiagnosticsRepairDecision(store, "thread_alpha", null, {
     decision_id: "decision_alpha",
@@ -458,6 +456,7 @@ test("diagnostics operator override uses Rust state update and run-state admissi
   const runner = diagnosticsOperatorOverrideStateUpdateRunner();
   const calls = [];
   const store = {
+    contextPolicyCore: runner,
     getRun(runId) {
       calls.push({ name: "getRun", runId });
       return {
@@ -478,10 +477,7 @@ test("diagnostics operator override uses Rust state update and run-state admissi
       };
     },
   };
-  const surface = createRuntimeDiagnosticsRepairSurface({
-    runtimeError,
-    diagnosticsRepairRunner: runner,
-  });
+  const surface = createRuntimeDiagnosticsRepairSurface({ runtimeError });
 
   const result = surface.executeDiagnosticsOperatorOverride(store, "thread_alpha", {
     request: {
@@ -615,6 +611,7 @@ test("diagnostics repair retry uses Rust retry-run planning, run creation, event
   });
   const runCreates = [];
   const store = {
+    contextPolicyCore: runner,
     agentForThread(threadId) {
       assert.equal(threadId, "thread_alpha");
       return { id: "agent_alpha" };
@@ -631,7 +628,6 @@ test("diagnostics repair retry uses Rust retry-run planning, run creation, event
       return { id: "run_retry", turn_id: "turn_retry", agentId };
     },
     runtimeError,
-    diagnosticsRepairRunner: runner,
   });
   assert.equal(Object.hasOwn(store, "agentRunLifecycleSurface"), false);
 
@@ -816,17 +812,15 @@ test("diagnostics repair retry fails closed before JS lookup without Rust retry-
 
 test("diagnostics repair retry fails closed before JS lookup without Rust retry-result projection", () => {
   const { calls, store } = harness();
-  const surface = createRuntimeDiagnosticsRepairSurface({
-    runtimeError,
-    diagnosticsRepairRunner: {
-      planRuntimeDiagnosticsRepairRetryRun() {
-        throw new Error("retry run planning should not run without result projection");
-      },
-      planRuntimeDiagnosticsRepairControl() {
-        throw new Error("control planning should not run without result projection");
-      },
+  store.contextPolicyCore = {
+    planRuntimeDiagnosticsRepairRetryRun() {
+      throw new Error("retry run planning should not run without result projection");
     },
-  });
+    planRuntimeDiagnosticsRepairControl() {
+      throw new Error("control planning should not run without result projection");
+    },
+  };
+  const surface = createRuntimeDiagnosticsRepairSurface({ runtimeError });
 
   assert.throws(
     () =>
@@ -879,13 +873,13 @@ test("diagnostics repair retry rejects partial Rust retry-result projection with
     appendRuntimeEvent(event) {
       return { ...event, admitted: true };
     },
+    contextPolicyCore: runner,
   };
   const surface = createRuntimeDiagnosticsRepairSurface({
     createLifecycleRun() {
       return { id: "run_retry", turn_id: "turn_retry" };
     },
     runtimeError,
-    diagnosticsRepairRunner: runner,
   });
 
   assert.throws(
@@ -928,15 +922,13 @@ test("diagnostics repair decision executed event uses Rust planning and runtime 
     operationKind: "diagnostics.repair_decision.executed",
   });
   const store = {
+    contextPolicyCore: runner,
     appendRuntimeEvent(event) {
       appended.push(event);
       return { admitted: true, event };
     },
   };
-  const surface = createRuntimeDiagnosticsRepairSurface({
-    runtimeError,
-    diagnosticsRepairRunner: runner,
-  });
+  const surface = createRuntimeDiagnosticsRepairSurface({ runtimeError });
 
   const result = surface.appendDiagnosticsRepairDecisionExecutedEvent(store, {
     threadId: "thread_alpha",
@@ -984,15 +976,13 @@ test("diagnostics repair retry event append uses Rust planning and runtime event
     operationKind: "diagnostics.repair_retry.created",
   });
   const store = {
+    contextPolicyCore: runner,
     appendRuntimeEvent(event) {
       appended.push(event);
       return { admitted: true, event };
     },
   };
-  const surface = createRuntimeDiagnosticsRepairSurface({
-    runtimeError,
-    diagnosticsRepairRunner: runner,
-  });
+  const surface = createRuntimeDiagnosticsRepairSurface({ runtimeError });
 
   const result = surface.appendDiagnosticsRepairRetryTurnEvent(store, {
     threadId: "thread_alpha",
@@ -1017,15 +1007,13 @@ test("diagnostics operator override event append uses Rust planning and runtime 
     operationKind: "diagnostics.operator_override.event",
   });
   const store = {
+    contextPolicyCore: runner,
     appendRuntimeEvent(event) {
       appended.push(event);
       return { admitted: true, event };
     },
   };
-  const surface = createRuntimeDiagnosticsRepairSurface({
-    runtimeError,
-    diagnosticsRepairRunner: runner,
-  });
+  const surface = createRuntimeDiagnosticsRepairSurface({ runtimeError });
 
   const result = surface.appendDiagnosticsOperatorOverrideEvent(store, {
     threadId: "thread_alpha",

@@ -78,7 +78,6 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
     ensureProviderAvailable = null,
     eventStreamIdForThread: eventStreamIdForThreadDep = eventStreamIdForThread,
     runtimeError = defaultRuntimeError,
-    diagnosticsRepairRunner = deps.contextPolicyCore ?? null,
     threadModeForRunMode = null,
   } = deps;
 
@@ -119,7 +118,7 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
   }
 
   function diagnosticsRepairControlRunner(store, request = {}) {
-    const runner = store?.contextPolicyCore ?? diagnosticsRepairRunner;
+    const runner = store?.contextPolicyCore ?? null;
     if (
       runner?.planRuntimeDiagnosticsRepairControl &&
       typeof store?.appendRuntimeEvent === "function"
@@ -151,7 +150,7 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
   }
 
   function diagnosticsRepairRetryRunRunner(store, details = {}) {
-    const runner = store?.contextPolicyCore ?? diagnosticsRepairRunner;
+    const runner = store?.contextPolicyCore ?? null;
     if (
       runner?.planRuntimeDiagnosticsRepairRetryRun &&
       runner?.planRuntimeDiagnosticsRepairControl
@@ -178,7 +177,7 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
   }
 
   function diagnosticsRepairRetryResultProjectionRunner(store, details = {}) {
-    const runner = store?.contextPolicyCore ?? diagnosticsRepairRunner;
+    const runner = store?.contextPolicyCore ?? null;
     if (runner?.projectRuntimeDiagnosticsRepairRetryResult) {
       return runner;
     }
@@ -186,7 +185,7 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
   }
 
   function diagnosticsRepairProjectionRunner(store, details = {}) {
-    const runner = store?.contextPolicyCore ?? diagnosticsRepairRunner;
+    const runner = store?.contextPolicyCore ?? null;
     if (runner?.projectRuntimeDiagnosticsRepairProjection) {
       return runner;
     }
@@ -336,7 +335,7 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
   }
 
   function diagnosticsOperatorOverrideStateUpdateRunner(store, details = {}) {
-    const runner = store?.contextPolicyCore ?? diagnosticsRepairRunner;
+    const runner = store?.contextPolicyCore ?? null;
     if (
       runner?.planDiagnosticsOperatorOverrideStateUpdate &&
       typeof store?.getRun === "function" &&
@@ -404,34 +403,6 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
   }
 
   function throwDiagnosticsRepairRustCoreRequired(operation, operationKind, details = {}) {
-    if (diagnosticsRepairRunner?.planDiagnosticsRepairAdmissionRequired) {
-      const record = diagnosticsRepairRunner.planDiagnosticsRepairAdmissionRequired({
-        operation,
-        operation_kind: operationKind,
-        thread_id: details.thread_id,
-        decision_id: details.decision_id,
-        gate_event_id: details.gate_event_id,
-        gate_id: details.gate_id,
-        snapshot_id: details.snapshot_id,
-        source: details.source,
-        evidence_refs: details.evidence_refs,
-      });
-      const planned = record?.record ?? record;
-      throw runtimeError({
-        status: Number(planned?.status_code ?? record?.status_code ?? 501),
-        code: optionalString(planned?.code ?? record?.code) ??
-          "runtime_diagnostics_repair_rust_core_required",
-        message:
-          optionalString(planned?.message ?? record?.message) ??
-          "Runtime diagnostics repair control requires direct Rust daemon-core admission and persistence.",
-        details: planned?.details ?? record?.details ?? {
-          rust_core_boundary: "runtime.diagnostics_repair",
-          operation,
-          operation_kind: operationKind,
-          ...details,
-        },
-      });
-    }
     throw runtimeError({
       status: 501,
       code: "runtime_diagnostics_repair_rust_core_required",
@@ -706,7 +677,7 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
       approvalModeForThreadMode,
       buildRun,
       ensureProviderAvailable,
-      lifecycleAdmissionRunner: store?.contextPolicyCore ?? diagnosticsRepairRunner,
+      lifecycleAdmissionRunner: store?.contextPolicyCore ?? null,
       runtimeError,
       threadModeForRunMode,
     });

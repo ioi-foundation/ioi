@@ -10379,6 +10379,20 @@ guards that the retired alias names cannot return. Remaining work is durable
 task/job replay/projection depth, wallet/cTEE task authority, direct lifecycle
 APIs, and stable IDE/CLI/SDK task/job clients, not a JS runner fallback.
 
+Slice 1297 hard-cuts diagnostics repair runner injection scaffolding.
+`createRuntimeDiagnosticsRepairSurface()` no longer accepts
+`diagnosticsRepairRunner`; diagnostics repair decision execution, direct
+repair/override/retry event append, operator override state update, retry-run
+planning, retry-result projection, decision projection, and repair policy
+projection resolve only `store.contextPolicyCore` before entering the Rust
+daemon-core diagnostics repair planners/projectors. Daemon construction no
+longer wires a parallel diagnostics repair runner handle, focused tests mount
+fake Rust planners/projectors only under `store.contextPolicyCore`, and
+conformance guards that the retired alias name cannot return. Remaining work is
+durable diagnostics repair replay/storage, wallet-governed repair authority,
+cTEE custody where repair work touches private workspace state, and stable
+IDE/CLI/SDK diagnostics clients, not a JS runner fallback.
+
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,
 `/v1/memory/policy`, `/v1/memory/path`, or `/v1/memory/validate`; the daemon

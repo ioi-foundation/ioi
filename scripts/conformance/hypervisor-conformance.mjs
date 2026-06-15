@@ -38926,7 +38926,9 @@ function runCompositor() {
     /RUNTIME_CONTROL_DIAGNOSTICS_REPAIR_RETRY_RUN_API_METHOD/.test(
       runtimeContextPolicyCoreTest,
     ) &&
-    /diagnosticsRepairRunner:\s*this\.contextPolicyCore/.test(runtimeDaemonIndex) &&
+    !/diagnosticsRepairRunner/.test(
+      runtimeDaemonIndex + runtimeDiagnosticsRepairSurface + runtimeDiagnosticsRepairSurfaceTest,
+    ) &&
     /eventStreamIdForThread/.test(runtimeDaemonIndex) &&
     /diagnostics repair decision execution uses Rust planning and runtime event admission/.test(
       runtimeDiagnosticsRepairSurfaceTest,
@@ -39169,7 +39171,7 @@ function runCompositor() {
       /agentgres_run_create_state_truth_required/.test(runtimeDiagnosticsRepairSurface) &&
       /createLifecycleRunDep/.test(runtimeDiagnosticsRepairSurface) &&
       /createLifecycleRunDep\(store,\s*agentId,/.test(runtimeDiagnosticsRepairSurface) &&
-      /lifecycleAdmissionRunner:\s*store\?\.contextPolicyCore\s*\?\?\s*diagnosticsRepairRunner/.test(
+      /lifecycleAdmissionRunner:\s*store\?\.contextPolicyCore\s*\?\?\s*null/.test(
         runtimeDiagnosticsRepairSurface,
       ) &&
       /approvalModeForThreadMode/.test(runtimeDiagnosticsRepairSurface) &&
@@ -39230,7 +39232,9 @@ function runCompositor() {
       /diagnostics repair admission-required core sends typed Rust daemon-core request/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /diagnosticsRepairRunner:\s*this\.contextPolicyCore/.test(runtimeDaemonIndex) &&
+      !/diagnosticsRepairRunner/.test(
+        runtimeDaemonIndex + runtimeDiagnosticsRepairSurface + runtimeDiagnosticsRepairSurfaceTest,
+      ) &&
       !/diagnosticsRepairRetryResultFromEvent/.test(runtimeDaemonIndex) &&
       !/diagnosticsOperatorOverrideResultFromEvent/.test(runtimeDaemonIndex) &&
       /RUNTIME_PROJECTION_DIAGNOSTICS_REPAIR_RETRY_RESULT_API_METHOD/.test(

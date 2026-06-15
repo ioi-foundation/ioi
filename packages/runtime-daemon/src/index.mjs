@@ -737,7 +737,6 @@ export class AgentgresRuntimeStateStore {
       approvalModeForThreadMode,
       buildRun,
       contextPolicyCore: this.contextPolicyCore,
-      diagnosticsRepairRunner: this.contextPolicyCore,
       ensureProviderAvailable,
       eventStreamIdForThread,
       diagnosticsRepairRetryFeedback,
